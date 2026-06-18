@@ -20,15 +20,6 @@
 
 ---
 
-## Установка
-
-```bash
-git clone https://github.com/<твой-username>/<название-репо>.git
-cd <название-репо>
-pip install -r requirements.txt
-```
-
----
 
 ## Быстрый старт
 
