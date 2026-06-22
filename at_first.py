@@ -289,7 +289,9 @@ def create_user_session(secrets: dict[str, Any], secrets_path: pathlib.Path) -> 
     return make_session(str(secrets["access_token"]))
 
 
-def fetch_step_data(session: requests.Session, lesson_id: int, step_position: int) -> dict[str, Any]:
+def fetch_step_data(
+    session: requests.Session, lesson_id: int, step_position: int
+) -> dict[str, Any]:
     response = session.get(
         f"{API_HOST}/api/steps",
         params={"lesson": lesson_id},
@@ -312,7 +314,9 @@ def fetch_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, An
     return lessons[0]
 
 
-def fetch_unit_data(session: requests.Session, lesson_id: int, unit_id: int | None) -> dict[str, Any]:
+def fetch_unit_data(
+    session: requests.Session, lesson_id: int, unit_id: int | None
+) -> dict[str, Any]:
     params: dict[str, int] = {"lesson": lesson_id}
     if unit_id is not None:
         params["id"] = unit_id

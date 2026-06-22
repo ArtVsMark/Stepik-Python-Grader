@@ -224,7 +224,12 @@ def resolve_input_path(base_dir: pathlib.Path, user_input: str) -> pathlib.Path:
     return path if path.is_absolute() else (base_dir / path).resolve()
 
 
-def print_test_mismatch(test_index: int, test_data: list[str], correct: list[str], result: list[str]) -> None:
+def print_test_mismatch(
+    test_index: int,
+    test_data: list[str],
+    correct: list[str],
+    result: list[str],
+) -> None:
     print(f"Test#{test_index} Input:\n" + "\n".join(test_data))
     print(f"Test#{test_index} Expected Output:\n" + "\n".join(correct))
     print(f"Test#{test_index} Actual Output:\n" + "\n".join(result))
@@ -336,7 +341,7 @@ def run_test_once(
     poll_interval: float = 0.01,
     show_details_on_fail: bool = True,
 ) -> TestRunResult:
-    """Запустить один тест-кейс через subprocess и вернуть результ��т."""
+    """Запустить один тест-кейс через subprocess и вернуть результат."""
     try:
         completed, elapsed_time, memory_mb, monitor_error = run_process(
             executor_file=executor_file,
@@ -911,7 +916,11 @@ def run_microbench_mode(base_dir: pathlib.Path) -> None:
             else:
                 bench_cases = []
 
-            stdin_texts = _build_stdin_texts(source_code, bench_cases) if bench_cases else [source_code]
+            stdin_texts = (
+                _build_stdin_texts(source_code, bench_cases)
+                if bench_cases
+                else [source_code]
+            )
 
             result = run_microbench(
                 source_code=source_code,
