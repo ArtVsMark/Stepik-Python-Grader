@@ -336,7 +336,7 @@ def run_test_once(
     poll_interval: float = 0.01,
     show_details_on_fail: bool = True,
 ) -> TestRunResult:
-    """Запустить один тест-кейс через subprocess и вернуть результат."""
+    """Запустить один тест-кейс через subprocess и вернуть результ��т."""
     try:
         completed, elapsed_time, memory_mb, monitor_error = run_process(
             executor_file=executor_file,
@@ -750,13 +750,13 @@ def ask_benchmark_repeats() -> int:
 
 
 def ask_microbench_repeats() -> int:
-    print("\nMicrobench repeats (calls per run):")
-    print("1 - fast     (500)")
-    print("2 - normal   (1 000)")
+    print("\nMicro-bench repeats (calls per run):")
+    print("1 - fast (500)")
+    print("2 - normal (1 000)")
     print("3 - thorough (5 000)")
-    print("4 - deep     (50 000)")
-    print("5 - hard     (100 000)")
-    print("6 - custom   (100 to 500 000)")
+    print("4 - deep (50 000)")
+    print("5 - hard (100 000)")
+    print("6 - custom (100 to 500 000)")
 
     choice = input("Choose (1/2/3/4/5/6): ").strip()
     mapping = {"1": 500, "2": 1_000, "3": 5_000, "4": 50_000, "5": 100_000}
