@@ -33,6 +33,13 @@ SUBPROCESS_TIMEOUT = 10.0  # секунд: защита от бесконечн�
 # Кешируем один раз — значение константно на всё время запуска
 PYTHON_CMD: str = "python3" if sys.platform in {"linux", "linux2", "darwin"} else "python"
 
+# Паттерн имён файлов-решений.
+# Принимает оба стиля именования:
+#   task_1.py, task_2.py        — стиль at_first.py
+#   task1.py, task1_2.py        — альтернативный стиль
+#   task.py                     — базовое имя
+_SOLUTION_FILE_RE = re.compile(r"task_?\d*(?:_\d+)?\.py")
+
 
 @dataclass
 class TestRunResult:
@@ -122,7 +129,13 @@ def is_function_only_solution(file_content: str) -> bool:
 
 
 def is_solution_file(file_name: str) -> bool:
-    return bool(re.fullmatch(r"task(?:\d+)?(?:_\d+)?\.py", file_name))
+    """Вернуть True, если имя файла соответствует шаблону решения.
+
+    Принимаемые форматы:
+        task.py, task1.py, task1_2.py   — исторический стиль
+        task_1.py, task_2.py            — стиль, создаваемый at_first.py
+    """
+    return bool(_SOLUTION_FILE_RE.fullmatch(file_name))
 
 
 def find_all_solution_files(directory: str) -> list[str]:

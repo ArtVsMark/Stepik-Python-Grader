@@ -213,7 +213,7 @@ def wait_for_auth_code(redirect_uri: str) -> str:
     port: int = int(raw_port)
     auth_data: dict[str, str | None] = {"code": None, "error": None}
     handler_class = _make_oauth_handler(auth_data, path)
-    server = HTTPServer((host, port), handler_class)
+    server = HTTPServer((host, port), handler_class)  # type: ignore[arg-type]
     thread = threading.Thread(target=server.handle_request, daemon=True)
     thread.start()
     thread.join(timeout=300)
@@ -423,6 +423,7 @@ def create_task_structure(
     tests_dir = task_dir / "tests"
     task_dir.mkdir(parents=True, exist_ok=True)
     tests_dir.mkdir(parents=True, exist_ok=True)
+    # Шаблоны файлов-решений в стиле task_N.py (совместимо с is_solution_file в test.py)
     file_templates = {
         "task_1.py": "# Решение 1\n",
         "task_2.py": "# Решение 2\n",
