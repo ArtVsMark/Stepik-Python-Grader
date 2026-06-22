@@ -640,19 +640,20 @@ def ask_microbench_repeats() -> int:
     print("2 - normal   (1 000)")
     print("3 - thorough (5 000)")
     print("4 - deep     (50 000)")
-    print("5 - custom   (up to 100 000)")
+    print("5 - hard     (100 000)")
+    print("6 - custom   (100 to 500 000)")
 
-    choice = input("Choose (1/2/3/4/5): ").strip()
-    mapping = {"1": 500, "2": 1_000, "3": 5_000, "4": 50_000}
+    choice = input("Choose (1/2/3/4/5/6): ").strip()
+    mapping = {"1": 500, "2": 1_000, "3": 5_000, "4": 50_000, "5": 100_000}
 
     if choice in mapping:
         return mapping[choice]
 
     while True:
-        raw = input("Enter repeats (100-100000): ").strip()
-        if raw.isdigit() and 100 <= int(raw) <= 100_000:
+        raw = input("Enter repeats (100-500000): ").strip()
+        if raw.isdigit() and 100 <= int(raw) <= 500_000:
             return int(raw)
-        print("Please enter integer from 100 to 100 000.")
+        print("Please enter integer from 100 to 500 000.")
 
 
 def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str]:
@@ -680,7 +681,7 @@ def run_microbench_mode(root_dir: pathlib.Path) -> None:
     """Mode 4 — timeit microbenchmark via exec + io.StringIO.
 
     Uses up to MICROBENCH_MAX_CASES test cases so Stdev is meaningful.
-    Custom repeats up to 100 000.
+    Custom repeats up to 500 000.
     """
     folder = input("Enter top-level folder from the content root: ").strip()
     target_dir = resolve_input_path(root_dir, folder)
