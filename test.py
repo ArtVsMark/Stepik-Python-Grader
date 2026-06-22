@@ -17,6 +17,7 @@ import chardet
 import psutil
 
 from microbench_runner import (
+    SIMILAR_THRESHOLD_PERCENT,
     MicrobenchResult,
     apply_relative_micro,
     run_microbench,
@@ -25,7 +26,7 @@ from microbench_runner import (
 
 MEASURE_CHILD_MEMORY = False
 CHILD_MEMORY_POLL_INTERVAL = 0.01
-SIMILAR_THRESHOLD_PERCENT = 5.0
+# SIMILAR_THRESHOLD_PERCENT импортируется из microbench_runner — единый источник истины
 MICROBENCH_MAX_CASES = 5   # ≤5 тест-кейсов в microbench: достаточно для стабильного std-dev,
                             # не перегружает timeit при большом числе repeats
 SUBPROCESS_TIMEOUT = 10.0  # секунд: защита от бесконечных циклов в решениях студентов

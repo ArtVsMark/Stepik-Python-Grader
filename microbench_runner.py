@@ -46,6 +46,8 @@ class MicrobenchResult:
     error: str = ""
     relative_percent: float = 100.0
     verdict: str = "OK"
+    # 🟢 ЗАДАЧА 10: поле func_name удалено — оно не использовалось нигде в codebase
+    # и вводило в заблуждение (значение "<exec>" было хардкодом, не отражало реальность).
 
     @property
     def min_time(self) -> float:
