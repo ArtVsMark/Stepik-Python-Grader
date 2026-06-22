@@ -8,7 +8,7 @@
     - тест-файлы tests/N созданы для subprocess (stdin -> input() -> print())
     - timeit должен вызывать код напрямую, без нового процесса
 
-    Решение: compile() один раз снаружи цикла (амортизирует парсинг),
+    Решение: compile() один раз снаружи цикла (амортизует парсинг),
     затем exec(compiled, {}) в каждой итерации.
 
     stdin/stdout перенаправляются через contextlib.redirect_stdin /
@@ -46,9 +46,6 @@ class MicrobenchResult:
     error: str = ""
     relative_percent: float = 100.0
     verdict: str = "OK"
-
-    # func_name сохранён для совместимости отображения
-    func_name: str = "<exec>"
 
     @property
     def min_time(self) -> float:
