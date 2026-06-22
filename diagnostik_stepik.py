@@ -43,7 +43,7 @@ def load_secrets(secrets_path: pathlib.Path) -> tuple[str, str, str]:
         raise IsADirectoryError(
             f"Указан путь к папке, а нужен путь к файлу secrets.json: {secrets_path}"
         )
-    with open(secrets_path, "r", encoding="utf-8") as file:
+    with open(secrets_path, encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, dict):
         raise ValueError(
@@ -106,7 +106,7 @@ def wait_for_auth_code(redirect_uri: str) -> str:
             self.end_headers()
             self.wfile.write(
                 "<html><body><h2>Авторизация завершена.</h2>"
-                "<p>Можно закрыть это окно и вернуться в консоль.</p></body></html>".encode("utf-8")
+                "<p>Можно закрыть это окно и вернуться в консоль.</p></body></html>".encode()
             )
 
         def log_message(self, fmt: str, *args: object) -> None:  # noqa: D401
