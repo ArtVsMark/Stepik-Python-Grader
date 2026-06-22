@@ -258,7 +258,7 @@ def run_test_once(
 
         if completed.returncode != 0:
             if show_details_on_fail:
-                print(f"\n\U0001f480 Тест №{test_case.index} провален")
+                print(f"\n\U0001f480 \u0422\u0435\u0441\u0442 \u2116{test_case.index} \u043f\u0440\u043e\u0432\u0430\u043b\u0435\u043d")
                 print(f"\nError message:\n{completed.stderr}\n")
             log_error(file)
             return TestRunResult(False, elapsed_time, memory_mb, completed.stderr.strip())
@@ -675,6 +675,119 @@ def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str
         stdin_texts.append(combined)
 
     return stdin_texts or [""]
+
+
+# ---------------------------------------------------------------------------
+# Mode runners
+# ---------------------------------------------------------------------------
+
+
+def run_single_mode(root_dir: pathlib.Path, executor: str) -> None:
+    """Mode 1 — test a single solution file against its tests."""
+    raw = input("Enter path to solution file (relative or absolute): ").strip()
+    if not raw:
+        print("No path provided.")
+        return
+
+    script_path = resolve_input_path(root_dir, raw)
+
+    if not script_path.exists():
+        print(f"File not found: {script_path}")
+        return
+
+    if not script_path.is_file():
+        print(f"Not a file: {script_path}")
+        return
+
+    rel_path = os.path.relpath(script_path, root_dir)
+    result = verify_file(rel_path, root_dir, executor)
+    print()
+    print_single_result(result)
+
+    if result.status == "FAILED" and result.error_message:
+        print(f"\nError detail: {result.error_message}")
+
+
+def run_compare_mode(root_dir: pathlib.Path, executor: str) -> None:
+    """Mode 2 — verify all solution files inside a top-level folder, grouped by task."""
+    folder = input("Enter top-level folder from the content root: ").strip()
+    target_dir = resolve_input_path(root_dir, folder)
+
+    if not target_dir.exists():
+        print(f"Folder not found: {target_dir}")
+        return
+
+    if not target_dir.is_dir():
+        print(f"Not a directory: {target_dir}")
+        return
+
+    all_files = find_all_solution_files(str(target_dir))
+    if not all_files:
+        print(f"No solution files found in: {target_dir}")
+        return
+
+    grouped_files: dict[str, list[str]] = defaultdict(list)
+    for abs_path in all_files:
+        rel_path = os.path.relpath(abs_path, root_dir)
+        task_folder = os.path.dirname(rel_path)
+        grouped_files[task_folder].append(rel_path)
+
+    for task_folder, files in sorted(grouped_files.items()):
+        results: list[VerificationResult] = []
+
+        for rel_path in files:
+            result = verify_file(rel_path, root_dir, executor)
+            results.append(result)
+
+        print_verification_table(task_folder, results)
+
+
+def run_benchmark_mode(root_dir: pathlib.Path, executor: str) -> None:
+    """Mode 3 — subprocess benchmark for solutions that pass all tests."""
+    folder = input("Enter top-level folder from the content root: ").strip()
+    target_dir = resolve_input_path(root_dir, folder)
+
+    if not target_dir.exists():
+        print(f"Folder not found: {target_dir}")
+        return
+
+    if not target_dir.is_dir():
+        print(f"Not a directory: {target_dir}")
+        return
+
+    repeats = ask_benchmark_repeats()
+
+    all_files = find_all_solution_files(str(target_dir))
+    if not all_files:
+        print(f"No solution files found in: {target_dir}")
+        return
+
+    grouped_files: dict[str, list[str]] = defaultdict(list)
+    for abs_path in all_files:
+        rel_path = os.path.relpath(abs_path, root_dir)
+        task_folder = os.path.dirname(rel_path)
+        grouped_files[task_folder].append(rel_path)
+
+    for task_folder, files in sorted(grouped_files.items()):
+        bench_results: list[BenchmarkStats] = []
+        skipped: list[str] = []
+
+        for rel_path in files:
+            stats = benchmark_file(rel_path, root_dir, executor, repeats)
+            if stats is not None:
+                bench_results.append(stats)
+            else:
+                skipped.append(rel_path)
+
+        if skipped:
+            print(f"\n\u26a0\ufe0f  Skipped (did not pass tests): {', '.join(skipped)}")
+
+        if bench_results:
+            bench_results = apply_relative_metrics(bench_results)
+            print_benchmark_table(task_folder, bench_results)
+        else:
+            print(f"\n\U0001f680 Benchmark: {task_folder}")
+            print("No solutions passed all tests — nothing to benchmark.")
 
 
 def run_microbench_mode(root_dir: pathlib.Path) -> None:
