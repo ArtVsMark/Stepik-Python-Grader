@@ -9,6 +9,7 @@ import webbrowser
 import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
+from typing import cast
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
@@ -437,11 +438,11 @@ def download_and_extract_submissions(
     step_id: int,
     task_dir: pathlib.Path,
 ) -> None:
-    """Скачать архив с решениями для шага step_id и извлечь .py файлы.
+    """Download submissions for step_id and save .py files to task_dir/submissions/.
 
-    Использует корректный эндпоинт Stepik API:
+    Uses the Stepik API endpoint:
         GET /api/submissions?step=<step_id>&order=desc
-    Для каждого найденного решения сохраняет .py файл в task_dir/submissions/.
+    Each submission's Python code is saved as a separate file.
     """
     response = session.get(
         f"{API_HOST}/api/submissions",
@@ -452,7 +453,7 @@ def download_and_extract_submissions(
     submissions: list[dict[str, object]] = response.json().get("submissions", [])
 
     if not submissions:
-        print("  Решения для данного шага не найдены.")
+        print("  No submissions found for this step.")
         return
 
     submissions_dir = task_dir / "submissions"
@@ -470,9 +471,9 @@ def download_and_extract_submissions(
                 saved += 1
 
     if saved:
-        print(f"  Решения сохранены в: {submissions_dir} ({saved} файлов)")
+        print(f"  Submissions saved to: {submissions_dir} ({saved} files)")
     else:
-        print("  Решения найдены, но код Python не обнаружен в ответах API.")
+        print("  Submissions found, but no Python code detected in API responses.")
 
 
 def process_step_url(
@@ -489,16 +490,16 @@ def process_step_url(
 
     print(f"  Получаю данные урока {lesson_id}...")
     lesson = fetch_lesson_data(session, lesson_id)
-    lesson_title = str(lesson.get("title") or f"lesson-{lesson_id}")
+    lesson_title = cast(str, lesson.get("title") or f"lesson-{lesson_id}")
 
     print("  Получаю данные юнита...")
     unit = fetch_unit_data(session, lesson_id, unit_id)
-    section_id = int(str(unit.get("section") or 0))
+    section_id = cast(int, unit.get("section") or 0)
 
     print(f"  Получаю данные секции {section_id}...")
     section = fetch_section_data(session, section_id)
     section_title = str(section.get("title") or f"section-{section_id}")
-    course_id = int(str(section.get("course") or 0))
+    course_id = cast(int, section.get("course") or 0)
 
     print(f"  Получаю данные курса {course_id}...")
     course = fetch_course_data(session, course_id)
@@ -506,7 +507,7 @@ def process_step_url(
 
     print(f"  Получаю данные шага {step_position}...")
     step = fetch_step_data(session, lesson_id, step_position)
-    step_id = int(str(step.get("id") or 0))
+    step_id = cast(int, step.get("id") or 0)
     step_title = str(step.get("title") or lesson_title)
 
     print(f"  Получаю последний ответ для шага {step_id}...")
