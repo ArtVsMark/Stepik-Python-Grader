@@ -24,8 +24,15 @@ line-length = 99
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
-ignore = ["S102"]  # exec() разрешён намеренно (sandbox exec для решений студентов)
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "PTH", "PERF", "TRY", "EM", "COM"]
+ignore = [
+    "S102",          # exec() разрешён намеренно (sandbox exec для решений студентов)
+    "RUF001",        # False positive: кириллица рядом с ASCII в строках
+    "RUF002",        # False positive: кириллица в docstring
+    "RUF003",        # False positive: кириллица в комментариях
+    "TRY003",        # Допускаем длинные сообщения в raise (читаемость важнее)
+    "COM812",        # Trailing comma — по желанию разработчика
+]
 
 [tool.mypy]
 python_version = "3.10"
