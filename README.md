@@ -450,14 +450,14 @@ python diagnostik_stepik.py
 | Возможность | Оригинал | Этот форк |
 |---|---|---|
 | Проверка одного файла | ✅ | ✅ |
-| Сравнение нескольких решений | ✅ | ✅ (улучшено) |
+| Сравнение нескольких решений | ❌ | ✅ |
 | Subprocess-benchmark | ❌ | ✅ режим 3 |
 | Timeit-microbench | ❌ | ✅ режим 4 |
 | Разделение корректности и benchmark | ❌ | ✅ |
 | Профили нагрузки | ❌ | ✅ low/medium/high/custom |
 | Оценка по median (не одиночный замер) | ❌ | ✅ |
 | Вердикт SIMILAR / SLOWER / MUCH SLOWER | ❌ | ✅ |
-| OAuth2 + скачивание тестов с API | ✅ | ✅ (улучшено) |
+| OAuth2 + скачивание тестов с API | ❌ | ✅ |
 | Диагностика API | ❌ | ✅ |
 | Поддержка function-only решений | ❌ | ✅ через `executor.py` |
 | pyproject.toml (ruff, mypy) | ❌ | ✅ |
