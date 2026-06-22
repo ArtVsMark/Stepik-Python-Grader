@@ -1,32 +1,41 @@
 """microbench_runner.py — timeit-based microbenchmark for function-only solutions.
 
-Used by test.py mode 4.  Only solutions that define at least one callable
-function (detected by is_function_only_solution) are eligible.
+Only function-only solutions (no module-level input() calls) are supported,
+because timeit runs code inside the same process.  For subprocess-based
+solutions use mode 3 (benchmark) in test.py instead.
 
-The module is intentionally kept small: all display logic lives in test.py.
+Typical usage from test.py (mode 4):
+    result = run_microbench(source_code, test_args_list, file_label, repeats)
+    results = apply_relative_micro(results)
+    print_microbench_table(task_folder, results)
 """
+
 from __future__ import annotations
 
+import ast
 import statistics
 import timeit
+import traceback
 from dataclasses import dataclass, field
-from typing import Any
 
-
-DEFAULT_REPEATS = 1_000
+SIMILAR_THRESHOLD_PERCENT = 5.0
 
 
 @dataclass
 class MicrobenchResult:
+    """Timing result for a single function-only solution file."""
+
     file: str
     func_name: str
     repeats: int
-    timings: list[float] = field(default_factory=list)  # per-call seconds
+    timings: list[float] = field(default_factory=list)
     error: str = ""
-
-    # Filled by apply_relative_micro() after all files are measured
     relative_percent: float = 100.0
     verdict: str = "OK"
+
+    # ------------------------------------------------------------------
+    # Derived statistics (computed from timings list)
+    # ------------------------------------------------------------------
 
     @property
     def min_time(self) -> float:
@@ -49,78 +58,82 @@ class MicrobenchResult:
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
-def _find_entry_function(namespace: dict[str, Any]) -> tuple[str, Any] | None:
-    """Return (name, callable) for the first non-dunder callable in *namespace*."""
-    for name, obj in namespace.items():
-        if callable(obj) and not name.startswith("_"):
-            return name, obj
-    return None
-
-
-def _safe_call(func: Any, args: tuple[Any, ...]) -> None:
-    """Call func with args, silently catching TypeError (wrong signature).
-
-    If the function raises TypeError on the first attempt, retry with no
-    arguments so microbench can still measure *something* instead of crashing.
-    """
+def _find_callable(namespace: dict, source_code: str) -> tuple[str, object] | tuple[None, None]:
+    """Return (name, callable) for the first public function defined in source_code."""
     try:
-        func(*args)
-    except TypeError:
-        func()
+        tree = ast.parse(source_code)
+    except SyntaxError:
+        return None, None
+
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            name = node.name
+            if name in namespace and callable(namespace[name]):
+                return name, namespace[name]
+
+    return None, None
 
 
 def run_microbench(
     source_code: str,
-    test_args_list: list[tuple[Any, ...]],
+    test_args_list: list[tuple],
     file_label: str,
-    repeats: int = DEFAULT_REPEATS,
+    repeats: int = 1_000,
 ) -> MicrobenchResult:
-    """Execute *source_code* once to define functions, then timeit the entry function.
+    """Execute timeit microbenchmark for a function-only solution.
 
     Parameters
     ----------
     source_code:
-        Full source of the solution (imports + function definitions).
+        Full Python source of the solution (must be function-only).
     test_args_list:
-        List of positional-argument tuples to pass on each call, e.g.
-        ``[("2020-01-01", "2020-03-01"), ...]``.  Each tuple is used in
-        round-robin order.
+        List of argument tuples extracted from the test cases.
+        Each tuple is unpacked and passed to the function.
+        Example: [(1, 2), (3, 4)] for a function f(a, b).
     file_label:
-        Short label for the result (relative path of the solution file).
+        Short label shown in the results table (usually the relative path).
     repeats:
-        Total number of timeit calls to distribute across test_args_list.
+        Number of timeit calls *per argument tuple*.  The total number of
+        timings stored in MicrobenchResult.timings = repeats x len(test_args_list).
     """
-    namespace: dict[str, Any] = {}
+    namespace: dict = {}
+
+    # Compile and exec the source once — amortises import overhead
     try:
         exec(compile(source_code, file_label, "exec"), namespace)  # noqa: S102
-    except Exception as exc:  # noqa: BLE001
-        return MicrobenchResult(file=file_label, func_name="?", repeats=repeats, error=repr(exc))
-
-    found = _find_entry_function(namespace)
-    if found is None:
+    except Exception as exc:
         return MicrobenchResult(
             file=file_label,
-            func_name="?",
+            func_name="<compile error>",
             repeats=repeats,
-            error="No public callable found in source.",
+            error=f"{type(exc).__name__}: {exc}",
         )
 
-    func_name, func = found
+    func_name, func = _find_callable(namespace, source_code)
+    if func is None:
+        return MicrobenchResult(
+            file=file_label,
+            func_name="<no function>",
+            repeats=repeats,
+            error="No callable function found in source.",
+        )
 
-    if not test_args_list:
-        test_args_list = [()]
-
-    n = len(test_args_list)
     timings: list[float] = []
 
-    for i in range(repeats):
-        # Fix: capture args by value via default argument, not by closure reference
-        captured_args = test_args_list[i % n]
-        elapsed = timeit.timeit(
-            lambda f=func, a=captured_args: _safe_call(f, a),
-            number=1,
-        )
-        timings.append(elapsed)
+    for args in test_args_list:
+        try:
+            # timeit returns total time for `number` calls; divide to get per-call time
+            total = timeit.timeit(lambda a=args: func(*a), number=repeats)
+            per_call = total / repeats
+            timings.append(per_call)
+        except Exception as exc:
+            tb = traceback.format_exc(limit=3)
+            return MicrobenchResult(
+                file=file_label,
+                func_name=func_name,
+                repeats=repeats,
+                error=f"{type(exc).__name__}: {exc}\n{tb}",
+            )
 
     return MicrobenchResult(
         file=file_label,
@@ -130,31 +143,27 @@ def run_microbench(
     )
 
 
-SIMILAR_THRESHOLD_PERCENT = 5.0
-
-
-def apply_relative_micro(
-    results: list[MicrobenchResult],
-    threshold: float = SIMILAR_THRESHOLD_PERCENT,
-) -> list[MicrobenchResult]:
-    """Set .relative_percent and .verdict relative to the fastest median."""
-    valid = [r for r in results if r.timings]
+def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResult]:
+    """Set relative_percent and verdict on each result relative to the fastest."""
+    valid = [r for r in results if r.timings and not r.error]
     if not valid:
         return results
 
     best = min(r.median_time for r in valid)
 
-    for r in results:
-        if not r.timings:
-            r.verdict = "ERROR"
-            continue
-        r.relative_percent = (r.median_time / best * 100) if best > 0 else 100.0
+    for r in valid:
+        r.relative_percent = (r.median_time / best) * 100 if best > 0 else 100.0
         delta = r.relative_percent - 100
-        if delta <= threshold:
+
+        if delta <= SIMILAR_THRESHOLD_PERCENT:
             r.verdict = "SIMILAR"
         elif delta <= 15:
             r.verdict = "SLOWER"
         else:
             r.verdict = "MUCH SLOWER"
+
+    for r in results:
+        if r.error:
+            r.verdict = "ERROR"
 
     return results
