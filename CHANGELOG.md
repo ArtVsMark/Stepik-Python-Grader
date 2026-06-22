@@ -1,0 +1,49 @@
+# Changelog
+
+## [Unreleased] — June 2026 — Audit Sprint
+
+### 🔴 Critical fixes
+
+- **at_first.py** — OAuth HTTP-server: added `server.timeout = 120` and
+  extracted `wait_for_auth_code()` helper; replaced bare `RuntimeError` on
+  timeout with `TimeoutError`; extracted `_make_oauth_handler()` factory so
+  `OAuthHandler` is no longer defined at module scope (removes stale closure
+  risk).
+- **at_first.py** — Added `from typing import cast`; replaced
+  `int(str(x) or 0)` patterns with `cast(int, ...)` for `section_id`,
+  `course_id`, `step_id`; `cast(str, ...)` for `lesson_title`.
+- **at_first.py** — Replaced broken `download_and_extract_submissions()`
+  stub (was calling non-existent `/api/stepics/1` endpoint) with a working
+  implementation that calls `/api/submissions?step=<id>&order=desc` and saves
+  each `reply.code` as `submissions/submission_<id>.py`.
+- **at_first.py** — Fixed typo `"нет хватает"` → `"не хватает"`.
+- **at_first.py** — PEP 8 import order fixed; `from __future__ import
+  annotations` moved to line 1.
+- **test.py** — `avg_time` in `FAILED` early-return branch now uses
+  `total_time / passed_tests if passed_tests else total_time` instead of
+  the nonsensical `avg_time = total_time`.
+- **test.py** / **executor.py** — `from __future__ import annotations` added.
+- **microbench_runner.py** — Removed unused `func_name: str = "<exec>"`
+  field from `MicrobenchResult`; added explanatory comment.
+
+### ✅ Tests added
+
+- `tests/test_slugify.py` — 7 tests covering `slugify()`: basic,
+  Cyrillic `ё`, special chars, empty/whitespace-only input, truncation to 80
+  chars, spaces-to-dashes, leading/trailing dash stripping.
+- `tests/test_microbench.py` — 7 tests covering `MicrobenchResult`,
+  `apply_relative_micro`, `run_microbench`, and
+  `SIMILAR_THRESHOLD_PERCENT`.
+
+### 📦 Dependencies / tooling
+
+- `pyproject.toml` already contains `pytest>=8.0`, `ruff>=0.4`, `mypy>=1.10`
+  under `[project.optional-dependencies] dev`.
+- `[tool.pytest.ini_options]` section confirms `testpaths = ["tests"]`.
+
+### 💡 Deferred (Sprint 3+)
+
+- Extract `stepik_client.py` with all API call functions from `at_first.py`.
+- Split `test.py` into `runner.py`, `benchmark.py`, `microbench.py`,
+  `display.py`.
+- Add `ruff` pre-commit hook and GitHub Actions CI.
