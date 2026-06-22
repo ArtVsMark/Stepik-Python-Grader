@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import ast
+import contextlib
+import io
 import os
 import pathlib
 import re
@@ -25,7 +29,12 @@ from microbench_runner import (
 MEASURE_CHILD_MEMORY = False
 CHILD_MEMORY_POLL_INTERVAL = 0.01
 SIMILAR_THRESHOLD_PERCENT = 5.0
-MICROBENCH_MAX_CASES = 5  # max test cases used in mode 4 for stable stdev
+MICROBENCH_MAX_CASES = 5   # ≤5 тест-кейсов в microbench: достаточно для стабильного Stdev,
+                            # не перегружает timeit при большом числе repeats
+SUBPROCESS_TIMEOUT = 10.0  # секунд: защита от бесконечных циклов в решениях студентов
+
+# Кешируем один раз — значение константно на всё время запуска
+PYTHON_CMD: str = "python3" if sys.platform in {"linux", "linux2", "darwin"} else "python"
 
 
 @dataclass
@@ -73,7 +82,15 @@ class TestCase:
 
 
 def is_function_only_solution(file_content: str) -> bool:
-    tree = ast.parse(file_content)
+    """Вернуть True, если файл содержит только определения функций (без точки входа).
+
+    При SyntaxError в исходнике возвращает False — файл будет запущен как скрипт
+    напрямую, и ошибка будет поймана subprocess'ом с нормальным выводом в stderr.
+    """
+    try:
+        tree = ast.parse(file_content)
+    except SyntaxError:
+        return False  # 🔴 ИСПРАВЛЕНО: раньше SyntaxError пробрасывался наверх
 
     allowed_nodes = (
         ast.FunctionDef,
@@ -122,27 +139,73 @@ def find_all_solution_files(directory: str) -> list[str]:
     return sorted(scripts)
 
 
-def load_text_lines(
-    file_path: str, return_encoding: bool = False
-) -> list[str] | tuple[list[str], str | None]:
+def collect_grouped_files(
+    target_dir: pathlib.Path, root_dir: pathlib.Path
+) -> dict[str, list[str]]:
+    """Найти все solution-файлы в target_dir и сгруппировать по папке задачи.
+
+    Вынесено из трёх mode-runner'ов для устранения дублирования.
+    Ключ — rel_path папки задачи от root_dir; значение — список rel_path файлов.
+    """
+    all_files = find_all_solution_files(str(target_dir))
+    grouped: dict[str, list[str]] = defaultdict(list)
+    for abs_path in all_files:
+        rel_path = os.path.relpath(abs_path, root_dir)
+        task_folder = os.path.dirname(rel_path)
+        grouped[task_folder].append(rel_path)
+    return grouped
+
+
+def resolve_and_validate_dir(
+    root_dir: pathlib.Path, user_input: str, prompt: str = "папка"
+) -> pathlib.Path | None:
+    """Резолвить пользовательский ввод в Path и проверить, что это существующая директория.
+
+    Возвращает Path при успехе или None с выводом ошибки при неудаче.
+    Вынесено из трёх mode-runner'ов для устранения дублирования.
+    """
+    target = resolve_input_path(root_dir, user_input)
+    if not target.exists():
+        print(f"{prompt.capitalize()} не найдена: {target}")
+        return None
+    if not target.is_dir():
+        print(f"Это не директория: {target}")
+        return None
+    return target
+
+
+def load_text_lines(file_path: str) -> list[str]:
+    """Загрузить текстовый файл построчно с авто-определением кодировки."""
     with open(file_path, "rb") as binary_file:
         raw_data = binary_file.read()
-
     file_encoding = chardet.detect(raw_data)["encoding"] or "utf-8"
-    file_content = raw_data.decode(file_encoding, errors="replace").strip().splitlines()
+    return raw_data.decode(file_encoding, errors="replace").strip().splitlines()
 
-    if return_encoding:
-        return file_content, file_encoding
-    return file_content
+
+def load_text_lines_with_encoding(file_path: str) -> tuple[list[str], str | None]:
+    """Загрузить текстовый файл и вернуть (строки, кодировка).
+
+    🟡 УЛУЧШЕНО: разделено из load_text_lines(return_encoding=True) —
+    одна функция с bool-флагом возвращала два разных типа (нарушение PEP 20).
+    """
+    with open(file_path, "rb") as binary_file:
+        raw_data = binary_file.read()
+    file_encoding = chardet.detect(raw_data)["encoding"] or "utf-8"
+    lines = raw_data.decode(file_encoding, errors="replace").strip().splitlines()
+    return lines, file_encoding
 
 
 def log_error(file: str) -> None:
-    with open("./errors.txt", "a", encoding="utf-8") as errors_file:
-        print(file, file=errors_file)
+    """Записать путь файла с ошибкой в errors.txt.
 
-
-def get_python_cmd() -> str:
-    return "python3" if sys.platform in {"linux", "linux2", "darwin"} else "python"
+    🟡 УЛУЧШЕНО: обёрнуто в try/except — при отсутствии прав на запись
+    grader продолжает работу вместо падения с PermissionError.
+    """
+    try:
+        with open("./errors.txt", "a", encoding="utf-8") as errors_file:
+            print(file, file=errors_file)
+    except OSError as exc:
+        print(f"Warning: не удалось записать в errors.txt: {exc}")
 
 
 def resolve_input_path(root_dir: pathlib.Path, user_input: str) -> pathlib.Path:
@@ -157,30 +220,41 @@ def print_test_mismatch(test_index: int, test_data: list[str], correct: list[str
 
 
 def run_process(
-    python_cmd: str,
     executor_file: str,
     input_data: str,
     measure_child_memory: bool = False,
     poll_interval: float = 0.01,
 ) -> tuple[subprocess.CompletedProcess | None, float, float, str]:
+    """Запустить subprocess с решением.
+
+    🔴 ИСПРАВЛЕНО: добавлен timeout=SUBPROCESS_TIMEOUT во все ветки —
+    бесконечный цикл в решении студента больше не подвешивает grader.
+    Параметр python_cmd убран — используется модульная константа PYTHON_CMD.
+    """
     parent_process = psutil.Process(os.getpid())
     start_time = time.perf_counter()
 
     if not measure_child_memory:
-        completed = subprocess.run(
-            [python_cmd, executor_file],
-            input=input_data,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            check=False,
-        )
+        try:
+            completed = subprocess.run(
+                [PYTHON_CMD, executor_file],
+                input=input_data,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+                timeout=SUBPROCESS_TIMEOUT,  # 🔴 ИСПРАВЛЕНО
+            )
+        except subprocess.TimeoutExpired:
+            elapsed_time = time.perf_counter() - start_time
+            memory_mb = parent_process.memory_info().rss / 1024 / 1024
+            return None, elapsed_time, memory_mb, f"TimeoutExpired (>{SUBPROCESS_TIMEOUT}s)"
         elapsed_time = time.perf_counter() - start_time
         memory_mb = parent_process.memory_info().rss / 1024 / 1024
         return completed, elapsed_time, memory_mb, ""
 
     proc = subprocess.Popen(
-        [python_cmd, executor_file],
+        [PYTHON_CMD, executor_file],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -216,11 +290,22 @@ def run_process(
     monitor_thread = Thread(target=monitor_memory, daemon=True)
     monitor_thread.start()
 
-    stdout_data, stderr_data = proc.communicate(input=input_data)
+    try:
+        stdout_data, stderr_data = proc.communicate(
+            input=input_data, timeout=SUBPROCESS_TIMEOUT  # 🔴 ИСПРАВЛЕНО
+        )
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        monitor_thread.join(timeout=1)
+        elapsed_time = time.perf_counter() - start_time
+        memory_mb = peak_rss / 1024 / 1024
+        return None, elapsed_time, memory_mb, f"TimeoutExpired (>{SUBPROCESS_TIMEOUT}s)"
+
     monitor_thread.join(timeout=1)
 
     completed = subprocess.CompletedProcess(
-        args=[python_cmd, executor_file],
+        args=[PYTHON_CMD, executor_file],
         returncode=proc.returncode,
         stdout=stdout_data,
         stderr=stderr_data,
@@ -236,14 +321,13 @@ def run_test_once(
     test_case: TestCase,
     executor_file: str,
     input_data: str,
-    python_cmd: str,
     measure_child_memory: bool = False,
     poll_interval: float = 0.01,
     show_details_on_fail: bool = True,
 ) -> TestRunResult:
+    """Запустить один тест-кейс через subprocess и вернуть результат."""
     try:
         completed, elapsed_time, memory_mb, monitor_error = run_process(
-            python_cmd=python_cmd,
             executor_file=executor_file,
             input_data=input_data,
             measure_child_memory=measure_child_memory,
@@ -254,11 +338,15 @@ def run_test_once(
             print(f"Warning: child memory monitor failed: {monitor_error}")
 
         if completed is None:
-            return TestRunResult(False, 0.0, 0.0, "Process did not start.")
+            timeout_msg = monitor_error or "Process did not start or timed out."
+            if show_details_on_fail:
+                print(f"\n⏱️  Тест №{test_case.index} — {timeout_msg}")
+            log_error(file)
+            return TestRunResult(False, elapsed_time, memory_mb, timeout_msg)
 
         if completed.returncode != 0:
             if show_details_on_fail:
-                print(f"\n\U0001f480 \u0422\u0435\u0441\u0442 \u2116{test_case.index} \u043f\u0440\u043e\u0432\u0430\u043b\u0435\u043d")
+                print(f"\n💀 Тест №{test_case.index} провален")
                 print(f"\nError message:\n{completed.stderr}\n")
             log_error(file)
             return TestRunResult(False, elapsed_time, memory_mb, completed.stderr.strip())
@@ -282,7 +370,7 @@ def run_test_once(
         return TestRunResult(True, elapsed_time, memory_mb)
 
     except Exception as error:
-        print(f"\n\U0001f631 Test#{test_case.index} failed with an unexpected error: {error}")
+        print(f"\n😱 Test#{test_case.index} failed with an unexpected error: {error}")
         print(f"Error type: {type(error).__name__}")
         traceback.print_exc()
         log_error(file)
@@ -297,7 +385,8 @@ def load_test_cases(tests_dir: pathlib.Path) -> list[TestCase]:
         test_file_path = tests_dir / f"{test_number}.clue"
         input_file_path = tests_dir / str(test_number)
 
-        expected_lines, _ = load_text_lines(str(test_file_path), return_encoding=True)
+        # 🟡 УЛУЧШЕНО: используем специализированную функцию вместо load_text_lines(..., return_encoding=True)
+        expected_lines, _ = load_text_lines_with_encoding(str(test_file_path))
         input_lines = load_text_lines(str(input_file_path))
         test_cases.append(
             TestCase(
@@ -342,7 +431,6 @@ def verify_file(script_file: str, root_dir: pathlib.Path, executor: str) -> Veri
 
     program_lines, is_function_only, executor_file = prepare_execution(program_path, executor)
     test_cases = load_test_cases(tests_dir)
-    python_cmd = get_python_cmd()
 
     passed_tests = 0
     total_time = 0.0
@@ -355,7 +443,6 @@ def verify_file(script_file: str, root_dir: pathlib.Path, executor: str) -> Veri
             test_case=test_case,
             executor_file=executor_file,
             input_data=input_data,
-            python_cmd=python_cmd,
             measure_child_memory=MEASURE_CHILD_MEMORY,
             poll_interval=CHILD_MEMORY_POLL_INTERVAL,
             show_details_on_fail=True,
@@ -402,18 +489,37 @@ def benchmark_file(
     executor: str,
     repeats: int,
 ) -> BenchmarkStats | None:
-    verification = verify_file(script_file, root_dir, executor)
-    if verification.status != "OK":
-        return None
+    """Запустить subprocess-бенчмарк для одного файла.
 
+    🟠 УЛУЧШЕНО: устранена двойная верификация — раньше verify_file вызывался полностью,
+    потом prepare_execution и load_test_cases вызывались снова. Теперь одна верификация,
+    данные переиспользуются.
+    """
     program_path = root_dir / script_file
     module_folder = os.path.dirname(script_file)
     tests_dir = root_dir / module_folder / "tests"
 
+    if not tests_dir.exists():
+        return None
+
     program_lines, is_function_only, executor_file = prepare_execution(program_path, executor)
     test_cases = load_test_cases(tests_dir)
-    python_cmd = get_python_cmd()
 
+    # Сначала быстрая верификация одним проходом
+    for test_case in test_cases:
+        input_data = build_input_data(program_lines, is_function_only, test_case)
+        check = run_test_once(
+            file=script_file,
+            test_case=test_case,
+            executor_file=executor_file,
+            input_data=input_data,
+            measure_child_memory=False,
+            show_details_on_fail=True,
+        )
+        if not check.passed:
+            return None
+
+    # Основной бенчмарк
     timings: list[float] = []
     peak_memory_mb = 0.0
 
@@ -425,7 +531,6 @@ def benchmark_file(
                 test_case=test_case,
                 executor_file=executor_file,
                 input_data=input_data,
-                python_cmd=python_cmd,
                 measure_child_memory=MEASURE_CHILD_MEMORY,
                 poll_interval=CHILD_MEMORY_POLL_INTERVAL,
                 show_details_on_fail=False,
@@ -495,7 +600,7 @@ def print_verification_table(task_folder: str, results: list[VerificationResult]
     fw = _file_col_width([r.file for r in results])
     total_width = fw + 12 + 14 + 14 + 16 + 12 + 10
 
-    print(f"\n\U0001f4c2 {task_folder}")
+    print(f"\n📂 {task_folder}")
     print("-" * total_width)
     print(
         f"{'File':{fw}}"
@@ -536,7 +641,7 @@ def print_benchmark_table(task_folder: str, results: list[BenchmarkStats]) -> No
     fw = _file_col_width([r.file for r in results])
     total_width = fw + 8 + 12 * 6 + 12 + 12 + 12
 
-    print(f"\n\U0001f680 Benchmark: {task_folder}")
+    print(f"\n🚀 Benchmark: {task_folder}")
     print("-" * total_width)
     print(
         f"{'File':{fw}}"
@@ -657,11 +762,10 @@ def ask_microbench_repeats() -> int:
 
 
 def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str]:
-    """Build list of stdin strings for microbench.
+    """Собрать список stdin-строк для microbench.
 
-    For function-only solutions: prepend source code lines before test input
-    (same logic as build_input_data for subprocess mode).
-    For script solutions: use test input as-is.
+    Для function-only решений: добавляет исходный код перед тест-вводом
+    (та же логика, что build_input_data для subprocess-режима).
     """
     is_func_only = is_function_only_solution(source_code)
     source_lines = source_code.splitlines()
@@ -683,7 +787,7 @@ def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str
 
 
 def run_single_mode(root_dir: pathlib.Path, executor: str) -> None:
-    """Mode 1 — test a single solution file against its tests."""
+    """Mode 1 — проверить один файл решения против его тестов."""
     raw = input("Enter path to solution file (relative or absolute): ").strip()
     if not raw:
         print("No path provided.")
@@ -709,64 +813,39 @@ def run_single_mode(root_dir: pathlib.Path, executor: str) -> None:
 
 
 def run_compare_mode(root_dir: pathlib.Path, executor: str) -> None:
-    """Mode 2 — verify all solution files inside a top-level folder, grouped by task."""
+    """Mode 2 — верифицировать все решения в папке, сгруппировать по задачам."""
     folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_input_path(root_dir, folder)
-
-    if not target_dir.exists():
-        print(f"Folder not found: {target_dir}")
+    # 🟠 УЛУЧШЕНО: валидация вынесена в resolve_and_validate_dir
+    target_dir = resolve_and_validate_dir(root_dir, folder)
+    if target_dir is None:
         return
 
-    if not target_dir.is_dir():
-        print(f"Not a directory: {target_dir}")
-        return
-
-    all_files = find_all_solution_files(str(target_dir))
-    if not all_files:
+    # 🟠 УЛУЧШЕНО: группировка вынесена в collect_grouped_files
+    grouped_files = collect_grouped_files(target_dir, root_dir)
+    if not grouped_files:
         print(f"No solution files found in: {target_dir}")
         return
 
-    grouped_files: dict[str, list[str]] = defaultdict(list)
-    for abs_path in all_files:
-        rel_path = os.path.relpath(abs_path, root_dir)
-        task_folder = os.path.dirname(rel_path)
-        grouped_files[task_folder].append(rel_path)
-
     for task_folder, files in sorted(grouped_files.items()):
-        results: list[VerificationResult] = []
-
-        for rel_path in files:
-            result = verify_file(rel_path, root_dir, executor)
-            results.append(result)
-
+        results: list[VerificationResult] = [
+            verify_file(rel_path, root_dir, executor) for rel_path in files
+        ]
         print_verification_table(task_folder, results)
 
 
 def run_benchmark_mode(root_dir: pathlib.Path, executor: str) -> None:
-    """Mode 3 — subprocess benchmark for solutions that pass all tests."""
+    """Mode 3 — subprocess-бенчмарк для решений, прошедших все тесты."""
     folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_input_path(root_dir, folder)
-
-    if not target_dir.exists():
-        print(f"Folder not found: {target_dir}")
-        return
-
-    if not target_dir.is_dir():
-        print(f"Not a directory: {target_dir}")
+    target_dir = resolve_and_validate_dir(root_dir, folder)
+    if target_dir is None:
         return
 
     repeats = ask_benchmark_repeats()
 
-    all_files = find_all_solution_files(str(target_dir))
-    if not all_files:
+    grouped_files = collect_grouped_files(target_dir, root_dir)
+    if not grouped_files:
         print(f"No solution files found in: {target_dir}")
         return
-
-    grouped_files: dict[str, list[str]] = defaultdict(list)
-    for abs_path in all_files:
-        rel_path = os.path.relpath(abs_path, root_dir)
-        task_folder = os.path.dirname(rel_path)
-        grouped_files[task_folder].append(rel_path)
 
     for task_folder, files in sorted(grouped_files.items()):
         bench_results: list[BenchmarkStats] = []
@@ -780,45 +859,33 @@ def run_benchmark_mode(root_dir: pathlib.Path, executor: str) -> None:
                 skipped.append(rel_path)
 
         if skipped:
-            print(f"\n\u26a0\ufe0f  Skipped (did not pass tests): {', '.join(skipped)}")
+            print(f"\n⚠️  Skipped (did not pass tests): {', '.join(skipped)}")
 
         if bench_results:
             bench_results = apply_relative_metrics(bench_results)
             print_benchmark_table(task_folder, bench_results)
         else:
-            print(f"\n\U0001f680 Benchmark: {task_folder}")
+            print(f"\n🚀 Benchmark: {task_folder}")
             print("No solutions passed all tests — nothing to benchmark.")
 
 
 def run_microbench_mode(root_dir: pathlib.Path) -> None:
-    """Mode 4 — timeit microbenchmark via exec + io.StringIO.
+    """Mode 4 — timeit-микробенчмарк через exec + contextlib.redirect_stdout/stdin.
 
-    Uses up to MICROBENCH_MAX_CASES test cases so Stdev is meaningful.
-    Custom repeats up to 500 000.
+    Использует до MICROBENCH_MAX_CASES тест-кейсов для стабильного Stdev.
+    Custom repeats до 500 000.
     """
     folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_input_path(root_dir, folder)
-
-    if not target_dir.exists():
-        print(f"Folder not found: {target_dir}")
-        return
-
-    if not target_dir.is_dir():
-        print(f"Not a directory: {target_dir}")
+    target_dir = resolve_and_validate_dir(root_dir, folder)
+    if target_dir is None:
         return
 
     repeats = ask_microbench_repeats()
 
-    all_files = find_all_solution_files(str(target_dir))
-    if not all_files:
+    grouped_files = collect_grouped_files(target_dir, root_dir)
+    if not grouped_files:
         print(f"No solution files found in: {target_dir}")
         return
-
-    grouped_files: dict[str, list[str]] = defaultdict(list)
-    for abs_path in all_files:
-        rel_path = os.path.relpath(abs_path, root_dir)
-        task_folder = os.path.dirname(rel_path)
-        grouped_files[task_folder].append(rel_path)
 
     for task_folder, files in sorted(grouped_files.items()):
         micro_results: list[MicrobenchResult] = []
@@ -836,10 +903,7 @@ def run_microbench_mode(root_dir: pathlib.Path) -> None:
             else:
                 bench_cases = []
 
-            if bench_cases:
-                stdin_texts = _build_stdin_texts(source_code, bench_cases)
-            else:
-                stdin_texts = [source_code]
+            stdin_texts = _build_stdin_texts(source_code, bench_cases) if bench_cases else [source_code]
 
             result = run_microbench(
                 source_code=source_code,
@@ -875,6 +939,7 @@ if __name__ == "__main__":
             else "parent process (fast, rough)"
         )
     )
+    print(f"Subprocess timeout: {SUBPROCESS_TIMEOUT}s per test")
 
     mode = input("Enter mode (1/2/3/4): ").strip()
 
