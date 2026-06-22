@@ -5,14 +5,14 @@
     и запускаем полный exec(compiled_code) внутри одного процесса.
 
     Это устраняет фундаментальное противоречие:
-    - тест-файлы tests/N созданы для subprocess (stdin → input() → print())
+    - тест-файлы tests/N созданы для subprocess (stdin -> input() -> print())
     - timeit должен вызывать код напрямую, без нового процесса
 
     Решение: compile() один раз снаружи цикла (амортизирует парсинг),
     затем exec(compiled, {}) в каждой итерации.
 
     stdin/stdout перенаправляются через contextlib.redirect_stdin /
-    contextlib.redirect_stdout — потокобезопасно в отличие от
+    contextlib.redirect_stdout — поток-безопасно в отличие от
     прямой подмены sys.stdin/sys.stdout.
 
 Типичный вызов из test.py (режим 4):
@@ -29,6 +29,8 @@ import io
 import statistics
 import timeit
 import traceback
+import types
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 SIMILAR_THRESHOLD_PERCENT = 5.0
@@ -70,17 +72,17 @@ class MicrobenchResult:
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
-def _make_stdin_runner(compiled: object, stdin_text: str):
+def _make_stdin_runner(compiled: types.CodeType, stdin_text: str) -> Callable[[], None]:
     """Return a zero-arg callable that exec's compiled code with stdin/stdout redirected.
 
-    🟠 ИСПРАВЛЕНО: заменена прямая подмена sys.stdin/sys.stdout на
-    contextlib.redirect_stdin + contextlib.redirect_stdout.
+    Используются contextlib.redirect_stdin + contextlib.redirect_stdout
+    вместо прямой подмены sys.stdin/sys.stdout.
 
     Почему это важно:
     - Прямая подмена sys.stdin = io.StringIO(...) глобальна для всего
       интерпретатора. При параллельном запуске двух потоков это data race.
-    - contextlib.redirect_stdin работает через sys.__stdin__ и изолирован
-      внутри блока with, безопасно восстанавливая оригинал (даже при Exception).
+    - contextlib.redirect_stdin изолирован внутри блока with,
+      безопасно восстанавливая оригинал (даже при Exception).
 
     compile() вынесен за пределы функции (один раз на файл) — timeit замеряет
     только логику выполнения, а не парсинг исходника.
@@ -88,8 +90,8 @@ def _make_stdin_runner(compiled: object, stdin_text: str):
     def _run() -> None:
         fake_stdin = io.StringIO(stdin_text)
         fake_stdout = io.StringIO()
-        with contextlib.redirect_stdin(fake_stdin):   # 🟠 потокобезопасно
-            with contextlib.redirect_stdout(fake_stdout):  # 🟠 потокобезопасно
+        with contextlib.redirect_stdin(fake_stdin):
+            with contextlib.redirect_stdout(fake_stdout):
                 exec(compiled, {})  # noqa: S102
                 # Примечание: exec(compiled, {}) автоматически получает
                 # {'__builtins__': ...} в namespace — это стандартное
@@ -118,11 +120,11 @@ def run_microbench(
         Короткий лейбл для таблицы результатов (обычно rel_path файла).
     repeats:
         Количество вызовов timeit.timeit(..., number=repeats) на каждый stdin.
-        Общее число замеров = repeats × len(stdin_texts).
+        Общее число замеров = repeats x len(stdin_texts).
     """
     # Compile once — amortise source parsing across all repeats
     try:
-        compiled = compile(source_code, file_label, "exec")
+        compiled: types.CodeType = compile(source_code, file_label, "exec")
     except SyntaxError as exc:
         return MicrobenchResult(
             file=file_label,
