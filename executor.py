@@ -2,12 +2,12 @@ import sys
 import signal
 import os
 
-# Таймаут в секундах (можно передать через переменную окружения)
+# Тайм-аут в секундах (можно передать через переменную окружения)
 TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", "10"))
 
 
-def _timeout_handler(signum: int, frame: object) -> None:
-    """Обработчик сигнала SIGALRM — прерывает выполнение по таймауту."""
+def _timeout_handler(_signum: int, _frame: object) -> None:
+    """Обработчик сигнала SIGALRM — прерывает выполнение по тайм-ауту."""
     raise TimeoutError(f"Execution exceeded {TIMEOUT}s limit")
 
 
@@ -19,7 +19,7 @@ def main() -> None:
     # Изолированный namespace — решение не видит globals executor.py
     namespace: dict = {"__builtins__": __builtins__}
 
-    # Таймаут только на Unix (Windows не поддерживает SIGALRM)
+    # Тайм-аут только на Unix (Windows не поддерживает SIGALRM)
     if hasattr(signal, "SIGALRM"):
         signal.signal(signal.SIGALRM, _timeout_handler)
         signal.alarm(TIMEOUT)
