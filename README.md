@@ -17,15 +17,27 @@
 |---|---|
 | `at_first.py` | Создаёт папку задачи и скачивает тесты через API Stepik |
 | `test.py` | Проверяет решения локально, сравнивает несколько решений, запускает benchmark и microbench |
-| `microbench_runner.py` | timeit-раннер для function-only решений (используется режимом 4) |
+| `microbench_runner.py` | timeit-раннер для exec-based решений (используется режимом 4) |
 | `executor.py` | Хелпер для запуска function-only решений |
-| `diagnoctik-stepik.py` | Диагностика: проверяет структуру ответа API и наличие ZIP |
+| `diagnostik_stepik.py` | Диагностика: проверяет структуру ответа API и наличие ZIP |
 
 ---
 
 ## Быстрый старт
 
-### Шаг 0 — Настройка OAuth на Stepik
+### Шаг 0 — Установка зависимостей
+
+```bash
+pip install -r requirements.txt
+```
+
+Или через `pyproject.toml` (editable-режим):
+
+```bash
+pip install -e .
+```
+
+### Шаг 1 — Настройка OAuth на Stepik
 
 **1. Создай OAuth-приложение на Stepik**
 
@@ -42,7 +54,7 @@
 
 4. Нажми **Save** — Stepik покажет `Client ID` и `Client Secret`.
 
-### Шаг 1 — Создай `secrets.json`
+### Шаг 2 — Создай `secrets.json`
 
 Скопируй шаблон:
 
@@ -79,7 +91,7 @@ cp secrets.json.example secrets.json
 
 ---
 
-## Шаг 2 — Скачать тесты к задаче
+## Шаг 3 — Скачать тесты к задаче
 
 ```bash
 python at_first.py
@@ -116,20 +128,20 @@ P2.2/
 
 ---
 
-## Шаг 3 — Проверка и сравнение решений
+## Шаг 4 — Проверка и сравнение решений
 
 ```bash
 python test.py
 ```
 
-Теперь у `test.py` **четыре режима**.
+У `test.py` **шесть режимов**.
 
 ```text
 Choose mode:
 1 - test single file
 2 - compare all solutions in top-level folder
 3 - benchmark passed solutions
-4 - microbench (timeit, function-only solutions)
+4 - microbench (timeit)
 ```
 
 ### Режим 1 — проверить один файл
@@ -145,6 +157,9 @@ Enter py-file's path from the content root: P2.2/step-4-название-зад�
 ```text
 P2.2/step-4-название-задачи/task_1.py: 10/10 tests, total=0.4231s, avg=0.0423s, peak_memory=48.03 MB, status=OK
 ```
+
+> **Таймаут subprocess:** каждый тест прерывается автоматически через 10 секунд.  
+> Бесконечный цикл или зависший `input()` не заблокируют проверку — тест получит статус `TimeoutExpired`.
 
 ### Режим 2 — сравнить все решения в папке
 
@@ -184,9 +199,9 @@ P2.2/.../task_3.py           8/10        0.3521      0.0352           48.02     
 
 ```text
 Benchmark load:
-1 - low (5 repeats)
+1 - low    (5 repeats)
 2 - medium (15 repeats)
-3 - high (50 repeats)
+3 - high   (50 repeats)
 4 - custom
 ```
 
@@ -226,14 +241,12 @@ P2.2/.../task_3.py           70   0.03150   0.03680   0.03710   0.04140   0.0016
 - маленькое значение → замеры стабильные;
 - большое значение → результаты скачут, и benchmark шумный.
 
-### Режим 4 — microbench (timeit, только function-only решения)
+### Режим 4 — microbench (timeit)
 
-Это режим для **микросекундного сравнения чистых функций** без накладных расходов subprocess.
+Это режим для **микросекундного сравнения решений** без накладных расходов subprocess.  
+Работает как для function-only решений, так и для скриптов с `input()` — `exec()` + `contextlib.redirect_stdin/stdout`.
 
-> **Ограничение:** режим 4 работает **только для function-only решений** — тех, где на уровне модуля есть только определения функций, импорты и константы.  
-> Если решение использует `input()` или имеет код на верхнем уровне модуля — оно будет пропущено с пометкой `Skipped`.
-
-После выбора режима появится меню с пятью пресетами:
+После выбора режима появится меню с **шестью пресетами**:
 
 ```text
 Microbench repeats (calls per run):
@@ -241,11 +254,23 @@ Microbench repeats (calls per run):
 2 - normal   (1 000)
 3 - thorough (5 000)
 4 - deep     (50 000)
-5 - custom   (up to 100 000)
+5 - hard     (100 000)
+6 - custom   (100 to 500 000)
 ```
 
-Пресет `deep` (50 000) и `custom` (100–100 000) рекомендуются, когда функции работают за 1–5 мкс и при малом N результаты нестабильны.  
-При 100 000 повторов замеры стабилизируются и разница между решениями отражает реальное поведение, а не шум CPU.
+#### Когда какой пресет использовать
+
+| Пресет | Повторов | Когда использовать |
+|---|---|---|
+| `fast` | 500 | быстрая проверка, функции > 100 мкс |
+| `normal` | 1 000 | стандартная оценка |
+| `thorough` | 5 000 | точная оценка, функции 10–100 мкс |
+| `deep` | 50 000 | функции 1–10 мкс, нужна стабильность |
+| `hard` | 100 000 | функции < 5 мкс, максимальная точность |
+| `custom` | 100–500 000 | произвольная нагрузка для специальных задач |
+
+Пресеты `hard` и `custom` рекомендуются, когда функции работают за 1–5 мкс и при малом N результаты нестабильны.  
+При 100 000+ повторов замеры стабилизируются и разница между решениями отражает реальное поведение, а не шум CPU.
 
 #### Что показывает microbench
 
@@ -280,7 +305,7 @@ P3.1\step-22-...\task.py        100000        1.87        1.91        1.91      
 
 Режим 3 запускает `subprocess` на каждый тест — а запуск Python-интерпретатора занимает ~30–100 мс.  
 Для функций, работающих за 1–50 мкс, subprocess-overhead в тысячи раз больше самого вызова.  
-`timeit` запускает функцию **внутри того же процесса**, поэтому накладные расходы минимальны — именно так документация Python рекомендует замерять маленькие фрагменты кода.
+`timeit` запускает код **внутри того же процесса** через `exec()` с перенаправлением stdin/stdout через `contextlib.redirect_stdin` / `contextlib.redirect_stdout` — потокобезопасно и без изменения глобального состояния интерпретатора.
 
 ---
 
@@ -332,7 +357,7 @@ git commit -m "chore: normalize line endings to LF"
 Если `at_first.py` не нашёл ZIP автоматически:
 
 ```bash
-python diagnoctik-stepik.py
+python diagnostik_stepik.py
 ```
 
 Скрипт сохранит:
@@ -352,8 +377,9 @@ python diagnoctik-stepik.py
 ├── test.py
 ├── microbench_runner.py
 ├── executor.py
-├── diagnoctik-stepik.py
+├── diagnostik_stepik.py
 ├── requirements.txt
+├── pyproject.toml
 ├── secrets.json.example
 ├── stepik_config.json.example
 ├── .gitattributes
@@ -375,30 +401,52 @@ stepik_diagnostics/
 
 ---
 
-## Что изменилось в `test.py`
+## Что изменилось в проекте
 
-По сравнению со старым вариантом:
+По сравнению с первоначальным вариантом:
 - сравнение корректности и benchmark разделены,
 - benchmark работает только для полностью прошедших решений,
 - добавлены профили нагрузки `low / medium / high / custom`,
 - результаты оцениваются по `median`, а не по случайному одиночному замеру,
 - добавлены `mean`, `max`, `stdev`, `relative_percent` и `verdict`,
-- **режим 4** — microbench через `timeit` для function-only решений (замеры в мкс, до 100 000 повторов).
-
-Это делает сравнение решений заметно более честным и полезным для обучения.
+- **режим 4** — microbench через `timeit` (замеры в мкс, до 500 000 повторов),
+- subprocess защищён таймаутом 10 с — бесконечный цикл не зависит grader,
+- `contextlib.redirect_stdin/stdout` вместо прямой подмены `sys.*` — потокобезопасно,
+- добавлен `pyproject.toml` с конфигурацией `ruff`, `mypy`, `pytest`.
 
 ### Changelog
 
 | Дата | Изменение |
 |---|---|
+| 2026-06-22 | Режим 4: пресет `hard` (100 000) + `custom` расширен до 500 000 повторов — итого 6 пресетов |
+| 2026-06-22 | `microbench_runner.py`: `contextlib.redirect_stdin/stdout` вместо прямой подмены `sys.stdin/stdout` (потокобезопасность) |
+| 2026-06-22 | `diagnoctik-stepik.py` переименован в `diagnostik_stepik.py` — валидное имя Python-модуля, доступно через `import` |
+| 2026-06-22 | Добавлен `pyproject.toml` — конфигурация `ruff`, `mypy`, `pytest`, `requires-python = ">=3.10"` |
+| 2026-06-22 | `requirements.txt` дополнен комментариями; добавлена установка через `pip install -e .` |
+| 2026-06-22 | Subprocess: таймаут 10 с на каждый тест — `TimeoutExpired` вместо зависания на бесконечном цикле |
+| 2026-06-22 | Рефакторинг `test.py`: дублирующаяся логика группировки и валидации папок вынесена в общие функции |
 | 2026-06-22 | `at_first.py`: единообразная нумерация файлов — `task_1.py`, `task_2.py`, `task_3.py` вместо `task.py` / `task_1.py` / `task_2.py` |
-| 2026-06-22 | Режим 4: лимит custom увеличен до 100 000 повторов; добавлен пресет `deep` (50 000) — итого 5 пресетов |
-| 2026-06-22 | Режим 4: microbench через `timeit` для function-only решений (`microbench_runner.py` + `run_microbench_mode()` в `test.py`) |
-| 2026-06-22 | Динамическая ширина колонки `File` в таблицах режимов 2 и 3 — шапка больше не съезжает при длинных именах папок и файлов (`_file_col_width()`) |
-| 2026-06-22 | Добавлен `.gitattributes` для нормализации line endings (LF) — устраняет предупреждение «This diff contains a change in line endings from LF to CRLF» в GitHub Desktop |
+| 2026-06-22 | Режим 4: microbench через `timeit` для exec-based решений (`microbench_runner.py` + `run_microbench_mode()` в `test.py`) |
+| 2026-06-22 | Динамическая ширина колонки `File` в таблицах режимов 2 и 3 — шапка больше не съезжает при длинных именах |
+| 2026-06-22 | Добавлен `.gitattributes` для нормализации line endings (LF) |
 
 ---
 
 ## Python версия
 
 Python **3.10+**
+
+---
+
+## Линтинг и типизация
+
+```bash
+# Линтер
+ruff check .
+
+# Типизация
+mypy .
+
+# Тесты
+pytest
+```
