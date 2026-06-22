@@ -25,6 +25,7 @@ from microbench_runner import (
 MEASURE_CHILD_MEMORY = False
 CHILD_MEMORY_POLL_INTERVAL = 0.01
 SIMILAR_THRESHOLD_PERCENT = 5.0
+MICROBENCH_MAX_CASES = 5  # max test cases used in mode 4 for stable stdev
 
 
 @dataclass
@@ -575,7 +576,7 @@ def print_microbench_table(task_folder: str, results: list[MicrobenchResult]) ->
     fw = _file_col_width([r.file for r in results])
     total_width = fw + 10 + 12 * 5 + 12 + 12
 
-    print(f"\n\u26a1 Microbench (timeit): {task_folder}")
+    print(f"\n⚡ Microbench (timeit): {task_folder}")
     print("-" * total_width)
     print(
         f"{'File':{fw}}"
@@ -635,22 +636,23 @@ def ask_benchmark_repeats() -> int:
 
 def ask_microbench_repeats() -> int:
     print("\nMicrobench repeats (calls per run):")
-    print("1 - fast  (500)")
-    print("2 - normal (1000)")
-    print("3 - thorough (5000)")
-    print("4 - custom")
+    print("1 - fast     (500)")
+    print("2 - normal   (1 000)")
+    print("3 - thorough (5 000)")
+    print("4 - deep     (50 000)")
+    print("5 - custom   (up to 100 000)")
 
-    choice = input("Choose (1/2/3/4): ").strip()
-    mapping = {"1": 500, "2": 1_000, "3": 5_000}
+    choice = input("Choose (1/2/3/4/5): ").strip()
+    mapping = {"1": 500, "2": 1_000, "3": 5_000, "4": 50_000}
 
     if choice in mapping:
         return mapping[choice]
 
     while True:
-        raw = input("Enter repeats (100-50000): ").strip()
-        if raw.isdigit() and 100 <= int(raw) <= 50_000:
+        raw = input("Enter repeats (100-100000): ").strip()
+        if raw.isdigit() and 100 <= int(raw) <= 100_000:
             return int(raw)
-        print("Please enter integer from 100 to 50000.")
+        print("Please enter integer from 100 to 100 000.")
 
 
 def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str]:
@@ -666,7 +668,6 @@ def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str
 
     for tc in test_cases:
         if is_func_only:
-            # executor.py pattern: source + test input on stdin
             combined = "\n".join(source_lines + tc.input_lines)
         else:
             combined = "\n".join(tc.input_lines)
@@ -678,12 +679,8 @@ def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str
 def run_microbench_mode(root_dir: pathlib.Path) -> None:
     """Mode 4 — timeit microbenchmark via exec + io.StringIO.
 
-    Работает для любого типа задач:
-    - function-only: source + test_input подаётся как stdin (как executor.py)
-    - script: только test_input
-
-    Замеряет только логику выполнения, без subprocess-overhead.
-    Время в микросекундах.
+    Uses up to MICROBENCH_MAX_CASES test cases so Stdev is meaningful.
+    Custom repeats up to 100 000.
     """
     folder = input("Enter top-level folder from the content root: ").strip()
     target_dir = resolve_input_path(root_dir, folder)
@@ -717,20 +714,18 @@ def run_microbench_mode(root_dir: pathlib.Path) -> None:
             source_lines = load_text_lines(str(program_path))
             source_code = "\n".join(source_lines)
 
-            # Load test cases for stdin construction
             module_folder = os.path.dirname(rel_path)
             tests_dir = root_dir / module_folder / "tests"
             if tests_dir.exists():
                 test_cases = load_test_cases(tests_dir)
-                # Use only first test case for microbench to keep timing stable
-                bench_cases = test_cases[:1] if test_cases else []
+                bench_cases = test_cases[:MICROBENCH_MAX_CASES] if test_cases else []
             else:
                 bench_cases = []
 
             if bench_cases:
                 stdin_texts = _build_stdin_texts(source_code, bench_cases)
             else:
-                stdin_texts = [source_code]  # function-only, no args needed
+                stdin_texts = [source_code]
 
             result = run_microbench(
                 source_code=source_code,
@@ -745,7 +740,7 @@ def run_microbench_mode(root_dir: pathlib.Path) -> None:
         if micro_results:
             print_microbench_table(task_folder, micro_results)
         else:
-            print(f"\n\u26a1 Microbench: {task_folder}")
+            print(f"\n⚡ Microbench: {task_folder}")
             print("No solutions found for microbench.")
 
 
