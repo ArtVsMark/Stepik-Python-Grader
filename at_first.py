@@ -13,7 +13,6 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import requests
 from requests.auth import HTTPBasicAuth
 
-
 API_HOST = "https://stepik.org"
 CONFIG_FILE = "stepik_config.json"
 
@@ -37,7 +36,7 @@ def slugify(text: str) -> str:
 
 
 def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, dict):
         raise ValueError(f"Ожидался JSON-объект в файле {file_path}")
@@ -118,7 +117,7 @@ def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
         raise IsADirectoryError(
             f"Укажи путь к папке, а нужен путь к файлу secrets.json: {secrets_path}"
         )
-    with open(secrets_path, "r", encoding="utf-8") as file:
+    with open(secrets_path, encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, dict):
         raise ValueError("secrets.json должен быть JSON-объектом.")

@@ -23,7 +23,6 @@ from microbench_runner import (
     run_microbench,
 )
 
-
 MEASURE_CHILD_MEMORY = False
 CHILD_MEMORY_POLL_INTERVAL = 0.01
 # SIMILAR_THRESHOLD_PERCENT импортируется из microbench_runner — единый источник истины
