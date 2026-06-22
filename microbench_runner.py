@@ -8,7 +8,7 @@
     - тест-файлы tests/N созданы для subprocess (stdin -> input() -> print())
     - timeit должен вызывать код напрямую, без нового процесса
 
-    Решение: compile() один раз снаружи цикла (амортизирует парсинг),
+    Решение: compile() один раз снаружи цикла (amortizes парсинг),
     затем exec(compiled, {}) в каждой итерации.
 
     stdin/stdout перенаправляются через contextlib.redirect_stdin /
@@ -24,13 +24,13 @@
 
 from __future__ import annotations
 
-import contextlib
 import io
 import statistics
 import timeit
 import traceback
 import types
 from collections.abc import Callable
+from contextlib import redirect_stdin, redirect_stdout
 from dataclasses import dataclass, field
 
 SIMILAR_THRESHOLD_PERCENT = 5.0
@@ -48,7 +48,7 @@ class MicrobenchResult:
     verdict: str = "OK"
     # Поле func_name удалено (аудит июнь 2026):
     # оно не использовалось нигде в codebase и вводило в заблуждение
-    # (значение "<exec>" было жёстко заданным значением, не отражавшим реальность).
+    # (hardcoded значение "<exec>" не отражало реальное имя функции).
 
     @property
     def min_time(self) -> float:
@@ -75,13 +75,13 @@ class MicrobenchResult:
 def _make_stdin_runner(compiled: types.CodeType, stdin_text: str) -> Callable[[], None]:
     """Return a zero-arg callable that exec-s compiled code with stdin/stdout redirected.
 
-    Используются contextlib.redirect_stdin + contextlib.redirect_stdout
+    Используются redirect_stdin + redirect_stdout из contextlib
     вместо прямой подмены sys.stdin/sys.stdout.
 
     Почему это важно:
     - Прямая подмена sys.stdin = io.StringIO(...) глобальна для всего
       интерпретатора. При параллельном запуске двух потоков это data race.
-    - contextlib.redirect_stdin изолирован внутри блока with,
+    - redirect_stdin изолирован внутри блока with,
       безопасно восстанавливая оригинал (даже при Exception).
 
     compile() вынесен за пределы функции (один раз на файл) — timeit замеряет
@@ -90,8 +90,8 @@ def _make_stdin_runner(compiled: types.CodeType, stdin_text: str) -> Callable[[]
     def _run() -> None:
         fake_stdin = io.StringIO(stdin_text)
         fake_stdout = io.StringIO()
-        with contextlib.redirect_stdin(fake_stdin):  # type: ignore[type-var]
-            with contextlib.redirect_stdout(fake_stdout):
+        with redirect_stdin(fake_stdin):  # type: ignore[type-var]
+            with redirect_stdout(fake_stdout):
                 exec(compiled, {})  # noqa: S102
                 # exec(compiled, {}) автоматически получает
                 # {'__builtins__': ...} в namespace — это стандартное
@@ -122,7 +122,7 @@ def run_microbench(
         Количество вызовов timeit.timeit(..., number=repeats) на каждый stdin.
         Общее число замеров = repeats x len(stdin_texts).
     """
-    # Compile once — amortise source parsing across all repeats
+    # Compile once — amortize source parsing across all repeats
     try:
         compiled: types.CodeType = compile(source_code, file_label, "exec")
     except SyntaxError as exc:
