@@ -251,6 +251,7 @@ python diagnoctik-stepik.py
 ├── requirements.txt
 ├── secrets.json.example
 ├── stepik_config.json.example
+├── .gitattributes
 ├── .gitignore
 └── README.md
 ```
@@ -285,6 +286,45 @@ stepik_diagnostics/
 | Дата | Изменение |
 |---|---|
 | 2026-06-22 | Динамическая ширина колонки `File` в таблицах режимов 2 и 3 — шапка больше не съезжает при длинных именах папок и файлов (`_file_col_width()`) |
+
+---
+
+## Настройка line endings (LF/CRLF)
+
+По умолчанию Windows-Git и GitHub Desktop могут конвертировать переносы строк из `LF` в `CRLF`, из-за чего в интерфейсе появляется предупреждение:
+
+```text
+This diff contains a change in line endings from 'LF' to 'CRLF'.
+```
+
+В этом репозитории добавлен файл `.gitattributes`, который фиксирует `LF` для всех текстовых файлов на уровне репо — независимо от локальных настроек Git.
+
+### Как применить нормализацию к уже отслеживаемым файлам
+
+Если ты только что клонировал репо или добавил `.gitattributes`, нужно один раз пересохранить все файлы:
+
+```bash
+git add --renormalize .
+git status
+git commit -m "chore: normalize line endings to LF"
+```
+
+> Без `--renormalize` файлы, которые уже были закоммичены с `CRLF`, продолжат отображаться как изменённые даже после добавления `.gitattributes`.
+
+### Почему `* text=auto eol=lf`
+
+- `text=auto` — Git сам определяет, текстовый файл или бинарный;
+- `eol=lf` — все текстовые файлы хранятся в репо с `LF`;
+- для конкретных расширений (`.py`, `.md`, `.json` и т. д.) правило продублировано явно, чтобы не было сюрпризов.
+
+---
+
+### Changelog
+
+| Дата | Изменение |
+|---|---|
+| 2026-06-22 | Динамическая ширина колонки `File` в таблицах режимов 2 и 3 — шапка больше не съезжает при длинных именах папок и файлов (`_file_col_width()`) |
+| 2026-06-22 | Добавлен `.gitattributes` для нормализации line endings (LF) — устраняет предупреждение «This diff contains a change in line endings from LF to CRLF» в GitHub Desktop |
 
 ---
 
