@@ -40,7 +40,7 @@
 Stepik-Python-Grader/
 ├── test.py                    # Главный модуль: 4 режима работы
 ├── microbench_runner.py       # Timeit-микробенчмарк через exec
-├── executor.py                # Минимальный запускатель: exec(sys.stdin.read())
+├── executor.py                # Запускатель решений: compile + exec с таймаутом и изолированным namespace
 ├── at_first.py                # Авторизация Stepik OAuth2 + получение токена
 ├── diagnostik_stepik.py       # Диагностика окружения и API
 ├── pyproject.toml             # Конфигурация проекта (ruff, mypy)
@@ -225,6 +225,14 @@ module1/
 SUBPROCESS_TIMEOUT = 10.0  # секунд
 ```
 
+### Таймаут executor
+
+В `executor.py` таймаут передаётся через переменную окружения `EXECUTOR_TIMEOUT` (по умолчанию `10` секунд). На Unix используется `signal.alarm`; на Windows таймаут обеспечивается на уровне subprocess через `SUBPROCESS_TIMEOUT`:
+
+```python
+TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", "10"))
+```
+
 ### Замер памяти дочернего процесса
 
 ```python
@@ -276,7 +284,8 @@ pip install -r requirements.txt
 
 ## Ограничения и безопасность
 
-- **`exec` в microbench:** решения запускаются через `exec(compiled, {})` с изолированным namespace. `stdin`/`stdout` перенаправляются через `contextlib.redirect_stdin/stdout` — потокобезопасно.
+- **`executor.py` (режимы 1–3):** решения запускаются через отдельный subprocess. Код компилируется через `compile(source, "<solution>", "exec")` и выполняется в изолированном namespace `{"__builtins__": __builtins__}`. На Unix защита от зависания — `signal.alarm(TIMEOUT)`; на Windows — `SUBPROCESS_TIMEOUT` на уровне `subprocess.run`.
+- **`microbench_runner.py` (режим 4):** решения запускаются через `exec(compiled, {})` внутри одного процесса. `stdin`/`stdout` перенаправляются через `contextlib.redirect_stdin` / `contextlib.redirect_stdout` — потокобезопасно в отличие от прямой подмены `sys.stdin`/`sys.stdout`.
 - **Таймаут subprocess:** `SUBPROCESS_TIMEOUT = 10.0s` защищает от бесконечных циклов в режимах 1–3.
 - **Microbench без таймаута:** в режиме 4 (`timeit`) таймаут не применяется — бесконечный цикл в решении подвесит grader. Используйте только с проверенными решениями.
 - **Нет sandbox:** grader не изолирует файловую систему или сеть. Запускайте только доверенные решения.
