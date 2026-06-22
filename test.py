@@ -9,6 +9,7 @@ import time
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date
 from threading import Thread
 from typing import Optional
 
@@ -657,24 +658,52 @@ def ask_microbench_repeats() -> int:
         print("Please enter integer from 100 to 50000.")
 
 
+def _coerce_arg(s: str) -> object:
+    """Try to coerce a raw input string to the most fitting Python type.
+
+    Priority:
+    1. date.fromisoformat()  — "2020-01-01" -> date(2020, 1, 1)
+    2. int()                 — "42"          -> 42
+    3. float()               — "3.14"        -> 3.14
+    4. raw str               — anything else stays a string
+    """
+    # date: exactly YYYY-MM-DD
+    if len(s) == 10 and s[4] == "-" and s[7] == "-":
+        try:
+            return date.fromisoformat(s)
+        except ValueError:
+            pass
+    # int
+    try:
+        return int(s)
+    except ValueError:
+        pass
+    # float
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    return s
+
+
 def _build_test_args_from_cases(test_cases: list[TestCase]) -> list[tuple]:
     """Convert test input lines into positional-arg tuples for microbench.
 
-    Each input test is passed as separate string arguments — one per input line.
-    This handles multi-line inputs (e.g. two date strings on separate lines)
-    as well as single-line inputs.
+    Each input line is coerced via _coerce_arg:
+    - "2020-01-01" -> date(2020, 1, 1)   (for date-based tasks)
+    - "42"         -> 42                  (for int tasks)
+    - "3.14"       -> 3.14               (for float tasks)
+    - anything else stays str
 
-    The function does NOT coerce to int/float: type coercion caused TypeError
-    for functions expecting strings (e.g. date-string arguments).
-    microbench_runner._safe_call() handles TypeError at call time as a fallback.
+    Two-line input ("2020-01-01" / "2020-12-31") becomes
+    (date(2020,1,1), date(2020,12,31)) — exactly what saturdays_between_two_dates expects.
     """
     args_list = []
     for tc in test_cases:
         if not tc.input_lines:
             args_list.append(())
         else:
-            # Pass each input line as a separate string argument
-            args_list.append(tuple(tc.input_lines))
+            args_list.append(tuple(_coerce_arg(line) for line in tc.input_lines))
     return args_list or [()]
 
 
