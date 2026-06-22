@@ -1,32 +1,63 @@
+"""at_first.py — бизнес-логика: конфиг, файловая система, оркестрация.
+
+Архитектурный слой: Domain / Application.
+Отвечает за:
+  - управление конфигом (stepik_config.json) и secrets.json,
+  - разбор URL шага Stepik,
+  - построение директорий задач (slugify, build_task_directory),
+  - сохранение файлов задачи (template.py, solution.py, meta.json, task.md),
+  - оркестрацию вызовов к Stepik API через stepik_client.
+
+HTTP/OAuth логика вынесена в stepik_client.py (Sprint 3, июнь 2026).
+"""
+
 from __future__ import annotations
 
 import json
 import pathlib
 import re
-import threading
-import time
-import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, cast
-from urllib.parse import parse_qs, urlencode, urlparse
+from typing import Any
+from urllib.parse import parse_qs, urlparse
 
-import requests
-from requests.auth import HTTPBasicAuth
+from stepik_client import (
+    create_user_session,
+    download_and_extract_submissions,
+    fetch_course_data,
+    fetch_lesson_data,
+    fetch_section_data,
+    fetch_step_data,
+    fetch_submission_data,
+    fetch_unit_data,
+)
 
-API_HOST = "https://stepik.org"
 CONFIG_FILE = "stepik_config.json"
 
-HEADERS: dict[str, str] = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/126.0 Safari/537.36"
-    ),
-    "Accept": "application/json, text/html;q=0.9,*/*;q=0.8",
-}
+
+# ---------------------------------------------------------------------------
+# Утилиты: JSON и файловая система
+# ---------------------------------------------------------------------------
+
+def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
+    """Читает JSON-файл и возвращает dict. Бросает ValueError если корень не объект."""
+    with open(file_path, encoding="utf-8") as file:
+        data = json.load(file)
+    if not isinstance(data, dict):
+        raise ValueError(f"Ожидался JSON-объект в файле {file_path}")
+    return data
+
+
+def save_json_file(file_path: pathlib.Path, payload: dict[str, Any]) -> None:
+    """Сохраняет dict как JSON-файл, создавая родительские директории."""
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(file_path, "w", encoding="utf-8") as file:
+        json.dump(payload, file, ensure_ascii=False, indent=2)
 
 
 def slugify(text: str) -> str:
+    """Преобразует произвольный текст в slug пригодный для имени директории.
+
+    Максимум 80 символов. Возвращает 'task' если результат пустой.
+    """
     text = text.strip().lower().replace("ё", "е")
     text = re.sub(r'[<>:"/\\|?*]+', "", text)
     text = re.sub(r"[^\w\s-]", "", text, flags=re.UNICODE)
@@ -35,27 +66,23 @@ def slugify(text: str) -> str:
     return text[:80] or "task"
 
 
-def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
-    with open(file_path, encoding="utf-8") as file:
-        data = json.load(file)
-    if not isinstance(data, dict):
-        raise ValueError(f"Ожидался JSON-объект в файле {file_path}")
-    return data  # isinstance guard выше гарантирует dict[str, Any]
-
-
-def save_json_file(file_path: pathlib.Path, payload: dict[str, Any]) -> None:
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(file_path, "w", encoding="utf-8") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2)
-
+# ---------------------------------------------------------------------------
+# Утилиты: ввод-вывод
+# ---------------------------------------------------------------------------
 
 def ask_value(prompt: str, default: str = "") -> str:
+    """Запрашивает значение у пользователя с опциональным дефолтом."""
     suffix = f" [{default}]" if default else ""
     value = input(f"{prompt}{suffix}: ").strip()
     return value or default
 
 
+# ---------------------------------------------------------------------------
+# Конфигурация
+# ---------------------------------------------------------------------------
+
 def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
+    """Интерактивно создаёт или перезаписывает stepik_config.json."""
     print("\nНастройка конфигурации...")
     root_dir = ask_value("Укажи базовую директорию для сохранения задач", "P2.2")
     secrets_path = ask_value("Укажи путь к secrets.json", "secrets.json")
@@ -66,6 +93,7 @@ def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
 
 
 def load_or_create_config(config_path: pathlib.Path) -> dict[str, Any]:
+    """Загружает конфиг; если не существует — запускает интерактивное создание."""
     if not config_path.exists():
         print("⚠️ Конфиг не найден. Будет создан новый.")
         return create_or_update_config(config_path)
@@ -79,7 +107,11 @@ def load_or_create_config(config_path: pathlib.Path) -> dict[str, Any]:
     return config
 
 
-def normalize_config_paths(config: dict[str, Any], config_path: pathlib.Path) -> dict[str, Any]:
+def normalize_config_paths(
+    config: dict[str, Any],
+    config_path: pathlib.Path,
+) -> dict[str, Any]:
+    """Нормализует пути в конфиге до абсолютных; повторно запрашивает при ошибках."""
     root_dir_value = str(config.get("root_dir", "")).strip()
     secrets_value = str(config.get("secrets_path", "")).strip()
     if not root_dir_value or not secrets_value:
@@ -107,7 +139,18 @@ def normalize_config_paths(config: dict[str, Any], config_path: pathlib.Path) ->
     return normalized
 
 
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+
 def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
+    """Загружает и валидирует secrets.json.
+
+    Raises
+    ------
+    FileNotFoundError, IsADirectoryError, ValueError:
+        При отсутствии файла, если указана папка, или при неполных полях.
+    """
     if not secrets_path.exists():
         raise FileNotFoundError(
             f"Файл secrets не найден: {secrets_path}\n"
@@ -125,39 +168,24 @@ def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
     for field in required_fields:
         if not str(data.get(field, "")).strip():
             raise ValueError(f"В secrets.json должно быть заполнено поле {field!r}")
-    return data  # isinstance guard выше гарантирует dict[str, Any]
+    return data
 
 
 def save_secrets(secrets_path: pathlib.Path, data: dict[str, Any]) -> None:
+    """Сохраняет secrets dict в файл."""
     save_json_file(secrets_path, data)
 
 
-def make_session(access_token: str) -> requests.Session:
-    session = requests.Session()
-    session.headers.update(HEADERS)
-    session.headers["Authorization"] = f"Bearer {access_token}"
-    return session
-
-
-def token_is_valid(secrets: dict[str, Any]) -> bool:
-    access_token = str(secrets.get("access_token", "")).strip()
-    expires_at = float(str(secrets.get("expires_at", 0) or 0))
-    return bool(access_token) and time.time() < expires_at - 60
-
-
-def refresh_access_token(client_id: str, client_secret: str, refresh_token: str) -> dict[str, Any]:
-    response = requests.post(
-        f"{API_HOST}/oauth2/token/",
-        auth=HTTPBasicAuth(client_id, client_secret),
-        data={"grant_type": "refresh_token", "refresh_token": refresh_token},
-        headers={"User-Agent": HEADERS["User-Agent"]},
-        timeout=30,
-    )
-    response.raise_for_status()
-    return cast(dict[str, Any], response.json())
-
+# ---------------------------------------------------------------------------
+# URL-парсинг
+# ---------------------------------------------------------------------------
 
 def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
+    """Извлекает (lesson_id, step_position) из URL шага Stepik.
+
+    Ожидаемый формат:
+        https://stepik.org/lesson/569749/step/4?unit=564263
+    """
     parsed = urlparse(step_url.strip())
     match = re.search(r"lesson/(\d+)/step/(\d+)", parsed.path)
     if not match:
@@ -168,195 +196,12 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2))
 
 
-def _make_oauth_handler(auth_data: dict[str, Any], path: str) -> type[BaseHTTPRequestHandler]:
-    """Фабрика: возвращает класс OAuthHandler, захватывающий auth_data и path."""
-
-    class OAuthHandler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: N802
-            req = urlparse(self.path)
-            params = parse_qs(req.query)
-            if req.path != path:
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(b"Not found")
-                return
-            auth_data["code"] = params.get("code", [None])[0]
-            auth_data["error"] = params.get("error", [None])[0]
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(b"<h1>OK. You can close this tab.</h1>")
-
-        def log_message(self, fmt: str, *args: object) -> None:  # noqa: D401
-            pass
-
-    return OAuthHandler
-
-
-def wait_for_auth_code(host: str, port: int, path: str, timeout: int = 120) -> str:
-    """Запускает временный HTTP-сервер и ожидает OAuth-колбэк."""
-    auth_data: dict[str, Any] = {}
-    handler_class = _make_oauth_handler(auth_data, path)
-    server = HTTPServer((host, port), handler_class)  # type: ignore[arg-type]
-    server.timeout = timeout
-
-    def serve() -> None:
-        server.handle_request()
-
-    thread = threading.Thread(target=serve, daemon=True)
-    thread.start()
-    thread.join(timeout=timeout + 5)
-    server.server_close()
-
-    code = auth_data.get("code")
-    error = auth_data.get("error")
-    if error:
-        raise RuntimeError(f"OAuth error: {error}")
-    if not code:
-        raise TimeoutError(f"OAuth code not received within {timeout}s")
-    return str(code)
-
-
-def authorize_via_browser(
-    client_id: str,
-    client_secret: str,
-    redirect_uri: str,
-) -> dict[str, Any]:
-    """Открывает браузер, ожидает OAuth-код, обменивает на токены."""
-    parsed = urlparse(redirect_uri)
-    host = parsed.hostname or "localhost"
-    port = parsed.port or 80
-    path = parsed.path or "/"
-
-    params: dict[str, str] = {
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "response_type": "code",
-    }
-    auth_url = f"{API_HOST}/oauth2/authorize/?{urlencode(params)}"
-    print(f"Открываю браузер: {auth_url}")
-    try:
-        webbrowser.open(auth_url)
-    except OSError:
-        pass
-
-    code = wait_for_auth_code(host, port, path)
-    response = requests.post(
-        f"{API_HOST}/oauth2/token/",
-        auth=HTTPBasicAuth(client_id, client_secret),
-        data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-        },
-        headers={"User-Agent": HEADERS["User-Agent"]},
-        timeout=30,
-    )
-    response.raise_for_status()
-    token_data: dict[str, Any] = response.json()
-    token_data["expires_at"] = time.time() + float(str(token_data.get("expires_in", 3600)))
-    return token_data
-
-
-def create_user_session(secrets: dict[str, Any], secrets_path: pathlib.Path) -> requests.Session:
-    """Возвращает аутентифицированную requests.Session, обновляя токены при необходимости."""
-    client_id = str(secrets["client_id"])
-    client_secret = str(secrets["client_secret"])
-    redirect_uri = str(secrets["redirect_uri"])
-
-    if token_is_valid(secrets):
-        return make_session(str(secrets["access_token"]))
-
-    refresh_token = str(secrets.get("refresh_token", "")).strip()
-    if refresh_token:
-        try:
-            token_data = refresh_access_token(client_id, client_secret, refresh_token)
-            token_data["expires_at"] = time.time() + float(str(token_data.get("expires_in", 3600)))
-            secrets.update(token_data)
-            save_secrets(secrets_path, secrets)
-            return make_session(str(secrets["access_token"]))
-        except requests.HTTPError:
-            print("Refresh token истёк, выполняется повторная авторизация...")
-
-    token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
-    secrets.update(token_data)
-    save_secrets(secrets_path, secrets)
-    return make_session(str(secrets["access_token"]))
-
-
-def fetch_step_data(
-    session: requests.Session,
-    lesson_id: int,
-    step_position: int,
-) -> dict[str, Any]:
-    response = session.get(
-        f"{API_HOST}/api/steps",
-        params={"lesson": lesson_id},
-        timeout=30,
-    )
-    response.raise_for_status()
-    steps: list[dict[str, Any]] = response.json().get("steps", [])
-    for step in steps:
-        if step.get("position") == step_position:
-            return step
-    raise ValueError(f"Шаг с позицией {step_position} не найден в уроке {lesson_id}")
-
-
-def fetch_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, Any]:
-    response = session.get(f"{API_HOST}/api/lessons/{lesson_id}", timeout=30)
-    response.raise_for_status()
-    lessons: list[dict[str, Any]] = response.json().get("lessons", [])
-    if not lessons:
-        raise ValueError(f"Урок {lesson_id} не найден")
-    return lessons[0]
-
-
-def fetch_unit_data(
-    session: requests.Session,
-    lesson_id: int,
-    unit_id: int | None,
-) -> dict[str, Any]:
-    params: dict[str, int] = {"lesson": lesson_id}
-    if unit_id is not None:
-        params["id"] = unit_id
-    response = session.get(f"{API_HOST}/api/units", params=params, timeout=30)
-    response.raise_for_status()
-    units: list[dict[str, Any]] = response.json().get("units", [])
-    if not units:
-        raise ValueError(f"Юнит для урока {lesson_id} не найден")
-    return units[0]
-
-
-def fetch_section_data(session: requests.Session, section_id: int) -> dict[str, Any]:
-    response = session.get(f"{API_HOST}/api/sections/{section_id}", timeout=30)
-    response.raise_for_status()
-    sections: list[dict[str, Any]] = response.json().get("sections", [])
-    if not sections:
-        raise ValueError(f"Секция {section_id} не найдена")
-    return sections[0]
-
-
-def fetch_course_data(session: requests.Session, course_id: int) -> dict[str, Any]:
-    response = session.get(f"{API_HOST}/api/courses/{course_id}", timeout=30)
-    response.raise_for_status()
-    courses: list[dict[str, Any]] = response.json().get("courses", [])
-    if not courses:
-        raise ValueError(f"Курс {course_id} не найден")
-    return courses[0]
-
-
-def fetch_submission_data(session: requests.Session, step_id: int) -> dict[str, Any] | None:
-    response = session.get(
-        f"{API_HOST}/api/submissions",
-        params={"step": step_id, "order": "desc"},
-        timeout=30,
-    )
-    response.raise_for_status()
-    submissions: list[dict[str, Any]] = response.json().get("submissions", [])
-    return submissions[0] if submissions else None
-
+# ---------------------------------------------------------------------------
+# Извлечение кода
+# ---------------------------------------------------------------------------
 
 def extract_python_code(step: dict[str, Any]) -> str | None:
+    """Извлекает Python code_template из объекта шага или из блока Markdown."""
     block: dict[str, Any] = step.get("block") or {}
     for option in block.get("options") or []:
         if isinstance(option, dict) and option.get("code_template"):
@@ -369,12 +214,17 @@ def extract_python_code(step: dict[str, Any]) -> str | None:
 
 
 def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
+    """Извлекает Python-код из объекта сабмишна или возвращает None."""
     if not submission:
         return None
     reply: dict[str, Any] = submission.get("reply") or {}
     code = reply.get("code")
     return str(code) if code else None
 
+
+# ---------------------------------------------------------------------------
+# Построение директорий и сохранение файлов задачи
+# ---------------------------------------------------------------------------
 
 def build_task_directory(
     root_dir: pathlib.Path,
@@ -384,6 +234,7 @@ def build_task_directory(
     step_position: int,
     step_title: str,
 ) -> pathlib.Path:
+    """Строит путь к директории задачи по иерархии курс/секция/урок/шаг."""
     parts = [
         slugify(course_title),
         slugify(section_title),
@@ -401,6 +252,7 @@ def save_task_files(
     section: dict[str, Any],
     course: dict[str, Any],
 ) -> None:
+    """Сохраняет template.py, solution.py, meta.json и task.md в task_dir."""
     task_dir.mkdir(parents=True, exist_ok=True)
 
     template_code = extract_python_code(step)
@@ -432,53 +284,18 @@ def save_task_files(
         (task_dir / "task.md").write_text(text, encoding="utf-8")
 
 
-def download_and_extract_submissions(
-    session: requests.Session,
-    step_id: int,
-    task_dir: pathlib.Path,
-) -> None:
-    """Скачивает сабмишны для step_id и сохраняет .py-файлы в task_dir/submissions/.
-
-    Использует эндпоинт Stepik API:
-        GET /api/submissions?step=<step_id>&order=desc
-    Каждый Python-код сабмишна сохраняется отдельным файлом.
-    """
-    response = session.get(
-        f"{API_HOST}/api/submissions",
-        params={"step": step_id, "order": "desc"},
-        timeout=30,
-    )
-    response.raise_for_status()
-    submissions: list[dict[str, Any]] = response.json().get("submissions", [])
-
-    if not submissions:
-        print("  Сабмишны для данного шага не найдены.")
-        return
-
-    submissions_dir = task_dir / "submissions"
-    submissions_dir.mkdir(parents=True, exist_ok=True)
-
-    saved = 0
-    for sub in submissions:
-        sub_id = sub.get("id")
-        reply: dict[str, Any] = sub.get("reply") or {}
-        code = reply.get("code")
-        if code and isinstance(code, str):
-            file_name = f"submission_{sub_id}.py"
-            (submissions_dir / file_name).write_text(code, encoding="utf-8")
-            saved += 1
-
-    if saved:
-        print(f"  Сабмишны сохранены в: {submissions_dir} ({saved} файлов)")
-    else:
-        print("  Сабмишны найдены, но Python-код в ответах API не обнаружен.")
-
+# ---------------------------------------------------------------------------
+# Оркестрация: один шаг
+# ---------------------------------------------------------------------------
 
 def process_step_url(
     step_url: str,
-    session: requests.Session,
+    session: "requests.Session",  # type: ignore[name-defined]  # noqa: F821
     root_dir: pathlib.Path,
 ) -> None:
+    """Скачивает все данные одного шага и сохраняет в файловую систему."""
+    import requests  # noqa: PLC0415
+
     parsed_url = urlparse(step_url)
     url_params = parse_qs(parsed_url.query)
     unit_id_list = url_params.get("unit", [])
@@ -525,7 +342,12 @@ def process_step_url(
     print(f"  ✅ Шаг сохранён: {task_dir}")
 
 
+# ---------------------------------------------------------------------------
+# Точка входа
+# ---------------------------------------------------------------------------
+
 def main() -> None:
+    """Главная функция: конфиг → авторизация → цикл обработки URL шагов."""
     config_path = pathlib.Path(CONFIG_FILE)
 
     try:
