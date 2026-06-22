@@ -65,12 +65,13 @@ class MicrobenchResult:
         return max(self.timings) if self.timings else 0.0
 
     @property
-    def stdev_time(self) -> float:
+    def std_dev_time(self) -> float:
+        """Standard deviation of per-call timings. Returns 0.0 if fewer than 2 samples."""
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
 def _make_stdin_runner(compiled: object, stdin_text: str):
-    """Return a zero-arg callable that exec’s compiled code with stdin/stdout redirected.
+    """Return a zero-arg callable that exec's compiled code with stdin/stdout redirected.
 
     🟠 ИСПРАВЛЕНО: заменена прямая подмена sys.stdin/sys.stdout на
     contextlib.redirect_stdin + contextlib.redirect_stdout.

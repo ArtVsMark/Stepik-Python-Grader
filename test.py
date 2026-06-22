@@ -12,7 +12,6 @@ import traceback
 from collections import defaultdict
 from dataclasses import dataclass
 from threading import Thread
-from typing import Optional
 
 import chardet
 import psutil
@@ -52,7 +51,7 @@ class VerificationResult:
     avg_time: float
     peak_memory_mb: float
     status: str
-    failed_test_index: Optional[int] = None
+    failed_test_index: int | None = None
     error_message: str = ""
 
 
@@ -383,7 +382,6 @@ def load_test_cases(tests_dir: pathlib.Path) -> list[TestCase]:
         test_file_path = tests_dir / f"{test_number}.clue"
         input_file_path = tests_dir / str(test_number)
 
-        # 🟡 УЛУЧШЕНО: используем специализированную функцию вместо load_text_lines(..., return_encoding=True)
         expected_lines, _ = load_text_lines_with_encoding(str(test_file_path))
         input_lines = load_text_lines(str(input_file_path))
         test_cases.append(
@@ -711,7 +709,7 @@ def print_microbench_table(task_folder: str, results: list[MicrobenchResult]) ->
             f"{r.median_time * us:>12.2f}"
             f"{r.mean_time * us:>12.2f}"
             f"{r.max_time * us:>12.2f}"
-            f"{r.stdev_time * us:>12.2f}"
+            f"{r.std_dev_time * us:>12.2f}"
             f"{r.relative_percent:>11.1f}%"
             f"{r.verdict:>12}"
         )
