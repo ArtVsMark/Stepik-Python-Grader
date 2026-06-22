@@ -1,21 +1,30 @@
-"""microbench_runner.py — timeit-based microbenchmark for function-only solutions.
+"""microbench_runner.py — timeit-based microbenchmark via exec + io.StringIO.
 
-Only function-only solutions (no module-level input() calls) are supported,
-because timeit runs code inside the same process.  For subprocess-based
-solutions use mode 3 (benchmark) in test.py instead.
+Архитектура:
+    Вместо прямого вызова func(*args) мы имитируем stdin через io.StringIO
+    и запускаем полный exec(compiled_code) внутри одного процесса.
 
-Typical usage from test.py (mode 4):
-    result = run_microbench(source_code, test_args_list, file_label, repeats)
+    Это устраняет фундаментальное противоречие:
+    - тест-файлы tests/N созданы для subprocess (stdin → input() → print())
+    - timeit должен вызывать код напрямую, без нового процесса
+
+    Решение: compile() один раз снаружи цикла (амортизирует парсинг),
+    затем exec(compiled, {}) в каждой итерации с подменённым sys.stdin.
+    sys.stdout подавлен через io.StringIO — print() не замедляет замер.
+
+Типичный вызов из test.py (режим 4):
+    stdin_texts = ["\\n".join(tc.input_lines) for tc in test_cases]
+    result = run_microbench(source_code, stdin_texts, file_label, repeats)
     results = apply_relative_micro(results)
     print_microbench_table(task_folder, results)
 """
 
 from __future__ import annotations
 
-import ast
+import io
 import statistics
+import sys
 import timeit
-import traceback
 from dataclasses import dataclass, field
 
 SIMILAR_THRESHOLD_PERCENT = 5.0
@@ -23,19 +32,17 @@ SIMILAR_THRESHOLD_PERCENT = 5.0
 
 @dataclass
 class MicrobenchResult:
-    """Timing result for a single function-only solution file."""
+    """Timing result for a single solution file."""
 
     file: str
-    func_name: str
     repeats: int
     timings: list[float] = field(default_factory=list)
     error: str = ""
     relative_percent: float = 100.0
     verdict: str = "OK"
 
-    # ------------------------------------------------------------------
-    # Derived statistics (computed from timings list)
-    # ------------------------------------------------------------------
+    # func_name kept for display compatibility
+    func_name: str = "<exec>"
 
     @property
     def min_time(self) -> float:
@@ -58,86 +65,84 @@ class MicrobenchResult:
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
-def _find_callable(namespace: dict, source_code: str) -> tuple[str, object] | tuple[None, None]:
-    """Return (name, callable) for the first public function defined in source_code."""
-    try:
-        tree = ast.parse(source_code)
-    except SyntaxError:
-        return None, None
+def _make_stdin_runner(compiled, stdin_text: str):
+    """Return a zero-arg callable that exec's compiled code with stdin mocked.
 
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            name = node.name
-            if name in namespace and callable(namespace[name]):
-                return name, namespace[name]
+    compile() is done OUTSIDE this function (once per file) so timeit
+    measures only the execution logic, not source parsing.
 
-    return None, None
+    sys.stdout is replaced with a fresh io.StringIO on every call so
+    print() output doesn't reach the terminal and doesn't distort timing.
+    """
+    def _run():
+        old_stdin = sys.stdin
+        old_stdout = sys.stdout
+        sys.stdin = io.StringIO(stdin_text)
+        sys.stdout = io.StringIO()
+        try:
+            exec(compiled, {})  # noqa: S102
+        finally:
+            sys.stdin = old_stdin
+            sys.stdout = old_stdout
+    return _run
 
 
 def run_microbench(
     source_code: str,
-    test_args_list: list[tuple],
+    stdin_texts: list[str],
     file_label: str,
     repeats: int = 1_000,
 ) -> MicrobenchResult:
-    """Execute timeit microbenchmark for a function-only solution.
+    """Timeit microbenchmark: exec source_code with each stdin text.
 
     Parameters
     ----------
     source_code:
-        Full Python source of the solution (must be function-only).
-    test_args_list:
-        List of argument tuples extracted from the test cases.
-        Each tuple is unpacked and passed to the function.
-        Example: [(1, 2), (3, 4)] for a function f(a, b).
+        Full Python source of the solution (function-only или любой скрипт
+        с input()).
+    stdin_texts:
+        Список строк-stdin для каждого тест-кейса.
+        Каждая строка — это содержимое тест-файла tests/N (строки через \\n).
+        timeit запускается для каждого элемента отдельно, timings складываются.
     file_label:
-        Short label shown in the results table (usually the relative path).
+        Короткий лейбл для таблицы результатов (обычно rel_path файла).
     repeats:
-        Number of timeit calls *per argument tuple*.  The total number of
-        timings stored in MicrobenchResult.timings = repeats x len(test_args_list).
+        Количество вызовов timeit.timeit(..., number=repeats) на каждый stdin.
+        Общее число замеров = repeats × len(stdin_texts).
     """
-    namespace: dict = {}
-
-    # Compile and exec the source once — amortises import overhead
+    # Compile once — amortise source parsing across all repeats
     try:
-        exec(compile(source_code, file_label, "exec"), namespace)  # noqa: S102
-    except Exception as exc:
+        compiled = compile(source_code, file_label, "exec")
+    except SyntaxError as exc:
         return MicrobenchResult(
             file=file_label,
-            func_name="<compile error>",
             repeats=repeats,
-            error=f"{type(exc).__name__}: {exc}",
+            error=f"SyntaxError: {exc}",
         )
 
-    func_name, func = _find_callable(namespace, source_code)
-    if func is None:
-        return MicrobenchResult(
-            file=file_label,
-            func_name="<no function>",
-            repeats=repeats,
-            error="No callable function found in source.",
-        )
+    if not stdin_texts:
+        stdin_texts = [""]
 
     timings: list[float] = []
 
-    for args in test_args_list:
+    for stdin_text in stdin_texts:
+        runner = _make_stdin_runner(compiled, stdin_text)
         try:
-            # timeit returns total time for `number` calls; divide to get per-call time
-            total = timeit.timeit(lambda a=args: func(*a), number=repeats)
+            # timeit returns total seconds for `number` calls
+            total = timeit.timeit(runner, number=repeats)
             per_call = total / repeats
             timings.append(per_call)
         except Exception as exc:
-            tb = traceback.format_exc(limit=3)
+            import traceback
+            tb = traceback.format_exc(limit=4)
             return MicrobenchResult(
                 file=file_label,
-                func_name=func_name,
                 repeats=repeats,
                 error=f"{type(exc).__name__}: {exc}\n{tb}",
             )
 
     return MicrobenchResult(
         file=file_label,
-        func_name=func_name,
         repeats=repeats,
         timings=timings,
     )
@@ -154,7 +159,6 @@ def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResu
     for r in valid:
         r.relative_percent = (r.median_time / best) * 100 if best > 0 else 100.0
         delta = r.relative_percent - 100
-
         if delta <= SIMILAR_THRESHOLD_PERCENT:
             r.verdict = "SIMILAR"
         elif delta <= 15:

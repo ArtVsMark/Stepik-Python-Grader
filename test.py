@@ -9,7 +9,6 @@ import time
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date
 from threading import Thread
 from typing import Optional
 
@@ -488,7 +487,6 @@ def print_single_result(result: VerificationResult) -> None:
 
 
 def _file_col_width(files: list[str], header: str = "File", min_width: int = 20) -> int:
-    """Dynamic width for the File column based on actual filenames."""
     return max(min_width, len(header), max((len(f) for f in files), default=0)) + 2
 
 
@@ -575,14 +573,12 @@ def print_benchmark_table(task_folder: str, results: list[BenchmarkStats]) -> No
 
 def print_microbench_table(task_folder: str, results: list[MicrobenchResult]) -> None:
     fw = _file_col_width([r.file for r in results])
-    fn_width = max(12, max((len(r.func_name) for r in results), default=0)) + 2
-    total_width = fw + fn_width + 10 + 12 * 5 + 12 + 12
+    total_width = fw + 10 + 12 * 5 + 12 + 12
 
     print(f"\n\u26a1 Microbench (timeit): {task_folder}")
     print("-" * total_width)
     print(
         f"{'File':{fw}}"
-        f"{'Function':{fn_width}}"
         f"{'Repeats':>10}"
         f"{'Min, us':>12}"
         f"{'Median, us':>12}"
@@ -601,12 +597,11 @@ def print_microbench_table(task_folder: str, results: list[MicrobenchResult]) ->
 
     for r in sorted_results:
         if r.error:
-            print(f"{r.file:{fw}}{r.func_name:{fn_width}}{'ERROR':>10}  {r.error}")
+            print(f"{r.file:{fw}}{'ERROR':>10}  {r.error.splitlines()[0]}")
             continue
-        us = 1_000_000  # seconds -> microseconds
+        us = 1_000_000
         print(
             f"{r.file:{fw}}"
-            f"{r.func_name:{fn_width}}"
             f"{r.repeats:>10}"
             f"{r.min_time * us:>12.2f}"
             f"{r.median_time * us:>12.2f}"
@@ -639,7 +634,7 @@ def ask_benchmark_repeats() -> int:
 
 
 def ask_microbench_repeats() -> int:
-    print("\nMicrobench repeats (calls per function):")
+    print("\nMicrobench repeats (calls per run):")
     print("1 - fast  (500)")
     print("2 - normal (1000)")
     print("3 - thorough (5000)")
@@ -658,138 +653,37 @@ def ask_microbench_repeats() -> int:
         print("Please enter integer from 100 to 50000.")
 
 
-def _coerce_arg(s: str) -> object:
-    """Try to coerce a raw input string to the most fitting Python type.
+def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str]:
+    """Build list of stdin strings for microbench.
 
-    Priority:
-    1. date.fromisoformat()  — "2020-01-01" -> date(2020, 1, 1)
-    2. int()                 — "42"          -> 42
-    3. float()               — "3.14"        -> 3.14
-    4. raw str               — anything else stays a string
+    For function-only solutions: prepend source code lines before test input
+    (same logic as build_input_data for subprocess mode).
+    For script solutions: use test input as-is.
     """
-    # date: exactly YYYY-MM-DD
-    if len(s) == 10 and s[4] == "-" and s[7] == "-":
-        try:
-            return date.fromisoformat(s)
-        except ValueError:
-            pass
-    # int
-    try:
-        return int(s)
-    except ValueError:
-        pass
-    # float
-    try:
-        return float(s)
-    except ValueError:
-        pass
-    return s
+    is_func_only = is_function_only_solution(source_code)
+    source_lines = source_code.splitlines()
+    stdin_texts = []
 
-
-def _build_test_args_from_cases(test_cases: list[TestCase]) -> list[tuple]:
-    """Convert test input lines into positional-arg tuples for microbench.
-
-    Each input line is coerced via _coerce_arg:
-    - "2020-01-01" -> date(2020, 1, 1)   (for date-based tasks)
-    - "42"         -> 42                  (for int tasks)
-    - "3.14"       -> 3.14               (for float tasks)
-    - anything else stays str
-
-    Two-line input ("2020-01-01" / "2020-12-31") becomes
-    (date(2020,1,1), date(2020,12,31)) — exactly what saturdays_between_two_dates expects.
-    """
-    args_list = []
     for tc in test_cases:
-        if not tc.input_lines:
-            args_list.append(())
+        if is_func_only:
+            # executor.py pattern: source + test input on stdin
+            combined = "\n".join(source_lines + tc.input_lines)
         else:
-            args_list.append(tuple(_coerce_arg(line) for line in tc.input_lines))
-    return args_list or [()]
+            combined = "\n".join(tc.input_lines)
+        stdin_texts.append(combined)
 
-
-def run_single_mode(root_dir: pathlib.Path, executor: str) -> None:
-    script_file = input("Enter py-file's path from the content root: ").strip()
-    result = verify_file(script_file, root_dir, executor)
-    print_single_result(result)
-
-
-def run_compare_mode(root_dir: pathlib.Path, executor: str) -> None:
-    folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_input_path(root_dir, folder)
-
-    if not target_dir.exists():
-        print(f"Folder not found: {target_dir}")
-        return
-
-    if not target_dir.is_dir():
-        print(f"Not a directory: {target_dir}")
-        return
-
-    all_files = find_all_solution_files(str(target_dir))
-    if not all_files:
-        print(f"No solution files found in: {target_dir}")
-        print("Expected names like: task.py, task_1.py, task_2.py, task2.py, task2_1.py")
-        return
-
-    grouped_files: dict[str, list[str]] = defaultdict(list)
-    for abs_path in all_files:
-        rel_path = os.path.relpath(abs_path, root_dir)
-        task_folder = os.path.dirname(rel_path)
-        grouped_files[task_folder].append(rel_path)
-
-    for task_folder, files in sorted(grouped_files.items()):
-        results = [verify_file(file, root_dir, executor) for file in files]
-        print_verification_table(task_folder, results)
-
-
-def run_benchmark_mode(root_dir: pathlib.Path, executor: str) -> None:
-    folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_input_path(root_dir, folder)
-
-    if not target_dir.exists():
-        print(f"Folder not found: {target_dir}")
-        return
-
-    if not target_dir.is_dir():
-        print(f"Not a directory: {target_dir}")
-        return
-
-    repeats = ask_benchmark_repeats()
-
-    all_files = find_all_solution_files(str(target_dir))
-    if not all_files:
-        print(f"No solution files found in: {target_dir}")
-        return
-
-    grouped_files: dict[str, list[str]] = defaultdict(list)
-    for abs_path in all_files:
-        rel_path = os.path.relpath(abs_path, root_dir)
-        task_folder = os.path.dirname(rel_path)
-        grouped_files[task_folder].append(rel_path)
-
-    for task_folder, files in sorted(grouped_files.items()):
-        stats = []
-
-        for file in files:
-            benchmark_stats = benchmark_file(file, root_dir, executor, repeats)
-            if benchmark_stats is not None:
-                stats.append(benchmark_stats)
-
-        stats = apply_relative_metrics(stats)
-
-        if stats:
-            print_benchmark_table(task_folder, stats)
-        else:
-            print(f"\n\U0001f680 Benchmark: {task_folder}")
-            print("No fully passed solutions available for benchmark.")
+    return stdin_texts or [""]
 
 
 def run_microbench_mode(root_dir: pathlib.Path) -> None:
-    """Mode 4 — timeit microbenchmark for function-only solutions.
+    """Mode 4 — timeit microbenchmark via exec + io.StringIO.
 
-    Skips solutions that are not function-only (e.g., use input() at module level).
-    Uses test input data as argument hints; falls back to empty call if tests
-    directory is absent.  Reports times in microseconds for easy comparison.
+    Работает для любого типа задач:
+    - function-only: source + test_input подаётся как stdin (как executor.py)
+    - script: только test_input
+
+    Замеряет только логику выполнения, без subprocess-overhead.
+    Время в микросекундах.
     """
     folder = input("Enter top-level folder from the content root: ").strip()
     target_dir = resolve_input_path(root_dir, folder)
@@ -823,22 +717,24 @@ def run_microbench_mode(root_dir: pathlib.Path) -> None:
             source_lines = load_text_lines(str(program_path))
             source_code = "\n".join(source_lines)
 
-            if not is_function_only_solution(source_code):
-                print(f"  \u23ed\ufe0f  Skipped (not function-only): {rel_path}")
-                continue
-
-            # Build test args from tests/ if available
+            # Load test cases for stdin construction
             module_folder = os.path.dirname(rel_path)
             tests_dir = root_dir / module_folder / "tests"
             if tests_dir.exists():
                 test_cases = load_test_cases(tests_dir)
-                test_args_list = _build_test_args_from_cases(test_cases)
+                # Use only first test case for microbench to keep timing stable
+                bench_cases = test_cases[:1] if test_cases else []
             else:
-                test_args_list = [()]
+                bench_cases = []
+
+            if bench_cases:
+                stdin_texts = _build_stdin_texts(source_code, bench_cases)
+            else:
+                stdin_texts = [source_code]  # function-only, no args needed
 
             result = run_microbench(
                 source_code=source_code,
-                test_args_list=test_args_list,
+                stdin_texts=stdin_texts,
                 file_label=rel_path,
                 repeats=repeats,
             )
@@ -850,7 +746,7 @@ def run_microbench_mode(root_dir: pathlib.Path) -> None:
             print_microbench_table(task_folder, micro_results)
         else:
             print(f"\n\u26a1 Microbench: {task_folder}")
-            print("No function-only solutions found for microbench.")
+            print("No solutions found for microbench.")
 
 
 if __name__ == "__main__":
@@ -861,7 +757,7 @@ if __name__ == "__main__":
     print("1 - test single file")
     print("2 - compare all solutions in top-level folder")
     print("3 - benchmark passed solutions")
-    print("4 - microbench (timeit, function-only solutions)")
+    print("4 - microbench (timeit, any solution type)")
     print(
         "Memory mode: "
         + (
