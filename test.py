@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import ast
-import contextlib
-import io
 import os
 import pathlib
 import re
@@ -29,7 +27,7 @@ from microbench_runner import (
 MEASURE_CHILD_MEMORY = False
 CHILD_MEMORY_POLL_INTERVAL = 0.01
 SIMILAR_THRESHOLD_PERCENT = 5.0
-MICROBENCH_MAX_CASES = 5   # ≤5 тест-кейсов в microbench: достаточно для стабильного Stdev,
+MICROBENCH_MAX_CASES = 5   # ≤5 тест-кейсов в microbench: достаточно для стабильного std-dev,
                             # не перегружает timeit при большом числе repeats
 SUBPROCESS_TIMEOUT = 10.0  # секунд: защита от бесконечных циклов в решениях студентов
 
@@ -68,7 +66,7 @@ class BenchmarkStats:
     median_time: float
     mean_time: float
     max_time: float
-    stdev_time: float
+    std_dev_time: float
     peak_memory_mb: float
     relative_percent: float = 100.0
     verdict: str = "OK"
@@ -140,31 +138,31 @@ def find_all_solution_files(directory: str) -> list[str]:
 
 
 def collect_grouped_files(
-    target_dir: pathlib.Path, root_dir: pathlib.Path
+    target_dir: pathlib.Path, base_dir: pathlib.Path
 ) -> dict[str, list[str]]:
     """Найти все solution-файлы в target_dir и сгруппировать по папке задачи.
 
     Вынесено из трёх mode-runner'ов для устранения дублирования.
-    Ключ — rel_path папки задачи от root_dir; значение — список rel_path файлов.
+    Ключ — rel_path папки задачи от base_dir; значение — список rel_path файлов.
     """
     all_files = find_all_solution_files(str(target_dir))
     grouped: dict[str, list[str]] = defaultdict(list)
     for abs_path in all_files:
-        rel_path = os.path.relpath(abs_path, root_dir)
+        rel_path = os.path.relpath(abs_path, base_dir)
         task_folder = os.path.dirname(rel_path)
         grouped[task_folder].append(rel_path)
     return grouped
 
 
 def resolve_and_validate_dir(
-    root_dir: pathlib.Path, user_input: str, prompt: str = "папка"
+    base_dir: pathlib.Path, user_input: str, prompt: str = "папка"
 ) -> pathlib.Path | None:
     """Резолвить пользовательский ввод в Path и проверить, что это существующая директория.
 
     Возвращает Path при успехе или None с выводом ошибки при неудаче.
     Вынесено из трёх mode-runner'ов для устранения дублирования.
     """
-    target = resolve_input_path(root_dir, user_input)
+    target = resolve_input_path(base_dir, user_input)
     if not target.exists():
         print(f"{prompt.capitalize()} не найдена: {target}")
         return None
@@ -208,9 +206,9 @@ def log_error(file: str) -> None:
         print(f"Warning: не удалось записать в errors.txt: {exc}")
 
 
-def resolve_input_path(root_dir: pathlib.Path, user_input: str) -> pathlib.Path:
+def resolve_input_path(base_dir: pathlib.Path, user_input: str) -> pathlib.Path:
     path = pathlib.Path(user_input.strip())
-    return path if path.is_absolute() else (root_dir / path).resolve()
+    return path if path.is_absolute() else (base_dir / path).resolve()
 
 
 def print_test_mismatch(test_index: int, test_data: list[str], correct: list[str], result: list[str]) -> None:
@@ -399,11 +397,11 @@ def load_test_cases(tests_dir: pathlib.Path) -> list[TestCase]:
     return test_cases
 
 
-def prepare_execution(script_path: pathlib.Path, executor: str) -> tuple[list[str], bool, str]:
+def prepare_execution(script_path: pathlib.Path, exec_file: str) -> tuple[list[str], bool, str]:
     program_lines = load_text_lines(str(script_path))
     solution_syntax = "\n".join(program_lines)
     is_function_only = is_function_only_solution(solution_syntax)
-    executor_file = executor if is_function_only else str(script_path)
+    executor_file = exec_file if is_function_only else str(script_path)
     return program_lines, is_function_only, executor_file
 
 
@@ -413,10 +411,10 @@ def build_input_data(program_lines: list[str], is_function_only: bool, test_case
     return "\n".join(test_case.input_lines)
 
 
-def verify_file(script_file: str, root_dir: pathlib.Path, executor: str) -> VerificationResult:
-    program_path = root_dir / script_file
+def verify_file(script_file: str, base_dir: pathlib.Path, exec_file: str) -> VerificationResult:
+    program_path = base_dir / script_file
     module_folder = os.path.dirname(script_file)
-    tests_dir = root_dir / module_folder / "tests"
+    tests_dir = base_dir / module_folder / "tests"
 
     if not tests_dir.exists():
         return VerificationResult(
@@ -429,7 +427,7 @@ def verify_file(script_file: str, root_dir: pathlib.Path, executor: str) -> Veri
             status="NO TESTS",
         )
 
-    program_lines, is_function_only, executor_file = prepare_execution(program_path, executor)
+    program_lines, is_function_only, executor_file = prepare_execution(program_path, exec_file)
     test_cases = load_test_cases(tests_dir)
 
     passed_tests = 0
@@ -485,8 +483,8 @@ def verify_file(script_file: str, root_dir: pathlib.Path, executor: str) -> Veri
 
 def benchmark_file(
     script_file: str,
-    root_dir: pathlib.Path,
-    executor: str,
+    base_dir: pathlib.Path,
+    exec_file: str,
     repeats: int,
 ) -> BenchmarkStats | None:
     """Запустить subprocess-бенчмарк для одного файла.
@@ -495,14 +493,14 @@ def benchmark_file(
     потом prepare_execution и load_test_cases вызывались снова. Теперь одна верификация,
     данные переиспользуются.
     """
-    program_path = root_dir / script_file
+    program_path = base_dir / script_file
     module_folder = os.path.dirname(script_file)
-    tests_dir = root_dir / module_folder / "tests"
+    tests_dir = base_dir / module_folder / "tests"
 
     if not tests_dir.exists():
         return None
 
-    program_lines, is_function_only, executor_file = prepare_execution(program_path, executor)
+    program_lines, is_function_only, executor_file = prepare_execution(program_path, exec_file)
     test_cases = load_test_cases(tests_dir)
 
     # Сначала быстрая верификация одним проходом
@@ -545,7 +543,7 @@ def benchmark_file(
     if not timings:
         return None
 
-    stdev_time = statistics.stdev(timings) if len(timings) > 1 else 0.0
+    std_dev_time = statistics.stdev(timings) if len(timings) > 1 else 0.0
 
     return BenchmarkStats(
         file=script_file,
@@ -556,7 +554,7 @@ def benchmark_file(
         median_time=statistics.median(timings),
         mean_time=statistics.mean(timings),
         max_time=max(timings),
-        stdev_time=stdev_time,
+        std_dev_time=std_dev_time,
         peak_memory_mb=peak_memory_mb,
     )
 
@@ -650,7 +648,7 @@ def print_benchmark_table(task_folder: str, results: list[BenchmarkStats]) -> No
         f"{'Median':>12}"
         f"{'Mean':>12}"
         f"{'Max':>12}"
-        f"{'Stdev':>12}"
+        f"{'Std dev':>12}"
         f"{'Memory':>12}"
         f"{'Relative':>12}"
         f"{'Verdict':>12}"
@@ -670,7 +668,7 @@ def print_benchmark_table(task_folder: str, results: list[BenchmarkStats]) -> No
             f"{result.median_time:>12.5f}"
             f"{result.mean_time:>12.5f}"
             f"{result.max_time:>12.5f}"
-            f"{result.stdev_time:>12.5f}"
+            f"{result.std_dev_time:>12.5f}"
             f"{result.peak_memory_mb:>12.2f}"
             f"{result.relative_percent:>11.1f}%"
             f"{result.verdict:>12}"
@@ -681,7 +679,7 @@ def print_microbench_table(task_folder: str, results: list[MicrobenchResult]) ->
     fw = _file_col_width([r.file for r in results])
     total_width = fw + 10 + 12 * 5 + 12 + 12
 
-    print(f"\n⚡ Microbench (timeit): {task_folder}")
+    print(f"\n⚡ Micro-bench (timeit): {task_folder}")
     print("-" * total_width)
     print(
         f"{'File':{fw}}"
@@ -690,7 +688,7 @@ def print_microbench_table(task_folder: str, results: list[MicrobenchResult]) ->
         f"{'Median, us':>12}"
         f"{'Mean, us':>12}"
         f"{'Max, us':>12}"
-        f"{'Stdev, us':>12}"
+        f"{'Std dev, us':>12}"
         f"{'Relative':>12}"
         f"{'Verdict':>12}"
     )
@@ -786,14 +784,14 @@ def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str
 # ---------------------------------------------------------------------------
 
 
-def run_single_mode(root_dir: pathlib.Path, executor: str) -> None:
+def run_single_mode(base_dir: pathlib.Path, exec_file: str) -> None:
     """Mode 1 — проверить один файл решения против его тестов."""
     raw = input("Enter path to solution file (relative or absolute): ").strip()
     if not raw:
         print("No path provided.")
         return
 
-    script_path = resolve_input_path(root_dir, raw)
+    script_path = resolve_input_path(base_dir, raw)
 
     if not script_path.exists():
         print(f"File not found: {script_path}")
@@ -803,8 +801,8 @@ def run_single_mode(root_dir: pathlib.Path, executor: str) -> None:
         print(f"Not a file: {script_path}")
         return
 
-    rel_path = os.path.relpath(script_path, root_dir)
-    result = verify_file(rel_path, root_dir, executor)
+    rel_path = os.path.relpath(script_path, base_dir)
+    result = verify_file(rel_path, base_dir, exec_file)
     print()
     print_single_result(result)
 
@@ -812,37 +810,35 @@ def run_single_mode(root_dir: pathlib.Path, executor: str) -> None:
         print(f"\nError detail: {result.error_message}")
 
 
-def run_compare_mode(root_dir: pathlib.Path, executor: str) -> None:
+def run_compare_mode(base_dir: pathlib.Path, exec_file: str) -> None:
     """Mode 2 — верифицировать все решения в папке, сгруппировать по задачам."""
     folder = input("Enter top-level folder from the content root: ").strip()
-    # 🟠 УЛУЧШЕНО: валидация вынесена в resolve_and_validate_dir
-    target_dir = resolve_and_validate_dir(root_dir, folder)
+    target_dir = resolve_and_validate_dir(base_dir, folder)
     if target_dir is None:
         return
 
-    # 🟠 УЛУЧШЕНО: группировка вынесена в collect_grouped_files
-    grouped_files = collect_grouped_files(target_dir, root_dir)
+    grouped_files = collect_grouped_files(target_dir, base_dir)
     if not grouped_files:
         print(f"No solution files found in: {target_dir}")
         return
 
     for task_folder, files in sorted(grouped_files.items()):
         results: list[VerificationResult] = [
-            verify_file(rel_path, root_dir, executor) for rel_path in files
+            verify_file(rel_path, base_dir, exec_file) for rel_path in files
         ]
         print_verification_table(task_folder, results)
 
 
-def run_benchmark_mode(root_dir: pathlib.Path, executor: str) -> None:
+def run_benchmark_mode(base_dir: pathlib.Path, exec_file: str) -> None:
     """Mode 3 — subprocess-бенчмарк для решений, прошедших все тесты."""
     folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_and_validate_dir(root_dir, folder)
+    target_dir = resolve_and_validate_dir(base_dir, folder)
     if target_dir is None:
         return
 
     repeats = ask_benchmark_repeats()
 
-    grouped_files = collect_grouped_files(target_dir, root_dir)
+    grouped_files = collect_grouped_files(target_dir, base_dir)
     if not grouped_files:
         print(f"No solution files found in: {target_dir}")
         return
@@ -852,7 +848,7 @@ def run_benchmark_mode(root_dir: pathlib.Path, executor: str) -> None:
         skipped: list[str] = []
 
         for rel_path in files:
-            stats = benchmark_file(rel_path, root_dir, executor, repeats)
+            stats = benchmark_file(rel_path, base_dir, exec_file, repeats)
             if stats is not None:
                 bench_results.append(stats)
             else:
@@ -869,20 +865,20 @@ def run_benchmark_mode(root_dir: pathlib.Path, executor: str) -> None:
             print("No solutions passed all tests — nothing to benchmark.")
 
 
-def run_microbench_mode(root_dir: pathlib.Path) -> None:
+def run_microbench_mode(base_dir: pathlib.Path) -> None:
     """Mode 4 — timeit-микробенчмарк через exec + contextlib.redirect_stdout/stdin.
 
-    Использует до MICROBENCH_MAX_CASES тест-кейсов для стабильного Stdev.
+    Использует до MICROBENCH_MAX_CASES тест-кейсов для стабильного std-dev.
     Custom repeats до 500 000.
     """
     folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_and_validate_dir(root_dir, folder)
+    target_dir = resolve_and_validate_dir(base_dir, folder)
     if target_dir is None:
         return
 
     repeats = ask_microbench_repeats()
 
-    grouped_files = collect_grouped_files(target_dir, root_dir)
+    grouped_files = collect_grouped_files(target_dir, base_dir)
     if not grouped_files:
         print(f"No solution files found in: {target_dir}")
         return
@@ -891,12 +887,12 @@ def run_microbench_mode(root_dir: pathlib.Path) -> None:
         micro_results: list[MicrobenchResult] = []
 
         for rel_path in files:
-            program_path = root_dir / rel_path
+            program_path = base_dir / rel_path
             source_lines = load_text_lines(str(program_path))
             source_code = "\n".join(source_lines)
 
             module_folder = os.path.dirname(rel_path)
-            tests_dir = root_dir / module_folder / "tests"
+            tests_dir = base_dir / module_folder / "tests"
             if tests_dir.exists():
                 test_cases = load_test_cases(tests_dir)
                 bench_cases = test_cases[:MICROBENCH_MAX_CASES] if test_cases else []
@@ -918,7 +914,7 @@ def run_microbench_mode(root_dir: pathlib.Path) -> None:
         if micro_results:
             print_microbench_table(task_folder, micro_results)
         else:
-            print(f"\n⚡ Microbench: {task_folder}")
+            print(f"\n⚡ Micro-bench: {task_folder}")
             print("No solutions found for microbench.")
 
 
