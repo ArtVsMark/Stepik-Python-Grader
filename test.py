@@ -480,11 +480,19 @@ def print_single_result(result: VerificationResult) -> None:
     )
 
 
+def _file_col_width(files: list[str], header: str = "File", min_width: int = 20) -> int:
+    """Dynamic width for the File column based on actual filenames."""
+    return max(min_width, len(header), max((len(f) for f in files), default=0)) + 2
+
+
 def print_verification_table(task_folder: str, results: list[VerificationResult]) -> None:
+    fw = _file_col_width([r.file for r in results])
+    total_width = fw + 12 + 14 + 14 + 16 + 12 + 10
+
     print(f"\n📂 {task_folder}")
-    print("-" * 118)
+    print("-" * total_width)
     print(
-        f"{'File':40}"
+        f"{'File':{fw}}"
         f"{'Passed':>12}"
         f"{'Total time':>14}"
         f"{'Avg time':>14}"
@@ -492,7 +500,7 @@ def print_verification_table(task_folder: str, results: list[VerificationResult]
         f"{'Status':>12}"
         f"{'Fail test':>10}"
     )
-    print("-" * 118)
+    print("-" * total_width)
 
     sorted_results = sorted(
         results,
@@ -508,7 +516,7 @@ def print_verification_table(task_folder: str, results: list[VerificationResult]
     for result in sorted_results:
         fail_test = str(result.failed_test_index) if result.failed_test_index is not None else "-"
         print(
-            f"{result.file:40}"
+            f"{result.file:{fw}}"
             f"{f'{result.passed_tests}/{result.total_tests}':>12}"
             f"{result.total_time:>14.4f}"
             f"{result.avg_time:>14.4f}"
@@ -519,10 +527,13 @@ def print_verification_table(task_folder: str, results: list[VerificationResult]
 
 
 def print_benchmark_table(task_folder: str, results: list[BenchmarkStats]) -> None:
+    fw = _file_col_width([r.file for r in results])
+    total_width = fw + 8 + 12 * 6 + 12 + 12 + 12
+
     print(f"\n🚀 Benchmark: {task_folder}")
-    print("-" * 154)
+    print("-" * total_width)
     print(
-        f"{'File':40}"
+        f"{'File':{fw}}"
         f"{'Runs':>8}"
         f"{'Min':>12}"
         f"{'Median':>12}"
@@ -533,7 +544,7 @@ def print_benchmark_table(task_folder: str, results: list[BenchmarkStats]) -> No
         f"{'Relative':>12}"
         f"{'Verdict':>12}"
     )
-    print("-" * 154)
+    print("-" * total_width)
 
     sorted_results = sorted(
         results,
@@ -542,7 +553,7 @@ def print_benchmark_table(task_folder: str, results: list[BenchmarkStats]) -> No
 
     for result in sorted_results:
         print(
-            f"{result.file:40}"
+            f"{result.file:{fw}}"
             f"{result.total_runs:>8}"
             f"{result.min_time:>12.5f}"
             f"{result.median_time:>12.5f}"
