@@ -168,9 +168,7 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2))
 
 
-def _make_oauth_handler(
-    auth_data: dict[str, Any], path: str
-) -> type[BaseHTTPRequestHandler]:
+def _make_oauth_handler(auth_data: dict[str, Any], path: str) -> type[BaseHTTPRequestHandler]:
     """Фабрика: возвращает класс OAuthHandler, захватывающий auth_data и path."""
 
     class OAuthHandler(BaseHTTPRequestHandler):
@@ -195,9 +193,7 @@ def _make_oauth_handler(
     return OAuthHandler
 
 
-def wait_for_auth_code(
-    host: str, port: int, path: str, timeout: int = 120
-) -> str:
+def wait_for_auth_code(host: str, port: int, path: str, timeout: int = 120) -> str:
     """Запускает временный HTTP-сервер и ожидает OAuth-колбэк."""
     auth_data: dict[str, Any] = {}
     handler_class = _make_oauth_handler(auth_data, path)

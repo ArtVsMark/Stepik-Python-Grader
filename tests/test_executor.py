@@ -1,4 +1,5 @@
 """Unit-тесты для executor.py (run_solution)."""
+
 from __future__ import annotations
 
 import executor

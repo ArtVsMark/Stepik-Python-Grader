@@ -1,4 +1,5 @@
 """Unit tests for microbench_runner."""
+
 from __future__ import annotations
 
 from microbench_runner import (

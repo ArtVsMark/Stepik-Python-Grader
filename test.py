@@ -26,8 +26,8 @@ from microbench_runner import (
 MEASURE_CHILD_MEMORY = False
 CHILD_MEMORY_POLL_INTERVAL = 0.01
 # SIMILAR_THRESHOLD_PERCENT импортируется из microbench_runner — единый источник истины
-MICROBENCH_MAX_CASES = 5   # ≤5 тест-кейсов в microbench: достаточно для стабильного std-dev,
-                            # не перегружает timeit при большом числе repeats
+MICROBENCH_MAX_CASES = 5  # ≤5 тест-кейсов в microbench: достаточно для стабильного std-dev,
+# не перегружает timeit при большом числе repeats
 SUBPROCESS_TIMEOUT = 10.0  # секунд: защита от бесконечных циклов в решениях студентов
 
 # Кешируем один раз — значение константно на всё время запуска
@@ -116,16 +116,16 @@ def is_function_only_solution(file_content: str) -> bool:
                 return False
 
         if isinstance(node, ast.Assign):
-            if not isinstance(node.value, (ast.Constant, ast.List, ast.Tuple, ast.Set, ast.Dict)):
+            if not isinstance(node.value, ast.Constant | ast.List | ast.Tuple | ast.Set | ast.Dict):
                 return False
 
         if isinstance(node, ast.AnnAssign):
             if node.value is not None and not isinstance(
-                node.value, (ast.Constant, ast.List, ast.Tuple, ast.Set, ast.Dict)
+                node.value, ast.Constant | ast.List | ast.Tuple | ast.Set | ast.Dict
             ):
                 return False
 
-    return any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)
+    return any(isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) for node in tree.body)
 
 
 def is_solution_file(file_name: str) -> bool:
@@ -149,9 +149,7 @@ def find_all_solution_files(directory: str) -> list[str]:
     return sorted(scripts)
 
 
-def collect_grouped_files(
-    target_dir: pathlib.Path, base_dir: pathlib.Path
-) -> dict[str, list[str]]:
+def collect_grouped_files(target_dir: pathlib.Path, base_dir: pathlib.Path) -> dict[str, list[str]]:
     """Найти все solution-файлы в target_dir и сгруппировать по папке задачи.
 
     Вынесено из трёх mode-runner'ов для устранения дублирования.
@@ -307,7 +305,8 @@ def run_process(
 
     try:
         stdout_data, stderr_data = proc.communicate(
-            input=input_data, timeout=SUBPROCESS_TIMEOUT  # 🔴 ИСПРАВЛЕНО
+            input=input_data,
+            timeout=SUBPROCESS_TIMEOUT,  # 🔴 ИСПРАВЛЕНО
         )
     except subprocess.TimeoutExpired:
         proc.kill()
@@ -916,9 +915,7 @@ def run_microbench_mode(base_dir: pathlib.Path) -> None:
                 bench_cases = []
 
             stdin_texts = (
-                _build_stdin_texts(source_code, bench_cases)
-                if bench_cases
-                else [source_code]
+                _build_stdin_texts(source_code, bench_cases) if bench_cases else [source_code]
             )
 
             result = run_microbench(

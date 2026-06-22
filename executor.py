@@ -11,6 +11,7 @@ CLI entry point (используется test.py как subprocess):
     Windows: SIGALRM недоступен — защита обеспечивается через
              subprocess.run(timeout=...) в test.py (SUBPROCESS_TIMEOUT).
 """
+
 from __future__ import annotations
 
 import os

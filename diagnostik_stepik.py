@@ -47,7 +47,7 @@ def load_secrets(secrets_path: pathlib.Path) -> tuple[str, str, str]:
         data = json.load(file)
     if not isinstance(data, dict):
         raise ValueError(
-            'secrets.json должен быть словарём формата '
+            "secrets.json должен быть словарём формата "
             '{"client_id": "...", "client_secret": "...", "redirect_uri": "..."}'
         )
     client_id = str(data.get("client_id", "")).strip()
@@ -128,13 +128,10 @@ def wait_for_auth_code(redirect_uri: str) -> str:
     return auth_data["code"]  # type: ignore[return-value]
 
 
-def create_user_session(
-    client_id: str, client_secret: str, redirect_uri: str
-) -> requests.Session:
+def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -> requests.Session:
     """Провести OAuth2-авторизацию и вернуть сессию с Bearer-токеном."""
-    auth_url = (
-        f"{API_HOST}/oauth2/authorize/?"
-        + urlencode({"response_type": "code", "client_id": client_id, "redirect_uri": redirect_uri})
+    auth_url = f"{API_HOST}/oauth2/authorize/?" + urlencode(
+        {"response_type": "code", "client_id": client_id, "redirect_uri": redirect_uri}
     )
     print("\nОткрой в браузере и подтверди доступ приложению:")
     print(auth_url)
@@ -314,8 +311,7 @@ def main() -> None:
     step_url = input("Enter Stepik step URL: ").strip()
     secrets_file = input("Enter secrets.json path [secrets.json]: ").strip() or "secrets.json"
     output_dir_input = (
-        input("Enter diagnostics output dir [stepik_diagnostics]: ").strip()
-        or "stepik_diagnostics"
+        input("Enter diagnostics output dir [stepik_diagnostics]: ").strip() or "stepik_diagnostics"
     )
     output_dir = pathlib.Path(output_dir_input)
     try:

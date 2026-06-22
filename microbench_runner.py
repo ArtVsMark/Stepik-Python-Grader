@@ -87,6 +87,7 @@ def _make_stdin_runner(compiled: types.CodeType, stdin_text: str) -> Callable[[]
     compile() вынесен за пределы функции (один раз на файл) — timeit замеряет
     только логику выполнения, а не парсинг исходника.
     """
+
     def _run() -> None:
         fake_stdin = io.StringIO(stdin_text)
         fake_stdout = io.StringIO()

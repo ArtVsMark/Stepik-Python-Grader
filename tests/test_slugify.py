@@ -1,4 +1,5 @@
 """Unit tests for at_first.slugify."""
+
 from __future__ import annotations
 
 from at_first import slugify
