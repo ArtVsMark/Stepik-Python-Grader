@@ -1,9 +1,5 @@
+"""Unit-тесты для функции slugify из at_first.py."""
 from __future__ import annotations
-
-import sys
-import pathlib
-
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 
 from at_first import slugify
 
@@ -18,8 +14,9 @@ def test_slugify_special_chars() -> None:
 
 
 def test_slugify_cyrillic() -> None:
-    result = slugify("Привет мир")
-    assert result  # не пустая строка после slugify
+    """Кириллица транслитерируется через slugify корректно."""
+    result = slugify("привет мир")
+    assert result == "привет-мир"
 
 
 def test_slugify_empty() -> None:

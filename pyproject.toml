@@ -11,9 +11,17 @@ authors = [
 keywords = ["stepik", "grader", "python", "benchmark", "testing"]
 
 dependencies = [
-    "requests>=2.34.2",
-    "chardet>=7.4.3",
-    "psutil>=7.2.2",
+    "requests>=2.32.3",
+    "chardet>=5.2.0",
+    "psutil>=6.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pytest-timeout>=2.3",
 ]
 
 [project.urls]
@@ -41,3 +49,4 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-v --tb=short"

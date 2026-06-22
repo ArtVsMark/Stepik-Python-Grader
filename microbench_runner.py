@@ -8,11 +8,11 @@
     - тест-файлы tests/N созданы для subprocess (stdin -> input() -> print())
     - timeit должен вызывать код напрямую, без нового процесса
 
-    Решение: compile() один раз снаружи цикла (амортизует парсинг),
+    Решение: compile() один раз снаружи цикла (амортизирует парсинг),
     затем exec(compiled, {}) в каждой итерации.
 
     stdin/stdout перенаправляются через contextlib.redirect_stdin /
-    contextlib.redirect_stdout — поток-безопасно в отличие от
+    contextlib.redirect_stdout — потокобезопасно в отличие от
     прямой подмены sys.stdin/sys.stdout.
 
 Типичный вызов из test.py (режим 4):
@@ -46,8 +46,9 @@ class MicrobenchResult:
     error: str = ""
     relative_percent: float = 100.0
     verdict: str = "OK"
-    # 🟢 ЗАДАЧА 10: поле func_name удалено — оно не использовалось нигде в codebase
-    # и вводило в заблуждение (значение "<exec>" было хардкодом, не отражало реальность).
+    # Поле func_name удалено (аудит июнь 2026):
+    # оно не использовалось нигде в codebase и вводило в заблуждение
+    # (значение "<exec>" было жёстко заданным значением, не отражавшим реальность).
 
     @property
     def min_time(self) -> float:
@@ -72,7 +73,7 @@ class MicrobenchResult:
 
 
 def _make_stdin_runner(compiled: types.CodeType, stdin_text: str) -> Callable[[], None]:
-    """Return a zero-arg callable that exec's compiled code with stdin/stdout redirected.
+    """Return a zero-arg callable that exec-s compiled code with stdin/stdout redirected.
 
     Используются contextlib.redirect_stdin + contextlib.redirect_stdout
     вместо прямой подмены sys.stdin/sys.stdout.
@@ -89,10 +90,10 @@ def _make_stdin_runner(compiled: types.CodeType, stdin_text: str) -> Callable[[]
     def _run() -> None:
         fake_stdin = io.StringIO(stdin_text)
         fake_stdout = io.StringIO()
-        with contextlib.redirect_stdin(fake_stdin):
+        with contextlib.redirect_stdin(fake_stdin):  # type: ignore[type-var]
             with contextlib.redirect_stdout(fake_stdout):
                 exec(compiled, {})  # noqa: S102
-                # Примечание: exec(compiled, {}) автоматически получает
+                # exec(compiled, {}) автоматически получает
                 # {'__builtins__': ...} в namespace — это стандартное
                 # поведение Python и необходимо для работы input().
     return _run
