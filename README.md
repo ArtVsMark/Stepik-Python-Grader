@@ -334,60 +334,6 @@ stepik_diagnostics/
 
 Это делает сравнение решений заметно более честным и полезным для обучения.
 
----
-
-## Настройка line endings (LF/CRLF)
-
-По умолчанию Windows-Git и GitHub Desktop могут конвертировать переносы строк из `LF` в `CRLF`, из-за чего в интерфейсе появляется предупреждение:
-
-```text
-This diff contains a change in line endings from 'LF' to 'CRLF'.
-```
-
-В этом репозитории добавлен файл `.gitattributes`, который фиксирует `LF` для всех текстовых файлов на уровне репо — независимо от локальных настроек Git.
-
-### Как применить нормализацию к уже отслеживаемым файлам
-
-Если ты только что клонировал репо или добавил `.gitattributes`, нужно один раз пересохранить все файлы:
-
-```bash
-git add --renormalize .
-git status
-git commit -m "chore: normalize line endings to LF"
-```
-
-> Без `--renormalize` файлы, которые уже были закоммичены с `CRLF`, продолжат отображаться как изменённые даже после добавления `.gitattributes`.
-
-### Почему `* text=auto eol=lf`
-
-- `text=auto` — Git сам определяет, текстовый файл или бинарный;
-- `eol=lf` — все текстовые файлы хранятся в репо с `LF`;
-- для конкретных расширений (`.py`, `.md`, `.json` и т. д.) правило продублировано явно, чтобы не было сюрпризов.
-
-### GitHub Desktop: как отключить предупреждение
-
-Если Desktop Git продолжает показывать `This diff contains a change in line endings from 'LF' to 'CRLF'`:
-
-1. Убедись, что `.gitattributes` уже в репо (он там есть).
-2. Выполни renormalize один раз локально:
-   ```bash
-   git add --renormalize .
-   git status
-   git commit -m "chore: normalize line endings to LF"
-   ```
-3. Если предупреждение всё равно есть — проверь глобальный `.gitconfig`:
-   ```bash
-   git config --global core.autocrlf
-   ```
-   Если выводит `true` — переключи на `input`:
-   ```bash
-   git config --global core.autocrlf input
-   ```
-   Значение `input` означает: при коммите CRLF → LF, при checkout оставить как есть.  
-   Это не конфликтует с `.gitattributes` и устраняет большинство предупреждений.
-
----
-
 ### Changelog
 
 | Дата | Изменение |
