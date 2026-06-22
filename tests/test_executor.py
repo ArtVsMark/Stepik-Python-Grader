@@ -1,45 +1,42 @@
+"""Unit-тесты для executor.py (run_solution)."""
 from __future__ import annotations
 
-import subprocess
-import sys
-import pathlib
-
-EXECUTOR = str(pathlib.Path(__file__).parent.parent / "executor.py")
-PYTHON = sys.executable
+import executor
 
 
-def _run(code: str, timeout: int = 5) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [PYTHON, EXECUTOR],
-        input=code,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
+def test_run_solution_simple_output() -> None:
+    """Корректный код возвращает ожидаемый stdout."""
+    code = "print('42')"
+    result = executor.run_solution(code, stdin="", timeout=5.0)
+    assert result.stdout.strip() == "42"
+    assert result.stderr == ""
+    assert result.timed_out is False
 
 
-def test_executor_simple_print() -> None:
-    result = _run("print('hello')")
-    assert result.returncode == 0
-    assert "hello" in result.stdout
+def test_run_solution_reads_stdin() -> None:
+    """Код, читающий input(), получает переданный stdin."""
+    code = "x = input(); print(x)"
+    result = executor.run_solution(code, stdin="hello\n", timeout=5.0)
+    assert result.stdout.strip() == "hello"
 
 
-def test_executor_syntax_error() -> None:
-    result = _run("def broken(:")
-    assert result.returncode != 0
+def test_run_solution_syntax_error() -> None:
+    """SyntaxError попадает в stderr, timed_out=False."""
+    code = "def broken("
+    result = executor.run_solution(code, stdin="", timeout=5.0)
+    assert result.timed_out is False
+    assert result.stderr != "" or result.stdout != ""
 
 
-def test_executor_runtime_error() -> None:
-    result = _run("raise ValueError('oops')")
-    assert result.returncode != 0
+def test_run_solution_runtime_error() -> None:
+    """RuntimeError/ZeroDivisionError попадает в stderr."""
+    code = "print(1 / 0)"
+    result = executor.run_solution(code, stdin="", timeout=5.0)
+    assert "ZeroDivisionError" in result.stderr or result.returncode != 0
 
 
-def test_executor_empty_code() -> None:
-    result = _run("")
-    assert result.returncode == 0
-
-
-def test_executor_math() -> None:
-    result = _run("print(2 ** 10)")
-    assert result.returncode == 0
-    assert "1024" in result.stdout
+def test_run_solution_timeout() -> None:
+    """Бесконечный цикл прерывается по timeout."""
+    code = "while True: pass"
+    result = executor.run_solution(code, stdin="", timeout=1.0)
+    assert result.timed_out is True
