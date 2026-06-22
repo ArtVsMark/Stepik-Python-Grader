@@ -21,3 +21,6 @@ env/
 .vscode/
 .DS_Store
 Thumbs.db
+*.egg-info/
+dist/
+build/
