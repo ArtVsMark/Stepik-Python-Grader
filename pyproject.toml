@@ -11,9 +11,9 @@ authors = [
 keywords = ["stepik", "grader", "python", "benchmark", "testing"]
 
 dependencies = [
-    "requests>=2.32.3",
-    "chardet>=5.2.0",
-    "psutil>=6.1.1",
+    "requests>=2.34.2",
+    "chardet>=7.4.3",
+    "psutil>=7.2.2",
 ]
 
 [project.urls]
