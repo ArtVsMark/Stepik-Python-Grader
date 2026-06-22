@@ -51,7 +51,7 @@ def run_solution(
     source_code:
         Исходный код Python для исполнения.
     stdin:
-        Строка, передаваемая в stdin процесса.
+        Строка, передаваемая в stdin процесса (зарезервировано для будущего расширения).
     timeout:
         Тайм-аут в секундах. При превышении возвращает RunResult(timed_out=True).
 
@@ -64,7 +64,9 @@ def run_solution(
         completed = subprocess.run(
             [_PYTHON_CMD, str(executor_path)],
             input=source_code,
-            stdin=subprocess.PIPE,
+            # stdin=subprocess.PIPE не указывается: при передаче input=
+            # subprocess.run открывает PIPE автоматически.
+            # Одновременное использование stdin= и input= вызывает ValueError.
             capture_output=True,
             text=True,
             encoding="utf-8",
