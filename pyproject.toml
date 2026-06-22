@@ -1,0 +1,36 @@
+[project]
+name = "stepik-python-grader"
+version = "0.1.0"
+description = "Автоматическая проверка и сравнение Python-решений с курсов Stepik"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "ArtVsMark" }
+]
+keywords = ["stepik", "grader", "python", "benchmark", "testing"]
+
+dependencies = [
+    "requests>=2.32.3",
+    "chardet>=5.2.0",
+    "psutil>=6.1.1",
+]
+
+[project.urls]
+Repository = "https://github.com/ArtVsMark/Stepik-Python-Grader"
+
+[tool.ruff]
+line-length = 99
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = ["S102"]  # exec() разрешён намеренно (sandbox exec для решений студентов)
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
