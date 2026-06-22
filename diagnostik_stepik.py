@@ -82,7 +82,7 @@ def wait_for_auth_code(redirect_uri: str) -> str:
     auth_data: dict[str, str | None] = {"code": None, "error": None}
 
     class OAuthHandler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:
+        def do_GET(self) -> None:  # noqa: N802
             req = urlparse(self.path)
             params = parse_qs(req.query)
             if req.path != path:
@@ -100,10 +100,10 @@ def wait_for_auth_code(redirect_uri: str) -> str:
                 "<p>Можно закрыть это окно и вернуться в консоль.</p></body></html>".encode("utf-8")
             )
 
-        def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        def log_message(self, fmt: str, *args: object) -> None:  # noqa: D401
             return
 
-    server = HTTPServer((host, port), OAuthHandler)
+    server = HTTPServer((host, port), OAuthHandler)  # type: ignore[arg-type]
     thread = threading.Thread(target=server.handle_request, daemon=True)
     thread.start()
     thread.join(timeout=300)
@@ -127,7 +127,7 @@ def create_user_session(
     print(auth_url)
     try:
         webbrowser.open(auth_url)
-    except Exception:  # noqa: BLE001
+    except OSError:
         pass
     print("\nОжидание редиректа с code...")
     code = wait_for_auth_code(redirect_uri)
