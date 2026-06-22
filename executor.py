@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import signal
 import sys
@@ -19,6 +20,10 @@ def main() -> None:
     Безопасность: executor.py запускается как дочерний subprocess из test.py,
     поэтому __builtins__ передаётся без ограничений — изоляция обеспечивается
     на уровне процесса, а не namespace.
+
+    Тайм-аут на Unix: SIGALRM.
+    На Windows: SIGALRM недоступен, защита от зависания обеспечивается
+    через SUBPROCESS_TIMEOUT в test.py (на уровне subprocess.run).
     """
     source: str = sys.stdin.read()
     compiled: types.CodeType = compile(source, "<solution>", "exec")
