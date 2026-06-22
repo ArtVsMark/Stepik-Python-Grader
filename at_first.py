@@ -1,4 +1,3 @@
-import html
 import json
 import pathlib
 import re
@@ -169,19 +168,13 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2))
 
 
-def wait_for_auth_code(redirect_uri: str) -> str:
-    parsed = urlparse(redirect_uri)
-    host = parsed.hostname or "localhost"
-    port = parsed.port
-    path = parsed.path or "/"
-    if port is None:
-        raise ValueError(
-            "В redirect_uri должен быть указан порт, например http://localhost:8080/callback"
-        )
-    auth_data = {"code": None, "error": None}
+def _make_oauth_handler(
+    auth_data: dict, path: str
+) -> type[BaseHTTPRequestHandler]:
+    """Factory returning an OAuthHandler class bound to *auth_data* and *path*."""
 
     class OAuthHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
+        def do_GET(self) -> None:  # noqa: N802
             req = urlparse(self.path)
             params = parse_qs(req.query)
             if req.path != path:
@@ -196,22 +189,41 @@ def wait_for_auth_code(redirect_uri: str) -> str:
             self.end_headers()
             self.wfile.write(
                 "<html><body><h2>Авторизация завершена.</h2>"
-                "<p>Можно закрыть это окно и вернуться в консоль.</p></body></html>".encode("utf-8")
+                "<p>Можно закрыть это окно и вернуться в консоль.</p></body></html>".encode(
+                    "utf-8"
+                )
             )
 
-        def log_message(self, format, *args):
+        def log_message(self, fmt: str, *args: object) -> None:  # noqa: D401
+            """Suppress server request logging."""
             return
 
-    server = HTTPServer((host, port), OAuthHandler)
+    return OAuthHandler
+
+
+def wait_for_auth_code(redirect_uri: str) -> str:
+    parsed = urlparse(redirect_uri)
+    host = parsed.hostname or "localhost"
+    raw_port = parsed.port
+    path = parsed.path or "/"
+    if raw_port is None:
+        raise ValueError(
+            "В redirect_uri должен быть указан порт, например http://localhost:8080/callback"
+        )
+    port: int = int(raw_port)
+    auth_data: dict[str, str | None] = {"code": None, "error": None}
+    handler_class = _make_oauth_handler(auth_data, path)
+    server = HTTPServer((host, port), handler_class)
     thread = threading.Thread(target=server.handle_request, daemon=True)
     thread.start()
     thread.join(timeout=300)
     server.server_close()
     if auth_data["error"]:
         raise RuntimeError(f"OAuth вернул ошибку: {auth_data['error']}")
-    if not auth_data["code"]:
+    code = auth_data["code"]
+    if not code:
         raise RuntimeError("Не удалось получить code через redirect_uri.")
-    return auth_data["code"]
+    return code
 
 
 def authorize_via_browser(client_id: str, client_secret: str, redirect_uri: str) -> dict:
@@ -223,7 +235,7 @@ def authorize_via_browser(client_id: str, client_secret: str, redirect_uri: str)
     print(auth_url)
     try:
         webbrowser.open(auth_url)
-    except Exception:
+    except OSError:
         pass
     print("\nОжидание редиректа с code...")
     code = wait_for_auth_code(redirect_uri)
@@ -246,15 +258,17 @@ def get_user_session(secrets_path: pathlib.Path) -> requests.Session:
     redirect_uri = str(secrets["redirect_uri"]).strip()
     if token_is_valid(secrets):
         print("✅ Используется сохранённый access_token.")
-        return make_session(secrets["access_token"])
+        raw_token = secrets.get("access_token")
+        return make_session(str(raw_token))
     refresh_token = str(secrets.get("refresh_token", "")).strip()
     if refresh_token:
         try:
             print("🔄 Пробуем обновить access_token через refresh_token...")
             token_data = refresh_access_token(client_id, client_secret, refresh_token)
-            access_token = token_data.get("access_token")
-            if not access_token:
+            raw_access = token_data.get("access_token")
+            if not raw_access:
                 raise RuntimeError("Stepik не вернул access_token при refresh.")
+            access_token: str = str(raw_access)
             secrets["access_token"] = access_token
             secrets["expires_at"] = time.time() + token_data.get("expires_in", 3600)
             if token_data.get("refresh_token"):
@@ -262,13 +276,14 @@ def get_user_session(secrets_path: pathlib.Path) -> requests.Session:
             save_secrets(secrets_path, secrets)
             print("✅ access_token обновлён без браузера.")
             return make_session(access_token)
-        except Exception as error:
+        except requests.RequestException as error:
             print(f"⚠️ Не удалось обновить token через refresh_token: {error}")
     print("🌐 Нужна первичная авторизация через браузер...")
     token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
-    access_token = token_data.get("access_token")
-    if not access_token:
+    raw_access = token_data.get("access_token")
+    if not raw_access:
         raise RuntimeError("Stepik не вернул access_token.")
+    access_token = str(raw_access)
     secrets["access_token"] = access_token
     secrets["expires_at"] = time.time() + token_data.get("expires_in", 3600)
     if token_data.get("refresh_token"):
@@ -318,7 +333,7 @@ def get_step_data_by_position(
 
 
 def extract_title_from_step_data(step_data: dict) -> str:
-    import html as html_module
+    import html as _html
     block = step_data.get("block", {})
     if isinstance(block, dict):
         text = block.get("text")
@@ -326,7 +341,7 @@ def extract_title_from_step_data(step_data: dict) -> str:
             for pattern in [r"<h1[^>]*>(.*?)</h1>", r"<h2[^>]*>(.*?)</h2>", r"<h3[^>]*>(.*?)</h3>"]:
                 match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
                 if match:
-                    title = html_module.unescape(re.sub(r"<[^>]+>", "", match.group(1))).strip()
+                    title = _html.unescape(re.sub(r"<[^>]+>", "", match.group(1))).strip()
                     if title:
                         return title
     title = step_data.get("title")
@@ -340,18 +355,18 @@ def extract_title_from_step_data(step_data: dict) -> str:
 
 
 def extract_description_from_step_data(step_data: dict) -> str:
-    import html as html_module
+    import html as _html
     block = step_data.get("block", {})
     if isinstance(block, dict):
         text = block.get("text")
         if isinstance(text, str) and text.strip():
-            return html_module.unescape(text).strip()
+            return _html.unescape(text).strip()
     return "Описание задания не удалось автоматически извлечь."
 
 
 def extract_zip_url_from_text(text: str) -> str | None:
-    import html as html_module
-    decoded = html_module.unescape(text)
+    import html as _html
+    decoded = _html.unescape(text)
     patterns = [
         r"https://stepik\.org/media/attachments/[^\s\"'<>()]+\.zip",
         r"https://stepic\.org/media/attachments/[^\s\"'<>()]+\.zip",
@@ -377,7 +392,8 @@ def extract_zip_url_from_text(text: str) -> str | None:
 
 def collect_string_candidates(payload) -> list[str]:
     candidates: list[str] = []
-    def walk(value):
+
+    def walk(value) -> None:
         if isinstance(value, str):
             candidates.append(value)
         elif isinstance(value, dict):
@@ -386,6 +402,7 @@ def collect_string_candidates(payload) -> list[str]:
         elif isinstance(value, list):
             for v in value:
                 walk(v)
+
     walk(payload)
     candidates.append(json.dumps(payload, ensure_ascii=False))
     return candidates
