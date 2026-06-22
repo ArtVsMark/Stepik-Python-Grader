@@ -1,12 +1,3 @@
-# Основные зависимости (версии синхронизированы с pyproject.toml)
 requests>=2.34.2
 chardet>=7.4.3
 psutil>=7.2.2
-
-# Dev-зависимости (для разработки и тестирования)
-# pip install -e ".[dev]"
-# или:
-# pytest>=8.0
-# ruff>=0.4
-# mypy>=1.10
-# pytest-timeout>=2.3

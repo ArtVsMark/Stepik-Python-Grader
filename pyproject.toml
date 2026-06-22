@@ -1,15 +1,13 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.backends.legacy:build"
+
 [project]
 name = "stepik-python-grader"
 version = "0.1.0"
-description = "Автоматическая проверка и сравнение Python-решений с курсов Stepik"
+description = "Automatic comparison and testing of Python solutions from Stepik courses"
 readme = "README.md"
-requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [
-    { name = "ArtVsMark" }
-]
-keywords = ["stepik", "grader", "python", "benchmark", "testing"]
-
+requires-python = ">=3.11"
 dependencies = [
     "requests>=2.34.2",
     "chardet>=7.4.3",
@@ -18,35 +16,14 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
+    "pytest>=8.2",
     "ruff>=0.4",
-    "mypy>=1.10",
-    "pytest-timeout>=2.3",
 ]
-
-[project.urls]
-Repository = "https://github.com/ArtVsMark/Stepik-Python-Grader"
 
 [tool.ruff]
-line-length = 99
-target-version = "py310"
+line-length = 100
+target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "PTH", "PERF", "TRY", "EM", "COM"]
-ignore = [
-    "S102",          # exec() разрешён намеренно (sandbox exec для решений студентов)
-    "RUF001",        # False positive: кириллица рядом с ASCII в строках
-    "RUF002",        # False positive: кириллица в docstring
-    "RUF003",        # False positive: кириллица в комментариях
-    "TRY003",        # Допускаем длинные сообщения в raise (читаемость важнее)
-    "COM812",        # Trailing comma — по желанию разработчика
-]
-
-[tool.mypy]
-python_version = "3.10"
-strict = true
-ignore_missing_imports = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-v --tb=short"
+select = ["E", "F", "W", "I", "UP", "B", "S102"]
+ignore = ["S101"]

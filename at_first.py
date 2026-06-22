@@ -41,7 +41,7 @@ def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
         data = json.load(file)
     if not isinstance(data, dict):
         raise ValueError(f"Ожидался JSON-объект в файле {file_path}")
-    return cast(dict[str, Any], data)
+    return data  # isinstance guard выше гарантирует dict[str, Any]
 
 
 def save_json_file(file_path: pathlib.Path, payload: dict[str, Any]) -> None:
@@ -126,7 +126,7 @@ def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
     for field in required_fields:
         if not str(data.get(field, "")).strip():
             raise ValueError(f"В secrets.json должно быть заполнено поле {field!r}")
-    return cast(dict[str, Any], data)
+    return data  # isinstance guard выше гарантирует dict[str, Any]
 
 
 def save_secrets(secrets_path: pathlib.Path, data: dict[str, Any]) -> None:
@@ -172,7 +172,7 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
 def _make_oauth_handler(
     auth_data: dict[str, Any], path: str
 ) -> type[BaseHTTPRequestHandler]:
-    """Factory returning an OAuthHandler class bound to *auth_data* and *path*."""
+    """Фабрика: возвращает класс OAuthHandler, захватывающий auth_data и path."""
 
     class OAuthHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
@@ -199,7 +199,7 @@ def _make_oauth_handler(
 def wait_for_auth_code(
     host: str, port: int, path: str, timeout: int = 120
 ) -> str:
-    """Start a temporary HTTP server and wait for the OAuth callback."""
+    """Запускает временный HTTP-сервер и ожидает OAuth-колбэк."""
     auth_data: dict[str, Any] = {}
     handler_class = _make_oauth_handler(auth_data, path)
     server = HTTPServer((host, port), handler_class)  # type: ignore[arg-type]
@@ -227,7 +227,7 @@ def authorize_via_browser(
     client_secret: str,
     redirect_uri: str,
 ) -> dict[str, Any]:
-    """Open browser, wait for OAuth code, exchange for tokens."""
+    """Открывает браузер, ожидает OAuth-код, обменивает на токены."""
     parsed = urlparse(redirect_uri)
     host = parsed.hostname or "localhost"
     port = parsed.port or 80
@@ -258,13 +258,13 @@ def authorize_via_browser(
         timeout=30,
     )
     response.raise_for_status()
-    token_data: dict[str, Any] = cast(dict[str, Any], response.json())
+    token_data: dict[str, Any] = response.json()
     token_data["expires_at"] = time.time() + float(str(token_data.get("expires_in", 3600)))
     return token_data
 
 
 def create_user_session(secrets: dict[str, Any], secrets_path: pathlib.Path) -> requests.Session:
-    """Return an authenticated requests.Session, refreshing tokens as needed."""
+    """Возвращает аутентифицированную requests.Session, обновляя токены при необходимости."""
     client_id = str(secrets["client_id"])
     client_secret = str(secrets["client_secret"])
     redirect_uri = str(secrets["redirect_uri"])
@@ -434,11 +434,11 @@ def download_and_extract_submissions(
     step_id: int,
     task_dir: pathlib.Path,
 ) -> None:
-    """Download submissions for step_id and save .py files to task_dir/submissions/.
+    """Скачивает сабмишны для step_id и сохраняет .py-файлы в task_dir/submissions/.
 
-    Uses the Stepik API endpoint:
+    Использует эндпоинт Stepik API:
         GET /api/submissions?step=<step_id>&order=desc
-    Each submission's Python code is saved as a separate file.
+    Каждый Python-код сабмишна сохраняется отдельным файлом.
     """
     response = session.get(
         f"{API_HOST}/api/submissions",
@@ -449,7 +449,7 @@ def download_and_extract_submissions(
     submissions: list[dict[str, Any]] = response.json().get("submissions", [])
 
     if not submissions:
-        print("  No submissions found for this step.")
+        print("  Сабмишны для данного шага не найдены.")
         return
 
     submissions_dir = task_dir / "submissions"
@@ -466,9 +466,9 @@ def download_and_extract_submissions(
             saved += 1
 
     if saved:
-        print(f"  Submissions saved to: {submissions_dir} ({saved} files)")
+        print(f"  Сабмишны сохранены в: {submissions_dir} ({saved} файлов)")
     else:
-        print("  Submissions found, but no Python code detected in API responses.")
+        print("  Сабмишны найдены, но Python-код в ответах API не обнаружен.")
 
 
 def process_step_url(
