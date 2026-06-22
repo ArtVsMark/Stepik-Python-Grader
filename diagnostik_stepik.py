@@ -1,10 +1,13 @@
 """diagnostik_stepik.py — OAuth-диагностика шага Stepik через API.
 
+Архитектурный слой: CLI-инструмент / диагностика.
+HTTP/OAuth делегируется в stepik_client (Sprint 3, июнь 2026):
+  - API_HOST, HEADERS — импортируются из stepik_client
+  - wait_for_auth_code — импортируется из stepik_client
+  - make_session — импортируется из stepik_client
+
 Запуск:
     python diagnostik_stepik.py
-
-Прежнее имя файла: diagnoctik-stepik.py (имя с дефисом не является
-валидным Python-модулем и не может быть импортировано через import).
 """
 
 from __future__ import annotations
@@ -13,27 +16,24 @@ import html
 import json
 import pathlib
 import re
-import threading
-import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
-from requests.auth import HTTPBasicAuth
 
-API_HOST = "https://stepik.org"
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/126.0 Safari/537.36"
-    ),
-    "Accept": "application/json, text/html;q=0.9,*/*;q=0.8",
-}
+from stepik_client import (
+    API_HOST,
+    HEADERS,
+    authorize_via_browser,
+    make_session,
+)
 
 # Задача 6: таймаут ожидания OAuth-кода от браузера
 OAUTH_TIMEOUT_SECONDS = 120
 
+
+# ---------------------------------------------------------------------------
+# Secrets (диагностическая версия: возвращает tuple, не dict)
+# ---------------------------------------------------------------------------
 
 def load_secrets(secrets_path: pathlib.Path) -> tuple[str, str, str]:
     """Загрузить client_id, client_secret, redirect_uri из secrets.json."""
@@ -72,105 +72,47 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
     return int(match.group(1)), int(match.group(2))
 
 
-def wait_for_auth_code(redirect_uri: str) -> str:
-    """Запустить локальный HTTP-сервер и дождаться OAuth code.
-
-    🔴 ИСПРАВЛЕНО (Задача 6): добавлен server.timeout = OAUTH_TIMEOUT_SECONDS
-    и join(timeout=OAUTH_TIMEOUT_SECONDS). Без этого сервер мог блокировать
-    процесс навсегда, если пользователь закрыл браузер или не успел авторизоваться.
-    TimeoutError вместо RuntimeError — семантически точнее для данного сценария.
-    """
-    parsed = urlparse(redirect_uri)
-    host = parsed.hostname or "localhost"
-    port = parsed.port
-    path = parsed.path or "/"
-    if port is None:
-        raise ValueError(
-            "В redirect_uri должен быть указан порт, например http://localhost:8080/callback"
-        )
-    auth_data: dict[str, str | None] = {"code": None, "error": None}
-
-    class OAuthHandler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: N802
-            req = urlparse(self.path)
-            params = parse_qs(req.query)
-            if req.path != path:
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(b"Not found")
-                return
-            auth_data["code"] = params.get("code", [None])[0]
-            auth_data["error"] = params.get("error", [None])[0]
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(
-                "<html><body><h2>Авторизация завершена.</h2>"
-                "<p>Можно закрыть это окно и вернуться в консоль.</p></body></html>".encode()
-            )
-
-        def log_message(self, fmt: str, *args: object) -> None:  # noqa: D401
-            return
-
-    server = HTTPServer((host, port), OAuthHandler)  # type: ignore[arg-type]
-    server.timeout = OAUTH_TIMEOUT_SECONDS  # 🔴 ИСПРАВЛЕНО: не блокироваться бесконечно
-    thread = threading.Thread(target=server.handle_request, daemon=True)
-    thread.start()
-    thread.join(timeout=OAUTH_TIMEOUT_SECONDS)  # 🔴 ИСПРАВЛЕНО: join с тайм-аутом
-    server.server_close()
-    if auth_data["error"]:
-        raise RuntimeError(f"OAuth вернул ошибку: {auth_data['error']}")
-    if not auth_data["code"]:
-        raise TimeoutError(  # 🔴 ИСПРАВЛЕНО: TimeoutError семантически точнее RuntimeError
-            f"OAuth: код авторизации не получен за {OAUTH_TIMEOUT_SECONDS} секунд. "
-            "Проверьте, что браузер открылся и вы подтвердили доступ."
-        )
-    return auth_data["code"]  # type: ignore[return-value]
-
+# ---------------------------------------------------------------------------
+# OAuth2 — адаптер поверх stepik_client.authorize_via_browser
+# ---------------------------------------------------------------------------
 
 def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -> requests.Session:
-    """Провести OAuth2-авторизацию и вернуть сессию с Bearer-токеном."""
+    """Провести OAuth2-авторизацию и вернуть сессию с Bearer-токеном.
+
+    Делегирует полный OAuth-flow в stepik_client.authorize_via_browser.
+    Принимает три отдельных аргумента (диагностический интерфейс),
+    а не secrets-dict (интерфейс at_first).
+    """
     auth_url = f"{API_HOST}/oauth2/authorize/?" + urlencode(
         {"response_type": "code", "client_id": client_id, "redirect_uri": redirect_uri}
     )
     print("\nОткрой в браузере и подтверди доступ приложению:")
     print(auth_url)
-    try:
-        webbrowser.open(auth_url)
-    except OSError:
-        pass
     print(f"\nОжидание редиректа с code (таймаут {OAUTH_TIMEOUT_SECONDS}s)...")
-    code = wait_for_auth_code(redirect_uri)
-    print("✅ Authorization code получен.")
-    token_response = requests.post(
-        f"{API_HOST}/oauth2/token/",
-        auth=HTTPBasicAuth(client_id, client_secret),
-        data={"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri},
-        headers={"User-Agent": HEADERS["User-Agent"]},
-        timeout=30,
-    )
-    token_response.raise_for_status()
-    token_data = token_response.json()
+
+    token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
     access_token = token_data.get("access_token")
     if not access_token:
         raise RuntimeError("Stepik не вернул access_token.")
-    session = requests.Session()
-    session.headers.update(HEADERS)
-    session.headers["Authorization"] = f"Bearer {access_token}"
-    return session
+    print("✅ Authorization code получен.")
+    return make_session(str(access_token))
 
 
-def api_get(session: requests.Session, url: str) -> dict:
+# ---------------------------------------------------------------------------
+# Диагностические API-обёртки
+# ---------------------------------------------------------------------------
+
+def api_get(session: requests.Session, url: str) -> dict:  # type: ignore[type-arg]
     """GET-запрос к Stepik API; проверяет Content-Type и статус."""
     response = session.get(url, timeout=30)
     response.raise_for_status()
     content_type = response.headers.get("Content-Type", "")
     if "json" not in content_type.lower():
         raise ValueError(f"Ожидался JSON от API, но получен Content-Type: {content_type}")
-    return response.json()
+    return response.json()  # type: ignore[return-value]
 
 
-def get_lesson_data(session: requests.Session, lesson_id: int) -> dict:
+def get_lesson_data(session: requests.Session, lesson_id: int) -> dict:  # type: ignore[type-arg]
     """Получить данные урока по lesson_id."""
     data = api_get(session, f"{API_HOST}/api/lessons/{lesson_id}")
     lessons = data.get("lessons", [])
@@ -179,7 +121,7 @@ def get_lesson_data(session: requests.Session, lesson_id: int) -> dict:
     return lessons[0]
 
 
-def get_step_data(session: requests.Session, step_id: int) -> dict:
+def get_step_data(session: requests.Session, step_id: int) -> dict:  # type: ignore[type-arg]
     """Получить данные шага по step_id."""
     data = api_get(session, f"{API_HOST}/api/steps/{step_id}")
     steps = data.get("steps", [])
@@ -189,8 +131,10 @@ def get_step_data(session: requests.Session, step_id: int) -> dict:
 
 
 def get_step_data_by_position(
-    session: requests.Session, lesson_id: int, step_position: int
-) -> tuple[int, dict, dict]:
+    session: requests.Session,
+    lesson_id: int,
+    step_position: int,
+) -> tuple[int, dict, dict]:  # type: ignore[type-arg]
     """Получить step_id, lesson, step_data по позиции шага в уроке."""
     lesson = get_lesson_data(session, lesson_id)
     steps = lesson.get("steps", [])
@@ -203,7 +147,15 @@ def get_step_data_by_position(
     return step_id, lesson, step_data
 
 
-def save_json(output_dir: pathlib.Path, filename: str, payload: dict) -> pathlib.Path:
+# ---------------------------------------------------------------------------
+# Утилиты: JSON, ZIP-поиск, диагностический вывод
+# ---------------------------------------------------------------------------
+
+def save_json(
+    output_dir: pathlib.Path,
+    filename: str,
+    payload: dict,  # type: ignore[type-arg]
+) -> pathlib.Path:
     """Сохранить payload как JSON-файл в output_dir."""
     output_dir.mkdir(parents=True, exist_ok=True)
     file_path = output_dir / filename
@@ -256,7 +208,7 @@ def collect_string_candidates(payload: object) -> list[str]:
     return candidates
 
 
-def extract_zip_url_from_step_data(step_data: dict) -> str | None:
+def extract_zip_url_from_step_data(step_data: dict) -> str | None:  # type: ignore[type-arg]
     """Найти ZIP-URL во всех строковых полях step_data."""
     for candidate in collect_string_candidates(step_data):
         zip_url = extract_zip_url_from_text(candidate)
@@ -266,13 +218,13 @@ def extract_zip_url_from_step_data(step_data: dict) -> str | None:
 
 
 def build_diagnostic_result(
-    lesson: dict,
+    lesson: dict,  # type: ignore[type-arg]
     step_id: int,
-    step_data: dict,
+    step_data: dict,  # type: ignore[type-arg]
     zip_url: str | None,
     lesson_path: pathlib.Path,
     step_path: pathlib.Path,
-) -> dict:
+) -> dict:  # type: ignore[type-arg]
     """Собрать итоговый словарь диагностики."""
     block = step_data.get("block", {}) if isinstance(step_data, dict) else {}
     return {
@@ -290,7 +242,10 @@ def build_diagnostic_result(
     }
 
 
-def print_result_summary(result: dict, output_dir: pathlib.Path) -> None:
+def print_result_summary(
+    result: dict,  # type: ignore[type-arg]
+    output_dir: pathlib.Path,
+) -> None:
     """Вывести читаемый итог диагностики в консоль."""
     print("\n=== Результат диагностики ===")
     print(f"Lesson ID:        {result['lesson_id']}")
@@ -305,6 +260,10 @@ def print_result_summary(result: dict, output_dir: pathlib.Path) -> None:
         print(f"ZIP URL:          {result['zip_url']}")
     print(f"Результаты сохранены в: {output_dir.resolve()}")
 
+
+# ---------------------------------------------------------------------------
+# Точка входа
+# ---------------------------------------------------------------------------
 
 def main() -> None:
     """Точка входа: диагностика шага Stepik через OAuth API."""
