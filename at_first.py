@@ -407,9 +407,9 @@ def create_task_structure(
     task_dir.mkdir(parents=True, exist_ok=True)
     tests_dir.mkdir(parents=True, exist_ok=True)
     file_templates = {
-        "task.py": "# Основное решение\n",
-        "task_1.py": "# Альтернативное решение 1\n",
-        "task_2.py": "# Альтернативное решение 2\n",
+        "task_1.py": "# Решение 1\n",
+        "task_2.py": "# Решение 2\n",
+        "task_3.py": "# Решение 3\n",
     }
     for file_name, content in file_templates.items():
         file_path = task_dir / file_name
