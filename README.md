@@ -16,7 +16,8 @@
 | Скрипт | Что делает |
 |---|---|
 | `at_first.py` | Создаёт папку задачи и скачивает тесты через API Stepik |
-| `test.py` | Проверяет решения локально, сравнивает несколько решений, запускает benchmark |
+| `test.py` | Проверяет решения локально, сравнивает несколько решений, запускает benchmark и microbench |
+| `microbench_runner.py` | timeit-раннер для function-only решений (используется режимом 4) |
 | `executor.py` | Хелпер для запуска function-only решений |
 | `diagnoctik-stepik.py` | Диагностика: проверяет структуру ответа API и наличие ZIP |
 
@@ -118,13 +119,14 @@ P2.2/
 python test.py
 ```
 
-Теперь у `test.py` **три режима**.
+Теперь у `test.py` **четыре режима**.
 
 ```text
 Choose mode:
 1 - test single file
 2 - compare all solutions in top-level folder
 3 - benchmark passed solutions
+4 - microbench (timeit, function-only solutions)
 ```
 
 ### Режим 1 — проверить один файл
@@ -221,6 +223,55 @@ P2.2/.../task_2.py           70   0.03150   0.03680   0.03710   0.04140   0.0016
 - маленькое значение → замеры стабильные;
 - большое значение → результаты скачут, и benchmark шумный.
 
+### Режим 4 — microbench (timeit, только function-only решения)
+
+Это режим для **микросекундного сравнения чистых функций** без накладных расходов subprocess.
+
+> **Ограничение:** режим 4 работает **только для function-only решений** — тех, где на уровне модуля есть только определения функций, импорты и константы.  
+> Если решение использует `input()` или имеет код на верхнем уровне модуля — оно будет пропущено с пометкой `Skipped`.
+
+После выбора режима появится меню:
+
+```text
+Microbench repeats (calls per function):
+1 - fast  (500)
+2 - normal (1000)
+3 - thorough (5000)
+4 - custom
+```
+
+#### Что показывает microbench
+
+| Поле | Значение |
+|---|---|
+| `Function` | имя найденной функции-точки входа |
+| `Repeats` | число вызовов timeit |
+| `Min, us` | лучший замер в микросекундах |
+| `Median, us` | медиана (главный ориентир) |
+| `Mean, us` | среднее |
+| `Max, us` | худший замер |
+| `Stdev, us` | стандартное отклонение |
+| `Relative` | относительное время к лучшему |
+| `Verdict` | `SIMILAR`, `SLOWER`, `MUCH SLOWER` |
+
+Пример вывода:
+
+```text
+⚡ Microbench (timeit): P2.2/step-4-название-задачи
+----------------------------------------------------------------------
+File                    Function     Repeats    Min, us  Median, us    Mean, us     Max, us   Stdev, us    Relative     Verdict
+----------------------------------------------------------------------
+P2.2/.../task.py        solve           1000       1.23        1.41        1.43        2.10        0.12     100.0%     SIMILAR
+P2.2/.../task_1.py      solve           1000       1.25        1.44        1.46        2.14        0.13     102.1%     SIMILAR
+P2.2/.../task_2.py      solve           1000       1.89        2.17        2.20        3.00        0.21     153.9%  MUCH SLOWER
+```
+
+#### Почему режим 4 точнее режима 3 для маленьких функций
+
+Режим 3 запускает `subprocess` на каждый тест — а запуск Python-интерпретатора занимает ~30–100 мс.  
+Для функций, работающих за 1–50 мкс, subprocess-overhead в тысячи раз больше самого вызова.  
+`timeit` запускает функцию **внутри того же процесса**, поэтому накладные расходы минимальны — именно так документация Python рекомендует замерять маленькие фрагменты кода.
+
 ---
 
 ## Диагностика
@@ -246,6 +297,7 @@ python diagnoctik-stepik.py
 .
 ├── at_first.py
 ├── test.py
+├── microbench_runner.py
 ├── executor.py
 ├── diagnoctik-stepik.py
 ├── requirements.txt
@@ -277,15 +329,10 @@ stepik_diagnostics/
 - benchmark работает только для полностью прошедших решений,
 - добавлены профили нагрузки `low / medium / high / custom`,
 - результаты оцениваются по `median`, а не по случайному одиночному замеру,
-- добавлены `mean`, `max`, `stdev`, `relative_percent` и `verdict`.
+- добавлены `mean`, `max`, `stdev`, `relative_percent` и `verdict`,
+- **режим 4** — microbench через `timeit` для function-only решений (замеры в мкс).
 
 Это делает сравнение решений заметно более честным и полезным для обучения.
-
-### Changelog
-
-| Дата | Изменение |
-|---|---|
-| 2026-06-22 | Динамическая ширина колонки `File` в таблицах режимов 2 и 3 — шапка больше не съезжает при длинных именах папок и файлов (`_file_col_width()`) |
 
 ---
 
@@ -317,12 +364,35 @@ git commit -m "chore: normalize line endings to LF"
 - `eol=lf` — все текстовые файлы хранятся в репо с `LF`;
 - для конкретных расширений (`.py`, `.md`, `.json` и т. д.) правило продублировано явно, чтобы не было сюрпризов.
 
+### GitHub Desktop: как отключить предупреждение
+
+Если Desktop Git продолжает показывать `This diff contains a change in line endings from 'LF' to 'CRLF'`:
+
+1. Убедись, что `.gitattributes` уже в репо (он там есть).
+2. Выполни renormalize один раз локально:
+   ```bash
+   git add --renormalize .
+   git status
+   git commit -m "chore: normalize line endings to LF"
+   ```
+3. Если предупреждение всё равно есть — проверь глобальный `.gitconfig`:
+   ```bash
+   git config --global core.autocrlf
+   ```
+   Если выводит `true` — переключи на `input`:
+   ```bash
+   git config --global core.autocrlf input
+   ```
+   Значение `input` означает: при коммите CRLF → LF, при checkout оставить как есть.  
+   Это не конфликтует с `.gitattributes` и устраняет большинство предупреждений.
+
 ---
 
 ### Changelog
 
 | Дата | Изменение |
 |---|---|
+| 2026-06-22 | Режим 4: microbench через `timeit` для function-only решений (`microbench_runner.py` + `run_microbench_mode()` в `test.py`) |
 | 2026-06-22 | Динамическая ширина колонки `File` в таблицах режимов 2 и 3 — шапка больше не съезжает при длинных именах папок и файлов (`_file_col_width()`) |
 | 2026-06-22 | Добавлен `.gitattributes` для нормализации line endings (LF) — устраняет предупреждение «This diff contains a change in line endings from LF to CRLF» в GitHub Desktop |
 

@@ -15,6 +15,12 @@ from typing import Optional
 import chardet
 import psutil
 
+from microbench_runner import (
+    MicrobenchResult,
+    apply_relative_micro,
+    run_microbench,
+)
+
 
 MEASURE_CHILD_MEMORY = False
 CHILD_MEMORY_POLL_INTERVAL = 0.01
@@ -251,7 +257,7 @@ def run_test_once(
 
         if completed.returncode != 0:
             if show_details_on_fail:
-                print(f"\n💀 Тест №{test_case.index} провален")
+                print(f"\n\U0001f480 Тест №{test_case.index} провален")
                 print(f"\nError message:\n{completed.stderr}\n")
             log_error(file)
             return TestRunResult(False, elapsed_time, memory_mb, completed.stderr.strip())
@@ -275,7 +281,7 @@ def run_test_once(
         return TestRunResult(True, elapsed_time, memory_mb)
 
     except Exception as error:
-        print(f"\n😱 Test#{test_case.index} failed with an unexpected error: {error}")
+        print(f"\n\U0001f631 Test#{test_case.index} failed with an unexpected error: {error}")
         print(f"Error type: {type(error).__name__}")
         traceback.print_exc()
         log_error(file)
@@ -489,7 +495,7 @@ def print_verification_table(task_folder: str, results: list[VerificationResult]
     fw = _file_col_width([r.file for r in results])
     total_width = fw + 12 + 14 + 14 + 16 + 12 + 10
 
-    print(f"\n📂 {task_folder}")
+    print(f"\n\U0001f4c2 {task_folder}")
     print("-" * total_width)
     print(
         f"{'File':{fw}}"
@@ -530,7 +536,7 @@ def print_benchmark_table(task_folder: str, results: list[BenchmarkStats]) -> No
     fw = _file_col_width([r.file for r in results])
     total_width = fw + 8 + 12 * 6 + 12 + 12 + 12
 
-    print(f"\n🚀 Benchmark: {task_folder}")
+    print(f"\n\U0001f680 Benchmark: {task_folder}")
     print("-" * total_width)
     print(
         f"{'File':{fw}}"
@@ -566,6 +572,51 @@ def print_benchmark_table(task_folder: str, results: list[BenchmarkStats]) -> No
         )
 
 
+def print_microbench_table(task_folder: str, results: list[MicrobenchResult]) -> None:
+    fw = _file_col_width([r.file for r in results])
+    fn_width = max(12, max((len(r.func_name) for r in results), default=0)) + 2
+    total_width = fw + fn_width + 10 + 12 * 5 + 12 + 12
+
+    print(f"\n\u26a1 Microbench (timeit): {task_folder}")
+    print("-" * total_width)
+    print(
+        f"{'File':{fw}}"
+        f"{'Function':{fn_width}}"
+        f"{'Repeats':>10}"
+        f"{'Min, us':>12}"
+        f"{'Median, us':>12}"
+        f"{'Mean, us':>12}"
+        f"{'Max, us':>12}"
+        f"{'Stdev, us':>12}"
+        f"{'Relative':>12}"
+        f"{'Verdict':>12}"
+    )
+    print("-" * total_width)
+
+    sorted_results = sorted(
+        results,
+        key=lambda r: (r.median_time if r.timings else float("inf"), r.file),
+    )
+
+    for r in sorted_results:
+        if r.error:
+            print(f"{r.file:{fw}}{r.func_name:{fn_width}}{'ERROR':>10}  {r.error}")
+            continue
+        us = 1_000_000  # seconds -> microseconds
+        print(
+            f"{r.file:{fw}}"
+            f"{r.func_name:{fn_width}}"
+            f"{r.repeats:>10}"
+            f"{r.min_time * us:>12.2f}"
+            f"{r.median_time * us:>12.2f}"
+            f"{r.mean_time * us:>12.2f}"
+            f"{r.max_time * us:>12.2f}"
+            f"{r.stdev_time * us:>12.2f}"
+            f"{r.relative_percent:>11.1f}%"
+            f"{r.verdict:>12}"
+        )
+
+
 def ask_benchmark_repeats() -> int:
     print("\nBenchmark load:")
     print("1 - low (5 repeats)")
@@ -584,6 +635,49 @@ def ask_benchmark_repeats() -> int:
         if raw.isdigit() and 5 <= int(raw) <= 100:
             return int(raw)
         print("Please enter integer from 5 to 100.")
+
+
+def ask_microbench_repeats() -> int:
+    print("\nMicrobench repeats (calls per function):")
+    print("1 - fast  (500)")
+    print("2 - normal (1000)")
+    print("3 - thorough (5000)")
+    print("4 - custom")
+
+    choice = input("Choose (1/2/3/4): ").strip()
+    mapping = {"1": 500, "2": 1_000, "3": 5_000}
+
+    if choice in mapping:
+        return mapping[choice]
+
+    while True:
+        raw = input("Enter repeats (100-50000): ").strip()
+        if raw.isdigit() and 100 <= int(raw) <= 50_000:
+            return int(raw)
+        print("Please enter integer from 100 to 50000.")
+
+
+def _build_test_args_from_cases(test_cases: list[TestCase]) -> list[tuple]:
+    """Convert test input lines into positional-arg tuples for microbench.
+
+    Strategy: pass the whole input string as a single argument.  The function
+    under test is expected to accept it or ignore extra arguments — for pure
+    algorithmic functions the args are typically ints/strings parsed from stdin,
+    so we hand the raw lines as a fallback.  This is enough to prevent the
+    function from crashing on an empty call and gives realistic data shapes.
+    """
+    args_list = []
+    for tc in test_cases:
+        # Try to coerce the first input line to int/float, otherwise pass as str
+        first = tc.input_lines[0] if tc.input_lines else ""
+        try:
+            args_list.append((int(first),))
+        except ValueError:
+            try:
+                args_list.append((float(first),))
+            except ValueError:
+                args_list.append((first,))
+    return args_list or [()]
 
 
 def run_single_mode(root_dir: pathlib.Path, executor: str) -> None:
@@ -659,8 +753,77 @@ def run_benchmark_mode(root_dir: pathlib.Path, executor: str) -> None:
         if stats:
             print_benchmark_table(task_folder, stats)
         else:
-            print(f"\n🚀 Benchmark: {task_folder}")
+            print(f"\n\U0001f680 Benchmark: {task_folder}")
             print("No fully passed solutions available for benchmark.")
+
+
+def run_microbench_mode(root_dir: pathlib.Path) -> None:
+    """Mode 4 — timeit microbenchmark for function-only solutions.
+
+    Skips solutions that are not function-only (e.g., use input() at module level).
+    Uses test input data as argument hints; falls back to empty call if tests
+    directory is absent.  Reports times in microseconds for easy comparison.
+    """
+    folder = input("Enter top-level folder from the content root: ").strip()
+    target_dir = resolve_input_path(root_dir, folder)
+
+    if not target_dir.exists():
+        print(f"Folder not found: {target_dir}")
+        return
+
+    if not target_dir.is_dir():
+        print(f"Not a directory: {target_dir}")
+        return
+
+    repeats = ask_microbench_repeats()
+
+    all_files = find_all_solution_files(str(target_dir))
+    if not all_files:
+        print(f"No solution files found in: {target_dir}")
+        return
+
+    grouped_files: dict[str, list[str]] = defaultdict(list)
+    for abs_path in all_files:
+        rel_path = os.path.relpath(abs_path, root_dir)
+        task_folder = os.path.dirname(rel_path)
+        grouped_files[task_folder].append(rel_path)
+
+    for task_folder, files in sorted(grouped_files.items()):
+        micro_results: list[MicrobenchResult] = []
+
+        for rel_path in files:
+            program_path = root_dir / rel_path
+            source_lines = load_text_lines(str(program_path))
+            source_code = "\n".join(source_lines)
+
+            if not is_function_only_solution(source_code):
+                print(f"  \u23ed\ufe0f  Skipped (not function-only): {rel_path}")
+                continue
+
+            # Build test args from tests/ if available
+            module_folder = os.path.dirname(rel_path)
+            tests_dir = root_dir / module_folder / "tests"
+            if tests_dir.exists():
+                test_cases = load_test_cases(tests_dir)
+                test_args_list = _build_test_args_from_cases(test_cases)
+            else:
+                test_args_list = [()]
+
+            result = run_microbench(
+                source_code=source_code,
+                test_args_list=test_args_list,
+                file_label=rel_path,
+                repeats=repeats,
+            )
+            micro_results.append(result)
+
+        micro_results = apply_relative_micro(micro_results)
+
+        if micro_results:
+            print_microbench_table(task_folder, micro_results)
+        else:
+            print(f"\n\u26a1 Microbench: {task_folder}")
+            print("No function-only solutions found for microbench.")
 
 
 if __name__ == "__main__":
@@ -671,6 +834,7 @@ if __name__ == "__main__":
     print("1 - test single file")
     print("2 - compare all solutions in top-level folder")
     print("3 - benchmark passed solutions")
+    print("4 - microbench (timeit, function-only solutions)")
     print(
         "Memory mode: "
         + (
@@ -680,7 +844,7 @@ if __name__ == "__main__":
         )
     )
 
-    mode = input("Enter mode (1/2/3): ").strip()
+    mode = input("Enter mode (1/2/3/4): ").strip()
 
     if mode == "1":
         run_single_mode(root_dir, executor)
@@ -688,5 +852,7 @@ if __name__ == "__main__":
         run_compare_mode(root_dir, executor)
     elif mode == "3":
         run_benchmark_mode(root_dir, executor)
+    elif mode == "4":
+        run_microbench_mode(root_dir)
     else:
         print("Unknown mode.")
