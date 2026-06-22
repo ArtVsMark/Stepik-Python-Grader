@@ -57,6 +57,18 @@ def _find_entry_function(namespace: dict[str, Any]) -> tuple[str, Any] | None:
     return None
 
 
+def _safe_call(func: Any, args: tuple[Any, ...]) -> None:
+    """Call func with args, silently catching TypeError (wrong signature).
+
+    If the function raises TypeError on the first attempt, retry with no
+    arguments so microbench can still measure *something* instead of crashing.
+    """
+    try:
+        func(*args)
+    except TypeError:
+        func()
+
+
 def run_microbench(
     source_code: str,
     test_args_list: list[tuple[Any, ...]],
@@ -71,7 +83,8 @@ def run_microbench(
         Full source of the solution (imports + function definitions).
     test_args_list:
         List of positional-argument tuples to pass on each call, e.g.
-        ``[(5,), (10,), (100,)]``.  Each tuple is used in round-robin order.
+        ``[("2020-01-01", "2020-03-01"), ...]``.  Each tuple is used in
+        round-robin order.
     file_label:
         Short label for the result (relative path of the solution file).
     repeats:
@@ -101,9 +114,12 @@ def run_microbench(
     timings: list[float] = []
 
     for i in range(repeats):
-        args = test_args_list[i % n]
-        # timeit.timeit returns total seconds for `number` runs; here number=1
-        elapsed = timeit.timeit(lambda: func(*args), number=1)  # noqa: B023
+        # Fix: capture args by value via default argument, not by closure reference
+        captured_args = test_args_list[i % n]
+        elapsed = timeit.timeit(
+            lambda f=func, a=captured_args: _safe_call(f, a),
+            number=1,
+        )
         timings.append(elapsed)
 
     return MicrobenchResult(

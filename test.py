@@ -660,23 +660,21 @@ def ask_microbench_repeats() -> int:
 def _build_test_args_from_cases(test_cases: list[TestCase]) -> list[tuple]:
     """Convert test input lines into positional-arg tuples for microbench.
 
-    Strategy: pass the whole input string as a single argument.  The function
-    under test is expected to accept it or ignore extra arguments — for pure
-    algorithmic functions the args are typically ints/strings parsed from stdin,
-    so we hand the raw lines as a fallback.  This is enough to prevent the
-    function from crashing on an empty call and gives realistic data shapes.
+    Each input test is passed as separate string arguments — one per input line.
+    This handles multi-line inputs (e.g. two date strings on separate lines)
+    as well as single-line inputs.
+
+    The function does NOT coerce to int/float: type coercion caused TypeError
+    for functions expecting strings (e.g. date-string arguments).
+    microbench_runner._safe_call() handles TypeError at call time as a fallback.
     """
     args_list = []
     for tc in test_cases:
-        # Try to coerce the first input line to int/float, otherwise pass as str
-        first = tc.input_lines[0] if tc.input_lines else ""
-        try:
-            args_list.append((int(first),))
-        except ValueError:
-            try:
-                args_list.append((float(first),))
-            except ValueError:
-                args_list.append((first,))
+        if not tc.input_lines:
+            args_list.append(())
+        else:
+            # Pass each input line as a separate string argument
+            args_list.append(tuple(tc.input_lines))
     return args_list or [()]
 
 
