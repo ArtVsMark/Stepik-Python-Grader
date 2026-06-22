@@ -309,49 +309,6 @@ P3.1\step-22-...\task.py        100000        1.87        1.91        1.91      
 
 ---
 
-## Настройка line endings (LF/CRLF)
-
-### Почему GitHub Desktop показывает предупреждение
-
-GitHub Desktop может предупреждать:  
-`This diff contains a change in line endings from 'LF' to 'CRLF'`
-
-Это происходит, когда локальный Git настроен на `core.autocrlf=true` (по умолчанию на Windows) — при checkout он конвертирует LF → CRLF, и Desktop видит разницу.
-
-### Как исправить раз и навсегда
-
-**1. Проверь текущую настройку:**
-
-```bash
-git config --global core.autocrlf
-```
-
-Если вернул `true` — это источник предупреждения.
-
-**2. Переключи в режим `input`:**
-
-```bash
-git config --global core.autocrlf input
-```
-
-Значение `input`: при коммите CRLF → LF, при checkout — без конвертации. Не конфликтует с `.gitattributes`.
-
-**3. После `git pull` выполни один раз:**
-
-```bash
-git add --renormalize .
-git status
-git commit -m "chore: normalize line endings to LF"
-```
-
-Без этого шага старые файлы, закоммиченные с CRLF, продолжат светиться как изменённые в Desktop Git даже после появления `.gitattributes`.
-
-### Почему `.gitattributes` лучше локальных настроек
-
-`.gitattributes` зафиксирован в репозитории и работает для всех участников независимо от их локальных настроек Git. Правило `* text=auto eol=lf` нормализует окончания строк при коммите автоматически.
-
----
-
 ## Диагностика
 
 Если `at_first.py` не нашёл ZIP автоматически:
