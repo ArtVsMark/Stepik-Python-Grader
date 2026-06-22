@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import pathlib
 import threading
 import time
 import webbrowser
@@ -27,6 +28,8 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 from requests.auth import HTTPBasicAuth
+
+from storage import save_secrets
 
 API_HOST = "https://stepik.org"
 
@@ -194,7 +197,7 @@ def authorize_via_browser(
 
 def create_user_session(
     secrets: dict[str, Any],
-    secrets_path: "pathlib.Path",  # type: ignore[name-defined]  # noqa: F821
+    secrets_path: pathlib.Path,
 ) -> requests.Session:
     """Возвращает аутентифицированную requests.Session.
 
@@ -205,9 +208,6 @@ def create_user_session(
 
     secrets обновляется на месте; новые токены сохраняются в secrets_path.
     """
-    import pathlib  # локальный импорт чтобы избежать цикла с at_first
-    from at_first import save_secrets  # noqa: PLC0415  (локальный импорт намеренно)
-
     client_id = str(secrets["client_id"])
     client_secret = str(secrets["client_secret"])
     redirect_uri = str(secrets["redirect_uri"])
@@ -223,14 +223,14 @@ def create_user_session(
                 str(token_data.get("expires_in", 3600))
             )
             secrets.update(token_data)
-            save_secrets(pathlib.Path(str(secrets_path)), secrets)
+            save_secrets(secrets_path, secrets)
             return make_session(str(secrets["access_token"]))
         except requests.HTTPError:
             print("Refresh token истёк, выполняется повторная авторизация...")
 
     token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
     secrets.update(token_data)
-    save_secrets(pathlib.Path(str(secrets_path)), secrets)
+    save_secrets(secrets_path, secrets)
     return make_session(str(secrets["access_token"]))
 
 
@@ -322,15 +322,13 @@ def fetch_submission_data(
 def download_and_extract_submissions(
     session: requests.Session,
     step_id: int,
-    task_dir: "pathlib.Path",  # type: ignore[name-defined]  # noqa: F821
+    task_dir: pathlib.Path,
 ) -> None:
     """Скачивает все сабмишны для step_id и сохраняет .py-файлы в task_dir/submissions/.
 
     Использует эндпоинт:
         GET /api/submissions?step=<step_id>&order=desc
     """
-    import pathlib  # локальный импорт
-
     response = session.get(
         f"{API_HOST}/api/submissions",
         params={"step": step_id, "order": "desc"},
@@ -343,7 +341,7 @@ def download_and_extract_submissions(
         print("  Сабмишны для данного шага не найдены.")
         return
 
-    submissions_dir = pathlib.Path(str(task_dir)) / "submissions"
+    submissions_dir = task_dir / "submissions"
     submissions_dir.mkdir(parents=True, exist_ok=True)
 
     saved = 0

@@ -19,6 +19,7 @@ import re
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from storage import load_json_file, save_json_file, save_secrets
 from stepik_client import (
     create_user_session,
     download_and_extract_submissions,
@@ -34,24 +35,8 @@ CONFIG_FILE = "stepik_config.json"
 
 
 # ---------------------------------------------------------------------------
-# Утилиты: JSON и файловая система
+# Утилиты: ввод-вывод
 # ---------------------------------------------------------------------------
-
-def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
-    """Читает JSON-файл и возвращает dict. Бросает ValueError если корень не объект."""
-    with open(file_path, encoding="utf-8") as file:
-        data = json.load(file)
-    if not isinstance(data, dict):
-        raise ValueError(f"Ожидался JSON-объект в файле {file_path}")
-    return data
-
-
-def save_json_file(file_path: pathlib.Path, payload: dict[str, Any]) -> None:
-    """Сохраняет dict как JSON-файл, создавая родительские директории."""
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(file_path, "w", encoding="utf-8") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2)
-
 
 def slugify(text: str) -> str:
     """Преобразует произвольный текст в slug пригодный для имени директории.
@@ -65,10 +50,6 @@ def slugify(text: str) -> str:
     text = text.strip(".- ")
     return text[:80] or "task"
 
-
-# ---------------------------------------------------------------------------
-# Утилиты: ввод-вывод
-# ---------------------------------------------------------------------------
 
 def ask_value(prompt: str, default: str = "") -> str:
     """Запрашивает значение у пользователя с опциональным дефолтом."""
@@ -169,11 +150,6 @@ def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
         if not str(data.get(field, "")).strip():
             raise ValueError(f"В secrets.json должно быть заполнено поле {field!r}")
     return data
-
-
-def save_secrets(secrets_path: pathlib.Path, data: dict[str, Any]) -> None:
-    """Сохраняет secrets dict в файл."""
-    save_json_file(secrets_path, data)
 
 
 # ---------------------------------------------------------------------------
