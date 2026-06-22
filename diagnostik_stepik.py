@@ -31,6 +31,9 @@ HEADERS = {
     "Accept": "application/json, text/html;q=0.9,*/*;q=0.8",
 }
 
+# Задача 6: таймаут ожидания OAuth-кода от браузера
+OAUTH_TIMEOUT_SECONDS = 120
+
 
 def load_secrets(secrets_path: pathlib.Path) -> tuple[str, str, str]:
     """Загрузить client_id, client_secret, redirect_uri из secrets.json."""
@@ -70,7 +73,13 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
 
 
 def wait_for_auth_code(redirect_uri: str) -> str:
-    """Запустить локальный HTTP-сервер и дождаться OAuth code."""
+    """Запустить локальный HTTP-сервер и дождаться OAuth code.
+
+    🔴 ИСПРАВЛЕНО (Задача 6): добавлен server.timeout = OAUTH_TIMEOUT_SECONDS
+    и join(timeout=OAUTH_TIMEOUT_SECONDS). Без этого сервер мог блокировать
+    процесс навсегда, если пользователь закрыл браузер или не успел авторизоваться.
+    TimeoutError вместо RuntimeError — семантически точнее для данного сценария.
+    """
     parsed = urlparse(redirect_uri)
     host = parsed.hostname or "localhost"
     port = parsed.port
@@ -104,14 +113,18 @@ def wait_for_auth_code(redirect_uri: str) -> str:
             return
 
     server = HTTPServer((host, port), OAuthHandler)  # type: ignore[arg-type]
+    server.timeout = OAUTH_TIMEOUT_SECONDS  # 🔴 ИСПРАВЛЕНО: не блокироваться бесконечно
     thread = threading.Thread(target=server.handle_request, daemon=True)
     thread.start()
-    thread.join(timeout=300)
+    thread.join(timeout=OAUTH_TIMEOUT_SECONDS)  # 🔴 ИСПРАВЛЕНО: join с тайм-аутом
     server.server_close()
     if auth_data["error"]:
         raise RuntimeError(f"OAuth вернул ошибку: {auth_data['error']}")
     if not auth_data["code"]:
-        raise RuntimeError("Не удалось получить code через redirect_uri.")
+        raise TimeoutError(  # 🔴 ИСПРАВЛЕНО: TimeoutError семантически точнее RuntimeError
+            f"OAuth: код авторизации не получен за {OAUTH_TIMEOUT_SECONDS} секунд. "
+            "Проверьте, что браузер открылся и вы подтвердили доступ."
+        )
     return auth_data["code"]  # type: ignore[return-value]
 
 
@@ -129,7 +142,7 @@ def create_user_session(
         webbrowser.open(auth_url)
     except OSError:
         pass
-    print("\nОжидание редиректа с code...")
+    print(f"\nОжидание редиректа с code (таймаут {OAUTH_TIMEOUT_SECONDS}s)...")
     code = wait_for_auth_code(redirect_uri)
     print("✅ Authorization code получен.")
     token_response = requests.post(
