@@ -73,7 +73,7 @@ def load_or_create_config(config_path: pathlib.Path) -> dict:
     print("\nТекущая конфигурация:")
     print(f"root_dir:     {config.get('root_dir', '')}")
     print(f"secrets_path: {config.get('secrets_path', '')}")
-    change = input("Нужно изменить настройки? [y/N]: ").strip().lower()
+    change = input("Нужно изменить настройку? [y/N]: ").strip().lower()
     if change in {"y", "yes", "д", "да"}:
         return create_or_update_config(config_path)
     return config
@@ -83,7 +83,7 @@ def normalize_config_paths(config: dict, config_path: pathlib.Path) -> dict:
     root_dir_value = str(config.get("root_dir", "")).strip()
     secrets_value = str(config.get("secrets_path", "")).strip()
     if not root_dir_value or not secrets_value:
-        print("⚠️ В конфиге не хватает обязательных полей.")
+        print("⚠️ В конфиге нет хватает обязательных полей.")
         config = create_or_update_config(config_path)
         root_dir_value = str(config["root_dir"]).strip()
         secrets_value = str(config["secrets_path"]).strip()
@@ -115,7 +115,7 @@ def load_secrets(secrets_path: pathlib.Path) -> dict:
         )
     if secrets_path.is_dir():
         raise IsADirectoryError(
-            f"Указан путь к папке, а нужен путь к файлу secrets.json: {secrets_path}"
+            f"Укажи путь к папке, а нужен путь к файлу secrets.json: {secrets_path}"
         )
     with open(secrets_path, "r", encoding="utf-8") as file:
         data = json.load(file)
@@ -188,336 +188,357 @@ def _make_oauth_handler(
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
             self.wfile.write(
-                "<html><body><h2>Авторизация завершена.</h2>"
-                "<p>Можно закрыть это окно и вернуться в консоль.</p></body></html>".encode(
-                    "utf-8"
-                )
+                b"<h1>OK. You can close this tab.</h1>"
             )
 
         def log_message(self, fmt: str, *args: object) -> None:  # noqa: D401
-            """Suppress server request logging."""
-            return
+            pass
 
     return OAuthHandler
 
 
-def wait_for_auth_code(redirect_uri: str) -> str:
-    parsed = urlparse(redirect_uri)
-    host = parsed.hostname or "localhost"
-    raw_port = parsed.port
-    path = parsed.path or "/"
-    if raw_port is None:
-        raise ValueError(
-            "В redirect_uri должен быть указан порт, например http://localhost:8080/callback"
-        )
-    port: int = int(raw_port)
-    auth_data: dict[str, str | None] = {"code": None, "error": None}
+def wait_for_auth_code(
+    host: str, port: int, path: str, timeout: int = 120
+) -> str:
+    """Start a temporary HTTP server and wait for the OAuth callback."""
+    auth_data: dict = {}
     handler_class = _make_oauth_handler(auth_data, path)
     server = HTTPServer((host, port), handler_class)  # type: ignore[arg-type]
-    thread = threading.Thread(target=server.handle_request, daemon=True)
+    server.timeout = timeout
+
+    def serve() -> None:
+        server.handle_request()
+
+    thread = threading.Thread(target=serve, daemon=True)
     thread.start()
-    thread.join(timeout=300)
+    thread.join(timeout=timeout + 5)
     server.server_close()
-    if auth_data["error"]:
-        raise RuntimeError(f"OAuth вернул ошибку: {auth_data['error']}")
-    code = auth_data["code"]
+
+    code = auth_data.get("code")
+    error = auth_data.get("error")
+    if error:
+        raise RuntimeError(f"OAuth error: {error}")
     if not code:
-        raise RuntimeError("Не удалось получить code через redirect_uri.")
+        raise TimeoutError(f"OAuth code not received within {timeout}s")
     return code
 
 
-def authorize_via_browser(client_id: str, client_secret: str, redirect_uri: str) -> dict:
-    auth_url = (
-        f"{API_HOST}/oauth2/authorize/?"
-        + urlencode({"response_type": "code", "client_id": client_id, "redirect_uri": redirect_uri})
-    )
-    print("\nОткрой в браузере и подтверди доступ приложению:")
-    print(auth_url)
+def authorize_via_browser(
+    client_id: str,
+    client_secret: str,
+    redirect_uri: str,
+) -> dict:
+    """Open browser, wait for OAuth code, exchange for tokens."""
+    parsed = urlparse(redirect_uri)
+    host = parsed.hostname or "localhost"
+    port = parsed.port or 80
+    path = parsed.path or "/"
+
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+    }
+    auth_url = f"{API_HOST}/oauth2/authorize/?{urlencode(params)}"
+    print(f"Открываю браузер: {auth_url}")
     try:
         webbrowser.open(auth_url)
     except OSError:
         pass
-    print("\nОжидание редиректа с code...")
-    code = wait_for_auth_code(redirect_uri)
-    print("✅ Authorization code получен.")
-    token_response = requests.post(
+
+    code = wait_for_auth_code(host, port, path)
+    response = requests.post(
         f"{API_HOST}/oauth2/token/",
         auth=HTTPBasicAuth(client_id, client_secret),
-        data={"grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri},
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+        },
         headers={"User-Agent": HEADERS["User-Agent"]},
         timeout=30,
     )
-    token_response.raise_for_status()
-    return token_response.json()
+    response.raise_for_status()
+    token_data = response.json()
+    token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
+    return token_data
 
 
-def get_user_session(secrets_path: pathlib.Path) -> requests.Session:
-    secrets = load_secrets(secrets_path)
-    client_id = str(secrets["client_id"]).strip()
-    client_secret = str(secrets["client_secret"]).strip()
-    redirect_uri = str(secrets["redirect_uri"]).strip()
+def create_user_session(secrets: dict, secrets_path: pathlib.Path) -> requests.Session:
+    """Return an authenticated requests.Session, refreshing tokens as needed."""
+    client_id = secrets["client_id"]
+    client_secret = secrets["client_secret"]
+    redirect_uri = secrets["redirect_uri"]
+
     if token_is_valid(secrets):
-        print("✅ Используется сохранённый access_token.")
-        raw_token = secrets.get("access_token")
-        return make_session(str(raw_token))
+        return make_session(secrets["access_token"])
+
     refresh_token = str(secrets.get("refresh_token", "")).strip()
     if refresh_token:
         try:
-            print("🔄 Пробуем обновить access_token через refresh_token...")
             token_data = refresh_access_token(client_id, client_secret, refresh_token)
-            raw_access = token_data.get("access_token")
-            if not raw_access:
-                raise RuntimeError("Stepik не вернул access_token при refresh.")
-            access_token: str = str(raw_access)
-            secrets["access_token"] = access_token
-            secrets["expires_at"] = time.time() + token_data.get("expires_in", 3600)
-            if token_data.get("refresh_token"):
-                secrets["refresh_token"] = token_data["refresh_token"]
+            token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
+            secrets.update(token_data)
             save_secrets(secrets_path, secrets)
-            print("✅ access_token обновлён без браузера.")
-            return make_session(access_token)
-        except requests.RequestException as error:
-            print(f"⚠️ Не удалось обновить token через refresh_token: {error}")
-    print("🌐 Нужна первичная авторизация через браузер...")
+            return make_session(secrets["access_token"])
+        except requests.HTTPError:
+            print("Refresh token истёк, выполняется повторная авторизация...")
+
     token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
-    raw_access = token_data.get("access_token")
-    if not raw_access:
-        raise RuntimeError("Stepik не вернул access_token.")
-    access_token = str(raw_access)
-    secrets["access_token"] = access_token
-    secrets["expires_at"] = time.time() + token_data.get("expires_in", 3600)
-    if token_data.get("refresh_token"):
-        secrets["refresh_token"] = token_data["refresh_token"]
+    secrets.update(token_data)
     save_secrets(secrets_path, secrets)
-    print("✅ Токены сохранены в secrets.json.")
-    return make_session(access_token)
+    return make_session(secrets["access_token"])
 
 
-def api_get(session: requests.Session, url: str) -> dict:
-    response = session.get(url, timeout=30)
+def fetch_step_data(session: requests.Session, lesson_id: int, step_position: int) -> dict:
+    response = session.get(
+        f"{API_HOST}/api/steps",
+        params={"lesson": lesson_id},
+        timeout=30,
+    )
     response.raise_for_status()
-    content_type = response.headers.get("Content-Type", "")
-    if "json" not in content_type.lower():
-        raise ValueError(f"Ожидался JSON от API, но получен Content-Type: {content_type}")
-    return response.json()
+    steps = response.json().get("steps", [])
+    for step in steps:
+        if step.get("position") == step_position:
+            return step
+    raise ValueError(f"Шаг с позицией {step_position} не найден в уроке {lesson_id}")
 
 
-def get_lesson_data(session: requests.Session, lesson_id: int) -> dict:
-    data = api_get(session, f"{API_HOST}/api/lessons/{lesson_id}")
-    lessons = data.get("lessons", [])
+def fetch_lesson_data(session: requests.Session, lesson_id: int) -> dict:
+    response = session.get(f"{API_HOST}/api/lessons/{lesson_id}", timeout=30)
+    response.raise_for_status()
+    lessons = response.json().get("lessons", [])
     if not lessons:
-        raise ValueError(f"API не вернул lesson для id={lesson_id}")
+        raise ValueError(f"Урок {lesson_id} не найден")
     return lessons[0]
 
 
-def get_step_data(session: requests.Session, step_id: int) -> dict:
-    data = api_get(session, f"{API_HOST}/api/steps/{step_id}")
-    steps = data.get("steps", [])
-    if not steps:
-        raise ValueError(f"API не вернул step для step_id={step_id}")
-    return steps[0]
-
-
-def get_step_data_by_position(
-    session: requests.Session, lesson_id: int, step_position: int
-) -> tuple[int, dict, dict]:
-    lesson = get_lesson_data(session, lesson_id)
-    steps = lesson.get("steps", [])
-    if not steps:
-        raise ValueError("В lesson нет списка steps.")
-    if step_position < 1 or step_position > len(steps):
-        raise ValueError(f"В уроке {len(steps)} шаг(ов), но запрошен step={step_position}")
-    step_id = steps[step_position - 1]
-    step_data = get_step_data(session, step_id)
-    return step_id, lesson, step_data
-
-
-def extract_title_from_step_data(step_data: dict) -> str:
-    import html as _html
-    block = step_data.get("block", {})
-    if isinstance(block, dict):
-        text = block.get("text")
-        if isinstance(text, str) and text.strip():
-            for pattern in [r"<h1[^>]*>(.*?)</h1>", r"<h2[^>]*>(.*?)</h2>", r"<h3[^>]*>(.*?)</h3>"]:
-                match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-                if match:
-                    title = _html.unescape(re.sub(r"<[^>]+>", "", match.group(1))).strip()
-                    if title:
-                        return title
-    title = step_data.get("title")
-    if title and str(title).strip():
-        return str(title).strip()
-    if isinstance(block, dict):
-        block_name = block.get("name")
-        if block_name and str(block_name).strip() and str(block_name).strip().lower() != "code":
-            return str(block_name).strip()
-    return f"step-{step_data.get('position', 'task')}"
-
-
-def extract_description_from_step_data(step_data: dict) -> str:
-    import html as _html
-    block = step_data.get("block", {})
-    if isinstance(block, dict):
-        text = block.get("text")
-        if isinstance(text, str) and text.strip():
-            return _html.unescape(text).strip()
-    return "Описание задания не удалось автоматически извлечь."
-
-
-def extract_zip_url_from_text(text: str) -> str | None:
-    import html as _html
-    decoded = _html.unescape(text)
-    patterns = [
-        r"https://stepik\.org/media/attachments/[^\s\"'<>()]+\.zip",
-        r"https://stepic\.org/media/attachments/[^\s\"'<>()]+\.zip",
-        r"https://ucarecdn\.com/[^\s\"'<>()]+\.zip",
-        r"https://[^\s\"'<>()]+\.zip",
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, decoded, re.IGNORECASE)
-        if match:
-            return match.group(0)
-    markdown_patterns = [
-        r"\[[^\]]+\]\((https://stepik\.org/media/attachments/[^)]+\.zip)\)",
-        r"\[[^\]]+\]\((https://stepic\.org/media/attachments/[^)]+\.zip)\)",
-        r"\[[^\]]+\]\((https://ucarecdn\.com/[^)]+\.zip)\)",
-        r"\[[^\]]+\]\((https://[^)]+\.zip)\)",
-    ]
-    for pattern in markdown_patterns:
-        match = re.search(pattern, decoded, re.IGNORECASE)
-        if match:
-            return match.group(1)
-    return None
-
-
-def collect_string_candidates(payload) -> list[str]:
-    candidates: list[str] = []
-
-    def walk(value) -> None:
-        if isinstance(value, str):
-            candidates.append(value)
-        elif isinstance(value, dict):
-            for v in value.values():
-                walk(v)
-        elif isinstance(value, list):
-            for v in value:
-                walk(v)
-
-    walk(payload)
-    candidates.append(json.dumps(payload, ensure_ascii=False))
-    return candidates
-
-
-def extract_zip_url_from_step_data(step_data: dict) -> str | None:
-    for candidate in collect_string_candidates(step_data):
-        zip_url = extract_zip_url_from_text(candidate)
-        if zip_url:
-            return zip_url
-    return None
-
-
-def create_task_structure(
-    root_folder: pathlib.Path, task_name: str
-) -> tuple[pathlib.Path, pathlib.Path]:
-    task_dir = root_folder / task_name
-    tests_dir = task_dir / "tests"
-    task_dir.mkdir(parents=True, exist_ok=True)
-    tests_dir.mkdir(parents=True, exist_ok=True)
-    # Шаблоны файлов-решений в стиле task_N.py (совместимо с is_solution_file в test.py)
-    file_templates = {
-        "task_1.py": "# Решение 1\n",
-        "task_2.py": "# Решение 2\n",
-        "task_3.py": "# Решение 3\n",
-    }
-    for file_name, content in file_templates.items():
-        file_path = task_dir / file_name
-        if not file_path.exists():
-            file_path.write_text(content, encoding="utf-8")
-    return task_dir, tests_dir
-
-
-def save_readme(
-    task_dir: pathlib.Path, title: str, url: str, description: str, zip_url: str | None,
-) -> None:
-    readme = (
-        f"# {title}\n\n"
-        f"Источник: {url}\n\n"
-        f"ZIP с тестами: {zip_url or 'не найден автоматически'}\n\n"
-        f"## Условие\n\n{description}\n"
-    )
-    (task_dir / "README.md").write_text(readme, encoding="utf-8")
-
-
-def save_debug_json(task_dir: pathlib.Path, file_name: str, payload: dict) -> None:
-    (task_dir / file_name).write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-
-
-def download_and_extract_zip(
-    session: requests.Session, zip_url: str, tests_dir: pathlib.Path
-) -> None:
-    response = session.get(zip_url, timeout=60)
+def fetch_unit_data(session: requests.Session, lesson_id: int, unit_id: int | None) -> dict:
+    params: dict = {"lesson": lesson_id}
+    if unit_id is not None:
+        params["id"] = unit_id
+    response = session.get(f"{API_HOST}/api/units", params=params, timeout=30)
     response.raise_for_status()
-    content_type = response.headers.get("Content-Type", "").lower()
-    if "zip" not in content_type and not zip_url.lower().endswith(".zip"):
-        raise ValueError(f"Похоже, это не ZIP. Content-Type={content_type}, URL={zip_url}")
-    with zipfile.ZipFile(BytesIO(response.content)) as archive:
-        archive.extractall(tests_dir)
+    units = response.json().get("units", [])
+    if not units:
+        raise ValueError(f"Юнит для урока {lesson_id} не найден")
+    return units[0]
+
+
+def fetch_section_data(session: requests.Session, section_id: int) -> dict:
+    response = session.get(f"{API_HOST}/api/sections/{section_id}", timeout=30)
+    response.raise_for_status()
+    sections = response.json().get("sections", [])
+    if not sections:
+        raise ValueError(f"Секция {section_id} не найдена")
+    return sections[0]
+
+
+def fetch_course_data(session: requests.Session, course_id: int) -> dict:
+    response = session.get(f"{API_HOST}/api/courses/{course_id}", timeout=30)
+    response.raise_for_status()
+    courses = response.json().get("courses", [])
+    if not courses:
+        raise ValueError(f"Курс {course_id} не найден")
+    return courses[0]
+
+
+def fetch_submission_data(session: requests.Session, step_id: int) -> dict | None:
+    response = session.get(
+        f"{API_HOST}/api/submissions",
+        params={"step": step_id, "order": "desc"},
+        timeout=30,
+    )
+    response.raise_for_status()
+    submissions = response.json().get("submissions", [])
+    return submissions[0] if submissions else None
+
+
+def extract_python_code(step: dict) -> str | None:
+    block = step.get("block", {})
+    for option in block.get("options", []):
+        if option.get("code_template"):
+            return option["code_template"]
+    text = block.get("text", "")
+    match = re.search(r"```python\s*(.*?)```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def extract_submission_code(submission: dict | None) -> str | None:
+    if not submission:
+        return None
+    reply = submission.get("reply", {})
+    return reply.get("code") or None
+
+
+def build_task_directory(
+    root_dir: pathlib.Path,
+    course_title: str,
+    section_title: str,
+    lesson_title: str,
+    step_position: int,
+    step_title: str,
+) -> pathlib.Path:
+    parts = [
+        slugify(course_title),
+        slugify(section_title),
+        slugify(lesson_title),
+        f"{step_position:02d}-{slugify(step_title)}",
+    ]
+    return root_dir.joinpath(*parts)
+
+
+def save_task_files(
+    task_dir: pathlib.Path,
+    step: dict,
+    submission: dict | None,
+    lesson: dict,
+    section: dict,
+    course: dict,
+) -> None:
+    task_dir.mkdir(parents=True, exist_ok=True)
+
+    template_code = extract_python_code(step)
+    submitted_code = extract_submission_code(submission)
+
+    if template_code:
+        (task_dir / "template.py").write_text(template_code, encoding="utf-8")
+    if submitted_code:
+        (task_dir / "solution.py").write_text(submitted_code, encoding="utf-8")
+
+    meta = {
+        "step_id": step.get("id"),
+        "step_position": step.get("position"),
+        "step_title": step.get("title", ""),
+        "lesson_id": lesson.get("id"),
+        "lesson_title": lesson.get("title", ""),
+        "section_id": section.get("id"),
+        "section_title": section.get("title", ""),
+        "course_id": course.get("id"),
+        "course_title": course.get("title", ""),
+        "submission_id": submission.get("id") if submission else None,
+        "submission_status": submission.get("status") if submission else None,
+    }
+    save_json_file(task_dir / "meta.json", meta)
+
+    block = step.get("block", {})
+    text = block.get("text", "")
+    if text:
+        (task_dir / "task.md").write_text(text, encoding="utf-8")
+
+
+def download_and_extract_submissions(
+    session: requests.Session,
+    step_id: int,
+    task_dir: pathlib.Path,
+) -> None:
+    response = session.get(
+        f"{API_HOST}/api/stepics/1",
+        timeout=30,
+    )
+    response.raise_for_status()
+    download_url = response.json().get("stepics", [{}])[0].get("submissions_url")
+    if not download_url:
+        print("  Ссылка на архив сабмишнов не найдена.")
+        return
+
+    archive_response = session.get(download_url, timeout=60)
+    archive_response.raise_for_status()
+
+    submissions_dir = task_dir / "submissions"
+    submissions_dir.mkdir(parents=True, exist_ok=True)
+
+    with zipfile.ZipFile(BytesIO(archive_response.content)) as zf:
+        for name in zf.namelist():
+            if name.endswith(".py"):
+                zf.extract(name, submissions_dir)
+
+    print(f"  Сабмишны сохранены в: {submissions_dir}")
+    _ = step_id  # используется для идентификации в вызывающем коде
+
+
+def process_step_url(
+    step_url: str,
+    session: requests.Session,
+    root_dir: pathlib.Path,
+) -> None:
+    parsed_url = urlparse(step_url)
+    params = parse_qs(parsed_url.query)
+    unit_id_list = params.get("unit", [])
+    unit_id = int(unit_id_list[0]) if unit_id_list else None
+
+    lesson_id, step_position = parse_stepik_step_url(step_url)
+
+    print(f"  Получаю данные урока {lesson_id}...")
+    lesson = fetch_lesson_data(session, lesson_id)
+    lesson_title = lesson.get("title", f"lesson-{lesson_id}")
+
+    print(f"  Получаю данные юнита...")
+    unit = fetch_unit_data(session, lesson_id, unit_id)
+    section_id = unit.get("section")
+
+    print(f"  Получаю данные секции {section_id}...")
+    section = fetch_section_data(session, section_id)
+    section_title = section.get("title", f"section-{section_id}")
+    course_id = section.get("course")
+
+    print(f"  Получаю данные курса {course_id}...")
+    course = fetch_course_data(session, course_id)
+    course_title = course.get("title", f"course-{course_id}")
+
+    print(f"  Получаю данные шага {step_position}...")
+    step = fetch_step_data(session, lesson_id, step_position)
+    step_id = step.get("id")
+    step_title = step.get("title", "") or lesson_title
+
+    print(f"  Получаю последний сабмишн шага {step_id}...")
+    submission = fetch_submission_data(session, step_id)
+
+    task_dir = build_task_directory(
+        root_dir,
+        course_title,
+        section_title,
+        lesson_title,
+        step_position,
+        step_title,
+    )
+
+    print(f"  Сохраняю файлы в: {task_dir}")
+    save_task_files(task_dir, step, submission, lesson, section, course)
+    print(f"  ✅ Шаг сохранён: {task_dir}")
 
 
 def main() -> None:
     config_path = pathlib.Path(CONFIG_FILE)
+
     try:
         config = load_or_create_config(config_path)
         config = normalize_config_paths(config, config_path)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         print(f"❌ Ошибка работы с конфигом: {error}")
         return
-    step_url = input("\nEnter Stepik step URL: ").strip()
-    if not step_url:
-        print("❌ URL шага не указан.")
-        return
+
     root_dir = pathlib.Path(config["root_dir"])
-    secrets_file = pathlib.Path(config["secrets_path"])
-    root_dir.mkdir(parents=True, exist_ok=True)
+    secrets_path = pathlib.Path(config["secrets_path"])
+
     try:
-        lesson_id, step_position = parse_stepik_step_url(step_url)
-        print(f"✅ URL распознан: lesson_id={lesson_id}, step={step_position}")
-        session = get_user_session(secrets_file)
-        print("✅ Пользовательская сессия готова.")
-        step_id, lesson, step_data = get_step_data_by_position(session, lesson_id, step_position)
-        print(f"✅ Step data получены. step_id={step_id}")
-    except Exception as error:
+        secrets = load_secrets(secrets_path)
+        session = create_user_session(secrets, secrets_path)
+    except Exception as error:  # noqa: BLE001
         print(f"❌ Ошибка подготовки данных: {error}")
         return
-    title = extract_title_from_step_data(step_data)
-    description = extract_description_from_step_data(step_data)
-    zip_url = extract_zip_url_from_step_data(step_data)
-    print(f"\nНазвание задачи: {title}")
-    task_name = slugify(f"step-{step_position} {title}")
-    task_dir, tests_dir = create_task_structure(root_dir, task_name)
-    save_debug_json(task_dir, "lesson_debug.json", lesson)
-    save_debug_json(task_dir, "step_debug.json", step_data)
-    if zip_url:
-        print(f"✅ ZIP найден автоматически: {zip_url}")
-    else:
-        print("⚠️ ZIP не найден автоматически в step JSON.")
-        zip_url = input("Enter ZIP url manually: ").strip()
-    if not zip_url:
-        print("❌ ZIP URL не указан.")
-        return
-    save_readme(task_dir, title, step_url, description, zip_url)
-    try:
-        download_and_extract_zip(session, zip_url, tests_dir)
-        print("✅ Архив скачан и распакован.")
-    except Exception as error:
-        print(f"❌ Ошибка скачивания или распаковки архива: {error}")
-        return
-    print("\nГотово!")
-    print(f"Task dir:  {task_dir}")
-    print(f"Tests dir: {tests_dir}")
-    print(f"Title:     {title}")
+
+    print("\nВведите URL шагов (по одному, пустая строка — завершение):")
+    while True:
+        step_url = input("URL шага: ").strip()
+        if not step_url:
+            break
+        try:
+            process_step_url(step_url, session, root_dir)
+        except Exception as error:  # noqa: BLE001
+            print(f"❌ Ошибка скачивания или распаковки архива: {error}")
 
 
 if __name__ == "__main__":
