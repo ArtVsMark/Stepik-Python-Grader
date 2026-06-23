@@ -4,12 +4,15 @@ import ast
 import os
 import pathlib
 import re
+import statistics
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
+import psutil
 import requests
 
 # ---------------------------------------------------------------------------
@@ -18,9 +21,12 @@ import requests
 
 _SOLUTION_FILE_RE = re.compile(r"task(?:\d+(?:_\d+)?|_\d+)?\.py")
 
-TIMEOUT_SECONDS: int = 10
+TIMEOUT_SECONDS: float = 10.0
 ENCODING: str = "utf-8"
 SIMILAR_THRESHOLD: float = 1.15
+MUCH_SLOWER_THRESHOLD: float = 1.50
+MEASURE_CHILD_MEMORY: bool = False
+MICROBENCH_MAX_CASES: int = 5
 
 # ---------------------------------------------------------------------------
 # Вспомогательные типы
@@ -40,9 +46,6 @@ def _is_safe_constant(node: ast.expr) -> bool:
     Рекурсивно проверяет AST-узел: принимает литералы (Constant), арифметику
     из констант (BinOp, UnaryOp) и вложенные контейнеры (List/Tuple/Set/Dict).
     Отклоняет любые вызовы (Call), обращения к атрибутам (Attribute) и Name.
-
-    Использует isinstance вместо match/case для совместимости с Python 3.14,
-    где структурный паттерн-матчинг AST-узлов ведёт себя непредсказуемо.
     """
     if isinstance(node, ast.Constant):
         return True
@@ -259,39 +262,81 @@ def slugify(text: str, max_len: int = _SLUG_MAX_LEN) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Запуск решения
+# Запуск решения с замером времени и памяти
 # ---------------------------------------------------------------------------
+
+
+def _get_peak_memory_mb(proc: psutil.Process) -> float:
+    """Вернуть пиковый RSS процесса в мегабайтах."""
+    try:
+        return proc.memory_info().rss / 1024 / 1024
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        return 0.0
 
 
 def run_solution(
     file_path: str,
     stdin_data: str = "",
-    timeout: int = TIMEOUT_SECONDS,
+    timeout: float = TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
-    """Запустить Python-файл в subprocess и вернуть результат."""
+    """Запустить Python-файл в subprocess и вернуть результат с временем и памятью."""
+    t_start = time.perf_counter()
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             [sys.executable, file_path],
-            input=stdin_data,
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
             encoding=ENCODING,
         )
+        peak_mb = 0.0
+        if MEASURE_CHILD_MEMORY:
+            try:
+                ps_proc = psutil.Process(proc.pid)
+            except psutil.NoSuchProcess:
+                ps_proc = None
+        else:
+            ps_proc = psutil.Process(os.getpid())
+
+        try:
+            stdout, stderr = proc.communicate(input=stdin_data, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            elapsed = time.perf_counter() - t_start
+            return {
+                "stdout": "",
+                "stderr": f"Timeout after {timeout}s",
+                "returncode": -1,
+                "timed_out": True,
+                "extra": "",
+                "elapsed": elapsed,
+                "peak_memory_mb": 0.0,
+            }
+
+        elapsed = time.perf_counter() - t_start
+        if ps_proc is not None:
+            peak_mb = _get_peak_memory_mb(ps_proc)
+
         return {
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "returncode": result.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+            "returncode": proc.returncode,
             "timed_out": False,
             "extra": "",
+            "elapsed": elapsed,
+            "peak_memory_mb": peak_mb,
         }
-    except subprocess.TimeoutExpired:
+    except Exception as exc:  # noqa: BLE001
         return {
             "stdout": "",
-            "stderr": f"Timeout after {timeout}s",
+            "stderr": str(exc),
             "returncode": -1,
-            "timed_out": True,
+            "timed_out": False,
             "extra": "",
+            "elapsed": 0.0,
+            "peak_memory_mb": 0.0,
         }
 
 
@@ -397,8 +442,10 @@ def _run():
         text=True,
     )
 
-times = timeit.repeat(_run, number={number}, repeat=3)
-print(min(times) / {number})
+# repeat=5 для получения статистики
+times = timeit.repeat(_run, number={number}, repeat=5)
+# Выводим все замеры через пробел (каждый — суммарное время за number итераций)
+print(" ".join(str(t / {number}) for t in times))
 """
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".py", delete=False, encoding=ENCODING
@@ -415,12 +462,24 @@ print(min(times) / {number})
             encoding=ENCODING,
         )
         if result.returncode != 0:
-            return {"error": result.stderr, "time": None}
-        return {"error": None, "time": float(result.stdout.strip())}
+            return {"error": result.stderr, "times": None}
+        raw = [float(x) for x in result.stdout.strip().split()]
+        return {"error": None, "times": raw}
     except subprocess.TimeoutExpired:
-        return {"error": "Timeout", "time": None}
+        return {"error": "Timeout", "times": None}
     finally:
         os.unlink(tmp_path)
+
+
+def _micro_stats(times: list[float]) -> dict[str, float]:
+    """Вычислить статистику по списку замеров (в секундах), вернуть в секундах."""
+    return {
+        "min": min(times),
+        "median": statistics.median(times),
+        "mean": statistics.mean(times),
+        "max": max(times),
+        "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
+    }
 
 
 def apply_relative_micro(
@@ -437,6 +496,15 @@ def apply_relative_micro(
         name: {"time": t, "relative": t / min_time}
         for name, t in timings.items()
     }
+
+
+def _verdict(relative: float) -> str:
+    """Вернуть вердикт по относительному времени."""
+    if relative <= SIMILAR_THRESHOLD:
+        return "SIMILAR"
+    if relative <= MUCH_SLOWER_THRESHOLD:
+        return "SLOWER"
+    return "MUCH SLOWER"
 
 
 # ---------------------------------------------------------------------------
@@ -500,7 +568,7 @@ def run_tests(
     mode: str = MODE_SCRIPT,
     *,
     verbose: bool = False,
-    timeout: int = TIMEOUT_SECONDS,
+    timeout: float = TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Запустить тест-кейсы для одного файла решения.
 
@@ -512,7 +580,8 @@ def run_tests(
         timeout: Таймаут subprocess в секундах.
 
     Returns:
-        Словарь с результатами: passed, failed, errors, total.
+        Словарь с результатами: passed, failed, errors, total,
+        total_time, avg_time, peak_memory_mb.
     """
     _validate_mode(mode)
 
@@ -521,10 +590,17 @@ def run_tests(
 
     test_cases = load_test_cases(test_dir)
     if not test_cases:
-        return {"passed": 0, "failed": 0, "errors": 0, "total": 0, "cases": []}
+        return {
+            "passed": 0, "failed": 0, "errors": 0, "total": 0,
+            "cases": [], "total_time": 0.0, "avg_time": 0.0,
+            "peak_memory_mb": 0.0, "first_fail": "-",
+        }
 
     results: list[dict[str, Any]] = []
     passed = failed = errors = 0
+    total_time = 0.0
+    peak_memory_mb = 0.0
+    first_fail: str | int = "-"
 
     for case in test_cases:
         stdin_data = build_input_data(
@@ -539,6 +615,10 @@ def run_tests(
             timeout=timeout,
         )
 
+        total_time += run_result["elapsed"]
+        if run_result["peak_memory_mb"] > peak_memory_mb:
+            peak_memory_mb = run_result["peak_memory_mb"]
+
         actual_lines = run_result["stdout"].splitlines()
         ok = compare_outputs(actual_lines, case.expected_lines)
 
@@ -552,16 +632,22 @@ def run_tests(
             failed += 1
             status = "fail"
 
+        if status != "pass" and first_fail == "-":
+            first_fail = case.index
+
         case_result: dict[str, Any] = {
             "index": case.index,
             "status": status,
             "actual": actual_lines,
             "expected": case.expected_lines,
+            "elapsed": run_result["elapsed"],
         }
         if verbose and not ok:
             case_result["diff"] = format_diff(actual_lines, case.expected_lines)
 
         results.append(case_result)
+
+    avg_time = total_time / len(test_cases) if test_cases else 0.0
 
     return {
         "passed": passed,
@@ -569,6 +655,10 @@ def run_tests(
         "errors": errors,
         "total": len(test_cases),
         "cases": results,
+        "total_time": total_time,
+        "avg_time": avg_time,
+        "peak_memory_mb": peak_memory_mb,
+        "first_fail": first_fail,
     }
 
 
@@ -576,7 +666,7 @@ def run_compare(
     solution_paths: list[str],
     test_dir: str,
     *,
-    timeout: int = TIMEOUT_SECONDS,
+    timeout: float = TIMEOUT_SECONDS,
 ) -> dict[str, dict[str, Any]]:
     """Сравнить несколько решений на одних тест-кейсах."""
     return {
@@ -589,54 +679,84 @@ def run_bench_mode(
     solution_paths: list[str],
     test_dir: str,
     *,
-    number: int = 100,
+    number: int = 15,
 ) -> dict[str, Any]:
-    """Запустить микробенчмарк для нескольких решений."""
+    """Запустить subprocess-бенчмарк (несколько прогонов) для нескольких решений."""
     test_cases = load_test_cases(test_dir)
     if not test_cases:
         return {}
 
-    timings: dict[str, float] = {}
+    results: dict[str, dict[str, Any]] = {}
     for path in solution_paths:
         code = pathlib.Path(path).read_text(encoding=ENCODING)
-        stdin_data = build_input_data(code, test_cases[0].input_lines, is_function_mode=False)
-        bench_result = run_microbench(code, stdin_data=stdin_data, number=number)
-        if bench_result["time"] is not None:
-            timings[path] = bench_result["time"]
+        is_fn = is_function_only_solution(code)
+        stdin_data = build_input_data(code, test_cases[0].input_lines, is_function_mode=is_fn)
 
-    return apply_relative_micro(timings)
+        times: list[float] = []
+        peak_mb = 0.0
+        for _ in range(number):
+            r = run_solution(path, stdin_data=stdin_data)
+            times.append(r["elapsed"])
+            if r["peak_memory_mb"] > peak_mb:
+                peak_mb = r["peak_memory_mb"]
+
+        stats = _micro_stats(times)
+        stats["peak_memory_mb"] = peak_mb
+        stats["runs"] = number
+        results[path] = stats
+
+    # Добавляем relative по median
+    if results:
+        min_median = min(v["median"] for v in results.values())
+        for v in results.values():
+            v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
+            v["verdict"] = _verdict(v["relative"])
+
+    return results
 
 
 # ---------------------------------------------------------------------------
 # Интерактивное меню
 # ---------------------------------------------------------------------------
 
+_SEP = "-" * 68
+
 
 def _interactive_menu() -> None:
     """Интерактивный режим при запуске без аргументов."""
+    mem_mode = "child process (honest, slower)" if MEASURE_CHILD_MEMORY else "parent process (fast, rough)"
     print("Choose mode:")
     print("  1 - test single file")
     print("  2 - compare all solutions in folder")
     print("  3 - benchmark passed solutions")
     print("  4 - microbench (timeit, any solution type)")
+    print(f"Memory mode: {mem_mode}")
     print(f"Subprocess timeout: {TIMEOUT_SECONDS}s per test")
 
     mode_input = input("Enter mode (1/2/3/4): ").strip()
 
+    # ------------------------------------------------------------------
+    # Режим 1 — проверка одного файла
+    # ------------------------------------------------------------------
     if mode_input == "1":
-        solution = input("Enter path to solution file: ").strip()
+        solution = input("Enter path to solution file (relative or absolute): ").strip()
         test_dir = input("Enter path to tests directory: ").strip()
         result = run_tests(solution, test_dir, verbose=True)
+
         total = result["total"]
         passed = result["passed"]
         failed = result["failed"]
         errors = result["errors"]
-        print(f"\n{solution}: {passed}/{total} tests", end="")
-        if failed:
-            print(f", {failed} failed", end="")
-        if errors:
-            print(f", {errors} errors", end="")
-        print(", status=" + ("OK" if failed == 0 and errors == 0 else "FAIL"))
+        status = "OK" if failed == 0 and errors == 0 else "FAIL"
+        total_t = result["total_time"]
+        avg_t = result["avg_time"]
+        mem = result["peak_memory_mb"]
+
+        print(
+            f"\n{solution}: {passed}/{total} tests, "
+            f"total={total_t:.4f}s, avg={avg_t:.4f}s, "
+            f"peak_memory={mem:.2f} MB, status={status}"
+        )
         for case in result.get("cases", []):
             mark = PASS_MARK if case["status"] == "pass" else FAIL_MARK
             color = "pass" if case["status"] == "pass" else "fail"
@@ -644,29 +764,52 @@ def _interactive_menu() -> None:
             if "diff" in case:
                 print(case["diff"])
 
+    # ------------------------------------------------------------------
+    # Режим 2 — сравнение всех решений в папке
+    # ------------------------------------------------------------------
     elif mode_input == "2":
         directory = input("Enter path to folder with solutions: ").strip()
         grouped = collect_grouped_files(directory)
         if not grouped:
             print("No solution files found.")
             return
+
+        col_file = 28
         for folder, paths in sorted(grouped.items()):
             test_dir = os.path.join(directory, folder, "tests")
             if not os.path.isdir(test_dir):
                 print(f"\n📂 {folder}  — tests/ not found, skipping")
                 continue
+
             print(f"\n📂 {folder}")
-            print("-" * 60)
-            print(f"{'File':<35} {'Passed':>6}  {'Status'}")
-            print("-" * 60)
+            print(_SEP)
+            print(
+                f"{'File':<{col_file}} {'Passed':>6}  "
+                f"{'Total time':>10}  {'Avg time':>9}  "
+                f"{'Peak memory':>11}  {'Status':>6}  {'Fail test':>9}"
+            )
+            print(_SEP)
+
             for path in sorted(paths):
                 result = run_tests(path, test_dir)
                 total = result["total"]
                 passed = result["passed"]
                 status = "OK" if passed == total and total > 0 else "FAIL"
                 rel = os.path.relpath(path, directory)
-                print(f"{rel:<35} {passed:>3}/{total:<3}  {status}")
+                total_t = result["total_time"]
+                avg_t = result["avg_time"]
+                mem = result["peak_memory_mb"]
+                first_fail = result["first_fail"]
 
+                print(
+                    f"{rel:<{col_file}} {passed:>3}/{total:<3}  "
+                    f"{total_t:>10.4f}  {avg_t:>9.4f}  "
+                    f"{mem:>9.2f} MB  {status:>6}  {str(first_fail):>9}"
+                )
+
+    # ------------------------------------------------------------------
+    # Режим 3 — subprocess-бенчмарк прошедших решений
+    # ------------------------------------------------------------------
     elif mode_input == "3":
         directory = input("Enter path to folder with solutions: ").strip()
         repeat_map = {"1": 5, "2": 15, "3": 50}
@@ -682,22 +825,45 @@ def _interactive_menu() -> None:
             test_dir = os.path.join(directory, folder, "tests")
             if not os.path.isdir(test_dir):
                 continue
-            passed_paths = [
-                p for p in sorted(paths)
-                if run_tests(p, test_dir)["failed"] == 0
-                and run_tests(p, test_dir)["errors"] == 0
-                and run_tests(p, test_dir)["total"] > 0
-            ]
+
+            # Проходит только то, что прошло все тесты (кешируем результат)
+            passed_paths = []
+            for p in sorted(paths):
+                r = run_tests(p, test_dir)
+                if r["failed"] == 0 and r["errors"] == 0 and r["total"] > 0:
+                    passed_paths.append(p)
+
             if not passed_paths:
                 continue
-            print(f"\n🚀 Benchmark: {folder}")
-            results = run_bench_mode(passed_paths, test_dir, number=number)
-            print("-" * 60)
-            for path, data in sorted(results.items(), key=lambda x: x[1]["time"]):
-                rel = os.path.relpath(path, directory)
-                verdict = "SIMILAR" if data["relative"] <= SIMILAR_THRESHOLD else "SLOWER"
-                print(f"{rel:<35} {data['time']:.6f}s  x{data['relative']:.2f}  {verdict}")
 
+            print(f"\n🚀 Benchmark: {folder}")
+            bench = run_bench_mode(passed_paths, test_dir, number=number)
+            if not bench:
+                print("  No results.")
+                continue
+
+            col = 28
+            print(_SEP)
+            print(
+                f"{'File':<{col}} {'Runs':>4}  "
+                f"{'Min':>7}  {'Median':>7}  {'Mean':>7}  {'Max':>7}  "
+                f"{'Std dev':>7}  {'Memory':>9}  {'Relative':>8}  {'Verdict'}"
+            )
+            print(_SEP)
+            for path, data in sorted(bench.items(), key=lambda x: x[1]["median"]):
+                rel_path = os.path.relpath(path, directory)
+                print(
+                    f"{rel_path:<{col}} {data['runs']:>4}  "
+                    f"{data['min']:>7.4f}  {data['median']:>7.4f}  "
+                    f"{data['mean']:>7.4f}  {data['max']:>7.4f}  "
+                    f"{data['stdev']:>7.4f}  "
+                    f"{data['peak_memory_mb']:>7.2f} MB  "
+                    f"{data['relative']*100:>7.1f}%  {data['verdict']}"
+                )
+
+    # ------------------------------------------------------------------
+    # Режим 4 — microbench (timeit)
+    # ------------------------------------------------------------------
     elif mode_input == "4":
         solution = input("Enter path to solution file: ").strip()
         test_dir = input("Enter path to tests directory: ").strip()
@@ -714,16 +880,45 @@ def _interactive_menu() -> None:
         if not test_cases:
             print("No test cases found.")
             return
-        stdin_data = build_input_data(
-            code, test_cases[0].input_lines,
-            is_function_mode=is_function_only_solution(code),
+
+        # Ограничиваем число кейсов для стабильного std-dev
+        cases_to_bench = test_cases[:MICROBENCH_MAX_CASES]
+
+        all_times: list[float] = []
+        for case in cases_to_bench:
+            stdin_data = build_input_data(
+                code, case.input_lines,
+                is_function_mode=is_function_only_solution(code),
+            )
+            bench = run_microbench(code, stdin_data=stdin_data, number=number)
+            if bench["error"]:
+                print(f"Error on test {case.index}: {bench['error']}")
+                return
+            all_times.extend(bench["times"])
+
+        stats = _micro_stats(all_times)
+        to_us = 1_000_000
+
+        print(f"\n⚡ Micro-bench (timeit): {solution}")
+        print(_SEP)
+        print(
+            f"{'File':<28} {'Repeats':>7}  "
+            f"{'Min, us':>8}  {'Median, us':>10}  {'Mean, us':>9}  "
+            f"{'Max, us':>8}  {'Std dev, us':>11}  {'Relative':>8}  {'Verdict'}"
         )
-        bench = run_microbench(code, stdin_data=stdin_data, number=number)
-        if bench["error"]:
-            print(f"Error: {bench['error']}")
-        else:
-            us = (bench["time"] or 0) * 1_000_000
-            print(f"\n⚡ {solution}: {us:.2f} µs/call  ({number} calls)")
+        print(_SEP)
+        # Для одного файла relative = 100 %
+        rel_name = os.path.relpath(solution)
+        print(
+            f"{rel_name:<28} {number:>7}  "
+            f"{stats['min']*to_us:>8.2f}  "
+            f"{stats['median']*to_us:>10.2f}  "
+            f"{stats['mean']*to_us:>9.2f}  "
+            f"{stats['max']*to_us:>8.2f}  "
+            f"{stats['stdev']*to_us:>11.2f}  "
+            f"{'100.0%':>8}  SIMILAR"
+        )
+
     else:
         print(f"Unknown mode: {mode_input!r}")
 
@@ -733,78 +928,5 @@ def _interactive_menu() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _parse_args(argv: list[str] | None = None) -> Any:
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        prog="grader",
-        description="Тестирование Python-решений со Stepik.",
-    )
-    subparsers = parser.add_subparsers(dest="command", required=False)
-
-    # run
-    run_p = subparsers.add_parser("run", help="Запустить тесты для одного решения.")
-    run_p.add_argument("solution", help="Путь к файлу решения.")
-    run_p.add_argument("test_dir", help="Директория с тест-кейсами.")
-    run_p.add_argument("--mode", choices=list(VALID_MODES), default=MODE_SCRIPT)
-    run_p.add_argument("--verbose", "-v", action="store_true")
-    run_p.add_argument("--timeout", type=int, default=TIMEOUT_SECONDS)
-
-    # compare
-    cmp_p = subparsers.add_parser("compare", help="Сравнить несколько решений.")
-    cmp_p.add_argument("solutions", nargs="+", help="Пути к файлам решений.")
-    cmp_p.add_argument("test_dir", help="Директория с тест-кейсами.")
-    cmp_p.add_argument("--timeout", type=int, default=TIMEOUT_SECONDS)
-
-    # bench
-    bench_p = subparsers.add_parser("bench", help="Микробенчмарк решений.")
-    bench_p.add_argument("solutions", nargs="+", help="Пути к файлам решений.")
-    bench_p.add_argument("test_dir", help="Директория с тест-кейсами.")
-    bench_p.add_argument("--number", type=int, default=100)
-
-    return parser.parse_args(argv)
-
-
-def cli_main(argv: list[str] | None = None) -> None:
-    """Точка входа CLI."""
-    args = _parse_args(argv)
-
-    if args.command is None:
-        _interactive_menu()
-        return
-
-    if args.command == "run":
-        result = run_tests(
-            args.solution,
-            args.test_dir,
-            mode=args.mode,
-            verbose=args.verbose,
-            timeout=args.timeout,
-        )
-        total = result["total"]
-        passed = result["passed"]
-        failed = result["failed"]
-        errors = result["errors"]
-        print(f"Результат: {passed}/{total} пройдено, {failed} провалено, {errors} ошибок.")
-        for case in result.get("cases", []):
-            mark = PASS_MARK if case["status"] == "pass" else FAIL_MARK
-            color = "pass" if case["status"] == "pass" else "fail"
-            print(colorize(f"  {mark} Тест {case['index']}", color))
-            if "diff" in case:
-                print(case["diff"])
-
-    elif args.command == "compare":
-        results = run_compare(args.solutions, args.test_dir, timeout=args.timeout)
-        for path, result in results.items():
-            total = result["total"]
-            passed = result["passed"]
-            print(f"{path}: {passed}/{total}")
-
-    elif args.command == "bench":
-        results = run_bench_mode(args.solutions, args.test_dir, number=args.number)
-        for path, data in sorted(results.items(), key=lambda x: x[1]["time"]):
-            print(f"{path}: {data['time']:.6f}s (x{data['relative']:.2f})")
-
-
 if __name__ == "__main__":
-    cli_main()
+    _interactive_menu()
