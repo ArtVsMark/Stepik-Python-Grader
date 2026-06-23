@@ -5,12 +5,18 @@
   - управление конфигом (stepik_config.json) и secrets.json,
   - разбор URL шага Stepik,
   - построение директорий задач (slugify, build_task_directory),
-  - сохранение файлов задачи (template.py, solution.py, meta.json, task.md),
+  - сохранение файлов задачи (task{N}_1.py, task{N}_2.py, solution.py, meta.json, task.md),
   - извлечение тест-кейсов из HTML-таблицы в тексте задачи,
   - скачивание тестов из ZIP- или GitHub-ссылок если таблица не полная/отсутствует,
   - оркестрацию вызовов к Stepik API через stepik_client.
 
 HTTP/OAuth логика вынесена в stepik_client.py.
+Файловый I/O вынесен в storage.py.
+
+Схема именования рабочих файлов:
+  task{step_position}_1.py  — основное решение (заполняется из template_code)
+  task{step_position}_2.py  — заглушка для альтернативного решения 1
+  task{step_position}_3.py  — (добавляется вручную) альтернативное решение 2
 """
 
 from __future__ import annotations
@@ -35,7 +41,7 @@ from stepik_client import (
     fetch_submission_data,
     fetch_unit_data,
 )
-from storage import load_json_file, save_json_file
+from storage import load_json_file, save_json_file, save_secrets
 
 CONFIG_FILE = "stepik_config.json"
 
@@ -347,7 +353,7 @@ def _download_zip_tests(
 
     saved = 0
     for name in names:
-        clean_name = name[len(strip_prefix) :] if name.startswith(strip_prefix) else name
+        clean_name = name[len(strip_prefix):] if name.startswith(strip_prefix) else name
         clean_name = clean_name.strip("/")
         if not clean_name:
             continue
@@ -396,11 +402,15 @@ def save_task_files(
     course: dict[str, Any],
     session: requests.Session,
 ) -> None:
-    """Сохраняет task_<N>.py, template.py, solution.py, meta.json, task.md и tests/ в task_dir.
+    """Сохраняет рабочие файлы, solution.py, meta.json, task.md и tests/ в task_dir.
+
+    Схема рабочих файлов:
+      task{pos}_1.py  — основное решение (из template_code или пустая заглушка)
+      task{pos}_2.py  — заглушка для альтернативного решения 1 (всегда создаётся)
 
     Порядок поиска тестов:
       1. ZIP-ссылка в HTML (автоскачивание);
-      2. HTML-таблица в тексте задачи (может быть неполной);
+      2. HTML-таблица в тексте задачи;
       3. Ссылка на GitHub (печатается, скачать вручную);
       4. Ничего нет — предупреждение, остальные файлы уже сохранены.
     """
@@ -410,10 +420,16 @@ def save_task_files(
     submitted_code = extract_submission_code(submission)
     step_position = int(step.get("position") or 0)
 
-    if template_code:
-        task_file_name = f"task_{step_position}.py"
-        (task_dir / task_file_name).write_text(template_code, encoding="utf-8")
-        (task_dir / "template.py").write_text(template_code, encoding="utf-8")
+    # Рабочие файлы: task{pos}_1.py и task{pos}_2.py
+    main_file = task_dir / f"task{step_position}_1.py"
+    alt_file = task_dir / f"task{step_position}_2.py"
+
+    main_content = template_code if template_code else ""
+    main_file.write_text(main_content, encoding="utf-8")
+
+    if not alt_file.exists():
+        alt_file.write_text("", encoding="utf-8")
+
     if submitted_code:
         (task_dir / "solution.py").write_text(submitted_code, encoding="utf-8")
 
