@@ -245,17 +245,24 @@ def fetch_step_data(
     lesson_id: int,
     step_position: int,
 ) -> dict[str, Any]:
-    """Возвращает объект шага по позиции внутри урока."""
-    response = session.get(
-        f"{API_HOST}/api/steps",
-        params={"lesson": lesson_id},
-        timeout=30,
-    )
-    response.raise_for_status()
-    steps: list[dict[str, Any]] = response.json().get("steps", [])
-    for step in steps:
-        if step.get("position") == step_position:
-            return step
+    """Возвращает объект шага по позиции внутри урока (с пагинацией)."""
+    page = 1
+    while True:
+        response = session.get(
+            f"{API_HOST}/api/steps",
+            params={"lesson": lesson_id, "page": page},
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json()
+        steps: list[dict[str, Any]] = data.get("steps", [])
+        for step in steps:
+            if step.get("position") == step_position:
+                return step
+        meta = data.get("meta", {})
+        if not meta.get("has_next"):
+            break
+        page += 1
     raise ValueError(f"Шаг с позицией {step_position} не найден в уроке {lesson_id}")
 
 
