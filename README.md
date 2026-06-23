@@ -34,18 +34,20 @@
 
 | Скрипт | Архитектурный слой | Что делает |
 |---|---|---|
-| `storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов; нет зависимостей от других модулей проекта |
+| `storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
 | `stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
-| `at_first.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач, сохранение файлов задачи, **автоизвлечение тест-кейсов из HTML-таблицы**, оркестрация вызовов API |
+| `at_first.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
 | `test.py` | Application | Проверяет решения локально, сравнивает несколько решений, запускает subprocess-benchmark и timeit-microbench |
-| `executor.py` | Application | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
-| `microbench_runner.py` | Application | Timeit-микробенчмарк через `exec` + `contextlib` (без запуска нового процесса) |
+| `executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
+| `microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через `exec` + `contextlib` (без запуска нового процесса) |
 | `diagnostik_stepik.py` | Infrastructure | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
 
 Основные возможности:
 
 - ✅ Запуск решений против наборов тест-кейсов (`tests/N` + `tests/N.clue`)
 - 📋 **Автоматическое извлечение тест-кейсов** из HTML-таблицы в тексте задачи Stepik
+- 📦 **Автоскачивание тестов из ZIP-архива** по ссылке в тексте задачи
+- 🔗 Обнаружение ссылок на GitHub-тесты с подсказкой скачать вручную
 - 📊 Сравнение нескольких решений одной задачи в таблице
 - 🚀 Subprocess-бенчмарк с замером времени и памяти
 - ⚡ Timeit-микробенчмарк через `exec` + `contextlib` (без запуска нового процесса)
@@ -95,7 +97,7 @@ Stepik-Python-Grader/
 ├── microbench_runner.py       # Timeit-микробенчмарк через exec
 ├── at_first.py                # Domain: конфиг, slugify, построение папок, оркестрация API
 ├── stepik_client.py           # Infrastructure: OAuth2, requests.Session, Stepik API
-├── storage.py                 # Utilities: load/save JSON (нет project-зависимостей)
+├── storage.py                 # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── diagnostik_stepik.py       # Диагностика API и токена
 ├── tests/
 │   ├── test_executor.py
@@ -239,9 +241,9 @@ python at_first.py
 ```
 
 При первом запуске:
-- будет предложено выбрать корневую папку (по умолчанию `StepikTasks`),
+- будет предложено выбрать корневую папку (по умолчанию `StepikTasks`) и путь к `secrets.json`,
 - откроется браузер для подтверждения доступа,
-- после успешной авторизации токены сохранятся в `secrets.json`.
+- после успешной авторизации токены сохранятся в `secrets.json` через `storage.save_secrets()`.
 
 Введи URL шага, например:
 
@@ -270,8 +272,16 @@ StepikTasks/
                     └── ...
 ```
 
-> **Тест-кейсы извлекаются автоматически** из HTML-таблицы в тексте задачи (`task.md`).  
-> Если таблица не найдена — выводится предупреждение `⚠️ Тесты не найдены — добавь tests/ вручную`.
+### Как ищутся тест-кейсы
+
+`at_first.py` перебирает источники по приоритету — первый успешный выигрывает:
+
+| Приоритет | Источник | Поведение |
+|---|---|---|
+| 1 | ZIP-ссылка в HTML задачи | Скачивается автоматически, распаковывается в `tests/` |
+| 2 | HTML-таблица в тексте задачи | Парсится автоматически в `tests/N` + `tests/N.clue` |
+| 3 | Ссылка на GitHub в HTML | Адрес печатается в консоль — скачать вручную |
+| 4 | Ничего не найдено | Предупреждение `⚠️`, остальные файлы уже сохранены |
 
 OAuth-поток полностью реализован в `stepik_client.py` (`create_user_session`, `authorize_via_browser`, `refresh_access_token`); `at_first.py` только оркестрирует вызовы.
 
@@ -394,8 +404,8 @@ module1/
 Кодировка определяется автоматически через `chardet`.
 
 > При скачивании задачи через `at_first.py` файлы `tests/N`, `tests/N.clue` и при необходимости `tests/N.type`
-> создаются **автоматически** из HTML-таблицы в тексте задачи.  
-> Если таблица в задаче отсутствует — папку `tests/` нужно заполнить вручную.
+> создаются **автоматически** из ZIP-архива или HTML-таблицы в тексте задачи.  
+> Если ни ZIP, ни таблицы нет — папку `tests/` нужно заполнить вручную.
 
 ---
 
@@ -403,13 +413,14 @@ module1/
 
 ### Корневая папка задач
 
-При первом запуске `at_first.py` предложит выбрать папку:
+При первом запуске `at_first.py` предложит указать:
 
 ```
 Укажи корневую папку для всех задач Stepik [StepikTasks]:
+Укажи путь к secrets.json [secrets.json]:
 ```
 
-Значение сохраняется в `stepik_config.json`. Структура внутри:
+Значения сохраняются в `stepik_config.json`. Структура директорий внутри:
 
 ```
 StepikTasks/
@@ -455,7 +466,7 @@ MICROBENCH_MAX_CASES = 5
 
 | Пакет | Назначение | Используется в |
 |-------|------------|----------------|
-| `requests>=2.34` | HTTP-запросы к Stepik API, OAuth2 | `stepik_client.py` |
+| `requests>=2.34` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `stepik_client.py`, `at_first.py` |
 | `psutil>=5.9` | Замер памяти и мониторинг процессов | `test.py`, `executor.py` |
 | `chardet>=5.0` | Авто-определение кодировки файлов | `executor.py` |
 
@@ -513,6 +524,8 @@ python diagnostik_stepik.py
 | Вердикт SIMILAR / SLOWER / MUCH SLOWER | ❌ | ✅ |
 | OAuth2 + скачивание данных задачи с API | ❌ | ✅ |
 | Автоизвлечение тест-кейсов из HTML-таблицы | ❌ | ✅ Sprint 4 |
+| Автоскачивание тестов из ZIP-архива | ❌ | ✅ Sprint 4 |
+| Обнаружение ссылок на GitHub-тесты | ❌ | ✅ Sprint 4 |
 | Поддержка function-style тестов (`*.type`) | ❌ | ✅ Sprint 4 |
 | Диагностика API | ❌ | ✅ |
 | Поддержка function-only решений | ❌ | ✅ |
