@@ -41,7 +41,7 @@ from stepik_client import (
     fetch_submission_data,
     fetch_unit_data,
 )
-from storage import load_json_file, save_json_file, save_secrets
+from storage import load_json_file, save_json_file
 
 CONFIG_FILE = "stepik_config.json"
 
@@ -353,7 +353,7 @@ def _download_zip_tests(
 
     saved = 0
     for name in names:
-        clean_name = name[len(strip_prefix):] if name.startswith(strip_prefix) else name
+        clean_name = name[len(strip_prefix) :] if name.startswith(strip_prefix) else name
         clean_name = clean_name.strip("/")
         if not clean_name:
             continue
