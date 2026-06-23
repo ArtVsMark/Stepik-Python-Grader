@@ -85,6 +85,20 @@ class TestCase:
     expected_lines: list[str]
 
 
+def _is_safe_constant(node: ast.expr) -> bool:
+    """Вернуть True, если узел — безопасное константное выражение без вызовов.
+
+    Использует ast.literal_eval, который принимает литералы, BinOp, UnaryOp
+    и вложенные контейнеры (list/tuple/set/dict из констант), но отклоняет
+    любые вызовы функций (Call), обращения к атрибутам (Attribute) и Name.
+    """
+    try:
+        ast.literal_eval(node)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
 def is_function_only_solution(file_content: str) -> bool:
     """Вернуть True, если файл содержит только определения функций (без точки входа).
 
@@ -116,13 +130,16 @@ def is_function_only_solution(file_content: str) -> bool:
                 return False
 
         if isinstance(node, ast.Assign):
-            if not isinstance(node.value, ast.Constant | ast.List | ast.Tuple | ast.Set | ast.Dict):
+            # 🔴 ИСПРАВЛЕНО: заменена isinstance-проверка на ast.literal_eval —
+            # теперь принимаются BinOp/UnaryOp (напр. MOD = 10 ** 9 + 7),
+            # но по-прежнему отклоняются вызовы функций (data = sys.stdin.read()).
+            if not _is_safe_constant(node.value):
                 return False
 
         if isinstance(node, ast.AnnAssign):
-            if node.value is not None and not isinstance(
-                node.value, ast.Constant | ast.List | ast.Tuple | ast.Set | ast.Dict
-            ):
+            # 🔴 ИСПРАВЛЕНО: аналогично для аннотированных присваиваний
+            # (напр. MOD: int = 10 ** 9 + 7).
+            if node.value is not None and not _is_safe_constant(node.value):
                 return False
 
     return any(isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) for node in tree.body)
