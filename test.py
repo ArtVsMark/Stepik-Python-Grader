@@ -19,8 +19,6 @@ import psutil
 from microbench_runner import (
     SIMILAR_THRESHOLD_PERCENT,
     MicrobenchResult,
-    apply_relative_micro,
-    run_microbench,
 )
 
 MEASURE_CHILD_MEMORY = False
@@ -108,8 +106,8 @@ def _is_safe_constant(node: ast.expr) -> bool:
             return _is_safe_constant(operand)
         case ast.BinOp(left=left, right=right):
             return _is_safe_constant(left) and _is_safe_constant(right)
-        case ast.List(elts=elts) | ast.Tuple(elts=elts) | ast.Set(elts=elts):
-            return all(_is_safe_constant(e) for e in elts)
+        case ast.List(elts=items) | ast.Tuple(elts=items) | ast.Set(elts=items):  # type: ignore[misc]
+            return all(_is_safe_constant(e) for e in items)
         case ast.Dict(keys=keys, values=values):
             return all(_is_safe_constant(k) for k in keys if k is not None) and all(
                 _is_safe_constant(v) for v in values
@@ -127,7 +125,7 @@ def is_function_only_solution(file_content: str) -> bool:
     try:
         tree = ast.parse(file_content)
     except SyntaxError:
-        return False  # 🔴 ИСПРАВЛЕНО: раньше SyntaxError пробрасывался наверх
+        return False
 
     allowed_nodes = (
         ast.FunctionDef,
@@ -149,15 +147,10 @@ def is_function_only_solution(file_content: str) -> bool:
                 return False
 
         if isinstance(node, ast.Assign):
-            # 🔴 ИСПРАВЛЕНО: заменена isinstance-проверка на _is_safe_constant —
-            # теперь принимаются BinOp/UnaryOp (напр. MOD = 10 ** 9 + 7),
-            # но по-прежнему отклоняются вызовы функций (data = sys.stdin.read()).
             if not _is_safe_constant(node.value):
                 return False
 
         if isinstance(node, ast.AnnAssign):
-            # 🔴 ИСПРАВЛЕНО: аналогично для аннотированных присваиваний
-            # (напр. MOD: int = 10 ** 9 + 7).
             if node.value is not None and not _is_safe_constant(node.value):
                 return False
 
@@ -229,7 +222,7 @@ def load_text_lines(file_path: str) -> list[str]:
 def load_text_lines_with_encoding(file_path: str) -> tuple[list[str], str | None]:
     """Загрузить текстовый файл и вернуть (строки, кодировка).
 
-    🟡 УЛУЧШЕНО: разделено из load_text_lines(return_encoding=True) —
+    Разделено из load_text_lines(return_encoding=True) —
     одна функция с bool-флагом возвращала два разных типа (нарушение PEP 20).
     """
     with open(file_path, "rb") as binary_file:
@@ -242,7 +235,7 @@ def load_text_lines_with_encoding(file_path: str) -> tuple[list[str], str | None
 def log_error(file: str) -> None:
     """Записать путь файла с ошибкой в errors.txt.
 
-    🟡 УЛУЧШЕНО: обёрнуто в try/except — при отсутствии прав на запись
+    Обёрнуто в try/except — при отсутствии прав на запись
     grader продолжает работу вместо падения с PermissionError.
     """
     try:
@@ -276,7 +269,7 @@ def run_process(
 ) -> tuple[subprocess.CompletedProcess | None, float, float, str]:
     """Запустить subprocess с решением.
 
-    🔴 ИСПРАВЛЕНО: добавлен timeout=SUBPROCESS_TIMEOUT во все ветки —
+    Добавлен timeout=SUBPROCESS_TIMEOUT во все ветки —
     бесконечный цикл в решении студента больше не подвешивает grader.
     Параметр python_cmd убран — используется модульная константа PYTHON_CMD.
     """
@@ -292,7 +285,7 @@ def run_process(
                 text=True,
                 encoding="utf-8",
                 check=False,
-                timeout=SUBPROCESS_TIMEOUT,  # 🔴 ИСПРАВЛЕНО
+                timeout=SUBPROCESS_TIMEOUT,
             )
         except subprocess.TimeoutExpired:
             elapsed_time = time.perf_counter() - start_time
@@ -342,7 +335,7 @@ def run_process(
     try:
         stdout_data, stderr_data = proc.communicate(
             input=input_data,
-            timeout=SUBPROCESS_TIMEOUT,  # 🔴 ИСПРАВЛЕНО
+            timeout=SUBPROCESS_TIMEOUT,
         )
     except subprocess.TimeoutExpired:
         proc.kill()
@@ -390,7 +383,7 @@ def run_test_once(
         if completed is None:
             timeout_msg = monitor_error or "Process did not start or timed out."
             if show_details_on_fail:
-                print(f"\n⏱️  Тест №{test_case.index} — {timeout_msg}")
+                print(f"\n⏱️ Тест №{test_case.index} — {timeout_msg}")
             log_error(file)
             return TestRunResult(False, elapsed_time, memory_mb, timeout_msg)
 
@@ -540,7 +533,7 @@ def benchmark_file(
 ) -> BenchmarkStats | None:
     """Запустить subprocess-бенчмарк для одного файла.
 
-    🟠 УЛУЧШЕНО: устранена двойная верификация — раньше verify_file вызывался полностью,
+    Устранена двойная верификация — раньше verify_file вызывался полностью,
     потом prepare_execution и load_test_cases вызывались снова. Теперь одна верификация,
     данные переиспользуются.
     """
