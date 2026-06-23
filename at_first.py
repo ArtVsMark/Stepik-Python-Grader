@@ -7,16 +7,19 @@
   - построение директорий задач (slugify, build_task_directory),
   - сохранение файлов задачи (template.py, solution.py, meta.json, task.md),
   - извлечение тест-кейсов из HTML-таблицы в тексте задачи,
+  - скачивание тестов из ZIP- или GitHub-ссылок если таблица отсутствует,
   - оркестрацию вызовов к Stepik API через stepik_client.
 
-HTTP/OAuth логика вынесена в stepik_client.py (Sprint 3, июнь 2026).
+HTTP/OAuth логика вынесена в stepik_client.py.
 """
 
 from __future__ import annotations
 
+import io
 import json
 import pathlib
 import re
+import zipfile
 from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -32,7 +35,7 @@ from stepik_client import (
     fetch_submission_data,
     fetch_unit_data,
 )
-from storage import load_json_file, save_json_file
+from storage import load_json_file, save_json_file, save_secrets
 
 CONFIG_FILE = "stepik_config.json"
 
@@ -310,6 +313,120 @@ def save_tests(task_dir: pathlib.Path, tests: list[tuple[str, str, str]]) -> int
 
 
 # ---------------------------------------------------------------------------
+# Скачивание тестов из внешнего источника (ZIP / GitHub)
+# ---------------------------------------------------------------------------
+
+_ZIP_URL_RE = re.compile(r'href=["\']([^"\']*\.zip)["\']', re.IGNORECASE)
+_GITHUB_URL_RE = re.compile(r'href=["\']([^"\']*github\.com[^"\']*)["\']', re.IGNORECASE)
+
+
+def extract_external_test_links(html: str) -> list[str]:
+    """Возвращает ссылки на ZIP/GitHub из HTML текста задачи.
+
+    Порядок приоритетов: сначала ZIP-ссылки, затем GitHub.
+    """
+    links: list[str] = []
+    links.extend(_ZIP_URL_RE.findall(html))
+    links.extend(_GITHUB_URL_RE.findall(html))
+    # Убираем дубликаты, сохраняя порядок
+    seen: set[str] = set()
+    result: list[str] = []
+    for link in links:
+        if link not in seen:
+            seen.add(link)
+            result.append(link)
+    return result
+
+
+def _download_zip_tests(
+    task_dir: pathlib.Path,
+    zip_url: str,
+    session: requests.Session,
+) -> int:
+    """Скачивает ZIP, распаковывает и сохраняет файлы тестов в tests/.
+
+    Ожидает ZIP-архив со структурой:
+        tests/1, tests/1.clue, tests/2, tests/2.clue, ...
+    или плоский архив без подпапки:
+        1, 1.clue, 2, 2.clue, ...
+
+    Возвращает количество сохранённых пар тестов (1 пара = файл входа + файл ответа).
+    0 если скачать/распаковать не удалось.
+    """
+    try:
+        response = session.get(zip_url, timeout=30)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"  ⚠️  Не удалось скачать ZIP: {zip_url} ({exc})")
+        return 0
+
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(response.content))
+    except zipfile.BadZipFile:
+        print(f"  ⚠️  Скачанный файл не является ZIP: {zip_url}")
+        return 0
+
+    tests_dir = task_dir / "tests"
+    tests_dir.mkdir(parents=True, exist_ok=True)
+
+    # Нормализуем пути: убираем подпапку (tests/ или любую другую)
+    names = zf.namelist()
+    strip_prefix = ""
+    for name in names:
+        if "/" in name:
+            strip_prefix = name.split("/")[0] + "/"
+            break
+
+    saved = 0
+    for name in names:
+        clean_name = name[len(strip_prefix):] if name.startswith(strip_prefix) else name
+        clean_name = clean_name.strip("/")
+        if not clean_name:
+            continue
+        dest = tests_dir / clean_name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(zf.read(name))
+        # Считаем только файлы входа (без расширения)
+        if "." not in clean_name:
+            saved += 1
+
+    return saved
+
+
+def try_download_tests_from_links(
+    task_dir: pathlib.Path,
+    html: str,
+    session: requests.Session,
+) -> int:
+    """Ищет внешние ссылки в HTML и пытается скачать ZIP-тесты.
+
+    GitHub-ссылки печатает, но не скачивает (требует ручного просмотра).
+
+    Возвращает количество сохранённых тестов (или 0 если ничего не скачано).
+    """
+    links = extract_external_test_links(html)
+    if not links:
+        return 0
+
+    zip_links = [l for l in links if l.lower().endswith(".zip")]
+    github_links = [l for l in links if "github.com" in l]
+
+    # Сначала пробуем ZIP
+    for zip_url in zip_links:
+        print(f"  📦 Найдена ZIP-ссылка: {zip_url}")
+        count = _download_zip_tests(task_dir, zip_url, session)
+        if count:
+            return count
+
+    # ZIP не удался — сообщаем про GitHub
+    for gh_url in github_links:
+        print(f"  🔗 Тесты на GitHub: {gh_url}")
+        print("     (автоскачивание с GitHub не поддерживается, скачай вручную)")
+
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Построение директорий и сохранение файлов задачи
 # ---------------------------------------------------------------------------
 
@@ -338,8 +455,16 @@ def save_task_files(
     lesson: dict[str, Any],
     section: dict[str, Any],
     course: dict[str, Any],
+    session: requests.Session,
 ) -> None:
-    """Сохраняет template.py, solution.py, meta.json, task.md и tests/ в task_dir."""
+    """Сохраняет template.py, solution.py, meta.json, task.md и tests/ в task_dir.
+
+    Порядок поиска тестов:
+      1. HTML-таблица в тексте задачи;
+      2. ZIP-ссылка в HTML (автоскачивание);
+      3. Ссылка на GitHub в HTML (печатается, скачать вручную);
+      4. Ничего нет — предупреждение, остальные файлы уже сохранены.
+    """
     task_dir.mkdir(parents=True, exist_ok=True)
 
     template_code = extract_python_code(step)
@@ -369,12 +494,22 @@ def save_task_files(
     text = str(block.get("text", ""))
     if text:
         (task_dir / "task.md").write_text(text, encoding="utf-8")
+
+        # 1. Попытка извлечь тесты из HTML-таблицы
         tests = extract_tests_from_html(text)
         if tests:
             count = save_tests(task_dir, tests)
             print(f"  📋 Извлечено тестов из таблицы: {count}")
-        else:
-            print("  ⚠️  Тесты в тексте задачи не найдены — добавь tests/ вручную")
+            return
+
+        # 2. ZIP / GitHub
+        count = try_download_tests_from_links(task_dir, text, session)
+        if count:
+            print(f"  📦 Скачано тестов из ZIP: {count}")
+            return
+
+        # 3. Ничего не нашли — файлы уже сохранены, предупреждаем
+        print("  ⚠️  Тесты не найдены (нет таблицы и внешних ссылок) — остальные файлы сохранены"
 
 
 # ---------------------------------------------------------------------------
@@ -430,7 +565,7 @@ def process_step_url(
     )
 
     print(f"  Сохраняю файлы в: {task_dir}")
-    save_task_files(task_dir, step, submission, lesson, section, course)
+    save_task_files(task_dir, step, submission, lesson, section, course, session)
     print(f"  ✅ Шаг сохранён: {task_dir}")
 
 
