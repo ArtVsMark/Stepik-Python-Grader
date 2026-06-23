@@ -4,13 +4,10 @@ import ast
 import os
 import pathlib
 import re
-import statistics
 import subprocess
 import sys
-import time
-import traceback
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import requests
@@ -172,22 +169,24 @@ def load_text_lines_with_encoding(file_path: str) -> tuple[list[str], str | None
 def load_test_cases(test_dir: str) -> list[TestCase]:
     """Загрузить тест-кейсы из директории.
 
-    Ожидаемая структура:
-        input_1.txt, input_2.txt, ...
-        expected_1.txt, expected_2.txt, ...
+    Ожидаемая структура (формат at_first.py):
+        tests/1        — входные данные теста №1 (stdin)
+        tests/1.clue   — ожидаемый вывод теста №1
+        tests/2, tests/2.clue, ...
     """
     cases: list[TestCase] = []
     dir_path = pathlib.Path(test_dir)
 
-    input_files = sorted(dir_path.glob("input_*.txt"))
-    for inp_file in input_files:
-        idx_str = inp_file.stem.split("_", 1)[1]
-        idx = int(idx_str)
-        exp_file = dir_path / f"expected_{idx}.txt"
-        if not exp_file.exists():
+    # Ищем файлы без расширения с числовым именем (1, 2, 3, ...)
+    for inp_file in dir_path.iterdir():
+        if inp_file.suffix or not inp_file.stem.isdigit():
             continue
+        clue_file = dir_path / f"{inp_file.stem}.clue"
+        if not clue_file.exists():
+            continue
+        idx = int(inp_file.stem)
         input_lines = load_text_lines(str(inp_file))
-        expected_lines = load_text_lines(str(exp_file))
+        expected_lines = load_text_lines(str(clue_file))
         cases.append(TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines))
 
     return sorted(cases, key=lambda c: c.index)
@@ -420,13 +419,6 @@ def apply_relative_micro(
 
 
 # ---------------------------------------------------------------------------
-# Storage helpers (импортируем из storage.py)
-# ---------------------------------------------------------------------------
-
-from storage import load_json_file, save_json_file, save_secrets  # noqa: E402
-
-
-# ---------------------------------------------------------------------------
 # Stepik client helpers
 # ---------------------------------------------------------------------------
 
@@ -504,9 +496,6 @@ def run_tests(
     _validate_mode(mode)
 
     solution_code = pathlib.Path(solution_path).read_text(encoding=ENCODING)
-    is_function_mode = mode == MODE_FUNCTION or (
-        mode == MODE_SCRIPT and is_function_only_solution(solution_code)
-    )
     is_function_only = is_function_only_solution(solution_code)
 
     test_cases = load_test_cases(test_dir)
@@ -598,6 +587,127 @@ def run_bench_mode(
 
 
 # ---------------------------------------------------------------------------
+# Интерактивное меню
+# ---------------------------------------------------------------------------
+
+
+def _interactive_menu() -> None:
+    """Интерактивный режим при запуске без аргументов."""
+    print("Choose mode:")
+    print("  1 - test single file")
+    print("  2 - compare all solutions in folder")
+    print("  3 - benchmark passed solutions")
+    print("  4 - microbench (timeit, any solution type)")
+    print(f"Subprocess timeout: {TIMEOUT_SECONDS}s per test")
+
+    mode_input = input("Enter mode (1/2/3/4): ").strip()
+
+    if mode_input == "1":
+        solution = input("Enter path to solution file: ").strip()
+        test_dir = input("Enter path to tests directory: ").strip()
+        result = run_tests(solution, test_dir, verbose=True)
+        total = result["total"]
+        passed = result["passed"]
+        failed = result["failed"]
+        errors = result["errors"]
+        print(f"\n{solution}: {passed}/{total} tests", end="")
+        if failed:
+            print(f", {failed} failed", end="")
+        if errors:
+            print(f", {errors} errors", end="")
+        print(", status=" + ("OK" if failed == 0 and errors == 0 else "FAIL"))
+        for case in result.get("cases", []):
+            mark = PASS_MARK if case["status"] == "pass" else FAIL_MARK
+            color = "pass" if case["status"] == "pass" else "fail"
+            print(colorize(f"  {mark} Test {case['index']}", color))
+            if "diff" in case:
+                print(case["diff"])
+
+    elif mode_input == "2":
+        directory = input("Enter path to folder with solutions: ").strip()
+        grouped = collect_grouped_files(directory)
+        if not grouped:
+            print("No solution files found.")
+            return
+        for folder, paths in sorted(grouped.items()):
+            test_dir = os.path.join(directory, folder, "tests")
+            if not os.path.isdir(test_dir):
+                print(f"\n📂 {folder}  — tests/ not found, skipping")
+                continue
+            print(f"\n📂 {folder}")
+            print("-" * 60)
+            print(f"{'File':<35} {'Passed':>6}  {'Status'}")
+            print("-" * 60)
+            for path in sorted(paths):
+                result = run_tests(path, test_dir)
+                total = result["total"]
+                passed = result["passed"]
+                status = "OK" if passed == total and total > 0 else "FAIL"
+                rel = os.path.relpath(path, directory)
+                print(f"{rel:<35} {passed:>3}/{total:<3}  {status}")
+
+    elif mode_input == "3":
+        directory = input("Enter path to folder with solutions: ").strip()
+        repeat_map = {"1": 5, "2": 15, "3": 50}
+        print("Repeats: 1=low(5)  2=medium(15)  3=high(50)  4=custom")
+        repeat_choice = input("Choose (1/2/3/4): ").strip()
+        if repeat_choice == "4":
+            number = int(input("Enter number of repeats (5-100): ").strip())
+        else:
+            number = repeat_map.get(repeat_choice, 15)
+
+        grouped = collect_grouped_files(directory)
+        for folder, paths in sorted(grouped.items()):
+            test_dir = os.path.join(directory, folder, "tests")
+            if not os.path.isdir(test_dir):
+                continue
+            passed_paths = [
+                p for p in sorted(paths)
+                if run_tests(p, test_dir)["failed"] == 0
+                and run_tests(p, test_dir)["errors"] == 0
+                and run_tests(p, test_dir)["total"] > 0
+            ]
+            if not passed_paths:
+                continue
+            print(f"\n🚀 Benchmark: {folder}")
+            results = run_bench_mode(passed_paths, test_dir, number=number)
+            print("-" * 60)
+            for path, data in sorted(results.items(), key=lambda x: x[1]["time"]):
+                rel = os.path.relpath(path, directory)
+                verdict = "SIMILAR" if data["relative"] <= SIMILAR_THRESHOLD else "SLOWER"
+                print(f"{rel:<35} {data['time']:.6f}s  x{data['relative']:.2f}  {verdict}")
+
+    elif mode_input == "4":
+        solution = input("Enter path to solution file: ").strip()
+        test_dir = input("Enter path to tests directory: ").strip()
+        calls_map = {"1": 500, "2": 1000, "3": 5000, "4": 50000, "5": 100000}
+        print("Calls: 1=fast(500)  2=normal(1000)  3=thorough(5000)  4=deep(50000)  5=hard(100000)  6=custom")
+        calls_choice = input("Choose (1-6): ").strip()
+        if calls_choice == "6":
+            number = int(input("Enter number of calls (100-500000): ").strip())
+        else:
+            number = calls_map.get(calls_choice, 1000)
+
+        code = pathlib.Path(solution).read_text(encoding=ENCODING)
+        test_cases = load_test_cases(test_dir)
+        if not test_cases:
+            print("No test cases found.")
+            return
+        stdin_data = build_input_data(
+            code, test_cases[0].input_lines,
+            is_function_mode=is_function_only_solution(code),
+        )
+        bench = run_microbench(code, stdin_data=stdin_data, number=number)
+        if bench["error"]:
+            print(f"Error: {bench['error']}")
+        else:
+            us = (bench["time"] or 0) * 1_000_000
+            print(f"\n⚡ {solution}: {us:.2f} µs/call  ({number} calls)")
+    else:
+        print(f"Unknown mode: {mode_input!r}")
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -609,7 +719,7 @@ def _parse_args(argv: list[str] | None = None) -> Any:
         prog="test",
         description="Тестирование Python-решений со Stepik.",
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=False)
 
     # run
     run_p = subparsers.add_parser("run", help="Запустить тесты для одного решения.")
@@ -637,6 +747,11 @@ def _parse_args(argv: list[str] | None = None) -> Any:
 def cli_main(argv: list[str] | None = None) -> None:
     """Точка входа CLI."""
     args = _parse_args(argv)
+
+    # Если аргументов нет — запускаем интерактивное меню
+    if args.command is None:
+        _interactive_menu()
+        return
 
     if args.command == "run":
         result = run_tests(
