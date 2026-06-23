@@ -130,7 +130,7 @@ def is_function_only_solution(file_content: str) -> bool:
                 return False
 
         if isinstance(node, ast.Assign):
-            # 🔴 ИСПРАВЛЕНО: заменена isinstance-проверка на ast.literal_eval —
+            # 🔴 ИСПРАВЛЕНО: заменена isinstance-проверка на _is_safe_constant —
             # теперь принимаются BinOp/UnaryOp (напр. MOD = 10 ** 9 + 7),
             # но по-прежнему отклоняются вызовы функций (data = sys.stdin.read()).
             if not _is_safe_constant(node.value):
