@@ -40,6 +40,7 @@ testpaths = ["tests"]
 source = ["."]
 omit = [
     "test.py",
+    "t.py",
     "diagnostik_stepik.py",
     "at_first.py",
     "stepik_client.py",
