@@ -30,8 +30,4 @@ PokolenieTestes/
 .coverage
 coverage.xml
 .pytest_cache/
-
-.coverage
-coverage.xml
-.pytest_cache/
 t.py
