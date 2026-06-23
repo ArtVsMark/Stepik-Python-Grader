@@ -35,7 +35,7 @@ from stepik_client import (
     fetch_submission_data,
     fetch_unit_data,
 )
-from storage import load_json_file, save_json_file, save_secrets
+from storage import load_json_file, save_json_file
 
 CONFIG_FILE = "stepik_config.json"
 
@@ -45,6 +45,7 @@ DEFAULT_ROOT_DIR = "StepikTasks"
 # ---------------------------------------------------------------------------
 # Утилиты
 # ---------------------------------------------------------------------------
+
 
 def slugify(text: str) -> str:
     """Преобразует текст в slug для имени директории. Макс 80 символов."""
@@ -66,6 +67,7 @@ def ask_value(prompt: str, default: str = "") -> str:
 # ---------------------------------------------------------------------------
 # Конфигурация
 # ---------------------------------------------------------------------------
+
 
 def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
     """Интерактивно создаёт или перезаписывает stepik_config.json."""
@@ -132,6 +134,7 @@ def normalize_config_paths(
 # Secrets
 # ---------------------------------------------------------------------------
 
+
 def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
     """Загружает и валидирует secrets.json."""
     if not secrets_path.exists():
@@ -158,6 +161,7 @@ def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
 # URL-парсинг
 # ---------------------------------------------------------------------------
 
+
 def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
     """Извлекает (lesson_id, step_position) из URL шага Stepik."""
     parsed = urlparse(step_url.strip())
@@ -173,6 +177,7 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 # Извлечение кода
 # ---------------------------------------------------------------------------
+
 
 def extract_python_code(step: dict[str, Any]) -> str | None:
     """Извлекает Python code_template из объекта шага или из блока Markdown."""
@@ -199,6 +204,7 @@ def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
 # ---------------------------------------------------------------------------
 # Извлечение тест-кейсов из HTML-таблицы
 # ---------------------------------------------------------------------------
+
 
 class _TableParser(HTMLParser):
     """Вытаскивает текст из <td> ячеек HTML-таблицы построчно."""
@@ -296,6 +302,7 @@ def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
 
     Возвращает кортеж (zip_links, github_links) без дубликатов.
     """
+
     def _unique(items: list[str]) -> list[str]:
         seen: set[str] = set()
         return [x for x in items if not (x in seen or seen.add(x))]  # type: ignore[func-returns-value]
@@ -340,7 +347,7 @@ def _download_zip_tests(
 
     saved = 0
     for name in names:
-        clean_name = name[len(strip_prefix):] if name.startswith(strip_prefix) else name
+        clean_name = name[len(strip_prefix) :] if name.startswith(strip_prefix) else name
         clean_name = clean_name.strip("/")
         if not clean_name:
             continue
@@ -356,6 +363,7 @@ def _download_zip_tests(
 # ---------------------------------------------------------------------------
 # Построение директорий и сохранение файлов задачи
 # ---------------------------------------------------------------------------
+
 
 def build_task_directory(
     root_dir: pathlib.Path,
@@ -456,6 +464,7 @@ def save_task_files(
 # Оркестрация: один шаг
 # ---------------------------------------------------------------------------
 
+
 def process_step_url(
     step_url: str,
     session: requests.Session,
@@ -511,6 +520,7 @@ def process_step_url(
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     """Главная функция: конфиг → авторизация → цикл обработки URL шагов."""
