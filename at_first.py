@@ -374,11 +374,15 @@ def build_task_directory(
     step_title: str,
 ) -> pathlib.Path:
     """Строит путь к директории задачи по иерархии курс/секция/урок/шаг."""
+    step_dir_name = f"{step_position:02d}"
+    if step_title.strip():
+        step_dir_name = f"{step_position:02d}-{slugify(step_title)}"
+
     parts = [
         slugify(course_title),
         slugify(section_title),
         slugify(lesson_title),
-        f"{step_position:02d}-{slugify(step_title)}",
+        step_dir_name,
     ]
     return root_dir.joinpath(*parts)
 
@@ -392,7 +396,7 @@ def save_task_files(
     course: dict[str, Any],
     session: requests.Session,
 ) -> None:
-    """Сохраняет template.py, solution.py, meta.json, task.md и tests/ в task_dir.
+    """Сохраняет task_<N>.py, template.py, solution.py, meta.json, task.md и tests/ в task_dir.
 
     Порядок поиска тестов:
       1. ZIP-ссылка в HTML (автоскачивание);
@@ -404,8 +408,11 @@ def save_task_files(
 
     template_code = extract_python_code(step)
     submitted_code = extract_submission_code(submission)
+    step_position = int(step.get("position") or 0)
 
     if template_code:
+        task_file_name = f"task_{step_position}.py"
+        (task_dir / task_file_name).write_text(template_code, encoding="utf-8")
         (task_dir / "template.py").write_text(template_code, encoding="utf-8")
     if submitted_code:
         (task_dir / "solution.py").write_text(submitted_code, encoding="utf-8")
@@ -498,7 +505,7 @@ def process_step_url(
     print(f"  Получаю данные шага {step_position}...")
     step = fetch_step_data(session, lesson_id, step_position)
     step_id = int(step.get("id") or 0)
-    step_title = str(step.get("title") or lesson_title)
+    step_title = str(step.get("title") or "").strip()
 
     print(f"  Получаю последний ответ для шага {step_id}...")
     submission = fetch_submission_data(session, step_id)
