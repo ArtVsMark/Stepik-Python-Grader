@@ -24,3 +24,5 @@ Thumbs.db
 *.egg-info/
 dist/
 build/
+
+PokolenieTestes/
