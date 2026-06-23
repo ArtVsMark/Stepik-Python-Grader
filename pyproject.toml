@@ -41,6 +41,8 @@ source = ["."]
 omit = [
     "test.py",
     "diagnostik_stepik.py",
+    "at_first.py",
+    "stepik_client.py",
     "tests/*",
     "conftest.py",
 ]
