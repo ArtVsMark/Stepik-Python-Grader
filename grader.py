@@ -716,6 +716,27 @@ def run_bench_mode(
 
 
 # ---------------------------------------------------------------------------
+# Вспомогательная функция: автоопределение папки tests/
+# ---------------------------------------------------------------------------
+
+
+def _resolve_test_dir(solution_path: str) -> str:
+    """Найти папку tests/ рядом с файлом решения или запросить у пользователя.
+
+    Порядок поиска:
+        1. <папка_файла>/tests/
+        2. <папка_файла>/../tests/  (файл лежит в подпапке)
+    Если ни один вариант не найден — запрашивает путь у пользователя.
+    """
+    base = pathlib.Path(solution_path).resolve().parent
+    for candidate in (base / "tests", base.parent / "tests"):
+        if candidate.is_dir():
+            print(f"  → tests dir: {candidate}")
+            return str(candidate)
+    return input("Enter path to tests directory: ").strip()
+
+
+# ---------------------------------------------------------------------------
 # Интерактивное меню
 # ---------------------------------------------------------------------------
 
@@ -740,7 +761,7 @@ def _interactive_menu() -> None:
     # ------------------------------------------------------------------
     if mode_input == "1":
         solution = input("Enter path to solution file (relative or absolute): ").strip()
-        test_dir = input("Enter path to tests directory: ").strip()
+        test_dir = _resolve_test_dir(solution)
         result = run_tests(solution, test_dir, verbose=True)
 
         total = result["total"]
@@ -866,7 +887,7 @@ def _interactive_menu() -> None:
     # ------------------------------------------------------------------
     elif mode_input == "4":
         solution = input("Enter path to solution file: ").strip()
-        test_dir = input("Enter path to tests directory: ").strip()
+        test_dir = _resolve_test_dir(solution)
         calls_map = {"1": 500, "2": 1000, "3": 5000, "4": 50000, "5": 100000}
         print("Calls: 1=fast(500)  2=normal(1000)  3=thorough(5000)  4=deep(50000)  5=hard(100000)  6=custom")
         calls_choice = input("Choose (1-6): ").strip()
