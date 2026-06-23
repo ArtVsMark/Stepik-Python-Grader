@@ -7,7 +7,7 @@
   - построение директорий задач (slugify, build_task_directory),
   - сохранение файлов задачи (template.py, solution.py, meta.json, task.md),
   - извлечение тест-кейсов из HTML-таблицы в тексте задачи,
-  - скачивание тестов из ZIP- или GitHub-ссылок если таблица отсутствует,
+  - скачивание тестов из ZIP- или GitHub-ссылок если таблица не полная/отсутствует,
   - оркестрацию вызовов к Stepik API через stepik_client.
 
 HTTP/OAuth логика вынесена в stepik_client.py.
@@ -39,19 +39,15 @@ from storage import load_json_file, save_json_file, save_secrets
 
 CONFIG_FILE = "stepik_config.json"
 
-# Дефолтное имя корневой папки для всех задач Stepik
 DEFAULT_ROOT_DIR = "StepikTasks"
 
 
 # ---------------------------------------------------------------------------
-# Утилиты: ввод-вывод
+# Утилиты
 # ---------------------------------------------------------------------------
 
 def slugify(text: str) -> str:
-    """Преобразует произвольный текст в slug пригодный для имени директории.
-
-    Максимум 80 символов. Возвращает 'task' если результат пустой.
-    """
+    """Преобразует текст в slug для имени директории. Макс 80 символов."""
     text = text.strip().lower().replace("ё", "е")
     text = re.sub(r'[<>:"/\\|?*]+', "", text)
     text = re.sub(r"[^\w\s-]", "", text, flags=re.UNICODE)
@@ -137,13 +133,7 @@ def normalize_config_paths(
 # ---------------------------------------------------------------------------
 
 def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
-    """Загружает и валидирует secrets.json.
-
-    Raises
-    ------
-    FileNotFoundError, IsADirectoryError, ValueError:
-        При отсутствии файла, если указана папка, или при неполных полях.
-    """
+    """Загружает и валидирует secrets.json."""
     if not secrets_path.exists():
         raise FileNotFoundError(
             f"Файл secrets не найден: {secrets_path}\n"
@@ -169,11 +159,7 @@ def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
-    """Извлекает (lesson_id, step_position) из URL шага Stepik.
-
-    Ожидаемый формат:
-        https://stepik.org/lesson/569749/step/4?unit=564263
-    """
+    """Извлекает (lesson_id, step_position) из URL шага Stepik."""
     parsed = urlparse(step_url.strip())
     match = re.search(r"lesson/(\d+)/step/(\d+)", parsed.path)
     if not match:
@@ -215,11 +201,7 @@ def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
 # ---------------------------------------------------------------------------
 
 class _TableParser(HTMLParser):
-    """Вытаскивает текст из <td> ячеек HTML-таблицы построчно.
-
-    Собирает список строк; каждая строка — список текстов ячеек.
-    Игнорирует строку заголовка (<th>).
-    """
+    """Вытаскивает текст из <td> ячеек HTML-таблицы построчно."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -259,32 +241,22 @@ class _TableParser(HTMLParser):
 
 
 def _is_function_style(input_text: str) -> bool:
-    """Возвращает True если входные данные — объявление переменной, а не stdin.
-
-    Примеры function-style входных данных:
-        numbers = [-3, 6, 4]
-        matrix = [[1, 2], [3, 4]]
-        s = "hello"
-    """
+    """Возвращает True если входные данные — объявление переменной, а не stdin."""
     stripped = input_text.strip()
     return bool(re.match(r"^\w+\s*=\s*.+", stripped)) and "input(" not in stripped
 
 
 def extract_tests_from_html(html: str) -> list[tuple[str, str, str]]:
-    """Парсит HTML-таблицу тест-кейсов Stepik и возвращает список троек.
+    """Парсит HTML-таблицу тест-кейсов Stepik.
 
-    Каждая тройка: (input_data, expected_output, test_type).
-    test_type: "stdin"    — подаётся через stdin,
-               "function" — объявление переменной (function-style задача).
-
-    Возвращает пустой список если таблица не найдена или в ней < 3 колонок.
+    Возвращает список троек (input_data, expected_output, test_type).
+    test_type: "stdin" | "function".
+    Пустой список если таблица не найдена или в ней < 3 колонок.
     """
     parser = _TableParser()
     parser.feed(html)
-
     tests: list[tuple[str, str, str]] = []
     for row in parser.rows:
-        # Ожидаем минимум 3 колонки: №, входные данные, выходные данные
         if len(row) < 3:  # noqa: PLR2004
             continue
         input_data = row[1].strip()
@@ -293,7 +265,6 @@ def extract_tests_from_html(html: str) -> list[tuple[str, str, str]]:
             continue
         test_type = "function" if _is_function_style(input_data) else "stdin"
         tests.append((input_data, expected, test_type))
-
     return tests
 
 
@@ -320,22 +291,18 @@ _ZIP_URL_RE = re.compile(r'href=["\']([^"\']*\.zip)["\']', re.IGNORECASE)
 _GITHUB_URL_RE = re.compile(r'href=["\']([^"\']*github\.com[^"\']*)["\']', re.IGNORECASE)
 
 
-def extract_external_test_links(html: str) -> list[str]:
-    """Возвращает ссылки на ZIP/GitHub из HTML текста задачи.
+def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
+    """Извлекает ZIP- и GitHub-ссылки из HTML текста задачи.
 
-    Порядок приоритетов: сначала ZIP-ссылки, затем GitHub.
+    Возвращает кортеж (zip_links, github_links) без дубликатов.
     """
-    links: list[str] = []
-    links.extend(_ZIP_URL_RE.findall(html))
-    links.extend(_GITHUB_URL_RE.findall(html))
-    # Убираем дубликаты, сохраняя порядок
-    seen: set[str] = set()
-    result: list[str] = []
-    for link in links:
-        if link not in seen:
-            seen.add(link)
-            result.append(link)
-    return result
+    def _unique(items: list[str]) -> list[str]:
+        seen: set[str] = set()
+        return [x for x in items if not (x in seen or seen.add(x))]  # type: ignore[func-returns-value]
+
+    zip_links = _unique(_ZIP_URL_RE.findall(html))
+    github_links = _unique(_GITHUB_URL_RE.findall(html))
+    return zip_links, github_links
 
 
 def _download_zip_tests(
@@ -345,13 +312,8 @@ def _download_zip_tests(
 ) -> int:
     """Скачивает ZIP, распаковывает и сохраняет файлы тестов в tests/.
 
-    Ожидает ZIP-архив со структурой:
-        tests/1, tests/1.clue, tests/2, tests/2.clue, ...
-    или плоский архив без подпапки:
-        1, 1.clue, 2, 2.clue, ...
-
-    Возвращает количество сохранённых пар тестов (1 пара = файл входа + файл ответа).
-    0 если скачать/распаковать не удалось.
+    Ожидает ZIP со структурой tests/N + tests/N.clue или плоским архивом.
+    Возвращает количество сохранённых входных файлов (без расширения).
     """
     try:
         response = session.get(zip_url, timeout=30)
@@ -369,7 +331,6 @@ def _download_zip_tests(
     tests_dir = task_dir / "tests"
     tests_dir.mkdir(parents=True, exist_ok=True)
 
-    # Нормализуем пути: убираем подпапку (tests/ или любую другую)
     names = zf.namelist()
     strip_prefix = ""
     for name in names:
@@ -386,44 +347,10 @@ def _download_zip_tests(
         dest = tests_dir / clean_name
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(zf.read(name))
-        # Считаем только файлы входа (без расширения)
         if "." not in clean_name:
             saved += 1
 
     return saved
-
-
-def try_download_tests_from_links(
-    task_dir: pathlib.Path,
-    html: str,
-    session: requests.Session,
-) -> int:
-    """Ищет внешние ссылки в HTML и пытается скачать ZIP-тесты.
-
-    GitHub-ссылки печатает, но не скачивает (требует ручного просмотра).
-
-    Возвращает количество сохранённых тестов (или 0 если ничего не скачано).
-    """
-    links = extract_external_test_links(html)
-    if not links:
-        return 0
-
-    zip_links = [l for l in links if l.lower().endswith(".zip")]
-    github_links = [l for l in links if "github.com" in l]
-
-    # Сначала пробуем ZIP
-    for zip_url in zip_links:
-        print(f"  📦 Найдена ZIP-ссылка: {zip_url}")
-        count = _download_zip_tests(task_dir, zip_url, session)
-        if count:
-            return count
-
-    # ZIP не удался — сообщаем про GitHub
-    for gh_url in github_links:
-        print(f"  🔗 Тесты на GitHub: {gh_url}")
-        print("     (автоскачивание с GitHub не поддерживается, скачай вручную)")
-
-    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -460,9 +387,9 @@ def save_task_files(
     """Сохраняет template.py, solution.py, meta.json, task.md и tests/ в task_dir.
 
     Порядок поиска тестов:
-      1. HTML-таблица в тексте задачи;
-      2. ZIP-ссылка в HTML (автоскачивание);
-      3. Ссылка на GitHub в HTML (печатается, скачать вручную);
+      1. ZIP-ссылка в HTML (автоскачивание);
+      2. HTML-таблица в тексте задачи (может быть неполной);
+      3. Ссылка на GitHub (печатается, скачать вручную);
       4. Ничего нет — предупреждение, остальные файлы уже сохранены.
     """
     task_dir.mkdir(parents=True, exist_ok=True)
@@ -492,24 +419,37 @@ def save_task_files(
 
     block: dict[str, Any] = step.get("block") or {}
     text = str(block.get("text", ""))
-    if text:
-        (task_dir / "task.md").write_text(text, encoding="utf-8")
+    if not text:
+        return
 
-        # 1. Попытка извлечь тесты из HTML-таблицы
-        tests = extract_tests_from_html(text)
-        if tests:
-            count = save_tests(task_dir, tests)
-            print(f"  📋 Извлечено тестов из таблицы: {count}")
-            return
+    (task_dir / "task.md").write_text(text, encoding="utf-8")
 
-        # 2. ZIP / GitHub
-        count = try_download_tests_from_links(task_dir, text, session)
+    zip_links, github_links = extract_external_test_links(text)
+
+    # 1. ZIP — скачиваем автоматически
+    for zip_url in zip_links:
+        print(f"  📦 Найдена ZIP-ссылка: {zip_url}")
+        count = _download_zip_tests(task_dir, zip_url, session)
         if count:
             print(f"  📦 Скачано тестов из ZIP: {count}")
             return
 
-        # 3. Ничего не нашли — файлы уже сохранены, предупреждаем
-        print("  ⚠️  Тесты не найдены (нет таблицы и внешних ссылок) — остальные файлы сохранены"
+    # 2. HTML-таблица
+    tests = extract_tests_from_html(text)
+    if tests:
+        count = save_tests(task_dir, tests)
+        print(f"  📋 Извлечено тестов из таблицы: {count}")
+        return
+
+    # 3. GitHub — сообщаем ссылку, но не скачиваем
+    if github_links:
+        for gh_url in github_links:
+            print(f"  🔗 Тесты на GitHub: {gh_url}")
+            print("     (автоскачивание с GitHub не поддерживается, скачай вручную)")
+        return
+
+    # 4. Ничего не нашли
+    print("  ⚠️  Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены"
 
 
 # ---------------------------------------------------------------------------
@@ -522,7 +462,6 @@ def process_step_url(
     root_dir: pathlib.Path,
 ) -> None:
     """Скачивает все данные одного шага и сохраняет в файловую систему."""
-
     parsed_url = urlparse(step_url)
     url_params = parse_qs(parsed_url.query)
     unit_id_list = url_params.get("unit", [])
