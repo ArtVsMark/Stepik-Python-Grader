@@ -19,10 +19,8 @@ import re
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from storage import load_json_file, save_json_file, save_secrets
 from stepik_client import (
     create_user_session,
-    download_and_extract_submissions,
     fetch_course_data,
     fetch_lesson_data,
     fetch_section_data,
@@ -30,6 +28,7 @@ from stepik_client import (
     fetch_submission_data,
     fetch_unit_data,
 )
+from storage import load_json_file, save_json_file
 
 CONFIG_FILE = "stepik_config.json"
 
@@ -37,6 +36,7 @@ CONFIG_FILE = "stepik_config.json"
 # ---------------------------------------------------------------------------
 # Утилиты: ввод-вывод
 # ---------------------------------------------------------------------------
+
 
 def slugify(text: str) -> str:
     """Преобразует произвольный текст в slug пригодный для имени директории.
@@ -61,6 +61,7 @@ def ask_value(prompt: str, default: str = "") -> str:
 # ---------------------------------------------------------------------------
 # Конфигурация
 # ---------------------------------------------------------------------------
+
 
 def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
     """Интерактивно создаёт или перезаписывает stepik_config.json."""
@@ -124,6 +125,7 @@ def normalize_config_paths(
 # Secrets
 # ---------------------------------------------------------------------------
 
+
 def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
     """Загружает и валидирует secrets.json.
 
@@ -156,6 +158,7 @@ def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
 # URL-парсинг
 # ---------------------------------------------------------------------------
 
+
 def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
     """Извлекает (lesson_id, step_position) из URL шага Stepik.
 
@@ -175,6 +178,7 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 # Извлечение кода
 # ---------------------------------------------------------------------------
+
 
 def extract_python_code(step: dict[str, Any]) -> str | None:
     """Извлекает Python code_template из объекта шага или из блока Markdown."""
@@ -201,6 +205,7 @@ def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
 # ---------------------------------------------------------------------------
 # Построение директорий и сохранение файлов задачи
 # ---------------------------------------------------------------------------
+
 
 def build_task_directory(
     root_dir: pathlib.Path,
@@ -264,13 +269,13 @@ def save_task_files(
 # Оркестрация: один шаг
 # ---------------------------------------------------------------------------
 
+
 def process_step_url(
     step_url: str,
-    session: "requests.Session",  # type: ignore[name-defined]  # noqa: F821
+    session: requests.Session,  # type: ignore[name-defined]  # noqa: F821
     root_dir: pathlib.Path,
 ) -> None:
     """Скачивает все данные одного шага и сохраняет в файловую систему."""
-    import requests  # noqa: PLC0415
 
     parsed_url = urlparse(step_url)
     url_params = parse_qs(parsed_url.query)
@@ -321,6 +326,7 @@ def process_step_url(
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     """Главная функция: конфиг → авторизация → цикл обработки URL шагов."""

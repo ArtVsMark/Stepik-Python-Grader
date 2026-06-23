@@ -16,13 +16,12 @@ import html
 import json
 import pathlib
 import re
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import urlencode, urlparse
 
 import requests
 
 from stepik_client import (
     API_HOST,
-    HEADERS,
     authorize_via_browser,
     make_session,
 )
@@ -34,6 +33,7 @@ OAUTH_TIMEOUT_SECONDS = 120
 # ---------------------------------------------------------------------------
 # Secrets (диагностическая версия: возвращает tuple, не dict)
 # ---------------------------------------------------------------------------
+
 
 def load_secrets(secrets_path: pathlib.Path) -> tuple[str, str, str]:
     """Загрузить client_id, client_secret, redirect_uri из secrets.json."""
@@ -76,6 +76,7 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
 # OAuth2 — адаптер поверх stepik_client.authorize_via_browser
 # ---------------------------------------------------------------------------
 
+
 def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -> requests.Session:
     """Провести OAuth2-авторизацию и вернуть сессию с Bearer-токеном.
 
@@ -101,6 +102,7 @@ def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -
 # ---------------------------------------------------------------------------
 # Диагностические API-обёртки
 # ---------------------------------------------------------------------------
+
 
 def api_get(session: requests.Session, url: str) -> dict:  # type: ignore[type-arg]
     """GET-запрос к Stepik API; проверяет Content-Type и статус."""
@@ -150,6 +152,7 @@ def get_step_data_by_position(
 # ---------------------------------------------------------------------------
 # Утилиты: JSON, ZIP-поиск, диагностический вывод
 # ---------------------------------------------------------------------------
+
 
 def save_json(
     output_dir: pathlib.Path,
@@ -264,6 +267,7 @@ def print_result_summary(
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     """Точка входа: диагностика шага Stepik через OAuth API."""
