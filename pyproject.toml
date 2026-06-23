@@ -35,3 +35,18 @@ ignore = ["S101"]
 [tool.pytest.ini_options]
 addopts = "--cov=. --cov-report=term-missing --cov-report=xml"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "test.py",
+    "diagnostik_stepik.py",
+    "tests/*",
+    "conftest.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if __name__ == .__main__.:",
+    "pragma: no cover",
+]
