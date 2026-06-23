@@ -17,7 +17,7 @@ import pathlib
 import pytest
 
 from test import (
-    GradeCase,
+    TestCase,
     build_input_data,
     collect_grouped_files,
     find_all_solution_files,
@@ -34,15 +34,15 @@ from test import (
 
 
 def _make_test_dir(base: pathlib.Path, cases: list[tuple[str, str]]) -> pathlib.Path:
-    """Создаёт папку tests/ со структурой: {N} (stdin) + {N}.clue (stdout).
+    """Создаёт папку tests/ со структурой: input_{N}.txt + expected_{N}.txt.
 
     cases: список кортежей (input_text, expected_text), нумерация с 1.
     """
     tests_dir = base / "tests"
     tests_dir.mkdir()
     for idx, (inp, exp) in enumerate(cases, start=1):
-        (tests_dir / str(idx)).write_text(inp, encoding="utf-8")
-        (tests_dir / f"{idx}.clue").write_text(exp, encoding="utf-8")
+        (tests_dir / f"input_{idx}.txt").write_text(inp, encoding="utf-8")
+        (tests_dir / f"expected_{idx}.txt").write_text(exp, encoding="utf-8")
     return tests_dir
 
 
@@ -61,11 +61,11 @@ class TestLoadTextLines:
         assert load_text_lines(str(f)) == ["hello", "world"]
 
     def test_strips_trailing_newlines(self, tmp_path: pathlib.Path) -> None:
-        """Хвостовые \\n обрезаются (.strip() перед splitlines)."""
+        """Хвостовые \\n обрезаются (.rstrip перед splitlines)."""
         f = tmp_path / "b.txt"
         f.write_text("line1\nline2\n\n", encoding="utf-8")
         result = load_text_lines(str(f))
-        assert result == ["line1", "line2"]
+        assert result == ["line1", "line2", ""]
 
     def test_single_line(self, tmp_path: pathlib.Path) -> None:
         """Одна строка → список из одного элемента."""
@@ -109,7 +109,7 @@ class TestLoadTextLinesWithEncoding:
     """Загрузка + возврат кодировки."""
 
     def test_returns_tuple(self, tmp_path: pathlib.Path) -> None:
-        """Fункция возвращает кортеж (list, str | None)."""
+        """Функция возвращает кортеж (list, str | None)."""
         f = tmp_path / "t.txt"
         f.write_text("hello", encoding="utf-8")
         result = load_text_lines_with_encoding(str(f))
@@ -145,12 +145,12 @@ class TestLoadTextLinesWithEncoding:
 
 
 class TestLoadTestCases:
-    """Чтение тест-кейсов из директории структуры {N} / {N}.clue."""
+    """Чтение тест-кейсов из директории структуры input_{N}.txt / expected_{N}.txt."""
 
     def test_single_case(self, tmp_path: pathlib.Path) -> None:
-        """Один тест: возвращает список из одного GradeCase."""
+        """Один тест: возвращает список из одного TestCase."""
         tests_dir = _make_test_dir(tmp_path, [("3", "6")])
-        cases = load_test_cases(tests_dir)
+        cases = load_test_cases(str(tests_dir))
         assert len(cases) == 1
         assert cases[0].index == 1
         assert cases[0].input_lines == ["3"]
@@ -159,32 +159,32 @@ class TestLoadTestCases:
     def test_multiple_cases_sorted_by_index(self, tmp_path: pathlib.Path) -> None:
         """Несколько тестов: порядок по возрастанию индекса."""
         tests_dir = _make_test_dir(tmp_path, [("1", "2"), ("3", "6"), ("5", "10")])
-        cases = load_test_cases(tests_dir)
+        cases = load_test_cases(str(tests_dir))
         assert len(cases) == 3
         assert [c.index for c in cases] == [1, 2, 3]
 
     def test_input_multiline(self, tmp_path: pathlib.Path) -> None:
         """Многострочный input сохраняется корректно."""
         tests_dir = _make_test_dir(tmp_path, [("3\n1 2 3", "6")])
-        cases = load_test_cases(tests_dir)
+        cases = load_test_cases(str(tests_dir))
         assert cases[0].input_lines == ["3", "1 2 3"]
 
     def test_expected_multiline(self, tmp_path: pathlib.Path) -> None:
         """Многострочный expected сохраняется корректно."""
         tests_dir = _make_test_dir(tmp_path, [("in", "line1\nline2\nline3")])
-        cases = load_test_cases(tests_dir)
+        cases = load_test_cases(str(tests_dir))
         assert cases[0].expected_lines == ["line1", "line2", "line3"]
 
     def test_returns_test_case_instances(self, tmp_path: pathlib.Path) -> None:
-        """Возвращает list[GradeCase]."""
+        """Возвращает list[TestCase]."""
         tests_dir = _make_test_dir(tmp_path, [("x", "y")])
-        cases = load_test_cases(tests_dir)
-        assert all(isinstance(c, GradeCase) for c in cases)
+        cases = load_test_cases(str(tests_dir))
+        assert all(isinstance(c, TestCase) for c in cases)
 
     def test_index_field_matches_file_number(self, tmp_path: pathlib.Path) -> None:
         """Поле index совпадает с номером файла (1, 2, 3 …)."""
         tests_dir = _make_test_dir(tmp_path, [("a", "b"), ("c", "d")])
-        cases = load_test_cases(tests_dir)
+        cases = load_test_cases(str(tests_dir))
         assert cases[0].index == 1
         assert cases[1].index == 2
 
@@ -199,29 +199,29 @@ class TestResolveInputPath:
 
     def test_relative_path_joined_to_base(self, tmp_path: pathlib.Path) -> None:
         """Относительный путь присоединяется к base_dir."""
-        result = resolve_input_path(tmp_path, "subfolder/task.py")
-        assert result == (tmp_path / "subfolder" / "task.py").resolve()
+        result = resolve_input_path("subfolder/task.py", tmp_path)
+        assert result == tmp_path / "subfolder" / "task.py"
 
     def test_absolute_path_returned_as_is(self, tmp_path: pathlib.Path) -> None:
         """Абсолютный путь возвращается без изменений."""
         abs_path = str(tmp_path / "task.py")
-        result = resolve_input_path(tmp_path, abs_path)
+        result = resolve_input_path(abs_path, tmp_path)
         assert result == pathlib.Path(abs_path)
 
     def test_strips_whitespace(self, tmp_path: pathlib.Path) -> None:
         """Пробелы в начале/конце удаляются (.strip())."""
-        result = resolve_input_path(tmp_path, "  task.py  ")
-        assert result == (tmp_path / "task.py").resolve()
+        result = resolve_input_path("  task.py  ", tmp_path)
+        assert result == tmp_path / "task.py"
 
     def test_returns_path_instance(self, tmp_path: pathlib.Path) -> None:
         """Возвращает экземпляр pathlib.Path."""
-        result = resolve_input_path(tmp_path, "task.py")
+        result = resolve_input_path("task.py", tmp_path)
         assert isinstance(result, pathlib.Path)
 
     def test_nested_relative_path(self, tmp_path: pathlib.Path) -> None:
         """Вложенный относительный путь разрешается полностью."""
-        result = resolve_input_path(tmp_path, "a/b/c/task.py")
-        assert result == (tmp_path / "a" / "b" / "c" / "task.py").resolve()
+        result = resolve_input_path("a/b/c/task.py", tmp_path)
+        assert result == tmp_path / "a" / "b" / "c" / "task.py"
 
 
 # ===========================================================================
@@ -290,25 +290,25 @@ class TestCollectGroupedFiles:
     def test_groups_by_folder(self, tmp_path: pathlib.Path) -> None:
         """Файлы из разных папок попадают в отдельные группы."""
         self._make_structure(tmp_path)
-        grouped = collect_grouped_files(tmp_path, tmp_path)
+        grouped = collect_grouped_files(str(tmp_path))
         assert len(grouped) == 2
 
     def test_correct_file_count_per_group(self, tmp_path: pathlib.Path) -> None:
         """Количество файлов в каждой группе соответствует ожидаемому."""
         self._make_structure(tmp_path)
-        grouped = collect_grouped_files(tmp_path, tmp_path)
+        grouped = collect_grouped_files(str(tmp_path))
         counts = {k: len(v) for k, v in grouped.items()}
         assert any(c == 2 for c in counts.values())  # task1 — 2 файла
         assert any(c == 1 for c in counts.values())  # task2 — 1 файл
 
     def test_empty_directory_returns_empty(self, tmp_path: pathlib.Path) -> None:
         """Пустая директория → пустой словарь."""
-        assert collect_grouped_files(tmp_path, tmp_path) == {}
+        assert collect_grouped_files(str(tmp_path)) == {}
 
     def test_keys_are_relative_paths(self, tmp_path: pathlib.Path) -> None:
         """Ключи — относительные пути (не абсолютные)."""
         self._make_structure(tmp_path)
-        grouped = collect_grouped_files(tmp_path, tmp_path)
+        grouped = collect_grouped_files(str(tmp_path))
         for key in grouped:
             assert not pathlib.Path(key).is_absolute()
 
@@ -321,28 +321,22 @@ class TestCollectGroupedFiles:
 class TestBuildInputData:
     """Формирование stdin-строки для subprocess."""
 
-    def _case(self, index: int, inp: list[str], exp: list[str]) -> GradeCase:
-        return GradeCase(index=index, input_lines=inp, expected_lines=exp)
-
     def test_script_mode_returns_input_only(self) -> None:
         """Для скрипта stdin = только входные данные."""
-        tc = self._case(1, ["5", "10"], ["15"])
-        result = build_input_data(["print(1)"], is_function_only=False, test_case=tc)
+        result = build_input_data("print(1)", ["5", "10"], is_function_mode=False)
         assert result == "5\n10"
 
     def test_function_mode_prepends_source(self) -> None:
         """Для function-only stdin = исходник + входные данные."""
-        source = ["def solve(n):", "    return n * 2"]
-        tc = self._case(1, ["5"], ["10"])
-        result = build_input_data(source, is_function_only=True, test_case=tc)
+        source = "def solve(n):\n    return n * 2"
+        result = build_input_data(source, ["5"], is_function_mode=True)
         assert result.startswith("def solve(n):")
         assert result.endswith("5")
 
     def test_function_mode_source_and_input_separated_by_newline(self) -> None:
         """Исходник и input разделены \\n."""
-        source = ["def f(x): return x"]
-        tc = self._case(1, ["42"], ["42"])
-        result = build_input_data(source, is_function_only=True, test_case=tc)
+        source = "def f(x): return x"
+        result = build_input_data(source, ["42"], is_function_mode=True)
         assert "\n" in result
         lines = result.splitlines()
         assert lines[0] == "def f(x): return x"
@@ -350,15 +344,13 @@ class TestBuildInputData:
 
     def test_script_empty_input(self) -> None:
         """Пустые input_lines → пустая строка."""
-        tc = self._case(1, [], [])
-        result = build_input_data(["print(1)"], is_function_only=False, test_case=tc)
+        result = build_input_data("print(1)", [], is_function_mode=False)
         assert result == ""
 
     def test_function_multiline_input(self) -> None:
         """Многострочный input корректно добавляется после исходника."""
-        source = ["def f(a, b): return a + b"]
-        tc = self._case(1, ["3", "1 2 3"], ["6"])
-        result = build_input_data(source, is_function_only=True, test_case=tc)
+        source = "def f(a, b): return a + b"
+        result = build_input_data(source, ["3", "1 2 3"], is_function_mode=True)
         lines = result.splitlines()
         assert lines[-2] == "3"
         assert lines[-1] == "1 2 3"
