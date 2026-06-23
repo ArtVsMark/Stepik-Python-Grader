@@ -169,16 +169,37 @@ def load_text_lines_with_encoding(file_path: str) -> tuple[list[str], str | None
 def load_test_cases(test_dir: str) -> list[TestCase]:
     """Загрузить тест-кейсы из директории.
 
-    Ожидаемая структура (формат at_first.py):
+    Поддерживаются два формата:
+
+    Формат 1 — at_first.py (legacy):
         tests/1        — входные данные теста №1 (stdin)
         tests/1.clue   — ожидаемый вывод теста №1
         tests/2, tests/2.clue, ...
+
+    Формат 2 — новый (используется в тестах):
+        tests/input_1.txt    — входные данные теста №1
+        tests/expected_1.txt — ожидаемый вывод теста №1
+        tests/input_2.txt, tests/expected_2.txt, ...
     """
     cases: list[TestCase] = []
     dir_path = pathlib.Path(test_dir)
 
-    # Ищем файлы без расширения с числовым именем (1, 2, 3, ...)
+    _INPUT_RE = re.compile(r"^input_(\d+)\.txt$")
+
     for inp_file in dir_path.iterdir():
+        # Формат 2: input_{N}.txt / expected_{N}.txt
+        m = _INPUT_RE.match(inp_file.name)
+        if m:
+            idx = int(m.group(1))
+            exp_file = dir_path / f"expected_{idx}.txt"
+            if not exp_file.exists():
+                continue
+            input_lines = load_text_lines(str(inp_file))
+            expected_lines = load_text_lines(str(exp_file))
+            cases.append(TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines))
+            continue
+
+        # Формат 1: числовые файлы без расширения + .clue
         if inp_file.suffix or not inp_file.stem.isdigit():
             continue
         clue_file = dir_path / f"{inp_file.stem}.clue"
