@@ -79,7 +79,13 @@ class BenchmarkStats:
 
 
 @dataclass
-class TestCase:
+class GradeCase:
+    """Один тест-кейс: входные строки и ожидаемый вывод.
+
+    Переименован из TestCase, чтобы pytest не пытался его собирать
+    как тестовый класс (PytestCollectionWarning).
+    """
+
     index: int
     input_lines: list[str]
     expected_lines: list[str]
@@ -362,7 +368,7 @@ def run_process(
 
 def run_test_once(
     file: str,
-    test_case: TestCase,
+    test_case: GradeCase,
     executor_file: str,
     input_data: str,
     measure_child_memory: bool = False,
@@ -421,7 +427,7 @@ def run_test_once(
         return TestRunResult(False, 0.0, 0.0, repr(error))
 
 
-def load_test_cases(tests_dir: pathlib.Path) -> list[TestCase]:
+def load_test_cases(tests_dir: pathlib.Path) -> list[GradeCase]:
     test_numbers = sorted(int(name) for name in os.listdir(tests_dir) if name.isdigit())
     test_cases = []
 
@@ -432,7 +438,7 @@ def load_test_cases(tests_dir: pathlib.Path) -> list[TestCase]:
         expected_lines, _ = load_text_lines_with_encoding(str(test_file_path))
         input_lines = load_text_lines(str(input_file_path))
         test_cases.append(
-            TestCase(
+            GradeCase(
                 index=test_number,
                 input_lines=input_lines,
                 expected_lines=expected_lines,
@@ -450,7 +456,7 @@ def prepare_execution(script_path: pathlib.Path, exec_file: str) -> tuple[list[s
     return program_lines, is_function_only, executor_file
 
 
-def build_input_data(program_lines: list[str], is_function_only: bool, test_case: TestCase) -> str:
+def build_input_data(program_lines: list[str], is_function_only: bool, test_case: GradeCase) -> str:
     if is_function_only:
         return "\n".join(program_lines + test_case.input_lines)
     return "\n".join(test_case.input_lines)

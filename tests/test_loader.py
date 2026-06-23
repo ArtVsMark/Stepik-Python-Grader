@@ -17,7 +17,7 @@ import pathlib
 import pytest
 
 from test import (
-    TestCase,
+    GradeCase,
     build_input_data,
     collect_grouped_files,
     find_all_solution_files,
@@ -148,7 +148,7 @@ class TestLoadTestCases:
     """Чтение тест-кейсов из директории структуры {N} / {N}.clue."""
 
     def test_single_case(self, tmp_path: pathlib.Path) -> None:
-        """Один тест: возвращает список из одного TestCase."""
+        """Один тест: возвращает список из одного GradeCase."""
         tests_dir = _make_test_dir(tmp_path, [("3", "6")])
         cases = load_test_cases(tests_dir)
         assert len(cases) == 1
@@ -176,10 +176,10 @@ class TestLoadTestCases:
         assert cases[0].expected_lines == ["line1", "line2", "line3"]
 
     def test_returns_test_case_instances(self, tmp_path: pathlib.Path) -> None:
-        """Возвращает list[TestCase]."""
+        """Возвращает list[GradeCase]."""
         tests_dir = _make_test_dir(tmp_path, [("x", "y")])
         cases = load_test_cases(tests_dir)
-        assert all(isinstance(c, TestCase) for c in cases)
+        assert all(isinstance(c, GradeCase) for c in cases)
 
     def test_index_field_matches_file_number(self, tmp_path: pathlib.Path) -> None:
         """Поле index совпадает с номером файла (1, 2, 3 …)."""
@@ -321,8 +321,8 @@ class TestCollectGroupedFiles:
 class TestBuildInputData:
     """Формирование stdin-строки для subprocess."""
 
-    def _case(self, index: int, inp: list[str], exp: list[str]) -> TestCase:
-        return TestCase(index=index, input_lines=inp, expected_lines=exp)
+    def _case(self, index: int, inp: list[str], exp: list[str]) -> GradeCase:
+        return GradeCase(index=index, input_lines=inp, expected_lines=exp)
 
     def test_script_mode_returns_input_only(self) -> None:
         """Для скрипта stdin = только входные данные."""
