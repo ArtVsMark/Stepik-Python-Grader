@@ -9,10 +9,10 @@ import textwrap
 import executor
 from executor import RunResult
 
-
 # ---------------------------------------------------------------------------
 # run_solution — базовые сценарии (уже были)
 # ---------------------------------------------------------------------------
+
 
 def test_run_solution_simple_output() -> None:
     """Корректный код возвращает ожидаемый stdout."""
@@ -51,6 +51,7 @@ def test_run_solution_timeout() -> None:
 # ---------------------------------------------------------------------------
 # run_solution — поля RunResult
 # ---------------------------------------------------------------------------
+
 
 def test_run_solution_return_code_zero_on_success() -> None:
     """Успешный запуск возвращает return_code == 0."""
@@ -97,6 +98,7 @@ def test_run_result_timed_out_stderr_contains_message() -> None:
 # RunResult dataclass
 # ---------------------------------------------------------------------------
 
+
 def test_run_result_defaults() -> None:
     """RunResult создаётся с пустыми значениями по умолчанию."""
     r = RunResult()
@@ -118,6 +120,7 @@ def test_run_result_extra_is_independent() -> None:
 # ---------------------------------------------------------------------------
 # main() — запуск executor.py как subprocess (покрывает строки 114-129)
 # ---------------------------------------------------------------------------
+
 
 def test_main_prints_output() -> None:
     """executor.py как __main__ исполняет код из stdin и печатает результат."""
