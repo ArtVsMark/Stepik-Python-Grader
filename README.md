@@ -258,9 +258,11 @@ StepikTasks/
 └── название-курса/
     └── название-секции/
         └── название-урока/
-            └── 04-название-шага/
-                ├── template.py         # шаблон решения из задачи
-                ├── solution.py         # последний сабмишн (если доступен)
+            └── 04/                     # только номер, если у шага нет заголовка
+            └── 04-название-шага/       # номер + slug, если заголовок есть
+                ├── task4_1.py          # основное решение (из шаблона задачи или пустой)
+                ├── task4_2.py          # заготовка для альтернативного решения (всегда создаётся)
+                ├── solution.py         # последний сабмишн с сайта (если доступен)
                 ├── meta.json           # метаданные шага (id, lesson, course, ...)
                 ├── task.md             # текст задачи в Markdown/HTML
                 └── tests/
@@ -271,6 +273,17 @@ StepikTasks/
                     ├── 2.clue
                     └── ...
 ```
+
+**Схема именования рабочих файлов:**
+
+| Файл | Содержимое | Создаётся |
+|---|---|---|
+| `task{N}_1.py` | шаблон из задачи (или пустой, если шаблона нет) | всегда |
+| `task{N}_2.py` | заготовка для альтернативного решения 1 | всегда (только если файл ещё не существует) |
+| `task{N}_3.py` и далее | альтернативные решения 2, 3, … | вручную |
+| `solution.py` | последний сабмишн с сайта | если сабмишн доступен |
+
+> Повторный запуск `at_first.py` для того же шага **не перезапишет** `task{N}_2.py` и выше — твои наработки сохранятся.
 
 ### Как ищутся тест-кейсы
 
@@ -294,9 +307,9 @@ OAuth-поток полностью реализован в `stepik_client.py` (
 Быстро прогнать одно решение:
 
 ```
-Enter path to solution file (relative or absolute): module1/task1/task1.py
+Enter path to solution file (relative or absolute): module1/task1/task1_1.py
 
-module1/task1/task1.py: 5/5 tests, total=0.1234s, avg=0.0247s, peak_memory=25.30 MB, status=OK
+module1/task1/task1_1.py: 5/5 tests, total=0.1234s, avg=0.0247s, peak_memory=25.30 MB, status=OK
 ```
 
 ### Режим 2 — Сравнение всех решений
@@ -306,10 +319,10 @@ module1/task1/task1.py: 5/5 tests, total=0.1234s, avg=0.0247s, peak_memory=25.30
 ```
 📂 module1/task1
 --------------------------------------------------------------------
-File                     Passed   Total time   Avg time  Peak memory  Status  Fail test
+File                       Passed   Total time   Avg time  Peak memory  Status  Fail test
 --------------------------------------------------------------------
-module1/task1/task1.py      5/5       0.1234     0.0247        25.30      OK          -
-module1/task1/task1_2.py    5/5       0.1456     0.0291        24.80      OK          -
+module1/task1/task1_1.py      5/5       0.1234     0.0247        25.30      OK          -
+module1/task1/task1_2.py      5/5       0.1456     0.0291        24.80      OK          -
 ```
 
 > Режим 2 — проверка **корректности**, не полноценный benchmark.
@@ -344,10 +357,10 @@ module1/task1/task1_2.py    5/5       0.1456     0.0291        24.80      OK    
 ```
 🚀 Benchmark: module1/task1
 ---------------------------------------------------------------------
-File                     Runs     Min  Median    Mean     Max  Std dev  Memory  Relative   Verdict
+File                       Runs     Min  Median    Mean     Max  Std dev  Memory  Relative   Verdict
 ---------------------------------------------------------------------
-module1/task1/task1.py     25  0.0234  0.0249  0.0250  0.0279   0.0011   25.30    100.0%   SIMILAR
-module1/task1/task1_2.py   25  0.0257  0.0271  0.0273  0.0301   0.0013   24.80    108.9%    SLOWER
+module1/task1/task1_1.py     25  0.0234  0.0249  0.0250  0.0279   0.0011   25.30    100.0%   SIMILAR
+module1/task1/task1_2.py     25  0.0257  0.0271  0.0273  0.0301   0.0013   24.80    108.9%    SLOWER
 ```
 
 ### Режим 4 — Micro-bench (timeit)
@@ -370,10 +383,10 @@ module1/task1/task1_2.py   25  0.0257  0.0271  0.0273  0.0301   0.0013   24.80  
 ```
 ⚡ Micro-bench (timeit): module1/task1
 ---------------------------------------------------------------------------
-File                     Repeats  Min, us  Median, us  Mean, us  Max, us  Std dev, us  Relative     Verdict
+File                       Repeats  Min, us  Median, us  Mean, us  Max, us  Std dev, us  Relative     Verdict
 ---------------------------------------------------------------------------
-module1/task1/task1.py      1000    12.34       13.01     13.12    15.67         0.82    100.0%      SIMILAR
-module1/task1/task1_2.py    1000    14.21       15.34     15.45    18.90         1.12    117.9%  MUCH SLOWER
+module1/task1/task1_1.py      1000    12.34       13.01     13.12    15.67         0.82    100.0%      SIMILAR
+module1/task1/task1_2.py      1000    14.21       15.34     15.45    18.90         1.12    117.9%  MUCH SLOWER
 ```
 
 ---
@@ -383,7 +396,8 @@ module1/task1/task1_2.py    1000    14.21       15.34     15.45    18.90        
 ```
 module1/
 └── task1/
-    ├── task1.py          # решение
+    ├── task1_1.py        # основное решение
+    ├── task1_2.py        # альтернативное решение 1
     └── tests/
         ├── 1             # входные данные теста №1 (stdin)
         ├── 1.clue        # ожидаемый вывод теста №1
@@ -424,7 +438,7 @@ module1/
 
 ```
 StepikTasks/
-└── <курс>/<секция>/<урок>/<NN-шаг>/
+└── <курс>/<секция>/<урок>/<NN>/ или <NN-шаг>/
 ```
 
 ### Таймаут subprocess
@@ -527,6 +541,7 @@ python diagnostik_stepik.py
 | Автоскачивание тестов из ZIP-архива | ❌ | ✅ Sprint 4 |
 | Обнаружение ссылок на GitHub-тесты | ❌ | ✅ Sprint 4 |
 | Поддержка function-style тестов (`*.type`) | ❌ | ✅ Sprint 4 |
+| Схема файлов task{N}_1.py / task{N}_2.py | ❌ | ✅ Sprint 5 |
 | Диагностика API | ❌ | ✅ |
 | Поддержка function-only решений | ❌ | ✅ |
 | Выделенный HTTP/OAuth слой (`stepik_client.py`) | ❌ | ✅ Sprint 3 |
