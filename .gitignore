@@ -1,40 +1,26 @@
 # Секреты OAuth — НИКОГДА не пушить!
 secrets.json
 stepik_config.json
-
-# Локальные папки с задачами
 P2.1/
 P2.2/
 P2.3/
-StepikTasks/
-C:/MyPythonProjects/Stepik/PokolenieTestes/
 solutions/
 tasks/
-
-# Диагностика и логи
 *_debug.json
 diagnostic_result*.json
 stepik_diagnostics/
 errors.txt
-
-# Python
 __pycache__/
 *.py[cod]
 *.pyo
-
-# Виртуальные окружения
 .venv/
 venv/
 env/
 .env
-
-# IDE
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
-
-# Сборка
 *.egg-info/
 dist/
 build/
