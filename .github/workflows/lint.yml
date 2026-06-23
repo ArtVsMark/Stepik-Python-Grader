@@ -21,7 +21,12 @@ jobs:
           python -m py_compile at_first.py stepik_client.py storage.py executor.py microbench_runner.py diagnostik_stepik.py test.py
           echo "✅ Синтаксических ошибок не найдено"
 
-      - name: Ruff lint + format check
+      - name: Ruff lint check
         uses: astral-sh/ruff-action@v3
         with:
           args: check .
+
+      - name: Ruff format check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check .
