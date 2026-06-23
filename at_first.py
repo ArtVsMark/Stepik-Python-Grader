@@ -6,6 +6,7 @@
   - разбор URL шага Stepik,
   - построение директорий задач (slugify, build_task_directory),
   - сохранение файлов задачи (template.py, solution.py, meta.json, task.md),
+  - извлечение тест-кейсов из HTML-таблицы в тексте задачи,
   - оркестрацию вызовов к Stepik API через stepik_client.
 
 HTTP/OAuth логика вынесена в stepik_client.py (Sprint 3, июнь 2026).
@@ -16,8 +17,11 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+
+import requests
 
 from stepik_client import (
     create_user_session,
@@ -32,11 +36,13 @@ from storage import load_json_file, save_json_file
 
 CONFIG_FILE = "stepik_config.json"
 
+# Дефолтное имя корневой папки для всех задач Stepik
+DEFAULT_ROOT_DIR = "StepikTasks"
+
 
 # ---------------------------------------------------------------------------
 # Утилиты: ввод-вывод
 # ---------------------------------------------------------------------------
-
 
 def slugify(text: str) -> str:
     """Преобразует произвольный текст в slug пригодный для имени директории.
@@ -62,11 +68,13 @@ def ask_value(prompt: str, default: str = "") -> str:
 # Конфигурация
 # ---------------------------------------------------------------------------
 
-
 def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
     """Интерактивно создаёт или перезаписывает stepik_config.json."""
     print("\nНастройка конфигурации...")
-    root_dir = ask_value("Укажи базовую директорию для сохранения задач", "P2.2")
+    root_dir = ask_value(
+        "Укажи корневую папку для всех задач Stepik",
+        DEFAULT_ROOT_DIR,
+    )
     secrets_path = ask_value("Укажи путь к secrets.json", "secrets.json")
     config: dict[str, Any] = {"root_dir": root_dir, "secrets_path": secrets_path}
     save_json_file(config_path, config)
@@ -125,7 +133,6 @@ def normalize_config_paths(
 # Secrets
 # ---------------------------------------------------------------------------
 
-
 def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
     """Загружает и валидирует secrets.json.
 
@@ -158,7 +165,6 @@ def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
 # URL-парсинг
 # ---------------------------------------------------------------------------
 
-
 def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
     """Извлекает (lesson_id, step_position) из URL шага Stepik.
 
@@ -178,7 +184,6 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 # Извлечение кода
 # ---------------------------------------------------------------------------
-
 
 def extract_python_code(step: dict[str, Any]) -> str | None:
     """Извлекает Python code_template из объекта шага или из блока Markdown."""
@@ -203,9 +208,110 @@ def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Построение директорий и сохранение файлов задачи
+# Извлечение тест-кейсов из HTML-таблицы
 # ---------------------------------------------------------------------------
 
+class _TableParser(HTMLParser):
+    """Вытаскивает текст из <td> ячеек HTML-таблицы построчно.
+
+    Собирает список строк; каждая строка — список текстов ячеек.
+    Игнорирует строку заголовка (<th>).
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._rows: list[list[str]] = []
+        self._current_row: list[str] | None = None
+        self._current_cell: list[str] | None = None
+        self._in_th: bool = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "tr":
+            self._current_row = []
+        elif tag == "td":
+            self._current_cell = []
+        elif tag == "th":
+            self._in_th = True
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "td" and self._current_cell is not None:
+            cell_text = "".join(self._current_cell).strip()
+            if self._current_row is not None:
+                self._current_row.append(cell_text)
+            self._current_cell = None
+        elif tag == "th":
+            self._in_th = False
+        elif tag == "tr" and self._current_row is not None:
+            if self._current_row:
+                self._rows.append(self._current_row)
+            self._current_row = None
+
+    def handle_data(self, data: str) -> None:
+        if self._current_cell is not None and not self._in_th:
+            self._current_cell.append(data)
+
+    @property
+    def rows(self) -> list[list[str]]:
+        return self._rows
+
+
+def _is_function_style(input_text: str) -> bool:
+    """Возвращает True если входные данные — объявление переменной, а не stdin.
+
+    Примеры function-style входных данных:
+        numbers = [-3, 6, 4]
+        matrix = [[1, 2], [3, 4]]
+        s = "hello"
+    """
+    stripped = input_text.strip()
+    return bool(re.match(r"^\w+\s*=\s*.+", stripped)) and "input(" not in stripped
+
+
+def extract_tests_from_html(html: str) -> list[tuple[str, str, str]]:
+    """Парсит HTML-таблицу тест-кейсов Stepik и возвращает список троек.
+
+    Каждая тройка: (input_data, expected_output, test_type).
+    test_type: "stdin"    — подаётся через stdin,
+               "function" — объявление переменной (function-style задача).
+
+    Возвращает пустой список если таблица не найдена или в ней < 3 колонок.
+    """
+    parser = _TableParser()
+    parser.feed(html)
+
+    tests: list[tuple[str, str, str]] = []
+    for row in parser.rows:
+        # Ожидаем минимум 3 колонки: №, входные данные, выходные данные
+        if len(row) < 3:  # noqa: PLR2004
+            continue
+        input_data = row[1].strip()
+        expected = row[2].strip()
+        if not input_data or not expected:
+            continue
+        test_type = "function" if _is_function_style(input_data) else "stdin"
+        tests.append((input_data, expected, test_type))
+
+    return tests
+
+
+def save_tests(task_dir: pathlib.Path, tests: list[tuple[str, str, str]]) -> int:
+    """Записывает тест-кейсы в tests/N, tests/N.clue, tests/N.type.
+
+    Возвращает количество сохранённых тестов.
+    """
+    tests_dir = task_dir / "tests"
+    tests_dir.mkdir(parents=True, exist_ok=True)
+    for i, (input_data, expected, test_type) in enumerate(tests, start=1):
+        (tests_dir / str(i)).write_text(input_data, encoding="utf-8")
+        (tests_dir / f"{i}.clue").write_text(expected, encoding="utf-8")
+        if test_type == "function":
+            (tests_dir / f"{i}.type").write_text("function", encoding="utf-8")
+    return len(tests)
+
+
+# ---------------------------------------------------------------------------
+# Построение директорий и сохранение файлов задачи
+# ---------------------------------------------------------------------------
 
 def build_task_directory(
     root_dir: pathlib.Path,
@@ -233,7 +339,7 @@ def save_task_files(
     section: dict[str, Any],
     course: dict[str, Any],
 ) -> None:
-    """Сохраняет template.py, solution.py, meta.json и task.md в task_dir."""
+    """Сохраняет template.py, solution.py, meta.json, task.md и tests/ в task_dir."""
     task_dir.mkdir(parents=True, exist_ok=True)
 
     template_code = extract_python_code(step)
@@ -263,16 +369,21 @@ def save_task_files(
     text = str(block.get("text", ""))
     if text:
         (task_dir / "task.md").write_text(text, encoding="utf-8")
+        tests = extract_tests_from_html(text)
+        if tests:
+            count = save_tests(task_dir, tests)
+            print(f"  📋 Извлечено тестов из таблицы: {count}")
+        else:
+            print("  ⚠️  Тесты в тексте задачи не найдены — добавь tests/ вручную")
 
 
 # ---------------------------------------------------------------------------
 # Оркестрация: один шаг
 # ---------------------------------------------------------------------------
 
-
 def process_step_url(
     step_url: str,
-    session: requests.Session,  # type: ignore[name-defined]  # noqa: F821
+    session: requests.Session,
     root_dir: pathlib.Path,
 ) -> None:
     """Скачивает все данные одного шага и сохраняет в файловую систему."""
@@ -326,7 +437,6 @@ def process_step_url(
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
-
 
 def main() -> None:
     """Главная функция: конфиг → авторизация → цикл обработки URL шагов."""
