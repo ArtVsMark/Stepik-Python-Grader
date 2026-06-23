@@ -1,4 +1,4 @@
-"""Тесты для функций-анализаторов из test.py.
+"""Тесты для функций-анализаторов из grader.py.
 
 Покрывает:
     - is_function_only_solution  — AST-анализатор режима запуска
@@ -11,7 +11,7 @@ import textwrap
 
 import pytest
 
-from test import is_function_only_solution, is_solution_file
+from grader import is_function_only_solution, is_solution_file
 
 # ===========================================================================
 # is_function_only_solution

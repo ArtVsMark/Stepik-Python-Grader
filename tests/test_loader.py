@@ -1,4 +1,4 @@
-"""Тесты для функций загрузки данных из test.py.
+"""Тесты для функций загрузки данных из grader.py.
 
 Покрывает:
     - load_text_lines                  — загрузка файла построчно
@@ -16,7 +16,7 @@ import pathlib
 
 import pytest
 
-from test import (
+from grader import (
     TestCase,
     build_input_data,
     collect_grouped_files,
@@ -298,8 +298,8 @@ class TestCollectGroupedFiles:
         self._make_structure(tmp_path)
         grouped = collect_grouped_files(str(tmp_path))
         counts = {k: len(v) for k, v in grouped.items()}
-        assert any(c == 2 for c in counts.values())  # task1 — 2 файла
-        assert any(c == 1 for c in counts.values())  # task2 — 1 файл
+        assert any(c == 2 for c in counts.values())
+        assert any(c == 1 for c in counts.values())
 
     def test_empty_directory_returns_empty(self, tmp_path: pathlib.Path) -> None:
         """Пустая директория → пустой словарь."""
