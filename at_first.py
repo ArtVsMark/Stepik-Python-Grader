@@ -199,7 +199,7 @@ def extract_python_code(step: dict[str, Any]) -> str | None:
 
 
 def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
-    """Извлекает Python-код из объекта сабмишна или возвращает None."""
+    """Извлекает Python-код из объекта последнего сабмишна или возвращает None."""
     if not submission:
         return None
     reply: dict[str, Any] = submission.get("reply") or {}
@@ -311,7 +311,12 @@ def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
 
     def _unique(items: list[str]) -> list[str]:
         seen: set[str] = set()
-        return [x for x in items if not (x in seen or seen.add(x))]  # type: ignore[func-returns-value]
+        result: list[str] = []
+        for item in items:
+            if item not in seen:
+                seen.add(item)
+                result.append(item)
+        return result
 
     zip_links = _unique(_ZIP_URL_RE.findall(html))
     github_links = _unique(_GITHUB_URL_RE.findall(html))
@@ -332,13 +337,13 @@ def _download_zip_tests(
         response = session.get(zip_url, timeout=30)
         response.raise_for_status()
     except requests.RequestException as exc:
-        print(f"  ⚠️  Не удалось скачать ZIP: {zip_url} ({exc})")
+        print(f"  ⚠️ Не удалось скачать ZIP: {zip_url} ({exc})")
         return 0
 
     try:
         zf = zipfile.ZipFile(io.BytesIO(response.content))
     except zipfile.BadZipFile:
-        print(f"  ⚠️  Скачанный файл не является ZIP: {zip_url}")
+        print(f"  ⚠️ Скачанный файл не является ZIP: {zip_url}")
         return 0
 
     tests_dir = task_dir / "tests"
@@ -353,7 +358,7 @@ def _download_zip_tests(
 
     saved = 0
     for name in names:
-        clean_name = name[len(strip_prefix) :] if name.startswith(strip_prefix) else name
+        clean_name = name[len(strip_prefix):] if name.startswith(strip_prefix) else name
         clean_name = clean_name.strip("/")
         if not clean_name:
             continue
@@ -409,7 +414,7 @@ def save_task_files(
       task{pos}_2.py  — заглушка для альтернативного решения 1 (всегда создаётся)
 
     Порядок поиска тестов:
-      1. ZIP-ссылка в HTML (автоскачивание);
+      1. ZIP-ссылка в HTML (скачать автоматически);
       2. HTML-таблица в тексте задачи;
       3. Ссылка на GitHub (печатается, скачать вручную);
       4. Ничего нет — предупреждение, остальные файлы уже сохранены.
@@ -476,11 +481,11 @@ def save_task_files(
     if github_links:
         for gh_url in github_links:
             print(f"  🔗 Тесты на GitHub: {gh_url}")
-            print("     (автоскачивание с GitHub не поддерживается, скачай вручную)")
+            print("     (скачивание с GitHub не поддерживается, скачай вручную)")
         return
 
     # 4. Ничего не нашли
-    print("  ⚠️  Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены")
+    print("  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены")
 
 
 # ---------------------------------------------------------------------------
@@ -574,7 +579,7 @@ def main() -> None:
         try:
             process_step_url(step_url, session, root_dir)
         except Exception as error:  # noqa: BLE001
-            print(f"❌ Ошибка обработки шага: {error}")
+            print(f"❌ Ошибка обрабного шага: {error}")
 
 
 if __name__ == "__main__":
