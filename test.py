@@ -88,15 +88,28 @@ class TestCase:
 def _is_safe_constant(node: ast.expr) -> bool:
     """Вернуть True, если узел — безопасное константное выражение без вызовов.
 
-    Использует ast.literal_eval, который принимает литералы, BinOp, UnaryOp
-    и вложенные контейнеры (list/tuple/set/dict из констант), но отклоняет
-    любые вызовы функций (Call), обращения к атрибутам (Attribute) и Name.
+    Рекурсивно проверяет AST-узел: принимает литералы (Constant), арифметику
+    из констант (BinOp, UnaryOp) и вложенные контейнеры (List/Tuple/Set/Dict).
+    Отклоняет любые вызовы (Call), обращения к атрибутам (Attribute) и Name.
+
+    Не использует ast.literal_eval — его поведение на AST-узлах не документировано
+    и изменилось в Python 3.14.
     """
-    try:
-        ast.literal_eval(node)
-        return True
-    except (ValueError, TypeError):
-        return False
+    match node:
+        case ast.Constant():
+            return True
+        case ast.UnaryOp(op=ast.USub() | ast.UAdd() | ast.Invert(), operand=operand):
+            return _is_safe_constant(operand)
+        case ast.BinOp(left=left, right=right):
+            return _is_safe_constant(left) and _is_safe_constant(right)
+        case ast.List(elts=elts) | ast.Tuple(elts=elts) | ast.Set(elts=elts):
+            return all(_is_safe_constant(e) for e in elts)
+        case ast.Dict(keys=keys, values=values):
+            return all(_is_safe_constant(k) for k in keys if k is not None) and all(
+                _is_safe_constant(v) for v in values
+            )
+        case _:
+            return False
 
 
 def is_function_only_solution(file_content: str) -> bool:
@@ -770,216 +783,20 @@ def ask_benchmark_repeats() -> int:
 
 
 def ask_microbench_repeats() -> int:
-    print("\nMicro-bench repeats (calls per run):")
-    print("1 - fast (500)")
-    print("2 - normal (1 000)")
-    print("3 - thorough (5 000)")
-    print("4 - deep (50 000)")
-    print("5 - hard (100 000)")
-    print("6 - custom (100 to 500 000)")
+    print("\nMicro-bench load:")
+    print("1 - low (100 repeats)")
+    print("2 - medium (500 repeats)")
+    print("3 - high (2000 repeats)")
+    print("4 - custom")
 
-    choice = input("Choose (1/2/3/4/5/6): ").strip()
-    mapping = {"1": 500, "2": 1_000, "3": 5_000, "4": 50_000, "5": 100_000}
+    choice = input("Choose load (1/2/3/4): ").strip()
+    mapping = {"1": 100, "2": 500, "3": 2000}
 
     if choice in mapping:
         return mapping[choice]
 
     while True:
-        raw = input("Enter repeats (100-500000): ").strip()
-        if raw.isdigit() and 100 <= int(raw) <= 500_000:
+        raw = input("Enter repeats count (100-10000): ").strip()
+        if raw.isdigit() and 100 <= int(raw) <= 10000:
             return int(raw)
-        print("Please enter integer from 100 to 500 000.")
-
-
-def _build_stdin_texts(source_code: str, test_cases: list[TestCase]) -> list[str]:
-    """Собрать список stdin-строк для microbench.
-
-    Для function-only решений: добавляет исходный код перед тест-вводом
-    (та же логика, что build_input_data для subprocess-режима).
-    """
-    is_func_only = is_function_only_solution(source_code)
-    source_lines = source_code.splitlines()
-    stdin_texts = []
-
-    for tc in test_cases:
-        if is_func_only:
-            combined = "\n".join(source_lines + tc.input_lines)
-        else:
-            combined = "\n".join(tc.input_lines)
-        stdin_texts.append(combined)
-
-    return stdin_texts or [""]
-
-
-# ---------------------------------------------------------------------------
-# Mode runners
-# ---------------------------------------------------------------------------
-
-
-def run_single_mode(base_dir: pathlib.Path, exec_file: str) -> None:
-    """Mode 1 — проверить один файл решения против его тестов."""
-    raw = input("Enter path to solution file (relative or absolute): ").strip()
-    if not raw:
-        print("No path provided.")
-        return
-
-    script_path = resolve_input_path(base_dir, raw)
-
-    if not script_path.exists():
-        print(f"File not found: {script_path}")
-        return
-
-    if not script_path.is_file():
-        print(f"Not a file: {script_path}")
-        return
-
-    rel_path = os.path.relpath(script_path, base_dir)
-    result = verify_file(rel_path, base_dir, exec_file)
-    print()
-    print_single_result(result)
-
-    if result.status == "FAILED" and result.error_message:
-        print(f"\nError detail: {result.error_message}")
-
-
-def run_compare_mode(base_dir: pathlib.Path, exec_file: str) -> None:
-    """Mode 2 — верифицировать все решения в папке, сгруппировать по задачам."""
-    folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_and_validate_dir(base_dir, folder)
-    if target_dir is None:
-        return
-
-    grouped_files = collect_grouped_files(target_dir, base_dir)
-    if not grouped_files:
-        print(f"No solution files found in: {target_dir}")
-        return
-
-    for task_folder, files in sorted(grouped_files.items()):
-        results: list[VerificationResult] = [
-            verify_file(rel_path, base_dir, exec_file) for rel_path in files
-        ]
-        print_verification_table(task_folder, results)
-
-
-def run_benchmark_mode(base_dir: pathlib.Path, exec_file: str) -> None:
-    """Mode 3 — subprocess-бенчмарк для решений, прошедших все тесты."""
-    folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_and_validate_dir(base_dir, folder)
-    if target_dir is None:
-        return
-
-    repeats = ask_benchmark_repeats()
-
-    grouped_files = collect_grouped_files(target_dir, base_dir)
-    if not grouped_files:
-        print(f"No solution files found in: {target_dir}")
-        return
-
-    for task_folder, files in sorted(grouped_files.items()):
-        bench_results: list[BenchmarkStats] = []
-        skipped: list[str] = []
-
-        for rel_path in files:
-            stats = benchmark_file(rel_path, base_dir, exec_file, repeats)
-            if stats is not None:
-                bench_results.append(stats)
-            else:
-                skipped.append(rel_path)
-
-        if skipped:
-            print(f"\n⚠️  Skipped (did not pass tests): {', '.join(skipped)}")
-
-        if bench_results:
-            bench_results = apply_relative_metrics(bench_results)
-            print_benchmark_table(task_folder, bench_results)
-        else:
-            print(f"\n🚀 Benchmark: {task_folder}")
-            print("No solutions passed all tests — nothing to benchmark.")
-
-
-def run_microbench_mode(base_dir: pathlib.Path) -> None:
-    """Mode 4 — timeit-микробенчмарк через exec + contextlib.redirect_stdout/stdin.
-
-    Использует до MICROBENCH_MAX_CASES тест-кейсов для стабильного std-dev.
-    Custom repeats до 500 000.
-    """
-    folder = input("Enter top-level folder from the content root: ").strip()
-    target_dir = resolve_and_validate_dir(base_dir, folder)
-    if target_dir is None:
-        return
-
-    repeats = ask_microbench_repeats()
-
-    grouped_files = collect_grouped_files(target_dir, base_dir)
-    if not grouped_files:
-        print(f"No solution files found in: {target_dir}")
-        return
-
-    for task_folder, files in sorted(grouped_files.items()):
-        micro_results: list[MicrobenchResult] = []
-
-        for rel_path in files:
-            program_path = base_dir / rel_path
-            source_lines = load_text_lines(str(program_path))
-            source_code = "\n".join(source_lines)
-
-            module_folder = os.path.dirname(rel_path)
-            tests_dir = base_dir / module_folder / "tests"
-            if tests_dir.exists():
-                test_cases = load_test_cases(tests_dir)
-                bench_cases = test_cases[:MICROBENCH_MAX_CASES] if test_cases else []
-            else:
-                bench_cases = []
-
-            stdin_texts = (
-                _build_stdin_texts(source_code, bench_cases) if bench_cases else [source_code]
-            )
-
-            result = run_microbench(
-                source_code=source_code,
-                stdin_texts=stdin_texts,
-                file_label=rel_path,
-                repeats=repeats,
-            )
-            micro_results.append(result)
-
-        micro_results = apply_relative_micro(micro_results)
-
-        if micro_results:
-            print_microbench_table(task_folder, micro_results)
-        else:
-            print(f"\n⚡ Micro-bench: {task_folder}")
-            print("No solutions found for microbench.")
-
-
-if __name__ == "__main__":
-    root_dir = pathlib.Path(__file__).parent.resolve()
-    executor = str(root_dir / "executor.py")
-
-    print("Choose mode:")
-    print("1 - test single file")
-    print("2 - compare all solutions in top-level folder")
-    print("3 - benchmark passed solutions")
-    print("4 - microbench (timeit, any solution type)")
-    print(
-        "Memory mode: "
-        + (
-            "child process (more honest, slower)"
-            if MEASURE_CHILD_MEMORY
-            else "parent process (fast, rough)"
-        )
-    )
-    print(f"Subprocess timeout: {SUBPROCESS_TIMEOUT}s per test")
-
-    mode = input("Enter mode (1/2/3/4): ").strip()
-
-    if mode == "1":
-        run_single_mode(root_dir, executor)
-    elif mode == "2":
-        run_compare_mode(root_dir, executor)
-    elif mode == "3":
-        run_benchmark_mode(root_dir, executor)
-    elif mode == "4":
-        run_microbench_mode(root_dir)
-    else:
-        print("Unknown mode.")
+        print("Please enter integer from 100 to 10000.")
