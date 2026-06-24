@@ -942,7 +942,8 @@ def _interactive_menu() -> None:
 
     elif choice == "3":
         directory = input("Enter path to folder: ").strip()
-        if not os.path.isdir(directory):\n            print(f"Directory not found: {directory}")
+        if not os.path.isdir(directory):
+            print(f"Directory not found: {directory}")
             return
 
         test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
