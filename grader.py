@@ -1015,27 +1015,40 @@ def _interactive_menu() -> None:
             return
 
         for folder, paths in sorted(grouped.items()):
-            first_path = sorted(paths)[0]
-            test_dir = _resolve_test_dir(first_path)
+            # Ищем tests/ от папки с файлами, а не от имени первого файла
+            folder_abs = pathlib.Path(directory) / folder if folder != "." else pathlib.Path(directory)
+            test_dir = _resolve_test_dir_from_input(str(folder_abs), is_dir=True)
+
+            label = folder if folder != "." else os.path.basename(directory)
+            print(f"\n\u26a1 Micro-bench (timeit): {label}")
+
             if not os.path.isdir(test_dir):
+                print(f"  \u26a0 Tests not found: {test_dir}")
+                print("  Expected: tests/ subfolder next to solution files.")
                 continue
 
-            print(f"\n\u26a1 Micro-bench (timeit): {folder}")
             bench = run_microbench_mode(sorted(paths), test_dir, number=number)
-            ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
-            if not ok_rows:
-                print("  No results.")
+
+            if not bench:
+                print("  \u26a0 No test cases found in:", test_dir)
                 continue
 
-            col = 28
-            print_benchmark_header(col_file=col)
-            for path, data in sorted(ok_rows.items(), key=lambda x: x[1]["median"]):
-                print(format_benchmark_row(path, directory, data, col_file=col))
+            ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
+
+            col = max((len(os.path.relpath(p, directory)) for p in paths), default=20) + 2
+
+            if ok_rows:
+                print_benchmark_header(col_file=col)
+                for path, data in sorted(ok_rows.items(), key=lambda x: x[1]["median"]):
+                    print(format_benchmark_row(path, directory, data, col_file=col))
 
             for path, data in sorted(bench.items()):
                 if data.get("error"):
                     rel = os.path.relpath(path, directory)
-                    print(f"  {rel}: {data['error']}")
+                    print(f"  \u2717 {rel}: {data['error']}")
+
+            if not ok_rows and not any(v.get("error") for v in bench.values()):
+                print("  No results.")
 
     else:
         print("Unknown choice. Please enter 0\u20134.")
