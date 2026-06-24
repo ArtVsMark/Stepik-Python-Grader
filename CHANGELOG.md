@@ -1,5 +1,31 @@
 # Changelog
 
+## [Unreleased] — June 2026 — python-generation format support
+
+### ✨ Features
+
+- **grader.py** — Added support for the `python-generation/Professional`
+  test format (Module_3). Tests live as a single `input.txt` + `output.txt`
+  pair with `# TEST_N:` block markers instead of per-test files.
+  - `_parse_testblock_file()` — parses a file with `# TEST_N:` markers into
+    a list of block contents (ignores `# INPUT DATA:` / leading headers).
+  - `_is_python_call_block()` — returns `True` when a block is valid Python
+    containing a top-level `Expr(Call(...))` (function-call sub-type);
+    plain data such as `04.11.2021` → `False` (stdin sub-type).
+  - `_build_call_wrapper()` — builds a runner that imports all public names
+    from the solution module and executes the test block verbatim (the block
+    already contains the full `print(func(...))` call; no `inspect.signature`).
+  - `load_test_cases()` — new Format 3 check (highest priority) that reads
+    `input.txt`/`output.txt`, auto-detecting each block as `function` or
+    `stdin`.
+  - `_resolve_test_dir()` — now also locates `input.txt` + `output.txt` next
+    to the solution or in its parent directory.
+  - `run_single_test()` — function-mode now dispatches to `_build_call_wrapper`
+    for Python call blocks and keeps `_build_function_wrapper` for the legacy
+    variable-declaration format.
+  - Verified on real tasks: Module_3.1 (function-call, 7/7) and Module_3.2
+    (stdin, 4/4).
+
 ## [Unreleased] — June 2026 — Audit Sprint
 
 ### 🔴 Critical fixes

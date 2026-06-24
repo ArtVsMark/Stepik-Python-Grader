@@ -285,10 +285,56 @@ def load_text_lines_with_encoding(file_path: str) -> tuple[list[str], str | None
     return lines, encoding
 
 
+def _parse_testblock_file(text: str) -> list[str]:
+    """Разобрать input.txt/output.txt с маркерами блоков `# TEST_N:`.
+
+    Возвращает список содержимого блоков (каждый .strip()).
+    Строки `# INPUT DATA:` игнорируются.
+    """
+    blocks: list[str] = []
+    current_lines: list[str] = []
+    in_block = False
+
+    for line in text.splitlines():
+        if re.match(r"#\s*TEST_\d+:", line.strip()):
+            if in_block and current_lines:
+                blocks.append("\n".join(current_lines).strip())
+                current_lines = []
+            in_block = True
+        elif line.strip().startswith("# INPUT DATA:"):
+            continue
+        elif in_block:
+            current_lines.append(line)
+
+    if in_block and current_lines:
+        blocks.append("\n".join(current_lines).strip())
+
+    return blocks
+
+
+def _is_python_call_block(block: str) -> bool:
+    """Вернуть True, если block — валидный Python с вызовом верхнего уровня (Expr(Call))."""
+    try:
+        tree = ast.parse(block)
+    except SyntaxError:
+        return False
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            return True
+    return False
+
+
 def load_test_cases(test_dir: str) -> list[TestCase]:
     """Загрузить тест-кейсы из директории.
 
-    Поддерживаются два формата:
+    Поддерживаются три формата:
+
+    Формат 3 — python-generation/Professional (высший приоритет):
+        tests/input.txt   — ВСЕ входные блоки с маркерами `# TEST_N:`
+        tests/output.txt  — ВСЕ ожидаемые блоки с маркерами `# TEST_N:`
+        Тип блока определяется автоматически: если блок — валидный Python
+        с вызовом верхнего уровня (`print(func(...))`) → "function",
+        иначе → "stdin".
 
     Формат 1 — at_first.py (legacy):
         tests/1        — входные данные теста №1 (stdin)
@@ -303,6 +349,27 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
     """
     cases: list[TestCase] = []
     dir_path = pathlib.Path(test_dir)
+
+    # Формат 3: python-generation (input.txt + output.txt с блоками # TEST_N:)
+    input_file = dir_path / "input.txt"
+    output_file = dir_path / "output.txt"
+    if input_file.exists() and output_file.exists():
+        input_text = input_file.read_text(encoding=ENCODING)
+        output_text = output_file.read_text(encoding=ENCODING)
+        input_blocks = _parse_testblock_file(input_text)
+        output_blocks = _parse_testblock_file(output_text)
+        if input_blocks and output_blocks:
+            for i, (inp, out) in enumerate(zip(input_blocks, output_blocks, strict=False), 1):
+                test_type = "function" if _is_python_call_block(inp) else "stdin"
+                cases.append(
+                    TestCase(
+                        index=i,
+                        input_lines=inp.splitlines(),
+                        expected_lines=out.splitlines(),
+                        test_type=test_type,
+                    )
+                )
+            return cases
 
     _INPUT_RE = re.compile(r"^input_(\d+)\.txt$")
 
@@ -369,6 +436,11 @@ def _resolve_test_dir(solution_path: str) -> str:
     candidate_stem = parent / stem
     if candidate_stem.is_dir():
         return str(candidate_stem)
+
+    # python-generation: input.txt + output.txt рядом с решением или в родителе
+    for candidate in (parent, parent.parent):
+        if (candidate / "input.txt").exists() and (candidate / "output.txt").exists():
+            return str(candidate)
 
     for f in parent.iterdir():
         if f.suffix == ".clue" or re.match(r"^input_\d+\.txt$", f.name):
@@ -562,6 +634,38 @@ print({safe_func}(*_args))
 """
 
 
+def _build_call_wrapper(solution_path: str, call_block: str) -> str:
+    """Генерирует скрипт, импортирующий все публичные имена из решения и
+    исполняющий call_block как есть.
+
+    Используется для python-generation function-call формата (Module_3.1, 3.3),
+    где блок теста уже содержит полный вызов вида `print(func(args))`.
+    inspect.signature НЕ используется — аргументы заданы в самом блоке.
+    """
+    abs_path = str(pathlib.Path(solution_path).resolve())
+    solution_dir = str(pathlib.Path(abs_path).parent)
+    module_name = pathlib.Path(abs_path).stem
+
+    return f"""import sys
+import importlib.util
+
+# Стандартные импорты, которые могут встречаться в тест-блоке
+from datetime import date, time, datetime, timedelta  # noqa: F401
+from decimal import Decimal  # noqa: F401
+from fractions import Fraction  # noqa: F401
+
+sys.path.insert(0, {solution_dir!r})
+_spec = importlib.util.spec_from_file_location({module_name!r}, {abs_path!r})
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+for _name in dir(_mod):
+    if not _name.startswith('_'):
+        globals()[_name] = getattr(_mod, _name)
+
+{call_block}
+"""
+
+
 def run_single_test(
     solution_path: str,
     case: TestCase,
@@ -592,24 +696,30 @@ def run_single_test(
     stdin_bytes: bytes | None = None
 
     if case.test_type == "function":
-        # Определяем имя функции: meta.json → ast fallback
-        func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
-        if func_name is None:
-            return {
-                "passed": False,
-                "output": [],
-                "expected": case.expected_lines,
-                "diff": "",
-                "time": 0.0,
-                "memory": 0.0,
-                "error": (
-                    "function_name not found"
-                    " (meta.json missing and no function def in solution)"
-                ),
-                "timed_out": False,
-            }
         input_data = "\n".join(case.input_lines)
-        wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
+        if _is_python_call_block(input_data):
+            # python-generation function-call: блок уже содержит print(func(...))
+            wrapper_src = _build_call_wrapper(solution_path, input_data)
+        else:
+            # legacy function-mode: блок задаёт переменные, вызов собираем сами
+            func_name = (
+                _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
+            )
+            if func_name is None:
+                return {
+                    "passed": False,
+                    "output": [],
+                    "expected": case.expected_lines,
+                    "diff": "",
+                    "time": 0.0,
+                    "memory": 0.0,
+                    "error": (
+                        "function_name not found"
+                        " (meta.json missing and no function def in solution)"
+                    ),
+                    "timed_out": False,
+                }
+            wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
         # Записываем wrapper во временный файл; удаляется после запуска
         tmp_wrapper = tempfile.NamedTemporaryFile(
             mode="w",
