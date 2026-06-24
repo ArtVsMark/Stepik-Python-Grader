@@ -47,6 +47,7 @@ HEADERS: dict[str, str] = {
 # Session factory
 # ---------------------------------------------------------------------------
 
+
 def make_session(access_token: str) -> requests.Session:
     """Возвращает requests.Session с Bearer-токеном в заголовках."""
     session = requests.Session()
@@ -58,6 +59,7 @@ def make_session(access_token: str) -> requests.Session:
 # ---------------------------------------------------------------------------
 # Token helpers
 # ---------------------------------------------------------------------------
+
 
 def token_is_valid(secrets: dict[str, Any]) -> bool:
     """True если access_token существует и не истечёт в ближайшие 60 секунд."""
@@ -86,6 +88,7 @@ def refresh_access_token(
 # ---------------------------------------------------------------------------
 # OAuth2 Authorization Code flow
 # ---------------------------------------------------------------------------
+
 
 def _make_oauth_handler(
     auth_data: dict[str, Any],
@@ -219,9 +222,7 @@ def create_user_session(
     if refresh_token:
         try:
             token_data = refresh_access_token(client_id, client_secret, refresh_token)
-            token_data["expires_at"] = time.time() + float(
-                str(token_data.get("expires_in", 3600))
-            )
+            token_data["expires_at"] = time.time() + float(str(token_data.get("expires_in", 3600)))
             secrets.update(token_data)
             save_secrets(secrets_path, secrets)
             return make_session(str(secrets["access_token"]))
@@ -238,22 +239,30 @@ def create_user_session(
 # Stepik REST API — fetch helpers
 # ---------------------------------------------------------------------------
 
+
 def fetch_step_data(
     session: requests.Session,
     lesson_id: int,
     step_position: int,
 ) -> dict[str, Any]:
-    """Возвращает объект шага по позиции внутри урока."""
-    response = session.get(
-        f"{API_HOST}/api/steps",
-        params={"lesson": lesson_id},
-        timeout=30,
-    )
-    response.raise_for_status()
-    steps: list[dict[str, Any]] = response.json().get("steps", [])
-    for step in steps:
-        if step.get("position") == step_position:
-            return step
+    """Возвращает объект шага по позиции внутри урока (с пагинацией)."""
+    page = 1
+    while True:
+        response = session.get(
+            f"{API_HOST}/api/steps",
+            params={"lesson": lesson_id, "page": page},
+            timeout=30,
+        )
+        response.raise_for_status()
+        data = response.json()
+        steps: list[dict[str, Any]] = data.get("steps", [])
+        for step in steps:
+            if step.get("position") == step_position:
+                return step
+        meta = data.get("meta", {})
+        if not meta.get("has_next"):
+            break
+        page += 1
     raise ValueError(f"Шаг с позицией {step_position} не найден в уроке {lesson_id}")
 
 

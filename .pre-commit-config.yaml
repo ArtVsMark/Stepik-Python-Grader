@@ -5,3 +5,13 @@ repos:
       - id: ruff
         args: [--fix, --unsafe-fixes]
       - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-ast          # SyntaxError — главное
+      - id: check-json         # валидный JSON
+      - id: end-of-file-fixer  # пустая строка в конце файла
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: [--fix=lf]

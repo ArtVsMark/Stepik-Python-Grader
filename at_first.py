@@ -5,16 +5,23 @@
   - управление конфигом (stepik_config.json) и secrets.json,
   - разбор URL шага Stepik,
   - построение директорий задач (slugify, build_task_directory),
-  - сохранение файлов задачи (template.py, solution.py, meta.json, task.md),
+  - сохранение файлов задачи (task{N}_1.py, task{N}_2.py, solution.py, meta.json, task.md),
   - извлечение тест-кейсов из HTML-таблицы в тексте задачи,
   - скачивание тестов из ZIP- или GitHub-ссылок если таблица не полная/отсутствует,
   - оркестрацию вызовов к Stepik API через stepik_client.
 
 HTTP/OAuth логика вынесена в stepik_client.py.
+Файловый I/O вынесен в storage.py.
+
+Схема именования рабочих файлов:
+  task{step_position}_1.py  — основное решение (заполняется из template_code)
+  task{step_position}_2.py  — заглушка для альтернативного решения 1
+  task{step_position}_3.py  — (добавляется вручную) альтернативное решение 2
 """
 
 from __future__ import annotations
 
+import ast
 import io
 import json
 import pathlib
@@ -35,7 +42,7 @@ from stepik_client import (
     fetch_submission_data,
     fetch_unit_data,
 )
-from storage import load_json_file, save_json_file, save_secrets
+from storage import load_json_file, save_json_file
 
 CONFIG_FILE = "stepik_config.json"
 
@@ -45,6 +52,7 @@ DEFAULT_ROOT_DIR = "StepikTasks"
 # ---------------------------------------------------------------------------
 # Утилиты
 # ---------------------------------------------------------------------------
+
 
 def slugify(text: str) -> str:
     """Преобразует текст в slug для имени директории. Макс 80 символов."""
@@ -66,6 +74,7 @@ def ask_value(prompt: str, default: str = "") -> str:
 # ---------------------------------------------------------------------------
 # Конфигурация
 # ---------------------------------------------------------------------------
+
 
 def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
     """Интерактивно создаёт или перезаписывает stepik_config.json."""
@@ -132,6 +141,7 @@ def normalize_config_paths(
 # Secrets
 # ---------------------------------------------------------------------------
 
+
 def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
     """Загружает и валидирует secrets.json."""
     if not secrets_path.exists():
@@ -158,6 +168,7 @@ def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
 # URL-парсинг
 # ---------------------------------------------------------------------------
 
+
 def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
     """Извлекает (lesson_id, step_position) из URL шага Stepik."""
     parsed = urlparse(step_url.strip())
@@ -174,6 +185,7 @@ def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
 # Извлечение кода
 # ---------------------------------------------------------------------------
 
+
 def extract_python_code(step: dict[str, Any]) -> str | None:
     """Извлекает Python code_template из объекта шага или из блока Markdown."""
     block: dict[str, Any] = step.get("block") or {}
@@ -188,7 +200,7 @@ def extract_python_code(step: dict[str, Any]) -> str | None:
 
 
 def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
-    """Извлекает Python-код из объекта сабмишна или возвращает None."""
+    """Извлекает Python-код из объекта последнего сабмишна или возвращает None."""
     if not submission:
         return None
     reply: dict[str, Any] = submission.get("reply") or {}
@@ -197,8 +209,30 @@ def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Извлечение имени функции из шаблона кода
+# ---------------------------------------------------------------------------
+
+
+def extract_function_name(template_code: str) -> str | None:
+    """Парсит template_code через ast и возвращает имя первой функции.
+
+    Возвращает None если в шаблоне нет определений функций или код
+    не является валидным Python.
+    """
+    try:
+        tree = ast.parse(template_code)
+    except SyntaxError:
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return node.name
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Извлечение тест-кейсов из HTML-таблицы
 # ---------------------------------------------------------------------------
+
 
 class _TableParser(HTMLParser):
     """Вытаскивает текст из <td> ячеек HTML-таблицы построчно."""
@@ -296,9 +330,15 @@ def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
 
     Возвращает кортеж (zip_links, github_links) без дубликатов.
     """
+
     def _unique(items: list[str]) -> list[str]:
         seen: set[str] = set()
-        return [x for x in items if not (x in seen or seen.add(x))]  # type: ignore[func-returns-value]
+        result: list[str] = []
+        for item in items:
+            if item not in seen:
+                seen.add(item)
+                result.append(item)
+        return result
 
     zip_links = _unique(_ZIP_URL_RE.findall(html))
     github_links = _unique(_GITHUB_URL_RE.findall(html))
@@ -319,13 +359,13 @@ def _download_zip_tests(
         response = session.get(zip_url, timeout=30)
         response.raise_for_status()
     except requests.RequestException as exc:
-        print(f"  ⚠️  Не удалось скачать ZIP: {zip_url} ({exc})")
+        print(f"  ⚠️ Не удалось скачать ZIP: {zip_url} ({exc})")
         return 0
 
     try:
         zf = zipfile.ZipFile(io.BytesIO(response.content))
     except zipfile.BadZipFile:
-        print(f"  ⚠️  Скачанный файл не является ZIP: {zip_url}")
+        print(f"  ⚠️ Скачанный файл не является ZIP: {zip_url}")
         return 0
 
     tests_dir = task_dir / "tests"
@@ -357,6 +397,7 @@ def _download_zip_tests(
 # Построение директорий и сохранение файлов задачи
 # ---------------------------------------------------------------------------
 
+
 def build_task_directory(
     root_dir: pathlib.Path,
     course_title: str,
@@ -366,11 +407,15 @@ def build_task_directory(
     step_title: str,
 ) -> pathlib.Path:
     """Строит путь к директории задачи по иерархии курс/секция/урок/шаг."""
+    step_dir_name = f"{step_position:02d}"
+    if step_title.strip():
+        step_dir_name = f"{step_position:02d}-{slugify(step_title)}"
+
     parts = [
         slugify(course_title),
         slugify(section_title),
         slugify(lesson_title),
-        f"{step_position:02d}-{slugify(step_title)}",
+        step_dir_name,
     ]
     return root_dir.joinpath(*parts)
 
@@ -384,11 +429,15 @@ def save_task_files(
     course: dict[str, Any],
     session: requests.Session,
 ) -> None:
-    """Сохраняет template.py, solution.py, meta.json, task.md и tests/ в task_dir.
+    """Сохраняет рабочие файлы, solution.py, meta.json, task.md и tests/ в task_dir.
+
+    Схема рабочих файлов:
+      task{pos}_1.py  — основное решение (из template_code или пустая заглушка)
+      task{pos}_2.py  — заглушка для альтернативного решения 1 (всегда создаётся)
 
     Порядок поиска тестов:
-      1. ZIP-ссылка в HTML (автоскачивание);
-      2. HTML-таблица в тексте задачи (может быть неполной);
+      1. ZIP-ссылка в HTML (скачать автоматически);
+      2. HTML-таблица в тексте задачи;
       3. Ссылка на GitHub (печатается, скачать вручную);
       4. Ничего нет — предупреждение, остальные файлы уже сохранены.
     """
@@ -396,11 +445,25 @@ def save_task_files(
 
     template_code = extract_python_code(step)
     submitted_code = extract_submission_code(submission)
+    step_position = int(step.get("position") or 0)
 
-    if template_code:
-        (task_dir / "template.py").write_text(template_code, encoding="utf-8")
+    # Рабочие файлы: task{pos}_1.py и task{pos}_2.py
+    main_file = task_dir / f"task{step_position}_1.py"
+    alt_file = task_dir / f"task{step_position}_2.py"
+
+    main_content = template_code if template_code else ""
+    main_file.write_text(main_content, encoding="utf-8")
+
+    if not alt_file.exists():
+        alt_file.write_text("", encoding="utf-8")
+
     if submitted_code:
         (task_dir / "solution.py").write_text(submitted_code, encoding="utf-8")
+
+    # Определяем имя функции из template_code для function-mode runner
+    function_name: str | None = None
+    if template_code:
+        function_name = extract_function_name(template_code)
 
     meta: dict[str, Any] = {
         "step_id": step.get("id"),
@@ -414,6 +477,9 @@ def save_task_files(
         "course_title": course.get("title", ""),
         "submission_id": submission.get("id") if submission else None,
         "submission_status": submission.get("status") if submission else None,
+        # Имя функции для function-mode runner в grader.py.
+        # None если задача не является функциональной (stdin-режим).
+        "function_name": function_name,
     }
     save_json_file(task_dir / "meta.json", meta)
 
@@ -445,16 +511,17 @@ def save_task_files(
     if github_links:
         for gh_url in github_links:
             print(f"  🔗 Тесты на GitHub: {gh_url}")
-            print("     (автоскачивание с GitHub не поддерживается, скачай вручную)")
+            print("     (скачивание с GitHub не поддерживается, скачай вручную)")
         return
 
     # 4. Ничего не нашли
-    print("  ⚠️  Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены"
+    print("  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены")
 
 
 # ---------------------------------------------------------------------------
 # Оркестрация: один шаг
 # ---------------------------------------------------------------------------
+
 
 def process_step_url(
     step_url: str,
@@ -489,7 +556,7 @@ def process_step_url(
     print(f"  Получаю данные шага {step_position}...")
     step = fetch_step_data(session, lesson_id, step_position)
     step_id = int(step.get("id") or 0)
-    step_title = str(step.get("title") or lesson_title)
+    step_title = str(step.get("title") or "").strip()
 
     print(f"  Получаю последний ответ для шага {step_id}...")
     submission = fetch_submission_data(session, step_id)
@@ -511,6 +578,7 @@ def process_step_url(
 # ---------------------------------------------------------------------------
 # Точка входа
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     """Главная функция: конфиг → авторизация → цикл обработки URL шагов."""
@@ -541,7 +609,7 @@ def main() -> None:
         try:
             process_step_url(step_url, session, root_dir)
         except Exception as error:  # noqa: BLE001
-            print(f"❌ Ошибка обработки шага: {error}")
+            print(f"❌ Ошибка обрабного шага: {error}")
 
 
 if __name__ == "__main__":
