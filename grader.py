@@ -44,6 +44,18 @@ except ImportError:  # pragma: no cover
     _console = None
     _RICH = False
 
+    # Минимальные заглушки, чтобы имена Console/Table/Text были всегда определены
+    # (используются в аннотациях и в коде, не зависящем от _RICH).
+    class Console:  # type: ignore[no-redef]
+        def print(self, *args: Any, **kwargs: Any) -> None:
+            print(*args)
+
+    class Table:  # type: ignore[no-redef]
+        pass
+
+    class Text:  # type: ignore[no-redef]
+        pass
+
     def _rich_track(sequence: Any, description: str = "") -> Any:  # noqa: ARG001
         return sequence
 
@@ -869,7 +881,7 @@ def run_single_test(
     # --- Выбор стратегии запуска ---
     tmp_wrapper: Any = None  # NamedTemporaryFile или None
     run_path = solution_path
-    stdin_bytes: bytes | None = None
+    stdin_bytes: bytes | None
 
     if case.test_type == "function":
         input_data = "\n".join(case.input_lines)
@@ -913,6 +925,7 @@ def run_single_test(
 
     peak_mb_result: list[float] = [0.0]
     stop_event = threading.Event()
+    mem_thread: threading.Thread | None = None
 
     start = time.perf_counter()
     try:
@@ -956,7 +969,7 @@ def run_single_test(
                     os.unlink(tmp_wrapper.name)
 
         elapsed = time.perf_counter() - start
-        if measure_memory:
+        if mem_thread is not None:
             mem_thread.join(timeout=0.5)
         peak_mb = peak_mb_result[0]
 
