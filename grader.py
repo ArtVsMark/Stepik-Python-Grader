@@ -25,7 +25,7 @@ TIMEOUT_SECONDS: float = 10.0
 ENCODING: str = "utf-8"
 SIMILAR_THRESHOLD: float = 1.15
 MUCH_SLOWER_THRESHOLD: float = 1.50
-MEASURE_CHILD_MEMORY: bool = False
+MEASURE_CHILD_MEMORY: bool = True
 MICROBENCH_MAX_CASES: int = 5
 
 # ---------------------------------------------------------------------------
@@ -160,9 +160,9 @@ def print_correctness_header(*, col_file: int) -> None:
     """Напечатать заголовок таблицы корректности для режимов 1 и 2."""
     print(_SEP)
     print(
-        f"{'File':<{col_file}} {'Passed':>6}  "
+        f"{'File':<{col_file}} {'Passed':>7}  "
         f"{'Total time':>10}  {'Avg time':>9}  "
-        f"{'Peak memory':>11}  {'Status':>6}  {'Fail test':>9}"
+        f"{'Memory, MB':>12}  {'Status':>6}  {'Fail test':>9}"
     )
     print(_SEP)
 
@@ -398,6 +398,12 @@ def run_single_test(
         )
         elapsed = time.perf_counter() - start
         peak_mb = 0.0
+        if measure_memory:
+            try:
+                _proc_obj = psutil.Process(proc.pid)
+                peak_mb = _proc_obj.memory_info().rss / 1024 / 1024
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                peak_mb = 0.0
 
         if proc.returncode != 0:
             return {
@@ -677,7 +683,7 @@ def _verdict(relative: float) -> str:
     return "MUCH_SLOWER"
 
 
-_SEP = "-" * 78
+_SEP = "-" * 92
 
 
 # ---------------------------------------------------------------------------
