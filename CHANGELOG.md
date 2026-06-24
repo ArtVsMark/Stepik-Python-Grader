@@ -1,5 +1,39 @@
 # Changelog
 
+## [Unreleased] — June 2026 — menu modes 2/3/4 test-dir & run-mode fixes
+
+### 🐛 Bug fixes
+
+- **grader.py (mode 2)** — `_interactive_menu` now resolves the test directory
+  **per solution** via `_resolve_test_dir(path)` instead of reusing one folder-level
+  `test_dir` for every file. Folders containing solutions for different tasks are
+  now graded against each task's own tests. Falls back to the folder-level
+  `test_dir` when a solution has no individual tests directory.
+- **grader.py (mode 3)** — same per-solution `test_dir` resolution as mode 2.
+- **grader.py — `run_benchmark()`** — now calls `_detect_run_mode()` and promotes
+  `stdin` cases to `function` for function-mode tasks, matching `run_tests()`.
+  Previously function-mode solutions were benchmarked in the wrong stdin mode.
+- **grader.py — `run_microbench_mode()` (mode 4)** — function-call blocks
+  (`print(func(...))`, detected via `_is_python_code_block`) are now timed through
+  `run_single_test` (subprocess) instead of being fed as stdin to `timeit`, which
+  broke completely. Plain stdin blocks still use the `timeit` path.
+- **grader.py — `run_microbench()`** — the solution source is now passed via a
+  temporary file read inside the bench script rather than embedded in a `'''`
+  heredoc, eliminating breakage on solutions containing triple quotes.
+- **grader.py — `_resolve_test_dir_from_input(is_dir=True)`** — now recognizes
+  Format 3 (`input.txt` + `output.txt`) directly in the given directory, not only
+  a `tests/` subdir.
+
+### ✅ Tests added
+
+- `tests/test_menu_modes.py` — per-solution `test_dir` in mode 2 (+ folder
+  fallback), `run_benchmark` applying function run-mode, `run_microbench_mode`
+  routing function-call blocks to subprocess and stdin blocks to `timeit`, and
+  `_resolve_test_dir_from_input` Format 3 handling.
+- `tests/test_loader.py` — `_resolve_test_dir` across `tests/` subdir,
+  python-generation `input.txt`/`output.txt` (alongside and in parent), and
+  legacy `.clue` layouts.
+
 ## [Unreleased] — June 2026 — ZIP→Format 3 conversion, GitHub test download
 
 ### ✨ Features

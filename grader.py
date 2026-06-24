@@ -232,7 +232,28 @@ def run_microbench_mode(
 
         all_times: list[float] = []
         for case in cases_to_bench:
-            stdin_data = "\n".join(case.input_lines) + "\n"
+            input_data = "\n".join(case.input_lines)
+
+            if case.test_type == "function" and _is_python_code_block(input_data):
+                # Function-call блок — это Python-код, а не stdin.
+                # timeit/exec тут не годится: используем subprocess-тайминг
+                # через run_single_test (менее точно, зато корректно).
+                sub_repeats = max(1, number // 50)
+                case_times: list[float] = []
+                for _ in range(sub_repeats):
+                    r = run_single_test(path, case, timeout=60.0)
+                    if r["error"] or r["timed_out"]:
+                        results[path] = {
+                            "error": f"test {case.index}: {r['error'] or 'timeout'}"
+                        }
+                        break
+                    case_times.append(r["time"])
+                else:
+                    all_times.extend(case_times)
+                    continue
+                break
+
+            stdin_data = input_data + "\n"
             bench = run_microbench(code, stdin_data=stdin_data, number=number)
             if bench["error"]:
                 results[path] = {"error": f"test {case.index}: {bench['error']}"}
@@ -989,6 +1010,14 @@ def run_benchmark(
         error      (str)   — пустая строка если нет ошибок
     """
     test_cases = load_test_cases(test_dir)
+    # Определяем режим запуска один раз — как в run_tests().
+    # Иначе function-mode задачи прогоняются в неверном stdin-режиме.
+    run_mode = _detect_run_mode(solution_path, test_dir)
+    if run_mode == "function":
+        for case in test_cases:
+            if case.test_type == "stdin":
+                case.test_type = "function"
+
     times: list[float] = []
     peak_mb = 0.0
 
@@ -1033,11 +1062,15 @@ def run_microbench(
         times  (list[float]) — список замеров (в секундах на итерацию)
         error  (str)         — сообщение об ошибке (пустая = успех)
     """
-    # Экранируем тройные кавычки в исходнике, чтобы неломать heredoc-строку
-    safe_code = source_code.replace("'''", '"""')
-    stmt_with_reset = "_reset_stdin()\n" + safe_code
+    # Передаём исходник через временный файл, а не heredoc-строку:
+    # это исключает поломку на тройных кавычках (''' / """) в решении.
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".py", encoding=ENCODING, delete=False
+    ) as f:
+        f.write(source_code)
+        code_path = f.name
 
-    # Весь вспомогательный код помещаем в setup через exec,
+    # Весь вспомогательный код помещаем в bench_script через exec,
     # чтобы _reset_stdin была доступна в глобальном пространстве stmt.
     # stmt — строка, выполняемая timeit; globals не пробрасываются через repeat()
     # в Python 3.14+, поэтому инжектируем функцию через builtins.
@@ -1048,10 +1081,12 @@ def run_microbench(
         "    _sys.stdin = _io.StringIO(_stdin)\n"
         "_builtins._reset_stdin = _reset_stdin\n"
         "_reset_stdin()\n"
-        "_code = '''" + stmt_with_reset + "'''\n"
+        f"with open({code_path!r}, encoding='utf-8') as _f:\n"
+        "    _code = _f.read()\n"
+        "_stmt = '_reset_stdin()\\n' + _code\n"
         f"_number = {number}\n"
         "_times = _timeit.repeat(\n"
-        "    stmt=_code,\n"
+        "    stmt=_stmt,\n"
         "    setup='pass',\n"
         "    repeat=5,\n"
         f"    number=_number,\n"
@@ -1076,6 +1111,9 @@ def run_microbench(
         return {"times": [], "error": "microbench timeout"}
     except Exception as exc:
         return {"times": [], "error": str(exc)}
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(code_path)
 
 
 def _micro_stats(times: list[float]) -> dict[str, float]:
@@ -1279,10 +1317,16 @@ def _ask_number(prompt: str, *, default: int) -> int:
 
 def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) -> str:
     if is_dir:
-        candidate = pathlib.Path(solution_or_dir) / "tests"
+        p = pathlib.Path(solution_or_dir)
+        # tests/ subdir takes priority
+        candidate = p / "tests"
         if candidate.is_dir():
             return str(candidate)
-        return solution_or_dir
+        # Format 3: input.txt + output.txt directly in the given dir
+        if (p / "input.txt").exists() and (p / "output.txt").exists():
+            return str(p)
+        # fallback: return as-is, load_test_cases will handle it
+        return str(p)
     return _resolve_test_dir(solution_or_dir)
 
 
@@ -1320,7 +1364,6 @@ def _interactive_menu() -> None:
             print(f"Directory not found: {directory}")
             return
 
-        test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
         scripts = find_all_solution_files(directory)
         if not scripts:
             print("No solution files found.")
@@ -1330,7 +1373,10 @@ def _interactive_menu() -> None:
 
         print_correctness_header(col_file=col_file)
         for path in scripts:
-            result = run_tests(path, test_dir, verbose=False)
+            individual_test_dir = _resolve_test_dir(path)
+            if not os.path.isdir(individual_test_dir):
+                individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
+            result = run_tests(path, individual_test_dir, verbose=False)
             print(format_correctness_row(path, directory, result, col_file=col_file))
 
     elif choice == "3":
@@ -1339,7 +1385,6 @@ def _interactive_menu() -> None:
             print(f"Directory not found: {directory}")
             return
 
-        test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
         scripts = find_all_solution_files(directory)
         if not scripts:
             print("No solution files found.")
@@ -1349,7 +1394,10 @@ def _interactive_menu() -> None:
 
         results: dict[str, dict[str, Any]] = {}
         for path in scripts:
-            results[path] = run_benchmark(path, test_dir, repeats=repeats)
+            individual_test_dir = _resolve_test_dir(path)
+            if not os.path.isdir(individual_test_dir):
+                individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
+            results[path] = run_benchmark(path, individual_test_dir, repeats=repeats)
 
         ok = {k: v for k, v in results.items() if not v.get("error")}
         if ok:

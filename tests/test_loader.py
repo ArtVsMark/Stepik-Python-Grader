@@ -16,6 +16,7 @@ import pathlib
 
 from grader import (
     TestCase,
+    _resolve_test_dir,
     build_input_data,
     collect_grouped_files,
     find_all_solution_files,
@@ -219,6 +220,50 @@ class TestResolveInputPath:
         """Вложенный относительный путь разрешается полностью."""
         result = resolve_input_path("a/b/c/task.py", tmp_path)
         assert result == tmp_path / "a" / "b" / "c" / "task.py"
+
+
+# ===========================================================================
+# _resolve_test_dir — поиск директории тестов для разных структур
+# ===========================================================================
+
+
+class TestResolveTestDir:
+    """Резолюция директории тестов для разных раскладок папок."""
+
+    def test_tests_subdir(self, tmp_path: pathlib.Path) -> None:
+        """<parent>/tests/ имеет высший приоритет."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        (tmp_path / "tests").mkdir()
+        assert _resolve_test_dir(str(sol)) == str((tmp_path / "tests").resolve())
+
+    def test_python_generation_input_output_alongside(self, tmp_path: pathlib.Path) -> None:
+        """Format 3 (input.txt + output.txt) рядом с решением → родительская папка."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        (tmp_path / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
+        (tmp_path / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
+        assert _resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+
+    def test_python_generation_input_output_in_parent(self, tmp_path: pathlib.Path) -> None:
+        """Format 3 на уровень выше решения (решение в подпапке)."""
+        task_dir = tmp_path / "Module_3.1.20"
+        task_dir.mkdir()
+        sub = task_dir / "sub"
+        sub.mkdir()
+        sol = sub / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        (task_dir / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
+        (task_dir / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
+        assert _resolve_test_dir(str(sol)) == str(task_dir.resolve())
+
+    def test_clue_files_in_parent(self, tmp_path: pathlib.Path) -> None:
+        """Legacy-формат: .clue-файлы в родительской папке решения."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        (tmp_path / "1").write_text("1", encoding="utf-8")
+        (tmp_path / "1.clue").write_text("1", encoding="utf-8")
+        assert _resolve_test_dir(str(sol)) == str(tmp_path.resolve())
 
 
 # ===========================================================================
