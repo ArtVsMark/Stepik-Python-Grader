@@ -8,6 +8,7 @@ import statistics
 import subprocess
 import sys
 import time
+import threading
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
@@ -284,7 +285,6 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
     _INPUT_RE = re.compile(r"^input_(\d+)\.txt$")
 
     for inp_file in dir_path.iterdir():
-        # Формат 2: input_{N}.txt / expected_{N}.txt
         m = _INPUT_RE.match(inp_file.name)
         if m:
             idx = int(m.group(1))
@@ -296,7 +296,6 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
             cases.append(TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines))
             continue
 
-    # Формат 1: числовые файлы без расширения + .clue
     _NUM_RE = re.compile(r"^\d+$")
     for inp_file in dir_path.iterdir():
         if _NUM_RE.match(inp_file.name):
@@ -344,16 +343,29 @@ def build_input_data(
     *,
     is_function_mode: bool = False,
 ) -> str:
-    """Собрать stdin-строку для передачи в subprocess.
-
-    В режиме функции (is_function_mode=True) вызываем функцию явно,
-    передавая аргументы через stdin-wrapper.
-    В режиме скрипта — просто склеиваем input_lines через перевод строки.
-    """
-    if is_function_mode:
-        return "\n".join(input_lines) + "\n"
-
+    """Собрать stdin-строку для передачи в subprocess."""
     return "\n".join(input_lines) + "\n"
+
+
+def _measure_peak_memory(proc: subprocess.Popen, result: list[float], stop: threading.Event) -> None:
+    """Поток: просматривать RSS дочернего процесса до его завершения.
+
+    Записывает пик памяти (МБ) в result[0].
+    """
+    peak = 0.0
+    try:
+        ps_proc = psutil.Process(proc.pid)
+        while not stop.is_set():
+            try:
+                rss = ps_proc.memory_info().rss / 1024 / 1024
+                if rss > peak:
+                    peak = rss
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                break
+            stop.wait(0.02)  # опрос каждые 20 мс
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
+    result[0] = peak
 
 
 def run_single_test(
@@ -365,44 +377,69 @@ def run_single_test(
 ) -> dict[str, Any]:
     """Запустить одно решение на одном тест-кейсе и вернуть словарь с результатами.
 
-    Возвращаемый словарь содержит:
-        passed   (bool)   — прошёл ли тест
-        output   (list)   — фактический вывод (строки)
-        expected (list)   — ожидаемый вывод (строки)
-        diff     (str)    — unified diff при несовпадении
-        time     (float)  — время выполнения в секундах
-        memory   (float)  — пик памяти в МБ (0 если measure_memory=False)
-        error    (str)    — сообщение об ошибке (пустая строка = нет ошибки)
-        timed_out (bool)  — истёк ли таймаут
+    Возвращаемый словарь:
+        passed    (bool)   — прошёл ли тест
+        output    (list)   — фактический вывод (строки)
+        expected  (list)   — ожидаемый вывод (строки)
+        diff      (str)    — unified diff при несовпадении
+        time      (float)  — время выполнения в секундах
+        memory    (float)  — пик памяти в МБ (0 если measure_memory=False)
+        error     (str)    — сообщение об ошибке (пустая = нет ошибки)
+        timed_out (bool)   — истёк ли таймаут
     """
     code = pathlib.Path(solution_path).read_text(encoding=ENCODING)
     is_fn = is_function_only_solution(code)
     stdin_data = build_input_data(code, case.input_lines, is_function_mode=is_fn)
 
-    if is_fn:
-        wrapper_code = _build_function_wrapper(code, case.input_lines)
-        run_code = wrapper_code
-    else:
-        run_code = code
+    run_code = _build_function_wrapper(code, case.input_lines) if is_fn else code
+
+    stdin_bytes = stdin_data.encode(ENCODING)
+    peak_mb_result: list[float] = [0.0]
+    stop_event = threading.Event()
 
     start = time.perf_counter()
     try:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             [sys.executable, "-c", run_code],
-            input=stdin_data,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            encoding=ENCODING,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-        elapsed = time.perf_counter() - start
-        peak_mb = 0.0
+
         if measure_memory:
-            try:
-                _proc_obj = psutil.Process(proc.pid)
-                peak_mb = _proc_obj.memory_info().rss / 1024 / 1024
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                peak_mb = 0.0
+            mem_thread = threading.Thread(
+                target=_measure_peak_memory,
+                args=(proc, peak_mb_result, stop_event),
+                daemon=True,
+            )
+            mem_thread.start()
+
+        try:
+            stdout_bytes, stderr_bytes = proc.communicate(input=stdin_bytes, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            stop_event.set()
+            return {
+                "passed": False,
+                "output": [],
+                "expected": case.expected_lines,
+                "diff": "",
+                "time": timeout,
+                "memory": 0.0,
+                "error": f"Timeout after {timeout}s",
+                "timed_out": True,
+            }
+        finally:
+            stop_event.set()
+
+        elapsed = time.perf_counter() - start
+        if measure_memory:
+            mem_thread.join(timeout=0.5)
+        peak_mb = peak_mb_result[0]
+
+        stdout = stdout_bytes.decode(ENCODING, errors="replace")
+        stderr = stderr_bytes.decode(ENCODING, errors="replace")
 
         if proc.returncode != 0:
             return {
@@ -412,12 +449,11 @@ def run_single_test(
                 "diff": "",
                 "time": elapsed,
                 "memory": peak_mb,
-                "error": proc.stderr.strip(),
+                "error": stderr.strip(),
                 "timed_out": False,
             }
 
-        actual_lines = [line.rstrip("\n") for line in proc.stdout.splitlines()]
-
+        actual_lines = [line.rstrip("\n") for line in stdout.splitlines()]
         passed = actual_lines == case.expected_lines
         diff_str = ""
         if not passed:
@@ -443,16 +479,17 @@ def run_single_test(
             "timed_out": False,
         }
 
-    except subprocess.TimeoutExpired:
+    except OSError as exc:
+        stop_event.set()
         return {
             "passed": False,
             "output": [],
             "expected": case.expected_lines,
             "diff": "",
-            "time": timeout,
+            "time": 0.0,
             "memory": 0.0,
-            "error": f"Timeout after {timeout}s",
-            "timed_out": True,
+            "error": str(exc),
+            "timed_out": False,
         }
 
 
@@ -784,29 +821,29 @@ def fetch_stepik_tests(
 # ---------------------------------------------------------------------------
 
 _BENCH_PROFILES: dict[str, int] = {
-    "1": 5,    # low
-    "2": 15,   # medium
-    "3": 50,   # high
-    "4": 0,    # custom — значение запрашивается отдельно
+    "1": 5,
+    "2": 15,
+    "3": 50,
+    "4": 0,
 }
 
 _MICRO_PROFILES: dict[str, int] = {
-    "1": 500,       # fast
-    "2": 1_000,     # normal
-    "3": 5_000,     # thorough
-    "4": 50_000,    # deep
-    "5": 100_000,   # hard
-    "6": 0,         # custom — значение запрашивается отдельно
+    "1": 500,
+    "2": 1_000,
+    "3": 5_000,
+    "4": 50_000,
+    "5": 100_000,
+    "6": 0,
 }
 
 
 def _ask_bench_profile() -> int:
     """Запросить профиль нагрузки для subprocess-бенчмарка (режим 3)."""
     print("  Load profiles (repeats per solution):")
-    print("    1  low       —   5 runs")
-    print("    2  medium    —  15 runs")
-    print("    3  high      —  50 runs")
-    print("    4  custom    —  5\u2013100 runs")
+    print("    1  low       \u2014   5 runs")
+    print("    2  medium    \u2014  15 runs")
+    print("    3  high      \u2014  50 runs")
+    print("    4  custom    \u2014  5\u2013100 runs")
     choice = input("  Select profile [2]: ").strip() or "2"
     repeats = _BENCH_PROFILES.get(choice)
     if repeats is None:
@@ -820,12 +857,12 @@ def _ask_bench_profile() -> int:
 def _ask_micro_profile() -> int:
     """Запросить профиль нагрузки для timeit micro-bench (режим 4)."""
     print("  Load profiles (calls per run):")
-    print("    1  fast      —     500")
-    print("    2  normal    —   1 000")
-    print("    3  thorough  —   5 000")
-    print("    4  deep      —  50 000")
-    print("    5  hard      — 100 000  (short deterministic functions only)")
-    print("    6  custom    — 100\u2013500 000")
+    print("    1  fast      \u2014     500")
+    print("    2  normal    \u2014   1 000")
+    print("    3  thorough  \u2014   5 000")
+    print("    4  deep      \u2014  50 000")
+    print("    5  hard      \u2014 100 000  (short deterministic functions only)")
+    print("    6  custom    \u2014 100\u2013500 000")
     choice = input("  Select profile [2]: ").strip() or "2"
     number = _MICRO_PROFILES.get(choice)
     if number is None:
@@ -879,9 +916,6 @@ def _interactive_menu() -> None:
         print("Goodbye!")
         return
 
-    # ------------------------------------------------------------------
-    # Режим 1 — проверить одно решение
-    # ------------------------------------------------------------------
     if choice == "1":
         solution = input("Enter path to solution file: ").strip()
         if not os.path.isfile(solution):
@@ -900,9 +934,6 @@ def _interactive_menu() -> None:
         print_correctness_header(col_file=col_file)
         print(format_correctness_row(solution, pathlib.Path(solution).resolve().parent.as_posix(), result, col_file=col_file))
 
-    # ------------------------------------------------------------------
-    # Режим 2 — проверить все решения в папке
-    # ------------------------------------------------------------------
     elif choice == "2":
         directory = input("Enter path to folder: ").strip()
         if not os.path.isdir(directory):
@@ -922,9 +953,6 @@ def _interactive_menu() -> None:
             result = run_tests(path, test_dir, verbose=False)
             print(format_correctness_row(path, directory, result, col_file=col_file))
 
-    # ------------------------------------------------------------------
-    # Режим 3 — benchmark нескольких решений в папке
-    # ------------------------------------------------------------------
     elif choice == "3":
         directory = input("Enter path to folder: ").strip()
         if not os.path.isdir(directory):
@@ -960,9 +988,6 @@ def _interactive_menu() -> None:
                 rel = os.path.relpath(path, directory)
                 print(f"  {rel}: {data['error']}")
 
-    # ------------------------------------------------------------------
-    # Режим 4 — timeit micro-benchmark для папки с решениями
-    # ------------------------------------------------------------------
     elif choice == "4":
         directory = input("Enter path to folder with solutions: ").strip()
         if not os.path.isdir(directory):
