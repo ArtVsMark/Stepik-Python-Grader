@@ -26,8 +26,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+import oauth_flow
 import stepik_client
-from oauth_flow import load_secrets, token_is_valid, wait_for_auth_code
+from oauth_flow import (
+    authorize_and_get_token,
+    load_secrets,
+    token_is_valid,
+    wait_for_auth_code,
+)
 from stepik_client import (
     _make_oauth_handler,
     create_user_session,
@@ -95,9 +101,7 @@ class TestLoadSecrets:
         """REFACTORING INVARIANT: blank required field raises ValueError."""
         secrets_file = tmp_path / "secrets.json"
         secrets_file.write_text(
-            json.dumps(
-                {"client_id": "id", "client_secret": "", "redirect_uri": "http://x/cb"}
-            ),
+            json.dumps({"client_id": "id", "client_secret": "", "redirect_uri": "http://x/cb"}),
             encoding="utf-8",
         )
         with pytest.raises(ValueError):
@@ -319,9 +323,7 @@ class TestRefreshAccessToken:
             "refresh_token": "fresh_refresh",
             "expires_in": 3600,
         }
-        with patch(
-            "stepik_client.refresh_access_token", return_value=dict(new_tokens)
-        ):
+        with patch("stepik_client.refresh_access_token", return_value=dict(new_tokens)):
             session = create_user_session(secrets, secrets_path)
 
         assert session.headers["Authorization"] == "Bearer fresh_access"
@@ -344,9 +346,10 @@ class TestRefreshAccessToken:
             "refresh_token": "r",
             "expires_at": time.time() + 3600,
         }
-        with patch("stepik_client.refresh_access_token") as mock_refresh, patch(
-            "stepik_client.authorize_via_browser"
-        ) as mock_authorize:
+        with (
+            patch("stepik_client.refresh_access_token") as mock_refresh,
+            patch("stepik_client.authorize_via_browser") as mock_authorize,
+        ):
             session = create_user_session(secrets, secrets_path)
         assert session.headers["Authorization"] == "Bearer already_valid"
         mock_refresh.assert_not_called()
@@ -373,15 +376,64 @@ class TestRefreshAccessToken:
             "refresh_token": "browser_refresh",
             "expires_at": time.time() + 3600,
         }
-        with patch(
-            "stepik_client.refresh_access_token",
-            side_effect=requests.HTTPError("expired"),
-        ), patch(
-            "stepik_client.authorize_via_browser", return_value=dict(browser_tokens)
-        ) as mock_authorize:
+        with (
+            patch(
+                "stepik_client.refresh_access_token",
+                side_effect=requests.HTTPError("expired"),
+            ),
+            patch(
+                "stepik_client.authorize_via_browser", return_value=dict(browser_tokens)
+            ) as mock_authorize,
+        ):
             session = create_user_session(secrets, secrets_path)
 
         mock_authorize.assert_called_once()
         assert session.headers["Authorization"] == "Bearer browser_access"
         saved = json.loads(secrets_path.read_text(encoding="utf-8"))
         assert saved["access_token"] == "browser_access"
+
+
+# ---------------------------------------------------------------------------
+# authorize_and_get_token (full flow facade)
+# ---------------------------------------------------------------------------
+
+
+class TestAuthorizeAndGetToken:
+    def test_merges_tokens_into_existing_secrets_file(self, tmp_path, monkeypatch):
+        """Tokens from the browser flow are merged into existing secrets and saved."""
+        secrets_path = tmp_path / "secrets.json"
+        secrets_path.write_text(
+            json.dumps(
+                {
+                    "client_id": "cid",
+                    "client_secret": "csecret",
+                    "redirect_uri": "http://localhost:8080/callback",
+                }
+            ),
+            encoding="utf-8",
+        )
+        token_data = {
+            "access_token": "fresh",
+            "refresh_token": "fresh_r",
+            "expires_at": 9999999999,
+        }
+        monkeypatch.setattr(oauth_flow, "authorize_via_browser", lambda *a, **k: dict(token_data))
+        result = authorize_and_get_token(
+            "cid", "csecret", "http://localhost:8080/callback", secrets_path
+        )
+        assert result["access_token"] == "fresh"
+        assert result["client_id"] == "cid"
+        saved = json.loads(secrets_path.read_text(encoding="utf-8"))
+        assert saved["access_token"] == "fresh"
+        assert saved["refresh_token"] == "fresh_r"
+
+    def test_creates_secrets_file_when_absent(self, tmp_path, monkeypatch):
+        """When secrets_path does not exist, the tokens are written to a new file."""
+        secrets_path = tmp_path / "new_secrets.json"
+        token_data = {"access_token": "a", "refresh_token": "r", "expires_at": 1}
+        monkeypatch.setattr(oauth_flow, "authorize_via_browser", lambda *a, **k: dict(token_data))
+        result = authorize_and_get_token("cid", "csecret", "http://x/cb", secrets_path)
+        assert result == token_data
+        assert secrets_path.exists()
+        saved = json.loads(secrets_path.read_text(encoding="utf-8"))
+        assert saved["access_token"] == "a"
