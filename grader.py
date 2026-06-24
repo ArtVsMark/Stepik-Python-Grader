@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import json
 import os
 import pathlib
@@ -9,13 +10,23 @@ import statistics
 import subprocess
 import sys
 import tempfile
-import time
 import threading
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
 import psutil
+
+# executor.py — вспомогательный модуль для запуска кода из строки (не из файла).
+# run_solution() используется в diagnostik_stepik.py и тестах.
+# run_single_test() в grader.py использует subprocess.Popen напрямую,
+# чтобы иметь доступ к замеру памяти (psutil) и точному времени.
+# Импортируем RunResult для аннотаций и совместимости.
+try:
+    from executor import RunResult as _ExecutorRunResult  # noqa: F401  (реэкспорт для тестов)
+except ImportError:
+    _ExecutorRunResult = None  # type: ignore[assignment,misc]
 
 # ---------------------------------------------------------------------------
 # Константы
@@ -70,8 +81,14 @@ def _is_safe_constant(node: ast.expr) -> bool:
 def is_function_only_solution(file_content: str) -> bool:
     """Вернуть True, если файл содержит только определения функций (без точки входа).
 
-    При SyntaxError в исходнике возвращает False — файл будет запущен как скрипт
-    напрямую, и ошибка будет поймана subprocess'ом с нормальным выводом в stderr.
+    Критерии function-only файла:
+      - Нет исполняемых выражений на верхнем уровне (print/input/любой Call)
+      - Нет управляющих конструкций (for/while/if/with/try) на верхнем уровне
+      - Есть хотя бы одна функция (def или async def)
+      - Присваивания РАЗРЕШЕНЫ независимо от значения (date(...), list(), и т.п.)
+        т.к. это типичный паттерн Stepik-шаблонов
+
+    При SyntaxError возвращает False — файл будет запущен как скрипт.
     """
     try:
         tree = ast.parse(file_content)
@@ -91,21 +108,20 @@ def is_function_only_solution(file_content: str) -> bool:
 
     for node in tree.body:
         if not isinstance(node, allowed_nodes):
+            # for/while/if/with/try и т.п. → это скрипт
             return False
 
         if isinstance(node, ast.Expr):
-            if not isinstance(node.value, ast.Constant) or not isinstance(node.value.value, str):
-                return False
+            # Разрешаем только строковые литералы (docstring модуля)
+            # Любой вызов (print/input/my_func()) → это скрипт
+            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                continue
+            return False
 
-        if isinstance(node, ast.Assign):
-            if not _is_safe_constant(node.value):
-                return False
+        # Присваивания разрешены всегда: date1 = date(...), MOD = 10**9+7, data = []
+        # Это типичный паттерн Stepik-шаблонов — значение не проверяем
 
-        if isinstance(node, ast.AnnAssign):
-            if node.value is not None and not _is_safe_constant(node.value):
-                return False
-
-    return any(isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) for node in tree.body)
+    return any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)
 
 
 def is_solution_file(file_name: str) -> bool:
@@ -142,11 +158,14 @@ def collect_grouped_files(directory: str) -> dict[str, list[str]]:
     return dict(grouped)
 
 
-def format_correctness_row(path: str, base_dir: str, result: dict[str, Any], *, col_file: int) -> str:
+def format_correctness_row(
+    path: str, base_dir: str, result: dict[str, Any], *, col_file: int
+) -> str:
     """Сформатировать строку таблицы корректности для режимов 1 и 2."""
     total = result["total"]
     passed = result["passed"]
-    status = "OK" if passed == total and result["failed"] == 0 and result["errors"] == 0 and total > 0 else "FAIL"
+    ok = passed == total and result["failed"] == 0 and result["errors"] == 0 and total > 0
+    status = "OK" if ok else "FAIL"
     rel = os.path.relpath(path, base_dir)
     total_t = result["total_time"]
     avg_t = result["avg_time"]
@@ -296,7 +315,9 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
                 continue
             input_lines = load_text_lines(str(inp_file))
             expected_lines = load_text_lines(str(exp_file))
-            cases.append(TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines))
+            cases.append(
+                TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines)
+            )
             continue
 
     _NUM_RE = re.compile(r"^\d+$")
@@ -362,11 +383,31 @@ def build_input_data(
     *,
     is_function_mode: bool = False,
 ) -> str:
-    """Собрать stdin-строку для передачи в subprocess."""
-    return "\n".join(input_lines) + "\n"
+    """Собрать stdin-строку для передачи в subprocess.
+
+    Для stdin-режима (is_function_mode=False):
+        Возвращает только input_lines, соединённые через \n.
+        Пустой список → пустая строка.
+
+    Для function-режима (is_function_mode=True):
+        Предваряет source_code перед input_lines:
+        Это позволяет передавать полный контекст executor'у
+        (источник + данные) как единую stdin-строку.
+    """
+    if not input_lines:
+        if is_function_mode:
+            return source_code
+        return ""
+
+    joined = "\n".join(input_lines)
+    if is_function_mode:
+        return source_code + "\n" + joined
+    return joined
 
 
-def _measure_peak_memory(proc: subprocess.Popen, result: list[float], stop: threading.Event) -> None:
+def _measure_peak_memory(
+    proc: subprocess.Popen, result: list[float], stop: threading.Event
+) -> None:
     """Поток: просматривать RSS дочернего процесса до его завершения.
 
     Делает первый замер немедленно (до первого sleep), чтобы уловить
@@ -437,14 +478,54 @@ def _ast_function_name(solution_path: str) -> str | None:
     return None
 
 
+
+def _detect_run_mode(solution_path: str, test_dir: str) -> str:
+    """Единая точка детекции режима запуска: "stdin" или "function".
+
+    Стратегия определения (первый сработавший выигрывает):
+      1. meta.json рядом с файлом: если function_name != None → "function"
+      2. .type-файлы в test_dir: если хоть один содержит "function" → "function"
+      3. AST-анализ файла решения через is_function_only_solution → "function"
+      4. Иначе → "stdin"
+
+    Вызывается один раз в run_tests(), результат передаётся в run_single_test().
+    Это устраняет рассинхронизацию трёх источников истины.
+    """
+    # 1. meta.json
+    if _read_meta_function_name(solution_path) is not None:
+        return "function"
+
+    # 2. .type-файлы
+    test_dir_path = pathlib.Path(test_dir)
+    if test_dir_path.is_dir():
+        for type_file in test_dir_path.glob("*.type"):
+            raw = type_file.read_text(encoding=ENCODING).strip()
+            if raw == "function":
+                return "function"
+
+    # 3. AST-анализ файла решения
+    try:
+        file_content = pathlib.Path(solution_path).read_text(encoding=ENCODING)
+        if is_function_only_solution(file_content):
+            return "function"
+    except OSError:
+        pass
+
+    return "stdin"
+
+
 def _build_function_wrapper(solution_path: str, input_data: str, function_name: str) -> str:
     """Генерирует исходный код скрипта-обёртки для function-mode запуска.
 
-    Скрипт:
-      1. Импортирует функцию по имени из файла решения.
+    Стратегия передачи аргументов — позиционная через inspect.signature:
+      1. Импортирует функцию из файла решения.
       2. Выполняет input_data (объявления переменных из тест-кейса).
-      3. Определяет аргументы через inspect.signature.
-      4. Вызывает функцию и печатает результат.
+      3. Узнаёт количество и порядок параметров через inspect.signature.
+      4. Собирает аргументы из locals() по имени параметра и вызывает функцию.
+
+    Важно: имена параметров функции ДОЛЖНЫ совпадать с именами переменных в input_data.
+    Если совпадения нет (date1/date2 vs start/end) — используй позиционный формат тестов:
+      файл без расширения с аргументами по одному на строку (позиционный формат).
 
     Args:
         solution_path: абсолютный путь к файлу решения.
@@ -453,10 +534,10 @@ def _build_function_wrapper(solution_path: str, input_data: str, function_name: 
         function_name: имя функции для импорта.
     """
     abs_path = str(pathlib.Path(solution_path).resolve())
-    # Экранируем для вставки в строковый литерал Python
     safe_path = abs_path.replace("\\", "\\\\").replace("'", "\\'")
     safe_input = input_data.strip()
     safe_func = function_name
+    module_stem = pathlib.Path(solution_path).stem
 
     return f"""import sys
 import pathlib
@@ -469,12 +550,12 @@ from decimal import Decimal
 from fractions import Fraction
 
 # Импортируем функцию из файла решения
-from {pathlib.Path(solution_path).stem} import {safe_func}
+from {module_stem} import {safe_func}
 
 # Выполняем объявления переменных из тест-кейса
 {safe_input}
 
-# Определяем аргументы через inspect и вызываем функцию
+# Определяем аргументы через inspect.signature (позиционно, по имени параметра)
 _sig = inspect.signature({safe_func})
 _args = [locals()[_p] for _p in _sig.parameters]
 print({safe_func}(*_args))
@@ -521,7 +602,10 @@ def run_single_test(
                 "diff": "",
                 "time": 0.0,
                 "memory": 0.0,
-                "error": "function_name not found (meta.json missing and no function def in solution)",
+                "error": (
+                    "function_name not found"
+                    " (meta.json missing and no function def in solution)"
+                ),
                 "timed_out": False,
             }
         input_data = "\n".join(case.input_lines)
@@ -580,12 +664,10 @@ def run_single_test(
             }
         finally:
             stop_event.set()
-            # Удаляем временный wrapper-файл
+            # Удаляем временный wrapper-файл (contextlib.suppress — безопасно при краше)
             if tmp_wrapper is not None:
-                try:
+                with contextlib.suppress(OSError):
                     os.unlink(tmp_wrapper.name)
-                except OSError:
-                    pass
 
         elapsed = time.perf_counter() - start
         if measure_memory:
@@ -636,10 +718,8 @@ def run_single_test(
     except OSError as exc:
         stop_event.set()
         if tmp_wrapper is not None:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(tmp_wrapper.name)
-            except OSError:
-                pass
         return {
             "passed": False,
             "output": [],
@@ -673,6 +753,16 @@ def run_tests(
         cases      (list)  — детальные результаты по каждому кейсу
     """
     test_cases = load_test_cases(test_dir)
+    # Определяем режим запуска один раз для всех тест-кейсов
+    # (устраняет рассинхронизацию между .type-файлами, meta.json и AST)
+    run_mode = _detect_run_mode(solution_path, test_dir)
+    # Переопределяем test_type для всех кейсов если режим определён на уровне файла
+    # (например, AST показал function-only, но .type-файлов нет)
+    if run_mode == "function":
+        for case in test_cases:
+            if case.test_type == "stdin":
+                case.test_type = "function"
+
     results = []
     total_time = 0.0
     passed = 0
@@ -704,7 +794,7 @@ def run_tests(
             if r["error"]:
                 print(f" [ERROR: {r['error']}]")
             elif not r["passed"]:
-                print(f" [FAIL]")
+                print(" [FAIL]")
                 if r["diff"]:
                     print(r["diff"])
             else:
@@ -1069,7 +1159,8 @@ def _interactive_menu() -> None:
         col_file = 28
         print()
         print_correctness_header(col_file=col_file)
-        print(format_correctness_row(solution, pathlib.Path(solution).resolve().parent.as_posix(), result, col_file=col_file))
+        base = pathlib.Path(solution).resolve().parent.as_posix()
+        print(format_correctness_row(solution, base, result, col_file=col_file))
 
     elif choice == "2":
         directory = input("Enter path to folder: ").strip()
@@ -1139,7 +1230,10 @@ def _interactive_menu() -> None:
             return
 
         for folder, paths in sorted(grouped.items()):
-            folder_abs = pathlib.Path(directory) / folder if folder != "." else pathlib.Path(directory)
+            if folder != ".":
+                folder_abs = pathlib.Path(directory) / folder
+            else:
+                folder_abs = pathlib.Path(directory)
             test_dir = _resolve_test_dir_from_input(str(folder_abs), is_dir=True)
 
             label = folder if folder != "." else os.path.basename(directory)

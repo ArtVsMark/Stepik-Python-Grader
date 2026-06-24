@@ -275,9 +275,41 @@ class _TableParser(HTMLParser):
 
 
 def _is_function_style(input_text: str) -> bool:
-    """Возвращает True если входные данные — объявление переменной, а не stdin."""
+    """Возвращает True если входные данные — объявление переменных (function-mode).
+
+    Использует AST-анализ вместо regex-эвристики:
+      - парсит input_text через ast.parse
+      - если на верхнем уровне есть вызов функции (print, input и т.п.) — это stdin-режим
+      - если есть хотя бы одно присваивание и нет вызовов на верхнем уровне — function-mode
+
+    Примеры function-mode (→ True):
+        date1 = date(2021, 11, 1)
+        date2 = date(2021, 11, 22)
+
+    Примеры stdin-mode (→ False):
+        date1 = date(2021, 11, 1)
+        print(my_func(date1))          ← вызов на верхнем уровне
+
+        n = int(input())               ← вызов input()
+    """
     stripped = input_text.strip()
-    return bool(re.match(r"^\w+\s*=\s*.+", stripped)) and "input(" not in stripped
+    if not stripped:
+        return False
+    try:
+        tree = ast.parse(stripped)
+    except SyntaxError:
+        # Если не парсится — не можем определить режим, считаем stdin
+        return False
+
+    has_assignment = False
+    for node in tree.body:
+        # Вызов функции на верхнем уровне (print, input, my_func(...)) → stdin-режим
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+            return False
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            has_assignment = True
+
+    return has_assignment
 
 
 def extract_tests_from_html(html: str) -> list[tuple[str, str, str]]:

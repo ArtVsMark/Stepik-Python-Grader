@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import pathlib
 
-import pytest
-
 from grader import (
     TestCase,
     build_input_data,
@@ -26,7 +24,6 @@ from grader import (
     load_text_lines_with_encoding,
     resolve_input_path,
 )
-
 
 # ===========================================================================
 # Вспомогательные фикстуры
