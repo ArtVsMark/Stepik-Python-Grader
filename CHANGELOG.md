@@ -1,5 +1,35 @@
 # Changelog
 
+## [Unreleased] — June 2026 — ZIP→Format 3 conversion, GitHub test download
+
+### ✨ Features
+
+- **at_first.py** — `_download_zip_tests()` rewritten to convert the Stepik ZIP
+  layout (`1`, `1.clue`, `2`, `2.clue`, …) directly into Format 3
+  (`tests/input.txt` + `tests/output.txt` with `# TEST_N:` markers) instead of
+  dumping raw numbered files. Blocks are emitted in numeric order and a leading
+  directory prefix in the archive is stripped automatically. Verified against
+  the real archive `tests_2491371.zip` (4 cases).
+- **at_first.py** — new `_download_github_tests()` plus module-level
+  `_GITHUB_TREE_RE` / `_GITHUB_CONTENTS_API`. Downloads tests from a GitHub
+  `tree`/`blob` URL via the Contents API. Handles directories that already ship
+  `input.txt` + `output.txt` (downloaded as-is) and directories with `N` +
+  `N.clue` files (converted to Format 3). `save_task_files()` now calls it
+  instead of printing a "download manually" stub.
+
+### ♻️ Refactor
+
+- **diagnostik_stepik.py** — removed the duplicate `parse_stepik_step_url`;
+  it is now imported from `at_first`. The diagnostic `load_secrets` (tuple
+  return) is kept as-is.
+
+### ✅ Tests added
+
+- `tests/test_at_first.py` — covers ZIP→Format 3 conversion (basic, prefixed,
+  numeric ordering, empty/bad archive), the GitHub regex, GitHub download for
+  both layouts, external-link extraction, and a ZIP→Format 3→`load_test_cases`
+  round-trip.
+
 ## [Unreleased] — June 2026 — OOP/Samurai/Professional integration coverage
 
 ### ✅ Tests added

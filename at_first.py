@@ -355,6 +355,12 @@ def save_tests(task_dir: pathlib.Path, tests: list[tuple[str, str, str]]) -> int
 
 _ZIP_URL_RE = re.compile(r'href=["\']([^"\']*\.zip)["\']', re.IGNORECASE)
 _GITHUB_URL_RE = re.compile(r'href=["\']([^"\']*github\.com[^"\']*)["\']', re.IGNORECASE)
+_GITHUB_TREE_RE = re.compile(
+    r"github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/(?:tree|blob)/(?P<branch>[^/]+)/(?P<path>.+)"
+)
+_GITHUB_CONTENTS_API = (
+    "https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
+)
 
 
 def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
@@ -382,10 +388,11 @@ def _download_zip_tests(
     zip_url: str,
     session: requests.Session,
 ) -> int:
-    """Скачивает ZIP, распаковывает и сохраняет файлы тестов в tests/.
+    """Скачивает ZIP со Stepik и конвертирует в Format 3 (input.txt + output.txt).
 
-    Ожидает ZIP со структурой tests/N + tests/N.clue или плоским архивом.
-    Возвращает количество сохранённых входных файлов (без расширения).
+    Ожидает ZIP с файлами: 1, 1.clue, 2, 2.clue, ... (формат Stepik).
+    Конвертирует в единый формат # TEST_N: совместимый с grader Format 3.
+    Возвращает количество тест-кейсов.
     """
     try:
         response = session.get(zip_url, timeout=30)
@@ -400,9 +407,7 @@ def _download_zip_tests(
         print(f"  ⚠️ Скачанный файл не является ZIP: {zip_url}")
         return 0
 
-    tests_dir = task_dir / "tests"
-    tests_dir.mkdir(parents=True, exist_ok=True)
-
+    # Убираем общий prefix-каталог если он есть (e.g. "tests/1" → "1")
     names = zf.namelist()
     strip_prefix = ""
     for name in names:
@@ -410,19 +415,141 @@ def _download_zip_tests(
             strip_prefix = name.split("/")[0] + "/"
             break
 
-    saved = 0
+    # Собираем пары N → (input_bytes, clue_bytes)
+    pairs: dict[int, dict[str, bytes]] = {}
     for name in names:
-        clean_name = name[len(strip_prefix):] if name.startswith(strip_prefix) else name
-        clean_name = clean_name.strip("/")
-        if not clean_name:
+        clean = name[len(strip_prefix):] if strip_prefix and name.startswith(strip_prefix) else name
+        clean = clean.strip("/")
+        if not clean:
             continue
-        dest = tests_dir / clean_name
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(zf.read(name))
-        if "." not in clean_name:
-            saved += 1
+        if clean.isdigit():
+            idx = int(clean)
+            pairs.setdefault(idx, {})["input"] = zf.read(name)
+        elif "." in clean:
+            stem, ext = clean.rsplit(".", 1)
+            if stem.isdigit() and ext == "clue":
+                idx = int(stem)
+                pairs.setdefault(idx, {})["clue"] = zf.read(name)
 
-    return saved
+    if not pairs:
+        print(f"  ⚠️ В ZIP не найдены файлы формата N / N.clue: {zip_url}")
+        return 0
+
+    # Строим input.txt и output.txt с маркерами # TEST_N:
+    tests_dir = task_dir / "tests"
+    tests_dir.mkdir(parents=True, exist_ok=True)
+
+    input_lines = ["# INPUT DATA:\n"]
+    output_lines = ["# OUTPUT DATA:\n"]
+
+    for idx in sorted(pairs.keys()):
+        pair = pairs[idx]
+        inp_text = pair.get("input", b"").decode("utf-8", errors="replace").rstrip("\n")
+        clue_text = pair.get("clue", b"").decode("utf-8", errors="replace").rstrip("\n")
+        input_lines.append(f"\n# TEST_{idx}:\n{inp_text}\n")
+        output_lines.append(f"\n# TEST_{idx}:\n{clue_text}\n")
+
+    (tests_dir / "input.txt").write_text("".join(input_lines), encoding="utf-8")
+    (tests_dir / "output.txt").write_text("".join(output_lines), encoding="utf-8")
+
+    count = len(pairs)
+    print(f"  📦 ZIP сконвертирован в Format 3: {count} тест(ов) → tests/input.txt + output.txt")
+    return count
+
+
+def _download_github_tests(
+    task_dir: pathlib.Path,
+    gh_url: str,
+    session: requests.Session,
+) -> int:
+    """Скачать тесты с GitHub через API содержимого репозитория.
+
+    Поддерживает два формата:
+    1. Директория с input.txt + output.txt (Format 3) — скачивается напрямую
+    2. Директория с числовыми файлами N + N.clue — конвертируется в Format 3
+
+    Возвращает количество тест-кейсов (0 при ошибке).
+    """
+    match = _GITHUB_TREE_RE.search(gh_url)
+    if not match:
+        print(f"  ⚠️ Не удалось распознать GitHub URL: {gh_url}")
+        return 0
+
+    owner = match.group("owner")
+    repo = match.group("repo")
+    branch = match.group("branch")
+    path = match.group("path").rstrip("/")
+
+    api_url = _GITHUB_CONTENTS_API.format(owner=owner, repo=repo, path=path, branch=branch)
+
+    try:
+        resp = session.get(
+            api_url, timeout=30, headers={"Accept": "application/vnd.github+json"}
+        )
+        resp.raise_for_status()
+        contents = resp.json()
+    except requests.RequestException as exc:
+        print(f"  ⚠️ GitHub API недоступен: {exc}")
+        return 0
+
+    if not isinstance(contents, list):
+        print(f"  ⚠️ GitHub API вернул не список файлов: {gh_url}")
+        return 0
+
+    tests_dir = task_dir / "tests"
+    tests_dir.mkdir(parents=True, exist_ok=True)
+
+    file_map = {
+        item["name"]: item["download_url"]
+        for item in contents
+        if item.get("type") == "file"
+    }
+
+    # Вариант А: input.txt + output.txt уже есть (Format 3)
+    if "input.txt" in file_map and "output.txt" in file_map:
+        for fname in ("input.txt", "output.txt"):
+            r = session.get(file_map[fname], timeout=30)
+            r.raise_for_status()
+            (tests_dir / fname).write_bytes(r.content)
+        from grader import _parse_testblock_file
+
+        text = (tests_dir / "input.txt").read_text(encoding="utf-8")
+        count = len(_parse_testblock_file(text))
+        print(f"  🔗 GitHub: скачаны input.txt + output.txt (Format 3): {count} тест(ов)")
+        return count
+
+    # Вариант Б: числовые файлы N + N.clue
+    pairs: dict[int, dict[str, str]] = {}
+    for fname, url in file_map.items():
+        if fname.isdigit():
+            pairs.setdefault(int(fname), {})["input_url"] = url
+        elif "." in fname:
+            stem, ext = fname.rsplit(".", 1)
+            if stem.isdigit() and ext == "clue":
+                pairs.setdefault(int(stem), {})["clue_url"] = url
+
+    if not pairs:
+        print(f"  ⚠️ GitHub: файлы не распознаны в {gh_url}")
+        return 0
+
+    input_lines = ["# INPUT DATA:\n"]
+    output_lines = ["# OUTPUT DATA:\n"]
+    for idx in sorted(pairs.keys()):
+        pair = pairs[idx]
+        inp_text = ""
+        clue_text = ""
+        if "input_url" in pair:
+            inp_text = session.get(pair["input_url"], timeout=30).text.rstrip("\n")
+        if "clue_url" in pair:
+            clue_text = session.get(pair["clue_url"], timeout=30).text.rstrip("\n")
+        input_lines.append(f"\n# TEST_{idx}:\n{inp_text}\n")
+        output_lines.append(f"\n# TEST_{idx}:\n{clue_text}\n")
+
+    (tests_dir / "input.txt").write_text("".join(input_lines), encoding="utf-8")
+    (tests_dir / "output.txt").write_text("".join(output_lines), encoding="utf-8")
+    count = len(pairs)
+    print(f"  🔗 GitHub: сконвертировано {count} тест(ов) → Format 3")
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -468,9 +595,9 @@ def save_task_files(
       task{pos}_2.py  — заглушка для альтернативного решения 1 (всегда создаётся)
 
     Порядок поиска тестов:
-      1. ZIP-ссылка в HTML (скачать автоматически);
+      1. ZIP-ссылка в HTML (скачать и сконвертировать в Format 3);
       2. HTML-таблица в тексте задачи;
-      3. Ссылка на GitHub (печатается, скачать вручную);
+      3. Ссылка на GitHub (скачать через GitHub Contents API);
       4. Ничего нет — предупреждение, остальные файлы уже сохранены.
     """
     task_dir.mkdir(parents=True, exist_ok=True)
@@ -539,11 +666,15 @@ def save_task_files(
         print(f"  📋 Извлечено тестов из таблицы: {count}")
         return
 
-    # 3. GitHub — сообщаем ссылку, но не скачиваем
+    # 3. GitHub — скачиваем через GitHub Contents API
     if github_links:
         for gh_url in github_links:
-            print(f"  🔗 Тесты на GitHub: {gh_url}")
-            print("     (скачивание с GitHub не поддерживается, скачай вручную)")
+            print(f"  🔗 Пробую скачать тесты с GitHub: {gh_url}")
+            count = _download_github_tests(task_dir, gh_url, session)
+            if count:
+                print(f"  🔗 Скачано {count} тестов с GitHub")
+                return
+        print("  ⚠️ GitHub: ни одна ссылка не дала тестов")
         return
 
     # 4. Ничего не нашли

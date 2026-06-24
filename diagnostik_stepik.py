@@ -16,10 +16,11 @@ import html
 import json
 import pathlib
 import re
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode
 
 import requests
 
+from at_first import parse_stepik_step_url
 from stepik_client import (
     API_HOST,
     authorize_via_browser,
@@ -58,18 +59,6 @@ def load_secrets(secrets_path: pathlib.Path) -> tuple[str, str, str]:
             "В secrets.json должны быть заполнены client_id, client_secret и redirect_uri."
         )
     return client_id, client_secret, redirect_uri
-
-
-def parse_stepik_step_url(step_url: str) -> tuple[int, int]:
-    """Распарсить lesson_id и step_position из URL шага Stepik."""
-    parsed = urlparse(step_url.strip())
-    match = re.search(r"lesson/(\d+)/step/(\d+)", parsed.path)
-    if not match:
-        raise ValueError(
-            "Не удалось распознать URL шага. Ожидается формат:\n"
-            "https://stepik.org/lesson/569749/step/4?unit=564263"
-        )
-    return int(match.group(1)), int(match.group(2))
 
 
 # ---------------------------------------------------------------------------
