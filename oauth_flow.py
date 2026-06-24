@@ -82,6 +82,7 @@ def load_secrets(secrets_path: pathlib.Path | str) -> tuple[str, str, str]:
     )
 
 
+# NOTE: utility, not called in production paths
 def authorize_and_get_token(
     client_id: str,
     client_secret: str,

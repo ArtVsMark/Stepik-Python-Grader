@@ -35,11 +35,13 @@ def normalize_floats(text: str) -> str:
     return "\n".join(_FLOAT_RE.sub(_round_float, line) for line in text.split("\n"))
 
 
+# NOTE: utility, not called in production paths
 def sort_lines(output: str) -> str:
     """Сортирует строки вывода (для задач где порядок строк не важен)."""
     return "\n".join(sorted(output.strip().splitlines()))
 
 
+# NOTE: utility, not called in production paths
 def normalize_whitespace(output: str) -> str:
     """Нормализует пробелы: strip + схлопывает множественные пробелы."""
     return "\n".join(" ".join(line.split()) for line in output.splitlines())
