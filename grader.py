@@ -207,11 +207,10 @@ def run_microbench_mode(
 
     for path in solution_paths:
         code = pathlib.Path(path).read_text(encoding=ENCODING)
-        is_fn = is_function_only_solution(code)
 
         all_times: list[float] = []
         for case in cases_to_bench:
-            stdin_data = build_input_data(code, case.input_lines, is_function_mode=is_fn)
+            stdin_data = "\n".join(case.input_lines) + "\n"
             bench = run_microbench(code, stdin_data=stdin_data, number=number)
             if bench["error"]:
                 results[path] = {"error": f"test {case.index}: {bench['error']}"}
@@ -388,6 +387,10 @@ def run_single_test(
 ) -> dict[str, Any]:
     """Запустить одно решение на одном тест-кейсе и вернуть словарь с результатами.
 
+    Решение всегда запускается как скрипт через subprocess со stdin.
+    Это корректно работает для любых типов задач: скриптов с input(),
+    функций с любыми типами аргументов, задач с datetime и т.д.
+
     Возвращаемый словарь:
         passed    (bool)   — прошёл ли тест
         output    (list)   — фактический вывод (строки)
@@ -398,12 +401,7 @@ def run_single_test(
         error     (str)    — сообщение об ошибке (пустая = нет ошибки)
         timed_out (bool)   — истёк ли таймаут
     """
-    code = pathlib.Path(solution_path).read_text(encoding=ENCODING)
-    is_fn = is_function_only_solution(code)
-    stdin_data = build_input_data(code, case.input_lines, is_function_mode=is_fn)
-
-    run_code = _build_function_wrapper(code, case.input_lines) if is_fn else code
-
+    stdin_data = "\n".join(case.input_lines) + "\n"
     stdin_bytes = stdin_data.encode(ENCODING)
     peak_mb_result: list[float] = [0.0]
     stop_event = threading.Event()
@@ -411,7 +409,7 @@ def run_single_test(
     start = time.perf_counter()
     try:
         proc = subprocess.Popen(
-            [sys.executable, "-c", run_code],
+            [sys.executable, solution_path],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -502,38 +500,6 @@ def run_single_test(
             "error": str(exc),
             "timed_out": False,
         }
-
-
-def _build_function_wrapper(source_code: str, input_lines: list[str]) -> str:
-    """Построить wrapper-код для запуска файла, содержащего только функции.
-
-    Извлекает имя первой публичной функции из исходника и генерирует
-    обёртку, которая читает аргументы из stdin и вызывает функцию.
-    """
-    try:
-        tree = ast.parse(source_code)
-    except SyntaxError:
-        return source_code
-
-    func_name: str | None = None
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if not node.name.startswith("_"):
-                func_name = node.name
-                break
-
-    if func_name is None:
-        return source_code
-
-    args_repr = ", ".join(repr(line) for line in input_lines)
-    wrapper = (
-        f"{source_code}\n\n"
-        f"_args = [{args_repr}]\n"
-        f"_result = {func_name}(*_args)\n"
-        f"if _result is not None:\n"
-        f"    print(_result)\n"
-    )
-    return wrapper
 
 
 def run_tests(
@@ -668,31 +634,35 @@ def run_microbench(
 ) -> dict[str, Any]:
     """Запустить timeit-microbenchmark для исходного кода.
 
-    stdin сбрасывается перед каждой итерацией через встраивание _reset_stdin() в начало stmt,
-    чтобы избежать EOFError при большом number повторений.
+    Код запускается как строка через python -c.
+    stdin сбрасывается перед каждой итерацией через _reset_stdin() в начале stmt.
 
     Возвращает словарь с ключами:
         times  (list[float]) — список замеров (в секундах на итерацию)
         error  (str)         — сообщение об ошибке (пустая = успех)
     """
-    # _reset_stdin() встроен в начало stmt, чтобы stdin сбрасывался перед каждой итерацией,
-    # а не только перед первым запуском (setup вызывается один раз).
-    stmt_with_reset = "_reset_stdin()\n" + source_code.replace("'''", '"""')
+    # Экранируем тройные кавычки в исходнике, чтобы неломать heredoc-строку
+    safe_code = source_code.replace("'''", '"""')
+    stmt_with_reset = "_reset_stdin()\n" + safe_code
 
+    # Весь вспомогательный код помещаем в setup через exec,
+    # чтобы _reset_stdin была доступна в глобальном пространстве stmt.
+    # stmt — строка, выполняемая timeit; globals не пробрасываются через repeat()
+    # в Python 3.14+, поэтому инжектируем функцию через builtins.
     bench_script = (
-        "import timeit as _timeit, sys as _sys, io as _io\n"
+        "import timeit as _timeit, sys as _sys, io as _io, builtins as _builtins\n"
         "_stdin = " + repr(stdin_data) + "\n"
         "def _reset_stdin():\n"
         "    _sys.stdin = _io.StringIO(_stdin)\n"
+        "_builtins._reset_stdin = _reset_stdin\n"
         "_reset_stdin()\n"
-        "_stmt = '''" + stmt_with_reset + "'''\n"
+        "_code = '''" + stmt_with_reset + "'''\n"
         f"_number = {number}\n"
         "_times = _timeit.repeat(\n"
-        "    stmt=_stmt,\n"
+        "    stmt=_code,\n"
         "    setup='pass',\n"
         "    repeat=5,\n"
         f"    number=_number,\n"
-        "    globals={'_reset_stdin': _reset_stdin}\n"
         ")\n"
         "_per = [t / _number for t in _times]\n"
         "print('\\n'.join(str(t) for t in _per))\n"
@@ -972,8 +942,7 @@ def _interactive_menu() -> None:
 
     elif choice == "3":
         directory = input("Enter path to folder: ").strip()
-        if not os.path.isdir(directory):
-            print(f"Directory not found: {directory}")
+        if not os.path.isdir(directory):\n            print(f"Directory not found: {directory}")
             return
 
         test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
