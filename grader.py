@@ -350,11 +350,24 @@ def build_input_data(
 def _measure_peak_memory(proc: subprocess.Popen, result: list[float], stop: threading.Event) -> None:
     """Поток: просматривать RSS дочернего процесса до его завершения.
 
+    Делает первый замер немедленно (до первого sleep), чтобы уловить
+    даже очень короткие процессы (< 20 мс). Затем продолжает опрос
+    каждые 20 мс до сигнала stop.
+
     Записывает пик памяти (МБ) в result[0].
     """
     peak = 0.0
     try:
         ps_proc = psutil.Process(proc.pid)
+        # Первый замер — сразу, без ожидания
+        try:
+            rss = ps_proc.memory_info().rss / 1024 / 1024
+            if rss > peak:
+                peak = rss
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            result[0] = peak
+            return
+        # Последующие замеры — каждые 20 мс
         while not stop.is_set():
             try:
                 rss = ps_proc.memory_info().rss / 1024 / 1024
@@ -362,7 +375,7 @@ def _measure_peak_memory(proc: subprocess.Popen, result: list[float], stop: thre
                     peak = rss
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 break
-            stop.wait(0.02)  # опрос каждые 20 мс
+            stop.wait(0.02)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         pass
     result[0] = peak
