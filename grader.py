@@ -19,7 +19,7 @@ import requests
 # Константы
 # ---------------------------------------------------------------------------
 
-_SOLUTION_FILE_RE = re.compile(r"task(?:\d+(?:_\d+)?|_\d+)?\.py")
+_SOLUTION_FILE_RE = re.compile(r"task(?:\d+)?(?:_\d+)?\.py")
 
 TIMEOUT_SECONDS: float = 10.0
 ENCODING: str = "utf-8"
@@ -110,6 +110,7 @@ def is_solution_file(file_name: str) -> bool:
 
     Принимаемые форматы:
         task.py, task1.py, task1_2.py   — исторический стиль
+        task4_1.py, task7_3.py          — стиль из README (номер задачи + номер решения)
         task_1.py, task_2.py            — стиль, создаваемый at_first.py
     """
     return bool(_SOLUTION_FILE_RE.fullmatch(file_name))
@@ -136,6 +137,100 @@ def collect_grouped_files(directory: str) -> dict[str, list[str]]:
                 grouped[rel_folder].append(os.path.join(root, file_name))
 
     return dict(grouped)
+
+
+def format_correctness_row(path: str, base_dir: str, result: dict[str, Any], *, col_file: int) -> str:
+    """Сформатировать строку таблицы корректности для режимов 1 и 2."""
+    total = result["total"]
+    passed = result["passed"]
+    status = "OK" if passed == total and result["failed"] == 0 and result["errors"] == 0 and total > 0 else "FAIL"
+    rel = os.path.relpath(path, base_dir)
+    total_t = result["total_time"]
+    avg_t = result["avg_time"]
+    mem = result["peak_memory_mb"]
+    first_fail = result["first_fail"]
+    return (
+        f"{rel:<{col_file}} {passed:>3}/{total:<3}  "
+        f"{total_t:>10.4f}  {avg_t:>9.4f}  "
+        f"{mem:>9.2f} MB  {status:>6}  {str(first_fail):>9}"
+    )
+
+
+def print_correctness_header(*, col_file: int) -> None:
+    """Напечатать заголовок таблицы корректности для режимов 1 и 2."""
+    print(_SEP)
+    print(
+        f"{'File':<{col_file}} {'Passed':>6}  "
+        f"{'Total time':>10}  {'Avg time':>9}  "
+        f"{'Peak memory':>11}  {'Status':>6}  {'Fail test':>9}"
+    )
+    print(_SEP)
+
+
+def format_benchmark_row(path: str, base_dir: str, data: dict[str, Any], *, col_file: int) -> str:
+    """Сформатировать строку benchmark-таблицы для режимов 3 и 4."""
+    rel_path = os.path.relpath(path, base_dir)
+    return (
+        f"{rel_path:<{col_file}} {data['runs']:>4}  "
+        f"{data['min']:>7.4f}  {data['median']:>7.4f}  "
+        f"{data['mean']:>7.4f}  {data['max']:>7.4f}  "
+        f"{data['stdev']:>7.4f}  "
+        f"{data['peak_memory_mb']:>7.2f} MB  "
+        f"{data['relative']*100:>7.1f}%  {data['verdict']}"
+    )
+
+
+def print_benchmark_header(*, col_file: int) -> None:
+    """Напечатать заголовок benchmark-таблицы для режимов 3 и 4."""
+    print(_SEP)
+    print(
+        f"{'File':<{col_file}} {'Runs':>4}  "
+        f"{'Min':>7}  {'Median':>7}  {'Mean':>7}  {'Max':>7}  "
+        f"{'Std dev':>7}  {'Memory':>9}  {'Relative':>8}  {'Verdict'}"
+    )
+    print(_SEP)
+
+
+def run_microbench_mode(
+    solution_paths: list[str],
+    test_dir: str,
+    *,
+    number: int = 1000,
+) -> dict[str, Any]:
+    """Запустить timeit-microbench для нескольких решений и вернуть сводную статистику."""
+    test_cases = load_test_cases(test_dir)
+    if not test_cases:
+        return {}
+
+    cases_to_bench = test_cases[:MICROBENCH_MAX_CASES]
+    results: dict[str, dict[str, Any]] = {}
+
+    for path in solution_paths:
+        code = pathlib.Path(path).read_text(encoding=ENCODING)
+        is_fn = is_function_only_solution(code)
+
+        all_times: list[float] = []
+        for case in cases_to_bench:
+            stdin_data = build_input_data(code, case.input_lines, is_function_mode=is_fn)
+            bench = run_microbench(code, stdin_data=stdin_data, number=number)
+            if bench["error"]:
+                results[path] = {"error": f"test {case.index}: {bench['error']}"}
+                break
+            all_times.extend(bench["times"])
+        else:
+            stats = _micro_stats(all_times)
+            stats["runs"] = len(all_times)
+            stats["peak_memory_mb"] = 0.0
+            results[path] = stats
+
+    ok_results = {k: v for k, v in results.items() if not v.get("error")}
+    if ok_results:
+        min_median = min(v["median"] for v in ok_results.values())
+        for v in ok_results.values():
+            v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
+            v["verdict"] = _verdict(v["relative"])
+
+    return results
 
 
 def resolve_input_path(raw_path: str, base_dir: pathlib.Path) -> pathlib.Path:
@@ -202,746 +297,656 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
             cases.append(TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines))
             continue
 
-        # Формат 1: числовые файлы без расширения + .clue
-        if inp_file.suffix or not inp_file.stem.isdigit():
-            continue
-        clue_file = dir_path / f"{inp_file.stem}.clue"
-        if not clue_file.exists():
-            continue
-        idx = int(inp_file.stem)
-        input_lines = load_text_lines(str(inp_file))
-        expected_lines = load_text_lines(str(clue_file))
-        cases.append(TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines))
+    # Формат 1: числовые файлы без расширения + .clue
+    _NUM_RE = re.compile(r"^\d+$")
+    for inp_file in dir_path.iterdir():
+        if _NUM_RE.match(inp_file.name):
+            clue_file = dir_path / f"{inp_file.name}.clue"
+            if not clue_file.exists():
+                continue
+            idx = int(inp_file.name)
+            input_lines = load_text_lines(str(inp_file))
+            expected_lines = load_text_lines(str(clue_file))
+            cases.append(TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines))
 
     return sorted(cases, key=lambda c: c.index)
+
+
+def _resolve_test_dir(solution_path: str) -> str:
+    """Вернуть путь к директории тест-кейсов для заданного файла решения.
+
+    Стратегия поиска (первый найденный выигрывает):
+      1. <parent>/tests/
+      2. <parent>/<stem>/  (директория с именем = имени файла без расширения)
+      3. <parent>/ (сам родительский каталог, если содержит .clue или input_*.txt)
+    """
+    p = pathlib.Path(solution_path).resolve()
+    parent = p.parent
+    stem = p.stem
+
+    candidate_tests = parent / "tests"
+    if candidate_tests.is_dir():
+        return str(candidate_tests)
+
+    candidate_stem = parent / stem
+    if candidate_stem.is_dir():
+        return str(candidate_stem)
+
+    for f in parent.iterdir():
+        if f.suffix == ".clue" or re.match(r"^input_\d+\.txt$", f.name):
+            return str(parent)
+
+    return str(candidate_tests)
 
 
 def build_input_data(
     source_code: str,
     input_lines: list[str],
-    is_function_mode: bool,
+    *,
+    is_function_mode: bool = False,
 ) -> str:
-    """Собрать строку stdin для запуска решения.
+    """Собрать stdin-строку для передачи в subprocess.
 
-    В function-режиме: source_code + "\\n" + joined_input.
-    В script-режиме: только joined_input.
+    В режиме функции (is_function_mode=True) вызываем функцию явно,
+    передавая аргументы через stdin-wrapper.
+    В режиме скрипта — просто склеиваем input_lines через перевод строки.
     """
-    joined = "\n".join(input_lines)
     if is_function_mode:
-        return source_code + "\n" + joined
-    return joined
+        return "\n".join(input_lines) + "\n"
+
+    return "\n".join(input_lines) + "\n"
 
 
-# ---------------------------------------------------------------------------
-# Slugify
-# ---------------------------------------------------------------------------
-
-_CYRILLIC_YO_MAP = str.maketrans("ЁёЙй", "ЕеИи")
-_SLUG_MAX_LEN = 50
-
-
-def slugify(text: str, max_len: int = _SLUG_MAX_LEN) -> str:
-    """Преобразовать произвольный текст в slug для использования в именах файлов/URL.
-
-    Шаги:
-        1. Нормализовать ё→е, й→и.
-        2. Транслитерировать кириллицу в латиницу через unidecode.
-        3. Привести к нижнему регистру.
-        4. Заменить не-алфавитно-цифровые символы на дефис.
-        5. Убрать ведущие/завершающие дефисы.
-        6. Обрезать до max_len.
-    """
-    from unidecode import unidecode
-
-    text = text.translate(_CYRILLIC_YO_MAP)
-    text = unidecode(text)
-    text = text.lower()
-    text = re.sub(r"[^a-z0-9]+", "-", text)
-    text = text.strip("-")
-    return text[:max_len]
-
-
-# ---------------------------------------------------------------------------
-# Запуск решения с замером времени и памяти
-# ---------------------------------------------------------------------------
-
-
-def _get_peak_memory_mb(proc: psutil.Process) -> float:
-    """Вернуть пиковый RSS процесса в мегабайтах."""
-    try:
-        return proc.memory_info().rss / 1024 / 1024
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
-        return 0.0
-
-
-def run_solution(
-    file_path: str,
-    stdin_data: str = "",
+def run_single_test(
+    solution_path: str,
+    case: TestCase,
+    *,
     timeout: float = TIMEOUT_SECONDS,
+    measure_memory: bool = MEASURE_CHILD_MEMORY,
 ) -> dict[str, Any]:
-    """Запустить Python-файл в subprocess и вернуть результат с временем и памятью."""
-    t_start = time.perf_counter()
+    """Запустить одно решение на одном тест-кейсе и вернуть словарь с результатами.
+
+    Возвращаемый словарь содержит:
+        passed   (bool)   — прошёл ли тест
+        output   (list)   — фактический вывод (строки)
+        expected (list)   — ожидаемый вывод (строки)
+        diff     (str)    — unified diff при несовпадении
+        time     (float)  — время выполнения в секундах
+        memory   (float)  — пик памяти в МБ (0 если measure_memory=False)
+        error    (str)    — сообщение об ошибке (пустая строка = нет ошибки)
+        timed_out (bool)  — истёк ли таймаут
+    """
+    code = pathlib.Path(solution_path).read_text(encoding=ENCODING)
+    is_fn = is_function_only_solution(code)
+    stdin_data = build_input_data(code, case.input_lines, is_function_mode=is_fn)
+
+    if is_fn:
+        wrapper_code = _build_function_wrapper(code, case.input_lines)
+        run_code = wrapper_code
+    else:
+        run_code = code
+
+    start = time.perf_counter()
     try:
-        proc = subprocess.Popen(
-            [sys.executable, file_path],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding=ENCODING,
-        )
-        peak_mb = 0.0
-        if MEASURE_CHILD_MEMORY:
-            try:
-                ps_proc = psutil.Process(proc.pid)
-            except psutil.NoSuchProcess:
-                ps_proc = None
-        else:
-            ps_proc = psutil.Process(os.getpid())
-
-        try:
-            stdout, stderr = proc.communicate(input=stdin_data, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.communicate()
-            elapsed = time.perf_counter() - t_start
-            return {
-                "stdout": "",
-                "stderr": f"Timeout after {timeout}s",
-                "returncode": -1,
-                "timed_out": True,
-                "extra": "",
-                "elapsed": elapsed,
-                "peak_memory_mb": 0.0,
-            }
-
-        elapsed = time.perf_counter() - t_start
-        if ps_proc is not None:
-            peak_mb = _get_peak_memory_mb(ps_proc)
-
-        return {
-            "stdout": stdout,
-            "stderr": stderr,
-            "returncode": proc.returncode,
-            "timed_out": False,
-            "extra": "",
-            "elapsed": elapsed,
-            "peak_memory_mb": peak_mb,
-        }
-    except Exception as exc:  # noqa: BLE001
-        return {
-            "stdout": "",
-            "stderr": str(exc),
-            "returncode": -1,
-            "timed_out": False,
-            "extra": "",
-            "elapsed": 0.0,
-            "peak_memory_mb": 0.0,
-        }
-
-
-# ---------------------------------------------------------------------------
-# Точка входа executor
-# ---------------------------------------------------------------------------
-
-
-def main_executor(code: str, stdin_data: str = "") -> None:
-    """Выполнить код и вывести результат в stdout."""
-    import tempfile
-
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".py", delete=False, encoding=ENCODING
-    ) as tmp:
-        tmp.write(code)
-        tmp_path = tmp.name
-
-    try:
-        result = run_solution(tmp_path, stdin_data=stdin_data)
-        if result["stdout"]:
-            print(result["stdout"], end="")
-        if result["returncode"] != 0:
-            sys.exit(result["returncode"])
-    finally:
-        os.unlink(tmp_path)
-
-
-# ---------------------------------------------------------------------------
-# Сравнение решений
-# ---------------------------------------------------------------------------
-
-
-def compare_outputs(
-    actual: list[str],
-    expected: list[str],
-) -> bool:
-    """Сравнить фактический и ожидаемый вывод построчно."""
-    return actual == expected
-
-
-# ---------------------------------------------------------------------------
-# Форматирование результатов
-# ---------------------------------------------------------------------------
-
-PASS_MARK = "✓"
-FAIL_MARK = "✗"
-SKIP_MARK = "–"
-
-_STATUS_COLORS = {
-    "pass": "\033[32m",
-    "fail": "\033[31m",
-    "skip": "\033[33m",
-    "reset": "\033[0m",
-}
-
-
-def colorize(text: str, status: str) -> str:
-    """Обернуть текст в ANSI-цвет по статусу (pass/fail/skip)."""
-    color = _STATUS_COLORS.get(status, "")
-    reset = _STATUS_COLORS["reset"]
-    return f"{color}{text}{reset}"
-
-
-def format_diff(actual: list[str], expected: list[str]) -> str:
-    """Вернуть строку с построчным diff actual vs expected."""
-    lines = []
-    max_len = max(len(actual), len(expected))
-    for i in range(max_len):
-        a = actual[i] if i < len(actual) else "<missing>"
-        e = expected[i] if i < len(expected) else "<missing>"
-        mark = "=" if a == e else "≠"
-        lines.append(f"  [{i+1}] {mark}  got: {a!r}  exp: {e!r}")
-    return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Microbench
-# ---------------------------------------------------------------------------
-
-
-def run_microbench(
-    code: str,
-    stdin_data: str = "",
-    number: int = 100,
-) -> dict[str, Any]:
-    """Запустить микробенчмарк кода через timeit в subprocess."""
-    import tempfile
-
-    wrapper = f"""
-import timeit
-import sys
-
-_code = {code!r}
-_stdin = {stdin_data!r}
-
-def _run():
-    import subprocess, sys
-    subprocess.run(
-        [sys.executable, "-c", _code],
-        input=_stdin,
-        capture_output=True,
-        text=True,
-    )
-
-# repeat=5 для получения статистики
-times = timeit.repeat(_run, number={number}, repeat=5)
-# Выводим все замеры через пробел (каждый — суммарное время за number итераций)
-print(" ".join(str(t / {number}) for t in times))
-"""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".py", delete=False, encoding=ENCODING
-    ) as tmp:
-        tmp.write(wrapper)
-        tmp_path = tmp.name
-
-    try:
-        result = subprocess.run(
-            [sys.executable, tmp_path],
+        proc = subprocess.run(
+            [sys.executable, "-c", run_code],
+            input=stdin_data,
             capture_output=True,
             text=True,
-            timeout=TIMEOUT_SECONDS * 10,
+            timeout=timeout,
             encoding=ENCODING,
         )
-        if result.returncode != 0:
-            return {"error": result.stderr, "times": None}
-        raw = [float(x) for x in result.stdout.strip().split()]
-        return {"error": None, "times": raw}
+        elapsed = time.perf_counter() - start
+        peak_mb = 0.0
+
+        if proc.returncode != 0:
+            return {
+                "passed": False,
+                "output": [],
+                "expected": case.expected_lines,
+                "diff": "",
+                "time": elapsed,
+                "memory": peak_mb,
+                "error": proc.stderr.strip(),
+                "timed_out": False,
+            }
+
+        actual_lines = [line.rstrip("\n") for line in proc.stdout.splitlines()]
+
+        passed = actual_lines == case.expected_lines
+        diff_str = ""
+        if not passed:
+            import difflib
+            diff_str = "\n".join(
+                difflib.unified_diff(
+                    case.expected_lines,
+                    actual_lines,
+                    fromfile="expected",
+                    tofile="actual",
+                    lineterm="",
+                )
+            )
+
+        return {
+            "passed": passed,
+            "output": actual_lines,
+            "expected": case.expected_lines,
+            "diff": diff_str,
+            "time": elapsed,
+            "memory": peak_mb,
+            "error": "",
+            "timed_out": False,
+        }
+
     except subprocess.TimeoutExpired:
-        return {"error": "Timeout", "times": None}
-    finally:
-        os.unlink(tmp_path)
+        return {
+            "passed": False,
+            "output": [],
+            "expected": case.expected_lines,
+            "diff": "",
+            "time": timeout,
+            "memory": 0.0,
+            "error": f"Timeout after {timeout}s",
+            "timed_out": True,
+        }
 
 
-def _micro_stats(times: list[float]) -> dict[str, float]:
-    """Вычислить статистику по списку замеров (в секундах), вернуть в секундах."""
-    return {
-        "min": min(times),
-        "median": statistics.median(times),
-        "mean": statistics.mean(times),
-        "max": max(times),
-        "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
-    }
+def _build_function_wrapper(source_code: str, input_lines: list[str]) -> str:
+    """Построить wrapper-код для запуска файла, содержащего только функции.
 
-
-def apply_relative_micro(
-    timings: dict[str, float],
-) -> dict[str, dict[str, float]]:
-    """Вернуть словарь с абсолютными и относительными временами.
-
-    relative = time / min_time
+    Извлекает имя первой публичной функции из исходника и генерирует
+    обёртку, которая читает аргументы из stdin и вызывает функцию.
     """
-    if not timings:
-        return {}
-    min_time = min(timings.values())
-    return {
-        name: {"time": t, "relative": t / min_time}
-        for name, t in timings.items()
-    }
+    try:
+        tree = ast.parse(source_code)
+    except SyntaxError:
+        return source_code
 
+    func_name: str | None = None
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not node.name.startswith("_"):
+                func_name = node.name
+                break
 
-def _verdict(relative: float) -> str:
-    """Вернуть вердикт по относительному времени."""
-    if relative <= SIMILAR_THRESHOLD:
-        return "SIMILAR"
-    if relative <= MUCH_SLOWER_THRESHOLD:
-        return "SLOWER"
-    return "MUCH SLOWER"
+    if func_name is None:
+        return source_code
 
-
-# ---------------------------------------------------------------------------
-# Stepik client helpers
-# ---------------------------------------------------------------------------
-
-
-def _get_stepik_token(client_id: str, client_secret: str) -> str:
-    """Получить OAuth2-токен Stepik."""
-    resp = requests.post(
-        "https://stepik.org/oauth2/token/",
-        data={"grant_type": "client_credentials"},
-        auth=(client_id, client_secret),
-        timeout=30,
+    args_repr = ", ".join(repr(line) for line in input_lines)
+    wrapper = (
+        f"{source_code}\n\n"
+        f"_args = [{args_repr}]\n"
+        f"_result = {func_name}(*_args)\n"
+        f"if _result is not None:\n"
+        f"    print(_result)\n"
     )
-    resp.raise_for_status()
-    return resp.json()["access_token"]
-
-
-def _stepik_get(
-    url: str,
-    token: str,
-    params: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Выполнить GET-запрос к Stepik API."""
-    resp = requests.get(
-        url,
-        headers={"Authorization": f"Bearer {token}"},
-        params=params,
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json()
-
-
-# ---------------------------------------------------------------------------
-# Режимы работы (MODE_*)
-# ---------------------------------------------------------------------------
-
-MODE_SCRIPT = "script"
-MODE_FUNCTION = "function"
-MODE_COMPARE = "compare"
-MODE_BENCH = "bench"
-
-VALID_MODES = {MODE_SCRIPT, MODE_FUNCTION, MODE_COMPARE, MODE_BENCH}
-
-
-def _validate_mode(mode: str) -> None:
-    if mode not in VALID_MODES:
-        raise ValueError(f"Неизвестный режим: {mode!r}. Допустимые: {VALID_MODES}")
-
-
-# ---------------------------------------------------------------------------
-# Главная точка входа
-# ---------------------------------------------------------------------------
+    return wrapper
 
 
 def run_tests(
     solution_path: str,
     test_dir: str,
-    mode: str = MODE_SCRIPT,
     *,
     verbose: bool = False,
     timeout: float = TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
-    """Запустить тест-кейсы для одного файла решения.
+    """Запустить все тест-кейсы для решения и собрать статистику.
 
-    Args:
-        solution_path: Путь к файлу решения.
-        test_dir: Директория с тест-кейсами.
-        mode: Режим запуска (script/function/compare/bench).
-        verbose: Подробный вывод.
-        timeout: Таймаут subprocess в секундах.
-
-    Returns:
-        Словарь с результатами: passed, failed, errors, total,
-        total_time, avg_time, peak_memory_mb.
+    Возвращаемый словарь:
+        total      (int)   — число тест-кейсов
+        passed     (int)   — прошло
+        failed     (int)   — провалилось
+        errors     (int)   — ошибки выполнения
+        total_time (float) — суммарное время
+        avg_time   (float) — среднее время на тест
+        peak_memory_mb (float) — пик памяти (МБ)
+        first_fail (int | None) — индекс первого упавшего теста
+        cases      (list)  — детальные результаты по каждому кейсу
     """
-    _validate_mode(mode)
-
-    solution_code = pathlib.Path(solution_path).read_text(encoding=ENCODING)
-    is_function_only = is_function_only_solution(solution_code)
-
     test_cases = load_test_cases(test_dir)
-    if not test_cases:
-        return {
-            "passed": 0, "failed": 0, "errors": 0, "total": 0,
-            "cases": [], "total_time": 0.0, "avg_time": 0.0,
-            "peak_memory_mb": 0.0, "first_fail": "-",
-        }
-
-    results: list[dict[str, Any]] = []
-    passed = failed = errors = 0
+    results = []
     total_time = 0.0
-    peak_memory_mb = 0.0
-    first_fail: str | int = "-"
+    passed = 0
+    failed = 0
+    errors = 0
+    first_fail: int | None = None
+    peak_mb = 0.0
 
     for case in test_cases:
-        stdin_data = build_input_data(
-            solution_code,
-            case.input_lines,
-            is_function_mode=is_function_only,
-        )
+        r = run_single_test(solution_path, case, timeout=timeout)
+        results.append(r)
+        total_time += r["time"]
+        peak_mb = max(peak_mb, r["memory"])
 
-        run_result = run_solution(
-            solution_path,
-            stdin_data=stdin_data,
-            timeout=timeout,
-        )
-
-        total_time += run_result["elapsed"]
-        if run_result["peak_memory_mb"] > peak_memory_mb:
-            peak_memory_mb = run_result["peak_memory_mb"]
-
-        actual_lines = run_result["stdout"].splitlines()
-        ok = compare_outputs(actual_lines, case.expected_lines)
-
-        if run_result["timed_out"] or run_result["returncode"] != 0:
+        if r["error"]:
             errors += 1
-            status = "error"
-        elif ok:
+            if first_fail is None:
+                first_fail = case.index
+        elif r["passed"]:
             passed += 1
-            status = "pass"
         else:
             failed += 1
-            status = "fail"
+            if first_fail is None:
+                first_fail = case.index
 
-        if status != "pass" and first_fail == "-":
-            first_fail = case.index
+        if verbose:
+            icon = "✓" if r["passed"] else "✗"
+            print(f"  {icon} Test {case.index}", end="")
+            if r["error"]:
+                print(f" [ERROR: {r['error']}]")
+            elif not r["passed"]:
+                print(f" [FAIL]")
+                if r["diff"]:
+                    print(r["diff"])
+            else:
+                print()
 
-        case_result: dict[str, Any] = {
-            "index": case.index,
-            "status": status,
-            "actual": actual_lines,
-            "expected": case.expected_lines,
-            "elapsed": run_result["elapsed"],
-        }
-        if verbose and not ok:
-            case_result["diff"] = format_diff(actual_lines, case.expected_lines)
-
-        results.append(case_result)
-
-    avg_time = total_time / len(test_cases) if test_cases else 0.0
+    total = len(test_cases)
+    avg_time = total_time / total if total else 0.0
 
     return {
+        "total": total,
         "passed": passed,
         "failed": failed,
         "errors": errors,
-        "total": len(test_cases),
-        "cases": results,
         "total_time": total_time,
         "avg_time": avg_time,
-        "peak_memory_mb": peak_memory_mb,
+        "peak_memory_mb": peak_mb,
         "first_fail": first_fail,
+        "cases": results,
     }
 
 
-def run_compare(
-    solution_paths: list[str],
+def run_benchmark(
+    solution_path: str,
     test_dir: str,
     *,
     timeout: float = TIMEOUT_SECONDS,
-) -> dict[str, dict[str, Any]]:
-    """Сравнить несколько решений на одних тест-кейсах."""
+) -> dict[str, Any]:
+    """Запустить все тест-кейсы в режиме benchmark и собрать статистику времени.
+
+    Возвращаемый словарь:
+        runs       (int)   — число запусков
+        min/max/mean/median/stdev (float) — статистика времени (секунды)
+        peak_memory_mb (float)
+        relative   (float) — задаётся снаружи при сравнении
+        verdict    (str)   — задаётся снаружи
+        error      (str)   — пустая строка если нет ошибок
+    """
+    test_cases = load_test_cases(test_dir)
+    times: list[float] = []
+    peak_mb = 0.0
+
+    for case in test_cases:
+        r = run_single_test(solution_path, case, timeout=timeout)
+        if r["error"] or r["timed_out"]:
+            return {"error": r["error"] or "timeout", "runs": 0}
+        times.append(r["time"])
+        peak_mb = max(peak_mb, r["memory"])
+
+    if not times:
+        return {"error": "no test cases", "runs": 0}
+
+    stats = {
+        "runs": len(times),
+        "min": min(times),
+        "max": max(times),
+        "mean": statistics.mean(times),
+        "median": statistics.median(times),
+        "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
+        "peak_memory_mb": peak_mb,
+        "relative": 1.0,
+        "verdict": "SIMILAR",
+        "error": "",
+    }
+    return stats
+
+
+def run_microbench(
+    source_code: str,
+    *,
+    stdin_data: str = "",
+    number: int = 1000,
+) -> dict[str, Any]:
+    """Запустить timeit-microbenchmark для исходного кода.
+
+    Возвращает словарь с ключами:
+        times  (list[float]) — список замеров (в секундах)
+        error  (str)         — сообщение об ошибке (пустая строка = успех)
+    """
+    bench_script = (
+        "import timeit as _timeit, sys as _sys\n"
+        "_code = '''" + source_code.replace("'''", "\"\"\"") + "'''\n"
+        f"_number = {number}\n"
+        "_stdin = " + repr(stdin_data) + "\n"
+        "import io as _io\n"
+        "_sys.stdin = _io.StringIO(_stdin)\n"
+        "def _reset_stdin():\n"
+        "    _sys.stdin = _io.StringIO(_stdin)\n"
+        "_times = _timeit.repeat(\n"
+        "    stmt=_code,\n"
+        "    setup='_reset_stdin()',\n"
+        "    repeat=5,\n"
+        f"    number={number},\n"
+        "    globals={'_reset_stdin': _reset_stdin}\n"
+        ")\n"
+        "_per = [t / _number for t in _times]\n"
+        "print('\\n'.join(str(t) for t in _per))\n"
+    )
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", bench_script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            encoding=ENCODING,
+        )
+        if result.returncode != 0:
+            return {"times": [], "error": result.stderr.strip()}
+        times = [float(line) for line in result.stdout.strip().splitlines() if line.strip()]
+        return {"times": times, "error": ""}
+    except subprocess.TimeoutExpired:
+        return {"times": [], "error": "microbench timeout"}
+    except Exception as exc:
+        return {"times": [], "error": str(exc)}
+
+
+def _micro_stats(times: list[float]) -> dict[str, float]:
+    """Вычислить статистику по списку замеров времени."""
     return {
-        path: run_tests(path, test_dir, mode=MODE_SCRIPT, timeout=timeout)
-        for path in solution_paths
+        "min": min(times),
+        "max": max(times),
+        "mean": statistics.mean(times),
+        "median": statistics.median(times),
+        "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
     }
 
 
-def run_bench_mode(
-    solution_paths: list[str],
-    test_dir: str,
+def _verdict(relative: float) -> str:
+    """Вернуть текстовый вердикт по относительному времени."""
+    if relative <= SIMILAR_THRESHOLD:
+        return "SIMILAR"
+    if relative <= MUCH_SLOWER_THRESHOLD:
+        return "SLOWER"
+    return "MUCH_SLOWER"
+
+
+_SEP = "-" * 78
+
+
+# ---------------------------------------------------------------------------
+# Stepik API
+# ---------------------------------------------------------------------------
+
+
+def fetch_stepik_tests(
+    lesson_id: int,
+    step_position: int,
     *,
-    number: int = 15,
-) -> dict[str, Any]:
-    """Запустить subprocess-бенчмарк (несколько прогонов) для нескольких решений."""
-    test_cases = load_test_cases(test_dir)
-    if not test_cases:
-        return {}
+    secrets_file: str = "secrets.json",
+    config_file: str = "stepik_config.json",
+    output_dir: str | None = None,
+) -> str:
+    """Загрузить тест-кейсы из Stepik API и сохранить в директорию.
 
-    results: dict[str, dict[str, Any]] = {}
-    for path in solution_paths:
-        code = pathlib.Path(path).read_text(encoding=ENCODING)
-        is_fn = is_function_only_solution(code)
-        stdin_data = build_input_data(code, test_cases[0].input_lines, is_function_mode=is_fn)
-
-        times: list[float] = []
-        peak_mb = 0.0
-        for _ in range(number):
-            r = run_solution(path, stdin_data=stdin_data)
-            times.append(r["elapsed"])
-            if r["peak_memory_mb"] > peak_mb:
-                peak_mb = r["peak_memory_mb"]
-
-        stats = _micro_stats(times)
-        stats["peak_memory_mb"] = peak_mb
-        stats["runs"] = number
-        results[path] = stats
-
-    # Добавляем relative по median
-    if results:
-        min_median = min(v["median"] for v in results.values())
-        for v in results.values():
-            v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
-            v["verdict"] = _verdict(v["relative"])
-
-    return results
-
-
-# ---------------------------------------------------------------------------
-# Вспомогательная функция: автоопределение папки tests/
-# ---------------------------------------------------------------------------
-
-
-def _resolve_test_dir(solution_path: str) -> str:
-    """Найти папку tests/ рядом с файлом решения или запросить у пользователя.
-
-    Порядок поиска:
-        1. <папка_файла>/tests/
-        2. <папка_файла>/../tests/  (файл лежит в подпапке)
-    Если ни один вариант не найден — запрашивает путь у пользователя.
+    Возвращает путь к созданной директории с тестами.
+    Raises RuntimeError при ошибках авторизации или отсутствии тестов.
     """
-    base = pathlib.Path(solution_path).resolve().parent
-    for candidate in (base / "tests", base.parent / "tests"):
-        if candidate.is_dir():
-            print(f"  → tests dir: {candidate}")
-            return str(candidate)
-    return input("Enter path to tests directory: ").strip()
+    import json
+
+    secrets_path = pathlib.Path(secrets_file)
+    if not secrets_path.exists():
+        raise RuntimeError(f"Secrets file not found: {secrets_file}")
+
+    with open(secrets_path, encoding=ENCODING) as f:
+        secrets = json.load(f)
+
+    client_id = secrets.get("client_id")
+    client_secret = secrets.get("client_secret")
+
+    if not client_id or not client_secret:
+        raise RuntimeError("client_id / client_secret not found in secrets file")
+
+    token_resp = requests.post(
+        "https://stepik.org/oauth2/token/",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+        },
+        timeout=15,
+    )
+    token_resp.raise_for_status()
+    token = token_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    lessons_resp = requests.get(
+        f"https://stepik.org/api/lessons/{lesson_id}",
+        headers=headers,
+        timeout=15,
+    )
+    lessons_resp.raise_for_status()
+    steps = lessons_resp.json()["lessons"][0]["steps"]
+    if step_position < 1 or step_position > len(steps):
+        raise RuntimeError(f"Step position {step_position} out of range (1..{len(steps)})")
+    step_id = steps[step_position - 1]
+
+    step_resp = requests.get(
+        f"https://stepik.org/api/steps/{step_id}",
+        headers=headers,
+        timeout=15,
+    )
+    step_resp.raise_for_status()
+    step_data = step_resp.json()["steps"][0]
+    block = step_data.get("block", {})
+    test_cases_raw = block.get("options", {}).get("code_templates", [])
+
+    if not test_cases_raw:
+        samples = block.get("options", {}).get("samples", [])
+        test_cases_raw = [{"input": s[0], "output": s[1]} for s in samples]
+
+    if not test_cases_raw:
+        raise RuntimeError("No test cases found in step")
+
+    if output_dir is None:
+        output_dir = f"tests_lesson{lesson_id}_step{step_position}"
+
+    out_path = pathlib.Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    for idx, tc in enumerate(test_cases_raw, start=1):
+        inp = tc.get("input", "")
+        out = tc.get("output", "") or tc.get("stdout", "")
+        (out_path / f"input_{idx}.txt").write_text(inp, encoding=ENCODING)
+        (out_path / f"expected_{idx}.txt").write_text(out, encoding=ENCODING)
+
+    return str(out_path)
 
 
 # ---------------------------------------------------------------------------
 # Интерактивное меню
 # ---------------------------------------------------------------------------
 
-_SEP = "-" * 68
+
+def _print_menu() -> None:
+    print("\n" + "=" * 50)
+    print("  Stepik Python Grader")
+    print("=" * 50)
+    print("  1. Check one solution")
+    print("  2. Check all solutions in folder")
+    print("  3. Benchmark solutions in folder")
+    print("  4. Micro-benchmark (timeit) for folder")
+    print("  5. Fetch tests from Stepik API")
+    print("  0. Exit")
+    print("=" * 50)
+
+
+def _ask_number(prompt: str, *, default: int) -> int:
+    raw = input(prompt).strip()
+    try:
+        return int(raw) if raw else default
+    except ValueError:
+        return default
+
+
+def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) -> str:
+    if is_dir:
+        candidate = pathlib.Path(solution_or_dir) / "tests"
+        if candidate.is_dir():
+            return str(candidate)
+        return solution_or_dir
+    return _resolve_test_dir(solution_or_dir)
 
 
 def _interactive_menu() -> None:
-    """Интерактивный режим при запуске без аргументов."""
-    mem_mode = "child process (honest, slower)" if MEASURE_CHILD_MEMORY else "parent process (fast, rough)"
-    print("Choose mode:")
-    print("  1 - test single file")
-    print("  2 - compare all solutions in folder")
-    print("  3 - benchmark passed solutions")
-    print("  4 - microbench (timeit, any solution type)")
-    print(f"Memory mode: {mem_mode}")
-    print(f"Subprocess timeout: {TIMEOUT_SECONDS}s per test")
+    """Основной интерактивный цикл грейдера."""
+    while True:
+        _print_menu()
+        choice = input("Select mode [0-5]: ").strip()
 
-    mode_input = input("Enter mode (1/2/3/4): ").strip()
+        if choice == "0":
+            print("Goodbye!")
+            break
 
-    # ------------------------------------------------------------------
-    # Режим 1 — проверка одного файла
-    # ------------------------------------------------------------------
-    if mode_input == "1":
-        solution = input("Enter path to solution file (relative or absolute): ").strip()
-        test_dir = _resolve_test_dir(solution)
-        result = run_tests(solution, test_dir, verbose=True)
+        # ------------------------------------------------------------------
+        # Режим 1 — проверить одно решение
+        # ------------------------------------------------------------------
+        elif choice == "1":
+            solution = input("Enter path to solution file: ").strip()
+            if not os.path.isfile(solution):
+                print(f"File not found: {solution}")
+                continue
 
-        total = result["total"]
-        passed = result["passed"]
-        failed = result["failed"]
-        errors = result["errors"]
-        status = "OK" if failed == 0 and errors == 0 else "FAIL"
-        total_t = result["total_time"]
-        avg_t = result["avg_time"]
-        mem = result["peak_memory_mb"]
-
-        print(
-            f"\n{solution}: {passed}/{total} tests, "
-            f"total={total_t:.4f}s, avg={avg_t:.4f}s, "
-            f"peak_memory={mem:.2f} MB, status={status}"
-        )
-        for case in result.get("cases", []):
-            mark = PASS_MARK if case["status"] == "pass" else FAIL_MARK
-            color = "pass" if case["status"] == "pass" else "fail"
-            print(colorize(f"  {mark} Test {case['index']}", color))
-            if "diff" in case:
-                print(case["diff"])
-
-    # ------------------------------------------------------------------
-    # Режим 2 — сравнение всех решений в папке
-    # ------------------------------------------------------------------
-    elif mode_input == "2":
-        directory = input("Enter path to folder with solutions: ").strip()
-        grouped = collect_grouped_files(directory)
-        if not grouped:
-            print("No solution files found.")
-            return
-
-        col_file = 28
-        for folder, paths in sorted(grouped.items()):
-            test_dir = os.path.join(directory, folder, "tests")
+            test_dir = _resolve_test_dir(solution)
             if not os.path.isdir(test_dir):
-                print(f"\n📂 {folder}  — tests/ not found, skipping")
+                print(f"Test directory not found: {test_dir}")
                 continue
 
-            print(f"\n📂 {folder}")
-            print(_SEP)
-            print(
-                f"{'File':<{col_file}} {'Passed':>6}  "
-                f"{'Total time':>10}  {'Avg time':>9}  "
-                f"{'Peak memory':>11}  {'Status':>6}  {'Fail test':>9}"
-            )
-            print(_SEP)
+            result = run_tests(solution, test_dir, verbose=False)
 
-            for path in sorted(paths):
-                result = run_tests(path, test_dir)
-                total = result["total"]
-                passed = result["passed"]
-                status = "OK" if passed == total and total > 0 else "FAIL"
-                rel = os.path.relpath(path, directory)
-                total_t = result["total_time"]
-                avg_t = result["avg_time"]
-                mem = result["peak_memory_mb"]
-                first_fail = result["first_fail"]
+            col_file = 28
+            print()
+            print_correctness_header(col_file=col_file)
+            print(format_correctness_row(solution, pathlib.Path(solution).resolve().parent.as_posix(), result, col_file=col_file))
 
-                print(
-                    f"{rel:<{col_file}} {passed:>3}/{total:<3}  "
-                    f"{total_t:>10.4f}  {avg_t:>9.4f}  "
-                    f"{mem:>9.2f} MB  {status:>6}  {str(first_fail):>9}"
-                )
+        # ------------------------------------------------------------------
+        # Режим 2 — проверить все решения в папке
+        # ------------------------------------------------------------------
+        elif choice == "2":
+            directory = input("Enter path to folder: ").strip()
+            if not os.path.isdir(directory):
+                print(f"Directory not found: {directory}")
+                continue
 
-    # ------------------------------------------------------------------
-    # Режим 3 — subprocess-бенчмарк прошедших решений
-    # ------------------------------------------------------------------
-    elif mode_input == "3":
-        directory = input("Enter path to folder with solutions: ").strip()
-        repeat_map = {"1": 5, "2": 15, "3": 50}
-        print("Repeats: 1=low(5)  2=medium(15)  3=high(50)  4=custom")
-        repeat_choice = input("Choose (1/2/3/4): ").strip()
-        if repeat_choice == "4":
-            number = int(input("Enter number of repeats (5-100): ").strip())
+            test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
+            scripts = find_all_solution_files(directory)
+            if not scripts:
+                print("No solution files found.")
+                continue
+
+            col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
+
+            print_correctness_header(col_file=col_file)
+            for path in scripts:
+                result = run_tests(path, test_dir, verbose=False)
+                print(format_correctness_row(path, directory, result, col_file=col_file))
+
+        # ------------------------------------------------------------------
+        # Режим 3 — benchmark нескольких решений в папке
+        # ------------------------------------------------------------------
+        elif choice == "3":
+            directory = input("Enter path to folder: ").strip()
+            if not os.path.isdir(directory):
+                print(f"Directory not found: {directory}")
+                continue
+
+            test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
+            scripts = find_all_solution_files(directory)
+            if not scripts:
+                print("No solution files found.")
+                continue
+
+            results: dict[str, dict[str, Any]] = {}
+            for path in scripts:
+                results[path] = run_benchmark(path, test_dir)
+
+            ok = {k: v for k, v in results.items() if not v.get("error")}
+            if ok:
+                min_median = min(v["median"] for v in ok.values())
+                for v in ok.values():
+                    v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
+                    v["verdict"] = _verdict(v["relative"])
+
+            col = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
+            print_benchmark_header(col_file=col)
+            for path, data in sorted(ok.items(), key=lambda x: x[1]["median"]):
+                print(format_benchmark_row(path, directory, data, col_file=col))
+
+            for path, data in sorted(results.items()):
+                if data.get("error"):
+                    rel = os.path.relpath(path, directory)
+                    print(f"  {rel}: {data['error']}")
+
+        # ------------------------------------------------------------------
+        # Режим 4 — timeit micro-benchmark для папки с решениями
+        # ------------------------------------------------------------------
+        elif choice == "4":
+            directory = input("Enter path to folder with solutions: ").strip()
+            if not os.path.isdir(directory):
+                print(f"Directory not found: {directory}")
+                continue
+
+            number = _ask_number("Number of timeit repeats [1000]: ", default=1000)
+
+            grouped = collect_grouped_files(directory)
+            if not grouped:
+                print("No solution files found.")
+                continue
+
+            for folder, paths in sorted(grouped.items()):
+                test_dir = os.path.join(directory, folder, "tests")
+                if not os.path.isdir(test_dir):
+                    continue
+
+                print(f"\n⚡ Micro-bench (timeit): {folder}")
+                bench = run_microbench_mode(sorted(paths), test_dir, number=number)
+                ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
+                if not ok_rows:
+                    print("  No results.")
+                    continue
+
+                col = 28
+                print_benchmark_header(col_file=col)
+                for path, data in sorted(ok_rows.items(), key=lambda x: x[1]["median"]):
+                    print(format_benchmark_row(path, directory, data, col_file=col))
+
+                for path, data in sorted(bench.items()):
+                    if data.get("error"):
+                        rel = os.path.relpath(path, directory)
+                        print(f"  {rel}: {data['error']}")
+
+        # ------------------------------------------------------------------
+        # Режим 5 — загрузить тесты из Stepik API
+        # ------------------------------------------------------------------
+        elif choice == "5":
+            try:
+                lesson_id = int(input("Lesson ID: ").strip())
+                step_position = int(input("Step position: ").strip())
+            except ValueError:
+                print("Invalid input. Please enter integers.")
+                continue
+
+            try:
+                out_dir = fetch_stepik_tests(lesson_id, step_position)
+                print(f"Tests saved to: {out_dir}")
+            except RuntimeError as exc:
+                print(f"Error: {exc}")
+            except Exception as exc:
+                print(f"Unexpected error: {exc}")
+
         else:
-            number = repeat_map.get(repeat_choice, 15)
-
-        grouped = collect_grouped_files(directory)
-        for folder, paths in sorted(grouped.items()):
-            test_dir = os.path.join(directory, folder, "tests")
-            if not os.path.isdir(test_dir):
-                continue
-
-            # Проходит только то, что прошло все тесты (кешируем результат)
-            passed_paths = []
-            for p in sorted(paths):
-                r = run_tests(p, test_dir)
-                if r["failed"] == 0 and r["errors"] == 0 and r["total"] > 0:
-                    passed_paths.append(p)
-
-            if not passed_paths:
-                continue
-
-            print(f"\n🚀 Benchmark: {folder}")
-            bench = run_bench_mode(passed_paths, test_dir, number=number)
-            if not bench:
-                print("  No results.")
-                continue
-
-            col = 28
-            print(_SEP)
-            print(
-                f"{'File':<{col}} {'Runs':>4}  "
-                f"{'Min':>7}  {'Median':>7}  {'Mean':>7}  {'Max':>7}  "
-                f"{'Std dev':>7}  {'Memory':>9}  {'Relative':>8}  {'Verdict'}"
-            )
-            print(_SEP)
-            for path, data in sorted(bench.items(), key=lambda x: x[1]["median"]):
-                rel_path = os.path.relpath(path, directory)
-                print(
-                    f"{rel_path:<{col}} {data['runs']:>4}  "
-                    f"{data['min']:>7.4f}  {data['median']:>7.4f}  "
-                    f"{data['mean']:>7.4f}  {data['max']:>7.4f}  "
-                    f"{data['stdev']:>7.4f}  "
-                    f"{data['peak_memory_mb']:>7.2f} MB  "
-                    f"{data['relative']*100:>7.1f}%  {data['verdict']}"
-                )
-
-    # ------------------------------------------------------------------
-    # Режим 4 — microbench (timeit)
-    # ------------------------------------------------------------------
-    elif mode_input == "4":
-        solution = input("Enter path to solution file: ").strip()
-        test_dir = _resolve_test_dir(solution)
-        calls_map = {"1": 500, "2": 1000, "3": 5000, "4": 50000, "5": 100000}
-        print("Calls: 1=fast(500)  2=normal(1000)  3=thorough(5000)  4=deep(50000)  5=hard(100000)  6=custom")
-        calls_choice = input("Choose (1-6): ").strip()
-        if calls_choice == "6":
-            number = int(input("Enter number of calls (100-500000): ").strip())
-        else:
-            number = calls_map.get(calls_choice, 1000)
-
-        code = pathlib.Path(solution).read_text(encoding=ENCODING)
-        test_cases = load_test_cases(test_dir)
-        if not test_cases:
-            print("No test cases found.")
-            return
-
-        # Ограничиваем число кейсов для стабильного std-dev
-        cases_to_bench = test_cases[:MICROBENCH_MAX_CASES]
-
-        all_times: list[float] = []
-        for case in cases_to_bench:
-            stdin_data = build_input_data(
-                code, case.input_lines,
-                is_function_mode=is_function_only_solution(code),
-            )
-            bench = run_microbench(code, stdin_data=stdin_data, number=number)
-            if bench["error"]:
-                print(f"Error on test {case.index}: {bench['error']}")
-                return
-            all_times.extend(bench["times"])
-
-        stats = _micro_stats(all_times)
-        to_us = 1_000_000
-
-        print(f"\n⚡ Micro-bench (timeit): {solution}")
-        print(_SEP)
-        print(
-            f"{'File':<28} {'Repeats':>7}  "
-            f"{'Min, us':>8}  {'Median, us':>10}  {'Mean, us':>9}  "
-            f"{'Max, us':>8}  {'Std dev, us':>11}  {'Relative':>8}  {'Verdict'}"
-        )
-        print(_SEP)
-        # Для одного файла relative = 100 %
-        rel_name = os.path.relpath(solution)
-        print(
-            f"{rel_name:<28} {number:>7}  "
-            f"{stats['min']*to_us:>8.2f}  "
-            f"{stats['median']*to_us:>10.2f}  "
-            f"{stats['mean']*to_us:>9.2f}  "
-            f"{stats['max']*to_us:>8.2f}  "
-            f"{stats['stdev']*to_us:>11.2f}  "
-            f"{'100.0%':>8}  SIMILAR"
-        )
-
-    else:
-        print(f"Unknown mode: {mode_input!r}")
+            print("Unknown choice. Please enter 0–5.")
 
 
 # ---------------------------------------------------------------------------
