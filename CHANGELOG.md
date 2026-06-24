@@ -1,5 +1,35 @@
 # Changelog
 
+## [Unreleased] — June 2026 — Module_2/4/6 block-detection fixes
+
+### 🐛 Fixes
+
+- **grader.py** — Renamed `_is_python_call_block()` → `_is_python_code_block()`
+  and broadened the heuristic: a block is now classified as Python code
+  (function sub-type) when it parses as a valid AST **and** contains at least
+  one `ast.Name` node, instead of requiring a top-level `Expr(Call(...))`.
+  This fixes Module_6.5.x blocks that start with an assignment and a `for`
+  loop (e.g. `result = wins([...])` + `for ...: print(...)`), which were
+  previously misrouted to stdin mode. Bare data such as `10\n20\n30` (no
+  `Name` nodes) and `04.11.2021` (SyntaxError) still resolve to `stdin`.
+  All callers in `load_test_cases()` and `run_single_test()` updated.
+- **grader.py** — `_build_call_wrapper()` now injects stdlib wildcard imports
+  (`from collections import *`, `datetime`, `itertools`, `functools`) **before**
+  importing the solution, so blocks that reference `ChainMap`, `Counter`,
+  `OrderedDict`, etc. without an explicit import (Module_6.10.x) run correctly.
+  The solution import remains last, so the solution's public names take
+  precedence over the wildcard-imported stdlib names.
+- **grader.py** — `_parse_testblock_file()` now preserves **empty** `# TEST_N:`
+  blocks as `''` (Module_4.1.10 TEST_5) instead of dropping them, keeping
+  input/output block indices aligned.
+
+### ✅ Tests added
+
+- `tests/test_testblock.py` — 13 tests covering `_is_python_code_block`
+  (numbers, dates, plain text, function calls, for-loop blocks, ChainMap
+  assignments, empty/whitespace) and `_parse_testblock_file` (basic,
+  empty/trailing-empty blocks, multiline, `# INPUT DATA:` handling).
+
 ## [Unreleased] — June 2026 — python-generation format support
 
 ### ✨ Features

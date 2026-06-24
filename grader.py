@@ -290,6 +290,9 @@ def _parse_testblock_file(text: str) -> list[str]:
 
     Возвращает список содержимого блоков (каждый .strip()).
     Строки `# INPUT DATA:` игнорируются.
+
+    Пустые блоки СОХРАНЯЮТСЯ как `''` (например, `# TEST_5:` без данных),
+    чтобы индексы input- и output-блоков оставались синхронными.
     """
     blocks: list[str] = []
     current_lines: list[str] = []
@@ -297,7 +300,7 @@ def _parse_testblock_file(text: str) -> list[str]:
 
     for line in text.splitlines():
         if re.match(r"#\s*TEST_\d+:", line.strip()):
-            if in_block and current_lines:
+            if in_block:
                 blocks.append("\n".join(current_lines).strip())
                 current_lines = []
             in_block = True
@@ -306,22 +309,35 @@ def _parse_testblock_file(text: str) -> list[str]:
         elif in_block:
             current_lines.append(line)
 
-    if in_block and current_lines:
+    if in_block:
         blocks.append("\n".join(current_lines).strip())
 
     return blocks
 
 
-def _is_python_call_block(block: str) -> bool:
-    """Вернуть True, если block — валидный Python с вызовом верхнего уровня (Expr(Call))."""
+def _is_python_code_block(block: str) -> bool:
+    """Вернуть True, если block похож на Python-код (а не на stdin-данные).
+
+    Эвристика: блок парсится как валидный Python AST и содержит хотя бы один
+    узел ``ast.Name`` (ссылку на переменную/функцию). Обычные stdin-данные
+    (числа, даты-строки) либо не парсятся, либо не содержат Name-узлов.
+    Python-код всегда ссылается на переменные/функции.
+
+    Примеры:
+        ``10\\n20\\n30``                  → False (голые константы, нет Name)
+        ``04.11.2021``                   → False (SyntaxError)
+        ``print(func(x))``               → True  (вызов функции)
+        ``r = wins([...])\\nfor ...``     → True  (присваивание + for)
+        ``chainmap = ChainMap({})``      → True  (присваивание)
+        ``""``                           → False (пустой блок)
+    """
+    if not block.strip():
+        return False
     try:
         tree = ast.parse(block)
     except SyntaxError:
         return False
-    for node in ast.iter_child_nodes(tree):
-        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
-            return True
-    return False
+    return any(isinstance(node, ast.Name) for node in ast.walk(tree))
 
 
 def load_test_cases(test_dir: str) -> list[TestCase]:
@@ -332,9 +348,9 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
     Формат 3 — python-generation/Professional (высший приоритет):
         tests/input.txt   — ВСЕ входные блоки с маркерами `# TEST_N:`
         tests/output.txt  — ВСЕ ожидаемые блоки с маркерами `# TEST_N:`
-        Тип блока определяется автоматически: если блок — валидный Python
-        с вызовом верхнего уровня (`print(func(...))`) → "function",
-        иначе → "stdin".
+        Тип блока определяется автоматически: если блок — валидный Python-код
+        со ссылками на переменные/функции (`print(func(...))`, присваивания,
+        for-циклы) → "function", иначе (голые числа/строки) → "stdin".
 
     Формат 1 — at_first.py (legacy):
         tests/1        — входные данные теста №1 (stdin)
@@ -360,7 +376,7 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
         output_blocks = _parse_testblock_file(output_text)
         if input_blocks and output_blocks:
             for i, (inp, out) in enumerate(zip(input_blocks, output_blocks, strict=False), 1):
-                test_type = "function" if _is_python_call_block(inp) else "stdin"
+                test_type = "function" if _is_python_code_block(inp) else "stdin"
                 cases.append(
                     TestCase(
                         index=i,
@@ -649,8 +665,13 @@ def _build_call_wrapper(solution_path: str, call_block: str) -> str:
     return f"""import sys
 import importlib.util
 
-# Стандартные импорты, которые могут встречаться в тест-блоке
-from datetime import date, time, datetime, timedelta  # noqa: F401
+# Стандартные wildcard-импорты, которые могут встречаться в тест-блоке
+# (ChainMap, OrderedDict, defaultdict, Counter, date, datetime, и т.п.).
+# Делаются ПЕРЕД импортом из решения, чтобы имена решения имели приоритет.
+from collections import *  # noqa: F401,F403
+from datetime import *  # noqa: F401,F403
+from itertools import *  # noqa: F401,F403
+from functools import *  # noqa: F401,F403
 from decimal import Decimal  # noqa: F401
 from fractions import Fraction  # noqa: F401
 
@@ -658,6 +679,8 @@ sys.path.insert(0, {solution_dir!r})
 _spec = importlib.util.spec_from_file_location({module_name!r}, {abs_path!r})
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
+# Импорт из решения идёт ПОСЛЕДНИМ — публичные имена решения
+# перекрывают одноимённые из stdlib wildcard-импортов выше.
 for _name in dir(_mod):
     if not _name.startswith('_'):
         globals()[_name] = getattr(_mod, _name)
@@ -697,7 +720,7 @@ def run_single_test(
 
     if case.test_type == "function":
         input_data = "\n".join(case.input_lines)
-        if _is_python_call_block(input_data):
+        if _is_python_code_block(input_data):
             # python-generation function-call: блок уже содержит print(func(...))
             wrapper_src = _build_call_wrapper(solution_path, input_data)
         else:
