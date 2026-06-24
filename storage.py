@@ -16,7 +16,15 @@ from typing import Any
 
 
 def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
-    """Читает JSON-файл и возвращает dict. Бросает ValueError если корень не объект."""
+    """Читает JSON-файл и возвращает dict.
+
+    Raises:
+        IsADirectoryError: если file_path — директория (кросс-платформенно;
+            на Windows open() бросает PermissionError вместо IsADirectoryError).
+        ValueError: если корень JSON не является объектом.
+    """
+    if pathlib.Path(file_path).is_dir():
+        raise IsADirectoryError(f"Ожидался файл, получена директория: {file_path}")
     with open(file_path, encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, dict):
