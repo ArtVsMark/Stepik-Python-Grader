@@ -768,7 +768,7 @@ def main() -> None:
         try:
             process_step_url(step_url, session, root_dir)
         except Exception as error:  # noqa: BLE001
-            print(f"❌ Ошибка обрабного шага: {error}")
+            print(f"❌ Ошибка обработки шага: {error}")
 
 
 if __name__ == "__main__":

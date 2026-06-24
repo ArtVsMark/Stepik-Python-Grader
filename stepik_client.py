@@ -269,7 +269,9 @@ def _get_with_retry(
             last_exc = exc
             if attempt < retries - 1:
                 time.sleep(backoff * (2**attempt))
-    raise last_exc  # type: ignore[misc]
+    if last_exc is None:
+        raise RuntimeError(f"_get_with_retry called with retries={retries}, no attempts made")
+    raise last_exc
 
 
 CACHE_DIR = pathlib.Path(".stepik_cache")

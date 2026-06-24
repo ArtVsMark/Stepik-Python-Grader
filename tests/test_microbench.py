@@ -82,3 +82,34 @@ def test_run_microbench_with_input() -> None:
     source = "n = int(input())\nprint(n * 2)\n"
     result = run_microbench(source_code=source, stdin_texts=["5"], file_label="t.py", repeats=3)
     assert not result.error
+
+
+# ===========================================================================
+# grader.run_microbench — фикс контаминации stdout таймингами (режим 4, stdin)
+# ===========================================================================
+
+
+def test_grader_microbench_suppresses_numeric_stdout() -> None:
+    """print()-вывод stdin-решения НЕ должен попадать в список таймингов.
+
+    Раньше каждая строка stdout (включая напечатанное число) парсилась как
+    тайминг → мусорная статистика. Теперь ожидаем ровно 5 таймингов repeat=5.
+    """
+    import grader
+
+    source = "a, b = int(input()), int(input())\nprint(a + b)\n"
+    result = grader.run_microbench(source, stdin_data="10\n20\n", number=50)
+    assert result["error"] == ""
+    assert len(result["times"]) == 5
+    # Напечатанное число 30 не должно оказаться среди таймингов (они ~микросекунды).
+    assert all(t < 1.0 for t in result["times"])
+
+
+def test_grader_microbench_non_numeric_stdout_no_error() -> None:
+    """stdin-решение, печатающее не-число, больше не падает на float(line)."""
+    import grader
+
+    source = 'name = input()\nprint("Hello, " + name)\n'
+    result = grader.run_microbench(source, stdin_data="World\n", number=50)
+    assert result["error"] == ""
+    assert len(result["times"]) == 5

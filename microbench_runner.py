@@ -1,5 +1,9 @@
 """microbench_runner.py — timeit-based microbenchmark via exec + io.StringIO.
 
+NOTE: Этот модуль в настоящее время НЕ импортируется grader.py — grader
+использует собственную inline-реализацию run_microbench / run_microbench_mode.
+Модуль сохранён для возможного будущего рефакторинга.
+
 Архитектура:
     Вместо прямого вызова func(*args) мы имитируем stdin через io.StringIO
     и запускаем полный exec(compiled_code) внутри одного процесса.
@@ -19,11 +23,12 @@
     Примечание: contextlib.redirect_stdin удалён в Python 3.14 (PEP 734).
     Используем прямую подмену sys.stdin с восстановлением через try/finally.
 
-Типичный вызов из test.py (режим 4):
-    stdin_texts = ["\\n".join(tc.input_lines) for tc in test_cases]
-    result = run_microbench(source_code, stdin_texts, file_label, repeats)
-    results = apply_relative_micro(results)
-    print_microbench_table(task_folder, results)
+Публичный API модуля:
+    run_microbench(source_code, stdin_texts, file_label, repeats) -> MicrobenchResult
+    apply_relative_micro(results) -> list[MicrobenchResult]
+
+    Печать таблицы результатов в этом модуле НЕ реализована — это
+    ответственность вызывающей стороны (grader.py делает это сам).
 """
 
 from __future__ import annotations

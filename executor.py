@@ -14,6 +14,7 @@ CLI entry point (используется test.py как subprocess):
 
 from __future__ import annotations
 
+import builtins
 import os
 import pathlib
 import signal
@@ -114,8 +115,9 @@ def main() -> None:
     source: str = sys.stdin.read()
     compiled: types.CodeType = compile(source, "<solution>", "exec")
 
-    # Изолированный namespace — решение не видит globals executor.py
-    namespace: dict[str, object] = {"__builtins__": __builtins__}
+    # Изолированный namespace — решение не видит globals executor.py.
+    # Используем модуль builtins явно (детерминированно при импорте и как скрипт).
+    namespace: dict[str, object] = {"__builtins__": builtins}
 
     # Тайм-аут только на Unix (Windows не поддерживает SIGALRM)
     if hasattr(signal, "SIGALRM"):

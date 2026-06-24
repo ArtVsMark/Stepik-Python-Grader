@@ -1,3 +1,15 @@
+"""grader.py — интерактивный грейдер решений.
+
+Архитектурный слой: Application.
+Предоставляет 4 режима работы:
+  1. Проверка одного файла (run_tests)
+  2. Сравнение всех решений в папке (find_all_solution_files + run_tests)
+  3. Subprocess-бенчмарк (run_benchmark)
+  4. Timeit-микробенчмарк (run_microbench_mode / run_microbench)
+
+Использует executor.py для запуска решений и microbench_runner.py для timeit.
+"""
+
 from __future__ import annotations
 
 import ast
@@ -18,8 +30,26 @@ from typing import Any
 
 import psutil
 
+# rich — опциональная зависимость для цветного вывода таблиц и прогресс-баров.
+# При её отсутствии грейдер откатывается на простой текстовый вывод.
+try:
+    from rich.console import Console
+    from rich.progress import track as _rich_track
+    from rich.table import Table
+    from rich.text import Text
+
+    _console: Console | None = Console()
+    _RICH = True
+except ImportError:  # pragma: no cover
+    _console = None
+    _RICH = False
+
+    def _rich_track(sequence: Any, description: str = "") -> Any:  # noqa: ARG001
+        return sequence
+
+
 # executor.py — вспомогательный модуль для запуска кода из строки (не из файла).
-# run_solution() используется в diagnostik_stepik.py и тестах.
+# run_solution() используется в тестах (tests/test_executor.py); grader сам его не вызывает.
 # run_single_test() в grader.py использует subprocess.Popen напрямую,
 # чтобы иметь доступ к замеру памяти (psutil) и точному времени.
 # Импортируем RunResult для аннотаций и совместимости.
@@ -211,6 +241,144 @@ def print_benchmark_header(*, col_file: int) -> None:
     print(_SEP)
 
 
+# ---------------------------------------------------------------------------
+# Цветной вывод (rich) с откатом на plain-text
+# ---------------------------------------------------------------------------
+
+# Цвета статусов корректности (режимы 1/2) и вердиктов TLE/RE/WA.
+_STATUS_COLORS: dict[str, str] = {
+    "OK": "green",
+    "AC": "green",
+    "FAIL": "red",
+    "WA": "red",
+    "TLE": "red",
+    "RE": "red",
+    "ERROR": "red",
+}
+
+# Цвета вердиктов бенчмарка (режимы 3/4).
+_VERDICT_COLORS: dict[str, str] = {
+    "SIMILAR": "green",
+    "SLOWER": "yellow",
+    "MUCH_SLOWER": "red",
+    "MUCH SLOWER": "red",
+}
+
+
+def _correctness_status(result: dict[str, Any]) -> str:
+    """Вернуть "OK"/"FAIL" для строки таблицы корректности."""
+    total = result["total"]
+    ok = result["passed"] == total and result["failed"] == 0 and result["errors"] == 0 and total > 0
+    return "OK" if ok else "FAIL"
+
+
+def print_correctness_results(
+    rows: list[tuple[str, dict[str, Any]]], base_dir: str, *, col_file: int
+) -> None:
+    """Напечатать таблицу корректности (rich при наличии, иначе plain-text)."""
+    if _RICH and _console is not None:
+        table = Table(show_lines=False)
+        table.add_column("File", style="cyan", no_wrap=True)
+        table.add_column("Passed", justify="right")
+        table.add_column("Total time", justify="right")
+        table.add_column("Avg time", justify="right")
+        table.add_column("Memory, MB", justify="right")
+        table.add_column("Status", justify="center")
+        table.add_column("Fail test", justify="right")
+        for path, result in rows:
+            status = _correctness_status(result)
+            color = _STATUS_COLORS.get(status, "white")
+            table.add_row(
+                os.path.relpath(path, base_dir),
+                f"{result['passed']}/{result['total']}",
+                f"{result['total_time']:.4f}",
+                f"{result['avg_time']:.4f}",
+                f"{result['peak_memory_mb']:.2f}",
+                Text(status, style=color),
+                str(result["first_fail"]),
+            )
+        _console.print(table)
+        return
+
+    print_correctness_header(col_file=col_file)
+    for path, result in rows:
+        print(format_correctness_row(path, base_dir, result, col_file=col_file))
+
+
+def print_benchmark_results(
+    rows: list[tuple[str, dict[str, Any]]], base_dir: str, *, col_file: int, title: str = ""
+) -> None:
+    """Напечатать benchmark-таблицу (rich при наличии, иначе plain-text)."""
+    if _RICH and _console is not None:
+        table = Table(title=title or None, show_lines=False)
+        table.add_column("File", style="cyan", no_wrap=True)
+        for name in ("Runs", "Min", "Median", "Mean", "Max", "Std dev", "Memory"):
+            table.add_column(name, justify="right")
+        table.add_column("Relative", justify="right")
+        table.add_column("Verdict", justify="center")
+        for path, data in rows:
+            verdict = data["verdict"]
+            color = _VERDICT_COLORS.get(verdict, "white")
+            table.add_row(
+                os.path.relpath(path, base_dir),
+                str(data["runs"]),
+                f"{data['min']:.4f}",
+                f"{data['median']:.4f}",
+                f"{data['mean']:.4f}",
+                f"{data['max']:.4f}",
+                f"{data['stdev']:.4f}",
+                f"{data['peak_memory_mb']:.2f}",
+                f"{data['relative'] * 100:.1f}%",
+                Text(verdict, style=color),
+            )
+        _console.print(table)
+        return
+
+    print_benchmark_header(col_file=col_file)
+    for path, data in rows:
+        print(format_benchmark_row(path, base_dir, data, col_file=col_file))
+
+
+def _cprint(text: str, *, style: str = "") -> None:
+    """Печать строки со стилем (rich) или без (plain). markup отключён — безопасно
+    для произвольного вывода решения (скобки не интерпретируются как разметка)."""
+    if _RICH and _console is not None and style:
+        _console.print(text, style=style, markup=False)
+    else:
+        print(text)
+
+
+def _print_case_verbose(case: TestCase, r: dict[str, Any]) -> None:
+    """Подробный вывод одного тест-кейса (режим 1, verbose): вердикт + diff при WA."""
+    passed = r["passed"]
+    verdict = r.get("verdict", "AC" if passed else "WA")
+    icon = "✓" if passed else "✗"
+    color = "green" if passed else "red"
+    _cprint(f"  {icon} Test {case.index}: {verdict}", style=color)
+
+    if r["error"]:
+        _cprint(f"    [ERROR] {r['error']}", style="red")
+        return
+    if passed:
+        return
+
+    # WA: компактное сравнение expected vs actual + diff.
+    expected = " | ".join(r.get("expected", case.expected_lines)) or "(empty)"
+    actual = " | ".join(r.get("output", [])) or "(empty)"
+    _cprint(f"    Expected: {expected}")
+    _cprint(f"    Actual:   {actual}")
+    diff = r.get("diff", "")
+    if diff:
+        _cprint("    Diff:")
+        for line in diff.splitlines():
+            if line.startswith("+"):
+                _cprint(f"    {line}", style="green")
+            elif line.startswith("-"):
+                _cprint(f"    {line}", style="red")
+            else:
+                _cprint(f"    {line}", style="dim")
+
+
 def run_microbench_mode(
     solution_paths: list[str],
     test_dir: str,
@@ -271,6 +439,7 @@ def run_microbench_mode(
     return results
 
 
+# NOTE: Currently unused.
 def resolve_input_path(raw_path: str, base_dir: pathlib.Path) -> pathlib.Path:
     """Вернуть абсолютный путь к файлу входных данных.
 
@@ -289,6 +458,7 @@ def load_text_lines(file_path: str) -> list[str]:
         return [line.rstrip("\n") for line in f]
 
 
+# NOTE: Currently unused. Only user of chardet.
 def load_text_lines_with_encoding(file_path: str) -> tuple[list[str], str | None]:
     """Загрузить текстовый файл и вернуть (строки, кодировка)."""
     import chardet
@@ -482,6 +652,7 @@ def _resolve_test_dir(solution_path: str) -> str:
     return str(candidate_tests)
 
 
+# NOTE: Currently unused.
 def build_input_data(
     source_code: str,
     input_lines: list[str],
@@ -618,6 +789,22 @@ def _detect_run_mode(solution_path: str, test_dir: str) -> str:
     return "stdin"
 
 
+def _apply_run_mode_override(
+    cases: list[TestCase], solution_path: str, test_dir: str
+) -> list[TestCase]:
+    """Переопределить test_type на "function" для всех stdin-кейсов, если режим
+    запуска определён как function на уровне файла (AST/meta.json/.type).
+
+    Устраняет рассинхронизацию между .type-файлами, meta.json и AST.
+    Мутирует и возвращает переданный список cases.
+    """
+    if _detect_run_mode(solution_path, test_dir) == "function":
+        for case in cases:
+            if case.test_type == "stdin":
+                case.test_type = "function"
+    return cases
+
+
 def _build_function_wrapper(solution_path: str, input_data: str, function_name: str) -> str:
     """Генерирует исходный код скрипта-обёртки для function-mode запуска.
 
@@ -638,15 +825,15 @@ def _build_function_wrapper(solution_path: str, input_data: str, function_name: 
         function_name: имя функции для импорта.
     """
     abs_path = str(pathlib.Path(solution_path).resolve())
-    safe_path = abs_path.replace("\\", "\\\\").replace("'", "\\'")
     safe_input = input_data.strip()
     safe_func = function_name
     module_stem = pathlib.Path(solution_path).stem
 
+    # repr() безопасно интерполирует путь (включая Windows-бэкслеши и спецсимволы).
     return f"""import sys
 import pathlib
 import inspect
-sys.path.insert(0, str(pathlib.Path('{safe_path}').parent))
+sys.path.insert(0, str(pathlib.Path({abs_path!r}).parent))
 
 # Стандартные импорты, которые могут быть нужны в input_data
 from datetime import date, time, datetime, timedelta
@@ -771,6 +958,7 @@ def run_single_test(
                         " (meta.json missing and no function def in solution)"
                     ),
                     "timed_out": False,
+                    "verdict": "RE",
                 }
             wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
         # Записываем wrapper во временный файл; удаляется после запуска
@@ -824,6 +1012,7 @@ def run_single_test(
                 "memory": 0.0,
                 "error": f"Timeout after {timeout}s",
                 "timed_out": True,
+                "verdict": "TLE",
             }
         finally:
             stop_event.set()
@@ -850,6 +1039,7 @@ def run_single_test(
                 "memory": peak_mb,
                 "error": stderr.strip(),
                 "timed_out": False,
+                "verdict": "RE",
             }
 
         actual_lines = [line.rstrip("\n") for line in stdout.splitlines()]
@@ -882,6 +1072,7 @@ def run_single_test(
             "memory": peak_mb,
             "error": "",
             "timed_out": False,
+            "verdict": "AC" if passed else "WA",
         }
 
     except OSError as exc:
@@ -898,6 +1089,7 @@ def run_single_test(
             "memory": 0.0,
             "error": str(exc),
             "timed_out": False,
+            "verdict": "RE",
         }
 
 
@@ -922,15 +1114,8 @@ def run_tests(
         cases      (list)  — детальные результаты по каждому кейсу
     """
     test_cases = load_test_cases(test_dir)
-    # Определяем режим запуска один раз для всех тест-кейсов
-    # (устраняет рассинхронизацию между .type-файлами, meta.json и AST)
-    run_mode = _detect_run_mode(solution_path, test_dir)
-    # Переопределяем test_type для всех кейсов если режим определён на уровне файла
-    # (например, AST показал function-only, но .type-файлов нет)
-    if run_mode == "function":
-        for case in test_cases:
-            if case.test_type == "stdin":
-                case.test_type = "function"
+    # Определяем режим запуска один раз для всех тест-кейсов.
+    _apply_run_mode_override(test_cases, solution_path, test_dir)
 
     results = []
     total_time = 0.0
@@ -958,16 +1143,7 @@ def run_tests(
                 first_fail = case.index
 
         if verbose:
-            icon = "\u2713" if r["passed"] else "\u2717"
-            print(f"  {icon} Test {case.index}", end="")
-            if r["error"]:
-                print(f" [ERROR: {r['error']}]")
-            elif not r["passed"]:
-                print(" [FAIL]")
-                if r["diff"]:
-                    print(r["diff"])
-            else:
-                print()
+            _print_case_verbose(case, r)
 
     total = len(test_cases)
     avg_time = total_time / total if total else 0.0
@@ -1008,11 +1184,7 @@ def run_benchmark(
     test_cases = load_test_cases(test_dir)
     # Определяем режим запуска один раз — как в run_tests().
     # Иначе function-mode задачи прогоняются в неверном stdin-режиме.
-    run_mode = _detect_run_mode(solution_path, test_dir)
-    if run_mode == "function":
-        for case in test_cases:
-            if case.test_type == "stdin":
-                case.test_type = "function"
+    _apply_run_mode_override(test_cases, solution_path, test_dir)
 
     times: list[float] = []
     peak_mb = 0.0
@@ -1068,8 +1240,12 @@ def run_microbench(
     # чтобы _reset_stdin была доступна в глобальном пространстве stmt.
     # stmt — строка, выполняемая timeit; globals не пробрасываются через repeat()
     # в Python 3.14+, поэтому инжектируем функцию через builtins.
+    # stdout решения подавляется на время замера: иначе его print()-вывод
+    # попадает на stdout вперемешку с таймингами и портит парсинг.
+    # Реальный stdout сохраняется и восстанавливается только для печати таймингов,
+    # так что на stdout оказываются ИСКЛЮЧИТЕЛЬНО 5 чисел-таймингов.
     bench_script = (
-        "import timeit as _timeit, sys as _sys, io as _io, builtins as _builtins\n"
+        "import timeit as _timeit, sys as _sys, io as _io, os as _os, builtins as _builtins\n"
         "_stdin = " + repr(stdin_data) + "\n"
         "def _reset_stdin():\n"
         "    _sys.stdin = _io.StringIO(_stdin)\n"
@@ -1079,12 +1255,19 @@ def run_microbench(
         "    _code = _f.read()\n"
         "_stmt = '_reset_stdin()\\n' + _code\n"
         f"_number = {number}\n"
-        "_times = _timeit.repeat(\n"
-        "    stmt=_stmt,\n"
-        "    setup='pass',\n"
-        "    repeat=5,\n"
-        f"    number=_number,\n"
-        ")\n"
+        "_real_stdout = _sys.stdout\n"
+        "_devnull = open(_os.devnull, 'w')\n"
+        "_sys.stdout = _devnull\n"
+        "try:\n"
+        "    _times = _timeit.repeat(\n"
+        "        stmt=_stmt,\n"
+        "        setup='pass',\n"
+        "        repeat=5,\n"
+        "        number=_number,\n"
+        "    )\n"
+        "finally:\n"
+        "    _sys.stdout = _real_stdout\n"
+        "    _devnull.close()\n"
         "_per = [t / _number for t in _times]\n"
         "print('\\n'.join(str(t) for t in _per))\n"
     )
@@ -1344,13 +1527,12 @@ def _interactive_menu() -> None:
             print(f"Test directory not found: {test_dir}")
             return
 
-        result = run_tests(solution, test_dir, verbose=False)
+        result = run_tests(solution, test_dir, verbose=True)
 
         col_file = 28
         print()
-        print_correctness_header(col_file=col_file)
         base = pathlib.Path(solution).resolve().parent.as_posix()
-        print(format_correctness_row(solution, base, result, col_file=col_file))
+        print_correctness_results([(solution, result)], base, col_file=col_file)
 
     elif choice == "2":
         directory = input("Enter path to folder: ").strip()
@@ -1365,13 +1547,14 @@ def _interactive_menu() -> None:
 
         col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
 
-        print_correctness_header(col_file=col_file)
-        for path in scripts:
+        rows: list[tuple[str, dict[str, Any]]] = []
+        for path in _rich_track(scripts, description="Проверка решений..."):
             individual_test_dir = _resolve_test_dir(path)
             if not os.path.isdir(individual_test_dir):
                 individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
             result = run_tests(path, individual_test_dir, verbose=False)
-            print(format_correctness_row(path, directory, result, col_file=col_file))
+            rows.append((path, result))
+        print_correctness_results(rows, directory, col_file=col_file)
 
     elif choice == "3":
         directory = input("Enter path to folder: ").strip()
@@ -1387,7 +1570,7 @@ def _interactive_menu() -> None:
         repeats = _ask_bench_profile()
 
         results: dict[str, dict[str, Any]] = {}
-        for path in scripts:
+        for path in _rich_track(scripts, description="Бенчмарк решений..."):
             individual_test_dir = _resolve_test_dir(path)
             if not os.path.isdir(individual_test_dir):
                 individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
@@ -1401,9 +1584,8 @@ def _interactive_menu() -> None:
                 v["verdict"] = _verdict(v["relative"])
 
         col = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
-        print_benchmark_header(col_file=col)
-        for path, data in sorted(ok.items(), key=lambda x: x[1]["median"]):
-            print(format_benchmark_row(path, directory, data, col_file=col))
+        ranked = sorted(ok.items(), key=lambda x: x[1]["median"])
+        print_benchmark_results(ranked, directory, col_file=col)
 
         for path, data in sorted(results.items()):
             if data.get("error"):
@@ -1449,9 +1631,8 @@ def _interactive_menu() -> None:
             col = max((len(os.path.relpath(p, directory)) for p in paths), default=20) + 2
 
             if ok_rows:
-                print_benchmark_header(col_file=col)
-                for path, data in sorted(ok_rows.items(), key=lambda x: x[1]["median"]):
-                    print(format_benchmark_row(path, directory, data, col_file=col))
+                ranked = sorted(ok_rows.items(), key=lambda x: x[1]["median"])
+                print_benchmark_results(ranked, directory, col_file=col)
 
             for path, data in sorted(bench.items()):
                 if data.get("error"):
