@@ -90,17 +90,17 @@ oauth_flow.py        ──→  storage.py
 Слои (снизу вверх):
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Domain / Application                           │
+┌─────────────────────────────────────────────────────┐
+│  Domain / Application                               │
 │  downloader.py  │  grader.py  │  diagnostik_stepik  │
-├─────────────────────────────────────────────────┤
-│  Infrastructure                                 │
-│  stepik_client.py  │  executor.py               │
-│  microbench_runner.py  │  oauth_flow.py          │
-├─────────────────────────────────────────────────┤
-│  Infrastructure / Utilities  (leaf, no deps)    │
-│  storage.py  │  normalizers.py                  │
-└─────────────────────────────────────────────────┘
+├─────────────────────────────────────────────────────┤
+│  Infrastructure                                     │
+│  stepik_client.py  │  executor.py                   │
+│  microbench_runner.py  │  oauth_flow.py             │
+├─────────────────────────────────────────────────────┤
+│  Infrastructure / Utilities  (leaf, no deps)        │
+│  storage.py  │  normalizers.py                      │
+└─────────────────────────────────────────────────────┘
 ```
 
 `storage.py` и `normalizers.py` — leaf-модули: не импортируют ничего из проекта, легко тестируются изолированно.
