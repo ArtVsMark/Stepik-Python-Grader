@@ -2,12 +2,9 @@
 
 Покрывает:
     - load_text_lines                  — загрузка файла построчно
-    - load_text_lines_with_encoding    — загрузка + возврат кодировки
     - load_test_cases                  — чтение тест-кейсов из директории
-    - resolve_input_path               — резолюция пути
     - find_all_solution_files          — поиск файлов-решений
     - collect_grouped_files            — группировка файлов по задачам
-    - build_input_data                 — формирование stdin
 """
 
 from __future__ import annotations
@@ -17,13 +14,10 @@ import pathlib
 from grader import (
     TestCase,
     _resolve_test_dir,
-    build_input_data,
     collect_grouped_files,
     find_all_solution_files,
     load_test_cases,
     load_text_lines,
-    load_text_lines_with_encoding,
-    resolve_input_path,
 )
 
 # ===========================================================================
@@ -99,45 +93,6 @@ class TestLoadTextLines:
 
 
 # ===========================================================================
-# load_text_lines_with_encoding
-# ===========================================================================
-
-
-class TestLoadTextLinesWithEncoding:
-    """Загрузка + возврат кодировки."""
-
-    def test_returns_tuple(self, tmp_path: pathlib.Path) -> None:
-        """Функция возвращает кортеж (list, str | None)."""
-        f = tmp_path / "t.txt"
-        f.write_text("hello", encoding="utf-8")
-        result = load_text_lines_with_encoding(str(f))
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-
-    def test_lines_match_load_text_lines(self, tmp_path: pathlib.Path) -> None:
-        """Первый элемент совпадает с load_text_lines."""
-        f = tmp_path / "t.txt"
-        f.write_text("line1\nline2", encoding="utf-8")
-        lines, _ = load_text_lines_with_encoding(str(f))
-        assert lines == load_text_lines(str(f))
-
-    def test_encoding_is_string_or_none(self, tmp_path: pathlib.Path) -> None:
-        """Второй элемент — строка или None."""
-        f = tmp_path / "t.txt"
-        f.write_text("test", encoding="utf-8")
-        _, enc = load_text_lines_with_encoding(str(f))
-        assert enc is None or isinstance(enc, str)
-
-    def test_utf8_encoding_detected(self, tmp_path: pathlib.Path) -> None:
-        """Для UTF-8 файла кодировка содержит ascii или utf."""
-        f = tmp_path / "t.txt"
-        f.write_text("hello world", encoding="utf-8")
-        _, enc = load_text_lines_with_encoding(str(f))
-        assert enc is not None
-        assert "utf" in enc.lower() or "ascii" in enc.lower()
-
-
-# ===========================================================================
 # load_test_cases
 # ===========================================================================
 
@@ -185,41 +140,6 @@ class TestLoadTestCases:
         cases = load_test_cases(str(tests_dir))
         assert cases[0].index == 1
         assert cases[1].index == 2
-
-
-# ===========================================================================
-# resolve_input_path
-# ===========================================================================
-
-
-class TestResolveInputPath:
-    """Резолюция пользовательского ввода в Path."""
-
-    def test_relative_path_joined_to_base(self, tmp_path: pathlib.Path) -> None:
-        """Относительный путь присоединяется к base_dir."""
-        result = resolve_input_path("subfolder/task.py", tmp_path)
-        assert result == tmp_path / "subfolder" / "task.py"
-
-    def test_absolute_path_returned_as_is(self, tmp_path: pathlib.Path) -> None:
-        """Абсолютный путь возвращается без изменений."""
-        abs_path = str(tmp_path / "task.py")
-        result = resolve_input_path(abs_path, tmp_path)
-        assert result == pathlib.Path(abs_path)
-
-    def test_strips_whitespace(self, tmp_path: pathlib.Path) -> None:
-        """Пробелы в начале/конце удаляются (.strip())."""
-        result = resolve_input_path("  task.py  ", tmp_path)
-        assert result == tmp_path / "task.py"
-
-    def test_returns_path_instance(self, tmp_path: pathlib.Path) -> None:
-        """Возвращает экземпляр pathlib.Path."""
-        result = resolve_input_path("task.py", tmp_path)
-        assert isinstance(result, pathlib.Path)
-
-    def test_nested_relative_path(self, tmp_path: pathlib.Path) -> None:
-        """Вложенный относительный путь разрешается полностью."""
-        result = resolve_input_path("a/b/c/task.py", tmp_path)
-        assert result == tmp_path / "a" / "b" / "c" / "task.py"
 
 
 # ===========================================================================
@@ -353,46 +273,3 @@ class TestCollectGroupedFiles:
         grouped = collect_grouped_files(str(tmp_path))
         for key in grouped:
             assert not pathlib.Path(key).is_absolute()
-
-
-# ===========================================================================
-# build_input_data
-# ===========================================================================
-
-
-class TestBuildInputData:
-    """Формирование stdin-строки для subprocess."""
-
-    def test_script_mode_returns_input_only(self) -> None:
-        """Для скрипта stdin = только входные данные."""
-        result = build_input_data("print(1)", ["5", "10"], is_function_mode=False)
-        assert result == "5\n10"
-
-    def test_function_mode_prepends_source(self) -> None:
-        """Для function-only stdin = исходник + входные данные."""
-        source = "def solve(n):\n    return n * 2"
-        result = build_input_data(source, ["5"], is_function_mode=True)
-        assert result.startswith("def solve(n):")
-        assert result.endswith("5")
-
-    def test_function_mode_source_and_input_separated_by_newline(self) -> None:
-        """Исходник и input разделены \\n."""
-        source = "def f(x): return x"
-        result = build_input_data(source, ["42"], is_function_mode=True)
-        assert "\n" in result
-        lines = result.splitlines()
-        assert lines[0] == "def f(x): return x"
-        assert lines[-1] == "42"
-
-    def test_script_empty_input(self) -> None:
-        """Пустые input_lines → пустая строка."""
-        result = build_input_data("print(1)", [], is_function_mode=False)
-        assert result == ""
-
-    def test_function_multiline_input(self) -> None:
-        """Многострочный input корректно добавляется после исходника."""
-        source = "def f(a, b): return a + b"
-        result = build_input_data(source, ["3", "1 2 3"], is_function_mode=True)
-        lines = result.splitlines()
-        assert lines[-2] == "3"
-        assert lines[-1] == "1 2 3"

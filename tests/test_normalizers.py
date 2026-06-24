@@ -1,10 +1,11 @@
 """Tests for normalizers.py and grader._normalize_output_line.
 
-normalizers.py is currently DEAD CODE — grader.py uses its own inline
-_normalize_output_line. These tests pin down BOTH implementations and document
-exactly where they agree and where they diverge, which is critical for a safe
-refactoring: the merge must keep grader's _normalize_output_line semantics (the
-live path used by run_single_test), not silently swap in normalize_floats.
+normalizers.py is a live module: grader.py imports normalize_floats from it.
+grader.py also keeps its own inline _normalize_output_line. These tests pin down
+BOTH implementations and document exactly where they agree and where they
+diverge, which is critical for a safe refactoring: the merge must keep grader's
+_normalize_output_line semantics (the live path used by run_single_test), not
+silently swap in normalize_floats.
 """
 
 import grader

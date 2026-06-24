@@ -1,15 +1,15 @@
 """Tests for grader.run_microbench and grader.run_microbench_mode.
 
 These tests pin down the CURRENT live behavior of grader.py's inline timeit
-microbenchmark, so that a future refactoring (merging microbench_runner.py
-into grader.py) can be validated against them.
+microbenchmark, so that a future refactoring (consolidating the inline path
+with microbench_runner.py) can be validated against them.
 
 The most important behavior covered here is the stdout-isolation fix from
 commit 15b9912: while timeit runs the solution, the solution's own stdout is
 redirected to os.devnull. Without this, every print()ed line lands on stdout
 mixed with the timing numbers and corrupts the parse (or, worse, a numeric
-print like "10" gets parsed as a bogus timing). The dead module
-microbench_runner.py does NOT have this fix.
+print like "10" gets parsed as a bogus timing). microbench_runner.py — now
+imported by grader.py via run_microbench — does NOT have this fix.
 """
 
 from __future__ import annotations

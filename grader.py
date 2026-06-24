@@ -83,6 +83,7 @@ MICROBENCH_MAX_CASES: int = 5
 
 @dataclass
 class TestCase:
+    __test__ = False  # prevent pytest from collecting this as a test class
     index: int
     input_lines: list[str]
     expected_lines: list[str]
@@ -444,37 +445,10 @@ def run_microbench_mode(
     return results
 
 
-# NOTE: Currently unused.
-def resolve_input_path(raw_path: str, base_dir: pathlib.Path) -> pathlib.Path:
-    """Вернуть абсолютный путь к файлу входных данных.
-
-    Если raw_path абсолютный — вернуть как есть.
-    Если относительный — объединить с base_dir.
-    """
-    p = pathlib.Path(raw_path.strip())
-    if p.is_absolute():
-        return p
-    return base_dir / p
-
-
 def load_text_lines(file_path: str) -> list[str]:
     """Загрузить текстовый файл и вернуть список строк без завершающих переносов."""
     with open(file_path, encoding=ENCODING) as f:
         return [line.rstrip("\n") for line in f]
-
-
-# NOTE: Currently unused. Only user of chardet.
-def load_text_lines_with_encoding(file_path: str) -> tuple[list[str], str | None]:
-    """Загрузить текстовый файл и вернуть (строки, кодировка)."""
-    import chardet
-
-    with open(file_path, "rb") as f:
-        raw = f.read()
-    detected = chardet.detect(raw)
-    encoding = detected.get("encoding")
-    lines = raw.decode(encoding or ENCODING).splitlines()
-    lines = [line.rstrip("\n") for line in lines]
-    return lines, encoding
 
 
 def _parse_testblock_file(text: str) -> list[str]:
@@ -655,35 +629,6 @@ def _resolve_test_dir(solution_path: str) -> str:
             return str(parent)
 
     return str(candidate_tests)
-
-
-# NOTE: Currently unused.
-def build_input_data(
-    source_code: str,
-    input_lines: list[str],
-    *,
-    is_function_mode: bool = False,
-) -> str:
-    """Собрать stdin-строку для передачи в subprocess.
-
-    Для stdin-режима (is_function_mode=False):
-        Возвращает только input_lines, соединённые через \n.
-        Пустой список → пустая строка.
-
-    Для function-режима (is_function_mode=True):
-        Предваряет source_code перед input_lines:
-        Это позволяет передавать полный контекст executor'у
-        (источник + данные) как единую stdin-строку.
-    """
-    if not input_lines:
-        if is_function_mode:
-            return source_code
-        return ""
-
-    joined = "\n".join(input_lines)
-    if is_function_mode:
-        return source_code + "\n" + joined
-    return joined
 
 
 def _measure_peak_memory(
@@ -1225,100 +1170,6 @@ def _verdict(relative: float) -> str:
 
 
 _SEP = "-" * 92
-
-
-# ---------------------------------------------------------------------------
-# Stepik API  (не используется в меню — зарезервировано для будущей интеграции)
-# ---------------------------------------------------------------------------
-
-
-def fetch_stepik_tests(
-    lesson_id: int,
-    step_position: int,
-    *,
-    secrets_file: str = "secrets.json",
-    config_file: str = "stepik_config.json",
-    output_dir: str | None = None,
-) -> str:
-    """Загрузить тест-кейсы из Stepik API и сохранить в директорию.
-
-    Возвращает путь к созданной директории с тестами.
-    Raises RuntimeError при ошибках авторизации или отсутствии тестов.
-
-    Примечание: функция не вызывается из интерактивного меню.
-    Для полноценной загрузки задач используй downloader.py.
-    """
-    import json
-
-    import requests
-
-    secrets_path = pathlib.Path(secrets_file)
-    if not secrets_path.exists():
-        raise RuntimeError(f"Secrets file not found: {secrets_file}")
-
-    with open(secrets_path, encoding=ENCODING) as f:
-        secrets = json.load(f)
-
-    client_id = secrets.get("client_id")
-    client_secret = secrets.get("client_secret")
-
-    if not client_id or not client_secret:
-        raise RuntimeError("client_id / client_secret not found in secrets file")
-
-    token_resp = requests.post(
-        "https://stepik.org/oauth2/token/",
-        data={
-            "grant_type": "client_credentials",
-            "client_id": client_id,
-            "client_secret": client_secret,
-        },
-        timeout=15,
-    )
-    token_resp.raise_for_status()
-    token = token_resp.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
-
-    lessons_resp = requests.get(
-        f"https://stepik.org/api/lessons/{lesson_id}",
-        headers=headers,
-        timeout=15,
-    )
-    lessons_resp.raise_for_status()
-    steps = lessons_resp.json()["lessons"][0]["steps"]
-    if step_position < 1 or step_position > len(steps):
-        raise RuntimeError(f"Step position {step_position} out of range (1..{len(steps)})")
-    step_id = steps[step_position - 1]
-
-    step_resp = requests.get(
-        f"https://stepik.org/api/steps/{step_id}",
-        headers=headers,
-        timeout=15,
-    )
-    step_resp.raise_for_status()
-    step_data = step_resp.json()["steps"][0]
-    block = step_data.get("block", {})
-    test_cases_raw = block.get("options", {}).get("code_templates", [])
-
-    if not test_cases_raw:
-        samples = block.get("options", {}).get("samples", [])
-        test_cases_raw = [{"input": s[0], "output": s[1]} for s in samples]
-
-    if not test_cases_raw:
-        raise RuntimeError("No test cases found in step")
-
-    if output_dir is None:
-        output_dir = f"tests_lesson{lesson_id}_step{step_position}"
-
-    out_path = pathlib.Path(output_dir)
-    out_path.mkdir(parents=True, exist_ok=True)
-
-    for idx, tc in enumerate(test_cases_raw, start=1):
-        inp = tc.get("input", "")
-        out = tc.get("output", "") or tc.get("stdout", "")
-        (out_path / f"input_{idx}.txt").write_text(inp, encoding=ENCODING)
-        (out_path / f"expected_{idx}.txt").write_text(out, encoding=ENCODING)
-
-    return str(out_path)
 
 
 # ---------------------------------------------------------------------------

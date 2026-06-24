@@ -3,13 +3,13 @@
 Public API:
     run_solution(source, stdin, timeout) -> RunResult
 
-CLI entry point (используется test.py как subprocess):
+CLI entry point (используется grader.py как subprocess):
     python executor.py — читает код из stdin, выполняет в изолированном namespace.
 
 Тайм-аут:
     Unix: SIGALRM (точный, внутри процесса).
     Windows: SIGALRM недоступен — защита обеспечивается через
-             subprocess.run(timeout=...) в test.py (SUBPROCESS_TIMEOUT).
+             subprocess.run(timeout=...) в grader.py (SUBPROCESS_TIMEOUT).
 """
 
 from __future__ import annotations
@@ -77,7 +77,7 @@ def run_solution(
         )
         # stdin переданного решения идёт через source_code (executor читает код из stdin);
         # для передачи данных в input() внутри решения нужно использовать
-        # схему: executor_file + отдельный stdin — это делает test.py.
+        # схему: executor_file + отдельный stdin — это делает grader.py.
         # run_solution — упрощённый API для тестов и диагностики.
         _ = stdin  # зарезервировано для будущего расширения
         return RunResult(
@@ -104,13 +104,13 @@ def _timeout_handler(_signum: int, _frame: object) -> None:
 def main() -> None:
     """Читает код из stdin и выполняет его в изолированном namespace.
 
-    Безопасность: executor.py запускается как дочерний subprocess из test.py,
+    Безопасность: executor.py запускается как дочерний subprocess из grader.py,
     поэтому __builtins__ передаётся без ограничений — изоляция обеспечивается
     на уровне процесса, а не namespace.
 
     Тайм-аут на Unix: SIGALRM.
     На Windows: SIGALRM недоступен, защита от зависания обеспечивается
-    через SUBPROCESS_TIMEOUT в test.py (на уровне subprocess.run).
+    через SUBPROCESS_TIMEOUT в grader.py (на уровне subprocess.run).
     """
     source: str = sys.stdin.read()
     compiled: types.CodeType = compile(source, "<solution>", "exec")

@@ -68,12 +68,19 @@
 ```
 downloader.py          ──→  storage.py
 downloader.py          ──→  stepik_client.py
+downloader.py          ──→  grader.py           ← локальный импорт _parse_testblock_file
 stepik_client.py     ──→  storage.py
 grader.py              ──→  executor.py
 grader.py              ──→  microbench_runner.py
 grader.py              ──→  normalizers.py
 diagnostik_stepik.py ──→  stepik_client.py
+diagnostik_stepik.py ──→  downloader.py       ← parse_stepik_step_url
 ```
+
+Ребро `downloader.py ──→ grader.py` — это **локальный** импорт внутри функции
+(`_download_github_tests`), а не импорт на уровне модуля. Сделан локальным
+намеренно, чтобы избежать циклического импорта на уровне модулей и не нарушать
+слоистость, заявленную ниже.
 
 Слои (снизу вверх):
 
@@ -432,7 +439,7 @@ module1/
 | *(файл отсутствует)* | stdin-задача | входные данные подаются через `stdin` |
 | `function` | function-style задача | входные данные — объявление переменной (`x = 5`), передаётся через `exec` |
 
-Кодировка определяется автоматически через `chardet`.
+Файлы тестов читаются в кодировке UTF-8.
 
 > При скачивании задачи через `downloader.py` файлы `tests/N`, `tests/N.clue` и при необходимости `tests/N.type`
 > создаются **автоматически** из ZIP-архива или HTML-таблицы в тексте задачи.
@@ -516,7 +523,6 @@ MICROBENCH_MAX_CASES = 5
 |-------|------------|----------------|
 | `requests>=2.34` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `stepik_client.py`, `downloader.py` |
 | `psutil>=5.9` | Замер памяти и мониторинг процессов | `grader.py`, `executor.py` |
-| `chardet>=5.0` | Авто-определение кодировки файлов | `executor.py` |
 | `rich>=13.0` | Цветные таблицы, прогресс-бар, WA diff в терминале | `grader.py` |
 
 Dev-зависимости (`pip install -e ".[dev]"`):
