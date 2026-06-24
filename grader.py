@@ -113,9 +113,7 @@ def _is_safe_constant(node: ast.expr) -> bool:
     """
     if isinstance(node, ast.Constant):
         return True
-    if isinstance(node, ast.UnaryOp) and isinstance(
-        node.op, (ast.USub, ast.UAdd, ast.Invert)
-    ):
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd, ast.Invert)):
         return _is_safe_constant(node.operand)
     if isinstance(node, ast.BinOp):
         return _is_safe_constant(node.left) and _is_safe_constant(node.right)
@@ -164,18 +162,14 @@ def is_function_only_solution(file_content: str) -> bool:
         if isinstance(node, ast.Expr):
             # Разрешаем только строковые литералы (docstring модуля)
             # Любой вызов (print/input/my_func()) → это скрипт
-            if isinstance(node.value, ast.Constant) and isinstance(
-                node.value.value, str
-            ):
+            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
                 continue
             return False
 
         # Присваивания разрешены всегда: date1 = date(...), MOD = 10**9+7, data = []
         # Это типичный паттерн Stepik-шаблонов — значение не проверяем
 
-    return any(
-        isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body
-    )
+    return any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)
 
 
 def is_solution_file(file_name: str) -> bool:
@@ -218,12 +212,7 @@ def format_correctness_row(
     """Сформатировать строку таблицы корректности для режимов 1 и 2."""
     total = result["total"]
     passed = result["passed"]
-    ok = (
-        passed == total
-        and result["failed"] == 0
-        and result["errors"] == 0
-        and total > 0
-    )
+    ok = passed == total and result["failed"] == 0 and result["errors"] == 0 and total > 0
     status = "OK" if ok else "FAIL"
     rel = os.path.relpath(path, base_dir)
     total_t = result["total_time"]
@@ -248,9 +237,7 @@ def print_correctness_header(*, col_file: int) -> None:
     print(_SEP)
 
 
-def format_benchmark_row(
-    path: str, base_dir: str, data: dict[str, Any], *, col_file: int
-) -> str:
+def format_benchmark_row(path: str, base_dir: str, data: dict[str, Any], *, col_file: int) -> str:
     """Сформатировать строку benchmark-таблицы для режимов 3 и 4."""
     rel_path = os.path.relpath(path, base_dir)
     return (
@@ -301,12 +288,7 @@ _VERDICT_COLORS: dict[str, str] = {
 def _correctness_status(result: dict[str, Any]) -> str:
     """Вернуть "OK"/"FAIL" для строки таблицы корректности."""
     total = result["total"]
-    ok = (
-        result["passed"] == total
-        and result["failed"] == 0
-        and result["errors"] == 0
-        and total > 0
-    )
+    ok = result["passed"] == total and result["failed"] == 0 and result["errors"] == 0 and total > 0
     return "OK" if ok else "FAIL"
 
 
@@ -451,9 +433,7 @@ def run_microbench_mode(
                 for _ in range(sub_repeats):
                     r = run_single_test(path, case, timeout=60.0)
                     if r["error"] or r["timed_out"]:
-                        results[path] = {
-                            "error": f"test {case.index}: {r['error'] or 'timeout'}"
-                        }
+                        results[path] = {"error": f"test {case.index}: {r['error'] or 'timeout'}"}
                         break
                     case_times.append(r["time"])
                 else:
@@ -579,9 +559,7 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
         input_blocks = _parse_testblock_file(input_text)
         output_blocks = _parse_testblock_file(output_text)
         if input_blocks and output_blocks:
-            for i, (inp, out) in enumerate(
-                zip(input_blocks, output_blocks, strict=False), 1
-            ):
+            for i, (inp, out) in enumerate(zip(input_blocks, output_blocks, strict=False), 1):
                 test_type = "function" if _is_python_code_block(inp) else "stdin"
                 cases.append(
                     TestCase(
@@ -605,9 +583,7 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
             input_lines = load_text_lines(str(inp_file))
             expected_lines = load_text_lines(str(exp_file))
             cases.append(
-                TestCase(
-                    index=idx, input_lines=input_lines, expected_lines=expected_lines
-                )
+                TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines)
             )
             continue
 
@@ -797,9 +773,7 @@ def _apply_run_mode_override(
     return cases
 
 
-def _build_function_wrapper(
-    solution_path: str, input_data: str, function_name: str
-) -> str:
+def _build_function_wrapper(solution_path: str, input_data: str, function_name: str) -> str:
     """Генерирует исходный код скрипта-обёртки для function-mode запуска.
 
     Стратегия передачи аргументов — позиционная через inspect.signature:
@@ -922,9 +896,7 @@ def run_single_test(
             wrapper_src = _build_call_wrapper(solution_path, input_data)
         else:
             # legacy function-mode: блок задаёт переменные, вызов собираем сами
-            func_name = _read_meta_function_name(solution_path) or _ast_function_name(
-                solution_path
-            )
+            func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
             if func_name is None:
                 return {
                     "passed": False,
@@ -986,9 +958,7 @@ def run_single_test(
             mem_thread.start()
 
         try:
-            stdout_bytes, stderr_bytes = proc.communicate(
-                input=stdin_bytes, timeout=timeout
-            )
+            stdout_bytes, stderr_bytes = proc.communicate(input=stdin_bytes, timeout=timeout)
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.communicate()
@@ -1363,17 +1333,13 @@ def _interactive_menu() -> None:
             print("No solution files found.")
             return
 
-        col_file = (
-            max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
-        )
+        col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
 
         rows: list[tuple[str, dict[str, Any]]] = []
         for path in _rich_track(scripts, description="Проверка решений..."):
             individual_test_dir = _resolve_test_dir(path)
             if not os.path.isdir(individual_test_dir):
-                individual_test_dir = _resolve_test_dir_from_input(
-                    directory, is_dir=True
-                )
+                individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
             result = run_tests(path, individual_test_dir, verbose=False)
             rows.append((path, result))
         print_correctness_results(rows, directory, col_file=col_file)
@@ -1395,9 +1361,7 @@ def _interactive_menu() -> None:
         for path in _rich_track(scripts, description="Бенчмарк решений..."):
             individual_test_dir = _resolve_test_dir(path)
             if not os.path.isdir(individual_test_dir):
-                individual_test_dir = _resolve_test_dir_from_input(
-                    directory, is_dir=True
-                )
+                individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
             results[path] = run_benchmark(path, individual_test_dir, repeats=repeats)
 
         ok = {k: v for k, v in results.items() if not v.get("error")}
@@ -1452,9 +1416,7 @@ def _interactive_menu() -> None:
 
             ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
 
-            col = (
-                max((len(os.path.relpath(p, directory)) for p in paths), default=20) + 2
-            )
+            col = max((len(os.path.relpath(p, directory)) for p in paths), default=20) + 2
 
             if ok_rows:
                 ranked = sorted(ok_rows.items(), key=lambda x: x[1]["median"])

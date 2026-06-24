@@ -41,9 +41,7 @@ class TestAuthorizeViaBrowser:
         }
         with (
             patch("stepik_client.webbrowser.open") as mock_open,
-            patch(
-                "stepik_client.wait_for_auth_code", return_value="CODE123"
-            ) as mock_wait,
+            patch("stepik_client.wait_for_auth_code", return_value="CODE123") as mock_wait,
             patch("stepik_client.requests.post", return_value=token_resp) as mock_post,
         ):
             result = authorize_via_browser("cid", "csecret", "http://localhost:8080/cb")
@@ -197,9 +195,7 @@ class TestFetchStepData:
             "meta": {"has_next": False},
         }
         session = MagicMock()
-        with patch(
-            "stepik_client._get_with_retry", side_effect=[page1, page2]
-        ) as mock_get:
+        with patch("stepik_client._get_with_retry", side_effect=[page1, page2]) as mock_get:
             step = fetch_step_data(session, lesson_id=5, step_position=3)
         assert step["id"] == 99
         assert mock_get.call_count == 2
@@ -221,9 +217,7 @@ class TestFetchSingletonHelpers:
     """fetch_lesson/unit/section/course — обёртки над _cached_api_get."""
 
     def test_fetch_lesson_ok(self):
-        with patch(
-            "stepik_client._cached_api_get", return_value={"lessons": [{"id": 7}]}
-        ):
+        with patch("stepik_client._cached_api_get", return_value={"lessons": [{"id": 7}]}):
             assert fetch_lesson_data(MagicMock(), 7)["id"] == 7
 
     def test_fetch_lesson_missing_raises(self):
@@ -233,17 +227,13 @@ class TestFetchSingletonHelpers:
 
     def test_fetch_unit_with_id(self):
         """unit_id передаётся в params."""
-        with patch(
-            "stepik_client._cached_api_get", return_value={"units": [{"id": 3}]}
-        ) as m:
+        with patch("stepik_client._cached_api_get", return_value={"units": [{"id": 3}]}) as m:
             assert fetch_unit_data(MagicMock(), 5, 3)["id"] == 3
         _, kwargs = m.call_args
         assert kwargs["params"] == {"lesson": 5, "id": 3}
 
     def test_fetch_unit_without_id(self):
-        with patch(
-            "stepik_client._cached_api_get", return_value={"units": [{"id": 9}]}
-        ) as m:
+        with patch("stepik_client._cached_api_get", return_value={"units": [{"id": 9}]}) as m:
             fetch_unit_data(MagicMock(), 5, None)
         _, kwargs = m.call_args
         assert "id" not in kwargs["params"]
@@ -254,18 +244,14 @@ class TestFetchSingletonHelpers:
                 fetch_unit_data(MagicMock(), 5, None)
 
     def test_fetch_section_ok_and_missing(self):
-        with patch(
-            "stepik_client._cached_api_get", return_value={"sections": [{"id": 2}]}
-        ):
+        with patch("stepik_client._cached_api_get", return_value={"sections": [{"id": 2}]}):
             assert fetch_section_data(MagicMock(), 2)["id"] == 2
         with patch("stepik_client._cached_api_get", return_value={"sections": []}):
             with pytest.raises(ValueError, match="Секция"):
                 fetch_section_data(MagicMock(), 2)
 
     def test_fetch_course_ok_and_missing(self):
-        with patch(
-            "stepik_client._cached_api_get", return_value={"courses": [{"id": 4}]}
-        ):
+        with patch("stepik_client._cached_api_get", return_value={"courses": [{"id": 4}]}):
             assert fetch_course_data(MagicMock(), 4)["id"] == 4
         with patch("stepik_client._cached_api_get", return_value={"courses": []}):
             with pytest.raises(ValueError, match="Курс"):

@@ -79,9 +79,7 @@ class TestConfigFunctions:
         downloader.save_json_file(cfg_path, {"root_dir": "r", "secrets_path": "s"})
         with (
             patch("builtins.input", return_value="y"),
-            patch(
-                "downloader.create_or_update_config", return_value={"new": 1}
-            ) as mock_create,
+            patch("downloader.create_or_update_config", return_value={"new": 1}) as mock_create,
         ):
             result = load_or_create_config(cfg_path)
         mock_create.assert_called_once()
@@ -133,9 +131,7 @@ class TestParseStepikStepUrl:
     """parse_stepik_step_url извлекает (lesson_id, step_position)."""
 
     def test_valid_url(self):
-        assert parse_stepik_step_url(
-            "https://stepik.org/lesson/569749/step/4?unit=1"
-        ) == (
+        assert parse_stepik_step_url("https://stepik.org/lesson/569749/step/4?unit=1") == (
             569749,
             4,
         )
@@ -225,9 +221,7 @@ class TestBuildTaskDirectory:
     """build_task_directory строит иерархический путь."""
 
     def test_with_step_title(self, tmp_path: pathlib.Path):
-        path = build_task_directory(
-            tmp_path, "Course", "Section", "Lesson", 4, "Step Title"
-        )
+        path = build_task_directory(tmp_path, "Course", "Section", "Lesson", 4, "Step Title")
         assert path.name == "04-step-title"
         assert path.parts[-4:] == ("course", "section", "lesson", "04-step-title")
 
@@ -275,9 +269,7 @@ class TestSaveTaskFiles:
     def test_no_text_returns_early(self, tmp_path: pathlib.Path):
         """Пустой block.text → task.md не создаётся, ранний выход."""
         step = self._step(text="")
-        save_task_files(
-            tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock()
-        )
+        save_task_files(tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock())
         assert not (tmp_path / "task.md").exists()
 
     def test_zip_source_used(self, tmp_path: pathlib.Path):
@@ -345,9 +337,7 @@ class TestSaveTaskFiles:
     def test_no_tests_anywhere(self, tmp_path: pathlib.Path):
         """Текст без ссылок и таблицы → файлы сохранены, тестов нет."""
         step = self._step(text="just some description text")
-        save_task_files(
-            tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock()
-        )
+        save_task_files(tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock())
         assert (tmp_path / "task.md").exists()
 
 
@@ -396,9 +386,7 @@ class TestMain:
         with (
             patch("downloader.load_or_create_config", return_value=cfg),
             patch("downloader.normalize_config_paths", return_value=cfg),
-            patch(
-                "downloader.load_secrets_dict", side_effect=RuntimeError("no secrets")
-            ),
+            patch("downloader.load_secrets_dict", side_effect=RuntimeError("no secrets")),
             patch("builtins.input") as mock_input,
         ):
             downloader.main()

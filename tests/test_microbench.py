@@ -73,9 +73,7 @@ def test_warmup_runs_constant_exists() -> None:
 
 def test_run_microbench_with_input() -> None:
     """Решение использующее input() корректно работает с stdin."""
-    result = run_microbench(
-        "n = int(input())\nprint(n * 2)\n", stdin_data="5\n", number=20
-    )
+    result = run_microbench("n = int(input())\nprint(n * 2)\n", stdin_data="5\n", number=20)
     assert not result["error"]
     assert len(result["times"]) == 5
 

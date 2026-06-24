@@ -34,9 +34,7 @@ OAUTH_TIMEOUT_SECONDS = 120
 # ---------------------------------------------------------------------------
 
 
-def create_user_session(
-    client_id: str, client_secret: str, redirect_uri: str
-) -> requests.Session:
+def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -> requests.Session:
     """Провести OAuth2-авторизацию и вернуть сессию с Bearer-токеном.
 
     Делегирует полный OAuth-flow в oauth_flow.authorize_via_browser.
@@ -69,9 +67,7 @@ def api_get(session: requests.Session, url: str) -> dict:  # type: ignore[type-a
     response.raise_for_status()
     content_type = response.headers.get("Content-Type", "")
     if "json" not in content_type.lower():
-        raise ValueError(
-            f"Ожидался JSON от API, но получен Content-Type: {content_type}"
-        )
+        raise ValueError(f"Ожидался JSON от API, но получен Content-Type: {content_type}")
     return response.json()  # type: ignore[return-value]
 
 
@@ -104,9 +100,7 @@ def get_step_data_by_position(
     if not steps:
         raise ValueError("В lesson нет списка steps.")
     if step_position < 1 or step_position > len(steps):
-        raise ValueError(
-            f"В уроке {len(steps)} шаг(ов), но запрошен step={step_position}"
-        )
+        raise ValueError(f"В уроке {len(steps)} шаг(ов), но запрошен step={step_position}")
     step_id = steps[step_position - 1]
     step_data = get_step_data(session, step_id)
     return step_id, lesson, step_data
@@ -125,9 +119,7 @@ def save_json(
     """Сохранить payload как JSON-файл в output_dir."""
     output_dir.mkdir(parents=True, exist_ok=True)
     file_path = output_dir / filename
-    file_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    file_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return file_path
 
 
@@ -237,26 +229,19 @@ def print_result_summary(
 def main() -> None:
     """Точка входа: диагностика шага Stepik через OAuth API."""
     step_url = input("Enter Stepik step URL: ").strip()
-    secrets_file = (
-        input("Enter secrets.json path [secrets.json]: ").strip() or "secrets.json"
-    )
+    secrets_file = input("Enter secrets.json path [secrets.json]: ").strip() or "secrets.json"
     output_dir_input = (
-        input("Enter diagnostics output dir [stepik_diagnostics]: ").strip()
-        or "stepik_diagnostics"
+        input("Enter diagnostics output dir [stepik_diagnostics]: ").strip() or "stepik_diagnostics"
     )
     output_dir = pathlib.Path(output_dir_input)
     try:
-        client_id, client_secret, redirect_uri = load_secrets(
-            pathlib.Path(secrets_file)
-        )
+        client_id, client_secret, redirect_uri = load_secrets(pathlib.Path(secrets_file))
         print("✅ secrets.json успешно прочитан.")
         lesson_id, step_position = parse_stepik_step_url(step_url)
         print(f"✅ URL распознан: lesson_id={lesson_id}, step={step_position}")
         session = create_user_session(client_id, client_secret, redirect_uri)
         print("✅ OAuth access token пользователя успешно получен.")
-        step_id, lesson, step_data = get_step_data_by_position(
-            session, lesson_id, step_position
-        )
+        step_id, lesson, step_data = get_step_data_by_position(session, lesson_id, step_position)
         print("✅ Step data получены через API /steps/{id}.")
     except Exception as error:  # noqa: BLE001
         print(f"❌ Ошибка диагностики: {error}")

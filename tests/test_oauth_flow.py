@@ -101,9 +101,7 @@ class TestLoadSecrets:
         """REFACTORING INVARIANT: blank required field raises ValueError."""
         secrets_file = tmp_path / "secrets.json"
         secrets_file.write_text(
-            json.dumps(
-                {"client_id": "id", "client_secret": "", "redirect_uri": "http://x/cb"}
-            ),
+            json.dumps({"client_id": "id", "client_secret": "", "redirect_uri": "http://x/cb"}),
             encoding="utf-8",
         )
         with pytest.raises(ValueError):
@@ -357,9 +355,7 @@ class TestRefreshAccessToken:
         mock_refresh.assert_not_called()
         mock_authorize.assert_not_called()
 
-    def test_create_user_session_falls_back_to_browser_on_refresh_failure(
-        self, tmp_path
-    ):
+    def test_create_user_session_falls_back_to_browser_on_refresh_failure(self, tmp_path):
         """When refresh fails with HTTPError, full browser OAuth flow runs.
 
         REFACTORING INVARIANT: refresh-failure fallback preserved.
@@ -421,9 +417,7 @@ class TestAuthorizeAndGetToken:
             "refresh_token": "fresh_r",
             "expires_at": 9999999999,
         }
-        monkeypatch.setattr(
-            oauth_flow, "authorize_via_browser", lambda *a, **k: dict(token_data)
-        )
+        monkeypatch.setattr(oauth_flow, "authorize_via_browser", lambda *a, **k: dict(token_data))
         result = authorize_and_get_token(
             "cid", "csecret", "http://localhost:8080/callback", secrets_path
         )
@@ -437,9 +431,7 @@ class TestAuthorizeAndGetToken:
         """When secrets_path does not exist, the tokens are written to a new file."""
         secrets_path = tmp_path / "new_secrets.json"
         token_data = {"access_token": "a", "refresh_token": "r", "expires_at": 1}
-        monkeypatch.setattr(
-            oauth_flow, "authorize_via_browser", lambda *a, **k: dict(token_data)
-        )
+        monkeypatch.setattr(oauth_flow, "authorize_via_browser", lambda *a, **k: dict(token_data))
         result = authorize_and_get_token("cid", "csecret", "http://x/cb", secrets_path)
         assert result == token_data
         assert secrets_path.exists()

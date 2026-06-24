@@ -87,9 +87,7 @@ def run_microbench(
     """
     # Передаём исходник через временный файл, а не heredoc-строку:
     # это исключает поломку на тройных кавычках (''' / \"\"\") в решении.
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".py", encoding=ENCODING, delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding=ENCODING, delete=False) as f:
         f.write(source_code)
         code_path = f.name
 
@@ -139,9 +137,7 @@ def run_microbench(
         )
         if result.returncode != 0:
             return {"times": [], "error": result.stderr.strip()}
-        times = [
-            float(line) for line in result.stdout.strip().splitlines() if line.strip()
-        ]
+        times = [float(line) for line in result.stdout.strip().splitlines() if line.strip()]
         return {"times": times, "error": ""}
     except subprocess.TimeoutExpired:
         return {"times": [], "error": "microbench timeout"}

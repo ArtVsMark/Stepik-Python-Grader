@@ -196,9 +196,7 @@ def authorize_via_browser(
     )
     response.raise_for_status()
     token_data: dict[str, Any] = response.json()
-    token_data["expires_at"] = time.time() + float(
-        str(token_data.get("expires_in", 3600))
-    )
+    token_data["expires_at"] = time.time() + float(str(token_data.get("expires_in", 3600)))
     return token_data
 
 
@@ -226,9 +224,7 @@ def create_user_session(
     if refresh_token:
         try:
             token_data = refresh_access_token(client_id, client_secret, refresh_token)
-            token_data["expires_at"] = time.time() + float(
-                str(token_data.get("expires_in", 3600))
-            )
+            token_data["expires_at"] = time.time() + float(str(token_data.get("expires_in", 3600)))
             secrets.update(token_data)
             save_secrets(secrets_path, secrets)
             return make_session(str(secrets["access_token"]))
@@ -274,9 +270,7 @@ def _get_with_retry(
             if attempt < retries - 1:
                 time.sleep(backoff * (2**attempt))
     if last_exc is None:
-        raise RuntimeError(
-            f"_get_with_retry called with retries={retries}, no attempts made"
-        )
+        raise RuntimeError(f"_get_with_retry called with retries={retries}, no attempts made")
     raise last_exc
 
 
@@ -313,9 +307,7 @@ def _cached_api_get(
     response = _get_with_retry(session, url, params=params)
     data: dict[str, Any] = response.json()
     try:
-        cache_file.write_text(
-            _json_mod.dumps(data, ensure_ascii=False), encoding="utf-8"
-        )
+        cache_file.write_text(_json_mod.dumps(data, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
     return data
