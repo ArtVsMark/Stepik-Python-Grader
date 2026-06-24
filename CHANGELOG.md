@@ -18,6 +18,20 @@
 - 25 новых тестов в `tests/test_oauth_flow.py` — `load_secrets`, `token_is_valid`, `wait_for_auth_code`, `OAuthHandler`, `authorize_and_get_token`; `oauth_flow.py` покрыт на 100%
 - Итого: **260 passed**, 0 failed, 0 warnings
 
+## [unreleased] / 2026-06-24 — Tooling, rename & cleanup
+
+### Added
+- GitHub Actions CI (`.github/workflows/ci.yml`): `pytest` + `ruff` на Python 3.11 и 3.12; бейдж CI добавлен в `README.md`
+- `pytest-cov>=5.0` в dev-зависимостях; `addopts` с `--cov` в `pyproject.toml`
+
+### Changed
+- Переименован `at_first.py` → `downloader.py`; все импорты и упоминания в README обновлены (`test.py` → `grader.py`)
+- Удалены дублирующие/сломанные workflow `lint.yml` и `test.yml`, оставлен единый `ci.yml`
+
+### Removed
+- Зависимость `chardet` удалена из `requirements.txt`/`pyproject.toml` и из кода (файлы тестов читаются в UTF-8)
+- Удалён мёртвый код; `microbench_runner.py` и `normalizers.py` помечены NOTE-комментариями как пока не импортируемые из `grader.py`
+
 ## [unreleased] / 2026-06-24 — Audit fixes + rich output
 
 ### Added

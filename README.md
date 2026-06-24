@@ -46,7 +46,7 @@
 | `executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; импортируется `grader.py` |
 | `normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace`; импортируется `grader.py` как `_normalize_output_line` |
-| `diagnostik_stepik.py` | Infrastructure | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
+| `diagnostik_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
 | `oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostik_stepik.py` |
 
 Основные возможности:
@@ -120,16 +120,34 @@ Stepik-Python-Grader/
 ├── normalizers.py             # Нормализация вывода: округление float, sort/whitespace
 ├── downloader.py                # Domain: конфиг, slugify, построение папок, оркестрация API
 ├── stepik_client.py           # Infrastructure: OAuth2, requests.Session, Stepik API
+├── oauth_flow.py              # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
 ├── storage.py                 # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── diagnostik_stepik.py       # Диагностика API и токена
-├── tests/
+├── conftest.py                # Pytest: collect_ignore для grader.py
+├── tests/                     # 260 тестов (pytest)
+│   ├── test_analyzer.py
+│   ├── test_downloader.py
 │   ├── test_executor.py
+│   ├── test_grader_core.py
+│   ├── test_integration_repos.py
+│   ├── test_loader.py
+│   ├── test_menu_modes.py
 │   ├── test_microbench.py
-│   └── test_slugify.py
+│   ├── test_microbench_grader.py
+│   ├── test_microbench_runner_module.py
+│   ├── test_normalizers.py
+│   ├── test_oauth_flow.py
+│   ├── test_slugify.py
+│   ├── test_stepik_client.py
+│   ├── test_storage.py
+│   └── test_testblock.py
+├── .github/workflows/ci.yml   # CI: pytest + ruff на Python 3.11/3.12
+├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
 ├── pyproject.toml             # Конфигурация проекта (ruff, pytest, зависимости)
 ├── requirements.txt           # Runtime-зависимости
 ├── secrets.json.example       # Шаблон файла с OAuth-токеном
 ├── stepik_config.json.example # Шаблон конфига Stepik
+├── CHANGELOG.md               # История изменений
 └── README.md
 ```
 
@@ -191,14 +209,16 @@ python grader.py
 При запуске появится меню:
 
 ```
-Choose mode:
-1 - test single file
-2 - compare all solutions in top-level folder
-3 - benchmark passed solutions
-4 - microbench (timeit, any solution type)
-Memory mode: parent process (fast, rough)
-Subprocess timeout: 10.0s per test
-Enter mode (1/2/3/4):
+==================================================
+  Stepik Python Grader
+==================================================
+  1. Check one solution
+  2. Check all solutions in folder
+  3. Benchmark solutions in folder
+  4. Micro-benchmark (timeit) for folder
+  0. Exit
+==================================================
+Select mode [0-4]:
 ```
 
 ---
@@ -330,10 +350,14 @@ OAuth-поток полностью реализован в `stepik_client.py` (
 Быстро прогнать одно решение:
 
 ```
-Enter path to solution file (relative or absolute): module1/task1/task1_1.py
+Enter path to solution file: module1/task1/task1_1.py
 
-module1/task1/task1_1.py: 5/5 tests, total=0.1234s, avg=0.0247s, peak_memory=25.30 MB, status=OK
+File                       Passed   Total time   Avg time   Memory, MB   Status   Fail test
+task1_1.py                    5/5       0.1234     0.0247        25.30       OK           -
 ```
+
+Результат выводится rich-таблицей (зелёный `OK`, красный `FAIL`); при провале
+теста в verbose-режиме печатается diff ожидаемого и фактического вывода.
 
 ### Режим 2 — Сравнение всех решений
 
@@ -342,7 +366,7 @@ module1/task1/task1_1.py: 5/5 tests, total=0.1234s, avg=0.0247s, peak_memory=25.
 ```
 📂 module1/task1
 --------------------------------------------------------------------
-File                       Passed   Total time   Avg time  Peak memory  Status  Fail test
+File                       Passed   Total time   Avg time   Memory, MB  Status  Fail test
 --------------------------------------------------------------------
 module1/task1/task1_1.py      5/5       0.1234     0.0247        25.30      OK          -
 module1/task1/task1_2.py      5/5       0.1456     0.0291        24.80      OK          -
@@ -492,15 +516,15 @@ StepikTasks/
 
 ### Таймаут subprocess
 
-В `grader.py` константа `SUBPROCESS_TIMEOUT` (по умолчанию `10.0` с) защищает от зависания:
+В `grader.py` константа `TIMEOUT_SECONDS` (по умолчанию `10.0` с) защищает от зависания:
 
 ```python
-SUBPROCESS_TIMEOUT = 10.0  # секунд
+TIMEOUT_SECONDS: float = 10.0  # секунд
 ```
 
 ### Таймаут executor
 
-В `executor.py` таймаут передаётся через переменную окружения `EXECUTOR_TIMEOUT` (по умолчанию `10` с). На Unix — `signal.alarm`; на Windows — `SUBPROCESS_TIMEOUT`:
+В `executor.py` таймаут передаётся через переменную окружения `EXECUTOR_TIMEOUT` (по умолчанию `10` с). На Unix — `signal.alarm`; на Windows (где `SIGALRM` недоступен) защита обеспечивается таймаутом subprocess уровня `grader.py` (`TIMEOUT_SECONDS`):
 
 ```python
 TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", "10"))
@@ -509,11 +533,11 @@ TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", "10"))
 ### Замер памяти дочернего процесса
 
 ```python
-MEASURE_CHILD_MEMORY = False  # True — честнее, но медленнее
+MEASURE_CHILD_MEMORY: bool = True  # False — быстрее, но грубее
 ```
 
+- `True` (по умолчанию) — мониторинг дочернего процесса через `psutil` в отдельном потоке (честнее, но медленнее)
 - `False` — RSS родительского процесса (быстро, приблизительно)
-- `True` — мониторинг дочернего процесса через `psutil` в отдельном потоке
 
 ### Лимит тест-кейсов для microbench
 
@@ -529,7 +553,7 @@ MICROBENCH_MAX_CASES = 5
 
 | Пакет | Назначение | Используется в |
 |-------|------------|----------------|
-| `requests>=2.34` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `stepik_client.py`, `downloader.py` |
+| `requests>=2.34.2` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `stepik_client.py`, `downloader.py` |
 | `psutil>=5.9` | Замер памяти и мониторинг процессов | `grader.py`, `executor.py` |
 | `rich>=13.0` | Цветные таблицы, прогресс-бар, WA diff в терминале | `grader.py` |
 
@@ -538,6 +562,7 @@ Dev-зависимости (`pip install -e ".[dev]"`):
 | Пакет | Назначение |
 |-------|------------|
 | `pytest>=8.2` | Тестирование |
+| `pytest-cov>=5.0` | Покрытие тестами (`--cov`) |
 | `ruff>=0.4` | Линтер и форматтер |
 
 ---
@@ -564,7 +589,7 @@ python diagnostik_stepik.py
 
 ## Ограничения и безопасность
 
-- **Режимы 1–3 (`executor.py`):** решения запускаются через отдельный subprocess. Код компилируется через `compile(source, "<solution>", "exec")` и выполняется в изолированном namespace `{"__builtins__": __builtins__}`. На Unix — `signal.alarm(TIMEOUT)`; на Windows — `SUBPROCESS_TIMEOUT`.
+- **Режимы 1–3 (`executor.py`):** решения запускаются через отдельный subprocess. Код компилируется через `compile(source, "<solution>", "exec")` и выполняется в изолированном namespace `{"__builtins__": __builtins__}`. На Unix — `signal.alarm(TIMEOUT)`; на Windows — таймаут subprocess уровня `grader.py` (`TIMEOUT_SECONDS`).
 - **Режим 4 (`microbench_runner.py`):** решения запускаются через subprocess (`python -c`) с `timeit.repeat`. Исходник передаётся через временный файл; `stdin` сбрасывается перед каждой итерацией, а `stdout` решения перенаправляется в `os.devnull` на время замера, чтобы его вывод не смешивался с числами-таймингами.
 - **Microbench без таймаута:** бесконечный цикл в решении подвесит grader. Используй только с проверенными решениями.
 - **Нет sandbox:** grader не изолирует файловую систему или сеть. Запускай только доверенные решения.
@@ -597,7 +622,9 @@ python diagnostik_stepik.py
 | Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
 | pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
 | Pre-commit хуки (ruff check + ruff format) | ❌ | ✅ |
-| Unit-тесты (19 тестов) | ❌ | ✅ |
+| Unit-тесты (260 тестов) | ❌ | ✅ |
+| OAuth2-фасад (`oauth_flow.py`) | ❌ | ✅ |
+| GitHub Actions CI (pytest + ruff) | ❌ | ✅ |
 
 ---
 
