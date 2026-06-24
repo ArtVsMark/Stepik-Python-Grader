@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased] — June 2026 — OOP/Samurai/Professional integration coverage
+
+### ✅ Tests added
+
+- `tests/test_integration_repos.py` — 11 end-to-end tests exercising the full
+  `run_tests` pipeline against real data from all three `python-generation`
+  repositories. No `grader.py` changes were required: the existing block
+  detection (`_is_python_code_block`) and call wrapper (`_build_call_wrapper`)
+  already handle every block type these repos use.
+  - **OOP Module_4.3.10** — `Vector` class instantiation, attribute access,
+    method calls, and a `for x, y in array:` loop over tuples.
+  - **OOP Module_7.1.23** — class hierarchy with `issubclass(...)` checks; all
+    class names resolve through `from solution import *`.
+  - **Samurai Module_2.10.15** — custom `InvalidDateError` raised inside
+    `try/except` blocks; the exception class is imported from the solution.
+  - **Professional Module_10.2.20** — `filterfalse` (covered by the injected
+    `from itertools import *`) plus an `import string` statement inside the
+    test block itself.
+  - **Samurai Module_13.1.1** — `group_ranges` function returning a list of
+    formatted strings.
+  - Negative control verifying the grader flags mismatched output, plus a
+    parametrized check that each representative block is classified as Python
+    code (function mode) rather than stdin.
+
 ## [Unreleased] — June 2026 — Module_2/4/6 block-detection fixes
 
 ### 🐛 Fixes
