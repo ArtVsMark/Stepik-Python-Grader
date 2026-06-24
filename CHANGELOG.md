@@ -1,5 +1,28 @@
 # Changelog
 
+## [unreleased] / 2026-06-24 — Audit fixes + rich output
+
+### Added
+- `rich>=13.0` dependency: colored tables in all 4 modes (green=AC, red=WA/TLE/RE, yellow=SLOWER)
+- WA diff: expected vs actual output shown on test failure (verbose mode)
+- Verdicts AC / WA / TLE / RE per test case (replaces OK/FAIL/timeout/error)
+- Progress bar (rich.progress.track) in modes 2 and 3
+- `_apply_run_mode_override()` helper extracted from duplicate code in `run_tests`/`run_benchmark`
+
+### Fixed
+- Mode 4 (microbench) stdin-mode: solution stdout no longer contaminates timing measurements (redirected to devnull during timeit)
+- `conftest.py`: stale `collect_ignore = ["test.py"]` → `["grader.py"]`
+- `pyproject.toml`: removed non-existent `t.py` from coverage omit list
+- `stepik_client.py`: `_get_with_retry` now raises `RuntimeError` instead of `None` when called with 0 retries
+- `downloader.py`: typo "обрабного шага" → "обработки шага"
+- `executor.py`: `__builtins__` now explicitly set via `import builtins` for cross-module determinism
+- `grader.py`: `_build_function_wrapper` uses `repr()` for path interpolation (Windows-safe, consistent with `_build_call_wrapper`)
+- `grader.py`: added module-level docstring
+- `grader.py`: removed misleading comment about `run_solution` usage
+
+### Notes
+- `microbench_runner.py` and `normalizers.py`: added NOTE comments clarifying these modules are not currently imported by `grader.py` (preserved for future refactoring)
+
 ## [Unreleased] — June 2026 — menu modes 2/3/4 test-dir & run-mode fixes
 
 ### 🐛 Bug fixes

@@ -37,7 +37,7 @@
 | `storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
 | `stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
-| `grader.py` | Application | Проверяет решения локально, сравнивает несколько решений, запускает subprocess-benchmark и timeit-microbench |
+| `grader.py` | Application | Интерактивный грейдер: 4 режима работы, rich-таблицы с цветами, вердикты AC/WA/TLE/RE, прогресс-бар, diff при WA |
 | `executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через `exec` + `contextlib` (без запуска нового процесса) |
 | `diagnostik_stepik.py` | Infrastructure | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
@@ -51,6 +51,9 @@
 - 📊 Сравнение нескольких решений одной задачи в таблице
 - 🚀 Subprocess-бенчмарк с замером времени и памяти
 - ⚡ Timeit-микробенчмарк через `exec` + `contextlib` (без запуска нового процесса)
+- 🎨 Цветной вывод через `rich` — зелёный OK/AC, красный WA/TLE/RE, жёлтый SLOWER
+- 🔍 Diff при WA — сравнение ожидаемого и фактического вывода при провале теста
+- ⚖️ Вердикты AC / WA / TLE / RE по каждому тест-кейсу
 - 🔍 Диагностика окружения и авторизация через Stepik API
 
 ---
@@ -389,6 +392,15 @@ module1/task1/task1_1.py      1000    12.34       13.01     13.12    15.67      
 module1/task1/task1_2.py      1000    14.21       15.34     15.45    18.90         1.12    117.9%  MUCH SLOWER
 ```
 
+### Вердикты тест-кейсов
+
+| Вердикт | Значение |
+|---------|----------|
+| AC | Accepted — вывод совпал с ожидаемым |
+| WA | Wrong Answer — вывод не совпал |
+| TLE | Time Limit Exceeded — превышен таймаут |
+| RE | Runtime Error — процесс завершился с ненулевым кодом |
+
 ---
 
 ## Формат тест-кейсов
@@ -500,6 +512,7 @@ MICROBENCH_MAX_CASES = 5
 | `requests>=2.34` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `stepik_client.py`, `downloader.py` |
 | `psutil>=5.9` | Замер памяти и мониторинг процессов | `grader.py`, `executor.py` |
 | `chardet>=5.0` | Авто-определение кодировки файлов | `executor.py` |
+| `rich>=13.0` | Цветные таблицы, прогресс-бар, WA diff в терминале | `grader.py` |
 
 Dev-зависимости (`pip install -e ".[dev]"`):
 
