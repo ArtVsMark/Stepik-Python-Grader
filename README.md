@@ -36,8 +36,8 @@
 |---|---|---|
 | `storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
 | `stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
-| `at_first.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
-| `test.py` | Application | Проверяет решения локально, сравнивает несколько решений, запускает subprocess-benchmark и timeit-microbench |
+| `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
+| `grader.py` | Application | Проверяет решения локально, сравнивает несколько решений, запускает subprocess-benchmark и timeit-microbench |
 | `executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через `exec` + `contextlib` (без запуска нового процесса) |
 | `diagnostik_stepik.py` | Infrastructure | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
@@ -60,11 +60,11 @@
 Граф зависимостей — DAG без циклов:
 
 ```
-at_first.py          ──→  storage.py
-at_first.py          ──→  stepik_client.py
+downloader.py          ──→  storage.py
+downloader.py          ──→  stepik_client.py
 stepik_client.py     ──→  storage.py
-test.py              ──→  executor.py
-test.py              ──→  microbench_runner.py
+grader.py              ──→  executor.py
+grader.py              ──→  microbench_runner.py
 diagnostik_stepik.py ──→  stepik_client.py
 ```
 
@@ -73,7 +73,7 @@ diagnostik_stepik.py ──→  stepik_client.py
 ```
 ┌─────────────────────────────────────────────────┐
 │  Domain / Application                           │
-│  at_first.py  │  test.py  │  diagnostik_stepik  │
+│  downloader.py  │  grader.py  │  diagnostik_stepik  │
 ├─────────────────────────────────────────────────┤
 │  Infrastructure                                 │
 │  stepik_client.py  │  executor.py               │
@@ -92,10 +92,10 @@ diagnostik_stepik.py ──→  stepik_client.py
 
 ```
 Stepik-Python-Grader/
-├── test.py                    # Главный модуль: 4 режима работы
+├── grader.py                    # Главный модуль: 4 режима работы
 ├── executor.py                # Запускатель решений: compile + exec с таймаутом
 ├── microbench_runner.py       # Timeit-микробенчмарк через exec
-├── at_first.py                # Domain: конфиг, slugify, построение папок, оркестрация API
+├── downloader.py                # Domain: конфиг, slugify, построение папок, оркестрация API
 ├── stepik_client.py           # Infrastructure: OAuth2, requests.Session, Stepik API
 ├── storage.py                 # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── diagnostik_stepik.py       # Диагностика API и токена
@@ -162,7 +162,7 @@ pip install -e ".[dev]"
 ## Быстрый старт
 
 ```bash
-python test.py
+python grader.py
 ```
 
 При запуске появится меню:
@@ -237,7 +237,7 @@ cp secrets.json.example secrets.json
 ### Шаг 2 — Скачать данные задачи
 
 ```bash
-python at_first.py
+python downloader.py
 ```
 
 При первом запуске:
@@ -283,11 +283,11 @@ StepikTasks/
 | `task{N}_3.py` и далее | альтернативные решения 2, 3, … | вручную |
 | `solution.py` | последний сабмишн с сайта | если сабмишн доступен |
 
-> Повторный запуск `at_first.py` для того же шага **не перезапишет** `task{N}_2.py` и выше — твои наработки сохранятся.
+> Повторный запуск `downloader.py` для того же шага **не перезапишет** `task{N}_2.py` и выше — твои наработки сохранятся.
 
 ### Как ищутся тест-кейсы
 
-`at_first.py` перебирает источники по приоритету — первый успешный выигрывает:
+`downloader.py` перебирает источники по приоритету — первый успешный выигрывает:
 
 | Приоритет | Источник | Поведение |
 |---|---|---|
@@ -296,7 +296,7 @@ StepikTasks/
 | 3 | Ссылка на GitHub в HTML | Адрес печатается в консоль — скачать вручную |
 | 4 | Ничего не найдено | Предупреждение `⚠️`, остальные файлы уже сохранены |
 
-OAuth-поток полностью реализован в `stepik_client.py` (`create_user_session`, `authorize_via_browser`, `refresh_access_token`); `at_first.py` только оркестрирует вызовы.
+OAuth-поток полностью реализован в `stepik_client.py` (`create_user_session`, `authorize_via_browser`, `refresh_access_token`); `downloader.py` только оркестрирует вызовы.
 
 ---
 
@@ -417,7 +417,7 @@ module1/
 
 Кодировка определяется автоматически через `chardet`.
 
-> При скачивании задачи через `at_first.py` файлы `tests/N`, `tests/N.clue` и при необходимости `tests/N.type`
+> При скачивании задачи через `downloader.py` файлы `tests/N`, `tests/N.clue` и при необходимости `tests/N.type`
 > создаются **автоматически** из ZIP-архива или HTML-таблицы в тексте задачи.
 > Если ни ZIP, ни таблицы нет — папку `tests/` нужно заполнить вручную.
 
@@ -425,8 +425,8 @@ module1/
 
 Грейдер автоматически распознаёт три формата:
 
-### Format 1 — Legacy (Stepik ZIP / at_first.py)
-Файлы `1`, `1.clue`, `2`, `2.clue` в папке `tests/`. Создаётся автоматически при скачивании через `at_first.py`.
+### Format 1 — Legacy (Stepik ZIP / downloader.py)
+Файлы `1`, `1.clue`, `2`, `2.clue` в папке `tests/`. Создаётся автоматически при скачивании через `downloader.py`.
 
 ### Format 2 — Именованные файлы
 `input_1.txt` + `expected_1.txt`, `input_2.txt` + `expected_2.txt`...
@@ -435,7 +435,7 @@ module1/
 `tests/input.txt` + `tests/output.txt` с маркерами `# TEST_N:`.
 Используется репозиториями [python-generation/Professional](https://github.com/python-generation/Professional), [python-generation/OOP](https://github.com/python-generation/OOP), [python-generation/Samurai](https://github.com/python-generation/Samurai).
 
-Stepik ZIP-архивы автоматически конвертируются в Format 3 при скачивании через `at_first.py`.
+Stepik ZIP-архивы автоматически конвертируются в Format 3 при скачивании через `downloader.py`.
 GitHub-ссылки в тексте задачи обрабатываются автоматически.
 
 ---
@@ -444,7 +444,7 @@ GitHub-ссылки в тексте задачи обрабатываются а
 
 ### Корневая папка задач
 
-При первом запуске `at_first.py` предложит указать:
+При первом запуске `downloader.py` предложит указать:
 
 ```
 Укажи корневую папку для всех задач Stepik [StepikTasks]:
@@ -460,7 +460,7 @@ StepikTasks/
 
 ### Таймаут subprocess
 
-В `test.py` константа `SUBPROCESS_TIMEOUT` (по умолчанию `10.0` с) защищает от зависания:
+В `grader.py` константа `SUBPROCESS_TIMEOUT` (по умолчанию `10.0` с) защищает от зависания:
 
 ```python
 SUBPROCESS_TIMEOUT = 10.0  # секунд
@@ -497,8 +497,8 @@ MICROBENCH_MAX_CASES = 5
 
 | Пакет | Назначение | Используется в |
 |-------|------------|----------------|
-| `requests>=2.34` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `stepik_client.py`, `at_first.py` |
-| `psutil>=5.9` | Замер памяти и мониторинг процессов | `test.py`, `executor.py` |
+| `requests>=2.34` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `stepik_client.py`, `downloader.py` |
+| `psutil>=5.9` | Замер памяти и мониторинг процессов | `grader.py`, `executor.py` |
 | `chardet>=5.0` | Авто-определение кодировки файлов | `executor.py` |
 
 Dev-зависимости (`pip install -e ".[dev]"`):
@@ -512,7 +512,7 @@ Dev-зависимости (`pip install -e ".[dev]"`):
 
 ## Диагностика
 
-Если `at_first.py` не нашёл данных шага автоматически:
+Если `downloader.py` не нашёл данных шага автоматически:
 
 ```bash
 python diagnostik_stepik.py

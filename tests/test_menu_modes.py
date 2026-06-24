@@ -40,9 +40,7 @@ def _make_task(base: pathlib.Path, name: str, *, body: str, inp: str, out: str) 
 class TestMode2PerSolutionTestDir:
     """Режим 2 должен резолвить test_dir отдельно для каждого решения."""
 
-    def test_each_solution_uses_own_test_dir(
-        self, tmp_path: pathlib.Path, monkeypatch
-    ) -> None:
+    def test_each_solution_uses_own_test_dir(self, tmp_path: pathlib.Path, monkeypatch) -> None:
         # Две задачи в разных подпапках, у каждой свой tests/
         _make_task(tmp_path, "task1", body="print(int(input()) + 1)\n", inp="1", out="2")
         _make_task(tmp_path, "task2", body="print(int(input()) * 2)\n", inp="3", out="6")
@@ -52,9 +50,15 @@ class TestMode2PerSolutionTestDir:
         def fake_run_tests(path, test_dir, *, verbose=False, timeout=grader.TIMEOUT_SECONDS):
             used[os.path.basename(path)] = test_dir
             return {
-                "total": 1, "passed": 1, "failed": 0, "errors": 0,
-                "total_time": 0.0, "avg_time": 0.0, "peak_memory_mb": 0.0,
-                "first_fail": None, "cases": [],
+                "total": 1,
+                "passed": 1,
+                "failed": 0,
+                "errors": 0,
+                "total_time": 0.0,
+                "avg_time": 0.0,
+                "peak_memory_mb": 0.0,
+                "first_fail": None,
+                "cases": [],
             }
 
         monkeypatch.setattr(grader, "run_tests", fake_run_tests)
@@ -69,9 +73,7 @@ class TestMode2PerSolutionTestDir:
         assert used["task2.py"] == str((tmp_path / "task2" / "tests").resolve())
         assert used["task1.py"] != used["task2.py"]
 
-    def test_falls_back_to_folder_test_dir(
-        self, tmp_path: pathlib.Path, monkeypatch
-    ) -> None:
+    def test_falls_back_to_folder_test_dir(self, tmp_path: pathlib.Path, monkeypatch) -> None:
         # Решение без собственного tests/ → fallback на folder-level test_dir
         sol_dir = tmp_path / "solutions"
         sol_dir.mkdir()
@@ -87,9 +89,15 @@ class TestMode2PerSolutionTestDir:
         def fake_run_tests(path, test_dir, *, verbose=False, timeout=grader.TIMEOUT_SECONDS):
             used.append(test_dir)
             return {
-                "total": 1, "passed": 1, "failed": 0, "errors": 0,
-                "total_time": 0.0, "avg_time": 0.0, "peak_memory_mb": 0.0,
-                "first_fail": None, "cases": [],
+                "total": 1,
+                "passed": 1,
+                "failed": 0,
+                "errors": 0,
+                "total_time": 0.0,
+                "avg_time": 0.0,
+                "peak_memory_mb": 0.0,
+                "first_fail": None,
+                "cases": [],
             }
 
         monkeypatch.setattr(grader, "run_tests", fake_run_tests)
@@ -150,9 +158,7 @@ class TestRunMicrobenchModeFunctionBlocks:
         test_dir.mkdir()
 
         # Format 3 с function-call блоком
-        (test_dir / "input.txt").write_text(
-            "# TEST_1:\nprint(add(2, 3))\n", encoding="utf-8"
-        )
+        (test_dir / "input.txt").write_text("# TEST_1:\nprint(add(2, 3))\n", encoding="utf-8")
         (test_dir / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
 
         # run_microbench (timeit-путь) НЕ должен вызываться для function-блоков

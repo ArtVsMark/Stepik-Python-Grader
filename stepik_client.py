@@ -8,9 +8,9 @@
   - скачивание сабмишнов.
 
 Бизнес-логика (slugify, build_task_directory, save_task_files и т.д.)
-находится в at_first.py.
+находится в downloader.py.
 
-Типичный вызов из at_first.py:
+Типичный вызов из downloader.py:
     from stepik_client import create_user_session, fetch_step_data, ...
     session = create_user_session(secrets, secrets_path)
     step    = fetch_step_data(session, lesson_id, step_position)
@@ -268,7 +268,7 @@ def _get_with_retry(
         except requests.RequestException as exc:
             last_exc = exc
             if attempt < retries - 1:
-                time.sleep(backoff * (2 ** attempt))
+                time.sleep(backoff * (2**attempt))
     raise last_exc  # type: ignore[misc]
 
 

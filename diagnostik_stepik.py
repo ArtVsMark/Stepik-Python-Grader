@@ -20,7 +20,7 @@ from urllib.parse import urlencode
 
 import requests
 
-from at_first import parse_stepik_step_url
+from downloader import parse_stepik_step_url
 from stepik_client import (
     API_HOST,
     authorize_via_browser,
@@ -71,7 +71,7 @@ def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -
 
     Делегирует полный OAuth-flow в stepik_client.authorize_via_browser.
     Принимает три отдельных аргумента (диагностический интерфейс),
-    а не secrets-dict (интерфейс at_first).
+    а не secrets-dict (интерфейс downloader).
     """
     auth_url = f"{API_HOST}/oauth2/authorize/?" + urlencode(
         {"response_type": "code", "client_id": client_id, "redirect_uri": redirect_uri}

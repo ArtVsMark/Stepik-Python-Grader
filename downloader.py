@@ -1,4 +1,4 @@
-"""at_first.py — бизнес-логика: конфиг, файловая система, оркестрация.
+"""downloader.py — бизнес-логика: конфиг, файловая система, оркестрация.
 
 Архитектурный слой: Domain / Application.
 Отвечает за:
@@ -358,9 +358,7 @@ _GITHUB_URL_RE = re.compile(r'href=["\']([^"\']*github\.com[^"\']*)["\']', re.IG
 _GITHUB_TREE_RE = re.compile(
     r"github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/(?:tree|blob)/(?P<branch>[^/]+)/(?P<path>.+)"
 )
-_GITHUB_CONTENTS_API = (
-    "https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
-)
+_GITHUB_CONTENTS_API = "https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
 
 
 def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
@@ -418,7 +416,9 @@ def _download_zip_tests(
     # Собираем пары N → (input_bytes, clue_bytes)
     pairs: dict[int, dict[str, bytes]] = {}
     for name in names:
-        clean = name[len(strip_prefix):] if strip_prefix and name.startswith(strip_prefix) else name
+        clean = (
+            name[len(strip_prefix) :] if strip_prefix and name.startswith(strip_prefix) else name
+        )
         clean = clean.strip("/")
         if not clean:
             continue
@@ -483,9 +483,7 @@ def _download_github_tests(
     api_url = _GITHUB_CONTENTS_API.format(owner=owner, repo=repo, path=path, branch=branch)
 
     try:
-        resp = session.get(
-            api_url, timeout=30, headers={"Accept": "application/vnd.github+json"}
-        )
+        resp = session.get(api_url, timeout=30, headers={"Accept": "application/vnd.github+json"})
         resp.raise_for_status()
         contents = resp.json()
     except requests.RequestException as exc:
@@ -500,9 +498,7 @@ def _download_github_tests(
     tests_dir.mkdir(parents=True, exist_ok=True)
 
     file_map = {
-        item["name"]: item["download_url"]
-        for item in contents
-        if item.get("type") == "file"
+        item["name"]: item["download_url"] for item in contents if item.get("type") == "file"
     }
 
     # Вариант А: input.txt + output.txt уже есть (Format 3)

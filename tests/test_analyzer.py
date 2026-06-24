@@ -224,10 +224,10 @@ class TestIsSolutionFile:
     @pytest.mark.parametrize(
         "filename",
         [
-            "task.py",        # базовое имя
-            "task1.py",       # число без разделителя
-            "task1_2.py",     # число_подномер (исторический стиль)
-            "task_1.py",      # подчёркивание + номер (стиль at_first.py)
+            "task.py",  # базовое имя
+            "task1.py",  # число без разделителя
+            "task1_2.py",  # число_подномер (исторический стиль)
+            "task_1.py",  # подчёркивание + номер (стиль downloader.py)
             "task_2.py",
             "task_10.py",
             "task_100.py",
@@ -241,22 +241,23 @@ class TestIsSolutionFile:
     @pytest.mark.parametrize(
         "filename",
         [
-            "solution.py",       # не начинается с task
-            "task.txt",          # не .py
-            "task1.py.bak",      # лишнее расширение
-            "Task_1.py",         # заглавная буква
-            "task_1.py.py",      # двойное расширение
-            "__init__.py",       # служебный файл
-            "test_task1.py",     # префикс test_
-            "my_task1.py",       # другой префикс
-            "task1_.py",         # завершающее подчёркивание
-            "",                  # пустая строка
-            "task",              # без расширения
-            "task_1_2_3.py",     # слишком много частей
+            "solution.py",  # не начинается с task
+            "task.txt",  # не .py
+            "task1.py.bak",  # лишнее расширение
+            "Task_1.py",  # заглавная буква
+            "task_1.py.py",  # двойное расширение
+            "__init__.py",  # служебный файл
+            "test_task1.py",  # префикс test_
+            "my_task1.py",  # другой префикс
+            "task1_.py",  # завершающее подчёркивание
+            "",  # пустая строка
+            "task",  # без расширения
+            "task_1_2_3.py",  # слишком много частей
         ],
     )
     def test_invalid_filenames(self, filename: str) -> None:
         assert is_solution_file(filename) is False, f"Ожидался False для {filename!r}"
+
 
 # ===========================================================================
 # _detect_run_mode (grader.py)
@@ -316,23 +317,23 @@ class TestDetectRunMode:
 
 
 # ===========================================================================
-# _is_function_style (at_first.py) — AST-версия
+# _is_function_style (downloader.py) — AST-версия
 # ===========================================================================
 
 
 class TestIsFunctionStyle:
-    """Проверяет AST-детектор режима тест-кейса из at_first.py."""
+    """Проверяет AST-детектор режима тест-кейса из downloader.py."""
 
     def test_date_assignments_only(self) -> None:
         """Два присваивания date(...) без print → True (function-mode)."""
-        from at_first import _is_function_style
+        from downloader import _is_function_style
 
         text = "date1 = date(2021, 11, 1)\ndate2 = date(2021, 11, 22)"
         assert _is_function_style(text) is True
 
     def test_assignments_with_print(self) -> None:
         """Присваивания + print() → False (stdin-mode)."""
-        from at_first import _is_function_style
+        from downloader import _is_function_style
 
         date_lines = "date1 = date(2021, 11, 1)\ndate2 = date(2021, 11, 22)"
         text = date_lines + "\nprint(saturdays_between_two_dates(date1, date2))"
@@ -340,7 +341,7 @@ class TestIsFunctionStyle:
 
     def test_simple_int_input(self) -> None:
         """n = int(input()) → False (вызов на верхнем уровне через Assign→Call→Call)."""
-        from at_first import _is_function_style
+        from downloader import _is_function_style
 
         # n = int(input()) — Assign, не Expr.Call, поэтому через AST body это Assign → True
         # Но само значение — вызов input(), что типично для stdin. Проверяем ожидание:
@@ -350,19 +351,19 @@ class TestIsFunctionStyle:
 
     def test_plain_number_input(self) -> None:
         """Просто число (stdin) → False (нет присваиваний)."""
-        from at_first import _is_function_style
+        from downloader import _is_function_style
 
         text = "42"
         assert _is_function_style(text) is False
 
     def test_empty_string(self) -> None:
         """Пустая строка → False."""
-        from at_first import _is_function_style
+        from downloader import _is_function_style
 
         assert _is_function_style("") is False
 
     def test_syntax_error(self) -> None:
         """SyntaxError → False."""
-        from at_first import _is_function_style
+        from downloader import _is_function_style
 
         assert _is_function_style("def broken(") is False

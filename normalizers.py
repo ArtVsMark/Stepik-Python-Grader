@@ -2,6 +2,7 @@
 
 Используется grader.py при сравнении фактического вывода с ожидаемым.
 """
+
 from __future__ import annotations
 
 import re
@@ -14,17 +15,19 @@ def normalize_floats(output: str, decimals: int = 9) -> str:
         '5.000000000000001' → '5.0' (при decimals=9 → '5.0')
         '3.14159265358979'  → '3.141592654' (при decimals=9)
     """
+
     def _round(m: re.Match) -> str:  # type: ignore[type-arg]
         try:
             val = round(float(m.group()), decimals)
             # Убираем хвостовые нули после точки, сохраняя хотя бы один знак
-            s = f"{val:.{decimals}f}".rstrip('0')
-            if s.endswith('.'):
-                s += '0'
+            s = f"{val:.{decimals}f}".rstrip("0")
+            if s.endswith("."):
+                s += "0"
             return s
         except ValueError:
             return m.group()
-    return re.sub(r'-?\d+\.\d+(?:[eE][+-]?\d+)?', _round, output)
+
+    return re.sub(r"-?\d+\.\d+(?:[eE][+-]?\d+)?", _round, output)
 
 
 def sort_lines(output: str) -> str:

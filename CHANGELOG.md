@@ -38,13 +38,13 @@
 
 ### ✨ Features
 
-- **at_first.py** — `_download_zip_tests()` rewritten to convert the Stepik ZIP
+- **downloader.py** — `_download_zip_tests()` rewritten to convert the Stepik ZIP
   layout (`1`, `1.clue`, `2`, `2.clue`, …) directly into Format 3
   (`tests/input.txt` + `tests/output.txt` with `# TEST_N:` markers) instead of
   dumping raw numbered files. Blocks are emitted in numeric order and a leading
   directory prefix in the archive is stripped automatically. Verified against
   the real archive `tests_2491371.zip` (4 cases).
-- **at_first.py** — new `_download_github_tests()` plus module-level
+- **downloader.py** — new `_download_github_tests()` plus module-level
   `_GITHUB_TREE_RE` / `_GITHUB_CONTENTS_API`. Downloads tests from a GitHub
   `tree`/`blob` URL via the Contents API. Handles directories that already ship
   `input.txt` + `output.txt` (downloaded as-is) and directories with `N` +
@@ -54,12 +54,12 @@
 ### ♻️ Refactor
 
 - **diagnostik_stepik.py** — removed the duplicate `parse_stepik_step_url`;
-  it is now imported from `at_first`. The diagnostic `load_secrets` (tuple
+  it is now imported from `downloader`. The diagnostic `load_secrets` (tuple
   return) is kept as-is.
 
 ### ✅ Tests added
 
-- `tests/test_at_first.py` — covers ZIP→Format 3 conversion (basic, prefixed,
+- `tests/test_downloader.py` — covers ZIP→Format 3 conversion (basic, prefixed,
   numeric ordering, empty/bad archive), the GitHub regex, GitHub download for
   both layouts, external-link extraction, and a ZIP→Format 3→`load_test_cases`
   round-trip.
@@ -148,25 +148,25 @@
 
 ### 🔴 Critical fixes
 
-- **at_first.py** — OAuth HTTP-server: added `server.timeout = 120` and
+- **downloader.py** — OAuth HTTP-server: added `server.timeout = 120` and
   extracted `wait_for_auth_code()` helper; replaced bare `RuntimeError` on
   timeout with `TimeoutError`; extracted `_make_oauth_handler()` factory so
   `OAuthHandler` is no longer defined at module scope (removes stale closure
   risk).
-- **at_first.py** — Added `from typing import cast`; replaced
+- **downloader.py** — Added `from typing import cast`; replaced
   `int(str(x) or 0)` patterns with `cast(int, ...)` for `section_id`,
   `course_id`, `step_id`; `cast(str, ...)` for `lesson_title`.
-- **at_first.py** — Replaced broken `download_and_extract_submissions()`
+- **downloader.py** — Replaced broken `download_and_extract_submissions()`
   stub (was calling non-existent `/api/stepics/1` endpoint) with a working
   implementation that calls `/api/submissions?step=<id>&order=desc` and saves
   each `reply.code` as `submissions/submission_<id>.py`.
-- **at_first.py** — Fixed typo `"нет хватает"` → `"не хватает"`.
-- **at_first.py** — PEP 8 import order fixed; `from __future__ import
+- **downloader.py** — Fixed typo `"нет хватает"` → `"не хватает"`.
+- **downloader.py** — PEP 8 import order fixed; `from __future__ import
   annotations` moved to line 1.
-- **test.py** — `avg_time` in `FAILED` early-return branch now uses
+- **grader.py** — `avg_time` in `FAILED` early-return branch now uses
   `total_time / passed_tests if passed_tests else total_time` instead of
   the nonsensical `avg_time = total_time`.
-- **test.py** / **executor.py** — `from __future__ import annotations` added.
+- **grader.py** / **executor.py** — `from __future__ import annotations` added.
 - **microbench_runner.py** — Removed unused `func_name: str = "<exec>"`
   field from `MicrobenchResult`; added explanatory comment.
 
@@ -187,7 +187,7 @@
 
 ### 💡 Deferred (Sprint 3+)
 
-- Extract `stepik_client.py` with all API call functions from `at_first.py`.
-- Split `test.py` into `runner.py`, `benchmark.py`, `microbench.py`,
+- Extract `stepik_client.py` with all API call functions from `downloader.py`.
+- Split `grader.py` into `runner.py`, `benchmark.py`, `microbench.py`,
   `display.py`.
 - Add `ruff` pre-commit hook and GitHub Actions CI.

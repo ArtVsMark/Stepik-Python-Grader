@@ -42,7 +42,7 @@ source = ["."]
 omit = [
     "t.py",
     "diagnostik_stepik.py",
-    "at_first.py",
+    "downloader.py",
     "stepik_client.py",
     "tests/*",
     "conftest.py",

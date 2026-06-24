@@ -1,4 +1,5 @@
 """Tests for normalizers.py."""
+
 from normalizers import normalize_floats, normalize_whitespace, sort_lines
 
 

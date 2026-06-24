@@ -63,18 +63,16 @@ def _is_safe_constant(node: ast.expr) -> bool:
     """
     if isinstance(node, ast.Constant):
         return True
-    if isinstance(node, ast.UnaryOp) and isinstance(
-        node.op, (ast.USub, ast.UAdd, ast.Invert)
-    ):
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd, ast.Invert)):
         return _is_safe_constant(node.operand)
     if isinstance(node, ast.BinOp):
         return _is_safe_constant(node.left) and _is_safe_constant(node.right)
     if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
         return all(_is_safe_constant(e) for e in node.elts)
     if isinstance(node, ast.Dict):
-        return all(
-            _is_safe_constant(k) for k in node.keys if k is not None
-        ) and all(_is_safe_constant(v) for v in node.values)
+        return all(_is_safe_constant(k) for k in node.keys if k is not None) and all(
+            _is_safe_constant(v) for v in node.values
+        )
     return False
 
 
@@ -130,7 +128,7 @@ def is_solution_file(file_name: str) -> bool:
     Принимаемые форматы:
         task.py, task1.py, task1_2.py   — исторический стиль
         task4_1.py, task7_3.py          — стиль из README (номер задачи + номер решения)
-        task_1.py, task_2.py            — стиль, создаваемый at_first.py
+        task_1.py, task_2.py            — стиль, создаваемый downloader.py
     """
     return bool(_SOLUTION_FILE_RE.fullmatch(file_name))
 
@@ -198,7 +196,7 @@ def format_benchmark_row(path: str, base_dir: str, data: dict[str, Any], *, col_
         f"{data['mean']:>7.4f}  {data['max']:>7.4f}  "
         f"{data['stdev']:>7.4f}  "
         f"{data['peak_memory_mb']:>7.2f} MB  "
-        f"{data['relative']*100:>7.1f}%  {data['verdict']}"
+        f"{data['relative'] * 100:>7.1f}%  {data['verdict']}"
     )
 
 
@@ -243,9 +241,7 @@ def run_microbench_mode(
                 for _ in range(sub_repeats):
                     r = run_single_test(path, case, timeout=60.0)
                     if r["error"] or r["timed_out"]:
-                        results[path] = {
-                            "error": f"test {case.index}: {r['error'] or 'timeout'}"
-                        }
+                        results[path] = {"error": f"test {case.index}: {r['error'] or 'timeout'}"}
                         break
                     case_times.append(r["time"])
                 else:
@@ -373,7 +369,7 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
         со ссылками на переменные/функции (`print(func(...))`, присваивания,
         for-циклы) → "function", иначе (голые числа/строки) → "stdin".
 
-    Формат 1 — at_first.py (legacy):
+    Формат 1 — downloader.py (legacy):
         tests/1        — входные данные теста №1 (stdin)
         tests/1.clue   — ожидаемый вывод теста №1
         tests/1.type   — "function" (опционально; отсутствие = "stdin")
@@ -587,7 +583,6 @@ def _ast_function_name(solution_path: str) -> str | None:
     return None
 
 
-
 def _detect_run_mode(solution_path: str, test_dir: str) -> str:
     """Единая точка детекции режима запуска: "stdin" или "function".
 
@@ -716,12 +711,14 @@ def _normalize_output_line(line: str) -> str:
     Rounds floats to 9 decimal places to handle floating-point precision
     differences (e.g. 5.000000000000001 vs 5.0).
     """
+
     def _round_float(m: re.Match) -> str:  # type: ignore[type-arg]
         try:
             return str(round(float(m.group()), 9))
         except ValueError:
             return m.group()
-    return re.sub(r'-?\d+\.\d+(?:[eE][+-]?\d+)?', _round_float, line)
+
+    return re.sub(r"-?\d+\.\d+(?:[eE][+-]?\d+)?", _round_float, line)
 
 
 def run_single_test(
@@ -760,9 +757,7 @@ def run_single_test(
             wrapper_src = _build_call_wrapper(solution_path, input_data)
         else:
             # legacy function-mode: блок задаёт переменные, вызов собираем сами
-            func_name = (
-                _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
-            )
+            func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
             if func_name is None:
                 return {
                     "passed": False,
@@ -867,6 +862,7 @@ def run_single_test(
         diff_str = ""
         if not passed:
             import difflib
+
             diff_str = "\n".join(
                 difflib.unified_diff(
                     case.expected_lines,
@@ -1064,9 +1060,7 @@ def run_microbench(
     """
     # Передаём исходник через временный файл, а не heredoc-строку:
     # это исключает поломку на тройных кавычках (''' / """) в решении.
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".py", encoding=ENCODING, delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding=ENCODING, delete=False) as f:
         f.write(source_code)
         code_path = f.name
 
@@ -1158,7 +1152,7 @@ def fetch_stepik_tests(
     Raises RuntimeError при ошибках авторизации или отсутствии тестов.
 
     Примечание: функция не вызывается из интерактивного меню.
-    Для полноценной загрузки задач используй at_first.py.
+    Для полноценной загрузки задач используй downloader.py.
     """
     import json
 
