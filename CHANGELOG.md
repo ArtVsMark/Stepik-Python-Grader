@@ -1,5 +1,23 @@
 # Changelog
 
+## [unreleased] / 2026-06-24 — OAuth рефакторинг
+
+### Added
+- `oauth_flow.py` — новый Infrastructure/Auth модуль: единый OAuth2-фасад для `downloader.py` и `diagnostik_stepik.py`
+  - `load_secrets(path)` → `tuple[str, str, str]` — чтение учётных данных из `secrets.json`
+  - `load_secrets_dict(path)` → `dict` — полный словарь (с токенами)
+  - `authorize_and_get_token(client_id, secret, uri)` — полный OAuth2 flow
+  - Реэкспорт канонических функций из `stepik_client`: `token_is_valid`, `wait_for_auth_code`, `authorize_via_browser`, `create_user_session`, `make_session`, `refresh_access_token`
+
+### Refactored
+- `downloader.py`: заменён inline `load_secrets` на `oauth_flow.load_secrets_dict`; OAuth-импорты через `oauth_flow`
+- `diagnostik_stepik.py`: удалён inline `load_secrets` и дублирующие OAuth-функции; импортируются из `oauth_flow`
+- Устранено дублирование `load_secrets` (dict vs tuple) через единый фасад
+
+### Tests
+- 25 новых тестов в `tests/test_oauth_flow.py` — `load_secrets`, `token_is_valid`, `wait_for_auth_code`, `OAuthHandler`, `authorize_and_get_token`; `oauth_flow.py` покрыт на 100%
+- Итого: **260 passed**, 0 failed, 0 warnings
+
 ## [unreleased] / 2026-06-24 — Audit fixes + rich output
 
 ### Added

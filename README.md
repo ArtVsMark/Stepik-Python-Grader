@@ -44,6 +44,7 @@
 | `microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; импортируется `grader.py` |
 | `normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace`; импортируется `grader.py` как `_normalize_output_line` |
 | `diagnostik_stepik.py` | Infrastructure | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
+| `oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostik_stepik.py` |
 
 Основные возможности:
 
@@ -75,6 +76,10 @@ grader.py              ──→  microbench_runner.py
 grader.py              ──→  normalizers.py
 diagnostik_stepik.py ──→  stepik_client.py
 diagnostik_stepik.py ──→  downloader.py       ← parse_stepik_step_url
+downloader.py        ──→  oauth_flow.py
+diagnostik_stepik.py ──→  oauth_flow.py
+oauth_flow.py        ──→  stepik_client.py
+oauth_flow.py        ──→  storage.py
 ```
 
 Ребро `downloader.py ──→ grader.py` — это **локальный** импорт внутри функции
@@ -91,7 +96,7 @@ diagnostik_stepik.py ──→  downloader.py       ← parse_stepik_step_url
 ├─────────────────────────────────────────────────┤
 │  Infrastructure                                 │
 │  stepik_client.py  │  executor.py               │
-│  microbench_runner.py                           │
+│  microbench_runner.py  │  oauth_flow.py          │
 ├─────────────────────────────────────────────────┤
 │  Infrastructure / Utilities  (leaf, no deps)    │
 │  storage.py  │  normalizers.py                  │
