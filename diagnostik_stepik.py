@@ -1,10 +1,11 @@
 """diagnostik_stepik.py — OAuth-диагностика шага Stepik через API.
 
 Архитектурный слой: CLI-инструмент / диагностика.
-HTTP/OAuth делегируется в stepik_client (Sprint 3, июнь 2026):
-  - API_HOST, HEADERS — импортируются из stepik_client
-  - wait_for_auth_code — импортируется из stepik_client
-  - make_session — импортируется из stepik_client
+OAuth делегируется в oauth_flow (фасад поверх stepik_client):
+  - load_secrets — импортируется из oauth_flow
+  - authorize_via_browser — импортируется из oauth_flow
+  - make_session — импортируется из oauth_flow
+  - API_HOST — импортируется из stepik_client (константа)
 
 Запуск:
     python diagnostik_stepik.py
@@ -21,55 +22,22 @@ from urllib.parse import urlencode
 import requests
 
 from downloader import parse_stepik_step_url
-from stepik_client import (
-    API_HOST,
-    authorize_via_browser,
-    make_session,
-)
+from oauth_flow import authorize_via_browser, load_secrets, make_session
+from stepik_client import API_HOST
 
 # Задача 6: таймаут ожидания OAuth-кода от браузера
 OAUTH_TIMEOUT_SECONDS = 120
 
 
 # ---------------------------------------------------------------------------
-# Secrets (диагностическая версия: возвращает tuple, не dict)
-# ---------------------------------------------------------------------------
-
-
-def load_secrets(secrets_path: pathlib.Path) -> tuple[str, str, str]:
-    """Загрузить client_id, client_secret, redirect_uri из secrets.json."""
-    if not secrets_path.exists():
-        raise FileNotFoundError(f"Файл secrets не найден: {secrets_path}")
-    if secrets_path.is_dir():
-        raise IsADirectoryError(
-            f"Указан путь к папке, а нужен путь к файлу secrets.json: {secrets_path}"
-        )
-    with open(secrets_path, encoding="utf-8") as file:
-        data = json.load(file)
-    if not isinstance(data, dict):
-        raise ValueError(
-            "secrets.json должен быть словарём формата "
-            '{"client_id": "...", "client_secret": "...", "redirect_uri": "..."}'
-        )
-    client_id = str(data.get("client_id", "")).strip()
-    client_secret = str(data.get("client_secret", "")).strip()
-    redirect_uri = str(data.get("redirect_uri", "")).strip()
-    if not client_id or not client_secret or not redirect_uri:
-        raise ValueError(
-            "В secrets.json должны быть заполнены client_id, client_secret и redirect_uri."
-        )
-    return client_id, client_secret, redirect_uri
-
-
-# ---------------------------------------------------------------------------
-# OAuth2 — адаптер поверх stepik_client.authorize_via_browser
+# OAuth2 — адаптер поверх oauth_flow.authorize_via_browser
 # ---------------------------------------------------------------------------
 
 
 def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -> requests.Session:
     """Провести OAuth2-авторизацию и вернуть сессию с Bearer-токеном.
 
-    Делегирует полный OAuth-flow в stepik_client.authorize_via_browser.
+    Делегирует полный OAuth-flow в oauth_flow.authorize_via_browser.
     Принимает три отдельных аргумента (диагностический интерфейс),
     а не secrets-dict (интерфейс downloader).
     """

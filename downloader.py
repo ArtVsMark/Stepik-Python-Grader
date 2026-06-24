@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import ast
 import io
-import json
 import pathlib
 import re
 import zipfile
@@ -33,8 +32,8 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
+from oauth_flow import create_user_session, load_secrets_dict
 from stepik_client import (
-    create_user_session,
     fetch_course_data,
     fetch_lesson_data,
     fetch_section_data,
@@ -135,33 +134,6 @@ def normalize_config_paths(
     normalized: dict[str, Any] = {"root_dir": str(root_dir), "secrets_path": str(secrets_path)}
     save_json_file(config_path, normalized)
     return normalized
-
-
-# ---------------------------------------------------------------------------
-# Secrets
-# ---------------------------------------------------------------------------
-
-
-def load_secrets(secrets_path: pathlib.Path) -> dict[str, Any]:
-    """Загружает и валидирует secrets.json."""
-    if not secrets_path.exists():
-        raise FileNotFoundError(
-            f"Файл secrets не найден: {secrets_path}\n"
-            "Создай secrets.json рядом со скриптом или укажи корректный путь."
-        )
-    if secrets_path.is_dir():
-        raise IsADirectoryError(
-            f"Укажи путь к папке, а нужен путь к файлу secrets.json: {secrets_path}"
-        )
-    with open(secrets_path, encoding="utf-8") as file:
-        data = json.load(file)
-    if not isinstance(data, dict):
-        raise ValueError("secrets.json должен быть JSON-объектом.")
-    required_fields = ("client_id", "client_secret", "redirect_uri")
-    for field in required_fields:
-        if not str(data.get(field, "")).strip():
-            raise ValueError(f"В secrets.json должно быть заполнено поле {field!r}")
-    return data
 
 
 # ---------------------------------------------------------------------------
@@ -754,7 +726,7 @@ def main() -> None:
     secrets_path = pathlib.Path(str(config["secrets_path"]))
 
     try:
-        secrets = load_secrets(secrets_path)
+        secrets = load_secrets_dict(secrets_path)
         session = create_user_session(secrets, secrets_path)
     except Exception as error:  # noqa: BLE001
         print(f"❌ Ошибка подготовки данных: {error}")

@@ -27,13 +27,11 @@ import pytest
 import requests
 
 import stepik_client
-from diagnostik_stepik import load_secrets
+from oauth_flow import load_secrets, token_is_valid, wait_for_auth_code
 from stepik_client import (
     _make_oauth_handler,
     create_user_session,
     refresh_access_token,
-    token_is_valid,
-    wait_for_auth_code,
 )
 
 # ---------------------------------------------------------------------------
