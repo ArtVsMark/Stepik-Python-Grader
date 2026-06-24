@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import psutil
-import requests
 
 # ---------------------------------------------------------------------------
 # Константы
@@ -536,7 +535,7 @@ def run_tests(
                 first_fail = case.index
 
         if verbose:
-            icon = "✓" if r["passed"] else "✗"
+            icon = "\u2713" if r["passed"] else "\u2717"
             print(f"  {icon} Test {case.index}", end="")
             if r["error"]:
                 print(f" [ERROR: {r['error']}]")
@@ -687,7 +686,7 @@ _SEP = "-" * 92
 
 
 # ---------------------------------------------------------------------------
-# Stepik API
+# Stepik API  (не используется в меню — зарезервировано для будущей интеграции)
 # ---------------------------------------------------------------------------
 
 
@@ -703,8 +702,13 @@ def fetch_stepik_tests(
 
     Возвращает путь к созданной директории с тестами.
     Raises RuntimeError при ошибках авторизации или отсутствии тестов.
+
+    Примечание: функция не вызывается из интерактивного меню.
+    Для полноценной загрузки задач используй at_first.py.
     """
     import json
+
+    import requests  # ленивый импорт — requests не нужен для режимов 1-4
 
     secrets_path = pathlib.Path(secrets_file)
     if not secrets_path.exists():
@@ -802,13 +806,13 @@ def _ask_bench_profile() -> int:
     print("    1  low       —   5 runs")
     print("    2  medium    —  15 runs")
     print("    3  high      —  50 runs")
-    print("    4  custom    —  5–100 runs")
+    print("    4  custom    —  5\u2013100 runs")
     choice = input("  Select profile [2]: ").strip() or "2"
     repeats = _BENCH_PROFILES.get(choice)
     if repeats is None:
         repeats = _BENCH_PROFILES["2"]
     if repeats == 0:
-        repeats = _ask_number("  Enter repeats (5–100): ", default=15)
+        repeats = _ask_number("  Enter repeats (5\u2013100): ", default=15)
         repeats = max(5, min(100, repeats))
     return repeats
 
@@ -821,13 +825,13 @@ def _ask_micro_profile() -> int:
     print("    3  thorough  —   5 000")
     print("    4  deep      —  50 000")
     print("    5  hard      — 100 000  (short deterministic functions only)")
-    print("    6  custom    — 100–500 000")
+    print("    6  custom    — 100\u2013500 000")
     choice = input("  Select profile [2]: ").strip() or "2"
     number = _MICRO_PROFILES.get(choice)
     if number is None:
         number = _MICRO_PROFILES["2"]
     if number == 0:
-        number = _ask_number("  Enter calls (100–500 000): ", default=1000)
+        number = _ask_number("  Enter calls (100\u2013500 000): ", default=1000)
         number = max(100, min(500_000, number))
     return number
 
@@ -845,7 +849,6 @@ def _print_menu() -> None:
     print("  2. Check all solutions in folder")
     print("  3. Benchmark solutions in folder")
     print("  4. Micro-benchmark (timeit) for folder")
-    print("  5. Fetch tests from Stepik API")
     print("  0. Exit")
     print("=" * 50)
 
@@ -868,157 +871,136 @@ def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) 
 
 
 def _interactive_menu() -> None:
-    """Основной интерактивный цикл грейдера."""
-    while True:
-        _print_menu()
-        choice = input("Select mode [0-5]: ").strip()
+    """Показать меню один раз, выполнить выбранный режим и завершить работу."""
+    _print_menu()
+    choice = input("Select mode [0-4]: ").strip()
 
-        if choice == "0":
-            print("Goodbye!")
-            break
+    if choice == "0":
+        print("Goodbye!")
+        return
 
-        # ------------------------------------------------------------------
-        # Режим 1 — проверить одно решение
-        # ------------------------------------------------------------------
-        elif choice == "1":
-            solution = input("Enter path to solution file: ").strip()
-            if not os.path.isfile(solution):
-                print(f"File not found: {solution}")
-                continue
+    # ------------------------------------------------------------------
+    # Режим 1 — проверить одно решение
+    # ------------------------------------------------------------------
+    if choice == "1":
+        solution = input("Enter path to solution file: ").strip()
+        if not os.path.isfile(solution):
+            print(f"File not found: {solution}")
+            return
 
-            test_dir = _resolve_test_dir(solution)
+        test_dir = _resolve_test_dir(solution)
+        if not os.path.isdir(test_dir):
+            print(f"Test directory not found: {test_dir}")
+            return
+
+        result = run_tests(solution, test_dir, verbose=False)
+
+        col_file = 28
+        print()
+        print_correctness_header(col_file=col_file)
+        print(format_correctness_row(solution, pathlib.Path(solution).resolve().parent.as_posix(), result, col_file=col_file))
+
+    # ------------------------------------------------------------------
+    # Режим 2 — проверить все решения в папке
+    # ------------------------------------------------------------------
+    elif choice == "2":
+        directory = input("Enter path to folder: ").strip()
+        if not os.path.isdir(directory):
+            print(f"Directory not found: {directory}")
+            return
+
+        test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
+        scripts = find_all_solution_files(directory)
+        if not scripts:
+            print("No solution files found.")
+            return
+
+        col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
+
+        print_correctness_header(col_file=col_file)
+        for path in scripts:
+            result = run_tests(path, test_dir, verbose=False)
+            print(format_correctness_row(path, directory, result, col_file=col_file))
+
+    # ------------------------------------------------------------------
+    # Режим 3 — benchmark нескольких решений в папке
+    # ------------------------------------------------------------------
+    elif choice == "3":
+        directory = input("Enter path to folder: ").strip()
+        if not os.path.isdir(directory):
+            print(f"Directory not found: {directory}")
+            return
+
+        test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
+        scripts = find_all_solution_files(directory)
+        if not scripts:
+            print("No solution files found.")
+            return
+
+        repeats = _ask_bench_profile()
+
+        results: dict[str, dict[str, Any]] = {}
+        for path in scripts:
+            results[path] = run_benchmark(path, test_dir, repeats=repeats)
+
+        ok = {k: v for k, v in results.items() if not v.get("error")}
+        if ok:
+            min_median = min(v["median"] for v in ok.values())
+            for v in ok.values():
+                v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
+                v["verdict"] = _verdict(v["relative"])
+
+        col = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
+        print_benchmark_header(col_file=col)
+        for path, data in sorted(ok.items(), key=lambda x: x[1]["median"]):
+            print(format_benchmark_row(path, directory, data, col_file=col))
+
+        for path, data in sorted(results.items()):
+            if data.get("error"):
+                rel = os.path.relpath(path, directory)
+                print(f"  {rel}: {data['error']}")
+
+    # ------------------------------------------------------------------
+    # Режим 4 — timeit micro-benchmark для папки с решениями
+    # ------------------------------------------------------------------
+    elif choice == "4":
+        directory = input("Enter path to folder with solutions: ").strip()
+        if not os.path.isdir(directory):
+            print(f"Directory not found: {directory}")
+            return
+
+        number = _ask_micro_profile()
+
+        grouped = collect_grouped_files(directory)
+        if not grouped:
+            print("No solution files found.")
+            return
+
+        for folder, paths in sorted(grouped.items()):
+            first_path = sorted(paths)[0]
+            test_dir = _resolve_test_dir(first_path)
             if not os.path.isdir(test_dir):
-                print(f"Test directory not found: {test_dir}")
                 continue
 
-            result = run_tests(solution, test_dir, verbose=False)
-
-            col_file = 28
-            print()
-            print_correctness_header(col_file=col_file)
-            print(format_correctness_row(solution, pathlib.Path(solution).resolve().parent.as_posix(), result, col_file=col_file))
-
-        # ------------------------------------------------------------------
-        # Режим 2 — проверить все решения в папке
-        # ------------------------------------------------------------------
-        elif choice == "2":
-            directory = input("Enter path to folder: ").strip()
-            if not os.path.isdir(directory):
-                print(f"Directory not found: {directory}")
+            print(f"\n\u26a1 Micro-bench (timeit): {folder}")
+            bench = run_microbench_mode(sorted(paths), test_dir, number=number)
+            ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
+            if not ok_rows:
+                print("  No results.")
                 continue
 
-            test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
-            scripts = find_all_solution_files(directory)
-            if not scripts:
-                print("No solution files found.")
-                continue
-
-            col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
-
-            print_correctness_header(col_file=col_file)
-            for path in scripts:
-                result = run_tests(path, test_dir, verbose=False)
-                print(format_correctness_row(path, directory, result, col_file=col_file))
-
-        # ------------------------------------------------------------------
-        # Режим 3 — benchmark нескольких решений в папке
-        # ------------------------------------------------------------------
-        elif choice == "3":
-            directory = input("Enter path to folder: ").strip()
-            if not os.path.isdir(directory):
-                print(f"Directory not found: {directory}")
-                continue
-
-            test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
-            scripts = find_all_solution_files(directory)
-            if not scripts:
-                print("No solution files found.")
-                continue
-
-            repeats = _ask_bench_profile()
-
-            results: dict[str, dict[str, Any]] = {}
-            for path in scripts:
-                results[path] = run_benchmark(path, test_dir, repeats=repeats)
-
-            ok = {k: v for k, v in results.items() if not v.get("error")}
-            if ok:
-                min_median = min(v["median"] for v in ok.values())
-                for v in ok.values():
-                    v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
-                    v["verdict"] = _verdict(v["relative"])
-
-            col = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
+            col = 28
             print_benchmark_header(col_file=col)
-            for path, data in sorted(ok.items(), key=lambda x: x[1]["median"]):
+            for path, data in sorted(ok_rows.items(), key=lambda x: x[1]["median"]):
                 print(format_benchmark_row(path, directory, data, col_file=col))
 
-            for path, data in sorted(results.items()):
+            for path, data in sorted(bench.items()):
                 if data.get("error"):
                     rel = os.path.relpath(path, directory)
                     print(f"  {rel}: {data['error']}")
 
-        # ------------------------------------------------------------------
-        # Режим 4 — timeit micro-benchmark для папки с решениями
-        # ------------------------------------------------------------------
-        elif choice == "4":
-            directory = input("Enter path to folder with solutions: ").strip()
-            if not os.path.isdir(directory):
-                print(f"Directory not found: {directory}")
-                continue
-
-            number = _ask_micro_profile()
-
-            grouped = collect_grouped_files(directory)
-            if not grouped:
-                print("No solution files found.")
-                continue
-
-            for folder, paths in sorted(grouped.items()):
-                # искать tests/ рядом с файлами решений, а не внутри folder
-                first_path = sorted(paths)[0]
-                test_dir = _resolve_test_dir(first_path)
-                if not os.path.isdir(test_dir):
-                    continue
-
-                print(f"\n⚡ Micro-bench (timeit): {folder}")
-                bench = run_microbench_mode(sorted(paths), test_dir, number=number)
-                ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
-                if not ok_rows:
-                    print("  No results.")
-                    continue
-
-                col = 28
-                print_benchmark_header(col_file=col)
-                for path, data in sorted(ok_rows.items(), key=lambda x: x[1]["median"]):
-                    print(format_benchmark_row(path, directory, data, col_file=col))
-
-                for path, data in sorted(bench.items()):
-                    if data.get("error"):
-                        rel = os.path.relpath(path, directory)
-                        print(f"  {rel}: {data['error']}")
-
-        # ------------------------------------------------------------------
-        # Режим 5 — загрузить тесты из Stepik API
-        # ------------------------------------------------------------------
-        elif choice == "5":
-            try:
-                lesson_id = int(input("Lesson ID: ").strip())
-                step_position = int(input("Step position: ").strip())
-            except ValueError:
-                print("Invalid input. Please enter integers.")
-                continue
-
-            try:
-                out_dir = fetch_stepik_tests(lesson_id, step_position)
-                print(f"Tests saved to: {out_dir}")
-            except RuntimeError as exc:
-                print(f"Error: {exc}")
-            except Exception as exc:
-                print(f"Unexpected error: {exc}")
-
-        else:
-            print("Unknown choice. Please enter 0–5.")
+    else:
+        print("Unknown choice. Please enter 0\u20134.")
 
 
 # ---------------------------------------------------------------------------
