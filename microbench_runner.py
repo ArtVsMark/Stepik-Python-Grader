@@ -1,31 +1,21 @@
-"""microbench_runner.py — timeit-based microbenchmark via exec + io.StringIO.
+"""microbench_runner.py — timeit-микробенчмарк через subprocess + os.devnull.
 
-NOTE: Этот модуль в настоящее время НЕ импортируется grader.py — grader
-использует собственную inline-реализацию run_microbench / run_microbench_mode.
-Модуль сохранён для возможного будущего рефакторинга.
+Используется grader.py: ``run_microbench`` импортируется и вызывается из
+``grader.run_microbench_mode`` для stdin-режима.
 
 Архитектура:
-    Вместо прямого вызова func(*args) мы имитируем stdin через io.StringIO
-    и запускаем полный exec(compiled_code) внутри одного процесса.
+    Исходник решения пишется во временный файл и запускается через
+    ``python -c`` с timeit.repeat. На время замера stdout решения
+    перенаправляется в os.devnull, чтобы его print()-вывод не смешивался с
+    числами-таймингами и не ломал парсинг. stdin сбрасывается перед каждой
+    итерацией через инжектированную в builtins функцию ``_reset_stdin``.
 
-    Это устраняет фундаментальное противоречие:
-    - тест-файлы tests/N созданы для subprocess (stdin -> input() -> print())
-    - timeit должен вызывать код напрямую, без нового процесса
+    Передача исходника через файл (а не heredoc) исключает поломку на тройных
+    кавычках (''' / \"\"\") внутри решения.
 
-    Решение: compile() один раз снаружи цикла (amortizes парсинг),
-    затем exec(compiled, {"__builtins__": __builtins__}) в каждой итерации.
-
-    stdin перенаправляется через sys.stdin = io.StringIO(...) с
-    восстановлением через try/finally.
-    stdout перенаправляется через contextlib.redirect_stdout
-    (оно не удалялось в Python 3.14).
-
-    Примечание: contextlib.redirect_stdin удалён в Python 3.14 (PEP 734).
-    Используем прямую подмену sys.stdin с восстановлением через try/finally.
-
-Публичный API модуля:
-    run_microbench(source_code, stdin_texts, file_label, repeats) -> MicrobenchResult
-    apply_relative_micro(results) -> list[MicrobenchResult]
+Дополнительный публичный API (вспомогательные структуры для агрегации):
+    MicrobenchResult        — dataclass с таймингами одного решения
+    apply_relative_micro    — расстановка относительных процентов и вердиктов
 
     Печать таблицы результатов в этом модуле НЕ реализована — это
     ответственность вызывающей стороны (grader.py делает это сам).
@@ -33,16 +23,16 @@ NOTE: Этот модуль в настоящее время НЕ импорти
 
 from __future__ import annotations
 
-import io
+import contextlib
+import os
 import statistics
+import subprocess
 import sys
-import timeit
-import traceback
-import types
-from collections.abc import Callable
-from contextlib import redirect_stdout
+import tempfile
 from dataclasses import dataclass, field
+from typing import Any
 
+ENCODING: str = "utf-8"
 SIMILAR_THRESHOLD_PERCENT = 5.0
 WARMUP_RUNS = 3
 
@@ -57,9 +47,6 @@ class MicrobenchResult:
     error: str = ""
     relative_percent: float = 100.0
     verdict: str = "OK"
-    # Поле func_name удалено (аудит июнь 2026):
-    # оно не использовалось нигде в codebase и вводило в заблуждение
-    # (hardcoded значение "<exec>" не отражало реальное имя функции).
 
     @property
     def min_time(self) -> float:
@@ -83,93 +70,82 @@ class MicrobenchResult:
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
-def _make_stdin_runner(compiled: types.CodeType, stdin_text: str) -> Callable[[], None]:
-    """Return a zero-arg callable that exec-s compiled code with stdin/stdout redirected.
-
-    stdin перенаправляется через прямую подмену sys.stdin с восстановлением
-    через try/finally (аналог redirect_stdin, удалённого в Python 3.14).
-    stdout перенаправляется через contextlib.redirect_stdout.
-
-    compile() вынесен за пределы функции (один раз на файл) — timeit замеряет
-    только логику выполнения, а не парсинг исходника.
-    """
-
-    def _run() -> None:
-        fake_stdin = io.StringIO(stdin_text)
-        fake_stdout = io.StringIO()
-        _original_stdin = sys.stdin
-        sys.stdin = fake_stdin
-        try:
-            with redirect_stdout(fake_stdout):
-                exec(compiled, {"__builtins__": __builtins__})  # noqa: S102
-        finally:
-            sys.stdin = _original_stdin
-
-    return _run
-
-
 def run_microbench(
     source_code: str,
-    stdin_texts: list[str],
-    file_label: str,
-    repeats: int = 1_000,
-) -> MicrobenchResult:
-    """Timeit microbenchmark: exec source_code with each stdin text.
+    *,
+    stdin_data: str = "",
+    number: int = 1000,
+) -> dict[str, Any]:
+    """Запустить timeit-microbenchmark для исходного кода.
 
-    Parameters
-    ----------
-    source_code:
-        Full Python source of the solution (function-only или любой скрипт
-        с input()).
-    stdin_texts:
-        Список строк-stdin для каждого тест-кейса.
-        Каждая строка — это содержимое тест-файла tests/N (строки через \\n).
-        timeit запускается для каждого элемента отдельно, timings складываются.
-    file_label:
-        Короткий лейбл для таблицы результатов (обычно rel_path файла).
-    repeats:
-        Количество вызовов timeit.timeit(..., number=repeats) на каждый stdin.
-        Общее число замеров = repeats x len(stdin_texts).
+    Код запускается как строка через python -c.
+    stdin сбрасывается перед каждой итерацией через _reset_stdin() в начале stmt.
+
+    Возвращает словарь с ключами:
+        times  (list[float]) — список замеров (в секундах на итерацию)
+        error  (str)         — сообщение об ошибке (пустая = успех)
     """
-    try:
-        compiled: types.CodeType = compile(source_code, file_label, "exec")
-    except SyntaxError as exc:
-        return MicrobenchResult(
-            file=file_label,
-            repeats=repeats,
-            error=f"SyntaxError: {exc}",
-        )
+    # Передаём исходник через временный файл, а не heredoc-строку:
+    # это исключает поломку на тройных кавычках (''' / \"\"\") в решении.
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding=ENCODING, delete=False) as f:
+        f.write(source_code)
+        code_path = f.name
 
-    if not stdin_texts:
-        stdin_texts = [""]
-
-    timings: list[float] = []
-
-    for stdin_text in stdin_texts:
-        runner = _make_stdin_runner(compiled, stdin_text)
-        try:
-            # Warmup: прогрев кэшей Python перед замером
-            for _ in range(WARMUP_RUNS):
-                try:
-                    runner()
-                except Exception:
-                    pass
-            total = timeit.timeit(runner, number=repeats)
-            per_call = total / repeats
-            timings.append(per_call)
-        except Exception as exc:
-            tb = traceback.format_exc(limit=4)
-            return MicrobenchResult(
-                file=file_label,
-                repeats=repeats,
-                error=f"{type(exc).__name__}: {exc}\n{tb}",
-            )
-
-    return MicrobenchResult(
-        file=file_label,
-        repeats=repeats,
-        timings=timings,
+    # Весь вспомогательный код помещаем в bench_script через exec,
+    # чтобы _reset_stdin была доступна в глобальном пространстве stmt.
+    # stmt — строка, выполняемая timeit; globals не пробрасываются через repeat()
+    # в Python 3.14+, поэтому инжектируем функцию через builtins.
+    # stdout решения подавляется на время замера: иначе его print()-вывод
+    # попадает на stdout вперемешку с таймингами и портит парсинг.
+    # Реальный stdout сохраняется и восстанавливается только для печати таймингов,
+    # так что на stdout оказываются ИСКЛЮЧИТЕЛЬНО 5 чисел-таймингов.
+    bench_script = (
+        "import timeit as _timeit, sys as _sys, io as _io, os as _os, builtins as _builtins\n"
+        "_stdin = " + repr(stdin_data) + "\n"
+        "def _reset_stdin():\n"
+        "    _sys.stdin = _io.StringIO(_stdin)\n"
+        "_builtins._reset_stdin = _reset_stdin\n"
+        "_reset_stdin()\n"
+        f"with open({code_path!r}, encoding='utf-8') as _f:\n"
+        "    _code = _f.read()\n"
+        "_stmt = '_reset_stdin()\\n' + _code\n"
+        f"_number = {number}\n"
+        "_real_stdout = _sys.stdout\n"
+        "_devnull = open(_os.devnull, 'w')\n"
+        "_sys.stdout = _devnull\n"
+        "try:\n"
+        "    _times = _timeit.repeat(\n"
+        "        stmt=_stmt,\n"
+        "        setup='pass',\n"
+        "        repeat=5,\n"
+        "        number=_number,\n"
+        "    )\n"
+        "finally:\n"
+        "    _sys.stdout = _real_stdout\n"
+        "    _devnull.close()\n"
+        "_per = [t / _number for t in _times]\n"
+        "print('\\n'.join(str(t) for t in _per))\n"
     )
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", bench_script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            encoding=ENCODING,
+        )
+        if result.returncode != 0:
+            return {"times": [], "error": result.stderr.strip()}
+        times = [float(line) for line in result.stdout.strip().splitlines() if line.strip()]
+        return {"times": times, "error": ""}
+    except subprocess.TimeoutExpired:
+        return {"times": [], "error": "microbench timeout"}
+    except Exception as exc:
+        return {"times": [], "error": str(exc)}
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(code_path)
 
 
 def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResult]:

@@ -132,15 +132,14 @@ def test_normalizers_vs_grader_same_float_output():
         assert grader._normalize_output_line(value) == normalize_floats(value), value
 
 
-def test_normalizers_vs_grader_diverge_on_tiny_floats():
-    """DIVERGENCE (important for refactoring): the two are NOT interchangeable.
+def test_normalizers_vs_grader_converge_on_tiny_floats():
+    """CONVERGENCE (post-refactoring): the two are now interchangeable.
 
-    For very small magnitudes, grader uses str(round(x, 9)) which yields
-    scientific notation ('1e-07'), while normalizers.normalize_floats formats with
-    a fixed decimal count and strips zeros ('0.0000001'). The merge must therefore
-    preserve grader._normalize_output_line — it cannot blindly substitute
-    normalize_floats without changing comparison results.
+    After the merge, grader._normalize_output_line IS normalizers.normalize_floats
+    (imported under that alias). Both use str(round(x, 9)), which yields scientific
+    notation for very small magnitudes ('1e-07'). The previously documented
+    divergence (normalize_floats producing '0.0000001') is gone.
     """
     assert grader._normalize_output_line("0.0000001") == "1e-07"
-    assert normalize_floats("0.0000001") == "0.0000001"
-    assert grader._normalize_output_line("0.0000001") != normalize_floats("0.0000001")
+    assert normalize_floats("0.0000001") == "1e-07"
+    assert grader._normalize_output_line("0.0000001") == normalize_floats("0.0000001")

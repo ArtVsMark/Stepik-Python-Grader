@@ -45,30 +45,24 @@ def test_apply_relative_micro_two_solutions() -> None:
 
 
 def test_run_microbench_syntax_error() -> None:
-    result = run_microbench(
-        source_code="def broken(:",
-        stdin_texts=[""],
-        file_label="broken.py",
-        repeats=1,
-    )
-    assert result.error
-    assert "SyntaxError" in result.error
+    """Решение с синтаксической ошибкой → непустой error, пустые times."""
+    result = run_microbench("def broken(:", stdin_data="", number=10)
+    assert result["error"]
+    assert result["times"] == []
 
 
 def test_run_microbench_simple_script() -> None:
-    source = "x = 1 + 1\n"
-    result = run_microbench(source_code=source, stdin_texts=[""], file_label="t.py", repeats=3)
-    assert not result.error
-    assert len(result.timings) == 1
-    assert result.min_time > 0
+    result = run_microbench("x = 1 + 1\n", stdin_data="", number=50)
+    assert not result["error"]
+    assert len(result["times"]) == 5
+    assert all(t > 0 for t in result["times"])
 
 
 def test_run_microbench_uses_builtins() -> None:
-    """После фикса exec({}) → exec({"__builtins__": ...}) print() работает."""
-    source = "print('hello')\n"
-    result = run_microbench(source_code=source, stdin_texts=[""], file_label="t.py", repeats=3)
-    assert not result.error, f"Unexpected error: {result.error}"
-    assert result.timings
+    """print() работает: stdout подавляется в devnull, замер проходит чисто."""
+    result = run_microbench("print('hello')\n", stdin_data="", number=50)
+    assert not result["error"], f"Unexpected error: {result['error']}"
+    assert result["times"]
 
 
 def test_warmup_runs_constant_exists() -> None:
@@ -79,9 +73,9 @@ def test_warmup_runs_constant_exists() -> None:
 
 def test_run_microbench_with_input() -> None:
     """Решение использующее input() корректно работает с stdin."""
-    source = "n = int(input())\nprint(n * 2)\n"
-    result = run_microbench(source_code=source, stdin_texts=["5"], file_label="t.py", repeats=3)
-    assert not result.error
+    result = run_microbench("n = int(input())\nprint(n * 2)\n", stdin_data="5\n", number=20)
+    assert not result["error"]
+    assert len(result["times"]) == 5
 
 
 # ===========================================================================

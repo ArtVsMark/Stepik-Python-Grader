@@ -1,25 +1,18 @@
 """Tests for the microbench_runner.py module functions directly.
 
-microbench_runner.py is currently DEAD CODE — grader.py uses its own inline
-run_microbench / run_microbench_mode instead. These tests document the module's
-behavior so a future refactoring that merges it into grader.py can verify the
-merged version keeps (or intentionally changes) each behavior.
+microbench_runner.py is now LIVE — grader.py imports run_microbench from it and
+calls it from run_microbench_mode (stdin path). These tests exercise the module's
+public surface directly.
 
-KEY DIFFERENCE from grader.run_microbench:
-  - microbench_runner runs the solution in-process via exec() inside timeit and
-    redirects stdout to an io.StringIO (per-iteration), so printed output is
-    captured but discarded.
-  - grader.run_microbench runs the solution as a real subprocess (python -c) and
-    redirects the solution's stdout to os.devnull during the timeit.repeat call.
-  - The signatures differ entirely: microbench_runner.run_microbench takes
-    (source_code, stdin_texts: list[str], file_label, repeats) and returns a
-    MicrobenchResult dataclass; grader.run_microbench takes
-    (source_code, *, stdin_data: str, number) and returns a dict.
+run_microbench runs the solution as a real subprocess (python -c) and redirects
+the solution's stdout to os.devnull during the timeit.repeat call (repeat=5), so
+printed output never leaks into the parsed timings. Its signature is
+(source_code, *, stdin_data: str, number) and it returns a dict with keys
+'times' (list[float]) and 'error' (str).
 
-The existing tests/test_microbench.py already covers MicrobenchResult defaults,
-apply_relative_micro, syntax errors, simple scripts, builtins, and input(). This
-file adds happy-path coverage of the remaining public surface and explicitly
-documents the stdout-handling difference vs grader.
+The module also exposes the MicrobenchResult dataclass and apply_relative_micro
+helper for aggregating/ranking per-file timings; those are covered below and in
+tests/test_microbench.py.
 """
 
 from __future__ import annotations
@@ -33,79 +26,47 @@ from microbench_runner import (
 
 
 def test_microbench_runner_basic_timing() -> None:
-    """Basic timing returns one positive per-call float per stdin text."""
-    result = run_microbench(
-        source_code="x = sum(range(50))\n",
-        stdin_texts=[""],
-        file_label="t.py",
-        repeats=5,
-    )
-    assert result.error == ""
-    assert len(result.timings) == 1
-    assert result.min_time > 0
-    assert result.median_time > 0
+    """Basic timing returns exactly 5 positive per-call floats (timeit repeat=5)."""
+    result = run_microbench("x = sum(range(50))\n", stdin_data="", number=5)
+    assert result["error"] == ""
+    assert len(result["times"]) == 5
+    assert all(t > 0 for t in result["times"])
 
 
-def test_microbench_runner_multiple_stdin_texts() -> None:
-    """One timing is appended per stdin text (total = len(stdin_texts))."""
-    result = run_microbench(
-        source_code="n = int(input())\nprint(n)\n",
-        stdin_texts=["1", "2", "3"],
-        file_label="t.py",
-        repeats=3,
-    )
-    assert result.error == ""
-    assert len(result.timings) == 3
+def test_microbench_runner_with_stdin() -> None:
+    """A solution reading stdin times cleanly with stdin_data provided."""
+    result = run_microbench("n = int(input())\nprint(n)\n", stdin_data="42\n", number=3)
+    assert result["error"] == ""
+    assert len(result["times"]) == 5
 
 
-def test_microbench_runner_empty_stdin_texts_defaults_to_one() -> None:
-    """An empty stdin_texts list is treated as a single empty stdin ([''])."""
-    result = run_microbench(
-        source_code="y = 2 * 2\n",
-        stdin_texts=[],
-        file_label="t.py",
-        repeats=2,
-    )
-    assert result.error == ""
-    assert len(result.timings) == 1
+def test_microbench_runner_number_parameter() -> None:
+    """The number= parameter is accepted; shape stays 5 timings regardless of size."""
+    small = run_microbench("y = 2 * 2\n", stdin_data="", number=5)
+    large = run_microbench("y = 2 * 2\n", stdin_data="", number=500)
+    assert small["error"] == "" and large["error"] == ""
+    assert len(small["times"]) == 5
+    assert len(large["times"]) == 5
 
 
 def test_microbench_runner_runtime_error_captured() -> None:
-    """A runtime exception inside the runner is captured as result.error."""
-    result = run_microbench(
-        source_code="raise ValueError('boom')\n",
-        stdin_texts=[""],
-        file_label="t.py",
-        repeats=2,
-    )
-    assert result.error
-    assert "ValueError" in result.error
-    assert result.timings == []
+    """A runtime exception in the solution is captured as result['error']."""
+    result = run_microbench("raise ValueError('boom')\n", stdin_data="", number=2)
+    assert result["error"]
+    assert "ValueError" in result["error"]
+    assert result["times"] == []
 
 
-def test_microbench_runner_vs_grader_behavior() -> None:
-    """microbench_runner does NOT redirect stdout to devnull the way grader does.
+def test_microbench_runner_stdout_suppressed() -> None:
+    """run_microbench redirects the solution's stdout to devnull during timing.
 
-    Instead it captures the solution's stdout into a per-iteration io.StringIO
-    (in _make_stdin_runner) and discards it. The net effect for the caller is the
-    same — printed output never leaks into the returned timings — but the MECHANISM
-    differs from grader.run_microbench's os.devnull redirection (commit 15b9912).
-
-    REFACTORING NOTE: after merging microbench_runner.py into grader.py, the
-    surviving implementation should be grader's subprocess+devnull approach. This
-    test documents that a loud (printing) solution still yields clean timings here;
-    update it if the merge unifies the two mechanisms.
+    A loud (printing) solution still yields exactly 5 clean timings — the printed
+    line never lands among the parsed timing numbers.
     """
-    result = run_microbench(
-        source_code="print('noise from solution')\nz = 1 + 1\n",
-        stdin_texts=[""],
-        file_label="loud.py",
-        repeats=3,
-    )
-    assert result.error == ""
-    # Exactly one timing per stdin text — the printed line did not corrupt it.
-    assert len(result.timings) == 1
-    assert result.timings[0] > 0
+    result = run_microbench("print('noise from solution')\nz = 1 + 1\n", stdin_data="", number=3)
+    assert result["error"] == ""
+    assert len(result["times"]) == 5
+    assert all(0.0 < t < 1.0 for t in result["times"])
 
 
 def test_microbench_runner_apply_relative_orders_by_median() -> None:

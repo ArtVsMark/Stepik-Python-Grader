@@ -39,7 +39,8 @@
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
 | `grader.py` | Application | Интерактивный грейдер: 4 режима работы, rich-таблицы с цветами, вердикты AC/WA/TLE/RE, прогресс-бар, diff при WA |
 | `executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
-| `microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через `exec` + `contextlib` (без запуска нового процесса) |
+| `microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; импортируется `grader.py` |
+| `normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace`; импортируется `grader.py` как `_normalize_output_line` |
 | `diagnostik_stepik.py` | Infrastructure | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
 
 Основные возможности:
@@ -50,7 +51,7 @@
 - 🔗 Обнаружение ссылок на GitHub-тесты с подсказкой скачать вручную
 - 📊 Сравнение нескольких решений одной задачи в таблице
 - 🚀 Subprocess-бенчмарк с замером времени и памяти
-- ⚡ Timeit-микробенчмарк через `exec` + `contextlib` (без запуска нового процесса)
+- ⚡ Timeit-микробенчмарк через subprocess (`python -c`) с подавлением stdout решения в `os.devnull`
 - 🎨 Цветной вывод через `rich` — зелёный OK/AC, красный WA/TLE/RE, жёлтый SLOWER
 - 🔍 Diff при WA — сравнение ожидаемого и фактического вывода при провале теста
 - ⚖️ Вердикты AC / WA / TLE / RE по каждому тест-кейсу
@@ -68,6 +69,7 @@ downloader.py          ──→  stepik_client.py
 stepik_client.py     ──→  storage.py
 grader.py              ──→  executor.py
 grader.py              ──→  microbench_runner.py
+grader.py              ──→  normalizers.py
 diagnostik_stepik.py ──→  stepik_client.py
 ```
 
@@ -83,11 +85,11 @@ diagnostik_stepik.py ──→  stepik_client.py
 │  microbench_runner.py                           │
 ├─────────────────────────────────────────────────┤
 │  Infrastructure / Utilities  (leaf, no deps)    │
-│  storage.py                                     │
+│  storage.py  │  normalizers.py                  │
 └─────────────────────────────────────────────────┘
 ```
 
-`storage.py` — leaf-модуль: не импортирует ничего из проекта, легко тестируется изолированно.
+`storage.py` и `normalizers.py` — leaf-модули: не импортируют ничего из проекта, легко тестируются изолированно.
 
 ---
 
@@ -97,7 +99,8 @@ diagnostik_stepik.py ──→  stepik_client.py
 Stepik-Python-Grader/
 ├── grader.py                    # Главный модуль: 4 режима работы
 ├── executor.py                # Запускатель решений: compile + exec с таймаутом
-├── microbench_runner.py       # Timeit-микробенчмарк через exec
+├── microbench_runner.py       # Timeit-микробенчмарк через subprocess + os.devnull
+├── normalizers.py             # Нормализация вывода: округление float, sort/whitespace
 ├── downloader.py                # Domain: конфиг, slugify, построение папок, оркестрация API
 ├── stepik_client.py           # Infrastructure: OAuth2, requests.Session, Stepik API
 ├── storage.py                 # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
@@ -546,7 +549,7 @@ python diagnostik_stepik.py
 ## Ограничения и безопасность
 
 - **Режимы 1–3 (`executor.py`):** решения запускаются через отдельный subprocess. Код компилируется через `compile(source, "<solution>", "exec")` и выполняется в изолированном namespace `{"__builtins__": __builtins__}`. На Unix — `signal.alarm(TIMEOUT)`; на Windows — `SUBPROCESS_TIMEOUT`.
-- **Режим 4 (`microbench_runner.py`):** решения запускаются через `exec(compiled, {})` внутри одного процесса. `stdin`/`stdout` перенаправляются через `contextlib.redirect_stdin` / `contextlib.redirect_stdout`.
+- **Режим 4 (`microbench_runner.py`):** решения запускаются через subprocess (`python -c`) с `timeit.repeat`. Исходник передаётся через временный файл; `stdin` сбрасывается перед каждой итерацией, а `stdout` решения перенаправляется в `os.devnull` на время замера, чтобы его вывод не смешивался с числами-таймингами.
 - **Microbench без таймаута:** бесконечный цикл в решении подвесит grader. Используй только с проверенными решениями.
 - **Нет sandbox:** grader не изолирует файловую систему или сеть. Запускай только доверенные решения.
 
