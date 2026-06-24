@@ -359,7 +359,6 @@ def _measure_peak_memory(proc: subprocess.Popen, result: list[float], stop: thre
     peak = 0.0
     try:
         ps_proc = psutil.Process(proc.pid)
-        # Первый замер — сразу, без ожидания
         try:
             rss = ps_proc.memory_info().rss / 1024 / 1024
             if rss > peak:
@@ -367,7 +366,6 @@ def _measure_peak_memory(proc: subprocess.Popen, result: list[float], stop: thre
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             result[0] = peak
             return
-        # Последующие замеры — каждые 20 мс
         while not stop.is_set():
             try:
                 rss = ps_proc.memory_info().rss / 1024 / 1024
@@ -670,24 +668,30 @@ def run_microbench(
 ) -> dict[str, Any]:
     """Запустить timeit-microbenchmark для исходного кода.
 
+    stdin сбрасывается перед каждой итерацией через встраивание _reset_stdin() в начало stmt,
+    чтобы избежать EOFError при большом number повторений.
+
     Возвращает словарь с ключами:
-        times  (list[float]) — список замеров (в секундах)
-        error  (str)         — сообщение об ошибке (пустая строка = успех)
+        times  (list[float]) — список замеров (в секундах на итерацию)
+        error  (str)         — сообщение об ошибке (пустая = успех)
     """
+    # _reset_stdin() встроен в начало stmt, чтобы stdin сбрасывался перед каждой итерацией,
+    # а не только перед первым запуском (setup вызывается один раз).
+    stmt_with_reset = "_reset_stdin()\n" + source_code.replace("'''", '"""')
+
     bench_script = (
-        "import timeit as _timeit, sys as _sys\n"
-        "_code = '''" + source_code.replace("'''", '"""') + "'''\n"
-        f"_number = {number}\n"
+        "import timeit as _timeit, sys as _sys, io as _io\n"
         "_stdin = " + repr(stdin_data) + "\n"
-        "import io as _io\n"
-        "_sys.stdin = _io.StringIO(_stdin)\n"
         "def _reset_stdin():\n"
         "    _sys.stdin = _io.StringIO(_stdin)\n"
+        "_reset_stdin()\n"
+        "_stmt = '''" + stmt_with_reset + "'''\n"
+        f"_number = {number}\n"
         "_times = _timeit.repeat(\n"
-        "    stmt=_code,\n"
-        "    setup='_reset_stdin()',\n"
+        "    stmt=_stmt,\n"
+        "    setup='pass',\n"
         "    repeat=5,\n"
-        f"    number={number},\n"
+        f"    number=_number,\n"
         "    globals={'_reset_stdin': _reset_stdin}\n"
         ")\n"
         "_per = [t / _number for t in _times]\n"
@@ -758,7 +762,7 @@ def fetch_stepik_tests(
     """
     import json
 
-    import requests  # ленивый импорт — requests не нужен для режимов 1-4
+    import requests
 
     secrets_path = pathlib.Path(secrets_file)
     if not secrets_path.exists():
@@ -1015,7 +1019,6 @@ def _interactive_menu() -> None:
             return
 
         for folder, paths in sorted(grouped.items()):
-            # Ищем tests/ от папки с файлами, а не от имени первого файла
             folder_abs = pathlib.Path(directory) / folder if folder != "." else pathlib.Path(directory)
             test_dir = _resolve_test_dir_from_input(str(folder_abs), is_dir=True)
 
