@@ -562,11 +562,15 @@ def run_benchmark(
     test_dir: str,
     *,
     timeout: float = TIMEOUT_SECONDS,
+    repeats: int = 15,
 ) -> dict[str, Any]:
     """Запустить все тест-кейсы в режиме benchmark и собрать статистику времени.
 
+    Аргумент repeats задаёт число повторений каждого тест-кейса.
+    Соответствует профилям нагрузки: low=5, medium=15, high=50, custom=5..100.
+
     Возвращаемый словарь:
-        runs       (int)   — число запусков
+        runs       (int)   — число запусков (test_cases * repeats)
         min/max/mean/median/stdev (float) — статистика времени (секунды)
         peak_memory_mb (float)
         relative   (float) — задаётся снаружи при сравнении
@@ -578,11 +582,12 @@ def run_benchmark(
     peak_mb = 0.0
 
     for case in test_cases:
-        r = run_single_test(solution_path, case, timeout=timeout)
-        if r["error"] or r["timed_out"]:
-            return {"error": r["error"] or "timeout", "runs": 0}
-        times.append(r["time"])
-        peak_mb = max(peak_mb, r["memory"])
+        for _ in range(max(1, repeats)):
+            r = run_single_test(solution_path, case, timeout=timeout)
+            if r["error"] or r["timed_out"]:
+                return {"error": r["error"] or "timeout", "runs": 0}
+            times.append(r["time"])
+            peak_mb = max(peak_mb, r["memory"])
 
     if not times:
         return {"error": "no test cases", "runs": 0}
@@ -616,7 +621,7 @@ def run_microbench(
     """
     bench_script = (
         "import timeit as _timeit, sys as _sys\n"
-        "_code = '''" + source_code.replace("'''", "\"\"\"") + "'''\n"
+        "_code = '''" + source_code.replace("'''", '"""') + "'''\n"
         f"_number = {number}\n"
         "_stdin = " + repr(stdin_data) + "\n"
         "import io as _io\n"
@@ -765,6 +770,63 @@ def fetch_stepik_tests(
 
 
 # ---------------------------------------------------------------------------
+# Профили нагрузки
+# ---------------------------------------------------------------------------
+
+_BENCH_PROFILES: dict[str, int] = {
+    "1": 5,    # low
+    "2": 15,   # medium
+    "3": 50,   # high
+    "4": 0,    # custom — значение запрашивается отдельно
+}
+
+_MICRO_PROFILES: dict[str, int] = {
+    "1": 500,       # fast
+    "2": 1_000,     # normal
+    "3": 5_000,     # thorough
+    "4": 50_000,    # deep
+    "5": 100_000,   # hard
+    "6": 0,         # custom — значение запрашивается отдельно
+}
+
+
+def _ask_bench_profile() -> int:
+    """Запросить профиль нагрузки для subprocess-бенчмарка (режим 3)."""
+    print("  Load profiles (repeats per solution):")
+    print("    1  low       —   5 runs")
+    print("    2  medium    —  15 runs")
+    print("    3  high      —  50 runs")
+    print("    4  custom    —  5–100 runs")
+    choice = input("  Select profile [2]: ").strip() or "2"
+    repeats = _BENCH_PROFILES.get(choice)
+    if repeats is None:
+        repeats = _BENCH_PROFILES["2"]
+    if repeats == 0:
+        repeats = _ask_number("  Enter repeats (5–100): ", default=15)
+        repeats = max(5, min(100, repeats))
+    return repeats
+
+
+def _ask_micro_profile() -> int:
+    """Запросить профиль нагрузки для timeit micro-bench (режим 4)."""
+    print("  Load profiles (calls per run):")
+    print("    1  fast      —     500")
+    print("    2  normal    —   1 000")
+    print("    3  thorough  —   5 000")
+    print("    4  deep      —  50 000")
+    print("    5  hard      — 100 000  (short deterministic functions only)")
+    print("    6  custom    — 100–500 000")
+    choice = input("  Select profile [2]: ").strip() or "2"
+    number = _MICRO_PROFILES.get(choice)
+    if number is None:
+        number = _MICRO_PROFILES["2"]
+    if number == 0:
+        number = _ask_number("  Enter calls (100–500 000): ", default=1000)
+        number = max(100, min(500_000, number))
+    return number
+
+
+# ---------------------------------------------------------------------------
 # Интерактивное меню
 # ---------------------------------------------------------------------------
 
@@ -867,9 +929,11 @@ def _interactive_menu() -> None:
                 print("No solution files found.")
                 continue
 
+            repeats = _ask_bench_profile()
+
             results: dict[str, dict[str, Any]] = {}
             for path in scripts:
-                results[path] = run_benchmark(path, test_dir)
+                results[path] = run_benchmark(path, test_dir, repeats=repeats)
 
             ok = {k: v for k, v in results.items() if not v.get("error")}
             if ok:
@@ -897,7 +961,7 @@ def _interactive_menu() -> None:
                 print(f"Directory not found: {directory}")
                 continue
 
-            number = _ask_number("Number of timeit repeats [1000]: ", default=1000)
+            number = _ask_micro_profile()
 
             grouped = collect_grouped_files(directory)
             if not grouped:
@@ -905,7 +969,9 @@ def _interactive_menu() -> None:
                 continue
 
             for folder, paths in sorted(grouped.items()):
-                test_dir = os.path.join(directory, folder, "tests")
+                # искать tests/ рядом с файлами решений, а не внутри folder
+                first_path = sorted(paths)[0]
+                test_dir = _resolve_test_dir(first_path)
                 if not os.path.isdir(test_dir):
                     continue
 
