@@ -8,8 +8,11 @@
 [Первоисточник грейдера](https://github.com/PavloOps/python_generation_grader)
 
 Курсы:
-- [Поколение Python: Профи](https://stepik.org/course/82541)
+- [Поколение Python: Курс для начинающих](https://stepik.org/course/58852)
+- [Поколение Python: Курс для продвинутых](https://stepik.org/course/68343)
+- [Поколение Python: Курс для профессионалов](https://stepik.org/course/82541)
 - [Поколение Python: ООП](https://stepik.org/course/98974)
+- [Поколение Python: Курс для самураев](https://stepik.org/course/134318)
 
 ---
 
