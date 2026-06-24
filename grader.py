@@ -689,6 +689,20 @@ for _name in dir(_mod):
 """
 
 
+def _normalize_output_line(line: str) -> str:
+    """Normalize a single output line for comparison.
+
+    Rounds floats to 9 decimal places to handle floating-point precision
+    differences (e.g. 5.000000000000001 vs 5.0).
+    """
+    def _round_float(m: re.Match) -> str:  # type: ignore[type-arg]
+        try:
+            return str(round(float(m.group()), 9))
+        except ValueError:
+            return m.group()
+    return re.sub(r'-?\d+\.\d+(?:[eE][+-]?\d+)?', _round_float, line)
+
+
 def run_single_test(
     solution_path: str,
     case: TestCase,
@@ -824,6 +838,11 @@ def run_single_test(
 
         actual_lines = [line.rstrip("\n") for line in stdout.splitlines()]
         passed = actual_lines == case.expected_lines
+        if not passed and len(actual_lines) == len(case.expected_lines):
+            passed = all(
+                _normalize_output_line(a) == _normalize_output_line(e)
+                for a, e in zip(actual_lines, case.expected_lines, strict=True)
+            )
         diff_str = ""
         if not passed:
             import difflib

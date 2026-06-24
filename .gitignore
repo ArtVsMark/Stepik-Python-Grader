@@ -31,3 +31,4 @@ PokolenieTestes/
 coverage.xml
 .pytest_cache/
 t.py
+.stepik_cache/

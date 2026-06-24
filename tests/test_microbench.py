@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from microbench_runner import (
     SIMILAR_THRESHOLD_PERCENT,
+    WARMUP_RUNS,
     MicrobenchResult,
     apply_relative_micro,
     run_microbench,
@@ -60,3 +61,24 @@ def test_run_microbench_simple_script() -> None:
     assert not result.error
     assert len(result.timings) == 1
     assert result.min_time > 0
+
+
+def test_run_microbench_uses_builtins() -> None:
+    """После фикса exec({}) → exec({"__builtins__": ...}) print() работает."""
+    source = "print('hello')\n"
+    result = run_microbench(source_code=source, stdin_texts=[""], file_label="t.py", repeats=3)
+    assert not result.error, f"Unexpected error: {result.error}"
+    assert result.timings
+
+
+def test_warmup_runs_constant_exists() -> None:
+    """Константа WARMUP_RUNS экспортируется из модуля."""
+    assert isinstance(WARMUP_RUNS, int)
+    assert WARMUP_RUNS >= 1
+
+
+def test_run_microbench_with_input() -> None:
+    """Решение использующее input() корректно работает с stdin."""
+    source = "n = int(input())\nprint(n * 2)\n"
+    result = run_microbench(source_code=source, stdin_texts=["5"], file_label="t.py", repeats=3)
+    assert not result.error

@@ -18,6 +18,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json as _json_mod
 import pathlib
 import threading
 import time
@@ -236,6 +238,77 @@ def create_user_session(
 
 
 # ---------------------------------------------------------------------------
+# HTTP helpers: retry + file cache
+# ---------------------------------------------------------------------------
+
+
+def _get_with_retry(
+    session: requests.Session,
+    url: str,
+    params: dict[str, Any] | None = None,
+    retries: int = 3,
+    backoff: float = 1.0,
+    timeout: int = 30,
+) -> requests.Response:
+    """GET-запрос с повтором при сетевых ошибках (exponential backoff).
+
+    Parameters
+    ----------
+    retries:
+        Максимальное число попыток (включая первую).
+    backoff:
+        Базовая задержка в секундах; удваивается с каждой попыткой.
+    """
+    last_exc: requests.RequestException | None = None
+    for attempt in range(retries):
+        try:
+            response = session.get(url, params=params, timeout=timeout)
+            response.raise_for_status()
+            return response
+        except requests.RequestException as exc:
+            last_exc = exc
+            if attempt < retries - 1:
+                time.sleep(backoff * (2 ** attempt))
+    raise last_exc  # type: ignore[misc]
+
+
+CACHE_DIR = pathlib.Path(".stepik_cache")
+CACHE_TTL_SECONDS = 3600  # 1 hour
+
+
+def _cached_api_get(
+    session: requests.Session,
+    url: str,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """GET-запрос с файловым кэшем (TTL=1ч) и retry при сетевых ошибках.
+
+    Кэшируется полный JSON-ответ по ключу MD5(url + params).
+    Используется только для read-only API-эндпоинтов Stepik.
+    """
+    key_data = _json_mod.dumps({"url": url, "params": params or {}}, sort_keys=True)
+    key = hashlib.md5(key_data.encode()).hexdigest()  # noqa: S324
+    cache_file = CACHE_DIR / f"{key}.json"
+
+    CACHE_DIR.mkdir(exist_ok=True)
+    if cache_file.exists():
+        age = time.time() - cache_file.stat().st_mtime
+        if age < CACHE_TTL_SECONDS:
+            try:
+                return cast(dict[str, Any], _json_mod.loads(cache_file.read_text(encoding="utf-8")))
+            except (_json_mod.JSONDecodeError, OSError):
+                pass
+
+    response = _get_with_retry(session, url, params=params)
+    data: dict[str, Any] = response.json()
+    try:
+        cache_file.write_text(_json_mod.dumps(data, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+    return data
+
+
+# ---------------------------------------------------------------------------
 # Stepik REST API — fetch helpers
 # ---------------------------------------------------------------------------
 
@@ -248,12 +321,11 @@ def fetch_step_data(
     """Возвращает объект шага по позиции внутри урока (с пагинацией)."""
     page = 1
     while True:
-        response = session.get(
+        response = _get_with_retry(
+            session,
             f"{API_HOST}/api/steps",
             params={"lesson": lesson_id, "page": page},
-            timeout=30,
         )
-        response.raise_for_status()
         data = response.json()
         steps: list[dict[str, Any]] = data.get("steps", [])
         for step in steps:
@@ -268,9 +340,8 @@ def fetch_step_data(
 
 def fetch_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, Any]:
     """Возвращает объект урока по lesson_id."""
-    response = session.get(f"{API_HOST}/api/lessons/{lesson_id}", timeout=30)
-    response.raise_for_status()
-    lessons: list[dict[str, Any]] = response.json().get("lessons", [])
+    data = _cached_api_get(session, f"{API_HOST}/api/lessons/{lesson_id}")
+    lessons: list[dict[str, Any]] = data.get("lessons", [])
     if not lessons:
         raise ValueError(f"Урок {lesson_id} не найден")
     return lessons[0]
@@ -285,9 +356,8 @@ def fetch_unit_data(
     params: dict[str, int] = {"lesson": lesson_id}
     if unit_id is not None:
         params["id"] = unit_id
-    response = session.get(f"{API_HOST}/api/units", params=params, timeout=30)
-    response.raise_for_status()
-    units: list[dict[str, Any]] = response.json().get("units", [])
+    data = _cached_api_get(session, f"{API_HOST}/api/units", params=params)
+    units: list[dict[str, Any]] = data.get("units", [])
     if not units:
         raise ValueError(f"Юнит для урока {lesson_id} не найден")
     return units[0]
@@ -295,9 +365,8 @@ def fetch_unit_data(
 
 def fetch_section_data(session: requests.Session, section_id: int) -> dict[str, Any]:
     """Возвращает объект секции по section_id."""
-    response = session.get(f"{API_HOST}/api/sections/{section_id}", timeout=30)
-    response.raise_for_status()
-    sections: list[dict[str, Any]] = response.json().get("sections", [])
+    data = _cached_api_get(session, f"{API_HOST}/api/sections/{section_id}")
+    sections: list[dict[str, Any]] = data.get("sections", [])
     if not sections:
         raise ValueError(f"Секция {section_id} не найдена")
     return sections[0]
@@ -305,9 +374,8 @@ def fetch_section_data(session: requests.Session, section_id: int) -> dict[str, 
 
 def fetch_course_data(session: requests.Session, course_id: int) -> dict[str, Any]:
     """Возвращает объект курса по course_id."""
-    response = session.get(f"{API_HOST}/api/courses/{course_id}", timeout=30)
-    response.raise_for_status()
-    courses: list[dict[str, Any]] = response.json().get("courses", [])
+    data = _cached_api_get(session, f"{API_HOST}/api/courses/{course_id}")
+    courses: list[dict[str, Any]] = data.get("courses", [])
     if not courses:
         raise ValueError(f"Курс {course_id} не найден")
     return courses[0]
@@ -318,12 +386,11 @@ def fetch_submission_data(
     step_id: int,
 ) -> dict[str, Any] | None:
     """Возвращает последний сабмишн для шага или None если их нет."""
-    response = session.get(
+    response = _get_with_retry(
+        session,
         f"{API_HOST}/api/submissions",
         params={"step": step_id, "order": "desc"},
-        timeout=30,
     )
-    response.raise_for_status()
     submissions: list[dict[str, Any]] = response.json().get("submissions", [])
     return submissions[0] if submissions else None
 
@@ -338,12 +405,11 @@ def download_and_extract_submissions(
     Использует эндпоинт:
         GET /api/submissions?step=<step_id>&order=desc
     """
-    response = session.get(
+    response = _get_with_retry(
+        session,
         f"{API_HOST}/api/submissions",
         params={"step": step_id, "order": "desc"},
-        timeout=30,
     )
-    response.raise_for_status()
     submissions: list[dict[str, Any]] = response.json().get("submissions", [])
 
     if not submissions:

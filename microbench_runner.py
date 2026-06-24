@@ -9,7 +9,7 @@
     - timeit должен вызывать код напрямую, без нового процесса
 
     Решение: compile() один раз снаружи цикла (amortizes парсинг),
-    затем exec(compiled, {}) в каждой итерации.
+    затем exec(compiled, {"__builtins__": __builtins__}) в каждой итерации.
 
     stdin перенаправляется через sys.stdin = io.StringIO(...) с
     восстановлением через try/finally.
@@ -39,6 +39,7 @@ from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 
 SIMILAR_THRESHOLD_PERCENT = 5.0
+WARMUP_RUNS = 3
 
 
 @dataclass
@@ -95,7 +96,7 @@ def _make_stdin_runner(compiled: types.CodeType, stdin_text: str) -> Callable[[]
         sys.stdin = fake_stdin
         try:
             with redirect_stdout(fake_stdout):
-                exec(compiled, {})  # noqa: S102
+                exec(compiled, {"__builtins__": __builtins__})  # noqa: S102
         finally:
             sys.stdin = _original_stdin
 
@@ -142,6 +143,12 @@ def run_microbench(
     for stdin_text in stdin_texts:
         runner = _make_stdin_runner(compiled, stdin_text)
         try:
+            # Warmup: прогрев кэшей Python перед замером
+            for _ in range(WARMUP_RUNS):
+                try:
+                    runner()
+                except Exception:
+                    pass
             total = timeit.timeit(runner, number=repeats)
             per_call = total / repeats
             timings.append(per_call)

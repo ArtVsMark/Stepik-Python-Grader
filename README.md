@@ -421,6 +421,23 @@ module1/
 > создаются **автоматически** из ZIP-архива или HTML-таблицы в тексте задачи.
 > Если ни ZIP, ни таблицы нет — папку `tests/` нужно заполнить вручную.
 
+## Форматы тестов
+
+Грейдер автоматически распознаёт три формата:
+
+### Format 1 — Legacy (Stepik ZIP / at_first.py)
+Файлы `1`, `1.clue`, `2`, `2.clue` в папке `tests/`. Создаётся автоматически при скачивании через `at_first.py`.
+
+### Format 2 — Именованные файлы
+`input_1.txt` + `expected_1.txt`, `input_2.txt` + `expected_2.txt`...
+
+### Format 3 — python-generation (приоритет)
+`tests/input.txt` + `tests/output.txt` с маркерами `# TEST_N:`.
+Используется репозиториями [python-generation/Professional](https://github.com/python-generation/Professional), [python-generation/OOP](https://github.com/python-generation/OOP), [python-generation/Samurai](https://github.com/python-generation/Samurai).
+
+Stepik ZIP-архивы автоматически конвертируются в Format 3 при скачивании через `at_first.py`.
+GitHub-ссылки в тексте задачи обрабатываются автоматически.
+
 ---
 
 ## Конфигурация
