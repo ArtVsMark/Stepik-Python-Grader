@@ -21,6 +21,7 @@ HTTP/OAuth логика вынесена в stepik_client.py.
 
 from __future__ import annotations
 
+import ast
 import io
 import json
 import pathlib
@@ -205,6 +206,27 @@ def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
     reply: dict[str, Any] = submission.get("reply") or {}
     code = reply.get("code")
     return str(code) if code else None
+
+
+# ---------------------------------------------------------------------------
+# Извлечение имени функции из шаблона кода
+# ---------------------------------------------------------------------------
+
+
+def extract_function_name(template_code: str) -> str | None:
+    """Парсит template_code через ast и возвращает имя первой функции.
+
+    Возвращает None если в шаблоне нет определений функций или код
+    не является валидным Python.
+    """
+    try:
+        tree = ast.parse(template_code)
+    except SyntaxError:
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return node.name
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -438,6 +460,11 @@ def save_task_files(
     if submitted_code:
         (task_dir / "solution.py").write_text(submitted_code, encoding="utf-8")
 
+    # Определяем имя функции из template_code для function-mode runner
+    function_name: str | None = None
+    if template_code:
+        function_name = extract_function_name(template_code)
+
     meta: dict[str, Any] = {
         "step_id": step.get("id"),
         "step_position": step.get("position"),
@@ -450,6 +477,9 @@ def save_task_files(
         "course_title": course.get("title", ""),
         "submission_id": submission.get("id") if submission else None,
         "submission_status": submission.get("status") if submission else None,
+        # Имя функции для function-mode runner в grader.py.
+        # None если задача не является функциональной (stdin-режим).
+        "function_name": function_name,
     }
     save_json_file(task_dir / "meta.json", meta)
 

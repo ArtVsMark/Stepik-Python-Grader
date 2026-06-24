@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import ast
+import json
 import os
 import pathlib
 import re
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 import threading
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import psutil
@@ -38,6 +40,7 @@ class TestCase:
     index: int
     input_lines: list[str]
     expected_lines: list[str]
+    test_type: str = field(default="stdin")  # "stdin" | "function"
 
 
 def _is_safe_constant(node: ast.expr) -> bool:
@@ -271,6 +274,7 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
     Формат 1 — at_first.py (legacy):
         tests/1        — входные данные теста №1 (stdin)
         tests/1.clue   — ожидаемый вывод теста №1
+        tests/1.type   — "function" (опционально; отсутствие = "stdin")
         tests/2, tests/2.clue, ...
 
     Формат 2 — новый (используется в тестах):
@@ -304,7 +308,23 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
             idx = int(inp_file.name)
             input_lines = load_text_lines(str(inp_file))
             expected_lines = load_text_lines(str(clue_file))
-            cases.append(TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines))
+
+            # Читаем .type-файл если он существует
+            type_file = dir_path / f"{inp_file.name}.type"
+            test_type = "stdin"
+            if type_file.exists():
+                raw_type = type_file.read_text(encoding=ENCODING).strip()
+                if raw_type == "function":
+                    test_type = "function"
+
+            cases.append(
+                TestCase(
+                    index=idx,
+                    input_lines=input_lines,
+                    expected_lines=expected_lines,
+                    test_type=test_type,
+                )
+            )
 
     return sorted(cases, key=lambda c: c.index)
 
@@ -378,6 +398,89 @@ def _measure_peak_memory(proc: subprocess.Popen, result: list[float], stop: thre
     result[0] = peak
 
 
+# ---------------------------------------------------------------------------
+# Function-mode runner
+# ---------------------------------------------------------------------------
+
+
+def _read_meta_function_name(solution_path: str) -> str | None:
+    """Прочитать function_name из meta.json рядом с файлом решения.
+
+    Ищет meta.json в той же директории, что и solution_path.
+    Возвращает None если файл не найден или поле отсутствует.
+    """
+    meta_path = pathlib.Path(solution_path).parent / "meta.json"
+    if not meta_path.exists():
+        return None
+    try:
+        with open(meta_path, encoding=ENCODING) as f:
+            meta = json.load(f)
+        name = meta.get("function_name")
+        return str(name) if name else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _ast_function_name(solution_path: str) -> str | None:
+    """Парсит файл решения через ast и возвращает имя первой функции (эвристика).
+
+    Используется как fallback когда meta.json недоступен или function_name = None.
+    """
+    try:
+        source = pathlib.Path(solution_path).read_text(encoding=ENCODING)
+        tree = ast.parse(source)
+    except (SyntaxError, OSError):
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return node.name
+    return None
+
+
+def _build_function_wrapper(solution_path: str, input_data: str, function_name: str) -> str:
+    """Генерирует исходный код скрипта-обёртки для function-mode запуска.
+
+    Скрипт:
+      1. Импортирует функцию по имени из файла решения.
+      2. Выполняет input_data (объявления переменных из тест-кейса).
+      3. Определяет аргументы через inspect.signature.
+      4. Вызывает функцию и печатает результат.
+
+    Args:
+        solution_path: абсолютный путь к файлу решения.
+        input_data:    содержимое .type=function тест-кейса
+                       (строки вида "d1 = date(2020, 1, 1)").
+        function_name: имя функции для импорта.
+    """
+    abs_path = str(pathlib.Path(solution_path).resolve())
+    # Экранируем для вставки в строковый литерал Python
+    safe_path = abs_path.replace("\\", "\\\\").replace("'", "\\'")
+    safe_input = input_data.strip()
+    safe_func = function_name
+
+    return f"""import sys
+import pathlib
+import inspect
+sys.path.insert(0, str(pathlib.Path('{safe_path}').parent))
+
+# Стандартные импорты, которые могут быть нужны в input_data
+from datetime import date, time, datetime, timedelta
+from decimal import Decimal
+from fractions import Fraction
+
+# Импортируем функцию из файла решения
+from {pathlib.Path(solution_path).stem} import {safe_func}
+
+# Выполняем объявления переменных из тест-кейса
+{safe_input}
+
+# Определяем аргументы через inspect и вызываем функцию
+_sig = inspect.signature({safe_func})
+_args = [locals()[_p] for _p in _sig.parameters]
+print({safe_func}(*_args))
+"""
+
+
 def run_single_test(
     solution_path: str,
     case: TestCase,
@@ -387,9 +490,10 @@ def run_single_test(
 ) -> dict[str, Any]:
     """Запустить одно решение на одном тест-кейсе и вернуть словарь с результатами.
 
-    Решение всегда запускается как скрипт через subprocess со stdin.
-    Это корректно работает для любых типов задач: скриптов с input(),
-    функций с любыми типами аргументов, задач с datetime и т.д.
+    Для test_type='stdin'  — запускает решение напрямую, подаёт stdin.
+    Для test_type='function' — генерирует временный wrapper-скрипт,
+      который импортирует функцию и вызывает её с аргументами из input_data.
+      Файл решения при этом не модифицируется.
 
     Возвращаемый словарь:
         passed    (bool)   — прошёл ли тест
@@ -401,15 +505,50 @@ def run_single_test(
         error     (str)    — сообщение об ошибке (пустая = нет ошибки)
         timed_out (bool)   — истёк ли таймаут
     """
-    stdin_data = "\n".join(case.input_lines) + "\n"
-    stdin_bytes = stdin_data.encode(ENCODING)
+    # --- Выбор стратегии запуска ---
+    tmp_wrapper: Any = None  # NamedTemporaryFile или None
+    run_path = solution_path
+    stdin_bytes: bytes | None = None
+
+    if case.test_type == "function":
+        # Определяем имя функции: meta.json → ast fallback
+        func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
+        if func_name is None:
+            return {
+                "passed": False,
+                "output": [],
+                "expected": case.expected_lines,
+                "diff": "",
+                "time": 0.0,
+                "memory": 0.0,
+                "error": "function_name not found (meta.json missing and no function def in solution)",
+                "timed_out": False,
+            }
+        input_data = "\n".join(case.input_lines)
+        wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
+        # Записываем wrapper во временный файл; удаляется после запуска
+        tmp_wrapper = tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".py",
+            encoding=ENCODING,
+            delete=False,
+        )
+        tmp_wrapper.write(wrapper_src)
+        tmp_wrapper.flush()
+        tmp_wrapper.close()
+        run_path = tmp_wrapper.name
+        stdin_bytes = None  # wrapper не читает stdin
+    else:
+        stdin_data = "\n".join(case.input_lines) + "\n"
+        stdin_bytes = stdin_data.encode(ENCODING)
+
     peak_mb_result: list[float] = [0.0]
     stop_event = threading.Event()
 
     start = time.perf_counter()
     try:
         proc = subprocess.Popen(
-            [sys.executable, solution_path],
+            [sys.executable, run_path],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -441,6 +580,12 @@ def run_single_test(
             }
         finally:
             stop_event.set()
+            # Удаляем временный wrapper-файл
+            if tmp_wrapper is not None:
+                try:
+                    os.unlink(tmp_wrapper.name)
+                except OSError:
+                    pass
 
         elapsed = time.perf_counter() - start
         if measure_memory:
@@ -490,6 +635,11 @@ def run_single_test(
 
     except OSError as exc:
         stop_event.set()
+        if tmp_wrapper is not None:
+            try:
+                os.unlink(tmp_wrapper.name)
+            except OSError:
+                pass
         return {
             "passed": False,
             "output": [],
