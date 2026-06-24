@@ -69,7 +69,9 @@ class TestFormatRows:
     """format_correctness_row / format_benchmark_row дают непустые строки."""
 
     def test_correctness_row_ok(self):
-        row = format_correctness_row("/base/sol.py", "/base", _correct_result(), col_file=20)
+        row = format_correctness_row(
+            "/base/sol.py", "/base", _correct_result(), col_file=20
+        )
         assert "sol.py" in row
         assert "OK" in row
 

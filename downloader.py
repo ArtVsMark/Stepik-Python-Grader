@@ -131,7 +131,10 @@ def normalize_config_paths(
             root_dir = pathlib.Path.cwd() / root_dir
         if not secrets_path.is_absolute():
             secrets_path = pathlib.Path.cwd() / secrets_path
-    normalized: dict[str, Any] = {"root_dir": str(root_dir), "secrets_path": str(secrets_path)}
+    normalized: dict[str, Any] = {
+        "root_dir": str(root_dir),
+        "secrets_path": str(secrets_path),
+    }
     save_json_file(config_path, normalized)
     return normalized
 
@@ -326,11 +329,15 @@ def save_tests(task_dir: pathlib.Path, tests: list[tuple[str, str, str]]) -> int
 # ---------------------------------------------------------------------------
 
 _ZIP_URL_RE = re.compile(r'href=["\']([^"\']*\.zip)["\']', re.IGNORECASE)
-_GITHUB_URL_RE = re.compile(r'href=["\']([^"\']*github\.com[^"\']*)["\']', re.IGNORECASE)
+_GITHUB_URL_RE = re.compile(
+    r'href=["\']([^"\']*github\.com[^"\']*)["\']', re.IGNORECASE
+)
 _GITHUB_TREE_RE = re.compile(
     r"github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/(?:tree|blob)/(?P<branch>[^/]+)/(?P<path>.+)"
 )
-_GITHUB_CONTENTS_API = "https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
+_GITHUB_CONTENTS_API = (
+    "https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
+)
 
 
 def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
@@ -389,7 +396,9 @@ def _download_zip_tests(
     pairs: dict[int, dict[str, bytes]] = {}
     for name in names:
         clean = (
-            name[len(strip_prefix) :] if strip_prefix and name.startswith(strip_prefix) else name
+            name[len(strip_prefix) :]
+            if strip_prefix and name.startswith(strip_prefix)
+            else name
         )
         clean = clean.strip("/")
         if not clean:
@@ -425,7 +434,9 @@ def _download_zip_tests(
     (tests_dir / "output.txt").write_text("".join(output_lines), encoding="utf-8")
 
     count = len(pairs)
-    print(f"  📦 ZIP сконвертирован в Format 3: {count} тест(ов) → tests/input.txt + output.txt")
+    print(
+        f"  📦 ZIP сконвертирован в Format 3: {count} тест(ов) → tests/input.txt + output.txt"
+    )
     return count
 
 
@@ -452,10 +463,14 @@ def _download_github_tests(
     branch = match.group("branch")
     path = match.group("path").rstrip("/")
 
-    api_url = _GITHUB_CONTENTS_API.format(owner=owner, repo=repo, path=path, branch=branch)
+    api_url = _GITHUB_CONTENTS_API.format(
+        owner=owner, repo=repo, path=path, branch=branch
+    )
 
     try:
-        resp = session.get(api_url, timeout=30, headers={"Accept": "application/vnd.github+json"})
+        resp = session.get(
+            api_url, timeout=30, headers={"Accept": "application/vnd.github+json"}
+        )
         resp.raise_for_status()
         contents = resp.json()
     except requests.RequestException as exc:
@@ -470,7 +485,9 @@ def _download_github_tests(
     tests_dir.mkdir(parents=True, exist_ok=True)
 
     file_map = {
-        item["name"]: item["download_url"] for item in contents if item.get("type") == "file"
+        item["name"]: item["download_url"]
+        for item in contents
+        if item.get("type") == "file"
     }
 
     # Вариант А: input.txt + output.txt уже есть (Format 3)
@@ -483,7 +500,9 @@ def _download_github_tests(
 
         text = (tests_dir / "input.txt").read_text(encoding="utf-8")
         count = len(_parse_testblock_file(text))
-        print(f"  🔗 GitHub: скачаны input.txt + output.txt (Format 3): {count} тест(ов)")
+        print(
+            f"  🔗 GitHub: скачаны input.txt + output.txt (Format 3): {count} тест(ов)"
+        )
         return count
 
     # Вариант Б: числовые файлы N + N.clue
@@ -646,7 +665,9 @@ def save_task_files(
         return
 
     # 4. Ничего не нашли
-    print("  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены")
+    print(
+        "  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены"
+    )
 
 
 # ---------------------------------------------------------------------------

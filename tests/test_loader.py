@@ -157,7 +157,9 @@ class TestResolveTestDir:
         (tmp_path / "tests").mkdir()
         assert _resolve_test_dir(str(sol)) == str((tmp_path / "tests").resolve())
 
-    def test_python_generation_input_output_alongside(self, tmp_path: pathlib.Path) -> None:
+    def test_python_generation_input_output_alongside(
+        self, tmp_path: pathlib.Path
+    ) -> None:
         """Format 3 (input.txt + output.txt) рядом с решением → родительская папка."""
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
@@ -165,7 +167,9 @@ class TestResolveTestDir:
         (tmp_path / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
         assert _resolve_test_dir(str(sol)) == str(tmp_path.resolve())
 
-    def test_python_generation_input_output_in_parent(self, tmp_path: pathlib.Path) -> None:
+    def test_python_generation_input_output_in_parent(
+        self, tmp_path: pathlib.Path
+    ) -> None:
         """Format 3 на уровень выше решения (решение в подпапке)."""
         task_dir = tmp_path / "Module_3.1.20"
         task_dir.mkdir()

@@ -27,7 +27,9 @@ from dataclasses import dataclass, field
 TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", "10"))
 
 # Команда Python-интерпретатора
-_PYTHON_CMD: str = "python3" if sys.platform in {"linux", "linux2", "darwin"} else "python"
+_PYTHON_CMD: str = (
+    "python3" if sys.platform in {"linux", "linux2", "darwin"} else "python"
+)
 
 
 @dataclass

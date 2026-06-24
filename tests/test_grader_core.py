@@ -51,8 +51,12 @@ def test_load_test_cases_format3_priority(tmp_path: pathlib.Path):
     REFACTORING INVARIANT: format-3 must keep top priority and auto-classify
     each block's test_type (function vs stdin).
     """
-    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n# TEST_2:\n4\n5\n", encoding="utf-8")
-    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8")
+    (tmp_path / "input.txt").write_text(
+        "# TEST_1:\n2\n3\n# TEST_2:\n4\n5\n", encoding="utf-8"
+    )
+    (tmp_path / "output.txt").write_text(
+        "# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8"
+    )
 
     cases = grader.load_test_cases(str(tmp_path))
     assert len(cases) == 2
@@ -64,7 +68,9 @@ def test_load_test_cases_format3_priority(tmp_path: pathlib.Path):
 
 def test_load_test_cases_format3_classifies_function_block(tmp_path: pathlib.Path):
     """A format-3 block that is Python code is classified test_type='function'."""
-    (tmp_path / "input.txt").write_text("# TEST_1:\nprint(add(1, 2))\n", encoding="utf-8")
+    (tmp_path / "input.txt").write_text(
+        "# TEST_1:\nprint(add(1, 2))\n", encoding="utf-8"
+    )
     (tmp_path / "output.txt").write_text("# TEST_1:\n3\n", encoding="utf-8")
 
     cases = grader.load_test_cases(str(tmp_path))

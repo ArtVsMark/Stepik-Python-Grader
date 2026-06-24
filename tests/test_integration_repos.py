@@ -23,7 +23,9 @@ import pytest
 from grader import run_tests
 
 
-def _run_case(tmp_path: pathlib.Path, solution: str, input_txt: str, output_txt: str) -> dict:
+def _run_case(
+    tmp_path: pathlib.Path, solution: str, input_txt: str, output_txt: str
+) -> dict:
     """Разложить solution.py + input.txt + output.txt и прогнать грейдер."""
     (tmp_path / "solution.py").write_text(solution, encoding="utf-8")
     (tmp_path / "input.txt").write_text(input_txt, encoding="utf-8")
@@ -269,7 +271,9 @@ A,B,C,D,E,F,G,H,I,J,K
 
 
 def test_professional_filterfalse(tmp_path: pathlib.Path) -> None:
-    r = _run_case(tmp_path, _FILTERFALSE_SOLUTION, _FILTERFALSE_INPUT, _FILTERFALSE_OUTPUT)
+    r = _run_case(
+        tmp_path, _FILTERFALSE_SOLUTION, _FILTERFALSE_INPUT, _FILTERFALSE_OUTPUT
+    )
     assert r["total"] == 3
     assert r["passed"] == 3
     assert r["failed"] == 0

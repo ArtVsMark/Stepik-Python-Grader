@@ -63,7 +63,9 @@ def test_microbench_runner_stdout_suppressed() -> None:
     A loud (printing) solution still yields exactly 5 clean timings — the printed
     line never lands among the parsed timing numbers.
     """
-    result = run_microbench("print('noise from solution')\nz = 1 + 1\n", stdin_data="", number=3)
+    result = run_microbench(
+        "print('noise from solution')\nz = 1 + 1\n", stdin_data="", number=3
+    )
     assert result["error"] == ""
     assert len(result["times"]) == 5
     assert all(0.0 < t < 1.0 for t in result["times"])

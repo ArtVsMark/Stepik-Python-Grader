@@ -129,7 +129,9 @@ def test_run_microbench_mode_function_mode(tmp_path: pathlib.Path) -> None:
 
 def test_run_microbench_mode_stdin_mode(tmp_path: pathlib.Path) -> None:
     """Plain numeric stdin blocks route through timeit (run_microbench)."""
-    sol = _write(tmp_path, "task1.py", "a, b = int(input()), int(input())\nprint(a + b)\n")
+    sol = _write(
+        tmp_path, "task1.py", "a, b = int(input()), int(input())\nprint(a + b)\n"
+    )
     _write(tmp_path, "input.txt", "# TEST_1:\n2\n3\n")
     _write(tmp_path, "output.txt", "# TEST_1:\n5\n")
 
@@ -164,7 +166,9 @@ def test_run_microbench_invalid_solution() -> None:
 
 def test_run_microbench_runtime_error() -> None:
     """A solution that raises at runtime surfaces as an error, empty times."""
-    result = grader.run_microbench("raise ValueError('boom')\n", stdin_data="", number=10)
+    result = grader.run_microbench(
+        "raise ValueError('boom')\n", stdin_data="", number=10
+    )
     assert result["error"]
     assert result["times"] == []
 

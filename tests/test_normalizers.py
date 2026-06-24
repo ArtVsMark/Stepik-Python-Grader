@@ -129,7 +129,14 @@ def test_normalizers_vs_grader_same_float_output():
     grader._normalize_output_line and normalizers.normalize_floats produce the
     same string for ordinary values (collapsing FP noise, keeping short decimals).
     """
-    for value in ("5.000000000000001", "3.14", "3.14159265358979", "1.5", "100.0", "-5.0"):
+    for value in (
+        "5.000000000000001",
+        "3.14",
+        "3.14159265358979",
+        "1.5",
+        "100.0",
+        "-5.0",
+    ):
         assert grader._normalize_output_line(value) == normalize_floats(value), value
 
 

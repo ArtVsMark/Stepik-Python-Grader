@@ -130,14 +130,18 @@ class TestGithubTreeRegex:
 
     def test_blob_url(self) -> None:
         """Паттерн распознаёт blob-вариант."""
-        m = downloader._GITHUB_TREE_RE.search("https://github.com/owner/repo/blob/dev/dir/sub")
+        m = downloader._GITHUB_TREE_RE.search(
+            "https://github.com/owner/repo/blob/dev/dir/sub"
+        )
         assert m is not None
         assert m.group("branch") == "dev"
         assert m.group("path") == "dir/sub"
 
     def test_non_tree_url_no_match(self) -> None:
         """URL без tree/blob не распознаётся."""
-        assert downloader._GITHUB_TREE_RE.search("https://github.com/owner/repo") is None
+        assert (
+            downloader._GITHUB_TREE_RE.search("https://github.com/owner/repo") is None
+        )
 
 
 # ── TestDownloadGithubTests ────────────────────────────────────────────────
@@ -157,8 +161,16 @@ class TestDownloadGithubTests:
         api_resp = MagicMock()
         api_resp.raise_for_status = MagicMock()
         api_resp.json.return_value = [
-            {"name": "input.txt", "type": "file", "download_url": "http://raw/input.txt"},
-            {"name": "output.txt", "type": "file", "download_url": "http://raw/output.txt"},
+            {
+                "name": "input.txt",
+                "type": "file",
+                "download_url": "http://raw/input.txt",
+            },
+            {
+                "name": "output.txt",
+                "type": "file",
+                "download_url": "http://raw/output.txt",
+            },
         ]
         input_resp = MagicMock()
         input_resp.content = b"# INPUT DATA:\n\n# TEST_1:\n5\n\n# TEST_2:\n7\n"
@@ -213,7 +225,9 @@ class TestDownloadGithubTests:
         api_resp.json.return_value = {"message": "Not Found"}
         session = MagicMock()
         session.get.return_value = api_resp
-        count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir", session)
+        count = _download_github_tests(
+            tmp_path, "https://github.com/o/r/tree/main/dir", session
+        )
         assert count == 0
 
 
@@ -224,9 +238,7 @@ class TestExtractExternalTestLinks:
     """extract_external_test_links находит ZIP и GitHub ссылки."""
 
     def test_finds_zip_link(self) -> None:
-        html = (
-            '<a href="https://stepik.org/media/attachments/lesson/570048/tests_2491371.zip">ZIP</a>'
-        )
+        html = '<a href="https://stepik.org/media/attachments/lesson/570048/tests_2491371.zip">ZIP</a>'
         zip_links, gh_links = extract_external_test_links(html)
         assert len(zip_links) == 1
         assert "tests_2491371.zip" in zip_links[0]
