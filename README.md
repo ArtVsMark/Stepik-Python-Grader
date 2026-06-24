@@ -1,7 +1,11 @@
 # Stepik Python Grader
 
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+![Version](https://img.shields.io/badge/version-1.0.0-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-59%25-yellow)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
+
+> **Status:** Stable — v1.0.0
 
 > Локальный грейдер для курсов «Поколение Python» на Stepik.
 > Скачивает данные задачи с сайта и позволяет не только проверить решение локально, но и **сравнить несколько решений более честно**: сначала по корректности, потом по benchmark-метрикам.
