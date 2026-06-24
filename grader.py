@@ -929,6 +929,12 @@ def run_single_test(
     stop_event = threading.Event()
     mem_thread: threading.Thread | None = None
 
+    # Гарантируем UTF-8 в stdout/stderr дочернего процесса на всех платформах
+    # (на Windows по умолчанию используется cp1251, что ломает кириллицу в выводе).
+    _child_env = os.environ.copy()
+    _child_env["PYTHONIOENCODING"] = "utf-8"
+    _child_env["PYTHONUTF8"] = "1"
+
     start = time.perf_counter()
     try:
         proc = subprocess.Popen(
@@ -936,6 +942,7 @@ def run_single_test(
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=_child_env,
         )
 
         if measure_memory:
