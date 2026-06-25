@@ -33,7 +33,7 @@ select = ["E", "F", "W", "I", "UP", "B", "S102"]
 ignore = ["S101"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=. --cov-report=term-missing --cov-report=xml"
+addopts = "--cov=. --cov-report=term-missing --cov-report=xml -v --tb=short"
 testpaths = ["tests"]
 python_classes = ["Test*"]
 
@@ -46,6 +46,7 @@ omit = [
 ]
 
 [tool.coverage.report]
+fail_under = 85
 exclude_lines = [
     "if __name__ == .__main__.:",
     "pragma: no cover",
