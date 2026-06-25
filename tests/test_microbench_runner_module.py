@@ -17,6 +17,10 @@ tests/test_microbench.py.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
+import subprocess
+
 import microbench_runner
 from microbench_runner import (
     MicrobenchResult,
@@ -69,6 +73,32 @@ def test_microbench_runner_stdout_suppressed() -> None:
     assert all(0.0 < t < 1.0 for t in result["times"])
 
 
+def test_microbench_runner_timeout_returns_error() -> None:
+    """subprocess.TimeoutExpired покрывает строки 158–159.
+
+    Патчим subprocess.run чтобы он бросал TimeoutExpired;
+    проверяем что run_microbench возвращает правильный словарь с ошибкой.
+    """
+    with patch("microbench_runner.subprocess.run") as mock_run:
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=60)
+        result = run_microbench("x = 1\n", stdin_data="", number=5)
+    assert result["times"] == []
+    assert result["error"] == "microbench timeout"
+
+
+def test_microbench_runner_unexpected_exception_returns_error() -> None:
+    """OSError или любое другое исключение покрывает строки 160–161.
+
+    Патчим subprocess.run чтобы он бросал OSError;
+    проверяем что run_microbench возвращает str(exc) в поле error.
+    """
+    with patch("microbench_runner.subprocess.run") as mock_run:
+        mock_run.side_effect = OSError("no such file")
+        result = run_microbench("x = 1\n", stdin_data="", number=5)
+    assert result["times"] == []
+    assert "no such file" in result["error"]
+
+
 def test_microbench_runner_apply_relative_orders_by_median() -> None:
     """apply_relative_micro labels the fastest SIMILAR and slower ones SLOWER/MUCH SLOWER.
 
@@ -92,6 +122,18 @@ def test_microbench_runner_apply_relative_marks_errors() -> None:
     verdicts = {r.file: r.verdict for r in out}
     assert verdicts["bad.py"] == "ERROR"
     assert verdicts["good.py"] == "SIMILAR"
+
+
+def test_microbench_runner_apply_relative_best_is_zero() -> None:
+    """best == 0 покрывает строку 181: relative_percent = 100.0 вместо деления.
+
+    Когда median_time у всех результатов == 0.0, best == 0 →
+    r.relative_percent должен остаться 100.0.
+    """
+    r1 = MicrobenchResult(file="a.py", repeats=5, timings=[0.0])
+    r2 = MicrobenchResult(file="b.py", repeats=5, timings=[0.0])
+    out = apply_relative_micro([r1, r2])
+    assert all(r.relative_percent == 100.0 for r in out)
 
 
 def test_microbench_runner_module_constants() -> None:
