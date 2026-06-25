@@ -8,7 +8,8 @@
   - is_function_only_solution: function-only vs script
   - _is_python_code_block: stdin-данные vs python-код
   - _parse_testblock_file: маркеры # TEST_N:
-  - load_test_cases: формат 1 (legacy .clue), формат 2 (input_N.txt), формат 3 (input.txt+output.txt)
+  - load_test_cases: формат 1 (legacy .clue), формат 2 (input_N.txt),
+    формат 3 (input.txt+output.txt)
 """
 
 from __future__ import annotations
@@ -151,7 +152,9 @@ class TestRunSingleTestStdin:
 
         mock_proc = _make_popen_mock(timeout=True)
         with patch("subprocess.Popen", return_value=mock_proc):
-            result = grader.run_single_test(str(sol), case, timeout=0.01, measure_memory=False)
+            result = grader.run_single_test(
+                str(sol), case, timeout=0.01, measure_memory=False
+            )
 
         assert result["passed"] is False
         assert result["verdict"] == "TLE"
@@ -180,7 +183,11 @@ class TestRunSingleTestStdin:
         with patch("subprocess.Popen", return_value=mock_proc):
             result = grader.run_single_test(str(sol), case, measure_memory=False)
 
-        for key in ("passed", "output", "expected", "diff", "time", "memory", "error", "timed_out", "verdict"):
+        expected_keys = (
+            "passed", "output", "expected", "diff",
+            "time", "memory", "error", "timed_out", "verdict",
+        )
+        for key in expected_keys:
             assert key in result, f"Ключ '{key}' отсутствует в результате"
 
 

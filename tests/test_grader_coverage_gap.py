@@ -14,21 +14,21 @@
 from __future__ import annotations
 
 import pathlib
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import grader
 from grader import (
     TestCase,
     _cprint,
     _print_case_verbose,
-    format_correctness_row,
     format_benchmark_row,
-    print_correctness_header,
+    format_correctness_row,
     print_benchmark_header,
-    print_correctness_results,
     print_benchmark_results,
-    run_tests,
+    print_correctness_header,
+    print_correctness_results,
     run_single_test,
+    run_tests,
 )
 
 
@@ -309,7 +309,9 @@ class TestInteractiveMenuExit:
             "max": 0.003, "stdev": 0.0, "peak_memory_mb": 0.0,
             "relative": 1.0, "verdict": "SIMILAR",
         }
-        monkeypatch.setattr(grader, "run_benchmark", lambda *a, **k: {str(sol): bench_result})
+        monkeypatch.setattr(
+            grader, "run_benchmark", lambda *a, **k: {str(sol): bench_result}
+        )
         inputs = iter(["3", str(sol), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         grader._interactive_menu()
