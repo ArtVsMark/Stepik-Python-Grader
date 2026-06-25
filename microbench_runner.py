@@ -23,8 +23,6 @@
 
 from __future__ import annotations
 
-import contextlib
-import os
 import statistics
 import subprocess
 import sys
@@ -107,6 +105,8 @@ def run_microbench(
     # попадает на stdout вперемешку с таймингами и портит парсинг.
     # Реальный stdout сохраняется и восстанавливается только для печати таймингов,
     # так что на stdout оказываются ИСКЛЮЧИТЕЛЬНО 5 чисел-таймингов.
+    # contextlib и os не нужны в Python-коде модуля — они инжектируются
+    # внутрь bench_script как строки (_os используется внутри subprocess).
     bench_script = (
         "import timeit as _timeit, sys as _sys, io as _io, os as _os, builtins as _builtins\n"
         "_stdin = " + repr(stdin_data) + "\n"
