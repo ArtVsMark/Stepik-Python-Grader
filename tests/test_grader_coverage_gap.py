@@ -31,7 +31,6 @@ from grader import (
     run_tests,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -112,9 +111,7 @@ class TestPlainTextOutput:
         assert "task1.py" in row
 
     def test_format_benchmark_row(self) -> None:
-        row = format_benchmark_row(
-            "base/task1.py", "base", _DUMMY_BENCHMARK_DATA, col_file=15
-        )
+        row = format_benchmark_row("base/task1.py", "base", _DUMMY_BENCHMARK_DATA, col_file=15)
         assert "SIMILAR" in row
         assert "task1.py" in row
 
@@ -281,9 +278,15 @@ class TestInteractiveMenuExit:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)", encoding="utf-8")
         empty_result = {
-            "total": 0, "passed": 0, "failed": 0, "errors": 0,
-            "total_time": 0.0, "avg_time": 0.0, "peak_memory_mb": 0.0,
-            "first_fail": None, "cases": [],
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "errors": 0,
+            "total_time": 0.0,
+            "avg_time": 0.0,
+            "peak_memory_mb": 0.0,
+            "first_fail": None,
+            "cases": [],
         }
         monkeypatch.setattr("grader.run_tests", lambda *a, **k: empty_result)
         inputs = iter(["1", str(sol), "0"])
@@ -295,9 +298,15 @@ class TestInteractiveMenuExit:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)", encoding="utf-8")
         bench_result = {
-            "runs": 5, "min": 0.001, "median": 0.002, "mean": 0.002,
-            "max": 0.003, "stdev": 0.0, "peak_memory_mb": 0.0,
-            "relative": 1.0, "verdict": "SIMILAR",
+            "runs": 5,
+            "min": 0.001,
+            "median": 0.002,
+            "mean": 0.002,
+            "max": 0.003,
+            "stdev": 0.0,
+            "peak_memory_mb": 0.0,
+            "relative": 1.0,
+            "verdict": "SIMILAR",
         }
         monkeypatch.setattr("grader.run_benchmark", lambda *a, **k: {str(sol): bench_result})
         inputs = iter(["3", str(sol), "0"])
