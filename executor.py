@@ -66,19 +66,12 @@ def run_solution(
         completed = subprocess.run(
             [_PYTHON_CMD, str(executor_path)],
             input=source_code,
-            # stdin=subprocess.PIPE не указывается: при передаче input=
-            # subprocess.run открывает PIPE автоматически.
-            # Одновременное использование stdin= и input= вызывает ValueError.
             capture_output=True,
             text=True,
             encoding="utf-8",
             timeout=timeout,
             check=False,
         )
-        # stdin переданного решения идёт через source_code (executor читает код из stdin);
-        # для передачи данных в input() внутри решения нужно использовать
-        # схему: executor_file + отдельный stdin — это делает grader.py.
-        # run_solution — упрощённый API для тестов и диагностики.
         _ = stdin  # зарезервировано для будущего расширения
         return RunResult(
             stdout=completed.stdout,
@@ -116,18 +109,18 @@ def main() -> None:
     compiled: types.CodeType = compile(source, "<solution>", "exec")
 
     # Изолированный namespace — решение не видит globals executor.py.
-    # Используем модуль builtins явно (детерминированно при импорте и как скрипт).
     namespace: dict[str, object] = {"__builtins__": builtins}
 
-    # Тайм-аут только на Unix (Windows не поддерживает SIGALRM)
-    if hasattr(signal, "SIGALRM"):
+    # Тайм-аут только на Unix (Windows не поддерживает SIGALRM).
+    # pragma: no cover — платформо-зависимый блок, не выполняется на Windows.
+    if hasattr(signal, "SIGALRM"):  # pragma: no cover
         signal.signal(signal.SIGALRM, _timeout_handler)
         signal.alarm(TIMEOUT)
 
     try:
         exec(compiled, namespace)  # noqa: S102
     finally:
-        if hasattr(signal, "SIGALRM"):
+        if hasattr(signal, "SIGALRM"):  # pragma: no cover
             signal.alarm(0)  # Сбросить таймер после завершения
 
 

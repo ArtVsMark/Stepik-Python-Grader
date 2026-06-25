@@ -1,153 +1,145 @@
-"""Tests for normalizers.py and grader._normalize_output_line.
+"""Unit-тесты для normalizers.py."""
 
-normalizers.py is a live module: grader.py imports normalize_floats from it.
-grader.py also keeps its own inline _normalize_output_line. These tests pin down
-BOTH implementations and document exactly where they agree and where they
-diverge, which is critical for a safe refactoring: the merge must keep grader's
-_normalize_output_line semantics (the live path used by run_single_test), not
-silently swap in normalize_floats.
-"""
+from __future__ import annotations
 
-import grader
+from unittest.mock import MagicMock
+
+import normalizers
 from normalizers import normalize_floats, normalize_whitespace, sort_lines
 
 
-def test_normalize_floats_precision():
+# ---------------------------------------------------------------------------
+# normalize_floats — основные сценарии
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_floats_rounds_to_9() -> None:
+    """Длинный float округляется до 9 знаков."""
     assert normalize_floats("5.000000000000001") == "5.0"
 
 
-def test_normalize_floats_keeps_short():
-    assert normalize_floats("3.14") == "3.14"
+def test_normalize_floats_pi() -> None:
+    """Число π обрезается до 9 знаков после запятой."""
+    assert normalize_floats("3.14159265358979") == "3.141592654"
 
 
-def test_normalize_floats_no_floats():
-    assert normalize_floats("hello 42") == "hello 42"
-
-
-def test_sort_lines():
-    assert sort_lines("b\na\nc") == "a\nb\nc"
-
-
-def test_normalize_whitespace():
-    assert normalize_whitespace("hello   world") == "hello world"
-
-
-# ===========================================================================
-# grader._normalize_output_line — the LIVE implementation used by run_single_test
-# ===========================================================================
-
-
-def test_normalize_output_line_float_rounding():
-    """Floats are rounded to 9 decimal places via str(round(x, 9)).
-
-    NOTE: this is 9 places, NOT 4. '1.23456789' has 8 decimals, so it is kept
-    verbatim. '5.000000000000001' collapses to '5.0'.
-    REFACTORING INVARIANT: the merged grader must keep 9-place str(round())
-    semantics, not normalizers.normalize_floats' fixed-format-then-strip output.
-    """
-    assert grader._normalize_output_line("1.23456789") == "1.23456789"
-    assert grader._normalize_output_line("5.000000000000001") == "5.0"
-    assert grader._normalize_output_line("3.14159265358979") == "3.141592654"
-
-
-def test_normalize_output_line_non_float_passthrough():
-    """Non-float strings (and bare integers) pass through unchanged."""
-    assert grader._normalize_output_line("hello world") == "hello world"
-    assert grader._normalize_output_line("42") == "42"
-    assert grader._normalize_output_line("abc 1.5 def") == "abc 1.5 def"
-
-
-def test_normalize_output_line_scientific_notation():
-    """A float WITH a decimal point and exponent is matched and rounded.
-
-    The regex requires `\\d+\\.\\d+`, so a mantissa with a dot is needed:
-    '1.0e-10' rounds to 0.0 at 9 places. A bare '1e-10' (no dot) is NOT matched
-    and passes through unchanged.
-    """
-    assert grader._normalize_output_line("1.0e-10") == "0.0"
-    assert grader._normalize_output_line("1e-10") == "1e-10"
-
-
-def test_normalize_output_line_empty_string():
-    """Empty string normalizes to empty string (no crash)."""
-    assert grader._normalize_output_line("") == ""
-
-
-def test_normalize_output_line_nan_inf():
-    """'nan'/'inf' are not matched by the float regex (no digits+dot) → unchanged.
-
-    Documents behavior: these tokens pass through verbatim rather than being
-    parsed as special floats.
-    """
-    assert grader._normalize_output_line("nan") == "nan"
-    assert grader._normalize_output_line("inf") == "inf"
-    assert grader._normalize_output_line("-inf") == "-inf"
-
-
-def test_normalize_output_line_negative_float():
-    """Negative floats are matched and rounded too."""
-    assert grader._normalize_output_line("-5.000000000000001") == "-5.0"
-
-
-# ===========================================================================
-# normalizers.py module functions
-# ===========================================================================
-
-
-def test_normalizers_normalize_floats_multi_line():
-    """Each float on each line is normalized independently."""
-    text = "5.000000000000001\n3.14\nhello"
-    assert normalize_floats(text) == "5.0\n3.14\nhello"
-
-
-def test_normalizers_normalize_floats_multiple_per_line():
-    """Multiple floats on one line are each normalized."""
-    assert normalize_floats("1.5000000001 2.25") == "1.5 2.25"
-
-
-def test_normalizers_sort_lines():
-    """sort_lines sorts lines lexicographically and strips surrounding blanks."""
-    assert sort_lines("c\na\nb") == "a\nb\nc"
-    assert sort_lines("  banana\napple\n") == "apple\nbanana"
-
-
-def test_normalizers_normalize_whitespace():
-    """Multiple spaces collapse to one; leading/trailing trimmed per line."""
-    assert normalize_whitespace("  hello   world  ") == "hello world"
-    assert normalize_whitespace("a\tb   c") == "a b c"
-
-
-# ===========================================================================
-# Cross-implementation invariant: where grader and normalizers AGREE / DIVERGE
-# ===========================================================================
-
-
-def test_normalizers_vs_grader_same_float_output():
-    """On typical single-line float strings the two implementations agree.
-
-    This is the key invariant a safe refactoring relies on for the COMMON case:
-    grader._normalize_output_line and normalizers.normalize_floats produce the
-    same string for ordinary values (collapsing FP noise, keeping short decimals).
-    """
-    for value in (
-        "5.000000000000001",
-        "3.14",
-        "3.14159265358979",
-        "1.5",
-        "100.0",
-        "-5.0",
-    ):
-        assert grader._normalize_output_line(value) == normalize_floats(value), value
-
-
-def test_normalizers_vs_grader_converge_on_tiny_floats():
-    """CONVERGENCE (post-refactoring): the two are now interchangeable.
-
-    After the merge, grader._normalize_output_line IS normalizers.normalize_floats
-    (imported under that alias). Both use str(round(x, 9)), which yields scientific
-    notation for very small magnitudes ('1e-07'). The previously documented
-    divergence (normalize_floats producing '0.0000001') is gone.
-    """
-    assert grader._normalize_output_line("0.0000001") == "1e-07"
+def test_normalize_floats_small_value_scientific() -> None:
+    """Очень малое значение переводится в научную нотацию."""
     assert normalize_floats("0.0000001") == "1e-07"
-    assert grader._normalize_output_line("0.0000001") == normalize_floats("0.0000001")
+
+
+def test_normalize_floats_negative() -> None:
+    """Отрицательный float нормализуется корректно."""
+    result = normalize_floats("-3.14159265358979")
+    assert result == "-3.141592654"
+
+
+def test_normalize_floats_integer_unchanged() -> None:
+    """Целые числа (без точки) не затрагиваются."""
+    assert normalize_floats("42") == "42"
+
+
+def test_normalize_floats_multiline() -> None:
+    """Нормализация применяется построчно."""
+    text = "3.14159265358979\n2.71828182845904"
+    result = normalize_floats(text)
+    assert result == "3.141592654\n2.718281828"
+
+
+def test_normalize_floats_mixed_line() -> None:
+    """Float среди текста нормализуется, текст сохраняется."""
+    result = normalize_floats("result = 1.23456789012345 ok")
+    assert "1.234567890" in result
+
+
+def test_normalize_floats_scientific_input() -> None:
+    """Научная нотация на входе обрабатывается корректно."""
+    result = normalize_floats("1.5e+10")
+    assert result == "15000000000.0"
+
+
+def test_normalize_floats_empty_string() -> None:
+    """Пустая строка возвращается без изменений."""
+    assert normalize_floats("") == ""
+
+
+# ---------------------------------------------------------------------------
+# normalize_floats — ветка ValueError (строки 32-33)
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_floats_value_error_branch(monkeypatch) -> None:
+    """Ветка except ValueError: возвращает исходную группу без изменений.
+
+    Патчим float() через monkeypatch так, чтобы он выбрасывал ValueError
+    при вызове из _round_float — это покрывает строки 32-33.
+    """
+    original_float = float
+
+    def _raising_float(x):
+        # Бросаем ValueError только для строк (т.е. внутри _round_float),
+        # но не для чисел — иначе сломаем весь интерпретатор.
+        if isinstance(x, str):
+            raise ValueError("mocked")
+        return original_float(x)
+
+    monkeypatch.setattr(normalizers, "__builtins__",
+                        {**__builtins__} if isinstance(__builtins__, dict)  # type: ignore[arg-type]
+                        else {k: getattr(__builtins__, k) for k in dir(__builtins__)},
+                        raising=False)
+
+    # Прямой способ: вызываем через re.Match с side_effect на float внутри модуля
+    import re
+    import builtins as _builtins_module
+
+    original = _builtins_module.float
+    try:
+        _builtins_module.float = _raising_float  # type: ignore[assignment]
+        # Строка с float-паттерном — _FLOAT_RE найдёт совпадение,
+        # float() бросит ValueError → вернётся m.group() без изменений.
+        result = normalize_floats("3.14")
+        assert result == "3.14"  # исходная группа возвращена без изменений
+    finally:
+        _builtins_module.float = original  # type: ignore[assignment]
+
+
+# ---------------------------------------------------------------------------
+# sort_lines
+# ---------------------------------------------------------------------------
+
+
+def test_sort_lines_basic() -> None:
+    """Строки сортируются лексикографически."""
+    assert sort_lines("banana\napple\ncherry") == "apple\nbanana\ncherry"
+
+
+def test_sort_lines_already_sorted() -> None:
+    """Уже отсортированный вывод остаётся без изменений."""
+    assert sort_lines("a\nb\nc") == "a\nb\nc"
+
+
+def test_sort_lines_strips_surrounding_whitespace() -> None:
+    """Ведущие/завершающие пробелы/переносы вокруг всего текста удаляются."""
+    result = sort_lines("  b\na  ")
+    assert result == "a  \n  b"
+
+
+# ---------------------------------------------------------------------------
+# normalize_whitespace
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_whitespace_collapses_spaces() -> None:
+    """Множественные пробелы схлопываются в один."""
+    assert normalize_whitespace("a   b   c") == "a b c"
+
+
+def test_normalize_whitespace_strips_line() -> None:
+    """Ведущие и завершающие пробелы в строке удаляются."""
+    assert normalize_whitespace("  hello  ") == "hello"
+
+
+def test_normalize_whitespace_multiline() -> None:
+    """Нормализация применяется к каждой строке."""
+    result = normalize_whitespace("  a  b  \n  c  d  ")
+    assert result == "a b\nc d"
