@@ -173,7 +173,11 @@ def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResu
     best = min(r.median_time for r in valid)
 
     for r in valid:
-        r.relative_percent = (r.median_time / best) * 100 if best > 0 else 100.0
+        if best > 0:
+            r.relative_percent = (r.median_time / best) * 100
+        else:
+            # Все решения имеют нулевое медианное время — считаем равноценными.
+            r.relative_percent = 100.0
         delta = r.relative_percent - 100
         if delta <= SIMILAR_THRESHOLD_PERCENT:
             r.verdict = "SIMILAR"
