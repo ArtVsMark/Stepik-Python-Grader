@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import pathlib
-import sys
 from unittest.mock import MagicMock, patch
 
 from grader import (
@@ -28,12 +27,9 @@ from grader import (
     print_benchmark_results,
     print_correctness_header,
     print_correctness_results,
-    run_benchmark,
     run_single_test,
     run_tests,
 )
-
-import grader as grader_module  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
