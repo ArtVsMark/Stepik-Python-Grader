@@ -76,6 +76,7 @@ except ImportError:
 # нормализации float-вывода. grader делегирует им вместо inline-дубликатов.
 from microbench_runner import run_microbench
 from normalizers import normalize_floats as _normalize_output_line
+from storage import load_json_file
 
 # ---------------------------------------------------------------------------
 # Константы
@@ -698,8 +699,7 @@ def _read_meta_function_name(solution_path: str) -> str | None:
     if not meta_path.exists():
         return None
     try:
-        with open(meta_path, encoding=ENCODING) as f:
-            meta = json.load(f)
+        meta = load_json_file(str(meta_path))
         name = meta.get("function_name")
         return str(name) if name else None
     except (json.JSONDecodeError, OSError):
