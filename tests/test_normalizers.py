@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import normalizers
 from normalizers import normalize_floats, normalize_whitespace, sort_lines
 
 
@@ -113,7 +112,7 @@ def test_sort_lines_single_line() -> None:
 
 
 def test_sort_lines_numbers() -> None:
-    """Числа сортируются лексикографически (не нумерически)."""
+    """Числа сортируются лексикографически (не численно)."""
     assert sort_lines("10\n2\n1") == "1\n10\n2"
 
 

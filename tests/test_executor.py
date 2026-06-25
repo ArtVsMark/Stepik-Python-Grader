@@ -6,7 +6,6 @@ import signal
 import subprocess
 import sys
 import textwrap
-import types
 
 import pytest
 
@@ -226,7 +225,6 @@ def test_main_sigalrm_timeout_fires() -> None:
         text=True,
         timeout=5,
     )
-    # TimeoutError → ненулевой exit code
     assert proc.returncode != 0
     assert "Execution exceeded" in proc.stderr or "TimeoutError" in proc.stderr
 
@@ -258,5 +256,4 @@ def test_main_namespace_isolation() -> None:
         timeout=5,
     )
     assert proc.returncode == 0
-    # __builtins__ должен быть модулем builtins, не dict
     assert "module" in proc.stdout or "dict" in proc.stdout
