@@ -1,0 +1,585 @@
+"""test_grader_mock.py — mock-тесты для grader.py.
+
+Покрывает:
+  - run_single_test: AC / WA / TLE / RE (returncode != 0) через мок subprocess.Popen
+  - run_tests: агрегация статистики (passed/failed/errors/first_fail)
+  - _detect_run_mode: приоритет meta.json → .type → AST
+  - is_solution_file / _SOLUTION_FILE_RE: все форматы имён + баг task_1.py
+  - is_function_only_solution: function-only vs script
+  - _is_python_code_block: stdin-данные vs python-код
+  - _parse_testblock_file: маркеры # TEST_N:
+  - load_test_cases: формат 1 (legacy .clue), формат 2 (input_N.txt), формат 3 (input.txt+output.txt)
+"""
+
+from __future__ import annotations
+
+import json
+import pathlib
+import sys
+import textwrap
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+# grader.py лежит в корне проекта — убедимся что он в sys.path
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+
+import grader
+
+# ---------------------------------------------------------------------------
+# Вспомогательные фабрики
+# ---------------------------------------------------------------------------
+
+
+def _make_popen_mock(
+    stdout: bytes = b"42\n",
+    stderr: bytes = b"",
+    returncode: int = 0,
+    timeout: bool = False,
+) -> MagicMock:
+    """Фабрика: возвращает mock subprocess.Popen с нужным поведением."""
+    mock_proc = MagicMock()
+    mock_proc.pid = 12345
+    mock_proc.returncode = returncode
+
+    if timeout:
+        import subprocess
+        mock_proc.communicate.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=10.0)
+        mock_proc.kill = MagicMock()
+    else:
+        mock_proc.communicate.return_value = (stdout, stderr)
+
+    return mock_proc
+
+
+def _make_testcase(
+    index: int = 1,
+    input_lines: list[str] | None = None,
+    expected_lines: list[str] | None = None,
+    test_type: str = "stdin",
+) -> grader.TestCase:
+    return grader.TestCase(
+        index=index,
+        input_lines=input_lines or ["5"],
+        expected_lines=expected_lines or ["42"],
+        test_type=test_type,
+    )
+
+
+# ---------------------------------------------------------------------------
+# run_single_test — stdin mode
+# ---------------------------------------------------------------------------
+
+
+class TestRunSingleTestStdin:
+    """Тесты run_single_test в stdin-режиме через mock subprocess.Popen."""
+
+    def test_ac_correct_output(self, tmp_path: pathlib.Path) -> None:
+        """Решение даёт правильный вывод → passed=True, verdict=AC."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(42)\n")
+        case = _make_testcase(expected_lines=["42"])
+
+        mock_proc = _make_popen_mock(stdout=b"42\n")
+        with patch("subprocess.Popen", return_value=mock_proc):
+            result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+        assert result["passed"] is True
+        assert result["verdict"] == "AC"
+        assert result["error"] == ""
+        assert result["timed_out"] is False
+        assert result["output"] == ["42"]
+
+    def test_wa_wrong_output(self, tmp_path: pathlib.Path) -> None:
+        """Решение даёт неверный вывод → passed=False, verdict=WA, diff не пустой."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(0)\n")
+        case = _make_testcase(expected_lines=["42"])
+
+        mock_proc = _make_popen_mock(stdout=b"0\n")
+        with patch("subprocess.Popen", return_value=mock_proc):
+            result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+        assert result["passed"] is False
+        assert result["verdict"] == "WA"
+        assert result["diff"] != ""
+
+    def test_re_nonzero_returncode(self, tmp_path: pathlib.Path) -> None:
+        """Процесс завершился с ненулевым кодом → verdict=RE, error содержит stderr."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("raise ValueError('boom')\n")
+        case = _make_testcase()
+
+        mock_proc = _make_popen_mock(
+            stdout=b"",
+            stderr=b"ValueError: boom",
+            returncode=1,
+        )
+        with patch("subprocess.Popen", return_value=mock_proc):
+            result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+        assert result["passed"] is False
+        assert result["verdict"] == "RE"
+        assert "ValueError" in result["error"]
+        assert result["timed_out"] is False
+
+    def test_tle_timeout(self, tmp_path: pathlib.Path) -> None:
+        """subprocess.TimeoutExpired → verdict=TLE, timed_out=True."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("import time; time.sleep(100)\n")
+        case = _make_testcase()
+
+        mock_proc = _make_popen_mock(timeout=True)
+        with patch("subprocess.Popen", return_value=mock_proc):
+            result = grader.run_single_test(str(sol), case, timeout=0.01, measure_memory=False)
+
+        assert result["passed"] is False
+        assert result["verdict"] == "TLE"
+        assert result["timed_out"] is True
+
+    def test_multiline_output_ac(self, tmp_path: pathlib.Path) -> None:
+        """Несколько строк вывода — все совпадают → AC."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("print('a'); print('b')\n")
+        case = _make_testcase(input_lines=[], expected_lines=["a", "b"])
+
+        mock_proc = _make_popen_mock(stdout=b"a\nb\n")
+        with patch("subprocess.Popen", return_value=mock_proc):
+            result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+        assert result["passed"] is True
+        assert result["output"] == ["a", "b"]
+
+    def test_result_keys_present(self, tmp_path: pathlib.Path) -> None:
+        """Словарь результата содержит все ожидаемые ключи."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n")
+        case = _make_testcase(expected_lines=["1"])
+
+        mock_proc = _make_popen_mock(stdout=b"1\n")
+        with patch("subprocess.Popen", return_value=mock_proc):
+            result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+        for key in ("passed", "output", "expected", "diff", "time", "memory", "error", "timed_out", "verdict"):
+            assert key in result, f"Ключ '{key}' отсутствует в результате"
+
+
+# ---------------------------------------------------------------------------
+# run_tests — агрегация
+# ---------------------------------------------------------------------------
+
+
+class TestRunTests:
+    """Тесты агрегатора run_tests: passed/failed/errors/first_fail."""
+
+    def _run_with_mocked_subprocess(
+        self,
+        tmp_path: pathlib.Path,
+        responses: list[tuple[bytes, bytes, int]],
+    ) -> dict[str, Any]:
+        """Запускает run_tests на решении с N тест-кейсами через мок."""
+        # Пишем тест-кейсы в формат 2 (input_N.txt / expected_N.txt)
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        for i, (stdout, _, _) in enumerate(responses, 1):
+            expected = stdout.decode().strip()
+            (test_dir / f"input_{i}.txt").write_text(f"{i}\n")
+            (test_dir / f"expected_{i}.txt").write_text(expected + "\n")
+
+        sol = tmp_path / "task1.py"
+        sol.write_text("# mock\n")
+
+        call_count = 0
+
+        def fake_popen(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            out, err, rc = responses[call_count % len(responses)]
+            call_count += 1
+            return _make_popen_mock(stdout=out, stderr=err, returncode=rc)
+
+        with patch("subprocess.Popen", side_effect=fake_popen):
+            return grader.run_tests(str(sol), str(test_dir))
+
+    def test_all_passed(self, tmp_path: pathlib.Path) -> None:
+        responses = [(b"1\n", b"", 0), (b"2\n", b"", 0), (b"3\n", b"", 0)]
+        result = self._run_with_mocked_subprocess(tmp_path, responses)
+        assert result["passed"] == 3
+        assert result["failed"] == 0
+        assert result["errors"] == 0
+        assert result["first_fail"] is None
+
+    def test_one_failed(self, tmp_path: pathlib.Path) -> None:
+        """Второй тест даёт неверный вывод."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "input_1.txt").write_text("1\n")
+        (test_dir / "expected_1.txt").write_text("1\n")
+        (test_dir / "input_2.txt").write_text("2\n")
+        (test_dir / "expected_2.txt").write_text("2\n")
+
+        sol = tmp_path / "task1.py"
+        sol.write_text("# mock\n")
+
+        responses = [b"1\n", b"WRONG\n"]
+        call_count = 0
+
+        def fake_popen(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            out = responses[call_count % len(responses)]
+            call_count += 1
+            return _make_popen_mock(stdout=out)
+
+        with patch("subprocess.Popen", side_effect=fake_popen):
+            result = grader.run_tests(str(sol), str(test_dir))
+
+        assert result["passed"] == 1
+        assert result["failed"] == 1
+        assert result["first_fail"] == 2
+
+    def test_runtime_error_counted(self, tmp_path: pathlib.Path) -> None:
+        """RE (returncode=1) → errors += 1, first_fail устанавливается."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "input_1.txt").write_text("1\n")
+        (test_dir / "expected_1.txt").write_text("1\n")
+
+        sol = tmp_path / "task1.py"
+        sol.write_text("# mock\n")
+
+        mock_proc = _make_popen_mock(stdout=b"", stderr=b"NameError", returncode=1)
+        with patch("subprocess.Popen", return_value=mock_proc):
+            result = grader.run_tests(str(sol), str(test_dir))
+
+        assert result["errors"] == 1
+        assert result["passed"] == 0
+        assert result["first_fail"] == 1
+
+    def test_total_time_is_sum(self, tmp_path: pathlib.Path) -> None:
+        """total_time ≥ 0 и avg_time = total_time / total."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "input_1.txt").write_text("1\n")
+        (test_dir / "expected_1.txt").write_text("1\n")
+        (test_dir / "input_2.txt").write_text("2\n")
+        (test_dir / "expected_2.txt").write_text("2\n")
+
+        sol = tmp_path / "task1.py"
+        sol.write_text("# mock\n")
+
+        responses = [b"1\n", b"2\n"]
+        call_count = 0
+
+        def fake_popen(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            out = responses[call_count % 2]
+            call_count += 1
+            return _make_popen_mock(stdout=out)
+
+        with patch("subprocess.Popen", side_effect=fake_popen):
+            result = grader.run_tests(str(sol), str(test_dir))
+
+        assert result["total"] == 2
+        assert result["total_time"] >= 0
+        assert abs(result["avg_time"] - result["total_time"] / 2) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# is_solution_file — регулярное выражение _SOLUTION_FILE_RE
+# ---------------------------------------------------------------------------
+
+
+class TestIsSolutionFile:
+    """Проверяет все допустимые и недопустимые имена файлов решений.
+
+    Особое внимание: task_1.py (стиль downloader.py) — потенциальный баг.
+    """
+
+    @pytest.mark.parametrize("name", [
+        "task.py",       # базовое имя
+        "task1.py",      # task + цифра
+        "task1_2.py",    # task + цифра + номер решения
+        "task4_1.py",    # из README
+        "task7_3.py",    # из README
+        "task_1.py",     # стиль downloader.py ← ПОТЕНЦИАЛЬНЫЙ БАГ
+        "task_2.py",     # стиль downloader.py
+    ])
+    def test_valid_names(self, name: str) -> None:
+        assert grader.is_solution_file(name), (
+            f"'{name}' должен распознаваться как файл решения. "
+            f"Проверьте _SOLUTION_FILE_RE = {grader._SOLUTION_FILE_RE.pattern!r}"
+        )
+
+    @pytest.mark.parametrize("name", [
+        "solution.py",
+        "main.py",
+        "task1.txt",
+        "task1_.py",     # лишнее подчёркивание в конце
+        "task_1_2.py",   # двойное подчёркивание
+        "Task1.py",      # заглавная буква
+        "task 1.py",     # пробел
+        "",
+        "task1.py.bak",
+    ])
+    def test_invalid_names(self, name: str) -> None:
+        assert not grader.is_solution_file(name), (
+            f"'{name}' НЕ должен распознаваться как файл решения."
+        )
+
+
+# ---------------------------------------------------------------------------
+# is_function_only_solution
+# ---------------------------------------------------------------------------
+
+
+class TestIsFunctionOnlySolution:
+    def test_simple_function(self) -> None:
+        code = textwrap.dedent("""\
+            def add(a, b):
+                return a + b
+        """)
+        assert grader.is_function_only_solution(code) is True
+
+    def test_function_with_import(self) -> None:
+        code = textwrap.dedent("""\
+            from datetime import date
+
+            def days_diff(d1, d2):
+                return (d2 - d1).days
+        """)
+        assert grader.is_function_only_solution(code) is True
+
+    def test_function_with_constant_assignment(self) -> None:
+        """Присваивание на уровне модуля разрешено (Stepik-шаблоны)."""
+        code = textwrap.dedent("""\
+            MOD = 10**9 + 7
+
+            def solve(n):
+                return n % MOD
+        """)
+        assert grader.is_function_only_solution(code) is True
+
+    def test_script_with_print(self) -> None:
+        code = textwrap.dedent("""\
+            def solve(n):
+                return n * 2
+
+            print(solve(5))
+        """)
+        assert grader.is_function_only_solution(code) is False
+
+    def test_script_with_for_loop(self) -> None:
+        code = textwrap.dedent("""\
+            for i in range(10):
+                print(i)
+        """)
+        assert grader.is_function_only_solution(code) is False
+
+    def test_no_functions(self) -> None:
+        """Файл без функций — не function-only."""
+        code = "x = 42\n"
+        assert grader.is_function_only_solution(code) is False
+
+    def test_syntax_error(self) -> None:
+        code = "def broken(:\n    pass\n"
+        assert grader.is_function_only_solution(code) is False
+
+
+# ---------------------------------------------------------------------------
+# _is_python_code_block
+# ---------------------------------------------------------------------------
+
+
+class TestIsPythonCodeBlock:
+    def test_function_call(self) -> None:
+        assert grader._is_python_code_block("print(func(x))") is True
+
+    def test_assignment_with_call(self) -> None:
+        assert grader._is_python_code_block("r = wins([1, 2, 3])") is True
+
+    def test_plain_numbers(self) -> None:
+        assert grader._is_python_code_block("10\n20\n30") is False
+
+    def test_date_string(self) -> None:
+        assert grader._is_python_code_block("04.11.2021") is False
+
+    def test_empty_string(self) -> None:
+        assert grader._is_python_code_block("") is False
+
+    def test_whitespace_only(self) -> None:
+        assert grader._is_python_code_block("   \n  ") is False
+
+    def test_syntax_error_returns_false(self) -> None:
+        assert grader._is_python_code_block("def (\n") is False
+
+
+# ---------------------------------------------------------------------------
+# _parse_testblock_file
+# ---------------------------------------------------------------------------
+
+
+class TestParseTestblockFile:
+    def test_basic_blocks(self) -> None:
+        text = textwrap.dedent("""\
+            # TEST_1:
+            5
+            # TEST_2:
+            10 20
+        """)
+        blocks = grader._parse_testblock_file(text)
+        assert len(blocks) == 2
+        assert blocks[0] == "5"
+        assert blocks[1] == "10 20"
+
+    def test_empty_block_preserved(self) -> None:
+        """Пустой блок сохраняется как '' для синхронизации индексов."""
+        text = "# TEST_1:\nhello\n# TEST_2:\n# TEST_3:\nworld\n"
+        blocks = grader._parse_testblock_file(text)
+        assert len(blocks) == 3
+        assert blocks[1] == ""
+
+    def test_input_data_marker_ignored(self) -> None:
+        text = textwrap.dedent("""\
+            # TEST_1:
+            # INPUT DATA:
+            42
+        """)
+        blocks = grader._parse_testblock_file(text)
+        assert len(blocks) == 1
+        assert blocks[0] == "42"
+
+    def test_no_blocks(self) -> None:
+        assert grader._parse_testblock_file("just some text\n") == []
+
+
+# ---------------------------------------------------------------------------
+# load_test_cases — форматы 1, 2, 3
+# ---------------------------------------------------------------------------
+
+
+class TestLoadTestCases:
+    def test_format2_input_expected(self, tmp_path: pathlib.Path) -> None:
+        """Формат 2: input_N.txt / expected_N.txt."""
+        (tmp_path / "input_1.txt").write_text("5\n")
+        (tmp_path / "expected_1.txt").write_text("25\n")
+        (tmp_path / "input_2.txt").write_text("3\n")
+        (tmp_path / "expected_2.txt").write_text("9\n")
+
+        cases = grader.load_test_cases(str(tmp_path))
+        assert len(cases) == 2
+        assert cases[0].index == 1
+        assert cases[0].input_lines == ["5"]
+        assert cases[0].expected_lines == ["25"]
+
+    def test_format1_legacy_clue(self, tmp_path: pathlib.Path) -> None:
+        """Формат 1: числовые файлы + .clue."""
+        (tmp_path / "1").write_text("10\n")
+        (tmp_path / "1.clue").write_text("100\n")
+
+        cases = grader.load_test_cases(str(tmp_path))
+        assert len(cases) == 1
+        assert cases[0].index == 1
+        assert cases[0].test_type == "stdin"
+
+    def test_format1_with_type_file(self, tmp_path: pathlib.Path) -> None:
+        """Формат 1 с .type=function → test_type='function'."""
+        (tmp_path / "1").write_text("x = 5\n")
+        (tmp_path / "1.clue").write_text("25\n")
+        (tmp_path / "1.type").write_text("function\n")
+
+        cases = grader.load_test_cases(str(tmp_path))
+        assert cases[0].test_type == "function"
+
+    def test_format3_testblock(self, tmp_path: pathlib.Path) -> None:
+        """Формат 3: input.txt + output.txt с маркерами # TEST_N:."""
+        (tmp_path / "input.txt").write_text("# TEST_1:\n5\n# TEST_2:\n3\n")
+        (tmp_path / "output.txt").write_text("# TEST_1:\n25\n# TEST_2:\n9\n")
+
+        cases = grader.load_test_cases(str(tmp_path))
+        assert len(cases) == 2
+        assert cases[0].expected_lines == ["25"]
+        assert cases[1].expected_lines == ["9"]
+
+    def test_empty_dir_returns_empty(self, tmp_path: pathlib.Path) -> None:
+        cases = grader.load_test_cases(str(tmp_path))
+        assert cases == []
+
+
+# ---------------------------------------------------------------------------
+# _detect_run_mode
+# ---------------------------------------------------------------------------
+
+
+class TestDetectRunMode:
+    def test_meta_json_takes_priority(self, tmp_path: pathlib.Path) -> None:
+        """meta.json с function_name → всегда 'function'."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("def solve(n): return n\n")
+        (tmp_path / "meta.json").write_text(json.dumps({"function_name": "solve"}))
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+
+        mode = grader._detect_run_mode(str(sol), str(test_dir))
+        assert mode == "function"
+
+    def test_type_file_overrides_ast(self, tmp_path: pathlib.Path) -> None:
+        """.type-файл → 'function', даже если AST говорит stdin."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(input())\n")  # AST → stdin
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "1.type").write_text("function\n")
+
+        mode = grader._detect_run_mode(str(sol), str(test_dir))
+        assert mode == "function"
+
+    def test_ast_detects_function_only(self, tmp_path: pathlib.Path) -> None:
+        """Нет meta.json и .type → AST-анализ определяет 'function'."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("def solve(n):\n    return n * 2\n")
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+
+        mode = grader._detect_run_mode(str(sol), str(test_dir))
+        assert mode == "function"
+
+    def test_stdin_for_script(self, tmp_path: pathlib.Path) -> None:
+        """Скрипт без meta.json / .type → 'stdin'."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("n = int(input())\nprint(n * 2)\n")
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+
+        mode = grader._detect_run_mode(str(sol), str(test_dir))
+        assert mode == "stdin"
+
+
+# ---------------------------------------------------------------------------
+# find_all_solution_files
+# ---------------------------------------------------------------------------
+
+
+class TestFindAllSolutionFiles:
+    def test_finds_valid_files(self, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "task1.py").write_text("")
+        (tmp_path / "task1_2.py").write_text("")
+        (tmp_path / "task_1.py").write_text("")
+        (tmp_path / "README.md").write_text("")
+        (tmp_path / "main.py").write_text("")
+
+        found = grader.find_all_solution_files(str(tmp_path))
+        names = [pathlib.Path(p).name for p in found]
+        assert "task1.py" in names
+        assert "task1_2.py" in names
+        assert "task_1.py" in names
+        assert "README.md" not in names
+        assert "main.py" not in names
+
+    def test_nested_dirs(self, tmp_path: pathlib.Path) -> None:
+        sub = tmp_path / "module3"
+        sub.mkdir()
+        (sub / "task4_1.py").write_text("")
+        (sub / "task4_2.py").write_text("")
+
+        found = grader.find_all_solution_files(str(tmp_path))
+        assert len(found) == 2
