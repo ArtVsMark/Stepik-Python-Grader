@@ -33,6 +33,32 @@ import psutil
 
 __version__ = "1.0.0"
 
+__all__ = [
+    "TestCase",
+    "is_function_only_solution",
+    "is_solution_file",
+    "find_all_solution_files",
+    "collect_grouped_files",
+    "load_test_cases",
+    "load_text_lines",
+    "run_single_test",
+    "run_tests",
+    "run_benchmark",
+    "run_microbench_mode",
+    "format_correctness_row",
+    "print_correctness_header",
+    "print_correctness_results",
+    "format_benchmark_row",
+    "print_benchmark_header",
+    "print_benchmark_results",
+    "TIMEOUT_SECONDS",
+    "ENCODING",
+    "SIMILAR_THRESHOLD",
+    "MUCH_SLOWER_THRESHOLD",
+    "MEASURE_CHILD_MEMORY",
+    "MICROBENCH_MAX_CASES",
+]
+
 # rich — опциональная зависимость для цветного вывода таблиц и прогресс-баров.
 # При её отсутствии грейдер откатывается на простой текстовый вывод.
 try:
@@ -83,6 +109,13 @@ from storage import load_json_file
 # Константы
 # ---------------------------------------------------------------------------
 
+# Паттерн имён файлов-решений.  Матчит (fullmatch):
+#   task.py        — базовый файл без номера
+#   task1.py       — исторический стиль (номер задачи слитно)
+#   task1_2.py     — номер задачи + номер решения
+#   task_1.py      — стиль downloader.py (нет цифры перед _)
+#   task_12.py     — то же, двузначный суффикс
+# НЕ матчит: solution.py, main.py, task_v2.py (буквы после _)
 _SOLUTION_FILE_RE = re.compile(r"task(?:\d+)?(?:_\d+)?\.py")
 
 TIMEOUT_SECONDS: float = 10.0
@@ -378,9 +411,13 @@ def print_benchmark_results(
 
 def _cprint(text: str, *, style: str = "") -> None:
     """Печать строки со стилем (rich) или без (plain). markup отключён — безопасно
-    для произвольного вывода решения (скобки не интерпретируются как разметка)."""
-    if _RICH and _console is not None and style:
-        _console.print(text, style=style, markup=False)
+    для произвольного вывода решения (скобки не интерпретируются как разметка).
+
+    Инвариант: _RICH == True гарантирует _console is not None (Console() создаётся
+    при успешном импорте rich), поэтому дополнительная проверка не нужна.
+    """
+    if _RICH and style:
+        _console.print(text, style=style, markup=False)  # type: ignore[union-attr]
     else:
         print(text)
 
@@ -662,9 +699,9 @@ def _resolve_test_dir(solution_path: str) -> str:
 
 
 def _measure_peak_memory(
-    proc: subprocess.Popen, result: list[float], stop: threading.Event
+    proc: subprocess.Popen[bytes], result: list[float], stop: threading.Event
 ) -> None:
-    """Поток: просматривать RSS дочернего процесса до его завершения.
+    """Поток: замерять RSS дочернего процесса до его завершения.
 
     Делает первый замер немедленно (до первого sleep), чтобы уловить
     даже очень короткие процессы (< 20 мс). Затем продолжает опрос
@@ -952,7 +989,7 @@ def run_single_test(
 
     start = time.perf_counter()
     try:
-        proc = subprocess.Popen(
+        proc: subprocess.Popen[bytes] = subprocess.Popen(
             [sys.executable, run_path],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
