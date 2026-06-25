@@ -5,6 +5,7 @@
   - print_benchmark_results    plain-text ветка (341-363)
   - _interactive_menu выход    (1349-1436, строки exit-path)
   - run_single_test OSError    (901-917)
+  - run_single_test TLE        (timeout ветка)
   - run_tests verbose          (797-803)
   - _print_case_verbose diff   (585, 598)
   - _cprint plain              (673-675)
@@ -186,7 +187,7 @@ class TestPrintCaseVerbose:
         }
         _print_case_verbose(case, r)
         out = capsys.readouterr().out
-        assert "WA" in out or "✗" in out
+        assert "WA" in out or "\u2717" in out
 
     def test_verbose_error(self, capsys) -> None:
         case = self._make_case()
@@ -214,7 +215,7 @@ class TestPrintCaseVerbose:
         }
         _print_case_verbose(case, r)
         out = capsys.readouterr().out
-        assert "✓" in out or "AC" in out
+        assert "\u2713" in out or "AC" in out
 
 
 # ---------------------------------------------------------------------------
@@ -238,12 +239,13 @@ class TestRunTestsVerbose:
 
 
 # ---------------------------------------------------------------------------
-# run_single_test — OSError ветка (строки 901-917)
+# run_single_test — OSError и TLE ветки (строки 901-917)
 # ---------------------------------------------------------------------------
 
 
-class TestRunSingleTestOsError:
+class TestRunSingleTest:
     def test_oserror_returns_re(self, tmp_path: pathlib.Path) -> None:
+        """subprocess.Popen поднимает OSError → verdict RE."""
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)", encoding="utf-8")
         case = TestCase(index=1, input_lines=["1"], expected_lines=["1"])
@@ -254,6 +256,18 @@ class TestRunSingleTestOsError:
         assert result["passed"] is False
         assert result["verdict"] == "RE"
         assert "no such file" in result["error"]
+
+    def test_tle_returns_tle_verdict(self, tmp_path: pathlib.Path) -> None:
+        """Процесс не укладывается в timeout → verdict TLE, timed_out=True."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("import time; time.sleep(100)\n", encoding="utf-8")
+        case = TestCase(index=1, input_lines=["1"], expected_lines=["1"])
+
+        result = run_single_test(str(sol), case, timeout=0.1)
+
+        assert result["passed"] is False
+        assert result["verdict"] == "TLE"
+        assert result.get("timed_out") is True
 
 
 # ---------------------------------------------------------------------------
