@@ -1,5 +1,39 @@
 # Changelog
 
+## [unreleased] / 2026-06-25 — refactor: extract parsers.py (fix #9)
+
+### Refactored
+- `parsers.py` — новый Infrastructure/Utility-модуль: единственная публичная
+  функция `parse_testblock_file(text: str) -> list[str]`.
+  Извлечена из `grader.py` (была приватной `_parse_testblock_file`), что
+  устранило потенциально циклическую зависимость `downloader.py → grader.py`.
+- `grader.py`: удалена дефиниция `_parse_testblock_file`;
+  добавлен `from parsers import parse_testblock_file`.
+- `downloader.py`: удалён lazy import `from grader import _parse_testblock_file`
+  внутри `_download_github_tests()`; заменён top-level
+  `from parsers import parse_testblock_file`.
+
+### Architecture
+- Граф зависимостей стал ациклическим:
+  ```
+  grader.py     → parsers.py
+  downloader.py → parsers.py
+  ```
+  Вместо прежнего:
+  ```
+  downloader.py → grader.py  ← (lazy, циклически-опасный)
+  ```
+
+### Tests
+- 12 новых тестов в `tests/test_parsers.py` — прямое покрытие
+  `parse_testblock_file()`: базовый, пустые блоки, `# INPUT DATA:`, многострочные
+  блоки, нет-маркеров, пробелы, комментарии внутри блока, параметрические.
+
+### Closes
+- Issue #9
+
+---
+
 ## [unreleased] / 2026-06-24 — OAuth рефакторинг
 
 ### Added
