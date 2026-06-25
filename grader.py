@@ -190,7 +190,7 @@ def find_all_solution_files(directory: str) -> list[str]:
     for root, _, files in os.walk(directory):
         for file_name in files:
             if is_solution_file(file_name):
-                scripts.append(os.path.join(root, file_name))
+                scripts.append(str(pathlib.Path(root) / file_name))
 
     return sorted(scripts)
 
@@ -201,8 +201,11 @@ def collect_grouped_files(directory: str) -> dict[str, list[str]]:
     for root, _, files in os.walk(directory):
         for file_name in files:
             if is_solution_file(file_name):
-                rel_folder = os.path.relpath(root, directory)
-                grouped[rel_folder].append(os.path.join(root, file_name))
+                try:
+                    rel_folder = str(pathlib.Path(root).relative_to(directory))
+                except ValueError:
+                    rel_folder = os.path.relpath(root, directory)
+                grouped[rel_folder].append(str(pathlib.Path(root) / file_name))
 
     return dict(grouped)
 
@@ -466,8 +469,7 @@ def run_microbench_mode(
 
 def load_text_lines(file_path: str) -> list[str]:
     """Загрузить текстовый файл и вернуть список строк без завершающих переносов."""
-    with open(file_path, encoding=ENCODING) as f:
-        return [line.rstrip("\n") for line in f]
+    return pathlib.Path(file_path).read_text(encoding=ENCODING).splitlines()
 
 
 def _parse_testblock_file(text: str) -> list[str]:
@@ -1306,12 +1308,12 @@ def _interactive_menu() -> None:
 
     if choice == "1":
         solution = input("Enter path to solution file: ").strip()
-        if not os.path.isfile(solution):
+        if not pathlib.Path(solution).is_file():
             print(f"File not found: {solution}")
             return
 
         test_dir = _resolve_test_dir(solution)
-        if not os.path.isdir(test_dir):
+        if not pathlib.Path(test_dir).is_dir():
             print(f"Test directory not found: {test_dir}")
             return
 
@@ -1324,7 +1326,7 @@ def _interactive_menu() -> None:
 
     elif choice == "2":
         directory = input("Enter path to folder: ").strip()
-        if not os.path.isdir(directory):
+        if not pathlib.Path(directory).is_dir():
             print(f"Directory not found: {directory}")
             return
 
@@ -1338,7 +1340,7 @@ def _interactive_menu() -> None:
         rows: list[tuple[str, dict[str, Any]]] = []
         for path in _rich_track(scripts, description="Проверка решений..."):
             individual_test_dir = _resolve_test_dir(path)
-            if not os.path.isdir(individual_test_dir):
+            if not pathlib.Path(individual_test_dir).is_dir():
                 individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
             result = run_tests(path, individual_test_dir, verbose=False)
             rows.append((path, result))
@@ -1346,7 +1348,7 @@ def _interactive_menu() -> None:
 
     elif choice == "3":
         directory = input("Enter path to folder: ").strip()
-        if not os.path.isdir(directory):
+        if not pathlib.Path(directory).is_dir():
             print(f"Directory not found: {directory}")
             return
 
@@ -1360,7 +1362,7 @@ def _interactive_menu() -> None:
         results: dict[str, dict[str, Any]] = {}
         for path in _rich_track(scripts, description="Бенчмарк решений..."):
             individual_test_dir = _resolve_test_dir(path)
-            if not os.path.isdir(individual_test_dir):
+            if not pathlib.Path(individual_test_dir).is_dir():
                 individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
             results[path] = run_benchmark(path, individual_test_dir, repeats=repeats)
 
@@ -1382,7 +1384,7 @@ def _interactive_menu() -> None:
 
     elif choice == "4":
         directory = input("Enter path to folder with solutions: ").strip()
-        if not os.path.isdir(directory):
+        if not pathlib.Path(directory).is_dir():
             print(f"Directory not found: {directory}")
             return
 
@@ -1400,10 +1402,10 @@ def _interactive_menu() -> None:
                 folder_abs = pathlib.Path(directory)
             test_dir = _resolve_test_dir_from_input(str(folder_abs), is_dir=True)
 
-            label = folder if folder != "." else os.path.basename(directory)
+            label = folder if folder != "." else pathlib.Path(directory).name
             print(f"\n\u26a1 Micro-bench (timeit): {label}")
 
-            if not os.path.isdir(test_dir):
+            if not pathlib.Path(test_dir).is_dir():
                 print(f"  \u26a0 Tests not found: {test_dir}")
                 print("  Expected: tests/ subfolder next to solution files.")
                 continue
