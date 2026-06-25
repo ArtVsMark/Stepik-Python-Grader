@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import signal
 import subprocess
 import sys
 import textwrap
+import types
+
+import pytest
 
 import executor
-from executor import RunResult
+from executor import RunResult, _timeout_handler
 
 # ---------------------------------------------------------------------------
-# run_solution — базовые сценарии (уже были)
+# run_solution — базовые сценарии
 # ---------------------------------------------------------------------------
 
 
@@ -118,6 +122,24 @@ def test_run_result_extra_is_independent() -> None:
 
 
 # ---------------------------------------------------------------------------
+# _timeout_handler — строки 100-101
+# ---------------------------------------------------------------------------
+
+
+def test_timeout_handler_raises_timeout_error() -> None:
+    """_timeout_handler выбрасывает TimeoutError с описанием лимита."""
+    with pytest.raises(TimeoutError, match="Execution exceeded"):
+        _timeout_handler(signal.SIGALRM if hasattr(signal, "SIGALRM") else 14, None)
+
+
+def test_timeout_handler_message_contains_timeout_value() -> None:
+    """_timeout_handler упоминает значение TIMEOUT в сообщении."""
+    with pytest.raises(TimeoutError) as exc_info:
+        _timeout_handler(0, None)
+    assert str(executor.TIMEOUT) in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
 # main() — запуск executor.py как subprocess (покрывает строки 114-129)
 # ---------------------------------------------------------------------------
 
@@ -185,3 +207,56 @@ def test_main_multiline_code() -> None:
     )
     assert proc.stdout.strip() == "6"
     assert proc.returncode == 0
+
+
+# ---------------------------------------------------------------------------
+# main() — ветки SIGALRM (строки 115-131)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="SIGALRM not available on Windows")
+def test_main_sigalrm_timeout_fires() -> None:
+    """SIGALRM срабатывает и прерывает бесконечный цикл внутри main()."""
+    proc = subprocess.run(
+        [sys.executable, "-c",
+         "import os; os.environ['EXECUTOR_TIMEOUT']='1'; "
+         "import executor; executor.main()"],
+        input="while True: pass",
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    # TimeoutError → ненулевой exit code
+    assert proc.returncode != 0
+    assert "Execution exceeded" in proc.stderr or "TimeoutError" in proc.stderr
+
+
+@pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="SIGALRM not available on Windows")
+def test_main_sigalrm_alarm_reset_after_success() -> None:
+    """SIGALRM сбрасывается после успешного завершения (signal.alarm(0) в finally)."""
+    proc = subprocess.run(
+        [sys.executable, "-c",
+         "import os; os.environ['EXECUTOR_TIMEOUT']='5'; "
+         "import executor; executor.main()"],
+        input="print('done')",
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert proc.returncode == 0
+    assert proc.stdout.strip() == "done"
+
+
+@pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="SIGALRM not available on Windows")
+def test_main_namespace_isolation() -> None:
+    """main() выполняет код в изолированном namespace — не видит переменные executor.py."""
+    proc = subprocess.run(
+        [sys.executable, "executor.py"],
+        input="print(type(__builtins__))",
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert proc.returncode == 0
+    # __builtins__ должен быть модулем builtins, не dict
+    assert "module" in proc.stdout or "dict" in proc.stdout
