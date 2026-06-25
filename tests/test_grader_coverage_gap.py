@@ -60,6 +60,19 @@ _DUMMY_BENCHMARK_DATA = {
 }
 
 
+def _make_rich_mocks():
+    """Возвращает (mock_console, mock_table_cls, mock_text_cls).
+
+    Table и Text — stub-классы без аргументов в тестовой среде (rich не установлен).
+    Мокируем их полностью через MagicMock, чтобы rich-ветки grader.py отрабатывали
+    без TypeError и без реального rich.
+    """
+    mock_console = MagicMock()
+    mock_table_cls = MagicMock(return_value=MagicMock())   # Table(...) → MagicMock-экземпляр
+    mock_text_cls = MagicMock(return_value=MagicMock())    # Text(...) → MagicMock-экземпляр
+    return mock_console, mock_table_cls, mock_text_cls
+
+
 # ---------------------------------------------------------------------------
 # plain-text output functions (строки 206-207, 304-325, 341-363, 374)
 # ---------------------------------------------------------------------------
@@ -110,19 +123,33 @@ class TestPlainTextOutput:
         assert "SIMILAR" in row
         assert "task1.py" in row
 
-    def test_print_correctness_results_rich(self, capsys) -> None:
-        """rich-ветка: Console.print вызывается без исключений."""
+    def test_print_correctness_results_rich(self) -> None:
+        """rich-ветка: Console.print вызывается без исключений.
+
+        Мокируем grader.Table и grader.Text, т.к. в тестовой среде
+        rich может отсутствовать и stub-классы не принимают аргументов.
+        """
         rows = [("base/task1.py", _DUMMY_CORRECTNESS_RESULT)]
-        mock_console = MagicMock()
-        with patch("grader._RICH", True), patch("grader._console", mock_console):
+        mock_console, mock_table_cls, mock_text_cls = _make_rich_mocks()
+        with (
+            patch("grader._RICH", True),
+            patch("grader._console", mock_console),
+            patch("grader.Table", mock_table_cls),
+            patch("grader.Text", mock_text_cls),
+        ):
             print_correctness_results(rows, "base", col_file=20)
         mock_console.print.assert_called_once()
 
-    def test_print_benchmark_results_rich(self, capsys) -> None:
+    def test_print_benchmark_results_rich(self) -> None:
         """rich-ветка: Console.print вызывается без исключений."""
         rows = [("base/task1.py", _DUMMY_BENCHMARK_DATA)]
-        mock_console = MagicMock()
-        with patch("grader._RICH", True), patch("grader._console", mock_console):
+        mock_console, mock_table_cls, mock_text_cls = _make_rich_mocks()
+        with (
+            patch("grader._RICH", True),
+            patch("grader._console", mock_console),
+            patch("grader.Table", mock_table_cls),
+            patch("grader.Text", mock_text_cls),
+        ):
             print_benchmark_results(rows, "base", col_file=20)
         mock_console.print.assert_called_once()
 
