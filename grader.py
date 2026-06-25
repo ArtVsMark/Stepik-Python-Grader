@@ -341,10 +341,18 @@ def print_benchmark_results(
     if _RICH and _console is not None:
         table = Table(title=title or None, show_lines=False)
         table.add_column("File", style="cyan", no_wrap=True)
-        for name in ("Runs", "Min", "Median", "Mean", "Max", "Std dev", "Memory"):
-            table.add_column(name, justify="right")
-        table.add_column("Relative", justify="right")
-        table.add_column("Verdict", justify="center")
+        for name, mw in [
+            ("Runs", 4),
+            ("Min", 7),
+            ("Median", 7),
+            ("Mean", 7),
+            ("Max", 7),
+            ("Std dev", 7),
+            ("Memory", 9),
+        ]:
+            table.add_column(name, justify="right", min_width=mw)
+        table.add_column("Relative", justify="right", min_width=8)
+        table.add_column("Verdict", justify="center", min_width=10)
         for path, data in rows:
             verdict = data["verdict"]
             color = _VERDICT_COLORS.get(verdict, "white")
