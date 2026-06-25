@@ -13,6 +13,10 @@
     Передача исходника через файл (а не heredoc) исключает поломку на тройных
     кавычках (''' / \"\"\") внутри решения.
 
+    Временный файл создаётся с delete=False и удаляется вручную в finally —
+    это единственный кросс-платформенный способ: delete_on_close=False (3.12+)
+    работает иначе на Linux и Windows и непригоден для передачи пути в subprocess.
+
 Дополнительный публичный API (вспомогательные структуры для агрегации):
     MicrobenchResult        — dataclass с таймингами одного решения
     apply_relative_micro    — расстановка относительных процентов и вердиктов
@@ -23,6 +27,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import os
 import statistics
 import subprocess
 import sys
@@ -79,78 +85,83 @@ def run_microbench(
     Код запускается как строка через python -c.
     stdin сбрасывается перед каждой итерацией через _reset_stdin() в начале stmt.
 
+    Временный файл создаётся с delete=False и удаляется в блоке finally —
+    это единственный надёжный кросс-платформенный способ передать путь к файлу
+    в subprocess. delete_on_close=False (Python 3.12+) ведёт себя по-разному
+    на Linux (удаляет при close) и Windows, и непригоден здесь.
+
     Возвращает словарь с ключами:
         times  (list[float]) — список замеров (в секундах на итерацию)
         error  (str)         — сообщение об ошибке (пустая = успех)
     """
-    # Передаём исходник через временный файл, а не heredoc-строку:
-    # это исключает поломку на тройных кавычках (''' / \"\"\") в решении.
-    # delete_on_close=False (Python 3.12+): файл закрывается внутри with,
-    # но удаляется автоматически при выходе из контекстного менеджера.
-    with tempfile.NamedTemporaryFile(
+    tmp = tempfile.NamedTemporaryFile(
         mode="w",
         suffix=".py",
         encoding=ENCODING,
-        delete=True,
-        delete_on_close=False,
-    ) as f:
-        f.write(source_code)
-        code_path = f.name
-
-    # Весь вспомогательный код помещаем в bench_script через exec,
-    # чтобы _reset_stdin была доступна в глобальном пространстве stmt.
-    # stmt — строка, выполняемая timeit; globals не пробрасываются через repeat()
-    # в Python 3.14+, поэтому инжектируем функцию через builtins.
-    # stdout решения подавляется на время замера: иначе его print()-вывод
-    # попадает на stdout вперемешку с таймингами и портит парсинг.
-    # Реальный stdout сохраняется и восстанавливается только для печати таймингов,
-    # так что на stdout оказываются ИСКЛЮЧИТЕЛЬНО 5 чисел-таймингов.
-    # contextlib и os не нужны в Python-коде модуля — они инжектируются
-    # внутрь bench_script как строки (_os используется внутри subprocess).
-    bench_script = (
-        "import timeit as _timeit, sys as _sys, io as _io, os as _os, builtins as _builtins\n"
-        "_stdin = " + repr(stdin_data) + "\n"
-        "def _reset_stdin():\n"
-        "    _sys.stdin = _io.StringIO(_stdin)\n"
-        "_builtins._reset_stdin = _reset_stdin\n"
-        "_reset_stdin()\n"
-        f"with open({code_path!r}, encoding='utf-8') as _f:\n"
-        "    _code = _f.read()\n"
-        "_stmt = '_reset_stdin()\\n' + _code\n"
-        f"_number = {number}\n"
-        "_real_stdout = _sys.stdout\n"
-        "_devnull = open(_os.devnull, 'w')\n"
-        "_sys.stdout = _devnull\n"
-        "try:\n"
-        "    _times = _timeit.repeat(\n"
-        "        stmt=_stmt,\n"
-        "        setup='pass',\n"
-        "        repeat=5,\n"
-        "        number=_number,\n"
-        "    )\n"
-        "finally:\n"
-        "    _sys.stdout = _real_stdout\n"
-        "    _devnull.close()\n"
-        "_per = [t / _number for t in _times]\n"
-        "print('\\n'.join(str(t) for t in _per))\n"
+        delete=False,
     )
-
     try:
-        result = subprocess.run(
-            [sys.executable, "-c", bench_script],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            encoding=ENCODING,
+        tmp.write(source_code)
+        tmp.flush()
+        tmp.close()
+        code_path = tmp.name
+
+        # Весь вспомогательный код помещаем в bench_script через exec,
+        # чтобы _reset_stdin была доступна в глобальном пространстве stmt.
+        # stmt — строка, выполняемая timeit; globals не пробрасываются через repeat()
+        # в Python 3.14+, поэтому инжектируем функцию через builtins.
+        # stdout решения подавляется на время замера: иначе его print()-вывод
+        # попадает на stdout вперемешку с таймингами и портит парсинг.
+        # Реальный stdout сохраняется и восстанавливается только для печати таймингов,
+        # так что на stdout оказываются ИСКЛЮЧИТЕЛЬНО 5 чисел-таймингов.
+        # os и contextlib используются здесь (в finally), а не только внутри bench_script.
+        bench_script = (
+            "import timeit as _timeit, sys as _sys, io as _io, os as _os, builtins as _builtins\n"
+            "_stdin = " + repr(stdin_data) + "\n"
+            "def _reset_stdin():\n"
+            "    _sys.stdin = _io.StringIO(_stdin)\n"
+            "_builtins._reset_stdin = _reset_stdin\n"
+            "_reset_stdin()\n"
+            f"with open({code_path!r}, encoding='utf-8') as _f:\n"
+            "    _code = _f.read()\n"
+            "_stmt = '_reset_stdin()\\n' + _code\n"
+            f"_number = {number}\n"
+            "_real_stdout = _sys.stdout\n"
+            "_devnull = open(_os.devnull, 'w')\n"
+            "_sys.stdout = _devnull\n"
+            "try:\n"
+            "    _times = _timeit.repeat(\n"
+            "        stmt=_stmt,\n"
+            "        setup='pass',\n"
+            "        repeat=5,\n"
+            "        number=_number,\n"
+            "    )\n"
+            "finally:\n"
+            "    _sys.stdout = _real_stdout\n"
+            "    _devnull.close()\n"
+            "_per = [t / _number for t in _times]\n"
+            "print('\\n'.join(str(t) for t in _per))\n"
         )
-        if result.returncode != 0:
-            return {"times": [], "error": result.stderr.strip()}
-        times = [float(line) for line in result.stdout.strip().splitlines() if line.strip()]
-        return {"times": times, "error": ""}
-    except subprocess.TimeoutExpired:
-        return {"times": [], "error": "microbench timeout"}
-    except Exception as exc:
-        return {"times": [], "error": str(exc)}
+
+        try:
+            result = subprocess.run(
+                [sys.executable, "-c", bench_script],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                encoding=ENCODING,
+            )
+            if result.returncode != 0:
+                return {"times": [], "error": result.stderr.strip()}
+            times = [float(line) for line in result.stdout.strip().splitlines() if line.strip()]
+            return {"times": times, "error": ""}
+        except subprocess.TimeoutExpired:
+            return {"times": [], "error": "microbench timeout"}
+        except Exception as exc:
+            return {"times": [], "error": str(exc)}
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp.name)
 
 
 def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResult]:
