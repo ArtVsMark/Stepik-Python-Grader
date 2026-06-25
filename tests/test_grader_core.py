@@ -10,34 +10,77 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 import grader
 
 # ---------------------------------------------------------------------------
-# _is_python_code_block
+# _is_python_code_block  (parametrized — replaces 4 separate test functions)
 # ---------------------------------------------------------------------------
 
 
-def test_is_python_code_block_true_for_function_call():
-    """A block referencing a name (function call + print) is Python code → True."""
-    assert grader._is_python_code_block("result = func(5)\nprint(result)") is True
-    assert grader._is_python_code_block("print(func(x))") is True
+@pytest.mark.parametrize(
+    "code,expected",
+    [
+        ("print(func(x))", True),
+        ("result = func(5)\nprint(result)", True),
+        ("1\n2\n3", False),
+        ("10", False),
+        ("", False),
+        ("   \n  ", False),
+        ("04.11.2021", False),
+    ],
+)
+def test_is_python_code_block(code: str, expected: bool) -> None:
+    """_is_python_code_block returns True only when the block contains a Name node."""
+    assert grader._is_python_code_block(code) is expected
 
 
-def test_is_python_code_block_false_for_plain_numbers():
-    """Bare stdin numbers parse as constants with no Name node → False."""
-    assert grader._is_python_code_block("1\n2\n3") is False
-    assert grader._is_python_code_block("10") is False
+# ---------------------------------------------------------------------------
+# _verdict — ratio → label
+# ---------------------------------------------------------------------------
 
 
-def test_is_python_code_block_false_for_empty():
-    """Empty / whitespace-only block → False (no crash)."""
-    assert grader._is_python_code_block("") is False
-    assert grader._is_python_code_block("   \n  ") is False
+@pytest.mark.parametrize(
+    "ratio,expected_verdict",
+    [
+        (1.0, "SIMILAR"),
+        (1.14, "SIMILAR"),
+        (1.15, "SIMILAR"),   # граница включительно
+        (1.16, "SLOWER"),
+        (1.49, "SLOWER"),
+        (1.50, "SLOWER"),    # граница включительно
+        (1.51, "MUCH_SLOWER"),
+        (2.0, "MUCH_SLOWER"),
+        (0.9, "FASTER"),
+        (0.5, "FASTER"),
+    ],
+)
+def test_verdict(ratio: float, expected_verdict: str) -> None:
+    """_verdict maps a timing ratio to the correct label."""
+    assert grader._verdict(ratio) == expected_verdict
 
 
-def test_is_python_code_block_false_for_unparsable():
-    """A date-like string is a SyntaxError, not code → False."""
-    assert grader._is_python_code_block("04.11.2021") is False
+# ---------------------------------------------------------------------------
+# _micro_stats — descriptive statistics
+# ---------------------------------------------------------------------------
+
+
+def test_micro_stats_basic() -> None:
+    """_micro_stats returns correct min/max/mean/median/stdev for a simple series."""
+    stats = grader._micro_stats([0.1, 0.2, 0.3, 0.4, 0.5])
+    assert stats["min"] == pytest.approx(0.1)
+    assert stats["max"] == pytest.approx(0.5)
+    assert stats["median"] == pytest.approx(0.3)
+    assert stats["mean"] == pytest.approx(0.3)
+
+
+def test_micro_stats_single_value() -> None:
+    """A single-element series: stdev is 0, min == max == median == mean."""
+    stats = grader._micro_stats([0.42])
+    assert stats["min"] == pytest.approx(0.42)
+    assert stats["max"] == pytest.approx(0.42)
+    assert stats["stdev"] == pytest.approx(0.0)
 
 
 # ---------------------------------------------------------------------------
