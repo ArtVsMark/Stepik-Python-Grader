@@ -14,12 +14,13 @@
 from __future__ import annotations
 
 import pathlib
+import sys
 from unittest.mock import MagicMock, patch
 
-import grader
 from grader import (
     TestCase,
     _cprint,
+    _interactive_menu,
     _print_case_verbose,
     format_benchmark_row,
     format_correctness_row,
@@ -27,9 +28,12 @@ from grader import (
     print_benchmark_results,
     print_correctness_header,
     print_correctness_results,
+    run_benchmark,
     run_single_test,
     run_tests,
 )
+
+import grader as grader_module  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -61,12 +65,7 @@ _DUMMY_BENCHMARK_DATA = {
 
 
 def _make_rich_mocks():
-    """Возвращает (mock_console, mock_table_cls, mock_text_cls).
-
-    Table и Text — stub-классы без аргументов в тестовой среде (rich не установлен).
-    Мокируем их полностью через MagicMock, чтобы rich-ветки grader.py отрабатывали
-    без TypeError и без реального rich.
-    """
+    """Возвращает (mock_console, mock_table_cls, mock_text_cls)."""
     mock_console = MagicMock()
     mock_table_cls = MagicMock(return_value=MagicMock())
     mock_text_cls = MagicMock(return_value=MagicMock())
@@ -124,11 +123,7 @@ class TestPlainTextOutput:
         assert "task1.py" in row
 
     def test_print_correctness_results_rich(self) -> None:
-        """rich-ветка: Console.print вызывается без исключений.
-
-        Мокируем grader.Table и grader.Text, т.к. в тестовой среде
-        rich может отсутствовать и stub-классы не принимают аргументов.
-        """
+        """rich-ветка: Console.print вызывается без исключений."""
         rows = [("base/task1.py", _DUMMY_CORRECTNESS_RESULT)]
         mock_console, mock_table_cls, mock_text_cls = _make_rich_mocks()
         with (
@@ -277,13 +272,13 @@ class TestInteractiveMenuExit:
     def test_choice_zero_exits(self, monkeypatch) -> None:
         """Выбор '0' → немедленный выход без ошибок."""
         monkeypatch.setattr("builtins.input", lambda *a: "0")
-        grader._interactive_menu()
+        _interactive_menu()
 
     def test_invalid_choice_then_exit(self, monkeypatch) -> None:
         """Неверный ввод ('9') → сообщение об ошибке, затем '0' → выход."""
         inputs = iter(["9", "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
-        grader._interactive_menu()
+        _interactive_menu()
 
     def test_menu_mode1_no_tests(self, tmp_path: pathlib.Path, monkeypatch) -> None:
         """Режим 1: файл без тестов → run_tests возвращает пустой результат → выход."""
@@ -294,10 +289,10 @@ class TestInteractiveMenuExit:
             "total_time": 0.0, "avg_time": 0.0, "peak_memory_mb": 0.0,
             "first_fail": None, "cases": [],
         }
-        monkeypatch.setattr(grader, "run_tests", lambda *a, **k: empty_result)
+        monkeypatch.setattr("grader.run_tests", lambda *a, **k: empty_result)
         inputs = iter(["1", str(sol), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
-        grader._interactive_menu()
+        _interactive_menu()
 
     def test_menu_mode3_benchmark(self, tmp_path: pathlib.Path, monkeypatch) -> None:
         """Режим 3 (benchmark): мок run_benchmark → выход."""
@@ -308,9 +303,7 @@ class TestInteractiveMenuExit:
             "max": 0.003, "stdev": 0.0, "peak_memory_mb": 0.0,
             "relative": 1.0, "verdict": "SIMILAR",
         }
-        monkeypatch.setattr(
-            grader, "run_benchmark", lambda *a, **k: {str(sol): bench_result}
-        )
+        monkeypatch.setattr("grader.run_benchmark", lambda *a, **k: {str(sol): bench_result})
         inputs = iter(["3", str(sol), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
-        grader._interactive_menu()
+        _interactive_menu()
