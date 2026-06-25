@@ -68,8 +68,8 @@ def _make_rich_mocks():
     без TypeError и без реального rich.
     """
     mock_console = MagicMock()
-    mock_table_cls = MagicMock(return_value=MagicMock())   # Table(...) → MagicMock-экземпляр
-    mock_text_cls = MagicMock(return_value=MagicMock())    # Text(...) → MagicMock-экземпляр
+    mock_table_cls = MagicMock(return_value=MagicMock())
+    mock_text_cls = MagicMock(return_value=MagicMock())
     return mock_console, mock_table_cls, mock_text_cls
 
 
@@ -246,7 +246,6 @@ class TestRunTestsVerbose:
         result = run_tests(str(sol), str(tests_dir), verbose=True)
         out = capsys.readouterr().out
         assert result["passed"] == 1
-        # verbose должен что-то напечатать (✓ или номер теста)
         assert "1" in out
 
 
@@ -278,7 +277,7 @@ class TestInteractiveMenuExit:
     def test_choice_zero_exits(self, monkeypatch) -> None:
         """Выбор '0' → немедленный выход без ошибок."""
         monkeypatch.setattr("builtins.input", lambda *a: "0")
-        grader._interactive_menu()  # должен завершиться без исключений
+        grader._interactive_menu()
 
     def test_invalid_choice_then_exit(self, monkeypatch) -> None:
         """Неверный ввод ('9') → сообщение об ошибке, затем '0' → выход."""
