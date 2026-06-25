@@ -152,9 +152,7 @@ class TestRunSingleTestStdin:
 
         mock_proc = _make_popen_mock(timeout=True)
         with patch("subprocess.Popen", return_value=mock_proc):
-            result = grader.run_single_test(
-                str(sol), case, timeout=0.01, measure_memory=False
-            )
+            result = grader.run_single_test(str(sol), case, timeout=0.01, measure_memory=False)
 
         assert result["passed"] is False
         assert result["verdict"] == "TLE"
@@ -184,8 +182,15 @@ class TestRunSingleTestStdin:
             result = grader.run_single_test(str(sol), case, measure_memory=False)
 
         expected_keys = (
-            "passed", "output", "expected", "diff",
-            "time", "memory", "error", "timed_out", "verdict",
+            "passed",
+            "output",
+            "expected",
+            "diff",
+            "time",
+            "memory",
+            "error",
+            "timed_out",
+            "verdict",
         )
         for key in expected_keys:
             assert key in result, f"Ключ '{key}' отсутствует в результате"
@@ -320,32 +325,38 @@ class TestIsSolutionFile:
     Особое внимание: task_1.py (стиль downloader.py) — потенциальный баг.
     """
 
-    @pytest.mark.parametrize("name", [
-        "task.py",
-        "task1.py",
-        "task1_2.py",
-        "task4_1.py",
-        "task7_3.py",
-        "task_1.py",     # стиль downloader.py
-        "task_2.py",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "task.py",
+            "task1.py",
+            "task1_2.py",
+            "task4_1.py",
+            "task7_3.py",
+            "task_1.py",  # стиль downloader.py
+            "task_2.py",
+        ],
+    )
     def test_valid_names(self, name: str) -> None:
         assert grader.is_solution_file(name), (
             f"'{name}' должен распознаваться как файл решения. "
             f"Проверьте _SOLUTION_FILE_RE = {grader._SOLUTION_FILE_RE.pattern!r}"
         )
 
-    @pytest.mark.parametrize("name", [
-        "solution.py",
-        "main.py",
-        "task1.txt",
-        "task1_.py",
-        "task_1_2.py",
-        "Task1.py",
-        "task 1.py",
-        "",
-        "task1.py.bak",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "solution.py",
+            "main.py",
+            "task1.txt",
+            "task1_.py",
+            "task_1_2.py",
+            "Task1.py",
+            "task 1.py",
+            "",
+            "task1.py.bak",
+        ],
+    )
     def test_invalid_names(self, name: str) -> None:
         assert not grader.is_solution_file(name), (
             f"'{name}' НЕ должен распознаваться как файл решения."

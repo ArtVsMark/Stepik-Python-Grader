@@ -46,16 +46,16 @@ def test_is_python_code_block(code: str, expected: bool) -> None:
 @pytest.mark.parametrize(
     "ratio,expected_verdict",
     [
-        (1.0,  "SIMILAR"),
+        (1.0, "SIMILAR"),
         (1.14, "SIMILAR"),
-        (1.15, "SIMILAR"),    # граница включительно
-        (0.9,  "SIMILAR"),    # ratio < 1.0 → всё равно SIMILAR
-        (0.5,  "SIMILAR"),    # ratio << 1.0 → всё равно SIMILAR
+        (1.15, "SIMILAR"),  # граница включительно
+        (0.9, "SIMILAR"),  # ratio < 1.0 → всё равно SIMILAR
+        (0.5, "SIMILAR"),  # ratio << 1.0 → всё равно SIMILAR
         (1.16, "SLOWER"),
         (1.49, "SLOWER"),
-        (1.50, "SLOWER"),     # граница включительно
+        (1.50, "SLOWER"),  # граница включительно
         (1.51, "MUCH_SLOWER"),
-        (2.0,  "MUCH_SLOWER"),
+        (2.0, "MUCH_SLOWER"),
     ],
 )
 def test_verdict(ratio: float, expected_verdict: str) -> None:
