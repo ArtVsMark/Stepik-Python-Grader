@@ -3,7 +3,7 @@
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 ![Version](https://img.shields.io/badge/version-1.0.0-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen)
-![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
+![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)
 
 > **Status:** Stable — v1.0.0
 
@@ -129,7 +129,7 @@ Stepik-Python-Grader/
 ├── storage.py                 # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── diagnostik_stepik.py       # Диагностика API и токена
 ├── conftest.py                # Pytest: collect_ignore для grader.py
-├── tests/                     # 260 тестов (pytest)
+├── tests/                     # 355 тестов (pytest)
 │   ├── test_analyzer.py
 │   ├── test_downloader.py
 │   ├── test_executor.py
@@ -146,7 +146,7 @@ Stepik-Python-Grader/
 │   ├── test_stepik_client.py
 │   ├── test_storage.py
 │   └── test_testblock.py
-├── .github/workflows/ci.yml   # CI: pytest + ruff на Python 3.11/3.12
+├── .github/workflows/ci.yml   # CI: pytest + ruff на Python 3.12/3.13/3.14
 ├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
 ├── pyproject.toml             # Конфигурация проекта (ruff, pytest, зависимости)
 ├── requirements.txt           # Runtime-зависимости
@@ -627,7 +627,7 @@ python diagnostik_stepik.py
 | Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
 | pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
 | Pre-commit хуки (ruff check + ruff format) | ❌ | ✅ |
-| Unit-тесты (260 тестов) | ❌ | ✅ |
+| Unit-тесты (355 тестов) | ❌ | ✅ |
 | OAuth2-фасад (`oauth_flow.py`) | ❌ | ✅ |
 | GitHub Actions CI (pytest + ruff) | ❌ | ✅ |
 
@@ -635,4 +635,4 @@ python diagnostik_stepik.py
 
 ## Python версия
 
-Python **3.11+**
+Python **3.12+**
