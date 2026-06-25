@@ -216,10 +216,12 @@ def test_main_multiline_code() -> None:
 @pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="SIGALRM not available on Windows")
 def test_main_sigalrm_timeout_fires() -> None:
     """SIGALRM срабатывает и прерывает бесконечный цикл внутри main()."""
+    cmd = (
+        "import os; os.environ['EXECUTOR_TIMEOUT']='1'; "
+        "import executor; executor.main()"
+    )
     proc = subprocess.run(
-        [sys.executable, "-c",
-         "import os; os.environ['EXECUTOR_TIMEOUT']='1'; "
-         "import executor; executor.main()"],
+        [sys.executable, "-c", cmd],
         input="while True: pass",
         capture_output=True,
         text=True,
@@ -232,10 +234,12 @@ def test_main_sigalrm_timeout_fires() -> None:
 @pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="SIGALRM not available on Windows")
 def test_main_sigalrm_alarm_reset_after_success() -> None:
     """SIGALRM сбрасывается после успешного завершения (signal.alarm(0) в finally)."""
+    cmd = (
+        "import os; os.environ['EXECUTOR_TIMEOUT']='5'; "
+        "import executor; executor.main()"
+    )
     proc = subprocess.run(
-        [sys.executable, "-c",
-         "import os; os.environ['EXECUTOR_TIMEOUT']='5'; "
-         "import executor; executor.main()"],
+        [sys.executable, "-c", cmd],
         input="print('done')",
         capture_output=True,
         text=True,
