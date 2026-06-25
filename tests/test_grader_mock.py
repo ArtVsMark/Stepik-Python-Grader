@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import subprocess
 import sys
 import textwrap
 from typing import Any
@@ -38,15 +39,24 @@ def _make_popen_mock(
     returncode: int = 0,
     timeout: bool = False,
 ) -> MagicMock:
-    """Фабрика: возвращает mock subprocess.Popen с нужным поведением."""
+    """Фабрика: возвращает mock subprocess.Popen с нужным поведением.
+
+    При timeout=True первый вызов communicate() бросает TimeoutExpired,
+    второй (после proc.kill()) возвращает (b'', b'') — имитирует реальное
+    поведение subprocess при TLE.
+    """
     mock_proc = MagicMock()
     mock_proc.pid = 12345
     mock_proc.returncode = returncode
+    mock_proc.kill = MagicMock()
 
     if timeout:
-        import subprocess
-        mock_proc.communicate.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=10.0)
-        mock_proc.kill = MagicMock()
+        # grader.py после TimeoutExpired делает: proc.kill(); proc.communicate()
+        # Поэтому side_effect — список: [raise, return (b'', b'')]
+        mock_proc.communicate.side_effect = [
+            subprocess.TimeoutExpired(cmd="python", timeout=10.0),
+            (b"", b""),
+        ]
     else:
         mock_proc.communicate.return_value = (stdout, stderr)
 
@@ -125,7 +135,16 @@ class TestRunSingleTestStdin:
         assert result["timed_out"] is False
 
     def test_tle_timeout(self, tmp_path: pathlib.Path) -> None:
-        """subprocess.TimeoutExpired → verdict=TLE, timed_out=True."""
+        """subprocess.TimeoutExpired → verdict=TLE, timed_out=True.
+
+        Mock настроен как список side_effect:
+          1-й communicate(input=..., timeout=...) → TimeoutExpired
+          2-й communicate()                       → (b'', b'')
+        Это точно воспроизводит реальный путь в grader.py:
+          proc.communicate(input=..., timeout=...) → TimeoutExpired
+          proc.kill()
+          proc.communicate()  ← cleanup-вызов без аргументов
+        """
         sol = tmp_path / "task1.py"
         sol.write_text("import time; time.sleep(100)\n")
         case = _make_testcase()
@@ -179,7 +198,6 @@ class TestRunTests:
         responses: list[tuple[bytes, bytes, int]],
     ) -> dict[str, Any]:
         """Запускает run_tests на решении с N тест-кейсами через мок."""
-        # Пишем тест-кейсы в формат 2 (input_N.txt / expected_N.txt)
         test_dir = tmp_path / "tests"
         test_dir.mkdir()
         for i, (stdout, _, _) in enumerate(responses, 1):
@@ -256,7 +274,7 @@ class TestRunTests:
         assert result["first_fail"] == 1
 
     def test_total_time_is_sum(self, tmp_path: pathlib.Path) -> None:
-        """total_time ≥ 0 и avg_time = total_time / total."""
+        """total_time >= 0 и avg_time = total_time / total."""
         test_dir = tmp_path / "tests"
         test_dir.mkdir()
         (test_dir / "input_1.txt").write_text("1\n")
@@ -296,13 +314,13 @@ class TestIsSolutionFile:
     """
 
     @pytest.mark.parametrize("name", [
-        "task.py",       # базовое имя
-        "task1.py",      # task + цифра
-        "task1_2.py",    # task + цифра + номер решения
-        "task4_1.py",    # из README
-        "task7_3.py",    # из README
-        "task_1.py",     # стиль downloader.py ← ПОТЕНЦИАЛЬНЫЙ БАГ
-        "task_2.py",     # стиль downloader.py
+        "task.py",
+        "task1.py",
+        "task1_2.py",
+        "task4_1.py",
+        "task7_3.py",
+        "task_1.py",     # стиль downloader.py
+        "task_2.py",
     ])
     def test_valid_names(self, name: str) -> None:
         assert grader.is_solution_file(name), (
@@ -314,10 +332,10 @@ class TestIsSolutionFile:
         "solution.py",
         "main.py",
         "task1.txt",
-        "task1_.py",     # лишнее подчёркивание в конце
-        "task_1_2.py",   # двойное подчёркивание
-        "Task1.py",      # заглавная буква
-        "task 1.py",     # пробел
+        "task1_.py",
+        "task_1_2.py",
+        "Task1.py",
+        "task 1.py",
         "",
         "task1.py.bak",
     ])
@@ -350,7 +368,6 @@ class TestIsFunctionOnlySolution:
         assert grader.is_function_only_solution(code) is True
 
     def test_function_with_constant_assignment(self) -> None:
-        """Присваивание на уровне модуля разрешено (Stepik-шаблоны)."""
         code = textwrap.dedent("""\
             MOD = 10**9 + 7
 
@@ -376,7 +393,6 @@ class TestIsFunctionOnlySolution:
         assert grader.is_function_only_solution(code) is False
 
     def test_no_functions(self) -> None:
-        """Файл без функций — не function-only."""
         code = "x = 42\n"
         assert grader.is_function_only_solution(code) is False
 
@@ -432,7 +448,6 @@ class TestParseTestblockFile:
         assert blocks[1] == "10 20"
 
     def test_empty_block_preserved(self) -> None:
-        """Пустой блок сохраняется как '' для синхронизации индексов."""
         text = "# TEST_1:\nhello\n# TEST_2:\n# TEST_3:\nworld\n"
         blocks = grader._parse_testblock_file(text)
         assert len(blocks) == 3
@@ -459,7 +474,6 @@ class TestParseTestblockFile:
 
 class TestLoadTestCases:
     def test_format2_input_expected(self, tmp_path: pathlib.Path) -> None:
-        """Формат 2: input_N.txt / expected_N.txt."""
         (tmp_path / "input_1.txt").write_text("5\n")
         (tmp_path / "expected_1.txt").write_text("25\n")
         (tmp_path / "input_2.txt").write_text("3\n")
@@ -472,7 +486,6 @@ class TestLoadTestCases:
         assert cases[0].expected_lines == ["25"]
 
     def test_format1_legacy_clue(self, tmp_path: pathlib.Path) -> None:
-        """Формат 1: числовые файлы + .clue."""
         (tmp_path / "1").write_text("10\n")
         (tmp_path / "1.clue").write_text("100\n")
 
@@ -482,7 +495,6 @@ class TestLoadTestCases:
         assert cases[0].test_type == "stdin"
 
     def test_format1_with_type_file(self, tmp_path: pathlib.Path) -> None:
-        """Формат 1 с .type=function → test_type='function'."""
         (tmp_path / "1").write_text("x = 5\n")
         (tmp_path / "1.clue").write_text("25\n")
         (tmp_path / "1.type").write_text("function\n")
@@ -491,7 +503,6 @@ class TestLoadTestCases:
         assert cases[0].test_type == "function"
 
     def test_format3_testblock(self, tmp_path: pathlib.Path) -> None:
-        """Формат 3: input.txt + output.txt с маркерами # TEST_N:."""
         (tmp_path / "input.txt").write_text("# TEST_1:\n5\n# TEST_2:\n3\n")
         (tmp_path / "output.txt").write_text("# TEST_1:\n25\n# TEST_2:\n9\n")
 
@@ -512,7 +523,6 @@ class TestLoadTestCases:
 
 class TestDetectRunMode:
     def test_meta_json_takes_priority(self, tmp_path: pathlib.Path) -> None:
-        """meta.json с function_name → всегда 'function'."""
         sol = tmp_path / "task1.py"
         sol.write_text("def solve(n): return n\n")
         (tmp_path / "meta.json").write_text(json.dumps({"function_name": "solve"}))
@@ -523,9 +533,8 @@ class TestDetectRunMode:
         assert mode == "function"
 
     def test_type_file_overrides_ast(self, tmp_path: pathlib.Path) -> None:
-        """.type-файл → 'function', даже если AST говорит stdin."""
         sol = tmp_path / "task1.py"
-        sol.write_text("print(input())\n")  # AST → stdin
+        sol.write_text("print(input())\n")
         test_dir = tmp_path / "tests"
         test_dir.mkdir()
         (test_dir / "1.type").write_text("function\n")
@@ -534,7 +543,6 @@ class TestDetectRunMode:
         assert mode == "function"
 
     def test_ast_detects_function_only(self, tmp_path: pathlib.Path) -> None:
-        """Нет meta.json и .type → AST-анализ определяет 'function'."""
         sol = tmp_path / "task1.py"
         sol.write_text("def solve(n):\n    return n * 2\n")
         test_dir = tmp_path / "tests"
@@ -544,7 +552,6 @@ class TestDetectRunMode:
         assert mode == "function"
 
     def test_stdin_for_script(self, tmp_path: pathlib.Path) -> None:
-        """Скрипт без meta.json / .type → 'stdin'."""
         sol = tmp_path / "task1.py"
         sol.write_text("n = int(input())\nprint(n * 2)\n")
         test_dir = tmp_path / "tests"
