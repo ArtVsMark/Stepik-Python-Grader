@@ -87,7 +87,15 @@ def run_microbench(
     """
     # Передаём исходник через временный файл, а не heredoc-строку:
     # это исключает поломку на тройных кавычках (''' / \"\"\") в решении.
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding=ENCODING, delete=False) as f:
+    # delete_on_close=False (Python 3.12+): файл закрывается внутри with,
+    # но удаляется автоматически при выходе из контекстного менеджера.
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".py",
+        encoding=ENCODING,
+        delete=True,
+        delete_on_close=False,
+    ) as f:
         f.write(source_code)
         code_path = f.name
 
@@ -143,9 +151,6 @@ def run_microbench(
         return {"times": [], "error": "microbench timeout"}
     except Exception as exc:
         return {"times": [], "error": str(exc)}
-    finally:
-        with contextlib.suppress(OSError):
-            os.unlink(code_path)
 
 
 def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResult]:

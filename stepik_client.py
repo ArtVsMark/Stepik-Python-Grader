@@ -285,11 +285,11 @@ def _cached_api_get(
 ) -> dict[str, Any]:
     """GET-запрос с файловым кэшем (TTL=1ч) и retry при сетевых ошибках.
 
-    Кэшируется полный JSON-ответ по ключу MD5(url + params).
+    Кэшируется полный JSON-ответ по ключу SHA-256(url + params).
     Используется только для read-only API-эндпоинтов Stepik.
     """
     key_data = _json_mod.dumps({"url": url, "params": params or {}}, sort_keys=True)
-    key = hashlib.md5(key_data.encode()).hexdigest()  # noqa: S324
+    key = hashlib.sha256(key_data.encode()).hexdigest()
     cache_file = CACHE_DIR / f"{key}.json"
 
     CACHE_DIR.mkdir(exist_ok=True)
