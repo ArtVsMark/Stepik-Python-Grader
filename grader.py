@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import difflib
 import json
 import os
 import pathlib
@@ -1013,8 +1014,6 @@ def run_single_test(
             )
         diff_str = ""
         if not passed:
-            import difflib
-
             diff_str = "\n".join(
                 difflib.unified_diff(
                     case.expected_lines,
