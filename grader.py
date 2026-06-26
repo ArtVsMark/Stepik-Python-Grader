@@ -67,7 +67,7 @@ try:
     from rich.table import Table
     from rich.text import Text
 
-    _console: Console | None = Console()
+    _console: Console | None = Console(width=200)
     _RICH = True
 except ImportError:  # pragma: no cover
     _console = None
