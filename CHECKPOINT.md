@@ -34,7 +34,6 @@
 | Дублирование статистики в `_micro_stats()` и `run_benchmark()` | Низкий | Уже частично через `_micro_stats()` |
 | Глобальный `_console` singleton | Низкий | Допустимо для CLI-инструмента (теперь в `reporter.py`) |
 | Нет `src/`-layout | Низкий | Рефакторинг при публикации на PyPI |
-| `cli.py` — низкое собственное покрытие (40%) | Низкий | `_interactive_menu()` покрыт частично; см. issue #21 finding #8 |
 
 ### ✅ Исправлено в сессии 2026-07-02
 
@@ -43,6 +42,11 @@
   перенесены в `core/`
 - **Issue #19** — устранена дублирующая копия `_parse_testblock_file` в
   `grader.py`; `downloader.py` больше не импортирует `grader.py`
+- **Issue #21** — `except Exception` в `microbench_runner.py` сужен до
+  `(OSError, ValueError)`; редундантные `float(str(x or 0))` упрощены в
+  `stepik_client.py`; добавлен `tests/test_cli.py` (покрытие `cli.py`:
+  40% → 97%); переписана секция "Ограничения и безопасность" в README.md
+  — **эпик #18 (issues #19/#20/#21) полностью закрыт**
 - **Issue #20 finding #5** — валидация identifiers (`function_name`,
   module stem) перед интерполяцией в generated-код (`_build_function_wrapper`)
 - **Issue #20 finding #6** — дублирующаяся ranking-логика (relative/verdict)

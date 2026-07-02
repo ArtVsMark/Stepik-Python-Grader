@@ -1,5 +1,36 @@
 # Changelog
 
+## [unreleased] / 2026-07-02 — narrow except, menu coverage, float() cleanup, security docs (#21)
+
+### Fixed
+- **core/microbench_runner.py** — narrowed the broad `except Exception` around
+  `subprocess.run`/`float(line)` parsing to `except (OSError, ValueError)`,
+  the only two exception types that path can actually raise (subprocess
+  spawn failure and unparseable timing output).
+- **core/stepik_client.py** — simplified three redundant
+  `float(str(x or default))` conversions to `float(x or default)` in
+  `token_is_valid()` and the two `expires_at` computations; `float()`
+  already accepts int/float/str directly, so the intermediate `str()`
+  round-trip was a no-op.
+
+### Tests
+- **tests/test_cli.py** (new) — covers `_interactive_menu()` branches left
+  untested by the Sprint 7 split: mode 1/2/3/4 "not found" early-returns,
+  the mode-3 and mode-4 happy paths (including error-row printing), and
+  `_ask_bench_profile`/`_ask_micro_profile` custom-value prompts. `cli.py`
+  coverage: 40% → 97%; total project coverage: 88.97% → 95.48%.
+
+### Docs
+- **README.md** — rewrote "Ограничения и безопасность" to state the threat
+  model explicitly (no OS-level sandbox, no resource limits beyond wall-clock
+  timeouts, run only trusted solutions) and correct stale module paths
+  (`executor.py` → `core/executor.py`, clarifying that modes 1-3 actually run
+  through `grader_core.run_single_test`'s own `subprocess.Popen`, not through
+  `core/executor.py`, which is exercised only by its test suite).
+
+### Closes
+- Issue #21 (findings #7-#10) — closes the #18 tracker epic (#19, #20, #21 all done)
+
 ## [unreleased] / 2026-07-02 — split grader.py into grader_core/reporter/cli (#20 finding #4)
 
 ### Refactored

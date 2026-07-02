@@ -157,7 +157,9 @@ def run_microbench(
             return {"times": times, "error": ""}
         except subprocess.TimeoutExpired:
             return {"times": [], "error": "microbench timeout"}
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
+            # OSError: subprocess.run() couldn't spawn the child process.
+            # ValueError: float(line) failed on unparseable subprocess stdout.
             return {"times": [], "error": str(exc)}
     finally:
         with contextlib.suppress(OSError):
