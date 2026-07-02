@@ -201,3 +201,59 @@ def test_resolve_test_dir_finds_clue_in_parent(tmp_path: pathlib.Path):
     (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
 
     assert grader._resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+
+
+# ---------------------------------------------------------------------------
+# _build_function_wrapper — identifier validation (Issue #20 finding #5)
+# ---------------------------------------------------------------------------
+
+
+def test_build_function_wrapper_accepts_valid_identifiers(tmp_path: pathlib.Path):
+    """A well-formed function_name/module stem generates a wrapper normally."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    src = grader._build_function_wrapper(str(sol), "x = 1", "solve")
+
+    assert "from task1 import solve" in src
+
+
+def test_build_function_wrapper_rejects_invalid_function_name(tmp_path: pathlib.Path):
+    """A function_name that isn't a valid identifier must not reach the f-string.
+
+    Without validation, a value like "x\\nimport os" would inject an extra
+    statement into the generated wrapper script.
+    """
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid function_name"):
+        grader._build_function_wrapper(str(sol), "x = 1", "solve\nimport os")
+
+
+def test_build_function_wrapper_rejects_invalid_module_stem(tmp_path: pathlib.Path):
+    """A solution filename whose stem isn't a valid identifier is rejected too."""
+    sol = tmp_path / "task-1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid module filename stem"):
+        grader._build_function_wrapper(str(sol), "x = 1", "solve")
+
+
+def test_run_single_test_reports_re_for_invalid_function_name(tmp_path: pathlib.Path):
+    """run_single_test converts the ValueError into a graceful RE verdict.
+
+    Without the try/except around _build_function_wrapper, this would crash
+    the whole grading run instead of failing just this one test case.
+    """
+    sol = tmp_path / "task-1.py"  # stem "task-1" is not a valid identifier
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+    # "5" has no ast.Name node, so _is_python_code_block classifies it as data
+    # (not a call block) and run_single_test routes to _build_function_wrapper.
+    case = grader.TestCase(index=1, input_lines=["5"], expected_lines=["5"], test_type="function")
+
+    result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+    assert result["verdict"] == "RE"
+    assert result["passed"] is False
+    assert "Invalid module filename stem" in result["error"]

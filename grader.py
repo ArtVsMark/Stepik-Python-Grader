@@ -816,6 +816,14 @@ def _build_function_wrapper(solution_path: str, input_data: str, function_name: 
     safe_func = function_name
     module_stem = pathlib.Path(solution_path).stem
 
+    # safe_func/module_stem идут в generated-код БЕЗ repr() (это identifiers,
+    # не строковые литералы) — валидируем их явно, иначе newline/`;` в
+    # function_name (например, из meta.json) — code injection в wrapper-скрипт.
+    if not safe_func.isidentifier():
+        raise ValueError(f"Invalid function_name for code generation: {function_name!r}")
+    if not module_stem.isidentifier():
+        raise ValueError(f"Invalid module filename stem for code generation: {module_stem!r}")
+
     # repr() безопасно интерполирует путь (включая Windows-бэкслеши и спецсимволы).
     return f"""import sys
 import pathlib
@@ -931,7 +939,20 @@ def run_single_test(
                     "timed_out": False,
                     "verdict": "RE",
                 }
-            wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
+            try:
+                wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
+            except ValueError as exc:
+                return {
+                    "passed": False,
+                    "output": [],
+                    "expected": case.expected_lines,
+                    "diff": "",
+                    "time": 0.0,
+                    "memory": 0.0,
+                    "error": str(exc),
+                    "timed_out": False,
+                    "verdict": "RE",
+                }
         # Записываем wrapper во временный файл; удаляется после запуска
         tmp_wrapper = tempfile.NamedTemporaryFile(
             mode="w",
