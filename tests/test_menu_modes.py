@@ -187,7 +187,7 @@ class TestRunMicrobenchModeFunctionBlocks:
 
         def fake_microbench(code, *, stdin_data="", number=1000):
             called.append(stdin_data)
-            return {"times": [0.001, 0.002], "error": ""}
+            return {"times": [0.001, 0.002], "error": "", "peak_memory_mb": 0.05}
 
         monkeypatch.setattr(grader_core, "run_microbench", fake_microbench)
 

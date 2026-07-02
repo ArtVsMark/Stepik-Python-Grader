@@ -982,7 +982,13 @@ def run_microbench_mode(
     *,
     number: int = 1000,
 ) -> dict[str, Any]:
-    """Запустить timeit-microbench для нескольких решений и вернуть сводную статистику."""
+    """Запустить timeit-microbench для нескольких решений и вернуть сводную статистику.
+
+    peak_memory_mb (Issue #25) — максимум по всем кейсам решения: RSS через
+    psutil для function-call блоков (run_single_test, как в run_benchmark),
+    пик Python-heap через tracemalloc для stdin-блоков (run_microbench) —
+    два разных метода измерения, см. докстринг core.microbench_runner.
+    """
     test_cases = load_test_cases(test_dir)
     if not test_cases:
         return {}
@@ -994,6 +1000,7 @@ def run_microbench_mode(
         code = pathlib.Path(path).read_text(encoding=ENCODING)
 
         all_times: list[float] = []
+        peak_mb = 0.0
         for case in cases_to_bench:
             input_data = "\n".join(case.input_lines)
 
@@ -1001,6 +1008,7 @@ def run_microbench_mode(
                 # Function-call блок — это Python-код, а не stdin.
                 # timeit/exec тут не годится: используем subprocess-тайминг
                 # через run_single_test (менее точно, зато корректно).
+                # run_single_test уже измеряет RSS через psutil (как в режиме 3).
                 sub_repeats = max(1, number // 50)
                 case_times: list[float] = []
                 for _ in range(sub_repeats):
@@ -1009,6 +1017,7 @@ def run_microbench_mode(
                         results[path] = {"error": f"test {case.index}: {r['error'] or 'timeout'}"}
                         break
                     case_times.append(r["time"])
+                    peak_mb = max(peak_mb, r["memory"])
                 else:
                     all_times.extend(case_times)
                     continue
@@ -1020,10 +1029,11 @@ def run_microbench_mode(
                 results[path] = {"error": f"test {case.index}: {bench['error']}"}
                 break
             all_times.extend(bench["times"])
+            peak_mb = max(peak_mb, bench["peak_memory_mb"])
         else:
             stats = _micro_stats(all_times)
             stats["runs"] = len(all_times)
-            stats["peak_memory_mb"] = 0.0
+            stats["peak_memory_mb"] = peak_mb
             results[path] = stats
 
     apply_relative_ranking(

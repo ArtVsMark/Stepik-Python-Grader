@@ -1,5 +1,47 @@
 # Changelog
 
+## [unreleased] / 2026-07-02 — fix #25: real memory measurement in mode 4 (tracemalloc)
+
+### Fixed
+- **core/microbench_runner.py** — `run_microbench()`'s Memory column always
+  showed `0.00` in mode 4, because all 5 `timeit.repeat` runs share a single
+  subprocess and mode 3's psutil-RSS-in-a-thread approach can't attribute
+  memory to one run. Added `tracemalloc.start()`/`get_traced_memory()`
+  around the `timeit.repeat()` call inside `bench_script`; the peak is
+  printed as a distinct `MEM:<bytes>` line after the timing lines and parsed
+  separately, then returned as `peak_memory_mb` (bytes converted to MB) in
+  `run_microbench()`'s result dict — present on every return path (success,
+  timeout, `OSError`) so callers can rely on the key always existing.
+  Measures Python-heap peak, not process RSS — doesn't see memory allocated
+  by C extensions, documented in the module docstring.
+- **grader_core.py** — `run_microbench_mode()` no longer hardcodes
+  `stats["peak_memory_mb"] = 0.0`; now tracks a running max across all
+  benchmarked cases per solution, same as `run_benchmark()` does for mode 3.
+  Function-call blocks (routed through `run_single_test`) already had real
+  psutil-based `r["memory"]`; stdin blocks now get the new tracemalloc value
+  from `run_microbench()`. The two measurement methods are mixed within one
+  solution's aggregate max when its test cases include both block types —
+  consistent with how timings were already aggregated across both paths.
+
+### Tests
+- `tests/test_microbench_runner_module.py` — `run_microbench()` reports
+  nonzero memory for an allocating solution, and the `peak_memory_mb` key is
+  present (0.0) on the runtime-error, timeout, and `OSError` paths.
+- `tests/test_microbench_grader.py` — `run_microbench_mode()` aggregates a
+  nonzero `peak_memory_mb` for a memory-allocating stdin-mode solution; the
+  existing simple-addition test now also asserts the key's presence.
+- Fixed a stale mock in `tests/test_menu_modes.py` (`fake_microbench`) that
+  returned a dict without `peak_memory_mb`, which would now raise `KeyError`.
+
+### Verified
+- End-to-end: `python grader.py --mode 4 --dir ... --number 5` against a
+  solution allocating a 500k-element list now shows `7.90 MB` instead of
+  `0.00`.
+- 520 passed (3 skipped), 95.21% coverage; ruff check/format clean.
+
+### Closes
+- Issue #25
+
 ## [unreleased] / 2026-07-02 — Sprint 8.1: non-interactive argparse CLI
 
 ### Added

@@ -39,6 +39,19 @@ def test_microbench_runner_basic_timing() -> None:
     assert all(t > 0 for t in result["times"])
 
 
+def test_microbench_runner_reports_nonzero_peak_memory() -> None:
+    """peak_memory_mb (Issue #25) is tracemalloc-based, not the hardcoded 0.0."""
+    result = run_microbench("data = [0] * 1_000_000\n", stdin_data="", number=1)
+    assert result["error"] == ""
+    assert result["peak_memory_mb"] > 0.0
+
+
+def test_microbench_runner_peak_memory_present_on_error() -> None:
+    """peak_memory_mb key is always present, even on a runtime error (0.0)."""
+    result = run_microbench("raise ValueError('boom')\n", stdin_data="", number=2)
+    assert result["peak_memory_mb"] == 0.0
+
+
 def test_microbench_runner_with_stdin() -> None:
     """A solution reading stdin times cleanly with stdin_data provided."""
     result = run_microbench("n = int(input())\nprint(n)\n", stdin_data="42\n", number=3)
@@ -82,6 +95,7 @@ def test_microbench_runner_timeout_returns_error() -> None:
         result = run_microbench("x = 1\n", stdin_data="", number=5)
     assert result["times"] == []
     assert result["error"] == "microbench timeout"
+    assert result["peak_memory_mb"] == 0.0
 
 
 def test_microbench_runner_unexpected_exception_returns_error() -> None:
@@ -91,6 +105,7 @@ def test_microbench_runner_unexpected_exception_returns_error() -> None:
         result = run_microbench("x = 1\n", stdin_data="", number=5)
     assert result["times"] == []
     assert "no such file" in result["error"]
+    assert result["peak_memory_mb"] == 0.0
 
 
 def test_microbench_runner_apply_relative_orders_by_median() -> None:
