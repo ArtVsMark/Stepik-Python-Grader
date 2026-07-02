@@ -1,22 +1,104 @@
-"""Tests for cli.py — интерактивное меню (режимы 0-4).
+"""Tests for cli.py — интерактивное меню и argparse CLI (режимы 0-4).
 
 Покрывает ветки _interactive_menu(), не задействованные другими тестами
 (Issue #21 finding #8): happy-path и error-branches для режимов 1-4, main().
+Плюс non-interactive argparse CLI (Sprint 8.1): --version, --mode 1-4,
+отсутствующие --file/--dir.
 """
 
 from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 import cli
 
 
 def test_main_delegates_to_interactive_menu(monkeypatch) -> None:
-    """main() — тонкая обёртка над _interactive_menu()."""
+    """main() with no --mode falls back to the interactive menu."""
     called = []
     monkeypatch.setattr(cli, "_interactive_menu", lambda: called.append(True))
-    cli.main()
+    cli.main([])
     assert called == [True]
+
+
+# ---------------------------------------------------------------------------
+# argparse CLI — non-interactive режимы (Sprint 8.1)
+# ---------------------------------------------------------------------------
+
+
+class TestArgparseCli:
+    def test_version_prints_and_exits(self, capsys) -> None:
+        cli.main(["--version"])
+        out = capsys.readouterr().out
+        assert cli.__version__ in out
+
+    def test_mode_1_requires_file(self) -> None:
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "1"])
+
+    def test_mode_2_requires_dir(self) -> None:
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "2"])
+
+    def test_mode_3_requires_dir(self) -> None:
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "3"])
+
+    def test_mode_4_requires_dir(self) -> None:
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "4"])
+
+    def test_invalid_mode_choice_rejected(self) -> None:
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "9"])
+
+    def test_mode_1_dispatches_to_run_mode_1(self, monkeypatch, tmp_path: pathlib.Path) -> None:
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        called = []
+        monkeypatch.setattr(cli, "_run_mode_1", lambda solution: called.append(solution))
+        cli.main(["--mode", "1", "--file", str(sol)])
+        assert called == [str(sol)]
+
+    def test_mode_2_dispatches_to_run_mode_2(self, monkeypatch, tmp_path: pathlib.Path) -> None:
+        called = []
+        monkeypatch.setattr(cli, "_run_mode_2", lambda directory: called.append(directory))
+        cli.main(["--mode", "2", "--dir", str(tmp_path)])
+        assert called == [str(tmp_path)]
+
+    def test_mode_3_dispatches_to_run_mode_3_with_repeats(
+        self, monkeypatch, tmp_path: pathlib.Path
+    ) -> None:
+        called = []
+        monkeypatch.setattr(
+            cli, "_run_mode_3", lambda directory, repeats: called.append((directory, repeats))
+        )
+        cli.main(["--mode", "3", "--dir", str(tmp_path), "--repeats", "20"])
+        assert called == [(str(tmp_path), 20)]
+
+    def test_mode_3_default_repeats(self, monkeypatch, tmp_path: pathlib.Path) -> None:
+        called = []
+        monkeypatch.setattr(cli, "_run_mode_3", lambda directory, repeats: called.append(repeats))
+        cli.main(["--mode", "3", "--dir", str(tmp_path)])
+        assert called == [15]
+
+    def test_mode_4_dispatches_to_run_mode_4_with_number(
+        self, monkeypatch, tmp_path: pathlib.Path
+    ) -> None:
+        called = []
+        monkeypatch.setattr(
+            cli, "_run_mode_4", lambda directory, number: called.append((directory, number))
+        )
+        cli.main(["--mode", "4", "--dir", str(tmp_path), "--number", "5000"])
+        assert called == [(str(tmp_path), 5000)]
+
+    def test_mode_4_default_number(self, monkeypatch, tmp_path: pathlib.Path) -> None:
+        called = []
+        monkeypatch.setattr(cli, "_run_mode_4", lambda directory, number: called.append(number))
+        cli.main(["--mode", "4", "--dir", str(tmp_path)])
+        assert called == [1000]
 
 
 # ---------------------------------------------------------------------------

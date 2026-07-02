@@ -243,6 +243,20 @@ python grader.py
 Select mode [0-4]:
 ```
 
+### Non-interactive запуск (CLI-флаги)
+
+Для запуска из CI/скриптов без интерактивного ввода:
+
+```bash
+python grader.py --version                                    # версия и выход
+python grader.py --mode 1 --file path/to/task.py               # режим 1
+python grader.py --mode 2 --dir path/to/folder                 # режим 2
+python grader.py --mode 3 --dir path/to/folder --repeats 15    # режим 3 (по умолчанию 15)
+python grader.py --mode 4 --dir path/to/folder --number 1000   # режим 4 (по умолчанию 1000)
+```
+
+Без `--mode` показывается обычное интерактивное меню.
+
 ---
 
 ## Работа с API Stepik

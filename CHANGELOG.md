@@ -1,5 +1,41 @@
 # Changelog
 
+## [unreleased] / 2026-07-02 — Sprint 8.1: non-interactive argparse CLI
+
+### Added
+- **cli.py** — `python grader.py --mode {1,2,3,4} [--file PATH] [--dir PATH]
+  [--repeats N] [--number N]` and `python grader.py --version`, alongside the
+  existing interactive menu (still the default when `--mode` is omitted).
+  Extracted each menu branch's body into standalone `_run_mode_1/2/3/4()`
+  functions with no logic changes, so both `_interactive_menu()` and the new
+  argparse dispatch in `main()` call the same code. `main()` now takes an
+  explicit `argv: list[str] | None = None` parameter (defaults to reading
+  `sys.argv[1:]`) so tests can pass argument lists directly instead of
+  depending on `sys.argv`, which contains pytest's own CLI flags during a
+  test run.
+- `__version__` moved from `grader.py` into `cli.py` (where `--version`
+  needs it) and re-exported back through `grader.py`'s facade import —
+  `cli.py` importing `__version__` from `grader.py` would have created a
+  cycle, since `grader.py` already imports `main` from `cli.py`.
+
+### Tests
+- `tests/test_cli.py` — `--version`, missing `--file`/`--dir` per mode
+  (`SystemExit`), invalid `--mode` choice, and dispatch-with-correct-arguments
+  for all four modes (including `--repeats`/`--number` defaults).
+
+### Verified
+- End-to-end: `python grader.py --version`, `--mode 1 --file ...`,
+  `--mode 3 --dir ... --repeats 3`, `--mode 4 --dir ... --number 100` all ran
+  correctly against a real solution/test-dir. Hit a pre-existing
+  `UnicodeEncodeError` when running directly under Git Bash on Windows
+  (console defaults to cp1251) — reproduced identically on the *unchanged*
+  interactive-menu path too, confirming it predates this change and isn't a
+  regression; not fixed here (out of scope, environment-specific,
+  `PYTHONIOENCODING=utf-8` resolves it).
+
+### Closes
+- CLAUDE.md Sprint 8.1
+
 ## [unreleased] / 2026-07-02 — Sprint 7.2/7.3: BenchStats dataclass, microbench timeout helper
 
 ### Added

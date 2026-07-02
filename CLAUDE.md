@@ -573,7 +573,25 @@ def run_microbench_with_timeout(
 
 ### 🟢 Sprint 8 — CLI и PyPI-ready
 
-#### 8.1 argparse CLI (уже описан в 7.1 Шаг 3)
+#### 8.1 ✅ argparse CLI (2026-07-02)
+
+```
+python grader.py                                          — интерактивное меню (как раньше)
+python grader.py --version                                — версия и выход
+python grader.py --mode 1 --file path/to/task.py          — режим 1, non-interactive
+python grader.py --mode 2 --dir path/to/folder            — режим 2, non-interactive
+python grader.py --mode 3 --dir path/to/folder --repeats 15  — режим 3, non-interactive
+python grader.py --mode 4 --dir path/to/folder --number 1000 — режим 4, non-interactive
+```
+
+> Реализовано в `cli.py`: `_run_mode_1/2/3/4()` — извлечённые из
+> `_interactive_menu()` тела режимов (без изменения логики), переиспользуются
+> и меню, и `main()`. `main(argv: list[str] | None = None)` — явный
+> `argv`-параметр вместо неявного чтения `sys.argv`, чтобы тесты не зависели
+> от аргументов самого pytest. `--repeats`/`--number` имеют дефолты (15/1000,
+> без интерактивного запроса профиля). `__version__` перенесена из grader.py
+> в cli.py (grader.py реэкспортирует её обратно) — иначе понадобился бы
+> обратный импорт cli.py → grader.py, нарушающий DAG.
 
 #### 8.2 OPTIONAL — `src/`-layout
 

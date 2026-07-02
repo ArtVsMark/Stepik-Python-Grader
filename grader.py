@@ -51,6 +51,7 @@ from reporter import (
     _VERDICT_COLORS,
 )
 from cli import (
+    __version__,
     _ask_bench_profile,
     _ask_micro_profile,
     _ask_number,
@@ -61,8 +62,6 @@ from cli import (
     _resolve_test_dir_from_input,
     main,
 )
-
-__version__ = "1.0.0"
 
 __all__ = [
     "TestCase",
