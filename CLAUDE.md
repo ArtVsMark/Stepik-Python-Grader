@@ -43,6 +43,7 @@ Stepik-Python-Grader/
 ├── grader_core.py            # Application: загрузка тест-кейсов, исполнение решений
 ├── reporter.py                # Application/UI: rich-таблицы, _console, verbose-diff
 ├── cli.py                     # Application/CLI: интерактивное меню (режимы 0-4)
+├── config.py                  # Application/Configuration: GraderConfig, CONFIG (Sprint 6.3 ✅)
 │
 ├── downloader.py             # Domain: скачивание задач, ZIP/HTML, slugify
 ├── diagnostik_stepik.py      # Application: диагностика API и токена
@@ -82,6 +83,7 @@ grader.py ──→ reporter.py
 grader.py ──→ cli.py
 
 grader_core.py ──→ reporter.py       # _print_case_verbose (run_tests verbose)
+grader_core.py ──→ config.py         # CONFIG (TIMEOUT_SECONDS и т.д.)
 grader_core.py ──→ core/executor.py
 grader_core.py ──→ core/microbench_runner.py
 grader_core.py ──→ core/normalizers.py
@@ -91,6 +93,10 @@ grader_core.py ──→ core/storage.py
 cli.py ──→ grader_core.py
 cli.py ──→ reporter.py
 cli.py ──→ core/microbench_runner.py  # apply_relative_ranking
+
+core/executor.py ──→ config.py       # CONFIG.executor_timeout (graceful fallback
+                                      # к литералу 10, если запущен как subprocess-
+                                      # скрипт: sys.path[0] == core/, config.py не виден)
 
 downloader.py ──→ core/stepik_client.py
 downloader.py ──→ core/oauth_flow.py
@@ -275,9 +281,9 @@ _PYTHON_CMD = "python3" if sys.platform == "linux" else "python"
 
 ## 📋 ТЕКУЩИЙ БЭКЛОГ (по приоритету)
 
-### 🔴 Sprint 6 — Критические исправления
+### 🔴 Sprint 6 — Критические исправления ✅ ЗАВЕРШЁН (2026-07-02)
 
-#### 6.1 FIX — `sys.executable` в `executor.py`
+#### 6.1 ✅ FIX — `sys.executable` в `executor.py`
 
 ```
 Файл: executor.py, строка ~23
@@ -294,18 +300,17 @@ _PYTHON_CMD: str = "python3" if sys.platform in {"linux", "linux2", "darwin"} el
 _PYTHON_CMD: str = sys.executable
 ```
 
-#### 6.2 FIX — мёртвый код в `normalizers.py`
+#### 6.2 ✅ FIX — мёртвый код в `normalizers.py`
 
 ```
-Файл: normalizers.py
+Файл: core/normalizers.py
 Проблема: sort_lines() и normalize_whitespace() помечены "not called in production"
-Действие:
-  1. grep -r "sort_lines\|normalize_whitespace" . --include="*.py"
-  2. Если нигде не вызываются — перенести в tests/helpers.py
-  3. Если нужны пользователю — добавить в __all__ и написать тест
+Решено: вариант (в) — добавлены в __all__, докстринги помечают их
+"experimental" (не подключены ни к одному режиму grader_core.py), тесты
+уже существовали в tests/test_normalizers.py.
 ```
 
-#### 6.3 NEW — `config.py` — единая конфигурация
+#### 6.3 ✅ NEW — `config.py` — единая конфигурация
 
 ```
 Создать: config.py
@@ -371,6 +376,16 @@ microbench_max_cases = 5
   - load_config() читает pyproject.toml без ошибок
   - load_config() при отсутствии файла — возвращает дефолты
 ```
+
+> Реализовано как описано выше. `grader_core.py` читает
+> `TIMEOUT_SECONDS`/`ENCODING`/`SIMILAR_THRESHOLD`/`MUCH_SLOWER_THRESHOLD`/
+> `MEASURE_CHILD_MEMORY`/`MICROBENCH_MAX_CASES` из `CONFIG` при импорте
+> (имена и дефолтные значения не изменились — обратная совместимость
+> `grader.__all__` сохранена). `core/executor.py` тоже читает
+> `CONFIG.executor_timeout`, но с fallback на литерал `10` в `except
+> ImportError` — `python core/executor.py` как subprocess-скрипт запускается
+> с `sys.path[0] == core/`, где `config.py` (лежит в корне проекта) не
+> импортируется напрямую.
 
 ---
 

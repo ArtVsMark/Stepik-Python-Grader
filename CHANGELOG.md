@@ -1,5 +1,40 @@
 # Changelog
 
+## [unreleased] / 2026-07-02 — Sprint 6: sys.executable, normalizers cleanup, config.py
+
+### Added
+- **config.py** (new) — `GraderConfig` frozen dataclass + `load_config()` +
+  module-level `CONFIG` singleton. Reads overrides from `[tool.stepik-grader]`
+  in `pyproject.toml`; falls back to documented defaults if the file/section
+  is absent. `grader_core.py`'s `TIMEOUT_SECONDS`/`ENCODING`/
+  `SIMILAR_THRESHOLD`/`MUCH_SLOWER_THRESHOLD`/`MEASURE_CHILD_MEMORY`/
+  `MICROBENCH_MAX_CASES` now read their values from `CONFIG` at import time
+  (same names, same default values — `grader.py`'s `__all__` re-exports are
+  unaffected). `core/executor.py`'s `TIMEOUT` also reads
+  `CONFIG.executor_timeout`, wrapped in `try/except ImportError` with a
+  literal `10` fallback: `python core/executor.py` runs as a subprocess
+  script with `sys.path[0] == core/`, where `config.py` (at the project
+  root) isn't importable.
+- **tests/test_config.py** (new) — `GraderConfig` defaults, `frozen=True`
+  mutation raises `FrozenInstanceError`, `load_config()` against the real
+  `pyproject.toml`, missing-file fallback, unknown-key tolerance.
+
+### Fixed
+- **core/executor.py** — replaced the platform-dependent
+  `"python3" if sys.platform in {...} else "python"` with `sys.executable`,
+  which always points at the interpreter that launched grader (fixes a
+  latent Windows bug where `"python"` could resolve to a system interpreter
+  outside the active venv).
+
+### Changed
+- **core/normalizers.py** — `sort_lines()` and `normalize_whitespace()`
+  added to `__all__` and marked "experimental" in their docstrings (neither
+  is wired into any `grader_core.py` mode yet). Resolves the "not called in
+  production" NOTE comments without deleting fully-tested, working utilities.
+
+### Closes
+- CLAUDE.md Sprint 6 (tasks 6.1, 6.2, 6.3)
+
 ## [unreleased] / 2026-07-02 — narrow except, menu coverage, float() cleanup, security docs (#21)
 
 ### Fixed

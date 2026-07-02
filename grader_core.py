@@ -35,6 +35,7 @@ from typing import Any
 
 import psutil
 
+from config import CONFIG
 from reporter import _print_case_verbose
 
 __all__ = [
@@ -87,12 +88,14 @@ from core.storage import load_json_file
 # НЕ матчит: solution.py, main.py, task_v2.py (буквы после _)
 _SOLUTION_FILE_RE = re.compile(r"task(?:\d+)?(?:_\d+)?\.py")
 
-TIMEOUT_SECONDS: float = 10.0
-ENCODING: str = "utf-8"
-SIMILAR_THRESHOLD: float = 1.15
-MUCH_SLOWER_THRESHOLD: float = 1.50
-MEASURE_CHILD_MEMORY: bool = True
-MICROBENCH_MAX_CASES: int = 5
+# Значения читаются из config.CONFIG (единая точка правды, Sprint 6.3) —
+# переопределяются через [tool.stepik-grader] в pyproject.toml.
+TIMEOUT_SECONDS: float = CONFIG.timeout_seconds
+ENCODING: str = CONFIG.encoding
+SIMILAR_THRESHOLD: float = CONFIG.similar_threshold
+MUCH_SLOWER_THRESHOLD: float = CONFIG.much_slower_threshold
+MEASURE_CHILD_MEMORY: bool = CONFIG.measure_child_memory
+MICROBENCH_MAX_CASES: int = CONFIG.microbench_max_cases
 
 # ---------------------------------------------------------------------------
 # Вспомогательные типы

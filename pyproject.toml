@@ -33,7 +33,7 @@ select = ["E", "F", "W", "I", "UP", "B", "S102"]
 ignore = ["S101"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["grader", "core"]
+known-first-party = ["grader", "core", "config"]
 
 [tool.ruff.lint.per-file-ignores]
 # grader.py is a pure backward-compat re-export facade over grader_core.py /
@@ -59,3 +59,12 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "pragma: no cover",
 ]
+
+[tool.stepik-grader]
+timeout_seconds = 10.0
+executor_timeout = 10
+similar_threshold = 1.15
+much_slower_threshold = 1.50
+measure_child_memory = true
+microbench_max_cases = 5
+encoding = "utf-8"

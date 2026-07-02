@@ -133,6 +133,7 @@ Stepik-Python-Grader/
 ├── grader_core.py               # Загрузка тест-кейсов, исполнение решений
 ├── reporter.py                   # rich-таблицы, вывод, verbose-diff
 ├── cli.py                        # Интерактивное меню (режимы 0-4)
+├── config.py                     # GraderConfig, CONFIG — единая конфигурация
 ├── downloader.py                # Domain: конфиг, slugify, построение папок, оркестрация API
 ├── diagnostik_stepik.py       # Диагностика API и токена
 ├── core/                       # Internal Infrastructure/Utility модули
