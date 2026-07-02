@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pathlib
 
-import grader
+import reporter
 from grader import (
     TestCase,
     _correctness_status,
@@ -103,7 +103,7 @@ class TestPrintResultsPlain:
     """print_*_results в plain-режиме (rich отключён) печатают таблицу."""
 
     def test_correctness_plain(self, capsys, monkeypatch):
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         rows = [("/base/sol.py", _correct_result())]
         print_correctness_results(rows, "/base", col_file=20)
         out = capsys.readouterr().out
@@ -111,7 +111,7 @@ class TestPrintResultsPlain:
         assert "OK" in out
 
     def test_benchmark_plain(self, capsys, monkeypatch):
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         rows = [("/base/sol.py", _bench_data())]
         print_benchmark_results(rows, "/base", col_file=20)
         out = capsys.readouterr().out
@@ -122,21 +122,21 @@ class TestPrintCaseVerbose:
     """_print_case_verbose печатает вердикт и diff (plain-режим)."""
 
     def test_passed_case(self, capsys, monkeypatch):
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         case = TestCase(index=1, input_lines=["5"], expected_lines=["5"])
         _print_case_verbose(case, {"passed": True, "error": ""})
         out = capsys.readouterr().out
         assert "Test 1" in out
 
     def test_error_case(self, capsys, monkeypatch):
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         case = TestCase(index=2, input_lines=["x"], expected_lines=["y"])
         _print_case_verbose(case, {"passed": False, "error": "boom"})
         out = capsys.readouterr().out
         assert "ERROR" in out
 
     def test_wa_case_with_diff(self, capsys, monkeypatch):
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         case = TestCase(index=3, input_lines=["1"], expected_lines=["2"])
         r = {
             "passed": False,

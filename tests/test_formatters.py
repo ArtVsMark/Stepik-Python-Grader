@@ -8,7 +8,7 @@ print_correctness_results, print_benchmark_results.
 
 from __future__ import annotations
 
-import grader
+import reporter
 from grader import (
     format_benchmark_row,
     format_correctness_row,
@@ -135,7 +135,7 @@ class TestPrintHeaders:
 
 class TestPrintResults:
     def test_correctness_results_ok(self, capsys, monkeypatch) -> None:
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         rows = [("/dir/task1.py", _ok_result())]
         print_correctness_results(rows, "/dir", col_file=20)
         out = capsys.readouterr().out
@@ -143,14 +143,14 @@ class TestPrintResults:
         assert "OK" in out
 
     def test_correctness_results_fail(self, capsys, monkeypatch) -> None:
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         rows = [("/dir/task1.py", _fail_result())]
         print_correctness_results(rows, "/dir", col_file=20)
         out = capsys.readouterr().out
         assert "FAIL" in out
 
     def test_benchmark_results(self, capsys, monkeypatch) -> None:
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         rows = [("/dir/task1.py", _bench_data())]
         print_benchmark_results(rows, "/dir", col_file=20)
         out = capsys.readouterr().out
@@ -159,6 +159,6 @@ class TestPrintResults:
 
     def test_empty_rows(self, capsys, monkeypatch) -> None:
         """Пустой список строк не вызывает исключений."""
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         print_correctness_results([], "/dir", col_file=20)
         print_benchmark_results([], "/dir", col_file=20)

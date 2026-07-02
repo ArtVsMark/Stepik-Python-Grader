@@ -38,8 +38,11 @@ git checkout main && git pull && git checkout -b ArtVsMark-patch-1
 ```
 Stepik-Python-Grader/
 │
-├── grader.py                 # Application: 4 режима, rich UI, вердикты
-│                             # ⚠️ 1460 строк — требует рефакторинга (Sprint 7)
+├── grader.py                 # Тонкий фасад обратной совместимости (Sprint 7 ✅)
+│                             # реэкспортирует grader_core.py / reporter.py / cli.py
+├── grader_core.py            # Application: загрузка тест-кейсов, исполнение решений
+├── reporter.py                # Application/UI: rich-таблицы, _console, verbose-diff
+├── cli.py                     # Application/CLI: интерактивное меню (режимы 0-4)
 │
 ├── downloader.py             # Domain: скачивание задач, ZIP/HTML, slugify
 ├── diagnostik_stepik.py      # Application: диагностика API и токена
@@ -74,11 +77,20 @@ Stepik-Python-Grader/
 ### Граф зависимостей (DAG, без циклов)
 
 ```
-grader.py ──→ core/executor.py
-grader.py ──→ core/microbench_runner.py
-grader.py ──→ core/normalizers.py
-grader.py ──→ core/parsers.py
-grader.py ──→ core/storage.py
+grader.py ──→ grader_core.py
+grader.py ──→ reporter.py
+grader.py ──→ cli.py
+
+grader_core.py ──→ reporter.py       # _print_case_verbose (run_tests verbose)
+grader_core.py ──→ core/executor.py
+grader_core.py ──→ core/microbench_runner.py
+grader_core.py ──→ core/normalizers.py
+grader_core.py ──→ core/parsers.py
+grader_core.py ──→ core/storage.py
+
+cli.py ──→ grader_core.py
+cli.py ──→ reporter.py
+cli.py ──→ core/microbench_runner.py  # apply_relative_ranking
 
 downloader.py ──→ core/stepik_client.py
 downloader.py ──→ core/oauth_flow.py
@@ -100,6 +112,13 @@ core/stepik_client.py ──→ core/storage.py
 > Оба модуля теперь импортируют `parse_testblock_file` напрямую из
 > `core/parsers.py` — единственного источника истины. downloader.py больше
 > не зависит от grader.py.
+
+> Issue #20 finding #4 / Sprint 7 (2026-07): grader.py (1460 строк) разбит на
+> grader_core.py (бизнес-логика), reporter.py (rich-вывод) и cli.py (меню).
+> grader.py стал тонким фасадом — `from grader_core import *`, `from reporter
+> import *`, явные реэкспорты приватных имён (`_verdict`, `_console`, `_RICH`,
+> и т.д.), на которые опирается тестовый набор. `__all__` не изменился —
+> обратная совместимость сохранена.
 
 ---
 
@@ -357,7 +376,7 @@ microbench_max_cases = 5
 
 ### 🟡 Sprint 7 — Рефакторинг `grader.py`
 
-#### 7.1 REFACTOR — разбить `grader.py` (1489 строк) на три модуля
+#### 7.1 ✅ ЗАВЕРШЕНО (2026-07) — разбить `grader.py` (1489 строк) на три модуля
 
 ```
 Цель: grader.py → reporter.py + grader_core.py + cli.py
@@ -630,7 +649,7 @@ except:
 | Python | 3.12 / 3.13 / 3.14 |
 | Тестов | 461 |
 | Покрытие | 88% |
-| Строк (grader.py) | 1460 ⚠️ |
+| Строк (grader.py) | 8 (тонкий фасад, Sprint 7 ✅) |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
 | CI | GitHub Actions (pytest + ruff) |
 

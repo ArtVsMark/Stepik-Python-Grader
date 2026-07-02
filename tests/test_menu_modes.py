@@ -12,7 +12,9 @@ from __future__ import annotations
 import os
 import pathlib
 
+import cli
 import grader
+import grader_core
 from grader import (
     _resolve_test_dir_from_input,
     run_benchmark,
@@ -61,7 +63,7 @@ class TestMode2PerSolutionTestDir:
                 "cases": [],
             }
 
-        monkeypatch.setattr(grader, "run_tests", fake_run_tests)
+        monkeypatch.setattr(cli, "run_tests", fake_run_tests)
 
         inputs = iter(["2", str(tmp_path)])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
@@ -100,7 +102,7 @@ class TestMode2PerSolutionTestDir:
                 "cases": [],
             }
 
-        monkeypatch.setattr(grader, "run_tests", fake_run_tests)
+        monkeypatch.setattr(cli, "run_tests", fake_run_tests)
         inputs = iter(["2", str(tmp_path)])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
 
@@ -135,7 +137,7 @@ class TestRunBenchmarkRunMode:
             seen_types.append(case.test_type)
             return {"error": "", "timed_out": False, "time": 0.001, "memory": 0.0}
 
-        monkeypatch.setattr(grader, "run_single_test", fake_run_single_test)
+        monkeypatch.setattr(grader_core, "run_single_test", fake_run_single_test)
 
         run_benchmark(str(sol), str(tests_dir), repeats=1)
 
@@ -165,7 +167,7 @@ class TestRunMicrobenchModeFunctionBlocks:
         def fail_microbench(*a, **k):
             raise AssertionError("run_microbench should not be called for function blocks")
 
-        monkeypatch.setattr(grader, "run_microbench", fail_microbench)
+        monkeypatch.setattr(grader_core, "run_microbench", fail_microbench)
 
         results = run_microbench_mode([str(sol)], str(test_dir), number=100)
 
@@ -187,7 +189,7 @@ class TestRunMicrobenchModeFunctionBlocks:
             called.append(stdin_data)
             return {"times": [0.001, 0.002], "error": ""}
 
-        monkeypatch.setattr(grader, "run_microbench", fake_microbench)
+        monkeypatch.setattr(grader_core, "run_microbench", fake_microbench)
 
         results = run_microbench_mode([str(sol)], str(test_dir), number=100)
 

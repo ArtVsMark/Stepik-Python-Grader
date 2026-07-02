@@ -8,7 +8,10 @@
 
 ```
 Stepik-Python-Grader/
-├── grader.py            # Application layer — 4 режима, CLI, таблицы
+├── grader.py            # Тонкий фасад обратной совместимости (Sprint 7)
+├── grader_core.py       # Загрузка тест-кейсов, исполнение решений
+├── reporter.py           # rich-таблицы, вывод, verbose-diff
+├── cli.py                # Интерактивное меню (режимы 0-4)
 ├── downloader.py        # Загрузка задач/тестов со Stepik API
 ├── diagnostik_stepik.py # Диагностика и отладка API
 ├── core/                # Internal Infrastructure/Utility модули
@@ -27,7 +30,10 @@ Stepik-Python-Grader/
 
 | Модуль | Слой | Зона ответственности |
 |---|---|---|
-| `grader.py` | Application | Оркестрация режимов, CLI, вывод таблиц |
+| `grader.py` | Application | Фасад — реэкспортирует grader_core/reporter/cli |
+| `grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений |
+| `reporter.py` | Application / UI | rich-таблицы, вердикты, verbose-diff |
+| `cli.py` | Application / CLI | Интерактивное меню, профили нагрузки |
 | `core/executor.py` | Infrastructure | Subprocess-запуск кода из строки |
 | `core/microbench_runner.py` | Infrastructure | timeit-замеры |
 | `core/normalizers.py` | Domain | Нормализация float |

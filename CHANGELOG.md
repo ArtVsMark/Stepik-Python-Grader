@@ -1,5 +1,51 @@
 # Changelog
 
+## [unreleased] / 2026-07-02 — split grader.py into grader_core/reporter/cli (#20 finding #4)
+
+### Refactored
+- **grader.py** (1460 lines) split into three modules per Sprint 7 / issue #20
+  finding #4:
+  - `grader_core.py` — test-case loading, run-mode detection, wrapper
+    codegen, and the `run_single_test`/`run_tests`/`run_benchmark`/
+    `run_microbench_mode` execution pipeline.
+  - `reporter.py` — the `_console`/`_RICH` rich-optional singleton, all
+    `format_*`/`print_*` table functions, `_cprint`, and `_print_case_verbose`.
+  - `cli.py` — the interactive menu (`_interactive_menu`), load-profile
+    prompts, and a new `main()` entry point.
+  - `grader.py` itself is now an 8-statement backward-compatibility facade:
+    `from grader_core import *`, `from reporter import *`, plus explicit
+    re-exports of every private (`_`-prefixed) name and non-`__all__` public
+    name (`run_microbench`, `apply_relative_ranking`) that the test suite
+    references directly as `grader.X` — `from X import *` does not pull in
+    underscore-prefixed names, so these needed listing individually.
+- **pyproject.toml** — added a `per-file-ignores` entry for `grader.py`
+  (F401/F403/F405/I001), since every import in the facade is an intentional
+  re-export that static analysis can't otherwise verify as "used."
+
+### Fixed (test suite)
+- Several tests patched `grader._RICH` / `grader._console` / `grader.Table` /
+  `grader.Text` / `grader.run_tests` / `grader.run_single_test` /
+  `grader.run_microbench` expecting to influence behavior inside functions
+  that now live in `reporter.py`, `grader_core.py`, or `cli.py`. Python
+  resolves those names via each function's *own* module globals at call
+  time, not through `grader.py`'s re-exported copy, so patching `grader.X`
+  no longer had any effect on the patched function's behavior (two cases —
+  `test_grader_coverage_gap.py`'s rich-branch tests and
+  `test_menu_modes.py`'s benchmark-mode patches — actually failed with
+  `AssertionError`/`KeyError`; a few others silently degraded into testing
+  the wrong branch without erroring). Updated the patch targets in
+  `tests/test_grader_coverage_gap.py`, `tests/test_menu_modes.py`,
+  `tests/test_grader_extra.py`, and `tests/test_formatters.py` to point at
+  the module that actually owns each name (`reporter.X`, `cli.X`, or
+  `grader_core.X`).
+
+### Verified
+- 465 passed, 3 skipped, 88.97% coverage; `ruff check`/`ruff format --check`
+  clean; `echo 0 | python grader.py` smoke-tested end-to-end.
+
+### Closes
+- Issue #20, finding #4
+
 ## [unreleased] / 2026-07-02 — dedupe parser, close import-cycle risk (fix #19)
 
 ### Fixed
