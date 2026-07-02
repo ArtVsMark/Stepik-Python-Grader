@@ -160,11 +160,11 @@ def _is_safe_constant(node: ast.expr) -> bool:
     """
     if isinstance(node, ast.Constant):
         return True
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd, ast.Invert)):
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd | ast.Invert):
         return _is_safe_constant(node.operand)
     if isinstance(node, ast.BinOp):
         return _is_safe_constant(node.left) and _is_safe_constant(node.right)
-    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+    if isinstance(node, ast.List | ast.Tuple | ast.Set):
         return all(_is_safe_constant(e) for e in node.elts)
     if isinstance(node, ast.Dict):
         return all(_is_safe_constant(k) for k in node.keys if k is not None) and all(
@@ -216,7 +216,7 @@ def is_function_only_solution(file_content: str) -> bool:
         # Присваивания разрешены всегда: date1 = date(...), MOD = 10**9+7, data = []
         # Это типичный паттерн Stepik-шаблонов — значение не проверяем
 
-    return any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in tree.body)
+    return any(isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) for node in tree.body)
 
 
 def is_solution_file(file_name: str) -> bool:
@@ -478,7 +478,7 @@ def _ast_function_name(solution_path: str) -> str | None:
     except (SyntaxError, OSError):
         return None
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             return node.name
     return None
 

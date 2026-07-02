@@ -200,7 +200,7 @@ def extract_function_name(template_code: str) -> str | None:
     except SyntaxError:
         return None
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             return node.name
     return None
 
@@ -282,7 +282,7 @@ def _is_function_style(input_text: str) -> bool:
         # Вызов функции на верхнем уровне (print, input, my_func(...)) → stdin-режим
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
             return False
-        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+        if isinstance(node, ast.Assign | ast.AnnAssign):
             has_assignment = True
 
     return has_assignment
