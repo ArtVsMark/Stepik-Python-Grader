@@ -1,13 +1,21 @@
 """normalizers.py — утилиты нормализации вывода для сравнения тест-кейсов.
 
-Используется grader.py: ``normalize_floats`` импортируется как
+Используется grader_core.py: ``normalize_floats`` импортируется как
 ``_normalize_output_line`` и применяется построчно при сравнении фактического
-вывода решения с ожидаемым (см. ``grader.run_single_test``).
+вывода решения с ожидаемым (см. ``grader_core.run_single_test``).
+
+``sort_lines`` и ``normalize_whitespace`` — experimental: полностью
+реализованы и покрыты тестами, но пока не подключены ни к одному режиму
+grader_core.py (нет UI-опции "сравнивать вывод без учёта порядка строк" /
+"игнорировать лишние пробелы"). Сохранены как готовый строительный блок для
+такой опции (Issue #21 finding, Sprint 6.2).
 """
 
 from __future__ import annotations
 
 import re
+
+__all__ = ["normalize_floats", "sort_lines", "normalize_whitespace"]
 
 _FLOAT_RE = re.compile(r"-?\d+\.\d+(?:[eE][+-]?\d+)?")
 
@@ -35,13 +43,17 @@ def normalize_floats(text: str) -> str:
     return "\n".join(_FLOAT_RE.sub(_round_float, line) for line in text.split("\n"))
 
 
-# NOTE: utility, not called in production paths
 def sort_lines(output: str) -> str:
-    """Сортирует строки вывода (для задач где порядок строк не важен)."""
+    """Сортирует строки вывода (для задач где порядок строк не важен).
+
+    Experimental: не вызывается из grader_core.py — см. docstring модуля.
+    """
     return "\n".join(sorted(output.strip().splitlines()))
 
 
-# NOTE: utility, not called in production paths
 def normalize_whitespace(output: str) -> str:
-    """Нормализует пробелы: strip + схлопывает множественные пробелы."""
+    """Нормализует пробелы: strip + схлопывает множественные пробелы.
+
+    Experimental: не вызывается из grader_core.py — см. docstring модуля.
+    """
     return "\n".join(" ".join(line.split()) for line in output.splitlines())

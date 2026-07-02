@@ -26,8 +26,10 @@ from dataclasses import dataclass, field
 # Тайм-аут в секундах (можно передать через переменную окружения)
 TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", "10"))
 
-# Команда Python-интерпретатора
-_PYTHON_CMD: str = "python3" if sys.platform in {"linux", "linux2", "darwin"} else "python"
+# Команда Python-интерпретатора: тот же интерпретатор, что запустил grader
+# (включая правильный venv на Windows, где "python"/"python3" может указать
+# на системный Python вне активированного окружения).
+_PYTHON_CMD: str = sys.executable
 
 
 @dataclass
