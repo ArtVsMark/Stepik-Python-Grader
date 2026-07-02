@@ -132,7 +132,7 @@ Stepik-Python-Grader/
 │   ├── parsers.py             # Парсинг тест-блоков (# TEST_N:)
 │   └── storage.py             # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── conftest.py                # Pytest: collect_ignore для grader.py
-├── tests/                     # 355 тестов (pytest)
+├── tests/                     # 461 тест (pytest)
 │   ├── test_analyzer.py
 │   ├── test_downloader.py
 │   ├── test_executor.py
@@ -630,7 +630,7 @@ python diagnostik_stepik.py
 | Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
 | pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
 | Pre-commit хуки (ruff check + ruff format) | ❌ | ✅ |
-| Unit-тесты (355 тестов) | ❌ | ✅ |
+| Unit-тесты (461 тест) | ❌ | ✅ |
 | OAuth2-фасад (`oauth_flow.py`) | ❌ | ✅ |
 | GitHub Actions CI (pytest + ruff) | ❌ | ✅ |
 

@@ -1,5 +1,42 @@
 # Changelog
 
+## [unreleased] / 2026-07-02 — dedupe parser, close import-cycle risk (fix #19)
+
+### Fixed
+- **grader.py** — removed the local `_parse_testblock_file` definition, which
+  had drifted into an exact duplicate of `core/parsers.py`'s
+  `parse_testblock_file`. `grader.py` now imports the canonical function
+  (aliased as `_parse_testblock_file` to preserve the existing private name
+  used by `tests/test_testblock.py` and `tests/test_grader_mock.py`).
+- **downloader.py** — replaced the local `from grader import
+  _parse_testblock_file` (inside `_download_github_tests()`) with a top-level
+  `from core.parsers import parse_testblock_file`. `downloader.py` no longer
+  imports `grader.py` at all — the local import was only masking the fact
+  that both modules depended on logic that already had a canonical home in
+  `parsers.py`.
+- **README.md** / **CLAUDE.md** — corrected stale test-count references
+  (355 → 461) and updated the DAG/structure diagrams to reflect both the
+  `core/` restructuring (#23) and the removed `downloader → grader` edge.
+
+### Closes
+- Issue #19 (findings #1 and #2; #3 addressed via the doc corrections above)
+
+## [unreleased] / 2026-07-02 — move internal modules into core/ (closes #23)
+
+### Refactored
+- Relocated `executor.py`, `normalizers.py`, `parsers.py`, `storage.py`,
+  `stepik_client.py`, `oauth_flow.py`, and `microbench_runner.py` into a new
+  `core/` package, separating entry-point scripts (`grader.py`,
+  `downloader.py`, `diagnostik_stepik.py`) from internal Infrastructure/
+  Utility modules. Added `core/__init__.py`. Updated every import site
+  across root scripts, intra-`core` imports, and tests (including
+  `unittest.mock.patch` target strings and `executor.py`'s subprocess
+  self-invocation paths). Added `"core"` to ruff's isort
+  `known-first-party` list.
+
+### Closes
+- Issue #23
+
 ## [unreleased] / 2026-06-25 — refactor: extract parsers.py (fix #9)
 
 ### Refactored

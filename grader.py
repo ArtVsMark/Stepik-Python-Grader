@@ -103,6 +103,7 @@ except ImportError:
 # нормализации float-вывода. grader делегирует им вместо inline-дубликатов.
 from core.microbench_runner import run_microbench
 from core.normalizers import normalize_floats as _normalize_output_line
+from core.parsers import parse_testblock_file as _parse_testblock_file
 from core.storage import load_json_file
 
 # ---------------------------------------------------------------------------
@@ -516,36 +517,6 @@ def run_microbench_mode(
 def load_text_lines(file_path: str) -> list[str]:
     """Загрузить текстовый файл и вернуть список строк без завершающих переносов."""
     return pathlib.Path(file_path).read_text(encoding=ENCODING).splitlines()
-
-
-def _parse_testblock_file(text: str) -> list[str]:
-    """Разобрать input.txt/output.txt с маркерами блоков `# TEST_N:`.
-
-    Возвращает список содержимого блоков (каждый .strip()).
-    Строки `# INPUT DATA:` игнорируются.
-
-    Пустые блоки СОХРАНЯЮТСЯ как `''` (например, `# TEST_5:` без данных),
-    чтобы индексы input- и output-блоков оставались синхронными.
-    """
-    blocks: list[str] = []
-    current_lines: list[str] = []
-    in_block = False
-
-    for line in text.splitlines():
-        if re.match(r"#\s*TEST_\d+:", line.strip()):
-            if in_block:
-                blocks.append("\n".join(current_lines).strip())
-                current_lines = []
-            in_block = True
-        elif line.strip().startswith("# INPUT DATA:"):
-            continue
-        elif in_block:
-            current_lines.append(line)
-
-    if in_block:
-        blocks.append("\n".join(current_lines).strip())
-
-    return blocks
 
 
 def _is_python_code_block(block: str) -> bool:

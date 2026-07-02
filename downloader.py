@@ -33,6 +33,7 @@ from urllib.parse import parse_qs, urlparse
 import requests
 
 from core.oauth_flow import create_user_session, load_secrets_dict
+from core.parsers import parse_testblock_file
 from core.stepik_client import (
     fetch_course_data,
     fetch_lesson_data,
@@ -482,10 +483,8 @@ def _download_github_tests(
             r = session.get(file_map[fname], timeout=30)
             r.raise_for_status()
             (tests_dir / fname).write_bytes(r.content)
-        from grader import _parse_testblock_file
-
         text = (tests_dir / "input.txt").read_text(encoding="utf-8")
-        count = len(_parse_testblock_file(text))
+        count = len(parse_testblock_file(text))
         print(f"  🔗 GitHub: скачаны input.txt + output.txt (Format 3): {count} тест(ов)")
         return count
 

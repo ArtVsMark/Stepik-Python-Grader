@@ -39,22 +39,24 @@ git checkout main && git pull && git checkout -b ArtVsMark-patch-1
 Stepik-Python-Grader/
 │
 ├── grader.py                 # Application: 4 режима, rich UI, вердикты
-│                             # ⚠️ 1489 строк — требует рефакторинга (Sprint 7)
-│
-├── executor.py               # Infrastructure: compile+exec в subprocess
-├── microbench_runner.py      # Infrastructure: timeit через subprocess
-├── normalizers.py            # Utilities: normalize_floats (leaf, нет зависимостей)
-├── storage.py                # Utilities: load/save JSON (leaf, нет зависимостей)
+│                             # ⚠️ 1460 строк — требует рефакторинга (Sprint 7)
 │
 ├── downloader.py             # Domain: скачивание задач, ZIP/HTML, slugify
-├── stepik_client.py          # Infrastructure: OAuth2, requests.Session
-├── oauth_flow.py             # Infrastructure: фасад авторизации
 ├── diagnostik_stepik.py      # Application: диагностика API и токена
 │
-├── parsers.py                # Infrastructure: парсинг HTML/ZIP тест-кейсов
+├── core/                     # Internal Infrastructure/Utility модули (Issue #23)
+│   ├── __init__.py
+│   ├── executor.py           # Infrastructure: compile+exec в subprocess
+│   ├── microbench_runner.py  # Infrastructure: timeit через subprocess
+│   ├── normalizers.py        # Utilities: normalize_floats (leaf, нет зависимостей)
+│   ├── storage.py            # Utilities: load/save JSON (leaf, нет зависимостей)
+│   ├── stepik_client.py      # Infrastructure: OAuth2, requests.Session
+│   ├── oauth_flow.py         # Infrastructure: фасад авторизации
+│   └── parsers.py            # Infrastructure: парсинг тест-блоков (# TEST_N:)
+│
 ├── conftest.py               # pytest: collect_ignore для grader.py
 │
-├── tests/                    # 355 тестов (pytest), покрытие 88%
+├── tests/                    # 461 тест (pytest), покрытие 88%
 │   ├── test_grader_core.py
 │   ├── test_executor.py
 │   ├── test_normalizers.py
@@ -72,29 +74,32 @@ Stepik-Python-Grader/
 ### Граф зависимостей (DAG, без циклов)
 
 ```
-grader.py ──→ executor.py
-grader.py ──→ microbench_runner.py
-grader.py ──→ normalizers.py
-grader.py ──→ storage.py
+grader.py ──→ core/executor.py
+grader.py ──→ core/microbench_runner.py
+grader.py ──→ core/normalizers.py
+grader.py ──→ core/parsers.py
+grader.py ──→ core/storage.py
 
-downloader.py ──→ stepik_client.py
-downloader.py ──→ oauth_flow.py
-downloader.py ──→ storage.py
-downloader.py ──→ parsers.py
-downloader.py ──[local]──→ grader.py   # локальный импорт внутри функции
+downloader.py ──→ core/stepik_client.py
+downloader.py ──→ core/oauth_flow.py
+downloader.py ──→ core/storage.py
+downloader.py ──→ core/parsers.py
 
-oauth_flow.py ──→ stepik_client.py
-oauth_flow.py ──→ storage.py
+core/oauth_flow.py ──→ core/stepik_client.py
+core/oauth_flow.py ──→ core/storage.py
 
-diagnostik_stepik.py ──→ stepik_client.py
-diagnostik_stepik.py ──→ oauth_flow.py
+diagnostik_stepik.py ──→ core/stepik_client.py
+diagnostik_stepik.py ──→ core/oauth_flow.py
 diagnostik_stepik.py ──→ downloader.py  # только parse_stepik_step_url
 
-stepik_client.py ──→ storage.py
+core/stepik_client.py ──→ core/storage.py
 ```
 
-> Локальный импорт `downloader → grader` — намеренный, устраняет цикл на уровне модулей.
-> НЕ переносить на уровень модуля.
+> Issue #19 (2026-07): устранена дублирующая копия `_parse_testblock_file` в
+> grader.py и локальный импорт `downloader → grader`, который её маскировал.
+> Оба модуля теперь импортируют `parse_testblock_file` напрямую из
+> `core/parsers.py` — единственного источника истины. downloader.py больше
+> не зависит от grader.py.
 
 ---
 
@@ -623,9 +628,9 @@ except:
 |---------|---------|
 | Версия | 1.0.0 (stable) |
 | Python | 3.12 / 3.13 / 3.14 |
-| Тестов | 355 |
+| Тестов | 461 |
 | Покрытие | 88% |
-| Строк (grader.py) | 1489 ⚠️ |
+| Строк (grader.py) | 1460 ⚠️ |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
 | CI | GitHub Actions (pytest + ruff) |
 
