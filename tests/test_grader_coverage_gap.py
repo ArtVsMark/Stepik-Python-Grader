@@ -78,7 +78,7 @@ class TestPlainTextOutput:
 
     def test_print_correctness_results_plain(self, capsys) -> None:
         rows = [("base/task1.py", _DUMMY_CORRECTNESS_RESULT)]
-        with patch("grader._RICH", False):
+        with patch("core.reporter._RICH", False):
             print_correctness_results(rows, "base", col_file=20)
         out = capsys.readouterr().out
         assert "task1.py" in out
@@ -86,7 +86,7 @@ class TestPlainTextOutput:
 
     def test_print_benchmark_results_plain(self, capsys) -> None:
         rows = [("base/task1.py", _DUMMY_BENCHMARK_DATA)]
-        with patch("grader._RICH", False):
+        with patch("core.reporter._RICH", False):
             print_benchmark_results(rows, "base", col_file=20, title="bench")
         out = capsys.readouterr().out
         assert "task1.py" in out
@@ -121,10 +121,10 @@ class TestPlainTextOutput:
         rows = [("base/task1.py", _DUMMY_CORRECTNESS_RESULT)]
         mock_console, mock_table_cls, mock_text_cls = _make_rich_mocks()
         with (
-            patch("grader._RICH", True),
-            patch("grader._console", mock_console),
-            patch("grader.Table", mock_table_cls),
-            patch("grader.Text", mock_text_cls),
+            patch("core.reporter._RICH", True),
+            patch("core.reporter._console", mock_console),
+            patch("core.reporter.Table", mock_table_cls),
+            patch("core.reporter.Text", mock_text_cls),
         ):
             print_correctness_results(rows, "base", col_file=20)
         mock_console.print.assert_called_once()
@@ -134,10 +134,10 @@ class TestPlainTextOutput:
         rows = [("base/task1.py", _DUMMY_BENCHMARK_DATA)]
         mock_console, mock_table_cls, mock_text_cls = _make_rich_mocks()
         with (
-            patch("grader._RICH", True),
-            patch("grader._console", mock_console),
-            patch("grader.Table", mock_table_cls),
-            patch("grader.Text", mock_text_cls),
+            patch("core.reporter._RICH", True),
+            patch("core.reporter._console", mock_console),
+            patch("core.reporter.Table", mock_table_cls),
+            patch("core.reporter.Text", mock_text_cls),
         ):
             print_benchmark_results(rows, "base", col_file=20)
         mock_console.print.assert_called_once()
@@ -150,18 +150,18 @@ class TestPlainTextOutput:
 
 class TestCprint:
     def test_cprint_plain_no_style(self, capsys) -> None:
-        with patch("grader._RICH", False):
+        with patch("core.reporter._RICH", False):
             _cprint("hello plain")
         assert "hello plain" in capsys.readouterr().out
 
     def test_cprint_plain_with_style_ignored(self, capsys) -> None:
-        with patch("grader._RICH", False):
+        with patch("core.reporter._RICH", False):
             _cprint("styled text", style="green")
         assert "styled text" in capsys.readouterr().out
 
     def test_cprint_rich_no_style_falls_to_print(self, capsys) -> None:
         """_cprint с пустым style даже при _RICH=True уходит в plain print."""
-        with patch("grader._RICH", True):
+        with patch("core.reporter._RICH", True):
             _cprint("no style")
         assert "no style" in capsys.readouterr().out
 
@@ -302,7 +302,7 @@ class TestInteractiveMenuExit:
             "first_fail": None,
             "cases": [],
         }
-        monkeypatch.setattr("grader.run_tests", lambda *a, **k: empty_result)
+        monkeypatch.setattr("cli.run_tests", lambda *a, **k: empty_result)
         inputs = iter(["1", str(sol), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         _interactive_menu()
@@ -322,7 +322,7 @@ class TestInteractiveMenuExit:
             "relative": 1.0,
             "verdict": "SIMILAR",
         }
-        monkeypatch.setattr("grader.run_benchmark", lambda *a, **k: {str(sol): bench_result})
+        monkeypatch.setattr("cli.run_benchmark", lambda *a, **k: {str(sol): bench_result})
         inputs = iter(["3", str(sol), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         _interactive_menu()

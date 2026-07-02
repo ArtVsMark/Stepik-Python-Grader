@@ -1,8 +1,9 @@
 """conftest.py — корневой конфиг pytest.
 
-Обеспечивает корректный импорт модулей проекта (downloader, executor,
-microbench_runner, grader, oauth_flow) без ручных sys.path манипуляций в тестах.
-pytest автоматически добавляет директорию conftest.py в sys.path.
+Обеспечивает корректный импорт модулей проекта (downloader, grader,
+core.executor, core.microbench_runner, core.oauth_flow и др.) без ручных
+sys.path манипуляций в тестах. pytest автоматически добавляет директорию
+conftest.py в sys.path.
 """
 
 # grader.py — основной модуль grader'а (не тестовый файл).

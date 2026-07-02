@@ -47,7 +47,10 @@
 | `storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
 | `stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
-| `grader.py` | Application | Интерактивный грейдер: 4 режима работы, rich-таблицы с цветами, вердикты AC/WA/TLE/RE, прогресс-бар, diff при WA |
+| `grader.py` | Application | Тонкий фасад обратной совместимости — реэкспортирует `core/grader_core.py`, `core/reporter.py`, `cli.py` |
+| `core/grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
+| `core/reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA |
+| `cli.py` | Application / CLI | Интерактивное меню (режимы 0-4), профили нагрузки |
 | `executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; импортируется `grader.py` |
 | `normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace`; импортируется `grader.py` как `_normalize_output_line` |
@@ -75,43 +78,50 @@
 Граф зависимостей — DAG без циклов:
 
 ```
-downloader.py          ──→  storage.py
-downloader.py          ──→  stepik_client.py
-downloader.py          ──→  grader.py           ← локальный импорт _parse_testblock_file
-stepik_client.py     ──→  storage.py
-grader.py              ──→  executor.py
-grader.py              ──→  microbench_runner.py
-grader.py              ──→  normalizers.py
-diagnostik_stepik.py ──→  stepik_client.py
+downloader.py          ──→  core/storage.py
+downloader.py          ──→  core/stepik_client.py
+downloader.py          ──→  core/parsers.py
+core/stepik_client.py ──→  core/storage.py
+grader.py              ──→  core/grader_core.py, core/reporter.py, cli.py  (тонкий фасад)
+core/grader_core.py    ──→  core/reporter.py     ← _print_case_verbose (run_tests verbose)
+core/grader_core.py    ──→  core/executor.py
+core/grader_core.py    ──→  core/microbench_runner.py
+core/grader_core.py    ──→  core/normalizers.py
+core/grader_core.py    ──→  core/parsers.py
+cli.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
+diagnostik_stepik.py ──→  core/stepik_client.py
 diagnostik_stepik.py ──→  downloader.py       ← parse_stepik_step_url
-downloader.py        ──→  oauth_flow.py
-diagnostik_stepik.py ──→  oauth_flow.py
-oauth_flow.py        ──→  stepik_client.py
-oauth_flow.py        ──→  storage.py
+downloader.py        ──→  core/oauth_flow.py
+diagnostik_stepik.py ──→  core/oauth_flow.py
+core/oauth_flow.py    ──→  core/stepik_client.py
+core/oauth_flow.py    ──→  core/storage.py
 ```
 
-Ребро `downloader.py ──→ grader.py` — это **локальный** импорт внутри функции
-(`_download_github_tests`), а не импорт на уровне модуля. Сделан локальным
-намеренно, чтобы избежать циклического импорта на уровне модулей и не нарушать
-слоистость, заявленную ниже.
+downloader.py больше не импортирует grader.py: дублирующая копия
+`_parse_testblock_file` в grader.py устранена (Issue #19) — оба модуля
+читают `parse_testblock_file` из `core/parsers.py`.
 
 Слои (снизу вверх):
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Domain / Application                               │
-│  downloader.py  │  grader.py  │  diagnostik_stepik  │
-├─────────────────────────────────────────────────────┤
-│  Infrastructure                                     │
-│  stepik_client.py  │  executor.py                   │
-│  microbench_runner.py  │  oauth_flow.py             │
-├─────────────────────────────────────────────────────┤
-│  Infrastructure / Utilities  (leaf, no deps)        │
-│  storage.py  │  normalizers.py                      │
-└─────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│  Domain / Application  (root — только точки входа)             │
+│  downloader.py  │  grader.py (facade)  │  diagnostik_stepik   │
+├───────────────────────────────────────────────────────────────┤
+│  Application  (core/, грейдер разбит по SRP — Sprint 7)       │
+│  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
+│  cli.py (меню, остаётся в root — публичная точка входа)        │
+├───────────────────────────────────────────────────────────────┤
+│  Infrastructure  (core/)                                       │
+│  core/stepik_client.py  │  core/executor.py                    │
+│  core/microbench_runner.py  │  core/oauth_flow.py              │
+├───────────────────────────────────────────────────────────────┤
+│  Infrastructure / Utilities  (core/, leaf, no deps)            │
+│  core/storage.py  │  core/normalizers.py                       │
+└───────────────────────────────────────────────────────────────┘
 ```
 
-`storage.py` и `normalizers.py` — leaf-модули: не импортируют ничего из проекта, легко тестируются изолированно.
+`core/storage.py` и `core/normalizers.py` — leaf-модули: не импортируют ничего из проекта, легко тестируются изолированно.
 
 ---
 
@@ -119,17 +129,24 @@ oauth_flow.py        ──→  storage.py
 
 ```
 Stepik-Python-Grader/
-├── grader.py                    # Главный модуль: 4 режима работы
-├── executor.py                # Запускатель решений: compile + exec с таймаутом
-├── microbench_runner.py       # Timeit-микробенчмарк через subprocess + os.devnull
-├── normalizers.py             # Нормализация вывода: округление float, sort/whitespace
+├── grader.py                    # Тонкий фасад обратной совместимости (Sprint 7)
+├── cli.py                        # Интерактивное меню (режимы 0-4)
+├── config.py                     # GraderConfig, CONFIG — единая конфигурация
 ├── downloader.py                # Domain: конфиг, slugify, построение папок, оркестрация API
-├── stepik_client.py           # Infrastructure: OAuth2, requests.Session, Stepik API
-├── oauth_flow.py              # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
-├── storage.py                 # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── diagnostik_stepik.py       # Диагностика API и токена
+├── core/                       # Internal Infrastructure/Utility модули (Issue #23, #26)
+│   ├── __init__.py
+│   ├── grader_core.py         # Загрузка тест-кейсов, исполнение решений
+│   ├── reporter.py            # rich-таблицы, вывод, verbose-diff
+│   ├── executor.py            # Запускатель решений: compile + exec с таймаутом
+│   ├── microbench_runner.py   # Timeit-микробенчмарк через subprocess + os.devnull
+│   ├── normalizers.py         # Нормализация вывода: округление float, sort/whitespace
+│   ├── stepik_client.py       # Infrastructure: OAuth2, requests.Session, Stepik API
+│   ├── oauth_flow.py          # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
+│   ├── parsers.py             # Парсинг тест-блоков (# TEST_N:)
+│   └── storage.py             # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── conftest.py                # Pytest: collect_ignore для grader.py
-├── tests/                     # 355 тестов (pytest)
+├── tests/                     # 461 тест (pytest)
 │   ├── test_analyzer.py
 │   ├── test_downloader.py
 │   ├── test_executor.py
@@ -225,6 +242,20 @@ python grader.py
 ==================================================
 Select mode [0-4]:
 ```
+
+### Non-interactive запуск (CLI-флаги)
+
+Для запуска из CI/скриптов без интерактивного ввода:
+
+```bash
+python grader.py --version                                    # версия и выход
+python grader.py --mode 1 --file path/to/task.py               # режим 1
+python grader.py --mode 2 --dir path/to/folder                 # режим 2
+python grader.py --mode 3 --dir path/to/folder --repeats 15    # режим 3 (по умолчанию 15)
+python grader.py --mode 4 --dir path/to/folder --number 1000   # режим 4 (по умолчанию 1000)
+```
+
+Без `--mode` показывается обычное интерактивное меню.
 
 ---
 
@@ -594,10 +625,30 @@ python diagnostik_stepik.py
 
 ## Ограничения и безопасность
 
-- **Режимы 1–3 (`executor.py`):** решения запускаются через отдельный subprocess. Код компилируется через `compile(source, "<solution>", "exec")` и выполняется в изолированном namespace `{"__builtins__": __builtins__}`. На Unix — `signal.alarm(TIMEOUT)`; на Windows — таймаут subprocess уровня `grader.py` (`TIMEOUT_SECONDS`).
-- **Режим 4 (`microbench_runner.py`):** решения запускаются через subprocess (`python -c`) с `timeit.repeat`. Исходник передаётся через временный файл; `stdin` сбрасывается перед каждой итерацией, а `stdout` решения перенаправляется в `os.devnull` на время замера, чтобы его вывод не смешивался с числами-таймингами.
-- **Microbench без таймаута:** бесконечный цикл в решении подвесит grader. Используй только с проверенными решениями.
-- **Нет sandbox:** grader не изолирует файловую систему или сеть. Запускай только доверенные решения.
+**Threat model: решения запускаются БЕЗ sandbox на уровне ОС.** Дочерний процесс
+имеет тот же доступ к файловой системе, сети и переменным окружения, что и сам
+grader. Единственная защита — таймаут по времени выполнения; ограничений CPU,
+памяти, диска или сети нет. Запускай только доверенные решения (свои
+собственные или скачанные из Stepik as-is) — grader не предназначен для
+проверки произвольного untrusted-кода (см. `core/executor.py`, который явно
+задокументирован как "нет sandbox на уровне ОС" в `CLAUDE.md`).
+
+- **Режимы 1–3 (`grader_core.run_single_test`):** решение запускается напрямую
+  через `subprocess.Popen` (для function-mode — во временном wrapper-скрипте,
+  импортирующем функцию решения). Единственная защита — `timeout=` у
+  `proc.communicate()` (`grader_core.TIMEOUT_SECONDS`, по умолчанию 10с);
+  `core/executor.py` (`run_solution`) реализует ту же модель с `signal.alarm`
+  на Unix, но используется только в тестах, не в самом grader'е.
+- **Режим 4 (`core/microbench_runner.py`):** решения запускаются через
+  subprocess (`python -c`) с `timeit.repeat`, защищены фиксированным
+  `subprocess.run(timeout=60)`. Исходник передаётся через временный файл;
+  `stdin` сбрасывается перед каждой итерацией, а `stdout` решения
+  перенаправляется в `os.devnull` на время замера, чтобы его вывод не
+  смешивался с числами-таймингами.
+- **Microbench: локальный per-call таймаут отсутствует** — решение, зависающее
+  внутри одного вызова (не в бесконечном цикле верхнего уровня), упрётся в
+  общий 60-секундный `subprocess.run(timeout=60)` вокруг всего замера
+  (5 повторов × N итераций), а не в индивидуальный лимит на итерацию.
 
 ---
 
@@ -627,7 +678,7 @@ python diagnostik_stepik.py
 | Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
 | pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
 | Pre-commit хуки (ruff check + ruff format) | ❌ | ✅ |
-| Unit-тесты (355 тестов) | ❌ | ✅ |
+| Unit-тесты (461 тест) | ❌ | ✅ |
 | OAuth2-фасад (`oauth_flow.py`) | ❌ | ✅ |
 | GitHub Actions CI (pytest + ruff) | ❌ | ✅ |
 

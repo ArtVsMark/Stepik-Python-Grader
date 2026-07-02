@@ -8,16 +8,21 @@
 
 ```
 Stepik-Python-Grader/
-├── grader.py            # Application layer — 4 режима, CLI, таблицы
-├── executor.py          # Запуск кода из строки (run_solution)
-├── microbench_runner.py # timeit-бенчмарк (run_microbench)
-├── normalizers.py       # Нормализация float-вывода
-├── storage.py           # Чтение JSON-файлов
+├── grader.py            # Тонкий фасад обратной совместимости (Sprint 7)
+├── cli.py                # Интерактивное меню (режимы 0-4)
+├── config.py            # Конфигурация уровня проекта
 ├── downloader.py        # Загрузка задач/тестов со Stepik API
-├── stepik_client.py     # HTTP-клиент Stepik API
-├── oauth_flow.py        # OAuth 2.0 авторизация
-├── parsers.py           # Парсинг ответов API
 ├── diagnostik_stepik.py # Диагностика и отладка API
+├── core/                # Все внутренние модули проекта
+│   ├── grader_core.py       # Загрузка тест-кейсов, исполнение решений
+│   ├── reporter.py          # rich-таблицы, вывод, verbose-diff
+│   ├── executor.py          # Запуск кода из строки (run_solution)
+│   ├── microbench_runner.py # timeit-бенчмарк (run_microbench)
+│   ├── normalizers.py       # Нормализация float-вывода
+│   ├── storage.py           # Чтение JSON-файлов
+│   ├── stepik_client.py     # HTTP-клиент Stepik API
+│   ├── oauth_flow.py        # OAuth 2.0 авторизация
+│   └── parsers.py           # Парсинг тест-блоков (# TEST_N:)
 ├── conftest.py          # pytest fixtures
 └── tests/               # Автотесты
 ```
@@ -26,13 +31,44 @@ Stepik-Python-Grader/
 
 | Модуль | Слой | Зона ответственности |
 |---|---|---|
-| `grader.py` | Application | Оркестрация режимов, CLI, вывод таблиц |
-| `executor.py` | Infrastructure | Subprocess-запуск кода из строки |
-| `microbench_runner.py` | Infrastructure | timeit-замеры |
-| `normalizers.py` | Domain | Нормализация float |
-| `storage.py` | Infrastructure | I/O JSON |
+| `grader.py` | Application | Фасад — реэкспортирует grader_core/reporter/cli |
+| `core/grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений |
+| `core/reporter.py` | Application / UI | rich-таблицы, вердикты, verbose-diff |
+| `cli.py` | Application / CLI | Интерактивное меню, профили нагрузки |
+| `core/executor.py` | Infrastructure | Subprocess-запуск кода из строки |
+| `core/microbench_runner.py` | Infrastructure | timeit-замеры |
+| `core/normalizers.py` | Domain | Нормализация float |
+| `core/storage.py` | Infrastructure | I/O JSON |
 | `downloader.py` | Application | Загрузка данных Stepik |
-| `stepik_client.py` | Infrastructure | HTTP Stepik API |
+| `core/stepik_client.py` | Infrastructure | HTTP Stepik API |
+
+---
+
+## Правила размещения файлов
+
+> **Корень проекта — не свалка. Только точки входа и инфраструктура проекта.**
+
+### В корне остаются
+
+| Файл / паттерн | Причина |
+|---|---|
+| `grader.py`, `cli.py` | Точки входа — запускаются пользователем напрямую |
+| `config.py` | Project-level конфигурация; импортируется из `core/*` (перенос вызовет circular import) |
+| `downloader.py`, `diagnostik_stepik.py` | Самостоятельные пользовательские утилиты |
+| `conftest.py`, `pyproject.toml` | Инфраструктура тестирования и сборки |
+| `*.md`, `*.txt`, `*.toml`, `*.json.example` | Документация и шаблоны конфигурации |
+
+### В `core/` — всё остальное
+
+Любой новый **внутренний модуль** (библиотечный код, не запускаемый пользователем напрямую) создаётся в `core/`, а не в корне.
+
+**Правило одной строки:**
+> Если файл не запускается пользователем напрямую и не является конфигурацией
+> уровня проекта — его место в `core/`, а не в корне.
+
+### В `tests/` — все тесты
+
+Файлы `test_*.py` и `*_test.py` — только в `tests/`. Никаких тестовых файлов в корне.
 
 ---
 

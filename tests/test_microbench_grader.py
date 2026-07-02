@@ -142,6 +142,24 @@ def test_run_microbench_mode_stdin_mode(tmp_path: pathlib.Path) -> None:
     assert not data.get("error"), data
     # stdin-mode uses timeit.repeat(repeat=5) → 5 timings per case.
     assert data["runs"] == 5
+    assert data["peak_memory_mb"] >= 0.0
+
+
+def test_run_microbench_mode_reports_nonzero_memory_for_allocation(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Issue #25: peak_memory_mb is no longer hardcoded to 0.0 for stdin blocks."""
+    sol = _write(tmp_path, "task1.py", "input()\ndata = [0] * 1_000_000\nprint(len(data))\n")
+    # A bare int literal has no ast.Name node, so _is_python_code_block treats
+    # it as plain data -> routes through the stdin path (run_microbench), not
+    # the function-call path (_build_call_wrapper, which doesn't pipe stdin).
+    _write(tmp_path, "input.txt", "# TEST_1:\n42\n")
+    _write(tmp_path, "output.txt", "# TEST_1:\n1000000\n")
+
+    results = grader.run_microbench_mode([sol], str(tmp_path), number=1)
+    data = results[sol]
+    assert not data.get("error"), data
+    assert data["peak_memory_mb"] > 0.0
 
 
 def test_run_microbench_mode_empty_test_dir(tmp_path: pathlib.Path) -> None:

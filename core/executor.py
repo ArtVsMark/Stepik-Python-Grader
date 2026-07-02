@@ -23,11 +23,27 @@ import sys
 import types
 from dataclasses import dataclass, field
 
-# Тайм-аут в секундах (можно передать через переменную окружения)
-TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", "10"))
+# config.py resolves relative to the project root and isn't on sys.path when
+# executor.py runs as a subprocess script (python core/executor.py sets
+# sys.path[0] to core/, not the root) -- fall back to GraderConfig's own
+# default (10) in that case, matching CONFIG.executor_timeout's own default.
+try:
+    from config import CONFIG
 
-# Команда Python-интерпретатора
-_PYTHON_CMD: str = "python3" if sys.platform in {"linux", "linux2", "darwin"} else "python"
+    _DEFAULT_EXECUTOR_TIMEOUT = CONFIG.executor_timeout
+except ImportError:
+    _DEFAULT_EXECUTOR_TIMEOUT = 10
+
+# Тайм-аут в секундах: переменная окружения EXECUTOR_TIMEOUT имеет приоритет
+# (нужна для тестов, см. tests/test_executor.py), иначе — CONFIG.executor_timeout
+# (единая точка правды, Sprint 6.3; переопределяется через [tool.stepik-grader]
+# в pyproject.toml).
+TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", str(_DEFAULT_EXECUTOR_TIMEOUT)))
+
+# Команда Python-интерпретатора: тот же интерпретатор, что запустил grader
+# (включая правильный venv на Windows, где "python"/"python3" может указать
+# на системный Python вне активированного окружения).
+_PYTHON_CMD: str = sys.executable
 
 
 @dataclass

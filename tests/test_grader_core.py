@@ -201,3 +201,104 @@ def test_resolve_test_dir_finds_clue_in_parent(tmp_path: pathlib.Path):
     (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
 
     assert grader._resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+
+
+# ---------------------------------------------------------------------------
+# _build_function_wrapper — identifier validation (Issue #20 finding #5)
+# ---------------------------------------------------------------------------
+
+
+def test_build_function_wrapper_accepts_valid_identifiers(tmp_path: pathlib.Path):
+    """A well-formed function_name/module stem generates a wrapper normally."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    src = grader._build_function_wrapper(str(sol), "x = 1", "solve")
+
+    assert "from task1 import solve" in src
+
+
+def test_build_function_wrapper_rejects_invalid_function_name(tmp_path: pathlib.Path):
+    """A function_name that isn't a valid identifier must not reach the f-string.
+
+    Without validation, a value like "x\\nimport os" would inject an extra
+    statement into the generated wrapper script.
+    """
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid function_name"):
+        grader._build_function_wrapper(str(sol), "x = 1", "solve\nimport os")
+
+
+def test_build_function_wrapper_rejects_invalid_module_stem(tmp_path: pathlib.Path):
+    """A solution filename whose stem isn't a valid identifier is rejected too."""
+    sol = tmp_path / "task-1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid module filename stem"):
+        grader._build_function_wrapper(str(sol), "x = 1", "solve")
+
+
+def test_run_single_test_reports_re_for_invalid_function_name(tmp_path: pathlib.Path):
+    """run_single_test converts the ValueError into a graceful RE verdict.
+
+    Without the try/except around _build_function_wrapper, this would crash
+    the whole grading run instead of failing just this one test case.
+    """
+    sol = tmp_path / "task-1.py"  # stem "task-1" is not a valid identifier
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+    # "5" has no ast.Name node, so _is_python_code_block classifies it as data
+    # (not a call block) and run_single_test routes to _build_function_wrapper.
+    case = grader.TestCase(index=1, input_lines=["5"], expected_lines=["5"], test_type="function")
+
+    result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+    assert result["verdict"] == "RE"
+    assert result["passed"] is False
+    assert "Invalid module filename stem" in result["error"]
+
+
+# ---------------------------------------------------------------------------
+# BenchStats — shared stats between run_benchmark() and _micro_stats() (Sprint 7.2)
+# ---------------------------------------------------------------------------
+
+
+def test_bench_stats_computes_all_fields() -> None:
+    stats = grader.BenchStats(timings=[0.001, 0.002, 0.003, 0.004, 0.005])
+    assert stats.min == 0.001
+    assert stats.max == 0.005
+    assert stats.median == 0.003
+    assert stats.mean == pytest.approx(0.003)
+    assert stats.stdev > 0.0
+
+
+def test_bench_stats_stdev_zero_for_single_timing() -> None:
+    stats = grader.BenchStats(timings=[0.5])
+    assert stats.stdev == 0.0
+    assert stats.min == stats.max == stats.median == stats.mean == 0.5
+
+
+def test_bench_stats_relative_to() -> None:
+    stats = grader.BenchStats(timings=[0.002])
+    assert stats.relative_to(0.001) == pytest.approx(200.0)
+
+
+def test_bench_stats_relative_to_zero_baseline() -> None:
+    """baseline == 0 avoids division by zero, returns 0.0 rather than raising."""
+    stats = grader.BenchStats(timings=[0.002])
+    assert stats.relative_to(0.0) == 0.0
+
+
+def test_run_benchmark_and_micro_stats_agree_on_same_timings() -> None:
+    """run_benchmark()'s stats dict and _micro_stats() compute identically via BenchStats."""
+    from core.grader_core import _micro_stats
+
+    times = [0.01, 0.02, 0.015, 0.03]
+    micro = _micro_stats(times)
+    direct = grader.BenchStats(timings=times)
+    assert micro["min"] == direct.min
+    assert micro["max"] == direct.max
+    assert micro["median"] == direct.median
+    assert micro["mean"] == direct.mean
+    assert micro["stdev"] == direct.stdev

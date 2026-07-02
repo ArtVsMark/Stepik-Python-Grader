@@ -8,8 +8,9 @@ print_correctness_results, print_benchmark_results.
 
 from __future__ import annotations
 
-import grader
+from core import reporter
 from grader import (
+    fmt_time,
     format_benchmark_row,
     format_correctness_row,
     print_benchmark_header,
@@ -61,6 +62,38 @@ def _bench_data() -> dict:
         "relative": 1.0,
         "verdict": "SIMILAR",
     }
+
+
+# ---------------------------------------------------------------------------
+# fmt_time — adaptive units for benchmark time columns (Issue #24)
+# ---------------------------------------------------------------------------
+
+
+class TestFmtTime:
+    def test_seconds(self) -> None:
+        assert fmt_time(1.5) == "1.500 s"
+
+    def test_seconds_boundary(self) -> None:
+        assert fmt_time(1.0) == "1.000 s"
+
+    def test_milliseconds(self) -> None:
+        assert fmt_time(0.15) == "150.000 ms"
+
+    def test_milliseconds_boundary(self) -> None:
+        assert fmt_time(1e-3) == "1.000 ms"
+
+    def test_microseconds(self) -> None:
+        assert fmt_time(0.00015) == "150.000 µs"
+
+    def test_microseconds_boundary(self) -> None:
+        assert fmt_time(1e-6) == "1.000 µs"
+
+    def test_nanoseconds(self) -> None:
+        """Values below 1us no longer collapse to '0.0000' as with fixed :.4f."""
+        assert fmt_time(1.5e-7) == "150.000 ns"
+
+    def test_zero(self) -> None:
+        assert fmt_time(0.0) == "0.000 ns"
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +168,7 @@ class TestPrintHeaders:
 
 class TestPrintResults:
     def test_correctness_results_ok(self, capsys, monkeypatch) -> None:
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         rows = [("/dir/task1.py", _ok_result())]
         print_correctness_results(rows, "/dir", col_file=20)
         out = capsys.readouterr().out
@@ -143,14 +176,14 @@ class TestPrintResults:
         assert "OK" in out
 
     def test_correctness_results_fail(self, capsys, monkeypatch) -> None:
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         rows = [("/dir/task1.py", _fail_result())]
         print_correctness_results(rows, "/dir", col_file=20)
         out = capsys.readouterr().out
         assert "FAIL" in out
 
     def test_benchmark_results(self, capsys, monkeypatch) -> None:
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         rows = [("/dir/task1.py", _bench_data())]
         print_benchmark_results(rows, "/dir", col_file=20)
         out = capsys.readouterr().out
@@ -159,6 +192,6 @@ class TestPrintResults:
 
     def test_empty_rows(self, capsys, monkeypatch) -> None:
         """Пустой список строк не вызывает исключений."""
-        monkeypatch.setattr(grader, "_RICH", False)
+        monkeypatch.setattr(reporter, "_RICH", False)
         print_correctness_results([], "/dir", col_file=20)
         print_benchmark_results([], "/dir", col_file=20)

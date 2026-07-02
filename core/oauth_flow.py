@@ -20,7 +20,7 @@ from __future__ import annotations
 import pathlib
 from typing import Any
 
-from stepik_client import (
+from core.stepik_client import (
     authorize_via_browser,
     create_user_session,
     make_session,
@@ -28,7 +28,7 @@ from stepik_client import (
     token_is_valid,
     wait_for_auth_code,
 )
-from storage import load_json_file, save_json_file
+from core.storage import load_json_file, save_json_file
 
 __all__ = [
     "load_secrets",

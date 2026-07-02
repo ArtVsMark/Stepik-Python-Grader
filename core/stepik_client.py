@@ -31,7 +31,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import requests
 from requests.auth import HTTPBasicAuth
 
-from storage import save_secrets
+from core.storage import save_secrets
 
 API_HOST = "https://stepik.org"
 
@@ -66,7 +66,7 @@ def make_session(access_token: str) -> requests.Session:
 def token_is_valid(secrets: dict[str, Any]) -> bool:
     """True если access_token существует и не истечёт в ближайшие 60 секунд."""
     access_token = str(secrets.get("access_token", "")).strip()
-    expires_at = float(str(secrets.get("expires_at", 0) or 0))
+    expires_at = float(secrets.get("expires_at", 0) or 0)
     return bool(access_token) and time.time() < expires_at - 60
 
 
@@ -196,7 +196,7 @@ def authorize_via_browser(
     )
     response.raise_for_status()
     token_data: dict[str, Any] = response.json()
-    token_data["expires_at"] = time.time() + float(str(token_data.get("expires_in", 3600)))
+    token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
     return token_data
 
 
@@ -224,7 +224,7 @@ def create_user_session(
     if refresh_token:
         try:
             token_data = refresh_access_token(client_id, client_secret, refresh_token)
-            token_data["expires_at"] = time.time() + float(str(token_data.get("expires_in", 3600)))
+            token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
             secrets.update(token_data)
             save_secrets(secrets_path, secrets)
             return make_session(str(secrets["access_token"]))

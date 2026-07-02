@@ -18,13 +18,16 @@ tests/test_microbench.py.
 from __future__ import annotations
 
 import subprocess
+import time
 from unittest.mock import patch
 
-import microbench_runner
-from microbench_runner import (
+from core import microbench_runner
+from core.microbench_runner import (
     MicrobenchResult,
     apply_relative_micro,
+    apply_relative_ranking,
     run_microbench,
+    run_microbench_with_timeout,
 )
 
 
@@ -34,6 +37,19 @@ def test_microbench_runner_basic_timing() -> None:
     assert result["error"] == ""
     assert len(result["times"]) == 5
     assert all(t > 0 for t in result["times"])
+
+
+def test_microbench_runner_reports_nonzero_peak_memory() -> None:
+    """peak_memory_mb (Issue #25) is tracemalloc-based, not the hardcoded 0.0."""
+    result = run_microbench("data = [0] * 1_000_000\n", stdin_data="", number=1)
+    assert result["error"] == ""
+    assert result["peak_memory_mb"] > 0.0
+
+
+def test_microbench_runner_peak_memory_present_on_error() -> None:
+    """peak_memory_mb key is always present, even on a runtime error (0.0)."""
+    result = run_microbench("raise ValueError('boom')\n", stdin_data="", number=2)
+    assert result["peak_memory_mb"] == 0.0
 
 
 def test_microbench_runner_with_stdin() -> None:
@@ -74,20 +90,22 @@ def test_microbench_runner_stdout_suppressed() -> None:
 
 def test_microbench_runner_timeout_returns_error() -> None:
     """subprocess.TimeoutExpired покрывает строки 158–159."""
-    with patch("microbench_runner.subprocess.run") as mock_run:
+    with patch("core.microbench_runner.subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=60)
         result = run_microbench("x = 1\n", stdin_data="", number=5)
     assert result["times"] == []
     assert result["error"] == "microbench timeout"
+    assert result["peak_memory_mb"] == 0.0
 
 
 def test_microbench_runner_unexpected_exception_returns_error() -> None:
     """OSError покрывает строки 160–161."""
-    with patch("microbench_runner.subprocess.run") as mock_run:
+    with patch("core.microbench_runner.subprocess.run") as mock_run:
         mock_run.side_effect = OSError("no such file")
         result = run_microbench("x = 1\n", stdin_data="", number=5)
     assert result["times"] == []
     assert "no such file" in result["error"]
+    assert result["peak_memory_mb"] == 0.0
 
 
 def test_microbench_runner_apply_relative_orders_by_median() -> None:
@@ -128,3 +146,71 @@ def test_microbench_runner_module_constants() -> None:
     assert microbench_runner.SIMILAR_THRESHOLD_PERCENT == 5.0
     assert isinstance(microbench_runner.WARMUP_RUNS, int)
     assert microbench_runner.WARMUP_RUNS >= 1
+
+
+# ---------------------------------------------------------------------------
+# apply_relative_ranking — shared by grader.py mode 3 and mode 4 (Issue #20 #6)
+# ---------------------------------------------------------------------------
+
+
+def test_apply_relative_ranking_empty_results_is_noop() -> None:
+    """An empty or all-error results dict is left untouched."""
+    results: dict[str, dict] = {}
+    apply_relative_ranking(results, similar_threshold=1.15, much_slower_threshold=1.5)
+    assert results == {}
+
+    only_errors = {"a.py": {"error": "boom"}}
+    apply_relative_ranking(only_errors, similar_threshold=1.15, much_slower_threshold=1.5)
+    assert only_errors == {"a.py": {"error": "boom"}}
+
+
+def test_apply_relative_ranking_labels_all_three_verdicts() -> None:
+    """Fastest is SIMILAR, moderately slower is SLOWER, much slower is MUCH_SLOWER."""
+    results = {
+        "fast.py": {"median": 1.0},
+        "slower.py": {"median": 1.3},
+        "much_slower.py": {"median": 2.0},
+        "broken.py": {"error": "SyntaxError"},
+    }
+    apply_relative_ranking(results, similar_threshold=1.15, much_slower_threshold=1.5)
+
+    assert results["fast.py"]["verdict"] == "SIMILAR"
+    assert results["fast.py"]["relative"] == 1.0
+    assert results["slower.py"]["verdict"] == "SLOWER"
+    assert results["much_slower.py"]["verdict"] == "MUCH_SLOWER"
+    assert "verdict" not in results["broken.py"]
+
+
+def test_apply_relative_ranking_zero_median_defaults_to_similar() -> None:
+    """min_median == 0 avoids division by zero and treats results as equally fast."""
+    results = {"a.py": {"median": 0.0}, "b.py": {"median": 0.0}}
+    apply_relative_ranking(results, similar_threshold=1.15, much_slower_threshold=1.5)
+    assert all(v["relative"] == 1.0 and v["verdict"] == "SIMILAR" for v in results.values())
+
+
+# ---------------------------------------------------------------------------
+# run_microbench_with_timeout (Sprint 7.3)
+# ---------------------------------------------------------------------------
+
+
+def test_run_microbench_with_timeout_returns_fn_result() -> None:
+    """A fn() that completes quickly returns its result unchanged."""
+    result = run_microbench_with_timeout(lambda: [0.001, 0.002], timeout=5.0)
+    assert result == [0.001, 0.002]
+
+
+def test_run_microbench_with_timeout_returns_empty_on_timeout() -> None:
+    """A fn() that outlives the timeout yields an empty list, not an exception.
+
+    Note: ThreadPoolExecutor's context manager waits for the worker thread to
+    actually finish on __exit__, so this call still blocks for _slow()'s full
+    duration -- only the *return value* changes, not the wall-clock time. Kept
+    short (0.3s) so the test suite stays fast.
+    """
+
+    def _slow() -> list[float]:
+        time.sleep(0.3)
+        return [0.001]
+
+    result = run_microbench_with_timeout(_slow, timeout=0.05)
+    assert result == []

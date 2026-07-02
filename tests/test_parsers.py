@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from parsers import parse_testblock_file
+from core.parsers import parse_testblock_file
 
 
 class TestParseTestblockFile:

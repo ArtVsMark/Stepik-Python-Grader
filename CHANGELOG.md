@@ -1,5 +1,301 @@
 # Changelog
 
+## [unreleased] / 2026-07-02 — move grader_core.py and reporter.py into core/ (#26)
+
+### Refactored
+- Relocated `grader_core.py` → `core/grader_core.py` and `reporter.py` →
+  `core/reporter.py` (via `git mv`, history preserved) — continuation of
+  the Issue #23 restructuring. All internal (non-entry-point) modules now
+  live under `core/`; only `grader.py`, `cli.py`, `config.py`,
+  `downloader.py`, and `diagnostik_stepik.py` remain at the project root.
+- Updated cross-imports: `core/grader_core.py`'s `from reporter import
+  _print_case_verbose` → `from core.reporter import _print_case_verbose`;
+  `core/reporter.py`'s `TYPE_CHECKING`-only `from grader_core import
+  TestCase` → `from core.grader_core import TestCase`.
+- Updated `grader.py`'s facade imports and `cli.py`'s imports to
+  `core.grader_core`/`core.reporter`.
+- Updated tests that imported these modules directly (bypassing the
+  `grader.py` facade, which was unaffected by this move): `import
+  grader_core`/`import reporter` → `from core import grader_core`/`from
+  core import reporter` in `tests/test_menu_modes.py`,
+  `tests/test_formatters.py`, `tests/test_grader_extra.py`, a local
+  `from grader_core import` in `tests/test_grader_core.py`; and
+  `unittest.mock.patch("reporter.X", ...)` string targets → `"core.reporter.X"`
+  in `tests/test_grader_coverage_gap.py` (13 occurrences).
+
+### Verified
+- 520 passed (3 skipped), 95.21% coverage; ruff check/format clean —
+  every test passed on the first run after the move (no follow-up fixes
+  needed), thanks to the exhaustive import/patch audit done before editing.
+- End-to-end: `python grader.py --version`, `python grader.py` (interactive
+  exit), and `python grader.py --mode 1 --file ...` against a real solution
+  all still work correctly through the new `core.grader_core`/`core.reporter`
+  import paths.
+
+### Closes
+- Issue #26
+
+## [unreleased] / 2026-07-02 — fix #25: real memory measurement in mode 4 (tracemalloc)
+
+### Fixed
+- **core/microbench_runner.py** — `run_microbench()`'s Memory column always
+  showed `0.00` in mode 4, because all 5 `timeit.repeat` runs share a single
+  subprocess and mode 3's psutil-RSS-in-a-thread approach can't attribute
+  memory to one run. Added `tracemalloc.start()`/`get_traced_memory()`
+  around the `timeit.repeat()` call inside `bench_script`; the peak is
+  printed as a distinct `MEM:<bytes>` line after the timing lines and parsed
+  separately, then returned as `peak_memory_mb` (bytes converted to MB) in
+  `run_microbench()`'s result dict — present on every return path (success,
+  timeout, `OSError`) so callers can rely on the key always existing.
+  Measures Python-heap peak, not process RSS — doesn't see memory allocated
+  by C extensions, documented in the module docstring.
+- **grader_core.py** — `run_microbench_mode()` no longer hardcodes
+  `stats["peak_memory_mb"] = 0.0`; now tracks a running max across all
+  benchmarked cases per solution, same as `run_benchmark()` does for mode 3.
+  Function-call blocks (routed through `run_single_test`) already had real
+  psutil-based `r["memory"]`; stdin blocks now get the new tracemalloc value
+  from `run_microbench()`. The two measurement methods are mixed within one
+  solution's aggregate max when its test cases include both block types —
+  consistent with how timings were already aggregated across both paths.
+
+### Tests
+- `tests/test_microbench_runner_module.py` — `run_microbench()` reports
+  nonzero memory for an allocating solution, and the `peak_memory_mb` key is
+  present (0.0) on the runtime-error, timeout, and `OSError` paths.
+- `tests/test_microbench_grader.py` — `run_microbench_mode()` aggregates a
+  nonzero `peak_memory_mb` for a memory-allocating stdin-mode solution; the
+  existing simple-addition test now also asserts the key's presence.
+- Fixed a stale mock in `tests/test_menu_modes.py` (`fake_microbench`) that
+  returned a dict without `peak_memory_mb`, which would now raise `KeyError`.
+
+### Verified
+- End-to-end: `python grader.py --mode 4 --dir ... --number 5` against a
+  solution allocating a 500k-element list now shows `7.90 MB` instead of
+  `0.00`.
+- 520 passed (3 skipped), 95.21% coverage; ruff check/format clean.
+
+### Closes
+- Issue #25
+
+## [unreleased] / 2026-07-02 — Sprint 8.1: non-interactive argparse CLI
+
+### Added
+- **cli.py** — `python grader.py --mode {1,2,3,4} [--file PATH] [--dir PATH]
+  [--repeats N] [--number N]` and `python grader.py --version`, alongside the
+  existing interactive menu (still the default when `--mode` is omitted).
+  Extracted each menu branch's body into standalone `_run_mode_1/2/3/4()`
+  functions with no logic changes, so both `_interactive_menu()` and the new
+  argparse dispatch in `main()` call the same code. `main()` now takes an
+  explicit `argv: list[str] | None = None` parameter (defaults to reading
+  `sys.argv[1:]`) so tests can pass argument lists directly instead of
+  depending on `sys.argv`, which contains pytest's own CLI flags during a
+  test run.
+- `__version__` moved from `grader.py` into `cli.py` (where `--version`
+  needs it) and re-exported back through `grader.py`'s facade import —
+  `cli.py` importing `__version__` from `grader.py` would have created a
+  cycle, since `grader.py` already imports `main` from `cli.py`.
+
+### Tests
+- `tests/test_cli.py` — `--version`, missing `--file`/`--dir` per mode
+  (`SystemExit`), invalid `--mode` choice, and dispatch-with-correct-arguments
+  for all four modes (including `--repeats`/`--number` defaults).
+
+### Verified
+- End-to-end: `python grader.py --version`, `--mode 1 --file ...`,
+  `--mode 3 --dir ... --repeats 3`, `--mode 4 --dir ... --number 100` all ran
+  correctly against a real solution/test-dir. Hit a pre-existing
+  `UnicodeEncodeError` when running directly under Git Bash on Windows
+  (console defaults to cp1251) — reproduced identically on the *unchanged*
+  interactive-menu path too, confirming it predates this change and isn't a
+  regression; not fixed here (out of scope, environment-specific,
+  `PYTHONIOENCODING=utf-8` resolves it).
+
+### Closes
+- CLAUDE.md Sprint 8.1
+
+## [unreleased] / 2026-07-02 — Sprint 7.2/7.3: BenchStats dataclass, microbench timeout helper
+
+### Added
+- **grader_core.py** — `BenchStats` dataclass (`timings: list[float]` with
+  `min`/`median`/`mean`/`stdev`/`max` properties and a `relative_to()`
+  helper). `run_benchmark()` and `_micro_stats()` both build one internally
+  and read its properties instead of independently recomputing
+  `min()`/`statistics.median()`/etc. — same dict-shaped return values as
+  before, so `reporter.py` and existing tests are unaffected. Added to
+  `grader_core.__all__` (re-exported via `grader.BenchStats`).
+- **core/microbench_runner.py** — `run_microbench_with_timeout(fn, timeout=60.0)`:
+  runs an arbitrary `fn() -> list[float]` in a single-worker
+  `ThreadPoolExecutor`, returning `[]` if it doesn't finish within `timeout`.
+  **Not wired into `run_microbench_mode()`**: `run_microbench()` already
+  wraps its `subprocess.run()` call in `timeout=60`, which reliably kills
+  the child process and unblocks the caller — layering a
+  `ThreadPoolExecutor` on top adds no protection and, on an actual timeout,
+  would abandon the worker thread without killing whatever it was running
+  (only `subprocess.run`'s own `timeout=` does that). Documented in the
+  function's docstring; kept available for a future `fn()` that isn't
+  already subprocess-bounded.
+
+### Tests
+- `tests/test_grader_core.py` — `BenchStats` field computation, zero-stdev
+  single-timing case, `relative_to()` (including zero-baseline), and a
+  cross-check that `_micro_stats()`'s dict matches a direct `BenchStats`
+  computation on the same timings.
+- `tests/test_microbench_runner_module.py` — `run_microbench_with_timeout()`
+  happy path and timeout-returns-`[]` path.
+
+### Closes
+- CLAUDE.md Sprint 7 (tasks 7.2, 7.3) — Sprint 7 fully done (7.1 core split
+  already closed #20 finding #4)
+
+## [unreleased] / 2026-07-02 — Sprint 6: sys.executable, normalizers cleanup, config.py
+
+### Added
+- **config.py** (new) — `GraderConfig` frozen dataclass + `load_config()` +
+  module-level `CONFIG` singleton. Reads overrides from `[tool.stepik-grader]`
+  in `pyproject.toml`; falls back to documented defaults if the file/section
+  is absent. `grader_core.py`'s `TIMEOUT_SECONDS`/`ENCODING`/
+  `SIMILAR_THRESHOLD`/`MUCH_SLOWER_THRESHOLD`/`MEASURE_CHILD_MEMORY`/
+  `MICROBENCH_MAX_CASES` now read their values from `CONFIG` at import time
+  (same names, same default values — `grader.py`'s `__all__` re-exports are
+  unaffected). `core/executor.py`'s `TIMEOUT` also reads
+  `CONFIG.executor_timeout`, wrapped in `try/except ImportError` with a
+  literal `10` fallback: `python core/executor.py` runs as a subprocess
+  script with `sys.path[0] == core/`, where `config.py` (at the project
+  root) isn't importable.
+- **tests/test_config.py** (new) — `GraderConfig` defaults, `frozen=True`
+  mutation raises `FrozenInstanceError`, `load_config()` against the real
+  `pyproject.toml`, missing-file fallback, unknown-key tolerance.
+
+### Fixed
+- **core/executor.py** — replaced the platform-dependent
+  `"python3" if sys.platform in {...} else "python"` with `sys.executable`,
+  which always points at the interpreter that launched grader (fixes a
+  latent Windows bug where `"python"` could resolve to a system interpreter
+  outside the active venv).
+
+### Changed
+- **core/normalizers.py** — `sort_lines()` and `normalize_whitespace()`
+  added to `__all__` and marked "experimental" in their docstrings (neither
+  is wired into any `grader_core.py` mode yet). Resolves the "not called in
+  production" NOTE comments without deleting fully-tested, working utilities.
+
+### Closes
+- CLAUDE.md Sprint 6 (tasks 6.1, 6.2, 6.3)
+
+## [unreleased] / 2026-07-02 — narrow except, menu coverage, float() cleanup, security docs (#21)
+
+### Fixed
+- **core/microbench_runner.py** — narrowed the broad `except Exception` around
+  `subprocess.run`/`float(line)` parsing to `except (OSError, ValueError)`,
+  the only two exception types that path can actually raise (subprocess
+  spawn failure and unparseable timing output).
+- **core/stepik_client.py** — simplified three redundant
+  `float(str(x or default))` conversions to `float(x or default)` in
+  `token_is_valid()` and the two `expires_at` computations; `float()`
+  already accepts int/float/str directly, so the intermediate `str()`
+  round-trip was a no-op.
+
+### Tests
+- **tests/test_cli.py** (new) — covers `_interactive_menu()` branches left
+  untested by the Sprint 7 split: mode 1/2/3/4 "not found" early-returns,
+  the mode-3 and mode-4 happy paths (including error-row printing), and
+  `_ask_bench_profile`/`_ask_micro_profile` custom-value prompts. `cli.py`
+  coverage: 40% → 97%; total project coverage: 88.97% → 95.48%.
+
+### Docs
+- **README.md** — rewrote "Ограничения и безопасность" to state the threat
+  model explicitly (no OS-level sandbox, no resource limits beyond wall-clock
+  timeouts, run only trusted solutions) and correct stale module paths
+  (`executor.py` → `core/executor.py`, clarifying that modes 1-3 actually run
+  through `grader_core.run_single_test`'s own `subprocess.Popen`, not through
+  `core/executor.py`, which is exercised only by its test suite).
+
+### Closes
+- Issue #21 (findings #7-#10) — closes the #18 tracker epic (#19, #20, #21 all done)
+
+## [unreleased] / 2026-07-02 — split grader.py into grader_core/reporter/cli (#20 finding #4)
+
+### Refactored
+- **grader.py** (1460 lines) split into three modules per Sprint 7 / issue #20
+  finding #4:
+  - `grader_core.py` — test-case loading, run-mode detection, wrapper
+    codegen, and the `run_single_test`/`run_tests`/`run_benchmark`/
+    `run_microbench_mode` execution pipeline.
+  - `reporter.py` — the `_console`/`_RICH` rich-optional singleton, all
+    `format_*`/`print_*` table functions, `_cprint`, and `_print_case_verbose`.
+  - `cli.py` — the interactive menu (`_interactive_menu`), load-profile
+    prompts, and a new `main()` entry point.
+  - `grader.py` itself is now an 8-statement backward-compatibility facade:
+    `from grader_core import *`, `from reporter import *`, plus explicit
+    re-exports of every private (`_`-prefixed) name and non-`__all__` public
+    name (`run_microbench`, `apply_relative_ranking`) that the test suite
+    references directly as `grader.X` — `from X import *` does not pull in
+    underscore-prefixed names, so these needed listing individually.
+- **pyproject.toml** — added a `per-file-ignores` entry for `grader.py`
+  (F401/F403/F405/I001), since every import in the facade is an intentional
+  re-export that static analysis can't otherwise verify as "used."
+
+### Fixed (test suite)
+- Several tests patched `grader._RICH` / `grader._console` / `grader.Table` /
+  `grader.Text` / `grader.run_tests` / `grader.run_single_test` /
+  `grader.run_microbench` expecting to influence behavior inside functions
+  that now live in `reporter.py`, `grader_core.py`, or `cli.py`. Python
+  resolves those names via each function's *own* module globals at call
+  time, not through `grader.py`'s re-exported copy, so patching `grader.X`
+  no longer had any effect on the patched function's behavior (two cases —
+  `test_grader_coverage_gap.py`'s rich-branch tests and
+  `test_menu_modes.py`'s benchmark-mode patches — actually failed with
+  `AssertionError`/`KeyError`; a few others silently degraded into testing
+  the wrong branch without erroring). Updated the patch targets in
+  `tests/test_grader_coverage_gap.py`, `tests/test_menu_modes.py`,
+  `tests/test_grader_extra.py`, and `tests/test_formatters.py` to point at
+  the module that actually owns each name (`reporter.X`, `cli.X`, or
+  `grader_core.X`).
+
+### Verified
+- 465 passed, 3 skipped, 88.97% coverage; `ruff check`/`ruff format --check`
+  clean; `echo 0 | python grader.py` smoke-tested end-to-end.
+
+### Closes
+- Issue #20, finding #4
+
+## [unreleased] / 2026-07-02 — dedupe parser, close import-cycle risk (fix #19)
+
+### Fixed
+- **grader.py** — removed the local `_parse_testblock_file` definition, which
+  had drifted into an exact duplicate of `core/parsers.py`'s
+  `parse_testblock_file`. `grader.py` now imports the canonical function
+  (aliased as `_parse_testblock_file` to preserve the existing private name
+  used by `tests/test_testblock.py` and `tests/test_grader_mock.py`).
+- **downloader.py** — replaced the local `from grader import
+  _parse_testblock_file` (inside `_download_github_tests()`) with a top-level
+  `from core.parsers import parse_testblock_file`. `downloader.py` no longer
+  imports `grader.py` at all — the local import was only masking the fact
+  that both modules depended on logic that already had a canonical home in
+  `parsers.py`.
+- **README.md** / **CLAUDE.md** — corrected stale test-count references
+  (355 → 461) and updated the DAG/structure diagrams to reflect both the
+  `core/` restructuring (#23) and the removed `downloader → grader` edge.
+
+### Closes
+- Issue #19 (findings #1 and #2; #3 addressed via the doc corrections above)
+
+## [unreleased] / 2026-07-02 — move internal modules into core/ (closes #23)
+
+### Refactored
+- Relocated `executor.py`, `normalizers.py`, `parsers.py`, `storage.py`,
+  `stepik_client.py`, `oauth_flow.py`, and `microbench_runner.py` into a new
+  `core/` package, separating entry-point scripts (`grader.py`,
+  `downloader.py`, `diagnostik_stepik.py`) from internal Infrastructure/
+  Utility modules. Added `core/__init__.py`. Updated every import site
+  across root scripts, intra-`core` imports, and tests (including
+  `unittest.mock.patch` target strings and `executor.py`'s subprocess
+  self-invocation paths). Added `"core"` to ruff's isort
+  `known-first-party` list.
+
+### Closes
+- Issue #23
+
 ## [unreleased] / 2026-06-25 — refactor: extract parsers.py (fix #9)
 
 ### Refactored

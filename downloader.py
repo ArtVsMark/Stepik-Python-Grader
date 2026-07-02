@@ -32,8 +32,9 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
-from oauth_flow import create_user_session, load_secrets_dict
-from stepik_client import (
+from core.oauth_flow import create_user_session, load_secrets_dict
+from core.parsers import parse_testblock_file
+from core.stepik_client import (
     fetch_course_data,
     fetch_lesson_data,
     fetch_section_data,
@@ -41,7 +42,7 @@ from stepik_client import (
     fetch_submission_data,
     fetch_unit_data,
 )
-from storage import load_json_file, save_json_file
+from core.storage import load_json_file, save_json_file
 
 CONFIG_FILE = "stepik_config.json"
 
@@ -199,7 +200,7 @@ def extract_function_name(template_code: str) -> str | None:
     except SyntaxError:
         return None
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             return node.name
     return None
 
@@ -281,7 +282,7 @@ def _is_function_style(input_text: str) -> bool:
         # Вызов функции на верхнем уровне (print, input, my_func(...)) → stdin-режим
         if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
             return False
-        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+        if isinstance(node, ast.Assign | ast.AnnAssign):
             has_assignment = True
 
     return has_assignment
@@ -482,10 +483,8 @@ def _download_github_tests(
             r = session.get(file_map[fname], timeout=30)
             r.raise_for_status()
             (tests_dir / fname).write_bytes(r.content)
-        from grader import _parse_testblock_file
-
         text = (tests_dir / "input.txt").read_text(encoding="utf-8")
-        count = len(_parse_testblock_file(text))
+        count = len(parse_testblock_file(text))
         print(f"  🔗 GitHub: скачаны input.txt + output.txt (Format 3): {count} тест(ов)")
         return count
 
