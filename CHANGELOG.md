@@ -1,5 +1,39 @@
 # Changelog
 
+## [unreleased] / 2026-07-02 — Sprint 7.2/7.3: BenchStats dataclass, microbench timeout helper
+
+### Added
+- **grader_core.py** — `BenchStats` dataclass (`timings: list[float]` with
+  `min`/`median`/`mean`/`stdev`/`max` properties and a `relative_to()`
+  helper). `run_benchmark()` and `_micro_stats()` both build one internally
+  and read its properties instead of independently recomputing
+  `min()`/`statistics.median()`/etc. — same dict-shaped return values as
+  before, so `reporter.py` and existing tests are unaffected. Added to
+  `grader_core.__all__` (re-exported via `grader.BenchStats`).
+- **core/microbench_runner.py** — `run_microbench_with_timeout(fn, timeout=60.0)`:
+  runs an arbitrary `fn() -> list[float]` in a single-worker
+  `ThreadPoolExecutor`, returning `[]` if it doesn't finish within `timeout`.
+  **Not wired into `run_microbench_mode()`**: `run_microbench()` already
+  wraps its `subprocess.run()` call in `timeout=60`, which reliably kills
+  the child process and unblocks the caller — layering a
+  `ThreadPoolExecutor` on top adds no protection and, on an actual timeout,
+  would abandon the worker thread without killing whatever it was running
+  (only `subprocess.run`'s own `timeout=` does that). Documented in the
+  function's docstring; kept available for a future `fn()` that isn't
+  already subprocess-bounded.
+
+### Tests
+- `tests/test_grader_core.py` — `BenchStats` field computation, zero-stdev
+  single-timing case, `relative_to()` (including zero-baseline), and a
+  cross-check that `_micro_stats()`'s dict matches a direct `BenchStats`
+  computation on the same timings.
+- `tests/test_microbench_runner_module.py` — `run_microbench_with_timeout()`
+  happy path and timeout-returns-`[]` path.
+
+### Closes
+- CLAUDE.md Sprint 7 (tasks 7.2, 7.3) — Sprint 7 fully done (7.1 core split
+  already closed #20 finding #4)
+
 ## [unreleased] / 2026-07-02 — Sprint 6: sys.executable, normalizers cleanup, config.py
 
 ### Added

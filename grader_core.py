@@ -39,6 +39,7 @@ from config import CONFIG
 from reporter import _print_case_verbose
 
 __all__ = [
+    "BenchStats",
     "TestCase",
     "is_function_only_solution",
     "is_solution_file",
@@ -109,6 +110,45 @@ class TestCase:
     input_lines: list[str]
     expected_lines: list[str]
     test_type: str = field(default="stdin")  # "stdin" | "function"
+
+
+@dataclass
+class BenchStats:
+    """Унифицированная статистика замеров для режимов 3 и 4.
+
+    Устраняет дублирование вычислений между run_benchmark() и _micro_stats().
+    """
+
+    timings: list[float]
+
+    @property
+    def min(self) -> float:
+        """Минимальное время замера."""
+        return min(self.timings)
+
+    @property
+    def median(self) -> float:
+        """Медианное время — основной ориентир при сравнении решений."""
+        return statistics.median(self.timings)
+
+    @property
+    def mean(self) -> float:
+        """Среднее время замера."""
+        return statistics.mean(self.timings)
+
+    @property
+    def stdev(self) -> float:
+        """Среднеквадратичное отклонение; 0.0 при единственном замере."""
+        return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
+
+    @property
+    def max(self) -> float:
+        """Максимальное время замера."""
+        return max(self.timings)
+
+    def relative_to(self, baseline: float) -> float:
+        """Возвращает median / baseline * 100 (процент от эталона)."""
+        return (self.median / baseline * 100) if baseline > 0 else 0.0
 
 
 def _is_safe_constant(node: ast.expr) -> bool:
@@ -900,29 +940,30 @@ def run_benchmark(
     if not times:
         return {"error": "no test cases", "runs": 0}
 
-    stats = {
+    bench_stats = BenchStats(timings=times)
+    return {
         "runs": len(times),
-        "min": min(times),
-        "max": max(times),
-        "mean": statistics.mean(times),
-        "median": statistics.median(times),
-        "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
+        "min": bench_stats.min,
+        "max": bench_stats.max,
+        "mean": bench_stats.mean,
+        "median": bench_stats.median,
+        "stdev": bench_stats.stdev,
         "peak_memory_mb": peak_mb,
         "relative": 1.0,
         "verdict": "SIMILAR",
         "error": "",
     }
-    return stats
 
 
 def _micro_stats(times: list[float]) -> dict[str, float]:
     """Вычислить статистику по списку замеров времени."""
+    bench_stats = BenchStats(timings=times)
     return {
-        "min": min(times),
-        "max": max(times),
-        "mean": statistics.mean(times),
-        "median": statistics.median(times),
-        "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
+        "min": bench_stats.min,
+        "max": bench_stats.max,
+        "mean": bench_stats.mean,
+        "median": bench_stats.median,
+        "stdev": bench_stats.stdev,
     }
 
 

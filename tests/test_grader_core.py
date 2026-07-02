@@ -257,3 +257,48 @@ def test_run_single_test_reports_re_for_invalid_function_name(tmp_path: pathlib.
     assert result["verdict"] == "RE"
     assert result["passed"] is False
     assert "Invalid module filename stem" in result["error"]
+
+
+# ---------------------------------------------------------------------------
+# BenchStats — shared stats between run_benchmark() and _micro_stats() (Sprint 7.2)
+# ---------------------------------------------------------------------------
+
+
+def test_bench_stats_computes_all_fields() -> None:
+    stats = grader.BenchStats(timings=[0.001, 0.002, 0.003, 0.004, 0.005])
+    assert stats.min == 0.001
+    assert stats.max == 0.005
+    assert stats.median == 0.003
+    assert stats.mean == pytest.approx(0.003)
+    assert stats.stdev > 0.0
+
+
+def test_bench_stats_stdev_zero_for_single_timing() -> None:
+    stats = grader.BenchStats(timings=[0.5])
+    assert stats.stdev == 0.0
+    assert stats.min == stats.max == stats.median == stats.mean == 0.5
+
+
+def test_bench_stats_relative_to() -> None:
+    stats = grader.BenchStats(timings=[0.002])
+    assert stats.relative_to(0.001) == pytest.approx(200.0)
+
+
+def test_bench_stats_relative_to_zero_baseline() -> None:
+    """baseline == 0 avoids division by zero, returns 0.0 rather than raising."""
+    stats = grader.BenchStats(timings=[0.002])
+    assert stats.relative_to(0.0) == 0.0
+
+
+def test_run_benchmark_and_micro_stats_agree_on_same_timings() -> None:
+    """run_benchmark()'s stats dict and _micro_stats() compute identically via BenchStats."""
+    from grader_core import _micro_stats
+
+    times = [0.01, 0.02, 0.015, 0.03]
+    micro = _micro_stats(times)
+    direct = grader.BenchStats(timings=times)
+    assert micro["min"] == direct.min
+    assert micro["max"] == direct.max
+    assert micro["median"] == direct.median
+    assert micro["mean"] == direct.mean
+    assert micro["stdev"] == direct.stdev

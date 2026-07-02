@@ -466,7 +466,7 @@ if __name__ == "__main__":
   4. Упростить grader.py → pytest tests/ -x -q ✅
 ```
 
-#### 7.2 NEW — `BenchStats` dataclass
+#### 7.2 ✅ NEW — `BenchStats` dataclass
 
 ```python
 # Добавить в grader_core.py (или bench_stats.py):
@@ -518,7 +518,14 @@ class BenchStats:
         return (self.median / baseline * 100) if baseline > 0 else 0.0
 ```
 
-#### 7.3 NEW — таймаут для microbench (режим 4)
+> Реализовано в `grader_core.py` (не в отдельном `bench_stats.py`) — оба
+> потребителя (`run_benchmark()`, `_micro_stats()`) уже живут там. Обе
+> функции по-прежнему возвращают `dict`, а не `BenchStats`-инстанс: внешний
+> контракт (ключи словаря, потребляемые `reporter.py` и тестами) не менялся,
+> `BenchStats` используется только для самого вычисления min/median/mean/
+> stdev/max в одном месте.
+
+#### 7.3 ✅ NEW — таймаут для microbench (режим 4)
 
 ```python
 # Добавить в microbench_runner.py:
@@ -549,6 +556,18 @@ def run_microbench_with_timeout(
         except concurrent.futures.TimeoutError:
             return []
 ```
+
+> Реализовано как описано, добавлена в `core/microbench_runner.py`. **Не
+> подключена** к текущим вызовам `run_microbench()` в `run_microbench_mode()`:
+> `run_microbench()` уже оборачивает свой `subprocess.run()` в `timeout=60`,
+> который надёжно убивает дочерний процесс и гарантированно разблокирует
+> вызывающий поток — `ThreadPoolExecutor`-обёртка поверх уже
+> subprocess-защищённого вызова не добавляет реальной защиты, а при
+> реальном таймауте **не убивает** зависший поток/подпроцесс (просто
+> перестаёт его ждать) — то есть может УХУДШИТЬ ситуацию (утечка
+> orphan-процесса) для вызовов, которые сами по себе не subprocess-bounded.
+> Оставлена как готовый строительный блок для будущего `fn()` без
+> собственного таймаута — см. докстринг функции.
 
 ---
 
