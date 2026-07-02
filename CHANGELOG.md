@@ -1,5 +1,40 @@
 # Changelog
 
+## [unreleased] / 2026-07-02 — move grader_core.py and reporter.py into core/ (#26)
+
+### Refactored
+- Relocated `grader_core.py` → `core/grader_core.py` and `reporter.py` →
+  `core/reporter.py` (via `git mv`, history preserved) — continuation of
+  the Issue #23 restructuring. All internal (non-entry-point) modules now
+  live under `core/`; only `grader.py`, `cli.py`, `config.py`,
+  `downloader.py`, and `diagnostik_stepik.py` remain at the project root.
+- Updated cross-imports: `core/grader_core.py`'s `from reporter import
+  _print_case_verbose` → `from core.reporter import _print_case_verbose`;
+  `core/reporter.py`'s `TYPE_CHECKING`-only `from grader_core import
+  TestCase` → `from core.grader_core import TestCase`.
+- Updated `grader.py`'s facade imports and `cli.py`'s imports to
+  `core.grader_core`/`core.reporter`.
+- Updated tests that imported these modules directly (bypassing the
+  `grader.py` facade, which was unaffected by this move): `import
+  grader_core`/`import reporter` → `from core import grader_core`/`from
+  core import reporter` in `tests/test_menu_modes.py`,
+  `tests/test_formatters.py`, `tests/test_grader_extra.py`, a local
+  `from grader_core import` in `tests/test_grader_core.py`; and
+  `unittest.mock.patch("reporter.X", ...)` string targets → `"core.reporter.X"`
+  in `tests/test_grader_coverage_gap.py` (13 occurrences).
+
+### Verified
+- 520 passed (3 skipped), 95.21% coverage; ruff check/format clean —
+  every test passed on the first run after the move (no follow-up fixes
+  needed), thanks to the exhaustive import/patch audit done before editing.
+- End-to-end: `python grader.py --version`, `python grader.py` (interactive
+  exit), and `python grader.py --mode 1 --file ...` against a real solution
+  all still work correctly through the new `core.grader_core`/`core.reporter`
+  import paths.
+
+### Closes
+- Issue #26
+
 ## [unreleased] / 2026-07-02 — fix #25: real memory measurement in mode 4 (tracemalloc)
 
 ### Fixed

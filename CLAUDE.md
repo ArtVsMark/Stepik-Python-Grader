@@ -39,17 +39,17 @@ git checkout main && git pull && git checkout -b ArtVsMark-patch-1
 Stepik-Python-Grader/
 │
 ├── grader.py                 # Тонкий фасад обратной совместимости (Sprint 7 ✅)
-│                             # реэкспортирует grader_core.py / reporter.py / cli.py
-├── grader_core.py            # Application: загрузка тест-кейсов, исполнение решений
-├── reporter.py                # Application/UI: rich-таблицы, _console, verbose-diff
+│                             # реэкспортирует core/grader_core.py / core/reporter.py / cli.py
 ├── cli.py                     # Application/CLI: интерактивное меню (режимы 0-4)
 ├── config.py                  # Application/Configuration: GraderConfig, CONFIG (Sprint 6.3 ✅)
 │
 ├── downloader.py             # Domain: скачивание задач, ZIP/HTML, slugify
 ├── diagnostik_stepik.py      # Application: диагностика API и токена
 │
-├── core/                     # Internal Infrastructure/Utility модули (Issue #23)
+├── core/                     # Internal Infrastructure/Utility модули (Issue #23, #26)
 │   ├── __init__.py
+│   ├── grader_core.py        # Application: загрузка тест-кейсов, исполнение решений
+│   ├── reporter.py           # Application/UI: rich-таблицы, _console, verbose-diff
 │   ├── executor.py           # Infrastructure: compile+exec в subprocess
 │   ├── microbench_runner.py  # Infrastructure: timeit через subprocess
 │   ├── normalizers.py        # Utilities: normalize_floats (leaf, нет зависимостей)
@@ -78,20 +78,20 @@ Stepik-Python-Grader/
 ### Граф зависимостей (DAG, без циклов)
 
 ```
-grader.py ──→ grader_core.py
-grader.py ──→ reporter.py
+grader.py ──→ core/grader_core.py
+grader.py ──→ core/reporter.py
 grader.py ──→ cli.py
 
-grader_core.py ──→ reporter.py       # _print_case_verbose (run_tests verbose)
-grader_core.py ──→ config.py         # CONFIG (TIMEOUT_SECONDS и т.д.)
-grader_core.py ──→ core/executor.py
-grader_core.py ──→ core/microbench_runner.py
-grader_core.py ──→ core/normalizers.py
-grader_core.py ──→ core/parsers.py
-grader_core.py ──→ core/storage.py
+core/grader_core.py ──→ core/reporter.py   # _print_case_verbose (run_tests verbose)
+core/grader_core.py ──→ config.py          # CONFIG (TIMEOUT_SECONDS и т.д.)
+core/grader_core.py ──→ core/executor.py
+core/grader_core.py ──→ core/microbench_runner.py
+core/grader_core.py ──→ core/normalizers.py
+core/grader_core.py ──→ core/parsers.py
+core/grader_core.py ──→ core/storage.py
 
-cli.py ──→ grader_core.py
-cli.py ──→ reporter.py
+cli.py ──→ core/grader_core.py
+cli.py ──→ core/reporter.py
 cli.py ──→ core/microbench_runner.py  # apply_relative_ranking
 
 core/executor.py ──→ config.py       # CONFIG.executor_timeout (graceful fallback
@@ -125,6 +125,16 @@ core/stepik_client.py ──→ core/storage.py
 > import *`, явные реэкспорты приватных имён (`_verdict`, `_console`, `_RICH`,
 > и т.д.), на которые опирается тестовый набор. `__all__` не изменился —
 > обратная совместимость сохранена.
+
+> Issue #26 (2026-07): grader_core.py и reporter.py перенесены в `core/`
+> (продолжение #23 — теперь ВСЕ внутренние модули живут в `core/`, в корне
+> остаются только точки входа `grader.py`/`cli.py`/`downloader.py`/
+> `diagnostik_stepik.py` и `config.py`). `grader.py` и `cli.py` импортируют
+> `from core.grader_core import ...` / `from core.reporter import ...`.
+> Тесты, обращавшиеся к этим модулям напрямую (не через фасад `grader.py`),
+> обновлены: `import grader_core`/`import reporter` → `from core import
+> grader_core`/`from core import reporter`; `patch("reporter.X")` →
+> `patch("core.reporter.X")`.
 
 ---
 

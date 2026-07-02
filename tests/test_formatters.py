@@ -8,7 +8,7 @@ print_correctness_results, print_benchmark_results.
 
 from __future__ import annotations
 
-import reporter
+from core import reporter
 from grader import (
     fmt_time,
     format_benchmark_row,

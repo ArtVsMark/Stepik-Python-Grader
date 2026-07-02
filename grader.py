@@ -2,7 +2,7 @@
 
 Архитектурный слой: Application.
 Реэкспортирует публичные и приватные (тестируемые напрямую) символы из
-grader_core.py (загрузка/исполнение), reporter.py (вывод) и cli.py (меню).
+core/grader_core.py (загрузка/исполнение), core/reporter.py (вывод) и cli.py (меню).
 
 С версии, где выполнен Issue #20 finding #4 / CLAUDE.md Sprint 7, сам файл
 не содержит логики — она перенесена в три модуля выше. Инвариант обратной
@@ -14,8 +14,8 @@ grader_core.py (загрузка/исполнение), reporter.py (вывод)
 
 from __future__ import annotations
 
-from grader_core import *  # noqa: F401, F403
-from grader_core import (
+from core.grader_core import *  # noqa: F401, F403
+from core.grader_core import (
     _ast_function_name,
     _apply_run_mode_override,
     _build_call_wrapper,
@@ -35,8 +35,8 @@ from grader_core import (
     apply_relative_ranking,
     run_microbench,
 )
-from reporter import *  # noqa: F401, F403
-from reporter import (
+from core.reporter import *  # noqa: F401, F403
+from core.reporter import (
     Console,
     Table,
     Text,

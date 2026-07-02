@@ -47,9 +47,9 @@
 | `storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
 | `stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
-| `grader.py` | Application | Тонкий фасад обратной совместимости — реэкспортирует `grader_core.py`, `reporter.py`, `cli.py` |
-| `grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
-| `reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA |
+| `grader.py` | Application | Тонкий фасад обратной совместимости — реэкспортирует `core/grader_core.py`, `core/reporter.py`, `cli.py` |
+| `core/grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
+| `core/reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA |
 | `cli.py` | Application / CLI | Интерактивное меню (режимы 0-4), профили нагрузки |
 | `executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; импортируется `grader.py` |
@@ -82,13 +82,13 @@ downloader.py          ──→  core/storage.py
 downloader.py          ──→  core/stepik_client.py
 downloader.py          ──→  core/parsers.py
 core/stepik_client.py ──→  core/storage.py
-grader.py              ──→  grader_core.py, reporter.py, cli.py  (тонкий фасад)
-grader_core.py         ──→  reporter.py           ← _print_case_verbose (run_tests verbose)
-grader_core.py         ──→  core/executor.py
-grader_core.py         ──→  core/microbench_runner.py
-grader_core.py         ──→  core/normalizers.py
-grader_core.py         ──→  core/parsers.py
-cli.py                 ──→  grader_core.py, reporter.py, core/microbench_runner.py
+grader.py              ──→  core/grader_core.py, core/reporter.py, cli.py  (тонкий фасад)
+core/grader_core.py    ──→  core/reporter.py     ← _print_case_verbose (run_tests verbose)
+core/grader_core.py    ──→  core/executor.py
+core/grader_core.py    ──→  core/microbench_runner.py
+core/grader_core.py    ──→  core/normalizers.py
+core/grader_core.py    ──→  core/parsers.py
+cli.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
 diagnostik_stepik.py ──→  core/stepik_client.py
 diagnostik_stepik.py ──→  downloader.py       ← parse_stepik_step_url
 downloader.py        ──→  core/oauth_flow.py
@@ -105,12 +105,12 @@ downloader.py больше не импортирует grader.py: дублиру
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│  Domain / Application  (root)                                 │
+│  Domain / Application  (root — только точки входа)             │
 │  downloader.py  │  grader.py (facade)  │  diagnostik_stepik   │
 ├───────────────────────────────────────────────────────────────┤
-│  Application  (грейдер, разбит по SRP — Sprint 7)             │
-│  grader_core.py (исполнение)  │  reporter.py (вывод)          │
-│  cli.py (меню)                                                 │
+│  Application  (core/, грейдер разбит по SRP — Sprint 7)       │
+│  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
+│  cli.py (меню, остаётся в root — публичная точка входа)        │
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure  (core/)                                       │
 │  core/stepik_client.py  │  core/executor.py                    │
@@ -130,14 +130,14 @@ downloader.py больше не импортирует grader.py: дублиру
 ```
 Stepik-Python-Grader/
 ├── grader.py                    # Тонкий фасад обратной совместимости (Sprint 7)
-├── grader_core.py               # Загрузка тест-кейсов, исполнение решений
-├── reporter.py                   # rich-таблицы, вывод, verbose-diff
 ├── cli.py                        # Интерактивное меню (режимы 0-4)
 ├── config.py                     # GraderConfig, CONFIG — единая конфигурация
 ├── downloader.py                # Domain: конфиг, slugify, построение папок, оркестрация API
 ├── diagnostik_stepik.py       # Диагностика API и токена
-├── core/                       # Internal Infrastructure/Utility модули
+├── core/                       # Internal Infrastructure/Utility модули (Issue #23, #26)
 │   ├── __init__.py
+│   ├── grader_core.py         # Загрузка тест-кейсов, исполнение решений
+│   ├── reporter.py            # rich-таблицы, вывод, verbose-diff
 │   ├── executor.py            # Запускатель решений: compile + exec с таймаутом
 │   ├── microbench_runner.py   # Timeit-микробенчмарк через subprocess + os.devnull
 │   ├── normalizers.py         # Нормализация вывода: округление float, sort/whitespace

@@ -292,7 +292,7 @@ def test_bench_stats_relative_to_zero_baseline() -> None:
 
 def test_run_benchmark_and_micro_stats_agree_on_same_timings() -> None:
     """run_benchmark()'s stats dict and _micro_stats() compute identically via BenchStats."""
-    from grader_core import _micro_stats
+    from core.grader_core import _micro_stats
 
     times = [0.01, 0.02, 0.015, 0.03]
     micro = _micro_stats(times)

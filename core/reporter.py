@@ -3,9 +3,10 @@
 Архитектурный слой: Application / UI.
 Владеет rich-опциональной зависимостью (_console/_RICH) и всеми функциями
 форматирования/печати таблиц корректности и бенчмарка. Не содержит бизнес-логики
-запуска решений — это grader_core.py.
+запуска решений — это core/grader_core.py.
 
 Извлечён из grader.py (Issue #20, finding #4 / CLAUDE.md Sprint 7, шаг 1).
+Перенесён в core/ (Issue #26).
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from grader_core import TestCase
+    from core.grader_core import TestCase
 
 __all__ = [
     "fmt_time",

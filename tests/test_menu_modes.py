@@ -14,7 +14,7 @@ import pathlib
 
 import cli
 import grader
-import grader_core
+from core import grader_core
 from grader import (
     _resolve_test_dir_from_input,
     run_benchmark,

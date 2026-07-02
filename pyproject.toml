@@ -36,8 +36,8 @@ ignore = ["S101"]
 known-first-party = ["grader", "core", "config"]
 
 [tool.ruff.lint.per-file-ignores]
-# grader.py is a pure backward-compat re-export facade over grader_core.py /
-# reporter.py / cli.py -- every import in it is intentionally "unused" here.
+# grader.py is a pure backward-compat re-export facade over core/grader_core.py /
+# core/reporter.py / cli.py -- every import in it is intentionally "unused" here.
 "grader.py" = ["F401", "F403", "F405", "I001"]
 
 [tool.pytest.ini_options]

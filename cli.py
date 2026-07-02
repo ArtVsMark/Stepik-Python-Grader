@@ -1,8 +1,8 @@
 """cli.py — интерактивное меню и argparse CLI грейдера (режимы 0-4).
 
 Архитектурный слой: Application / CLI.
-Оркестрирует grader_core (загрузка/исполнение) и reporter (вывод таблиц) —
-не содержит собственной бизнес-логики запуска решений.
+Оркестрирует core.grader_core (загрузка/исполнение) и core.reporter
+(вывод таблиц) — не содержит собственной бизнес-логики запуска решений.
 
 Non-interactive запуск (Sprint 8.1):
     python grader.py --mode 1 --file path/to/task.py
@@ -23,8 +23,7 @@ import os
 import pathlib
 from typing import Any
 
-from core.microbench_runner import apply_relative_ranking
-from grader_core import (
+from core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
     SIMILAR_THRESHOLD,
     _resolve_test_dir,
@@ -34,7 +33,8 @@ from grader_core import (
     run_microbench_mode,
     run_tests,
 )
-from reporter import _rich_track, print_benchmark_results, print_correctness_results
+from core.microbench_runner import apply_relative_ranking
+from core.reporter import _rich_track, print_benchmark_results, print_correctness_results
 
 __all__ = ["main"]
 

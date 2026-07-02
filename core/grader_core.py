@@ -8,10 +8,11 @@
   - генерацию wrapper-скриптов для function-mode и их исполнение в subprocess,
   - агрегацию статистики (run_tests, run_benchmark, run_microbench_mode).
 
-Не содержит вывода (rich-таблицы) — это reporter.py; не содержит CLI/меню —
+Не содержит вывода (rich-таблицы) — это core/reporter.py; не содержит CLI/меню —
 это cli.py.
 
 Извлечён из grader.py (Issue #20, finding #4 / CLAUDE.md Sprint 7, шаг 2).
+Перенесён в core/ (Issue #26).
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ from typing import Any
 import psutil
 
 from config import CONFIG
-from reporter import _print_case_verbose
+from core.reporter import _print_case_verbose
 
 __all__ = [
     "BenchStats",

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pathlib
 
-import reporter
+from core import reporter
 from grader import (
     TestCase,
     _correctness_status,
