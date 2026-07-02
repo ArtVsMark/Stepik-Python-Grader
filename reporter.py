@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from grader_core import TestCase
 
 __all__ = [
+    "fmt_time",
     "format_correctness_row",
     "print_correctness_header",
     "print_correctness_results",
@@ -55,7 +56,25 @@ except ImportError:  # pragma: no cover
         return sequence
 
 
-_SEP = "-" * 92
+_SEP = "-" * 107
+
+
+def fmt_time(t: float) -> str:
+    """Отформатировать время с автовыбором единиц (s / ms / µs / ns).
+
+    Фиксированный ``:.4f`` (секунды) обнуляет суб-миллисекундные тайминги в
+    выводе режимов 3/4 — например, 150 мкс печаталось как "0.0001" или
+    "0.0000". Автовыбор единиц сохраняет значащие цифры на любом масштабе.
+    Используется только для колонок min/median/mean/max/stdev бенчмарка
+    (режимы 3/4); режимы 1/2 (format_correctness_row) не затронуты.
+    """
+    if t >= 1:
+        return f"{t:.3f} s"
+    if t >= 1e-3:
+        return f"{t * 1e3:.3f} ms"
+    if t >= 1e-6:
+        return f"{t * 1e6:.3f} µs"
+    return f"{t * 1e9:.3f} ns"
 
 
 def format_correctness_row(
@@ -94,9 +113,9 @@ def format_benchmark_row(path: str, base_dir: str, data: dict[str, Any], *, col_
     rel_path = os.path.relpath(path, base_dir)
     return (
         f"{rel_path:<{col_file}} {data['runs']:>4}  "
-        f"{data['min']:>7.4f}  {data['median']:>7.4f}  "
-        f"{data['mean']:>7.4f}  {data['max']:>7.4f}  "
-        f"{data['stdev']:>7.4f}  "
+        f"{fmt_time(data['min']):>10}  {fmt_time(data['median']):>10}  "
+        f"{fmt_time(data['mean']):>10}  {fmt_time(data['max']):>10}  "
+        f"{fmt_time(data['stdev']):>10}  "
         f"{data['peak_memory_mb']:>7.2f} MB  "
         f"{data['relative'] * 100:>7.1f}%  {data['verdict']}"
     )
@@ -107,8 +126,8 @@ def print_benchmark_header(*, col_file: int) -> None:
     print(_SEP)
     print(
         f"{'File':<{col_file}} {'Runs':>4}  "
-        f"{'Min':>7}  {'Median':>7}  {'Mean':>7}  {'Max':>7}  "
-        f"{'Std dev':>7}  {'Memory':>9}  {'Relative':>8}  {'Verdict'}"
+        f"{'Min':>10}  {'Median':>10}  {'Mean':>10}  {'Max':>10}  "
+        f"{'Std dev':>10}  {'Memory':>9}  {'Relative':>8}  {'Verdict'}"
     )
     print(_SEP)
 
@@ -190,11 +209,11 @@ def print_benchmark_results(
         table.add_column("File", style="cyan", no_wrap=True)
         for name, mw in [
             ("Runs", 4),
-            ("Min", 7),
-            ("Median", 7),
-            ("Mean", 7),
-            ("Max", 7),
-            ("Std dev", 7),
+            ("Min", 10),
+            ("Median", 10),
+            ("Mean", 10),
+            ("Max", 10),
+            ("Std dev", 10),
             ("Memory", 9),
         ]:
             table.add_column(name, justify="right", min_width=mw)
@@ -206,11 +225,11 @@ def print_benchmark_results(
             table.add_row(
                 os.path.relpath(path, base_dir),
                 str(data["runs"]),
-                f"{data['min']:.4f}",
-                f"{data['median']:.4f}",
-                f"{data['mean']:.4f}",
-                f"{data['max']:.4f}",
-                f"{data['stdev']:.4f}",
+                fmt_time(data["min"]),
+                fmt_time(data["median"]),
+                fmt_time(data["mean"]),
+                fmt_time(data["max"]),
+                fmt_time(data["stdev"]),
                 f"{data['peak_memory_mb']:.2f}",
                 f"{data['relative'] * 100:.1f}%",
                 Text(verdict, style=color),
