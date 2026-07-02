@@ -21,9 +21,9 @@ from urllib.parse import urlencode
 
 import requests
 
+from core.oauth_flow import authorize_via_browser, load_secrets, make_session
+from core.stepik_client import API_HOST
 from downloader import parse_stepik_step_url
-from oauth_flow import authorize_via_browser, load_secrets, make_session
-from stepik_client import API_HOST
 
 # Задача 6: таймаут ожидания OAuth-кода от браузера
 OAUTH_TIMEOUT_SECONDS = 120

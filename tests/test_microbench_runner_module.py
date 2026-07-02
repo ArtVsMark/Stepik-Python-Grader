@@ -20,8 +20,8 @@ from __future__ import annotations
 import subprocess
 from unittest.mock import patch
 
-import microbench_runner
-from microbench_runner import (
+from core import microbench_runner
+from core.microbench_runner import (
     MicrobenchResult,
     apply_relative_micro,
     run_microbench,
@@ -74,7 +74,7 @@ def test_microbench_runner_stdout_suppressed() -> None:
 
 def test_microbench_runner_timeout_returns_error() -> None:
     """subprocess.TimeoutExpired покрывает строки 158–159."""
-    with patch("microbench_runner.subprocess.run") as mock_run:
+    with patch("core.microbench_runner.subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=60)
         result = run_microbench("x = 1\n", stdin_data="", number=5)
     assert result["times"] == []
@@ -83,7 +83,7 @@ def test_microbench_runner_timeout_returns_error() -> None:
 
 def test_microbench_runner_unexpected_exception_returns_error() -> None:
     """OSError покрывает строки 160–161."""
-    with patch("microbench_runner.subprocess.run") as mock_run:
+    with patch("core.microbench_runner.subprocess.run") as mock_run:
         mock_run.side_effect = OSError("no such file")
         result = run_microbench("x = 1\n", stdin_data="", number=5)
     assert result["times"] == []

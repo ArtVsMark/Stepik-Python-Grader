@@ -95,15 +95,15 @@ except ImportError:  # pragma: no cover
 # чтобы иметь доступ к замеру памяти (psutil) и точному времени.
 # Импортируем RunResult для аннотаций и совместимости.
 try:
-    from executor import RunResult as _ExecutorRunResult  # noqa: F401  (реэкспорт для тестов)
+    from core.executor import RunResult as _ExecutorRunResult  # noqa: F401  (реэкспорт для тестов)
 except ImportError:
     _ExecutorRunResult = None  # type: ignore[assignment,misc]
 
 # microbench_runner.py / normalizers.py — первоисточники timeit-бенчмарка и
 # нормализации float-вывода. grader делегирует им вместо inline-дубликатов.
-from microbench_runner import run_microbench
-from normalizers import normalize_floats as _normalize_output_line
-from storage import load_json_file
+from core.microbench_runner import run_microbench
+from core.normalizers import normalize_floats as _normalize_output_line
+from core.storage import load_json_file
 
 # ---------------------------------------------------------------------------
 # Константы

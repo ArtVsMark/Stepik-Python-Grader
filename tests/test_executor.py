@@ -9,8 +9,8 @@ import textwrap
 
 import pytest
 
-import executor
-from executor import RunResult, _timeout_handler
+from core import executor
+from core.executor import RunResult, _timeout_handler
 
 # ---------------------------------------------------------------------------
 # run_solution — базовые сценарии
@@ -146,7 +146,7 @@ def test_timeout_handler_message_contains_timeout_value() -> None:
 def test_main_prints_output() -> None:
     """executor.py как __main__ исполняет код из stdin и печатает результат."""
     proc = subprocess.run(
-        [sys.executable, "executor.py"],
+        [sys.executable, "core/executor.py"],
         input="print('from_main')",
         capture_output=True,
         text=True,
@@ -159,7 +159,7 @@ def test_main_prints_output() -> None:
 def test_main_syntax_error_exits_nonzero() -> None:
     """SyntaxError в коде → ненулевой exit code."""
     proc = subprocess.run(
-        [sys.executable, "executor.py"],
+        [sys.executable, "core/executor.py"],
         input="def bad(",
         capture_output=True,
         text=True,
@@ -172,7 +172,7 @@ def test_main_syntax_error_exits_nonzero() -> None:
 def test_main_runtime_exception_exits_nonzero() -> None:
     """RuntimeError → ненулевой exit code, traceback в stderr."""
     proc = subprocess.run(
-        [sys.executable, "executor.py"],
+        [sys.executable, "core/executor.py"],
         input="raise RuntimeError('boom')",
         capture_output=True,
         text=True,
@@ -185,7 +185,7 @@ def test_main_runtime_exception_exits_nonzero() -> None:
 def test_main_empty_code_exits_zero() -> None:
     """Пустой код успешно завершается с кодом 0."""
     proc = subprocess.run(
-        [sys.executable, "executor.py"],
+        [sys.executable, "core/executor.py"],
         input="",
         capture_output=True,
         text=True,
@@ -198,7 +198,7 @@ def test_main_multiline_code() -> None:
     """Многострочный код выполняется корректно."""
     code = "a = 2\nb = 3\nprint(a * b)"
     proc = subprocess.run(
-        [sys.executable, "executor.py"],
+        [sys.executable, "core/executor.py"],
         input=code,
         capture_output=True,
         text=True,
@@ -216,7 +216,9 @@ def test_main_multiline_code() -> None:
 @pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="SIGALRM not available on Windows")
 def test_main_sigalrm_timeout_fires() -> None:
     """SIGALRM срабатывает и прерывает бесконечный цикл внутри main()."""
-    cmd = "import os; os.environ['EXECUTOR_TIMEOUT']='1'; import executor; executor.main()"
+    cmd = (
+        "import os; os.environ['EXECUTOR_TIMEOUT']='1'\nfrom core import executor; executor.main()"
+    )
     proc = subprocess.run(
         [sys.executable, "-c", cmd],
         input="while True: pass",
@@ -231,7 +233,9 @@ def test_main_sigalrm_timeout_fires() -> None:
 @pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="SIGALRM not available on Windows")
 def test_main_sigalrm_alarm_reset_after_success() -> None:
     """SIGALRM сбрасывается после успешного завершения (signal.alarm(0) в finally)."""
-    cmd = "import os; os.environ['EXECUTOR_TIMEOUT']='5'; import executor; executor.main()"
+    cmd = (
+        "import os; os.environ['EXECUTOR_TIMEOUT']='5'\nfrom core import executor; executor.main()"
+    )
     proc = subprocess.run(
         [sys.executable, "-c", cmd],
         input="print('done')",
@@ -247,7 +251,7 @@ def test_main_sigalrm_alarm_reset_after_success() -> None:
 def test_main_namespace_isolation() -> None:
     """main() выполняет код в изолированном namespace — не видит переменные executor.py."""
     proc = subprocess.run(
-        [sys.executable, "executor.py"],
+        [sys.executable, "core/executor.py"],
         input="print(type(__builtins__))",
         capture_output=True,
         text=True,

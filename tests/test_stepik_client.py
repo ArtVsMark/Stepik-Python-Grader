@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from stepik_client import (
+from core.stepik_client import (
     CACHE_DIR,
     CACHE_TTL_SECONDS,
     _get_with_retry,
@@ -58,7 +58,7 @@ class TestGetWithRetry:
             requests.ConnectionError("timeout"),
             mock_resp,
         ]
-        with patch("stepik_client.time.sleep"):
+        with patch("core.stepik_client.time.sleep"):
             result = _get_with_retry(mock_session, "http://example.com", retries=3, backoff=0.01)
         assert result is mock_resp
         assert mock_session.get.call_count == 3
@@ -66,7 +66,7 @@ class TestGetWithRetry:
     def test_raises_after_max_retries(self):
         mock_session = MagicMock()
         mock_session.get.side_effect = requests.ConnectionError("always fails")
-        with patch("stepik_client.time.sleep"):
+        with patch("core.stepik_client.time.sleep"):
             with pytest.raises(requests.ConnectionError):
                 _get_with_retry(mock_session, "http://example.com", retries=2, backoff=0.01)
         assert mock_session.get.call_count == 2

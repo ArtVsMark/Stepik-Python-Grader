@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from normalizers import normalize_floats, normalize_whitespace, sort_lines
+from core.normalizers import normalize_floats, normalize_whitespace, sort_lines
 
 # ---------------------------------------------------------------------------
 # normalize_floats — основные сценарии

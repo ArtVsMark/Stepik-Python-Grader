@@ -13,8 +13,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import stepik_client
-from stepik_client import (
+from core import stepik_client
+from core.stepik_client import (
     _cached_api_get,
     _get_with_retry,
     authorize_via_browser,
@@ -40,9 +40,9 @@ class TestAuthorizeViaBrowser:
             "expires_in": 3600,
         }
         with (
-            patch("stepik_client.webbrowser.open") as mock_open,
-            patch("stepik_client.wait_for_auth_code", return_value="CODE123") as mock_wait,
-            patch("stepik_client.requests.post", return_value=token_resp) as mock_post,
+            patch("core.stepik_client.webbrowser.open") as mock_open,
+            patch("core.stepik_client.wait_for_auth_code", return_value="CODE123") as mock_wait,
+            patch("core.stepik_client.requests.post", return_value=token_resp) as mock_post,
         ):
             result = authorize_via_browser("cid", "csecret", "http://localhost:8080/cb")
 
@@ -59,9 +59,9 @@ class TestAuthorizeViaBrowser:
         token_resp.raise_for_status = MagicMock()
         token_resp.json.return_value = {"access_token": "AT", "expires_in": 100}
         with (
-            patch("stepik_client.webbrowser.open", side_effect=OSError("no display")),
-            patch("stepik_client.wait_for_auth_code", return_value="CODE"),
-            patch("stepik_client.requests.post", return_value=token_resp),
+            patch("core.stepik_client.webbrowser.open", side_effect=OSError("no display")),
+            patch("core.stepik_client.wait_for_auth_code", return_value="CODE"),
+            patch("core.stepik_client.requests.post", return_value=token_resp),
         ):
             result = authorize_via_browser("cid", "csecret", "https://localhost/cb")
         assert result["access_token"] == "AT"
@@ -72,9 +72,9 @@ class TestAuthorizeViaBrowser:
         token_resp.raise_for_status = MagicMock()
         token_resp.json.return_value = {"access_token": "AT", "expires_in": 100}
         with (
-            patch("stepik_client.webbrowser.open"),
-            patch("stepik_client.wait_for_auth_code", return_value="C") as mock_wait,
-            patch("stepik_client.requests.post", return_value=token_resp),
+            patch("core.stepik_client.webbrowser.open"),
+            patch("core.stepik_client.wait_for_auth_code", return_value="C") as mock_wait,
+            patch("core.stepik_client.requests.post", return_value=token_resp),
         ):
             authorize_via_browser("cid", "cs", "https://example.org")
         mock_wait.assert_called_once_with("example.org", 80, "/")
@@ -101,7 +101,7 @@ class TestCachedApiGet:
         session = MagicMock()
         with (
             patch.object(stepik_client, "CACHE_DIR", tmp_path / "cache"),
-            patch("stepik_client._get_with_retry", return_value=resp) as mock_get,
+            patch("core.stepik_client._get_with_retry", return_value=resp) as mock_get,
         ):
             data = _cached_api_get(session, "http://api/lessons/1")
         assert data == {"lessons": [{"id": 1}]}
@@ -117,7 +117,7 @@ class TestCachedApiGet:
         cache_dir = tmp_path / "cache"
         with (
             patch.object(stepik_client, "CACHE_DIR", cache_dir),
-            patch("stepik_client._get_with_retry", return_value=resp) as mock_get,
+            patch("core.stepik_client._get_with_retry", return_value=resp) as mock_get,
         ):
             _cached_api_get(session, "http://api/x")  # первый — пишет кэш
             assert mock_get.call_count == 1
@@ -135,7 +135,7 @@ class TestCachedApiGet:
         with (
             patch.object(stepik_client, "CACHE_DIR", cache_dir),
             patch.object(stepik_client, "CACHE_TTL_SECONDS", 10),
-            patch("stepik_client._get_with_retry", return_value=resp),
+            patch("core.stepik_client._get_with_retry", return_value=resp),
         ):
             # создаём первый кэш и состариваем его
             _cached_api_get(session, "http://api/y")
@@ -156,7 +156,7 @@ class TestCachedApiGet:
         cache_dir.mkdir()
         with (
             patch.object(stepik_client, "CACHE_DIR", cache_dir),
-            patch("stepik_client._get_with_retry", return_value=resp) as mock_get,
+            patch("core.stepik_client._get_with_retry", return_value=resp) as mock_get,
         ):
             # первый запрос пишет валидный кэш
             _cached_api_get(session, "http://api/z")
@@ -178,7 +178,7 @@ class TestFetchStepData:
             "meta": {"has_next": False},
         }
         session = MagicMock()
-        with patch("stepik_client._get_with_retry", return_value=resp):
+        with patch("core.stepik_client._get_with_retry", return_value=resp):
             step = fetch_step_data(session, lesson_id=5, step_position=2)
         assert step["id"] == 22
 
@@ -195,7 +195,7 @@ class TestFetchStepData:
             "meta": {"has_next": False},
         }
         session = MagicMock()
-        with patch("stepik_client._get_with_retry", side_effect=[page1, page2]) as mock_get:
+        with patch("core.stepik_client._get_with_retry", side_effect=[page1, page2]) as mock_get:
             step = fetch_step_data(session, lesson_id=5, step_position=3)
         assert step["id"] == 99
         assert mock_get.call_count == 2
@@ -208,7 +208,7 @@ class TestFetchStepData:
             "meta": {"has_next": False},
         }
         session = MagicMock()
-        with patch("stepik_client._get_with_retry", return_value=resp):
+        with patch("core.stepik_client._get_with_retry", return_value=resp):
             with pytest.raises(ValueError, match="не найден"):
                 fetch_step_data(session, lesson_id=5, step_position=42)
 
@@ -217,43 +217,43 @@ class TestFetchSingletonHelpers:
     """fetch_lesson/unit/section/course — обёртки над _cached_api_get."""
 
     def test_fetch_lesson_ok(self):
-        with patch("stepik_client._cached_api_get", return_value={"lessons": [{"id": 7}]}):
+        with patch("core.stepik_client._cached_api_get", return_value={"lessons": [{"id": 7}]}):
             assert fetch_lesson_data(MagicMock(), 7)["id"] == 7
 
     def test_fetch_lesson_missing_raises(self):
-        with patch("stepik_client._cached_api_get", return_value={"lessons": []}):
+        with patch("core.stepik_client._cached_api_get", return_value={"lessons": []}):
             with pytest.raises(ValueError, match="Урок"):
                 fetch_lesson_data(MagicMock(), 7)
 
     def test_fetch_unit_with_id(self):
         """unit_id передаётся в params."""
-        with patch("stepik_client._cached_api_get", return_value={"units": [{"id": 3}]}) as m:
+        with patch("core.stepik_client._cached_api_get", return_value={"units": [{"id": 3}]}) as m:
             assert fetch_unit_data(MagicMock(), 5, 3)["id"] == 3
         _, kwargs = m.call_args
         assert kwargs["params"] == {"lesson": 5, "id": 3}
 
     def test_fetch_unit_without_id(self):
-        with patch("stepik_client._cached_api_get", return_value={"units": [{"id": 9}]}) as m:
+        with patch("core.stepik_client._cached_api_get", return_value={"units": [{"id": 9}]}) as m:
             fetch_unit_data(MagicMock(), 5, None)
         _, kwargs = m.call_args
         assert "id" not in kwargs["params"]
 
     def test_fetch_unit_missing_raises(self):
-        with patch("stepik_client._cached_api_get", return_value={"units": []}):
+        with patch("core.stepik_client._cached_api_get", return_value={"units": []}):
             with pytest.raises(ValueError, match="Юнит"):
                 fetch_unit_data(MagicMock(), 5, None)
 
     def test_fetch_section_ok_and_missing(self):
-        with patch("stepik_client._cached_api_get", return_value={"sections": [{"id": 2}]}):
+        with patch("core.stepik_client._cached_api_get", return_value={"sections": [{"id": 2}]}):
             assert fetch_section_data(MagicMock(), 2)["id"] == 2
-        with patch("stepik_client._cached_api_get", return_value={"sections": []}):
+        with patch("core.stepik_client._cached_api_get", return_value={"sections": []}):
             with pytest.raises(ValueError, match="Секция"):
                 fetch_section_data(MagicMock(), 2)
 
     def test_fetch_course_ok_and_missing(self):
-        with patch("stepik_client._cached_api_get", return_value={"courses": [{"id": 4}]}):
+        with patch("core.stepik_client._cached_api_get", return_value={"courses": [{"id": 4}]}):
             assert fetch_course_data(MagicMock(), 4)["id"] == 4
-        with patch("stepik_client._cached_api_get", return_value={"courses": []}):
+        with patch("core.stepik_client._cached_api_get", return_value={"courses": []}):
             with pytest.raises(ValueError, match="Курс"):
                 fetch_course_data(MagicMock(), 4)
 
@@ -264,11 +264,11 @@ class TestFetchSubmissionData:
     def test_returns_latest(self):
         resp = MagicMock()
         resp.json.return_value = {"submissions": [{"id": 1}, {"id": 2}]}
-        with patch("stepik_client._get_with_retry", return_value=resp):
+        with patch("core.stepik_client._get_with_retry", return_value=resp):
             assert fetch_submission_data(MagicMock(), 100)["id"] == 1
 
     def test_returns_none_when_empty(self):
         resp = MagicMock()
         resp.json.return_value = {"submissions": []}
-        with patch("stepik_client._get_with_retry", return_value=resp):
+        with patch("core.stepik_client._get_with_retry", return_value=resp):
             assert fetch_submission_data(MagicMock(), 100) is None

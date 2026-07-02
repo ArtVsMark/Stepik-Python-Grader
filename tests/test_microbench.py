@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from microbench_runner import (
+from core.microbench_runner import (
     SIMILAR_THRESHOLD_PERCENT,
     WARMUP_RUNS,
     MicrobenchResult,

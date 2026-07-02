@@ -31,7 +31,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import requests
 from requests.auth import HTTPBasicAuth
 
-from storage import save_secrets
+from core.storage import save_secrets
 
 API_HOST = "https://stepik.org"
 

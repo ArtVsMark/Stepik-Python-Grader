@@ -75,19 +75,19 @@
 Граф зависимостей — DAG без циклов:
 
 ```
-downloader.py          ──→  storage.py
-downloader.py          ──→  stepik_client.py
+downloader.py          ──→  core/storage.py
+downloader.py          ──→  core/stepik_client.py
 downloader.py          ──→  grader.py           ← локальный импорт _parse_testblock_file
-stepik_client.py     ──→  storage.py
-grader.py              ──→  executor.py
-grader.py              ──→  microbench_runner.py
-grader.py              ──→  normalizers.py
-diagnostik_stepik.py ──→  stepik_client.py
+core/stepik_client.py ──→  core/storage.py
+grader.py              ──→  core/executor.py
+grader.py              ──→  core/microbench_runner.py
+grader.py              ──→  core/normalizers.py
+diagnostik_stepik.py ──→  core/stepik_client.py
 diagnostik_stepik.py ──→  downloader.py       ← parse_stepik_step_url
-downloader.py        ──→  oauth_flow.py
-diagnostik_stepik.py ──→  oauth_flow.py
-oauth_flow.py        ──→  stepik_client.py
-oauth_flow.py        ──→  storage.py
+downloader.py        ──→  core/oauth_flow.py
+diagnostik_stepik.py ──→  core/oauth_flow.py
+core/oauth_flow.py    ──→  core/stepik_client.py
+core/oauth_flow.py    ──→  core/storage.py
 ```
 
 Ребро `downloader.py ──→ grader.py` — это **локальный** импорт внутри функции
@@ -99,19 +99,19 @@ oauth_flow.py        ──→  storage.py
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Domain / Application                               │
+│  Domain / Application  (root)                       │
 │  downloader.py  │  grader.py  │  diagnostik_stepik  │
 ├─────────────────────────────────────────────────────┤
-│  Infrastructure                                     │
-│  stepik_client.py  │  executor.py                   │
-│  microbench_runner.py  │  oauth_flow.py             │
+│  Infrastructure  (core/)                             │
+│  core/stepik_client.py  │  core/executor.py          │
+│  core/microbench_runner.py  │  core/oauth_flow.py    │
 ├─────────────────────────────────────────────────────┤
-│  Infrastructure / Utilities  (leaf, no deps)        │
-│  storage.py  │  normalizers.py                      │
+│  Infrastructure / Utilities  (core/, leaf, no deps) │
+│  core/storage.py  │  core/normalizers.py             │
 └─────────────────────────────────────────────────────┘
 ```
 
-`storage.py` и `normalizers.py` — leaf-модули: не импортируют ничего из проекта, легко тестируются изолированно.
+`core/storage.py` и `core/normalizers.py` — leaf-модули: не импортируют ничего из проекта, легко тестируются изолированно.
 
 ---
 
@@ -120,14 +120,17 @@ oauth_flow.py        ──→  storage.py
 ```
 Stepik-Python-Grader/
 ├── grader.py                    # Главный модуль: 4 режима работы
-├── executor.py                # Запускатель решений: compile + exec с таймаутом
-├── microbench_runner.py       # Timeit-микробенчмарк через subprocess + os.devnull
-├── normalizers.py             # Нормализация вывода: округление float, sort/whitespace
 ├── downloader.py                # Domain: конфиг, slugify, построение папок, оркестрация API
-├── stepik_client.py           # Infrastructure: OAuth2, requests.Session, Stepik API
-├── oauth_flow.py              # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
-├── storage.py                 # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── diagnostik_stepik.py       # Диагностика API и токена
+├── core/                       # Internal Infrastructure/Utility модули
+│   ├── __init__.py
+│   ├── executor.py            # Запускатель решений: compile + exec с таймаутом
+│   ├── microbench_runner.py   # Timeit-микробенчмарк через subprocess + os.devnull
+│   ├── normalizers.py         # Нормализация вывода: округление float, sort/whitespace
+│   ├── stepik_client.py       # Infrastructure: OAuth2, requests.Session, Stepik API
+│   ├── oauth_flow.py          # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
+│   ├── parsers.py             # Парсинг тест-блоков (# TEST_N:)
+│   └── storage.py             # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── conftest.py                # Pytest: collect_ignore для grader.py
 ├── tests/                     # 355 тестов (pytest)
 │   ├── test_analyzer.py

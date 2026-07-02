@@ -9,15 +9,16 @@
 ```
 Stepik-Python-Grader/
 ├── grader.py            # Application layer — 4 режима, CLI, таблицы
-├── executor.py          # Запуск кода из строки (run_solution)
-├── microbench_runner.py # timeit-бенчмарк (run_microbench)
-├── normalizers.py       # Нормализация float-вывода
-├── storage.py           # Чтение JSON-файлов
 ├── downloader.py        # Загрузка задач/тестов со Stepik API
-├── stepik_client.py     # HTTP-клиент Stepik API
-├── oauth_flow.py        # OAuth 2.0 авторизация
-├── parsers.py           # Парсинг ответов API
 ├── diagnostik_stepik.py # Диагностика и отладка API
+├── core/                # Internal Infrastructure/Utility модули
+│   ├── executor.py          # Запуск кода из строки (run_solution)
+│   ├── microbench_runner.py # timeit-бенчмарк (run_microbench)
+│   ├── normalizers.py       # Нормализация float-вывода
+│   ├── storage.py           # Чтение JSON-файлов
+│   ├── stepik_client.py     # HTTP-клиент Stepik API
+│   ├── oauth_flow.py        # OAuth 2.0 авторизация
+│   └── parsers.py           # Парсинг тест-блоков (# TEST_N:)
 ├── conftest.py          # pytest fixtures
 └── tests/               # Автотесты
 ```
@@ -27,12 +28,12 @@ Stepik-Python-Grader/
 | Модуль | Слой | Зона ответственности |
 |---|---|---|
 | `grader.py` | Application | Оркестрация режимов, CLI, вывод таблиц |
-| `executor.py` | Infrastructure | Subprocess-запуск кода из строки |
-| `microbench_runner.py` | Infrastructure | timeit-замеры |
-| `normalizers.py` | Domain | Нормализация float |
-| `storage.py` | Infrastructure | I/O JSON |
+| `core/executor.py` | Infrastructure | Subprocess-запуск кода из строки |
+| `core/microbench_runner.py` | Infrastructure | timeit-замеры |
+| `core/normalizers.py` | Domain | Нормализация float |
+| `core/storage.py` | Infrastructure | I/O JSON |
 | `downloader.py` | Application | Загрузка данных Stepik |
-| `stepik_client.py` | Infrastructure | HTTP Stepik API |
+| `core/stepik_client.py` | Infrastructure | HTTP Stepik API |
 
 ---
 

@@ -33,7 +33,7 @@ select = ["E", "F", "W", "I", "UP", "B", "S102"]
 ignore = ["S101"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["grader"]
+known-first-party = ["grader", "core"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=. --cov-report=term-missing --cov-report=xml -v --tb=short"
