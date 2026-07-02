@@ -24,6 +24,7 @@ from core import microbench_runner
 from core.microbench_runner import (
     MicrobenchResult,
     apply_relative_micro,
+    apply_relative_ranking,
     run_microbench,
 )
 
@@ -128,3 +129,43 @@ def test_microbench_runner_module_constants() -> None:
     assert microbench_runner.SIMILAR_THRESHOLD_PERCENT == 5.0
     assert isinstance(microbench_runner.WARMUP_RUNS, int)
     assert microbench_runner.WARMUP_RUNS >= 1
+
+
+# ---------------------------------------------------------------------------
+# apply_relative_ranking — shared by grader.py mode 3 and mode 4 (Issue #20 #6)
+# ---------------------------------------------------------------------------
+
+
+def test_apply_relative_ranking_empty_results_is_noop() -> None:
+    """An empty or all-error results dict is left untouched."""
+    results: dict[str, dict] = {}
+    apply_relative_ranking(results, similar_threshold=1.15, much_slower_threshold=1.5)
+    assert results == {}
+
+    only_errors = {"a.py": {"error": "boom"}}
+    apply_relative_ranking(only_errors, similar_threshold=1.15, much_slower_threshold=1.5)
+    assert only_errors == {"a.py": {"error": "boom"}}
+
+
+def test_apply_relative_ranking_labels_all_three_verdicts() -> None:
+    """Fastest is SIMILAR, moderately slower is SLOWER, much slower is MUCH_SLOWER."""
+    results = {
+        "fast.py": {"median": 1.0},
+        "slower.py": {"median": 1.3},
+        "much_slower.py": {"median": 2.0},
+        "broken.py": {"error": "SyntaxError"},
+    }
+    apply_relative_ranking(results, similar_threshold=1.15, much_slower_threshold=1.5)
+
+    assert results["fast.py"]["verdict"] == "SIMILAR"
+    assert results["fast.py"]["relative"] == 1.0
+    assert results["slower.py"]["verdict"] == "SLOWER"
+    assert results["much_slower.py"]["verdict"] == "MUCH_SLOWER"
+    assert "verdict" not in results["broken.py"]
+
+
+def test_apply_relative_ranking_zero_median_defaults_to_similar() -> None:
+    """min_median == 0 avoids division by zero and treats results as equally fast."""
+    results = {"a.py": {"median": 0.0}, "b.py": {"median": 0.0}}
+    apply_relative_ranking(results, similar_threshold=1.15, much_slower_threshold=1.5)
+    assert all(v["relative"] == 1.0 and v["verdict"] == "SIMILAR" for v in results.values())

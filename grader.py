@@ -101,7 +101,7 @@ except ImportError:
 
 # microbench_runner.py / normalizers.py — первоисточники timeit-бенчмарка и
 # нормализации float-вывода. grader делегирует им вместо inline-дубликатов.
-from core.microbench_runner import run_microbench
+from core.microbench_runner import apply_relative_ranking, run_microbench
 from core.normalizers import normalize_floats as _normalize_output_line
 from core.parsers import parse_testblock_file as _parse_testblock_file
 from core.storage import load_json_file
@@ -504,12 +504,11 @@ def run_microbench_mode(
             stats["peak_memory_mb"] = 0.0
             results[path] = stats
 
-    ok_results = {k: v for k, v in results.items() if not v.get("error")}
-    if ok_results:
-        min_median = min(v["median"] for v in ok_results.values())
-        for v in ok_results.values():
-            v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
-            v["verdict"] = _verdict(v["relative"])
+    apply_relative_ranking(
+        results,
+        similar_threshold=SIMILAR_THRESHOLD,
+        much_slower_threshold=MUCH_SLOWER_THRESHOLD,
+    )
 
     return results
 
@@ -1402,12 +1401,12 @@ def _interactive_menu() -> None:
                 individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
             results[path] = run_benchmark(path, individual_test_dir, repeats=repeats)
 
+        apply_relative_ranking(
+            results,
+            similar_threshold=SIMILAR_THRESHOLD,
+            much_slower_threshold=MUCH_SLOWER_THRESHOLD,
+        )
         ok = {k: v for k, v in results.items() if not v.get("error")}
-        if ok:
-            min_median = min(v["median"] for v in ok.values())
-            for v in ok.values():
-                v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
-                v["verdict"] = _verdict(v["relative"])
 
         col = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
         ranked = sorted(ok.items(), key=lambda x: x[1]["median"])

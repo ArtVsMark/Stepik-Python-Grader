@@ -191,3 +191,29 @@ def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResu
             r.verdict = "ERROR"
 
     return results
+
+
+def apply_relative_ranking(
+    results: dict[str, dict[str, Any]],
+    *,
+    similar_threshold: float,
+    much_slower_threshold: float,
+) -> None:
+    """Set 'relative' and 'verdict' on each OK result, relative to the fastest median.
+
+    Entries carrying a truthy 'error' key are left untouched (unranked). Mutates
+    `results` in place. Shared by grader.py's mode-3 (subprocess-benchmark) and
+    mode-4 (stdin-microbench) ranking, which previously duplicated this loop.
+    """
+    ok = {k: v for k, v in results.items() if not v.get("error")}
+    if not ok:
+        return
+    min_median = min(v["median"] for v in ok.values())
+    for v in ok.values():
+        v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
+        if v["relative"] <= similar_threshold:
+            v["verdict"] = "SIMILAR"
+        elif v["relative"] <= much_slower_threshold:
+            v["verdict"] = "SLOWER"
+        else:
+            v["verdict"] = "MUCH_SLOWER"
