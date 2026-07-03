@@ -8,15 +8,17 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.12", "3.13"]
         experimental: [false]
         include:
-          - python-version: "3.14"
+          - os: ubuntu-latest
+            python-version: "3.14"
             experimental: true
 
     steps:
@@ -36,6 +38,9 @@ jobs:
 
       - name: Ruff format check
         run: ruff format --check .
+
+      - name: Type check
+        run: mypy src/stepik_grader --ignore-missing-imports
 
       - name: Run tests
         run: pytest -q

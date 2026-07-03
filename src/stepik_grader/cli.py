@@ -195,6 +195,9 @@ def _run_mode_2(directory: str) -> None:
         individual_test_dir = resolve_test_dir(path)
         if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
             individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
+        # _resolve_test_dir_from_input(is_dir=True) always returns a str (never the
+        # None its is_dir=False passthrough branch can produce) -- narrows for mypy.
+        assert individual_test_dir is not None
         result = run_tests(path, individual_test_dir, verbose=False)
         rows.append((path, result))
     print_correctness_results(rows, directory, col_file=col_file)
@@ -216,6 +219,9 @@ def _run_mode_3(directory: str, repeats: int) -> None:
         individual_test_dir = resolve_test_dir(path)
         if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
             individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
+        # _resolve_test_dir_from_input(is_dir=True) always returns a str (never the
+        # None its is_dir=False passthrough branch can produce) -- narrows for mypy.
+        assert individual_test_dir is not None
         results[path] = run_benchmark(path, individual_test_dir, repeats=repeats)
 
     apply_relative_ranking(
@@ -256,7 +262,10 @@ def _run_mode_4(directory: str, number: int) -> None:
         label = folder if folder != "." else pathlib.Path(directory).name
         print(f"\n⚡ Micro-bench (timeit): {label}")
 
-        if not pathlib.Path(test_dir).is_dir():
+        # is_dir=True never actually returns None (see _resolve_test_dir_from_input),
+        # but its return type is str | None -- check explicitly rather than assert,
+        # since this path doesn't fall back to anything and must "continue" cleanly.
+        if test_dir is None or not pathlib.Path(test_dir).is_dir():
             print(f"  ⚠ Tests not found: {test_dir}")
             print("  Expected: tests/ subfolder next to solution files.")
             continue

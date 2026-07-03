@@ -2,10 +2,24 @@
 
 ## [Unreleased]
 
-Sprints A (Security), B (Architecture, partial), and C (Reliability) from
-the v1.1.0 audit epic #60: issues #43, #44, #45, #46, #47, #48, #52.
+Sprints A (Security), B (Architecture, partial), C (Reliability), and D
+(CI/CD & Quality) from the v1.1.0 audit epic #60: issues #43, #44, #45, #46,
+#47, #48, #49, #52.
 
 ### Added
+- `mypy>=1.10` in `[project.optional-dependencies].dev`; `mypy src/stepik_grader
+  --ignore-missing-imports` runs as a CI step on every matrix leg (issue #49
+  C-02). Fixed the ~12 pre-existing/newly-surfaced errors this uncovered:
+  `load_json_file()` call site passing `str` instead of `Path`
+  (`grader_core.py`), `str | None` propagating past `resolve_test_dir()`'s
+  new contract into `cli.py`'s three call sites (narrowed with `assert`/
+  explicit `is None` checks), and targeted `# type: ignore[attr-defined]` on
+  `signal.alarm`/`resource.setrlimit`/`RLIMIT_AS` call sites that are
+  legitimately POSIX-only (typeshed excludes them on win32) and already
+  runtime-guarded
+- CI matrix now runs on `ubuntu-latest`, `windows-latest`, and `macos-latest`
+  (previously Ubuntu-only) for Python 3.12/3.13; the 3.14-experimental leg
+  stays Ubuntu-only (issue #49 C-01)
 - `GraderConfig.max_memory_mb` (default 1024) — best-effort `RLIMIT_AS`
   memory cap applied via `preexec_fn` to every subprocess that runs solution
   code (`core/grader_core.py::run_single_test`, `core/microbench_runner.py::
@@ -19,6 +33,11 @@ the v1.1.0 audit epic #60: issues #43, #44, #45, #46, #47, #48, #52.
   before `psutil` can sample it (`NoSuchProcess`/`AccessDenied`/
   `ZombieProcess`) — the returned peak (0.0) was previously indistinguishable
   from "genuinely used ~0 memory" (issue #48 R-05)
+- Mock-based tests covering `downloader.py::_download_github_tests`'s two
+  previously-uncovered error branches: `requests.RequestException`/HTTP
+  errors from the GitHub Contents API, and a file listing with no
+  recognizable Format 3/1 files (`downloader.py` coverage: 98% → 99%,
+  issue #49 Q-01)
 
 ### Changed
 - `core/grader_core.py::_build_call_wrapper` — replaced

@@ -7,6 +7,9 @@ import pathlib
 import zipfile
 from unittest.mock import MagicMock
 
+import pytest
+import requests
+
 from stepik_grader import downloader
 from stepik_grader.downloader import (
     _download_github_tests,
@@ -219,6 +222,47 @@ class TestDownloadGithubTests:
         api_resp = MagicMock()
         api_resp.raise_for_status = MagicMock()
         api_resp.json.return_value = {"message": "Not Found"}
+        session = MagicMock()
+        session.get.return_value = api_resp
+        count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir", session)
+        assert count == 0
+
+    def test_api_request_exception_returns_zero(
+        self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """requests.RequestException (сеть недоступна, DNS, таймаут и т.п.) → 0.
+
+        Issue #49 Q-01: GitHub API errors were previously uncovered.
+        """
+        session = MagicMock()
+        session.get.side_effect = requests.ConnectionError("network unreachable")
+        count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir", session)
+        assert count == 0
+        assert "GitHub API недоступен" in capsys.readouterr().out
+
+    def test_api_raise_for_status_error_returns_zero(
+        self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """HTTP-ошибка (404/500) через raise_for_status() тоже перехватывается."""
+        api_resp = MagicMock()
+        api_resp.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
+        session = MagicMock()
+        session.get.return_value = api_resp
+        count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir", session)
+        assert count == 0
+        assert "GitHub API недоступен" in capsys.readouterr().out
+
+    def test_no_recognized_files_returns_zero(self, tmp_path: pathlib.Path) -> None:
+        """Список файлов не содержит ни input.txt/output.txt, ни N/N.clue — 0.
+
+        Issue #49 Q-01: the `if not pairs` branch was previously uncovered.
+        """
+        api_resp = MagicMock()
+        api_resp.raise_for_status = MagicMock()
+        api_resp.json.return_value = [
+            {"name": "README.md", "type": "file", "download_url": "http://raw/README.md"},
+            {"name": "solution.py", "type": "file", "download_url": "http://raw/solution.py"},
+        ]
         session = MagicMock()
         session.get.return_value = api_resp
         count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir", session)

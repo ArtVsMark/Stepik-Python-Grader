@@ -55,7 +55,7 @@ except ImportError:  # pragma: no cover
     class Text:  # type: ignore[no-redef]
         pass
 
-    def rich_track(sequence: Any, description: str = "") -> Any:  # noqa: ARG001
+    def rich_track(sequence: Any, description: str = "") -> Any:  # type: ignore[misc]  # noqa: ARG001
         return sequence
 
 

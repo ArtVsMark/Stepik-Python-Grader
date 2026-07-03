@@ -132,13 +132,13 @@ def main() -> None:
     # pragma: no cover — платформо-зависимый блок, не выполняется на Windows.
     if hasattr(signal, "SIGALRM"):  # pragma: no cover
         signal.signal(signal.SIGALRM, _timeout_handler)
-        signal.alarm(TIMEOUT)
+        signal.alarm(TIMEOUT)  # type: ignore[attr-defined]  # POSIX-only, typeshed excludes on win32
 
     try:
         exec(compiled, namespace)  # noqa: S102
     finally:
         if hasattr(signal, "SIGALRM"):  # pragma: no cover
-            signal.alarm(0)  # Сбросить таймер после завершения
+            signal.alarm(0)  # type: ignore[attr-defined]  # Сбросить таймер после завершения
 
 
 if __name__ == "__main__":

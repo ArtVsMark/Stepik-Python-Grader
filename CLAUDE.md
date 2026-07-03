@@ -203,7 +203,10 @@ ruff check .
 # 3. Форматтер (проверка, не правка)
 ruff format --check .
 
-# 4. Покрытие (информационно)
+# 4. Типизация (Sprint D / Issue #49 C-02, зеркалит шаг CI)
+mypy src/stepik_grader --ignore-missing-imports
+
+# 5. Покрытие (информационно)
 pytest tests/ --cov=. --cov-report=term-missing -q
 ```
 
@@ -819,6 +822,64 @@ R-05: warnings.warn() в _measure_peak_memory() при NoSuchProcess/
 
 ---
 
+### 🟠 Sprint D — CI/CD и качество (аудит v1.1.0, эпик #60) ✅ ЗАВЕРШЁН (2026-07-03)
+
+#### D.1 ✅ FIX — #49 C-01: Windows/macOS runners в CI
+
+```
+Было: runs-on: ubuntu-latest (единственная ОС).
+Стало: matrix.os = [ubuntu-latest, windows-latest, macos-latest] для
+       Python 3.12/3.13. 3.14-experimental остаётся Ubuntu-only.
+```
+
+#### D.2 ✅ FIX — #49 C-02: mypy в CI
+
+```
+Добавлено: mypy>=1.10 в [project.optional-dependencies].dev.
+Добавлено: шаг "Type check" (mypy src/stepik_grader --ignore-missing-imports)
+           в .github/workflows/ci.yml, после ruff, перед pytest.
+```
+
+> Первый прогон mypy вскрыл ~12 ошибок — все устранены ПЕРЕД включением шага
+> в CI (иначе первый же коммит сломал бы CI):
+> - `grader_core.py:_read_meta_function_name` передавал `str(meta_path)` в
+>   `load_json_file()`, аннотированную как `pathlib.Path` — убран лишний
+>   `str()`, `meta_path` и так `pathlib.Path`.
+> - `cli.py` (`_run_mode_2/3/4`): `resolve_test_dir()`/
+>   `_resolve_test_dir_from_input()` теперь возвращают `str | None`
+>   (issue #47 R-04) — mypy корректно отследил, что `None` может утечь в
+>   `run_tests()`/`run_benchmark()`/`run_microbench_mode()`, которые ожидают
+>   `str`. Добавлены `assert ... is not None` (режимы 2/3 — после fallback,
+>   который на практике никогда не возвращает `None`) и явная `is None`
+>   проверка (режим 4 — там нет fallback, только `continue`).
+> - `executor.py` (`signal.alarm` × 2) и `grader_core.py`/
+>   `microbench_runner.py` (`resource.setrlimit`/`RLIMIT_AS` × 2, issue #43
+>   S-01) — точечные `# type: ignore[attr-defined]`: typeshed не включает эти
+>   атрибуты в стабы для win32, хотя вызовы уже защищены рантайм-проверками
+>   (`hasattr(signal, "SIGALRM")` / try-except `ImportError` на `resource`).
+>   На Linux/macOS CI-раннерах эти атрибуты реально существуют — `# type:
+>   ignore` там станет "unused", но `warn_unused_ignores` не включён, ошибкой
+>   это не станет.
+> - `reporter.py`: fallback-заглушка `rich_track()` (используется, когда
+>   `rich` не установлен) не совпадает по сигнатуре с настоящим
+>   `rich.progress.track` — `# type: ignore[misc]`, тот же паттерн, что уже
+>   применялся к заглушкам `Console`/`Table`/`Text` (`# type: ignore[no-redef]`).
+
+#### D.3 ✅ FIX — #49 Q-01: mock-тесты для ошибок GitHub API
+
+```
+Добавлено в tests/test_downloader.py (TestDownloadGithubTests):
+  - test_api_request_exception_returns_zero — requests.ConnectionError
+  - test_api_raise_for_status_error_returns_zero — raise_for_status() → 404/500
+  - test_no_recognized_files_returns_zero — файлы есть, но ни Формат 3,
+    ни N/N.clue не распознаны (branch `if not pairs`)
+```
+
+> Покрытие `downloader.py`: 98% → 99% (закрыты строки 465-467, 502-503 —
+> ранее непокрытые ветки обработки ошибок `_download_github_tests`).
+
+---
+
 ## 📐 ФОРМАТЫ ТЕСТ-КЕЙСОВ
 
 ```
@@ -934,6 +995,7 @@ except:
 [ ] pytest tests/ -x -q --tb=short   → все зелёные
 [ ] ruff check .                      → 0 ошибок
 [ ] ruff format --check .             → 0 ошибок
+[ ] mypy src/stepik_grader --ignore-missing-imports  → 0 ошибок (Sprint D)
 [ ] Новые функции имеют type hints и docstring
 [ ] Новые модули имеют __all__
 [ ] from __future__ import annotations в начале файла

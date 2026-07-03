@@ -472,7 +472,8 @@ def _make_memory_limiter(max_memory_mb: int | None) -> Callable[[], None] | None
     limit_bytes = max_memory_mb * 1024 * 1024
 
     def _limit() -> None:
-        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+        # POSIX-only, typeshed excludes resource.setrlimit/RLIMIT_AS on win32.
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
 
     return _limit
 
@@ -544,7 +545,7 @@ def _read_meta_function_name(solution_path: str) -> str | None:
     if not meta_path.exists():
         return None
     try:
-        meta = load_json_file(str(meta_path))
+        meta = load_json_file(meta_path)
         name = meta.get("function_name")
         return str(name) if name else None
     except (json.JSONDecodeError, OSError):

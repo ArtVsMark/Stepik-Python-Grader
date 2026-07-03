@@ -9,10 +9,11 @@
 
 ### Статус: ✅ Стабильный
 
-- Тестов: 523 (3 skipped)
-- Покрытие: 95%
+- Тестов: 547 (3 skipped)
+- Покрытие: 96%
 - Python: 3.12 / 3.13 / 3.14
-- CI: GitHub Actions (pytest + ruff), зелёный
+- CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
+  × 3.12/3.13 + ubuntu 3.14-experimental (Sprint D, 2026-07-03), зелёный
 - Эпик #18 (issues #19/#20/#21/#23) и issues #24/#25/#26 — закрыты, смержены в `main`
 - Issue #35 (Sprint 8.2, src/-layout) — закрыт (2026-07-03)
 
@@ -148,13 +149,16 @@ stepik-grader --version
   (`resolve_test_dir`/`rich_track`/`print_case_verbose` — убраны `_`-префиксы) (2026-07-03)
 - [x] #46 — Sprint B: A-03 — решено оставить `executor.py` как есть (не
   test-only, не unified runner) — см. CLAUDE.md Sprint B.2 (2026-07-03)
-- [ ] #45 A-01 — Sprint B (отложено): разбить `grader_core.py` (700+ строк) на
-  `test_loader.py`/`mode_detector.py`/`wrapper_builder.py`
 - [x] #47 — Sprint C: R-04 (`resolve_test_dir` → `str | None`), R-02 (голое
   имя без вызова/присваивания → False), R-01 (диагностика таймаута
   microbench — номер итерации; настоящий per-call таймаут не сделан, см.
   CLAUDE.md Sprint C.3) (2026-07-03)
 - [x] #48 — Sprint C: R-03 (warning при смешанных форматах 3+1/2), R-05
   (warning при NoSuchProcess в `_measure_peak_memory`) (2026-07-03)
+- [x] #49 — Sprint D: C-01 (Windows/macOS в CI-матрице), C-02 (mypy в CI +
+  dev-зависимостях, ~12 ошибок исправлено), Q-01 (mock-тесты для GitHub API
+  errors, `downloader.py` 98% → 99%) (2026-07-03)
+- [ ] #45 A-01 — Sprint B (отложено): разбить `grader_core.py` (700+ строк) на
+  `test_loader.py`/`mode_detector.py`/`wrapper_builder.py`
 - [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)
 - [ ] Расширить покрытие тестами (особенно `downloader.py`)

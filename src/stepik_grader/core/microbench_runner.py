@@ -114,7 +114,8 @@ def _make_memory_limiter(max_memory_mb: int | None) -> Callable[[], None] | None
     limit_bytes = max_memory_mb * 1024 * 1024
 
     def _limit() -> None:
-        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+        # POSIX-only, typeshed excludes resource.setrlimit/RLIMIT_AS on win32.
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
 
     return _limit
 
