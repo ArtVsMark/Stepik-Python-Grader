@@ -38,7 +38,7 @@ from core.reporter import _rich_track, print_benchmark_results, print_correctnes
 
 __all__ = ["main"]
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # ---------------------------------------------------------------------------
 # Профили нагрузки

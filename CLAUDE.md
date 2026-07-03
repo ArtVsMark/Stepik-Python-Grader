@@ -462,7 +462,7 @@ from grader_core import *   # noqa: F401, F403
 from reporter import *      # noqa: F401, F403
 from cli import main
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 if __name__ == "__main__":
     main()
@@ -703,14 +703,14 @@ except:
 
 ---
 
-## 📊 МЕТРИКИ ПРОЕКТА (на момент v1.0.0)
+## 📊 МЕТРИКИ ПРОЕКТА (на момент v1.1.0)
 
 | Метрика | Значение |
 |---------|---------|
-| Версия | 1.0.0 (stable) |
+| Версия | 1.1.0 (stable) |
 | Python | 3.12 / 3.13 / 3.14 |
-| Тестов | 461 |
-| Покрытие | 88% |
+| Тестов | 520 |
+| Покрытие | 95% |
 | Строк (grader.py) | 8 (тонкий фасад, Sprint 7 ✅) |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
 | CI | GitHub Actions (pytest + ruff) |
