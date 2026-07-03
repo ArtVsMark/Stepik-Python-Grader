@@ -35,32 +35,40 @@ git checkout main && git pull && git checkout -b ArtVsMark-patch-1
 
 ## 🗂️ СТРУКТУРА ПРОЕКТА
 
+> src/-layout (Issue #35 / Sprint 8.2 ✅, 2026-07): весь пакет живёт в
+> `src/stepik_grader/`. Запуск — только `python -m stepik_grader.X` или
+> консольная команда `stepik-grader` после `pip install -e .`; прямого
+> `python grader.py` из корня репозитория больше нет.
+
 ```
 Stepik-Python-Grader/
 │
-├── grader.py                 # Тонкий фасад обратной совместимости (Sprint 7 ✅)
-│                             # реэкспортирует core/grader_core.py / core/reporter.py / cli.py
-├── cli.py                     # Application/CLI: интерактивное меню (режимы 0-4)
-├── config.py                  # Application/Configuration: GraderConfig, CONFIG (Sprint 6.3 ✅)
+├── src/
+│   └── stepik_grader/
+│       ├── __init__.py
+│       ├── grader.py             # Тонкий фасад обратной совместимости (Sprint 7 ✅)
+│       │                         # реэкспортирует core/grader_core.py / core/reporter.py / cli.py
+│       ├── cli.py                 # Application/CLI: интерактивное меню (режимы 0-4), entry point stepik-grader
+│       ├── config.py              # Application/Configuration: GraderConfig, CONFIG (Sprint 6.3 ✅)
+│       │
+│       ├── downloader.py         # Domain: скачивание задач, ZIP/HTML, slugify
+│       ├── diagnostic_stepik.py  # Application: диагностика API и токена
+│       │
+│       └── core/                 # Internal Infrastructure/Utility модули (Issue #23, #26)
+│           ├── __init__.py
+│           ├── grader_core.py    # Application: загрузка тест-кейсов, исполнение решений
+│           ├── reporter.py       # Application/UI: rich-таблицы, _console, verbose-diff
+│           ├── executor.py       # Infrastructure: compile+exec в subprocess
+│           ├── microbench_runner.py  # Infrastructure: timeit через subprocess
+│           ├── normalizers.py    # Utilities: normalize_floats (leaf, нет зависимостей)
+│           ├── storage.py        # Utilities: load/save JSON (leaf, нет зависимостей)
+│           ├── stepik_client.py  # Infrastructure: OAuth2, requests.Session
+│           ├── oauth_flow.py     # Infrastructure: фасад авторизации
+│           └── parsers.py        # Infrastructure: парсинг тест-блоков (# TEST_N:)
 │
-├── downloader.py             # Domain: скачивание задач, ZIP/HTML, slugify
-├── diagnostic_stepik.py      # Application: диагностика API и токена
+├── conftest.py                # pytest: sys.path.insert(0, "src") для discovery без install
 │
-├── core/                     # Internal Infrastructure/Utility модули (Issue #23, #26)
-│   ├── __init__.py
-│   ├── grader_core.py        # Application: загрузка тест-кейсов, исполнение решений
-│   ├── reporter.py           # Application/UI: rich-таблицы, _console, verbose-diff
-│   ├── executor.py           # Infrastructure: compile+exec в subprocess
-│   ├── microbench_runner.py  # Infrastructure: timeit через subprocess
-│   ├── normalizers.py        # Utilities: normalize_floats (leaf, нет зависимостей)
-│   ├── storage.py            # Utilities: load/save JSON (leaf, нет зависимостей)
-│   ├── stepik_client.py      # Infrastructure: OAuth2, requests.Session
-│   ├── oauth_flow.py         # Infrastructure: фасад авторизации
-│   └── parsers.py            # Infrastructure: парсинг тест-блоков (# TEST_N:)
-│
-├── conftest.py               # pytest: collect_ignore для grader.py
-│
-├── tests/                    # 520 тестов (pytest), покрытие 95%
+├── tests/                    # 523 теста (pytest), покрытие 95%
 │   ├── test_grader_core.py
 │   ├── test_executor.py
 │   ├── test_normalizers.py
@@ -71,11 +79,14 @@ Stepik-Python-Grader/
 ├── CHECKPOINT.md             # Состояние проекта: что сделано, что в работе
 ├── CHANGELOG.md              # История изменений
 ├── CONTRIBUTING.md           # Архитектура, форматы тестов, соглашения
-├── pyproject.toml            # ruff, pytest, зависимости
+├── pyproject.toml            # ruff, pytest, зависимости, packages.find where=["src"]
 └── requirements.txt          # Runtime: requests, psutil, rich
 ```
 
 ### Граф зависимостей (DAG, без циклов)
+
+> Все модули ниже живут в `src/stepik_grader/` (Issue #35, src-layout);
+> пути в графе — относительно этого пакета.
 
 ```
 grader.py ──→ core/grader_core.py
@@ -136,6 +147,20 @@ core/stepik_client.py ──→ core/storage.py
 > grader_core`/`from core import reporter`; `patch("reporter.X")` →
 > `patch("core.reporter.X")`.
 
+> Issue #35 / Sprint 8.2 (2026-07): все 16 исходных файлов перенесены в
+> `src/stepik_grader/` (src-layout) — `git mv` сохранил историю. Каждый
+> внутренний импорт получил префикс `stepik_grader.` (`from
+> stepik_grader.core.grader_core import ...` и т.д.). `pyproject.toml`:
+> `[tool.setuptools.packages.find] where = ["src"]`, новый entry point
+> `[project.scripts] stepik-grader = "stepik_grader.cli:main"`. `conftest.py`
+> добавляет `src/` в `sys.path`, чтобы тесты работали без `pip install -e .`.
+> `config.py`'s `load_config()` резолвит `pyproject.toml` тремя уровнями выше
+> своего `__file__` (было — одним), так как теперь лежит в
+> `src/stepik_grader/config.py`. Прямой запуск `python grader.py` из корня
+> репозитория удалён — только `python -m stepik_grader.X` или консольная
+> команда `stepik-grader`. Все 523 теста прошли без сюрпризов после
+> экзаустивного grep-аудита импортов перед миграцией.
+
 ---
 
 ## ⚙️ ОКРУЖЕНИЕ И КОМАНДЫ
@@ -174,9 +199,12 @@ pytest tests/ --cov=. --cov-report=term-missing -q
 ### Запуск грейдера
 
 ```bash
-python grader.py          # интерактивное меню (режимы 0-4)
-python downloader.py      # скачать задачу по URL Stepik
-python diagnostic_stepik.py  # диагностика API и токена
+python -m stepik_grader.grader              # интерактивное меню (режимы 0-4)
+python -m stepik_grader.downloader          # скачать задачу по URL Stepik
+python -m stepik_grader.diagnostic_stepik   # диагностика API и токена
+
+# или, после pip install -e .:
+stepik-grader
 ```
 
 ---
@@ -586,13 +614,17 @@ def run_microbench_with_timeout(
 #### 8.1 ✅ argparse CLI (2026-07-02)
 
 ```
-python grader.py                                          — интерактивное меню (как раньше)
-python grader.py --version                                — версия и выход
-python grader.py --mode 1 --file path/to/task.py          — режим 1, non-interactive
-python grader.py --mode 2 --dir path/to/folder            — режим 2, non-interactive
-python grader.py --mode 3 --dir path/to/folder --repeats 15  — режим 3, non-interactive
-python grader.py --mode 4 --dir path/to/folder --number 1000 — режим 4, non-interactive
+stepik-grader                                          — интерактивное меню (как раньше)
+stepik-grader --version                                — версия и выход
+stepik-grader --mode 1 --file path/to/task.py          — режим 1, non-interactive
+stepik-grader --mode 2 --dir path/to/folder            — режим 2, non-interactive
+stepik-grader --mode 3 --dir path/to/folder --repeats 15  — режим 3, non-interactive
+stepik-grader --mode 4 --dir path/to/folder --number 1000 — режим 4, non-interactive
 ```
+
+> Примеры выше — через консольную команду `stepik-grader` (после
+> `pip install -e .`, Issue #35 / Sprint 8.2). Эквивалентно через
+> `python -m stepik_grader.grader --mode ...`.
 
 > Реализовано в `cli.py`: `_run_mode_1/2/3/4()` — извлечённые из
 > `_interactive_menu()` тела режимов (без изменения логики), переиспользуются
@@ -603,14 +635,18 @@ python grader.py --mode 4 --dir path/to/folder --number 1000 — режим 4, n
 > в cli.py (grader.py реэкспортирует её обратно) — иначе понадобился бы
 > обратный импорт cli.py → grader.py, нарушающий DAG.
 
-#### 8.2 OPTIONAL — `src/`-layout
+#### 8.2 ✅ ЗАВЕРШЕНО (2026-07) — `src/`-layout
 
 ```
-Только если планируется публикация на PyPI.
-Переместить: все .py в src/stepik_grader/
-Обновить: pyproject.toml → [tool.setuptools.packages.find] where = ["src"]
-Обновить: conftest.py → sys.path.insert(0, ...)
+Перемещено: все .py в src/stepik_grader/ (git mv, история сохранена)
+Обновлено: pyproject.toml → [tool.setuptools.packages.find] where = ["src"]
+Обновлено: conftest.py → sys.path.insert(0, str(Path(__file__).parent / "src"))
+Добавлено: [project.scripts] stepik-grader = "stepik_grader.cli:main"
 ```
+
+> Реализовано как Issue #35 (см. примечание в разделе «Граф зависимостей»
+> выше). Каждый внутренний импорт получил префикс `stepik_grader.`; все 523
+> теста прошли на первом запуске после миграции.
 
 ---
 
@@ -711,9 +747,10 @@ except:
 |---------|---------|
 | Версия | 1.1.0 (stable) |
 | Python | 3.12 / 3.13 / 3.14 |
-| Тестов | 520 |
+| Тестов | 523 |
 | Покрытие | 95% |
 | Строк (grader.py) | 93 (тонкий фасад — 7 исполняемых `Stmts` по pytest-cov, Sprint 7 ✅) |
+| Layout | src/-layout (`src/stepik_grader/`, Issue #35 / Sprint 8.2 ✅) |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
 | CI | GitHub Actions (pytest + ruff) |
 

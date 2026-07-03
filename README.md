@@ -42,10 +42,13 @@
 
 ## Что умеет
 
-| Скрипт | Архитектурный слой | Что делает |
+> Пакет живёт в `src/stepik_grader/` (Issue #35, src-layout). Пути ниже —
+> относительно `src/stepik_grader/`.
+
+| Модуль | Архитектурный слой | Что делает |
 |---|---|---|
 | `grader.py` | Application | Тонкий фасад обратной совместимости — реэкспортирует `core/grader_core.py`, `core/reporter.py`, `cli.py` |
-| `cli.py` | Application / CLI | Интерактивное меню (режимы 0-4) и non-interactive argparse CLI, профили нагрузки |
+| `cli.py` | Application / CLI | Интерактивное меню (режимы 0-4) и non-interactive argparse CLI, профили нагрузки; консольная команда `stepik-grader` |
 | `config.py` | Application / Configuration | `GraderConfig` (frozen dataclass) + `CONFIG` singleton; переопределяется через `[tool.stepik-grader]` в `pyproject.toml` |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
 | `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
@@ -77,7 +80,7 @@
 
 ## Архитектура модулей
 
-Граф зависимостей — DAG без циклов:
+Граф зависимостей — DAG без циклов (все модули живут в `src/stepik_grader/`):
 
 ```
 downloader.py          ──→  core/storage.py
@@ -107,12 +110,12 @@ downloader.py больше не импортирует grader.py: дублиру
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│  Domain / Application  (root — только точки входа)             │
+│  Domain / Application  (src/stepik_grader/ — точки входа)      │
 │  downloader.py  │  grader.py (facade)  │  diagnostic_stepik   │
 ├───────────────────────────────────────────────────────────────┤
 │  Application  (core/, грейдер разбит по SRP — Sprint 7)       │
 │  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
-│  cli.py (меню, остаётся в root — публичная точка входа)        │
+│  cli.py (меню, публичная точка входа — stepik-grader)          │
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure  (core/)                                       │
 │  core/stepik_client.py  │  core/executor.py                    │
@@ -131,24 +134,27 @@ downloader.py больше не импортирует grader.py: дублиру
 
 ```
 Stepik-Python-Grader/
-├── grader.py                    # Тонкий фасад обратной совместимости (Sprint 7)
-├── cli.py                        # Интерактивное меню (режимы 0-4)
-├── config.py                     # GraderConfig, CONFIG — единая конфигурация
-├── downloader.py                # Domain: конфиг, slugify, построение папок, оркестрация API
-├── diagnostic_stepik.py       # Диагностика API и токена
-├── core/                       # Internal Infrastructure/Utility модули (Issue #23, #26)
-│   ├── __init__.py
-│   ├── grader_core.py         # Загрузка тест-кейсов, исполнение решений
-│   ├── reporter.py            # rich-таблицы, вывод, verbose-diff
-│   ├── executor.py            # Запускатель решений: compile + exec с таймаутом
-│   ├── microbench_runner.py   # Timeit-микробенчмарк через subprocess + os.devnull
-│   ├── normalizers.py         # Нормализация вывода: округление float, sort/whitespace
-│   ├── stepik_client.py       # Infrastructure: OAuth2, requests.Session, Stepik API
-│   ├── oauth_flow.py          # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
-│   ├── parsers.py             # Парсинг тест-блоков (# TEST_N:)
-│   └── storage.py             # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
-├── conftest.py                # Pytest: collect_ignore для grader.py
-├── tests/                     # 520 тестов (pytest)
+├── src/
+│   └── stepik_grader/            # src-layout (Issue #35 / CLAUDE.md Sprint 8.2)
+│       ├── __init__.py
+│       ├── grader.py              # Тонкий фасад обратной совместимости (Sprint 7)
+│       ├── cli.py                 # Интерактивное меню (режимы 0-4) + stepik-grader entry point
+│       ├── config.py              # GraderConfig, CONFIG — единая конфигурация
+│       ├── downloader.py         # Domain: конфиг, slugify, построение папок, оркестрация API
+│       ├── diagnostic_stepik.py  # Диагностика API и токена
+│       └── core/                  # Internal Infrastructure/Utility модули (Issue #23, #26)
+│           ├── __init__.py
+│           ├── grader_core.py    # Загрузка тест-кейсов, исполнение решений
+│           ├── reporter.py       # rich-таблицы, вывод, verbose-diff
+│           ├── executor.py       # Запускатель решений: compile + exec с таймаутом
+│           ├── microbench_runner.py  # Timeit-микробенчмарк через subprocess + os.devnull
+│           ├── normalizers.py    # Нормализация вывода: округление float, sort/whitespace
+│           ├── stepik_client.py  # Infrastructure: OAuth2, requests.Session, Stepik API
+│           ├── oauth_flow.py     # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
+│           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
+│           └── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
+├── conftest.py                 # Добавляет src/ в sys.path для тестов
+├── tests/                     # 523 теста (pytest)
 │   ├── test_analyzer.py
 │   ├── test_downloader.py
 │   ├── test_executor.py
@@ -167,7 +173,7 @@ Stepik-Python-Grader/
 │   └── test_testblock.py
 ├── .github/workflows/ci.yml   # CI: pytest + ruff на Python 3.12/3.13/3.14
 ├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
-├── pyproject.toml             # Конфигурация проекта (ruff, pytest, зависимости)
+├── pyproject.toml             # Конфигурация проекта (ruff, pytest, зависимости, packages.find where=["src"])
 ├── requirements.txt           # Runtime-зависимости
 ├── secrets.json.example       # Шаблон файла с OAuth-токеном
 ├── stepik_config.json.example # Шаблон конфига Stepik
@@ -222,12 +228,19 @@ pip install -r requirements.txt
 pip install -e ".[dev]"
 ```
 
+> Проект использует src-layout (`src/stepik_grader/`, Issue #35) — модули
+> запускаются только как пакет (`python -m stepik_grader.X`) или через
+> консольную команду `stepik-grader`, установленную `pip install -e .`.
+> Прямой запуск `python grader.py` из корня репозитория больше не работает.
+
 ---
 
 ## Быстрый старт
 
 ```bash
-python grader.py
+python -m stepik_grader.grader
+# или, после pip install -e .:
+stepik-grader
 ```
 
 При запуске появится меню:
@@ -250,12 +263,14 @@ Select mode [0-4]:
 Для запуска из CI/скриптов без интерактивного ввода:
 
 ```bash
-python grader.py --version                                    # версия и выход
-python grader.py --mode 1 --file path/to/task.py               # режим 1
-python grader.py --mode 2 --dir path/to/folder                 # режим 2
-python grader.py --mode 3 --dir path/to/folder --repeats 15    # режим 3 (по умолчанию 15)
-python grader.py --mode 4 --dir path/to/folder --number 1000   # режим 4 (по умолчанию 1000)
+stepik-grader --version                                    # версия и выход
+stepik-grader --mode 1 --file path/to/task.py               # режим 1
+stepik-grader --mode 2 --dir path/to/folder                 # режим 2
+stepik-grader --mode 3 --dir path/to/folder --repeats 15    # режим 3 (по умолчанию 15)
+stepik-grader --mode 4 --dir path/to/folder --number 1000   # режим 4 (по умолчанию 1000)
 ```
+
+Эквивалентно через `python -m`: `python -m stepik_grader.grader --version` и т.д.
 
 Без `--mode` показывается обычное интерактивное меню.
 
@@ -318,7 +333,7 @@ cp secrets.json.example secrets.json
 ### Шаг 2 — Скачать данные задачи
 
 ```bash
-python downloader.py
+python -m stepik_grader.downloader
 ```
 
 При первом запуске:
@@ -554,7 +569,7 @@ StepikTasks/
 
 ### Таймаут subprocess
 
-В `grader.py` константа `TIMEOUT_SECONDS` (по умолчанию `10.0` с) защищает от зависания:
+В `core/grader_core.py` константа `TIMEOUT_SECONDS` (по умолчанию `10.0` с) защищает от зависания:
 
 ```python
 TIMEOUT_SECONDS: float = 10.0  # секунд
@@ -562,7 +577,7 @@ TIMEOUT_SECONDS: float = 10.0  # секунд
 
 ### Таймаут executor
 
-В `executor.py` таймаут передаётся через переменную окружения `EXECUTOR_TIMEOUT` (по умолчанию `10` с). На Unix — `signal.alarm`; на Windows (где `SIGALRM` недоступен) защита обеспечивается таймаутом subprocess уровня `grader.py` (`TIMEOUT_SECONDS`):
+В `core/executor.py` таймаут передаётся через переменную окружения `EXECUTOR_TIMEOUT` (по умолчанию `10` с). На Unix — `signal.alarm`; на Windows (где `SIGALRM` недоступен) защита обеспечивается таймаутом subprocess уровня `core/grader_core.py` (`TIMEOUT_SECONDS`):
 
 ```python
 TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", "10"))
@@ -591,9 +606,9 @@ MICROBENCH_MAX_CASES = 5
 
 | Пакет | Назначение | Используется в |
 |-------|------------|----------------|
-| `requests>=2.34.2` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `stepik_client.py`, `downloader.py` |
-| `psutil>=5.9` | Замер памяти и мониторинг процессов | `grader.py`, `executor.py` |
-| `rich>=13.0` | Цветные таблицы, прогресс-бар, WA diff в терминале | `grader.py` |
+| `requests>=2.34.2` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `core/stepik_client.py`, `downloader.py` |
+| `psutil>=5.9` | Замер памяти и мониторинг процессов | `core/grader_core.py`, `core/executor.py` |
+| `rich>=13.0` | Цветные таблицы, прогресс-бар, WA diff в терминале | `core/reporter.py` |
 
 Dev-зависимости (`pip install -e ".[dev]"`):
 
@@ -610,7 +625,7 @@ Dev-зависимости (`pip install -e ".[dev]"`):
 Если `downloader.py` не нашёл данных шага автоматически:
 
 ```bash
-python diagnostic_stepik.py
+python -m stepik_grader.diagnostic_stepik
 ```
 
 Скрипт сохранит в папку `stepik_diagnostics/`:

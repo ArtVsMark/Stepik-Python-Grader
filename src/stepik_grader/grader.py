@@ -9,13 +9,14 @@ core/grader_core.py (загрузка/исполнение), core/reporter.py (�
 совместимости: все имена из __all__, а также приватные имена, на которые
 опирается тестовый набор (`grader._foo`), остаются доступны как `grader.X`.
 
-Прямой запуск: python grader.py
+Прямой запуск: python -m stepik_grader.grader (или консольная команда
+`stepik-grader` после `pip install -e .`)
 """
 
 from __future__ import annotations
 
-from core.grader_core import *  # noqa: F401, F403
-from core.grader_core import (
+from stepik_grader.core.grader_core import *  # noqa: F401, F403
+from stepik_grader.core.grader_core import (
     _ast_function_name,
     _apply_run_mode_override,
     _build_call_wrapper,
@@ -35,8 +36,8 @@ from core.grader_core import (
     apply_relative_ranking,
     run_microbench,
 )
-from core.reporter import *  # noqa: F401, F403
-from core.reporter import (
+from stepik_grader.core.reporter import *  # noqa: F401, F403
+from stepik_grader.core.reporter import (
     Console,
     Table,
     Text,
@@ -50,7 +51,7 @@ from core.reporter import (
     _STATUS_COLORS,
     _VERDICT_COLORS,
 )
-from cli import (
+from stepik_grader.cli import (
     __version__,
     _ask_bench_profile,
     _ask_micro_profile,

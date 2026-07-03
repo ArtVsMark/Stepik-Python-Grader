@@ -7,7 +7,7 @@ import pathlib
 
 import pytest
 
-from core.storage import load_json_file, save_json_file, save_secrets
+from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
 
 # ── load_json_file ────────────────────────────────────────────────────────────
 

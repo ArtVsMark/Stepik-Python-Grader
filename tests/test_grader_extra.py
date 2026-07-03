@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pathlib
 
-from core import reporter
-from grader import (
+from stepik_grader.core import reporter
+from stepik_grader.grader import (
     TestCase,
     _correctness_status,
     _print_case_verbose,

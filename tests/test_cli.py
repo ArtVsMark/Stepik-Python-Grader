@@ -13,7 +13,7 @@ import tomllib
 
 import pytest
 
-import cli
+from stepik_grader import cli
 
 
 def test_version_matches_pyproject_toml() -> None:

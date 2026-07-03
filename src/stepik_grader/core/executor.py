@@ -23,12 +23,13 @@ import sys
 import types
 from dataclasses import dataclass, field
 
-# config.py resolves relative to the project root and isn't on sys.path when
-# executor.py runs as a subprocess script (python core/executor.py sets
-# sys.path[0] to core/, not the root) -- fall back to GraderConfig's own
-# default (10) in that case, matching CONFIG.executor_timeout's own default.
+# stepik_grader.config isn't importable when executor.py runs as a subprocess
+# script (python src/stepik_grader/core/executor.py sets sys.path[0] to that
+# script's own directory, not a place where the stepik_grader package root
+# is importable) -- fall back to GraderConfig's own default (10) in that
+# case, matching CONFIG.executor_timeout's own default.
 try:
-    from config import CONFIG
+    from stepik_grader.config import CONFIG
 
     _DEFAULT_EXECUTOR_TIMEOUT = CONFIG.executor_timeout
 except ImportError:

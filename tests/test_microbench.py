@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from core.microbench_runner import (
+from stepik_grader.core.microbench_runner import (
     SIMILAR_THRESHOLD_PERCENT,
     WARMUP_RUNS,
     MicrobenchResult,
@@ -89,7 +89,7 @@ def test_grader_microbench_suppresses_numeric_stdout() -> None:
     Раньше каждая строка stdout (включая напечатанное число) парсилась как
     тайминг → мусорная статистика. Теперь ожидаем ровно 5 таймингов repeat=5.
     """
-    import grader
+    from stepik_grader import grader
 
     source = "a, b = int(input()), int(input())\nprint(a + b)\n"
     result = grader.run_microbench(source, stdin_data="10\n20\n", number=50)
@@ -101,7 +101,7 @@ def test_grader_microbench_suppresses_numeric_stdout() -> None:
 
 def test_grader_microbench_non_numeric_stdout_no_error() -> None:
     """stdin-решение, печатающее не-число, больше не падает на float(line)."""
-    import grader
+    from stepik_grader import grader
 
     source = 'name = input()\nprint("Hello, " + name)\n'
     result = grader.run_microbench(source, stdin_data="World\n", number=50)

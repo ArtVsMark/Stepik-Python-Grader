@@ -2,10 +2,10 @@
 
 ## [1.1.0] - 2026-07-02
 
-Sprints 6, 7, and 8.1 from CLAUDE.md's backlog, plus GitHub issues #19,
-#20, #21, #23, #24, #25, #26 (audit findings from the v1.0.0 review,
-epic #18). Test suite grew from 355 to 520 tests; coverage from 88% to
-95%.
+Sprints 6, 7, 8.1, and 8.2 from CLAUDE.md's backlog, plus GitHub issues
+#19, #20, #21, #23, #24, #25, #26, #35 (audit findings from the v1.0.0
+review, epic #18). Test suite grew from 355 to 523 tests; coverage from
+88% to 95%.
 
 ### Added
 - `config.py` — `GraderConfig` frozen dataclass, unified constants read
@@ -76,6 +76,58 @@ epic #18). Test suite grew from 355 to 520 tests; coverage from 88% to
 ### Tests
 - `cli.py` coverage: 40% → 97% (`tests/test_cli.py`, new)
 - `config.py`: `tests/test_config.py`, new
+
+### Sprint 8.2: migrate to src/-layout (#35)
+
+#### Refactored
+- Moved all 16 source files into `src/stepik_grader/` (via `git mv`,
+  history preserved), including the whole `core/` subdirectory. Every
+  internal cross-module import was rewritten with the `stepik_grader.`
+  package prefix (e.g. `from core.grader_core import ...` → `from
+  stepik_grader.core.grader_core import ...`).
+- `pyproject.toml`: `[tool.setuptools.packages.find] where = ["src"]`;
+  new `[project.scripts] stepik-grader = "stepik_grader.cli:main"` console
+  entry point; `known-first-party = ["stepik_grader"]`; `--cov=src` /
+  `source = ["src"]` for coverage.
+- `conftest.py` now does `sys.path.insert(0, str(Path(__file__).parent /
+  "src"))` so `import stepik_grader` works in tests without requiring
+  `pip install -e .` first.
+- `config.py`'s `load_config()` path resolution changed from
+  `Path(__file__).parent / "pyproject.toml"` to `Path(__file__).parent
+  .parent.parent / "pyproject.toml"`, since `config.py` now lives three
+  directory levels below the repo root (`src/stepik_grader/config.py`)
+  instead of one.
+- All ~25 test files' imports and `unittest.mock.patch`/
+  `monkeypatch.setattr` string targets updated to the new `stepik_grader.`
+  dotted paths, including several indented local imports inside function
+  bodies that a first-pass bulk regex missed (`tests/test_microbench.py`,
+  `tests/test_config.py`), and `tests/test_executor.py`'s subprocess
+  invocation paths and `-c` command strings.
+- Removed the root-level `python grader.py` / `python downloader.py` /
+  `python diagnostic_stepik.py` invocation style entirely (no
+  backward-compatibility shims) — the project now runs only via `python -m
+  stepik_grader.X` or the `stepik-grader` console script, per the explicit
+  decision to do a clean src-layout rather than keep thin root shims.
+
+#### Fixed
+- A stale `stepik_python_grader.egg-info` directory was still reporting
+  the wrong version/dependencies before this move started; refreshed via
+  `pip install -e . --no-deps` (see Issue #36's entry above) — caught
+  proactively before it could cause confusion post-migration.
+
+#### Verified
+- 523 passed (3 skipped), 95.24% coverage; ruff check/format clean — all
+  tests passed on the first full run after moving 16 source files and
+  rewriting ~25 test files' imports, following the same exhaustive
+  grep-before-edit audit methodology used for Issues #23 and #20's
+  `grader.py` split.
+- `ruff check .` found 29 line-length/import-sort violations from the
+  longer `stepik_grader.` import prefixes pushing lines past 100 chars;
+  resolved via `ruff check --fix .` + `ruff format .` plus two manual
+  fixes in `tests/test_executor.py`'s SIGALRM tests.
+
+#### Closes
+- Issue #35
 
 ### move grader_core.py and reporter.py into core/ (#26)
 

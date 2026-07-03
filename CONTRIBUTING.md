@@ -6,24 +6,29 @@
 
 ## Архитектура проекта
 
+> src/-layout (Issue #35): весь пакет живёт в `src/stepik_grader/`. Пути
+> ниже — относительно этого пакета.
+
 ```
 Stepik-Python-Grader/
-├── grader.py            # Тонкий фасад обратной совместимости (Sprint 7)
-├── cli.py                # Интерактивное меню (режимы 0-4)
-├── config.py            # Конфигурация уровня проекта
-├── downloader.py        # Загрузка задач/тестов со Stepik API
-├── diagnostic_stepik.py # Диагностика и отладка API
-├── core/                # Все внутренние модули проекта
-│   ├── grader_core.py       # Загрузка тест-кейсов, исполнение решений
-│   ├── reporter.py          # rich-таблицы, вывод, verbose-diff
-│   ├── executor.py          # Запуск кода из строки (run_solution)
-│   ├── microbench_runner.py # timeit-бенчмарк (run_microbench)
-│   ├── normalizers.py       # Нормализация float-вывода
-│   ├── storage.py           # Чтение JSON-файлов
-│   ├── stepik_client.py     # HTTP-клиент Stepik API
-│   ├── oauth_flow.py        # OAuth 2.0 авторизация
-│   └── parsers.py           # Парсинг тест-блоков (# TEST_N:)
-├── conftest.py          # pytest fixtures
+├── src/
+│   └── stepik_grader/
+│       ├── grader.py            # Тонкий фасад обратной совместимости (Sprint 7)
+│       ├── cli.py                # Интерактивное меню (режимы 0-4), entry point stepik-grader
+│       ├── config.py            # Конфигурация уровня проекта
+│       ├── downloader.py        # Загрузка задач/тестов со Stepik API
+│       ├── diagnostic_stepik.py # Диагностика и отладка API
+│       └── core/                # Все внутренние модули проекта
+│           ├── grader_core.py       # Загрузка тест-кейсов, исполнение решений
+│           ├── reporter.py          # rich-таблицы, вывод, verbose-diff
+│           ├── executor.py          # Запуск кода из строки (run_solution)
+│           ├── microbench_runner.py # timeit-бенчмарк (run_microbench)
+│           ├── normalizers.py       # Нормализация float-вывода
+│           ├── storage.py           # Чтение JSON-файлов
+│           ├── stepik_client.py     # HTTP-клиент Stepik API
+│           ├── oauth_flow.py        # OAuth 2.0 авторизация
+│           └── parsers.py           # Парсинг тест-блоков (# TEST_N:)
+├── conftest.py          # sys.path.insert(0, "src") — pytest discovery
 └── tests/               # Автотесты
 ```
 
@@ -46,25 +51,31 @@ Stepik-Python-Grader/
 
 ## Правила размещения файлов
 
-> **Корень проекта — не свалка. Только точки входа и инфраструктура проекта.**
+> **Корень репозитория — не свалка. Только `src/stepik_grader/` и
+> инфраструктура репозитория (Issue #35, src-layout).**
 
-### В корне остаются
+### В `src/stepik_grader/` остаются точки входа
 
 | Файл / паттерн | Причина |
 |---|---|
-| `grader.py`, `cli.py` | Точки входа — запускаются пользователем напрямую |
+| `grader.py`, `cli.py` | Точки входа — запускаются как `python -m stepik_grader.X` / `stepik-grader` |
 | `config.py` | Project-level конфигурация; импортируется из `core/*` (перенос вызовет circular import) |
 | `downloader.py`, `diagnostic_stepik.py` | Самостоятельные пользовательские утилиты |
+
+### В корне репозитория остаются только
+
+| Файл / паттерн | Причина |
+|---|---|
 | `conftest.py`, `pyproject.toml` | Инфраструктура тестирования и сборки |
 | `*.md`, `*.txt`, `*.toml`, `*.json.example` | Документация и шаблоны конфигурации |
 
-### В `core/` — всё остальное
+### В `src/stepik_grader/core/` — всё остальное
 
-Любой новый **внутренний модуль** (библиотечный код, не запускаемый пользователем напрямую) создаётся в `core/`, а не в корне.
+Любой новый **внутренний модуль** (библиотечный код, не запускаемый пользователем напрямую) создаётся в `core/`, а не рядом с точками входа.
 
 **Правило одной строки:**
 > Если файл не запускается пользователем напрямую и не является конфигурацией
-> уровня проекта — его место в `core/`, а не в корне.
+> уровня проекта — его место в `core/`, а не рядом с точками входа.
 
 ### В `tests/` — все тесты
 
@@ -89,16 +100,22 @@ python -m venv .venv
 
 pip install -r requirements.txt
 pip install rich             # опционально — цветной вывод
-pip install -e .             # обязательно: cli.__version__ читается через
+pip install -e .             # ОБЯЗАТЕЛЬНО (Issue #35, src-layout): без editable
+                              # install пакет stepik_grader не импортируется
+                              # и консольная команда stepik-grader не появится
+                              # на PATH. Также: cli.__version__ читается через
                               # importlib.metadata из package-метаданных
                               # (Issue #36) — без editable install падает
                               # на fallback "0.0.0+unknown"
 ```
 
 > После bump'а версии в `pyproject.toml` перезапусти `pip install -e .`,
-> иначе `cli.__version__`/`python grader.py --version` останутся
-> показывать старое значение (package-метаданные не обновляются
-> автоматически).
+> иначе `cli.__version__`/`stepik-grader --version` останутся показывать
+> старое значение (package-метаданные не обновляются автоматически).
+>
+> Запуск без установки: `pytest` работает благодаря `sys.path.insert(0,
+> "src")` в `conftest.py`, но `python -m stepik_grader.grader` и
+> `stepik-grader` требуют `pip install -e .`.
 
 ### Запуск тестов
 
@@ -190,6 +207,4 @@ chore: инфраструктура, зависимости
 
 ## Известные ограничения
 
-- Отсутствует `src/`-layout — возможны конфликты импортов при установке как пакета (Issue #35, опционально).
-- `__version__` дублируется в `pyproject.toml` и `cli.py` вместо единого источника через `importlib.metadata` (Issue #36).
 - Memory measurement через `psutil` может давать нулевые значения для очень быстрых процессов.

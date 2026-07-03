@@ -20,7 +20,7 @@ import pathlib
 
 import pytest
 
-from grader import run_tests
+from stepik_grader.grader import run_tests
 
 
 def _run_case(tmp_path: pathlib.Path, solution: str, input_txt: str, output_txt: str) -> dict:
@@ -358,6 +358,6 @@ def test_grader_detects_wrong_output(tmp_path: pathlib.Path) -> None:
     ],
 )
 def test_repo_blocks_detected_as_python_code(block: str) -> None:
-    from grader import _is_python_code_block
+    from stepik_grader.grader import _is_python_code_block
 
     assert _is_python_code_block(block) is True

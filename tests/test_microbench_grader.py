@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pathlib
 
-import grader
+from stepik_grader import grader
 
 
 def _write(tmp_path: pathlib.Path, name: str, text: str) -> str:

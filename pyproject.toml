@@ -21,8 +21,11 @@ dev = [
     "ruff>=0.15.19",
 ]
 
+[project.scripts]
+stepik-grader = "stepik_grader.cli:main"
+
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 
 [tool.ruff]
 line-length = 100
@@ -33,22 +36,22 @@ select = ["E", "F", "W", "I", "UP", "B", "S102"]
 ignore = ["S101"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["grader", "core", "config"]
+known-first-party = ["stepik_grader"]
 
 [tool.ruff.lint.per-file-ignores]
 # grader.py is a pure backward-compat re-export facade over core/grader_core.py /
 # core/reporter.py / cli.py -- every import in it is intentionally "unused" here.
-"grader.py" = ["F401", "F403", "F405", "I001"]
+"src/stepik_grader/grader.py" = ["F401", "F403", "F405", "I001"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=. --cov-report=term-missing --cov-report=xml -v --tb=short"
+addopts = "--cov=src --cov-report=term-missing --cov-report=xml -v --tb=short"
 testpaths = ["tests"]
 python_classes = ["Test*"]
 
 [tool.coverage.run]
-source = ["."]
+source = ["src"]
 omit = [
-    "diagnostic_stepik.py",
+    "src/stepik_grader/diagnostic_stepik.py",
     "tests/*",
     "conftest.py",
 ]

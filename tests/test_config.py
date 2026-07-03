@@ -7,7 +7,7 @@ import pathlib
 
 import pytest
 
-from config import CONFIG, GraderConfig, load_config
+from stepik_grader.config import CONFIG, GraderConfig, load_config
 
 
 def test_grader_config_defaults() -> None:
@@ -39,14 +39,16 @@ def test_load_config_reads_real_pyproject() -> None:
 def test_load_config_missing_pyproject_returns_defaults(tmp_path: pathlib.Path) -> None:
     """Отсутствие pyproject.toml → GraderConfig с дефолтами, без ошибок.
 
-    config.py резолвит путь к pyproject.toml относительно СВОЕГО __file__, а
-    не cwd, поэтому подменяем __file__ модуля на путь внутри пустого tmp_path.
+    config.py резолвит путь к pyproject.toml относительно СВОЕГО __file__
+    (три уровня вверх: src/stepik_grader/config.py -> repo root, Issue #35),
+    а не cwd, поэтому подменяем __file__ модуля на путь внутри пустого
+    tmp_path с той же вложенностью, чтобы резолвился именно tmp_path.
     """
-    import config as config_module
+    import stepik_grader.config as config_module
 
     original_file = config_module.__file__
     try:
-        config_module.__file__ = str(tmp_path / "config.py")
+        config_module.__file__ = str(tmp_path / "src" / "stepik_grader" / "config.py")
         cfg = config_module.load_config()
         assert cfg == GraderConfig()
     finally:
@@ -60,11 +62,11 @@ def test_load_config_ignores_unknown_keys(tmp_path: pathlib.Path) -> None:
         '[tool.stepik-grader]\ntimeout_seconds = 20.0\nunknown_field = "ignored"\n',
         encoding="utf-8",
     )
-    import config as config_module
+    import stepik_grader.config as config_module
 
     original_file = config_module.__file__
     try:
-        config_module.__file__ = str(tmp_path / "config.py")
+        config_module.__file__ = str(tmp_path / "src" / "stepik_grader" / "config.py")
         cfg = config_module.load_config()
         assert cfg.timeout_seconds == 20.0
         assert cfg.microbench_max_cases == 5  # untouched default

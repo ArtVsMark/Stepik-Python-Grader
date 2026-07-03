@@ -24,7 +24,7 @@ import os
 import pathlib
 from typing import Any
 
-from core.grader_core import (
+from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
     SIMILAR_THRESHOLD,
     _resolve_test_dir,
@@ -34,8 +34,12 @@ from core.grader_core import (
     run_microbench_mode,
     run_tests,
 )
-from core.microbench_runner import apply_relative_ranking
-from core.reporter import _rich_track, print_benchmark_results, print_correctness_results
+from stepik_grader.core.microbench_runner import apply_relative_ranking
+from stepik_grader.core.reporter import (
+    _rich_track,
+    print_benchmark_results,
+    print_correctness_results,
+)
 
 __all__ = ["main"]
 

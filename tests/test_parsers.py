@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.parsers import parse_testblock_file
+from stepik_grader.core.parsers import parse_testblock_file
 
 
 class TestParseTestblockFile:

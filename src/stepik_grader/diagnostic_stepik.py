@@ -8,7 +8,7 @@ OAuth делегируется в oauth_flow (фасад поверх stepik_cli
   - API_HOST — импортируется из stepik_client (константа)
 
 Запуск:
-    python diagnostic_stepik.py
+    python -m stepik_grader.diagnostic_stepik
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ from urllib.parse import urlencode
 
 import requests
 
-from core.oauth_flow import authorize_via_browser, load_secrets, make_session
-from core.stepik_client import API_HOST
-from downloader import parse_stepik_step_url
+from stepik_grader.core.oauth_flow import authorize_via_browser, load_secrets, make_session
+from stepik_grader.core.stepik_client import API_HOST
+from stepik_grader.downloader import parse_stepik_step_url
 
 # Задача 6: таймаут ожидания OAuth-кода от браузера
 OAUTH_TIMEOUT_SECONDS = 120

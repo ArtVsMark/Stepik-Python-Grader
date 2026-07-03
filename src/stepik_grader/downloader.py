@@ -32,9 +32,9 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
-from core.oauth_flow import create_user_session, load_secrets_dict
-from core.parsers import parse_testblock_file
-from core.stepik_client import (
+from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
+from stepik_grader.core.parsers import parse_testblock_file
+from stepik_grader.core.stepik_client import (
     fetch_course_data,
     fetch_lesson_data,
     fetch_section_data,
@@ -42,7 +42,7 @@ from core.stepik_client import (
     fetch_submission_data,
     fetch_unit_data,
 )
-from core.storage import load_json_file, save_json_file
+from stepik_grader.core.storage import load_json_file, save_json_file
 
 CONFIG_FILE = "stepik_config.json"
 

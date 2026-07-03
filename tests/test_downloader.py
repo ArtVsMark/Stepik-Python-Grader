@@ -7,8 +7,8 @@ import pathlib
 import zipfile
 from unittest.mock import MagicMock
 
-import downloader
-from downloader import (
+from stepik_grader import downloader
+from stepik_grader.downloader import (
     _download_github_tests,
     _download_zip_tests,
     extract_external_test_links,
@@ -262,7 +262,7 @@ class TestZipConversionRoundtrip:
 
     def test_zip_to_format3_to_grader(self, tmp_path: pathlib.Path) -> None:
         """ZIP в стиле Stepik → input.txt/output.txt → корректные TestCase."""
-        from grader import load_test_cases
+        from stepik_grader.grader import load_test_cases
 
         session = _zip_session(
             ("1", "10\n20\n30"),

@@ -12,7 +12,7 @@ import textwrap
 
 import pytest
 
-from grader import is_function_only_solution, is_solution_file
+from stepik_grader.grader import is_function_only_solution, is_solution_file
 
 # ===========================================================================
 # is_function_only_solution
@@ -269,7 +269,7 @@ class TestDetectRunMode:
 
     def test_stdin_mode_plain_script(self, tmp_path: pathlib.Path) -> None:
         """Скрипт с print() → stdin."""
-        from grader import _detect_run_mode
+        from stepik_grader.grader import _detect_run_mode
 
         sol = tmp_path / "task1.py"
         sol.write_text("n = int(input())\nprint(n)\n", encoding="utf-8")
@@ -281,7 +281,7 @@ class TestDetectRunMode:
         """meta.json с function_name → function."""
         import json
 
-        from grader import _detect_run_mode
+        from stepik_grader.grader import _detect_run_mode
 
         sol = tmp_path / "task1.py"
         sol.write_text("def solve(n):\n    return n\n", encoding="utf-8")
@@ -293,7 +293,7 @@ class TestDetectRunMode:
 
     def test_function_mode_via_type_file(self, tmp_path: pathlib.Path) -> None:
         """.type файл с 'function' → function."""
-        from grader import _detect_run_mode
+        from stepik_grader.grader import _detect_run_mode
 
         sol = tmp_path / "task1.py"
         sol.write_text("n = int(input())\nprint(n)\n", encoding="utf-8")
@@ -304,7 +304,7 @@ class TestDetectRunMode:
 
     def test_function_mode_via_ast(self, tmp_path: pathlib.Path) -> None:
         """Файл с только def (без meta.json и .type) → function через AST."""
-        from grader import _detect_run_mode
+        from stepik_grader.grader import _detect_run_mode
 
         sol = tmp_path / "task1.py"
         sol.write_text(
@@ -326,14 +326,14 @@ class TestIsFunctionStyle:
 
     def test_date_assignments_only(self) -> None:
         """Два присваивания date(...) без print → True (function-mode)."""
-        from downloader import _is_function_style
+        from stepik_grader.downloader import _is_function_style
 
         text = "date1 = date(2021, 11, 1)\ndate2 = date(2021, 11, 22)"
         assert _is_function_style(text) is True
 
     def test_assignments_with_print(self) -> None:
         """Присваивания + print() → False (stdin-mode)."""
-        from downloader import _is_function_style
+        from stepik_grader.downloader import _is_function_style
 
         date_lines = "date1 = date(2021, 11, 1)\ndate2 = date(2021, 11, 22)"
         text = date_lines + "\nprint(saturdays_between_two_dates(date1, date2))"
@@ -341,7 +341,7 @@ class TestIsFunctionStyle:
 
     def test_simple_int_input(self) -> None:
         """n = int(input()) → False (вызов на верхнем уровне через Assign→Call→Call)."""
-        from downloader import _is_function_style
+        from stepik_grader.downloader import _is_function_style
 
         # n = int(input()) — Assign, не Expr.Call, поэтому через AST body это Assign → True
         # Но само значение — вызов input(), что типично для stdin. Проверяем ожидание:
@@ -351,19 +351,19 @@ class TestIsFunctionStyle:
 
     def test_plain_number_input(self) -> None:
         """Просто число (stdin) → False (нет присваиваний)."""
-        from downloader import _is_function_style
+        from stepik_grader.downloader import _is_function_style
 
         text = "42"
         assert _is_function_style(text) is False
 
     def test_empty_string(self) -> None:
         """Пустая строка → False."""
-        from downloader import _is_function_style
+        from stepik_grader.downloader import _is_function_style
 
         assert _is_function_style("") is False
 
     def test_syntax_error(self) -> None:
         """SyntaxError → False."""
-        from downloader import _is_function_style
+        from stepik_grader.downloader import _is_function_style
 
         assert _is_function_style("def broken(") is False

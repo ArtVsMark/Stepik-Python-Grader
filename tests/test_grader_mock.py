@@ -27,7 +27,7 @@ import pytest
 # grader.py лежит в корне проекта — убедимся что он в sys.path
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-import grader
+from stepik_grader import grader
 
 # ---------------------------------------------------------------------------
 # Вспомогательные фабрики
