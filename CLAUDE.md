@@ -44,7 +44,7 @@ Stepik-Python-Grader/
 ├── config.py                  # Application/Configuration: GraderConfig, CONFIG (Sprint 6.3 ✅)
 │
 ├── downloader.py             # Domain: скачивание задач, ZIP/HTML, slugify
-├── diagnostik_stepik.py      # Application: диагностика API и токена
+├── diagnostic_stepik.py      # Application: диагностика API и токена
 │
 ├── core/                     # Internal Infrastructure/Utility модули (Issue #23, #26)
 │   ├── __init__.py
@@ -106,9 +106,9 @@ downloader.py ──→ core/parsers.py
 core/oauth_flow.py ──→ core/stepik_client.py
 core/oauth_flow.py ──→ core/storage.py
 
-diagnostik_stepik.py ──→ core/stepik_client.py
-diagnostik_stepik.py ──→ core/oauth_flow.py
-diagnostik_stepik.py ──→ downloader.py  # только parse_stepik_step_url
+diagnostic_stepik.py ──→ core/stepik_client.py
+diagnostic_stepik.py ──→ core/oauth_flow.py
+diagnostic_stepik.py ──→ downloader.py  # только parse_stepik_step_url
 
 core/stepik_client.py ──→ core/storage.py
 ```
@@ -129,7 +129,7 @@ core/stepik_client.py ──→ core/storage.py
 > Issue #26 (2026-07): grader_core.py и reporter.py перенесены в `core/`
 > (продолжение #23 — теперь ВСЕ внутренние модули живут в `core/`, в корне
 > остаются только точки входа `grader.py`/`cli.py`/`downloader.py`/
-> `diagnostik_stepik.py` и `config.py`). `grader.py` и `cli.py` импортируют
+> `diagnostic_stepik.py` и `config.py`). `grader.py` и `cli.py` импортируют
 > `from core.grader_core import ...` / `from core.reporter import ...`.
 > Тесты, обращавшиеся к этим модулям напрямую (не через фасад `grader.py`),
 > обновлены: `import grader_core`/`import reporter` → `from core import
@@ -176,7 +176,7 @@ pytest tests/ --cov=. --cov-report=term-missing -q
 ```bash
 python grader.py          # интерактивное меню (режимы 0-4)
 python downloader.py      # скачать задачу по URL Stepik
-python diagnostik_stepik.py  # диагностика API и токена
+python diagnostic_stepik.py  # диагностика API и токена
 ```
 
 ---

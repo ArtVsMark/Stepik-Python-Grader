@@ -48,7 +48,7 @@ python_classes = ["Test*"]
 [tool.coverage.run]
 source = ["."]
 omit = [
-    "diagnostik_stepik.py",
+    "diagnostic_stepik.py",
     "tests/*",
     "conftest.py",
 ]

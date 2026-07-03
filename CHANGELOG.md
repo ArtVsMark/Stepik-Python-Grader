@@ -41,6 +41,16 @@ epic #18). Test suite grew from 355 to 520 tests; coverage from 88% to
 - `core/microbench_runner.py`'s broad `except Exception` narrowed to
   `(OSError, ValueError)`; redundant `float(str(x or 0))` simplified to
   `float(x or 0)` in `core/stepik_client.py` (Issue #21)
+- `diagnostik_stepik.py` renamed to `diagnostic_stepik.py` (German-inflected
+  spelling replaced with the correct English adjective; no imports pointed
+  at it as a module, so this only touched docstrings/docs) (Issue #37)
+- Documentation pass: `pyproject.toml`/`cli.py`/`CLAUDE.md`/`README.md`
+  version bumped to 1.1.0 (Issue #29); `CHECKPOINT.md` fully rewritten to
+  match current architecture and metrics (Issue #28); `README.md`'s module
+  table synced with the `core/` layout, `config.py`, and `cli.py` (Issue
+  #32); stale test-count/coverage numbers and the Glossary-Python freeze
+  status corrected across `CLAUDE.md` (Issue #31); `grader.py`'s line
+  count vs. coverage `Stmts` count disambiguated (Issue #33)
 
 ### Fixed
 - `_parse_testblock_file` duplicated in `grader.py` and `core/parsers.py`

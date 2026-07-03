@@ -3,7 +3,7 @@
 These tests pin the CURRENT behavior of the OAuth functions at their current
 locations:
 
-  * ``load_secrets``        — diagnostik_stepik.py (tuple-returning variant; this
+  * ``load_secrets``        — diagnostic_stepik.py (tuple-returning variant; this
                               is the shape the future ``oauth_flow.load_secrets``
                               will keep, per Issue #1).
   * ``token_is_valid``      — stepik_client.py

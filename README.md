@@ -48,7 +48,7 @@
 | `cli.py` | Application / CLI | Интерактивное меню (режимы 0-4) и non-interactive argparse CLI, профили нагрузки |
 | `config.py` | Application / Configuration | `GraderConfig` (frozen dataclass) + `CONFIG` singleton; переопределяется через `[tool.stepik-grader]` в `pyproject.toml` |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
-| `diagnostik_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
+| `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
 | `core/grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
 | `core/reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA, адаптивное форматирование времени (`fmt_time`) |
 | `core/executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
@@ -56,7 +56,7 @@
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
 | `core/storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
 | `core/stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
-| `core/oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostik_stepik.py` |
+| `core/oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostic_stepik.py` |
 | `core/parsers.py` | Infrastructure / Utilities | Парсинг тест-блоков (`# TEST_N:`) — единственный источник истины для `grader.py` и `downloader.py` |
 
 Основные возможности:
@@ -91,10 +91,10 @@ core/grader_core.py    ──→  core/microbench_runner.py
 core/grader_core.py    ──→  core/normalizers.py
 core/grader_core.py    ──→  core/parsers.py
 cli.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
-diagnostik_stepik.py ──→  core/stepik_client.py
-diagnostik_stepik.py ──→  downloader.py       ← parse_stepik_step_url
+diagnostic_stepik.py ──→  core/stepik_client.py
+diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
 downloader.py        ──→  core/oauth_flow.py
-diagnostik_stepik.py ──→  core/oauth_flow.py
+diagnostic_stepik.py ──→  core/oauth_flow.py
 core/oauth_flow.py    ──→  core/stepik_client.py
 core/oauth_flow.py    ──→  core/storage.py
 ```
@@ -108,7 +108,7 @@ downloader.py больше не импортирует grader.py: дублиру
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │  Domain / Application  (root — только точки входа)             │
-│  downloader.py  │  grader.py (facade)  │  diagnostik_stepik   │
+│  downloader.py  │  grader.py (facade)  │  diagnostic_stepik   │
 ├───────────────────────────────────────────────────────────────┤
 │  Application  (core/, грейдер разбит по SRP — Sprint 7)       │
 │  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
@@ -135,7 +135,7 @@ Stepik-Python-Grader/
 ├── cli.py                        # Интерактивное меню (режимы 0-4)
 ├── config.py                     # GraderConfig, CONFIG — единая конфигурация
 ├── downloader.py                # Domain: конфиг, slugify, построение папок, оркестрация API
-├── diagnostik_stepik.py       # Диагностика API и токена
+├── diagnostic_stepik.py       # Диагностика API и токена
 ├── core/                       # Internal Infrastructure/Utility модули (Issue #23, #26)
 │   ├── __init__.py
 │   ├── grader_core.py         # Загрузка тест-кейсов, исполнение решений
@@ -610,7 +610,7 @@ Dev-зависимости (`pip install -e ".[dev]"`):
 Если `downloader.py` не нашёл данных шага автоматически:
 
 ```bash
-python diagnostik_stepik.py
+python diagnostic_stepik.py
 ```
 
 Скрипт сохранит в папку `stepik_diagnostics/`:
@@ -618,7 +618,7 @@ python diagnostik_stepik.py
 - `step_debug.json`
 - `diagnostic_result.json`
 
-`diagnostik_stepik.py` также позволяет:
+`diagnostic_stepik.py` также позволяет:
 - проверить доступность Stepik API;
 - убедиться в корректности токена авторизации;
 - получить информацию о курсе, уроке или задаче по ID.

@@ -1,4 +1,4 @@
-"""diagnostik_stepik.py — OAuth-диагностика шага Stepik через API.
+"""diagnostic_stepik.py — OAuth-диагностика шага Stepik через API.
 
 Архитектурный слой: CLI-инструмент / диагностика.
 OAuth делегируется в oauth_flow (фасад поверх stepik_client):
@@ -8,7 +8,7 @@ OAuth делегируется в oauth_flow (фасад поверх stepik_cli
   - API_HOST — импортируется из stepik_client (константа)
 
 Запуск:
-    python diagnostik_stepik.py
+    python diagnostic_stepik.py
 """
 
 from __future__ import annotations

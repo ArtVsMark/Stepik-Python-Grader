@@ -12,7 +12,7 @@
 
 Вся HTTP/OAuth логика делегируется stepik_client.py.
 Этот модуль — тонкий фасад, устраняющий дублирование между downloader.py и
-diagnostik_stepik.py. Источник истины — stepik_client.py.
+diagnostic_stepik.py. Источник истины — stepik_client.py.
 """
 
 from __future__ import annotations
