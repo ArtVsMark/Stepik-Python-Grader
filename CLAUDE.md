@@ -711,7 +711,7 @@ except:
 | Python | 3.12 / 3.13 / 3.14 |
 | Тестов | 520 |
 | Покрытие | 95% |
-| Строк (grader.py) | 8 (тонкий фасад, Sprint 7 ✅) |
+| Строк (grader.py) | 93 (тонкий фасад — 7 исполняемых `Stmts` по pytest-cov, Sprint 7 ✅) |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
 | CI | GitHub Actions (pytest + ruff) |
 
