@@ -48,7 +48,9 @@ class TestMode2PerSolutionTestDir:
 
         used: dict[str, str] = {}
 
-        def fake_run_tests(path, test_dir, *, verbose=False, timeout=grader.TIMEOUT_SECONDS):
+        def fake_run_tests(
+            path, test_dir, *, verbose=False, verbose_callback=None, timeout=grader.TIMEOUT_SECONDS
+        ):
             used[os.path.basename(path)] = test_dir
             return {
                 "total": 1,
@@ -87,7 +89,9 @@ class TestMode2PerSolutionTestDir:
 
         used: list[str] = []
 
-        def fake_run_tests(path, test_dir, *, verbose=False, timeout=grader.TIMEOUT_SECONDS):
+        def fake_run_tests(
+            path, test_dir, *, verbose=False, verbose_callback=None, timeout=grader.TIMEOUT_SECONDS
+        ):
             used.append(test_dir)
             return {
                 "total": 1,

@@ -2,11 +2,33 @@
 
 ## [Unreleased]
 
-Sprints A (Security), B (Architecture, partial), C (Reliability), and D
-(CI/CD & Quality) from the v1.1.0 audit epic #60: issues #43, #44, #45, #46,
-#47, #48, #49, #52.
+Sprints A (Security), B (Architecture, partial), C (Reliability), D (CI/CD &
+Quality), and E (UX/Docs/Deps) from the v1.1.0 audit epic #60: issues #43,
+#44, #45, #46, #47, #48, #49, #50, #51, #52.
 
 ### Added
+- i18n for the interactive menu and CLI messages: Russian by default, `--lang
+  en` switches to English (issue #51 D-01). Minimal message-dict + `_t()`
+  helper in `cli.py` rather than a full gettext setup -- proportionate to
+  this CLI's size
+- `--verbose`/`--quiet` (mutually exclusive) for `--mode 1/2`: mode 1 already
+  defaulted to verbose (unaffected unless `--quiet`), mode 2 already
+  defaulted to quiet (unaffected unless `--verbose`) (issue #50 D-03)
+- `--output {text,json}` for all four modes. `json` prints one JSON line
+  reusing the existing `run_tests()`/`run_benchmark()`/`run_microbench_mode()`
+  result dicts directly (`file`/`results`/`groups` keys depending on mode) --
+  no separately-invented schema (issue #50 D-04)
+- Richer "tests not found" diagnostic for `--mode 1`: names the expected
+  folder and suggests `python -m stepik_grader.downloader` or manual
+  `tests/1`, `tests/1.clue` creation, instead of a bare "not found" (issue
+  #50 D-05)
+- `.github/workflows/release.yml`: builds sdist+wheel and creates a GitHub
+  Release with auto-generated notes on `v*` tag push. PyPI publishing is
+  intentionally NOT included -- it needs a trusted-publisher relationship
+  configured on pypi.org first, which requires manual setup by a repo owner
+  with PyPI access (issue #51 C-03)
+- Upper bounds on runtime dependencies: `requests<3.0`, `psutil<8.0`,
+  `rich<16.0` (issue #51 P-02)
 - `mypy>=1.10` in `[project.optional-dependencies].dev`; `mypy src/stepik_grader
   --ignore-missing-imports` runs as a CI step on every matrix leg (issue #49
   C-02). Fixed the ~12 pre-existing/newly-surfaced errors this uncovered:
@@ -75,6 +97,12 @@ Sprints A (Security), B (Architecture, partial), C (Reliability), and D
   fired — the most useful diagnostic available without a genuine per-call
   timeout inside the child process (issue #47 R-01, partial — see Notes)
 
+### Removed
+- `requirements.txt` — duplicated the same 3 runtime dependencies already in
+  `pyproject.toml`. `pip install -e .` (or `-e ".[dev]"`) is now the only
+  documented install path; README/CONTRIBUTING/CLAUDE.md updated (issue #51
+  P-01)
+
 ### Notes
 - Issue #47 R-01: a genuine PER-CALL timeout (interrupting one hung iteration
   out of `number x 5` inside `timeit.repeat()`) is NOT implemented — it would
@@ -106,6 +134,18 @@ Sprints A (Security), B (Architecture, partial), C (Reliability), and D
 - Issue #45 A-01 (splitting `grader_core.py` into `test_loader.py`/
   `mode_detector.py`/`wrapper_builder.py`) is NOT done in this pass — deferred
   as its own follow-up; see CLAUDE.md Sprint B.3 and CHECKPOINT.md backlog
+- Issue #50 D-02 ("`CONTRIBUTING.md` отсутствует") was already stale at the
+  time of the audit — the file exists and is fairly thorough. Fixed the two
+  things that WERE actually stale in it (claimed "Python 3.10+", contradicting
+  `pyproject.toml`'s `requires-python = ">=3.12"` everywhere else; a redundant
+  separate `pip install rich` step now that `rich` is a required, not
+  optional, runtime dependency) and added the `mypy` step Sprint D introduced
+- Issue #51 P-02's own suggested upper bounds (`psutil<7.0`) are stale:
+  `psutil` 7.2.2 and `rich` 15.0.0 are already installed and passing the full
+  suite in this environment, so bounding to `<7.0`/`<15.0` would immediately
+  break `pip install -e .[dev]`. Used `psutil<8.0`/`rich<16.0` instead --
+  headroom above what's actually proven working, not the audit's example
+  verbatim
 
 ## [1.1.0] - 2026-07-02
 

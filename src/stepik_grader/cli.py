@@ -11,6 +11,11 @@ Non-interactive запуск (Sprint 8.1):
     python grader.py --mode 4 --dir StepikTasks/module1/task1 --number 1000
     python grader.py --version
 
+Sprint E (issue #50/#51):
+    --lang {ru,en}      — язык меню и сообщений (по умолчанию ru), issue #51 D-01
+    --verbose / --quiet — управление подробностью вывода режимов 1/2, issue #50 D-03
+    --output {text,json} — машиночитаемый вывод, issue #50 D-04
+
 Без --mode main() показывает интерактивное меню (как раньше).
 
 Извлечён из grader.py (Issue #20, finding #4 / CLAUDE.md Sprint 7, шаг 3).
@@ -20,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import json
 import os
 import pathlib
 from typing import Any
@@ -62,6 +68,132 @@ def _resolve_version() -> str:
 __version__ = _resolve_version()
 
 # ---------------------------------------------------------------------------
+# i18n (issue #51 D-01) — русский по умолчанию, --lang en переключает на
+# английский. Минимальный словарь сообщений вместо полноценной gettext-
+# инфраструктуры: достаточно для меню/CLI этого масштаба.
+# ---------------------------------------------------------------------------
+
+_LANG: str = "ru"
+
+_MESSAGES: dict[str, dict[str, str]] = {
+    "bench_profile_header": {
+        "ru": "  Профили нагрузки (повторов на решение):",
+        "en": "  Load profiles (repeats per solution):",
+    },
+    "bench_profile_1": {
+        "ru": "    1  низкий      —   5 повторов",
+        "en": "    1  low       —   5 runs",
+    },
+    "bench_profile_2": {
+        "ru": "    2  средний     —  15 повторов",
+        "en": "    2  medium    —  15 runs",
+    },
+    "bench_profile_3": {
+        "ru": "    3  высокий     —  50 повторов",
+        "en": "    3  high      —  50 runs",
+    },
+    "bench_profile_4": {
+        "ru": "    4  свой        —  5–100 повторов",
+        "en": "    4  custom    —  5–100 runs",
+    },
+    "select_profile_prompt": {"ru": "  Выберите профиль [2]: ", "en": "  Select profile [2]: "},
+    "enter_repeats_prompt": {
+        "ru": "  Введите число повторов (5–100): ",
+        "en": "  Enter repeats (5–100): ",
+    },
+    "micro_profile_header": {
+        "ru": "  Профили нагрузки (вызовов за прогон):",
+        "en": "  Load profiles (calls per run):",
+    },
+    "micro_profile_1": {"ru": "    1  быстрый      —     500", "en": "    1  fast      —     500"},
+    "micro_profile_2": {"ru": "    2  обычный      —   1 000", "en": "    2  normal    —   1 000"},
+    "micro_profile_3": {"ru": "    3  тщательный   —   5 000", "en": "    3  thorough  —   5 000"},
+    "micro_profile_4": {"ru": "    4  глубокий     —  50 000", "en": "    4  deep      —  50 000"},
+    "micro_profile_5": {
+        "ru": "    5  тяжёлый      — 100 000  (только короткие детерминированные функции)",
+        "en": "    5  hard      — 100 000  (short deterministic functions only)",
+    },
+    "micro_profile_6": {
+        "ru": "    6  свой         — 100–500 000",
+        "en": "    6  custom    — 100–500 000",
+    },
+    "enter_calls_prompt": {
+        "ru": "  Введите число вызовов (100–500 000): ",
+        "en": "  Enter calls (100–500 000): ",
+    },
+    "menu_title": {"ru": "  Stepik Python Grader", "en": "  Stepik Python Grader"},
+    "menu_1": {"ru": "  1. Проверить одно решение", "en": "  1. Check one solution"},
+    "menu_2": {
+        "ru": "  2. Проверить все решения в папке",
+        "en": "  2. Check all solutions in folder",
+    },
+    "menu_3": {"ru": "  3. Бенчмарк решений в папке", "en": "  3. Benchmark solutions in folder"},
+    "menu_4": {
+        "ru": "  4. Микро-бенчмарк (timeit) для папки",
+        "en": "  4. Micro-benchmark (timeit) for folder",
+    },
+    "menu_0": {"ru": "  0. Выход", "en": "  0. Exit"},
+    "select_mode_prompt": {"ru": "Выберите режим [0-4]: ", "en": "Select mode [0-4]: "},
+    "goodbye": {"ru": "До свидания!", "en": "Goodbye!"},
+    "enter_solution_path": {
+        "ru": "Введите путь к файлу решения: ",
+        "en": "Enter path to solution file: ",
+    },
+    "enter_folder_path": {"ru": "Введите путь к папке: ", "en": "Enter path to folder: "},
+    "enter_folder_with_solutions_path": {
+        "ru": "Введите путь к папке с решениями: ",
+        "en": "Enter path to folder with solutions: ",
+    },
+    "unknown_choice": {
+        "ru": "Неизвестный выбор. Введите число от 0 до 4.",
+        "en": "Unknown choice. Please enter 0-4.",
+    },
+    "file_not_found": {"ru": "Файл не найден: {path}", "en": "File not found: {path}"},
+    "dir_not_found": {"ru": "Папка не найдена: {path}", "en": "Directory not found: {path}"},
+    "no_solutions_found": {"ru": "Файлы решений не найдены.", "en": "No solution files found."},
+    # issue #50 D-05: richer diagnostic than a bare "not found" -- tells the
+    # user WHERE a tests/ folder was expected and HOW to get one.
+    "test_dir_not_found": {
+        "ru": (
+            "⚠️ Тесты не найдены для: {name}\n"
+            "   Ожидалась папка: {expected}\n"
+            "   Запустите: python -m stepik_grader.downloader\n"
+            "   Или создайте вручную: tests/1, tests/1.clue"
+        ),
+        "en": (
+            "⚠️ Tests not found for: {name}\n"
+            "   Expected folder: {expected}\n"
+            "   Run: python -m stepik_grader.downloader\n"
+            "   Or create manually: tests/1, tests/1.clue"
+        ),
+    },
+    "micro_bench_header": {
+        "ru": "\n⚡ Микро-бенчмарк (timeit): {label}",
+        "en": "\n⚡ Micro-bench (timeit): {label}",
+    },
+    "tests_not_found": {
+        "ru": "  ⚠ Тесты не найдены: {test_dir}",
+        "en": "  ⚠ Tests not found: {test_dir}",
+    },
+    "expected_tests_subfolder": {
+        "ru": "  Ожидалась папка tests/ рядом с файлами решений.",
+        "en": "  Expected: tests/ subfolder next to solution files.",
+    },
+    "no_test_cases_found": {
+        "ru": "  ⚠ Тест-кейсы не найдены в: {test_dir}",
+        "en": "  ⚠ No test cases found in: {test_dir}",
+    },
+    "no_results": {"ru": "  Нет результатов.", "en": "  No results."},
+}
+
+
+def _t(key: str, /, **kwargs: object) -> str:
+    """Вернуть сообщение по ключу на текущем языке (_LANG), подставив kwargs."""
+    template = _MESSAGES[key][_LANG]
+    return template.format(**kwargs) if kwargs else template
+
+
+# ---------------------------------------------------------------------------
 # Профили нагрузки
 # ---------------------------------------------------------------------------
 
@@ -84,36 +216,36 @@ _MICRO_PROFILES: dict[str, int] = {
 
 def _ask_bench_profile() -> int:
     """Запросить профиль нагрузки для subprocess-бенчмарка (режим 3)."""
-    print("  Load profiles (repeats per solution):")
-    print("    1  low       —   5 runs")
-    print("    2  medium    —  15 runs")
-    print("    3  high      —  50 runs")
-    print("    4  custom    —  5–100 runs")
-    choice = input("  Select profile [2]: ").strip() or "2"
+    print(_t("bench_profile_header"))
+    print(_t("bench_profile_1"))
+    print(_t("bench_profile_2"))
+    print(_t("bench_profile_3"))
+    print(_t("bench_profile_4"))
+    choice = input(_t("select_profile_prompt")).strip() or "2"
     repeats = _BENCH_PROFILES.get(choice)
     if repeats is None:
         repeats = _BENCH_PROFILES["2"]
     if repeats == 0:
-        repeats = _ask_number("  Enter repeats (5–100): ", default=15)
+        repeats = _ask_number(_t("enter_repeats_prompt"), default=15)
         repeats = max(5, min(100, repeats))
     return repeats
 
 
 def _ask_micro_profile() -> int:
     """Запросить профиль нагрузки для timeit micro-bench (режим 4)."""
-    print("  Load profiles (calls per run):")
-    print("    1  fast      —     500")
-    print("    2  normal    —   1 000")
-    print("    3  thorough  —   5 000")
-    print("    4  deep      —  50 000")
-    print("    5  hard      — 100 000  (short deterministic functions only)")
-    print("    6  custom    — 100–500 000")
-    choice = input("  Select profile [2]: ").strip() or "2"
+    print(_t("micro_profile_header"))
+    print(_t("micro_profile_1"))
+    print(_t("micro_profile_2"))
+    print(_t("micro_profile_3"))
+    print(_t("micro_profile_4"))
+    print(_t("micro_profile_5"))
+    print(_t("micro_profile_6"))
+    choice = input(_t("select_profile_prompt")).strip() or "2"
     number = _MICRO_PROFILES.get(choice)
     if number is None:
         number = _MICRO_PROFILES["2"]
     if number == 0:
-        number = _ask_number("  Enter calls (100–500 000): ", default=1000)
+        number = _ask_number(_t("enter_calls_prompt"), default=1000)
         number = max(100, min(500_000, number))
     return number
 
@@ -125,13 +257,13 @@ def _ask_micro_profile() -> int:
 
 def _print_menu() -> None:
     print("\n" + "=" * 50)
-    print("  Stepik Python Grader")
+    print(_t("menu_title"))
     print("=" * 50)
-    print("  1. Check one solution")
-    print("  2. Check all solutions in folder")
-    print("  3. Benchmark solutions in folder")
-    print("  4. Micro-benchmark (timeit) for folder")
-    print("  0. Exit")
+    print(_t("menu_1"))
+    print(_t("menu_2"))
+    print(_t("menu_3"))
+    print(_t("menu_4"))
+    print(_t("menu_0"))
     print("=" * 50)
 
 
@@ -158,18 +290,29 @@ def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) 
     return resolve_test_dir(solution_or_dir)
 
 
-def _run_mode_1(solution: str) -> None:
+def _run_mode_1(solution: str, *, verbose: bool = True, output: str = "text") -> None:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1."""
     if not pathlib.Path(solution).is_file():
-        print(f"File not found: {solution}")
+        print(_t("file_not_found", path=solution))
         return
 
     test_dir = resolve_test_dir(solution)
     if test_dir is None or not pathlib.Path(test_dir).is_dir():
-        print(f"Test directory not found for: {solution}")
+        print(
+            _t(
+                "test_dir_not_found",
+                name=pathlib.Path(solution).name,
+                expected=str(pathlib.Path(solution).resolve().parent / "tests"),
+            )
+        )
         return
 
-    result = run_tests(solution, test_dir, verbose=True, verbose_callback=print_case_verbose)
+    callback = print_case_verbose if (verbose and output == "text") else None
+    result = run_tests(solution, test_dir, verbose=verbose, verbose_callback=callback)
+
+    if output == "json":
+        print(json.dumps({"file": solution, **result}, ensure_ascii=False))
+        return
 
     col_file = 28
     print()
@@ -177,45 +320,53 @@ def _run_mode_1(solution: str) -> None:
     print_correctness_results([(solution, result)], base, col_file=col_file)
 
 
-def _run_mode_2(directory: str) -> None:
+def _run_mode_2(directory: str, *, verbose: bool = False, output: str = "text") -> None:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2."""
     if not pathlib.Path(directory).is_dir():
-        print(f"Directory not found: {directory}")
+        print(_t("dir_not_found", path=directory))
         return
 
     scripts = find_all_solution_files(directory)
     if not scripts:
-        print("No solution files found.")
+        print(_t("no_solutions_found"))
         return
 
     col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
 
     rows: list[tuple[str, dict[str, Any]]] = []
-    for path in rich_track(scripts, description="Проверка решений..."):
+    track = scripts if output == "json" else rich_track(scripts, description="Проверка решений...")
+    for path in track:
         individual_test_dir = resolve_test_dir(path)
         if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
             individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
         # _resolve_test_dir_from_input(is_dir=True) always returns a str (never the
         # None its is_dir=False passthrough branch can produce) -- narrows for mypy.
         assert individual_test_dir is not None
-        result = run_tests(path, individual_test_dir, verbose=False)
+        callback = print_case_verbose if (verbose and output == "text") else None
+        result = run_tests(path, individual_test_dir, verbose=verbose, verbose_callback=callback)
         rows.append((path, result))
+
+    if output == "json":
+        print(json.dumps({"results": dict(rows)}, ensure_ascii=False))
+        return
+
     print_correctness_results(rows, directory, col_file=col_file)
 
 
-def _run_mode_3(directory: str, repeats: int) -> None:
+def _run_mode_3(directory: str, repeats: int, *, output: str = "text") -> None:
     """Режим 3: subprocess-бенчмарк папки. Общий код для меню и --mode 3."""
     if not pathlib.Path(directory).is_dir():
-        print(f"Directory not found: {directory}")
+        print(_t("dir_not_found", path=directory))
         return
 
     scripts = find_all_solution_files(directory)
     if not scripts:
-        print("No solution files found.")
+        print(_t("no_solutions_found"))
         return
 
     results: dict[str, dict[str, Any]] = {}
-    for path in rich_track(scripts, description="Бенчмарк решений..."):
+    track = scripts if output == "json" else rich_track(scripts, description="Бенчмарк решений...")
+    for path in track:
         individual_test_dir = resolve_test_dir(path)
         if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
             individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
@@ -229,6 +380,11 @@ def _run_mode_3(directory: str, repeats: int) -> None:
         similar_threshold=SIMILAR_THRESHOLD,
         much_slower_threshold=MUCH_SLOWER_THRESHOLD,
     )
+
+    if output == "json":
+        print(json.dumps({"results": results}, ensure_ascii=False))
+        return
+
     ok = {k: v for k, v in results.items() if not v.get("error")}
 
     col = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
@@ -241,16 +397,18 @@ def _run_mode_3(directory: str, repeats: int) -> None:
             print(f"  {rel}: {data['error']}")
 
 
-def _run_mode_4(directory: str, number: int) -> None:
+def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
     """Режим 4: timeit micro-bench папки. Общий код для меню и --mode 4."""
     if not pathlib.Path(directory).is_dir():
-        print(f"Directory not found: {directory}")
+        print(_t("dir_not_found", path=directory))
         return
 
     grouped = collect_grouped_files(directory)
     if not grouped:
-        print("No solution files found.")
+        print(_t("no_solutions_found"))
         return
+
+    json_results: dict[str, dict[str, Any]] = {}
 
     for folder, paths in sorted(grouped.items()):
         if folder != ".":
@@ -260,20 +418,31 @@ def _run_mode_4(directory: str, number: int) -> None:
         test_dir = _resolve_test_dir_from_input(str(folder_abs), is_dir=True)
 
         label = folder if folder != "." else pathlib.Path(directory).name
-        print(f"\n⚡ Micro-bench (timeit): {label}")
+        if output != "json":
+            print(_t("micro_bench_header", label=label))
 
         # is_dir=True never actually returns None (see _resolve_test_dir_from_input),
         # but its return type is str | None -- check explicitly rather than assert,
         # since this path doesn't fall back to anything and must "continue" cleanly.
         if test_dir is None or not pathlib.Path(test_dir).is_dir():
-            print(f"  ⚠ Tests not found: {test_dir}")
-            print("  Expected: tests/ subfolder next to solution files.")
+            if output == "json":
+                json_results[folder] = {"error": f"tests not found: {test_dir}"}
+            else:
+                print(_t("tests_not_found", test_dir=test_dir))
+                print(_t("expected_tests_subfolder"))
             continue
 
         bench = run_microbench_mode(sorted(paths), test_dir, number=number)
 
         if not bench:
-            print("  ⚠ No test cases found in:", test_dir)
+            if output == "json":
+                json_results[folder] = {"error": "no test cases found"}
+            else:
+                print(_t("no_test_cases_found", test_dir=test_dir))
+            continue
+
+        if output == "json":
+            json_results[folder] = {"results": bench}
             continue
 
         ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
@@ -290,50 +459,53 @@ def _run_mode_4(directory: str, number: int) -> None:
                 print(f"  ✗ {rel}: {data['error']}")
 
         if not ok_rows and not any(v.get("error") for v in bench.values()):
-            print("  No results.")
+            print(_t("no_results"))
+
+    if output == "json":
+        print(json.dumps({"groups": json_results}, ensure_ascii=False))
 
 
 def _interactive_menu() -> None:
     """Показать меню один раз, выполнить выбранный режим и завершить работу."""
     _print_menu()
-    choice = input("Select mode [0-4]: ").strip()
+    choice = input(_t("select_mode_prompt")).strip()
 
     if choice == "0":
-        print("Goodbye!")
+        print(_t("goodbye"))
         return
 
     if choice == "1":
-        solution = input("Enter path to solution file: ").strip()
+        solution = input(_t("enter_solution_path")).strip()
         _run_mode_1(solution)
 
     elif choice == "2":
-        directory = input("Enter path to folder: ").strip()
+        directory = input(_t("enter_folder_path")).strip()
         _run_mode_2(directory)
 
     elif choice == "3":
-        directory = input("Enter path to folder: ").strip()
+        directory = input(_t("enter_folder_path")).strip()
         if not pathlib.Path(directory).is_dir():
-            print(f"Directory not found: {directory}")
+            print(_t("dir_not_found", path=directory))
             return
         if not find_all_solution_files(directory):
-            print("No solution files found.")
+            print(_t("no_solutions_found"))
             return
         repeats = _ask_bench_profile()
         _run_mode_3(directory, repeats)
 
     elif choice == "4":
-        directory = input("Enter path to folder with solutions: ").strip()
+        directory = input(_t("enter_folder_with_solutions_path")).strip()
         if not pathlib.Path(directory).is_dir():
-            print(f"Directory not found: {directory}")
+            print(_t("dir_not_found", path=directory))
             return
         if not collect_grouped_files(directory):
-            print("No solution files found.")
+            print(_t("no_solutions_found"))
             return
         number = _ask_micro_profile()
         _run_mode_4(directory, number)
 
     else:
-        print("Unknown choice. Please enter 0–4.")
+        print(_t("unknown_choice"))
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
@@ -362,7 +534,45 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=1000,
         help="Число вызовов timeit для --mode 4 (по умолчанию 1000).",
     )
+    parser.add_argument(
+        "--lang",
+        choices=["ru", "en"],
+        default="ru",
+        help="Язык меню и сообщений (по умолчанию ru). Issue #51 D-01.",
+    )
+    verbosity = parser.add_mutually_exclusive_group()
+    verbosity.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Подробный вывод с diff для --mode 1/2 (для --mode 1 это уже поведение "
+        "по умолчанию). Issue #50 D-03.",
+    )
+    verbosity.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Только итог, без подробного diff, для --mode 1/2. Issue #50 D-03.",
+    )
+    parser.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Формат вывода: text (по умолчанию) или json для CI-пайплайнов. Issue #50 D-04.",
+    )
     return parser
+
+
+def _resolve_verbosity(args: argparse.Namespace, *, default: bool) -> bool:
+    """Разрешить --verbose/--quiet в конкретное bool-значение для режима.
+
+    --verbose/--quiet — общий флаг для режимов 1 и 2, у которых РАЗНЫЕ
+    дефолты (1 — подробный вывод, 2 — только итог); default параметризует,
+    какой из них используется, если явного флага не передали.
+    """
+    if args.verbose:
+        return True
+    if args.quiet:
+        return False
+    return default
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -374,6 +584,7 @@ def main(argv: list[str] | None = None) -> None:
     python grader.py --mode 2 --dir path/to/folder            — проверить папку
     python grader.py --mode 3 --dir path/to/folder --repeats 15  — бенчмарк
     python grader.py --mode 4 --dir path/to/folder --number 1000 — micro-bench
+    python grader.py --mode 1 --file task.py --output json     — машиночитаемый вывод
 
     argv=None (по умолчанию) читает sys.argv[1:], как обычный CLI;
     явный список используется в тестах, чтобы не зависеть от sys.argv
@@ -381,6 +592,9 @@ def main(argv: list[str] | None = None) -> None:
     """
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
+
+    global _LANG
+    _LANG = args.lang
 
     if args.version:
         print(f"grader.py {__version__}")
@@ -393,16 +607,16 @@ def main(argv: list[str] | None = None) -> None:
     if args.mode == 1:
         if not args.file:
             parser.error("--mode 1 requires --file")
-        _run_mode_1(args.file)
+        _run_mode_1(args.file, verbose=_resolve_verbosity(args, default=True), output=args.output)
     elif args.mode == 2:
         if not args.dir:
             parser.error("--mode 2 requires --dir")
-        _run_mode_2(args.dir)
+        _run_mode_2(args.dir, verbose=_resolve_verbosity(args, default=False), output=args.output)
     elif args.mode == 3:
         if not args.dir:
             parser.error("--mode 3 requires --dir")
-        _run_mode_3(args.dir, args.repeats)
+        _run_mode_3(args.dir, args.repeats, output=args.output)
     elif args.mode == 4:
         if not args.dir:
             parser.error("--mode 4 requires --dir")
-        _run_mode_4(args.dir, args.number)
+        _run_mode_4(args.dir, args.number, output=args.output)

@@ -16,6 +16,16 @@ import pytest
 from stepik_grader import cli
 
 
+@pytest.fixture(autouse=True)
+def _force_english(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests assert on message text predating i18n (issue #51 D-01),
+    which made Russian the default. Force English so existing assertions
+    stay meaningful without duplicating them in both languages; the
+    Russian-default + --lang switch itself is covered separately below.
+    """
+    monkeypatch.setattr(cli, "_LANG", "en")
+
+
 def test_version_matches_pyproject_toml() -> None:
     """cli.__version__ (Issue #36: read via importlib.metadata) tracks
     pyproject.toml's declared version -- the single source of truth.
@@ -86,13 +96,15 @@ class TestArgparseCli:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
         called = []
-        monkeypatch.setattr(cli, "_run_mode_1", lambda solution: called.append(solution))
+        monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **kwargs: called.append(solution))
         cli.main(["--mode", "1", "--file", str(sol)])
         assert called == [str(sol)]
 
     def test_mode_2_dispatches_to_run_mode_2(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         called = []
-        monkeypatch.setattr(cli, "_run_mode_2", lambda directory: called.append(directory))
+        monkeypatch.setattr(
+            cli, "_run_mode_2", lambda directory, **kwargs: called.append(directory)
+        )
         cli.main(["--mode", "2", "--dir", str(tmp_path)])
         assert called == [str(tmp_path)]
 
@@ -101,14 +113,18 @@ class TestArgparseCli:
     ) -> None:
         called = []
         monkeypatch.setattr(
-            cli, "_run_mode_3", lambda directory, repeats: called.append((directory, repeats))
+            cli,
+            "_run_mode_3",
+            lambda directory, repeats, **kwargs: called.append((directory, repeats)),
         )
         cli.main(["--mode", "3", "--dir", str(tmp_path), "--repeats", "20"])
         assert called == [(str(tmp_path), 20)]
 
     def test_mode_3_default_repeats(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         called = []
-        monkeypatch.setattr(cli, "_run_mode_3", lambda directory, repeats: called.append(repeats))
+        monkeypatch.setattr(
+            cli, "_run_mode_3", lambda directory, repeats, **kwargs: called.append(repeats)
+        )
         cli.main(["--mode", "3", "--dir", str(tmp_path)])
         assert called == [15]
 
@@ -117,14 +133,18 @@ class TestArgparseCli:
     ) -> None:
         called = []
         monkeypatch.setattr(
-            cli, "_run_mode_4", lambda directory, number: called.append((directory, number))
+            cli,
+            "_run_mode_4",
+            lambda directory, number, **kwargs: called.append((directory, number)),
         )
         cli.main(["--mode", "4", "--dir", str(tmp_path), "--number", "5000"])
         assert called == [(str(tmp_path), 5000)]
 
     def test_mode_4_default_number(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         called = []
-        monkeypatch.setattr(cli, "_run_mode_4", lambda directory, number: called.append(number))
+        monkeypatch.setattr(
+            cli, "_run_mode_4", lambda directory, number, **kwargs: called.append(number)
+        )
         cli.main(["--mode", "4", "--dir", str(tmp_path)])
         assert called == [1000]
 
@@ -168,7 +188,9 @@ class TestMode1:
         inputs = iter(["1", str(sol)])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
-        assert "Test directory not found" in capsys.readouterr().out
+        out = capsys.readouterr().out
+        assert "Tests not found for" in out
+        assert "python -m stepik_grader.downloader" in out
 
 
 # ---------------------------------------------------------------------------

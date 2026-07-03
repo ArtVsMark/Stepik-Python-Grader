@@ -173,8 +173,7 @@ Stepik-Python-Grader/
 │   └── test_testblock.py
 ├── .github/workflows/ci.yml   # CI: pytest + ruff на Python 3.12/3.13/3.14
 ├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
-├── pyproject.toml             # Конфигурация проекта (ruff, pytest, зависимости, packages.find where=["src"])
-├── requirements.txt           # Runtime-зависимости
+├── pyproject.toml             # Конфигурация проекта (ruff, mypy, pytest, зависимости, packages.find where=["src"])
 ├── secrets.json.example       # Шаблон файла с OAuth-токеном
 ├── stepik_config.json.example # Шаблон конфига Stepik
 ├── CHANGELOG.md               # История изменений
@@ -219,13 +218,13 @@ source .venv/bin/activate
 ### 3. Установить зависимости
 
 ```bash
-pip install -r requirements.txt
+pip install -e .             # runtime-зависимости (requests, psutil, rich) из pyproject.toml
 ```
 
-Для разработки (линтер, тесты):
+Для разработки (линтер, типизация, тесты):
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev]"      # плюс pytest, pytest-cov, ruff, mypy
 ```
 
 > Проект использует src-layout (`src/stepik_grader/`, Issue #35) — модули
@@ -243,19 +242,20 @@ python -m stepik_grader.grader
 stepik-grader
 ```
 
-При запуске появится меню:
+При запуске появится меню (русский язык по умолчанию, issue #51 D-01;
+`--lang en` — английский):
 
 ```
 ==================================================
   Stepik Python Grader
 ==================================================
-  1. Check one solution
-  2. Check all solutions in folder
-  3. Benchmark solutions in folder
-  4. Micro-benchmark (timeit) for folder
-  0. Exit
+  1. Проверить одно решение
+  2. Проверить все решения в папке
+  3. Бенчмарк решений в папке
+  4. Микро-бенчмарк (timeit) для папки
+  0. Выход
 ==================================================
-Select mode [0-4]:
+Выберите режим [0-4]:
 ```
 
 ### Non-interactive запуск (CLI-флаги)
@@ -273,6 +273,23 @@ stepik-grader --mode 4 --dir path/to/folder --number 1000   # режим 4 (по
 Эквивалентно через `python -m`: `python -m stepik_grader.grader --version` и т.д.
 
 Без `--mode` показывается обычное интерактивное меню.
+
+#### Дополнительные флаги (Sprint E, issues #50/#51)
+
+```bash
+stepik-grader --mode 1 --file task.py --lang en        # меню/сообщения на английском (по умолчанию — ru)
+stepik-grader --mode 1 --file task.py --quiet           # без подробного diff (режим 1 по умолчанию verbose)
+stepik-grader --mode 2 --dir . --verbose                # с подробным diff по каждому кейсу (режим 2 по умолчанию quiet)
+stepik-grader --mode 1 --file task.py --output json     # машиночитаемый JSON вместо таблицы
+stepik-grader --mode 2 --dir . --output json > results.json
+```
+
+`--verbose`/`--quiet` взаимоисключающие; управляют только режимами 1/2
+(режимы 3/4 всегда печатают итоговую таблицу бенчмарка, `--verbose` для них
+не имеет смысла). `--output json` печатает ровно одну JSON-строку —
+структура повторяет словари, которые уже возвращают `run_tests()`/
+`run_benchmark()`/`run_microbench_mode()` (ключи `file`/`results`/`groups` в
+зависимости от режима), без отдельной документированной схемы.
 
 ---
 

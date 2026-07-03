@@ -9,7 +9,7 @@
 
 ### Статус: ✅ Стабильный
 
-- Тестов: 547 (3 skipped)
+- Тестов: 563 (3 skipped)
 - Покрытие: 96%
 - Python: 3.12 / 3.13 / 3.14
 - CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
@@ -158,6 +158,14 @@ stepik-grader --version
 - [x] #49 — Sprint D: C-01 (Windows/macOS в CI-матрице), C-02 (mypy в CI +
   dev-зависимостях, ~12 ошибок исправлено), Q-01 (mock-тесты для GitHub API
   errors, `downloader.py` 98% → 99%) (2026-07-03)
+- [x] #50 — Sprint E: D-01 (i18n, ru/en), D-03 (`--verbose`/`--quiet`), D-04
+  (`--output json` для режимов 1-4), D-05 (содержательная диагностика
+  "тесты не найдены"); D-02 — устаревшее утверждение аудита,
+  CONTRIBUTING.md уже существовал (2026-07-03)
+- [x] #51 — Sprint E: P-01 (удалён `requirements.txt`), P-02 (верхние
+  границы зависимостей — скорректированы под реально установленные версии,
+  не буквально по issue), C-03 (`release.yml`, только GitHub Release, без
+  PyPI — нужен trusted publisher, который агент не настроит) (2026-07-03)
 - [ ] #45 A-01 — Sprint B (отложено): разбить `grader_core.py` (700+ строк) на
   `test_loader.py`/`mode_detector.py`/`wrapper_builder.py`
 - [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)

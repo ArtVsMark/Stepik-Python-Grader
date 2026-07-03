@@ -13,7 +13,9 @@
 ❌ НЕ удалять и НЕ переименовывать существующие публичные функции без PR
 ❌ НЕ ломать обратную совместимость __all__ в grader.py
 ❌ НЕ использовать Optional[X], List[X], Dict[X,Y] — проект на Python 3.12+
-❌ НЕ добавлять новые зависимости в requirements.txt без явного указания
+❌ НЕ добавлять новые зависимости в pyproject.toml без явного указания
+   (requirements.txt удалён — issue #51 P-01, pyproject.toml — единственный
+   источник; requirements.txt больше не существует, не воссоздавать)
 ❌ НЕ коммитить secrets.json, stepik_config.json, StepikTasks/
 ❌ НЕ запускать executor.py с untrusted-кодом — нет sandbox на уровне ОС
 ❌ НЕ трогать .github/workflows/ci.yml без явной задачи
@@ -79,8 +81,9 @@ Stepik-Python-Grader/
 ├── CHECKPOINT.md             # Состояние проекта: что сделано, что в работе
 ├── CHANGELOG.md              # История изменений
 ├── CONTRIBUTING.md           # Архитектура, форматы тестов, соглашения
-├── pyproject.toml            # ruff, pytest, зависимости, packages.find where=["src"]
-└── requirements.txt          # Runtime: requests, psutil, rich
+└── pyproject.toml            # ruff, mypy, pytest, зависимости (requests, psutil, rich),
+                               # packages.find where=["src"] — единственный источник
+                               # зависимостей (requirements.txt удалён, issue #51 P-01)
 ```
 
 ### Граф зависимостей (DAG, без циклов)
@@ -187,8 +190,7 @@ python -m venv .venv
 # macOS / Linux
 source .venv/bin/activate
 
-pip install -r requirements.txt
-pip install -e ".[dev]"   # pytest, ruff, pytest-cov
+pip install -e ".[dev]"   # requests/psutil/rich + pytest, pytest-cov, ruff, mypy
 ```
 
 ### Обязательные команды перед коммитом
@@ -877,6 +879,98 @@ R-05: warnings.warn() в _measure_peak_memory() при NoSuchProcess/
 
 > Покрытие `downloader.py`: 98% → 99% (закрыты строки 465-467, 502-503 —
 > ранее непокрытые ветки обработки ошибок `_download_github_tests`).
+
+---
+
+### 🟡 Sprint E — UX/Документация/Зависимости (аудит v1.1.0, эпик #60) ✅ ЗАВЕРШЁН (2026-07-03)
+
+#### E.1 ✅ FIX — #51 D-01: i18n меню и CLI-сообщений
+
+```
+Добавлено: cli.py — _LANG (модульная переменная, дефолт "ru"), _MESSAGES
+           (словарь ключ → {"ru": ..., "en": ...}), _t(key, **kwargs).
+Добавлено: --lang {ru,en} в argparse (дефолт ru).
+```
+
+> Минимальный словарь вместо полноценного gettext — соразмерно масштабу
+> этого CLI (~30 сообщений). Тесты `tests/test_cli.py` (написаны ДО i18n)
+> проверяют английский текст напрямую — вместо дублирования ассертов на
+> двух языках добавлена autouse-фикстура `_force_english`, форсирующая
+> `cli._LANG = "en"` для всего файла. Новый файл
+> `tests/test_cli_sprint_e.py` проверяет реальный русский дефолт и
+> переключение `--lang` без этой фикстуры.
+
+#### E.2 ✅ FIX — #50 D-03: `--verbose`/`--quiet`
+
+```
+Добавлено: взаимоисключающая группа --verbose/--quiet в argparse.
+_run_mode_1(..., verbose: bool = True)   — дефолт как раньше, --quiet гасит.
+_run_mode_2(..., verbose: bool = False)  — дефолт как раньше, --verbose включает.
+Режимы 3/4 флаг игнорируют — там нет per-case verbose-вывода.
+```
+
+#### E.3 ✅ FIX — #50 D-04: `--output json`
+
+```
+Добавлено: --output {text,json} в argparse, применяется во всех 4 режимах.
+Схема: напрямую JSON-сериализуются уже существующие dict'ы run_tests()/
+       run_benchmark()/run_microbench_mode() — отдельная схема не
+       придумывалась (ключи "file"/"results"/"groups" в зависимости от
+       режима).
+```
+
+#### E.4 ✅ FIX — #50 D-05: содержательная диагностика "тесты не найдены"
+
+```
+Было (режим 1): "Test directory not found for: {solution}"
+Стало: "⚠️ Тесты не найдены для: {name}\n   Ожидалась папка: {expected}\n
+        Запустите: python -m stepik_grader.downloader\n   Или создайте
+        вручную: tests/1, tests/1.clue"
+```
+
+#### E.5 ✅ РЕШЕНО (уточнение аудита) — #50 D-02: CONTRIBUTING.md
+
+> `CONTRIBUTING.md` **уже существовал** на момент аудита (устаревшее
+> утверждение issue) — не было создано заново. Точечно исправлено то, что
+> ДЕЙСТВИТЕЛЬНО было устаревшим: "Python 3.10+" (везде в проекте — 3.12+),
+> отдельный шаг `pip install rich` как "опциональный" (rich уже обязательная
+> runtime-зависимость в `pyproject.toml`). Добавлен шаг `mypy` (появился в
+> Sprint D, после написания исходного CONTRIBUTING.md).
+
+#### E.6 ✅ FIX — #51 P-01: удалён `requirements.txt`
+
+```
+pyproject.toml — единственный источник зависимостей. README/CONTRIBUTING/
+CLAUDE.md обновлены (pip install -e . / -e ".[dev]" вместо -r requirements.txt).
+```
+
+#### E.7 ✅ FIX (скорректировано) — #51 P-02: верхние границы версий
+
+```
+requests>=2.34.2,<3.0
+psutil>=5.9,<8.0     # issue предлагал <7.0 — устарело, см. ниже
+rich>=13.0,<16.0     # issue не предлагал границу для rich — добавлена по аналогии
+```
+
+> Issue предлагал `psutil<7.0`, но в окружении уже установлен и используется
+> `psutil` 7.2.2 (и `rich` 15.0.0) — весь тестовый набор проходит именно с
+> ними. Буквальное следование предложению issue сломало бы `pip install
+> -e ".[dev]"` немедленно. Границы выставлены с запасом НАД реально
+> проверенными версиями, а не по устаревшему примеру из аудита.
+
+#### E.8 ✅ FIX — #51 C-03: `release.yml` (только GitHub Release)
+
+```
+.github/workflows/release.yml — триггер: push тега v*.
+Собирает sdist+wheel (python -m build), создаёт GitHub Release
+(softprops/action-gh-release@v2, generate_release_notes: true).
+```
+
+> PyPI-публикация НЕ включена: `pypa/gh-action-pypi-publish` требует
+> настроенного trusted publisher на pypi.org для этого проекта — это
+> одноразовая настройка, которую должен сделать владелец репозитория со
+> своим PyPI-аккаунтом, агент это не может сделать за него. Комментарий в
+> самом workflow объясняет, что добавить, когда trusted publisher появится.
 
 ---
 
