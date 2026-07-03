@@ -9,6 +9,8 @@ regressions surface immediately.
 from __future__ import annotations
 
 import pathlib
+import threading
+import warnings
 
 import pytest
 
@@ -29,6 +31,15 @@ from stepik_grader import grader
         ("", False),
         ("   \n  ", False),
         ("04.11.2021", False),
+        # Issue #47 R-02: a bare name with no call and no assignment is
+        # degenerate stdin-shaped data, not a call-block or a declaration.
+        ("x", False),
+        ("print", False),
+        ("True\nFalse\nNone", False),
+        # Assignment target IS still a Name node -- unaffected by the bare-name
+        # exception above (more than one top-level statement / not a bare Expr).
+        ("x = 5", True),
+        ("chainmap = ChainMap({})", True),
     ],
 )
 def test_is_python_code_block(code: str, expected: bool) -> None:
@@ -156,6 +167,35 @@ def test_load_test_cases_format2(tmp_path: pathlib.Path):
 def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
     """An empty directory yields no cases."""
     assert grader.load_test_cases(str(tmp_path)) == []
+
+
+def test_load_test_cases_warns_on_mixed_format3_and_format1(tmp_path: pathlib.Path) -> None:
+    """Format 3 + leftover Format 1 (.clue) files -- warn, still use Format 3.
+
+    Issue #48 R-03: previously the ignored .clue files were silent.
+    """
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "1").write_text("9\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("99\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="Format 3 takes priority"):
+        cases = grader.load_test_cases(str(tmp_path))
+
+    assert len(cases) == 1
+    assert cases[0].input_lines == ["2", "3"]
+
+
+def test_load_test_cases_no_warning_for_format3_alone(tmp_path: pathlib.Path) -> None:
+    """No leftover Format 1/2 files -- no warning fires."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(str(tmp_path))
+
+    assert len(cases) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -406,3 +446,60 @@ def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
 
     expected_bytes = 64 * 1024 * 1024
     assert calls == [("RLIMIT_AS", (expected_bytes, expected_bytes))]
+
+
+# ---------------------------------------------------------------------------
+# _measure_peak_memory — warn on unreliable reading (Issue #48 R-05)
+# ---------------------------------------------------------------------------
+
+
+class _FakeProc:
+    pid = 999999
+
+
+def test_measure_peak_memory_warns_on_process_construction_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """psutil.Process(pid) itself raising NoSuchProcess -- outer except branch."""
+    import psutil
+
+    from stepik_grader.core import grader_core
+
+    def _raise(_pid: int) -> None:
+        raise psutil.NoSuchProcess(_pid)
+
+    monkeypatch.setattr(grader_core.psutil, "Process", _raise)
+
+    result: list[float] = [0.0]
+    stop = threading.Event()
+    stop.set()
+
+    with pytest.warns(UserWarning, match="unreliable"):
+        grader_core._measure_peak_memory(_FakeProc(), result, stop)
+
+    assert result[0] == 0.0
+
+
+def test_measure_peak_memory_warns_on_first_sample_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """psutil.Process() succeeds but the immediate first memory_info() sample
+    fails -- inner except branch around the pre-loop read."""
+    import psutil
+
+    from stepik_grader.core import grader_core
+
+    class _FakePsutilProcess:
+        def memory_info(self) -> None:
+            raise psutil.NoSuchProcess(999999)
+
+    monkeypatch.setattr(grader_core.psutil, "Process", lambda pid: _FakePsutilProcess())
+
+    result: list[float] = [0.0]
+    stop = threading.Event()
+    stop.set()
+
+    with pytest.warns(UserWarning, match="unreliable"):
+        grader_core._measure_peak_memory(_FakeProc(), result, stop)
+
+    assert result[0] == 0.0

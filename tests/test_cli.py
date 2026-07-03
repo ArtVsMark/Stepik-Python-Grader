@@ -155,6 +155,21 @@ class TestMode1:
         out = capsys.readouterr().out
         assert "task1.py" in out
 
+    def test_test_dir_not_found(self, tmp_path: pathlib.Path, capsys, monkeypatch) -> None:
+        """File exists, but resolve_test_dir() finds nothing (issue #47 R-04).
+
+        Previously resolve_test_dir() silently returned a non-existent
+        <parent>/tests/ path; _run_mode_1 must handle the new None contract
+        with a friendly message instead of crashing on pathlib.Path(None).
+        """
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+
+        inputs = iter(["1", str(sol)])
+        monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+        cli._interactive_menu()
+        assert "Test directory not found" in capsys.readouterr().out
+
 
 # ---------------------------------------------------------------------------
 # Режим 2 — Check all solutions in folder

@@ -217,7 +217,19 @@ def run_microbench(
             peak_mb = float(mem_lines[-1][len("MEM:") :]) / 1024 / 1024 if mem_lines else 0.0
             return {"times": times, "error": "", "peak_memory_mb": peak_mb}
         except subprocess.TimeoutExpired:
-            return {"times": [], "error": "microbench timeout", "peak_memory_mb": 0.0}
+            # issue #47 R-01: no per-call timeout exists inside the child (timeit.repeat
+            # runs number x 5 as one opaque call, so we can't report which iteration
+            # hung) -- surface the iteration count instead, the most useful thing we
+            # DO know, so a hang at number=50000 isn't indistinguishable from one at
+            # number=5.
+            return {
+                "times": [],
+                "error": (
+                    f"microbench timeout: exceeded 60s running number={number} "
+                    "iterations per repeat (5 repeats total)"
+                ),
+                "peak_memory_mb": 0.0,
+            }
         except (OSError, ValueError) as exc:
             # OSError: subprocess.run() couldn't spawn the child process.
             # ValueError: float(line) failed on unparseable subprocess stdout.

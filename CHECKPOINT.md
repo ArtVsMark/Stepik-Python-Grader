@@ -150,5 +150,11 @@ stepik-grader --version
   test-only, не unified runner) — см. CLAUDE.md Sprint B.2 (2026-07-03)
 - [ ] #45 A-01 — Sprint B (отложено): разбить `grader_core.py` (700+ строк) на
   `test_loader.py`/`mode_detector.py`/`wrapper_builder.py`
+- [x] #47 — Sprint C: R-04 (`resolve_test_dir` → `str | None`), R-02 (голое
+  имя без вызова/присваивания → False), R-01 (диагностика таймаута
+  microbench — номер итерации; настоящий per-call таймаут не сделан, см.
+  CLAUDE.md Sprint C.3) (2026-07-03)
+- [x] #48 — Sprint C: R-03 (warning при смешанных форматах 3+1/2), R-05
+  (warning при NoSuchProcess в `_measure_peak_memory`) (2026-07-03)
 - [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)
 - [ ] Расширить покрытие тестами (особенно `downloader.py`)

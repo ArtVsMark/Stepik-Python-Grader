@@ -2,8 +2,8 @@
 
 ## [Unreleased]
 
-Sprints A (Security) and B (Architecture, partial) from the v1.1.0 audit
-epic #60: issues #43, #44, #45, #46, #52.
+Sprints A (Security), B (Architecture, partial), and C (Reliability) from
+the v1.1.0 audit epic #60: issues #43, #44, #45, #46, #47, #48, #52.
 
 ### Added
 - `GraderConfig.max_memory_mb` (default 1024) — best-effort `RLIMIT_AS`
@@ -12,6 +12,13 @@ epic #60: issues #43, #44, #45, #46, #52.
   run_microbench`). POSIX-only (`resource` module absent on Windows);
   degrades to a no-op there, same pattern as `executor.py`'s `SIGALRM`
   handling (issue #43 S-01)
+- `warnings.warn()` when `load_test_cases()` uses Format 3 (`input.txt`/
+  `output.txt`) while Format 1/2 files (`N.clue`/`input_N.txt`) also exist in
+  the same directory and are silently ignored (issue #48 R-03)
+- `warnings.warn()` in `_measure_peak_memory()` when the child process exits
+  before `psutil` can sample it (`NoSuchProcess`/`AccessDenied`/
+  `ZombieProcess`) — the returned peak (0.0) was previously indistinguishable
+  from "genuinely used ~0 memory" (issue #48 R-05)
 
 ### Changed
 - `core/grader_core.py::_build_call_wrapper` — replaced
@@ -33,8 +40,33 @@ epic #60: issues #43, #44, #45, #46, #52.
   not a standalone public API. `grader.py`'s own backward-compat `__all__`
   is unchanged; it now imports these six names explicitly by name instead of
   picking them up via `from grader_core import *` (issue #52 Q-03)
+- `resolve_test_dir()` returns `str | None` instead of silently falling back
+  to a non-existent `<parent>/tests/` path when no strategy matches.
+  `cli.py`'s three call sites (`_run_mode_1/2/3`) updated to check for `None`
+  before `pathlib.Path(...).is_dir()`, printing a friendly "Test directory
+  not found" message instead of crashing on `pathlib.Path(None)` (issue #47
+  R-04)
+- `_is_python_code_block()` now classifies a bare single-name expression with
+  no call and no assignment (e.g. `"x"`, `"print"`) as `False` (not a
+  call-block) — narrow exception scoped to exactly that AST shape, doesn't
+  touch classification of any realistic multi-statement or assignment
+  content (issue #47 R-02)
+- `microbench_runner.run_microbench()`'s timeout error message now reports
+  the iteration count (`number=`) that was running when the 60s timeout
+  fired — the most useful diagnostic available without a genuine per-call
+  timeout inside the child process (issue #47 R-01, partial — see Notes)
 
 ### Notes
+- Issue #47 R-01: a genuine PER-CALL timeout (interrupting one hung iteration
+  out of `number x 5` inside `timeit.repeat()`) is NOT implemented — it would
+  require abandoning `timeit.repeat()`'s batch execution for a manual
+  per-call loop with time-based interruption, or a `SIGALRM`-style in-process
+  signal that doesn't work on Windows (this project's primary dev platform).
+  `run_microbench_with_timeout()` (Sprint 7.3, still unwired) wouldn't help
+  either — wrapping the already-`subprocess.run(timeout=60)`-bounded call in
+  a `ThreadPoolExecutor` adds no real protection, per its own docstring. The
+  existing whole-run 60s timeout plus the new diagnostic message is the
+  practical improvement shipped this pass
 - Issue #43 S-02 ("code injection via f-string interpolation") closed as a
   duplicate of S-01, not a distinct fix: `safe_input`/`call_block` are
   embedded as top-level source, not inside a string literal, so there is no

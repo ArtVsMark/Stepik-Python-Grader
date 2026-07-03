@@ -143,7 +143,7 @@ def _ask_number(prompt: str, *, default: int) -> int:
         return default
 
 
-def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) -> str:
+def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) -> str | None:
     if is_dir:
         p = pathlib.Path(solution_or_dir)
         # tests/ subdir takes priority
@@ -165,8 +165,8 @@ def _run_mode_1(solution: str) -> None:
         return
 
     test_dir = resolve_test_dir(solution)
-    if not pathlib.Path(test_dir).is_dir():
-        print(f"Test directory not found: {test_dir}")
+    if test_dir is None or not pathlib.Path(test_dir).is_dir():
+        print(f"Test directory not found for: {solution}")
         return
 
     result = run_tests(solution, test_dir, verbose=True, verbose_callback=print_case_verbose)
@@ -193,7 +193,7 @@ def _run_mode_2(directory: str) -> None:
     rows: list[tuple[str, dict[str, Any]]] = []
     for path in rich_track(scripts, description="Проверка решений..."):
         individual_test_dir = resolve_test_dir(path)
-        if not pathlib.Path(individual_test_dir).is_dir():
+        if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
             individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
         result = run_tests(path, individual_test_dir, verbose=False)
         rows.append((path, result))
@@ -214,7 +214,7 @@ def _run_mode_3(directory: str, repeats: int) -> None:
     results: dict[str, dict[str, Any]] = {}
     for path in rich_track(scripts, description="Бенчмарк решений..."):
         individual_test_dir = resolve_test_dir(path)
-        if not pathlib.Path(individual_test_dir).is_dir():
+        if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
             individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
         results[path] = run_benchmark(path, individual_test_dir, repeats=repeats)
 

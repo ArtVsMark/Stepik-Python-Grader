@@ -30,6 +30,7 @@ import sys
 import tempfile
 import threading
 import time
+import warnings
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -282,9 +283,16 @@ def _is_python_code_block(block: str) -> bool:
     (числа, даты-строки) либо не парсятся, либо не содержат Name-узлов.
     Python-код всегда ссылается на переменные/функции.
 
+    Исключение (issue #47 R-02): единственное top-level выражение, которое
+    целиком состоит из голого имени (``x``, ``print``) — это не вызов и не
+    присваивание, а вырожденный случай, который на практике встречается
+    только как stdin-данные, совпадающие по виду с identifier'ом. Такой блок
+    классифицируется как False, не затрагивая остальную эвристику.
+
     Примеры:
         ``10\\n20\\n30``                  → False (голые константы, нет Name)
         ``04.11.2021``                   → False (SyntaxError)
+        ``x``                            → False (голое имя, не вызов/присваивание)
         ``print(func(x))``               → True  (вызов функции)
         ``r = wins([...])\\nfor ...``     → True  (присваивание + for)
         ``chainmap = ChainMap({})``      → True  (присваивание)
@@ -295,6 +303,12 @@ def _is_python_code_block(block: str) -> bool:
     try:
         tree = ast.parse(block)
     except SyntaxError:
+        return False
+    if (
+        len(tree.body) == 1
+        and isinstance(tree.body[0], ast.Expr)
+        and isinstance(tree.body[0].value, ast.Name)
+    ):
         return False
     return any(isinstance(node, ast.Name) for node in ast.walk(tree))
 
@@ -334,6 +348,21 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
         input_blocks = _parse_testblock_file(input_text)
         output_blocks = _parse_testblock_file(output_text)
         if input_blocks and output_blocks:
+            # issue #48 R-03: Format 1/2 files sitting next to input.txt/output.txt
+            # are silently ignored below (Format 3 wins and returns early) -- warn
+            # so a user who hand-authored Format 1 and later got input.txt added by
+            # downloader.py isn't left wondering why their .clue files don't matter.
+            if any(
+                f.suffix == ".clue" or re.match(r"^input_\d+\.txt$", f.name)
+                for f in dir_path.iterdir()
+                if f not in (input_file, output_file)
+            ):
+                warnings.warn(
+                    f"{test_dir}: Format 1/2 test files (N/N.clue or input_N.txt) found "
+                    "alongside input.txt/output.txt -- Format 3 takes priority and the "
+                    "others are ignored.",
+                    stacklevel=2,
+                )
             for i, (inp, out) in enumerate(zip(input_blocks, output_blocks, strict=False), 1):
                 test_type = "function" if _is_python_code_block(inp) else "stdin"
                 cases.append(
@@ -392,8 +421,11 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
     return sorted(cases, key=lambda c: c.index)
 
 
-def resolve_test_dir(solution_path: str) -> str:
-    """Вернуть путь к директории тест-кейсов для заданного файла решения.
+def resolve_test_dir(solution_path: str) -> str | None:
+    """Вернуть путь к директории тест-кейсов для заданного файла решения, или
+    None, если ни одна стратегия поиска не нашла подходящую директорию
+    (issue #47 R-04 — раньше молча возвращался несуществующий <parent>/tests/,
+    что приводило к неинформативному FileNotFoundError глубже в стеке).
 
     Стратегия поиска (первый найденный выигрывает):
       1. <parent>/tests/
@@ -421,7 +453,7 @@ def resolve_test_dir(solution_path: str) -> str:
         if f.suffix == ".clue" or re.match(r"^input_\d+\.txt$", f.name):
             return str(parent)
 
-    return str(candidate_tests)
+    return None
 
 
 def _make_memory_limiter(max_memory_mb: int | None) -> Callable[[], None] | None:
@@ -456,6 +488,22 @@ def _measure_peak_memory(
 
     Записывает пик памяти (МБ) в result[0].
     """
+
+    # issue #48 R-05: proc.pid is read after Popen but before communicate() --
+    # on a very short-lived child (especially on Windows) the process can exit
+    # before psutil.Process(pid)/memory_info() ever samples it. The except
+    # branches below already handle that, but previously did so silently,
+    # returning peak=0.0 indistinguishable from "the process genuinely used
+    # ~0 memory" -- warn so a caller doesn't mistake an unreliable reading for
+    # a real measurement.
+    def _warn_unreliable() -> None:
+        warnings.warn(
+            f"peak memory measurement unreliable for pid={proc.pid}: process "
+            "exited before it could be sampled (reported peak may be 0.0 or "
+            "an undercount)",
+            stacklevel=2,
+        )
+
     peak = 0.0
     try:
         ps_proc = psutil.Process(proc.pid)
@@ -464,6 +512,7 @@ def _measure_peak_memory(
             if rss > peak:
                 peak = rss
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            _warn_unreliable()
             result[0] = peak
             return
         while not stop.is_set():
@@ -472,10 +521,11 @@ def _measure_peak_memory(
                 if rss > peak:
                     peak = rss
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                _warn_unreliable()
                 break
             stop.wait(0.02)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
-        pass
+        _warn_unreliable()
     result[0] = peak
 
 
