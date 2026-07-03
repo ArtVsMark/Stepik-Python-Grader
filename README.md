@@ -291,6 +291,32 @@ stepik-grader --mode 2 --dir . --output json > results.json
 `run_benchmark()`/`run_microbench_mode()` (ключи `file`/`results`/`groups` в
 зависимости от режима), без отдельной документированной схемы.
 
+#### `--output csv` / `--output markdown` (roadmap, issues #53, #58)
+
+```bash
+stepik-grader --mode 2 --dir . --output csv > results.csv
+stepik-grader --mode 3 --dir . --output markdown > BENCHMARK.md
+```
+
+Те же данные, что и в `--output json`, но плоской таблицей (одна строка на
+файл/тест-кейс) в CSV или Markdown-таблице. Пишут в stdout, как и `json` —
+для сохранения в файл используется обычное перенаправление шелла, отдельного
+флага "сохранить в файл" нет.
+
+#### `--watch` (roadmap, issue #54)
+
+```bash
+pip install "stepik-grader[watch]"     # опциональная зависимость: watchfiles
+
+stepik-grader --mode 1 --file task.py --watch
+stepik-grader --mode 2 --dir . --watch
+```
+
+Перезапускает весь режим 1/2 при любом изменении внутри отслеживаемого
+файла/папки (очищает экран перед повторным запуском). Работает только с
+`--mode 1/2` — для 3/4 (дорогой бенчмарк) неприменимо. Без установленного
+`watchfiles` печатает сообщение с инструкцией по установке вместо падения.
+
 ---
 
 ## Работа с API Stepik

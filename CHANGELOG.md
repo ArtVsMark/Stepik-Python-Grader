@@ -4,9 +4,22 @@
 
 Sprints A (Security), B (Architecture, partial), C (Reliability), D (CI/CD &
 Quality), and E (UX/Docs/Deps) from the v1.1.0 audit epic #60: issues #43,
-#44, #45, #46, #47, #48, #49, #50, #51, #52.
+#44, #45, #46, #47, #48, #49, #50, #51, #52. Plus three roadmap items from
+the same audit epic: #53, #54, #58 (partial).
 
 ### Added
+- `--output csv`/`--output markdown` for all four modes -- same underlying
+  data as `--output json`, flattened to one row per file/test-case (issue
+  #53, issue #58's "export to Markdown" idea)
+- `--watch` for `--mode 1/2`: reruns the whole mode on any change inside the
+  watched file/directory, clearing the screen first. Optional dependency
+  `pip install "stepik-grader[watch]"` (`watchfiles`); prints an install
+  hint instead of crashing when it's absent. Reruns the ENTIRE mode on any
+  change rather than isolating which single file changed -- issue #54's own
+  "only rerun the changed file" idea would need mapping a changed path back
+  to its own test_dir and merging a partial result into the existing table,
+  meaningfully more complex for uncertain benefit over a full rerun (issue
+  #54)
 - i18n for the interactive menu and CLI messages: Russian by default, `--lang
   en` switches to English (issue #51 D-01). Minimal message-dict + `_t()`
   helper in `cli.py` rather than a full gettext setup -- proportionate to

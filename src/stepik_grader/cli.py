@@ -14,7 +14,10 @@ Non-interactive запуск (Sprint 8.1):
 Sprint E (issue #50/#51):
     --lang {ru,en}      — язык меню и сообщений (по умолчанию ru), issue #51 D-01
     --verbose / --quiet — управление подробностью вывода режимов 1/2, issue #50 D-03
-    --output {text,json} — машиночитаемый вывод, issue #50 D-04
+    --output {text,json,csv,markdown} — машиночитаемый вывод, issues #50 D-04 / #53 / #58
+
+Roadmap (issue #54):
+    --watch — перезапускать --mode 1/2 при изменении файла решения
 
 Без --mode main() показывает интерактивное меню (как раньше).
 
@@ -24,10 +27,13 @@ Sprint E (issue #50/#51):
 from __future__ import annotations
 
 import argparse
+import csv
 import importlib.metadata
+import io
 import json
 import os
 import pathlib
+from collections.abc import Callable
 from typing import Any
 
 from stepik_grader.core.grader_core import (
@@ -184,6 +190,14 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "en": "  ⚠ No test cases found in: {test_dir}",
     },
     "no_results": {"ru": "  Нет результатов.", "en": "  No results."},
+    "watch_dependency_missing": {
+        "ru": ('--watch требует пакет watchfiles: pip install "stepik-grader[watch]"'),
+        "en": ('--watch requires the watchfiles package: pip install "stepik-grader[watch]"'),
+    },
+    "watch_waiting": {
+        "ru": "👀 Слежу за изменениями: {path} (Ctrl+C — остановить)",
+        "en": "👀 Watching for changes: {path} (Ctrl+C to stop)",
+    },
 }
 
 
@@ -191,6 +205,43 @@ def _t(key: str, /, **kwargs: object) -> str:
     """Вернуть сообщение по ключу на текущем языке (_LANG), подставив kwargs."""
     template = _MESSAGES[key][_LANG]
     return template.format(**kwargs) if kwargs else template
+
+
+# ---------------------------------------------------------------------------
+# Табличный вывод: csv/markdown (issues #53, #58)
+# ---------------------------------------------------------------------------
+
+
+def _rows_to_csv(rows: list[dict[str, Any]], fieldnames: list[str]) -> str:
+    """Отрендерить список flat-словарей в CSV-строку (заголовок + строки).
+
+    Отсутствующие в конкретной строке ключи (например, "error" у успешных
+    бенчмарк-строк) печатаются как пустая ячейка -- extrasaction="ignore"
+    отбрасывает лишние ключи, не входящие в fieldnames.
+    """
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore", restval="")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buf.getvalue()
+
+
+def _rows_to_markdown(rows: list[dict[str, Any]], fieldnames: list[str]) -> str:
+    """Отрендерить список flat-словарей в Markdown-таблицу."""
+    header = "| " + " | ".join(fieldnames) + " |"
+    separator = "| " + " | ".join("---" for _ in fieldnames) + " |"
+    lines = [header, separator]
+    for row in rows:
+        lines.append("| " + " | ".join(str(row.get(f, "")) for f in fieldnames) + " |")
+    return "\n".join(lines)
+
+
+def _print_tabular(output: str, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
+    """Напечатать rows как csv или markdown (output уже проверен вызывающей стороной)."""
+    if output == "csv":
+        print(_rows_to_csv(rows, fieldnames), end="")
+    else:
+        print(_rows_to_markdown(rows, fieldnames))
 
 
 # ---------------------------------------------------------------------------
@@ -313,6 +364,20 @@ def _run_mode_1(solution: str, *, verbose: bool = True, output: str = "text") ->
     if output == "json":
         print(json.dumps({"file": solution, **result}, ensure_ascii=False))
         return
+    if output in ("csv", "markdown"):
+        rows = [
+            {
+                "index": i,
+                "passed": c["passed"],
+                "verdict": c.get("verdict", ""),
+                "time": c["time"],
+                "memory": c["memory"],
+                "error": c["error"],
+            }
+            for i, c in enumerate(result["cases"], start=1)
+        ]
+        _print_tabular(output, rows, ["index", "passed", "verdict", "time", "memory", "error"])
+        return
 
     col_file = 28
     print()
@@ -334,7 +399,8 @@ def _run_mode_2(directory: str, *, verbose: bool = False, output: str = "text") 
     col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
 
     rows: list[tuple[str, dict[str, Any]]] = []
-    track = scripts if output == "json" else rich_track(scripts, description="Проверка решений...")
+    machine_output = output != "text"
+    track = scripts if machine_output else rich_track(scripts, description="Проверка решений...")
     for path in track:
         individual_test_dir = resolve_test_dir(path)
         if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
@@ -348,6 +414,21 @@ def _run_mode_2(directory: str, *, verbose: bool = False, output: str = "text") 
 
     if output == "json":
         print(json.dumps({"results": dict(rows)}, ensure_ascii=False))
+        return
+    if output in ("csv", "markdown"):
+        table_rows = [{"file": path, **result} for path, result in rows]
+        fields = [
+            "file",
+            "total",
+            "passed",
+            "failed",
+            "errors",
+            "total_time",
+            "avg_time",
+            "peak_memory_mb",
+            "first_fail",
+        ]
+        _print_tabular(output, table_rows, fields)
         return
 
     print_correctness_results(rows, directory, col_file=col_file)
@@ -365,7 +446,8 @@ def _run_mode_3(directory: str, repeats: int, *, output: str = "text") -> None:
         return
 
     results: dict[str, dict[str, Any]] = {}
-    track = scripts if output == "json" else rich_track(scripts, description="Бенчмарк решений...")
+    machine_output = output != "text"
+    track = scripts if machine_output else rich_track(scripts, description="Бенчмарк решений...")
     for path in track:
         individual_test_dir = resolve_test_dir(path)
         if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
@@ -384,6 +466,23 @@ def _run_mode_3(directory: str, repeats: int, *, output: str = "text") -> None:
     if output == "json":
         print(json.dumps({"results": results}, ensure_ascii=False))
         return
+    if output in ("csv", "markdown"):
+        table_rows = [{"file": path, **data} for path, data in sorted(results.items())]
+        fields = [
+            "file",
+            "runs",
+            "min",
+            "median",
+            "mean",
+            "max",
+            "stdev",
+            "peak_memory_mb",
+            "relative",
+            "verdict",
+            "error",
+        ]
+        _print_tabular(output, table_rows, fields)
+        return
 
     ok = {k: v for k, v in results.items() if not v.get("error")}
 
@@ -397,6 +496,22 @@ def _run_mode_3(directory: str, repeats: int, *, output: str = "text") -> None:
             print(f"  {rel}: {data['error']}")
 
 
+_MODE4_FIELDS = [
+    "group",
+    "file",
+    "runs",
+    "min",
+    "median",
+    "mean",
+    "max",
+    "stdev",
+    "peak_memory_mb",
+    "relative",
+    "verdict",
+    "error",
+]
+
+
 def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
     """Режим 4: timeit micro-bench папки. Общий код для меню и --mode 4."""
     if not pathlib.Path(directory).is_dir():
@@ -408,7 +523,9 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
         print(_t("no_solutions_found"))
         return
 
+    machine_output = output != "text"
     json_results: dict[str, dict[str, Any]] = {}
+    table_rows: list[dict[str, Any]] = []
 
     for folder, paths in sorted(grouped.items()):
         if folder != ".":
@@ -418,7 +535,7 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
         test_dir = _resolve_test_dir_from_input(str(folder_abs), is_dir=True)
 
         label = folder if folder != "." else pathlib.Path(directory).name
-        if output != "json":
+        if not machine_output:
             print(_t("micro_bench_header", label=label))
 
         # is_dir=True never actually returns None (see _resolve_test_dir_from_input),
@@ -427,6 +544,8 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
         if test_dir is None or not pathlib.Path(test_dir).is_dir():
             if output == "json":
                 json_results[folder] = {"error": f"tests not found: {test_dir}"}
+            elif output in ("csv", "markdown"):
+                table_rows.append({"group": folder, "error": f"tests not found: {test_dir}"})
             else:
                 print(_t("tests_not_found", test_dir=test_dir))
                 print(_t("expected_tests_subfolder"))
@@ -437,12 +556,19 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
         if not bench:
             if output == "json":
                 json_results[folder] = {"error": "no test cases found"}
+            elif output in ("csv", "markdown"):
+                table_rows.append({"group": folder, "error": "no test cases found"})
             else:
                 print(_t("no_test_cases_found", test_dir=test_dir))
             continue
 
         if output == "json":
             json_results[folder] = {"results": bench}
+            continue
+        if output in ("csv", "markdown"):
+            table_rows.extend(
+                {"group": folder, "file": path, **data} for path, data in sorted(bench.items())
+            )
             continue
 
         ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
@@ -463,6 +589,8 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
 
     if output == "json":
         print(json.dumps({"groups": json_results}, ensure_ascii=False))
+    elif output in ("csv", "markdown"):
+        _print_tabular(output, table_rows, _MODE4_FIELDS)
 
 
 def _interactive_menu() -> None:
@@ -554,9 +682,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output",
-        choices=["text", "json"],
+        choices=["text", "json", "csv", "markdown"],
         default="text",
-        help="Формат вывода: text (по умолчанию) или json для CI-пайплайнов. Issue #50 D-04.",
+        help=(
+            "Формат вывода: text (по умолчанию), json/csv для CI-пайплайнов "
+            "(issues #50 D-04, #53) или markdown для отчётов (issue #58)."
+        ),
+    )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help=(
+            "Перезапускать --mode 1/2 при изменении файла решения "
+            "(требует: pip install stepik-grader[watch]). Issue #54."
+        ),
     )
     return parser
 
@@ -573,6 +712,34 @@ def _resolve_verbosity(args: argparse.Namespace, *, default: bool) -> bool:
     if args.quiet:
         return False
     return default
+
+
+def _watch_and_rerun(watch_path: str, rerun: Callable[[], None]) -> None:
+    """Перезапускать rerun() при изменении файлов внутри watch_path (issue #54).
+
+    watchfiles — опциональная зависимость (`pip install stepik-grader[watch]`);
+    её отсутствие не должно ронять грейдер, если пользователь не просил --watch.
+    Перезапускает ВЕСЬ вызов rerun() на любое изменение внутри watch_path —
+    не отслеживает, какой именно файл изменился, для простоты и надёжности
+    (в отличие от идеи "перезапускать только изменённый файл" из issue #54,
+    которая для --mode 2 потребовала бы сопоставлять путь изменения с его
+    собственной test_dir и печатать частичный результат отдельно).
+    """
+    try:
+        from watchfiles import watch
+    except ImportError:
+        print(_t("watch_dependency_missing"))
+        return
+
+    rerun()
+    print(_t("watch_waiting", path=watch_path))
+    try:
+        for _changes in watch(watch_path):
+            os.system("cls" if os.name == "nt" else "clear")
+            rerun()
+            print(_t("watch_waiting", path=watch_path))
+    except KeyboardInterrupt:
+        pass
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -607,16 +774,32 @@ def main(argv: list[str] | None = None) -> None:
     if args.mode == 1:
         if not args.file:
             parser.error("--mode 1 requires --file")
-        _run_mode_1(args.file, verbose=_resolve_verbosity(args, default=True), output=args.output)
+        verbose = _resolve_verbosity(args, default=True)
+        if args.watch:
+            _watch_and_rerun(
+                args.file, lambda: _run_mode_1(args.file, verbose=verbose, output=args.output)
+            )
+        else:
+            _run_mode_1(args.file, verbose=verbose, output=args.output)
     elif args.mode == 2:
         if not args.dir:
             parser.error("--mode 2 requires --dir")
-        _run_mode_2(args.dir, verbose=_resolve_verbosity(args, default=False), output=args.output)
+        verbose = _resolve_verbosity(args, default=False)
+        if args.watch:
+            _watch_and_rerun(
+                args.dir, lambda: _run_mode_2(args.dir, verbose=verbose, output=args.output)
+            )
+        else:
+            _run_mode_2(args.dir, verbose=verbose, output=args.output)
     elif args.mode == 3:
         if not args.dir:
             parser.error("--mode 3 requires --dir")
+        if args.watch:
+            parser.error("--watch is only supported for --mode 1/2")
         _run_mode_3(args.dir, args.repeats, output=args.output)
     elif args.mode == 4:
         if not args.dir:
             parser.error("--mode 4 requires --dir")
+        if args.watch:
+            parser.error("--watch is only supported for --mode 1/2")
         _run_mode_4(args.dir, args.number, output=args.output)

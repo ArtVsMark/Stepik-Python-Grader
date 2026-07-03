@@ -9,7 +9,7 @@
 
 ### Статус: ✅ Стабильный
 
-- Тестов: 563 (3 skipped)
+- Тестов: 572 (3 skipped)
 - Покрытие: 96%
 - Python: 3.12 / 3.13 / 3.14
 - CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
@@ -166,7 +166,19 @@ stepik-grader --version
   границы зависимостей — скорректированы под реально установленные версии,
   не буквально по issue), C-03 (`release.yml`, только GitHub Release, без
   PyPI — нужен trusted publisher, который агент не настроит) (2026-07-03)
+- [x] #53 — Roadmap: `--output csv` (тот же механизм, что json) (2026-07-03)
+- [x] #54 — Roadmap: `--watch` для `--mode 1/2` (опциональная зависимость
+  `watchfiles`); перезапускает весь режим, не только изменённый файл
+  (2026-07-03)
+- [x] #58 (частично) — Roadmap: экспорт в Markdown (`--output markdown`);
+  Web UI / VS Code / PyPI — не взяты (2026-07-03)
 - [ ] #45 A-01 — Sprint B (отложено): разбить `grader_core.py` (700+ строк) на
   `test_loader.py`/`mode_detector.py`/`wrapper_builder.py`
+- [ ] #55 — Roadmap: сравнение с `solution.py` Stepik как baseline
+- [ ] #56 — Roadmap: `.grader_cache/` — кэширование результатов
+- [ ] #57 — Roadmap: pytest-плагин (`pytest --grader-mode`) — по сути
+  отдельный пакет
+- [ ] #59 — Roadmap: Docker-sandbox, другие платформы, AI-подсказки
+  (нужен внешний API-ключ), дашборд прогресса (зависит от #56)
 - [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)
 - [ ] Расширить покрытие тестами (особенно `downloader.py`)

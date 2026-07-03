@@ -21,6 +21,9 @@ dev = [
     "ruff>=0.15.19",
     "mypy>=1.10",
 ]
+watch = [
+    "watchfiles>=0.21,<2.0",
+]
 
 [project.scripts]
 stepik-grader = "stepik_grader.cli:main"
