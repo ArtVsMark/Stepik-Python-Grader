@@ -15,8 +15,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-import downloader
-from downloader import (
+from stepik_grader import downloader
+from stepik_grader.downloader import (
     ask_value,
     build_task_directory,
     create_or_update_config,
@@ -50,7 +50,7 @@ class TestConfigFunctions:
     def test_create_or_update_config_writes(self, tmp_path: pathlib.Path):
         """Запрашивает поля и сохраняет конфиг через save_json_file."""
         cfg_path = tmp_path / "cfg.json"
-        with patch("downloader.ask_value", side_effect=["/root", "secrets.json"]):
+        with patch("stepik_grader.downloader.ask_value", side_effect=["/root", "secrets.json"]):
             config = create_or_update_config(cfg_path)
         assert config == {"root_dir": "/root", "secrets_path": "secrets.json"}
         assert cfg_path.exists()
@@ -59,7 +59,7 @@ class TestConfigFunctions:
         """Отсутствующий конфиг → запуск create_or_update_config."""
         cfg_path = tmp_path / "nope.json"
         with patch(
-            "downloader.create_or_update_config", return_value={"root_dir": "r"}
+            "stepik_grader.downloader.create_or_update_config", return_value={"root_dir": "r"}
         ) as mock_create:
             result = load_or_create_config(cfg_path)
         mock_create.assert_called_once()
@@ -79,7 +79,9 @@ class TestConfigFunctions:
         downloader.save_json_file(cfg_path, {"root_dir": "r", "secrets_path": "s"})
         with (
             patch("builtins.input", return_value="y"),
-            patch("downloader.create_or_update_config", return_value={"new": 1}) as mock_create,
+            patch(
+                "stepik_grader.downloader.create_or_update_config", return_value={"new": 1}
+            ) as mock_create,
         ):
             result = load_or_create_config(cfg_path)
         mock_create.assert_called_once()
@@ -102,7 +104,7 @@ class TestConfigFunctions:
         cfg_path = tmp_path / "cfg.json"
         config = {"root_dir": "", "secrets_path": ""}
         with patch(
-            "downloader.create_or_update_config",
+            "stepik_grader.downloader.create_or_update_config",
             return_value={
                 "root_dir": str(tmp_path / "r"),
                 "secrets_path": str(secrets),
@@ -119,7 +121,7 @@ class TestConfigFunctions:
         cfg_path = tmp_path / "cfg.json"
         config = {"root_dir": "r", "secrets_path": str(tmp_path / "missing.json")}
         with patch(
-            "downloader.create_or_update_config",
+            "stepik_grader.downloader.create_or_update_config",
             return_value={"root_dir": "r2", "secrets_path": str(good_secrets)},
         ) as mock_create:
             result = normalize_config_paths(config, cfg_path)
@@ -275,7 +277,7 @@ class TestSaveTaskFiles:
     def test_zip_source_used(self, tmp_path: pathlib.Path):
         """ZIP-ссылка в тексте → вызывается _download_zip_tests."""
         step = self._step(text='<a href="http://x/t.zip">z</a>')
-        with patch("downloader._download_zip_tests", return_value=3) as mock_zip:
+        with patch("stepik_grader.downloader._download_zip_tests", return_value=3) as mock_zip:
             save_task_files(
                 tmp_path,
                 step,
@@ -292,7 +294,7 @@ class TestSaveTaskFiles:
         """Нет ZIP, но есть HTML-таблица → save_tests."""
         html = "<table><tr><td>1</td><td>print(1)</td><td>1</td></tr></table>"
         step = self._step(text=html)
-        with patch("downloader.save_tests", return_value=1) as mock_save:
+        with patch("stepik_grader.downloader.save_tests", return_value=1) as mock_save:
             save_task_files(
                 tmp_path,
                 step,
@@ -307,7 +309,7 @@ class TestSaveTaskFiles:
     def test_github_source_used(self, tmp_path: pathlib.Path):
         """Нет ZIP/таблицы, есть GitHub-ссылка → _download_github_tests."""
         step = self._step(text='<a href="https://github.com/o/r/tree/main/d">gh</a>')
-        with patch("downloader._download_github_tests", return_value=2) as mock_gh:
+        with patch("stepik_grader.downloader._download_github_tests", return_value=2) as mock_gh:
             save_task_files(
                 tmp_path,
                 step,
@@ -322,7 +324,7 @@ class TestSaveTaskFiles:
     def test_github_all_links_fail(self, tmp_path: pathlib.Path):
         """GitHub-ссылки есть, но все дали 0 → предупреждение, return."""
         step = self._step(text='<a href="https://github.com/o/r/tree/main/d">gh</a>')
-        with patch("downloader._download_github_tests", return_value=0):
+        with patch("stepik_grader.downloader._download_github_tests", return_value=0):
             save_task_files(
                 tmp_path,
                 step,
@@ -348,19 +350,23 @@ class TestProcessStepUrl:
         """Все fetch_* замоканы → save_task_files вызывается с собранными данными."""
         session = MagicMock()
         with (
-            patch("downloader.fetch_lesson_data", return_value={"id": 1, "title": "L"}),
-            patch("downloader.fetch_unit_data", return_value={"section": 2}),
             patch(
-                "downloader.fetch_section_data",
+                "stepik_grader.downloader.fetch_lesson_data", return_value={"id": 1, "title": "L"}
+            ),
+            patch("stepik_grader.downloader.fetch_unit_data", return_value={"section": 2}),
+            patch(
+                "stepik_grader.downloader.fetch_section_data",
                 return_value={"id": 2, "course": 3, "title": "S"},
             ),
-            patch("downloader.fetch_course_data", return_value={"id": 3, "title": "C"}),
             patch(
-                "downloader.fetch_step_data",
+                "stepik_grader.downloader.fetch_course_data", return_value={"id": 3, "title": "C"}
+            ),
+            patch(
+                "stepik_grader.downloader.fetch_step_data",
                 return_value={"id": 4, "position": 5, "title": "Step"},
             ),
-            patch("downloader.fetch_submission_data", return_value=None),
-            patch("downloader.save_task_files") as mock_save,
+            patch("stepik_grader.downloader.fetch_submission_data", return_value=None),
+            patch("stepik_grader.downloader.save_task_files") as mock_save,
         ):
             downloader.process_step_url(
                 "https://stepik.org/lesson/1/step/5?unit=2", session, tmp_path
@@ -374,8 +380,10 @@ class TestMain:
     def test_config_error_aborts(self):
         """Ошибка работы с конфигом → ранний return без авторизации."""
         with (
-            patch("downloader.load_or_create_config", side_effect=RuntimeError("boom")),
-            patch("downloader.create_user_session") as mock_sess,
+            patch(
+                "stepik_grader.downloader.load_or_create_config", side_effect=RuntimeError("boom")
+            ),
+            patch("stepik_grader.downloader.create_user_session") as mock_sess,
         ):
             downloader.main()
         mock_sess.assert_not_called()
@@ -384,9 +392,11 @@ class TestMain:
         """Ошибка авторизации → return до цикла обработки URL."""
         cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
         with (
-            patch("downloader.load_or_create_config", return_value=cfg),
-            patch("downloader.normalize_config_paths", return_value=cfg),
-            patch("downloader.load_secrets_dict", side_effect=RuntimeError("no secrets")),
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch(
+                "stepik_grader.downloader.load_secrets_dict", side_effect=RuntimeError("no secrets")
+            ),
             patch("builtins.input") as mock_input,
         ):
             downloader.main()
@@ -396,12 +406,12 @@ class TestMain:
         """Цикл обрабатывает URL пока не введена пустая строка."""
         cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
         with (
-            patch("downloader.load_or_create_config", return_value=cfg),
-            patch("downloader.normalize_config_paths", return_value=cfg),
-            patch("downloader.load_secrets_dict", return_value={}),
-            patch("downloader.create_user_session", return_value=MagicMock()),
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch("stepik_grader.downloader.create_user_session", return_value=MagicMock()),
             patch("builtins.input", side_effect=["http://step/url", ""]),
-            patch("downloader.process_step_url") as mock_proc,
+            patch("stepik_grader.downloader.process_step_url") as mock_proc,
         ):
             downloader.main()
         assert mock_proc.call_count == 1
@@ -410,12 +420,12 @@ class TestMain:
         """Ошибка в process_step_url не прерывает цикл."""
         cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
         with (
-            patch("downloader.load_or_create_config", return_value=cfg),
-            patch("downloader.normalize_config_paths", return_value=cfg),
-            patch("downloader.load_secrets_dict", return_value={}),
-            patch("downloader.create_user_session", return_value=MagicMock()),
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch("stepik_grader.downloader.create_user_session", return_value=MagicMock()),
             patch("builtins.input", side_effect=["http://bad", ""]),
-            patch("downloader.process_step_url", side_effect=ValueError("bad url")),
+            patch("stepik_grader.downloader.process_step_url", side_effect=ValueError("bad url")),
         ):
             downloader.main()  # не должно бросить
 

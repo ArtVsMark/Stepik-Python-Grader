@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from grader import _is_python_code_block, _parse_testblock_file
+from stepik_grader.grader import _is_python_code_block, _parse_testblock_file
 
 # ===========================================================================
 # _is_python_code_block

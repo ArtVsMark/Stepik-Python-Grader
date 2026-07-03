@@ -35,7 +35,9 @@ def load_config() -> GraderConfig:
     Если pyproject.toml отсутствует или секция не найдена —
     возвращает GraderConfig с дефолтными значениями.
     """
-    pyproject = pathlib.Path(__file__).parent / "pyproject.toml"
+    # src/-layout (Issue #35): config.py живёт в src/stepik_grader/, а
+    # pyproject.toml — в корне репозитория, на два уровня выше.
+    pyproject = pathlib.Path(__file__).parent.parent.parent / "pyproject.toml"
     if not pyproject.exists():
         return GraderConfig()
     with pyproject.open("rb") as f:

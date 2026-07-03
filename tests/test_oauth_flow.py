@@ -3,7 +3,7 @@
 These tests pin the CURRENT behavior of the OAuth functions at their current
 locations:
 
-  * ``load_secrets``        — diagnostik_stepik.py (tuple-returning variant; this
+  * ``load_secrets``        — diagnostic_stepik.py (tuple-returning variant; this
                               is the shape the future ``oauth_flow.load_secrets``
                               will keep, per Issue #1).
   * ``token_is_valid``      — stepik_client.py
@@ -26,14 +26,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from core import oauth_flow, stepik_client
-from core.oauth_flow import (
+from stepik_grader.core import oauth_flow, stepik_client
+from stepik_grader.core.oauth_flow import (
     authorize_and_get_token,
     load_secrets,
     token_is_valid,
     wait_for_auth_code,
 )
-from core.stepik_client import (
+from stepik_grader.core.stepik_client import (
     _make_oauth_handler,
     create_user_session,
     refresh_access_token,
@@ -292,7 +292,9 @@ class TestRefreshAccessToken:
             "refresh_token": "new_refresh",
             "expires_in": 3600,
         }
-        with patch("core.stepik_client.requests.post", return_value=mock_resp) as mock_post:
+        with patch(
+            "stepik_grader.core.stepik_client.requests.post", return_value=mock_resp
+        ) as mock_post:
             result = refresh_access_token("cid", "csecret", "old_refresh")
         assert result["access_token"] == "new_access"
         called_url = mock_post.call_args[0][0]
@@ -322,7 +324,9 @@ class TestRefreshAccessToken:
             "refresh_token": "fresh_refresh",
             "expires_in": 3600,
         }
-        with patch("core.stepik_client.refresh_access_token", return_value=dict(new_tokens)):
+        with patch(
+            "stepik_grader.core.stepik_client.refresh_access_token", return_value=dict(new_tokens)
+        ):
             session = create_user_session(secrets, secrets_path)
 
         assert session.headers["Authorization"] == "Bearer fresh_access"
@@ -346,8 +350,8 @@ class TestRefreshAccessToken:
             "expires_at": time.time() + 3600,
         }
         with (
-            patch("core.stepik_client.refresh_access_token") as mock_refresh,
-            patch("core.stepik_client.authorize_via_browser") as mock_authorize,
+            patch("stepik_grader.core.stepik_client.refresh_access_token") as mock_refresh,
+            patch("stepik_grader.core.stepik_client.authorize_via_browser") as mock_authorize,
         ):
             session = create_user_session(secrets, secrets_path)
         assert session.headers["Authorization"] == "Bearer already_valid"
@@ -377,11 +381,12 @@ class TestRefreshAccessToken:
         }
         with (
             patch(
-                "core.stepik_client.refresh_access_token",
+                "stepik_grader.core.stepik_client.refresh_access_token",
                 side_effect=requests.HTTPError("expired"),
             ),
             patch(
-                "core.stepik_client.authorize_via_browser", return_value=dict(browser_tokens)
+                "stepik_grader.core.stepik_client.authorize_via_browser",
+                return_value=dict(browser_tokens),
             ) as mock_authorize,
         ):
             session = create_user_session(secrets, secrets_path)

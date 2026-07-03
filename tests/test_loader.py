@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pathlib
 
-from grader import (
+from stepik_grader.grader import (
     TestCase,
     _resolve_test_dir,
     collect_grouped_files,

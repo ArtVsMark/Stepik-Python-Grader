@@ -12,10 +12,9 @@ from __future__ import annotations
 import os
 import pathlib
 
-import cli
-import grader
-from core import grader_core
-from grader import (
+from stepik_grader import cli, grader
+from stepik_grader.core import grader_core
+from stepik_grader.grader import (
     _resolve_test_dir_from_input,
     run_benchmark,
     run_microbench_mode,

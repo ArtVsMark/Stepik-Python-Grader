@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from downloader import slugify
+from stepik_grader.downloader import slugify
 
 
 def test_slugify_basic() -> None:

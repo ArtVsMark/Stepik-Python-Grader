@@ -36,8 +36,8 @@ from typing import Any
 
 import psutil
 
-from config import CONFIG
-from core.reporter import _print_case_verbose
+from stepik_grader.config import CONFIG
+from stepik_grader.core.reporter import _print_case_verbose
 
 __all__ = [
     "BenchStats",
@@ -66,16 +66,18 @@ __all__ = [
 # чтобы иметь доступ к замеру памяти (psutil) и точному времени.
 # Импортируем RunResult для аннотаций и совместимости.
 try:
-    from core.executor import RunResult as _ExecutorRunResult  # noqa: F401  (реэкспорт для тестов)
+    from stepik_grader.core.executor import (
+        RunResult as _ExecutorRunResult,  # noqa: F401  (реэкспорт для тестов)
+    )
 except ImportError:
     _ExecutorRunResult = None  # type: ignore[assignment,misc]
 
 # microbench_runner.py / normalizers.py — первоисточники timeit-бенчмарка и
 # нормализации float-вывода. grader_core делегирует им вместо inline-дубликатов.
-from core.microbench_runner import apply_relative_ranking, run_microbench
-from core.normalizers import normalize_floats as _normalize_output_line
-from core.parsers import parse_testblock_file as _parse_testblock_file
-from core.storage import load_json_file
+from stepik_grader.core.microbench_runner import apply_relative_ranking, run_microbench
+from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line
+from stepik_grader.core.parsers import parse_testblock_file as _parse_testblock_file
+from stepik_grader.core.storage import load_json_file
 
 # ---------------------------------------------------------------------------
 # Константы

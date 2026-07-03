@@ -8,8 +8,8 @@ print_correctness_results, print_benchmark_results.
 
 from __future__ import annotations
 
-from core import reporter
-from grader import (
+from stepik_grader.core import reporter
+from stepik_grader.grader import (
     fmt_time,
     format_benchmark_row,
     format_correctness_row,

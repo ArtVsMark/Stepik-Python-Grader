@@ -1,12 +1,13 @@
 """conftest.py — корневой конфиг pytest.
 
-Обеспечивает корректный импорт модулей проекта (downloader, grader,
-core.executor, core.microbench_runner, core.oauth_flow и др.) без ручных
-sys.path манипуляций в тестах. pytest автоматически добавляет директорию
-conftest.py в sys.path.
+src/-layout (Issue #35 / CLAUDE.md Sprint 8.2): исходники живут в
+src/stepik_grader/, а не в корне репозитория. Явно добавляем src/ в
+sys.path, чтобы `import stepik_grader` работал в тестах даже без
+`pip install -e .` (хотя обычная разработка предполагает editable install —
+см. CONTRIBUTING.md).
 """
 
-# grader.py — основной модуль grader'а (не тестовый файл).
-# Без этой директивы pytest пытается собрать из него TestCase-датакласс
-# и выдаёт PytestCollectionWarning.
-collect_ignore = ["grader.py"]
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent / "src"))

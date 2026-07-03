@@ -1,106 +1,67 @@
 # CHECKPOINT — Stepik-Python-Grader
 
 Файл фиксирует текущее состояние проекта: что сделано, что в работе, что запланировано.
+Историю изменений по версиям см. в `CHANGELOG.md`.
 
 ---
 
-## Текущая версия: 1.0.0
+## Текущая версия: 1.1.0 (2026-07-03)
 
 ### Статус: ✅ Стабильный
 
+- Тестов: 523 (3 skipped)
+- Покрытие: 95%
+- Python: 3.12 / 3.13 / 3.14
+- CI: GitHub Actions (pytest + ruff), зелёный
+- Эпик #18 (issues #19/#20/#21/#23) и issues #24/#25/#26 — закрыты, смержены в `main`
+- Issue #35 (Sprint 8.2, src/-layout) — закрыт (2026-07-03)
+
 ---
 
-## Аудит 2026-06-25
+## Архитектура
 
-### ✅ Подтверждено работающим
+> src/-layout (Issue #35, 2026-07-03): весь пакет перенесён в
+> `src/stepik_grader/`. Запуск только через `python -m stepik_grader.X` или
+> консольную команду `stepik-grader` (после `pip install -e .`).
 
-| Компонент | Статус | Примечание |
-|---|---|---|
-| `_SOLUTION_FILE_RE` | ✅ Корректен | Матчит `task_1.py`, `task1_2.py`, `task.py` |
-| `difflib` import | ✅ Top-level | Находится в начале файла, не lazy |
-| Type hints | ✅ Полные | Все публичные функции покрыты |
-| `__all__` | ✅ Есть | Экспортирует только публичное API |
-| `_apply_run_mode_override` | ✅ Работает | Устраняет рассинхронизацию режимов |
-| `PYTHONIOENCODING` / `PYTHONUTF8` | ✅ Есть | Решает кодировку на Windows |
-| `contextlib.suppress(OSError)` | ✅ Есть | Безопасное удаление temp-файлов |
-| `strict=True` в `zip()` | ✅ Есть | Ловит рассинхронизацию блоков |
-| pre-commit | ✅ Настроен | `.pre-commit-config.yaml` |
-| pytest | ✅ Настроен | `conftest.py`, `tests/` |
+```
+Stepik-Python-Grader/
+├── src/
+│   └── stepik_grader/
+│       ├── grader.py          # Тонкий фасад обратной совместимости (93 строки,
+│       │                      # 7 исполняемых Stmts по pytest-cov)
+│       ├── cli.py             # Интерактивное меню (режимы 0-4) + argparse CLI, entry point stepik-grader
+│       ├── config.py          # GraderConfig/CONFIG — единая конфигурация
+│       ├── downloader.py      # Скачивание задач, ZIP/HTML, slugify
+│       ├── diagnostic_stepik.py  # Диагностика API и токена
+│       └── core/              # Все внутренние модули (Issues #23, #26)
+│           ├── grader_core.py         # Загрузка тест-кейсов, исполнение решений
+│           ├── reporter.py             # rich-таблицы, вывод, verbose-diff
+│           ├── executor.py             # compile + exec с таймаутом
+│           ├── microbench_runner.py    # timeit-микробенчмарк через subprocess
+│           ├── normalizers.py          # Нормализация float-вывода
+│           ├── storage.py              # load/save JSON
+│           ├── stepik_client.py        # HTTP-клиент Stepik API
+│           ├── oauth_flow.py           # OAuth2-фасад
+│           └── parsers.py              # Парсинг тест-блоков (# TEST_N:)
+├── conftest.py             # sys.path.insert(0, "src") — тесты без install
+├── tests/                  # 523 теста
+├── .github/workflows/      # ci.yml, claude.yml, claude-code-review.yml
+├── CLAUDE.md / CHECKPOINT.md / CHANGELOG.md / CONTRIBUTING.md
+└── pyproject.toml          # packages.find where=["src"], entry point stepik-grader
+```
 
-### ⚠️ Tech debt (некритично)
-
-| Проблема | Приоритет | Решение |
-|---|---|---|
-| Дублирование статистики в `_micro_stats()` и `run_benchmark()` | Низкий | Уже частично через `_micro_stats()` |
-| Глобальный `_console` singleton | Низкий | Допустимо для CLI-инструмента (теперь в `reporter.py`) |
-| Нет `src/`-layout | Низкий | Рефакторинг при публикации на PyPI |
-
-### ✅ Исправлено в сессии 2026-07-02
-
-**GitHub issues — эпик #18 полностью закрыт (issues #19/#20/#21 + #23):**
-- **Issue #23** — внутренние модули (`executor.py`, `normalizers.py`, `parsers.py`,
-  `storage.py`, `stepik_client.py`, `oauth_flow.py`, `microbench_runner.py`)
-  перенесены в `core/`
-- **Issue #19** — устранена дублирующая копия `_parse_testblock_file` в
-  `grader.py`; `downloader.py` больше не импортирует `grader.py`
-- **Issue #20 finding #4 / Sprint 7.1** — `grader.py` (1460 строк) разбит на
-  `grader_core.py` + `reporter.py` + `cli.py`; `grader.py` стал тонким
-  фасадом обратной совместимости
-- **Issue #20 finding #5** — валидация identifiers (`function_name`,
-  module stem) перед интерполяцией в generated-код (`_build_function_wrapper`)
-- **Issue #20 finding #6** — дублирующаяся ranking-логика (relative/verdict)
-  вынесена в `core/microbench_runner.apply_relative_ranking()`
-- **Issue #21** — `except Exception` в `microbench_runner.py` сужен до
-  `(OSError, ValueError)`; редундантные `float(str(x or 0))` упрощены в
-  `stepik_client.py`; добавлен `tests/test_cli.py` (покрытие `cli.py`:
-  40% → 97%); переписана секция "Ограничения и безопасность" в README.md
-
-**CLAUDE.md backlog — Sprints 6, 7, 8.1 полностью закрыты:**
-- **Sprint 6.1** — `_PYTHON_CMD` в `core/executor.py` → `sys.executable`
-- **Sprint 6.2** — `sort_lines`/`normalize_whitespace` добавлены в
-  `core/normalizers.__all__`, помечены "experimental"
-- **Sprint 6.3** — новый `config.py` (`GraderConfig`/`CONFIG`), читает
-  `[tool.stepik-grader]` из `pyproject.toml`; `grader_core.py` и
-  `core/executor.py` читают константы из `CONFIG`
-- **Sprint 7.2** — `BenchStats` dataclass в `grader_core.py`, устраняет
-  дублирование вычислений между `run_benchmark()` и `_micro_stats()`
-- **Sprint 7.3** — `run_microbench_with_timeout()` в
-  `core/microbench_runner.py` (добавлена, но не подключена — существующий
-  `subprocess.run(timeout=60)` уже достаточен, см. докстринг)
-- **Sprint 8.1** — non-interactive argparse CLI: `python grader.py --mode
-  {1,2,3,4} [--file] [--dir] [--repeats] [--number]`, `--version`
-
-**Не сделано намеренно:** Sprint 8.2 (`src/`-layout) — явно опциональный
-пункт, зависящий от решения публиковать на PyPI; не запускался без
-явного запроса.
-
-**Новые issues (обнаружены после первой волны работы, все закрыты):**
-- **Issue #24** — `format_benchmark_row`/`print_benchmark_results`
-  (режимы 3/4) обнуляли суб-миллисекундные тайминги фиксированным `.4f`;
-  добавлен `core/reporter.fmt_time()` с автовыбором единиц (s/ms/µs/ns)
-- **Issue #25** — Memory в режиме 4 всегда была `0.00` (единый subprocess
-  на все повторы timeit не даёт измерить RSS через psutil); добавлен
-  `tracemalloc` внутри `bench_script` в `core/microbench_runner.py`,
-  `run_microbench_mode()` больше не хардкодит `peak_memory_mb = 0.0`
-- **Issue #26** — `grader_core.py` и `reporter.py` перенесены в `core/`
-  (продолжение #23); в корне остались только точки входа
-  (`grader.py`, `cli.py`, `config.py`, `downloader.py`, `diagnostik_stepik.py`)
-
-**Важно:** PR #22 (пул-реквест со всей работой первой волны) был закрыт
-БЕЗ мержа в `main` — код готов и запушен в `ArtVsMark-patch-1`, но #18/
-#19/#20/#21/#23 всё ещё числятся открытыми на GitHub, пока PR не смержен.
-
-### ✅ Исправлено в предыдущей сессии
-
-- Добавлен `CONTRIBUTING.md` с архитектурой, форматами тестов, соглашениями по коду
-- Обновлён `CHECKPOINT.md` с результатами аудита
+Только `grader.py`, `cli.py`, `config.py`, `downloader.py` и
+`diagnostic_stepik.py` (все внутри `src/stepik_grader/`) — публичные точки
+входа; всё остальное внутреннее живёт в `core/`. Правило зафиксировано в
+`CONTRIBUTING.md` ("Правила размещения файлов").
 
 ---
 
 ## Реализованные возможности
 
 ### Режим 1 — Проверка одного файла
-- Запуск через `run_tests(solution_path, test_dir, verbose=True)`
+- `run_tests(solution_path, test_dir, verbose=True)`
 - Verbose-вывод с diff при WA
 - Поддержка stdin и function-mode
 
@@ -111,13 +72,26 @@
 
 ### Режим 3 — Subprocess-бенчмарк
 - `run_benchmark()` с профилями нагрузки (5/15/50/custom повторений)
-- Статистика: min, median, mean, max, stdev, peak memory
+- Статистика: min, median, mean, max, stdev, peak memory (psutil RSS)
 - Вердикты: SIMILAR / SLOWER / MUCH_SLOWER
+- Адаптивное форматирование времени (`fmt_time`: s/ms/µs/ns) — Issue #24
 
 ### Режим 4 — Timeit micro-benchmark
-- `run_microbench_mode()` + `run_microbench()` из `microbench_runner.py`
+- `run_microbench_mode()` + `run_microbench()` из `core/microbench_runner.py`
 - Профили: 500 / 1K / 5K / 50K / 100K / custom итераций
 - Группировка по папкам (`collect_grouped_files()`)
+- Peak memory через `tracemalloc` (Python-heap, не RSS) — Issue #25
+
+### Non-interactive CLI (Sprint 8.1)
+```bash
+stepik-grader --mode 1 --file path/to/task.py
+stepik-grader --mode 2 --dir path/to/folder
+stepik-grader --mode 3 --dir path/to/folder --repeats 15
+stepik-grader --mode 4 --dir path/to/folder --number 1000
+stepik-grader --version
+```
+Без `--mode` — обычное интерактивное меню. Эквивалентно через
+`python -m stepik_grader.grader --mode ...`.
 
 ### Форматы тест-кейсов
 - **Формат 1** — legacy downloader (`1`, `1.clue`, `1.type`)
@@ -127,6 +101,11 @@
 ### Автодетекция режима
 - `_detect_run_mode()` — единая точка: meta.json → .type-файлы → AST-анализ
 - `_apply_run_mode_override()` — синхронизирует все test_cases
+
+### Конфигурация (Sprint 6.3)
+- `config.py`: `GraderConfig` (frozen dataclass) + `CONFIG` singleton
+- Переопределяется через `[tool.stepik-grader]` в `pyproject.toml`
+- `core/grader_core.py` и `core/executor.py` читают константы из `CONFIG`
 
 ### Вывод
 - Rich-таблицы (при наличии `rich`) с цветными вердиктами
@@ -144,13 +123,22 @@
 
 ---
 
+## ⚠️ Активный tech debt (некритично)
+
+| Проблема | Приоритет | Issue |
+|---|---|---|
+| `run_microbench_with_timeout()` добавлена, но не подключена (см. докстринг — существующий `subprocess.run(timeout=60)` уже достаточен) | Низкий | — |
+| Glossary-Python (смежный проект) разморожен, но без документации | Низкий | #38 |
+
+---
+
 ## Следующие шаги (backlog)
 
+- [x] #31 — CLAUDE.md: обновить оставшиеся устаревшие места (2026-07-03)
+- [x] #32 — README.md: полная синхронизация со структурой `core/` (2026-07-03)
+- [x] #34 — подтвердить точность метрик документации после рерайта (2026-07-03)
+- [x] #37 — переименовать `diagnostik_stepik.py` → `diagnostic_stepik.py` (2026-07-03)
+- [x] #36 — `__version__` через `importlib.metadata.version()` (DRY, 2026-07-03)
+- [x] #35 — Sprint 8.2: `src/`-layout (`src/stepik_grader/`, console-script `stepik-grader`, 2026-07-03)
+- [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)
 - [ ] Расширить покрытие тестами (особенно `downloader.py`)
-- [x] Выделить `cli.py` и `reporter.py` из `grader.py` (2026-07-02, Sprint 7)
-- [x] Добавить GitHub Actions CI (pytest + ruff)
-- [x] Issue #21 (Low) — все 4 finding'а закрыты (2026-07-02)
-- [x] Sprint 6 (sys.executable, normalizers cleanup, config.py) — 2026-07-02
-- [x] Sprint 7.2/7.3 (BenchStats, microbench timeout helper) — 2026-07-02
-- [x] Sprint 8.1 (argparse CLI) — 2026-07-02
-- [ ] Sprint 8.2 (OPTIONAL) — `src/`-layout, только если публикуем на PyPI
