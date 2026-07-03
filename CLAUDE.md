@@ -60,7 +60,7 @@ Stepik-Python-Grader/
 │
 ├── conftest.py               # pytest: collect_ignore для grader.py
 │
-├── tests/                    # 461 тест (pytest), покрытие 88%
+├── tests/                    # 520 тестов (pytest), покрытие 95%
 │   ├── test_grader_core.py
 │   ├── test_executor.py
 │   ├── test_normalizers.py
@@ -696,10 +696,12 @@ except:
 **Glossary-Python** (`https://github.com/ArtVsMark/Glossary-Python`)
 
 - Статический HTML-глоссарий Python-терминов (581 карточка, 43 раздела)
-- Текущий статус: **заморожен** до завершения Sprint 6–7 в grader
+- Текущий статус: **разморожен** — Sprint 6–7 в grader завершены (2026-07-02);
+  документация проекта (CLAUDE.md/CHANGELOG.md/CONTRIBUTING.md/CI) — Issue #38
 - Будущая интеграция (Sprint 10+): grader показывает ссылку на глоссарий
   при RE/WA — например, `RecursionError → #recursion`
-- НЕ трогать этот проект в текущей сессии
+- НЕ трогать этот проект в текущей сессии (изменения — только через
+  отдельную задачу/issue в самом Glossary-Python)
 
 ---
 
