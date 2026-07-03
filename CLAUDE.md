@@ -732,8 +732,10 @@ except:
 **Glossary-Python** (`https://github.com/ArtVsMark/Glossary-Python`)
 
 - Статический HTML-глоссарий Python-терминов (581 карточка, 43 раздела)
-- Текущий статус: **разморожен** — Sprint 6–7 в grader завершены (2026-07-02);
-  документация проекта (CLAUDE.md/CHANGELOG.md/CONTRIBUTING.md/CI) — Issue #38
+- Текущий статус: **доступен для работы** — Sprint 6–8.2 в grader завершены
+  (2026-07-03); собственная документация проекта (CLAUDE.md/CHANGELOG.md/
+  CONTRIBUTING.md/CI в самом Glossary-Python) пока отсутствует — Issue #38
+  (работа ведётся в отдельном репозитории, не здесь)
 - Будущая интеграция (Sprint 10+): grader показывает ссылку на глоссарий
   при RE/WA — например, `RecursionError → #recursion`
 - НЕ трогать этот проект в текущей сессии (изменения — только через
