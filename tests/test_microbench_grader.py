@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 from stepik_grader import grader
 
 
@@ -219,3 +221,55 @@ def test_run_microbench_number_parameter() -> None:
     assert small["error"] == "" and large["error"] == ""
     assert len(small["times"]) == 5
     assert len(large["times"]) == 5
+
+
+# ---------------------------------------------------------------------------
+# max_memory_mb — best-effort RLIMIT_AS cap (Issue #43 S-01)
+# ---------------------------------------------------------------------------
+
+
+def test_run_microbench_accepts_generous_memory_limit() -> None:
+    """A generous max_memory_mb must not interfere with a trivial computation."""
+    result = grader.run_microbench("x = 1 + 1\n", stdin_data="", number=5, max_memory_mb=512)
+    assert result["error"] == ""
+    assert len(result["times"]) == 5
+
+
+def test_make_memory_limiter_none_when_limit_disabled() -> None:
+    from stepik_grader.core.microbench_runner import _make_memory_limiter
+
+    assert _make_memory_limiter(None) is None
+
+
+def test_make_memory_limiter_none_when_resource_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows has no `resource` module — limiter must degrade to a no-op."""
+    from stepik_grader.core import microbench_runner
+
+    monkeypatch.setattr(microbench_runner, "resource", None)
+    assert microbench_runner._make_memory_limiter(1024) is None
+
+
+def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from stepik_grader.core import microbench_runner
+
+    calls: list[tuple] = []
+
+    class _FakeResource:
+        RLIMIT_AS = "RLIMIT_AS"
+
+        @staticmethod
+        def setrlimit(which, limits):
+            calls.append((which, limits))
+
+    monkeypatch.setattr(microbench_runner, "resource", _FakeResource)
+    limiter = microbench_runner._make_memory_limiter(64)
+    assert limiter is not None
+
+    limiter()
+
+    expected_bytes = 64 * 1024 * 1024
+    assert calls == [("RLIMIT_AS", (expected_bytes, expected_bytes))]

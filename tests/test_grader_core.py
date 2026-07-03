@@ -360,3 +360,49 @@ def test_build_call_wrapper_stdlib_names_available_without_solution_definitions(
     result = grader.run_single_test(str(sol), case, measure_memory=False)
 
     assert result["verdict"] == "AC", result["error"] or result["diff"]
+
+
+# ---------------------------------------------------------------------------
+# _make_memory_limiter — best-effort RLIMIT_AS cap (Issue #43 S-01)
+# ---------------------------------------------------------------------------
+
+
+def test_make_memory_limiter_none_when_limit_disabled() -> None:
+    from stepik_grader.core.grader_core import _make_memory_limiter
+
+    assert _make_memory_limiter(None) is None
+
+
+def test_make_memory_limiter_none_when_resource_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows has no `resource` module — limiter must degrade to a no-op."""
+    from stepik_grader.core import grader_core
+
+    monkeypatch.setattr(grader_core, "resource", None)
+    assert grader_core._make_memory_limiter(1024) is None
+
+
+def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The returned callable applies RLIMIT_AS in bytes (max_memory_mb * 1024**2)."""
+    from stepik_grader.core import grader_core
+
+    calls: list[tuple] = []
+
+    class _FakeResource:
+        RLIMIT_AS = "RLIMIT_AS"
+
+        @staticmethod
+        def setrlimit(which, limits):
+            calls.append((which, limits))
+
+    monkeypatch.setattr(grader_core, "resource", _FakeResource)
+    limiter = grader_core._make_memory_limiter(64)
+    assert limiter is not None
+
+    limiter()
+
+    expected_bytes = 64 * 1024 * 1024
+    assert calls == [("RLIMIT_AS", (expected_bytes, expected_bytes))]

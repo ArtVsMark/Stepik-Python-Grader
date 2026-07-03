@@ -53,6 +53,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+# resource — POSIX-only (RLIMIT_AS best-effort memory cap, issue #43 S-01).
+# На Windows модуль отсутствует; лимит памяти там не применяется — тот же
+# паттерн graceful degradation, что и в grader_core.py / executor.py.
+try:
+    import resource
+except ImportError:
+    resource = None  # type: ignore[assignment]
+
 ENCODING: str = "utf-8"
 SIMILAR_THRESHOLD_PERCENT = 5.0
 WARMUP_RUNS = 3
@@ -91,11 +99,32 @@ class MicrobenchResult:
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
+def _make_memory_limiter(max_memory_mb: int | None) -> Callable[[], None] | None:
+    """Вернуть preexec_fn, ограничивающий RLIMIT_AS дочернего процесса, или
+    None, если лимит недоступен/отключён.
+
+    Дублирует одноимённый helper из grader_core.py — грейдер сам импортирует
+    microbench_runner (не наоборот), поэтому кросс-импорт создал бы цикл в
+    DAG зависимостей; helper небольшой (POSIX-only best-effort защита,
+    issue #43 S-01), дублирование дешевле нарушения слойности.
+    """
+    if resource is None or max_memory_mb is None:
+        return None
+
+    limit_bytes = max_memory_mb * 1024 * 1024
+
+    def _limit() -> None:
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+
+    return _limit
+
+
 def run_microbench(
     source_code: str,
     *,
     stdin_data: str = "",
     number: int = 1000,
+    max_memory_mb: int | None = None,
 ) -> dict[str, Any]:
     """Запустить timeit-microbenchmark для исходного кода.
 
@@ -106,6 +135,9 @@ def run_microbench(
     это единственный надёжный кросс-платформенный способ передать путь к файлу
     в subprocess. delete_on_close=False (Python 3.12+) ведёт себя по-разному
     на Linux (удаляет при close) и Windows, и непригоден здесь.
+
+    max_memory_mb: best-effort лимит адресного пространства дочернего процесса
+        (RLIMIT_AS, POSIX-only; issue #43 S-01). None — без ограничения.
 
     Возвращает словарь с ключами:
         times          (list[float]) — список замеров (в секундах на итерацию)
@@ -174,6 +206,7 @@ def run_microbench(
                 text=True,
                 timeout=60,
                 encoding=ENCODING,
+                preexec_fn=_make_memory_limiter(max_memory_mb),
             )
             if result.returncode != 0:
                 return {"times": [], "error": result.stderr.strip(), "peak_memory_mb": 0.0}

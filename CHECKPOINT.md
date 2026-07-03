@@ -141,5 +141,9 @@ stepik-grader --version
 - [x] #36 — `__version__` через `importlib.metadata.version()` (DRY, 2026-07-03)
 - [x] #35 — Sprint 8.2: `src/`-layout (`src/stepik_grader/`, console-script `stepik-grader`, 2026-07-03)
 - [x] #44 — Sprint A: заменить wildcard-импорты в `_build_call_wrapper` на явные (2026-07-03)
+- [x] #43 — Sprint A: best-effort `RLIMIT_AS` memory cap (`GraderConfig.max_memory_mb`,
+  POSIX-only); S-02 закрыт как дубликат S-01 — см. CHANGELOG (2026-07-03)
 - [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)
 - [ ] Расширить покрытие тестами (особенно `downloader.py`)
+- [ ] Sprint B (Архитектура) — issue #45 (SRP/layering в `grader_core.py`/`cli.py`),
+  #46 (судьба `executor.py`), #52 (`__all__` экспортирует константы)

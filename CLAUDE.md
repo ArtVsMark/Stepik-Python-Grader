@@ -650,7 +650,7 @@ stepik-grader --mode 4 --dir path/to/folder --number 1000 — режим 4, non-
 
 ---
 
-### 🔴 Sprint A — Безопасность (аудит v1.1.0, эпик #60)
+### 🔴 Sprint A — Безопасность (аудит v1.1.0, эпик #60) ✅ ЗАВЕРШЁН (2026-07-03)
 
 #### A.1 ✅ FIX — #44 (S-03): wildcard-импорты в `_build_call_wrapper`
 
@@ -666,6 +666,37 @@ stepik-grader --mode 4 --dir path/to/folder --number 1000 — режим 4, non-
        перекрывается stdlib-версией (порядок копирования имён решения
        в globals() уже гарантировал это и до фикса).
 ```
+
+#### A.2 ✅ FIX — #43 (S-01): best-effort memory cap для дочернего процесса
+
+```
+Добавлено: GraderConfig.max_memory_mb (config.py, дефолт 1024)
+Добавлено: _make_memory_limiter() в core/grader_core.py и
+           core/microbench_runner.py (дублируется в обоих — grader_core
+           импортирует microbench_runner, не наоборот; кросс-импорт
+           создал бы цикл в DAG)
+Подключено: preexec_fn= в subprocess.Popen (run_single_test, режимы 1-3)
+            и subprocess.run (run_microbench, режим 4)
+```
+
+> POSIX-only (`resource.setrlimit(RLIMIT_AS, ...)`) — на Windows модуль
+> `resource` отсутствует, `_make_memory_limiter()` возвращает `None`,
+> `preexec_fn=None` не меняет поведение `Popen`. Тот же паттерн graceful
+> degradation, что и у `SIGALRM`-таймаута в `executor.py`. Работает в
+> Linux CI, не защищает Windows-запуски (основная личная среда этого
+> проекта) — задокументированное ограничение, не полноценный OS-sandbox
+> (по-прежнему нет изоляции ФС/сети).
+
+> **#43 (S-02) закрыт как дубликат S-01, не отдельный фикс.** `safe_input`/
+> `call_block` встраиваются в generated-код как выражения верхнего уровня,
+> а не внутри строкового литерала — вырваться из контекста через кавычки
+> невозможно, `shell=True` нигде не используется (subprocess вызывается
+> списком аргументов). Реальный риск — тот же, что в S-01: тест-контент по
+> формату обязан быть исполняемым Python-кодом, и это исполняется без
+> sandbox. Предложенный в issue вариант (env var вместо f-string) не снижает
+> риск (код всё равно `exec`-нётся) и добавляет риск обрезания на лимите
+> размера env var в Windows (~32KB) для многострочных тест-блоков — решено
+> не делать.
 
 ---
 

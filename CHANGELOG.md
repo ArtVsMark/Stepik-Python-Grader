@@ -4,12 +4,30 @@
 
 Sprint A (Security) from the v1.1.0 audit epic #60: issues #43, #44.
 
+### Added
+- `GraderConfig.max_memory_mb` (default 1024) — best-effort `RLIMIT_AS`
+  memory cap applied via `preexec_fn` to every subprocess that runs solution
+  code (`core/grader_core.py::run_single_test`, `core/microbench_runner.py::
+  run_microbench`). POSIX-only (`resource` module absent on Windows);
+  degrades to a no-op there, same pattern as `executor.py`'s `SIGALRM`
+  handling (issue #43 S-01)
+
 ### Changed
 - `core/grader_core.py::_build_call_wrapper` — replaced
   `from collections/datetime/itertools/functools import *` with explicit
   imports covering each module's full documented public API. Removes the
   wildcard-import construct the audit flagged while preserving behavior for
   any test-block relying on stdlib names (issue #44 S-03)
+
+### Notes
+- Issue #43 S-02 ("code injection via f-string interpolation") closed as a
+  duplicate of S-01, not a distinct fix: `safe_input`/`call_block` are
+  embedded as top-level source, not inside a string literal, so there is no
+  literal-escaping vector; the actual risk is that test-block content is
+  executed as trusted Python code by design, which only OS-level process
+  isolation (S-01) mitigates. Moving the data through an env var as the
+  issue originally suggested would not reduce this risk and would risk
+  truncating multi-line test blocks on Windows (~32KB env var limit)
 
 ## [1.1.0] - 2026-07-02
 

@@ -71,3 +71,4 @@ much_slower_threshold = 1.50
 measure_child_memory = true
 microbench_max_cases = 5
 encoding = "utf-8"
+max_memory_mb = 1024

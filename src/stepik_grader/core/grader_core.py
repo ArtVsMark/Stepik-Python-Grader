@@ -31,6 +31,7 @@ import tempfile
 import threading
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -38,6 +39,14 @@ import psutil
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.reporter import _print_case_verbose
+
+# resource — POSIX-only (RLIMIT_AS для best-effort memory cap, issue #43 S-01).
+# На Windows модуль отсутствует; лимит памяти там не применяется (как и
+# SIGALRM-таймаут в executor.py — тот же паттерн graceful degradation).
+try:
+    import resource
+except ImportError:
+    resource = None  # type: ignore[assignment]
 
 __all__ = [
     "BenchStats",
@@ -412,6 +421,27 @@ def _resolve_test_dir(solution_path: str) -> str:
             return str(parent)
 
     return str(candidate_tests)
+
+
+def _make_memory_limiter(max_memory_mb: int | None) -> Callable[[], None] | None:
+    """Вернуть preexec_fn, ограничивающий адресное пространство (RLIMIT_AS)
+    дочернего процесса, или None, если лимит недоступен/отключён.
+
+    Best-effort защита от неограниченного потребления памяти запускаемым
+    решением (issue #43 S-01) — не замена полноценному OS-sandbox, у
+    дочернего процесса по-прежнему нет изоляции файловой системы/сети.
+    POSIX-only: на Windows модуль ``resource`` отсутствует, лимит не
+    применяется (решение выполняется как раньше, без ограничения памяти).
+    """
+    if resource is None or max_memory_mb is None:
+        return None
+
+    limit_bytes = max_memory_mb * 1024 * 1024
+
+    def _limit() -> None:
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+
+    return _limit
 
 
 def _measure_peak_memory(
@@ -791,6 +821,7 @@ def run_single_test(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=_child_env,
+            preexec_fn=_make_memory_limiter(CONFIG.max_memory_mb),
         )
 
         if measure_memory:
@@ -1086,7 +1117,9 @@ def run_microbench_mode(
                 break
 
             stdin_data = input_data + "\n"
-            bench = run_microbench(code, stdin_data=stdin_data, number=number)
+            bench = run_microbench(
+                code, stdin_data=stdin_data, number=number, max_memory_mb=CONFIG.max_memory_mb
+            )
             if bench["error"]:
                 results[path] = {"error": f"test {case.index}: {bench['error']}"}
                 break

@@ -184,7 +184,7 @@ class TestRunMicrobenchModeFunctionBlocks:
 
         called: list[str] = []
 
-        def fake_microbench(code, *, stdin_data="", number=1000):
+        def fake_microbench(code, *, stdin_data="", number=1000, max_memory_mb=None):
             called.append(stdin_data)
             return {"times": [0.001, 0.002], "error": "", "peak_memory_mb": 0.05}
 
