@@ -9,10 +9,38 @@
 from __future__ import annotations
 
 import pathlib
+import tomllib
 
 import pytest
 
 import cli
+
+
+def test_version_matches_pyproject_toml() -> None:
+    """cli.__version__ (Issue #36: read via importlib.metadata) tracks
+    pyproject.toml's declared version -- the single source of truth.
+
+    Requires `pip install -e .` to have been run so the installed package
+    metadata is in sync; see CONTRIBUTING.md.
+    """
+    pyproject = pathlib.Path(__file__).parent.parent / "pyproject.toml"
+    with pyproject.open("rb") as f:
+        data = tomllib.load(f)
+    assert cli.__version__ == data["project"]["version"]
+
+
+def test_resolve_version_reads_installed_metadata() -> None:
+    assert cli._resolve_version() == cli.__version__
+
+
+def test_resolve_version_falls_back_when_package_not_installed(monkeypatch) -> None:
+    """Running from a git clone without `pip install -e .` shouldn't crash."""
+
+    def _raise(*_a, **_k):
+        raise cli.importlib.metadata.PackageNotFoundError
+
+    monkeypatch.setattr(cli.importlib.metadata, "version", _raise)
+    assert cli._resolve_version() == "0.0.0+unknown"
 
 
 def test_main_delegates_to_interactive_menu(monkeypatch) -> None:

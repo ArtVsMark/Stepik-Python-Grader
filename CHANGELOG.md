@@ -44,6 +44,17 @@ epic #18). Test suite grew from 355 to 520 tests; coverage from 88% to
 - `diagnostik_stepik.py` renamed to `diagnostic_stepik.py` (German-inflected
   spelling replaced with the correct English adjective; no imports pointed
   at it as a module, so this only touched docstrings/docs) (Issue #37)
+- `cli.__version__` now reads from installed package metadata via
+  `importlib.metadata.version("stepik-python-grader")` instead of a
+  hardcoded literal, with `pyproject.toml`'s `version` field as the single
+  source of truth (falls back to `"0.0.0+unknown"` if the package isn't
+  pip-installed). Found and fixed a stale `stepik_python_grader.egg-info`
+  reporting `0.1.0` with dependencies that didn't match current
+  `pyproject.toml` (an old build artifact) by refreshing the editable
+  install before wiring this up -- otherwise the new code would have
+  faithfully reported the wrong version. `CONTRIBUTING.md`'s install
+  steps now include `pip install -e .` and a note that it must be re-run
+  after bumping the version (Issue #36)
 - Documentation pass: `pyproject.toml`/`cli.py`/`CLAUDE.md`/`README.md`
   version bumped to 1.1.0 (Issue #29); `CHECKPOINT.md` fully rewritten to
   match current architecture and metrics (Issue #28); `README.md`'s module

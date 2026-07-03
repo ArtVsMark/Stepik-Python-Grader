@@ -120,7 +120,6 @@ python grader.py --version
 | Проблема | Приоритет | Issue |
 |---|---|---|
 | Нет `src/`-layout — `core/` в корне репозитория, а не `src/stepik_grader/` | Низкий | #35 |
-| `__version__` дублируется в `pyproject.toml` и `cli.py` вместо единого источника через `importlib.metadata` | Низкий | #36 |
 | `run_microbench_with_timeout()` добавлена, но не подключена (см. докстринг — существующий `subprocess.run(timeout=60)` уже достаточен) | Низкий | — |
 | Glossary-Python (смежный проект) разморожен, но без документации | Низкий | #38 |
 
@@ -132,7 +131,7 @@ python grader.py --version
 - [x] #32 — README.md: полная синхронизация со структурой `core/` (2026-07-03)
 - [x] #34 — подтвердить точность метрик документации после рерайта (2026-07-03)
 - [x] #37 — переименовать `diagnostik_stepik.py` → `diagnostic_stepik.py` (2026-07-03)
+- [x] #36 — `__version__` через `importlib.metadata.version()` (DRY, 2026-07-03)
 - [ ] #35 — Sprint 8.2 (OPTIONAL): `src/`-layout, только при решении публиковать на PyPI
-- [ ] #36 — `__version__` через `importlib.metadata.version()` (DRY)
 - [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)
 - [ ] Расширить покрытие тестами (особенно `downloader.py`)

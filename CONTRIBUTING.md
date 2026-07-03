@@ -89,7 +89,16 @@ python -m venv .venv
 
 pip install -r requirements.txt
 pip install rich             # опционально — цветной вывод
+pip install -e .             # обязательно: cli.__version__ читается через
+                              # importlib.metadata из package-метаданных
+                              # (Issue #36) — без editable install падает
+                              # на fallback "0.0.0+unknown"
 ```
+
+> После bump'а версии в `pyproject.toml` перезапусти `pip install -e .`,
+> иначе `cli.__version__`/`python grader.py --version` останутся
+> показывать старое значение (package-метаданные не обновляются
+> автоматически).
 
 ### Запуск тестов
 

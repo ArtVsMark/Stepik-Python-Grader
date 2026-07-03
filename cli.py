@@ -19,6 +19,7 @@ Non-interactive запуск (Sprint 8.1):
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import os
 import pathlib
 from typing import Any
@@ -38,7 +39,22 @@ from core.reporter import _rich_track, print_benchmark_results, print_correctnes
 
 __all__ = ["main"]
 
-__version__ = "1.1.0"
+
+def _resolve_version() -> str:
+    """Читает версию из package-метаданных (Issue #36 — единый источник:
+    pyproject.toml). Не хардкодим строку здесь: importlib.metadata читает
+    её из установленных package-метаданных (обновляются через `pip install
+    -e .`, см. CONTRIBUTING.md). Fallback — для запуска без установки
+    пакета (например, прямой git clone без `pip install -e .`), где
+    package-метаданных ещё нет.
+    """
+    try:
+        return importlib.metadata.version("stepik-python-grader")
+    except importlib.metadata.PackageNotFoundError:
+        return "0.0.0+unknown"
+
+
+__version__ = _resolve_version()
 
 # ---------------------------------------------------------------------------
 # Профили нагрузки
