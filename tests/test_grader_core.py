@@ -302,3 +302,61 @@ def test_run_benchmark_and_micro_stats_agree_on_same_timings() -> None:
     assert micro["median"] == direct.median
     assert micro["mean"] == direct.mean
     assert micro["stdev"] == direct.stdev
+
+
+# ---------------------------------------------------------------------------
+# _build_call_wrapper — explicit imports instead of wildcard (Issue #44)
+# ---------------------------------------------------------------------------
+
+
+def test_build_call_wrapper_has_no_wildcard_imports() -> None:
+    """Generated wrapper source must not contain `import *` (regression guard)."""
+    src = grader._build_call_wrapper("task1.py", "print(1)")
+    assert "import *" not in src
+
+
+def test_build_call_wrapper_solution_name_overrides_stdlib(tmp_path: pathlib.Path) -> None:
+    """A solution defining its own `reduce`/`chain` must win over the stdlib one.
+
+    functools.reduce/itertools.chain are among the names explicitly imported
+    for use in test-blocks (Issue #44); the solution's public names are
+    copied into globals() afterwards specifically so they take priority.
+    """
+    sol = tmp_path / "task1.py"
+    sol.write_text(
+        "def reduce(a, b):\n"
+        "    return f'custom-reduce({a},{b})'\n"
+        "\n"
+        "def chain(a, b):\n"
+        "    return f'custom-chain({a},{b})'\n",
+        encoding="utf-8",
+    )
+    case = grader.TestCase(
+        index=1,
+        input_lines=["print(reduce(1, 2))", "print(chain(3, 4))"],
+        expected_lines=["custom-reduce(1,2)", "custom-chain(3,4)"],
+        test_type="function",
+    )
+
+    result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+    assert result["verdict"] == "AC", result["error"] or result["diff"]
+    assert result["output"] == ["custom-reduce(1,2)", "custom-chain(3,4)"]
+
+
+def test_build_call_wrapper_stdlib_names_available_without_solution_definitions(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Test-blocks may use stdlib names the solution never defines itself."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+    case = grader.TestCase(
+        index=1,
+        input_lines=["print(list(product([1, 2], [3, 4])))"],
+        expected_lines=["[(1, 3), (1, 4), (2, 3), (2, 4)]"],
+        test_type="function",
+    )
+
+    result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+    assert result["verdict"] == "AC", result["error"] or result["diff"]

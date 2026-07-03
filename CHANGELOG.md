@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+Sprint A (Security) from the v1.1.0 audit epic #60: issues #43, #44.
+
+### Changed
+- `core/grader_core.py::_build_call_wrapper` — replaced
+  `from collections/datetime/itertools/functools import *` with explicit
+  imports covering each module's full documented public API. Removes the
+  wildcard-import construct the audit flagged while preserving behavior for
+  any test-block relying on stdlib names (issue #44 S-03)
+
 ## [1.1.0] - 2026-07-02
 
 Sprints 6, 7, 8.1, and 8.2 from CLAUDE.md's backlog, plus GitHub issues

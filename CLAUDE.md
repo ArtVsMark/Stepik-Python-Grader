@@ -650,6 +650,25 @@ stepik-grader --mode 4 --dir path/to/folder --number 1000 — режим 4, non-
 
 ---
 
+### 🔴 Sprint A — Безопасность (аудит v1.1.0, эпик #60)
+
+#### A.1 ✅ FIX — #44 (S-03): wildcard-импорты в `_build_call_wrapper`
+
+```
+Файл: core/grader_core.py, _build_call_wrapper()
+Было: from collections/datetime/itertools/functools import *
+Стало: явные импорты, покрывающие полное документированное публичное API
+       каждого модуля (не производный dir() — это исключило бы служебные
+       реэкспорты вроде functools.RLock/GenericAlias, не относящиеся к
+       типичным тест-блокам python-generation).
+Тесты: tests/test_grader_core.py — нет "import *" в сгенерированном
+       исходнике; решение, переопределяющее reduce()/chain(), не
+       перекрывается stdlib-версией (порядок копирования имён решения
+       в globals() уже гарантировал это и до фикса).
+```
+
+---
+
 ## 📐 ФОРМАТЫ ТЕСТ-КЕЙСОВ
 
 ```

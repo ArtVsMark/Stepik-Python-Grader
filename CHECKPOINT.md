@@ -140,5 +140,6 @@ stepik-grader --version
 - [x] #37 — переименовать `diagnostik_stepik.py` → `diagnostic_stepik.py` (2026-07-03)
 - [x] #36 — `__version__` через `importlib.metadata.version()` (DRY, 2026-07-03)
 - [x] #35 — Sprint 8.2: `src/`-layout (`src/stepik_grader/`, console-script `stepik-grader`, 2026-07-03)
+- [x] #44 — Sprint A: заменить wildcard-импорты в `_build_call_wrapper` на явные (2026-07-03)
 - [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)
 - [ ] Расширить покрытие тестами (особенно `downloader.py`)

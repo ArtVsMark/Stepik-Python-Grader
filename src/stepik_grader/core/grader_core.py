@@ -608,13 +608,72 @@ def _build_call_wrapper(solution_path: str, call_block: str) -> str:
     return f"""import sys
 import importlib.util
 
-# Стандартные wildcard-импорты, которые могут встречаться в тест-блоке
-# (ChainMap, OrderedDict, defaultdict, Counter, date, datetime, и т.п.).
-# Делаются ПЕРЕД импортом из решения, чтобы имена решения имели приоритет.
-from collections import *  # noqa: F401,F403
-from datetime import *  # noqa: F401,F403
-from itertools import *  # noqa: F401,F403
-from functools import *  # noqa: F401,F403
+# Явные импорты стандартных имён, которые могут встречаться в тест-блоке
+# (issue #44 — заменяет прежние wildcard-импорты вида `from module import`
+# + звёздочка). Список повторяет
+# документированное публичное API каждого модуля (docs.python.org), а не
+# производный dir() — это исключает служебные реэкспорты вроде
+# functools.RLock/GenericAlias, не относящиеся к типичным тест-блокам.
+# Делаются ПЕРЕД импортом из решения, чтобы имена решения имели приоритет
+# (см. цикл dir(_mod) ниже — он перекрывает одноимённые stdlib-импорты).
+from collections import (  # noqa: F401
+    ChainMap,
+    Counter,
+    OrderedDict,
+    UserDict,
+    UserList,
+    UserString,
+    defaultdict,
+    deque,
+    namedtuple,
+)
+from datetime import (  # noqa: F401
+    MAXYEAR,
+    MINYEAR,
+    UTC,
+    date,
+    datetime,
+    time,
+    timedelta,
+    timezone,
+    tzinfo,
+)
+from itertools import (  # noqa: F401
+    accumulate,
+    batched,
+    chain,
+    combinations,
+    combinations_with_replacement,
+    compress,
+    count,
+    cycle,
+    dropwhile,
+    filterfalse,
+    groupby,
+    islice,
+    pairwise,
+    permutations,
+    product,
+    repeat,
+    starmap,
+    takewhile,
+    tee,
+    zip_longest,
+)
+from functools import (  # noqa: F401
+    cache,
+    cached_property,
+    cmp_to_key,
+    lru_cache,
+    partial,
+    partialmethod,
+    reduce,
+    singledispatch,
+    singledispatchmethod,
+    total_ordering,
+    update_wrapper,
+    wraps,
+)
 from decimal import Decimal  # noqa: F401
 from fractions import Fraction  # noqa: F401
 
