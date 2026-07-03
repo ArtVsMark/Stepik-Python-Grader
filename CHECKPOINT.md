@@ -172,8 +172,12 @@ stepik-grader --version
   (2026-07-03)
 - [x] #58 (частично) — Roadmap: экспорт в Markdown (`--output markdown`);
   Web UI / VS Code / PyPI — не взяты (2026-07-03)
-- [ ] #45 A-01 — Sprint B (отложено): разбить `grader_core.py` (700+ строк) на
-  `test_loader.py`/`mode_detector.py`/`wrapper_builder.py`
+- [x] #45 A-01 — разбит `grader_core.py` (1200+ строк) на `test_loader.py`,
+  `mode_detector.py`, `wrapper_builder.py`; все 16 перенесённых имён
+  реэкспортированы из `grader_core.py` по имени — `__all__`/`grader.py`/
+  `cli.py` не изменились; правок тестов не потребовалось (агент
+  предварительно проверил, что monkeypatch/patch не целятся в эти имена)
+  (2026-07-03)
 - [ ] #55 — Roadmap: сравнение с `solution.py` Stepik как baseline
 - [ ] #56 — Roadmap: `.grader_cache/` — кэширование результатов
 - [ ] #57 — Roadmap: pytest-плагин (`pytest --grader-mode`) — по сути

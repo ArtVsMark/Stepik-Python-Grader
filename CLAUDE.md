@@ -58,7 +58,14 @@ Stepik-Python-Grader/
 │       │
 │       └── core/                 # Internal Infrastructure/Utility модули (Issue #23, #26)
 │           ├── __init__.py
-│           ├── grader_core.py    # Application: загрузка тест-кейсов, исполнение решений
+│           ├── grader_core.py    # Application: run_single_test/run_tests/run_benchmark/
+│           │                     # run_microbench_mode — исполнение и агрегация (Issue #45 A-01 ✅)
+│           ├── test_loader.py    # Application: обнаружение файлов-решений, загрузка
+│           │                     # тест-кейсов, resolve_test_dir (Issue #45 A-01 ✅)
+│           ├── mode_detector.py  # Application: детекция stdin/function
+│           │                     # (_detect_run_mode, is_function_only_solution) (Issue #45 A-01 ✅)
+│           ├── wrapper_builder.py # Application: генерация wrapper-скриптов
+│           │                     # (_build_function_wrapper, _build_call_wrapper) (Issue #45 A-01 ✅)
 │           ├── reporter.py       # Application/UI: rich-таблицы, _console, verbose-diff
 │           ├── executor.py       # Infrastructure: compile+exec в subprocess
 │           ├── microbench_runner.py  # Infrastructure: timeit через subprocess
@@ -100,8 +107,16 @@ core/grader_core.py ──→ config.py          # CONFIG (TIMEOUT_SECONDS и т
 core/grader_core.py ──→ core/executor.py
 core/grader_core.py ──→ core/microbench_runner.py
 core/grader_core.py ──→ core/normalizers.py
-core/grader_core.py ──→ core/parsers.py
-core/grader_core.py ──→ core/storage.py
+core/grader_core.py ──→ core/mode_detector.py    # Issue #45 A-01
+core/grader_core.py ──→ core/test_loader.py       # Issue #45 A-01
+core/grader_core.py ──→ core/wrapper_builder.py   # Issue #45 A-01
+
+core/test_loader.py ──→ config.py
+core/test_loader.py ──→ core/mode_detector.py     # _is_python_code_block, _detect_run_mode
+core/test_loader.py ──→ core/parsers.py
+
+core/mode_detector.py ──→ config.py
+core/mode_detector.py ──→ core/storage.py
 
 cli.py ──→ core/grader_core.py
 cli.py ──→ core/reporter.py
@@ -174,6 +189,23 @@ core/stepik_client.py ──→ core/storage.py
 > добавлены в `__all__` своих модулей — `cli.py` больше не импортирует
 > приватные (`_`-префиксные) имена из других модулей. `grader.py`
 > backward-compat `__all__` не изменился.
+
+> Issue #45 A-01 (2026-07): `grader_core.py` (1200+ строк) разбит на
+> `test_loader.py` (обнаружение файлов-решений, `load_test_cases`,
+> `resolve_test_dir`), `mode_detector.py` (`_detect_run_mode`,
+> `is_function_only_solution`, `_is_python_code_block`) и
+> `wrapper_builder.py` (`_build_function_wrapper`, `_build_call_wrapper`).
+> `grader_core.py` сохранил `run_single_test`/`run_tests`/`run_benchmark`/
+> `run_microbench_mode` и реэкспортирует все 16 перенесённых имён по имени
+> (не через `import *`) — `__all__` grader_core.py, явный импорт-список
+> `grader.py` и импорты `cli.py` не изменились. Единственное направление
+> зависимости между новыми модулями: `test_loader.py → mode_detector.py`
+> (`load_test_cases` классифицирует Format-3 блоки через
+> `_is_python_code_block`; `_apply_run_mode_override` вызывает
+> `_detect_run_mode`) — циклов нет. Перед разбиением отдельный агент
+> проаудировал весь тестовый набор на предмет `monkeypatch`/`mock.patch`,
+> нацеленных на перемещаемые имена через `grader_core`/`cli` — таких не
+> нашлось, так что правки тестов не потребовались.
 
 ---
 
@@ -749,19 +781,18 @@ Issue предлагал: (A) интегрировать как unified runner �
 > production-задействованным модулем — это уже было явно задокументировано в
 > его собственном докстринге до этого issue, статус-кво принят осознанно.
 
-#### B.3 ⏸️ ОТЛОЖЕНО — #45 A-01: разбить `grader_core.py` (700+ строк, SRP)
+#### B.3 ⏸️→✅ #45 A-01: разбить `grader_core.py` (700+ строк, SRP)
 
 ```
 Issue предлагал: core/test_loader.py, core/mode_detector.py,
                  core/wrapper_builder.py — извлечь из grader_core.py.
 ```
 
-> Не сделано в этом проходе Sprint B: физическое разбиение затрагивает
-> практически весь файл (700+ строк) и потребует обновления множества
-> `patch("core.grader_core.X")`/прямых импортов в тестовом наборе (аналогично
-> Sprint 7's разбиению самого `grader.py`) — риск для качества при выполнении
-> в рамках одной сессии наравне с остальными пунктами Sprint B. Остаётся в
-> бэклоге как отдельная задача (см. CHECKPOINT.md).
+> Отложено в Sprint B (риск для качества при выполнении наравне с остальными
+> пунктами того же прохода) — сделано отдельным заходом после Sprint E и
+> roadmap-партии #53/#54/#58. См. примечание Issue #45 A-01 в разделе «Граф
+> зависимостей» выше — там детали разбиения и почему обошлось без правок
+> тестов.
 
 ---
 

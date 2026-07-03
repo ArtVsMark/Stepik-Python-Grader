@@ -2,10 +2,26 @@
 
 ## [Unreleased]
 
-Sprints A (Security), B (Architecture, partial), C (Reliability), D (CI/CD &
-Quality), and E (UX/Docs/Deps) from the v1.1.0 audit epic #60: issues #43,
-#44, #45, #46, #47, #48, #49, #50, #51, #52. Plus three roadmap items from
-the same audit epic: #53, #54, #58 (partial).
+Sprints A (Security), B (Architecture), C (Reliability), D (CI/CD & Quality),
+and E (UX/Docs/Deps) from the v1.1.0 audit epic #60: issues #43, #44, #45,
+#46, #47, #48, #49, #50, #51, #52. Plus three roadmap items from the same
+audit epic: #53, #54, #58 (partial).
+
+### Changed
+- Split `core/grader_core.py` (1200+ lines) into `core/test_loader.py`
+  (solution-file discovery, `load_test_cases`, `resolve_test_dir`),
+  `core/mode_detector.py` (`_detect_run_mode`, `is_function_only_solution`,
+  `_is_python_code_block`), and `core/wrapper_builder.py`
+  (`_build_function_wrapper`, `_build_call_wrapper`). `grader_core.py` keeps
+  `run_single_test`/`run_tests`/`run_benchmark`/`run_microbench_mode` and
+  re-imports all 16 moved names by name (not `import *`) so `grader_core`'s
+  own `__all__`, `grader.py`'s explicit facade import list, and `cli.py`'s
+  imports all keep working unchanged. Only new internal dependency:
+  `test_loader.py -> mode_detector.py` (for Format-3 block classification and
+  run-mode detection) -- no cycles. An Explore agent audited the whole test
+  suite for `monkeypatch`/`mock.patch` targeting any of the 16 moved names
+  through `grader_core`/`cli` paths before starting; it found none, so no
+  test files needed changes for the move itself (issue #45 A-01)
 
 ### Added
 - `--output csv`/`--output markdown` for all four modes -- same underlying
@@ -145,8 +161,9 @@ the same audit epic: #53, #54, #58 (partial).
   package. Status quo (tested, not production-wired) is an intentional,
   already-documented tradeoff, not an oversight
 - Issue #45 A-01 (splitting `grader_core.py` into `test_loader.py`/
-  `mode_detector.py`/`wrapper_builder.py`) is NOT done in this pass — deferred
-  as its own follow-up; see CLAUDE.md Sprint B.3 and CHECKPOINT.md backlog
+  `mode_detector.py`/`wrapper_builder.py`) was deferred out of Sprint B as its
+  own follow-up; done in a later pass after Sprint E and the #53/#54/#58
+  roadmap batch -- see the "Changed" entry above and CLAUDE.md's DAG section
 - Issue #50 D-02 ("`CONTRIBUTING.md` отсутствует") was already stale at the
   time of the audit — the file exists and is fairly thorough. Fixed the two
   things that WERE actually stale in it (claimed "Python 3.10+", contradicting

@@ -52,7 +52,10 @@
 | `config.py` | Application / Configuration | `GraderConfig` (frozen dataclass) + `CONFIG` singleton; переопределяется через `[tool.stepik-grader]` в `pyproject.toml` |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
 | `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
-| `core/grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
+| `core/grader_core.py` | Application | Исполнение тест-кейса в subprocess и агрегация статистики: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
+| `core/test_loader.py` | Application | Обнаружение файлов-решений, загрузка тест-кейсов (`load_test_cases`), `resolve_test_dir` (Issue #45 A-01) |
+| `core/mode_detector.py` | Application | Детекция режима запуска stdin/function (`_detect_run_mode`, `is_function_only_solution`) (Issue #45 A-01) |
+| `core/wrapper_builder.py` | Application | Генерация wrapper-скриптов для function-mode запуска (Issue #45 A-01) |
 | `core/reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA, адаптивное форматирование времени (`fmt_time`) |
 | `core/executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
@@ -88,11 +91,10 @@ downloader.py          ──→  core/stepik_client.py
 downloader.py          ──→  core/parsers.py
 core/stepik_client.py ──→  core/storage.py
 grader.py              ──→  core/grader_core.py, core/reporter.py, cli.py  (тонкий фасад)
-core/grader_core.py    ──→  core/reporter.py     ← _print_case_verbose (run_tests verbose)
-core/grader_core.py    ──→  core/executor.py
-core/grader_core.py    ──→  core/microbench_runner.py
-core/grader_core.py    ──→  core/normalizers.py
-core/grader_core.py    ──→  core/parsers.py
+core/grader_core.py    ──→  core/executor.py, core/microbench_runner.py, core/normalizers.py
+core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, core/wrapper_builder.py
+core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py
+core/mode_detector.py  ──→  core/storage.py
 cli.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
 diagnostic_stepik.py ──→  core/stepik_client.py
 diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
@@ -113,8 +115,9 @@ downloader.py больше не импортирует grader.py: дублиру
 │  Domain / Application  (src/stepik_grader/ — точки входа)      │
 │  downloader.py  │  grader.py (facade)  │  diagnostic_stepik   │
 ├───────────────────────────────────────────────────────────────┤
-│  Application  (core/, грейдер разбит по SRP — Sprint 7)       │
+│  Application  (core/, грейдер разбит по SRP — Sprint 7, A-01) │
 │  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
+│  core/test_loader.py │ core/mode_detector.py │ wrapper_builder │
 │  cli.py (меню, публичная точка входа — stepik-grader)          │
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure  (core/)                                       │
@@ -144,7 +147,10 @@ Stepik-Python-Grader/
 │       ├── diagnostic_stepik.py  # Диагностика API и токена
 │       └── core/                  # Internal Infrastructure/Utility модули (Issue #23, #26)
 │           ├── __init__.py
-│           ├── grader_core.py    # Загрузка тест-кейсов, исполнение решений
+│           ├── grader_core.py    # Исполнение тест-кейса в subprocess, агрегация статистики
+│           ├── test_loader.py    # Обнаружение файлов-решений, загрузка тест-кейсов (Issue #45 A-01)
+│           ├── mode_detector.py  # Детекция режима stdin/function (Issue #45 A-01)
+│           ├── wrapper_builder.py # Генерация wrapper-скриптов для function-mode (Issue #45 A-01)
 │           ├── reporter.py       # rich-таблицы, вывод, verbose-diff
 │           ├── executor.py       # Запускатель решений: compile + exec с таймаутом
 │           ├── microbench_runner.py  # Timeit-микробенчмарк через subprocess + os.devnull

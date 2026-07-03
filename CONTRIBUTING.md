@@ -19,7 +19,12 @@ Stepik-Python-Grader/
 │       ├── downloader.py        # Загрузка задач/тестов со Stepik API
 │       ├── diagnostic_stepik.py # Диагностика и отладка API
 │       └── core/                # Все внутренние модули проекта
-│           ├── grader_core.py       # Загрузка тест-кейсов, исполнение решений
+│           ├── grader_core.py       # Исполнение (run_single_test/run_tests/
+│           │                       # run_benchmark/run_microbench_mode)
+│           ├── test_loader.py       # Обнаружение файлов-решений, загрузка тест-кейсов,
+│           │                       # resolve_test_dir (Issue #45 A-01)
+│           ├── mode_detector.py     # Детекция stdin/function (Issue #45 A-01)
+│           ├── wrapper_builder.py   # Генерация wrapper-скриптов (Issue #45 A-01)
 │           ├── reporter.py          # rich-таблицы, вывод, verbose-diff
 │           ├── executor.py          # Запуск кода из строки (run_solution)
 │           ├── microbench_runner.py # timeit-бенчмарк (run_microbench)
@@ -37,7 +42,10 @@ Stepik-Python-Grader/
 | Модуль | Слой | Зона ответственности |
 |---|---|---|
 | `grader.py` | Application | Фасад — реэкспортирует grader_core/reporter/cli |
-| `core/grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений |
+| `core/grader_core.py` | Application | Исполнение тест-кейса в subprocess, агрегация статистики |
+| `core/test_loader.py` | Application | Обнаружение файлов-решений, загрузка тест-кейсов, resolve_test_dir |
+| `core/mode_detector.py` | Application | Детекция режима запуска (stdin vs function) |
+| `core/wrapper_builder.py` | Application | Генерация wrapper-скриптов для function-mode |
 | `core/reporter.py` | Application / UI | rich-таблицы, вердикты, verbose-diff |
 | `cli.py` | Application / CLI | Интерактивное меню, профили нагрузки |
 | `core/executor.py` | Infrastructure | Subprocess-запуск кода из строки |

@@ -1,0 +1,201 @@
+"""mode_detector.py — определение режима запуска решения (stdin vs function).
+
+Архитектурный слой: Application / Business logic.
+Отвечает за:
+  - AST-эвристики: is_function_only_solution, _is_python_code_block,
+    _is_safe_constant;
+  - чтение имени функции из meta.json / AST-фоллбэк;
+  - единую точку детекции режима запуска (_detect_run_mode).
+
+Не содержит логику загрузки тест-кейсов (core/test_loader.py) и не исполняет
+решения (core/grader_core.py). Извлечён из grader_core.py (Issue #45 A-01).
+"""
+
+from __future__ import annotations
+
+import ast
+import json
+import pathlib
+
+from stepik_grader.config import CONFIG
+from stepik_grader.core.storage import load_json_file
+
+__all__ = [
+    "is_function_only_solution",
+]
+
+ENCODING: str = CONFIG.encoding
+
+
+def _is_safe_constant(node: ast.expr) -> bool:
+    """Вернуть True, если узел — безопасное константное выражение без вызовов.
+
+    Рекурсивно проверяет AST-узел: принимает литералы (Constant), арифметику
+    из констант (BinOp, UnaryOp) и вложенные контейнеры (List/Tuple/Set/Dict).
+    Отклоняет любые вызовы (Call), обращения к атрибутам (Attribute) и Name.
+    """
+    if isinstance(node, ast.Constant):
+        return True
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd | ast.Invert):
+        return _is_safe_constant(node.operand)
+    if isinstance(node, ast.BinOp):
+        return _is_safe_constant(node.left) and _is_safe_constant(node.right)
+    if isinstance(node, ast.List | ast.Tuple | ast.Set):
+        return all(_is_safe_constant(e) for e in node.elts)
+    if isinstance(node, ast.Dict):
+        return all(_is_safe_constant(k) for k in node.keys if k is not None) and all(
+            _is_safe_constant(v) for v in node.values
+        )
+    return False
+
+
+def is_function_only_solution(file_content: str) -> bool:
+    """Вернуть True, если файл содержит только определения функций (без точки входа).
+
+    Критерии function-only файла:
+      - Нет исполняемых выражений на верхнем уровне (print/input/любой Call)
+      - Нет управляющих конструкций (for/while/if/with/try) на верхнем уровне
+      - Есть хотя бы одна функция (def или async def)
+      - Присваивания РАЗРЕШЕНЫ независимо от значения (date(...), list(), и т.п.)
+        т.к. это типичный паттерн Stepik-шаблонов
+
+    При SyntaxError возвращает False — файл будет запущен как скрипт.
+    """
+    try:
+        tree = ast.parse(file_content)
+    except SyntaxError:
+        return False
+
+    allowed_nodes = (
+        ast.FunctionDef,
+        ast.AsyncFunctionDef,
+        ast.Import,
+        ast.ImportFrom,
+        ast.Assign,
+        ast.AnnAssign,
+        ast.Expr,
+        ast.Pass,
+    )
+
+    for node in tree.body:
+        if not isinstance(node, allowed_nodes):
+            # for/while/if/with/try и т.п. → это скрипт
+            return False
+
+        if isinstance(node, ast.Expr):
+            # Разрешаем только строковые литералы (docstring модуля)
+            # Любой вызов (print/input/my_func()) → это скрипт
+            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                continue
+            return False
+
+        # Присваивания разрешены всегда: date1 = date(...), MOD = 10**9+7, data = []
+        # Это типичный паттерн Stepik-шаблонов — значение не проверяем
+
+    return any(isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) for node in tree.body)
+
+
+def _is_python_code_block(block: str) -> bool:
+    """Вернуть True, если block похож на Python-код (а не на stdin-данные).
+
+    Эвристика: блок парсится как валидный Python AST и содержит хотя бы один
+    узел ``ast.Name`` (ссылку на переменную/функцию). Обычные stdin-данные
+    (числа, даты-строки) либо не парсятся, либо не содержат Name-узлов.
+    Python-код всегда ссылается на переменные/функции.
+
+    Исключение (issue #47 R-02): единственное top-level выражение, которое
+    целиком состоит из голого имени (``x``, ``print``) — это не вызов и не
+    присваивание, а вырожденный случай, который на практике встречается
+    только как stdin-данные, совпадающие по виду с identifier'ом. Такой блок
+    классифицируется как False, не затрагивая остальную эвристику.
+
+    Примеры:
+        ``10\\n20\\n30``                  → False (голые константы, нет Name)
+        ``04.11.2021``                   → False (SyntaxError)
+        ``x``                            → False (голое имя, не вызов/присваивание)
+        ``print(func(x))``               → True  (вызов функции)
+        ``r = wins([...])\\nfor ...``     → True  (присваивание + for)
+        ``chainmap = ChainMap({})``      → True  (присваивание)
+        ``""``                           → False (пустой блок)
+    """
+    if not block.strip():
+        return False
+    try:
+        tree = ast.parse(block)
+    except SyntaxError:
+        return False
+    if (
+        len(tree.body) == 1
+        and isinstance(tree.body[0], ast.Expr)
+        and isinstance(tree.body[0].value, ast.Name)
+    ):
+        return False
+    return any(isinstance(node, ast.Name) for node in ast.walk(tree))
+
+
+def _read_meta_function_name(solution_path: str) -> str | None:
+    """Прочитать function_name из meta.json рядом с файлом решения.
+
+    Ищет meta.json в той же директории, что и solution_path.
+    Возвращает None если файл не найден или поле отсутствует.
+    """
+    meta_path = pathlib.Path(solution_path).parent / "meta.json"
+    if not meta_path.exists():
+        return None
+    try:
+        meta = load_json_file(meta_path)
+        name = meta.get("function_name")
+        return str(name) if name else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _ast_function_name(solution_path: str) -> str | None:
+    """Парсит файл решения через ast и возвращает имя первой функции (эвристика).
+
+    Используется как fallback когда meta.json недоступен или function_name = None.
+    """
+    try:
+        source = pathlib.Path(solution_path).read_text(encoding=ENCODING)
+        tree = ast.parse(source)
+    except (SyntaxError, OSError):
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            return node.name
+    return None
+
+
+def _detect_run_mode(solution_path: str, test_dir: str) -> str:
+    """Единая точка детекции режима запуска: "stdin" или "function".
+
+    Стратегия определения (первый сработавший выигрывает):
+      1. meta.json рядом с файлом: если function_name != None → "function"
+      2. .type-файлы в test_dir: если хоть один содержит "function" → "function"
+      3. AST-анализ файла решения через is_function_only_solution → "function"
+      4. Иначе → "stdin"
+
+    Вызывается один раз в run_tests(), результат передаётся в run_single_test().
+    Это устраняет рассинхронизацию трёх источников истины.
+    """
+    # 1. meta.json
+    if _read_meta_function_name(solution_path) is not None:
+        return "function"
+
+    # 2. .type-файлы
+    test_dir_path = pathlib.Path(test_dir)
+    if test_dir_path.is_dir():
+        for type_file in test_dir_path.glob("*.type"):
+            raw = type_file.read_text(encoding=ENCODING).strip()
+            if raw == "function":
+                return "function"
+
+    # 3. AST-анализ файла решения
+    try:
+        file_content = pathlib.Path(solution_path).read_text(encoding=ENCODING)
+        if is_function_only_solution(file_content):
+            return "function"
+    except OSError:
+        pass
+
+    return "stdin"
