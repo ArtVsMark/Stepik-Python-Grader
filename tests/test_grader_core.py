@@ -1,6 +1,6 @@
 """Tests for grader core helpers identified as coverage gaps in the audit:
 _is_python_code_block, load_test_cases format-detection priority, and
-_resolve_test_dir search order.
+resolve_test_dir search order.
 
 These pin down behavior that the upcoming refactoring touches indirectly, so
 regressions surface immediately.
@@ -159,7 +159,7 @@ def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
 
 
 # ---------------------------------------------------------------------------
-# _resolve_test_dir — search order
+# resolve_test_dir — search order
 # ---------------------------------------------------------------------------
 
 
@@ -170,7 +170,7 @@ def test_resolve_test_dir_finds_tests_subfolder(tmp_path: pathlib.Path):
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
 
-    assert grader._resolve_test_dir(str(sol)) == str(tests_dir)
+    assert grader.resolve_test_dir(str(sol)) == str(tests_dir)
 
 
 def test_resolve_test_dir_finds_stem_folder(tmp_path: pathlib.Path):
@@ -180,7 +180,7 @@ def test_resolve_test_dir_finds_stem_folder(tmp_path: pathlib.Path):
     stem_dir = tmp_path / "task1"
     stem_dir.mkdir()
 
-    assert grader._resolve_test_dir(str(sol)) == str(stem_dir)
+    assert grader.resolve_test_dir(str(sol)) == str(stem_dir)
 
 
 def test_resolve_test_dir_finds_adjacent_input_txt(tmp_path: pathlib.Path):
@@ -190,7 +190,7 @@ def test_resolve_test_dir_finds_adjacent_input_txt(tmp_path: pathlib.Path):
     (tmp_path / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
     (tmp_path / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
 
-    assert grader._resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+    assert grader.resolve_test_dir(str(sol)) == str(tmp_path.resolve())
 
 
 def test_resolve_test_dir_finds_clue_in_parent(tmp_path: pathlib.Path):
@@ -200,7 +200,7 @@ def test_resolve_test_dir_finds_clue_in_parent(tmp_path: pathlib.Path):
     (tmp_path / "1").write_text("1\n", encoding="utf-8")
     (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
 
-    assert grader._resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+    assert grader.resolve_test_dir(str(sol)) == str(tmp_path.resolve())
 
 
 # ---------------------------------------------------------------------------

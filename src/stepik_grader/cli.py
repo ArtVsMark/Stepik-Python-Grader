@@ -27,18 +27,19 @@ from typing import Any
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
     SIMILAR_THRESHOLD,
-    _resolve_test_dir,
     collect_grouped_files,
     find_all_solution_files,
+    resolve_test_dir,
     run_benchmark,
     run_microbench_mode,
     run_tests,
 )
 from stepik_grader.core.microbench_runner import apply_relative_ranking
 from stepik_grader.core.reporter import (
-    _rich_track,
     print_benchmark_results,
+    print_case_verbose,
     print_correctness_results,
+    rich_track,
 )
 
 __all__ = ["main"]
@@ -154,7 +155,7 @@ def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) 
             return str(p)
         # fallback: return as-is, load_test_cases will handle it
         return str(p)
-    return _resolve_test_dir(solution_or_dir)
+    return resolve_test_dir(solution_or_dir)
 
 
 def _run_mode_1(solution: str) -> None:
@@ -163,12 +164,12 @@ def _run_mode_1(solution: str) -> None:
         print(f"File not found: {solution}")
         return
 
-    test_dir = _resolve_test_dir(solution)
+    test_dir = resolve_test_dir(solution)
     if not pathlib.Path(test_dir).is_dir():
         print(f"Test directory not found: {test_dir}")
         return
 
-    result = run_tests(solution, test_dir, verbose=True)
+    result = run_tests(solution, test_dir, verbose=True, verbose_callback=print_case_verbose)
 
     col_file = 28
     print()
@@ -190,8 +191,8 @@ def _run_mode_2(directory: str) -> None:
     col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
 
     rows: list[tuple[str, dict[str, Any]]] = []
-    for path in _rich_track(scripts, description="Проверка решений..."):
-        individual_test_dir = _resolve_test_dir(path)
+    for path in rich_track(scripts, description="Проверка решений..."):
+        individual_test_dir = resolve_test_dir(path)
         if not pathlib.Path(individual_test_dir).is_dir():
             individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
         result = run_tests(path, individual_test_dir, verbose=False)
@@ -211,8 +212,8 @@ def _run_mode_3(directory: str, repeats: int) -> None:
         return
 
     results: dict[str, dict[str, Any]] = {}
-    for path in _rich_track(scripts, description="Бенчмарк решений..."):
-        individual_test_dir = _resolve_test_dir(path)
+    for path in rich_track(scripts, description="Бенчмарк решений..."):
+        individual_test_dir = resolve_test_dir(path)
         if not pathlib.Path(individual_test_dir).is_dir():
             individual_test_dir = _resolve_test_dir_from_input(directory, is_dir=True)
         results[path] = run_benchmark(path, individual_test_dir, repeats=repeats)

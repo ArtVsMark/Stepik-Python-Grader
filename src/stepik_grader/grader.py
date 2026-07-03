@@ -17,6 +17,12 @@ from __future__ import annotations
 
 from stepik_grader.core.grader_core import *  # noqa: F401, F403
 from stepik_grader.core.grader_core import (
+    ENCODING,
+    MEASURE_CHILD_MEMORY,
+    MICROBENCH_MAX_CASES,
+    MUCH_SLOWER_THRESHOLD,
+    SIMILAR_THRESHOLD,
+    TIMEOUT_SECONDS,
     _ast_function_name,
     _apply_run_mode_override,
     _build_call_wrapper,
@@ -30,7 +36,6 @@ from stepik_grader.core.grader_core import (
     _normalize_output_line,
     _parse_testblock_file,
     _read_meta_function_name,
-    _resolve_test_dir,
     _SOLUTION_FILE_RE,
     _verdict,
     apply_relative_ranking,
@@ -44,9 +49,7 @@ from stepik_grader.core.reporter import (
     _console,
     _correctness_status,
     _cprint,
-    _print_case_verbose,
     _RICH,
-    _rich_track,
     _SEP,
     _STATUS_COLORS,
     _VERDICT_COLORS,

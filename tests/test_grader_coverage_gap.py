@@ -7,7 +7,7 @@
   - run_single_test OSError    (901-917)
   - run_single_test TLE        (timeout ветка)
   - run_tests verbose          (797-803)
-  - _print_case_verbose diff   (585, 598)
+  - print_case_verbose diff   (585, 598)
   - _cprint plain              (673-675)
   - format_correctness_row / print_correctness_header / print_benchmark_header (206-207, 304, 374)
 """
@@ -21,11 +21,11 @@ from stepik_grader.grader import (
     TestCase,
     _cprint,
     _interactive_menu,
-    _print_case_verbose,
     format_benchmark_row,
     format_correctness_row,
     print_benchmark_header,
     print_benchmark_results,
+    print_case_verbose,
     print_correctness_header,
     print_correctness_results,
     run_single_test,
@@ -167,7 +167,7 @@ class TestCprint:
 
 
 # ---------------------------------------------------------------------------
-# _print_case_verbose — diff и error ветки (строки 585, 598)
+# print_case_verbose — diff и error ветки (строки 585, 598)
 # ---------------------------------------------------------------------------
 
 
@@ -185,7 +185,7 @@ class TestPrintCaseVerbose:
             "output": ["9"],
             "diff": "-10\n+9",
         }
-        _print_case_verbose(case, r)
+        print_case_verbose(case, r)
         out = capsys.readouterr().out
         assert "WA" in out or "\u2717" in out
 
@@ -199,7 +199,7 @@ class TestPrintCaseVerbose:
             "output": [],
             "diff": "",
         }
-        _print_case_verbose(case, r)
+        print_case_verbose(case, r)
         out = capsys.readouterr().out
         assert "NameError" in out
 
@@ -213,7 +213,7 @@ class TestPrintCaseVerbose:
             "output": ["10"],
             "diff": "",
         }
-        _print_case_verbose(case, r)
+        print_case_verbose(case, r)
         out = capsys.readouterr().out
         assert "\u2713" in out or "AC" in out
 
@@ -232,7 +232,9 @@ class TestRunTestsVerbose:
         (tests_dir / "input_1.txt").write_text("4", encoding="utf-8")
         (tests_dir / "expected_1.txt").write_text("5", encoding="utf-8")
 
-        result = run_tests(str(sol), str(tests_dir), verbose=True)
+        result = run_tests(
+            str(sol), str(tests_dir), verbose=True, verbose_callback=print_case_verbose
+        )
         out = capsys.readouterr().out
         assert result["passed"] == 1
         assert "1" in out

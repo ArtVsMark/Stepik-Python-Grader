@@ -93,7 +93,6 @@ grader.py ──→ core/grader_core.py
 grader.py ──→ core/reporter.py
 grader.py ──→ cli.py
 
-core/grader_core.py ──→ core/reporter.py   # _print_case_verbose (run_tests verbose)
 core/grader_core.py ──→ config.py          # CONFIG (TIMEOUT_SECONDS и т.д.)
 core/grader_core.py ──→ core/executor.py
 core/grader_core.py ──→ core/microbench_runner.py
@@ -160,6 +159,18 @@ core/stepik_client.py ──→ core/storage.py
 > репозитория удалён — только `python -m stepik_grader.X` или консольная
 > команда `stepik-grader`. Все 523 теста прошли без сюрпризов после
 > экзаустивного grep-аудита импортов перед миграцией.
+
+> Issue #45 A-02 (2026-07, Sprint B): устранён обратный импорт
+> `core/grader_core.py → core/reporter.py` (эта строка DAG выше). `run_tests()`
+> получил параметр `verbose_callback: Callable[[TestCase, dict], None] | None`;
+> печать verbose-кейса теперь ответственность вызывающей стороны — `cli.py`
+> передаёт `reporter.print_case_verbose` явно. `grader_core.py` больше не знает
+> о существовании `reporter.py`. A-04 (те же issue #45): `_resolve_test_dir` →
+> `resolve_test_dir` (grader_core.py), `_rich_track` → `rich_track`,
+> `_print_case_verbose` → `print_case_verbose` (оба — reporter.py); все три
+> добавлены в `__all__` своих модулей — `cli.py` больше не импортирует
+> приватные (`_`-префиксные) имена из других модулей. `grader.py`
+> backward-compat `__all__` не изменился.
 
 ---
 
@@ -697,6 +708,55 @@ stepik-grader --mode 4 --dir path/to/folder --number 1000 — режим 4, non-
 > риск (код всё равно `exec`-нётся) и добавляет риск обрезания на лимите
 > размера env var в Windows (~32KB) для многострочных тест-блоков — решено
 > не делать.
+
+---
+
+### 🟠 Sprint B — Архитектура (аудит v1.1.0, эпик #60) 🟡 ЧАСТИЧНО (2026-07-03)
+
+#### B.1 ✅ FIX — #45 A-02, A-04: layering и приватные кросс-модульные импорты
+
+```
+A-02: run_tests() → verbose_callback вместо прямого импорта reporter.
+A-04: _resolve_test_dir → resolve_test_dir, _rich_track → rich_track,
+      _print_case_verbose → print_case_verbose; все добавлены в __all__.
+```
+
+> См. примечание Issue #45 A-02/A-04 в разделе «Граф зависимостей» выше —
+> там же удалено ребро `core/grader_core.py → core/reporter.py` из DAG.
+
+#### B.2 ✅ РЕШЕНО (не код) — #46 A-03: судьба `executor.py`
+
+```
+Issue предлагал: (A) интегрировать как unified runner в grader_core.py,
+                  (B) перенести в tests/helpers/ как test-only утилиту.
+Решение: НИ ТО, НИ ДРУГОЕ — оставить как есть.
+```
+
+> (A) невозможен без регресса: `run_solution()` не измеряет память (psutil),
+> не поддерживает function-mode wrapper-файлы, и его `SIGALRM`-таймаут не
+> работает на Windows (основная среда разработки этого проекта) — тогда как
+> `run_single_test()` уже даёт всё это через `subprocess.communicate(timeout=)`,
+> кросс-платформенно. (B) ломает существующие тесты (`tests/test_executor.py`
+> запускает `executor.main()` в чистом subprocess через `python -c "from
+> stepik_grader.core import executor; ..."` — это требует, чтобы модуль
+> оставался частью УСТАНОВЛЕННОГО пакета `stepik_grader.core`, а не лежал в
+> `tests/helpers/`). `executor.py` остаётся тестируемым, но не
+> production-задействованным модулем — это уже было явно задокументировано в
+> его собственном докстринге до этого issue, статус-кво принят осознанно.
+
+#### B.3 ⏸️ ОТЛОЖЕНО — #45 A-01: разбить `grader_core.py` (700+ строк, SRP)
+
+```
+Issue предлагал: core/test_loader.py, core/mode_detector.py,
+                 core/wrapper_builder.py — извлечь из grader_core.py.
+```
+
+> Не сделано в этом проходе Sprint B: физическое разбиение затрагивает
+> практически весь файл (700+ строк) и потребует обновления множества
+> `patch("core.grader_core.X")`/прямых импортов в тестовом наборе (аналогично
+> Sprint 7's разбиению самого `grader.py`) — риск для качества при выполнении
+> в рамках одной сессии наравне с остальными пунктами Sprint B. Остаётся в
+> бэклоге как отдельная задача (см. CHECKPOINT.md).
 
 ---
 

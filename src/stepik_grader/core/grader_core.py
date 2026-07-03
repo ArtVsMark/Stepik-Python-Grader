@@ -38,7 +38,6 @@ from typing import Any
 import psutil
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.reporter import _print_case_verbose
 
 # resource — POSIX-only (RLIMIT_AS для best-effort memory cap, issue #43 S-01).
 # На Windows модуль отсутствует; лимит памяти там не применяется (как и
@@ -61,13 +60,15 @@ __all__ = [
     "run_tests",
     "run_benchmark",
     "run_microbench_mode",
-    "TIMEOUT_SECONDS",
-    "ENCODING",
-    "SIMILAR_THRESHOLD",
-    "MUCH_SLOWER_THRESHOLD",
-    "MEASURE_CHILD_MEMORY",
-    "MICROBENCH_MAX_CASES",
+    "resolve_test_dir",
 ]
+# TIMEOUT_SECONDS/ENCODING/SIMILAR_THRESHOLD/MUCH_SLOWER_THRESHOLD/
+# MEASURE_CHILD_MEMORY/MICROBENCH_MAX_CASES — намеренно НЕ в __all__ (issue #52
+# Q-03). Это просто module-level алиасы значений CONFIG (см. ниже), а не
+# самостоятельный публичный API; их присутствие в __all__ создавало неявную
+# зависимость на конкретные имена констант вместо GraderConfig. grader.py
+# по-прежнему реэкспортирует их явно по имени (backward-compat __all__ этого
+# фасада не менялся) — новый код должен читать stepik_grader.config.CONFIG.
 
 # executor.py — вспомогательный модуль для запуска кода из строки (не из файла).
 # run_solution() используется в тестах (tests/test_executor.py); grader сам его не вызывает.
@@ -391,7 +392,7 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
     return sorted(cases, key=lambda c: c.index)
 
 
-def _resolve_test_dir(solution_path: str) -> str:
+def resolve_test_dir(solution_path: str) -> str:
     """Вернуть путь к директории тест-кейсов для заданного файла решения.
 
     Стратегия поиска (первый найденный выигрывает):
@@ -931,9 +932,17 @@ def run_tests(
     test_dir: str,
     *,
     verbose: bool = False,
+    verbose_callback: Callable[[TestCase, dict[str, Any]], None] | None = None,
     timeout: float = TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Запустить все тест-кейсы для решения и собрать статистику.
+
+    verbose_callback: вызывается для каждого кейса при verbose=True (получает
+        TestCase и результирующий dict run_single_test()); печать — забота
+        вызывающей стороны (core/reporter.print_case_verbose), а не этой
+        функции (issue #45 A-02 — устраняет обратный импорт Application/Logic
+        → Application/UI). Если verbose=True, а callback не передан — кейсы
+        просто не печатаются.
 
     Возвращаемый словарь:
         total      (int)   — число тест-кейсов
@@ -975,8 +984,8 @@ def run_tests(
             if first_fail is None:
                 first_fail = case.index
 
-        if verbose:
-            _print_case_verbose(case, r)
+        if verbose and verbose_callback is not None:
+            verbose_callback(case, r)
 
     total = len(test_cases)
     avg_time = total_time / total if total else 0.0

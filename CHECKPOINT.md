@@ -143,7 +143,12 @@ stepik-grader --version
 - [x] #44 — Sprint A: заменить wildcard-импорты в `_build_call_wrapper` на явные (2026-07-03)
 - [x] #43 — Sprint A: best-effort `RLIMIT_AS` memory cap (`GraderConfig.max_memory_mb`,
   POSIX-only); S-02 закрыт как дубликат S-01 — см. CHANGELOG (2026-07-03)
+- [x] #52 — Sprint B: убрать константы из `grader_core.__all__` (Q-03, 2026-07-03)
+- [x] #45 — Sprint B: A-02 (verbose_callback вместо импорта reporter), A-04
+  (`resolve_test_dir`/`rich_track`/`print_case_verbose` — убраны `_`-префиксы) (2026-07-03)
+- [x] #46 — Sprint B: A-03 — решено оставить `executor.py` как есть (не
+  test-only, не unified runner) — см. CLAUDE.md Sprint B.2 (2026-07-03)
+- [ ] #45 A-01 — Sprint B (отложено): разбить `grader_core.py` (700+ строк) на
+  `test_loader.py`/`mode_detector.py`/`wrapper_builder.py`
 - [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)
 - [ ] Расширить покрытие тестами (особенно `downloader.py`)
-- [ ] Sprint B (Архитектура) — issue #45 (SRP/layering в `grader_core.py`/`cli.py`),
-  #46 (судьба `executor.py`), #52 (`__all__` экспортирует константы)

@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 
-Sprint A (Security) from the v1.1.0 audit epic #60: issues #43, #44.
+Sprints A (Security) and B (Architecture, partial) from the v1.1.0 audit
+epic #60: issues #43, #44, #45, #46, #52.
 
 ### Added
 - `GraderConfig.max_memory_mb` (default 1024) — best-effort `RLIMIT_AS`
@@ -18,6 +19,20 @@ Sprint A (Security) from the v1.1.0 audit epic #60: issues #43, #44.
   imports covering each module's full documented public API. Removes the
   wildcard-import construct the audit flagged while preserving behavior for
   any test-block relying on stdlib names (issue #44 S-03)
+- `run_tests()` gained a `verbose_callback` parameter; `core/grader_core.py`
+  no longer imports `core/reporter.py` at module load time. `cli.py` now
+  passes `reporter.print_case_verbose` explicitly for mode 1 (issue #45 A-02)
+- Renamed three cross-module private symbols to public, adding each to its
+  module's `__all__`: `_resolve_test_dir` → `resolve_test_dir`
+  (`grader_core.py`), `_rich_track` → `rich_track`, `_print_case_verbose` →
+  `print_case_verbose` (both `reporter.py`). `cli.py` no longer imports
+  underscore-prefixed names from other modules (issue #45 A-04)
+- `grader_core.__all__` no longer exports `TIMEOUT_SECONDS`/`ENCODING`/
+  `SIMILAR_THRESHOLD`/`MUCH_SLOWER_THRESHOLD`/`MEASURE_CHILD_MEMORY`/
+  `MICROBENCH_MAX_CASES` — these were module-level aliases of `CONFIG` values,
+  not a standalone public API. `grader.py`'s own backward-compat `__all__`
+  is unchanged; it now imports these six names explicitly by name instead of
+  picking them up via `from grader_core import *` (issue #52 Q-03)
 
 ### Notes
 - Issue #43 S-02 ("code injection via f-string interpolation") closed as a
@@ -28,6 +43,18 @@ Sprint A (Security) from the v1.1.0 audit epic #60: issues #43, #44.
   isolation (S-01) mitigates. Moving the data through an env var as the
   issue originally suggested would not reduce this risk and would risk
   truncating multi-line test blocks on Windows (~32KB env var limit)
+- Issue #46 A-03 ("`executor.py` unused in production") closed with no code
+  change: neither of the issue's two proposed options is actually safe here.
+  Making it the production runner would drop peak-memory measurement and
+  break on Windows (`SIGALRM` timeout is POSIX-only, this project's primary
+  dev platform); moving it to `tests/helpers/` would break
+  `tests/test_executor.py`'s subprocess invocations of `executor.main()`,
+  which require it to stay part of the installed `stepik_grader.core`
+  package. Status quo (tested, not production-wired) is an intentional,
+  already-documented tradeoff, not an oversight
+- Issue #45 A-01 (splitting `grader_core.py` into `test_loader.py`/
+  `mode_detector.py`/`wrapper_builder.py`) is NOT done in this pass — deferred
+  as its own follow-up; see CLAUDE.md Sprint B.3 and CHECKPOINT.md backlog
 
 ## [1.1.0] - 2026-07-02
 
