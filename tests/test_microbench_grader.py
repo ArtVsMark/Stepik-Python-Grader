@@ -273,3 +273,25 @@ def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
 
     expected_bytes = 64 * 1024 * 1024
     assert calls == [("RLIMIT_AS", (expected_bytes, expected_bytes))]
+
+
+@pytest.mark.parametrize("exc", [ValueError("invalid limit"), OSError("not permitted")])
+def test_make_memory_limiter_swallows_setrlimit_failure(
+    monkeypatch: pytest.MonkeyPatch, exc: Exception
+) -> None:
+    """setrlimit() failing (observed on macOS CI for RLIMIT_AS) must not raise --
+    see the matching test/comment in test_grader_core.py for why."""
+    from stepik_grader.core import microbench_runner
+
+    class _FakeResource:
+        RLIMIT_AS = "RLIMIT_AS"
+
+        @staticmethod
+        def setrlimit(which, limits):
+            raise exc
+
+    monkeypatch.setattr(microbench_runner, "resource", _FakeResource)
+    limiter = microbench_runner._make_memory_limiter(64)
+    assert limiter is not None
+
+    limiter()  # must not raise

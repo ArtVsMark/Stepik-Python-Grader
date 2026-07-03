@@ -115,7 +115,14 @@ def _make_memory_limiter(max_memory_mb: int | None) -> Callable[[], None] | None
 
     def _limit() -> None:
         # POSIX-only, typeshed excludes resource.setrlimit/RLIMIT_AS on win32.
-        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
+        # Best-effort: RLIMIT_AS is unreliable on macOS (setrlimit can fail
+        # even for a generous limit) and an uncaught exception here would
+        # abort the whole Popen() call, not just skip the cap (see the
+        # matching helper in grader_core.py for the full explanation).
+        try:
+            resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
+        except (ValueError, OSError):
+            pass
 
     return _limit
 

@@ -448,6 +448,33 @@ def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
     assert calls == [("RLIMIT_AS", (expected_bytes, expected_bytes))]
 
 
+@pytest.mark.parametrize("exc", [ValueError("invalid limit"), OSError("not permitted")])
+def test_make_memory_limiter_swallows_setrlimit_failure(
+    monkeypatch: pytest.MonkeyPatch, exc: Exception
+) -> None:
+    """setrlimit() failing (observed on macOS CI for RLIMIT_AS) must not raise.
+
+    An uncaught exception here runs inside preexec_fn in the forked child --
+    subprocess surfaces it to the parent as SubprocessError and aborts the
+    whole Popen() call, not just the memory cap. Discovered via macOS CI
+    after Sprint D added it to the matrix.
+    """
+    from stepik_grader.core import grader_core
+
+    class _FakeResource:
+        RLIMIT_AS = "RLIMIT_AS"
+
+        @staticmethod
+        def setrlimit(which, limits):
+            raise exc
+
+    monkeypatch.setattr(grader_core, "resource", _FakeResource)
+    limiter = grader_core._make_memory_limiter(64)
+    assert limiter is not None
+
+    limiter()  # must not raise
+
+
 # ---------------------------------------------------------------------------
 # _measure_peak_memory — warn on unreliable reading (Issue #48 R-05)
 # ---------------------------------------------------------------------------
