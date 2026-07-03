@@ -1,5 +1,182 @@
 # Changelog
 
+## [Unreleased]
+
+Sprints A (Security), B (Architecture), C (Reliability), D (CI/CD & Quality),
+and E (UX/Docs/Deps) from the v1.1.0 audit epic #60: issues #43, #44, #45,
+#46, #47, #48, #49, #50, #51, #52. Plus three roadmap items from the same
+audit epic: #53, #54, #58 (partial).
+
+### Changed
+- Split `core/grader_core.py` (1200+ lines) into `core/test_loader.py`
+  (solution-file discovery, `load_test_cases`, `resolve_test_dir`),
+  `core/mode_detector.py` (`_detect_run_mode`, `is_function_only_solution`,
+  `_is_python_code_block`), and `core/wrapper_builder.py`
+  (`_build_function_wrapper`, `_build_call_wrapper`). `grader_core.py` keeps
+  `run_single_test`/`run_tests`/`run_benchmark`/`run_microbench_mode` and
+  re-imports all 16 moved names by name (not `import *`) so `grader_core`'s
+  own `__all__`, `grader.py`'s explicit facade import list, and `cli.py`'s
+  imports all keep working unchanged. Only new internal dependency:
+  `test_loader.py -> mode_detector.py` (for Format-3 block classification and
+  run-mode detection) -- no cycles. An Explore agent audited the whole test
+  suite for `monkeypatch`/`mock.patch` targeting any of the 16 moved names
+  through `grader_core`/`cli` paths before starting; it found none, so no
+  test files needed changes for the move itself (issue #45 A-01)
+
+### Added
+- `--output csv`/`--output markdown` for all four modes -- same underlying
+  data as `--output json`, flattened to one row per file/test-case (issue
+  #53, issue #58's "export to Markdown" idea)
+- `--watch` for `--mode 1/2`: reruns the whole mode on any change inside the
+  watched file/directory, clearing the screen first. Optional dependency
+  `pip install "stepik-grader[watch]"` (`watchfiles`); prints an install
+  hint instead of crashing when it's absent. Reruns the ENTIRE mode on any
+  change rather than isolating which single file changed -- issue #54's own
+  "only rerun the changed file" idea would need mapping a changed path back
+  to its own test_dir and merging a partial result into the existing table,
+  meaningfully more complex for uncertain benefit over a full rerun (issue
+  #54)
+- i18n for the interactive menu and CLI messages: Russian by default, `--lang
+  en` switches to English (issue #51 D-01). Minimal message-dict + `_t()`
+  helper in `cli.py` rather than a full gettext setup -- proportionate to
+  this CLI's size
+- `--verbose`/`--quiet` (mutually exclusive) for `--mode 1/2`: mode 1 already
+  defaulted to verbose (unaffected unless `--quiet`), mode 2 already
+  defaulted to quiet (unaffected unless `--verbose`) (issue #50 D-03)
+- `--output {text,json}` for all four modes. `json` prints one JSON line
+  reusing the existing `run_tests()`/`run_benchmark()`/`run_microbench_mode()`
+  result dicts directly (`file`/`results`/`groups` keys depending on mode) --
+  no separately-invented schema (issue #50 D-04)
+- Richer "tests not found" diagnostic for `--mode 1`: names the expected
+  folder and suggests `python -m stepik_grader.downloader` or manual
+  `tests/1`, `tests/1.clue` creation, instead of a bare "not found" (issue
+  #50 D-05)
+- `.github/workflows/release.yml`: builds sdist+wheel and creates a GitHub
+  Release with auto-generated notes on `v*` tag push. PyPI publishing is
+  intentionally NOT included -- it needs a trusted-publisher relationship
+  configured on pypi.org first, which requires manual setup by a repo owner
+  with PyPI access (issue #51 C-03)
+- Upper bounds on runtime dependencies: `requests<3.0`, `psutil<8.0`,
+  `rich<16.0` (issue #51 P-02)
+- `mypy>=1.10` in `[project.optional-dependencies].dev`; `mypy src/stepik_grader
+  --ignore-missing-imports` runs as a CI step on every matrix leg (issue #49
+  C-02). Fixed the ~12 pre-existing/newly-surfaced errors this uncovered:
+  `load_json_file()` call site passing `str` instead of `Path`
+  (`grader_core.py`), `str | None` propagating past `resolve_test_dir()`'s
+  new contract into `cli.py`'s three call sites (narrowed with `assert`/
+  explicit `is None` checks), and targeted `# type: ignore[attr-defined]` on
+  `signal.alarm`/`resource.setrlimit`/`RLIMIT_AS` call sites that are
+  legitimately POSIX-only (typeshed excludes them on win32) and already
+  runtime-guarded
+- CI matrix now runs on `ubuntu-latest`, `windows-latest`, and `macos-latest`
+  (previously Ubuntu-only) for Python 3.12/3.13; the 3.14-experimental leg
+  stays Ubuntu-only (issue #49 C-01)
+- `GraderConfig.max_memory_mb` (default 1024) — best-effort `RLIMIT_AS`
+  memory cap applied via `preexec_fn` to every subprocess that runs solution
+  code (`core/grader_core.py::run_single_test`, `core/microbench_runner.py::
+  run_microbench`). POSIX-only (`resource` module absent on Windows);
+  degrades to a no-op there, same pattern as `executor.py`'s `SIGALRM`
+  handling (issue #43 S-01)
+- `warnings.warn()` when `load_test_cases()` uses Format 3 (`input.txt`/
+  `output.txt`) while Format 1/2 files (`N.clue`/`input_N.txt`) also exist in
+  the same directory and are silently ignored (issue #48 R-03)
+- `warnings.warn()` in `_measure_peak_memory()` when the child process exits
+  before `psutil` can sample it (`NoSuchProcess`/`AccessDenied`/
+  `ZombieProcess`) — the returned peak (0.0) was previously indistinguishable
+  from "genuinely used ~0 memory" (issue #48 R-05)
+- Mock-based tests covering `downloader.py::_download_github_tests`'s two
+  previously-uncovered error branches: `requests.RequestException`/HTTP
+  errors from the GitHub Contents API, and a file listing with no
+  recognizable Format 3/1 files (`downloader.py` coverage: 98% → 99%,
+  issue #49 Q-01)
+
+### Changed
+- `core/grader_core.py::_build_call_wrapper` — replaced
+  `from collections/datetime/itertools/functools import *` with explicit
+  imports covering each module's full documented public API. Removes the
+  wildcard-import construct the audit flagged while preserving behavior for
+  any test-block relying on stdlib names (issue #44 S-03)
+- `run_tests()` gained a `verbose_callback` parameter; `core/grader_core.py`
+  no longer imports `core/reporter.py` at module load time. `cli.py` now
+  passes `reporter.print_case_verbose` explicitly for mode 1 (issue #45 A-02)
+- Renamed three cross-module private symbols to public, adding each to its
+  module's `__all__`: `_resolve_test_dir` → `resolve_test_dir`
+  (`grader_core.py`), `_rich_track` → `rich_track`, `_print_case_verbose` →
+  `print_case_verbose` (both `reporter.py`). `cli.py` no longer imports
+  underscore-prefixed names from other modules (issue #45 A-04)
+- `grader_core.__all__` no longer exports `TIMEOUT_SECONDS`/`ENCODING`/
+  `SIMILAR_THRESHOLD`/`MUCH_SLOWER_THRESHOLD`/`MEASURE_CHILD_MEMORY`/
+  `MICROBENCH_MAX_CASES` — these were module-level aliases of `CONFIG` values,
+  not a standalone public API. `grader.py`'s own backward-compat `__all__`
+  is unchanged; it now imports these six names explicitly by name instead of
+  picking them up via `from grader_core import *` (issue #52 Q-03)
+- `resolve_test_dir()` returns `str | None` instead of silently falling back
+  to a non-existent `<parent>/tests/` path when no strategy matches.
+  `cli.py`'s three call sites (`_run_mode_1/2/3`) updated to check for `None`
+  before `pathlib.Path(...).is_dir()`, printing a friendly "Test directory
+  not found" message instead of crashing on `pathlib.Path(None)` (issue #47
+  R-04)
+- `_is_python_code_block()` now classifies a bare single-name expression with
+  no call and no assignment (e.g. `"x"`, `"print"`) as `False` (not a
+  call-block) — narrow exception scoped to exactly that AST shape, doesn't
+  touch classification of any realistic multi-statement or assignment
+  content (issue #47 R-02)
+- `microbench_runner.run_microbench()`'s timeout error message now reports
+  the iteration count (`number=`) that was running when the 60s timeout
+  fired — the most useful diagnostic available without a genuine per-call
+  timeout inside the child process (issue #47 R-01, partial — see Notes)
+
+### Removed
+- `requirements.txt` — duplicated the same 3 runtime dependencies already in
+  `pyproject.toml`. `pip install -e .` (or `-e ".[dev]"`) is now the only
+  documented install path; README/CONTRIBUTING/CLAUDE.md updated (issue #51
+  P-01)
+
+### Notes
+- Issue #47 R-01: a genuine PER-CALL timeout (interrupting one hung iteration
+  out of `number x 5` inside `timeit.repeat()`) is NOT implemented — it would
+  require abandoning `timeit.repeat()`'s batch execution for a manual
+  per-call loop with time-based interruption, or a `SIGALRM`-style in-process
+  signal that doesn't work on Windows (this project's primary dev platform).
+  `run_microbench_with_timeout()` (Sprint 7.3, still unwired) wouldn't help
+  either — wrapping the already-`subprocess.run(timeout=60)`-bounded call in
+  a `ThreadPoolExecutor` adds no real protection, per its own docstring. The
+  existing whole-run 60s timeout plus the new diagnostic message is the
+  practical improvement shipped this pass
+- Issue #43 S-02 ("code injection via f-string interpolation") closed as a
+  duplicate of S-01, not a distinct fix: `safe_input`/`call_block` are
+  embedded as top-level source, not inside a string literal, so there is no
+  literal-escaping vector; the actual risk is that test-block content is
+  executed as trusted Python code by design, which only OS-level process
+  isolation (S-01) mitigates. Moving the data through an env var as the
+  issue originally suggested would not reduce this risk and would risk
+  truncating multi-line test blocks on Windows (~32KB env var limit)
+- Issue #46 A-03 ("`executor.py` unused in production") closed with no code
+  change: neither of the issue's two proposed options is actually safe here.
+  Making it the production runner would drop peak-memory measurement and
+  break on Windows (`SIGALRM` timeout is POSIX-only, this project's primary
+  dev platform); moving it to `tests/helpers/` would break
+  `tests/test_executor.py`'s subprocess invocations of `executor.main()`,
+  which require it to stay part of the installed `stepik_grader.core`
+  package. Status quo (tested, not production-wired) is an intentional,
+  already-documented tradeoff, not an oversight
+- Issue #45 A-01 (splitting `grader_core.py` into `test_loader.py`/
+  `mode_detector.py`/`wrapper_builder.py`) was deferred out of Sprint B as its
+  own follow-up; done in a later pass after Sprint E and the #53/#54/#58
+  roadmap batch -- see the "Changed" entry above and CLAUDE.md's DAG section
+- Issue #50 D-02 ("`CONTRIBUTING.md` отсутствует") was already stale at the
+  time of the audit — the file exists and is fairly thorough. Fixed the two
+  things that WERE actually stale in it (claimed "Python 3.10+", contradicting
+  `pyproject.toml`'s `requires-python = ">=3.12"` everywhere else; a redundant
+  separate `pip install rich` step now that `rich` is a required, not
+  optional, runtime dependency) and added the `mypy` step Sprint D introduced
+- Issue #51 P-02's own suggested upper bounds (`psutil<7.0`) are stale:
+  `psutil` 7.2.2 and `rich` 15.0.0 are already installed and passing the full
+  suite in this environment, so bounding to `<7.0`/`<15.0` would immediately
+  break `pip install -e .[dev]`. Used `psutil<8.0`/`rich<16.0` instead --
+  headroom above what's actually proven working, not the audit's example
+  verbatim
+
 ## [1.1.0] - 2026-07-02
 
 Sprints 6, 7, 8.1, and 8.2 from CLAUDE.md's backlog, plus GitHub issues

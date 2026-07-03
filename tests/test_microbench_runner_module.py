@@ -89,12 +89,18 @@ def test_microbench_runner_stdout_suppressed() -> None:
 
 
 def test_microbench_runner_timeout_returns_error() -> None:
-    """subprocess.TimeoutExpired покрывает строки 158–159."""
+    """subprocess.TimeoutExpired покрывает строки 158–159.
+
+    Issue #47 R-01: error message reports the iteration count (`number`) that
+    was running when the timeout fired -- the most useful diagnostic
+    available without a genuine per-call timeout inside the child process.
+    """
     with patch("stepik_grader.core.microbench_runner.subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=60)
-        result = run_microbench("x = 1\n", stdin_data="", number=5)
+        result = run_microbench("x = 1\n", stdin_data="", number=5000)
     assert result["times"] == []
-    assert result["error"] == "microbench timeout"
+    assert "number=5000" in result["error"]
+    assert "60s" in result["error"]
     assert result["peak_memory_mb"] == 0.0
 
 

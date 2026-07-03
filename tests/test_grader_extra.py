@@ -13,12 +13,12 @@ from stepik_grader.core import reporter
 from stepik_grader.grader import (
     TestCase,
     _correctness_status,
-    _print_case_verbose,
     format_benchmark_row,
     format_correctness_row,
     load_text_lines,
     print_benchmark_header,
     print_benchmark_results,
+    print_case_verbose,
     print_correctness_header,
     print_correctness_results,
 )
@@ -119,19 +119,19 @@ class TestPrintResultsPlain:
 
 
 class TestPrintCaseVerbose:
-    """_print_case_verbose печатает вердикт и diff (plain-режим)."""
+    """print_case_verbose печатает вердикт и diff (plain-режим)."""
 
     def test_passed_case(self, capsys, monkeypatch):
         monkeypatch.setattr(reporter, "_RICH", False)
         case = TestCase(index=1, input_lines=["5"], expected_lines=["5"])
-        _print_case_verbose(case, {"passed": True, "error": ""})
+        print_case_verbose(case, {"passed": True, "error": ""})
         out = capsys.readouterr().out
         assert "Test 1" in out
 
     def test_error_case(self, capsys, monkeypatch):
         monkeypatch.setattr(reporter, "_RICH", False)
         case = TestCase(index=2, input_lines=["x"], expected_lines=["y"])
-        _print_case_verbose(case, {"passed": False, "error": "boom"})
+        print_case_verbose(case, {"passed": False, "error": "boom"})
         out = capsys.readouterr().out
         assert "ERROR" in out
 
@@ -145,7 +145,7 @@ class TestPrintCaseVerbose:
             "output": ["3"],
             "diff": "-2\n+3\n unchanged",
         }
-        _print_case_verbose(case, r)
+        print_case_verbose(case, r)
         out = capsys.readouterr().out
         assert "Expected" in out
         assert "Actual" in out

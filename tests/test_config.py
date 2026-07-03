@@ -20,6 +20,7 @@ def test_grader_config_defaults() -> None:
     assert cfg.measure_child_memory is True
     assert cfg.microbench_max_cases == 5
     assert cfg.encoding == "utf-8"
+    assert cfg.max_memory_mb == 1024
 
 
 def test_grader_config_is_frozen() -> None:

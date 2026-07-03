@@ -52,7 +52,10 @@
 | `config.py` | Application / Configuration | `GraderConfig` (frozen dataclass) + `CONFIG` singleton; переопределяется через `[tool.stepik-grader]` в `pyproject.toml` |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
 | `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
-| `core/grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
+| `core/grader_core.py` | Application | Исполнение тест-кейса в subprocess и агрегация статистики: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
+| `core/test_loader.py` | Application | Обнаружение файлов-решений, загрузка тест-кейсов (`load_test_cases`), `resolve_test_dir` (Issue #45 A-01) |
+| `core/mode_detector.py` | Application | Детекция режима запуска stdin/function (`_detect_run_mode`, `is_function_only_solution`) (Issue #45 A-01) |
+| `core/wrapper_builder.py` | Application | Генерация wrapper-скриптов для function-mode запуска (Issue #45 A-01) |
 | `core/reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA, адаптивное форматирование времени (`fmt_time`) |
 | `core/executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
@@ -88,11 +91,10 @@ downloader.py          ──→  core/stepik_client.py
 downloader.py          ──→  core/parsers.py
 core/stepik_client.py ──→  core/storage.py
 grader.py              ──→  core/grader_core.py, core/reporter.py, cli.py  (тонкий фасад)
-core/grader_core.py    ──→  core/reporter.py     ← _print_case_verbose (run_tests verbose)
-core/grader_core.py    ──→  core/executor.py
-core/grader_core.py    ──→  core/microbench_runner.py
-core/grader_core.py    ──→  core/normalizers.py
-core/grader_core.py    ──→  core/parsers.py
+core/grader_core.py    ──→  core/executor.py, core/microbench_runner.py, core/normalizers.py
+core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, core/wrapper_builder.py
+core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py
+core/mode_detector.py  ──→  core/storage.py
 cli.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
 diagnostic_stepik.py ──→  core/stepik_client.py
 diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
@@ -113,8 +115,9 @@ downloader.py больше не импортирует grader.py: дублиру
 │  Domain / Application  (src/stepik_grader/ — точки входа)      │
 │  downloader.py  │  grader.py (facade)  │  diagnostic_stepik   │
 ├───────────────────────────────────────────────────────────────┤
-│  Application  (core/, грейдер разбит по SRP — Sprint 7)       │
+│  Application  (core/, грейдер разбит по SRP — Sprint 7, A-01) │
 │  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
+│  core/test_loader.py │ core/mode_detector.py │ wrapper_builder │
 │  cli.py (меню, публичная точка входа — stepik-grader)          │
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure  (core/)                                       │
@@ -144,7 +147,10 @@ Stepik-Python-Grader/
 │       ├── diagnostic_stepik.py  # Диагностика API и токена
 │       └── core/                  # Internal Infrastructure/Utility модули (Issue #23, #26)
 │           ├── __init__.py
-│           ├── grader_core.py    # Загрузка тест-кейсов, исполнение решений
+│           ├── grader_core.py    # Исполнение тест-кейса в subprocess, агрегация статистики
+│           ├── test_loader.py    # Обнаружение файлов-решений, загрузка тест-кейсов (Issue #45 A-01)
+│           ├── mode_detector.py  # Детекция режима stdin/function (Issue #45 A-01)
+│           ├── wrapper_builder.py # Генерация wrapper-скриптов для function-mode (Issue #45 A-01)
 │           ├── reporter.py       # rich-таблицы, вывод, verbose-diff
 │           ├── executor.py       # Запускатель решений: compile + exec с таймаутом
 │           ├── microbench_runner.py  # Timeit-микробенчмарк через subprocess + os.devnull
@@ -173,8 +179,7 @@ Stepik-Python-Grader/
 │   └── test_testblock.py
 ├── .github/workflows/ci.yml   # CI: pytest + ruff на Python 3.12/3.13/3.14
 ├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
-├── pyproject.toml             # Конфигурация проекта (ruff, pytest, зависимости, packages.find where=["src"])
-├── requirements.txt           # Runtime-зависимости
+├── pyproject.toml             # Конфигурация проекта (ruff, mypy, pytest, зависимости, packages.find where=["src"])
 ├── secrets.json.example       # Шаблон файла с OAuth-токеном
 ├── stepik_config.json.example # Шаблон конфига Stepik
 ├── CHANGELOG.md               # История изменений
@@ -219,13 +224,13 @@ source .venv/bin/activate
 ### 3. Установить зависимости
 
 ```bash
-pip install -r requirements.txt
+pip install -e .             # runtime-зависимости (requests, psutil, rich) из pyproject.toml
 ```
 
-Для разработки (линтер, тесты):
+Для разработки (линтер, типизация, тесты):
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev]"      # плюс pytest, pytest-cov, ruff, mypy
 ```
 
 > Проект использует src-layout (`src/stepik_grader/`, Issue #35) — модули
@@ -243,19 +248,20 @@ python -m stepik_grader.grader
 stepik-grader
 ```
 
-При запуске появится меню:
+При запуске появится меню (русский язык по умолчанию, issue #51 D-01;
+`--lang en` — английский):
 
 ```
 ==================================================
   Stepik Python Grader
 ==================================================
-  1. Check one solution
-  2. Check all solutions in folder
-  3. Benchmark solutions in folder
-  4. Micro-benchmark (timeit) for folder
-  0. Exit
+  1. Проверить одно решение
+  2. Проверить все решения в папке
+  3. Бенчмарк решений в папке
+  4. Микро-бенчмарк (timeit) для папки
+  0. Выход
 ==================================================
-Select mode [0-4]:
+Выберите режим [0-4]:
 ```
 
 ### Non-interactive запуск (CLI-флаги)
@@ -273,6 +279,49 @@ stepik-grader --mode 4 --dir path/to/folder --number 1000   # режим 4 (по
 Эквивалентно через `python -m`: `python -m stepik_grader.grader --version` и т.д.
 
 Без `--mode` показывается обычное интерактивное меню.
+
+#### Дополнительные флаги (Sprint E, issues #50/#51)
+
+```bash
+stepik-grader --mode 1 --file task.py --lang en        # меню/сообщения на английском (по умолчанию — ru)
+stepik-grader --mode 1 --file task.py --quiet           # без подробного diff (режим 1 по умолчанию verbose)
+stepik-grader --mode 2 --dir . --verbose                # с подробным diff по каждому кейсу (режим 2 по умолчанию quiet)
+stepik-grader --mode 1 --file task.py --output json     # машиночитаемый JSON вместо таблицы
+stepik-grader --mode 2 --dir . --output json > results.json
+```
+
+`--verbose`/`--quiet` взаимоисключающие; управляют только режимами 1/2
+(режимы 3/4 всегда печатают итоговую таблицу бенчмарка, `--verbose` для них
+не имеет смысла). `--output json` печатает ровно одну JSON-строку —
+структура повторяет словари, которые уже возвращают `run_tests()`/
+`run_benchmark()`/`run_microbench_mode()` (ключи `file`/`results`/`groups` в
+зависимости от режима), без отдельной документированной схемы.
+
+#### `--output csv` / `--output markdown` (roadmap, issues #53, #58)
+
+```bash
+stepik-grader --mode 2 --dir . --output csv > results.csv
+stepik-grader --mode 3 --dir . --output markdown > BENCHMARK.md
+```
+
+Те же данные, что и в `--output json`, но плоской таблицей (одна строка на
+файл/тест-кейс) в CSV или Markdown-таблице. Пишут в stdout, как и `json` —
+для сохранения в файл используется обычное перенаправление шелла, отдельного
+флага "сохранить в файл" нет.
+
+#### `--watch` (roadmap, issue #54)
+
+```bash
+pip install "stepik-grader[watch]"     # опциональная зависимость: watchfiles
+
+stepik-grader --mode 1 --file task.py --watch
+stepik-grader --mode 2 --dir . --watch
+```
+
+Перезапускает весь режим 1/2 при любом изменении внутри отслеживаемого
+файла/папки (очищает экран перед повторным запуском). Работает только с
+`--mode 1/2` — для 3/4 (дорогой бенчмарк) неприменимо. Без установленного
+`watchfiles` печатает сообщение с инструкцией по установке вместо падения.
 
 ---
 
@@ -642,11 +691,15 @@ python -m stepik_grader.diagnostic_stepik
 
 ## Ограничения и безопасность
 
-**Threat model: решения запускаются БЕЗ sandbox на уровне ОС.** Дочерний процесс
-имеет тот же доступ к файловой системе, сети и переменным окружения, что и сам
-grader. Единственная защита — таймаут по времени выполнения; ограничений CPU,
-памяти, диска или сети нет. Запускай только доверенные решения (свои
-собственные или скачанные из Stepik as-is) — grader не предназначен для
+**Threat model: решения запускаются БЕЗ полноценного sandbox на уровне ОС.**
+Дочерний процесс имеет тот же доступ к файловой системе, сети и переменным
+окружения, что и сам grader. Защита по времени выполнения есть всегда
+(таймаут); на POSIX (Linux/macOS) есть ещё best-effort лимит памяти
+(`GraderConfig.max_memory_mb`, по умолчанию 1024 МБ — `resource.setrlimit
+(RLIMIT_AS)` через `preexec_fn`); на Windows этого лимита нет (`resource`
+недоступен), решение может использовать сколько угодно памяти. Ограничений
+диска или сети нет ни на одной платформе. Запускай только доверенные решения
+(свои собственные или скачанные из Stepik as-is) — grader не предназначен для
 проверки произвольного untrusted-кода (см. `core/executor.py`, который явно
 задокументирован как "нет sandbox на уровне ОС" в `CLAUDE.md`).
 
@@ -666,6 +719,9 @@ grader. Единственная защита — таймаут по време
   внутри одного вызова (не в бесконечном цикле верхнего уровня), упрётся в
   общий 60-секундный `subprocess.run(timeout=60)` вокруг всего замера
   (5 повторов × N итераций), а не в индивидуальный лимит на итерацию.
+  Сообщение об ошибке при таймауте указывает `number=<N>` (сколько итераций
+  было в замере), чтобы хотя бы приблизительно понять масштаб зависания
+  (issue #47 R-01).
 
 ---
 

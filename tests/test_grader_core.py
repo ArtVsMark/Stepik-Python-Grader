@@ -1,6 +1,6 @@
 """Tests for grader core helpers identified as coverage gaps in the audit:
 _is_python_code_block, load_test_cases format-detection priority, and
-_resolve_test_dir search order.
+resolve_test_dir search order.
 
 These pin down behavior that the upcoming refactoring touches indirectly, so
 regressions surface immediately.
@@ -9,6 +9,8 @@ regressions surface immediately.
 from __future__ import annotations
 
 import pathlib
+import threading
+import warnings
 
 import pytest
 
@@ -29,6 +31,15 @@ from stepik_grader import grader
         ("", False),
         ("   \n  ", False),
         ("04.11.2021", False),
+        # Issue #47 R-02: a bare name with no call and no assignment is
+        # degenerate stdin-shaped data, not a call-block or a declaration.
+        ("x", False),
+        ("print", False),
+        ("True\nFalse\nNone", False),
+        # Assignment target IS still a Name node -- unaffected by the bare-name
+        # exception above (more than one top-level statement / not a bare Expr).
+        ("x = 5", True),
+        ("chainmap = ChainMap({})", True),
     ],
 )
 def test_is_python_code_block(code: str, expected: bool) -> None:
@@ -158,8 +169,37 @@ def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
     assert grader.load_test_cases(str(tmp_path)) == []
 
 
+def test_load_test_cases_warns_on_mixed_format3_and_format1(tmp_path: pathlib.Path) -> None:
+    """Format 3 + leftover Format 1 (.clue) files -- warn, still use Format 3.
+
+    Issue #48 R-03: previously the ignored .clue files were silent.
+    """
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+    (tmp_path / "1").write_text("9\n", encoding="utf-8")
+    (tmp_path / "1.clue").write_text("99\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match="Format 3 takes priority"):
+        cases = grader.load_test_cases(str(tmp_path))
+
+    assert len(cases) == 1
+    assert cases[0].input_lines == ["2", "3"]
+
+
+def test_load_test_cases_no_warning_for_format3_alone(tmp_path: pathlib.Path) -> None:
+    """No leftover Format 1/2 files -- no warning fires."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(str(tmp_path))
+
+    assert len(cases) == 1
+
+
 # ---------------------------------------------------------------------------
-# _resolve_test_dir — search order
+# resolve_test_dir — search order
 # ---------------------------------------------------------------------------
 
 
@@ -170,7 +210,7 @@ def test_resolve_test_dir_finds_tests_subfolder(tmp_path: pathlib.Path):
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
 
-    assert grader._resolve_test_dir(str(sol)) == str(tests_dir)
+    assert grader.resolve_test_dir(str(sol)) == str(tests_dir)
 
 
 def test_resolve_test_dir_finds_stem_folder(tmp_path: pathlib.Path):
@@ -180,7 +220,7 @@ def test_resolve_test_dir_finds_stem_folder(tmp_path: pathlib.Path):
     stem_dir = tmp_path / "task1"
     stem_dir.mkdir()
 
-    assert grader._resolve_test_dir(str(sol)) == str(stem_dir)
+    assert grader.resolve_test_dir(str(sol)) == str(stem_dir)
 
 
 def test_resolve_test_dir_finds_adjacent_input_txt(tmp_path: pathlib.Path):
@@ -190,7 +230,7 @@ def test_resolve_test_dir_finds_adjacent_input_txt(tmp_path: pathlib.Path):
     (tmp_path / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
     (tmp_path / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
 
-    assert grader._resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+    assert grader.resolve_test_dir(str(sol)) == str(tmp_path.resolve())
 
 
 def test_resolve_test_dir_finds_clue_in_parent(tmp_path: pathlib.Path):
@@ -200,7 +240,7 @@ def test_resolve_test_dir_finds_clue_in_parent(tmp_path: pathlib.Path):
     (tmp_path / "1").write_text("1\n", encoding="utf-8")
     (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
 
-    assert grader._resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+    assert grader.resolve_test_dir(str(sol)) == str(tmp_path.resolve())
 
 
 # ---------------------------------------------------------------------------
@@ -302,3 +342,191 @@ def test_run_benchmark_and_micro_stats_agree_on_same_timings() -> None:
     assert micro["median"] == direct.median
     assert micro["mean"] == direct.mean
     assert micro["stdev"] == direct.stdev
+
+
+# ---------------------------------------------------------------------------
+# _build_call_wrapper — explicit imports instead of wildcard (Issue #44)
+# ---------------------------------------------------------------------------
+
+
+def test_build_call_wrapper_has_no_wildcard_imports() -> None:
+    """Generated wrapper source must not contain `import *` (regression guard)."""
+    src = grader._build_call_wrapper("task1.py", "print(1)")
+    assert "import *" not in src
+
+
+def test_build_call_wrapper_solution_name_overrides_stdlib(tmp_path: pathlib.Path) -> None:
+    """A solution defining its own `reduce`/`chain` must win over the stdlib one.
+
+    functools.reduce/itertools.chain are among the names explicitly imported
+    for use in test-blocks (Issue #44); the solution's public names are
+    copied into globals() afterwards specifically so they take priority.
+    """
+    sol = tmp_path / "task1.py"
+    sol.write_text(
+        "def reduce(a, b):\n"
+        "    return f'custom-reduce({a},{b})'\n"
+        "\n"
+        "def chain(a, b):\n"
+        "    return f'custom-chain({a},{b})'\n",
+        encoding="utf-8",
+    )
+    case = grader.TestCase(
+        index=1,
+        input_lines=["print(reduce(1, 2))", "print(chain(3, 4))"],
+        expected_lines=["custom-reduce(1,2)", "custom-chain(3,4)"],
+        test_type="function",
+    )
+
+    result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+    assert result["verdict"] == "AC", result["error"] or result["diff"]
+    assert result["output"] == ["custom-reduce(1,2)", "custom-chain(3,4)"]
+
+
+def test_build_call_wrapper_stdlib_names_available_without_solution_definitions(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Test-blocks may use stdlib names the solution never defines itself."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+    case = grader.TestCase(
+        index=1,
+        input_lines=["print(list(product([1, 2], [3, 4])))"],
+        expected_lines=["[(1, 3), (1, 4), (2, 3), (2, 4)]"],
+        test_type="function",
+    )
+
+    result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+    assert result["verdict"] == "AC", result["error"] or result["diff"]
+
+
+# ---------------------------------------------------------------------------
+# _make_memory_limiter — best-effort RLIMIT_AS cap (Issue #43 S-01)
+# ---------------------------------------------------------------------------
+
+
+def test_make_memory_limiter_none_when_limit_disabled() -> None:
+    from stepik_grader.core.grader_core import _make_memory_limiter
+
+    assert _make_memory_limiter(None) is None
+
+
+def test_make_memory_limiter_none_when_resource_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows has no `resource` module — limiter must degrade to a no-op."""
+    from stepik_grader.core import grader_core
+
+    monkeypatch.setattr(grader_core, "resource", None)
+    assert grader_core._make_memory_limiter(1024) is None
+
+
+def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The returned callable applies RLIMIT_AS in bytes (max_memory_mb * 1024**2)."""
+    from stepik_grader.core import grader_core
+
+    calls: list[tuple] = []
+
+    class _FakeResource:
+        RLIMIT_AS = "RLIMIT_AS"
+
+        @staticmethod
+        def setrlimit(which, limits):
+            calls.append((which, limits))
+
+    monkeypatch.setattr(grader_core, "resource", _FakeResource)
+    limiter = grader_core._make_memory_limiter(64)
+    assert limiter is not None
+
+    limiter()
+
+    expected_bytes = 64 * 1024 * 1024
+    assert calls == [("RLIMIT_AS", (expected_bytes, expected_bytes))]
+
+
+@pytest.mark.parametrize("exc", [ValueError("invalid limit"), OSError("not permitted")])
+def test_make_memory_limiter_swallows_setrlimit_failure(
+    monkeypatch: pytest.MonkeyPatch, exc: Exception
+) -> None:
+    """setrlimit() failing (observed on macOS CI for RLIMIT_AS) must not raise.
+
+    An uncaught exception here runs inside preexec_fn in the forked child --
+    subprocess surfaces it to the parent as SubprocessError and aborts the
+    whole Popen() call, not just the memory cap. Discovered via macOS CI
+    after Sprint D added it to the matrix.
+    """
+    from stepik_grader.core import grader_core
+
+    class _FakeResource:
+        RLIMIT_AS = "RLIMIT_AS"
+
+        @staticmethod
+        def setrlimit(which, limits):
+            raise exc
+
+    monkeypatch.setattr(grader_core, "resource", _FakeResource)
+    limiter = grader_core._make_memory_limiter(64)
+    assert limiter is not None
+
+    limiter()  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# _measure_peak_memory — warn on unreliable reading (Issue #48 R-05)
+# ---------------------------------------------------------------------------
+
+
+class _FakeProc:
+    pid = 999999
+
+
+def test_measure_peak_memory_warns_on_process_construction_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """psutil.Process(pid) itself raising NoSuchProcess -- outer except branch."""
+    import psutil
+
+    from stepik_grader.core import grader_core
+
+    def _raise(_pid: int) -> None:
+        raise psutil.NoSuchProcess(_pid)
+
+    monkeypatch.setattr(grader_core.psutil, "Process", _raise)
+
+    result: list[float] = [0.0]
+    stop = threading.Event()
+    stop.set()
+
+    with pytest.warns(UserWarning, match="unreliable"):
+        grader_core._measure_peak_memory(_FakeProc(), result, stop)
+
+    assert result[0] == 0.0
+
+
+def test_measure_peak_memory_warns_on_first_sample_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """psutil.Process() succeeds but the immediate first memory_info() sample
+    fails -- inner except branch around the pre-loop read."""
+    import psutil
+
+    from stepik_grader.core import grader_core
+
+    class _FakePsutilProcess:
+        def memory_info(self) -> None:
+            raise psutil.NoSuchProcess(999999)
+
+    monkeypatch.setattr(grader_core.psutil, "Process", lambda pid: _FakePsutilProcess())
+
+    result: list[float] = [0.0]
+    stop = threading.Event()
+    stop.set()
+
+    with pytest.warns(UserWarning, match="unreliable"):
+        grader_core._measure_peak_memory(_FakeProc(), result, stop)
+
+    assert result[0] == 0.0

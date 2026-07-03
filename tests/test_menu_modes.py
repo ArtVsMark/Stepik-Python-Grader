@@ -1,7 +1,7 @@
 """Тесты для багфиксов режимов меню 2/3/4 grader.py.
 
 Покрывает:
-    - Режим 2: per-solution _resolve_test_dir вместо одного общего test_dir
+    - Режим 2: per-solution resolve_test_dir вместо одного общего test_dir
     - run_benchmark: применяет _detect_run_mode (function-mode)
     - run_microbench_mode: function-call блоки идут через subprocess, не timeit
     - _resolve_test_dir_from_input(is_dir=True): Format 3 (input.txt + output.txt)
@@ -48,7 +48,9 @@ class TestMode2PerSolutionTestDir:
 
         used: dict[str, str] = {}
 
-        def fake_run_tests(path, test_dir, *, verbose=False, timeout=grader.TIMEOUT_SECONDS):
+        def fake_run_tests(
+            path, test_dir, *, verbose=False, verbose_callback=None, timeout=grader.TIMEOUT_SECONDS
+        ):
             used[os.path.basename(path)] = test_dir
             return {
                 "total": 1,
@@ -87,7 +89,9 @@ class TestMode2PerSolutionTestDir:
 
         used: list[str] = []
 
-        def fake_run_tests(path, test_dir, *, verbose=False, timeout=grader.TIMEOUT_SECONDS):
+        def fake_run_tests(
+            path, test_dir, *, verbose=False, verbose_callback=None, timeout=grader.TIMEOUT_SECONDS
+        ):
             used.append(test_dir)
             return {
                 "total": 1,
@@ -107,7 +111,7 @@ class TestMode2PerSolutionTestDir:
 
         grader._interactive_menu()
 
-        # _resolve_test_dir(task1.py) указывает на solutions/ (нет реального tests),
+        # resolve_test_dir(task1.py) указывает на solutions/ (нет реального tests),
         # поэтому должен сработать fallback на folder-level tests/
         assert used == [str(folder_tests)]
 
@@ -184,7 +188,7 @@ class TestRunMicrobenchModeFunctionBlocks:
 
         called: list[str] = []
 
-        def fake_microbench(code, *, stdin_data="", number=1000):
+        def fake_microbench(code, *, stdin_data="", number=1000, max_memory_mb=None):
             called.append(stdin_data)
             return {"times": [0.001, 0.002], "error": "", "peak_memory_mb": 0.05}
 

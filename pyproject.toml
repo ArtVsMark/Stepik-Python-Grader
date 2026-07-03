@@ -9,9 +9,9 @@ description = "Automatic comparison and testing of Python solutions from Stepik 
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "requests>=2.34.2",
-    "psutil>=5.9",
-    "rich>=13.0",
+    "requests>=2.34.2,<3.0",
+    "psutil>=5.9,<8.0",
+    "rich>=13.0,<16.0",
 ]
 
 [project.optional-dependencies]
@@ -19,6 +19,10 @@ dev = [
     "pytest>=8.2",
     "pytest-cov>=5.0",
     "ruff>=0.15.19",
+    "mypy>=1.10",
+]
+watch = [
+    "watchfiles>=0.21,<2.0",
 ]
 
 [project.scripts]
@@ -71,3 +75,4 @@ much_slower_threshold = 1.50
 measure_child_memory = true
 microbench_max_cases = 5
 encoding = "utf-8"
+max_memory_mb = 1024

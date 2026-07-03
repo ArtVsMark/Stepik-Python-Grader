@@ -9,10 +9,11 @@
 
 ### Статус: ✅ Стабильный
 
-- Тестов: 523 (3 skipped)
-- Покрытие: 95%
+- Тестов: 572 (3 skipped)
+- Покрытие: 96%
 - Python: 3.12 / 3.13 / 3.14
-- CI: GitHub Actions (pytest + ruff), зелёный
+- CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
+  × 3.12/3.13 + ubuntu 3.14-experimental (Sprint D, 2026-07-03), зелёный
 - Эпик #18 (issues #19/#20/#21/#23) и issues #24/#25/#26 — закрыты, смержены в `main`
 - Issue #35 (Sprint 8.2, src/-layout) — закрыт (2026-07-03)
 
@@ -140,5 +141,48 @@ stepik-grader --version
 - [x] #37 — переименовать `diagnostik_stepik.py` → `diagnostic_stepik.py` (2026-07-03)
 - [x] #36 — `__version__` через `importlib.metadata.version()` (DRY, 2026-07-03)
 - [x] #35 — Sprint 8.2: `src/`-layout (`src/stepik_grader/`, console-script `stepik-grader`, 2026-07-03)
+- [x] #44 — Sprint A: заменить wildcard-импорты в `_build_call_wrapper` на явные (2026-07-03)
+- [x] #43 — Sprint A: best-effort `RLIMIT_AS` memory cap (`GraderConfig.max_memory_mb`,
+  POSIX-only); S-02 закрыт как дубликат S-01 — см. CHANGELOG (2026-07-03)
+- [x] #52 — Sprint B: убрать константы из `grader_core.__all__` (Q-03, 2026-07-03)
+- [x] #45 — Sprint B: A-02 (verbose_callback вместо импорта reporter), A-04
+  (`resolve_test_dir`/`rich_track`/`print_case_verbose` — убраны `_`-префиксы) (2026-07-03)
+- [x] #46 — Sprint B: A-03 — решено оставить `executor.py` как есть (не
+  test-only, не unified runner) — см. CLAUDE.md Sprint B.2 (2026-07-03)
+- [x] #47 — Sprint C: R-04 (`resolve_test_dir` → `str | None`), R-02 (голое
+  имя без вызова/присваивания → False), R-01 (диагностика таймаута
+  microbench — номер итерации; настоящий per-call таймаут не сделан, см.
+  CLAUDE.md Sprint C.3) (2026-07-03)
+- [x] #48 — Sprint C: R-03 (warning при смешанных форматах 3+1/2), R-05
+  (warning при NoSuchProcess в `_measure_peak_memory`) (2026-07-03)
+- [x] #49 — Sprint D: C-01 (Windows/macOS в CI-матрице), C-02 (mypy в CI +
+  dev-зависимостях, ~12 ошибок исправлено), Q-01 (mock-тесты для GitHub API
+  errors, `downloader.py` 98% → 99%) (2026-07-03)
+- [x] #50 — Sprint E: D-01 (i18n, ru/en), D-03 (`--verbose`/`--quiet`), D-04
+  (`--output json` для режимов 1-4), D-05 (содержательная диагностика
+  "тесты не найдены"); D-02 — устаревшее утверждение аудита,
+  CONTRIBUTING.md уже существовал (2026-07-03)
+- [x] #51 — Sprint E: P-01 (удалён `requirements.txt`), P-02 (верхние
+  границы зависимостей — скорректированы под реально установленные версии,
+  не буквально по issue), C-03 (`release.yml`, только GitHub Release, без
+  PyPI — нужен trusted publisher, который агент не настроит) (2026-07-03)
+- [x] #53 — Roadmap: `--output csv` (тот же механизм, что json) (2026-07-03)
+- [x] #54 — Roadmap: `--watch` для `--mode 1/2` (опциональная зависимость
+  `watchfiles`); перезапускает весь режим, не только изменённый файл
+  (2026-07-03)
+- [x] #58 (частично) — Roadmap: экспорт в Markdown (`--output markdown`);
+  Web UI / VS Code / PyPI — не взяты (2026-07-03)
+- [x] #45 A-01 — разбит `grader_core.py` (1200+ строк) на `test_loader.py`,
+  `mode_detector.py`, `wrapper_builder.py`; все 16 перенесённых имён
+  реэкспортированы из `grader_core.py` по имени — `__all__`/`grader.py`/
+  `cli.py` не изменились; правок тестов не потребовалось (агент
+  предварительно проверил, что monkeypatch/patch не целятся в эти имена)
+  (2026-07-03)
+- [ ] #55 — Roadmap: сравнение с `solution.py` Stepik как baseline
+- [ ] #56 — Roadmap: `.grader_cache/` — кэширование результатов
+- [ ] #57 — Roadmap: pytest-плагин (`pytest --grader-mode`) — по сути
+  отдельный пакет
+- [ ] #59 — Roadmap: Docker-sandbox, другие платформы, AI-подсказки
+  (нужен внешний API-ключ), дашборд прогресса (зависит от #56)
 - [ ] #38 — Glossary-Python: минимальная документация (отдельный репозиторий)
 - [ ] Расширить покрытие тестами (особенно `downloader.py`)

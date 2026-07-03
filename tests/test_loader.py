@@ -13,11 +13,11 @@ import pathlib
 
 from stepik_grader.grader import (
     TestCase,
-    _resolve_test_dir,
     collect_grouped_files,
     find_all_solution_files,
     load_test_cases,
     load_text_lines,
+    resolve_test_dir,
 )
 
 # ===========================================================================
@@ -143,7 +143,7 @@ class TestLoadTestCases:
 
 
 # ===========================================================================
-# _resolve_test_dir — поиск директории тестов для разных структур
+# resolve_test_dir — поиск директории тестов для разных структур
 # ===========================================================================
 
 
@@ -155,7 +155,7 @@ class TestResolveTestDir:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "tests").mkdir()
-        assert _resolve_test_dir(str(sol)) == str((tmp_path / "tests").resolve())
+        assert resolve_test_dir(str(sol)) == str((tmp_path / "tests").resolve())
 
     def test_python_generation_input_output_alongside(self, tmp_path: pathlib.Path) -> None:
         """Format 3 (input.txt + output.txt) рядом с решением → родительская папка."""
@@ -163,7 +163,7 @@ class TestResolveTestDir:
         sol.write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
         (tmp_path / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
-        assert _resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+        assert resolve_test_dir(str(sol)) == str(tmp_path.resolve())
 
     def test_python_generation_input_output_in_parent(self, tmp_path: pathlib.Path) -> None:
         """Format 3 на уровень выше решения (решение в подпапке)."""
@@ -175,7 +175,7 @@ class TestResolveTestDir:
         sol.write_text("print(1)\n", encoding="utf-8")
         (task_dir / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
         (task_dir / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
-        assert _resolve_test_dir(str(sol)) == str(task_dir.resolve())
+        assert resolve_test_dir(str(sol)) == str(task_dir.resolve())
 
     def test_clue_files_in_parent(self, tmp_path: pathlib.Path) -> None:
         """Legacy-формат: .clue-файлы в родительской папке решения."""
@@ -183,7 +183,17 @@ class TestResolveTestDir:
         sol.write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "1").write_text("1", encoding="utf-8")
         (tmp_path / "1.clue").write_text("1", encoding="utf-8")
-        assert _resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+        assert resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+
+    def test_returns_none_when_nothing_found(self, tmp_path: pathlib.Path) -> None:
+        """No tests/ subfolder, no stem folder, no Format 3, no .clue/input_N.txt.
+
+        Issue #47 R-04: previously fell through to a silent, non-existent
+        <parent>/tests/ path instead of signalling failure explicitly.
+        """
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        assert resolve_test_dir(str(sol)) is None
 
 
 # ===========================================================================

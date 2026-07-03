@@ -13,7 +13,9 @@
 ❌ НЕ удалять и НЕ переименовывать существующие публичные функции без PR
 ❌ НЕ ломать обратную совместимость __all__ в grader.py
 ❌ НЕ использовать Optional[X], List[X], Dict[X,Y] — проект на Python 3.12+
-❌ НЕ добавлять новые зависимости в requirements.txt без явного указания
+❌ НЕ добавлять новые зависимости в pyproject.toml без явного указания
+   (requirements.txt удалён — issue #51 P-01, pyproject.toml — единственный
+   источник; requirements.txt больше не существует, не воссоздавать)
 ❌ НЕ коммитить secrets.json, stepik_config.json, StepikTasks/
 ❌ НЕ запускать executor.py с untrusted-кодом — нет sandbox на уровне ОС
 ❌ НЕ трогать .github/workflows/ci.yml без явной задачи
@@ -56,7 +58,14 @@ Stepik-Python-Grader/
 │       │
 │       └── core/                 # Internal Infrastructure/Utility модули (Issue #23, #26)
 │           ├── __init__.py
-│           ├── grader_core.py    # Application: загрузка тест-кейсов, исполнение решений
+│           ├── grader_core.py    # Application: run_single_test/run_tests/run_benchmark/
+│           │                     # run_microbench_mode — исполнение и агрегация (Issue #45 A-01 ✅)
+│           ├── test_loader.py    # Application: обнаружение файлов-решений, загрузка
+│           │                     # тест-кейсов, resolve_test_dir (Issue #45 A-01 ✅)
+│           ├── mode_detector.py  # Application: детекция stdin/function
+│           │                     # (_detect_run_mode, is_function_only_solution) (Issue #45 A-01 ✅)
+│           ├── wrapper_builder.py # Application: генерация wrapper-скриптов
+│           │                     # (_build_function_wrapper, _build_call_wrapper) (Issue #45 A-01 ✅)
 │           ├── reporter.py       # Application/UI: rich-таблицы, _console, verbose-diff
 │           ├── executor.py       # Infrastructure: compile+exec в subprocess
 │           ├── microbench_runner.py  # Infrastructure: timeit через subprocess
@@ -79,8 +88,9 @@ Stepik-Python-Grader/
 ├── CHECKPOINT.md             # Состояние проекта: что сделано, что в работе
 ├── CHANGELOG.md              # История изменений
 ├── CONTRIBUTING.md           # Архитектура, форматы тестов, соглашения
-├── pyproject.toml            # ruff, pytest, зависимости, packages.find where=["src"]
-└── requirements.txt          # Runtime: requests, psutil, rich
+└── pyproject.toml            # ruff, mypy, pytest, зависимости (requests, psutil, rich),
+                               # packages.find where=["src"] — единственный источник
+                               # зависимостей (requirements.txt удалён, issue #51 P-01)
 ```
 
 ### Граф зависимостей (DAG, без циклов)
@@ -93,13 +103,20 @@ grader.py ──→ core/grader_core.py
 grader.py ──→ core/reporter.py
 grader.py ──→ cli.py
 
-core/grader_core.py ──→ core/reporter.py   # _print_case_verbose (run_tests verbose)
 core/grader_core.py ──→ config.py          # CONFIG (TIMEOUT_SECONDS и т.д.)
 core/grader_core.py ──→ core/executor.py
 core/grader_core.py ──→ core/microbench_runner.py
 core/grader_core.py ──→ core/normalizers.py
-core/grader_core.py ──→ core/parsers.py
-core/grader_core.py ──→ core/storage.py
+core/grader_core.py ──→ core/mode_detector.py    # Issue #45 A-01
+core/grader_core.py ──→ core/test_loader.py       # Issue #45 A-01
+core/grader_core.py ──→ core/wrapper_builder.py   # Issue #45 A-01
+
+core/test_loader.py ──→ config.py
+core/test_loader.py ──→ core/mode_detector.py     # _is_python_code_block, _detect_run_mode
+core/test_loader.py ──→ core/parsers.py
+
+core/mode_detector.py ──→ config.py
+core/mode_detector.py ──→ core/storage.py
 
 cli.py ──→ core/grader_core.py
 cli.py ──→ core/reporter.py
@@ -161,6 +178,35 @@ core/stepik_client.py ──→ core/storage.py
 > команда `stepik-grader`. Все 523 теста прошли без сюрпризов после
 > экзаустивного grep-аудита импортов перед миграцией.
 
+> Issue #45 A-02 (2026-07, Sprint B): устранён обратный импорт
+> `core/grader_core.py → core/reporter.py` (эта строка DAG выше). `run_tests()`
+> получил параметр `verbose_callback: Callable[[TestCase, dict], None] | None`;
+> печать verbose-кейса теперь ответственность вызывающей стороны — `cli.py`
+> передаёт `reporter.print_case_verbose` явно. `grader_core.py` больше не знает
+> о существовании `reporter.py`. A-04 (те же issue #45): `_resolve_test_dir` →
+> `resolve_test_dir` (grader_core.py), `_rich_track` → `rich_track`,
+> `_print_case_verbose` → `print_case_verbose` (оба — reporter.py); все три
+> добавлены в `__all__` своих модулей — `cli.py` больше не импортирует
+> приватные (`_`-префиксные) имена из других модулей. `grader.py`
+> backward-compat `__all__` не изменился.
+
+> Issue #45 A-01 (2026-07): `grader_core.py` (1200+ строк) разбит на
+> `test_loader.py` (обнаружение файлов-решений, `load_test_cases`,
+> `resolve_test_dir`), `mode_detector.py` (`_detect_run_mode`,
+> `is_function_only_solution`, `_is_python_code_block`) и
+> `wrapper_builder.py` (`_build_function_wrapper`, `_build_call_wrapper`).
+> `grader_core.py` сохранил `run_single_test`/`run_tests`/`run_benchmark`/
+> `run_microbench_mode` и реэкспортирует все 16 перенесённых имён по имени
+> (не через `import *`) — `__all__` grader_core.py, явный импорт-список
+> `grader.py` и импорты `cli.py` не изменились. Единственное направление
+> зависимости между новыми модулями: `test_loader.py → mode_detector.py`
+> (`load_test_cases` классифицирует Format-3 блоки через
+> `_is_python_code_block`; `_apply_run_mode_override` вызывает
+> `_detect_run_mode`) — циклов нет. Перед разбиением отдельный агент
+> проаудировал весь тестовый набор на предмет `monkeypatch`/`mock.patch`,
+> нацеленных на перемещаемые имена через `grader_core`/`cli` — таких не
+> нашлось, так что правки тестов не потребовались.
+
 ---
 
 ## ⚙️ ОКРУЖЕНИЕ И КОМАНДЫ
@@ -176,8 +222,7 @@ python -m venv .venv
 # macOS / Linux
 source .venv/bin/activate
 
-pip install -r requirements.txt
-pip install -e ".[dev]"   # pytest, ruff, pytest-cov
+pip install -e ".[dev]"   # requests/psutil/rich + pytest, pytest-cov, ruff, mypy
 ```
 
 ### Обязательные команды перед коммитом
@@ -192,7 +237,10 @@ ruff check .
 # 3. Форматтер (проверка, не правка)
 ruff format --check .
 
-# 4. Покрытие (информационно)
+# 4. Типизация (Sprint D / Issue #49 C-02, зеркалит шаг CI)
+mypy src/stepik_grader --ignore-missing-imports
+
+# 5. Покрытие (информационно)
 pytest tests/ --cov=. --cov-report=term-missing -q
 ```
 
@@ -650,6 +698,342 @@ stepik-grader --mode 4 --dir path/to/folder --number 1000 — режим 4, non-
 
 ---
 
+### 🔴 Sprint A — Безопасность (аудит v1.1.0, эпик #60) ✅ ЗАВЕРШЁН (2026-07-03)
+
+#### A.1 ✅ FIX — #44 (S-03): wildcard-импорты в `_build_call_wrapper`
+
+```
+Файл: core/grader_core.py, _build_call_wrapper()
+Было: from collections/datetime/itertools/functools import *
+Стало: явные импорты, покрывающие полное документированное публичное API
+       каждого модуля (не производный dir() — это исключило бы служебные
+       реэкспорты вроде functools.RLock/GenericAlias, не относящиеся к
+       типичным тест-блокам python-generation).
+Тесты: tests/test_grader_core.py — нет "import *" в сгенерированном
+       исходнике; решение, переопределяющее reduce()/chain(), не
+       перекрывается stdlib-версией (порядок копирования имён решения
+       в globals() уже гарантировал это и до фикса).
+```
+
+#### A.2 ✅ FIX — #43 (S-01): best-effort memory cap для дочернего процесса
+
+```
+Добавлено: GraderConfig.max_memory_mb (config.py, дефолт 1024)
+Добавлено: _make_memory_limiter() в core/grader_core.py и
+           core/microbench_runner.py (дублируется в обоих — grader_core
+           импортирует microbench_runner, не наоборот; кросс-импорт
+           создал бы цикл в DAG)
+Подключено: preexec_fn= в subprocess.Popen (run_single_test, режимы 1-3)
+            и subprocess.run (run_microbench, режим 4)
+```
+
+> POSIX-only (`resource.setrlimit(RLIMIT_AS, ...)`) — на Windows модуль
+> `resource` отсутствует, `_make_memory_limiter()` возвращает `None`,
+> `preexec_fn=None` не меняет поведение `Popen`. Тот же паттерн graceful
+> degradation, что и у `SIGALRM`-таймаута в `executor.py`. Работает в
+> Linux CI, не защищает Windows-запуски (основная личная среда этого
+> проекта) — задокументированное ограничение, не полноценный OS-sandbox
+> (по-прежнему нет изоляции ФС/сети).
+
+> **#43 (S-02) закрыт как дубликат S-01, не отдельный фикс.** `safe_input`/
+> `call_block` встраиваются в generated-код как выражения верхнего уровня,
+> а не внутри строкового литерала — вырваться из контекста через кавычки
+> невозможно, `shell=True` нигде не используется (subprocess вызывается
+> списком аргументов). Реальный риск — тот же, что в S-01: тест-контент по
+> формату обязан быть исполняемым Python-кодом, и это исполняется без
+> sandbox. Предложенный в issue вариант (env var вместо f-string) не снижает
+> риск (код всё равно `exec`-нётся) и добавляет риск обрезания на лимите
+> размера env var в Windows (~32KB) для многострочных тест-блоков — решено
+> не делать.
+
+---
+
+### 🟠 Sprint B — Архитектура (аудит v1.1.0, эпик #60) 🟡 ЧАСТИЧНО (2026-07-03)
+
+#### B.1 ✅ FIX — #45 A-02, A-04: layering и приватные кросс-модульные импорты
+
+```
+A-02: run_tests() → verbose_callback вместо прямого импорта reporter.
+A-04: _resolve_test_dir → resolve_test_dir, _rich_track → rich_track,
+      _print_case_verbose → print_case_verbose; все добавлены в __all__.
+```
+
+> См. примечание Issue #45 A-02/A-04 в разделе «Граф зависимостей» выше —
+> там же удалено ребро `core/grader_core.py → core/reporter.py` из DAG.
+
+#### B.2 ✅ РЕШЕНО (не код) — #46 A-03: судьба `executor.py`
+
+```
+Issue предлагал: (A) интегрировать как unified runner в grader_core.py,
+                  (B) перенести в tests/helpers/ как test-only утилиту.
+Решение: НИ ТО, НИ ДРУГОЕ — оставить как есть.
+```
+
+> (A) невозможен без регресса: `run_solution()` не измеряет память (psutil),
+> не поддерживает function-mode wrapper-файлы, и его `SIGALRM`-таймаут не
+> работает на Windows (основная среда разработки этого проекта) — тогда как
+> `run_single_test()` уже даёт всё это через `subprocess.communicate(timeout=)`,
+> кросс-платформенно. (B) ломает существующие тесты (`tests/test_executor.py`
+> запускает `executor.main()` в чистом subprocess через `python -c "from
+> stepik_grader.core import executor; ..."` — это требует, чтобы модуль
+> оставался частью УСТАНОВЛЕННОГО пакета `stepik_grader.core`, а не лежал в
+> `tests/helpers/`). `executor.py` остаётся тестируемым, но не
+> production-задействованным модулем — это уже было явно задокументировано в
+> его собственном докстринге до этого issue, статус-кво принят осознанно.
+
+#### B.3 ⏸️→✅ #45 A-01: разбить `grader_core.py` (700+ строк, SRP)
+
+```
+Issue предлагал: core/test_loader.py, core/mode_detector.py,
+                 core/wrapper_builder.py — извлечь из grader_core.py.
+```
+
+> Отложено в Sprint B (риск для качества при выполнении наравне с остальными
+> пунктами того же прохода) — сделано отдельным заходом после Sprint E и
+> roadmap-партии #53/#54/#58. См. примечание Issue #45 A-01 в разделе «Граф
+> зависимостей» выше — там детали разбиения и почему обошлось без правок
+> тестов.
+
+---
+
+### 🟠 Sprint C — Надёжность (аудит v1.1.0, эпик #60) ✅ ЗАВЕРШЁН (2026-07-03)
+
+#### C.1 ✅ FIX — #47 R-04: `resolve_test_dir()` больше не возвращает "призрачный" путь
+
+```
+Было: последняя строка — return str(candidate_tests), даже если is_dir()
+      выше уже вернул False (несуществующий путь возвращался молча).
+Стало: return None. cli.py (_run_mode_1/2/3) проверяет `is None` ПЕРЕД
+       pathlib.Path(...).is_dir() — иначе pathlib.Path(None) кидает TypeError.
+```
+
+#### C.2 ✅ FIX (узкий) — #47 R-02: голое имя без вызова/присваивания
+
+```
+Добавлено: если top-level тело блока — ровно один ast.Expr(ast.Name(...))
+           (например "x" или "print" целиком, без вызова/присваивания) —
+           _is_python_code_block() возвращает False.
+```
+
+> Намеренно узкая правка — НЕ переписывал общую эвристику "есть ли Name-узел".
+> Реальный python-generation корпус (523+ теста, включая
+> `test_integration_repos.py` против настоящих репозиториев) уже проходит на
+> текущей эвристике; более агрессивное "улучшение" рисковало сломать
+> классификацию контента, который нельзя полностью протестировать локально
+> (внешние репозитории). Голое имя без вызова/присваивания — единственный
+> AST-паттерн, который никогда не встречается в реальных call-block/
+> variable-declaration тест-блоках, поэтому фикс безопасен.
+
+#### C.3 🟡 ЧАСТИЧНО — #47 R-01: диагностика таймаута microbench
+
+```
+Добавлено: сообщение об ошибке при TimeoutExpired теперь включает
+           number=<N> (количество итераций на repeat) — единственная
+           содержательная подсказка, которая у нас реально есть.
+НЕ сделано: настоящий per-call таймаут внутри timeit.repeat().
+```
+
+> `run_microbench_with_timeout()` (Sprint 7.3, всё ещё не подключена) не
+> решает R-01: она оборачивает уже `subprocess.run(timeout=60)`-защищённый
+> вызов в `ThreadPoolExecutor`, что не даёт защиты (см. её собственный
+> докстринг) — и КОСВЕННО ухудшает картину: при реальном таймауте она не
+> убивает поток/подпроцесс, а просто перестаёт его ждать. Настоящий
+> per-call таймаут потребовал бы отказа от `timeit.repeat()` в пользу
+> ручного цикла с проверкой времени, либо `SIGALRM` — недоступного на
+> Windows (основная среда разработки этого проекта).
+
+#### C.4 ✅ FIX — #48 R-03, R-05: предупреждения вместо тихих fallback'ов
+
+```
+R-03: warnings.warn() в load_test_cases(), если Формат 3 (input.txt/
+      output.txt) используется, а рядом лежат "осиротевшие" файлы Формата 1/2
+      (N.clue / input_N.txt) — они молча игнорировались.
+R-05: warnings.warn() в _measure_peak_memory() при NoSuchProcess/
+      AccessDenied/ZombieProcess — peak=0.0 больше не неотличим от
+      "действительно использовал ~0 памяти".
+```
+
+---
+
+### 🟠 Sprint D — CI/CD и качество (аудит v1.1.0, эпик #60) ✅ ЗАВЕРШЁН (2026-07-03)
+
+#### D.1 ✅ FIX — #49 C-01: Windows/macOS runners в CI
+
+```
+Было: runs-on: ubuntu-latest (единственная ОС).
+Стало: matrix.os = [ubuntu-latest, windows-latest, macos-latest] для
+       Python 3.12/3.13. 3.14-experimental остаётся Ubuntu-only.
+```
+
+#### D.2 ✅ FIX — #49 C-02: mypy в CI
+
+```
+Добавлено: mypy>=1.10 в [project.optional-dependencies].dev.
+Добавлено: шаг "Type check" (mypy src/stepik_grader --ignore-missing-imports)
+           в .github/workflows/ci.yml, после ruff, перед pytest.
+```
+
+> Первый прогон mypy вскрыл ~12 ошибок — все устранены ПЕРЕД включением шага
+> в CI (иначе первый же коммит сломал бы CI):
+> - `grader_core.py:_read_meta_function_name` передавал `str(meta_path)` в
+>   `load_json_file()`, аннотированную как `pathlib.Path` — убран лишний
+>   `str()`, `meta_path` и так `pathlib.Path`.
+> - `cli.py` (`_run_mode_2/3/4`): `resolve_test_dir()`/
+>   `_resolve_test_dir_from_input()` теперь возвращают `str | None`
+>   (issue #47 R-04) — mypy корректно отследил, что `None` может утечь в
+>   `run_tests()`/`run_benchmark()`/`run_microbench_mode()`, которые ожидают
+>   `str`. Добавлены `assert ... is not None` (режимы 2/3 — после fallback,
+>   который на практике никогда не возвращает `None`) и явная `is None`
+>   проверка (режим 4 — там нет fallback, только `continue`).
+> - `executor.py` (`signal.alarm` × 2) и `grader_core.py`/
+>   `microbench_runner.py` (`resource.setrlimit`/`RLIMIT_AS` × 2, issue #43
+>   S-01) — точечные `# type: ignore[attr-defined]`: typeshed не включает эти
+>   атрибуты в стабы для win32, хотя вызовы уже защищены рантайм-проверками
+>   (`hasattr(signal, "SIGALRM")` / try-except `ImportError` на `resource`).
+>   На Linux/macOS CI-раннерах эти атрибуты реально существуют — `# type:
+>   ignore` там станет "unused", но `warn_unused_ignores` не включён, ошибкой
+>   это не станет.
+> - `reporter.py`: fallback-заглушка `rich_track()` (используется, когда
+>   `rich` не установлен) не совпадает по сигнатуре с настоящим
+>   `rich.progress.track` — `# type: ignore[misc]`, тот же паттерн, что уже
+>   применялся к заглушкам `Console`/`Table`/`Text` (`# type: ignore[no-redef]`).
+
+#### D.3 ✅ FIX — #49 Q-01: mock-тесты для ошибок GitHub API
+
+```
+Добавлено в tests/test_downloader.py (TestDownloadGithubTests):
+  - test_api_request_exception_returns_zero — requests.ConnectionError
+  - test_api_raise_for_status_error_returns_zero — raise_for_status() → 404/500
+  - test_no_recognized_files_returns_zero — файлы есть, но ни Формат 3,
+    ни N/N.clue не распознаны (branch `if not pairs`)
+```
+
+> Покрытие `downloader.py`: 98% → 99% (закрыты строки 465-467, 502-503 —
+> ранее непокрытые ветки обработки ошибок `_download_github_tests`).
+
+---
+
+### 🟡 Sprint E — UX/Документация/Зависимости (аудит v1.1.0, эпик #60) ✅ ЗАВЕРШЁН (2026-07-03)
+
+#### E.1 ✅ FIX — #51 D-01: i18n меню и CLI-сообщений
+
+```
+Добавлено: cli.py — _LANG (модульная переменная, дефолт "ru"), _MESSAGES
+           (словарь ключ → {"ru": ..., "en": ...}), _t(key, **kwargs).
+Добавлено: --lang {ru,en} в argparse (дефолт ru).
+```
+
+> Минимальный словарь вместо полноценного gettext — соразмерно масштабу
+> этого CLI (~30 сообщений). Тесты `tests/test_cli.py` (написаны ДО i18n)
+> проверяют английский текст напрямую — вместо дублирования ассертов на
+> двух языках добавлена autouse-фикстура `_force_english`, форсирующая
+> `cli._LANG = "en"` для всего файла. Новый файл
+> `tests/test_cli_sprint_e.py` проверяет реальный русский дефолт и
+> переключение `--lang` без этой фикстуры.
+
+#### E.2 ✅ FIX — #50 D-03: `--verbose`/`--quiet`
+
+```
+Добавлено: взаимоисключающая группа --verbose/--quiet в argparse.
+_run_mode_1(..., verbose: bool = True)   — дефолт как раньше, --quiet гасит.
+_run_mode_2(..., verbose: bool = False)  — дефолт как раньше, --verbose включает.
+Режимы 3/4 флаг игнорируют — там нет per-case verbose-вывода.
+```
+
+#### E.3 ✅ FIX — #50 D-04: `--output json`
+
+```
+Добавлено: --output {text,json} в argparse, применяется во всех 4 режимах.
+Схема: напрямую JSON-сериализуются уже существующие dict'ы run_tests()/
+       run_benchmark()/run_microbench_mode() — отдельная схема не
+       придумывалась (ключи "file"/"results"/"groups" в зависимости от
+       режима).
+```
+
+#### E.4 ✅ FIX — #50 D-05: содержательная диагностика "тесты не найдены"
+
+```
+Было (режим 1): "Test directory not found for: {solution}"
+Стало: "⚠️ Тесты не найдены для: {name}\n   Ожидалась папка: {expected}\n
+        Запустите: python -m stepik_grader.downloader\n   Или создайте
+        вручную: tests/1, tests/1.clue"
+```
+
+#### E.5 ✅ РЕШЕНО (уточнение аудита) — #50 D-02: CONTRIBUTING.md
+
+> `CONTRIBUTING.md` **уже существовал** на момент аудита (устаревшее
+> утверждение issue) — не было создано заново. Точечно исправлено то, что
+> ДЕЙСТВИТЕЛЬНО было устаревшим: "Python 3.10+" (везде в проекте — 3.12+),
+> отдельный шаг `pip install rich` как "опциональный" (rich уже обязательная
+> runtime-зависимость в `pyproject.toml`). Добавлен шаг `mypy` (появился в
+> Sprint D, после написания исходного CONTRIBUTING.md).
+
+#### E.6 ✅ FIX — #51 P-01: удалён `requirements.txt`
+
+```
+pyproject.toml — единственный источник зависимостей. README/CONTRIBUTING/
+CLAUDE.md обновлены (pip install -e . / -e ".[dev]" вместо -r requirements.txt).
+```
+
+#### E.7 ✅ FIX (скорректировано) — #51 P-02: верхние границы версий
+
+```
+requests>=2.34.2,<3.0
+psutil>=5.9,<8.0     # issue предлагал <7.0 — устарело, см. ниже
+rich>=13.0,<16.0     # issue не предлагал границу для rich — добавлена по аналогии
+```
+
+> Issue предлагал `psutil<7.0`, но в окружении уже установлен и используется
+> `psutil` 7.2.2 (и `rich` 15.0.0) — весь тестовый набор проходит именно с
+> ними. Буквальное следование предложению issue сломало бы `pip install
+> -e ".[dev]"` немедленно. Границы выставлены с запасом НАД реально
+> проверенными версиями, а не по устаревшему примеру из аудита.
+
+#### E.8 ✅ FIX — #51 C-03: `release.yml` (только GitHub Release)
+
+```
+.github/workflows/release.yml — триггер: push тега v*.
+Собирает sdist+wheel (python -m build), создаёт GitHub Release
+(softprops/action-gh-release@v2, generate_release_notes: true).
+```
+
+> PyPI-публикация НЕ включена: `pypa/gh-action-pypi-publish` требует
+> настроенного trusted publisher на pypi.org для этого проекта — это
+> одноразовая настройка, которую должен сделать владелец репозитория со
+> своим PyPI-аккаунтом, агент это не может сделать за него. Комментарий в
+> самом workflow объясняет, что добавить, когда trusted publisher появится.
+
+---
+
+### 🚀 Roadmap batch — #53, #54, #58 (частично) ✅ (2026-07-03)
+
+```
+#53 --output csv, #58 экспорт в Markdown — тот же механизм, что --output
+    json (Sprint E.3): _rows_to_csv()/_rows_to_markdown() в cli.py,
+    построчно из тех же словарей run_tests()/run_benchmark()/
+    run_microbench_mode(). Пишут в stdout (перенаправление шеллом), а не
+    сохраняют файл сами — issue #58 предлагал "сохраняет RESULTS.md", но
+    единообразие с json/csv (все в stdout) показалось важнее буквального
+    соответствия формулировке issue.
+
+#54 --watch — новая опциональная зависимость watchfiles
+    (pip install stepik-grader[watch]). Только для --mode 1/2 (--mode 3/4 —
+    parser.error). Перезапускает ВЕСЬ режим на любое изменение, не
+    вычисляет, какой именно файл изменился (issue предлагал "перезапускать
+    только изменённый файл" — для --mode 2 это потребовало бы сопоставлять
+    путь изменения с его собственной test_dir и печатать частичный
+    результат отдельно от уже напечатанной таблицы — решено не усложнять).
+```
+
+> #55 (сравнение с solution.py), #56 (`.grader_cache/`), #57 (pytest-плагин)
+> и остальная часть #58/#59 НЕ взяты в этот проход — каждая либо трогает
+> несколько модулей сразу (#55, #56), либо по сути отдельный
+> пакет/инфраструктура (#57 — pytest-плагин, #58 Web UI/VS Code/PyPI, #59
+> Docker-sandbox/другие платформы/AI-подсказки), либо требует внешнего
+> API-ключа (#59 AI-подсказки). Остаются в бэклоге, см. CHECKPOINT.md.
+
+---
+
 ## 📐 ФОРМАТЫ ТЕСТ-КЕЙСОВ
 
 ```
@@ -765,6 +1149,7 @@ except:
 [ ] pytest tests/ -x -q --tb=short   → все зелёные
 [ ] ruff check .                      → 0 ошибок
 [ ] ruff format --check .             → 0 ошибок
+[ ] mypy src/stepik_grader --ignore-missing-imports  → 0 ошибок (Sprint D)
 [ ] Новые функции имеют type hints и docstring
 [ ] Новые модули имеют __all__
 [ ] from __future__ import annotations в начале файла

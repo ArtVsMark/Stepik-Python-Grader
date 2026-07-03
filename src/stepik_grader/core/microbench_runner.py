@@ -53,6 +53,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+# resource — POSIX-only (RLIMIT_AS best-effort memory cap, issue #43 S-01).
+# На Windows модуль отсутствует; лимит памяти там не применяется — тот же
+# паттерн graceful degradation, что и в grader_core.py / executor.py.
+try:
+    import resource
+except ImportError:
+    resource = None  # type: ignore[assignment]
+
 ENCODING: str = "utf-8"
 SIMILAR_THRESHOLD_PERCENT = 5.0
 WARMUP_RUNS = 3
@@ -91,11 +99,40 @@ class MicrobenchResult:
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
+def _make_memory_limiter(max_memory_mb: int | None) -> Callable[[], None] | None:
+    """Вернуть preexec_fn, ограничивающий RLIMIT_AS дочернего процесса, или
+    None, если лимит недоступен/отключён.
+
+    Дублирует одноимённый helper из grader_core.py — грейдер сам импортирует
+    microbench_runner (не наоборот), поэтому кросс-импорт создал бы цикл в
+    DAG зависимостей; helper небольшой (POSIX-only best-effort защита,
+    issue #43 S-01), дублирование дешевле нарушения слойности.
+    """
+    if resource is None or max_memory_mb is None:
+        return None
+
+    limit_bytes = max_memory_mb * 1024 * 1024
+
+    def _limit() -> None:
+        # POSIX-only, typeshed excludes resource.setrlimit/RLIMIT_AS on win32.
+        # Best-effort: RLIMIT_AS is unreliable on macOS (setrlimit can fail
+        # even for a generous limit) and an uncaught exception here would
+        # abort the whole Popen() call, not just skip the cap (see the
+        # matching helper in grader_core.py for the full explanation).
+        try:
+            resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
+        except (ValueError, OSError):
+            pass
+
+    return _limit
+
+
 def run_microbench(
     source_code: str,
     *,
     stdin_data: str = "",
     number: int = 1000,
+    max_memory_mb: int | None = None,
 ) -> dict[str, Any]:
     """Запустить timeit-microbenchmark для исходного кода.
 
@@ -106,6 +143,9 @@ def run_microbench(
     это единственный надёжный кросс-платформенный способ передать путь к файлу
     в subprocess. delete_on_close=False (Python 3.12+) ведёт себя по-разному
     на Linux (удаляет при close) и Windows, и непригоден здесь.
+
+    max_memory_mb: best-effort лимит адресного пространства дочернего процесса
+        (RLIMIT_AS, POSIX-only; issue #43 S-01). None — без ограничения.
 
     Возвращает словарь с ключами:
         times          (list[float]) — список замеров (в секундах на итерацию)
@@ -174,6 +214,7 @@ def run_microbench(
                 text=True,
                 timeout=60,
                 encoding=ENCODING,
+                preexec_fn=_make_memory_limiter(max_memory_mb),
             )
             if result.returncode != 0:
                 return {"times": [], "error": result.stderr.strip(), "peak_memory_mb": 0.0}
@@ -184,7 +225,19 @@ def run_microbench(
             peak_mb = float(mem_lines[-1][len("MEM:") :]) / 1024 / 1024 if mem_lines else 0.0
             return {"times": times, "error": "", "peak_memory_mb": peak_mb}
         except subprocess.TimeoutExpired:
-            return {"times": [], "error": "microbench timeout", "peak_memory_mb": 0.0}
+            # issue #47 R-01: no per-call timeout exists inside the child (timeit.repeat
+            # runs number x 5 as one opaque call, so we can't report which iteration
+            # hung) -- surface the iteration count instead, the most useful thing we
+            # DO know, so a hang at number=50000 isn't indistinguishable from one at
+            # number=5.
+            return {
+                "times": [],
+                "error": (
+                    f"microbench timeout: exceeded 60s running number={number} "
+                    "iterations per repeat (5 repeats total)"
+                ),
+                "peak_memory_mb": 0.0,
+            }
         except (OSError, ValueError) as exc:
             # OSError: subprocess.run() couldn't spawn the child process.
             # ValueError: float(line) failed on unparseable subprocess stdout.

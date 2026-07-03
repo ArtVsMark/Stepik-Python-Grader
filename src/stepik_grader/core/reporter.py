@@ -25,13 +25,15 @@ __all__ = [
     "format_benchmark_row",
     "print_benchmark_header",
     "print_benchmark_results",
+    "print_case_verbose",
+    "rich_track",
 ]
 
 # rich — опциональная зависимость для цветного вывода таблиц и прогресс-баров.
 # При её отсутствии грейдер откатывается на простой текстовый вывод.
 try:
     from rich.console import Console
-    from rich.progress import track as _rich_track
+    from rich.progress import track as rich_track
     from rich.table import Table
     from rich.text import Text
 
@@ -53,7 +55,7 @@ except ImportError:  # pragma: no cover
     class Text:  # type: ignore[no-redef]
         pass
 
-    def _rich_track(sequence: Any, description: str = "") -> Any:  # noqa: ARG001
+    def rich_track(sequence: Any, description: str = "") -> Any:  # type: ignore[misc]  # noqa: ARG001
         return sequence
 
 
@@ -256,7 +258,7 @@ def _cprint(text: str, *, style: str = "") -> None:
         print(text)
 
 
-def _print_case_verbose(case: TestCase, r: dict[str, Any]) -> None:
+def print_case_verbose(case: TestCase, r: dict[str, Any]) -> None:
     """Подробный вывод одного тест-кейса (режим 1, verbose): вердикт + diff при WA."""
     passed = r["passed"]
     verdict = r.get("verdict", "AC" if passed else "WA")

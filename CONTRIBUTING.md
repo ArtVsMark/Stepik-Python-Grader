@@ -19,7 +19,12 @@ Stepik-Python-Grader/
 │       ├── downloader.py        # Загрузка задач/тестов со Stepik API
 │       ├── diagnostic_stepik.py # Диагностика и отладка API
 │       └── core/                # Все внутренние модули проекта
-│           ├── grader_core.py       # Загрузка тест-кейсов, исполнение решений
+│           ├── grader_core.py       # Исполнение (run_single_test/run_tests/
+│           │                       # run_benchmark/run_microbench_mode)
+│           ├── test_loader.py       # Обнаружение файлов-решений, загрузка тест-кейсов,
+│           │                       # resolve_test_dir (Issue #45 A-01)
+│           ├── mode_detector.py     # Детекция stdin/function (Issue #45 A-01)
+│           ├── wrapper_builder.py   # Генерация wrapper-скриптов (Issue #45 A-01)
 │           ├── reporter.py          # rich-таблицы, вывод, verbose-diff
 │           ├── executor.py          # Запуск кода из строки (run_solution)
 │           ├── microbench_runner.py # timeit-бенчмарк (run_microbench)
@@ -37,7 +42,10 @@ Stepik-Python-Grader/
 | Модуль | Слой | Зона ответственности |
 |---|---|---|
 | `grader.py` | Application | Фасад — реэкспортирует grader_core/reporter/cli |
-| `core/grader_core.py` | Application | Загрузка тест-кейсов, исполнение решений |
+| `core/grader_core.py` | Application | Исполнение тест-кейса в subprocess, агрегация статистики |
+| `core/test_loader.py` | Application | Обнаружение файлов-решений, загрузка тест-кейсов, resolve_test_dir |
+| `core/mode_detector.py` | Application | Детекция режима запуска (stdin vs function) |
+| `core/wrapper_builder.py` | Application | Генерация wrapper-скриптов для function-mode |
 | `core/reporter.py` | Application / UI | rich-таблицы, вердикты, verbose-diff |
 | `cli.py` | Application / CLI | Интерактивное меню, профили нагрузки |
 | `core/executor.py` | Infrastructure | Subprocess-запуск кода из строки |
@@ -87,7 +95,7 @@ Stepik-Python-Grader/
 
 ### Требования
 
-- Python 3.10+
+- Python 3.12+
 - Windows / macOS / Linux
 - `.venv` (рекомендуется)
 
@@ -98,16 +106,18 @@ python -m venv .venv
 .venv\Scripts\activate      # Windows
 # source .venv/bin/activate # macOS/Linux
 
-pip install -r requirements.txt
-pip install rich             # опционально — цветной вывод
-pip install -e .             # ОБЯЗАТЕЛЬНО (Issue #35, src-layout): без editable
-                              # install пакет stepik_grader не импортируется
-                              # и консольная команда stepik-grader не появится
-                              # на PATH. Также: cli.__version__ читается через
+pip install -e ".[dev]"      # runtime (requests/psutil/rich) + pytest/ruff/mypy
+                              # ОБЯЗАТЕЛЬНО editable (Issue #35, src-layout): без
+                              # него пакет stepik_grader не импортируется, и
+                              # консольная команда stepik-grader не появится на
+                              # PATH. Также: cli.__version__ читается через
                               # importlib.metadata из package-метаданных
                               # (Issue #36) — без editable install падает
                               # на fallback "0.0.0+unknown"
 ```
+
+> Нет отдельного `requirements.txt` — единственный источник зависимостей
+> `pyproject.toml` (issue #51 P-01, было дублирование).
 
 > После bump'а версии в `pyproject.toml` перезапусти `pip install -e .`,
 > иначе `cli.__version__`/`stepik-grader --version` останутся показывать
@@ -179,6 +189,7 @@ task_12.py     # двузначный суффикс
 - **Docstrings** для всех публичных функций (краткий формат Google-style)
 - **PEP 8** — форматирование через `ruff format` (настроен в `pyproject.toml`)
 - **Линтинг** через `ruff check`
+- **Типизация** через `mypy src/stepik_grader --ignore-missing-imports` (Sprint D, issue #49 C-02)
 - Все импорты в начале файла (никаких lazy imports без явной причины)
 - Константы модуля — в начале файла, до функций
 
@@ -189,8 +200,9 @@ task_12.py     # двузначный суффикс
 1. Создайте ветку: `git checkout -b feat/your-feature`
 2. Внесите изменения с тестами
 3. Прогоните `pytest tests/ -v`
-4. Прогоните `pre-commit run --all-files`
-5. Создайте Pull Request в `main`
+4. Прогоните `mypy src/stepik_grader --ignore-missing-imports`
+5. Прогоните `pre-commit run --all-files`
+6. Создайте Pull Request в `main`
 
 ### Правила коммитов (Conventional Commits)
 
