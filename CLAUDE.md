@@ -1130,18 +1130,18 @@ except:
 
 ---
 
-## 📊 МЕТРИКИ ПРОЕКТА (на момент v1.1.0)
+## 📊 МЕТРИКИ ПРОЕКТА (на момент v1.2.0)
 
 | Метрика | Значение |
 |---------|---------|
-| Версия | 1.1.0 (stable) |
+| Версия | 1.2.0 (stable) |
 | Python | 3.12 / 3.13 / 3.14 |
-| Тестов | 523 |
-| Покрытие | 95% |
+| Тестов | 591 |
+| Покрытие | 96% |
 | Строк (grader.py) | 93 (тонкий фасад — 7 исполняемых `Stmts` по pytest-cov, Sprint 7 ✅) |
 | Layout | src/-layout (`src/stepik_grader/`, Issue #35 / Sprint 8.2 ✅) |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
-| CI | GitHub Actions (pytest + ruff) |
+| CI | GitHub Actions (pytest + ruff + mypy) |
 
 ---
 

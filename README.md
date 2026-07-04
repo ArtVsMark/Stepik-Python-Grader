@@ -1,11 +1,11 @@
 # Stepik Python Grader
 
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-![Version](https://img.shields.io/badge/version-1.1.0-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
+![Version](https://img.shields.io/badge/version-1.2.0-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)
 
-> **Status:** Stable — v1.1.0
+> **Status:** Stable — v1.2.0
 
 > Локальный грейдер для курсов «Поколение Python» на Stepik.
 > Скачивает данные задачи с сайта и позволяет не только проверить решение локально, но и **сравнить несколько решений более честно**: сначала по корректности, потом по benchmark-метрикам.
@@ -160,7 +160,7 @@ Stepik-Python-Grader/
 │           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
 │           └── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов
-├── tests/                     # 523 теста (pytest)
+├── tests/                     # 591 тест (pytest)
 │   ├── test_analyzer.py
 │   ├── test_downloader.py
 │   ├── test_executor.py
@@ -760,7 +760,7 @@ python -m stepik_grader.diagnostic_stepik
 | Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
 | pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
 | Pre-commit хуки (ruff check + ruff format) | ❌ | ✅ |
-| Unit-тесты (520 тестов) | ❌ | ✅ |
+| Unit-тесты (591 тест) | ❌ | ✅ |
 | OAuth2-фасад (`oauth_flow.py`) | ❌ | ✅ |
 | GitHub Actions CI (pytest + ruff) | ❌ | ✅ |
 

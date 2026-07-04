@@ -2,10 +2,15 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-04
+
 Sprints A (Security), B (Architecture), C (Reliability), D (CI/CD & Quality),
 and E (UX/Docs/Deps) from the v1.1.0 audit epic #60: issues #43, #44, #45,
 #46, #47, #48, #49, #50, #51, #52. Plus three roadmap items from the same
-audit epic: #53, #54, #58 (partial).
+audit epic: #53, #54, #58 (partial). Plus the second audit round (docs
+`ISSUES_AND_VERSIONING.md` / `AUDIT_FULL_20260704.md`): issues #64 (UTF-8
+stdio), #65 (`python -m stepik_grader`), #66 (mode-4 `Py-heap` column), #68
+(versioning scheme + `scripts/version.py`).
 
 ### Changed
 - Split `core/grader_core.py` (1200+ lines) into `core/test_loader.py`
