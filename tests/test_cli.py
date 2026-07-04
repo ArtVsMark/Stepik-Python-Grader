@@ -384,3 +384,118 @@ class TestAskProfiles:
     def test_ask_micro_profile_invalid_falls_back_to_normal(self, monkeypatch) -> None:
         monkeypatch.setattr("builtins.input", lambda *a: "9")
         assert cli._ask_micro_profile() == 1_000
+
+
+# ---------------------------------------------------------------------------
+# _force_utf8_stdio — cp1251 crash fix in Git Bash (issue #64)
+# ---------------------------------------------------------------------------
+
+
+class _FakeStream:
+    """Минимальный stdout/stderr-дублёр с настраиваемой кодировкой."""
+
+    def __init__(self, encoding: str) -> None:
+        self.encoding = encoding
+        self.reconfigured: dict[str, object] | None = None
+
+    def reconfigure(self, **kwargs: object) -> None:
+        self.reconfigured = kwargs
+        self.encoding = str(kwargs.get("encoding", self.encoding))
+
+
+class TestForceUtf8Stdio:
+    def test_cp1251_stream_reconfigured_to_utf8(self, monkeypatch) -> None:
+        """cp1251-поток (Git Bash) переключается на UTF-8 с errors='replace'."""
+        out, err = _FakeStream("cp1251"), _FakeStream("cp1251")
+        monkeypatch.setattr(cli.sys, "stdout", out)
+        monkeypatch.setattr(cli.sys, "stderr", err)
+        cli._force_utf8_stdio()
+        assert out.reconfigured == {"encoding": "utf-8", "errors": "replace"}
+        assert err.reconfigured == {"encoding": "utf-8", "errors": "replace"}
+
+    def test_utf8_stream_left_untouched(self, monkeypatch) -> None:
+        """Уже-UTF-8 поток не трогаем (никаких лишних reconfigure)."""
+        out = _FakeStream("utf-8")
+        monkeypatch.setattr(cli.sys, "stdout", out)
+        monkeypatch.setattr(cli.sys, "stderr", _FakeStream("UTF-8"))
+        cli._force_utf8_stdio()
+        assert out.reconfigured is None
+
+    def test_stream_without_reconfigure_is_noop(self, monkeypatch) -> None:
+        """Поток без .reconfigure (например, перехваченный) не роняет процесс."""
+
+        class _Bare:
+            encoding = "cp1251"
+
+        monkeypatch.setattr(cli.sys, "stdout", _Bare())
+        monkeypatch.setattr(cli.sys, "stderr", _Bare())
+        cli._force_utf8_stdio()  # не должно бросить AttributeError
+
+    def test_main_calls_force_utf8(self, monkeypatch) -> None:
+        """main() вызывает _force_utf8_stdio до разбора аргументов."""
+        called = []
+        monkeypatch.setattr(cli, "_force_utf8_stdio", lambda: called.append(True))
+        monkeypatch.setattr(cli, "_interactive_menu", lambda: None)
+        cli.main([])
+        assert called == [True]
+
+
+# ---------------------------------------------------------------------------
+# python -m stepik_grader (issue #65)
+# ---------------------------------------------------------------------------
+
+
+class TestPackageMainEntryPoint:
+    def test_python_m_stepik_grader_version(self) -> None:
+        """`python -m stepik_grader --version` печатает версию и завершается 0."""
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-m", "stepik_grader", "--version"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert cli.__version__ in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Mode 4 memory column methodology footnote (issue #66)
+# ---------------------------------------------------------------------------
+
+
+class TestMode4MemoryFootnote:
+    def _bench(self, paths, test_dir, *, number=1000):
+        return {
+            paths[0]: {
+                "min": 0.001,
+                "median": 0.002,
+                "mean": 0.002,
+                "max": 0.003,
+                "stdev": 0.0,
+                "runs": 5,
+                "peak_memory_mb": 0.0,
+                "relative": 1.0,
+                "verdict": "SIMILAR",
+            }
+        }
+
+    def test_footnote_printed_once_after_table(
+        self, tmp_path: pathlib.Path, capsys, monkeypatch
+    ) -> None:
+        (tmp_path / "task1.py").write_text("print(1)\n", encoding="utf-8")
+        (tmp_path / "tests").mkdir()
+        monkeypatch.setattr(cli, "run_microbench_mode", self._bench)
+        cli._run_mode_4(str(tmp_path), 500)
+        out = capsys.readouterr().out
+        # Сноска о методике Py-heap появляется ровно один раз.
+        assert out.count("Py-heap") >= 1
+        assert "tracemalloc" in out
+
+    def test_no_footnote_in_json_output(self, tmp_path: pathlib.Path, capsys, monkeypatch) -> None:
+        (tmp_path / "task1.py").write_text("print(1)\n", encoding="utf-8")
+        (tmp_path / "tests").mkdir()
+        monkeypatch.setattr(cli, "run_microbench_mode", self._bench)
+        cli._run_mode_4(str(tmp_path), 500, output="json")
+        assert "tracemalloc" not in capsys.readouterr().out

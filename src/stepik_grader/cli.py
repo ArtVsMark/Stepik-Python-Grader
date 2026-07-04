@@ -33,6 +33,7 @@ import io
 import json
 import os
 import pathlib
+import sys
 from collections.abc import Callable
 from typing import Any
 
@@ -190,6 +191,21 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "en": "  ⚠ No test cases found in: {test_dir}",
     },
     "no_results": {"ru": "  Нет результатов.", "en": "  No results."},
+    # issue #66: колонка "Py-heap" в режиме 4 — это tracemalloc (пик Python-
+    # объектов), а не RSS процесса; для function-блоков берётся RSS. Сноска
+    # честно проговаривает смешанную методику.
+    "micro_mem_note": {
+        "ru": (
+            "  * Py-heap — пик Python-heap (tracemalloc) для stdin-блоков / RSS "
+            "для function-блоков;\n"
+            "    tracemalloc не видит аллокации C-расширений (numpy и т.п.)."
+        ),
+        "en": (
+            "  * Py-heap — peak Python-heap (tracemalloc) for stdin blocks / RSS "
+            "for function blocks;\n"
+            "    tracemalloc does not see C-extension allocations (numpy, etc.)."
+        ),
+    },
     "watch_dependency_missing": {
         "ru": ('--watch требует пакет watchfiles: pip install "stepik-grader[watch]"'),
         "en": ('--watch requires the watchfiles package: pip install "stepik-grader[watch]"'),
@@ -526,6 +542,7 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
     machine_output = output != "text"
     json_results: dict[str, dict[str, Any]] = {}
     table_rows: list[dict[str, Any]] = []
+    printed_table = False
 
     for folder, paths in sorted(grouped.items()):
         if folder != ".":
@@ -577,7 +594,10 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
 
         if ok_rows:
             ranked = sorted(ok_rows.items(), key=lambda x: x[1]["median"])
-            print_benchmark_results(ranked, directory, col_file=col)
+            # issue #66: режим 4 меряет Python-heap (tracemalloc), не RSS —
+            # подпись колонки обязана это отражать.
+            print_benchmark_results(ranked, directory, col_file=col, memory_header="Py-heap")
+            printed_table = True
 
         for path, data in sorted(bench.items()):
             if data.get("error"):
@@ -591,6 +611,10 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
         print(json.dumps({"groups": json_results}, ensure_ascii=False))
     elif output in ("csv", "markdown"):
         _print_tabular(output, table_rows, _MODE4_FIELDS)
+    elif printed_table:
+        # issue #66: сноска о методике "Py-heap" печатается один раз под всеми
+        # группами, а не под каждой таблицей.
+        print(_t("micro_mem_note"))
 
 
 def _interactive_menu() -> None:
@@ -742,6 +766,27 @@ def _watch_and_rerun(watch_path: str, rerun: Callable[[], None]) -> None:
         pass
 
 
+def _force_utf8_stdio() -> None:
+    """Принудительно переключить stdout/stderr на UTF-8.
+
+    Git Bash / cmd на Windows по умолчанию используют cp1251 — rich-вывод
+    (рамки таблиц, ✓/✗, кириллица) роняет процесс с UnicodeEncodeError.
+    ``errors="replace"`` гарантирует отсутствие краша даже на терминалах,
+    которые не могут отобразить конкретный символ. Убирает необходимость
+    в ручном ``PYTHONIOENCODING=utf-8`` от пользователя (issue #64).
+
+    No-op на потоках без ``reconfigure`` (например, перехваченных pytest
+    или уже находящихся в UTF-8).
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        enc = (getattr(stream, "encoding", "") or "").lower()
+        if enc not in {"utf-8", "utf8"}:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> None:
     """Точка входа CLI: argparse для non-interactive режимов, иначе меню.
 
@@ -757,6 +802,8 @@ def main(argv: list[str] | None = None) -> None:
     явный список используется в тестах, чтобы не зависеть от sys.argv
     (который во время pytest содержит аргументы самого pytest).
     """
+    _force_utf8_stdio()
+
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
 

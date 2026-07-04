@@ -276,7 +276,10 @@ stepik-grader --mode 3 --dir path/to/folder --repeats 15    # режим 3 (по
 stepik-grader --mode 4 --dir path/to/folder --number 1000   # режим 4 (по умолчанию 1000)
 ```
 
-Эквивалентно через `python -m`: `python -m stepik_grader.grader --version` и т.д.
+Эквивалентно через `python -m`: `python -m stepik_grader --version` или
+`python -m stepik_grader.grader --version` и т.д. (пакет содержит
+`__main__.py`, поэтому короткая форма `python -m stepik_grader` работает —
+issue #65).
 
 Без `--mode` показывается обычное интерактивное меню.
 
@@ -515,6 +518,12 @@ module1/task1/task1_2.py     25  0.0257  0.0271  0.0273  0.0301   0.0013   24.80
 ### Режим 4 — Micro-bench (timeit)
 
 Замеряет время через `timeit.timeit` внутри одного процесса — без накладных расходов на запуск интерпретатора. Поддерживает script-style (с `input()`) и function-only решения.
+
+> **Колонка `Py-heap` (не `Memory`).** В отличие от режима 3 (RSS через psutil),
+> режим 4 для stdin-блоков меряет пик **Python-heap через `tracemalloc`**, а для
+> function-блоков — RSS. Это два разных метода в одной колонке, поэтому она
+> называется `Py-heap`, а не `Memory`. `tracemalloc` не видит аллокации
+> C-расширений (numpy и т.п.) — для чистого Python это приемлемо (issue #66).
 
 **Количество вызовов (calls per run):**
 

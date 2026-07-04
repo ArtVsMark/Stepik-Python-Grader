@@ -24,6 +24,15 @@ audit epic: #53, #54, #58 (partial).
   test files needed changes for the move itself (issue #45 A-01)
 
 ### Added
+- `src/stepik_grader/__main__.py` — `python -m stepik_grader` now works as a
+  shortcut for `python -m stepik_grader.grader` / the `stepik-grader` console
+  script, delegating to the same `cli.main()`. Expected for an installed
+  package with a console entry point (issue #65)
+- `_force_utf8_stdio()` in `cli.main()` — reconfigures `stdout`/`stderr` to
+  UTF-8 with `errors="replace"` at startup, fixing `UnicodeEncodeError` when
+  running under Git Bash / cmd with a cp1251 code page. Removes the need for a
+  manual `PYTHONIOENCODING=utf-8`. No-op on streams already in UTF-8 or
+  without `reconfigure` (e.g. captured by pytest) (issue #64)
 - `--output csv`/`--output markdown` for all four modes -- same underlying
   data as `--output json`, flattened to one row per file/test-case (issue
   #53, issue #58's "export to Markdown" idea)
@@ -91,6 +100,15 @@ audit epic: #53, #54, #58 (partial).
   issue #49 Q-01)
 
 ### Changed
+- Mode 4 (micro-bench) memory column renamed from `Memory` to `Py-heap`.
+  Mode 4 measures peak Python-heap via `tracemalloc` for stdin blocks (and
+  RSS for function blocks), not process RSS like mode 3 — the shared header
+  now reflects the measurement method instead of implying RSS. Added a
+  one-line footnote under the mode-4 table and a README note; mode 3 keeps its
+  RSS-based `Memory` column unchanged. Implemented via a `memory_header`
+  parameter (default `"Memory"`) on `print_benchmark_header`/
+  `print_benchmark_results`, so mode 3 call sites and existing reporter tests
+  are unaffected (issue #66)
 - `core/grader_core.py::_build_call_wrapper` — replaced
   `from collections/datetime/itertools/functools import *` with explicit
   imports covering each module's full documented public API. Removes the
