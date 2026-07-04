@@ -202,49 +202,120 @@ stepik_diagnostics/
 
 ## Установка
 
-### 1. Клонировать репозиторий
+> **Коротко для новичка:** если просто хочешь пользоваться — ставь через
+> **`pipx`** (Способ A): он сам всё изолирует и добавит команду в PATH, никаких
+> `venv` и `activate`. Способ B (из исходников) нужен только если будешь менять
+> код.
+
+### Требования
+
+- **Python 3.12 или 3.13.** Версия 3.14 — экспериментальная (может ломаться),
+  ставь её только осознанно. Проверить свою версию: `python --version`.
+- **Git** — только для установки из исходников.
+
+---
+
+### Способ A — через pipx (рекомендуется, если просто пользоваться)
+
+[pipx](https://pipx.pypa.io) ставит CLI-инструмент в отдельное окружение и сам
+прописывает команду в PATH — не нужно ни `venv`, ни `activate`.
+
+```bash
+python -m pip install --user pipx
+python -m pipx ensurepath      # один раз добавляет pipx в PATH — ПЕРЕЗАПУСТИ терминал после этого
+pipx install git+https://github.com/ArtVsMark/Stepik-Python-Grader.git
+```
+
+Проверь, что всё встало:
+
+```bash
+stepik-grader --version        # должно напечатать 1.2.0
+```
+
+> Когда пакет появится на PyPI (issue #70), установка упростится до
+> `pipx install stepik-python-grader`.
+
+---
+
+### Способ B — из исходников (для разработки / изменения кода)
+
+**Шаг 1. Клонировать репозиторий:**
 
 ```bash
 git clone https://github.com/ArtVsMark/Stepik-Python-Grader.git
 cd Stepik-Python-Grader
 ```
 
-### 2. Создать виртуальное окружение
+**Шаг 2. Создать виртуальное окружение:**
 
 ```bash
-# Windows
 python -m venv .venv
-.venv\Scripts\activate
+```
 
+**Шаг 3. Активировать окружение:**
+
+```bash
 # macOS / Linux
-python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Установить зависимости
-
-```bash
-pip install -e .             # runtime-зависимости (requests, psutil, rich) из pyproject.toml
+```powershell
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
 ```
 
-Для разработки (линтер, типизация, тесты):
+> ⚠️ **Windows: «выполнение сценариев отключено в этой системе»
+> (PSSecurityException)?** PowerShell по умолчанию блокирует активацию venv.
+> Два выхода:
+>
+> 1. **Разрешить скрипты для своего пользователя (один раз):**
+>    ```powershell
+>    Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+>    ```
+>    затем снова `.venv\Scripts\Activate.ps1`.
+> 2. **Или не активировать вообще** — звать интерпретатор из venv напрямую:
+>    ```powershell
+>    .venv\Scripts\python.exe -m pip install -e .
+>    .venv\Scripts\python.exe -m stepik_grader
+>    ```
+>
+> ❗ **Не пропускай активацию, если ставишь просто `pip install -e .`** — иначе
+> пакет уедет в *глобальный* Python, а не в venv, и команда `stepik-grader`
+> может «не найтись» (её каталог не в PATH). В любом случае надёжный запуск —
+> `python -m stepik_grader` (работает всегда, см. «Быстрый старт»).
+
+**Шаг 4. Установить зависимости:**
 
 ```bash
-pip install -e ".[dev]"      # плюс pytest, pytest-cov, ruff, mypy
+pip install -e .             # рантайм: requests, psutil, rich
+```
+
+Для разработки (тесты, линтер, типизация):
+
+```bash
+pip install -e ".[dev]"      # + pytest, pytest-cov, ruff, mypy
+```
+
+**Шаг 5. Проверить установку:**
+
+```bash
+python -m stepik_grader --version   # 1.2.0
 ```
 
 > Проект использует src-layout (`src/stepik_grader/`, Issue #35) — модули
-> запускаются только как пакет (`python -m stepik_grader.X`) или через
-> консольную команду `stepik-grader`, установленную `pip install -e .`.
-> Прямой запуск `python grader.py` из корня репозитория больше не работает.
+> запускаются только как пакет (`python -m stepik_grader`) или командой
+> `stepik-grader` (если её каталог в PATH). Прямого `python grader.py` из корня
+> репозитория нет.
 
 ---
 
 ## Быстрый старт
 
+Запусти интерактивное меню:
+
 ```bash
-python -m stepik_grader.grader
-# или, после pip install -e .:
+python -m stepik_grader       # надёжный способ: работает даже если stepik-grader не в PATH
+# или короче, если команда в PATH (Способ A / активированный venv):
 stepik-grader
 ```
 
@@ -263,6 +334,52 @@ stepik-grader
 ==================================================
 Выберите режим [0-4]:
 ```
+
+### Первый пример за 2 минуты (шаг за шагом)
+
+Проверим простое решение «прибавь 1 к числу» без Stepik — вручную.
+
+**Шаг 1. Создай файл решения** `task.py` в любой папке:
+
+```python
+# task.py
+n = int(input())
+print(n + 1)
+```
+
+**Шаг 2. Рядом создай папку `tests/` с одной парой файлов** — вход и ожидаемый
+вывод. Имя файла со входом — просто число, ожидаемый вывод — то же имя с
+`.clue`:
+
+```
+task.py
+tests/
+  1          ← содержимое: 4      (это подаётся решению на stdin)
+  1.clue     ← содержимое: 5      (это ожидаемый вывод)
+```
+
+> То есть: файл `tests/1` содержит строку `4`, файл `tests/1.clue` — строку `5`.
+> Можно добавить ещё кейсы: `tests/2` + `tests/2.clue`, и так далее.
+
+**Шаг 3. Запусти проверку одного решения (режим 1):**
+
+```bash
+python -m stepik_grader --mode 1 --file task.py
+```
+
+**Шаг 4. Прочитай результат.** Колонка `Passed` покажет `1/1`, статус — `OK`:
+
+```
+File        Passed   Total time   Avg time   Memory, MB   Status   Fail test
+task.py       1/1       0.0123     0.0123         4.20       OK           -
+```
+
+Если вывод решения не совпадёт с `.clue`, статус будет `FAIL`, а с флагом
+`--verbose` грейдер покажет построчный diff «ожидалось / получено».
+
+> **Откуда брать тесты для реальных задач Stepik?** Их можно скачать
+> автоматически — см. раздел [Работа с API Stepik](#работа-с-api-stepik) ниже.
+> Формат папки `tests/` при этом тот же самый.
 
 ### Non-interactive запуск (CLI-флаги)
 
