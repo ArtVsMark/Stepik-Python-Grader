@@ -5,12 +5,12 @@
 
 ---
 
-## Текущая версия: 1.2.0 (2026-07-04)
+## Текущая версия: 1.3.0 (2026-07-04)
 
 ### Статус: ✅ Стабильный
 
-- Тестов: 591
-- Покрытие: 96%
+- Тестов: 599
+- Покрытие: 95%
 - Python: 3.12 / 3.13 / 3.14
 - CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
   × 3.12/3.13 + ubuntu 3.14-experimental (Sprint D, 2026-07-03), зелёный
@@ -21,6 +21,11 @@
 - Второй раунд аудита (2026-07-04): #64 (UTF-8 stdio), #65
   (`python -m stepik_grader`), #66 (колонка `Py-heap` в режиме 4), #68
   (схема версионирования + `scripts/version.py`) — вошли в v1.2.0 (PR #76)
+- Эпик #80 (onboarding/UX, 2026-07-04): #79 (файловый диалог), README для
+  новичков (ExecutionPolicy/pipx/пошаговый старт), таблица версий, #70 (PyPI
+  trusted publishing в `release.yml`) — вошли в v1.3.0 (PR #77/#81/#82).
+  #78 (standalone .exe) закрыт как нежизнеспособный (frozen `sys.executable`);
+  ручной шаг настройки PyPI — issue #83
 
 ---
 
