@@ -5,6 +5,16 @@
 Onboarding/UX epic #80 (feedback from a from-scratch install run on Windows).
 
 ### Added
+- PyPI publishing via OIDC trusted publishing (issue #70): a `pypi-publish`
+  job in `release.yml` that builds sdist+wheel and uploads to PyPI on every
+  `v*` tag, with no stored token/secret (`id-token: write`, `environment:
+  pypi`). Independent of the GitHub Release job (`needs: release` only orders
+  it) so a not-yet-configured trusted publisher fails only this job, not the
+  Release. Requires a one-time manual setup by a repo owner on pypi.org
+  (documented in the workflow); a commented TestPyPI dry-run step is included.
+  Unblocks `pipx install stepik-python-grader` (superseded standalone-`.exe`
+  idea #78, closed as not-viable — the grader runs solutions via
+  `sys.executable`, which a frozen binary can't provide)
 - File-dialog fallback (issue #79): when a mode needs a path and none is given
   — empty input in the interactive menu, or `--mode N` without `--file`/`--dir`
   — the grader opens a native `tkinter` file/folder picker instead of failing.
@@ -13,7 +23,17 @@ Onboarding/UX epic #80 (feedback from a from-scratch install run on Windows).
   previous text behaviour when `tkinter` is absent or headless (no display).
   No new dependency — `tkinter` ships with CPython
 
+### Fixed
+- `stepik_config.json.example` used the owner's personal `root_dir` value
+  `"P2.2"` (the folder ignored by the `P2.2/` line in `.gitignore`) instead of
+  the documented default. Now `"StepikTasks"` — matches
+  `downloader.DEFAULT_ROOT_DIR`, README and CLAUDE.md, and works as-is
+
 ### Docs
+- Version-evolution comparison table in README (v1.0.0 → v1.1.0 → v1.2.0) —
+  fundamental shifts per release (code layout, launch, CLI, CI, security,
+  distribution, versioning), not a per-feature list; plus a note on why MAJOR
+  stays `1`
 - Beginner-proof install in README (part of epic #80): split into `pipx`
   (recommended for just-use) vs. from-source (venv) paths, an explicit Windows
   PowerShell ExecutionPolicy (`PSSecurityException`) warning with three ways
