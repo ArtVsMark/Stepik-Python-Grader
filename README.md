@@ -1,11 +1,11 @@
 # Stepik Python Grader
 
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-![Version](https://img.shields.io/badge/version-1.1.0-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
+![Version](https://img.shields.io/badge/version-1.2.0-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)
 
-> **Status:** Stable — v1.1.0
+> **Status:** Stable — v1.2.0
 
 > Локальный грейдер для курсов «Поколение Python» на Stepik.
 > Скачивает данные задачи с сайта и позволяет не только проверить решение локально, но и **сравнить несколько решений более честно**: сначала по корректности, потом по benchmark-метрикам.
@@ -160,7 +160,7 @@ Stepik-Python-Grader/
 │           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
 │           └── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов
-├── tests/                     # 523 теста (pytest)
+├── tests/                     # 591 тест (pytest)
 │   ├── test_analyzer.py
 │   ├── test_downloader.py
 │   ├── test_executor.py
@@ -276,7 +276,10 @@ stepik-grader --mode 3 --dir path/to/folder --repeats 15    # режим 3 (по
 stepik-grader --mode 4 --dir path/to/folder --number 1000   # режим 4 (по умолчанию 1000)
 ```
 
-Эквивалентно через `python -m`: `python -m stepik_grader.grader --version` и т.д.
+Эквивалентно через `python -m`: `python -m stepik_grader --version` или
+`python -m stepik_grader.grader --version` и т.д. (пакет содержит
+`__main__.py`, поэтому короткая форма `python -m stepik_grader` работает —
+issue #65).
 
 Без `--mode` показывается обычное интерактивное меню.
 
@@ -516,6 +519,12 @@ module1/task1/task1_2.py     25  0.0257  0.0271  0.0273  0.0301   0.0013   24.80
 
 Замеряет время через `timeit.timeit` внутри одного процесса — без накладных расходов на запуск интерпретатора. Поддерживает script-style (с `input()`) и function-only решения.
 
+> **Колонка `Py-heap` (не `Memory`).** В отличие от режима 3 (RSS через psutil),
+> режим 4 для stdin-блоков меряет пик **Python-heap через `tracemalloc`**, а для
+> function-блоков — RSS. Это два разных метода в одной колонке, поэтому она
+> называется `Py-heap`, а не `Memory`. `tracemalloc` не видит аллокации
+> C-расширений (numpy и т.п.) — для чистого Python это приемлемо (issue #66).
+
 **Количество вызовов (calls per run):**
 
 | # | Режим | Вызовов |
@@ -751,7 +760,7 @@ python -m stepik_grader.diagnostic_stepik
 | Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
 | pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
 | Pre-commit хуки (ruff check + ruff format) | ❌ | ✅ |
-| Unit-тесты (520 тестов) | ❌ | ✅ |
+| Unit-тесты (591 тест) | ❌ | ✅ |
 | OAuth2-фасад (`oauth_flow.py`) | ❌ | ✅ |
 | GitHub Actions CI (pytest + ruff) | ❌ | ✅ |
 

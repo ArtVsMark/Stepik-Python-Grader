@@ -124,13 +124,21 @@ def format_benchmark_row(path: str, base_dir: str, data: dict[str, Any], *, col_
     )
 
 
-def print_benchmark_header(*, col_file: int) -> None:
-    """Напечатать заголовок benchmark-таблицы для режимов 3 и 4."""
+def print_benchmark_header(*, col_file: int, memory_header: str = "Memory") -> None:
+    """Напечатать заголовок benchmark-таблицы для режимов 3 и 4.
+
+    memory_header — подпись колонки памяти. Режим 3 (``run_benchmark``)
+    всегда меряет RSS через psutil → ``"Memory"``. Режим 4
+    (``run_microbench_mode``) для stdin-блоков меряет пик Python-heap через
+    tracemalloc, а не RSS → ``"Py-heap"``: одна колонка, разные методики,
+    поэтому подпись обязана отражать методику, а не подразумевать RSS
+    (issue #66).
+    """
     print(_SEP)
     print(
         f"{'File':<{col_file}} {'Runs':>4}  "
         f"{'Min':>10}  {'Median':>10}  {'Mean':>10}  {'Max':>10}  "
-        f"{'Std dev':>10}  {'Memory':>9}  {'Relative':>8}  {'Verdict'}"
+        f"{'Std dev':>10}  {memory_header:>9}  {'Relative':>8}  {'Verdict'}"
     )
     print(_SEP)
 
@@ -205,8 +213,13 @@ def print_benchmark_results(
     *,
     col_file: int,
     title: str = "",
+    memory_header: str = "Memory",
 ) -> None:
-    """Напечатать benchmark-таблицу (rich при наличии, иначе plain-text)."""
+    """Напечатать benchmark-таблицу (rich при наличии, иначе plain-text).
+
+    memory_header — подпись колонки памяти, см. print_benchmark_header
+    (issue #66): ``"Memory"`` (RSS, режим 3) или ``"Py-heap"`` (режим 4).
+    """
     if _RICH and _console is not None:
         table = Table(title=title or None, show_lines=False)
         table.add_column("File", style="cyan", no_wrap=True)
@@ -217,7 +230,7 @@ def print_benchmark_results(
             ("Mean", 10),
             ("Max", 10),
             ("Std dev", 10),
-            ("Memory", 9),
+            (memory_header, 9),
         ]:
             table.add_column(name, justify="right", min_width=mw)
         table.add_column("Relative", justify="right", min_width=8)
@@ -240,7 +253,7 @@ def print_benchmark_results(
         _console.print(table)
         return
 
-    print_benchmark_header(col_file=col_file)
+    print_benchmark_header(col_file=col_file, memory_header=memory_header)
     for path, data in rows:
         print(format_benchmark_row(path, base_dir, data, col_file=col_file))
 

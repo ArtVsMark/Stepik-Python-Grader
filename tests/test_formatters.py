@@ -159,6 +159,14 @@ class TestPrintHeaders:
         out = capsys.readouterr().out
         assert "File" in out
         assert "Median" in out
+        assert "Memory" in out  # default RSS label (mode 3)
+
+    def test_benchmark_header_custom_memory_label(self, capsys) -> None:
+        """issue #66: режим 4 передаёт memory_header='Py-heap' (tracemalloc)."""
+        print_benchmark_header(col_file=25, memory_header="Py-heap")
+        out = capsys.readouterr().out
+        assert "Py-heap" in out
+        assert "Memory" not in out
 
 
 # ---------------------------------------------------------------------------

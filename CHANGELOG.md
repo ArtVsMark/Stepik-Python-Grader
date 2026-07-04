@@ -2,10 +2,15 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-04
+
 Sprints A (Security), B (Architecture), C (Reliability), D (CI/CD & Quality),
 and E (UX/Docs/Deps) from the v1.1.0 audit epic #60: issues #43, #44, #45,
 #46, #47, #48, #49, #50, #51, #52. Plus three roadmap items from the same
-audit epic: #53, #54, #58 (partial).
+audit epic: #53, #54, #58 (partial). Plus the second audit round (docs
+`ISSUES_AND_VERSIONING.md` / `AUDIT_FULL_20260704.md`): issues #64 (UTF-8
+stdio), #65 (`python -m stepik_grader`), #66 (mode-4 `Py-heap` column), #68
+(versioning scheme + `scripts/version.py`).
 
 ### Changed
 - Split `core/grader_core.py` (1200+ lines) into `core/test_loader.py`
@@ -24,6 +29,25 @@ audit epic: #53, #54, #58 (partial).
   test files needed changes for the move itself (issue #45 A-01)
 
 ### Added
+- `scripts/version.py` + a "Versioning" section in `CONTRIBUTING.md`
+  documenting the project's non-SemVer scheme: MAJOR only on fundamental
+  shifts, MINOR +1 per git tag + Release (so every tag is `vX.Y.0`), PATCH =
+  commit count since the last tag (reset on MINOR bump). The script derives
+  the version from `git describe --tags --long` (`vX.Y.0-N-g<hash>` → `X.Y.N`)
+  and falls back to `MAJOR.MINOR` from `pyproject.toml` + total commit count
+  before the first tag. Documented as a helper/CI tool only — the build still
+  declares `version` statically, no `setuptools-scm` dependency added. Also
+  added to `CLAUDE.md`'s critical-rules block so contributors/agents don't
+  apply SemVer and break the "every tag = vX.Y.0" invariant (issue #68)
+- `src/stepik_grader/__main__.py` — `python -m stepik_grader` now works as a
+  shortcut for `python -m stepik_grader.grader` / the `stepik-grader` console
+  script, delegating to the same `cli.main()`. Expected for an installed
+  package with a console entry point (issue #65)
+- `_force_utf8_stdio()` in `cli.main()` — reconfigures `stdout`/`stderr` to
+  UTF-8 with `errors="replace"` at startup, fixing `UnicodeEncodeError` when
+  running under Git Bash / cmd with a cp1251 code page. Removes the need for a
+  manual `PYTHONIOENCODING=utf-8`. No-op on streams already in UTF-8 or
+  without `reconfigure` (e.g. captured by pytest) (issue #64)
 - `--output csv`/`--output markdown` for all four modes -- same underlying
   data as `--output json`, flattened to one row per file/test-case (issue
   #53, issue #58's "export to Markdown" idea)
@@ -91,6 +115,15 @@ audit epic: #53, #54, #58 (partial).
   issue #49 Q-01)
 
 ### Changed
+- Mode 4 (micro-bench) memory column renamed from `Memory` to `Py-heap`.
+  Mode 4 measures peak Python-heap via `tracemalloc` for stdin blocks (and
+  RSS for function blocks), not process RSS like mode 3 — the shared header
+  now reflects the measurement method instead of implying RSS. Added a
+  one-line footnote under the mode-4 table and a README note; mode 3 keeps its
+  RSS-based `Memory` column unchanged. Implemented via a `memory_header`
+  parameter (default `"Memory"`) on `print_benchmark_header`/
+  `print_benchmark_results`, so mode 3 call sites and existing reporter tests
+  are unaffected (issue #66)
 - `core/grader_core.py::_build_call_wrapper` — replaced
   `from collections/datetime/itertools/functools import *` with explicit
   imports covering each module's full documented public API. Removes the
