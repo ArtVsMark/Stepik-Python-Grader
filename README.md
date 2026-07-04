@@ -1,11 +1,11 @@
 # Stepik Python Grader
 
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-![Version](https://img.shields.io/badge/version-1.2.0-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)
+![Version](https://img.shields.io/badge/version-1.3.0-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)
 
-> **Status:** Stable — v1.2.0
+> **Status:** Stable — v1.3.0
 
 > Локальный грейдер для курсов «Поколение Python» на Stepik.
 > Скачивает данные задачи с сайта и позволяет не только проверить решение локально, но и **сравнить несколько решений более честно**: сначала по корректности, потом по benchmark-метрикам.
@@ -161,7 +161,7 @@ Stepik-Python-Grader/
 │           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
 │           └── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов
-├── tests/                     # 591 тест (pytest)
+├── tests/                     # 599 тестов (pytest)
 │   ├── test_analyzer.py
 │   ├── test_downloader.py
 │   ├── test_executor.py
@@ -878,7 +878,7 @@ python -m stepik_grader.diagnostic_stepik
 | Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
 | pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
 | Pre-commit хуки (ruff check + ruff format) | ❌ | ✅ |
-| Unit-тесты (591 тест) | ❌ | ✅ |
+| Unit-тесты (599 тестов) | ❌ | ✅ |
 | OAuth2-фасад (`oauth_flow.py`) | ❌ | ✅ |
 | GitHub Actions CI (pytest + ruff) | ❌ | ✅ |
 
@@ -890,17 +890,17 @@ python -m stepik_grader.diagnostic_stepik
 отдельные фичи (полный список изменений — в [`CHANGELOG.md`](CHANGELOG.md)).
 Каждая версия — это качественный скачок в отдельной плоскости.
 
-| | **v1.0.0** | **v1.1.0** | **v1.2.0** |
-|---|---|---|---|
-| **Суть релиза** | Первый стабильный форк — «работает» | Зрелая архитектура, установка как пакет | Безопасность, кроссплатформа, дистрибуция, UX |
-| **Структура кода** | Плоский корень репозитория | src-layout: `src/stepik_grader/` + пакет `core/` | стабилизирована |
-| **Запуск** | `python grader.py` | `stepik-grader` / `python -m stepik_grader.X` | `python -m stepik_grader` + файловый диалог |
-| **CLI** | Только интерактивное меню | + argparse (`--mode/--file/--dir`) | + `--output json/csv/md`, `--watch`, `--lang`, `--verbose/--quiet` |
-| **CI** | Ubuntu (pytest + ruff) | Ubuntu | Ubuntu + Windows + macOS, + mypy |
-| **Безопасность** | Только таймаут выполнения | Только таймаут | + лимит памяти `RLIMIT_AS` (POSIX), явные импорты вместо wildcard |
-| **Дистрибуция** | `git clone` + `requirements.txt` | `pip install -e .` (единый источник — `pyproject.toml`) | GitHub Releases (sdist+wheel), `pipx`; готовятся `.exe` / PyPI |
-| **Версионирование** | статичная строка | `importlib.metadata` (единый источник) | задокументированная схема + `scripts/version.py` |
-| **Тестов / покрытие** | 260 / 59% | 523 / 95% | 591 / 96% |
+| | **v1.0.0** | **v1.1.0** | **v1.2.0** | **v1.3.0** |
+|---|---|---|---|---|
+| **Суть релиза** | Первый стабильный форк — «работает» | Зрелая архитектура, установка как пакет | Безопасность, кроссплатформа, дистрибуция, UX | Онбординг новичков + дистрибуция через PyPI |
+| **Структура кода** | Плоский корень репозитория | src-layout: `src/stepik_grader/` + пакет `core/` | стабилизирована | → |
+| **Запуск** | `python grader.py` | `stepik-grader` / `python -m stepik_grader.X` | `python -m stepik_grader` | + нативный файловый диалог (fallback без пути) |
+| **CLI** | Только интерактивное меню | + argparse (`--mode/--file/--dir`) | + `--output json/csv/md`, `--watch`, `--lang`, `--verbose/--quiet` | → |
+| **CI** | Ubuntu (pytest + ruff) | Ubuntu | Ubuntu + Windows + macOS, + mypy | → |
+| **Безопасность** | Только таймаут выполнения | Только таймаут | + лимит памяти `RLIMIT_AS` (POSIX), явные импорты вместо wildcard | → |
+| **Дистрибуция** | `git clone` + `requirements.txt` | `pip install -e .` (единый источник — `pyproject.toml`) | GitHub Releases (sdist+wheel), `pipx` из git | + PyPI: `pipx install stepik-python-grader` (OIDC trusted publishing) |
+| **Версионирование** | статичная строка | `importlib.metadata` (единый источник) | задокументированная схема + `scripts/version.py` | → |
+| **Тестов / покрытие** | 260 / 59% | 523 / 95% | 591 / 96% | 599 / 95% |
 
 > **MAJOR остаётся `1`** на всём протяжении: все изменения укладываются в рамки
 > «локальный инструмент для Python-задач Stepik». Смена MAJOR (`2.0`)

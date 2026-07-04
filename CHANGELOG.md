@@ -2,7 +2,11 @@
 
 ## [Unreleased]
 
-Onboarding/UX epic #80 (feedback from a from-scratch install run on Windows).
+## [1.3.0] - 2026-07-04
+
+Onboarding/UX epic #80 (feedback from a from-scratch install run on Windows)
+plus the PyPI distribution pivot (#70, superseding the closed standalone-`.exe`
+idea #78).
 
 ### Added
 - PyPI publishing via OIDC trusted publishing (issue #70): a `pypi-publish`
