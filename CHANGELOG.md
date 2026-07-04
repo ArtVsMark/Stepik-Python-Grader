@@ -24,6 +24,16 @@ audit epic: #53, #54, #58 (partial).
   test files needed changes for the move itself (issue #45 A-01)
 
 ### Added
+- `scripts/version.py` + a "Versioning" section in `CONTRIBUTING.md`
+  documenting the project's non-SemVer scheme: MAJOR only on fundamental
+  shifts, MINOR +1 per git tag + Release (so every tag is `vX.Y.0`), PATCH =
+  commit count since the last tag (reset on MINOR bump). The script derives
+  the version from `git describe --tags --long` (`vX.Y.0-N-g<hash>` → `X.Y.N`)
+  and falls back to `MAJOR.MINOR` from `pyproject.toml` + total commit count
+  before the first tag. Documented as a helper/CI tool only — the build still
+  declares `version` statically, no `setuptools-scm` dependency added. Also
+  added to `CLAUDE.md`'s critical-rules block so contributors/agents don't
+  apply SemVer and break the "every tag = vX.Y.0" invariant (issue #68)
 - `src/stepik_grader/__main__.py` — `python -m stepik_grader` now works as a
   shortcut for `python -m stepik_grader.grader` / the `stepik-grader` console
   script, delegating to the same `cli.main()`. Expected for an installed

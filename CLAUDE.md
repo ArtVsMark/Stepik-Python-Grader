@@ -19,6 +19,9 @@
 ❌ НЕ коммитить secrets.json, stepik_config.json, StepikTasks/
 ❌ НЕ запускать executor.py с untrusted-кодом — нет sandbox на уровне ОС
 ❌ НЕ трогать .github/workflows/ci.yml без явной задачи
+❌ НЕ применять SemVer к версии — схема проекта СВОЯ (тег = MINOR+1,
+   PATCH = число коммитов после тега, обнуляется при MINOR; все теги = vX.Y.0).
+   См. CONTRIBUTING.md §Версионирование и scripts/version.py (issue #68)
 ```
 
 ---
