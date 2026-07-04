@@ -214,6 +214,15 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "ru": "👀 Слежу за изменениями: {path} (Ctrl+C — остановить)",
         "en": "👀 Watching for changes: {path} (Ctrl+C to stop)",
     },
+    # issue #79: заголовки нативного файлового диалога (tkinter).
+    "dialog_pick_file": {
+        "ru": "Выберите файл решения (.py)",
+        "en": "Select solution file (.py)",
+    },
+    "dialog_pick_dir": {
+        "ru": "Выберите папку с решениями",
+        "en": "Select folder with solutions",
+    },
 }
 
 
@@ -617,6 +626,74 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
         print(_t("micro_mem_note"))
 
 
+def _pick_path_via_dialog(*, want_dir: bool) -> str | None:
+    """Открыть нативный диалог выбора файла (.py) или папки через tkinter.
+
+    Возвращает выбранный путь или None (отмена, tkinter не установлен, либо
+    headless-окружение без дисплея). Только fallback для интерактивного
+    text-режима — вызывающая сторона обязана НЕ звать это при
+    ``--output``/``--watch``/машинном контексте (issue #79).
+    """
+    try:
+        import tkinter
+        from tkinter import filedialog
+    except ImportError:
+        return None
+
+    try:
+        root = tkinter.Tk()
+    except tkinter.TclError:
+        # tkinter установлен, но нет дисплея (headless Linux, урезанный Python).
+        return None
+
+    root.withdraw()
+    try:
+        if want_dir:
+            path = filedialog.askdirectory(title=_t("dialog_pick_dir"))
+        else:
+            path = filedialog.askopenfilename(
+                title=_t("dialog_pick_file"),
+                filetypes=[("Python files", "*.py"), ("All files", "*.*")],
+            )
+    finally:
+        root.destroy()
+    return path or None
+
+
+def _prompt_path(prompt_key: str, *, want_dir: bool) -> str:
+    """Спросить путь в интерактивном меню; при пустом вводе — файловый диалог.
+
+    Пустая строка на выходе (пустой ввод + отмена/недоступность диалога)
+    корректно обрабатывается вызывающими режимами через их обычные
+    "file/dir not found" сообщения (issue #79).
+    """
+    path = input(_t(prompt_key)).strip()
+    if not path:
+        path = _pick_path_via_dialog(want_dir=want_dir) or ""
+    return path
+
+
+def _resolve_cli_path_or_error(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    *,
+    want_dir: bool,
+    flag: str,
+) -> str:
+    """Вернуть путь для non-interactive режима, когда флаг пути не задан.
+
+    В интерактивном text-режиме (без ``--output``-машинного вывода и без
+    ``--watch``) предлагает нативный файловый диалог; иначе — или при отмене
+    диалога / отсутствии tkinter — завершает работу через ``parser.error``
+    (чистое сообщение argparse, не трейсбек). issue #79.
+    """
+    if args.output == "text" and not args.watch:
+        picked = _pick_path_via_dialog(want_dir=want_dir)
+        if picked:
+            return picked
+    parser.error(f"--mode {args.mode} requires {flag}")
+
+
 def _interactive_menu() -> None:
     """Показать меню один раз, выполнить выбранный режим и завершить работу."""
     _print_menu()
@@ -627,15 +704,15 @@ def _interactive_menu() -> None:
         return
 
     if choice == "1":
-        solution = input(_t("enter_solution_path")).strip()
+        solution = _prompt_path("enter_solution_path", want_dir=False)
         _run_mode_1(solution)
 
     elif choice == "2":
-        directory = input(_t("enter_folder_path")).strip()
+        directory = _prompt_path("enter_folder_path", want_dir=True)
         _run_mode_2(directory)
 
     elif choice == "3":
-        directory = input(_t("enter_folder_path")).strip()
+        directory = _prompt_path("enter_folder_path", want_dir=True)
         if not pathlib.Path(directory).is_dir():
             print(_t("dir_not_found", path=directory))
             return
@@ -646,7 +723,7 @@ def _interactive_menu() -> None:
         _run_mode_3(directory, repeats)
 
     elif choice == "4":
-        directory = input(_t("enter_folder_with_solutions_path")).strip()
+        directory = _prompt_path("enter_folder_with_solutions_path", want_dir=True)
         if not pathlib.Path(directory).is_dir():
             print(_t("dir_not_found", path=directory))
             return
@@ -820,7 +897,7 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.mode == 1:
         if not args.file:
-            parser.error("--mode 1 requires --file")
+            args.file = _resolve_cli_path_or_error(parser, args, want_dir=False, flag="--file")
         verbose = _resolve_verbosity(args, default=True)
         if args.watch:
             _watch_and_rerun(
@@ -830,7 +907,7 @@ def main(argv: list[str] | None = None) -> None:
             _run_mode_1(args.file, verbose=verbose, output=args.output)
     elif args.mode == 2:
         if not args.dir:
-            parser.error("--mode 2 requires --dir")
+            args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
         verbose = _resolve_verbosity(args, default=False)
         if args.watch:
             _watch_and_rerun(
@@ -839,14 +916,14 @@ def main(argv: list[str] | None = None) -> None:
         else:
             _run_mode_2(args.dir, verbose=verbose, output=args.output)
     elif args.mode == 3:
-        if not args.dir:
-            parser.error("--mode 3 requires --dir")
         if args.watch:
             parser.error("--watch is only supported for --mode 1/2")
+        if not args.dir:
+            args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
         _run_mode_3(args.dir, args.repeats, output=args.output)
     elif args.mode == 4:
-        if not args.dir:
-            parser.error("--mode 4 requires --dir")
         if args.watch:
             parser.error("--watch is only supported for --mode 1/2")
+        if not args.dir:
+            args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
         _run_mode_4(args.dir, args.number, output=args.output)

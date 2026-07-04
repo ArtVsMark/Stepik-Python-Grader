@@ -9,11 +9,16 @@
 from __future__ import annotations
 
 import pathlib
+import sys
 import tomllib
 
 import pytest
 
 from stepik_grader import cli
+
+# Ссылка на настоящую функцию диалога ДО того, как autouse-фикстура её
+# подменит — нужна тестам, проверяющим саму graceful-деградацию (issue #79).
+_REAL_PICK_PATH_VIA_DIALOG = cli._pick_path_via_dialog
 
 
 @pytest.fixture(autouse=True)
@@ -24,6 +29,18 @@ def _force_english(monkeypatch: pytest.MonkeyPatch) -> None:
     Russian-default + --lang switch itself is covered separately below.
     """
     monkeypatch.setattr(cli, "_LANG", "en")
+
+
+@pytest.fixture(autouse=True)
+def _no_gui_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
+    """issue #79: по умолчанию гасим нативный файловый диалог во всех тестах.
+
+    Без этого тест, дошедший до fallback-диалога (пустой путь / отсутствующий
+    --file), мог бы открыть реальное окно tkinter и повиснуть на Windows/macOS
+    CI-раннерах (там дисплей может подняться, в отличие от headless Linux).
+    Тесты, которым нужен «выбранный» путь, переопределяют эту подмену.
+    """
+    monkeypatch.setattr(cli, "_pick_path_via_dialog", lambda *, want_dir: None)
 
 
 def test_version_matches_pyproject_toml() -> None:
@@ -499,3 +516,88 @@ class TestMode4MemoryFootnote:
         monkeypatch.setattr(cli, "run_microbench_mode", self._bench)
         cli._run_mode_4(str(tmp_path), 500, output="json")
         assert "tracemalloc" not in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# File-dialog fallback (issue #79)
+# ---------------------------------------------------------------------------
+
+
+class TestDialogFallbackMenu:
+    """Пустой ввод пути в меню → нативный файловый диалог (mock)."""
+
+    def test_empty_input_triggers_dialog_mode_1(self, monkeypatch, tmp_path) -> None:
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        picked = []
+        monkeypatch.setattr(cli, "_pick_path_via_dialog", lambda *, want_dir: str(sol))
+        monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: picked.append(solution))
+        # Последовательный ввод: сначала выбор режима "1", потом пустой путь.
+        inputs = iter(["1", ""])
+        monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+        cli._interactive_menu()
+        assert picked == [str(sol)]
+
+    def test_empty_input_dialog_wants_dir_for_mode_2(self, monkeypatch, tmp_path) -> None:
+        got = []
+        monkeypatch.setattr(
+            cli, "_pick_path_via_dialog", lambda *, want_dir: got.append(want_dir) or str(tmp_path)
+        )
+        monkeypatch.setattr(cli, "_run_mode_2", lambda directory, **k: None)
+        inputs = iter(["2", ""])
+        monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+        cli._interactive_menu()
+        assert got == [True]  # для папки — askdirectory
+
+    def test_empty_input_and_dialog_cancelled_is_graceful(self, monkeypatch, capsys) -> None:
+        # autouse-фикстура уже возвращает None (отмена диалога).
+        inputs = iter(["1", ""])
+        monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+        cli._interactive_menu()  # не должно быть трейсбека
+        assert "File not found" in capsys.readouterr().out
+
+
+class TestDialogFallbackCli:
+    """`--mode N` без --file/--dir: диалог только в text-режиме."""
+
+    def test_missing_file_uses_dialog_in_text_mode(self, monkeypatch, tmp_path) -> None:
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        called = []
+        monkeypatch.setattr(cli, "_pick_path_via_dialog", lambda *, want_dir: str(sol))
+        monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: called.append(solution))
+        cli.main(["--mode", "1"])
+        assert called == [str(sol)]
+
+    def test_missing_file_json_output_no_dialog_errors(self, monkeypatch) -> None:
+        # В машинном режиме диалог не показываем — argparse.error → SystemExit.
+        called = []
+        monkeypatch.setattr(
+            cli, "_pick_path_via_dialog", lambda *, want_dir: called.append(True) or "/x"
+        )
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "1", "--output", "json"])
+        assert called == []  # диалог НЕ вызывался
+
+    def test_missing_file_watch_no_dialog_errors(self, monkeypatch) -> None:
+        called = []
+        monkeypatch.setattr(
+            cli, "_pick_path_via_dialog", lambda *, want_dir: called.append(True) or "/x"
+        )
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "1", "--watch"])
+        assert called == []
+
+    def test_missing_dir_dialog_cancel_errors(self, monkeypatch) -> None:
+        # autouse → None (как отмена/headless) → parser.error → SystemExit.
+        with pytest.raises(SystemExit):
+            cli.main(["--mode", "2"])
+
+
+class TestPickPathViaDialogGraceful:
+    """Сама _pick_path_via_dialog деградирует без tkinter, не падая."""
+
+    def test_returns_none_when_tkinter_missing(self, monkeypatch) -> None:
+        # None в sys.modules заставляет `import tkinter` бросить ImportError.
+        monkeypatch.setitem(sys.modules, "tkinter", None)
+        assert _REAL_PICK_PATH_VIA_DIALOG(want_dir=False) is None

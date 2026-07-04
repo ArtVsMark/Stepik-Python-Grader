@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+Onboarding/UX epic #80 (feedback from a from-scratch install run on Windows).
+
+### Added
+- File-dialog fallback (issue #79): when a mode needs a path and none is given
+  — empty input in the interactive menu, or `--mode N` without `--file`/`--dir`
+  — the grader opens a native `tkinter` file/folder picker instead of failing.
+  Only in interactive text mode: never pops for `--output json/csv/markdown` or
+  `--watch` (machine/non-interactive contexts), and degrades gracefully to the
+  previous text behaviour when `tkinter` is absent or headless (no display).
+  No new dependency — `tkinter` ships with CPython
+
+### Docs
+- Beginner-proof install in README (part of epic #80): split into `pipx`
+  (recommended for just-use) vs. from-source (venv) paths, an explicit Windows
+  PowerShell ExecutionPolicy (`PSSecurityException`) warning with three ways
+  out, a "Требования" section (Python 3.12/3.13; 3.14 experimental), and a
+  step-by-step "first run in 2 minutes" walkthrough
+
 ## [1.2.0] - 2026-07-04
 
 Sprints A (Security), B (Architecture), C (Reliability), D (CI/CD & Quality),
