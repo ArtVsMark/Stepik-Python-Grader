@@ -76,6 +76,43 @@ class TestGradePath:
 
 
 # ---------------------------------------------------------------------------
+# grade_benchmark (режим бенчмарка)
+# ---------------------------------------------------------------------------
+
+
+class TestGradeBenchmark:
+    def test_benchmark_file(self, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        data = web.grade_benchmark(str(sol), repeats=3)
+        assert data["mode"] == "bench"
+        row = data["rows"][0]
+        assert row["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
+        assert row["runs"] >= 1
+        assert isinstance(row["median"], str)  # отформатировано fmt_time
+
+    def test_benchmark_dir_ranks_all_solutions(self, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        data = web.grade_benchmark(str(tmp_path), repeats=3)
+        assert data["kind"] == "dir"
+        assert len(data["rows"]) == 2
+        # Строки отсортированы по возрастанию медианы — самый быстрый первым.
+        assert all("verdict" in r for r in data["rows"])
+
+    def test_benchmark_error_row_for_missing_tests(self, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(1)\n", with_tests=False)
+        row = web.grade_benchmark(str(sol))["rows"][0]
+        assert row["verdict"] == "ERR"
+        assert row["error"]
+
+    def test_benchmark_nonexistent_path(self) -> None:
+        assert web.grade_benchmark("/no/such/dir")["kind"] == "error"
+
+
+# ---------------------------------------------------------------------------
 # HTTP-хендлер (интеграционно: реальный сервер на эфемерном порту)
 # ---------------------------------------------------------------------------
 
@@ -117,6 +154,20 @@ class TestHttpHandler:
         status, body = _get(server + "/api/grade")
         assert status == 200
         assert json.loads(body)["kind"] == "error"
+
+    def test_api_grade_bench_mode(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        q = urllib.parse.urlencode({"path": str(sol), "mode": "bench", "repeats": "3"})
+        status, body = _get(server + "/api/grade?" + q)
+        assert status == 200
+        data = json.loads(body)
+        assert data["mode"] == "bench"
+        assert data["rows"][0]["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
+
+    def test_index_injects_default_path(self, server: str) -> None:
+        # Плейсхолдер __DEFAULT_PATH__ должен быть заменён на реальный cwd.
+        _, body = _get(server + "/")
+        assert b"__DEFAULT_PATH__" not in body
 
     def test_unknown_path_404(self, server: str) -> None:
         with pytest.raises(urllib.error.HTTPError) as exc:
