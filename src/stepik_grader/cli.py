@@ -37,6 +37,8 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from stepik_grader.config import CONFIG
+from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
     SIMILAR_THRESHOLD,
@@ -205,6 +207,19 @@ _MESSAGES: dict[str, dict[str, str]] = {
             "for function blocks;\n"
             "    tracemalloc does not see C-extension allocations (numpy, etc.)."
         ),
+    },
+    # issue #56: opt-in кэш результатов (--cache / --clear-cache).
+    "cache_hit": {
+        "ru": "✅ Кэш актуален: тесты не перезапускались (0 изменений).",
+        "en": "✅ Cache is up to date: no tests re-run (0 changes).",
+    },
+    "cache_summary": {
+        "ru": "✅ Кэш: {hits} из {total} решений взято из кэша.",
+        "en": "✅ Cache: {hits} of {total} solutions served from cache.",
+    },
+    "cache_cleared": {
+        "ru": "🗑 Кэш очищен: удалено записей — {count}.",
+        "en": "🗑 Cache cleared: {count} entries removed.",
     },
     "watch_dependency_missing": {
         "ru": ('--watch требует пакет watchfiles: pip install "stepik-grader[watch]"'),
@@ -391,7 +406,41 @@ def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) 
     return resolve_test_dir(solution_or_dir)
 
 
-def _run_mode_1(solution: str, *, verbose: bool = True, output: str = "text") -> None:
+def _run_tests_maybe_cached(
+    solution: str,
+    test_dir: str,
+    *,
+    verbose: bool,
+    output: str,
+    cache: GraderCache | None,
+) -> tuple[dict[str, Any], bool]:
+    """Прогнать тесты, при активном кэше — переиспользуя актуальную запись.
+
+    Возвращает пару (result, from_cache). Ключ кэша — sha256 содержимого
+    решения и sha256 всех файлов тест-директории (issue #56). При промахе
+    результат кладётся в кэш (в память; ``cache.save()`` — забота вызывающей
+    стороны, чтобы для пачки решений писать файл один раз). На попадании
+    per-case verbose-вывод не печатается — тесты не запускались.
+    """
+    callback = print_case_verbose if (verbose and output == "text") else None
+    if cache is None:
+        result = run_tests(solution, test_dir, verbose=verbose, verbose_callback=callback)
+        return result, False
+
+    solution_sha = hash_solution(solution)
+    tests_sha = hash_tests(test_dir)
+    cached = cache.get(solution, solution_sha, tests_sha)
+    if cached is not None:
+        return cached, True
+
+    result = run_tests(solution, test_dir, verbose=verbose, verbose_callback=callback)
+    cache.put(solution, solution_sha, tests_sha, result)
+    return result, False
+
+
+def _run_mode_1(
+    solution: str, *, verbose: bool = True, output: str = "text", use_cache: bool = False
+) -> None:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1."""
     if not pathlib.Path(solution).is_file():
         print(_t("file_not_found", path=solution))
@@ -408,8 +457,14 @@ def _run_mode_1(solution: str, *, verbose: bool = True, output: str = "text") ->
         )
         return
 
-    callback = print_case_verbose if (verbose and output == "text") else None
-    result = run_tests(solution, test_dir, verbose=verbose, verbose_callback=callback)
+    cache = GraderCache() if use_cache else None
+    result, from_cache = _run_tests_maybe_cached(
+        solution, test_dir, verbose=verbose, output=output, cache=cache
+    )
+    if cache is not None:
+        cache.save()
+    if from_cache and output == "text":
+        print(_t("cache_hit"))
 
     if output == "json":
         print(json.dumps({"file": solution, **result}, ensure_ascii=False))
@@ -435,7 +490,9 @@ def _run_mode_1(solution: str, *, verbose: bool = True, output: str = "text") ->
     print_correctness_results([(solution, result)], base, col_file=col_file)
 
 
-def _run_mode_2(directory: str, *, verbose: bool = False, output: str = "text") -> None:
+def _run_mode_2(
+    directory: str, *, verbose: bool = False, output: str = "text", use_cache: bool = False
+) -> None:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2."""
     if not pathlib.Path(directory).is_dir():
         print(_t("dir_not_found", path=directory))
@@ -450,6 +507,8 @@ def _run_mode_2(directory: str, *, verbose: bool = False, output: str = "text") 
 
     rows: list[tuple[str, dict[str, Any]]] = []
     machine_output = output != "text"
+    cache = GraderCache() if use_cache else None
+    cache_hits = 0
     track = scripts if machine_output else rich_track(scripts, description="Проверка решений...")
     for path in track:
         individual_test_dir = resolve_test_dir(path)
@@ -458,9 +517,14 @@ def _run_mode_2(directory: str, *, verbose: bool = False, output: str = "text") 
         # _resolve_test_dir_from_input(is_dir=True) always returns a str (never the
         # None its is_dir=False passthrough branch can produce) -- narrows for mypy.
         assert individual_test_dir is not None
-        callback = print_case_verbose if (verbose and output == "text") else None
-        result = run_tests(path, individual_test_dir, verbose=verbose, verbose_callback=callback)
+        result, from_cache = _run_tests_maybe_cached(
+            path, individual_test_dir, verbose=verbose, output=output, cache=cache
+        )
+        cache_hits += int(from_cache)
         rows.append((path, result))
+
+    if cache is not None:
+        cache.save()
 
     if output == "json":
         print(json.dumps({"results": dict(rows)}, ensure_ascii=False))
@@ -482,6 +546,8 @@ def _run_mode_2(directory: str, *, verbose: bool = False, output: str = "text") 
         return
 
     print_correctness_results(rows, directory, col_file=col_file)
+    if cache is not None:
+        print(_t("cache_summary", hits=cache_hits, total=len(rows)))
 
 
 def _run_mode_3(directory: str, repeats: int, *, output: str = "text") -> None:
@@ -824,6 +890,21 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--cache",
+        action=argparse.BooleanOptionalAction,
+        default=CONFIG.use_cache,
+        help=(
+            "Кэшировать результаты --mode 1/2 в .grader_cache/ и пропускать "
+            "неизменённые решения (--no-cache отключает). По умолчанию из "
+            "[tool.stepik-grader] use_cache. Issue #56."
+        ),
+    )
+    parser.add_argument(
+        "--clear-cache",
+        action="store_true",
+        help="Удалить .grader_cache/ и выйти. Issue #56.",
+    )
+    parser.add_argument(
         "--serve",
         action="store_true",
         help=(
@@ -938,6 +1019,11 @@ def main(argv: list[str] | None = None) -> None:
         print(f"grader.py {__version__}")
         return
 
+    if args.clear_cache:
+        removed = GraderCache().clear()
+        print(_t("cache_cleared", count=removed))
+        return
+
     if args.init_vscode:
         from stepik_grader import ide
 
@@ -962,20 +1048,26 @@ def main(argv: list[str] | None = None) -> None:
         verbose = _resolve_verbosity(args, default=True)
         if args.watch:
             _watch_and_rerun(
-                args.file, lambda: _run_mode_1(args.file, verbose=verbose, output=args.output)
+                args.file,
+                lambda: _run_mode_1(
+                    args.file, verbose=verbose, output=args.output, use_cache=args.cache
+                ),
             )
         else:
-            _run_mode_1(args.file, verbose=verbose, output=args.output)
+            _run_mode_1(args.file, verbose=verbose, output=args.output, use_cache=args.cache)
     elif args.mode == 2:
         if not args.dir:
             args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
         verbose = _resolve_verbosity(args, default=False)
         if args.watch:
             _watch_and_rerun(
-                args.dir, lambda: _run_mode_2(args.dir, verbose=verbose, output=args.output)
+                args.dir,
+                lambda: _run_mode_2(
+                    args.dir, verbose=verbose, output=args.output, use_cache=args.cache
+                ),
             )
         else:
-            _run_mode_2(args.dir, verbose=verbose, output=args.output)
+            _run_mode_2(args.dir, verbose=verbose, output=args.output, use_cache=args.cache)
     elif args.mode == 3:
         if args.watch:
             parser.error("--watch is only supported for --mode 1/2")

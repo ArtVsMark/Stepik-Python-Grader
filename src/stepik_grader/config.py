@@ -28,6 +28,7 @@ class GraderConfig:
     microbench_max_cases: int = 5
     encoding: str = "utf-8"
     max_memory_mb: int | None = 1024
+    use_cache: bool = False  # issue #56 — opt-in кэш результатов (--cache)
 
 
 def load_config() -> GraderConfig:

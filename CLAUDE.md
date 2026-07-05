@@ -76,6 +76,8 @@ Stepik-Python-Grader/
 │           ├── microbench_runner.py  # Infrastructure: timeit через subprocess
 │           ├── normalizers.py    # Utilities: normalize_floats (leaf, нет зависимостей)
 │           ├── storage.py        # Utilities: load/save JSON (leaf, нет зависимостей)
+│           ├── cache.py          # Utilities: opt-in кэш результатов (issue #56),
+│           │                     # зависит только от storage.py + stdlib hashlib
 │           ├── stepik_client.py  # Infrastructure: OAuth2, requests.Session
 │           ├── oauth_flow.py     # Infrastructure: фасад авторизации
 │           └── parsers.py        # Infrastructure: парсинг тест-блоков (# TEST_N:)
@@ -126,8 +128,11 @@ core/mode_detector.py ──→ core/storage.py
 cli.py ──→ core/grader_core.py
 cli.py ──→ core/reporter.py
 cli.py ──→ core/microbench_runner.py  # apply_relative_ranking
+cli.py ──→ core/cache.py              # --cache/--clear-cache (issue #56)
 cli.py ──→ web.py                     # ленивый импорт при --serve (эпик #80 Tier 1)
 cli.py ──→ ide.py                     # ленивый импорт при --init-vscode (эпик #80 Tier 2)
+
+core/cache.py ──→ core/storage.py     # load_json_file/save_json_file (leaf)
 
 # ide.py — leaf-модуль (только stdlib json/pathlib), не импортирует project-код
 
@@ -1063,6 +1068,24 @@ rich>=13.0,<16.0     # issue не предлагал границу для rich 
 > пакет/инфраструктура (#57 — pytest-плагин, #58 Web UI/VS Code/PyPI, #59
 > Docker-sandbox/другие платформы/AI-подсказки), либо требует внешнего
 > API-ключа (#59 AI-подсказки). Остаются в бэклоге, см. CHECKPOINT.md.
+
+> #56 ✅ (2026-07-05): реализован opt-in кэш результатов. Новый leaf-модуль
+> `core/cache.py` (stdlib `hashlib` + `core/storage.py` для JSON I/O — новых
+> рёбер/циклов в DAG нет). Ключ кэша — пара sha256: содержимое файла решения
+> + все файлы тест-директории (rglob, отсортированы по относительному
+> POSIX-пути; путь и содержимое каждого файла идут в один hash-поток).
+> Хранилище — один `.grader_cache/results.json` в CWD (добавлен в
+> `.gitignore`); битый/несовместимый по версии файл трактуется как пустой
+> кэш, грейдер не роняется. Флаги `--cache`/`--no-cache`
+> (`argparse.BooleanOptionalAction`, дефолт из `GraderConfig.use_cache`,
+> issue-предложение "`--cache` ИЛИ pyproject `use_cache=true`" — оба входа) и
+> `--clear-cache` (удаляет файл, печатает число удалённых записей). Работает
+> только для `--mode 1/2` (проверка корректности); режимы 3/4 —
+> бенчмарк-замеры, кэшировать которые бессмысленно. `#55` закрыт как
+> `not_planned` (Stepik не отдаёт эталонный solution.py — сравнивать не с чем).
+
+> #55 ✅ закрыт как not_planned (2026-07-05): сравнение с эталонным
+> solution.py бесполезно — Stepik не публикует эталон, сравнивать не с чем.
 
 ---
 
