@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+- Local web UI (`stepik-grader --serve`, epic #80 Tier 1 / issue #58): a
+  single-page interface on `127.0.0.1` (localhost only, `--port` configurable,
+  default 8000) — enter a solution file or a folder path, get a results table
+  with AC/WA, time, memory and a diff on failure (click a filename to expand
+  per-case verdicts). Built on the stdlib `http.server` — **no new dependency**
+  — and reuses the same grading path as the CLI (`run_tests`,
+  `find_all_solution_files`, `resolve_test_dir`); no logic duplicated. New
+  module `web.py` (`web → core`, acyclic); `cli.py` gains `--serve`/`--port`
+  and lazily imports `web`. Same threat model as the CLI (no OS sandbox).
+  Drag-and-drop upload is a planned follow-up
+
 ### Docs
 - README install now leads with `pipx install stepik-python-grader` from PyPI
   (published as of v1.3.0, issue #70) instead of the `git+https://…` form,
