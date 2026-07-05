@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+- Opt-in result cache (`--cache` / `--no-cache`, `--clear-cache`, issue #56).
+  New leaf module `core/cache.py` (stdlib `hashlib` + `core/storage.py` JSON
+  I/O only — no new DAG edges/cycles). On `--mode 1/2 --cache`, a solution is
+  skipped and its previous verdict reused when neither the solution file's
+  `sha256` nor the `sha256` of all files in its test directory changed since
+  the last run; any change to either invalidates the entry. Cache lives in a
+  single `.grader_cache/results.json` under the CWD (added to `.gitignore`);
+  a corrupt/version-mismatched file degrades to an empty cache rather than
+  crashing. Defaults come from `[tool.stepik-grader] use_cache`
+  (`GraderConfig.use_cache`, default `false`). Mode 1 prints "cache is up to
+  date" on a hit; mode 2 prints an "N of M served from cache" summary.
+  `--clear-cache` deletes the cache and reports how many entries were removed.
+
 ### Removed
 - `run_microbench_with_timeout()` from `core/microbench_runner.py` (issue #69).
   Unwired for two release cycles; its own docstring admitted it added no
