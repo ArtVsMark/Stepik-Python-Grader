@@ -223,6 +223,31 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "ru": "Выберите папку с решениями",
         "en": "Select folder with solutions",
     },
+    # эпик #80 Tier 2: генерация .vscode/tasks.json (--init-vscode).
+    "vscode_written": {
+        "ru": (
+            "✅ VS Code задачи созданы: {path}\n"
+            "   Запуск: Terminal → Run Task → «Stepik: …»,\n"
+            "   либо Ctrl+Shift+B — «проверить текущий файл»."
+        ),
+        "en": (
+            "✅ VS Code tasks created: {path}\n"
+            "   Run: Terminal → Run Task → “Stepik: …”,\n"
+            "   or Ctrl+Shift+B for “check current file”."
+        ),
+    },
+    "vscode_exists": {
+        "ru": (
+            "⚠️ Файл уже существует: {path}\n"
+            "   Удалите/переименуйте его, чтобы пересоздать, или добавьте задачи "
+            "вручную (см. README)."
+        ),
+        "en": (
+            "⚠️ File already exists: {path}\n"
+            "   Delete/rename it to regenerate, or add the tasks manually "
+            "(see README)."
+        ),
+    },
 }
 
 
@@ -812,6 +837,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=8000,
         help="Порт для --serve (по умолчанию 8000).",
     )
+    parser.add_argument(
+        "--init-vscode",
+        action="store_true",
+        help=(
+            "Сгенерировать .vscode/tasks.json в текущей папке (грейдинг из VS Code "
+            "по Ctrl+Shift+B). Эпик #80 Tier 2 / issue #58."
+        ),
+    )
     return parser
 
 
@@ -903,6 +936,13 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.version:
         print(f"grader.py {__version__}")
+        return
+
+    if args.init_vscode:
+        from stepik_grader import ide
+
+        written, path = ide.write_vscode_tasks()
+        print(_t("vscode_written" if written else "vscode_exists", path=path))
         return
 
     if args.serve:
