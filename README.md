@@ -431,6 +431,38 @@ stepik-grader --serve --port 9000     # другой порт
 > Эпик #80 Tier 1 / issue #58. Drag-and-drop загрузка файлов — следующая
 > итерация.
 
+### Интеграция с IDE (эпик #80 Tier 2)
+
+Проверять решение прямо из редактора, не переключаясь в терминал.
+
+**VS Code** — сгенерировать задачи одной командой (из папки проекта):
+
+```bash
+stepik-grader --init-vscode
+```
+
+Создаётся `.vscode/tasks.json` с задачами:
+- **Stepik: проверить текущий файл** (дефолтная — `Ctrl+Shift+B`) → `--mode 1 --file ${file}`
+- **Stepik: проверить папку** → `--mode 2 --dir ${fileDirname}`
+- **Stepik: бенчмарк папки** → `--mode 3 --dir ${fileDirname}`
+- **Stepik: веб-интерфейс** → `--serve`
+
+Запуск: `Ctrl+Shift+B` (проверить открытый файл) или `Terminal → Run Task →
+«Stepik: …»`. Существующий `tasks.json` не перезатирается — команда предупредит.
+
+**PyCharm** — через *External Tool* (настраивается вручную, один раз):
+
+1. `Settings → Tools → External Tools → +`
+2. Заполнить:
+   - **Program:** `stepik-grader`
+   - **Arguments:** `--mode 1 --file $FilePath$`
+   - **Working directory:** `$FileDir$`
+3. Запуск: правый клик по файлу → `External Tools → …` (или назначить горячую
+   клавишу в `Keymap`).
+
+> Обе интеграции просто вызывают консольную команду `stepik-grader` — работают
+> сразу после `pipx install stepik-python-grader` (см. «Установка»).
+
 #### Дополнительные флаги (Sprint E, issues #50/#51)
 
 ```bash

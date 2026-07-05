@@ -56,6 +56,7 @@ Stepik-Python-Grader/
 │       ├── cli.py                 # Application/CLI: интерактивное меню (режимы 0-4), entry point stepik-grader
 │       ├── config.py              # Application/Configuration: GraderConfig, CONFIG (Sprint 6.3 ✅)
 │       ├── web.py                  # Application/UI: локальный веб-интерфейс (--serve, stdlib http.server), эпик #80 Tier 1
+│       ├── ide.py                  # Utilities: генерация .vscode/tasks.json (--init-vscode), leaf, эпик #80 Tier 2
 │       │
 │       ├── downloader.py         # Domain: скачивание задач, ZIP/HTML, slugify
 │       ├── diagnostic_stepik.py  # Application: диагностика API и токена
@@ -126,6 +127,9 @@ cli.py ──→ core/grader_core.py
 cli.py ──→ core/reporter.py
 cli.py ──→ core/microbench_runner.py  # apply_relative_ranking
 cli.py ──→ web.py                     # ленивый импорт при --serve (эпик #80 Tier 1)
+cli.py ──→ ide.py                     # ленивый импорт при --init-vscode (эпик #80 Tier 2)
+
+# ide.py — leaf-модуль (только stdlib json/pathlib), не импортирует project-код
 
 web.py ──→ core/grader_core.py        # run_tests, run_benchmark
 web.py ──→ core/test_loader.py        # find_all_solution_files, resolve_test_dir

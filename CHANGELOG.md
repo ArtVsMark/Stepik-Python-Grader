@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- IDE integration (`stepik-grader --init-vscode`, epic #80 Tier 2 / issue #58):
+  generates `.vscode/tasks.json` in the current folder with grade tasks —
+  "check current file" (default, `Ctrl+Shift+B` → `--mode 1 --file ${file}`),
+  "check folder", "benchmark folder", "web UI". Won't overwrite an existing
+  `tasks.json` (reports it instead). New leaf module `ide.py` (stdlib only);
+  `cli.py` gains `--init-vscode`. PyCharm is set up manually via an External
+  Tool — documented in the README. Both integrations just invoke the
+  `stepik-grader` console command
 - Local web UI (`stepik-grader --serve`, epic #80 Tier 1 / issue #58): a
   single-page interface on `127.0.0.1` (localhost only, `--port` configurable,
   default 8000) with **two modes** — **Correctness** (AC/WA table, time, memory;
