@@ -127,8 +127,10 @@ cli.py ──→ core/reporter.py
 cli.py ──→ core/microbench_runner.py  # apply_relative_ranking
 cli.py ──→ web.py                     # ленивый импорт при --serve (эпик #80 Tier 1)
 
-web.py ──→ core/grader_core.py        # run_tests
+web.py ──→ core/grader_core.py        # run_tests, run_benchmark
 web.py ──→ core/test_loader.py        # find_all_solution_files, resolve_test_dir
+web.py ──→ core/microbench_runner.py  # apply_relative_ranking (бенчмарк-режим)
+web.py ──→ core/reporter.py           # fmt_time
 
 core/executor.py ──→ config.py       # CONFIG.executor_timeout (graceful fallback
                                       # к литералу 10, если запущен как subprocess-
