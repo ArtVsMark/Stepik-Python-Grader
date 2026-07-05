@@ -5,11 +5,11 @@
 
 ---
 
-## Текущая версия: 1.3.0 (2026-07-04)
+## Текущая версия: 1.4.0 (2026-07-05)
 
 ### Статус: ✅ Стабильный
 
-- Тестов: 599
+- Тестов: 622
 - Покрытие: 95%
 - Python: 3.12 / 3.13 / 3.14
 - CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
@@ -26,6 +26,10 @@
   trusted publishing в `release.yml`) — вошли в v1.3.0 (PR #77/#81/#82).
   #78 (standalone .exe) закрыт как нежизнеспособный (frozen `sys.executable`);
   ручной шаг настройки PyPI — issue #83
+- Эпик #80 Tier 1–2 (2026-07-05): Web UI `--serve` (корректность + бенчмарк,
+  stdlib http.server, `web.py`) и IDE-интеграция `--init-vscode` (`ide.py`) +
+  PyCharm-docs — вошли в v1.4.0 (PR #86/#87/#88). Эпик #80 закрыт целиком.
+  v1.3.0 опубликован на PyPI (pipx install stepik-python-grader)
 
 ---
 

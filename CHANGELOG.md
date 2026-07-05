@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-05
+
+Epic #80 (onboarding/UX) Tiers 1–2 — the grader beyond the pure console:
+a local web UI and IDE integration, plus the PyPI-install README pivot.
+
 ### Added
 - IDE integration (`stepik-grader --init-vscode`, epic #80 Tier 2 / issue #58):
   generates `.vscode/tasks.json` in the current folder with grade tasks —
