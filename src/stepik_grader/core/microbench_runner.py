@@ -31,10 +31,6 @@
     apply_relative_micro      — расстановка относительных процентов и вердиктов
     apply_relative_ranking    — то же для dict-результатов run_benchmark/
                                 run_microbench_mode (grader_core.py)
-    run_microbench_with_timeout — защитный ThreadPoolExecutor-таймаут для
-                                произвольного fn(); не используется в текущих
-                                вызовах run_microbench() (уже защищены
-                                subprocess.run(timeout=60)), см. докстринг.
 
     Печать таблицы результатов в этом модуле НЕ реализована — это
     ответственность вызывающей стороны (grader.py делает это сам).
@@ -42,14 +38,12 @@
 
 from __future__ import annotations
 
-import concurrent.futures
 import contextlib
 import os
 import statistics
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -298,38 +292,3 @@ def apply_relative_ranking(
             v["verdict"] = "SLOWER"
         else:
             v["verdict"] = "MUCH_SLOWER"
-
-
-def run_microbench_with_timeout(
-    fn: Callable[[], list[float]],
-    timeout: float = 60.0,
-) -> list[float]:
-    """Запускает fn() с защитным таймаутом (Sprint 7.3).
-
-    Not currently wired into grader_core.run_microbench_mode(): run_microbench()
-    above already wraps its subprocess.run() call in timeout=60, which reliably
-    kills the child process on TimeoutExpired -- the calling thread is guaranteed
-    to unblock. Wrapping an already-subprocess-bounded call in a ThreadPoolExecutor
-    would add no real protection and, if fn() ever DOES hang past `timeout`, this
-    function abandons the worker thread without killing whatever fn() was running
-    (subprocess.run's own kill() is the only thing that actually reclaims the
-    child process). Kept available for a future fn() that isn't already
-    subprocess-bounded.
-
-    Parameters
-    ----------
-    fn:
-        Функция, возвращающая список замеров времени.
-    timeout:
-        Максимальное время ожидания в секундах.
-
-    Returns
-    -------
-    Список замеров или пустой список при превышении таймаута.
-    """
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(fn)
-        try:
-            return future.result(timeout=timeout)
-        except concurrent.futures.TimeoutError:
-            return []

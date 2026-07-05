@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Removed
+- `run_microbench_with_timeout()` from `core/microbench_runner.py` (issue #69).
+  Unwired for two release cycles; its own docstring admitted it added no
+  protection (a `ThreadPoolExecutor` wrapper around an already
+  `subprocess.run(timeout=60)`-bounded call) and would leak an orphan thread
+  on a real timeout. Verdict: remove dead-but-misleading code (git keeps the
+  history) rather than keep it. `import concurrent.futures` and `Callable`
+  (now unused there) and two tests removed with it
+
 ### Changed
 - Memory cap (`GraderConfig.max_memory_mb`, RLIMIT_AS) now applied via
   `resource.prlimit(child_pid, ...)` **after** spawn instead of a
