@@ -403,30 +403,12 @@ def test_build_call_wrapper_stdlib_names_available_without_solution_definitions(
 
 
 # ---------------------------------------------------------------------------
-# _make_memory_limiter — best-effort RLIMIT_AS cap (Issue #43 S-01)
+# _apply_memory_limit — best-effort RLIMIT_AS cap via prlimit (issue #67, #43 S-01)
 # ---------------------------------------------------------------------------
 
 
-def test_make_memory_limiter_none_when_limit_disabled() -> None:
-    from stepik_grader.core.grader_core import _make_memory_limiter
-
-    assert _make_memory_limiter(None) is None
-
-
-def test_make_memory_limiter_none_when_resource_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Windows has no `resource` module — limiter must degrade to a no-op."""
-    from stepik_grader.core import grader_core
-
-    monkeypatch.setattr(grader_core, "resource", None)
-    assert grader_core._make_memory_limiter(1024) is None
-
-
-def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The returned callable applies RLIMIT_AS in bytes (max_memory_mb * 1024**2)."""
+def test_apply_memory_limit_noop_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """max_memory_mb=None → prlimit не вызывается."""
     from stepik_grader.core import grader_core
 
     calls: list[tuple] = []
@@ -435,44 +417,68 @@ def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
         RLIMIT_AS = "RLIMIT_AS"
 
         @staticmethod
-        def setrlimit(which, limits):
-            calls.append((which, limits))
+        def prlimit(*args):
+            calls.append(args)
 
     monkeypatch.setattr(grader_core, "resource", _FakeResource)
-    limiter = grader_core._make_memory_limiter(64)
-    assert limiter is not None
+    grader_core._apply_memory_limit(123, None)
+    assert calls == []
 
-    limiter()
+
+def test_apply_memory_limit_noop_when_resource_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows has no `resource` module — must degrade to a no-op, not crash."""
+    from stepik_grader.core import grader_core
+
+    monkeypatch.setattr(grader_core, "resource", None)
+    grader_core._apply_memory_limit(123, 1024)  # must not raise
+
+
+def test_apply_memory_limit_calls_prlimit_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """prlimit получает (pid, RLIMIT_AS, (bytes, bytes)), bytes = mb * 1024**2."""
+    from stepik_grader.core import grader_core
+
+    calls: list[tuple] = []
+
+    class _FakeResource:
+        RLIMIT_AS = "RLIMIT_AS"
+
+        @staticmethod
+        def prlimit(pid, which, limits):
+            calls.append((pid, which, limits))
+
+    monkeypatch.setattr(grader_core, "resource", _FakeResource)
+    grader_core._apply_memory_limit(4321, 64)
 
     expected_bytes = 64 * 1024 * 1024
-    assert calls == [("RLIMIT_AS", (expected_bytes, expected_bytes))]
+    assert calls == [(4321, "RLIMIT_AS", (expected_bytes, expected_bytes))]
 
 
-@pytest.mark.parametrize("exc", [ValueError("invalid limit"), OSError("not permitted")])
-def test_make_memory_limiter_swallows_setrlimit_failure(
+@pytest.mark.parametrize(
+    "exc",
+    [
+        AttributeError("no prlimit on macOS"),
+        ValueError("invalid limit"),
+        OSError("no such process"),
+    ],
+)
+def test_apply_memory_limit_swallows_prlimit_failure(
     monkeypatch: pytest.MonkeyPatch, exc: Exception
 ) -> None:
-    """setrlimit() failing (observed on macOS CI for RLIMIT_AS) must not raise.
-
-    An uncaught exception here runs inside preexec_fn in the forked child --
-    subprocess surfaces it to the parent as SubprocessError and aborts the
-    whole Popen() call, not just the memory cap. Discovered via macOS CI
-    after Sprint D added it to the matrix.
-    """
+    """prlimit отсутствует на macOS (AttributeError) / нет процесса-прав (OSError)
+    — не должно падать, просто пропускаем cap (issue #67)."""
     from stepik_grader.core import grader_core
 
     class _FakeResource:
         RLIMIT_AS = "RLIMIT_AS"
 
         @staticmethod
-        def setrlimit(which, limits):
+        def prlimit(*args):
             raise exc
 
     monkeypatch.setattr(grader_core, "resource", _FakeResource)
-    limiter = grader_core._make_memory_limiter(64)
-    assert limiter is not None
-
-    limiter()  # must not raise
+    grader_core._apply_memory_limit(1, 64)  # must not raise
 
 
 # ---------------------------------------------------------------------------

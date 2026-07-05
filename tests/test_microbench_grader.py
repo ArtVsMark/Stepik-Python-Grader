@@ -235,25 +235,7 @@ def test_run_microbench_accepts_generous_memory_limit() -> None:
     assert len(result["times"]) == 5
 
 
-def test_make_memory_limiter_none_when_limit_disabled() -> None:
-    from stepik_grader.core.microbench_runner import _make_memory_limiter
-
-    assert _make_memory_limiter(None) is None
-
-
-def test_make_memory_limiter_none_when_resource_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Windows has no `resource` module — limiter must degrade to a no-op."""
-    from stepik_grader.core import microbench_runner
-
-    monkeypatch.setattr(microbench_runner, "resource", None)
-    assert microbench_runner._make_memory_limiter(1024) is None
-
-
-def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_apply_memory_limit_noop_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     from stepik_grader.core import microbench_runner
 
     calls: list[tuple] = []
@@ -262,36 +244,60 @@ def test_make_memory_limiter_calls_setrlimit_with_mb_converted_to_bytes(
         RLIMIT_AS = "RLIMIT_AS"
 
         @staticmethod
-        def setrlimit(which, limits):
-            calls.append((which, limits))
+        def prlimit(*args):
+            calls.append(args)
 
     monkeypatch.setattr(microbench_runner, "resource", _FakeResource)
-    limiter = microbench_runner._make_memory_limiter(64)
-    assert limiter is not None
+    microbench_runner._apply_memory_limit(123, None)
+    assert calls == []
 
-    limiter()
+
+def test_apply_memory_limit_noop_when_resource_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows has no `resource` module — must degrade to a no-op, not crash."""
+    from stepik_grader.core import microbench_runner
+
+    monkeypatch.setattr(microbench_runner, "resource", None)
+    microbench_runner._apply_memory_limit(123, 1024)  # must not raise
+
+
+def test_apply_memory_limit_calls_prlimit_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
+    from stepik_grader.core import microbench_runner
+
+    calls: list[tuple] = []
+
+    class _FakeResource:
+        RLIMIT_AS = "RLIMIT_AS"
+
+        @staticmethod
+        def prlimit(pid, which, limits):
+            calls.append((pid, which, limits))
+
+    monkeypatch.setattr(microbench_runner, "resource", _FakeResource)
+    microbench_runner._apply_memory_limit(4321, 64)
 
     expected_bytes = 64 * 1024 * 1024
-    assert calls == [("RLIMIT_AS", (expected_bytes, expected_bytes))]
+    assert calls == [(4321, "RLIMIT_AS", (expected_bytes, expected_bytes))]
 
 
-@pytest.mark.parametrize("exc", [ValueError("invalid limit"), OSError("not permitted")])
-def test_make_memory_limiter_swallows_setrlimit_failure(
+@pytest.mark.parametrize(
+    "exc",
+    [AttributeError("no prlimit on macOS"), ValueError("invalid limit"), OSError("not permitted")],
+)
+def test_apply_memory_limit_swallows_prlimit_failure(
     monkeypatch: pytest.MonkeyPatch, exc: Exception
 ) -> None:
-    """setrlimit() failing (observed on macOS CI for RLIMIT_AS) must not raise --
-    see the matching test/comment in test_grader_core.py for why."""
+    """prlimit отсутствует на macOS (AttributeError) / нет прав (OSError) — не
+    падаем, пропускаем cap (issue #67). См. парный тест в test_grader_core.py."""
     from stepik_grader.core import microbench_runner
 
     class _FakeResource:
         RLIMIT_AS = "RLIMIT_AS"
 
         @staticmethod
-        def setrlimit(which, limits):
+        def prlimit(*args):
             raise exc
 
     monkeypatch.setattr(microbench_runner, "resource", _FakeResource)
-    limiter = microbench_runner._make_memory_limiter(64)
-    assert limiter is not None
-
-    limiter()  # must not raise
+    microbench_runner._apply_memory_limit(1, 64)  # must not raise

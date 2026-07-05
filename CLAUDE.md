@@ -669,6 +669,14 @@ def run_microbench_with_timeout(
 > Оставлена как готовый строительный блок для будущего `fn()` без
 > собственного таймаута — см. докстринг функции.
 
+> Issue #69 (v1.4.0-post): `run_microbench_with_timeout()` **удалена**. Два
+> релизных цикла без единого production-вызова; её собственный докстринг
+> признавал, что защиты она не даёт (обёртка поверх уже subprocess-таймаут-
+> защищённого вызова), а при реальном таймауте оставляет orphan-поток. Вердикт
+> «Remove» вместо «Keep»: мёртвый код, вводящий в заблуждение; история — в
+> git. Вместе с ней убраны `import concurrent.futures` и `Callable` из
+> `microbench_runner.py` (больше нигде не нужны) и два теста.
+
 ---
 
 ### 🟢 Sprint 8 — CLI и PyPI-ready
@@ -748,6 +756,16 @@ stepik-grader --mode 4 --dir path/to/folder --number 1000 — режим 4, non-
 > Linux CI, не защищает Windows-запуски (основная личная среда этого
 > проекта) — задокументированное ограничение, не полноценный OS-sandbox
 > (по-прежнему нет изоляции ФС/сети).
+
+> Issue #67 (v1.4.0-post): `preexec_fn`+`_make_memory_limiter()` заменены на
+> `_apply_memory_limit(pid, ...)` — лимит ставится через `resource.prlimit`
+> на pid ПОСЛЕ spawn. `preexec_fn` форкает в многопоточном родителе (грейдер
+> держит psutil-поток мониторинга памяти) — небезопасно. `run_microbench`
+> переведён с `subprocess.run` на `Popen`+`communicate(timeout=60)` ради pid.
+> `prlimit` — Linux-only (на macOS отсутствует → `AttributeError` → no-op),
+> в отличие от прежнего in-child `setrlimit`, работавшего и на macOS: cap
+> всё равно best-effort, thread-safety важнее. Helper по-прежнему дублируется
+> в grader_core.py и microbench_runner.py (тот же DAG-аргумент).
 
 > **#43 (S-02) закрыт как дубликат S-01, не отдельный фикс.** `safe_input`/
 > `call_block` встраиваются в generated-код как выражения верхнего уровня,
