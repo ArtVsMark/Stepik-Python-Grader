@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Docs
+- README install now leads with `pipx install stepik-python-grader` from PyPI
+  (published as of v1.3.0, issue #70) instead of the `git+https://…` form,
+  which is kept as the "unreleased from source" fallback
+
 ## [1.3.0] - 2026-07-04
 
 Onboarding/UX epic #80 (feedback from a from-scratch install run on Windows)

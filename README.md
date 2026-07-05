@@ -224,17 +224,20 @@ stepik_diagnostics/
 ```bash
 python -m pip install --user pipx
 python -m pipx ensurepath      # один раз добавляет pipx в PATH — ПЕРЕЗАПУСТИ терминал после этого
-pipx install git+https://github.com/ArtVsMark/Stepik-Python-Grader.git
+pipx install stepik-python-grader
 ```
 
 Проверь, что всё встало:
 
 ```bash
-stepik-grader --version        # должно напечатать 1.2.0
+stepik-grader --version        # должно напечатать текущую версию
 ```
 
-> Когда пакет появится на PyPI (issue #70), установка упростится до
-> `pipx install stepik-python-grader`.
+> Пакет публикуется на [PyPI](https://pypi.org/project/stepik-python-grader/)
+> (issue #70). Если нужна ещё не выпущенная версия прямо из репозитория —
+> `pipx install git+https://github.com/ArtVsMark/Stepik-Python-Grader.git`.
+> Обычный `pip install stepik-python-grader` тоже работает, но `pipx` удобнее
+> для CLI-инструмента (изоляция + PATH).
 
 ---
 
