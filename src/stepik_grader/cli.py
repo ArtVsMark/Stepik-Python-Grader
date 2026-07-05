@@ -798,6 +798,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "(требует: pip install stepik-grader[watch]). Issue #54."
         ),
     )
+    parser.add_argument(
+        "--serve",
+        action="store_true",
+        help=(
+            "Запустить локальный веб-интерфейс (только localhost) вместо CLI. "
+            "Эпик #80 Tier 1 / issue #58."
+        ),
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Порт для --serve (по умолчанию 8000).",
+    )
     return parser
 
 
@@ -889,6 +903,13 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.version:
         print(f"grader.py {__version__}")
+        return
+
+    if args.serve:
+        # Ленивый импорт: http.server-стек тянем только когда реально нужен.
+        from stepik_grader import web
+
+        web.run_server(port=args.port)
         return
 
     if args.mode is None:

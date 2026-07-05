@@ -55,6 +55,7 @@ Stepik-Python-Grader/
 │       │                         # реэкспортирует core/grader_core.py / core/reporter.py / cli.py
 │       ├── cli.py                 # Application/CLI: интерактивное меню (режимы 0-4), entry point stepik-grader
 │       ├── config.py              # Application/Configuration: GraderConfig, CONFIG (Sprint 6.3 ✅)
+│       ├── web.py                  # Application/UI: локальный веб-интерфейс (--serve, stdlib http.server), эпик #80 Tier 1
 │       │
 │       ├── downloader.py         # Domain: скачивание задач, ZIP/HTML, slugify
 │       ├── diagnostic_stepik.py  # Application: диагностика API и токена
@@ -124,6 +125,10 @@ core/mode_detector.py ──→ core/storage.py
 cli.py ──→ core/grader_core.py
 cli.py ──→ core/reporter.py
 cli.py ──→ core/microbench_runner.py  # apply_relative_ranking
+cli.py ──→ web.py                     # ленивый импорт при --serve (эпик #80 Tier 1)
+
+web.py ──→ core/grader_core.py        # run_tests
+web.py ──→ core/test_loader.py        # find_all_solution_files, resolve_test_dir
 
 core/executor.py ──→ config.py       # CONFIG.executor_timeout (graceful fallback
                                       # к литералу 10, если запущен как subprocess-
