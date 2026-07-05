@@ -99,32 +99,24 @@ class MicrobenchResult:
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
-def _make_memory_limiter(max_memory_mb: int | None) -> Callable[[], None] | None:
-    """Вернуть preexec_fn, ограничивающий RLIMIT_AS дочернего процесса, или
-    None, если лимит недоступен/отключён.
+def _apply_memory_limit(pid: int, max_memory_mb: int | None) -> None:
+    """Best-effort лимит RLIMIT_AS на дочерний pid ПОСЛЕ spawn (issue #67).
 
     Дублирует одноимённый helper из grader_core.py — грейдер сам импортирует
-    microbench_runner (не наоборот), поэтому кросс-импорт создал бы цикл в
-    DAG зависимостей; helper небольшой (POSIX-only best-effort защита,
-    issue #43 S-01), дублирование дешевле нарушения слойности.
+    microbench_runner (не наоборот), кросс-импорт создал бы цикл в DAG;
+    helper небольшой, дублирование дешевле нарушения слойности.
+
+    ``resource.prlimit`` вместо preexec_fn — потокобезопасно (не форкает в
+    многопоточном родителе). Linux-only: на macOS prlimit отсутствует
+    (``AttributeError``), на Windows нет модуля ``resource`` — там no-op.
     """
     if resource is None or max_memory_mb is None:
-        return None
-
+        return
     limit_bytes = max_memory_mb * 1024 * 1024
-
-    def _limit() -> None:
-        # POSIX-only, typeshed excludes resource.setrlimit/RLIMIT_AS on win32.
-        # Best-effort: RLIMIT_AS is unreliable on macOS (setrlimit can fail
-        # even for a generous limit) and an uncaught exception here would
-        # abort the whole Popen() call, not just skip the cap (see the
-        # matching helper in grader_core.py for the full explanation).
-        try:
-            resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
-        except (ValueError, OSError):
-            pass
-
-    return _limit
+    try:
+        resource.prlimit(pid, resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
+    except (AttributeError, ValueError, OSError):
+        pass
 
 
 def run_microbench(
@@ -208,38 +200,44 @@ def run_microbench(
         )
 
         try:
-            result = subprocess.run(
+            # issue #67: Popen (не subprocess.run), чтобы поставить лимит памяти
+            # на pid ПОСЛЕ spawn через prlimit — preexec_fn небезопасен.
+            proc = subprocess.Popen(
                 [sys.executable, "-c", bench_script],
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=60,
                 encoding=ENCODING,
-                preexec_fn=_make_memory_limiter(max_memory_mb),
             )
-            if result.returncode != 0:
-                return {"times": [], "error": result.stderr.strip(), "peak_memory_mb": 0.0}
-            lines = result.stdout.strip().splitlines()
+            _apply_memory_limit(proc.pid, max_memory_mb)
+            try:
+                stdout, stderr = proc.communicate(timeout=60)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+                # issue #47 R-01: no per-call timeout exists inside the child
+                # (timeit.repeat runs number x 5 as one opaque call, so we can't
+                # report which iteration hung) -- surface the iteration count
+                # instead, so a hang at number=50000 isn't indistinguishable
+                # from one at number=5.
+                return {
+                    "times": [],
+                    "error": (
+                        f"microbench timeout: exceeded 60s running number={number} "
+                        "iterations per repeat (5 repeats total)"
+                    ),
+                    "peak_memory_mb": 0.0,
+                }
+            if proc.returncode != 0:
+                return {"times": [], "error": stderr.strip(), "peak_memory_mb": 0.0}
+            lines = stdout.strip().splitlines()
             mem_lines = [line for line in lines if line.startswith("MEM:")]
             time_lines = [line for line in lines if not line.startswith("MEM:")]
             times = [float(line) for line in time_lines if line.strip()]
             peak_mb = float(mem_lines[-1][len("MEM:") :]) / 1024 / 1024 if mem_lines else 0.0
             return {"times": times, "error": "", "peak_memory_mb": peak_mb}
-        except subprocess.TimeoutExpired:
-            # issue #47 R-01: no per-call timeout exists inside the child (timeit.repeat
-            # runs number x 5 as one opaque call, so we can't report which iteration
-            # hung) -- surface the iteration count instead, the most useful thing we
-            # DO know, so a hang at number=50000 isn't indistinguishable from one at
-            # number=5.
-            return {
-                "times": [],
-                "error": (
-                    f"microbench timeout: exceeded 60s running number={number} "
-                    "iterations per repeat (5 repeats total)"
-                ),
-                "peak_memory_mb": 0.0,
-            }
         except (OSError, ValueError) as exc:
-            # OSError: subprocess.run() couldn't spawn the child process.
+            # OSError: Popen couldn't spawn the child process.
             # ValueError: float(line) failed on unparseable subprocess stdout.
             return {"times": [], "error": str(exc), "peak_memory_mb": 0.0}
     finally:

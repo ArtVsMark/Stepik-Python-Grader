@@ -174,38 +174,32 @@ class BenchStats:
         return (self.median / baseline * 100) if baseline > 0 else 0.0
 
 
-def _make_memory_limiter(max_memory_mb: int | None) -> Callable[[], None] | None:
-    """Вернуть preexec_fn, ограничивающий адресное пространство (RLIMIT_AS)
-    дочернего процесса, или None, если лимит недоступен/отключён.
+def _apply_memory_limit(pid: int, max_memory_mb: int | None) -> None:
+    """Best-effort лимит адресного пространства (RLIMIT_AS) на дочерний pid
+    ПОСЛЕ spawn — потокобезопасная замена preexec_fn (issue #67).
 
-    Best-effort защита от неограниченного потребления памяти запускаемым
-    решением (issue #43 S-01) — не замена полноценному OS-sandbox, у
-    дочернего процесса по-прежнему нет изоляции файловой системы/сети.
-    POSIX-only: на Windows модуль ``resource`` отсутствует, лимит не
-    применяется (решение выполняется как раньше, без ограничения памяти).
+    ``preexec_fn`` форкает в многопоточном родителе (грейдер держит
+    psutil-поток мониторинга памяти) — документированно небезопасно.
+    ``resource.prlimit`` ставит лимит на уже запущенный pid извне, без fork в
+    родителе.
+
+    Linux-only: ``resource.prlimit`` отсутствует на macOS (``AttributeError``)
+    и на Windows (нет самого модуля ``resource``) — там no-op, решение
+    выполняется без лимита памяти, как раньше на Windows. Окно «ребёнок
+    стартовал без лимита» ~мс до exec пользовательского кода — приемлемо для
+    задач курса (issue #43 S-01 — best-effort, не OS-sandbox; нет изоляции
+    ФС/сети).
     """
     if resource is None or max_memory_mb is None:
-        return None
-
+        return
     limit_bytes = max_memory_mb * 1024 * 1024
-
-    def _limit() -> None:
-        # POSIX-only, typeshed excludes resource.setrlimit/RLIMIT_AS on win32.
-        # Runs in the forked child before exec() -- any uncaught exception here
-        # surfaces to the parent as subprocess.SubprocessError and aborts the
-        # whole Popen() call (discovered via macOS CI, Sprint D): RLIMIT_AS
-        # enforcement is unreliable on macOS, setrlimit can fail even for a
-        # generous limit (e.g. due to how much virtual address space is
-        # already mapped via the dyld shared cache before exec). Swallow the
-        # failure so an unsupported/broken platform still runs the child,
-        # just without the memory cap, instead of crashing subprocess
-        # creation entirely.
-        try:
-            resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
-        except (ValueError, OSError):
-            pass
-
-    return _limit
+    try:
+        # typeshed помечает prlimit/RLIMIT_AS Linux-only; на macOS prlimit
+        # отсутствует (AttributeError), OSError — нет процесса/прав, ValueError —
+        # некорректный лимит. Любую из них глотаем: лишь пропускаем cap.
+        resource.prlimit(pid, resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
+    except (AttributeError, ValueError, OSError):
+        pass
 
 
 def _measure_peak_memory(
@@ -365,8 +359,10 @@ def run_single_test(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=_child_env,
-            preexec_fn=_make_memory_limiter(CONFIG.max_memory_mb),
         )
+        # issue #67: лимит памяти ставим на pid ПОСЛЕ spawn (prlimit), а не через
+        # preexec_fn — тот небезопасен при активном psutil-потоке мониторинга.
+        _apply_memory_limit(proc.pid, CONFIG.max_memory_mb)
 
         if measure_memory:
             mem_thread = threading.Thread(

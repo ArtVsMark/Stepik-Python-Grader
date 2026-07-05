@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Changed
+- Memory cap (`GraderConfig.max_memory_mb`, RLIMIT_AS) now applied via
+  `resource.prlimit(child_pid, ...)` **after** spawn instead of a
+  `subprocess` `preexec_fn` (issue #67). `preexec_fn` forks in a multithreaded
+  parent — the grader runs a psutil memory-monitor thread — which is
+  documented as unsafe; `prlimit` sets the limit on the already-spawned pid
+  without forking in the parent. `core/microbench_runner.run_microbench`
+  switched from `subprocess.run` to `Popen` + `communicate(timeout=60)` to get
+  a pid to limit. Linux-only (`resource.prlimit` is absent on macOS →
+  `AttributeError` → no-op; Windows has no `resource` module), a change from
+  the previous in-child `setrlimit` which also ran on macOS — acceptable, the
+  cap was always best-effort (issue #43 S-01), and thread-safety wins. The
+  ~ms window where the child runs before the limit lands is before user code
+  executes
+
 ## [1.4.0] - 2026-07-05
 
 Epic #80 (onboarding/UX) Tiers 1–2 — the grader beyond the pure console:

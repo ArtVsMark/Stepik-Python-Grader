@@ -749,6 +749,16 @@ stepik-grader --mode 4 --dir path/to/folder --number 1000 — режим 4, non-
 > проекта) — задокументированное ограничение, не полноценный OS-sandbox
 > (по-прежнему нет изоляции ФС/сети).
 
+> Issue #67 (v1.4.0-post): `preexec_fn`+`_make_memory_limiter()` заменены на
+> `_apply_memory_limit(pid, ...)` — лимит ставится через `resource.prlimit`
+> на pid ПОСЛЕ spawn. `preexec_fn` форкает в многопоточном родителе (грейдер
+> держит psutil-поток мониторинга памяти) — небезопасно. `run_microbench`
+> переведён с `subprocess.run` на `Popen`+`communicate(timeout=60)` ради pid.
+> `prlimit` — Linux-only (на macOS отсутствует → `AttributeError` → no-op),
+> в отличие от прежнего in-child `setrlimit`, работавшего и на macOS: cap
+> всё равно best-effort, thread-safety важнее. Helper по-прежнему дублируется
+> в grader_core.py и microbench_runner.py (тот же DAG-аргумент).
+
 > **#43 (S-02) закрыт как дубликат S-01, не отдельный фикс.** `safe_input`/
 > `call_block` встраиваются в generated-код как выражения верхнего уровня,
 > а не внутри строкового литерала — вырваться из контекста через кавычки

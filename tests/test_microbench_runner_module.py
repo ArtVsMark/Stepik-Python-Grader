@@ -89,25 +89,33 @@ def test_microbench_runner_stdout_suppressed() -> None:
 
 
 def test_microbench_runner_timeout_returns_error() -> None:
-    """subprocess.TimeoutExpired покрывает строки 158–159.
+    """proc.communicate(timeout=60) → TimeoutExpired (issue #67: Popen вместо
+    subprocess.run, чтобы применить prlimit после spawn).
 
     Issue #47 R-01: error message reports the iteration count (`number`) that
     was running when the timeout fired -- the most useful diagnostic
     available without a genuine per-call timeout inside the child process.
     """
-    with patch("stepik_grader.core.microbench_runner.subprocess.run") as mock_run:
-        mock_run.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=60)
+    with patch("stepik_grader.core.microbench_runner.subprocess.Popen") as mock_popen:
+        proc = mock_popen.return_value
+        # Первый communicate(timeout=60) кидает TimeoutExpired; второй (после
+        # proc.kill()) возвращает пустой вывод.
+        proc.communicate.side_effect = [
+            subprocess.TimeoutExpired(cmd="python", timeout=60),
+            ("", ""),
+        ]
         result = run_microbench("x = 1\n", stdin_data="", number=5000)
     assert result["times"] == []
     assert "number=5000" in result["error"]
     assert "60s" in result["error"]
     assert result["peak_memory_mb"] == 0.0
+    proc.kill.assert_called_once()
 
 
 def test_microbench_runner_unexpected_exception_returns_error() -> None:
-    """OSError покрывает строки 160–161."""
-    with patch("stepik_grader.core.microbench_runner.subprocess.run") as mock_run:
-        mock_run.side_effect = OSError("no such file")
+    """OSError при spawn (Popen не смог запустить процесс) → error-результат."""
+    with patch("stepik_grader.core.microbench_runner.subprocess.Popen") as mock_popen:
+        mock_popen.side_effect = OSError("no such file")
         result = run_microbench("x = 1\n", stdin_data="", number=5)
     assert result["times"] == []
     assert "no such file" in result["error"]
