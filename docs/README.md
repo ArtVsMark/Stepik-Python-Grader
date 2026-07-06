@@ -17,6 +17,8 @@
 | Полный список изменений | [../CHANGELOG.md](../CHANGELOG.md) |
 | Внести вклад: код-стайл, форматы тестов, версионирование | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Инварианты ядра и правила для агентов | [../CLAUDE.md](../CLAUDE.md) |
+| Постановки будущих задач для Claude Code (#163/#125/#126/#129) | [claude-handoff.md](claude-handoff.md) |
+| История спринтов и roadmap (архив) | [history.md](history.md) |
 
 ## Канонические источники (правило против дублей)
 
@@ -35,8 +37,10 @@
 | Дерево файлов проекта | [project-structure.md](project-structure.md) | README |
 | Сравнение версий, отличия от оригинала | [versions.md](versions.md) | README |
 | История релизов (детальный changelog) | [../CHANGELOG.md](../CHANGELOG.md) | versions.md (там — только качественные скачки) |
-| Политика версионирования (схема тег=MINOR+1 и т.п.) | [../CONTRIBUTING.md](../CONTRIBUTING.md) § Версионирование | README, CLAUDE.md, versions.md |
+| Политика версионирования (схема тег=MINOR+1, release vs dev) | [../CONTRIBUTING.md](../CONTRIBUTING.md) § Версионирование | README, CLAUDE.md, versions.md, history.md |
 | Инварианты ядра, правила для агентов | [../CLAUDE.md](../CLAUDE.md) | docs/* |
+| История спринтов/roadmap, подробные примечания к issue (архив) | [history.md](history.md) | CLAUDE.md (там — только действующие инварианты) |
+| Постановки будущих реализаций для Claude (scope/non-goals) | [claude-handoff.md](claude-handoff.md) | CLAUDE.md (там — короткие указатели); канон продукта — web-mvp.md |
 
 > **Версия проекта — без ручного source of truth в доках.** Актуальный номер
 > берётся из git-тега / `importlib.metadata` (бейдж релиза в README тянет
