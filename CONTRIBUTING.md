@@ -107,7 +107,8 @@ Stepik-Python-Grader/
 |--------|------|
 | Карта документации + канонические источники | [`docs/README.md`](docs/README.md) |
 | Установка, OAuth, secrets.json, диагностика | [`docs/installation.md`](docs/installation.md) |
-| Режимы работы, CLI-флаги, скачивание задачи, форматы тестов, конфигурация | [`docs/grader-workflow.md`](docs/grader-workflow.md) |
+| Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [`docs/grader-workflow.md`](docs/grader-workflow.md) |
+| Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [`docs/configuration.md`](docs/configuration.md) |
 | Архитектура модулей (DAG, слои, «что умеет») | [`docs/architecture.md`](docs/architecture.md) |
 | Структура проекта (дерево файлов) | [`docs/project-structure.md`](docs/project-structure.md) |
 | Версии и сравнение с оригиналом | [`docs/versions.md`](docs/versions.md) |
@@ -174,28 +175,11 @@ pre-commit install
 
 ## Форматы тест-кейсов
 
-Grader поддерживает три формата (в порядке приоритета):
-
-### Формат 3 — Python-generation (приоритет 1)
-```
-tests/
-  input.txt   # блоки с маркерами # TEST_1:, # TEST_2: ...
-  output.txt  # блоки с маркерами # TEST_1:, # TEST_2: ...
-```
-
-### Формат 2 — новый (приоритет 2)
-```
-tests/
-  input_1.txt    expected_1.txt
-  input_2.txt    expected_2.txt
-```
-
-### Формат 1 — legacy downloader (приоритет 3)
-```
-tests/
-  1      1.clue    (1.type — опционально, "function")
-  2      2.clue
-```
+Grader поддерживает три автодетектируемых формата (Legacy `N`/`N.clue`,
+именованные `input_N.txt`/`expected_N.txt`, python-generation
+`input.txt`/`output.txt` с `# TEST_N:`). Канонический справочник — в
+[`docs/configuration.md § Формат тест-кейсов`](docs/configuration.md#формат-тест-кейсов);
+здесь не дублируется во избежание расхождений.
 
 ---
 
