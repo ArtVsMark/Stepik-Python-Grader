@@ -1059,3 +1059,9 @@ python -m stepik_grader.diagnostic_stepik
 ## Python версия
 
 Python **3.12+**
+
+---
+
+## Лицензия
+
+[MIT](LICENSE) © Artem Markitanov (ArtVsMark).

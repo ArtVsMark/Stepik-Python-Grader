@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- Packaging hygiene (PR-1, epic #98): explicit MIT `LICENSE` at the repo root
+  and PEP 639 SPDX license metadata in `pyproject.toml` (`license = "MIT"` +
+  `license-files = ["LICENSE"]`, issue #100); PEP 561 `py.typed` marker so
+  downstream consumers' type checkers see the package's type hints (issue #101).
+  Build requirement bumped to `setuptools>=77` for SPDX support; `py.typed`
+  declared in `[tool.setuptools.package-data]`. (Version sync, issue #99, was
+  already done — see the pre-merge version rule in CLAUDE.md.)
 - Glossary hints on runtime errors (issue #72, first brick of epic #96).
   New leaf module `core/glossary.py` holds a curated map of ~28 built-in
   Python exceptions → a one-line Russian hint + a link to the full card in the
