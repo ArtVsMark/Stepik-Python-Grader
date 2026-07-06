@@ -3,6 +3,18 @@
 ## [Unreleased]
 
 ### Added
+- pytest plugin (`pytest --grader-mode`, issue #57). New module
+  `pytest_plugin.py` registered as a `pytest11` entry point, so
+  `pytest --grader-mode StepikTasks/` collects each solution file (`task*.py`)
+  as a pytest `File`, yielding one `Item` per test case from its `tests/`
+  directory. Items run through the same `run_single_test` engine as CLI mode 1;
+  a wrong answer is a normal FAILED with an "expected/actual" diff, a runtime
+  error surfaces the exception text. Off by default (no-op unless
+  `--grader-mode` or `grader_mode = true` in the ini) so it never interferes
+  with a project's own suite. Core imports are lazy (inside the hooks) so the
+  entry-point load doesn't distort coverage. 16 tests via the `pytester`
+  fixture. `pytest` must be installed to use it (it already is wherever pytest
+  runs); a standalone `pytest-stepik-grader` PyPI package remains future work.
 - Opt-in result cache (`--cache` / `--no-cache`, `--clear-cache`, issue #56).
   New leaf module `core/cache.py` (stdlib `hashlib` + `core/storage.py` JSON
   I/O only — no new DAG edges/cycles). On `--mode 1/2 --cache`, a solution is
