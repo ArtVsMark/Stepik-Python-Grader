@@ -17,16 +17,26 @@ from typing import Any
 
 __all__ = ["VSCODE_TASKS", "write_vscode_tasks"]
 
+# Запускаем через интерпретатор, выбранный в VS Code (Python-расширение),
+# а не через консольную команду `stepik-grader`: она есть в PATH только при
+# активированном venv, что для новичка неочевидно и ломало запуск задач.
+# ${command:python.interpreterPath} + `-m stepik_grader.grader` работает с тем
+# же интерпретатором, где установлен пакет, без ручной активации venv.
+# type=process (а не shell) — путь к интерпретатору может содержать пробелы;
+# process исполняет команду напрямую, без шелл-квотинга аргументов.
+_PYTHON = "${command:python.interpreterPath}"
+_MODULE = ["-m", "stepik_grader.grader"]
+
 
 def _task(
     label: str, args: list[str], *, default: bool = False, clear: bool = True
 ) -> dict[str, Any]:
-    """Собрать одну VS Code-задачу, вызывающую консольную команду stepik-grader."""
+    """Собрать одну VS Code-задачу, запускающую грейдер через интерпретатор VS Code."""
     task: dict[str, Any] = {
         "label": label,
-        "type": "shell",
-        "command": "stepik-grader",
-        "args": args,
+        "type": "process",
+        "command": _PYTHON,
+        "args": [*_MODULE, *args],
         "presentation": {"reveal": "always", "panel": "dedicated", "clear": clear},
         "problemMatcher": [],
     }

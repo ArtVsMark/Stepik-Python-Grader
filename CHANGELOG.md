@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Fixed
+- IDE integration tasks now launch via the editor's selected interpreter
+  instead of the bare `stepik-grader` console script, which is only on PATH
+  when the venv is activated — the most likely reason the generated tasks
+  "wouldn't launch" for beginners. VS Code `--init-vscode` tasks now use
+  `${command:python.interpreterPath} -m stepik_grader.grader …`
+  (`type: process`, robust to interpreter paths with spaces); the README
+  PyCharm External Tool recipe now uses `$PyInterpreterDirectory$/python -m
+  stepik_grader.grader …`. Both run from the interpreter where the package is
+  installed, with no manual venv activation (VS Code needs the Python
+  extension; both need an interpreter selected).
+
 ### Changed
 - `--watch --mode 2` is now incremental (issue #71): watch mode auto-enables
   the #56 result cache, so a file-change event only re-runs the changed

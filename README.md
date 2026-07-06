@@ -303,7 +303,7 @@ pip install -e ".[dev]"      # + pytest, pytest-cov, ruff, mypy
 **Шаг 5. Проверить установку:**
 
 ```bash
-python -m stepik_grader --version   # 1.2.0
+python -m stepik_grader --version   # напр. 1.4.0
 ```
 
 > Проект использует src-layout (`src/stepik_grader/`, Issue #35) — модули
@@ -450,18 +450,31 @@ stepik-grader --init-vscode
 Запуск: `Ctrl+Shift+B` (проверить открытый файл) или `Terminal → Run Task →
 «Stepik: …»`. Существующий `tasks.json` не перезатирается — команда предупредит.
 
+> Задачи запускают грейдер через **интерпретатор, выбранный в VS Code**
+> (`${command:python.interpreterPath} -m stepik_grader.grader …`), а не через
+> консольную команду `stepik-grader`. Поэтому venv **не нужно активировать
+> вручную** — достаточно один раз выбрать интерпретатор своего окружения
+> (`Ctrl+Shift+P → Python: Select Interpreter`), где установлен пакет. Требуется
+> расширение **Python** для VS Code (стандартное). Если задача не запускается —
+> проверь, что выбран правильный интерпретатор и в нём выполнено
+> `pip install stepik-python-grader` (или `pip install -e .`).
+
 **PyCharm** — через *External Tool* (настраивается вручную, один раз):
 
 1. `Settings → Tools → External Tools → +`
 2. Заполнить:
-   - **Program:** `stepik-grader`
-   - **Arguments:** `--mode 1 --file $FilePath$`
+   - **Program:** `$PyInterpreterDirectory$/python`
+   - **Arguments:** `-m stepik_grader.grader --mode 1 --file $FilePath$`
    - **Working directory:** `$FileDir$`
 3. Запуск: правый клик по файлу → `External Tools → …` (или назначить горячую
    клавишу в `Keymap`).
 
-> Обе интеграции просто вызывают консольную команду `stepik-grader` — работают
-> сразу после `pipx install stepik-python-grader` (см. «Установка»).
+> **Program:** `$PyInterpreterDirectory$/python` — это интерпретатор проекта
+> (venv), выбранный в `Settings → Project → Python Interpreter`. Так venv **не
+> нужно активировать вручную**, и грейдер берётся из того же окружения, где он
+> установлен (`pip install stepik-python-grader` / `pip install -e .`). Прямой
+> вызов `stepik-grader` работает только если venv активирован в PATH — поэтому
+> здесь используется явный путь к интерпретатору, как и в задачах VS Code.
 
 #### Дополнительные флаги (Sprint E, issues #50/#51)
 
