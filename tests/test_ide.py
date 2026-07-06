@@ -17,13 +17,17 @@ class TestWriteVscodeTasks:
         assert data["version"] == "2.0.0"
         labels = [t["label"] for t in data["tasks"]]
         assert any("текущий файл" in lbl for lbl in labels)
-        assert all(t["command"] == "stepik-grader" for t in data["tasks"])
+        # Задачи запускаются через интерпретатор VS Code, а не консольную
+        # команду stepik-grader (иначе нужен активированный venv в PATH).
+        assert all(t["command"] == "${command:python.interpreterPath}" for t in data["tasks"])
+        assert all(t["type"] == "process" for t in data["tasks"])
+        assert all(t["args"][:2] == ["-m", "stepik_grader.grader"] for t in data["tasks"])
 
     def test_default_task_grades_current_file(self, tmp_path: pathlib.Path) -> None:
         _, path = ide.write_vscode_tasks(tmp_path)
         tasks = json.loads(path.read_text(encoding="utf-8"))["tasks"]
         default = next(t for t in tasks if t.get("group", {}).get("isDefault"))
-        assert default["args"] == ["--mode", "1", "--file", "${file}"]
+        assert default["args"] == ["-m", "stepik_grader.grader", "--mode", "1", "--file", "${file}"]
 
     def test_does_not_overwrite_existing(self, tmp_path: pathlib.Path) -> None:
         path = tmp_path / ".vscode" / "tasks.json"
@@ -40,7 +44,7 @@ class TestWriteVscodeTasks:
         path.write_text("OLD", encoding="utf-8")
         written, _ = ide.write_vscode_tasks(tmp_path, overwrite=True)
         assert written is True
-        assert "stepik-grader" in path.read_text(encoding="utf-8")
+        assert "stepik_grader.grader" in path.read_text(encoding="utf-8")
 
     def test_vscode_tasks_constant_is_serializable(self) -> None:
         # Гарантируем, что шаблон всегда валидно сериализуется в JSON.
