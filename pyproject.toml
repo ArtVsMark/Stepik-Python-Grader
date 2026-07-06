@@ -1,11 +1,16 @@
 [build-system]
 # setuptools>=77 — поддержка PEP 639 SPDX-выражения license + license-files (issue #100).
-requires = ["setuptools>=77"]
+# setuptools-scm>=8 — динамическая версия из git-тегов (issue #162): git —
+# единственный источник истины, статической строки version в [project] больше нет.
+requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "stepik-python-grader"
-version = "1.5.0"
+# issue #162: версия вычисляется из git-тегов (setuptools-scm), см. секцию
+# [tool.setuptools_scm] ниже. Поэтому "version" объявлена dynamic, а не
+# захардкожена — единый источник истины теперь git-тег vX.Y.0.
+dynamic = ["version"]
 description = "Automatic comparison and testing of Python solutions from Stepik courses"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -39,6 +44,21 @@ stepik_grader = "stepik_grader.pytest_plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# issue #162: версия из git-тегов. Схема проекта — НЕ SemVer (все теги = vX.Y.0,
+# PATCH = число коммитов после тега; см. CONTRIBUTING.md §Версионирование и
+# scripts/version.py). setuptools-scm не умеет "класть коммиты в PATCH" именованной
+# схемой, поэтому:
+#   * НА ТЕГЕ  vX.Y.0            → метаданные пакета = "X.Y.0"  (совпадает с релизом)
+#   * ВНЕ ТЕГА (N коммитов, hash)→ "X.Y.0.postN+g<hash>"  (PEP 440 dev-сборка)
+# База версии всегда остаётся последним релизным тегом X.Y.0 (version_scheme =
+# post-release), поэтому политика "все релизы = vX.Y.0" не нарушается, а dev-сборки
+# технически отличимы от релиза локальным сегментом +g<hash>. "Логический" счётчик
+# X.Y.N (scripts/version.py) остаётся справочным инструментом для тегирования.
+# При сборке из sdist (нет .git) версия берётся из PKG-INFO — git остаётся
+# единственным источником истины, зафиксированным в момент сборки sdist.
+[tool.setuptools_scm]
+version_scheme = "post-release"
 
 # issue #101: PEP 561 — маркер py.typed, чтобы mypy у downstream-потребителей
 # видел типы установленного пакета. Достаточно на верхнем уровне пакета —

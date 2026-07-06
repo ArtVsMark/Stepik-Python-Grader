@@ -23,6 +23,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        # issue #162: динамическая версия (setuptools-scm) вычисляется из git-тегов.
+        # fetch-depth: 0 подтягивает полную историю + теги, иначе pip install -e .
+        # не сможет определить версию, а check_version_consistency.py — baseline.
+        with:
+          fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
@@ -41,6 +46,9 @@ jobs:
 
       - name: Type check
         run: mypy src/stepik_grader --ignore-missing-imports
+
+      - name: Version consistency (issue #165)
+        run: python scripts/check_version_consistency.py
 
       - name: Run tests
         run: pytest -q

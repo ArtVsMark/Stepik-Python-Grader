@@ -13,6 +13,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        # issue #162: setuptools-scm берёт версию из git-тегов — нужна полная
+        # история и теги, иначе сборка на теге не определит X.Y.0.
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -52,6 +56,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        # issue #162: setuptools-scm берёт версию из git-тегов — нужна полная
+        # история и теги, иначе сборка на теге не определит X.Y.0.
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
