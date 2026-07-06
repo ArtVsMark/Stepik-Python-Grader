@@ -26,6 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from stepik_grader.core.glossary import lookup_from_error
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
     SIMILAR_THRESHOLD,
@@ -65,14 +66,24 @@ def _resolve_solutions(path: str) -> tuple[str, str, list[str]] | dict[str, Any]
 
 def _case_view(index: int, case: dict[str, Any]) -> dict[str, Any]:
     """Компактное представление одного тест-кейса для UI."""
-    return {
+    error = case.get("error", "")
+    view: dict[str, Any] = {
         "n": index,
-        "verdict": case.get("verdict") or ("RE" if case.get("error") else "?"),
+        "verdict": case.get("verdict") or ("RE" if error else "?"),
         "time": round(case.get("time", 0.0), 4),
-        "error": case.get("error", ""),
+        "error": error,
         # diff показываем только для непрошедших — иначе пусто.
         "diff": "" if case.get("passed") else case.get("diff", ""),
     }
+    # issue #72: карточка ошибки — тип исключения, пояснение, ссылка на глоссарий.
+    entry = lookup_from_error(error) if error else None
+    if entry is not None:
+        view["glossary"] = {
+            "exception": entry.exception,
+            "hint": entry.hint,
+            "url": entry.url,
+        }
+    return view
 
 
 def grade_path(path: str) -> dict[str, Any]:
@@ -262,6 +273,10 @@ _INDEX_HTML = """<!doctype html>
         font-size: .85rem; margin: .3rem 0; }
   .msg { color: var(--fail); margin-top: 1rem; }
   .caserow td { border-bottom: 0; padding-top: 0; }
+  .errcard { margin: .4rem 0; padding: .5rem .7rem; border-left: 3px solid var(--warn);
+        background: #eab30818; border-radius: 4px; font-size: .9rem; }
+  .errcard-ex { font-weight: 600; }
+  .errcard a { color: #2563eb; }
 </style>
 </head>
 <body>
@@ -376,8 +391,15 @@ function casesHtml(cases) {
           + c.n + ' ' + esc(c.verdict) + '</span> · ' + c.time + ' s';
     if (c.error) s += '<pre>' + esc(c.error) + '</pre>';
     else if (c.diff) s += '<pre>' + esc(c.diff) + '</pre>';
+    if (c.glossary) s += errorCard(c.glossary);
     return s + '</div>';
   }).join("");
+}
+
+function errorCard(g) {
+  return '<div class="errcard"><span class="errcard-ex">💡 ' + esc(g.exception) + '</span> '
+       + esc(g.hint) + ' <a href="' + esc(g.url) + '" target="_blank" rel="noopener">'
+       + 'открыть карточку в глоссарии →</a></div>';
 }
 
 function toggle(i) {

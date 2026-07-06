@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+- Glossary hints on runtime errors (issue #72, first brick of epic #96).
+  New leaf module `core/glossary.py` holds a curated map of ~28 built-in
+  Python exceptions → a one-line Russian hint + a link to the full card in the
+  separate Glossary-Python project (not a copy of the 581-card glossary — the
+  "vendor a thin layer" choice from epic #96: offline hints, link out for
+  depth). Single source of truth for two surfaces: `reporter.print_case_verbose`
+  prints a hint line + URL on an RE verdict (CLI verbose); `web._case_view`
+  attaches a `glossary` block that the web UI renders as an error card with a
+  link. `lookup_from_error` parses the exception name from the traceback's last
+  line (dropping any `module.` prefix). The base URL and anchor scheme
+  (`#<classname-lowercased>`) are single constants, trivially adjustable if the
+  glossary's anchors change.
+
 ## [1.5.0] - 2026-07-06
 
 Post-audit roadmap batch — result caching, a pytest plugin, incremental

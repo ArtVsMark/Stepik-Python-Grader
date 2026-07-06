@@ -76,6 +76,7 @@ Stepik-Python-Grader/
 │           ├── executor.py       # Infrastructure: compile+exec в subprocess
 │           ├── microbench_runner.py  # Infrastructure: timeit через subprocess
 │           ├── normalizers.py    # Utilities: normalize_floats (leaf, нет зависимостей)
+│           ├── glossary.py       # Utilities: карта исключений → подсказка+ссылка (leaf, issue #72)
 │           ├── storage.py        # Utilities: load/save JSON (leaf, нет зависимостей)
 │           ├── cache.py          # Utilities: opt-in кэш результатов (issue #56),
 │           │                     # зависит только от storage.py + stdlib hashlib
@@ -146,6 +147,10 @@ web.py ──→ core/grader_core.py        # run_tests, run_benchmark
 web.py ──→ core/test_loader.py        # find_all_solution_files, resolve_test_dir
 web.py ──→ core/microbench_runner.py  # apply_relative_ranking (бенчмарк-режим)
 web.py ──→ core/reporter.py           # fmt_time
+web.py ──→ core/glossary.py           # lookup_from_error (карточка ошибки, issue #72)
+
+core/reporter.py ──→ core/glossary.py # lookup_from_error (подсказка при RE, issue #72)
+# core/glossary.py — leaf-модуль (только stdlib dataclass), не импортирует project-код
 
 core/executor.py ──→ config.py       # CONFIG.executor_timeout (graceful fallback
                                       # к литералу 10, если запущен как subprocess-
@@ -1133,6 +1138,21 @@ rich>=13.0,<16.0     # issue не предлагал границу для rich 
 > Оба берут интерпретатор, выбранный в IDE (venv, где установлен пакет), без
 > ручной активации. VS Code требует расширение Python; оба — выбранный
 > интерпретатор. Тесты `test_ide.py` обновлены под новую команду/args/type.
+
+> #72 ✅ (2026-07-06, первый кирпич эпика #96): ссылки на Glossary-Python при RE.
+> Новый leaf-модуль `core/glossary.py` — курированная карта ~28 встроенных
+> исключений → `{hint, url}` (НЕ копия полного глоссария на 581 карточку;
+> вариант «вендорить малый слой» из эпика #96 — офлайн-подсказки + ссылка на
+> полную карточку для глубины; глоссарий остаётся отдельным проектом). Единый
+> источник для двух поверхностей: `reporter.print_case_verbose` печатает
+> строку-подсказку + URL при RE (CLI verbose), `web._case_view` кладёт
+> `glossary`-блок → JS рисует карточку ошибки со ссылкой. `lookup_from_error`
+> парсит имя исключения из последней строки трейсбека (отбрасывает
+> `module.`-префикс). Базовый URL + схема якорей (`#<class.lower()>`) — константы
+> в одном месте (если якоря глоссария поменяются — правка тривиальна). DAG:
+> `reporter → glossary`, `web → glossary` (glossary — leaf, циклов нет).
+> Эпик #96 (web-оболочка → хостинг) остаётся открытым; фаза хостинга гейтится
+> sandbox #59, ядро грейдинга — Python (executor/grader_core не переписываем).
 
 ---
 
