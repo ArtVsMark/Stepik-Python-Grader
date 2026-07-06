@@ -61,7 +61,8 @@ cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
   будущего web UI»): result panel + detail panel; error cards WA/TLE с полями
   из таблицы web-mvp.md § «Модель error cards».
 - **Микро-бенчмарк (режим 4).** Вывести существующий `run_microbench_mode`
-  (`core/microbench_runner.py`) в web как третий сегмент режима: отдельный
+  (`core/grader_core.py`; нижнеуровневый прогон — `core/microbench_runner.py::run_microbench`)
+  в web как третий сегмент режима: отдельный
   ViewModel с µs-метриками и колонкой **`Py-heap`** (не `Memory`) — см.
   web-mvp.md § «Режимы проверки и микро-бенчмарк». Сейчас в `web.py` его нет.
 - **Downloader-блок.** Web-адаптер над `downloader.py` (`parse_stepik_step_url`,
