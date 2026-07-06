@@ -12,6 +12,20 @@
   as knowledge base" rule so it doesn't bloat again (#107).
 
 ### Added
+- Local glossary knowledge-module foundation (issue #126, part of epic #123).
+  New `stepik_grader.glossary` subpackage: typed `GlossaryCard` /
+  `GlossaryMissingEntry` models, `JsonGlossaryProvider` for loading and
+  searching a local JSON card base (single file or directory; search by
+  id/title/aliases/keywords/tags; filter by status/tag) with clear
+  `GlossaryError` on missing/broken JSON, a JSON missing-entry queue
+  (`load`/`save`/`append` with dedup), and a conservative, deterministic
+  `MissingConceptDetector` that finds uncovered stdlib calls, notable builtins,
+  `match/case` and traceback exceptions via AST (never executes user code) and
+  suppresses concepts already covered by known glossary terms. JSON format and
+  Python API documented in `docs/glossary.md` with a sample fixture at
+  `docs/examples/glossary.sample.json`. The external Glossary-Python project
+  stays a one-way export target; the local base is the source of truth. WEB UI,
+  endpoints and the exporter remain in #125/#129.
 - Packaging hygiene (PR-1, epic #98): explicit MIT `LICENSE` at the repo root
   and PEP 639 SPDX license metadata in `pyproject.toml` (`license = "MIT"` +
   `license-files = ["LICENSE"]`, issue #100); PEP 561 `py.typed` marker so

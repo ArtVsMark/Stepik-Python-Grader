@@ -1,0 +1,42 @@
+[
+  {
+    "id": "recursionerror",
+    "title": "RecursionError",
+    "kind": "exception",
+    "summary": "Слишком глубокая рекурсия — нет условия выхода?",
+    "body": "Возникает, когда глубина вложенных вызовов превышает лимит интерпретатора (`sys.getrecursionlimit()`). Обычно причина — отсутствие или недостижимость базового случая рекурсии.",
+    "status": "ready",
+    "url": "https://artvsmark.github.io/Glossary-Python/#recursionerror",
+    "section": "Исключения",
+    "aliases": ["maximum recursion depth", "stack overflow"],
+    "keywords": ["рекурсия", "recursion", "стек"],
+    "tags": ["exception", "recursion"],
+    "examples": ["def f(n): return f(n - 1)  # нет базового случая → RecursionError"],
+    "related": ["stopiteration"],
+    "related_errors": ["RecursionError"]
+  },
+  {
+    "id": "functools.reduce",
+    "title": "functools.reduce",
+    "kind": "function",
+    "summary": "Свёртка последовательности слева направо одной функцией-аккумулятором.",
+    "body": "`reduce(func, iterable[, initial])` применяет бинарную функцию к элементам, накапливая результат.",
+    "status": "draft",
+    "section": "Функции",
+    "aliases": ["reduce"],
+    "keywords": ["свёртка", "fold", "аккумулятор"],
+    "tags": ["function", "functools"],
+    "examples": ["from functools import reduce; reduce(lambda a, b: a + b, [1, 2, 3])  # 6"]
+  },
+  {
+    "id": "match-case",
+    "title": "match/case",
+    "kind": "construct",
+    "summary": "Структурное сопоставление с образцом (Python 3.10+).",
+    "status": "ready",
+    "section": "Синтаксис",
+    "aliases": ["match", "structural pattern matching"],
+    "keywords": ["сопоставление", "pattern matching"],
+    "tags": ["construct", "syntax"]
+  }
+]

@@ -11,6 +11,7 @@
 | Запустить грейдер, режимы 1–4, CLI-флаги, web/IDE, скачать задачу | [grader-workflow.md](grader-workflow.md) |
 | Дизайн WEB MVP: три блока (Проверка решений, Downloader, Глоссарий-модуль), микро-бенчмарк, error/action cards | [web-mvp.md](web-mvp.md) |
 | Справочник: конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) |
+| Локальный глоссарий: формат JSON карточек/очереди, Python-API (`stepik_grader.glossary`) | [glossary.md](glossary.md) |
 | Понять архитектуру: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) |
 | Посмотреть дерево файлов проекта | [project-structure.md](project-structure.md) |
 | Сравнить версии и отличия от оригинала | [versions.md](versions.md) |
@@ -33,6 +34,7 @@
 | Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [grader-workflow.md](grader-workflow.md) | README, CONTRIBUTING |
 | Дизайн WEB MVP (два раздела / три блока: проверка + Downloader + Глоссарий-модуль, микро-бенчмарк, error/action cards, будущая архитектура web UI) | [web-mvp.md](web-mvp.md) | grader-workflow.md (там — текущий `--serve`, не дизайн) |
 | Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) | README, CONTRIBUTING, grader-workflow.md |
+| Формат JSON локального глоссария (карточки/очередь) и API `stepik_grader.glossary` | [glossary.md](glossary.md) | web-mvp.md (там — продуктовый дизайн, не формат хранения) |
 | Архитектура: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) | README, CLAUDE.md (там — инварианты, не дублирующее описание) |
 | Дерево файлов проекта | [project-structure.md](project-structure.md) | README |
 | Сравнение версий, отличия от оригинала | [versions.md](versions.md) | README |

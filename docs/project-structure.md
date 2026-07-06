@@ -34,6 +34,11 @@ Stepik-Python-Grader/
 │           ├── oauth_flow.py     # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
 │           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
 │           └── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
+│       └── glossary/             # Domain: локальный knowledge-модуль глоссария (issue #126)
+│           ├── __init__.py       # Публичный API пакета glossary
+│           ├── models.py         # GlossaryCard, GlossaryMissingEntry (leaf, только stdlib)
+│           ├── json_provider.py  # JsonGlossaryProvider + очередь пополнения (JSON-first)
+│           └── detector.py       # MissingConceptDetector — AST-детект пробелов без исполнения
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов; включает pytester
 ├── tests/                     # 660+ тестов (pytest)
 ├── docs/                      # База знаний (архитектура, структура, версии) — эпик #102

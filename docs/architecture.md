@@ -29,6 +29,9 @@
 | `core/stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
 | `core/oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostic_stepik.py` |
 | `core/parsers.py` | Infrastructure / Utilities | Парсинг тест-блоков (`# TEST_N:`) — единственный источник истины для `grader.py` и `downloader.py` |
+| `glossary/models.py` | Domain (leaf) | Типизированные модели локального глоссария: `GlossaryCard`, `GlossaryMissingEntry` (issue #126) |
+| `glossary/json_provider.py` | Domain | `JsonGlossaryProvider` (загрузка/поиск локальной JSON-базы карточек) + очередь пополнения (issue #126) |
+| `glossary/detector.py` | Domain | `MissingConceptDetector` — консервативный AST-детектор недостающих функций/конструкций/исключений (issue #126) |
 
 Основные возможности (пользовательский взгляд) — в [README](../README.md);
 пошаговые сценарии работы — в [grader-workflow.md](grader-workflow.md).
@@ -54,7 +57,14 @@ downloader.py        ──→  core/oauth_flow.py
 diagnostic_stepik.py ──→  core/oauth_flow.py
 core/oauth_flow.py    ──→  core/stepik_client.py
 core/oauth_flow.py    ──→  core/storage.py
+glossary/json_provider.py ──→  glossary/models.py
+glossary/detector.py      ──→  glossary/models.py
 ```
+
+Подпакет `glossary/` (issue #126) — самодостаточный островок: зависит только
+от stdlib и собственных `glossary/models.py`, не импортирует `core/*` и не
+импортируется из него. Это сохраняет DAG ацикличным; будущий web-слой
+(#125/#129) станет его потребителем, как `web → core`.
 
 downloader.py больше не импортирует grader.py: дублирующая копия
 `_parse_testblock_file` в grader.py устранена (Issue #19) — оба модуля
