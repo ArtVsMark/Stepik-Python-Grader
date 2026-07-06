@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import importlib.metadata
 import pathlib
 import sys
 import tomllib
@@ -43,17 +44,28 @@ def _no_gui_dialog(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cli, "_pick_path_via_dialog", lambda *, want_dir: None)
 
 
-def test_version_matches_pyproject_toml() -> None:
-    """cli.__version__ (Issue #36: read via importlib.metadata) tracks
-    pyproject.toml's declared version -- the single source of truth.
-
-    Requires `pip install -e .` to have been run so the installed package
-    metadata is in sync; see CONTRIBUTING.md.
+def test_version_is_dynamic_in_pyproject() -> None:
+    """issue #162: git-теги — единственный источник истины. pyproject.toml
+    объявляет version как dynamic и НЕ содержит статической строки version.
     """
     pyproject = pathlib.Path(__file__).parent.parent / "pyproject.toml"
     with pyproject.open("rb") as f:
         data = tomllib.load(f)
-    assert cli.__version__ == data["project"]["version"]
+    project = data["project"]
+    assert "version" not in project, "статическая version должна быть удалена (issue #162)"
+    assert "version" in project.get("dynamic", []), "version должна быть dynamic"
+
+
+def test_version_matches_installed_metadata() -> None:
+    """cli.__version__ (Issue #36: read via importlib.metadata) отражает версию
+    установленного пакета — теперь вычисленную setuptools-scm из git-тегов.
+
+    Requires `pip install -e .` to have been run so the installed package
+    metadata is in sync; see CONTRIBUTING.md.
+    """
+    assert cli.__version__ == importlib.metadata.version("stepik-python-grader")
+    # Не fallback-заглушка: пакет установлен, версия реально вычислена.
+    assert cli.__version__ != "0.0.0+unknown"
 
 
 def test_resolve_version_reads_installed_metadata() -> None:
