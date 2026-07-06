@@ -55,16 +55,28 @@ cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
 
 **Scope (по критериям #125 и разделу «v1» таблицы MVP в web-mvp.md).**
 - Раздел «Проверка решений»: указание пути к файлу/папке, выбор режима
-  (корректность/бенчмарк), запуск и отображение результата.
+  (корректность / бенчмарк / **микро-бенчмарк**), запуск и отображение
+  результата.
 - Расширить `web.py` (или выделить `web/`-подпакет как в § «Архитектура
   будущего web UI»): result panel + detail panel; error cards WA/TLE с полями
   из таблицы web-mvp.md § «Модель error cards».
+- **Микро-бенчмарк (режим 4).** Вывести существующий `run_microbench_mode`
+  (`core/microbench_runner.py`) в web как третий сегмент режима: отдельный
+  ViewModel с µs-метриками и колонкой **`Py-heap`** (не `Memory`) — см.
+  web-mvp.md § «Режимы проверки и микро-бенчмарк». Сейчас в `web.py` его нет.
+- **Downloader-блок.** Web-адаптер над `downloader.py` (`parse_stepik_step_url`,
+  `build_task_directory`, автоизвлечение тестов) + `core/oauth_flow.py`:
+  панель «Загрузить из Stepik», endpoint `POST /api/download` →
+  `DownloadedTask`, автоподстановка пути в command bar (журнал J0). В MVP
+  первичный OAuth может оставаться за CLI, web показывает понятную ошибку.
+  **Если объём великоват для #125 — завести отдельный issue на Downloader**
+  (см. рекомендацию в PR spec-корректировок).
 - Action cards MVP-уровня (`copy_input`, `copy_output`, `open_glossary`,
   `run_again`, `explain_error`) — чистый фронтенд поверх уже возвращаемых
   данных.
 - Веб-слой вызывает существующие публичные функции ядра (`run_tests`,
-  `run_benchmark`, `apply_relative_ranking`, `lookup_from_error`) — новой
-  бизнес-логики грейдинга в web НЕ добавлять.
+  `run_benchmark`, `run_microbench_mode`, `apply_relative_ranking`,
+  `lookup_from_error`) — новой бизнес-логики грейдинга в web НЕ добавлять.
 
 **Non-goals.**
 - НЕ ломать `stepik-grader --serve` и endpoint `/api/grade` (обратная
@@ -82,34 +94,49 @@ cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
 
 ---
 
-## #126 — `JsonGlossaryProvider`
+## #126 — глоссарий как локальный knowledge-модуль
 
 **Проблема.** Раздел «Глоссарий» и error cards сейчас опираются на компактную
-встроенную карту `core/glossary.py` (~28 исключений). Нужен provider,
-отдающий карточки из JSON (расширенный контент: `body`/`section`/`related`).
+встроенную карту `core/glossary.py` (~28 исключений) + ссылки на внешний сайт.
+Нужен **полноценный локальный knowledge-модуль**, а не список ссылок:
+локальная база карточек, детектор недостающих конструкций, очередь пополнения
+и экспорт во внешний Glossary-Python. Каноничный дизайн —
+[web-mvp.md § Глоссарий как локальный knowledge-модуль](web-mvp.md#глоссарий-как-локальный-knowledge-модуль).
 
-**Scope (по критериям #126).**
-- Абстракция `GlossaryProvider` + реализация `JsonGlossaryProvider`, читающая
-  карточки из JSON.
-- Задокументировать формат карточки — согласовать с `GlossaryCard` из
+**Scope (по критериям #126, расширено spec-корректировками).**
+- **Store/`GlossaryProvider`.** Абстракция `GlossaryProvider` + реализация
+  поверх локальной базы карточек (JSON, при росте — SQLite). Карточки хранятся
+  **в проекте** (истина локальна), а не тянутся с сайта.
+- Формат карточки — согласовать с `GlossaryCard` из
   [web-mvp.md § Контракты данных](web-mvp.md#контракты-данных) (`id`, `title`,
-  `hint`, `body`, `url`, `section`, `related`).
+  `kind`, `hint`, `body`, `status`, `url`, `section`, `related`).
+- **`MissingConceptDetector`.** Анализ решений (AST/имена), текстов ошибок и
+  вердиктов RE/WA → обнаружение функций/конструкций/исключений без карточки →
+  запись `GlossaryMissingEntry` (status `new`) в очередь пополнения (журнал
+  J7). Endpoint `GET /api/glossary/missing`.
+- **Экспортёр/bridge.** Выгрузка `ready`-карточек во внешний Glossary-Python
+  (одно-направленно), пометка `exported`. Endpoint `POST /api/glossary/export`.
 - Точки интеграции: `web.py` (раздел «Глоссарий», endpoint'ы `/api/glossary`,
-  `/api/glossary/{id}` из web-mvp.md § «Архитектура»); совместимость с
-  `core/glossary.py` (`GlossaryEntry.anchor`/`.url`, `GLOSSARY_BASE_URL`) —
-  MVP может работать и на одном компактном наборе, provider расширяет.
-- Ошибки чтения JSON (нет файла / битый JSON) показываются понятно, грейдер не
+  `/api/glossary/{id}`, `/api/glossary/missing` из web-mvp.md § «Архитектура»);
+  совместимость с `core/glossary.py` (`GlossaryEntry.anchor`/`.url`,
+  `GLOSSARY_BASE_URL`) — MVP может работать и на одном компактном наборе, store
+  расширяет.
+- Ошибки чтения базы (нет файла / битый JSON) показываются понятно, грейдер не
   падает (тот же принцип graceful degradation, что у кэша #56).
 
 **Non-goals.**
-- НЕ вендорить полный глоссарий (581 карточка) в репозиторий — источник данных
-  остаётся проектом [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python);
-  provider работает с курированным/поставляемым JSON.
-- `core/glossary.py` — leaf-модуль; не добавлять в него project-импорты. Новый
-  provider разместить так, чтобы не создать цикл в DAG.
+- НЕ вендорить полный глоссарий (581 карточка) в репозиторий — внешний
+  [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) остаётся
+  отдельным лёгким HTML-справочником; локальный store — источник, экспорт —
+  односторонний. Двусторонняя синхронизация — вне рамок.
+- НЕ редактировать внешний Glossary-Python из грейдера напрямую (см.
+  [`../CLAUDE.md`](../CLAUDE.md) § «Связанный проект») — только через экспорт.
+- `core/glossary.py` — leaf-модуль; не добавлять в него project-импорты. Store
+  и детектор разместить так, чтобы не создать цикл в DAG.
 
-**Проверки.** Провайдер читает валидный JSON; понятная ошибка на битом/
-отсутствующем; формат карточки задокументирован; `mypy`/`ruff` чистые.
+**Проверки.** Store читает валидную базу; понятная ошибка на битой/
+отсутствующей; детектор регистрирует пробел → очередь; формат карточки
+задокументирован; `mypy`/`ruff` чистые.
 
 ---
 
@@ -117,13 +144,21 @@ cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
 
 **Scope (по критериям #129 и § User journeys в web-mvp.md).**
 - Покрыть основные сценарии веб-оболочки:
+  - **Загрузка из Stepik** (J0): `POST /api/download` → `DownloadedTask`,
+    автоподстановка пути (мокать сеть/OAuth; проверять извлечение тестов и
+    структуру папки).
   - **Корректное решение** (J1): запуск → статус OK, passed N/N.
   - **Решение с ошибкой** (J2/J3/J4): WA (diff), RE (трейсбек + glossary-блок),
     по возможности TLE (превышение таймаута).
+  - **Микро-бенчмарк** (J6): режим 4 → ViewModel с µs-метриками и колонкой
+    `Py-heap`.
   - **Просмотр карточки глоссария** (раздел «Глоссарий» / deep-link
     `open_glossary`).
-- Тестировать через публичный слой (endpoint'ы `/api/grade`, `/api/glossary`) и
-  адаптеры, не привязываясь к деталям вёрстки.
+  - **Пробел в глоссарии** (J7): `MissingConceptDetector` → `GlossaryMissingEntry`
+    в очереди (`GET /api/glossary/missing`).
+- Тестировать через публичный слой (endpoint'ы `/api/grade`, `/api/download`,
+  `/api/glossary`, `/api/glossary/missing`) и адаптеры, не привязываясь к
+  деталям вёрстки.
 - Разместить в `tests/` (`test_web*.py`); использовать существующие фикстуры и
   временные тест-директории.
 
