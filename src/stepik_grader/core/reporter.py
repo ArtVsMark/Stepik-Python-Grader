@@ -14,6 +14,8 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Any
 
+from stepik_grader.core.glossary import lookup_from_error
+
 if TYPE_CHECKING:
     from core.grader_core import TestCase
 
@@ -281,6 +283,11 @@ def print_case_verbose(case: TestCase, r: dict[str, Any]) -> None:
 
     if r["error"]:
         _cprint(f"    [ERROR] {r['error']}", style="red")
+        # issue #72: подсказка по типу исключения + ссылка на глоссарий.
+        entry = lookup_from_error(r["error"])
+        if entry is not None:
+            _cprint(f"    💡 {entry.exception}: {entry.hint}", style="yellow")
+            _cprint(f"       {entry.url}", style="blue")
         return
     if passed:
         return
