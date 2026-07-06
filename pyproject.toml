@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=68"]
+# setuptools>=77 — поддержка PEP 639 SPDX-выражения license + license-files (issue #100).
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,6 +9,8 @@ version = "1.5.0"
 description = "Automatic comparison and testing of Python solutions from Stepik courses"
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "requests>=2.34.2,<3.0",
     "psutil>=5.9,<8.0",
@@ -36,6 +39,12 @@ stepik_grader = "stepik_grader.pytest_plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# issue #101: PEP 561 — маркер py.typed, чтобы mypy у downstream-потребителей
+# видел типы установленного пакета. Достаточно на верхнем уровне пакета —
+# помечает всё дерево stepik_grader как типизированное.
+[tool.setuptools.package-data]
+stepik_grader = ["py.typed"]
 
 [tool.ruff]
 line-length = 100

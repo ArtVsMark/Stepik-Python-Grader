@@ -51,6 +51,7 @@ Stepik-Python-Grader/
 ├── src/
 │   └── stepik_grader/
 │       ├── __init__.py
+│       ├── py.typed              # PEP 561 маркер: типы видны downstream (issue #101)
 │       ├── grader.py             # Тонкий фасад обратной совместимости (Sprint 7 ✅)
 │       │                         # реэкспортирует core/grader_core.py / core/reporter.py / cli.py
 │       ├── cli.py                 # Application/CLI: интерактивное меню (режимы 0-4), entry point stepik-grader
@@ -93,6 +94,7 @@ Stepik-Python-Grader/
 │   ├── test_storage.py
 │   └── ...
 │
+├── LICENSE                   # MIT (issue #100); license-files в pyproject.toml
 ├── CLAUDE.md                 # ← этот файл
 ├── CHECKPOINT.md             # Состояние проекта: что сделано, что в работе
 ├── CHANGELOG.md              # История изменений
