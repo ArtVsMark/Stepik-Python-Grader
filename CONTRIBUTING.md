@@ -6,54 +6,11 @@
 
 ## Архитектура проекта
 
-> src/-layout (Issue #35): весь пакет живёт в `src/stepik_grader/`. Пути
-> ниже — относительно этого пакета.
-
-```
-Stepik-Python-Grader/
-├── src/
-│   └── stepik_grader/
-│       ├── grader.py            # Тонкий фасад обратной совместимости (Sprint 7)
-│       ├── cli.py                # Интерактивное меню (режимы 0-4), entry point stepik-grader
-│       ├── config.py            # Конфигурация уровня проекта
-│       ├── downloader.py        # Загрузка задач/тестов со Stepik API
-│       ├── diagnostic_stepik.py # Диагностика и отладка API
-│       └── core/                # Все внутренние модули проекта
-│           ├── grader_core.py       # Исполнение (run_single_test/run_tests/
-│           │                       # run_benchmark/run_microbench_mode)
-│           ├── test_loader.py       # Обнаружение файлов-решений, загрузка тест-кейсов,
-│           │                       # resolve_test_dir (Issue #45 A-01)
-│           ├── mode_detector.py     # Детекция stdin/function (Issue #45 A-01)
-│           ├── wrapper_builder.py   # Генерация wrapper-скриптов (Issue #45 A-01)
-│           ├── reporter.py          # rich-таблицы, вывод, verbose-diff
-│           ├── executor.py          # Запуск кода из строки (run_solution)
-│           ├── microbench_runner.py # timeit-бенчмарк (run_microbench)
-│           ├── normalizers.py       # Нормализация float-вывода
-│           ├── storage.py           # Чтение JSON-файлов
-│           ├── stepik_client.py     # HTTP-клиент Stepik API
-│           ├── oauth_flow.py        # OAuth 2.0 авторизация
-│           └── parsers.py           # Парсинг тест-блоков (# TEST_N:)
-├── conftest.py          # sys.path.insert(0, "src") — pytest discovery
-└── tests/               # Автотесты
-```
-
-### Слои и зоны ответственности
-
-| Модуль | Слой | Зона ответственности |
-|---|---|---|
-| `grader.py` | Application | Фасад — реэкспортирует grader_core/reporter/cli |
-| `core/grader_core.py` | Application | Исполнение тест-кейса в subprocess, агрегация статистики |
-| `core/test_loader.py` | Application | Обнаружение файлов-решений, загрузка тест-кейсов, resolve_test_dir |
-| `core/mode_detector.py` | Application | Детекция режима запуска (stdin vs function) |
-| `core/wrapper_builder.py` | Application | Генерация wrapper-скриптов для function-mode |
-| `core/reporter.py` | Application / UI | rich-таблицы, вердикты, verbose-diff |
-| `cli.py` | Application / CLI | Интерактивное меню, профили нагрузки |
-| `core/executor.py` | Infrastructure | Subprocess-запуск кода из строки |
-| `core/microbench_runner.py` | Infrastructure | timeit-замеры |
-| `core/normalizers.py` | Domain | Нормализация float |
-| `core/storage.py` | Infrastructure | I/O JSON |
-| `downloader.py` | Application | Загрузка данных Stepik |
-| `core/stepik_client.py` | Infrastructure | HTTP Stepik API |
+Подробная архитектурная карта (DAG модулей, слои, «что умеет каждый модуль»)
+живёт в [`docs/architecture.md`](docs/architecture.md), дерево проекта — в
+[`docs/project-structure.md`](docs/project-structure.md). CONTRIBUTING.md
+хранит только правила для контрибьюторов, workflow и политику
+версионирования — во избежание расхождений архитектура здесь не дублируется.
 
 ---
 
