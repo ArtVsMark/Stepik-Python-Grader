@@ -9,7 +9,7 @@
 |---|---|
 | Установить (pipx / из исходников), настроить OAuth, диагностика | [installation.md](installation.md) |
 | Запустить грейдер, режимы 1–4, CLI-флаги, web/IDE, скачать задачу | [grader-workflow.md](grader-workflow.md) |
-| Дизайн WEB MVP: оболочка «Проверка решений + Глоссарий», error/action cards, command palette | [web-mvp.md](web-mvp.md) |
+| Дизайн WEB MVP: три блока (Проверка решений, Downloader, Глоссарий-модуль), микро-бенчмарк, error/action cards | [web-mvp.md](web-mvp.md) |
 | Справочник: конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) |
 | Понять архитектуру: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) |
 | Посмотреть дерево файлов проекта | [project-structure.md](project-structure.md) |
@@ -31,7 +31,7 @@
 | Обзор проекта, бейджи, основные возможности | [README](../README.md) | docs/* |
 | Установка, OAuth, secrets.json, диагностика | [installation.md](installation.md) | README (только короткий quick start) |
 | Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [grader-workflow.md](grader-workflow.md) | README, CONTRIBUTING |
-| Дизайн WEB MVP (UX двух разделов, error/action cards, command palette, будущая архитектура web UI) | [web-mvp.md](web-mvp.md) | grader-workflow.md (там — текущий `--serve`, не дизайн) |
+| Дизайн WEB MVP (два раздела / три блока: проверка + Downloader + Глоссарий-модуль, микро-бенчмарк, error/action cards, будущая архитектура web UI) | [web-mvp.md](web-mvp.md) | grader-workflow.md (там — текущий `--serve`, не дизайн) |
 | Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) | README, CONTRIBUTING, grader-workflow.md |
 | Архитектура: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) | README, CLAUDE.md (там — инварианты, не дублирующее описание) |
 | Дерево файлов проекта | [project-structure.md](project-structure.md) | README |
