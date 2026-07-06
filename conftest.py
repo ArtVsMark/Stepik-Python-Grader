@@ -11,3 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
+
+# issue #57: включаем встроенный плагин pytester, чтобы tests/test_pytest_plugin.py
+# мог запускать вложенный pytest-процесс над временными файлами-решениями.
+pytest_plugins = ["pytester"]

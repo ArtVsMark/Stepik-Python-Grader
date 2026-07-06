@@ -57,6 +57,7 @@ Stepik-Python-Grader/
 │       ├── config.py              # Application/Configuration: GraderConfig, CONFIG (Sprint 6.3 ✅)
 │       ├── web.py                  # Application/UI: локальный веб-интерфейс (--serve, stdlib http.server), эпик #80 Tier 1
 │       ├── ide.py                  # Utilities: генерация .vscode/tasks.json (--init-vscode), leaf, эпик #80 Tier 2
+│       ├── pytest_plugin.py        # Application/Integration: pytest11 entry point (--grader-mode), issue #57
 │       │
 │       ├── downloader.py         # Domain: скачивание задач, ZIP/HTML, slugify
 │       ├── diagnostic_stepik.py  # Application: диагностика API и токена
@@ -133,6 +134,11 @@ cli.py ──→ web.py                     # ленивый импорт при
 cli.py ──→ ide.py                     # ленивый импорт при --init-vscode (эпик #80 Tier 2)
 
 core/cache.py ──→ core/storage.py     # load_json_file/save_json_file (leaf)
+
+pytest_plugin.py ┄┄→ core/grader_core.py   # run_single_test (ЛЕНИВО, внутри runtest)
+pytest_plugin.py ┄┄→ core/test_loader.py   # load_test_cases/resolve_test_dir/… (ЛЕНИВО)
+# ┄┄→ = импорт внутри функции (не на уровне модуля): entry-point-плагин грузится
+#      ДО старта coverage.py; ленивый импорт ядра сохраняет измерение покрытия.
 
 # ide.py — leaf-модуль (только stdlib json/pathlib), не импортирует project-код
 
@@ -1086,6 +1092,23 @@ rich>=13.0,<16.0     # issue не предлагал границу для rich 
 
 > #55 ✅ закрыт как not_planned (2026-07-05): сравнение с эталонным
 > solution.py бесполезно — Stepik не публикует эталон, сравнивать не с чем.
+
+> #57 ✅ (2026-07-06): реализован pytest-плагин. Новый модуль
+> `pytest_plugin.py`, зарегистрированный как `pytest11` entry point в
+> pyproject.toml — `pytest --grader-mode StepikTasks/` собирает каждый
+> `task*.py` как `pytest.File`, по одному `pytest.Item` на тест-кейс, исполняя
+> через тот же `run_single_test`, что и CLI-режим 1. По умолчанию no-op
+> (`_grader_enabled` = флаг `--grader-mode` ИЛИ ini `grader_mode=true`), иначе
+> плагин вмешивался бы в собственный сьют любого проекта. Импорты ядра —
+> ЛЕНИВЫЕ (внутри хуков): entry-point-плагины грузятся до старта coverage.py,
+> импорт ядра на уровне модуля пометил бы его def-строки непокрытыми во всём
+> пакете. Сам `pytest_plugin.py` исключён из измерения coverage (его
+> def/class-заголовки исполняются при загрузке плагина до старта coverage —
+> число было бы артефактом порядка загрузки; тела покрыты 16 тестами через
+> фикстуру `pytester`, включённую в `conftest.py`). `conftest.py`:
+> `pytest_plugins = ["pytester"]`. Отдельный PyPI-пакет `pytest-stepik-grader`
+> (как предлагал issue) — будущая работа; сейчас плагин едет внутри
+> `stepik-python-grader` и требует установленного `pytest`.
 
 ---
 

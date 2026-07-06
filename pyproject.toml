@@ -28,6 +28,12 @@ watch = [
 [project.scripts]
 stepik-grader = "stepik_grader.cli:main"
 
+# issue #57: pytest-плагин. Регистрируется как pytest11 entry point, поэтому
+# `pytest --grader-mode` доступен всюду, где установлен stepik-python-grader.
+# По умолчанию no-op (см. pytest_plugin._grader_enabled).
+[project.entry-points.pytest11]
+stepik_grader = "stepik_grader.pytest_plugin"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
@@ -56,6 +62,12 @@ python_classes = ["Test*"]
 source = ["src"]
 omit = [
     "src/stepik_grader/diagnostic_stepik.py",
+    # issue #57: pytest-плагин регистрируется как pytest11 entry point и
+    # грузится ДО старта coverage.py, поэтому его def/class/import-заголовки
+    # всегда числятся непокрытыми (тела функций тестируются 16 тестами через
+    # pytester в tests/test_pytest_plugin.py). Измерять его coverage бессмысленно
+    # — число было бы артефактом порядка загрузки, а не реальным пробелом.
+    "src/stepik_grader/pytest_plugin.py",
     "tests/*",
     "conftest.py",
 ]

@@ -531,6 +531,38 @@ use_cache = true
 `--no-cache`. Режимы 3/4 (бенчмарк) кэш не используют — их смысл в свежих
 замерах времени.
 
+#### pytest-плагин: `pytest --grader-mode` (issue #57)
+
+Если вы привыкли к pytest, грейдер можно запускать как обычный тест-сьют.
+Плагин ставится вместе с `stepik-python-grader` (нужен установленный `pytest`)
+и по умолчанию бездействует — включается флагом `--grader-mode`:
+
+```bash
+pip install pytest                       # если ещё не установлен
+pytest --grader-mode StepikTasks/        # собрать решения как pytest-тесты
+```
+
+pytest обходит переданную папку, находит файлы-решения (`task*.py`) и на
+каждый тест-кейс из соседней `tests/` создаёт отдельный тест. Вывод —
+стандартный pytest: `PASSED` для верного решения, `FAILED` с diff
+«Ожидалось/Получено» для WA, текст исключения для ошибки выполнения.
+
+```
+StepikTasks/module1/task_1.py::test_1 PASSED
+StepikTasks/module1/task_1.py::test_2 FAILED
+```
+
+Включить без флага можно через `pytest.ini` / `pyproject.toml`:
+
+```toml
+[tool.pytest.ini_options]
+grader_mode = true
+```
+
+Работает совместно с `pytest-xdist` (`-n auto`) и `pytest-cov`. Отдельный
+пакет `pytest-stepik-grader` на PyPI пока не выделен — плагин едет внутри
+основного пакета.
+
 ---
 
 ## Работа с API Stepik
