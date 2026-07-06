@@ -105,7 +105,10 @@ Stepik-Python-Grader/
 
 | Раздел | Файл |
 |--------|------|
-| Архитектура модулей (DAG, слои) | [`docs/architecture.md`](docs/architecture.md) |
+| Карта документации + канонические источники | [`docs/README.md`](docs/README.md) |
+| Установка, OAuth, secrets.json, диагностика | [`docs/installation.md`](docs/installation.md) |
+| Режимы работы, CLI-флаги, скачивание задачи, форматы тестов, конфигурация | [`docs/grader-workflow.md`](docs/grader-workflow.md) |
+| Архитектура модулей (DAG, слои, «что умеет») | [`docs/architecture.md`](docs/architecture.md) |
 | Структура проекта (дерево файлов) | [`docs/project-structure.md`](docs/project-structure.md) |
 | Версии и сравнение с оригиналом | [`docs/versions.md`](docs/versions.md) |
 
