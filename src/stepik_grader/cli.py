@@ -886,17 +886,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Перезапускать --mode 1/2 при изменении файла решения "
-            "(требует: pip install stepik-grader[watch]). Issue #54."
+            "(требует: pip install stepik-grader[watch]). Issue #54. Для --mode 2 "
+            "перезапуск инкрементальный — кэш прогоняет только изменённый файл "
+            "(--no-cache отключает). Issue #71."
         ),
     )
     parser.add_argument(
         "--cache",
         action=argparse.BooleanOptionalAction,
-        default=CONFIG.use_cache,
+        default=None,
         help=(
             "Кэшировать результаты --mode 1/2 в .grader_cache/ и пропускать "
             "неизменённые решения (--no-cache отключает). По умолчанию из "
-            "[tool.stepik-grader] use_cache. Issue #56."
+            "[tool.stepik-grader] use_cache; под --watch --mode 2 включён "
+            "автоматически (инкрементальный перезапуск). Issues #56, #71."
         ),
     )
     parser.add_argument(
@@ -941,6 +944,23 @@ def _resolve_verbosity(args: argparse.Namespace, *, default: bool) -> bool:
     if args.quiet:
         return False
     return default
+
+
+def _resolve_use_cache(args: argparse.Namespace, *, incremental: bool) -> bool:
+    """Разрешить --cache/--no-cache в конкретное bool-значение (issues #56, #71).
+
+    Приоритет:
+      1. Явный --cache/--no-cache (args.cache is not None) — всегда выигрывает.
+      2. incremental=True (--watch --mode 2): кэш включён по умолчанию, чтобы
+         перезапускать только изменённый файл (issue #71). Пользователь может
+         отказаться через --no-cache.
+      3. Иначе — дефолт из pyproject ([tool.stepik-grader] use_cache).
+    """
+    if args.cache is not None:
+        return args.cache
+    if incremental:
+        return True
+    return CONFIG.use_cache
 
 
 def _watch_and_rerun(watch_path: str, rerun: Callable[[], None]) -> None:
@@ -1046,28 +1066,34 @@ def main(argv: list[str] | None = None) -> None:
         if not args.file:
             args.file = _resolve_cli_path_or_error(parser, args, want_dir=False, flag="--file")
         verbose = _resolve_verbosity(args, default=True)
+        # Режим 1 — один файл; инкрементальность (issue #71) неприменима,
+        # поэтому кэш под --watch автоматически не включаем.
+        use_cache = _resolve_use_cache(args, incremental=False)
         if args.watch:
             _watch_and_rerun(
                 args.file,
                 lambda: _run_mode_1(
-                    args.file, verbose=verbose, output=args.output, use_cache=args.cache
+                    args.file, verbose=verbose, output=args.output, use_cache=use_cache
                 ),
             )
         else:
-            _run_mode_1(args.file, verbose=verbose, output=args.output, use_cache=args.cache)
+            _run_mode_1(args.file, verbose=verbose, output=args.output, use_cache=use_cache)
     elif args.mode == 2:
         if not args.dir:
             args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
         verbose = _resolve_verbosity(args, default=False)
+        # issue #71: под --watch кэш включается по умолчанию — на событие
+        # перезапускается только изменённый файл, остальные строки берутся из кэша.
+        use_cache = _resolve_use_cache(args, incremental=args.watch)
         if args.watch:
             _watch_and_rerun(
                 args.dir,
                 lambda: _run_mode_2(
-                    args.dir, verbose=verbose, output=args.output, use_cache=args.cache
+                    args.dir, verbose=verbose, output=args.output, use_cache=use_cache
                 ),
             )
         else:
-            _run_mode_2(args.dir, verbose=verbose, output=args.output, use_cache=args.cache)
+            _run_mode_2(args.dir, verbose=verbose, output=args.output, use_cache=use_cache)
     elif args.mode == 3:
         if args.watch:
             parser.error("--watch is only supported for --mode 1/2")

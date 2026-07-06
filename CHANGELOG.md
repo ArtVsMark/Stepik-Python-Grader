@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Changed
+- `--watch --mode 2` is now incremental (issue #71): watch mode auto-enables
+  the #56 result cache, so a file-change event only re-runs the changed
+  solution — every other row is served from cache instead of re-running the
+  whole folder. On a folder with a dozen tasks the feedback loop no longer
+  degrades. Opt out with `--no-cache` (restores the old full-folder rerun).
+  `--cache` default changed from `CONFIG.use_cache` to `None` so an explicit
+  `--cache`/`--no-cache` can be distinguished from "unset" and always wins;
+  new `_resolve_use_cache` helper centralizes the precedence (explicit flag →
+  watch-incremental default → `[tool.stepik-grader] use_cache`). `--mode 1`
+  (single file) does not auto-enable the cache under `--watch`.
+
 ### Added
 - pytest plugin (`pytest --grader-mode`, issue #57). New module
   `pytest_plugin.py` registered as a `pytest11` entry point, so
