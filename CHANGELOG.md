@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+- Documentation split (PR-2, epic #102): README is now a lean showcase; heavy
+  technical sections moved into a `docs/` knowledge base — `docs/architecture.md`
+  (module DAG + layers, #105), `docs/project-structure.md` (file tree, #104),
+  `docs/versions.md` (release-comparison table + fork-vs-original, #106). README
+  drops from ~1067 to ~911 lines with one-line pointers to `docs/` and an
+  updated table of contents. CONTRIBUTING gains a "README as showcase, `docs/`
+  as knowledge base" rule so it doesn't bloat again (#107).
+
 ### Added
 - Packaging hygiene (PR-1, epic #98): explicit MIT `LICENSE` at the repo root
   and PEP 639 SPDX license metadata in `pyproject.toml` (`license = "MIT"` +

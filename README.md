@@ -24,8 +24,7 @@
 ## Содержание
 
 - [Что умеет](#что-умеет)
-- [Архитектура модулей](#архитектура-модулей)
-- [Структура проекта](#структура-проекта)
+- [Архитектура и структура](#архитектура-и-структура)
 - [Установка](#установка)
 - [Быстрый старт](#быстрый-старт)
 - [Работа с API Stepik](#работа-с-api-stepik)
@@ -35,8 +34,7 @@
 - [Зависимости](#зависимости)
 - [Диагностика](#диагностика)
 - [Ограничения и безопасность](#ограничения-и-безопасность)
-- [Что изменилось по сравнению с оригиналом](#что-изменилось-по-сравнению-с-оригиналом)
-- [Эволюция версий](#эволюция-версий)
+- [Версии и сравнение](#версии-и-сравнение)
 - [Python версия](#python-версия)
 
 ---
@@ -82,122 +80,15 @@
 
 ---
 
-## Архитектура модулей
+## Архитектура и структура
 
-Граф зависимостей — DAG без циклов (все модули живут в `src/stepik_grader/`):
+Граф зависимостей (DAG без циклов), слои и полное дерево проекта вынесены
+в базу знаний `docs/`:
 
-```
-downloader.py          ──→  core/storage.py
-downloader.py          ──→  core/stepik_client.py
-downloader.py          ──→  core/parsers.py
-core/stepik_client.py ──→  core/storage.py
-grader.py              ──→  core/grader_core.py, core/reporter.py, cli.py  (тонкий фасад)
-core/grader_core.py    ──→  core/executor.py, core/microbench_runner.py, core/normalizers.py
-core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, core/wrapper_builder.py
-core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py
-core/mode_detector.py  ──→  core/storage.py
-cli.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
-diagnostic_stepik.py ──→  core/stepik_client.py
-diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
-downloader.py        ──→  core/oauth_flow.py
-diagnostic_stepik.py ──→  core/oauth_flow.py
-core/oauth_flow.py    ──→  core/stepik_client.py
-core/oauth_flow.py    ──→  core/storage.py
-```
+- **[Архитектура модулей](docs/architecture.md)** — граф зависимостей и слои.
+- **[Структура проекта](docs/project-structure.md)** — дерево файлов, что где лежит.
 
-downloader.py больше не импортирует grader.py: дублирующая копия
-`_parse_testblock_file` в grader.py устранена (Issue #19) — оба модуля
-читают `parse_testblock_file` из `core/parsers.py`.
-
-Слои (снизу вверх):
-
-```
-┌───────────────────────────────────────────────────────────────┐
-│  Domain / Application  (src/stepik_grader/ — точки входа)      │
-│  downloader.py  │  grader.py (facade)  │  diagnostic_stepik   │
-├───────────────────────────────────────────────────────────────┤
-│  Application  (core/, грейдер разбит по SRP — Sprint 7, A-01) │
-│  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
-│  core/test_loader.py │ core/mode_detector.py │ wrapper_builder │
-│  cli.py (меню, публичная точка входа — stepik-grader)          │
-├───────────────────────────────────────────────────────────────┤
-│  Infrastructure  (core/)                                       │
-│  core/stepik_client.py  │  core/executor.py                    │
-│  core/microbench_runner.py  │  core/oauth_flow.py              │
-├───────────────────────────────────────────────────────────────┤
-│  Infrastructure / Utilities  (core/, leaf, no deps)            │
-│  core/storage.py  │  core/normalizers.py                       │
-└───────────────────────────────────────────────────────────────┘
-```
-
-`core/storage.py` и `core/normalizers.py` — leaf-модули: не импортируют ничего из проекта, легко тестируются изолированно.
-
----
-
-## Структура проекта
-
-```
-Stepik-Python-Grader/
-├── src/
-│   └── stepik_grader/            # src-layout (Issue #35 / CLAUDE.md Sprint 8.2)
-│       ├── __init__.py
-│       ├── grader.py              # Тонкий фасад обратной совместимости (Sprint 7)
-│       ├── cli.py                 # Интерактивное меню (режимы 0-4) + stepik-grader entry point
-│       ├── config.py              # GraderConfig, CONFIG — единая конфигурация
-│       ├── downloader.py         # Domain: конфиг, slugify, построение папок, оркестрация API
-│       ├── diagnostic_stepik.py  # Диагностика API и токена
-│       └── core/                  # Internal Infrastructure/Utility модули (Issue #23, #26)
-│           ├── __init__.py
-│           ├── grader_core.py    # Исполнение тест-кейса в subprocess, агрегация статистики
-│           ├── test_loader.py    # Обнаружение файлов-решений, загрузка тест-кейсов (Issue #45 A-01)
-│           ├── mode_detector.py  # Детекция режима stdin/function (Issue #45 A-01)
-│           ├── wrapper_builder.py # Генерация wrapper-скриптов для function-mode (Issue #45 A-01)
-│           ├── reporter.py       # rich-таблицы, вывод, verbose-diff
-│           ├── executor.py       # Запускатель решений: compile + exec с таймаутом
-│           ├── microbench_runner.py  # Timeit-микробенчмарк через subprocess + os.devnull
-│           ├── normalizers.py    # Нормализация вывода: округление float, sort/whitespace
-│           ├── stepik_client.py  # Infrastructure: OAuth2, requests.Session, Stepik API
-│           ├── oauth_flow.py     # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
-│           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
-│           └── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
-├── conftest.py                 # Добавляет src/ в sys.path для тестов
-├── tests/                     # 622 теста (pytest)
-│   ├── test_analyzer.py
-│   ├── test_downloader.py
-│   ├── test_executor.py
-│   ├── test_grader_core.py
-│   ├── test_integration_repos.py
-│   ├── test_loader.py
-│   ├── test_menu_modes.py
-│   ├── test_microbench.py
-│   ├── test_microbench_grader.py
-│   ├── test_microbench_runner_module.py
-│   ├── test_normalizers.py
-│   ├── test_oauth_flow.py
-│   ├── test_slugify.py
-│   ├── test_stepik_client.py
-│   ├── test_storage.py
-│   └── test_testblock.py
-├── .github/workflows/ci.yml   # CI: pytest + ruff на Python 3.12/3.13/3.14
-├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
-├── pyproject.toml             # Конфигурация проекта (ruff, mypy, pytest, зависимости, packages.find where=["src"])
-├── secrets.json.example       # Шаблон файла с OAuth-токеном
-├── stepik_config.json.example # Шаблон конфига Stepik
-├── CHANGELOG.md               # История изменений
-└── README.md
-```
-
-Локально обычно появляются:
-
-```text
-StepikTasks/
-stepik_config.json
-secrets.json
-errors.txt
-stepik_diagnostics/
-```
-
-Эти файлы и папки держи в `.gitignore`.
+Детальные инварианты и текущие задачи — в [`CLAUDE.md`](CLAUDE.md).
 
 ---
 
@@ -998,61 +889,14 @@ python -m stepik_grader.diagnostic_stepik
 
 ---
 
-## Что изменилось по сравнению с оригиналом
+## Версии и сравнение
 
-Этот форк существенно расширяет [оригинальный проект PavloOps/python_generation_grader](https://github.com/PavloOps/python_generation_grader):
+Сравнение с оригиналом и фундаментальная эволюция версий (v1.0 → v1.5)
+вынесены в базу знаний:
 
-| Возможность | Оригинал | Этот форк |
-|---|---|---|
-| Проверка одного файла | ✅ | ✅ |
-| Сравнение нескольких решений | ❌ | ✅ |
-| Subprocess-benchmark | ❌ | ✅ режим 3 |
-| Timeit-microbench | ❌ | ✅ режим 4 |
-| Разделение корректности и benchmark | ❌ | ✅ |
-| Профили нагрузки | ❌ | ✅ low/medium/high/custom |
-| Оценка по median (не одиночный замер) | ❌ | ✅ |
-| Вердикт SIMILAR / SLOWER / MUCH SLOWER | ❌ | ✅ |
-| OAuth2 + скачивание данных задачи с API | ❌ | ✅ |
-| Автоизвлечение тест-кейсов из HTML-таблицы | ❌ | ✅ Sprint 4 |
-| Автоскачивание тестов из ZIP-архива | ❌ | ✅ Sprint 4 |
-| Обнаружение ссылок на GitHub-тесты | ❌ | ✅ Sprint 4 |
-| Поддержка function-style тестов (`*.type`) | ❌ | ✅ Sprint 4 |
-| Схема файлов task{N}_1.py / task{N}_2.py | ❌ | ✅ Sprint 5 |
-| Диагностика API | ❌ | ✅ |
-| Поддержка function-only решений | ❌ | ✅ |
-| Выделенный HTTP/OAuth слой (`stepik_client.py`) | ❌ | ✅ Sprint 3 |
-| Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
-| pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
-| Pre-commit хуки (ruff check + ruff format) | ❌ | ✅ |
-| Unit-тесты (622 теста) | ❌ | ✅ |
-| OAuth2-фасад (`oauth_flow.py`) | ❌ | ✅ |
-| GitHub Actions CI (pytest + ruff) | ❌ | ✅ |
+- **[Версии и эволюция проекта](docs/versions.md)** — таблица релизов и отличия от оригинала.
 
----
-
-## Эволюция версий
-
-Таблица ниже — про **фундаментальные** сдвиги между релизами, а не про
-отдельные фичи (полный список изменений — в [`CHANGELOG.md`](CHANGELOG.md)).
-Каждая версия — это качественный скачок в отдельной плоскости.
-
-| | **v1.0.0** | **v1.1.0** | **v1.2.0** | **v1.3.0** | **v1.4.0** | **v1.5.0** |
-|---|---|---|---|---|---|---|
-| **Суть релиза** | Первый стабильный форк — «работает» | Зрелая архитектура, установка как пакет | Безопасность, кроссплатформа, дистрибуция, UX | Онбординг новичков + дистрибуция через PyPI | «Оболочки» — веб-интерфейс и интеграция с IDE | Рабочий поток — кэш, pytest-плагин, инкрементальный watch |
-| **Структура кода** | Плоский корень репозитория | src-layout: `src/stepik_grader/` + пакет `core/` | стабилизирована | → | + `web.py`, `ide.py` | + `pytest_plugin.py`, `core/cache.py` |
-| **Запуск** | `python grader.py` | `stepik-grader` / `python -m stepik_grader.X` | `python -m stepik_grader` | + нативный файловый диалог (fallback без пути) | + `--serve` (Web UI), `--init-vscode` | + `pytest --grader-mode`; IDE-задачи через интерпретатор |
-| **CLI** | Только интерактивное меню | + argparse (`--mode/--file/--dir`) | + `--output json/csv/md`, `--watch`, `--lang`, `--verbose/--quiet` | → | + веб-интерфейс, задачи VS Code | + `--cache/--no-cache/--clear-cache`, инкрементальный `--watch` |
-| **CI** | Ubuntu (pytest + ruff) | Ubuntu | Ubuntu + Windows + macOS, + mypy | → | → | → |
-| **Безопасность** | Только таймаут выполнения | Только таймаут | + лимит памяти `RLIMIT_AS` (POSIX), явные импорты вместо wildcard | → | → | + `prlimit` после spawn (потокобезопасно) |
-| **Дистрибуция** | `git clone` + `requirements.txt` | `pip install -e .` (единый источник — `pyproject.toml`) | GitHub Releases (sdist+wheel), `pipx` из git | + PyPI: `pipx install stepik-python-grader` (OIDC trusted publishing) | → | → |
-| **Версионирование** | статичная строка | `importlib.metadata` (единый источник) | задокументированная схема + `scripts/version.py` | → | → | → |
-| **Тестов / покрытие** | 260 / 59% | 523 / 95% | 591 / 96% | 599 / 95% | 622 / 95% | 660 / 95% |
-
-> **MAJOR остаётся `1`** на всём протяжении: все изменения укладываются в рамки
-> «локальный инструмент для Python-задач Stepik». Смена MAJOR (`2.0`)
-> предполагается только при фундаментальном выходе за эти рамки — другие языки
-> программирования или платформы. Подробнее — в разделе «Версионирование»
-> [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Полный список изменений — в [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
