@@ -76,14 +76,14 @@ def _check_pyproject_dynamic(errors: list[str]) -> None:
     project = data.get("project", {})
     if "version" in project:
         errors.append(
-            "pyproject.toml: [project].version объявлена статически "
-            f"({project['version']!r}); ожидалась dynamic-версия из git-тегов "
-            '(issue #162). Уберите строку version и оставьте dynamic = ["version"].'
+            "pyproject.toml: [project].version is declared statically "
+            f"({project['version']!r}); a dynamic version from git tags is expected "
+            '(issue #162). Remove the version line and keep dynamic = ["version"].'
         )
     if "version" not in project.get("dynamic", []):
         errors.append(
-            'pyproject.toml: [project].dynamic не содержит "version"; '
-            "динамическая версия из git-тегов не подключена (issue #162)."
+            'pyproject.toml: [project].dynamic does not contain "version"; '
+            "the dynamic version from git tags is not wired up (issue #162)."
         )
 
 
@@ -104,15 +104,15 @@ def _check_checkpoint(baseline: tuple[int, int, int], errors: list[str]) -> None
     found = _find_first(r"Текущая версия:\s*\d+\.\d+\.\d+", text)
     if found is None:
         errors.append(
-            "CHECKPOINT.md: не найдена строка 'Текущая версия: X.Y.Z' "
-            "(обязательный маркер для сверки с релизным baseline)."
+            "CHECKPOINT.md: line 'Tekushchaya versiya: X.Y.Z' not found "
+            "(required marker for comparison against the release baseline)."
         )
         return
     if found[:2] != baseline[:2]:
         errors.append(
-            f"CHECKPOINT.md: 'Текущая версия: {found[0]}.{found[1]}.{found[2]}' "
-            f"расходится с последним релизным тегом v{baseline[0]}.{baseline[1]}.0 "
-            f"(ожидался MAJOR.MINOR = {baseline[0]}.{baseline[1]})."
+            f"CHECKPOINT.md: current version {found[0]}.{found[1]}.{found[2]} "
+            f"disagrees with the latest release tag v{baseline[0]}.{baseline[1]}.0 "
+            f"(expected MAJOR.MINOR = {baseline[0]}.{baseline[1]})."
         )
 
 
@@ -122,12 +122,12 @@ def _check_changelog(baseline: tuple[int, int, int], errors: list[str]) -> None:
     # Первая запись вида '## [X.Y.Z]' — пропускаем '## [Unreleased]'.
     found = _find_first(r"##\s*\[\d+\.\d+\.\d+\]", text)
     if found is None:
-        errors.append("CHANGELOG.md: не найдена запись вида '## [X.Y.Z]'.")
+        errors.append("CHANGELOG.md: no entry of the form '## [X.Y.Z]' found.")
         return
     if found != baseline:
         errors.append(
-            f"CHANGELOG.md: верхняя релизная запись [{found[0]}.{found[1]}.{found[2]}] "
-            f"не совпадает с последним git-тегом v{baseline[0]}.{baseline[1]}.{baseline[2]}."
+            f"CHANGELOG.md: top release entry [{found[0]}.{found[1]}.{found[2]}] "
+            f"does not match the latest git tag v{baseline[0]}.{baseline[1]}.{baseline[2]}."
         )
 
 
@@ -136,12 +136,12 @@ def _check_claude_metrics(baseline: tuple[int, int, int], warnings: list[str]) -
     text = _CLAUDE.read_text(encoding="utf-8")
     found = _find_first(r"\|\s*Версия\s*\|\s*\d+\.\d+\.\d+", text)
     if found is None:
-        warnings.append("CLAUDE.md: строка '| Версия | X.Y.Z |' не найдена (пропуск).")
+        warnings.append("CLAUDE.md: metrics row '| Versiya | X.Y.Z |' not found (skipped).")
         return
     if found[:2] != baseline[:2]:
         warnings.append(
-            f"CLAUDE.md: таблица метрик показывает {found[0]}.{found[1]}.{found[2]}, "
-            f"последний тег — v{baseline[0]}.{baseline[1]}.0. Обновите при следующем релизе."
+            f"CLAUDE.md: metrics table shows {found[0]}.{found[1]}.{found[2]}, "
+            f"latest tag is v{baseline[0]}.{baseline[1]}.0. Update it at the next release."
         )
 
 
@@ -156,23 +156,23 @@ def main() -> int:
     _check_pyproject_dynamic(errors)
 
     if baseline is None:
-        print("SKIP: git-тег vX.Y.0 не найден (нет git/истории) — сверка с baseline пропущена.")
+        print("SKIP: no git tag vX.Y.0 found (no git/history) - baseline comparison skipped.")
     else:
-        print(f"Релизный baseline (последний git-тег): v{baseline[0]}.{baseline[1]}.{baseline[2]}")
+        print(f"Release baseline (latest git tag): v{baseline[0]}.{baseline[1]}.{baseline[2]}")
         _check_checkpoint(baseline, errors)
         _check_changelog(baseline, errors)
         _check_claude_metrics(baseline, warnings)
 
     for w in warnings:
-        print(f"  ⚠️  {w}")
+        print(f"  WARNING: {w}")
 
     if errors:
-        print("\n❌ Обнаружен дрейф версий:")
+        print("\nFAIL: version drift detected:")
         for e in errors:
-            print(f"  • {e}")
+            print(f"  - {e}")
         return 1
 
-    print("✅ Версии согласованы: статического source-of-truth нет, доки совпадают с baseline.")
+    print("OK: versions consistent - no static source-of-truth, docs match the baseline.")
     return 0
 
 

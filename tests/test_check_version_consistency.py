@@ -49,7 +49,7 @@ def test_pyproject_static_version_is_flagged(monkeypatch) -> None:
 
     monkeypatch.setattr(module.tomllib, "load", fake_load)
     module._check_pyproject_dynamic(errors)
-    assert any("статически" in e for e in errors), errors
+    assert any("statically" in e for e in errors), errors
 
 
 def test_checkpoint_drift_is_flagged(monkeypatch) -> None:
@@ -60,7 +60,7 @@ def test_checkpoint_drift_is_flagged(monkeypatch) -> None:
         module.Path, "read_text", lambda self, encoding="utf-8": "## Текущая версия: 1.4.0\n"
     )
     module._check_checkpoint((1, 5, 0), errors)
-    assert any("расходится" in e for e in errors), errors
+    assert any("disagrees" in e for e in errors), errors
 
 
 def test_checkpoint_matching_minor_passes(monkeypatch) -> None:
