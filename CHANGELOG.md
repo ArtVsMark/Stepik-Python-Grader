@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-06
+
+Post-audit roadmap batch — result caching, a pytest plugin, incremental
+watch, and a beginner IDE-launch fix, plus the leftover backlog cleanup
+(#67/#69) merged after v1.4.0.
+
+### Added
+- pytest plugin (`pytest --grader-mode`, issue #57).
+- Opt-in result cache (`--cache` / `--no-cache`, `--clear-cache`, issue #56).
+
+### Changed
+- `--watch --mode 2` is now incremental (issue #71).
+- Memory cap now applied via `resource.prlimit(child_pid, …)` after spawn
+  instead of `preexec_fn` (issue #67).
+
+### Fixed
+- IDE integration tasks now launch via the editor's selected interpreter
+  instead of the bare `stepik-grader` console script.
+
+### Removed
+- `run_microbench_with_timeout()` from `core/microbench_runner.py` (issue #69).
+
+<details><summary>Подробности изменений v1.5.0</summary>
+
 ### Fixed
 - IDE integration tasks now launch via the editor's selected interpreter
   instead of the bare `stepik-grader` console script, which is only on PATH
@@ -75,6 +99,8 @@
   cap was always best-effort (issue #43 S-01), and thread-safety wins. The
   ~ms window where the child runs before the limit lands is before user code
   executes
+
+</details>
 
 ## [1.4.0] - 2026-07-05
 
