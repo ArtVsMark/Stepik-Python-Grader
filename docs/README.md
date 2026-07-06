@@ -8,7 +8,8 @@
 | Хочу… | Документ |
 |---|---|
 | Установить (pipx / из исходников), настроить OAuth, диагностика | [installation.md](installation.md) |
-| Запустить грейдер, режимы 1–4, CLI-флаги, web/IDE, скачать задачу, форматы тестов, конфигурация | [grader-workflow.md](grader-workflow.md) |
+| Запустить грейдер, режимы 1–4, CLI-флаги, web/IDE, скачать задачу | [grader-workflow.md](grader-workflow.md) |
+| Справочник: конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) |
 | Понять архитектуру: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) |
 | Посмотреть дерево файлов проекта | [project-structure.md](project-structure.md) |
 | Сравнить версии и отличия от оригинала | [versions.md](versions.md) |
@@ -26,7 +27,8 @@
 |---|---|---|
 | Обзор проекта, бейджи, основные возможности | [README](../README.md) | docs/* |
 | Установка, OAuth, secrets.json, диагностика | [installation.md](installation.md) | README (только короткий quick start) |
-| Режимы работы, CLI-флаги, скачивание задачи, форматы тестов, конфигурация | [grader-workflow.md](grader-workflow.md) | README, CONTRIBUTING |
+| Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [grader-workflow.md](grader-workflow.md) | README, CONTRIBUTING |
+| Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) | README, CONTRIBUTING, grader-workflow.md |
 | Архитектура: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) | README, CLAUDE.md (там — инварианты, не дублирующее описание) |
 | Дерево файлов проекта | [project-structure.md](project-structure.md) | README |
 | Сравнение версий, отличия от оригинала | [versions.md](versions.md) | README |

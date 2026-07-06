@@ -76,7 +76,8 @@ stepik-grader --mode 1 --file task.py
 | Тема | Документ |
 |---|---|
 | Установка, OAuth, secrets.json, диагностика | [docs/installation.md](docs/installation.md) |
-| Режимы работы, CLI-флаги, web/IDE, скачивание задачи, форматы тестов, конфигурация | [docs/grader-workflow.md](docs/grader-workflow.md) |
+| Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [docs/grader-workflow.md](docs/grader-workflow.md) |
+| Справочник: конфигурация, форматы тест-кейсов, ограничения и безопасность | [docs/configuration.md](docs/configuration.md) |
 | Архитектура: модули, слои, граф зависимостей | [docs/architecture.md](docs/architecture.md) |
 | Структура проекта (дерево файлов) | [docs/project-structure.md](docs/project-structure.md) |
 | Версии и сравнение с оригиналом | [docs/versions.md](docs/versions.md) |
@@ -95,7 +96,7 @@ stepik-grader --mode 1 --file task.py
 выполнения (всегда) и best-effort лимит памяти на POSIX; изоляции ФС/сети нет.
 Запускай только доверенные решения (свои или скачанные из Stepik as-is).
 Подробная threat model — в
-[docs/grader-workflow.md § Ограничения и безопасность](docs/grader-workflow.md#ограничения-и-безопасность).
+[docs/configuration.md § Ограничения и безопасность](docs/configuration.md#ограничения-и-безопасность).
 
 ---
 
