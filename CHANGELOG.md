@@ -2,7 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+- Security policy (PR #203, issue #201): `SECURITY.md` with a responsible
+  disclosure process and supported-versions note; README/threat-model docs link
+  to it. Full policy lives in `SECURITY.md` (not duplicated here).
+- Project workflow templates (PR #203, issue #202): GitHub PR and issue
+  templates under `.github/`.
+
 ### Changed
+- Glossary source-of-truth / coverage-truth clarification (PR #203, issues
+  #194/#200): docs and the Claude handoff now state the invariant consistently —
+  the internal Stepik-Python-Grader base is the content source of truth, official
+  Python/stdlib is the completeness/coverage truth, and the external
+  Glossary-Python is an export/vitrine target only (never the completeness
+  benchmark). Canonical wording in `docs/glossary.md`; not duplicated here.
 - Documentation split (PR-2, epic #102): README is now a lean showcase; heavy
   technical sections moved into a `docs/` knowledge base — `docs/architecture.md`
   (module DAG + layers, #105), `docs/project-structure.md` (file tree, #104),

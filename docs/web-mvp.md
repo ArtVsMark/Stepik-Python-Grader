@@ -195,7 +195,7 @@ Non-goal: менять саму методику timeit-замера — web л�
 
 1. **Локальная база карточек** (`GlossaryProvider`/store, #126). Карточки
    терминов/исключений/функций хранятся **в проекте** — JSON-файл(ы), при
-   росте — SQLite. Расширяет компактный `core/glossary.py` (~30 исключений)
+   росте — SQLite. Расширяет компактный `core/glossary.py` (~28 исключений)
    полями `body`/`section`/`related`/`status` (см. контракт `GlossaryCard`).
    Источник истины для карточек — локальная база, а не удалённый сайт.
 2. **Детектор недостающих концепций** (`MissingConceptDetector`). Сканирует
@@ -756,7 +756,7 @@ adapters-слоем над `downloader.py`.
 > `id`/`url` уже выводимы из `core/glossary.py` (`GlossaryEntry.anchor` /
 > `.url`, `GLOSSARY_BASE_URL`). `kind`/`body`/`section`/`related`/`status` —
 > расширение локального store (#126); MVP может работать и на компактном
-> наборе из `core/glossary.py` (офлайн, ~30 исключений). `status` связывает
+> наборе из `core/glossary.py` (офлайн, ~28 исключений). `status` связывает
 > карточку с очередью пополнения (`GlossaryMissingEntry`) и экспортом.
 
 ---
