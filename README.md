@@ -98,6 +98,7 @@ stepik-grader --mode 1 --file task.py
 Запускай только доверенные решения (свои или скачанные из Stepik as-is).
 Подробная threat model — в
 [docs/configuration.md § Ограничения и безопасность](docs/configuration.md#ограничения-и-безопасность).
+Как сообщить об уязвимости — [SECURITY.md](SECURITY.md).
 
 ---
 
