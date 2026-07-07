@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Уязвимость безопасности
+    url: https://github.com/ArtVsMark/Stepik-Python-Grader/security/advisories/new
+    about: НЕ открывайте публичный issue. Используйте приватный канал — см. SECURITY.md.

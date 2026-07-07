@@ -120,6 +120,12 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
    ФС/сети. Документировать везде, где релевантно.
 5. **Обратная совместимость** — все имена из `__all__` остаются доступными
    через `from stepik_grader.grader import X`.
+6. **Истина глоссария** — полнота глоссария меряется относительно
+   **официального Python/stdlib**, а не стороннего справочника. Внутренняя база
+   Stepik-Python-Grader — источник истины контента; внешний
+   [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) — только цель
+   экспорта/витрина, **никогда** не эталон полноты. Канон —
+   [docs/glossary.md § Источники истины](docs/glossary.md#источники-истины-роли).
 
 ---
 
@@ -190,6 +196,9 @@ UX-полировка вывода `--version` (dev vs release маркер) —
 - **#186** — Downloader-блок в web · **#187** — микро-бенчмарк в web.
 - **#129** — тесты web MVP (user journeys).
 - **#161** (эпик) ⊃ **#163** — `--version` UX: различать dev и release.
+- **Glossary coverage (source-driven)** — **#195** (поля origin у карточки/пробела),
+  **#196** (инвентаризатор stdlib), **#197** (генератор coverage-отчёта + missing JSON),
+  **#198** (CLI/меню-точка входа). Постановки — в [docs/claude-handoff.md](docs/claude-handoff.md).
 
 > **#126 (`JsonGlossaryProvider`) — закрыт.** Foundation локального глоссария
 > уже в репозитории (`src/stepik_grader/glossary/`, документация —
