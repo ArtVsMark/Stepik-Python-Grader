@@ -17,6 +17,11 @@
 | `config.py` | Application / Configuration | `GraderConfig` (frozen dataclass) + `CONFIG` singleton; переопределяется через `[tool.stepik-grader]` в `pyproject.toml` |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
 | `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
+| `web.py` | Application / Web | Локальная веб-оболочка `--serve` на stdlib `http.server` (endpoint `/api/grade`, `ResultViewModel`); тонкий слой поверх ядра, бизнес-логики грейдинга не добавляет. Текущая реализация — корректность + бенчмарк; дизайн будущего WEB MVP — [web-mvp.md](web-mvp.md) |
+| `ide.py` | Application / IDE | IDE-интеграция `--init-vscode`: генерация конфигов VS Code (tasks/launch) |
+| `pytest_plugin.py` | Application / Plugin | pytest-плагин (`pytest --grader-mode`, issue #57): запуск тест-кейсов грейдера как pytest-тестов |
+| `core/cache.py` | Infrastructure / Utilities | Кэш результатов `.grader_cache/` (issue #56): ключ по контенту решения+тестов, graceful degradation при битом/отсутствующем кэше |
+| `core/glossary.py` | Infrastructure / Utilities (leaf) | Компактная встроенная карта исключений (`GlossaryEntry.anchor`/`.url`, `GLOSSARY_BASE_URL`, ~30 записей) для error cards при RE; leaf-модуль, отдельная сущность от пакета `glossary/` (issue #72) |
 | `core/grader_core.py` | Application | Исполнение тест-кейса в subprocess и агрегация статистики: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
 | `core/test_loader.py` | Application | Обнаружение файлов-решений, загрузка тест-кейсов (`load_test_cases`), `resolve_test_dir` (Issue #45 A-01) |
 | `core/mode_detector.py` | Application | Детекция режима запуска stdin/function (`_detect_run_mode`, `is_function_only_solution`) (Issue #45 A-01) |
@@ -51,6 +56,12 @@ core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, co
 core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py
 core/mode_detector.py  ──→  core/storage.py
 cli.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
+cli.py                 ──→  core/cache.py
+web.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py, core/test_loader.py  (web → core, ациклично)
+web.py                 ──→  core/glossary.py  (lookup_from_error для error card при RE)
+pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
+core/reporter.py       ──→  core/glossary.py  (glossary-блок в error card при RE)
+ide.py                 (только stdlib — генерация конфигов VS Code; project-импортов нет)
 diagnostic_stepik.py ──→  core/stepik_client.py
 diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
 downloader.py        ──→  core/oauth_flow.py
@@ -76,6 +87,7 @@ downloader.py больше не импортирует grader.py: дублиру
 ┌───────────────────────────────────────────────────────────────┐
 │  Domain / Application  (src/stepik_grader/ — точки входа)      │
 │  downloader.py  │  grader.py (facade)  │  diagnostic_stepik   │
+│  web.py (--serve)  │  ide.py (--init-vscode)  │ pytest_plugin  │
 ├───────────────────────────────────────────────────────────────┤
 │  Application  (core/, грейдер разбит по SRP — Sprint 7, A-01) │
 │  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
@@ -85,10 +97,16 @@ downloader.py больше не импортирует grader.py: дублиру
 │  Infrastructure  (core/)                                       │
 │  core/stepik_client.py  │  core/executor.py                    │
 │  core/microbench_runner.py  │  core/oauth_flow.py              │
+│  core/cache.py (.grader_cache/, #56)                           │
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure / Utilities  (core/, leaf, no deps)            │
-│  core/storage.py  │  core/normalizers.py                       │
+│  core/storage.py  │  core/normalizers.py  │  core/glossary.py  │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-`core/storage.py` и `core/normalizers.py` — leaf-модули: не импортируют ничего из проекта, легко тестируются изолированно.
+`core/storage.py`, `core/normalizers.py` и `core/glossary.py` — leaf-модули: не
+импортируют ничего из проекта, легко тестируются изолированно. Пакет
+`glossary/` (issue #126) — самостоятельный островок и НЕ то же самое, что
+leaf-модуль `core/glossary.py`: первый — расширенный knowledge-модуль
+(карточки/детектор/очередь), второй — компактная карта исключений для error
+cards. Оба не тянут `core/*` бизнес-логику.

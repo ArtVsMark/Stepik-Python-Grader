@@ -3,9 +3,10 @@
 > Продуктово-архитектурная спецификация локальной веб-оболочки (эпик #123,
 > PR-6). Дизайн-документ, **не реализация**: описывает целевой UX, модель
 > данных и границы будущей архитектуры, не меняя текущий Python-код.
-> Реализационные задачи — #125 (workspace проверки решений), #126
-> (глоссарий как локальный knowledge-модуль + `GlossaryProvider`/store), #129
-> (тесты web MVP) — остаются открытыми.
+> Реализационные задачи — #125 (workspace проверки решений), #186 (Downloader
+> в web), #187 (микро-бенчмарк в web), #129 (тесты web MVP) — остаются
+> открытыми. Foundation глоссария (#126: `GlossaryProvider`/store, детектор,
+> очередь) уже реализован — см. [glossary.md](glossary.md); доводка — #190/#191.
 >
 > Текущий веб-интерфейс (`--serve`) описан в
 > [grader-workflow.md § Веб-интерфейс](grader-workflow.md#веб-интерфейс---serve);
@@ -584,27 +585,28 @@ API-контракт (см. [контракты](#контракты-данны�
    зависимость — только по явному решению (см. запрет в `CLAUDE.md` на новые
    зависимости без указания).
 
-**Новые модули/адаптеры (дизайн, реализация — #125/#126):**
+**Новые модули/адаптеры:**
 
-- **Downloader-адаптер** — тонкая web-обёртка над `downloader.py`
-  (`parse_stepik_step_url`, `build_task_directory`, автоизвлечение тестов) +
-  `core/oauth_flow.py`. Отдаёт `DownloadedTask`. Ребро DAG:
-  `web → downloader → core` (ациклично).
-- **Glossary provider/store** — локальная база карточек (JSON→SQLite),
-  расширяет `core/glossary.py`. Отдаёт `GlossaryCard`.
-- **`MissingConceptDetector`** — анализ решений/ошибок → `GlossaryMissingEntry`
-  в очередь пополнения. Читает результаты проверки, пишет в store.
+- **Downloader-адаптер** (реализация — #186) — тонкая web-обёртка над
+  `downloader.py` (`parse_stepik_step_url`, `build_task_directory`,
+  автоизвлечение тестов) + `core/oauth_flow.py`. Отдаёт `DownloadedTask`. Ребро
+  DAG: `web → downloader → core` (ациклично).
+- **Glossary provider/store** (✅ foundation готов, #126) — локальная база
+  карточек (JSON→SQLite), расширяет `core/glossary.py`. Отдаёт `GlossaryCard`.
+  Реализован в `stepik_grader.glossary` — см. [glossary.md](glossary.md).
+- **`MissingConceptDetector`** (✅ foundation готов, #126) — анализ решений/ошибок
+  → `GlossaryMissingEntry` в очередь пополнения.
 - **Glossary exporter/bridge** — выгрузка `ready`-карточек во внешний
-  Glossary-Python (одно-направленно).
+  Glossary-Python (одно-направленно); #126-follow-up.
 
-**Новые endpoint'ы (дизайн, реализация — #125/#126):**
+**Новые endpoint'ы (дизайн; web-слой — #125/#186/#187, glossary-адаптеры поверх готового store):**
 
 | Endpoint | Отдаёт | Слой |
 |---|---|---|
 | `GET /api/grade?path=&mode=` | `ResultViewModel` (уже есть в `web.py`; `mode` расширяется на `microbench`) | adapters → grader_core |
 | `POST /api/download` | `DownloadedTask` (по `DownloaderRequest`) | adapters → downloader → core |
-| `GET /api/glossary?q=` | `GlossaryCard[]` (поиск) | adapters → GlossaryProvider (#126) |
-| `GET /api/glossary/{id}` | `GlossaryCard` | adapters → GlossaryProvider (#126) |
+| `GET /api/glossary?q=` | `GlossaryCard[]` (поиск) | adapters → GlossaryProvider (готов, #126) |
+| `GET /api/glossary/{id}` | `GlossaryCard` | adapters → GlossaryProvider (готов, #126) |
 | `GET /api/glossary/missing` | `GlossaryMissingEntry[]` (очередь пополнения) | adapters → store/detector |
 | `POST /api/glossary/export` | статус экспорта во внешний глоссарий | adapters → exporter |
 | `GET /api/commands?context=` | `CommandAction[]` (реестр, отфильтр.) | adapters (реестр команд) |
@@ -753,31 +755,33 @@ adapters-слоем над `downloader.py`.
 | Error card RE + glossary-ссылка | ✅ есть (issue #72) | | |
 | Split-pane workspace | дизайн | реализация (#125) | |
 | Error cards WA/TLE (расширенные поля) | дизайн (спека) | реализация (#125) | |
-| Downloader / загрузка тестов из Stepik | дизайн | web-адаптер над `downloader.py` (#125 или отд. issue) | web-OAuth, batch |
-| Микро-бенчмарк (режим 4) в web | дизайн | сегмент + ViewModel микробенча (#125) | |
+| Downloader / загрузка тестов из Stepik | дизайн | web-адаптер над `downloader.py` (#186) | web-OAuth, batch |
+| Микро-бенчмарк (режим 4) в web | дизайн | сегмент + ViewModel микробенча (#187) | |
 | Action cards (copy/run/explain/open) | дизайн | copy/run/explain/open (#125) | create_test, compare |
 | Command palette (Ctrl+K) | дизайн | базовый реестр (#125) | плагины команд |
 | Scenario buttons | дизайн | реализация (#125) | |
-| Раздел «Глоссарий» (поиск/карточки) | дизайн | локальный store + `GlossaryProvider` (#126) | |
-| Детектор недостающих концепций + очередь | дизайн | `MissingConceptDetector` (#126) | полуавто-наполнение |
-| Экспорт/синхронизация в Glossary-Python | дизайн | exporter (#126) | двусторонняя синхр. (non-goal) |
+| Раздел «Глоссарий» (поиск/карточки) | ✅ store/`GlossaryProvider` готов (#126) | web-раздел поверх store (#125/#129) | |
+| Детектор недостающих концепций + очередь | ✅ `MissingConceptDetector` готов (#126) | web-интеграция очереди (#125/#129) | полуавто-наполнение |
+| Экспорт/синхронизация в Glossary-Python | дизайн | exporter (#126-follow-up) | двусторонняя синхр. (non-goal) |
 | Тесты web MVP (download + microbench + glossary) | — | реализация (#129) | |
 | Выделенный бэкенд/SPA (FastAPI и т.п.) | не требуется | не требуется | по явному решению |
 
 **Что остаётся реализационными issue после этого дизайн-PR:**
 
 - **#125** — workspace проверки решений (split-pane, error cards WA/TLE,
-  action cards, palette, scenario buttons), **микро-бенчмарк (режим 4)** и
-  **Downloader-блок** (если для Downloader не заведут отдельный issue —
-  см. рекомендацию в PR).
-- **#126** — глоссарий как локальный knowledge-модуль: store/`GlossaryProvider`,
-  `MissingConceptDetector` + очередь пополнения, экспортёр в Glossary-Python
-  (не просто ссылки).
+  action cards, palette, scenario buttons).
+- **#186** — Downloader-блок в web (web-адаптер над `downloader.py`).
+- **#187** — микро-бенчмарк (режим 4) в web (сегмент + ViewModel, `Py-heap`).
 - **#129** — тесты web MVP: журналы J0 (download), J1–J5, J6 (микробенч),
   J7 (пробел глоссария).
 
+> **#126 (foundation глоссария) — закрыт.** `GlossaryProvider`/store,
+> `MissingConceptDetector` и очередь пополнения уже реализованы
+> ([glossary.md](glossary.md)); web-раздел строится поверх них (#125/#129),
+> доводка модуля — #190/#191, экспортёр — #126-follow-up.
+
 Этот документ закрывает дизайн-часть эпика #123 (issue #124/#127/#128); сам
-эпик остаётся открытым до реализации #125/#126/#129.
+эпик остаётся открытым до реализации #125/#129 (+ #186/#187).
 
 ---
 

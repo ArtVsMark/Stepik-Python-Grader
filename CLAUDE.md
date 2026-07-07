@@ -176,7 +176,8 @@ UX-полировка вывода `--version` (dev vs release маркер) —
 | Дизайн WEB MVP | [docs/web-mvp.md](docs/web-mvp.md) |
 | История спринтов/roadmap (архив) | [docs/history.md](docs/history.md) |
 | Handoff для будущих реализаций Claude | [docs/claude-handoff.md](docs/claude-handoff.md) |
-| Состояние проекта, полный changelog | [CHECKPOINT.md](CHECKPOINT.md) / [CHANGELOG.md](CHANGELOG.md) |
+| Полный changelog (живой источник) | [CHANGELOG.md](CHANGELOG.md) |
+| Состояние проекта (исторический snapshot) | [CHECKPOINT.md](CHECKPOINT.md) |
 
 ---
 
@@ -185,12 +186,19 @@ UX-полировка вывода `--version` (dev vs release маркер) —
 Реализационные задачи, готовые для будущего Claude — в
 [`docs/claude-handoff.md`](docs/claude-handoff.md):
 
-- **#163** — `--version` UX: различать dev и release в выводе.
 - **#125** — WEB workspace проверки решений (по [docs/web-mvp.md](docs/web-mvp.md)).
-- **#126** — `JsonGlossaryProvider` для раздела «Глоссарий».
+- **#186** — Downloader-блок в web · **#187** — микро-бенчмарк в web.
 - **#129** — тесты web MVP (user journeys).
+- **#161** (эпик) ⊃ **#163** — `--version` UX: различать dev и release.
 
-Актуальный бэклог и статусы — в [CHECKPOINT.md](CHECKPOINT.md).
+> **#126 (`JsonGlossaryProvider`) — закрыт.** Foundation локального глоссария
+> уже в репозитории (`src/stepik_grader/glossary/`, документация —
+> [docs/glossary.md](docs/glossary.md)). Не реализовывать заново. Открытая
+> доводка модуля — follow-up **#190/#191** (валидация `kind/status`, снижение
+> false-positive детектора).
+
+Актуальные статусы — в GitHub Issues (`gh issue list`) и
+[CHANGELOG.md](CHANGELOG.md); [CHECKPOINT.md](CHECKPOINT.md) — исторический snapshot.
 
 ---
 

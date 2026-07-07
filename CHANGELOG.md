@@ -7,7 +7,7 @@
   technical sections moved into a `docs/` knowledge base — `docs/architecture.md`
   (module DAG + layers, #105), `docs/project-structure.md` (file tree, #104),
   `docs/versions.md` (release-comparison table + fork-vs-original, #106). README
-  drops from ~1067 to ~911 lines with one-line pointers to `docs/` and an
+  becomes a lean showcase with one-line pointers to `docs/` and an
   updated table of contents. CONTRIBUTING gains a "README as showcase, `docs/`
   as knowledge base" rule so it doesn't bloat again (#107).
 

@@ -18,7 +18,7 @@
 | Полный список изменений | [../CHANGELOG.md](../CHANGELOG.md) |
 | Внести вклад: код-стайл, форматы тестов, версионирование | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Инварианты ядра и правила для агентов | [../CLAUDE.md](../CLAUDE.md) |
-| Постановки будущих задач для Claude Code (#163/#125/#126/#129) | [claude-handoff.md](claude-handoff.md) |
+| Постановки будущих задач для Claude Code (#125/#186/#187/#129, версии #161/#163; #126 — foundation готов, доводка #190/#191) | [claude-handoff.md](claude-handoff.md) |
 | История спринтов и roadmap (архив) | [history.md](history.md) |
 
 ## Канонические источники (правило против дублей)
