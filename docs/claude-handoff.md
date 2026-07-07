@@ -18,7 +18,7 @@
 
 ---
 
-## #163 — `--version`: различать dev и release
+## #163 — `--version`: различать dev и release (эпик #161)
 
 **Проблема.** Сейчас `stepik-grader --version` печатает сырые метаданные
 пакета (`importlib.metadata`). Вне тега `setuptools-scm` даёт
@@ -60,18 +60,19 @@ cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
 - Расширить `web.py` (или выделить `web/`-подпакет как в § «Архитектура
   будущего web UI»): result panel + detail panel; error cards WA/TLE с полями
   из таблицы web-mvp.md § «Модель error cards».
-- **Микро-бенчмарк (режим 4).** Вывести существующий `run_microbench_mode`
-  (`core/grader_core.py`; нижнеуровневый прогон — `core/microbench_runner.py::run_microbench`)
-  в web как третий сегмент режима: отдельный
-  ViewModel с µs-метриками и колонкой **`Py-heap`** (не `Memory`) — см.
-  web-mvp.md § «Режимы проверки и микро-бенчмарк». Сейчас в `web.py` его нет.
-- **Downloader-блок.** Web-адаптер над `downloader.py` (`parse_stepik_step_url`,
-  `build_task_directory`, автоизвлечение тестов) + `core/oauth_flow.py`:
-  панель «Загрузить из Stepik», endpoint `POST /api/download` →
-  `DownloadedTask`, автоподстановка пути в command bar (журнал J0). В MVP
-  первичный OAuth может оставаться за CLI, web показывает понятную ошибку.
-  **Если объём великоват для #125 — завести отдельный issue на Downloader**
-  (см. рекомендацию в PR spec-корректировок).
+- **Границы скоупа #125.** Микро-бенчмарк в web и Downloader-блок вынесены в
+  отдельные open issues — **не тащить их в #125**:
+  - **#187 — микро-бенчмарк (режим 4) в web.** Вывод существующего
+    `run_microbench_mode` (`core/grader_core.py`; нижнеуровневый прогон —
+    `core/microbench_runner.py::run_microbench`) как третьего сегмента: отдельный
+    ViewModel с µs-метриками и колонкой **`Py-heap`** (не `Memory`) — см.
+    web-mvp.md § «Режимы проверки и микро-бенчмарк». Сейчас в `web.py` его нет.
+  - **#186 — Downloader-блок.** Web-адаптер над `downloader.py`
+    (`parse_stepik_step_url`, `build_task_directory`, автоизвлечение тестов) +
+    `core/oauth_flow.py`: панель «Загрузить из Stepik», endpoint
+    `POST /api/download` → `DownloadedTask`, автоподстановка пути в command bar
+    (журнал J0). В MVP первичный OAuth может оставаться за CLI, web показывает
+    понятную ошибку.
 - Action cards MVP-уровня (`copy_input`, `copy_output`, `open_glossary`,
   `run_again`, `explain_error`) — чистый фронтенд поверх уже возвращаемых
   данных.
@@ -95,49 +96,37 @@ cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
 
 ---
 
-## #126 — глоссарий как локальный knowledge-модуль
+## #126 — глоссарий как локальный knowledge-модуль (✅ foundation реализован)
 
-**Проблема.** Раздел «Глоссарий» и error cards сейчас опираются на компактную
-встроенную карту `core/glossary.py` (~28 исключений) + ссылки на внешний сайт.
-Нужен **полноценный локальный knowledge-модуль**, а не список ссылок:
-локальная база карточек, детектор недостающих конструкций, очередь пополнения
-и экспорт во внешний Glossary-Python. Каноничный дизайн —
-[web-mvp.md § Глоссарий как локальный knowledge-модуль](web-mvp.md#глоссарий-как-локальный-knowledge-модуль).
+> **Статус: закрыт.** Foundation уже в репозитории — пакет
+> `src/stepik_grader/glossary/` (`GlossaryCard`/`GlossaryMissingEntry`,
+> `JsonGlossaryProvider`, `MissingConceptDetector`, очередь пополнения с
+> дедупом). Формат хранения и Python-API — канонично в
+> [glossary.md](glossary.md). **Не реализовывать заново.**
 
-**Scope (по критериям #126, расширено spec-корректировками).**
-- **Store/`GlossaryProvider`.** Абстракция `GlossaryProvider` + реализация
-  поверх локальной базы карточек (JSON, при росте — SQLite). Карточки хранятся
-  **в проекте** (истина локальна), а не тянутся с сайта.
-- Формат карточки — согласовать с `GlossaryCard` из
-  [web-mvp.md § Контракты данных](web-mvp.md#контракты-данных) (`id`, `title`,
-  `kind`, `hint`, `body`, `status`, `url`, `section`, `related`).
-- **`MissingConceptDetector`.** Анализ решений (AST/имена), текстов ошибок и
-  вердиктов RE/WA → обнаружение функций/конструкций/исключений без карточки →
-  запись `GlossaryMissingEntry` (status `new`) в очередь пополнения (журнал
-  J7). Endpoint `GET /api/glossary/missing`.
-- **Экспортёр/bridge.** Выгрузка `ready`-карточек во внешний Glossary-Python
-  (одно-направленно), пометка `exported`. Endpoint `POST /api/glossary/export`.
-- Точки интеграции: `web.py` (раздел «Глоссарий», endpoint'ы `/api/glossary`,
-  `/api/glossary/{id}`, `/api/glossary/missing` из web-mvp.md § «Архитектура»);
-  совместимость с `core/glossary.py` (`GlossaryEntry.anchor`/`.url`,
-  `GLOSSARY_BASE_URL`) — MVP может работать и на одном компактном наборе, store
-  расширяет.
-- Ошибки чтения базы (нет файла / битый JSON) показываются понятно, грейдер не
-  падает (тот же принцип graceful degradation, что у кэша #56).
+Что уже есть (не переделывать):
+- `JsonGlossaryProvider.load()` — загрузка базы карточек (файл или директория),
+  поиск по `id/title/aliases/keywords/tags`, фильтры по `status`/`tag`,
+  `GlossaryError` на битой/отсутствующей базе.
+- `MissingConceptDetector` — консервативный AST-детектор (без исполнения кода):
+  stdlib-вызовы, notable builtins, `match/case`, исключения из трейсбеков.
+- Очередь пополнения (`append_missing_entries` с дедупом по `concept`).
 
-**Non-goals.**
-- НЕ вендорить полный глоссарий (581 карточка) в репозиторий — внешний
-  [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) остаётся
-  отдельным лёгким HTML-справочником; локальный store — источник, экспорт —
-  односторонний. Двусторонняя синхронизация — вне рамок.
-- НЕ редактировать внешний Glossary-Python из грейдера напрямую (см.
-  [`../CLAUDE.md`](../CLAUDE.md) § «Связанный проект») — только через экспорт.
-- `core/glossary.py` — leaf-модуль; не добавлять в него project-импорты. Store
-  и детектор разместить так, чтобы не создать цикл в DAG.
+**Открытая доводка (follow-up quality tasks, не implementation-с-нуля):**
+- **#190** — валидация `kind`/`status` при загрузке карточек.
+- **#191** — снижение false-positive детектора.
 
-**Проверки.** Store читает валидную базу; понятная ошибка на битой/
-отсутствующей; детектор регистрирует пробел → очередь; формат карточки
-задокументирован; `mypy`/`ruff` чистые.
+**Остаётся за рамками #126 (в других issue):**
+- WEB UI и endpoint'ы `/api/glossary*` — в #125/#129.
+- Экспортёр `ready`-карточек во внешний Glossary-Python (`POST /api/glossary/export`) —
+  отдельный #126-follow-up (см. [glossary.md § Границы](glossary.md#границы-что-не-входит)).
+- SQLite-хранилище (#130+) — сейчас JSON-first, провайдер абстрагирует источник.
+
+**Инварианты при доводке.** `core/glossary.py` остаётся leaf-модулем (без
+project-импортов); пакет `glossary/` не тянет `core/*` и не импортируется из
+него — DAG ацикличен. Внешний
+[Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) не редактируется
+из грейдера напрямую (см. [`../CLAUDE.md`](../CLAUDE.md) § «Связанный проект»).
 
 ---
 
@@ -176,8 +165,9 @@ cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
 
 ## Порядок и зависимости
 
-`#163` независима (версионирование). WEB-цепочка: `#125` (workspace) и `#126`
-(glossary provider) можно вести параллельно, но `#129` (тесты) логично
-завершать после появления реализуемых журналов из #125/#126. Эпик #123
-остаётся открытым до закрытия #125/#126/#129; дизайн-часть уже закрыта
-документом [web-mvp.md](web-mvp.md).
+`#163` (эпик #161) независима (версионирование). `#126` (glossary foundation)
+уже закрыт — остаётся его доводка #190/#191. WEB-цепочка: `#125` (workspace),
+`#186` (Downloader web), `#187` (микро-бенчмарк web) можно вести параллельно, но
+`#129` (тесты) логично завершать после появления реализуемых журналов из
+#125/#186/#187. Эпик #123 остаётся открытым до закрытия #125/#129 (+ #186/#187);
+дизайн-часть уже закрыта документом [web-mvp.md](web-mvp.md).
