@@ -15,6 +15,14 @@
 
 ## Snapshot: v1.5.0 (stable)
 
+**Текущая версия: 1.5.0**
+
+> Строка-маркер выше существует только для CI-проверки дрейфа
+> (`scripts/check_version_consistency.py`, issue #165) — она сверяется с
+> последним git-тегом. Каноническая история релизов — в [`CHANGELOG.md`](CHANGELOG.md)
+> и [`docs/versions.md`](docs/versions.md); этот файл остаётся историческим
+> snapshot, а не источником истины по версиям.
+
 - Тестов: 660 · Покрытие: 95% · Python: 3.12 / 3.13 / 3.14
 - CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
   × 3.12/3.13 + ubuntu 3.14-experimental — зелёный
