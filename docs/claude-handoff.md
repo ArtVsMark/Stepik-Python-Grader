@@ -145,12 +145,34 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 > закрыты.** Цепочка `origin`-поля модели → `stdlib_inventory.py` →
 > `coverage.py` (report + missing JSON) → CLI-точка входа
 > (`python -m stepik_grader.glossary.coverage`) полностью реализована —
-> детали в [glossary.md](glossary.md). Остаётся docs-follow-up **#199**
-> (регистрация модулей покрытия в DAG/архитектуре — правка
-> `docs/architecture.md`, не отдельная код-фича) и доводка практического
+> детали в [glossary.md](glossary.md). Docs-follow-up **#199** (регистрация
+> модулей покрытия в DAG/архитектуре) — **закрыт**: `stdlib_inventory.py`/
+> `coverage.py` описаны в [architecture.md](architecture.md) и
+> [project-structure.md](project-structure.md). Остаётся доводка практического
 > детектора **#190** (закрыт)/**#191** (снижение false-positive, открыт).
 
 ---
+
+## Контракты и server mode — дизайн готов, реализация открыта
+
+Дизайн-часть закрыта документами; реализация — отдельные issue. **Читать доки
+как источник контрактов, не переопределять их заново.**
+
+- **#116 — контракт результата.** Поля case/solution/run result, семантика
+  вердиктов, форма ошибки/таймаута, стабильность — [result-contract.md](result-contract.md).
+  Реализация типизированного `TestResult` (если решат вводить) обязана
+  сохранить имена полей; сейчас источник формы — docstring
+  `run_single_test` + мэпперы `web.py`.
+- **#140 — Runner-слой.** Выделить `Runner`/`LocalRunner` из `grader_core`
+  **без смены поведения** — [server-mode.md § Runner-слой](server-mode.md#runner-слой-issue-140).
+- **#156 — API удалённого исполнения.** Контракт `/api/v1/runs` (async,
+  классы ошибок, версионирование) — [server-mode.md § Контракт API](server-mode.md#контракт-api-удалённого-исполнения-issue-156).
+  **Сервер не реализуется** — только контракт.
+- **#157 — sandbox/сеть-off/квоты.** Требования к `SandboxRunner` —
+  [server-mode.md § Sandbox](server-mode.md#sandbox-и-сетевая-изоляция-issue-157).
+- **#152 — ADR server mode.** Решение и альтернативы — [adr/0001-server-mode.md](adr/0001-server-mode.md).
+- **#150 — диагностика/логирование.** Opt-in лог-файл, редакция секретов —
+  [logging.md](logging.md); реализация в `stepik_client`/`oauth_flow`/`downloader`.
 
 ## Порядок и зависимости
 

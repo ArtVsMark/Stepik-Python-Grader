@@ -13,6 +13,10 @@
 | Справочник: конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) |
 | Локальный глоссарий: формат JSON карточек/очереди, Python-API (`stepik_grader.glossary`) | [glossary.md](glossary.md) |
 | Понять архитектуру: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) |
+| Контракт результата проверки (поля, вердикты) для CLI/Web/API | [result-contract.md](result-contract.md) |
+| Дизайн server mode: Runner-слой, API удалённого исполнения, sandbox | [server-mode.md](server-mode.md) |
+| Диагностический режим и лог-файл (редакция секретов, opt-in) | [logging.md](logging.md) |
+| Архитектурные решения (ADR) | [adr/README.md](adr/README.md) |
 | Посмотреть дерево файлов проекта | [project-structure.md](project-structure.md) |
 | Сравнить версии и отличия от оригинала | [versions.md](versions.md) |
 | Полный список изменений | [../CHANGELOG.md](../CHANGELOG.md) |
@@ -37,6 +41,10 @@
 | Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) | README, CONTRIBUTING, grader-workflow.md |
 | Формат JSON локального глоссария (карточки/очередь) и API `stepik_grader.glossary` | [glossary.md](glossary.md) | web-mvp.md (там — продуктовый дизайн, не формат хранения) |
 | Архитектура: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) | README, CLAUDE.md (там — инварианты, не дублирующее описание) |
+| Контракт результата проверки (поля case/solution/run, вердикты, стабильность) | [result-contract.md](result-contract.md) | web-mvp.md (там — ViewModel-надстройки), configuration.md (там — таблица вердиктов) |
+| Дизайн server mode (Runner/SandboxRunner, API удалённого исполнения, sandbox-требования) | [server-mode.md](server-mode.md) | SECURITY.md (там — короткая политика), ADR-0001 (там — решение, не спецификация) |
+| Диагностический режим, лог-файл, редакция секретов | [logging.md](logging.md) | SECURITY.md, configuration.md |
+| Архитектурные решения (контекст/решение/альтернативы/последствия) | [adr/README.md](adr/README.md) | docs/* (дизайн-доки описывают «как», ADR — «почему») |
 | Дерево файлов проекта | [project-structure.md](project-structure.md) | README |
 | Сравнение версий, отличия от оригинала | [versions.md](versions.md) | README |
 | История релизов (детальный changelog) | [../CHANGELOG.md](../CHANGELOG.md) | versions.md (там — только качественные скачки) |

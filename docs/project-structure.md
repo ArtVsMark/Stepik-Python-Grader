@@ -38,7 +38,9 @@ Stepik-Python-Grader/
 │           ├── __init__.py       # Публичный API пакета glossary
 │           ├── models.py         # GlossaryCard, GlossaryMissingEntry (leaf, только stdlib)
 │           ├── json_provider.py  # JsonGlossaryProvider + очередь пополнения (JSON-first)
-│           └── detector.py       # MissingConceptDetector — AST-детект пробелов без исполнения
+│           ├── detector.py       # MissingConceptDetector — AST-детект пробелов без исполнения
+│           ├── stdlib_inventory.py # Офлайн-инвентарь официального Python/stdlib (leaf, issue #196)
+│           └── coverage.py       # Coverage-отчёт + missing JSON + CLI (issue #197/#198)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов; включает pytester
 ├── tests/                     # 660+ тестов (pytest)
 ├── docs/                      # База знаний (архитектура, структура, версии) — эпик #102
