@@ -63,8 +63,9 @@ version_scheme = "post-release"
 # issue #101: PEP 561 — маркер py.typed, чтобы mypy у downstream-потребителей
 # видел типы установленного пакета. Достаточно на верхнем уровне пакета —
 # помечает всё дерево stepik_grader как типизированное.
+# issue #144: JSON-локали (core/locales/*.json) — иначе не попадут в wheel/sdist.
 [tool.setuptools.package-data]
-stepik_grader = ["py.typed"]
+stepik_grader = ["py.typed", "core/locales/*.json"]
 
 [tool.ruff]
 line-length = 100
