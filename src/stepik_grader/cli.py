@@ -76,6 +76,30 @@ def _resolve_version() -> str:
 
 __version__ = _resolve_version()
 
+
+def _is_dev_build(raw_version: str) -> bool:
+    """True, если версия не соответствует чистому релизному тегу ``vX.Y.0``.
+
+    setuptools-scm (``version_scheme = "post-release"``, issue #162) даёт
+    ровно ``X.Y.0`` на точном теге и ``X.Y.0.postN+g<hash>`` (иногда с
+    ``.dYYYYMMDD`` при "грязном" рабочем дереве) вне тега — наличие
+    локального сегмента после ``+`` (PEP 440) однозначно значит dev-сборку.
+    """
+    return "+" in raw_version
+
+
+def _format_version_for_display(raw_version: str) -> str:
+    """Отформатировать версию для ``--version`` (issue #163).
+
+    On-tag: версия не меняется — уже чистый ``X.Y.0``, без суффикса.
+    Off-tag: та же строка setuptools-scm плюс явная dev-пометка, чтобы
+    пользователь не принял ``X.Y.0.postN+g<hash>`` за официальный релиз.
+    """
+    if _is_dev_build(raw_version):
+        return f"{raw_version} (dev build, not a release)"
+    return raw_version
+
+
 # ---------------------------------------------------------------------------
 # i18n (issue #51 D-01) — русский по умолчанию, --lang en переключает на
 # английский. Минимальный словарь сообщений вместо полноценной gettext-
@@ -1036,7 +1060,7 @@ def main(argv: list[str] | None = None) -> None:
     _LANG = args.lang
 
     if args.version:
-        print(f"grader.py {__version__}")
+        print(f"grader.py {_format_version_for_display(__version__)}")
         return
 
     if args.clear_cache:
