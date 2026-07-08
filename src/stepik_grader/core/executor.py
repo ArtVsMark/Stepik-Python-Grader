@@ -1,10 +1,20 @@
-"""Executor.py — запуск решений студентов в изолированном subprocess.
+"""Executor.py — запуск решений студентов в отдельном subprocess.
 
 Public API:
     run_solution(source, stdin, timeout) -> RunResult
 
 CLI entry point (используется grader.py как subprocess):
-    python executor.py — читает код из stdin, выполняет в изолированном namespace.
+    python executor.py — читает код из stdin, выполняет в отдельном namespace.
+
+Безопасность (нет OS-sandbox):
+    Здесь НЕТ песочницы на уровне ОС и НЕТ изоляции файловой системы/сети.
+    Слова «isolated»/«изолированный» относятся только к отдельному subprocess
+    и к чистому namespace (решение не видит globals executor.py) — это НЕ
+    OS-level изоляция. Пользовательский код исполняется с правами текущего
+    пользователя и может читать/писать ФС, ходить в сеть и видеть окружение
+    процесса. Запускать только ДОВЕРЕННЫЕ решения (свои или скачанные из
+    Stepik as-is). Согласовано с README.md и web.py; будущая настоящая
+    изоляция спроектирована как SandboxRunner в docs/server-mode.md.
 
 Тайм-аут:
     Unix: SIGALRM (точный, внутри процесса).
@@ -112,11 +122,13 @@ def _timeout_handler(_signum: int, _frame: object) -> None:
 
 
 def main() -> None:
-    """Читает код из stdin и выполняет его в изолированном namespace.
+    """Читает код из stdin и выполняет его в отдельном namespace.
 
     Безопасность: executor.py запускается как дочерний subprocess из grader.py,
-    поэтому __builtins__ передаётся без ограничений — изоляция обеспечивается
-    на уровне процесса, а не namespace.
+    __builtins__ передаётся без ограничений. Отдельный subprocess/namespace —
+    это НЕ OS-sandbox: изоляции ФС/сети нет, код исполняется с правами
+    текущего пользователя. Запускать только доверенные решения (см. module
+    docstring, README.md, web.py).
 
     Тайм-аут на Unix: SIGALRM.
     На Windows: SIGALRM недоступен, защита от зависания обеспечивается

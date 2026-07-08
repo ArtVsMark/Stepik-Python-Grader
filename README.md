@@ -35,7 +35,9 @@
 - 🔍 Diff при WA — сравнение ожидаемого и фактического вывода при провале теста
 - ⚖️ Вердикты AC / WA / TLE / RE по каждому тест-кейсу
 - 🌐 Локальный веб-интерфейс (`--serve`) и интеграция с VS Code / PyCharm
-- 🧩 pytest-плагин (`pytest --grader-mode`), кэш результатов, `--watch`
+- 🧩 pytest-плагин (`pytest --grader-mode`), кэш результатов и `--watch`
+  (опционально: требует extra `[watch]` — `pip install -e ".[watch]"`, зависит
+  от `watchfiles`)
 - 🔍 Диагностика окружения и авторизация через Stepik API
 
 Разбор по модулям и слоям — в [docs/architecture.md](docs/architecture.md).
