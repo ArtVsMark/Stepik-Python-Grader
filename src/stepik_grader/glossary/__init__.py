@@ -26,6 +26,7 @@ from .json_provider import (
     save_missing_queue,
 )
 from .models import GlossaryCard, GlossaryMissingEntry
+from .stdlib_inventory import NOTABLE_STDLIB_MODULES, StdlibItem, build_stdlib_inventory
 
 __all__ = [
     "GlossaryCard",
@@ -38,4 +39,7 @@ __all__ = [
     "load_missing_queue",
     "save_missing_queue",
     "append_missing_entries",
+    "StdlibItem",
+    "NOTABLE_STDLIB_MODULES",
+    "build_stdlib_inventory",
 ]
