@@ -173,3 +173,37 @@ class TestHttpHandler:
         with pytest.raises(urllib.error.HTTPError) as exc:
             _get(server + "/nope")
         assert exc.value.code == 404
+
+
+# ---------------------------------------------------------------------------
+# Client-side esc() — HTML-attribute hardening (issue #214)
+# ---------------------------------------------------------------------------
+#
+# esc() is embedded JS (no JS runtime in this Python test suite), so these are
+# source-level regression checks: they pin down the escape table/regex that
+# errorCard() relies on when inserting glossary.url into href="...". A quote
+# character reaching that attribute unescaped would let it be broken out of.
+
+
+def _ht_table_source() -> str:
+    start = web._INDEX_HTML.index("const HT = {")
+    end = web._INDEX_HTML.index("};", start)
+    return web._INDEX_HTML[start:end]
+
+
+def test_client_esc_table_covers_html_and_attribute_special_chars() -> None:
+    table_src = _ht_table_source()
+    for entity in ("&amp;", "&lt;", "&gt;", "&quot;", "&#39;"):
+        assert f'"{entity}"' in table_src, f"{entity!r} missing from client-side HT map"
+
+
+def test_client_esc_regex_includes_quote_chars() -> None:
+    # The replace() char class must include both quote characters, or esc()
+    # would keep stripping only &/</> and leave href="...' open to breakout.
+    assert "replace(/[&<>\"']/g" in web._INDEX_HTML
+
+
+def test_error_card_url_field_is_passed_through_esc() -> None:
+    # errorCard() must run g.url through esc() before inserting it into
+    # href="..." -- if a future edit inlines g.url directly, this fails.
+    assert r'href="' + "'" + " + esc(g.url) + " + "'" + '"' in web._INDEX_HTML
