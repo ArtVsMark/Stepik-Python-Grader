@@ -201,6 +201,7 @@ class MissingConceptDetector:
                     snippet=snippet,
                     seen_in=list(seen_in),
                     first_seen=first_seen,
+                    origin="solution",
                 )
             )
         return entries
@@ -234,4 +235,5 @@ class MissingConceptDetector:
             seen_in=[source] if source else [],
             verdict=verdict,
             first_seen=today or date.today().isoformat(),
+            origin="error",
         )
