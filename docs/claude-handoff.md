@@ -91,8 +91,10 @@ cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
 - Очередь пополнения (`append_missing_entries` с дедупом по `concept`).
 
 **Открытая доводка (follow-up quality tasks, не implementation-с-нуля):**
-- **#190** — валидация `kind`/`status` при загрузке карточек.
 - **#191** — снижение false-positive детектора.
+
+> **#190** (валидация `kind`/`status` при загрузке карточек) — **закрыт**; не
+> открытая доводка.
 
 **Остаётся за рамками #126 (в других issue):**
 - WEB UI и endpoint'ы `/api/glossary*` — в #125/#129.
@@ -148,8 +150,9 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 > детали в [glossary.md](glossary.md). Docs-follow-up **#199** (регистрация
 > модулей покрытия в DAG/архитектуре) — **закрыт**: `stdlib_inventory.py`/
 > `coverage.py` описаны в [architecture.md](architecture.md) и
-> [project-structure.md](project-structure.md). Остаётся доводка практического
-> детектора **#190** (закрыт)/**#191** (снижение false-positive, открыт).
+> [project-structure.md](project-structure.md). Практический детектор: **#190**
+> (валидация `kind`/`status`) **закрыт**; остаётся доводка **#191** (снижение
+> false-positive, открыт).
 
 ---
 
