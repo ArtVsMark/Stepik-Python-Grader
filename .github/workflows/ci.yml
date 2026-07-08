@@ -10,6 +10,10 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
+    # issue: coverage-бейдж README читает .github/badges/coverage.json — только
+    # один job матрицы (ubuntu-latest/3.12, push в main) коммитит его обратно.
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -52,3 +56,26 @@ jobs:
 
       - name: Run tests
         run: pytest -q
+
+      # Один job матрицы (ubuntu-latest/3.12, не experimental) на push в main
+      # пересчитывает coverage-бейдж README из свежего coverage.xml и коммитит
+      # его обратно — без этого шага README хранил бы вручную вписанный процент,
+      # который расходится с реальным покрытием при каждом изменении тестов.
+      - name: Update coverage badge (main only)
+        if: |
+          github.event_name == 'push' &&
+          matrix.os == 'ubuntu-latest' &&
+          matrix.python-version == '3.12' &&
+          matrix.experimental == false
+        run: |
+          python scripts/generate_coverage_badge.py
+          if git diff --quiet -- .github/badges/coverage.json; then
+            echo "Coverage badge unchanged."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .github/badges/coverage.json
+            git commit -m "chore(ci): update coverage badge [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
