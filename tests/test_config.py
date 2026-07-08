@@ -78,3 +78,89 @@ def test_load_config_ignores_unknown_keys(tmp_path: pathlib.Path) -> None:
 def test_module_level_config_singleton() -> None:
     """CONFIG — единственный экземпляр GraderConfig, вычисленный при импорте."""
     assert isinstance(CONFIG, GraderConfig)
+
+
+# ---------------------------------------------------------------------------
+# issue #143 — dataclasses.fields() вместо __dataclass_fields__
+# ---------------------------------------------------------------------------
+
+
+def test_dataclass_fields_matches_known_field_set() -> None:
+    """Список полей GraderConfig зафиксирован явно — ловит случайный дрейф."""
+    field_names = {f.name for f in dataclasses.fields(GraderConfig)}
+    assert field_names == {
+        "timeout_seconds",
+        "executor_timeout",
+        "similar_threshold",
+        "much_slower_threshold",
+        "measure_child_memory",
+        "microbench_max_cases",
+        "encoding",
+        "max_memory_mb",
+        "use_cache",
+    }
+
+
+def test_load_config_does_not_use_dunder_dataclass_fields() -> None:
+    """load_config() не читает __dataclass_fields__ напрямую (issue #143)."""
+    import inspect
+
+    source = inspect.getsource(load_config)
+    assert "__dataclass_fields__" not in source
+    assert "dataclasses.fields" in source
+
+
+# ---------------------------------------------------------------------------
+# issue #142/#145 — ленивая загрузка config.CONFIG, отсутствие I/O при импорте
+# ---------------------------------------------------------------------------
+
+
+def test_bare_import_does_not_read_pyproject_toml(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Голый import stepik_grader.config не трогает диск (issue #145)."""
+    import importlib
+    import sys
+    import tomllib as tomllib_module
+
+    load_calls: list[object] = []
+    monkeypatch.setattr(tomllib_module, "load", lambda *a, **k: load_calls.append(1) or {})
+    monkeypatch.delitem(sys.modules, "stepik_grader.config", raising=False)
+
+    importlib.import_module("stepik_grader.config")
+
+    assert load_calls == []
+
+
+def test_config_attribute_is_lazy_and_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CONFIG вычисляется при первом обращении и кэшируется (issue #142/#145)."""
+    import stepik_grader.config as config_module
+
+    monkeypatch.setattr(config_module, "_cached_config", None)
+    load_calls: list[object] = []
+    original_load_config = config_module.load_config
+
+    def _tracking_load_config() -> GraderConfig:
+        load_calls.append(1)
+        return original_load_config()
+
+    monkeypatch.setattr(config_module, "load_config", _tracking_load_config)
+
+    first = config_module.CONFIG
+    second = config_module.CONFIG
+
+    assert first is second
+    assert load_calls == [1]  # один реальный вызов load_config(), второй — из кэша
+
+
+def test_get_config_returns_same_cached_instance() -> None:
+    """get_config() и CONFIG дают один и тот же закэшированный объект."""
+    import stepik_grader.config as config_module
+
+    assert config_module.get_config() is config_module.CONFIG
+
+
+def test_config_getattr_raises_for_unknown_name() -> None:
+    """Module __getattr__ поднимает AttributeError для незнакомых имён."""
+    import stepik_grader.config as config_module
+
+    with pytest.raises(AttributeError):
+        config_module.__getattr__("NOT_A_REAL_NAME")

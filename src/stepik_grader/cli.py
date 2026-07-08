@@ -49,6 +49,7 @@ from stepik_grader.core.grader_core import (
     run_microbench_mode,
     run_tests,
 )
+from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.microbench_runner import apply_relative_ranking
 from stepik_grader.core.reporter import (
     print_benchmark_results,
@@ -104,9 +105,18 @@ def _format_version_for_display(raw_version: str) -> str:
 # i18n (issue #51 D-01) — русский по умолчанию, --lang en переключает на
 # английский. Минимальный словарь сообщений вместо полноценной gettext-
 # инфраструктуры: достаточно для меню/CLI этого масштаба.
+#
+# issue #144: локали также можно грузить из core/locales/<lang>.json — задел
+# на будущее, чтобы новые сообщения добавлялись через JSON, не трогая
+# _MESSAGES ниже (см. core/i18n.py и _t()).
 # ---------------------------------------------------------------------------
 
 _LANG: str = "ru"
+
+_LOCALE_MESSAGES: dict[str, dict[str, str]] = {
+    "ru": load_locale_messages("ru"),
+    "en": load_locale_messages("en"),
+}
 
 _MESSAGES: dict[str, dict[str, str]] = {
     "bench_profile_header": {
@@ -291,8 +301,13 @@ _MESSAGES: dict[str, dict[str, str]] = {
 
 
 def _t(key: str, /, **kwargs: object) -> str:
-    """Вернуть сообщение по ключу на текущем языке (_LANG), подставив kwargs."""
-    template = _MESSAGES[key][_LANG]
+    """Вернуть сообщение по ключу на текущем языке (_LANG), подставив kwargs.
+
+    Сначала проверяет JSON-локаль (``core/locales/<lang>.json``, issue #144) —
+    так новые сообщения можно добавлять через JSON, не трогая ``_MESSAGES``;
+    при отсутствии ключа там — откат на статический ``_MESSAGES`` (issue #51 D-01).
+    """
+    template = _LOCALE_MESSAGES.get(_LANG, {}).get(key) or _MESSAGES[key][_LANG]
     return template.format(**kwargs) if kwargs else template
 
 

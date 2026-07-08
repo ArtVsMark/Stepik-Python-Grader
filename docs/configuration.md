@@ -39,11 +39,12 @@
 ## `[tool.stepik-grader]` в `pyproject.toml`
 
 Единая точка правды для параметров грейдинга — dataclass `GraderConfig`
-(`frozen=True`, потокобезопасно) в `src/stepik_grader/config.py`. При импорте
-пакета `load_config()` читает секцию `[tool.stepik-grader]` из `pyproject.toml`
-и создаёт синглтон `CONFIG`. Если файла или секции нет — используются дефолты.
-Незнакомые ключи молча игнорируются (в `GraderConfig` попадают только
-объявленные поля).
+(`frozen=True`, потокобезопасно) в `src/stepik_grader/config.py`. `CONFIG`
+вычисляется лениво при первом обращении (module `__getattr__`, issue #142) —
+`load_config()` читает секцию `[tool.stepik-grader]` из `pyproject.toml` и
+кэширует результат; голый `import stepik_grader.config` диск не трогает.
+Если файла или секции нет — используются дефолты. Незнакомые ключи молча
+игнорируются (в `GraderConfig` попадают только объявленные поля).
 
 ```toml
 [tool.stepik-grader]
