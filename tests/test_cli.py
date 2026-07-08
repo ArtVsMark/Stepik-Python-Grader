@@ -82,6 +82,51 @@ def test_resolve_version_falls_back_when_package_not_installed(monkeypatch) -> N
     assert cli._resolve_version() == "0.0.0+unknown"
 
 
+# ---------------------------------------------------------------------------
+# --version: dev vs release output (issue #163)
+# ---------------------------------------------------------------------------
+
+
+def test_format_version_on_tag_has_no_dev_suffix() -> None:
+    assert cli._format_version_for_display("1.5.0") == "1.5.0"
+
+
+def test_format_version_off_tag_gets_dev_marker() -> None:
+    raw = "1.5.0.post4+gabcdef1"
+    formatted = cli._format_version_for_display(raw)
+    assert formatted.startswith(raw)
+    assert "dev build" in formatted
+
+
+def test_format_version_dirty_worktree_still_marked_dev() -> None:
+    raw = "1.5.0.post4+gabcdef1.d20260708"
+    assert "dev build" in cli._format_version_for_display(raw)
+
+
+def test_is_dev_build_true_for_local_segment() -> None:
+    assert cli._is_dev_build("1.5.0.post4+gabcdef1") is True
+
+
+def test_is_dev_build_false_for_clean_tag() -> None:
+    assert cli._is_dev_build("1.5.0") is False
+
+
+def test_version_flag_marks_dev_build_when_off_tag(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(cli, "__version__", "1.5.0.post4+gabcdef1")
+    cli.main(["--version"])
+    out = capsys.readouterr().out
+    assert "1.5.0.post4+gabcdef1" in out
+    assert "dev build" in out
+
+
+def test_version_flag_clean_on_tag(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(cli, "__version__", "1.5.0")
+    cli.main(["--version"])
+    out = capsys.readouterr().out
+    assert "1.5.0" in out
+    assert "dev build" not in out
+
+
 def test_main_delegates_to_interactive_menu(monkeypatch) -> None:
     """main() with no --mode falls back to the interactive menu."""
     called = []
