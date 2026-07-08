@@ -195,16 +195,15 @@ UX-полировка вывода `--version` (dev vs release маркер) —
 - **#125** — WEB workspace проверки решений (по [docs/web-mvp.md](docs/web-mvp.md)).
 - **#186** — Downloader-блок в web · **#187** — микро-бенчмарк в web.
 - **#129** — тесты web MVP (user journeys).
-- **#161** (эпик) ⊃ **#163** — `--version` UX: различать dev и release.
-- **Glossary coverage (source-driven)** — **#195** (поля origin у карточки/пробела),
-  **#196** (инвентаризатор stdlib), **#197** (генератор coverage-отчёта + missing JSON),
-  **#198** (CLI/меню-точка входа). Постановки — в [docs/claude-handoff.md](docs/claude-handoff.md).
+- **#191** — снижение false-positive детектора глоссария (`MissingConceptDetector`).
+- **#199** — регистрация модулей glossary coverage в DAG/архитектуре
+  (docs-follow-up, не код-фича).
 
-> **#126 (`JsonGlossaryProvider`) — закрыт.** Foundation локального глоссария
-> уже в репозитории (`src/stepik_grader/glossary/`, документация —
-> [docs/glossary.md](docs/glossary.md)). Не реализовывать заново. Открытая
-> доводка модуля — follow-up **#190/#191** (валидация `kind/status`, снижение
-> false-positive детектора).
+> **#126 (`JsonGlossaryProvider`) и эпик #161/#163 (`--version` dev vs release) —
+> закрыты.** Foundation локального глоссария и вся цепочка source-driven
+> coverage (**#195–#198**: `origin`-поля, `stdlib_inventory.py`, `coverage.py`,
+> CLI-точка входа) — в `src/stepik_grader/glossary/`, документация —
+> [docs/glossary.md](docs/glossary.md). Не реализовывать заново.
 
 Актуальные статусы — в GitHub Issues (`gh issue list`) и
 [CHANGELOG.md](CHANGELOG.md); [CHECKPOINT.md](CHECKPOINT.md) — исторический snapshot.
@@ -239,13 +238,13 @@ UX-полировка вывода `--version` (dev vs release маркер) —
 
 ---
 
-## 📊 Метрики (на момент v1.5.0)
+## 📊 Метрики (на момент v1.6.0)
 
 | Метрика | Значение |
 |---|---|
-| Версия | 1.5.0 (stable) |
+| Версия | 1.6.0 (stable) |
 | Python | 3.12 / 3.13 / 3.14 |
-| Тестов | 660 |
+| Тестов | 784 |
 | Покрытие | 95% |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
 

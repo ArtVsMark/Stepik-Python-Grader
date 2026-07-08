@@ -2,6 +2,41 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-08
+
+### Added
+- Glossary coverage relative to official Python/stdlib (issues #195–#198, part
+  of epic #123). `GlossaryMissingEntry` gained `origin`
+  (`solution`/`error`/`stdlib_scan`), `module` and `qualname` fields
+  distinguishing practice-driven gaps (`MissingConceptDetector`) from
+  source-driven ones, with `kind`/`status`/`origin` validation on load (issues
+  #190/#195; old queues without the new fields still load with defaults). New
+  leaf module `stdlib_inventory.py` builds a deterministic, offline inventory
+  of Python builtins, exceptions (recursive `BaseException` walk) and a
+  curated set of stdlib modules — no network, no user-code execution (issue
+  #196). New `coverage.py` compares that inventory against the local card base
+  and produces a `CoverageReport` (`builtins`/`exceptions`/`stdlib` categories
+  with covered/missing/ratio) plus `GlossaryMissingEntry(origin="stdlib_scan")`
+  backlog entries; repeated scans stay idempotent via the existing
+  concept-keyed dedup (issue #197). CLI entrypoint `python -m
+  stepik_grader.glossary.coverage [--cards PATH] [--missing-out PATH]
+  [--modules a,b,c]` prints the coverage summary and optionally appends
+  missing entries, via its own rich-optional printer so the module stays a
+  leaf (issue #198). Format and API documented in `docs/glossary.md`.
+- `--version` now distinguishes dev builds from releases (issue #163, closes
+  epic #161): off-tag output gets an explicit `(dev build, not a release)`
+  suffix appended to the existing `setuptools-scm` string; on-tag output is
+  unchanged (clean `X.Y.0`).
+- Live README badges, replacing a hand-maintained static `Coverage` badge that
+  had silently drifted from the real number. `scripts/generate_coverage_badge.py`
+  and `scripts/generate_version_badge.py` write shields.io "endpoint badge" JSON
+  (`.github/badges/*.json`) from the real `pytest --cov` result and the
+  project's logical `X.Y.Z` version (`scripts/version.py`) respectively; CI
+  (`ubuntu-latest`/3.12 leg, push to `main` only) regenerates and commits both
+  files together after each test run. A new `Version` badge sits next to
+  `Release` in README so `main` drifting ahead of the last tagged release is
+  visible without checking git.
+
 ### Added
 - Security policy (PR #203, issue #201): `SECURITY.md` with a responsible
   disclosure process and supported-versions note; README/threat-model docs link
