@@ -27,27 +27,12 @@ import difflib
 import os
 import pathlib
 import statistics
-import subprocess
-import sys
 import tempfile
-import threading
-import time
-import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-import psutil
-
 from stepik_grader.config import CONFIG
-
-# resource — POSIX-only (RLIMIT_AS для best-effort memory cap, issue #43 S-01).
-# На Windows модуль отсутствует; лимит памяти там не применяется (как и
-# SIGALRM-таймаут в executor.py — тот же паттерн graceful degradation).
-try:
-    import resource
-except ImportError:
-    resource = None  # type: ignore[assignment]
 
 __all__ = [
     "BenchStats",
@@ -74,8 +59,6 @@ __all__ = [
 
 # executor.py — вспомогательный модуль для запуска кода из строки (не из файла).
 # run_solution() используется в тестах (tests/test_executor.py); grader сам его не вызывает.
-# run_single_test() в grader_core.py использует subprocess.Popen напрямую,
-# чтобы иметь доступ к замеру памяти (psutil) и точному времени.
 # Импортируем RunResult для аннотаций и совместимости.
 try:
     from stepik_grader.core.executor import (
@@ -84,6 +67,13 @@ try:
 except ImportError:
     _ExecutorRunResult = None  # type: ignore[assignment,misc]
 
+# run_single_test() делегирует фактический subprocess-запуск LocalRunner'у
+# (issue #136/#137/#138, docs/server-mode.md § Runner-слой) — не меняет
+# поведение, только выделяет абстракцию Runner для будущего SandboxRunner
+# (issue #157). _apply_memory_limit/_measure_peak_memory реэкспортированы по
+# имени (тот же паттерн, что для test_loader.py и др. — Issue #45 A-01):
+# grader_core._apply_memory_limit/._measure_peak_memory и grader.py facade
+# продолжают работать без изменений.
 # test_loader.py / mode_detector.py / wrapper_builder.py — извлечены из этого
 # файла (Issue #45 A-01). Реэкспортируются по имени (не через `import *`),
 # чтобы __all__ и приватные имена, на которые опирается grader.py/cli.py/тесты,
@@ -100,6 +90,13 @@ from stepik_grader.core.mode_detector import (
     is_function_only_solution,
 )
 from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line
+from stepik_grader.core.runner import (
+    LocalRunner,
+    Runner,  # noqa: F401  (реэкспорт — часть публичного API Runner-абстракции)
+    RunSpec,
+    _apply_memory_limit,  # noqa: F401  (реэкспорт для тестов/grader.py facade)
+    _measure_peak_memory,  # noqa: F401  (реэкспорт для тестов/grader.py facade)
+)
 from stepik_grader.core.test_loader import (
     _SOLUTION_FILE_RE,  # noqa: F401  (реэкспорт для grader.py)
     TestCase,
@@ -174,89 +171,23 @@ class BenchStats:
         return (self.median / baseline * 100) if baseline > 0 else 0.0
 
 
-def _apply_memory_limit(pid: int, max_memory_mb: int | None) -> None:
-    """Best-effort лимит адресного пространства (RLIMIT_AS) на дочерний pid
-    ПОСЛЕ spawn — потокобезопасная замена preexec_fn (issue #67).
-
-    ``preexec_fn`` форкает в многопоточном родителе (грейдер держит
-    psutil-поток мониторинга памяти) — документированно небезопасно.
-    ``resource.prlimit`` ставит лимит на уже запущенный pid извне, без fork в
-    родителе.
-
-    Linux-only: ``resource.prlimit`` отсутствует на macOS (``AttributeError``)
-    и на Windows (нет самого модуля ``resource``) — там no-op, решение
-    выполняется без лимита памяти, как раньше на Windows. Окно «ребёнок
-    стартовал без лимита» ~мс до exec пользовательского кода — приемлемо для
-    задач курса (issue #43 S-01 — best-effort, не OS-sandbox; нет изоляции
-    ФС/сети).
-    """
-    if resource is None or max_memory_mb is None:
-        return
-    limit_bytes = max_memory_mb * 1024 * 1024
-    try:
-        # typeshed помечает prlimit/RLIMIT_AS Linux-only; на macOS prlimit
-        # отсутствует (AttributeError), OSError — нет процесса/прав, ValueError —
-        # некорректный лимит. Любую из них глотаем: лишь пропускаем cap.
-        resource.prlimit(pid, resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
-    except (AttributeError, ValueError, OSError):
-        pass
-
-
-def _measure_peak_memory(
-    proc: subprocess.Popen[bytes], result: list[float], stop: threading.Event
-) -> None:
-    """Поток: замерять RSS дочернего процесса до его завершения.
-
-    Делает первый замер немедленно (до первого sleep), чтобы уловить
-    даже очень короткие процессы (< 20 мс). Затем продолжает опрос
-    каждые 20 мс до сигнала stop.
-
-    Записывает пик памяти (МБ) в result[0].
-    """
-
-    # issue #48 R-05: proc.pid is read after Popen but before communicate() --
-    # on a very short-lived child (especially on Windows) the process can exit
-    # before psutil.Process(pid)/memory_info() ever samples it. The except
-    # branches below already handle that, but previously did so silently,
-    # returning peak=0.0 indistinguishable from "the process genuinely used
-    # ~0 memory" -- warn so a caller doesn't mistake an unreliable reading for
-    # a real measurement.
-    def _warn_unreliable() -> None:
-        warnings.warn(
-            f"peak memory measurement unreliable for pid={proc.pid}: process "
-            "exited before it could be sampled (reported peak may be 0.0 or "
-            "an undercount)",
-            stacklevel=2,
-        )
-
-    peak = 0.0
-    try:
-        ps_proc = psutil.Process(proc.pid)
-        try:
-            rss = ps_proc.memory_info().rss / 1024 / 1024
-            if rss > peak:
-                peak = rss
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            _warn_unreliable()
-            result[0] = peak
-            return
-        while not stop.is_set():
-            try:
-                rss = ps_proc.memory_info().rss / 1024 / 1024
-                if rss > peak:
-                    peak = rss
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                _warn_unreliable()
-                break
-            stop.wait(0.02)
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
-        _warn_unreliable()
-    result[0] = peak
+# _apply_memory_limit/_measure_peak_memory перенесены в core/runner.py вместе
+# с самим subprocess-запуском (issue #136/#137/#138, Runner-абстракция —
+# docs/server-mode.md § Runner-слой). Реэкспортированы по имени ниже — тот же
+# паттерн, что и для test_loader.py/mode_detector.py/wrapper_builder.py
+# (Issue #45 A-01): grader_core._apply_memory_limit/._measure_peak_memory и
+# grader.py facade продолжают работать без изменений.
 
 
 # ---------------------------------------------------------------------------
 # Исполнение и агрегация
 # ---------------------------------------------------------------------------
+
+# Runner активен на весь процесс — сегодня всегда LocalRunner (issue #138).
+# Инъекция другого Runner (напр. будущий SandboxRunner, issue #157) — задача
+# server mode, не CLI/Web; grader_core не знает, какой Runner активен (см.
+# docs/server-mode.md § Runner-слой, инвариант 2).
+_RUNNER: Runner = LocalRunner()
 
 
 def run_single_test(
@@ -341,118 +272,22 @@ def run_single_test(
         stdin_data = "\n".join(case.input_lines) + "\n"
         stdin_bytes = stdin_data.encode(ENCODING)
 
-    peak_mb_result: list[float] = [0.0]
-    stop_event = threading.Event()
-    mem_thread: threading.Thread | None = None
-
-    # Гарантируем UTF-8 в stdout/stderr дочернего процесса на всех платформах
-    # (на Windows по умолчанию используется cp1251, что ломает кириллицу в выводе).
-    _child_env = os.environ.copy()
-    _child_env["PYTHONIOENCODING"] = "utf-8"
-    _child_env["PYTHONUTF8"] = "1"
-
-    start = time.perf_counter()
+    spec = RunSpec(
+        path=run_path,
+        stdin=stdin_bytes,
+        timeout=timeout,
+        measure_memory=measure_memory,
+        max_memory_mb=CONFIG.max_memory_mb,
+    )
     try:
-        proc: subprocess.Popen[bytes] = subprocess.Popen(
-            [sys.executable, run_path],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=_child_env,
-        )
-        # issue #67: лимит памяти ставим на pid ПОСЛЕ spawn (prlimit), а не через
-        # preexec_fn — тот небезопасен при активном psutil-потоке мониторинга.
-        _apply_memory_limit(proc.pid, CONFIG.max_memory_mb)
-
-        if measure_memory:
-            mem_thread = threading.Thread(
-                target=_measure_peak_memory,
-                args=(proc, peak_mb_result, stop_event),
-                daemon=True,
-            )
-            mem_thread.start()
-
-        try:
-            stdout_bytes, stderr_bytes = proc.communicate(input=stdin_bytes, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.communicate()
-            stop_event.set()
-            return {
-                "passed": False,
-                "output": [],
-                "expected": case.expected_lines,
-                "diff": "",
-                "time": timeout,
-                "memory": 0.0,
-                "error": f"Timeout after {timeout}s",
-                "timed_out": True,
-                "verdict": "TLE",
-            }
-        finally:
-            stop_event.set()
-            # Удаляем временный wrapper-файл (contextlib.suppress — безопасно при краше)
-            if tmp_wrapper is not None:
-                with contextlib.suppress(OSError):
-                    os.unlink(tmp_wrapper.name)
-
-        elapsed = time.perf_counter() - start
-        if mem_thread is not None:
-            mem_thread.join(timeout=0.5)
-        peak_mb = peak_mb_result[0]
-
-        stdout = stdout_bytes.decode(ENCODING, errors="replace")
-        stderr = stderr_bytes.decode(ENCODING, errors="replace")
-
-        if proc.returncode != 0:
-            return {
-                "passed": False,
-                "output": [],
-                "expected": case.expected_lines,
-                "diff": "",
-                "time": elapsed,
-                "memory": peak_mb,
-                "error": stderr.strip(),
-                "timed_out": False,
-                "verdict": "RE",
-            }
-
-        actual_lines = [line.rstrip("\n") for line in stdout.splitlines()]
-        passed = actual_lines == case.expected_lines
-        if not passed and len(actual_lines) == len(case.expected_lines):
-            passed = all(
-                _normalize_output_line(a) == _normalize_output_line(e)
-                for a, e in zip(actual_lines, case.expected_lines, strict=True)
-            )
-        diff_str = ""
-        if not passed:
-            diff_str = "\n".join(
-                difflib.unified_diff(
-                    case.expected_lines,
-                    actual_lines,
-                    fromfile="expected",
-                    tofile="actual",
-                    lineterm="",
-                )
-            )
-
-        return {
-            "passed": passed,
-            "output": actual_lines,
-            "expected": case.expected_lines,
-            "diff": diff_str,
-            "time": elapsed,
-            "memory": peak_mb,
-            "error": "",
-            "timed_out": False,
-            "verdict": "AC" if passed else "WA",
-        }
-
-    except OSError as exc:
-        stop_event.set()
+        outcome = _RUNNER.run(spec)
+    finally:
+        # Удаляем временный wrapper-файл (contextlib.suppress — безопасно при краше)
         if tmp_wrapper is not None:
             with contextlib.suppress(OSError):
                 os.unlink(tmp_wrapper.name)
+
+    if outcome.launch_error is not None:
         return {
             "passed": False,
             "output": [],
@@ -460,10 +295,70 @@ def run_single_test(
             "diff": "",
             "time": 0.0,
             "memory": 0.0,
-            "error": str(exc),
+            "error": outcome.launch_error,
             "timed_out": False,
             "verdict": "RE",
         }
+
+    if outcome.timed_out:
+        return {
+            "passed": False,
+            "output": [],
+            "expected": case.expected_lines,
+            "diff": "",
+            "time": outcome.elapsed,
+            "memory": 0.0,
+            "error": f"Timeout after {timeout}s",
+            "timed_out": True,
+            "verdict": "TLE",
+        }
+
+    stdout = outcome.stdout.decode(ENCODING, errors="replace")
+    stderr = outcome.stderr.decode(ENCODING, errors="replace")
+
+    if outcome.returncode != 0:
+        return {
+            "passed": False,
+            "output": [],
+            "expected": case.expected_lines,
+            "diff": "",
+            "time": outcome.elapsed,
+            "memory": outcome.peak_memory_mb,
+            "error": stderr.strip(),
+            "timed_out": False,
+            "verdict": "RE",
+        }
+
+    actual_lines = [line.rstrip("\n") for line in stdout.splitlines()]
+    passed = actual_lines == case.expected_lines
+    if not passed and len(actual_lines) == len(case.expected_lines):
+        passed = all(
+            _normalize_output_line(a) == _normalize_output_line(e)
+            for a, e in zip(actual_lines, case.expected_lines, strict=True)
+        )
+    diff_str = ""
+    if not passed:
+        diff_str = "\n".join(
+            difflib.unified_diff(
+                case.expected_lines,
+                actual_lines,
+                fromfile="expected",
+                tofile="actual",
+                lineterm="",
+            )
+        )
+
+    return {
+        "passed": passed,
+        "output": actual_lines,
+        "expected": case.expected_lines,
+        "diff": diff_str,
+        "time": outcome.elapsed,
+        "memory": outcome.peak_memory_mb,
+        "error": "",
+        "timed_out": False,
+        "verdict": "AC" if passed else "WA",
+    }
 
 
 def run_tests(

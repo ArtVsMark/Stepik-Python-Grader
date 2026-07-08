@@ -17,7 +17,7 @@
 ## Оглавление
 
 - [Зачем и границы](#зачем-и-границы)
-- [Runner-слой (issue #140)](#runner-слой-issue-140)
+- [Runner-слой (issue #140, реализация — #136/#137/#138)](#runner-слой-issue-140-реализация--136137138)
 - [Контракт API удалённого исполнения (issue #156)](#контракт-api-удалённого-исполнения-issue-156)
 - [Sandbox и сетевая изоляция (issue #157)](#sandbox-и-сетевая-изоляция-issue-157)
 - [Фазовая миграция](#фазовая-миграция)
@@ -42,31 +42,37 @@ mode — это именно такой переход, поэтому он пр
 
 ---
 
-## Runner-слой (issue #140)
+## Runner-слой (issue #140, реализация — #136/#137/#138)
 
-Сегодня исполнение размазано между `core/grader_core.py` (subprocess одного
-кейса), `core/executor.py` (`compile+exec`, используется в тестах) и
-`core/microbench_runner.py` (timeit). Server mode вводит **явную абстракцию
-запуска** — `Runner`, — чтобы сменить механизм изоляции, не трогая грейдинг.
+> **Статус: `Runner`/`LocalRunner` реализованы** — `src/stepik_grader/core/runner.py`.
+> `grader_core.run_single_test()` делегирует subprocess-запуск `LocalRunner`
+> без изменения поведения. Ниже — контракт как есть в коде (не только дизайн).
 
-**Идея слоя (интерфейс, не реализация):**
+Раньше исполнение было размазано между `core/grader_core.py` (subprocess
+одного кейса), `core/executor.py` (`compile+exec`, используется в тестах) и
+`core/microbench_runner.py` (timeit). `Runner` — явная абстракция запуска,
+чтобы сменить механизм изоляции (будущий `SandboxRunner`), не трогая грейдинг.
+
+**Слой (реализовано в `core/runner.py`):**
 
 ```
 grader_core.run_single_test(...)  →  Runner.run(spec) -> RunOutcome
 ```
 
-- `RunSpec` — что запустить: путь/исходник решения, stdin, лимиты
-  (timeout, память), режим (stdin/function).
-- `RunOutcome` — сырой итог запуска: stdout, stderr, exit code, wall time,
-  peak memory, флаг таймаута. Маппится в case result
-  ([result-contract.md](result-contract.md)) выше по стеку — сам `Runner`
-  вердиктов не выносит.
+- `RunSpec` — что запустить: путь решения (или сгенерированного
+  wrapper-скрипта — режим stdin/function определяется до `Runner`, в
+  `grader_core.py`), stdin, `timeout`, `measure_memory`, `max_memory_mb`.
+- `RunOutcome` — сырой итог запуска: `stdout`/`stderr` (bytes), `returncode`,
+  `elapsed`, `peak_memory_mb`, `timed_out`, `launch_error` (заполнен при
+  `OSError` на spawn). Маппится в case result
+  ([result-contract.md](result-contract.md)) выше по стеку (`grader_core.py`) —
+  сам `Runner` вердиктов не выносит.
 
-**Иерархия реализаций (целевая):**
+**Иерархия реализаций:**
 
 | Runner | Изоляция | Статус | Где уместен |
 |---|---|---|---|
-| `LocalRunner` | subprocess + таймаут + best-effort лимит памяти (POSIX) | текущее поведение, обёрнутое в интерфейс | локальный CLI/Web (доверенный код) |
+| `LocalRunner` | subprocess + таймаут + best-effort лимит памяти (POSIX) | **реализован** (issue #138) | локальный CLI/Web (доверенный код) |
 | `SandboxRunner` | ОС-уровень: неймспейсы/seccomp/квоты, сеть выключена, tmp-каталог | **дизайн, issue #157** | server mode (недоверенный код) |
 
 **Границы `SandboxRunner` (что он гарантирует, а что нет):**
@@ -209,7 +215,7 @@ GET  /api/v1/runs/{id}/result → RunResult (когда status=done)
 | Фаза | Что | Изоляция | Кому доступно |
 |---|---|---|---|
 | **0 — сейчас** | Локальный CLI + `--serve` (`127.0.0.1`) | нет (доверенный код) | локальный пользователь |
-| **1 — Runner-абстракция** | Выделить `Runner`/`LocalRunner` из `grader_core` (issue #140), без смены поведения | как в фазе 0 | локальный пользователь |
+| **1 — Runner-абстракция** | `Runner`/`LocalRunner` выделены из `grader_core` (issue #136/#137/#138) — **готово**, без смены поведения | как в фазе 0 | локальный пользователь |
 | **2 — SandboxRunner** | Реализовать sandbox-backend по требованиям #157; включаем локально «на себе» | ОС-уровень | локальный (опционально) |
 | **3 — API** | HTTP API `/api/v1/runs` (issue #156) поверх `SandboxRunner`, очередь, квоты | ОС-уровень | доверенные клиенты |
 | **4 — Server mode** | Публичный/командный сервер онлайн-проверки | ОС-уровень + сетевые квоты | много клиентов |

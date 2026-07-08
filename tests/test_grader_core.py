@@ -9,7 +9,6 @@ regressions surface immediately.
 from __future__ import annotations
 
 import pathlib
-import threading
 import warnings
 
 import pytest
@@ -402,137 +401,9 @@ def test_build_call_wrapper_stdlib_names_available_without_solution_definitions(
     assert result["verdict"] == "AC", result["error"] or result["diff"]
 
 
-# ---------------------------------------------------------------------------
-# _apply_memory_limit — best-effort RLIMIT_AS cap via prlimit (issue #67, #43 S-01)
-# ---------------------------------------------------------------------------
-
-
-def test_apply_memory_limit_noop_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    """max_memory_mb=None → prlimit не вызывается."""
-    from stepik_grader.core import grader_core
-
-    calls: list[tuple] = []
-
-    class _FakeResource:
-        RLIMIT_AS = "RLIMIT_AS"
-
-        @staticmethod
-        def prlimit(*args):
-            calls.append(args)
-
-    monkeypatch.setattr(grader_core, "resource", _FakeResource)
-    grader_core._apply_memory_limit(123, None)
-    assert calls == []
-
-
-def test_apply_memory_limit_noop_when_resource_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Windows has no `resource` module — must degrade to a no-op, not crash."""
-    from stepik_grader.core import grader_core
-
-    monkeypatch.setattr(grader_core, "resource", None)
-    grader_core._apply_memory_limit(123, 1024)  # must not raise
-
-
-def test_apply_memory_limit_calls_prlimit_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
-    """prlimit получает (pid, RLIMIT_AS, (bytes, bytes)), bytes = mb * 1024**2."""
-    from stepik_grader.core import grader_core
-
-    calls: list[tuple] = []
-
-    class _FakeResource:
-        RLIMIT_AS = "RLIMIT_AS"
-
-        @staticmethod
-        def prlimit(pid, which, limits):
-            calls.append((pid, which, limits))
-
-    monkeypatch.setattr(grader_core, "resource", _FakeResource)
-    grader_core._apply_memory_limit(4321, 64)
-
-    expected_bytes = 64 * 1024 * 1024
-    assert calls == [(4321, "RLIMIT_AS", (expected_bytes, expected_bytes))]
-
-
-@pytest.mark.parametrize(
-    "exc",
-    [
-        AttributeError("no prlimit on macOS"),
-        ValueError("invalid limit"),
-        OSError("no such process"),
-    ],
-)
-def test_apply_memory_limit_swallows_prlimit_failure(
-    monkeypatch: pytest.MonkeyPatch, exc: Exception
-) -> None:
-    """prlimit отсутствует на macOS (AttributeError) / нет процесса-прав (OSError)
-    — не должно падать, просто пропускаем cap (issue #67)."""
-    from stepik_grader.core import grader_core
-
-    class _FakeResource:
-        RLIMIT_AS = "RLIMIT_AS"
-
-        @staticmethod
-        def prlimit(*args):
-            raise exc
-
-    monkeypatch.setattr(grader_core, "resource", _FakeResource)
-    grader_core._apply_memory_limit(1, 64)  # must not raise
-
-
-# ---------------------------------------------------------------------------
-# _measure_peak_memory — warn on unreliable reading (Issue #48 R-05)
-# ---------------------------------------------------------------------------
-
-
-class _FakeProc:
-    pid = 999999
-
-
-def test_measure_peak_memory_warns_on_process_construction_failure(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """psutil.Process(pid) itself raising NoSuchProcess -- outer except branch."""
-    import psutil
-
-    from stepik_grader.core import grader_core
-
-    def _raise(_pid: int) -> None:
-        raise psutil.NoSuchProcess(_pid)
-
-    monkeypatch.setattr(grader_core.psutil, "Process", _raise)
-
-    result: list[float] = [0.0]
-    stop = threading.Event()
-    stop.set()
-
-    with pytest.warns(UserWarning, match="unreliable"):
-        grader_core._measure_peak_memory(_FakeProc(), result, stop)
-
-    assert result[0] == 0.0
-
-
-def test_measure_peak_memory_warns_on_first_sample_failure(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """psutil.Process() succeeds but the immediate first memory_info() sample
-    fails -- inner except branch around the pre-loop read."""
-    import psutil
-
-    from stepik_grader.core import grader_core
-
-    class _FakePsutilProcess:
-        def memory_info(self) -> None:
-            raise psutil.NoSuchProcess(999999)
-
-    monkeypatch.setattr(grader_core.psutil, "Process", lambda pid: _FakePsutilProcess())
-
-    result: list[float] = [0.0]
-    stop = threading.Event()
-    stop.set()
-
-    with pytest.warns(UserWarning, match="unreliable"):
-        grader_core._measure_peak_memory(_FakeProc(), result, stop)
-
-    assert result[0] == 0.0
+# _apply_memory_limit/_measure_peak_memory moved to core/runner.py along with
+# the subprocess execution itself (issue #136/#137/#138, Runner abstraction) —
+# their tests moved to tests/test_runner.py, which now also targets that
+# module directly for monkeypatching (resource/psutil live there, not here).
+# grader_core._apply_memory_limit/._measure_peak_memory remain valid
+# re-exported references (see grader_core.py's import block).
