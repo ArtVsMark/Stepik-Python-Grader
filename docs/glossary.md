@@ -75,7 +75,7 @@
 | Поле | Тип | Обяз. | Описание |
 |---|---|:--:|---|
 | `concept` | string | ✓ | Недостающая функция/конструкция/исключение (напр. `functools.reduce`) |
-| `kind` | `function\|exception\|construct` | | Тип пробела |
+| `kind` | `function\|exception\|construct\|class` | | Тип пробела (`class` — только source-driven записи, issue #197: классы stdlib без карточки, напр. `pathlib.Path`) |
 | `status` | `new\|draft` | | Жизненный цикл до появления карточки |
 | `reason` | string | | Почему помечено |
 | `snippet` | string | | Фрагмент кода/ошибки, где встретилось |
@@ -83,7 +83,7 @@
 | `suggested_tags` | string[] | | Предлагаемые теги |
 | `verdict` | `string\|null` | | Вердикт, если пробел найден из ошибки (RE/WA) |
 | `first_seen` | string | | ISO-дата первого обнаружения |
-| `origin` | `solution\|error\|stdlib_scan` | | Источник обнаружения: practice-driven (`solution`/`error`, ставит `MissingConceptDetector`) или source-driven (`stdlib_scan`, будущий инвентаризатор — issue #196/#197). По умолчанию `solution` |
+| `origin` | `solution\|error\|stdlib_scan` | | Источник обнаружения: practice-driven (`solution`/`error`, ставит `MissingConceptDetector`) или source-driven (`stdlib_scan`, ставит `coverage.missing_entries_from_inventory` — issue #197). По умолчанию `solution` |
 | `module` | string | | stdlib-модуль происхождения (заполняется source-driven сканом) |
 | `qualname` | string | | Полное квалифицированное имя (заполняется source-driven сканом) |
 
@@ -149,9 +149,50 @@ item.python_version # "3.14" — из sys.version_info текущего инте
 Инвентарь детерминирован (сортировка по `qualname`, без дублей) и не зависит
 от внешнего состояния — только от версии Python в текущем окружении.
 Модуль — leaf (`stdlib_inventory.py` не тянет `core/*` и не импортируется из
-него); используется генератором coverage-отчёта (issue #197), который
-сопоставит этот инвентарь с `JsonGlossaryProvider.known_terms()` и запишет
-недостающие сущности как `GlossaryMissingEntry(origin="stdlib_scan")`.
+него).
+
+## Coverage-отчёт и missing JSON (`coverage`, issue #197)
+
+Сопоставляет инвентарь (`stdlib_inventory`) с известными терминами локальной
+базы (`JsonGlossaryProvider.known_terms()`) и строит:
+
+- **`CoverageReport`** — покрытие по трём категориям (`CATEGORIES`):
+  `builtins` (функции/классы `builtins`, кроме исключений), `exceptions`
+  (все `kind="exception"` независимо от модуля), `stdlib` (всё остальное —
+  члены курируемых модулей). Для каждой категории — `total`/`covered`/
+  `missing` (кортеж qualname без карточки) и `ratio` (доля покрытия);
+- **список `GlossaryMissingEntry(origin="stdlib_scan")`** — по одной записи
+  на каждую непокрытую сущность инвентаря, с `module`/`qualname`, кортеж
+  `kind` мапится из `InventoryKind` (`function`/`class`/`exception`).
+
+Сущность считается известной, если её `qualname` (или "хвост" после точки,
+напр. `reduce` для `functools.reduce`) есть среди `known` — та же эвристика
+подавления, что у `MissingConceptDetector`.
+
+```python
+from stepik_grader.glossary import (
+    JsonGlossaryProvider, build_stdlib_inventory,
+    build_coverage_report, missing_entries_from_inventory,
+    append_missing_entries,
+)
+
+provider = JsonGlossaryProvider.load("docs/examples/glossary.sample.json")
+inventory = build_stdlib_inventory()
+known = provider.known_terms()
+
+report = build_coverage_report(inventory, known=known)
+report.categories["exceptions"].ratio       # 0.0..1.0
+report.categories["stdlib"].missing         # tuple[str, ...] непокрытых qualname
+
+missing = missing_entries_from_inventory(inventory, known=known)
+append_missing_entries(".grader_glossary_missing.json", missing)  # идемпотентно
+```
+
+Повторный запуск идемпотентен: `append_missing_entries()` дедуплицирует по
+`concept`, поэтому повторный скан не плодит дубли в очереди (см. § Очередь
+пополнения выше). Модуль `coverage.py` только вычисляет данные — не печатает
+отчёт и не решает, показывать ли его; вывод и точка входа — отдельная задача
+#198 (CLI/меню).
 
 ## Границы (что НЕ входит)
 
@@ -159,6 +200,6 @@ item.python_version # "3.14" — из sys.version_info текущего инте
 - **Экспортёр во внешний Glossary-Python** — отдельная задача #126-follow-up.
 - **SQLite-хранилище** (#130+) — сейчас JSON-first; API провайдера
   (`GlossaryProvider`-протокол) абстрагирует источник для будущей замены.
-- **Сопоставление инвентаря с базой карточек и генерация missing JSON** —
-  отдельная задача #197 (`stdlib_inventory` только строит инвентарь, ничего
-  не сравнивает и не пишет в очередь).
+- **CLI/меню-точка входа для coverage-скана** — отдельная задача #198
+  (`coverage.py` только строит отчёт и список пробелов, ничего не печатает и
+  не регистрирует как команду).

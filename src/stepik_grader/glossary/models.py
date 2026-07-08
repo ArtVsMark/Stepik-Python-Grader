@@ -36,15 +36,18 @@ CardStatus = Literal["new", "draft", "ready", "exported"]
 CardKind = Literal["exception", "function", "construct", "term"]
 
 # Очередь пополнения: элемент живёт как new/draft, пока не станет GlossaryCard.
-MissingKind = Literal["function", "exception", "construct"]
+# "class" — только для source-driven записей (issue #197): классы stdlib
+# (напр. dataclasses.dataclass, pathlib.Path), которые practice-детектор не
+# производит (он даёт только function/exception/construct).
+MissingKind = Literal["function", "exception", "construct", "class"]
 MissingStatus = Literal["new", "draft"]
 # Источник пробела: solution/error — practice-driven (MissingConceptDetector),
-# stdlib_scan — source-driven (будущий инвентаризатор stdlib, issue #196/#197).
+# stdlib_scan — source-driven (инвентаризатор stdlib, issue #196, + coverage.py #197).
 MissingOrigin = Literal["solution", "error", "stdlib_scan"]
 
 _CARD_STATUSES: frozenset[str] = frozenset({"new", "draft", "ready", "exported"})
 _CARD_KINDS: frozenset[str] = frozenset({"exception", "function", "construct", "term"})
-_MISSING_KINDS: frozenset[str] = frozenset({"function", "exception", "construct"})
+_MISSING_KINDS: frozenset[str] = frozenset({"function", "exception", "construct", "class"})
 _MISSING_STATUSES: frozenset[str] = frozenset({"new", "draft"})
 _MISSING_ORIGINS: frozenset[str] = frozenset({"solution", "error", "stdlib_scan"})
 
