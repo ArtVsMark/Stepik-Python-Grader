@@ -14,17 +14,22 @@
   ``json_provider.append_missing_entries``, который уже дедуплицирует по
   ``concept`` и идемпотентен при повторном запуске).
 
-Модуль только вычисляет данные — не печатает и не решает, показывать ли отчёт
-(это делает точка входа CLI/меню, issue #198).
+Модуль вычисляет данные и (при прямом запуске) выводит краткую сводку —
+запуск: ``python -m stepik_grader.glossary.coverage [--cards PATH]
+[--missing-out PATH] [--modules a,b,c]`` (issue #198). Вывод — через
+локальный rich-опциональный принтер с graceful fallback на ``print()`` (свой,
+а не ``core/reporter._console`` — модуль остаётся leaf'ом и не тянет ``core/*``).
 """
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 from datetime import date
 
+from .json_provider import GlossaryError, JsonGlossaryProvider, append_missing_entries
 from .models import GlossaryMissingEntry, MissingKind
-from .stdlib_inventory import InventoryKind, StdlibItem
+from .stdlib_inventory import InventoryKind, StdlibItem, build_stdlib_inventory
 
 __all__ = [
     "CATEGORIES",
@@ -32,7 +37,17 @@ __all__ = [
     "CoverageReport",
     "build_coverage_report",
     "missing_entries_from_inventory",
+    "main",
 ]
+
+try:
+    from rich.console import Console
+
+    _console: Console | None = Console()
+    _RICH = True
+except ImportError:  # pragma: no cover
+    _console = None
+    _RICH = False
 
 # Категории отчёта покрытия — не совпадают 1:1 с InventoryKind: "exceptions"
 # группирует все kind="exception" независимо от модуля, "builtins" — только
@@ -186,3 +201,94 @@ def build_coverage_report(
     }
     python_version = inventory[0].python_version if inventory else ""
     return CoverageReport(categories=categories, python_version=python_version)
+
+
+def _print(text: str) -> None:
+    if _RICH and _console is not None:
+        _console.print(text)
+    else:
+        print(text)
+
+
+def format_report_summary(report: CoverageReport) -> str:
+    """Отформатировать краткую human-readable сводку покрытия по категориям."""
+    version = report.python_version or "unknown"
+    lines = [f"Glossary stdlib coverage (Python {version})"]
+    for category in CATEGORIES:
+        cat = report.categories[category]
+        lines.append(
+            f"  {category:<10} {cat.covered}/{cat.total} covered "
+            f"({cat.ratio:.0%}), {cat.missing_count} missing"
+        )
+    covered_total = report.total - report.total_missing
+    lines.append(
+        f"  {'total':<10} {covered_total}/{report.total} covered, {report.total_missing} missing"
+    )
+    return "\n".join(lines)
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m stepik_grader.glossary.coverage",
+        description=(
+            "Офлайн coverage-скан локального глоссария относительно "
+            "официального Python/stdlib (issue #197/#198). Не ходит в сеть и "
+            "не исполняет пользовательский код."
+        ),
+    )
+    parser.add_argument(
+        "--cards",
+        default=None,
+        help="Путь к базе карточек глоссария (файл или директория с *.json); "
+        "без флага покрытие считается относительно пустой базы.",
+    )
+    parser.add_argument(
+        "--missing-out",
+        default=None,
+        help="Путь для JSON-очереди пробелов (origin=stdlib_scan); "
+        "дозаписывается идемпотентно через append_missing_entries.",
+    )
+    parser.add_argument(
+        "--modules",
+        default=None,
+        help="Через запятую — подмножество stdlib-модулей для скана "
+        "(по умолчанию NOTABLE_STDLIB_MODULES).",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    """Точка входа: ``python -m stepik_grader.glossary.coverage``.
+
+    Печатает сводку покрытия по категориям и, если задан ``--missing-out``,
+    дозаписывает недостающие сущности в очередь пополнения.
+    """
+    parser = _build_arg_parser()
+    args = parser.parse_args(argv)
+
+    known: set[str] = set()
+    if args.cards:
+        try:
+            provider = JsonGlossaryProvider.load(args.cards)
+        except GlossaryError as exc:
+            parser.error(str(exc))
+            return  # недостижимо (parser.error поднимает SystemExit); для mypy
+        known = provider.known_terms()
+
+    modules = (
+        frozenset(name.strip() for name in args.modules.split(",") if name.strip())
+        if args.modules
+        else None
+    )
+    inventory = build_stdlib_inventory(modules)
+    report = build_coverage_report(inventory, known=known)
+    _print(format_report_summary(report))
+
+    if args.missing_out:
+        missing = missing_entries_from_inventory(inventory, known=known)
+        append_missing_entries(args.missing_out, missing)
+        _print(f"Missing entries written to {args.missing_out} ({len(missing)} stdlib_scan gaps)")
+
+
+if __name__ == "__main__":
+    main()
