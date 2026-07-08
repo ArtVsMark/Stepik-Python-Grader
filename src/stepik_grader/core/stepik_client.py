@@ -29,11 +29,17 @@ from typing import Any, cast
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
+from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
+from urllib3.util.retry import Retry
 
 from stepik_grader.core.storage import save_secrets
 
 API_HOST = "https://stepik.org"
+
+# issue #109: статусы, повторяемые транспортным слоем make_session() —
+# 429 (rate limit) и временные 5xx. 4xx помимо 429 не повторяются (не временные).
+RETRY_STATUS_FORCELIST: tuple[int, ...] = (429, 500, 502, 503, 504)
 
 HEADERS: dict[str, str] = {
     "User-Agent": (
@@ -50,11 +56,42 @@ HEADERS: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 
-def make_session(access_token: str) -> requests.Session:
-    """Возвращает requests.Session с Bearer-токеном в заголовках."""
+def make_session(
+    access_token: str,
+    *,
+    retries: int = 3,
+    backoff_factor: float = 1.0,
+) -> requests.Session:
+    """Возвращает requests.Session с Bearer-токеном и transport-level retry (issue #109).
+
+    ``HTTPAdapter`` + ``urllib3.util.Retry`` монтируются на http/https:
+    429 (rate limit) и временные 5xx (``RETRY_STATUS_FORCELIST``) повторяются
+    автоматически с экспоненциальным backoff (``backoff_factor`` удваивается с
+    каждой попыткой; ``Retry`` также уважает заголовок ``Retry-After``, если
+    сервер его прислал). Действует на уровне транспорта — применяется к любому
+    запросу через эту сессию, а не только к вызовам ``_get_with_retry()``
+    (который остаётся дополнительным уровнем повтора при сетевых
+    исключениях — см. его docstring). Прочие 4xx (напр. 404) не повторяются.
+
+    Args:
+        retries: максимальное число попыток на статусы из
+            ``RETRY_STATUS_FORCELIST`` (``Retry.total``).
+        backoff_factor: базовая задержка в секундах перед повтором; тесты
+            передают маленькое значение, чтобы не ждать реально.
+    """
     session = requests.Session()
     session.headers.update(HEADERS)
     session.headers["Authorization"] = f"Bearer {access_token}"
+
+    retry = Retry(
+        total=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=RETRY_STATUS_FORCELIST,
+        respect_retry_after_header=True,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
     return session
 
 
