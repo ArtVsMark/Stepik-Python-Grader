@@ -7,6 +7,20 @@ on:
     branches: [main]
 
 jobs:
+  # issue #173 / эпик #167: README-витрина не должна разрастаться, а локальные
+  # Markdown-ссылки README ↔ docs не должны протухать. Проверка на чистом stdlib
+  # (без pip install) — быстрая и детерминированная, поэтому отдельным job.
+  docs-guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: README line-budget + Markdown link-check
+        run: python scripts/check_docs_guardrails.py
+
   test:
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
