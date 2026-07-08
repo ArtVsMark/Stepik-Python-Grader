@@ -165,8 +165,10 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
   Типизированный `TestResult` (`core/result.py`, эпик #112/#113/#114) уже
   реализован и сохраняет имена полей контракта; `run_single_test()` и весь
   dict-контракт CLI/Web/API не менялись.
-- **#140 — Runner-слой.** Выделить `Runner`/`LocalRunner` из `grader_core`
-  **без смены поведения** — [server-mode.md § Runner-слой](server-mode.md#runner-слой-issue-140).
+> **#140 — Runner-слой (эпик #136/#137/#138/#139) — закрыт.** `Runner`
+> Protocol + `LocalRunner` реализованы в `core/runner.py`; `grader_core.
+> run_single_test()` делегирует subprocess-запуск без изменения поведения —
+> [server-mode.md § Runner-слой](server-mode.md#runner-слой-issue-140-реализация--136137138).
 - **#156 — API удалённого исполнения.** Контракт `/api/v1/runs` (async,
   классы ошибок, версионирование) — [server-mode.md § Контракт API](server-mode.md#контракт-api-удалённого-исполнения-issue-156).
   **Сервер не реализуется** — только контракт.
