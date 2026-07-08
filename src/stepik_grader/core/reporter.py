@@ -15,6 +15,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from stepik_grader.core.glossary import lookup_from_error
+from stepik_grader.core.result import TestResult
 
 if TYPE_CHECKING:
     from core.grader_core import TestCase
@@ -274,33 +275,36 @@ def _cprint(text: str, *, style: str = "") -> None:
 
 
 def print_case_verbose(case: TestCase, r: dict[str, Any]) -> None:
-    """Подробный вывод одного тест-кейса (режим 1, verbose): вердикт + diff при WA."""
-    passed = r["passed"]
-    verdict = r.get("verdict", "AC" if passed else "WA")
-    icon = "✓" if passed else "✗"
-    color = "green" if passed else "red"
-    _cprint(f"  {icon} Test {case.index}: {verdict}", style=color)
+    """Подробный вывод одного тест-кейса (режим 1, verbose): вердикт + diff при WA.
 
-    if r["error"]:
-        _cprint(f"    [ERROR] {r['error']}", style="red")
+    ``r`` — case-result dict (форма ``run_single_test()``, issue #116); сразу
+    конвертируется в типизированный ``TestResult`` (issue #113/#114), дальше
+    функция читает только его поля, а не произвольные ключи словаря.
+    """
+    result = TestResult.from_dict(r)
+    icon = "✓" if result.passed else "✗"
+    color = "green" if result.passed else "red"
+    _cprint(f"  {icon} Test {case.index}: {result.verdict}", style=color)
+
+    if result.error:
+        _cprint(f"    [ERROR] {result.error}", style="red")
         # issue #72: подсказка по типу исключения + ссылка на глоссарий.
-        entry = lookup_from_error(r["error"])
+        entry = lookup_from_error(result.error)
         if entry is not None:
             _cprint(f"    💡 {entry.exception}: {entry.hint}", style="yellow")
             _cprint(f"       {entry.url}", style="blue")
         return
-    if passed:
+    if result.passed:
         return
 
     # WA: компактное сравнение expected vs actual + diff.
-    expected = " | ".join(r.get("expected", case.expected_lines)) or "(empty)"
-    actual = " | ".join(r.get("output", [])) or "(empty)"
+    expected = " | ".join(result.expected) or "(empty)"
+    actual = " | ".join(result.output) or "(empty)"
     _cprint(f"    Expected: {expected}")
     _cprint(f"    Actual:   {actual}")
-    diff = r.get("diff", "")
-    if diff:
+    if result.diff:
         _cprint("    Diff:")
-        for line in diff.splitlines():
+        for line in result.diff.splitlines():
             if line.startswith("+"):
                 _cprint(f"    {line}", style="green")
             elif line.startswith("-"):
