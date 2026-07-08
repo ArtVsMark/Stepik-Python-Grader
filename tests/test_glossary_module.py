@@ -404,3 +404,33 @@ def test_detector_from_error_suppresses_known() -> None:
 def test_detector_from_error_no_exception_returns_none() -> None:
     assert MissingConceptDetector().detect_from_error("just a plain message") is None
     assert MissingConceptDetector().detect_from_error("") is None
+
+
+def test_detector_from_error_ignores_capitalized_word_false_positive() -> None:
+    # issue #191: "Note: ..." (напр. exception notes, PEP 678, exc.add_note())
+    # выглядит как "Идентификатор: сообщение", но не является именем исключения.
+    assert MissingConceptDetector().detect_from_error("Note: Something happened") is None
+
+
+def test_detector_from_error_ignores_other_capitalized_words() -> None:
+    for text in ("Warning without suffix: not real", "Hello: world", "Todo: fix this later"):
+        assert MissingConceptDetector().detect_from_error(text) is None
+
+
+def test_detector_from_error_accepts_non_suffix_builtin_exceptions() -> None:
+    for name in (
+        "StopIteration",
+        "StopAsyncIteration",
+        "KeyboardInterrupt",
+        "SystemExit",
+        "GeneratorExit",
+    ):
+        entry = MissingConceptDetector().detect_from_error(name)
+        assert entry is not None
+        assert entry.concept == name
+
+
+def test_detector_from_error_accepts_custom_error_and_warning_suffixes() -> None:
+    for tb in ("MyCustomError: boom", "SomeDeprecationWarning: heads up", "WeirdException: oops"):
+        entry = MissingConceptDetector().detect_from_error(tb)
+        assert entry is not None

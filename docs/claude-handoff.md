@@ -90,11 +90,10 @@ cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
   stdlib-вызовы, notable builtins, `match/case`, исключения из трейсбеков.
 - Очередь пополнения (`append_missing_entries` с дедупом по `concept`).
 
-**Открытая доводка (follow-up quality tasks, не implementation-с-нуля):**
-- **#191** — снижение false-positive детектора.
-
-> **#190** (валидация `kind`/`status` при загрузке карточек) — **закрыт**; не
-> открытая доводка.
+> **#190** (валидация `kind`/`status` при загрузке карточек) и **#191**
+> (снижение false-positive `_last_exception_name` — конвенция именования
+> Error/Exception/Warning + allowlist non-suffix builtin-исключений) —
+> **закрыты**; открытой доводки #126 сейчас нет.
 
 **Остаётся за рамками #126 (в других issue):**
 - WEB UI и endpoint'ы `/api/glossary*` — в #125/#129.
@@ -151,8 +150,8 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 > модулей покрытия в DAG/архитектуре) — **закрыт**: `stdlib_inventory.py`/
 > `coverage.py` описаны в [architecture.md](architecture.md) и
 > [project-structure.md](project-structure.md). Практический детектор: **#190**
-> (валидация `kind`/`status`) **закрыт**; остаётся доводка **#191** (снижение
-> false-positive, открыт).
+> (валидация `kind`/`status`) и **#191** (снижение false-positive
+> `_last_exception_name`) — оба **закрыты**.
 
 ---
 
@@ -179,9 +178,9 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 
 ## Порядок и зависимости
 
-`#126` (glossary foundation) закрыт — остаётся доводка `#191` (снижение
-false-positive детектора) и `#199` (DAG-документация для glossary coverage).
-WEB-цепочка: `#125` (workspace), `#186` (Downloader web), `#187`
+`#126` (glossary foundation) закрыт, включая доводку `#190`/`#191`; `#199`
+(DAG-документация для glossary coverage) тоже закрыт. WEB-цепочка: `#125`
+(workspace), `#186` (Downloader web), `#187`
 (микро-бенчмарк web) можно вести параллельно, но `#129` (тесты) логично
 завершать после появления реализуемых журналов из #125/#186/#187. Эпик #123
 остаётся открытым до закрытия #125/#129 (+ #186/#187); дизайн-часть уже

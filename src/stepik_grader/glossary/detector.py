@@ -125,14 +125,49 @@ class _CodeScanner(ast.NodeVisitor):
         self.found.setdefault(concept, (kind, snippet))
 
 
+# Немногие встроенные исключения Python, не оканчивающиеся на Error/Exception/
+# Warning — единственное осмысленное исключение из правила суффикса ниже.
+_NON_SUFFIX_BUILTIN_EXCEPTIONS: frozenset[str] = frozenset(
+    {
+        "StopIteration",
+        "StopAsyncIteration",
+        "KeyboardInterrupt",
+        "SystemExit",
+        "GeneratorExit",
+    }
+)
+_EXCEPTION_NAME_SUFFIXES: tuple[str, ...] = ("Error", "Exception", "Warning")
+
+
+def _looks_like_exception_name(candidate: str) -> bool:
+    """True, если ``candidate`` правдоподобен как имя класса исключения.
+
+    Помимо синтаксической валидности (идентификатор с заглавной буквы),
+    требует соответствия конвенции именования исключений — иначе произвольный
+    текст вида ``"Note: ..."`` (например, заметки ``exc.add_note()``, PEP 678,
+    или любая другая строка после трейсбека) ошибочно принимался бы за имя
+    исключения (issue #191).
+    """
+    if not candidate.isidentifier() or not candidate[:1].isupper():
+        return False
+    return candidate in _NON_SUFFIX_BUILTIN_EXCEPTIONS or candidate.endswith(
+        _EXCEPTION_NAME_SUFFIXES
+    )
+
+
 def _last_exception_name(error_text: str) -> str | None:
-    """Имя класса исключения из последней строки трейсбека (или None)."""
+    """Имя класса исключения из последней строки трейсбека (или None).
+
+    Консервативно: кандидат из последней непустой строки должен не только
+    быть валидным идентификатором с заглавной буквы, но и соответствовать
+    конвенции именования исключений (см. ``_looks_like_exception_name``).
+    """
     lines = [ln for ln in error_text.strip().splitlines() if ln.strip()]
     if not lines:
         return None
     candidate = lines[-1].strip().split(":", 1)[0].strip()
     candidate = candidate.split(".")[-1]  # foo.BarError → BarError
-    if candidate.isidentifier() and candidate[:1].isupper():
+    if _looks_like_exception_name(candidate):
         return candidate
     return None
 
