@@ -111,9 +111,44 @@ append_missing_entries(".grader_glossary_missing.json", missing)
 падает, вызывающий код решает, показать ошибку или продолжить с пустой базой
 (тот же принцип graceful degradation, что у кэша #56).
 
+## Инвентарь официального Python/stdlib (`stdlib_inventory`, issue #196)
+
+Source-driven сторона покрытия (см. § Источники истины выше): офлайн-снимок
+того, что предлагает сам Python, — без сети и без разбора внешних сайтов.
+`build_stdlib_inventory()` собирает через интроспекцию running-интерпретатора:
+
+- **builtins** — публичные функции/классы модуля `builtins`;
+- **исключения** — рекурсивный обход иерархии `BaseException` (а не плоский
+  список `builtins`, чтобы захватывать и исключения курируемых модулей, напр.
+  `json.JSONDecodeError`, если модуль был просканирован);
+- **курируемые stdlib-модули** (`NOTABLE_STDLIB_MODULES` — `functools`,
+  `itertools`, `collections`, `math`, `re`, `pathlib`, `json` и т.п.) —
+  публичные члены (`__all__`, если есть, иначе `dir()` без `_`-префикса).
+
+```python
+from stepik_grader.glossary import build_stdlib_inventory
+
+items = build_stdlib_inventory()  # list[StdlibItem], отсортирован по qualname
+item = items[0]
+item.qualname       # "abc.ABC" | "ValueError" | "functools.reduce" | ...
+item.module         # "abc" | "builtins" | "functools" | ...
+item.kind           # "function" | "class" | "exception"
+item.python_version # "3.14" — из sys.version_info текущего интерпретатора
+```
+
+Инвентарь детерминирован (сортировка по `qualname`, без дублей) и не зависит
+от внешнего состояния — только от версии Python в текущем окружении.
+Модуль — leaf (`stdlib_inventory.py` не тянет `core/*` и не импортируется из
+него); используется генератором coverage-отчёта (issue #197), который
+сопоставит этот инвентарь с `JsonGlossaryProvider.known_terms()` и запишет
+недостающие сущности как `GlossaryMissingEntry(origin="stdlib_scan")`.
+
 ## Границы (что НЕ входит)
 
 - **WEB UI и endpoint'ы** (`/api/glossary*`) — реализация в #125/#129.
 - **Экспортёр во внешний Glossary-Python** — отдельная задача #126-follow-up.
 - **SQLite-хранилище** (#130+) — сейчас JSON-first; API провайдера
   (`GlossaryProvider`-протокол) абстрагирует источник для будущей замены.
+- **Сопоставление инвентаря с базой карточек и генерация missing JSON** —
+  отдельная задача #197 (`stdlib_inventory` только строит инвентарь, ничего
+  не сравнивает и не пишет в очередь).
