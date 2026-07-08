@@ -215,7 +215,11 @@ def append_missing_entries(
     """Дозаписать элементы в очередь, дедуплицируя по ``concept``.
 
     Существующие элементы сохраняются; повторный ``concept`` не добавляется, но
-    его источники (``seen_in``) объединяются. Возвращает итоговую очередь.
+    его источники (``seen_in``) объединяются. ``origin`` первого обнаружения не
+    перезаписывается (practice-driven и source-driven записи для одного
+    ``concept`` не конкурируют), но пустые ``module``/``qualname`` дополняются
+    из новой записи — так source-driven скан (issue #196/#197) обогащает уже
+    обнаруженный practice-driven пробел. Возвращает итоговую очередь.
     """
     existing = load_missing_queue(path)
     by_concept: dict[str, GlossaryMissingEntry] = {e.concept: e for e in existing}
@@ -228,5 +232,9 @@ def append_missing_entries(
             for src in entry.seen_in:
                 if src not in current.seen_in:
                     current.seen_in.append(src)
+            if not current.module and entry.module:
+                current.module = entry.module
+            if not current.qualname and entry.qualname:
+                current.qualname = entry.qualname
     save_missing_queue(path, existing)
     return existing

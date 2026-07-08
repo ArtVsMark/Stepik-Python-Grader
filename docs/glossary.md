@@ -83,8 +83,18 @@
 | `suggested_tags` | string[] | | Предлагаемые теги |
 | `verdict` | `string\|null` | | Вердикт, если пробел найден из ошибки (RE/WA) |
 | `first_seen` | string | | ISO-дата первого обнаружения |
+| `origin` | `solution\|error\|stdlib_scan` | | Источник обнаружения: practice-driven (`solution`/`error`, ставит `MissingConceptDetector`) или source-driven (`stdlib_scan`, будущий инвентаризатор — issue #196/#197). По умолчанию `solution` |
+| `module` | string | | stdlib-модуль происхождения (заполняется source-driven сканом) |
+| `qualname` | string | | Полное квалифицированное имя (заполняется source-driven сканом) |
 
-`append_missing_entries()` дедуплицирует по `concept`, объединяя `seen_in`.
+Старые записи очереди без `origin`/`module`/`qualname` читаются с дефолтами
+(`origin="solution"`, пустые строки) — обратная совместимость сохранена.
+`from_dict` валидирует `kind`/`status`/`origin` по допустимым значениям (как
+`GlossaryCard`), иначе поднимает `GlossaryError` с именем поля.
+
+`append_missing_entries()` дедуплицирует по `concept`, объединяя `seen_in`;
+`origin` первой записи не перезаписывается, но пустые `module`/`qualname`
+дополняются из новой записи (обогащение practice-пробела source-driven данными).
 
 ## Python-API
 

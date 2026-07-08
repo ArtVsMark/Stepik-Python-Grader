@@ -25,6 +25,7 @@ __all__ = [
     "CardKind",
     "MissingKind",
     "MissingStatus",
+    "MissingOrigin",
     "GlossaryCard",
     "GlossaryMissingEntry",
 ]
@@ -37,9 +38,15 @@ CardKind = Literal["exception", "function", "construct", "term"]
 # Очередь пополнения: элемент живёт как new/draft, пока не станет GlossaryCard.
 MissingKind = Literal["function", "exception", "construct"]
 MissingStatus = Literal["new", "draft"]
+# Источник пробела: solution/error — practice-driven (MissingConceptDetector),
+# stdlib_scan — source-driven (будущий инвентаризатор stdlib, issue #196/#197).
+MissingOrigin = Literal["solution", "error", "stdlib_scan"]
 
 _CARD_STATUSES: frozenset[str] = frozenset({"new", "draft", "ready", "exported"})
 _CARD_KINDS: frozenset[str] = frozenset({"exception", "function", "construct", "term"})
+_MISSING_KINDS: frozenset[str] = frozenset({"function", "exception", "construct"})
+_MISSING_STATUSES: frozenset[str] = frozenset({"new", "draft"})
+_MISSING_ORIGINS: frozenset[str] = frozenset({"solution", "error", "stdlib_scan"})
 
 
 def _as_str_list(value: Any) -> list[str]:
@@ -48,7 +55,7 @@ def _as_str_list(value: Any) -> list[str]:
         return []
     if isinstance(value, str):
         return [value]
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         return [str(item) for item in value]
     raise ValueError(f"Ожидался список строк, получено: {value!r}")
 
@@ -172,24 +179,55 @@ class GlossaryMissingEntry:
     suggested_tags: list[str] = field(default_factory=list)
     verdict: str | None = None  # вердикт, если пробел найден из ошибки (RE/WA)
     first_seen: str = ""  # ISO-дата первого обнаружения
+    origin: MissingOrigin = "solution"  # practice (solution/error) vs source-driven (stdlib_scan)
+    module: str = ""  # stdlib-модуль происхождения (source-driven, issue #196/#197)
+    qualname: str = ""  # полное квалифицированное имя (source-driven)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> GlossaryMissingEntry:
-        """Собрать элемент очереди из JSON-объекта."""
+        """Собрать элемент очереди из JSON-объекта с валидацией kind/status/origin.
+
+        Raises:
+            ValueError: если нет ``concept`` или ``kind``/``status``/``origin``
+                имеют недопустимое значение.
+        """
         concept = str(data.get("concept", "")).strip()
         if not concept:
             raise ValueError("Элемент очереди без обязательного поля 'concept'")
+
+        kind = str(data.get("kind", "function"))
+        if kind not in _MISSING_KINDS:
+            raise ValueError(
+                f"Элемент очереди '{concept}': недопустимый kind={kind!r} "
+                f"(ожидалось одно из {sorted(_MISSING_KINDS)})"
+            )
+        status = str(data.get("status", "new"))
+        if status not in _MISSING_STATUSES:
+            raise ValueError(
+                f"Элемент очереди '{concept}': недопустимый status={status!r} "
+                f"(ожидалось одно из {sorted(_MISSING_STATUSES)})"
+            )
+        origin = str(data.get("origin", "solution"))
+        if origin not in _MISSING_ORIGINS:
+            raise ValueError(
+                f"Элемент очереди '{concept}': недопустимый origin={origin!r} "
+                f"(ожидалось одно из {sorted(_MISSING_ORIGINS)})"
+            )
+
         verdict = data.get("verdict")
         return cls(
             concept=concept,
-            kind=str(data.get("kind", "function")),  # type: ignore[arg-type]
-            status=str(data.get("status", "new")),  # type: ignore[arg-type]
+            kind=kind,  # type: ignore[arg-type]
+            status=status,  # type: ignore[arg-type]
             reason=str(data.get("reason", "")),
             snippet=str(data.get("snippet", "")),
             seen_in=_as_str_list(data.get("seen_in")),
             suggested_tags=_as_str_list(data.get("suggested_tags")),
             verdict=None if verdict is None else str(verdict),
             first_seen=str(data.get("first_seen", "")),
+            origin=origin,  # type: ignore[arg-type]
+            module=str(data.get("module", "")),
+            qualname=str(data.get("qualname", "")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -204,4 +242,7 @@ class GlossaryMissingEntry:
             "suggested_tags": list(self.suggested_tags),
             "verdict": self.verdict,
             "first_seen": self.first_seen,
+            "origin": self.origin,
+            "module": self.module,
+            "qualname": self.qualname,
         }
