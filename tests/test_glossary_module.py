@@ -223,11 +223,86 @@ def test_missing_queue_append_dedupes_and_merges_sources(tmp_path: pathlib.Path)
     assert set(result[0].seen_in) == {"a.py", "b.py"}
 
 
+def test_missing_queue_append_keeps_first_origin_but_fills_module(
+    tmp_path: pathlib.Path,
+) -> None:
+    path = tmp_path / "queue.json"
+    append_missing_entries(
+        path, [GlossaryMissingEntry(concept="x", origin="solution", seen_in=["a.py"])]
+    )
+    result = append_missing_entries(
+        path,
+        [
+            GlossaryMissingEntry(
+                concept="x",
+                origin="stdlib_scan",
+                module="itertools",
+                qualname="itertools.x",
+                seen_in=["b.py"],
+            )
+        ],
+    )
+    assert len(result) == 1
+    assert result[0].origin == "solution"
+    assert result[0].module == "itertools"
+    assert result[0].qualname == "itertools.x"
+    assert set(result[0].seen_in) == {"a.py", "b.py"}
+
+
 def test_missing_queue_invalid_json_raises(tmp_path: pathlib.Path) -> None:
     path = tmp_path / "queue.json"
     path.write_text("nope", encoding="utf-8")
     with pytest.raises(GlossaryError, match="невалидный JSON"):
         load_missing_queue(path)
+
+
+# ---------------------------------------------------------------------------
+# GlossaryMissingEntry — валидация и origin (issue #190, #195)
+# ---------------------------------------------------------------------------
+
+
+def test_missing_entry_requires_concept() -> None:
+    with pytest.raises(ValueError, match="concept"):
+        GlossaryMissingEntry.from_dict({})
+
+
+def test_missing_entry_rejects_invalid_kind_status_origin() -> None:
+    with pytest.raises(ValueError, match="kind"):
+        GlossaryMissingEntry.from_dict({"concept": "x", "kind": "nonsense"})
+    with pytest.raises(ValueError, match="status"):
+        GlossaryMissingEntry.from_dict({"concept": "x", "status": "archived"})
+    with pytest.raises(ValueError, match="origin"):
+        GlossaryMissingEntry.from_dict({"concept": "x", "origin": "nonsense"})
+
+
+def test_missing_entry_default_origin_is_solution() -> None:
+    entry = GlossaryMissingEntry.from_dict({"concept": "x"})
+    assert entry.origin == "solution"
+    assert entry.module == ""
+    assert entry.qualname == ""
+
+
+def test_missing_entry_old_json_without_new_fields_reads_with_defaults() -> None:
+    # Старая очередь (issue #126) не знала про origin/module/qualname.
+    legacy = {"concept": "functools.reduce", "kind": "function", "status": "new"}
+    entry = GlossaryMissingEntry.from_dict(legacy)
+    assert entry.origin == "solution"
+    assert entry.module == ""
+    assert entry.qualname == ""
+
+
+def test_missing_entry_roundtrip_with_origin_and_module() -> None:
+    raw = {
+        "concept": "itertools.chain",
+        "kind": "function",
+        "origin": "stdlib_scan",
+        "module": "itertools",
+        "qualname": "itertools.chain",
+    }
+    entry = GlossaryMissingEntry.from_dict(raw)
+    again = GlossaryMissingEntry.from_dict(entry.to_dict())
+    assert again == entry
+    assert again.origin == "stdlib_scan"
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +320,7 @@ def test_detector_finds_stdlib_dotted_call() -> None:
     assert entry.status == "new"
     assert entry.seen_in == ["sol.py"]
     assert entry.first_seen == "2026-07-06"
+    assert entry.origin == "solution"
 
 
 def test_detector_finds_from_import_call() -> None:
@@ -317,6 +393,7 @@ def test_detector_from_error_finds_uncovered_exception() -> None:
     assert entry.kind == "exception"
     assert entry.verdict == "RE"
     assert entry.seen_in == ["sol.py"]
+    assert entry.origin == "error"
 
 
 def test_detector_from_error_suppresses_known() -> None:
