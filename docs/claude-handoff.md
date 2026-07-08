@@ -162,9 +162,9 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 
 - **#116 — контракт результата.** Поля case/solution/run result, семантика
   вердиктов, форма ошибки/таймаута, стабильность — [result-contract.md](result-contract.md).
-  Реализация типизированного `TestResult` (если решат вводить) обязана
-  сохранить имена полей; сейчас источник формы — docstring
-  `run_single_test` + мэпперы `web.py`.
+  Типизированный `TestResult` (`core/result.py`, эпик #112/#113/#114) уже
+  реализован и сохраняет имена полей контракта; `run_single_test()` и весь
+  dict-контракт CLI/Web/API не менялись.
 - **#140 — Runner-слой.** Выделить `Runner`/`LocalRunner` из `grader_core`
   **без смены поведения** — [server-mode.md § Runner-слой](server-mode.md#runner-слой-issue-140).
 - **#156 — API удалённого исполнения.** Контракт `/api/v1/runs` (async,

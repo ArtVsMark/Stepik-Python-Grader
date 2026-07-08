@@ -127,7 +127,14 @@ Python-тип — будущий типизированный `TestResult`/`data
    ([server-mode.md](server-mode.md)), он версионирует именно этот контракт
    (`/api/v1/...`); поля case/solution result — его семантическое ядро.
 
-> Реализация типизированного `TestResult` (dataclass вместо `dict`) — **не** в
-> рамках этого документа: контракт описывает поля, которые такой тип обязан
-> сохранить, но не требует его вводить. Пока источник истины формы — docstring
-> `run_single_test` и мэпперы `web.py`.
+> **Типизированный `TestResult` реализован** (issue #112/#113):
+> `stepik_grader.core.result.TestResult` — frozen dataclass с полями case
+> result выше + `Verdict = Literal["AC", "WA", "TLE", "RE"]`. `from_dict()`/
+> `to_dict()` конвертируют форму, которую **по-прежнему** возвращает
+> `run_single_test()` (этот контракт не меняется — `dict[str, Any]` остаётся
+> формой на границе CLI JSON-вывода, `run_tests()`/`run_benchmark()` и
+> `/api/grade`). `TestResult` используется там, где нужна типобезопасность
+> поверх словаря — сейчас: `core/reporter.print_case_verbose` (issue #114)
+> конвертирует dict в `TestResult` на входе вместо чтения произвольных
+> dict-ключей. Источник истины формы по-прежнему — этот документ + docstring
+> `run_single_test`.
