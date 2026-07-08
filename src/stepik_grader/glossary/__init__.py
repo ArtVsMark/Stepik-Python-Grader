@@ -16,6 +16,13 @@ Foundation полноценного локального глоссария WEB 
 
 from __future__ import annotations
 
+from .coverage import (
+    CATEGORIES,
+    CategoryCoverage,
+    CoverageReport,
+    build_coverage_report,
+    missing_entries_from_inventory,
+)
 from .detector import DEFAULT_NOTABLE_BUILTINS, MissingConceptDetector
 from .json_provider import (
     GlossaryError,
@@ -42,4 +49,9 @@ __all__ = [
     "StdlibItem",
     "NOTABLE_STDLIB_MODULES",
     "build_stdlib_inventory",
+    "CATEGORIES",
+    "CategoryCoverage",
+    "CoverageReport",
+    "build_coverage_report",
+    "missing_entries_from_inventory",
 ]
