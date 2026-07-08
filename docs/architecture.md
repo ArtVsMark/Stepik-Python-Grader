@@ -37,6 +37,8 @@
 | `glossary/models.py` | Domain (leaf) | Типизированные модели локального глоссария: `GlossaryCard`, `GlossaryMissingEntry` (issue #126) |
 | `glossary/json_provider.py` | Domain | `JsonGlossaryProvider` (загрузка/поиск локальной JSON-базы карточек) + очередь пополнения (issue #126) |
 | `glossary/detector.py` | Domain | `MissingConceptDetector` — консервативный AST-детектор недостающих функций/конструкций/исключений (issue #126) |
+| `glossary/stdlib_inventory.py` | Domain (leaf) | Офлайн-инвентарь официального Python/stdlib через интроспекцию (`build_stdlib_inventory`, `StdlibItem`, `NOTABLE_STDLIB_MODULES`) — source-driven сторона покрытия (issue #196); только stdlib, не тянет `core/*` |
+| `glossary/coverage.py` | Domain | Сопоставление инвентаря с локальной базой (`build_coverage_report`, `missing_entries_from_inventory`) + CLI `python -m stepik_grader.glossary.coverage` (issue #197/#198); зависит только от leaf-модулей пакета `glossary/` |
 
 Основные возможности (пользовательский взгляд) — в [README](../README.md);
 пошаговые сценарии работы — в [grader-workflow.md](grader-workflow.md).
@@ -70,12 +72,32 @@ core/oauth_flow.py    ──→  core/stepik_client.py
 core/oauth_flow.py    ──→  core/storage.py
 glossary/json_provider.py ──→  glossary/models.py
 glossary/detector.py      ──→  glossary/models.py
+glossary/stdlib_inventory.py  (только stdlib — интроспекция builtins/исключений/курируемых модулей; project-импортов нет)
+glossary/coverage.py      ──→  glossary/stdlib_inventory.py, glossary/models.py, glossary/json_provider.py
 ```
 
 Подпакет `glossary/` (issue #126) — самодостаточный островок: зависит только
 от stdlib и собственных `glossary/models.py`, не импортирует `core/*` и не
 импортируется из него. Это сохраняет DAG ацикличным; будущий web-слой
 (#125/#129) станет его потребителем, как `web → core`.
+
+**Модули покрытия глоссария (source-driven, issue #195–#198).**
+`glossary/stdlib_inventory.py` — leaf: строит офлайн-инвентарь официального
+Python/stdlib интроспекцией running-интерпретатора (без сети, без исполнения
+пользовательского кода), не импортируя ничего из проекта.
+`glossary/coverage.py` сопоставляет этот инвентарь с известными терминами
+локальной базы (`JsonGlossaryProvider.known_terms()`) и строит `CoverageReport`
+плюс список `GlossaryMissingEntry(origin="stdlib_scan")` для очереди пополнения
+(запись — идемпотентный `append_missing_entries`). Оба остаются внутри острова
+`glossary/` (`coverage → stdlib_inventory, models, json_provider`) и **не
+тянут** `core/*` — DAG ацикличен. Если локальная JSON-база отсутствует или её
+не передали, покрытие считается относительно пустого набора known-терминов
+(все сущности инвентаря попадают в «недостающее»), а `JsonGlossaryProvider`
+поднимает `GlossaryError` на битой/несуществующей базе — грейдер не падает.
+Продуктовые роли (истина контента vs истина полноты) и формат хранения — в
+[glossary.md § Источники истины](glossary.md#источники-истины-роли) и
+[glossary.md § Coverage-отчёт](glossary.md#coverage-отчёт-и-missing-json-coverage-issue-197);
+здесь не дублируются.
 
 downloader.py больше не импортирует grader.py: дублирующая копия
 `_parse_testblock_file` в grader.py устранена (Issue #19) — оба модуля

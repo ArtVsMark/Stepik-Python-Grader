@@ -176,9 +176,14 @@ UX-полировка вывода `--version` (dev vs release маркер) —
 | Режимы, CLI-флаги, web/IDE, скачивание | [docs/grader-workflow.md](docs/grader-workflow.md) |
 | Конфигурация, форматы тестов, безопасность | [docs/configuration.md](docs/configuration.md) |
 | Архитектура (DAG, слои) | [docs/architecture.md](docs/architecture.md) |
+| Контракт результата проверки (CLI/Web/API) | [docs/result-contract.md](docs/result-contract.md) |
+| Дизайн server mode (Runner, API, sandbox) | [docs/server-mode.md](docs/server-mode.md) |
+| Диагностика/логирование, редакция секретов | [docs/logging.md](docs/logging.md) |
+| Архитектурные решения (ADR) | [docs/adr/README.md](docs/adr/README.md) |
 | Дерево файлов | [docs/project-structure.md](docs/project-structure.md) |
 | Версии, отличия от оригинала | [docs/versions.md](docs/versions.md) |
 | Политика версионирования, код-стайл, workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Кодекс поведения | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Дизайн WEB MVP | [docs/web-mvp.md](docs/web-mvp.md) |
 | История спринтов/roadmap (архив) | [docs/history.md](docs/history.md) |
 | Handoff для будущих реализаций Claude | [docs/claude-handoff.md](docs/claude-handoff.md) |
@@ -196,8 +201,17 @@ UX-полировка вывода `--version` (dev vs release маркер) —
 - **#186** — Downloader-блок в web · **#187** — микро-бенчмарк в web.
 - **#129** — тесты web MVP (user journeys).
 - **#191** — снижение false-positive детектора глоссария (`MissingConceptDetector`).
-- **#199** — регистрация модулей glossary coverage в DAG/архитектуре
-  (docs-follow-up, не код-фича).
+
+> **#199 (регистрация модулей glossary coverage в DAG/архитектуре) — закрыт.**
+> `stdlib_inventory.py`/`coverage.py` описаны в
+> [docs/architecture.md](docs/architecture.md) и
+> [docs/project-structure.md](docs/project-structure.md).
+
+**Дизайн-указатели (спроектировано, реализация — отдельные issue):**
+server mode ([docs/server-mode.md](docs/server-mode.md) + ADR-0001): Runner-слой
+**#140**, API удалённого исполнения **#156**, sandbox-требования **#157**;
+контракт результата **#116** ([docs/result-contract.md](docs/result-contract.md));
+диагностическое логирование **#150** ([docs/logging.md](docs/logging.md)).
 
 > **#126 (`JsonGlossaryProvider`) и эпик #161/#163 (`--version` dev vs release) —
 > закрыты.** Foundation локального глоссария и вся цепочка source-driven

@@ -81,6 +81,7 @@ stepik-grader --mode 1 --file task.py
 | Дизайн WEB MVP (проверка решений + Downloader + Глоссарий-модуль, микро-бенчмарк, error/action cards) | [docs/web-mvp.md](docs/web-mvp.md) |
 | Справочник: конфигурация, форматы тест-кейсов, ограничения и безопасность | [docs/configuration.md](docs/configuration.md) |
 | Архитектура: модули, слои, граф зависимостей | [docs/architecture.md](docs/architecture.md) |
+| Контракт результата проверки (CLI/Web/API), дизайн server mode, ADR | [docs/result-contract.md](docs/result-contract.md), [docs/server-mode.md](docs/server-mode.md), [docs/adr/README.md](docs/adr/README.md) |
 | Локальный глоссарий: формат, API, источник истины контента | [docs/glossary.md](docs/glossary.md) |
 | Структура проекта (дерево файлов) | [docs/project-structure.md](docs/project-structure.md) |
 | Версии и сравнение с оригиналом | [docs/versions.md](docs/versions.md) |
