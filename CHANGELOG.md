@@ -9,6 +9,33 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Refactored
+- `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).
+  `stepik_grader.cli` (`__init__.py`) stays the compatibility facade —
+  `main()`, mode-handler/interactive-menu wrapper functions, and mutable
+  i18n state (`_LANG`/`_MESSAGES`/`_LOCALE_MESSAGES`/`_t`, deliberately kept
+  in place since `main()` mutates `_LANG` at runtime and moving it would
+  turn the facade re-export into a stale snapshot). Four new leaf modules
+  hold the actual logic, none importing `stepik_grader.cli`:
+  `cli/options.py` (argparse parsing, #119); `cli/commands.py` +
+  `cli/context.py` (mode handlers behind an explicit `CliContext`
+  dependency-injection object, #120); `cli/rendering.py` (csv/markdown
+  table output, #121 Phase 1); `cli/interactive.py` (menu/prompts,
+  extending `CliContext`, #121 Phase 2). `tests/test_entrypoint.py` adds
+  subprocess-level regression coverage for the `stepik-grader` console
+  script and `python -m stepik_grader[.grader]` (#122). Across all five
+  PRs, essentially no existing test files needed modification — the
+  `CliContext` design was built specifically to keep
+  `monkeypatch.setattr(cli, "...", ...)`-based tests passing unmodified
+  through the move.
+
+### Fixed
+- `scripts/version.py`'s logical `X.Y.Z` version (README `Version` badge)
+  no longer double-counts CI's own `chore(ci): update badges [skip ci]`
+  bot commits toward PATCH — it excludes them via `git rev-list
+  --invert-grep` instead of `git describe --tags --long`'s raw commit
+  count (issue #231).
+
 ## [1.6.0] - 2026-07-08
 
 ### Added

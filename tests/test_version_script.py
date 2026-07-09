@@ -1,8 +1,9 @@
 """Tests for scripts/version.py — версионирование по схеме проекта (issue #68).
 
 Схема (CONTRIBUTING.md §Версионирование) — НЕ SemVer: MAJOR.MINOR из тега
-``vX.Y.0``, PATCH = число коммитов после тега; до первого тега — fallback на
-MAJOR.MINOR из pyproject + полное число коммитов.
+``vX.Y.0``, PATCH = число коммитов после тега, БЕЗ badge-бота
+(``chore(ci): update badges``, issue #231); до первого тега — fallback на
+MAJOR.MINOR из pyproject + то же число коммитов без бота.
 """
 
 from __future__ import annotations
@@ -45,9 +46,17 @@ def test_version_script_cli_prints_version() -> None:
 
 
 def test_tagged_path_parses_commits_as_patch(monkeypatch) -> None:
-    """При наличии тега PATCH = число коммитов после него (git describe)."""
+    """При наличии тега PATCH = число коммитов после него (git rev-list)."""
     module = _load_module()
-    monkeypatch.setattr(module, "_git", lambda *a: "v1.2.0-17-g3fa9c21")
+
+    def fake_git(*args: str) -> str | None:
+        if args[:1] == ("describe",):
+            return "v1.2.0"
+        if args[:2] == ("rev-list", "--count"):
+            return "17"
+        return None
+
+    monkeypatch.setattr(module, "_git", fake_git)
     assert module.project_version() == "1.2.17"
 
 
@@ -67,3 +76,29 @@ def test_fallback_when_no_tags(monkeypatch) -> None:
     version = module.project_version()
     assert version.endswith(".42"), version
     assert _XYZ.match(version), version
+
+
+def test_patch_count_excludes_badge_bot_commits(monkeypatch) -> None:
+    """PATCH-счётчик исключает chore(ci): update badges коммиты (issue #231):
+    rev-list вызывается с --invert-grep/--grep/--fixed-strings на их подстроку,
+    а не просто считает всё в диапазоне."""
+    module = _load_module()
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(*args: str) -> str | None:
+        calls.append(args)
+        if args[:1] == ("describe",):
+            return "v2.0.0"
+        if args[:2] == ("rev-list", "--count"):
+            return "5"
+        return None
+
+    monkeypatch.setattr(module, "_git", fake_git)
+    assert module.project_version() == "2.0.5"
+
+    rev_list_call = next(c for c in calls if c[:2] == ("rev-list", "--count"))
+    assert rev_list_call[2] == "v2.0.0..HEAD"
+    assert "--invert-grep" in rev_list_call
+    assert "--fixed-strings" in rev_list_call
+    grep_index = rev_list_call.index("--grep")
+    assert "update badges" in rev_list_call[grep_index + 1]
