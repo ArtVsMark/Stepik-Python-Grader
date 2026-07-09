@@ -22,7 +22,11 @@
 | `config.py` | Application / Configuration | `GraderConfig` (frozen dataclass) + ленивый `CONFIG` (module `__getattr__`, PEP 562) / `get_config()` — импорт модуля не читает `pyproject.toml`, чтение кэшируется при первом обращении (issue #141/#142); переопределяется через `[tool.stepik-grader]` |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
 | `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
-| `web.py` | Application / Web | Локальная веб-оболочка `--serve` на stdlib `http.server` (endpoint `/api/grade`, `ResultViewModel`); тонкий слой поверх ядра, бизнес-логики грейдинга не добавляет. Текущая реализация — корректность + бенчмарк; дизайн будущего WEB MVP — [web-mvp.md](web-mvp.md) |
+| `web/server.py` | Application / Web | HTTP-хендлер (stdlib `http.server`, `--serve`): роутинг `GET /api/grade`\|`/api/glossary*`\|`/api/commands`\|`/api/solutions`\|`/api/source`, `POST /api/download`\|`/api/save-solution`; статика (`static/{index.html,app.css,app.js}`) читается один раз при импорте; тонкий слой поверх `viewmodels.py`/адаптеров ниже, бизнес-логики не добавляет |
+| `web/viewmodels.py` | Application / Web | Грейдинг → JSON: `grade_path`/`grade_benchmark`/`grade_microbench`/`list_solutions`/`read_source`/`save_solution`; ErrorCard-мэппинг (`_case_view`) с glossary-lookup и J7 missing-queue wiring (issue #125/#186/#187) |
+| `web/downloader_adapter.py` | Application / Web | `download_task` — тонкий адаптер над `downloader.py`: OAuth без похода в браузер, раздел «Загрузчик задач» (issue #186) |
+| `web/glossary_adapter.py` | Application / Web | `glossary_search`/`glossary_get`/`glossary_missing` — тонкие адаптеры над `glossary/json_provider.py` (или fallback на компактный `core/glossary.py`) для раздела «Глоссарий» (issue #125) |
+| `web/commands.py` | Application / Web (leaf) | Реестр команд (`COMMANDS`, `filter_commands`) для command palette/action cards; не импортирует ничего из проекта |
 | `ide.py` | Application / IDE | IDE-интеграция `--init-vscode`: генерация конфигов VS Code (tasks/launch) |
 | `pytest_plugin.py` | Application / Plugin | pytest-плагин (`pytest --grader-mode`, issue #57): запуск тест-кейсов грейдера как pytest-тестов |
 | `core/cache.py` | Infrastructure / Utilities | Кэш результатов `.grader_cache/` (issue #56): ключ по контенту решения+тестов, graceful degradation при битом/отсутствующем кэше |
@@ -77,8 +81,14 @@ cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/repor
 cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)
 cli/interactive.py     ──→  core/grader_core.py  (find_all_solution_files/collect_grouped_files), cli/context.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
-web.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py, core/test_loader.py  (web → core, ациклично)
-web.py                 ──→  core/glossary.py  (lookup_from_error для error card при RE)
+web/server.py          ──→  web/commands.py, web/downloader_adapter.py, web/glossary_adapter.py, web/viewmodels.py  (тонкий HTTP-роутинг)
+web/viewmodels.py      ──→  core/grader_core.py, core/microbench_runner.py, core/reporter.py, core/test_loader.py  (web → core, ациклично)
+web/viewmodels.py      ──→  core/glossary.py  (lookup_from_error для error card при RE)
+web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
+web/viewmodels.py      ──→  config.py
+web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/storage.py, core/test_loader.py
+web/glossary_adapter.py   ──→  core/glossary.py, glossary/json_provider.py, glossary/models.py, config.py
+web/commands.py            (только stdlib — реестр команд, project-импортов нет)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/glossary.py  (glossary-блок в error card при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
@@ -97,8 +107,8 @@ glossary/coverage.py      ──→  glossary/stdlib_inventory.py, glossary/mode
 
 Подпакет `glossary/` (issue #126) — самодостаточный островок: зависит только
 от stdlib и собственных `glossary/models.py`, не импортирует `core/*` и не
-импортируется из него. Это сохраняет DAG ацикличным; будущий web-слой
-(#125/#129) станет его потребителем, как `web → core`.
+импортируется из него. Это сохраняет DAG ацикличным; веб-слой (пакет `web/`,
+issue #125/#129 закрыты) — его потребитель, как `web → core`.
 
 **Модули покрытия глоссария (source-driven, issue #195–#198).**
 `glossary/stdlib_inventory.py` — leaf: строит офлайн-инвентарь официального
@@ -128,7 +138,7 @@ downloader.py больше не импортирует grader.py: дублиру
 ┌───────────────────────────────────────────────────────────────┐
 │  Domain / Application  (src/stepik_grader/ — точки входа)      │
 │  downloader.py  │  grader.py (facade)  │  diagnostic_stepik   │
-│  web.py (--serve)  │  ide.py (--init-vscode)  │ pytest_plugin  │
+│  web/ (--serve)  │  ide.py (--init-vscode)  │ pytest_plugin    │
 ├───────────────────────────────────────────────────────────────┤
 │  Application  (core/, грейдер разбит по SRP — Sprint 7, A-01) │
 │  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│

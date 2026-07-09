@@ -19,7 +19,14 @@ Stepik-Python-Grader/
 │       │   ├── rendering.py       # csv/markdown table output (leaf, issue #121 Phase 1)
 │       │   └── interactive.py     # _interactive_menu, _ask_*, _pick_path_via_dialog (leaf, issue #121 Phase 2)
 │       ├── config.py              # GraderConfig, CONFIG — единая конфигурация
-│       ├── web.py                 # Локальный веб-интерфейс (--serve)
+│       ├── web/                   # Локальный веб-интерфейс (--serve), issue #58/#125/#186/#187
+│       │   ├── __init__.py        # Публичный API пакета (реэкспорт для back-compat)
+│       │   ├── server.py          # HTTP-хендлер (http.server), роутинг /api/*
+│       │   ├── viewmodels.py      # grade_path/grade_benchmark/grade_microbench/save_solution → JSON
+│       │   ├── downloader_adapter.py # download_task — адаптер над downloader.py (issue #186)
+│       │   ├── glossary_adapter.py   # glossary_search/get/missing — адаптеры над glossary/
+│       │   ├── commands.py        # Реестр команд для command palette (leaf)
+│       │   └── static/            # index.html/app.css/app.js — без build-шага
 │       ├── ide.py                 # Генерация .vscode/tasks.json (--init-vscode)
 │       ├── pytest_plugin.py       # pytest11 entry point (--grader-mode)
 │       ├── downloader.py         # Domain: конфиг, slugify, построение папок, оркестрация API
@@ -31,6 +38,8 @@ Stepik-Python-Grader/
 │           ├── mode_detector.py  # Детекция режима stdin/function (Issue #45 A-01)
 │           ├── wrapper_builder.py # Генерация wrapper-скриптов для function-mode (Issue #45 A-01)
 │           ├── reporter.py       # rich-таблицы, вывод, verbose-diff
+│           ├── result.py         # TestResult (frozen dataclass) + Verdict Literal (leaf, issue #112/#113)
+│           ├── runner.py         # Runner Protocol + LocalRunner — абстракция запуска кода (issue #136-138)
 │           ├── executor.py       # Запускатель решений: compile + exec с таймаутом
 │           ├── microbench_runner.py  # Timeit-микробенчмарк через subprocess + os.devnull
 │           ├── normalizers.py    # Нормализация вывода: округление float, sort/whitespace
@@ -48,7 +57,7 @@ Stepik-Python-Grader/
 │           ├── stdlib_inventory.py # Офлайн-инвентарь официального Python/stdlib (leaf, issue #196)
 │           └── coverage.py       # Coverage-отчёт + missing JSON + CLI (issue #197/#198)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов; включает pytester
-├── tests/                     # 660+ тестов (pytest)
+├── tests/                     # 960+ тестов (pytest)
 ├── docs/                      # База знаний (архитектура, структура, версии) — эпик #102
 ├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.12/3.13/3.14
 ├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
