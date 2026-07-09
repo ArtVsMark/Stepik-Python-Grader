@@ -61,6 +61,28 @@
   default to a zero-config fallback). `core/grader_core.run_single_test`
   gained an additive `exit_code` field and `core/glossary.all_entries()`
   lists the compact curated glossary for that fallback.
+- WEB UI redesign to match the epic #123 reference mask (`web-mvp-mask.html`
+  attached to the issue): full design-token system ("Hydra" light/dark
+  palette, Inter + JetBrains Mono), a grid-based `.app-shell` (fixed 220px
+  sidebar navigation replacing the old topbar section-switcher and
+  resizable dividers), a 4-button mode row (Compare/Tests/Bench/Microbench
+  — the last a disabled placeholder for #187), and a 2-column split-pane
+  with the ErrorCard detail panel moved into a "Детали" tab alongside new
+  "Лог"/"Эталон" tabs. All #125 functionality (palette, action cards,
+  scenario buttons, Glossary section with backlog) preserved unchanged,
+  only re-skinned. New **Сравнение (Compare)** mode: `grade_benchmark()`
+  gained an optional `reference` parameter (path or filename among the
+  found solutions) — resolved, ranking is computed relative to it instead
+  of the fastest solution, with `REFERENCE`/`FASTER` verdicts added
+  alongside the existing `SIMILAR`/`SLOWER`/`MUCH_SLOWER`; unresolved
+  (typo/foreign file) silently falls back to the normal ranking. Response
+  gains additive `reference_source`/`reference_file` fields for the new
+  tab. `core/microbench_runner.apply_relative_ranking` (shared with CLI)
+  is untouched — the new ranking lives in a web-only
+  `_apply_reference_ranking()`. Sidebar has a disabled "Загрузчик задач"
+  placeholder for #186. Note: the Stepik-side reference-solution *import*
+  (issue #55, reopened) is a separate, unrelated mechanism — this redesign
+  only lets `#ref-input` point at an already-local file.
 
 ### Fixed
 - Glossary exception-name detector (`_last_exception_name`) reduced false
