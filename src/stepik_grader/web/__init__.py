@@ -22,6 +22,7 @@ from stepik_grader.web.viewmodels import (
     grade_path,
     list_solutions,
     read_source,
+    save_solution,
 )
 
 __all__ = [
@@ -31,4 +32,5 @@ __all__ = [
     "list_solutions",
     "read_source",
     "run_server",
+    "save_solution",
 ]
