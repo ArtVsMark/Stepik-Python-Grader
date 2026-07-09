@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, urlparse
 
 from stepik_grader.web.commands import filter_commands
 from stepik_grader.web.glossary_adapter import glossary_get, glossary_missing, glossary_search
-from stepik_grader.web.viewmodels import grade_benchmark, grade_path
+from stepik_grader.web.viewmodels import grade_benchmark, grade_path, list_solutions, read_source
 
 __all__ = ["run_server"]
 
@@ -49,6 +49,9 @@ class _Handler(BaseHTTPRequestHandler):
     пополнения, J7) — тонкие адаптеры над ``glossary_adapter.py``; GET
     /api/commands?context=tag1,tag2 — реестр команд (``commands.py``),
     отфильтрованный по тегам контекста (пусто/нет параметра → весь реестр).
+    Плюс (фикс режима 1, #125): GET /api/solutions?path= (список решений в
+    папке — пикер режима «Один файл») и GET /api/source?path= (исходник
+    файла для показа кода перед запуском).
     """
 
     def do_GET(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
@@ -99,6 +102,22 @@ class _Handler(BaseHTTPRequestHandler):
             raw_context = (qs.get("context") or [""])[0]
             context = {tag for tag in raw_context.split(",") if tag} or None
             self._send(200, "application/json; charset=utf-8", _json(filter_commands(context)))
+        elif parsed.path == "/api/solutions":
+            qs = parse_qs(parsed.query)
+            path = (qs.get("path") or [""])[0].strip()
+            data = (
+                list_solutions(path)
+                if path
+                else {"kind": "error", "message": "Укажите путь к папке.", "files": []}
+            )
+            self._send(200, "application/json; charset=utf-8", _json(data))
+        elif parsed.path == "/api/source":
+            qs = parse_qs(parsed.query)
+            path = (qs.get("path") or [""])[0].strip()
+            data = (
+                read_source(path) if path else {"kind": "error", "message": "Укажите путь к файлу."}
+            )
+            self._send(200, "application/json; charset=utf-8", _json(data))
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
 

@@ -39,7 +39,7 @@ from stepik_grader.glossary.json_provider import (
 # «Модель error cards»).
 _FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
 
-__all__ = ["grade_benchmark", "grade_path"]
+__all__ = ["grade_benchmark", "grade_path", "list_solutions", "read_source"]
 
 
 def _rel(path: str, base: str) -> str:
@@ -196,6 +196,38 @@ def _case_view(
             )
 
     return view
+
+
+def list_solutions(path: str) -> dict[str, Any]:
+    """Найти файлы-решения в папке — пикер режима 1 «Один файл» (issue #125-fix).
+
+    Без грейдинга: только листинг, чтобы UI дал выбрать один конкретный файл
+    перед запуском. Возвращает {"kind": "dir", "base", "files": [полные пути]}
+    либо {"kind": "error", "message", "files": []}.
+    """
+    p = pathlib.Path(path).expanduser()
+    if not p.is_dir():
+        return {"kind": "error", "message": f"Папка не найдена: {path}", "files": []}
+    solutions = find_all_solution_files(str(p))
+    if not solutions:
+        return {"kind": "error", "message": f"Решения не найдены в: {path}", "files": []}
+    return {"kind": "dir", "base": str(p), "files": solutions}
+
+
+def read_source(path: str) -> dict[str, Any]:
+    """Прочитать исходник файла-решения — показ кода в режиме 1 (issue #125-fix).
+
+    Чтение произвольного локального пути не расширяет threat model:
+    ``grade_path``/``grade_benchmark`` уже исполняют произвольные локальные
+    ``.py``-файлы в subprocess без sandbox (см. CLAUDE.md) — чтение текста
+    строго безопаснее уже существующей возможности.
+    """
+    p = pathlib.Path(path).expanduser()
+    try:
+        source = p.read_text(encoding=CONFIG.encoding)
+    except OSError as exc:
+        return {"kind": "error", "message": f"Не удалось прочитать файл: {exc}"}
+    return {"kind": "file", "path": str(p), "source": source}
 
 
 def grade_path(path: str, *, missing_queue_path: str | None = None) -> dict[str, Any]:

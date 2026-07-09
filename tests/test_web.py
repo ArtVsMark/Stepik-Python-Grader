@@ -335,6 +335,57 @@ class TestGradeBenchmarkReference:
 
 
 # ---------------------------------------------------------------------------
+# list_solutions / read_source — пикер режима 1 «Один файл» (issue #125-fix)
+# ---------------------------------------------------------------------------
+
+
+class TestListSolutions:
+    def test_finds_solutions_in_directory(self, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "task1_1.py").write_text("print(1)\n", encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text("print(2)\n", encoding="utf-8")
+        data = web.list_solutions(str(tmp_path))
+        assert data["kind"] == "dir"
+        assert data["base"] == str(tmp_path)
+        assert len(data["files"]) == 2
+        assert all(f.endswith(".py") for f in data["files"])
+
+    def test_empty_directory_is_error(self, tmp_path: pathlib.Path) -> None:
+        data = web.list_solutions(str(tmp_path))
+        assert data["kind"] == "error"
+        assert data["files"] == []
+
+    def test_nonexistent_path_is_error(self) -> None:
+        data = web.list_solutions("/no/such/dir")
+        assert data["kind"] == "error"
+        assert data["files"] == []
+
+    def test_file_path_is_error_not_a_directory(self, tmp_path: pathlib.Path) -> None:
+        sol = tmp_path / "task1_1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        data = web.list_solutions(str(sol))
+        assert data["kind"] == "error"
+
+
+class TestReadSource:
+    def test_reads_existing_file(self, tmp_path: pathlib.Path) -> None:
+        sol = tmp_path / "task1_1.py"
+        sol.write_text("print('hello')\n", encoding="utf-8")
+        data = web.read_source(str(sol))
+        assert data["kind"] == "file"
+        assert data["source"] == "print('hello')\n"
+        assert data["path"] == str(sol)
+
+    def test_nonexistent_file_is_error(self, tmp_path: pathlib.Path) -> None:
+        data = web.read_source(str(tmp_path / "nope.py"))
+        assert data["kind"] == "error"
+        assert "message" in data
+
+    def test_directory_path_is_error_not_a_file(self, tmp_path: pathlib.Path) -> None:
+        data = web.read_source(str(tmp_path))
+        assert data["kind"] == "error"
+
+
+# ---------------------------------------------------------------------------
 # HTTP-хендлер (интеграционно: реальный сервер на эфемерном порту)
 # ---------------------------------------------------------------------------
 
@@ -421,6 +472,35 @@ class TestHttpHandler:
             assert resp.status == 200
             assert "javascript" in resp.headers["Content-Type"]
             assert b"function grade" in resp.read()
+
+    # -- /api/solutions, /api/source (пикер режима 1, issue #125-fix) --------
+
+    def test_api_solutions_lists_files(self, server: str, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "task1_1.py").write_text("print(1)\n", encoding="utf-8")
+        status, body = _get(server + "/api/solutions?path=" + urllib.parse.quote(str(tmp_path)))
+        assert status == 200
+        data = json.loads(body)
+        assert data["kind"] == "dir"
+        assert len(data["files"]) == 1
+
+    def test_api_solutions_without_path_is_error(self, server: str) -> None:
+        status, body = _get(server + "/api/solutions")
+        assert status == 200
+        assert json.loads(body)["kind"] == "error"
+
+    def test_api_source_reads_file(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = tmp_path / "task1_1.py"
+        sol.write_text("print(42)\n", encoding="utf-8")
+        status, body = _get(server + "/api/source?path=" + urllib.parse.quote(str(sol)))
+        assert status == 200
+        data = json.loads(body)
+        assert data["kind"] == "file"
+        assert data["source"] == "print(42)\n"
+
+    def test_api_source_without_path_is_error(self, server: str) -> None:
+        status, body = _get(server + "/api/source")
+        assert status == 200
+        assert json.loads(body)["kind"] == "error"
 
 
 # ---------------------------------------------------------------------------
