@@ -237,6 +237,7 @@ a, button, [role="button"] {
 .panel-tab { font-size: var(--text-xs); padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); color: var(--color-text-faint); cursor: pointer; }
 .panel-tab:hover { background: var(--color-surface-dynamic); color: var(--color-text-muted); }
 .panel-tab.active { background: var(--color-surface-dynamic); color: var(--color-text); font-weight: 500; }
+.panel-tab.disabled { opacity: .4; pointer-events: none; cursor: default; }
 .panel-actions { margin-left: auto; display: flex; gap: var(--space-1); align-items: center; flex-wrap: wrap; }
 .panel-body { flex: 1; overflow-y: auto; padding: var(--space-4); }
 .panel-body.no-pad { padding: 0; }
@@ -367,7 +368,7 @@ select.form-input { cursor: pointer; }
 /* -- ErrorCard detail (вкладка «Детали») ----------------------------------- */
 .field-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted); margin: var(--space-3) 0 var(--space-1); font-weight: 600; }
 .field-label:first-child { margin-top: 0; }
-.action-cards, .scenario-buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+.action-cards { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
 .action-card {
   background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);
   padding: var(--space-2) var(--space-3); font-size: var(--text-xs); border-radius: var(--radius-md);

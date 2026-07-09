@@ -84,6 +84,24 @@
   (issue #55, reopened) is a separate, unrelated mechanism — this redesign
   only lets `#ref-input` point at an already-local file.
 
+### Changed
+- Corrected web UI modes 1/2 after owner feedback on #125: the redesign
+  above had mistranslated the mask's "Режим 1" as a benchmark-style
+  "Сравнение" (Compare) mode. Режим 1 is now the actual analogue of CLI
+  mode 1 (single-file check): pick a folder, click "Найти решения" (new
+  `GET /api/solutions?path=` — thin adapter over the already-used
+  `find_all_solution_files`), choose one found file, see its source
+  (new `GET /api/source?path=`), and run just that file — no comparison
+  involved. The "Найти эталонное решение" button is a disabled placeholder
+  for #55. Режим 2's "Параметры" tab is now visibly present but greyed
+  out/non-clickable (tests mode genuinely has no parameters — `repeats`
+  only applies to bench); Режим 1 hides that tab entirely. The bottom
+  scenario-button bar (auto-shown run_again/toggle_theme/switch_section
+  when nothing is selected) is removed app-wide — the command palette and
+  the detail panel's action cards are unaffected. `grade_benchmark(reference=...)`
+  and `_apply_reference_ranking()` from the previous entry stay in the
+  code and under test, just unused by the frontend for now.
+
 ### Fixed
 - Glossary exception-name detector (`_last_exception_name`) reduced false
   positives: plain text lines that happened to look like a capitalized

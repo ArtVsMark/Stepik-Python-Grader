@@ -45,8 +45,8 @@
         <h1 class="page-title">Проверка решений</h1>
         <div class="page-actions">
           <div class="mode-row" role="group" aria-label="Режим проверки">
-            <button class="mode-btn" data-mode="compare" aria-pressed="false">Режим 1<br><span class="mode-btn-sub">Сравнение</span></button>
-            <button class="mode-btn active" data-mode="tests" aria-pressed="true">Режим 2<br><span class="mode-btn-sub">Тесты</span></button>
+            <button class="mode-btn" data-mode="file" aria-pressed="false">Режим 1<br><span class="mode-btn-sub">Один файл</span></button>
+            <button class="mode-btn active" data-mode="tests" aria-pressed="true">Режим 2<br><span class="mode-btn-sub">Папка</span></button>
             <button class="mode-btn" data-mode="bench" aria-pressed="false">Режим 3<br><span class="mode-btn-sub">Bench</span></button>
             <button class="mode-btn disabled" data-mode="microbench" aria-disabled="true" title="Скоро — issue #187">Режим 4<br><span class="mode-btn-sub">Microbench</span></button>
           </div>
@@ -62,7 +62,7 @@
             <span class="panel-title">Конфигурация</span>
             <div class="panel-tabs" role="tablist">
               <button class="panel-tab active" data-conftab="path" role="tab" aria-selected="true">Путь</button>
-              <button class="panel-tab" data-conftab="params" role="tab" aria-selected="false">Параметры</button>
+              <button class="panel-tab" data-conftab="params" role="tab" aria-selected="false" aria-disabled="false">Параметры</button>
             </div>
           </div>
 
@@ -72,9 +72,14 @@
               <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__"
                      placeholder="Путь к файлу решения (.py) или папке с решениями">
             </div>
-            <div class="form-group" id="ref-input-group" hidden>
-              <label class="form-label" for="ref-input">Эталонное решение (опционально)</label>
-              <input class="form-input" id="ref-input" type="text" placeholder="task3_1.py">
+            <div id="file-picker-group" hidden>
+              <div class="row" style="margin-bottom:var(--space-3)">
+                <button id="find-solutions-btn" class="btn btn-secondary" type="button">Найти решения</button>
+                <button id="find-reference-btn" class="btn btn-secondary" type="button" disabled
+                        title="Скоро — issue #55">Найти эталонное решение</button>
+              </div>
+              <ul id="solutions-list" class="side-list"></ul>
+              <div id="selected-source-block"></div>
             </div>
             <div class="hint">Enter или «Запустить». Клик по тест-кейсу — раскрыть разбор во вкладке «Детали».</div>
 
@@ -132,7 +137,6 @@
           <div class="panel-body no-pad" id="restab-table">
             <div id="bar" class="bar" style="padding:var(--space-3) var(--space-4) 0"></div>
             <div id="out"></div>
-            <div id="scenario-buttons" class="scenario-buttons" style="padding:0 var(--space-4) var(--space-4)"></div>
           </div>
 
           <div class="panel-body" id="restab-detail" hidden>

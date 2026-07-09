@@ -19,6 +19,8 @@ from stepik_grader.web.viewmodels import (
     _case_view,  # noqa: F401 — re-exported for test back-compat (tests/test_glossary.py)
     grade_benchmark,
     grade_path,
+    list_solutions,
+    read_source,
 )
 
-__all__ = ["grade_benchmark", "grade_path", "run_server"]
+__all__ = ["grade_benchmark", "grade_path", "list_solutions", "read_source", "run_server"]
