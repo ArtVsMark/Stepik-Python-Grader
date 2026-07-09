@@ -30,6 +30,7 @@ from stepik_grader.web.viewmodels import (
     grade_path,
     list_solutions,
     read_source,
+    save_solution,
 )
 
 __all__ = ["run_server"]
@@ -61,6 +62,10 @@ class _Handler(BaseHTTPRequestHandler):
     файла для показа кода перед запуском).
     Плюс (issue #186): POST /api/download — тело JSON {"url","root"?} — раздел
     «Загрузчик задач», тонкий адаптер над ``downloader_adapter.download_task``.
+    Плюс (доделка #125): POST /api/save-solution — тело JSON
+    {"folder","path"?,"code"} — сохранить код из редактируемого окна на
+    диск (в ``path``, если выбран, иначе — новый файл по маске в ``folder``)
+    перед грейдингом в режиме 1.
     """
 
     def do_GET(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
@@ -134,7 +139,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
         parsed = urlparse(self.path)
-        if parsed.path != "/api/download":
+        if parsed.path not in ("/api/download", "/api/save-solution"):
             self._send(404, "text/plain; charset=utf-8", b"not found")
             return
         try:
@@ -144,7 +149,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(
                 400,
                 "application/json; charset=utf-8",
-                _json({"ok": False, "message": "Тело запроса должно быть JSON с полем url."}),
+                _json({"ok": False, "message": "Тело запроса должно быть валидным JSON."}),
             )
             return
         if not isinstance(body, dict):
@@ -154,16 +159,36 @@ class _Handler(BaseHTTPRequestHandler):
                 _json({"ok": False, "message": "Тело запроса должно быть JSON-объектом."}),
             )
             return
-        url = str(body.get("url") or "").strip()
-        if not url:
-            self._send(
-                400,
-                "application/json; charset=utf-8",
-                _json({"ok": False, "message": "Укажите url."}),
-            )
-            return
-        root = str(body.get("root") or "").strip() or None
-        data = download_task(url, root=root)
+        if parsed.path == "/api/download":
+            url = str(body.get("url") or "").strip()
+            if not url:
+                self._send(
+                    400,
+                    "application/json; charset=utf-8",
+                    _json({"ok": False, "message": "Укажите url."}),
+                )
+                return
+            root = str(body.get("root") or "").strip() or None
+            data = download_task(url, root=root)
+        else:  # /api/save-solution
+            folder = str(body.get("folder") or "").strip()
+            if not folder:
+                self._send(
+                    400,
+                    "application/json; charset=utf-8",
+                    _json({"ok": False, "message": "Укажите папку."}),
+                )
+                return
+            code = body.get("code")
+            if not isinstance(code, str):
+                self._send(
+                    400,
+                    "application/json; charset=utf-8",
+                    _json({"ok": False, "message": "Укажите code (строка)."}),
+                )
+                return
+            path = str(body.get("path") or "").strip() or None
+            data = save_solution(folder, path, code)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _send(self, code: int, ctype: str, body: bytes) -> None:

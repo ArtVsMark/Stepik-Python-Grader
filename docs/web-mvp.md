@@ -35,11 +35,18 @@
 > бенчмарк-сравнение с эталоном («Compare»). По фидбеку владельца
 > **Режим 1 — это аналог CLI-режима 1** (проверка одного файла): пользователь
 > указывает папку, жмёт «Найти решения» (`GET /api/solutions?path=`, тонкий
-> адаптер над `find_all_solution_files`), выбирает один файл из списка,
-> видит его код (`GET /api/source?path=`) и запускает проверку именно этого
-> файла — без какого-либо сравнения/ранжирования. Кнопка «Найти эталонное
-> решение» — задел под #55 (переоткрыт, полуавтоматический импорт
-> закреплённого решения со Stepik JSON), пока `disabled`. **Режим 2** —
+> адаптер над `find_all_solution_files`), выбирает один файл из списка —
+> его код (`GET /api/source?path=`) подгружается в **редактируемое** окно
+> кода (не read-only, доделка #125). Можно также ничего не выбирать и
+> ввести код с нуля. По ▶ код сначала сохраняется на диск
+> (`POST /api/save-solution`) — в выбранный файл, если он был выбран, иначе
+> в новый файл по маске `task<опц.цифры>_<M>.py`
+> (`web/viewmodels.py::_next_solution_filename`, расширяет существующую
+> серию нумерации в папке или начинает с `task_1.py`) — и только потом
+> запускается обычная проверка сохранённого пути, без какого-либо
+> сравнения/ранжирования. Кнопка «Найти эталонное решение» — задел под #55
+> (переоткрыт, полуавтоматический импорт закреплённого решения со Stepik
+> JSON), пока `disabled`, не трогать. **Режим 2** —
 > проверка папки целиком (как раньше), вкладка «Параметры» в нём видна, но
 > серая/некликабельная (параметров у tests-режима реально нет — `repeats`
 > относится только к bench). Нижние сценарные кнопки (auto-показ
@@ -673,6 +680,7 @@ API-контракт (см. [контракты](#контракты-данны�
 |---|---|---|
 | ✅ `GET /api/grade?path=&mode=` | `ResultViewModel` + расширенные ErrorCard-поля на `cases[]` (`mode=microbench&number=` — реализовано, #187) | `web/viewmodels.py` → grader_core |
 | ✅ `POST /api/download` | `DownloadedTask` (по `DownloaderRequest`) | `web/downloader_adapter.py` → downloader → core |
+| ✅ `POST /api/save-solution` | `{"ok","path"}`/`{"ok":false,"message"}` — сохранить код редактора на диск (доделка #125) | `web/viewmodels.py::save_solution` |
 | ✅ `GET /api/glossary?q=` | `GlossaryCard[]` (поиск; пустой `q` — все карточки) | `web/glossary_adapter.py` → GlossaryProvider/fallback |
 | ✅ `GET /api/glossary/{id}` | `GlossaryCard` или 404 | `web/glossary_adapter.py` → GlossaryProvider/fallback |
 | ✅ `GET /api/glossary/missing` | `GlossaryMissingEntry[]` (очередь пополнения, J7) | `web/glossary_adapter.py` → store |

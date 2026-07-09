@@ -317,6 +317,7 @@ a, button, [role="button"] {
 .form-input::placeholder { color: var(--color-text-faint); }
 .form-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px oklch(from var(--color-primary) l c h / 0.18); }
 select.form-input { cursor: pointer; }
+.code-editor { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7; min-height: 240px; resize: vertical; }
 
 .mode-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .mode-btn {

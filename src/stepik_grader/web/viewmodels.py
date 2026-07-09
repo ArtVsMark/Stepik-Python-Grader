@@ -10,6 +10,8 @@
 from __future__ import annotations
 
 import pathlib
+import re
+from collections import Counter
 from typing import Any
 
 from stepik_grader.config import CONFIG
@@ -26,6 +28,7 @@ from stepik_grader.core.reporter import fmt_time
 from stepik_grader.core.test_loader import (
     collect_grouped_files,
     find_all_solution_files,
+    is_solution_file,
     load_test_cases,
     resolve_test_dir,
 )
@@ -41,7 +44,16 @@ from stepik_grader.glossary.json_provider import (
 # «Модель error cards»).
 _FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
 
-__all__ = ["grade_benchmark", "grade_microbench", "grade_path", "list_solutions", "read_source"]
+__all__ = [
+    "grade_benchmark",
+    "grade_microbench",
+    "grade_path",
+    "list_solutions",
+    "read_source",
+    "save_solution",
+]
+
+_TASK_NUM_RE = re.compile(r"^(task\d*)_(\d+)\.py$")
 
 
 def _rel(path: str, base: str) -> str:
@@ -247,6 +259,51 @@ def read_source(path: str) -> dict[str, Any]:
     except OSError as exc:
         return {"kind": "error", "message": f"Не удалось прочитать файл: {exc}"}
     return {"kind": "file", "path": str(p), "source": source}
+
+
+def _next_solution_filename(folder: pathlib.Path) -> str:
+    """Следующее свободное имя файла-решения в прямых детях ``folder``.
+
+    Не рекурсивно — режим 1 сохраняет ровно в показанную пользователем
+    папку, без попытки угадать вложенную подпапку (issue #125-fix). Маска
+    та же, что у ``is_solution_file``/downloader (``task<опц.цифры>_<M>.py``):
+    если в папке уже есть ``task4_1.py``/``task4_2.py`` — расширяет ту же
+    серию (``task4_3.py``), а не начинает ``task_1.py`` с нуля.
+    """
+    matches = [
+        _TASK_NUM_RE.match(f.name)
+        for f in folder.iterdir()
+        if f.is_file() and is_solution_file(f.name)
+    ]
+    numbered = [m for m in matches if m]
+    if not numbered:
+        return "task_1.py"
+    prefix = Counter(m.group(1) for m in numbered).most_common(1)[0][0]
+    max_n = max(int(m.group(2)) for m in numbered if m.group(1) == prefix)
+    return f"{prefix}_{max_n + 1}.py"
+
+
+def save_solution(folder: str, path: str | None, code: str) -> dict[str, Any]:
+    """Сохранить код решения на диск — редактируемое окно кода в режиме 1.
+
+    ``path`` — существующий выбранный файл (перезаписывается) или
+    ``None``/пусто — создаётся новый файл в ``folder`` по маске
+    (``_next_solution_filename``). Возвращает ``{"ok": True, "path": ...}``
+    или ``{"ok": False, "message": ...}`` — тот же контракт, что у
+    ``download_task`` (issue #186); любой ``OSError`` при записи
+    (несуществующая подпапка, права доступа) — graceful, не пробрасывается.
+    """
+    folder_p = pathlib.Path(folder).expanduser()
+    if not folder_p.is_dir():
+        return {"ok": False, "message": f"Папка не найдена: {folder}"}
+    target = (
+        pathlib.Path(path).expanduser() if path else folder_p / _next_solution_filename(folder_p)
+    )
+    try:
+        target.write_text(code, encoding=CONFIG.encoding)
+    except OSError as exc:
+        return {"ok": False, "message": f"Не удалось сохранить файл: {exc}"}
+    return {"ok": True, "path": str(target)}
 
 
 def grade_path(path: str, *, missing_queue_path: str | None = None) -> dict[str, Any]:

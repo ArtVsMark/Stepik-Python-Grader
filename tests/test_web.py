@@ -463,6 +463,44 @@ class TestReadSource:
         assert data["kind"] == "error"
 
 
+class TestSaveSolution:
+    def test_overwrites_existing_file(self, tmp_path: pathlib.Path) -> None:
+        sol = tmp_path / "task_1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        data = web.save_solution(str(tmp_path), str(sol), "print(2)\n")
+        assert data["ok"] is True
+        assert data["path"] == str(sol)
+        assert sol.read_text(encoding="utf-8") == "print(2)\n"
+
+    def test_no_path_creates_task_1_in_empty_folder(self, tmp_path: pathlib.Path) -> None:
+        data = web.save_solution(str(tmp_path), None, "print('hi')\n")
+        assert data["ok"] is True
+        assert data["path"] == str(tmp_path / "task_1.py")
+        assert (tmp_path / "task_1.py").read_text(encoding="utf-8") == "print('hi')\n"
+
+    def test_no_path_extends_bare_task_series(self, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "task_1.py").write_text("print(1)\n", encoding="utf-8")
+        data = web.save_solution(str(tmp_path), None, "print(2)\n")
+        assert data["path"] == str(tmp_path / "task_2.py")
+
+    def test_no_path_extends_downloader_style_series(self, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "task4_1.py").write_text("print(1)\n", encoding="utf-8")
+        (tmp_path / "task4_2.py").write_text("print(2)\n", encoding="utf-8")
+        data = web.save_solution(str(tmp_path), None, "print(3)\n")
+        assert data["path"] == str(tmp_path / "task4_3.py")
+
+    def test_folder_not_found_is_error(self, tmp_path: pathlib.Path) -> None:
+        data = web.save_solution(str(tmp_path / "nope"), None, "print(1)\n")
+        assert data["ok"] is False
+        assert "message" in data
+
+    def test_write_failure_does_not_raise(self, tmp_path: pathlib.Path) -> None:
+        bad_path = tmp_path / "no_such_subdir" / "task_1.py"
+        data = web.save_solution(str(tmp_path), str(bad_path), "print(1)\n")
+        assert data["ok"] is False
+        assert "message" in data
+
+
 # ---------------------------------------------------------------------------
 # HTTP-хендлер (интеграционно: реальный сервер на эфемерном порту)
 # ---------------------------------------------------------------------------
@@ -589,6 +627,40 @@ class TestHttpHandler:
         status, body = _get(server + "/api/source")
         assert status == 200
         assert json.loads(body)["kind"] == "error"
+
+    # -- POST /api/save-solution (окно ввода кода, доделка #125) --------------
+
+    def test_api_save_solution_creates_new_file(self, server: str, tmp_path: pathlib.Path) -> None:
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps({"folder": str(tmp_path), "code": "print(1)\n"}).encode("utf-8"),
+        )
+        assert status == 200
+        data = json.loads(body)
+        assert data["ok"] is True
+        assert data["path"] == str(tmp_path / "task_1.py")
+        assert (tmp_path / "task_1.py").read_text(encoding="utf-8") == "print(1)\n"
+
+    def test_api_save_solution_missing_folder_is_400(self, server: str) -> None:
+        status, body = _post(
+            server + "/api/save-solution", json.dumps({"code": "print(1)\n"}).encode("utf-8")
+        )
+        assert status == 400
+        assert json.loads(body)["ok"] is False
+
+    def test_api_save_solution_invalid_json_is_400(self, server: str) -> None:
+        status, _ = _post(server + "/api/save-solution", b"not json")
+        assert status == 400
+
+
+def _post(url: str, body: bytes) -> tuple[int, bytes]:
+    req = urllib.request.Request(url, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read()
 
 
 # ---------------------------------------------------------------------------
