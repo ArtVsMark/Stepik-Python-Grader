@@ -101,7 +101,24 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 
 ---
 
-## #129 — тесты web MVP (user journeys)
+## #129 — тесты web MVP (user journeys) — ✅ закрыт
+
+> **Статус: закрыт.** J1-J5/J7, просмотр карточки глоссария и command
+> registry уже были покрыты `tests/test_web.py`/`tests/test_web_glossary.py`/
+> `tests/test_web_downloader.py`; J6 (микробенч) добавлен вместе с #187.
+> Комментарий к issue после PR #185 явно требовал не закрывать #129 по
+> одному только исходному чек-листу — новый `tests/test_web_journeys.py`
+> закрывает разрыв между независимо протестированными адаптерами тремя
+> сквозными цепочками: Downloader→grade (скачанный `download_task()`-путь
+> реально грейдится `grade_path()`), error-card→glossary (`glossary_ids`
+> RE-кейса резолвятся в реальную карточку через `glossary_adapter`/HTTP, а
+> не в 404) и missing-queue→adapter (запись, поставленная в очередь
+> `grade_path(missing_queue_path=...)`, видна через тот же
+> `glossary_adapter.glossary_missing()`, что дёргает
+> `GET /api/glossary/missing`, а не только через низкоуровневый
+> `json_provider`). Command-palette keyboard flows (Ctrl+K/стрелки/Enter/
+> Escape) проверены вручную через запущенный сервер — не JS-тестами (нет
+> test runner, non-goal ниже), тот же компромисс, что и в #125.
 
 **Scope (по критериям #129 и § User journeys в web-mvp.md).**
 - Покрыть основные сценарии веб-оболочки:
@@ -174,8 +191,7 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 
 `#126` (glossary foundation) закрыт, включая доводку `#190`/`#191`; `#199`
 (DAG-документация для glossary coverage) тоже закрыт. `#125` (workspace
-проверки решений), `#186` (Downloader web) и `#187` (микро-бенчмарк web) —
-**закрыты**, реализация в `src/stepik_grader/web/`. Остаётся: `#129`
-(тесты) — все журналы J0–J7 теперь реализуемы (J1–J5/J7 уже покрыты
-тестами из #125). Эпик #123 остаётся открытым до закрытия #129;
-дизайн-часть уже закрыта документом [web-mvp.md](web-mvp.md).
+проверки решений), `#186` (Downloader web), `#187` (микро-бенчмарк web) и
+`#129` (тесты web MVP) — **все закрыты**, реализация в
+`src/stepik_grader/web/` и `tests/test_web*.py`. **Эпик #123 закрыт**;
+дизайн-часть зафиксирована документом [web-mvp.md](web-mvp.md).
