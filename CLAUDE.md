@@ -219,9 +219,8 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 ## 🎯 Открытая работа (указатели)
 
 Реализационные задачи, готовые для будущего Claude — в
-[`docs/claude-handoff.md`](docs/claude-handoff.md):
-
-- **#191** — снижение false-positive детектора глоссария (`MissingConceptDetector`).
+[`docs/claude-handoff.md`](docs/claude-handoff.md). Открытых пунктов этого
+списка сейчас нет — актуальный список открытых issue см. `gh issue list`.
 
 > **#199 (регистрация модулей glossary coverage в DAG/архитектуре) — закрыт.**
 > `stdlib_inventory.py`/`coverage.py` описаны в
@@ -233,11 +232,16 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 > [docs/web-mvp.md](docs/web-mvp.md) и
 > [docs/claude-handoff.md](docs/claude-handoff.md).
 
-**Дизайн-указатели (спроектировано, реализация — отдельные issue):**
-server mode ([docs/server-mode.md](docs/server-mode.md) + ADR-0001): Runner-слой
-**#140**, API удалённого исполнения **#156**, sandbox-требования **#157**;
-контракт результата **#116** ([docs/result-contract.md](docs/result-contract.md));
-диагностическое логирование **#150** ([docs/logging.md](docs/logging.md)).
+**Дизайн-указатели** (server mode, [docs/server-mode.md](docs/server-mode.md) +
+ADR-0001): Runner-слой **#140** и контракт результата **#116**
+([docs/result-contract.md](docs/result-contract.md)) — оба закрыты и уже
+реализованы (`core/runner.py`, `core/result.py`), не переизобретать. API
+удалённого исполнения **#156** и sandbox-требования **#157** закрыты как
+дизайн — сам сервер/sandbox не реализованы, отдельных implementation-issue
+пока нет. Диагностическое логирование **#150** ([docs/logging.md](docs/logging.md))
+закрыт как докс-задача внутри эпика **#146** (реализация в
+`stepik_client`/`oauth_flow`/`downloader` — открытые дочерние **#147**/
+**#148**/**#149**).
 
 > **#126 (`JsonGlossaryProvider`) и эпик #161/#163 (`--version` dev vs release) —
 > закрыты.** Foundation локального глоссария и вся цепочка source-driven
@@ -287,7 +291,7 @@ server mode ([docs/server-mode.md](docs/server-mode.md) + ADR-0001): Runner-сл
 |---|---|
 | Версия | 1.6.0 (stable) |
 | Python | 3.12 / 3.13 / 3.14 |
-| Тестов | 784 |
+| Тестов | 967 |
 | Покрытие | 95% |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
 
