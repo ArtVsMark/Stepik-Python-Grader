@@ -121,6 +121,14 @@ append_missing_entries(".grader_glossary_missing.json", missing)
 падает, вызывающий код решает, показать ошибку или продолжить с пустой базой
 (тот же принцип graceful degradation, что у кэша #56).
 
+Веб-слой (issue #125, `src/stepik_grader/web/glossary_adapter.py`) конфигурирует
+путь к store и очереди через `GraderConfig` (`config.py`):
+`glossary_store` (`str | None`, по умолчанию `None` — тогда `/api/glossary*`
+отдаёт fallback-контент из компактного `core/glossary.py`) и
+`glossary_missing_queue` (по умолчанию `.grader_glossary_missing.json`,
+относительно корня проекта, в `.gitignore` — тот же паттерн, что выше в этом
+примере). Оба переопределяются через `[tool.stepik-grader]` в `pyproject.toml`.
+
 ## Инвентарь официального Python/stdlib (`stdlib_inventory`, issue #196)
 
 Source-driven сторона покрытия (см. § Источники истины выше): офлайн-снимок
