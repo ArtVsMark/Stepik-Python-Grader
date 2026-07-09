@@ -1,0 +1,36 @@
+/* app.css — стили веб-интерфейса грейдера (issue #58, эпик #80 Tier 1; issue #125). */
+:root { color-scheme: light dark; --ok:#1a7f37; --warn:#9a6700; --fail:#cf222e; --bd:#8884; }
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; margin: 0; padding: 1.5rem;
+       max-width: 1000px; margin-inline: auto; line-height: 1.5; }
+h1 { font-size: 1.3rem; margin: 0 0 1rem; }
+.row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+input[type=text] { flex: 1; min-width: 240px; padding: .55rem .7rem;
+       border: 1px solid var(--bd); border-radius: 8px; font-size: 1rem;
+       background: transparent; color: inherit; }
+select { padding: .5rem; border-radius: 8px; border: 1px solid var(--bd);
+       background: transparent; color: inherit; }
+button { padding: .55rem 1.1rem; border: 0; border-radius: 8px; cursor: pointer;
+       font-size: 1rem; background: #2563eb; color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+.seg { display: inline-flex; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
+.seg button { background: transparent; color: inherit; border-radius: 0; padding: .45rem .9rem; }
+.seg button.active { background: #2563eb; color: #fff; }
+.hint { color: #8888; font-size: .85rem; margin: .4rem 0 1rem; }
+.bar { margin: 1rem 0 .3rem; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; margin-top: .4rem; }
+th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--bd); }
+th { font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; opacity: .7; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.badge { font-weight: 600; }
+.OK, .SIMILAR { color: var(--ok); } .SLOWER { color: var(--warn); }
+.FAIL, .RE, .ERR, .MUCH_SLOWER { color: var(--fail); }
+.file { cursor: pointer; } .file:hover { text-decoration: underline; }
+pre { background: #8881; padding: .6rem; border-radius: 6px; overflow-x: auto;
+      font-size: .85rem; margin: .3rem 0; }
+.msg { color: var(--fail); margin-top: 1rem; }
+.caserow td { border-bottom: 0; padding-top: 0; }
+.errcard { margin: .4rem 0; padding: .5rem .7rem; border-left: 3px solid var(--warn);
+      background: #eab30818; border-radius: 4px; font-size: .9rem; }
+.errcard-ex { font-weight: 600; }
+.errcard a { color: #2563eb; }

@@ -174,6 +174,20 @@ class TestHttpHandler:
             _get(server + "/nope")
         assert exc.value.code == 404
 
+    # -- static routes (issue #125 — JS/CSS extracted from _INDEX_HTML) ------
+
+    def test_static_app_css_served(self, server: str) -> None:
+        with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:  # noqa: S310
+            assert resp.status == 200
+            assert "text/css" in resp.headers["Content-Type"]
+            assert b":root" in resp.read()
+
+    def test_static_app_js_served(self, server: str) -> None:
+        with urllib.request.urlopen(server + "/static/app.js", timeout=5) as resp:  # noqa: S310
+            assert resp.status == 200
+            assert "javascript" in resp.headers["Content-Type"]
+            assert b"function grade" in resp.read()
+
 
 # ---------------------------------------------------------------------------
 # Client-side esc() — HTML-attribute hardening (issue #214)
@@ -183,12 +197,16 @@ class TestHttpHandler:
 # source-level regression checks: they pin down the escape table/regex that
 # errorCard() relies on when inserting glossary.url into href="...". A quote
 # character reaching that attribute unescaped would let it be broken out of.
+#
+# issue #125: the JS moved from an inline <script> in _INDEX_HTML to its own
+# static/app.js file (re-exported as web._APP_JS) — these regressions now grep
+# that instead.
 
 
 def _ht_table_source() -> str:
-    start = web._INDEX_HTML.index("const HT = {")
-    end = web._INDEX_HTML.index("};", start)
-    return web._INDEX_HTML[start:end]
+    start = web._APP_JS.index("const HT = {")
+    end = web._APP_JS.index("};", start)
+    return web._APP_JS[start:end]
 
 
 def test_client_esc_table_covers_html_and_attribute_special_chars() -> None:
@@ -200,10 +218,10 @@ def test_client_esc_table_covers_html_and_attribute_special_chars() -> None:
 def test_client_esc_regex_includes_quote_chars() -> None:
     # The replace() char class must include both quote characters, or esc()
     # would keep stripping only &/</> and leave href="...' open to breakout.
-    assert "replace(/[&<>\"']/g" in web._INDEX_HTML
+    assert "replace(/[&<>\"']/g" in web._APP_JS
 
 
 def test_error_card_url_field_is_passed_through_esc() -> None:
     # errorCard() must run g.url through esc() before inserting it into
     # href="..." -- if a future edit inlines g.url directly, this fails.
-    assert r'href="' + "'" + " + esc(g.url) + " + "'" + '"' in web._INDEX_HTML
+    assert r'href="' + "'" + " + esc(g.url) + " + "'" + '"' in web._APP_JS

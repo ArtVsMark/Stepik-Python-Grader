@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stepik Python Grader</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<h1>🐍 Stepik Python Grader</h1>
+<div class="row" style="margin-bottom:.6rem">
+  <span class="seg">
+    <button id="m-tests" class="active" data-mode="tests">Корректность</button>
+    <button id="m-bench" data-mode="bench">Бенчмарк</button>
+  </span>
+  <select id="repeats" style="display:none" title="Повторов на тест-кейс">
+    <option value="5">низкий · 5</option>
+    <option value="15" selected>средний · 15</option>
+    <option value="50">высокий · 50</option>
+  </select>
+</div>
+<div class="row">
+  <input id="path" type="text" value="__DEFAULT_PATH__"
+         placeholder="Путь к файлу решения (.py) или папке с решениями">
+  <button id="run">Проверить</button>
+</div>
+<div class="hint">Локально, только на этой машине. Enter или «Проверить» — запустить.
+  Клик по имени файла (в режиме корректности) — раскрыть тест-кейсы и diff.</div>
+<div id="bar" class="bar"></div>
+<div id="out"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
