@@ -35,13 +35,10 @@ Roadmap (issue #54):
 from __future__ import annotations
 
 import argparse
-import csv
 import importlib.metadata
-import io
 import os
 import pathlib
 from collections.abc import Callable
-from typing import Any
 
 # issue #120: mode handlers — вынесены в leaf-модуль cli/commands.py; получают
 # зависимости через CliContext (cli/context.py), а не читают module globals
@@ -56,6 +53,17 @@ from stepik_grader.cli.options import (
     _force_utf8_stdio,
     _resolve_use_cache,
     _resolve_verbosity,
+)
+
+# issue #121 Phase 1: pure rendering helpers — вынесены в leaf-модуль
+# cli/rendering.py, реэкспортированы здесь для backward compatibility фасада.
+# _rows_to_csv/_rows_to_markdown не используются напрямую в этом файле (только
+# внутри rendering.py собственным _print_tabular) — реэкспорт нужен только для
+# facade-доступа (cli._rows_to_csv), которым пользуются тесты.
+from stepik_grader.cli.rendering import (  # noqa: F401
+    _print_tabular,
+    _rows_to_csv,
+    _rows_to_markdown,
 )
 from stepik_grader.core.cache import GraderCache
 from stepik_grader.core.grader_core import (
@@ -319,43 +327,6 @@ def _t(key: str, /, **kwargs: object) -> str:
     """
     template = _LOCALE_MESSAGES.get(_LANG, {}).get(key) or _MESSAGES[key][_LANG]
     return template.format(**kwargs) if kwargs else template
-
-
-# ---------------------------------------------------------------------------
-# Табличный вывод: csv/markdown (issues #53, #58)
-# ---------------------------------------------------------------------------
-
-
-def _rows_to_csv(rows: list[dict[str, Any]], fieldnames: list[str]) -> str:
-    """Отрендерить список flat-словарей в CSV-строку (заголовок + строки).
-
-    Отсутствующие в конкретной строке ключи (например, "error" у успешных
-    бенчмарк-строк) печатаются как пустая ячейка -- extrasaction="ignore"
-    отбрасывает лишние ключи, не входящие в fieldnames.
-    """
-    buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore", restval="")
-    writer.writeheader()
-    writer.writerows(rows)
-    return buf.getvalue()
-
-
-def _rows_to_markdown(rows: list[dict[str, Any]], fieldnames: list[str]) -> str:
-    """Отрендерить список flat-словарей в Markdown-таблицу."""
-    header = "| " + " | ".join(fieldnames) + " |"
-    separator = "| " + " | ".join("---" for _ in fieldnames) + " |"
-    lines = [header, separator]
-    for row in rows:
-        lines.append("| " + " | ".join(str(row.get(f, "")) for f in fieldnames) + " |")
-    return "\n".join(lines)
-
-
-def _print_tabular(output: str, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
-    """Напечатать rows как csv или markdown (output уже проверен вызывающей стороной)."""
-    if output == "csv":
-        print(_rows_to_csv(rows, fieldnames), end="")
-    else:
-        print(_rows_to_markdown(rows, fieldnames))
 
 
 # ---------------------------------------------------------------------------

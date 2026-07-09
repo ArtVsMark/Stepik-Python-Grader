@@ -12,10 +12,11 @@ Stepik-Python-Grader/
 │       ├── py.typed              # PEP 561 маркер типов (issue #101)
 │       ├── grader.py              # Тонкий фасад обратной совместимости (Sprint 7)
 │       ├── cli/                   # Интерактивное меню (режимы 0-4) + stepik-grader entry point
-│       │   ├── __init__.py        # Compatibility facade + main() (issue #117/#119/#120)
+│       │   ├── __init__.py        # Compatibility facade + main() (issue #117/#119/#120/#121)
 │       │   ├── options.py         # argparse-парсер, --verbose/--cache resolution (leaf, issue #119)
 │       │   ├── context.py         # CliContext — явные зависимости для handlers (leaf, issue #120)
-│       │   └── commands.py        # _run_mode_1..4, _run_tests_maybe_cached (leaf, issue #120)
+│       │   ├── commands.py        # _run_mode_1..4, _run_tests_maybe_cached (leaf, issue #120)
+│       │   └── rendering.py       # csv/markdown table output (leaf, issue #121 Phase 1)
 │       ├── config.py              # GraderConfig, CONFIG — единая конфигурация
 │       ├── web.py                 # Локальный веб-интерфейс (--serve)
 │       ├── ide.py                 # Генерация .vscode/tasks.json (--init-vscode)
