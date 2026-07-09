@@ -4,11 +4,16 @@
 Схема проекта (см. CONTRIBUTING.md §Версионирование, issue #68) — НЕ SemVer:
 
   * MAJOR.MINOR берутся из последнего git-тега вида ``vX.Y.0``;
-  * PATCH = число коммитов после этого тега (``git describe --tags --long``).
+  * PATCH = число коммитов после этого тега, БЕЗ автогенерированных
+    badge-коммитов CI (``chore(ci): update badges [skip ci]``,
+    ``.github/workflows/ci.yml``) — иначе PATCH растёт почти вдвое быстрее
+    реальных изменений: этот коммит бот создаёт отдельно почти на каждый push
+    в main вдобавок к самому merge-коммиту (issue #231).
 
 До первого тега ``git describe`` завершается ошибкой — тогда MAJOR.MINOR
-читаются из ``[project].version`` в pyproject.toml, а PATCH = полное число
-коммитов в истории (монотонный счётчик, разумный fallback уже сейчас).
+читаются из ``[project].version`` в pyproject.toml, а PATCH = число коммитов
+в истории по той же логике исключения (монотонный счётчик, разумный fallback
+уже сейчас).
 
 Запуск::
 
@@ -24,6 +29,10 @@ from pathlib import Path
 __all__ = ["project_version"]
 
 _PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
+
+# issue #231: подстрока commit-сообщения badge-бота (см. модульный докстринг) —
+# --fixed-strings ищет её буквально, без интерпретации как regex.
+_BOT_COMMIT_GREP = "chore(ci): update badges"
 
 
 def _git(*args: str) -> str | None:
@@ -55,18 +64,37 @@ def _major_minor_from_pyproject() -> tuple[str, str]:
     return major, minor
 
 
+def _commits_since(rev_range: str) -> str:
+    """Число «настоящих» коммитов в rev_range, без badge-бота (issue #231).
+
+    --invert-grep --grep=<подстрока> --fixed-strings исключает коммиты,
+    сообщение которых содержит _BOT_COMMIT_GREP буквально (не regex).
+    """
+    return (
+        _git(
+            "rev-list",
+            "--count",
+            rev_range,
+            "--invert-grep",
+            "--grep",
+            _BOT_COMMIT_GREP,
+            "--fixed-strings",
+        )
+        or "0"
+    )
+
+
 def project_version() -> str:
     """Вернуть версию вида '1.2.17' по схеме проекта (см. модульный докстринг)."""
-    described = _git("describe", "--tags", "--long")
-    if described is not None:
-        # vX.Y.0-N-gHASH → MAJOR.MINOR из тега, PATCH = N (коммитов после тега).
-        tag, commits, _ = described.rsplit("-", 2)
+    tag = _git("describe", "--tags", "--abbrev=0")
+    if tag is not None:
         major, minor, _patch = tag.lstrip("v").split(".")
+        commits = _commits_since(f"{tag}..HEAD")
         return f"{major}.{minor}.{commits}"
 
     # Fallback до первого тега: MAJOR.MINOR из pyproject, PATCH = все коммиты.
     major, minor = _major_minor_from_pyproject()
-    commits = _git("rev-list", "--count", "HEAD") or "0"
+    commits = _commits_since("HEAD")
     return f"{major}.{minor}.{commits}"
 
 

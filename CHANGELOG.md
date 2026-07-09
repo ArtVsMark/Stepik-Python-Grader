@@ -9,6 +9,102 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Added
+- Runner Protocol abstraction (epic #136, issues #137-#139): new
+  `core/runner.py` implements `docs/server-mode.md`'s already-designed
+  Runner layer (#140) as real code. `Runner` (runtime-checkable Protocol),
+  `RunSpec`/`RunOutcome` (raw subprocess result, no verdict), and
+  `LocalRunner` (the existing `subprocess.Popen` + best-effort `RLIMIT_AS`
+  + psutil RSS-polling logic, moved verbatim out of `run_single_test`).
+  `grader_core.run_single_test()` now builds a `RunSpec` and delegates to
+  `_RUNNER.run(spec)`; verdict/diff computation stays in `grader_core.py`.
+  No behavior change — sets up a future `SandboxRunner` (#157) behind the
+  same interface.
+- Lazy `CONFIG` + JSON-locale i18n foundation (epic #141, issues
+  #142-#145): `stepik_grader.config` no longer reads `pyproject.toml` as
+  an import-time side effect — a module `__getattr__` (PEP 562) +
+  cached `get_config()` defer the read to first access to `.CONFIG`, with
+  every existing `from stepik_grader.config import CONFIG` call site
+  unaffected. `load_config()` filters overrides via
+  `dataclasses.fields(GraderConfig)` instead of the private
+  `__dataclass_fields__` dunder. New `core/i18n.py` +
+  `core/locales/{ru,en}.json`: an additive JSON-locale loader sitting in
+  front of `cli.py`'s static `_MESSAGES` dict — `_t()` checks the JSON
+  locale first, falling back to `_MESSAGES`; empty locale files today
+  keep behavior byte-identical.
+- Stepik client retry/backoff (epic #108, issues #109-#111):
+  `make_session()` mounts an `HTTPAdapter` with a `urllib3.Retry` on
+  http/https, so 429 (rate limit) and transient 5xx (500/502/503/504) are
+  retried with exponential backoff (respecting `Retry-After`) for every
+  request through the session, not just the call sites that already used
+  `_get_with_retry()`. 4xx other than 429 still isn't retried.
+- `TestResult` dataclass + `Verdict` Literal (epic #112, issues
+  #113-#115): new leaf module `core/result.py` matching
+  `docs/result-contract.md`'s case-result fields; `from_dict()`/
+  `to_dict()` round-trip the same dict shape `run_single_test()` has
+  always returned, so the public dict contract (CLI JSON, `run_tests()`/
+  `run_benchmark()`, `/api/grade`) is unchanged.
+  `core/reporter.print_case_verbose` now reads typed attributes instead
+  of ad-hoc `dict.get()` calls with inline defaults; output is
+  byte-identical.
+
+### Fixed
+- Glossary exception-name detector (`_last_exception_name`) reduced false
+  positives: plain text lines that happened to look like a capitalized
+  identifier (e.g. an `exc.add_note()` note) were being reported as
+  exception names. `_looks_like_exception_name()` now requires the
+  `Error`/`Exception`/`Warning` naming convention or membership in the
+  small set of builtins that don't follow it (issue #191).
+- Web UI client-side `esc()` escaped `&`/`<`/`>` for text context but not
+  quotes, so a value landing inside an HTML attribute (`errorCard()`'s
+  `href="..."`) could still break out of it. Not exploitable today
+  (`g.url` is server-controlled), but hardened ahead of more action/error
+  cards being added the same way (issue #214).
+- `scripts/version.py`'s logical `X.Y.Z` version (README `Version` badge)
+  no longer double-counts CI's own `chore(ci): update badges [skip ci]`
+  bot commits toward PATCH — it excludes them via `git rev-list
+  --invert-grep` instead of `git describe --tags --long`'s raw commit
+  count (issue #231).
+
+### Refactored
+- `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).
+  `stepik_grader.cli` (`__init__.py`) stays the compatibility facade —
+  `main()`, mode-handler/interactive-menu wrapper functions, and mutable
+  i18n state (`_LANG`/`_MESSAGES`/`_LOCALE_MESSAGES`/`_t`, deliberately kept
+  in place since `main()` mutates `_LANG` at runtime and moving it would
+  turn the facade re-export into a stale snapshot). Four new leaf modules
+  hold the actual logic, none importing `stepik_grader.cli`:
+  `cli/options.py` (argparse parsing, #119); `cli/commands.py` +
+  `cli/context.py` (mode handlers behind an explicit `CliContext`
+  dependency-injection object, #120); `cli/rendering.py` (csv/markdown
+  table output, #121 Phase 1); `cli/interactive.py` (menu/prompts,
+  extending `CliContext`, #121 Phase 2). `tests/test_entrypoint.py` adds
+  subprocess-level regression coverage for the `stepik-grader` console
+  script and `python -m stepik_grader[.grader]` (#122). Across all five
+  PRs, essentially no existing test files needed modification — the
+  `CliContext` design was built specifically to keep
+  `monkeypatch.setattr(cli, "...", ...)`-based tests passing unmodified
+  through the move.
+
+### Docs
+- Sandbox limits clarified in `executor.py`'s module/`main()` docstrings —
+  explicitly no OS-sandbox, no FS/network isolation, trusted solutions
+  only (issue #213); Windows limitations of the future
+  `SandboxRunner`/`LocalRunner` documented in `docs/server-mode.md`,
+  completing #140's acceptance criteria. Stale follow-up references
+  cleaned up in `docs/README.md`/`docs/claude-handoff.md`; README
+  `--watch` marked as requiring the `[watch]` extra (issue #215).
+- README line-budget (220 lines) and local Markdown link/anchor
+  guardrails: new `scripts/check_docs_guardrails.py`, wired into CI as a
+  `docs-guardrails` job, documented in CONTRIBUTING.md (issue #173).
+- Architecture/design docs formalized: `glossary/stdlib_inventory.py` +
+  `coverage.py` registered in the DAG (#199); `docs/result-contract.md`
+  for CLI/Web/API case-result fields and verdicts (#116); server-mode
+  design — Runner layer, remote execution API, sandbox requirements
+  (#140/#156/#157) plus ADR-0001 (#152); diagnostic/logging design with
+  secret redaction (#150); Contributor Covenant `CODE_OF_CONDUCT.md`
+  linked from CONTRIBUTING (#204).
+
 ## [1.6.0] - 2026-07-08
 
 ### Added

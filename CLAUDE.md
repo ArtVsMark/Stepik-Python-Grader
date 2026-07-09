@@ -166,6 +166,30 @@ chore(deps): bump psutil upper bound
 UX-полировка вывода `--version` (dev vs release маркер) — задача #163, см.
 [`docs/claude-handoff.md`](docs/claude-handoff.md).
 
+`scripts/version.py`'s "логическая" `X.Y.Z` (README `Version`-бейдж) считает
+PATCH через `git rev-list --invert-grep`, исключая автокоммиты CI
+`chore(ci): update badges [skip ci]` — иначе счётчик рос бы вдвое быстрее
+реальных изменений (issue #231). `setuptools-scm`-версия пакета (`X.Y.0.postN`)
+это не затрагивает — у неё независимая логика без фильтрации по commit message.
+
+---
+
+## 📝 Обновление CHANGELOG.md / docs/history.md — когда
+
+- **`CHANGELOG.md`** (английский) — запись под `## [Unreleased]` в **каждом**
+  смерженном PR, без исключений для "внутренних"/рефакторинговых PR
+  (используйте `### Refactored`/`### Changed`/`### Internal` — прецеденты уже
+  есть в файле). При релизе `[Unreleased]` переименовывается в
+  `[X.Y.0] - ДАТА`, наверх добавляется новый пустой `[Unreleased]`.
+- **`docs/history.md`** (русский) — архивная запись на **каждый релиз**
+  (новый git-тег `vX.Y.0`), не на каждый PR: сводка вошедшего в релиз, в
+  стиле уже существующих записей (`**#NNN (дата):** ...`).
+- **`CHECKPOINT.md`** — обновляется вместе с `docs/history.md`, на каждый
+  релиз (это исторический snapshot, не отслеживает промежуточные PR).
+
+Не откладывать `CHANGELOG.md` "до конца фичи/спринта" — если PR смержен,
+запись нужна сразу этим же PR, а не пост-фактум пачкой.
+
 ---
 
 ## 📚 Источники истины (не дублировать)
@@ -235,7 +259,10 @@ server mode ([docs/server-mode.md](docs/server-mode.md) + ADR-0001): Runner-сл
 [ ] Новые функции: type hints + docstring; новые модули: __all__
 [ ] from __future__ import annotations в начале нового файла
 [ ] Коммит в формате Conventional Commits
-[ ] CHECKPOINT.md/CHANGELOG.md обновлены (если завершена фича/спринт)
+[ ] CHANGELOG.md: добавлена запись под ## [Unreleased] — в КАЖДОМ PR, без
+    исключений для рефакторингов (см. § Обновление CHANGELOG.md/docs/history.md)
+[ ] docs/history.md/CHECKPOINT.md — НЕ на каждый PR, обновляются вместе на
+    релиз (см. ту же секцию)
 [ ] Версия не правится вручную — CI (check_version_consistency.py) сам следит
     за дрейфом (issue #165); достаточно, чтобы CHECKPOINT/CHANGELOG совпадали
     с последним git-тегом
