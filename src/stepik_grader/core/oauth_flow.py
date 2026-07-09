@@ -18,7 +18,10 @@ diagnostic_stepik.py. Источник истины — stepik_client.py.
 from __future__ import annotations
 
 import pathlib
+import time
 from typing import Any
+
+import requests
 
 from stepik_grader.core.stepik_client import (
     authorize_via_browser,
@@ -28,7 +31,7 @@ from stepik_grader.core.stepik_client import (
     token_is_valid,
     wait_for_auth_code,
 )
-from stepik_grader.core.storage import load_json_file, save_json_file
+from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
 
 __all__ = [
     "load_secrets",
@@ -40,6 +43,7 @@ __all__ = [
     "create_user_session",
     "make_session",
     "refresh_access_token",
+    "try_create_session_without_browser",
 ]
 
 _REQUIRED_FIELDS = ("client_id", "client_secret", "redirect_uri")
@@ -80,6 +84,40 @@ def load_secrets(secrets_path: pathlib.Path | str) -> tuple[str, str, str]:
         str(data["client_secret"]).strip(),
         str(data["redirect_uri"]).strip(),
     )
+
+
+def try_create_session_without_browser(
+    secrets: dict[str, Any],
+    secrets_path: pathlib.Path,
+) -> requests.Session | None:
+    """Аутентифицированная ``requests.Session`` БЕЗ похода в браузер (issue #186).
+
+    Реализует только первые 2 приоритета ``create_user_session`` (валидный
+    ``access_token`` / обновление по ``refresh_token``) — третья, browser-ветка
+    (``authorize_via_browser``) сознательно не выполняется: она открывает
+    браузер и блокирует поток до 120с в ожидании колбэка, что недопустимо
+    внутри обработчика HTTP-запроса веб-сервера (issue #186, web-адаптер
+    downloader'а). Возвращает ``None``, если ни валидного токена, ни рабочего
+    refresh_token нет — вызывающая сторона должна показать понятную ошибку и
+    направить на первичную CLI-авторизацию (``python -m stepik_grader.downloader``).
+    """
+    if token_is_valid(secrets):
+        return make_session(str(secrets["access_token"]))
+
+    refresh_token = str(secrets.get("refresh_token", "")).strip()
+    if not refresh_token:
+        return None
+
+    client_id = str(secrets.get("client_id", ""))
+    client_secret = str(secrets.get("client_secret", ""))
+    try:
+        token_data = refresh_access_token(client_id, client_secret, refresh_token)
+    except requests.HTTPError:
+        return None
+    token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
+    secrets.update(token_data)
+    save_secrets(secrets_path, secrets)
+    return make_session(str(secrets["access_token"]))
 
 
 # NOTE: utility, not called in production paths
