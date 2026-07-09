@@ -213,6 +213,9 @@ def run_single_test(
         memory    (float)  — пик памяти в МБ (0 если measure_memory=False)
         error     (str)    — сообщение об ошибке (пустая = нет ошибки)
         timed_out (bool)   — истёк ли таймаут
+        exit_code (int | None) — код возврата процесса решения; None, если
+            процесс не завершился нормально (ошибка запуска/таймаут) —
+            issue #125, ErrorCard.exit_code в web-слое.
     """
     # --- Выбор стратегии запуска ---
     tmp_wrapper: Any = None  # NamedTemporaryFile или None
@@ -241,6 +244,7 @@ def run_single_test(
                     ),
                     "timed_out": False,
                     "verdict": "RE",
+                    "exit_code": None,
                 }
             try:
                 wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
@@ -255,6 +259,7 @@ def run_single_test(
                     "error": str(exc),
                     "timed_out": False,
                     "verdict": "RE",
+                    "exit_code": None,
                 }
         # Записываем wrapper во временный файл; удаляется после запуска
         tmp_wrapper = tempfile.NamedTemporaryFile(
@@ -298,6 +303,7 @@ def run_single_test(
             "error": outcome.launch_error,
             "timed_out": False,
             "verdict": "RE",
+            "exit_code": None,
         }
 
     if outcome.timed_out:
@@ -311,6 +317,7 @@ def run_single_test(
             "error": f"Timeout after {timeout}s",
             "timed_out": True,
             "verdict": "TLE",
+            "exit_code": None,
         }
 
     stdout = outcome.stdout.decode(ENCODING, errors="replace")
@@ -327,6 +334,7 @@ def run_single_test(
             "error": stderr.strip(),
             "timed_out": False,
             "verdict": "RE",
+            "exit_code": outcome.returncode,
         }
 
     actual_lines = [line.rstrip("\n") for line in stdout.splitlines()]
@@ -358,6 +366,7 @@ def run_single_test(
         "error": "",
         "timed_out": False,
         "verdict": "AC" if passed else "WA",
+        "exit_code": outcome.returncode,
     }
 
 

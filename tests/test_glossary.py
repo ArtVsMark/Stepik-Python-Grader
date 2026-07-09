@@ -9,6 +9,7 @@ from __future__ import annotations
 from stepik_grader.core.glossary import (
     GLOSSARY_BASE_URL,
     GlossaryEntry,
+    all_entries,
     lookup,
     lookup_from_error,
 )
@@ -82,6 +83,29 @@ def test_lookup_from_error_no_match_returns_none() -> None:
 def test_lookup_from_error_empty_returns_none() -> None:
     assert lookup_from_error("") is None
     assert lookup_from_error("   \n  \n") is None
+
+
+# ---------------------------------------------------------------------------
+# all_entries — issue #125, fallback-контент раздела «Глоссарий»
+# ---------------------------------------------------------------------------
+
+
+def test_all_entries_returns_every_curated_record() -> None:
+    from stepik_grader.core.glossary import _ENTRIES
+
+    entries = all_entries()
+    assert len(entries) == len(_ENTRIES)
+    assert all(isinstance(e, GlossaryEntry) for e in entries)
+    names = {e.exception for e in entries}
+    assert "RecursionError" in names
+    assert "KeyError" in names
+
+
+def test_all_entries_returns_a_copy_not_the_live_dict_values() -> None:
+    """Mutating the returned list must not affect subsequent calls."""
+    entries = all_entries()
+    entries.clear()
+    assert len(all_entries()) > 0
 
 
 # ---------------------------------------------------------------------------

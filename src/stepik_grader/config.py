@@ -39,6 +39,10 @@ class GraderConfig:
     encoding: str = "utf-8"
     max_memory_mb: int | None = 1024
     use_cache: bool = False  # issue #56 — opt-in кэш результатов (--cache)
+    # issue #125 — локальная база карточек глоссария (None → компактный
+    # core/glossary.py как fallback) и очередь пополнения (MissingConceptDetector).
+    glossary_store: str | None = None
+    glossary_missing_queue: str = ".grader_glossary_missing.json"
 
 
 def load_config() -> GraderConfig:
