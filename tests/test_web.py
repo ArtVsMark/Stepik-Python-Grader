@@ -515,6 +515,16 @@ class TestHttpHandler:
         assert data["mode"] == "bench"
         assert data["rows"][0]["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
 
+    def test_api_grade_microbench_mode(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        q = urllib.parse.urlencode({"path": str(sol), "mode": "microbench", "number": "10"})
+        status, body = _get(server + "/api/grade?" + q)
+        assert status == 200
+        data = json.loads(body)
+        assert data["mode"] == "microbench"
+        assert data["rows"][0]["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
+        assert isinstance(data["rows"][0]["median_us"], float)
+
     def test_api_grade_bench_mode_with_reference(self, server: str, tmp_path: pathlib.Path) -> None:
         _make_bench_pair(tmp_path)
         q = urllib.parse.urlencode(
