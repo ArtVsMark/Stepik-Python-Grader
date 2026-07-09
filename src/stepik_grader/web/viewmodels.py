@@ -27,6 +27,12 @@ from stepik_grader.core.test_loader import (
     load_test_cases,
     resolve_test_dir,
 )
+from stepik_grader.glossary.detector import MissingConceptDetector
+from stepik_grader.glossary.json_provider import (
+    GlossaryError,
+    JsonGlossaryProvider,
+    append_missing_entries,
+)
 
 # Вердикты-"ошибки" (в отличие от AC) — ErrorCard-поля (severity/stderr/
 # suggestions/...) заполняются только для них (issue #125, web-mvp.md §
@@ -90,7 +96,40 @@ def _error_card_actions(
     return actions
 
 
-def _case_view(index: int, case: dict[str, Any], *, stdin: str = "") -> dict[str, Any]:
+def _known_glossary_terms() -> set[str]:
+    """Search-термины настроенной локальной базы (пусто, если store не задан)."""
+    if not CONFIG.glossary_store:
+        return set()
+    try:
+        return JsonGlossaryProvider.load(CONFIG.glossary_store).known_terms()
+    except GlossaryError:
+        return set()
+
+
+def _queue_missing_concept(error_text: str, *, source: str, missing_queue_path: str) -> None:
+    """Best-effort J7: RE с неизвестным исключением → очередь пополнения глоссария.
+
+    Best-effort и defensive (issue #125, как и опциональный кэш #56): плохой/
+    незаписываемый путь к очереди не должен ронять грейдинг.
+    """
+    try:
+        entry = MissingConceptDetector().detect_from_error(
+            error_text, known=_known_glossary_terms(), source=source, verdict="RE"
+        )
+        if entry is not None:
+            append_missing_entries(missing_queue_path, [entry])
+    except (GlossaryError, OSError):
+        pass
+
+
+def _case_view(
+    index: int,
+    case: dict[str, Any],
+    *,
+    stdin: str = "",
+    source: str = "",
+    missing_queue_path: str | None = None,
+) -> dict[str, Any]:
     """Представление одного тест-кейса для UI — ErrorCard для WA/RE/TLE (issue #125)."""
     error = case.get("error", "")
     verdict = case.get("verdict") or ("RE" if error else "?")
@@ -148,15 +187,26 @@ def _case_view(index: int, case: dict[str, Any], *, stdin: str = "") -> dict[str
         view["timeout_s"] = CONFIG.timeout_seconds
     if verdict == "RE":
         view["glossary_ids"] = glossary_ids
+        if not glossary_ids:
+            # Неизвестное исключение — нет карточки в локальной базе (J7).
+            _queue_missing_concept(
+                error,
+                source=source,
+                missing_queue_path=missing_queue_path or CONFIG.glossary_missing_queue,
+            )
 
     return view
 
 
-def grade_path(path: str) -> dict[str, Any]:
+def grade_path(path: str, *, missing_queue_path: str | None = None) -> dict[str, Any]:
     """Прогрейдить файл/папку на корректность (режим 1/2).
 
     Возвращает JSON-совместимый dict: kind ("file"|"dir"|"error"), mode="tests",
     base, rows (по одному решению) либо message при ошибке.
+
+    ``missing_queue_path`` — путь к очереди пополнения глоссария (J7); None →
+    ``CONFIG.glossary_missing_queue`` (issue #125). Параметр в основном для
+    тестов — production-вызовы полагаются на дефолт из конфига.
     """
     resolved = _resolve_solutions(path)
     if isinstance(resolved, dict):
@@ -185,7 +235,13 @@ def grade_path(path: str) -> dict[str, Any]:
                 "avg_time": round(res["avg_time"], 4),
                 "memory_mb": round(res["peak_memory_mb"], 2),
                 "cases": [
-                    _case_view(i, c, stdin="\n".join(tc.input_lines))
+                    _case_view(
+                        i,
+                        c,
+                        stdin="\n".join(tc.input_lines),
+                        source=_rel(sol, base),
+                        missing_queue_path=missing_queue_path,
+                    )
                     for i, (c, tc) in enumerate(zip(res["cases"], test_cases, strict=True), 1)
                 ],
             }

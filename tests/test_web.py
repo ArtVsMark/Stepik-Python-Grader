@@ -89,6 +89,50 @@ class TestGradePath:
         assert case["exit_code"] not in (0, None)
         assert case["stderr"] == case["error"]
 
+    def test_unknown_re_exception_queues_missing_glossary_entry(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """J7 (web-mvp.md): unknown exception in an RE case gets queued for the
+        glossary backlog, since core/glossary.py has no card for it (ValueError
+        IS in the compact glossary, so raise something that isn't)."""
+        from stepik_grader.glossary.json_provider import load_missing_queue
+
+        sol = _make_task(tmp_path, "raise ArithmeticError('unusual')\n")
+        # ArithmeticError itself isn't in core/glossary.py's curated ~28 entries
+        # (only its subclasses ZeroDivisionError/OverflowError/FloatingPointError are).
+        queue_path = tmp_path / "missing.json"
+
+        web.grade_path(str(sol), missing_queue_path=str(queue_path))
+
+        entries = load_missing_queue(queue_path)
+        assert len(entries) == 1
+        assert entries[0].concept == "ArithmeticError"
+        assert entries[0].kind == "exception"
+        assert entries[0].origin == "error"
+        assert entries[0].verdict == "RE"
+
+    def test_known_re_exception_does_not_queue_missing_entry(self, tmp_path: pathlib.Path) -> None:
+        from stepik_grader.glossary.json_provider import load_missing_queue
+
+        sol = _make_task(tmp_path, "raise KeyError('x')\n")  # curated in core/glossary.py
+        queue_path = tmp_path / "missing.json"
+
+        web.grade_path(str(sol), missing_queue_path=str(queue_path))
+
+        assert load_missing_queue(queue_path) == []
+
+    def test_missing_queue_write_failure_does_not_break_grading(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """A bad/unwritable queue path must never break grading (graceful degradation)."""
+        sol = _make_task(tmp_path, "raise ArithmeticError('unusual')\n")
+        # A directory path where a file write must fail — OSError, swallowed.
+        bad_queue_path = tmp_path  # it's a dir, not a file
+
+        data = web.grade_path(str(sol), missing_queue_path=str(bad_queue_path))
+
+        assert data["rows"][0]["cases"][0]["verdict"] == "RE"
+
 
 # ---------------------------------------------------------------------------
 # ErrorCard fields on _case_view — issue #125 (web-mvp.md § Модель error cards)
