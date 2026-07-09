@@ -658,3 +658,176 @@ class TestPickPathViaDialogGraceful:
         # None в sys.modules заставляет `import tkinter` бросить ImportError.
         monkeypatch.setitem(sys.modules, "tkinter", None)
         assert _REAL_PICK_PATH_VIA_DIALOG(want_dir=False) is None
+
+
+# ---------------------------------------------------------------------------
+# Entry-point flags: --clear-cache / --init-vscode / --serve (issue #118)
+#
+# main() возвращает раньше --mode routing для этих трёх флагов, но до сих
+# пор они не были покрыты на уровне cli.main([...]) — только --version и
+# --mode 1-4. Добавлено для Stage 0 (#118) декомпозиции cli.py (#117):
+# фиксирует текущее публичное поведение entrypoint-уровня до того, как эти
+# ветки, возможно, переедут в отдельный commands-модуль (#120).
+# ---------------------------------------------------------------------------
+
+
+class TestEntrypointSideEffectFlags:
+    def test_clear_cache_prints_removed_count_and_exits(self, monkeypatch, capsys) -> None:
+        removed_calls = []
+
+        class _StubCache:
+            def clear(self) -> int:
+                removed_calls.append(True)
+                return 3
+
+        monkeypatch.setattr(cli, "GraderCache", _StubCache)
+        cli.main(["--clear-cache"])
+        out = capsys.readouterr().out
+        assert removed_calls == [True]
+        assert "3" in out
+
+    def test_init_vscode_written_reports_path(self, monkeypatch, capsys, tmp_path) -> None:
+        from stepik_grader import ide
+
+        target = tmp_path / ".vscode" / "tasks.json"
+        monkeypatch.setattr(ide, "write_vscode_tasks", lambda: (True, target))
+        cli.main(["--init-vscode"])
+        out = capsys.readouterr().out
+        assert str(target) in out
+
+    def test_init_vscode_existing_file_reports_warning(self, monkeypatch, capsys, tmp_path) -> None:
+        from stepik_grader import ide
+
+        target = tmp_path / ".vscode" / "tasks.json"
+        monkeypatch.setattr(ide, "write_vscode_tasks", lambda: (False, target))
+        cli.main(["--init-vscode"])
+        out = capsys.readouterr().out
+        assert str(target) in out
+
+    def test_serve_delegates_to_web_run_server_with_port(self, monkeypatch) -> None:
+        from stepik_grader import web
+
+        called = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
+        cli.main(["--serve", "--port", "9090"])
+        assert called == [{"port": 9090}]
+
+    def test_serve_uses_default_port(self, monkeypatch) -> None:
+        from stepik_grader import web
+
+        called = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
+        cli.main(["--serve"])
+        assert called == [{"port": 8000}]
+
+
+# ---------------------------------------------------------------------------
+# Facade namespace contract (issue #117/#118)
+#
+# Каждый monkeypatch.setattr(cli, "_name", ...) в этом файле полагается на
+# то, что main()/_run_mode_N()/_print_tabular() резолвят "_name" как
+# module-global имя cli.py в момент ВЫЗОВА (Python ищет голое имя в globals()
+# охватывающего модуля при каждом обращении — late binding), а не как
+# ссылку, захваченную при импорте. Это единственная причина, по которой
+# monkeypatch вообще работает сегодня.
+#
+# Если будущий safe-extraction PR (#119) перенесёт одну из этих функций в
+# `cli/options.py`/`cli/rendering.py` и вызывающая сторона начнёт обращаться
+# к ней через `from .options import _build_arg_parser` (bound at import
+# time) вместо реэкспорта на facade `cli`, эти тесты первыми покажут
+# расхождение: patch перестанет "долетать" до вызывающей стороны.
+# ---------------------------------------------------------------------------
+
+
+class TestFacadeNamespaceContract:
+    """Регрессия на late-binding резолюцию имён safe-extraction кандидатов.
+
+    Покрывает именно те helpers, которые issue #117 называет safe candidates
+    для первого extraction-PR (#119): _build_arg_parser, _resolve_verbosity,
+    _resolve_use_cache, _rows_to_csv, _rows_to_markdown, _print_tabular.
+    """
+
+    def test_build_arg_parser_called_via_facade(self, monkeypatch) -> None:
+        real = cli._build_arg_parser
+        calls = []
+
+        def _spy():
+            calls.append(True)
+            return real()
+
+        monkeypatch.setattr(cli, "_build_arg_parser", _spy)
+        cli.main(["--version"])
+        assert calls == [True]
+
+    def test_resolve_verbosity_called_via_facade_for_mode_1(self, monkeypatch, tmp_path) -> None:
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        calls = []
+        real = cli._resolve_verbosity
+
+        def _spy(args, *, default):
+            calls.append(default)
+            return real(args, default=default)
+
+        monkeypatch.setattr(cli, "_resolve_verbosity", _spy)
+        monkeypatch.setattr(cli, "_run_mode_1", lambda *a, **k: None)
+        cli.main(["--mode", "1", "--file", str(sol)])
+        assert calls == [True]  # mode 1 default verbosity — True
+
+    def test_resolve_use_cache_called_via_facade_for_mode_2(self, monkeypatch, tmp_path) -> None:
+        calls = []
+        real = cli._resolve_use_cache
+
+        def _spy(args, *, incremental):
+            calls.append(incremental)
+            return real(args, incremental=incremental)
+
+        monkeypatch.setattr(cli, "_resolve_use_cache", _spy)
+        monkeypatch.setattr(cli, "_run_mode_2", lambda *a, **k: None)
+        cli.main(["--mode", "2", "--dir", str(tmp_path)])
+        assert calls == [False]  # mode 2 без --watch: incremental=False
+
+    def test_rows_to_csv_called_via_facade_from_print_tabular(self, monkeypatch) -> None:
+        calls = []
+        real = cli._rows_to_csv
+
+        def _spy(rows, fieldnames):
+            calls.append((rows, fieldnames))
+            return real(rows, fieldnames)
+
+        monkeypatch.setattr(cli, "_rows_to_csv", _spy)
+        cli._print_tabular("csv", [{"a": 1}], ["a"])
+        assert calls == [([{"a": 1}], ["a"])]
+
+    def test_rows_to_markdown_called_via_facade_from_print_tabular(self, monkeypatch) -> None:
+        calls = []
+        real = cli._rows_to_markdown
+
+        def _spy(rows, fieldnames):
+            calls.append((rows, fieldnames))
+            return real(rows, fieldnames)
+
+        monkeypatch.setattr(cli, "_rows_to_markdown", _spy)
+        cli._print_tabular("markdown", [{"a": 1}], ["a"])
+        assert calls == [([{"a": 1}], ["a"])]
+
+    def test_print_tabular_called_via_facade_for_mode_1_csv_output(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "input_1.txt").write_text("4", encoding="utf-8")
+        (tests_dir / "expected_1.txt").write_text("5", encoding="utf-8")
+
+        calls = []
+        real = cli._print_tabular
+
+        def _spy(output, rows, fieldnames):
+            calls.append(output)
+            return real(output, rows, fieldnames)
+
+        monkeypatch.setattr(cli, "_print_tabular", _spy)
+        cli.main(["--mode", "1", "--file", str(sol), "--output", "csv"])
+        assert calls == ["csv"]
