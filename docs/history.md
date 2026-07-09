@@ -234,6 +234,46 @@
 
 ---
 
+## Релиз v1.6.0 (2026-07-08)
+
+- **Эпик #98 — packaging hygiene (PR-1):** явный MIT `LICENSE` в корне +
+  PEP 639 SPDX-метаданные лицензии в `pyproject.toml` (issue #100); PEP 561
+  `py.typed`-маркер для тайпчекеров downstream-потребителей (issue #101).
+  `setuptools>=77` для поддержки SPDX.
+- **Эпик #102 — документация (PR-2):** README сведён к лаконичной витрине,
+  тяжёлые технические разделы вынесены в `docs/` — `architecture.md` (DAG +
+  слои, #105), `project-structure.md` (дерево файлов, #104), `versions.md`
+  (сравнение релизов, #106). CONTRIBUTING получил правило «README —
+  витрина, docs/ — база знаний» (#107).
+- **Эпик #123 — локальный глоссарий:**
+  - **#126:** foundation `stepik_grader.glossary` — `GlossaryCard`/
+    `GlossaryMissingEntry`, `JsonGlossaryProvider`, `MissingConceptDetector`
+    (консервативный AST-детектор пропущенных концепций, не исполняет код).
+  - **#194/#200:** зафиксирован инвариант источников истины — внутренняя
+    база грейдера полнота контента, официальный Python/stdlib — полнота
+    покрытия, внешний Glossary-Python — только витрина экспорта, никогда
+    не эталон.
+  - **#195–#198:** source-driven покрытие. `GlossaryMissingEntry` получил
+    `origin`/`module`/`qualname`; leaf-модуль `stdlib_inventory.py` —
+    офлайн-инвентарь builtins/exceptions/stdlib без сети и исполнения кода;
+    `coverage.py` сопоставляет инвентарь с локальной базой карточек, CLI
+    `python -m stepik_grader.glossary.coverage`.
+- **Эпик #161/#163:** `--version` различает dev-сборки и релизы — вне тега
+  добавляется суффикс `(dev build, not a release)` к строке
+  `setuptools-scm`, на теге вывод не меняется.
+- **Живые README-бейджи:** `scripts/generate_coverage_badge.py`/
+  `generate_version_badge.py` пишут shields.io endpoint-JSON из реального
+  `pytest --cov` и логической версии (`scripts/version.py`); CI
+  (ubuntu-latest/3.12, push в main) коммитит их после каждого прогона —
+  заменили статический coverage-бейдж, который тихо разошёлся с
+  реальностью.
+- **#201/#202:** политика ответственного раскрытия уязвимостей
+  (`SECURITY.md`), GitHub PR/issue-шаблоны.
+
+Полное содержание релиза — в [`../CHANGELOG.md`](../CHANGELOG.md#160---2026-07-08).
+
+---
+
 ## Динамическая версия (issue #162, PR #183)
 
 - **#68:** задокументирована собственная схема версионирования (тег =
@@ -266,6 +306,7 @@
 | v1.3.0 | 599 | 95% | Онбординг + PyPI |
 | v1.4.0 | 622 | 95% | Web UI (`--serve`) + IDE-интеграция |
 | v1.5.0 | 660 | 95% | Кэш, pytest-плагин, инкрементальный watch |
+| v1.6.0 | 784 | 95% | Локальный глоссарий + source-driven покрытие, packaging hygiene, README-витрина |
 
 > Подробное сравнение релизов и отличия от оригинала — в
 > [versions.md](versions.md).
