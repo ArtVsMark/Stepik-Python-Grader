@@ -37,10 +37,14 @@ def test_incremental_enables_cache_when_unset() -> None:
 
 
 def test_unset_non_incremental_reads_config(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Флаг не задан, не incremental → дефолт из [tool.stepik-grader] use_cache."""
-    monkeypatch.setattr(cli, "CONFIG", types.SimpleNamespace(use_cache=True))
+    """Флаг не задан, не incremental → дефолт из [tool.stepik-grader] use_cache.
+
+    issue #119: _resolve_use_cache живёт в cli/options.py — CONFIG патчим
+    там же, а не на facade `cli` (facade больше не держит своей копии имени).
+    """
+    monkeypatch.setattr(cli.options, "CONFIG", types.SimpleNamespace(use_cache=True))
     assert cli._resolve_use_cache(_args(None), incremental=False) is True
-    monkeypatch.setattr(cli, "CONFIG", types.SimpleNamespace(use_cache=False))
+    monkeypatch.setattr(cli.options, "CONFIG", types.SimpleNamespace(use_cache=False))
     assert cli._resolve_use_cache(_args(None), incremental=False) is False
 
 
@@ -84,7 +88,7 @@ def test_main_watch_mode1_does_not_auto_enable_cache(monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(cli, "_run_mode_1", fake_run_mode_1)
     monkeypatch.setattr(cli, "_watch_and_rerun", lambda path, rerun: rerun())
-    monkeypatch.setattr(cli, "CONFIG", types.SimpleNamespace(use_cache=False))
+    monkeypatch.setattr(cli.options, "CONFIG", types.SimpleNamespace(use_cache=False))
 
     cli.main(["--mode", "1", "--file", "task.py", "--watch", "--lang", "en"])
     assert captured["use_cache"] is False

@@ -12,8 +12,9 @@
 
 | Модуль | Архитектурный слой | Что делает |
 |---|---|---|
-| `grader.py` | Application | Тонкий фасад обратной совместимости — реэкспортирует `core/grader_core.py`, `core/reporter.py`, `cli.py` |
-| `cli.py` | Application / CLI | Интерактивное меню (режимы 0-4) и non-interactive argparse CLI, профили нагрузки; консольная команда `stepik-grader` |
+| `grader.py` | Application | Тонкий фасад обратной совместимости — реэкспортирует `core/grader_core.py`, `core/reporter.py`, `cli/__init__.py` |
+| `cli/__init__.py` | Application / CLI | Интерактивное меню (режимы 0-4), non-interactive argparse CLI, профили нагрузки, mutable i18n state (`_LANG`/`_MESSAGES`); consолidates и реэкспортирует `cli/options.py` для обратной совместимости фасада; консольная команда `stepik-grader` (issue #117/#119) |
+| `cli/options.py` | Application / CLI (leaf) | argparse-парсер (`_build_arg_parser`) и разрешение `--verbose/--quiet`/`--cache` в конкретные bool (`_resolve_verbosity`, `_resolve_use_cache`), `_force_utf8_stdio`; не импортирует `cli/__init__.py`, реэкспортирован им как `cli._build_arg_parser` и т.д. (issue #119, Stage 1 эпика #117) |
 | `config.py` | Application / Configuration | `GraderConfig` (frozen dataclass) + ленивый `CONFIG` (module `__getattr__`, PEP 562) / `get_config()` — импорт модуля не читает `pyproject.toml`, чтение кэшируется при первом обращении (issue #141/#142); переопределяется через `[tool.stepik-grader]` |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
 | `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
@@ -36,7 +37,7 @@
 | `core/stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
 | `core/oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostic_stepik.py` |
 | `core/parsers.py` | Infrastructure / Utilities | Парсинг тест-блоков (`# TEST_N:`) — единственный источник истины для `grader.py` и `downloader.py` |
-| `core/i18n.py` | Infrastructure / Utilities (leaf) | `load_locale_messages(lang)` — JSON-локали `core/locales/<lang>.json` (issue #141/#144); аддитивный путь поверх статического `_MESSAGES` в `cli.py` — новые сообщения через JSON, без переписывания существующих; graceful degradation на отсутствующий/битый файл |
+| `core/i18n.py` | Infrastructure / Utilities (leaf) | `load_locale_messages(lang)` — JSON-локали `core/locales/<lang>.json` (issue #141/#144); аддитивный путь поверх статического `_MESSAGES` в `cli/__init__.py` — новые сообщения через JSON, без переписывания существующих; graceful degradation на отсутствующий/битый файл |
 | `glossary/models.py` | Domain (leaf) | Типизированные модели локального глоссария: `GlossaryCard`, `GlossaryMissingEntry` (issue #126) |
 | `glossary/json_provider.py` | Domain | `JsonGlossaryProvider` (загрузка/поиск локальной JSON-базы карточек) + очередь пополнения (issue #126) |
 | `glossary/detector.py` | Domain | `MissingConceptDetector` — консервативный AST-детектор недостающих функций/конструкций/исключений (issue #126) |
@@ -55,14 +56,16 @@ downloader.py          ──→  core/storage.py
 downloader.py          ──→  core/stepik_client.py
 downloader.py          ──→  core/parsers.py
 core/stepik_client.py ──→  core/storage.py
-grader.py              ──→  core/grader_core.py, core/reporter.py, cli.py  (тонкий фасад)
+grader.py              ──→  core/grader_core.py, core/reporter.py, cli/__init__.py  (тонкий фасад)
 core/grader_core.py    ──→  core/executor.py, core/microbench_runner.py, core/normalizers.py, core/runner.py
 core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, core/wrapper_builder.py
 core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py
 core/mode_detector.py  ──→  core/storage.py
-cli.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
-cli.py                 ──→  core/cache.py
-cli.py                 ──→  core/i18n.py  (JSON-локали поверх статического _MESSAGES)
+cli/__init__.py        ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
+cli/__init__.py        ──→  core/cache.py
+cli/__init__.py        ──→  core/i18n.py  (JSON-локали поверх статического _MESSAGES)
+cli/__init__.py        ──→  cli/options.py  (реэкспорт для backward-compatible facade, issue #119)
+cli/options.py         ──→  config.py  (CONFIG.use_cache в _resolve_use_cache; leaf — не импортирует cli/__init__.py)
 web.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py, core/test_loader.py  (web → core, ациклично)
 web.py                 ──→  core/glossary.py  (lookup_from_error для error card при RE)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
@@ -119,7 +122,7 @@ downloader.py больше не импортирует grader.py: дублиру
 │  Application  (core/, грейдер разбит по SRP — Sprint 7, A-01) │
 │  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
 │  core/test_loader.py │ core/mode_detector.py │ wrapper_builder │
-│  cli.py (меню, публичная точка входа — stepik-grader)          │
+│  cli/ (меню, публичная точка входа — stepik-grader)             │
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure  (core/)                                       │
 │  core/stepik_client.py  │  core/executor.py                    │

@@ -478,11 +478,18 @@ class _FakeStream:
 
 
 class TestForceUtf8Stdio:
+    """issue #119: _force_utf8_stdio живёт в cli/options.py и читает sys.stdout/
+    sys.stderr через свой собственный `import sys` — но это тот же sys-модуль
+    (singleton), поэтому патчить настоящий sys.stdout/stderr (а не cli.sys,
+    несуществующий facade-alias) достаточно и корректно вне зависимости от
+    того, в каком модуле физически лежит функция.
+    """
+
     def test_cp1251_stream_reconfigured_to_utf8(self, monkeypatch) -> None:
         """cp1251-поток (Git Bash) переключается на UTF-8 с errors='replace'."""
         out, err = _FakeStream("cp1251"), _FakeStream("cp1251")
-        monkeypatch.setattr(cli.sys, "stdout", out)
-        monkeypatch.setattr(cli.sys, "stderr", err)
+        monkeypatch.setattr(sys, "stdout", out)
+        monkeypatch.setattr(sys, "stderr", err)
         cli._force_utf8_stdio()
         assert out.reconfigured == {"encoding": "utf-8", "errors": "replace"}
         assert err.reconfigured == {"encoding": "utf-8", "errors": "replace"}
@@ -490,8 +497,8 @@ class TestForceUtf8Stdio:
     def test_utf8_stream_left_untouched(self, monkeypatch) -> None:
         """Уже-UTF-8 поток не трогаем (никаких лишних reconfigure)."""
         out = _FakeStream("utf-8")
-        monkeypatch.setattr(cli.sys, "stdout", out)
-        monkeypatch.setattr(cli.sys, "stderr", _FakeStream("UTF-8"))
+        monkeypatch.setattr(sys, "stdout", out)
+        monkeypatch.setattr(sys, "stderr", _FakeStream("UTF-8"))
         cli._force_utf8_stdio()
         assert out.reconfigured is None
 
@@ -501,8 +508,8 @@ class TestForceUtf8Stdio:
         class _Bare:
             encoding = "cp1251"
 
-        monkeypatch.setattr(cli.sys, "stdout", _Bare())
-        monkeypatch.setattr(cli.sys, "stderr", _Bare())
+        monkeypatch.setattr(sys, "stdout", _Bare())
+        monkeypatch.setattr(sys, "stderr", _Bare())
         cli._force_utf8_stdio()  # не должно бросить AttributeError
 
     def test_main_calls_force_utf8(self, monkeypatch) -> None:
