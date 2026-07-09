@@ -8,10 +8,16 @@ from __future__ import annotations
 
 import json
 import pathlib
+import threading
+import urllib.error
+import urllib.request
+from http.server import ThreadingHTTPServer
 from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 
+from stepik_grader import web
 from stepik_grader.web import downloader_adapter
 
 _VALID_SECRETS = {
@@ -229,3 +235,69 @@ class TestDownloadTaskErrors:
             data = downloader_adapter.download_task("https://stepik.org/lesson/1/step/4")
         assert data["ok"] is False
         assert "Непредвиденная ошибка" in data["message"]
+
+
+# ---------------------------------------------------------------------------
+# HTTP-хендлер — POST /api/download (реальный сервер на эфемерном порту,
+# тот же паттерн, что tests/test_web.py::server)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def server():
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), web._Handler)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    host, port = httpd.server_address[0], httpd.server_address[1]
+    yield f"http://{host}:{port}"
+    httpd.shutdown()
+    httpd.server_close()
+    thread.join(timeout=5)
+
+
+def _post(url: str, body: bytes) -> tuple[int, bytes]:
+    req = urllib.request.Request(url, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read()
+
+
+class TestApiDownloadHttpEndpoint:
+    def test_valid_body_returns_200(self, server, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        _write_secrets(tmp_path / "secrets.json")
+        task_dir = _make_task_dir_with_tests(tmp_path)
+        with (
+            patch(
+                "stepik_grader.web.downloader_adapter.try_create_session_without_browser",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "stepik_grader.downloader.process_step_url",
+                return_value=(task_dir, 1, "html_table"),
+            ),
+        ):
+            status, body = _post(
+                server + "/api/download",
+                json.dumps({"url": "https://stepik.org/lesson/1/step/4"}).encode("utf-8"),
+            )
+        assert status == 200
+        data = json.loads(body)
+        assert data["ok"] is True
+
+    def test_invalid_json_body_is_400(self, server):
+        status, _ = _post(server + "/api/download", b"not json")
+        assert status == 400
+
+    def test_missing_url_is_400(self, server):
+        status, body = _post(server + "/api/download", json.dumps({}).encode("utf-8"))
+        assert status == 400
+        assert json.loads(body)["ok"] is False
+
+    def test_get_on_download_endpoint_is_404(self, server):
+        with pytest.raises(urllib.error.HTTPError) as exc:
+            urllib.request.urlopen(server + "/api/download", timeout=5)  # noqa: S310
+        assert exc.value.code == 404

@@ -22,6 +22,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from stepik_grader.web.commands import filter_commands
+from stepik_grader.web.downloader_adapter import download_task
 from stepik_grader.web.glossary_adapter import glossary_get, glossary_missing, glossary_search
 from stepik_grader.web.viewmodels import grade_benchmark, grade_path, list_solutions, read_source
 
@@ -52,6 +53,8 @@ class _Handler(BaseHTTPRequestHandler):
     Плюс (фикс режима 1, #125): GET /api/solutions?path= (список решений в
     папке — пикер режима «Один файл») и GET /api/source?path= (исходник
     файла для показа кода перед запуском).
+    Плюс (issue #186): POST /api/download — тело JSON {"url","root"?} — раздел
+    «Загрузчик задач», тонкий адаптер над ``downloader_adapter.download_task``.
     """
 
     def do_GET(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
@@ -120,6 +123,40 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(200, "application/json; charset=utf-8", _json(data))
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
+
+    def do_POST(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
+        parsed = urlparse(self.path)
+        if parsed.path != "/api/download":
+            self._send(404, "text/plain; charset=utf-8", b"not found")
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            body = json.loads(self.rfile.read(length) or b"{}")
+        except (ValueError, json.JSONDecodeError):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, "message": "Тело запроса должно быть JSON с полем url."}),
+            )
+            return
+        if not isinstance(body, dict):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, "message": "Тело запроса должно быть JSON-объектом."}),
+            )
+            return
+        url = str(body.get("url") or "").strip()
+        if not url:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, "message": "Укажите url."}),
+            )
+            return
+        root = str(body.get("root") or "").strip() or None
+        data = download_task(url, root=root)
+        self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _send(self, code: int, ctype: str, body: bytes) -> None:
         self.send_response(code)
