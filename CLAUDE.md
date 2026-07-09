@@ -221,7 +221,6 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 Реализационные задачи, готовые для будущего Claude — в
 [`docs/claude-handoff.md`](docs/claude-handoff.md):
 
-- **#129** — тесты web MVP (user journeys).
 - **#191** — снижение false-positive детектора глоссария (`MissingConceptDetector`).
 
 > **#199 (регистрация модулей glossary coverage в DAG/архитектуре) — закрыт.**
@@ -229,8 +228,9 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 > [docs/architecture.md](docs/architecture.md) и
 > [docs/project-structure.md](docs/project-structure.md).
 
-> **#125/#186/#187 (WEB workspace, Downloader-блок, микро-бенчмарк в web) —
-> закрыты.** См. [docs/web-mvp.md](docs/web-mvp.md) и
+> **#125/#186/#187/#129 (WEB workspace, Downloader-блок, микро-бенчмарк,
+> тесты user journeys в web) — закрыты. Эпик #123 закрыт.** См.
+> [docs/web-mvp.md](docs/web-mvp.md) и
 > [docs/claude-handoff.md](docs/claude-handoff.md).
 
 **Дизайн-указатели (спроектировано, реализация — отдельные issue):**

@@ -11,8 +11,10 @@
 > #186, вместо изначально спроектированного workflow-блока внутри «Проверки
 > решений»). **#187 (микро-бенчмарк / режим 4 в web) — реализован** (профиль-
 > селектор calls-per-run, `grade_microbench`, таблица с µs-колонками и
-> Py-heap). Остаётся открытым: #129 (тесты web MVP — J6). Foundation
-> глоссария (#126: `GlossaryProvider`/store,
+> Py-heap). **#129 (тесты web MVP — user journeys) — реализован**
+> (`tests/test_web*.py` + `tests/test_web_journeys.py`, сквозные проверки
+> Downloader→grade/error-card→glossary/missing-queue→adapter). Эпик #123
+> закрыт. Foundation глоссария (#126: `GlossaryProvider`/store,
 > детектор, очередь) реализован — см. [glossary.md](glossary.md); доводка —
 > #190/#191.
 >
@@ -829,7 +831,7 @@ adapters-слоем над `downloader.py`.
 | Раздел «Глоссарий» (поиск/карточки) | ✅ реализовано поверх store (#125) | | |
 | Детектор недостающих концепций + очередь | ✅ web-интеграция готова (#125, backlog-view) | | полуавто-наполнение |
 | Экспорт/синхронизация в Glossary-Python | дизайн | exporter (#126-follow-up) | двусторонняя синхр. (non-goal) |
-| Тесты web MVP (download + microbench + glossary) | — | реализация (#129) | |
+| Тесты web MVP (download + microbench + glossary) | ✅ реализовано (#129) | | |
 | Выделенный бэкенд/SPA (FastAPI и т.п.) | не требуется | не требуется | по явному решению |
 
 > **#125 (workspace проверки решений) — закрыт.** Split-pane layout
@@ -859,10 +861,23 @@ adapters-слоем над `downloader.py`.
 > Per-block detail-разбор (stdin/tracemalloc vs function/RSS) и action card
 > `Compare solutions` остаются **later**, как и было спроектировано.
 
-**Что остаётся реализационными issue:**
+> **#129 (тесты web MVP — user journeys) — закрыт.** J1-J5/J7 и просмотр
+> карточки глоссария/command palette уже были покрыты `tests/test_web.py`/
+> `tests/test_web_glossary.py`/`tests/test_web_downloader.py`; J6 (микробенч)
+> добавлен вместе с #187. Новый `tests/test_web_journeys.py` закрывает
+> оставшийся разрыв, на который явно указал комментарий к issue после
+> PR #185 (не закрывать по одному старому чек-листу): три сквозные цепочки
+> между уже существующими, но ранее не связанными друг с другом адаптерами —
+> Downloader→grade (скачанный путь реально грейдится), error-card→glossary
+> (`glossary_ids` реально резолвятся в карточку, а не в 404) и
+> missing-queue→adapter (запись, поставленная в очередь при грейдинге, видна
+> через тот же `glossary_adapter.glossary_missing()`, что дёргает
+> `GET /api/glossary/missing`). Command-palette keyboard flows (Ctrl+K/
+> стрелки/Enter/Escape) проверены вручную через запущенный сервер — в
+> проекте нет JS test runner (non-goal issue #129), тот же компромисс,
+> что и в #125.
 
-- **#129** — тесты web MVP: журнал J6 (микробенч) — J0-J5/J7 уже покрыты
-  `tests/test_web.py`/`tests/test_web_glossary.py`/`tests/test_web_downloader.py`.
+**Что остаётся реализационными issue:** ничего — эпик #123 закрыт.
 
 > **#126 (foundation глоссария) — закрыт.** `GlossaryProvider`/store,
 > `MissingConceptDetector` и очередь пополнения уже реализованы
@@ -870,8 +885,7 @@ adapters-слоем над `downloader.py`.
 > доводка модуля — #190/#191, экспортёр — #126-follow-up.
 
 Этот документ описывал дизайн эпика #123 (issue #124/#127/#128) и теперь
-также фиксирует реализацию #125, #186 и #187; сам эпик остаётся открытым
-до #129.
+также фиксирует реализацию #125, #186, #187 и #129; **эпик #123 закрыт**.
 
 ---
 

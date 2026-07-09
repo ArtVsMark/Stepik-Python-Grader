@@ -209,6 +209,24 @@
   secret redaction (#150); Contributor Covenant `CODE_OF_CONDUCT.md`
   linked from CONTRIBUTING (#204).
 
+### Tests
+- Cross-adapter user-journey coverage for the web UI (issue #129, closing
+  epic #123): most journeys from `docs/web-mvp.md § User journeys` were
+  already covered incrementally across `tests/test_web*.py` as #125/#186/
+  #187 landed, but the issue's own follow-up comment (after PR #185)
+  explicitly said not to close it using only the original 3-item checklist.
+  New `tests/test_web_journeys.py` proves three previously-untested seams
+  between adapters that were each only unit-tested in isolation: a
+  downloaded task's path is immediately gradable via `grade_path()` (J0→J1),
+  an RE case's `glossary_ids` actually resolve to a real card through
+  `glossary_adapter`/HTTP instead of a dead link (error-card→glossary
+  navigation), and an entry queued mid-grading is visible through
+  `glossary_adapter.glossary_missing()` — the same read path
+  `GET /api/glossary/missing` uses, not just the lower-level
+  `json_provider`. Command-palette keyboard flows (Ctrl+K/arrows/Enter/
+  Escape) were verified manually against a running server, the same
+  no-JS-test-runner tradeoff #125 already documented.
+
 ## [1.6.0] - 2026-07-08
 
 ### Added
