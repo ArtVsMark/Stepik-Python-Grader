@@ -48,7 +48,7 @@
             <button class="mode-btn" data-mode="file" aria-pressed="false">Режим 1<br><span class="mode-btn-sub">Один файл</span></button>
             <button class="mode-btn active" data-mode="tests" aria-pressed="true">Режим 2<br><span class="mode-btn-sub">Папка</span></button>
             <button class="mode-btn" data-mode="bench" aria-pressed="false">Режим 3<br><span class="mode-btn-sub">Bench</span></button>
-            <button class="mode-btn disabled" data-mode="microbench" aria-disabled="true" title="Скоро — issue #187">Режим 4<br><span class="mode-btn-sub">Microbench</span></button>
+            <button class="mode-btn" data-mode="microbench" aria-pressed="false">Режим 4<br><span class="mode-btn-sub">Microbench</span></button>
           </div>
           <button id="run" class="btn btn-primary">▶ Запустить</button>
         </div>
@@ -110,13 +110,21 @@
             </div>
 
             <div id="microbench-config" hidden>
-              <p class="section-heading">Microbench — нагрузочные профили</p>
-              <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr)">
-                <div class="kpi-card"><div class="kpi-label">fast</div><div class="kpi-value" style="font-size:var(--text-base)">500</div><div class="kpi-delta neutral">calls/run</div></div>
-                <div class="kpi-card"><div class="kpi-label">normal</div><div class="kpi-value" style="font-size:var(--text-base)">1 000</div><div class="kpi-delta neutral">calls/run</div></div>
-                <div class="kpi-card"><div class="kpi-label">thorough</div><div class="kpi-value" style="font-size:var(--text-base)">5 000</div><div class="kpi-delta neutral">calls/run</div></div>
+              <div class="form-group">
+                <label class="form-label" for="micro-profile">Профиль нагрузки (calls/run)</label>
+                <select class="form-input" id="micro-profile">
+                  <option value="500">fast · 500</option>
+                  <option value="1000" selected>normal · 1 000</option>
+                  <option value="5000">thorough · 5 000</option>
+                  <option value="50000">deep · 50 000</option>
+                  <option value="100000">hard · 100 000</option>
+                  <option value="custom">custom…</option>
+                </select>
               </div>
-              <p class="hint">Полная реализация — issue #187.</p>
+              <div class="form-group" id="micro-custom-group" hidden>
+                <label class="form-label" for="micro-custom">Своё число вызовов (100–500 000)</label>
+                <input class="form-input" id="micro-custom" type="number" min="100" max="500000" value="1000">
+              </div>
             </div>
           </div>
         </div>

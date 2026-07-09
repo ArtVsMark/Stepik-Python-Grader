@@ -9,8 +9,10 @@
 > в итоге сделан отдельным, третьим разделом навигации — владелец явно
 > подтвердил это архитектурное решение при реализации, см. историю issue
 > #186, вместо изначально спроектированного workflow-блока внутри «Проверки
-> решений»). Остаются открытыми: #187 (микро-бенчмарк в web), #129 (тесты
-> web MVP — J6). Foundation глоссария (#126: `GlossaryProvider`/store,
+> решений»). **#187 (микро-бенчмарк / режим 4 в web) — реализован** (профиль-
+> селектор calls-per-run, `grade_microbench`, таблица с µs-колонками и
+> Py-heap). Остаётся открытым: #129 (тесты web MVP — J6). Foundation
+> глоссария (#126: `GlossaryProvider`/store,
 > детектор, очередь) реализован — см. [glossary.md](glossary.md); доводка —
 > #190/#191.
 >
@@ -663,11 +665,11 @@ API-контракт (см. [контракты](#контракты-данны�
 - **Glossary exporter/bridge** — выгрузка `ready`-карточек во внешний
   Glossary-Python (одно-направленно); #126-follow-up.
 
-**Endpoint'ы (✅ = реализовано в #125/#186; остальные — дизайн, #187/#126-follow-up):**
+**Endpoint'ы (✅ = реализовано в #125/#186/#187; остальные — дизайн, #126-follow-up):**
 
 | Endpoint | Отдаёт | Слой |
 |---|---|---|
-| ✅ `GET /api/grade?path=&mode=` | `ResultViewModel` + расширенные ErrorCard-поля на `cases[]` (`mode=microbench` — дизайн, #187) | `web/viewmodels.py` → grader_core |
+| ✅ `GET /api/grade?path=&mode=` | `ResultViewModel` + расширенные ErrorCard-поля на `cases[]` (`mode=microbench&number=` — реализовано, #187) | `web/viewmodels.py` → grader_core |
 | ✅ `POST /api/download` | `DownloadedTask` (по `DownloaderRequest`) | `web/downloader_adapter.py` → downloader → core |
 | ✅ `GET /api/glossary?q=` | `GlossaryCard[]` (поиск; пустой `q` — все карточки) | `web/glossary_adapter.py` → GlossaryProvider/fallback |
 | ✅ `GET /api/glossary/{id}` | `GlossaryCard` или 404 | `web/glossary_adapter.py` → GlossaryProvider/fallback |
@@ -820,7 +822,7 @@ adapters-слоем над `downloader.py`.
 | Split-pane workspace | ✅ реализовано (#125) | | |
 | Error cards WA/TLE (расширенные поля) | ✅ реализовано (#125) | | |
 | Downloader / загрузка тестов из Stepik | ✅ реализовано, отдельный раздел (#186) | | web-OAuth, batch |
-| Микро-бенчмарк (режим 4) в web | дизайн | сегмент + ViewModel микробенча (#187) | |
+| Микро-бенчмарк (режим 4) в web | ✅ реализовано (#187) | | per-block detail-разбор |
 | Action cards (copy/run/explain/open) | ✅ реализовано (#125) | | create_test, compare |
 | Command palette (Ctrl+K) | ✅ реализовано (#125, фикс. словарь тегов вместо predicate-строки) | | плагины команд, fuzzy-поиск |
 | Scenario buttons | ❌ убраны по фидбеку владельца (issue #125 comment) — auto-показ run_again/toggle_theme/switch_section признан лишним | | не планируется |
@@ -850,9 +852,15 @@ adapters-слоем над `downloader.py`.
 > post-hoc: ZIP и GitHub-вариант А дают одинаковый Format 3 на диске),
 > `format`/`count` — post-hoc по содержимому `tests/`.
 
+> **#187 (микро-бенчмарк / режим 4 в web) — закрыт.** `grade_microbench` +
+> `_resolve_group_test_dir` (`web/viewmodels.py`), роутинг `mode=microbench`
+> (`server.py`), профиль-селектор (fast/normal/thorough/deep/hard/custom) и
+> таблица результатов (`µs`-колонки, `%`, вердикт, Py-heap) реализованы.
+> Per-block detail-разбор (stdin/tracemalloc vs function/RSS) и action card
+> `Compare solutions` остаются **later**, как и было спроектировано.
+
 **Что остаётся реализационными issue:**
 
-- **#187** — микро-бенчмарк (режим 4) в web (сегмент + ViewModel, `Py-heap`).
 - **#129** — тесты web MVP: журнал J6 (микробенч) — J0-J5/J7 уже покрыты
   `tests/test_web.py`/`tests/test_web_glossary.py`/`tests/test_web_downloader.py`.
 
@@ -862,8 +870,8 @@ adapters-слоем над `downloader.py`.
 > доводка модуля — #190/#191, экспортёр — #126-follow-up.
 
 Этот документ описывал дизайн эпика #123 (issue #124/#127/#128) и теперь
-также фиксирует реализацию #125 и #186; сам эпик остаётся открытым до #129
-(+ #187).
+также фиксирует реализацию #125, #186 и #187; сам эпик остаётся открытым
+до #129.
 
 ---
 

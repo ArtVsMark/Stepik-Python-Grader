@@ -221,8 +221,6 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 Реализационные задачи, готовые для будущего Claude — в
 [`docs/claude-handoff.md`](docs/claude-handoff.md):
 
-- **#125** — WEB workspace проверки решений (по [docs/web-mvp.md](docs/web-mvp.md)).
-- **#186** — Downloader-блок в web · **#187** — микро-бенчмарк в web.
 - **#129** — тесты web MVP (user journeys).
 - **#191** — снижение false-positive детектора глоссария (`MissingConceptDetector`).
 
@@ -230,6 +228,10 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 > `stdlib_inventory.py`/`coverage.py` описаны в
 > [docs/architecture.md](docs/architecture.md) и
 > [docs/project-structure.md](docs/project-structure.md).
+
+> **#125/#186/#187 (WEB workspace, Downloader-блок, микро-бенчмарк в web) —
+> закрыты.** См. [docs/web-mvp.md](docs/web-mvp.md) и
+> [docs/claude-handoff.md](docs/claude-handoff.md).
 
 **Дизайн-указатели (спроектировано, реализация — отдельные issue):**
 server mode ([docs/server-mode.md](docs/server-mode.md) + ADR-0001): Runner-слой

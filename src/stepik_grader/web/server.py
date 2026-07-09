@@ -24,7 +24,13 @@ from urllib.parse import parse_qs, urlparse
 from stepik_grader.web.commands import filter_commands
 from stepik_grader.web.downloader_adapter import download_task
 from stepik_grader.web.glossary_adapter import glossary_get, glossary_missing, glossary_search
-from stepik_grader.web.viewmodels import grade_benchmark, grade_path, list_solutions, read_source
+from stepik_grader.web.viewmodels import (
+    grade_benchmark,
+    grade_microbench,
+    grade_path,
+    list_solutions,
+    read_source,
+)
 
 __all__ = ["run_server"]
 
@@ -43,7 +49,7 @@ _STATIC_ROUTES: dict[str, tuple[str, str]] = {
 
 
 class _Handler(BaseHTTPRequestHandler):
-    """GET / → страница; GET /api/grade?path=…&mode=tests|bench → JSON.
+    """GET / → страница; GET /api/grade?path=…&mode=tests|bench|microbench → JSON.
 
     Плюс (issue #125): GET /api/glossary?q= (поиск карточек), GET
     /api/glossary/<id> (карточка или 404), GET /api/glossary/missing (очередь
@@ -80,6 +86,8 @@ class _Handler(BaseHTTPRequestHandler):
                 data = grade_benchmark(
                     path, repeats=_int(qs.get("repeats"), 15), reference=reference
                 )
+            elif mode == "microbench":
+                data = grade_microbench(path, number=_int(qs.get("number"), 1000))
             else:
                 data = grade_path(path)
             self._send(200, "application/json; charset=utf-8", _json(data))

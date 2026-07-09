@@ -335,6 +335,84 @@ class TestGradeBenchmarkReference:
 
 
 # ---------------------------------------------------------------------------
+# grade_microbench — режим 4 (timeit) в web (issue #187)
+# ---------------------------------------------------------------------------
+
+
+class TestGradeMicrobench:
+    def test_microbench_file(self, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        data = web.grade_microbench(str(sol), number=10)
+        assert data["mode"] == "microbench"
+        row = data["rows"][0]
+        assert row["runs"] >= 1
+        assert isinstance(row["min_us"], float)
+        assert isinstance(row["median_us"], float)
+        assert isinstance(row["mean_us"], float)
+        assert isinstance(row["max_us"], float)
+        assert isinstance(row["stdev_us"], float)
+        assert row["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
+        assert "group" not in data  # только для kind="dir"
+
+    def test_microbench_dir_single_group_sorted_by_median(self, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        data = web.grade_microbench(str(tmp_path), number=10)
+        assert data["kind"] == "dir"
+        assert data["group"] == tmp_path.name
+        assert len(data["rows"]) == 2
+        assert data["rows"][0]["median_us"] <= data["rows"][1]["median_us"]
+
+    def test_microbench_multiple_groups_picks_first_and_lists_rest(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        for name in ("group_a", "group_b"):
+            folder = tmp_path / name
+            (folder / "tests").mkdir(parents=True)
+            (folder / "tests" / "1").write_text("4", encoding="utf-8")
+            (folder / "tests" / "1.clue").write_text("5", encoding="utf-8")
+            (folder / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        data = web.grade_microbench(str(tmp_path), number=10)
+        assert data["group"] == "group_a"
+        assert data["other_groups"] == ["group_b"]
+        assert len(data["rows"]) == 1
+
+    def test_microbench_no_tests_found(self, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(1)\n", with_tests=False)
+        data = web.grade_microbench(str(sol), number=10)
+        assert data["kind"] == "error"
+
+    def test_microbench_empty_tests_dir(self, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "tests").mkdir()
+        sol = tmp_path / "task.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        data = web.grade_microbench(str(sol), number=10)
+        assert data["kind"] == "error"
+
+    def test_microbench_partial_error_produces_err_row(self, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text("raise ValueError('boom')\n", encoding="utf-8")
+        data = web.grade_microbench(str(tmp_path), number=10)
+        verdicts_by_file = {r["file"]: r["verdict"] for r in data["rows"]}
+        assert verdicts_by_file["task1_2.py"] == "ERR"
+        assert verdicts_by_file["task1_1.py"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
+
+    def test_microbench_custom_number(self, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        data = web.grade_microbench(str(sol), number=50)
+        assert data["rows"][0]["runs"] > 0
+
+    def test_microbench_nonexistent_path(self) -> None:
+        assert web.grade_microbench("/no/such/dir")["kind"] == "error"
+
+
+# ---------------------------------------------------------------------------
 # list_solutions / read_source — пикер режима 1 «Один файл» (issue #125-fix)
 # ---------------------------------------------------------------------------
 
@@ -436,6 +514,16 @@ class TestHttpHandler:
         data = json.loads(body)
         assert data["mode"] == "bench"
         assert data["rows"][0]["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
+
+    def test_api_grade_microbench_mode(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        q = urllib.parse.urlencode({"path": str(sol), "mode": "microbench", "number": "10"})
+        status, body = _get(server + "/api/grade?" + q)
+        assert status == 200
+        data = json.loads(body)
+        assert data["mode"] == "microbench"
+        assert data["rows"][0]["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
+        assert isinstance(data["rows"][0]["median_us"], float)
 
     def test_api_grade_bench_mode_with_reference(self, server: str, tmp_path: pathlib.Path) -> None:
         _make_bench_pair(tmp_path)

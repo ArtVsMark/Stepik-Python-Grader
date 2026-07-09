@@ -108,7 +108,7 @@ function contextTags() {
     if (c.actual || c.expected) tags.add("has_output");
     if (["WA", "RE", "TLE"].includes(c.verdict)) tags.add("is_failure");
     if (c.glossary_ids && c.glossary_ids.length) tags.add("has_glossary");
-  } else if (state.mode === "bench") {
+  } else if (state.mode === "bench" || state.mode === "microbench") {
     tags.add("bench_mode");
   } else if (state.lastResult && state.lastResult.rows && state.lastResult.rows.length) {
     if (state.lastResult.rows.every(r => r.status === "OK")) tags.add("all_ac");
@@ -358,6 +358,21 @@ function setMode(m) {
   updateParamsTabAvailability(m);
   resetFilePicker();
   localStorage.setItem("grader_mode", m);
+  if (m === "microbench") updateMicroCustomVisibility();
+}
+
+// -- Режим 4 «Microbench» — профиль-селектор (_MICRO_PROFILES из cli/interactive.py) --
+
+function updateMicroCustomVisibility() {
+  const group = $("#micro-custom-group");
+  if (group) group.hidden = $("#micro-profile").value !== "custom";
+}
+
+function getMicroNumber() {
+  const profile = $("#micro-profile").value;
+  if (profile !== "custom") return Number(profile);
+  const custom = Number($("#micro-custom").value) || 1000;
+  return Math.min(500000, Math.max(100, custom));
 }
 
 // -- Режим 1 «Один файл» — параметры недоступны, скрыть вкладку целиком;
@@ -465,9 +480,10 @@ async function grade() {
   state.selectedRow = null;
   state.selectedCase = null;
   state.explainOpen = false;
-  const backendMode = state.mode === "bench" ? "bench" : "tests";
+  const backendMode = state.mode === "bench" || state.mode === "microbench" ? state.mode : "tests";
   const q = new URLSearchParams({ path, mode: backendMode });
   if (backendMode === "bench") q.set("repeats", $("#repeats").value);
+  if (backendMode === "microbench") q.set("number", String(getMicroNumber()));
   try {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
@@ -499,7 +515,9 @@ function render(data) {
     $("#out").innerHTML = '<p class="msg">' + esc(data.message) + "</p>";
     return;
   }
-  (data.mode === "bench" ? renderBench : renderTests)(data.rows);
+  if (data.mode === "bench") return renderBench(data.rows);
+  if (data.mode === "microbench") return renderMicrobench(data);
+  renderTests(data.rows);
 }
 
 function renderResultSummaryBadges() {
@@ -510,7 +528,7 @@ function renderResultSummaryBadges() {
     el.innerHTML = "";
     return;
   }
-  if (data.mode === "bench") {
+  if (data.mode === "bench" || data.mode === "microbench") {
     const counts = {};
     data.rows.forEach(r => {
       if (r.verdict) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
@@ -686,6 +704,51 @@ function renderBench(rows) {
   $("#out").innerHTML = h + "</tbody></table></div>";
 }
 
+function renderMicrobench(data) {
+  const rows = data.rows;
+  const ok = rows.filter(r => !r.error);
+  const similarCount = ok.filter(r => r.verdict === "SIMILAR").length;
+  $("#bar").textContent = "";
+  let h = "";
+  if (data.other_groups && data.other_groups.length) {
+    h +=
+      '<p class="hint" style="padding:var(--space-3) var(--space-4) 0">Группа «' +
+      esc(data.group) + '» · остальные (не показаны): ' + data.other_groups.map(esc).join(", ") +
+      "</p>";
+  }
+  h += kpiGrid([
+    { label: "Файлов", value: rows.length },
+    { label: "Медиана, µs", value: ok.length ? ok[0].median_us : "—" },
+    { label: "Схожих", value: ok.length ? similarCount + " / " + ok.length : "—" },
+  ]);
+  h += '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
+    '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Runs</th>' +
+    '<th scope="col">Min µs</th><th scope="col">Median µs</th><th scope="col">Mean µs</th>' +
+    '<th scope="col">Max µs</th><th scope="col">StdDev µs</th><th scope="col">%</th>' +
+    '<th scope="col">Вердикт</th>' +
+    '<th scope="col" title="tracemalloc (stdin) / RSS (function), issue #66">Py-heap, МБ</th>' +
+    "</tr></thead><tbody>";
+  rows.forEach(row => {
+    if (row.error) {
+      h +=
+        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="7">' + esc(row.error) +
+        "</td><td>" + renderVerdict(row.verdict) + "</td></tr>";
+      return;
+    }
+    h +=
+      '<tr><td class="mono">' + esc(row.file) + '</td><td class="mono">' + row.runs + "</td>" +
+      '<td class="mono">' + row.min_us + "</td>" +
+      '<td class="mono">' + row.median_us + "</td>" +
+      '<td class="mono">' + row.mean_us + "</td>" +
+      '<td class="mono">' + row.max_us + "</td>" +
+      '<td class="mono">' + row.stdev_us + "</td>" +
+      '<td class="mono">' + row.relative + "%</td>" +
+      "<td>" + renderVerdict(row.verdict) + "</td>" +
+      '<td class="mono">' + (row.memory_mb ?? "—") + "</td></tr>";
+  });
+  $("#out").innerHTML = h + "</tbody></table></div>";
+}
+
 function errorCard(g) {
   return (
     '<div class="errcard"><span class="errcard-ex">💡 ' + esc(g.exception) + "</span> " +
@@ -729,7 +792,9 @@ function addHistoryEntry(path, mode, data) {
       ? "ошибка"
       : mode === "bench"
         ? "бенчмарк · " + rows.length
-        : rows.filter(r => r.status === "OK").length + "/" + rows.length + " OK";
+        : mode === "microbench"
+          ? "микробенч · " + rows.length
+          : rows.filter(r => r.status === "OK").length + "/" + rows.length + " OK";
   let history = JSON.parse(localStorage.getItem("grader_history") || "[]");
   history = [{ path, mode, summary }, ...history].slice(0, 10);
   localStorage.setItem("grader_history", JSON.stringify(history));
@@ -960,6 +1025,7 @@ $("#path").addEventListener("keydown", e => {
   else grade();
 });
 $("#find-solutions-btn").addEventListener("click", findSolutions);
+$("#micro-profile").addEventListener("change", updateMicroCustomVisibility);
 $("#downloader-run").addEventListener("click", downloadTask);
 $("#downloader-url").addEventListener("keydown", e => {
   if (e.key === "Enter") downloadTask();

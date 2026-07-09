@@ -10,6 +10,20 @@
 -->
 
 ### Added
+- Microbench (mode 4) in the web UI (issue #187): the "Режим 4 · Microbench"
+  button is no longer a disabled placeholder — it runs the real
+  `timeit`-based microbenchmark with a calls-per-run profile selector
+  (fast/normal/thorough/deep/hard/custom, mirroring `cli/interactive.py`'s
+  `_MICRO_PROFILES`) and a results table (Min/Median/Mean/Max/StdDev in µs,
+  relative %, verdict, Py-heap). New `web/viewmodels.py::grade_microbench()`
+  groups solutions by subfolder via `core/test_loader.py::collect_grouped_files`
+  before calling `core/grader_core.py::run_microbench_mode` once per group —
+  required because that function ranks all files passed to a single call
+  against each other, so per-file calls (like `grade_benchmark`'s) would make
+  every result trivially "SIMILAR". A folder with more than one solution
+  group only benchmarks the first (sorted) group in this MVP; the rest are
+  named in an `other_groups` hint above the table. New `mode=microbench`
+  branch in `server.py`'s `/api/grade` routing (`number=` query param).
 - Downloader workflow in the web UI (issue #186): a new, full sidebar
   section "Загрузчик задач" (symmetric with "Проверка решений"/"Глоссарий" —
   the owner confirmed a dedicated section over the design doc's original
@@ -138,6 +152,15 @@
   bot commits toward PATCH — it excludes them via `git rev-list
   --invert-grep` instead of `git describe --tags --long`'s raw commit
   count (issue #231).
+- `core/microbench_runner.py::run_microbench()` left `stdin` unset on its
+  `subprocess.Popen` call, so the child inherited the parent's stdin
+  handle. Under pytest's output capturing that handle is a fake/invalid
+  Windows handle, which intermittently raised `OSError: [WinError 6]`
+  (invalid handle) when several microbenchmarks ran in one test session —
+  found while adding tests for issue #187. Fixed by passing
+  `stdin=subprocess.DEVNULL` (the child never reads real stdin — it swaps
+  `sys.stdin` itself), matching the pattern already used in
+  `core/runner.py`.
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).
