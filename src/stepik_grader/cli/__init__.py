@@ -43,8 +43,19 @@ from collections.abc import Callable
 # issue #120: mode handlers — вынесены в leaf-модуль cli/commands.py; получают
 # зависимости через CliContext (cli/context.py), а не читают module globals
 # этого файла напрямую (см. docstring выше и _build_cli_context() ниже).
-from stepik_grader.cli import commands
+from stepik_grader.cli import commands, interactive
 from stepik_grader.cli.context import CliContext
+
+# issue #121 Phase 2: интерактивное меню/профили — вынесены в leaf-модуль
+# cli/interactive.py. _ask_number/_BENCH_PROFILES/_MICRO_PROFILES нигде не
+# патчатся напрямую через cli.X — реэкспорт нужен только для facade-доступа
+# (grader.py импортирует _BENCH_PROFILES/_MICRO_PROFILES) и обратной
+# совместимости.
+from stepik_grader.cli.interactive import (  # noqa: F401
+    _BENCH_PROFILES,
+    _MICRO_PROFILES,
+    _ask_number,
+)
 
 # issue #119: parsing/options helpers — вынесены в leaf-модуль cli/options.py,
 # реэкспортированы здесь для backward compatibility фасада (см. docstring выше).
@@ -67,8 +78,6 @@ from stepik_grader.cli.rendering import (  # noqa: F401
 )
 from stepik_grader.core.cache import GraderCache
 from stepik_grader.core.grader_core import (
-    collect_grouped_files,
-    find_all_solution_files,
     resolve_test_dir,
     run_benchmark,
     run_microbench_mode,
@@ -330,85 +339,27 @@ def _t(key: str, /, **kwargs: object) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Профили нагрузки
+# Интерактивное меню / профили нагрузки — issue #121 Phase 2.
+#
+# Реализация в cli/interactive.py; тонкие обёртки ниже сохраняют публичные
+# сигнатуры и facade-имена для существующих monkeypatch-тестов и re-export
+# в grader.py (см. docstring cli/interactive.py). _ask_number/_BENCH_PROFILES/
+# _MICRO_PROFILES нигде не патчатся напрямую через cli.X — просто реэкспорт.
 # ---------------------------------------------------------------------------
-
-_BENCH_PROFILES: dict[str, int] = {
-    "1": 5,
-    "2": 15,
-    "3": 50,
-    "4": 0,
-}
-
-_MICRO_PROFILES: dict[str, int] = {
-    "1": 500,
-    "2": 1_000,
-    "3": 5_000,
-    "4": 50_000,
-    "5": 100_000,
-    "6": 0,
-}
 
 
 def _ask_bench_profile() -> int:
     """Запросить профиль нагрузки для subprocess-бенчмарка (режим 3)."""
-    print(_t("bench_profile_header"))
-    print(_t("bench_profile_1"))
-    print(_t("bench_profile_2"))
-    print(_t("bench_profile_3"))
-    print(_t("bench_profile_4"))
-    choice = input(_t("select_profile_prompt")).strip() or "2"
-    repeats = _BENCH_PROFILES.get(choice)
-    if repeats is None:
-        repeats = _BENCH_PROFILES["2"]
-    if repeats == 0:
-        repeats = _ask_number(_t("enter_repeats_prompt"), default=15)
-        repeats = max(5, min(100, repeats))
-    return repeats
+    return interactive._ask_bench_profile(_build_cli_context())
 
 
 def _ask_micro_profile() -> int:
     """Запросить профиль нагрузки для timeit micro-bench (режим 4)."""
-    print(_t("micro_profile_header"))
-    print(_t("micro_profile_1"))
-    print(_t("micro_profile_2"))
-    print(_t("micro_profile_3"))
-    print(_t("micro_profile_4"))
-    print(_t("micro_profile_5"))
-    print(_t("micro_profile_6"))
-    choice = input(_t("select_profile_prompt")).strip() or "2"
-    number = _MICRO_PROFILES.get(choice)
-    if number is None:
-        number = _MICRO_PROFILES["2"]
-    if number == 0:
-        number = _ask_number(_t("enter_calls_prompt"), default=1000)
-        number = max(100, min(500_000, number))
-    return number
-
-
-# ---------------------------------------------------------------------------
-# Интерактивное меню
-# ---------------------------------------------------------------------------
+    return interactive._ask_micro_profile(_build_cli_context())
 
 
 def _print_menu() -> None:
-    print("\n" + "=" * 50)
-    print(_t("menu_title"))
-    print("=" * 50)
-    print(_t("menu_1"))
-    print(_t("menu_2"))
-    print(_t("menu_3"))
-    print(_t("menu_4"))
-    print(_t("menu_0"))
-    print("=" * 50)
-
-
-def _ask_number(prompt: str, *, default: int) -> int:
-    raw = input(prompt).strip()
-    try:
-        return int(raw) if raw else default
-    except ValueError:
-        return default
+    interactive._print_menu(_build_cli_context())
 
 
 def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) -> str | None:
@@ -443,6 +394,13 @@ def _build_cli_context() -> CliContext:
         run_microbench_mode=run_microbench_mode,
         resolve_test_dir_from_input=_resolve_test_dir_from_input,
         print_tabular=_print_tabular,
+        pick_path_via_dialog=_pick_path_via_dialog,
+        ask_bench_profile=_ask_bench_profile,
+        ask_micro_profile=_ask_micro_profile,
+        run_mode_1=_run_mode_1,
+        run_mode_2=_run_mode_2,
+        run_mode_3=_run_mode_3,
+        run_mode_4=_run_mode_4,
     )
 
 
@@ -477,48 +435,14 @@ def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
 def _pick_path_via_dialog(*, want_dir: bool) -> str | None:
     """Открыть нативный диалог выбора файла (.py) или папки через tkinter.
 
-    Возвращает выбранный путь или None (отмена, tkinter не установлен, либо
-    headless-окружение без дисплея). Только fallback для интерактивного
-    text-режима — вызывающая сторона обязана НЕ звать это при
-    ``--output``/``--watch``/машинном контексте (issue #79).
+    Тонкая обёртка над interactive._pick_path_via_dialog (issue #121 Phase 2).
     """
-    try:
-        import tkinter
-        from tkinter import filedialog
-    except ImportError:
-        return None
-
-    try:
-        root = tkinter.Tk()
-    except tkinter.TclError:
-        # tkinter установлен, но нет дисплея (headless Linux, урезанный Python).
-        return None
-
-    root.withdraw()
-    try:
-        if want_dir:
-            path = filedialog.askdirectory(title=_t("dialog_pick_dir"))
-        else:
-            path = filedialog.askopenfilename(
-                title=_t("dialog_pick_file"),
-                filetypes=[("Python files", "*.py"), ("All files", "*.*")],
-            )
-    finally:
-        root.destroy()
-    return path or None
+    return interactive._pick_path_via_dialog(_build_cli_context(), want_dir=want_dir)
 
 
 def _prompt_path(prompt_key: str, *, want_dir: bool) -> str:
-    """Спросить путь в интерактивном меню; при пустом вводе — файловый диалог.
-
-    Пустая строка на выходе (пустой ввод + отмена/недоступность диалога)
-    корректно обрабатывается вызывающими режимами через их обычные
-    "file/dir not found" сообщения (issue #79).
-    """
-    path = input(_t(prompt_key)).strip()
-    if not path:
-        path = _pick_path_via_dialog(want_dir=want_dir) or ""
-    return path
+    """Спросить путь в интерактивном меню. Тонкая обёртка над interactive._prompt_path."""
+    return interactive._prompt_path(_build_cli_context(), prompt_key, want_dir=want_dir)
 
 
 def _resolve_cli_path_or_error(
@@ -528,61 +452,17 @@ def _resolve_cli_path_or_error(
     want_dir: bool,
     flag: str,
 ) -> str:
-    """Вернуть путь для non-interactive режима, когда флаг пути не задан.
-
-    В интерактивном text-режиме (без ``--output``-машинного вывода и без
-    ``--watch``) предлагает нативный файловый диалог; иначе — или при отмене
-    диалога / отсутствии tkinter — завершает работу через ``parser.error``
-    (чистое сообщение argparse, не трейсбек). issue #79.
-    """
-    if args.output == "text" and not args.watch:
-        picked = _pick_path_via_dialog(want_dir=want_dir)
-        if picked:
-            return picked
-    parser.error(f"--mode {args.mode} requires {flag}")
+    """Путь для non-interactive режима без флага. Тонкая обёртка над
+    interactive._resolve_cli_path_or_error."""
+    return interactive._resolve_cli_path_or_error(
+        _build_cli_context(), parser, args, want_dir=want_dir, flag=flag
+    )
 
 
 def _interactive_menu() -> None:
-    """Показать меню один раз, выполнить выбранный режим и завершить работу."""
-    _print_menu()
-    choice = input(_t("select_mode_prompt")).strip()
-
-    if choice == "0":
-        print(_t("goodbye"))
-        return
-
-    if choice == "1":
-        solution = _prompt_path("enter_solution_path", want_dir=False)
-        _run_mode_1(solution)
-
-    elif choice == "2":
-        directory = _prompt_path("enter_folder_path", want_dir=True)
-        _run_mode_2(directory)
-
-    elif choice == "3":
-        directory = _prompt_path("enter_folder_path", want_dir=True)
-        if not pathlib.Path(directory).is_dir():
-            print(_t("dir_not_found", path=directory))
-            return
-        if not find_all_solution_files(directory):
-            print(_t("no_solutions_found"))
-            return
-        repeats = _ask_bench_profile()
-        _run_mode_3(directory, repeats)
-
-    elif choice == "4":
-        directory = _prompt_path("enter_folder_with_solutions_path", want_dir=True)
-        if not pathlib.Path(directory).is_dir():
-            print(_t("dir_not_found", path=directory))
-            return
-        if not collect_grouped_files(directory):
-            print(_t("no_solutions_found"))
-            return
-        number = _ask_micro_profile()
-        _run_mode_4(directory, number)
-
-    else:
-        print(_t("unknown_choice"))
+    """Показать меню один раз, выполнить режим и завершить работу. Тонкая
+    обёртка над interactive._interactive_menu."""
+    interactive._interactive_menu(_build_cli_context())
 
 
 def _watch_and_rerun(watch_path: str, rerun: Callable[[], None]) -> None:
