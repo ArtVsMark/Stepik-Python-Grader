@@ -10,6 +10,15 @@
 -->
 
 ### Added
+- Editable code window for mode 1 in the web UI (issue #125): the
+  file-picker panel's read-only source preview is now a persistent,
+  editable textarea. Picking an existing solution loads its code into it
+  for editing; leaving nothing picked lets you type a new solution from
+  scratch. Running now saves the editor's content to disk first — to the
+  picked file if one was selected, otherwise to a new file whose name
+  extends the folder's existing `task<N>_<M>.py` numbering series (or
+  starts at `task_1.py`) — via new `web/viewmodels.py::save_solution()`
+  and `POST /api/save-solution`, then grades the saved path as before.
 - Microbench (mode 4) in the web UI (issue #187): the "Режим 4 · Microbench"
   button is no longer a disabled placeholder — it runs the real
   `timeit`-based microbenchmark with a calls-per-run profile selector
