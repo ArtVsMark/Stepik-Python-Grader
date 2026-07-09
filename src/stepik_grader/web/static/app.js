@@ -1,4 +1,5 @@
-// app.js — клиентская логика веб-интерфейса грейдера (issue #58, эпик #80 Tier 1; issue #125).
+// app.js — клиентская логика веб-интерфейса грейдера (issue #58, эпик #80; issue #125;
+// редизайн под маску эпика #123).
 const $ = s => document.querySelector(s);
 // issue #214: экранируем и кавычки — esc() используется не только в текстовом
 // контексте (innerHTML), но и внутри HTML-атрибутов (errorCard() вставляет
@@ -12,7 +13,9 @@ const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 // ---------------------------------------------------------------------------
 const state = {
   section: localStorage.getItem("grader_section") || "check", // "check" | "glossary"
-  mode: localStorage.getItem("grader_mode") || "tests", // "tests" | "bench"
+  mode: localStorage.getItem("grader_mode") || "tests", // "tests" | "bench" | "compare" | "microbench"
+  configTab: "path", // "path" | "params"
+  resultTab: "table", // "table" | "detail" | "log" | "reference"
   lastResult: null,
   selectedRow: null,
   selectedCase: null,
@@ -32,6 +35,64 @@ function getSelectedCase() {
   return (row && row.cases && row.cases[state.selectedCase]) || null;
 }
 
+// ---------------------------------------------------------------------------
+// UI-примитивы (issue #123-redesign) — переиспользуемые рендер-хелперы поверх
+// design-токенов макета: badge/kpi/code-block/skeleton.
+// ---------------------------------------------------------------------------
+
+const VERDICT_BADGE = {
+  AC: "badge badge-success", OK: "badge badge-success",
+  WA: "badge badge-error", FAIL: "badge badge-error",
+  RE: "badge badge-error", ERR: "badge badge-error",
+  TLE: "badge badge-warning",
+  "NO TESTS": "badge badge-neutral",
+  SIMILAR: "verdict-similar",
+  SLOWER: "verdict-slower", MUCH_SLOWER: "verdict-slower",
+  FASTER: "verdict-faster",
+  REFERENCE: "badge badge-primary",
+};
+
+function renderVerdict(v) {
+  const cls = VERDICT_BADGE[v] || "badge badge-neutral";
+  return '<span class="' + cls + '">' + esc(v) + "</span>";
+}
+
+function kpiCard(label, value, delta, deltaVariant) {
+  return (
+    '<div class="kpi-card"><div class="kpi-label">' + esc(label) + '</div>' +
+    '<div class="kpi-value">' + esc(value) + "</div>" +
+    (delta ? '<div class="kpi-delta ' + esc(deltaVariant || "neutral") + '">' + esc(delta) + "</div>" : "") +
+    "</div>"
+  );
+}
+
+function kpiGrid(items) {
+  return '<div class="kpi-grid">' + items.map(i => kpiCard(i.label, i.value, i.delta, i.variant)).join("") + "</div>";
+}
+
+function codeBlock(code) {
+  return '<div class="code-block">' + esc(code) + "</div>";
+}
+
+function skeletonBlock() {
+  return (
+    '<div style="padding:var(--space-4)">' +
+    '<div class="skeleton skeleton-heading"></div>' +
+    '<div class="skeleton skeleton-text"></div>' +
+    '<div class="skeleton skeleton-text"></div>' +
+    '<div class="skeleton skeleton-text"></div>' +
+    "</div>"
+  );
+}
+
+function emptyState(title, hint) {
+  return (
+    '<div class="empty-state"><h3>' + esc(title) + "</h3>" +
+    (hint ? "<p>" + esc(hint) + "</p>" : "") +
+    "</div>"
+  );
+}
+
 // -- Command registry: one filter, three surfaces (palette/action cards/scenario buttons) --
 
 function contextTags() {
@@ -42,7 +103,7 @@ function contextTags() {
     if (c.actual || c.expected) tags.add("has_output");
     if (["WA", "RE", "TLE"].includes(c.verdict)) tags.add("is_failure");
     if (c.glossary_ids && c.glossary_ids.length) tags.add("has_glossary");
-  } else if (state.mode === "bench") {
+  } else if (state.mode === "bench" || state.mode === "compare") {
     tags.add("bench_mode");
   } else if (state.lastResult && state.lastResult.rows && state.lastResult.rows.length) {
     if (state.lastResult.rows.every(r => r.status === "OK")) tags.add("all_ac");
@@ -185,11 +246,9 @@ function renderPaletteList() {
 function applyTheme() {
   const root = document.documentElement;
   if (state.theme === "system") {
-    root.style.colorScheme = "light dark";
     root.removeAttribute("data-theme");
     $("#theme-toggle").textContent = "🌓";
   } else {
-    root.style.colorScheme = state.theme;
     root.setAttribute("data-theme", state.theme);
     $("#theme-toggle").textContent = state.theme === "dark" ? "🌙" : "☀️";
   }
@@ -206,8 +265,12 @@ function cycleTheme() {
 function setSection(section) {
   state.section = section;
   localStorage.setItem("grader_section", section);
-  $("#sec-check").classList.toggle("active", section === "check");
-  $("#sec-glossary").classList.toggle("active", section === "glossary");
+  document.querySelectorAll("[data-section]").forEach(a => {
+    const active = a.dataset.section === section;
+    a.classList.toggle("active", active);
+    if (active) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
   $("#view-check").hidden = section !== "check";
   $("#view-glossary").hidden = section !== "glossary";
   if (section === "glossary" && !state.glossary.cards.length) loadGlossary("");
@@ -226,13 +289,76 @@ function openGlossaryForSelectedCase() {
   if (id) selectGlossaryCard(id);
 }
 
+// -- Config-panel tabs (Путь / Параметры) -------------------------------------
+
+function setConfigTab(tab) {
+  state.configTab = tab;
+  document.querySelectorAll("[data-conftab]").forEach(b => {
+    const active = b.dataset.conftab === tab;
+    b.classList.toggle("active", active);
+    b.setAttribute("aria-selected", String(active));
+  });
+  $("#conftab-path").hidden = tab !== "path";
+  $("#conftab-params").hidden = tab !== "params";
+}
+
+// -- Result-panel tabs (Таблица / Детали / Лог / Эталон) ----------------------
+
+function setResultTab(tab) {
+  state.resultTab = tab;
+  document.querySelectorAll("[data-restab]").forEach(b => {
+    const active = b.dataset.restab === tab;
+    b.classList.toggle("active", active);
+    b.setAttribute("aria-selected", String(active));
+  });
+  $("#restab-table").hidden = tab !== "table";
+  $("#restab-detail").hidden = tab !== "detail";
+  $("#restab-log").hidden = tab !== "log";
+  $("#restab-reference").hidden = tab !== "reference";
+  if (tab === "log") renderLogTab();
+  if (tab === "reference") renderReferenceTab();
+}
+
+function renderLogTab() {
+  const el = $("#log-content");
+  const c = getSelectedCase();
+  if (!c) {
+    el.innerHTML = emptyState("Нет данных", "Выберите тест-кейс во вкладке «Таблица».");
+    return;
+  }
+  let h = "";
+  if (c.stdin) h += '<div class="field-label">stdin</div>' + codeBlock(c.stdin);
+  const out = c.actual || c.stderr || c.error || "";
+  h += '<div class="field-label">stdout/stderr</div>' + (out ? codeBlock(out) : codeBlock("(пусто)"));
+  el.innerHTML = h;
+}
+
+function renderReferenceTab() {
+  const el = $("#reference-content");
+  const src = state.lastResult && state.lastResult.reference_source;
+  if (!src) {
+    el.innerHTML = emptyState(
+      "Эталон не указан",
+      "Укажите «Эталонное решение» в режиме «Сравнение», чтобы увидеть его исходник."
+    );
+    return;
+  }
+  el.innerHTML = '<div class="field-label">' + esc(state.lastResult.reference_file || "reference") + "</div>" + codeBlock(src);
+}
+
 // -- Проверка решений: grade/render -------------------------------------------
 
 function setMode(m) {
   state.mode = m;
-  $("#m-tests").classList.toggle("active", m === "tests");
-  $("#m-bench").classList.toggle("active", m === "bench");
-  $("#repeats").style.display = m === "bench" ? "" : "none";
+  document.querySelectorAll("[data-mode]").forEach(b => {
+    const active = b.dataset.mode === m;
+    b.classList.toggle("active", active);
+    b.setAttribute("aria-pressed", String(active));
+  });
+  $("#ref-input-group").hidden = m !== "compare";
+  $("#microbench-config").hidden = m !== "microbench";
+  const repeatsGroup = $("#repeats").closest(".form-group");
+  if (repeatsGroup) repeatsGroup.hidden = !(m === "bench" || m === "compare");
   localStorage.setItem("grader_mode", m);
 }
 
@@ -245,26 +371,42 @@ async function grade() {
   btn.disabled = true;
   btn.textContent = "Проверка…";
   $("#bar").textContent = "";
-  $("#out").innerHTML = "";
+  $("#out").innerHTML = skeletonBlock();
   state.selectedRow = null;
   state.selectedCase = null;
   state.explainOpen = false;
-  const q = new URLSearchParams({ path, mode: state.mode });
-  if (state.mode === "bench") q.set("repeats", $("#repeats").value);
+  const backendMode = state.mode === "compare" ? "bench" : state.mode;
+  const q = new URLSearchParams({ path, mode: backendMode });
+  if (backendMode === "bench") q.set("repeats", $("#repeats").value);
+  if (state.mode === "compare") {
+    const ref = $("#ref-input").value.trim();
+    if (ref) q.set("reference", ref);
+  }
   try {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
     state.lastResult = data;
     addHistoryEntry(path, state.mode, data);
     render(data);
+    updateCheckSidebarBadge(data);
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
   } finally {
     btn.disabled = false;
-    btn.textContent = "Проверить";
+    btn.textContent = "▶ Запустить";
     renderDetailPanel();
     renderScenarioButtons();
+    renderResultSummaryBadges();
+    if (state.resultTab === "log") renderLogTab();
+    if (state.resultTab === "reference") renderReferenceTab();
   }
+}
+
+function updateCheckSidebarBadge(data) {
+  const el = $("#sidebar-badge-check");
+  const n = (data && data.rows && data.rows.length) || 0;
+  el.textContent = String(n);
+  el.hidden = n === 0;
 }
 
 function render(data) {
@@ -275,29 +417,57 @@ function render(data) {
   (data.mode === "bench" ? renderBench : renderTests)(data.rows);
 }
 
+function renderResultSummaryBadges() {
+  const el = $("#result-summary-badges");
+  const data = state.lastResult;
+  if (!el) return;
+  if (!data || data.kind === "error" || !data.rows || !data.rows.length) {
+    el.innerHTML = "";
+    return;
+  }
+  if (data.mode === "bench") {
+    const counts = {};
+    data.rows.forEach(r => {
+      if (r.verdict) counts[r.verdict] = (counts[r.verdict] || 0) + 1;
+    });
+    el.innerHTML = Object.entries(counts)
+      .map(([v, n]) => renderVerdict(v).replace("</span>", " ×" + n + "</span>"))
+      .join(" ");
+  } else {
+    const ok = data.rows.filter(r => r.status === "OK").length;
+    el.innerHTML =
+      renderVerdict("OK").replace("</span>", " ×" + ok + "</span>") +
+      " " +
+      renderVerdict("FAIL").replace("</span>", " ×" + (data.rows.length - ok) + "</span>");
+  }
+}
+
 function renderTests(rows) {
   const ok = rows.filter(r => r.status === "OK").length;
-  $("#bar").textContent =
-    "Решений: " + rows.length + " · OK: " + ok + " · FAIL: " + (rows.length - ok);
-  let h =
-    '<table><thead><tr><th scope="col">Файл</th><th scope="col">Passed</th>' +
+  $("#bar").textContent = "";
+  let h = kpiGrid([
+    { label: "Решений", value: rows.length },
+    { label: "OK", value: ok, delta: rows.length ? Math.round((ok / rows.length) * 100) + "%" : "", variant: "up" },
+    { label: "FAIL", value: rows.length - ok, variant: (rows.length - ok) ? "down" : "neutral" },
+  ]);
+  h += '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
+    '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Passed</th>' +
     '<th scope="col">Статус</th><th scope="col">Σ время</th><th scope="col">Avg</th>' +
     '<th scope="col">Память, МБ</th></tr></thead><tbody>';
   rows.forEach((row, i) => {
-    const cls = row.status === "OK" ? "OK" : "FAIL";
     h +=
-      '<tr><td class="file" data-toggle="' + i + '">' + esc(row.file) + '</td>' +
-      '<td class="num">' + (row.passed ?? 0) + "/" + (row.total ?? 0) + "</td>" +
-      '<td class="badge ' + cls + '">' + esc(row.status) + "</td>" +
-      '<td class="num">' + (row.total_time ?? "—") + "</td>" +
-      '<td class="num">' + (row.avg_time ?? "—") + "</td>" +
-      '<td class="num">' + (row.memory_mb ?? "—") + "</td></tr>";
+      '<tr><td class="file-cell mono" data-toggle="' + i + '">' + esc(row.file) + '</td>' +
+      '<td class="mono">' + (row.passed ?? 0) + "/" + (row.total ?? 0) + "</td>" +
+      "<td>" + renderVerdict(row.status) + "</td>" +
+      '<td class="mono">' + (row.total_time ?? "—") + "</td>" +
+      '<td class="mono">' + (row.avg_time ?? "—") + "</td>" +
+      '<td class="mono">' + (row.memory_mb ?? "—") + "</td></tr>";
     h +=
       '<tr class="caserow" id="c' + i + '" style="display:none"><td colspan="6">' +
       casesHtml(i, row.cases) +
       "</td></tr>";
   });
-  $("#out").innerHTML = h + "</tbody></table>";
+  $("#out").innerHTML = h + "</tbody></table></div>";
   $("#out")
     .querySelectorAll("[data-toggle]")
     .forEach(td => td.addEventListener("click", () => toggleRow(Number(td.dataset.toggle))));
@@ -307,15 +477,14 @@ function renderTests(rows) {
 function casesHtml(rowIndex, cases) {
   if (!cases || !cases.length) return "<em>нет тест-кейсов</em>";
   return (
-    "<table>" +
+    '<table class="data-table">' +
     cases
       .map((c, j) => {
         const sel = state.selectedRow === rowIndex && state.selectedCase === j ? " selected" : "";
         return (
           '<tr class="case-row' + sel + '" data-row="' + rowIndex + '" data-case="' + j + '">' +
-          '<td><span class="badge ' + (c.verdict === "AC" ? "OK" : "FAIL") + '">#' +
-          c.n + " " + esc(c.verdict) + "</span></td>" +
-          '<td class="num">' + c.time + " s</td></tr>"
+          "<td>#" + c.n + " " + renderVerdict(c.verdict) + "</td>" +
+          '<td class="mono">' + c.time + " s</td></tr>"
         );
       })
       .join("") +
@@ -343,6 +512,7 @@ function selectCase(rowIndex, caseIndex) {
   highlightSelectedCaseRow();
   renderDetailPanel();
   renderScenarioButtons();
+  setResultTab("detail");
 }
 
 function highlightSelectedCaseRow() {
@@ -373,18 +543,17 @@ function renderDetailPanel() {
   content.hidden = false;
 
   let h =
-    '<div class="bar">#' + c.n + ' <span class="badge ' + esc(c.verdict) + '">' + esc(c.verdict) +
-    "</span> · " + c.time + " s</div>";
-  if (c.stdin) h += '<div class="field-label">Вход (stdin)</div><pre>' + esc(c.stdin) + "</pre>";
+    '<div class="bar">#' + c.n + " " + renderVerdict(c.verdict) + " · " + c.time + " s</div>";
+  if (c.stdin) h += '<div class="field-label">Вход (stdin)</div>' + codeBlock(c.stdin);
   if (c.verdict === "WA") {
-    h += '<div class="field-label">Ожидалось</div><pre>' + esc(c.expected) + "</pre>";
-    h += '<div class="field-label">Получено</div><pre>' + esc(c.actual) + "</pre>";
-    if (c.diff) h += '<div class="field-label">Diff</div><pre>' + esc(c.diff) + "</pre>";
+    h += '<div class="field-label">Ожидалось</div>' + codeBlock(c.expected);
+    h += '<div class="field-label">Получено</div>' + codeBlock(c.actual);
+    if (c.diff) h += '<div class="field-label">Diff</div>' + codeBlock(c.diff);
   } else if (c.actual) {
-    h += '<div class="field-label">Вывод</div><pre>' + esc(c.actual) + "</pre>";
+    h += '<div class="field-label">Вывод</div>' + codeBlock(c.actual);
   }
   if (c.verdict === "RE" || c.verdict === "TLE") {
-    h += '<div class="field-label">Диагностика</div><pre>' + esc(c.stderr || c.error || "") + "</pre>";
+    h += '<div class="field-label">Диагностика</div>' + codeBlock(c.stderr || c.error || "");
     if (c.exit_code != null) h += '<div class="hint">exit code: ' + esc(c.exit_code) + "</div>";
     if (c.timeout_s != null) h += '<div class="hint">timeout: ' + esc(c.timeout_s) + " s</div>";
   }
@@ -402,30 +571,35 @@ function renderDetailPanel() {
 
 function renderBench(rows) {
   const ranked = rows.filter(r => !r.error);
-  const fast = ranked.length
-    ? " · быстрейшее: " + esc(ranked[0].file) + " (" + esc(ranked[0].median) + ")"
-    : "";
-  $("#bar").textContent = "Решений: " + rows.length + fast;
-  let h =
-    '<table><thead><tr><th scope="col">Файл</th><th scope="col">Runs</th>' +
-    '<th scope="col">Min</th><th scope="col">Median</th><th scope="col">Отн.</th>' +
+  const refRow = rows.find(r => r.verdict === "REFERENCE");
+  const best = refRow || ranked[0];
+  const similarCount = ranked.filter(r => r.verdict === "SIMILAR" || r.verdict === "REFERENCE").length;
+  $("#bar").textContent = "";
+  let h = kpiGrid([
+    { label: "Файлов", value: rows.length },
+    { label: best && best.verdict === "REFERENCE" ? "Эталон" : "Медиана", value: best ? best.median : "—" },
+    { label: "Схожих", value: ranked.length ? similarCount + " / " + ranked.length : "—" },
+  ]);
+  h += '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
+    '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Runs</th>' +
+    '<th scope="col">Min</th><th scope="col">Median</th><th scope="col">%</th>' +
     '<th scope="col">Вердикт</th><th scope="col">Память, МБ</th></tr></thead><tbody>';
   rows.forEach(row => {
     if (row.error) {
       h +=
-        "<tr><td>" + esc(row.file) + '</td><td colspan="5" class="ERR">' + esc(row.error) +
+        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="5">' + esc(row.error) +
         "</td><td></td></tr>";
       return;
     }
     h +=
-      "<tr><td>" + esc(row.file) + '</td><td class="num">' + row.runs + "</td>" +
-      '<td class="num">' + esc(row.min) + "</td>" +
-      '<td class="num">' + esc(row.median) + "</td>" +
-      '<td class="num">' + row.relative + "%</td>" +
-      '<td class="badge ' + esc(row.verdict) + '">' + esc(row.verdict) + "</td>" +
-      '<td class="num">' + (row.memory_mb ?? "—") + "</td></tr>";
+      '<tr><td class="mono">' + esc(row.file) + '</td><td class="mono">' + row.runs + "</td>" +
+      '<td class="mono">' + esc(row.min) + "</td>" +
+      '<td class="mono">' + esc(row.median) + "</td>" +
+      '<td class="mono">' + row.relative + "%</td>" +
+      "<td>" + renderVerdict(row.verdict) + "</td>" +
+      '<td class="mono">' + (row.memory_mb ?? "—") + "</td></tr>";
   });
-  $("#out").innerHTML = h + "</tbody></table>";
+  $("#out").innerHTML = h + "</tbody></table></div>";
 }
 
 function errorCard(g) {
@@ -437,7 +611,7 @@ function errorCard(g) {
   );
 }
 
-// -- Sidebar: история / недавние пути -----------------------------------------
+// -- История / Недавние пути (в левой панели «Конфигурация») -----------------
 
 function addRecentPath(path) {
   let recent = JSON.parse(localStorage.getItem("grader_recent_paths") || "[]");
@@ -467,7 +641,7 @@ function addHistoryEntry(path, mode, data) {
   const summary =
     data.kind === "error"
       ? "ошибка"
-      : mode === "bench"
+      : mode === "bench" || mode === "compare"
         ? "бенчмарк · " + rows.length
         : rows.filter(r => r.status === "OK").length + "/" + rows.length + " OK";
   let history = JSON.parse(localStorage.getItem("grader_history") || "[]");
@@ -495,7 +669,7 @@ function renderHistory(history) {
   el.querySelectorAll("li[data-path]").forEach(li =>
     li.addEventListener("click", () => {
       $("#path").value = li.dataset.path;
-      setMode(li.dataset.mode);
+      setMode(li.dataset.mode === "compare" ? "compare" : li.dataset.mode);
       grade();
     })
   );
@@ -512,6 +686,7 @@ async function loadGlossary(query) {
     state.glossary.cards = [];
   }
   renderGlossaryList();
+  updateGlossarySidebarBadge();
 }
 
 async function loadMissing() {
@@ -522,6 +697,15 @@ async function loadMissing() {
     state.glossary.missing = [];
   }
   renderGlossaryMissing();
+}
+
+function updateGlossarySidebarBadge() {
+  const el = $("#sidebar-badge-glossary");
+  const n = state.glossary.cards.length;
+  el.textContent = String(n);
+  el.hidden = n === 0;
+  const widget = $("#glossary-widget-badge");
+  if (widget) widget.textContent = String(n);
 }
 
 function renderGlossaryList() {
@@ -585,56 +769,29 @@ function renderGlossaryDetail(card) {
 
 function setGlossaryView(view) {
   state.glossary.view = view;
-  $("#gl-view-cards").classList.toggle("active", view === "cards");
-  $("#gl-view-missing").classList.toggle("active", view === "missing");
+  document.querySelectorAll("[data-glview]").forEach(b => b.classList.toggle("active", b.dataset.glview === view));
   $("#glossary-cards").hidden = view !== "cards";
   $("#glossary-missing").hidden = view !== "missing";
   if (view === "missing" && !state.glossary.missing.length) loadMissing();
-}
-
-// -- Split-pane resizable dividers --------------------------------------------
-
-function makeResizable(dividerId, panelSelector, storageKey, sign) {
-  const divider = $(dividerId);
-  const panel = $(panelSelector);
-  if (!divider || !panel) return;
-  const saved = localStorage.getItem(storageKey);
-  if (saved) panel.style.flexBasis = saved + "px";
-  let dragging = false;
-  let startX = 0;
-  let startWidth = 0;
-  divider.addEventListener("mousedown", e => {
-    if (window.matchMedia("(max-width: 860px)").matches) return;
-    dragging = true;
-    startX = e.clientX;
-    startWidth = panel.getBoundingClientRect().width;
-    divider.classList.add("dragging");
-    e.preventDefault();
-  });
-  window.addEventListener("mousemove", e => {
-    if (!dragging) return;
-    const w = Math.max(120, startWidth + sign * (e.clientX - startX));
-    panel.style.flexBasis = w + "px";
-  });
-  window.addEventListener("mouseup", () => {
-    if (!dragging) return;
-    dragging = false;
-    divider.classList.remove("dragging");
-    localStorage.setItem(storageKey, String(Math.round(panel.getBoundingClientRect().width)));
-  });
 }
 
 // -- Wiring / init -------------------------------------------------------------
 
 document
   .querySelectorAll("[data-section]")
-  .forEach(b => b.addEventListener("click", () => setSection(b.dataset.section)));
+  .forEach(b => b.addEventListener("click", e => { e.preventDefault(); setSection(b.dataset.section); }));
 document
   .querySelectorAll("[data-mode]")
   .forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
 document
   .querySelectorAll("[data-glview]")
   .forEach(b => b.addEventListener("click", () => setGlossaryView(b.dataset.glview)));
+document
+  .querySelectorAll("[data-conftab]")
+  .forEach(b => b.addEventListener("click", () => setConfigTab(b.dataset.conftab)));
+document
+  .querySelectorAll("[data-restab]")
+  .forEach(b => b.addEventListener("click", () => setResultTab(b.dataset.restab)));
 
 $("#run").addEventListener("click", grade);
 $("#path").addEventListener("keydown", e => {
@@ -690,12 +847,11 @@ document.addEventListener("keydown", e => {
 applyTheme();
 setSection(state.section);
 setMode(state.mode);
+setConfigTab(state.configTab);
+setResultTab(state.resultTab);
 renderHistory();
 renderRecentPaths();
 loadCommands();
-makeResizable("#divider-1", "#sidebar", "grader_w_sidebar", 1);
-makeResizable("#divider-2", "#detail-panel", "grader_w_detail", -1);
-makeResizable("#divider-3", "#glossary-list-panel", "grader_w_glossary_list", 1);
 
 // Восстановить последний путь.
 const saved = localStorage.getItem("grader_path");

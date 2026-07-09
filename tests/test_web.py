@@ -272,6 +272,69 @@ class TestGradeBenchmark:
 
 
 # ---------------------------------------------------------------------------
+# grade_benchmark(reference=...) — режим «Сравнение» (Compare, редизайн #123)
+# ---------------------------------------------------------------------------
+
+
+def _make_bench_pair(tmp_path: pathlib.Path) -> None:
+    """task1_1.py (быстрый) + task1_2.py (заметно медленнее) + общий tests/."""
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "1").write_text("4", encoding="utf-8")
+    (tests / "1.clue").write_text("5", encoding="utf-8")
+    (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+    (tmp_path / "task1_2.py").write_text(
+        "import time\ntime.sleep(0.05)\nprint(int(input()) + 1)\n", encoding="utf-8"
+    )
+
+
+class TestGradeBenchmarkReference:
+    def test_reference_file_gets_reference_verdict(self, tmp_path: pathlib.Path) -> None:
+        _make_bench_pair(tmp_path)
+        data = web.grade_benchmark(str(tmp_path), repeats=3, reference="task1_1.py")
+        rows_by_file = {r["file"]: r for r in data["rows"]}
+        assert rows_by_file["task1_1.py"]["verdict"] == "REFERENCE"
+        assert rows_by_file["task1_1.py"]["relative"] == 100.0
+        assert data["reference_file"] == "task1_1.py"
+        assert "print(int(input()) + 1)" in data["reference_source"]
+
+    def test_slower_solution_relative_to_reference(self, tmp_path: pathlib.Path) -> None:
+        _make_bench_pair(tmp_path)
+        data = web.grade_benchmark(str(tmp_path), repeats=3, reference="task1_1.py")
+        rows_by_file = {r["file"]: r for r in data["rows"]}
+        assert rows_by_file["task1_2.py"]["verdict"] in {"SLOWER", "MUCH_SLOWER"}
+        assert rows_by_file["task1_2.py"]["relative"] > 100.0
+
+    def test_faster_solution_relative_to_reference(self, tmp_path: pathlib.Path) -> None:
+        _make_bench_pair(tmp_path)
+        data = web.grade_benchmark(str(tmp_path), repeats=3, reference="task1_2.py")
+        rows_by_file = {r["file"]: r for r in data["rows"]}
+        assert rows_by_file["task1_1.py"]["verdict"] == "FASTER"
+        assert rows_by_file["task1_2.py"]["verdict"] == "REFERENCE"
+
+    def test_reference_by_full_path_also_resolves(self, tmp_path: pathlib.Path) -> None:
+        _make_bench_pair(tmp_path)
+        full_path = str(tmp_path / "task1_1.py")
+        data = web.grade_benchmark(str(tmp_path), repeats=3, reference=full_path)
+        rows_by_file = {r["file"]: r for r in data["rows"]}
+        assert rows_by_file["task1_1.py"]["verdict"] == "REFERENCE"
+
+    def test_unresolvable_reference_falls_back_to_normal_ranking(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        _make_bench_pair(tmp_path)
+        data = web.grade_benchmark(str(tmp_path), repeats=3, reference="no_such_file.py")
+        assert "REFERENCE" not in {r["verdict"] for r in data["rows"]}
+        assert "reference_source" not in data
+
+    def test_no_reference_behaves_exactly_as_before(self, tmp_path: pathlib.Path) -> None:
+        _make_bench_pair(tmp_path)
+        data = web.grade_benchmark(str(tmp_path), repeats=3)
+        assert "REFERENCE" not in {r["verdict"] for r in data["rows"]}
+        assert "reference_source" not in data
+
+
+# ---------------------------------------------------------------------------
 # HTTP-хендлер (интеграционно: реальный сервер на эфемерном порту)
 # ---------------------------------------------------------------------------
 
@@ -322,6 +385,18 @@ class TestHttpHandler:
         data = json.loads(body)
         assert data["mode"] == "bench"
         assert data["rows"][0]["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
+
+    def test_api_grade_bench_mode_with_reference(self, server: str, tmp_path: pathlib.Path) -> None:
+        _make_bench_pair(tmp_path)
+        q = urllib.parse.urlencode(
+            {"path": str(tmp_path), "mode": "bench", "repeats": "3", "reference": "task1_1.py"}
+        )
+        status, body = _get(server + "/api/grade?" + q)
+        assert status == 200
+        data = json.loads(body)
+        rows_by_file = {r["file"]: r for r in data["rows"]}
+        assert rows_by_file["task1_1.py"]["verdict"] == "REFERENCE"
+        assert data["reference_file"] == "task1_1.py"
 
     def test_index_injects_default_path(self, server: str) -> None:
         # Плейсхолдер __DEFAULT_PATH__ должен быть заменён на реальный cwd.

@@ -4,78 +4,192 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stepik Python Grader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300..700&display=optional" rel="stylesheet">
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-<header class="topbar">
-  <span class="brand">🐍 Stepik Python Grader</span>
-  <span class="seg" id="section-seg">
-    <button id="sec-check" class="active" data-section="check">Проверка решений</button>
-    <button id="sec-glossary" data-section="glossary">Глоссарий</button>
-  </span>
-  <span class="spacer"></span>
-  <button id="theme-toggle" class="icon-btn" title="Переключить тему" aria-label="Переключить тему">🌙</button>
-  <button id="palette-btn" class="icon-btn" title="Ctrl+K / ⌘K" aria-label="Открыть палитру команд">⌘K</button>
-</header>
+<a class="sr-only" href="#main-content">Перейти к содержимому</a>
 
-<section id="view-check" class="workspace">
-  <aside id="sidebar" class="panel panel-sidebar">
-    <h2>История</h2>
-    <ul id="history-list" class="side-list"><li class="empty">Пока пусто</li></ul>
-    <h2>Недавние пути</h2>
-    <ul id="recent-paths-list" class="side-list"><li class="empty">Пока пусто</li></ul>
-  </aside>
-  <div class="divider" id="divider-1" role="separator" aria-orientation="vertical" tabindex="0"></div>
+<div class="app-shell">
 
-  <main id="result-panel" class="panel panel-result">
-    <div class="row" style="margin-bottom:.6rem">
-      <span class="seg">
-        <button id="m-tests" class="active" data-mode="tests">Корректность</button>
-        <button id="m-bench" data-mode="bench">Бенчмарк</button>
-      </span>
-      <select id="repeats" style="display:none" title="Повторов на тест-кейс">
-        <option value="5">низкий · 5</option>
-        <option value="15" selected>средний · 15</option>
-        <option value="50">высокий · 50</option>
-      </select>
+  <header class="topbar" role="banner">
+    <span class="topbar-logo">🐍 Stepik Python Grader</span>
+    <span class="spacer"></span>
+    <button id="theme-toggle" class="btn-icon" title="Переключить тему" aria-label="Переключить тему">🌓</button>
+    <button id="palette-btn" class="btn-icon" title="Ctrl+K / ⌘K" aria-label="Открыть палитру команд">⌘K</button>
+  </header>
+
+  <nav class="sidebar" aria-label="Основная навигация">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Рабочее пространство</div>
+      <a class="sidebar-item active" href="#check" data-section="check" aria-current="page">
+        Проверка решений <span class="sidebar-badge" id="sidebar-badge-check" hidden></span>
+      </a>
+      <a class="sidebar-item disabled" aria-disabled="true" title="Скоро — issue #186">Загрузчик задач</a>
+      <a class="sidebar-item" href="#glossary" data-section="glossary">
+        Глоссарий <span class="sidebar-badge" id="sidebar-badge-glossary" hidden></span>
+      </a>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-label">Настройки</div>
+      <a class="sidebar-item disabled" aria-disabled="true">Настройки</a>
     </div>
-    <div class="row">
-      <input id="path" type="text" value="__DEFAULT_PATH__"
-             placeholder="Путь к файлу решения (.py) или папке с решениями">
-      <button id="run">Проверить</button>
-    </div>
-    <div class="hint">Локально, только на этой машине. Enter или «Проверить» — запустить.
-      Клик по тест-кейсу — раскрыть разбор в правой панели.</div>
-    <div id="bar" class="bar"></div>
-    <div id="out"></div>
-    <div id="scenario-buttons" class="scenario-buttons"></div>
+  </nav>
+
+  <main class="main" id="main-content">
+
+    <!-- ══ РАЗДЕЛ «ПРОВЕРКА РЕШЕНИЙ» ══ -->
+    <section id="view-check" class="main-view">
+      <div class="page-header">
+        <h1 class="page-title">Проверка решений</h1>
+        <div class="page-actions">
+          <div class="mode-row" role="group" aria-label="Режим проверки">
+            <button class="mode-btn" data-mode="compare" aria-pressed="false">Режим 1<br><span class="mode-btn-sub">Сравнение</span></button>
+            <button class="mode-btn active" data-mode="tests" aria-pressed="true">Режим 2<br><span class="mode-btn-sub">Тесты</span></button>
+            <button class="mode-btn" data-mode="bench" aria-pressed="false">Режим 3<br><span class="mode-btn-sub">Bench</span></button>
+            <button class="mode-btn disabled" data-mode="microbench" aria-disabled="true" title="Скоро — issue #187">Режим 4<br><span class="mode-btn-sub">Microbench</span></button>
+          </div>
+          <button id="run" class="btn btn-primary">▶ Запустить</button>
+        </div>
+      </div>
+
+      <div class="split-pane">
+
+        <!-- LEFT — Конфигурация -->
+        <div class="split-pane-panel">
+          <div class="panel-header">
+            <span class="panel-title">Конфигурация</span>
+            <div class="panel-tabs" role="tablist">
+              <button class="panel-tab active" data-conftab="path" role="tab" aria-selected="true">Путь</button>
+              <button class="panel-tab" data-conftab="params" role="tab" aria-selected="false">Параметры</button>
+            </div>
+          </div>
+
+          <div class="panel-body" id="conftab-path">
+            <div class="form-group">
+              <label class="form-label" for="path">Папка с решениями</label>
+              <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__"
+                     placeholder="Путь к файлу решения (.py) или папке с решениями">
+            </div>
+            <div class="form-group" id="ref-input-group" hidden>
+              <label class="form-label" for="ref-input">Эталонное решение (опционально)</label>
+              <input class="form-input" id="ref-input" type="text" placeholder="task3_1.py">
+            </div>
+            <div class="hint">Enter или «Запустить». Клик по тест-кейсу — раскрыть разбор во вкладке «Детали».</div>
+
+            <div class="section-heading">Глоссарий</div>
+            <div class="card" style="margin-bottom:var(--space-3)">
+              <div class="card-title">
+                Связанные термины
+                <span class="badge badge-primary" id="glossary-widget-badge">0</span>
+              </div>
+              <div class="card-body">Концепции глоссария, встречавшиеся в последних решениях.</div>
+            </div>
+
+            <div class="section-heading">Недавние пути</div>
+            <ul id="recent-paths-list" class="side-list"><li class="empty">Пока пусто</li></ul>
+
+            <div class="section-heading">История</div>
+            <ul id="history-list" class="side-list"><li class="empty">Пока пусто</li></ul>
+          </div>
+
+          <div class="panel-body" id="conftab-params" hidden>
+            <div class="form-group">
+              <label class="form-label" for="repeats">Повторов на тест-кейс</label>
+              <select class="form-input" id="repeats">
+                <option value="5">низкий · 5</option>
+                <option value="15" selected>средний · 15</option>
+                <option value="50">высокий · 50</option>
+              </select>
+            </div>
+
+            <div id="microbench-config" hidden>
+              <p class="section-heading">Microbench — нагрузочные профили</p>
+              <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr)">
+                <div class="kpi-card"><div class="kpi-label">fast</div><div class="kpi-value" style="font-size:var(--text-base)">500</div><div class="kpi-delta neutral">calls/run</div></div>
+                <div class="kpi-card"><div class="kpi-label">normal</div><div class="kpi-value" style="font-size:var(--text-base)">1 000</div><div class="kpi-delta neutral">calls/run</div></div>
+                <div class="kpi-card"><div class="kpi-label">thorough</div><div class="kpi-value" style="font-size:var(--text-base)">5 000</div><div class="kpi-delta neutral">calls/run</div></div>
+              </div>
+              <p class="hint">Полная реализация — issue #187.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT — Результаты -->
+        <div class="split-pane-panel">
+          <div class="panel-header">
+            <span class="panel-title">Результаты</span>
+            <div class="panel-tabs" role="tablist">
+              <button class="panel-tab active" data-restab="table" role="tab" aria-selected="true">Таблица</button>
+              <button class="panel-tab" data-restab="detail" role="tab" aria-selected="false">Детали</button>
+              <button class="panel-tab" data-restab="log" role="tab" aria-selected="false">Лог</button>
+              <button class="panel-tab" data-restab="reference" role="tab" aria-selected="false">Эталон</button>
+            </div>
+            <div class="panel-actions" id="result-summary-badges"></div>
+          </div>
+
+          <div class="panel-body no-pad" id="restab-table">
+            <div id="bar" class="bar" style="padding:var(--space-3) var(--space-4) 0"></div>
+            <div id="out"></div>
+            <div id="scenario-buttons" class="scenario-buttons" style="padding:0 var(--space-4) var(--space-4)"></div>
+          </div>
+
+          <div class="panel-body" id="restab-detail" hidden>
+            <div id="detail-empty" class="empty-state">
+              <h3>Кейс не выбран</h3>
+              <p>Выберите тест-кейс во вкладке «Таблица», чтобы увидеть разбор.</p>
+            </div>
+            <div id="detail-content" hidden></div>
+          </div>
+
+          <div class="panel-body" id="restab-log" hidden>
+            <div id="log-content"></div>
+          </div>
+
+          <div class="panel-body" id="restab-reference" hidden>
+            <div id="reference-content"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ГЛОССАРИЙ» ══ -->
+    <section id="view-glossary" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title">Глоссарий</h1>
+      </div>
+      <div class="split-pane">
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title">Карточки</span></div>
+          <div class="panel-body">
+            <div class="form-group">
+              <input class="form-input" id="glossary-search" type="text" placeholder="Поиск по глоссарию…">
+            </div>
+            <div class="mode-row" style="margin-bottom:var(--space-4)">
+              <button class="mode-btn active" data-glview="cards">Карточки</button>
+              <button class="mode-btn" data-glview="missing">Недостающее</button>
+            </div>
+            <ul id="glossary-cards" class="side-list"></ul>
+            <ul id="glossary-missing" class="side-list" hidden></ul>
+          </div>
+        </div>
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title">Карточка</span></div>
+          <div class="panel-body">
+            <div id="glossary-empty" class="empty-state">
+              <h3>Карточка не выбрана</h3>
+              <p>Выберите термин слева, чтобы увидеть описание.</p>
+            </div>
+            <div id="glossary-detail-content" hidden></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
-  <div class="divider" id="divider-2" role="separator" aria-orientation="vertical" tabindex="0"></div>
-
-  <aside id="detail-panel" class="panel panel-detail">
-    <div id="detail-empty" class="hint">Выберите тест-кейс, чтобы увидеть разбор.</div>
-    <div id="detail-content" hidden></div>
-  </aside>
-</section>
-
-<section id="view-glossary" class="workspace" hidden>
-  <main id="glossary-list-panel" class="panel panel-glossary-list">
-    <div class="row">
-      <input id="glossary-search" type="text" placeholder="Поиск по глоссарию…">
-    </div>
-    <span class="seg" style="margin:.6rem 0">
-      <button id="gl-view-cards" class="active" data-glview="cards">Карточки</button>
-      <button id="gl-view-missing" data-glview="missing">Недостающее</button>
-    </span>
-    <ul id="glossary-cards" class="side-list"></ul>
-    <ul id="glossary-missing" class="side-list" hidden></ul>
-  </main>
-  <div class="divider" id="divider-3" role="separator" aria-orientation="vertical" tabindex="0"></div>
-  <aside id="glossary-detail-panel" class="panel panel-detail">
-    <div id="glossary-empty" class="hint">Выберите карточку глоссария.</div>
-    <div id="glossary-detail-content" hidden></div>
-  </aside>
-</section>
+</div>
 
 <div id="palette-overlay" class="palette-overlay" hidden>
   <div class="palette" role="dialog" aria-modal="true" aria-label="Палитра команд">
