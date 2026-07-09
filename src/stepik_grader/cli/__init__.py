@@ -1,8 +1,16 @@
-"""cli.py — интерактивное меню и argparse CLI грейдера (режимы 0-4).
+"""cli/__init__.py — интерактивное меню и argparse CLI грейдера (режимы 0-4).
 
 Архитектурный слой: Application / CLI.
 Оркестрирует core.grader_core (загрузка/исполнение) и core.reporter
 (вывод таблиц) — не содержит собственной бизнес-логики запуска решений.
+
+Compatibility facade (issue #117/#119): `stepik_grader.cli` остаётся
+единственной точкой доступа для entrypoint (`stepik-grader`), `grader.py`
+и существующих monkeypatch-тестов. Парсинг/options helpers вынесены в
+leaf-модуль `cli/options.py` и реэкспортированы здесь ниже — вызовы внутри
+этого модуля (`main()` и др.) продолжают резолвить их как global-имена
+`cli`-namespace, поэтому `monkeypatch.setattr(cli, "_build_arg_parser", ...)`
+по-прежнему работает.
 
 Non-interactive запуск (Sprint 8.1):
     python grader.py --mode 1 --file path/to/task.py
@@ -33,11 +41,17 @@ import io
 import json
 import os
 import pathlib
-import sys
 from collections.abc import Callable
 from typing import Any
 
-from stepik_grader.config import CONFIG
+# issue #119: parsing/options helpers — вынесены в leaf-модуль cli/options.py,
+# реэкспортированы здесь для backward compatibility фасада (см. docstring выше).
+from stepik_grader.cli.options import (
+    _build_arg_parser,
+    _force_utf8_stdio,
+    _resolve_use_cache,
+    _resolve_verbosity,
+)
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
@@ -867,141 +881,6 @@ def _interactive_menu() -> None:
         print(_t("unknown_choice"))
 
 
-def _build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="grader.py",
-        description="Stepik Python Grader — проверка и сравнение решений.",
-    )
-    parser.add_argument("--version", action="store_true", help="Показать версию грейдера и выйти.")
-    parser.add_argument(
-        "--mode",
-        type=int,
-        choices=[1, 2, 3, 4],
-        help="Режим запуска (без --mode показывается интерактивное меню).",
-    )
-    parser.add_argument("--file", help="Путь к файлу решения (обязателен для --mode 1).")
-    parser.add_argument("--dir", help="Путь к папке с решениями (обязателен для --mode 2/3/4).")
-    parser.add_argument(
-        "--repeats",
-        type=int,
-        default=15,
-        help="Число повторов на тест-кейс для --mode 3 (по умолчанию 15).",
-    )
-    parser.add_argument(
-        "--number",
-        type=int,
-        default=1000,
-        help="Число вызовов timeit для --mode 4 (по умолчанию 1000).",
-    )
-    parser.add_argument(
-        "--lang",
-        choices=["ru", "en"],
-        default="ru",
-        help="Язык меню и сообщений (по умолчанию ru). Issue #51 D-01.",
-    )
-    verbosity = parser.add_mutually_exclusive_group()
-    verbosity.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Подробный вывод с diff для --mode 1/2 (для --mode 1 это уже поведение "
-        "по умолчанию). Issue #50 D-03.",
-    )
-    verbosity.add_argument(
-        "--quiet",
-        action="store_true",
-        help="Только итог, без подробного diff, для --mode 1/2. Issue #50 D-03.",
-    )
-    parser.add_argument(
-        "--output",
-        choices=["text", "json", "csv", "markdown"],
-        default="text",
-        help=(
-            "Формат вывода: text (по умолчанию), json/csv для CI-пайплайнов "
-            "(issues #50 D-04, #53) или markdown для отчётов (issue #58)."
-        ),
-    )
-    parser.add_argument(
-        "--watch",
-        action="store_true",
-        help=(
-            "Перезапускать --mode 1/2 при изменении файла решения "
-            "(требует: pip install stepik-grader[watch]). Issue #54. Для --mode 2 "
-            "перезапуск инкрементальный — кэш прогоняет только изменённый файл "
-            "(--no-cache отключает). Issue #71."
-        ),
-    )
-    parser.add_argument(
-        "--cache",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help=(
-            "Кэшировать результаты --mode 1/2 в .grader_cache/ и пропускать "
-            "неизменённые решения (--no-cache отключает). По умолчанию из "
-            "[tool.stepik-grader] use_cache; под --watch --mode 2 включён "
-            "автоматически (инкрементальный перезапуск). Issues #56, #71."
-        ),
-    )
-    parser.add_argument(
-        "--clear-cache",
-        action="store_true",
-        help="Удалить .grader_cache/ и выйти. Issue #56.",
-    )
-    parser.add_argument(
-        "--serve",
-        action="store_true",
-        help=(
-            "Запустить локальный веб-интерфейс (только localhost) вместо CLI. "
-            "Эпик #80 Tier 1 / issue #58."
-        ),
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=8000,
-        help="Порт для --serve (по умолчанию 8000).",
-    )
-    parser.add_argument(
-        "--init-vscode",
-        action="store_true",
-        help=(
-            "Сгенерировать .vscode/tasks.json в текущей папке (грейдинг из VS Code "
-            "по Ctrl+Shift+B). Эпик #80 Tier 2 / issue #58."
-        ),
-    )
-    return parser
-
-
-def _resolve_verbosity(args: argparse.Namespace, *, default: bool) -> bool:
-    """Разрешить --verbose/--quiet в конкретное bool-значение для режима.
-
-    --verbose/--quiet — общий флаг для режимов 1 и 2, у которых РАЗНЫЕ
-    дефолты (1 — подробный вывод, 2 — только итог); default параметризует,
-    какой из них используется, если явного флага не передали.
-    """
-    if args.verbose:
-        return True
-    if args.quiet:
-        return False
-    return default
-
-
-def _resolve_use_cache(args: argparse.Namespace, *, incremental: bool) -> bool:
-    """Разрешить --cache/--no-cache в конкретное bool-значение (issues #56, #71).
-
-    Приоритет:
-      1. Явный --cache/--no-cache (args.cache is not None) — всегда выигрывает.
-      2. incremental=True (--watch --mode 2): кэш включён по умолчанию, чтобы
-         перезапускать только изменённый файл (issue #71). Пользователь может
-         отказаться через --no-cache.
-      3. Иначе — дефолт из pyproject ([tool.stepik-grader] use_cache).
-    """
-    if args.cache is not None:
-        return args.cache
-    if incremental:
-        return True
-    return CONFIG.use_cache
-
-
 def _watch_and_rerun(watch_path: str, rerun: Callable[[], None]) -> None:
     """Перезапускать rerun() при изменении файлов внутри watch_path (issue #54).
 
@@ -1028,27 +907,6 @@ def _watch_and_rerun(watch_path: str, rerun: Callable[[], None]) -> None:
             print(_t("watch_waiting", path=watch_path))
     except KeyboardInterrupt:
         pass
-
-
-def _force_utf8_stdio() -> None:
-    """Принудительно переключить stdout/stderr на UTF-8.
-
-    Git Bash / cmd на Windows по умолчанию используют cp1251 — rich-вывод
-    (рамки таблиц, ✓/✗, кириллица) роняет процесс с UnicodeEncodeError.
-    ``errors="replace"`` гарантирует отсутствие краша даже на терминалах,
-    которые не могут отобразить конкретный символ. Убирает необходимость
-    в ручном ``PYTHONIOENCODING=utf-8`` от пользователя (issue #64).
-
-    No-op на потоках без ``reconfigure`` (например, перехваченных pytest
-    или уже находящихся в UTF-8).
-    """
-    for stream in (sys.stdout, sys.stderr):
-        reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is None:
-            continue
-        enc = (getattr(stream, "encoding", "") or "").lower()
-        if enc not in {"utf-8", "utf8"}:
-            reconfigure(encoding="utf-8", errors="replace")
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -26,7 +26,7 @@
 
 | Файл / паттерн | Причина |
 |---|---|
-| `grader.py`, `cli.py` | Точки входа — запускаются как `python -m stepik_grader.X` / `stepik-grader` |
+| `grader.py`, `cli/` | Точки входа — запускаются как `python -m stepik_grader.X` / `stepik-grader` (`cli/` — пакет, `__init__.py` facade + `options.py` leaf, issue #119) |
 | `config.py` | Project-level конфигурация; импортируется из `core/*` (перенос вызовет circular import) |
 | `downloader.py`, `diagnostic_stepik.py` | Самостоятельные пользовательские утилиты |
 
