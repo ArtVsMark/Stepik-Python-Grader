@@ -13,8 +13,10 @@
 | Модуль | Архитектурный слой | Что делает |
 |---|---|---|
 | `grader.py` | Application | Тонкий фасад обратной совместимости — реэкспортирует `core/grader_core.py`, `core/reporter.py`, `cli/__init__.py` |
-| `cli/__init__.py` | Application / CLI | Интерактивное меню (режимы 0-4), non-interactive argparse CLI, профили нагрузки, mutable i18n state (`_LANG`/`_MESSAGES`); consолidates и реэкспортирует `cli/options.py` для обратной совместимости фасада; консольная команда `stepik-grader` (issue #117/#119) |
+| `cli/__init__.py` | Application / CLI | Интерактивное меню (режимы 0-4), non-interactive argparse CLI, профили нагрузки, mutable i18n state (`_LANG`/`_MESSAGES`), табличный рендеринг (`_print_tabular`); реэкспортирует `cli/options.py` и тонкие обёртки `_run_mode_1..4` над `cli/commands.py` для обратной совместимости фасада; строит `CliContext` заново на каждый вызов (`_build_cli_context()`), чтобы monkeypatch на facade-имена долетал до handlers; консольная команда `stepik-grader` (issue #117/#119/#120) |
 | `cli/options.py` | Application / CLI (leaf) | argparse-парсер (`_build_arg_parser`) и разрешение `--verbose/--quiet`/`--cache` в конкретные bool (`_resolve_verbosity`, `_resolve_use_cache`), `_force_utf8_stdio`; не импортирует `cli/__init__.py`, реэкспортирован им как `cli._build_arg_parser` и т.д. (issue #119, Stage 1 эпика #117) |
+| `cli/context.py` | Application / CLI (leaf) | `CliContext` (frozen dataclass) — явные зависимости для command handlers (`t`, `run_tests`, `run_benchmark`, `run_microbench_mode`, `resolve_test_dir_from_input`, `print_tabular`); не импортирует `cli/__init__.py`/`cli/commands.py` (issue #120) |
+| `cli/commands.py` | Application / CLI (leaf) | Реализация `_run_mode_1..4` и `_run_tests_maybe_cached`; принимают `CliContext` первым параметром вместо чтения module globals; не импортирует `cli/__init__.py`, вызывается из тонких обёрток фасада (issue #120, Stage 2 эпика #117) |
 | `config.py` | Application / Configuration | `GraderConfig` (frozen dataclass) + ленивый `CONFIG` (module `__getattr__`, PEP 562) / `get_config()` — импорт модуля не читает `pyproject.toml`, чтение кэшируется при первом обращении (issue #141/#142); переопределяется через `[tool.stepik-grader]` |
 | `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
 | `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
@@ -61,11 +63,14 @@ core/grader_core.py    ──→  core/executor.py, core/microbench_runner.py, c
 core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, core/wrapper_builder.py
 core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py
 core/mode_detector.py  ──→  core/storage.py
-cli/__init__.py        ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py
-cli/__init__.py        ──→  core/cache.py
+cli/__init__.py        ──→  core/grader_core.py  (run_tests/run_benchmark/run_microbench_mode/find_all_solution_files/collect_grouped_files/resolve_test_dir)
+cli/__init__.py        ──→  core/cache.py  (GraderCache для --clear-cache)
 cli/__init__.py        ──→  core/i18n.py  (JSON-локали поверх статического _MESSAGES)
 cli/__init__.py        ──→  cli/options.py  (реэкспорт для backward-compatible facade, issue #119)
+cli/__init__.py        ──→  cli/commands.py, cli/context.py  (тонкие обёртки _run_mode_1..4 + _build_cli_context(), issue #120)
 cli/options.py         ──→  config.py  (CONFIG.use_cache в _resolve_use_cache; leaf — не импортирует cli/__init__.py)
+cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/reporter.py, core/microbench_runner.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
+cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 web.py                 ──→  core/grader_core.py, core/reporter.py, core/microbench_runner.py, core/test_loader.py  (web → core, ациклично)
 web.py                 ──→  core/glossary.py  (lookup_from_error для error card при RE)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
