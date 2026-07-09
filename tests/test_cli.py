@@ -795,6 +795,10 @@ class TestFacadeNamespaceContract:
         assert calls == [False]  # mode 2 без --watch: incremental=False
 
     def test_rows_to_csv_called_via_facade_from_print_tabular(self, monkeypatch) -> None:
+        """issue #121: _rows_to_csv/_print_tabular живут в cli/rendering.py —
+        CONFIG-style hidden dependency: патчим там же, а не на facade `cli`
+        (facade больше не держит своей копии имени, которую читает _print_tabular).
+        """
         calls = []
         real = cli._rows_to_csv
 
@@ -802,7 +806,7 @@ class TestFacadeNamespaceContract:
             calls.append((rows, fieldnames))
             return real(rows, fieldnames)
 
-        monkeypatch.setattr(cli, "_rows_to_csv", _spy)
+        monkeypatch.setattr(cli.rendering, "_rows_to_csv", _spy)
         cli._print_tabular("csv", [{"a": 1}], ["a"])
         assert calls == [([{"a": 1}], ["a"])]
 
@@ -814,7 +818,7 @@ class TestFacadeNamespaceContract:
             calls.append((rows, fieldnames))
             return real(rows, fieldnames)
 
-        monkeypatch.setattr(cli, "_rows_to_markdown", _spy)
+        monkeypatch.setattr(cli.rendering, "_rows_to_markdown", _spy)
         cli._print_tabular("markdown", [{"a": 1}], ["a"])
         assert calls == [([{"a": 1}], ["a"])]
 
