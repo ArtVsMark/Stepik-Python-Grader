@@ -13,7 +13,7 @@ const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 // ---------------------------------------------------------------------------
 const state = {
   section: localStorage.getItem("grader_section") || "check", // "check" | "glossary"
-  mode: localStorage.getItem("grader_mode") || "tests", // "tests" | "bench" | "compare" | "microbench"
+  mode: localStorage.getItem("grader_mode") || "tests", // "file" | "tests" | "bench" | "microbench"
   configTab: "path", // "path" | "params"
   resultTab: "table", // "table" | "detail" | "log" | "reference"
   lastResult: null,
@@ -26,7 +26,12 @@ const state = {
   paletteReturnFocus: null,
   theme: localStorage.getItem("grader_theme") || "system", // "system" | "light" | "dark"
   glossary: { query: "", cards: [], missing: [], selectedId: null, view: "cards" },
+  solutions: [], // режим 1 — файлы, найденные /api/solutions в указанной папке
+  selectedSolutionFile: null, // режим 1 — выбранный для проверки файл (полный путь)
 };
+// Старый "compare" (до фикса режима 1) мог остаться в localStorage — откатываемся
+// на дефолт, а не оставляем режим, для которого больше нет кнопки/логики.
+if (!["file", "tests", "bench", "microbench"].includes(state.mode)) state.mode = "tests";
 
 function getSelectedCase() {
   if (state.selectedRow == null || state.selectedCase == null) return null;
@@ -93,7 +98,7 @@ function emptyState(title, hint) {
   );
 }
 
-// -- Command registry: one filter, three surfaces (palette/action cards/scenario buttons) --
+// -- Command registry: one filter, two surfaces (command palette / action cards) --
 
 function contextTags() {
   const tags = new Set();
@@ -103,7 +108,7 @@ function contextTags() {
     if (c.actual || c.expected) tags.add("has_output");
     if (["WA", "RE", "TLE"].includes(c.verdict)) tags.add("is_failure");
     if (c.glossary_ids && c.glossary_ids.length) tags.add("has_glossary");
-  } else if (state.mode === "bench" || state.mode === "compare") {
+  } else if (state.mode === "bench") {
     tags.add("bench_mode");
   } else if (state.lastResult && state.lastResult.rows && state.lastResult.rows.length) {
     if (state.lastResult.rows.every(r => r.status === "OK")) tags.add("all_ac");
@@ -153,15 +158,6 @@ function renderCommandButtons(el, commands) {
   );
 }
 
-function renderScenarioButtons() {
-  const el = $("#scenario-buttons");
-  if (getSelectedCase()) {
-    if (el) el.innerHTML = "";
-    return;
-  }
-  renderCommandButtons(el, visibleCommands());
-}
-
 function renderActionCards() {
   const el = $("#detail-actions");
   if (!getSelectedCase()) {
@@ -178,7 +174,6 @@ async function loadCommands() {
   } catch (e) {
     state.commands = [];
   }
-  renderScenarioButtons();
 }
 
 // -- Command palette (Ctrl+K / ⌘K) -------------------------------------------
@@ -338,8 +333,8 @@ function renderReferenceTab() {
   const src = state.lastResult && state.lastResult.reference_source;
   if (!src) {
     el.innerHTML = emptyState(
-      "Эталон не указан",
-      "Укажите «Эталонное решение» в режиме «Сравнение», чтобы увидеть его исходник."
+      "Эталон не выбран",
+      "«Найти эталонное решение» пока не реализовано (issue #55) — здесь появится его код."
     );
     return;
   }
@@ -355,18 +350,112 @@ function setMode(m) {
     b.classList.toggle("active", active);
     b.setAttribute("aria-pressed", String(active));
   });
-  $("#ref-input-group").hidden = m !== "compare";
+  $("#file-picker-group").hidden = m !== "file";
   $("#microbench-config").hidden = m !== "microbench";
   const repeatsGroup = $("#repeats").closest(".form-group");
-  if (repeatsGroup) repeatsGroup.hidden = !(m === "bench" || m === "compare");
+  if (repeatsGroup) repeatsGroup.hidden = m !== "bench";
+  updateParamsTabAvailability(m);
+  resetFilePicker();
   localStorage.setItem("grader_mode", m);
 }
 
+// -- Режим 1 «Один файл» — параметры недоступны, скрыть вкладку целиком;
+// режим 2 «Тесты» — параметров реально нет (repeats только для bench), вкладка
+// видна, но серая/некликабельная; bench/microbench — вкладка активна.
+function updateParamsTabAvailability(m) {
+  const tab = document.querySelector('[data-conftab="params"]');
+  if (!tab) return;
+  tab.hidden = m === "file";
+  const disabled = m === "tests";
+  tab.classList.toggle("disabled", disabled);
+  tab.setAttribute("aria-disabled", String(disabled));
+  if ((tab.hidden || disabled) && state.configTab === "params") setConfigTab("path");
+}
+
+function updateRunButtonState() {
+  $("#run").disabled = state.mode === "file" && !state.selectedSolutionFile;
+}
+
+function resetFilePicker() {
+  state.solutions = [];
+  state.selectedSolutionFile = null;
+  const list = $("#solutions-list");
+  const block = $("#selected-source-block");
+  if (list) list.innerHTML = "";
+  if (block) block.innerHTML = "";
+  updateRunButtonState();
+}
+
+async function findSolutions() {
+  const folder = $("#path").value.trim();
+  const list = $("#solutions-list");
+  if (!folder) return;
+  state.selectedSolutionFile = null;
+  $("#selected-source-block").innerHTML = "";
+  updateRunButtonState();
+  list.innerHTML = '<li class="empty">Поиск…</li>';
+  try {
+    const r = await fetch("/api/solutions?" + new URLSearchParams({ path: folder }));
+    const data = await r.json();
+    if (data.kind === "error") {
+      state.solutions = [];
+      list.innerHTML = '<li class="empty">' + esc(data.message) + "</li>";
+      return;
+    }
+    state.solutions = data.files || [];
+    renderSolutionsList();
+  } catch (e) {
+    state.solutions = [];
+    list.innerHTML = '<li class="empty">Ошибка запроса.</li>';
+  }
+}
+
+function renderSolutionsList() {
+  const el = $("#solutions-list");
+  if (!state.solutions.length) {
+    el.innerHTML = '<li class="empty">Решения не найдены.</li>';
+    return;
+  }
+  el.innerHTML = state.solutions
+    .map(f => {
+      const name = f.split(/[\\/]/).pop();
+      const sel = f === state.selectedSolutionFile ? " selected" : "";
+      return '<li data-file="' + esc(f) + '" class="' + sel + '">' + esc(name) + "</li>";
+    })
+    .join("");
+  el.querySelectorAll("li[data-file]").forEach(li =>
+    li.addEventListener("click", () => selectSolutionFile(li.dataset.file))
+  );
+}
+
+async function selectSolutionFile(fullPath) {
+  state.selectedSolutionFile = fullPath;
+  renderSolutionsList();
+  updateRunButtonState();
+  const block = $("#selected-source-block");
+  block.innerHTML = skeletonBlock();
+  try {
+    const r = await fetch("/api/source?" + new URLSearchParams({ path: fullPath }));
+    const data = await r.json();
+    if (data.kind === "error") {
+      block.innerHTML = '<p class="msg">' + esc(data.message) + "</p>";
+      return;
+    }
+    block.innerHTML = '<div class="field-label">Код</div>' + codeBlock(data.source);
+  } catch (e) {
+    block.innerHTML = '<p class="msg">Не удалось загрузить код.</p>';
+  }
+}
+
 async function grade() {
-  const path = $("#path").value.trim();
+  const isFileMode = state.mode === "file";
+  const path = isFileMode ? state.selectedSolutionFile || "" : $("#path").value.trim();
   if (!path) return;
-  localStorage.setItem("grader_path", path);
-  addRecentPath(path);
+  const folder = $("#path").value.trim();
+  if (folder) {
+    localStorage.setItem("grader_path", folder);
+    addRecentPath(folder);
+  }
   const btn = $("#run");
   btn.disabled = true;
   btn.textContent = "Проверка…";
@@ -375,13 +464,9 @@ async function grade() {
   state.selectedRow = null;
   state.selectedCase = null;
   state.explainOpen = false;
-  const backendMode = state.mode === "compare" ? "bench" : state.mode;
+  const backendMode = state.mode === "bench" ? "bench" : "tests";
   const q = new URLSearchParams({ path, mode: backendMode });
   if (backendMode === "bench") q.set("repeats", $("#repeats").value);
-  if (state.mode === "compare") {
-    const ref = $("#ref-input").value.trim();
-    if (ref) q.set("reference", ref);
-  }
   try {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
@@ -392,10 +477,9 @@ async function grade() {
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
   } finally {
-    btn.disabled = false;
+    updateRunButtonState();
     btn.textContent = "▶ Запустить";
     renderDetailPanel();
-    renderScenarioButtons();
     renderResultSummaryBadges();
     if (state.resultTab === "log") renderLogTab();
     if (state.resultTab === "reference") renderReferenceTab();
@@ -511,7 +595,6 @@ function selectCase(rowIndex, caseIndex) {
   state.explainOpen = false;
   highlightSelectedCaseRow();
   renderDetailPanel();
-  renderScenarioButtons();
   setResultTab("detail");
 }
 
@@ -631,7 +714,9 @@ function renderRecentPaths(recent) {
   el.querySelectorAll("li[data-path]").forEach(li =>
     li.addEventListener("click", () => {
       $("#path").value = li.dataset.path;
-      grade();
+      // Недавние пути — всегда папки; в режиме «Один файл» сначала нужно
+      // найти решения и выбрать конкретный файл, поэтому не грейдим сразу.
+      if (state.mode !== "file") grade();
     })
   );
 }
@@ -641,7 +726,7 @@ function addHistoryEntry(path, mode, data) {
   const summary =
     data.kind === "error"
       ? "ошибка"
-      : mode === "bench" || mode === "compare"
+      : mode === "bench"
         ? "бенчмарк · " + rows.length
         : rows.filter(r => r.status === "OK").length + "/" + rows.length + " OK";
   let history = JSON.parse(localStorage.getItem("grader_history") || "[]");
@@ -668,8 +753,17 @@ function renderHistory(history) {
     .join("");
   el.querySelectorAll("li[data-path]").forEach(li =>
     li.addEventListener("click", () => {
-      $("#path").value = li.dataset.path;
-      setMode(li.dataset.mode === "compare" ? "compare" : li.dataset.mode);
+      const mode = li.dataset.mode;
+      setMode(mode); // сбрасывает file-picker state (resetFilePicker внутри setMode)
+      if (mode === "file") {
+        // В истории режима «Один файл» path — это конкретный проверенный
+        // файл, а не папка; папку для #path восстанавливаем эвристически.
+        state.selectedSolutionFile = li.dataset.path;
+        $("#path").value = li.dataset.path.replace(/[\\/][^\\/]*$/, "");
+        updateRunButtonState();
+      } else {
+        $("#path").value = li.dataset.path;
+      }
       grade();
     })
   );
@@ -795,8 +889,11 @@ document
 
 $("#run").addEventListener("click", grade);
 $("#path").addEventListener("keydown", e => {
-  if (e.key === "Enter") grade();
+  if (e.key !== "Enter") return;
+  if (state.mode === "file") findSolutions();
+  else grade();
 });
+$("#find-solutions-btn").addEventListener("click", findSolutions);
 $("#theme-toggle").addEventListener("click", cycleTheme);
 $("#palette-btn").addEventListener("click", openPalette);
 $("#palette-overlay").addEventListener("click", e => {
