@@ -70,7 +70,10 @@ class _Handler(BaseHTTPRequestHandler):
                     "rows": [],
                 }
             elif mode == "bench":
-                data = grade_benchmark(path, repeats=_int(qs.get("repeats"), 15))
+                reference = (qs.get("reference") or [""])[0].strip() or None
+                data = grade_benchmark(
+                    path, repeats=_int(qs.get("repeats"), 15), reference=reference
+                )
             else:
                 data = grade_path(path)
             self._send(200, "application/json; charset=utf-8", _json(data))

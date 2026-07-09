@@ -249,12 +249,60 @@ def grade_path(path: str, *, missing_queue_path: str | None = None) -> dict[str,
     return {"kind": kind, "mode": "tests", "base": base, "rows": rows}
 
 
-def grade_benchmark(path: str, *, repeats: int = 15) -> dict[str, Any]:
+def _apply_reference_ranking(
+    results: dict[str, dict[str, Any]],
+    reference_path: str,
+    *,
+    similar_threshold: float,
+    much_slower_threshold: float,
+) -> None:
+    """Ранжирование относительно ``reference_path`` вместо самого быстрого решения.
+
+    Режим «Сравнение» (Compare, редизайн под маску эпика #123): та же формула
+    относительного времени, что и ``apply_relative_ranking``
+    (``core/microbench_runner.py``), но baseline — не ``min(median)``, а
+    медиана указанного эталонного решения. Вердикты: ``REFERENCE`` (сам
+    эталон), ``FASTER`` (заметно быстрее эталона — симметрично "похожести"
+    вокруг порога), ``SIMILAR``, ``SLOWER``, ``MUCH_SLOWER``. Мутирует
+    ``results`` in place, как и ``apply_relative_ranking``; entries с ``error``
+    не трогаются. Не вызывать без предварительной проверки, что
+    ``reference_path in results`` и у него нет ``error`` — это ответственность
+    вызывающей стороны (``grade_benchmark``).
+    """
+    ok = {k: v for k, v in results.items() if not v.get("error")}
+    base_median = ok[reference_path]["median"]
+    faster_bound = 1.0 / similar_threshold if similar_threshold > 0 else 1.0
+    for path, v in ok.items():
+        v["relative"] = v["median"] / base_median if base_median > 0 else 1.0
+        if path == reference_path:
+            v["verdict"] = "REFERENCE"
+        elif v["relative"] < faster_bound:
+            v["verdict"] = "FASTER"
+        elif v["relative"] <= similar_threshold:
+            v["verdict"] = "SIMILAR"
+        elif v["relative"] <= much_slower_threshold:
+            v["verdict"] = "SLOWER"
+        else:
+            v["verdict"] = "MUCH_SLOWER"
+
+
+def grade_benchmark(
+    path: str, *, repeats: int = 15, reference: str | None = None
+) -> dict[str, Any]:
     """Бенчмаркнуть файл/папку (режим 3) и ранжировать по медиане.
 
     Строки отсортированы от быстрого к медленному; вердикт SIMILAR/SLOWER/
     MUCH_SLOWER — относительно самого быстрого (как в CLI mode 3). Ошибочные
     решения идут в конец.
+
+    ``reference`` — путь или имя файла одного из найденных решений (режим
+    «Сравнение», редизайн под маску эпика #123): если указан и резолвится
+    среди ``solutions`` без ошибки прогона, ранжирование считается
+    относительно НЕГО (вердикты REFERENCE/FASTER/SIMILAR/SLOWER/MUCH_SLOWER),
+    а его исходник возвращается в ``reference_source``/``reference_file``.
+    Не резолвится (опечатка/чужой файл) — тихий fallback на обычное
+    ранжирование относительно самого быстрого решения, как если бы
+    ``reference`` не передавали.
     """
     resolved = _resolve_solutions(path)
     if isinstance(resolved, dict):
@@ -268,11 +316,33 @@ def grade_benchmark(path: str, *, repeats: int = 15) -> dict[str, Any]:
             results[sol] = {"error": "тесты не найдены", "runs": 0}
         else:
             results[sol] = run_benchmark(sol, test_dir, repeats=max(1, repeats))
-    apply_relative_ranking(
-        results,
-        similar_threshold=SIMILAR_THRESHOLD,
-        much_slower_threshold=MUCH_SLOWER_THRESHOLD,
-    )
+
+    ref_path = None
+    if reference:
+        ref_name = pathlib.Path(reference).name
+        ref_path = next(
+            (
+                s
+                for s in solutions
+                if (s == reference or pathlib.Path(s).name == ref_name)
+                and not results[s].get("error")
+            ),
+            None,
+        )
+
+    if ref_path is not None:
+        _apply_reference_ranking(
+            results,
+            ref_path,
+            similar_threshold=SIMILAR_THRESHOLD,
+            much_slower_threshold=MUCH_SLOWER_THRESHOLD,
+        )
+    else:
+        apply_relative_ranking(
+            results,
+            similar_threshold=SIMILAR_THRESHOLD,
+            much_slower_threshold=MUCH_SLOWER_THRESHOLD,
+        )
 
     ok = {s: d for s, d in results.items() if not d.get("error")}
     rows: list[dict[str, Any]] = []
@@ -292,4 +362,12 @@ def grade_benchmark(path: str, *, repeats: int = 15) -> dict[str, Any]:
     for sol, d in results.items():
         if d.get("error"):
             rows.append({"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]})
-    return {"kind": kind, "mode": "bench", "base": base, "rows": rows}
+
+    response: dict[str, Any] = {"kind": kind, "mode": "bench", "base": base, "rows": rows}
+    if ref_path is not None:
+        try:
+            response["reference_source"] = pathlib.Path(ref_path).read_text(encoding="utf-8")
+        except OSError:
+            response["reference_source"] = None
+        response["reference_file"] = _rel(ref_path, base)
+    return response
