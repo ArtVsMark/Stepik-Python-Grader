@@ -21,6 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from stepik_grader.web.glossary_adapter import glossary_get, glossary_missing, glossary_search
 from stepik_grader.web.viewmodels import grade_benchmark, grade_path
 
 __all__ = ["run_server"]
@@ -40,7 +41,12 @@ _STATIC_ROUTES: dict[str, tuple[str, str]] = {
 
 
 class _Handler(BaseHTTPRequestHandler):
-    """GET / → страница; GET /api/grade?path=…&mode=tests|bench → JSON."""
+    """GET / → страница; GET /api/grade?path=…&mode=tests|bench → JSON.
+
+    Плюс (issue #125): GET /api/glossary?q= (поиск карточек), GET
+    /api/glossary/<id> (карточка или 404), GET /api/glossary/missing (очередь
+    пополнения, J7) — тонкие адаптеры над ``glossary_adapter.py``.
+    """
 
     def do_GET(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
         parsed = urlparse(self.path)
@@ -65,6 +71,23 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 data = grade_path(path)
             self._send(200, "application/json; charset=utf-8", _json(data))
+        elif parsed.path == "/api/glossary":
+            qs = parse_qs(parsed.query)
+            query = (qs.get("q") or [""])[0]
+            self._send(200, "application/json; charset=utf-8", _json(glossary_search(query)))
+        elif parsed.path == "/api/glossary/missing":
+            self._send(200, "application/json; charset=utf-8", _json(glossary_missing()))
+        elif parsed.path.startswith("/api/glossary/"):
+            card_id = parsed.path[len("/api/glossary/") :]
+            card = glossary_get(card_id)
+            if card is None:
+                self._send(
+                    404,
+                    "application/json; charset=utf-8",
+                    _json({"kind": "error", "message": f"Карточка не найдена: {card_id}"}),
+                )
+            else:
+                self._send(200, "application/json; charset=utf-8", _json(card))
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
 
@@ -87,7 +110,7 @@ def _int(values: list[str] | None, default: int) -> int:
         return default
 
 
-def _json(data: dict[str, Any]) -> bytes:
+def _json(data: Any) -> bytes:
     return json.dumps(data, ensure_ascii=False).encode("utf-8")
 
 

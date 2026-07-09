@@ -190,7 +190,11 @@ class TestErrorCardFields:
         assert case["suggestions"]  # non-empty — curated hint from core/glossary.py
         assert "open_glossary" in case["actions"]
 
-    def test_re_case_unknown_exception_has_empty_glossary_ids(self) -> None:
+    def test_re_case_unknown_exception_has_empty_glossary_ids(self, tmp_path: pathlib.Path) -> None:
+        # missing_queue_path pinned to tmp_path -- an unknown exception here
+        # triggers J7 queuing (see TestGradePath.test_unknown_re_exception_...
+        # below), and without this the default CONFIG.glossary_missing_queue
+        # would write into the repo's real working directory.
         case = web._case_view(
             4,
             {
@@ -201,6 +205,7 @@ class TestErrorCardFields:
                 "error": "CustomProjectError: boom",
                 "exit_code": 1,
             },
+            missing_queue_path=str(tmp_path / "missing.json"),
         )
         assert case["glossary_ids"] == []
         assert case["suggestions"] == []
