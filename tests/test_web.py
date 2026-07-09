@@ -74,6 +74,116 @@ class TestGradePath:
         assert row["status"] == "NO TESTS"
         assert row["total"] == 0
 
+    def test_wa_case_carries_stdin_from_test_case(self, tmp_path: pathlib.Path) -> None:
+        """grade_path() wires stdin through to the case's ErrorCard (issue #125)."""
+        sol = _make_task(tmp_path, "print(int(input()) + 2)\n")  # 4 -> 6, ждём 5
+        case = web.grade_path(str(sol))["rows"][0]["cases"][0]
+        assert case["stdin"] == "4"
+        assert case["actual"] == "6"
+        assert case["expected"] == "5"
+
+    def test_re_case_carries_exit_code_from_core(self, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "raise ValueError('boom')\n")
+        case = web.grade_path(str(sol))["rows"][0]["cases"][0]
+        assert case["verdict"] == "RE"
+        assert case["exit_code"] not in (0, None)
+        assert case["stderr"] == case["error"]
+
+
+# ---------------------------------------------------------------------------
+# ErrorCard fields on _case_view — issue #125 (web-mvp.md § Модель error cards)
+# ---------------------------------------------------------------------------
+
+
+class TestErrorCardFields:
+    def test_ac_case_has_minimal_fields_only(self) -> None:
+        case = web._case_view(
+            1, {"passed": True, "verdict": "AC", "time": 0.01, "output": ["5"]}, stdin="4"
+        )
+        assert case["case_n"] == 1
+        assert case["actions"] == ["run_again", "copy_input", "copy_output"]
+        for key in ("severity", "suggestions", "glossary_ids", "expected", "stderr", "timeout_s"):
+            assert key not in case
+
+    def test_wa_case_error_card_fields(self) -> None:
+        case = web._case_view(
+            2,
+            {
+                "passed": False,
+                "verdict": "WA",
+                "time": 0.02,
+                "output": ["6"],
+                "expected": ["5"],
+                "diff": "- 5\n+ 6",
+                "error": "",
+            },
+            stdin="4",
+        )
+        assert case["severity"] == "error"
+        assert case["expected"] == "5"
+        assert case["actual"] == "6"
+        assert case["diff"]
+        assert "glossary_ids" not in case  # WA never gets glossary_ids (RE only)
+        assert set(case["actions"]) == {"run_again", "copy_input", "copy_output", "explain_error"}
+
+    def test_re_case_known_exception_has_glossary_ids_and_suggestion(self) -> None:
+        case = web._case_view(
+            3,
+            {
+                "passed": False,
+                "verdict": "RE",
+                "time": 0.03,
+                "output": [],
+                "error": "KeyError: 'x'",
+                "exit_code": 1,
+            },
+            stdin="4",
+        )
+        assert case["severity"] == "error"
+        assert case["stderr"] == "KeyError: 'x'"
+        assert case["exit_code"] == 1
+        assert case["glossary_ids"] == ["keyerror"]
+        assert case["suggestions"]  # non-empty — curated hint from core/glossary.py
+        assert "open_glossary" in case["actions"]
+
+    def test_re_case_unknown_exception_has_empty_glossary_ids(self) -> None:
+        case = web._case_view(
+            4,
+            {
+                "passed": False,
+                "verdict": "RE",
+                "time": 0.01,
+                "output": [],
+                "error": "CustomProjectError: boom",
+                "exit_code": 1,
+            },
+        )
+        assert case["glossary_ids"] == []
+        assert case["suggestions"] == []
+        assert "open_glossary" not in case["actions"]
+
+    def test_tle_case_error_card_fields(self) -> None:
+        from stepik_grader.config import CONFIG
+
+        case = web._case_view(
+            5,
+            {
+                "passed": False,
+                "verdict": "TLE",
+                "time": CONFIG.timeout_seconds,
+                "output": [],
+                "error": f"Timeout after {CONFIG.timeout_seconds}s",
+                "exit_code": None,
+                "timed_out": True,
+            },
+        )
+        assert case["severity"] == "warning"
+        assert case["timeout_s"] == CONFIG.timeout_seconds
+        assert case["exit_code"] is None
+        assert case["suggestions"]
+        assert "glossary_ids" not in case  # TLE never links glossary content
+        assert "expected" not in case
+
 
 # ---------------------------------------------------------------------------
 # grade_benchmark (режим бенчмарка)

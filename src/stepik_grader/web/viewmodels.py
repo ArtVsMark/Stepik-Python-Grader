@@ -12,6 +12,7 @@ from __future__ import annotations
 import pathlib
 from typing import Any
 
+from stepik_grader.config import CONFIG
 from stepik_grader.core.glossary import lookup_from_error
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
@@ -21,7 +22,16 @@ from stepik_grader.core.grader_core import (
 )
 from stepik_grader.core.microbench_runner import apply_relative_ranking
 from stepik_grader.core.reporter import fmt_time
-from stepik_grader.core.test_loader import find_all_solution_files, resolve_test_dir
+from stepik_grader.core.test_loader import (
+    find_all_solution_files,
+    load_test_cases,
+    resolve_test_dir,
+)
+
+# Вердикты-"ошибки" (в отличие от AC) — ErrorCard-поля (severity/stderr/
+# suggestions/...) заполняются только для них (issue #125, web-mvp.md §
+# «Модель error cards»).
+_FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
 
 __all__ = ["grade_benchmark", "grade_path"]
 
@@ -50,25 +60,95 @@ def _resolve_solutions(path: str) -> tuple[str, str, list[str]] | dict[str, Any]
     return {"kind": "error", "message": f"Путь не найден: {path}", "rows": []}
 
 
-def _case_view(index: int, case: dict[str, Any]) -> dict[str, Any]:
-    """Компактное представление одного тест-кейса для UI."""
+def _wa_suggestion(actual: str, expected: str) -> str | None:
+    """Курированная (не AI) эвристика: совпадает после rstrip → похоже на пробелы/CRLF."""
+    if actual and expected and actual != expected and actual.rstrip() == expected.rstrip():
+        return (
+            "Вывод совпадает после удаления хвостовых пробелов/переводов строк"
+            " — проверьте форматирование."
+        )
+    return None
+
+
+def _error_card_actions(
+    *, verdict: str, stdin: str, actual: str, glossary_ids: list[str]
+) -> list[str]:
+    """MVP-набор action cards для кейса (issue #125) — только 5 реализованных id.
+
+    Никогда не возвращает ``create_test``/``compare_solutions`` — они вне
+    скоупа #125 (design-only, см. docs/web-mvp.md § Action cards).
+    """
+    actions = ["run_again"]
+    if stdin:
+        actions.append("copy_input")
+    if actual:
+        actions.append("copy_output")
+    if verdict in _FAILURE_VERDICTS:
+        actions.append("explain_error")
+    if glossary_ids:
+        actions.append("open_glossary")
+    return actions
+
+
+def _case_view(index: int, case: dict[str, Any], *, stdin: str = "") -> dict[str, Any]:
+    """Представление одного тест-кейса для UI — ErrorCard для WA/RE/TLE (issue #125)."""
     error = case.get("error", "")
+    verdict = case.get("verdict") or ("RE" if error else "?")
+    passed = bool(case.get("passed"))
+    actual = "\n".join(case.get("output") or [])
+
+    # issue #72: карточка ошибки — тип исключения, пояснение, ссылка на глоссарий.
+    entry = lookup_from_error(error) if error else None
+    glossary_ids = [entry.anchor] if entry is not None and verdict == "RE" else []
+
     view: dict[str, Any] = {
         "n": index,
-        "verdict": case.get("verdict") or ("RE" if error else "?"),
+        "case_n": index,
+        "verdict": verdict,
         "time": round(case.get("time", 0.0), 4),
         "error": error,
         # diff показываем только для непрошедших — иначе пусто.
-        "diff": "" if case.get("passed") else case.get("diff", ""),
+        "diff": "" if passed else case.get("diff", ""),
+        "stdin": stdin,
+        "actual": actual,
+        "actions": _error_card_actions(
+            verdict=verdict, stdin=stdin, actual=actual, glossary_ids=glossary_ids
+        ),
     }
-    # issue #72: карточка ошибки — тип исключения, пояснение, ссылка на глоссарий.
-    entry = lookup_from_error(error) if error else None
     if entry is not None:
         view["glossary"] = {
             "exception": entry.exception,
             "hint": entry.hint,
             "url": entry.url,
         }
+
+    if verdict in _FAILURE_VERDICTS:
+        view["severity"] = "warning" if verdict == "TLE" else "error"
+        suggestions: list[str] = []
+        if verdict == "RE" and entry is not None:
+            suggestions = [entry.hint]
+        elif verdict == "TLE":
+            suggestions = [
+                "Превышён лимит времени — проверьте сложность алгоритма"
+                " или наличие бесконечного цикла."
+            ]
+        elif verdict == "WA":
+            expected = "\n".join(case.get("expected") or [])
+            hint = _wa_suggestion(actual, expected)
+            if hint:
+                suggestions = [hint]
+        view["suggestions"] = suggestions
+
+    if verdict == "WA":
+        view["expected"] = "\n".join(case.get("expected") or [])
+    if verdict in ("RE", "TLE"):
+        view["stderr"] = error
+        view["exit_code"] = case.get("exit_code")
+    if verdict == "TLE":
+        view["timeout_s"] = CONFIG.timeout_seconds
+    if verdict == "RE":
+        view["glossary_ids"] = glossary_ids
+
     return view
 
 
@@ -91,6 +171,10 @@ def grade_path(path: str) -> dict[str, Any]:
             continue
         res = run_tests(sol, test_dir)
         ok = res["total"] > 0 and res["passed"] == res["total"]
+        # Отдельная (дешёвая) загрузка тест-кейсов ради stdin для ErrorCard —
+        # run_tests() уже прогнал их в том же порядке (issue #125), поэтому
+        # zip по позиции корректен без изменения сигнатуры run_tests().
+        test_cases = load_test_cases(test_dir)
         rows.append(
             {
                 "file": _rel(sol, base),
@@ -100,7 +184,10 @@ def grade_path(path: str) -> dict[str, Any]:
                 "total_time": round(res["total_time"], 4),
                 "avg_time": round(res["avg_time"], 4),
                 "memory_mb": round(res["peak_memory_mb"], 2),
-                "cases": [_case_view(i, c) for i, c in enumerate(res["cases"], 1)],
+                "cases": [
+                    _case_view(i, c, stdin="\n".join(tc.input_lines))
+                    for i, (c, tc) in enumerate(zip(res["cases"], test_cases, strict=True), 1)
+                ],
             }
         )
     return {"kind": kind, "mode": "tests", "base": base, "rows": rows}
