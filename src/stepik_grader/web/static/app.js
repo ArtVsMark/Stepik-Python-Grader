@@ -267,6 +267,7 @@ function setSection(section) {
     else a.removeAttribute("aria-current");
   });
   $("#view-check").hidden = section !== "check";
+  $("#view-downloader").hidden = section !== "downloader";
   $("#view-glossary").hidden = section !== "glossary";
   if (section === "glossary" && !state.glossary.cards.length) loadGlossary("");
 }
@@ -869,6 +870,71 @@ function setGlossaryView(view) {
   if (view === "missing" && !state.glossary.missing.length) loadMissing();
 }
 
+// -- Загрузчик задач: скачивание со Stepik (issue #186) -----------------------
+
+function renderDownloaderResult(data) {
+  const empty = $("#downloader-empty");
+  const content = $("#downloader-content");
+  empty.hidden = true;
+  content.hidden = false;
+
+  if (!data.ok) {
+    content.innerHTML = '<p class="msg">' + esc(data.message) + "</p>";
+    return;
+  }
+
+  let h = kpiGrid([
+    { label: "Тестов", value: data.tests.count },
+    { label: "Файлов", value: data.files.length },
+  ]);
+  if (data.message) h += '<p class="msg">' + esc(data.message) + "</p>";
+  h += '<div class="field-label">Путь</div>' + codeBlock(data.path);
+  h += '<div class="field-label">Файлы</div>' + codeBlock(data.files.join("\n"));
+  if (data.files.length) {
+    h +=
+      '<button id="downloader-goto-check" class="btn btn-secondary" style="margin-top:var(--space-3)">' +
+      "Перейти к проверке</button>";
+  }
+  content.innerHTML = h;
+
+  const gotoBtn = $("#downloader-goto-check");
+  if (gotoBtn) {
+    gotoBtn.addEventListener("click", () => {
+      $("#path").value = data.path;
+      addRecentPath(data.path);
+      setMode("tests");
+      setSection("check");
+    });
+  }
+}
+
+async function downloadTask() {
+  const url = $("#downloader-url").value.trim();
+  if (!url) return;
+  const root = $("#downloader-root").value.trim();
+  const btn = $("#downloader-run");
+  btn.disabled = true;
+  btn.textContent = "Скачивание…";
+  $("#downloader-empty").hidden = true;
+  const content = $("#downloader-content");
+  content.hidden = false;
+  content.innerHTML = skeletonBlock();
+  try {
+    const r = await fetch("/api/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(root ? { url, root } : { url }),
+    });
+    const data = await r.json();
+    renderDownloaderResult(data);
+  } catch (e) {
+    content.innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "▶ Скачать";
+  }
+}
+
 // -- Wiring / init -------------------------------------------------------------
 
 document
@@ -894,6 +960,10 @@ $("#path").addEventListener("keydown", e => {
   else grade();
 });
 $("#find-solutions-btn").addEventListener("click", findSolutions);
+$("#downloader-run").addEventListener("click", downloadTask);
+$("#downloader-url").addEventListener("keydown", e => {
+  if (e.key === "Enter") downloadTask();
+});
 $("#theme-toggle").addEventListener("click", cycleTheme);
 $("#palette-btn").addEventListener("click", openPalette);
 $("#palette-overlay").addEventListener("click", e => {

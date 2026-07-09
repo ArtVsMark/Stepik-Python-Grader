@@ -31,6 +31,7 @@ from stepik_grader.core.oauth_flow import (
     authorize_and_get_token,
     load_secrets,
     token_is_valid,
+    try_create_session_without_browser,
     wait_for_auth_code,
 )
 from stepik_grader.core.stepik_client import (
@@ -395,6 +396,91 @@ class TestRefreshAccessToken:
         assert session.headers["Authorization"] == "Bearer browser_access"
         saved = json.loads(secrets_path.read_text(encoding="utf-8"))
         assert saved["access_token"] == "browser_access"
+
+
+# ---------------------------------------------------------------------------
+# try_create_session_without_browser — issue #186 (web Downloader, no browser)
+# ---------------------------------------------------------------------------
+
+
+class TestTryCreateSessionWithoutBrowser:
+    def test_valid_token_returns_session_without_network(self, tmp_path):
+        secrets = {
+            "client_id": "cid",
+            "client_secret": "csecret",
+            "redirect_uri": "http://localhost:8080/callback",
+            "access_token": "already_valid",
+            "refresh_token": "r",
+            "expires_at": time.time() + 3600,
+        }
+        with (
+            patch("stepik_grader.core.oauth_flow.refresh_access_token") as mock_refresh,
+            patch("stepik_grader.core.oauth_flow.authorize_via_browser") as mock_authorize,
+        ):
+            session = try_create_session_without_browser(secrets, tmp_path / "secrets.json")
+        assert session is not None
+        assert session.headers["Authorization"] == "Bearer already_valid"
+        mock_refresh.assert_not_called()
+        mock_authorize.assert_not_called()
+
+    def test_expired_token_with_valid_refresh_returns_session_and_saves(self, tmp_path):
+        secrets_path = tmp_path / "secrets.json"
+        secrets = {
+            "client_id": "cid",
+            "client_secret": "csecret",
+            "redirect_uri": "http://localhost:8080/callback",
+            "access_token": "",
+            "refresh_token": "old_refresh",
+            "expires_at": 0,
+        }
+        secrets_path.write_text(json.dumps(secrets), encoding="utf-8")
+        new_tokens = {
+            "access_token": "fresh_access",
+            "refresh_token": "fresh_refresh",
+            "expires_in": 3600,
+        }
+        with patch(
+            "stepik_grader.core.oauth_flow.refresh_access_token", return_value=dict(new_tokens)
+        ):
+            session = try_create_session_without_browser(secrets, secrets_path)
+        assert session is not None
+        assert session.headers["Authorization"] == "Bearer fresh_access"
+        saved = json.loads(secrets_path.read_text(encoding="utf-8"))
+        assert saved["access_token"] == "fresh_access"
+
+    def test_expired_refresh_token_returns_none_without_browser(self, tmp_path):
+        secrets = {
+            "client_id": "cid",
+            "client_secret": "csecret",
+            "redirect_uri": "http://localhost:8080/callback",
+            "access_token": "",
+            "refresh_token": "stale_refresh",
+            "expires_at": 0,
+        }
+        with (
+            patch(
+                "stepik_grader.core.oauth_flow.refresh_access_token",
+                side_effect=requests.HTTPError("expired"),
+            ),
+            patch("stepik_grader.core.oauth_flow.authorize_via_browser") as mock_authorize,
+        ):
+            session = try_create_session_without_browser(secrets, tmp_path / "secrets.json")
+        assert session is None
+        mock_authorize.assert_not_called()
+
+    def test_no_token_no_refresh_returns_none_without_browser(self, tmp_path):
+        secrets = {
+            "client_id": "cid",
+            "client_secret": "csecret",
+            "redirect_uri": "http://localhost:8080/callback",
+            "access_token": "",
+            "refresh_token": "",
+            "expires_at": 0,
+        }
+        with patch("stepik_grader.core.oauth_flow.authorize_via_browser") as mock_authorize:
+            session = try_create_session_without_browser(secrets, tmp_path / "secrets.json")
+        assert session is None
+        mock_authorize.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

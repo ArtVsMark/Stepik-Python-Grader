@@ -10,6 +10,25 @@
 -->
 
 ### Added
+- Downloader workflow in the web UI (issue #186): a new, full sidebar
+  section "Загрузчик задач" (symmetric with "Проверка решений"/"Глоссарий" —
+  the owner confirmed a dedicated section over the design doc's original
+  "workflow-block inside Проверка решений" plan) lets you paste a Stepik
+  step URL and download the task + tests without leaving the browser.
+  `web/downloader_adapter.py::download_task()` is a thin adapter over
+  `downloader.py::process_step_url` (no download logic duplicated); auth
+  goes through a new `core/oauth_flow.try_create_session_without_browser()`,
+  which only ever uses a valid token or a `refresh_token` exchange — it
+  never opens a browser or blocks the request thread the way
+  `create_user_session`'s third fallback would. Two small additive core
+  changes support this: `save_task_files`/`process_step_url` now return the
+  `(count, source)`/`task_dir` they already computed instead of `None`
+  (`source` — zip/html_table/github_link/none — can't be reconstructed
+  from disk after the fact, since the ZIP and GitHub-variant-A paths both
+  produce an identical `tests/input.txt`+`output.txt`). New `POST
+  /api/download` endpoint (the server's first `do_POST`). Verified
+  end-to-end against a real Stepik step with an already-configured OAuth
+  session on this machine.
 - Runner Protocol abstraction (epic #136, issues #137-#139): new
   `core/runner.py` implements `docs/server-mode.md`'s already-designed
   Runner layer (#140) as real code. `Runner` (runtime-checkable Protocol),

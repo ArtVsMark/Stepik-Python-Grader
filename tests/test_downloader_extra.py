@@ -252,7 +252,7 @@ class TestSaveTaskFiles:
         step = self._step(text="")
         submission = {"id": 9, "status": "correct", "reply": {"code": "print(1)"}}
         session = MagicMock()
-        save_task_files(
+        result = save_task_files(
             tmp_path,
             step,
             submission,
@@ -261,6 +261,7 @@ class TestSaveTaskFiles:
             self._meta(),
             session,
         )
+        assert result == (0, "none")  # пустой block.text -> ранний выход
         assert (tmp_path / "task3_1.py").read_text() == "def f(): pass"
         assert (tmp_path / "task3_2.py").exists()
         assert (tmp_path / "solution.py").read_text() == "print(1)"
@@ -271,14 +272,17 @@ class TestSaveTaskFiles:
     def test_no_text_returns_early(self, tmp_path: pathlib.Path):
         """Пустой block.text → task.md не создаётся, ранний выход."""
         step = self._step(text="")
-        save_task_files(tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock())
+        result = save_task_files(
+            tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock()
+        )
+        assert result == (0, "none")
         assert not (tmp_path / "task.md").exists()
 
     def test_zip_source_used(self, tmp_path: pathlib.Path):
         """ZIP-ссылка в тексте → вызывается _download_zip_tests."""
         step = self._step(text='<a href="http://x/t.zip">z</a>')
         with patch("stepik_grader.downloader._download_zip_tests", return_value=3) as mock_zip:
-            save_task_files(
+            result = save_task_files(
                 tmp_path,
                 step,
                 None,
@@ -288,6 +292,7 @@ class TestSaveTaskFiles:
                 MagicMock(),
             )
         mock_zip.assert_called_once()
+        assert result == (3, "zip")
         assert (tmp_path / "task.md").exists()
 
     def test_html_table_source_used(self, tmp_path: pathlib.Path):
@@ -295,7 +300,7 @@ class TestSaveTaskFiles:
         html = "<table><tr><td>1</td><td>print(1)</td><td>1</td></tr></table>"
         step = self._step(text=html)
         with patch("stepik_grader.downloader.save_tests", return_value=1) as mock_save:
-            save_task_files(
+            result = save_task_files(
                 tmp_path,
                 step,
                 None,
@@ -305,12 +310,13 @@ class TestSaveTaskFiles:
                 MagicMock(),
             )
         mock_save.assert_called_once()
+        assert result == (1, "html_table")
 
     def test_github_source_used(self, tmp_path: pathlib.Path):
         """Нет ZIP/таблицы, есть GitHub-ссылка → _download_github_tests."""
         step = self._step(text='<a href="https://github.com/o/r/tree/main/d">gh</a>')
         with patch("stepik_grader.downloader._download_github_tests", return_value=2) as mock_gh:
-            save_task_files(
+            result = save_task_files(
                 tmp_path,
                 step,
                 None,
@@ -320,12 +326,13 @@ class TestSaveTaskFiles:
                 MagicMock(),
             )
         mock_gh.assert_called_once()
+        assert result == (2, "github_link")
 
     def test_github_all_links_fail(self, tmp_path: pathlib.Path):
         """GitHub-ссылки есть, но все дали 0 → предупреждение, return."""
         step = self._step(text='<a href="https://github.com/o/r/tree/main/d">gh</a>')
         with patch("stepik_grader.downloader._download_github_tests", return_value=0):
-            save_task_files(
+            result = save_task_files(
                 tmp_path,
                 step,
                 None,
@@ -334,12 +341,16 @@ class TestSaveTaskFiles:
                 self._meta(),
                 MagicMock(),
             )
+        assert result == (0, "none")
         assert not (tmp_path / "tests" / "input.txt").exists()
 
     def test_no_tests_anywhere(self, tmp_path: pathlib.Path):
         """Текст без ссылок и таблицы → файлы сохранены, тестов нет."""
         step = self._step(text="just some description text")
-        save_task_files(tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock())
+        result = save_task_files(
+            tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock()
+        )
+        assert result == (0, "none")
         assert (tmp_path / "task.md").exists()
 
 
@@ -366,12 +377,18 @@ class TestProcessStepUrl:
                 return_value={"id": 4, "position": 5, "title": "Step"},
             ),
             patch("stepik_grader.downloader.fetch_submission_data", return_value=None),
-            patch("stepik_grader.downloader.save_task_files") as mock_save,
+            patch(
+                "stepik_grader.downloader.save_task_files", return_value=(3, "html_table")
+            ) as mock_save,
         ):
-            downloader.process_step_url(
+            result = downloader.process_step_url(
                 "https://stepik.org/lesson/1/step/5?unit=2", session, tmp_path
             )
         mock_save.assert_called_once()
+        task_dir, count, source = result
+        assert task_dir == downloader.build_task_directory(tmp_path, "C", "S", "L", 5, "Step")
+        assert count == 3
+        assert source == "html_table"
 
 
 class TestMain:

@@ -557,7 +557,7 @@ def save_task_files(
     section: dict[str, Any],
     course: dict[str, Any],
     session: requests.Session,
-) -> None:
+) -> tuple[int, str]:
     """Сохраняет рабочие файлы, solution.py, meta.json, task.md и tests/ в task_dir.
 
     Схема рабочих файлов:
@@ -569,6 +569,12 @@ def save_task_files(
       2. HTML-таблица в тексте задачи;
       3. Ссылка на GitHub (скачать через GitHub Contents API);
       4. Ничего нет — предупреждение, остальные файлы уже сохранены.
+
+    Returns:
+        (count, source) — число извлечённых тест-кейсов и источник
+        ("zip"|"html_table"|"github_link"|"none"), issue #186: нужно
+        web-адаптеру для контракта ``TestCaseSet``, не восстановимо post-hoc
+        (ZIP и GitHub-вариант А дают одинаковый на диске Format 3).
     """
     task_dir.mkdir(parents=True, exist_ok=True)
 
@@ -615,7 +621,7 @@ def save_task_files(
     block: dict[str, Any] = step.get("block") or {}
     text = str(block.get("text", ""))
     if not text:
-        return
+        return 0, "none"
 
     (task_dir / "task.md").write_text(text, encoding="utf-8")
 
@@ -627,14 +633,14 @@ def save_task_files(
         count = _download_zip_tests(task_dir, zip_url, session)
         if count:
             print(f"  📦 Скачано тестов из ZIP: {count}")
-            return
+            return count, "zip"
 
     # 2. HTML-таблица
     tests = extract_tests_from_html(text)
     if tests:
         count = save_tests(task_dir, tests)
         print(f"  📋 Извлечено тестов из таблицы: {count}")
-        return
+        return count, "html_table"
 
     # 3. GitHub — скачиваем через GitHub Contents API
     if github_links:
@@ -643,12 +649,13 @@ def save_task_files(
             count = _download_github_tests(task_dir, gh_url, session)
             if count:
                 print(f"  🔗 Скачано {count} тестов с GitHub")
-                return
+                return count, "github_link"
         print("  ⚠️ GitHub: ни одна ссылка не дала тестов")
-        return
+        return 0, "none"
 
     # 4. Ничего не нашли
     print("  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены")
+    return 0, "none"
 
 
 # ---------------------------------------------------------------------------
@@ -660,8 +667,14 @@ def process_step_url(
     step_url: str,
     session: requests.Session,
     root_dir: pathlib.Path,
-) -> None:
-    """Скачивает все данные одного шага и сохраняет в файловую систему."""
+) -> tuple[pathlib.Path, int, str]:
+    """Скачивает все данные одного шага и сохраняет в файловую систему.
+
+    Returns:
+        (task_dir, tests_count, tests_source) — issue #186: web-адаптеру
+        Downloader'а нужен путь и информация о тестах, чтобы не дублировать
+        эту оркестрацию (fetch_lesson_data/fetch_unit_data/...) заново.
+    """
     parsed_url = urlparse(step_url)
     url_params = parse_qs(parsed_url.query)
     unit_id_list = url_params.get("unit", [])
@@ -704,8 +717,9 @@ def process_step_url(
     )
 
     print(f"  Сохраняю файлы в: {task_dir}")
-    save_task_files(task_dir, step, submission, lesson, section, course, session)
+    count, source = save_task_files(task_dir, step, submission, lesson, section, course, session)
     print(f"  ✅ Шаг сохранён: {task_dir}")
+    return task_dir, count, source
 
 
 # ---------------------------------------------------------------------------
