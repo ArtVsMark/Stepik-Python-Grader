@@ -25,52 +25,44 @@
 
 ---
 
-## #125 — WEB workspace проверки решений
+## #125 — WEB workspace проверки решений (✅ реализован)
 
-**Каноничный дизайн.** [`web-mvp.md`](web-mvp.md) — split-pane workspace, error
-cards (WA/RE/TLE), action cards, command palette (Ctrl+K), scenario buttons.
-Читать его как источник UX/контрактов; ниже — только границы.
+> **Статус: закрыт.** Split-pane workspace (sidebar/result/detail), расширенные
+> ErrorCard-поля (WA/RE/TLE), 5 MVP action cards, command palette (Ctrl+K),
+> сценарные кнопки и раздел «Глоссарий» (поиск/карточка/backlog очереди
+> пополнения, J7) реализованы в `src/stepik_grader/web/` — пакет, эволюция
+> бывшего одиночного `web.py` (`server.py`/`viewmodels.py`/
+> `glossary_adapter.py`/`commands.py`/`static/{index.html,app.css,app.js}`).
+> Публичный API (`grade_benchmark`/`grade_path`/`run_server`) не менялся;
+> `/api/grade` расширен только аддитивно. **Не реализовывать заново.**
 
-**Scope (по критериям #125 и разделу «v1» таблицы MVP в web-mvp.md).**
-- Раздел «Проверка решений»: указание пути к файлу/папке, выбор режима
-  (корректность / бенчмарк / **микро-бенчмарк**), запуск и отображение
-  результата.
-- Расширить `web.py` (или выделить `web/`-подпакет как в § «Архитектура
-  будущего web UI»): result panel + detail panel; error cards WA/TLE с полями
-  из таблицы web-mvp.md § «Модель error cards».
-- **Границы скоупа #125.** Микро-бенчмарк в web и Downloader-блок вынесены в
-  отдельные open issues — **не тащить их в #125**:
-  - **#187 — микро-бенчмарк (режим 4) в web.** Вывод существующего
-    `run_microbench_mode` (`core/grader_core.py`; нижнеуровневый прогон —
-    `core/microbench_runner.py::run_microbench`) как третьего сегмента: отдельный
-    ViewModel с µs-метриками и колонкой **`Py-heap`** (не `Memory`) — см.
-    web-mvp.md § «Режимы проверки и микро-бенчмарк». Сейчас в `web.py` его нет.
-  - **#186 — Downloader-блок.** Web-адаптер над `downloader.py`
-    (`parse_stepik_step_url`, `build_task_directory`, автоизвлечение тестов) +
-    `core/oauth_flow.py`: панель «Загрузить из Stepik», endpoint
-    `POST /api/download` → `DownloadedTask`, автоподстановка пути в command bar
-    (журнал J0). В MVP первичный OAuth может оставаться за CLI, web показывает
-    понятную ошибку.
-- Action cards MVP-уровня (`copy_input`, `copy_output`, `open_glossary`,
-  `run_again`, `explain_error`) — чистый фронтенд поверх уже возвращаемых
-  данных.
-- Веб-слой вызывает существующие публичные функции ядра (`run_tests`,
-  `run_benchmark`, `run_microbench_mode`, `apply_relative_ranking`,
-  `lookup_from_error`) — новой бизнес-логики грейдинга в web НЕ добавлять.
+Что уже есть (не переделывать):
+- `GET /api/grade` — `cases[]` несёт `case_n`/`severity`/`stdin`/`expected`/
+  `actual`/`stderr`/`exit_code`/`timeout_s`/`suggestions`/`glossary_ids`/
+  `actions` поверх старых `n`/`verdict`/`time`/`error`/`diff`/`glossary`.
+- `GET /api/glossary`, `GET /api/glossary/<id>`, `GET /api/glossary/missing` —
+  тонкие адаптеры (`web/glossary_adapter.py`) над `JsonGlossaryProvider` с
+  fallback на компактный `core/glossary.py`, когда `GraderConfig.glossary_store`
+  не настроен.
+- `GET /api/commands` — реестр `web/commands.py` (7 MVP-команд, фиксированный
+  словарь тегов `when` вместо predicate-DSL — сознательное упрощение).
+- Фронтенд (`static/app.js`) — единая `contextTags()`/`visibleCommands()`
+  фильтрация, питающая палитру/action cards/сценарные кнопки из одного места;
+  `ACTION_HANDLERS` — единая точка диспетчеризации команд.
 
-**Non-goals.**
-- НЕ ломать `stepik-grader --serve` и endpoint `/api/grade` (обратная
-  совместимость обязательна).
-- НЕ переписывать ядро (`core/*` остаётся библиотекой; `web → core` — ацикличное
-  ребро DAG).
-- НЕ вводить тяжёлых зависимостей (FastAPI/SPA-фреймворк) — stdlib
-  `http.server` + inline достаточно для MVP; любая новая зависимость — только
-  по явному решению.
-- XSS: весь stdout/stderr решения экранировать (`html.escape` на сервере, `esc`
-  на клиенте) — правило распространить на новые поля error card (`stdin`,
-  `actual`, `stderr`, `diff`).
+**Осознанно оставлено вне #125** (design-only / other issues, не путать с
+недоделкой): `create_test`/`compare_solutions` action cards, URL-hash
+deep-linking (`open_glossary` работает in-memory), экспорт в Glossary-Python
+(#126-follow-up), Downloader-блок (#186), микро-бенчмарк в web (#187), полный
+a11y-аудит, true fuzzy-поиск в палитре (substring вместо этого).
 
-**Проверки/тесты.** См. #129 (журналы J1/J2/J3/J4/J5 из web-mvp.md).
+**Проверки/тесты.** `tests/test_web.py` (ErrorCard-поля, J7 wiring) +
+`tests/test_web_glossary.py` (glossary endpoints, command registry) уже
+покрывают журналы J1–J5/J7 из web-mvp.md на уровне HTTP/Python-функций;
+фронтенд-логика (палитра/resize/scenario buttons) проверена вручную через
+запущенный сервер (нет JS test runner в проекте — см. non-goals ниже).
+Оставшиеся для #129 журналы — J0 (download, зависит от #186) и J6
+(микробенч, зависит от #187).
 
 ---
 
@@ -181,9 +173,10 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 ## Порядок и зависимости
 
 `#126` (glossary foundation) закрыт, включая доводку `#190`/`#191`; `#199`
-(DAG-документация для glossary coverage) тоже закрыт. WEB-цепочка: `#125`
-(workspace), `#186` (Downloader web), `#187`
-(микро-бенчмарк web) можно вести параллельно, но `#129` (тесты) логично
-завершать после появления реализуемых журналов из #125/#186/#187. Эпик #123
-остаётся открытым до закрытия #125/#129 (+ #186/#187); дизайн-часть уже
-закрыта документом [web-mvp.md](web-mvp.md).
+(DAG-документация для glossary coverage) тоже закрыт. `#125` (workspace
+проверки решений) — **закрыт**, реализация в `src/stepik_grader/web/`.
+Остаются: `#186` (Downloader web) и `#187` (микро-бенчмарк web) — можно вести
+параллельно; `#129` (тесты) логично завершать после появления реализуемых
+журналов из #186/#187 (J1–J5/J7 уже покрыты тестами из #125). Эпик #123
+остаётся открытым до закрытия #129 (+ #186/#187); дизайн-часть уже закрыта
+документом [web-mvp.md](web-mvp.md).

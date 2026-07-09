@@ -74,6 +74,165 @@ class TestGradePath:
         assert row["status"] == "NO TESTS"
         assert row["total"] == 0
 
+    def test_wa_case_carries_stdin_from_test_case(self, tmp_path: pathlib.Path) -> None:
+        """grade_path() wires stdin through to the case's ErrorCard (issue #125)."""
+        sol = _make_task(tmp_path, "print(int(input()) + 2)\n")  # 4 -> 6, ждём 5
+        case = web.grade_path(str(sol))["rows"][0]["cases"][0]
+        assert case["stdin"] == "4"
+        assert case["actual"] == "6"
+        assert case["expected"] == "5"
+
+    def test_re_case_carries_exit_code_from_core(self, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "raise ValueError('boom')\n")
+        case = web.grade_path(str(sol))["rows"][0]["cases"][0]
+        assert case["verdict"] == "RE"
+        assert case["exit_code"] not in (0, None)
+        assert case["stderr"] == case["error"]
+
+    def test_unknown_re_exception_queues_missing_glossary_entry(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """J7 (web-mvp.md): unknown exception in an RE case gets queued for the
+        glossary backlog, since core/glossary.py has no card for it (ValueError
+        IS in the compact glossary, so raise something that isn't)."""
+        from stepik_grader.glossary.json_provider import load_missing_queue
+
+        sol = _make_task(tmp_path, "raise ArithmeticError('unusual')\n")
+        # ArithmeticError itself isn't in core/glossary.py's curated ~28 entries
+        # (only its subclasses ZeroDivisionError/OverflowError/FloatingPointError are).
+        queue_path = tmp_path / "missing.json"
+
+        web.grade_path(str(sol), missing_queue_path=str(queue_path))
+
+        entries = load_missing_queue(queue_path)
+        assert len(entries) == 1
+        assert entries[0].concept == "ArithmeticError"
+        assert entries[0].kind == "exception"
+        assert entries[0].origin == "error"
+        assert entries[0].verdict == "RE"
+
+    def test_known_re_exception_does_not_queue_missing_entry(self, tmp_path: pathlib.Path) -> None:
+        from stepik_grader.glossary.json_provider import load_missing_queue
+
+        sol = _make_task(tmp_path, "raise KeyError('x')\n")  # curated in core/glossary.py
+        queue_path = tmp_path / "missing.json"
+
+        web.grade_path(str(sol), missing_queue_path=str(queue_path))
+
+        assert load_missing_queue(queue_path) == []
+
+    def test_missing_queue_write_failure_does_not_break_grading(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """A bad/unwritable queue path must never break grading (graceful degradation)."""
+        sol = _make_task(tmp_path, "raise ArithmeticError('unusual')\n")
+        # A directory path where a file write must fail — OSError, swallowed.
+        bad_queue_path = tmp_path  # it's a dir, not a file
+
+        data = web.grade_path(str(sol), missing_queue_path=str(bad_queue_path))
+
+        assert data["rows"][0]["cases"][0]["verdict"] == "RE"
+
+
+# ---------------------------------------------------------------------------
+# ErrorCard fields on _case_view — issue #125 (web-mvp.md § Модель error cards)
+# ---------------------------------------------------------------------------
+
+
+class TestErrorCardFields:
+    def test_ac_case_has_minimal_fields_only(self) -> None:
+        case = web._case_view(
+            1, {"passed": True, "verdict": "AC", "time": 0.01, "output": ["5"]}, stdin="4"
+        )
+        assert case["case_n"] == 1
+        assert case["actions"] == ["run_again", "copy_input", "copy_output"]
+        for key in ("severity", "suggestions", "glossary_ids", "expected", "stderr", "timeout_s"):
+            assert key not in case
+
+    def test_wa_case_error_card_fields(self) -> None:
+        case = web._case_view(
+            2,
+            {
+                "passed": False,
+                "verdict": "WA",
+                "time": 0.02,
+                "output": ["6"],
+                "expected": ["5"],
+                "diff": "- 5\n+ 6",
+                "error": "",
+            },
+            stdin="4",
+        )
+        assert case["severity"] == "error"
+        assert case["expected"] == "5"
+        assert case["actual"] == "6"
+        assert case["diff"]
+        assert "glossary_ids" not in case  # WA never gets glossary_ids (RE only)
+        assert set(case["actions"]) == {"run_again", "copy_input", "copy_output", "explain_error"}
+
+    def test_re_case_known_exception_has_glossary_ids_and_suggestion(self) -> None:
+        case = web._case_view(
+            3,
+            {
+                "passed": False,
+                "verdict": "RE",
+                "time": 0.03,
+                "output": [],
+                "error": "KeyError: 'x'",
+                "exit_code": 1,
+            },
+            stdin="4",
+        )
+        assert case["severity"] == "error"
+        assert case["stderr"] == "KeyError: 'x'"
+        assert case["exit_code"] == 1
+        assert case["glossary_ids"] == ["keyerror"]
+        assert case["suggestions"]  # non-empty — curated hint from core/glossary.py
+        assert "open_glossary" in case["actions"]
+
+    def test_re_case_unknown_exception_has_empty_glossary_ids(self, tmp_path: pathlib.Path) -> None:
+        # missing_queue_path pinned to tmp_path -- an unknown exception here
+        # triggers J7 queuing (see TestGradePath.test_unknown_re_exception_...
+        # below), and without this the default CONFIG.glossary_missing_queue
+        # would write into the repo's real working directory.
+        case = web._case_view(
+            4,
+            {
+                "passed": False,
+                "verdict": "RE",
+                "time": 0.01,
+                "output": [],
+                "error": "CustomProjectError: boom",
+                "exit_code": 1,
+            },
+            missing_queue_path=str(tmp_path / "missing.json"),
+        )
+        assert case["glossary_ids"] == []
+        assert case["suggestions"] == []
+        assert "open_glossary" not in case["actions"]
+
+    def test_tle_case_error_card_fields(self) -> None:
+        from stepik_grader.config import CONFIG
+
+        case = web._case_view(
+            5,
+            {
+                "passed": False,
+                "verdict": "TLE",
+                "time": CONFIG.timeout_seconds,
+                "output": [],
+                "error": f"Timeout after {CONFIG.timeout_seconds}s",
+                "exit_code": None,
+                "timed_out": True,
+            },
+        )
+        assert case["severity"] == "warning"
+        assert case["timeout_s"] == CONFIG.timeout_seconds
+        assert case["exit_code"] is None
+        assert case["suggestions"]
+        assert "glossary_ids" not in case  # TLE never links glossary content
+        assert "expected" not in case
+
 
 # ---------------------------------------------------------------------------
 # grade_benchmark (режим бенчмарка)
@@ -174,6 +333,20 @@ class TestHttpHandler:
             _get(server + "/nope")
         assert exc.value.code == 404
 
+    # -- static routes (issue #125 — JS/CSS extracted from _INDEX_HTML) ------
+
+    def test_static_app_css_served(self, server: str) -> None:
+        with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:  # noqa: S310
+            assert resp.status == 200
+            assert "text/css" in resp.headers["Content-Type"]
+            assert b":root" in resp.read()
+
+    def test_static_app_js_served(self, server: str) -> None:
+        with urllib.request.urlopen(server + "/static/app.js", timeout=5) as resp:  # noqa: S310
+            assert resp.status == 200
+            assert "javascript" in resp.headers["Content-Type"]
+            assert b"function grade" in resp.read()
+
 
 # ---------------------------------------------------------------------------
 # Client-side esc() — HTML-attribute hardening (issue #214)
@@ -183,12 +356,16 @@ class TestHttpHandler:
 # source-level regression checks: they pin down the escape table/regex that
 # errorCard() relies on when inserting glossary.url into href="...". A quote
 # character reaching that attribute unescaped would let it be broken out of.
+#
+# issue #125: the JS moved from an inline <script> in _INDEX_HTML to its own
+# static/app.js file (re-exported as web._APP_JS) — these regressions now grep
+# that instead.
 
 
 def _ht_table_source() -> str:
-    start = web._INDEX_HTML.index("const HT = {")
-    end = web._INDEX_HTML.index("};", start)
-    return web._INDEX_HTML[start:end]
+    start = web._APP_JS.index("const HT = {")
+    end = web._APP_JS.index("};", start)
+    return web._APP_JS[start:end]
 
 
 def test_client_esc_table_covers_html_and_attribute_special_chars() -> None:
@@ -200,10 +377,10 @@ def test_client_esc_table_covers_html_and_attribute_special_chars() -> None:
 def test_client_esc_regex_includes_quote_chars() -> None:
     # The replace() char class must include both quote characters, or esc()
     # would keep stripping only &/</> and leave href="...' open to breakout.
-    assert "replace(/[&<>\"']/g" in web._INDEX_HTML
+    assert "replace(/[&<>\"']/g" in web._APP_JS
 
 
 def test_error_card_url_field_is_passed_through_esc() -> None:
     # errorCard() must run g.url through esc() before inserting it into
     # href="..." -- if a future edit inlines g.url directly, this fails.
-    assert r'href="' + "'" + " + esc(g.url) + " + "'" + '"' in web._INDEX_HTML
+    assert r'href="' + "'" + " + esc(g.url) + " + "'" + '"' in web._APP_JS

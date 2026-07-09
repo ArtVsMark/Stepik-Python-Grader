@@ -1,0 +1,111 @@
+/* app.css — стили веб-интерфейса грейдера (issue #58, эпик #80 Tier 1; issue #125). */
+:root { color-scheme: light dark; --ok:#1a7f37; --warn:#9a6700; --fail:#cf222e; --bd:#8884;
+        --accent:#2563eb; --panel-bg:transparent; --hover-bg:#8881; }
+* { box-sizing: border-box; }
+/* [hidden] and .workspace/.palette-overlay's display:flex share specificity
+   (0,1,0) -- without this, the class rule wins the cascade and the element
+   stays visible despite the `hidden` attribute. */
+[hidden] { display: none !important; }
+html, body { height: 100%; background: Canvas; color: CanvasText; }
+body { font-family: system-ui, sans-serif; margin: 0; line-height: 1.5; display: flex;
+       flex-direction: column; }
+h1, h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
+.row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+input[type=text] { flex: 1; min-width: 160px; padding: .55rem .7rem;
+       border: 1px solid var(--bd); border-radius: 8px; font-size: 1rem;
+       background: transparent; color: inherit; }
+select { padding: .5rem; border-radius: 8px; border: 1px solid var(--bd);
+       background: transparent; color: inherit; }
+button { padding: .55rem 1.1rem; border: 0; border-radius: 8px; cursor: pointer;
+       font-size: 1rem; background: var(--accent); color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+       outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
+.seg button { background: transparent; color: inherit; border-radius: 0; padding: .45rem .9rem; }
+.seg button.active { background: var(--accent); color: #fff; }
+.hint { color: #8888; font-size: .85rem; margin: .4rem 0 1rem; }
+.bar { margin: .6rem 0 .3rem; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; margin-top: .4rem; }
+th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--bd); }
+th { font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; opacity: .7; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.badge { font-weight: 600; }
+.OK, .SIMILAR, .AC { color: var(--ok); } .SLOWER, .TLE { color: var(--warn); }
+.FAIL, .RE, .ERR, .MUCH_SLOWER, .WA { color: var(--fail); }
+.file { cursor: pointer; } .file:hover { text-decoration: underline; }
+tr.case-row { cursor: pointer; }
+tr.case-row:hover { background: var(--hover-bg); }
+tr.case-row.selected { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+pre { background: #8881; padding: .6rem; border-radius: 6px; overflow-x: auto;
+      font-size: .85rem; margin: .3rem 0; white-space: pre-wrap; word-break: break-word; }
+.msg { color: var(--fail); margin-top: 1rem; }
+.errcard { margin: .4rem 0; padding: .5rem .7rem; border-left: 3px solid var(--warn);
+      background: #eab30818; border-radius: 4px; font-size: .9rem; }
+.errcard.severity-error { border-left-color: var(--fail); }
+.errcard-ex { font-weight: 600; }
+.errcard a { color: var(--accent); }
+
+/* -- Topbar ------------------------------------------------------------- */
+.topbar { display: flex; align-items: center; gap: .75rem; padding: .6rem 1rem;
+          border-bottom: 1px solid var(--bd); flex: 0 0 auto; }
+.brand { font-weight: 600; white-space: nowrap; }
+.spacer { flex: 1; }
+.icon-btn { background: transparent; color: inherit; border: 1px solid var(--bd);
+            padding: .4rem .6rem; font-size: .95rem; }
+.icon-btn:hover { background: var(--hover-bg); }
+
+/* -- Split-pane workspace ------------------------------------------------ */
+.workspace { display: flex; flex: 1 1 auto; min-height: 0; }
+.panel { overflow-y: auto; overflow-x: auto; padding: 1rem; }
+.panel-sidebar { flex: 0 0 220px; min-width: 140px; max-width: 40vw; }
+.panel-result { flex: 1 1 auto; min-width: 280px; }
+.panel-detail, .panel-glossary-list { flex: 0 0 340px; min-width: 220px; max-width: 50vw; }
+.panel-glossary-list { flex: 0 0 320px; }
+.divider { flex: 0 0 5px; cursor: col-resize; background: transparent; position: relative; }
+.divider:hover, .divider:focus-visible { background: var(--accent); opacity: .4; }
+.divider.dragging { background: var(--accent); opacity: .6; }
+
+.side-list { list-style: none; margin: 0 0 1rem; padding: 0; font-size: .9rem; }
+.side-list li { padding: .35rem .4rem; border-radius: 6px; cursor: pointer;
+                overflow-wrap: anywhere; }
+.side-list li:hover { background: var(--hover-bg); }
+.side-list li.empty { color: #8888; cursor: default; }
+.side-list li.empty:hover { background: transparent; }
+.side-list li.selected { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+
+/* -- Detail panel / ErrorCard -------------------------------------------- */
+.field-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .03em;
+               opacity: .7; margin: .8rem 0 .2rem; }
+.field-label:first-child { margin-top: 0; }
+
+/* -- Action cards / scenario buttons -------------------------------------- */
+.action-cards, .scenario-buttons { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .7rem; }
+.action-card { background: transparent; color: inherit; border: 1px solid var(--bd);
+               padding: .4rem .7rem; font-size: .85rem; border-radius: 6px; }
+.action-card:hover { background: var(--hover-bg); }
+
+/* -- Command palette ------------------------------------------------------ */
+.palette-overlay { position: fixed; inset: 0; background: #0008; display: flex;
+                    align-items: flex-start; justify-content: center; padding-top: 12vh;
+                    z-index: 100; }
+.palette { background: Canvas; color: CanvasText; width: min(560px, 92vw); border-radius: 10px;
+           box-shadow: 0 12px 40px #0006; overflow: hidden; border: 1px solid var(--bd); }
+.palette input { width: 100%; border: 0; border-bottom: 1px solid var(--bd); padding: .9rem 1rem;
+                 font-size: 1.05rem; background: transparent; color: inherit; }
+.palette input:focus-visible { outline: none; }
+.palette ul { list-style: none; margin: 0; padding: .3rem; max-height: 50vh; overflow-y: auto; }
+.palette li { padding: .55rem .7rem; border-radius: 6px; cursor: pointer; display: flex;
+              justify-content: space-between; gap: .5rem; }
+.palette li.active { background: var(--accent); color: #fff; }
+.palette li .kbd { opacity: .6; font-size: .8rem; }
+.palette .empty { padding: .8rem; color: #8888; }
+
+/* -- Narrow viewport: collapse to a vertical stack ------------------------ */
+@media (max-width: 860px) {
+  .workspace { flex-direction: column; }
+  .divider { display: none; }
+  .panel-sidebar, .panel-detail, .panel-glossary-list { flex-basis: auto; max-width: none; }
+  .topbar { flex-wrap: wrap; row-gap: .4rem; }
+  .brand { flex: 1 1 auto; }
+}

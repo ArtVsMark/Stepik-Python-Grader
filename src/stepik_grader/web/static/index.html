@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stepik Python Grader</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">🐍 Stepik Python Grader</span>
+  <span class="seg" id="section-seg">
+    <button id="sec-check" class="active" data-section="check">Проверка решений</button>
+    <button id="sec-glossary" data-section="glossary">Глоссарий</button>
+  </span>
+  <span class="spacer"></span>
+  <button id="theme-toggle" class="icon-btn" title="Переключить тему" aria-label="Переключить тему">🌙</button>
+  <button id="palette-btn" class="icon-btn" title="Ctrl+K / ⌘K" aria-label="Открыть палитру команд">⌘K</button>
+</header>
+
+<section id="view-check" class="workspace">
+  <aside id="sidebar" class="panel panel-sidebar">
+    <h2>История</h2>
+    <ul id="history-list" class="side-list"><li class="empty">Пока пусто</li></ul>
+    <h2>Недавние пути</h2>
+    <ul id="recent-paths-list" class="side-list"><li class="empty">Пока пусто</li></ul>
+  </aside>
+  <div class="divider" id="divider-1" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
+  <main id="result-panel" class="panel panel-result">
+    <div class="row" style="margin-bottom:.6rem">
+      <span class="seg">
+        <button id="m-tests" class="active" data-mode="tests">Корректность</button>
+        <button id="m-bench" data-mode="bench">Бенчмарк</button>
+      </span>
+      <select id="repeats" style="display:none" title="Повторов на тест-кейс">
+        <option value="5">низкий · 5</option>
+        <option value="15" selected>средний · 15</option>
+        <option value="50">высокий · 50</option>
+      </select>
+    </div>
+    <div class="row">
+      <input id="path" type="text" value="__DEFAULT_PATH__"
+             placeholder="Путь к файлу решения (.py) или папке с решениями">
+      <button id="run">Проверить</button>
+    </div>
+    <div class="hint">Локально, только на этой машине. Enter или «Проверить» — запустить.
+      Клик по тест-кейсу — раскрыть разбор в правой панели.</div>
+    <div id="bar" class="bar"></div>
+    <div id="out"></div>
+    <div id="scenario-buttons" class="scenario-buttons"></div>
+  </main>
+  <div class="divider" id="divider-2" role="separator" aria-orientation="vertical" tabindex="0"></div>
+
+  <aside id="detail-panel" class="panel panel-detail">
+    <div id="detail-empty" class="hint">Выберите тест-кейс, чтобы увидеть разбор.</div>
+    <div id="detail-content" hidden></div>
+  </aside>
+</section>
+
+<section id="view-glossary" class="workspace" hidden>
+  <main id="glossary-list-panel" class="panel panel-glossary-list">
+    <div class="row">
+      <input id="glossary-search" type="text" placeholder="Поиск по глоссарию…">
+    </div>
+    <span class="seg" style="margin:.6rem 0">
+      <button id="gl-view-cards" class="active" data-glview="cards">Карточки</button>
+      <button id="gl-view-missing" data-glview="missing">Недостающее</button>
+    </span>
+    <ul id="glossary-cards" class="side-list"></ul>
+    <ul id="glossary-missing" class="side-list" hidden></ul>
+  </main>
+  <div class="divider" id="divider-3" role="separator" aria-orientation="vertical" tabindex="0"></div>
+  <aside id="glossary-detail-panel" class="panel panel-detail">
+    <div id="glossary-empty" class="hint">Выберите карточку глоссария.</div>
+    <div id="glossary-detail-content" hidden></div>
+  </aside>
+</section>
+
+<div id="palette-overlay" class="palette-overlay" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Палитра команд">
+    <input id="palette-input" type="text" placeholder="Введите команду…" autocomplete="off">
+    <ul id="palette-list"></ul>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

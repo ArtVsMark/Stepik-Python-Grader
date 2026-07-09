@@ -21,6 +21,9 @@ def test_grader_config_defaults() -> None:
     assert cfg.microbench_max_cases == 5
     assert cfg.encoding == "utf-8"
     assert cfg.max_memory_mb == 1024
+    assert cfg.use_cache is False
+    assert cfg.glossary_store is None
+    assert cfg.glossary_missing_queue == ".grader_glossary_missing.json"
 
 
 def test_grader_config_is_frozen() -> None:
@@ -98,6 +101,8 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "encoding",
         "max_memory_mb",
         "use_cache",
+        "glossary_store",
+        "glossary_missing_queue",
     }
 
 

@@ -28,6 +28,7 @@ __all__ = [
     "GlossaryEntry",
     "lookup",
     "lookup_from_error",
+    "all_entries",
 ]
 
 # Базовый URL полного глоссария (GitHub Pages отдельного проекта Glossary-Python).
@@ -103,6 +104,12 @@ _ENTRIES: dict[str, GlossaryEntry] = {
 def lookup(exception_name: str) -> GlossaryEntry | None:
     """Вернуть запись глоссария по имени класса исключения, или None."""
     return _ENTRIES.get(exception_name)
+
+
+def all_entries() -> list[GlossaryEntry]:
+    """Все записи компактного глоссария (issue #125 — fallback-контент раздела
+    «Глоссарий» в web-адаптере, когда локальная JSON-база не настроена)."""
+    return list(_ENTRIES.values())
 
 
 def lookup_from_error(error_text: str) -> GlossaryEntry | None:

@@ -47,6 +47,20 @@
   `core/reporter.print_case_verbose` now reads typed attributes instead
   of ad-hoc `dict.get()` calls with inline defaults; output is
   byte-identical.
+- WEB workspace (issue #125, epic #123): split-pane layout (sidebar/result/
+  detail panels), extended ErrorCard fields on `/api/grade`'s case results
+  (`case_n`/`severity`/`stdin`/`expected`/`actual`/`stderr`/`exit_code`/
+  `timeout_s`/`suggestions`/`glossary_ids`/`actions`), a command registry
+  (`GET /api/commands`) driving action cards, scenario buttons, and a
+  Ctrl+K/⌘K command palette from one shared filter, and a Glossary section
+  (`GET /api/glossary`, `GET /api/glossary/<id>`, `GET /api/glossary/missing`)
+  with search, card detail, and a J7 missing-concept backlog view. All
+  additive on top of the existing `/api/grade` contract — no existing field
+  renamed/removed. New `GraderConfig.glossary_store`/`glossary_missing_queue`
+  fields configure the local card store and backlog file (both optional,
+  default to a zero-config fallback). `core/grader_core.run_single_test`
+  gained an additive `exit_code` field and `core/glossary.all_entries()`
+  lists the compact curated glossary for that fallback.
 
 ### Fixed
 - Glossary exception-name detector (`_last_exception_name`) reduced false
@@ -85,6 +99,14 @@
   `CliContext` design was built specifically to keep
   `monkeypatch.setattr(cli, "...", ...)`-based tests passing unmodified
   through the move.
+- `web.py` decomposed into a `web/` package, issue #125: `server.py`
+  (HTTP handler/routing), `viewmodels.py` (`grade_path`/`grade_benchmark`/
+  the ErrorCard mapper), `glossary_adapter.py`, `commands.py`, and
+  `static/{index.html,app.css,app.js}` (JS/CSS extracted from the old
+  inline `_INDEX_HTML` string, served via a small fixed route allowlist).
+  Pure move — public API (`grade_benchmark`/`grade_path`/`run_server`)
+  unchanged; `_Handler`/`_INDEX_HTML`/`_APP_JS`/`_case_view` re-exported
+  from `web/__init__.py` for test back-compat.
 
 ### Docs
 - Sandbox limits clarified in `executor.py`'s module/`main()` docstrings —

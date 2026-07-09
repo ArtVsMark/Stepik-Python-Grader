@@ -296,6 +296,56 @@ def test_run_single_test_reports_re_for_invalid_function_name(tmp_path: pathlib.
     assert result["verdict"] == "RE"
     assert result["passed"] is False
     assert "Invalid module filename stem" in result["error"]
+    assert result["exit_code"] is None  # no process was ever launched
+
+
+# ---------------------------------------------------------------------------
+# exit_code — additive field on run_single_test's result dict (issue #125)
+# ---------------------------------------------------------------------------
+
+
+def test_run_single_test_exit_code_zero_on_ac(tmp_path: pathlib.Path) -> None:
+    sol = tmp_path / "task.py"
+    sol.write_text("print(int(input()) + 1)\n", encoding="utf-8")
+    case = grader.TestCase(index=1, input_lines=["4"], expected_lines=["5"])
+
+    result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+    assert result["verdict"] == "AC"
+    assert result["exit_code"] == 0
+
+
+def test_run_single_test_exit_code_zero_on_wa(tmp_path: pathlib.Path) -> None:
+    sol = tmp_path / "task.py"
+    sol.write_text("print(int(input()) + 2)\n", encoding="utf-8")
+    case = grader.TestCase(index=1, input_lines=["4"], expected_lines=["5"])
+
+    result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+    assert result["verdict"] == "WA"
+    assert result["exit_code"] == 0
+
+
+def test_run_single_test_exit_code_nonzero_on_re(tmp_path: pathlib.Path) -> None:
+    sol = tmp_path / "task.py"
+    sol.write_text("raise ValueError('boom')\n", encoding="utf-8")
+    case = grader.TestCase(index=1, input_lines=[""], expected_lines=["5"])
+
+    result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+    assert result["verdict"] == "RE"
+    assert result["exit_code"] not in (0, None)
+
+
+def test_run_single_test_exit_code_none_on_tle(tmp_path: pathlib.Path) -> None:
+    sol = tmp_path / "task.py"
+    sol.write_text("import time\ntime.sleep(5)\n", encoding="utf-8")
+    case = grader.TestCase(index=1, input_lines=[""], expected_lines=["5"])
+
+    result = grader.run_single_test(str(sol), case, timeout=0.1, measure_memory=False)
+
+    assert result["verdict"] == "TLE"
+    assert result["exit_code"] is None
 
 
 # ---------------------------------------------------------------------------
