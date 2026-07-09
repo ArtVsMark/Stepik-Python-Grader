@@ -20,6 +20,7 @@ import pytest
 from stepik_grader import web
 from stepik_grader.glossary.models import GlossaryCard, GlossaryMissingEntry
 from stepik_grader.web import glossary_adapter
+from stepik_grader.web.commands import COMMANDS, filter_commands
 
 # ---------------------------------------------------------------------------
 # glossary_search / glossary_get — direct function tests
@@ -156,3 +157,63 @@ class TestGlossaryHttpEndpoints:
         status, body = _get(server + "/api/glossary/missing")
         assert status == 200
         assert json.loads(body) == []
+
+
+# ---------------------------------------------------------------------------
+# commands.py — единый реестр команд (issue #125)
+# ---------------------------------------------------------------------------
+
+
+class TestCommandRegistry:
+    def test_registry_has_exactly_the_mvp_ids(self) -> None:
+        ids = {c["id"] for c in COMMANDS}
+        assert ids == {
+            "run_again",
+            "copy_input",
+            "copy_output",
+            "explain_error",
+            "open_glossary",
+            "toggle_theme",
+            "switch_section",
+        }
+
+    def test_registry_never_includes_out_of_scope_actions(self) -> None:
+        """Regression guard: create_test/compare_solutions are design-only for
+        this issue (docs/web-mvp.md § Action cards) — never register them."""
+        ids = {c["id"] for c in COMMANDS}
+        assert "create_test" not in ids
+        assert "compare_solutions" not in ids
+
+    def test_every_command_has_bilingual_title(self) -> None:
+        for cmd in COMMANDS:
+            assert set(cmd["title"]) == {"ru", "en"}
+            assert cmd["title"]["ru"] and cmd["title"]["en"]
+
+    def test_filter_commands_none_returns_everything(self) -> None:
+        assert filter_commands(None) == COMMANDS
+
+    def test_filter_commands_always_tag_is_never_excluded(self) -> None:
+        result = filter_commands(set())
+        ids = {c["id"] for c in result}
+        assert {"run_again", "toggle_theme", "switch_section"} <= ids
+
+    def test_filter_commands_context_tag_includes_matching_command(self) -> None:
+        result = filter_commands({"has_glossary"})
+        ids = {c["id"] for c in result}
+        assert "open_glossary" in ids
+        assert "copy_input" not in ids  # has_stdin not in context
+
+
+class TestCommandsHttpEndpoint:
+    def test_api_commands_without_context_returns_full_registry(self, server: str) -> None:
+        status, body = _get(server + "/api/commands")
+        assert status == 200
+        assert len(json.loads(body)) == len(COMMANDS)
+
+    def test_api_commands_with_context_filters(self, server: str) -> None:
+        status, body = _get(server + "/api/commands?context=has_stdin,is_failure")
+        assert status == 200
+        ids = {c["id"] for c in json.loads(body)}
+        assert "copy_input" in ids
+        assert "explain_error" in ids
+        assert "open_glossary" not in ids

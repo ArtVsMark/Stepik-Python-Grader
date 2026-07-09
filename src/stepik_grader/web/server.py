@@ -21,6 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from stepik_grader.web.commands import filter_commands
 from stepik_grader.web.glossary_adapter import glossary_get, glossary_missing, glossary_search
 from stepik_grader.web.viewmodels import grade_benchmark, grade_path
 
@@ -45,7 +46,9 @@ class _Handler(BaseHTTPRequestHandler):
 
     Плюс (issue #125): GET /api/glossary?q= (поиск карточек), GET
     /api/glossary/<id> (карточка или 404), GET /api/glossary/missing (очередь
-    пополнения, J7) — тонкие адаптеры над ``glossary_adapter.py``.
+    пополнения, J7) — тонкие адаптеры над ``glossary_adapter.py``; GET
+    /api/commands?context=tag1,tag2 — реестр команд (``commands.py``),
+    отфильтрованный по тегам контекста (пусто/нет параметра → весь реестр).
     """
 
     def do_GET(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
@@ -88,6 +91,11 @@ class _Handler(BaseHTTPRequestHandler):
                 )
             else:
                 self._send(200, "application/json; charset=utf-8", _json(card))
+        elif parsed.path == "/api/commands":
+            qs = parse_qs(parsed.query)
+            raw_context = (qs.get("context") or [""])[0]
+            context = {tag for tag in raw_context.split(",") if tag} or None
+            self._send(200, "application/json; charset=utf-8", _json(filter_commands(context)))
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
 
