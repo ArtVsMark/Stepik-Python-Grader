@@ -389,26 +389,39 @@ function updateParamsTabAvailability(m) {
 }
 
 function updateRunButtonState() {
-  $("#run").disabled = state.mode === "file" && !state.selectedSolutionFile;
+  if (state.mode !== "file") {
+    $("#run").disabled = false;
+    return;
+  }
+  const hasFolder = $("#path").value.trim().length > 0;
+  const hasCode = $("#solution-editor").value.trim().length > 0;
+  $("#run").disabled = !(hasFolder && hasCode);
 }
 
 function resetFilePicker() {
   state.solutions = [];
   state.selectedSolutionFile = null;
   const list = $("#solutions-list");
-  const block = $("#selected-source-block");
   if (list) list.innerHTML = "";
-  if (block) block.innerHTML = "";
+  $("#solution-editor").value = "";
   updateRunButtonState();
 }
 
 async function findSolutions() {
+  state.selectedSolutionFile = null;
+  $("#solution-editor").value = "";
+  updateRunButtonState();
+  await refreshSolutionsList();
+}
+
+// Перезагрузить список решений без сброса выбора/содержимого редактора —
+// используется после save-solution, чтобы показать новый/изменённый файл
+// (findSolutions() выше сбрасывает выбор — это нужно только для явного
+// клика «Найти решения»).
+async function refreshSolutionsList() {
   const folder = $("#path").value.trim();
   const list = $("#solutions-list");
   if (!folder) return;
-  state.selectedSolutionFile = null;
-  $("#selected-source-block").innerHTML = "";
-  updateRunButtonState();
   list.innerHTML = '<li class="empty">Поиск…</li>';
   try {
     const r = await fetch("/api/solutions?" + new URLSearchParams({ path: folder }));
@@ -447,24 +460,41 @@ function renderSolutionsList() {
 async function selectSolutionFile(fullPath) {
   state.selectedSolutionFile = fullPath;
   renderSolutionsList();
-  updateRunButtonState();
-  const block = $("#selected-source-block");
-  block.innerHTML = skeletonBlock();
+  const editor = $("#solution-editor");
   try {
     const r = await fetch("/api/source?" + new URLSearchParams({ path: fullPath }));
     const data = await r.json();
-    if (data.kind === "error") {
-      block.innerHTML = '<p class="msg">' + esc(data.message) + "</p>";
-      return;
-    }
-    block.innerHTML = '<div class="field-label">Код</div>' + codeBlock(data.source);
+    editor.value = data.kind === "error" ? "" : data.source;
   } catch (e) {
-    block.innerHTML = '<p class="msg">Не удалось загрузить код.</p>';
+    editor.value = "";
   }
+  updateRunButtonState();
 }
 
 async function grade() {
   const isFileMode = state.mode === "file";
+  if (isFileMode) {
+    const folder = $("#path").value.trim();
+    const code = $("#solution-editor").value;
+    if (!folder || !code.trim()) return;
+    try {
+      const saveResp = await fetch("/api/save-solution", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder, path: state.selectedSolutionFile || null, code }),
+      });
+      const saved = await saveResp.json();
+      if (!saved.ok) {
+        $("#out").innerHTML = '<p class="msg">' + esc(saved.message) + "</p>";
+        return;
+      }
+      state.selectedSolutionFile = saved.path;
+      await refreshSolutionsList();
+    } catch (e) {
+      $("#out").innerHTML = '<p class="msg">Не удалось сохранить код: ' + esc(String(e)) + "</p>";
+      return;
+    }
+  }
   const path = isFileMode ? state.selectedSolutionFile || "" : $("#path").value.trim();
   if (!path) return;
   const folder = $("#path").value.trim();
