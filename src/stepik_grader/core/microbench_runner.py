@@ -198,6 +198,7 @@ def run_microbench(
             # на pid ПОСЛЕ spawn через prlimit — preexec_fn небезопасен.
             proc = subprocess.Popen(
                 [sys.executable, "-c", bench_script],
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,

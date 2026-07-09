@@ -18,11 +18,13 @@ from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
     SIMILAR_THRESHOLD,
     run_benchmark,
+    run_microbench_mode,
     run_tests,
 )
 from stepik_grader.core.microbench_runner import apply_relative_ranking
 from stepik_grader.core.reporter import fmt_time
 from stepik_grader.core.test_loader import (
+    collect_grouped_files,
     find_all_solution_files,
     load_test_cases,
     resolve_test_dir,
@@ -39,7 +41,7 @@ from stepik_grader.glossary.json_provider import (
 # «Модель error cards»).
 _FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
 
-__all__ = ["grade_benchmark", "grade_path", "list_solutions", "read_source"]
+__all__ = ["grade_benchmark", "grade_microbench", "grade_path", "list_solutions", "read_source"]
 
 
 def _rel(path: str, base: str) -> str:
@@ -64,6 +66,23 @@ def _resolve_solutions(path: str) -> tuple[str, str, list[str]] | dict[str, Any]
             return {"kind": "error", "message": f"Решения не найдены в: {path}", "rows": []}
         return "dir", str(p), solutions
     return {"kind": "error", "message": f"Путь не найден: {path}", "rows": []}
+
+
+def _resolve_group_test_dir(folder_path: str) -> str:
+    """Тесты для ГРУППЫ решений (папки), issue #187 — микробенч.
+
+    Дубликат ветки ``is_dir=True`` из ``cli.__init__._resolve_test_dir_from_input``,
+    не импортируется из ``cli``: ``web``/``cli`` — независимые адаптеры над
+    ``core`` (см. docs/architecture.md), импорт создал бы нежелательное ребро
+    DAG ``web → cli``. Логика (`<dir>/tests/` → Format-3 `input.txt`+`output.txt`
+    → сама папка как fallback) достаточно проста, чтобы держать копию.
+    """
+    p = pathlib.Path(folder_path)
+    if (p / "tests").is_dir():
+        return str(p / "tests")
+    if (p / "input.txt").exists() and (p / "output.txt").exists():
+        return str(p)
+    return str(p)
 
 
 def _wa_suggestion(actual: str, expected: str) -> str | None:
@@ -402,4 +421,76 @@ def grade_benchmark(
         except OSError:
             response["reference_source"] = None
         response["reference_file"] = _rel(ref_path, base)
+    return response
+
+
+def grade_microbench(path: str, *, number: int = 1000) -> dict[str, Any]:
+    """Микро-бенчмарк (режим 4, timeit) файла/папки — issue #187.
+
+    В отличие от ``grade_benchmark``, ``run_microbench_mode`` принимает ОДИН
+    общий ``test_dir`` для всех решений сразу и сама вызывает
+    ``apply_relative_ranking`` внутри (сравнивает решения одной группы между
+    собой) — поэтому решения группируются по подпапке (как CLI-режим 4,
+    ``core/test_loader.collect_grouped_files``), а не грейдятся по одному
+    (иначе ``relative``/``verdict`` выродились бы в тривиальные 1.0/SIMILAR).
+
+    Несколько групп решений (разные подпапки) в одной корневой папке — MVP:
+    обрабатывается только первая (по имени), остальные перечисляются в
+    ``other_groups`` для явного предупреждения (полноценная секционная
+    поддержка — вне скоупа этого issue).
+    """
+    resolved = _resolve_solutions(path)
+    if isinstance(resolved, dict):
+        return resolved
+    kind, base, solutions = resolved
+
+    if kind == "file":
+        sol = solutions[0]
+        test_dir = resolve_test_dir(sol)
+        if test_dir is None or not pathlib.Path(test_dir).is_dir():
+            return {"kind": "error", "message": f"Тесты не найдены для: {path}", "rows": []}
+        other_groups: list[str] = []
+        results = run_microbench_mode([sol], test_dir, number=number)
+    else:
+        grouped = collect_grouped_files(base)
+        group_names = sorted(grouped)
+        folder = group_names[0]
+        other_groups = group_names[1:]
+        folder_abs = base if folder == "." else str(pathlib.Path(base) / folder)
+        test_dir = _resolve_group_test_dir(folder_abs)
+        if not pathlib.Path(test_dir).is_dir():
+            return {"kind": "error", "message": f"Тесты не найдены для: {folder_abs}", "rows": []}
+        group_label = folder if folder != "." else pathlib.Path(base).name
+        results = run_microbench_mode(sorted(grouped[folder]), test_dir, number=number)
+
+    if not results:
+        return {"kind": "error", "message": f"Тест-кейсы не найдены в: {test_dir}", "rows": []}
+
+    ok = {s: d for s, d in results.items() if not d.get("error")}
+    rows: list[dict[str, Any]] = []
+    for sol in sorted(ok, key=lambda s: ok[s]["median"]):
+        d = ok[sol]
+        rows.append(
+            {
+                "file": _rel(sol, base),
+                "runs": d["runs"],
+                "min_us": round(d["min"] * 1e6, 3),
+                "median_us": round(d["median"] * 1e6, 3),
+                "mean_us": round(d["mean"] * 1e6, 3),
+                "max_us": round(d["max"] * 1e6, 3),
+                "stdev_us": round(d["stdev"] * 1e6, 3),
+                "relative": round(d.get("relative", 1.0) * 100, 1),
+                "verdict": d.get("verdict", "SIMILAR"),
+                "memory_mb": round(d["peak_memory_mb"], 2),
+            }
+        )
+    for sol, d in results.items():
+        if d.get("error"):
+            rows.append({"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]})
+
+    response: dict[str, Any] = {"kind": kind, "mode": "microbench", "base": base, "rows": rows}
+    if kind == "dir":
+        response["group"] = group_label
+        if other_groups:
+            response["other_groups"] = other_groups
     return response
