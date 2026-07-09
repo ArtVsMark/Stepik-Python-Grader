@@ -27,7 +27,7 @@
       <a class="sidebar-item active" href="#check" data-section="check" aria-current="page">
         Проверка решений <span class="sidebar-badge" id="sidebar-badge-check" hidden></span>
       </a>
-      <a class="sidebar-item disabled" aria-disabled="true" title="Скоро — issue #186">Загрузчик задач</a>
+      <a class="sidebar-item" href="#downloader" data-section="downloader">Загрузчик задач</a>
       <a class="sidebar-item" href="#glossary" data-section="glossary">
         Глоссарий <span class="sidebar-badge" id="sidebar-badge-glossary" hidden></span>
       </a>
@@ -156,6 +156,42 @@
           </div>
         </div>
 
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ЗАГРУЗЧИК ЗАДАЧ» ══ -->
+    <section id="view-downloader" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title">Загрузчик задач</h1>
+      </div>
+      <div class="split-pane">
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title">Загрузка</span></div>
+          <div class="panel-body">
+            <div class="form-group">
+              <label class="form-label" for="downloader-url">URL шага Stepik</label>
+              <input class="form-input" id="downloader-url" type="text"
+                     placeholder="https://stepik.org/lesson/569749/step/4?unit=564263">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="downloader-root">Корневая папка (опционально)</label>
+              <input class="form-input" id="downloader-root" type="text" placeholder="StepikTasks">
+            </div>
+            <button id="downloader-run" class="btn btn-primary">▶ Скачать</button>
+            <div class="hint">Требуется настроенный <code>secrets.json</code> — см.
+              <code>docs/installation.md</code> § Работа с API Stepik (OAuth).</div>
+          </div>
+        </div>
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title">Результат</span></div>
+          <div class="panel-body" id="downloader-result">
+            <div id="downloader-empty" class="empty-state">
+              <h3>Ничего не скачано</h3>
+              <p>Введите URL шага и нажмите «Скачать».</p>
+            </div>
+            <div id="downloader-content" hidden></div>
+          </div>
+        </div>
       </div>
     </section>
 
