@@ -250,6 +250,16 @@
   unset). New `_parse_executor_timeout()` catches the invalid value and
   falls back to `CONFIG.executor_timeout`'s default (issue #245, security
   audit finding F-06, part of #136/#97).
+- `core/test_loader.py::load_test_cases()`'s Format 3 (`input.txt`/`output.txt`)
+  parsing zipped `input_blocks`/`output_blocks` with `strict=False`, so a
+  file pair disagreeing on the number of `# TEST_N:` blocks silently
+  truncated to the shorter one — dropped test cases with no indication,
+  risking a false-positive "all tests pass" from an incomplete set. It now
+  warns (same `warnings.warn` pattern already used for the Format-1/3
+  coexistence case just above it) when the block counts differ, naming both
+  counts; the truncating behavior itself is unchanged — normal (matching)
+  cases still load exactly as before (issue #246, security audit finding
+  F-07, part of #97).
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).

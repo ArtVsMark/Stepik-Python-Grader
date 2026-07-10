@@ -200,6 +200,36 @@ def test_load_test_cases_no_warning_for_format3_alone(tmp_path: pathlib.Path) ->
     assert len(cases) == 1
 
 
+def test_load_test_cases_warns_on_input_output_block_count_mismatch(
+    tmp_path: pathlib.Path,
+) -> None:
+    """input.txt/output.txt with a differing number of # TEST_N: blocks warns
+    instead of silently dropping the extra ones (issue #246, F-07)."""
+    (tmp_path / "input.txt").write_text(
+        "# TEST_1:\n2\n3\n# TEST_2:\n4\n5\n# TEST_3:\n6\n7\n", encoding="utf-8"
+    )
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8")
+
+    with pytest.warns(UserWarning, match=r"input\.txt has 3.*output\.txt has 2"):
+        cases = grader.load_test_cases(str(tmp_path))
+
+    # zip(strict=False) still truncates to the shorter side -- warning doesn't
+    # change existing behavior, just makes the data loss visible.
+    assert len(cases) == 2
+
+
+def test_load_test_cases_no_warning_when_block_counts_match(tmp_path: pathlib.Path) -> None:
+    """Equal input.txt/output.txt block counts -- no mismatch warning fires."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n# TEST_2:\n4\n5\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cases = grader.load_test_cases(str(tmp_path))
+
+    assert len(cases) == 2
+
+
 # ---------------------------------------------------------------------------
 # resolve_test_dir — search order
 # ---------------------------------------------------------------------------
