@@ -10,6 +10,23 @@
 -->
 
 ### Added
+- Playwright e2e smoke suite for the web UI, `tests/e2e/` (issue #263): 4
+  user journeys against a real `--serve` instance (mode 2 folder grading +
+  detail tab, mode 1 file picker with an editable code window + save + run,
+  glossary search + card, command palette open/execute) plus an XSS
+  regression test asserting `app.js`'s `esc()` escaping (hardened in issue
+  #214) neither executes an injected `<img onerror=...>` payload nor renders
+  it as a live element anywhere across its ~41 `innerHTML` call sites. New
+  opt-in dev-extra `[project.optional-dependencies].e2e` (`playwright>=1.40`)
+  in `pyproject.toml` — **not** a runtime dependency, only installed via
+  `pip install -e ".[e2e]"` + `playwright install chromium`; the issue itself
+  explicitly authorizes this dev-only addition. `tests/e2e/` is excluded from
+  the default `pytest`/`pytest tests/` sweep via a new `norecursedirs`
+  pytest.ini_options entry (explicit `pytest tests/e2e/` still collects it).
+  New separate `e2e` CI job (Linux-only, `.github/workflows/ci.yml`) with
+  Playwright browser caching, deliberately not folded into the main `test`
+  matrix — issue #263 explicitly authorizes touching the workflow for this.
+  README/CONTRIBUTING.md document how to run the suite locally.
 - `--serve` gained workspace root confinement (issue #261): all request
   paths (`/api/grade`, `/api/source`, `/api/solutions`, `/api/save-solution`
   — both `folder` and an optional target `path`) are now resolved and

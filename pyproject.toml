@@ -32,6 +32,12 @@ dev = [
 watch = [
     "watchfiles>=0.21,<2.0",
 ]
+# issue #263: opt-in dev-extra for Playwright e2e smoke tests of the web UI
+# (tests/e2e/) -- playwright is NOT a runtime dependency, only pulled in when
+# a contributor explicitly installs this extra (see CONTRIBUTING.md § E2E).
+e2e = [
+    "playwright>=1.40",
+]
 
 [project.scripts]
 stepik-grader = "stepik_grader.cli:main"
@@ -90,6 +96,14 @@ known-first-party = ["stepik_grader"]
 addopts = "--cov=src --cov-report=term-missing --cov-report=xml -v --tb=short"
 testpaths = ["tests"]
 python_classes = ["Test*"]
+# issue #263: tests/e2e/ (Playwright smoke tests against a real --serve
+# instance) needs the opt-in "e2e" extra + `playwright install chromium` --
+# excluded from the default `pytest`/`pytest tests/` sweep (and from the
+# --cov measurement above, which only targets src/) so CI's `pytest -q` and
+# the CLAUDE.md pre-commit checklist don't require a browser install. Run
+# explicitly: `pytest tests/e2e/` (norecursedirs only skips *implicit*
+# recursion, an explicit path is still collected).
+norecursedirs = ["tests/e2e"]
 
 [tool.coverage.run]
 source = ["src"]
