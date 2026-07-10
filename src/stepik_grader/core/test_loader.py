@@ -148,6 +148,19 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
                     "others are ignored.",
                     stacklevel=2,
                 )
+            # issue #246 (F-07): zip(..., strict=False) below silently truncates to
+            # the shorter list when input.txt/output.txt disagree on block count --
+            # warn instead of quietly dropping test cases and risking a false-positive
+            # "all tests pass" from a truncated set.
+            if len(input_blocks) != len(output_blocks):
+                warnings.warn(
+                    f"{test_dir}: input.txt has {len(input_blocks)} test block(s) but "
+                    f"output.txt has {len(output_blocks)} -- only the first "
+                    f"{min(len(input_blocks), len(output_blocks))} block(s) are used, "
+                    "the rest are silently dropped. Check the # TEST_N: markers in "
+                    "both files match.",
+                    stacklevel=2,
+                )
             for i, (inp, out) in enumerate(zip(input_blocks, output_blocks, strict=False), 1):
                 test_type = "function" if _is_python_code_block(inp) else "stdin"
                 cases.append(
