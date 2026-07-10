@@ -10,12 +10,18 @@
 -->
 
 ### Docs
-- `docs/versions.md`'s fork-vs-original comparison table was missing the
-  local web UI (`--serve`) and IDE integration entirely — added rows for
-  both. IDE integration specifically named only VS Code's `--init-vscode`
-  (the `v1.4.0` "Запуск" row); PyCharm's documented External Tool recipe
-  (`docs/grader-workflow.md § Интеграция с IDE`) exists too and is now
-  called out alongside it.
+- `docs/versions.md`'s fork-vs-original comparison table condensed from
+  ~24 single-feature rows down to 5 grouped-by-theme rows (correctness,
+  benchmark/microbench, Stepik integration, web UI/IDE, engineering
+  baseline) — the granular list had grown hard to scan and, worse, had
+  drifted: it never mentioned the local web UI (`--serve`) or IDE
+  integration at all. Now covers both, and names IDE integration
+  correctly as VS Code (`--init-vscode`) **and** PyCharm (documented
+  External Tool recipe, `docs/grader-workflow.md § Интеграция с IDE`) —
+  a prior mention of only VS Code was an omission fixed here. Per-item
+  detail is unchanged in `CHANGELOG.md`/`docs/history.md`, linked from
+  the section for anyone who wants it. The `v1.4.0` row in the
+  version-evolution table below got the same PyCharm correction.
 
 ### Internal
 - CI: the `Update badges (main only)` step now retries (up to 3 attempts)

@@ -11,31 +11,13 @@
 
 | Возможность | Оригинал | Этот форк |
 |---|---|---|
-| Проверка одного файла | ✅ | ✅ |
-| Сравнение нескольких решений | ❌ | ✅ |
-| Subprocess-benchmark | ❌ | ✅ режим 3 |
-| Timeit-microbench | ❌ | ✅ режим 4 |
-| Разделение корректности и benchmark | ❌ | ✅ |
-| Профили нагрузки | ❌ | ✅ low/medium/high/custom |
-| Оценка по median (не одиночный замер) | ❌ | ✅ |
-| Вердикт SIMILAR / SLOWER / MUCH SLOWER | ❌ | ✅ |
-| OAuth2 + скачивание данных задачи с API | ❌ | ✅ |
-| Автоизвлечение тест-кейсов из HTML-таблицы | ❌ | ✅ Sprint 4 |
-| Автоскачивание тестов из ZIP-архива | ❌ | ✅ Sprint 4 |
-| Обнаружение ссылок на GitHub-тесты | ❌ | ✅ Sprint 4 |
-| Поддержка function-style тестов (`*.type`) | ❌ | ✅ Sprint 4 |
-| Схема файлов task{N}_1.py / task{N}_2.py | ❌ | ✅ Sprint 5 |
-| Диагностика API | ❌ | ✅ |
-| Поддержка function-only решений | ❌ | ✅ |
-| Локальный веб-интерфейс (`--serve`) | ❌ | ✅ |
-| Интеграция с IDE (VS Code `--init-vscode`, PyCharm — External Tool) | ❌ | ✅ |
-| Выделенный HTTP/OAuth слой (`stepik_client.py`) | ❌ | ✅ Sprint 3 |
-| Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
-| pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
-| Pre-commit хуки (ruff check + ruff format) | ❌ | ✅ |
-| Unit-тесты (660+ тестов) | ❌ | ✅ |
-| OAuth2-фасад (`oauth_flow.py`) | ❌ | ✅ |
-| GitHub Actions CI (pytest + ruff + mypy) | ❌ | ✅ |
+| Проверка одного файла на корректность | ✅ | ✅ |
+| Сравнение и бенчмарк решений — subprocess-бенчмарк (режим 3), timeit-микробенч (режим 4), оценка по median, вердикты SIMILAR/SLOWER/MUCH_SLOWER, профили нагрузки | ❌ | ✅ |
+| Интеграция со Stepik — OAuth2, автоскачивание задачи и тест-кейсов (HTML-таблица/ZIP/GitHub-ссылки), function-style тесты, диагностика API | ❌ | ✅ |
+| Локальный веб-интерфейс (`--serve`) и интеграция с IDE (VS Code, PyCharm) | ❌ | ✅ |
+| Инженерная база — src-layout пакет, `pyproject.toml`, pre-commit (ruff), CI (pytest + ruff + mypy), 1000+ тестов | ❌ | ✅ |
+
+Подробности по каждому пункту — в [`CHANGELOG.md`](../CHANGELOG.md) и [`docs/history.md`](history.md).
 
 ## Эволюция версий
 
