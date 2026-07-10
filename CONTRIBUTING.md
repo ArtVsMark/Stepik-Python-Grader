@@ -143,6 +143,21 @@ pip install -e ".[dev]"      # runtime (requests/psutil/rich) + pytest/ruff/mypy
 pytest tests/ -v
 ```
 
+### E2E-тесты (Playwright, опционально, issue #263)
+
+Смок-тесты реального веб-UI (`--serve`) через headless Chromium — 4 сценария
+(режим 2 «Папка», режим 1 «Один файл» с пикером и редактируемым окном,
+глоссарий, command palette) плюс регрессионный тест на XSS в `app.js`
+(экранирование в `esc()`, issue #214). Живут в `tests/e2e/`, **не входят**
+в `pytest tests/` (см. `norecursedirs` в `pyproject.toml`) — отдельный
+`playwright` нужен только для них, это dev-extra, а не runtime-зависимость:
+
+```bash
+pip install -e ".[e2e]"        # playwright>=1.40, отдельно от [dev]
+playwright install chromium    # скачать браузер (один раз)
+pytest tests/e2e/ -v           # запустить e2e-сьют явно
+```
+
 ### Pre-commit хуки
 
 ```bash

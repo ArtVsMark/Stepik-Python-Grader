@@ -95,3 +95,54 @@ jobs:
             git pull --rebase origin main
             git push origin HEAD:main
           fi
+
+  # issue #263: Playwright e2e smoke tests for the web UI (--serve) -- 4 user
+  # journeys (mode 2 folder grading, mode 1 file picker + editable window,
+  # glossary search, command palette) plus an XSS regression test for app.js's
+  # esc() escaping. Deliberately a SEPARATE job, not folded into the `test`
+  # matrix above: Linux-only (one browser/OS combo is enough for a DOM-level
+  # smoke suite), and tests/e2e/ needs the opt-in "e2e" extra + a downloaded
+  # Chromium binary that the main matrix jobs must not pay for. Playwright
+  # itself is a dev-only extra (see pyproject.toml's `e2e` group) -- it is
+  # NOT a new runtime dependency.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        # issue #162: setuptools-scm needs full history + tags to resolve
+        # the package version during `pip install -e .` (same reasoning as
+        # the `test` job above).
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (dev + e2e extras)
+        run: pip install -e ".[dev,e2e]"
+
+      # Cache Chromium's downloaded binary (~100+ MB) across runs, keyed on
+      # OS + pyproject.toml's content hash so a playwright version bump
+      # invalidates the cache automatically.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+
+      - name: Install Playwright Chromium + OS deps (cache miss)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: playwright install --with-deps chromium
+
+      # Cache hit: the browser binary is already there, but the runner image
+      # itself is ephemeral -- Chromium's shared-library OS deps still need
+      # (re-)installing every run.
+      - name: Install Playwright OS deps only (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: playwright install-deps chromium
+
+      - name: Run e2e tests
+        run: pytest tests/e2e/ -v --no-cov

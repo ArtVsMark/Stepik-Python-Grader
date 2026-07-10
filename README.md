@@ -38,6 +38,8 @@
 - 🧩 pytest-плагин (`pytest --grader-mode`), кэш результатов и `--watch`
   (опционально: требует extra `[watch]` — `pip install -e ".[watch]"`, зависит
   от `watchfiles`)
+- 🧪 Playwright e2e-смоук фронтенда + регрессия на XSS (опционально: extra
+  `[e2e]` — см. [CONTRIBUTING.md § E2E-тесты](CONTRIBUTING.md#e2e-тесты-playwright-опционально-issue-263))
 - 🔍 Диагностика окружения и авторизация через Stepik API
 
 Разбор по модулям и слоям — в [docs/architecture.md](docs/architecture.md).
