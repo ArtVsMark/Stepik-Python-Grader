@@ -209,6 +209,18 @@
   unaffected — those headers can't be forged by page JS, unlike the request
   body/query. `/` and `/static/*` are unaffected (issue #242, security audit
   finding F-03, part of #151/#97).
+- **Security (Low):** `core/storage.py::save_secrets()` now creates/rewrites
+  `secrets.json` with owner-only permissions (`0600`) on POSIX, using
+  `os.open(..., mode=0o600)` so the file never briefly exists with the
+  process's default (usually wider) umask-based permissions between creation
+  and a follow-up `chmod`. An existing `secrets.json` left over from an older
+  version with wider permissions is also forced back to `0600` on the next
+  save. `secrets.json` holds the OAuth access/refresh token and
+  `client_secret`. On Windows `os.chmod` has no equivalent to the Unix
+  group/other bits (NTFS uses ACLs, not mode bits), so the call is
+  effectively a no-op there and the file's protection stays whatever the
+  user's profile directory already provides (issue #243, security audit
+  finding F-04, part of #149/#146/#97).
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).
