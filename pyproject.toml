@@ -73,8 +73,16 @@ version_scheme = "post-release"
 # issue #125: web/static/* (index.html/app.css/app.js) — та же причина.
 # issue #260: web/static/fonts/* — "web/static/*" не рекурсивный (не матчит
 # подпапку), поэтому шрифты (woff2 + LICENSE) нужны отдельным паттерном.
+# issue #265: web/static/vendor/* — та же причина, для вендоренных
+# ESM-бандлов CodeMirror 6 (.mjs + LICENSE + VERSIONS.md).
 [tool.setuptools.package-data]
-stepik_grader = ["py.typed", "core/locales/*.json", "web/static/*", "web/static/fonts/*"]
+stepik_grader = [
+    "py.typed",
+    "core/locales/*.json",
+    "web/static/*",
+    "web/static/fonts/*",
+    "web/static/vendor/*",
+]
 
 [tool.ruff]
 line-length = 100

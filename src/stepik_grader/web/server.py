@@ -2,12 +2,14 @@
 
 Application/UI слой. Поднимает stdlib ``http.server`` на 127.0.0.1 (только
 localhost, не торчит в сеть, **без новых зависимостей**). Статические файлы
-(``static/index.html``/``app.css``/``app.js``, шрифты ``static/fonts/*.woff2``)
-читаются один раз при импорте модуля с диска (тот же паттерн, что
-``core/i18n.py`` для локалей) — без build-шага и без внешних зависимостей.
-UI полностью офлайн (issue #260): шрифты (JetBrains Mono/Inter, OFL 1.1,
-см. ``static/fonts/LICENSE``) вендорены локально, страница не обращается ни
-к каким внешним доменам — ни для рендера, ни для факта своего запуска.
+(``static/index.html``/``app.css``/``app.js``, шрифты ``static/fonts/*.woff2``,
+ESM-бандлы редактора ``static/vendor/*.mjs``) читаются один раз при импорте
+модуля с диска (тот же паттерн, что ``core/i18n.py`` для локалей) — без
+build-шага и без внешних зависимостей. UI полностью офлайн (issue #260):
+шрифты (JetBrains Mono/Inter, OFL 1.1, см. ``static/fonts/LICENSE``) и
+CodeMirror 6 (issue #265, MIT, см. ``static/vendor/LICENSE``) вендорены
+локально, страница не обращается ни к каким внешним доменам — ни для
+рендера, ни для факта своего запуска.
 
 Threat model тот же, что у CLI: решения запускаются в subprocess без
 OS-sandbox (см. ``core/executor.py``, CLAUDE.md). Сервер слушает только
@@ -41,9 +43,29 @@ __all__ = ["run_server"]
 
 _STATIC_DIR = pathlib.Path(__file__).parent / "static"
 _FONTS_DIR = _STATIC_DIR / "fonts"
+_VENDOR_DIR = _STATIC_DIR / "vendor"
 _INDEX_HTML = (_STATIC_DIR / "index.html").read_text(encoding="utf-8")
 _APP_CSS = (_STATIC_DIR / "app.css").read_text(encoding="utf-8")
 _APP_JS = (_STATIC_DIR / "app.js").read_text(encoding="utf-8")
+
+# issue #265 — вендоренные ESM-бандлы CodeMirror 6 (без CDN, тот же принцип,
+# что у шрифтов issue #260); имена/версии/способ обновления —
+# static/vendor/VERSIONS.md. Content-Type text/javascript — тот же, что
+# отдаёт исходный esm.sh, браузер принимает его для ES-модулей.
+_VENDOR_FILES = (
+    "codemirror-state@6.7.1.mjs",
+    "codemirror-view@6.43.6.mjs",
+    "codemirror-language@6.12.4.mjs",
+    "codemirror-commands@6.10.4.mjs",
+    "codemirror-lang-python@6.2.1.mjs",
+    "lezer-common@1.5.2.mjs",
+    "lezer-highlight@1.2.3.mjs",
+    "lezer-lr@1.4.10.mjs",
+    "node-events.mjs",
+    "node-tty.mjs",
+    "node-async_hooks.mjs",
+    "node-process.mjs",
+)
 
 # Небольшой фиксированный allowlist — не файловый static-сервер (нет
 # path-traversal поверхности): единственные статические файлы, которые вообще
@@ -52,6 +74,13 @@ _APP_JS = (_STATIC_DIR / "app.js").read_text(encoding="utf-8")
 _STATIC_ROUTES: dict[str, tuple[str, str]] = {
     "/static/app.css": ("text/css; charset=utf-8", _APP_CSS),
     "/static/app.js": ("application/javascript; charset=utf-8", _APP_JS),
+    **{
+        f"/static/vendor/{name}": (
+            "text/javascript; charset=utf-8",
+            (_VENDOR_DIR / name).read_text(encoding="utf-8"),
+        )
+        for name in _VENDOR_FILES
+    },
 }
 _STATIC_BINARY_ROUTES: dict[str, tuple[str, bytes]] = {
     f"/static/fonts/{name}": ("font/woff2", (_FONTS_DIR / name).read_bytes())
