@@ -242,6 +242,14 @@
   ever actually execute this wrapper's generated code instead of just
   inspecting its source. Fixed by snapshotting `locals()` into a plain dict
   before the comprehension.
+- **Security (Low):** `core/executor.py`'s module-level `EXECUTOR_TIMEOUT`
+  parsing was a bare `int(os.environ.get("EXECUTOR_TIMEOUT", ...))` — a
+  non-numeric value in that environment variable raised `ValueError` at
+  *import time*, crashing the whole module (and, transitively, anything that
+  imports it — the grader can't run at all until the env var is fixed or
+  unset). New `_parse_executor_timeout()` catches the invalid value and
+  falls back to `CONFIG.executor_timeout`'s default (issue #245, security
+  audit finding F-06, part of #136/#97).
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).

@@ -45,11 +45,30 @@ try:
 except ImportError:
     _DEFAULT_EXECUTOR_TIMEOUT = 10
 
+
+def _parse_executor_timeout(raw: str | None, default: int) -> int:
+    """Разобрать EXECUTOR_TIMEOUT из env; невалидное/отсутствующее значение → default.
+
+    issue #245 (F-06): раньше это был голый ``int(os.environ.get(...))`` на
+    module import-time — нечисловое значение переменной окружения падало с
+    ``ValueError`` и ломало импорт всего модуля.
+    """
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
 # Тайм-аут в секундах: переменная окружения EXECUTOR_TIMEOUT имеет приоритет
 # (нужна для тестов, см. tests/test_executor.py), иначе — CONFIG.executor_timeout
 # (единая точка правды, Sprint 6.3; переопределяется через [tool.stepik-grader]
-# в pyproject.toml).
-TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", str(_DEFAULT_EXECUTOR_TIMEOUT)))
+# в pyproject.toml). Невалидное значение переменной окружения не должно ронять
+# импорт модуля — используется fallback на default (issue #245, F-06).
+TIMEOUT: int = _parse_executor_timeout(
+    os.environ.get("EXECUTOR_TIMEOUT"), _DEFAULT_EXECUTOR_TIMEOUT
+)
 
 # Команда Python-интерпретатора: тот же интерпретатор, что запустил grader
 # (включая правильный venv на Windows, где "python"/"python3" может указать

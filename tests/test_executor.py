@@ -153,6 +153,51 @@ def test_timeout_handler_message_contains_timeout_value() -> None:
 
 
 # ---------------------------------------------------------------------------
+# _parse_executor_timeout — безопасный парсинг EXECUTOR_TIMEOUT (issue #245, F-06)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_executor_timeout_valid_value() -> None:
+    """Числовая строка парсится как обычно."""
+    assert executor._parse_executor_timeout("15", default=10) == 15
+
+
+def test_parse_executor_timeout_missing_env_uses_default() -> None:
+    """Отсутствующая переменная (None) → default."""
+    assert executor._parse_executor_timeout(None, default=10) == 10
+
+
+def test_parse_executor_timeout_non_numeric_uses_default() -> None:
+    """Нечисловое значение не поднимает ValueError — используется default."""
+    assert executor._parse_executor_timeout("not-a-number", default=10) == 10
+
+
+def test_parse_executor_timeout_empty_string_uses_default() -> None:
+    """Пустая строка (EXECUTOR_TIMEOUT='') тоже не валидна — default."""
+    assert executor._parse_executor_timeout("", default=10) == 10
+
+
+def test_invalid_executor_timeout_env_does_not_break_import() -> None:
+    """Нечисловое значение EXECUTOR_TIMEOUT в окружении не ломает импорт
+    модуля целиком — module-level TIMEOUT падает на default вместо того,
+    чтобы поднять ValueError при `import executor` (issue #245, F-06).
+    """
+    cmd = (
+        "import os; os.environ['EXECUTOR_TIMEOUT']='not-a-number'\n"
+        "from stepik_grader.core import executor\n"
+        "print(executor.TIMEOUT)"
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", cmd],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == str(executor._DEFAULT_EXECUTOR_TIMEOUT)
+
+
+# ---------------------------------------------------------------------------
 # main() — запуск executor.py как subprocess (покрывает строки 114-129)
 # ---------------------------------------------------------------------------
 
