@@ -51,7 +51,12 @@ class TestAuthorizeViaBrowser:
             result = authorize_via_browser("cid", "csecret", "http://localhost:8080/cb")
 
         mock_open.assert_called_once()
-        mock_wait.assert_called_once_with("localhost", 8080, "/cb")
+        mock_wait.assert_called_once()
+        wait_args = mock_wait.call_args.args
+        assert wait_args[0] == "localhost"
+        assert wait_args[1] == 8080
+        assert wait_args[2] == "/cb"
+        assert isinstance(wait_args[3], str) and len(wait_args[3]) > 20  # random state
         mock_post.assert_called_once()
         assert result["access_token"] == "AT"
         assert result["refresh_token"] == "RT"
@@ -86,7 +91,51 @@ class TestAuthorizeViaBrowser:
             patch("stepik_grader.core.stepik_client.requests.post", return_value=token_resp),
         ):
             authorize_via_browser("cid", "cs", "https://example.org")
-        mock_wait.assert_called_once_with("example.org", 80, "/")
+        wait_args = mock_wait.call_args.args
+        assert wait_args[0] == "example.org"
+        assert wait_args[1] == 80
+        assert wait_args[2] == "/"
+
+
+class TestAuthorizeViaBrowserState:
+    """authorize_via_browser отправляет случайный state в authorize URL (issue #241)."""
+
+    def test_auth_url_includes_random_state_matching_wait_call(self):
+        """URL, открытый в браузере, содержит тот же state, что уходит в wait_for_auth_code."""
+        token_resp = MagicMock()
+        token_resp.raise_for_status = MagicMock()
+        token_resp.json.return_value = {"access_token": "AT", "expires_in": 100}
+        with (
+            patch("stepik_grader.core.stepik_client.webbrowser.open") as mock_open,
+            patch(
+                "stepik_grader.core.stepik_client.wait_for_auth_code", return_value="C"
+            ) as mock_wait,
+            patch("stepik_grader.core.stepik_client.requests.post", return_value=token_resp),
+        ):
+            authorize_via_browser("cid", "cs", "http://localhost:8080/cb")
+
+        opened_url = mock_open.call_args.args[0]
+        sent_state = mock_wait.call_args.args[3]
+        assert f"state={sent_state}" in opened_url
+
+    def test_state_differs_between_calls(self):
+        """Каждый вызов генерирует новый state (не хардкод/константа)."""
+        token_resp = MagicMock()
+        token_resp.raise_for_status = MagicMock()
+        token_resp.json.return_value = {"access_token": "AT", "expires_in": 100}
+        states = []
+        with (
+            patch("stepik_grader.core.stepik_client.webbrowser.open"),
+            patch(
+                "stepik_grader.core.stepik_client.wait_for_auth_code", return_value="C"
+            ) as mock_wait,
+            patch("stepik_grader.core.stepik_client.requests.post", return_value=token_resp),
+        ):
+            authorize_via_browser("cid", "cs", "http://localhost:8080/cb")
+            states.append(mock_wait.call_args.args[3])
+            authorize_via_browser("cid", "cs", "http://localhost:8080/cb")
+            states.append(mock_wait.call_args.args[3])
+        assert states[0] != states[1]
 
 
 class TestGetWithRetryNoAttempts:

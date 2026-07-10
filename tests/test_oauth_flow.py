@@ -199,22 +199,41 @@ class TestWaitForAuthCode:
         """
         fake_server = _fake_server_factory("/callback?code=test_code&state=xyz")
         monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
-        code = wait_for_auth_code("localhost", 8080, "/callback", timeout=1)
+        code = wait_for_auth_code("localhost", 8080, "/callback", "xyz", timeout=1)
         assert code == "test_code"
 
     def test_wait_for_auth_code_raises_on_error_param(self, monkeypatch):
-        """An ?error= callback raises RuntimeError. REFACTORING INVARIANT."""
-        fake_server = _fake_server_factory("/callback?error=access_denied")
+        """An ?error= callback (with matching state) raises RuntimeError. REFACTORING INVARIANT."""
+        fake_server = _fake_server_factory("/callback?error=access_denied&state=xyz")
         monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
         with pytest.raises(RuntimeError):
-            wait_for_auth_code("localhost", 8080, "/callback", timeout=1)
+            wait_for_auth_code("localhost", 8080, "/callback", "xyz", timeout=1)
 
     def test_wait_for_auth_code_timeout_without_code(self, monkeypatch):
         """No code and no error within timeout raises TimeoutError. REFACTORING INVARIANT."""
-        fake_server = _fake_server_factory("/callback")  # no code, no error
+        fake_server = _fake_server_factory("/callback?state=xyz")  # no code, no error
         monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
         with pytest.raises(TimeoutError):
-            wait_for_auth_code("localhost", 8080, "/callback", timeout=1)
+            wait_for_auth_code("localhost", 8080, "/callback", "xyz", timeout=1)
+
+    def test_wait_for_auth_code_raises_on_state_mismatch(self, monkeypatch):
+        """Callback with a wrong ``state`` raises RuntimeError, even with a valid code.
+
+        Regression test for issue #241 (F-02, Login-CSRF): a callback whose
+        ``state`` doesn't match the one sent in the authorize URL must never
+        yield a usable code.
+        """
+        fake_server = _fake_server_factory("/callback?code=attacker_code&state=wrong")
+        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        with pytest.raises(RuntimeError, match="state"):
+            wait_for_auth_code("localhost", 8080, "/callback", "expected", timeout=1)
+
+    def test_wait_for_auth_code_raises_on_missing_state(self, monkeypatch):
+        """Callback with no ``state`` param at all is rejected the same as a mismatch."""
+        fake_server = _fake_server_factory("/callback?code=attacker_code")
+        monkeypatch.setattr(stepik_client, "HTTPServer", fake_server)
+        with pytest.raises(RuntimeError, match="state"):
+            wait_for_auth_code("localhost", 8080, "/callback", "expected", timeout=1)
 
 
 # ---------------------------------------------------------------------------
@@ -241,7 +260,7 @@ class TestOAuthHandler:
         REFACTORING INVARIANT: handler extraction logic unchanged in oauth_flow.py.
         """
         auth_data: dict = {}
-        handler_class = _make_oauth_handler(auth_data, "/callback")
+        handler_class = _make_oauth_handler(auth_data, "/callback", "s")
         handler = _build_handler(handler_class, "/callback?code=abc123&state=s")
         handler.do_GET()
         assert auth_data["code"] == "abc123"
@@ -250,8 +269,8 @@ class TestOAuthHandler:
     def test_oauth_handler_returns_200_and_html_on_success(self):
         """Handler returns 200 and an HTML response body. REFACTORING INVARIANT."""
         auth_data: dict = {}
-        handler_class = _make_oauth_handler(auth_data, "/callback")
-        handler = _build_handler(handler_class, "/callback?code=abc123")
+        handler_class = _make_oauth_handler(auth_data, "/callback", "s")
+        handler = _build_handler(handler_class, "/callback?code=abc123&state=s")
         handler.do_GET()
         assert handler._responses == [200]
         assert b"<h1>" in handler.wfile.getvalue()
@@ -259,8 +278,8 @@ class TestOAuthHandler:
     def test_oauth_handler_captures_error_param(self):
         """Handler captures the error parameter from the callback. REFACTORING INVARIANT."""
         auth_data: dict = {}
-        handler_class = _make_oauth_handler(auth_data, "/callback")
-        handler = _build_handler(handler_class, "/callback?error=denied")
+        handler_class = _make_oauth_handler(auth_data, "/callback", "s")
+        handler = _build_handler(handler_class, "/callback?error=denied&state=s")
         handler.do_GET()
         assert auth_data["error"] == "denied"
         assert auth_data["code"] is None
@@ -268,10 +287,33 @@ class TestOAuthHandler:
     def test_oauth_handler_404_on_wrong_path(self):
         """Requests to a non-callback path return 404 and set no code. REFACTORING INVARIANT."""
         auth_data: dict = {}
-        handler_class = _make_oauth_handler(auth_data, "/callback")
+        handler_class = _make_oauth_handler(auth_data, "/callback", "s")
         handler = _build_handler(handler_class, "/favicon.ico?code=ignored")
         handler.do_GET()
         assert handler._responses == [404]
+        assert "code" not in auth_data
+
+    def test_oauth_handler_rejects_mismatched_state(self):
+        """Callback with a wrong ``state`` is rejected with 400 and no code captured.
+
+        Regression test for issue #241 (F-02, Login-CSRF).
+        """
+        auth_data: dict = {}
+        handler_class = _make_oauth_handler(auth_data, "/callback", "expected")
+        handler = _build_handler(handler_class, "/callback?code=attacker_code&state=wrong")
+        handler.do_GET()
+        assert handler._responses == [400]
+        assert auth_data["error"] == "state_mismatch"
+        assert "code" not in auth_data
+
+    def test_oauth_handler_rejects_missing_state(self):
+        """Callback with no ``state`` param at all is rejected the same as a mismatch."""
+        auth_data: dict = {}
+        handler_class = _make_oauth_handler(auth_data, "/callback", "expected")
+        handler = _build_handler(handler_class, "/callback?code=attacker_code")
+        handler.do_GET()
+        assert handler._responses == [400]
+        assert auth_data["error"] == "state_mismatch"
         assert "code" not in auth_data
 
 
