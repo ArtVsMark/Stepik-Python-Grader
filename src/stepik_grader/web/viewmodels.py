@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import pathlib
 import re
+import threading
 from collections import Counter
+from collections.abc import Callable
 from typing import Any
 
 from stepik_grader.config import CONFIG
@@ -46,6 +48,7 @@ from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message
 _FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
 
 __all__ = [
+    "estimate_run_count",
     "grade_benchmark",
     "grade_microbench",
     "grade_path",
@@ -102,6 +105,30 @@ def _resolve_group_test_dir(folder_path: str) -> str:
     if (p / "input.txt").exists() and (p / "output.txt").exists():
         return str(p)
     return str(p)
+
+
+def estimate_run_count(solutions: list[str], *, kind: str, repeats: int = 1) -> int:
+    """Оценить, сколько раз ``run_single_test()`` будет вызван для ``solutions``
+    (issue #262) — дешёвый предрасчёт total для async job-прогресса
+    (``web/runs.py``), только файловый ввод-вывод (``load_test_cases()``),
+    без запуска subprocess.
+
+    ``kind="bench"`` — умножает число кейсов каждого решения на ``repeats``
+    (соответствует гранулярности тика ``run_benchmark`` — раз на повтор);
+    ``kind="microbench"`` — единица, так как ``run_microbench_mode`` тикает
+    раз на решение целиком (грубее, см. её докстринг), не на кейс.
+    Решения без резолвящегося ``test_dir`` пропускаются (0 запусков — та же
+    ветка, что даёт ``{"error": ..., "runs": 0}`` в ``run_benchmark``).
+    """
+    if kind == "microbench":
+        return len(solutions)
+    total = 0
+    for sol in solutions:
+        test_dir = resolve_test_dir(sol)
+        if test_dir is None or not pathlib.Path(test_dir).is_dir():
+            continue
+        total += len(load_test_cases(test_dir)) * max(1, repeats)
+    return total
 
 
 def _wa_suggestion(actual: str, expected: str, *, lang: str = DEFAULT_LANG) -> str | None:
@@ -411,7 +438,13 @@ def _apply_reference_ranking(
 
 
 def grade_benchmark(
-    path: str, *, repeats: int = 15, reference: str | None = None, lang: str = DEFAULT_LANG
+    path: str,
+    *,
+    repeats: int = 15,
+    reference: str | None = None,
+    lang: str = DEFAULT_LANG,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Бенчмаркнуть файл/папку (режим 3) и ранжировать по медиане.
 
@@ -428,6 +461,13 @@ def grade_benchmark(
     ранжирование относительно самого быстрого решения, как если бы
     ``reference`` не передавали. ``lang`` — локаль сообщения об ошибке
     (issue #264), default ru.
+
+    ``progress_callback``/``cancel_event`` (issue #262, оба по умолчанию
+    None — синхронный вызов из ``/api/grade`` их не передаёт, поведение не
+    меняется) — прокидываются в каждый ``run_benchmark()`` для папки с
+    несколькими решениями: один и тот же callback тикает через ВСЕ решения
+    группы, что и даёт плоский job-level прогресс без отдельного механизма
+    агрегации здесь. Также вызывается из ``web/runs.py`` (async job).
     """
     resolved = _resolve_solutions(path, lang=lang)
     if isinstance(resolved, dict):
@@ -436,11 +476,19 @@ def grade_benchmark(
 
     results: dict[str, dict[str, Any]] = {}
     for sol in solutions:
+        if cancel_event is not None and cancel_event.is_set():
+            break
         test_dir = resolve_test_dir(sol)
         if test_dir is None or not pathlib.Path(test_dir).is_dir():
             results[sol] = {"error": render_message("tests_not_found_short", lang), "runs": 0}
         else:
-            results[sol] = run_benchmark(sol, test_dir, repeats=max(1, repeats))
+            results[sol] = run_benchmark(
+                sol,
+                test_dir,
+                repeats=max(1, repeats),
+                progress_callback=progress_callback,
+                cancel_event=cancel_event,
+            )
 
     ref_path = None
     if reference:
@@ -498,7 +546,14 @@ def grade_benchmark(
     return response
 
 
-def grade_microbench(path: str, *, number: int = 1000, lang: str = DEFAULT_LANG) -> dict[str, Any]:
+def grade_microbench(
+    path: str,
+    *,
+    number: int = 1000,
+    lang: str = DEFAULT_LANG,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: threading.Event | None = None,
+) -> dict[str, Any]:
     """Микро-бенчмарк (режим 4, timeit) файла/папки — issue #187.
 
     В отличие от ``grade_benchmark``, ``run_microbench_mode`` принимает ОДИН
@@ -513,6 +568,11 @@ def grade_microbench(path: str, *, number: int = 1000, lang: str = DEFAULT_LANG)
     ``other_groups`` для явного предупреждения (полноценная секционная
     поддержка — вне скоупа этого issue). ``lang`` — локаль сообщения об
     ошибке (issue #264), default ru.
+
+    ``progress_callback``/``cancel_event`` (issue #262, оба по умолчанию
+    None) — прокидываются в ``run_microbench_mode()`` как есть; прогресс тут
+    грубее (тик на решение, не на кейс/повтор), см. докстринг
+    ``run_microbench_mode``.
     """
     resolved = _resolve_solutions(path, lang=lang)
     if isinstance(resolved, dict):
@@ -529,7 +589,13 @@ def grade_microbench(path: str, *, number: int = 1000, lang: str = DEFAULT_LANG)
                 "rows": [],
             }
         other_groups: list[str] = []
-        results = run_microbench_mode([sol], test_dir, number=number)
+        results = run_microbench_mode(
+            [sol],
+            test_dir,
+            number=number,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
     else:
         grouped = collect_grouped_files(base)
         group_names = sorted(grouped)
@@ -544,7 +610,13 @@ def grade_microbench(path: str, *, number: int = 1000, lang: str = DEFAULT_LANG)
                 "rows": [],
             }
         group_label = folder if folder != "." else pathlib.Path(base).name
-        results = run_microbench_mode(sorted(grouped[folder]), test_dir, number=number)
+        results = run_microbench_mode(
+            sorted(grouped[folder]),
+            test_dir,
+            number=number,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
 
     if not results:
         return {

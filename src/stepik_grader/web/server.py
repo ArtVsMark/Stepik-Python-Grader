@@ -23,6 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from stepik_grader.web import runs
 from stepik_grader.web.commands import filter_commands
 from stepik_grader.web.downloader_adapter import download_task
 from stepik_grader.web.glossary_adapter import glossary_get, glossary_missing, glossary_search
@@ -148,6 +149,14 @@ class _Handler(BaseHTTPRequestHandler):
     confinement`) — прежнее поведение (любой путь на диске), сознательный
     откат пользователя. ``/api/download`` (``root`` — куда СКАЧИВАТЬ задачу)
     в это конфайнментование не входит — отдельный concern.
+
+    Плюс (issue #262) — async job-модель для bench/microbench, альтернатива
+    синхронному ``/api/grade`` (который для этих режимов теперь DEPRECATED,
+    см. комментарий у его ветки в ``_dispatch_api_get``): POST
+    /api/v1/runs (тело ``{"path","code"?,"mode","params"?}``) → 202
+    ``{"run_id","status"}``; GET /api/v1/runs/<id> → ``{"status","progress",
+    "result"}`` (плюс message-поля при ошибке/отмене); POST
+    /api/v1/runs/<id>/cancel — best-effort отмена. Реализация — ``web/runs.py``.
     """
 
     # Уточнение типа сервера (issue #261) — self.server на самом деле
@@ -181,7 +190,29 @@ class _Handler(BaseHTTPRequestHandler):
         ``_lang_from_query()`` в ``do_GET`` — прокидывается дальше в
         ``viewmodels.py``/каталог сообщений для рендера ``message``.
         """
-        if parsed.path == "/api/grade":
+        if parsed.path.startswith("/api/v1/runs/"):
+            run_id = parsed.path[len("/api/v1/runs/") :]
+            if not run_id or "/" in run_id:
+                self._send(404, "text/plain; charset=utf-8", b"not found")
+                return
+            job = runs.get_job(run_id)
+            if job is None:
+                self._send(
+                    404,
+                    "application/json; charset=utf-8",
+                    _json(
+                        {"kind": "error", **message_fields("run_not_found", lang, run_id=run_id)}
+                    ),
+                )
+                return
+            self._send(200, "application/json; charset=utf-8", _json(job.to_status_dict()))
+        elif parsed.path == "/api/grade":
+            # DEPRECATED для bench/microbench (issue #262): синхронный —
+            # держит HTTP-запрос открытым на всю длительность бенчмарка, без
+            # прогресса и без отмены. POST /api/v1/runs + polling — асинхронная
+            # замена (см. web/runs.py). Оставлен как тонкая sync-обёртка для
+            # обратной совместимости и для режимов 1/2 (обычные тесты), которые
+            # вне scope #262 — поведение не меняется, TODO(#267) docs/api.md.
             qs = parse_qs(parsed.query)
             path = (qs.get("path") or [""])[0].strip()
             mode = (qs.get("mode") or ["tests"])[0]
@@ -260,63 +291,20 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
         parsed = urlparse(self.path)
+        if parsed.path == "/api/v1/runs":
+            self._handle_create_run(parsed)
+            return
+        if parsed.path.startswith("/api/v1/runs/") and parsed.path.endswith("/cancel"):
+            self._handle_cancel_run(parsed)
+            return
         if parsed.path not in ("/api/download", "/api/save-solution"):
             self._send(404, "text/plain; charset=utf-8", b"not found")
             return
         lang = _lang_from_query(parsed)
         if not self._guard_request(lang):
             return
-        length_header = self.headers.get("Content-Length")
-        try:
-            length = int(length_header) if length_header is not None else -1
-        except ValueError:
-            length = -1
-        if length < 0:
-            self._send(
-                400,
-                "application/json; charset=utf-8",
-                _json({"ok": False, **message_fields("content_length_required", lang)}),
-            )
-            return
-        if length > _MAX_BODY_BYTES:
-            # Осушаем входящий поток в разумных пределах: если оставить
-            # непрочитанные байты клиента в буфере ядра и просто закрыть
-            # сокет, ОС на некоторых платформах (Windows) шлёт RST вместо
-            # штатного FIN — клиент получает ConnectionAbortedError вместо
-            # тела 413-ответа, даже не успев его прочитать. Кламп на
-            # 2×лимит — не безусловное чтение произвольного (attacker-
-            # controlled) length, а лишь снятие типичного чуть-за-лимитом
-            # хвоста.
-            try:
-                self.rfile.read(min(length, _MAX_BODY_BYTES * 2))
-            except OSError:
-                pass
-            self._send(
-                413,
-                "application/json; charset=utf-8",
-                _json(
-                    {
-                        "ok": False,
-                        **message_fields("body_too_large", lang, limit=_MAX_BODY_BYTES),
-                    }
-                ),
-            )
-            return
-        try:
-            body = json.loads(self.rfile.read(length) or b"{}")
-        except json.JSONDecodeError:
-            self._send(
-                400,
-                "application/json; charset=utf-8",
-                _json({"ok": False, **message_fields("body_invalid_json", lang)}),
-            )
-            return
-        if not isinstance(body, dict):
-            self._send(
-                400,
-                "application/json; charset=utf-8",
-                _json({"ok": False, **message_fields("body_not_object", lang)}),
-            )
+        body = self._read_json_body(lang)
+        if body is None:
             return
         if parsed.path == "/api/download":
             url = str(body.get("url") or "").strip()
@@ -359,6 +347,142 @@ class _Handler(BaseHTTPRequestHandler):
                 path = str(confined_target)
             data = save_solution(folder, path, code, lang=lang)
         self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _read_json_body(self, lang: str = DEFAULT_LANG) -> dict[str, Any] | None:
+        """Читает и валидирует JSON-тело POST-запроса.
+
+        Issue #259: лимит ``_MAX_BODY_BYTES`` на Content-Length. Issue #262:
+        вынесено из ``do_POST`` в общий хелпер — было продублировано для
+        ``/api/download``/``/api/save-solution``, теперь используется также
+        ``POST /api/v1/runs``. Отправляет 400/413 и возвращает ``None`` при
+        любой ошибке — тот же паттерн, что ``_confined_path`` (шли ответ
+        внутри, сигнализируй отказ через ``None``, вызывающая сторона просто
+        ``return``-ит).
+        """
+        length_header = self.headers.get("Content-Length")
+        try:
+            length = int(length_header) if length_header is not None else -1
+        except ValueError:
+            length = -1
+        if length < 0:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("content_length_required", lang)}),
+            )
+            return None
+        if length > _MAX_BODY_BYTES:
+            # Осушаем входящий поток в разумных пределах: если оставить
+            # непрочитанные байты клиента в буфере ядра и просто закрыть
+            # сокет, ОС на некоторых платформах (Windows) шлёт RST вместо
+            # штатного FIN — клиент получает ConnectionAbortedError вместо
+            # тела 413-ответа, даже не успев его прочитать. Кламп на
+            # 2×лимит — не безусловное чтение произвольного (attacker-
+            # controlled) length, а лишь снятие типичного чуть-за-лимитом
+            # хвоста.
+            try:
+                self.rfile.read(min(length, _MAX_BODY_BYTES * 2))
+            except OSError:
+                pass
+            self._send(
+                413,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "ok": False,
+                        **message_fields("body_too_large", lang, limit=_MAX_BODY_BYTES),
+                    }
+                ),
+            )
+            return None
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}")
+        except json.JSONDecodeError:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("body_invalid_json", lang)}),
+            )
+            return None
+        if not isinstance(body, dict):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("body_not_object", lang)}),
+            )
+            return None
+        return body
+
+    def _handle_create_run(self, parsed: Any) -> None:
+        """POST /api/v1/runs (issue #262) — тело ``{"path","code"?,"mode",
+        "params"?}`` → ``202`` + ``{"run_id","status"}``. Асинхронная
+        альтернатива ``/api/grade`` для bench/microbench — ставит job в
+        очередь (``web/runs.py``) и сразу возвращает, не дожидаясь
+        завершения; прогресс/результат — через ``GET /api/v1/runs/{id}``.
+        """
+        lang = _lang_from_query(parsed)
+        if not self._guard_request(lang):
+            return
+        body = self._read_json_body(lang)
+        if body is None:
+            return
+
+        raw_path = str(body.get("path") or "").strip()
+        if not raw_path:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("specify_path_file_or_folder", lang)}),
+            )
+            return
+        mode = str(body.get("mode") or "").strip()
+        if mode not in ("bench", "microbench"):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("invalid_run_mode", lang, mode=mode)}),
+            )
+            return
+        confined = self._confined_path(raw_path, lang)
+        if confined is None:
+            return
+
+        raw_code = body.get("code")
+        code = raw_code if isinstance(raw_code, str) and raw_code else None
+
+        raw_params = body.get("params")
+        params_in = raw_params if isinstance(raw_params, dict) else {}
+        params: dict[str, Any] = {"lang": lang}
+        if mode == "bench":
+            params["repeats"] = _clamp(_to_int(params_in.get("repeats"), 15), *_REPEATS_RANGE)
+            reference = str(params_in.get("reference") or "").strip() or None
+            params["reference"] = reference
+        else:
+            params["number"] = _clamp(_to_int(params_in.get("number"), 1000), *_NUMBER_RANGE)
+
+        job = runs.submit_job(mode, str(confined), params, code=code)
+        self._send(
+            202,
+            "application/json; charset=utf-8",
+            _json({"run_id": job.id, "status": job.status}),
+        )
+
+    def _handle_cancel_run(self, parsed: Any) -> None:
+        """POST /api/v1/runs/{id}/cancel (issue #262) — best-effort отмена."""
+        lang = _lang_from_query(parsed)
+        if not self._guard_request(lang):
+            return
+        run_id = parsed.path[len("/api/v1/runs/") : -len("/cancel")]
+        job = runs.get_job(run_id)
+        if job is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("run_not_found", lang, run_id=run_id)}),
+            )
+            return
+        runs.cancel_job(run_id)
+        self._send(200, "application/json; charset=utf-8", _json(job.to_status_dict()))
 
     def _confined_path(self, raw: str, lang: str = DEFAULT_LANG) -> pathlib.Path | None:
         """Резолвит и конфайнит путь запроса в ``server.workspace`` (issue #261).
@@ -455,6 +579,17 @@ def _clamp(value: int, lo: int, hi: int) -> int:
     """Ограничивает значение диапазоном [lo, hi] (issue #259 — защита от
     неограниченных `repeats`/`number` в API)."""
     return max(lo, min(hi, value))
+
+
+def _to_int(value: Any, default: int) -> int:
+    """Значение из JSON-тела (не query-string-списка, в отличие от ``_int``)
+    как int, иначе default (issue #262 — `POST /api/v1/runs` params)."""
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _json(data: Any) -> bytes:

@@ -28,6 +28,7 @@ const state = {
   glossary: { query: "", cards: [], missing: [], selectedId: null, view: "cards" },
   solutions: [], // режим 1 — файлы, найденные /api/solutions в указанной папке
   selectedSolutionFile: null, // режим 1 — выбранный для проверки файл (полный путь)
+  activeRunId: null, // issue #262 — id текущего опрашиваемого async job (bench/microbench)
 };
 // Старый "compare" (до фикса режима 1) мог остаться в localStorage — откатываемся
 // на дефолт, а не оставляем режим, для которого больше нет кнопки/логики.
@@ -505,15 +506,22 @@ async function grade() {
   const btn = $("#run");
   btn.disabled = true;
   btn.textContent = "Проверка…";
-  $("#bar").textContent = "";
+  $("#bar").innerHTML = "";
   $("#out").innerHTML = skeletonBlock();
   state.selectedRow = null;
   state.selectedCase = null;
   state.explainOpen = false;
+  // issue #262 — любой новый запуск (любого режима) обесценивает предыдущий
+  // async job: его poll-цикл, если ещё жив, увидит несовпадение id и молча
+  // остановится, не трогая DOM текущего запуска (см. gradeAsync()).
+  state.activeRunId = null;
+  $("#cancel-run").hidden = true;
   const backendMode = state.mode === "bench" || state.mode === "microbench" ? state.mode : "tests";
+  if (backendMode === "bench" || backendMode === "microbench") {
+    await gradeAsync(path, backendMode);
+    return;
+  }
   const q = new URLSearchParams({ path, mode: backendMode });
-  if (backendMode === "bench") q.set("repeats", $("#repeats").value);
-  if (backendMode === "microbench") q.set("number", String(getMicroNumber()));
   try {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
@@ -524,13 +532,109 @@ async function grade() {
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
   } finally {
-    updateRunButtonState();
-    btn.textContent = "▶ Запустить";
-    renderDetailPanel();
-    renderResultSummaryBadges();
-    if (state.resultTab === "log") renderLogTab();
-    if (state.resultTab === "reference") renderReferenceTab();
+    _finishGradeUI();
   }
+}
+
+function _finishGradeUI() {
+  updateRunButtonState();
+  $("#run").textContent = "▶ Запустить";
+  renderDetailPanel();
+  renderResultSummaryBadges();
+  if (state.resultTab === "log") renderLogTab();
+  if (state.resultTab === "reference") renderReferenceTab();
+}
+
+// issue #262 — async job model (bench/microbench): POST /api/v1/runs, затем
+// polling GET /api/v1/runs/{id} каждые 600мс до status="done"/"error",
+// вместо единственного блокирующего /api/grade (который держал бы вкладку
+// открытой на всю длительность бенчмарка). Режимы 1/2 (файл/тесты) не
+// затронуты — остаются на синхронном пути в grade().
+async function gradeAsync(path, backendMode) {
+  const params = {};
+  if (backendMode === "bench") params.repeats = Number($("#repeats").value);
+  if (backendMode === "microbench") params.number = getMicroNumber();
+
+  let created;
+  try {
+    const createResp = await fetch("/api/v1/runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, mode: backendMode, params }),
+    });
+    created = await createResp.json();
+    if (createResp.status !== 202) {
+      $("#out").innerHTML =
+        '<p class="msg">' + esc(created.message || "Не удалось запустить задачу.") + "</p>";
+      _finishGradeUI();
+      return;
+    }
+  } catch (e) {
+    $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
+    _finishGradeUI();
+    return;
+  }
+
+  const runId = created.run_id;
+  state.activeRunId = runId;
+  const cancelBtn = $("#cancel-run");
+  cancelBtn.hidden = false;
+  cancelBtn.disabled = false;
+
+  await new Promise(resolve => {
+    const poll = async () => {
+      if (state.activeRunId !== runId) return resolve(); // superseded — stop quietly
+      let data;
+      try {
+        const statusResp = await fetch("/api/v1/runs/" + runId);
+        if (state.activeRunId !== runId) return resolve(); // superseded while awaiting
+        data = await statusResp.json();
+      } catch (e) {
+        if (state.activeRunId !== runId) return resolve();
+        $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
+        return resolve();
+      }
+      updateProgressBar(data.progress.done, data.progress.total);
+      if (data.status === "queued" || data.status === "running") {
+        setTimeout(poll, 600);
+        return;
+      }
+      cancelBtn.hidden = true;
+      $("#bar").innerHTML = "";
+      if (data.status === "done") {
+        state.lastResult = data.result;
+        addHistoryEntry(path, state.mode, data.result);
+        render(data.result);
+        updateCheckSidebarBadge(data.result);
+      } else {
+        $("#out").innerHTML =
+          '<p class="msg">' + esc(data.message || "Задача завершилась с ошибкой.") + "</p>";
+      }
+      resolve();
+    };
+    poll();
+  });
+
+  _finishGradeUI();
+}
+
+function updateProgressBar(done, total) {
+  if (!total) {
+    $("#bar").innerHTML =
+      '<div class="progress-track"><div class="progress-fill progress-indeterminate"></div></div>';
+    return;
+  }
+  const pct = Math.min(100, Math.round((done / total) * 100));
+  $("#bar").innerHTML =
+    '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+    '<div class="progress-label">' + done + " / " + total + "</div>";
+}
+
+function cancelActiveRun() {
+  if (!state.activeRunId) return;
+  const cancelBtn = $("#cancel-run");
+  cancelBtn.disabled = true;
+  fetch("/api/v1/runs/" + state.activeRunId + "/cancel", { method: "POST" }).catch(() => {});
 }
 
 function updateCheckSidebarBadge(data) {
@@ -1049,6 +1153,7 @@ document
   .forEach(b => b.addEventListener("click", () => setResultTab(b.dataset.restab)));
 
 $("#run").addEventListener("click", grade);
+$("#cancel-run").addEventListener("click", cancelActiveRun);
 $("#path").addEventListener("keydown", e => {
   if (e.key !== "Enter") return;
   if (state.mode === "file") findSolutions();

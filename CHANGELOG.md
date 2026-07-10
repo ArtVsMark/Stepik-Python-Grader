@@ -66,6 +66,49 @@
   Run result field table documents `message_id`/`message_params`.
 
 ### Added
+- Async job model for bench/microbench in `--serve` (issue #262): new
+  `POST /api/v1/runs` (body `{"path"|"code","mode","params"}`) queues a job
+  and returns `202 {"run_id","status":"queued"}` immediately instead of
+  blocking the request for the whole benchmark; `GET /api/v1/runs/{id}`
+  polls `{"status":"queued"|"running"|"done"|"error","progress":
+  {"done","total"},"result"}`; `POST /api/v1/runs/{id}/cancel` is a
+  best-effort cancel that actually terminates the running child process
+  (not just flips a status flag). New `web/runs.py` — in-memory job
+  registry (`threading.Lock`-guarded dict) + `ThreadPoolExecutor` (size
+  configurable via new `GraderConfig.job_workers`, default 2), lazy
+  TTL-based cleanup of finished jobs (15 min) on each registry access, no
+  extra background thread. `core/runner.py`'s `LocalRunner.run()` gained an
+  additive `RunSpec.cancel_event: threading.Event | None` — `None` (CLI,
+  sync `/api/grade`) keeps the exact prior single blocking
+  `proc.communicate()` call; when set, a 100ms poll loop with concurrent
+  stdout/stderr drain threads checks it and kills the child early
+  (`RunOutcome.cancelled`). `core/grader_core.py`'s `run_tests`/
+  `run_benchmark`/`run_microbench_mode`/`run_single_test` gained matching
+  optional `progress_callback`/`cancel_event` kwargs (both default `None`,
+  CLI behavior unchanged) and a new additive case verdict `CANCELLED`
+  (distinct from `TLE` — a cancelled run is not "your solution timed
+  out"). `web/viewmodels.py`'s `grade_benchmark`/`grade_microbench` forward
+  both through their per-solution loop, plus a new `estimate_run_count()`
+  helper that cheaply pre-computes a job's total step count (file I/O only,
+  no subprocess) for the progress bar's denominator. `POST /api/v1/runs`
+  also accepts an optional `code` field (writes to a temp `.py` file next
+  to `path`, graded instead of what's on disk — the same "editable code
+  window without saving" scenario mode 1's `/api/save-solution` already
+  supports, just for bench/microbench). Frontend (`static/app.js`): modes
+  3/4 now POST + poll (600ms) with a new progress bar (`#bar`) and Cancel
+  button (`#cancel-run`) instead of a single blocking fetch; modes 1/2
+  (plain tests) are unaffected, still on sync `/api/grade`. `/api/grade`
+  itself is unchanged and documented as deprecated (not removed) for
+  bench/microbench in `server.py`'s docstrings — see
+  `docs/server-mode.md § Контракт API удалённого исполнения` for how this
+  local MVP intentionally deviates from that section's speculative future
+  network-API contract (inlined `result`, no `failed` status). New tests:
+  `tests/test_runs.py` (job-lifecycle, no HTTP), `tests/test_web.py`'s
+  `TestRunsApi*` (golden comparison against sync `/api/grade`, real-process
+  cancellation via a PID-file + `psutil.pid_exists()` check, two concurrent
+  jobs not mixing results, path confinement/input validation/Host-guard
+  reuse), plus new `cancel_event` scenarios in `tests/test_runner.py`/
+  `tests/test_grader_mock.py`.
 - Playwright e2e smoke suite for the web UI, `tests/e2e/` (issue #263): 4
   user journeys against a real `--serve` instance (mode 2 folder grading +
   detail tab, mode 1 file picker with an editable code window + save + run,

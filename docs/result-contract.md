@@ -36,7 +36,7 @@ Python-тип — будущий типизированный `TestResult`/`data
 | Поле | Тип | Всегда | Описание |
 |---|---|:--:|---|
 | `passed` | `bool` | ✓ | Прошёл ли кейс (вывод совпал с ожидаемым) |
-| `verdict` | `"AC"\|"WA"\|"TLE"\|"RE"` | ✓ | Вердикт кейса (см. ниже); при ошибке до запуска — `"RE"` |
+| `verdict` | `"AC"\|"WA"\|"TLE"\|"RE"\|"CANCELLED"` | ✓ | Вердикт кейса (см. ниже); при ошибке до запуска — `"RE"` |
 | `output` | `list[str]` | ✓ | Фактический вывод решения (строки) |
 | `expected` | `list[str]` | ✓ | Ожидаемый вывод кейса (строки) |
 | `diff` | `str` | ✓ | Unified-diff при несовпадении; пустой при `AC` |
@@ -53,6 +53,9 @@ Python-тип — будущий типизированный `TestResult`/`data
 - `RE` ⟹ `error != ""` (и/или ненулевой код возврата процесса), `passed is False`;
 - `WA` ⟹ `passed is False and not timed_out and error == ""` — вывод получен,
   но не совпал; `diff` непустой.
+- `CANCELLED` ⟹ `passed is False`, `timed_out is False`, `error != ""` — кейс
+  прерван через `cancel_event` (async job-модель, issue #262), не таймаутом
+  и не ошибкой решения; UI не должен показывать его как провал решения.
 
 Потребитель может доверять `verdict` как единственному полю для ветвления UI,
 не пересобирая логику из `passed`/`timed_out`/`error`.
@@ -68,6 +71,7 @@ Python-тип — будущий типизированный `TestResult`/`data
 | `WA` | Wrong Answer — вывод не совпал | провал (детерминированный) |
 | `TLE` | Time Limit Exceeded — превышен таймаут | провал (недетерминированный по времени) |
 | `RE` | Runtime Error — процесс упал / ошибка до запуска | провал (крэш) |
+| `CANCELLED` | Cancelled — прерван пользователем через async job-модель (issue #262) | не провал; терминально, но не оценивает решение |
 
 Бенчмарк-режимы (3/4) добавляют **перформанс-вердикты** решения (не кейса):
 `SIMILAR` / `SLOWER` / `MUCH SLOWER` относительно быстрейшего решения —
@@ -154,7 +158,7 @@ Python-тип — будущий типизированный `TestResult`/`data
 
 > **Типизированный `TestResult` реализован** (issue #112/#113):
 > `stepik_grader.core.result.TestResult` — frozen dataclass с полями case
-> result выше + `Verdict = Literal["AC", "WA", "TLE", "RE"]`. `from_dict()`/
+> result выше + `Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED"]`. `from_dict()`/
 > `to_dict()` конвертируют форму, которую **по-прежнему** возвращает
 > `run_single_test()` (этот контракт не меняется — `dict[str, Any]` остаётся
 > формой на границе CLI JSON-вывода, `run_tests()`/`run_benchmark()` и

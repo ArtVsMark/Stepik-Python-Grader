@@ -266,6 +266,7 @@ def test_run_spec_defaults() -> None:
     spec = RunSpec(path="x.py", stdin=None, timeout=5.0)
     assert spec.measure_memory is True
     assert spec.max_memory_mb is None
+    assert spec.cancel_event is None
 
 
 def test_run_outcome_defaults() -> None:
@@ -279,6 +280,81 @@ def test_run_outcome_defaults() -> None:
     assert outcome.peak_memory_mb == 0.0
     assert outcome.timed_out is False
     assert outcome.launch_error is None
+    assert outcome.cancelled is False
+
+
+# ---------------------------------------------------------------------------
+# LocalRunner.run() — cancel_event poll-loop (issue #262)
+# ---------------------------------------------------------------------------
+
+
+def test_local_runner_cancel_event_none_matches_prior_behavior(tmp_path: pathlib.Path) -> None:
+    """cancel_event=None (default) — identical to the pre-#262 blocking path."""
+    path = _write_script(tmp_path, "print(int(input()) + 1)\n")
+    spec = RunSpec(path=path, stdin=b"4\n", timeout=5.0, measure_memory=False)
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.cancelled is False
+    assert outcome.timed_out is False
+    assert outcome.returncode == 0
+    assert outcome.stdout.decode().strip() == "5"
+
+
+def test_local_runner_cancel_event_not_triggered_runs_to_completion(
+    tmp_path: pathlib.Path,
+) -> None:
+    """cancel_event supplied but never set -- the poll path must still
+    produce a correct result (proves the concurrent stdout/stderr drain
+    threads work, not just the early-exit branch)."""
+    path = _write_script(tmp_path, "print(int(input()) + 1)\n")
+    spec = RunSpec(
+        path=path, stdin=b"41\n", timeout=5.0, measure_memory=False, cancel_event=threading.Event()
+    )
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.cancelled is False
+    assert outcome.timed_out is False
+    assert outcome.returncode == 0
+    assert outcome.stdout.decode().strip() == "42"
+
+
+def test_local_runner_cancel_event_stops_process_early(tmp_path: pathlib.Path) -> None:
+    """Cancelling mid-run kills the child well before its full sleep duration
+    (proves the 100ms poll loop actually observes the event, not just the
+    timeout budget)."""
+    path = _write_script(tmp_path, "import time; time.sleep(30)\n")
+    cancel_event = threading.Event()
+    spec = RunSpec(
+        path=path, stdin=None, timeout=60.0, measure_memory=False, cancel_event=cancel_event
+    )
+
+    def _cancel_soon() -> None:
+        cancel_event.wait(0.3)
+        cancel_event.set()
+
+    threading.Thread(target=_cancel_soon, daemon=True).start()
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.cancelled is True
+    assert outcome.timed_out is False
+    assert outcome.elapsed < 5.0  # well under the 30s sleep and 60s timeout
+
+
+def test_local_runner_cancel_event_supplied_but_timeout_wins(tmp_path: pathlib.Path) -> None:
+    """cancel_event supplied but never set and the child overruns timeout --
+    the poll path's own timeout branch must still fire (not just cancel)."""
+    path = _write_script(tmp_path, "import time; time.sleep(30)\n")
+    spec = RunSpec(
+        path=path, stdin=None, timeout=0.2, measure_memory=False, cancel_event=threading.Event()
+    )
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.timed_out is True
+    assert outcome.cancelled is False
+    assert outcome.elapsed == 0.2
 
 
 def test_local_runner_satisfies_runner_protocol() -> None:

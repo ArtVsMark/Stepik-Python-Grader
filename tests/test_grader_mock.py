@@ -19,6 +19,7 @@ import pathlib
 import subprocess
 import sys
 import textwrap
+import threading
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -171,6 +172,30 @@ class TestRunSingleTestStdin:
         assert result["passed"] is True
         assert result["output"] == ["a", "b"]
 
+    def test_cancelled_verdict(self, tmp_path: pathlib.Path) -> None:
+        """cancel_event set mid-run (issue #262) -- real subprocess, not
+        mocked (poll-loop timing matters). Must be verdict=CANCELLED, not
+        TLE -- a cancelled run is not "your solution is too slow"."""
+        sol = tmp_path / "task1.py"
+        sol.write_text("import time; time.sleep(30)\n")
+        case = _make_testcase()
+
+        cancel_event = threading.Event()
+
+        def _cancel_soon() -> None:
+            cancel_event.wait(0.3)
+            cancel_event.set()
+
+        threading.Thread(target=_cancel_soon, daemon=True).start()
+        result = grader.run_single_test(
+            str(sol), case, timeout=60.0, measure_memory=False, cancel_event=cancel_event
+        )
+
+        assert result["passed"] is False
+        assert result["verdict"] == "CANCELLED"
+        assert result["timed_out"] is False
+        assert result["error"] != ""
+
     def test_result_keys_present(self, tmp_path: pathlib.Path) -> None:
         """Словарь результата содержит все ожидаемые ключи."""
         sol = tmp_path / "task1.py"
@@ -312,6 +337,112 @@ class TestRunTests:
         assert result["total"] == 2
         assert result["total_time"] >= 0
         assert abs(result["avg_time"] - result["total_time"] / 2) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# run_tests / run_benchmark — progress_callback + cancel_event (issue #262)
+# ---------------------------------------------------------------------------
+
+
+class TestRunTestsProgressAndCancel:
+    """progress_callback/cancel_event на run_tests — оба default None, не
+    трогает CLI/синхронный /api/grade (они их не передают)."""
+
+    def _make_test_dir(self, tmp_path: pathlib.Path, n: int) -> pathlib.Path:
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        for i in range(1, n + 1):
+            (test_dir / f"input_{i}.txt").write_text(f"{i}\n")
+            (test_dir / f"expected_{i}.txt").write_text(f"{i}\n")
+        return test_dir
+
+    def test_progress_callback_invoked_once_per_case(self, tmp_path: pathlib.Path) -> None:
+        test_dir = self._make_test_dir(tmp_path, 3)
+        sol = tmp_path / "task1.py"
+        sol.write_text("# mock\n")
+
+        def fake_popen(*args: Any, **kwargs: Any) -> MagicMock:
+            return _make_popen_mock(stdout=b"1\n")
+
+        ticks: list[int] = []
+        with patch("subprocess.Popen", side_effect=fake_popen):
+            grader.run_tests(str(sol), str(test_dir), progress_callback=ticks.append)
+
+        assert ticks == [1, 1, 1]
+
+    def test_default_kwargs_unchanged(self, tmp_path: pathlib.Path) -> None:
+        """No progress_callback/cancel_event at all — output identical to
+        pre-#262 shape (regression guard for the "CLI unaffected" promise)."""
+        test_dir = self._make_test_dir(tmp_path, 2)
+        sol = tmp_path / "task1.py"
+        sol.write_text("# mock\n")
+
+        with patch("subprocess.Popen", return_value=_make_popen_mock(stdout=b"1\n")):
+            result = grader.run_tests(str(sol), str(test_dir))
+
+        assert result["total"] == 2
+        assert set(result.keys()) == {
+            "total",
+            "passed",
+            "failed",
+            "errors",
+            "total_time",
+            "avg_time",
+            "peak_memory_mb",
+            "first_fail",
+            "cases",
+        }
+
+    def test_cancel_event_stops_before_all_cases_run(self, tmp_path: pathlib.Path) -> None:
+        """Real subprocess (not mocked) -- pre-set cancel_event must stop the
+        per-case loop before the last case ever launches a subprocess."""
+        test_dir = self._make_test_dir(tmp_path, 5)
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(input())\n")
+
+        cancel_event = threading.Event()
+        cancel_event.set()  # already cancelled before run_tests() even starts
+        result = grader.run_tests(str(sol), str(test_dir), cancel_event=cancel_event)
+
+        assert result["total"] == 0
+        assert result["cases"] == []
+
+
+class TestRunBenchmarkProgressAndCancel:
+    def _make_test_dir(self, tmp_path: pathlib.Path, n: int) -> pathlib.Path:
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        for i in range(1, n + 1):
+            (test_dir / f"input_{i}.txt").write_text(f"{i}\n")
+            (test_dir / f"expected_{i}.txt").write_text(f"{i}\n")
+        return test_dir
+
+    def test_progress_callback_invoked_per_case_times_repeats(self, tmp_path: pathlib.Path) -> None:
+        test_dir = self._make_test_dir(tmp_path, 2)
+        sol = tmp_path / "task1.py"
+        sol.write_text("# mock\n")
+
+        def fake_popen(*args: Any, **kwargs: Any) -> MagicMock:
+            return _make_popen_mock(stdout=b"1\n")
+
+        ticks: list[int] = []
+        with patch("subprocess.Popen", side_effect=fake_popen):
+            grader.run_benchmark(str(sol), str(test_dir), repeats=3, progress_callback=ticks.append)
+
+        assert ticks == [1] * 6  # 2 cases * 3 repeats
+
+    def test_cancel_event_pre_set_returns_cancelled_flag(self, tmp_path: pathlib.Path) -> None:
+        """Real subprocess -- pre-set cancel_event before the first repeat."""
+        test_dir = self._make_test_dir(tmp_path, 1)
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(input())\n")
+
+        cancel_event = threading.Event()
+        cancel_event.set()
+        result = grader.run_benchmark(str(sol), str(test_dir), repeats=5, cancel_event=cancel_event)
+
+        assert result["cancelled"] is True
+        assert result["runs"] == 0
 
 
 # ---------------------------------------------------------------------------

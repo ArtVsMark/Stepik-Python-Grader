@@ -18,7 +18,7 @@ from typing import Any, Literal
 
 __all__ = ["Verdict", "TestResult"]
 
-Verdict = Literal["AC", "WA", "TLE", "RE"]
+Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED"]
 
 
 @dataclass(frozen=True)
