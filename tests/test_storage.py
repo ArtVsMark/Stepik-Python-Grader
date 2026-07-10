@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
+import stat
+import sys
 
 import pytest
 
@@ -120,11 +123,43 @@ def test_save_secrets_creates_file(tmp_path: pathlib.Path) -> None:
     assert json.loads(secrets_file.read_text(encoding="utf-8")) == data
 
 
-def test_save_secrets_delegates_to_save_json_file(tmp_path: pathlib.Path) -> None:
-    """save_secrets — тонкая обёртка над save_json_file: результат идентичен."""
+def test_save_secrets_same_json_format_as_save_json_file(tmp_path: pathlib.Path) -> None:
+    """save_secrets сериализует так же, как save_json_file (issue #243: own
+    write path for chmod, но формат JSON не меняется)."""
     file_a = tmp_path / "a.json"
     file_b = tmp_path / "b.json"
     data = {"token": "secret123"}
     save_secrets(file_a, data)
     save_json_file(file_b, data)
     assert file_a.read_text(encoding="utf-8") == file_b.read_text(encoding="utf-8")
+
+
+def test_save_secrets_creates_parent_dirs(tmp_path: pathlib.Path) -> None:
+    """save_secrets создаёт недостающие родительские директории, как save_json_file."""
+    secrets_file = tmp_path / "nested" / "dir" / "secrets.json"
+    save_secrets(secrets_file, {"client_id": "abc"})
+    assert secrets_file.exists()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX-only: биты режима, не NTFS ACL")
+def test_save_secrets_sets_owner_only_permissions_on_posix(tmp_path: pathlib.Path) -> None:
+    """На POSIX secrets.json создаётся с режимом 0600 (issue #243, F-04)."""
+    secrets_file = tmp_path / "secrets.json"
+    save_secrets(secrets_file, {"access_token": "AT"})
+    mode = stat.S_IMODE(secrets_file.stat().st_mode)
+    assert mode == 0o600
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX-only: биты режима, не NTFS ACL")
+def test_save_secrets_fixes_permissions_of_preexisting_wide_open_file(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Файл, оставшийся от старой версии с широкими правами, приводится к 0600."""
+    secrets_file = tmp_path / "secrets.json"
+    secrets_file.write_text("{}", encoding="utf-8")
+    os.chmod(secrets_file, 0o644)
+
+    save_secrets(secrets_file, {"access_token": "AT"})
+
+    mode = stat.S_IMODE(secrets_file.stat().st_mode)
+    assert mode == 0o600
