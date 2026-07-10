@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import html
 import json
-import os
 import pathlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -78,6 +77,50 @@ _REPEATS_RANGE = (1, 1000)
 _NUMBER_RANGE = (1, 1_000_000)
 
 
+class _GraderServer(ThreadingHTTPServer):
+    """``ThreadingHTTPServer``, несущий рабочую директорию сервера (issue #261).
+
+    ``workspace`` и ``confine`` живут на сервере (не на классе ``_Handler``,
+    инстанцируемом заново под каждый запрос) — единственное место, где их
+    можно надёжно связать с конкретным запущенным сервером без глобального
+    мутабельного состояния.
+    """
+
+    def __init__(
+        self,
+        server_address: tuple[str, int],
+        handler_cls: type[BaseHTTPRequestHandler],
+        *,
+        workspace: pathlib.Path,
+        confine: bool,
+    ) -> None:
+        self.workspace = workspace
+        self.confine = confine
+        super().__init__(server_address, handler_cls)
+
+
+def _resolve_within_root(
+    workspace: pathlib.Path, raw: str, *, confine: bool
+) -> pathlib.Path | None:
+    """Резолвит путь запроса относительно ``workspace`` (issue #261).
+
+    Относительные пути резолвятся от ``workspace`` (не от cwd процесса —
+    после этого issue ``workspace`` и есть концептуальный «корень» сервера).
+    ``Path.resolve()`` разворачивает симлинки ДО проверки контейнмента —
+    симлинк внутри ``workspace``, ведущий наружу, тоже ловится. Возвращает
+    ``None`` (нарушение), если ``confine`` включён и результат не внутри
+    ``workspace``; при ``confine=False`` — всегда резолвит без проверки
+    (explicit opt-out, `--no-root-confinement`).
+    """
+    candidate = pathlib.Path(raw).expanduser()
+    if not candidate.is_absolute():
+        candidate = workspace / candidate
+    resolved = candidate.resolve()
+    if confine and not resolved.is_relative_to(workspace):
+        return None
+    return resolved
+
+
 class _Handler(BaseHTTPRequestHandler):
     """GET / → страница; GET /api/grade?path=…&mode=tests|bench|microbench → JSON.
 
@@ -95,12 +138,27 @@ class _Handler(BaseHTTPRequestHandler):
     {"folder","path"?,"code"} — сохранить код из редактируемого окна на
     диск (в ``path``, если выбран, иначе — новый файл по маске в ``folder``)
     перед грейдингом в режиме 1.
+
+    Пути (issue #261): все пути из запросов (``/api/grade``, ``/api/source``,
+    ``/api/solutions``, ``/api/save-solution``) конфайнятся в
+    ``server.workspace`` (``--root``, по умолчанию — cwd на момент запуска
+    ``--serve``) — выход за пределы (``../``, симлинк наружу, абсолютный
+    путь снаружи) отклоняется 403-м. Отключается явно (`--no-root-
+    confinement`) — прежнее поведение (любой путь на диске), сознательный
+    откат пользователя. ``/api/download`` (``root`` — куда СКАЧИВАТЬ задачу)
+    в это конфайнментование не входит — отдельный concern.
     """
+
+    # Уточнение типа сервера (issue #261) — self.server на самом деле
+    # _GraderServer, а не базовый socketserver.BaseServer из typeshed.
+    server: _GraderServer  # type: ignore[assignment]
 
     def do_GET(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
         parsed = urlparse(self.path)
         if parsed.path == "/":
-            page = _INDEX_HTML.replace("__DEFAULT_PATH__", html.escape(os.getcwd(), quote=True))
+            page = _INDEX_HTML.replace(
+                "__DEFAULT_PATH__", html.escape(str(self.server.workspace), quote=True)
+            )
             self._send(200, "text/html; charset=utf-8", page.encode("utf-8"))
         elif parsed.path in _STATIC_ROUTES:
             ctype, body = _STATIC_ROUTES[parsed.path]
@@ -126,15 +184,20 @@ class _Handler(BaseHTTPRequestHandler):
                     "message": "Укажите путь к файлу или папке.",
                     "rows": [],
                 }
-            elif mode == "bench":
-                reference = (qs.get("reference") or [""])[0].strip() or None
-                repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
-                data = grade_benchmark(path, repeats=repeats, reference=reference)
-            elif mode == "microbench":
-                number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
-                data = grade_microbench(path, number=number)
             else:
-                data = grade_path(path)
+                confined = self._confined_path(path)
+                if confined is None:
+                    return
+                path = str(confined)
+                if mode == "bench":
+                    reference = (qs.get("reference") or [""])[0].strip() or None
+                    repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
+                    data = grade_benchmark(path, repeats=repeats, reference=reference)
+                elif mode == "microbench":
+                    number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
+                    data = grade_microbench(path, number=number)
+                else:
+                    data = grade_path(path)
             self._send(200, "application/json; charset=utf-8", _json(data))
         elif parsed.path == "/api/glossary":
             qs = parse_qs(parsed.query)
@@ -161,18 +224,24 @@ class _Handler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/solutions":
             qs = parse_qs(parsed.query)
             path = (qs.get("path") or [""])[0].strip()
-            data = (
-                list_solutions(path)
-                if path
-                else {"kind": "error", "message": "Укажите путь к папке.", "files": []}
-            )
+            if not path:
+                data = {"kind": "error", "message": "Укажите путь к папке.", "files": []}
+            else:
+                confined = self._confined_path(path)
+                if confined is None:
+                    return
+                data = list_solutions(str(confined))
             self._send(200, "application/json; charset=utf-8", _json(data))
         elif parsed.path == "/api/source":
             qs = parse_qs(parsed.query)
             path = (qs.get("path") or [""])[0].strip()
-            data = (
-                read_source(path) if path else {"kind": "error", "message": "Укажите путь к файлу."}
-            )
+            if not path:
+                data = {"kind": "error", "message": "Укажите путь к файлу."}
+            else:
+                confined = self._confined_path(path)
+                if confined is None:
+                    return
+                data = read_source(str(confined))
             self._send(200, "application/json; charset=utf-8", _json(data))
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
@@ -264,6 +333,10 @@ class _Handler(BaseHTTPRequestHandler):
                     _json({"ok": False, "message": "Укажите папку."}),
                 )
                 return
+            confined_folder = self._confined_path(folder)
+            if confined_folder is None:
+                return
+            folder = str(confined_folder)
             code = body.get("code")
             if not isinstance(code, str):
                 self._send(
@@ -272,9 +345,38 @@ class _Handler(BaseHTTPRequestHandler):
                     _json({"ok": False, "message": "Укажите code (строка)."}),
                 )
                 return
-            path = str(body.get("path") or "").strip() or None
+            raw_path = str(body.get("path") or "").strip() or None
+            path = None
+            if raw_path:
+                confined_target = self._confined_path(raw_path)
+                if confined_target is None:
+                    return
+                path = str(confined_target)
             data = save_solution(folder, path, code)
         self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _confined_path(self, raw: str) -> pathlib.Path | None:
+        """Резолвит и конфайнит путь запроса в ``server.workspace`` (issue #261).
+
+        Отправляет 403 и возвращает ``None``, если путь выходит за пределы
+        рабочей директории (и конфайнмент включён); иначе — резолвленный
+        абсолютный ``Path``, готовый передавать дальше в ``viewmodels.py``
+        (которые остаются агностичны к политике конфайнмента).
+        """
+        resolved = _resolve_within_root(self.server.workspace, raw, confine=self.server.confine)
+        if resolved is None:
+            self._send(
+                403,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "kind": "error",
+                        "message": f"Путь вне рабочей директории сервера: {raw}",
+                    }
+                ),
+            )
+            return None
+        return resolved
 
     def _guard_request(self) -> bool:
         """Host/Origin/Referer-проверка для `/api/*` (issue #242, F-03).
@@ -345,15 +447,35 @@ def _json(data: Any) -> bytes:
     return json.dumps(data, ensure_ascii=False).encode("utf-8")
 
 
-def run_server(host: str = "127.0.0.1", port: int = 8000) -> None:
+def run_server(
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    *,
+    root: str | None = None,
+    confine: bool = True,
+) -> None:
     """Запустить веб-интерфейс на http://host:port (Ctrl+C — остановить).
 
     Слушает только localhost. ``ThreadingHTTPServer`` — чтобы медленный
     грейдинг одного запроса не блокировал отдачу страницы другому.
+
+    ``root`` — рабочая директория сервера (``--root``); ``None`` (по
+    умолчанию) — cwd на момент запуска. ``confine`` (по умолчанию ``True``)
+    — конфайнить ли пути запросов в неё; ``False`` (``--no-root-
+    confinement``) — явный откат к прежнему поведению (доступ к любому
+    пути на диске), issue #261.
     """
-    server = ThreadingHTTPServer((host, port), _Handler)
+    workspace = pathlib.Path(root).expanduser().resolve() if root else pathlib.Path.cwd().resolve()
+    server = _GraderServer((host, port), _Handler, workspace=workspace, confine=confine)
     url = f"http://{host}:{port}"
     print(f"🌐 Веб-интерфейс грейдера: {url}  (Ctrl+C — остановить)")
+    if confine:
+        print(f"   Рабочая директория: {workspace}  (пути вне неё отклоняются 403)")
+    else:
+        print(
+            f"   Рабочая директория: {workspace}  (конфайнмент путей ОТКЛЮЧЁН "
+            "--no-root-confinement — доступен любой путь на диске)"
+        )
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -121,6 +121,24 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Порт для --serve (по умолчанию 8000).",
     )
     parser.add_argument(
+        "--root",
+        type=str,
+        default=None,
+        help=(
+            "Рабочая директория --serve: пути из запросов вне неё отклоняются "
+            "403-м (по умолчанию — cwd на момент запуска). Issue #261."
+        ),
+    )
+    parser.add_argument(
+        "--no-root-confinement",
+        action="store_true",
+        help=(
+            "Отключить проверку путей запросов относительно --root — доступ "
+            "к любому пути на диске, как раньше. Явный откат пользователя, "
+            "не дефолт. Issue #261."
+        ),
+    )
+    parser.add_argument(
         "--init-vscode",
         action="store_true",
         help=(

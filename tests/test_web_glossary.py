@@ -13,7 +13,6 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from http.server import ThreadingHTTPServer
 
 import pytest
 
@@ -113,7 +112,9 @@ class TestGlossaryMissing:
 
 @pytest.fixture
 def server(tmp_path: pathlib.Path):
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), web._Handler)
+    # issue #261: this file only hits /api/glossary*/api/commands (no `path`
+    # param) — workspace just has to exist for the handler's incidental uses.
+    httpd = web._GraderServer(("127.0.0.1", 0), web._Handler, workspace=tmp_path, confine=True)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     host, port = httpd.server_address[0], httpd.server_address[1]
