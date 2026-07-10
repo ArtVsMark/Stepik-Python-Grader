@@ -9,6 +9,14 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Docs
+- `docs/versions.md`'s fork-vs-original comparison table was missing the
+  local web UI (`--serve`) and IDE integration entirely — added rows for
+  both. IDE integration specifically named only VS Code's `--init-vscode`
+  (the `v1.4.0` "Запуск" row); PyCharm's documented External Tool recipe
+  (`docs/grader-workflow.md § Интеграция с IDE`) exists too and is now
+  called out alongside it.
+
 ### Internal
 - CI: the `Update badges (main only)` step now retries (up to 3 attempts)
   instead of failing the job outright when two pushes to `main` land close

@@ -27,6 +27,8 @@
 | Схема файлов task{N}_1.py / task{N}_2.py | ❌ | ✅ Sprint 5 |
 | Диагностика API | ❌ | ✅ |
 | Поддержка function-only решений | ❌ | ✅ |
+| Локальный веб-интерфейс (`--serve`) | ❌ | ✅ |
+| Интеграция с IDE (VS Code `--init-vscode`, PyCharm — External Tool) | ❌ | ✅ |
 | Выделенный HTTP/OAuth слой (`stepik_client.py`) | ❌ | ✅ Sprint 3 |
 | Утилиты хранилища без project-зависимостей (`storage.py`) | ❌ | ✅ Sprint 3 |
 | pyproject.toml (ruff, pytest, зависимости) | ❌ | ✅ |
@@ -45,7 +47,7 @@
 |---|---|---|---|---|---|---|---|
 | **Суть релиза** | Первый стабильный форк — «работает» | Зрелая архитектура, установка как пакет | Безопасность, кроссплатформа, дистрибуция, UX | Онбординг новичков + дистрибуция через PyPI | «Оболочки» — веб-интерфейс и интеграция с IDE | Рабочий поток — кэш, pytest-плагин, инкрементальный watch | Глоссарий против stdlib + прозрачность версии |
 | **Структура кода** | Плоский корень репозитория | src-layout: `src/stepik_grader/` + пакет `core/` | стабилизирована | → | + `web.py`, `ide.py` | + `pytest_plugin.py`, `core/cache.py` | + `glossary/stdlib_inventory.py`, `glossary/coverage.py` |
-| **Запуск** | `python grader.py` | `stepik-grader` / `python -m stepik_grader.X` | `python -m stepik_grader` | + нативный файловый диалог (fallback без пути) | + `--serve` (Web UI), `--init-vscode` | + `pytest --grader-mode`; IDE-задачи через интерпретатор | + `python -m stepik_grader.glossary.coverage` |
+| **Запуск** | `python grader.py` | `stepik-grader` / `python -m stepik_grader.X` | `python -m stepik_grader` | + нативный файловый диалог (fallback без пути) | + `--serve` (Web UI), `--init-vscode` (VS Code), рецепт External Tool для PyCharm | + `pytest --grader-mode`; IDE-задачи через интерпретатор | + `python -m stepik_grader.glossary.coverage` |
 | **CLI** | Только интерактивное меню | + argparse (`--mode/--file/--dir`) | + `--output json/csv/md`, `--watch`, `--lang`, `--verbose/--quiet` | → | + веб-интерфейс, задачи VS Code | + `--cache/--no-cache/--clear-cache`, инкрементальный `--watch` | → |
 | **CI** | Ubuntu (pytest + ruff) | Ubuntu | Ubuntu + Windows + macOS, + mypy | → | → | → | + живые README-бейджи (coverage/version, авто-коммит) |
 | **Безопасность** | Только таймаут выполнения | Только таймаут | + лимит памяти `RLIMIT_AS` (POSIX), явные импорты вместо wildcard | → | → | + `prlimit` после spawn (потокобезопасно) | → |
