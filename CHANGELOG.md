@@ -66,6 +66,33 @@
   Run result field table documents `message_id`/`message_params`.
 
 ### Added
+- Mode 1's code editor (`--serve`) is now CodeMirror 6 instead of a plain
+  `<textarea>` (issue #265): Python syntax highlighting, line numbers, and
+  Tab-to-indent, themed via the existing `app.css` design tokens (follows
+  light/dark automatically — no separate CodeMirror theme object per mode,
+  just `var(--color-*)` references in one `EditorView.theme()`). Vendored,
+  not CDN-loaded (same "everything offline" rule as issue #260's fonts):
+  8 CodeMirror/Lezer sub-packages (`@codemirror/state`/`view`/`language`/
+  `commands`/`lang-python`, `@lezer/common`/`highlight`/`lr`) plus 4 tiny
+  Node browser-compat shims `@lezer/lr` needs for an unused debug path,
+  each fetched pre-built from esm.sh with every *other* package in the set
+  marked `external` so they all share one copy of `@codemirror/state`/
+  `view`/`language` — CodeMirror's extension system works by object
+  identity, so duplicate copies would have silently broken cross-package
+  extensions. New `static/vendor/` (`LICENSE`, `VERSIONS.md` with the exact
+  fetch recipe and a note on a self-exclusion bug hit once during
+  development), wired into `index.html` via a `<script type="importmap">`
+  and `web/server.py`'s static routes; `app.js` is now `type="module"`
+  (no inline scripts/`on*=` handlers depended on it staying classic).
+  `pyproject.toml`'s `package-data` gained `web/static/vendor/*`. The old
+  `$("#solution-editor").value` read/write call sites became a small
+  `getEditorCode()`/`setEditorCode()` API backed by CodeMirror's document
+  state; focus visibility (accessibility) uses `#solution-editor:focus-
+  within` since the actual focusable node is CodeMirror's own nested
+  `.cm-content`, not the outer container `:focus` never fires on directly.
+  `tests/e2e/test_journeys.py`'s mode-1 edit/save/run journey (issue #263)
+  updated to type into `.cm-content` via real keyboard events instead of
+  `.fill()`/`.input_value()` on a textarea — still green.
 - Async job model for bench/microbench in `--serve` (issue #262): new
   `POST /api/v1/runs` (body `{"path"|"code","mode","params"}`) queues a job
   and returns `202 {"run_id","status":"queued"}` immediately instead of

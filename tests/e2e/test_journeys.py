@@ -62,13 +62,26 @@ def test_mode1_file_picker_edit_save_run(page: Any, e2e_server: str, tmp_path: P
     item.wait_for(state="visible", timeout=_TIMEOUT_MS)
     item.click()
 
-    editor = page.locator("#solution-editor")
+    # issue #265: #solution-editor is a CodeMirror 6 mount (contenteditable
+    # .cm-content inside it), not a <textarea> -- no .value/.fill() on the
+    # container itself. Content is read via .cm-content's text, and typed
+    # via real keyboard events (select-all + type) rather than .fill(),
+    # since CodeMirror reconciles its state off real DOM/input events, not
+    # a bare textContent assignment. Waiting on "textContent.length > 0" is
+    # WRONG here (found live, not just theorized): CodeMirror's placeholder
+    # renders as a real .cm-placeholder span *inside* .cm-content when the
+    # doc is empty, so length > 0 is already true before the real code
+    # loads -- wait for the actual expected substring instead.
+    editor_content = page.locator("#solution-editor .cm-content")
     page.wait_for_function(
-        "document.querySelector('#solution-editor').value.length > 0", timeout=_TIMEOUT_MS
+        "document.querySelector('#solution-editor .cm-content').textContent.includes('99')",
+        timeout=_TIMEOUT_MS,
     )
-    assert "99" in editor.input_value()  # the original (wrong) code loaded
+    assert "99" in editor_content.text_content()  # the original (wrong) code loaded
 
-    editor.fill("print(int(input()) + 1)\n")  # correct code, in the editable window
+    editor_content.click()
+    page.keyboard.press("Control+A")
+    page.keyboard.type("print(int(input()) + 1)\n")  # correct code, in the editable window
     page.click("#run")
 
     page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)

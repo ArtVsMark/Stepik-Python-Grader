@@ -79,8 +79,13 @@
               <ul id="solutions-list" class="side-list"></ul>
               <div class="form-group">
                 <label class="form-label" for="solution-editor">Код решения</label>
-                <textarea class="form-input code-editor" id="solution-editor"
-                          placeholder="Выберите решение слева или начните вводить новое — при запуске оно сохранится в файл"></textarea>
+                <!-- issue #265: CodeMirror 6 mounts into this div (see app.js
+                     mountEditor()) instead of a plain <textarea>. tabindex
+                     keeps it keyboard-reachable before the editor mounts;
+                     CodeMirror's own contenteditable takes over focus/tab
+                     order once mounted. -->
+                <div class="form-input code-editor" id="solution-editor" tabindex="0"
+                     data-placeholder="Выберите решение слева или начните вводить новое — при запуске оно сохранится в файл"></div>
               </div>
             </div>
             <div class="hint">Enter или «Запустить». Клик по тест-кейсу — раскрыть разбор во вкладке «Детали».</div>
@@ -248,6 +253,28 @@
   </div>
 </div>
 
-<script src="/static/app.js"></script>
+<!-- issue #265: import map for the vendored CodeMirror 6 ESM bundles
+     (static/vendor/, no CDN — see static/vendor/VERSIONS.md). Must appear
+     before app.js, which is now type="module" so it can `import` these
+     bare specifiers directly. -->
+<script type="importmap">
+{
+  "imports": {
+    "@codemirror/state": "/static/vendor/codemirror-state@6.7.1.mjs",
+    "@codemirror/view": "/static/vendor/codemirror-view@6.43.6.mjs",
+    "@codemirror/language": "/static/vendor/codemirror-language@6.12.4.mjs",
+    "@codemirror/commands": "/static/vendor/codemirror-commands@6.10.4.mjs",
+    "@codemirror/lang-python": "/static/vendor/codemirror-lang-python@6.2.1.mjs",
+    "@lezer/common": "/static/vendor/lezer-common@1.5.2.mjs",
+    "@lezer/highlight": "/static/vendor/lezer-highlight@1.2.3.mjs",
+    "@lezer/lr": "/static/vendor/lezer-lr@1.4.10.mjs",
+    "/node/events.mjs": "/static/vendor/node-events.mjs",
+    "/node/tty.mjs": "/static/vendor/node-tty.mjs",
+    "/node/async_hooks.mjs": "/static/vendor/node-async_hooks.mjs",
+    "/node/process.mjs": "/static/vendor/node-process.mjs"
+  }
+}
+</script>
+<script type="module" src="/static/app.js"></script>
 </body>
 </html>

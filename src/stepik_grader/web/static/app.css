@@ -362,6 +362,25 @@ a, button, [role="button"] {
 select.form-input { cursor: pointer; }
 .code-editor { font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7; min-height: 240px; resize: vertical; }
 
+/* issue #265: #solution-editor is now a CodeMirror 6 mount point, not a
+   <textarea> -- its own .cm-content rule (app.js mountEditor()) handles
+   padding/font, so the .form-input padding here would double up; zero it
+   and let overflow:auto + resize:vertical keep the old resize-handle UX.
+   Focus visibility: CodeMirror's real focused node is .cm-content nested
+   inside, so plain .form-input:focus (a :focus pseudo-class on THIS
+   element) never fires -- :focus-within does, since it matches whenever
+   any descendant has focus. */
+#solution-editor.code-editor {
+  padding: 0;
+  overflow: auto;
+  cursor: text;
+}
+#solution-editor.code-editor:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px oklch(from var(--color-primary) l c h / 0.18);
+}
+#solution-editor .cm-editor { height: 100%; }
+
 .mode-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .mode-btn {
   flex: 1; min-width: 80px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);

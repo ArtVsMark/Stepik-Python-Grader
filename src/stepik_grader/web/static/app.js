@@ -1,5 +1,17 @@
 // app.js — клиентская логика веб-интерфейса грейдера (issue #58, эпик #80; issue #125;
 // редизайн под маску эпика #123).
+//
+// type="module" (issue #265, для static import ниже) — раньше это был
+// классический script; в index.html не было ни inline-скриптов, ни
+// on*="..."-атрибутов, зовущих функции этого файла как globals, так что
+// переход на module-scope (топ-level function здесь больше не попадают на
+// window) ничего не ломает.
+import { EditorState } from "@codemirror/state";
+import { EditorView, lineNumbers, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { syntaxHighlighting, defaultHighlightStyle, indentOnInput } from "@codemirror/language";
+import { python } from "@codemirror/lang-python";
+
 const $ = s => document.querySelector(s);
 // issue #214: экранируем и кавычки — esc() используется не только в текстовом
 // контексте (innerHTML), но и внутри HTML-атрибутов (errorCard() вставляет
@@ -389,13 +401,79 @@ function updateParamsTabAvailability(m) {
   if ((tab.hidden || disabled) && state.configTab === "params") setConfigTab("path");
 }
 
+// ---------------------------------------------------------------------------
+// CodeMirror 6 editor (issue #265) — mode 1's code editor, mounted into the
+// #solution-editor div (was a plain <textarea> before this issue). Kept as
+// a small get/set API (getEditorCode/setEditorCode) so the rest of app.js
+// doesn't need to know CodeMirror's own state/dispatch model — every former
+// `$("#solution-editor").value` read/write below became one of these calls.
+// ---------------------------------------------------------------------------
+let cmView = null;
+
+function mountEditor() {
+  const mount = document.getElementById("solution-editor");
+  const theme = EditorView.theme({
+    "&": { color: "var(--color-text)", backgroundColor: "transparent" },
+    ".cm-content": {
+      fontFamily: "var(--font-mono)",
+      fontSize: "var(--text-xs)",
+      lineHeight: "1.7",
+      padding: "var(--space-2) var(--space-3)",
+      caretColor: "var(--color-primary)",
+    },
+    "&.cm-editor": { minHeight: "240px" },
+    ".cm-scroller": { overflow: "auto" },
+    ".cm-gutters": {
+      backgroundColor: "var(--color-surface-offset)",
+      color: "var(--color-text-faint)",
+      border: "none",
+    },
+    ".cm-activeLineGutter": { backgroundColor: "var(--color-surface-offset-2)" },
+    "&.cm-focused": { outline: "none" }, // focus ring is #solution-editor:focus-within in app.css
+    ".cm-placeholder": { color: "var(--color-text-faint)" },
+  });
+
+  cmView = new EditorView({
+    doc: "",
+    parent: mount,
+    extensions: [
+      lineNumbers(),
+      history(),
+      indentOnInput(),
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+      python(),
+      theme,
+      cmPlaceholder(mount.dataset.placeholder || ""),
+      EditorView.updateListener.of(update => {
+        if (update.docChanged) updateRunButtonState();
+      }),
+    ],
+  });
+
+  // <label for="solution-editor"> can't natively focus a contenteditable div
+  // the way it would a real <textarea> -- wire it manually (issue #265
+  // acceptance criterion: editor must be keyboard-reachable).
+  const label = document.querySelector('label[for="solution-editor"]');
+  if (label) label.addEventListener("click", () => cmView.focus());
+}
+
+function getEditorCode() {
+  return cmView ? cmView.state.doc.toString() : "";
+}
+
+function setEditorCode(text) {
+  if (!cmView) return;
+  cmView.dispatch({ changes: { from: 0, to: cmView.state.doc.length, insert: text || "" } });
+}
+
 function updateRunButtonState() {
   if (state.mode !== "file") {
     $("#run").disabled = false;
     return;
   }
   const hasFolder = $("#path").value.trim().length > 0;
-  const hasCode = $("#solution-editor").value.trim().length > 0;
+  const hasCode = getEditorCode().trim().length > 0;
   $("#run").disabled = !(hasFolder && hasCode);
 }
 
@@ -404,13 +482,13 @@ function resetFilePicker() {
   state.selectedSolutionFile = null;
   const list = $("#solutions-list");
   if (list) list.innerHTML = "";
-  $("#solution-editor").value = "";
+  setEditorCode("");
   updateRunButtonState();
 }
 
 async function findSolutions() {
   state.selectedSolutionFile = null;
-  $("#solution-editor").value = "";
+  setEditorCode("");
   updateRunButtonState();
   await refreshSolutionsList();
 }
@@ -461,13 +539,12 @@ function renderSolutionsList() {
 async function selectSolutionFile(fullPath) {
   state.selectedSolutionFile = fullPath;
   renderSolutionsList();
-  const editor = $("#solution-editor");
   try {
     const r = await fetch("/api/source?" + new URLSearchParams({ path: fullPath }));
     const data = await r.json();
-    editor.value = data.kind === "error" ? "" : data.source;
+    setEditorCode(data.kind === "error" ? "" : data.source);
   } catch (e) {
-    editor.value = "";
+    setEditorCode("");
   }
   updateRunButtonState();
 }
@@ -476,7 +553,7 @@ async function grade() {
   const isFileMode = state.mode === "file";
   if (isFileMode) {
     const folder = $("#path").value.trim();
-    const code = $("#solution-editor").value;
+    const code = getEditorCode();
     if (!folder || !code.trim()) return;
     try {
       const saveResp = await fetch("/api/save-solution", {
@@ -1213,6 +1290,7 @@ document.addEventListener("keydown", e => {
 });
 
 applyTheme();
+mountEditor();
 setSection(state.section);
 setMode(state.mode);
 setConfigTab(state.configTab);
