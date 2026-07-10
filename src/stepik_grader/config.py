@@ -19,11 +19,14 @@ CONFIG``) продолжает работать без изменений: `from
 from __future__ import annotations
 
 import dataclasses
+import os
 import pathlib
 import tomllib
 from dataclasses import dataclass
 
 __all__ = ["GraderConfig", "load_config", "get_config", "CONFIG"]  # noqa: F822 (CONFIG — module __getattr__, PEP 562)
+
+_ENV_CONFIG_PATH = "STEPIK_GRADER_CONFIG"
 
 
 @dataclass(frozen=True)
@@ -45,18 +48,60 @@ class GraderConfig:
     glossary_missing_queue: str = ".grader_glossary_missing.json"
 
 
+def _find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path | None:
+    """Ищет pyproject.toml от ``start`` (по умолчанию cwd) вверх до корня ФС.
+
+    Паттерн поиска конфига, общий для pip/ruff/mypy — первый найденный файл
+    выигрывает. Не проверяет наличие секции ``[tool.stepik-grader]`` внутри —
+    это делает ``load_config()``.
+    """
+    current = (start or pathlib.Path.cwd()).resolve()
+    for candidate in (current, *current.parents):
+        candidate_path = candidate / "pyproject.toml"
+        if candidate_path.is_file():
+            return candidate_path
+    return None
+
+
+def _resolve_pyproject_path() -> pathlib.Path | None:
+    """Определяет путь к pyproject.toml (issue #258).
+
+    Порядок разрешения: ``STEPIK_GRADER_CONFIG`` (если указывает на
+    существующий файл) → поиск от ``cwd`` вверх → legacy-путь относительно
+    расположения пакета (src/-layout, Issue #35, сохраняет поведение при
+    запуске тестов из корня репозитория). Невалидное значение переменной
+    окружения не поднимает исключение — резолюция просто продолжается со
+    следующего источника.
+    """
+    env_value = os.environ.get(_ENV_CONFIG_PATH)
+    if env_value:
+        env_path = pathlib.Path(env_value)
+        if env_path.is_file():
+            return env_path
+
+    found = _find_pyproject()
+    if found is not None:
+        return found
+
+    legacy = pathlib.Path(__file__).parent.parent.parent / "pyproject.toml"
+    if legacy.is_file():
+        return legacy
+
+    return None
+
+
 def load_config() -> GraderConfig:
     """Загружает конфиг из [tool.stepik-grader] в pyproject.toml.
 
-    Если pyproject.toml отсутствует или секция не найдена —
-    возвращает GraderConfig с дефолтными значениями. Всегда перечитывает файл
-    заново (без кэша) — кэширование для типичного пути потребления делает
-    ``get_config()``/``CONFIG``, эта функция остаётся простым loader'ом.
+    Путь к pyproject.toml резолвится через ``_resolve_pyproject_path()``
+    (env → поиск от cwd вверх → legacy fallback, issue #258). Если файл не
+    найден или секция отсутствует — возвращает GraderConfig с дефолтными
+    значениями. Всегда перечитывает файл заново (без кэша) — кэширование для
+    типичного пути потребления делает ``get_config()``/``CONFIG``, эта
+    функция остаётся простым loader'ом.
     """
-    # src/-layout (Issue #35): config.py живёт в src/stepik_grader/, а
-    # pyproject.toml — в корне репозитория, на два уровня выше.
-    pyproject = pathlib.Path(__file__).parent.parent.parent / "pyproject.toml"
-    if not pyproject.exists():
+    pyproject = _resolve_pyproject_path()
+    if pyproject is None:
         return GraderConfig()
     with pyproject.open("rb") as f:
         data = tomllib.load(f)

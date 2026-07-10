@@ -9,6 +9,20 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Fixed
+- `config.py::load_config()` resolved `pyproject.toml` relative to the
+  installed package's own `__file__` (`src/stepik_grader/` → repo root),
+  so a `pipx`/wheel install pointed inside the venv where no
+  `pyproject.toml` exists — `[tool.stepik-grader]` was silently never
+  read and every user got hardcoded defaults regardless of their config.
+  `load_config()` now resolves the path via a new
+  `_resolve_pyproject_path()`: `STEPIK_GRADER_CONFIG` env override (if it
+  points at an existing file) → search upward from `cwd` (pip/ruff
+  pattern, new `_find_pyproject()`) → legacy `__file__`-relative fallback
+  (preserves behavior when tests run from the repo root) → defaults. An
+  invalid `STEPIK_GRADER_CONFIG` value no longer raises — resolution just
+  continues to the next source (issue #258).
+
 ### Added
 - Editable code window for mode 1 in the web UI (issue #125): the
   file-picker panel's read-only source preview is now a persistent,
