@@ -2,9 +2,12 @@
 
 Application/UI слой. Поднимает stdlib ``http.server`` на 127.0.0.1 (только
 localhost, не торчит в сеть, **без новых зависимостей**). Статические файлы
-(``static/index.html``/``app.css``/``app.js``) читаются один раз при импорте
-модуля с диска (тот же паттерн, что ``core/i18n.py`` для локалей) — без
-build-шага и без внешних зависимостей.
+(``static/index.html``/``app.css``/``app.js``, шрифты ``static/fonts/*.woff2``)
+читаются один раз при импорте модуля с диска (тот же паттерн, что
+``core/i18n.py`` для локалей) — без build-шага и без внешних зависимостей.
+UI полностью офлайн (issue #260): шрифты (JetBrains Mono/Inter, OFL 1.1,
+см. ``static/fonts/LICENSE``) вендорены локально, страница не обращается ни
+к каким внешним доменам — ни для рендера, ни для факта своего запуска.
 
 Threat model тот же, что у CLI: решения запускаются в subprocess без
 OS-sandbox (см. ``core/executor.py``, CLAUDE.md). Сервер слушает только
@@ -36,16 +39,27 @@ from stepik_grader.web.viewmodels import (
 __all__ = ["run_server"]
 
 _STATIC_DIR = pathlib.Path(__file__).parent / "static"
+_FONTS_DIR = _STATIC_DIR / "fonts"
 _INDEX_HTML = (_STATIC_DIR / "index.html").read_text(encoding="utf-8")
 _APP_CSS = (_STATIC_DIR / "app.css").read_text(encoding="utf-8")
 _APP_JS = (_STATIC_DIR / "app.js").read_text(encoding="utf-8")
 
 # Небольшой фиксированный allowlist — не файловый static-сервер (нет
 # path-traversal поверхности): единственные статические файлы, которые вообще
-# существуют в static/, уже загружены выше.
+# существуют в static/, уже загружены выше. Шрифты (issue #260, вендоринг
+# вместо Google Fonts CDN) — bytes, не str, поэтому отдельная map.
 _STATIC_ROUTES: dict[str, tuple[str, str]] = {
     "/static/app.css": ("text/css; charset=utf-8", _APP_CSS),
     "/static/app.js": ("application/javascript; charset=utf-8", _APP_JS),
+}
+_STATIC_BINARY_ROUTES: dict[str, tuple[str, bytes]] = {
+    f"/static/fonts/{name}": ("font/woff2", (_FONTS_DIR / name).read_bytes())
+    for name in (
+        "jetbrains-mono-latin.woff2",
+        "jetbrains-mono-cyrillic.woff2",
+        "inter-latin.woff2",
+        "inter-cyrillic.woff2",
+    )
 }
 
 # issue #242 (F-03): the server only binds to loopback, but a page open in the
@@ -55,6 +69,13 @@ _STATIC_ROUTES: dict[str, tuple[str, str]] = {
 # download/save actions. Host/Origin/Referer are all set by the browser
 # itself and can't be forged by page JS, unlike the request body/query.
 _ALLOWED_HOSTNAMES = ("127.0.0.1", "localhost")
+
+# issue #259 (A-2): API — не server-ready без лимитов на входные данные.
+# Тело POST ограничено 1 MiB (413 при превышении); repeats/number из query
+# кламп'аются в разумный диапазон вместо прохода как есть в исполнение.
+_MAX_BODY_BYTES = 1024 * 1024
+_REPEATS_RANGE = (1, 1000)
+_NUMBER_RANGE = (1, 1_000_000)
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -84,6 +105,9 @@ class _Handler(BaseHTTPRequestHandler):
         elif parsed.path in _STATIC_ROUTES:
             ctype, body = _STATIC_ROUTES[parsed.path]
             self._send(200, ctype, body.encode("utf-8"))
+        elif parsed.path in _STATIC_BINARY_ROUTES:
+            ctype, raw = _STATIC_BINARY_ROUTES[parsed.path]
+            self._send(200, ctype, raw)
         elif parsed.path.startswith("/api/"):
             if self._guard_request():
                 self._dispatch_api_get(parsed)
@@ -104,11 +128,11 @@ class _Handler(BaseHTTPRequestHandler):
                 }
             elif mode == "bench":
                 reference = (qs.get("reference") or [""])[0].strip() or None
-                data = grade_benchmark(
-                    path, repeats=_int(qs.get("repeats"), 15), reference=reference
-                )
+                repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
+                data = grade_benchmark(path, repeats=repeats, reference=reference)
             elif mode == "microbench":
-                data = grade_microbench(path, number=_int(qs.get("number"), 1000))
+                number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
+                data = grade_microbench(path, number=number)
             else:
                 data = grade_path(path)
             self._send(200, "application/json; charset=utf-8", _json(data))
@@ -160,10 +184,53 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if not self._guard_request():
             return
+        length_header = self.headers.get("Content-Length")
         try:
-            length = int(self.headers.get("Content-Length") or 0)
+            length = int(length_header) if length_header is not None else -1
+        except ValueError:
+            length = -1
+        if length < 0:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "ok": False,
+                        "message": (
+                            "Заголовок Content-Length обязателен и должен "
+                            "быть неотрицательным числом."
+                        ),
+                    }
+                ),
+            )
+            return
+        if length > _MAX_BODY_BYTES:
+            # Осушаем входящий поток в разумных пределах: если оставить
+            # непрочитанные байты клиента в буфере ядра и просто закрыть
+            # сокет, ОС на некоторых платформах (Windows) шлёт RST вместо
+            # штатного FIN — клиент получает ConnectionAbortedError вместо
+            # тела 413-ответа, даже не успев его прочитать. Кламп на
+            # 2×лимит — не безусловное чтение произвольного (attacker-
+            # controlled) length, а лишь снятие типичного чуть-за-лимитом
+            # хвоста.
+            try:
+                self.rfile.read(min(length, _MAX_BODY_BYTES * 2))
+            except OSError:
+                pass
+            self._send(
+                413,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "ok": False,
+                        "message": f"Тело запроса превышает лимит {_MAX_BODY_BYTES} байт.",
+                    }
+                ),
+            )
+            return
+        try:
             body = json.loads(self.rfile.read(length) or b"{}")
-        except (ValueError, json.JSONDecodeError):
+        except json.JSONDecodeError:
             self._send(
                 400,
                 "application/json; charset=utf-8",
@@ -266,6 +333,12 @@ def _int(values: list[str] | None, default: int) -> int:
         return int((values or [str(default)])[0])
     except (TypeError, ValueError):
         return default
+
+
+def _clamp(value: int, lo: int, hi: int) -> int:
+    """Ограничивает значение диапазоном [lo, hi] (issue #259 — защита от
+    неограниченных `repeats`/`number` в API)."""
+    return max(lo, min(hi, value))
 
 
 def _json(data: Any) -> bytes:
