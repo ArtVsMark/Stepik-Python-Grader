@@ -20,6 +20,12 @@ jobs:
           python-version: "3.12"
       - name: README line-budget + Markdown link-check
         run: python scripts/check_docs_guardrails.py
+      # issue #264: message_id-каталог веб-API (web/i18n.py) — ru.json должен
+      # покрывать все message_id, используемые в web/*.py, а ru.json/en.json
+      # обязаны иметь одинаковый набор ключей. Тоже чистый stdlib (ast/json),
+      # без pip install — держим в том же быстром job, что и docs-guardrails.
+      - name: Locale message catalog guardrails (issue #264)
+        run: python scripts/check_locale_guardrails.py
 
   test:
     runs-on: ${{ matrix.os }}

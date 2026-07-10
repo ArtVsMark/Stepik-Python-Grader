@@ -9,6 +9,35 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Refactored
+- Web API `message` strings are now rendered server-side from a locale
+  catalog instead of being Russian literals baked into `web/viewmodels.py`/
+  `web/server.py` (issue #264). Every error/status response that carries a
+  human-readable `message` gained two sibling fields: `message_id` (the
+  catalog key, e.g. `"path_not_found"`) and `message_params` (the dict of
+  values interpolated into it — empty if none). `message` itself is
+  unchanged for existing callers: default locale is still `ru`, rendered
+  byte-for-byte identical to the old hardcoded text. New `web/i18n.py`
+  (`render_message()`/`message_fields()`/`resolve_lang()`) is a thin
+  web-layer renderer built on top of `core/i18n.load_locale_messages()`
+  (issue #144) — `core/i18n.py` itself stays a stdlib-only leaf, per
+  CLAUDE.md's architectural invariant; the catalog and `message_params`
+  interpolation are an application-layer concern, not core infra.
+  `core/locales/ru.json`/`en.json` (previously empty placeholders from
+  issue #144) are now populated with the actual web-layer message strings
+  and their English translations. Locale is selected via a new `?lang=`
+  query parameter on `/api/*` GET/POST endpoints (`ru`/`en`; anything else,
+  or the param's absence, falls back to `ru` — no UX change for existing
+  callers). New CI-wired guardrail `scripts/check_locale_guardrails.py`
+  (modeled on `scripts/check_docs_guardrails.py`) checks that every
+  `message_id` referenced in `web/*.py` exists in `ru.json`, and that
+  `ru.json`/`en.json` have exactly the same key set. New
+  `tests/test_i18n_guardrails.py` AST-parses `web/viewmodels.py`/
+  `web/server.py` and fails on any string literal containing Cyrillic
+  characters outside docstrings — the regression guard for "no hardcoded
+  Russian message text left in the web layer." `docs/result-contract.md`'s
+  Run result field table documents `message_id`/`message_params`.
+
 ### Added
 - Playwright e2e smoke suite for the web UI, `tests/e2e/` (issue #263): 4
   user journeys against a real `--serve` instance (mode 2 folder grading +

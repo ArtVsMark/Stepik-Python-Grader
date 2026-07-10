@@ -16,10 +16,16 @@ from stepik_grader.core.i18n import load_locale_messages
 
 
 def test_load_locale_messages_reads_real_json_files() -> None:
-    # core/locales/{ru,en}.json существуют (сейчас пустые — чистая заготовка,
-    # issue #144), загрузка не должна падать и должна давать dict.
-    assert load_locale_messages("ru") == {}
-    assert load_locale_messages("en") == {}
+    # core/locales/{ru,en}.json больше не пустая заготовка (issue #144) — issue
+    # #264 наполнил их каталогом сообщений web-слоя (web/i18n.py). Загрузка не
+    # должна падать и должна давать непустой dict с одинаковым набором ключей.
+    ru = load_locale_messages("ru")
+    en = load_locale_messages("en")
+    assert ru != {}
+    assert en != {}
+    assert set(ru) == set(en)
+    assert ru["path_not_found"] == "Путь не найден: {path}"
+    assert en["path_not_found"] == "Path not found: {path}"
 
 
 def test_load_locale_messages_missing_lang_returns_empty_dict() -> None:
@@ -77,8 +83,10 @@ def test_t_prefers_json_locale_over_static_messages(monkeypatch) -> None:
 
 def test_t_json_locale_overrides_existing_key_when_present(monkeypatch) -> None:
     # Существующий ключ _MESSAGES тоже можно переопределить через JSON, если
-    # он там есть -- но по умолчанию core/locales/*.json пусты, так что
-    # реальное поведение сегодня не меняется (см. test_existing_messages_unchanged).
+    # он там есть -- реальные core/locales/*.json (issue #264) используют
+    # отдельное, непересекающееся пространство ключей веб-слоя, так что для
+    # ключей _MESSAGES (как "goodbye") поведение CLI не меняется (см.
+    # test_existing_cli_messages_unaffected_by_web_catalog_keys).
     monkeypatch.setattr(cli, "_LOCALE_MESSAGES", {"ru": {"goodbye": "Пока (из JSON)"}, "en": {}})
     monkeypatch.setattr(cli, "_LANG", "ru")
     assert cli._t("goodbye") == "Пока (из JSON)"
@@ -90,7 +98,11 @@ def test_t_kwargs_formatting_still_works_with_locale_fallback(monkeypatch) -> No
     assert cli._t("file_not_found", path="x.py") == "File not found: x.py"
 
 
-def test_existing_messages_unchanged_with_real_empty_locale_files() -> None:
-    # core/locales/{ru,en}.json реально пусты сегодня -- _t() должен вести себя
-    # так же, как до issue #144 (полный откат на _MESSAGES для всех ключей).
-    assert cli._LOCALE_MESSAGES == {"ru": {}, "en": {}}
+def test_existing_cli_messages_unaffected_by_web_catalog_keys() -> None:
+    # core/locales/{ru,en}.json теперь содержат каталог сообщений веб-слоя
+    # (issue #264, snake_case-ключи вроде "path_not_found") -- пространство
+    # ключей не пересекается с _MESSAGES CLI (см. test_i18n_guardrails.py
+    # для проверок самого web-каталога), поэтому _t() для любого ключа
+    # _MESSAGES по-прежнему откатывается на статический словарь, как до #264.
+    assert set(cli._LOCALE_MESSAGES["ru"]).isdisjoint(cli._MESSAGES.keys())
+    assert set(cli._LOCALE_MESSAGES["en"]).isdisjoint(cli._MESSAGES.keys())
