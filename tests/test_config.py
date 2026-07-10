@@ -40,16 +40,22 @@ def test_load_config_reads_real_pyproject() -> None:
     assert cfg.timeout_seconds == 10.0
 
 
-def test_load_config_missing_pyproject_returns_defaults(tmp_path: pathlib.Path) -> None:
+def test_load_config_missing_pyproject_returns_defaults(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Отсутствие pyproject.toml → GraderConfig с дефолтами, без ошибок.
 
-    config.py резолвит путь к pyproject.toml относительно СВОЕГО __file__
-    (три уровня вверх: src/stepik_grader/config.py -> repo root, Issue #35),
-    а не cwd, поэтому подменяем __file__ модуля на путь внутри пустого
-    tmp_path с той же вложенностью, чтобы резолвился именно tmp_path.
+    Резолюция пути (issue #258) — env → поиск от cwd вверх → legacy
+    (относительно __file__). Изолируем все три источника: env-переменная
+    снята, cwd — пустой tmp_path (без родителей с pyproject.toml, поэтому
+    используем корень диска), __file__ подменён на путь внутри tmp_path.
     """
     import stepik_grader.config as config_module
 
+    empty_root = tmp_path / "empty_root"
+    empty_root.mkdir()
+    monkeypatch.delenv(config_module._ENV_CONFIG_PATH, raising=False)
+    monkeypatch.chdir(empty_root)
     original_file = config_module.__file__
     try:
         config_module.__file__ = str(tmp_path / "src" / "stepik_grader" / "config.py")
@@ -59,23 +65,121 @@ def test_load_config_missing_pyproject_returns_defaults(tmp_path: pathlib.Path) 
         config_module.__file__ = original_file
 
 
-def test_load_config_ignores_unknown_keys(tmp_path: pathlib.Path) -> None:
+def test_load_config_ignores_unknown_keys(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Ключи в [tool.stepik-grader], которых нет в GraderConfig, молча игнорируются."""
+    import stepik_grader.config as config_module
+
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         '[tool.stepik-grader]\ntimeout_seconds = 20.0\nunknown_field = "ignored"\n',
         encoding="utf-8",
     )
+    monkeypatch.delenv(config_module._ENV_CONFIG_PATH, raising=False)
+    monkeypatch.chdir(tmp_path)
+    cfg = config_module.load_config()
+    assert cfg.timeout_seconds == 20.0
+    assert cfg.microbench_max_cases == 5  # untouched default
+
+
+# ---------------------------------------------------------------------------
+# issue #258 — поиск pyproject.toml от cwd вверх, env-переопределение,
+# graceful fallback (pipx/wheel install не находил конфиг пользователя)
+# ---------------------------------------------------------------------------
+
+
+def test_find_pyproject_searches_upward_from_nested_cwd(tmp_path: pathlib.Path) -> None:
+    """_find_pyproject() находит pyproject.toml в родительской директории cwd."""
+    from stepik_grader.config import _find_pyproject
+
+    (tmp_path / "pyproject.toml").write_text("[tool.stepik-grader]\n", encoding="utf-8")
+    nested = tmp_path / "a" / "b" / "c"
+    nested.mkdir(parents=True)
+
+    found = _find_pyproject(nested)
+
+    assert found == tmp_path / "pyproject.toml"
+
+
+def test_find_pyproject_returns_none_when_absent(tmp_path: pathlib.Path) -> None:
+    """_find_pyproject() возвращает None, если pyproject.toml нигде вверх по дереву нет."""
+    from stepik_grader.config import _find_pyproject
+
+    empty_root = tmp_path / "empty_root"
+    empty_root.mkdir()
+
+    assert _find_pyproject(empty_root) is None
+
+
+def test_load_config_finds_pyproject_via_cwd_search(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """load_config() без env-переменной находит pyproject.toml поиском от cwd вверх."""
     import stepik_grader.config as config_module
 
-    original_file = config_module.__file__
-    try:
-        config_module.__file__ = str(tmp_path / "src" / "stepik_grader" / "config.py")
-        cfg = config_module.load_config()
-        assert cfg.timeout_seconds == 20.0
-        assert cfg.microbench_max_cases == 5  # untouched default
-    finally:
-        config_module.__file__ = original_file
+    nested = tmp_path / "project" / "subdir"
+    nested.mkdir(parents=True)
+    (tmp_path / "project" / "pyproject.toml").write_text(
+        "[tool.stepik-grader]\ntimeout_seconds = 42.0\n", encoding="utf-8"
+    )
+    monkeypatch.delenv(config_module._ENV_CONFIG_PATH, raising=False)
+    monkeypatch.chdir(nested)
+
+    cfg = config_module.load_config()
+
+    assert cfg.timeout_seconds == 42.0
+
+
+def test_env_var_takes_priority_over_cwd_search(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """STEPIK_GRADER_CONFIG перекрывает поиск от cwd, даже если оба валидны."""
+    import stepik_grader.config as config_module
+
+    cwd_pyproject = tmp_path / "pyproject.toml"
+    cwd_pyproject.write_text("[tool.stepik-grader]\ntimeout_seconds = 11.0\n", encoding="utf-8")
+    env_pyproject = tmp_path / "elsewhere" / "pyproject.toml"
+    env_pyproject.parent.mkdir()
+    env_pyproject.write_text("[tool.stepik-grader]\ntimeout_seconds = 99.0\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(config_module._ENV_CONFIG_PATH, str(env_pyproject))
+
+    cfg = config_module.load_config()
+
+    assert cfg.timeout_seconds == 99.0
+
+
+def test_env_var_invalid_path_falls_back_gracefully(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Невалидный STEPIK_GRADER_CONFIG не поднимает исключение — идёт поиск от cwd."""
+    import stepik_grader.config as config_module
+
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.stepik-grader]\ntimeout_seconds = 33.0\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(config_module._ENV_CONFIG_PATH, str(tmp_path / "does_not_exist.toml"))
+
+    cfg = config_module.load_config()
+
+    assert cfg.timeout_seconds == 33.0
+
+
+def test_legacy_fallback_used_when_search_and_env_find_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Если env не задан и поиск от cwd ничего не нашёл — используется legacy-путь
+    относительно __file__ (issue #35), сохраняя поведение при запуске из репозитория."""
+    import stepik_grader.config as config_module
+
+    monkeypatch.delenv(config_module._ENV_CONFIG_PATH, raising=False)
+    monkeypatch.setattr(config_module, "_find_pyproject", lambda *a, **k: None)
+
+    cfg = config_module.load_config()
+
+    assert cfg.timeout_seconds == 10.0  # реальный pyproject.toml репозитория
 
 
 def test_module_level_config_singleton() -> None:
