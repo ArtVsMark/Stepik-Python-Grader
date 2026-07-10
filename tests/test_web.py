@@ -782,7 +782,9 @@ class TestApiInputLimits:
     ) -> None:
         captured: dict[str, object] = {}
 
-        def fake_grade_benchmark(path: str, repeats: int, reference: str | None = None) -> dict:
+        def fake_grade_benchmark(
+            path: str, repeats: int, reference: str | None = None, lang: str = "ru"
+        ) -> dict:
             captured["repeats"] = repeats
             return {"kind": "bench", "mode": "bench", "rows": []}
 
@@ -798,7 +800,9 @@ class TestApiInputLimits:
     ) -> None:
         captured: dict[str, object] = {}
 
-        def fake_grade_benchmark(path: str, repeats: int, reference: str | None = None) -> dict:
+        def fake_grade_benchmark(
+            path: str, repeats: int, reference: str | None = None, lang: str = "ru"
+        ) -> dict:
             captured["repeats"] = repeats
             return {"kind": "bench", "mode": "bench", "rows": []}
 
@@ -814,7 +818,7 @@ class TestApiInputLimits:
     ) -> None:
         captured: dict[str, object] = {}
 
-        def fake_grade_microbench(path: str, number: int) -> dict:
+        def fake_grade_microbench(path: str, number: int, lang: str = "ru") -> dict:
             captured["number"] = number
             return {"kind": "microbench", "mode": "microbench", "rows": []}
 
@@ -830,7 +834,7 @@ class TestApiInputLimits:
     ) -> None:
         captured: dict[str, object] = {}
 
-        def fake_grade_microbench(path: str, number: int) -> dict:
+        def fake_grade_microbench(path: str, number: int, lang: str = "ru") -> dict:
             captured["number"] = number
             return {"kind": "microbench", "mode": "microbench", "rows": []}
 
@@ -848,7 +852,9 @@ class TestApiInputLimits:
     ) -> None:
         captured: dict[str, object] = {}
 
-        def fake_grade_benchmark(path: str, repeats: int, reference: str | None = None) -> dict:
+        def fake_grade_benchmark(
+            path: str, repeats: int, reference: str | None = None, lang: str = "ru"
+        ) -> dict:
             captured["repeats"] = repeats
             return {"kind": "bench", "mode": "bench", "rows": []}
 
@@ -1067,6 +1073,98 @@ class TestApiHostOriginGuard:
         assert status == 200
         status, _ = _get(server + "/static/app.css", headers={"Host": "evil.example"})
         assert status == 200
+
+
+# ---------------------------------------------------------------------------
+# ?lang= — message catalog locale selection (issue #264)
+# ---------------------------------------------------------------------------
+
+
+class TestApiLangQueryParam:
+    """``?lang=en`` translates ``message``; omitting it (or ``?lang=ru``) keeps the
+    exact Russian text that was hardcoded before issue #264 — verified byte-for-byte
+    against the sentences other tests in this file already assert on."""
+
+    def test_grade_without_path_lang_en(self, server: str) -> None:
+        status, body = _get(server + "/api/grade?lang=en")
+        assert status == 200
+        data = json.loads(body)
+        assert data["kind"] == "error"
+        assert data["message_id"] == "specify_path_file_or_folder"
+        assert data["message"] == "Specify a path to a file or folder."
+        assert data["message_params"] == {}
+
+    def test_grade_without_path_default_lang_is_russian(self, server: str) -> None:
+        status, body = _get(server + "/api/grade")
+        assert status == 200
+        data = json.loads(body)
+        assert data["message"] == "Укажите путь к файлу или папке."
+        assert data["message_id"] == "specify_path_file_or_folder"
+
+    def test_grade_without_path_explicit_lang_ru_matches_default(self, server: str) -> None:
+        status, body = _get(server + "/api/grade?lang=ru")
+        assert status == 200
+        assert json.loads(body)["message"] == "Укажите путь к файлу или папке."
+
+    def test_grade_unknown_lang_falls_back_to_russian(self, server: str) -> None:
+        status, body = _get(server + "/api/grade?lang=fr")
+        assert status == 200
+        assert json.loads(body)["message"] == "Укажите путь к файлу или папке."
+
+    def test_grade_nonexistent_path_lang_en(self, server: str, tmp_path: pathlib.Path) -> None:
+        # Путь внутри workspace (tmp_path), но не существующий — confinement
+        # (issue #261) не мешает, ошибка именно "path_not_found", не 403.
+        missing = tmp_path / "no_such_path.py"
+        status, body = _get(server + "/api/grade?lang=en&path=" + urllib.parse.quote(str(missing)))
+        assert status == 200
+        data = json.loads(body)
+        assert data["message_id"] == "path_not_found"
+        assert "not found" in data["message"].lower()
+
+    def test_solutions_without_path_lang_en(self, server: str) -> None:
+        status, body = _get(server + "/api/solutions?lang=en")
+        assert status == 200
+        data = json.loads(body)
+        assert data["message"] == "Specify a path to a folder."
+        assert data["message_id"] == "specify_path_folder"
+
+    def test_source_without_path_lang_en(self, server: str) -> None:
+        status, body = _get(server + "/api/source?lang=en")
+        assert status == 200
+        data = json.loads(body)
+        assert data["message"] == "Specify a path to a file."
+        assert data["message_id"] == "specify_path_file"
+
+    def test_glossary_missing_card_lang_en(self, server: str) -> None:
+        status, body = _get(server + "/api/glossary/does-not-exist?lang=en")
+        assert status == 404
+        data = json.loads(body)
+        assert data["message_id"] == "glossary_card_not_found"
+        assert "not found" in data["message"].lower()
+
+    def test_glossary_missing_card_default_lang_is_russian(self, server: str) -> None:
+        status, body = _get(server + "/api/glossary/does-not-exist")
+        assert status == 404
+        data = json.loads(body)
+        assert data["message"] == "Карточка не найдена: does-not-exist"
+
+    def test_save_solution_missing_folder_lang_en(self, server: str) -> None:
+        status, body = _post(
+            server + "/api/save-solution?lang=en",
+            json.dumps({"code": "print(1)\n"}).encode("utf-8"),
+        )
+        assert status == 400
+        data = json.loads(body)
+        assert data["message_id"] == "specify_folder"
+        assert data["message"] == "Specify a folder."
+
+    def test_save_solution_missing_folder_default_lang_is_russian(self, server: str) -> None:
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps({"code": "print(1)\n"}).encode("utf-8"),
+        )
+        assert status == 400
+        assert json.loads(body)["message"] == "Укажите папку."
 
 
 # ---------------------------------------------------------------------------

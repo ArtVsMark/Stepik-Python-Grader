@@ -38,6 +38,7 @@ from stepik_grader.glossary.json_provider import (
     JsonGlossaryProvider,
     append_missing_entries,
 )
+from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message
 
 # Вердикты-"ошибки" (в отличие от AC) — ErrorCard-поля (severity/stderr/
 # suggestions/...) заполняются только для них (issue #125, web-mvp.md §
@@ -64,7 +65,9 @@ def _rel(path: str, base: str) -> str:
         return pathlib.Path(path).name
 
 
-def _resolve_solutions(path: str) -> tuple[str, str, list[str]] | dict[str, Any]:
+def _resolve_solutions(
+    path: str, *, lang: str = DEFAULT_LANG
+) -> tuple[str, str, list[str]] | dict[str, Any]:
     """Вернуть (kind, base, solutions) для файла/папки или error-dict.
 
     kind — "file" | "dir". Общий вход для обоих режимов грейдинга.
@@ -75,9 +78,13 @@ def _resolve_solutions(path: str) -> tuple[str, str, list[str]] | dict[str, Any]
     if p.is_dir():
         solutions = find_all_solution_files(str(p))
         if not solutions:
-            return {"kind": "error", "message": f"Решения не найдены в: {path}", "rows": []}
+            return {
+                "kind": "error",
+                **message_fields("solutions_not_found", lang, path=path),
+                "rows": [],
+            }
         return "dir", str(p), solutions
-    return {"kind": "error", "message": f"Путь не найден: {path}", "rows": []}
+    return {"kind": "error", **message_fields("path_not_found", lang, path=path), "rows": []}
 
 
 def _resolve_group_test_dir(folder_path: str) -> str:
@@ -97,13 +104,10 @@ def _resolve_group_test_dir(folder_path: str) -> str:
     return str(p)
 
 
-def _wa_suggestion(actual: str, expected: str) -> str | None:
+def _wa_suggestion(actual: str, expected: str, *, lang: str = DEFAULT_LANG) -> str | None:
     """Курированная (не AI) эвристика: совпадает после rstrip → похоже на пробелы/CRLF."""
     if actual and expected and actual != expected and actual.rstrip() == expected.rstrip():
-        return (
-            "Вывод совпадает после удаления хвостовых пробелов/переводов строк"
-            " — проверьте форматирование."
-        )
+        return render_message("wa_whitespace_suggestion", lang)
     return None
 
 
@@ -160,6 +164,7 @@ def _case_view(
     stdin: str = "",
     source: str = "",
     missing_queue_path: str | None = None,
+    lang: str = DEFAULT_LANG,
 ) -> dict[str, Any]:
     """Представление одного тест-кейса для UI — ErrorCard для WA/RE/TLE (issue #125)."""
     error = case.get("error", "")
@@ -198,13 +203,10 @@ def _case_view(
         if verdict == "RE" and entry is not None:
             suggestions = [entry.hint]
         elif verdict == "TLE":
-            suggestions = [
-                "Превышён лимит времени — проверьте сложность алгоритма"
-                " или наличие бесконечного цикла."
-            ]
+            suggestions = [render_message("tle_suggestion", lang)]
         elif verdict == "WA":
             expected = "\n".join(case.get("expected") or [])
-            hint = _wa_suggestion(actual, expected)
+            hint = _wa_suggestion(actual, expected, lang=lang)
             if hint:
                 suggestions = [hint]
         view["suggestions"] = suggestions
@@ -229,23 +231,31 @@ def _case_view(
     return view
 
 
-def list_solutions(path: str) -> dict[str, Any]:
+def list_solutions(path: str, *, lang: str = DEFAULT_LANG) -> dict[str, Any]:
     """Найти файлы-решения в папке — пикер режима 1 «Один файл» (issue #125-fix).
 
     Без грейдинга: только листинг, чтобы UI дал выбрать один конкретный файл
     перед запуском. Возвращает {"kind": "dir", "base", "files": [полные пути]}
-    либо {"kind": "error", "message", "files": []}.
+    либо {"kind": "error", "message", "message_id", "message_params", "files": []}.
     """
     p = pathlib.Path(path).expanduser()
     if not p.is_dir():
-        return {"kind": "error", "message": f"Папка не найдена: {path}", "files": []}
+        return {
+            "kind": "error",
+            **message_fields("folder_not_found", lang, path=path),
+            "files": [],
+        }
     solutions = find_all_solution_files(str(p))
     if not solutions:
-        return {"kind": "error", "message": f"Решения не найдены в: {path}", "files": []}
+        return {
+            "kind": "error",
+            **message_fields("solutions_not_found", lang, path=path),
+            "files": [],
+        }
     return {"kind": "dir", "base": str(p), "files": solutions}
 
 
-def read_source(path: str) -> dict[str, Any]:
+def read_source(path: str, *, lang: str = DEFAULT_LANG) -> dict[str, Any]:
     """Прочитать исходник файла-решения — показ кода в режиме 1 (issue #125-fix).
 
     Чтение произвольного локального пути не расширяет threat model:
@@ -257,7 +267,7 @@ def read_source(path: str) -> dict[str, Any]:
     try:
         source = p.read_text(encoding=CONFIG.encoding)
     except OSError as exc:
-        return {"kind": "error", "message": f"Не удалось прочитать файл: {exc}"}
+        return {"kind": "error", **message_fields("file_read_failed", lang, error=str(exc))}
     return {"kind": "file", "path": str(p), "source": source}
 
 
@@ -283,7 +293,9 @@ def _next_solution_filename(folder: pathlib.Path) -> str:
     return f"{prefix}_{max_n + 1}.py"
 
 
-def save_solution(folder: str, path: str | None, code: str) -> dict[str, Any]:
+def save_solution(
+    folder: str, path: str | None, code: str, *, lang: str = DEFAULT_LANG
+) -> dict[str, Any]:
     """Сохранить код решения на диск — редактируемое окно кода в режиме 1.
 
     ``path`` — существующий выбранный файл (перезаписывается) или
@@ -295,18 +307,20 @@ def save_solution(folder: str, path: str | None, code: str) -> dict[str, Any]:
     """
     folder_p = pathlib.Path(folder).expanduser()
     if not folder_p.is_dir():
-        return {"ok": False, "message": f"Папка не найдена: {folder}"}
+        return {"ok": False, **message_fields("folder_not_found", lang, path=folder)}
     target = (
         pathlib.Path(path).expanduser() if path else folder_p / _next_solution_filename(folder_p)
     )
     try:
         target.write_text(code, encoding=CONFIG.encoding)
     except OSError as exc:
-        return {"ok": False, "message": f"Не удалось сохранить файл: {exc}"}
+        return {"ok": False, **message_fields("file_save_failed", lang, error=str(exc))}
     return {"ok": True, "path": str(target)}
 
 
-def grade_path(path: str, *, missing_queue_path: str | None = None) -> dict[str, Any]:
+def grade_path(
+    path: str, *, missing_queue_path: str | None = None, lang: str = DEFAULT_LANG
+) -> dict[str, Any]:
     """Прогрейдить файл/папку на корректность (режим 1/2).
 
     Возвращает JSON-совместимый dict: kind ("file"|"dir"|"error"), mode="tests",
@@ -314,9 +328,10 @@ def grade_path(path: str, *, missing_queue_path: str | None = None) -> dict[str,
 
     ``missing_queue_path`` — путь к очереди пополнения глоссария (J7); None →
     ``CONFIG.glossary_missing_queue`` (issue #125). Параметр в основном для
-    тестов — production-вызовы полагаются на дефолт из конфига.
+    тестов — production-вызовы полагаются на дефолт из конфига. ``lang`` —
+    локаль для ``message``/``message_id`` при ошибке (issue #264), default ru.
     """
-    resolved = _resolve_solutions(path)
+    resolved = _resolve_solutions(path, lang=lang)
     if isinstance(resolved, dict):
         return resolved
     kind, base, solutions = resolved
@@ -349,6 +364,7 @@ def grade_path(path: str, *, missing_queue_path: str | None = None) -> dict[str,
                         stdin="\n".join(tc.input_lines),
                         source=_rel(sol, base),
                         missing_queue_path=missing_queue_path,
+                        lang=lang,
                     )
                     for i, (c, tc) in enumerate(zip(res["cases"], test_cases, strict=True), 1)
                 ],
@@ -395,7 +411,7 @@ def _apply_reference_ranking(
 
 
 def grade_benchmark(
-    path: str, *, repeats: int = 15, reference: str | None = None
+    path: str, *, repeats: int = 15, reference: str | None = None, lang: str = DEFAULT_LANG
 ) -> dict[str, Any]:
     """Бенчмаркнуть файл/папку (режим 3) и ранжировать по медиане.
 
@@ -410,9 +426,10 @@ def grade_benchmark(
     а его исходник возвращается в ``reference_source``/``reference_file``.
     Не резолвится (опечатка/чужой файл) — тихий fallback на обычное
     ранжирование относительно самого быстрого решения, как если бы
-    ``reference`` не передавали.
+    ``reference`` не передавали. ``lang`` — локаль сообщения об ошибке
+    (issue #264), default ru.
     """
-    resolved = _resolve_solutions(path)
+    resolved = _resolve_solutions(path, lang=lang)
     if isinstance(resolved, dict):
         return resolved
     kind, base, solutions = resolved
@@ -421,7 +438,7 @@ def grade_benchmark(
     for sol in solutions:
         test_dir = resolve_test_dir(sol)
         if test_dir is None or not pathlib.Path(test_dir).is_dir():
-            results[sol] = {"error": "тесты не найдены", "runs": 0}
+            results[sol] = {"error": render_message("tests_not_found_short", lang), "runs": 0}
         else:
             results[sol] = run_benchmark(sol, test_dir, repeats=max(1, repeats))
 
@@ -481,7 +498,7 @@ def grade_benchmark(
     return response
 
 
-def grade_microbench(path: str, *, number: int = 1000) -> dict[str, Any]:
+def grade_microbench(path: str, *, number: int = 1000, lang: str = DEFAULT_LANG) -> dict[str, Any]:
     """Микро-бенчмарк (режим 4, timeit) файла/папки — issue #187.
 
     В отличие от ``grade_benchmark``, ``run_microbench_mode`` принимает ОДИН
@@ -494,9 +511,10 @@ def grade_microbench(path: str, *, number: int = 1000) -> dict[str, Any]:
     Несколько групп решений (разные подпапки) в одной корневой папке — MVP:
     обрабатывается только первая (по имени), остальные перечисляются в
     ``other_groups`` для явного предупреждения (полноценная секционная
-    поддержка — вне скоупа этого issue).
+    поддержка — вне скоупа этого issue). ``lang`` — локаль сообщения об
+    ошибке (issue #264), default ru.
     """
-    resolved = _resolve_solutions(path)
+    resolved = _resolve_solutions(path, lang=lang)
     if isinstance(resolved, dict):
         return resolved
     kind, base, solutions = resolved
@@ -505,7 +523,11 @@ def grade_microbench(path: str, *, number: int = 1000) -> dict[str, Any]:
         sol = solutions[0]
         test_dir = resolve_test_dir(sol)
         if test_dir is None or not pathlib.Path(test_dir).is_dir():
-            return {"kind": "error", "message": f"Тесты не найдены для: {path}", "rows": []}
+            return {
+                "kind": "error",
+                **message_fields("tests_not_found_for", lang, path=path),
+                "rows": [],
+            }
         other_groups: list[str] = []
         results = run_microbench_mode([sol], test_dir, number=number)
     else:
@@ -516,12 +538,20 @@ def grade_microbench(path: str, *, number: int = 1000) -> dict[str, Any]:
         folder_abs = base if folder == "." else str(pathlib.Path(base) / folder)
         test_dir = _resolve_group_test_dir(folder_abs)
         if not pathlib.Path(test_dir).is_dir():
-            return {"kind": "error", "message": f"Тесты не найдены для: {folder_abs}", "rows": []}
+            return {
+                "kind": "error",
+                **message_fields("tests_not_found_for", lang, path=folder_abs),
+                "rows": [],
+            }
         group_label = folder if folder != "." else pathlib.Path(base).name
         results = run_microbench_mode(sorted(grouped[folder]), test_dir, number=number)
 
     if not results:
-        return {"kind": "error", "message": f"Тест-кейсы не найдены в: {test_dir}", "rows": []}
+        return {
+            "kind": "error",
+            **message_fields("test_cases_not_found_in", lang, path=test_dir),
+            "rows": [],
+        }
 
     ok = {s: d for s, d in results.items() if not d.get("error")}
     rows: list[dict[str, Any]] = []

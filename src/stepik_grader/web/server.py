@@ -26,6 +26,7 @@ from urllib.parse import parse_qs, urlparse
 from stepik_grader.web.commands import filter_commands
 from stepik_grader.web.downloader_adapter import download_task
 from stepik_grader.web.glossary_adapter import glossary_get, glossary_missing, glossary_search
+from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message, resolve_lang
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
@@ -167,13 +168,19 @@ class _Handler(BaseHTTPRequestHandler):
             ctype, raw = _STATIC_BINARY_ROUTES[parsed.path]
             self._send(200, ctype, raw)
         elif parsed.path.startswith("/api/"):
-            if self._guard_request():
-                self._dispatch_api_get(parsed)
+            lang = _lang_from_query(parsed)
+            if self._guard_request(lang):
+                self._dispatch_api_get(parsed, lang)
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
 
-    def _dispatch_api_get(self, parsed: Any) -> None:
-        """Диспетчеризация GET /api/* — вызывается только после `_guard_request()`."""
+    def _dispatch_api_get(self, parsed: Any, lang: str) -> None:
+        """Диспетчеризация GET /api/* — вызывается только после `_guard_request()`.
+
+        ``lang`` — локаль ``?lang=`` запроса (issue #264), уже разрешённая
+        ``_lang_from_query()`` в ``do_GET`` — прокидывается дальше в
+        ``viewmodels.py``/каталог сообщений для рендера ``message``.
+        """
         if parsed.path == "/api/grade":
             qs = parse_qs(parsed.query)
             path = (qs.get("path") or [""])[0].strip()
@@ -181,23 +188,23 @@ class _Handler(BaseHTTPRequestHandler):
             if not path:
                 data: dict[str, Any] = {
                     "kind": "error",
-                    "message": "Укажите путь к файлу или папке.",
+                    **message_fields("specify_path_file_or_folder", lang),
                     "rows": [],
                 }
             else:
-                confined = self._confined_path(path)
+                confined = self._confined_path(path, lang)
                 if confined is None:
                     return
                 path = str(confined)
                 if mode == "bench":
                     reference = (qs.get("reference") or [""])[0].strip() or None
                     repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
-                    data = grade_benchmark(path, repeats=repeats, reference=reference)
+                    data = grade_benchmark(path, repeats=repeats, reference=reference, lang=lang)
                 elif mode == "microbench":
                     number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
-                    data = grade_microbench(path, number=number)
+                    data = grade_microbench(path, number=number, lang=lang)
                 else:
-                    data = grade_path(path)
+                    data = grade_path(path, lang=lang)
             self._send(200, "application/json; charset=utf-8", _json(data))
         elif parsed.path == "/api/glossary":
             qs = parse_qs(parsed.query)
@@ -212,7 +219,12 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(
                     404,
                     "application/json; charset=utf-8",
-                    _json({"kind": "error", "message": f"Карточка не найдена: {card_id}"}),
+                    _json(
+                        {
+                            "kind": "error",
+                            **message_fields("glossary_card_not_found", lang, card_id=card_id),
+                        }
+                    ),
                 )
             else:
                 self._send(200, "application/json; charset=utf-8", _json(card))
@@ -225,23 +237,23 @@ class _Handler(BaseHTTPRequestHandler):
             qs = parse_qs(parsed.query)
             path = (qs.get("path") or [""])[0].strip()
             if not path:
-                data = {"kind": "error", "message": "Укажите путь к папке.", "files": []}
+                data = {"kind": "error", **message_fields("specify_path_folder", lang), "files": []}
             else:
-                confined = self._confined_path(path)
+                confined = self._confined_path(path, lang)
                 if confined is None:
                     return
-                data = list_solutions(str(confined))
+                data = list_solutions(str(confined), lang=lang)
             self._send(200, "application/json; charset=utf-8", _json(data))
         elif parsed.path == "/api/source":
             qs = parse_qs(parsed.query)
             path = (qs.get("path") or [""])[0].strip()
             if not path:
-                data = {"kind": "error", "message": "Укажите путь к файлу."}
+                data = {"kind": "error", **message_fields("specify_path_file", lang)}
             else:
-                confined = self._confined_path(path)
+                confined = self._confined_path(path, lang)
                 if confined is None:
                     return
-                data = read_source(str(confined))
+                data = read_source(str(confined), lang=lang)
             self._send(200, "application/json; charset=utf-8", _json(data))
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
@@ -251,7 +263,8 @@ class _Handler(BaseHTTPRequestHandler):
         if parsed.path not in ("/api/download", "/api/save-solution"):
             self._send(404, "text/plain; charset=utf-8", b"not found")
             return
-        if not self._guard_request():
+        lang = _lang_from_query(parsed)
+        if not self._guard_request(lang):
             return
         length_header = self.headers.get("Content-Length")
         try:
@@ -262,15 +275,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(
                 400,
                 "application/json; charset=utf-8",
-                _json(
-                    {
-                        "ok": False,
-                        "message": (
-                            "Заголовок Content-Length обязателен и должен "
-                            "быть неотрицательным числом."
-                        ),
-                    }
-                ),
+                _json({"ok": False, **message_fields("content_length_required", lang)}),
             )
             return
         if length > _MAX_BODY_BYTES:
@@ -292,7 +297,7 @@ class _Handler(BaseHTTPRequestHandler):
                 _json(
                     {
                         "ok": False,
-                        "message": f"Тело запроса превышает лимит {_MAX_BODY_BYTES} байт.",
+                        **message_fields("body_too_large", lang, limit=_MAX_BODY_BYTES),
                     }
                 ),
             )
@@ -303,14 +308,14 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(
                 400,
                 "application/json; charset=utf-8",
-                _json({"ok": False, "message": "Тело запроса должно быть валидным JSON."}),
+                _json({"ok": False, **message_fields("body_invalid_json", lang)}),
             )
             return
         if not isinstance(body, dict):
             self._send(
                 400,
                 "application/json; charset=utf-8",
-                _json({"ok": False, "message": "Тело запроса должно быть JSON-объектом."}),
+                _json({"ok": False, **message_fields("body_not_object", lang)}),
             )
             return
         if parsed.path == "/api/download":
@@ -319,7 +324,7 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(
                     400,
                     "application/json; charset=utf-8",
-                    _json({"ok": False, "message": "Укажите url."}),
+                    _json({"ok": False, **message_fields("specify_url", lang)}),
                 )
                 return
             root = str(body.get("root") or "").strip() or None
@@ -330,10 +335,10 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(
                     400,
                     "application/json; charset=utf-8",
-                    _json({"ok": False, "message": "Укажите папку."}),
+                    _json({"ok": False, **message_fields("specify_folder", lang)}),
                 )
                 return
-            confined_folder = self._confined_path(folder)
+            confined_folder = self._confined_path(folder, lang)
             if confined_folder is None:
                 return
             folder = str(confined_folder)
@@ -342,26 +347,27 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(
                     400,
                     "application/json; charset=utf-8",
-                    _json({"ok": False, "message": "Укажите code (строка)."}),
+                    _json({"ok": False, **message_fields("specify_code", lang)}),
                 )
                 return
             raw_path = str(body.get("path") or "").strip() or None
             path = None
             if raw_path:
-                confined_target = self._confined_path(raw_path)
+                confined_target = self._confined_path(raw_path, lang)
                 if confined_target is None:
                     return
                 path = str(confined_target)
-            data = save_solution(folder, path, code)
+            data = save_solution(folder, path, code, lang=lang)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
-    def _confined_path(self, raw: str) -> pathlib.Path | None:
+    def _confined_path(self, raw: str, lang: str = DEFAULT_LANG) -> pathlib.Path | None:
         """Резолвит и конфайнит путь запроса в ``server.workspace`` (issue #261).
 
         Отправляет 403 и возвращает ``None``, если путь выходит за пределы
         рабочей директории (и конфайнмент включён); иначе — резолвленный
         абсолютный ``Path``, готовый передавать дальше в ``viewmodels.py``
-        (которые остаются агностичны к политике конфайнмента).
+        (которые остаются агностичны к политике конфайнмента). ``lang`` —
+        локаль сообщения 403 (issue #264).
         """
         resolved = _resolve_within_root(self.server.workspace, raw, confine=self.server.confine)
         if resolved is None:
@@ -371,14 +377,14 @@ class _Handler(BaseHTTPRequestHandler):
                 _json(
                     {
                         "kind": "error",
-                        "message": f"Путь вне рабочей директории сервера: {raw}",
+                        **message_fields("path_outside_workspace", lang, path=raw),
                     }
                 ),
             )
             return None
         return resolved
 
-    def _guard_request(self) -> bool:
+    def _guard_request(self, lang: str = DEFAULT_LANG) -> bool:
         """Host/Origin/Referer-проверка для `/api/*` (issue #242, F-03).
 
         Отклоняет запрос 403-м, если он не прошёл. Host защищает от
@@ -387,21 +393,21 @@ class _Handler(BaseHTTPRequestHandler):
         preflight никакой другой защиты нет). Оба заголовка при полном
         отсутствии считаются допустимыми: не-браузерные клиенты (curl, тесты)
         их не отправляют, а странице чужого происхождения их не подделать —
-        браузер выставляет Origin/Referer сам.
+        браузер выставляет Origin/Referer сам. ``lang`` — локаль сообщения 403
+        (issue #264).
         """
         if not self._host_header_is_allowed():
             self._send(
                 403,
                 "application/json; charset=utf-8",
-                _json({"kind": "error", "message": "Недопустимый Host — запрос отклонён."}),
+                _json({"kind": "error", **message_fields("invalid_host", lang)}),
             )
             return False
         if not self._origin_is_allowed():
-            message = "Недопустимый Origin/Referer — запрос отклонён."
             self._send(
                 403,
                 "application/json; charset=utf-8",
-                _json({"kind": "error", "message": message}),
+                _json({"kind": "error", **message_fields("invalid_origin", lang)}),
             )
             return False
         return True
@@ -427,6 +433,14 @@ class _Handler(BaseHTTPRequestHandler):
 
     def log_message(self, *_args: Any) -> None:  # noqa: N802
         """Приглушить пер-запросный лог в stdout (иначе шумно)."""
+
+
+def _lang_from_query(parsed: Any) -> str:
+    """Локаль запроса из ``?lang=`` (issue #264) — ``resolve_lang()`` даёт graceful
+    fallback на ``DEFAULT_LANG`` (ru) для пустого/неизвестного/отсутствующего
+    значения, так что дефолтное поведение (без ``?lang=``) не меняется."""
+    qs = parse_qs(parsed.query)
+    return resolve_lang((qs.get("lang") or [None])[0])
 
 
 def _int(values: list[str] | None, default: int) -> int:
@@ -468,17 +482,18 @@ def run_server(
     workspace = pathlib.Path(root).expanduser().resolve() if root else pathlib.Path.cwd().resolve()
     server = _GraderServer((host, port), _Handler, workspace=workspace, confine=confine)
     url = f"http://{host}:{port}"
-    print(f"🌐 Веб-интерфейс грейдера: {url}  (Ctrl+C — остановить)")
+    # Консольный вывод оператора сервера (не JSON-ответ API) — тоже через
+    # каталог сообщений (issue #264): вся кириллица в этом файле проходит
+    # через message-catalog, локаль здесь всегда DEFAULT_LANG (ru), т.к. это
+    # локальный вывод в терминал, не HTTP-ответ с ``?lang=``.
+    print(render_message("server_running", url=url))
     if confine:
-        print(f"   Рабочая директория: {workspace}  (пути вне неё отклоняются 403)")
+        print(render_message("server_workspace_confined", workspace=workspace))
     else:
-        print(
-            f"   Рабочая директория: {workspace}  (конфайнмент путей ОТКЛЮЧЁН "
-            "--no-root-confinement — доступен любой путь на диске)"
-        )
+        print(render_message("server_workspace_unconfined", workspace=workspace))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nОстановлено.")
+        print(render_message("server_stopped"))
     finally:
         server.server_close()
