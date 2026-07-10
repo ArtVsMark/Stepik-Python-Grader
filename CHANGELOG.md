@@ -221,6 +221,27 @@
   effectively a no-op there and the file's protection stays whatever the
   user's profile directory already provides (issue #243, security audit
   finding F-04, part of #149/#146/#97).
+- **Security (Low):** `core/wrapper_builder.py::_build_function_wrapper()`
+  (legacy function-mode wrapper) now imports `datetime`/`decimal`/`fractions`
+  before `sys.path.insert(0, <solution dir>)` instead of after. Previously a
+  same-named file next to the solution (e.g. a stray `datetime.py`) would
+  land first in `sys.path` and shadow the real stdlib module once the
+  wrapper's own `from datetime import ...` ran, breaking (or worse, silently
+  altering) any test case whose input relies on that stdlib type. The other
+  wrapper builder, `_build_call_wrapper()`, already did this correctly
+  (issue #244, security audit finding F-05, part of #136/#97).
+- `core/wrapper_builder.py::_build_function_wrapper()` — the generated
+  wrapper resolved a function's positional arguments via
+  `[locals()[_p] for _p in _sig.parameters]`. A list comprehension is its
+  own scope, so `locals()` called inside it only ever saw the comprehension's
+  own loop variable, not the module-level variables assigned from the test
+  case's `input_data` — a `KeyError` on every parameter name except by
+  accident on Python 3.12 (broken on 3.11 and on 3.13+, per PEP 667's
+  tightened `locals()` semantics). Found while adding an end-to-end
+  regression test for the F-05 fix above — that test is the first thing to
+  ever actually execute this wrapper's generated code instead of just
+  inspecting its source. Fixed by snapshotting `locals()` into a plain dict
+  before the comprehension.
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).

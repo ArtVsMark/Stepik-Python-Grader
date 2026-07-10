@@ -49,15 +49,19 @@ def _build_function_wrapper(solution_path: str, input_data: str, function_name: 
         raise ValueError(f"Invalid module filename stem for code generation: {module_stem!r}")
 
     # repr() безопасно интерполирует путь (включая Windows-бэкслеши и спецсимволы).
+    # Стандартные импорты — ДО sys.path.insert: иначе одноимённый файл рядом с
+    # решением (например, datetime.py) окажется первым в sys.path и перекроет
+    # настоящий stdlib-модуль (issue #244, F-05).
     return f"""import sys
 import pathlib
 import inspect
-sys.path.insert(0, str(pathlib.Path({abs_path!r}).parent))
 
 # Стандартные импорты, которые могут быть нужны в input_data
 from datetime import date, time, datetime, timedelta
 from decimal import Decimal
 from fractions import Fraction
+
+sys.path.insert(0, str(pathlib.Path({abs_path!r}).parent))
 
 # Импортируем функцию из файла решения
 from {module_stem} import {safe_func}
@@ -66,8 +70,13 @@ from {module_stem} import {safe_func}
 {safe_input}
 
 # Определяем аргументы через inspect.signature (позиционно, по имени параметра)
+# locals() снимается в переменную ДО списочного выражения: список сам по себе
+# создаёт вложенную область видимости, и locals() внутри неё видит только эту
+# область (PEP 709 / PEP 667) — на Python 3.11/3.13+ это KeyError на модульных
+# переменных вроде _p; на 3.12 "случайно" работало из-за деталей реализации.
 _sig = inspect.signature({safe_func})
-_args = [locals()[_p] for _p in _sig.parameters]
+_local_vars = locals()
+_args = [_local_vars[_p] for _p in _sig.parameters]
 print({safe_func}(*_args))
 """
 
