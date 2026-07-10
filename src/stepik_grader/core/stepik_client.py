@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json as _json_mod
 import pathlib
 import threading
@@ -93,6 +94,96 @@ def make_session(
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
+
+
+# ---------------------------------------------------------------------------
+# External downloads: unauthenticated session + host allowlist (issue #240)
+#
+# downloader.py извлекает ZIP/GitHub-ссылки из текста задачи Stepik. Эти
+# ссылки могут указывать на произвольный сторонний хост, поэтому им нельзя
+# передавать авторизованную ``requests.Session`` из ``make_session()`` —
+# иначе OAuth Bearer-токен утечёт на сторонний домен вместе с запросом.
+# ---------------------------------------------------------------------------
+
+STEPIK_HOST = "stepik.org"
+
+# Известные легитимные источники внешних тест-кейсов (issue #240, F-01).
+# Расширять точечно, а не заменой на wildcard-подстроку хоста.
+EXTERNAL_DOWNLOAD_ALLOWED_HOSTS: frozenset[str] = frozenset(
+    {
+        "github.com",
+        "raw.githubusercontent.com",
+        "api.github.com",
+        "codeload.github.com",
+    }
+)
+
+
+class ExternalUrlRejected(ValueError):
+    """URL внешней загрузки не прошёл проверку allowlist/private-address."""
+
+
+def _is_stepik_host(hostname: str) -> bool:
+    """True если hostname — сам Stepik (stepik.org или его поддомен)."""
+    return hostname == STEPIK_HOST or hostname.endswith(f".{STEPIK_HOST}")
+
+
+def _is_disallowed_ip_literal(hostname: str) -> bool:
+    """True если hostname — IP-литерал loopback/private/link-local/reserved сети."""
+    try:
+        ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved or ip.is_multicast
+
+
+def is_stepik_url(url: str) -> bool:
+    """True если URL указывает на сам Stepik (авторизованная сессия уместна)."""
+    return _is_stepik_host((urlparse(url).hostname or "").lower())
+
+
+def validate_external_url(url: str) -> None:
+    """Проверяет URL перед скачиванием без OAuth-токена.
+
+    Разрешены только http(s)-ссылки на хосты из
+    ``EXTERNAL_DOWNLOAD_ALLOWED_HOSTS`` (точное совпадение hostname — без
+    поддоменных трюков вида ``raw.githubusercontent.com.evil.example``).
+    Loopback/private/link-local/reserved IP-литералы отклоняются безусловно.
+    Поднимает :class:`ExternalUrlRejected` при отказе.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ExternalUrlRejected(f"Недопустимая схема URL: {url!r}")
+
+    hostname = (parsed.hostname or "").lower()
+    if not hostname:
+        raise ExternalUrlRejected(f"Не удалось определить host: {url!r}")
+
+    if hostname == "localhost" or _is_disallowed_ip_literal(hostname):
+        raise ExternalUrlRejected(f"Локальный/приватный адрес запрещён: {url!r}")
+
+    if hostname not in EXTERNAL_DOWNLOAD_ALLOWED_HOSTS:
+        raise ExternalUrlRejected(f"Host не входит в allowlist внешних загрузок: {hostname!r}")
+
+
+def external_download_get(
+    url: str,
+    *,
+    timeout: int = 30,
+    headers: dict[str, str] | None = None,
+) -> requests.Response:
+    """GET на внешний URL через отдельную сессию без Authorization (issue #240).
+
+    Используется для ZIP/GitHub-ссылок из текста задачи Stepik, которые не
+    являются самим Stepik API — им не передаётся Bearer-токен текущей
+    OAuth-сессии. URL сначала проверяется через :func:`validate_external_url`.
+    """
+    validate_external_url(url)
+    session = requests.Session()
+    session.headers.update(HEADERS)
+    if headers:
+        session.headers.update(headers)
+    return session.get(url, timeout=timeout)
 
 
 # ---------------------------------------------------------------------------
