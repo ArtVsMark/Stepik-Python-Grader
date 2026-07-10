@@ -451,6 +451,8 @@ class TestDownloadZipErrorPath:
     """_download_zip_tests при сетевой ошибке возвращает 0."""
 
     def test_network_error_returns_zero(self, tmp_path: pathlib.Path):
+        """Ошибка сети на stepik.org (использует переданную сессию) → 0."""
         session = MagicMock()
         session.get.side_effect = requests.ConnectionError("down")
-        assert downloader._download_zip_tests(tmp_path, "http://x/t.zip", session) == 0
+        zip_url = "https://stepik.org/media/attachments/lesson/1/t.zip"
+        assert downloader._download_zip_tests(tmp_path, zip_url, session) == 0

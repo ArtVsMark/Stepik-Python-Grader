@@ -170,6 +170,21 @@
   `stdin=subprocess.DEVNULL` (the child never reads real stdin — it swaps
   `sys.stdin` itself), matching the pattern already used in
   `core/runner.py`.
+- **Security (High):** `downloader.py` no longer sends the Stepik OAuth
+  Bearer token to third-party hosts. ZIP/GitHub test-case links extracted
+  from a task's HTML text were previously fetched through the same
+  authenticated `requests.Session` used for the Stepik API, leaking the
+  access token to any domain a task's text happened to link to. New
+  `core/stepik_client.py::external_download_get()` performs those fetches
+  through a fresh, unauthenticated session, validated by
+  `validate_external_url()` against an explicit host allowlist
+  (`github.com`, `raw.githubusercontent.com`, `api.github.com`,
+  `codeload.github.com`) with loopback/private/link-local IP literals
+  rejected outright. `is_stepik_url()` still routes genuine `stepik.org`
+  ZIP links through the authenticated session, since that's a first-party
+  call, not a leak. `_download_github_tests()` no longer accepts a session
+  parameter at all — GitHub is always third-party (issue #240, security
+  audit finding F-01, part of #146/#97).
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).

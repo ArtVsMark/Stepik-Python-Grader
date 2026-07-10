@@ -35,12 +35,15 @@ import requests
 from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
 from stepik_grader.core.parsers import parse_testblock_file
 from stepik_grader.core.stepik_client import (
+    ExternalUrlRejected,
+    external_download_get,
     fetch_course_data,
     fetch_lesson_data,
     fetch_section_data,
     fetch_step_data,
     fetch_submission_data,
     fetch_unit_data,
+    is_stepik_url,
 )
 from stepik_grader.core.storage import load_json_file, save_json_file
 
@@ -367,11 +370,20 @@ def _download_zip_tests(
     Ожидает ZIP с файлами: 1, 1.clue, 2, 2.clue, ... (формат Stepik).
     Конвертирует в единый формат # TEST_N: совместимый с grader Format 3.
     Возвращает количество тест-кейсов.
+
+    ``zip_url`` может указывать на произвольный сторонний хост (ссылка из
+    текста задачи), поэтому авторизованная ``session`` используется только
+    для самого Stepik (issue #240) — иначе для не-Stepik хостов запрос идёт
+    через :func:`external_download_get` без OAuth Bearer-токена и с проверкой
+    allowlist/private-address.
     """
     try:
-        response = session.get(zip_url, timeout=30)
+        if is_stepik_url(zip_url):
+            response = session.get(zip_url, timeout=30)
+        else:
+            response = external_download_get(zip_url)
         response.raise_for_status()
-    except requests.RequestException as exc:
+    except (requests.RequestException, ExternalUrlRejected) as exc:
         print(f"  ⚠️ Не удалось скачать ZIP: {zip_url} ({exc})")
         return 0
 
@@ -436,7 +448,6 @@ def _download_zip_tests(
 def _download_github_tests(
     task_dir: pathlib.Path,
     gh_url: str,
-    session: requests.Session,
 ) -> int:
     """Скачать тесты с GitHub через API содержимого репозитория.
 
@@ -445,6 +456,9 @@ def _download_github_tests(
     2. Директория с числовыми файлами N + N.clue — конвертируется в Format 3
 
     Возвращает количество тест-кейсов (0 при ошибке).
+
+    GitHub — всегда сторонний (не-Stepik) хост, поэтому скачивание идёт через
+    :func:`external_download_get` без OAuth Bearer-токена (issue #240).
     """
     match = _GITHUB_TREE_RE.search(gh_url)
     if not match:
@@ -459,10 +473,10 @@ def _download_github_tests(
     api_url = _GITHUB_CONTENTS_API.format(owner=owner, repo=repo, path=path, branch=branch)
 
     try:
-        resp = session.get(api_url, timeout=30, headers={"Accept": "application/vnd.github+json"})
+        resp = external_download_get(api_url, headers={"Accept": "application/vnd.github+json"})
         resp.raise_for_status()
         contents = resp.json()
-    except requests.RequestException as exc:
+    except (requests.RequestException, ExternalUrlRejected) as exc:
         print(f"  ⚠️ GitHub API недоступен: {exc}")
         return 0
 
@@ -480,7 +494,7 @@ def _download_github_tests(
     # Вариант А: input.txt + output.txt уже есть (Format 3)
     if "input.txt" in file_map and "output.txt" in file_map:
         for fname in ("input.txt", "output.txt"):
-            r = session.get(file_map[fname], timeout=30)
+            r = external_download_get(file_map[fname])
             r.raise_for_status()
             (tests_dir / fname).write_bytes(r.content)
         text = (tests_dir / "input.txt").read_text(encoding="utf-8")
@@ -509,9 +523,9 @@ def _download_github_tests(
         inp_text = ""
         clue_text = ""
         if "input_url" in pair:
-            inp_text = session.get(pair["input_url"], timeout=30).text.rstrip("\n")
+            inp_text = external_download_get(pair["input_url"]).text.rstrip("\n")
         if "clue_url" in pair:
-            clue_text = session.get(pair["clue_url"], timeout=30).text.rstrip("\n")
+            clue_text = external_download_get(pair["clue_url"]).text.rstrip("\n")
         input_lines.append(f"\n# TEST_{idx}:\n{inp_text}\n")
         output_lines.append(f"\n# TEST_{idx}:\n{clue_text}\n")
 
@@ -646,7 +660,7 @@ def save_task_files(
     if github_links:
         for gh_url in github_links:
             print(f"  🔗 Пробую скачать тесты с GitHub: {gh_url}")
-            count = _download_github_tests(task_dir, gh_url, session)
+            count = _download_github_tests(task_dir, gh_url)
             if count:
                 print(f"  🔗 Скачано {count} тестов с GitHub")
                 return count, "github_link"
