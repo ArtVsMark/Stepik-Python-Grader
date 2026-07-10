@@ -48,6 +48,14 @@ _STATIC_ROUTES: dict[str, tuple[str, str]] = {
     "/static/app.js": ("application/javascript; charset=utf-8", _APP_JS),
 }
 
+# issue #242 (F-03): the server only binds to loopback, but a page open in the
+# user's browser can still reach it — a plain cross-site request (no CORS
+# preflight for a simple GET) or DNS-rebinding (attacker domain briefly
+# resolving to 127.0.0.1) would otherwise be enough to trigger grading/
+# download/save actions. Host/Origin/Referer are all set by the browser
+# itself and can't be forged by page JS, unlike the request body/query.
+_ALLOWED_HOSTNAMES = ("127.0.0.1", "localhost")
+
 
 class _Handler(BaseHTTPRequestHandler):
     """GET / → страница; GET /api/grade?path=…&mode=tests|bench|microbench → JSON.
@@ -76,7 +84,15 @@ class _Handler(BaseHTTPRequestHandler):
         elif parsed.path in _STATIC_ROUTES:
             ctype, body = _STATIC_ROUTES[parsed.path]
             self._send(200, ctype, body.encode("utf-8"))
-        elif parsed.path == "/api/grade":
+        elif parsed.path.startswith("/api/"):
+            if self._guard_request():
+                self._dispatch_api_get(parsed)
+        else:
+            self._send(404, "text/plain; charset=utf-8", b"not found")
+
+    def _dispatch_api_get(self, parsed: Any) -> None:
+        """Диспетчеризация GET /api/* — вызывается только после `_guard_request()`."""
+        if parsed.path == "/api/grade":
             qs = parse_qs(parsed.query)
             path = (qs.get("path") or [""])[0].strip()
             mode = (qs.get("mode") or ["tests"])[0]
@@ -142,6 +158,8 @@ class _Handler(BaseHTTPRequestHandler):
         if parsed.path not in ("/api/download", "/api/save-solution"):
             self._send(404, "text/plain; charset=utf-8", b"not found")
             return
+        if not self._guard_request():
+            return
         try:
             length = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(length) or b"{}")
@@ -190,6 +208,46 @@ class _Handler(BaseHTTPRequestHandler):
             path = str(body.get("path") or "").strip() or None
             data = save_solution(folder, path, code)
         self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _guard_request(self) -> bool:
+        """Host/Origin/Referer-проверка для `/api/*` (issue #242, F-03).
+
+        Отклоняет запрос 403-м, если он не прошёл. Host защищает от
+        DNS-rebinding (домен, кратковременно резолвящийся в 127.0.0.1); Origin/
+        Referer — от обычного cross-site запроса из браузера (для GET без CORS
+        preflight никакой другой защиты нет). Оба заголовка при полном
+        отсутствии считаются допустимыми: не-браузерные клиенты (curl, тесты)
+        их не отправляют, а странице чужого происхождения их не подделать —
+        браузер выставляет Origin/Referer сам.
+        """
+        if not self._host_header_is_allowed():
+            self._send(
+                403,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", "message": "Недопустимый Host — запрос отклонён."}),
+            )
+            return False
+        if not self._origin_is_allowed():
+            message = "Недопустимый Origin/Referer — запрос отклонён."
+            self._send(
+                403,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", "message": message}),
+            )
+            return False
+        return True
+
+    def _host_header_is_allowed(self) -> bool:
+        host_header = (self.headers.get("Host") or "").strip().lower()
+        hostname = host_header.split(":", 1)[0]
+        return hostname in _ALLOWED_HOSTNAMES
+
+    def _origin_is_allowed(self) -> bool:
+        value = self.headers.get("Origin") or self.headers.get("Referer")
+        if not value:
+            return True
+        hostname = (urlparse(value).hostname or "").lower()
+        return hostname in _ALLOWED_HOSTNAMES
 
     def _send(self, code: int, ctype: str, body: bytes) -> None:
         self.send_response(code)

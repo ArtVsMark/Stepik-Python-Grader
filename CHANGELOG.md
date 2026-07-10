@@ -197,6 +197,18 @@
   `expected_state` parameter and reject a missing/mismatched `state` with a
   clear `RuntimeError` instead of ever returning a code (issue #241,
   security audit finding F-02, part of #146/#149/#97).
+- **Security (Medium):** the local web UI's `/api/*` endpoints (`/api/grade`,
+  `/api/download`, `/api/save-solution`, etc.) now validate the `Host` header
+  against `127.0.0.1`/`localhost` and, when present, the `Origin`/`Referer`
+  header against the same. The server only ever binds to loopback, but a page
+  open in the user's browser could still trigger grading/download/save
+  actions via a plain cross-site request (no CORS preflight for a simple
+  GET) or DNS-rebinding (an attacker domain briefly resolving to
+  `127.0.0.1`). A mismatched `Host` or `Origin`/`Referer` now gets a 403;
+  requests with no `Origin`/`Referer` at all (non-browser clients) are
+  unaffected — those headers can't be forged by page JS, unlike the request
+  body/query. `/` and `/static/*` are unaffected (issue #242, security audit
+  finding F-03, part of #151/#97).
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).
