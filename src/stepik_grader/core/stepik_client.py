@@ -22,6 +22,7 @@ import hashlib
 import ipaddress
 import json as _json_mod
 import pathlib
+import secrets as secrets_module
 import threading
 import time
 import webbrowser
@@ -223,8 +224,16 @@ def refresh_access_token(
 def _make_oauth_handler(
     auth_data: dict[str, Any],
     path: str,
+    expected_state: str,
 ) -> type[BaseHTTPRequestHandler]:
-    """Фабрика OAuthHandler: захватывает auth_data и ожидаемый path колбэка."""
+    """Фабрика OAuthHandler: захватывает auth_data, path и ожидаемый OAuth ``state``.
+
+    ``expected_state`` защищает от Login-CSRF (issue #241): колбэк с
+    ``state``, не совпадающим с тем, что был отправлен в authorize URL,
+    отклоняется без извлечения ``code`` — иначе злоумышленник мог бы
+    подсунуть жертве ссылку на локальный callback-сервер со своим кодом
+    авторизации и привязать её сессию к своему Stepik-аккаунту.
+    """
 
     class OAuthHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
@@ -235,6 +244,16 @@ def _make_oauth_handler(
                 self.end_headers()
                 self.wfile.write(b"Not found")
                 return
+
+            received_state = params.get("state", [None])[0]
+            if received_state != expected_state:
+                auth_data["error"] = "state_mismatch"
+                self.send_response(400)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(b"<h1>Invalid state. Possible CSRF - authorization rejected.</h1>")
+                return
+
             auth_data["code"] = params.get("code", [None])[0]
             auth_data["error"] = params.get("error", [None])[0]
             self.send_response(200)
@@ -248,25 +267,36 @@ def _make_oauth_handler(
     return OAuthHandler
 
 
-def wait_for_auth_code(host: str, port: int, path: str, timeout: int = 120) -> str:
+def wait_for_auth_code(
+    host: str,
+    port: int,
+    path: str,
+    expected_state: str,
+    timeout: int = 120,
+) -> str:
     """Запускает временный HTTP-сервер и ожидает OAuth-колбэк с кодом авторизации.
 
     Parameters
     ----------
     host, port, path:
         Параметры redirect_uri из secrets.json.
+    expected_state:
+        Значение ``state``, отправленное в authorize URL (issue #241);
+        колбэк с несовпадающим/отсутствующим ``state`` отклоняется как
+        потенциальный Login-CSRF.
     timeout:
         Максимальное время ожидания в секундах (по умолчанию 120).
 
     Raises
     ------
     RuntimeError:
-        Если Stepik вернул error-параметр в колбэке.
+        Если Stepik вернул error-параметр в колбэке, либо ``state`` колбэка
+        не совпал с ``expected_state``.
     TimeoutError:
         Если код не получен в течение timeout секунд.
     """
     auth_data: dict[str, Any] = {}
-    handler_class = _make_oauth_handler(auth_data, path)
+    handler_class = _make_oauth_handler(auth_data, path, expected_state)
     server = HTTPServer((host, port), handler_class)  # type: ignore[arg-type]
     server.timeout = timeout
 
@@ -292,16 +322,23 @@ def authorize_via_browser(
     """Открывает браузер, ожидает OAuth-код, обменивает на токены.
 
     Возвращает dict с ключами: access_token, refresh_token, expires_in, expires_at.
+
+    Отправляет криптографически случайный ``state`` в authorize URL и требует
+    его точного совпадения в колбэке (issue #241, F-02) — защита от
+    Login-CSRF, когда злоумышленник подсовывает жертве ссылку на локальный
+    callback-сервер со своим кодом авторизации.
     """
     parsed = urlparse(redirect_uri)
     host = parsed.hostname or "localhost"
     port = parsed.port or 80
     path = parsed.path or "/"
 
+    state = secrets_module.token_urlsafe(32)
     params: dict[str, str] = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
+        "state": state,
     }
     auth_url = f"{API_HOST}/oauth2/authorize/?{urlencode(params)}"
     print(f"Открываю браузер: {auth_url}")
@@ -310,7 +347,7 @@ def authorize_via_browser(
     except OSError:
         pass
 
-    code = wait_for_auth_code(host, port, path)
+    code = wait_for_auth_code(host, port, path, state)
     response = requests.post(
         f"{API_HOST}/oauth2/token/",
         auth=HTTPBasicAuth(client_id, client_secret),

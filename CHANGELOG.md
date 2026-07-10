@@ -185,6 +185,18 @@
   call, not a leak. `_download_github_tests()` no longer accepts a session
   parameter at all — GitHub is always third-party (issue #240, security
   audit finding F-01, part of #146/#97).
+- **Security (Medium):** OAuth authorization-code flow (`authorize_via_browser()`)
+  now sends a cryptographically random `state` (`secrets.token_urlsafe(32)`)
+  in the authorize URL and requires the local callback server to receive the
+  same value back before extracting the code. Previously the loopback
+  callback server accepted the first `?code=...` it saw with no `state`
+  check, so a page that lured the victim into hitting
+  `http://localhost:<port>/callback?code=<attacker's code>` could bind the
+  local app to the attacker's Stepik account (Login-CSRF).
+  `wait_for_auth_code()`/`_make_oauth_handler()` now take a required
+  `expected_state` parameter and reject a missing/mismatched `state` with a
+  clear `RuntimeError` instead of ever returning a code (issue #241,
+  security audit finding F-02, part of #146/#149/#97).
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).
