@@ -70,8 +70,13 @@ from {module_stem} import {safe_func}
 {safe_input}
 
 # Определяем аргументы через inspect.signature (позиционно, по имени параметра)
+# locals() снимается в переменную ДО списочного выражения: список сам по себе
+# создаёт вложенную область видимости, и locals() внутри неё видит только эту
+# область (PEP 709 / PEP 667) — на Python 3.11/3.13+ это KeyError на модульных
+# переменных вроде _p; на 3.12 "случайно" работало из-за деталей реализации.
 _sig = inspect.signature({safe_func})
-_args = [locals()[_p] for _p in _sig.parameters]
+_local_vars = locals()
+_args = [_local_vars[_p] for _p in _sig.parameters]
 print({safe_func}(*_args))
 """
 

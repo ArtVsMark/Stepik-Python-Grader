@@ -230,6 +230,18 @@
   altering) any test case whose input relies on that stdlib type. The other
   wrapper builder, `_build_call_wrapper()`, already did this correctly
   (issue #244, security audit finding F-05, part of #136/#97).
+- `core/wrapper_builder.py::_build_function_wrapper()` — the generated
+  wrapper resolved a function's positional arguments via
+  `[locals()[_p] for _p in _sig.parameters]`. A list comprehension is its
+  own scope, so `locals()` called inside it only ever saw the comprehension's
+  own loop variable, not the module-level variables assigned from the test
+  case's `input_data` — a `KeyError` on every parameter name except by
+  accident on Python 3.12 (broken on 3.11 and on 3.13+, per PEP 667's
+  tightened `locals()` semantics). Found while adding an end-to-end
+  regression test for the F-05 fix above — that test is the first thing to
+  ever actually execute this wrapper's generated code instead of just
+  inspecting its source. Fixed by snapshotting `locals()` into a plain dict
+  before the comprehension.
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).

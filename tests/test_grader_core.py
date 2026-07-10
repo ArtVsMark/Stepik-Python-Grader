@@ -317,12 +317,16 @@ def test_build_function_wrapper_not_shadowed_by_local_datetime_module(
 
     src = grader._build_function_wrapper(str(sol), "d = date(2024, 1, 1)", "solve")
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as wf:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding="utf-8", delete=False) as wf:
         wf.write(src)
         wrapper_path = wf.name
     try:
         result = subprocess.run(
-            [sys.executable, wrapper_path], capture_output=True, text=True, timeout=10
+            [sys.executable, wrapper_path],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=10,
         )
     finally:
         pathlib.Path(wrapper_path).unlink(missing_ok=True)
