@@ -28,6 +28,7 @@ import os
 import pathlib
 import statistics
 import tempfile
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -196,6 +197,7 @@ def run_single_test(
     *,
     timeout: float = TIMEOUT_SECONDS,
     measure_memory: bool = MEASURE_CHILD_MEMORY,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Запустить одно решение на одном тест-кейсе и вернуть словарь с результатами.
 
@@ -283,6 +285,7 @@ def run_single_test(
         timeout=timeout,
         measure_memory=measure_memory,
         max_memory_mb=CONFIG.max_memory_mb,
+        cancel_event=cancel_event,
     )
     try:
         outcome = _RUNNER.run(spec)
@@ -303,6 +306,23 @@ def run_single_test(
             "error": outcome.launch_error,
             "timed_out": False,
             "verdict": "RE",
+            "exit_code": None,
+        }
+
+    if outcome.cancelled:
+        # issue #262 — async job model cancellation, distinct from a genuine
+        # solution timeout (TLE): a cancelled run must never be mislabeled as
+        # "your solution is too slow" in the UI.
+        return {
+            "passed": False,
+            "output": [],
+            "expected": case.expected_lines,
+            "diff": "",
+            "time": outcome.elapsed,
+            "memory": 0.0,
+            "error": "Cancelled by user",
+            "timed_out": False,
+            "verdict": "CANCELLED",
             "exit_code": None,
         }
 
@@ -377,6 +397,8 @@ def run_tests(
     verbose: bool = False,
     verbose_callback: Callable[[TestCase, dict[str, Any]], None] | None = None,
     timeout: float = TIMEOUT_SECONDS,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Запустить все тест-кейсы для решения и собрать статистику.
 
@@ -386,6 +408,15 @@ def run_tests(
         функции (issue #45 A-02 — устраняет обратный импорт Application/Logic
         → Application/UI). Если verbose=True, а callback не передан — кейсы
         просто не печатаются.
+
+    progress_callback/cancel_event (issue #262, оба по умолчанию None — CLI и
+    синхронный ``/api/grade`` их не передают, поведение не меняется):
+    ``progress_callback`` вызывается с ``1`` после каждого завершённого кейса
+    (сколько именно кейсов — знает вызывающая сторона, эта функция ничего не
+    знает про глобальный total из web-job; см. ``web/runs.py``).
+    ``cancel_event`` проверяется ПЕРЕД каждым кейсом (не начинать новый
+    subprocess-запуск после отмены) и прокидывается в ``run_single_test()``,
+    которая может прервать уже запущенный кейс через ``LocalRunner``-поллинг.
 
     Возвращаемый словарь:
         total      (int)   — число тест-кейсов
@@ -411,7 +442,9 @@ def run_tests(
     peak_mb = 0.0
 
     for case in test_cases:
-        r = run_single_test(solution_path, case, timeout=timeout)
+        if cancel_event is not None and cancel_event.is_set():
+            break
+        r = run_single_test(solution_path, case, timeout=timeout, cancel_event=cancel_event)
         results.append(r)
         total_time += r["time"]
         peak_mb = max(peak_mb, r["memory"])
@@ -429,8 +462,14 @@ def run_tests(
 
         if verbose and verbose_callback is not None:
             verbose_callback(case, r)
+        if progress_callback is not None:
+            progress_callback(1)
 
-    total = len(test_cases)
+    # len(results), не len(test_cases): при отмене (cancel_event) цикл
+    # прерывается раньше — total должен отражать фактически прогнанные кейсы,
+    # иначе avg_time занижается на незавершённые. В обычном (не отменённом)
+    # случае оба значения совпадают — существующее поведение не меняется.
+    total = len(results)
     avg_time = total_time / total if total else 0.0
 
     return {
@@ -452,11 +491,21 @@ def run_benchmark(
     *,
     timeout: float = TIMEOUT_SECONDS,
     repeats: int = 15,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Запустить все тест-кейсы в режиме benchmark и собрать статистику времени.
 
     Аргумент repeats задаёт число повторений каждого тест-кейса.
     Соответствует профилям нагрузки: low=5, medium=15, high=50, custom=5..100.
+
+    progress_callback/cancel_event (issue #262, по умолчанию None — поведение
+    без них не меняется): ``progress_callback`` тикает после каждого
+    единичного повтора (case × repeat), а не только после кейса целиком —
+    самая мелкая гранулярность, где это дешевле всего (bench — самый долгий
+    путь, который и жаловался issue). ``cancel_event`` проверяется перед
+    каждым повтором; ранний выход помечается ``"cancelled": True`` в
+    результате (отличимо от истечения timeout/иной ошибки).
 
     Возвращаемый словарь:
         runs       (int)   — число запусков (test_cases * repeats)
@@ -476,11 +525,17 @@ def run_benchmark(
 
     for case in test_cases:
         for _ in range(max(1, repeats)):
-            r = run_single_test(solution_path, case, timeout=timeout)
+            if cancel_event is not None and cancel_event.is_set():
+                return {"error": "cancelled", "runs": 0, "cancelled": True}
+            r = run_single_test(solution_path, case, timeout=timeout, cancel_event=cancel_event)
+            if r.get("verdict") == "CANCELLED":
+                return {"error": r["error"], "runs": 0, "cancelled": True}
             if r["error"] or r["timed_out"]:
                 return {"error": r["error"] or "timeout", "runs": 0}
             times.append(r["time"])
             peak_mb = max(peak_mb, r["memory"])
+            if progress_callback is not None:
+                progress_callback(1)
 
     if not times:
         return {"error": "no test cases", "runs": 0}
@@ -526,6 +581,8 @@ def run_microbench_mode(
     test_dir: str,
     *,
     number: int = 1000,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Запустить timeit-microbench для нескольких решений и вернуть сводную статистику.
 
@@ -533,6 +590,13 @@ def run_microbench_mode(
     psutil для function-call блоков (run_single_test, как в run_benchmark),
     пик Python-heap через tracemalloc для stdin-блоков (run_microbench) —
     два разных метода измерения, см. докстринг core.microbench_runner.
+
+    progress_callback/cancel_event (issue #262, по умолчанию None):
+    гранулярность здесь ГРУБЕЕ, чем в ``run_benchmark`` — один тик на решение
+    целиком, не на кейс/повтор. ``timeit``-цикл внутри ``run_microbench()``
+    не прерываем без переделки ``core/microbench_runner.py`` (вне scope
+    issue #262) — отмена проверяется только МЕЖДУ решениями, текущее
+    решение в процессе микробенчмарка досчитывается до конца.
     """
     test_cases = load_test_cases(test_dir)
     if not test_cases:
@@ -542,6 +606,8 @@ def run_microbench_mode(
     results: dict[str, dict[str, Any]] = {}
 
     for path in solution_paths:
+        if cancel_event is not None and cancel_event.is_set():
+            break
         code = pathlib.Path(path).read_text(encoding=ENCODING)
 
         all_times: list[float] = []
@@ -582,6 +648,9 @@ def run_microbench_mode(
             stats["runs"] = len(all_times)
             stats["peak_memory_mb"] = peak_mb
             results[path] = stats
+
+        if progress_callback is not None:
+            progress_callback(1)
 
     apply_relative_ranking(
         results,

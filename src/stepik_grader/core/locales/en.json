@@ -26,5 +26,9 @@
   "server_running": "🌐 Grader web interface: {url}  (Ctrl+C to stop)",
   "server_workspace_confined": "   Working directory: {workspace}  (paths outside it are rejected with 403)",
   "server_workspace_unconfined": "   Working directory: {workspace}  (path confinement DISABLED via --no-root-confinement — any path on disk is accessible)",
-  "server_stopped": "\nStopped."
+  "server_stopped": "\nStopped.",
+  "run_not_found": "Run {run_id} not found.",
+  "invalid_run_mode": "Invalid run mode: {mode}.",
+  "run_cancelled": "Run cancelled by user.",
+  "run_internal_error": "Internal run error: {error}"
 }

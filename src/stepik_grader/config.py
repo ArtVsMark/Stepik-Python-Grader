@@ -46,6 +46,12 @@ class GraderConfig:
     # core/glossary.py как fallback) и очередь пополнения (MissingConceptDetector).
     glossary_store: str | None = None
     glossary_missing_queue: str = ".grader_glossary_missing.json"
+    # issue #262 — размер пула воркеров async job-модели (POST /api/v1/runs,
+    # web/runs.py). Не CLI-флаг: одноразовая настройка сервера через
+    # pyproject.toml, а не параметр запроса. Дефолт 2 — достаточно, чтобы
+    # два параллельных job'а не сериализовались в один поток, не вводя
+    # неограниченного параллелизма subprocess-запусков на локальной машине.
+    job_workers: int = 2
 
 
 def _find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path | None:

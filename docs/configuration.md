@@ -86,6 +86,7 @@ microbench_max_cases = 5
 | `encoding` | `str` | `"utf-8"` | Кодировка чтения файлов решений и тестов. |
 | `max_memory_mb` | `int \| None` | `1024` | Best-effort лимит памяти дочернего процесса (POSIX-only, `RLIMIT_AS`); `None` — без лимита. См. [Ограничения и безопасность](#ограничения-и-безопасность). |
 | `use_cache` | `bool` | `false` | Включить кэш результатов по умолчанию (эквивалент `--cache`, issue #56). Отдельный запуск форсируется `--no-cache`. |
+| `job_workers` | `int` | `2` | Размер пула воркеров async job-модели `--serve` (`POST /api/v1/runs`, issue #262) — сколько bench/microbench-задач исполняются параллельно. Не CLI-флаг. |
 
 > Значения из `pyproject.toml` перекрывают дефолты. `GraderConfig` — `frozen`:
 > изменить его в рантайме нельзя (мутация → `FrozenInstanceError`). Полный

@@ -7,6 +7,7 @@ import json
 import pathlib
 import re
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -270,6 +271,78 @@ class TestGradeBenchmark:
 
     def test_benchmark_nonexistent_path(self) -> None:
         assert web.grade_benchmark("/no/such/dir")["kind"] == "error"
+
+
+# ---------------------------------------------------------------------------
+# grade_benchmark/grade_microbench — progress_callback/cancel_event (issue #262)
+# ---------------------------------------------------------------------------
+
+
+class TestGradeBenchmarkProgressAndCancel:
+    def test_progress_callback_forwarded_across_directory(self, tmp_path: pathlib.Path) -> None:
+        """One shared callback ticks across ALL solutions in a directory run
+        (not reset per-solution) -- proves the per-solution loop forwards the
+        SAME callback object into every run_benchmark() call."""
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+
+        ticks: list[int] = []
+        web.grade_benchmark(str(tmp_path), repeats=2, progress_callback=ticks.append)
+
+        assert ticks == [1] * 4  # 2 solutions * 1 case * 2 repeats
+
+    def test_cancel_event_stops_before_all_solutions_processed(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+
+        cancel_event = threading.Event()
+        cancel_event.set()  # pre-cancelled -- loop must not process any solution
+        data = web.grade_benchmark(str(tmp_path), repeats=2, cancel_event=cancel_event)
+
+        assert data["rows"] == []
+
+
+class TestEstimateRunCount:
+    def test_bench_multiplies_cases_by_repeats(self, tmp_path: pathlib.Path) -> None:
+        tests = tmp_path / "tests"
+        tests.mkdir()
+        for i in (1, 2, 3):
+            (tests / f"input_{i}.txt").write_text(str(i), encoding="utf-8")
+            (tests / f"expected_{i}.txt").write_text(str(i), encoding="utf-8")
+        sol_a = tmp_path / "task1_1.py"
+        sol_a.write_text("print(input())\n", encoding="utf-8")
+        sol_b = tmp_path / "task1_2.py"
+        sol_b.write_text("print(input())\n", encoding="utf-8")
+
+        total = web.estimate_run_count([str(sol_a), str(sol_b)], kind="bench", repeats=5)
+
+        assert total == 2 * 3 * 5  # 2 solutions * 3 cases * 5 repeats
+
+    def test_microbench_counts_solutions_not_cases(self, tmp_path: pathlib.Path) -> None:
+        tests = tmp_path / "tests"
+        tests.mkdir()
+        (tests / "input_1.txt").write_text("1", encoding="utf-8")
+        (tests / "expected_1.txt").write_text("1", encoding="utf-8")
+        sol = tmp_path / "task1_1.py"
+        sol.write_text("print(input())\n", encoding="utf-8")
+
+        total = web.estimate_run_count([str(sol)] * 3, kind="microbench")
+
+        assert total == 3  # one tick per solution, repeats/cases irrelevant
+
+    def test_solution_without_test_dir_contributes_zero(self, tmp_path: pathlib.Path) -> None:
+        sol = tmp_path / "task1_1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")  # no tests/ dir at all
+
+        assert web.estimate_run_count([str(sol)], kind="bench", repeats=10) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -1165,6 +1238,308 @@ class TestApiLangQueryParam:
         )
         assert status == 400
         assert json.loads(body)["message"] == "Укажите папку."
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/runs — async job model (issue #262)
+# ---------------------------------------------------------------------------
+
+
+def _poll_run(server: str, run_id: str, *, timeout: float = 15.0) -> dict:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        status, body = _get(server + f"/api/v1/runs/{run_id}")
+        assert status == 200
+        data = json.loads(body)
+        if data["status"] in ("done", "error"):
+            return data
+        time.sleep(0.05)
+    raise TimeoutError(f"run {run_id} did not reach a terminal state within {timeout}s")
+
+
+class TestRunsApiGoldenComparison:
+    """Acceptance criterion: create -> poll until done -> result equals the
+    old /api/grade result on the same input. Compared STRUCTURALLY (verdict/
+    key-set/row-count), not byte-for-byte -- min/median are independent
+    subprocess timings from two separate runs and will differ numerically."""
+
+    def test_bench_matches_sync_grade(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+
+        sync_status, sync_body = _get(
+            server + "/api/grade?mode=bench&repeats=2&path=" + urllib.parse.quote(str(sol))
+        )
+        assert sync_status == 200
+        sync_data = json.loads(sync_body)
+
+        create_status, create_body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "bench", "params": {"repeats": 2}}).encode(
+                "utf-8"
+            ),
+        )
+        assert create_status == 202
+        run_id = json.loads(create_body)["run_id"]
+        async_data = _poll_run(server, run_id)["result"]
+
+        assert async_data["mode"] == sync_data["mode"] == "bench"
+        assert async_data["kind"] == sync_data["kind"]
+        assert {r["file"]: r["verdict"] for r in async_data["rows"]} == {
+            r["file"]: r["verdict"] for r in sync_data["rows"]
+        }
+
+    def test_microbench_matches_sync_grade(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+
+        sync_status, sync_body = _get(
+            server + "/api/grade?mode=microbench&number=50&path=" + urllib.parse.quote(str(sol))
+        )
+        assert sync_status == 200
+        sync_data = json.loads(sync_body)
+
+        create_status, create_body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "microbench", "params": {"number": 50}}).encode(
+                "utf-8"
+            ),
+        )
+        assert create_status == 202
+        run_id = json.loads(create_body)["run_id"]
+        async_data = _poll_run(server, run_id)["result"]
+
+        assert async_data["mode"] == sync_data["mode"] == "microbench"
+        assert {r["file"]: r["verdict"] for r in async_data["rows"]} == {
+            r["file"]: r["verdict"] for r in sync_data["rows"]
+        }
+
+
+class TestRunsApiCancel:
+    def test_cancel_stops_child_process(self, server: str, tmp_path: pathlib.Path) -> None:
+        """Cancellation must actually kill the child, not just flip a status
+        string -- the PID-file + psutil.pid_exists() check is the
+        load-bearing part of this test."""
+        import psutil
+
+        pidfile = tmp_path / "child.pid"
+        sol = tmp_path / "task.py"
+        sol.write_text(
+            "import os, pathlib, time\n"
+            f"pathlib.Path({str(pidfile)!r}).write_text(str(os.getpid()))\n"
+            "time.sleep(30)\n"
+            "print(input())\n",
+            encoding="utf-8",
+        )
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "input_1.txt").write_text("4\n", encoding="utf-8")
+        (tests_dir / "expected_1.txt").write_text("5\n", encoding="utf-8")
+
+        create_status, create_body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "bench", "params": {"repeats": 5}}).encode(
+                "utf-8"
+            ),
+        )
+        assert create_status == 202
+        run_id = json.loads(create_body)["run_id"]
+
+        deadline = time.monotonic() + 10.0
+        while not pidfile.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert pidfile.exists(), "child process never started"
+        pid = int(pidfile.read_text().strip())
+
+        cancel_status, cancel_body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
+        assert cancel_status == 200
+        assert json.loads(cancel_body)["status"] in ("running", "error")
+
+        data = _poll_run(server, run_id)
+        assert data["status"] == "error"
+        assert data["message_id"] == "run_cancelled"
+
+        # Best-effort: give the OS a brief moment to actually reap the killed
+        # process before asserting it's gone.
+        deadline = time.monotonic() + 3.0
+        while psutil.pid_exists(pid) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert not psutil.pid_exists(pid)
+
+    def test_cancel_unknown_run_is_404(self, server: str) -> None:
+        status, body = _post(server + "/api/v1/runs/no-such-id/cancel", b"")
+        assert status == 404
+        assert json.loads(body)["message_id"] == "run_not_found"
+
+    def test_cancel_already_done_run_is_idempotent_ok(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        create_status, create_body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "bench", "params": {"repeats": 1}}).encode(
+                "utf-8"
+            ),
+        )
+        run_id = json.loads(create_body)["run_id"]
+        _poll_run(server, run_id)
+
+        status, body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
+        assert status == 200
+        assert json.loads(body)["status"] == "done"
+
+
+class TestRunsApiConcurrency:
+    def test_two_parallel_runs_do_not_mix_results(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        dir_a = tmp_path / "a"
+        dir_a.mkdir()
+        dir_b = tmp_path / "b"
+        dir_b.mkdir()
+        sol_a = _make_task(dir_a, "print(int(input()) + 1)\n")
+        sol_b = _make_task(dir_b, "raise ValueError('boom')\n")
+
+        _, body_a = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol_a), "mode": "bench", "params": {"repeats": 2}}).encode(
+                "utf-8"
+            ),
+        )
+        _, body_b = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol_b), "mode": "bench", "params": {"repeats": 2}}).encode(
+                "utf-8"
+            ),
+        )
+        run_id_a = json.loads(body_a)["run_id"]
+        run_id_b = json.loads(body_b)["run_id"]
+        assert run_id_a != run_id_b
+
+        data_a = _poll_run(server, run_id_a)
+        data_b = _poll_run(server, run_id_b)
+
+        assert data_a["status"] == "done"
+        assert data_a["result"]["rows"][0]["verdict"] != "ERR"
+        assert data_b["status"] == "done"
+        assert data_b["result"]["rows"][0]["verdict"] == "ERR"
+
+
+class TestRunsApiPathConfinement:
+    def test_path_outside_root_is_403(
+        self, server: str, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        outside = tmp_path_factory.mktemp("outside")
+        sol = _make_task(outside, "print(int(input()) + 1)\n")
+        status, body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "bench", "params": {}}).encode("utf-8"),
+        )
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+
+class TestRunsApiValidation:
+    def test_missing_path_is_400(self, server: str) -> None:
+        status, body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"mode": "bench", "params": {}}).encode("utf-8"),
+        )
+        assert status == 400
+        assert json.loads(body)["message_id"] == "specify_path_file_or_folder"
+
+    def test_invalid_mode_is_400(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        status, body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "tests", "params": {}}).encode("utf-8"),
+        )
+        assert status == 400
+        assert json.loads(body)["message_id"] == "invalid_run_mode"
+
+    def test_mode_missing_is_400(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        status, body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol)}).encode("utf-8"),
+        )
+        assert status == 400
+        assert json.loads(body)["message_id"] == "invalid_run_mode"
+
+    def test_repeats_clamped_to_range(self, server: str, tmp_path: pathlib.Path) -> None:
+        # A real 1000-repeat run takes tens of seconds (1000 real
+        # subprocesses) -- clamping is proven by progress.total as soon as
+        # it's computed, without waiting for the whole job to finish, then
+        # cancelled to avoid burning the rest of the test run on it.
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        status, body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "bench", "params": {"repeats": 999_999}}).encode(
+                "utf-8"
+            ),
+        )
+        assert status == 202
+        run_id = json.loads(body)["run_id"]
+
+        deadline = time.monotonic() + 10.0
+        total = 0
+        while time.monotonic() < deadline:
+            status, body = _get(server + f"/api/v1/runs/{run_id}")
+            data = json.loads(body)
+            total = data["progress"]["total"]
+            if total > 0 or data["status"] in ("done", "error"):
+                break
+            time.sleep(0.02)
+        # 1 case * clamped repeats (max 1000) -- not 1 * 999_999.
+        assert total == 1000
+
+        _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
+
+    def test_body_too_large_is_413(self, server: str) -> None:
+        huge = json.dumps({"path": "x" * (2 * 1024 * 1024), "mode": "bench"}).encode("utf-8")
+        status, body = _post(server + "/api/v1/runs", huge)
+        assert status == 413
+        assert json.loads(body)["message_id"] == "body_too_large"
+
+
+class TestRunsApiNotFound:
+    def test_get_unknown_run_is_404(self, server: str) -> None:
+        status, body = _get(server + "/api/v1/runs/no-such-id")
+        assert status == 404
+        assert json.loads(body)["message_id"] == "run_not_found"
+
+
+class TestRunsApiHostGuard:
+    def test_create_run_wrong_host_is_403(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        status, body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "bench", "params": {}}).encode("utf-8"),
+            headers={"Host": "evil.example.com"},
+        )
+        assert status == 403
+        assert json.loads(body)["message_id"] == "invalid_host"
+
+
+class TestRunsApiInlineCode:
+    def test_code_field_graded_instead_of_on_disk_content(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        sol = _make_task(tmp_path, "print(999)\n")  # wrong on disk
+        status, body = _post(
+            server + "/api/v1/runs",
+            json.dumps(
+                {
+                    "path": str(sol),
+                    "code": "print(int(input()) + 1)\n",
+                    "mode": "bench",
+                    "params": {"repeats": 1},
+                }
+            ).encode("utf-8"),
+        )
+        assert status == 202
+        run_id = json.loads(body)["run_id"]
+        data = _poll_run(server, run_id)
+        assert data["status"] == "done"
+        assert data["result"]["rows"][0]["verdict"] != "ERR"
 
 
 # ---------------------------------------------------------------------------

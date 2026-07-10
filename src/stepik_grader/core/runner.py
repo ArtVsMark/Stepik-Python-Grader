@@ -28,7 +28,7 @@ import threading
 import time
 import warnings
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import psutil
 
@@ -48,6 +48,12 @@ class RunSpec:
     """Что запустить (`server-mode.md` § Runner-слой): путь к исполняемому
     файлу, stdin, лимиты. Не зависит от механизма изоляции — одинаков для
     ``LocalRunner`` и будущего ``SandboxRunner``.
+
+    ``cancel_event`` (issue #262) — опциональный сигнал best-effort отмены
+    для async job-модели (``web/runs.py``). ``None`` (по умолчанию) сохраняет
+    прежнее поведение ``LocalRunner.run()`` один в один (единственный
+    блокирующий ``proc.communicate(timeout=...)``, без poll-накладных
+    расходов) — CLI и синхронный ``/api/grade`` его не передают.
     """
 
     path: str
@@ -55,6 +61,7 @@ class RunSpec:
     timeout: float
     measure_memory: bool = True
     max_memory_mb: int | None = None
+    cancel_event: threading.Event | None = None
 
 
 @dataclass
@@ -65,6 +72,11 @@ class RunOutcome:
     ``launch_error`` заполняется, если процесс не удалось даже запустить
     (``OSError`` при spawn) — тогда ``stdout``/``stderr``/``returncode``
     неопределены (остаются дефолтами).
+
+    ``cancelled`` (issue #262) — процесс убит из-за ``RunSpec.cancel_event``,
+    а не из-за истечения ``timeout`` (``timed_out`` в этом случае остаётся
+    ``False`` — маппится в отдельный verdict ``CANCELLED``, не ``TLE``, выше
+    по стеку в ``grader_core.run_single_test()``).
     """
 
     stdout: bytes = b""
@@ -74,6 +86,7 @@ class RunOutcome:
     peak_memory_mb: float = 0.0
     timed_out: bool = False
     launch_error: str | None = None
+    cancelled: bool = False
 
 
 @runtime_checkable
@@ -211,30 +224,121 @@ class LocalRunner:
                 )
                 mem_thread.start()
 
-            try:
-                stdout_bytes, stderr_bytes = proc.communicate(
-                    input=spec.stdin, timeout=spec.timeout
+            if spec.cancel_event is None:
+                try:
+                    stdout_bytes, stderr_bytes = proc.communicate(
+                        input=spec.stdin, timeout=spec.timeout
+                    )
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.communicate()
+                    stop_event.set()
+                    return RunOutcome(timed_out=True, elapsed=spec.timeout)
+                finally:
+                    stop_event.set()
+
+                elapsed = time.perf_counter() - start
+                if mem_thread is not None:
+                    mem_thread.join(timeout=0.5)
+
+                return RunOutcome(
+                    stdout=stdout_bytes,
+                    stderr=stderr_bytes,
+                    returncode=proc.returncode,
+                    elapsed=elapsed,
+                    peak_memory_mb=peak_mb_result[0],
+                    timed_out=False,
                 )
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.communicate()
-                stop_event.set()
-                return RunOutcome(timed_out=True, elapsed=spec.timeout)
+
+            try:
+                outcome = self._run_with_polling(proc, spec, start, peak_mb_result)
             finally:
                 stop_event.set()
-
-            elapsed = time.perf_counter() - start
             if mem_thread is not None:
                 mem_thread.join(timeout=0.5)
-
-            return RunOutcome(
-                stdout=stdout_bytes,
-                stderr=stderr_bytes,
-                returncode=proc.returncode,
-                elapsed=elapsed,
-                peak_memory_mb=peak_mb_result[0],
-                timed_out=False,
-            )
+            return outcome
         except OSError as exc:
             stop_event.set()
             return RunOutcome(launch_error=str(exc), timed_out=False)
+
+    def _run_with_polling(
+        self,
+        proc: subprocess.Popen[bytes],
+        spec: RunSpec,
+        start: float,
+        peak_mb_result: list[float],
+    ) -> RunOutcome:
+        """Poll-версия ``proc.communicate()`` — прерывается по
+        ``spec.cancel_event``, не только по ``spec.timeout`` (issue #262).
+
+        Дренирует stdout/stderr в фоновых потоках всё время ожидания — как
+        это делает сам ``communicate()`` внутри себя. Без этого дочерний
+        процесс, пишущий много в stdout, застрял бы на заполненном OS
+        pipe-буфере, пока мы просто опрашиваем ``proc.poll()`` каждые ~100мс.
+        stdin пишется и закрывается до входа в цикл опроса (тот же порядок,
+        что ``communicate()``), а не построчно синхронно с чтением — иначе
+        возможен классический deadlock subprocess (записываем stdin, пока
+        никто не читает переполненный stdout).
+        """
+        stdout_chunks: list[bytes] = []
+        stderr_chunks: list[bytes] = []
+
+        def _drain(pipe: Any, sink: list[bytes]) -> None:
+            try:
+                for chunk in iter(lambda: pipe.read(65536), b""):
+                    sink.append(chunk)
+            except (OSError, ValueError):
+                pass
+
+        readers = [
+            threading.Thread(target=_drain, args=(proc.stdout, stdout_chunks), daemon=True),
+            threading.Thread(target=_drain, args=(proc.stderr, stderr_chunks), daemon=True),
+        ]
+        for reader in readers:
+            reader.start()
+
+        if proc.stdin is not None:
+            if spec.stdin is not None:
+                try:
+                    proc.stdin.write(spec.stdin)
+                except (BrokenPipeError, OSError):
+                    pass
+            try:
+                proc.stdin.close()
+            except OSError:
+                pass
+
+        assert spec.cancel_event is not None
+        cancelled = False
+        timed_out = False
+        while True:
+            if proc.poll() is not None:
+                break
+            remaining = spec.timeout - (time.perf_counter() - start)
+            if remaining <= 0:
+                timed_out = True
+                break
+            if spec.cancel_event.wait(min(0.1, remaining)):
+                cancelled = True
+                break
+
+        if cancelled or timed_out:
+            proc.kill()
+            proc.wait()
+
+        for reader in readers:
+            reader.join(timeout=1.0)
+
+        elapsed = time.perf_counter() - start
+        if timed_out:
+            return RunOutcome(timed_out=True, elapsed=spec.timeout)
+        if cancelled:
+            return RunOutcome(cancelled=True, elapsed=elapsed)
+        return RunOutcome(
+            stdout=b"".join(stdout_chunks),
+            stderr=b"".join(stderr_chunks),
+            returncode=proc.returncode,
+            elapsed=elapsed,
+            peak_memory_mb=peak_mb_result[0],
+            timed_out=False,
+        )

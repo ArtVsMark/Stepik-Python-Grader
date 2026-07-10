@@ -136,7 +136,7 @@ class TestRunBenchmarkRunMode:
 
         seen_types: list[str] = []
 
-        def fake_run_single_test(path, case, *, timeout=grader.TIMEOUT_SECONDS):
+        def fake_run_single_test(path, case, *, timeout=grader.TIMEOUT_SECONDS, cancel_event=None):
             seen_types.append(case.test_type)
             return {"error": "", "timed_out": False, "time": 0.001, "memory": 0.0}
 
