@@ -536,7 +536,7 @@ def main(argv: list[str] | None = None) -> None:
         # Ленивый импорт: http.server-стек тянем только когда реально нужен.
         from stepik_grader import web
 
-        web.run_server(port=args.port)
+        web.run_server(port=args.port, root=args.root, confine=not args.no_root_confinement)
         return
 
     if args.mode is None:

@@ -9,6 +9,26 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Added
+- `--serve` gained workspace root confinement (issue #261): all request
+  paths (`/api/grade`, `/api/source`, `/api/solutions`, `/api/save-solution`
+  — both `folder` and an optional target `path`) are now resolved and
+  checked against a server workspace (new `_GraderServer` — a
+  `ThreadingHTTPServer` subclass carrying `workspace`/`confine`, and
+  `_resolve_within_root()`/`_Handler._confined_path()` in `server.py`) —
+  `Path.resolve()` runs before the containment check, so `../` traversal
+  and symlinks pointing outside the workspace are caught, not just literal
+  absolute paths. A request outside the workspace gets `403`
+  (`{"kind": "error", "message": ...}`) instead of silently reading/writing
+  anywhere on disk (previously confirmed live: `/api/source?path=/etc/
+  hostname` read arbitrary files). New CLI flags: `--root <dir>` sets the
+  workspace (default: cwd at `--serve` launch, also used for
+  `__DEFAULT_PATH__` in `index.html`, replacing the old raw `os.getcwd()`);
+  `--no-root-confinement` is an explicit opt-out back to the old
+  unconfined behavior, reflected in the server's startup message.
+  `/api/download`'s `root` (where to download a task *to*) is a separate
+  concern and isn't confined by this change.
+
 ### Changed
 - Web UI fonts (JetBrains Mono/Inter) are now vendored locally instead of
   loaded from the Google Fonts CDN (`fonts.googleapis.com`/

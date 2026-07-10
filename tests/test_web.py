@@ -10,7 +10,6 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from http.server import ThreadingHTTPServer
 
 import pytest
 
@@ -509,16 +508,33 @@ class TestSaveSolution:
 
 
 @pytest.fixture
-def server(tmp_path: pathlib.Path):
-    """Поднять сервер на 127.0.0.1:0 в отдельном потоке, вернуть базовый URL."""
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), web._Handler)
-    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
-    thread.start()
-    host, port = httpd.server_address[0], httpd.server_address[1]
-    yield f"http://{host}:{port}"
-    httpd.shutdown()
-    httpd.server_close()
-    thread.join(timeout=5)
+def server_factory():
+    """Фабрика серверов на 127.0.0.1:0 в отдельном потоке (issue #261 —
+    параметризуемая workspace/confine); все созданные серверы гасятся в teardown."""
+    started: list[tuple[web._GraderServer, threading.Thread]] = []
+
+    def _make(workspace: pathlib.Path, *, confine: bool = True) -> str:
+        httpd = web._GraderServer(
+            ("127.0.0.1", 0), web._Handler, workspace=workspace, confine=confine
+        )
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        started.append((httpd, thread))
+        host, port = httpd.server_address[0], httpd.server_address[1]
+        return f"http://{host}:{port}"
+
+    yield _make
+    for httpd, thread in started:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.fixture
+def server(tmp_path: pathlib.Path, server_factory) -> str:
+    """Сервер с workspace=tmp_path, confine=True — дефолт для большинства тестов
+    (все они оперируют путями внутри tmp_path, так что конфайнмент им не мешает)."""
+    return server_factory(tmp_path)
 
 
 def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
@@ -842,6 +858,152 @@ class TestApiInputLimits:
         status, _ = _get(server + "/api/grade?" + q)
         assert status == 200
         assert captured["repeats"] == 15  # default, within range
+
+
+# ---------------------------------------------------------------------------
+# Workspace root confinement — /api/grade, /api/source, /api/solutions,
+# /api/save-solution (issue #261)
+# ---------------------------------------------------------------------------
+
+
+class TestApiPathConfinement:
+    def test_grade_path_inside_root_is_allowed(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        status, body = _get(server + "/api/grade?path=" + urllib.parse.quote(str(sol)))
+        assert status == 200
+        assert json.loads(body)["kind"] == "file"
+
+    def test_grade_absolute_path_outside_root_is_403(
+        self, server: str, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        outside = tmp_path_factory.mktemp("outside")
+        sol = _make_task(outside, "print(int(input()) + 1)\n")
+        status, body = _get(server + "/api/grade?path=" + urllib.parse.quote(str(sol)))
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_grade_dotdot_escape_is_403(
+        self,
+        server: str,
+        tmp_path: pathlib.Path,
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        outside = tmp_path_factory.mktemp("outside")
+        sol = _make_task(outside, "print(int(input()) + 1)\n")
+        escape_path = tmp_path / ".." / outside.name / sol.name
+        status, body = _get(server + "/api/grade?path=" + urllib.parse.quote(str(escape_path)))
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_grade_symlink_escape_is_403(
+        self,
+        server: str,
+        tmp_path: pathlib.Path,
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        outside = tmp_path_factory.mktemp("outside")
+        sol = _make_task(outside, "print(int(input()) + 1)\n")
+        link = tmp_path / "escape_link"
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except OSError:
+            pytest.skip("symlinks not supported/permitted in this environment")
+        status, body = _get(server + "/api/grade?path=" + urllib.parse.quote(str(link / sol.name)))
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_source_inside_root_is_allowed(self, server: str, tmp_path: pathlib.Path) -> None:
+        f = tmp_path / "task1_1.py"
+        f.write_text("print(42)\n", encoding="utf-8")
+        status, body = _get(server + "/api/source?path=" + urllib.parse.quote(str(f)))
+        assert status == 200
+        assert json.loads(body)["kind"] == "file"
+
+    def test_source_outside_root_is_403(
+        self, server: str, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        outside = tmp_path_factory.mktemp("outside")
+        f = outside / "secret.py"
+        f.write_text("print('leak')\n", encoding="utf-8")
+        status, body = _get(server + "/api/source?path=" + urllib.parse.quote(str(f)))
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_solutions_inside_root_is_allowed(self, server: str, tmp_path: pathlib.Path) -> None:
+        (tmp_path / "task1_1.py").write_text("print(1)\n", encoding="utf-8")
+        status, body = _get(server + "/api/solutions?path=" + urllib.parse.quote(str(tmp_path)))
+        assert status == 200
+        assert json.loads(body)["kind"] == "dir"
+
+    def test_solutions_outside_root_is_403(
+        self, server: str, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        outside = tmp_path_factory.mktemp("outside")
+        (outside / "task1_1.py").write_text("print(1)\n", encoding="utf-8")
+        status, body = _get(server + "/api/solutions?path=" + urllib.parse.quote(str(outside)))
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_save_solution_folder_inside_root_is_allowed(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps({"folder": str(tmp_path), "code": "print(1)\n"}).encode("utf-8"),
+        )
+        assert status == 200
+        assert json.loads(body)["ok"] is True
+
+    def test_save_solution_folder_outside_root_is_403(
+        self, server: str, tmp_path_factory: pytest.TempPathFactory
+    ) -> None:
+        outside = tmp_path_factory.mktemp("outside")
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps({"folder": str(outside), "code": "print(1)\n"}).encode("utf-8"),
+        )
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+        assert not (outside / "task_1.py").exists()
+
+    def test_save_solution_target_path_outside_root_is_403(
+        self,
+        server: str,
+        tmp_path: pathlib.Path,
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        outside = tmp_path_factory.mktemp("outside")
+        target = outside / "overwrite_me.py"
+        target.write_text("print('orig')\n", encoding="utf-8")
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps(
+                {"folder": str(tmp_path), "path": str(target), "code": "print('pwned')\n"}
+            ).encode("utf-8"),
+        )
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+        assert target.read_text(encoding="utf-8") == "print('orig')\n"
+
+    def test_confine_false_allows_path_outside_workspace(
+        self,
+        server_factory,
+        tmp_path: pathlib.Path,
+        tmp_path_factory: pytest.TempPathFactory,
+    ) -> None:
+        """--no-root-confinement escape hatch: outside paths allowed again."""
+        outside = tmp_path_factory.mktemp("outside")
+        sol = _make_task(outside, "print(int(input()) + 1)\n")
+        unconfined = server_factory(tmp_path, confine=False)
+        status, body = _get(unconfined + "/api/grade?path=" + urllib.parse.quote(str(sol)))
+        assert status == 200
+        assert json.loads(body)["kind"] == "file"
+
+    def test_default_path_reflects_workspace(self, server_factory, tmp_path: pathlib.Path) -> None:
+        """__DEFAULT_PATH__ in index.html is the server's workspace, not cwd."""
+        custom = server_factory(tmp_path)
+        _, body = _get(custom + "/")
+        assert str(tmp_path) in body.decode("utf-8")
 
 
 # ---------------------------------------------------------------------------

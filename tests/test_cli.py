@@ -717,7 +717,7 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--port", "9090"])
-        assert called == [{"port": 9090}]
+        assert called == [{"port": 9090, "root": None, "confine": True}]
 
     def test_serve_uses_default_port(self, monkeypatch) -> None:
         from stepik_grader import web
@@ -725,7 +725,23 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve"])
-        assert called == [{"port": 8000}]
+        assert called == [{"port": 8000, "root": None, "confine": True}]
+
+    def test_serve_passes_root(self, monkeypatch) -> None:
+        from stepik_grader import web
+
+        called = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
+        cli.main(["--serve", "--root", "/some/dir"])
+        assert called == [{"port": 8000, "root": "/some/dir", "confine": True}]
+
+    def test_serve_no_root_confinement_disables_confine(self, monkeypatch) -> None:
+        from stepik_grader import web
+
+        called = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
+        cli.main(["--serve", "--no-root-confinement"])
+        assert called == [{"port": 8000, "root": None, "confine": False}]
 
 
 # ---------------------------------------------------------------------------

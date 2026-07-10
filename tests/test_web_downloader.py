@@ -11,7 +11,6 @@ import pathlib
 import threading
 import urllib.error
 import urllib.request
-from http.server import ThreadingHTTPServer
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -244,8 +243,11 @@ class TestDownloadTaskErrors:
 
 
 @pytest.fixture
-def server():
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), web._Handler)
+def server(tmp_path: pathlib.Path):
+    # issue #261: /api/download's own `root` (where to download TO) isn't
+    # confined — workspace here only has to exist for the handler's other
+    # incidental uses (e.g. the `/` index page's __DEFAULT_PATH__).
+    httpd = web._GraderServer(("127.0.0.1", 0), web._Handler, workspace=tmp_path, confine=True)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     host, port = httpd.server_address[0], httpd.server_address[1]
