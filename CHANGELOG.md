@@ -9,6 +9,19 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Internal
+- CI: the `Update badges (main only)` step now retries (up to 3 attempts)
+  instead of failing the job outright when two pushes to `main` land close
+  together. Two workflow runs racing to commit+push `.github/badges/*.json`
+  is harmless in itself (the loser's `git pull --rebase` conflict is caught
+  *before* `push`, so `main` never actually gets corrupted), but it did leave
+  a spurious red CI run. On conflict, the step now aborts the rebase, resets
+  to fresh `origin/main`, and regenerates the badges from that HEAD — which
+  typically now matches what the other run already pushed, so the retry
+  cleanly resolves as "Badges unchanged." A final failure after 3 attempts
+  is a `::warning::`, not a job failure — a later push will catch the
+  badges up regardless.
+
 ### Refactored
 - Web API `message` strings are now rendered server-side from a locale
   catalog instead of being Russian literals baked into `web/viewmodels.py`/

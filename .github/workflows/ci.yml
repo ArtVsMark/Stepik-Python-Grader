@@ -82,6 +82,17 @@ jobs:
       # логическая версия из scripts/version.py) и коммитит их одним коммитом —
       # без этого шага README хранил бы вручную вписанные числа, которые
       # расходятся с реальностью при каждом изменении тестов/коммите.
+      #
+      # Ретрай (до 3 попыток): два push в main с разницей меньше времени
+      # прогона CI запускают этот шаг дважды параллельно — второй из них видит
+      # чужой уже запушенный бейдж-коммит и падает на `git pull --rebase`
+      # конфликтом в .github/badges/*.json (само по себе безобидно: конфликт
+      # ловится ДО push, main не портится, но job краснеет). При конфликте —
+      # abort rebase, сброс на свежий origin/main и пересчёт бейджей заново
+      # (после сброса они обычно уже совпадают с тем, что запушил конкурент,
+      # и шаг мирно завершается на "Badges unchanged"). Итоговая неудача после
+      # 3 попыток — не fatal (::warning::, не ::error::): бейджи досчитает
+      # следующий push, а не быть источником ложно-красного CI из-за гонки.
       - name: Update badges (main only)
         if: |
           github.event_name == 'push' &&
@@ -89,18 +100,30 @@ jobs:
           matrix.python-version == '3.12' &&
           matrix.experimental == false
         run: |
-          python scripts/generate_coverage_badge.py
-          python scripts/generate_version_badge.py
-          if git diff --quiet -- .github/badges/; then
-            echo "Badges unchanged."
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            python scripts/generate_coverage_badge.py
+            python scripts/generate_version_badge.py
+            if git diff --quiet -- .github/badges/; then
+              echo "Badges unchanged."
+              break
+            fi
             git add .github/badges/
             git commit -m "chore(ci): update badges [skip ci]"
-            git pull --rebase origin main
-            git push origin HEAD:main
-          fi
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "Badges pushed (attempt $attempt)."
+              break
+            fi
+            git rebase --abort 2>/dev/null || true
+            git reset --hard origin/main
+            if [ "$attempt" = 3 ]; then
+              echo "::warning::Badge update push raced with a concurrent update and failed after 3 attempts — a later push will catch it up."
+            else
+              echo "Attempt $attempt: badge push raced with a concurrent update — retrying."
+              sleep $((attempt * 5))
+            fi
+          done
 
   # issue #263: Playwright e2e smoke tests for the web UI (--serve) -- 4 user
   # journeys (mode 2 folder grading, mode 1 file picker + editable window,
