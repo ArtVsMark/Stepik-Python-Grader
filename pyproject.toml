@@ -65,8 +65,10 @@ version_scheme = "post-release"
 # помечает всё дерево stepik_grader как типизированное.
 # issue #144: JSON-локали (core/locales/*.json) — иначе не попадут в wheel/sdist.
 # issue #125: web/static/* (index.html/app.css/app.js) — та же причина.
+# issue #260: web/static/fonts/* — "web/static/*" не рекурсивный (не матчит
+# подпапку), поэтому шрифты (woff2 + LICENSE) нужны отдельным паттерном.
 [tool.setuptools.package-data]
-stepik_grader = ["py.typed", "core/locales/*.json", "web/static/*"]
+stepik_grader = ["py.typed", "core/locales/*.json", "web/static/*", "web/static/fonts/*"]
 
 [tool.ruff]
 line-length = 100

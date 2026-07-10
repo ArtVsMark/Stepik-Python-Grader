@@ -9,7 +9,35 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Changed
+- Web UI fonts (JetBrains Mono/Inter) are now vendored locally instead of
+  loaded from the Google Fonts CDN (`fonts.googleapis.com`/
+  `fonts.gstatic.com`), issue #260: `static/index.html`'s CDN `<link>`s are
+  gone, `app.css` declares local `@font-face` rules (latin + cyrillic
+  subsets, one variable woff2 file per subset covering the full weight
+  range each family needs — Google itself serves the same file for every
+  requested static weight of these two families) pointing at new
+  `static/fonts/*.woff2`, served via a new `_STATIC_BINARY_ROUTES` map in
+  `server.py` (`Content-Type: font/woff2`). Fixes the contradiction with
+  the module's own "no external dependencies" docstring claim, restores a
+  working offline UI (previously degraded to fallback fonts with no
+  network), and stops leaking the fact that the tool is running to a
+  third-party host on every page load. Fonts are OFL 1.1 (`static/fonts/
+  LICENSE`); `pyproject.toml` `package-data` gained a `web/static/fonts/*`
+  entry (`web/static/*` doesn't recurse into subdirectories).
+
 ### Fixed
+- Web API had no limits on request size or numeric query params (issue
+  #259): a `POST` body of unbounded size was read fully into memory before
+  any validation, and `GET /api/grade?mode=bench&repeats=999999999` (or
+  `mode=microbench&number=...`) passed the raw value straight through to
+  the benchmark runner — a single request could burn arbitrary CPU/memory
+  (local DoS). `do_POST` now rejects a `Content-Length` over 1 MiB with
+  `413` (draining a bounded amount of the still-incoming body first —
+  otherwise Windows resets the connection before the client can read the
+  413 response) and a missing/negative/non-numeric `Content-Length` with
+  `400`; `repeats`/`number` are clamped to `[1, 1000]`/`[1, 1_000_000]` via
+  a new `_clamp()` helper instead of passed through unbounded.
 - `config.py::load_config()` resolved `pyproject.toml` relative to the
   installed package's own `__file__` (`src/stepik_grader/` → repo root),
   so a `pipx`/wheel install pointed inside the venv where no

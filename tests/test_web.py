@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import pathlib
+import re
 import threading
 import urllib.error
 import urllib.parse
@@ -602,6 +604,33 @@ class TestHttpHandler:
             assert "javascript" in resp.headers["Content-Type"]
             assert b"function grade" in resp.read()
 
+    # -- static/fonts/*.woff2 (issue #260 — вендоринг вместо Google Fonts CDN) --
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "jetbrains-mono-latin.woff2",
+            "jetbrains-mono-cyrillic.woff2",
+            "inter-latin.woff2",
+            "inter-cyrillic.woff2",
+        ],
+    )
+    def test_static_font_served(self, server: str, name: str) -> None:
+        with urllib.request.urlopen(server + "/static/fonts/" + name, timeout=5) as resp:  # noqa: S310
+            assert resp.status == 200
+            assert resp.headers["Content-Type"] == "font/woff2"
+            body = resp.read()
+            assert body[:4] == b"wOF2"  # WOFF2 magic number
+            assert len(body) > 1000
+
+    def test_index_html_has_no_external_resource_links(self) -> None:
+        """Регрессия issue #260: страница не должна грузить ни один ресурс с
+        внешнего домена (Google Fonts CDN был единственным источником) —
+        только placeholder-текст со ссылкой-примером допустим."""
+        assert "fonts.googleapis.com" not in web._INDEX_HTML
+        assert "fonts.gstatic.com" not in web._INDEX_HTML
+        assert not re.search(r'(?:href|src)="https?://', web._INDEX_HTML)
+
     # -- /api/solutions, /api/source (пикер режима 1, issue #125-fix) --------
 
     def test_api_solutions_lists_files(self, server: str, tmp_path: pathlib.Path) -> None:
@@ -666,6 +695,153 @@ def _post(url: str, body: bytes, headers: dict[str, str] | None = None) -> tuple
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
+
+
+def _post_raw(
+    server: str, path: str, body: bytes = b"", *, content_length: str | None = "__auto__"
+) -> tuple[int, bytes]:
+    """POST with full control over the ``Content-Length`` header.
+
+    ``content_length="__auto__"`` sends the real length of ``body`` (normal
+    case). ``None`` omits the header entirely. Any other string sends that
+    literal value instead — used to test missing/malformed/negative
+    Content-Length (issue #259).
+    """
+    parsed = urllib.parse.urlparse(server)
+    conn = http.client.HTTPConnection(parsed.hostname, parsed.port, timeout=5)
+    try:
+        conn.putrequest("POST", path)
+        conn.putheader("Content-Type", "application/json")
+        if content_length == "__auto__":
+            conn.putheader("Content-Length", str(len(body)))
+        elif content_length is not None:
+            conn.putheader("Content-Length", content_length)
+        conn.endheaders()
+        if body and content_length != "0":
+            conn.send(body)
+        resp = conn.getresponse()
+        return resp.status, resp.read()
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# API input limits — request body size, repeats/number clamps (issue #259)
+# ---------------------------------------------------------------------------
+
+
+class TestApiInputLimits:
+    def test_clamp_helper(self) -> None:
+        from stepik_grader.web.server import _clamp
+
+        assert _clamp(5, 1, 10) == 5
+        assert _clamp(-5, 1, 10) == 1
+        assert _clamp(999, 1, 10) == 10
+
+    def test_post_body_over_limit_is_413(self, server: str, tmp_path: pathlib.Path) -> None:
+        from stepik_grader.web.server import _MAX_BODY_BYTES
+
+        oversized = json.dumps({"folder": str(tmp_path), "code": "x" * (_MAX_BODY_BYTES + 10)})
+        status, body = _post(server + "/api/save-solution", oversized.encode("utf-8"))
+        assert status == 413
+        assert json.loads(body)["ok"] is False
+
+    def test_post_missing_content_length_is_400(self, server: str) -> None:
+        status, body = _post_raw(server, "/api/save-solution", content_length=None)
+        assert status == 400
+        assert json.loads(body)["ok"] is False
+
+    def test_post_non_numeric_content_length_is_400(self, server: str) -> None:
+        status, body = _post_raw(server, "/api/save-solution", content_length="not-a-number")
+        assert status == 400
+        assert json.loads(body)["ok"] is False
+
+    def test_post_negative_content_length_is_400(self, server: str) -> None:
+        status, body = _post_raw(server, "/api/save-solution", content_length="-5")
+        assert status == 400
+        assert json.loads(body)["ok"] is False
+
+    def test_bench_repeats_zero_is_clamped_not_500(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_grade_benchmark(path: str, repeats: int, reference: str | None = None) -> dict:
+            captured["repeats"] = repeats
+            return {"kind": "bench", "mode": "bench", "rows": []}
+
+        monkeypatch.setattr("stepik_grader.web.server.grade_benchmark", fake_grade_benchmark)
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        q = urllib.parse.urlencode({"path": str(sol), "mode": "bench", "repeats": "0"})
+        status, _ = _get(server + "/api/grade?" + q)
+        assert status == 200
+        assert captured["repeats"] == 1
+
+    def test_bench_repeats_huge_is_clamped_not_500(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_grade_benchmark(path: str, repeats: int, reference: str | None = None) -> dict:
+            captured["repeats"] = repeats
+            return {"kind": "bench", "mode": "bench", "rows": []}
+
+        monkeypatch.setattr("stepik_grader.web.server.grade_benchmark", fake_grade_benchmark)
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        q = urllib.parse.urlencode({"path": str(sol), "mode": "bench", "repeats": "999999999"})
+        status, _ = _get(server + "/api/grade?" + q)
+        assert status == 200
+        assert captured["repeats"] == 1000
+
+    def test_microbench_number_negative_is_clamped_not_500(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_grade_microbench(path: str, number: int) -> dict:
+            captured["number"] = number
+            return {"kind": "microbench", "mode": "microbench", "rows": []}
+
+        monkeypatch.setattr("stepik_grader.web.server.grade_microbench", fake_grade_microbench)
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        q = urllib.parse.urlencode({"path": str(sol), "mode": "microbench", "number": "-5"})
+        status, _ = _get(server + "/api/grade?" + q)
+        assert status == 200
+        assert captured["number"] == 1
+
+    def test_microbench_number_huge_is_clamped_not_500(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_grade_microbench(path: str, number: int) -> dict:
+            captured["number"] = number
+            return {"kind": "microbench", "mode": "microbench", "rows": []}
+
+        monkeypatch.setattr("stepik_grader.web.server.grade_microbench", fake_grade_microbench)
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        q = urllib.parse.urlencode(
+            {"path": str(sol), "mode": "microbench", "number": "99999999999"}
+        )
+        status, _ = _get(server + "/api/grade?" + q)
+        assert status == 200
+        assert captured["number"] == 1_000_000
+
+    def test_bench_repeats_non_numeric_uses_default(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_grade_benchmark(path: str, repeats: int, reference: str | None = None) -> dict:
+            captured["repeats"] = repeats
+            return {"kind": "bench", "mode": "bench", "rows": []}
+
+        monkeypatch.setattr("stepik_grader.web.server.grade_benchmark", fake_grade_benchmark)
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        q = urllib.parse.urlencode({"path": str(sol), "mode": "bench", "repeats": "abc"})
+        status, _ = _get(server + "/api/grade?" + q)
+        assert status == 200
+        assert captured["repeats"] == 15  # default, within range
 
 
 # ---------------------------------------------------------------------------
