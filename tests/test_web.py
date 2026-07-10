@@ -519,9 +519,13 @@ def server(tmp_path: pathlib.Path):
     thread.join(timeout=5)
 
 
-def _get(url: str) -> tuple[int, bytes]:
-    with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310 (localhost only)
-        return resp.status, resp.read()
+def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
+    req = urllib.request.Request(url, headers=headers or {})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read()
 
 
 class TestHttpHandler:
@@ -581,9 +585,8 @@ class TestHttpHandler:
         assert b"__DEFAULT_PATH__" not in body
 
     def test_unknown_path_404(self, server: str) -> None:
-        with pytest.raises(urllib.error.HTTPError) as exc:
-            _get(server + "/nope")
-        assert exc.value.code == 404
+        status, _ = _get(server + "/nope")
+        assert status == 404
 
     # -- static routes (issue #125 — JS/CSS extracted from _INDEX_HTML) ------
 
@@ -653,14 +656,79 @@ class TestHttpHandler:
         assert status == 400
 
 
-def _post(url: str, body: bytes) -> tuple[int, bytes]:
+def _post(url: str, body: bytes, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
     req = urllib.request.Request(url, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
+    for name, value in (headers or {}).items():
+        req.add_header(name, value)
     try:
         with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
+
+
+# ---------------------------------------------------------------------------
+# Host/Origin/Referer guard for /api/* (issue #242, F-03)
+# ---------------------------------------------------------------------------
+
+
+class TestApiHostOriginGuard:
+    def test_wrong_host_header_is_rejected(self, server: str) -> None:
+        status, body = _get(server + "/api/grade", headers={"Host": "evil.example"})
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_localhost_host_header_is_allowed(self, server: str) -> None:
+        """``Host: localhost:<port>`` — точное значение хоста, к которому шёл коннект,
+        для guard'а не важно (проверяется только hostname)."""
+        port = urllib.parse.urlparse(server).port
+        status, _ = _get(server + "/api/grade", headers={"Host": f"localhost:{port}"})
+        assert status == 200
+
+    def test_cross_origin_get_is_rejected(self, server: str) -> None:
+        status, body = _get(server + "/api/grade", headers={"Origin": "http://evil.example"})
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_matching_origin_is_allowed(self, server: str, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        status, _ = _get(
+            server + "/api/grade?path=" + urllib.parse.quote(str(sol)),
+            headers={"Origin": server},
+        )
+        assert status == 200
+
+    def test_no_origin_or_referer_is_allowed(self, server: str) -> None:
+        """Отсутствие Origin/Referer вообще (curl, тесты) не блокируется —
+        только несовпадающее значение."""
+        status, _ = _get(server + "/api/grade")
+        assert status == 200
+
+    def test_cross_site_referer_on_post_is_rejected(self, server: str) -> None:
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps({"folder": "x", "code": "print(1)\n"}).encode("utf-8"),
+            headers={"Referer": "http://evil.example/attack.html"},
+        )
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_matching_referer_on_post_is_allowed(self, server: str, tmp_path: pathlib.Path) -> None:
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps({"folder": str(tmp_path), "code": "print(1)\n"}).encode("utf-8"),
+            headers={"Referer": server + "/"},
+        )
+        assert status == 200
+        assert json.loads(body)["ok"] is True
+
+    def test_index_and_static_are_not_guarded(self, server: str) -> None:
+        """`/` и `/static/*` не относятся к `/api/*` — guard их не трогает."""
+        status, _ = _get(server + "/", headers={"Origin": "http://evil.example"})
+        assert status == 200
+        status, _ = _get(server + "/static/app.css", headers={"Host": "evil.example"})
+        assert status == 200
 
 
 # ---------------------------------------------------------------------------
