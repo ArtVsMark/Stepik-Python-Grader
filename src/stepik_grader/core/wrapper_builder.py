@@ -49,15 +49,19 @@ def _build_function_wrapper(solution_path: str, input_data: str, function_name: 
         raise ValueError(f"Invalid module filename stem for code generation: {module_stem!r}")
 
     # repr() безопасно интерполирует путь (включая Windows-бэкслеши и спецсимволы).
+    # Стандартные импорты — ДО sys.path.insert: иначе одноимённый файл рядом с
+    # решением (например, datetime.py) окажется первым в sys.path и перекроет
+    # настоящий stdlib-модуль (issue #244, F-05).
     return f"""import sys
 import pathlib
 import inspect
-sys.path.insert(0, str(pathlib.Path({abs_path!r}).parent))
 
 # Стандартные импорты, которые могут быть нужны в input_data
 from datetime import date, time, datetime, timedelta
 from decimal import Decimal
 from fractions import Fraction
+
+sys.path.insert(0, str(pathlib.Path({abs_path!r}).parent))
 
 # Импортируем функцию из файла решения
 from {module_stem} import {safe_func}

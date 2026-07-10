@@ -9,6 +9,9 @@ regressions surface immediately.
 from __future__ import annotations
 
 import pathlib
+import subprocess
+import sys
+import tempfile
 import warnings
 
 import pytest
@@ -277,6 +280,55 @@ def test_build_function_wrapper_rejects_invalid_module_stem(tmp_path: pathlib.Pa
 
     with pytest.raises(ValueError, match="Invalid module filename stem"):
         grader._build_function_wrapper(str(sol), "x = 1", "solve")
+
+
+def test_build_function_wrapper_imports_stdlib_before_sys_path_insert(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Stdlib-импорты должны стоять раньше sys.path.insert в сгенерированном
+    исходнике — иначе одноимённый файл рядом с решением (напр. datetime.py)
+    окажется первым в sys.path и перекроет настоящий stdlib-модуль
+    (issue #244, F-05)."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
+
+    src = grader._build_function_wrapper(str(sol), "x = 1", "solve")
+
+    import_idx = src.index("from datetime import")
+    path_insert_idx = src.index("sys.path.insert")
+    assert import_idx < path_insert_idx
+
+
+def test_build_function_wrapper_not_shadowed_by_local_datetime_module(
+    tmp_path: pathlib.Path,
+) -> None:
+    """End-to-end: с локальным datetime.py рядом с решением сгенерированный
+    wrapper всё равно использует настоящий stdlib datetime (issue #244, F-05
+    regression). Wrapper пишется вне solution dir — как и в продовом коде
+    (``run_single_test`` использует ``tempfile.NamedTemporaryFile()``,
+    системный temp, а не папку решения) — поэтому даже Python-овская
+    авто-вставка директории скрипта в ``sys.path[0]`` не совпадает с
+    solution dir; проверяем именно наш явный ``sys.path.insert`` порядок."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def solve(d):\n    return d.year\n", encoding="utf-8")
+    (tmp_path / "datetime.py").write_text(
+        "raise ImportError('shadowed by local datetime.py')\n", encoding="utf-8"
+    )
+
+    src = grader._build_function_wrapper(str(sol), "d = date(2024, 1, 1)", "solve")
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as wf:
+        wf.write(src)
+        wrapper_path = wf.name
+    try:
+        result = subprocess.run(
+            [sys.executable, wrapper_path], capture_output=True, text=True, timeout=10
+        )
+    finally:
+        pathlib.Path(wrapper_path).unlink(missing_ok=True)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "2024"
 
 
 def test_run_single_test_reports_re_for_invalid_function_name(tmp_path: pathlib.Path):

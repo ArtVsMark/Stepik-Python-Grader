@@ -221,6 +221,15 @@
   effectively a no-op there and the file's protection stays whatever the
   user's profile directory already provides (issue #243, security audit
   finding F-04, part of #149/#146/#97).
+- **Security (Low):** `core/wrapper_builder.py::_build_function_wrapper()`
+  (legacy function-mode wrapper) now imports `datetime`/`decimal`/`fractions`
+  before `sys.path.insert(0, <solution dir>)` instead of after. Previously a
+  same-named file next to the solution (e.g. a stray `datetime.py`) would
+  land first in `sys.path` and shadow the real stdlib module once the
+  wrapper's own `from datetime import ...` ran, breaking (or worse, silently
+  altering) any test case whose input relies on that stdlib type. The other
+  wrapper builder, `_build_call_wrapper()`, already did this correctly
+  (issue #244, security audit finding F-05, part of #136/#97).
 
 ### Refactored
 - `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).
