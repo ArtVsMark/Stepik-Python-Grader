@@ -34,6 +34,7 @@ import argparse
 import pathlib
 
 from stepik_grader.cli.context import CliContext
+from stepik_grader.config import CONFIG
 from stepik_grader.core.grader_core import collect_grouped_files, find_all_solution_files
 
 __all__ = [
@@ -198,13 +199,19 @@ def _interactive_menu(ctx: CliContext) -> None:
         print(ctx.t("goodbye"))
         return
 
+    # issue #268: интерактивное меню не проходит через argparse, поэтому
+    # --stats/--no-stats недоступны — читаем [tool.stepik-grader] record_stats
+    # из CONFIG напрямую, в отличие от use_cache (у кэша в меню нет тумблера
+    # вовсе, см. ctx.run_mode_N вызовы ниже без use_cache).
+    record_stats = CONFIG.record_stats
+
     if choice == "1":
         solution = _prompt_path(ctx, "enter_solution_path", want_dir=False)
-        ctx.run_mode_1(solution)
+        ctx.run_mode_1(solution, record_stats=record_stats)
 
     elif choice == "2":
         directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-        ctx.run_mode_2(directory)
+        ctx.run_mode_2(directory, record_stats=record_stats)
 
     elif choice == "3":
         directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
@@ -219,7 +226,7 @@ def _interactive_menu(ctx: CliContext) -> None:
             print(ctx.t("no_solutions_found"))
             return
         repeats = ctx.ask_bench_profile()
-        ctx.run_mode_3(directory, repeats)
+        ctx.run_mode_3(directory, repeats, record_stats=record_stats)
 
     elif choice == "4":
         directory = _prompt_path(ctx, "enter_folder_with_solutions_path", want_dir=True)
@@ -230,7 +237,7 @@ def _interactive_menu(ctx: CliContext) -> None:
             print(ctx.t("no_solutions_found"))
             return
         number = ctx.ask_micro_profile()
-        ctx.run_mode_4(directory, number)
+        ctx.run_mode_4(directory, number, record_stats=record_stats)
 
     else:
         print(ctx.t("unknown_choice"))

@@ -745,6 +745,106 @@ class TestEntrypointSideEffectFlags:
 
 
 # ---------------------------------------------------------------------------
+# Verdict-tally helpers (issue #268) — pure functions, tested directly rather
+# than only through the cli.main()/_run_mode_N facade.
+# ---------------------------------------------------------------------------
+
+
+class TestVerdictTallyHelpers:
+    def test_counts_from_cases_uses_verdict_field(self) -> None:
+        from stepik_grader.cli import commands
+
+        cases = [
+            {"verdict": "AC", "passed": True},
+            {"verdict": "AC", "passed": True},
+            {"verdict": "WA", "passed": False},
+            {"verdict": "RE", "passed": False},
+        ]
+        assert commands._verdict_counts_from_cases(cases) == {"AC": 2, "WA": 1, "RE": 1}
+
+    def test_counts_from_cases_falls_back_to_passed_when_verdict_missing(self) -> None:
+        from stepik_grader.cli import commands
+
+        cases = [{"passed": True}, {"passed": False}]
+        assert commands._verdict_counts_from_cases(cases) == {"AC": 1, "WA": 1}
+
+    def test_counts_from_bench_uses_verdict_field(self) -> None:
+        from stepik_grader.cli import commands
+
+        results = {
+            "a.py": {"verdict": "SIMILAR"},
+            "b.py": {"verdict": "SLOWER"},
+            "c.py": {"verdict": "SIMILAR"},
+        }
+        assert commands._verdict_counts_from_bench(results) == {"SIMILAR": 2, "SLOWER": 1}
+
+    def test_counts_from_bench_maps_error_entries_to_err(self) -> None:
+        from stepik_grader.cli import commands
+
+        results = {"a.py": {"verdict": "SIMILAR"}, "b.py": {"error": "no test cases"}}
+        assert commands._verdict_counts_from_bench(results) == {"SIMILAR": 1, "ERR": 1}
+
+
+# ---------------------------------------------------------------------------
+# --stats / --no-stats / --stats-summary (issue #268)
+# ---------------------------------------------------------------------------
+
+
+class TestStatsFlags:
+    def test_stats_summary_no_data_prints_message_and_exits(
+        self, monkeypatch, capsys, tmp_path
+    ) -> None:
+        real = cli.stats.read_summary
+        monkeypatch.setattr(
+            cli.stats,
+            "read_summary",
+            lambda: real(stats_path=tmp_path / "does-not-exist.jsonl"),
+        )
+        cli.main(["--stats-summary", "--lang", "en"])
+        out = capsys.readouterr().out
+        assert "No data" in out
+
+    def test_stats_summary_with_data_prints_table(self, monkeypatch, capsys, tmp_path) -> None:
+        stats_path = tmp_path / ".grader_stats.jsonl"
+        real = cli.stats.read_summary
+        cli.stats.record_run(1, {"AC": 1}, 0.5, stats_path=stats_path)
+        monkeypatch.setattr(cli.stats, "read_summary", lambda: real(stats_path=stats_path))
+        cli.main(["--stats-summary"])
+        out = capsys.readouterr().out
+        assert "Total runs" in out
+        assert "1" in out
+
+    def test_mode_1_stats_flag_threads_record_stats_true(self, monkeypatch, tmp_path) -> None:
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        calls = []
+        monkeypatch.setattr(cli, "_run_mode_1", lambda *a, **k: calls.append(k.get("record_stats")))
+        cli.main(["--mode", "1", "--file", str(sol), "--stats"])
+        assert calls == [True]
+
+    def test_mode_1_no_stats_flag_threads_record_stats_false(self, monkeypatch, tmp_path) -> None:
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        calls = []
+        monkeypatch.setattr(cli, "_run_mode_1", lambda *a, **k: calls.append(k.get("record_stats")))
+        cli.main(["--mode", "1", "--file", str(sol), "--no-stats"])
+        assert calls == [False]
+
+    def test_mode_1_default_uses_config_record_stats(self, monkeypatch, tmp_path) -> None:
+        import types
+
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n", encoding="utf-8")
+        monkeypatch.setattr(
+            cli.options, "CONFIG", types.SimpleNamespace(record_stats=True, use_cache=False)
+        )
+        calls = []
+        monkeypatch.setattr(cli, "_run_mode_1", lambda *a, **k: calls.append(k.get("record_stats")))
+        cli.main(["--mode", "1", "--file", str(sol)])
+        assert calls == [True]
+
+
+# ---------------------------------------------------------------------------
 # Facade namespace contract (issue #117/#118)
 #
 # Каждый monkeypatch.setattr(cli, "_name", ...) в этом файле полагается на

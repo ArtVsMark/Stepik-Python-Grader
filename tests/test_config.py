@@ -25,6 +25,7 @@ def test_grader_config_defaults() -> None:
     assert cfg.glossary_store is None
     assert cfg.glossary_missing_queue == ".grader_glossary_missing.json"
     assert cfg.job_workers == 2
+    assert cfg.record_stats is False
 
 
 def test_grader_config_is_frozen() -> None:
@@ -209,6 +210,7 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "glossary_store",
         "glossary_missing_queue",
         "job_workers",
+        "record_stats",
     }
 
 

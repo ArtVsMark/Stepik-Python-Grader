@@ -38,3 +38,4 @@ t.py
 .stepik_cache/
 .grader_cache/
 .grader_glossary_missing.json
+.grader_stats.jsonl

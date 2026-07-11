@@ -62,6 +62,7 @@ from stepik_grader.cli.interactive import (  # noqa: F401
 from stepik_grader.cli.options import (
     _build_arg_parser,
     _force_utf8_stdio,
+    _resolve_record_stats,
     _resolve_use_cache,
     _resolve_verbosity,
 )
@@ -76,6 +77,7 @@ from stepik_grader.cli.rendering import (  # noqa: F401
     _rows_to_csv,
     _rows_to_markdown,
 )
+from stepik_grader.core import stats
 from stepik_grader.core.cache import GraderCache
 from stepik_grader.core.grader_core import (
     resolve_test_dir,
@@ -84,6 +86,7 @@ from stepik_grader.core.grader_core import (
     run_tests,
 )
 from stepik_grader.core.i18n import load_locale_messages
+from stepik_grader.core.reporter import print_stats_summary
 
 __all__ = ["main"]
 
@@ -282,6 +285,17 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "ru": "🗑 Кэш очищен: удалено записей — {count}.",
         "en": "🗑 Cache cleared: {count} entries removed.",
     },
+    # issue #268: opt-in статистика запусков (--stats / --stats-summary).
+    "stats_no_data": {
+        "ru": (
+            "Нет данных — статистика выключена (--stats/[tool.stepik-grader] "
+            "record_stats) или ещё не накопилась."
+        ),
+        "en": (
+            "No data — stats recording is off (--stats/[tool.stepik-grader] "
+            "record_stats) or hasn't accumulated yet."
+        ),
+    },
     "watch_dependency_missing": {
         "ru": ('--watch требует пакет watchfiles: pip install "stepik-grader[watch]"'),
         "en": ('--watch requires the watchfiles package: pip install "stepik-grader[watch]"'),
@@ -405,31 +419,59 @@ def _build_cli_context() -> CliContext:
 
 
 def _run_mode_1(
-    solution: str, *, verbose: bool = True, output: str = "text", use_cache: bool = False
+    solution: str,
+    *,
+    verbose: bool = True,
+    output: str = "text",
+    use_cache: bool = False,
+    record_stats: bool = False,
 ) -> None:
     """Режим 1: проверить одно решение (verbose). Тонкая обёртка над commands._run_mode_1."""
     commands._run_mode_1(
-        _build_cli_context(), solution, verbose=verbose, output=output, use_cache=use_cache
+        _build_cli_context(),
+        solution,
+        verbose=verbose,
+        output=output,
+        use_cache=use_cache,
+        record_stats=record_stats,
     )
 
 
 def _run_mode_2(
-    directory: str, *, verbose: bool = False, output: str = "text", use_cache: bool = False
+    directory: str,
+    *,
+    verbose: bool = False,
+    output: str = "text",
+    use_cache: bool = False,
+    record_stats: bool = False,
 ) -> None:
     """Режим 2: проверить все решения в папке. Тонкая обёртка над commands._run_mode_2."""
     commands._run_mode_2(
-        _build_cli_context(), directory, verbose=verbose, output=output, use_cache=use_cache
+        _build_cli_context(),
+        directory,
+        verbose=verbose,
+        output=output,
+        use_cache=use_cache,
+        record_stats=record_stats,
     )
 
 
-def _run_mode_3(directory: str, repeats: int, *, output: str = "text") -> None:
+def _run_mode_3(
+    directory: str, repeats: int, *, output: str = "text", record_stats: bool = False
+) -> None:
     """Режим 3: subprocess-бенчмарк папки. Тонкая обёртка над commands._run_mode_3."""
-    commands._run_mode_3(_build_cli_context(), directory, repeats, output=output)
+    commands._run_mode_3(
+        _build_cli_context(), directory, repeats, output=output, record_stats=record_stats
+    )
 
 
-def _run_mode_4(directory: str, number: int, *, output: str = "text") -> None:
+def _run_mode_4(
+    directory: str, number: int, *, output: str = "text", record_stats: bool = False
+) -> None:
     """Режим 4: timeit micro-bench папки. Тонкая обёртка над commands._run_mode_4."""
-    commands._run_mode_4(_build_cli_context(), directory, number, output=output)
+    commands._run_mode_4(
+        _build_cli_context(), directory, number, output=output, record_stats=record_stats
+    )
 
 
 def _pick_path_via_dialog(*, want_dir: bool) -> str | None:
@@ -525,6 +567,14 @@ def main(argv: list[str] | None = None) -> None:
         print(_t("cache_cleared", count=removed))
         return
 
+    if args.stats_summary:
+        summary = stats.read_summary()
+        if summary["total_runs"] == 0:
+            print(_t("stats_no_data"))
+        else:
+            print_stats_summary(summary)
+        return
+
     if args.init_vscode:
         from stepik_grader import ide
 
@@ -543,6 +593,8 @@ def main(argv: list[str] | None = None) -> None:
         _interactive_menu()
         return
 
+    record_stats = _resolve_record_stats(args)
+
     if args.mode == 1:
         if not args.file:
             args.file = _resolve_cli_path_or_error(parser, args, want_dir=False, flag="--file")
@@ -554,11 +606,21 @@ def main(argv: list[str] | None = None) -> None:
             _watch_and_rerun(
                 args.file,
                 lambda: _run_mode_1(
-                    args.file, verbose=verbose, output=args.output, use_cache=use_cache
+                    args.file,
+                    verbose=verbose,
+                    output=args.output,
+                    use_cache=use_cache,
+                    record_stats=record_stats,
                 ),
             )
         else:
-            _run_mode_1(args.file, verbose=verbose, output=args.output, use_cache=use_cache)
+            _run_mode_1(
+                args.file,
+                verbose=verbose,
+                output=args.output,
+                use_cache=use_cache,
+                record_stats=record_stats,
+            )
     elif args.mode == 2:
         if not args.dir:
             args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
@@ -570,20 +632,30 @@ def main(argv: list[str] | None = None) -> None:
             _watch_and_rerun(
                 args.dir,
                 lambda: _run_mode_2(
-                    args.dir, verbose=verbose, output=args.output, use_cache=use_cache
+                    args.dir,
+                    verbose=verbose,
+                    output=args.output,
+                    use_cache=use_cache,
+                    record_stats=record_stats,
                 ),
             )
         else:
-            _run_mode_2(args.dir, verbose=verbose, output=args.output, use_cache=use_cache)
+            _run_mode_2(
+                args.dir,
+                verbose=verbose,
+                output=args.output,
+                use_cache=use_cache,
+                record_stats=record_stats,
+            )
     elif args.mode == 3:
         if args.watch:
             parser.error("--watch is only supported for --mode 1/2")
         if not args.dir:
             args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
-        _run_mode_3(args.dir, args.repeats, output=args.output)
+        _run_mode_3(args.dir, args.repeats, output=args.output, record_stats=record_stats)
     elif args.mode == 4:
         if args.watch:
             parser.error("--watch is only supported for --mode 1/2")
         if not args.dir:
             args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
-        _run_mode_4(args.dir, args.number, output=args.output)
+        _run_mode_4(args.dir, args.number, output=args.output, record_stats=record_stats)

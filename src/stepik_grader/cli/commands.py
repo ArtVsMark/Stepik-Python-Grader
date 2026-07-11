@@ -29,6 +29,7 @@ import pathlib
 from typing import Any
 
 from stepik_grader.cli.context import CliContext
+from stepik_grader.core import stats
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
@@ -45,12 +46,38 @@ from stepik_grader.core.reporter import (
     rich_track,
 )
 
+
+def _verdict_counts_from_cases(cases: list[dict[str, Any]]) -> dict[str, int]:
+    """Тальи вердиктов кейсов для режимов 1/2 (issue #268 — статистика)."""
+    counts: dict[str, int] = {}
+    for c in cases:
+        verdict = c.get("verdict") or ("AC" if c.get("passed") else "WA")
+        counts[verdict] = counts.get(verdict, 0) + 1
+    return counts
+
+
+def _verdict_counts_from_bench(results: dict[str, dict[str, Any]]) -> dict[str, int]:
+    """Тальи вердиктов решений для режимов 3/4 (issue #268 — статистика).
+
+    Ошибочные решения (``error`` вместо ``verdict``) считаются как ``ERR`` —
+    та же метка, что уже использует UI веб-слоя для строк с ошибкой.
+    """
+    counts: dict[str, int] = {}
+    for data in results.values():
+        verdict = "ERR" if data.get("error") else data.get("verdict")
+        if verdict:
+            counts[verdict] = counts.get(verdict, 0) + 1
+    return counts
+
+
 __all__ = [
     "_run_mode_1",
     "_run_mode_2",
     "_run_mode_3",
     "_run_mode_4",
     "_run_tests_maybe_cached",
+    "_verdict_counts_from_cases",
+    "_verdict_counts_from_bench",
 ]
 
 
@@ -94,6 +121,7 @@ def _run_mode_1(
     verbose: bool = True,
     output: str = "text",
     use_cache: bool = False,
+    record_stats: bool = False,
 ) -> None:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1."""
     if not pathlib.Path(solution).is_file():
@@ -119,6 +147,9 @@ def _run_mode_1(
         cache.save()
     if from_cache and output == "text":
         print(ctx.t("cache_hit"))
+
+    if record_stats:
+        stats.record_run(1, _verdict_counts_from_cases(result["cases"]), result["total_time"])
 
     if output == "json":
         print(json.dumps({"file": solution, **result}, ensure_ascii=False))
@@ -151,6 +182,7 @@ def _run_mode_2(
     verbose: bool = False,
     output: str = "text",
     use_cache: bool = False,
+    record_stats: bool = False,
 ) -> None:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2."""
     if not pathlib.Path(directory).is_dir():
@@ -185,6 +217,11 @@ def _run_mode_2(
     if cache is not None:
         cache.save()
 
+    if record_stats:
+        all_cases = [c for _, result in rows for c in result["cases"]]
+        total_time = sum(result["total_time"] for _, result in rows)
+        stats.record_run(2, _verdict_counts_from_cases(all_cases), total_time)
+
     if output == "json":
         print(json.dumps({"results": dict(rows)}, ensure_ascii=False))
         return
@@ -209,7 +246,14 @@ def _run_mode_2(
         print(ctx.t("cache_summary", hits=cache_hits, total=len(rows)))
 
 
-def _run_mode_3(ctx: CliContext, directory: str, repeats: int, *, output: str = "text") -> None:
+def _run_mode_3(
+    ctx: CliContext,
+    directory: str,
+    repeats: int,
+    *,
+    output: str = "text",
+    record_stats: bool = False,
+) -> None:
     """Режим 3: subprocess-бенчмарк папки. Общий код для меню и --mode 3."""
     if not pathlib.Path(directory).is_dir():
         print(ctx.t("dir_not_found", path=directory))
@@ -237,6 +281,13 @@ def _run_mode_3(ctx: CliContext, directory: str, repeats: int, *, output: str = 
         similar_threshold=SIMILAR_THRESHOLD,
         much_slower_threshold=MUCH_SLOWER_THRESHOLD,
     )
+
+    if record_stats:
+        # Bench-данные не несут единого "total_time" на решение (только
+        # min/median/mean/max/stdev за один прогон + число прогонов) --
+        # mean × runs — приближённая оценка суммарного времени решения.
+        total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
+        stats.record_run(3, _verdict_counts_from_bench(results), total_time)
 
     if output == "json":
         print(json.dumps({"results": results}, ensure_ascii=False))
@@ -287,7 +338,14 @@ _MODE4_FIELDS = [
 ]
 
 
-def _run_mode_4(ctx: CliContext, directory: str, number: int, *, output: str = "text") -> None:
+def _run_mode_4(
+    ctx: CliContext,
+    directory: str,
+    number: int,
+    *,
+    output: str = "text",
+    record_stats: bool = False,
+) -> None:
     """Режим 4: timeit micro-bench папки. Общий код для меню и --mode 4."""
     if not pathlib.Path(directory).is_dir():
         print(ctx.t("dir_not_found", path=directory))
@@ -302,6 +360,7 @@ def _run_mode_4(ctx: CliContext, directory: str, number: int, *, output: str = "
     json_results: dict[str, dict[str, Any]] = {}
     table_rows: list[dict[str, Any]] = []
     printed_table = False
+    all_bench_results: dict[str, dict[str, Any]] = {}
 
     for folder, paths in sorted(grouped.items()):
         if folder != ".":
@@ -328,6 +387,7 @@ def _run_mode_4(ctx: CliContext, directory: str, number: int, *, output: str = "
             continue
 
         bench = ctx.run_microbench_mode(sorted(paths), test_dir, number=number)
+        all_bench_results.update(bench)
 
         if not bench:
             if output == "json":
@@ -365,6 +425,10 @@ def _run_mode_4(ctx: CliContext, directory: str, number: int, *, output: str = "
 
         if not ok_rows and not any(v.get("error") for v in bench.values()):
             print(ctx.t("no_results"))
+
+    if record_stats and all_bench_results:
+        total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in all_bench_results.values())
+        stats.record_run(4, _verdict_counts_from_bench(all_bench_results), total_time)
 
     if output == "json":
         print(json.dumps({"groups": json_results}, ensure_ascii=False))

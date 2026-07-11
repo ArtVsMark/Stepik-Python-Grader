@@ -52,6 +52,10 @@ class GraderConfig:
     # два параллельных job'а не сериализовались в один поток, не вводя
     # неограниченного параллелизма subprocess-запусков на локальной машине.
     job_workers: int = 2
+    # issue #268 — opt-in локальная статистика запусков (.grader_stats.jsonl,
+    # core/stats.py): режимы/вердикты/ОС, без сети. По умолчанию выключена —
+    # включается --stats/--no-stats (приоритет) или этим полем.
+    record_stats: bool = False
 
 
 def _find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path | None:
