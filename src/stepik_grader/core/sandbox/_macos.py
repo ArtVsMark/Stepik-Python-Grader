@@ -60,14 +60,33 @@ def _quote_sb_path(path: str) -> str:
     return path.replace("\\", "\\\\").replace('"', '\\"')
 
 
+_SYSTEM_READ_SUBPATHS = (
+    # dyld/loader и системные библиотеки/фреймворки -- без них падает уже сам
+    # запуск интерпретатора (dyld не может слинковать libSystem и т.п.),
+    # ДО первой строчки кода решения: подтверждено вручную (CI: даже
+    # тривиальный print('hello') падал с SIGABRT без этих правил).
+    "/usr/lib",
+    "/System/Library",
+    "/private/var/db/dyld",
+)
+
+
 def _build_profile(run_dir: Path) -> str:
     read_subpaths = "\n".join(
         f'(allow file-read* (subpath "{_quote_sb_path(p)}"))' for p in _python_tree_paths()
     )
-    run_dir_q = _quote_sb_path(str(run_dir))
+    system_subpaths = "\n".join(
+        f'(allow file-read* (subpath "{_quote_sb_path(p)}"))' for p in _SYSTEM_READ_SUBPATHS
+    )
+    run_dir_q = _quote_sb_path(str(run_dir.resolve()))
     return f"""(version 1)
 (deny default)
 (allow process-exec)
+(allow process-fork)
+(allow sysctl-read)
+(allow mach-lookup)
+(allow file-read* (subpath "/dev"))
+{system_subpaths}
 {read_subpaths}
 (allow file-read* file-write* (subpath "{run_dir_q}"))
 (allow file-read-metadata (subpath "/"))
