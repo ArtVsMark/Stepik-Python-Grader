@@ -80,6 +80,30 @@ def _make_testcase(
 
 
 # ---------------------------------------------------------------------------
+# set_runner — Runner injection point (issue #266)
+# ---------------------------------------------------------------------------
+
+
+class TestSetRunner:
+    def test_replaces_active_runner(self, monkeypatch) -> None:
+        from stepik_grader.core import grader_core
+
+        original = grader_core._RUNNER
+        try:
+            fake = object()
+            grader_core.set_runner(fake)  # type: ignore[arg-type]
+            assert grader_core._RUNNER is fake
+        finally:
+            grader_core.set_runner(original)
+
+    def test_default_is_local_runner(self) -> None:
+        from stepik_grader.core import grader_core
+        from stepik_grader.core.runner import LocalRunner
+
+        assert isinstance(grader_core._RUNNER, LocalRunner)
+
+
+# ---------------------------------------------------------------------------
 # run_single_test — stdin mode
 # ---------------------------------------------------------------------------
 
@@ -195,6 +219,31 @@ class TestRunSingleTestStdin:
         assert result["verdict"] == "CANCELLED"
         assert result["timed_out"] is False
         assert result["error"] != ""
+
+    def test_sandbox_violation_verdict(self, tmp_path: pathlib.Path, monkeypatch) -> None:
+        """SandboxRunner (issue #266) sets RunOutcome.sandbox_violation --
+        must map to a distinct SANDBOX_VIOLATION verdict, not RE/TLE. Uses a
+        stub Runner (no real sandbox backend needed at this layer -- this
+        tests grader_core's own interpretation of the field)."""
+        from stepik_grader.core import grader_core
+        from stepik_grader.core.runner import RunOutcome
+
+        class _StubSandboxRunner:
+            def run(self, spec):
+                return RunOutcome(sandbox_violation="memory", elapsed=1.5, peak_memory_mb=512.0)
+
+        monkeypatch.setattr(grader_core, "_RUNNER", _StubSandboxRunner())
+        sol = tmp_path / "task1.py"
+        sol.write_text("print(1)\n")
+        case = _make_testcase()
+
+        result = grader.run_single_test(str(sol), case, measure_memory=False)
+
+        assert result["passed"] is False
+        assert result["verdict"] == "SANDBOX_VIOLATION"
+        assert result["timed_out"] is False
+        assert "memory" in result["error"]
+        assert result["memory"] == 512.0
 
     def test_result_keys_present(self, tmp_path: pathlib.Path) -> None:
         """Словарь результата содержит все ожидаемые ключи."""

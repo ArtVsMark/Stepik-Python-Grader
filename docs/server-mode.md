@@ -73,7 +73,17 @@ grader_core.run_single_test(...)  →  Runner.run(spec) -> RunOutcome
 | Runner | Изоляция | Статус | Где уместен |
 |---|---|---|---|
 | `LocalRunner` | subprocess + таймаут + best-effort лимит памяти (POSIX) | **реализован** (issue #138) | локальный CLI/Web (доверенный код) |
-| `SandboxRunner` | ОС-уровень: неймспейсы/seccomp/квоты, сеть выключена, tmp-каталог | **дизайн, issue #157** | server mode (недоверенный код) |
+| `SandboxRunner` | ОС-уровень: неймспейсы/seccomp/квоты, сеть выключена, tmp-каталог | **дизайн, issue #157**; **локальный MVP реализован, issue #266** (`--sandbox`, `core/sandbox/`) | server mode (недоверенный код) / локальный opt-in CLI |
+
+> **Локальный MVP уже есть (issue #266)** — `core/sandbox/` реализует
+> bubblewrap (Linux) / `sandbox-exec` (macOS) / Job Objects (Windows) за
+> флагом `--sandbox`, тем же паттерном, что async job model (issue #262)
+> выше: покрывает часть требований этого раздела, но **не** заменяет
+> будущий сетевой server mode — работает только локально, без
+> аутентификации/multi-tenancy/очереди. Полная таблица гарантий по ОС
+> (асимметрия — не баг) и явные пробелы (нет сетевой изоляции на Windows,
+> нет строгой ФС-изоляции на Windows, nsjail-fallback на Linux не
+> реализован) — [SECURITY.md § `--sandbox`](../SECURITY.md#--sandbox--sandboxrunner-mvp-issue-266).
 
 **Границы `SandboxRunner` (что он гарантирует, а что нет):**
 
@@ -84,14 +94,23 @@ grader_core.run_single_test(...)  →  Runner.run(spec) -> RunOutcome
   полная защита от эскалации ядра (это ответственность выбранного механизма
   изоляции — контейнер/VM), корректность самих тест-кейсов.
 
-**Ограничения на Windows.** ОС-уровневые механизмы, на которые опирается
-`SandboxRunner` (неймспейсы, seccomp, `resource`-квоты, `SIGALRM`), — POSIX-специфичны
-и на Windows недоступны. Уже сегодня `LocalRunner`-путь на Windows слабее: точного
+**Ограничения на Windows (обновлено issue #266).** Изначально этот раздел
+предполагал, что POSIX-специфичные механизмы (неймспейсы, seccomp,
+`resource`-квоты, `SIGALRM`) не имеют Windows-аналога и потребуют внешнего
+backend'а (контейнер/микро-VM/WSL). На практике нашёлся нативный
+Windows-примитив — Job Objects (`CreateJobObjectW`/
+`SetInformationJobObject`/`AssignProcessToJobObject`) — даёт реальный
+kernel-enforced лимит памяти/CPU-времени/числа процессов без внешнего
+backend'а (`core/sandbox/_windows.py`, issue #266 `--sandbox`). Не закрыто:
+сетевой изоляции на Windows в этом MVP нет (AppContainer непропорционально
+сложен для per-run профиля — см. SECURITY.md), поэтому server mode с
+недоверенным кодом на Windows по-прежнему не поддерживается — локальный
+`--sandbox` не эквивалентен требованиям server mode этого документа (пункт
+6 «Изоляция по клиентам» выше требует и сетевую изоляцию тоже).
+`LocalRunner`-путь (без `--sandbox`) на Windows остаётся как был: точного
 внутрипроцессного таймаута через `SIGALRM` нет (защита — только внешний
-`subprocess.run(timeout=...)`, см. `core/executor.py`), а лимит памяти —
-best-effort лишь на POSIX. Поэтому реальный OS-level `SandboxRunner` на Windows
-требует внешнего backend'а (контейнер/микро-VM/WSL), а не нативных примитивов;
-до этого server mode с недоверенным кодом на Windows не поддерживается.
+`subprocess.run(timeout=...)`, см. `core/executor.py`), лимит памяти —
+best-effort лишь на POSIX.
 
 **Реализация не привязана к Docker.** `SandboxRunner` — интерфейс; конкретный
 backend (контейнер, `nsjail`/`bubblewrap`, микро-VM, внешний сервис) — решение
@@ -228,7 +247,7 @@ GET  /api/v1/runs/{id}/result → RunResult (когда status=done)
 |---|---|---|---|
 | **0 — сейчас** | Локальный CLI + `--serve` (`127.0.0.1`) | нет (доверенный код) | локальный пользователь |
 | **1 — Runner-абстракция** | `Runner`/`LocalRunner` выделены из `grader_core` (issue #136/#137/#138) — **готово**, без смены поведения | как в фазе 0 | локальный пользователь |
-| **2 — SandboxRunner** | Реализовать sandbox-backend по требованиям #157; включаем локально «на себе» | ОС-уровень | локальный (опционально) |
+| **2 — SandboxRunner** | Реализовать sandbox-backend по требованиям #157; включаем локально «на себе» | ОС-уровень | **готово как локальный MVP** (issue #266, `--sandbox`) — асимметрия гарантий по ОС, см. [SECURITY.md](../SECURITY.md#--sandbox--sandboxrunner-mvp-issue-266) |
 | **3 — API** | HTTP API `/api/v1/runs` (issue #156) поверх `SandboxRunner`, очередь, квоты | ОС-уровень | доверенные клиенты |
 | **4 — Server mode** | Публичный/командный сервер онлайн-проверки | ОС-уровень + сетевые квоты | много клиентов |
 

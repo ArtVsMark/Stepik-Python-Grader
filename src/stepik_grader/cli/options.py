@@ -156,6 +156,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--sandbox",
+        action="store_true",
+        help=(
+            "Исполнять решения --mode 1/2/3/4 в ОС-изолированной песочнице "
+            "(SandboxRunner) вместо обычного subprocess — bubblewrap на "
+            "Linux, sandbox-exec на macOS, Job Objects на Windows. Гарантии "
+            "различаются по ОС (см. SECURITY.md); при недоступности backend'а "
+            "на этой машине — явная ошибка, без тихого отката на обычный "
+            "запуск. Issue #266."
+        ),
+    )
+    parser.add_argument(
         "--init-vscode",
         action="store_true",
         help=(

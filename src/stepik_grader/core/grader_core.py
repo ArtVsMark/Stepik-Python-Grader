@@ -49,6 +49,7 @@ __all__ = [
     "run_benchmark",
     "run_microbench_mode",
     "resolve_test_dir",
+    "set_runner",
 ]
 # TIMEOUT_SECONDS/ENCODING/SIMILAR_THRESHOLD/MUCH_SLOWER_THRESHOLD/
 # MEASURE_CHILD_MEMORY/MICROBENCH_MAX_CASES — намеренно НЕ в __all__ (issue #52
@@ -184,11 +185,23 @@ class BenchStats:
 # Исполнение и агрегация
 # ---------------------------------------------------------------------------
 
-# Runner активен на весь процесс — сегодня всегда LocalRunner (issue #138).
-# Инъекция другого Runner (напр. будущий SandboxRunner, issue #157) — задача
-# server mode, не CLI/Web; grader_core не знает, какой Runner активен (см.
-# docs/server-mode.md § Runner-слой, инвариант 2).
+# Runner активен на весь процесс — по умолчанию LocalRunner (issue #138);
+# CLI подменяет его на SandboxRunner (issue #266, core/sandbox/) через
+# set_runner() при --sandbox. grader_core не знает, какой Runner активен —
+# только вызывает run(spec) (см. docs/server-mode.md § Runner-слой,
+# инвариант 2); никакой логики этого модуля инъекция не меняет.
 _RUNNER: Runner = LocalRunner()
+
+
+def set_runner(runner: Runner) -> None:
+    """Подменить активный ``Runner`` на весь процесс (issue #266).
+
+    Единственная точка инъекции ``SandboxRunner``/иной реализации — вызывается
+    один раз при старте CLI (``--sandbox``), до диспетчеризации в конкретный
+    режим. Не влияет на поведение, если не вызывается: дефолт — ``LocalRunner``.
+    """
+    global _RUNNER
+    _RUNNER = runner
 
 
 def run_single_test(
@@ -306,6 +319,28 @@ def run_single_test(
             "error": outcome.launch_error,
             "timed_out": False,
             "verdict": "RE",
+            "exit_code": None,
+        }
+
+    if outcome.sandbox_violation is not None:
+        # issue #266 — SandboxRunner (core/sandbox/) proactively killed the
+        # process for exceeding a quota it detects itself (memory/output_size/
+        # cpu), not a genuine timeout or a plain crash: distinct verdict,
+        # additive to AC/WA/RE/TLE/CANCELLED (docs/server-mode.md § Классы
+        # ошибок). Network/filesystem/process-count violations are rejected
+        # by the kernel INSIDE the sandbox and surface as an ordinary non-zero
+        # exit (RE) instead -- Runner doesn't inspect the child's traceback to
+        # relabel those. LocalRunner never sets this field.
+        return {
+            "passed": False,
+            "output": [],
+            "expected": case.expected_lines,
+            "diff": "",
+            "time": outcome.elapsed,
+            "memory": outcome.peak_memory_mb,
+            "error": f"Sandbox violation: {outcome.sandbox_violation}",
+            "timed_out": False,
+            "verdict": "SANDBOX_VIOLATION",
             "exit_code": None,
         }
 

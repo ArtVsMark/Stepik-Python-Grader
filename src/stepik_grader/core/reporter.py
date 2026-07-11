@@ -154,6 +154,9 @@ def print_benchmark_header(*, col_file: int, memory_header: str = "Memory") -> N
 # Цвета статусов корректности (режимы 1/2) и вердиктов TLE/RE/WA.
 # CANCELLED (issue #262) — вердикт async job-модели, не CLI (там cancel_event
 # никогда не передаётся); жёлтый, а не красный — это не провал решения.
+# SANDBOX_VIOLATION (issue #266) — только у SandboxRunner (--sandbox);
+# красный, как RE/TLE — в отличие от CANCELLED, это признак того, что
+# решение реально сделало что-то запрещённое (не просто "долго").
 _STATUS_COLORS: dict[str, str] = {
     "OK": "green",
     "AC": "green",
@@ -163,6 +166,7 @@ _STATUS_COLORS: dict[str, str] = {
     "RE": "red",
     "ERROR": "red",
     "CANCELLED": "yellow",
+    "SANDBOX_VIOLATION": "red",
 }
 
 # Цвета вердиктов бенчмарка (режимы 3/4).

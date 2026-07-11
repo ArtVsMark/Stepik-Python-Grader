@@ -301,6 +301,24 @@ use_cache = true
 `--no-cache`. Режимы 3/4 (бенчмарк) кэш не используют — их смысл в свежих
 замерах времени.
 
+### `--sandbox` (issue #266)
+
+```bash
+stepik-grader --mode 1 --file task.py --sandbox   # исполнить в ОС-изолированной песочнице
+```
+
+Opt-in ОС-уровневая изоляция исполнения для `--mode 1/2/3/4` вместо обычного
+subprocess: bubblewrap на Linux, `sandbox-exec` на macOS, Job Objects на
+Windows. Backend выбирается автоматически по текущей ОС; если недоступен
+(нет `bwrap`/`sandbox-exec`/Job Object API) — команда сразу завершается
+ошибкой, без тихого отката на обычный запуск. Гарантии изоляции **разные по
+ОС** (сеть/ФС/память/CPU/anti-fork-bomb) — полная таблица асимметрии и
+именованные пробелы (нет сетевой изоляции на Windows и др.) —
+[SECURITY.md § `--sandbox`](../SECURITY.md#--sandbox--sandboxrunner-mvp-issue-266).
+Квоты настраиваются через `[tool.stepik-grader]` —
+`sandbox_max_cpu_seconds`/`sandbox_max_processes`/`sandbox_max_output_bytes`,
+см. [docs/configuration.md](configuration.md).
+
 ### pytest-плагин: `pytest --grader-mode` (issue #57)
 
 Если вы привыкли к pytest, грейдер можно запускать как обычный тест-сьют.

@@ -79,6 +79,7 @@ __all__ = [
     "run_tests",
     "run_benchmark",
     "run_microbench_mode",
+    "set_runner",
     "format_correctness_row",
     "print_correctness_header",
     "print_correctness_results",
