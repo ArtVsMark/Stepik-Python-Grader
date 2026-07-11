@@ -10,6 +10,20 @@
 -->
 
 ### Docs
+- New troubleshooting section in `docs/installation.md` (issue #270):
+  `test_pytest_plugin.py` failing with `unrecognized arguments:
+  --grader-mode`, and `test_packaging.py::test_license_is_mit_in_metadata`
+  failing with `License-Expression: None`, share the same root cause — a
+  stale editable install whose `.dist-info/entry_points.txt` predates
+  `pyproject.toml` changes to `license`/`entry-points` — fixed by
+  `pip install -e ".[dev]" --force-reinstall --no-deps`. Also documents the
+  unrelated `PermissionError` on a stale `%TEMP%\pytest-of-<user>` from a
+  prior pytest run under different Windows permissions, with the
+  `--basetemp` workaround. No code changes — all three findings from the
+  2026-07-10 audit were confirmed non-reproducing once the install was
+  refreshed (verified live: full suite green, `--grader-mode` plugin
+  resolves correctly, with both default and deeply-nested custom
+  `--basetemp` paths).
 - `docs/versions.md`'s fork-vs-original comparison table condensed from
   ~24 single-feature rows down to 5 grouped-by-theme rows (correctness,
   benchmark/microbench, Stepik integration, web UI/IDE, engineering

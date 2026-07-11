@@ -13,6 +13,7 @@
 - [Зависимости](#зависимости)
 - [Работа с API Stepik (OAuth)](#работа-с-api-stepik-oauth)
 - [Диагностика](#диагностика)
+- [Диагностика окружения разработки (pytest, Windows)](#диагностика-окружения-разработки-pytest-windows)
 
 ---
 
@@ -255,3 +256,55 @@ python -m stepik_grader.diagnostic_stepik
 - проверить доступность Stepik API;
 - убедиться в корректности токена авторизации;
 - получить информацию о курсе, уроке или задаче по ID.
+
+---
+
+## Диагностика окружения разработки (pytest, Windows)
+
+Три находки аудита 2026-07-10 (issue #270), все воспроизведены на чистом
+`main` — не связаны с конкретным PR, а с состоянием локального окружения:
+
+**`test_packaging.py::test_license_is_mit_in_metadata` падает
+(`License-Expression` — `None`, ожидался `"MIT"`) или
+`tests/test_pytest_plugin.py` падает с `unrecognized arguments:
+--grader-mode`.** Оба симптома — один и тот же корень: **протухшие
+метаданные editable-установки** (`pip install -e ".[dev]"` был сделан до
+изменений в `pyproject.toml`, затрагивающих `license`/`entry-points`,
+и `.dist-info/` не обновился). `entry-points.txt` пакета всё ещё содержит
+старую (или отсутствующую) регистрацию `pytest11 = stepik_grader.pytest_plugin`
+— отсюда и падение `test_pytest_plugin.py` (плагин не резолвится в дочернем
+`pytest.main()`, который поднимает `pytester`), и падение
+license-метадаты. Чинится переустановкой:
+
+```bash
+pip install -e ".[dev]" --force-reinstall --no-deps
+```
+
+Проверить причину/фикс:
+
+```bash
+python -m pytest tests/test_packaging.py tests/test_pytest_plugin.py -q
+```
+
+**`PermissionError: [WinError 5] Отказано в доступе` на
+`%TEMP%\pytest-of-<user>`.** Каталог создавался предыдущим прогоном pytest
+в другом контексте/правах (напр. другой пользователь Windows, повышенные
+права) и остался недоступен для записи текущему пользователю. Это не
+связано с проектом — `tmp_path`-фикстура просто не может создать
+поддиректорию. Диагностика:
+
+```powershell
+Get-Acl "$env:TEMP\pytest-of-$env:USERNAME"
+```
+
+Если `Owner`/`Access` не совпадают с текущим пользователем — либо исправь
+права (`icacls` от администратора), либо обойди явным `--basetemp` вне
+этого каталога:
+
+```bash
+pytest tests/ --basetemp=C:\temp\pytest-basetemp
+```
+
+Проверять оба симптома *в этом порядке* — если первопричина (протухшая
+установка) устранена переустановкой, `test_pytest_plugin.py` обычно
+начинает проходить и с дефолтным `--basetemp` тоже, без обходного пути.
