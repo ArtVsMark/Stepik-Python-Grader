@@ -12,9 +12,9 @@ backend'ов ``SandboxRunner`` (issue #266).
 ``RLIMIT_AS`` (память) сюда включается ТОЛЬКО опционально
 (``max_memory_bytes``) — вызывающая сторона (``_linux.py``) передаёт его как
 доп. kernel-level backstop; ``_macos.py`` его не передаёт, потому что
-``RLIMIT_AS`` подтверждённо не работает на Darwin (bpo-34602) — там
-единственный работающий механизм измерения/принудительного обрыва по памяти
-это psutil-поллинг (см. ``core/runner.py._measure_peak_memory`` и
+``RLIMIT_AS`` подтверждённо не работает на Darwin — там единственный
+работающий механизм измерения/принудительного обрыва по памяти это
+psutil-поллинг (см. ``core/runner.py._measure_peak_memory`` и
 ``_common.py.run_argv_with_limits`` в этом пакете), общий для всех трёх ОС.
 """
 

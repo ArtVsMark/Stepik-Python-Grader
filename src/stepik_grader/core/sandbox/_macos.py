@@ -8,13 +8,31 @@ macOS (Sonoma/Sequoia) — эмитит предупреждение в stderr �
 (``sandbox-exec: -f ... deprecated`` и подобные), которое здесь фильтруется
 из ``RunOutcome.stderr``, чтобы не путать пользователя с выводом решения.
 
+Политика чтения файлов — ``(allow file-read*)`` без ограничения по пути,
+а не перечисление конкретных системных/venv путей. Перечисление (dyld,
+``/usr/lib``, ``/System/Library``, venv/stdlib) пробовалось дважды и оба
+раза приводило к SIGABRT ("Abort trap: 6") уже на старте интерпретатора,
+до первой строчки кода решения — dyld/CPython падают там, где им отказано
+в чтении чего-то по своему пути инициализации, а enumeration органически
+хрупкая: должна точно совпасть с тем, что реально трогает загрузчик на
+конкретном образе ОС, и гарантированно этого не делает. Независимый разбор
+той же задачи и актуальная Seatbelt-политика OpenAI Codex (реальный
+продакшен-инструмент с идентичной задачей "запустить произвольный процесс
+под deny-default профилем") используют именно ``(allow file-read*)``.
+Это не потеря гарантии: SECURITY.md для macOS никогда не обещал изоляцию
+ЧТЕНИЯ файлов — только запись (ограничена ``run_dir`` ниже), сеть
+(``(deny network*)``) и ресурсы (CPU/память/процессы через
+``_posix_bootstrap``/``_posix_common``).
+
 Отличия от Linux-backend'а (``_linux.py``), оба задокументированы в
 SECURITY.md:
-- ``RLIMIT_AS`` **не работает на Darwin** (bpo-34602, подтверждено
-  Plan-агентом) — сюда НЕ передаётся ``max_memory_bytes`` в
-  ``_posix_bootstrap.build_bootstrap_argv()``; единственный механизм —
-  psutil-поллинг в ``_posix_common.run_argv_with_limits()`` (общий на все
-  платформы, но здесь это единственная линия обороны, а не backstop).
+- ``RLIMIT_AS`` **не работает на Darwin** (подтверждено независимо и
+  Plan-агентом при повторной валидации — не bpo-34602, та issue про
+  ``RLIMIT_STACK``, не про ``RLIMIT_AS``) — сюда НЕ передаётся
+  ``max_memory_bytes`` в ``_posix_bootstrap.build_bootstrap_argv()``;
+  единственный механизм — psutil-поллинг в
+  ``_posix_common.run_argv_with_limits()`` (общий на все платформы, но
+  здесь это единственная линия обороны, а не backstop).
 - ``RLIMIT_NPROC``: нет user-namespace аналога, счётчик общий на реального
   uid процесса — лимит ставится не абсолютным значением, а как
   сэмплированное текущее число процессов пользователя + бюджет
@@ -28,7 +46,6 @@ import math
 import os
 import shutil
 import sys
-import sysconfig
 from pathlib import Path
 
 import psutil
@@ -43,41 +60,11 @@ __all__ = ["create_backend", "MacSandboxRunner"]
 _DEPRECATION_MARKERS = (b"sandbox-exec", b"deprecated")
 
 
-def _python_tree_paths() -> list[str]:
-    candidates = {
-        sys.prefix,
-        sys.exec_prefix,
-        sys.base_prefix,
-        sys.base_exec_prefix,
-        sysconfig.get_path("stdlib"),
-        sysconfig.get_path("platstdlib"),
-        str(Path(sys.executable).resolve().parent),
-    }
-    return sorted({str(Path(p).resolve()) for p in candidates if p})
-
-
 def _quote_sb_path(path: str) -> str:
     return path.replace("\\", "\\\\").replace('"', '\\"')
 
 
-_SYSTEM_READ_SUBPATHS = (
-    # dyld/loader и системные библиотеки/фреймворки -- без них падает уже сам
-    # запуск интерпретатора (dyld не может слинковать libSystem и т.п.),
-    # ДО первой строчки кода решения: подтверждено вручную (CI: даже
-    # тривиальный print('hello') падал с SIGABRT без этих правил).
-    "/usr/lib",
-    "/System/Library",
-    "/private/var/db/dyld",
-)
-
-
 def _build_profile(run_dir: Path) -> str:
-    read_subpaths = "\n".join(
-        f'(allow file-read* (subpath "{_quote_sb_path(p)}"))' for p in _python_tree_paths()
-    )
-    system_subpaths = "\n".join(
-        f'(allow file-read* (subpath "{_quote_sb_path(p)}"))' for p in _SYSTEM_READ_SUBPATHS
-    )
     run_dir_q = _quote_sb_path(str(run_dir.resolve()))
     return f"""(version 1)
 (deny default)
@@ -85,11 +72,8 @@ def _build_profile(run_dir: Path) -> str:
 (allow process-fork)
 (allow sysctl-read)
 (allow mach-lookup)
-(allow file-read* (subpath "/dev"))
-{system_subpaths}
-{read_subpaths}
+(allow file-read*)
 (allow file-read* file-write* (subpath "{run_dir_q}"))
-(allow file-read-metadata (subpath "/"))
 (deny network*)
 (allow signal (target self))
 """

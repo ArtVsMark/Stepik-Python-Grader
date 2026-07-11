@@ -13,10 +13,11 @@
 - Linux (``_linux.py``) — bubblewrap (primary) / nsjail (fallback): сеть/ФС/
   CPU/процессы изолированы ядром (namespaces + RLIMIT_*), плюс RLIMIT_AS как
   доп. backstop для памяти.
-- macOS (``_macos.py``) — ``sandbox-exec``: сеть/ФС/CPU изолированы ядром;
-  память — psutil-поллинг (RLIMIT_AS не работает на Darwin, bpo-34602);
-  anti-fork-bomb слабее (нет namespace-аналога, только сэмплированный
-  RLIMIT_NPROC-бюджет).
+- macOS (``_macos.py``) — ``sandbox-exec``: сеть/запись-в-ФС/CPU изолированы
+  ядром (чтение файлов сознательно НЕ ограничено — см. докстринг
+  ``_macos.py``); память — psutil-поллинг (RLIMIT_AS не работает на
+  Darwin); anti-fork-bomb слабее (нет namespace-аналога, только
+  сэмплированный RLIMIT_NPROC-бюджет).
 - Windows (``_windows.py``) — Job Objects: память/CPU/процессы — ядром,
   БЕЗ сетевой изоляции и без строгой ФС-изоляции (только cwd-контейнмент
   относительных путей) — оба пробела задокументированы, не тихий пропуск.
