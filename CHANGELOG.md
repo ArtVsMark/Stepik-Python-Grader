@@ -9,6 +9,28 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Added
+- Opt-in local run statistics (issue #268): `--stats`/`--no-stats` (or
+  `[tool.stepik-grader] record_stats = true`) appends one JSON-Lines record
+  per grading run — mode, verdict tallies (AC/WA/RE/TLE for modes 1/2,
+  SIMILAR/SLOWER/MUCH_SLOWER/ERR for modes 3/4), OS, and total time — to a
+  new `.grader_stats.jsonl` in the current directory (added to `.gitignore`
+  and CLAUDE.md's forbidden-commit list). No network calls anywhere — the
+  file never leaves the machine, and off by default. New `--stats-summary`
+  prints an aggregated view (total runs, by mode, by OS, by verdict, total
+  time) via a new `core/reporter.print_stats_summary()`, rich table with a
+  plain-text fallback like the existing correctness/benchmark tables. New
+  leaf module `core/stats.py`: JSON Lines (not a single JSON object like
+  `GraderCache`, issue #56) so an interrupted write can only lose the last
+  line, not corrupt the whole file; size-based rotation keeps the newest
+  half of lines past 1 MiB; both `record_run()`/`read_summary()` are
+  best-effort and tolerate a missing/corrupt file or individual malformed
+  lines, same principle as `GraderCache`. The interactive menu resolves
+  `CONFIG.record_stats` directly (no argparse there) at all 4 mode choices,
+  unlike the cache toggle which the menu never exposes today.
+- `docs/configuration.md` documents the new `record_stats` config field
+  with an explicit privacy paragraph ("data never leaves the machine").
+
 ### Docs
 - New troubleshooting section in `docs/installation.md` (issue #270):
   `test_pytest_plugin.py` failing with `unrecognized arguments:

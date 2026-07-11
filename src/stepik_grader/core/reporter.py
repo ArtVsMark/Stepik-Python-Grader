@@ -29,6 +29,7 @@ __all__ = [
     "print_benchmark_header",
     "print_benchmark_results",
     "print_case_verbose",
+    "print_stats_summary",
     "rich_track",
 ]
 
@@ -262,6 +263,43 @@ def print_benchmark_results(
     print_benchmark_header(col_file=col_file, memory_header=memory_header)
     for path, data in rows:
         print(format_benchmark_row(path, base_dir, data, col_file=col_file))
+
+
+def print_stats_summary(summary: dict[str, Any]) -> None:
+    """Напечатать сводку локальной статистики запусков (issue #268).
+
+    Предполагает непустую сводку (``summary["total_runs"] > 0``) — case
+    «данных нет» (стата выключена или ещё не накопилась) печатает вызывающая
+    сторона (``cli/__init__.py``) через локализованное сообщение ДО вызова
+    этой функции, тем же паттерном, что ``ctx.t("no_results")`` перед
+    ``print_correctness_results``/``print_benchmark_results`` в
+    ``cli/commands.py`` — reporter.py сам не участвует в i18n (``_t()``
+    живёт только в ``cli/__init__.py``), только рендерит уже готовые данные.
+    Названия колонок — на английском, как у остальных таблиц этого модуля
+    (``File``/``Passed``/``Verdict`` и т.д.) для внутренней консистентности.
+    """
+    rows: list[tuple[str, str]] = [("Total runs", str(summary.get("total_runs", 0)))]
+    for mode, count in sorted(summary.get("by_mode", {}).items()):
+        rows.append((f"Mode {mode}", str(count)))
+    for os_name, count in sorted(summary.get("by_os", {}).items()):
+        rows.append((f"OS: {os_name}", str(count)))
+    for verdict, count in sorted(summary.get("verdict_totals", {}).items()):
+        rows.append((f"Verdict {verdict}", str(count)))
+    rows.append(("Total time", fmt_time(summary.get("total_time", 0.0))))
+
+    if _RICH and _console is not None:
+        table = Table(title="Local run stats", show_lines=False)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", justify="right")
+        for name, value in rows:
+            table.add_row(name, value)
+        _console.print(table)
+        return
+
+    print(_SEP)
+    for name, value in rows:
+        print(f"{name:<20} {value:>15}")
+    print(_SEP)
 
 
 def _cprint(text: str, *, style: str = "") -> None:

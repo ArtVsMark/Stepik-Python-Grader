@@ -23,6 +23,7 @@ __all__ = [
     "_build_arg_parser",
     "_resolve_verbosity",
     "_resolve_use_cache",
+    "_resolve_record_stats",
     "_force_utf8_stdio",
 ]
 
@@ -107,6 +108,22 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Удалить .grader_cache/ и выйти. Issue #56.",
     )
     parser.add_argument(
+        "--stats",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Писать локальную статистику запусков (режим/вердикты/ОС) в "
+            ".grader_stats.jsonl (--no-stats отключает). По умолчанию из "
+            "[tool.stepik-grader] record_stats. Только локально, без сети. "
+            "Issue #268."
+        ),
+    )
+    parser.add_argument(
+        "--stats-summary",
+        action="store_true",
+        help="Показать сводку локальной статистики запусков и выйти. Issue #268.",
+    )
+    parser.add_argument(
         "--serve",
         action="store_true",
         help=(
@@ -178,6 +195,19 @@ def _resolve_use_cache(args: argparse.Namespace, *, incremental: bool) -> bool:
     if incremental:
         return True
     return CONFIG.use_cache
+
+
+def _resolve_record_stats(args: argparse.Namespace) -> bool:
+    """Разрешить --stats/--no-stats в конкретное bool-значение (issue #268).
+
+    Приоритет: явный --stats/--no-stats (args.stats is not None) выигрывает;
+    иначе — дефолт из pyproject ([tool.stepik-grader] record_stats). Нет
+    аналога ``incremental`` из ``_resolve_use_cache`` — статистике не с чем
+    "включаться автоматически" (в отличие от --watch --mode 2 и кэша).
+    """
+    if args.stats is not None:
+        return args.stats
+    return CONFIG.record_stats
 
 
 def _force_utf8_stdio() -> None:

@@ -19,7 +19,8 @@
 ❌ НЕ использовать Optional[X]/List[X]/Dict[X,Y] — проект на Python 3.12+
 ❌ НЕ добавлять зависимости в pyproject.toml без явного указания
    (requirements.txt удалён — pyproject.toml единственный источник; не воссоздавать)
-❌ НЕ коммитить secrets.json, stepik_config.json, StepikTasks/, .grader_cache/
+❌ НЕ коммитить secrets.json, stepik_config.json, StepikTasks/, .grader_cache/,
+   .grader_stats.jsonl
 ❌ НЕ запускать executor.py с untrusted-кодом — нет OS-sandbox
 ❌ НЕ трогать .github/workflows/ без явной задачи
 ❌ НЕ править version в pyproject.toml вручную — версия динамическая, из git-тегов
