@@ -56,6 +56,18 @@ class GraderConfig:
     # core/stats.py): режимы/вердикты/ОС, без сети. По умолчанию выключена —
     # включается --stats/--no-stats (приоритет) или этим полем.
     record_stats: bool = False
+    # issue #266 — квоты SandboxRunner (--sandbox, core/sandbox/).
+    # sandbox_max_cpu_seconds — жёсткий лимит CPU-времени (backstop ПОД
+    # общим wall-clock timeout_seconds, не вместо него).
+    # sandbox_max_processes — на Linux под bwrap (свежий user namespace,
+    # счётчик начинается с 0) используется как абсолютное значение; на
+    # голом POSIX/macOS (нет такого namespace) — как бюджет,
+    # прибавляемый к текущему числу процессов пользователя на момент
+    # запуска (иначе чужие процессы того же пользователя могли бы случайно
+    # выбить лимит).
+    sandbox_max_cpu_seconds: float = 10.0
+    sandbox_max_processes: int = 32
+    sandbox_max_output_bytes: int = 10 * 1024 * 1024
 
 
 def _find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path | None:

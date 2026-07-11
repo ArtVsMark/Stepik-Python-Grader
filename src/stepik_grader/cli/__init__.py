@@ -84,6 +84,7 @@ from stepik_grader.core.grader_core import (
     run_benchmark,
     run_microbench_mode,
     run_tests,
+    set_runner,
 )
 from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.reporter import print_stats_summary
@@ -295,6 +296,11 @@ _MESSAGES: dict[str, dict[str, str]] = {
             "No data — stats recording is off (--stats/[tool.stepik-grader] "
             "record_stats) or hasn't accumulated yet."
         ),
+    },
+    # issue #266: --sandbox — жёсткий отказ, если ни один backend недоступен.
+    "sandbox_unavailable": {
+        "ru": "❌ --sandbox недоступен на этой машине: {reason}",
+        "en": "❌ --sandbox is unavailable on this machine: {reason}",
     },
     "watch_dependency_missing": {
         "ru": ('--watch требует пакет watchfiles: pip install "stepik-grader[watch]"'),
@@ -594,6 +600,19 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     record_stats = _resolve_record_stats(args)
+
+    if args.sandbox:
+        # issue #266: жёсткий отказ, если backend недоступен на этой машине --
+        # никогда не тихий откат на обычный LocalRunner (см. cli/options.py
+        # --sandbox help и SECURITY.md). Ленивый импорт: core/sandbox тянет
+        # ОС-специфичные модули (ctypes на Windows, resource на POSIX) только
+        # когда флаг реально запрошен.
+        from stepik_grader.core.sandbox import SandboxRunner, SandboxUnavailableError
+
+        try:
+            set_runner(SandboxRunner())
+        except SandboxUnavailableError as exc:
+            parser.error(_t("sandbox_unavailable", reason=str(exc)))
 
     if args.mode == 1:
         if not args.file:

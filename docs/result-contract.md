@@ -36,7 +36,7 @@ Python-тип — будущий типизированный `TestResult`/`data
 | Поле | Тип | Всегда | Описание |
 |---|---|:--:|---|
 | `passed` | `bool` | ✓ | Прошёл ли кейс (вывод совпал с ожидаемым) |
-| `verdict` | `"AC"\|"WA"\|"TLE"\|"RE"\|"CANCELLED"` | ✓ | Вердикт кейса (см. ниже); при ошибке до запуска — `"RE"` |
+| `verdict` | `"AC"\|"WA"\|"TLE"\|"RE"\|"CANCELLED"\|"SANDBOX_VIOLATION"` | ✓ | Вердикт кейса (см. ниже); при ошибке до запуска — `"RE"` |
 | `output` | `list[str]` | ✓ | Фактический вывод решения (строки) |
 | `expected` | `list[str]` | ✓ | Ожидаемый вывод кейса (строки) |
 | `diff` | `str` | ✓ | Unified-diff при несовпадении; пустой при `AC` |
@@ -56,6 +56,12 @@ Python-тип — будущий типизированный `TestResult`/`data
 - `CANCELLED` ⟹ `passed is False`, `timed_out is False`, `error != ""` — кейс
   прерван через `cancel_event` (async job-модель, issue #262), не таймаутом
   и не ошибкой решения; UI не должен показывать его как провал решения.
+- `SANDBOX_VIOLATION` ⟹ `passed is False`, `timed_out is False`, `error != ""`
+  — только у `SandboxRunner` (`--sandbox`, issue #266): решение превысило
+  sandbox-квоту (память/процессы/сеть/ФС/размер вывода), `LocalRunner`
+  никогда не даёт этот verdict. В отличие от `CANCELLED` — это провал
+  решения (реально сделало что-то запрещённое), UI может стилизовать как
+  ошибку (см. `core/reporter._STATUS_COLORS`).
 
 Потребитель может доверять `verdict` как единственному полю для ветвления UI,
 не пересобирая логику из `passed`/`timed_out`/`error`.
@@ -72,6 +78,7 @@ Python-тип — будущий типизированный `TestResult`/`data
 | `TLE` | Time Limit Exceeded — превышен таймаут | провал (недетерминированный по времени) |
 | `RE` | Runtime Error — процесс упал / ошибка до запуска | провал (крэш) |
 | `CANCELLED` | Cancelled — прерван пользователем через async job-модель (issue #262) | не провал; терминально, но не оценивает решение |
+| `SANDBOX_VIOLATION` | Sandbox Violation — превышена квота изоляции (issue #266, только `--sandbox`) | провал (решение нарушило sandbox) |
 
 Бенчмарк-режимы (3/4) добавляют **перформанс-вердикты** решения (не кейса):
 `SIMILAR` / `SLOWER` / `MUCH SLOWER` относительно быстрейшего решения —
@@ -158,7 +165,7 @@ Python-тип — будущий типизированный `TestResult`/`data
 
 > **Типизированный `TestResult` реализован** (issue #112/#113):
 > `stepik_grader.core.result.TestResult` — frozen dataclass с полями case
-> result выше + `Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED"]`. `from_dict()`/
+> result выше + `Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED", "SANDBOX_VIOLATION"]`. `from_dict()`/
 > `to_dict()` конвертируют форму, которую **по-прежнему** возвращает
 > `run_single_test()` (этот контракт не меняется — `dict[str, Any]` остаётся
 > формой на границе CLI JSON-вывода, `run_tests()`/`run_benchmark()` и

@@ -26,6 +26,9 @@ def test_grader_config_defaults() -> None:
     assert cfg.glossary_missing_queue == ".grader_glossary_missing.json"
     assert cfg.job_workers == 2
     assert cfg.record_stats is False
+    assert cfg.sandbox_max_cpu_seconds == 10.0
+    assert cfg.sandbox_max_processes == 32
+    assert cfg.sandbox_max_output_bytes == 10 * 1024 * 1024
 
 
 def test_grader_config_is_frozen() -> None:
@@ -211,6 +214,9 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "glossary_missing_queue",
         "job_workers",
         "record_stats",
+        "sandbox_max_cpu_seconds",
+        "sandbox_max_processes",
+        "sandbox_max_output_bytes",
     }
 
 

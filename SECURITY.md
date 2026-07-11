@@ -67,3 +67,66 @@ API удалённого исполнения, обязательные треб
 эфемерные tmp-каталоги, квоты) и решение по нему —
 [docs/server-mode.md](docs/server-mode.md) и
 [ADR-0001](docs/adr/0001-server-mode.md).
+
+## `--sandbox` — SandboxRunner MVP (issue #266)
+
+Опциональный флаг `--sandbox` (по умолчанию выключен — дефолт остаётся
+`LocalRunner`, без изоляции, см. «Вне скоупа» выше) исполняет решения через
+ОС-уровневую изоляцию: `core/sandbox/`. Реализует часть требований дизайна
+Фазы 2 ([docs/server-mode.md](docs/server-mode.md)), но **не эквивалентен
+полному server-mode sandbox** — это локальный, opt-in usability/defense-in-depth
+слой для CLI, а не готовый multi-tenant remote-execution sandbox (для этого
+по-прежнему нужен отдельный API-слой, issue #156/#157 дизайн, не реализация).
+
+Backend выбирается автоматически по ОС при старте (`SandboxRunner.__init__`);
+если недоступен — CLI **сразу завершается с ошибкой**, без тихого отката на
+`LocalRunner` (issue #266, явное требование).
+
+### Гарантии по ОС (асимметрия — не баг, задокументированный компромисс)
+
+| | Linux (bwrap) | macOS (`sandbox-exec`) | Windows (Job Objects) |
+|---|---|---|---|
+| Сеть | ✅ ядром (`--unshare-net`) | ✅ ядром (`deny network*`) | ❌ **не реализовано** (см. ниже) |
+| Запись вне tmp | ✅ ядром (mount namespace) | ✅ ядром (Seatbelt) | ⚠️ только относительные пути (cwd); абсолютные пути **не блокируются** |
+| Память | ✅ ядром (`RLIMIT_AS`) + psutil-backstop | ⚠️ только psutil-поллинг (`RLIMIT_AS` не работает на Darwin, bpo-34602) | ✅ ядром (`JOB_OBJECT_LIMIT_JOB_MEMORY`, commit-charge — быстрее, чем POSIX RLIMIT_AS на практике) |
+| CPU-время | ✅ ядром (`RLIMIT_CPU`, SIGXCPU) | ✅ ядром (`RLIMIT_CPU`) | ⚠️ psutil-поллинг (Job Object лимит — backstop, не основной детектор) |
+| Anti-fork-bomb | ✅ абсолютный `RLIMIT_NPROC` (свежий user namespace, счётчик с 0) | ⚠️ сэмплированный бюджет (нет namespace-аналога, слабее) | ✅ `JOB_OBJECT_LIMIT_ACTIVE_PROCESS` (per-job, без cross-UID гочи) |
+| Сторонние пакеты решения | ❌ не поддерживаются (в sandbox биндится только интерпретатор+stdlib, не venv site-packages) | ❌ то же | ❌ то же |
+
+Именованные пробелы (не забыты, осознанный вырез MVP):
+
+- **Windows: нет сетевой изоляции.** Правильный примитив — AppContainer
+  (`CreateAppContainerProfile` + `UpdateProcThreadAttribute` без
+  `internetClient`), но требует ACL на всё дерево интерпретатора для SID
+  контейнера при каждом запуске — непропорционально сложно для per-run
+  эфемерного профиля в этом MVP. Отдельный follow-up, не блокирует MVP.
+- **Windows: нет строгой ФС-изоляции.** Изначально план предполагал
+  `CreateRestrictedToken` (Low integrity), но применение другого токена к
+  дочернему процессу требует `CreateProcessAsUser`, а значит — отказа от
+  `subprocess.Popen` и написания собственного `CreateProcessW`+STARTUPINFO+
+  pipe-плюмбинга с нуля. Риск тихо ошибиться в непроверяемом
+  low-level Windows API-коде признан непропорциональным для MVP — вместо
+  этого только `cwd`-контейнмент относительных путей.
+- **Linux: nsjail fallback не реализован** — только bubblewrap (`bwrap`).
+  Если `bwrap` не установлен, `--sandbox` завершается ошибкой (issue #266
+  план упоминал nsjail как fallback; в MVP это осталось задокументированным
+  нереализованным пунктом, не тихим пропуском).
+- **Все ОС: сторонние pip-пакеты в решении не работают под `--sandbox`** —
+  в песочницу пробрасывается только сам интерпретатор + stdlib, не
+  site-packages виртуального окружения грейдера.
+
+### Что означает `SANDBOX_VIOLATION` (и чего не означает)
+
+Verdict `SANDBOX_VIOLATION` (аддитивно к `AC/WA/RE/TLE/CANCELLED`, см.
+[docs/result-contract.md](docs/result-contract.md)) проставляется только
+когда сам `SandboxRunner` **проактивно** засёк и оборвал превышение квоты:
+`memory` (RSS/commit перешёл порог), `output_size` (стдаут+стдерр
+превысили лимит) или `cpu` (`SIGXCPU`, POSIX). Нарушения сети/записи вне
+tmp/числа процессов **не** попадают сюда — ядро отклоняет их ВНУТРИ
+песочницы, решение падает с обычным ненулевым exit code/traceback, и это
+корректно классифицируется как обычный `RE` — `SandboxRunner` не
+заглядывает в чужой traceback, чтобы переклассифицировать его. Это
+осознанное решение, не недосмотр: попытка отличить «RE от нарушения
+песочницы» по коду завершения/сигналу ребёнка оказалась ненадёжной на
+практике (напр. `RLIMIT_AS`-провал на Linux обычно проявляется как обычный
+`MemoryError` traceback с кодом 1, а не через сигнал).

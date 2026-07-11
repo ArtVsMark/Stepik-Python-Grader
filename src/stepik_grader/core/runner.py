@@ -14,9 +14,11 @@ verdict/diff остаётся выше по стеку (``grader_core.py``); ``R
 принудительным UTF-8 в дочернем окружении, best-effort лимит адресного
 пространства (``RLIMIT_AS`` через ``resource.prlimit``, POSIX-only, issue
 #67), фоновый psutil-поток мониторинга пикового RSS (issue #48 R-05).
-Будущий ``SandboxRunner`` (issue #157 — дизайн, не реализация здесь) будет
-тем же протоколом ``Runner`` с иной изоляцией (контейнер/VM), не требуя
-изменений в ``grader_core.py``.
+``SandboxRunner`` (issue #266, реализация требований дизайна #157) — в
+``core/sandbox/``: тот же протокол ``Runner`` с ОС-уровневой изоляцией
+(bubblewrap/nsjail на Linux, sandbox-exec на macOS, Job Objects на Windows),
+без изменений в логике ``grader_core.py`` (только новый ``set_runner()``
+для инъекции и маппинг ``sandbox_violation`` в отдельный verdict).
 """
 
 from __future__ import annotations
@@ -77,6 +79,22 @@ class RunOutcome:
     а не из-за истечения ``timeout`` (``timed_out`` в этом случае остаётся
     ``False`` — маппится в отдельный verdict ``CANCELLED``, не ``TLE``, выше
     по стеку в ``grader_core.run_single_test()``).
+
+    ``sandbox_violation`` (issue #266) — заполняется реализациями ``Runner``,
+    изолирующими выполнение на уровне ОС (``core/sandbox/``), когда САМ
+    Runner проактивно распознал и оборвал превышение квоты: ``"memory"``
+    (RSS перешёл порог — psutil-поллинг, общий для всех 3 backend'ов),
+    ``"output_size"`` (накопленный stdout+stderr превысил лимит) или
+    ``"cpu"`` (``SIGXCPU`` от ``RLIMIT_CPU``, POSIX). Нарушения сети/ФС/
+    лимита процессов **не** попадают сюда — ядро отклоняет их ВНУТРИ
+    песочницы, ребёнок падает с обычным ненулевым exit code/traceback,
+    и это корректно классифицируется как обычный ``RE`` (см.
+    `docs/server-mode.md § Классы ошибок <../../../docs/server-mode.md>`_) —
+    Runner не заглядывает внутрь чужого traceback, чтобы отличить их.
+    ``LocalRunner`` никогда его не выставляет (остаётся ``None``). Маппится в
+    отдельный verdict ``SANDBOX_VIOLATION`` (аддитивно к AC/WA/RE/TLE/
+    CANCELLED), не ``RE``/``TLE``, чтобы UI не путал нарушение,
+    которое сам Runner детектировал и оборвал, с обычным провалом решения.
     """
 
     stdout: bytes = b""
@@ -87,6 +105,7 @@ class RunOutcome:
     timed_out: bool = False
     launch_error: str | None = None
     cancelled: bool = False
+    sandbox_violation: str | None = None
 
 
 @runtime_checkable

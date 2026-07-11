@@ -88,6 +88,9 @@ microbench_max_cases = 5
 | `use_cache` | `bool` | `false` | Включить кэш результатов по умолчанию (эквивалент `--cache`, issue #56). Отдельный запуск форсируется `--no-cache`. |
 | `job_workers` | `int` | `2` | Размер пула воркеров async job-модели `--serve` (`POST /api/v1/runs`, issue #262) — сколько bench/microbench-задач исполняются параллельно. Не CLI-флаг. |
 | `record_stats` | `bool` | `false` | Включить локальную статистику запусков по умолчанию (эквивалент `--stats`, issue #268). Отдельный запуск форсируется `--no-stats`. |
+| `sandbox_max_cpu_seconds` | `float` | `10.0` | `--sandbox` (issue #266): жёсткий лимит CPU-времени решения (backstop под общим `timeout_seconds`). |
+| `sandbox_max_processes` | `int` | `32` | `--sandbox`: лимит числа процессов решения (anti-fork-bomb). На Linux под bwrap — абсолютное значение; на голом POSIX/macOS — бюджет сверх текущего числа процессов пользователя. См. [SECURITY.md](../SECURITY.md). |
+| `sandbox_max_output_bytes` | `int` | `10485760` (10 МБ) | `--sandbox`: лимит суммарного размера stdout+stderr решения. |
 
 > **Приватность (`record_stats`/`--stats`, issue #268).** Статистика —
 > только локальный файл `.grader_stats.jsonl` в текущей директории (режимы,

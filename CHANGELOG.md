@@ -10,6 +10,45 @@
 -->
 
 ### Added
+- Opt-in OS-level sandboxed execution (issue #266): new `--sandbox` flag
+  routes `--mode 1/2/3/4` through a new `SandboxRunner` (`core/sandbox/`)
+  instead of the plain-subprocess `LocalRunner` — bubblewrap (`bwrap`) on
+  Linux, `sandbox-exec` (Seatbelt) on macOS, Job Objects (ctypes, no
+  `pywin32`) on Windows. Backend is selected once at CLI startup by OS; if
+  unavailable (missing `bwrap`/`sandbox-exec`, or the Job Object API check
+  fails), the command exits with a clear error — never a silent fallback to
+  `LocalRunner`. Guarantees deliberately differ by OS (documented in
+  `SECURITY.md`, not a bug): Linux gets full kernel-enforced isolation
+  (network/fs/memory/CPU/process-count via namespaces + `RLIMIT_*`); macOS
+  isolates network/fs/CPU via Seatbelt but approximates memory via psutil
+  polling (`RLIMIT_AS` doesn't work on Darwin, bpo-34602) with a weaker
+  process-count budget (no user-namespace equivalent); Windows gets
+  kernel-enforced memory/CPU/process-count via Job Objects (memory limit is
+  commit-charge-based and in practice faster than POSIX `RLIMIT_AS`) but has
+  **no network isolation** and only soft (`cwd`-relative) filesystem
+  containment in this MVP — both named, not silent, gaps (AppContainer and
+  `CreateProcessAsUser`+restricted-token respectively were judged
+  disproportionately complex/risky for a first cut). New additive verdict
+  `SANDBOX_VIOLATION` (`RunOutcome.sandbox_violation`, additive to
+  AC/WA/RE/TLE/CANCELLED) fires only for violations the runner proactively
+  detects and kills itself — memory (RSS/commit threshold), `output_size`
+  (stdout+stderr over `sandbox_max_output_bytes`), `cpu` (`SIGXCPU` on
+  POSIX); network/filesystem/process-count violations are rejected by the
+  kernel *inside* the sandbox and correctly surface as an ordinary `RE`
+  instead (the runner doesn't parse a child's traceback to relabel it). New
+  `grader_core.set_runner()` fulfills the injection point the codebase had
+  already reserved for this. Three new `[tool.stepik-grader]` quota fields:
+  `sandbox_max_cpu_seconds` (10.0), `sandbox_max_processes` (32),
+  `sandbox_max_output_bytes` (10 MiB). Known MVP limitation on all three
+  platforms: only the interpreter + stdlib are bound into the sandbox, not
+  the grader's own venv site-packages, so solutions depending on third-party
+  packages aren't supported under `--sandbox`; Linux's nsjail fallback
+  (mentioned in the original design) also isn't implemented, `bwrap` is the
+  only Linux backend. New `tests/test_sandbox_runner.py`: platform-
+  independent unit tests plus `pytest.mark.skipif`-gated real-backend
+  escape-matrix tests (write outside tmp, network, fork bomb, memory/output
+  overruns, TLE) and a golden AC/RE/TLE comparison against `LocalRunner`,
+  each executing for real only on its native OS.
 - Opt-in local run statistics (issue #268): `--stats`/`--no-stats` (or
   `[tool.stepik-grader] record_stats = true`) appends one JSON-Lines record
   per grading run — mode, verdict tallies (AC/WA/RE/TLE for modes 1/2,

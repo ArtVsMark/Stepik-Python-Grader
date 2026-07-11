@@ -281,6 +281,7 @@ def test_run_outcome_defaults() -> None:
     assert outcome.timed_out is False
     assert outcome.launch_error is None
     assert outcome.cancelled is False
+    assert outcome.sandbox_violation is None
 
 
 # ---------------------------------------------------------------------------
