@@ -32,6 +32,7 @@ import pytest
 
 if TYPE_CHECKING:
     import os
+    import pathlib
     from collections.abc import Iterable
 
     from _pytest._code.code import ExceptionInfo, TerminalRepr
@@ -91,7 +92,7 @@ class GraderFile(pytest.File):
             resolve_test_dir,
         )
 
-        solution = str(self.path)
+        solution = self.path
         test_dir = resolve_test_dir(solution)
         if test_dir is None:
             return  # тесты для этого решения не найдены — нечего собирать
@@ -106,7 +107,9 @@ class GraderFile(pytest.File):
 class GraderItem(pytest.Item):
     """Один тест-кейс грейдера как исполняемый pytest Item."""
 
-    def __init__(self, name: str, parent: GraderFile, case: TestCase, solution: str) -> None:
+    def __init__(
+        self, name: str, parent: GraderFile, case: TestCase, solution: pathlib.Path
+    ) -> None:
         super().__init__(name, parent)
         self.case = case
         self.solution = solution

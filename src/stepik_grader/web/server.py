@@ -255,7 +255,7 @@ class _Handler(BaseHTTPRequestHandler):
                 confined = self._confined_path(path, lang)
                 if confined is None:
                     return
-                path = str(confined)
+                path = confined
                 if mode == "bench":
                     reference = (qs.get("reference") or [""])[0].strip() or None
                     repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
@@ -302,7 +302,7 @@ class _Handler(BaseHTTPRequestHandler):
                 confined = self._confined_path(path, lang)
                 if confined is None:
                     return
-                data = list_solutions(str(confined), lang=lang)
+                data = list_solutions(confined, lang=lang)
             self._send(200, "application/json; charset=utf-8", _json(data))
         elif parsed.path == "/api/source":
             qs = parse_qs(parsed.query)
@@ -313,7 +313,7 @@ class _Handler(BaseHTTPRequestHandler):
                 confined = self._confined_path(path, lang)
                 if confined is None:
                     return
-                data = read_source(str(confined), lang=lang)
+                data = read_source(confined, lang=lang)
             self._send(200, "application/json; charset=utf-8", _json(data))
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
@@ -347,18 +347,17 @@ class _Handler(BaseHTTPRequestHandler):
             root = str(body.get("root") or "").strip() or None
             data = download_task(url, root=root)
         else:  # /api/save-solution
-            folder = str(body.get("folder") or "").strip()
-            if not folder:
+            raw_folder = str(body.get("folder") or "").strip()
+            if not raw_folder:
                 self._send(
                     400,
                     "application/json; charset=utf-8",
                     _json({"ok": False, **message_fields("specify_folder", lang)}),
                 )
                 return
-            confined_folder = self._confined_path(folder, lang)
+            confined_folder = self._confined_path(raw_folder, lang)
             if confined_folder is None:
                 return
-            folder = str(confined_folder)
             code = body.get("code")
             if not isinstance(code, str):
                 self._send(
@@ -368,13 +367,13 @@ class _Handler(BaseHTTPRequestHandler):
                 )
                 return
             raw_path = str(body.get("path") or "").strip() or None
-            path = None
+            target_path: pathlib.Path | None = None
             if raw_path:
                 confined_target = self._confined_path(raw_path, lang)
                 if confined_target is None:
                     return
-                path = str(confined_target)
-            data = save_solution(folder, path, code, lang=lang)
+                target_path = confined_target
+            data = save_solution(confined_folder, target_path, code, lang=lang)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _read_json_body(self, lang: str = DEFAULT_LANG) -> dict[str, Any] | None:
@@ -489,7 +488,7 @@ class _Handler(BaseHTTPRequestHandler):
         else:
             params["number"] = _clamp(_to_int(params_in.get("number"), 1000), *_NUMBER_RANGE)
 
-        job = runs.submit_job(mode, str(confined), params, code=code)
+        job = runs.submit_job(mode, confined, params, code=code)
         self._send(
             202,
             "application/json; charset=utf-8",
@@ -629,7 +628,7 @@ def run_server(
     host: str = "127.0.0.1",
     port: int = 8000,
     *,
-    root: str | None = None,
+    root: pathlib.Path | None = None,
     confine: bool = True,
 ) -> None:
     """Запустить веб-интерфейс на http://host:port (Ctrl+C — остановить).
@@ -643,7 +642,7 @@ def run_server(
     confinement``) — явный откат к прежнему поведению (доступ к любому
     пути на диске), issue #261.
     """
-    workspace = pathlib.Path(root).expanduser().resolve() if root else pathlib.Path.cwd().resolve()
+    workspace = root.expanduser().resolve() if root else pathlib.Path.cwd().resolve()
     server = _GraderServer((host, port), _Handler, workspace=workspace, confine=confine)
     url = f"http://{host}:{port}"
     # Консольный вывод оператора сервера (не JSON-ответ API) — тоже через

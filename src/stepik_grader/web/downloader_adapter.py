@@ -121,7 +121,7 @@ def download_task(url: str, *, root: str | None = None) -> dict[str, Any]:
     fmt = _detect_format(tests_dir) if tests_dir.is_dir() else "legacy"
     # count — независимая перепроверка тем же кодом, что реально грейдит
     # (устойчивее к любому будущему расхождению, чем просто доверять save_task_files).
-    real_count = len(load_test_cases(str(tests_dir))) if tests_dir.is_dir() else 0
+    real_count = len(load_test_cases(tests_dir)) if tests_dir.is_dir() else 0
 
     try:
         path_str = str(task_dir.relative_to(pathlib.Path.cwd()))

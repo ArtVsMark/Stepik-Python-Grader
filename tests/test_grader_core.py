@@ -112,7 +112,7 @@ def test_load_test_cases_format3_priority(tmp_path: pathlib.Path):
     (tmp_path / "input.txt").write_text("# TEST_1:\n2\n3\n# TEST_2:\n4\n5\n", encoding="utf-8")
     (tmp_path / "output.txt").write_text("# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8")
 
-    cases = grader.load_test_cases(str(tmp_path))
+    cases = grader.load_test_cases(tmp_path)
     assert len(cases) == 2
     assert cases[0].index == 1
     assert cases[0].input_lines == ["2", "3"]
@@ -125,7 +125,7 @@ def test_load_test_cases_format3_classifies_function_block(tmp_path: pathlib.Pat
     (tmp_path / "input.txt").write_text("# TEST_1:\nprint(add(1, 2))\n", encoding="utf-8")
     (tmp_path / "output.txt").write_text("# TEST_1:\n3\n", encoding="utf-8")
 
-    cases = grader.load_test_cases(str(tmp_path))
+    cases = grader.load_test_cases(tmp_path)
     assert len(cases) == 1
     assert cases[0].test_type == "function"
 
@@ -137,7 +137,7 @@ def test_load_test_cases_format1_fallback(tmp_path: pathlib.Path):
     (tmp_path / "2").write_text("1\n", encoding="utf-8")
     (tmp_path / "2.clue").write_text("2\n", encoding="utf-8")
 
-    cases = grader.load_test_cases(str(tmp_path))
+    cases = grader.load_test_cases(tmp_path)
     assert [c.index for c in cases] == [1, 2]
     assert cases[0].input_lines == ["3", "7"]
     assert cases[0].expected_lines == ["10"]
@@ -149,7 +149,7 @@ def test_load_test_cases_format1_type_file(tmp_path: pathlib.Path):
     (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
     (tmp_path / "1.type").write_text("function\n", encoding="utf-8")
 
-    cases = grader.load_test_cases(str(tmp_path))
+    cases = grader.load_test_cases(tmp_path)
     assert len(cases) == 1
     assert cases[0].test_type == "function"
 
@@ -159,7 +159,7 @@ def test_load_test_cases_format2(tmp_path: pathlib.Path):
     (tmp_path / "input_1.txt").write_text("5\n", encoding="utf-8")
     (tmp_path / "expected_1.txt").write_text("25\n", encoding="utf-8")
 
-    cases = grader.load_test_cases(str(tmp_path))
+    cases = grader.load_test_cases(tmp_path)
     assert len(cases) == 1
     assert cases[0].index == 1
     assert cases[0].input_lines == ["5"]
@@ -168,7 +168,7 @@ def test_load_test_cases_format2(tmp_path: pathlib.Path):
 
 def test_load_test_cases_empty_dir(tmp_path: pathlib.Path):
     """An empty directory yields no cases."""
-    assert grader.load_test_cases(str(tmp_path)) == []
+    assert grader.load_test_cases(tmp_path) == []
 
 
 def test_load_test_cases_warns_on_mixed_format3_and_format1(tmp_path: pathlib.Path) -> None:
@@ -182,7 +182,7 @@ def test_load_test_cases_warns_on_mixed_format3_and_format1(tmp_path: pathlib.Pa
     (tmp_path / "1.clue").write_text("99\n", encoding="utf-8")
 
     with pytest.warns(UserWarning, match="Format 3 takes priority"):
-        cases = grader.load_test_cases(str(tmp_path))
+        cases = grader.load_test_cases(tmp_path)
 
     assert len(cases) == 1
     assert cases[0].input_lines == ["2", "3"]
@@ -195,7 +195,7 @@ def test_load_test_cases_no_warning_for_format3_alone(tmp_path: pathlib.Path) ->
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        cases = grader.load_test_cases(str(tmp_path))
+        cases = grader.load_test_cases(tmp_path)
 
     assert len(cases) == 1
 
@@ -211,7 +211,7 @@ def test_load_test_cases_warns_on_input_output_block_count_mismatch(
     (tmp_path / "output.txt").write_text("# TEST_1:\n5\n# TEST_2:\n9\n", encoding="utf-8")
 
     with pytest.warns(UserWarning, match=r"input\.txt has 3.*output\.txt has 2"):
-        cases = grader.load_test_cases(str(tmp_path))
+        cases = grader.load_test_cases(tmp_path)
 
     # zip(strict=False) still truncates to the shorter side -- warning doesn't
     # change existing behavior, just makes the data loss visible.
@@ -225,7 +225,7 @@ def test_load_test_cases_no_warning_when_block_counts_match(tmp_path: pathlib.Pa
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        cases = grader.load_test_cases(str(tmp_path))
+        cases = grader.load_test_cases(tmp_path)
 
     assert len(cases) == 2
 
@@ -242,7 +242,7 @@ def test_resolve_test_dir_finds_tests_subfolder(tmp_path: pathlib.Path):
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
 
-    assert grader.resolve_test_dir(str(sol)) == str(tests_dir)
+    assert grader.resolve_test_dir(sol) == tests_dir
 
 
 def test_resolve_test_dir_finds_stem_folder(tmp_path: pathlib.Path):
@@ -252,7 +252,7 @@ def test_resolve_test_dir_finds_stem_folder(tmp_path: pathlib.Path):
     stem_dir = tmp_path / "task1"
     stem_dir.mkdir()
 
-    assert grader.resolve_test_dir(str(sol)) == str(stem_dir)
+    assert grader.resolve_test_dir(sol) == stem_dir
 
 
 def test_resolve_test_dir_finds_adjacent_input_txt(tmp_path: pathlib.Path):
@@ -262,7 +262,7 @@ def test_resolve_test_dir_finds_adjacent_input_txt(tmp_path: pathlib.Path):
     (tmp_path / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
     (tmp_path / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
 
-    assert grader.resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+    assert grader.resolve_test_dir(sol) == tmp_path.resolve()
 
 
 def test_resolve_test_dir_finds_clue_in_parent(tmp_path: pathlib.Path):
@@ -272,7 +272,7 @@ def test_resolve_test_dir_finds_clue_in_parent(tmp_path: pathlib.Path):
     (tmp_path / "1").write_text("1\n", encoding="utf-8")
     (tmp_path / "1.clue").write_text("1\n", encoding="utf-8")
 
-    assert grader.resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+    assert grader.resolve_test_dir(sol) == tmp_path.resolve()
 
 
 # ---------------------------------------------------------------------------
@@ -285,7 +285,7 @@ def test_build_function_wrapper_accepts_valid_identifiers(tmp_path: pathlib.Path
     sol = tmp_path / "task1.py"
     sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
 
-    src = grader._build_function_wrapper(str(sol), "x = 1", "solve")
+    src = grader._build_function_wrapper(sol, "x = 1", "solve")
 
     assert "from task1 import solve" in src
 
@@ -300,7 +300,7 @@ def test_build_function_wrapper_rejects_invalid_function_name(tmp_path: pathlib.
     sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Invalid function_name"):
-        grader._build_function_wrapper(str(sol), "x = 1", "solve\nimport os")
+        grader._build_function_wrapper(sol, "x = 1", "solve\nimport os")
 
 
 def test_build_function_wrapper_rejects_invalid_module_stem(tmp_path: pathlib.Path):
@@ -309,7 +309,7 @@ def test_build_function_wrapper_rejects_invalid_module_stem(tmp_path: pathlib.Pa
     sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
 
     with pytest.raises(ValueError, match="Invalid module filename stem"):
-        grader._build_function_wrapper(str(sol), "x = 1", "solve")
+        grader._build_function_wrapper(sol, "x = 1", "solve")
 
 
 def test_build_function_wrapper_imports_stdlib_before_sys_path_insert(
@@ -322,7 +322,7 @@ def test_build_function_wrapper_imports_stdlib_before_sys_path_insert(
     sol = tmp_path / "task1.py"
     sol.write_text("def solve(x):\n    return x\n", encoding="utf-8")
 
-    src = grader._build_function_wrapper(str(sol), "x = 1", "solve")
+    src = grader._build_function_wrapper(sol, "x = 1", "solve")
 
     import_idx = src.index("from datetime import")
     path_insert_idx = src.index("sys.path.insert")
@@ -345,7 +345,7 @@ def test_build_function_wrapper_not_shadowed_by_local_datetime_module(
         "raise ImportError('shadowed by local datetime.py')\n", encoding="utf-8"
     )
 
-    src = grader._build_function_wrapper(str(sol), "d = date(2024, 1, 1)", "solve")
+    src = grader._build_function_wrapper(sol, "d = date(2024, 1, 1)", "solve")
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding="utf-8", delete=False) as wf:
         wf.write(src)
@@ -377,7 +377,7 @@ def test_run_single_test_reports_re_for_invalid_function_name(tmp_path: pathlib.
     # (not a call block) and run_single_test routes to _build_function_wrapper.
     case = grader.TestCase(index=1, input_lines=["5"], expected_lines=["5"], test_type="function")
 
-    result = grader.run_single_test(str(sol), case, measure_memory=False)
+    result = grader.run_single_test(sol, case, measure_memory=False)
 
     assert result["verdict"] == "RE"
     assert result["passed"] is False
@@ -395,7 +395,7 @@ def test_run_single_test_exit_code_zero_on_ac(tmp_path: pathlib.Path) -> None:
     sol.write_text("print(int(input()) + 1)\n", encoding="utf-8")
     case = grader.TestCase(index=1, input_lines=["4"], expected_lines=["5"])
 
-    result = grader.run_single_test(str(sol), case, measure_memory=False)
+    result = grader.run_single_test(sol, case, measure_memory=False)
 
     assert result["verdict"] == "AC"
     assert result["exit_code"] == 0
@@ -406,7 +406,7 @@ def test_run_single_test_exit_code_zero_on_wa(tmp_path: pathlib.Path) -> None:
     sol.write_text("print(int(input()) + 2)\n", encoding="utf-8")
     case = grader.TestCase(index=1, input_lines=["4"], expected_lines=["5"])
 
-    result = grader.run_single_test(str(sol), case, measure_memory=False)
+    result = grader.run_single_test(sol, case, measure_memory=False)
 
     assert result["verdict"] == "WA"
     assert result["exit_code"] == 0
@@ -417,7 +417,7 @@ def test_run_single_test_exit_code_nonzero_on_re(tmp_path: pathlib.Path) -> None
     sol.write_text("raise ValueError('boom')\n", encoding="utf-8")
     case = grader.TestCase(index=1, input_lines=[""], expected_lines=["5"])
 
-    result = grader.run_single_test(str(sol), case, measure_memory=False)
+    result = grader.run_single_test(sol, case, measure_memory=False)
 
     assert result["verdict"] == "RE"
     assert result["exit_code"] not in (0, None)
@@ -486,7 +486,7 @@ def test_run_benchmark_and_micro_stats_agree_on_same_timings() -> None:
 
 def test_build_call_wrapper_has_no_wildcard_imports() -> None:
     """Generated wrapper source must not contain `import *` (regression guard)."""
-    src = grader._build_call_wrapper("task1.py", "print(1)")
+    src = grader._build_call_wrapper(pathlib.Path("task1.py"), "print(1)")
     assert "import *" not in src
 
 
@@ -513,7 +513,7 @@ def test_build_call_wrapper_solution_name_overrides_stdlib(tmp_path: pathlib.Pat
         test_type="function",
     )
 
-    result = grader.run_single_test(str(sol), case, measure_memory=False)
+    result = grader.run_single_test(sol, case, measure_memory=False)
 
     assert result["verdict"] == "AC", result["error"] or result["diff"]
     assert result["output"] == ["custom-reduce(1,2)", "custom-chain(3,4)"]
@@ -532,7 +532,7 @@ def test_build_call_wrapper_stdlib_names_available_without_solution_definitions(
         test_type="function",
     )
 
-    result = grader.run_single_test(str(sol), case, measure_memory=False)
+    result = grader.run_single_test(sol, case, measure_memory=False)
 
     assert result["verdict"] == "AC", result["error"] or result["diff"]
 

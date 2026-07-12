@@ -172,7 +172,7 @@ class TestArgparseCli:
         called = []
         monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **kwargs: called.append(solution))
         cli.main(["--mode", "1", "--file", str(sol)])
-        assert called == [str(sol)]
+        assert called == [sol]
 
     def test_mode_2_dispatches_to_run_mode_2(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         called = []
@@ -180,7 +180,7 @@ class TestArgparseCli:
             cli, "_run_mode_2", lambda directory, **kwargs: called.append(directory)
         )
         cli.main(["--mode", "2", "--dir", str(tmp_path)])
-        assert called == [str(tmp_path)]
+        assert called == [tmp_path]
 
     def test_mode_3_dispatches_to_run_mode_3_with_repeats(
         self, monkeypatch, tmp_path: pathlib.Path
@@ -192,7 +192,7 @@ class TestArgparseCli:
             lambda directory, repeats, **kwargs: called.append((directory, repeats)),
         )
         cli.main(["--mode", "3", "--dir", str(tmp_path), "--repeats", "20"])
-        assert called == [(str(tmp_path), 20)]
+        assert called == [(tmp_path, 20)]
 
     def test_mode_3_default_repeats(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         called = []
@@ -212,7 +212,7 @@ class TestArgparseCli:
             lambda directory, number, **kwargs: called.append((directory, number)),
         )
         cli.main(["--mode", "4", "--dir", str(tmp_path), "--number", "5000"])
-        assert called == [(str(tmp_path), 5000)]
+        assert called == [(tmp_path, 5000)]
 
     def test_mode_4_default_number(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         called = []
@@ -315,7 +315,7 @@ class TestMode3:
         (tmp_path / "tests").mkdir()
 
         def fake_run_benchmark(path, test_dir, *, repeats=15):
-            if "task2" in path:
+            if "task2" in str(path):
                 return {"error": "boom", "runs": 0}
             return {
                 "runs": 5,
@@ -368,7 +368,7 @@ class TestMode4:
 
         monkeypatch.setattr(cli, "_ask_micro_profile", lambda: 500)
         monkeypatch.setattr(
-            cli, "_resolve_test_dir_from_input", lambda *a, **k: str(tmp_path / "does_not_exist")
+            cli, "_resolve_test_dir_from_input", lambda *a, **k: tmp_path / "does_not_exist"
         )
         inputs = iter(["4", str(tmp_path)])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
@@ -568,7 +568,7 @@ class TestMode4MemoryFootnote:
         (tmp_path / "task1.py").write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "tests").mkdir()
         monkeypatch.setattr(cli, "run_microbench_mode", self._bench)
-        cli._run_mode_4(str(tmp_path), 500)
+        cli._run_mode_4(tmp_path, 500)
         out = capsys.readouterr().out
         # Сноска о методике Py-heap появляется ровно один раз.
         assert out.count("Py-heap") >= 1
@@ -578,7 +578,7 @@ class TestMode4MemoryFootnote:
         (tmp_path / "task1.py").write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "tests").mkdir()
         monkeypatch.setattr(cli, "run_microbench_mode", self._bench)
-        cli._run_mode_4(str(tmp_path), 500, output="json")
+        cli._run_mode_4(tmp_path, 500, output="json")
         assert "tracemalloc" not in capsys.readouterr().out
 
 
@@ -733,7 +733,7 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--root", "/some/dir"])
-        assert called == [{"port": 8000, "root": "/some/dir", "confine": True}]
+        assert called == [{"port": 8000, "root": pathlib.Path("/some/dir"), "confine": True}]
 
     def test_serve_no_root_confinement_disables_confine(self, monkeypatch) -> None:
         from stepik_grader import web

@@ -50,44 +50,44 @@ class TestLoadTextLines:
         """Обычный UTF-8 файл читается и разбивается на строки."""
         f = tmp_path / "a.txt"
         f.write_text("hello\nworld", encoding="utf-8")
-        assert load_text_lines(str(f)) == ["hello", "world"]
+        assert load_text_lines(f) == ["hello", "world"]
 
     def test_strips_trailing_newlines(self, tmp_path: pathlib.Path) -> None:
         """Хвостовые \\n обрезаются (.rstrip перед splitlines)."""
         f = tmp_path / "b.txt"
         f.write_text("line1\nline2\n\n", encoding="utf-8")
-        result = load_text_lines(str(f))
+        result = load_text_lines(f)
         assert result == ["line1", "line2", ""]
 
     def test_single_line(self, tmp_path: pathlib.Path) -> None:
         """Одна строка → список из одного элемента."""
         f = tmp_path / "c.txt"
         f.write_text("42", encoding="utf-8")
-        assert load_text_lines(str(f)) == ["42"]
+        assert load_text_lines(f) == ["42"]
 
     def test_empty_file(self, tmp_path: pathlib.Path) -> None:
         """Пустой файл → пустой список."""
         f = tmp_path / "empty.txt"
         f.write_text("", encoding="utf-8")
-        assert load_text_lines(str(f)) == []
+        assert load_text_lines(f) == []
 
     def test_cyrillic_content(self, tmp_path: pathlib.Path) -> None:
         """Кириллица читается корректно."""
         f = tmp_path / "ru.txt"
         f.write_text("Привет\nМир", encoding="utf-8")
-        assert load_text_lines(str(f)) == ["Привет", "Мир"]
+        assert load_text_lines(f) == ["Привет", "Мир"]
 
     def test_multiline_numbers(self, tmp_path: pathlib.Path) -> None:
         """Типичный тестовый input: числа построчно."""
         f = tmp_path / "nums.txt"
         f.write_text("3\n1 2 3", encoding="utf-8")
-        assert load_text_lines(str(f)) == ["3", "1 2 3"]
+        assert load_text_lines(f) == ["3", "1 2 3"]
 
     def test_returns_list(self, tmp_path: pathlib.Path) -> None:
         """Возвращает именно list[str]."""
         f = tmp_path / "t.txt"
         f.write_text("x", encoding="utf-8")
-        result = load_text_lines(str(f))
+        result = load_text_lines(f)
         assert isinstance(result, list)
         assert all(isinstance(s, str) for s in result)
 
@@ -103,7 +103,7 @@ class TestLoadTestCases:
     def test_single_case(self, tmp_path: pathlib.Path) -> None:
         """Один тест: возвращает список из одного TestCase."""
         tests_dir = _make_test_dir(tmp_path, [("3", "6")])
-        cases = load_test_cases(str(tests_dir))
+        cases = load_test_cases(tests_dir)
         assert len(cases) == 1
         assert cases[0].index == 1
         assert cases[0].input_lines == ["3"]
@@ -112,32 +112,32 @@ class TestLoadTestCases:
     def test_multiple_cases_sorted_by_index(self, tmp_path: pathlib.Path) -> None:
         """Несколько тестов: порядок по возрастанию индекса."""
         tests_dir = _make_test_dir(tmp_path, [("1", "2"), ("3", "6"), ("5", "10")])
-        cases = load_test_cases(str(tests_dir))
+        cases = load_test_cases(tests_dir)
         assert len(cases) == 3
         assert [c.index for c in cases] == [1, 2, 3]
 
     def test_input_multiline(self, tmp_path: pathlib.Path) -> None:
         """Многострочный input сохраняется корректно."""
         tests_dir = _make_test_dir(tmp_path, [("3\n1 2 3", "6")])
-        cases = load_test_cases(str(tests_dir))
+        cases = load_test_cases(tests_dir)
         assert cases[0].input_lines == ["3", "1 2 3"]
 
     def test_expected_multiline(self, tmp_path: pathlib.Path) -> None:
         """Многострочный expected сохраняется корректно."""
         tests_dir = _make_test_dir(tmp_path, [("in", "line1\nline2\nline3")])
-        cases = load_test_cases(str(tests_dir))
+        cases = load_test_cases(tests_dir)
         assert cases[0].expected_lines == ["line1", "line2", "line3"]
 
     def test_returns_test_case_instances(self, tmp_path: pathlib.Path) -> None:
         """Возвращает list[TestCase]."""
         tests_dir = _make_test_dir(tmp_path, [("x", "y")])
-        cases = load_test_cases(str(tests_dir))
+        cases = load_test_cases(tests_dir)
         assert all(isinstance(c, TestCase) for c in cases)
 
     def test_index_field_matches_file_number(self, tmp_path: pathlib.Path) -> None:
         """Поле index совпадает с номером файла (1, 2, 3 …)."""
         tests_dir = _make_test_dir(tmp_path, [("a", "b"), ("c", "d")])
-        cases = load_test_cases(str(tests_dir))
+        cases = load_test_cases(tests_dir)
         assert cases[0].index == 1
         assert cases[1].index == 2
 
@@ -155,7 +155,7 @@ class TestResolveTestDir:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "tests").mkdir()
-        assert resolve_test_dir(str(sol)) == str((tmp_path / "tests").resolve())
+        assert resolve_test_dir(sol) == (tmp_path / "tests").resolve()
 
     def test_python_generation_input_output_alongside(self, tmp_path: pathlib.Path) -> None:
         """Format 3 (input.txt + output.txt) рядом с решением → родительская папка."""
@@ -163,7 +163,7 @@ class TestResolveTestDir:
         sol.write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
         (tmp_path / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
-        assert resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+        assert resolve_test_dir(sol) == tmp_path.resolve()
 
     def test_python_generation_input_output_in_parent(self, tmp_path: pathlib.Path) -> None:
         """Format 3 на уровень выше решения (решение в подпапке)."""
@@ -175,7 +175,7 @@ class TestResolveTestDir:
         sol.write_text("print(1)\n", encoding="utf-8")
         (task_dir / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
         (task_dir / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
-        assert resolve_test_dir(str(sol)) == str(task_dir.resolve())
+        assert resolve_test_dir(sol) == task_dir.resolve()
 
     def test_clue_files_in_parent(self, tmp_path: pathlib.Path) -> None:
         """Legacy-формат: .clue-файлы в родительской папке решения."""
@@ -183,7 +183,7 @@ class TestResolveTestDir:
         sol.write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "1").write_text("1", encoding="utf-8")
         (tmp_path / "1.clue").write_text("1", encoding="utf-8")
-        assert resolve_test_dir(str(sol)) == str(tmp_path.resolve())
+        assert resolve_test_dir(sol) == tmp_path.resolve()
 
     def test_returns_none_when_nothing_found(self, tmp_path: pathlib.Path) -> None:
         """No tests/ subfolder, no stem folder, no Format 3, no .clue/input_N.txt.
@@ -193,7 +193,7 @@ class TestResolveTestDir:
         """
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
-        assert resolve_test_dir(str(sol)) is None
+        assert resolve_test_dir(sol) is None
 
 
 # ===========================================================================
@@ -208,8 +208,8 @@ class TestFindAllSolutionFiles:
         """Находит файлы task_1.py, task_2.py."""
         (tmp_path / "task_1.py").write_text("pass", encoding="utf-8")
         (tmp_path / "task_2.py").write_text("pass", encoding="utf-8")
-        result = find_all_solution_files(str(tmp_path))
-        names = [pathlib.Path(p).name for p in result]
+        result = find_all_solution_files(tmp_path)
+        names = [p.name for p in result]
         assert "task_1.py" in names
         assert "task_2.py" in names
 
@@ -218,7 +218,7 @@ class TestFindAllSolutionFiles:
         (tmp_path / "solution.py").write_text("pass", encoding="utf-8")
         (tmp_path / "README.md").write_text("", encoding="utf-8")
         (tmp_path / "__init__.py").write_text("", encoding="utf-8")
-        result = find_all_solution_files(str(tmp_path))
+        result = find_all_solution_files(tmp_path)
         assert result == []
 
     def test_recursive_search(self, tmp_path: pathlib.Path) -> None:
@@ -226,21 +226,21 @@ class TestFindAllSolutionFiles:
         nested = tmp_path / "chapter1" / "task1"
         nested.mkdir(parents=True)
         (nested / "task_1.py").write_text("pass", encoding="utf-8")
-        result = find_all_solution_files(str(tmp_path))
+        result = find_all_solution_files(tmp_path)
         assert len(result) == 1
-        assert "task_1.py" in result[0]
+        assert result[0].name == "task_1.py"
 
     def test_returns_sorted_list(self, tmp_path: pathlib.Path) -> None:
         """Результат отсортирован по алфавиту."""
         (tmp_path / "task_3.py").write_text("pass", encoding="utf-8")
         (tmp_path / "task_1.py").write_text("pass", encoding="utf-8")
         (tmp_path / "task_2.py").write_text("pass", encoding="utf-8")
-        result = find_all_solution_files(str(tmp_path))
+        result = find_all_solution_files(tmp_path)
         assert result == sorted(result)
 
     def test_empty_directory(self, tmp_path: pathlib.Path) -> None:
         """Пустая директория → пустой список."""
-        assert find_all_solution_files(str(tmp_path)) == []
+        assert find_all_solution_files(tmp_path) == []
 
 
 # ===========================================================================
@@ -262,24 +262,24 @@ class TestCollectGroupedFiles:
     def test_groups_by_folder(self, tmp_path: pathlib.Path) -> None:
         """Файлы из разных папок попадают в отдельные группы."""
         self._make_structure(tmp_path)
-        grouped = collect_grouped_files(str(tmp_path))
+        grouped = collect_grouped_files(tmp_path)
         assert len(grouped) == 2
 
     def test_correct_file_count_per_group(self, tmp_path: pathlib.Path) -> None:
         """Количество файлов в каждой группе соответствует ожидаемому."""
         self._make_structure(tmp_path)
-        grouped = collect_grouped_files(str(tmp_path))
+        grouped = collect_grouped_files(tmp_path)
         counts = {k: len(v) for k, v in grouped.items()}
         assert any(c == 2 for c in counts.values())
         assert any(c == 1 for c in counts.values())
 
     def test_empty_directory_returns_empty(self, tmp_path: pathlib.Path) -> None:
         """Пустая директория → пустой словарь."""
-        assert collect_grouped_files(str(tmp_path)) == {}
+        assert collect_grouped_files(tmp_path) == {}
 
     def test_keys_are_relative_paths(self, tmp_path: pathlib.Path) -> None:
         """Ключи — относительные пути (не абсолютные)."""
         self._make_structure(tmp_path)
-        grouped = collect_grouped_files(str(tmp_path))
+        grouped = collect_grouped_files(tmp_path)
         for key in grouped:
             assert not pathlib.Path(key).is_absolute()

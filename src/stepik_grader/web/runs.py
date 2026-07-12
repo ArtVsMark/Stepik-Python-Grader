@@ -115,7 +115,9 @@ def _sweep_expired_locked() -> None:
         del _JOBS[job_id]
 
 
-def submit_job(kind: str, path: str, params: dict[str, Any], *, code: str | None = None) -> Job:
+def submit_job(
+    kind: str, path: pathlib.Path, params: dict[str, Any], *, code: str | None = None
+) -> Job:
     """Поставить bench/microbench в очередь async job'ов (issue #262).
 
     ``path`` — уже сконфайненный, резолвленный абсолютный путь (конфайнмент —
@@ -169,7 +171,9 @@ def cancel_job(run_id: str) -> bool:
     return True
 
 
-def _run_job(job: Job, kind: str, path: str, params: dict[str, Any], code: str | None) -> None:
+def _run_job(
+    job: Job, kind: str, path: pathlib.Path, params: dict[str, Any], code: str | None
+) -> None:
     """Тело job'ы — выполняется на потоке ``ThreadPoolExecutor`` (issue #262)."""
     with job.lock:
         job.status = "running"
@@ -179,24 +183,18 @@ def _run_job(job: Job, kind: str, path: str, params: dict[str, Any], code: str |
     try:
         graded_path = path
         if code is not None:
-            parent = (
-                pathlib.Path(path) if pathlib.Path(path).is_dir() else pathlib.Path(path).parent
-            )
+            parent = path if path.is_dir() else path.parent
             tmp = tempfile.NamedTemporaryFile(
-                mode="w", suffix=".py", encoding="utf-8", delete=False, dir=str(parent)
+                mode="w", suffix=".py", encoding="utf-8", delete=False, dir=parent
             )
             try:
                 tmp.write(code)
             finally:
                 tmp.close()
             temp_code_path = tmp.name
-            graded_path = temp_code_path
+            graded_path = pathlib.Path(temp_code_path)
 
-        solutions = (
-            [graded_path]
-            if pathlib.Path(graded_path).is_file()
-            else find_all_solution_files(graded_path)
-        )
+        solutions = [graded_path] if graded_path.is_file() else find_all_solution_files(graded_path)
         total = estimate_run_count(solutions, kind=kind, repeats=int(params.get("repeats", 1)))
         with job.lock:
             job.progress["total"] = total

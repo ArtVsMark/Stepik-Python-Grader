@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import pathlib
 import statistics
 import subprocess
 import sys
@@ -270,7 +271,7 @@ def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResu
 
 
 def apply_relative_ranking(
-    results: dict[str, dict[str, Any]],
+    results: dict[pathlib.Path, dict[str, Any]],
     *,
     similar_threshold: float,
     much_slower_threshold: float,

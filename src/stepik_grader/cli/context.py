@@ -26,6 +26,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 __all__ = ["CliContext"]
@@ -38,11 +39,11 @@ class CliContext:
     t: Callable[..., str]
     run_tests: Callable[..., dict[str, Any]]
     run_benchmark: Callable[..., dict[str, Any]]
-    run_microbench_mode: Callable[..., dict[str, dict[str, Any]]]
-    resolve_test_dir_from_input: Callable[..., str | None]
+    run_microbench_mode: Callable[..., dict[Path, dict[str, Any]]]
+    resolve_test_dir_from_input: Callable[..., Path | None]
     print_tabular: Callable[..., None]
     # issue #121 Phase 2: interactive-menu/prompt handlers.
-    pick_path_via_dialog: Callable[..., str | None]
+    pick_path_via_dialog: Callable[..., Path | None]
     ask_bench_profile: Callable[[], int]
     ask_micro_profile: Callable[[], int]
     run_mode_1: Callable[..., None]

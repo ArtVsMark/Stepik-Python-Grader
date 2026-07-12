@@ -56,7 +56,7 @@ def _verdict_counts_from_cases(cases: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
-def _verdict_counts_from_bench(results: dict[str, dict[str, Any]]) -> dict[str, int]:
+def _verdict_counts_from_bench(results: dict[pathlib.Path, dict[str, Any]]) -> dict[str, int]:
     """Тальи вердиктов решений для режимов 3/4 (issue #268 — статистика).
 
     Ошибочные решения (``error`` вместо ``verdict``) считаются как ``ERR`` —
@@ -83,8 +83,8 @@ __all__ = [
 
 def _run_tests_maybe_cached(
     ctx: CliContext,
-    solution: str,
-    test_dir: str,
+    solution: pathlib.Path,
+    test_dir: pathlib.Path,
     *,
     verbose: bool,
     output: str,
@@ -116,7 +116,7 @@ def _run_tests_maybe_cached(
 
 def _run_mode_1(
     ctx: CliContext,
-    solution: str,
+    solution: pathlib.Path,
     *,
     verbose: bool = True,
     output: str = "text",
@@ -124,17 +124,17 @@ def _run_mode_1(
     record_stats: bool = False,
 ) -> None:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1."""
-    if not pathlib.Path(solution).is_file():
+    if not solution.is_file():
         print(ctx.t("file_not_found", path=solution))
         return
 
     test_dir = resolve_test_dir(solution)
-    if test_dir is None or not pathlib.Path(test_dir).is_dir():
+    if test_dir is None or not test_dir.is_dir():
         print(
             ctx.t(
                 "test_dir_not_found",
-                name=pathlib.Path(solution).name,
-                expected=str(pathlib.Path(solution).resolve().parent / "tests"),
+                name=solution.name,
+                expected=str(solution.resolve().parent / "tests"),
             )
         )
         return
@@ -152,7 +152,7 @@ def _run_mode_1(
         stats.record_run(1, _verdict_counts_from_cases(result["cases"]), result["total_time"])
 
     if output == "json":
-        print(json.dumps({"file": solution, **result}, ensure_ascii=False))
+        print(json.dumps({"file": str(solution), **result}, ensure_ascii=False))
         return
     if output in ("csv", "markdown"):
         rows = [
@@ -171,13 +171,13 @@ def _run_mode_1(
 
     col_file = 28
     print()
-    base = pathlib.Path(solution).resolve().parent.as_posix()
+    base = solution.resolve().parent
     print_correctness_results([(solution, result)], base, col_file=col_file)
 
 
 def _run_mode_2(
     ctx: CliContext,
-    directory: str,
+    directory: pathlib.Path,
     *,
     verbose: bool = False,
     output: str = "text",
@@ -185,7 +185,7 @@ def _run_mode_2(
     record_stats: bool = False,
 ) -> None:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2."""
-    if not pathlib.Path(directory).is_dir():
+    if not directory.is_dir():
         print(ctx.t("dir_not_found", path=directory))
         return
 
@@ -196,16 +196,16 @@ def _run_mode_2(
 
     col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
 
-    rows: list[tuple[str, dict[str, Any]]] = []
+    rows: list[tuple[pathlib.Path, dict[str, Any]]] = []
     machine_output = output != "text"
     cache = GraderCache() if use_cache else None
     cache_hits = 0
     track = scripts if machine_output else rich_track(scripts, description="Проверка решений...")
     for path in track:
         individual_test_dir = resolve_test_dir(path)
-        if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
+        if individual_test_dir is None or not individual_test_dir.is_dir():
             individual_test_dir = ctx.resolve_test_dir_from_input(directory, is_dir=True)
-        # ctx.resolve_test_dir_from_input(is_dir=True) always returns a str (never
+        # ctx.resolve_test_dir_from_input(is_dir=True) always returns a Path (never
         # the None its is_dir=False passthrough branch can produce) -- narrows for mypy.
         assert individual_test_dir is not None
         result, from_cache = _run_tests_maybe_cached(
@@ -223,7 +223,7 @@ def _run_mode_2(
         stats.record_run(2, _verdict_counts_from_cases(all_cases), total_time)
 
     if output == "json":
-        print(json.dumps({"results": dict(rows)}, ensure_ascii=False))
+        print(json.dumps({"results": {str(p): r for p, r in rows}}, ensure_ascii=False))
         return
     if output in ("csv", "markdown"):
         table_rows = [{"file": path, **result} for path, result in rows]
@@ -248,14 +248,14 @@ def _run_mode_2(
 
 def _run_mode_3(
     ctx: CliContext,
-    directory: str,
+    directory: pathlib.Path,
     repeats: int,
     *,
     output: str = "text",
     record_stats: bool = False,
 ) -> None:
     """Режим 3: subprocess-бенчмарк папки. Общий код для меню и --mode 3."""
-    if not pathlib.Path(directory).is_dir():
+    if not directory.is_dir():
         print(ctx.t("dir_not_found", path=directory))
         return
 
@@ -264,14 +264,14 @@ def _run_mode_3(
         print(ctx.t("no_solutions_found"))
         return
 
-    results: dict[str, dict[str, Any]] = {}
+    results: dict[pathlib.Path, dict[str, Any]] = {}
     machine_output = output != "text"
     track = scripts if machine_output else rich_track(scripts, description="Бенчмарк решений...")
     for path in track:
         individual_test_dir = resolve_test_dir(path)
-        if individual_test_dir is None or not pathlib.Path(individual_test_dir).is_dir():
+        if individual_test_dir is None or not individual_test_dir.is_dir():
             individual_test_dir = ctx.resolve_test_dir_from_input(directory, is_dir=True)
-        # ctx.resolve_test_dir_from_input(is_dir=True) always returns a str (never
+        # ctx.resolve_test_dir_from_input(is_dir=True) always returns a Path (never
         # the None its is_dir=False passthrough branch can produce) -- narrows for mypy.
         assert individual_test_dir is not None
         results[path] = ctx.run_benchmark(path, individual_test_dir, repeats=repeats)
@@ -290,7 +290,7 @@ def _run_mode_3(
         stats.record_run(3, _verdict_counts_from_bench(results), total_time)
 
     if output == "json":
-        print(json.dumps({"results": results}, ensure_ascii=False))
+        print(json.dumps({"results": {str(p): d for p, d in results.items()}}, ensure_ascii=False))
         return
     if output in ("csv", "markdown"):
         table_rows = [{"file": path, **data} for path, data in sorted(results.items())]
@@ -340,14 +340,14 @@ _MODE4_FIELDS = [
 
 def _run_mode_4(
     ctx: CliContext,
-    directory: str,
+    directory: pathlib.Path,
     number: int,
     *,
     output: str = "text",
     record_stats: bool = False,
 ) -> None:
     """Режим 4: timeit micro-bench папки. Общий код для меню и --mode 4."""
-    if not pathlib.Path(directory).is_dir():
+    if not directory.is_dir():
         print(ctx.t("dir_not_found", path=directory))
         return
 
@@ -360,23 +360,23 @@ def _run_mode_4(
     json_results: dict[str, dict[str, Any]] = {}
     table_rows: list[dict[str, Any]] = []
     printed_table = False
-    all_bench_results: dict[str, dict[str, Any]] = {}
+    all_bench_results: dict[pathlib.Path, dict[str, Any]] = {}
 
     for folder, paths in sorted(grouped.items()):
         if folder != ".":
-            folder_abs = pathlib.Path(directory) / folder
+            folder_abs = directory / folder
         else:
-            folder_abs = pathlib.Path(directory)
-        test_dir = ctx.resolve_test_dir_from_input(str(folder_abs), is_dir=True)
+            folder_abs = directory
+        test_dir = ctx.resolve_test_dir_from_input(folder_abs, is_dir=True)
 
-        label = folder if folder != "." else pathlib.Path(directory).name
+        label = folder if folder != "." else directory.name
         if not machine_output:
             print(ctx.t("micro_bench_header", label=label))
 
         # is_dir=True never actually returns None (see resolve_test_dir_from_input),
-        # but its return type is str | None -- check explicitly rather than assert,
+        # but its return type is Path | None -- check explicitly rather than assert,
         # since this path doesn't fall back to anything and must "continue" cleanly.
-        if test_dir is None or not pathlib.Path(test_dir).is_dir():
+        if test_dir is None or not test_dir.is_dir():
             if output == "json":
                 json_results[folder] = {"error": f"tests not found: {test_dir}"}
             elif output in ("csv", "markdown"):
@@ -399,7 +399,7 @@ def _run_mode_4(
             continue
 
         if output == "json":
-            json_results[folder] = {"results": bench}
+            json_results[folder] = {"results": {str(p): d for p, d in bench.items()}}
             continue
         if output in ("csv", "markdown"):
             table_rows.extend(

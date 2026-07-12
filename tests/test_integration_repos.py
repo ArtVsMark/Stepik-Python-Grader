@@ -28,7 +28,7 @@ def _run_case(tmp_path: pathlib.Path, solution: str, input_txt: str, output_txt:
     (tmp_path / "solution.py").write_text(solution, encoding="utf-8")
     (tmp_path / "input.txt").write_text(input_txt, encoding="utf-8")
     (tmp_path / "output.txt").write_text(output_txt, encoding="utf-8")
-    return run_tests(str(tmp_path / "solution.py"), str(tmp_path))
+    return run_tests(tmp_path / "solution.py", tmp_path)
 
 
 # ---------------------------------------------------------------------------

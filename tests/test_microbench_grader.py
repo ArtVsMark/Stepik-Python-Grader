@@ -21,10 +21,10 @@ import pytest
 from stepik_grader import grader
 
 
-def _write(tmp_path: pathlib.Path, name: str, text: str) -> str:
+def _write(tmp_path: pathlib.Path, name: str, text: str) -> pathlib.Path:
     p = tmp_path / name
     p.write_text(text, encoding="utf-8")
-    return str(p)
+    return p
 
 
 # ---------------------------------------------------------------------------
@@ -117,10 +117,10 @@ def test_run_microbench_mode_function_mode(tmp_path: pathlib.Path) -> None:
     _write(tmp_path, "output.txt", "# TEST_1:\n5\n")
 
     # Sanity: the loader classifies this block as function-mode.
-    cases = grader.load_test_cases(str(tmp_path))
+    cases = grader.load_test_cases(tmp_path)
     assert cases and cases[0].test_type == "function"
 
-    results = grader.run_microbench_mode([sol], str(tmp_path), number=100)
+    results = grader.run_microbench_mode([sol], tmp_path, number=100)
     assert sol in results
     data = results[sol]
     assert "error" not in data or not data["error"], data
@@ -135,10 +135,10 @@ def test_run_microbench_mode_stdin_mode(tmp_path: pathlib.Path) -> None:
     _write(tmp_path, "input.txt", "# TEST_1:\n2\n3\n")
     _write(tmp_path, "output.txt", "# TEST_1:\n5\n")
 
-    cases = grader.load_test_cases(str(tmp_path))
+    cases = grader.load_test_cases(tmp_path)
     assert cases and cases[0].test_type == "stdin"
 
-    results = grader.run_microbench_mode([sol], str(tmp_path), number=50)
+    results = grader.run_microbench_mode([sol], tmp_path, number=50)
     assert sol in results
     data = results[sol]
     assert not data.get("error"), data
@@ -158,7 +158,7 @@ def test_run_microbench_mode_reports_nonzero_memory_for_allocation(
     _write(tmp_path, "input.txt", "# TEST_1:\n42\n")
     _write(tmp_path, "output.txt", "# TEST_1:\n1000000\n")
 
-    results = grader.run_microbench_mode([sol], str(tmp_path), number=1)
+    results = grader.run_microbench_mode([sol], tmp_path, number=1)
     data = results[sol]
     assert not data.get("error"), data
     assert data["peak_memory_mb"] > 0.0
@@ -167,7 +167,7 @@ def test_run_microbench_mode_reports_nonzero_memory_for_allocation(
 def test_run_microbench_mode_empty_test_dir(tmp_path: pathlib.Path) -> None:
     """No test cases → empty dict, no crash."""
     sol = _write(tmp_path, "task1.py", "print('hi')\n")
-    assert grader.run_microbench_mode([sol], str(tmp_path), number=10) == {}
+    assert grader.run_microbench_mode([sol], tmp_path, number=10) == {}
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +195,7 @@ def test_run_microbench_mode_propagates_error(tmp_path: pathlib.Path) -> None:
     _write(tmp_path, "input.txt", "# TEST_1:\n1\n")
     _write(tmp_path, "output.txt", "# TEST_1:\n1\n")
 
-    results = grader.run_microbench_mode([sol], str(tmp_path), number=10)
+    results = grader.run_microbench_mode([sol], tmp_path, number=10)
     assert sol in results
     assert results[sol].get("error")
 

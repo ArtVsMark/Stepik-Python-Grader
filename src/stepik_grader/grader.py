@@ -75,6 +75,7 @@ __all__ = [
     "collect_grouped_files",
     "load_test_cases",
     "load_text_lines",
+    "resolve_test_dir",
     "run_single_test",
     "run_tests",
     "run_benchmark",

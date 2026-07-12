@@ -114,7 +114,7 @@ class TestDownloaderToGradeJourney:
             downloaded = downloader_adapter.download_task("https://stepik.org/lesson/1/step/4")
         assert downloaded["ok"] is True
 
-        graded = web.grade_path(downloaded["path"])
+        graded = web.grade_path(pathlib.Path(downloaded["path"]))
 
         assert graded["kind"] == "dir"
         row = graded["rows"][0]
@@ -143,7 +143,7 @@ def _make_re_task(tmp_path: pathlib.Path, exc: str) -> pathlib.Path:
 class TestErrorCardToGlossaryNavigation:
     def test_re_case_glossary_id_resolves_to_real_card(self, tmp_path: pathlib.Path) -> None:
         sol = _make_re_task(tmp_path, "KeyError('x')")
-        case = web.grade_path(str(sol))["rows"][0]["cases"][0]
+        case = web.grade_path(sol)["rows"][0]["cases"][0]
         assert case["verdict"] == "RE"
         assert case["glossary_ids"] == ["keyerror"]
 
@@ -185,8 +185,8 @@ class TestMissingGlossaryDraftJourney:
         sol = _make_re_task(tmp_path, "ArithmeticError('unusual')")
         queue_path = tmp_path / "missing.json"
 
-        web.grade_path(str(sol), missing_queue_path=str(queue_path))
-        entries = glossary_adapter.glossary_missing(queue_path=str(queue_path))
+        web.grade_path(sol, missing_queue_path=queue_path)
+        entries = glossary_adapter.glossary_missing(queue_path=queue_path)
 
         assert len(entries) == 1
         assert entries[0]["concept"] == "ArithmeticError"

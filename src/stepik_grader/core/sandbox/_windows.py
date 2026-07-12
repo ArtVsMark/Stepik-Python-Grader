@@ -220,7 +220,7 @@ class WindowsSandboxRunner:
         with ephemeral_run_dir() as run_dir:
             script_path = run_dir / "solution.py"
             try:
-                script_path.write_bytes(Path(spec.path).read_bytes())
+                script_path.write_bytes(spec.path.read_bytes())
             except OSError as exc:
                 return RunOutcome(launch_error=str(exc))
 

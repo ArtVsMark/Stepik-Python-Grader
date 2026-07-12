@@ -60,37 +60,37 @@ __all__ = [
 _TASK_NUM_RE = re.compile(r"^(task\d*)_(\d+)\.py$")
 
 
-def _rel(path: str, base: str) -> str:
+def _rel(path: pathlib.Path, base: pathlib.Path) -> str:
     """Путь относительно base (для компактного отображения), с fallback."""
     try:
-        return str(pathlib.Path(path).relative_to(base))
+        return str(path.relative_to(base))
     except ValueError:
-        return pathlib.Path(path).name
+        return path.name
 
 
 def _resolve_solutions(
-    path: str, *, lang: str = DEFAULT_LANG
-) -> tuple[str, str, list[str]] | dict[str, Any]:
+    path: pathlib.Path, *, lang: str = DEFAULT_LANG
+) -> tuple[str, pathlib.Path, list[pathlib.Path]] | dict[str, Any]:
     """Вернуть (kind, base, solutions) для файла/папки или error-dict.
 
     kind — "file" | "dir". Общий вход для обоих режимов грейдинга.
     """
-    p = pathlib.Path(path).expanduser()
+    p = path.expanduser()
     if p.is_file():
-        return "file", str(p.parent), [str(p)]
+        return "file", p.parent, [p]
     if p.is_dir():
-        solutions = find_all_solution_files(str(p))
+        solutions = find_all_solution_files(p)
         if not solutions:
             return {
                 "kind": "error",
-                **message_fields("solutions_not_found", lang, path=path),
+                **message_fields("solutions_not_found", lang, path=str(path)),
                 "rows": [],
             }
-        return "dir", str(p), solutions
-    return {"kind": "error", **message_fields("path_not_found", lang, path=path), "rows": []}
+        return "dir", p, solutions
+    return {"kind": "error", **message_fields("path_not_found", lang, path=str(path)), "rows": []}
 
 
-def _resolve_group_test_dir(folder_path: str) -> str:
+def _resolve_group_test_dir(folder_path: pathlib.Path) -> pathlib.Path:
     """Тесты для ГРУППЫ решений (папки), issue #187 — микробенч.
 
     Дубликат ветки ``is_dir=True`` из ``cli.__init__._resolve_test_dir_from_input``,
@@ -99,15 +99,15 @@ def _resolve_group_test_dir(folder_path: str) -> str:
     DAG ``web → cli``. Логика (`<dir>/tests/` → Format-3 `input.txt`+`output.txt`
     → сама папка как fallback) достаточно проста, чтобы держать копию.
     """
-    p = pathlib.Path(folder_path)
+    p = folder_path
     if (p / "tests").is_dir():
-        return str(p / "tests")
+        return p / "tests"
     if (p / "input.txt").exists() and (p / "output.txt").exists():
-        return str(p)
-    return str(p)
+        return p
+    return p
 
 
-def estimate_run_count(solutions: list[str], *, kind: str, repeats: int = 1) -> int:
+def estimate_run_count(solutions: list[pathlib.Path], *, kind: str, repeats: int = 1) -> int:
     """Оценить, сколько раз ``run_single_test()`` будет вызван для ``solutions``
     (issue #262) — дешёвый предрасчёт total для async job-прогресса
     (``web/runs.py``), только файловый ввод-вывод (``load_test_cases()``),
@@ -125,7 +125,7 @@ def estimate_run_count(solutions: list[str], *, kind: str, repeats: int = 1) -> 
     total = 0
     for sol in solutions:
         test_dir = resolve_test_dir(sol)
-        if test_dir is None or not pathlib.Path(test_dir).is_dir():
+        if test_dir is None or not test_dir.is_dir():
             continue
         total += len(load_test_cases(test_dir)) * max(1, repeats)
     return total
@@ -168,7 +168,9 @@ def _known_glossary_terms() -> set[str]:
         return set()
 
 
-def _queue_missing_concept(error_text: str, *, source: str, missing_queue_path: str) -> None:
+def _queue_missing_concept(
+    error_text: str, *, source: str, missing_queue_path: pathlib.Path
+) -> None:
     """Best-effort J7: RE с неизвестным исключением → очередь пополнения глоссария.
 
     Best-effort и defensive (issue #125, как и опциональный кэш #56): плохой/
@@ -190,7 +192,7 @@ def _case_view(
     *,
     stdin: str = "",
     source: str = "",
-    missing_queue_path: str | None = None,
+    missing_queue_path: pathlib.Path | None = None,
     lang: str = DEFAULT_LANG,
 ) -> dict[str, Any]:
     """Представление одного тест-кейса для UI — ErrorCard для WA/RE/TLE (issue #125)."""
@@ -249,40 +251,41 @@ def _case_view(
         view["glossary_ids"] = glossary_ids
         if not glossary_ids:
             # Неизвестное исключение — нет карточки в локальной базе (J7).
+            default_queue_path = pathlib.Path(CONFIG.glossary_missing_queue)
             _queue_missing_concept(
                 error,
                 source=source,
-                missing_queue_path=missing_queue_path or CONFIG.glossary_missing_queue,
+                missing_queue_path=missing_queue_path or default_queue_path,
             )
 
     return view
 
 
-def list_solutions(path: str, *, lang: str = DEFAULT_LANG) -> dict[str, Any]:
+def list_solutions(path: pathlib.Path, *, lang: str = DEFAULT_LANG) -> dict[str, Any]:
     """Найти файлы-решения в папке — пикер режима 1 «Один файл» (issue #125-fix).
 
     Без грейдинга: только листинг, чтобы UI дал выбрать один конкретный файл
     перед запуском. Возвращает {"kind": "dir", "base", "files": [полные пути]}
     либо {"kind": "error", "message", "message_id", "message_params", "files": []}.
     """
-    p = pathlib.Path(path).expanduser()
+    p = path.expanduser()
     if not p.is_dir():
         return {
             "kind": "error",
-            **message_fields("folder_not_found", lang, path=path),
+            **message_fields("folder_not_found", lang, path=str(path)),
             "files": [],
         }
-    solutions = find_all_solution_files(str(p))
+    solutions = find_all_solution_files(p)
     if not solutions:
         return {
             "kind": "error",
-            **message_fields("solutions_not_found", lang, path=path),
+            **message_fields("solutions_not_found", lang, path=str(path)),
             "files": [],
         }
-    return {"kind": "dir", "base": str(p), "files": solutions}
+    return {"kind": "dir", "base": str(p), "files": [str(s) for s in solutions]}
 
 
-def read_source(path: str, *, lang: str = DEFAULT_LANG) -> dict[str, Any]:
+def read_source(path: pathlib.Path, *, lang: str = DEFAULT_LANG) -> dict[str, Any]:
     """Прочитать исходник файла-решения — показ кода в режиме 1 (issue #125-fix).
 
     Чтение произвольного локального пути не расширяет threat model:
@@ -290,7 +293,7 @@ def read_source(path: str, *, lang: str = DEFAULT_LANG) -> dict[str, Any]:
     ``.py``-файлы в subprocess без sandbox (см. CLAUDE.md) — чтение текста
     строго безопаснее уже существующей возможности.
     """
-    p = pathlib.Path(path).expanduser()
+    p = path.expanduser()
     try:
         source = p.read_text(encoding=CONFIG.encoding)
     except OSError as exc:
@@ -321,7 +324,7 @@ def _next_solution_filename(folder: pathlib.Path) -> str:
 
 
 def save_solution(
-    folder: str, path: str | None, code: str, *, lang: str = DEFAULT_LANG
+    folder: pathlib.Path, path: pathlib.Path | None, code: str, *, lang: str = DEFAULT_LANG
 ) -> dict[str, Any]:
     """Сохранить код решения на диск — редактируемое окно кода в режиме 1.
 
@@ -332,12 +335,10 @@ def save_solution(
     ``download_task`` (issue #186); любой ``OSError`` при записи
     (несуществующая подпапка, права доступа) — graceful, не пробрасывается.
     """
-    folder_p = pathlib.Path(folder).expanduser()
+    folder_p = folder.expanduser()
     if not folder_p.is_dir():
-        return {"ok": False, **message_fields("folder_not_found", lang, path=folder)}
-    target = (
-        pathlib.Path(path).expanduser() if path else folder_p / _next_solution_filename(folder_p)
-    )
+        return {"ok": False, **message_fields("folder_not_found", lang, path=str(folder))}
+    target = path.expanduser() if path else folder_p / _next_solution_filename(folder_p)
     try:
         target.write_text(code, encoding=CONFIG.encoding)
     except OSError as exc:
@@ -346,7 +347,7 @@ def save_solution(
 
 
 def grade_path(
-    path: str, *, missing_queue_path: str | None = None, lang: str = DEFAULT_LANG
+    path: pathlib.Path, *, missing_queue_path: pathlib.Path | None = None, lang: str = DEFAULT_LANG
 ) -> dict[str, Any]:
     """Прогрейдить файл/папку на корректность (режим 1/2).
 
@@ -366,7 +367,7 @@ def grade_path(
     rows: list[dict[str, Any]] = []
     for sol in solutions:
         test_dir = resolve_test_dir(sol)
-        if test_dir is None or not pathlib.Path(test_dir).is_dir():
+        if test_dir is None or not test_dir.is_dir():
             rows.append({"file": _rel(sol, base), "status": "NO TESTS", "passed": 0, "total": 0})
             continue
         res = run_tests(sol, test_dir)
@@ -397,12 +398,12 @@ def grade_path(
                 ],
             }
         )
-    return {"kind": kind, "mode": "tests", "base": base, "rows": rows}
+    return {"kind": kind, "mode": "tests", "base": str(base), "rows": rows}
 
 
 def _apply_reference_ranking(
-    results: dict[str, dict[str, Any]],
-    reference_path: str,
+    results: dict[pathlib.Path, dict[str, Any]],
+    reference_path: pathlib.Path,
     *,
     similar_threshold: float,
     much_slower_threshold: float,
@@ -438,7 +439,7 @@ def _apply_reference_ranking(
 
 
 def grade_benchmark(
-    path: str,
+    path: pathlib.Path,
     *,
     repeats: int = 15,
     reference: str | None = None,
@@ -474,12 +475,12 @@ def grade_benchmark(
         return resolved
     kind, base, solutions = resolved
 
-    results: dict[str, dict[str, Any]] = {}
+    results: dict[pathlib.Path, dict[str, Any]] = {}
     for sol in solutions:
         if cancel_event is not None and cancel_event.is_set():
             break
         test_dir = resolve_test_dir(sol)
-        if test_dir is None or not pathlib.Path(test_dir).is_dir():
+        if test_dir is None or not test_dir.is_dir():
             results[sol] = {"error": render_message("tests_not_found_short", lang), "runs": 0}
         else:
             results[sol] = run_benchmark(
@@ -497,8 +498,7 @@ def grade_benchmark(
             (
                 s
                 for s in solutions
-                if (s == reference or pathlib.Path(s).name == ref_name)
-                and not results[s].get("error")
+                if (str(s) == reference or s.name == ref_name) and not results[s].get("error")
             ),
             None,
         )
@@ -536,10 +536,10 @@ def grade_benchmark(
         if d.get("error"):
             rows.append({"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]})
 
-    response: dict[str, Any] = {"kind": kind, "mode": "bench", "base": base, "rows": rows}
+    response: dict[str, Any] = {"kind": kind, "mode": "bench", "base": str(base), "rows": rows}
     if ref_path is not None:
         try:
-            response["reference_source"] = pathlib.Path(ref_path).read_text(encoding="utf-8")
+            response["reference_source"] = ref_path.read_text(encoding="utf-8")
         except OSError:
             response["reference_source"] = None
         response["reference_file"] = _rel(ref_path, base)
@@ -547,7 +547,7 @@ def grade_benchmark(
 
 
 def grade_microbench(
-    path: str,
+    path: pathlib.Path,
     *,
     number: int = 1000,
     lang: str = DEFAULT_LANG,
@@ -582,10 +582,10 @@ def grade_microbench(
     if kind == "file":
         sol = solutions[0]
         test_dir = resolve_test_dir(sol)
-        if test_dir is None or not pathlib.Path(test_dir).is_dir():
+        if test_dir is None or not test_dir.is_dir():
             return {
                 "kind": "error",
-                **message_fields("tests_not_found_for", lang, path=path),
+                **message_fields("tests_not_found_for", lang, path=str(path)),
                 "rows": [],
             }
         other_groups: list[str] = []
@@ -601,15 +601,15 @@ def grade_microbench(
         group_names = sorted(grouped)
         folder = group_names[0]
         other_groups = group_names[1:]
-        folder_abs = base if folder == "." else str(pathlib.Path(base) / folder)
+        folder_abs = base if folder == "." else base / folder
         test_dir = _resolve_group_test_dir(folder_abs)
-        if not pathlib.Path(test_dir).is_dir():
+        if not test_dir.is_dir():
             return {
                 "kind": "error",
-                **message_fields("tests_not_found_for", lang, path=folder_abs),
+                **message_fields("tests_not_found_for", lang, path=str(folder_abs)),
                 "rows": [],
             }
-        group_label = folder if folder != "." else pathlib.Path(base).name
+        group_label = folder if folder != "." else base.name
         results = run_microbench_mode(
             sorted(grouped[folder]),
             test_dir,
@@ -621,7 +621,7 @@ def grade_microbench(
     if not results:
         return {
             "kind": "error",
-            **message_fields("test_cases_not_found_in", lang, path=test_dir),
+            **message_fields("test_cases_not_found_in", lang, path=str(test_dir)),
             "rows": [],
         }
 
@@ -647,7 +647,7 @@ def grade_microbench(
         if d.get("error"):
             rows.append({"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]})
 
-    response: dict[str, Any] = {"kind": kind, "mode": "microbench", "base": base, "rows": rows}
+    response: dict[str, Any] = {"kind": kind, "mode": "microbench", "base": str(base), "rows": rows}
     if kind == "dir":
         response["group"] = group_label
         if other_groups:

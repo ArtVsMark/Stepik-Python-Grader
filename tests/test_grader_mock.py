@@ -303,7 +303,7 @@ class TestRunTests:
             return _make_popen_mock(stdout=out, stderr=err, returncode=rc)
 
         with patch("subprocess.Popen", side_effect=fake_popen):
-            return grader.run_tests(str(sol), str(test_dir))
+            return grader.run_tests(sol, test_dir)
 
     def test_all_passed(self, tmp_path: pathlib.Path) -> None:
         responses = [(b"1\n", b"", 0), (b"2\n", b"", 0), (b"3\n", b"", 0)]
@@ -335,7 +335,7 @@ class TestRunTests:
             return _make_popen_mock(stdout=out)
 
         with patch("subprocess.Popen", side_effect=fake_popen):
-            result = grader.run_tests(str(sol), str(test_dir))
+            result = grader.run_tests(sol, test_dir)
 
         assert result["passed"] == 1
         assert result["failed"] == 1
@@ -353,7 +353,7 @@ class TestRunTests:
 
         mock_proc = _make_popen_mock(stdout=b"", stderr=b"NameError", returncode=1)
         with patch("subprocess.Popen", return_value=mock_proc):
-            result = grader.run_tests(str(sol), str(test_dir))
+            result = grader.run_tests(sol, test_dir)
 
         assert result["errors"] == 1
         assert result["passed"] == 0
@@ -381,7 +381,7 @@ class TestRunTests:
             return _make_popen_mock(stdout=out)
 
         with patch("subprocess.Popen", side_effect=fake_popen):
-            result = grader.run_tests(str(sol), str(test_dir))
+            result = grader.run_tests(sol, test_dir)
 
         assert result["total"] == 2
         assert result["total_time"] >= 0
@@ -415,7 +415,7 @@ class TestRunTestsProgressAndCancel:
 
         ticks: list[int] = []
         with patch("subprocess.Popen", side_effect=fake_popen):
-            grader.run_tests(str(sol), str(test_dir), progress_callback=ticks.append)
+            grader.run_tests(sol, test_dir, progress_callback=ticks.append)
 
         assert ticks == [1, 1, 1]
 
@@ -427,7 +427,7 @@ class TestRunTestsProgressAndCancel:
         sol.write_text("# mock\n")
 
         with patch("subprocess.Popen", return_value=_make_popen_mock(stdout=b"1\n")):
-            result = grader.run_tests(str(sol), str(test_dir))
+            result = grader.run_tests(sol, test_dir)
 
         assert result["total"] == 2
         assert set(result.keys()) == {
@@ -451,7 +451,7 @@ class TestRunTestsProgressAndCancel:
 
         cancel_event = threading.Event()
         cancel_event.set()  # already cancelled before run_tests() even starts
-        result = grader.run_tests(str(sol), str(test_dir), cancel_event=cancel_event)
+        result = grader.run_tests(sol, test_dir, cancel_event=cancel_event)
 
         assert result["total"] == 0
         assert result["cases"] == []
@@ -476,7 +476,7 @@ class TestRunBenchmarkProgressAndCancel:
 
         ticks: list[int] = []
         with patch("subprocess.Popen", side_effect=fake_popen):
-            grader.run_benchmark(str(sol), str(test_dir), repeats=3, progress_callback=ticks.append)
+            grader.run_benchmark(sol, test_dir, repeats=3, progress_callback=ticks.append)
 
         assert ticks == [1] * 6  # 2 cases * 3 repeats
 
@@ -488,7 +488,7 @@ class TestRunBenchmarkProgressAndCancel:
 
         cancel_event = threading.Event()
         cancel_event.set()
-        result = grader.run_benchmark(str(sol), str(test_dir), repeats=5, cancel_event=cancel_event)
+        result = grader.run_benchmark(sol, test_dir, repeats=5, cancel_event=cancel_event)
 
         assert result["cancelled"] is True
         assert result["runs"] == 0
@@ -677,7 +677,7 @@ class TestLoadTestCases:
         (tmp_path / "input_2.txt").write_text("3\n")
         (tmp_path / "expected_2.txt").write_text("9\n")
 
-        cases = grader.load_test_cases(str(tmp_path))
+        cases = grader.load_test_cases(tmp_path)
         assert len(cases) == 2
         assert cases[0].index == 1
         assert cases[0].input_lines == ["5"]
@@ -687,7 +687,7 @@ class TestLoadTestCases:
         (tmp_path / "1").write_text("10\n")
         (tmp_path / "1.clue").write_text("100\n")
 
-        cases = grader.load_test_cases(str(tmp_path))
+        cases = grader.load_test_cases(tmp_path)
         assert len(cases) == 1
         assert cases[0].index == 1
         assert cases[0].test_type == "stdin"
@@ -697,20 +697,20 @@ class TestLoadTestCases:
         (tmp_path / "1.clue").write_text("25\n")
         (tmp_path / "1.type").write_text("function\n")
 
-        cases = grader.load_test_cases(str(tmp_path))
+        cases = grader.load_test_cases(tmp_path)
         assert cases[0].test_type == "function"
 
     def test_format3_testblock(self, tmp_path: pathlib.Path) -> None:
         (tmp_path / "input.txt").write_text("# TEST_1:\n5\n# TEST_2:\n3\n")
         (tmp_path / "output.txt").write_text("# TEST_1:\n25\n# TEST_2:\n9\n")
 
-        cases = grader.load_test_cases(str(tmp_path))
+        cases = grader.load_test_cases(tmp_path)
         assert len(cases) == 2
         assert cases[0].expected_lines == ["25"]
         assert cases[1].expected_lines == ["9"]
 
     def test_empty_dir_returns_empty(self, tmp_path: pathlib.Path) -> None:
-        cases = grader.load_test_cases(str(tmp_path))
+        cases = grader.load_test_cases(tmp_path)
         assert cases == []
 
 
@@ -727,7 +727,7 @@ class TestDetectRunMode:
         test_dir = tmp_path / "tests"
         test_dir.mkdir()
 
-        mode = grader._detect_run_mode(str(sol), str(test_dir))
+        mode = grader._detect_run_mode(sol, test_dir)
         assert mode == "function"
 
     def test_type_file_overrides_ast(self, tmp_path: pathlib.Path) -> None:
@@ -737,7 +737,7 @@ class TestDetectRunMode:
         test_dir.mkdir()
         (test_dir / "1.type").write_text("function\n")
 
-        mode = grader._detect_run_mode(str(sol), str(test_dir))
+        mode = grader._detect_run_mode(sol, test_dir)
         assert mode == "function"
 
     def test_ast_detects_function_only(self, tmp_path: pathlib.Path) -> None:
@@ -746,7 +746,7 @@ class TestDetectRunMode:
         test_dir = tmp_path / "tests"
         test_dir.mkdir()
 
-        mode = grader._detect_run_mode(str(sol), str(test_dir))
+        mode = grader._detect_run_mode(sol, test_dir)
         assert mode == "function"
 
     def test_stdin_for_script(self, tmp_path: pathlib.Path) -> None:
@@ -755,7 +755,7 @@ class TestDetectRunMode:
         test_dir = tmp_path / "tests"
         test_dir.mkdir()
 
-        mode = grader._detect_run_mode(str(sol), str(test_dir))
+        mode = grader._detect_run_mode(sol, test_dir)
         assert mode == "stdin"
 
 

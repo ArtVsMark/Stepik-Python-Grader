@@ -60,12 +60,12 @@ __all__ = ["create_backend", "MacSandboxRunner"]
 _DEPRECATION_MARKERS = (b"sandbox-exec", b"deprecated")
 
 
-def _quote_sb_path(path: str) -> str:
-    return path.replace("\\", "\\\\").replace('"', '\\"')
+def _quote_sb_path(path: Path) -> str:
+    return str(path).replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _build_profile(run_dir: Path) -> str:
-    run_dir_q = _quote_sb_path(str(run_dir.resolve()))
+    run_dir_q = _quote_sb_path(run_dir.resolve())
     return f"""(version 1)
 (deny default)
 (allow process-exec)
@@ -106,7 +106,7 @@ def _strip_deprecation_warning(stderr: bytes) -> bytes:
 class MacSandboxRunner:
     """``Runner`` изолирующий выполнение через ``sandbox-exec`` на macOS."""
 
-    def __init__(self, sandbox_exec_path: str) -> None:
+    def __init__(self, sandbox_exec_path: Path) -> None:
         self._sandbox_exec = sandbox_exec_path
 
     def run(self, spec: RunSpec) -> RunOutcome:
@@ -114,7 +114,7 @@ class MacSandboxRunner:
             script_path = run_dir / "solution.py"
             profile_path = run_dir / "profile.sb"
             try:
-                script_path.write_bytes(Path(spec.path).read_bytes())
+                script_path.write_bytes(spec.path.read_bytes())
                 profile_path.write_text(_build_profile(run_dir), encoding="utf-8")
             except OSError as exc:
                 return RunOutcome(launch_error=str(exc))
@@ -128,7 +128,7 @@ class MacSandboxRunner:
                 max_file_bytes=CONFIG.sandbox_max_output_bytes,
                 max_memory_bytes=None,  # RLIMIT_AS не работает на Darwin -- см. докстринг модуля
             )
-            argv = [self._sandbox_exec, "-f", str(profile_path), "--", *bootstrap]
+            argv = [str(self._sandbox_exec), "-f", str(profile_path), "--", *bootstrap]
 
             outcome = _posix_common.run_argv_with_limits(
                 argv,
@@ -148,7 +148,7 @@ def create_backend() -> MacSandboxRunner:
 
     sandbox_exec = shutil.which("sandbox-exec")
     if sandbox_exec is not None:
-        return MacSandboxRunner(sandbox_exec)
+        return MacSandboxRunner(Path(sandbox_exec))
     raise SandboxUnavailableError(
         "sandbox-exec не найден — --sandbox недоступен на этой сборке macOS."
     )
