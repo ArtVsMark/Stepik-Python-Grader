@@ -27,6 +27,8 @@
 | `web/downloader_adapter.py` | Application / Web | `download_task` — тонкий адаптер над `downloader.py`: OAuth без похода в браузер, раздел «Загрузчик задач» (issue #186) |
 | `web/glossary_adapter.py` | Application / Web | `glossary_search`/`glossary_get`/`glossary_missing` — тонкие адаптеры над `glossary/json_provider.py` (или fallback на компактный `core/glossary.py`) для раздела «Глоссарий» (issue #125) |
 | `web/commands.py` | Application / Web (leaf) | Реестр команд (`COMMANDS`, `filter_commands`) для command palette/action cards; не импортирует ничего из проекта |
+| `web/runs.py` | Application / Web | Async job-модель для bench/microbench (`submit_job`/`get_job`/`cancel_job`, issue #262) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
+| `web/i18n.py` | Application / Web (leaf) | `message_id`-каталог веб-API (issue #264): `resolve_lang`/`message_fields`/`render_message`, JSON-локали `web/locales/<lang>.json`; не импортирует ничего из проекта |
 | `ide.py` | Application / IDE | IDE-интеграция `--init-vscode`: генерация конфигов VS Code (tasks/launch) |
 | `pytest_plugin.py` | Application / Plugin | pytest-плагин (`pytest --grader-mode`, issue #57): запуск тест-кейсов грейдера как pytest-тестов |
 | `core/cache.py` | Infrastructure / Utilities | Кэш результатов `.grader_cache/` (issue #56): ключ по контенту решения+тестов, graceful degradation при битом/отсутствующем кэше |
@@ -37,7 +39,9 @@
 | `core/wrapper_builder.py` | Application | Генерация wrapper-скриптов для function-mode запуска (Issue #45 A-01) |
 | `core/reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA, адаптивное форматирование времени (`fmt_time`) |
 | `core/result.py` | Domain (leaf) | `TestResult` (frozen dataclass) + `Verdict` Literal — типизированная модель case result (issue #112/#113); `from_dict`/`to_dict` конвертируют форму, которую по-прежнему возвращает `run_single_test()` (`dict[str, Any]`, контракт не меняется — [result-contract.md](result-contract.md)); используется `core/reporter.print_case_verbose` вместо чтения произвольных dict-ключей |
-| `core/runner.py` | Infrastructure | `Runner` Protocol + `RunSpec`/`RunOutcome` + `LocalRunner` — абстракция запуска кода (issue #136/#137/#138, `docs/server-mode.md § Runner-слой`); `LocalRunner` — subprocess + best-effort лимит памяти (POSIX) + psutil-мониторинг RSS, то же поведение, что раньше жило внутри `run_single_test`. Будущий `SandboxRunner` (issue #157) — тот же протокол, другая изоляция |
+| `core/runner.py` | Infrastructure | `Runner` Protocol + `RunSpec`/`RunOutcome` + `LocalRunner` — абстракция запуска кода (issue #136/#137/#138, `docs/server-mode.md § Runner-слой`); `LocalRunner` — subprocess + best-effort лимит памяти (POSIX) + psutil-мониторинг RSS, то же поведение, что раньше жило внутри `run_single_test`. `SandboxRunner` (issue #266, реализован, см. `core/sandbox/`) — тот же протокол, ОС-уровневая изоляция; инъекция через `grader_core.set_runner()` |
+| `core/sandbox/` | Infrastructure | `SandboxRunner`/`SandboxUnavailableError` (issue #266, `--sandbox`) — ОС-специфичный backend по платформе: `_linux.py` (bubblewrap), `_macos.py` (sandbox-exec/Seatbelt), `_windows.py` (Job Objects, ctypes); `_posix_bootstrap.py`/`_posix_common.py` — общий POSIX-код лимитов (CPU/FS/processes) для Linux и macOS; `_run_dir.py` — эфемерная run-директория. Реализует тот же `Runner`-протокол, что `LocalRunner` — см. [server-mode.md § Runner-слой](server-mode.md), гарантии по ОС — [SECURITY.md](../SECURITY.md) |
+| `core/stats.py` | Infrastructure / Utilities | Opt-in локальная статистика запусков (issue #268): `record_run`/`read_summary`, JSON Lines `.grader_stats.jsonl`, best-effort (переживает битый/отсутствующий файл), size-based ротация |
 | `core/executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
@@ -81,7 +85,7 @@ cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/repor
 cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)
 cli/interactive.py     ──→  core/grader_core.py  (find_all_solution_files/collect_grouped_files), cli/context.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
-web/server.py          ──→  web/commands.py, web/downloader_adapter.py, web/glossary_adapter.py, web/viewmodels.py  (тонкий HTTP-роутинг)
+web/server.py          ──→  web/commands.py, web/downloader_adapter.py, web/glossary_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (тонкий HTTP-роутинг)
 web/viewmodels.py      ──→  core/grader_core.py, core/microbench_runner.py, core/reporter.py, core/test_loader.py  (web → core, ациклично)
 web/viewmodels.py      ──→  core/glossary.py  (lookup_from_error для error card при RE)
 web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
@@ -89,6 +93,12 @@ web/viewmodels.py      ──→  config.py
 web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/storage.py, core/test_loader.py
 web/glossary_adapter.py   ──→  core/glossary.py, glossary/json_provider.py, glossary/models.py, config.py
 web/commands.py            (только stdlib — реестр команд, project-импортов нет)
+web/runs.py            ──→  web/viewmodels.py, web/i18n.py, core/test_loader.py  (async job-модель, issue #262)
+web/i18n.py                (только stdlib/json — message_id-каталог, project-импортов нет, issue #264)
+core/grader_core.py    ──→  core/sandbox/  (set_runner() — точка инъекции SandboxRunner, issue #266)
+core/sandbox/          ──→  core/runner.py  (реализует Runner-протокол: RunSpec/RunOutcome)
+cli/__init__.py        ──→  core/sandbox/  (--sandbox: SandboxRunner/SandboxUnavailableError)
+cli/commands.py        ──→  core/stats.py  (record_run для --stats, issue #268)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/glossary.py  (glossary-блок в error card при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
@@ -138,7 +148,8 @@ downloader.py больше не импортирует grader.py: дублиру
 ┌───────────────────────────────────────────────────────────────┐
 │  Domain / Application  (src/stepik_grader/ — точки входа)      │
 │  downloader.py  │  grader.py (facade)  │  diagnostic_stepik   │
-│  web/ (--serve)  │  ide.py (--init-vscode)  │ pytest_plugin    │
+│  web/ (--serve, + web/runs.py async jobs)  │  ide.py           │
+│  pytest_plugin.py                                              │
 ├───────────────────────────────────────────────────────────────┤
 │  Application  (core/, грейдер разбит по SRP — Sprint 7, A-01) │
 │  core/grader_core.py (исполнение)  │  core/reporter.py (вывод)│
@@ -148,10 +159,12 @@ downloader.py больше не импортирует grader.py: дублиру
 │  Infrastructure  (core/)                                       │
 │  core/stepik_client.py  │  core/executor.py                    │
 │  core/microbench_runner.py  │  core/oauth_flow.py              │
-│  core/cache.py (.grader_cache/, #56)                           │
+│  core/cache.py (.grader_cache/, #56)  │  core/stats.py (#268)   │
+│  core/sandbox/ (SandboxRunner, --sandbox, #266)                │
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure / Utilities  (core/, leaf, no deps)            │
 │  core/storage.py  │  core/normalizers.py  │  core/glossary.py  │
+│  core/i18n.py                                                  │
 └───────────────────────────────────────────────────────────────┘
 ```
 
