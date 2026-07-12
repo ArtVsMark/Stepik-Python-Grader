@@ -155,6 +155,13 @@
   version-evolution table below got the same PyCharm correction.
 
 ### Fixed
+- README badges (`Version`, `Coverage (ubuntu)`, `Coverage (all OS
+  combined)`) now pass `&cacheSeconds=300` to shields.io's endpoint-badge
+  API — the shortest TTL shields.io honors. Without it, GitHub's camo image
+  proxy and shields.io's own edge cache could each hold a stale render for
+  hours after the underlying `.github/badges/*.json` changed (as happened
+  right after #289 landed), with no way for a reader to tell the badge was
+  just out of date rather than the fix not having worked.
 - CI (issue #289): the two coverage badges (`coverage.json`, single-OS
   ubuntu view; `coverage-combined.json`, cross-OS combined, issue #283)
   rendered with an identical `"coverage"` label baked into the badge image
