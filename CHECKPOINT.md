@@ -13,9 +13,9 @@
 
 ---
 
-## Snapshot: v1.6.0 (stable)
+## Snapshot: v1.7.0 (stable)
 
-**Текущая версия: 1.6.0**
+**Текущая версия: 1.7.0**
 
 > Строка-маркер выше существует только для CI-проверки дрейфа
 > (`scripts/check_version_consistency.py`, issue #165) — она сверяется с
@@ -23,9 +23,13 @@
 > и [`docs/versions.md`](docs/versions.md); этот файл остаётся историческим
 > snapshot, а не источником истины по версиям.
 
-- Тестов: 784 · Покрытие: 95% · Python: 3.12 / 3.13 / 3.14
+- Тестов: 1179 · Покрытие: 93% (cross-OS combined; single-OS ubuntu — 86.1%,
+  структурно ограничено `core/sandbox/`'s тремя ОС-специфичными backend'ами,
+  см. [`docs/architecture.md`](docs/architecture.md)) · Python: 3.12 / 3.13 /
+  3.14 (экспериментальная, только ubuntu в CI)
 - CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
-  × 3.12/3.13 + ubuntu 3.14-experimental — зелёный
+  × 3.12/3.13 + ubuntu 3.14-experimental + отдельный `coverage-combine` job —
+  зелёный
 - Пакет — `src/stepik_grader/` (src-layout, issue #35). Запуск только через
   `python -m stepik_grader.X` или `stepik-grader` после `pip install -e .`
 - Опубликован на PyPI: `pipx install stepik-python-grader`
@@ -35,42 +39,55 @@
 
 ### Реализовано (см. каноны, здесь без дублей)
 
-- Режимы 1–4 (проверка / сравнение / subprocess-бенчмарк / timeit-микробенч),
-  non-interactive CLI, `--output json/csv/markdown`, `--watch`, i18n (ru/en) —
-  [`docs/grader-workflow.md`](docs/grader-workflow.md).
+- WEB workspace (эпик **#123**, закрыт): split-pane UI, command palette,
+  раздел «Глоссарий», Downloader-блок (**#186**), микро-бенчмарк в вебе
+  (**#187**), сквозные user-journey тесты (**#129**) — что реализовано:
+  [`docs/web-current.md`](docs/web-current.md); замыслы/отложенное:
+  [`docs/web-design.md`](docs/web-design.md).
+- `--sandbox` — опциональная ОС-уровневая изоляция исполнения (issue
+  **#266**): bubblewrap/`sandbox-exec`/Job Objects. Гарантии по ОС —
+  [`SECURITY.md`](SECURITY.md).
+- Async job-модель для веб-бенчмарка (issue **#262**): `POST /api/v1/runs` +
+  прогресс/отмена. Полный справочник HTTP API — [`docs/api.md`](docs/api.md).
+- Security-аудит (эпики #146/#151/#97): закрыты утечка OAuth-токена,
+  Login-CSRF, отсутствие лимитов на тело запроса, права `secrets.json`,
+  path-confinement и Host/Origin guard в `--serve`.
+- Path вместо `str` в публичных контрактах `core/`/`cli/`/`web/` (issue
+  **#73**, breaking).
+- Локальная статистика запусков `--stats`/`--stats-summary` (issue **#268**).
+- Режимы 1–4, non-interactive CLI, `--output json/csv/markdown`, `--watch`,
+  i18n (ru/en) — [`docs/grader-workflow.md`](docs/grader-workflow.md).
 - Три формата тест-кейсов и конфигурация `[tool.stepik-grader]` —
   [`docs/configuration.md`](docs/configuration.md).
-- Web UI `--serve` (stdlib `http.server`, `web.py`) и IDE-интеграция
-  `--init-vscode` (`ide.py`) — [`docs/grader-workflow.md`](docs/grader-workflow.md).
 - Кэш результатов `.grader_cache/` (`core/cache.py`, issue #56) и
-  pytest-плагин (`pytest_plugin.py`, issue #57) — вошли в v1.5.0.
+  pytest-плагин (`pytest_plugin.py`, issue #57).
 - Runtime-зависимости: 3 (requests, psutil, rich) —
   [`docs/installation.md`](docs/installation.md).
-- Foundation локального глоссария (issue **#126**, эпик #123): пакет
-  `src/stepik_grader/glossary/` — `GlossaryCard`/`GlossaryMissingEntry`,
-  `JsonGlossaryProvider`, `MissingConceptDetector`, очередь пополнения.
-  Формат и API — [`docs/glossary.md`](docs/glossary.md).
-- Glossary coverage относительно официального Python/stdlib (issues
-  **#195–#198**, эпик #123): `origin`/`module`/`qualname` у
-  `GlossaryMissingEntry` + валидация при загрузке; офлайн-инвентаризатор
-  stdlib (`stdlib_inventory.py`); coverage-отчёт + missing JSON
-  (`coverage.py`); CLI `python -m stepik_grader.glossary.coverage`.
-- `--version` различает dev-сборку и релиз (issue **#163**, эпик #161 закрыт).
-- Живые README-бейджи `Coverage`/`Version` (`scripts/generate_*_badge.py`,
-  CI сам коммитит `.github/badges/*.json` после каждого прогона на push в main).
+- Локальный глоссарий против stdlib (issue #126, эпик #123) —
+  [`docs/glossary.md`](docs/glossary.md).
+- Живые README-бейджи `Coverage (ubuntu)`/`Coverage (all OS)`/`Version`
+  (`scripts/generate_*_badge.py`, CI коммитит `.github/badges/*.json` после
+  каждого прогона на push в main).
 - Packaging hygiene: MIT `LICENSE` + `py.typed`.
-- Полный diff — [`CHANGELOG.md § [1.6.0]`](CHANGELOG.md).
+- Полный diff — [`CHANGELOG.md § [1.7.0]`](CHANGELOG.md).
 
 ---
 
 ## Открытые фронты (указатели)
 
-Актуальные статусы — только в GitHub Issues; ниже — навигация:
+Актуальные статусы — только в GitHub Issues (`gh issue list`); ниже —
+навигация по крупным веткам:
 
-- **#125** — WEB workspace проверки решений (реализация — [`docs/web-current.md`](docs/web-current.md)).
-- **#186** — Downloader-блок в web · **#187** — микро-бенчмарк в web.
-- **#129** — тесты web MVP (user journeys).
-- **#191** — follow-up доводка глоссария (снижение false-positive детектора).
-- **#199** — регистрация модулей glossary coverage в DAG/архитектуре.
+- **#151** (backlog) — серверный трек (SandboxRunner+контейнеры/PostgreSQL/
+  accounts, issues #153–#155) — отложен до реального спроса на server mode.
+- **#130** — SQLite persistence (история запусков/учебные данные, issues
+  #131–#135).
+- **#146** — diagnostic logging для downloader/stepik_client/oauth_flow
+  (issues #147–#149).
+- **#97** — эпик анализа/развития: локальный CLI → WEB/Server IDE (родитель
+  #151/#130/#146).
+- **#59** (backlog) — долгосрочные идеи (Docker-sandbox, другие платформы,
+  AI-подсказки, дашборд прогресса).
+- **#55** — полуавтоматический импорт закреплённого решения из Stepik JSON.
 
 Постановки задач для будущих сессий Claude — [`docs/claude-handoff.md`](docs/claude-handoff.md).
