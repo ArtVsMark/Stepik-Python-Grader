@@ -97,6 +97,14 @@ def test_build_badge_payload_formats_whole_percent_without_trailing_zero() -> No
     assert payload["message"] == "95%"
 
 
+def test_build_badge_payload_accepts_custom_label() -> None:
+    """issue #289: two badges (single-OS/combined) must render different
+    labels — shields.io draws `label` on the image itself, not just in
+    markdown alt-text, so a shared default would make them indistinguishable."""
+    payload = _MODULE.build_badge_payload(95.3, label="coverage (all OS)")
+    assert payload["label"] == "coverage (all OS)"
+
+
 def test_main_writes_badge_json(tmp_path: pathlib.Path) -> None:
     coverage_xml = _write_coverage_xml(tmp_path, "0.953")
     out_path = tmp_path / "badges" / "coverage.json"
@@ -116,3 +124,22 @@ def test_main_creates_parent_directories(tmp_path: pathlib.Path) -> None:
     _MODULE.main(["--coverage-xml", str(coverage_xml), "--out", str(out_path)])
 
     assert out_path.exists()
+
+
+def test_main_passes_through_custom_label(tmp_path: pathlib.Path) -> None:
+    coverage_xml = _write_coverage_xml(tmp_path, "0.953")
+    out_path = tmp_path / "coverage-combined.json"
+
+    _MODULE.main(
+        [
+            "--coverage-xml",
+            str(coverage_xml),
+            "--out",
+            str(out_path),
+            "--label",
+            "coverage (all OS)",
+        ]
+    )
+
+    payload = json.loads(out_path.read_text(encoding="utf-8"))
+    assert payload["label"] == "coverage (all OS)"

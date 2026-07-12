@@ -73,11 +73,19 @@ def badge_color(percent: float) -> str:
     return "red"
 
 
-def build_badge_payload(percent: float) -> dict[str, str | int]:
-    """Собрать JSON-объект схемы shields.io endpoint badge (schemaVersion 1)."""
+def build_badge_payload(percent: float, *, label: str = "coverage") -> dict[str, str | int]:
+    """Собрать JSON-объект схемы shields.io endpoint badge (schemaVersion 1).
+
+    ``label`` — видимый текст слева на самой картинке бейджа (не только в
+    markdown alt-тексте) — по умолчанию просто "coverage"; вызывающая
+    сторона обязана передать разные значения для разных бейджей (issue
+    #289: single-OS `coverage.json` и cross-OS `coverage-combined.json`
+    рендерились с одинаковым label'ом "coverage", различались только числом —
+    пользователь не мог понять по самой картинке, что каждая измеряет).
+    """
     return {
         "schemaVersion": 1,
-        "label": "coverage",
+        "label": label,
         "message": f"{percent:g}%",
         "color": badge_color(percent),
     }
@@ -97,6 +105,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=pathlib.Path(".github/badges/coverage.json"),
         help="Куда записать shields.io endpoint JSON.",
     )
+    parser.add_argument(
+        "--label",
+        default="coverage",
+        help="Видимый текст слева на бейдже (по умолчанию 'coverage') — "
+        "задайте разный label для разных бейджей, иначе они неразличимы "
+        "на самой картинке (issue #289).",
+    )
     return parser
 
 
@@ -104,7 +119,7 @@ def main(argv: list[str] | None = None) -> None:
     """Точка входа: прочитать coverage.xml, записать badge JSON, напечатать сводку."""
     args = _build_arg_parser().parse_args(argv)
     percent = compute_coverage_percent(args.coverage_xml)
-    payload = build_badge_payload(percent)
+    payload = build_badge_payload(percent, label=args.label)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")

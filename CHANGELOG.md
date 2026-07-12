@@ -155,6 +155,14 @@
   version-evolution table below got the same PyCharm correction.
 
 ### Fixed
+- CI (issue #289): the two coverage badges (`coverage.json`, single-OS
+  ubuntu view; `coverage-combined.json`, cross-OS combined, issue #283)
+  rendered with an identical `"coverage"` label baked into the badge image
+  itself — shields.io draws `label` on the picture, not just in markdown
+  alt-text, so both badges looked the same except for the percentage.
+  `generate_coverage_badge.py` gained a `--label` flag (default `"coverage"`
+  for backward compat); CI now passes `"coverage (ubuntu)"` and
+  `"coverage (all OS)"` respectively.
 - CI (issue #286): both badge-update steps (`test` job and `coverage-combine`
   job, issue #283) used plain `git diff --quiet -- .github/badges/` to decide
   whether to commit — which only looks at already-tracked files. This never
