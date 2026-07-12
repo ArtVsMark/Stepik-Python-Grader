@@ -1,6 +1,6 @@
 """web — локальный веб-интерфейс грейдера (issue #58, эпик #80 Tier 1; issue #125).
 
-Пакет — эволюция бывшего одиночного ``web.py`` (см. docs/web-mvp.md §
+Пакет — эволюция бывшего одиночного ``web.py`` (см. docs/web-current.md §
 «Архитектура будущего web UI»): ``server.py`` (HTTP-хендлер), ``viewmodels.py``
 (грейдинг → JSON), ``static/`` (HTML/CSS/JS без build-шага). Публичный API
 (``grade_benchmark``/``grade_path``/``run_server``) не меняется — только

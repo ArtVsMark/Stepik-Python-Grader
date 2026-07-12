@@ -68,7 +68,8 @@
 | Карта документации + канонические источники | [`docs/README.md`](docs/README.md) |
 | Установка, OAuth, secrets.json, диагностика | [`docs/installation.md`](docs/installation.md) |
 | Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [`docs/grader-workflow.md`](docs/grader-workflow.md) |
-| Дизайн WEB MVP (UX, error/action cards, command palette, будущая архитектура web UI) | [`docs/web-mvp.md`](docs/web-mvp.md) |
+| WEB MVP — реализовано (UX, error/action cards, command palette) | [`docs/web-current.md`](docs/web-current.md) |
+| WEB MVP — замыслы/отложенное/отклонённое | [`docs/web-design.md`](docs/web-design.md) |
 | Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [`docs/configuration.md`](docs/configuration.md) |
 | Архитектура модулей (DAG, слои, «что умеет») | [`docs/architecture.md`](docs/architecture.md) |
 | Структура проекта (дерево файлов) | [`docs/project-structure.md`](docs/project-structure.md) |

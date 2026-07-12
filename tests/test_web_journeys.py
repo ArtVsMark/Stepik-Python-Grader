@@ -1,7 +1,7 @@
 """Cross-adapter user-journey tests for the web UI (issue #129).
 
 `tests/test_web.py`/`tests/test_web_downloader.py`/`tests/test_web_glossary.py`
-already cover most journeys from `docs/web-mvp.md § User journeys` in
+already cover most journeys from `docs/web-current.md § User journeys` in
 isolation (added incrementally alongside #125/#186/#187):
 
 - J1 (AC)                    -> test_web.py::TestGradePath.test_passing_file
@@ -83,7 +83,7 @@ def _get(url: str) -> tuple[int, bytes]:
 
 # ---------------------------------------------------------------------------
 # J0 -> J1: a downloaded task is immediately gradable at the path
-# download_task() returned (docs/web-mvp.md J0: "путь скачанной папки
+# download_task() returned (docs/web-current.md J0: "путь скачанной папки
 # автоматически подставляется -> пользователь сразу нажимает ▶").
 # ---------------------------------------------------------------------------
 
@@ -124,7 +124,7 @@ class TestDownloaderToGradeJourney:
 
 # ---------------------------------------------------------------------------
 # Error-card -> glossary-card navigation: the glossary_ids surfaced on an RE
-# case must resolve to a real card, not a dead link (docs/web-mvp.md J3
+# case must resolve to a real card, not a dead link (docs/web-current.md J3
 # "Action card Open glossary -> раздел «Глоссарий», карточка ... без ухода
 # из оболочки").
 # ---------------------------------------------------------------------------
@@ -171,7 +171,7 @@ class TestErrorCardToGlossaryNavigation:
 # Missing-glossary-draft journey: an entry queued while grading must be
 # visible through glossary_adapter.glossary_missing() -- the same read path
 # GET /api/glossary/missing uses -- not just the lower-level json_provider
-# (docs/web-mvp.md J7).
+# (docs/web-current.md J7).
 # ---------------------------------------------------------------------------
 
 

@@ -83,7 +83,8 @@ stepik-grader --mode 1 --file task.py
 |---|---|
 | Установка, OAuth, secrets.json, диагностика | [docs/installation.md](docs/installation.md) |
 | Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [docs/grader-workflow.md](docs/grader-workflow.md) |
-| Дизайн WEB MVP (проверка решений + Downloader + Глоссарий-модуль, микро-бенчмарк, error/action cards) | [docs/web-mvp.md](docs/web-mvp.md) |
+| WEB MVP (проверка решений + Downloader + Глоссарий-модуль, микро-бенчмарк, error/action cards) | [docs/web-current.md](docs/web-current.md) |
+| Справочник HTTP API (эндпоинты, параметры, лимиты, коды ответов, curl) | [docs/api.md](docs/api.md) |
 | Справочник: конфигурация, форматы тест-кейсов, ограничения и безопасность | [docs/configuration.md](docs/configuration.md) |
 | Архитектура: модули, слои, граф зависимостей | [docs/architecture.md](docs/architecture.md) |
 | Контракт результата проверки (CLI/Web/API), дизайн server mode, ADR | [docs/result-contract.md](docs/result-contract.md), [docs/server-mode.md](docs/server-mode.md), [docs/adr/README.md](docs/adr/README.md) |

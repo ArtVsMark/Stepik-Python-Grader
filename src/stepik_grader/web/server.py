@@ -153,39 +153,19 @@ def _resolve_within_root(
 
 
 class _Handler(BaseHTTPRequestHandler):
-    """GET / → страница; GET /api/grade?path=…&mode=tests|bench|microbench → JSON.
+    """HTTP-хендлер `--serve`: GET/POST на `/api/*` + статика.
 
-    Плюс (issue #125): GET /api/glossary?q= (поиск карточек), GET
-    /api/glossary/<id> (карточка или 404), GET /api/glossary/missing (очередь
-    пополнения, J7) — тонкие адаптеры над ``glossary_adapter.py``; GET
-    /api/commands?context=tag1,tag2 — реестр команд (``commands.py``),
-    отфильтрованный по тегам контекста (пусто/нет параметра → весь реестр).
-    Плюс (фикс режима 1, #125): GET /api/solutions?path= (список решений в
-    папке — пикер режима «Один файл») и GET /api/source?path= (исходник
-    файла для показа кода перед запуском).
-    Плюс (issue #186): POST /api/download — тело JSON {"url","root"?} — раздел
-    «Загрузчик задач», тонкий адаптер над ``downloader_adapter.download_task``.
-    Плюс (доделка #125): POST /api/save-solution — тело JSON
-    {"folder","path"?,"code"} — сохранить код из редактируемого окна на
-    диск (в ``path``, если выбран, иначе — новый файл по маске в ``folder``)
-    перед грейдингом в режиме 1.
+    Полный справочник эндпоинтов, параметров, лимитов и кодов ответов — см.
+    [docs/api.md](../../../docs/api.md) (issue #267); эта докстрока не
+    дублирует его.
 
     Пути (issue #261): все пути из запросов (``/api/grade``, ``/api/source``,
-    ``/api/solutions``, ``/api/save-solution``) конфайнятся в
-    ``server.workspace`` (``--root``, по умолчанию — cwd на момент запуска
-    ``--serve``) — выход за пределы (``../``, симлинк наружу, абсолютный
-    путь снаружи) отклоняется 403-м. Отключается явно (`--no-root-
-    confinement`) — прежнее поведение (любой путь на диске), сознательный
-    откат пользователя. ``/api/download`` (``root`` — куда СКАЧИВАТЬ задачу)
-    в это конфайнментование не входит — отдельный concern.
-
-    Плюс (issue #262) — async job-модель для bench/microbench, альтернатива
-    синхронному ``/api/grade`` (который для этих режимов теперь DEPRECATED,
-    см. комментарий у его ветки в ``_dispatch_api_get``): POST
-    /api/v1/runs (тело ``{"path","code"?,"mode","params"?}``) → 202
-    ``{"run_id","status"}``; GET /api/v1/runs/<id> → ``{"status","progress",
-    "result"}`` (плюс message-поля при ошибке/отмене); POST
-    /api/v1/runs/<id>/cancel — best-effort отмена. Реализация — ``web/runs.py``.
+    ``/api/solutions``, ``/api/save-solution``, ``/api/v1/runs``) конфайнятся
+    в ``server.workspace`` (``--root``, по умолчанию — cwd на момент запуска
+    ``--serve``) — выход за пределы отклоняется 403-м. Отключается явно
+    (``--no-root-confinement``) — сознательный откат пользователя.
+    ``/api/download`` (``root`` — куда СКАЧИВАТЬ задачу) в это
+    конфайнментование не входит — отдельный concern.
     """
 
     # Уточнение типа сервера (issue #261) — self.server на самом деле

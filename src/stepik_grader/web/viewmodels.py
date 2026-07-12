@@ -43,7 +43,7 @@ from stepik_grader.glossary.json_provider import (
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message
 
 # Вердикты-"ошибки" (в отличие от AC) — ErrorCard-поля (severity/stderr/
-# suggestions/...) заполняются только для них (issue #125, web-mvp.md §
+# suggestions/...) заполняются только для них (issue #125, web-current.md §
 # «Модель error cards»).
 _FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
 
@@ -144,7 +144,7 @@ def _error_card_actions(
     """MVP-набор action cards для кейса (issue #125) — только 5 реализованных id.
 
     Никогда не возвращает ``create_test``/``compare_solutions`` — они вне
-    скоупа #125 (design-only, см. docs/web-mvp.md § Action cards).
+    скоупа #125 (design-only, см. docs/web-design.md § Action cards, отложенные).
     """
     actions = ["run_again"]
     if stdin:

@@ -5,7 +5,8 @@
 > начать работу без повторного разбора контекста.
 >
 > **Что это НЕ.** Это **не** канонический продуктовый спец. Каноничная
-> спецификация WEB MVP — [`web-mvp.md`](web-mvp.md); при расхождении она
+> спецификация WEB MVP — [`web-current.md`](web-current.md) (что реализовано)
+> и [`web-design.md`](web-design.md) (замыслы); при расхождении они
 > главнее. Здесь — рабочие ориентиры «как подступиться», а критерии приёмки —
 > в самих GitHub issue.
 >
@@ -58,7 +59,7 @@ a11y-аудит, true fuzzy-поиск в палитре (substring вместо
 
 **Проверки/тесты.** `tests/test_web.py` (ErrorCard-поля, J7 wiring) +
 `tests/test_web_glossary.py` (glossary endpoints, command registry) уже
-покрывают журналы J1–J5/J7 из web-mvp.md на уровне HTTP/Python-функций;
+покрывают журналы J1–J5/J7 из web-current.md на уровне HTTP/Python-функций;
 фронтенд-логика (палитра/resize/scenario buttons) проверена вручную через
 запущенный сервер (нет JS test runner в проекте — см. non-goals ниже).
 Оставшиеся для #129 журналы — J0 (download) и J6 (микробенч): оба
@@ -120,7 +121,7 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 > Escape) проверены вручную через запущенный сервер — не JS-тестами (нет
 > test runner, non-goal ниже), тот же компромисс, что и в #125.
 
-**Scope (по критериям #129 и § User journeys в web-mvp.md).**
+**Scope (по критериям #129 и § User journeys в web-current.md).**
 - Покрыть основные сценарии веб-оболочки:
   - **Загрузка из Stepik** (J0): `POST /api/download` → `DownloadedTask`,
     автоподстановка пути (мокать сеть/OAuth; проверять извлечение тестов и
@@ -194,4 +195,4 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 проверки решений), `#186` (Downloader web), `#187` (микро-бенчмарк web) и
 `#129` (тесты web MVP) — **все закрыты**, реализация в
 `src/stepik_grader/web/` и `tests/test_web*.py`. **Эпик #123 закрыт**;
-дизайн-часть зафиксирована документом [web-mvp.md](web-mvp.md).
+реализация зафиксирована документом [web-current.md](web-current.md).

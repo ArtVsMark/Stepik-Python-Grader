@@ -67,7 +67,7 @@
 
 Актуальные статусы — только в GitHub Issues; ниже — навигация:
 
-- **#125** — WEB workspace проверки решений (дизайн — [`docs/web-mvp.md`](docs/web-mvp.md)).
+- **#125** — WEB workspace проверки решений (реализация — [`docs/web-current.md`](docs/web-current.md)).
 - **#186** — Downloader-блок в web · **#187** — микро-бенчмарк в web.
 - **#129** — тесты web MVP (user journeys).
 - **#191** — follow-up доводка глоссария (снижение false-positive детектора).

@@ -9,7 +9,9 @@
 |---|---|
 | Установить (pipx / из исходников), настроить OAuth, диагностика | [installation.md](installation.md) |
 | Запустить грейдер, режимы 1–4, CLI-флаги, web/IDE, скачать задачу | [grader-workflow.md](grader-workflow.md) |
-| Дизайн WEB MVP: три блока (Проверка решений, Downloader, Глоссарий-модуль), микро-бенчмарк, error/action cards | [web-mvp.md](web-mvp.md) |
+| WEB MVP: три блока (Проверка решений, Downloader, Глоссарий-модуль), микро-бенчмарк, error/action cards — что реализовано | [web-current.md](web-current.md) |
+| WEB MVP: замыслы, отложенное, отклонённое | [web-design.md](web-design.md) |
+| Справочник HTTP API `--serve`: эндпоинты, лимиты, коды ответов, curl-примеры | [api.md](api.md) |
 | Справочник: конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) |
 | Локальный глоссарий: формат JSON карточек/очереди, Python-API (`stepik_grader.glossary`) | [glossary.md](glossary.md) |
 | Понять архитектуру: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) |
@@ -37,12 +39,14 @@
 | Обзор проекта, бейджи, основные возможности | [README](../README.md) | docs/* |
 | Установка, OAuth, secrets.json, диагностика | [installation.md](installation.md) | README (только короткий quick start) |
 | Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [grader-workflow.md](grader-workflow.md) | README, CONTRIBUTING |
-| Дизайн WEB MVP (два раздела / три блока: проверка + Downloader + Глоссарий-модуль, микро-бенчмарк, error/action cards, будущая архитектура web UI) | [web-mvp.md](web-mvp.md) | grader-workflow.md (там — текущий `--serve`, не дизайн) |
+| WEB MVP — что реализовано (два раздела / три блока: проверка + Downloader + Глоссарий-модуль, микро-бенчмарк, error/action cards) | [web-current.md](web-current.md) | grader-workflow.md (там — текущий `--serve`, не подробности UI) |
+| WEB MVP — замыслы, отложенное, отклонённое (будущая архитектура web UI) | [web-design.md](web-design.md) | web-current.md (там — только реализованное) |
+| Справочник HTTP API (эндпоинты/параметры/лимиты/коды/curl для `--serve`) | [api.md](api.md) | server-mode.md (там — дизайн будущего сетевого API, не справочник по текущим эндпоинтам) |
 | Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) | README, CONTRIBUTING, grader-workflow.md |
-| Формат JSON локального глоссария (карточки/очередь) и API `stepik_grader.glossary` | [glossary.md](glossary.md) | web-mvp.md (там — продуктовый дизайн, не формат хранения) |
+| Формат JSON локального глоссария (карточки/очередь) и API `stepik_grader.glossary` | [glossary.md](glossary.md) | web-current.md (там — продуктовый контекст, не формат хранения) |
 | Архитектура: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) | README, CLAUDE.md (там — инварианты, не дублирующее описание) |
-| Контракт результата проверки (поля case/solution/run, вердикты, стабильность) | [result-contract.md](result-contract.md) | web-mvp.md (там — ViewModel-надстройки), configuration.md (там — таблица вердиктов) |
-| Дизайн server mode (Runner/SandboxRunner, API удалённого исполнения, sandbox-требования) | [server-mode.md](server-mode.md) | SECURITY.md (там — короткая политика), ADR-0001 (там — решение, не спецификация) |
+| Контракт результата проверки (поля case/solution/run, вердикты, стабильность) | [result-contract.md](result-contract.md) | web-current.md (там — ViewModel-надстройки), configuration.md (там — таблица вердиктов) |
+| Дизайн server mode (Runner/SandboxRunner, API удалённого исполнения, sandbox-требования) | [server-mode.md](server-mode.md) | SECURITY.md (там — короткая политика), ADR-0001 (там — решение, не спецификация), api.md (там — текущие эндпоинты, не дизайн) |
 | Диагностический режим, лог-файл, редакция секретов | [logging.md](logging.md) | SECURITY.md, configuration.md |
 | Архитектурные решения (контекст/решение/альтернативы/последствия) | [adr/README.md](adr/README.md) | docs/* (дизайн-доки описывают «как», ADR — «почему») |
 | Дерево файлов проекта | [project-structure.md](project-structure.md) | README |
@@ -51,7 +55,7 @@
 | Политика версионирования (схема тег=MINOR+1, release vs dev) | [../CONTRIBUTING.md](../CONTRIBUTING.md) § Версионирование | README, CLAUDE.md, versions.md, history.md |
 | Инварианты ядра, правила для агентов | [../CLAUDE.md](../CLAUDE.md) | docs/* |
 | История спринтов/roadmap, подробные примечания к issue (архив) | [history.md](history.md) | CLAUDE.md (там — только действующие инварианты) |
-| Постановки будущих реализаций для Claude (scope/non-goals) | [claude-handoff.md](claude-handoff.md) | CLAUDE.md (там — короткие указатели); канон продукта — web-mvp.md |
+| Постановки будущих реализаций для Claude (scope/non-goals) | [claude-handoff.md](claude-handoff.md) | CLAUDE.md (там — короткие указатели); канон продукта — web-current.md/web-design.md |
 
 > **Версия проекта — без ручного source of truth в доках.** Актуальный номер
 > берётся из git-тега / `importlib.metadata` (бейдж релиза в README тянет

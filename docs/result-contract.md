@@ -8,7 +8,7 @@
 > Это **контракт**, не описание реализации: имена полей и семантика вердиктов
 > здесь канонические. Продуктовые ViewModel'и веб-слоя (`ResultViewModel`,
 > `ErrorCard`) — надстройки над этим контрактом, канонично описаны в
-> [web-mvp.md § Контракты данных](web-mvp.md#контракты-данных) и здесь не
+> [web-current.md § Контракты данных](web-current.md#контракты-данных) и здесь не
 > дублируются. Форматы тест-кейсов и таблица вердиктов — в
 > [configuration.md](configuration.md#формат-тест-кейсов).
 
@@ -115,7 +115,7 @@ Python-тип — будущий типизированный `TestResult`/`data
   относительных имён), `rows` (по решению), `message`/`message_id`/
   `message_params` (только при `kind="error"`, см. § Локализация
   сообщений (`message_id`) ниже). Это уже адаптерный слой; Web отдаёт его
-  как `ResultViewModel` — см. [web-mvp.md](web-mvp.md#resultviewmodel).
+  как `ResultViewModel` — см. [web-current.md](web-current.md#resultviewmodel).
 
 ### Локализация сообщений (`message_id`) — issue #264
 
