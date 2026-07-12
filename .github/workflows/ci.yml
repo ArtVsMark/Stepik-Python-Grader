@@ -118,11 +118,16 @@ jobs:
           for attempt in 1 2 3; do
             python scripts/generate_coverage_badge.py
             python scripts/generate_version_badge.py
-            if git diff --quiet -- .github/badges/; then
+            git add .github/badges/
+            # --cached, not plain `git diff`: a brand-new badge file (e.g.
+            # coverage-combined.json on its first-ever run) is untracked, and
+            # plain `git diff --quiet` only looks at tracked files -- it would
+            # silently report "unchanged" and never commit the new file
+            # (issue #286). Staging first makes the check see additions too.
+            if git diff --cached --quiet; then
               echo "Badges unchanged."
               break
             fi
-            git add .github/badges/
             git commit -m "chore(ci): update badges [skip ci]"
             if git pull --rebase origin main && git push origin HEAD:main; then
               echo "Badges pushed (attempt $attempt)."
@@ -193,11 +198,17 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           for attempt in 1 2 3; do
             python scripts/generate_coverage_badge.py --out .github/badges/coverage-combined.json
-            if git diff --quiet -- .github/badges/; then
+            git add .github/badges/
+            # --cached, not plain `git diff`: coverage-combined.json is a
+            # brand-new file the first time this job ever runs -- untracked,
+            # so plain `git diff --quiet` (tracked files only) silently sees
+            # no change and never commits it (issue #286, the actual bug that
+            # left this badge missing/404 on README since #283/#284 merged).
+            # Staging first makes the check see additions too.
+            if git diff --cached --quiet; then
               echo "Badges unchanged."
               break
             fi
-            git add .github/badges/
             git commit -m "chore(ci): update badges [skip ci]"
             if git pull --rebase origin main && git push origin HEAD:main; then
               echo "Badges pushed (attempt $attempt)."
