@@ -116,7 +116,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           for attempt in 1 2 3; do
-            python scripts/generate_coverage_badge.py
+            python scripts/generate_coverage_badge.py --label "coverage (ubuntu)"
             python scripts/generate_version_badge.py
             git add .github/badges/
             # --cached, not plain `git diff`: a brand-new badge file (e.g.
@@ -197,7 +197,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           for attempt in 1 2 3; do
-            python scripts/generate_coverage_badge.py --out .github/badges/coverage-combined.json
+            python scripts/generate_coverage_badge.py --out .github/badges/coverage-combined.json --label "coverage (all OS)"
             git add .github/badges/
             # --cached, not plain `git diff`: coverage-combined.json is a
             # brand-new file the first time this job ever runs -- untracked,
