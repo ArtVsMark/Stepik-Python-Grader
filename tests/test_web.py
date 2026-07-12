@@ -94,7 +94,7 @@ class TestGradePath:
     def test_unknown_re_exception_queues_missing_glossary_entry(
         self, tmp_path: pathlib.Path
     ) -> None:
-        """J7 (web-mvp.md): unknown exception in an RE case gets queued for the
+        """J7 (web-current.md): unknown exception in an RE case gets queued for the
         glossary backlog, since core/glossary.py has no card for it (ValueError
         IS in the compact glossary, so raise something that isn't)."""
         from stepik_grader.glossary.json_provider import load_missing_queue
@@ -137,7 +137,7 @@ class TestGradePath:
 
 
 # ---------------------------------------------------------------------------
-# ErrorCard fields on _case_view — issue #125 (web-mvp.md § Модель error cards)
+# ErrorCard fields on _case_view — issue #125 (web-current.md § Модель error cards)
 # ---------------------------------------------------------------------------
 
 

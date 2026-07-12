@@ -220,7 +220,7 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 | Версии, отличия от оригинала | [docs/versions.md](docs/versions.md) |
 | Политика версионирования, код-стайл, workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Кодекс поведения | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
-| Дизайн WEB MVP | [docs/web-mvp.md](docs/web-mvp.md) |
+| WEB MVP: реализовано / замыслы / HTTP API | [docs/web-current.md](docs/web-current.md), [docs/web-design.md](docs/web-design.md), [docs/api.md](docs/api.md) |
 | История спринтов/roadmap (архив) | [docs/history.md](docs/history.md) |
 | Handoff для будущих реализаций Claude | [docs/claude-handoff.md](docs/claude-handoff.md) |
 | Полный changelog (живой источник) | [CHANGELOG.md](CHANGELOG.md) |
@@ -241,7 +241,7 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 
 > **#125/#186/#187/#129 (WEB workspace, Downloader-блок, микро-бенчмарк,
 > тесты user journeys в web) — закрыты. Эпик #123 закрыт.** См.
-> [docs/web-mvp.md](docs/web-mvp.md) и
+> [docs/web-current.md](docs/web-current.md) и
 > [docs/claude-handoff.md](docs/claude-handoff.md).
 
 **Дизайн-указатели** (server mode, [docs/server-mode.md](docs/server-mode.md) +

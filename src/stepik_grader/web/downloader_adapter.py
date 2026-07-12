@@ -75,7 +75,7 @@ def _detect_format(tests_dir: pathlib.Path) -> str:
 def download_task(url: str, *, root: str | None = None) -> dict[str, Any]:
     """Скачать задачу+тесты со Stepik по URL шага — режим #186 (раздел «Загрузчик задач»).
 
-    Возвращает ``DownloadedTask`` (docs/web-mvp.md): ``{"ok", "path", "files",
+    Возвращает ``DownloadedTask`` (docs/web-current.md): ``{"ok", "path", "files",
     "tests": {"count","source","format"}, "message"}``. ``ok=False`` — ошибка
     (нет secrets/OAuth/сеть/битый URL); ``ok=True`` с пустым ``tests`` и
     предупреждением в ``message`` — тесты не найдены (не ошибка, файлы задачи

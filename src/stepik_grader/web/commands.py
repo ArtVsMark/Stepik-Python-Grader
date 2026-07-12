@@ -1,4 +1,4 @@
-"""commands.py — единый реестр команд (issue #125, web-mvp.md § Command palette).
+"""commands.py — единый реестр команд (issue #125, web-current.md § Command palette).
 
 Один и тот же список ``COMMANDS`` питает три поверхности фронтенда: command
 palette (Ctrl+K), action cards в detail panel и сценарные кнопки в result
@@ -19,8 +19,8 @@ from typing import Any
 __all__ = ["COMMANDS", "filter_commands"]
 
 # MVP-набор — ровно то, что реализовано в #125. Никогда не добавлять сюда
-# create_test/compare_solutions — они design-only (docs/web-mvp.md § Action
-# cards), реализация вне скоупа этого issue.
+# create_test/compare_solutions — они design-only (docs/web-design.md § Action
+# cards, отложенные), реализация вне скоупа этого issue.
 COMMANDS: list[dict[str, Any]] = [
     {
         "id": "run_again",
