@@ -90,6 +90,26 @@
   `grader.resolve_test_dir` via the wildcard re-export but wasn't listed).
 
 ### Docs
+- Pre-release accuracy audit ahead of v1.7.0: `docs/project-structure.md`
+  and `docs/architecture.md` now mention `core/sandbox/` (issue #266),
+  `web/runs.py`/`web/i18n.py` (issue #262/#264), `core/stats.py` (issue
+  #268), and `core/i18n.py`, plus the DAG/layer diagrams for all of them —
+  `architecture.md` previously still called `SandboxRunner` "future work
+  (issue #157)" after it had already shipped. `docs/configuration.md`
+  gained the missing `glossary_store`/`glossary_missing_queue` rows.
+  `docs/grader-workflow.md` gained a `--stats`/`--stats-summary` section
+  (previously undocumented outside `configuration.md`).
+  `docs/installation.md`'s pinned `ruff>=0.4` corrected to `>=0.15.19`
+  (matching `pyproject.toml`). `docs/server-mode.md`'s unconditional "network
+  unreachable" `SandboxRunner` guarantee now flags the Windows exception
+  inline, not just in a separate paragraph below it. `SECURITY.md` gained a
+  dedicated section naming the Host/Origin guard and path-confinement
+  (`--root`/`--no-root-confinement`) mechanisms explicitly, cross-linked to
+  `docs/api.md`. `CLAUDE.md`'s metrics table test count corrected
+  (967 → 784, matching `CHECKPOINT.md`/`docs/versions.md` for the same
+  v1.6.0 snapshot) and Python 3.14 now marked experimental/ubuntu-only
+  there and in the README badge, matching `docs/grader-workflow.md`'s
+  existing wording.
 - New `docs/api.md` (issue #267): canonical HTTP API reference for
   `--serve` — every endpoint's method/path, params, limits, response codes,
   and a curl example, sourced from a full audit of `web/server.py`.

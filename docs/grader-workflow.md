@@ -319,6 +319,26 @@ Windows. Backend выбирается автоматически по текущ
 `sandbox_max_cpu_seconds`/`sandbox_max_processes`/`sandbox_max_output_bytes`,
 см. [docs/configuration.md](configuration.md).
 
+### `--stats` / `--stats-summary` (issue #268)
+
+```bash
+stepik-grader --mode 1 --file task.py --stats    # писать локальную статистику этого запуска
+stepik-grader --stats-summary                    # показать сводку и выйти
+```
+
+Opt-in локальная статистика запусков (режим/вердикты/ОС/суммарное время) в
+`.grader_stats.jsonl` в текущей папке — только локально, без сети. Включить
+по умолчанию можно через `pyproject.toml`:
+
+```toml
+[tool.stepik-grader]
+record_stats = true
+```
+
+При включённом по умолчанию сборе отдельный запуск можно форсировать флагом
+`--no-stats`. `--stats-summary` печатает агрегированную сводку (rich-таблица
+с fallback на plain-text) и завершает работу без грейдинга.
+
 ### pytest-плагин: `pytest --grader-mode` (issue #57)
 
 Если вы привыкли к pytest, грейдер можно запускать как обычный тест-сьют.

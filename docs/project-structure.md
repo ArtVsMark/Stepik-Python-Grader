@@ -9,6 +9,7 @@ Stepik-Python-Grader/
 ├── src/
 │   └── stepik_grader/            # src-layout (Issue #35 / CLAUDE.md Sprint 8.2)
 │       ├── __init__.py
+│       ├── __main__.py            # python -m stepik_grader → grader.main()
 │       ├── py.typed              # PEP 561 маркер типов (issue #101)
 │       ├── grader.py              # Тонкий фасад обратной совместимости (Sprint 7)
 │       ├── cli/                   # Интерактивное меню (режимы 0-4) + stepik-grader entry point
@@ -26,6 +27,8 @@ Stepik-Python-Grader/
 │       │   ├── downloader_adapter.py # download_task — адаптер над downloader.py (issue #186)
 │       │   ├── glossary_adapter.py   # glossary_search/get/missing — адаптеры над glossary/
 │       │   ├── commands.py        # Реестр команд для command palette (leaf)
+│       │   ├── runs.py            # Async job-модель для bench/microbench (issue #262)
+│       │   ├── i18n.py            # message_id-каталог веб-API (issue #264)
 │       │   └── static/            # index.html/app.css/app.js — без build-шага
 │       ├── ide.py                 # Генерация .vscode/tasks.json (--init-vscode)
 │       ├── pytest_plugin.py       # pytest11 entry point (--grader-mode)
@@ -48,7 +51,17 @@ Stepik-Python-Grader/
 │           ├── stepik_client.py  # Infrastructure: OAuth2, requests.Session, Stepik API
 │           ├── oauth_flow.py     # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
 │           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
-│           └── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
+│           ├── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
+│           ├── i18n.py           # Загрузка JSON-локалей меню/CLI (issue #144)
+│           ├── stats.py          # Opt-in локальная статистика запусков (issue #268)
+│           └── sandbox/          # SandboxRunner: OS-изолированный запуск, --sandbox (issue #266)
+│               ├── __init__.py   # SandboxRunner, SandboxUnavailableError, выбор backend'а по ОС
+│               ├── _linux.py     # bubblewrap (bwrap) backend
+│               ├── _macos.py     # sandbox-exec (Seatbelt) backend
+│               ├── _windows.py   # Job Objects (ctypes) backend
+│               ├── _posix_bootstrap.py # Общий POSIX-бутстрап лимитов (CPU/FS/processes)
+│               ├── _posix_common.py    # Общий POSIX subprocess-раннер с лимитами
+│               └── _run_dir.py   # Эфемерная run-директория для копии решения
 │       └── glossary/             # Domain: локальный knowledge-модуль глоссария (issue #126)
 │           ├── __init__.py       # Публичный API пакета glossary
 │           ├── models.py         # GlossaryCard, GlossaryMissingEntry (leaf, только stdlib)
@@ -57,7 +70,7 @@ Stepik-Python-Grader/
 │           ├── stdlib_inventory.py # Офлайн-инвентарь официального Python/stdlib (leaf, issue #196)
 │           └── coverage.py       # Coverage-отчёт + missing JSON + CLI (issue #197/#198)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов; включает pytester
-├── tests/                     # 960+ тестов (pytest)
+├── tests/                     # 1150+ тестов (pytest)
 ├── docs/                      # База знаний (архитектура, структура, версии) — эпик #102
 ├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.12/3.13/3.14
 ├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
