@@ -134,6 +134,17 @@
   the section for anyone who wants it. The `v1.4.0` row in the
   version-evolution table below got the same PyCharm correction.
 
+### Fixed
+- CI (issue #286): both badge-update steps (`test` job and `coverage-combine`
+  job, issue #283) used plain `git diff --quiet -- .github/badges/` to decide
+  whether to commit — which only looks at already-tracked files. This never
+  once committed `coverage-combined.json` (a brand-new file as of #283): the
+  script correctly computed the percentage every run, but the untracked file
+  never showed up as a "change", so the commit step always took the "Badges
+  unchanged" branch. Left the README's second coverage badge pointing at a
+  file that was never actually in the repo (404). Fixed by `git add` before
+  the check and diffing `--cached` instead, in both steps.
+
 ### Internal
 - CI: the `Update badges (main only)` step now retries (up to 3 attempts)
   instead of failing the job outright when two pushes to `main` land close
