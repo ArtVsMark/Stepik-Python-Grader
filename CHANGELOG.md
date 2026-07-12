@@ -9,6 +9,8 @@
 раздел. Не путать с этим блоком.
 -->
 
+## [1.7.0] - 2026-07-12
+
 ### Added
 - Opt-in OS-level sandboxed execution (issue #266): new `--sandbox` flag
   routes `--mode 1/2/3/4` through a new `SandboxRunner` (`core/sandbox/`)
