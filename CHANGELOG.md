@@ -129,6 +129,23 @@
   cleanly resolves as "Badges unchanged." A final failure after 3 attempts
   is a `::warning::`, not a job failure — a later push will catch the
   badges up regardless.
+- CI: cross-OS combined coverage (issue #283). Since issue #266
+  (`SandboxRunner`), `core/sandbox/_linux.py`/`_macos.py`/`_windows.py` are
+  OS-specific backends — any single CI job/local machine only ever exercises
+  one of the three, permanently reading the other two as 0% and capping
+  single-job coverage at ~86-90% regardless of test quality (this is what
+  dropped the badge from ~95% to 86.1% right after #266/#281 merged, not a
+  real regression). New `coverage-combine` job merges the three OS matrix
+  jobs' `.coverage` data (`coverage combine`, with `[tool.coverage.paths]`
+  aliasing in `pyproject.toml` to reconcile each OS's different absolute
+  checkout path) into one report gated at `--fail-under=90`, separate from
+  the existing per-OS `fail_under = 85` in `pyproject.toml` (left unchanged
+  — raising it globally would make every contributor's single-OS local
+  `pytest` run fail on the two backends their machine can never see).
+  README now shows both numbers as two distinct badges — single-OS
+  (`coverage.json`, as before) and cross-OS combined (new
+  `coverage-combined.json`) — rather than collapsing to one figure that
+  would either overstate or understate reality.
 
 ### Refactored
 - Web API `message` strings are now rendered server-side from a locale
