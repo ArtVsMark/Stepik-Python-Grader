@@ -113,6 +113,19 @@ python_classes = ["Test*"]
 # recursion, an explicit path is still collected).
 norecursedirs = ["tests/e2e"]
 
+[tool.coverage.paths]
+# issue #283: lets `coverage combine` merge the three OS matrix jobs' data
+# files into one report. Each job records absolute paths under a
+# different GitHub Actions workspace root (/home/runner/work/<repo>/<repo>
+# on Linux, D:\a\<repo>\<repo> on Windows, /Users/runner/work/<repo>/<repo>
+# on macOS) -- without this aliasing, combine would treat the same source
+# file recorded on three OSes as three unrelated files instead of merging
+# their line coverage, silently defeating the whole point of combining.
+source = [
+    "src/stepik_grader",
+    "*/src/stepik_grader",
+]
+
 [tool.coverage.run]
 source = ["src"]
 omit = [

@@ -77,22 +77,35 @@ jobs:
       - name: Run tests
         run: pytest -q
 
-      # Один job матрицы (ubuntu-latest/3.12, не experimental) на push в main
-      # пересчитывает README-бейджи (coverage из свежего coverage.xml, текущая
-      # логическая версия из scripts/version.py) и коммитит их одним коммитом —
-      # без этого шага README хранил бы вручную вписанные числа, которые
-      # расходятся с реальностью при каждом изменении тестов/коммите.
-      #
-      # Ретрай (до 3 попыток): два push в main с разницей меньше времени
-      # прогона CI запускают этот шаг дважды параллельно — второй из них видит
-      # чужой уже запушенный бейдж-коммит и падает на `git pull --rebase`
-      # конфликтом в .github/badges/*.json (само по себе безобидно: конфликт
-      # ловится ДО push, main не портится, но job краснеет). При конфликте —
-      # abort rebase, сброс на свежий origin/main и пересчёт бейджей заново
-      # (после сброса они обычно уже совпадают с тем, что запушил конкурент,
-      # и шаг мирно завершается на "Badges unchanged"). Итоговая неудача после
-      # 3 попыток — не fatal (::warning::, не ::error::): бейджи досчитает
-      # следующий push, а не быть источником ложно-красного CI из-за гонки.
+      # issue #283: each OS job only ever exercises its OWN core/sandbox/
+      # backend (_linux.py/_macos.py/_windows.py) — the other two always read
+      # 0% on this machine, which permanently caps any single job's coverage
+      # well below what the test suite actually exercises across the matrix.
+      # Rename + upload this job's .coverage data file so the coverage-combine
+      # job (below) can merge all three OSes into one honest cross-platform
+      # number. One Python version per OS is enough — the sandbox backends
+      # aren't Python-version-dependent, no need to duplicate across 3.13.
+      - name: Rename coverage data file for combine (issue #283)
+        if: matrix.python-version == '3.12' && matrix.experimental == false
+        shell: bash
+        run: mv .coverage ".coverage.${{ matrix.os }}"
+
+      - name: Upload coverage data (issue #283)
+        if: matrix.python-version == '3.12' && matrix.experimental == false
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-${{ matrix.os }}
+          path: .coverage.${{ matrix.os }}
+          # v4 excludes dotfiles by default; .coverage.* needs this explicitly.
+          include-hidden-files: true
+
+      # Single-OS badges (this job's own ubuntu/3.12 view) + the version
+      # badge (coverage-independent) — unchanged from before issue #283.
+      # The cross-OS combined badge is a SEPARATE job below (coverage-combine)
+      # so the two commits are naturally sequenced (combine `needs: test`,
+      # so it can't start until this step's commit has already landed) rather
+      # than racing each other; they can still race a *different* concurrent
+      # push's badge commit, same as before — same retry loop handles that.
       - name: Update badges (main only)
         if: |
           github.event_name == 'push' &&
@@ -105,6 +118,81 @@ jobs:
           for attempt in 1 2 3; do
             python scripts/generate_coverage_badge.py
             python scripts/generate_version_badge.py
+            if git diff --quiet -- .github/badges/; then
+              echo "Badges unchanged."
+              break
+            fi
+            git add .github/badges/
+            git commit -m "chore(ci): update badges [skip ci]"
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "Badges pushed (attempt $attempt)."
+              break
+            fi
+            git rebase --abort 2>/dev/null || true
+            git reset --hard origin/main
+            if [ "$attempt" = 3 ]; then
+              echo "::warning::Badge update push raced with a concurrent update and failed after 3 attempts — a later push will catch it up."
+            else
+              echo "Attempt $attempt: badge push raced with a concurrent update — retrying."
+              sleep $((attempt * 5))
+            fi
+          done
+
+  # issue #283: merges the three OS jobs' coverage data into one report that
+  # reflects what's actually exercised across the whole matrix (each
+  # core/sandbox/ backend covered by its native OS), instead of any single
+  # job's structurally-partial view. Also owns the README badge commit (moved
+  # here from the `test` job, issue #283) — one place doing badge commits
+  # avoids two jobs racing to push .github/badges/*.json independently.
+  coverage-combine:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        # issue #162: version badge needs full history + tags (same reasoning
+        # as the old badge step this job replaces).
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install coverage
+        run: pip install coverage
+
+      - name: Download coverage data from all OS jobs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-data-*
+          path: coverage-artifacts
+          merge-multiple: true
+
+      - name: Combine and report (issue #283)
+        run: |
+          coverage combine coverage-artifacts
+          coverage report -m
+          coverage report --fail-under=90
+          coverage xml
+
+      # Same retry logic as the test job's badge step — two pushes to main
+      # close together race on this commit; on conflict, abort the rebase,
+      # reset to fresh origin/main, and regenerate (usually resolves to
+      # "Badges unchanged" once rebased onto the winner's commit). A final
+      # failure after 3 attempts is a warning, not a job failure — a later
+      # push will catch the badges up regardless. Only the combined coverage
+      # badge here — the version badge is coverage-independent and already
+      # handled by the `test` job's own badge step.
+      - name: Update combined coverage badge (main only)
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            python scripts/generate_coverage_badge.py --out .github/badges/coverage-combined.json
             if git diff --quiet -- .github/badges/; then
               echo "Badges unchanged."
               break

@@ -310,3 +310,14 @@ ADR-0001): Runner-слой **#140** и контракт результата **#
 > Строку `| Версия | X.Y.Z |` проверяет `scripts/check_version_consistency.py`
 > (мягкое предупреждение при расхождении с последним git-тегом). Обновлять при
 > релизе MINOR. Эволюция метрик по релизам — в [docs/history.md](docs/history.md).
+
+> **Два числа покрытия (issue #283).** С `--sandbox` (issue #266) `core/sandbox/`
+> содержит три ОС-специфичных backend'а — на любой одной машине/CI-job'е два из
+> трёх всегда 0%. Поэтому `pytest`/локальный чек-лист и один job CI-матрицы
+> видят только per-OS цифру (~86–90%, порог `fail_under = 85` в
+> `pyproject.toml` — НЕ поднимать глобально, иначе любой контрибьютор на одной
+> ОС будет ложно падать). README держит **два** бейджа: single-OS
+> (`.github/badges/coverage.json`, как раньше) и cross-OS combined
+> (`coverage-combined.json`, `coverage combine` по трём job'ам матрицы,
+> отдельный job `coverage-combine` в `ci.yml`, порог 90). Таблица выше — это
+> combined-цифра.
