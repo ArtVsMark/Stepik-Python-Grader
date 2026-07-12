@@ -70,6 +70,25 @@
 - `docs/configuration.md` documents the new `record_stats` config field
   with an explicit privacy paragraph ("data never leaves the machine").
 
+### Changed
+- **Breaking (issue #73):** public API functions/methods that take or return
+  a filesystem path now use `pathlib.Path` instead of `str`, across
+  `core/test_loader.py` (`resolve_test_dir`, `find_all_solution_files`,
+  `collect_grouped_files`, `load_text_lines`, `load_test_cases`),
+  `core/grader_core.py` (`run_single_test`, `run_tests`, `run_benchmark`,
+  `run_microbench_mode`), `core/reporter.py` (table formatters),
+  `core/cache.py` (`GraderCache`, `hash_solution`, `hash_tests`),
+  `core/runner.py` (`RunSpec.path`), the CLI (`--file`/`--dir`/`--root` now
+  parse to `Path` via argparse), and the `web/` adapter layer
+  (`grade_path`/`grade_benchmark`/`grade_microbench`/`list_solutions`/
+  `read_source`/`save_solution`/`submit_job`/glossary store paths). External
+  code calling these with a bare `str` must now pass a `Path` (or wrap with
+  `pathlib.Path(...)`) — the functions no longer defensively re-wrap `str`
+  input. JSON-facing response fields (e.g. `"base"`, `"path"`, `"file"`) are
+  unaffected — those remain plain strings. `grader.py`'s `__all__` also gains
+  `resolve_test_dir`, closing a pre-existing facade gap (it was reachable as
+  `grader.resolve_test_dir` via the wildcard re-export but wasn't listed).
+
 ### Docs
 - New troubleshooting section in `docs/installation.md` (issue #270):
   `test_pytest_plugin.py` failing with `unrecognized arguments:

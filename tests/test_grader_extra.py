@@ -158,4 +158,4 @@ class TestLoadTextLines:
     def test_reads_lines(self, tmp_path: pathlib.Path):
         f = tmp_path / "f.txt"
         f.write_text("a\nb\nc\n", encoding="utf-8")
-        assert load_text_lines(str(f)) == ["a", "b", "c"]
+        assert load_text_lines(f) == ["a", "b", "c"]

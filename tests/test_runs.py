@@ -41,7 +41,7 @@ def _poll_until_terminal(job_id: str, *, timeout: float = 15.0) -> dict:
 class TestSubmitJobBench:
     def test_reaches_done_with_result(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
-        job = runs.submit_job("bench", str(sol), {"repeats": 2, "lang": "ru"})
+        job = runs.submit_job("bench", sol, {"repeats": 2, "lang": "ru"})
 
         data = _poll_until_terminal(job.id)
 
@@ -53,7 +53,7 @@ class TestSubmitJobBench:
     def test_progress_visible_before_done(self, tmp_path: pathlib.Path) -> None:
         # Solution slow enough that at least one poll should catch it mid-run.
         sol = _make_task(tmp_path, "import time\ntime.sleep(0.05)\nprint(int(input()) + 1)\n")
-        job = runs.submit_job("bench", str(sol), {"repeats": 5, "lang": "ru"})
+        job = runs.submit_job("bench", sol, {"repeats": 5, "lang": "ru"})
 
         seen_total_before_done = False
         deadline = time.monotonic() + 10.0
@@ -71,7 +71,7 @@ class TestSubmitJobBench:
 class TestSubmitJobMicrobench:
     def test_reaches_done_with_result(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
-        job = runs.submit_job("microbench", str(sol), {"number": 100, "lang": "ru"})
+        job = runs.submit_job("microbench", sol, {"number": 100, "lang": "ru"})
 
         data = _poll_until_terminal(job.id)
 
@@ -85,7 +85,7 @@ class TestCancelJob:
         self, tmp_path: pathlib.Path
     ) -> None:
         sol = _make_task(tmp_path, "import time\ntime.sleep(30)\nprint(input())\n")
-        job = runs.submit_job("bench", str(sol), {"repeats": 20, "lang": "ru"})
+        job = runs.submit_job("bench", sol, {"repeats": 20, "lang": "ru"})
 
         # give the worker a moment to actually start the subprocess
         time.sleep(0.3)
@@ -100,7 +100,7 @@ class TestCancelJob:
 
     def test_cancel_already_done_job_returns_false(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
-        job = runs.submit_job("bench", str(sol), {"repeats": 1, "lang": "ru"})
+        job = runs.submit_job("bench", sol, {"repeats": 1, "lang": "ru"})
         _poll_until_terminal(job.id)
 
         assert runs.cancel_job(job.id) is False
@@ -122,8 +122,8 @@ class TestConcurrentJobsDoNotMix:
         # "ERR" row for this one, unlike sol_a's clean run.
         sol_b = _make_task(dir_b, "raise ValueError('boom')\n", name="task.py")
 
-        job_a = runs.submit_job("bench", str(sol_a), {"repeats": 2, "lang": "ru"})
-        job_b = runs.submit_job("bench", str(sol_b), {"repeats": 2, "lang": "ru"})
+        job_a = runs.submit_job("bench", sol_a, {"repeats": 2, "lang": "ru"})
+        job_b = runs.submit_job("bench", sol_b, {"repeats": 2, "lang": "ru"})
 
         data_a = _poll_until_terminal(job_a.id)
         data_b = _poll_until_terminal(job_b.id)
@@ -141,7 +141,7 @@ class TestInlineCode:
         sol = _make_task(tmp_path, "print(999)\n")
         job = runs.submit_job(
             "bench",
-            str(sol),
+            sol,
             {"repeats": 1, "lang": "ru"},
             code="print(int(input()) + 1)\n",
         )
@@ -154,7 +154,7 @@ class TestInlineCode:
     def test_temp_file_cleaned_up_after_job_done(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(1)\n")
         job = runs.submit_job(
-            "bench", str(sol), {"repeats": 1, "lang": "ru"}, code="print(int(input()) + 1)\n"
+            "bench", sol, {"repeats": 1, "lang": "ru"}, code="print(int(input()) + 1)\n"
         )
         _poll_until_terminal(job.id)
 
@@ -168,7 +168,7 @@ class TestTtlSweep:
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
-        job = runs.submit_job("bench", str(sol), {"repeats": 1, "lang": "ru"})
+        job = runs.submit_job("bench", sol, {"repeats": 1, "lang": "ru"})
         _poll_until_terminal(job.id)
 
         # Simulate TTL expiry without sleeping 15 real minutes.

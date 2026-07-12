@@ -382,18 +382,20 @@ def _print_menu() -> None:
     interactive._print_menu(_build_cli_context())
 
 
-def _resolve_test_dir_from_input(solution_or_dir: str, *, is_dir: bool = False) -> str | None:
+def _resolve_test_dir_from_input(
+    solution_or_dir: pathlib.Path, *, is_dir: bool = False
+) -> pathlib.Path | None:
     if is_dir:
-        p = pathlib.Path(solution_or_dir)
+        p = solution_or_dir
         # tests/ subdir takes priority
         candidate = p / "tests"
         if candidate.is_dir():
-            return str(candidate)
+            return candidate
         # Format 3: input.txt + output.txt directly in the given dir
         if (p / "input.txt").exists() and (p / "output.txt").exists():
-            return str(p)
+            return p
         # fallback: return as-is, load_test_cases will handle it
-        return str(p)
+        return p
     return resolve_test_dir(solution_or_dir)
 
 
@@ -425,7 +427,7 @@ def _build_cli_context() -> CliContext:
 
 
 def _run_mode_1(
-    solution: str,
+    solution: pathlib.Path,
     *,
     verbose: bool = True,
     output: str = "text",
@@ -444,7 +446,7 @@ def _run_mode_1(
 
 
 def _run_mode_2(
-    directory: str,
+    directory: pathlib.Path,
     *,
     verbose: bool = False,
     output: str = "text",
@@ -463,7 +465,7 @@ def _run_mode_2(
 
 
 def _run_mode_3(
-    directory: str, repeats: int, *, output: str = "text", record_stats: bool = False
+    directory: pathlib.Path, repeats: int, *, output: str = "text", record_stats: bool = False
 ) -> None:
     """Режим 3: subprocess-бенчмарк папки. Тонкая обёртка над commands._run_mode_3."""
     commands._run_mode_3(
@@ -472,7 +474,7 @@ def _run_mode_3(
 
 
 def _run_mode_4(
-    directory: str, number: int, *, output: str = "text", record_stats: bool = False
+    directory: pathlib.Path, number: int, *, output: str = "text", record_stats: bool = False
 ) -> None:
     """Режим 4: timeit micro-bench папки. Тонкая обёртка над commands._run_mode_4."""
     commands._run_mode_4(
@@ -480,7 +482,7 @@ def _run_mode_4(
     )
 
 
-def _pick_path_via_dialog(*, want_dir: bool) -> str | None:
+def _pick_path_via_dialog(*, want_dir: bool) -> pathlib.Path | None:
     """Открыть нативный диалог выбора файла (.py) или папки через tkinter.
 
     Тонкая обёртка над interactive._pick_path_via_dialog (issue #121 Phase 2).
@@ -488,7 +490,7 @@ def _pick_path_via_dialog(*, want_dir: bool) -> str | None:
     return interactive._pick_path_via_dialog(_build_cli_context(), want_dir=want_dir)
 
 
-def _prompt_path(prompt_key: str, *, want_dir: bool) -> str:
+def _prompt_path(prompt_key: str, *, want_dir: bool) -> pathlib.Path:
     """Спросить путь в интерактивном меню. Тонкая обёртка над interactive._prompt_path."""
     return interactive._prompt_path(_build_cli_context(), prompt_key, want_dir=want_dir)
 
@@ -499,7 +501,7 @@ def _resolve_cli_path_or_error(
     *,
     want_dir: bool,
     flag: str,
-) -> str:
+) -> pathlib.Path:
     """Путь для non-interactive режима без флага. Тонкая обёртка над
     interactive._resolve_cli_path_or_error."""
     return interactive._resolve_cli_path_or_error(
@@ -513,7 +515,7 @@ def _interactive_menu() -> None:
     interactive._interactive_menu(_build_cli_context())
 
 
-def _watch_and_rerun(watch_path: str, rerun: Callable[[], None]) -> None:
+def _watch_and_rerun(watch_path: pathlib.Path, rerun: Callable[[], None]) -> None:
     """Перезапускать rerun() при изменении файлов внутри watch_path (issue #54).
 
     watchfiles — опциональная зависимость (`pip install stepik-grader[watch]`);

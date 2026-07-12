@@ -232,9 +232,7 @@ class TestRunTestsVerbose:
         (tests_dir / "input_1.txt").write_text("4", encoding="utf-8")
         (tests_dir / "expected_1.txt").write_text("5", encoding="utf-8")
 
-        result = run_tests(
-            str(sol), str(tests_dir), verbose=True, verbose_callback=print_case_verbose
-        )
+        result = run_tests(sol, tests_dir, verbose=True, verbose_callback=print_case_verbose)
         out = capsys.readouterr().out
         assert result["passed"] == 1
         assert "1" in out
@@ -253,7 +251,7 @@ class TestRunSingleTest:
         case = TestCase(index=1, input_lines=["1"], expected_lines=["1"])
 
         with patch("subprocess.Popen", side_effect=OSError("no such file")):
-            result = run_single_test(str(sol), case)
+            result = run_single_test(sol, case)
 
         assert result["passed"] is False
         assert result["verdict"] == "RE"
@@ -265,7 +263,7 @@ class TestRunSingleTest:
         sol.write_text("import time; time.sleep(100)\n", encoding="utf-8")
         case = TestCase(index=1, input_lines=["1"], expected_lines=["1"])
 
-        result = run_single_test(str(sol), case, timeout=0.1)
+        result = run_single_test(sol, case, timeout=0.1)
 
         assert result["passed"] is False
         assert result["verdict"] == "TLE"

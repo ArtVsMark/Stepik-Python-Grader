@@ -42,19 +42,19 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def hash_solution(solution_path: str) -> str:
+def hash_solution(solution_path: pathlib.Path) -> str:
     """sha256 содержимого файла решения."""
-    return _sha256_bytes(pathlib.Path(solution_path).read_bytes())
+    return _sha256_bytes(solution_path.read_bytes())
 
 
-def hash_tests(test_dir: str) -> str:
+def hash_tests(test_dir: pathlib.Path) -> str:
     """sha256 всех файлов тест-директории (относительный путь + содержимое).
 
     Файлы обходятся отсортированно по относительному POSIX-пути, поэтому
     хеш стабилен между запусками и операционными системами. Несуществующая
     или пустая директория даёт стабильный хеш пустого потока.
     """
-    root = pathlib.Path(test_dir)
+    root = test_dir
     if not root.is_dir():
         return _sha256_bytes(b"")
     h = hashlib.sha256()
@@ -99,10 +99,12 @@ class GraderCache:
         return {"version": _CACHE_VERSION, "entries": {}}
 
     @staticmethod
-    def _key(solution_path: str) -> str:
-        return str(pathlib.Path(solution_path).resolve())
+    def _key(solution_path: pathlib.Path) -> str:
+        return str(solution_path.resolve())
 
-    def get(self, solution_path: str, solution_sha: str, tests_sha: str) -> dict[str, Any] | None:
+    def get(
+        self, solution_path: pathlib.Path, solution_sha: str, tests_sha: str
+    ) -> dict[str, Any] | None:
         """Вернуть кэшированный result, если оба хеша совпадают; иначе None."""
         entry = self._data["entries"].get(self._key(solution_path))
         if not entry:
@@ -114,7 +116,7 @@ class GraderCache:
 
     def put(
         self,
-        solution_path: str,
+        solution_path: pathlib.Path,
         solution_sha: str,
         tests_sha: str,
         result: dict[str, Any],

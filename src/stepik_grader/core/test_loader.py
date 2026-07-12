@@ -67,19 +67,19 @@ def is_solution_file(file_name: str) -> bool:
     return bool(_SOLUTION_FILE_RE.fullmatch(file_name))
 
 
-def find_all_solution_files(directory: str) -> list[str]:
+def find_all_solution_files(directory: pathlib.Path) -> list[pathlib.Path]:
     scripts = []
 
     for root, _, files in os.walk(directory):
         for file_name in files:
             if is_solution_file(file_name):
-                scripts.append(str(pathlib.Path(root) / file_name))
+                scripts.append(pathlib.Path(root) / file_name)
 
     return sorted(scripts)
 
 
-def collect_grouped_files(directory: str) -> dict[str, list[str]]:
-    grouped: dict[str, list[str]] = defaultdict(list)
+def collect_grouped_files(directory: pathlib.Path) -> dict[str, list[pathlib.Path]]:
+    grouped: dict[str, list[pathlib.Path]] = defaultdict(list)
 
     for root, _, files in os.walk(directory):
         for file_name in files:
@@ -88,17 +88,17 @@ def collect_grouped_files(directory: str) -> dict[str, list[str]]:
                     rel_folder = str(pathlib.Path(root).relative_to(directory))
                 except ValueError:
                     rel_folder = os.path.relpath(root, directory)
-                grouped[rel_folder].append(str(pathlib.Path(root) / file_name))
+                grouped[rel_folder].append(pathlib.Path(root) / file_name)
 
     return dict(grouped)
 
 
-def load_text_lines(file_path: str) -> list[str]:
+def load_text_lines(file_path: pathlib.Path) -> list[str]:
     """Загрузить текстовый файл и вернуть список строк без завершающих переносов."""
-    return pathlib.Path(file_path).read_text(encoding=ENCODING).splitlines()
+    return file_path.read_text(encoding=ENCODING).splitlines()
 
 
-def load_test_cases(test_dir: str) -> list[TestCase]:
+def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
     """Загрузить тест-кейсы из директории.
 
     Поддерживаются три формата:
@@ -122,7 +122,7 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
         tests/input_2.txt, tests/expected_2.txt, ...
     """
     cases: list[TestCase] = []
-    dir_path = pathlib.Path(test_dir)
+    dir_path = test_dir
 
     # Формат 3: python-generation (input.txt + output.txt с блоками # TEST_N:)
     input_file = dir_path / "input.txt"
@@ -182,8 +182,8 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
             exp_file = dir_path / f"expected_{idx}.txt"
             if not exp_file.exists():
                 continue
-            input_lines = load_text_lines(str(inp_file))
-            expected_lines = load_text_lines(str(exp_file))
+            input_lines = load_text_lines(inp_file)
+            expected_lines = load_text_lines(exp_file)
             cases.append(
                 TestCase(index=idx, input_lines=input_lines, expected_lines=expected_lines)
             )
@@ -196,8 +196,8 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
             if not clue_file.exists():
                 continue
             idx = int(inp_file.name)
-            input_lines = load_text_lines(str(inp_file))
-            expected_lines = load_text_lines(str(clue_file))
+            input_lines = load_text_lines(inp_file)
+            expected_lines = load_text_lines(clue_file)
 
             # Читаем .type-файл если он существует
             type_file = dir_path / f"{inp_file.name}.type"
@@ -219,7 +219,7 @@ def load_test_cases(test_dir: str) -> list[TestCase]:
     return sorted(cases, key=lambda c: c.index)
 
 
-def resolve_test_dir(solution_path: str) -> str | None:
+def resolve_test_dir(solution_path: pathlib.Path) -> pathlib.Path | None:
     """Вернуть путь к директории тест-кейсов для заданного файла решения, или
     None, если ни одна стратегия поиска не нашла подходящую директорию
     (issue #47 R-04 — раньше молча возвращался несуществующий <parent>/tests/,
@@ -230,32 +230,32 @@ def resolve_test_dir(solution_path: str) -> str | None:
       2. <parent>/<stem>/  (директория с именем = имени файла без расширения)
       3. <parent>/ (сам родительский каталог, если содержит .clue или input_*.txt)
     """
-    p = pathlib.Path(solution_path).resolve()
+    p = solution_path.resolve()
     parent = p.parent
     stem = p.stem
 
     candidate_tests = parent / "tests"
     if candidate_tests.is_dir():
-        return str(candidate_tests)
+        return candidate_tests
 
     candidate_stem = parent / stem
     if candidate_stem.is_dir():
-        return str(candidate_stem)
+        return candidate_stem
 
     # python-generation: input.txt + output.txt рядом с решением или в родителе
     for candidate in (parent, parent.parent):
         if (candidate / "input.txt").exists() and (candidate / "output.txt").exists():
-            return str(candidate)
+            return candidate
 
     for f in parent.iterdir():
         if f.suffix == ".clue" or re.match(r"^input_\d+\.txt$", f.name):
-            return str(parent)
+            return parent
 
     return None
 
 
 def _apply_run_mode_override(
-    cases: list[TestCase], solution_path: str, test_dir: str
+    cases: list[TestCase], solution_path: pathlib.Path, test_dir: pathlib.Path
 ) -> list[TestCase]:
     """Переопределить test_type на "function" для всех stdin-кейсов, если режим
     запуска определён как function на уровне файла (AST/meta.json/.type).

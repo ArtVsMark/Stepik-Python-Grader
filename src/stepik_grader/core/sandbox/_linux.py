@@ -63,7 +63,7 @@ def _python_tree_binds() -> list[str]:
     return deduped
 
 
-def _build_bwrap_argv(bwrap: str, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
+def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
     cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
     max_memory_bytes = (spec.max_memory_mb or CONFIG.max_memory_mb or 1024) * 1024 * 1024
     bootstrap = _posix_bootstrap.build_bootstrap_argv(
@@ -75,7 +75,7 @@ def _build_bwrap_argv(bwrap: str, spec: RunSpec, run_dir: Path, script_path: Pat
         max_memory_bytes=max_memory_bytes,
     )
 
-    argv = [bwrap]
+    argv = [str(bwrap)]
     for tree in _python_tree_binds():
         argv += ["--ro-bind", tree, tree]
     argv += ["--tmpfs", "/tmp"]
@@ -104,14 +104,14 @@ def _build_bwrap_argv(bwrap: str, spec: RunSpec, run_dir: Path, script_path: Pat
 class LinuxSandboxRunner:
     """``Runner`` изолирующий выполнение через bubblewrap на Linux."""
 
-    def __init__(self, bwrap_path: str) -> None:
+    def __init__(self, bwrap_path: Path) -> None:
         self._bwrap = bwrap_path
 
     def run(self, spec: RunSpec) -> RunOutcome:
         with ephemeral_run_dir() as run_dir:
             script_path = run_dir / "solution.py"
             try:
-                script_path.write_bytes(Path(spec.path).read_bytes())
+                script_path.write_bytes(spec.path.read_bytes())
             except OSError as exc:
                 return RunOutcome(launch_error=str(exc))
 
@@ -140,7 +140,7 @@ def create_backend() -> LinuxSandboxRunner:
 
     bwrap = shutil.which("bwrap")
     if bwrap is not None:
-        return LinuxSandboxRunner(bwrap)
+        return LinuxSandboxRunner(Path(bwrap))
     raise SandboxUnavailableError(
         "bubblewrap (bwrap) не найден в PATH — установите bubblewrap для --sandbox на Linux "
         "(nsjail fallback не реализован в этом MVP)."

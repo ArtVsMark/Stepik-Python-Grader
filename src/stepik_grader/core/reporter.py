@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import os
+import pathlib
 from typing import TYPE_CHECKING, Any
 
 from stepik_grader.core.glossary import lookup_from_error
@@ -85,7 +86,7 @@ def fmt_time(t: float) -> str:
 
 
 def format_correctness_row(
-    path: str, base_dir: str, result: dict[str, Any], *, col_file: int
+    path: pathlib.Path, base_dir: pathlib.Path, result: dict[str, Any], *, col_file: int
 ) -> str:
     """Сформатировать строку таблицы корректности для режимов 1 и 2."""
     total = result["total"]
@@ -115,7 +116,9 @@ def print_correctness_header(*, col_file: int) -> None:
     print(_SEP)
 
 
-def format_benchmark_row(path: str, base_dir: str, data: dict[str, Any], *, col_file: int) -> str:
+def format_benchmark_row(
+    path: pathlib.Path, base_dir: pathlib.Path, data: dict[str, Any], *, col_file: int
+) -> str:
     """Сформатировать строку benchmark-таблицы для режимов 3 и 4."""
     rel_path = os.path.relpath(path, base_dir)
     return (
@@ -186,7 +189,7 @@ def _correctness_status(result: dict[str, Any]) -> str:
 
 
 def print_correctness_results(
-    rows: list[tuple[str, dict[str, Any]]], base_dir: str, *, col_file: int
+    rows: list[tuple[pathlib.Path, dict[str, Any]]], base_dir: pathlib.Path, *, col_file: int
 ) -> None:
     """Напечатать таблицу корректности (rich при наличии, иначе plain-text)."""
     if _RICH and _console is not None:
@@ -219,8 +222,8 @@ def print_correctness_results(
 
 
 def print_benchmark_results(
-    rows: list[tuple[str, dict[str, Any]]],
-    base_dir: str,
+    rows: list[tuple[pathlib.Path, dict[str, Any]]],
+    base_dir: pathlib.Path,
     *,
     col_file: int,
     title: str = "",

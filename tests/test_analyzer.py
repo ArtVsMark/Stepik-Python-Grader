@@ -275,7 +275,7 @@ class TestDetectRunMode:
         sol.write_text("n = int(input())\nprint(n)\n", encoding="utf-8")
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
-        assert _detect_run_mode(str(sol), str(tests_dir)) == "stdin"
+        assert _detect_run_mode(sol, tests_dir) == "stdin"
 
     def test_function_mode_via_meta_json(self, tmp_path: pathlib.Path) -> None:
         """meta.json с function_name → function."""
@@ -289,7 +289,7 @@ class TestDetectRunMode:
         meta.write_text(json.dumps({"function_name": "solve"}), encoding="utf-8")
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
-        assert _detect_run_mode(str(sol), str(tests_dir)) == "function"
+        assert _detect_run_mode(sol, tests_dir) == "function"
 
     def test_function_mode_via_type_file(self, tmp_path: pathlib.Path) -> None:
         """.type файл с 'function' → function."""
@@ -300,7 +300,7 @@ class TestDetectRunMode:
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
         (tests_dir / "1.type").write_text("function", encoding="utf-8")
-        assert _detect_run_mode(str(sol), str(tests_dir)) == "function"
+        assert _detect_run_mode(sol, tests_dir) == "function"
 
     def test_function_mode_via_ast(self, tmp_path: pathlib.Path) -> None:
         """Файл с только def (без meta.json и .type) → function через AST."""
@@ -313,7 +313,7 @@ class TestDetectRunMode:
         )
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
-        assert _detect_run_mode(str(sol), str(tests_dir)) == "function"
+        assert _detect_run_mode(sol, tests_dir) == "function"
 
 
 # ===========================================================================

@@ -16,7 +16,9 @@ import pathlib
 __all__: list[str] = []
 
 
-def _build_function_wrapper(solution_path: str, input_data: str, function_name: str) -> str:
+def _build_function_wrapper(
+    solution_path: pathlib.Path, input_data: str, function_name: str
+) -> str:
     """Генерирует исходный код скрипта-обёртки для function-mode запуска.
 
     Стратегия передачи аргументов — позиционная через inspect.signature:
@@ -35,10 +37,10 @@ def _build_function_wrapper(solution_path: str, input_data: str, function_name: 
                        (строки вида "d1 = date(2020, 1, 1)").
         function_name: имя функции для импорта.
     """
-    abs_path = str(pathlib.Path(solution_path).resolve())
+    abs_path = str(solution_path.resolve())
     safe_input = input_data.strip()
     safe_func = function_name
-    module_stem = pathlib.Path(solution_path).stem
+    module_stem = solution_path.stem
 
     # safe_func/module_stem идут в generated-код БЕЗ repr() (это identifiers,
     # не строковые литералы) — валидируем их явно, иначе newline/`;` в
@@ -81,7 +83,7 @@ print({safe_func}(*_args))
 """
 
 
-def _build_call_wrapper(solution_path: str, call_block: str) -> str:
+def _build_call_wrapper(solution_path: pathlib.Path, call_block: str) -> str:
     """Генерирует скрипт, импортирующий все публичные имена из решения и
     исполняющий call_block как есть.
 
@@ -89,7 +91,7 @@ def _build_call_wrapper(solution_path: str, call_block: str) -> str:
     где блок теста уже содержит полный вызов вида `print(func(args))`.
     inspect.signature НЕ используется — аргументы заданы в самом блоке.
     """
-    abs_path = str(pathlib.Path(solution_path).resolve())
+    abs_path = str(solution_path.resolve())
     solution_dir = str(pathlib.Path(abs_path).parent)
     module_name = pathlib.Path(abs_path).stem
 

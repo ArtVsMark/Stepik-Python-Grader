@@ -37,7 +37,7 @@ def _make_task(tmp_path: pathlib.Path, body: str, *, with_tests: bool = True) ->
 class TestGradePath:
     def test_passing_file(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
-        data = web.grade_path(str(sol))
+        data = web.grade_path(sol)
         assert data["kind"] == "file"
         assert len(data["rows"]) == 1
         row = data["rows"][0]
@@ -48,45 +48,45 @@ class TestGradePath:
 
     def test_failing_file_has_diff(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 2)\n")  # 4 -> 6, ждём 5
-        row = web.grade_path(str(sol))["rows"][0]
+        row = web.grade_path(sol)["rows"][0]
         assert row["status"] == "FAIL"
         assert row["cases"][0]["verdict"] == "WA"
         assert row["cases"][0]["diff"]  # непустой diff
 
     def test_directory(self, tmp_path: pathlib.Path) -> None:
         _make_task(tmp_path, "print(int(input()) + 1)\n")
-        data = web.grade_path(str(tmp_path))
+        data = web.grade_path(tmp_path)
         assert data["kind"] == "dir"
         assert data["rows"][0]["status"] == "OK"
 
     def test_nonexistent_path(self) -> None:
-        data = web.grade_path("/no/such/path.py")
+        data = web.grade_path(pathlib.Path("/no/such/path.py"))
         assert data["kind"] == "error"
         assert "не найден" in data["message"].lower()
         assert data["rows"] == []
 
     def test_empty_directory(self, tmp_path: pathlib.Path) -> None:
-        data = web.grade_path(str(tmp_path))
+        data = web.grade_path(tmp_path)
         assert data["kind"] == "error"
         assert "не найден" in data["message"].lower()
 
     def test_file_without_tests_marked_no_tests(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(1)\n", with_tests=False)
-        row = web.grade_path(str(sol))["rows"][0]
+        row = web.grade_path(sol)["rows"][0]
         assert row["status"] == "NO TESTS"
         assert row["total"] == 0
 
     def test_wa_case_carries_stdin_from_test_case(self, tmp_path: pathlib.Path) -> None:
         """grade_path() wires stdin through to the case's ErrorCard (issue #125)."""
         sol = _make_task(tmp_path, "print(int(input()) + 2)\n")  # 4 -> 6, ждём 5
-        case = web.grade_path(str(sol))["rows"][0]["cases"][0]
+        case = web.grade_path(sol)["rows"][0]["cases"][0]
         assert case["stdin"] == "4"
         assert case["actual"] == "6"
         assert case["expected"] == "5"
 
     def test_re_case_carries_exit_code_from_core(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "raise ValueError('boom')\n")
-        case = web.grade_path(str(sol))["rows"][0]["cases"][0]
+        case = web.grade_path(sol)["rows"][0]["cases"][0]
         assert case["verdict"] == "RE"
         assert case["exit_code"] not in (0, None)
         assert case["stderr"] == case["error"]
@@ -104,7 +104,7 @@ class TestGradePath:
         # (only its subclasses ZeroDivisionError/OverflowError/FloatingPointError are).
         queue_path = tmp_path / "missing.json"
 
-        web.grade_path(str(sol), missing_queue_path=str(queue_path))
+        web.grade_path(sol, missing_queue_path=queue_path)
 
         entries = load_missing_queue(queue_path)
         assert len(entries) == 1
@@ -119,7 +119,7 @@ class TestGradePath:
         sol = _make_task(tmp_path, "raise KeyError('x')\n")  # curated in core/glossary.py
         queue_path = tmp_path / "missing.json"
 
-        web.grade_path(str(sol), missing_queue_path=str(queue_path))
+        web.grade_path(sol, missing_queue_path=queue_path)
 
         assert load_missing_queue(queue_path) == []
 
@@ -131,7 +131,7 @@ class TestGradePath:
         # A directory path where a file write must fail — OSError, swallowed.
         bad_queue_path = tmp_path  # it's a dir, not a file
 
-        data = web.grade_path(str(sol), missing_queue_path=str(bad_queue_path))
+        data = web.grade_path(sol, missing_queue_path=bad_queue_path)
 
         assert data["rows"][0]["cases"][0]["verdict"] == "RE"
 
@@ -244,7 +244,7 @@ class TestErrorCardFields:
 class TestGradeBenchmark:
     def test_benchmark_file(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
-        data = web.grade_benchmark(str(sol), repeats=3)
+        data = web.grade_benchmark(sol, repeats=3)
         assert data["mode"] == "bench"
         row = data["rows"][0]
         assert row["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
@@ -257,7 +257,7 @@ class TestGradeBenchmark:
         (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
         (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
         (tmp_path / "task1_2.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
-        data = web.grade_benchmark(str(tmp_path), repeats=3)
+        data = web.grade_benchmark(tmp_path, repeats=3)
         assert data["kind"] == "dir"
         assert len(data["rows"]) == 2
         # Строки отсортированы по возрастанию медианы — самый быстрый первым.
@@ -265,12 +265,12 @@ class TestGradeBenchmark:
 
     def test_benchmark_error_row_for_missing_tests(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(1)\n", with_tests=False)
-        row = web.grade_benchmark(str(sol))["rows"][0]
+        row = web.grade_benchmark(sol)["rows"][0]
         assert row["verdict"] == "ERR"
         assert row["error"]
 
     def test_benchmark_nonexistent_path(self) -> None:
-        assert web.grade_benchmark("/no/such/dir")["kind"] == "error"
+        assert web.grade_benchmark(pathlib.Path("/no/such/dir"))["kind"] == "error"
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +290,7 @@ class TestGradeBenchmarkProgressAndCancel:
         (tmp_path / "task1_2.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
 
         ticks: list[int] = []
-        web.grade_benchmark(str(tmp_path), repeats=2, progress_callback=ticks.append)
+        web.grade_benchmark(tmp_path, repeats=2, progress_callback=ticks.append)
 
         assert ticks == [1] * 4  # 2 solutions * 1 case * 2 repeats
 
@@ -305,7 +305,7 @@ class TestGradeBenchmarkProgressAndCancel:
 
         cancel_event = threading.Event()
         cancel_event.set()  # pre-cancelled -- loop must not process any solution
-        data = web.grade_benchmark(str(tmp_path), repeats=2, cancel_event=cancel_event)
+        data = web.grade_benchmark(tmp_path, repeats=2, cancel_event=cancel_event)
 
         assert data["rows"] == []
 
@@ -322,7 +322,7 @@ class TestEstimateRunCount:
         sol_b = tmp_path / "task1_2.py"
         sol_b.write_text("print(input())\n", encoding="utf-8")
 
-        total = web.estimate_run_count([str(sol_a), str(sol_b)], kind="bench", repeats=5)
+        total = web.estimate_run_count([sol_a, sol_b], kind="bench", repeats=5)
 
         assert total == 2 * 3 * 5  # 2 solutions * 3 cases * 5 repeats
 
@@ -334,7 +334,7 @@ class TestEstimateRunCount:
         sol = tmp_path / "task1_1.py"
         sol.write_text("print(input())\n", encoding="utf-8")
 
-        total = web.estimate_run_count([str(sol)] * 3, kind="microbench")
+        total = web.estimate_run_count([sol] * 3, kind="microbench")
 
         assert total == 3  # one tick per solution, repeats/cases irrelevant
 
@@ -342,7 +342,7 @@ class TestEstimateRunCount:
         sol = tmp_path / "task1_1.py"
         sol.write_text("print(1)\n", encoding="utf-8")  # no tests/ dir at all
 
-        assert web.estimate_run_count([str(sol)], kind="bench", repeats=10) == 0
+        assert web.estimate_run_count([sol], kind="bench", repeats=10) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -365,7 +365,7 @@ def _make_bench_pair(tmp_path: pathlib.Path) -> None:
 class TestGradeBenchmarkReference:
     def test_reference_file_gets_reference_verdict(self, tmp_path: pathlib.Path) -> None:
         _make_bench_pair(tmp_path)
-        data = web.grade_benchmark(str(tmp_path), repeats=3, reference="task1_1.py")
+        data = web.grade_benchmark(tmp_path, repeats=3, reference="task1_1.py")
         rows_by_file = {r["file"]: r for r in data["rows"]}
         assert rows_by_file["task1_1.py"]["verdict"] == "REFERENCE"
         assert rows_by_file["task1_1.py"]["relative"] == 100.0
@@ -374,14 +374,14 @@ class TestGradeBenchmarkReference:
 
     def test_slower_solution_relative_to_reference(self, tmp_path: pathlib.Path) -> None:
         _make_bench_pair(tmp_path)
-        data = web.grade_benchmark(str(tmp_path), repeats=3, reference="task1_1.py")
+        data = web.grade_benchmark(tmp_path, repeats=3, reference="task1_1.py")
         rows_by_file = {r["file"]: r for r in data["rows"]}
         assert rows_by_file["task1_2.py"]["verdict"] in {"SLOWER", "MUCH_SLOWER"}
         assert rows_by_file["task1_2.py"]["relative"] > 100.0
 
     def test_faster_solution_relative_to_reference(self, tmp_path: pathlib.Path) -> None:
         _make_bench_pair(tmp_path)
-        data = web.grade_benchmark(str(tmp_path), repeats=3, reference="task1_2.py")
+        data = web.grade_benchmark(tmp_path, repeats=3, reference="task1_2.py")
         rows_by_file = {r["file"]: r for r in data["rows"]}
         assert rows_by_file["task1_1.py"]["verdict"] == "FASTER"
         assert rows_by_file["task1_2.py"]["verdict"] == "REFERENCE"
@@ -389,7 +389,7 @@ class TestGradeBenchmarkReference:
     def test_reference_by_full_path_also_resolves(self, tmp_path: pathlib.Path) -> None:
         _make_bench_pair(tmp_path)
         full_path = str(tmp_path / "task1_1.py")
-        data = web.grade_benchmark(str(tmp_path), repeats=3, reference=full_path)
+        data = web.grade_benchmark(tmp_path, repeats=3, reference=full_path)
         rows_by_file = {r["file"]: r for r in data["rows"]}
         assert rows_by_file["task1_1.py"]["verdict"] == "REFERENCE"
 
@@ -397,13 +397,13 @@ class TestGradeBenchmarkReference:
         self, tmp_path: pathlib.Path
     ) -> None:
         _make_bench_pair(tmp_path)
-        data = web.grade_benchmark(str(tmp_path), repeats=3, reference="no_such_file.py")
+        data = web.grade_benchmark(tmp_path, repeats=3, reference="no_such_file.py")
         assert "REFERENCE" not in {r["verdict"] for r in data["rows"]}
         assert "reference_source" not in data
 
     def test_no_reference_behaves_exactly_as_before(self, tmp_path: pathlib.Path) -> None:
         _make_bench_pair(tmp_path)
-        data = web.grade_benchmark(str(tmp_path), repeats=3)
+        data = web.grade_benchmark(tmp_path, repeats=3)
         assert "REFERENCE" not in {r["verdict"] for r in data["rows"]}
         assert "reference_source" not in data
 
@@ -416,7 +416,7 @@ class TestGradeBenchmarkReference:
 class TestGradeMicrobench:
     def test_microbench_file(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
-        data = web.grade_microbench(str(sol), number=10)
+        data = web.grade_microbench(sol, number=10)
         assert data["mode"] == "microbench"
         row = data["rows"][0]
         assert row["runs"] >= 1
@@ -434,7 +434,7 @@ class TestGradeMicrobench:
         (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
         (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
         (tmp_path / "task1_2.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
-        data = web.grade_microbench(str(tmp_path), number=10)
+        data = web.grade_microbench(tmp_path, number=10)
         assert data["kind"] == "dir"
         assert data["group"] == tmp_path.name
         assert len(data["rows"]) == 2
@@ -449,21 +449,21 @@ class TestGradeMicrobench:
             (folder / "tests" / "1").write_text("4", encoding="utf-8")
             (folder / "tests" / "1.clue").write_text("5", encoding="utf-8")
             (folder / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
-        data = web.grade_microbench(str(tmp_path), number=10)
+        data = web.grade_microbench(tmp_path, number=10)
         assert data["group"] == "group_a"
         assert data["other_groups"] == ["group_b"]
         assert len(data["rows"]) == 1
 
     def test_microbench_no_tests_found(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(1)\n", with_tests=False)
-        data = web.grade_microbench(str(sol), number=10)
+        data = web.grade_microbench(sol, number=10)
         assert data["kind"] == "error"
 
     def test_microbench_empty_tests_dir(self, tmp_path: pathlib.Path) -> None:
         (tmp_path / "tests").mkdir()
         sol = tmp_path / "task.py"
         sol.write_text("print(1)\n", encoding="utf-8")
-        data = web.grade_microbench(str(sol), number=10)
+        data = web.grade_microbench(sol, number=10)
         assert data["kind"] == "error"
 
     def test_microbench_partial_error_produces_err_row(self, tmp_path: pathlib.Path) -> None:
@@ -472,18 +472,18 @@ class TestGradeMicrobench:
         (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
         (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
         (tmp_path / "task1_2.py").write_text("raise ValueError('boom')\n", encoding="utf-8")
-        data = web.grade_microbench(str(tmp_path), number=10)
+        data = web.grade_microbench(tmp_path, number=10)
         verdicts_by_file = {r["file"]: r["verdict"] for r in data["rows"]}
         assert verdicts_by_file["task1_2.py"] == "ERR"
         assert verdicts_by_file["task1_1.py"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
 
     def test_microbench_custom_number(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
-        data = web.grade_microbench(str(sol), number=50)
+        data = web.grade_microbench(sol, number=50)
         assert data["rows"][0]["runs"] > 0
 
     def test_microbench_nonexistent_path(self) -> None:
-        assert web.grade_microbench("/no/such/dir")["kind"] == "error"
+        assert web.grade_microbench(pathlib.Path("/no/such/dir"))["kind"] == "error"
 
 
 # ---------------------------------------------------------------------------
@@ -495,26 +495,26 @@ class TestListSolutions:
     def test_finds_solutions_in_directory(self, tmp_path: pathlib.Path) -> None:
         (tmp_path / "task1_1.py").write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "task1_2.py").write_text("print(2)\n", encoding="utf-8")
-        data = web.list_solutions(str(tmp_path))
+        data = web.list_solutions(tmp_path)
         assert data["kind"] == "dir"
         assert data["base"] == str(tmp_path)
         assert len(data["files"]) == 2
         assert all(f.endswith(".py") for f in data["files"])
 
     def test_empty_directory_is_error(self, tmp_path: pathlib.Path) -> None:
-        data = web.list_solutions(str(tmp_path))
+        data = web.list_solutions(tmp_path)
         assert data["kind"] == "error"
         assert data["files"] == []
 
     def test_nonexistent_path_is_error(self) -> None:
-        data = web.list_solutions("/no/such/dir")
+        data = web.list_solutions(pathlib.Path("/no/such/dir"))
         assert data["kind"] == "error"
         assert data["files"] == []
 
     def test_file_path_is_error_not_a_directory(self, tmp_path: pathlib.Path) -> None:
         sol = tmp_path / "task1_1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
-        data = web.list_solutions(str(sol))
+        data = web.list_solutions(sol)
         assert data["kind"] == "error"
 
 
@@ -522,18 +522,18 @@ class TestReadSource:
     def test_reads_existing_file(self, tmp_path: pathlib.Path) -> None:
         sol = tmp_path / "task1_1.py"
         sol.write_text("print('hello')\n", encoding="utf-8")
-        data = web.read_source(str(sol))
+        data = web.read_source(sol)
         assert data["kind"] == "file"
         assert data["source"] == "print('hello')\n"
         assert data["path"] == str(sol)
 
     def test_nonexistent_file_is_error(self, tmp_path: pathlib.Path) -> None:
-        data = web.read_source(str(tmp_path / "nope.py"))
+        data = web.read_source(tmp_path / "nope.py")
         assert data["kind"] == "error"
         assert "message" in data
 
     def test_directory_path_is_error_not_a_file(self, tmp_path: pathlib.Path) -> None:
-        data = web.read_source(str(tmp_path))
+        data = web.read_source(tmp_path)
         assert data["kind"] == "error"
 
 
@@ -541,36 +541,36 @@ class TestSaveSolution:
     def test_overwrites_existing_file(self, tmp_path: pathlib.Path) -> None:
         sol = tmp_path / "task_1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
-        data = web.save_solution(str(tmp_path), str(sol), "print(2)\n")
+        data = web.save_solution(tmp_path, sol, "print(2)\n")
         assert data["ok"] is True
         assert data["path"] == str(sol)
         assert sol.read_text(encoding="utf-8") == "print(2)\n"
 
     def test_no_path_creates_task_1_in_empty_folder(self, tmp_path: pathlib.Path) -> None:
-        data = web.save_solution(str(tmp_path), None, "print('hi')\n")
+        data = web.save_solution(tmp_path, None, "print('hi')\n")
         assert data["ok"] is True
         assert data["path"] == str(tmp_path / "task_1.py")
         assert (tmp_path / "task_1.py").read_text(encoding="utf-8") == "print('hi')\n"
 
     def test_no_path_extends_bare_task_series(self, tmp_path: pathlib.Path) -> None:
         (tmp_path / "task_1.py").write_text("print(1)\n", encoding="utf-8")
-        data = web.save_solution(str(tmp_path), None, "print(2)\n")
+        data = web.save_solution(tmp_path, None, "print(2)\n")
         assert data["path"] == str(tmp_path / "task_2.py")
 
     def test_no_path_extends_downloader_style_series(self, tmp_path: pathlib.Path) -> None:
         (tmp_path / "task4_1.py").write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "task4_2.py").write_text("print(2)\n", encoding="utf-8")
-        data = web.save_solution(str(tmp_path), None, "print(3)\n")
+        data = web.save_solution(tmp_path, None, "print(3)\n")
         assert data["path"] == str(tmp_path / "task4_3.py")
 
     def test_folder_not_found_is_error(self, tmp_path: pathlib.Path) -> None:
-        data = web.save_solution(str(tmp_path / "nope"), None, "print(1)\n")
+        data = web.save_solution(tmp_path / "nope", None, "print(1)\n")
         assert data["ok"] is False
         assert "message" in data
 
     def test_write_failure_does_not_raise(self, tmp_path: pathlib.Path) -> None:
         bad_path = tmp_path / "no_such_subdir" / "task_1.py"
-        data = web.save_solution(str(tmp_path), str(bad_path), "print(1)\n")
+        data = web.save_solution(tmp_path, bad_path, "print(1)\n")
         assert data["ok"] is False
         assert "message" in data
 

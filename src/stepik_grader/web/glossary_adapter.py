@@ -10,6 +10,7 @@ JSON-база не настроена (``CONFIG.glossary_store is None``), — �
 
 from __future__ import annotations
 
+import pathlib
 from typing import Any
 
 from stepik_grader.config import CONFIG
@@ -39,7 +40,7 @@ def _fallback_cards() -> list[GlossaryCard]:
     ]
 
 
-def _all_cards(store_path: str | None) -> list[GlossaryCard]:
+def _all_cards(store_path: pathlib.Path | None) -> list[GlossaryCard]:
     """Карточки настроенного store, либо fallback на компактный глоссарий."""
     path = store_path if store_path is not None else CONFIG.glossary_store
     if path:
@@ -50,7 +51,7 @@ def _all_cards(store_path: str | None) -> list[GlossaryCard]:
     return _fallback_cards()
 
 
-def glossary_search(query: str, *, store_path: str | None = None) -> list[dict[str, Any]]:
+def glossary_search(query: str, *, store_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
     """Карточки, чьи search-термины содержат ``query`` (без регистра).
 
     Пустой/пробельный ``query`` — "показать всё" (список карточек без фильтра).
@@ -61,13 +62,13 @@ def glossary_search(query: str, *, store_path: str | None = None) -> list[dict[s
     return [c.to_dict() for c in cards]
 
 
-def glossary_get(card_id: str, *, store_path: str | None = None) -> dict[str, Any] | None:
+def glossary_get(card_id: str, *, store_path: pathlib.Path | None = None) -> dict[str, Any] | None:
     """Карточка по id, либо None (адаптер отдаёт 404 в этом случае)."""
     card = next((c for c in _all_cards(store_path) if c.id == card_id), None)
     return card.to_dict() if card is not None else None
 
 
-def glossary_missing(*, queue_path: str | None = None) -> list[dict[str, Any]]:
+def glossary_missing(*, queue_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
     """Очередь пополнения (J7) — пусто при отсутствующем/битом файле очереди."""
     path = queue_path if queue_path is not None else CONFIG.glossary_missing_queue
     try:

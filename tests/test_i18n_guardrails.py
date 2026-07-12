@@ -132,30 +132,32 @@ def test_message_fields_empty_params_dict_when_no_interpolation() -> None:
 
 
 def test_grade_path_default_lang_is_russian_and_unchanged() -> None:
-    data = viewmodels.grade_path("/no/such/path.py")
-    assert data["message"] == "Путь не найден: /no/such/path.py"
+    missing = pathlib.Path("/no/such/path.py")
+    data = viewmodels.grade_path(missing)
+    assert data["message"] == f"Путь не найден: {missing}"
     assert data["message_id"] == "path_not_found"
 
 
 def test_grade_path_lang_en_translates_message() -> None:
-    data = viewmodels.grade_path("/no/such/path.py", lang="en")
-    assert data["message"] == "Path not found: /no/such/path.py"
+    missing = pathlib.Path("/no/such/path.py")
+    data = viewmodels.grade_path(missing, lang="en")
+    assert data["message"] == f"Path not found: {missing}"
     assert data["message_id"] == "path_not_found"
 
 
 def test_list_solutions_lang_en(tmp_path: pathlib.Path) -> None:
-    data = viewmodels.list_solutions(str(tmp_path / "nope"), lang="en")
+    data = viewmodels.list_solutions(tmp_path / "nope", lang="en")
     assert data["message"] == f"Folder not found: {tmp_path / 'nope'}"
 
 
 def test_read_source_lang_en(tmp_path: pathlib.Path) -> None:
-    data = viewmodels.read_source(str(tmp_path / "nope.py"), lang="en")
+    data = viewmodels.read_source(tmp_path / "nope.py", lang="en")
     assert data["message_id"] == "file_read_failed"
     assert "Failed to read file" in data["message"]
 
 
 def test_save_solution_lang_en(tmp_path: pathlib.Path) -> None:
-    data = viewmodels.save_solution(str(tmp_path / "nope"), None, "print(1)\n", lang="en")
+    data = viewmodels.save_solution(tmp_path / "nope", None, "print(1)\n", lang="en")
     assert data["message"] == f"Folder not found: {tmp_path / 'nope'}"
 
 

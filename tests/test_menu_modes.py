@@ -46,7 +46,7 @@ class TestMode2PerSolutionTestDir:
         _make_task(tmp_path, "task1", body="print(int(input()) + 1)\n", inp="1", out="2")
         _make_task(tmp_path, "task2", body="print(int(input()) * 2)\n", inp="3", out="6")
 
-        used: dict[str, str] = {}
+        used: dict[str, pathlib.Path] = {}
 
         def fake_run_tests(
             path, test_dir, *, verbose=False, verbose_callback=None, timeout=grader.TIMEOUT_SECONDS
@@ -72,8 +72,8 @@ class TestMode2PerSolutionTestDir:
         grader._interactive_menu()
 
         # Каждое решение получило СВОЙ tests/, а не один общий
-        assert used["task1.py"] == str((tmp_path / "task1" / "tests").resolve())
-        assert used["task2.py"] == str((tmp_path / "task2" / "tests").resolve())
+        assert used["task1.py"] == (tmp_path / "task1" / "tests").resolve()
+        assert used["task2.py"] == (tmp_path / "task2" / "tests").resolve()
         assert used["task1.py"] != used["task2.py"]
 
     def test_falls_back_to_folder_test_dir(self, tmp_path: pathlib.Path, monkeypatch) -> None:
@@ -87,7 +87,7 @@ class TestMode2PerSolutionTestDir:
         (folder_tests / "input_1.txt").write_text("x", encoding="utf-8")
         (folder_tests / "expected_1.txt").write_text("x", encoding="utf-8")
 
-        used: list[str] = []
+        used: list[pathlib.Path] = []
 
         def fake_run_tests(
             path, test_dir, *, verbose=False, verbose_callback=None, timeout=grader.TIMEOUT_SECONDS
@@ -113,7 +113,7 @@ class TestMode2PerSolutionTestDir:
 
         # resolve_test_dir(task1.py) указывает на solutions/ (нет реального tests),
         # поэтому должен сработать fallback на folder-level tests/
-        assert used == [str(folder_tests)]
+        assert used == [folder_tests]
 
 
 # ===========================================================================
@@ -142,7 +142,7 @@ class TestRunBenchmarkRunMode:
 
         monkeypatch.setattr(grader_core, "run_single_test", fake_run_single_test)
 
-        run_benchmark(str(sol), str(tests_dir), repeats=1)
+        run_benchmark(sol, tests_dir, repeats=1)
 
         # Изначально test_type был "stdin", но run_mode == "function" должен переопределить
         assert seen_types == ["function"]
@@ -172,11 +172,11 @@ class TestRunMicrobenchModeFunctionBlocks:
 
         monkeypatch.setattr(grader_core, "run_microbench", fail_microbench)
 
-        results = run_microbench_mode([str(sol)], str(test_dir), number=100)
+        results = run_microbench_mode([sol], test_dir, number=100)
 
-        assert str(sol) in results
-        assert not results[str(sol)].get("error"), results[str(sol)]
-        assert results[str(sol)]["runs"] >= 1
+        assert sol in results
+        assert not results[sol].get("error"), results[sol]
+        assert results[sol]["runs"] >= 1
 
     def test_stdin_block_uses_timeit(self, tmp_path: pathlib.Path, monkeypatch) -> None:
         sol = tmp_path / "task1.py"
@@ -194,10 +194,10 @@ class TestRunMicrobenchModeFunctionBlocks:
 
         monkeypatch.setattr(grader_core, "run_microbench", fake_microbench)
 
-        results = run_microbench_mode([str(sol)], str(test_dir), number=100)
+        results = run_microbench_mode([sol], test_dir, number=100)
 
         assert called  # timeit-путь использован для stdin-блока
-        assert not results[str(sol)].get("error")
+        assert not results[sol].get("error")
 
 
 # ===========================================================================
@@ -210,29 +210,29 @@ class TestResolveTestDirFromInput:
 
     def test_tests_subdir_priority(self, tmp_path: pathlib.Path) -> None:
         (tmp_path / "tests").mkdir()
-        result = _resolve_test_dir_from_input(str(tmp_path), is_dir=True)
-        assert result == str(tmp_path / "tests")
+        result = _resolve_test_dir_from_input(tmp_path, is_dir=True)
+        assert result == tmp_path / "tests"
 
     def test_format3_input_output_in_dir(self, tmp_path: pathlib.Path) -> None:
         (tmp_path / "input.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
         (tmp_path / "output.txt").write_text("# TEST_1:\n1\n", encoding="utf-8")
-        result = _resolve_test_dir_from_input(str(tmp_path), is_dir=True)
-        assert result == str(tmp_path)
+        result = _resolve_test_dir_from_input(tmp_path, is_dir=True)
+        assert result == tmp_path
 
     def test_tests_subdir_wins_over_format3(self, tmp_path: pathlib.Path) -> None:
         (tmp_path / "tests").mkdir()
         (tmp_path / "input.txt").write_text("x", encoding="utf-8")
         (tmp_path / "output.txt").write_text("x", encoding="utf-8")
-        result = _resolve_test_dir_from_input(str(tmp_path), is_dir=True)
-        assert result == str(tmp_path / "tests")
+        result = _resolve_test_dir_from_input(tmp_path, is_dir=True)
+        assert result == tmp_path / "tests"
 
     def test_fallback_returns_dir_as_is(self, tmp_path: pathlib.Path) -> None:
-        result = _resolve_test_dir_from_input(str(tmp_path), is_dir=True)
-        assert result == str(tmp_path)
+        result = _resolve_test_dir_from_input(tmp_path, is_dir=True)
+        assert result == tmp_path
 
     def test_is_dir_false_delegates_to_resolve_test_dir(self, tmp_path: pathlib.Path) -> None:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
         (tmp_path / "tests").mkdir()
-        result = _resolve_test_dir_from_input(str(sol), is_dir=False)
-        assert result == str((tmp_path / "tests").resolve())
+        result = _resolve_test_dir_from_input(sol, is_dir=False)
+        assert result == (tmp_path / "tests").resolve()

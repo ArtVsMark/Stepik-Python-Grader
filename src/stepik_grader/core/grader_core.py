@@ -205,7 +205,7 @@ def set_runner(runner: Runner) -> None:
 
 
 def run_single_test(
-    solution_path: str,
+    solution_path: pathlib.Path,
     case: TestCase,
     *,
     timeout: float = TIMEOUT_SECONDS,
@@ -234,7 +234,7 @@ def run_single_test(
     """
     # --- Выбор стратегии запуска ---
     tmp_wrapper: Any = None  # NamedTemporaryFile или None
-    run_path = solution_path
+    run_path: pathlib.Path = solution_path
     stdin_bytes: bytes | None
 
     if case.test_type == "function":
@@ -286,7 +286,7 @@ def run_single_test(
         tmp_wrapper.write(wrapper_src)
         tmp_wrapper.flush()
         tmp_wrapper.close()
-        run_path = tmp_wrapper.name
+        run_path = pathlib.Path(tmp_wrapper.name)
         stdin_bytes = None  # wrapper не читает stdin
     else:
         stdin_data = "\n".join(case.input_lines) + "\n"
@@ -426,8 +426,8 @@ def run_single_test(
 
 
 def run_tests(
-    solution_path: str,
-    test_dir: str,
+    solution_path: pathlib.Path,
+    test_dir: pathlib.Path,
     *,
     verbose: bool = False,
     verbose_callback: Callable[[TestCase, dict[str, Any]], None] | None = None,
@@ -521,8 +521,8 @@ def run_tests(
 
 
 def run_benchmark(
-    solution_path: str,
-    test_dir: str,
+    solution_path: pathlib.Path,
+    test_dir: pathlib.Path,
     *,
     timeout: float = TIMEOUT_SECONDS,
     repeats: int = 15,
@@ -612,13 +612,13 @@ def _verdict(relative: float) -> str:
 
 
 def run_microbench_mode(
-    solution_paths: list[str],
-    test_dir: str,
+    solution_paths: list[pathlib.Path],
+    test_dir: pathlib.Path,
     *,
     number: int = 1000,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
-) -> dict[str, Any]:
+) -> dict[pathlib.Path, dict[str, Any]]:
     """Запустить timeit-microbench для нескольких решений и вернуть сводную статистику.
 
     peak_memory_mb (Issue #25) — максимум по всем кейсам решения: RSS через
@@ -638,12 +638,12 @@ def run_microbench_mode(
         return {}
 
     cases_to_bench = test_cases[:MICROBENCH_MAX_CASES]
-    results: dict[str, dict[str, Any]] = {}
+    results: dict[pathlib.Path, dict[str, Any]] = {}
 
     for path in solution_paths:
         if cancel_event is not None and cancel_event.is_set():
             break
-        code = pathlib.Path(path).read_text(encoding=ENCODING)
+        code = path.read_text(encoding=ENCODING)
 
         all_times: list[float] = []
         peak_mb = 0.0

@@ -404,7 +404,7 @@ class TestZipConversionRoundtrip:
         count = _download_zip_tests(tmp_path, STEPIK_ZIP_URL, session)
         assert count == 2
 
-        cases = load_test_cases(str(tmp_path / "tests"))
+        cases = load_test_cases(tmp_path / "tests")
         assert len(cases) == 2
         assert cases[0].index == 1
         assert cases[0].input_lines == ["10", "20", "30"]

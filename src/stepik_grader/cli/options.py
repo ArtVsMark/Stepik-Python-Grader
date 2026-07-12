@@ -15,6 +15,7 @@ _MESSAGES, _LOCALE_MESSAGES остаются в cli/__init__.py, issue #117).
 from __future__ import annotations
 
 import argparse
+import pathlib
 import sys
 
 from stepik_grader.config import CONFIG
@@ -40,8 +41,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         choices=[1, 2, 3, 4],
         help="Режим запуска (без --mode показывается интерактивное меню).",
     )
-    parser.add_argument("--file", help="Путь к файлу решения (обязателен для --mode 1).")
-    parser.add_argument("--dir", help="Путь к папке с решениями (обязателен для --mode 2/3/4).")
+    parser.add_argument(
+        "--file", type=pathlib.Path, help="Путь к файлу решения (обязателен для --mode 1)."
+    )
+    parser.add_argument(
+        "--dir",
+        type=pathlib.Path,
+        help="Путь к папке с решениями (обязателен для --mode 2/3/4).",
+    )
     parser.add_argument(
         "--repeats",
         type=int,
@@ -139,7 +146,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--root",
-        type=str,
+        type=pathlib.Path,
         default=None,
         help=(
             "Рабочая директория --serve: пути из запросов вне неё отклоняются "

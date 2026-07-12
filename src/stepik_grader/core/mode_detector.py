@@ -133,13 +133,13 @@ def _is_python_code_block(block: str) -> bool:
     return any(isinstance(node, ast.Name) for node in ast.walk(tree))
 
 
-def _read_meta_function_name(solution_path: str) -> str | None:
+def _read_meta_function_name(solution_path: pathlib.Path) -> str | None:
     """Прочитать function_name из meta.json рядом с файлом решения.
 
     Ищет meta.json в той же директории, что и solution_path.
     Возвращает None если файл не найден или поле отсутствует.
     """
-    meta_path = pathlib.Path(solution_path).parent / "meta.json"
+    meta_path = solution_path.parent / "meta.json"
     if not meta_path.exists():
         return None
     try:
@@ -150,13 +150,13 @@ def _read_meta_function_name(solution_path: str) -> str | None:
         return None
 
 
-def _ast_function_name(solution_path: str) -> str | None:
+def _ast_function_name(solution_path: pathlib.Path) -> str | None:
     """Парсит файл решения через ast и возвращает имя первой функции (эвристика).
 
     Используется как fallback когда meta.json недоступен или function_name = None.
     """
     try:
-        source = pathlib.Path(solution_path).read_text(encoding=ENCODING)
+        source = solution_path.read_text(encoding=ENCODING)
         tree = ast.parse(source)
     except (SyntaxError, OSError):
         return None
@@ -166,7 +166,7 @@ def _ast_function_name(solution_path: str) -> str | None:
     return None
 
 
-def _detect_run_mode(solution_path: str, test_dir: str) -> str:
+def _detect_run_mode(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str:
     """Единая точка детекции режима запуска: "stdin" или "function".
 
     Стратегия определения (первый сработавший выигрывает):
@@ -183,16 +183,15 @@ def _detect_run_mode(solution_path: str, test_dir: str) -> str:
         return "function"
 
     # 2. .type-файлы
-    test_dir_path = pathlib.Path(test_dir)
-    if test_dir_path.is_dir():
-        for type_file in test_dir_path.glob("*.type"):
+    if test_dir.is_dir():
+        for type_file in test_dir.glob("*.type"):
             raw = type_file.read_text(encoding=ENCODING).strip()
             if raw == "function":
                 return "function"
 
     # 3. AST-анализ файла решения
     try:
-        file_content = pathlib.Path(solution_path).read_text(encoding=ENCODING)
+        file_content = solution_path.read_text(encoding=ENCODING)
         if is_function_only_solution(file_content):
             return "function"
     except OSError:

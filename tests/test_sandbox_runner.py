@@ -190,10 +190,10 @@ def test_sandbox_runner_propagates_backend_unavailable(monkeypatch: pytest.Monke
 # ---------------------------------------------------------------------------
 
 
-def _write_script(tmp_path: pathlib.Path, body: str, name: str = "sol.py") -> str:
+def _write_script(tmp_path: pathlib.Path, body: str, name: str = "sol.py") -> pathlib.Path:
     path = tmp_path / name
     path.write_text(body, encoding="utf-8")
-    return str(path)
+    return path
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux-only backend")

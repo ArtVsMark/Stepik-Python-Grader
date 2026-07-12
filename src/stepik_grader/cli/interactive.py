@@ -121,7 +121,7 @@ def _print_menu(ctx: CliContext) -> None:
     print("=" * 50)
 
 
-def _pick_path_via_dialog(ctx: CliContext, *, want_dir: bool) -> str | None:
+def _pick_path_via_dialog(ctx: CliContext, *, want_dir: bool) -> pathlib.Path | None:
     """Открыть нативный диалог выбора файла (.py) или папки через tkinter.
 
     Возвращает выбранный путь или None (отмена, tkinter не установлен, либо
@@ -152,20 +152,21 @@ def _pick_path_via_dialog(ctx: CliContext, *, want_dir: bool) -> str | None:
             )
     finally:
         root.destroy()
-    return path or None
+    return pathlib.Path(path) if path else None
 
 
-def _prompt_path(ctx: CliContext, prompt_key: str, *, want_dir: bool) -> str:
+def _prompt_path(ctx: CliContext, prompt_key: str, *, want_dir: bool) -> pathlib.Path:
     """Спросить путь в интерактивном меню; при пустом вводе — файловый диалог.
 
-    Пустая строка на выходе (пустой ввод + отмена/недоступность диалога)
+    Пустой путь на выходе (пустой ввод + отмена/недоступность диалога)
     корректно обрабатывается вызывающими режимами через их обычные
     "file/dir not found" сообщения (issue #79).
     """
-    path = input(ctx.t(prompt_key)).strip()
-    if not path:
-        path = ctx.pick_path_via_dialog(want_dir=want_dir) or ""
-    return path
+    raw = input(ctx.t(prompt_key)).strip()
+    if raw:
+        return pathlib.Path(raw)
+    picked = ctx.pick_path_via_dialog(want_dir=want_dir)
+    return picked if picked is not None else pathlib.Path("")
 
 
 def _resolve_cli_path_or_error(
@@ -175,7 +176,7 @@ def _resolve_cli_path_or_error(
     *,
     want_dir: bool,
     flag: str,
-) -> str:
+) -> pathlib.Path:
     """Вернуть путь для non-interactive режима, когда флаг пути не задан.
 
     В интерактивном text-режиме (без ``--output``-машинного вывода и без
@@ -215,7 +216,7 @@ def _interactive_menu(ctx: CliContext) -> None:
 
     elif choice == "3":
         directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-        if not pathlib.Path(directory).is_dir():
+        if not directory.is_dir():
             print(ctx.t("dir_not_found", path=directory))
             return
         # find_all_solution_files/collect_grouped_files: импортированы напрямую
@@ -230,7 +231,7 @@ def _interactive_menu(ctx: CliContext) -> None:
 
     elif choice == "4":
         directory = _prompt_path(ctx, "enter_folder_with_solutions_path", want_dir=True)
-        if not pathlib.Path(directory).is_dir():
+        if not directory.is_dir():
             print(ctx.t("dir_not_found", path=directory))
             return
         if not collect_grouped_files(directory):

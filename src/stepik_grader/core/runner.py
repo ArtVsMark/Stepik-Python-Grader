@@ -24,6 +24,7 @@ verdict/diff остаётся выше по стеку (``grader_core.py``); ``R
 from __future__ import annotations
 
 import os
+import pathlib
 import subprocess
 import sys
 import threading
@@ -58,7 +59,7 @@ class RunSpec:
     расходов) — CLI и синхронный ``/api/grade`` его не передают.
     """
 
-    path: str
+    path: pathlib.Path
     stdin: bytes | None
     timeout: float
     measure_memory: bool = True

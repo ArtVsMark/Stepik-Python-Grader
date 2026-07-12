@@ -42,15 +42,15 @@ def _make_task(tmp_path: pathlib.Path, body: str = "print(int(input()) * 2)\n") 
 def test_hash_solution_stable_and_sensitive(tmp_path: pathlib.Path) -> None:
     sol = tmp_path / "task.py"
     sol.write_text("x = 1\n", encoding="utf-8")
-    h1 = hash_solution(str(sol))
-    assert h1 == hash_solution(str(sol))  # стабильно
+    h1 = hash_solution(sol)
+    assert h1 == hash_solution(sol)  # стабильно
     sol.write_text("x = 2\n", encoding="utf-8")
-    assert hash_solution(str(sol)) != h1  # чувствительно к содержимому
+    assert hash_solution(sol) != h1  # чувствительно к содержимому
 
 
 def test_hash_tests_stable_and_sensitive(tmp_path: pathlib.Path) -> None:
     _make_task(tmp_path)
-    tdir = str(tmp_path / "tests")
+    tdir = tmp_path / "tests"
     h1 = hash_tests(tdir)
     assert h1 == hash_tests(tdir)
     # изменение ожидаемого вывода меняет хеш
@@ -60,7 +60,7 @@ def test_hash_tests_stable_and_sensitive(tmp_path: pathlib.Path) -> None:
 
 def test_hash_tests_missing_dir_is_stable(tmp_path: pathlib.Path) -> None:
     """Несуществующая директория → стабильный хеш пустого потока, без падения."""
-    missing = str(tmp_path / "nope")
+    missing = tmp_path / "nope"
     assert hash_tests(missing) == hash_tests(missing)
 
 
@@ -70,10 +70,10 @@ def test_hash_tests_ignores_subdirectories(tmp_path: pathlib.Path) -> None:
     tdir = tmp_path / "tests"
     (tdir / "nested").mkdir()
     (tdir / "nested" / "extra").write_text("data\n", encoding="utf-8")
-    h1 = hash_tests(str(tdir))
+    h1 = hash_tests(tdir)
     # добавление файла в поддиректорию меняет хеш (содержимое учтено)
     (tdir / "nested" / "extra").write_text("changed\n", encoding="utf-8")
-    assert hash_tests(str(tdir)) != h1
+    assert hash_tests(tdir) != h1
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ def test_hash_tests_ignores_subdirectories(tmp_path: pathlib.Path) -> None:
 
 def test_cache_put_get_roundtrip(tmp_path: pathlib.Path) -> None:
     cache = GraderCache(cache_dir=tmp_path / CACHE_DIR_NAME)
-    sol = str(tmp_path / "task.py")
+    sol = tmp_path / "task.py"
     result = {"passed": 1, "total": 1}
     assert cache.get(sol, "sha_s", "sha_t") is None  # холодный кэш
     cache.put(sol, "sha_s", "sha_t", result)
@@ -92,7 +92,7 @@ def test_cache_put_get_roundtrip(tmp_path: pathlib.Path) -> None:
 
 def test_cache_persists_across_instances(tmp_path: pathlib.Path) -> None:
     cache_dir = tmp_path / CACHE_DIR_NAME
-    sol = str(tmp_path / "task.py")
+    sol = tmp_path / "task.py"
     first = GraderCache(cache_dir=cache_dir)
     first.put(sol, "s", "t", {"ok": True})
     first.save()
@@ -103,7 +103,7 @@ def test_cache_persists_across_instances(tmp_path: pathlib.Path) -> None:
 
 def test_cache_miss_on_changed_hash(tmp_path: pathlib.Path) -> None:
     cache = GraderCache(cache_dir=tmp_path / CACHE_DIR_NAME)
-    sol = str(tmp_path / "task.py")
+    sol = tmp_path / "task.py"
     cache.put(sol, "s1", "t1", {"n": 1})
     assert cache.get(sol, "s2", "t1") is None  # изменился solution_sha
     assert cache.get(sol, "s1", "t2") is None  # изменился tests_sha
@@ -112,8 +112,8 @@ def test_cache_miss_on_changed_hash(tmp_path: pathlib.Path) -> None:
 def test_cache_clear_removes_file_and_counts(tmp_path: pathlib.Path) -> None:
     cache_dir = tmp_path / CACHE_DIR_NAME
     cache = GraderCache(cache_dir=cache_dir)
-    cache.put(str(tmp_path / "a.py"), "s", "t", {})
-    cache.put(str(tmp_path / "b.py"), "s", "t", {})
+    cache.put(tmp_path / "a.py", "s", "t", {})
+    cache.put(tmp_path / "b.py", "s", "t", {})
     cache.save()
     assert cache.cache_file.exists()
 
@@ -127,7 +127,7 @@ def test_cache_corrupt_file_treated_as_empty(tmp_path: pathlib.Path) -> None:
     cache_dir.mkdir()
     (cache_dir / "results.json").write_text("{ not json", encoding="utf-8")
     cache = GraderCache(cache_dir=cache_dir)
-    assert cache.get(str(tmp_path / "task.py"), "s", "t") is None  # не падаем
+    assert cache.get(tmp_path / "task.py", "s", "t") is None  # не падаем
 
 
 def test_cache_wrong_version_treated_as_empty(tmp_path: pathlib.Path) -> None:
