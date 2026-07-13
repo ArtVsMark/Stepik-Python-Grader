@@ -25,6 +25,17 @@
   downloader tests re-split across per-module test files.
 
 ### Fixed
+- File-write races in two best-effort stores (issue #352): stats rotation
+  (`core/stats.py`, the read-modify-write in `_rotate_if_needed`) and the
+  glossary "missing" queue (`glossary/json_provider.append_missing_entries`,
+  a whole-file load→merge→save) had no locking, so the web layer's
+  `ThreadPoolExecutor` could interleave concurrent writers and drop entries.
+  Both critical sections are now serialized by a module-level `threading.Lock`.
+  This covers the single-process, multi-thread (web) model; cross-process races
+  (CLI and web at once) are explicitly out of scope and will be closed by the
+  SQLite/WAL history layer (issue #344). Best-effort semantics are unchanged (an
+  `OSError` still never breaks grading). Adds concurrent-writer regression tests
+  for both stores.
 - `--sandbox` was silently ignored when combined with `--serve` (issue #351):
   the `--serve` branch returns before `set_runner()`, so the web server always
   executed code with the plain `LocalRunner` even when the user explicitly asked

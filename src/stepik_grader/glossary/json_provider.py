@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import threading
 from typing import Any, Protocol, runtime_checkable
 
 from .models import GlossaryCard, GlossaryMissingEntry
@@ -217,6 +218,15 @@ def save_missing_queue(path: pathlib.Path | str, entries: list[GlossaryMissingEn
         json.dump(payload, fh, ensure_ascii=False, indent=2)
 
 
+# Процессный лок вокруг read-modify-write очереди пополнения (issue #352).
+# append_missing_entries читает весь файл и переписывает его целиком; web-слой
+# может вызывать это из нескольких потоков (ThreadPoolExecutor, web/runs.py) —
+# без сериализации конкурентные вызовы затирают добавки друг друга. Process-level
+# Lock достаточен для модели «один процесс, много потоков»; межпроцессную гонку
+# (CLI и web одновременно) он не закрывает — её снимет SQLite/WAL (issue #344).
+_MISSING_QUEUE_LOCK = threading.Lock()
+
+
 def append_missing_entries(
     path: pathlib.Path | str, entries: list[GlossaryMissingEntry]
 ) -> list[GlossaryMissingEntry]:
@@ -228,21 +238,26 @@ def append_missing_entries(
     ``concept`` не конкурируют), но пустые ``module``/``qualname`` дополняются
     из новой записи — так source-driven скан (issue #196/#197) обогащает уже
     обнаруженный practice-driven пробел. Возвращает итоговую очередь.
+
+    Read-modify-write (load → merge → save) сериализован процессным
+    ``_MISSING_QUEUE_LOCK`` (issue #352), чтобы конкурентные web-потоки не
+    затирали добавки друг друга.
     """
-    existing = load_missing_queue(path)
-    by_concept: dict[str, GlossaryMissingEntry] = {e.concept: e for e in existing}
-    for entry in entries:
-        current = by_concept.get(entry.concept)
-        if current is None:
-            by_concept[entry.concept] = entry
-            existing.append(entry)
-        else:
-            for src in entry.seen_in:
-                if src not in current.seen_in:
-                    current.seen_in.append(src)
-            if not current.module and entry.module:
-                current.module = entry.module
-            if not current.qualname and entry.qualname:
-                current.qualname = entry.qualname
-    save_missing_queue(path, existing)
-    return existing
+    with _MISSING_QUEUE_LOCK:
+        existing = load_missing_queue(path)
+        by_concept: dict[str, GlossaryMissingEntry] = {e.concept: e for e in existing}
+        for entry in entries:
+            current = by_concept.get(entry.concept)
+            if current is None:
+                by_concept[entry.concept] = entry
+                existing.append(entry)
+            else:
+                for src in entry.seen_in:
+                    if src not in current.seen_in:
+                        current.seen_in.append(src)
+                if not current.module and entry.module:
+                    current.module = entry.module
+                if not current.qualname and entry.qualname:
+                    current.qualname = entry.qualname
+        save_missing_queue(path, existing)
+        return existing
