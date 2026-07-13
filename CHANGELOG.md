@@ -9,6 +9,21 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Refactored
+- `downloader.py` SRP split (issue #302): the 32 KB module mixing config,
+  HTML parsing, ZIP/GitHub download, format writing and interactive prompts
+  is now a ~13 KB coordinator (`build_task_directory`, `save_task_files`,
+  `process_step_url`, `main`). Extracted, each a focused module: HTML text
+  parsing → `core/task_page_parser.py`, test-format writing →
+  `core/tests_writer.py`, ZIP/GitHub fetching → `core/test_source_fetcher.py`,
+  Stepik API/URL parsing → `core/step_content.py` (all leaf/near-leaf, no
+  back-import of `downloader`), and config + interactive prompts →
+  `downloader_config.py`. All previously public names remain importable from
+  `stepik_grader.downloader` via re-export (back-compat verified by test); the
+  duplicated Format-3 (`# TEST_N:`) writing in the two download paths is now a
+  single `write_testblock_tests`. Behaviour and on-disk formats unchanged;
+  downloader tests re-split across per-module test files.
+
 ### Added
 - Curated WA hint for non-UTF-8 output (issue #301): a solution that writes
   raw bytes to stdout (`sys.stdout.buffer.write(b"\xff...")`) is decoded with

@@ -32,7 +32,8 @@ Stepik-Python-Grader/
 │       │   └── static/            # index.html/app.css/app.js — без build-шага
 │       ├── ide.py                 # Генерация .vscode/tasks.json (--init-vscode)
 │       ├── pytest_plugin.py       # pytest11 entry point (--grader-mode)
-│       ├── downloader.py         # Domain: конфиг, slugify, построение папок, оркестрация API
+│       ├── downloader.py         # Application: координатор загрузки задач (issue #302)
+│       ├── downloader_config.py  # Application: конфиг stepik_config.json + интерактив (issue #302)
 │       ├── diagnostic_stepik.py  # Диагностика API и токена
 │       └── core/                  # Internal Infrastructure/Utility модули (Issue #23, #26)
 │           ├── __init__.py
@@ -51,6 +52,10 @@ Stepik-Python-Grader/
 │           ├── stepik_client.py  # Infrastructure: OAuth2, requests.Session, Stepik API
 │           ├── oauth_flow.py     # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
 │           ├── parsers.py        # Парсинг тест-блоков (# TEST_N:)
+│           ├── task_page_parser.py   # Разбор HTML текста задачи: таблица кейсов, ссылки (issue #302, leaf)
+│           ├── tests_writer.py       # Запись Format 1/3 тест-кейсов на диск (issue #302, leaf)
+│           ├── test_source_fetcher.py # Скачивание тестов из ZIP/GitHub → Format 3 (issue #302)
+│           ├── step_content.py       # Разбор Stepik API-контента и URL шага (issue #302, leaf)
 │           ├── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 │           ├── i18n.py           # Загрузка JSON-локалей меню/CLI (issue #144)
 │           ├── stats.py          # Opt-in локальная статистика запусков (issue #268)
