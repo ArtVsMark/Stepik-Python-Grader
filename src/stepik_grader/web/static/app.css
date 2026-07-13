@@ -119,7 +119,12 @@
   --color-primary-highlight:#293b3b;
   --color-success:         #6daa45;
   --color-success-highlight:#3a4435;
-  --color-warning:         #bb653b;
+  /* issue #298 (a11y): #bb653b давал контраст SLOWER/verdict-slower лишь
+     3.5-4.4:1 на тёмных surface — ниже WCAG AA 4.5:1. #d98a5c поднимает до
+     ~5.4-6.7:1 (verdict text) и ~3.2:1 для badge-warning на highlight-фоне
+     (было 2.1; для мелкой статус-плашки допустимо по 1.4.11). Светлая тема
+     (#964219) уже проходила 5.3-6.6:1 — не менялась. */
+  --color-warning:         #d98a5c;
   --color-warning-highlight:#564942;
   --color-error:           #d163a7;
   --color-error-highlight: #4c3d46;
@@ -144,7 +149,7 @@
     --color-primary: #4f98a3; --color-primary-hover: #227f8b;
     --color-primary-active: #1a626b; --color-primary-highlight: #293b3b;
     --color-success: #6daa45; --color-success-highlight: #3a4435;
-    --color-warning: #bb653b; --color-warning-highlight: #564942;
+    --color-warning: #d98a5c; --color-warning-highlight: #564942; /* issue #298 a11y — см. [data-theme="dark"] */
     --color-error: #d163a7; --color-error-highlight: #4c3d46;
     --color-notification: #dd6974;
     --shadow-sm: 0 1px 2px oklch(0 0 0/0.22);
@@ -464,6 +469,12 @@ select.form-input { cursor: pointer; }
 .msg { color: var(--color-error); margin-top: var(--space-4); }
 /* issue #296: cancelled run is not a failure -- neutral tone, not error red. */
 .msg-neutral { color: var(--color-text-muted); margin-top: var(--space-4); }
+/* issue #298 (a11y): visually hidden but exposed to assistive tech — used for
+   the aria-live result-summary announcer (#result-announce). */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 
 /* -- Command palette ------------------------------------------------------- */
 .palette-overlay { position: fixed; inset: 0; background: oklch(0 0 0 / 0.5); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 100; }

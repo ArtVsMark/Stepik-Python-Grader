@@ -47,6 +47,63 @@ def test_mode2_folder_grading_shows_table_and_detail_tab(
     assert "5" in detail_text  # the printed/actual output
 
 
+def test_mode2_result_announced_and_focused_for_a11y(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #298): результат озвучивается через aria-live, вердикт несёт
+    ТЕКСТ (не только цвет), фокус уходит на панель результатов."""
+    write_task(tmp_path, "print(int(input()) + 1)\n")
+
+    page.goto(e2e_server + "/")
+    page.click('.mode-btn[data-mode="tests"]')
+    page.fill("#path", str(tmp_path))
+    page.click("#run")
+
+    page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)
+
+    # aria-live summary region carries a one-line verdict summary.
+    announce = page.locator("#result-announce")
+    assert announce.get_attribute("aria-live") == "polite"
+    page.wait_for_function(
+        "document.getElementById('result-announce').textContent.includes('OK')",
+        timeout=_TIMEOUT_MS,
+    )
+    assert "OK" in announce.text_content()
+
+    # Verdict badge conveys meaning as TEXT, not by colour alone (WCAG 1.4.1).
+    row_badge = page.locator("#out table.data-table tbody tr").first.locator(".badge")
+    assert row_badge.text_content().strip() == "OK"
+
+    # Focus moved to the results panel so keyboard/SR users land on the summary.
+    focused_id = page.evaluate("document.activeElement && document.activeElement.id")
+    assert focused_id == "restab-table"
+
+
+def test_bench_progressbar_exposes_aria_roles(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J (issue #298): прогресс-бар долгого прогона имеет role="progressbar"
+    и корректные aria-value* (min/max), видимые assistive tech."""
+    write_task(tmp_path, "print(int(input()) + 1)\n")
+
+    page.goto(e2e_server + "/")
+    page.click('.mode-btn[data-mode="bench"]')
+    page.fill("#path", str(tmp_path))
+    page.click("#run")
+
+    # Progress bar appears while the async bench job runs.
+    pb = page.locator('#bar [role="progressbar"]')
+    pb.wait_for(state="attached", timeout=_TIMEOUT_MS)
+    assert pb.get_attribute("aria-label")
+    assert pb.get_attribute("aria-valuemin") == "0"
+    # aria-valuemax reflects total planned run_single_test calls (>= 1).
+    assert int(pb.get_attribute("aria-valuemax")) >= 1
+
+    # And the run still completes and announces a summary.
+    page.wait_for_function(
+        "document.getElementById('result-announce').textContent.includes('авершён')",
+        timeout=_TIMEOUT_MS,
+    )
+
+
 def test_mode1_file_picker_edit_check_then_save(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: режим 1 (issue #297) -- выбрать файл, отредактировать код, ПРОВЕРИТЬ
     (грейд из временного файла, без записи на диск), затем явно СОХРАНИТЬ."""

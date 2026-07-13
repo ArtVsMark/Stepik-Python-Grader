@@ -1728,6 +1728,39 @@ def test_client_esc_regex_includes_quote_chars() -> None:
     assert "replace(/[&<>\"']/g" in web._APP_JS
 
 
+# ---------------------------------------------------------------------------
+# Client-side a11y — source-level regression checks (issue #298)
+# ---------------------------------------------------------------------------
+#
+# No JS runtime in this suite (the live behaviour is covered by
+# tests/e2e/test_journeys.py); these pin the source so the a11y affordances
+# can't silently regress.
+
+
+def test_render_verdict_emits_verdict_text_not_colour_only() -> None:
+    """WCAG 1.4.1: verdict badge must carry the verdict string as text, not
+    convey meaning by colour class alone -- renderVerdict() interpolates esc(v)
+    into the span body."""
+    start = web._APP_JS.index("function renderVerdict(")
+    end = web._APP_JS.index("}", start)
+    body = web._APP_JS[start:end]
+    assert "esc(v)" in body, "renderVerdict no longer inlines the verdict text"
+
+
+def test_progress_bar_has_progressbar_role_and_aria_values() -> None:
+    """issue #298: the progress bar markup exposes role=progressbar + aria-value*."""
+    assert 'role="progressbar"' in web._APP_JS
+    assert "aria-valuemin=" in web._APP_JS
+    assert "aria-valuemax=" in web._APP_JS
+    assert "aria-valuenow=" in web._APP_JS
+
+
+def test_result_announce_live_region_present() -> None:
+    """issue #298: a polite aria-live region exists for the result summary."""
+    assert 'id="result-announce"' in web._INDEX_HTML
+    assert 'aria-live="polite"' in web._INDEX_HTML
+
+
 def test_error_card_url_field_is_passed_through_esc() -> None:
     # errorCard() must run g.url through esc() before inserting it into
     # href="..." -- if a future edit inlines g.url directly, this fails.
