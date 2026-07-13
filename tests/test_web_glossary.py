@@ -27,12 +27,16 @@ from stepik_grader.web.commands import COMMANDS, filter_commands
 
 
 class TestGlossarySearchNoStoreConfigured:
-    """store_path=None (and no CONFIG.glossary_store) → compact core/glossary.py fallback."""
+    """store_path=None (and no CONFIG.glossary_store) → комплектная база (#326);
+    при её отсутствии — компактный ``core/glossary.py`` fallback."""
 
-    def test_search_empty_query_returns_all_fallback_cards(self) -> None:
+    def test_search_empty_query_returns_all_cards(self) -> None:
         cards = glossary_adapter.glossary_search("")
-        assert len(cards) > 0
-        assert all(c["status"] == "ready" for c in cards)
+        # база — импортированные ready-карточки (#326) + автогенерированные
+        # черновики (#328); есть и те, и другие статусы.
+        assert len(cards) > 500
+        assert any(c["status"] == "ready" for c in cards)
+        assert any(c["status"] == "draft" for c in cards)
 
     def test_search_matches_known_exception(self) -> None:
         cards = glossary_adapter.glossary_search("RecursionError")
@@ -48,6 +52,24 @@ class TestGlossarySearchNoStoreConfigured:
 
     def test_get_unknown_id_returns_none(self) -> None:
         assert glossary_adapter.glossary_get("not-a-real-id") is None
+
+    def test_default_serves_bundled_base_not_only_exceptions(self) -> None:
+        # issue #326: комплектная база даёт не только исключения — напр.
+        # встроенную функцию input(), которой нет в компактном fallback.
+        card = glossary_adapter.glossary_get("input")
+        assert card is not None
+        assert card["kind"] == "function"
+
+    def test_true_fallback_when_bundled_absent(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # issue #326: если комплектной базы нет — деградируем на ~28 исключений
+        # core/glossary.py (KeyError есть, builtin input() — нет).
+        monkeypatch.setattr(glossary_adapter, "BUNDLED_GLOSSARY_DIR", tmp_path / "nope")
+        cards = glossary_adapter.glossary_search("")
+        ids = {c["id"] for c in cards}
+        assert "keyerror" in ids
+        assert "input" not in ids
 
 
 class TestGlossarySearchWithConfiguredStore:
@@ -79,6 +101,96 @@ class TestGlossarySearchWithConfiguredStore:
     def test_missing_store_file_falls_back_gracefully(self, tmp_path: pathlib.Path) -> None:
         cards = glossary_adapter.glossary_search("", store_path=str(tmp_path / "nope.json"))
         assert len(cards) > 0  # fell back to core/glossary.py, didn't raise
+
+
+class TestGlossaryFilterAndSort:
+    """issue #329: фильтры section/kind/status (без объединения типов) + sort."""
+
+    @pytest.fixture
+    def store_path(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        cards = [
+            GlossaryCard(
+                id="list-append",
+                title="list.append()",
+                kind="function",
+                section="Списки (list)",
+                status="ready",
+            ),
+            GlossaryCard(
+                id="tuple-count",
+                title="tuple.count()",
+                kind="function",
+                section="Кортежи (tuple)",
+                status="ready",
+            ),
+            GlossaryCard(
+                id="match-case",
+                title="match/case",
+                kind="construct",
+                section="Условный оператор",
+                status="draft",
+                version="3.10",
+            ),
+            GlossaryCard(
+                id="zzz-term",
+                title="zzz",
+                kind="term",
+                section="Списки (list)",
+                status="ready",
+            ),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_section_filter_does_not_merge_list_and_tuple(self, store_path: pathlib.Path) -> None:
+        # Ключевое требование владельца: «Кортежи» не показывают списки.
+        tuples = glossary_adapter.glossary_search(
+            "", section="Кортежи (tuple)", store_path=str(store_path)
+        )
+        assert {c["id"] for c in tuples} == {"tuple-count"}
+        lists = glossary_adapter.glossary_search(
+            "", section="Списки (list)", store_path=str(store_path)
+        )
+        assert {c["id"] for c in lists} == {"list-append", "zzz-term"}
+
+    def test_kind_filter(self, store_path: pathlib.Path) -> None:
+        res = glossary_adapter.glossary_search("", kind="construct", store_path=str(store_path))
+        assert {c["id"] for c in res} == {"match-case"}
+
+    def test_status_filter(self, store_path: pathlib.Path) -> None:
+        res = glossary_adapter.glossary_search("", status="draft", store_path=str(store_path))
+        assert {c["id"] for c in res} == {"match-case"}
+
+    def test_query_and_section_combine(self, store_path: pathlib.Path) -> None:
+        res = glossary_adapter.glossary_search(
+            "append", section="Списки (list)", store_path=str(store_path)
+        )
+        assert {c["id"] for c in res} == {"list-append"}
+
+    def test_sort_az(self, store_path: pathlib.Path) -> None:
+        titles = [
+            c["title"]
+            for c in glossary_adapter.glossary_search("", sort="az", store_path=str(store_path))
+        ]
+        assert titles == sorted(titles, key=str.lower)
+
+    def test_sort_section(self, store_path: pathlib.Path) -> None:
+        sections = [
+            c["section"]
+            for c in glossary_adapter.glossary_search(
+                "", sort="section", store_path=str(store_path)
+            )
+        ]
+        assert sections == sorted(sections, key=str.lower)
+
+    def test_sort_version_orders_versioned_first(self, store_path: pathlib.Path) -> None:
+        res = glossary_adapter.glossary_search("", sort="version", store_path=str(store_path))
+        assert res[0]["version"] == "3.10"  # версионированные — вперёд
+        assert all(c["version"] == "" for c in res[1:])  # без версии — в конец
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +263,21 @@ class TestGlossaryHttpEndpoints:
         with pytest.raises(urllib.error.HTTPError) as exc:
             _get(server + "/api/glossary/not-a-real-id")
         assert exc.value.code == 404
+
+    def test_api_glossary_kind_param_filters(self, server: str) -> None:
+        # issue #329: сервер прокидывает kind в glossary_search.
+        status, body = _get(
+            server + "/api/glossary?" + urllib.parse.urlencode({"kind": "exception"})
+        )
+        assert status == 200
+        cards = json.loads(body)
+        assert cards and all(c["kind"] == "exception" for c in cards)
+
+    def test_api_glossary_sort_az_orders_titles(self, server: str) -> None:
+        status, body = _get(server + "/api/glossary?" + urllib.parse.urlencode({"sort": "az"}))
+        assert status == 200
+        titles = [c["title"] for c in json.loads(body)]
+        assert titles == sorted(titles, key=str.lower)
 
     def test_api_glossary_missing_empty_by_default(self, server: str) -> None:
         # CONFIG.glossary_missing_queue defaults to a relative path that

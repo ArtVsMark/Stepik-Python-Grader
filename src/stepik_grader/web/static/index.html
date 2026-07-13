@@ -241,6 +241,32 @@
               <button class="mode-btn active" data-glview="cards">Карточки</button>
               <button class="mode-btn" data-glview="missing">Недостающее</button>
             </div>
+            <div id="glossary-filters">
+              <div id="glossary-chips" class="chip-row" role="group" aria-label="Быстрые фильтры по разделам"></div>
+              <div class="glossary-filter-row">
+                <select class="form-input" id="glossary-section" aria-label="Раздел">
+                  <option value="">Все разделы</option>
+                </select>
+                <select class="form-input" id="glossary-kind" aria-label="Тип">
+                  <option value="">Все типы</option>
+                  <option value="function">Функции</option>
+                  <option value="exception">Исключения</option>
+                  <option value="construct">Конструкции</option>
+                  <option value="term">Термины</option>
+                </select>
+                <select class="form-input" id="glossary-status" aria-label="Статус">
+                  <option value="">Все статусы</option>
+                  <option value="ready">Готовые</option>
+                  <option value="draft">Черновики</option>
+                </select>
+                <select class="form-input" id="glossary-sort" aria-label="Сортировка">
+                  <option value="az">А–Я</option>
+                  <option value="section">По разделам</option>
+                  <option value="version">По версии</option>
+                </select>
+              </div>
+              <div id="glossary-count" class="hint" aria-live="polite"></div>
+            </div>
             <ul id="glossary-cards" class="side-list"></ul>
             <ul id="glossary-missing" class="side-list" hidden></ul>
           </div>

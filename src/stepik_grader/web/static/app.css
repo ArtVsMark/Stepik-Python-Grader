@@ -504,3 +504,21 @@ select.form-input { cursor: pointer; }
   .page-header { flex-direction: column; align-items: stretch; }
   .page-actions { margin-left: 0; }
 }
+
+/* issue #329: тулбар фильтров раздела «Глоссарий» — чипы по разделам (без
+   объединения списков/кортежей/словарей/множеств), селекты типа/сортировки. */
+#glossary-filters { margin-bottom: var(--space-4); }
+.chip-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.chip {
+  padding: var(--space-1) var(--space-3); border-radius: 999px;
+  border: 1px solid var(--color-border); font-size: var(--text-xs); font-weight: 500;
+  color: var(--color-text-muted); background: var(--color-surface); cursor: pointer;
+}
+.chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.chip.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+.glossary-filter-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.glossary-filter-row .form-input { flex: 1; min-width: 96px; font-size: var(--text-xs); padding: var(--space-1) var(--space-2); }
+#glossary-count { font-size: var(--text-xs); }
+/* issue #328: черновики (автогенерация из docstring) приглушены в списке. */
+.side-list li.gloss-draft { opacity: .6; }
+.side-list li.gloss-draft.selected { opacity: 1; }

@@ -114,6 +114,38 @@ def test_coverage_report_empty_inventory() -> None:
         assert category.ratio == 1.0
 
 
+# --- issue #327: методы встроенных типов ------------------------------------
+
+_METHOD = StdlibItem(qualname="str.split", module="builtins", kind="method", python_version="3.14")
+
+
+def test_method_missing_maps_to_function_kind() -> None:
+    # MissingKind не знает "method" — метод функция-подобен (issue #327);
+    # полный контекст в полях module/qualname.
+    entries = missing_entries_from_inventory([_METHOD], known=set())
+    assert len(entries) == 1
+    assert entries[0].kind == "function"
+    assert entries[0].qualname == "str.split"
+    assert entries[0].module == "builtins"
+
+
+def test_method_coverage_requires_full_qualname_not_tail() -> None:
+    # issue #327: карточка "split" НЕ закрывает str.split (иначе одна карточка
+    # ложно покрыла бы методы всех типов); нужен полный qualname.
+    still_missing = missing_entries_from_inventory([_METHOD], known={"split"})
+    assert {e.concept for e in still_missing} == {"str.split"}
+    covered = missing_entries_from_inventory([_METHOD], known={"str.split"})
+    assert covered == []
+
+
+def test_coverage_report_has_methods_category() -> None:
+    report = build_coverage_report([_METHOD], known=set())
+    methods = report.categories["methods"]
+    assert methods.total == 1
+    assert methods.covered == 0
+    assert methods.missing == ("str.split",)
+
+
 def test_missing_entries_write_is_idempotent(tmp_path: pathlib.Path) -> None:
     path = tmp_path / "missing.json"
     entries = missing_entries_from_inventory(_INVENTORY, known=set(), today="2026-07-08")

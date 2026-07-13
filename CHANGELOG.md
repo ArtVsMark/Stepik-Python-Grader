@@ -24,16 +24,6 @@
   single `write_testblock_tests`. Behaviour and on-disk formats unchanged;
   downloader tests re-split across per-module test files.
 
-### Added
-- Curated WA hint for non-UTF-8 output (issue #301): a solution that writes
-  raw bytes to stdout (`sys.stdout.buffer.write(b"\xff...")`) is decoded with
-  `errors="replace"`, so its diff shows `�` (U+FFFD) with no explanation.
-  `web/viewmodels._wa_suggestion` now detects `�` in the actual output and
-  returns a `message_id="output_invalid_utf8"` hint (ru/en) pointing at the
-  likely cause (printing raw bytes / wrong encoding), taking priority over
-  the trailing-whitespace hint. The runner's decode strategy is unchanged
-  (still `errors="replace"`, a deliberate non-goal).
-
 ### Fixed
 - Web UI accessibility for grading results (issue #298, WCAG 2.1 AA):
   results were announced silently to assistive tech. Added a polite
@@ -65,6 +55,67 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Draft cards auto-generated from the official Python docs (issue #328). A new
+  offline generator (`scripts/generate_draft_cards.py`) introspects every
+  inventory entity still missing a card and emits a `status="draft"`
+  `GlossaryCard` from the live stdlib: signature via `inspect.signature` (or
+  the docstring's first line), body from `inspect.getdoc`, a templated
+  `docs.python.org` link, and a section mirroring the imported base so the
+  drafts fall under the same section chips. Drafts ship as
+  `glossary/data/drafts.json` (832 cards) — this brings the bundled base to
+  ~100% coverage of the offline stdlib inventory. In the web glossary drafts
+  are muted in the list, badged "черновик" in the detail, and filterable via a
+  new status select (Все / Готовые / Черновики); id = full qualname so a
+  method draft (`str.split`) also closes its coverage gap. The generator is
+  idempotent and never overwrites existing (hand-edited) cards.
+- Built-in type methods in the stdlib coverage inventory (issue #327).
+  `build_stdlib_inventory` now also enumerates the public callable methods of
+  the notable built-in types (`NOTABLE_BUILTIN_TYPES`: str/list/dict/set/
+  tuple/bytes/int/float/…) as `kind="method"` items with `str.split`-style
+  qualnames — the beginner-facing layer the builtins scan missed (it only saw
+  the classes). Coverage gains a `methods` category; a method counts as
+  covered only on a full-qualname match (`str.split`), never the bare method
+  name, so one `split` card can't falsely cover every type's method. In the
+  missing queue a method maps to `kind="function"` (MissingKind is unchanged;
+  the full context lives in `module`/`qualname`).
+- Glossary section filters, sort and deep-linking (issue #329). The web
+  "Глоссарий" section gains a filter toolbar: quick section chips —
+  **Строки / Списки / Кортежи / Словари / Множества** kept as *separate*
+  chips (never merged, unlike the upstream Glossary-Python), a section
+  dropdown, a `kind` filter and a sort (A–Я / by section / by version) — plus
+  a "Показано N из M" counter. Facets combine server-side: `GET /api/glossary`
+  now accepts `section`, `kind`, `status` and `sort` alongside `q`. Cards are
+  reachable by deep-link `#/glossary/<id>` (shareable direct links; the same
+  route backs error-card jumps). `glossary_search` gained the matching
+  keyword-only params.
+- Curated WA hint for non-UTF-8 output (issue #301): a solution that writes
+  raw bytes to stdout (`sys.stdout.buffer.write(b"\xff...")`) is decoded with
+  `errors="replace"`, so its diff shows `�` (U+FFFD) with no explanation.
+  `web/viewmodels._wa_suggestion` now detects `�` in the actual output and
+  returns a `message_id="output_invalid_utf8"` hint (ru/en) pointing at the
+  likely cause (printing raw bytes / wrong encoding), taking priority over
+  the trailing-whitespace hint. The runner's decode strategy is unchanged
+  (still `errors="replace"`, a deliberate non-goal).
+- Bundled glossary base (issue #326): 581 cards imported from Glossary-Python
+  now ship in the wheel at `stepik_grader/glossary/data/*.json` (one file per
+  colour-group). The web "Глоссарий" section serves them as the zero-config
+  default when `CONFIG.glossary_store` is unset, turning the section from a
+  ~28-exception fallback into a full reference; the compact `core/glossary.py`
+  fallback remains for when the bundled dir is absent/broken. A reproducible,
+  offline importer (`scripts/import_glossary_python.py`) does the one-time
+  conversion (`name→title`, `docs→docs_url`, `version` null→`""`, exception
+  ids lowercased to match the anchor convention). `stdlib` coverage
+  (`python -m stepik_grader.glossary.coverage --cards …`) rises from 0 to
+  ~190+ covered (builtins 94%).
+- `GlossaryCard` gains four optional fields (issue #325): `syntax`
+  (signature/usage template), `docs_url` (link to official docs.python.org;
+  `docs` accepted as an alias, mirroring `hint`→`summary`), `version`
+  (minimum Python version, e.g. `3.10`; JSON `null` normalises to `""`), and
+  `subcat` (subcategory within `section`, for the glossary section's
+  filters). All are backward-compatible — existing JSON bases without them
+  still load — and the web glossary card now renders syntax, examples, a
+  Python-version badge and a docs.python.org link. Foundation for the
+  glossary content epic (import from Glossary-Python #326, redesign #329).
 - `POST /api/v1/runs` job status gets a fifth, additive value: `"cancelled"`
   (issue #296), alongside `queued`/`running`/`done`/`error`. Previously a
   user-cancelled job reported `status="error"` with

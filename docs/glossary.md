@@ -51,9 +51,13 @@
 | `kind` | `exception\|function\|construct\|term` | | Тип (по умолчанию `term`) |
 | `summary` | string | | Однострочное пояснение (RU); синоним — `hint` из `core/glossary.py` |
 | `body` | string | | Расширенное описание (Markdown) |
+| `syntax` | string | | Сигнатура/шаблон использования (напр. `sorted(iterable, *, key=None)`) |
 | `status` | `new\|draft\|ready\|exported` | | Жизненный цикл (по умолчанию `draft`) |
 | `url` | string | | Ссылка во внешний Glossary-Python (цель экспорта) |
+| `docs_url` | string | | Ссылка на официальную документацию `docs.python.org`; синоним — `docs` (схема Glossary-Python) |
+| `version` | string | | Мин. версия Python, если релевантно (напр. `3.10`); `null` нормализуется в `""` |
 | `section` | string | | Раздел глоссария (напр. «Исключения») |
+| `subcat` | string | | Подкатегория внутри `section` (для фильтров раздела «Глоссарий») |
 | `aliases` | string[] | | Синонимы для поиска |
 | `keywords` | string[] | | Ключевые слова для поиска |
 | `tags` | string[] | | Теги для группировки/фильтра |
@@ -62,10 +66,59 @@
 | `related_errors` | string[] | | Связанные коды/имена ошибок |
 
 Поиск (`search`) идёт по `id`, `title`, `aliases`, `keywords`, `tags`
-(подстрока, без учёта регистра). `hint` принимается как алиас `summary` для
-совместимости с контрактом `core/glossary.py`.
+(подстрока, без учёта регистра). `hint` принимается как алиас `summary`, а
+`docs` — как алиас `docs_url` для совместимости с контрактами
+`core/glossary.py` и внешнего Glossary-Python.
 
 Пример — [`examples/glossary.sample.json`](examples/glossary.sample.json).
+
+## Комплектная база (bundled, issue #326)
+
+В пакете лежит готовая база — `src/stepik_grader/glossary/data/*.json` (581
+карточка, по файлу на цветовую группу `cg`), импортированная из внешнего
+[Glossary-Python](https://github.com/ArtVsMark/Glossary-Python). Она попадает
+в wheel через `package-data` и служит **zero-config источником по умолчанию**:
+web-адаптер отдаёт её, когда `CONFIG.glossary_store` не задан, а на компактный
+`core/glossary.py` (~28 исключений) деградирует лишь при её отсутствии.
+
+Импорт одноразовый (реинициализация — тем же скриптом, идемпотентно; сеть не
+нужна, путь к HTML — аргумент):
+
+```bash
+python scripts/import_glossary_python.py \
+    --html /path/to/Glossary-Python/python_glossary.html \
+    --out src/stepik_grader/glossary/data
+```
+
+Маппинг схем (`name→title`, `group→section`, `docs→docs_url`, `version` null→`""`,
+и т.д.) и kind-эвристика — в `scripts/import_glossary_python.py`. `id` исключений
+приводится к нижнему регистру (конвенция анкоров `core/glossary.py` — сохраняет
+связь ошибка→карточка). После импорта источник истины — локальная база; внешний
+проект отсюда **не** редактируется (CLAUDE.md § Связанный проект), поток контента
+односторонний grader → витрина.
+
+### Черновики из официальной документации (issue #328)
+
+То, чего нет в импортированной базе, добирается **офлайн-генерацией** черновиков
+из самой stdlib (докстринги/сигнатуры — это и есть официальная документация):
+
+```bash
+python scripts/generate_draft_cards.py \
+    --base src/stepik_grader/glossary/data \
+    --out src/stepik_grader/glossary/data/drafts.json
+```
+
+Для каждой сущности инвентаря без карточки создаётся `GlossaryCard(status="draft")`:
+`syntax` из `inspect.signature` (или первой строки docstring), `body` — первый
+абзац `inspect.getdoc` (EN, под редактуру), `docs_url` по шаблону
+`docs.python.org`, `section` зеркалит разделы импортированной базы (черновики
+попадают под те же чипы-фильтры). `id` = полный qualname — метод-черновик
+`str.split` тем самым закрывает свой coverage-пробел (#327). `summary` пуст —
+его (RU-однострочник) вписывает редактор при промоции `draft` → `ready`.
+Генерация **идемпотентна** и не перезаписывает существующие (в т.ч.
+отредактированные) карточки. В web черновики приглушены в списке, помечены
+бейджем «черновик» и фильтруются селектом статуса. Итог: `data/drafts.json`
+(832 карточки) доводит покрытие офлайн-инвентаря до ~100%.
 
 ## Очередь пополнения (`GlossaryMissingEntry`)
 
@@ -141,16 +194,21 @@ Source-driven сторона покрытия (см. § Источники ис�
   `json.JSONDecodeError`, если модуль был просканирован);
 - **курируемые stdlib-модули** (`NOTABLE_STDLIB_MODULES` — `functools`,
   `itertools`, `collections`, `math`, `re`, `pathlib`, `json` и т.п.) —
-  публичные члены (`__all__`, если есть, иначе `dir()` без `_`-префикса).
+  публичные члены (`__all__`, если есть, иначе `dir()` без `_`-префикса);
+- **методы встроенных типов** (`NOTABLE_BUILTIN_TYPES` — `str`, `list`, `dict`,
+  `set`, `tuple`, `bytes`, `int`, `float` и т.д., issue #327) — публичные
+  вызываемые методы (`str.split`, `dict.get`, `list.append`; data-дескрипторы
+  вроде `int.numerator` отбрасываются). Это самый частый у новичков пласт,
+  которого builtins-сканер не видит — он собирает только сами классы.
 
 ```python
 from stepik_grader.glossary import build_stdlib_inventory
 
 items = build_stdlib_inventory()  # list[StdlibItem], отсортирован по qualname
 item = items[0]
-item.qualname       # "abc.ABC" | "ValueError" | "functools.reduce" | ...
+item.qualname       # "abc.ABC" | "ValueError" | "functools.reduce" | "str.split" | ...
 item.module         # "abc" | "builtins" | "functools" | ...
-item.kind           # "function" | "class" | "exception"
+item.kind           # "function" | "class" | "exception" | "method"
 item.python_version # "3.14" — из sys.version_info текущего интерпретатора
 ```
 
@@ -164,11 +222,14 @@ item.python_version # "3.14" — из sys.version_info текущего инте
 Сопоставляет инвентарь (`stdlib_inventory`) с известными терминами локальной
 базы (`JsonGlossaryProvider.known_terms()`) и строит:
 
-- **`CoverageReport`** — покрытие по трём категориям (`CATEGORIES`):
-  `builtins` (функции/классы `builtins`, кроме исключений), `exceptions`
-  (все `kind="exception"` независимо от модуля), `stdlib` (всё остальное —
-  члены курируемых модулей). Для каждой категории — `total`/`covered`/
-  `missing` (кортеж qualname без карточки) и `ratio` (доля покрытия);
+- **`CoverageReport`** — покрытие по категориям (`CATEGORIES`): `builtins`
+  (функции/классы `builtins`, кроме исключений), `methods` (методы встроенных
+  типов, `kind="method"` — issue #327), `exceptions` (все `kind="exception"`
+  независимо от модуля), `stdlib` (всё остальное — члены курируемых модулей).
+  Для каждой категории — `total`/`covered`/`missing` (кортеж qualname без
+  карточки) и `ratio` (доля покрытия). Метод считается покрытым только при
+  совпадении **полного** qualname (`str.split`), без «хвостовой» эвристики —
+  иначе одна карточка `split` ложно закрыла бы методы всех типов;
 - **список `GlossaryMissingEntry(origin="stdlib_scan")`** — по одной записи
   на каждую непокрытую сущность инвентаря, с `module`/`qualname`, кортеж
   `kind` мапится из `InventoryKind` (`function`/`class`/`exception`).

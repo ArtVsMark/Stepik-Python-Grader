@@ -185,6 +185,29 @@ def test_glossary_search_and_open_card(page: Any, e2e_server: str, tmp_path: Pat
     assert page.locator("#glossary-empty").is_hidden()
 
 
+def test_glossary_chip_filter_and_deeplink(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J: глоссарий (issue #329) -- чип-фильтр раздела + deep-link #/glossary/<id>."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="glossary"]')
+    page.wait_for_selector("#view-glossary:not([hidden])", timeout=_TIMEOUT_MS)
+
+    # Чипы отрисованы после загрузки карточек; клик по «Исключения» сужает выборку
+    # и синхронизирует селект раздела (разделы не объединяются).
+    page.wait_for_selector("#glossary-chips .chip", timeout=_TIMEOUT_MS)
+    page.click('#glossary-chips .chip[data-section="Исключения"]')
+    page.wait_for_function(
+        "() => document.querySelector('#glossary-section').value === 'Исключения'",
+        timeout=_TIMEOUT_MS,
+    )
+    assert page.locator("#glossary-count").text_content().startswith("Показано")
+
+    # Deep-link: прямой хэш открывает конкретную карточку.
+    page.goto(e2e_server + "/#/glossary/keyerror")
+    detail = page.locator("#glossary-detail-content")
+    detail.wait_for(state="visible", timeout=_TIMEOUT_MS)
+    assert "KeyError" in detail.locator("h2").text_content()
+
+
 def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: command palette -- Ctrl+K/триггер открывает палитру, команда исполняется."""
     page.goto(e2e_server + "/")

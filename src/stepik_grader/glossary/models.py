@@ -77,9 +77,13 @@ class GlossaryCard:
     kind: CardKind = "term"
     summary: str = ""  # однострочное пояснение (RU); синоним hint из core/glossary
     body: str = ""  # расширенное описание (Markdown), опционально
+    syntax: str = ""  # сигнатура/шаблон использования, напр. "sorted(iterable, *, key=None)" (#325)
     status: CardStatus = "draft"
     url: str = ""  # ссылка во внешний Glossary-Python (куда карточка экспортируется)
+    docs_url: str = ""  # ссылка на официальную документацию docs.python.org (issue #325)
+    version: str = ""  # мин. версия Python, если релевантно (issue #325), напр. "3.10"
     section: str = ""  # раздел глоссария (напр. «Исключения»)
+    subcat: str = ""  # подкатегория внутри section (issue #325)
     aliases: list[str] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -134,9 +138,16 @@ class GlossaryCard:
             kind=kind,  # type: ignore[arg-type]
             summary=str(data.get("summary", data.get("hint", ""))),
             body=str(data.get("body", "")),
+            syntax=str(data.get("syntax", "")),
             status=status,  # type: ignore[arg-type]
             url=str(data.get("url", "")),
+            # ``docs`` — алиас ``docs_url`` для совместимости со схемой
+            # Glossary-Python (как ``hint`` → ``summary``); ``version`` там
+            # бывает null → нормализуем в "".
+            docs_url=str(data.get("docs_url", data.get("docs", ""))),
+            version=str(data.get("version") or ""),
             section=str(data.get("section", "")),
+            subcat=str(data.get("subcat", "")),
             aliases=_as_str_list(data.get("aliases")),
             keywords=_as_str_list(data.get("keywords")),
             tags=_as_str_list(data.get("tags")),
@@ -153,9 +164,13 @@ class GlossaryCard:
             "kind": self.kind,
             "summary": self.summary,
             "body": self.body,
+            "syntax": self.syntax,
             "status": self.status,
             "url": self.url,
+            "docs_url": self.docs_url,
+            "version": self.version,
             "section": self.section,
+            "subcat": self.subcat,
             "aliases": list(self.aliases),
             "keywords": list(self.keywords),
             "tags": list(self.tags),

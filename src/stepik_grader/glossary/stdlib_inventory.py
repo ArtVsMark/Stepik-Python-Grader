@@ -31,10 +31,29 @@ __all__ = [
     "InventoryKind",
     "StdlibItem",
     "NOTABLE_STDLIB_MODULES",
+    "NOTABLE_BUILTIN_TYPES",
     "build_stdlib_inventory",
 ]
 
-InventoryKind = Literal["function", "class", "exception"]
+InventoryKind = Literal["function", "class", "exception", "method"]
+
+# Курируемые встроенные типы, чьи публичные методы инвентаризируются (issue
+# #327). Это самый частый у новичков пласт (``str.split``, ``list.append``,
+# ``dict.get``), которого builtins-сканер не видит — он собирает только сами
+# классы (``str``, ``list``), но не их методы. qualname — вида ``str.split``.
+NOTABLE_BUILTIN_TYPES: tuple[type, ...] = (
+    str,
+    bytes,
+    bytearray,
+    list,
+    tuple,
+    dict,
+    set,
+    frozenset,
+    int,
+    float,
+    complex,
+)
 
 # Курируемый набор stdlib-модулей, часто встречающихся в решениях студентов и
 # в глоссарии (issue #196). Список сознательно конечен и стабилен — расширять
@@ -152,6 +171,31 @@ def _module_items(module_names: frozenset[str], version: str) -> list[StdlibItem
     return items
 
 
+def _type_method_items(types: tuple[type, ...], version: str) -> list[StdlibItem]:
+    """Публичные методы курируемых встроенных типов (``str.split``, ``dict.get``).
+
+    Берём только вызываемые публичные атрибуты (``dir`` без ``_``-префикса) —
+    data-дескрипторы (``int.numerator``, ``int.real`` и т.п.) отбрасываются,
+    т.к. это не методы. ``kind="method"``, ``module="builtins"``.
+    """
+    items: list[StdlibItem] = []
+    for tp in types:
+        for name in sorted(dir(tp)):
+            if name.startswith("_"):
+                continue
+            if not callable(getattr(tp, name, None)):
+                continue
+            items.append(
+                StdlibItem(
+                    qualname=f"{tp.__name__}.{name}",
+                    module="builtins",
+                    kind="method",
+                    python_version=version,
+                )
+            )
+    return items
+
+
 def _all_exception_classes() -> list[type[BaseException]]:
     """Рекурсивно обойти иерархию ``BaseException`` среди уже загруженных классов.
 
@@ -192,8 +236,9 @@ def build_stdlib_inventory(modules: frozenset[str] | None = None) -> list[Stdlib
     Returns:
         Список ``StdlibItem``, отсортированный по ``qualname``, без дублей.
         Исключения (``kind="exception"``) собираются рекурсивным обходом
-        ``BaseException`` — функции/классы (``kind`` в ``function``/``class``)
-        отдельно из ``builtins`` и курируемых модулей.
+        ``BaseException``; функции/классы (``kind`` в ``function``/``class``) —
+        из ``builtins`` и курируемых модулей; методы встроенных типов
+        (``kind="method"``, напр. ``str.split``) — из ``NOTABLE_BUILTIN_TYPES``.
     """
     target_modules = NOTABLE_STDLIB_MODULES if modules is None else modules
     version = _python_version()
@@ -202,6 +247,7 @@ def build_stdlib_inventory(modules: frozenset[str] | None = None) -> list[Stdlib
     for item in (
         *_builtins_items(version),
         *_module_items(target_modules, version),
+        *_type_method_items(NOTABLE_BUILTIN_TYPES, version),
     ):
         by_qualname.setdefault(item.qualname, item)
     for item in _exception_items(version):

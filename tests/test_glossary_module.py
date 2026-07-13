@@ -52,6 +52,41 @@ def test_card_from_dict_hint_alias_maps_to_summary() -> None:
     assert card.summary == "краткое"
 
 
+def test_card_new_fields_default_to_empty() -> None:
+    # issue #325: syntax/docs_url/version/subcat опциональны, дефолт "".
+    card = GlossaryCard.from_dict({"id": "x", "title": "X"})
+    assert card.syntax == ""
+    assert card.docs_url == ""
+    assert card.version == ""
+    assert card.subcat == ""
+
+
+def test_card_parses_new_fields_with_docs_alias_and_null_version() -> None:
+    # issue #325: `docs` — алиас `docs_url`; `version: null` (схема
+    # Glossary-Python) нормализуется в "".
+    card = GlossaryCard.from_dict(
+        {
+            "id": "match-case",
+            "title": "match/case",
+            "syntax": "match x:\n    case _: ...",
+            "docs": "https://docs.python.org/3/reference/compound_stmts.html",
+            "version": None,
+            "subcat": "ветвление",
+        }
+    )
+    assert card.syntax.startswith("match x:")
+    assert card.docs_url.endswith("compound_stmts.html")
+    assert card.version == ""
+    assert card.subcat == "ветвление"
+    # round-trip сохраняет новые поля
+    assert GlossaryCard.from_dict(card.to_dict()) == card
+
+
+def test_card_explicit_docs_url_wins_over_docs_alias() -> None:
+    card = GlossaryCard.from_dict({"id": "x", "title": "X", "docs_url": "A", "docs": "B"})
+    assert card.docs_url == "A"
+
+
 def test_card_requires_id_and_title() -> None:
     with pytest.raises(ValueError, match="id"):
         GlossaryCard.from_dict({"title": "no id"})

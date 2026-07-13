@@ -42,7 +42,11 @@ const state = {
   paletteActiveIndex: 0,
   paletteReturnFocus: null,
   theme: localStorage.getItem("grader_theme") || "system", // "system" | "light" | "dark"
-  glossary: { query: "", cards: [], missing: [], selectedId: null, view: "cards" },
+  glossary: {
+    query: "", section: "", kind: "", status: "", sort: "az",
+    cards: [], missing: [], sections: [], total: 0,
+    selectedId: null, view: "cards",
+  },
   solutions: [], // режим 1 — файлы, найденные /api/solutions в указанной папке
   selectedSolutionFile: null, // режим 1 — выбранный для проверки файл (полный путь)
   activeRunId: null, // issue #262 — id текущего опрашиваемого async job (tests/bench/microbench)
@@ -291,7 +295,7 @@ function setSection(section) {
   $("#view-check").hidden = section !== "check";
   $("#view-downloader").hidden = section !== "downloader";
   $("#view-glossary").hidden = section !== "glossary";
-  if (section === "glossary" && !state.glossary.cards.length) loadGlossary("");
+  if (section === "glossary" && !state.glossary.cards.length) loadGlossary();
 }
 
 function openGlossaryForSelectedCase() {
@@ -1196,16 +1200,88 @@ function renderHistory(history) {
 
 // -- Глоссарий: поиск / карточка / очередь пополнения (J7) --------------------
 
-async function loadGlossary(query) {
-  state.glossary.query = query;
+// issue #329: быстрые фильтры-чипы по разделам. Разнотипное НЕ объединяется —
+// «Списки», «Кортежи», «Словари», «Множества» — отдельные чипы (в отличие от
+// внешнего Glossary-Python, где они слиты в «Списки · кортежи»/«Словари · множества»).
+const GLOSSARY_CHIPS = [
+  { label: "Строки", section: "Строки (str)" },
+  { label: "Списки", section: "Списки (list)" },
+  { label: "Кортежи", section: "Кортежи (tuple)" },
+  { label: "Словари", section: "Словари (dict)" },
+  { label: "Множества", section: "Множества (set)" },
+  { label: "Встроенные", section: "Встроенные функции" },
+  { label: "Исключения", section: "Исключения" },
+];
+
+async function loadGlossary() {
+  const g = state.glossary;
+  const params = new URLSearchParams();
+  if (g.query) params.set("q", g.query);
+  if (g.section) params.set("section", g.section);
+  if (g.kind) params.set("kind", g.kind);
+  if (g.status) params.set("status", g.status);
+  if (g.sort) params.set("sort", g.sort);
   try {
-    const r = await fetch("/api/glossary?" + new URLSearchParams({ q: query }));
-    state.glossary.cards = await r.json();
+    const r = await fetch("/api/glossary?" + params);
+    g.cards = await r.json();
   } catch (e) {
-    state.glossary.cards = [];
+    g.cards = [];
+  }
+  // Список разделов и общий счётчик — из первой невыбранной загрузки (все карточки).
+  if (!g.sections.length && !g.query && !g.section && !g.kind) {
+    g.total = g.cards.length;
+    g.sections = [...new Set(g.cards.map(c => c.section).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, "ru")
+    );
+    renderGlossaryChips();
+    renderGlossaryFilters();
   }
   renderGlossaryList();
+  renderGlossaryCount();
   updateGlossarySidebarBadge();
+}
+
+function renderGlossaryChips() {
+  const el = $("#glossary-chips");
+  if (!el) return;
+  const avail = new Set(state.glossary.sections);
+  el.innerHTML = GLOSSARY_CHIPS.filter(ch => avail.has(ch.section))
+    .map(ch => {
+      const active = state.glossary.section === ch.section ? " active" : "";
+      return (
+        '<button type="button" class="chip' + active + '" data-section="' +
+        esc(ch.section) + '">' + esc(ch.label) + "</button>"
+      );
+    })
+    .join("");
+  el.querySelectorAll(".chip").forEach(b =>
+    b.addEventListener("click", () => toggleGlossarySection(b.dataset.section))
+  );
+}
+
+function renderGlossaryFilters() {
+  const sel = $("#glossary-section");
+  if (!sel) return;
+  sel.innerHTML = ['<option value="">Все разделы</option>']
+    .concat(state.glossary.sections.map(s => '<option value="' + esc(s) + '">' + esc(s) + "</option>"))
+    .join("");
+  sel.value = state.glossary.section;
+}
+
+function renderGlossaryCount() {
+  const el = $("#glossary-count");
+  if (!el) return;
+  const g = state.glossary;
+  el.textContent = g.total ? "Показано " + g.cards.length + " из " + g.total : "";
+}
+
+function toggleGlossarySection(section) {
+  const g = state.glossary;
+  g.section = g.section === section ? "" : section;
+  const sel = $("#glossary-section");
+  if (sel) sel.value = g.section;
+  renderGlossaryChips();
+  loadGlossary();
 }
 
 async function loadMissing() {
@@ -1220,7 +1296,7 @@ async function loadMissing() {
 
 function updateGlossarySidebarBadge() {
   const el = $("#sidebar-badge-glossary");
-  const n = state.glossary.cards.length;
+  const n = state.glossary.total || state.glossary.cards.length;
   el.textContent = String(n);
   el.hidden = n === 0;
   const widget = $("#glossary-widget-badge");
@@ -1236,7 +1312,8 @@ function renderGlossaryList() {
   el.innerHTML = state.glossary.cards
     .map(c => {
       const sel = c.id === state.glossary.selectedId ? " selected" : "";
-      return '<li data-id="' + esc(c.id) + '" class="' + sel + '">' + esc(c.title) + "</li>";
+      const draft = c.status === "draft" ? " gloss-draft" : ""; // issue #328: пометка черновика
+      return '<li data-id="' + esc(c.id) + '" class="' + sel + draft + '">' + esc(c.title) + "</li>";
     })
     .join("");
   el.querySelectorAll("li[data-id]").forEach(li =>
@@ -1255,15 +1332,21 @@ function renderGlossaryMissing() {
     .join("");
 }
 
-function selectGlossaryCard(id) {
+function selectGlossaryCard(id, opts = {}) {
   state.glossary.selectedId = id;
   renderGlossaryList();
+  // issue #329: отражаем выбор в URL-хэше (#/glossary/<id>) — карточка шарится
+  // и открывается по прямой ссылке. fromHash=true — не переписывать хэш обратно.
+  if (!opts.fromHash) {
+    const target = "#/glossary/" + encodeURIComponent(id);
+    if (location.hash !== target) location.hash = target;
+  }
   const card = state.glossary.cards.find(c => c.id === id);
   if (card) {
     renderGlossaryDetail(card);
     return;
   }
-  // Deep-link (open_glossary) может указывать на карточку вне текущей выборки поиска.
+  // Deep-link (open_glossary/хэш) может указывать на карточку вне текущей выборки.
   fetch("/api/glossary/" + encodeURIComponent(id))
     .then(r => (r.ok ? r.json() : null))
     .then(c => {
@@ -1272,18 +1355,55 @@ function selectGlossaryCard(id) {
     .catch(() => {});
 }
 
+// issue #329: маршрутизация по URL-хэшу #/glossary/<id> — прямые ссылки на карточку.
+function parseGlossaryHash() {
+  const m = location.hash.match(/^#\/glossary\/(.+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+async function routeFromHash() {
+  const id = parseGlossaryHash();
+  if (!id) return;
+  if (state.section !== "glossary") setSection("glossary");
+  if (!state.glossary.cards.length) await loadGlossary();
+  if (state.glossary.selectedId !== id) selectGlossaryCard(id, { fromHash: true });
+}
+
 function renderGlossaryDetail(card) {
   $("#glossary-empty").hidden = true;
   const el = $("#glossary-detail-content");
   el.hidden = false;
+  const meta = [card.kind, card.section, card.subcat].filter(Boolean).map(esc).join(" · ");
+  const draftBadge =
+    card.status === "draft"
+      ? ' <span class="badge badge-warning">черновик</span>' // issue #328
+      : "";
+  const verBadge = card.version
+    ? ' <span class="badge badge-neutral">Python ' + esc(card.version) + "</span>"
+    : "";
+  const syntax = card.syntax
+    ? '<div class="form-label">Синтаксис</div><pre class="code-block">' + esc(card.syntax) + "</pre>"
+    : "";
+  const examples = card.examples && card.examples.length
+    ? '<div class="form-label">Примеры</div>' +
+      card.examples.map(ex => '<pre class="code-block">' + esc(ex) + "</pre>").join("")
+    : "";
+  const links = [
+    card.docs_url
+      ? '<a href="' + esc(card.docs_url) + '" target="_blank" rel="noopener">Документация Python →</a>'
+      : "",
+    card.url
+      ? '<a href="' + esc(card.url) + '" target="_blank" rel="noopener">Открыть во внешнем глоссарии →</a>'
+      : "",
+  ].filter(Boolean).map(a => "<p>" + a + "</p>").join("");
   el.innerHTML =
-    "<h2>" + esc(card.title) + "</h2>" +
-    '<div class="hint">' + esc(card.kind) + (card.section ? " · " + esc(card.section) : "") + "</div>" +
+    "<h2>" + esc(card.title) + draftBadge + verBadge + "</h2>" +
+    '<div class="hint">' + meta + "</div>" +
     (card.summary ? "<p>" + esc(card.summary) + "</p>" : "") +
     (card.body ? "<div>" + esc(card.body) + "</div>" : "") +
-    (card.url
-      ? '<p><a href="' + esc(card.url) + '" target="_blank" rel="noopener">Открыть во внешнем глоссарии →</a></p>'
-      : "");
+    syntax +
+    examples +
+    links;
 }
 
 function setGlossaryView(view) {
@@ -1291,6 +1411,8 @@ function setGlossaryView(view) {
   document.querySelectorAll("[data-glview]").forEach(b => b.classList.toggle("active", b.dataset.glview === view));
   $("#glossary-cards").hidden = view !== "cards";
   $("#glossary-missing").hidden = view !== "missing";
+  const filters = $("#glossary-filters");
+  if (filters) filters.hidden = view !== "cards"; // фильтры только для карточек (issue #329)
   if (view === "missing" && !state.glossary.missing.length) loadMissing();
 }
 
@@ -1401,7 +1523,25 @@ $("#palette-overlay").addEventListener("click", e => {
 let glossarySearchTimer = null;
 $("#glossary-search").addEventListener("input", e => {
   clearTimeout(glossarySearchTimer);
-  glossarySearchTimer = setTimeout(() => loadGlossary(e.target.value), 200);
+  state.glossary.query = e.target.value;
+  glossarySearchTimer = setTimeout(() => loadGlossary(), 200);
+});
+$("#glossary-section").addEventListener("change", e => {
+  state.glossary.section = e.target.value;
+  renderGlossaryChips();
+  loadGlossary();
+});
+$("#glossary-kind").addEventListener("change", e => {
+  state.glossary.kind = e.target.value;
+  loadGlossary();
+});
+$("#glossary-status").addEventListener("change", e => {
+  state.glossary.status = e.target.value;
+  loadGlossary();
+});
+$("#glossary-sort").addEventListener("change", e => {
+  state.glossary.sort = e.target.value;
+  loadGlossary();
 });
 
 $("#palette-input").addEventListener("input", () => {
@@ -1439,6 +1579,8 @@ document.addEventListener("keydown", e => {
   }
 });
 
+window.addEventListener("hashchange", routeFromHash); // issue #329: deep-link на карточку
+
 applyTheme();
 mountEditor();
 setSection(state.section);
@@ -1448,6 +1590,7 @@ setResultTab(state.resultTab);
 renderHistory();
 renderRecentPaths();
 loadCommands();
+routeFromHash(); // открыть карточку из #/glossary/<id>, если ссылка прямая (issue #329)
 
 // Восстановить последний путь.
 const saved = localStorage.getItem("grader_path");
