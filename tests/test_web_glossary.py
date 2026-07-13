@@ -199,7 +199,7 @@ class TestGlossaryFilterAndSort:
 
 
 class TestCodeTerms:
-    """issue #321: сопоставление концепций из кода с карточками глоссария."""
+    """issue #321/#322: концепции кода → карточки (+has_card, методы, очередь)."""
 
     @pytest.fixture
     def store_path(self, tmp_path: pathlib.Path) -> pathlib.Path:
@@ -213,6 +213,8 @@ class TestCodeTerms:
             ),
             # id без префикса модуля — проверяет матч по «хвосту» (math.sqrt → sqrt)
             GlossaryCard(id="sqrt", title="math.sqrt()", kind="function", status="ready"),
+            # метод встроенного типа — матчится с голого имени split (issue #322)
+            GlossaryCard(id="str.split", title="str.split()", kind="function", status="ready"),
             GlossaryCard(id="match/case", title="match/case", kind="construct", status="draft"),
         ]
         path = tmp_path / "g.json"
@@ -225,12 +227,24 @@ class TestCodeTerms:
     def test_notable_builtin_maps_to_card(self, store_path: pathlib.Path) -> None:
         terms = glossary_adapter.code_terms("xs = sorted([3, 1, 2])", store_path=str(store_path))
         assert [t["id"] for t in terms] == ["sorted"]
-        assert terms[0]["summary"]  # компактная инфа несёт summary для мини-карточки
+        assert terms[0]["has_card"] is True
+        assert terms[0]["summary"]  # покрытый термин несёт summary для мини-карточки
+        assert terms[0]["confidence"] == "high"
 
     def test_dotted_concept_matches_by_tail(self, store_path: pathlib.Path) -> None:
-        code = "import math\nprint(math.sqrt(4))\n"
-        terms = glossary_adapter.code_terms(code, store_path=str(store_path))
-        assert any(t["id"] == "sqrt" for t in terms)  # math.sqrt → карта sqrt
+        terms = glossary_adapter.code_terms(
+            "import math\nx = math.sqrt(4)\n", store_path=str(store_path)
+        )
+        assert any(t["id"] == "sqrt" and t["has_card"] for t in terms)  # math.sqrt → карта sqrt
+
+    def test_method_detected_with_low_confidence(self, store_path: pathlib.Path) -> None:
+        # issue #322: s.split() → карта str.split; confidence=low (тип получателя неизвестен)
+        terms = glossary_adapter.code_terms(
+            "s = 'a,b'\nparts = s.split(',')\n", store_path=str(store_path)
+        )
+        split = next(t for t in terms if t["id"] == "str.split")
+        assert split["has_card"] is True
+        assert split["confidence"] == "low"
 
     def test_match_case_construct_detected(self, store_path: pathlib.Path) -> None:
         terms = glossary_adapter.code_terms(
@@ -238,9 +252,26 @@ class TestCodeTerms:
         )
         assert any(t["id"] == "match/case" for t in terms)
 
-    def test_everyday_builtins_are_not_noise(self, store_path: pathlib.Path) -> None:
-        # print/len намеренно не в notable-наборе → панель их не показывает
-        assert glossary_adapter.code_terms("print(len([1]))", store_path=str(store_path)) == []
+    def test_recognized_builtin_without_card_is_dimmed(self, store_path: pathlib.Path) -> None:
+        # issue #322: повседневные builtin'ы теперь распознаются; без карточки в
+        # базе возвращаются has_card=False (панель рисует их приглушённо)
+        terms = {
+            t["id"]: t
+            for t in glossary_adapter.code_terms("print(len([1]))", store_path=str(store_path))
+        }
+        assert terms["print"]["has_card"] is False
+        assert terms["len"]["has_card"] is False
+
+    def test_covered_terms_sorted_before_uncovered(self, store_path: pathlib.Path) -> None:
+        terms = glossary_adapter.code_terms(
+            "xs = sorted([1])\nprint(xs)\n", store_path=str(store_path)
+        )
+        assert terms[0]["id"] == "sorted" and terms[0]["has_card"]  # покрытые вперёд
+        assert any(not t["has_card"] for t in terms)  # print — без карточки, ниже
+
+    def test_user_defined_names_excluded(self, store_path: pathlib.Path) -> None:
+        code = "def helper():\n    return 1\nhelper()\n"
+        assert glossary_adapter.code_terms(code, store_path=str(store_path)) == []
 
     def test_syntax_error_returns_empty(self, store_path: pathlib.Path) -> None:
         assert glossary_adapter.code_terms("def (:", store_path=str(store_path)) == []
@@ -248,6 +279,24 @@ class TestCodeTerms:
     def test_no_duplicate_card_for_repeated_concept(self, store_path: pathlib.Path) -> None:
         terms = glossary_adapter.code_terms("sorted([]); sorted([1])", store_path=str(store_path))
         assert [t["id"] for t in terms] == ["sorted"]
+
+    def test_queue_code_gaps_appends_uncovered_concept(
+        self, store_path: pathlib.Path, tmp_path: pathlib.Path
+    ) -> None:
+        # issue #322 practice-канал: заметная функция без карточки → очередь
+        queue = tmp_path / "missing.json"
+        code = "import functools\nfunctools.reduce(lambda a, b: a + b, [1])\n"
+        glossary_adapter.queue_code_gaps(
+            code, source="sol.py", queue_path=queue, store_path=str(store_path)
+        )
+        concepts = {e["concept"] for e in glossary_adapter.glossary_missing(queue_path=queue)}
+        assert "functools.reduce" in concepts
+
+    def test_queue_code_gaps_bad_path_is_silent(self, store_path: pathlib.Path) -> None:
+        # defensive: незаписываемый путь очереди не роняет (best-effort)
+        glossary_adapter.queue_code_gaps(
+            "xs = sorted([1])", queue_path=pathlib.Path("/nonexistent/dir/q.json")
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +389,16 @@ class TestGlossaryHttpEndpoints:
         status, body = _post_json(server + "/api/code-terms", {"code": "   "})
         assert status == 200
         assert json.loads(body)["terms"] == []
+
+    def test_api_code_terms_by_path_reads_confined_file(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        # issue #322: тело {path} — сервер читает файл из workspace (confine) и
+        # возвращает термины его кода (режим 2, по выбранному решению).
+        (tmp_path / "sol.py").write_text("xs = sorted([3, 1, 2])\n", encoding="utf-8")
+        status, body = _post_json(server + "/api/code-terms", {"path": "sol.py"})
+        assert status == 200
+        assert any(t["id"] == "sorted" for t in json.loads(body)["terms"])
 
     def test_api_glossary_kind_param_filters(self, server: str) -> None:
         # issue #329: сервер прокидывает kind в glossary_search.

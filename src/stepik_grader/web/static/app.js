@@ -400,6 +400,10 @@ function setMode(m) {
   resetFilePicker();
   localStorage.setItem("grader_mode", m);
   if (m === "microbench") updateMicroCustomVisibility();
+  // issue #324: «Функции в коде» уместны там, где объясняют код, — режимы 1/2;
+  // в bench/microbench (3/4) скрываем. issue #323: обновить под новый режим.
+  $("#check-terms-block").hidden = m === "bench" || m === "microbench";
+  loadCheckTerms();
 }
 
 // -- Режим 4 «Microbench» — профиль-селектор (_MICRO_PROFILES из cli/interactive.py) --
@@ -481,11 +485,14 @@ function makeEditor(mount, onChange) {
   });
 }
 
+let checkTermsTimer = null; // issue #323: debounce обновления «Функции в коде»
 function mountEditor() {
   const mount = document.getElementById("solution-editor");
   cmView = makeEditor(mount, () => {
     updateRunButtonState();
     updateDirtyIndicator(); // issue #297
+    clearTimeout(checkTermsTimer); // issue #323: обновить панель под новый код
+    checkTermsTimer = setTimeout(loadCheckTerms, 400);
   });
   // <label for="solution-editor"> can't natively focus a contenteditable div
   // the way it would a real <textarea> -- wire it manually (issue #265
@@ -508,7 +515,64 @@ function mountSandboxEditor() {
   if (label) label.addEventListener("click", () => sandboxView.focus());
 }
 
-// issue #321: запросить мини-карточки глоссария по текущему коду и отрисовать их.
+// issue #322/#323: общий запрос/рендер мини-карточек «Функции в коде» —
+// песочница (по коду) и режимы 1/2 (по коду редактора либо пути-файлу).
+async function fetchCodeTerms(body) {
+  try {
+    const resp = await fetch("/api/code-terms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return (await resp.json()).terms || [];
+  } catch {
+    return null; // сеть моргнула — вызывающий не трогает прошлый список
+  }
+}
+
+function renderTermCards(terms) {
+  return terms
+    .map(t => {
+      const kind = t.kind ? '<span class="term-card-kind">' + esc(t.kind) + "</span>" : "";
+      if (!t.has_card) {
+        // концепция без карточки — приглушённо, без ссылки (открывать нечего)
+        return (
+          '<li class="term-card term-card-nocard"><span class="term-card-link">' +
+          '<span class="term-card-title">' +
+          esc(t.title) +
+          "</span>" +
+          kind +
+          '<span class="term-card-summary hint">карточки ещё нет</span></span></li>'
+        );
+      }
+      const uncertain = t.confidence === "low" ? " term-card-uncertain" : "";
+      const summary = t.summary
+        ? '<span class="term-card-summary">' + esc(t.summary) + "</span>"
+        : "";
+      return (
+        '<li class="term-card' +
+        uncertain +
+        '"><a class="term-card-link" href="#/glossary/' +
+        encodeURIComponent(t.id) +
+        '"><span class="term-card-title">' +
+        esc(t.title) +
+        "</span>" +
+        kind +
+        summary +
+        "</a></li>"
+      );
+    })
+    .join("");
+}
+
+function renderTermsInto(el, terms, emptyMsg) {
+  if (!el || terms === null) return; // null = ошибка сети, список не трогаем
+  el.innerHTML = terms.length
+    ? renderTermCards(terms)
+    : '<li class="empty">' + esc(emptyMsg) + "</li>";
+}
+
+// песочница (issue #321): по коду редактора песочницы
 async function loadCodeTerms() {
   const code = getSandboxCode();
   const el = $("#sandbox-terms");
@@ -517,35 +581,28 @@ async function loadCodeTerms() {
     el.innerHTML = '<li class="empty">Начните вводить код</li>';
     return;
   }
-  let terms;
-  try {
-    const resp = await fetch("/api/code-terms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
-    terms = (await resp.json()).terms;
-  } catch {
-    return; // сеть моргнула — оставляем прошлый список, не шумим ошибкой
+  renderTermsInto(el, await fetchCodeTerms({ code }), "Знакомых функций не найдено");
+}
+
+// режимы 1/2 (issue #323): код редактора (режим 1) либо путь-файл решения
+async function loadCheckTerms() {
+  const el = $("#check-terms");
+  if (!el) return;
+  let body = null;
+  const code = getEditorCode();
+  if (state.mode === "file" && code.trim()) {
+    body = { code };
+  } else if (state.selectedSolutionFile) {
+    body = { path: state.selectedSolutionFile };
+  } else {
+    const path = $("#path").value.trim();
+    if (path.endsWith(".py")) body = { path };
   }
-  if (!terms || !terms.length) {
-    el.innerHTML = '<li class="empty">Знакомых функций не найдено</li>';
+  if (!body) {
+    el.innerHTML = '<li class="empty">Начните вводить код или выберите решение</li>';
     return;
   }
-  el.innerHTML = terms
-    .map(
-      t =>
-        '<li class="term-card' +
-        (t.status === "draft" ? " gloss-draft" : "") +
-        '"><a class="term-card-link" href="#/glossary/' +
-        encodeURIComponent(t.id) +
-        '"><span class="term-card-title">' +
-        esc(t.title) +
-        "</span>" +
-        (t.summary ? '<span class="term-card-summary">' + esc(t.summary) + "</span>" : "") +
-        "</a></li>"
-    )
-    .join("");
+  renderTermsInto(el, await fetchCodeTerms(body), "Знакомых функций не найдено");
 }
 
 function getSandboxCode() {
@@ -1967,8 +2024,6 @@ function updateGlossarySidebarBadge() {
   const n = state.glossary.total || state.glossary.cards.length;
   el.textContent = String(n);
   el.hidden = n === 0;
-  const widget = $("#glossary-widget-badge");
-  if (widget) widget.textContent = String(n);
 }
 
 function renderGlossaryList() {
@@ -2193,6 +2248,11 @@ $("#path").addEventListener("keydown", e => {
 $("#find-solutions-btn").addEventListener("click", findSolutions);
 $("#save-solution-btn").addEventListener("click", saveSolution); // issue #297
 $("#path").addEventListener("input", updateDirtyIndicator); // issue #297 — папка влияет на доступность «Сохранить»
+$("#path").addEventListener("input", () => {
+  // issue #323: путь к .py-файлу тоже наполняет «Функции в коде» (debounce)
+  clearTimeout(checkTermsTimer);
+  checkTermsTimer = setTimeout(loadCheckTerms, 400);
+});
 $("#micro-profile").addEventListener("change", updateMicroCustomVisibility);
 $("#downloader-run").addEventListener("click", downloadTask);
 $("#downloader-url").addEventListener("keydown", e => {

@@ -528,12 +528,18 @@ select.form-input { cursor: pointer; }
 textarea#sandbox-stdin { min-height: 72px; resize: vertical; white-space: pre; }
 
 /* issue #321: мини-карточки «Функции в коде» + error card под выводом. */
-#sandbox-terms .term-card { padding: 0; }
-#sandbox-terms .term-card.gloss-draft { opacity: .6; }
-.term-card-link { display: flex; flex-direction: column; gap: 2px; padding: var(--space-2); text-decoration: none; color: inherit; }
-.term-card-link:hover { background: var(--color-surface-offset); }
+/* issue #321/#322/#323: мини-карточки «Функции в коде» (песочница + режимы 1/2) */
+#sandbox-terms .term-card, #check-terms .term-card { padding: 0; }
+.term-card.gloss-draft { opacity: .6; }
+.term-card.term-card-nocard { opacity: .55; }
+.term-card-link { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--space-2); padding: var(--space-2); text-decoration: none; color: inherit; }
+a.term-card-link:hover { background: var(--color-surface-offset); }
 .term-card-title { color: var(--color-primary); font-weight: 600; font-family: var(--font-mono); font-size: var(--text-xs); }
-.term-card-summary { color: var(--color-text-muted); font-size: var(--text-xs); }
+.term-card-nocard .term-card-title { color: var(--color-text-muted); }
+.term-card-summary { color: var(--color-text-muted); font-size: var(--text-xs); flex-basis: 100%; }
+.term-card-kind { font-size: var(--text-xs); color: var(--color-text-faint); text-transform: uppercase; letter-spacing: .04em; }
+/* метод-эвристика (тип получателя неизвестен) — точка-маркер неуверенности */
+.term-card-uncertain .term-card-title::after { content: " ~"; color: var(--color-text-faint); }
 .sandbox-errcard {
   display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
   padding: var(--space-2) var(--space-3); margin-bottom: var(--space-3);

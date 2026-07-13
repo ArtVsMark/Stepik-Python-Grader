@@ -55,6 +55,22 @@
   serves mode 2 (folder grading).
 
 ### Added
+- "Функции в коде" glossary integration for check modes 1/2 (epic #315,
+  issues #322/#323/#324). The dead "Связанные термины" placeholder in the
+  mode-1/2 config panel is replaced by a real mini-card list of the functions
+  used in the current solution — mode 1 updates from the editor (debounced),
+  mode 2 from the selected solution file; clicking a card opens its full
+  glossary card. The panel is hidden in benchmark modes 3/4 (#324). Backed by
+  an extended `POST /api/code-terms` (#322): it now also accepts `{path}`
+  (confined, read from the workspace), recognizes everyday builtins and
+  builtin-type method calls (`s.split()` → `str.split`, `confidence="low"`
+  since the receiver type isn't known statically), and returns **all**
+  recognized concepts with a `has_card` flag (uncovered ones render dimmed).
+  On a `{path}` request, notable uncovered functions are appended to the
+  "Недостающее" queue (practice-driven AST channel). New `scan_code_concepts`
+  wider set + method heuristic in `glossary/detector.py`; unit + HTTP + e2e
+  tests. The narrow `DEFAULT_NOTABLE_BUILTINS` (missing-queue detector) is left
+  untouched, so grading-side detection keeps ignoring `print`/`len`.
 - Glossary integration in the sandbox (issue #321, epic #314). A "Функции в
   коде" panel lists mini-cards for the functions/constructs detected in the
   editor (debounced on edit) — clicking one opens the full card in the

@@ -56,11 +56,126 @@ DEFAULT_NOTABLE_BUILTINS: frozenset[str] = frozenset(
 )
 
 
+# Панель «Функции в коде» (issue #322) показывает и повседневные builtin'ы —
+# в отличие от узкого DEFAULT_NOTABLE_BUILTINS (тот заточен под очередь
+# «Недостающее» и намеренно молчит про print/len). Пополняет тот же набор
+# базовыми функциями, которые новичок ищет в справочнике.
+CODE_TERM_BUILTINS: frozenset[str] = DEFAULT_NOTABLE_BUILTINS | frozenset(
+    {
+        "print",
+        "input",
+        "len",
+        "int",
+        "str",
+        "float",
+        "bool",
+        "list",
+        "dict",
+        "set",
+        "tuple",
+        "range",
+        "open",
+        "abs",
+        "sum",
+        "min",
+        "max",
+        "round",
+        "type",
+        "repr",
+        "format",
+        "ord",
+        "chr",
+        "bin",
+        "hex",
+        "pow",
+        "divmod",
+        "hasattr",
+        "issubclass",
+    }
+)
+
+# Имена методов встроенных типов (str/list/dict/set) — эвристика #322: вызов
+# `x.<method>()` считается использованием метода встроенного типа. Тип `x`
+# статически неизвестен → возможны ложные срабатывания на пользовательских
+# объектах, поэтому такие концепции помечаются confidence="low".
+_BUILTIN_METHODS: frozenset[str] = frozenset(
+    {
+        # str
+        "split",
+        "rsplit",
+        "splitlines",
+        "join",
+        "strip",
+        "lstrip",
+        "rstrip",
+        "replace",
+        "find",
+        "rfind",
+        "startswith",
+        "endswith",
+        "upper",
+        "lower",
+        "title",
+        "capitalize",
+        "casefold",
+        "swapcase",
+        "zfill",
+        "center",
+        "ljust",
+        "rjust",
+        "format",
+        "format_map",
+        "encode",
+        "isdigit",
+        "isalpha",
+        "isalnum",
+        "isspace",
+        "isupper",
+        "islower",
+        "partition",
+        "rpartition",
+        # list
+        "append",
+        "extend",
+        "insert",
+        "remove",
+        "pop",
+        "sort",
+        "reverse",
+        "copy",
+        # dict
+        "keys",
+        "values",
+        "items",
+        "get",
+        "setdefault",
+        "update",
+        "popitem",
+        "fromkeys",
+        # set
+        "add",
+        "discard",
+        "union",
+        "intersection",
+        "difference",
+        "symmetric_difference",
+        "issubset",
+        "issuperset",
+        "isdisjoint",
+        # общие
+        "count",
+        "index",
+        "clear",
+    }
+)
+
+
 class _CodeScanner(ast.NodeVisitor):
     """Обходит AST решения, собирая импорты, определения и «интересные» вызовы."""
 
-    def __init__(self, notable_builtins: frozenset[str]) -> None:
+    def __init__(self, notable_builtins: frozenset[str], *, detect_methods: bool = False) -> None:
         self._notable = notable_builtins
+        self._detect_methods = detect_methods  # issue #322: методы встроенных типов
         self.import_aliases: dict[str, str] = {}  # alias -> module (import x [as y])
         self.from_imports: dict[str, str] = {}  # local -> "module.name"
         self.defined_names: set[str] = set()  # def/class/assign/args — пользовательские
@@ -105,11 +220,16 @@ class _CodeScanner(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         func = node.func
-        if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-            root = func.value.id
-            if root in self.import_aliases:
+        if isinstance(func, ast.Attribute):
+            root = func.value.id if isinstance(func.value, ast.Name) else None
+            if root is not None and root in self.import_aliases:
                 module = self.import_aliases[root]
                 self._record(f"{module}.{func.attr}", "function", f"{root}.{func.attr}(...)")
+            elif self._detect_methods and func.attr in _BUILTIN_METHODS:
+                # issue #322: `x.split()` → метод встроенного типа (эвристика,
+                # тип получателя статически неизвестен — confidence="low").
+                recv = root if root is not None else "…"
+                self._record(func.attr, "method", f"{recv}.{func.attr}(...)")
         elif isinstance(func, ast.Name):
             name = func.id
             if name in self.from_imports:
@@ -132,16 +252,18 @@ def scan_code_concepts(
     """Концепции, найденные в коде (без фильтра «известных»): ``concept -> (kind, snippet)``.
 
     Публичная обёртка над ``_CodeScanner`` для витрин «функции в коде» (issue
-    #321) — в отличие от ``MissingConceptDetector.detect_from_code`` НЕ отсеивает
-    покрытые карточками концепции (это делает потребитель, сопоставляя с базой).
-    Синтаксически некорректный код → пустой словарь (как и в детекторе).
+    #321/#322) — в отличие от ``MissingConceptDetector.detect_from_code`` НЕ
+    отсеивает покрытые карточками концепции (это делает потребитель, сопоставляя
+    с базой) и распознаёт **шире**: повседневные builtin'ы
+    (``CODE_TERM_BUILTINS``) и методы встроенных типов (``x.split()``, kind
+    ``method``). Синтаксически некорректный код → пустой словарь.
     """
     try:
         tree = ast.parse(code)
     except SyntaxError:
         return {}
-    notable = DEFAULT_NOTABLE_BUILTINS if notable_builtins is None else frozenset(notable_builtins)
-    scanner = _CodeScanner(notable)
+    notable = CODE_TERM_BUILTINS if notable_builtins is None else frozenset(notable_builtins)
+    scanner = _CodeScanner(notable, detect_methods=True)
     scanner.visit(tree)
     return dict(scanner.found)
 
