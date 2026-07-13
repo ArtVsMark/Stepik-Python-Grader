@@ -25,6 +25,27 @@
   downloader tests re-split across per-module test files.
 
 ### Fixed
+- Documentation drift found by the 2026-07 audit (issue #353), all corrected
+  against the actual code:
+  - CLAUDE.md invariant #4 was titled "Нет sandbox", contradicting its own
+    metrics footnote and the `core/sandbox/` backends — reworded to
+    "sandbox is opt-in" (`--sandbox`/#266); the "no isolation by default" body
+    is kept.
+  - The diagnostic-logging epic #146 (`core/diag_log.py`, #341) was still listed
+    as open in CLAUDE.md, CHECKPOINT.md and docs/claude-handoff.md — moved to
+    "implemented".
+  - docs/project-structure.md gained the three missing modules
+    (`core/diag_log.py`, `core/tracer.py`, `web/playground.py`) and dropped the
+    circular "core/ tree lives in CLAUDE.md" cross-reference.
+  - Web docs: web-current.md § Layout no longer claims draggable splitters or a
+    3-column detail panel (`.split-pane` is a fixed `1fr 1fr`; "Детали" is a
+    tab); the "two sections / three blocks" framing is now four sections
+    (Песочница/#314). web-design.md marks glossary deep-linking `#/glossary/<id>`
+    as implemented (#329). api.md fixes the self-contradictory cancel response
+    (200 for an existing job, 404 only when absent) and drops the non-existent
+    `mode=file`. The `state.section` comment in app.js now lists all four values.
+  - Metric drift (test count 1179 → 1308) is intentionally deferred to the
+    v1.8.0 release (issue #358).
 - File-write races in two best-effort stores (issue #352): stats rotation
   (`core/stats.py`, the read-modify-write in `_rotate_if_needed`) and the
   glossary "missing" queue (`glossary/json_provider.append_missing_entries`,
