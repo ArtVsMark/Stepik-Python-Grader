@@ -25,6 +25,23 @@
   downloader tests re-split across per-module test files.
 
 ### Fixed
+- Small web UI inconsistencies from the audit (issue #331). Case-verdict
+  badges now recognize `CANCELLED` (neutral) and `SANDBOX_VIOLATION` (error)
+  from `docs/result-contract.md` instead of silently falling back to a
+  label-less neutral badge. The mode-1/2 "Параметры" config tab now ships
+  markup consistent with the default mode (tests → disabled, `aria-disabled`
+  = `true`) so there's no flash of wrong state before JS initializes. (The
+  third item — cyclic `switch_section` over all four nav sections instead of a
+  two-way check↔glossary toggle — already landed with the sandbox in #317; a
+  regression test is added here.)
+- Documentation drift against the actual web UI (issue #330): the
+  "two modes" phrasing in `grader-workflow.md`, the outdated topbar
+  segment-control navigation diagram and the `command bar` mode-switcher
+  wording in `web-current.md`, the self-contradictory J0 step describing an
+  *automatic* post-download hand-off (it's a manual "Перейти к проверке"
+  button), and stale references to a single `web.py` module (now the `web/`
+  package) in `core/glossary.py` are all corrected to match the shipped
+  four-section UI.
 - Web UI accessibility for grading results (issue #298, WCAG 2.1 AA):
   results were announced silently to assistive tech. Added a polite
   `aria-live` region (`#result-announce`) that speaks a one-line outcome

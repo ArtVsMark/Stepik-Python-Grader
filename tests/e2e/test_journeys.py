@@ -425,6 +425,45 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
     assert "zerodivision" in page.locator("#glossary-detail-content").inner_text().lower()
 
 
+def test_params_tab_aria_matches_default_mode_at_load(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #331): начальная разметка вкладки «Параметры» согласована с
+    дефолт-режимом (tests → отключена, aria-disabled=true), не хардкод."""
+    page.goto(e2e_server + "/")
+    page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
+    params = page.locator('[data-conftab="params"]')
+    assert params.get_attribute("aria-disabled") == "true"  # дефолт-режим tests
+    assert "disabled" in (params.get_attribute("class") or "")
+
+
+def test_switch_section_cycles_all_sections(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J (issue #331): команда «Переключить раздел» циклит по всем 4 разделам
+    (раньше — 2-позиционный тумблер check↔glossary, терявший downloader/sandbox)."""
+    sections = ["check", "downloader", "glossary", "sandbox"]
+
+    def visible() -> str:
+        return next(s for s in sections if not page.locator(f"#view-{s}").is_hidden())
+
+    def cycle() -> None:
+        page.keyboard.press("Control+k")
+        page.wait_for_selector("#palette-overlay:not([hidden])", timeout=_TIMEOUT_MS)
+        page.fill("#palette-input", "Переключить раздел")
+        page.locator("#palette-list li", has_text="Переключить раздел").first.wait_for(
+            state="visible", timeout=_TIMEOUT_MS
+        )
+        page.keyboard.press("Enter")
+        page.wait_for_selector("#palette-overlay[hidden]", state="attached", timeout=_TIMEOUT_MS)
+
+    page.goto(e2e_server + "/")
+    page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
+    seq = [visible()]
+    for _ in range(4):
+        cycle()
+        seq.append(visible())
+    assert seq == ["check", "downloader", "glossary", "sandbox", "check"], seq
+
+
 def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: command palette -- Ctrl+K/триггер открывает палитру, команда исполняется."""
     page.goto(e2e_server + "/")

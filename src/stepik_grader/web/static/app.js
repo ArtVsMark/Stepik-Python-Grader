@@ -80,6 +80,13 @@ const VERDICT_BADGE = {
   WA: "badge badge-error", FAIL: "badge badge-error",
   RE: "badge badge-error", ERR: "badge badge-error",
   TLE: "badge badge-warning",
+  // issue #331: вердикты из docs/result-contract.md, которых раньше не знал
+  // рендер (падали в нейтральный fallback). CANCELLED — не провал (отмена
+  // пользователем, #262/#296), нейтральный; SANDBOX_VIOLATION — провал
+  // изоляции (#266, только --sandbox), красный. В web SANDBOX_VIOLATION пока
+  // не пробрасывается (сервер не запускает --sandbox), запись — на будущее.
+  CANCELLED: "badge badge-neutral",
+  SANDBOX_VIOLATION: "badge badge-error",
   "NO TESTS": "badge badge-neutral",
   SIMILAR: "verdict-similar",
   SLOWER: "verdict-slower", MUCH_SLOWER: "verdict-slower",
