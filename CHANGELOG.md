@@ -9,6 +9,20 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Added
+- `POST /api/v1/runs` job status gets a fifth, additive value: `"cancelled"`
+  (issue #296), alongside `queued`/`running`/`done`/`error`. Previously a
+  user-cancelled job reported `status="error"` with
+  `message_id="run_cancelled"` — semantically a cancellation is not a
+  failure of the solution or the grader, and future clients (server mode,
+  an IDE extension) would otherwise have to parse `message_id` just to tell
+  "user changed their mind" apart from "grader crashed" (e.g. to decide
+  whether a retry makes sense — it does for `error`, never for
+  `cancelled`). `message_id="run_cancelled"` is still set on the terminal
+  status either way. The web UI now renders a cancelled run with a neutral
+  tone (`.msg-neutral`) instead of the error-red `.msg`. Landed before the
+  `/api/v1/*` contract freeze (issue #156) while the change is still cheap.
+
 ### Fixed
 - Empty/missing `tests/` no longer reported as `FAIL 0/0` (issue #299): both
   the web `grade_path()` row status and the CLI correctness table

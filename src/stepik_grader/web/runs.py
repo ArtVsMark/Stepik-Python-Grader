@@ -39,10 +39,14 @@ from stepik_grader.web.viewmodels import estimate_run_count, grade_benchmark, gr
 
 __all__ = ["Job", "submit_job", "get_job", "cancel_job"]
 
-# issue #262 — статусы job'ы; ровно 4 значения из тела issue (без отдельного
-# "cancelled" — отмена сообщается через status="error" + message_id=
-# "run_cancelled", см. _run_job()).
-_STATUSES = ("queued", "running", "done", "error")
+# issue #262 добавил ровно 4 статуса ("cancelled" сообщался как status="error"
+# + message_id="run_cancelled"); issue #296 выделяет отмену в отдельный
+# терминальный статус — семантически это не провал решения/грейдера
+# (клиентам server mode/будущего API нужно отличать "пользователь отменил"
+# от "грейдер упал": ретраить имеет смысл только второе, UI должен подавать
+# их по-разному — см. static/app.js). message_id="run_cancelled" по-прежнему
+# заполняется в message_fields (см. _run_job()) — не только status.
+_STATUSES = ("queued", "running", "done", "error", "cancelled")
 
 _JOB_TTL_SECONDS = 15 * 60
 
@@ -109,7 +113,7 @@ def _sweep_expired_locked() -> None:
     expired = [
         job_id
         for job_id, job in _JOBS.items()
-        if job.status in ("done", "error") and now - job.created_at > _JOB_TTL_SECONDS
+        if job.status in ("done", "error", "cancelled") and now - job.created_at > _JOB_TTL_SECONDS
     ]
     for job_id in expired:
         del _JOBS[job_id]
@@ -159,13 +163,14 @@ def cancel_job(run_id: str) -> bool:
     возвращает немедленно, не дожидаясь, пока воркер-поток заметит сигнал
     (реальная остановка дочернего процесса происходит асинхронно, через
     ``LocalRunner``-поллинг — см. ``core/runner.py``). ``False``, если job
-    не найдена или уже терминальна (``done``/``error`` — нечего отменять).
+    не найдена или уже терминальна (``done``/``error``/``cancelled`` —
+    нечего отменять; повторный ``cancel`` уже отменённой job'ы тоже ``False``).
     """
     job = get_job(run_id)
     if job is None:
         return False
     with job.lock:
-        if job.status in ("done", "error"):
+        if job.status in ("done", "error", "cancelled"):
             return False
         job.cancel_event.set()
     return True
@@ -227,7 +232,10 @@ def _run_job(
 
         with job.lock:
             if job.cancel_event.is_set():
-                job.status = "error"
+                # issue #296: отдельный терминальный статус, не "error" —
+                # отмена пользователем не провал грейдера/решения (клиент не
+                # должен ретраить "error", но обязан не ретраить "cancelled").
+                job.status = "cancelled"
                 job.message_fields = message_fields("run_cancelled", lang)
             else:
                 job.status = "done"

@@ -460,6 +460,8 @@ select.form-input { cursor: pointer; }
 .errcard-ex { font-weight: 600; }
 .errcard a { color: var(--color-primary); }
 .msg { color: var(--color-error); margin-top: var(--space-4); }
+/* issue #296: cancelled run is not a failure -- neutral tone, not error red. */
+.msg-neutral { color: var(--color-text-muted); margin-top: var(--space-4); }
 
 /* -- Command palette ------------------------------------------------------- */
 .palette-overlay { position: fixed; inset: 0; background: oklch(0 0 0 / 0.5); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 100; }

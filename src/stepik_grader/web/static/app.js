@@ -688,6 +688,11 @@ async function gradeAsync(path, backendMode) {
         addHistoryEntry(path, state.mode, data.result);
         render(data.result);
         updateCheckSidebarBadge(data.result);
+      } else if (data.status === "cancelled") {
+        // issue #296: отдельный нейтральный статус — не провал грейдера,
+        // не показываем красным (.msg), как настоящую ошибку.
+        $("#out").innerHTML =
+          '<p class="msg-neutral">' + esc(data.message || "Задача отменена.") + "</p>";
       } else {
         $("#out").innerHTML =
           '<p class="msg">' + esc(data.message || "Задача завершилась с ошибкой.") + "</p>";

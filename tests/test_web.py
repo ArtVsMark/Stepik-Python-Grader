@@ -1260,7 +1260,7 @@ def _poll_run(server: str, run_id: str, *, timeout: float = 15.0) -> dict:
         status, body = _get(server + f"/api/v1/runs/{run_id}")
         assert status == 200
         data = json.loads(body)
-        if data["status"] in ("done", "error"):
+        if data["status"] in ("done", "error", "cancelled"):
             return data
         time.sleep(0.05)
     raise TimeoutError(f"run {run_id} did not reach a terminal state within {timeout}s")
@@ -1360,10 +1360,10 @@ class TestRunsApiCancel:
 
         cancel_status, cancel_body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
         assert cancel_status == 200
-        assert json.loads(cancel_body)["status"] in ("running", "error")
+        assert json.loads(cancel_body)["status"] in ("running", "cancelled")
 
         data = _poll_run(server, run_id)
-        assert data["status"] == "error"
+        assert data["status"] == "cancelled"
         assert data["message_id"] == "run_cancelled"
 
         # Best-effort: give the OS a brief moment to actually reap the killed
@@ -1394,6 +1394,26 @@ class TestRunsApiCancel:
         status, body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
         assert status == 200
         assert json.loads(body)["status"] == "done"
+
+    def test_cancel_already_cancelled_run_is_idempotent_ok(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        """Повторный cancel уже отменённого run'а — 200, не ошибка (issue #296)."""
+        sol = _make_task(tmp_path, "import time\ntime.sleep(30)\nprint(input())\n")
+        create_status, create_body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "bench", "params": {"repeats": 20}}).encode(
+                "utf-8"
+            ),
+        )
+        run_id = json.loads(create_body)["run_id"]
+
+        _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
+        _poll_run(server, run_id)
+
+        status, body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
+        assert status == 200
+        assert json.loads(body)["status"] == "cancelled"
 
 
 class TestRunsApiConcurrency:
@@ -1494,7 +1514,7 @@ class TestRunsApiValidation:
             status, body = _get(server + f"/api/v1/runs/{run_id}")
             data = json.loads(body)
             total = data["progress"]["total"]
-            if total > 0 or data["status"] in ("done", "error"):
+            if total > 0 or data["status"] in ("done", "error", "cancelled"):
                 break
             time.sleep(0.02)
         # 1 case * clamped repeats (max 1000) -- not 1 * 999_999.
