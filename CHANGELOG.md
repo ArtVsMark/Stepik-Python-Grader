@@ -9,6 +9,15 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Fixed
+- Empty/missing `tests/` no longer reported as `FAIL 0/0` (issue #299): both
+  the web `grade_path()` row status and the CLI correctness table
+  (`core/reporter._correctness_status`) now return `"NO TESTS"` when
+  `total == 0` — matching the contract already documented in
+  `docs/result-contract.md`, which the code had drifted from. Previously a
+  solution folder with an existing-but-empty `tests/` dir looked identical to
+  a genuinely wrong solution.
+
 ## [1.7.0] - 2026-07-12
 
 ### Added
