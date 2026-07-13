@@ -51,9 +51,13 @@
 | `kind` | `exception\|function\|construct\|term` | | Тип (по умолчанию `term`) |
 | `summary` | string | | Однострочное пояснение (RU); синоним — `hint` из `core/glossary.py` |
 | `body` | string | | Расширенное описание (Markdown) |
+| `syntax` | string | | Сигнатура/шаблон использования (напр. `sorted(iterable, *, key=None)`) |
 | `status` | `new\|draft\|ready\|exported` | | Жизненный цикл (по умолчанию `draft`) |
 | `url` | string | | Ссылка во внешний Glossary-Python (цель экспорта) |
+| `docs_url` | string | | Ссылка на официальную документацию `docs.python.org`; синоним — `docs` (схема Glossary-Python) |
+| `version` | string | | Мин. версия Python, если релевантно (напр. `3.10`); `null` нормализуется в `""` |
 | `section` | string | | Раздел глоссария (напр. «Исключения») |
+| `subcat` | string | | Подкатегория внутри `section` (для фильтров раздела «Глоссарий») |
 | `aliases` | string[] | | Синонимы для поиска |
 | `keywords` | string[] | | Ключевые слова для поиска |
 | `tags` | string[] | | Теги для группировки/фильтра |
@@ -62,8 +66,9 @@
 | `related_errors` | string[] | | Связанные коды/имена ошибок |
 
 Поиск (`search`) идёт по `id`, `title`, `aliases`, `keywords`, `tags`
-(подстрока, без учёта регистра). `hint` принимается как алиас `summary` для
-совместимости с контрактом `core/glossary.py`.
+(подстрока, без учёта регистра). `hint` принимается как алиас `summary`, а
+`docs` — как алиас `docs_url` для совместимости с контрактами
+`core/glossary.py` и внешнего Glossary-Python.
 
 Пример — [`examples/glossary.sample.json`](examples/glossary.sample.json).
 

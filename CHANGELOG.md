@@ -40,6 +40,15 @@
   serves mode 2 (folder grading).
 
 ### Added
+- `GlossaryCard` gains four optional fields (issue #325): `syntax`
+  (signature/usage template), `docs_url` (link to official docs.python.org;
+  `docs` accepted as an alias, mirroring `hint`→`summary`), `version`
+  (minimum Python version, e.g. `3.10`; JSON `null` normalises to `""`), and
+  `subcat` (subcategory within `section`, for the glossary section's
+  filters). All are backward-compatible — existing JSON bases without them
+  still load — and the web glossary card now renders syntax, examples, a
+  Python-version badge and a docs.python.org link. Foundation for the
+  glossary content epic (import from Glossary-Python #326, redesign #329).
 - `POST /api/v1/runs` job status gets a fifth, additive value: `"cancelled"`
   (issue #296), alongside `queued`/`running`/`done`/`error`. Previously a
   user-cancelled job reported `status="error"` with

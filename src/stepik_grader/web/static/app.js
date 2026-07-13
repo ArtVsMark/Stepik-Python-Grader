@@ -1276,14 +1276,33 @@ function renderGlossaryDetail(card) {
   $("#glossary-empty").hidden = true;
   const el = $("#glossary-detail-content");
   el.hidden = false;
+  const meta = [card.kind, card.section, card.subcat].filter(Boolean).map(esc).join(" · ");
+  const verBadge = card.version
+    ? ' <span class="badge badge-neutral">Python ' + esc(card.version) + "</span>"
+    : "";
+  const syntax = card.syntax
+    ? '<div class="form-label">Синтаксис</div><pre class="code-block">' + esc(card.syntax) + "</pre>"
+    : "";
+  const examples = card.examples && card.examples.length
+    ? '<div class="form-label">Примеры</div>' +
+      card.examples.map(ex => '<pre class="code-block">' + esc(ex) + "</pre>").join("")
+    : "";
+  const links = [
+    card.docs_url
+      ? '<a href="' + esc(card.docs_url) + '" target="_blank" rel="noopener">Документация Python →</a>'
+      : "",
+    card.url
+      ? '<a href="' + esc(card.url) + '" target="_blank" rel="noopener">Открыть во внешнем глоссарии →</a>'
+      : "",
+  ].filter(Boolean).map(a => "<p>" + a + "</p>").join("");
   el.innerHTML =
-    "<h2>" + esc(card.title) + "</h2>" +
-    '<div class="hint">' + esc(card.kind) + (card.section ? " · " + esc(card.section) : "") + "</div>" +
+    "<h2>" + esc(card.title) + verBadge + "</h2>" +
+    '<div class="hint">' + meta + "</div>" +
     (card.summary ? "<p>" + esc(card.summary) + "</p>" : "") +
     (card.body ? "<div>" + esc(card.body) + "</div>" : "") +
-    (card.url
-      ? '<p><a href="' + esc(card.url) + '" target="_blank" rel="noopener">Открыть во внешнем глоссарии →</a></p>'
-      : "");
+    syntax +
+    examples +
+    links;
 }
 
 function setGlossaryView(view) {
