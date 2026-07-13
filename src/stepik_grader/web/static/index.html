@@ -61,7 +61,11 @@
             <span class="panel-title">Конфигурация</span>
             <div class="panel-tabs" role="tablist">
               <button class="panel-tab active" data-conftab="path" role="tab" aria-selected="true">Путь</button>
-              <button class="panel-tab" data-conftab="params" role="tab" aria-selected="false" aria-disabled="false">Параметры</button>
+              <!-- issue #331: начальное состояние совпадает с дефолт-режимом
+                   (tests → «Параметры» отключены); setMode() уточняет при
+                   загрузке под сохранённый режим. Раньше был хардкод
+                   aria-disabled="false", не совпадавший с дефолтом. -->
+              <button class="panel-tab disabled" data-conftab="params" role="tab" aria-selected="false" aria-disabled="true">Параметры</button>
             </div>
           </div>
 
