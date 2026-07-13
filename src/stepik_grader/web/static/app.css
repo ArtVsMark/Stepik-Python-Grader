@@ -522,3 +522,7 @@ select.form-input { cursor: pointer; }
 /* issue #328: черновики (автогенерация из docstring) приглушены в списке. */
 .side-list li.gloss-draft { opacity: .6; }
 .side-list li.gloss-draft.selected { opacity: 1; }
+
+/* issue #317: песочница — stderr красным, поле stdin как редактор. */
+.sandbox-stderr { color: var(--color-error); }
+textarea#sandbox-stdin { min-height: 72px; resize: vertical; white-space: pre; }

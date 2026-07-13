@@ -28,6 +28,7 @@
       <a class="sidebar-item" href="#glossary" data-section="glossary">
         Глоссарий <span class="sidebar-badge" id="sidebar-badge-glossary" hidden></span>
       </a>
+      <a class="sidebar-item" href="#sandbox" data-section="sandbox">Песочница</a>
       <div class="sidebar-divider"></div>
       <div class="sidebar-label">Настройки</div>
       <a class="sidebar-item disabled" aria-disabled="true">Настройки</a>
@@ -279,6 +280,49 @@
               <p>Выберите термин слева, чтобы увидеть описание.</p>
             </div>
             <div id="glossary-detail-content" hidden></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ПЕСОЧНИЦА» (issue #317) ══ -->
+    <section id="view-sandbox" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title">Песочница</h1>
+        <div class="page-actions">
+          <button id="sandbox-run" class="btn btn-primary">▶ Запустить</button>
+          <button id="sandbox-cancel" class="btn btn-secondary" hidden>Отменить</button>
+        </div>
+      </div>
+      <div class="split-pane">
+        <!-- LEFT — код + входные данные -->
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title">Код и ввод</span></div>
+          <div class="panel-body">
+            <div class="form-group">
+              <label class="form-label" for="sandbox-editor">Код</label>
+              <div class="form-input code-editor" id="sandbox-editor" tabindex="0"
+                   data-placeholder="Напишите код Python. «Запустить» исполнит его с введёнными ниже данными."></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sandbox-stdin">Входные данные (stdin)</label>
+              <textarea class="form-input code-editor" id="sandbox-stdin" rows="4"
+                        placeholder="Строки, которые получит программа через input()/sys.stdin"></textarea>
+            </div>
+          </div>
+        </div>
+        <!-- RIGHT — вывод -->
+        <div class="split-pane-panel">
+          <div class="panel-header">
+            <span class="panel-title">Вывод</span>
+            <span id="sandbox-status" class="badge badge-neutral" hidden></span>
+          </div>
+          <div class="panel-body">
+            <div id="sandbox-empty" class="empty-state">
+              <h3>Пока пусто</h3>
+              <p>Нажмите «Запустить», чтобы увидеть вывод программы.</p>
+            </div>
+            <div id="sandbox-output" hidden></div>
           </div>
         </div>
       </div>

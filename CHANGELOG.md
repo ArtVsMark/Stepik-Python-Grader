@@ -55,6 +55,20 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Sandbox / playground section in the web UI (issue #317, epic #314): a
+  fourth nav section that runs arbitrary code with arbitrary stdin and shows
+  the program's output — not grading against tests. A separate CodeMirror
+  editor plus a stdin field feed `web/playground.run_playground`, which
+  executes via the same `core.runner.LocalRunner` subprocess path (shared
+  wall-clock timeout, best-effort memory cap, cooperative cancel) and returns
+  `{status: OK|RE|TLE|CANCELLED, stdout, stderr, exit_code, duration_ms,
+  truncated}`. Runs go through the async job model (`POST /api/v1/runs` with
+  the new `mode="playground"`, `{code, stdin}`, no `path`) so a runaway
+  `while True: pass` is cancelable and the UI stays responsive; output is
+  clipped to 100k chars. The command-palette "switch section" now cycles all
+  four sections (was check↔glossary only). Step-through execution and variable
+  visualization land in follow-ups (#318/#319/#320). No OS sandbox (CLAUDE.md
+  invariant 4).
 - Draft cards auto-generated from the official Python docs (issue #328). A new
   offline generator (`scripts/generate_draft_cards.py`) introspects every
   inventory entity still missing a card and emits a `status="draft"`

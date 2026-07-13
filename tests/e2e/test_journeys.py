@@ -208,6 +208,22 @@ def test_glossary_chip_filter_and_deeplink(page: Any, e2e_server: str, tmp_path:
     assert "KeyError" in detail.locator("h2").text_content()
 
 
+def test_sandbox_runs_code_with_stdin(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J: песочница (issue #317) -- код + stdin → вывод программы."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    page.click("#sandbox-editor .cm-content")
+    page.keyboard.type("print(input().upper())")
+    page.fill("#sandbox-stdin", "hello")
+    page.click("#sandbox-run")
+
+    page.wait_for_selector("#sandbox-output pre.code-block", timeout=_TIMEOUT_MS)
+    assert "HELLO" in page.locator("#sandbox-output").inner_text()
+    assert page.locator("#sandbox-status").text_content() == "Успешно"
+
+
 def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: command palette -- Ctrl+K/триггер открывает палитру, команда исполняется."""
     page.goto(e2e_server + "/")

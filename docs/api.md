@@ -267,6 +267,12 @@ curl -X POST http://127.0.0.1:8000/api/save-solution \
   там же).
 - `mode="tests"` (issue #297) — грейд корректности (тот же результат, что у
   `GET /api/grade?mode=tests`), без числовых `params`.
+- `mode="playground"` (issue #317) — раздел «Песочница»: тело
+  `{"mode":"playground","code":"...","stdin"?:"..."}` **без** `path` и без
+  тестов. Пустой/пробельный `code` → **400** `specify_code`. Результат job'ы
+  (в `GET /api/v1/runs/<id>` → `result`) — `{"status":
+  "OK"|"RE"|"TLE"|"CANCELLED", "stdout", "stderr", "exit_code", "duration_ms",
+  "truncated"}`; никакой сверки с ожидаемым выводом.
 - Успех → **202** `{"run_id": "...", "status": "queued"}`.
 
 ```

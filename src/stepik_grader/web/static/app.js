@@ -50,6 +50,7 @@ const state = {
   solutions: [], // режим 1 — файлы, найденные /api/solutions в указанной папке
   selectedSolutionFile: null, // режим 1 — выбранный для проверки файл (полный путь)
   activeRunId: null, // issue #262 — id текущего опрашиваемого async job (tests/bench/microbench)
+  sandbox: { activeRunId: null }, // issue #317 — id текущего прогона песочницы
   // issue #297 — baseline для индикатора несохранённых изменений и optimistic
   // locking: код и mtime на момент последней загрузки/сохранения файла.
   savedCode: "",
@@ -163,7 +164,13 @@ const ACTION_HANDLERS = {
   explain_error: () => toggleExplain(),
   open_glossary: () => openGlossaryForSelectedCase(),
   toggle_theme: () => cycleTheme(),
-  switch_section: () => setSection(state.section === "check" ? "glossary" : "check"),
+  switch_section: () => {
+    // issue #317: циклическое переключение по всем разделам (раньше — только
+    // check↔glossary, теряя downloader/sandbox — ср. находка аудита #331).
+    const order = ["check", "downloader", "glossary", "sandbox"];
+    const i = order.indexOf(state.section);
+    setSection(order[(i + 1) % order.length]);
+  },
 };
 
 function runCommand(id) {
@@ -295,7 +302,9 @@ function setSection(section) {
   $("#view-check").hidden = section !== "check";
   $("#view-downloader").hidden = section !== "downloader";
   $("#view-glossary").hidden = section !== "glossary";
+  $("#view-sandbox").hidden = section !== "sandbox";
   if (section === "glossary" && !state.glossary.cards.length) loadGlossary();
+  if (section === "sandbox") mountSandboxEditor(); // issue #317: ленивый монтаж
 }
 
 function openGlossaryForSelectedCase() {
@@ -422,9 +431,11 @@ function updateParamsTabAvailability(m) {
 // `$("#solution-editor").value` read/write below became one of these calls.
 // ---------------------------------------------------------------------------
 let cmView = null;
+let sandboxView = null; // issue #317: отдельный редактор песочницы
 
-function mountEditor() {
-  const mount = document.getElementById("solution-editor");
+// Фабрика CodeMirror-редактора: общий theme/набор расширений для редактора
+// режима 1 и песочницы (issue #317). onChange (опц.) — колбэк на docChanged.
+function makeEditor(mount, onChange) {
   const theme = EditorView.theme({
     "&": { color: "var(--color-text)", backgroundColor: "transparent" },
     ".cm-content": {
@@ -442,11 +453,10 @@ function mountEditor() {
       border: "none",
     },
     ".cm-activeLineGutter": { backgroundColor: "var(--color-surface-offset-2)" },
-    "&.cm-focused": { outline: "none" }, // focus ring is #solution-editor:focus-within in app.css
+    "&.cm-focused": { outline: "none" }, // focus ring is :focus-within in app.css
     ".cm-placeholder": { color: "var(--color-text-faint)" },
   });
-
-  cmView = new EditorView({
+  return new EditorView({
     doc: "",
     parent: mount,
     extensions: [
@@ -459,19 +469,36 @@ function mountEditor() {
       theme,
       cmPlaceholder(mount.dataset.placeholder || ""),
       EditorView.updateListener.of(update => {
-        if (update.docChanged) {
-          updateRunButtonState();
-          updateDirtyIndicator(); // issue #297
-        }
+        if (update.docChanged && onChange) onChange();
       }),
     ],
   });
+}
 
+function mountEditor() {
+  const mount = document.getElementById("solution-editor");
+  cmView = makeEditor(mount, () => {
+    updateRunButtonState();
+    updateDirtyIndicator(); // issue #297
+  });
   // <label for="solution-editor"> can't natively focus a contenteditable div
   // the way it would a real <textarea> -- wire it manually (issue #265
   // acceptance criterion: editor must be keyboard-reachable).
   const label = document.querySelector('label[for="solution-editor"]');
   if (label) label.addEventListener("click", () => cmView.focus());
+}
+
+// issue #317: редактор песочницы монтируется лениво при первом входе в раздел.
+function mountSandboxEditor() {
+  if (sandboxView) return;
+  const mount = document.getElementById("sandbox-editor");
+  sandboxView = makeEditor(mount, null);
+  const label = document.querySelector('label[for="sandbox-editor"]');
+  if (label) label.addEventListener("click", () => sandboxView.focus());
+}
+
+function getSandboxCode() {
+  return sandboxView ? sandboxView.state.doc.toString() : "";
 }
 
 function getEditorCode() {
@@ -864,6 +891,126 @@ function cancelActiveRun() {
   const cancelBtn = $("#cancel-run");
   cancelBtn.disabled = true;
   fetch("/api/v1/runs/" + state.activeRunId + "/cancel", { method: "POST" }).catch(() => {});
+}
+
+// -- Песочница: запуск произвольного кода со stdin (issue #317) ---------------
+// Тот же async-путь, что грейдинг (POST /api/v1/runs + polling), но mode=
+// "playground": без тестов, результат — {status, stdout, stderr, exit_code}.
+
+const SANDBOX_STATUS = {
+  OK: ["Успешно", "badge-success"],
+  RE: ["Ошибка выполнения", "badge-error"],
+  TLE: ["Превышено время", "badge-warning"],
+  CANCELLED: ["Отменено", "badge-neutral"],
+};
+
+async function runPlayground() {
+  const code = getSandboxCode();
+  if (!code.trim() || state.sandbox.activeRunId) return;
+  $("#sandbox-run").disabled = true;
+  const cancelBtn = $("#sandbox-cancel");
+  cancelBtn.hidden = false;
+  cancelBtn.disabled = false;
+  $("#sandbox-empty").hidden = true;
+  const out = $("#sandbox-output");
+  out.hidden = false;
+  out.innerHTML = '<p class="hint">Выполняется…</p>';
+  setSandboxStatus(null);
+
+  let created;
+  try {
+    const resp = await fetch("/api/v1/runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "playground", code, stdin: $("#sandbox-stdin").value }),
+    });
+    created = await resp.json();
+    if (resp.status !== 202) {
+      renderSandboxError(created.message || "Не удалось запустить.");
+      return _finishSandboxUI();
+    }
+  } catch (e) {
+    renderSandboxError("Ошибка запроса: " + String(e));
+    return _finishSandboxUI();
+  }
+
+  const runId = created.run_id;
+  state.sandbox.activeRunId = runId;
+
+  await new Promise(resolve => {
+    const poll = async () => {
+      if (state.sandbox.activeRunId !== runId) return resolve();
+      let data;
+      try {
+        const r = await fetch("/api/v1/runs/" + runId);
+        if (state.sandbox.activeRunId !== runId) return resolve();
+        data = await r.json();
+      } catch (e) {
+        renderSandboxError("Ошибка запроса: " + String(e));
+        return resolve();
+      }
+      if (data.status === "queued" || data.status === "running") {
+        setTimeout(poll, 300);
+        return;
+      }
+      if (data.status === "done") renderSandboxResult(data.result);
+      else if (data.status === "cancelled") renderSandboxError(data.message || "Прогон отменён.", true);
+      else renderSandboxError(data.message || "Ошибка выполнения.");
+      resolve();
+    };
+    poll();
+  });
+  _finishSandboxUI();
+}
+
+function _finishSandboxUI() {
+  state.sandbox.activeRunId = null;
+  $("#sandbox-run").disabled = false;
+  $("#sandbox-cancel").hidden = true;
+}
+
+function cancelSandboxRun() {
+  if (!state.sandbox.activeRunId) return;
+  $("#sandbox-cancel").disabled = true;
+  fetch("/api/v1/runs/" + state.sandbox.activeRunId + "/cancel", { method: "POST" }).catch(() => {});
+}
+
+function setSandboxStatus(status) {
+  const el = $("#sandbox-status");
+  const entry = status && SANDBOX_STATUS[status];
+  if (!entry) {
+    el.hidden = true;
+    return;
+  }
+  el.className = "badge " + entry[1];
+  el.textContent = entry[0];
+  el.hidden = false;
+}
+
+function renderSandboxResult(r) {
+  setSandboxStatus(r.status);
+  const parts = [
+    '<div class="form-label">Вывод (stdout)</div>',
+    '<pre class="code-block">' +
+      (r.stdout ? esc(r.stdout) : '<span class="hint">(пусто)</span>') +
+      "</pre>",
+  ];
+  if (r.stderr) {
+    parts.push('<div class="form-label">Ошибки (stderr)</div>');
+    parts.push('<pre class="code-block sandbox-stderr">' + esc(r.stderr) + "</pre>");
+  }
+  const meta = [];
+  if (r.exit_code != null) meta.push("код выхода: " + r.exit_code);
+  if (r.duration_ms != null) meta.push(r.duration_ms + " мс");
+  if (r.truncated) meta.push("вывод обрезан");
+  if (meta.length) parts.push('<div class="hint">' + esc(meta.join(" · ")) + "</div>");
+  $("#sandbox-output").innerHTML = parts.join("");
+}
+
+function renderSandboxError(msg, neutral = false) {
+  setSandboxStatus(neutral ? "CANCELLED" : "RE");
+  $("#sandbox-output").innerHTML =
+    '<p class="' + (neutral ? "msg-neutral" : "msg") + '">' + esc(msg) + "</p>";
 }
 
 function updateCheckSidebarBadge(data) {
@@ -1501,6 +1648,8 @@ document
 
 $("#run").addEventListener("click", grade);
 $("#cancel-run").addEventListener("click", cancelActiveRun);
+$("#sandbox-run").addEventListener("click", runPlayground); // issue #317
+$("#sandbox-cancel").addEventListener("click", cancelSandboxRun);
 $("#path").addEventListener("keydown", e => {
   if (e.key !== "Enter") return;
   if (state.mode === "file") findSolutions();
