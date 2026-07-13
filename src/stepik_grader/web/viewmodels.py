@@ -134,7 +134,17 @@ def estimate_run_count(solutions: list[pathlib.Path], *, kind: str, repeats: int
 
 
 def _wa_suggestion(actual: str, expected: str, *, lang: str = DEFAULT_LANG) -> str | None:
-    """Курированная (не AI) эвристика: совпадает после rstrip → похоже на пробелы/CRLF."""
+    """Курированная (не AI) эвристика для WA — одна подсказка по форме вывода.
+
+    Приоритет: сначала не-UTF-8 (более специфичная и частая причина «странного»
+    diff), затем хвостовые пробелы/CRLF.
+    """
+    # issue #301: '�' (U+FFFD REPLACEMENT CHARACTER, тот самый «�») в
+    # actual означает, что решение писало в stdout не-UTF-8 байты, а runner
+    # декодировал их с заменами (errors="replace" — сознательно, не меняется).
+    # Diff с «�» сам по себе причину не объясняет — даём явную подсказку.
+    if "�" in actual:
+        return render_message("output_invalid_utf8", lang)
     if actual and expected and actual != expected and actual.rstrip() == expected.rstrip():
         return render_message("wa_whitespace_suggestion", lang)
     return None

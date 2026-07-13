@@ -18,6 +18,7 @@ from stepik_grader.web.server import (
 )
 from stepik_grader.web.viewmodels import (
     _case_view,  # noqa: F401 — re-exported for test back-compat (tests/test_glossary.py)
+    _wa_suggestion,  # noqa: F401 — re-exported for test back-compat (issue #301)
     estimate_run_count,
     grade_benchmark,
     grade_microbench,
