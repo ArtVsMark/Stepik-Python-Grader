@@ -45,6 +45,16 @@
   `fail_under = 85` itself is unchanged; local `pytest` runs are unaffected
   (this mechanism is CI-only).
 
+### Docs
+- `docs/installation.md`: new troubleshooting note for `stepik-grader ...`
+  failing with `ModuleNotFoundError: No module named 'stepik_grader'` even
+  though the command itself resolves — root cause is a stale global editable
+  install (commonly predating the project's src-layout migration, issue #35)
+  shadowing the working `.venv` install. Covers diagnosis
+  (`Get-Command`/`which stepik-grader`) and cleanup (`pip uninstall`, plus
+  manual removal of orphaned `.dist-info`/`.pth`/`_finder.py` files when pip
+  can't find a RECORD to uninstall from).
+
 ## [1.7.0] - 2026-07-12
 
 ### Added

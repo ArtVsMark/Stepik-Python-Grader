@@ -102,6 +102,35 @@ source .venv/bin/activate
 > может «не найтись» (её каталог не в PATH). В любом случае надёжный запуск —
 > `python -m stepik_grader` (работает всегда, см.
 > [grader-workflow.md](grader-workflow.md)).
+>
+> ⚠️ **`stepik-grader --serve`/`--sandbox`/любая команда падает с
+> `ModuleNotFoundError: No module named 'stepik_grader'`, хотя команда
+> находится (не «command not found»)?** Значит `stepik-grader` резолвится в
+> *чужой* (глобальный) Python, а не в активный `.venv` — обычно из-за старого
+> editable-install, сделанного когда-то до перехода проекта на src-layout
+> (issue #35) или просто не в venv. Проверь, откуда берётся команда:
+> ```powershell
+> Get-Command stepik-grader   # Windows: путь должен указывать на .venv\Scripts\
+> ```
+> ```bash
+> which stepik-grader          # macOS/Linux: путь должен указывать на .venv/bin/
+> ```
+> Если путь НЕ внутри `.venv` этого репозитория — активируй venv (Шаг 3 выше)
+> и повтори команду; PATH внутри активированного venv ставит его `Scripts`/
+> `bin` первым, так что нужный `stepik-grader` найдётся раньше чужого.
+> Чтобы такой «протухший» глобальный install не путал в будущем, его стоит
+> убрать явно (замени `<version>`/`<hash>` на то, что покажет `pip show -f
+> stepik-python-grader` из глобального Python):
+> ```bash
+> pip uninstall stepik-python-grader   # если ругается "No files were found to
+>                                      # uninstall" — метаданные битые, удали
+>                                      # вручную *.dist-info/, __editable__*.pth,
+>                                      # __editable___*_finder.py из site-packages
+>                                      # (путь покажет `python -c "import site;
+>                                      # print(site.getsitepackages())"`) и
+>                                      # соответствующий stepik-grader(.exe) из
+>                                      # каталога Scripts/bin рядом.
+> ```
 
 **Шаг 4. Установить зависимости:**
 
