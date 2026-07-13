@@ -38,6 +38,11 @@ def _clip(text: str) -> tuple[str, bool]:
     return text[:_MAX_OUTPUT_CHARS], True
 
 
+def _decode(data: bytes) -> str:
+    """Декодировать вывод и нормализовать переносы (CRLF→LF на Windows)."""
+    return data.decode("utf-8", errors="replace").replace("\r\n", "\n")
+
+
 def run_playground(
     code: str, stdin: str = "", *, cancel_event: threading.Event | None = None
 ) -> dict[str, Any]:
@@ -77,8 +82,8 @@ def run_playground(
     if outcome.cancelled:
         return _result("CANCELLED", exit_code=None, duration_ms=duration_ms)
 
-    stdout, clipped_out = _clip(outcome.stdout.decode("utf-8", errors="replace"))
-    stderr, clipped_err = _clip(outcome.stderr.decode("utf-8", errors="replace"))
+    stdout, clipped_out = _clip(_decode(outcome.stdout))
+    stderr, clipped_err = _clip(_decode(outcome.stderr))
     return _result(
         "OK" if outcome.returncode == 0 else "RE",
         stdout=stdout,
