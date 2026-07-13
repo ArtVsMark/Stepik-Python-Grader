@@ -115,6 +115,8 @@ def estimate_run_count(solutions: list[pathlib.Path], *, kind: str, repeats: int
 
     ``kind="bench"`` — умножает число кейсов каждого решения на ``repeats``
     (соответствует гранулярности тика ``run_benchmark`` — раз на повтор);
+    ``kind="tests"`` (issue #297, корректность режима 1) — то же, что bench с
+    ``repeats=1``: раз на тест-кейс (``run_tests`` тикает так же);
     ``kind="microbench"`` — единица, так как ``run_microbench_mode`` тикает
     раз на решение целиком (грубее, см. её докстринг), не на кейс.
     Решения без резолвящегося ``test_dir`` пропускаются (0 запусков — та же
@@ -296,9 +298,14 @@ def read_source(path: pathlib.Path, *, lang: str = DEFAULT_LANG) -> dict[str, An
     p = path.expanduser()
     try:
         source = p.read_text(encoding=CONFIG.encoding)
+        mtime = p.stat().st_mtime
     except OSError as exc:
         return {"kind": "error", **message_fields("file_read_failed", lang, error=str(exc))}
-    return {"kind": "file", "path": str(p), "source": source}
+    # ``mtime`` — baseline для optimistic locking режима 1 (issue #297): фронтенд
+    # запоминает его при загрузке файла и присылает обратно в save_solution как
+    # ``expected_mtime``, чтобы поймать «файл изменился на диске с момента
+    # загрузки» (например, другое окно грейдера сохранило туда же).
+    return {"kind": "file", "path": str(p), "source": source, "mtime": mtime}
 
 
 def _next_solution_filename(folder: pathlib.Path) -> str:
@@ -324,30 +331,60 @@ def _next_solution_filename(folder: pathlib.Path) -> str:
 
 
 def save_solution(
-    folder: pathlib.Path, path: pathlib.Path | None, code: str, *, lang: str = DEFAULT_LANG
+    folder: pathlib.Path,
+    path: pathlib.Path | None,
+    code: str,
+    *,
+    lang: str = DEFAULT_LANG,
+    expected_mtime: float | None = None,
 ) -> dict[str, Any]:
-    """Сохранить код решения на диск — редактируемое окно кода в режиме 1.
+    """Сохранить код решения на диск — явная кнопка «Сохранить» режима 1.
 
     ``path`` — существующий выбранный файл (перезаписывается) или
     ``None``/пусто — создаётся новый файл в ``folder`` по маске
-    (``_next_solution_filename``). Возвращает ``{"ok": True, "path": ...}``
-    или ``{"ok": False, "message": ...}`` — тот же контракт, что у
-    ``download_task`` (issue #186); любой ``OSError`` при записи
+    (``_next_solution_filename``). Возвращает ``{"ok": True, "path": ...,
+    "mtime": ...}`` или ``{"ok": False, "message": ...}`` — тот же контракт,
+    что у ``download_task`` (issue #186); любой ``OSError`` при записи
     (несуществующая подпапка, права доступа) — graceful, не пробрасывается.
+
+    ``expected_mtime`` (issue #297, optimistic locking, minimum viable) — если
+    задан и ``path`` указывает на СУЩЕСТВУЮЩИЙ файл, чей фактический ``mtime``
+    расходится с ожидаемым (файл изменился на диске с момента загрузки —
+    напр. другое окно грейдера сохранило туда же), запись НЕ выполняется:
+    возвращается ``{"ok": False, "conflict": True, ...}``. Фронтенд решает,
+    перезаписывать ли (повторный вызов без ``expected_mtime``). Для нового
+    файла (``path is None``) проверка не применяется — там нечего затирать.
     """
     folder_p = folder.expanduser()
     if not folder_p.is_dir():
         return {"ok": False, **message_fields("folder_not_found", lang, path=str(folder))}
     target = path.expanduser() if path else folder_p / _next_solution_filename(folder_p)
+    if expected_mtime is not None and path is not None and target.is_file():
+        actual_mtime = target.stat().st_mtime
+        # Допуск 1 мс: mtime проходит через JSON float round-trip, а точность
+        # st_mtime разнится по ФС (NTFS ~100нс, некоторые FS — секунды) —
+        # точное равенство было бы ложно-конфликтным.
+        if abs(actual_mtime - expected_mtime) > 1e-3:
+            return {
+                "ok": False,
+                "conflict": True,
+                **message_fields("file_changed_on_disk", lang, path=str(target)),
+            }
     try:
         target.write_text(code, encoding=CONFIG.encoding)
+        mtime = target.stat().st_mtime
     except OSError as exc:
         return {"ok": False, **message_fields("file_save_failed", lang, error=str(exc))}
-    return {"ok": True, "path": str(target)}
+    return {"ok": True, "path": str(target), "mtime": mtime}
 
 
 def grade_path(
-    path: pathlib.Path, *, missing_queue_path: pathlib.Path | None = None, lang: str = DEFAULT_LANG
+    path: pathlib.Path,
+    *,
+    missing_queue_path: pathlib.Path | None = None,
+    lang: str = DEFAULT_LANG,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> dict[str, Any]:
     """Прогрейдить файл/папку на корректность (режим 1/2).
 
@@ -358,6 +395,13 @@ def grade_path(
     ``CONFIG.glossary_missing_queue`` (issue #125). Параметр в основном для
     тестов — production-вызовы полагаются на дефолт из конфига. ``lang`` —
     локаль для ``message``/``message_id`` при ошибке (issue #264), default ru.
+
+    ``progress_callback``/``cancel_event`` (issue #297, оба по умолчанию None —
+    синхронный ``/api/grade`` их не передаёт, поведение не меняется) —
+    прокидываются в каждый ``run_tests()``; ``cancel_event`` также
+    проверяется перед каждым решением (симметрично ``grade_benchmark``).
+    Используются, когда режим 1 идёт через async job (``web/runs.py``,
+    ``kind="tests"``) с кодом в теле — прогресс тикает раз на тест-кейс.
     """
     resolved = _resolve_solutions(path, lang=lang)
     if isinstance(resolved, dict):
@@ -366,11 +410,15 @@ def grade_path(
 
     rows: list[dict[str, Any]] = []
     for sol in solutions:
+        if cancel_event is not None and cancel_event.is_set():
+            break
         test_dir = resolve_test_dir(sol)
         if test_dir is None or not test_dir.is_dir():
             rows.append({"file": _rel(sol, base), "status": "NO TESTS", "passed": 0, "total": 0})
             continue
-        res = run_tests(sol, test_dir)
+        res = run_tests(
+            sol, test_dir, progress_callback=progress_callback, cancel_event=cancel_event
+        )
         # total == 0 (tests/ существует, но не содержит распознаваемых кейсов)
         # — это не провал решения, а отсутствие проверки; тот же исход, что и
         # для отсутствующей tests/ выше (issue #299 — раньше эта ветка давала

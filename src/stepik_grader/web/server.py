@@ -341,7 +341,15 @@ class _Handler(BaseHTTPRequestHandler):
                 if confined_target is None:
                     return
                 target_path = confined_target
-            data = save_solution(confined_folder, target_path, code, lang=lang)
+            # issue #297: optimistic locking — фронтенд присылает mtime,
+            # запомненный при загрузке файла; save_solution откажет с
+            # conflict=True, если файл на диске с тех пор изменился. Нечисловое/
+            # отсутствующее значение → None (проверка не применяется).
+            raw_mtime = body.get("expected_mtime")
+            expected_mtime = float(raw_mtime) if isinstance(raw_mtime, int | float) else None
+            data = save_solution(
+                confined_folder, target_path, code, lang=lang, expected_mtime=expected_mtime
+            )
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _read_json_body(self, lang: str = DEFAULT_LANG) -> dict[str, Any] | None:
@@ -410,11 +418,13 @@ class _Handler(BaseHTTPRequestHandler):
         return body
 
     def _handle_create_run(self, parsed: Any) -> None:
-        """POST /api/v1/runs (issue #262) — тело ``{"path","code"?,"mode",
+        """POST /api/v1/runs (issue #262/#297) — тело ``{"path","code"?,"mode",
         "params"?}`` → ``202`` + ``{"run_id","status"}``. Асинхронная
-        альтернатива ``/api/grade`` для bench/microbench — ставит job в
-        очередь (``web/runs.py``) и сразу возвращает, не дожидаясь
-        завершения; прогресс/результат — через ``GET /api/v1/runs/{id}``.
+        альтернатива ``/api/grade`` для tests (корректность режима 1, issue
+        #297) / bench / microbench — ставит job в очередь (``web/runs.py``) и
+        сразу возвращает, не дожидаясь завершения; прогресс/результат — через
+        ``GET /api/v1/runs/{id}``. С ``code`` в теле (режим 1) грейд идёт из
+        временного файла, целевой файл не перезаписывается.
         """
         lang = _lang_from_query(parsed)
         if not self._guard_request(lang):
@@ -432,7 +442,7 @@ class _Handler(BaseHTTPRequestHandler):
             )
             return
         mode = str(body.get("mode") or "").strip()
-        if mode not in ("bench", "microbench"):
+        if mode not in ("tests", "bench", "microbench"):
             self._send(
                 400,
                 "application/json; charset=utf-8",
@@ -453,8 +463,10 @@ class _Handler(BaseHTTPRequestHandler):
             params["repeats"] = _clamp(_to_int(params_in.get("repeats"), 15), *_REPEATS_RANGE)
             reference = str(params_in.get("reference") or "").strip() or None
             params["reference"] = reference
-        else:
+        elif mode == "microbench":
             params["number"] = _clamp(_to_int(params_in.get("number"), 1000), *_NUMBER_RANGE)
+        # mode == "tests" (issue #297): корректность режима 1, никаких
+        # числовых params (кроме lang) — только code в теле.
 
         job = runs.submit_job(mode, confined, params, code=code)
         self._send(

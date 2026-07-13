@@ -45,7 +45,11 @@ const state = {
   glossary: { query: "", cards: [], missing: [], selectedId: null, view: "cards" },
   solutions: [], // режим 1 — файлы, найденные /api/solutions в указанной папке
   selectedSolutionFile: null, // режим 1 — выбранный для проверки файл (полный путь)
-  activeRunId: null, // issue #262 — id текущего опрашиваемого async job (bench/microbench)
+  activeRunId: null, // issue #262 — id текущего опрашиваемого async job (tests/bench/microbench)
+  // issue #297 — baseline для индикатора несохранённых изменений и optimistic
+  // locking: код и mtime на момент последней загрузки/сохранения файла.
+  savedCode: "",
+  savedMtime: null,
 };
 // Старый "compare" (до фикса режима 1) мог остаться в localStorage — откатываемся
 // на дефолт, а не оставляем режим, для которого больше нет кнопки/логики.
@@ -451,7 +455,10 @@ function mountEditor() {
       theme,
       cmPlaceholder(mount.dataset.placeholder || ""),
       EditorView.updateListener.of(update => {
-        if (update.docChanged) updateRunButtonState();
+        if (update.docChanged) {
+          updateRunButtonState();
+          updateDirtyIndicator(); // issue #297
+        }
       }),
     ],
   });
@@ -488,12 +495,14 @@ function resetFilePicker() {
   const list = $("#solutions-list");
   if (list) list.innerHTML = "";
   setEditorCode("");
+  markEditorSaved("", null); // issue #297
   updateRunButtonState();
 }
 
 async function findSolutions() {
   state.selectedSolutionFile = null;
   setEditorCode("");
+  markEditorSaved("", null); // issue #297
   updateRunButtonState();
   await refreshSolutionsList();
 }
@@ -547,40 +556,53 @@ async function selectSolutionFile(fullPath) {
   try {
     const r = await fetch("/api/source?" + new URLSearchParams({ path: fullPath }));
     const data = await r.json();
-    setEditorCode(data.kind === "error" ? "" : data.source);
+    const code = data.kind === "error" ? "" : data.source;
+    setEditorCode(code);
+    // issue #297: baseline для dirty-индикатора и optimistic locking (mtime).
+    markEditorSaved(code, data.kind === "error" ? null : data.mtime);
   } catch (e) {
     setEditorCode("");
+    markEditorSaved("", null);
   }
   updateRunButtonState();
 }
 
+// issue #297: зафиксировать текущее содержимое как «сохранённое» — сбрасывает
+// индикатор несохранённых изменений и запоминает mtime для optimistic locking.
+function markEditorSaved(code, mtime) {
+  state.savedCode = code;
+  state.savedMtime = mtime;
+  updateDirtyIndicator();
+}
+
+// issue #297: показать/скрыть «● не сохранено» и включить кнопку «Сохранить»
+// по факту расхождения редактора с последним сохранённым содержимым.
+function updateDirtyIndicator() {
+  const dirty = state.mode === "file" && getEditorCode() !== state.savedCode;
+  const badge = $("#editor-dirty");
+  if (badge) badge.hidden = !dirty;
+  const saveBtn = $("#save-solution-btn");
+  if (saveBtn) saveBtn.disabled = !dirty || !$("#path").value.trim();
+}
+
 async function grade() {
   const isFileMode = state.mode === "file";
-  if (isFileMode) {
-    const folder = $("#path").value.trim();
-    const code = getEditorCode();
-    if (!folder || !code.trim()) return;
-    try {
-      const saveResp = await fetch("/api/save-solution", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folder, path: state.selectedSolutionFile || null, code }),
-      });
-      const saved = await saveResp.json();
-      if (!saved.ok) {
-        $("#out").innerHTML = '<p class="msg">' + esc(saved.message) + "</p>";
-        return;
-      }
-      state.selectedSolutionFile = saved.path;
-      await refreshSolutionsList();
-    } catch (e) {
-      $("#out").innerHTML = '<p class="msg">Не удалось сохранить код: ' + esc(String(e)) + "</p>";
-      return;
-    }
-  }
-  const path = isFileMode ? state.selectedSolutionFile || "" : $("#path").value.trim();
-  if (!path) return;
   const folder = $("#path").value.trim();
+  // issue #297: режим 1 больше НЕ сохраняет перед грейдом. Код исполняется из
+  // временного файла (POST /api/v1/runs с code в теле, mode="tests") — целевой
+  // файл не перезаписывается, гонки save→grade между двумя окнами больше нет.
+  // path для резолюции tests/: выбранный файл, иначе — сама папка (runs.py
+  // кладёт временный файл рядом и находит tests/ там же).
+  let code = null;
+  let path;
+  if (isFileMode) {
+    code = getEditorCode();
+    if (!folder || !code.trim()) return;
+    path = state.selectedSolutionFile || folder;
+  } else {
+    path = folder;
+  }
+  if (!path) return;
   if (folder) {
     localStorage.setItem("grader_path", folder);
     addRecentPath(folder);
@@ -598,6 +620,14 @@ async function grade() {
   // остановится, не трогая DOM текущего запуска (см. gradeAsync()).
   state.activeRunId = null;
   $("#cancel-run").hidden = true;
+  // Режимы 1/3/4 идут через async job (/api/v1/runs): режим 1 — ради code в
+  // теле (issue #297), режимы 3/4 — ради прогресса/отмены долгого бенча
+  // (issue #262). Режим 2 (папка, tests) остаётся на синхронном /api/grade —
+  // там нет редактируемого кода, нет гонки.
+  if (isFileMode) {
+    await gradeAsync(path, "tests", code);
+    return;
+  }
   const backendMode = state.mode === "bench" || state.mode === "microbench" ? state.mode : "tests";
   if (backendMode === "bench" || backendMode === "microbench") {
     await gradeAsync(path, backendMode);
@@ -618,6 +648,48 @@ async function grade() {
   }
 }
 
+// issue #297: явное сохранение кода режима 1 на диск (кнопка «Сохранить») —
+// отдельно от грейда. Optimistic locking через expected_mtime: если файл
+// изменился на диске с момента загрузки, бэкенд отвечает conflict=True и НЕ
+// перезаписывает; пользователю показывается предупреждение, повторный клик
+// «Сохранить» перезаписывает (mtime уже обновлён на конфликтный — совпадёт).
+async function saveSolution() {
+  const folder = $("#path").value.trim();
+  const code = getEditorCode();
+  if (!folder) return;
+  const saveBtn = $("#save-solution-btn");
+  saveBtn.disabled = true;
+  try {
+    const body = { folder, path: state.selectedSolutionFile || null, code };
+    if (state.selectedSolutionFile && state.savedMtime != null) {
+      body.expected_mtime = state.savedMtime;
+    }
+    const resp = await fetch("/api/save-solution", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const saved = await resp.json();
+    if (!saved.ok) {
+      $("#out").innerHTML = '<p class="msg">' + esc(saved.message) + "</p>";
+      // Конфликт: обновляем baseline mtime на актуальный с диска НЕ можем (не
+      // знаем его), но повторный клик пойдёт без ложного конфликта, если
+      // пользователь осознанно перезапишет — упрощаем: снимаем optimistic-guard
+      // на следующий клик, обнулив ожидаемый mtime.
+      if (saved.conflict) state.savedMtime = null;
+      updateDirtyIndicator();
+      return;
+    }
+    state.selectedSolutionFile = saved.path;
+    markEditorSaved(code, saved.mtime);
+    await refreshSolutionsList();
+  } catch (e) {
+    $("#out").innerHTML = '<p class="msg">Не удалось сохранить код: ' + esc(String(e)) + "</p>";
+  } finally {
+    updateDirtyIndicator();
+  }
+}
+
 function _finishGradeUI() {
   updateRunButtonState();
   $("#run").textContent = "▶ Запустить";
@@ -627,22 +699,25 @@ function _finishGradeUI() {
   if (state.resultTab === "reference") renderReferenceTab();
 }
 
-// issue #262 — async job model (bench/microbench): POST /api/v1/runs, затем
-// polling GET /api/v1/runs/{id} каждые 600мс до status="done"/"error",
-// вместо единственного блокирующего /api/grade (который держал бы вкладку
-// открытой на всю длительность бенчмарка). Режимы 1/2 (файл/тесты) не
-// затронуты — остаются на синхронном пути в grade().
-async function gradeAsync(path, backendMode) {
+// issue #262 — async job model: POST /api/v1/runs, затем polling
+// GET /api/v1/runs/{id} каждые 600мс до status="done"/"error"/"cancelled",
+// вместо единственного блокирующего /api/grade. Режим 1 (issue #297) идёт
+// сюда с mode="tests" и code в теле — грейд из временного файла без записи на
+// диск. Режимы 3/4 (bench/microbench) — ради прогресса/отмены долгого бенча.
+// Режим 2 (папка, tests) остаётся на синхронном /api/grade.
+async function gradeAsync(path, backendMode, code = null) {
   const params = {};
   if (backendMode === "bench") params.repeats = Number($("#repeats").value);
   if (backendMode === "microbench") params.number = getMicroNumber();
 
+  const reqBody = { path, mode: backendMode, params };
+  if (code != null) reqBody.code = code; // issue #297 — код режима 1 в теле
   let created;
   try {
     const createResp = await fetch("/api/v1/runs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, mode: backendMode, params }),
+      body: JSON.stringify(reqBody),
     });
     created = await createResp.json();
     if (createResp.status !== 202) {
@@ -1247,6 +1322,8 @@ $("#path").addEventListener("keydown", e => {
   else grade();
 });
 $("#find-solutions-btn").addEventListener("click", findSolutions);
+$("#save-solution-btn").addEventListener("click", saveSolution); // issue #297
+$("#path").addEventListener("input", updateDirtyIndicator); // issue #297 — папка влияет на доступность «Сохранить»
 $("#micro-profile").addEventListener("change", updateMicroCustomVisibility);
 $("#downloader-run").addEventListener("click", downloadTask);
 $("#downloader-url").addEventListener("keydown", e => {

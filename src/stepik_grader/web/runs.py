@@ -35,7 +35,12 @@ from typing import Any
 from stepik_grader.config import CONFIG
 from stepik_grader.core.test_loader import find_all_solution_files
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
-from stepik_grader.web.viewmodels import estimate_run_count, grade_benchmark, grade_microbench
+from stepik_grader.web.viewmodels import (
+    estimate_run_count,
+    grade_benchmark,
+    grade_microbench,
+    grade_path,
+)
 
 __all__ = ["Job", "submit_job", "get_job", "cancel_job"]
 
@@ -122,7 +127,7 @@ def _sweep_expired_locked() -> None:
 def submit_job(
     kind: str, path: pathlib.Path, params: dict[str, Any], *, code: str | None = None
 ) -> Job:
-    """Поставить bench/microbench в очередь async job'ов (issue #262).
+    """Поставить tests/bench/microbench в очередь async job'ов (issue #262/#297).
 
     ``path`` — уже сконфайненный, резолвленный абсолютный путь (конфайнмент —
     забота ``server.py``); обязателен, даже если задан ``code`` — используется
@@ -139,9 +144,16 @@ def submit_job(
     одного файла — директорийное сравнение решений с ``code`` не имеет
     смысла (один код — одно решение).
 
+    ``kind="tests"`` (issue #297) — грейд корректности режима 1 через ту же
+    async-очередь с ``code`` в теле: «Проверить» больше не пишет в целевой
+    файл (не гонится с параллельным окном на той же папке), исполняет из
+    временного файла. ``kind="bench"``/``"microbench"`` (issue #262) — без
+    изменений.
+
     ``params`` — ``repeats``/``reference``/``number``/``lang``, уже
     провалидированные/кламп'нутые вызывающей стороной (``server.py``),
-    прокидываются в ``grade_benchmark``/``grade_microbench`` как есть.
+    прокидываются в ``grade_path``/``grade_benchmark``/``grade_microbench``
+    как есть (для ``tests`` значим только ``lang``).
     """
     job = Job(uuid.uuid4().hex, kind)
     with _JOBS_LOCK:
@@ -212,7 +224,14 @@ def _run_job(
             with job.lock:
                 job.progress["done"] = done_counter
 
-        if kind == "bench":
+        if kind == "tests":
+            result = grade_path(
+                graded_path,
+                lang=lang,
+                progress_callback=_tick,
+                cancel_event=job.cancel_event,
+            )
+        elif kind == "bench":
             result = grade_benchmark(
                 graded_path,
                 repeats=int(params.get("repeats", 15)),

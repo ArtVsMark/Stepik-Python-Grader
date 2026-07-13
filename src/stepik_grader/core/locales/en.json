@@ -4,6 +4,7 @@
   "folder_not_found": "Folder not found: {path}",
   "file_read_failed": "Failed to read file: {error}",
   "file_save_failed": "Failed to save file: {error}",
+  "file_changed_on_disk": "File changed on disk since it was loaded: {path}. Save again to overwrite.",
   "tests_not_found_for": "No tests found for: {path}",
   "test_cases_not_found_in": "No test cases found in: {path}",
   "tests_not_found_short": "no tests found",

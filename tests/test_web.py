@@ -545,6 +545,13 @@ class TestReadSource:
         data = web.read_source(tmp_path)
         assert data["kind"] == "error"
 
+    def test_returns_mtime_baseline(self, tmp_path: pathlib.Path) -> None:
+        """issue #297: read_source отдаёт mtime — baseline для optimistic locking."""
+        sol = tmp_path / "task1_1.py"
+        sol.write_text("print('hi')\n", encoding="utf-8")
+        data = web.read_source(sol)
+        assert data["mtime"] == pytest.approx(sol.stat().st_mtime)
+
 
 class TestSaveSolution:
     def test_overwrites_existing_file(self, tmp_path: pathlib.Path) -> None:
@@ -582,6 +589,38 @@ class TestSaveSolution:
         data = web.save_solution(tmp_path, bad_path, "print(1)\n")
         assert data["ok"] is False
         assert "message" in data
+
+    def test_returns_mtime_on_success(self, tmp_path: pathlib.Path) -> None:
+        """issue #297: успешный save отдаёт свежий mtime (новый baseline)."""
+        sol = tmp_path / "task_1.py"
+        data = web.save_solution(tmp_path, sol, "print(1)\n")
+        assert data["ok"] is True
+        assert data["mtime"] == pytest.approx(sol.stat().st_mtime)
+
+    def test_expected_mtime_mismatch_refuses_with_conflict(self, tmp_path: pathlib.Path) -> None:
+        """issue #297: файл изменился на диске с момента загрузки → conflict, не пишем."""
+        sol = tmp_path / "task_1.py"
+        sol.write_text("on disk v1\n", encoding="utf-8")
+        stale_mtime = sol.stat().st_mtime - 1000  # заведомо расходится
+        data = web.save_solution(tmp_path, sol, "editor content\n", expected_mtime=stale_mtime)
+        assert data["ok"] is False
+        assert data["conflict"] is True
+        # Файл НЕ перезаписан.
+        assert sol.read_text(encoding="utf-8") == "on disk v1\n"
+
+    def test_expected_mtime_match_writes(self, tmp_path: pathlib.Path) -> None:
+        """issue #297: mtime совпадает → запись проходит."""
+        sol = tmp_path / "task_1.py"
+        sol.write_text("v1\n", encoding="utf-8")
+        current = sol.stat().st_mtime
+        data = web.save_solution(tmp_path, sol, "v2\n", expected_mtime=current)
+        assert data["ok"] is True
+        assert sol.read_text(encoding="utf-8") == "v2\n"
+
+    def test_expected_mtime_ignored_for_new_file(self, tmp_path: pathlib.Path) -> None:
+        """issue #297: для нового файла (path=None) optimistic locking не применяется."""
+        data = web.save_solution(tmp_path, None, "print(1)\n", expected_mtime=12345.0)
+        assert data["ok"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -781,6 +820,40 @@ class TestHttpHandler:
     def test_api_save_solution_invalid_json_is_400(self, server: str) -> None:
         status, _ = _post(server + "/api/save-solution", b"not json")
         assert status == 400
+
+    def test_api_save_solution_returns_mtime(self, server: str, tmp_path: pathlib.Path) -> None:
+        """issue #297: ответ save-solution несёт mtime (новый baseline фронта)."""
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps({"folder": str(tmp_path), "code": "print(1)\n"}).encode("utf-8"),
+        )
+        assert status == 200
+        data = json.loads(body)
+        assert data["ok"] is True
+        assert data["mtime"] == pytest.approx((tmp_path / "task_1.py").stat().st_mtime)
+
+    def test_api_save_solution_stale_mtime_is_conflict(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        """issue #297: expected_mtime расходится с диском → conflict, файл не тронут."""
+        sol = tmp_path / "task_1.py"
+        sol.write_text("on disk\n", encoding="utf-8")
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps(
+                {
+                    "folder": str(tmp_path),
+                    "path": str(sol),
+                    "code": "from editor\n",
+                    "expected_mtime": sol.stat().st_mtime - 1000,
+                }
+            ).encode("utf-8"),
+        )
+        assert status == 200
+        data = json.loads(body)
+        assert data["ok"] is False
+        assert data["conflict"] is True
+        assert sol.read_text(encoding="utf-8") == "on disk\n"  # не перезаписан
 
 
 def _post(url: str, body: bytes, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
@@ -1476,10 +1549,12 @@ class TestRunsApiValidation:
         assert json.loads(body)["message_id"] == "specify_path_file_or_folder"
 
     def test_invalid_mode_is_400(self, server: str, tmp_path: pathlib.Path) -> None:
+        # "tests"/"bench"/"microbench" валидны (issue #297 добавил "tests");
+        # берём заведомо неизвестный режим.
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
         status, body = _post(
             server + "/api/v1/runs",
-            json.dumps({"path": str(sol), "mode": "tests", "params": {}}).encode("utf-8"),
+            json.dumps({"path": str(sol), "mode": "bogus", "params": {}}).encode("utf-8"),
         )
         assert status == 400
         assert json.loads(body)["message_id"] == "invalid_run_mode"
@@ -1569,6 +1644,56 @@ class TestRunsApiInlineCode:
         data = _poll_run(server, run_id)
         assert data["status"] == "done"
         assert data["result"]["rows"][0]["verdict"] != "ERR"
+
+
+class TestRunsApiMode1Tests:
+    """issue #297 — режим 1 (корректность) через POST /api/v1/runs с code в теле."""
+
+    def _create(self, server: str, path: str, code: str) -> str:
+        status, body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": path, "code": code, "mode": "tests"}).encode("utf-8"),
+        )
+        assert status == 202, body
+        return json.loads(body)["run_id"]
+
+    def test_tests_mode_grades_correctness_from_body(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        data = _poll_run(server, self._create(server, str(sol), "print(int(input()) + 1)\n"))
+        assert data["status"] == "done"
+        assert data["result"]["mode"] == "tests"
+        assert data["result"]["rows"][0]["status"] == "OK"
+
+    def test_grade_does_not_write_target_file(self, server: str, tmp_path: pathlib.Path) -> None:
+        """AC1: проверка режима 1 не пишет в целевой файл."""
+        sol = _make_task(tmp_path, "print(999)\n")  # неверно на диске
+        original = sol.read_text(encoding="utf-8")
+        data = _poll_run(server, self._create(server, str(sol), "print(int(input()) + 1)\n"))
+        assert data["status"] == "done"
+        assert data["result"]["rows"][0]["status"] == "OK"  # тело верное
+        assert sol.read_text(encoding="utf-8") == original  # диск не тронут
+        assert {p.name for p in tmp_path.glob("*.py")} == {"task.py"}  # temp убран
+
+    def test_two_windows_grade_without_clobbering_each_other(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        """AC2: две последовательные проверки разного кода на одной папке не
+        затирают ни файл, ни результат друг друга — потому что «Проверить»
+        вообще не пишет на диск."""
+        sol = _make_task(tmp_path, "print(0)\n")  # исходный (неверный) на диске
+        disk_before = sol.read_text(encoding="utf-8")
+
+        # «Окно A» проверяет верный код, «окно B» — падающий; оба на том же path.
+        data_a = _poll_run(server, self._create(server, str(sol), "print(int(input()) + 1)\n"))
+        data_b = _poll_run(server, self._create(server, str(sol), "raise ValueError('boom')\n"))
+
+        assert data_a["result"]["rows"][0]["status"] == "OK"
+        assert data_b["result"]["rows"][0]["status"] == "FAIL"  # RE
+        # Ни одна проверка не записала свой код в целевой файл.
+        assert sol.read_text(encoding="utf-8") == disk_before
+        assert {p.name for p in tmp_path.glob("*.py")} == {"task.py"}
 
 
 # ---------------------------------------------------------------------------
