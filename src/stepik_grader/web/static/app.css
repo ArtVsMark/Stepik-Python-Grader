@@ -519,3 +519,6 @@ select.form-input { cursor: pointer; }
 .glossary-filter-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
 .glossary-filter-row .form-input { flex: 1; min-width: 96px; font-size: var(--text-xs); padding: var(--space-1) var(--space-2); }
 #glossary-count { font-size: var(--text-xs); }
+/* issue #328: черновики (автогенерация из docstring) приглушены в списке. */
+.side-list li.gloss-draft { opacity: .6; }
+.side-list li.gloss-draft.selected { opacity: 1; }

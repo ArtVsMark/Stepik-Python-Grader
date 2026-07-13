@@ -43,7 +43,7 @@ const state = {
   paletteReturnFocus: null,
   theme: localStorage.getItem("grader_theme") || "system", // "system" | "light" | "dark"
   glossary: {
-    query: "", section: "", kind: "", sort: "az",
+    query: "", section: "", kind: "", status: "", sort: "az",
     cards: [], missing: [], sections: [], total: 0,
     selectedId: null, view: "cards",
   },
@@ -1219,6 +1219,7 @@ async function loadGlossary() {
   if (g.query) params.set("q", g.query);
   if (g.section) params.set("section", g.section);
   if (g.kind) params.set("kind", g.kind);
+  if (g.status) params.set("status", g.status);
   if (g.sort) params.set("sort", g.sort);
   try {
     const r = await fetch("/api/glossary?" + params);
@@ -1311,7 +1312,8 @@ function renderGlossaryList() {
   el.innerHTML = state.glossary.cards
     .map(c => {
       const sel = c.id === state.glossary.selectedId ? " selected" : "";
-      return '<li data-id="' + esc(c.id) + '" class="' + sel + '">' + esc(c.title) + "</li>";
+      const draft = c.status === "draft" ? " gloss-draft" : ""; // issue #328: пометка черновика
+      return '<li data-id="' + esc(c.id) + '" class="' + sel + draft + '">' + esc(c.title) + "</li>";
     })
     .join("");
   el.querySelectorAll("li[data-id]").forEach(li =>
@@ -1372,6 +1374,10 @@ function renderGlossaryDetail(card) {
   const el = $("#glossary-detail-content");
   el.hidden = false;
   const meta = [card.kind, card.section, card.subcat].filter(Boolean).map(esc).join(" · ");
+  const draftBadge =
+    card.status === "draft"
+      ? ' <span class="badge badge-warning">черновик</span>' // issue #328
+      : "";
   const verBadge = card.version
     ? ' <span class="badge badge-neutral">Python ' + esc(card.version) + "</span>"
     : "";
@@ -1391,7 +1397,7 @@ function renderGlossaryDetail(card) {
       : "",
   ].filter(Boolean).map(a => "<p>" + a + "</p>").join("");
   el.innerHTML =
-    "<h2>" + esc(card.title) + verBadge + "</h2>" +
+    "<h2>" + esc(card.title) + draftBadge + verBadge + "</h2>" +
     '<div class="hint">' + meta + "</div>" +
     (card.summary ? "<p>" + esc(card.summary) + "</p>" : "") +
     (card.body ? "<div>" + esc(card.body) + "</div>" : "") +
@@ -1527,6 +1533,10 @@ $("#glossary-section").addEventListener("change", e => {
 });
 $("#glossary-kind").addEventListener("change", e => {
   state.glossary.kind = e.target.value;
+  loadGlossary();
+});
+$("#glossary-status").addEventListener("change", e => {
+  state.glossary.status = e.target.value;
   loadGlossary();
 });
 $("#glossary-sort").addEventListener("change", e => {

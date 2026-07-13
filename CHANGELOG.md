@@ -55,6 +55,19 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Draft cards auto-generated from the official Python docs (issue #328). A new
+  offline generator (`scripts/generate_draft_cards.py`) introspects every
+  inventory entity still missing a card and emits a `status="draft"`
+  `GlossaryCard` from the live stdlib: signature via `inspect.signature` (or
+  the docstring's first line), body from `inspect.getdoc`, a templated
+  `docs.python.org` link, and a section mirroring the imported base so the
+  drafts fall under the same section chips. Drafts ship as
+  `glossary/data/drafts.json` (832 cards) — this brings the bundled base to
+  ~100% coverage of the offline stdlib inventory. In the web glossary drafts
+  are muted in the list, badged "черновик" in the detail, and filterable via a
+  new status select (Все / Готовые / Черновики); id = full qualname so a
+  method draft (`str.split`) also closes its coverage gap. The generator is
+  idempotent and never overwrites existing (hand-edited) cards.
 - Built-in type methods in the stdlib coverage inventory (issue #327).
   `build_stdlib_inventory` now also enumerates the public callable methods of
   the notable built-in types (`NOTABLE_BUILTIN_TYPES`: str/list/dict/set/

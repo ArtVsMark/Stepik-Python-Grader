@@ -32,8 +32,11 @@ class TestGlossarySearchNoStoreConfigured:
 
     def test_search_empty_query_returns_all_cards(self) -> None:
         cards = glossary_adapter.glossary_search("")
-        assert len(cards) > 0
-        assert all(c["status"] == "ready" for c in cards)
+        # база — импортированные ready-карточки (#326) + автогенерированные
+        # черновики (#328); есть и те, и другие статусы.
+        assert len(cards) > 500
+        assert any(c["status"] == "ready" for c in cards)
+        assert any(c["status"] == "draft" for c in cards)
 
     def test_search_matches_known_exception(self) -> None:
         cards = glossary_adapter.glossary_search("RecursionError")
