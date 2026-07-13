@@ -122,6 +122,24 @@ def _run_tests_maybe_cached(
     return result, False
 
 
+def _resolve_individual_test_dir(
+    ctx: CliContext, path: pathlib.Path, directory: pathlib.Path
+) -> pathlib.Path:
+    """tests/ для одного решения в директории-режиме (2/3): по решению, иначе общий.
+
+    Сначала ищет ``tests/`` рядом с самим решением (``resolve_test_dir``); при
+    отсутствии откатывается на общий ``tests/`` директории.
+    ``resolve_test_dir_from_input(is_dir=True)`` всегда возвращает ``Path``
+    (никогда None), поэтому результат не-опционален. issue #354 — дедуп двух
+    идентичных копий в режимах 2 и 3.
+    """
+    individual_test_dir = resolve_test_dir(path)
+    if individual_test_dir is None or not individual_test_dir.is_dir():
+        individual_test_dir = ctx.resolve_test_dir_from_input(directory, is_dir=True)
+    assert individual_test_dir is not None
+    return individual_test_dir
+
+
 def _run_mode_1(
     ctx: CliContext,
     solution: pathlib.Path,
@@ -210,12 +228,7 @@ def _run_mode_2(
     cache_hits = 0
     track = scripts if machine_output else rich_track(scripts, description="Проверка решений...")
     for path in track:
-        individual_test_dir = resolve_test_dir(path)
-        if individual_test_dir is None or not individual_test_dir.is_dir():
-            individual_test_dir = ctx.resolve_test_dir_from_input(directory, is_dir=True)
-        # ctx.resolve_test_dir_from_input(is_dir=True) always returns a Path (never
-        # the None its is_dir=False passthrough branch can produce) -- narrows for mypy.
-        assert individual_test_dir is not None
+        individual_test_dir = _resolve_individual_test_dir(ctx, path, directory)
         result, from_cache = _run_tests_maybe_cached(
             ctx, path, individual_test_dir, verbose=verbose, output=output, cache=cache
         )
@@ -276,12 +289,7 @@ def _run_mode_3(
     machine_output = output != "text"
     track = scripts if machine_output else rich_track(scripts, description="Бенчмарк решений...")
     for path in track:
-        individual_test_dir = resolve_test_dir(path)
-        if individual_test_dir is None or not individual_test_dir.is_dir():
-            individual_test_dir = ctx.resolve_test_dir_from_input(directory, is_dir=True)
-        # ctx.resolve_test_dir_from_input(is_dir=True) always returns a Path (never
-        # the None its is_dir=False passthrough branch can produce) -- narrows for mypy.
-        assert individual_test_dir is not None
+        individual_test_dir = _resolve_individual_test_dir(ctx, path, directory)
         results[path] = ctx.run_benchmark(path, individual_test_dir, repeats=repeats)
 
     apply_relative_ranking(

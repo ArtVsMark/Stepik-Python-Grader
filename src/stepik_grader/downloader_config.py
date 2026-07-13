@@ -25,6 +25,27 @@ __all__ = [
     "normalize_config_paths",
 ]
 
+# Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md).
+# Свой локальный _console, а не core/reporter._console — модуль leaf-совместим
+# и не тянет core-UI (тот же приём, что glossary/coverage.py, issue #354).
+try:
+    from rich.console import Console
+
+    _console: Console | None = Console()
+    _RICH = True
+except ImportError:  # pragma: no cover
+    _console = None
+    _RICH = False
+
+
+def _print(text: str) -> None:
+    """Печать статусной строки через rich (markup off — безопасно для путей)."""
+    if _RICH and _console is not None:
+        _console.print(text, markup=False)
+    else:
+        _print(text)
+
+
 DEFAULT_ROOT_DIR = "StepikTasks"
 
 
@@ -47,7 +68,7 @@ def ask_value(prompt: str, default: str = "") -> str:
 
 def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
     """Интерактивно создаёт или перезаписывает stepik_config.json."""
-    print("\nНастройка конфигурации...")
+    _print("\nНастройка конфигурации...")
     root_dir = ask_value(
         "Укажи корневую папку для всех задач Stepik",
         DEFAULT_ROOT_DIR,
@@ -55,19 +76,19 @@ def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
     secrets_path = ask_value("Укажи путь к secrets.json", "secrets.json")
     config: dict[str, Any] = {"root_dir": root_dir, "secrets_path": secrets_path}
     save_json_file(config_path, config)
-    print(f"✅ Конфиг сохранён: {config_path.resolve()}")
+    _print(f"✅ Конфиг сохранён: {config_path.resolve()}")
     return config
 
 
 def load_or_create_config(config_path: pathlib.Path) -> dict[str, Any]:
     """Загружает конфиг; если не существует — запускает интерактивное создание."""
     if not config_path.exists():
-        print("⚠️ Конфиг не найден. Будет создан новый.")
+        _print("⚠️ Конфиг не найден. Будет создан новый.")
         return create_or_update_config(config_path)
     config = load_json_file(config_path)
-    print("\nТекущая конфигурация:")
-    print(f"root_dir:     {config.get('root_dir', '')}")
-    print(f"secrets_path: {config.get('secrets_path', '')}")
+    _print("\nТекущая конфигурация:")
+    _print(f"root_dir:     {config.get('root_dir', '')}")
+    _print(f"secrets_path: {config.get('secrets_path', '')}")
     change = input("Нужно изменить настройку? [y/N]: ").strip().lower()
     if change in {"y", "yes", "д", "да"}:
         return create_or_update_config(config_path)
@@ -82,7 +103,7 @@ def normalize_config_paths(
     root_dir_value = str(config.get("root_dir", "")).strip()
     secrets_value = str(config.get("secrets_path", "")).strip()
     if not root_dir_value or not secrets_value:
-        print("⚠️ В конфиге не хватает обязательных полей.")
+        _print("⚠️ В конфиге не хватает обязательных полей.")
         config = create_or_update_config(config_path)
         root_dir_value = str(config["root_dir"]).strip()
         secrets_value = str(config["secrets_path"]).strip()
@@ -93,7 +114,7 @@ def normalize_config_paths(
     if not secrets_path.is_absolute():
         secrets_path = pathlib.Path.cwd() / secrets_path
     if not secrets_path.exists() or not secrets_path.is_file():
-        print(f"⚠️ Файл secrets не найден: {secrets_path}")
+        _print(f"⚠️ Файл secrets не найден: {secrets_path}")
         config = create_or_update_config(config_path)
         root_dir = pathlib.Path(str(config["root_dir"]))
         secrets_path = pathlib.Path(str(config["secrets_path"]))

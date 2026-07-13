@@ -90,6 +90,26 @@ __all__ = [
     "main",
 ]
 
+# Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md).
+# Свой локальный _console (leaf-совместимо, не тянет core/reporter), issue #354.
+try:
+    from rich.console import Console
+
+    _console: Console | None = Console()
+    _RICH = True
+except ImportError:  # pragma: no cover
+    _console = None
+    _RICH = False
+
+
+def _print(text: str) -> None:
+    """Печать статусной строки через rich (markup off — безопасно для путей/URL)."""
+    if _RICH and _console is not None:
+        _console.print(text, markup=False)
+    else:
+        print(text)
+
+
 CONFIG_FILE = "stepik_config.json"
 
 _log = get_logger("downloader")  # issue #147: диагностический лог загрузки (opt-in)
@@ -202,32 +222,32 @@ def save_task_files(
 
     # 1. ZIP — скачиваем автоматически
     for zip_url in zip_links:
-        print(f"  📦 Найдена ZIP-ссылка: {zip_url}")
+        _print(f"  📦 Найдена ZIP-ссылка: {zip_url}")
         count = _download_zip_tests(task_dir, zip_url, session)
         if count:
-            print(f"  📦 Скачано тестов из ZIP: {count}")
+            _print(f"  📦 Скачано тестов из ZIP: {count}")
             return count, "zip"
 
     # 2. HTML-таблица
     tests = extract_tests_from_html(text)
     if tests:
         count = save_tests(task_dir, tests)
-        print(f"  📋 Извлечено тестов из таблицы: {count}")
+        _print(f"  📋 Извлечено тестов из таблицы: {count}")
         return count, "html_table"
 
     # 3. GitHub — скачиваем через GitHub Contents API
     if github_links:
         for gh_url in github_links:
-            print(f"  🔗 Пробую скачать тесты с GitHub: {gh_url}")
+            _print(f"  🔗 Пробую скачать тесты с GitHub: {gh_url}")
             count = _download_github_tests(task_dir, gh_url)
             if count:
-                print(f"  🔗 Скачано {count} тестов с GitHub")
+                _print(f"  🔗 Скачано {count} тестов с GitHub")
                 return count, "github_link"
-        print("  ⚠️ GitHub: ни одна ссылка не дала тестов")
+        _print("  ⚠️ GitHub: ни одна ссылка не дала тестов")
         return 0, "none"
 
     # 4. Ничего не нашли
-    print("  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены")
+    _print("  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены")
     return 0, "none"
 
 
@@ -256,29 +276,29 @@ def process_step_url(
     lesson_id, step_position = parse_stepik_step_url(step_url)
     _log.info("разбор URL шага: lesson=%s step=%s unit=%s", lesson_id, step_position, unit_id)
 
-    print(f"  Получаю данные урока {lesson_id}...")
+    _print(f"  Получаю данные урока {lesson_id}...")
     lesson = fetch_lesson_data(session, lesson_id)
     lesson_title = str(lesson.get("title") or f"lesson-{lesson_id}")
 
-    print("  Получаю данные юнита...")
+    _print("  Получаю данные юнита...")
     unit = fetch_unit_data(session, lesson_id, unit_id)
     section_id = int(unit.get("section") or 0)
 
-    print(f"  Получаю данные секции {section_id}...")
+    _print(f"  Получаю данные секции {section_id}...")
     section = fetch_section_data(session, section_id)
     section_title = str(section.get("title") or f"section-{section_id}")
     course_id = int(section.get("course") or 0)
 
-    print(f"  Получаю данные курса {course_id}...")
+    _print(f"  Получаю данные курса {course_id}...")
     course = fetch_course_data(session, course_id)
     course_title = str(course.get("title") or f"course-{course_id}")
 
-    print(f"  Получаю данные шага {step_position}...")
+    _print(f"  Получаю данные шага {step_position}...")
     step = fetch_step_data(session, lesson_id, step_position)
     step_id = int(step.get("id") or 0)
     step_title = str(step.get("title") or "").strip()
 
-    print(f"  Получаю последний ответ для шага {step_id}...")
+    _print(f"  Получаю последний ответ для шага {step_id}...")
     submission = fetch_submission_data(session, step_id)
 
     task_dir = build_task_directory(
@@ -290,10 +310,10 @@ def process_step_url(
         step_title,
     )
 
-    print(f"  Сохраняю файлы в: {task_dir}")
+    _print(f"  Сохраняю файлы в: {task_dir}")
     count, source = save_task_files(task_dir, step, submission, lesson, section, course, session)
     _log.info("тест-кейсы: %d шт., источник=%s (task_dir=%s)", count, source, task_dir)
-    print(f"  ✅ Шаг сохранён: {task_dir}")
+    _print(f"  ✅ Шаг сохранён: {task_dir}")
     return task_dir, count, source
 
 
@@ -311,7 +331,7 @@ def main() -> None:
         config = load_or_create_config(config_path)
         config = normalize_config_paths(config, config_path)
     except Exception as error:  # noqa: BLE001
-        print(f"❌ Ошибка работы с конфигом: {error}")
+        _print(f"❌ Ошибка работы с конфигом: {error}")
         return
 
     root_dir = pathlib.Path(str(config["root_dir"]))
@@ -321,10 +341,10 @@ def main() -> None:
         secrets = load_secrets_dict(secrets_path)
         session = create_user_session(secrets, secrets_path)
     except Exception as error:  # noqa: BLE001
-        print(f"❌ Ошибка подготовки данных: {error}")
+        _print(f"❌ Ошибка подготовки данных: {error}")
         return
 
-    print("\nВведите URL шагов (по одному, пустая строка — завершение):")
+    _print("\nВведите URL шагов (по одному, пустая строка — завершение):")
     while True:
         step_url = input("URL шага: ").strip()
         if not step_url:
@@ -332,7 +352,7 @@ def main() -> None:
         try:
             process_step_url(step_url, session, root_dir)
         except Exception as error:  # noqa: BLE001
-            print(f"❌ Ошибка обработки шага: {error}")
+            _print(f"❌ Ошибка обработки шага: {error}")
 
 
 if __name__ == "__main__":

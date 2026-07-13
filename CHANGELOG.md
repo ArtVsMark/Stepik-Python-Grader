@@ -10,6 +10,27 @@
 -->
 
 ### Refactored
+- Small code-style hygiene from the 2026-07 audit (issue #354, behaviour
+  unchanged):
+  - Added `__all__` to the 8 modules that lacked it (project checklist requires
+    it): `downloader`, `diagnostic_stepik`, `pytest_plugin`,
+    `core/{executor,stepik_client,storage,microbench_runner,parsers}`.
+  - Bare `print()` → an `_console`-with-`print()`-fallback helper (rich,
+    graceful, `markup=False`) in the three CLI-ish modules that used bare
+    prints: `downloader.py` (19), `diagnostic_stepik.py` (20),
+    `downloader_config.py` (8) — following the leaf-local `_console` pattern of
+    `glossary/coverage.py`.
+  - `os.path.relpath` → `Path.relative_to(other, walk_up=True)` (Python 3.12+,
+    "paths are pathlib"): `cli/commands.py` (a new `_rel()` helper, 5 sites),
+    `core/reporter.py` (4), `core/test_loader.py` (1, collapsing a
+    try/relative_to/except-relpath into one line). `import os` dropped where it
+    became unused.
+  - `run_single_test` (`core/grader_core.py`): 7 near-identical early-return
+    error dicts → a `_fail_result()` factory.
+  - `main()` (`cli/__init__.py`): the duplicated watch/no-watch branches of
+    modes 1 and 2 → a shared `_dispatch_with_watch()` helper.
+  - Deduplicated the per-solution `test_dir` resolution shared by modes 2/3
+    (`cli/commands.py`) into `_resolve_individual_test_dir()`.
 - `downloader.py` SRP split (issue #302): the 32 KB module mixing config,
   HTML parsing, ZIP/GitHub download, format writing and interactive prompts
   is now a ~13 KB coordinator (`build_task_directory`, `save_task_files`,
