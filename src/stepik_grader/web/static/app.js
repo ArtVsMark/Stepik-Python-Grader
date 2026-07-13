@@ -1302,25 +1302,6 @@ function updateGlossarySidebarBadge() {
   if (widget) widget.textContent = String(n);
 }
 
-async function loadMissing() {
-  try {
-    const r = await fetch("/api/glossary/missing");
-    state.glossary.missing = await r.json();
-  } catch (e) {
-    state.glossary.missing = [];
-  }
-  renderGlossaryMissing();
-}
-
-function updateGlossarySidebarBadge() {
-  const el = $("#sidebar-badge-glossary");
-  const n = state.glossary.cards.length;
-  el.textContent = String(n);
-  el.hidden = n === 0;
-  const widget = $("#glossary-widget-badge");
-  if (widget) widget.textContent = String(n);
-}
-
 function renderGlossaryList() {
   const el = $("#glossary-cards");
   if (!state.glossary.cards.length) {
