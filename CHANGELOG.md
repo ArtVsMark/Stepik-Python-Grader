@@ -271,6 +271,14 @@
   constant; the stdlib filter shows it once per interpreter session.
 
 ### Docs
+- New `docs/audit-2026-07.md`: one-off deep multi-role project audit
+  (architecture, code quality, tests/CI, product, UX, docs drift) snapshotted
+  at v1.7.0+49 with all quality gates re-run (1308 passed, ruff/mypy clean).
+  Includes the design proposal for the upcoming "Правила/PEP" and "Подучить"
+  (frequent mistakes) sections: opt-in SQLite history (epic #130), ruff-based
+  lint integration behind a `[lint]` extra, run-count-based card decay.
+  Registered in the `docs/README.md` index; follow-up epics/issues are opened
+  from the audit's findings.
 - `docs/README.md` navigation index now lists `docs/changelog-archive.md`
   (issue #300) — it existed in `docs/` since the CHANGELOG split but was
   never added to the index.
