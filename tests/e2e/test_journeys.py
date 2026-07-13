@@ -47,10 +47,12 @@ def test_mode2_folder_grading_shows_table_and_detail_tab(
     assert "5" in detail_text  # the printed/actual output
 
 
-def test_mode1_file_picker_edit_save_run(page: Any, e2e_server: str, tmp_path: Path) -> None:
-    """J: режим 1 -- выбрать файл, отредактировать код в окне, сохранить, запустить."""
+def test_mode1_file_picker_edit_check_then_save(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J: режим 1 (issue #297) -- выбрать файл, отредактировать код, ПРОВЕРИТЬ
+    (грейд из временного файла, без записи на диск), затем явно СОХРАНИТЬ."""
     # Deliberately wrong solution on disk -- proves the *edited* code (not the
-    # original file) is what actually gets graded.
+    # original file) is what actually gets graded, AND that "Проверить" never
+    # writes it back (the on-disk content stays wrong until explicit save).
     write_task(tmp_path, "print(int(input()) + 99)\n")
 
     page.goto(e2e_server + "/")
@@ -79,17 +81,33 @@ def test_mode1_file_picker_edit_save_run(page: Any, e2e_server: str, tmp_path: P
     )
     assert "99" in editor_content.text_content()  # the original (wrong) code loaded
 
+    # Freshly loaded file -> no unsaved changes yet.
+    assert page.locator("#editor-dirty").is_hidden()
+
     editor_content.click()
     page.keyboard.press("Control+A")
     page.keyboard.type("print(int(input()) + 1)\n")  # correct code, in the editable window
-    page.click("#run")
 
+    # issue #297: editing shows the unsaved-changes indicator.
+    page.wait_for_selector("#editor-dirty:not([hidden])", timeout=_TIMEOUT_MS)
+
+    # "Проверить" grades the edited code without writing it to disk.
+    page.click("#run")
     page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)
     row_badge = page.locator("#out table.data-table tbody tr").first.locator(".badge")
     row_badge.wait_for(state="visible", timeout=_TIMEOUT_MS)
     assert row_badge.text_content().strip() == "OK"
 
-    # The edit was actually persisted to disk (save-solution before grading).
+    # AC1: the on-disk file is STILL the original wrong code -- grading ran from
+    # a temp file, and the indicator still reports unsaved changes.
+    assert (tmp_path / "task.py").read_text(encoding="utf-8") == "print(int(input()) + 99)\n"
+    assert page.locator("#editor-dirty").is_visible()
+
+    # Explicit "Сохранить" persists the edit to disk and clears the indicator.
+    page.click("#save-solution-btn")
+    # state="hidden" (NOT a "[hidden]" selector -- Playwright's default wait is
+    # for VISIBLE, which a hidden element never satisfies -> false timeout).
+    page.locator("#editor-dirty").wait_for(state="hidden", timeout=_TIMEOUT_MS)
     assert (tmp_path / "task.py").read_text(encoding="utf-8") == "print(int(input()) + 1)\n"
 
 

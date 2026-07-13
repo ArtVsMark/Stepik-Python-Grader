@@ -4,6 +4,7 @@
   "folder_not_found": "Папка не найдена: {path}",
   "file_read_failed": "Не удалось прочитать файл: {error}",
   "file_save_failed": "Не удалось сохранить файл: {error}",
+  "file_changed_on_disk": "Файл изменился на диске с момента загрузки: {path}. Сохраните ещё раз, чтобы перезаписать.",
   "tests_not_found_for": "Тесты не найдены для: {path}",
   "test_cases_not_found_in": "Тест-кейсы не найдены в: {path}",
   "tests_not_found_short": "тесты не найдены",

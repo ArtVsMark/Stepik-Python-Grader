@@ -9,6 +9,22 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Changed
+- Mode 1 (single-file correctness) in the web UI no longer saves to disk
+  before grading (issue #297). "Проверить" now runs one
+  `POST /api/v1/runs` with `mode="tests"` and the editor's `code` in the
+  request body — the solution executes from a temp file and the target file
+  on disk is never touched, closing the save→grade race two windows on the
+  same folder could hit. Saving is now a separate explicit "Сохранить"
+  button (`POST /api/save-solution`), with an unsaved-changes indicator on
+  the editor and minimal optimistic locking: `save_solution`/`read_source`
+  return the file `mtime`, and saving over an existing file whose on-disk
+  `mtime` drifted from the loaded baseline is refused with
+  `{"ok": false, "conflict": true, message_id: file_changed_on_disk}` (a
+  second save overwrites). `POST /api/v1/runs` accepts `mode="tests"` in
+  addition to `bench`/`microbench`. `GET /api/grade` is unchanged and still
+  serves mode 2 (folder grading).
+
 ### Added
 - `POST /api/v1/runs` job status gets a fifth, additive value: `"cancelled"`
   (issue #296), alongside `queued`/`running`/`done`/`error`. Previously a

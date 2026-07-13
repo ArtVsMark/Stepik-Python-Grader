@@ -209,10 +209,13 @@ curl -X POST http://127.0.0.1:8000/api/download \
 
 ## `POST /api/save-solution`
 
-Сохранить код решения на диск — редактируемое окно кода в режиме 1 (доделка
-#125).
+Явно сохранить код решения на диск — кнопка «Сохранить» режима 1 (доделка
+#125; отделена от грейда в issue #297). Грейд («Проверить») больше НЕ вызывает
+этот эндпоинт — код исполняется из временного файла через `POST /api/v1/runs`
+(см. ниже), запись на диск только по явному «Сохранить».
 
-Тело JSON: `{"folder": "...", "path"?: "...", "code": "..."}`.
+Тело JSON: `{"folder": "...", "path"?: "...", "code": "...",
+"expected_mtime"?: <float>}`.
 
 - `folder` пустой → **400** `specify_folder`.
 - `code` не строка → **400** `specify_code`.
@@ -220,9 +223,14 @@ curl -X POST http://127.0.0.1:8000/api/download \
 - `path` задан → перезаписывает существующий файл; не задан/пусто →
   создаётся новый файл в `folder` по маске (`task_N.py`/расширение
   существующей серии).
-- Успех → **200** `{"ok": true, "path": "..."}`; `OSError` при записи →
-  **200** `{"ok": false, message_id: file_save_failed}` (не 5xx —
-  graceful).
+- `expected_mtime` (опционально, optimistic locking issue #297) — если задан
+  и `path` указывает на существующий файл, чей фактический `mtime` расходится
+  (допуск 1 мс) — запись НЕ выполняется: **200** `{"ok": false, "conflict":
+  true, message_id: file_changed_on_disk}`. Для нового файла (`path` пуст) не
+  применяется. Повторный вызов без `expected_mtime` перезаписывает.
+- Успех → **200** `{"ok": true, "path": "...", "mtime": <float>}` (`mtime` —
+  новый baseline для клиента); `OSError` при записи → **200** `{"ok": false,
+  message_id: file_save_failed}` (не 5xx — graceful).
 
 ```
 curl -X POST http://127.0.0.1:8000/api/save-solution \
@@ -232,21 +240,34 @@ curl -X POST http://127.0.0.1:8000/api/save-solution \
 
 ## `POST /api/v1/runs`
 
-Поставить bench/microbench в очередь async job (issue #262) — асинхронная
-замена `GET /api/grade`. Возвращает `run_id` немедленно, не дожидаясь
-завершения; прогресс/результат — через `GET /api/v1/runs/<id>`.
+Поставить tests/bench/microbench в очередь async job (issue #262/#297) —
+асинхронная замена `GET /api/grade`. Возвращает `run_id` немедленно, не
+дожидаясь завершения; прогресс/результат — через `GET /api/v1/runs/<id>`.
 
-Тело JSON: `{"path": "...", "code"?: "...", "mode": "bench"|"microbench",
-"params"?: {"repeats"?, "reference"?, "number"?}}`.
+Тело JSON: `{"path": "...", "code"?: "...", "mode":
+"tests"|"bench"|"microbench", "params"?: {"repeats"?, "reference"?,
+"number"?}}`.
 
 - `path` пустой → **400** `specify_path_file_or_folder`.
-- `mode` не `bench`/`microbench` → **400** `invalid_run_mode`.
+- `mode` не `tests`/`bench`/`microbench` → **400** `invalid_run_mode`.
 - `path` вне workspace → **403** `path_outside_workspace`.
-- `code` (опционально) — заменяет содержимое `path` на диске без записи
-  файла (как редактируемое окно кода режима 1); только для одного файла.
+- `code` (опционально) — исполняемое содержимое из временного файла рядом с
+  `path`, БЕЗ записи в целевой файл (редактируемое окно режима 1, issue #297 —
+  «Проверить» не пишет на диск, гонки save→grade между окнами нет); только
+  для одного файла. `path` тут может быть как файлом, так и папкой (для
+  несохранённого нового кода — папка, temp кладётся в неё, `tests/` резолвится
+  там же).
+- `mode="tests"` (issue #297) — грейд корректности (тот же результат, что у
+  `GET /api/grade?mode=tests`), без числовых `params`.
 - Успех → **202** `{"run_id": "...", "status": "queued"}`.
 
 ```
+# режим 1 (корректность) с кодом в теле, без записи на диск:
+curl -X POST http://127.0.0.1:8000/api/v1/runs \
+  -H "Content-Type: application/json" \
+  -d '{"path": "task.py", "code": "print(input())", "mode": "tests"}'
+
+# режим 3 (bench):
 curl -X POST http://127.0.0.1:8000/api/v1/runs \
   -H "Content-Type: application/json" \
   -d '{"path": ".", "mode": "bench", "params": {"repeats": 15}}'

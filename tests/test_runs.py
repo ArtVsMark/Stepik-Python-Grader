@@ -68,6 +68,56 @@ class TestSubmitJobBench:
         assert seen_total_before_done
 
 
+class TestSubmitJobTests:
+    """issue #297 — корректность режима 1 через async job (mode="tests")."""
+
+    def test_reaches_done_with_correctness_result(self, tmp_path: pathlib.Path) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        job = runs.submit_job("tests", sol, {"lang": "ru"})
+
+        data = _poll_until_terminal(job.id)
+
+        assert data["status"] == "done"
+        assert data["result"]["mode"] == "tests"
+        assert data["result"]["rows"][0]["status"] == "OK"
+        assert data["progress"]["total"] == 1  # one tick per test case (1 case here)
+        assert data["progress"]["done"] == 1
+
+    def test_code_in_body_executes_without_touching_target_file(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """AC1: «Проверить» исполняет код из тела, НЕ пишет в целевой файл."""
+        # На диске — НЕВЕРНОЕ решение; в теле — верное. Результат отражает тело,
+        # а файл на диске остаётся нетронутым (никакой гонки save→grade).
+        sol = _make_task(tmp_path, "print(999)\n")
+        original_disk = sol.read_text(encoding="utf-8")
+
+        job = runs.submit_job("tests", sol, {"lang": "ru"}, code="print(int(input()) + 1)\n")
+        data = _poll_until_terminal(job.id)
+
+        assert data["status"] == "done"
+        assert data["result"]["rows"][0]["status"] == "OK"  # тело верное
+        assert sol.read_text(encoding="utf-8") == original_disk  # диск не тронут
+        # Временный файл убран — только исходный task.py остался.
+        assert {p.name for p in tmp_path.glob("*.py")} == {"task.py"}
+
+    def test_folder_path_with_code_grades_single_temp_file(self, tmp_path: pathlib.Path) -> None:
+        """Новый (несохранённый) код: path = папка, temp кладётся в неё, tests/
+        резолвится там же — целевых файлов не появляется."""
+        # Папка с tests/, но без единого .py-решения на диске.
+        tests = tmp_path / "tests"
+        tests.mkdir()
+        (tests / "input_1.txt").write_text("4\n", encoding="utf-8")
+        (tests / "expected_1.txt").write_text("5\n", encoding="utf-8")
+
+        job = runs.submit_job("tests", tmp_path, {"lang": "ru"}, code="print(int(input()) + 1)\n")
+        data = _poll_until_terminal(job.id)
+
+        assert data["status"] == "done"
+        assert data["result"]["rows"][0]["status"] == "OK"
+        assert list(tmp_path.glob("*.py")) == []  # ни одного .py не осталось на диске
+
+
 class TestSubmitJobMicrobench:
     def test_reaches_done_with_result(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")

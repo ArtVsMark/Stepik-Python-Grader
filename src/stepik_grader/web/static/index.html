@@ -78,17 +78,26 @@
               </div>
               <ul id="solutions-list" class="side-list"></ul>
               <div class="form-group">
-                <label class="form-label" for="solution-editor">Код решения</label>
+                <label class="form-label" for="solution-editor">
+                  Код решения
+                  <!-- issue #297: индикатор несохранённых изменений. «Проверить»
+                       больше не пишет на диск (грейд из временного файла) —
+                       запись только по явному «Сохранить». -->
+                  <span id="editor-dirty" class="editor-dirty" hidden>● не сохранено</span>
+                </label>
                 <!-- issue #265: CodeMirror 6 mounts into this div (see app.js
                      mountEditor()) instead of a plain <textarea>. tabindex
                      keeps it keyboard-reachable before the editor mounts;
                      CodeMirror's own contenteditable takes over focus/tab
                      order once mounted. -->
                 <div class="form-input code-editor" id="solution-editor" tabindex="0"
-                     data-placeholder="Выберите решение слева или начните вводить новое — при запуске оно сохранится в файл"></div>
+                     data-placeholder="Выберите решение слева или начните вводить новое. «Проверить» запускает без записи на диск, «Сохранить» пишет файл."></div>
+                <div class="row" style="margin-top:var(--space-3)">
+                  <button id="save-solution-btn" class="btn btn-secondary" type="button" disabled>Сохранить</button>
+                </div>
               </div>
             </div>
-            <div class="hint">Enter или «Запустить». Клик по тест-кейсу — раскрыть разбор во вкладке «Детали».</div>
+            <div class="hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Детали».</div>
 
             <div class="section-heading">Глоссарий</div>
             <div class="card" style="margin-bottom:var(--space-3)">
