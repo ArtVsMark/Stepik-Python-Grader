@@ -144,14 +144,22 @@ curl "http://127.0.0.1:8000/api/source?path=task_1.py"
 
 ## `GET /api/glossary`
 
-Поиск карточек глоссария (issue #125).
+Поиск и фильтрация карточек глоссария (issue #125, грани — issue #329).
+Грани комбинируются (логическое И); разделы **не** объединяются — «Списки
+(list)» и «Кортежи (tuple)» фильтруются раздельно.
 
-| Параметр | Обязателен |
-|---|---|
-| `q` | нет — пусто/пробел = показать все карточки |
+| Параметр | Обязателен | Значение |
+|---|---|---|
+| `q` | нет | подстрока по `id`/`title`/`aliases`/`keywords`/`tags` (пусто = все) |
+| `section` | нет | точное имя раздела (напр. `Кортежи (tuple)`) |
+| `kind` | нет | `function` / `exception` / `construct` / `term` |
+| `status` | нет | `new` / `draft` / `ready` / `exported` |
+| `sort` | нет | `az` (A–Я) / `section` (раздел→A–Я) / `version` (версионированные вперёд) |
 
 ```
 curl "http://127.0.0.1:8000/api/glossary?q=ZeroDivisionError"
+curl "http://127.0.0.1:8000/api/glossary?section=Кортежи%20(tuple)&sort=az"
+curl "http://127.0.0.1:8000/api/glossary?kind=exception&sort=az"
 ```
 
 ## `GET /api/glossary/missing`

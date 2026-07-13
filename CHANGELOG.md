@@ -40,6 +40,16 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Glossary section filters, sort and deep-linking (issue #329). The web
+  "Глоссарий" section gains a filter toolbar: quick section chips —
+  **Строки / Списки / Кортежи / Словари / Множества** kept as *separate*
+  chips (never merged, unlike the upstream Glossary-Python), a section
+  dropdown, a `kind` filter and a sort (A–Я / by section / by version) — plus
+  a "Показано N из M" counter. Facets combine server-side: `GET /api/glossary`
+  now accepts `section`, `kind`, `status` and `sort` alongside `q`. Cards are
+  reachable by deep-link `#/glossary/<id>` (shareable direct links; the same
+  route backs error-card jumps). `glossary_search` gained the matching
+  keyword-only params.
 - Curated WA hint for non-UTF-8 output (issue #301): a solution that writes
   raw bytes to stdout (`sys.stdout.buffer.write(b"\xff...")`) is decoded with
   `errors="replace"`, so its diff shows `�` (U+FFFD) with no explanation.

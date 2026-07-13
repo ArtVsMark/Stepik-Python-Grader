@@ -25,6 +25,22 @@ from stepik_grader.glossary.models import GlossaryCard
 
 __all__ = ["glossary_search", "glossary_get", "glossary_missing"]
 
+# Допустимые сортировки раздела «Глоссарий» (issue #329). Всё прочее → порядок
+# источника (без сортировки).
+_SORTS = frozenset({"az", "section", "version"})
+
+
+def _sort_cards(cards: list[GlossaryCard], sort: str | None) -> list[GlossaryCard]:
+    """Отсортировать карточки: az (A–Z), section (раздел→A–Z), version (версия→A–Z)."""
+    if sort == "az":
+        return sorted(cards, key=lambda c: c.title.lower())
+    if sort == "section":
+        return sorted(cards, key=lambda c: (c.section.lower(), c.title.lower()))
+    if sort == "version":
+        # Карточки без версии — в конец; версии по возрастанию строкового ключа.
+        return sorted(cards, key=lambda c: (c.version == "", c.version, c.title.lower()))
+    return cards
+
 
 def _fallback_cards() -> list[GlossaryCard]:
     """Компактный глоссарий (core/glossary.py) как GlossaryCard — zero-config."""
@@ -63,14 +79,33 @@ def _all_cards(store_path: pathlib.Path | None) -> list[GlossaryCard]:
     return _fallback_cards()
 
 
-def glossary_search(query: str, *, store_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
-    """Карточки, чьи search-термины содержат ``query`` (без регистра).
+def glossary_search(
+    query: str,
+    *,
+    section: str | None = None,
+    kind: str | None = None,
+    status: str | None = None,
+    sort: str | None = None,
+    store_path: pathlib.Path | None = None,
+) -> list[dict[str, Any]]:
+    """Карточки, отфильтрованные по ``query`` и опциональным граням, отсортированные.
 
-    Пустой/пробельный ``query`` — "показать всё" (список карточек без фильтра).
+    - ``query`` — подстрока по search-терминам (пустой = без текстового фильтра);
+    - ``section``/``kind``/``status`` — точное совпадение соответствующего поля
+      (issue #329); разделы НЕ объединяются — «Списки (list)» и «Кортежи (tuple)»
+      фильтруются раздельно;
+    - ``sort`` — ``az``/``section``/``version`` (иначе порядок источника).
     """
     cards = _all_cards(store_path)
     if query.strip():
         cards = [c for c in cards if c.matches(query)]
+    if section:
+        cards = [c for c in cards if c.section == section]
+    if kind:
+        cards = [c for c in cards if c.kind == kind]
+    if status:
+        cards = [c for c in cards if c.status == status]
+    cards = _sort_cards(cards, sort)
     return [c.to_dict() for c in cards]
 
 

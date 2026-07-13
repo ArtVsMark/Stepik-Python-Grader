@@ -237,7 +237,15 @@ class _Handler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/glossary":
             qs = parse_qs(parsed.query)
             query = (qs.get("q") or [""])[0]
-            self._send(200, "application/json; charset=utf-8", _json(glossary_search(query)))
+            # Опциональные грани фильтра/сортировки (issue #329); пустые → None.
+            cards = glossary_search(
+                query,
+                section=(qs.get("section") or [""])[0] or None,
+                kind=(qs.get("kind") or [""])[0] or None,
+                status=(qs.get("status") or [""])[0] or None,
+                sort=(qs.get("sort") or [""])[0] or None,
+            )
+            self._send(200, "application/json; charset=utf-8", _json(cards))
         elif parsed.path == "/api/glossary/missing":
             self._send(200, "application/json; charset=utf-8", _json(glossary_missing()))
         elif parsed.path.startswith("/api/glossary/"):
