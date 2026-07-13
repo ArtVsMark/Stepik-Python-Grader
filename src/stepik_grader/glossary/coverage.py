@@ -51,28 +51,39 @@ except ImportError:  # pragma: no cover
 
 # Категории отчёта покрытия — не совпадают 1:1 с InventoryKind: "exceptions"
 # группирует все kind="exception" независимо от модуля, "builtins" — только
-# builtins-функции/классы (не исключения), "stdlib" — всё остальное.
-CATEGORIES: tuple[str, ...] = ("builtins", "exceptions", "stdlib")
+# builtins-функции/классы (не исключения), "methods" — методы встроенных типов
+# (kind="method", issue #327), "stdlib" — всё остальное.
+CATEGORIES: tuple[str, ...] = ("builtins", "methods", "exceptions", "stdlib")
 
+# MissingKind не знает "method" — метод для очереди пополнения function-подобен
+# (callable), полный контекст несут поля module/qualname записи (issue #327).
 _INVENTORY_TO_MISSING_KIND: dict[InventoryKind, MissingKind] = {
     "function": "function",
     "class": "class",
     "exception": "exception",
+    "method": "function",
 }
 
 
 def _category_of(item: StdlibItem) -> str:
     if item.kind == "exception":
         return "exceptions"
+    if item.kind == "method":
+        return "methods"
     if item.module == "builtins":
         return "builtins"
     return "stdlib"
 
 
-def _is_known(qualname: str, known_norm: set[str]) -> bool:
-    qualname_lc = qualname.lower()
+def _is_known(item: StdlibItem, known_norm: set[str]) -> bool:
+    qualname_lc = item.qualname.lower()
     if qualname_lc in known_norm:
         return True
+    if item.kind == "method":
+        # str.split и bytes.split — разные методы/карточки: сверяем ТОЛЬКО полный
+        # qualname, без «хвостовой» эвристики (issue #327), иначе одна карточка
+        # "split" ложно закрыла бы методы всех типов.
+        return False
     tail = qualname_lc.rsplit(".", 1)[-1]  # "functools.reduce" -> "reduce"
     return tail in known_norm
 
@@ -143,7 +154,7 @@ def missing_entries_from_inventory(
     first_seen = today or date.today().isoformat()
     entries: list[GlossaryMissingEntry] = []
     for item in inventory:
-        if _is_known(item.qualname, known_norm):
+        if _is_known(item, known_norm):
             continue
         entries.append(
             GlossaryMissingEntry(

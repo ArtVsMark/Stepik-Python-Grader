@@ -40,6 +40,16 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Built-in type methods in the stdlib coverage inventory (issue #327).
+  `build_stdlib_inventory` now also enumerates the public callable methods of
+  the notable built-in types (`NOTABLE_BUILTIN_TYPES`: str/list/dict/set/
+  tuple/bytes/int/float/…) as `kind="method"` items with `str.split`-style
+  qualnames — the beginner-facing layer the builtins scan missed (it only saw
+  the classes). Coverage gains a `methods` category; a method counts as
+  covered only on a full-qualname match (`str.split`), never the bare method
+  name, so one `split` card can't falsely cover every type's method. In the
+  missing queue a method maps to `kind="function"` (MissingKind is unchanged;
+  the full context lives in `module`/`qualname`).
 - Glossary section filters, sort and deep-linking (issue #329). The web
   "Глоссарий" section gains a filter toolbar: quick section chips —
   **Строки / Списки / Кортежи / Словари / Множества** kept as *separate*

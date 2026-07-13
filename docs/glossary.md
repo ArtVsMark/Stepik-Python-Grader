@@ -171,16 +171,21 @@ Source-driven сторона покрытия (см. § Источники ис�
   `json.JSONDecodeError`, если модуль был просканирован);
 - **курируемые stdlib-модули** (`NOTABLE_STDLIB_MODULES` — `functools`,
   `itertools`, `collections`, `math`, `re`, `pathlib`, `json` и т.п.) —
-  публичные члены (`__all__`, если есть, иначе `dir()` без `_`-префикса).
+  публичные члены (`__all__`, если есть, иначе `dir()` без `_`-префикса);
+- **методы встроенных типов** (`NOTABLE_BUILTIN_TYPES` — `str`, `list`, `dict`,
+  `set`, `tuple`, `bytes`, `int`, `float` и т.д., issue #327) — публичные
+  вызываемые методы (`str.split`, `dict.get`, `list.append`; data-дескрипторы
+  вроде `int.numerator` отбрасываются). Это самый частый у новичков пласт,
+  которого builtins-сканер не видит — он собирает только сами классы.
 
 ```python
 from stepik_grader.glossary import build_stdlib_inventory
 
 items = build_stdlib_inventory()  # list[StdlibItem], отсортирован по qualname
 item = items[0]
-item.qualname       # "abc.ABC" | "ValueError" | "functools.reduce" | ...
+item.qualname       # "abc.ABC" | "ValueError" | "functools.reduce" | "str.split" | ...
 item.module         # "abc" | "builtins" | "functools" | ...
-item.kind           # "function" | "class" | "exception"
+item.kind           # "function" | "class" | "exception" | "method"
 item.python_version # "3.14" — из sys.version_info текущего интерпретатора
 ```
 
@@ -194,11 +199,14 @@ item.python_version # "3.14" — из sys.version_info текущего инте
 Сопоставляет инвентарь (`stdlib_inventory`) с известными терминами локальной
 базы (`JsonGlossaryProvider.known_terms()`) и строит:
 
-- **`CoverageReport`** — покрытие по трём категориям (`CATEGORIES`):
-  `builtins` (функции/классы `builtins`, кроме исключений), `exceptions`
-  (все `kind="exception"` независимо от модуля), `stdlib` (всё остальное —
-  члены курируемых модулей). Для каждой категории — `total`/`covered`/
-  `missing` (кортеж qualname без карточки) и `ratio` (доля покрытия);
+- **`CoverageReport`** — покрытие по категориям (`CATEGORIES`): `builtins`
+  (функции/классы `builtins`, кроме исключений), `methods` (методы встроенных
+  типов, `kind="method"` — issue #327), `exceptions` (все `kind="exception"`
+  независимо от модуля), `stdlib` (всё остальное — члены курируемых модулей).
+  Для каждой категории — `total`/`covered`/`missing` (кортеж qualname без
+  карточки) и `ratio` (доля покрытия). Метод считается покрытым только при
+  совпадении **полного** qualname (`str.split`), без «хвостовой» эвристики —
+  иначе одна карточка `split` ложно закрыла бы методы всех типов;
 - **список `GlossaryMissingEntry(origin="stdlib_scan")`** — по одной записи
   на каждую непокрытую сущность инвентаря, с `module`/`qualname`, кортеж
   `kind` мапится из `InventoryKind` (`function`/`class`/`exception`).

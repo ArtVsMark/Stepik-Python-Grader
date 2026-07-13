@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from stepik_grader.glossary import NOTABLE_STDLIB_MODULES, StdlibItem, build_stdlib_inventory
+from stepik_grader.glossary.stdlib_inventory import NOTABLE_BUILTIN_TYPES
 
 
 def _by_qualname(items: list[StdlibItem]) -> dict[str, StdlibItem]:
@@ -81,3 +82,31 @@ def test_notable_stdlib_modules_are_all_importable() -> None:
 
     for module_name in NOTABLE_STDLIB_MODULES:
         importlib.import_module(module_name)  # не должно бросать ImportError
+
+
+# --- issue #327: методы встроенных типов ------------------------------------
+
+
+def test_inventory_includes_builtin_type_methods() -> None:
+    items = _by_qualname(build_stdlib_inventory())
+    for qualname in ("str.split", "list.append", "dict.get", "set.union", "bytes.hex"):
+        assert qualname in items, qualname
+        assert items[qualname].kind == "method"
+        assert items[qualname].module == "builtins"
+
+
+def test_inventory_type_methods_exclude_dunders_and_data_attrs() -> None:
+    qualnames = {item.qualname for item in build_stdlib_inventory()}
+    # дандеры отфильтрованы (по префиксу "_")
+    assert "str.__len__" not in qualnames
+    assert "list.__init__" not in qualnames
+    # data-дескрипторы (не вызываемые) — не методы
+    assert "int.numerator" not in qualnames
+    assert "int.real" not in qualnames
+
+
+def test_inventory_type_methods_cover_all_notable_types() -> None:
+    items = build_stdlib_inventory()
+    method_types = {q.split(".", 1)[0] for i in items if i.kind == "method" for q in (i.qualname,)}
+    for tp in NOTABLE_BUILTIN_TYPES:
+        assert tp.__name__ in method_types, tp.__name__
