@@ -22,6 +22,7 @@
 | Посмотреть дерево файлов проекта | [project-structure.md](project-structure.md) |
 | Сравнить версии и отличия от оригинала | [versions.md](versions.md) |
 | Полный список изменений | [../CHANGELOG.md](../CHANGELOG.md) |
+| Архив до-тегового CHANGELOG (записи до issue #162/#183, построчный английский лог) | [changelog-archive.md](changelog-archive.md) |
 | Внести вклад: код-стайл, форматы тестов, версионирование | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Инварианты ядра и правила для агентов | [../CLAUDE.md](../CLAUDE.md) |
 | Политика безопасности, ответственное раскрытие уязвимостей | [../SECURITY.md](../SECURITY.md) |
@@ -52,6 +53,7 @@
 | Дерево файлов проекта | [project-structure.md](project-structure.md) | README |
 | Сравнение версий, отличия от оригинала | [versions.md](versions.md) | README |
 | История релизов (детальный changelog) | [../CHANGELOG.md](../CHANGELOG.md) | versions.md (там — только качественные скачки) |
+| Архив до-тегового CHANGELOG (записи до issue #162/#183) | [changelog-archive.md](changelog-archive.md) | ../CHANGELOG.md (там — только живая часть, актуальный Unreleased + версионированные релизы) |
 | Политика версионирования (схема тег=MINOR+1, release vs dev) | [../CONTRIBUTING.md](../CONTRIBUTING.md) § Версионирование | README, CLAUDE.md, versions.md, history.md |
 | Инварианты ядра, правила для агентов | [../CLAUDE.md](../CLAUDE.md) | docs/* |
 | История спринтов/roadmap, подробные примечания к issue (архив) | [history.md](history.md) | CLAUDE.md (там — только действующие инварианты) |

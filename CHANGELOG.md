@@ -18,6 +18,15 @@
   solution folder with an existing-but-empty `tests/` dir looked identical to
   a genuinely wrong solution.
 
+### Docs
+- `docs/README.md` navigation index now lists `docs/changelog-archive.md`
+  (issue #300) — it existed in `docs/` since the CHANGELOG split but was
+  never added to the index.
+- New CI guardrail (`scripts/check_docs_guardrails.py`): every `docs/*.md`
+  file must be referenced from `docs/README.md`, or the check fails — makes
+  the class of drift behind issue #300 impossible to reintroduce silently.
+  `docs/adr/*.md` is exempt (cataloged by its own `docs/adr/README.md` index).
+
 ## [1.7.0] - 2026-07-12
 
 ### Added
