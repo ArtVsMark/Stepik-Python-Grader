@@ -55,6 +55,21 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Step-by-step trace player in the sandbox (issue #319, epic #314). A
+  "Пошагово" button traces the code (`mode="trace"`, #318) and opens a
+  Python-Tutor-style player in the output panel: ⏮ ◀ ▶ ⏭ controls + a step
+  slider + ← → keyboard navigation ("шаг N из M", announced via an
+  `aria-live` region). Each step highlights the active line in a read-only
+  code snapshot (the vendored CodeMirror bundle exports no `Decoration`, and a
+  frozen snapshot is sturdier than decorating the live editor), lists stack
+  frames (globals + each frame's locals, changed variables highlighted, values
+  rendered from the heap refs), shows the program output grown to that step
+  (sliced by `stdout_len`), and on an exception step paints the culprit line
+  red with a deep-link to the matching glossary card. Truncated traces show a
+  "показаны первые N шагов" note. Frontend-only (`web/static/`) over the #318
+  API; new Playwright e2e journeys (loop stepping + keyboard nav, function
+  frame appearance); the e2e `browser` fixture now honors
+  `PLAYWRIGHT_EXECUTABLE_PATH`.
 - Step-by-step execution tracer for the sandbox (issue #318, epic #314).
   `core/tracer.py` runs code in a subprocess under `sys.settrace` and collects
   a Python-Tutor-style JSON trace — one snapshot per line/call/return/exception

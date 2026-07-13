@@ -224,6 +224,102 @@ def test_sandbox_runs_code_with_stdin(page: Any, e2e_server: str, tmp_path: Path
     assert page.locator("#sandbox-status").text_content() == "Успешно"
 
 
+def _type_sandbox_code(page: Any, code: str) -> None:
+    """Ввести многострочный код в редактор песочницы, снимая автоотступ CodeMirror.
+
+    После двоеточия CodeMirror сам добавляет отступ на новой строке; чистим
+    строку (Home → Shift+End → Delete) и печатаем её с нуля, чтобы трейс получил
+    ровно ``code``.
+    """
+    page.click("#sandbox-editor .cm-content")
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    for i, line in enumerate(code.split("\n")):
+        if i:
+            page.keyboard.press("Enter")
+            page.keyboard.press("Home")
+            page.keyboard.press("Shift+End")
+            page.keyboard.press("Delete")
+        page.keyboard.type(line)
+
+
+def _sandbox_var_value(page: Any, name: str) -> str | None:
+    """Значение переменной ``name`` из панели кадров текущего шага (или None)."""
+    for row in page.locator(".trace-vars tr").all():
+        cells = row.locator("td")
+        if cells.count() == 2 and cells.nth(0).inner_text() == name:
+            return cells.nth(1).inner_text()
+    return None
+
+
+def test_sandbox_step_player_loop_and_keyboard(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J (issue #319): плеер листает цикл — ``i`` меняется, вывод растёт, ← → работают."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    _type_sandbox_code(page, "for i in range(3):\n    print(i)")
+    page.click("#sandbox-step")
+    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+
+    label = page.locator("#trace-step-label").text_content()
+    assert "шаг 1 из" in label, label
+    total = int(label.split("из")[1])
+
+    seen_i: set[str] = set()
+    outputs: list[str] = []
+    for _ in range(total):
+        val = _sandbox_var_value(page, "i")
+        if val is not None:
+            seen_i.add(val)
+        outputs.append(page.locator("#trace-stdout").inner_text())
+        nxt = page.locator('[data-trace="next"]')
+        if nxt.is_disabled():
+            break
+        nxt.click()
+
+    assert {"0", "1", "2"} <= seen_i, seen_i  # i прошёл 0,1,2
+    assert outputs[-1].strip() == "0\n1\n2"  # вывод дорос до полного
+    assert len(outputs[-1]) >= len(outputs[0])  # монотонный рост
+    assert page.locator(".trace-line.is-active, .trace-line.is-error").count() >= 1
+
+    # навигация клавиатурой ← → (фокус уводим на снимок кода, не в редактор)
+    page.locator("#trace-code").click()
+    page.locator('[data-trace="first"]').click()
+    before = page.locator("#trace-step-label").text_content()
+    page.keyboard.press("ArrowRight")
+    assert page.locator("#trace-step-label").text_content() != before
+    mid = page.locator("#trace-step-label").text_content()
+    page.keyboard.press("ArrowLeft")
+    assert page.locator("#trace-step-label").text_content() != mid
+
+
+def test_sandbox_step_player_function_frame_appears(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #319): вызов функции — в стеке появляется кадр ``f()`` с параметром ``n``."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    _type_sandbox_code(page, "def f(n):\n    return n + 1\nx = f(5)")
+    page.click("#sandbox-step")
+    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+
+    total = int(page.locator("#trace-step-label").text_content().split("из")[1])
+    saw_frame_with_n = False
+    for _ in range(total):
+        titles = page.locator(".trace-frame-title").all_inner_texts()
+        if any("f()" in t for t in titles) and _sandbox_var_value(page, "n") == "5":
+            saw_frame_with_n = True
+            break
+        nxt = page.locator('[data-trace="next"]')
+        if nxt.is_disabled():
+            break
+        nxt.click()
+    assert saw_frame_with_n, "кадр f() с параметром n=5 не появился"
+
+
 def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: command palette -- Ctrl+K/триггер открывает палитру, команда исполняется."""
     page.goto(e2e_server + "/")

@@ -50,7 +50,10 @@ const state = {
   solutions: [], // режим 1 — файлы, найденные /api/solutions в указанной папке
   selectedSolutionFile: null, // режим 1 — выбранный для проверки файл (полный путь)
   activeRunId: null, // issue #262 — id текущего опрашиваемого async job (tests/bench/microbench)
-  sandbox: { activeRunId: null }, // issue #317 — id текущего прогона песочницы
+  // issue #317 — id текущего прогона песочницы; issue #319 — trace: активный
+  // JSON-трейс пошагового плеера ({steps, stdout, truncated, error, lines, idx})
+  // либо null, когда плеер не открыт.
+  sandbox: { activeRunId: null, trace: null },
   // issue #297 — baseline для индикатора несохранённых изменений и optimistic
   // locking: код и mtime на момент последней загрузки/сохранения файла.
   savedCode: "",
@@ -904,68 +907,88 @@ const SANDBOX_STATUS = {
   CANCELLED: ["Отменено", "badge-neutral"],
 };
 
-async function runPlayground() {
-  const code = getSandboxCode();
-  if (!code.trim() || state.sandbox.activeRunId) return;
+// issue #319: POST /api/v1/runs + polling, общий для песочницы (playground) и
+// трейса. Возвращает терминальный статус job'ы ({status, result?, message?}) —
+// вызывающий сам рендерит результат/ошибку. Отмена/смена прогона отслеживается
+// через state.sandbox.activeRunId (как раньше в runPlayground).
+async function submitSandboxRun(body) {
+  let created;
+  try {
+    const resp = await fetch("/api/v1/runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    created = await resp.json();
+    if (resp.status !== 202) return { status: "error", message: created.message || "Не удалось запустить." };
+  } catch (e) {
+    return { status: "error", message: "Ошибка запроса: " + String(e) };
+  }
+  const runId = created.run_id;
+  state.sandbox.activeRunId = runId;
+  return await new Promise(resolve => {
+    const poll = async () => {
+      if (state.sandbox.activeRunId !== runId) return resolve({ status: "cancelled" });
+      let data;
+      try {
+        const r = await fetch("/api/v1/runs/" + runId);
+        if (state.sandbox.activeRunId !== runId) return resolve({ status: "cancelled" });
+        data = await r.json();
+      } catch (e) {
+        return resolve({ status: "error", message: "Ошибка запроса: " + String(e) });
+      }
+      if (data.status === "queued" || data.status === "running") {
+        setTimeout(poll, 300);
+        return;
+      }
+      resolve(data);
+    };
+    poll();
+  });
+}
+
+function _startSandboxUI(busyMsg) {
+  state.sandbox.trace = null; // закрыть прежний плеер
   $("#sandbox-run").disabled = true;
+  $("#sandbox-step").disabled = true;
   const cancelBtn = $("#sandbox-cancel");
   cancelBtn.hidden = false;
   cancelBtn.disabled = false;
   $("#sandbox-empty").hidden = true;
   const out = $("#sandbox-output");
   out.hidden = false;
-  out.innerHTML = '<p class="hint">Выполняется…</p>';
+  out.innerHTML = '<p class="hint">' + esc(busyMsg) + "</p>";
   setSandboxStatus(null);
+}
 
-  let created;
-  try {
-    const resp = await fetch("/api/v1/runs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "playground", code, stdin: $("#sandbox-stdin").value }),
-    });
-    created = await resp.json();
-    if (resp.status !== 202) {
-      renderSandboxError(created.message || "Не удалось запустить.");
-      return _finishSandboxUI();
-    }
-  } catch (e) {
-    renderSandboxError("Ошибка запроса: " + String(e));
-    return _finishSandboxUI();
-  }
+async function runPlayground() {
+  const code = getSandboxCode();
+  if (!code.trim() || state.sandbox.activeRunId) return;
+  _startSandboxUI("Выполняется…");
+  const data = await submitSandboxRun({ mode: "playground", code, stdin: $("#sandbox-stdin").value });
+  if (data.status === "done") renderSandboxResult(data.result);
+  else if (data.status === "cancelled") renderSandboxError(data.message || "Прогон отменён.", true);
+  else renderSandboxError(data.message || "Ошибка выполнения.");
+  _finishSandboxUI();
+}
 
-  const runId = created.run_id;
-  state.sandbox.activeRunId = runId;
-
-  await new Promise(resolve => {
-    const poll = async () => {
-      if (state.sandbox.activeRunId !== runId) return resolve();
-      let data;
-      try {
-        const r = await fetch("/api/v1/runs/" + runId);
-        if (state.sandbox.activeRunId !== runId) return resolve();
-        data = await r.json();
-      } catch (e) {
-        renderSandboxError("Ошибка запроса: " + String(e));
-        return resolve();
-      }
-      if (data.status === "queued" || data.status === "running") {
-        setTimeout(poll, 300);
-        return;
-      }
-      if (data.status === "done") renderSandboxResult(data.result);
-      else if (data.status === "cancelled") renderSandboxError(data.message || "Прогон отменён.", true);
-      else renderSandboxError(data.message || "Ошибка выполнения.");
-      resolve();
-    };
-    poll();
-  });
+// issue #319: пошаговый трейс — тот же async-путь, но mode="trace"; результат —
+// JSON-трейс (docs/trace-format.md), открываемый плеером.
+async function runTrace() {
+  const code = getSandboxCode();
+  if (!code.trim() || state.sandbox.activeRunId) return;
+  _startSandboxUI("Трассировка…");
+  const data = await submitSandboxRun({ mode: "trace", code, stdin: $("#sandbox-stdin").value });
+  if (data.status === "done") showTracePlayer(data.result, code);
+  else if (data.status === "cancelled") renderSandboxError(data.message || "Прогон отменён.", true);
+  else renderSandboxError(data.message || "Ошибка выполнения.");
   _finishSandboxUI();
 }
 
 function _finishSandboxUI() {
   state.sandbox.activeRunId = null;
   $("#sandbox-run").disabled = false;
+  $("#sandbox-step").disabled = false;
   $("#sandbox-cancel").hidden = true;
 }
 
@@ -1011,6 +1034,239 @@ function renderSandboxError(msg, neutral = false) {
   setSandboxStatus(neutral ? "CANCELLED" : "RE");
   $("#sandbox-output").innerHTML =
     '<p class="' + (neutral ? "msg-neutral" : "msg") + '">' + esc(msg) + "</p>";
+}
+
+// ───────────────────────── пошаговый плеер (issue #319) ─────────────────────
+// Листает JSON-трейс core/tracer.py (docs/trace-format.md) без повторного
+// исполнения — как Python Tutor. Код показывается замороженным снимком
+// (подсветка активной строки) — не в живом CodeMirror: вендоренный бандл не
+// экспортирует Decoration, а снимок и надёжнее (лайв-редактор не виртуализирует
+// строки под нами). state.sandbox.trace хранит шаги + позицию плеера.
+
+const _FMT_MAX_DEPTH = 2; // глубже — компактный repr, чтобы не рисовать вложенность целиком
+const _FMT_MAX_ELEMS = 8; // элементов контейнера в inline-значении (n показываем всегда)
+
+function showTracePlayer(trace, code) {
+  const steps = (trace && trace.steps) || [];
+  if (!steps.length) {
+    // трейс не собрался (сбой/таймаут subprocess) либо программа без шагов
+    const msg = trace && trace.error ? trace.error.message : "Трейс пуст — нет шагов.";
+    return renderSandboxError(msg || "Не удалось оттрассировать.");
+  }
+  state.sandbox.trace = {
+    steps,
+    stdout: (trace && trace.stdout) || "",
+    truncated: !!(trace && trace.truncated),
+    error: (trace && trace.error) || null,
+    lines: code.split("\n"),
+    idx: 0,
+  };
+  setSandboxStatus(trace.error ? "RE" : "OK");
+  $("#sandbox-output").innerHTML = tracePlayerShell(state.sandbox.trace);
+  wireTraceControls();
+  renderTraceStep(0);
+}
+
+function tracePlayerShell(tr) {
+  const m = tr.steps.length;
+  const codeHtml = tr.lines
+    .map(
+      (ln, i) =>
+        '<div class="trace-line" data-line="' +
+        (i + 1) +
+        '"><span class="trace-lineno">' +
+        (i + 1) +
+        '</span><span class="trace-linetext">' +
+        (esc(ln) || " ") +
+        "</span></div>"
+    )
+    .join("");
+  const trunc = tr.truncated
+    ? '<div class="trace-truncated hint">⚠ показаны первые ' + m + " шагов (лимит/таймаут)</div>"
+    : "";
+  return (
+    '<div class="trace-player">' +
+    '<div class="trace-controls" role="group" aria-label="Управление трейсом">' +
+    '<button class="btn-icon" data-trace="first" title="В начало" aria-label="В начало">⏮</button>' +
+    '<button class="btn-icon" data-trace="prev" title="Назад (←)" aria-label="Предыдущий шаг">◀</button>' +
+    '<input type="range" id="trace-slider" class="trace-slider" min="0" max="' +
+    (m - 1) +
+    '" value="0" aria-label="Позиция в трейсе">' +
+    '<button class="btn-icon" data-trace="next" title="Вперёд (→)" aria-label="Следующий шаг">▶</button>' +
+    '<button class="btn-icon" data-trace="last" title="В конец" aria-label="В конец">⏭</button>' +
+    '<span id="trace-step-label" class="trace-step-label" aria-live="polite" aria-atomic="true"></span>' +
+    "</div>" +
+    trunc +
+    '<div class="trace-split">' +
+    '<pre class="trace-code" id="trace-code">' +
+    codeHtml +
+    "</pre>" +
+    '<div class="trace-frames" id="trace-frames"></div>' +
+    "</div>" +
+    '<div class="form-label">Вывод (stdout)</div>' +
+    '<pre class="code-block trace-stdout" id="trace-stdout"></pre>' +
+    '<div class="msg trace-error" id="trace-error" hidden></div>' +
+    "</div>"
+  );
+}
+
+function wireTraceControls() {
+  const out = $("#sandbox-output");
+  out.querySelectorAll("[data-trace]").forEach(btn =>
+    btn.addEventListener("click", () => {
+      const tr = state.sandbox.trace;
+      if (!tr) return;
+      const last = tr.steps.length - 1;
+      const target = { first: 0, prev: tr.idx - 1, next: tr.idx + 1, last }[btn.dataset.trace];
+      renderTraceStep(target);
+    })
+  );
+  $("#trace-slider").addEventListener("input", e => renderTraceStep(parseInt(e.target.value, 10)));
+}
+
+function renderTraceStep(idx) {
+  const tr = state.sandbox.trace;
+  if (!tr) return;
+  idx = Math.max(0, Math.min(tr.steps.length - 1, idx));
+  tr.idx = idx;
+  const step = tr.steps[idx];
+  const prev = idx > 0 ? tr.steps[idx - 1] : null;
+
+  // 1. подсветка активной строки в снимке кода (красная на шаге-исключении)
+  const codeEl = $("#trace-code");
+  codeEl
+    .querySelectorAll(".trace-line.is-active, .trace-line.is-error")
+    .forEach(el => el.classList.remove("is-active", "is-error"));
+  const lineEl = codeEl.querySelector('.trace-line[data-line="' + step.line + '"]');
+  if (lineEl) {
+    // строка красная на шаге-исключении и на финальном шаге упавшей программы
+    // (виновная строка остаётся подсвеченной, а не гаснет на return-раскрутке)
+    const isErr = step.event === "exception" || (tr.error && idx === tr.steps.length - 1);
+    lineEl.classList.add(isErr ? "is-error" : "is-active");
+    lineEl.scrollIntoView({ block: "nearest" });
+  }
+
+  // 2. кадры стека: текущий сверху, «Глобальные» снизу; изменившиеся — подсветка
+  $("#trace-frames").innerHTML = renderTraceFrames(step, prev);
+
+  // 3. вывод программы, наросший к этому шагу (срез по stdout_len)
+  $("#trace-stdout").textContent = tr.stdout.slice(0, step.stdout_len);
+
+  // 4. блок исключения — на шаге exception и на последнем шаге, если error есть
+  const errEl = $("#trace-error");
+  const showErr = tr.error && (step.event === "exception" || idx === tr.steps.length - 1);
+  if (showErr) {
+    const gid = tr.error.type.toLowerCase();
+    errEl.hidden = false;
+    errEl.innerHTML =
+      "⛔ <strong>" +
+      esc(tr.error.type) +
+      "</strong>: " +
+      esc(tr.error.message) +
+      ' <a class="trace-error-link" href="#/glossary/' +
+      encodeURIComponent(gid) +
+      '">открыть в глоссарии →</a>';
+  } else {
+    errEl.hidden = true;
+  }
+
+  // 5. состояние контролов (слайдер, счётчик, дизейбл крайних кнопок)
+  const last = tr.steps.length - 1;
+  $("#trace-slider").value = String(idx);
+  $("#trace-step-label").textContent = "шаг " + (idx + 1) + " из " + tr.steps.length;
+  const out = $("#sandbox-output");
+  out.querySelector('[data-trace="first"]').disabled = idx === 0;
+  out.querySelector('[data-trace="prev"]').disabled = idx === 0;
+  out.querySelector('[data-trace="next"]').disabled = idx === last;
+  out.querySelector('[data-trace="last"]').disabled = idx === last;
+}
+
+function renderTraceFrames(step, prev) {
+  const heap = step.heap || {};
+  const frames = step.stack || [];
+  const out = [];
+  for (let k = frames.length - 1; k >= 0; k--) {
+    const fr = frames[k];
+    const prevFr = prev && prev.stack && prev.stack[k]; // тот же уровень стека в пред. шаге
+    const title = k === 0 ? "Глобальные" : esc(fr.func) + "()";
+    const names = Object.keys(fr.locals || {});
+    let body;
+    if (!names.length) {
+      body = '<div class="hint">нет переменных</div>';
+    } else {
+      const rows = names.map(name => {
+        const ref = fr.locals[name];
+        const changed =
+          !prevFr ||
+          !(name in (prevFr.locals || {})) ||
+          JSON.stringify(prevFr.locals[name]) !== JSON.stringify(ref);
+        return (
+          '<tr class="' +
+          (changed ? "is-changed" : "") +
+          '"><td class="trace-var-name">' +
+          esc(name) +
+          '</td><td class="trace-var-val">' +
+          fmtRef(ref, heap, 0) +
+          "</td></tr>"
+        );
+      });
+      body = '<table class="trace-vars">' + rows.join("") + "</table>";
+    }
+    out.push(
+      '<div class="trace-frame"><div class="trace-frame-title">' + title + "</div>" + body + "</div>"
+    );
+  }
+  return out.join("");
+}
+
+// Отрендерить <ref> (docs/trace-format.md § Ссылки) в короткую HTML-строку.
+function fmtRef(ref, heap, depth) {
+  if (ref === null) return "None";
+  if (ref === true) return "True";
+  if (ref === false) return "False";
+  if (typeof ref === "number") return String(ref);
+  if (typeof ref === "string") return esc(JSON.stringify(ref)); // строка в кавычках, экранирована
+  if (ref && typeof ref === "object") {
+    if ("big" in ref) return esc(ref.big); // большой int — repr строкой
+    if ("ref" in ref) {
+      const obj = heap[ref.ref];
+      return obj ? fmtObj(obj, heap, depth) : "?";
+    }
+  }
+  return esc(String(ref));
+}
+
+function fmtObj(obj, heap, depth) {
+  const kind = obj.kind;
+  if (kind === "func") return "ƒ " + esc(obj.name);
+  if (kind === "module") return "module " + esc(obj.name);
+  if (kind === "opaque") return esc(obj.repr);
+  if (depth > _FMT_MAX_DEPTH) return obj.repr ? esc(obj.repr) : esc(obj.type) + "(…)";
+  if (kind === "seq") {
+    const pair =
+      obj.type === "tuple"
+        ? ["(", ")"]
+        : obj.type === "set" || obj.type === "frozenset"
+          ? ["{", "}"]
+          : ["[", "]"];
+    const shown = (obj.elems || []).slice(0, _FMT_MAX_ELEMS).map(e => fmtRef(e, heap, depth + 1));
+    if (obj.n > shown.length) shown.push("…" + obj.n);
+    return esc(pair[0]) + shown.join(", ") + esc(pair[1]);
+  }
+  if (kind === "map") {
+    const shown = (obj.entries || [])
+      .slice(0, _FMT_MAX_ELEMS)
+      .map(([k, v]) => fmtRef(k, heap, depth + 1) + ": " + fmtRef(v, heap, depth + 1));
+    if (obj.n > shown.length) shown.push("…" + obj.n);
+    return "{" + shown.join(", ") + "}";
+  }
+  if (kind === "object") {
+    const attrs = Object.keys(obj.attrs || {})
+      .slice(0, _FMT_MAX_ELEMS)
+      .map(k => esc(k) + "=" + fmtRef(obj.attrs[k], heap, depth + 1));
+    return esc(obj.type) + "(" + attrs.join(", ") + ")";
+  }
+  return esc(obj.type || "?");
 }
 
 function updateCheckSidebarBadge(data) {
@@ -1649,7 +1905,21 @@ document
 $("#run").addEventListener("click", grade);
 $("#cancel-run").addEventListener("click", cancelActiveRun);
 $("#sandbox-run").addEventListener("click", runPlayground); // issue #317
+$("#sandbox-step").addEventListener("click", runTrace); // issue #319
 $("#sandbox-cancel").addEventListener("click", cancelSandboxRun);
+
+// issue #319: навигация плеера стрелками ← →. Работает только в песочнице при
+// открытом трейсе и когда фокус не в поле ввода/редакторе/слайдере (у слайдера
+// стрелки нативно двигают позицию → его input-слушатель сам вызовет шаг).
+document.addEventListener("keydown", e => {
+  if (state.section !== "sandbox" || !state.sandbox.trace) return;
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  const t = e.target;
+  if (t && ((t.matches && t.matches("input, textarea")) || (t.closest && t.closest(".cm-editor"))))
+    return;
+  e.preventDefault();
+  renderTraceStep(state.sandbox.trace.idx + (e.key === "ArrowRight" ? 1 : -1));
+});
 $("#path").addEventListener("keydown", e => {
   if (e.key !== "Enter") return;
   if (state.mode === "file") findSolutions();

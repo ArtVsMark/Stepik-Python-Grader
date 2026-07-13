@@ -526,3 +526,50 @@ select.form-input { cursor: pointer; }
 /* issue #317: песочница — stderr красным, поле stdin как редактор. */
 .sandbox-stderr { color: var(--color-error); }
 textarea#sandbox-stdin { min-height: 72px; resize: vertical; white-space: pre; }
+
+/* issue #319: пошаговый плеер трейса — контролы, снимок кода с подсветкой
+   активной строки, кадры стека с переменными. Код — read-only снимок (не живой
+   CodeMirror), подсветка строки чистым CSS. */
+.trace-player { display: flex; flex-direction: column; gap: var(--space-3); }
+.trace-controls { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.trace-controls .btn-icon:disabled { opacity: .35; cursor: default; }
+.trace-slider { flex: 1; min-width: 120px; accent-color: var(--color-primary); }
+.trace-step-label {
+  font-size: var(--text-xs); font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted); white-space: nowrap;
+}
+.trace-truncated { color: var(--color-warning); }
+.trace-split { display: flex; flex-direction: column; gap: var(--space-3); }
+.trace-code {
+  margin: 0; background: var(--color-surface-offset);
+  border: 1px solid oklch(from var(--color-text) l c h / 0.08); border-radius: var(--radius-md);
+  font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.7;
+  max-height: 260px; overflow: auto; padding: var(--space-2) 0;
+}
+.trace-line { display: flex; padding: 0 var(--space-3); white-space: pre; }
+.trace-line.is-active { background: var(--color-primary-highlight); }
+.trace-line.is-error  { background: var(--color-error-highlight); }
+.trace-lineno {
+  flex: 0 0 2.5em; text-align: right; margin-right: var(--space-3);
+  color: var(--color-text-faint); user-select: none;
+}
+.trace-linetext { flex: 1; word-break: break-word; white-space: pre-wrap; }
+.trace-frames { display: flex; flex-direction: column; gap: var(--space-2); }
+.trace-frame {
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  overflow: hidden; background: var(--color-surface);
+}
+.trace-frame-title {
+  padding: var(--space-1) var(--space-3); background: var(--color-surface-offset);
+  font-size: var(--text-xs); font-weight: 600; color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+.trace-vars { width: 100%; border-collapse: collapse; font-size: var(--text-xs); font-family: var(--font-mono); }
+.trace-vars td { padding: var(--space-1) var(--space-3); vertical-align: top; border-top: 1px solid var(--color-border); }
+.trace-vars tr:first-child td { border-top: none; }
+.trace-vars tr.is-changed { background: var(--color-primary-highlight); }
+.trace-var-name { color: var(--color-primary); font-weight: 600; white-space: nowrap; width: 1%; }
+.trace-var-val { color: var(--color-text); word-break: break-word; }
+.trace-stdout { max-height: 160px; overflow: auto; }
+.trace-error { color: var(--color-error); }
+.trace-error-link { color: var(--color-primary); white-space: nowrap; }
