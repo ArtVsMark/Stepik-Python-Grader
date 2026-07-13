@@ -82,6 +82,14 @@ from stepik_grader.downloader_config import (
     slugify,
 )
 
+__all__ = [
+    "CONFIG_FILE",
+    "build_task_directory",
+    "save_task_files",
+    "process_step_url",
+    "main",
+]
+
 CONFIG_FILE = "stepik_config.json"
 
 _log = get_logger("downloader")  # issue #147: диагностический лог загрузки (opt-in)

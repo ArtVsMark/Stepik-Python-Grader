@@ -84,10 +84,7 @@ def collect_grouped_files(directory: pathlib.Path) -> dict[str, list[pathlib.Pat
     for root, _, files in os.walk(directory):
         for file_name in files:
             if is_solution_file(file_name):
-                try:
-                    rel_folder = str(pathlib.Path(root).relative_to(directory))
-                except ValueError:
-                    rel_folder = os.path.relpath(root, directory)
+                rel_folder = str(pathlib.Path(root).relative_to(directory, walk_up=True))
                 grouped[rel_folder].append(pathlib.Path(root) / file_name)
 
     return dict(grouped)

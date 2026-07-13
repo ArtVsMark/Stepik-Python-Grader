@@ -70,18 +70,25 @@ class TestFormatRows:
     """format_correctness_row / format_benchmark_row дают непустые строки."""
 
     def test_correctness_row_ok(self):
-        row = format_correctness_row("/base/sol.py", "/base", _correct_result(), col_file=20)
+        row = format_correctness_row(
+            pathlib.Path("/base/sol.py"), pathlib.Path("/base"), _correct_result(), col_file=20
+        )
         assert "sol.py" in row
         assert "OK" in row
 
     def test_correctness_row_fail(self):
         row = format_correctness_row(
-            "/base/sol.py", "/base", _correct_result(passed=1, failed=1), col_file=20
+            pathlib.Path("/base/sol.py"),
+            pathlib.Path("/base"),
+            _correct_result(passed=1, failed=1),
+            col_file=20,
         )
         assert "FAIL" in row
 
     def test_benchmark_row(self):
-        row = format_benchmark_row("/base/sol.py", "/base", _bench_data(), col_file=20)
+        row = format_benchmark_row(
+            pathlib.Path("/base/sol.py"), pathlib.Path("/base"), _bench_data(), col_file=20
+        )
         assert "sol.py" in row
         assert "SIMILAR" in row
 
@@ -105,16 +112,16 @@ class TestPrintResultsPlain:
 
     def test_correctness_plain(self, capsys, monkeypatch):
         monkeypatch.setattr(reporter, "_RICH", False)
-        rows = [("/base/sol.py", _correct_result())]
-        print_correctness_results(rows, "/base", col_file=20)
+        rows = [(pathlib.Path("/base/sol.py"), _correct_result())]
+        print_correctness_results(rows, pathlib.Path("/base"), col_file=20)
         out = capsys.readouterr().out
         assert "sol.py" in out
         assert "OK" in out
 
     def test_benchmark_plain(self, capsys, monkeypatch):
         monkeypatch.setattr(reporter, "_RICH", False)
-        rows = [("/base/sol.py", _bench_data())]
-        print_benchmark_results(rows, "/base", col_file=20)
+        rows = [(pathlib.Path("/base/sol.py"), _bench_data())]
+        print_benchmark_results(rows, pathlib.Path("/base"), col_file=20)
         out = capsys.readouterr().out
         assert "sol.py" in out
 

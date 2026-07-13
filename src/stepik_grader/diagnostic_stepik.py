@@ -26,6 +26,22 @@ from stepik_grader.core.oauth_flow import authorize_via_browser, load_secrets, m
 from stepik_grader.core.stepik_client import API_HOST
 from stepik_grader.downloader import parse_stepik_step_url
 
+__all__ = [
+    "OAUTH_TIMEOUT_SECONDS",
+    "create_user_session",
+    "api_get",
+    "get_lesson_data",
+    "get_step_data",
+    "get_step_data_by_position",
+    "save_json",
+    "extract_zip_url_from_text",
+    "collect_string_candidates",
+    "extract_zip_url_from_step_data",
+    "build_diagnostic_result",
+    "print_result_summary",
+    "main",
+]
+
 # Задача 6: таймаут ожидания OAuth-кода от браузера
 OAUTH_TIMEOUT_SECONDS = 120
 

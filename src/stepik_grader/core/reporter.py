@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import os
 import pathlib
 from typing import TYPE_CHECKING, Any
 
@@ -108,7 +107,7 @@ def format_correctness_row(
     total = result["total"]
     passed = result["passed"]
     status = _correctness_status(result)
-    rel = os.path.relpath(path, base_dir)
+    rel = str(path.relative_to(base_dir, walk_up=True))
     total_t = result["total_time"]
     avg_t = result["avg_time"]
     mem = result["peak_memory_mb"]
@@ -135,7 +134,7 @@ def format_benchmark_row(
     path: pathlib.Path, base_dir: pathlib.Path, data: dict[str, Any], *, col_file: int
 ) -> str:
     """Сформатировать строку benchmark-таблицы для режимов 3 и 4."""
-    rel_path = os.path.relpath(path, base_dir)
+    rel_path = str(path.relative_to(base_dir, walk_up=True))
     return (
         f"{rel_path:<{col_file}} {data['runs']:>4}  "
         f"{fmt_time(data['min']):>10}  {fmt_time(data['median']):>10}  "
@@ -214,7 +213,7 @@ def print_correctness_results(
             status = _correctness_status(result)
             color = _STATUS_COLORS.get(status, "white")
             table.add_row(
-                os.path.relpath(path, base_dir),
+                str(path.relative_to(base_dir, walk_up=True)),
                 f"{result['passed']}/{result['total']}",
                 f"{result['total_time']:.4f}",
                 f"{result['avg_time']:.4f}",
@@ -262,7 +261,7 @@ def print_benchmark_results(
             verdict = data["verdict"]
             color = _VERDICT_COLORS.get(verdict, "white")
             table.add_row(
-                os.path.relpath(path, base_dir),
+                str(path.relative_to(base_dir, walk_up=True)),
                 str(data["runs"]),
                 fmt_time(data["min"]),
                 fmt_time(data["median"]),

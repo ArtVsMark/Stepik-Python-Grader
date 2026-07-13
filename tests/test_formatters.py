@@ -8,6 +8,8 @@ print_correctness_results, print_benchmark_results.
 
 from __future__ import annotations
 
+import pathlib
+
 from stepik_grader.core import reporter
 from stepik_grader.grader import (
     fmt_time,
@@ -116,29 +118,39 @@ class TestFmtTime:
 
 class TestFormatCorrectnessRow:
     def test_ok_status(self) -> None:
-        row = format_correctness_row("/dir/task1.py", "/dir", _ok_result(), col_file=20)
+        row = format_correctness_row(
+            pathlib.Path("/dir/task1.py"), pathlib.Path("/dir"), _ok_result(), col_file=20
+        )
         assert "OK" in row
         assert "task1.py" in row
 
     def test_fail_status(self) -> None:
-        row = format_correctness_row("/dir/task1.py", "/dir", _fail_result(), col_file=20)
+        row = format_correctness_row(
+            pathlib.Path("/dir/task1.py"), pathlib.Path("/dir"), _fail_result(), col_file=20
+        )
         assert "FAIL" in row
         assert "task1.py" in row
 
     def test_no_tests_status(self) -> None:
         """total=0 (тесты не найдены/пустая tests/) — "NO TESTS", не "FAIL" (issue #299)."""
-        row = format_correctness_row("/dir/task1.py", "/dir", _no_tests_result(), col_file=20)
+        row = format_correctness_row(
+            pathlib.Path("/dir/task1.py"), pathlib.Path("/dir"), _no_tests_result(), col_file=20
+        )
         assert "NO TESTS" in row
         assert "FAIL" not in row
 
     def test_passed_fraction(self) -> None:
         """Строка содержит дробь прошедших/всего тестов."""
-        row = format_correctness_row("/dir/task1.py", "/dir", _ok_result(), col_file=20)
+        row = format_correctness_row(
+            pathlib.Path("/dir/task1.py"), pathlib.Path("/dir"), _ok_result(), col_file=20
+        )
         assert "3" in row  # 3/3 или 3 passed
 
     def test_col_file_truncation(self) -> None:
         """Очень короткий col_file не вызывает исключений."""
-        row = format_correctness_row("/dir/task1.py", "/dir", _ok_result(), col_file=5)
+        row = format_correctness_row(
+            pathlib.Path("/dir/task1.py"), pathlib.Path("/dir"), _ok_result(), col_file=5
+        )
         assert isinstance(row, str)
 
 
@@ -149,15 +161,21 @@ class TestFormatCorrectnessRow:
 
 class TestFormatBenchmarkRow:
     def test_contains_verdict(self) -> None:
-        row = format_benchmark_row("/dir/task1.py", "/dir", _bench_data(), col_file=20)
+        row = format_benchmark_row(
+            pathlib.Path("/dir/task1.py"), pathlib.Path("/dir"), _bench_data(), col_file=20
+        )
         assert "SIMILAR" in row
 
     def test_contains_filename(self) -> None:
-        row = format_benchmark_row("/dir/task1.py", "/dir", _bench_data(), col_file=20)
+        row = format_benchmark_row(
+            pathlib.Path("/dir/task1.py"), pathlib.Path("/dir"), _bench_data(), col_file=20
+        )
         assert "task1.py" in row
 
     def test_returns_string(self) -> None:
-        row = format_benchmark_row("/dir/task1.py", "/dir", _bench_data(), col_file=20)
+        row = format_benchmark_row(
+            pathlib.Path("/dir/task1.py"), pathlib.Path("/dir"), _bench_data(), col_file=20
+        )
         assert isinstance(row, str) and len(row) > 0
 
 
@@ -196,31 +214,31 @@ class TestPrintHeaders:
 class TestPrintResults:
     def test_correctness_results_ok(self, capsys, monkeypatch) -> None:
         monkeypatch.setattr(reporter, "_RICH", False)
-        rows = [("/dir/task1.py", _ok_result())]
-        print_correctness_results(rows, "/dir", col_file=20)
+        rows = [(pathlib.Path("/dir/task1.py"), _ok_result())]
+        print_correctness_results(rows, pathlib.Path("/dir"), col_file=20)
         out = capsys.readouterr().out
         assert "task1.py" in out
         assert "OK" in out
 
     def test_correctness_results_fail(self, capsys, monkeypatch) -> None:
         monkeypatch.setattr(reporter, "_RICH", False)
-        rows = [("/dir/task1.py", _fail_result())]
-        print_correctness_results(rows, "/dir", col_file=20)
+        rows = [(pathlib.Path("/dir/task1.py"), _fail_result())]
+        print_correctness_results(rows, pathlib.Path("/dir"), col_file=20)
         out = capsys.readouterr().out
         assert "FAIL" in out
 
     def test_correctness_results_no_tests(self, capsys, monkeypatch) -> None:
         """total=0 в plain-text таблице выводится как "NO TESTS" (issue #299)."""
         monkeypatch.setattr(reporter, "_RICH", False)
-        rows = [("/dir/task1.py", _no_tests_result())]
-        print_correctness_results(rows, "/dir", col_file=20)
+        rows = [(pathlib.Path("/dir/task1.py"), _no_tests_result())]
+        print_correctness_results(rows, pathlib.Path("/dir"), col_file=20)
         out = capsys.readouterr().out
         assert "NO TESTS" in out
 
     def test_benchmark_results(self, capsys, monkeypatch) -> None:
         monkeypatch.setattr(reporter, "_RICH", False)
-        rows = [("/dir/task1.py", _bench_data())]
-        print_benchmark_results(rows, "/dir", col_file=20)
+        rows = [(pathlib.Path("/dir/task1.py"), _bench_data())]
+        print_benchmark_results(rows, pathlib.Path("/dir"), col_file=20)
         out = capsys.readouterr().out
         assert "task1.py" in out
         assert "SIMILAR" in out
@@ -228,5 +246,5 @@ class TestPrintResults:
     def test_empty_rows(self, capsys, monkeypatch) -> None:
         """Пустой список строк не вызывает исключений."""
         monkeypatch.setattr(reporter, "_RICH", False)
-        print_correctness_results([], "/dir", col_file=20)
-        print_benchmark_results([], "/dir", col_file=20)
+        print_correctness_results([], pathlib.Path("/dir"), col_file=20)
+        print_benchmark_results([], pathlib.Path("/dir"), col_file=20)

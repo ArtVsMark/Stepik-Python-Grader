@@ -24,7 +24,6 @@
 from __future__ import annotations
 
 import json
-import os
 import pathlib
 from typing import Any
 
@@ -45,6 +44,15 @@ from stepik_grader.core.reporter import (
     print_correctness_results,
     rich_track,
 )
+
+
+def _rel(path: pathlib.Path, base: pathlib.Path) -> str:
+    """Относительный путь для колонок таблиц (с ``..`` при выходе за ``base``).
+
+    Прямая замена ``os.path.relpath`` на pathlib (issue #354): лексический
+    расчёт без обращения к ФС, ``walk_up=True`` разрешает ``..`` (Python 3.12+).
+    """
+    return str(path.relative_to(base, walk_up=True))
 
 
 def _verdict_counts_from_cases(cases: list[dict[str, Any]]) -> dict[str, int]:
@@ -194,7 +202,7 @@ def _run_mode_2(
         print(ctx.t("no_solutions_found"))
         return
 
-    col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
+    col_file = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
 
     rows: list[tuple[pathlib.Path, dict[str, Any]]] = []
     machine_output = output != "text"
@@ -312,13 +320,13 @@ def _run_mode_3(
 
     ok = {k: v for k, v in results.items() if not v.get("error")}
 
-    col = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
+    col = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
     ranked = sorted(ok.items(), key=lambda x: x[1]["median"])
     print_benchmark_results(ranked, directory, col_file=col)
 
     for path, data in sorted(results.items()):
         if data.get("error"):
-            rel = os.path.relpath(path, directory)
+            rel = _rel(path, directory)
             print(f"  {rel}: {data['error']}")
 
 
@@ -409,7 +417,7 @@ def _run_mode_4(
 
         ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
 
-        col = max((len(os.path.relpath(p, directory)) for p in paths), default=20) + 2
+        col = max((len(_rel(p, directory)) for p in paths), default=20) + 2
 
         if ok_rows:
             ranked = sorted(ok_rows.items(), key=lambda x: x[1]["median"])
@@ -420,7 +428,7 @@ def _run_mode_4(
 
         for path, data in sorted(bench.items()):
             if data.get("error"):
-                rel = os.path.relpath(path, directory)
+                rel = _rel(path, directory)
                 print(f"  ✗ {rel}: {data['error']}")
 
         if not ok_rows and not any(v.get("error") for v in bench.values()):

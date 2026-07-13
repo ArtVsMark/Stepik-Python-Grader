@@ -38,6 +38,32 @@ from urllib3.util.retry import Retry
 from stepik_grader.core.diag_log import get_logger, register_secret
 from stepik_grader.core.storage import save_secrets
 
+__all__ = [
+    "API_HOST",
+    "RETRY_STATUS_FORCELIST",
+    "HEADERS",
+    "make_session",
+    "STEPIK_HOST",
+    "EXTERNAL_DOWNLOAD_ALLOWED_HOSTS",
+    "ExternalUrlRejected",
+    "is_stepik_url",
+    "validate_external_url",
+    "external_download_get",
+    "token_is_valid",
+    "refresh_access_token",
+    "wait_for_auth_code",
+    "authorize_via_browser",
+    "create_user_session",
+    "CACHE_DIR",
+    "CACHE_TTL_SECONDS",
+    "fetch_step_data",
+    "fetch_lesson_data",
+    "fetch_unit_data",
+    "fetch_section_data",
+    "fetch_course_data",
+    "fetch_submission_data",
+]
+
 _log = get_logger("stepik_client")  # issue #148: диагностический лог (opt-in)
 
 API_HOST = "https://stepik.org"
