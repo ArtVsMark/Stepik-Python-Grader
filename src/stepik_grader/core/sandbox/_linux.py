@@ -1,5 +1,8 @@
-"""_linux.py — SandboxRunner backend для Linux: bubblewrap (primary), nsjail
-(fallback), issue #266.
+"""_linux.py — SandboxRunner backend для Linux: bubblewrap, issue #266.
+
+Единственный реализованный backend в этом MVP. Исходный план (issue #266)
+упоминал ``nsjail`` как fallback без ``bwrap`` — не реализован (см.
+``create_backend()``/``SandboxUnavailableError`` ниже, ``SECURITY.md``).
 
 ``bwrap`` даёт полную изоляцию через Linux namespaces без root/setuid (сам
 использует ``user_namespaces(7)``): свежий network namespace без интерфейсов
@@ -129,12 +132,12 @@ class LinuxSandboxRunner:
 
 
 def create_backend() -> LinuxSandboxRunner:
-    """Найти доступный Linux sandbox-инструмент — bwrap (primary), nsjail
-    (fallback, issue #266 — используется тот же bwrap-путь построения argv,
-    т.к. nsjail в этом MVP не реализован отдельно; см. SECURITY.md/план).
+    """Найти ``bwrap`` в PATH — единственный Linux sandbox-backend в этом MVP.
 
-    Поднимает ``SandboxUnavailableError``, если ни один не найден в PATH —
-    никогда не тихий fallback на ``LocalRunner``.
+    Исходный план (issue #266) допускал ``nsjail`` как fallback без ``bwrap``
+    — не реализован (см. ``SECURITY.md``). Поднимает
+    ``SandboxUnavailableError``, если ``bwrap`` не найден — никогда не тихий
+    fallback на ``LocalRunner``.
     """
     from stepik_grader.core.sandbox import SandboxUnavailableError
 

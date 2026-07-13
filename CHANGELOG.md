@@ -26,6 +26,11 @@
   file must be referenced from `docs/README.md`, or the check fails — makes
   the class of drift behind issue #300 impossible to reintroduce silently.
   `docs/adr/*.md` is exempt (cataloged by its own `docs/adr/README.md` index).
+- `core/sandbox/__init__.py`, `core/sandbox/_linux.py`, `core/runner.py`
+  docstrings no longer describe `nsjail` as an implemented Linux fallback
+  backend (issue #293): `bwrap` is the only Linux `--sandbox` backend in this
+  MVP, matching what `SECURITY.md`/`docs/server-mode.md` already documented
+  correctly — only the code docstrings had drifted.
 
 ## [1.7.0] - 2026-07-12
 
