@@ -49,6 +49,24 @@ class TestRunPlayground:
         assert result["status"] == "OK"
         assert result["stdout"] == ""
 
+    def test_launch_error_is_re(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from stepik_grader.core.runner import RunOutcome
+
+        monkeypatch.setattr(
+            playground.LocalRunner, "run", lambda self, spec: RunOutcome(launch_error="nope")
+        )
+        result = playground.run_playground("x = 1")
+        assert result["status"] == "RE"
+        assert result["stderr"] == "nope"
+
+    def test_cancelled_status(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from stepik_grader.core.runner import RunOutcome
+
+        monkeypatch.setattr(
+            playground.LocalRunner, "run", lambda self, spec: RunOutcome(cancelled=True)
+        )
+        assert playground.run_playground("x = 1")["status"] == "CANCELLED"
+
     def test_timeout_is_tle(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # укоротить общий таймаут, чтобы не ждать реальные 10 с
         short = dataclasses.replace(playground.CONFIG, timeout_seconds=0.3)
@@ -96,6 +114,34 @@ class TestPlaygroundJob:
         assert runs.cancel_job(job.id) is True
         data = _poll_until_terminal(job.id)
         assert data["status"] == "cancelled"
+
+    def test_playground_job_internal_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def boom(*a: object, **k: object) -> object:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(runs, "run_playground", boom)
+        job = runs.submit_job("playground", None, {"lang": "ru"}, code="x=1", stdin="")
+        assert _poll_until_terminal(job.id)["status"] == "error"
+
+    def test_trace_job_internal_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def boom(*a: object, **k: object) -> object:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(runs, "trace_code", boom)
+        job = runs.submit_job("trace", None, {"lang": "ru"}, code="x=1", stdin="")
+        assert _poll_until_terminal(job.id)["status"] == "error"
+
+    def test_trace_job_returns_steps(self) -> None:
+        # issue #318: kind="trace" через ту же очередь → JSON-трейс в result.
+        job = runs.submit_job("trace", None, {"lang": "ru"}, code="a = [1]\nb = a\n", stdin="")
+        data = _poll_until_terminal(job.id)
+        assert data["status"] == "done"
+        assert data["result"]["error"] is None
+        assert len(data["result"]["steps"]) >= 2
+        # aliasing доезжает через web-слой: a и b — один ref
+        last = data["result"]["steps"][-1]
+        gl = last["stack"][0]["locals"]
+        assert gl["a"] == gl["b"]
 
 
 # ---------------------------------------------------------------------------

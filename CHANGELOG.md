@@ -55,6 +55,17 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Step-by-step execution tracer for the sandbox (issue #318, epic #314).
+  `core/tracer.py` runs code in a subprocess under `sys.settrace` and collects
+  a Python-Tutor-style JSON trace — one snapshot per line/call/return/exception
+  step, each carrying the stack frames (with locals) and a heap of objects
+  referenced by id so the frontend can show aliasing (two names → one object)
+  and nested structures. Values are safe-encoded (string/container/depth caps;
+  non-finite floats and huge ints degraded to keep the JSON valid). Wired as a
+  new async job `mode="trace"` on `POST /api/v1/runs` (`{code, stdin}`, no
+  `path`); execution is bounded by `max_steps` (1000) + timeout. Format is
+  documented in [`docs/trace-format.md`](docs/trace-format.md). The step-player
+  UI consuming it lands in #319. No OS sandbox (CLAUDE.md invariant 4).
 - Sandbox / playground section in the web UI (issue #317, epic #314): a
   fourth nav section that runs arbitrary code with arbitrary stdin and shows
   the program's output — not grading against tests. A separate CodeMirror

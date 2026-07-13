@@ -15,6 +15,7 @@ subprocess без изоляции ФС/сети, с правами пользо
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pathlib
 import tempfile
@@ -69,10 +70,8 @@ def run_playground(
             )
         )
     finally:
-        try:
+        with contextlib.suppress(OSError):  # уборка временного файла
             os.unlink(tmp.name)
-        except OSError:
-            pass
 
     duration_ms = int(outcome.elapsed * 1000)
     if outcome.launch_error is not None:

@@ -16,6 +16,7 @@
 | Локальный глоссарий: формат JSON карточек/очереди, Python-API (`stepik_grader.glossary`) | [glossary.md](glossary.md) |
 | Понять архитектуру: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) |
 | Контракт результата проверки (поля, вердикты) для CLI/Web/API | [result-contract.md](result-contract.md) |
+| Формат JSON-трейса пошагового исполнения (песочница, `core/tracer.py`) | [trace-format.md](trace-format.md) |
 | Дизайн server mode: Runner-слой, API удалённого исполнения, sandbox | [server-mode.md](server-mode.md) |
 | Диагностический режим и лог-файл (редакция секретов, opt-in) | [logging.md](logging.md) |
 | Архитектурные решения (ADR) | [adr/README.md](adr/README.md) |

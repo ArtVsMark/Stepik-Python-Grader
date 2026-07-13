@@ -34,6 +34,7 @@ from typing import Any
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.test_loader import find_all_solution_files
+from stepik_grader.core.tracer import trace_code
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
 from stepik_grader.web.playground import run_playground
 from stepik_grader.web.viewmodels import (
@@ -216,6 +217,9 @@ def _run_job(
     if kind == "playground":
         _run_playground_job(job, code or "", stdin or "", lang)
         return
+    if kind == "trace":
+        _run_trace_job(job, code or "", stdin or "", lang)
+        return
 
     assert path is not None  # tests/bench/microbench всегда с path (см. submit_job)
     temp_code_path: str | None = None
@@ -316,3 +320,23 @@ def _run_playground_job(job: Job, code: str, stdin: str, lang: str) -> None:
         else:
             job.status = "done"
             job.result = result
+
+
+def _run_trace_job(job: Job, code: str, stdin: str, lang: str) -> None:
+    """Тело trace-job'ы (issue #318): пошаговый трейс исполнения ``code``.
+
+    ``trace_code`` спавнит свой subprocess (``python -m …core.tracer``) и сам
+    его убивает по таймауту — ``cancel_event`` этот путь пока не прерывает
+    (трассировка ограничена ``max_steps`` + таймаутом; отмена — best-effort
+    через таймаут). Результат job'ы — JSON-трейс ``{steps, stdout, …}``.
+    """
+    try:
+        result = trace_code(code, stdin, timeout=float(CONFIG.timeout_seconds))
+    except Exception as exc:  # noqa: BLE001 — safety net, как в _run_job
+        with job.lock:
+            job.status = "error"
+            job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
+        return
+    with job.lock:
+        job.status = "done"
+        job.result = result

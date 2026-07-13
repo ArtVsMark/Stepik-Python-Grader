@@ -273,6 +273,10 @@ curl -X POST http://127.0.0.1:8000/api/save-solution \
   (в `GET /api/v1/runs/<id>` → `result`) — `{"status":
   "OK"|"RE"|"TLE"|"CANCELLED", "stdout", "stderr", "exit_code", "duration_ms",
   "truncated"}`; никакой сверки с ожидаемым выводом.
+- `mode="trace"` (issue #318) — пошаговый трейс исполнения: то же тело
+  `{"code","stdin"?}` без `path`. `result` — JSON-трейс `{steps, stdout,
+  truncated, error}` (кадры стека + heap объектов со ссылками по id, aliasing);
+  формат — в [trace-format.md](trace-format.md).
 - Успех → **202** `{"run_id": "...", "status": "queued"}`.
 
 ```

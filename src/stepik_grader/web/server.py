@@ -442,9 +442,10 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         mode = str(body.get("mode") or "").strip()
-        # issue #317: песочница — code+stdin без path и без тестов.
-        if mode == "playground":
-            self._handle_playground_run(body, lang)
+        # issue #317/#318: песочница — code+stdin без path и без тестов
+        # (playground — запуск, trace — пошаговый трейс исполнения).
+        if mode in ("playground", "trace"):
+            self._handle_code_run(body, lang, mode)
             return
 
         raw_path = str(body.get("path") or "").strip()
@@ -488,12 +489,13 @@ class _Handler(BaseHTTPRequestHandler):
             _json({"run_id": job.id, "status": job.status}),
         )
 
-    def _handle_playground_run(self, body: dict[str, Any], lang: str) -> None:
-        """POST /api/v1/runs с ``mode="playground"`` (issue #317) — тело
-        ``{"code","stdin"?}`` → ``202`` + ``{"run_id","status"}``. Без ``path``
-        и без тестов: одиночный запуск кода со stdin (``run_playground`` через
-        async-очередь ради отмены/неблокирующего UI). Лимит тела (#259) и
-        localhost/Origin guard (#242) уже применены вызывающим кодом."""
+    def _handle_code_run(self, body: dict[str, Any], lang: str, kind: str) -> None:
+        """POST /api/v1/runs с ``mode="playground"``/``"trace"`` (issue #317/#318)
+        — тело ``{"code","stdin"?}`` → ``202`` + ``{"run_id","status"}``. Без
+        ``path`` и без тестов: ``playground`` — одиночный запуск кода со stdin,
+        ``trace`` — пошаговый трейс исполнения (оба через async-очередь ради
+        отмены/неблокирующего UI). Лимит тела (#259) и localhost/Origin guard
+        (#242) уже применены вызывающим кодом."""
         raw_code = body.get("code")
         code = raw_code if isinstance(raw_code, str) else ""
         if not code.strip():
@@ -505,7 +507,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
         raw_stdin = body.get("stdin")
         stdin = raw_stdin if isinstance(raw_stdin, str) else ""
-        job = runs.submit_job("playground", None, {"lang": lang}, code=code, stdin=stdin)
+        job = runs.submit_job(kind, None, {"lang": lang}, code=code, stdin=stdin)
         self._send(
             202,
             "application/json; charset=utf-8",
