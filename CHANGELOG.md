@@ -63,6 +63,24 @@
   manual removal of orphaned `.dist-info`/`.pth`/`_finder.py` files when pip
   can't find a RECORD to uninstall from).
 
+### Refactored
+- CodeMirror 6 frontend vendoring (issue #295): the 8 separate esm.sh
+  per-package bundles + import map + 4 Node.js browser-compat polyfill files
+  (issue #265) are replaced by a single self-contained esbuild bundle,
+  `static/vendor/codemirror-bundle@6.mjs`. `app.js` now imports it directly
+  by URL instead of via bare specifiers resolved through an import map.
+  Building from the real npm packages (not esm.sh's per-package re-bundles)
+  lets tree-shaking eliminate the optional debug/tracing code path that
+  needed the Node shims in the first place — none are needed anymore
+  (verified: no `events`/`tty`/`process`/`async_hooks` references in the
+  output). ~12 HTTP requests for the editor down to 1; bundle is smaller than
+  the sum of the files it replaces. No build tooling added to the repo or CI
+  — the bundle is built once outside the repo and committed as a finished
+  artifact, same philosophy as before (see `static/vendor/VERSIONS.md` for
+  the reproducible build recipe and full pinned dependency list, now
+  including previously-undocumented transitive deps `@codemirror/autocomplete`,
+  `@lezer/python`, `style-mod`, `w3c-keyname`, `crelt`).
+
 ## [1.7.0] - 2026-07-12
 
 ### Added

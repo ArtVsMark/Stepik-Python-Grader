@@ -6,11 +6,16 @@
 // on*="..."-атрибутов, зовущих функции этого файла как globals, так что
 // переход на module-scope (топ-level function здесь больше не попадают на
 // window) ничего не ломает.
-import { EditorState } from "@codemirror/state";
-import { EditorView, lineNumbers, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { syntaxHighlighting, defaultHighlightStyle, indentOnInput } from "@codemirror/language";
-import { python } from "@codemirror/lang-python";
+// issue #295: single self-contained vendored bundle (esbuild, no CDN/import
+// map) instead of 5 bare-specifier imports resolved via an import map to
+// separate esm.sh per-package bundles -- see static/vendor/VERSIONS.md.
+import {
+  EditorState,
+  EditorView, lineNumbers, keymap, placeholder as cmPlaceholder,
+  defaultKeymap, history, historyKeymap, indentWithTab,
+  syntaxHighlighting, defaultHighlightStyle, indentOnInput,
+  python,
+} from "/static/vendor/codemirror-bundle@6.mjs";
 
 const $ = s => document.querySelector(s);
 // issue #214: экранируем и кавычки — esc() используется не только в текстовом
