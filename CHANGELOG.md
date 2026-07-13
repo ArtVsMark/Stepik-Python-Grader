@@ -17,6 +17,14 @@
   `docs/result-contract.md`, which the code had drifted from. Previously a
   solution folder with an existing-but-empty `tests/` dir looked identical to
   a genuinely wrong solution.
+- `core/runner._measure_peak_memory`'s "peak memory measurement unreliable"
+  `UserWarning` no longer floods the console during batch grading (mode 2)
+  or a long-running `--serve`: the message used to interpolate the child
+  `pid`, so every occurrence was a distinct string that defeated Python's
+  own "default" warning filter dedup (which keys on the exact rendered
+  text) — one warning per trivially-fast solution (`print(1)` and similar,
+  common Stepik exercises) instead of once per process. Message text is now
+  constant; the stdlib filter shows it once per interpreter session.
 
 ### Docs
 - `docs/README.md` navigation index now lists `docs/changelog-archive.md`

@@ -170,11 +170,21 @@ def _measure_peak_memory(
     # returning peak=0.0 indistinguishable from "the process genuinely used
     # ~0 memory" -- warn so a caller doesn't mistake an unreliable reading for
     # a real measurement.
+    #
+    # issue: the message used to interpolate f"pid={proc.pid}", which made
+    # every occurrence a distinct string -- Python's default warning filter
+    # dedupes on the exact rendered message text, so a batch grading run full
+    # of trivially-fast solutions (print(1), etc. -- common Stepik exercises)
+    # printed one UserWarning PER test case instead of once. Keeping the
+    # message text constant lets the stdlib's own "default" filter show it
+    # once per interpreter session and silently drop the rest, with no extra
+    # state to maintain here.
     def _warn_unreliable() -> None:
         warnings.warn(
-            f"peak memory measurement unreliable for pid={proc.pid}: process "
-            "exited before it could be sampled (reported peak may be 0.0 or "
-            "an undercount)",
+            "peak memory measurement unreliable for a fast-exiting process: it "
+            "exited before it could be sampled (reported peak may be 0.0 or an "
+            "undercount, common for trivially fast solutions). Shown once per "
+            "process by Python's default warning filter.",
             stacklevel=2,
         )
 
