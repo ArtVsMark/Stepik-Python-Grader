@@ -9,6 +9,16 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Added
+- Curated WA hint for non-UTF-8 output (issue #301): a solution that writes
+  raw bytes to stdout (`sys.stdout.buffer.write(b"\xff...")`) is decoded with
+  `errors="replace"`, so its diff shows `�` (U+FFFD) with no explanation.
+  `web/viewmodels._wa_suggestion` now detects `�` in the actual output and
+  returns a `message_id="output_invalid_utf8"` hint (ru/en) pointing at the
+  likely cause (printing raw bytes / wrong encoding), taking priority over
+  the trailing-whitespace hint. The runner's decode strategy is unchanged
+  (still `errors="replace"`, a deliberate non-goal).
+
 ### Fixed
 - Web UI accessibility for grading results (issue #298, WCAG 2.1 AA):
   results were announced silently to assistive tech. Added a polite
