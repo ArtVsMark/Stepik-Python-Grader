@@ -307,7 +307,10 @@ function setSection(section) {
   $("#view-glossary").hidden = section !== "glossary";
   $("#view-sandbox").hidden = section !== "sandbox";
   if (section === "glossary" && !state.glossary.cards.length) loadGlossary();
-  if (section === "sandbox") mountSandboxEditor(); // issue #317: ленивый монтаж
+  if (section === "sandbox") {
+    mountSandboxEditor(); // issue #317: ленивый монтаж
+    loadCodeTerms(); // issue #321: обновить «Функции в коде» под текущий код
+  }
 }
 
 function openGlossaryForSelectedCase() {
@@ -492,12 +495,57 @@ function mountEditor() {
 }
 
 // issue #317: редактор песочницы монтируется лениво при первом входе в раздел.
+// issue #321: правка кода (debounce) обновляет панель «Функции в коде».
+let sandboxTermsTimer = null;
 function mountSandboxEditor() {
   if (sandboxView) return;
   const mount = document.getElementById("sandbox-editor");
-  sandboxView = makeEditor(mount, null);
+  sandboxView = makeEditor(mount, () => {
+    clearTimeout(sandboxTermsTimer);
+    sandboxTermsTimer = setTimeout(loadCodeTerms, 400);
+  });
   const label = document.querySelector('label[for="sandbox-editor"]');
   if (label) label.addEventListener("click", () => sandboxView.focus());
+}
+
+// issue #321: запросить мини-карточки глоссария по текущему коду и отрисовать их.
+async function loadCodeTerms() {
+  const code = getSandboxCode();
+  const el = $("#sandbox-terms");
+  if (!el) return;
+  if (!code.trim()) {
+    el.innerHTML = '<li class="empty">Начните вводить код</li>';
+    return;
+  }
+  let terms;
+  try {
+    const resp = await fetch("/api/code-terms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    terms = (await resp.json()).terms;
+  } catch {
+    return; // сеть моргнула — оставляем прошлый список, не шумим ошибкой
+  }
+  if (!terms || !terms.length) {
+    el.innerHTML = '<li class="empty">Знакомых функций не найдено</li>';
+    return;
+  }
+  el.innerHTML = terms
+    .map(
+      t =>
+        '<li class="term-card' +
+        (t.status === "draft" ? " gloss-draft" : "") +
+        '"><a class="term-card-link" href="#/glossary/' +
+        encodeURIComponent(t.id) +
+        '"><span class="term-card-title">' +
+        esc(t.title) +
+        "</span>" +
+        (t.summary ? '<span class="term-card-summary">' + esc(t.summary) + "</span>" : "") +
+        "</a></li>"
+    )
+    .join("");
 }
 
 function getSandboxCode() {
@@ -1010,14 +1058,48 @@ function setSandboxStatus(status) {
   el.hidden = false;
 }
 
+// issue #321: имя класса исключения из последней строки stderr (или null) —
+// зеркалит серверный detector._last_exception_name для error card песочницы.
+const _EXC_NO_SUFFIX = [
+  "StopIteration",
+  "StopAsyncIteration",
+  "KeyboardInterrupt",
+  "SystemExit",
+  "GeneratorExit",
+];
+function extractExceptionType(text) {
+  const lines = (text || "").trim().split("\n").filter(l => l.trim());
+  if (!lines.length) return null;
+  let cand = lines[lines.length - 1].trim().split(":")[0].trim();
+  cand = cand.split(".").pop();
+  if (!/^[A-Z]\w*$/.test(cand)) return null;
+  return /(Error|Exception|Warning)$/.test(cand) || _EXC_NO_SUFFIX.includes(cand) ? cand : null;
+}
+
+// issue #321: error card под выводом при RE — тип исключения + deep-link в
+// глоссарий (карточка есть → откроется; нет → раздел покажет «не найдено»).
+function sandboxErrorCard(stderr) {
+  const exc = extractExceptionType(stderr);
+  if (!exc) return "";
+  return (
+    '<div class="sandbox-errcard">⛔ <strong>' +
+    esc(exc) +
+    '</strong> <a class="trace-error-link" href="#/glossary/' +
+    encodeURIComponent(exc.toLowerCase()) +
+    '">открыть карточку →</a></div>'
+  );
+}
+
 function renderSandboxResult(r) {
   setSandboxStatus(r.status);
-  const parts = [
+  const parts = [];
+  if (r.status === "RE") parts.push(sandboxErrorCard(r.stderr));
+  parts.push(
     '<div class="form-label">Вывод (stdout)</div>',
     '<pre class="code-block">' +
       (r.stdout ? esc(r.stdout) : '<span class="hint">(пусто)</span>') +
-      "</pre>",
-  ];
+      "</pre>"
+  );
   if (r.stderr) {
     parts.push('<div class="form-label">Ошибки (stderr)</div>');
     parts.push('<pre class="code-block sandbox-stderr">' + esc(r.stderr) + "</pre>");

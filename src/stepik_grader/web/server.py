@@ -28,7 +28,12 @@ from urllib.parse import parse_qs, urlparse
 from stepik_grader.web import runs
 from stepik_grader.web.commands import filter_commands
 from stepik_grader.web.downloader_adapter import download_task
-from stepik_grader.web.glossary_adapter import glossary_get, glossary_missing, glossary_search
+from stepik_grader.web.glossary_adapter import (
+    code_terms,
+    glossary_get,
+    glossary_missing,
+    glossary_search,
+)
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message, resolve_lang
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
@@ -302,7 +307,7 @@ class _Handler(BaseHTTPRequestHandler):
         if parsed.path.startswith("/api/v1/runs/") and parsed.path.endswith("/cancel"):
             self._handle_cancel_run(parsed)
             return
-        if parsed.path not in ("/api/download", "/api/save-solution"):
+        if parsed.path not in ("/api/download", "/api/save-solution", "/api/code-terms"):
             self._send(404, "text/plain; charset=utf-8", b"not found")
             return
         lang = _lang_from_query(parsed)
@@ -310,6 +315,15 @@ class _Handler(BaseHTTPRequestHandler):
             return
         body = self._read_json_body(lang)
         if body is None:
+            return
+        if parsed.path == "/api/code-terms":
+            # issue #321: мини-карточки глоссария по коду редактора песочницы.
+            # Только детекция + сопоставление с базой — без ФС, без confine.
+            raw_code = body.get("code")
+            terms_code = raw_code if isinstance(raw_code, str) else ""
+            self._send(
+                200, "application/json; charset=utf-8", _json({"terms": code_terms(terms_code)})
+            )
             return
         if parsed.path == "/api/download":
             url = str(body.get("url") or "").strip()

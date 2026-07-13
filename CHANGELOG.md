@@ -55,6 +55,19 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Glossary integration in the sandbox (issue #321, epic #314). A "Функции в
+  коде" panel lists mini-cards for the functions/constructs detected in the
+  editor (debounced on edit) — clicking one opens the full card in the
+  Glossary section. New `POST /api/code-terms` endpoint (`{code}` →
+  `{terms: [...]}`) backs it: `glossary_adapter.code_terms` over a new public
+  `glossary.detector.scan_code_concepts` (notable builtins, imported
+  functions, `match/case`), matched to bundled cards by id/alias (and the tail
+  after a dot, so `math.sqrt` → the `sqrt` card); everyday builtins like
+  `print`/`len` are intentionally not surfaced as noise. On a runtime error
+  the sandbox output now shows an error card with the exception type and a
+  working deep-link to its glossary card. New unit tests (`code_terms` +
+  endpoint) and a Playwright e2e journey (mini-card open + error-card
+  deep-link).
 - Variable-relationship diagram in the sandbox step player (issue #320, epic
   #314). A "Таблица / Диаграмма" toggle in the player's variable panel switches
   to a Python-Tutor-style memory graph: stack frames on the left, heap object

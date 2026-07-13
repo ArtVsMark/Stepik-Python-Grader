@@ -26,6 +26,7 @@
 - [`GET /api/glossary`](#get-apiglossary)
 - [`GET /api/glossary/missing`](#get-apiglossarymissing)
 - [`GET /api/glossary/<id>`](#get-apiglossaryid)
+- [`POST /api/code-terms`](#post-apicode-terms)
 - [`GET /api/commands`](#get-apicommands)
 - [`POST /api/download`](#post-apidownload)
 - [`POST /api/save-solution`](#post-apisave-solution)
@@ -180,6 +181,25 @@ glossary_card_not_found}`.
 
 ```
 curl http://127.0.0.1:8000/api/glossary/ZeroDivisionError
+```
+
+## `POST /api/code-terms`
+
+Мини-карточки глоссария для функций/конструкций, найденных в коде (issue
+#321, панель «Функции в коде» песочницы). Тело `{"code": "..."}`; **не**
+проходит path-confinement (только детекция + сопоставление с базой, без ФС).
+
+Сканирует код (`scan_code_concepts` — notable-builtins, импортированные
+функции, `match/case`) и сопоставляет с карточками базы по `id`/`aliases`
+(и «хвосту» после точки: `math.sqrt` → карта `sqrt`). **200**
+`{"terms": [{"id","title","kind","summary","status","snippet"}]}` — только
+концепции, у которых карточка есть (порядок по `title`); синтаксически
+некорректный код / нет знакомых функций → `{"terms": []}`.
+
+```
+curl -X POST http://127.0.0.1:8000/api/code-terms \
+  -H "Content-Type: application/json" \
+  -d '{"code": "xs = sorted([3, 1, 2])"}'
 ```
 
 ## `GET /api/commands`

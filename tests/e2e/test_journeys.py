@@ -357,6 +357,41 @@ def test_sandbox_diagram_shows_aliasing_and_nesting(
     page.wait_for_selector(".trace-vars", timeout=_TIMEOUT_MS)
 
 
+def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J (issue #321): «Функции в коде» (sorted → карточка) и error card при RE."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    # мини-карточка sorted появляется по мере ввода кода; клик открывает глоссарий
+    page.click("#sandbox-editor .cm-content")
+    page.keyboard.type("xs = sorted([3, 1, 2])")
+    page.wait_for_selector("#sandbox-terms .term-card", timeout=_TIMEOUT_MS)
+    titles = page.locator("#sandbox-terms .term-card-title").all_inner_texts()
+    assert any("sorted" in t.lower() for t in titles), titles
+    page.click("#sandbox-terms .term-card-link")
+    page.wait_for_selector("#view-glossary:not([hidden])", timeout=_TIMEOUT_MS)
+    page.wait_for_selector("#glossary-detail-content:not([hidden])", timeout=_TIMEOUT_MS)
+    assert "sorted" in page.locator("#glossary-detail-content").inner_text().lower()
+
+    # RE → error card ZeroDivisionError с рабочим deep-link в глоссарий
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click("#sandbox-editor .cm-content")
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    page.keyboard.type("1 / 0")
+    page.click("#sandbox-run")
+    page.wait_for_selector(".sandbox-errcard", timeout=_TIMEOUT_MS)
+    assert "ZeroDivisionError" in page.locator(".sandbox-errcard").inner_text()
+    link = page.locator(".sandbox-errcard a.trace-error-link")
+    assert link.get_attribute("href") == "#/glossary/zerodivisionerror"
+    link.click()
+    page.wait_for_selector("#view-glossary:not([hidden])", timeout=_TIMEOUT_MS)
+    page.wait_for_selector("#glossary-detail-content:not([hidden])", timeout=_TIMEOUT_MS)
+    assert "zerodivision" in page.locator("#glossary-detail-content").inner_text().lower()
+
+
 def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: command palette -- Ctrl+K/триггер открывает палитру, команда исполняется."""
     page.goto(e2e_server + "/")
