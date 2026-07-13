@@ -194,6 +194,63 @@ class TestGlossaryFilterAndSort:
 
 
 # ---------------------------------------------------------------------------
+# code_terms — мини-карточки функций из кода песочницы (issue #321)
+# ---------------------------------------------------------------------------
+
+
+class TestCodeTerms:
+    """issue #321: сопоставление концепций из кода с карточками глоссария."""
+
+    @pytest.fixture
+    def store_path(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        cards = [
+            GlossaryCard(
+                id="sorted",
+                title="sorted()",
+                kind="function",
+                status="ready",
+                summary="Новый отсортированный список из итерируемого.",
+            ),
+            # id без префикса модуля — проверяет матч по «хвосту» (math.sqrt → sqrt)
+            GlossaryCard(id="sqrt", title="math.sqrt()", kind="function", status="ready"),
+            GlossaryCard(id="match/case", title="match/case", kind="construct", status="draft"),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_notable_builtin_maps_to_card(self, store_path: pathlib.Path) -> None:
+        terms = glossary_adapter.code_terms("xs = sorted([3, 1, 2])", store_path=str(store_path))
+        assert [t["id"] for t in terms] == ["sorted"]
+        assert terms[0]["summary"]  # компактная инфа несёт summary для мини-карточки
+
+    def test_dotted_concept_matches_by_tail(self, store_path: pathlib.Path) -> None:
+        code = "import math\nprint(math.sqrt(4))\n"
+        terms = glossary_adapter.code_terms(code, store_path=str(store_path))
+        assert any(t["id"] == "sqrt" for t in terms)  # math.sqrt → карта sqrt
+
+    def test_match_case_construct_detected(self, store_path: pathlib.Path) -> None:
+        terms = glossary_adapter.code_terms(
+            "match x:\n    case 1:\n        pass\n", store_path=str(store_path)
+        )
+        assert any(t["id"] == "match/case" for t in terms)
+
+    def test_everyday_builtins_are_not_noise(self, store_path: pathlib.Path) -> None:
+        # print/len намеренно не в notable-наборе → панель их не показывает
+        assert glossary_adapter.code_terms("print(len([1]))", store_path=str(store_path)) == []
+
+    def test_syntax_error_returns_empty(self, store_path: pathlib.Path) -> None:
+        assert glossary_adapter.code_terms("def (:", store_path=str(store_path)) == []
+
+    def test_no_duplicate_card_for_repeated_concept(self, store_path: pathlib.Path) -> None:
+        terms = glossary_adapter.code_terms("sorted([]); sorted([1])", store_path=str(store_path))
+        assert [t["id"] for t in terms] == ["sorted"]
+
+
+# ---------------------------------------------------------------------------
 # glossary_missing — очередь пополнения (J7)
 # ---------------------------------------------------------------------------
 
@@ -241,6 +298,14 @@ def _get(url: str) -> tuple[int, bytes]:
         return resp.status, resp.read()
 
 
+def _post_json(url: str, body: dict) -> tuple[int, bytes]:
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
+    )
+    with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
+        return resp.status, resp.read()
+
+
 class TestGlossaryHttpEndpoints:
     def test_api_glossary_search_returns_json_list(self, server: str) -> None:
         status, body = _get(server + "/api/glossary?" + urllib.parse.urlencode({"q": "KeyError"}))
@@ -263,6 +328,18 @@ class TestGlossaryHttpEndpoints:
         with pytest.raises(urllib.error.HTTPError) as exc:
             _get(server + "/api/glossary/not-a-real-id")
         assert exc.value.code == 404
+
+    def test_api_code_terms_returns_matched_cards(self, server: str) -> None:
+        # issue #321: POST кода → мини-карточки функций (bundled-база несёт sorted).
+        status, body = _post_json(server + "/api/code-terms", {"code": "xs = sorted([1])"})
+        assert status == 200
+        terms = json.loads(body)["terms"]
+        assert any(t["id"] == "sorted" for t in terms)
+
+    def test_api_code_terms_empty_code_returns_empty(self, server: str) -> None:
+        status, body = _post_json(server + "/api/code-terms", {"code": "   "})
+        assert status == 200
+        assert json.loads(body)["terms"] == []
 
     def test_api_glossary_kind_param_filters(self, server: str) -> None:
         # issue #329: сервер прокидывает kind в glossary_search.

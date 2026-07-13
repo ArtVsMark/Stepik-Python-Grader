@@ -208,6 +208,190 @@ def test_glossary_chip_filter_and_deeplink(page: Any, e2e_server: str, tmp_path:
     assert "KeyError" in detail.locator("h2").text_content()
 
 
+def test_sandbox_runs_code_with_stdin(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J: песочница (issue #317) -- код + stdin → вывод программы."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    page.click("#sandbox-editor .cm-content")
+    page.keyboard.type("print(input().upper())")
+    page.fill("#sandbox-stdin", "hello")
+    page.click("#sandbox-run")
+
+    page.wait_for_selector("#sandbox-output pre.code-block", timeout=_TIMEOUT_MS)
+    assert "HELLO" in page.locator("#sandbox-output").inner_text()
+    assert page.locator("#sandbox-status").text_content() == "Успешно"
+
+
+def _type_sandbox_code(page: Any, code: str) -> None:
+    """Ввести многострочный код в редактор песочницы, снимая автоотступ CodeMirror.
+
+    После двоеточия CodeMirror сам добавляет отступ на новой строке; чистим
+    строку (Home → Shift+End → Delete) и печатаем её с нуля, чтобы трейс получил
+    ровно ``code``.
+    """
+    page.click("#sandbox-editor .cm-content")
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    for i, line in enumerate(code.split("\n")):
+        if i:
+            page.keyboard.press("Enter")
+            page.keyboard.press("Home")
+            page.keyboard.press("Shift+End")
+            page.keyboard.press("Delete")
+        page.keyboard.type(line)
+
+
+def _sandbox_var_value(page: Any, name: str) -> str | None:
+    """Значение переменной ``name`` из панели кадров текущего шага (или None)."""
+    for row in page.locator(".trace-vars tr").all():
+        cells = row.locator("td")
+        if cells.count() == 2 and cells.nth(0).inner_text() == name:
+            return cells.nth(1).inner_text()
+    return None
+
+
+def test_sandbox_step_player_loop_and_keyboard(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J (issue #319): плеер листает цикл — ``i`` меняется, вывод растёт, ← → работают."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    _type_sandbox_code(page, "for i in range(3):\n    print(i)")
+    page.click("#sandbox-step")
+    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+
+    label = page.locator("#trace-step-label").text_content()
+    assert "шаг 1 из" in label, label
+    total = int(label.split("из")[1])
+
+    seen_i: set[str] = set()
+    outputs: list[str] = []
+    for _ in range(total):
+        val = _sandbox_var_value(page, "i")
+        if val is not None:
+            seen_i.add(val)
+        outputs.append(page.locator("#trace-stdout").inner_text())
+        nxt = page.locator('[data-trace="next"]')
+        if nxt.is_disabled():
+            break
+        nxt.click()
+
+    assert {"0", "1", "2"} <= seen_i, seen_i  # i прошёл 0,1,2
+    assert outputs[-1].strip() == "0\n1\n2"  # вывод дорос до полного
+    assert len(outputs[-1]) >= len(outputs[0])  # монотонный рост
+    assert page.locator(".trace-line.is-active, .trace-line.is-error").count() >= 1
+
+    # навигация клавиатурой ← → (фокус уводим на снимок кода, не в редактор)
+    page.locator("#trace-code").click()
+    page.locator('[data-trace="first"]').click()
+    before = page.locator("#trace-step-label").text_content()
+    page.keyboard.press("ArrowRight")
+    assert page.locator("#trace-step-label").text_content() != before
+    mid = page.locator("#trace-step-label").text_content()
+    page.keyboard.press("ArrowLeft")
+    assert page.locator("#trace-step-label").text_content() != mid
+
+
+def test_sandbox_step_player_function_frame_appears(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #319): вызов функции — в стеке появляется кадр ``f()`` с параметром ``n``."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    _type_sandbox_code(page, "def f(n):\n    return n + 1\nx = f(5)")
+    page.click("#sandbox-step")
+    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+
+    total = int(page.locator("#trace-step-label").text_content().split("из")[1])
+    saw_frame_with_n = False
+    for _ in range(total):
+        titles = page.locator(".trace-frame-title").all_inner_texts()
+        if any("f()" in t for t in titles) and _sandbox_var_value(page, "n") == "5":
+            saw_frame_with_n = True
+            break
+        nxt = page.locator('[data-trace="next"]')
+        if nxt.is_disabled():
+            break
+        nxt.click()
+    assert saw_frame_with_n, "кадр f() с параметром n=5 не появился"
+
+
+def test_sandbox_diagram_shows_aliasing_and_nesting(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #320): диаграмма связей — aliasing (две стрелки в один узел) и вложенность."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    # aliasing: a и b ссылаются на один список → один узел, две стрелки в него
+    _type_sandbox_code(page, "a = [1, 2]\nb = a")
+    page.click("#sandbox-step")
+    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    page.locator('[data-trace="last"]').click()  # финал: a и b заданы
+    page.click('[data-traceview="diagram"]')
+    page.wait_for_selector("#mem-cols", timeout=_TIMEOUT_MS)
+
+    assert page.locator(".mem-node").count() == 1  # один список — один узел
+    anchors = page.locator(".mem-frames-col .mem-anchor").all()
+    targets = [a.get_attribute("data-to") for a in anchors]
+    assert len(targets) == 2 and targets[0] == targets[1]  # a и b → один heap-id
+    assert page.locator("path.mem-arrow").count() >= 2  # две стрелки в узел
+
+    # вложенность: m = {"x": [1]} → два узла (dict + list), стрелка узел→узел
+    _type_sandbox_code(page, 'm = {"x": [1]}')
+    page.click("#sandbox-step")
+    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    page.locator('[data-trace="last"]').click()
+    page.click('[data-traceview="diagram"]')
+    page.wait_for_selector("#mem-cols", timeout=_TIMEOUT_MS)
+    assert page.locator(".mem-node").count() == 2  # dict + вложенный list
+    assert page.locator(".mem-heap-col .mem-anchor").count() >= 1  # ссылка из dict на list
+
+    # переключение обратно в таблицу работает
+    page.click('[data-traceview="table"]')
+    page.wait_for_selector(".trace-vars", timeout=_TIMEOUT_MS)
+
+
+def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J (issue #321): «Функции в коде» (sorted → карточка) и error card при RE."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    # мини-карточка sorted появляется по мере ввода кода; клик открывает глоссарий
+    page.click("#sandbox-editor .cm-content")
+    page.keyboard.type("xs = sorted([3, 1, 2])")
+    page.wait_for_selector("#sandbox-terms .term-card", timeout=_TIMEOUT_MS)
+    titles = page.locator("#sandbox-terms .term-card-title").all_inner_texts()
+    assert any("sorted" in t.lower() for t in titles), titles
+    page.click("#sandbox-terms .term-card-link")
+    page.wait_for_selector("#view-glossary:not([hidden])", timeout=_TIMEOUT_MS)
+    page.wait_for_selector("#glossary-detail-content:not([hidden])", timeout=_TIMEOUT_MS)
+    assert "sorted" in page.locator("#glossary-detail-content").inner_text().lower()
+
+    # RE → error card ZeroDivisionError с рабочим deep-link в глоссарий
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click("#sandbox-editor .cm-content")
+    page.keyboard.press("Control+a")
+    page.keyboard.press("Delete")
+    page.keyboard.type("1 / 0")
+    page.click("#sandbox-run")
+    page.wait_for_selector(".sandbox-errcard", timeout=_TIMEOUT_MS)
+    assert "ZeroDivisionError" in page.locator(".sandbox-errcard").inner_text()
+    link = page.locator(".sandbox-errcard a.trace-error-link")
+    assert link.get_attribute("href") == "#/glossary/zerodivisionerror"
+    link.click()
+    page.wait_for_selector("#view-glossary:not([hidden])", timeout=_TIMEOUT_MS)
+    page.wait_for_selector("#glossary-detail-content:not([hidden])", timeout=_TIMEOUT_MS)
+    assert "zerodivision" in page.locator("#glossary-detail-content").inner_text().lower()
+
+
 def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: command palette -- Ctrl+K/триггер открывает палитру, команда исполняется."""
     page.goto(e2e_server + "/")

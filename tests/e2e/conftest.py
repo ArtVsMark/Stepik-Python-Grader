@@ -26,6 +26,7 @@ ephemeral port), just with a real browser navigating to it instead of
 
 from __future__ import annotations
 
+import os
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -52,8 +53,16 @@ def playwright_instance() -> Iterator[Any]:
 
 @pytest.fixture(scope="session")
 def browser(playwright_instance: Any) -> Iterator[Any]:
-    """One headless Chromium instance, shared across tests (issue #263)."""
-    browser = playwright_instance.chromium.launch()
+    """One headless Chromium instance, shared across tests (issue #263).
+
+    Honors ``PLAYWRIGHT_EXECUTABLE_PATH`` if set — lets a runner point at an
+    already-installed Chromium (e.g. a pre-provisioned image) instead of
+    ``playwright install``'s bundled build. Unset → default bundled browser
+    (backward-compatible, ``executable_path=None``).
+    """
+    browser = playwright_instance.chromium.launch(
+        executable_path=os.environ.get("PLAYWRIGHT_EXECUTABLE_PATH") or None,
+    )
     yield browser
     browser.close()
 

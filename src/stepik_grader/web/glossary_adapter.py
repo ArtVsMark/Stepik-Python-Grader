@@ -15,6 +15,7 @@ from typing import Any
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.glossary import all_entries
+from stepik_grader.glossary.detector import scan_code_concepts
 from stepik_grader.glossary.json_provider import (
     BUNDLED_GLOSSARY_DIR,
     GlossaryError,
@@ -23,7 +24,7 @@ from stepik_grader.glossary.json_provider import (
 )
 from stepik_grader.glossary.models import GlossaryCard
 
-__all__ = ["glossary_search", "glossary_get", "glossary_missing"]
+__all__ = ["glossary_search", "glossary_get", "glossary_missing", "code_terms"]
 
 # Допустимые сортировки раздела «Глоссарий» (issue #329). Всё прочее → порядок
 # источника (без сортировки).
@@ -113,6 +114,65 @@ def glossary_get(card_id: str, *, store_path: pathlib.Path | None = None) -> dic
     """Карточка по id, либо None (адаптер отдаёт 404 в этом случае)."""
     card = next((c for c in _all_cards(store_path) if c.id == card_id), None)
     return card.to_dict() if card is not None else None
+
+
+def _card_index(cards: list[GlossaryCard]) -> dict[str, GlossaryCard]:
+    """Индекс ``id/alias (lower) -> карточка`` для сопоставления концепций из кода."""
+    index: dict[str, GlossaryCard] = {}
+    for card in cards:
+        for key in (card.id, *card.aliases):
+            k = key.strip().lower()
+            if k:
+                index.setdefault(k, card)
+    return index
+
+
+def _match_card(concept: str, index: dict[str, GlossaryCard]) -> GlossaryCard | None:
+    """Найти карточку под концепцию: точное id/alias, затем «хвост» после точки.
+
+    ``functools.reduce`` матчится картой ``reduce``, если полного совпадения нет
+    (как ``MissingConceptDetector._is_known``).
+    """
+    concept_lc = concept.lower()
+    if concept_lc in index:
+        return index[concept_lc]
+    tail = concept_lc.rsplit(".", 1)[-1]
+    return index.get(tail)
+
+
+def code_terms(code: str, *, store_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
+    """Мини-карточки глоссария для концепций, найденных в ``code`` (issue #321).
+
+    Сканирует код (``scan_code_concepts``) и сопоставляет найденные функции/
+    конструкции с карточками базы; возвращает компактную инфу
+    ``{id, title, kind, summary, status, snippet}`` только по тем концепциям, у
+    которых карточка есть (панель «Функции в коде» песочницы). Порядок — по
+    ``title``; концепции без карточки не показываются (их удел — очередь
+    «Недостающее»).
+    """
+    concepts = scan_code_concepts(code)
+    if not concepts:
+        return []
+    index = _card_index(_all_cards(store_path))
+    seen: set[str] = set()
+    terms: list[dict[str, Any]] = []
+    for concept, (_kind, snippet) in concepts.items():
+        card = _match_card(concept, index)
+        if card is None or card.id in seen:
+            continue
+        seen.add(card.id)
+        terms.append(
+            {
+                "id": card.id,
+                "title": card.title,
+                "kind": card.kind,
+                "summary": card.summary,
+                "status": card.status,
+                "snippet": snippet,
+            }
+        )
+    terms.sort(key=lambda t: t["title"].lower())
+    return terms
 
 
 def glossary_missing(*, queue_path: pathlib.Path | None = None) -> list[dict[str, Any]]:

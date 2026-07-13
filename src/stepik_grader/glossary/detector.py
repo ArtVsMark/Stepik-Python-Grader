@@ -31,6 +31,7 @@ from .models import GlossaryMissingEntry
 __all__ = [
     "DEFAULT_NOTABLE_BUILTINS",
     "MissingConceptDetector",
+    "scan_code_concepts",
 ]
 
 # «Заметные» встроенные функции, которые новичок обычно ищет в справочнике.
@@ -123,6 +124,26 @@ class _CodeScanner(ast.NodeVisitor):
 
     def _record(self, concept: str, kind: str, snippet: str) -> None:
         self.found.setdefault(concept, (kind, snippet))
+
+
+def scan_code_concepts(
+    code: str, *, notable_builtins: frozenset[str] | None = None
+) -> dict[str, tuple[str, str]]:
+    """Концепции, найденные в коде (без фильтра «известных»): ``concept -> (kind, snippet)``.
+
+    Публичная обёртка над ``_CodeScanner`` для витрин «функции в коде» (issue
+    #321) — в отличие от ``MissingConceptDetector.detect_from_code`` НЕ отсеивает
+    покрытые карточками концепции (это делает потребитель, сопоставляя с базой).
+    Синтаксически некорректный код → пустой словарь (как и в детекторе).
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return {}
+    notable = DEFAULT_NOTABLE_BUILTINS if notable_builtins is None else frozenset(notable_builtins)
+    scanner = _CodeScanner(notable)
+    scanner.visit(tree)
+    return dict(scanner.found)
 
 
 # Немногие встроенные исключения Python, не оканчивающиеся на Error/Exception/

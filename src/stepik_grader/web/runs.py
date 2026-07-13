@@ -34,7 +34,9 @@ from typing import Any
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.test_loader import find_all_solution_files
+from stepik_grader.core.tracer import trace_code
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
+from stepik_grader.web.playground import run_playground
 from stepik_grader.web.viewmodels import (
     estimate_run_count,
     grade_benchmark,
@@ -125,7 +127,12 @@ def _sweep_expired_locked() -> None:
 
 
 def submit_job(
-    kind: str, path: pathlib.Path, params: dict[str, Any], *, code: str | None = None
+    kind: str,
+    path: pathlib.Path | None,
+    params: dict[str, Any],
+    *,
+    code: str | None = None,
+    stdin: str | None = None,
 ) -> Job:
     """Поставить tests/bench/microbench в очередь async job'ов (issue #262/#297).
 
@@ -150,6 +157,11 @@ def submit_job(
     временного файла. ``kind="bench"``/``"microbench"`` (issue #262) — без
     изменений.
 
+    ``kind="playground"`` (issue #317) — раздел «Песочница»: одиночный запуск
+    ``code`` со ``stdin`` без тестов; ``path`` не нужен (``None``), результат
+    — ``{status, stdout, stderr, ...}`` от ``run_playground``. Асинхронно —
+    ради отмены зависшего прогона (``while True: pass``) и неблокирующего UI.
+
     ``params`` — ``repeats``/``reference``/``number``/``lang``, уже
     провалидированные/кламп'нутые вызывающей стороной (``server.py``),
     прокидываются в ``grade_path``/``grade_benchmark``/``grade_microbench``
@@ -159,7 +171,7 @@ def submit_job(
     with _JOBS_LOCK:
         _JOBS[job.id] = job
         _sweep_expired_locked()
-    job.future = _get_executor().submit(_run_job, job, kind, path, params, code)
+    job.future = _get_executor().submit(_run_job, job, kind, path, params, code, stdin)
     return job
 
 
@@ -189,13 +201,27 @@ def cancel_job(run_id: str) -> bool:
 
 
 def _run_job(
-    job: Job, kind: str, path: pathlib.Path, params: dict[str, Any], code: str | None
+    job: Job,
+    kind: str,
+    path: pathlib.Path | None,
+    params: dict[str, Any],
+    code: str | None,
+    stdin: str | None = None,
 ) -> None:
     """Тело job'ы — выполняется на потоке ``ThreadPoolExecutor`` (issue #262)."""
     with job.lock:
         job.status = "running"
 
     lang = params.get("lang", DEFAULT_LANG)
+
+    if kind == "playground":
+        _run_playground_job(job, code or "", stdin or "", lang)
+        return
+    if kind == "trace":
+        _run_trace_job(job, code or "", stdin or "", lang)
+        return
+
+    assert path is not None  # tests/bench/microbench всегда с path (см. submit_job)
     temp_code_path: str | None = None
     try:
         graded_path = path
@@ -271,3 +297,46 @@ def _run_job(
         if temp_code_path is not None:
             with contextlib.suppress(OSError):
                 os.unlink(temp_code_path)
+
+
+def _run_playground_job(job: Job, code: str, stdin: str, lang: str) -> None:
+    """Тело playground-job'ы (issue #317): один запуск ``code`` со ``stdin``.
+
+    ``run_playground`` уже создаёт/удаляет свой временный файл и уважает
+    ``cancel_event``; здесь только маппинг исхода в статус job'ы (отмена —
+    отдельный терминальный ``cancelled``, как у грейд-job'ов).
+    """
+    try:
+        result = run_playground(code, stdin, cancel_event=job.cancel_event)
+    except Exception as exc:  # noqa: BLE001 — safety net, как в _run_job
+        with job.lock:
+            job.status = "error"
+            job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
+        return
+    with job.lock:
+        if result.get("status") == "CANCELLED" or job.cancel_event.is_set():
+            job.status = "cancelled"
+            job.message_fields = message_fields("run_cancelled", lang)
+        else:
+            job.status = "done"
+            job.result = result
+
+
+def _run_trace_job(job: Job, code: str, stdin: str, lang: str) -> None:
+    """Тело trace-job'ы (issue #318): пошаговый трейс исполнения ``code``.
+
+    ``trace_code`` спавнит свой subprocess (``python -m …core.tracer``) и сам
+    его убивает по таймауту — ``cancel_event`` этот путь пока не прерывает
+    (трассировка ограничена ``max_steps`` + таймаутом; отмена — best-effort
+    через таймаут). Результат job'ы — JSON-трейс ``{steps, stdout, …}``.
+    """
+    try:
+        result = trace_code(code, stdin, timeout=float(CONFIG.timeout_seconds))
+    except Exception as exc:  # noqa: BLE001 — safety net, как в _run_job
+        with job.lock:
+            job.status = "error"
+            job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
+        return
+    with job.lock:
+        job.status = "done"
+        job.result = result

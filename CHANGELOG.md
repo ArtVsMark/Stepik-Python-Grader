@@ -55,6 +55,71 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Glossary integration in the sandbox (issue #321, epic #314). A "Функции в
+  коде" panel lists mini-cards for the functions/constructs detected in the
+  editor (debounced on edit) — clicking one opens the full card in the
+  Glossary section. New `POST /api/code-terms` endpoint (`{code}` →
+  `{terms: [...]}`) backs it: `glossary_adapter.code_terms` over a new public
+  `glossary.detector.scan_code_concepts` (notable builtins, imported
+  functions, `match/case`), matched to bundled cards by id/alias (and the tail
+  after a dot, so `math.sqrt` → the `sqrt` card); everyday builtins like
+  `print`/`len` are intentionally not surfaced as noise. On a runtime error
+  the sandbox output now shows an error card with the exception type and a
+  working deep-link to its glossary card. New unit tests (`code_terms` +
+  endpoint) and a Playwright e2e journey (mini-card open + error-card
+  deep-link).
+- Variable-relationship diagram in the sandbox step player (issue #320, epic
+  #314). A "Таблица / Диаграмма" toggle in the player's variable panel switches
+  to a Python-Tutor-style memory graph: stack frames on the left, heap object
+  nodes (list/tuple/set/dict/class instances) on the right, with SVG arrows
+  from each reference variable to its object. Aliasing is visible as two arrows
+  into one node (nodes are keyed by heap id), nesting as node→node arrows;
+  primitives stay inline in the frame. Changed variables are highlighted, the
+  diagram re-renders on each step, and it degrades to the table with a note
+  past a node cap. Pure vanilla-JS SVG (no external libs, per the vendored-only
+  policy), boxes measured in the DOM to route the arrows. Frontend-only
+  (`web/static/`) over the #318 trace; new Playwright e2e journey (aliasing +
+  nesting).
+- Step-by-step trace player in the sandbox (issue #319, epic #314). A
+  "Пошагово" button traces the code (`mode="trace"`, #318) and opens a
+  Python-Tutor-style player in the output panel: ⏮ ◀ ▶ ⏭ controls + a step
+  slider + ← → keyboard navigation ("шаг N из M", announced via an
+  `aria-live` region). Each step highlights the active line in a read-only
+  code snapshot (the vendored CodeMirror bundle exports no `Decoration`, and a
+  frozen snapshot is sturdier than decorating the live editor), lists stack
+  frames (globals + each frame's locals, changed variables highlighted, values
+  rendered from the heap refs), shows the program output grown to that step
+  (sliced by `stdout_len`), and on an exception step paints the culprit line
+  red with a deep-link to the matching glossary card. Truncated traces show a
+  "показаны первые N шагов" note. Frontend-only (`web/static/`) over the #318
+  API; new Playwright e2e journeys (loop stepping + keyboard nav, function
+  frame appearance); the e2e `browser` fixture now honors
+  `PLAYWRIGHT_EXECUTABLE_PATH`.
+- Step-by-step execution tracer for the sandbox (issue #318, epic #314).
+  `core/tracer.py` runs code in a subprocess under `sys.settrace` and collects
+  a Python-Tutor-style JSON trace — one snapshot per line/call/return/exception
+  step, each carrying the stack frames (with locals) and a heap of objects
+  referenced by id so the frontend can show aliasing (two names → one object)
+  and nested structures. Values are safe-encoded (string/container/depth caps;
+  non-finite floats and huge ints degraded to keep the JSON valid). Wired as a
+  new async job `mode="trace"` on `POST /api/v1/runs` (`{code, stdin}`, no
+  `path`); execution is bounded by `max_steps` (1000) + timeout. Format is
+  documented in [`docs/trace-format.md`](docs/trace-format.md). The step-player
+  UI consuming it lands in #319. No OS sandbox (CLAUDE.md invariant 4).
+- Sandbox / playground section in the web UI (issue #317, epic #314): a
+  fourth nav section that runs arbitrary code with arbitrary stdin and shows
+  the program's output — not grading against tests. A separate CodeMirror
+  editor plus a stdin field feed `web/playground.run_playground`, which
+  executes via the same `core.runner.LocalRunner` subprocess path (shared
+  wall-clock timeout, best-effort memory cap, cooperative cancel) and returns
+  `{status: OK|RE|TLE|CANCELLED, stdout, stderr, exit_code, duration_ms,
+  truncated}`. Runs go through the async job model (`POST /api/v1/runs` with
+  the new `mode="playground"`, `{code, stdin}`, no `path`) so a runaway
+  `while True: pass` is cancelable and the UI stays responsive; output is
+  clipped to 100k chars. The command-palette "switch section" now cycles all
+  four sections (was check↔glossary only). Step-through execution and variable
+  visualization land in follow-ups (#318/#319/#320). No OS sandbox (CLAUDE.md
+  invariant 4).
 - Draft cards auto-generated from the official Python docs (issue #328). A new
   offline generator (`scripts/generate_draft_cards.py`) introspects every
   inventory entity still missing a card and emits a `status="draft"`
