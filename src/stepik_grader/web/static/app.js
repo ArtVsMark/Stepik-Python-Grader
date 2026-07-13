@@ -641,8 +641,10 @@ async function grade() {
     addHistoryEntry(path, state.mode, data);
     render(data);
     updateCheckSidebarBadge(data);
+    announceResult(summaryFromResult(data)); // issue #298
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
+    announceResult("Ошибка запроса"); // issue #298
   } finally {
     _finishGradeUI();
   }
@@ -697,6 +699,54 @@ function _finishGradeUI() {
   renderResultSummaryBadges();
   if (state.resultTab === "log") renderLogTab();
   if (state.resultTab === "reference") renderReferenceTab();
+  // issue #298 (a11y): после завершения прогона фокус уходит на панель
+  // результатов (tabindex="-1"), чтобы клавиатурный/скринридер-пользователь
+  // оказался у сводки, а не остался на кнопке «Запустить».
+  const panel = $("#restab-table");
+  if (panel && state.resultTab === "table") panel.focus();
+}
+
+// issue #298 (a11y): одна строка-сводка исхода в polite live region
+// (#result-announce) — озвучивается по ЗАВЕРШЕНИИ прогона, не на каждый
+// прогресс-тик. Сброс перед записью: часть скринридеров не переобъявляет
+// идентичный текст, очистка + следующий кадр гарантирует событие.
+function announceResult(text) {
+  const region = $("#result-announce");
+  if (!region) return;
+  region.textContent = "";
+  requestAnimationFrame(() => {
+    region.textContent = text || "";
+  });
+}
+
+// Краткая человекочитаемая сводка результата грейда для screen-reader-объявления.
+function summaryFromResult(data) {
+  if (!data || data.kind === "error") {
+    return data && data.message ? data.message : "Ошибка проверки";
+  }
+  if (!data.rows || !data.rows.length) return "Результатов нет";
+  if (data.mode === "bench" || data.mode === "microbench") {
+    const label = data.mode === "bench" ? "Бенчмарк" : "Микробенчмарк";
+    return label + " завершён: " + data.rows.length + " " + _plur(data.rows.length, "решение", "решения", "решений");
+  }
+  const ok = data.rows.filter(r => r.status === "OK").length;
+  if (data.rows.length === 1) {
+    const r = data.rows[0];
+    return "Проверка завершена: " + r.file + " — " + r.status + ", " + r.passed + " из " + r.total;
+  }
+  return (
+    "Проверка завершена: " + data.rows.length + " " + _plur(data.rows.length, "решение", "решения", "решений") +
+    ", " + ok + " OK, " + (data.rows.length - ok) + " FAIL"
+  );
+}
+
+// Русская плюрализация (1 решение / 2 решения / 5 решений).
+function _plur(n, one, few, many) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
 }
 
 // issue #262 — async job model: POST /api/v1/runs, затем polling
@@ -723,11 +773,13 @@ async function gradeAsync(path, backendMode, code = null) {
     if (createResp.status !== 202) {
       $("#out").innerHTML =
         '<p class="msg">' + esc(created.message || "Не удалось запустить задачу.") + "</p>";
+      announceResult(created.message || "Не удалось запустить задачу"); // issue #298
       _finishGradeUI();
       return;
     }
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
+    announceResult("Ошибка запроса"); // issue #298
     _finishGradeUI();
     return;
   }
@@ -749,6 +801,7 @@ async function gradeAsync(path, backendMode, code = null) {
       } catch (e) {
         if (state.activeRunId !== runId) return resolve();
         $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
+        announceResult("Ошибка запроса"); // issue #298
         return resolve();
       }
       updateProgressBar(data.progress.done, data.progress.total);
@@ -763,14 +816,17 @@ async function gradeAsync(path, backendMode, code = null) {
         addHistoryEntry(path, state.mode, data.result);
         render(data.result);
         updateCheckSidebarBadge(data.result);
+        announceResult(summaryFromResult(data.result)); // issue #298
       } else if (data.status === "cancelled") {
         // issue #296: отдельный нейтральный статус — не провал грейдера,
         // не показываем красным (.msg), как настоящую ошибку.
         $("#out").innerHTML =
           '<p class="msg-neutral">' + esc(data.message || "Задача отменена.") + "</p>";
+        announceResult(data.message || "Прогон отменён"); // issue #298
       } else {
         $("#out").innerHTML =
           '<p class="msg">' + esc(data.message || "Задача завершилась с ошибкой.") + "</p>";
+        announceResult(data.message || "Задача завершилась с ошибкой"); // issue #298
       }
       resolve();
     };
@@ -781,14 +837,21 @@ async function gradeAsync(path, backendMode, code = null) {
 }
 
 function updateProgressBar(done, total) {
+  // issue #298 (a11y): role="progressbar" + aria-value* так, чтобы assistive
+  // tech озвучивала прогресс долгого прогона. Неопределённый прогресс (total
+  // ещё не посчитан) — progressbar без aria-valuenow + aria-valuetext.
   if (!total) {
     $("#bar").innerHTML =
-      '<div class="progress-track"><div class="progress-fill progress-indeterminate"></div></div>';
+      '<div class="progress-track" role="progressbar" aria-label="Прогресс проверки" ' +
+      'aria-valuetext="Выполняется">' +
+      '<div class="progress-fill progress-indeterminate"></div></div>';
     return;
   }
   const pct = Math.min(100, Math.round((done / total) * 100));
   $("#bar").innerHTML =
-    '<div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+    '<div class="progress-track" role="progressbar" aria-label="Прогресс проверки" ' +
+    'aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + done + '">' +
+    '<div class="progress-fill" style="width:' + pct + '%"></div></div>' +
     '<div class="progress-label">' + done + " / " + total + "</div>";
 }
 

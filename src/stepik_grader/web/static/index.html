@@ -158,10 +158,16 @@
             <div class="panel-actions" id="result-summary-badges"></div>
           </div>
 
-          <div class="panel-body no-pad" id="restab-table">
+          <div class="panel-body no-pad" id="restab-table" tabindex="-1">
             <div id="bar" class="bar" style="padding:var(--space-3) var(--space-4) 0"></div>
             <div id="out"></div>
           </div>
+          <!-- issue #298 (a11y): polite live region for the result summary.
+               Only the final one-line verdict summary is written here (NOT
+               every progress tick), so assistive tech announces "task_1.py:
+               OK, 12 из 12" on completion without reading the whole table or
+               the intermediate skeleton. Visually hidden (.sr-only). -->
+          <div id="result-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
           <div class="panel-body" id="restab-detail" hidden>
             <div id="detail-empty" class="empty-state">

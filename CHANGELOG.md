@@ -9,6 +9,20 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Fixed
+- Web UI accessibility for grading results (issue #298, WCAG 2.1 AA):
+  results were announced silently to assistive tech. Added a polite
+  `aria-live` region (`#result-announce`) that speaks a one-line outcome
+  summary on completion ("task_1.py — OK, 12 из 12" / "Бенчмарк завершён: N
+  решений" / error/cancel text) — not on every progress tick, to avoid
+  noise. The progress bar now carries `role="progressbar"` +
+  `aria-valuemin/valuemax/valuenow`, and focus moves to the results panel
+  when a run finishes. Verdict badges already conveyed meaning as text (not
+  colour alone) — now pinned by a regression test. The dark-theme
+  `--color-warning` token was lightened from `#bb653b` to `#d98a5c` so the
+  SLOWER verdict / warning text clears the 4.5:1 contrast minimum on dark
+  surfaces (was ~3.5–4.4:1); light theme already passed and is unchanged.
+
 ### Changed
 - Mode 1 (single-file correctness) in the web UI no longer saves to disk
   before grading (issue #297). "Проверить" now runs one
