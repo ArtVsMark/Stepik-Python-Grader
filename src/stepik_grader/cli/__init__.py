@@ -79,6 +79,7 @@ from stepik_grader.cli.rendering import (  # noqa: F401
 )
 from stepik_grader.core import stats
 from stepik_grader.core.cache import GraderCache
+from stepik_grader.core.diag_log import configure_diagnostics
 from stepik_grader.core.grader_core import (
     resolve_test_dir,
     run_benchmark,
@@ -562,6 +563,10 @@ def main(argv: list[str] | None = None) -> None:
 
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
+
+    # issue #146: opt-in диагностический лог. --diagnostic → debug; иначе уровень
+    # берётся из STEPIK_GRADER_LOG (по умолчанию выключено, файл не создаётся).
+    configure_diagnostics("debug" if args.diagnostic else None)
 
     global _LANG
     _LANG = args.lang

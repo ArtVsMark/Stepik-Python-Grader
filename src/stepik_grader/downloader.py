@@ -31,6 +31,7 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
+from stepik_grader.core.diag_log import configure_diagnostics, get_logger
 from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
 from stepik_grader.core.step_content import (
     extract_function_name,
@@ -82,6 +83,8 @@ from stepik_grader.downloader_config import (
 )
 
 CONFIG_FILE = "stepik_config.json"
+
+_log = get_logger("downloader")  # issue #147: диагностический лог загрузки (opt-in)
 
 
 # ---------------------------------------------------------------------------
@@ -243,6 +246,7 @@ def process_step_url(
     unit_id = int(unit_id_list[0]) if unit_id_list else None
 
     lesson_id, step_position = parse_stepik_step_url(step_url)
+    _log.info("разбор URL шага: lesson=%s step=%s unit=%s", lesson_id, step_position, unit_id)
 
     print(f"  Получаю данные урока {lesson_id}...")
     lesson = fetch_lesson_data(session, lesson_id)
@@ -280,6 +284,7 @@ def process_step_url(
 
     print(f"  Сохраняю файлы в: {task_dir}")
     count, source = save_task_files(task_dir, step, submission, lesson, section, course, session)
+    _log.info("тест-кейсы: %d шт., источник=%s (task_dir=%s)", count, source, task_dir)
     print(f"  ✅ Шаг сохранён: {task_dir}")
     return task_dir, count, source
 
@@ -291,6 +296,7 @@ def process_step_url(
 
 def main() -> None:
     """Главная функция: конфиг → авторизация → цикл обработки URL шагов."""
+    configure_diagnostics()  # issue #146: opt-in по STEPIK_GRADER_LOG (по умолч. тихо)
     config_path = pathlib.Path(CONFIG_FILE)
 
     try:

@@ -23,6 +23,7 @@ from typing import Any
 
 import requests
 
+from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.stepik_client import (
     authorize_via_browser,
     create_user_session,
@@ -32,6 +33,8 @@ from stepik_grader.core.stepik_client import (
     wait_for_auth_code,
 )
 from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
+
+_log = get_logger("oauth_flow")  # issue #149: диагностический лог OAuth (opt-in)
 
 __all__ = [
     "load_secrets",
@@ -102,17 +105,21 @@ def try_create_session_without_browser(
     направить на первичную CLI-авторизацию (``python -m stepik_grader.downloader``).
     """
     if token_is_valid(secrets):
+        _log.debug("access_token валиден — сессия без браузера")
         return make_session(str(secrets["access_token"]))
 
     refresh_token = str(secrets.get("refresh_token", "")).strip()
     if not refresh_token:
+        _log.info("нет валидного access_token и нет refresh_token — нужна CLI-авторизация")
         return None
 
     client_id = str(secrets.get("client_id", ""))
     client_secret = str(secrets.get("client_secret", ""))
     try:
+        _log.info("access_token истёк — обновляю по refresh_token")
         token_data = refresh_access_token(client_id, client_secret, refresh_token)
-    except requests.HTTPError:
+    except requests.HTTPError as exc:
+        _log.warning("обновление по refresh_token не удалось: %s", exc)
         return None
     token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
     secrets.update(token_data)

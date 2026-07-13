@@ -35,7 +35,10 @@ from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from urllib3.util.retry import Retry
 
+from stepik_grader.core.diag_log import get_logger, register_secret
 from stepik_grader.core.storage import save_secrets
+
+_log = get_logger("stepik_client")  # issue #148: диагностический лог (opt-in)
 
 API_HOST = "https://stepik.org"
 
@@ -81,6 +84,8 @@ def make_session(
         backoff_factor: базовая задержка в секундах перед повтором; тесты
             передают маленькое значение, чтобы не ждать реально.
     """
+    register_secret(access_token)  # issue #148: маскировать токен в диагностике
+    _log.debug("создаю авторизованную сессию к %s (retries=%d)", API_HOST, retries)
     session = requests.Session()
     session.headers.update(HEADERS)
     session.headers["Authorization"] = f"Bearer {access_token}"
@@ -205,6 +210,9 @@ def refresh_access_token(
     refresh_token: str,
 ) -> dict[str, Any]:
     """Обменивает refresh_token на новую пару access/refresh токенов."""
+    register_secret(client_secret)
+    register_secret(refresh_token)
+    _log.info("обновляю access_token через %s/oauth2/token/ (grant=refresh_token)", API_HOST)
     response = requests.post(
         f"{API_HOST}/oauth2/token/",
         auth=HTTPBasicAuth(client_id, client_secret),
@@ -213,7 +221,11 @@ def refresh_access_token(
         timeout=30,
     )
     response.raise_for_status()
-    return cast(dict[str, Any], response.json())
+    token_data = cast(dict[str, Any], response.json())
+    register_secret(str(token_data.get("access_token", "")))
+    register_secret(str(token_data.get("refresh_token", "")))
+    _log.info("access_token обновлён (expires_in=%s)", token_data.get("expires_in"))
+    return token_data
 
 
 # ---------------------------------------------------------------------------
@@ -348,6 +360,9 @@ def authorize_via_browser(
         pass
 
     code = wait_for_auth_code(host, port, path, state)
+    register_secret(client_secret)
+    register_secret(code)
+    _log.info("обмениваю authorization_code на токены через %s/oauth2/token/", API_HOST)
     response = requests.post(
         f"{API_HOST}/oauth2/token/",
         auth=HTTPBasicAuth(client_id, client_secret),
@@ -361,7 +376,10 @@ def authorize_via_browser(
     )
     response.raise_for_status()
     token_data: dict[str, Any] = response.json()
+    register_secret(str(token_data.get("access_token", "")))
+    register_secret(str(token_data.get("refresh_token", "")))
     token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
+    _log.info("получены токены (expires_in=%s)", token_data.get("expires_in"))
     return token_data
 
 
@@ -427,11 +445,15 @@ def _get_with_retry(
     last_exc: requests.RequestException | None = None
     for attempt in range(retries):
         try:
+            # URL/параметры санитизируются редакцией логгера (issue #148)
+            _log.debug("GET %s params=%s (попытка %d/%d)", url, params, attempt + 1, retries)
             response = session.get(url, params=params, timeout=timeout)
             response.raise_for_status()
+            _log.debug("GET %s → %d", url, response.status_code)
             return response
         except requests.RequestException as exc:
             last_exc = exc
+            _log.warning("GET %s не удался (попытка %d/%d): %s", url, attempt + 1, retries, exc)
             if attempt < retries - 1:
                 time.sleep(backoff * (2**attempt))
     if last_exc is None:

@@ -21,6 +21,7 @@ from urllib.parse import urlencode
 
 import requests
 
+from stepik_grader.core.diag_log import configure_diagnostics
 from stepik_grader.core.oauth_flow import authorize_via_browser, load_secrets, make_session
 from stepik_grader.core.stepik_client import API_HOST
 from stepik_grader.downloader import parse_stepik_step_url
@@ -234,6 +235,9 @@ def main() -> None:
         input("Enter diagnostics output dir [stepik_diagnostics]: ").strip() or "stepik_diagnostics"
     )
     output_dir = pathlib.Path(output_dir_input)
+    # issue #146: диагностическая утилита — включаем общий логгер (debug) в тот же
+    # каталог; сетевые вызовы через stepik_client логируются с редакцией секретов.
+    configure_diagnostics("debug", log_dir=output_dir)
     try:
         client_id, client_secret, redirect_uri = load_secrets(pathlib.Path(secrets_file))
         print("✅ secrets.json успешно прочитан.")

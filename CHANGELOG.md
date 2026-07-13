@@ -82,6 +82,22 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Opt-in diagnostic logging for the Stepik network/OAuth/download layer (epic
+  #146, issues #147/#148/#149). A new stdlib-only `core/diag_log.py` provides a
+  single logger (`get_logger`, `configure_diagnostics`, `register_secret`,
+  `redact`) that is **silent by default** and enabled explicitly via the
+  `--diagnostic` CLI flag, `STEPIK_GRADER_LOG=debug|info|off`, or
+  `python -m stepik_grader.diagnostic_stepik`. When on, it writes a
+  human-readable `stepik_diagnostics/grader.log` with a **mandatory redaction
+  filter**: `Bearer` tokens, `access_token`/`refresh_token`/`client_secret`/
+  `code` in URLs, headers and JSON bodies, plus any runtime-registered secret
+  value, are replaced with `***redacted***` before anything is written
+  (docs/logging.md, SECURITY.md). `downloader` (URL parse + which of the 4
+  test-case sources matched), `stepik_client` (HTTP GET requests with sanitized
+  URLs, token refresh, code exchange) and `oauth_flow` (auth branch decisions)
+  are instrumented; the normal `_console` output is unchanged. No new
+  dependency (stdlib `logging`). New `tests/test_diag_log.py` covers redaction,
+  opt-in, levels and env activation.
 - "Функции в коде" glossary integration for check modes 1/2 (epic #315,
   issues #322/#323/#324). The dead "Связанные термины" placeholder in the
   mode-1/2 config panel is replaced by a real mini-card list of the functions
