@@ -32,6 +32,19 @@
   MVP, matching what `SECURITY.md`/`docs/server-mode.md` already documented
   correctly — only the code docstrings had drifted.
 
+### CI
+- Per-OS coverage margin (issue #294): each CI matrix OS job's own
+  `--cov-fail-under=85` gate used to count the OTHER two platforms'
+  `core/sandbox/` backend files as permanently uncovered (structurally
+  unreachable on that OS), leaving as little as ~1.1pp margin on ubuntu. New
+  `scripts/generate_ci_coveragerc.py` generates a CI-only `.coveragerc.ci`
+  that additionally omits, for each job, only the backend files unreachable
+  on its own OS; the `coverage-combine` cross-OS aggregate job (
+  `--fail-under=90`) is untouched and still sees every file from whichever
+  job(s) can actually exercise it — no file is omitted everywhere at once.
+  `fail_under = 85` itself is unchanged; local `pytest` runs are unaffected
+  (this mechanism is CI-only).
+
 ## [1.7.0] - 2026-07-12
 
 ### Added

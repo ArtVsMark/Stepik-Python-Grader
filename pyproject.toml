@@ -127,6 +127,17 @@ source = [
 ]
 
 [tool.coverage.run]
+# issue #294: this base `omit` list is what LOCAL `pytest`/CLAUDE.md-checklist
+# runs use as-is (full honest single-OS picture, core/sandbox/ backends for
+# other OSes naturally at 0%). CI's per-OS `test` matrix job additionally
+# generates a CI-only `.coveragerc.ci` (scripts/generate_ci_coveragerc.py)
+# that layers on top of THIS list, omitting only the core/sandbox/ backend
+# files structurally unreachable on that job's own OS -- so that job's own
+# `fail_under` gate below isn't dragged down by platforms it can never
+# exercise (ubuntu measured ~86.1%, ~1pp margin, before this). The
+# `coverage-combine` job (cross-OS aggregate, `--fail-under=90`) does NOT use
+# `.coveragerc.ci` and keeps reading this exact list, so the combined number
+# stays a true aggregate -- no sandbox file is omitted from every job at once.
 source = ["src"]
 omit = [
     "src/stepik_grader/diagnostic_stepik.py",
