@@ -181,6 +181,24 @@ class TestErrorCardFields:
         assert "glossary_ids" not in case  # WA never gets glossary_ids (RE only)
         assert set(case["actions"]) == {"run_again", "copy_input", "copy_output", "explain_error"}
 
+    def test_wa_case_with_invalid_utf8_output_has_hint(self) -> None:
+        """issue #301: WA с '�' (U+FFFD) в actual → подсказка про не-UTF-8 байты."""
+        case = web._case_view(
+            5,
+            {
+                "passed": False,
+                "verdict": "WA",
+                "time": 0.01,
+                "output": ["�� bad"],  # runner декодировал байты с заменами
+                "expected": ["5"],
+                "diff": "- 5\n+ �� bad",
+                "error": "",
+            },
+            stdin="4",
+        )
+        assert case["suggestions"], "invalid-UTF-8 WA must carry a hint"
+        assert "UTF-8" in case["suggestions"][0]
+
     def test_re_case_known_exception_has_glossary_ids_and_suggestion(self) -> None:
         case = web._case_view(
             3,
@@ -243,6 +261,28 @@ class TestErrorCardFields:
         assert case["suggestions"]
         assert "glossary_ids" not in case  # TLE never links glossary content
         assert "expected" not in case
+
+
+class TestWaSuggestion:
+    """issue #301 — _wa_suggestion: одна подсказка по форме WA-вывода."""
+
+    def test_invalid_utf8_takes_priority_over_whitespace(self) -> None:
+        # actual с '�' И совпадающий после rstrip -> побеждает UTF-8-подсказка
+        # (более специфичная причина, чем хвостовые пробелы).
+        hint = web._wa_suggestion("5�  ", "5", lang="ru")
+        assert hint is not None
+        assert "UTF-8" in hint
+
+    def test_whitespace_hint_when_no_replacement_char(self) -> None:
+        hint = web._wa_suggestion("5  ", "5", lang="ru")
+        assert hint is not None
+        assert "UTF-8" not in hint  # это whitespace-подсказка, не UTF-8
+
+    def test_no_hint_for_plain_mismatch(self) -> None:
+        assert web._wa_suggestion("6", "5", lang="ru") is None
+
+    def test_invalid_utf8_hint_localized_en(self) -> None:
+        assert "UTF-8" in web._wa_suggestion("�", "5", lang="en")
 
 
 # ---------------------------------------------------------------------------

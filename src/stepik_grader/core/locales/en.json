@@ -10,6 +10,7 @@
   "tests_not_found_short": "no tests found",
   "tle_suggestion": "Time limit exceeded — check the algorithm's complexity or for an infinite loop.",
   "wa_whitespace_suggestion": "Output matches after trimming trailing whitespace/line endings — check formatting.",
+  "output_invalid_utf8": "Output contains non-UTF-8 bytes (the «�» character marks a replaced invalid byte). The solution likely prints raw bytes (sys.stdout.buffer.write) or uses a wrong encoding — emit text as UTF-8.",
   "specify_path_file_or_folder": "Specify a path to a file or folder.",
   "specify_path_folder": "Specify a path to a folder.",
   "specify_path_file": "Specify a path to a file.",
