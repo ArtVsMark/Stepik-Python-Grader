@@ -1,10 +1,10 @@
-"""Дополнительные mock-тесты для downloader.py.
+"""Mock-тесты оркестрации downloader.py (issue #302).
 
-Покрывают непокрытые ветки: конфиг (ask_value/create/load/normalize),
-парсинг URL, извлечение кода/функций, HTML-таблицы тестов, save_tests,
-build_task_directory, save_task_files (все 4 источника тестов),
-process_step_url и main(). Сеть и пользовательский ввод замоканы; файловый
-I/O направлен в tmp_path.
+Покрывают координатор-слой: build_task_directory, save_task_files (все 4
+источника тестов), process_step_url и main(). Чистые unit-тесты вынесенных
+модулей — в test_task_page_parser.py / test_tests_writer.py /
+test_step_content.py / test_downloader_config.py / test_test_source_fetcher.py.
+Сеть и пользовательский ввод замоканы; файловый I/O направлен в tmp_path.
 """
 
 from __future__ import annotations
@@ -12,211 +12,9 @@ from __future__ import annotations
 import pathlib
 from unittest.mock import MagicMock, patch
 
-import pytest
-import requests
-
 from stepik_grader import downloader
-from stepik_grader.downloader import (
-    ask_value,
-    build_task_directory,
-    create_or_update_config,
-    extract_function_name,
-    extract_python_code,
-    extract_submission_code,
-    extract_tests_from_html,
-    load_or_create_config,
-    normalize_config_paths,
-    parse_stepik_step_url,
-    save_task_files,
-    save_tests,
-)
-
-
-class TestAskValue:
-    """ask_value возвращает ввод пользователя либо дефолт."""
-
-    def test_returns_input(self):
-        with patch("builtins.input", return_value="  myval  "):
-            assert ask_value("prompt", "def") == "myval"
-
-    def test_returns_default_on_empty(self):
-        with patch("builtins.input", return_value=""):
-            assert ask_value("prompt", "def") == "def"
-
-
-class TestConfigFunctions:
-    """create/load/normalize конфига — интерактивные ветки."""
-
-    def test_create_or_update_config_writes(self, tmp_path: pathlib.Path):
-        """Запрашивает поля и сохраняет конфиг через save_json_file."""
-        cfg_path = tmp_path / "cfg.json"
-        with patch("stepik_grader.downloader.ask_value", side_effect=["/root", "secrets.json"]):
-            config = create_or_update_config(cfg_path)
-        assert config == {"root_dir": "/root", "secrets_path": "secrets.json"}
-        assert cfg_path.exists()
-
-    def test_load_or_create_when_missing(self, tmp_path: pathlib.Path):
-        """Отсутствующий конфиг → запуск create_or_update_config."""
-        cfg_path = tmp_path / "nope.json"
-        with patch(
-            "stepik_grader.downloader.create_or_update_config", return_value={"root_dir": "r"}
-        ) as mock_create:
-            result = load_or_create_config(cfg_path)
-        mock_create.assert_called_once()
-        assert result == {"root_dir": "r"}
-
-    def test_load_existing_no_change(self, tmp_path: pathlib.Path):
-        """Существующий конфиг, пользователь не хочет менять → возвращается как есть."""
-        cfg_path = tmp_path / "cfg.json"
-        downloader.save_json_file(cfg_path, {"root_dir": "r", "secrets_path": "s"})
-        with patch("builtins.input", return_value="n"):
-            result = load_or_create_config(cfg_path)
-        assert result["root_dir"] == "r"
-
-    def test_load_existing_with_change(self, tmp_path: pathlib.Path):
-        """Пользователь отвечает 'y' → перезапуск создания конфига."""
-        cfg_path = tmp_path / "cfg.json"
-        downloader.save_json_file(cfg_path, {"root_dir": "r", "secrets_path": "s"})
-        with (
-            patch("builtins.input", return_value="y"),
-            patch(
-                "stepik_grader.downloader.create_or_update_config", return_value={"new": 1}
-            ) as mock_create,
-        ):
-            result = load_or_create_config(cfg_path)
-        mock_create.assert_called_once()
-        assert result == {"new": 1}
-
-    def test_normalize_paths_makes_absolute(self, tmp_path: pathlib.Path):
-        """Относительные пути становятся абсолютными; secrets-файл существует."""
-        secrets = tmp_path / "secrets.json"
-        secrets.write_text("{}", encoding="utf-8")
-        cfg_path = tmp_path / "cfg.json"
-        config = {"root_dir": "StepikTasks", "secrets_path": str(secrets)}
-        result = normalize_config_paths(config, cfg_path)
-        assert pathlib.Path(result["root_dir"]).is_absolute()
-        assert pathlib.Path(result["secrets_path"]).is_absolute()
-
-    def test_normalize_missing_fields_reprompts(self, tmp_path: pathlib.Path):
-        """Пустые обязательные поля → повторный create_or_update_config."""
-        secrets = tmp_path / "secrets.json"
-        secrets.write_text("{}", encoding="utf-8")
-        cfg_path = tmp_path / "cfg.json"
-        config = {"root_dir": "", "secrets_path": ""}
-        with patch(
-            "stepik_grader.downloader.create_or_update_config",
-            return_value={
-                "root_dir": str(tmp_path / "r"),
-                "secrets_path": str(secrets),
-            },
-        ) as mock_create:
-            result = normalize_config_paths(config, cfg_path)
-        mock_create.assert_called_once()
-        assert pathlib.Path(result["secrets_path"]).is_absolute()
-
-    def test_normalize_secrets_not_found_reprompts(self, tmp_path: pathlib.Path):
-        """secrets-файл не существует → повторный запрос конфига."""
-        good_secrets = tmp_path / "good.json"
-        good_secrets.write_text("{}", encoding="utf-8")
-        cfg_path = tmp_path / "cfg.json"
-        config = {"root_dir": "r", "secrets_path": str(tmp_path / "missing.json")}
-        with patch(
-            "stepik_grader.downloader.create_or_update_config",
-            return_value={"root_dir": "r2", "secrets_path": str(good_secrets)},
-        ) as mock_create:
-            result = normalize_config_paths(config, cfg_path)
-        mock_create.assert_called_once()
-        assert pathlib.Path(result["root_dir"]).is_absolute()
-
-
-class TestParseStepikStepUrl:
-    """parse_stepik_step_url извлекает (lesson_id, step_position)."""
-
-    def test_valid_url(self):
-        assert parse_stepik_step_url("https://stepik.org/lesson/569749/step/4?unit=1") == (
-            569749,
-            4,
-        )
-
-    def test_invalid_url_raises(self):
-        with pytest.raises(ValueError, match="URL шага"):
-            parse_stepik_step_url("https://stepik.org/course/1")
-
-
-class TestExtractCode:
-    """extract_python_code / extract_submission_code / extract_function_name."""
-
-    def test_code_template_from_options(self):
-        step = {"block": {"options": [{"code_template": "def f(): pass"}]}}
-        assert extract_python_code(step) == "def f(): pass"
-
-    def test_code_from_markdown_block(self):
-        step = {"block": {"text": "blah ```python\nx = 1\n``` end"}}
-        assert extract_python_code(step) == "x = 1"
-
-    def test_code_none_when_absent(self):
-        assert extract_python_code({"block": {"text": "no code"}}) is None
-
-    def test_submission_code(self):
-        assert extract_submission_code({"reply": {"code": "print(1)"}}) == "print(1)"
-
-    def test_submission_code_none(self):
-        assert extract_submission_code(None) is None
-        assert extract_submission_code({"reply": {}}) is None
-
-    def test_function_name_extracted(self):
-        assert extract_function_name("def my_func(x):\n    return x") == "my_func"
-
-    def test_function_name_async(self):
-        assert extract_function_name("async def af():\n    pass") == "af"
-
-    def test_function_name_none_no_func(self):
-        assert extract_function_name("x = 1") is None
-
-    def test_function_name_none_syntax_error(self):
-        assert extract_function_name("def (((") is None
-
-
-class TestExtractTestsFromHtml:
-    """extract_tests_from_html парсит HTML-таблицу тест-кейсов."""
-
-    def test_stdin_tests(self):
-        html = (
-            "<table>"
-            "<tr><th>#</th><th>in</th><th>out</th></tr>"
-            "<tr><td>1</td><td>print(1)</td><td>1</td></tr>"
-            "</table>"
-        )
-        tests = extract_tests_from_html(html)
-        assert len(tests) == 1
-        assert tests[0][2] == "stdin"
-
-    def test_function_style_detected(self):
-        html = "<table><tr><td>1</td><td>x = 5</td><td>5</td></tr></table>"
-        tests = extract_tests_from_html(html)
-        assert tests[0][2] == "function"
-
-    def test_short_rows_skipped(self):
-        html = "<table><tr><td>only</td><td>two</td></tr></table>"
-        assert extract_tests_from_html(html) == []
-
-    def test_empty_cells_skipped(self):
-        html = "<table><tr><td>1</td><td></td><td>out</td></tr></table>"
-        assert extract_tests_from_html(html) == []
-
-
-class TestSaveTests:
-    """save_tests пишет N / N.clue / N.type."""
-
-    def test_writes_files(self, tmp_path: pathlib.Path):
-        tests = [("in1", "out1", "stdin"), ("a=1", "1", "function")]
-        count = save_tests(tmp_path, tests)
-        assert count == 2
-        tdir = tmp_path / "tests"
-        assert (tdir / "1").read_text() == "in1"
-        assert (tdir / "1.clue").read_text() == "out1"
-        assert not (tdir / "1.type").exists()
-        assert (tdir / "2.type").read_text() == "function"
+from stepik_grader.core.storage import load_json_file
+from stepik_grader.downloader import build_task_directory, save_task_files
 
 
 class TestBuildTaskDirectory:
@@ -265,7 +63,7 @@ class TestSaveTaskFiles:
         assert (tmp_path / "task3_1.py").read_text() == "def f(): pass"
         assert (tmp_path / "task3_2.py").exists()
         assert (tmp_path / "solution.py").read_text() == "print(1)"
-        meta = downloader.load_json_file(tmp_path / "meta.json")
+        meta = load_json_file(tmp_path / "meta.json")
         assert meta["function_name"] == "f"
         assert meta["submission_id"] == 9
 
@@ -445,14 +243,3 @@ class TestMain:
             patch("stepik_grader.downloader.process_step_url", side_effect=ValueError("bad url")),
         ):
             downloader.main()  # не должно бросить
-
-
-class TestDownloadZipErrorPath:
-    """_download_zip_tests при сетевой ошибке возвращает 0."""
-
-    def test_network_error_returns_zero(self, tmp_path: pathlib.Path):
-        """Ошибка сети на stepik.org (использует переданную сессию) → 0."""
-        session = MagicMock()
-        session.get.side_effect = requests.ConnectionError("down")
-        zip_url = "https://stepik.org/media/attachments/lesson/1/t.zip"
-        assert downloader._download_zip_tests(tmp_path, zip_url, session) == 0

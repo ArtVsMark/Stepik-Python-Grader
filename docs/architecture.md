@@ -20,7 +20,8 @@
 | `cli/rendering.py` | Application / CLI (leaf) | Табличный вывод csv/markdown: `_rows_to_csv`, `_rows_to_markdown`, `_print_tabular`; не импортирует `cli/__init__.py`, реэкспортирован им как `cli._print_tabular` и т.д.; `CliContext.print_tabular` получает `_print_tabular` через `_build_cli_context()` (issue #121 Phase 1, Stage 1 эпика #117) |
 | `cli/interactive.py` | Application / CLI (leaf) | Интерактивное меню и prompt-хелперы: `_interactive_menu`, `_ask_bench_profile`/`_ask_micro_profile`/`_ask_number`, `_print_menu`, `_pick_path_via_dialog`/`_prompt_path`/`_resolve_cli_path_or_error`, `_BENCH_PROFILES`/`_MICRO_PROFILES`; принимают `CliContext` где нужна facade-патчимая зависимость (`pick_path_via_dialog`, `ask_bench_profile`, `ask_micro_profile`, `run_mode_1..4`); не импортирует `cli/__init__.py`. `_LANG`/`_MESSAGES`/`_LOCALE_MESSAGES`/`_t` намеренно НЕ перенесены — `_LANG` мутируется в `main()` (`global _LANG`), перенос сделал бы facade-реэкспорт снимком, а не живой ссылкой (issue #121 Phase 2, Stage 2 эпика #117) |
 | `config.py` | Application / Configuration | `GraderConfig` (frozen dataclass) + ленивый `CONFIG` (module `__getattr__`, PEP 562) / `get_config()` — импорт модуля не читает `pyproject.toml`, чтение кэшируется при первом обращении (issue #141/#142); переопределяется через `[tool.stepik-grader]` |
-| `downloader.py` | Domain / Application | Управление конфигом и secrets, разбор URL шага, построение директорий задач (`slugify`, `build_task_directory`), сохранение файлов задачи, **автоизвлечение тест-кейсов** из HTML-таблицы и ZIP-архивов, оркестрация вызовов API |
+| `downloader.py` | Application | Координатор загрузки задач (issue #302, после SRP-разбиения): `build_task_directory`, `save_task_files` (выбор источника тестов), `process_step_url`, CLI `main`. Специализированные роли вынесены (см. ниже), их публичные имена реэкспортируются для обратной совместимости |
+| `downloader_config.py` | Application | Конфиг `stepik_config.json` + интерактив загрузчика (issue #302): `slugify`, `ask_value`, `create_or_update_config`, `load_or_create_config`, `normalize_config_paths`. Держится вне `core/` намеренно — `input()`-интерактив не место в чистых Domain-модулях |
 | `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
 | `web/server.py` | Application / Web | HTTP-хендлер (stdlib `http.server`, `--serve`): роутинг `GET /api/grade`\|`/api/glossary*`\|`/api/commands`\|`/api/solutions`\|`/api/source`, `POST /api/download`\|`/api/save-solution`; статика (`static/{index.html,app.css,app.js}`) читается один раз при импорте; тонкий слой поверх `viewmodels.py`/адаптеров ниже, бизнес-логики не добавляет |
 | `web/viewmodels.py` | Application / Web | Грейдинг → JSON: `grade_path`/`grade_benchmark`/`grade_microbench`/`list_solutions`/`read_source`/`save_solution`; ErrorCard-мэппинг (`_case_view`) с glossary-lookup и J7 missing-queue wiring (issue #125/#186/#187) |
@@ -49,6 +50,10 @@
 | `core/stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
 | `core/oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostic_stepik.py` |
 | `core/parsers.py` | Infrastructure / Utilities | Парсинг тест-блоков (`# TEST_N:`) — единственный источник истины для `grader.py` и `downloader.py` |
+| `core/task_page_parser.py` | Domain (leaf) | Разбор HTML текста задачи (issue #302): `extract_tests_from_html` (таблица кейсов), `extract_external_test_links` (ZIP/GitHub-ссылки), `is_function_style` (stdin vs function по AST). Только stdlib, без project-импортов |
+| `core/tests_writer.py` | Domain (leaf) | Запись форматов тест-кейсов (issue #302): `save_tests` (Format 1 — `N`/`N.clue`/`N.type`), `write_testblock_tests` (Format 3 — `input.txt`/`output.txt` с `# TEST_N:`). Только stdlib |
+| `core/test_source_fetcher.py` | Infrastructure | Скачивание тестов из внешних источников (issue #302): `download_zip_tests` (Stepik ZIP), `download_github_tests` (GitHub Contents API) → Format 3; безопасность сторонних хостов через `stepik_client` (issue #240) |
+| `core/step_content.py` | Domain (leaf) | Извлечение данных из ответов Stepik API (issue #302): `parse_stepik_step_url`, `extract_python_code`, `extract_submission_code`, `extract_function_name`. Чистые `dict/str -> данные`, без сети/ФС |
 | `core/i18n.py` | Infrastructure / Utilities (leaf) | `load_locale_messages(lang)` — JSON-локали `core/locales/<lang>.json` (issue #141/#144); аддитивный путь поверх статического `_MESSAGES` в `cli/__init__.py` — новые сообщения через JSON, без переписывания существующих; graceful degradation на отсутствующий/битый файл |
 | `glossary/models.py` | Domain (leaf) | Типизированные модели локального глоссария: `GlossaryCard`, `GlossaryMissingEntry` (issue #126) |
 | `glossary/json_provider.py` | Domain | `JsonGlossaryProvider` (загрузка/поиск локальной JSON-базы карточек) + очередь пополнения (issue #126) |
@@ -64,9 +69,12 @@
 Граф зависимостей — DAG без циклов (все модули живут в `src/stepik_grader/`):
 
 ```
-downloader.py          ──→  core/storage.py
-downloader.py          ──→  core/stepik_client.py
-downloader.py          ──→  core/parsers.py
+downloader.py          ──→  core/storage.py, core/stepik_client.py, core/oauth_flow.py
+downloader.py          ──→  core/task_page_parser.py, core/tests_writer.py, core/test_source_fetcher.py, core/step_content.py  (issue #302 — реэкспорт публичных имён)
+downloader.py          ──→  downloader_config.py  (конфиг+интерактив)
+downloader_config.py   ──→  core/storage.py
+core/test_source_fetcher.py ──→  core/stepik_client.py, core/parsers.py, core/tests_writer.py  (НЕ импортирует downloader — issue #302 AC)
+core/task_page_parser.py / core/tests_writer.py / core/step_content.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
 core/stepik_client.py ──→  core/storage.py
 grader.py              ──→  core/grader_core.py, core/reporter.py, cli/__init__.py  (тонкий фасад)
 core/grader_core.py    ──→  core/executor.py, core/microbench_runner.py, core/normalizers.py, core/runner.py

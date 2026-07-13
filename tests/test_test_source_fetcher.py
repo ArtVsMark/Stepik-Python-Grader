@@ -1,4 +1,7 @@
-"""Тесты для downloader.py — конвертация ZIP/GitHub тестов в Format 3."""
+"""Тесты для core/test_source_fetcher.py — конвертация ZIP/GitHub тестов в
+Format 3 (issue #302: выделено из downloader.py). extract_external_test_links
+(разбор ссылок) живёт в core/task_page_parser.py, но тестируется здесь рядом
+с использующим её скачиванием."""
 
 from __future__ import annotations
 
@@ -10,11 +13,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from stepik_grader import downloader
-from stepik_grader.downloader import (
-    _download_github_tests,
-    _download_zip_tests,
-    extract_external_test_links,
+from stepik_grader.core import test_source_fetcher as fetcher
+from stepik_grader.core.task_page_parser import extract_external_test_links
+from stepik_grader.core.test_source_fetcher import (
+    download_github_tests as _download_github_tests,
+)
+from stepik_grader.core.test_source_fetcher import (
+    download_zip_tests as _download_zip_tests,
 )
 
 # ZIP-хост, для которого legitimate передавать авторизованную Stepik-сессию
@@ -159,7 +164,7 @@ class TestDownloadZipExternalSecurity:
         session = MagicMock()
         gh_resp = _make_zip_response(("1", "a"), ("1.clue", "A"))
         with patch(
-            "stepik_grader.downloader.external_download_get", return_value=gh_resp
+            "stepik_grader.core.test_source_fetcher.external_download_get", return_value=gh_resp
         ) as mock_get:
             count = _download_zip_tests(
                 tmp_path, "https://raw.githubusercontent.com/o/r/tests.zip", session
@@ -177,7 +182,7 @@ class TestGithubTreeRegex:
 
     def test_github_url_regex(self) -> None:
         """Паттерн распознаёт github.com/owner/repo/tree/branch/path."""
-        m = downloader._GITHUB_TREE_RE.search(
+        m = fetcher._GITHUB_TREE_RE.search(
             "https://github.com/python-generation/Professional/tree/main/"
             "Module_3/Module_3.1/Module_3.1.20"
         )
@@ -189,14 +194,14 @@ class TestGithubTreeRegex:
 
     def test_blob_url(self) -> None:
         """Паттерн распознаёт blob-вариант."""
-        m = downloader._GITHUB_TREE_RE.search("https://github.com/owner/repo/blob/dev/dir/sub")
+        m = fetcher._GITHUB_TREE_RE.search("https://github.com/owner/repo/blob/dev/dir/sub")
         assert m is not None
         assert m.group("branch") == "dev"
         assert m.group("path") == "dir/sub"
 
     def test_non_tree_url_no_match(self) -> None:
         """URL без tree/blob не распознаётся."""
-        assert downloader._GITHUB_TREE_RE.search("https://github.com/owner/repo") is None
+        assert fetcher._GITHUB_TREE_RE.search("https://github.com/owner/repo") is None
 
 
 # ── TestDownloadGithubTests ────────────────────────────────────────────────
@@ -207,12 +212,12 @@ class TestDownloadGithubTests:
 
     GitHub — всегда сторонний хост (issue #240), поэтому функция больше не
     принимает Stepik-сессию — вместо неё патчится
-    ``stepik_grader.downloader.external_download_get``.
+    ``stepik_grader.core.test_source_fetcher.external_download_get``.
     """
 
     def test_invalid_url_returns_zero(self, tmp_path: pathlib.Path) -> None:
         """Нераспознанный URL возвращает 0."""
-        with patch("stepik_grader.downloader.external_download_get") as mock_get:
+        with patch("stepik_grader.core.test_source_fetcher.external_download_get") as mock_get:
             assert _download_github_tests(tmp_path, "https://example.com/x") == 0
         mock_get.assert_not_called()
 
@@ -240,7 +245,7 @@ class TestDownloadGithubTests:
         output_resp.raise_for_status = MagicMock()
 
         with patch(
-            "stepik_grader.downloader.external_download_get",
+            "stepik_grader.core.test_source_fetcher.external_download_get",
             side_effect=[api_resp, input_resp, output_resp],
         ):
             count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
@@ -269,7 +274,7 @@ class TestDownloadGithubTests:
         clue_resp.text = "7"
 
         with patch(
-            "stepik_grader.downloader.external_download_get",
+            "stepik_grader.core.test_source_fetcher.external_download_get",
             side_effect=[api_resp, in_resp, clue_resp],
         ):
             count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
@@ -285,7 +290,9 @@ class TestDownloadGithubTests:
         api_resp = MagicMock()
         api_resp.raise_for_status = MagicMock()
         api_resp.json.return_value = {"message": "Not Found"}
-        with patch("stepik_grader.downloader.external_download_get", return_value=api_resp):
+        with patch(
+            "stepik_grader.core.test_source_fetcher.external_download_get", return_value=api_resp
+        ):
             count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
         assert count == 0
 
@@ -297,7 +304,7 @@ class TestDownloadGithubTests:
         Issue #49 Q-01: GitHub API errors were previously uncovered.
         """
         with patch(
-            "stepik_grader.downloader.external_download_get",
+            "stepik_grader.core.test_source_fetcher.external_download_get",
             side_effect=requests.ConnectionError("network unreachable"),
         ):
             count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
@@ -310,7 +317,9 @@ class TestDownloadGithubTests:
         """HTTP-ошибка (404/500) через raise_for_status() тоже перехватывается."""
         api_resp = MagicMock()
         api_resp.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
-        with patch("stepik_grader.downloader.external_download_get", return_value=api_resp):
+        with patch(
+            "stepik_grader.core.test_source_fetcher.external_download_get", return_value=api_resp
+        ):
             count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
         assert count == 0
         assert "GitHub API недоступен" in capsys.readouterr().out
@@ -334,7 +343,9 @@ class TestDownloadGithubTests:
                 "download_url": "https://raw.githubusercontent.com/o/r/solution.py",
             },
         ]
-        with patch("stepik_grader.downloader.external_download_get", return_value=api_resp):
+        with patch(
+            "stepik_grader.core.test_source_fetcher.external_download_get", return_value=api_resp
+        ):
             count = _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
         assert count == 0
 
@@ -349,7 +360,7 @@ class TestDownloadGithubTests:
         api_resp.raise_for_status = MagicMock()
         api_resp.json.return_value = []
         with patch(
-            "stepik_grader.downloader.external_download_get", return_value=api_resp
+            "stepik_grader.core.test_source_fetcher.external_download_get", return_value=api_resp
         ) as mock_get:
             _download_github_tests(tmp_path, "https://github.com/o/r/tree/main/dir")
         mock_get.assert_called_once()
@@ -411,3 +422,14 @@ class TestZipConversionRoundtrip:
         assert cases[0].expected_lines == ["60"]
         assert cases[1].input_lines == ["1", "2"]
         assert cases[1].expected_lines == ["3"]
+
+
+class TestDownloadZipErrorPath:
+    """download_zip_tests при сетевой ошибке возвращает 0."""
+
+    def test_network_error_returns_zero(self, tmp_path: pathlib.Path) -> None:
+        """Ошибка сети на stepik.org (использует переданную сессию) → 0."""
+        session = MagicMock()
+        session.get.side_effect = requests.ConnectionError("down")
+        zip_url = "https://stepik.org/media/attachments/lesson/1/t.zip"
+        assert _download_zip_tests(tmp_path, zip_url, session) == 0
