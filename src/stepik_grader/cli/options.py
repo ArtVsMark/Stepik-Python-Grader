@@ -80,6 +80,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Только итог, без подробного diff, для --mode 1/2. Issue #50 D-03.",
     )
     parser.add_argument(
+        "--diagnostic",
+        action="store_true",
+        help="Диагностический лог сети/OAuth/загрузки в stepik_diagnostics/grader.log "
+        "(с редакцией секретов). То же — переменной STEPIK_GRADER_LOG=debug. Issue #146.",
+    )
+    parser.add_argument(
         "--output",
         choices=["text", "json", "csv", "markdown"],
         default="text",
