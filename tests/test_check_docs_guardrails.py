@@ -112,3 +112,39 @@ def test_anchor_in_code_fence_is_ignored(tmp_path, monkeypatch) -> None:
     (tmp_path / "b.md").write_text("```\n# not a heading\n```\n# Real\n", encoding="utf-8")
     result = slugs(tmp_path / "b.md")
     assert result == {"real"}
+
+
+def test_docs_index_complete_on_current_repo() -> None:
+    """На актуальном main каждый docs/*.md упомянут в docs/README.md."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_docs_index_completeness(errors)
+    assert errors == []
+
+
+def test_unindexed_docs_file_is_flagged(tmp_path, monkeypatch) -> None:
+    """Файл docs/*.md, не упомянутый в docs/README.md, → ошибка (issue #300)."""
+    module = _load_module()
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "README.md").write_text("[installation](installation.md)\n", encoding="utf-8")
+    (docs / "installation.md").write_text("# Installation\n", encoding="utf-8")
+    (docs / "orphan.md").write_text("# Orphan\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_index_completeness(errors)
+    assert any("orphan.md" in e for e in errors), errors
+
+
+def test_adr_subfolder_is_not_required_in_index(tmp_path, monkeypatch) -> None:
+    """docs/adr/*.md не проверяется напрямую — каталогизируется adr/README.md."""
+    module = _load_module()
+    docs = tmp_path / "docs"
+    (docs / "adr").mkdir(parents=True)
+    (docs / "README.md").write_text("[ADR index](adr/README.md)\n", encoding="utf-8")
+    (docs / "adr" / "README.md").write_text("# ADR index\n", encoding="utf-8")
+    (docs / "adr" / "0001-decision.md").write_text("# Decision\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_index_completeness(errors)
+    assert errors == []

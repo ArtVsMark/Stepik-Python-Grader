@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Две машинные защиты, чтобы README снова не разросся, а ссылки между Markdown-
-файлами не протухли (эпик #167 «README как витрина»):
+Три машинные защиты, чтобы README снова не разросся, ссылки между Markdown-
+файлами не протухли, а индекс docs/ не отставал от фактического состава
+каталога (эпик #167 «README как витрина»):
 
 1. **README line-budget.** ``README.md`` не должен превышать ``README_LINE_BUDGET``
    строк (см. константу ниже). README — короткая витрина, подробности живут в
@@ -12,6 +13,12 @@
    на существующий файл, а якоря — на существующий заголовок в целевом
    Markdown-файле. Внешние ссылки (http/https/mailto и т.п.) осознанно НЕ
    проверяются — сетевые проверки делают CI флаки.
+3. **Docs index completeness (issue #300).** Каждый файл ``docs/*.md`` (кроме
+   самого ``docs/README.md``) должен быть упомянут в ``docs/README.md`` — иначе
+   индекс расходится с фактическим составом каталога (как произошло с
+   ``changelog-archive.md``). Не рекурсивно: ``docs/adr/*.md`` каталогизируются
+   собственным индексом ``docs/adr/README.md``, на который ``docs/README.md``
+   уже ссылается одной строкой — перечислять каждый ADR отдельно не требуется.
 
 Никаких внешних зависимостей: чистый ``re`` + ``pathlib``, детерминированно и
 кроссплатформенно (Windows/Linux/macOS).
@@ -31,6 +38,7 @@ __all__ = [
     "README_LINE_BUDGET",
     "check_readme_budget",
     "check_markdown_links",
+    "check_docs_index_completeness",
     "collect_markdown_files",
     "github_slug",
     "main",
@@ -148,11 +156,33 @@ def check_markdown_links(errors: list[str]) -> None:
     print(f"Markdown links: checked {checked} local link(s) across {len(files)} file(s).")
 
 
+def check_docs_index_completeness(errors: list[str]) -> None:
+    """Каждый docs/*.md (кроме docs/README.md) упомянут в docs/README.md.
+
+    Не рекурсивно — docs/adr/*.md каталогизируются собственным индексом
+    (docs/adr/README.md), см. докстринг модуля, пункт 3.
+    """
+    readme = _ROOT / "docs" / "README.md"
+    index_text = readme.read_text(encoding="utf-8")
+    checked = 0
+    for md in sorted((_ROOT / "docs").glob("*.md")):
+        if md.name == "README.md":
+            continue
+        checked += 1
+        if md.name not in index_text:
+            errors.append(
+                f"docs/README.md: '{md.name}' exists in docs/ but is not referenced "
+                "in the navigation index (issue #300)."
+            )
+    print(f"docs/ index: checked {checked} file(s) against docs/README.md.")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_readme_budget(errors)
     check_markdown_links(errors)
+    check_docs_index_completeness(errors)
 
     if errors:
         print("\nFAIL: documentation guardrails violated:")
@@ -160,7 +190,7 @@ def main() -> int:
             print(f"  - {e}")
         return 1
 
-    print("OK: README within budget and all local Markdown links resolve.")
+    print("OK: README within budget, all local Markdown links resolve, docs/ index complete.")
     return 0
 
 
