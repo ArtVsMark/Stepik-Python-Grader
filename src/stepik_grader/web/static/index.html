@@ -100,13 +100,12 @@
             </div>
             <div class="hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Детали».</div>
 
-            <div class="section-heading">Глоссарий</div>
-            <div class="card" style="margin-bottom:var(--space-3)">
-              <div class="card-title">
-                Связанные термины
-                <span class="badge badge-primary" id="glossary-widget-badge">0</span>
-              </div>
-              <div class="card-body">Концепции глоссария, встречавшиеся в последних решениях.</div>
+            <!-- issue #323: «Функции в коде» — мини-карточки функций текущего
+                 решения (замена мёртвого виджета «Связанные термины»). Скрыт в
+                 режимах 3/4 (issue #324) через #check-terms-block. -->
+            <div id="check-terms-block">
+              <div class="section-heading">Функции в коде</div>
+              <ul id="check-terms" class="side-list"><li class="empty">Начните вводить код или выберите решение</li></ul>
             </div>
 
             <div class="section-heading">Недавние пути</div>

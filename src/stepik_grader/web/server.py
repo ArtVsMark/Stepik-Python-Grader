@@ -33,6 +33,7 @@ from stepik_grader.web.glossary_adapter import (
     glossary_get,
     glossary_missing,
     glossary_search,
+    queue_code_gaps,
 )
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message, resolve_lang
 from stepik_grader.web.viewmodels import (
@@ -317,10 +318,23 @@ class _Handler(BaseHTTPRequestHandler):
         if body is None:
             return
         if parsed.path == "/api/code-terms":
-            # issue #321: мини-карточки глоссария по коду редактора песочницы.
-            # Только детекция + сопоставление с базой — без ФС, без confine.
-            raw_code = body.get("code")
-            terms_code = raw_code if isinstance(raw_code, str) else ""
+            # issue #321/#322: мини-карточки глоссария по коду. Тело — либо
+            # {code} (режим 1/песочница, debounce), либо {path} (режим 2, разово
+            # после прогона): path конфайнится и читается, пробелы решения
+            # дозаписываются в очередь «Недостающее» (practice-driven канал).
+            terms_path = str(body.get("path") or "").strip()
+            if terms_path:
+                confined = self._confined_path(terms_path, lang)
+                if confined is None:
+                    return  # _confined_path уже отправил ошибку
+                try:
+                    terms_code = confined.read_text(encoding="utf-8")
+                except OSError:
+                    terms_code = ""
+                queue_code_gaps(terms_code, source=confined.name)
+            else:
+                raw_code = body.get("code")
+                terms_code = raw_code if isinstance(raw_code, str) else ""
             self._send(
                 200, "application/json; charset=utf-8", _json({"terms": code_terms(terms_code)})
             )

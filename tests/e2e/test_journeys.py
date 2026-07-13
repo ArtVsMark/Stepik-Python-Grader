@@ -104,6 +104,39 @@ def test_bench_progressbar_exposes_aria_roles(page: Any, e2e_server: str, tmp_pa
     )
 
 
+def test_check_code_terms_panel_and_mode_visibility(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #323/#324): «Функции в коде» в режиме 1 (клик → карточка); скрыта в 3/4."""
+    page.goto(e2e_server + "/")
+    page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
+
+    # режим 1: код в редакторе → мини-карточка sorted → клик открывает карточку
+    page.click('.mode-btn[data-mode="file"]')
+    page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click("#solution-editor .cm-content")
+    page.keyboard.type("xs = sorted([3, 1, 2])")
+    page.wait_for_selector("#check-terms .term-card", timeout=_TIMEOUT_MS)
+    titles = page.locator("#check-terms .term-card-title").all_inner_texts()
+    assert any("sorted" in t.lower() for t in titles), titles
+    page.click("#check-terms .term-card-link")
+    page.wait_for_selector("#view-glossary:not([hidden])", timeout=_TIMEOUT_MS)
+    page.wait_for_selector("#glossary-detail-content:not([hidden])", timeout=_TIMEOUT_MS)
+    assert "sorted" in page.locator("#glossary-detail-content").inner_text().lower()
+
+    # issue #324: панель видна в режимах 1/2, скрыта в 3/4
+    page.click('[data-section="check"]')
+    page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click('.mode-btn[data-mode="tests"]')
+    assert not page.locator("#check-terms-block").is_hidden()
+    page.click('.mode-btn[data-mode="bench"]')
+    assert page.locator("#check-terms-block").is_hidden()
+    page.click('.mode-btn[data-mode="microbench"]')
+    assert page.locator("#check-terms-block").is_hidden()
+    page.click('.mode-btn[data-mode="file"]')
+    assert not page.locator("#check-terms-block").is_hidden()
+
+
 def test_mode1_file_picker_edit_check_then_save(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: режим 1 (issue #297) -- выбрать файл, отредактировать код, ПРОВЕРИТЬ
     (грейд из временного файла, без записи на диск), затем явно СОХРАНИТЬ."""

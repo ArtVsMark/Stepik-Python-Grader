@@ -15,16 +15,23 @@ from typing import Any
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.glossary import all_entries
-from stepik_grader.glossary.detector import scan_code_concepts
+from stepik_grader.glossary.detector import MissingConceptDetector, scan_code_concepts
 from stepik_grader.glossary.json_provider import (
     BUNDLED_GLOSSARY_DIR,
     GlossaryError,
     JsonGlossaryProvider,
+    append_missing_entries,
     load_missing_queue,
 )
 from stepik_grader.glossary.models import GlossaryCard
 
-__all__ = ["glossary_search", "glossary_get", "glossary_missing", "code_terms"]
+__all__ = [
+    "glossary_search",
+    "glossary_get",
+    "glossary_missing",
+    "code_terms",
+    "queue_code_gaps",
+]
 
 # Допустимые сортировки раздела «Глоссарий» (issue #329). Всё прочее → порядок
 # источника (без сортировки).
@@ -116,11 +123,32 @@ def glossary_get(card_id: str, *, store_path: pathlib.Path | None = None) -> dic
     return card.to_dict() if card is not None else None
 
 
+# При коллизии «хвоста» (``split`` есть у str/bytes/bytearray) предпочитаем
+# метод основного типа, который новичок и имеет в виду: str → list → dict → …
+_TYPE_PRIORITY: tuple[str, ...] = ("str.", "list.", "dict.", "set.", "tuple.")
+
+
 def _card_index(cards: list[GlossaryCard]) -> dict[str, GlossaryCard]:
-    """Индекс ``id/alias (lower) -> карточка`` для сопоставления концепций из кода."""
+    """Индекс ``id/alias/«хвост id» (lower) -> карточка`` для матча концепций из кода.
+
+    Помимо ``id`` и ``aliases`` карточка индексируется по «хвосту» своего id
+    после точки (``str.split`` → ключ ``split``): концепция-метод из сканера
+    приходит голым именем (``split``), а карточка метода хранится как
+    ``str.split`` (issue #322). При конфликте «хвоста» побеждает карточка
+    основного типа (``str.split`` важнее ``bytearray.split``).
+    """
+
+    def priority(card: GlossaryCard) -> int:
+        cid = card.id.lower()
+        for i, prefix in enumerate(_TYPE_PRIORITY):
+            if cid.startswith(prefix):
+                return i
+        return len(_TYPE_PRIORITY)
+
     index: dict[str, GlossaryCard] = {}
-    for card in cards:
-        for key in (card.id, *card.aliases):
+    for card in sorted(cards, key=priority):  # приоритетные типы кладутся первыми
+        keys = {card.id, card.id.rsplit(".", 1)[-1], *card.aliases}
+        for key in keys:
             k = key.strip().lower()
             if k:
                 index.setdefault(k, card)
@@ -128,10 +156,10 @@ def _card_index(cards: list[GlossaryCard]) -> dict[str, GlossaryCard]:
 
 
 def _match_card(concept: str, index: dict[str, GlossaryCard]) -> GlossaryCard | None:
-    """Найти карточку под концепцию: точное id/alias, затем «хвост» после точки.
+    """Найти карточку под концепцию: точное id/alias/«хвост», затем «хвост» концепции.
 
-    ``functools.reduce`` матчится картой ``reduce``, если полного совпадения нет
-    (как ``MissingConceptDetector._is_known``).
+    ``functools.reduce`` матчится картой ``reduce``, а голый метод ``split`` —
+    картой ``str.split`` (через индекс по «хвосту id», см. ``_card_index``).
     """
     concept_lc = concept.lower()
     if concept_lc in index:
@@ -141,38 +169,85 @@ def _match_card(concept: str, index: dict[str, GlossaryCard]) -> GlossaryCard | 
 
 
 def code_terms(code: str, *, store_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
-    """Мини-карточки глоссария для концепций, найденных в ``code`` (issue #321).
+    """Термины глоссария для концепций, найденных в ``code`` (issue #321/#322).
 
-    Сканирует код (``scan_code_concepts``) и сопоставляет найденные функции/
-    конструкции с карточками базы; возвращает компактную инфу
-    ``{id, title, kind, summary, status, snippet}`` только по тем концепциям, у
-    которых карточка есть (панель «Функции в коде» песочницы). Порядок — по
-    ``title``; концепции без карточки не показываются (их удел — очередь
-    «Недостающее»).
+    Сканирует код (``scan_code_concepts`` — builtin'ы, вызовы stdlib, методы,
+    ``match/case``) и сопоставляет с карточками базы. Возвращает **все**
+    распознанные концепции (а не только покрытые) в виде
+    ``{id, title, summary, kind, has_card, url, confidence, snippet}``:
+    покрытые несут данные карточки (``has_card=True``), непокрытые —
+    сам концепт (``has_card=False``, панель рисует их приглушённо). Методы —
+    ``confidence="low"`` (тип получателя статически неизвестен). Порядок:
+    покрытые вперёд, затем по ``title``.
     """
     concepts = scan_code_concepts(code)
     if not concepts:
         return []
     index = _card_index(_all_cards(store_path))
-    seen: set[str] = set()
+    seen_cards: set[str] = set()
+    seen_concepts: set[str] = set()
     terms: list[dict[str, Any]] = []
-    for concept, (_kind, snippet) in concepts.items():
+    for concept, (kind, snippet) in concepts.items():
+        confidence = "low" if kind == "method" else "high"
         card = _match_card(concept, index)
-        if card is None or card.id in seen:
-            continue
-        seen.add(card.id)
-        terms.append(
-            {
-                "id": card.id,
-                "title": card.title,
-                "kind": card.kind,
-                "summary": card.summary,
-                "status": card.status,
-                "snippet": snippet,
-            }
-        )
-    terms.sort(key=lambda t: t["title"].lower())
+        if card is not None:
+            if card.id in seen_cards:
+                continue
+            seen_cards.add(card.id)
+            terms.append(
+                {
+                    "id": card.id,
+                    "title": card.title,
+                    "summary": card.summary,
+                    "kind": card.kind,
+                    "has_card": True,
+                    "url": card.url,
+                    "confidence": confidence,
+                    "snippet": snippet,
+                }
+            )
+        elif concept not in seen_concepts:
+            seen_concepts.add(concept)
+            terms.append(
+                {
+                    "id": concept,
+                    "title": concept,
+                    "summary": "",
+                    "kind": kind,
+                    "has_card": False,
+                    "url": "",
+                    "confidence": confidence,
+                    "snippet": snippet,
+                }
+            )
+    terms.sort(key=lambda t: (not t["has_card"], t["title"].lower()))
     return terms
+
+
+def queue_code_gaps(
+    code: str,
+    *,
+    source: str = "",
+    queue_path: pathlib.Path | None = None,
+    store_path: pathlib.Path | None = None,
+) -> None:
+    """Practice-driven AST-канал (issue #322): пробелы кода → очередь «Недостающее».
+
+    ``MissingConceptDetector.detect_from_code`` (узкий notable-набор — без
+    повседневных ``print``/``len``) находит функции/конструкции без карточки в
+    базе; ``append_missing_entries`` дедуплицирует по ``concept``. Best-effort и
+    defensive (как ``_queue_missing_concept``): плохой/незаписываемый путь очереди
+    не должен ронять эндпоинт. Вызывается на разовых ``{path}``-запросах (после
+    прогона), не на debounce-редактировании.
+    """
+    path = queue_path if queue_path is not None else pathlib.Path(CONFIG.glossary_missing_queue)
+    try:
+        known = {term for card in _all_cards(store_path) for term in card.search_terms}
+        entries = MissingConceptDetector().detect_from_code(code, known=known, source=source)
+        if entries:
+            append_missing_entries(path, entries)
+    except (GlossaryError, OSError):
+        pass
 
 
 def glossary_missing(*, queue_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
