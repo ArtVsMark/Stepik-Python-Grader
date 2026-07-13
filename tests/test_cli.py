@@ -743,6 +743,21 @@ class TestEntrypointSideEffectFlags:
         cli.main(["--serve", "--no-root-confinement"])
         assert called == [{"port": 8000, "root": None, "confine": False}]
 
+    def test_serve_with_sandbox_is_rejected(self, monkeypatch, capsys) -> None:
+        # issue #351: --sandbox неприменим к --serve (SandboxRunner в web не
+        # проброшен). Раньше флаг молча игнорировался и сервер стартовал
+        # обычным LocalRunner'ом — ложное чувство изоляции. Теперь честный
+        # parser.error ДО запуска сервера.
+        from stepik_grader import web
+
+        called = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
+        with pytest.raises(SystemExit):
+            cli.main(["--serve", "--sandbox"])
+        assert called == []  # сервер не должен стартовать
+        err = capsys.readouterr().err
+        assert "--sandbox" in err and "--serve" in err
+
 
 # ---------------------------------------------------------------------------
 # Verdict-tally helpers (issue #268) — pure functions, tested directly rather

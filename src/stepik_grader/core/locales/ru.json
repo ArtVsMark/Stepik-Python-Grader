@@ -29,6 +29,7 @@
   "server_workspace_confined": "   Рабочая директория: {workspace}  (пути вне неё отклоняются 403)",
   "server_workspace_unconfined": "   Рабочая директория: {workspace}  (конфайнмент путей ОТКЛЮЧЁН --no-root-confinement — доступен любой путь на диске)",
   "server_stopped": "\nОстановлено.",
+  "sandbox_serve_unsupported": "Флаг --sandbox не поддерживается вместе с --serve: веб-сервер исполняет код без изоляции (проброс SandboxRunner в web не реализован). Уберите --sandbox или запускайте проверку без --serve.",
   "run_not_found": "Задача {run_id} не найдена.",
   "invalid_run_mode": "Недопустимый режим задачи: {mode}.",
   "run_cancelled": "Задача отменена пользователем.",

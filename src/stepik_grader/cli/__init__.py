@@ -596,6 +596,13 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.serve:
+        # issue #351: --sandbox неприменим к --serve. Ветка --serve возвращается
+        # ДО set_runner() ниже, поэтому раньше флаг молча игнорировался и
+        # web-сервер всё равно исполнял код LocalRunner'ом — ложное чувство
+        # изоляции. Проброс SandboxRunner в web — отдельная задача (вне #266);
+        # до тех пор честно отказываем, а не проглатываем флаг безопасности.
+        if args.sandbox:
+            parser.error(_t("sandbox_serve_unsupported"))
         # Ленивый импорт: http.server-стек тянем только когда реально нужен.
         from stepik_grader import web
 

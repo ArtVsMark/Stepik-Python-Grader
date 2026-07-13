@@ -25,6 +25,13 @@
   downloader tests re-split across per-module test files.
 
 ### Fixed
+- `--sandbox` was silently ignored when combined with `--serve` (issue #351):
+  the `--serve` branch returns before `set_runner()`, so the web server always
+  executed code with the plain `LocalRunner` even when the user explicitly asked
+  for the sandbox — a false sense of isolation. `stepik-grader --serve
+  --sandbox` now fails fast with an explicit, localized error (`ru`/`en`)
+  instead of starting an unprotected server. Wiring `SandboxRunner` into the
+  web layer remains a separate task (outside issue #266).
 - Broken `TYPE_CHECKING` import in `core/reporter.py` (issue #350): the
   annotation-only import read `from core.grader_core import TestCase` — a path
   missing the `stepik_grader.` prefix. Under `TYPE_CHECKING` it never failed at
