@@ -8,6 +8,7 @@ established pattern.
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import threading
 import urllib.error
@@ -101,6 +102,48 @@ class TestGlossarySearchWithConfiguredStore:
     def test_missing_store_file_falls_back_gracefully(self, tmp_path: pathlib.Path) -> None:
         cards = glossary_adapter.glossary_search("", store_path=str(tmp_path / "nope.json"))
         assert len(cards) > 0  # fell back to core/glossary.py, didn't raise
+
+
+class TestCardCache:
+    """issue #339: memoization карточек по mtime — без репарсинга на каждый вызов."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_cache(self):
+        glossary_adapter._CARDS_CACHE.clear()
+        yield
+        glossary_adapter._CARDS_CACHE.clear()
+
+    @staticmethod
+    def _write(path: pathlib.Path, cards: list[GlossaryCard]) -> None:
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def test_repeated_load_hits_cache(self, tmp_path: pathlib.Path) -> None:
+        p = tmp_path / "g.json"
+        self._write(p, [GlossaryCard(id="a", title="A")])
+        first = glossary_adapter._all_cards(p)
+        second = glossary_adapter._all_cards(p)
+        assert second is first  # тот же объект → файл не перечитывался
+
+    def test_mtime_change_invalidates_cache(self, tmp_path: pathlib.Path) -> None:
+        p = tmp_path / "g.json"
+        self._write(p, [GlossaryCard(id="a", title="A")])
+        first = glossary_adapter._all_cards(p)
+        assert {c.id for c in first} == {"a"}
+        # переписать с новой карточкой и сдвинуть mtime вперёд (детерминированно)
+        self._write(p, [GlossaryCard(id="a", title="A"), GlossaryCard(id="b", title="B")])
+        st = p.stat()
+        os.utime(p, (st.st_atime + 10, st.st_mtime + 10))
+        second = glossary_adapter._all_cards(p)
+        assert second is not first
+        assert {c.id for c in second} == {"a", "b"}  # правка подхвачена
+
+    def test_bundled_base_cached_across_calls(self) -> None:
+        a = glossary_adapter._all_cards(None)
+        b = glossary_adapter._all_cards(None)
+        assert a is b and len(a) > 500  # комплектная база кешируется
 
 
 class TestGlossaryFilterAndSort:

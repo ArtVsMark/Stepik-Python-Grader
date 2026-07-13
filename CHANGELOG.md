@@ -56,6 +56,16 @@
   surfaces (was ~3.5–4.4:1); light theme already passed and is unchanged.
 
 ### Changed
+- The web glossary source (`glossary_adapter._all_cards`) is now memoized in
+  memory, keyed by the source's mtime (issue #339). Previously every
+  `/api/glossary`, `/api/glossary/<id>` and `/api/code-terms` request re-read
+  and re-parsed the whole bundled base (~1.2 MB, ~1400 cards) — on the
+  debounced "Функции в коде" panel that meant parsing 1.2 MB on every few
+  keystrokes. Now it parses once and reuses the result (~185× faster on the
+  cache hit locally: 40 ms → 0.2 ms); editing a configured `glossary_store`
+  bumps its mtime and transparently invalidates the cache. Cards are read-only
+  to consumers, so the shared list is safe across request threads. No new
+  dependency, no SQLite.
 - Mode 1 (single-file correctness) in the web UI no longer saves to disk
   before grading (issue #297). "Проверить" now runs one
   `POST /api/v1/runs` with `mode="tests"` and the editor's `code` in the
