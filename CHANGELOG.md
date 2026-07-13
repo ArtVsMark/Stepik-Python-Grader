@@ -10,6 +10,16 @@
 -->
 
 ### Refactored
+- Consolidated the CLI's two parallel i18n mechanisms into one (issue #355):
+  the hardcoded `_MESSAGES` dict in `cli/__init__.py` (48 keys) is merged into
+  the JSON locale catalog (`core/locales/{ru,en}.json`), and `_t()` is now a
+  thin wrapper reading straight from `_LOCALE_MESSAGES` — no static fallback.
+  New CLI strings now flow through the same JSON catalog as the web layer, so
+  the ru/en parity guardrail (`scripts/check_locale_guardrails.py`) covers them
+  too. The `_MESSAGES` keys did not overlap the existing web catalog, so the
+  merge is a pure addition (35 → 83 keys per locale). `--lang`/auto-detection
+  behaviour is unchanged; `test_i18n.py` is rewritten for the single-catalog
+  model.
 - Small code-style hygiene from the 2026-07 audit (issue #354, behaviour
   unchanged):
   - Added `__all__` to the 8 modules that lacked it (project checklist requires

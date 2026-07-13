@@ -4,7 +4,7 @@
 
 Выделено из cli/__init__.py без изменения поведения (issue #121, Stage 1
 эпика #117): pure rendering helpers — не читают mutable module-level state
-(`_LANG`/`_MESSAGES`/`_LOCALE_MESSAGES`) и не импортируют
+(`_LANG`/`_LOCALE_MESSAGES`) и не импортируют
 `stepik_grader.cli`. Реэкспортированы фасадом (`cli/__init__.py`) как
 `cli._rows_to_csv`/`cli._rows_to_markdown`/`cli._print_tabular` для
 обратной совместимости с существующими monkeypatch-тестами; `CliContext`

@@ -15,7 +15,7 @@
 `cli._pick_path_via_dialog`/`cli._ask_bench_profile`/т.д. по-прежнему
 долетает до реального исполнения без миграции существующих тестов.
 
-`_LANG`/`_MESSAGES`/`_LOCALE_MESSAGES`/`_t` НЕ переезжают сюда и остаются в
+`_LANG`/`_LOCALE_MESSAGES`/`_t` НЕ переезжают сюда и остаются в
 `cli/__init__.py` — `_LANG` реально мутируется в `main()` (`global _LANG`), и
 перенос сделал бы `cli._LANG` одноразовым snapshot вместо живой ссылки,
 незаметно ломая `monkeypatch.setattr(cli, "_LANG", ...)` (issue #121 Phase 2,
