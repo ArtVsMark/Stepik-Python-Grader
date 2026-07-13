@@ -14,6 +14,7 @@ from __future__ import annotations
 import pathlib
 import sys
 import threading
+import warnings
 
 import pytest
 
@@ -153,6 +154,34 @@ def test_measure_peak_memory_warns_on_first_sample_failure(
         runner._measure_peak_memory(_FakeProc(), result, stop)
 
     assert result[0] == 0.0
+
+
+def test_measure_peak_memory_unreliable_warning_deduped_across_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repeated calls (batch grading many trivially-fast solutions) warn once,
+    not once per call -- the message text is constant so Python's own
+    "default" warning filter suppresses repeats within the same interpreter
+    session (issue: pid-specific text used to defeat this dedup)."""
+    import psutil
+
+    from stepik_grader.core import runner
+
+    def _raise(_pid: int) -> None:
+        raise psutil.NoSuchProcess(_pid)
+
+    monkeypatch.setattr(runner.psutil, "Process", _raise)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("default")
+        for _ in range(5):
+            result: list[float] = [0.0]
+            stop = threading.Event()
+            stop.set()
+            runner._measure_peak_memory(_FakeProc(), result, stop)
+
+    unreliable = [w for w in caught if "unreliable" in str(w.message)]
+    assert len(unreliable) == 1, unreliable
 
 
 # ---------------------------------------------------------------------------
