@@ -253,28 +253,11 @@
   </div>
 </div>
 
-<!-- issue #265: import map for the vendored CodeMirror 6 ESM bundles
-     (static/vendor/, no CDN — see static/vendor/VERSIONS.md). Must appear
-     before app.js, which is now type="module" so it can `import` these
-     bare specifiers directly. -->
-<script type="importmap">
-{
-  "imports": {
-    "@codemirror/state": "/static/vendor/codemirror-state@6.7.1.mjs",
-    "@codemirror/view": "/static/vendor/codemirror-view@6.43.6.mjs",
-    "@codemirror/language": "/static/vendor/codemirror-language@6.12.4.mjs",
-    "@codemirror/commands": "/static/vendor/codemirror-commands@6.10.4.mjs",
-    "@codemirror/lang-python": "/static/vendor/codemirror-lang-python@6.2.1.mjs",
-    "@lezer/common": "/static/vendor/lezer-common@1.5.2.mjs",
-    "@lezer/highlight": "/static/vendor/lezer-highlight@1.2.3.mjs",
-    "@lezer/lr": "/static/vendor/lezer-lr@1.4.10.mjs",
-    "/node/events.mjs": "/static/vendor/node-events.mjs",
-    "/node/tty.mjs": "/static/vendor/node-tty.mjs",
-    "/node/async_hooks.mjs": "/static/vendor/node-async_hooks.mjs",
-    "/node/process.mjs": "/static/vendor/node-process.mjs"
-  }
-}
-</script>
+<!-- issue #295: CodeMirror 6 is a single self-contained vendored ESM bundle
+     (static/vendor/codemirror-bundle@6.mjs — no CDN, see
+     static/vendor/VERSIONS.md) that app.js imports directly by URL; no
+     import map needed (issue #265's importmap + per-package esm.sh bundles
+     + Node browser-compat shims are gone). -->
 <script type="module" src="/static/app.js"></script>
 </body>
 </html>

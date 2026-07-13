@@ -48,24 +48,12 @@ _INDEX_HTML = (_STATIC_DIR / "index.html").read_text(encoding="utf-8")
 _APP_CSS = (_STATIC_DIR / "app.css").read_text(encoding="utf-8")
 _APP_JS = (_STATIC_DIR / "app.js").read_text(encoding="utf-8")
 
-# issue #265 — вендоренные ESM-бандлы CodeMirror 6 (без CDN, тот же принцип,
-# что у шрифтов issue #260); имена/версии/способ обновления —
-# static/vendor/VERSIONS.md. Content-Type text/javascript — тот же, что
-# отдаёт исходный esm.sh, браузер принимает его для ES-модулей.
-_VENDOR_FILES = (
-    "codemirror-state@6.7.1.mjs",
-    "codemirror-view@6.43.6.mjs",
-    "codemirror-language@6.12.4.mjs",
-    "codemirror-commands@6.10.4.mjs",
-    "codemirror-lang-python@6.2.1.mjs",
-    "lezer-common@1.5.2.mjs",
-    "lezer-highlight@1.2.3.mjs",
-    "lezer-lr@1.4.10.mjs",
-    "node-events.mjs",
-    "node-tty.mjs",
-    "node-async_hooks.mjs",
-    "node-process.mjs",
-)
+# issue #265 — вендоренный ESM-бандл CodeMirror 6 (без CDN, тот же принцип,
+# что у шрифтов issue #260); один самодостаточный файл вместо importmap +
+# набора esm.sh-бандлов + Node browser-compat шимов (issue #295 — единая
+# сборка esbuild'ом; имена/версии/способ пересборки — static/vendor/VERSIONS.md).
+# Content-Type text/javascript — браузер принимает его для ES-модулей.
+_VENDOR_FILES = ("codemirror-bundle@6.mjs",)
 
 # Небольшой фиксированный allowlist — не файловый static-сервер (нет
 # path-traversal поверхности): единственные статические файлы, которые вообще
