@@ -74,8 +74,21 @@ jobs:
       - name: Version consistency (issue #165)
         run: python scripts/check_version_consistency.py
 
+      # issue #294: this job's OWN --cov-fail-under=85 gate (pyproject.toml)
+      # otherwise counts the OTHER two platforms' core/sandbox/ backend files
+      # as permanently-uncovered (they're structurally unreachable here --
+      # SandboxRunner.__init__ never imports them on this OS) -- measured as
+      # little as ~1.1pp margin on ubuntu. Generates a CI-only coverage config
+      # that additionally omits those unreachable files for THIS job's gate;
+      # the coverage-combine job below does NOT use it, so the true cross-OS
+      # aggregate (--fail-under=90) still sees every file counted by whichever
+      # job(s) can actually exercise it -- no file is omitted everywhere.
+      - name: Generate per-OS coverage config (issue #294)
+        shell: bash
+        run: python scripts/generate_ci_coveragerc.py "$(python -c 'import platform; print(platform.system())')"
+
       - name: Run tests
-        run: pytest -q
+        run: pytest -q --cov-config=.coveragerc.ci
 
       # issue #283: each OS job only ever exercises its OWN core/sandbox/
       # backend (_linux.py/_macos.py/_windows.py) — the other two always read
