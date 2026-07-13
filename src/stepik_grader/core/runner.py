@@ -16,9 +16,9 @@ verdict/diff остаётся выше по стеку (``grader_core.py``); ``R
 #67), фоновый psutil-поток мониторинга пикового RSS (issue #48 R-05).
 ``SandboxRunner`` (issue #266, реализация требований дизайна #157) — в
 ``core/sandbox/``: тот же протокол ``Runner`` с ОС-уровневой изоляцией
-(bubblewrap/nsjail на Linux, sandbox-exec на macOS, Job Objects на Windows),
-без изменений в логике ``grader_core.py`` (только новый ``set_runner()``
-для инъекции и маппинг ``sandbox_violation`` в отдельный verdict).
+(bubblewrap на Linux, sandbox-exec на macOS, Job Objects на Windows), без
+изменений в логике ``grader_core.py`` (только новый ``set_runner()`` для
+инъекции и маппинг ``sandbox_violation`` в отдельный verdict).
 """
 
 from __future__ import annotations

@@ -10,9 +10,10 @@
 Три backend'а, по одному на ОС, с РАЗНЫМИ гарантиями (полная таблица —
 ``SECURITY.md``, не дублируется здесь):
 
-- Linux (``_linux.py``) — bubblewrap (primary) / nsjail (fallback): сеть/ФС/
-  CPU/процессы изолированы ядром (namespaces + RLIMIT_*), плюс RLIMIT_AS как
-  доп. backstop для памяти.
+- Linux (``_linux.py``) — bubblewrap (единственный backend в этом MVP): сеть/
+  ФС/CPU/процессы изолированы ядром (namespaces + RLIMIT_*), плюс RLIMIT_AS
+  как доп. backstop для памяти. Исходный план (issue #266) допускал
+  ``nsjail`` как fallback без ``bwrap`` — не реализован (см. SECURITY.md).
 - macOS (``_macos.py``) — ``sandbox-exec``: сеть/запись-в-ФС/CPU изолированы
   ядром (чтение файлов сознательно НЕ ограничено — см. докстринг
   ``_macos.py``); память — psutil-поллинг (RLIMIT_AS не работает на
@@ -22,10 +23,10 @@
   БЕЗ сетевой изоляции и без строгой ФС-изоляции (только cwd-контейнмент
   относительных путей) — оба пробела задокументированы, не тихий пропуск.
 
-Backend недоступен на текущей платформе/окружении (нет ни ``bwrap`` ни
-``nsjail`` на Linux, ``sandbox-exec`` отсутствует на macOS, Job Objects API
-недоступен на Windows) → ``SandboxUnavailableError`` с понятной причиной —
-НИКОГДА не тихий fallback на ``LocalRunner`` (issue #266, явное требование).
+Backend недоступен на текущей платформе/окружении (нет ``bwrap`` на Linux,
+``sandbox-exec`` отсутствует на macOS, Job Objects API недоступен на
+Windows) → ``SandboxUnavailableError`` с понятной причиной — НИКОГДА не
+тихий fallback на ``LocalRunner`` (issue #266, явное требование).
 """
 
 from __future__ import annotations
