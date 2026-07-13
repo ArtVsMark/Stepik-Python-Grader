@@ -1060,6 +1060,7 @@ function showTracePlayer(trace, code) {
     error: (trace && trace.error) || null,
     lines: code.split("\n"),
     idx: 0,
+    view: "table", // issue #320: "table" | "diagram"
   };
   setSandboxStatus(trace.error ? "RE" : "OK");
   $("#sandbox-output").innerHTML = tracePlayerShell(state.sandbox.trace);
@@ -1101,6 +1102,13 @@ function tracePlayerShell(tr) {
     '<pre class="trace-code" id="trace-code">' +
     codeHtml +
     "</pre>" +
+    '<div class="trace-vars-head">' +
+    '<span class="form-label">Переменные</span>' +
+    '<div class="trace-view-toggle" role="group" aria-label="Вид переменных">' +
+    '<button type="button" data-traceview="table" class="active">Таблица</button>' +
+    '<button type="button" data-traceview="diagram">Диаграмма</button>' +
+    "</div>" +
+    "</div>" +
     '<div class="trace-frames" id="trace-frames"></div>' +
     "</div>" +
     '<div class="form-label">Вывод (stdout)</div>' +
@@ -1122,6 +1130,17 @@ function wireTraceControls() {
     })
   );
   $("#trace-slider").addEventListener("input", e => renderTraceStep(parseInt(e.target.value, 10)));
+  out.querySelectorAll("[data-traceview]").forEach(btn =>
+    btn.addEventListener("click", () => {
+      const tr = state.sandbox.trace;
+      if (!tr) return;
+      tr.view = btn.dataset.traceview;
+      out
+        .querySelectorAll("[data-traceview]")
+        .forEach(b => b.classList.toggle("active", b === btn));
+      renderTraceStep(tr.idx);
+    })
+  );
 }
 
 function renderTraceStep(idx) {
@@ -1146,8 +1165,9 @@ function renderTraceStep(idx) {
     lineEl.scrollIntoView({ block: "nearest" });
   }
 
-  // 2. кадры стека: текущий сверху, «Глобальные» снизу; изменившиеся — подсветка
-  $("#trace-frames").innerHTML = renderTraceFrames(step, prev);
+  // 2. переменные: таблица кадров либо диаграмма связей (issue #320)
+  if (tr.view === "diagram") renderTraceDiagram(step, prev);
+  else $("#trace-frames").innerHTML = renderTraceFrames(step, prev);
 
   // 3. вывод программы, наросший к этому шагу (срез по stdout_len)
   $("#trace-stdout").textContent = tr.stdout.slice(0, step.stdout_len);
@@ -1267,6 +1287,169 @@ function fmtObj(obj, heap, depth) {
     return esc(obj.type) + "(" + attrs.join(", ") + ")";
   }
   return esc(obj.type || "?");
+}
+
+// ─────────────────── диаграмма связей переменных (issue #320) ───────────────
+// Memory-graph в духе Python Tutor: слева кадры (переменные), справа узлы
+// heap-объектов; переменная-ссылка → стрелка в узел. Aliasing = две стрелки в
+// один узел (узлы по heap-id), вложенность = стрелки между узлами. Примитивы —
+// инлайн в кадре. Чистый SVG на vanilla JS (без внешних либ, политика #260/#265):
+// боксы — HTML, стрелки — SVG-оверлей, чьи концы измеряются по DOM после верстки.
+
+const _MEM_MAX_NODES = 40; // больше объектов — деградация в таблицу (Acceptance #320)
+
+function renderTraceDiagram(step, prev) {
+  const heap = step.heap || {};
+  const ids = Object.keys(heap);
+  const host = $("#trace-frames");
+  if (ids.length > _MEM_MAX_NODES) {
+    host.innerHTML =
+      '<div class="hint mem-toobig">Слишком много объектов (' +
+      ids.length +
+      ") для диаграммы — показана таблица.</div>" +
+      renderTraceFrames(step, prev);
+    return;
+  }
+  host.innerHTML =
+    '<div class="mem-graph"><div class="mem-cols" id="mem-cols">' +
+    '<svg class="mem-arrows" id="mem-arrows" aria-hidden="true"></svg>' +
+    '<div class="mem-col mem-frames-col">' +
+    memFramesHtml(step, prev) +
+    "</div>" +
+    '<div class="mem-col mem-heap-col">' +
+    memHeapHtml(heap) +
+    "</div>" +
+    "</div></div>";
+  drawMemArrows();
+}
+
+function memFramesHtml(step, prev) {
+  const heap = step.heap || {};
+  const frames = step.stack || [];
+  const out = [];
+  for (let k = frames.length - 1; k >= 0; k--) {
+    const fr = frames[k];
+    const prevFr = prev && prev.stack && prev.stack[k];
+    const title = k === 0 ? "Глобальные" : esc(fr.func) + "()";
+    const names = Object.keys(fr.locals || {});
+    const rows = names.map(name => {
+      const ref = fr.locals[name];
+      const changed =
+        !prevFr ||
+        !(name in (prevFr.locals || {})) ||
+        JSON.stringify(prevFr.locals[name]) !== JSON.stringify(ref);
+      const cls = "mem-var" + (changed ? " is-changed" : "");
+      const isRef = ref && typeof ref === "object" && "ref" in ref;
+      const slot = isRef
+        ? '<span class="mem-anchor" data-to="' + esc(ref.ref) + '"></span>'
+        : '<span class="mem-var-val">' + fmtRef(ref, heap, 0) + "</span>";
+      return (
+        '<div class="' + cls + '"><span class="mem-var-name">' + esc(name) + "</span>" + slot + "</div>"
+      );
+    });
+    const body = rows.length ? rows.join("") : '<div class="hint">нет переменных</div>';
+    out.push('<div class="mem-frame"><div class="mem-frame-title">' + title + "</div>" + body + "</div>");
+  }
+  return out.join("");
+}
+
+function memHeapHtml(heap) {
+  return Object.keys(heap)
+    .map(id => {
+      const obj = heap[id];
+      return (
+        '<div class="mem-node" id="mem-node-' +
+        esc(id) +
+        '" data-node="' +
+        esc(id) +
+        '"><div class="mem-node-title">' +
+        esc(obj.type || obj.kind || "?") +
+        "</div>" +
+        memNodeBody(obj, heap) +
+        "</div>"
+      );
+    })
+    .join("");
+}
+
+function memNodeBody(obj, heap) {
+  const slot = ref =>
+    ref && typeof ref === "object" && "ref" in ref
+      ? '<span class="mem-anchor" data-to="' + esc(ref.ref) + '"></span>'
+      : '<span class="mem-cell-val">' + fmtRef(ref, heap, 0) + "</span>";
+  if (obj.kind === "seq") {
+    const cells = (obj.elems || []).map(
+      (e, i) => '<div class="mem-cell"><span class="mem-idx">' + i + "</span>" + slot(e) + "</div>"
+    );
+    if (obj.n > (obj.elems || []).length) cells.push('<div class="mem-cell hint">…' + obj.n + "</div>");
+    return '<div class="mem-seq">' + cells.join("") + "</div>";
+  }
+  if (obj.kind === "map" || obj.kind === "object") {
+    const entries =
+      obj.kind === "map"
+        ? (obj.entries || []).map(([k, v]) => [fmtRef(k, heap, 0), v])
+        : Object.keys(obj.attrs || {}).map(a => [esc(a), obj.attrs[a]]);
+    const rows = entries.map(
+      ([k, v]) => '<div class="mem-entry"><span class="mem-key">' + k + "</span>" + slot(v) + "</div>"
+    );
+    if (obj.kind === "map" && obj.n > (obj.entries || []).length)
+      rows.push('<div class="mem-entry hint">…' + obj.n + "</div>");
+    return '<div class="mem-map">' + rows.join("") + "</div>";
+  }
+  if (obj.kind === "func") return '<div class="mem-cell-val">ƒ ' + esc(obj.name) + "</div>";
+  if (obj.kind === "module") return '<div class="mem-cell-val">module ' + esc(obj.name) + "</div>";
+  return '<div class="mem-cell-val">' + esc(obj.repr || obj.type || "?") + "</div>";
+}
+
+// Провести SVG-стрелки от каждого .mem-anchor[data-to] к узлу #mem-node-<id>.
+// Координаты — относительно .mem-cols (position:relative), измеряются по DOM
+// после вставки innerHTML (getBoundingClientRect форсит синхронную верстку).
+function drawMemArrows() {
+  const cols = $("#mem-cols");
+  const svg = $("#mem-arrows");
+  if (!cols || !svg) return;
+  const base = cols.getBoundingClientRect();
+  const w = cols.scrollWidth;
+  const h = cols.scrollHeight;
+  svg.setAttribute("width", String(w));
+  svg.setAttribute("height", String(h));
+  svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+  const parts = [
+    '<defs><marker id="mem-ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">' +
+      '<path d="M0,0 L7,3 L0,6 Z" class="mem-arrowhead"/></marker></defs>',
+  ];
+  cols.querySelectorAll(".mem-anchor[data-to]").forEach(anchor => {
+    const node = document.getElementById("mem-node-" + anchor.dataset.to);
+    if (!node) return;
+    const ar = anchor.getBoundingClientRect();
+    const nr = node.getBoundingClientRect();
+    const x1 = ar.left + ar.width / 2 - base.left;
+    const y1 = ar.top + ar.height / 2 - base.top;
+    const x2 = nr.left - base.left - 1;
+    const y2 = nr.top + Math.min(13, nr.height / 2) - base.top;
+    const dx = Math.max(24, (x2 - x1) / 2);
+    parts.push('<circle class="mem-dot" cx="' + x1 + '" cy="' + y1 + '" r="3"/>');
+    parts.push(
+      '<path class="mem-arrow" d="M' +
+        x1 +
+        "," +
+        y1 +
+        " C" +
+        (x1 + dx) +
+        "," +
+        y1 +
+        " " +
+        (x2 - dx) +
+        "," +
+        y2 +
+        " " +
+        x2 +
+        "," +
+        y2 +
+        '" marker-end="url(#mem-ah)"/>'
+    );
+  });
+  svg.innerHTML = parts.join(""); // SVG-namespace parsing (современные браузеры)
 }
 
 function updateCheckSidebarBadge(data) {
@@ -1999,6 +2182,16 @@ document.addEventListener("keydown", e => {
 });
 
 window.addEventListener("hashchange", routeFromHash); // issue #329: deep-link на карточку
+
+// issue #320: стрелки диаграммы — абсолютный SVG-оверлей, при ресайзе окна
+// концы разъезжаются; переисчисляем их (сам layout боксов пересчитает браузер).
+let _memResizeTimer = null;
+window.addEventListener("resize", () => {
+  const tr = state.sandbox.trace;
+  if (state.section !== "sandbox" || !tr || tr.view !== "diagram" || !$("#mem-cols")) return;
+  clearTimeout(_memResizeTimer);
+  _memResizeTimer = setTimeout(drawMemArrows, 100);
+});
 
 applyTheme();
 mountEditor();

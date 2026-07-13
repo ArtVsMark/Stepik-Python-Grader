@@ -55,6 +55,18 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Variable-relationship diagram in the sandbox step player (issue #320, epic
+  #314). A "Таблица / Диаграмма" toggle in the player's variable panel switches
+  to a Python-Tutor-style memory graph: stack frames on the left, heap object
+  nodes (list/tuple/set/dict/class instances) on the right, with SVG arrows
+  from each reference variable to its object. Aliasing is visible as two arrows
+  into one node (nodes are keyed by heap id), nesting as node→node arrows;
+  primitives stay inline in the frame. Changed variables are highlighted, the
+  diagram re-renders on each step, and it degrades to the table with a note
+  past a node cap. Pure vanilla-JS SVG (no external libs, per the vendored-only
+  policy), boxes measured in the DOM to route the arrows. Frontend-only
+  (`web/static/`) over the #318 trace; new Playwright e2e journey (aliasing +
+  nesting).
 - Step-by-step trace player in the sandbox (issue #319, epic #314). A
   "Пошагово" button traces the code (`mode="trace"`, #318) and opens a
   Python-Tutor-style player in the output panel: ⏮ ◀ ▶ ⏭ controls + a step

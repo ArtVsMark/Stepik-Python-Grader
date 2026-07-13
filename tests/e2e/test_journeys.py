@@ -320,6 +320,43 @@ def test_sandbox_step_player_function_frame_appears(
     assert saw_frame_with_n, "кадр f() с параметром n=5 не появился"
 
 
+def test_sandbox_diagram_shows_aliasing_and_nesting(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #320): диаграмма связей — aliasing (две стрелки в один узел) и вложенность."""
+    page.goto(e2e_server + "/")
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+
+    # aliasing: a и b ссылаются на один список → один узел, две стрелки в него
+    _type_sandbox_code(page, "a = [1, 2]\nb = a")
+    page.click("#sandbox-step")
+    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    page.locator('[data-trace="last"]').click()  # финал: a и b заданы
+    page.click('[data-traceview="diagram"]')
+    page.wait_for_selector("#mem-cols", timeout=_TIMEOUT_MS)
+
+    assert page.locator(".mem-node").count() == 1  # один список — один узел
+    anchors = page.locator(".mem-frames-col .mem-anchor").all()
+    targets = [a.get_attribute("data-to") for a in anchors]
+    assert len(targets) == 2 and targets[0] == targets[1]  # a и b → один heap-id
+    assert page.locator("path.mem-arrow").count() >= 2  # две стрелки в узел
+
+    # вложенность: m = {"x": [1]} → два узла (dict + list), стрелка узел→узел
+    _type_sandbox_code(page, 'm = {"x": [1]}')
+    page.click("#sandbox-step")
+    page.wait_for_selector("#trace-code", timeout=_TIMEOUT_MS)
+    page.locator('[data-trace="last"]').click()
+    page.click('[data-traceview="diagram"]')
+    page.wait_for_selector("#mem-cols", timeout=_TIMEOUT_MS)
+    assert page.locator(".mem-node").count() == 2  # dict + вложенный list
+    assert page.locator(".mem-heap-col .mem-anchor").count() >= 1  # ссылка из dict на list
+
+    # переключение обратно в таблицу работает
+    page.click('[data-traceview="table"]')
+    page.wait_for_selector(".trace-vars", timeout=_TIMEOUT_MS)
+
+
 def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: command palette -- Ctrl+K/триггер открывает палитру, команда исполняется."""
     page.goto(e2e_server + "/")
