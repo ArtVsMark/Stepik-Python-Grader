@@ -27,9 +27,10 @@ from stepik_grader.web.commands import COMMANDS, filter_commands
 
 
 class TestGlossarySearchNoStoreConfigured:
-    """store_path=None (and no CONFIG.glossary_store) → compact core/glossary.py fallback."""
+    """store_path=None (and no CONFIG.glossary_store) → комплектная база (#326);
+    при её отсутствии — компактный ``core/glossary.py`` fallback."""
 
-    def test_search_empty_query_returns_all_fallback_cards(self) -> None:
+    def test_search_empty_query_returns_all_cards(self) -> None:
         cards = glossary_adapter.glossary_search("")
         assert len(cards) > 0
         assert all(c["status"] == "ready" for c in cards)
@@ -48,6 +49,24 @@ class TestGlossarySearchNoStoreConfigured:
 
     def test_get_unknown_id_returns_none(self) -> None:
         assert glossary_adapter.glossary_get("not-a-real-id") is None
+
+    def test_default_serves_bundled_base_not_only_exceptions(self) -> None:
+        # issue #326: комплектная база даёт не только исключения — напр.
+        # встроенную функцию input(), которой нет в компактном fallback.
+        card = glossary_adapter.glossary_get("input")
+        assert card is not None
+        assert card["kind"] == "function"
+
+    def test_true_fallback_when_bundled_absent(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # issue #326: если комплектной базы нет — деградируем на ~28 исключений
+        # core/glossary.py (KeyError есть, builtin input() — нет).
+        monkeypatch.setattr(glossary_adapter, "BUNDLED_GLOSSARY_DIR", tmp_path / "nope")
+        cards = glossary_adapter.glossary_search("")
+        ids = {c["id"] for c in cards}
+        assert "keyerror" in ids
+        assert "input" not in ids
 
 
 class TestGlossarySearchWithConfiguredStore:

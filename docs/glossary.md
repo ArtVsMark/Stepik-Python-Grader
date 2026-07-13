@@ -72,6 +72,31 @@
 
 Пример — [`examples/glossary.sample.json`](examples/glossary.sample.json).
 
+## Комплектная база (bundled, issue #326)
+
+В пакете лежит готовая база — `src/stepik_grader/glossary/data/*.json` (581
+карточка, по файлу на цветовую группу `cg`), импортированная из внешнего
+[Glossary-Python](https://github.com/ArtVsMark/Glossary-Python). Она попадает
+в wheel через `package-data` и служит **zero-config источником по умолчанию**:
+web-адаптер отдаёт её, когда `CONFIG.glossary_store` не задан, а на компактный
+`core/glossary.py` (~28 исключений) деградирует лишь при её отсутствии.
+
+Импорт одноразовый (реинициализация — тем же скриптом, идемпотентно; сеть не
+нужна, путь к HTML — аргумент):
+
+```bash
+python scripts/import_glossary_python.py \
+    --html /path/to/Glossary-Python/python_glossary.html \
+    --out src/stepik_grader/glossary/data
+```
+
+Маппинг схем (`name→title`, `group→section`, `docs→docs_url`, `version` null→`""`,
+и т.д.) и kind-эвристика — в `scripts/import_glossary_python.py`. `id` исключений
+приводится к нижнему регистру (конвенция анкоров `core/glossary.py` — сохраняет
+связь ошибка→карточка). После импорта источник истины — локальная база; внешний
+проект отсюда **не** редактируется (CLAUDE.md § Связанный проект), поток контента
+односторонний grader → витрина.
+
 ## Очередь пополнения (`GlossaryMissingEntry`)
 
 Обнаруженные пробелы складываются в отдельный JSON-файл (список объектов) —

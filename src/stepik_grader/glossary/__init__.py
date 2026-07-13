@@ -25,6 +25,7 @@ from .coverage import (
 )
 from .detector import DEFAULT_NOTABLE_BUILTINS, MissingConceptDetector
 from .json_provider import (
+    BUNDLED_GLOSSARY_DIR,
     GlossaryError,
     GlossaryProvider,
     JsonGlossaryProvider,
@@ -36,6 +37,7 @@ from .models import GlossaryCard, GlossaryMissingEntry
 from .stdlib_inventory import NOTABLE_STDLIB_MODULES, StdlibItem, build_stdlib_inventory
 
 __all__ = [
+    "BUNDLED_GLOSSARY_DIR",
     "GlossaryCard",
     "GlossaryMissingEntry",
     "GlossaryProvider",

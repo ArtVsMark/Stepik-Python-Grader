@@ -40,6 +40,17 @@
   serves mode 2 (folder grading).
 
 ### Added
+- Bundled glossary base (issue #326): 581 cards imported from Glossary-Python
+  now ship in the wheel at `stepik_grader/glossary/data/*.json` (one file per
+  colour-group). The web "Глоссарий" section serves them as the zero-config
+  default when `CONFIG.glossary_store` is unset, turning the section from a
+  ~28-exception fallback into a full reference; the compact `core/glossary.py`
+  fallback remains for when the bundled dir is absent/broken. A reproducible,
+  offline importer (`scripts/import_glossary_python.py`) does the one-time
+  conversion (`name→title`, `docs→docs_url`, `version` null→`""`, exception
+  ids lowercased to match the anchor convention). `stdlib` coverage
+  (`python -m stepik_grader.glossary.coverage --cards …`) rises from 0 to
+  ~190+ covered (builtins 94%).
 - `GlossaryCard` gains four optional fields (issue #325): `syntax`
   (signature/usage template), `docs_url` (link to official docs.python.org;
   `docs` accepted as an alias, mirroring `hint`→`summary`), `version`

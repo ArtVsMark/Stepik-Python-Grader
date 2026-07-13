@@ -75,10 +75,13 @@ version_scheme = "post-release"
 # подпапку), поэтому шрифты (woff2 + LICENSE) нужны отдельным паттерном.
 # issue #265: web/static/vendor/* — та же причина, для вендоренных
 # ESM-бандлов CodeMirror 6 (.mjs + LICENSE + VERSIONS.md).
+# issue #326: glossary/data/*.json — комплектная база карточек глоссария
+# (импорт из Glossary-Python), zero-config источник раздела «Глоссарий».
 [tool.setuptools.package-data]
 stepik_grader = [
     "py.typed",
     "core/locales/*.json",
+    "glossary/data/*.json",
     "web/static/*",
     "web/static/fonts/*",
     "web/static/vendor/*",

@@ -16,6 +16,7 @@ from typing import Any
 from stepik_grader.config import CONFIG
 from stepik_grader.core.glossary import all_entries
 from stepik_grader.glossary.json_provider import (
+    BUNDLED_GLOSSARY_DIR,
     GlossaryError,
     JsonGlossaryProvider,
     load_missing_queue,
@@ -41,13 +42,24 @@ def _fallback_cards() -> list[GlossaryCard]:
 
 
 def _all_cards(store_path: pathlib.Path | None) -> list[GlossaryCard]:
-    """Карточки настроенного store, либо fallback на компактный глоссарий."""
+    """Карточки источника по приоритету: явный store → ``CONFIG.glossary_store``
+    → комплектная база (issue #326) → компактный fallback (``core/glossary.py``).
+
+    Комплектная база (``glossary/data/*.json``, 581 карточка) делает раздел
+    «Глоссарий» полноценным на свежей установке без конфигурации; fallback на
+    ~28 исключений остаётся, если каталог отсутствует/пуст/битый.
+    """
     path = store_path if store_path is not None else CONFIG.glossary_store
     if path:
         try:
             return JsonGlossaryProvider.load(path).all()
         except GlossaryError:
-            pass  # битый/отсутствующий store — деградируем на fallback, не падаем
+            pass  # битый/отсутствующий store — деградируем ниже, не падаем
+    if BUNDLED_GLOSSARY_DIR.is_dir() and any(BUNDLED_GLOSSARY_DIR.glob("*.json")):
+        try:
+            return JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
+        except GlossaryError:
+            pass  # битая комплектная база — последний рубеж fallback
     return _fallback_cards()
 
 

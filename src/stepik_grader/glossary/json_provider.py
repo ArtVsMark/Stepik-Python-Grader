@@ -23,6 +23,7 @@ from typing import Any, Protocol, runtime_checkable
 from .models import GlossaryCard, GlossaryMissingEntry
 
 __all__ = [
+    "BUNDLED_GLOSSARY_DIR",
     "GlossaryError",
     "GlossaryProvider",
     "JsonGlossaryProvider",
@@ -30,6 +31,13 @@ __all__ = [
     "save_missing_queue",
     "append_missing_entries",
 ]
+
+# Комплектная база карточек (581 карточка, импорт из Glossary-Python, issue
+# #326): каталог ``glossary/data/*.json``, попадает в wheel через package-data.
+# Используется web-адаптером как zero-config источник по умолчанию (когда
+# ``CONFIG.glossary_store`` не задан), с деградацией на компактный
+# ``core/glossary.py``, если каталог отсутствует/пуст.
+BUNDLED_GLOSSARY_DIR: pathlib.Path = pathlib.Path(__file__).parent / "data"
 
 
 class GlossaryError(ValueError):
