@@ -19,7 +19,7 @@ from stepik_grader.core.glossary import lookup_from_error
 from stepik_grader.core.result import TestResult
 
 if TYPE_CHECKING:
-    from core.grader_core import TestCase
+    from stepik_grader.core.grader_core import TestCase
 
 __all__ = [
     "fmt_time",

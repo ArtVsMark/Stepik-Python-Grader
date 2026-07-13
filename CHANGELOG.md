@@ -25,6 +25,14 @@
   downloader tests re-split across per-module test files.
 
 ### Fixed
+- Broken `TYPE_CHECKING` import in `core/reporter.py` (issue #350): the
+  annotation-only import read `from core.grader_core import TestCase` — a path
+  missing the `stepik_grader.` prefix. Under `TYPE_CHECKING` it never failed at
+  runtime, and `mypy --ignore-missing-imports` stayed silent, so `TestCase` in
+  every reporter annotation was effectively `Any` and went unchecked. Fixed to
+  `from stepik_grader.core.grader_core import TestCase` (which re-exports it
+  from `test_loader`); mypy still passes, confirming no hidden type errors were
+  masked behind the `Any`.
 - Small web UI inconsistencies from the audit (issue #331). Case-verdict
   badges now recognize `CANCELLED` (neutral) and `SANDBOX_VIOLATION` (error)
   from `docs/result-contract.md` instead of silently falling back to a
