@@ -50,6 +50,19 @@ def _fail_result() -> dict:
     }
 
 
+def _no_tests_result() -> dict:
+    return {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "errors": 0,
+        "total_time": 0.0,
+        "avg_time": 0.0,
+        "peak_memory_mb": 0.0,
+        "first_fail": None,
+    }
+
+
 def _bench_data() -> dict:
     return {
         "runs": 10,
@@ -111,6 +124,12 @@ class TestFormatCorrectnessRow:
         row = format_correctness_row("/dir/task1.py", "/dir", _fail_result(), col_file=20)
         assert "FAIL" in row
         assert "task1.py" in row
+
+    def test_no_tests_status(self) -> None:
+        """total=0 (тесты не найдены/пустая tests/) — "NO TESTS", не "FAIL" (issue #299)."""
+        row = format_correctness_row("/dir/task1.py", "/dir", _no_tests_result(), col_file=20)
+        assert "NO TESTS" in row
+        assert "FAIL" not in row
 
     def test_passed_fraction(self) -> None:
         """Строка содержит дробь прошедших/всего тестов."""
@@ -189,6 +208,14 @@ class TestPrintResults:
         print_correctness_results(rows, "/dir", col_file=20)
         out = capsys.readouterr().out
         assert "FAIL" in out
+
+    def test_correctness_results_no_tests(self, capsys, monkeypatch) -> None:
+        """total=0 в plain-text таблице выводится как "NO TESTS" (issue #299)."""
+        monkeypatch.setattr(reporter, "_RICH", False)
+        rows = [("/dir/task1.py", _no_tests_result())]
+        print_correctness_results(rows, "/dir", col_file=20)
+        out = capsys.readouterr().out
+        assert "NO TESTS" in out
 
     def test_benchmark_results(self, capsys, monkeypatch) -> None:
         monkeypatch.setattr(reporter, "_RICH", False)

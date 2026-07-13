@@ -85,14 +85,29 @@ def fmt_time(t: float) -> str:
     return f"{t * 1e9:.3f} ns"
 
 
+def _correctness_status(result: dict[str, Any]) -> str:
+    """Вернуть "OK"/"FAIL"/"NO TESTS" для строки таблицы корректности (режимы 1/2).
+
+    ``total == 0`` (тесты не найдены или директория tests/ пуста) — это не
+    провал решения, а отсутствие проверки; docs/result-contract.md фиксирует
+    "NO TESTS" как отдельный исход. Раньше ``total == 0`` попадал в ``FAIL``
+    наравне с реально неверными решениями (issue B-1 / CC-1 повторного
+    аудита 2026-07-13).
+    """
+    total = result["total"]
+    if total == 0:
+        return "NO TESTS"
+    ok = result["passed"] == total and result["failed"] == 0 and result["errors"] == 0
+    return "OK" if ok else "FAIL"
+
+
 def format_correctness_row(
     path: pathlib.Path, base_dir: pathlib.Path, result: dict[str, Any], *, col_file: int
 ) -> str:
     """Сформатировать строку таблицы корректности для режимов 1 и 2."""
     total = result["total"]
     passed = result["passed"]
-    ok = passed == total and result["failed"] == 0 and result["errors"] == 0 and total > 0
-    status = "OK" if ok else "FAIL"
+    status = _correctness_status(result)
     rel = os.path.relpath(path, base_dir)
     total_t = result["total_time"]
     avg_t = result["avg_time"]
@@ -170,6 +185,7 @@ _STATUS_COLORS: dict[str, str] = {
     "ERROR": "red",
     "CANCELLED": "yellow",
     "SANDBOX_VIOLATION": "red",
+    "NO TESTS": "yellow",
 }
 
 # Цвета вердиктов бенчмарка (режимы 3/4).
@@ -179,13 +195,6 @@ _VERDICT_COLORS: dict[str, str] = {
     "MUCH_SLOWER": "red",
     "MUCH SLOWER": "red",
 }
-
-
-def _correctness_status(result: dict[str, Any]) -> str:
-    """Вернуть "OK"/"FAIL" для строки таблицы корректности."""
-    total = result["total"]
-    ok = result["passed"] == total and result["failed"] == 0 and result["errors"] == 0 and total > 0
-    return "OK" if ok else "FAIL"
 
 
 def print_correctness_results(

@@ -371,7 +371,14 @@ def grade_path(
             rows.append({"file": _rel(sol, base), "status": "NO TESTS", "passed": 0, "total": 0})
             continue
         res = run_tests(sol, test_dir)
-        ok = res["total"] > 0 and res["passed"] == res["total"]
+        # total == 0 (tests/ существует, но не содержит распознаваемых кейсов)
+        # — это не провал решения, а отсутствие проверки; тот же исход, что и
+        # для отсутствующей tests/ выше (issue #299 — раньше эта ветка давала
+        # вводящий в заблуждение "FAIL 0/0").
+        if res["total"] == 0:
+            status = "NO TESTS"
+        else:
+            status = "OK" if res["passed"] == res["total"] else "FAIL"
         # Отдельная (дешёвая) загрузка тест-кейсов ради stdin для ErrorCard —
         # run_tests() уже прогнал их в том же порядке (issue #125), поэтому
         # zip по позиции корректен без изменения сигнатуры run_tests().
@@ -379,7 +386,7 @@ def grade_path(
         rows.append(
             {
                 "file": _rel(sol, base),
-                "status": "OK" if ok else "FAIL",
+                "status": status,
                 "passed": res["passed"],
                 "total": res["total"],
                 "total_time": round(res["total_time"], 4),

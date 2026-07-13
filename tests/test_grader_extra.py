@@ -53,7 +53,7 @@ def _bench_data():
 
 
 class TestCorrectnessStatus:
-    """_correctness_status различает OK и FAIL."""
+    """_correctness_status различает OK, FAIL и NO TESTS."""
 
     def test_ok(self):
         assert _correctness_status(_correct_result()) == "OK"
@@ -61,8 +61,9 @@ class TestCorrectnessStatus:
     def test_fail_on_failure(self):
         assert _correctness_status(_correct_result(passed=1, failed=1)) == "FAIL"
 
-    def test_fail_on_zero_total(self):
-        assert _correctness_status(_correct_result(passed=0, total=0)) == "FAIL"
+    def test_no_tests_on_zero_total(self):
+        """total=0 (тесты не найдены/пустая tests/) — не провал решения (issue #299)."""
+        assert _correctness_status(_correct_result(passed=0, total=0)) == "NO TESTS"
 
 
 class TestFormatRows:

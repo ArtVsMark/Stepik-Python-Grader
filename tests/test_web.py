@@ -76,6 +76,15 @@ class TestGradePath:
         assert row["status"] == "NO TESTS"
         assert row["total"] == 0
 
+    def test_empty_tests_dir_marked_no_tests(self, tmp_path: pathlib.Path) -> None:
+        """tests/ существует, но не содержит распознаваемых кейсов — не FAIL 0/0 (issue #299)."""
+        sol = _make_task(tmp_path, "print(1)\n", with_tests=False)
+        (tmp_path / "tests").mkdir()
+        row = web.grade_path(sol)["rows"][0]
+        assert row["status"] == "NO TESTS"
+        assert row["total"] == 0
+        assert row["passed"] == 0
+
     def test_wa_case_carries_stdin_from_test_case(self, tmp_path: pathlib.Path) -> None:
         """grade_path() wires stdin through to the case's ErrorCard (issue #125)."""
         sol = _make_task(tmp_path, "print(int(input()) + 2)\n")  # 4 -> 6, ждём 5
