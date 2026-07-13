@@ -256,9 +256,13 @@ curl -X POST http://127.0.0.1:8000/api/v1/runs \
 
 Статус/прогресс/результат job'ы.
 
-**200** `{"status": "queued"|"running"|"done"|"error", "progress":
-{"done","total"}, "result": ...}` — плюс `message`/`message_id`/
-`message_params` при `status="error"` (включая отмену — `run_cancelled`).
+**200** `{"status": "queued"|"running"|"done"|"error"|"cancelled",
+"progress": {"done","total"}, "result": ...}` — плюс `message`/`message_id`/
+`message_params` при `status="error"` или `status="cancelled"`
+(`message_id="run_cancelled"`). Отмена пользователем — отдельный терминальный
+статус (issue #296), не `"error"`: семантически это не провал решения/
+грейдера, клиенты не должны ретраить `"cancelled"` так же, как настоящую
+ошибку.
 
 - `id` пустой или содержит `/` → **404** `text/plain`.
 - `id` не найден (или истёк TTL, 15 минут после завершения) → **404**
@@ -275,7 +279,9 @@ Best-effort отмена job'ы — выставляет сигнал и воз�
 
 **200** `job.to_status_dict()` (тот же формат, что у `GET
 /api/v1/runs/<id>`), либо **404** `{"kind": "error", message_id:
-run_not_found}`, если job не найдена или уже завершена (`done`/`error`).
+run_not_found}`, если job не найдена или уже завершена
+(`done`/`error`/`cancelled`) — повторный `cancel` уже отменённой job'ы тоже
+не ошибка, просто `to_status_dict()` без побочного эффекта.
 
 ```
 curl -X POST http://127.0.0.1:8000/api/v1/runs/<run_id>/cancel

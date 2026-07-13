@@ -32,7 +32,7 @@ def _poll_until_terminal(job_id: str, *, timeout: float = 15.0) -> dict:
         job = runs.get_job(job_id)
         assert job is not None
         data = job.to_status_dict()
-        if data["status"] in ("done", "error"):
+        if data["status"] in ("done", "error", "cancelled"):
             return data
         time.sleep(0.05)
     raise TimeoutError(f"job {job_id} did not reach a terminal state within {timeout}s")
@@ -61,7 +61,7 @@ class TestSubmitJobBench:
             data = job.to_status_dict()
             if data["progress"]["total"] > 0:
                 seen_total_before_done = True
-            if data["status"] in ("done", "error"):
+            if data["status"] in ("done", "error", "cancelled"):
                 break
             time.sleep(0.02)
 
@@ -81,9 +81,8 @@ class TestSubmitJobMicrobench:
 
 
 class TestCancelJob:
-    def test_cancel_running_job_marks_error_with_cancelled_message(
-        self, tmp_path: pathlib.Path
-    ) -> None:
+    def test_cancel_running_job_marks_cancelled(self, tmp_path: pathlib.Path) -> None:
+        """issue #296: отмена — отдельный терминальный статус, не "error"."""
         sol = _make_task(tmp_path, "import time\ntime.sleep(30)\nprint(input())\n")
         job = runs.submit_job("bench", sol, {"repeats": 20, "lang": "ru"})
 
@@ -92,7 +91,7 @@ class TestCancelJob:
         assert runs.cancel_job(job.id) is True
 
         data = _poll_until_terminal(job.id)
-        assert data["status"] == "error"
+        assert data["status"] == "cancelled"
         assert data["message_id"] == "run_cancelled"
 
     def test_cancel_unknown_job_returns_false(self) -> None:
@@ -101,6 +100,17 @@ class TestCancelJob:
     def test_cancel_already_done_job_returns_false(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
         job = runs.submit_job("bench", sol, {"repeats": 1, "lang": "ru"})
+        _poll_until_terminal(job.id)
+
+        assert runs.cancel_job(job.id) is False
+
+    def test_cancel_already_cancelled_job_returns_false(self, tmp_path: pathlib.Path) -> None:
+        """Повторный cancel уже отменённой job'ы — тоже False (issue #296)."""
+        sol = _make_task(tmp_path, "import time\ntime.sleep(30)\nprint(input())\n")
+        job = runs.submit_job("bench", sol, {"repeats": 20, "lang": "ru"})
+
+        time.sleep(0.3)
+        assert runs.cancel_job(job.id) is True
         _poll_until_terminal(job.id)
 
         assert runs.cancel_job(job.id) is False
@@ -172,6 +182,20 @@ class TestTtlSweep:
         _poll_until_terminal(job.id)
 
         # Simulate TTL expiry without sleeping 15 real minutes.
+        job.created_at -= runs._JOB_TTL_SECONDS + 1
+
+        assert runs.get_job(job.id) is None
+
+    def test_expired_cancelled_job_is_swept_on_next_access(self, tmp_path: pathlib.Path) -> None:
+        """issue #296: "cancelled" — тоже терминальный статус для TTL-уборки,
+        не только "done"/"error"."""
+        sol = _make_task(tmp_path, "import time\ntime.sleep(30)\nprint(input())\n")
+        job = runs.submit_job("bench", sol, {"repeats": 20, "lang": "ru"})
+        time.sleep(0.3)
+        assert runs.cancel_job(job.id) is True
+        data = _poll_until_terminal(job.id)
+        assert data["status"] == "cancelled"
+
         job.created_at -= runs._JOB_TTL_SECONDS + 1
 
         assert runs.get_job(job.id) is None
