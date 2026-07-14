@@ -31,7 +31,6 @@ const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 const state = {
   section: localStorage.getItem("grader_section") || "check", // "check" | "glossary" | "downloader" | "sandbox"
   mode: localStorage.getItem("grader_mode") || "tests", // "file" | "tests" | "bench" | "microbench"
-  configTab: "path", // "path" | "params"
   resultTab: "table", // "table" | "detail" | "log"
   lastResult: null,
   selectedRow: null,
@@ -339,19 +338,6 @@ function openGlossaryForSelectedCase() {
   if (id) selectGlossaryCard(id);
 }
 
-// -- Config-panel tabs (Путь / Параметры) -------------------------------------
-
-function setConfigTab(tab) {
-  state.configTab = tab;
-  document.querySelectorAll("[data-conftab]").forEach(b => {
-    const active = b.dataset.conftab === tab;
-    b.classList.toggle("active", active);
-    b.setAttribute("aria-selected", String(active));
-  });
-  $("#conftab-path").hidden = tab !== "path";
-  $("#conftab-params").hidden = tab !== "params";
-}
-
 // -- Result-panel tabs (Таблица / Детали / Лог) -------------------------------
 
 function setResultTab(tab) {
@@ -391,16 +377,15 @@ function setMode(m) {
     b.setAttribute("aria-pressed", String(active));
   });
   $("#file-picker-group").hidden = m !== "file";
+  // issue #366: параметры режимов 3/4 — инлайн под полем пути (вкладок больше нет).
+  $("#repeats-group").hidden = m !== "bench";
   $("#microbench-config").hidden = m !== "microbench";
-  const repeatsGroup = $("#repeats").closest(".form-group");
-  if (repeatsGroup) repeatsGroup.hidden = m !== "bench";
-  updateParamsTabAvailability(m);
   resetFilePicker();
   localStorage.setItem("grader_mode", m);
   if (m === "microbench") updateMicroCustomVisibility();
-  // issue #324: «Функции в коде» уместны там, где объясняют код, — режимы 1/2;
-  // в bench/microbench (3/4) скрываем. issue #323: обновить под новый режим.
-  $("#check-terms-block").hidden = m === "bench" || m === "microbench";
+  // issue #324/#366 (2.з): «Функции в коде» — только режим 1. В режиме 2 путь —
+  // папка, панель почти всегда пустует и мешает; в 3/4 неуместна.
+  $("#check-terms-block").hidden = m !== "file";
   loadCheckTerms();
 }
 
@@ -416,19 +401,6 @@ function getMicroNumber() {
   if (profile !== "custom") return Number(profile);
   const custom = Number($("#micro-custom").value) || 1000;
   return Math.min(500000, Math.max(100, custom));
-}
-
-// -- Режим 1 «Один файл» — параметры недоступны, скрыть вкладку целиком;
-// режим 2 «Тесты» — параметров реально нет (repeats только для bench), вкладка
-// видна, но серая/некликабельная; bench/microbench — вкладка активна.
-function updateParamsTabAvailability(m) {
-  const tab = document.querySelector('[data-conftab="params"]');
-  if (!tab) return;
-  tab.hidden = m === "file";
-  const disabled = m === "tests";
-  tab.classList.toggle("disabled", disabled);
-  tab.setAttribute("aria-disabled", String(disabled));
-  if ((tab.hidden || disabled) && state.configTab === "params") setConfigTab("path");
 }
 
 // ---------------------------------------------------------------------------
@@ -582,19 +554,18 @@ async function loadCodeTerms() {
   renderTermsInto(el, await fetchCodeTerms({ code }), "Знакомых функций не найдено");
 }
 
-// режимы 1/2 (issue #323): код редактора (режим 1) либо путь-файл решения
+// режим 1 (issue #323/#366): панель питается кодом редактора либо выбранным в
+// пикере файлом. В режимах 2/3/4 блок скрыт (setMode), так что путь-ветку
+// режима 2 не запрашиваем (issue #366/2.з).
 async function loadCheckTerms() {
   const el = $("#check-terms");
   if (!el) return;
   let body = null;
   const code = getEditorCode();
-  if (state.mode === "file" && code.trim()) {
+  if (code.trim()) {
     body = { code };
   } else if (state.selectedSolutionFile) {
     body = { path: state.selectedSolutionFile };
-  } else {
-    const path = $("#path").value.trim();
-    if (path.endsWith(".py")) body = { path };
   }
   if (!body) {
     el.innerHTML = '<li class="empty">Начните вводить код или выберите решение</li>';
@@ -2325,9 +2296,6 @@ document
   .querySelectorAll("[data-glview]")
   .forEach(b => b.addEventListener("click", () => setGlossaryView(b.dataset.glview)));
 document
-  .querySelectorAll("[data-conftab]")
-  .forEach(b => b.addEventListener("click", () => setConfigTab(b.dataset.conftab)));
-document
   .querySelectorAll("[data-restab]")
   .forEach(b => b.addEventListener("click", () => setResultTab(b.dataset.restab)));
 
@@ -2454,7 +2422,6 @@ applyTheme();
 mountEditor();
 setSection(state.section);
 setMode(state.mode);
-setConfigTab(state.configTab);
 setResultTab(state.resultTab);
 renderRecentPaths();
 loadCommands();

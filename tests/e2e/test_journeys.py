@@ -124,17 +124,17 @@ def test_check_code_terms_panel_and_mode_visibility(
     page.wait_for_selector("#glossary-detail-content:not([hidden])", timeout=_TIMEOUT_MS)
     assert "sorted" in page.locator("#glossary-detail-content").inner_text().lower()
 
-    # issue #324: панель видна в режимах 1/2, скрыта в 3/4
+    # issue #324/#366 (2.з): панель видна только в режиме 1; скрыта в 2/3/4
     page.click('[data-section="check"]')
     page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
-    page.click('.mode-btn[data-mode="tests"]')
+    page.click('.mode-btn[data-mode="file"]')
     assert not page.locator("#check-terms-block").is_hidden()
+    page.click('.mode-btn[data-mode="tests"]')
+    assert page.locator("#check-terms-block").is_hidden()
     page.click('.mode-btn[data-mode="bench"]')
     assert page.locator("#check-terms-block").is_hidden()
     page.click('.mode-btn[data-mode="microbench"]')
     assert page.locator("#check-terms-block").is_hidden()
-    page.click('.mode-btn[data-mode="file"]')
-    assert not page.locator("#check-terms-block").is_hidden()
 
 
 def test_mode1_file_picker_edit_check_then_save(page: Any, e2e_server: str, tmp_path: Path) -> None:
@@ -423,18 +423,6 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
     page.wait_for_selector("#view-glossary:not([hidden])", timeout=_TIMEOUT_MS)
     page.wait_for_selector("#glossary-detail-content:not([hidden])", timeout=_TIMEOUT_MS)
     assert "zerodivision" in page.locator("#glossary-detail-content").inner_text().lower()
-
-
-def test_params_tab_aria_matches_default_mode_at_load(
-    page: Any, e2e_server: str, tmp_path: Path
-) -> None:
-    """J (issue #331): начальная разметка вкладки «Параметры» согласована с
-    дефолт-режимом (tests → отключена, aria-disabled=true), не хардкод."""
-    page.goto(e2e_server + "/")
-    page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
-    params = page.locator('[data-conftab="params"]')
-    assert params.get_attribute("aria-disabled") == "true"  # дефолт-режим tests
-    assert "disabled" in (params.get_attribute("class") or "")
 
 
 def test_switch_section_cycles_all_sections(page: Any, e2e_server: str, tmp_path: Path) -> None:
