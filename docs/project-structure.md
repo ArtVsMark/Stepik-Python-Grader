@@ -63,6 +63,8 @@ Stepik-Python-Grader/
 │           ├── i18n.py           # Загрузка JSON-локалей меню/CLI (issue #144)
 │           ├── stats.py          # Opt-in локальная статистика запусков (issue #268)
 │           ├── history.py        # Opt-in SQLite-история прогонов (issue #344, эпик #342)
+│           ├── mtime_cache.py    # Generic mtime-кеш загрузки (issue #345, вынос из glossary_adapter)
+│           ├── lint.py           # Opt-in PEP-проверка через ruff, extra [lint] (issue #346)
 │           ├── diag_log.py       # Opt-in диагностическое логирование сети/OAuth с редакцией секретов (issue #146)
 │           ├── tracer.py         # Пошаговый трассировщик кода (sys.settrace → JSON-трейс) для песочницы (issue #318)
 │           └── sandbox/          # SandboxRunner: OS-изолированный запуск, --sandbox (issue #266)
@@ -73,13 +75,18 @@ Stepik-Python-Grader/
 │               ├── _posix_bootstrap.py # Общий POSIX-бутстрап лимитов (CPU/FS/processes)
 │               ├── _posix_common.py    # Общий POSIX subprocess-раннер с лимитами
 │               └── _run_dir.py   # Эфемерная run-директория для копии решения
-│       └── glossary/             # Domain: локальный knowledge-модуль глоссария (issue #126)
+│       ├── glossary/             # Domain: локальный knowledge-модуль глоссария (issue #126)
 │           ├── __init__.py       # Публичный API пакета glossary
 │           ├── models.py         # GlossaryCard, GlossaryMissingEntry (leaf, только stdlib)
 │           ├── json_provider.py  # JsonGlossaryProvider + очередь пополнения (JSON-first)
 │           ├── detector.py       # MissingConceptDetector — AST-детект пробелов без исполнения
 │           ├── stdlib_inventory.py # Офлайн-инвентарь официального Python/stdlib (leaf, issue #196)
 │           └── coverage.py       # Coverage-отчёт + missing JSON + CLI (issue #197/#198)
+│       └── rules/                # Domain: карточки правил PEP 8 (issue #345, эпик #342)
+│           ├── __init__.py       # Публичный API пакета rules
+│           ├── models.py         # RuleCard (leaf, только stdlib)
+│           ├── json_provider.py  # JsonRulesProvider + bundled_rules() (кеш core/mtime_cache)
+│           └── data/pep8_ru.json # Комплектная база ≥30 карточек правил (package-data)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов; включает pytester
 ├── tests/                     # 1150+ тестов (pytest)
 ├── docs/                      # База знаний (архитектура, структура, версии) — эпик #102

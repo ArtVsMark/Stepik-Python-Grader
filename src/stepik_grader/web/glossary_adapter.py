@@ -11,11 +11,11 @@ JSON-база не настроена (``CONFIG.glossary_store is None``), — �
 from __future__ import annotations
 
 import pathlib
-from collections.abc import Callable
 from typing import Any
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.glossary import all_entries
+from stepik_grader.core.mtime_cache import MtimeCache
 from stepik_grader.glossary.detector import MissingConceptDetector, scan_code_concepts
 from stepik_grader.glossary.json_provider import (
     BUNDLED_GLOSSARY_DIR,
@@ -69,39 +69,13 @@ def _fallback_cards() -> list[GlossaryCard]:
 # Кеш распарсенных карточек по источнику (issue #339): раньше каждый запрос к
 # /api/glossary*, /api/code-terms заново читал и парсил всю бандл-базу (1.2 МБ
 # JSON, ~1400 карточек). Теперь парсим один раз и держим в памяти, инвалидируя
-# по mtime (правка store подхватывается; read-only бандл-база после первой
-# загрузки стабильна). Потребители карточки не мутируют (glossary_search/
-# _card_index строят новые списки), поэтому общий список безопасно шарить между
-# запросами/потоками ThreadingHTTPServer — гонка на пересчёт идемпотентна.
-_CARDS_CACHE: dict[str, tuple[float, list[GlossaryCard]]] = {}
-
-
-def _mtime_sig(files: list[pathlib.Path]) -> float:
-    """Подпись источника — максимальный mtime его файлов (``0.0`` при недоступности)."""
-    try:
-        return max((f.stat().st_mtime for f in files), default=0.0)
-    except OSError:
-        return 0.0
-
-
-def _cached_cards(
-    key: str, files: list[pathlib.Path], load: Callable[[], list[GlossaryCard]]
-) -> list[GlossaryCard] | None:
-    """Кешированные карточки источника ``key`` (перечитать при смене mtime ``files``).
-
-    ``None`` — если ``load`` бросил ``GlossaryError`` (битый/отсутствующий
-    источник): вызывающий переходит к следующему уровню fallback.
-    """
-    sig = _mtime_sig(files)
-    hit = _CARDS_CACHE.get(key)
-    if hit is not None and hit[0] == sig:
-        return hit[1]
-    try:
-        cards = load()
-    except GlossaryError:
-        return None
-    _CARDS_CACHE[key] = (sig, cards)
-    return cards
+# по mtime через общий core/mtime_cache.MtimeCache (issue #345 — тот же
+# механизм переиспользует провайдер правил, не копипастя его; правка store
+# подхватывается, read-only бандл-база после первой загрузки стабильна).
+# Потребители карточки не мутируют (glossary_search/_card_index строят новые
+# списки), поэтому общий список безопасно шарить между запросами/потоками
+# ThreadingHTTPServer — гонка на пересчёт идемпотентна.
+_CARDS_CACHE: MtimeCache[list[GlossaryCard]] = MtimeCache()
 
 
 def _all_cards(store_path: pathlib.Path | None) -> list[GlossaryCard]:
@@ -116,15 +90,18 @@ def _all_cards(store_path: pathlib.Path | None) -> list[GlossaryCard]:
     path = store_path if store_path is not None else CONFIG.glossary_store
     if path:
         p = pathlib.Path(path)
-        cards = _cached_cards(f"store:{p}", [p], lambda: JsonGlossaryProvider.load(p).all())
+        cards = _CARDS_CACHE.get_or_load(
+            f"store:{p}", [p], lambda: JsonGlossaryProvider.load(p).all(), on_error=GlossaryError
+        )
         if cards is not None:
             return cards
     if BUNDLED_GLOSSARY_DIR.is_dir() and any(BUNDLED_GLOSSARY_DIR.glob("*.json")):
         files = sorted(BUNDLED_GLOSSARY_DIR.glob("*.json"))
-        cards = _cached_cards(
+        cards = _CARDS_CACHE.get_or_load(
             "bundled",
             files,
             lambda: JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all(),
+            on_error=GlossaryError,
         )
         if cards is not None:
             return cards

@@ -38,6 +38,12 @@ watch = [
 e2e = [
     "playwright>=1.40",
 ]
+# issue #346: opt-in extra для PEP-проверки решения через ruff (core/lint.py,
+# раздел «Стиль»). ruff НЕ runtime-зависимость — тянется только при явной
+# установке этого extra; без него блок «Стиль» скрыт (LintUnavailable).
+lint = [
+    "ruff>=0.15",
+]
 
 [project.scripts]
 stepik-grader = "stepik_grader.cli:main"
@@ -77,11 +83,13 @@ version_scheme = "post-release"
 # ESM-бандлов CodeMirror 6 (.mjs + LICENSE + VERSIONS.md).
 # issue #326: glossary/data/*.json — комплектная база карточек глоссария
 # (импорт из Glossary-Python), zero-config источник раздела «Глоссарий».
+# issue #345: rules/data/*.json — комплектная база карточек правил PEP 8.
 [tool.setuptools.package-data]
 stepik_grader = [
     "py.typed",
     "core/locales/*.json",
     "glossary/data/*.json",
+    "rules/data/*.json",
     "web/static/*",
     "web/static/fonts/*",
     "web/static/vendor/*",
