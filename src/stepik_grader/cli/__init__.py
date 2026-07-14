@@ -62,6 +62,7 @@ from stepik_grader.cli.interactive import (  # noqa: F401
 from stepik_grader.cli.options import (
     _build_arg_parser,
     _force_utf8_stdio,
+    _resolve_record_history,
     _resolve_record_stats,
     _resolve_use_cache,
     _resolve_verbosity,
@@ -237,6 +238,7 @@ def _run_mode_1(
     output: str = "text",
     use_cache: bool = False,
     record_stats: bool = False,
+    record_history: bool = False,
 ) -> None:
     """Режим 1: проверить одно решение (verbose). Тонкая обёртка над commands._run_mode_1."""
     commands._run_mode_1(
@@ -246,6 +248,7 @@ def _run_mode_1(
         output=output,
         use_cache=use_cache,
         record_stats=record_stats,
+        record_history=record_history,
     )
 
 
@@ -256,6 +259,7 @@ def _run_mode_2(
     output: str = "text",
     use_cache: bool = False,
     record_stats: bool = False,
+    record_history: bool = False,
 ) -> None:
     """Режим 2: проверить все решения в папке. Тонкая обёртка над commands._run_mode_2."""
     commands._run_mode_2(
@@ -265,24 +269,45 @@ def _run_mode_2(
         output=output,
         use_cache=use_cache,
         record_stats=record_stats,
+        record_history=record_history,
     )
 
 
 def _run_mode_3(
-    directory: pathlib.Path, repeats: int, *, output: str = "text", record_stats: bool = False
+    directory: pathlib.Path,
+    repeats: int,
+    *,
+    output: str = "text",
+    record_stats: bool = False,
+    record_history: bool = False,
 ) -> None:
     """Режим 3: subprocess-бенчмарк папки. Тонкая обёртка над commands._run_mode_3."""
     commands._run_mode_3(
-        _build_cli_context(), directory, repeats, output=output, record_stats=record_stats
+        _build_cli_context(),
+        directory,
+        repeats,
+        output=output,
+        record_stats=record_stats,
+        record_history=record_history,
     )
 
 
 def _run_mode_4(
-    directory: pathlib.Path, number: int, *, output: str = "text", record_stats: bool = False
+    directory: pathlib.Path,
+    number: int,
+    *,
+    output: str = "text",
+    record_stats: bool = False,
+    record_history: bool = False,
 ) -> None:
     """Режим 4: timeit micro-bench папки. Тонкая обёртка над commands._run_mode_4."""
     commands._run_mode_4(
-        _build_cli_context(), directory, number, output=output, record_stats=record_stats
+        _build_cli_context(),
+        directory,
+        number,
+        output=output,
+        record_stats=record_stats,
+        record_history=record_history,
     )
 
 
@@ -430,6 +455,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     record_stats = _resolve_record_stats(args)
+    record_history = _resolve_record_history(args)
 
     if args.sandbox:
         # issue #266: жёсткий отказ, если backend недоступен на этой машине --
@@ -459,6 +485,7 @@ def main(argv: list[str] | None = None) -> None:
                 output=args.output,
                 use_cache=use_cache,
                 record_stats=record_stats,
+                record_history=record_history,
             ),
             watch=args.watch,
         )
@@ -477,6 +504,7 @@ def main(argv: list[str] | None = None) -> None:
                 output=args.output,
                 use_cache=use_cache,
                 record_stats=record_stats,
+                record_history=record_history,
             ),
             watch=args.watch,
         )
@@ -485,10 +513,22 @@ def main(argv: list[str] | None = None) -> None:
             parser.error("--watch is only supported for --mode 1/2")
         if not args.dir:
             args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
-        _run_mode_3(args.dir, args.repeats, output=args.output, record_stats=record_stats)
+        _run_mode_3(
+            args.dir,
+            args.repeats,
+            output=args.output,
+            record_stats=record_stats,
+            record_history=record_history,
+        )
     elif args.mode == 4:
         if args.watch:
             parser.error("--watch is only supported for --mode 1/2")
         if not args.dir:
             args.dir = _resolve_cli_path_or_error(parser, args, want_dir=True, flag="--dir")
-        _run_mode_4(args.dir, args.number, output=args.output, record_stats=record_stats)
+        _run_mode_4(
+            args.dir,
+            args.number,
+            output=args.output,
+            record_stats=record_stats,
+            record_history=record_history,
+        )

@@ -25,6 +25,7 @@ __all__ = [
     "_resolve_verbosity",
     "_resolve_use_cache",
     "_resolve_record_stats",
+    "_resolve_record_history",
     "_force_utf8_stdio",
 ]
 
@@ -137,6 +138,17 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Показать сводку локальной статистики запусков и выйти. Issue #268.",
     )
     parser.add_argument(
+        "--history",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Писать историю прогонов (режимы/кейсы/вердикты) в локальную "
+            "SQLite-базу .grader_history.db (--no-history отключает). По "
+            "умолчанию из [tool.stepik-grader] record_history. Основа будущих "
+            "разделов «Правила»/«Подучить», только локально. Issue #344."
+        ),
+    )
+    parser.add_argument(
         "--serve",
         action="store_true",
         help=(
@@ -233,6 +245,18 @@ def _resolve_record_stats(args: argparse.Namespace) -> bool:
     if args.stats is not None:
         return args.stats
     return CONFIG.record_stats
+
+
+def _resolve_record_history(args: argparse.Namespace) -> bool:
+    """Разрешить --history/--no-history в конкретное bool-значение (issue #344).
+
+    Приоритет: явный --history/--no-history (``args.history is not None``)
+    выигрывает; иначе — дефолт из pyproject (``[tool.stepik-grader]
+    record_history``). Симметрично ``_resolve_record_stats``.
+    """
+    if args.history is not None:
+        return args.history
+    return CONFIG.record_history
 
 
 def _force_utf8_stdio() -> None:

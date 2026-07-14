@@ -9,6 +9,9 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Added
+- `--history`/`record_history`: opt-in SQLite-история прогонов (`.grader_history.db`, `core/history.py` — схема v1 runs/case_results/lint_violations, WAL, `user_version`-миграции, best-effort); по умолчанию выключена, фундамент будущих разделов «Правила»/«Подучить» (#344).
+
 ### Documentation
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan
   (2026-07-14) with verified `file:line` coordinates covering (1) promoting all

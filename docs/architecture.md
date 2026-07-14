@@ -44,6 +44,7 @@
 | `core/runner.py` | Infrastructure | `Runner` Protocol + `RunSpec`/`RunOutcome` + `LocalRunner` — абстракция запуска кода (issue #136/#137/#138, `docs/server-mode.md § Runner-слой`); `LocalRunner` — subprocess + best-effort лимит памяти (POSIX) + psutil-мониторинг RSS, то же поведение, что раньше жило внутри `run_single_test`. `SandboxRunner` (issue #266, реализован, см. `core/sandbox/`) — тот же протокол, ОС-уровневая изоляция; инъекция через `grader_core.set_runner()` |
 | `core/sandbox/` | Infrastructure | `SandboxRunner`/`SandboxUnavailableError` (issue #266, `--sandbox`) — ОС-специфичный backend по платформе: `_linux.py` (bubblewrap), `_macos.py` (sandbox-exec/Seatbelt), `_windows.py` (Job Objects, ctypes); `_posix_bootstrap.py`/`_posix_common.py` — общий POSIX-код лимитов (CPU/FS/processes) для Linux и macOS; `_run_dir.py` — эфемерная run-директория. Реализует тот же `Runner`-протокол, что `LocalRunner` — см. [server-mode.md § Runner-слой](server-mode.md), гарантии по ОС — [SECURITY.md](../SECURITY.md) |
 | `core/stats.py` | Infrastructure / Utilities | Opt-in локальная статистика запусков (issue #268): `record_run`/`read_summary`, JSON Lines `.grader_stats.jsonl`, best-effort (переживает битый/отсутствующий файл), size-based ротация |
+| `core/history.py` | Infrastructure / Utilities | Opt-in SQLite-история прогонов (issue #344, эпик #342): `record_run`/`read_recent_runs`, база `.grader_history.db` (runs/case_results/lint_violations), WAL + `user_version`-миграции, best-effort. Фундамент разделов «Правила»/«Подучить» |
 | `core/executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
@@ -108,6 +109,7 @@ core/grader_core.py    ──→  core/sandbox/  (set_runner() — точка и
 core/sandbox/          ──→  core/runner.py  (реализует Runner-протокол: RunSpec/RunOutcome)
 cli/__init__.py        ──→  core/sandbox/  (--sandbox: SandboxRunner/SandboxUnavailableError)
 cli/commands.py        ──→  core/stats.py  (record_run для --stats, issue #268)
+cli/commands.py        ──→  core/history.py (record_run для --history, issue #344)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
@@ -170,6 +172,7 @@ downloader.py больше не импортирует grader.py: дублиру
 │  core/stepik_client.py  │  core/executor.py                    │
 │  core/microbench_runner.py  │  core/oauth_flow.py              │
 │  core/cache.py (.grader_cache/, #56)  │  core/stats.py (#268)   │
+│  core/history.py (.grader_history.db, WAL, #344)               │
 │  core/sandbox/ (SandboxRunner, --sandbox, #266)                │
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure / Utilities  (core/, leaf, no deps)            │

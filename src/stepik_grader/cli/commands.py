@@ -28,7 +28,7 @@ import pathlib
 from typing import Any
 
 from stepik_grader.cli.context import CliContext
-from stepik_grader.core import stats
+from stepik_grader.core import glossary, history, stats
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
@@ -78,6 +78,46 @@ def _verdict_counts_from_bench(results: dict[pathlib.Path, dict[str, Any]]) -> d
     return counts
 
 
+def _history_cases_from_cases(cases: list[dict[str, Any]]) -> list[history.CaseRecord]:
+    """CaseRecord'ы режимов 1/2 из ``result['cases']`` (issue #344).
+
+    ``error_class`` для RE достаётся тем же ``lookup_from_error``, что и
+    CLI-подсказка; ``failure_kind`` оставляем ``None`` — таксономию (§ 9.3)
+    заполнит #347.
+    """
+    records: list[history.CaseRecord] = []
+    for i, c in enumerate(cases, 1):
+        verdict = c.get("verdict") or ("AC" if c.get("passed") else "WA")
+        raw_time = c.get("time")
+        time_ms = float(raw_time) * 1000 if isinstance(raw_time, int | float) else None
+        error_class = None
+        if verdict == "RE" and c.get("error"):
+            entry = glossary.lookup_from_error(c["error"])
+            error_class = entry.exception if entry else None
+        records.append(history.CaseRecord(i, verdict, time_ms=time_ms, error_class=error_class))
+    return records
+
+
+def _history_cases_from_bench(
+    results: dict[pathlib.Path, dict[str, Any]],
+) -> list[history.CaseRecord]:
+    """CaseRecord'ы режимов 3/4 — вердикт по решению (issue #344).
+
+    Бенчмарк не даёт per-case вердиктов проверки — пишем один CaseRecord на
+    решение (``ERR`` при ошибке, иначе relative-вердикт ранжирования).
+    """
+    records: list[history.CaseRecord] = []
+    for i, data in enumerate(results.values(), 1):
+        verdict = "ERR" if data.get("error") else (data.get("verdict") or "ERR")
+        records.append(history.CaseRecord(i, verdict))
+    return records
+
+
+def _history_db_path() -> pathlib.Path:
+    """Путь БД истории в текущей рабочей папке (issue #344)."""
+    return pathlib.Path.cwd() / history.HISTORY_DB_NAME
+
+
 __all__ = [
     "_run_mode_1",
     "_run_mode_2",
@@ -86,6 +126,8 @@ __all__ = [
     "_run_tests_maybe_cached",
     "_verdict_counts_from_cases",
     "_verdict_counts_from_bench",
+    "_history_cases_from_cases",
+    "_history_cases_from_bench",
 ]
 
 
@@ -148,6 +190,7 @@ def _run_mode_1(
     output: str = "text",
     use_cache: bool = False,
     record_stats: bool = False,
+    record_history: bool = False,
 ) -> None:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1."""
     if not solution.is_file():
@@ -176,6 +219,16 @@ def _run_mode_1(
 
     if record_stats:
         stats.record_run(1, _verdict_counts_from_cases(result["cases"]), result["total_time"])
+    if record_history:
+        history.record_run(
+            1,
+            _history_cases_from_cases(result["cases"]),
+            db_path=_history_db_path(),
+            task_key=_rel(solution.parent, pathlib.Path.cwd()),
+            solution_name=solution.name,
+            solution_hash=hash_solution(solution),
+            duration_s=result["total_time"],
+        )
 
     if output == "json":
         print(json.dumps({"file": str(solution), **result}, ensure_ascii=False))
@@ -209,6 +262,7 @@ def _run_mode_2(
     output: str = "text",
     use_cache: bool = False,
     record_stats: bool = False,
+    record_history: bool = False,
 ) -> None:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2."""
     if not directory.is_dir():
@@ -238,10 +292,19 @@ def _run_mode_2(
     if cache is not None:
         cache.save()
 
-    if record_stats:
+    if record_stats or record_history:
         all_cases = [c for _, result in rows for c in result["cases"]]
         total_time = sum(result["total_time"] for _, result in rows)
-        stats.record_run(2, _verdict_counts_from_cases(all_cases), total_time)
+        if record_stats:
+            stats.record_run(2, _verdict_counts_from_cases(all_cases), total_time)
+        if record_history:
+            history.record_run(
+                2,
+                _history_cases_from_cases(all_cases),
+                db_path=_history_db_path(),
+                task_key=_rel(directory, pathlib.Path.cwd()),
+                duration_s=total_time,
+            )
 
     if output == "json":
         print(json.dumps({"results": {str(p): r for p, r in rows}}, ensure_ascii=False))
@@ -274,6 +337,7 @@ def _run_mode_3(
     *,
     output: str = "text",
     record_stats: bool = False,
+    record_history: bool = False,
 ) -> None:
     """Режим 3: subprocess-бенчмарк папки. Общий код для меню и --mode 3."""
     if not directory.is_dir():
@@ -298,12 +362,21 @@ def _run_mode_3(
         much_slower_threshold=MUCH_SLOWER_THRESHOLD,
     )
 
-    if record_stats:
+    if record_stats or record_history:
         # Bench-данные не несут единого "total_time" на решение (только
         # min/median/mean/max/stdev за один прогон + число прогонов) --
         # mean × runs — приближённая оценка суммарного времени решения.
         total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
-        stats.record_run(3, _verdict_counts_from_bench(results), total_time)
+        if record_stats:
+            stats.record_run(3, _verdict_counts_from_bench(results), total_time)
+        if record_history:
+            history.record_run(
+                3,
+                _history_cases_from_bench(results),
+                db_path=_history_db_path(),
+                task_key=_rel(directory, pathlib.Path.cwd()),
+                duration_s=total_time,
+            )
 
     if output == "json":
         print(json.dumps({"results": {str(p): d for p, d in results.items()}}, ensure_ascii=False))
@@ -361,6 +434,7 @@ def _run_mode_4(
     *,
     output: str = "text",
     record_stats: bool = False,
+    record_history: bool = False,
 ) -> None:
     """Режим 4: timeit micro-bench папки. Общий код для меню и --mode 4."""
     if not directory.is_dir():
@@ -442,9 +516,18 @@ def _run_mode_4(
         if not ok_rows and not any(v.get("error") for v in bench.values()):
             print(ctx.t("no_results"))
 
-    if record_stats and all_bench_results:
+    if (record_stats or record_history) and all_bench_results:
         total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in all_bench_results.values())
-        stats.record_run(4, _verdict_counts_from_bench(all_bench_results), total_time)
+        if record_stats:
+            stats.record_run(4, _verdict_counts_from_bench(all_bench_results), total_time)
+        if record_history:
+            history.record_run(
+                4,
+                _history_cases_from_bench(all_bench_results),
+                db_path=_history_db_path(),
+                task_key=_rel(directory, pathlib.Path.cwd()),
+                duration_s=total_time,
+            )
 
     if output == "json":
         print(json.dumps({"groups": json_results}, ensure_ascii=False))

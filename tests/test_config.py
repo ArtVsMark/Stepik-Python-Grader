@@ -214,6 +214,7 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "glossary_missing_queue",
         "job_workers",
         "record_stats",
+        "record_history",
         "sandbox_max_cpu_seconds",
         "sandbox_max_processes",
         "sandbox_max_output_bytes",

@@ -62,6 +62,7 @@ Stepik-Python-Grader/
 │           ├── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 │           ├── i18n.py           # Загрузка JSON-локалей меню/CLI (issue #144)
 │           ├── stats.py          # Opt-in локальная статистика запусков (issue #268)
+│           ├── history.py        # Opt-in SQLite-история прогонов (issue #344, эпик #342)
 │           ├── diag_log.py       # Opt-in диагностическое логирование сети/OAuth с редакцией секретов (issue #146)
 │           ├── tracer.py         # Пошаговый трассировщик кода (sys.settrace → JSON-трейс) для песочницы (issue #318)
 │           └── sandbox/          # SandboxRunner: OS-изолированный запуск, --sandbox (issue #266)

@@ -43,11 +43,15 @@ def test_unset_non_incremental_reads_config(monkeypatch: pytest.MonkeyPatch) -> 
     там же, а не на facade `cli` (facade больше не держит своей копии имени).
     """
     monkeypatch.setattr(
-        cli.options, "CONFIG", types.SimpleNamespace(use_cache=True, record_stats=False)
+        cli.options,
+        "CONFIG",
+        types.SimpleNamespace(use_cache=True, record_stats=False, record_history=False),
     )
     assert cli._resolve_use_cache(_args(None), incremental=False) is True
     monkeypatch.setattr(
-        cli.options, "CONFIG", types.SimpleNamespace(use_cache=False, record_stats=False)
+        cli.options,
+        "CONFIG",
+        types.SimpleNamespace(use_cache=False, record_stats=False, record_history=False),
     )
     assert cli._resolve_use_cache(_args(None), incremental=False) is False
 
@@ -61,7 +65,13 @@ def test_main_watch_mode2_enables_cache(monkeypatch: pytest.MonkeyPatch) -> None
     captured: dict[str, object] = {}
 
     def fake_run_mode_2(
-        directory: str, *, verbose: bool, output: str, use_cache: bool, record_stats: bool
+        directory: str,
+        *,
+        verbose: bool,
+        output: str,
+        use_cache: bool,
+        record_stats: bool,
+        record_history: bool,
     ) -> None:
         captured["use_cache"] = use_cache
 
@@ -76,7 +86,13 @@ def test_main_watch_mode2_no_cache_opts_out(monkeypatch: pytest.MonkeyPatch) -> 
     captured: dict[str, object] = {}
 
     def fake_run_mode_2(
-        directory: str, *, verbose: bool, output: str, use_cache: bool, record_stats: bool
+        directory: str,
+        *,
+        verbose: bool,
+        output: str,
+        use_cache: bool,
+        record_stats: bool,
+        record_history: bool,
     ) -> None:
         captured["use_cache"] = use_cache
 
@@ -92,14 +108,22 @@ def test_main_watch_mode1_does_not_auto_enable_cache(monkeypatch: pytest.MonkeyP
     captured: dict[str, object] = {}
 
     def fake_run_mode_1(
-        solution: str, *, verbose: bool, output: str, use_cache: bool, record_stats: bool
+        solution: str,
+        *,
+        verbose: bool,
+        output: str,
+        use_cache: bool,
+        record_stats: bool,
+        record_history: bool,
     ) -> None:
         captured["use_cache"] = use_cache
 
     monkeypatch.setattr(cli, "_run_mode_1", fake_run_mode_1)
     monkeypatch.setattr(cli, "_watch_and_rerun", lambda path, rerun: rerun())
     monkeypatch.setattr(
-        cli.options, "CONFIG", types.SimpleNamespace(use_cache=False, record_stats=False)
+        cli.options,
+        "CONFIG",
+        types.SimpleNamespace(use_cache=False, record_stats=False, record_history=False),
     )
 
     cli.main(["--mode", "1", "--file", "task.py", "--watch", "--lang", "en"])

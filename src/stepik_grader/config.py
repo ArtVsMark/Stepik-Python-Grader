@@ -56,6 +56,10 @@ class GraderConfig:
     # core/stats.py): режимы/вердикты/ОС, без сети. По умолчанию выключена —
     # включается --stats/--no-stats (приоритет) или этим полем.
     record_stats: bool = False
+    # issue #344 — opt-in SQLite-история прогонов (.grader_history.db,
+    # core/history.py): фундамент разделов «Правила»/«Подучить» (эпик #342).
+    # По умолчанию выключена (#134) — включается --history/--no-history или полем.
+    record_history: bool = False
     # issue #266 — квоты SandboxRunner (--sandbox, core/sandbox/).
     # sandbox_max_cpu_seconds — жёсткий лимит CPU-времени (backstop ПОД
     # общим wall-clock timeout_seconds, не вместо него).

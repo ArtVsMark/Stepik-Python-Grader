@@ -90,6 +90,7 @@ microbench_max_cases = 5
 | `glossary_missing_queue` | `str` | `".grader_glossary_missing.json"` | Путь к очереди пополнения глоссария (J7 — недостающие карточки). См. [glossary.md](glossary.md). |
 | `job_workers` | `int` | `2` | Размер пула воркеров async job-модели `--serve` (`POST /api/v1/runs`, issue #262) — сколько bench/microbench-задач исполняются параллельно. Не CLI-флаг. |
 | `record_stats` | `bool` | `false` | Включить локальную статистику запусков по умолчанию (эквивалент `--stats`, issue #268). Отдельный запуск форсируется `--no-stats`. |
+| `record_history` | `bool` | `false` | Писать историю прогонов в SQLite-базу `.grader_history.db` по умолчанию (эквивалент `--history`, issue #344). Отдельный запуск форсируется `--no-history`. Основа будущих разделов «Правила»/«Подучить» (эпик #342). |
 | `sandbox_max_cpu_seconds` | `float` | `10.0` | `--sandbox` (issue #266): жёсткий лимит CPU-времени решения (backstop под общим `timeout_seconds`). |
 | `sandbox_max_processes` | `int` | `32` | `--sandbox`: лимит числа процессов решения (anti-fork-bomb). На Linux под bwrap — абсолютное значение; на голом POSIX/macOS — бюджет сверх текущего числа процессов пользователя. См. [SECURITY.md](../SECURITY.md). |
 | `sandbox_max_output_bytes` | `int` | `10485760` (10 МБ) | `--sandbox`: лимит суммарного размера stdout+stderr решения. |
@@ -100,6 +101,14 @@ microbench_max_cases = 5
 > **не покидают машину** ни при каком значении этой настройки; проект в
 > принципе не содержит кода, отправляющего телеметрию куда-либо. Файл — в
 > `.gitignore`, не коммитить. Просмотр сводки — `stepik-grader --stats-summary`.
+
+> **История прогонов (`record_history`/`--history`, issue #344).** Тот же
+> принцип приватности: локальная SQLite-база `.grader_history.db` (прогоны,
+> per-case вердикты/время/класс ошибки), только на машине, в `.gitignore`, без
+> сети. По умолчанию выключена — файл **не создаётся**, пока не задан
+> `--history` или `record_history = true` (#134). Основа будущих разделов
+> «Правила»/«Подучить» (эпик #342); построена на `sqlite3` из stdlib (WAL,
+> миграции), best-effort — битая база не роняет проверку.
 
 > Значения из `pyproject.toml` перекрывают дефолты. `GraderConfig` — `frozen`:
 > изменить его в рантайме нельзя (мутация → `FrozenInstanceError`). Полный
