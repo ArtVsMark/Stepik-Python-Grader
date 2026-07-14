@@ -32,7 +32,7 @@ const state = {
   section: localStorage.getItem("grader_section") || "check", // check|glossary|downloader|rules|insights|sandbox|settings
   lang: localStorage.getItem("grader_lang") || "ru", // issue #364 — язык сообщений сервера (?lang=)
   mode: localStorage.getItem("grader_mode") || "tests", // "file" | "tests" | "bench" | "microbench"
-  resultTab: "table", // "table" | "detail" | "log"
+  resultTab: "table", // "table" | "detail"
   lastResult: null,
   selectedRow: null,
   selectedCase: null,
@@ -209,7 +209,14 @@ function renderActionCards() {
     if (el) el.innerHTML = "";
     return;
   }
-  renderCommandButtons(el, visibleCommands());
+  let cmds = visibleCommands();
+  // issue #368 (2.и): в режиме 2 (папка) действия разбора — только копирование
+  // входа/выхода; run_again остаётся в палитре (Ctrl+K). Контент разбора (diff,
+  // диагностика, глоссарий) не режется — это не «действия».
+  if (state.mode === "tests") {
+    cmds = cmds.filter(c => c.id === "copy_input" || c.id === "copy_output");
+  }
+  renderCommandButtons(el, cmds);
 }
 
 async function loadCommands() {
@@ -364,7 +371,7 @@ function openGlossaryForSelectedCase() {
   if (id) selectGlossaryCard(id);
 }
 
-// -- Result-panel tabs (Таблица / Детали / Лог) -------------------------------
+// -- Result-panel tabs (Таблица / Разбор) -------------------------------------
 
 function setResultTab(tab) {
   state.resultTab = tab;
@@ -375,22 +382,6 @@ function setResultTab(tab) {
   });
   $("#restab-table").hidden = tab !== "table";
   $("#restab-detail").hidden = tab !== "detail";
-  $("#restab-log").hidden = tab !== "log";
-  if (tab === "log") renderLogTab();
-}
-
-function renderLogTab() {
-  const el = $("#log-content");
-  const c = getSelectedCase();
-  if (!c) {
-    el.innerHTML = emptyState("Нет данных", "Выберите тест-кейс во вкладке «Таблица».");
-    return;
-  }
-  let h = "";
-  if (c.stdin) h += '<div class="field-label">stdin</div>' + codeBlock(c.stdin);
-  const out = c.actual || c.stderr || c.error || "";
-  h += '<div class="field-label">stdout/stderr</div>' + (out ? codeBlock(out) : codeBlock("(пусто)"));
-  el.innerHTML = h;
 }
 
 // -- Проверка решений: grade/render -------------------------------------------
@@ -830,7 +821,6 @@ function _finishGradeUI() {
   $("#run").textContent = "▶ Запустить";
   renderDetailPanel();
   renderResultSummaryBadges();
-  if (state.resultTab === "log") renderLogTab();
   // issue #298 (a11y): после завершения прогона фокус уходит на панель
   // результатов (tabindex="-1"), чтобы клавиатурный/скринридер-пользователь
   // оказался у сводки, а не остался на кнопке «Запустить».
@@ -1728,9 +1718,14 @@ function renderDetailPanel() {
   let h =
     '<div class="bar">#' + c.n + " " + renderVerdict(c.verdict) + " · " + c.time + " s</div>";
   if (c.stdin) h += '<div class="field-label">Вход (stdin)</div>' + codeBlock(c.stdin);
+  // issue #368 (2.е): ядро разбора — сравнение «Ожидалось / Получено». Для WA —
+  // двухколоночно (на узкой панели колонки стекаются), плюс diff.
   if (c.verdict === "WA") {
-    h += '<div class="field-label">Ожидалось</div>' + codeBlock(c.expected);
-    h += '<div class="field-label">Получено</div>' + codeBlock(c.actual);
+    h +=
+      '<div class="compare-grid">' +
+      '<div><div class="field-label">Ожидалось</div>' + codeBlock(c.expected) + "</div>" +
+      '<div><div class="field-label">Получено</div>' + codeBlock(c.actual) + "</div>" +
+      "</div>";
     if (c.diff) h += '<div class="field-label">Diff</div>' + codeBlock(c.diff);
   } else if (c.actual) {
     h += '<div class="field-label">Вывод</div>' + codeBlock(c.actual);
@@ -1747,6 +1742,13 @@ function renderDetailPanel() {
       c.suggestions.map(esc).join(" ") +
       "</div>";
   }
+  // issue #368 (2.е): «Сырой stdout/stderr» — коллапсируемая секция (единственное,
+  // что бывший «Лог» давал сверх «Деталей»); свёрнута по умолчанию.
+  const raw = c.actual || c.stderr || c.error || "";
+  h +=
+    '<details class="raw-output"><summary>Сырой stdout/stderr</summary>' +
+    codeBlock(raw || "(пусто)") +
+    "</details>";
   h += '<div id="detail-actions" class="action-cards"></div>';
   content.innerHTML = h;
   renderActionCards();

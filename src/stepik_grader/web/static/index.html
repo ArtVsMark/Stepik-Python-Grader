@@ -131,7 +131,7 @@
                 </div>
               </div>
             </div>
-            <div class="hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Детали».</div>
+            <div class="hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Разбор».</div>
 
             <!-- issue #323: «Функции в коде» — мини-карточки функций текущего
                  решения (замена мёртвого виджета «Связанные термины»). Скрыт в
@@ -149,8 +149,7 @@
             <span class="panel-title">Результаты</span>
             <div class="panel-tabs" role="tablist">
               <button class="panel-tab active" data-restab="table" role="tab" aria-selected="true">Таблица</button>
-              <button class="panel-tab" data-restab="detail" role="tab" aria-selected="false">Детали</button>
-              <button class="panel-tab" data-restab="log" role="tab" aria-selected="false">Лог</button>
+              <button class="panel-tab" data-restab="detail" role="tab" aria-selected="false">Разбор</button>
             </div>
             <div class="panel-actions" id="result-summary-badges"></div>
           </div>
@@ -172,10 +171,6 @@
               <p>Выберите тест-кейс во вкладке «Таблица», чтобы увидеть разбор.</p>
             </div>
             <div id="detail-content" hidden></div>
-          </div>
-
-          <div class="panel-body" id="restab-log" hidden>
-            <div id="log-content"></div>
           </div>
         </div>
 
