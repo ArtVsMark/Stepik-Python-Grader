@@ -65,6 +65,7 @@ Stepik-Python-Grader/
 │           ├── history.py        # Opt-in SQLite-история прогонов (issue #344, эпик #342)
 │           ├── mtime_cache.py    # Generic mtime-кеш загрузки (issue #345, вынос из glossary_adapter)
 │           ├── lint.py           # Opt-in PEP-проверка через ruff, extra [lint] (issue #346)
+│           ├── insights.py       # Таксономия падений + затухание карточек «Подучить» (issue #347)
 │           ├── diag_log.py       # Opt-in диагностическое логирование сети/OAuth с редакцией секретов (issue #146)
 │           ├── tracer.py         # Пошаговый трассировщик кода (sys.settrace → JSON-трейс) для песочницы (issue #318)
 │           └── sandbox/          # SandboxRunner: OS-изолированный запуск, --sandbox (issue #266)
