@@ -78,6 +78,7 @@ from stepik_grader.cli.rendering import (  # noqa: F401
     _rows_to_csv,
     _rows_to_markdown,
 )
+from stepik_grader.config import CONFIG
 from stepik_grader.core import stats
 from stepik_grader.core.cache import GraderCache
 from stepik_grader.core.diag_log import configure_diagnostics
@@ -89,7 +90,7 @@ from stepik_grader.core.grader_core import (
     set_runner,
 )
 from stepik_grader.core.i18n import load_locale_messages
-from stepik_grader.core.reporter import print_stats_summary
+from stepik_grader.core.reporter import print_insights_summary, print_stats_summary
 
 __all__ = ["main"]
 
@@ -239,6 +240,7 @@ def _run_mode_1(
     use_cache: bool = False,
     record_stats: bool = False,
     record_history: bool = False,
+    record_lint: bool = False,
 ) -> None:
     """Режим 1: проверить одно решение (verbose). Тонкая обёртка над commands._run_mode_1."""
     commands._run_mode_1(
@@ -249,6 +251,7 @@ def _run_mode_1(
         use_cache=use_cache,
         record_stats=record_stats,
         record_history=record_history,
+        record_lint=record_lint,
     )
 
 
@@ -260,6 +263,7 @@ def _run_mode_2(
     use_cache: bool = False,
     record_stats: bool = False,
     record_history: bool = False,
+    record_lint: bool = False,
 ) -> None:
     """Режим 2: проверить все решения в папке. Тонкая обёртка над commands._run_mode_2."""
     commands._run_mode_2(
@@ -270,6 +274,7 @@ def _run_mode_2(
         use_cache=use_cache,
         record_stats=record_stats,
         record_history=record_history,
+        record_lint=record_lint,
     )
 
 
@@ -429,6 +434,23 @@ def main(argv: list[str] | None = None) -> None:
             print_stats_summary(summary)
         return
 
+    if args.insights:
+        from stepik_grader import rules
+        from stepik_grader.core import history, insights
+
+        db_path = pathlib.Path.cwd() / history.HISTORY_DB_NAME
+        cards = insights.learning_cards(
+            db_path,
+            n=CONFIG.insights_window_n,
+            t=CONFIG.insights_active_threshold_t,
+            k=CONFIG.insights_clean_streak_k,
+        )
+        if not cards:
+            print(_t("insights_no_data"))
+        else:
+            print_insights_summary(cards, rules_provider=rules.bundled_rules())
+        return
+
     if args.init_vscode:
         from stepik_grader import ide
 
@@ -456,6 +478,7 @@ def main(argv: list[str] | None = None) -> None:
 
     record_stats = _resolve_record_stats(args)
     record_history = _resolve_record_history(args)
+    record_lint = args.lint  # разовый флаг режимов 1/2 (issue #349), без config-дефолта
 
     if args.sandbox:
         # issue #266: жёсткий отказ, если backend недоступен на этой машине --
@@ -486,6 +509,7 @@ def main(argv: list[str] | None = None) -> None:
                 use_cache=use_cache,
                 record_stats=record_stats,
                 record_history=record_history,
+                record_lint=record_lint,
             ),
             watch=args.watch,
         )
@@ -505,6 +529,7 @@ def main(argv: list[str] | None = None) -> None:
                 use_cache=use_cache,
                 record_stats=record_stats,
                 record_history=record_history,
+                record_lint=record_lint,
             ),
             watch=args.watch,
         )

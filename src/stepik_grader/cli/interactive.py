@@ -117,6 +117,7 @@ def _print_menu(ctx: CliContext) -> None:
     print(ctx.t("menu_2"))
     print(ctx.t("menu_3"))
     print(ctx.t("menu_4"))
+    print(ctx.t("menu_5"))
     print(ctx.t("menu_0"))
     print("=" * 50)
 
@@ -240,6 +241,23 @@ def _interactive_menu(ctx: CliContext) -> None:
             return
         number = ctx.ask_micro_profile()
         ctx.run_mode_4(directory, number, record_stats=record_stats, record_history=record_history)
+
+    elif choice == "5":
+        from stepik_grader import rules
+        from stepik_grader.core import history, insights
+        from stepik_grader.core.reporter import print_insights_summary
+
+        db_path = pathlib.Path.cwd() / history.HISTORY_DB_NAME
+        cards = insights.learning_cards(
+            db_path,
+            n=CONFIG.insights_window_n,
+            t=CONFIG.insights_active_threshold_t,
+            k=CONFIG.insights_clean_streak_k,
+        )
+        if not cards:
+            print(ctx.t("insights_no_data"))
+        else:
+            print_insights_summary(cards, rules_provider=rules.bundled_rules())
 
     else:
         print(ctx.t("unknown_choice"))
