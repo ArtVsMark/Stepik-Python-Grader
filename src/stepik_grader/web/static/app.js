@@ -32,7 +32,7 @@ const state = {
   section: localStorage.getItem("grader_section") || "check", // "check" | "glossary" | "downloader" | "sandbox"
   mode: localStorage.getItem("grader_mode") || "tests", // "file" | "tests" | "bench" | "microbench"
   configTab: "path", // "path" | "params"
-  resultTab: "table", // "table" | "detail" | "log" | "reference"
+  resultTab: "table", // "table" | "detail" | "log"
   lastResult: null,
   selectedRow: null,
   selectedCase: null,
@@ -352,7 +352,7 @@ function setConfigTab(tab) {
   $("#conftab-params").hidden = tab !== "params";
 }
 
-// -- Result-panel tabs (Таблица / Детали / Лог / Эталон) ----------------------
+// -- Result-panel tabs (Таблица / Детали / Лог) -------------------------------
 
 function setResultTab(tab) {
   state.resultTab = tab;
@@ -364,9 +364,7 @@ function setResultTab(tab) {
   $("#restab-table").hidden = tab !== "table";
   $("#restab-detail").hidden = tab !== "detail";
   $("#restab-log").hidden = tab !== "log";
-  $("#restab-reference").hidden = tab !== "reference";
   if (tab === "log") renderLogTab();
-  if (tab === "reference") renderReferenceTab();
 }
 
 function renderLogTab() {
@@ -381,19 +379,6 @@ function renderLogTab() {
   const out = c.actual || c.stderr || c.error || "";
   h += '<div class="field-label">stdout/stderr</div>' + (out ? codeBlock(out) : codeBlock("(пусто)"));
   el.innerHTML = h;
-}
-
-function renderReferenceTab() {
-  const el = $("#reference-content");
-  const src = state.lastResult && state.lastResult.reference_source;
-  if (!src) {
-    el.innerHTML = emptyState(
-      "Эталон не выбран",
-      "«Найти эталонное решение» пока не реализовано (issue #55) — здесь появится его код."
-    );
-    return;
-  }
-  el.innerHTML = '<div class="field-label">' + esc(state.lastResult.reference_file || "reference") + "</div>" + codeBlock(src);
 }
 
 // -- Проверка решений: grade/render -------------------------------------------
@@ -849,7 +834,6 @@ function _finishGradeUI() {
   renderDetailPanel();
   renderResultSummaryBadges();
   if (state.resultTab === "log") renderLogTab();
-  if (state.resultTab === "reference") renderReferenceTab();
   // issue #298 (a11y): после завершения прогона фокус уходит на панель
   // результатов (tabindex="-1"), чтобы клавиатурный/скринридер-пользователь
   // оказался у сводки, а не остался на кнопке «Запустить».
