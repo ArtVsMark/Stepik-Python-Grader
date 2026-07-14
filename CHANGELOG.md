@@ -45,6 +45,13 @@
 - Rotated CHANGELOG releases 1.1.0–1.5.0 into `docs/changelog-archive.md`; added
   a "one line per change, keep the 3 latest MINOR" policy (CLAUDE.md /
   CONTRIBUTING.md) and a CI version-count guard in `check_docs_guardrails.py` (#373).
+- Docs audit after v1.8.0 (epic #381): closed the release gap — `versions.md` gains a v1.8.0 column, CHECKPOINT/CONTRIBUTING/installation refreshed (#382).
+- Synced docs and code locales to the #342 wave — menu 0–5, six web sections, `insights_*` config keys, README feature list/security (#383).
+- Fixed factual doc errors (logging `--verbose`, server-mode `cancelled`, `stepik-python-grader[watch]` package name) and marked the result `lint` field as schema-only until wired in #346 (#384).
+- Refreshed `architecture.md`/`project-structure.md` — 5 missing modules, DAG edges, false-leaf/phantom-edge fixes (#385).
+
+### Internal
+- Added a soft `docs/versions.md` release-column guard to `check_version_consistency.py`; archived `claude-handoff.md`, stamped `audit-2026-07.md` as implemented, fixed the stale CHANGELOG policy in GitHub PR/issue templates and the #163 contradiction in CLAUDE.md (#386).
 
 ## [1.8.0] - 2026-07-14
 

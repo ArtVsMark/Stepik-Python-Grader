@@ -27,7 +27,7 @@
 | Внести вклад: код-стайл, форматы тестов, версионирование | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Инварианты ядра и правила для агентов | [../CLAUDE.md](../CLAUDE.md) |
 | Политика безопасности, ответственное раскрытие уязвимостей | [../SECURITY.md](../SECURITY.md) |
-| Постановки будущих задач для Claude Code (#125/#186/#187/#129, версии #161/#163; #126 — foundation готов, доводка #191; #190 закрыт) | [claude-handoff.md](claude-handoff.md) |
+| Архив постановок для Claude Code (все закрыты: #125/#186/#187/#129, #161/#163, #126/#190/#191) | [claude-handoff.md](claude-handoff.md) |
 | История спринтов и roadmap (архив) | [history.md](history.md) |
 | Разовый глубокий аудит 2026-07 (8 ролей) + дизайн разделов «Правила/PEP» и «Подучить» | [audit-2026-07.md](audit-2026-07.md) |
 | План 2026-07: наполнение 832 draft-карточек глоссария (эпик #363) + UX-оптимизация web-«Проверки решений» (эпик #362, пункты владельца а–к) | [web-glossary-optimization-2026-07.md](web-glossary-optimization-2026-07.md) |
@@ -61,7 +61,7 @@
 | Политика версионирования (схема тег=MINOR+1, release vs dev) | [../CONTRIBUTING.md](../CONTRIBUTING.md) § Версионирование | README, CLAUDE.md, versions.md, history.md |
 | Инварианты ядра, правила для агентов | [../CLAUDE.md](../CLAUDE.md) | docs/* |
 | История спринтов/roadmap, подробные примечания к issue (архив) | [history.md](history.md) | CLAUDE.md (там — только действующие инварианты) |
-| Постановки будущих реализаций для Claude (scope/non-goals) | [claude-handoff.md](claude-handoff.md) | CLAUDE.md (там — короткие указатели); канон продукта — web-current.md/web-design.md |
+| Архив постановок для Claude (scope/non-goals; все закрыты) | [claude-handoff.md](claude-handoff.md) | CLAUDE.md (там — короткие указатели); канон продукта — web-current.md/web-design.md |
 
 > **Версия проекта — без ручного source of truth в доках.** Актуальный номер
 > берётся из git-тега / `importlib.metadata` (бейдж релиза в README тянет
