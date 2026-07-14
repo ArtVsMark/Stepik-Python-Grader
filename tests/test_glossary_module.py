@@ -117,6 +117,49 @@ def test_card_roundtrip_to_dict() -> None:
     assert again == card
 
 
+def test_card_summary_body_i18n_nested() -> None:
+    # issue #363: текстовые поля summary/body — вложенный {ru,en}.
+    card = GlossaryCard.from_dict(
+        {
+            "id": "x",
+            "title": "X",
+            "summary": {"ru": "рус", "en": "eng"},
+            "body": {"ru": "тело", "en": "body-en"},
+        }
+    )
+    assert (card.summary, card.summary_en) == ("рус", "eng")
+    assert (card.body, card.body_en) == ("тело", "body-en")
+
+
+def test_card_summary_flat_string_back_compat() -> None:
+    # Старый плоский формат (строка) читается как ru, en пуст — без миграции.
+    card = GlossaryCard.from_dict({"id": "x", "title": "X", "summary": "только рус"})
+    assert card.summary == "только рус"
+    assert card.summary_en == ""
+
+
+def test_card_to_dict_nests_summary_and_body() -> None:
+    card = GlossaryCard(id="x", title="X", summary="рус", summary_en="eng", body="т", body_en="b")
+    data = card.to_dict()
+    assert data["summary"] == {"ru": "рус", "en": "eng"}
+    assert data["body"] == {"ru": "т", "en": "b"}
+    assert GlossaryCard.from_dict(data) == card  # round-trip обеих локалей
+
+
+def test_card_to_api_dict_flattens_by_lang() -> None:
+    # web-API отдаёт summary/body строкой выбранной локали (контракт #264 не меняется).
+    card = GlossaryCard(id="x", title="X", summary="рус", summary_en="eng")
+    assert card.to_api_dict("en")["summary"] == "eng"
+    assert card.to_api_dict("ru")["summary"] == "рус"
+    assert isinstance(card.to_api_dict("en")["summary"], str)
+
+
+def test_card_localized_falls_back_to_ru_when_en_empty() -> None:
+    card = GlossaryCard(id="x", title="X", summary="рус", summary_en="")
+    assert card.localized("summary", "en") == "рус"
+    assert card.localized("summary", "ru") == "рус"
+
+
 def test_card_matches_by_alias_and_keyword() -> None:
     card = GlossaryCard.from_dict(
         {"id": "reduce", "title": "reduce", "aliases": ["свёртка"], "keywords": ["fold"]}

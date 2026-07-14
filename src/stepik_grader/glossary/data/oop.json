@@ -3,8 +3,14 @@
     "id": "__add__-__mul__-__eq__-__lt__-и-оператор",
     "title": "__add__ / __mul__ / __eq__ / __lt__ и операторные методы",
     "kind": "term",
-    "summary": "Перегрузка операторов. __add__(+), __sub__(-), __mul__(*), __eq__(==), __lt__(<), __le__(<=), __hash__, __neg__.",
-    "body": "",
+    "summary": {
+      "ru": "Перегрузка операторов. __add__(+), __sub__(-), __mul__(*), __eq__(==), __lt__(<), __le__(<=), __hash__, __neg__.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def __add__(self, other): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-__add__-__mul__-__eq__-__lt__-и-оператор",
@@ -103,8 +109,14 @@
     "id": "__enter__-__exit__",
     "title": "__enter__ / __exit__",
     "kind": "term",
-    "summary": "Контекстный менеджер (with-statement). __enter__ выполняется при входе, __exit__ — при выходе (в том числе при исключении).",
-    "body": "",
+    "summary": {
+      "ru": "Контекстный менеджер (with-statement). __enter__ выполняется при входе, __exit__ — при выходе (в том числе при исключении).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class CM:\n    def __enter__(self): return self\n    def __exit__(self, exc_type, exc_val, tb): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-__enter__-__exit__",
@@ -191,8 +203,14 @@
     "id": "__init__",
     "title": "__init__",
     "kind": "term",
-    "summary": "Конструктор — вызывается при создании экземпляра. Инициализирует атрибуты объекта.",
-    "body": "",
+    "summary": {
+      "ru": "Конструктор — вызывается при создании экземпляра. Инициализирует атрибуты объекта.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def __init__(self, params): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-__init__",
@@ -263,8 +281,14 @@
     "id": "__len__-__getitem__-__setitem__-__contai",
     "title": "__len__ / __getitem__ / __setitem__ / __contains__",
     "kind": "term",
-    "summary": "Магические методы для протокола последовательности/контейнера. Позволяют использовать len(), [], in.",
-    "body": "",
+    "summary": {
+      "ru": "Магические методы для протокола последовательности/контейнера. Позволяют использовать len(), [], in.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def __len__(self): ...\ndef __getitem__(self, idx): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-__len__-__getitem__-__setitem__-__contai",
@@ -352,8 +376,14 @@
     "id": "__slots__",
     "title": "__slots__",
     "kind": "term",
-    "summary": "__slots__ ограничивает атрибуты экземпляра, убирает __dict__, экономит память. Особенно полезно для большого числа объектов.",
-    "body": "",
+    "summary": {
+      "ru": "__slots__ ограничивает атрибуты экземпляра, убирает __dict__, экономит память. Особенно полезно для большого числа объектов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class C:\n    __slots__ = ('x', 'y')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-__slots__",
@@ -415,8 +445,14 @@
     "id": "__str__-__repr__",
     "title": "__str__ / __repr__",
     "kind": "term",
-    "summary": "__str__ — читаемое представление для print(). __repr__ — отладочное, воспроизводимое. repr() вызывает __repr__.",
-    "body": "",
+    "summary": {
+      "ru": "__str__ — читаемое представление для print(). __repr__ — отладочное, воспроизводимое. repr() вызывает __repr__.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def __str__(self): return '...'\ndef __repr__(self): return '...'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-__str__-__repr__",
@@ -480,8 +516,14 @@
     "id": "class",
     "title": "class",
     "kind": "term",
-    "summary": "Объявление класса. Класс — шаблон для создания объектов (экземпляров).",
-    "body": "",
+    "summary": {
+      "ru": "Объявление класса. Класс — шаблон для создания объектов (экземпляров).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class ИмяКласса:\n    тело",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-class",
@@ -545,8 +587,14 @@
     "id": "classmethod",
     "title": "@classmethod",
     "kind": "term",
-    "summary": "Метод класса. Первый параметр — cls (ссылка на класс). Используется для альтернативных конструкторов.",
-    "body": "",
+    "summary": {
+      "ru": "Метод класса. Первый параметр — cls (ссылка на класс). Используется для альтернативных конструкторов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@classmethod\ndef method(cls, ...): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-classmethod",
@@ -629,8 +677,14 @@
     "id": "dataclass",
     "title": "dataclass",
     "kind": "term",
-    "summary": "@dataclass автоматически генерирует __init__, __repr__, __eq__. field() настраивает отдельные поля.",
-    "body": "",
+    "summary": {
+      "ru": "@dataclass автоматически генерирует __init__, __repr__, __eq__. field() настраивает отдельные поля.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from dataclasses import dataclass\n@dataclass\nclass Point:\n    x: float\n    y: float",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dataclass",
@@ -709,8 +763,14 @@
     "id": "property",
     "title": "@property",
     "kind": "term",
-    "summary": "Превращает метод в атрибут (геттер). @x.setter — сеттер. @x.deleter — делитер. Вычисляемые атрибуты.",
-    "body": "",
+    "summary": {
+      "ru": "Превращает метод в атрибут (геттер). @x.setter — сеттер. @x.deleter — делитер. Вычисляемые атрибуты.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@property\ndef x(self): return self._x",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-property",
@@ -822,8 +882,14 @@
     "id": "self",
     "title": "self",
     "kind": "term",
-    "summary": "Ссылка на текущий экземпляр класса. Первый параметр методов экземпляра (имя — соглашение).",
-    "body": "",
+    "summary": {
+      "ru": "Ссылка на текущий экземпляр класса. Первый параметр методов экземпляра (имя — соглашение).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def method(self): self.x = ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-self",
@@ -894,8 +960,14 @@
     "id": "staticmethod",
     "title": "@staticmethod",
     "kind": "term",
-    "summary": "Статический метод. Не принимает self или cls. Просто функция внутри класса — логическая группировка.",
-    "body": "",
+    "summary": {
+      "ru": "Статический метод. Не принимает self или cls. Просто функция внутри класса — логическая группировка.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@staticmethod\ndef method(...): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-staticmethod",
@@ -950,8 +1022,14 @@
     "id": "super",
     "title": "super()",
     "kind": "function",
-    "summary": "Возвращает прокси-объект родительского класса. Используется для вызова методов родителя без явного указания имени.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает прокси-объект родительского класса. Используется для вызова методов родителя без явного указания имени.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "super().__init__(...)\nsuper().method(...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-super",
@@ -1037,8 +1115,14 @@
     "id": "абстрактные-классы",
     "title": "Абстрактные классы",
     "kind": "term",
-    "summary": "abc.ABC и @abstractmethod запрещают создание экземпляров класса без реализации всех абстрактных методов.",
-    "body": "",
+    "summary": {
+      "ru": "abc.ABC и @abstractmethod запрещают создание экземпляров класса без реализации всех абстрактных методов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from abc import ABC, abstractmethod\nclass Shape(ABC):\n    @abstractmethod\n    def area(self): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-абстрактные-классы",
@@ -1115,8 +1199,14 @@
     "id": "атрибуты-экземпляра-и-класса",
     "title": "Атрибуты экземпляра и класса",
     "kind": "term",
-    "summary": "Атрибуты класса — общие для всех экземпляров. Атрибуты экземпляра — уникальные для каждого. Изменяемые атрибуты класса — ловушка!",
-    "body": "",
+    "summary": {
+      "ru": "Атрибуты класса — общие для всех экземпляров. Атрибуты экземпляра — уникальные для каждого. Изменяемые атрибуты класса — ловушка!",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class C:\n    class_attr = 0  # классовый\n    def __init__(self):\n        self.inst_attr = 1  # экземплярный",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-атрибуты-экземпляра-и-класса",
@@ -1179,8 +1269,14 @@
     "id": "инкапсуляция-_private-__mangled",
     "title": "Инкапсуляция — _private, __mangled",
     "kind": "term",
-    "summary": "Одиночный _ — соглашение (внутренний). Двойной __ — name mangling (переименование _Class__attr). Нет настоящих private в Python.",
-    "body": "",
+    "summary": {
+      "ru": "Одиночный _ — соглашение (внутренний). Двойной __ — name mangling (переименование _Class__attr). Нет настоящих private в Python.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "self._protected\nself.__private",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-инкапсуляция-_private-__mangled",
@@ -1257,8 +1353,14 @@
     "id": "методы-экземпляра",
     "title": "Методы экземпляра",
     "kind": "term",
-    "summary": "Обычные методы класса. Первый параметр — self (ссылка на экземпляр). Могут читать и изменять состояние.",
-    "body": "",
+    "summary": {
+      "ru": "Обычные методы класса. Первый параметр — self (ссылка на экземпляр). Могут читать и изменять состояние.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def method(self, ...): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-методы-экземпляра",
@@ -1352,8 +1454,14 @@
     "id": "множественное-наследование-mro",
     "title": "Множественное наследование / MRO",
     "kind": "term",
-    "summary": "Python поддерживает множественное наследование. Порядок разрешения методов (MRO) — C3-линеаризация.",
-    "body": "",
+    "summary": {
+      "ru": "Python поддерживает множественное наследование. Порядок разрешения методов (MRO) — C3-линеаризация.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class C(A, B): ...\nC.__mro__",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-множественное-наследование-mro",
@@ -1429,8 +1537,14 @@
     "id": "наследование",
     "title": "Наследование",
     "kind": "term",
-    "summary": "Дочерний класс наследует атрибуты и методы родительского. Переопределение методов — полиморфизм.",
-    "body": "",
+    "summary": {
+      "ru": "Дочерний класс наследует атрибуты и методы родительского. Переопределение методов — полиморфизм.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class Child(Parent): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-наследование",
@@ -1523,8 +1637,14 @@
     "id": "полиморфизм",
     "title": "Полиморфизм",
     "kind": "term",
-    "summary": "Один интерфейс — разные реализации. В Python достигается переопределением методов и duck typing.",
-    "body": "",
+    "summary": {
+      "ru": "Один интерфейс — разные реализации. В Python достигается переопределением методов и duck typing.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "for obj in objects:\n    obj.method()  # разные реализации",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-полиморфизм",

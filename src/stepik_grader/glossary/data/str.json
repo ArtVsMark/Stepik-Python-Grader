@@ -3,8 +3,14 @@
     "id": "b-...-байт-строки",
     "title": "b\"...\" байт-строки",
     "kind": "term",
-    "summary": "Байтовые строки (b\"...\") хранят последовательность байт, а не Unicode-символов. Каждый элемент — целое число 0–255. Используются при работе с бинарными данными.",
-    "body": "",
+    "summary": {
+      "ru": "Байтовые строки (b\"...\") хранят последовательность байт, а не Unicode-символов. Каждый элемент — целое число 0–255. Используются при работе с бинарными данными.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "b\"строка\"  b'строка'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-b-...-байт-строки",
@@ -32,8 +38,14 @@
     "id": "capitalize-title-swapcase",
     "title": "capitalize() / title() / swapcase()",
     "kind": "function",
-    "summary": "capitalize() — первая буква заглавная, остальные строчные. title() — каждое слово с заглавной. swapcase() — меняет регистр каждого символа.",
-    "body": "",
+    "summary": {
+      "ru": "capitalize() — первая буква заглавная, остальные строчные. title() — каждое слово с заглавной. swapcase() — меняет регистр каждого символа.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.capitalize()  |  s.title()  |  s.swapcase()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-capitalize-title-swapcase",
@@ -67,8 +79,14 @@
     "id": "center-ljust-rjust-zfill",
     "title": "center() / ljust() / rjust() / zfill()",
     "kind": "function",
-    "summary": "Выравнивание строки до заданной ширины символом-заполнителем (по умолчанию пробел). zfill() заполняет нулями слева.",
-    "body": "",
+    "summary": {
+      "ru": "Выравнивание строки до заданной ширины символом-заполнителем (по умолчанию пробел). zfill() заполняет нулями слева.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.center(width[, fill])  |  s.ljust(width[, fill])  |  s.rjust(width[, fill])  |  s.zfill(width)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-center-ljust-rjust-zfill",
@@ -102,8 +120,14 @@
     "id": "chr-ord",
     "title": "chr() / ord()",
     "kind": "function",
-    "summary": "ord() возвращает Unicode code point символа. chr() возвращает символ по code point.",
-    "body": "",
+    "summary": {
+      "ru": "ord() возвращает Unicode code point символа. chr() возвращает символ по code point.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "ord(c)  |  chr(i)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-chr-ord",
@@ -140,8 +164,14 @@
     "id": "count",
     "title": "count()",
     "kind": "function",
-    "summary": "Подсчитывает число непересекающихся вхождений подстроки. Для пустой строки возвращает len(s)+1.",
-    "body": "",
+    "summary": {
+      "ru": "Подсчитывает число непересекающихся вхождений подстроки. Для пустой строки возвращает len(s)+1.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.count(sub[, start[, end]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-count",
@@ -173,8 +203,14 @@
     "id": "encode-decode",
     "title": "encode() / decode()",
     "kind": "function",
-    "summary": "encode() кодирует строку в байты. decode() декодирует байты обратно в строку. errors: 'strict', 'ignore', 'replace'.",
-    "body": "",
+    "summary": {
+      "ru": "encode() кодирует строку в байты. decode() декодирует байты обратно в строку. errors: 'strict', 'ignore', 'replace'.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.encode([encoding[, errors]])  |  b.decode([encoding[, errors]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-encode-decode",
@@ -206,8 +242,14 @@
     "id": "f-строки",
     "title": "f-строки",
     "kind": "term",
-    "summary": "f-строки (f'...') — форматированные строковые литералы. Выражения в {} вычисляются во время выполнения.",
-    "body": "",
+    "summary": {
+      "ru": "f-строки (f'...') — форматированные строковые литералы. Выражения в {} вычисляются во время выполнения.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "f'{expr}'  |  f'{val:.2f}'  |  f'{val!r}'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-f-строки",
@@ -251,8 +293,14 @@
     "id": "find-rfind",
     "title": "find() / rfind()",
     "kind": "function",
-    "summary": "find() возвращает индекс первого вхождения подстроки или -1 если не найдено. rfind() ищет с конца.",
-    "body": "",
+    "summary": {
+      "ru": "find() возвращает индекс первого вхождения подстроки или -1 если не найдено. rfind() ищет с конца.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.find(sub[, start[, end]])  |  s.rfind(sub[, start[, end]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-find-rfind",
@@ -286,8 +334,14 @@
     "id": "format-метод-форматирования",
     "title": "format() — метод форматирования",
     "kind": "term",
-    "summary": "Метод str.format() подставляет аргументы по позиции или имени. Поддерживает спецификаторы формата.",
-    "body": "",
+    "summary": {
+      "ru": "Метод str.format() подставляет аргументы по позиции или имени. Поддерживает спецификаторы формата.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "'{}'.format(val)  |  '{name}'.format(name=val)  |  '{:.2f}'.format(num)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-format-метод-форматирования",
@@ -323,8 +377,14 @@
     "id": "in-not-in-для-строк",
     "title": "in / not in для строк",
     "kind": "term",
-    "summary": "Проверяет, является ли одна строка подстрокой другой. Возвращает bool.",
-    "body": "",
+    "summary": {
+      "ru": "Проверяет, является ли одна строка подстрокой другой. Возвращает bool.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "'sub' in s  |  'sub' not in s",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-in-not-in-для-строк",
@@ -356,8 +416,14 @@
     "id": "index-rindex",
     "title": "index() / rindex()",
     "kind": "function",
-    "summary": "index() как find(), но бросает ValueError если подстрока не найдена. rindex() ищет с конца.",
-    "body": "",
+    "summary": {
+      "ru": "index() как find(), но бросает ValueError если подстрока не найдена. rindex() ищет с конца.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.index(sub[, start[, end]])  |  s.rindex(sub[, start[, end]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-index-rindex",
@@ -392,8 +458,14 @@
     "id": "isdigit-isalpha-isalnum-isspace",
     "title": "isdigit() / isalpha() / isalnum() / isspace()",
     "kind": "function",
-    "summary": "Методы проверки состава строки. Все возвращают False для пустой строки.",
-    "body": "",
+    "summary": {
+      "ru": "Методы проверки состава строки. Все возвращают False для пустой строки.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.isdigit()  |  s.isalpha()  |  s.isalnum()  |  s.isspace()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-isdigit-isalpha-isalnum-isspace",
@@ -429,8 +501,14 @@
     "id": "islower-isupper-istitle",
     "title": "islower() / isupper() / istitle()",
     "kind": "function",
-    "summary": "Проверяют регистр строки. Требуют хотя бы один буквенный символ.",
-    "body": "",
+    "summary": {
+      "ru": "Проверяют регистр строки. Требуют хотя бы один буквенный символ.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.islower()  |  s.isupper()  |  s.istitle()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-islower-isupper-istitle",
@@ -462,8 +540,14 @@
     "id": "join",
     "title": "join()",
     "kind": "function",
-    "summary": "Объединяет элементы итерируемого объекта в строку, вставляя разделитель между ними.",
-    "body": "",
+    "summary": {
+      "ru": "Объединяет элементы итерируемого объекта в строку, вставляя разделитель между ними.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sep.join(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-join",
@@ -498,8 +582,14 @@
     "id": "len-для-строк",
     "title": "len() для строк",
     "kind": "term",
-    "summary": "Возвращает количество символов в строке. Считает Unicode-символы как один символ.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает количество символов в строке. Считает Unicode-символы как один символ.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "len(s)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-len-для-строк",
@@ -533,8 +623,14 @@
     "id": "raw-строки-r-...",
     "title": "Raw-строки r\"...\"",
     "kind": "term",
-    "summary": "Raw-строки (r\"...\") не обрабатывают escape-последовательности: обратный слэш трактуется как обычный символ. Незаменимы для регулярных выражений и путей Windows.",
-    "body": "",
+    "summary": {
+      "ru": "Raw-строки (r\"...\") не обрабатывают escape-последовательности: обратный слэш трактуется как обычный символ. Незаменимы для регулярных выражений и путей Windows.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "r\"строка\"  r'строка'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-raw-строки-r-...",
@@ -563,8 +659,14 @@
     "id": "replace",
     "title": "replace()",
     "kind": "function",
-    "summary": "Заменяет все (или count первых) вхождений old на new. Не изменяет оригинал.",
-    "body": "",
+    "summary": {
+      "ru": "Заменяет все (или count первых) вхождений old на new. Не изменяет оригинал.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.replace(old, new[, count])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-replace",
@@ -598,8 +700,14 @@
     "id": "split-rsplit",
     "title": "split() / rsplit()",
     "kind": "function",
-    "summary": "split() разбивает строку на список по разделителю. rsplit() — с конца. maxsplit ограничивает число разбиений.",
-    "body": "",
+    "summary": {
+      "ru": "split() разбивает строку на список по разделителю. rsplit() — с конца. maxsplit ограничивает число разбиений.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.split([sep[, maxsplit]])  |  s.rsplit([sep[, maxsplit]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-split-rsplit",
@@ -635,8 +743,14 @@
     "id": "startswith-endswith",
     "title": "startswith() / endswith()",
     "kind": "function",
-    "summary": "Проверяют, начинается/оканчивается ли строка на заданный префикс/суффикс. Принимают кортеж строк или диапазон start/end.",
-    "body": "",
+    "summary": {
+      "ru": "Проверяют, начинается/оканчивается ли строка на заданный префикс/суффикс. Принимают кортеж строк или диапазон start/end.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.startswith(prefix[, start[, end]])  |  s.endswith(suffix[, start[, end]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-startswith-endswith",
@@ -670,8 +784,14 @@
     "id": "str-format_map",
     "title": "format_map()",
     "kind": "function",
-    "summary": "Аналог format(**mapping), но без копирования словаря. Принимает маппинг напрямую, включая пользовательские классы с __missing__.",
-    "body": "",
+    "summary": {
+      "ru": "Аналог format(**mapping), но без копирования словаря. Принимает маппинг напрямую, включая пользовательские классы с __missing__.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.format_map(mapping)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str-format_map",
@@ -701,8 +821,14 @@
     "id": "str-isascii",
     "title": "isascii()",
     "kind": "function",
-    "summary": "Возвращает True, если все символы строки входят в ASCII (коды 0–127) или строка пуста. Python 3.7+.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если все символы строки входят в ASCII (коды 0–127) или строка пуста. Python 3.7+.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.isascii() -> bool",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isascii",
@@ -728,8 +854,14 @@
     "id": "str-isdecimal",
     "title": "isdecimal()",
     "kind": "function",
-    "summary": "Возвращает True, если все символы — десятичные цифры (только Unicode Decimal). Строже, чем isnumeric() и isdigit().",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если все символы — десятичные цифры (только Unicode Decimal). Строже, чем isnumeric() и isdigit().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.isdecimal() -> bool",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isdecimal",
@@ -755,8 +887,14 @@
     "id": "str-isidentifier",
     "title": "isidentifier()",
     "kind": "function",
-    "summary": "Возвращает True, если строка — корректный Python-идентификатор (можно использовать как имя переменной). Проверяй с keyword.iskeyword() для полного анализа.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если строка — корректный Python-идентификатор (можно использовать как имя переменной). Проверяй с keyword.iskeyword() для полного анализа.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.isidentifier() -> bool",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isidentifier",
@@ -783,8 +921,14 @@
     "id": "str-isnumeric",
     "title": "isnumeric()",
     "kind": "function",
-    "summary": "Возвращает True, если все символы — числовые Unicode. Принимает дроби, надстрочные цифры — шире, чем isdecimal() и isdigit().",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если все символы — числовые Unicode. Принимает дроби, надстрочные цифры — шире, чем isdecimal() и isdigit().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.isnumeric() -> bool",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isnumeric",
@@ -810,8 +954,14 @@
     "id": "str-isprintable",
     "title": "isprintable()",
     "kind": "function",
-    "summary": "Возвращает True, если все символы строки считаются печатаемыми (нет управляющих символов типа \\n, \\t). Пустая строка возвращает True.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если все символы строки считаются печатаемыми (нет управляющих символов типа \\n, \\t). Пустая строка возвращает True.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.isprintable() -> bool",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isprintable",
@@ -836,8 +986,14 @@
     "id": "str.expandtabs",
     "title": "str.expandtabs()",
     "kind": "function",
-    "summary": "Заменяет символы табуляции (\\t) пробелами так, чтобы следующий символ оказался на ближайшей позиции, кратной tabsize (по умолчанию 8).",
-    "body": "",
+    "summary": {
+      "ru": "Заменяет символы табуляции (\\t) пробелами так, чтобы следующий символ оказался на ближайшей позиции, кратной tabsize (по умолчанию 8).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.expandtabs(tabsize=8)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str.expandtabs",
@@ -864,8 +1020,14 @@
     "id": "str.maketrans-str.translate",
     "title": "str.maketrans() / str.translate()",
     "kind": "function",
-    "summary": "maketrans() создаёт таблицу замены символов. translate() применяет эту таблицу к строке. Позволяет заменять или удалять произвольные символы за один проход.",
-    "body": "",
+    "summary": {
+      "ru": "maketrans() создаёт таблицу замены символов. translate() применяет эту таблицу к строке. Позволяет заменять или удалять произвольные символы за один проход.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.maketrans(x[, y[, z]])  str.translate(table)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str.maketrans-str.translate",
@@ -895,8 +1057,14 @@
     "id": "str.partition-str.rpartition",
     "title": "str.partition() / str.rpartition()",
     "kind": "function",
-    "summary": "partition() ищет первое вхождение разделителя и возвращает кортеж из трёх частей: до разделителя, сам разделитель, после. rpartition() — с конца строки.",
-    "body": "",
+    "summary": {
+      "ru": "partition() ищет первое вхождение разделителя и возвращает кортеж из трёх частей: до разделителя, сам разделитель, после. rpartition() — с конца строки.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.partition(sep) -> (before, sep, after)  str.rpartition(sep) -> (before, sep, after)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str.partition-str.rpartition",
@@ -924,8 +1092,14 @@
     "id": "str.removeprefix-str.removesuffix",
     "title": "str.removeprefix() / str.removesuffix()",
     "kind": "function",
-    "summary": "Удаляют указанный префикс или суффикс, если строка начинается/заканчивается на него. В отличие от lstrip/rstrip, работают с подстроками, а не наборами символов (Python 3.9+).",
-    "body": "",
+    "summary": {
+      "ru": "Удаляют указанный префикс или суффикс, если строка начинается/заканчивается на него. В отличие от lstrip/rstrip, работают с подстроками, а не наборами символов (Python 3.9+).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.removeprefix(prefix)  str.removesuffix(suffix)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str.removeprefix-str.removesuffix",
@@ -953,8 +1127,14 @@
     "id": "str.splitlines",
     "title": "str.splitlines()",
     "kind": "function",
-    "summary": "Разбивает строку по символам конца строки (\\n, \\r\\n, \\r и др.) и возвращает список строк. Параметр keepends=True сохраняет разделители в результатах.",
-    "body": "",
+    "summary": {
+      "ru": "Разбивает строку по символам конца строки (\\n, \\r\\n, \\r и др.) и возвращает список строк. Параметр keepends=True сохраняет разделители в результатах.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str.splitlines(keepends=False)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str.splitlines",
@@ -981,8 +1161,14 @@
     "id": "strip-lstrip-rstrip",
     "title": "strip() / lstrip() / rstrip()",
     "kind": "function",
-    "summary": "strip() удаляет пробельные символы (или указанные символы) с обоих концов строки. lstrip() — слева, rstrip() — справа.",
-    "body": "",
+    "summary": {
+      "ru": "strip() удаляет пробельные символы (или указанные символы) с обоих концов строки. lstrip() — слева, rstrip() — справа.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.strip([chars])  |  s.lstrip([chars])  |  s.rstrip([chars])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-strip-lstrip-rstrip",
@@ -1017,8 +1203,14 @@
     "id": "upper-lower",
     "title": "upper() / lower()",
     "kind": "function",
-    "summary": "upper() переводит все символы в верхний регистр, lower() — в нижний. casefold() — агрессивный lower() для сравнения.",
-    "body": "",
+    "summary": {
+      "ru": "upper() переводит все символы в верхний регистр, lower() — в нижний. casefold() — агрессивный lower() для сравнения.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.upper()  |  s.lower()  |  s.casefold()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-upper-lower",
@@ -1053,8 +1245,14 @@
     "id": "индексирование-строк",
     "title": "Индексирование строк",
     "kind": "term",
-    "summary": "Доступ к символу строки по индексу. Положительные индексы от начала (0), отрицательные — от конца (-1).",
-    "body": "",
+    "summary": {
+      "ru": "Доступ к символу строки по индексу. Положительные индексы от начала (0), отрицательные — от конца (-1).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s[i]  # i — целое число",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-индексирование-строк",
@@ -1090,8 +1288,14 @@
     "id": "конкатенация-строк",
     "title": "+ конкатенация строк",
     "kind": "term",
-    "summary": "Оператор + объединяет две строки в новую. Операнды должны быть строками.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор + объединяет две строки в новую. Операнды должны быть строками.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s1 + s2",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-конкатенация-строк",
@@ -1126,8 +1330,14 @@
     "id": "повторение-строки",
     "title": "* повторение строки",
     "kind": "term",
-    "summary": "Оператор * повторяет строку n раз. При n <= 0 возвращает пустую строку.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор * повторяет строку n раз. При n <= 0 возвращает пустую строку.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s * n  |  n * s",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-повторение-строки",
@@ -1160,8 +1370,14 @@
     "id": "создание-строк",
     "title": "Создание строк",
     "kind": "term",
-    "summary": "Строки создаются одинарными/двойными кавычками, тройными для многострочных, raw-строками (r''), байтами (b''), escape-последовательностями.",
-    "body": "",
+    "summary": {
+      "ru": "Строки создаются одинарными/двойными кавычками, тройными для многострочных, raw-строками (r''), байтами (b''), escape-последовательностями.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s = 'text' | s = \"text\" | s = '''multi''' | s = r'raw' | s = b'bytes'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-создание-строк",
@@ -1199,8 +1415,14 @@
     "id": "сравнение-строк",
     "title": "Сравнение строк",
     "kind": "term",
-    "summary": "Строки сравниваются лексикографически по Unicode code points символов.",
-    "body": "",
+    "summary": {
+      "ru": "Строки сравниваются лексикографически по Unicode code points символов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s1 == s2  |  s1 < s2  |  s1 > s2",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сравнение-строк",
@@ -1232,8 +1454,14 @@
     "id": "срезы-строк",
     "title": "Срезы строк",
     "kind": "term",
-    "summary": "Получение подстроки по диапазону индексов. s[a:b] — от a до b (не включая b), s[a:b:c] — с шагом c. s[::-1] — реверс.",
-    "body": "",
+    "summary": {
+      "ru": "Получение подстроки по диапазону индексов. s[a:b] — от a до b (не включая b), s[a:b:c] — с шагом c. s[::-1] — реверс.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s[a:b]  |  s[a:b:c]  |  s[::-1]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-срезы-строк",
@@ -1270,8 +1498,14 @@
     "id": "строки-в-памяти-интернирование-неизменяе",
     "title": "Строки в памяти — интернирование, неизменяемость",
     "kind": "term",
-    "summary": "Строки в Python неизменяемы (immutable). Интернирование — кэширование коротких строк-идентификаторов. is проверяет идентичность объектов, == — равенство.",
-    "body": "",
+    "summary": {
+      "ru": "Строки в Python неизменяемы (immutable). Интернирование — кэширование коротких строк-идентификаторов. is проверяет идентичность объектов, == — равенство.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s[i] = x  # TypeError  |  id(s)  |  sys.intern(s)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-строки-в-памяти-интернирование-неизменяе",
@@ -1313,8 +1547,14 @@
     "id": "тройные-кавычки",
     "title": "Тройные кавычки",
     "kind": "term",
-    "summary": "Строки в тройных кавычках (\"\"\"...\"\"\" или '''...''') могут содержать переносы строк и кавычки без экранирования. Используются для многострочных строк и docstring-документации.",
-    "body": "",
+    "summary": {
+      "ru": "Строки в тройных кавычках (\"\"\"...\"\"\" или '''...''') могут содержать переносы строк и кавычки без экранирования. Используются для многострочных строк и docstring-документации.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "\"\"\"текст\"\"\"\n'''текст'''",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-тройные-кавычки",
@@ -1345,8 +1585,14 @@
     "id": "форматирование-старый-стиль",
     "title": "% форматирование (старый стиль)",
     "kind": "function",
-    "summary": "Старый стиль форматирования через оператор %. %s — строка, %d — целое, %f — вещественное, %r — repr.",
-    "body": "",
+    "summary": {
+      "ru": "Старый стиль форматирования через оператор %. %s — строка, %d — целое, %f — вещественное, %r — repr.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "'format %s' % value  |  'format %(key)s' % dict",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-форматирование-старый-стиль",

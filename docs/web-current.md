@@ -281,6 +281,15 @@ Stepik-Python-Grader живёт полноценный локальный knowle
 (наполняется) → `ready` (готова к показу/экспорту) → `exported`
 (выгружена во внешний глоссарий — экспорт сам ещё design-only, см. ниже).
 
+**Двуязычные описания (issue #363).** Текстовые поля `summary` и `body`
+хранятся двуязычно — вложенным `{ru, en}` в JSON. Web-API (`/api/glossary`,
+`/api/glossary/<id>`, `/api/code-terms`) отдаёт их **строкой** локали из
+`?lang=` (селект «Язык интерфейса» в «Настройках», #364) с fallback на `ru`;
+смена языка перезагружает список и открытую карточку без перезагрузки страницы.
+Python-атрибуты `card.summary`/`card.body` остаются RU-строками (обратная
+совместимость всех читателей), EN — `card.summary_en`/`card.body_en`;
+локализация в API — `card.localized(field, lang)` / `card.to_api_dict(lang)`.
+
 **Разделение ролей (важно):**
 
 | | Локальный модуль (Stepik-Python-Grader) | Внешний Glossary-Python |

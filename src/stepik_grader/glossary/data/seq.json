@@ -3,8 +3,14 @@
     "id": "append",
     "title": "append()",
     "kind": "function",
-    "summary": "Добавляет один элемент в конец списка. Изменяет список на месте, возвращает None.",
-    "body": "",
+    "summary": {
+      "ru": "Добавляет один элемент в конец списка. Изменяет список на месте, возвращает None.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.append(item)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-append",
@@ -46,8 +52,14 @@
     "id": "clear",
     "title": "clear()",
     "kind": "function",
-    "summary": "Удаляет все элементы списка. Список остаётся в памяти как пустой.",
-    "body": "",
+    "summary": {
+      "ru": "Удаляет все элементы списка. Список остаётся в памяти как пустой.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.clear()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-clear",
@@ -86,8 +98,14 @@
     "id": "copy-поверхностная-копия",
     "title": "copy() — поверхностная копия",
     "kind": "term",
-    "summary": "copy() создаёт новый список с теми же ссылками на элементы (shallow copy). Вложенные объекты НЕ копируются.",
-    "body": "",
+    "summary": {
+      "ru": "copy() создаёт новый список с теми же ссылками на элементы (shallow copy). Вложенные объекты НЕ копируются.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.copy()  |  lst[:]  |  list(lst)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-copy-поверхностная-копия",
@@ -132,8 +150,14 @@
     "id": "copy.deepcopy",
     "title": "copy.deepcopy()",
     "kind": "function",
-    "summary": "Создаёт полностью независимую глубокую копию объекта: все вложенные объекты тоже копируются. В отличие от list.copy() (поверхностная копия), изменение вложенных элементов не влияет на оригинал.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт полностью независимую глубокую копию объекта: все вложенные объекты тоже копируются. В отличие от list.copy() (поверхностная копия), изменение вложенных элементов не влияет на оригинал.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "import copy; copy.deepcopy(obj)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-copy.deepcopy",
@@ -164,8 +188,14 @@
     "id": "count-index-для-кортежа",
     "title": "count() / index() для кортежа",
     "kind": "term",
-    "summary": "count() считает вхождения. index() возвращает первый индекс значения (ValueError если нет).",
-    "body": "",
+    "summary": {
+      "ru": "count() считает вхождения. index() возвращает первый индекс значения (ValueError если нет).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "t.count(val)  |  t.index(val[, start[, end]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-count-index-для-кортежа",
@@ -201,8 +231,14 @@
     "id": "count-для-списка",
     "title": "count() для списка",
     "kind": "term",
-    "summary": "Подсчитывает вхождения значения в списке. Сравнение через ==.",
-    "body": "",
+    "summary": {
+      "ru": "Подсчитывает вхождения значения в списке. Сравнение через ==.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.count(val)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-count-для-списка",
@@ -235,8 +271,14 @@
     "id": "del-для-списка",
     "title": "del для списка",
     "kind": "term",
-    "summary": "Оператор del удаляет элемент по индексу, срез или весь список из памяти. Изменяет объект на месте.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор del удаляет элемент по индексу, срез или весь список из памяти. Изменяет объект на месте.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "del lst[i]  |  del lst[a:b]  |  del lst",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-del-для-списка",
@@ -276,8 +318,14 @@
     "id": "enumerate-со-списком",
     "title": "enumerate() со списком",
     "kind": "term",
-    "summary": "enumerate() возвращает пары (индекс, элемент). start= задаёт начальный индекс.",
-    "body": "",
+    "summary": {
+      "ru": "enumerate() возвращает пары (индекс, элемент). start= задаёт начальный индекс.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "enumerate(lst[, start=0])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-enumerate-со-списком",
@@ -317,8 +365,14 @@
     "id": "extend",
     "title": "extend()",
     "kind": "function",
-    "summary": "Добавляет все элементы итерируемого объекта в конец списка. Изменяет список на месте.",
-    "body": "",
+    "summary": {
+      "ru": "Добавляет все элементы итерируемого объекта в конец списка. Изменяет список на месте.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.extend(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-extend",
@@ -364,8 +418,14 @@
     "id": "in-not-in-для-списков",
     "title": "in / not in для списков",
     "kind": "term",
-    "summary": "Проверяет наличие элемента в списке за O(n). Возвращает bool.",
-    "body": "",
+    "summary": {
+      "ru": "Проверяет наличие элемента в списке за O(n). Возвращает bool.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "item in lst  |  item not in lst",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-in-not-in-для-списков",
@@ -398,8 +458,14 @@
     "id": "index",
     "title": "index()",
     "kind": "function",
-    "summary": "Возвращает индекс первого вхождения значения. Опциональные start/end ограничивают диапазон поиска. ValueError если не найдено.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает индекс первого вхождения значения. Опциональные start/end ограничивают диапазон поиска. ValueError если не найдено.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.index(val[, start[, end]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-index",
@@ -435,8 +501,14 @@
     "id": "insert",
     "title": "insert()",
     "kind": "function",
-    "summary": "Вставляет элемент перед указанным индексом. Индекс >= len — вставка в конец, < 0 — отсчёт с конца.",
-    "body": "",
+    "summary": {
+      "ru": "Вставляет элемент перед указанным индексом. Индекс >= len — вставка в конец, < 0 — отсчёт с конца.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.insert(i, item)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-insert",
@@ -474,8 +546,14 @@
     "id": "len-min-max-sum",
     "title": "len() / min() / max() / sum()",
     "kind": "function",
-    "summary": "len() — количество элементов. min()/max() — минимум/максимум. sum() — сумма числовых элементов.",
-    "body": "",
+    "summary": {
+      "ru": "len() — количество элементов. min()/max() — минимум/максимум. sum() — сумма числовых элементов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "len(lst)  |  min(lst)  |  max(lst)  |  sum(lst)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-len-min-max-sum",
@@ -510,8 +588,14 @@
     "id": "len-min-max-sum-для-кортежей",
     "title": "len/min/max/sum для кортежей",
     "kind": "term",
-    "summary": "Встроенные функции работают с кортежами так же, как со списками.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенные функции работают с кортежами так же, как со списками.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "len(t)  |  min(t)  |  max(t)  |  sum(t)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-len-min-max-sum-для-кортежей",
@@ -542,8 +626,14 @@
     "id": "map-filter-для-списков",
     "title": "map() / filter() для списков",
     "kind": "term",
-    "summary": "map() применяет функцию к каждому элементу. filter() отбирает элементы по условию. Оба возвращают итераторы.",
-    "body": "",
+    "summary": {
+      "ru": "map() применяет функцию к каждому элементу. filter() отбирает элементы по условию. Оба возвращают итераторы.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "map(func, iterable)  |  filter(func, iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-map-filter-для-списков",
@@ -584,8 +674,14 @@
     "id": "pop",
     "title": "pop()",
     "kind": "function",
-    "summary": "Удаляет и возвращает элемент по индексу (по умолчанию последний). IndexError при пустом списке или неверном индексе.",
-    "body": "",
+    "summary": {
+      "ru": "Удаляет и возвращает элемент по индексу (по умолчанию последний). IndexError при пустом списке или неверном индексе.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.pop([i])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-pop",
@@ -627,8 +723,14 @@
     "id": "remove",
     "title": "remove()",
     "kind": "function",
-    "summary": "Удаляет первое вхождение указанного значения. Если не найдено — ValueError.",
-    "body": "",
+    "summary": {
+      "ru": "Удаляет первое вхождение указанного значения. Если не найдено — ValueError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.remove(item)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-remove",
@@ -675,8 +777,14 @@
     "id": "reverse-reversed",
     "title": "reverse() / reversed()",
     "kind": "function",
-    "summary": "reverse() переворачивает список на месте. reversed() возвращает итератор в обратном порядке.",
-    "body": "",
+    "summary": {
+      "ru": "reverse() переворачивает список на месте. reversed() возвращает итератор в обратном порядке.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.reverse()  |  reversed(lst)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-reverse-reversed",
@@ -712,8 +820,14 @@
     "id": "sort-sorted",
     "title": "sort() / sorted()",
     "kind": "function",
-    "summary": "sort() сортирует список на месте (in-place). sorted() возвращает новый список. key= задаёт функцию ключа, reverse=True — обратный порядок.",
-    "body": "",
+    "summary": {
+      "ru": "sort() сортирует список на месте (in-place). sorted() возвращает новый список. key= задаёт функцию ключа, reverse=True — обратный порядок.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst.sort([key=None, reverse=False])  |  sorted(iterable[, key, reverse])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sort-sorted",
@@ -759,8 +873,14 @@
     "id": "zip-с-кортежами",
     "title": "zip() с кортежами",
     "kind": "term",
-    "summary": "zip() работает с кортежами так же, как со списками. Возвращает итератор кортежей.",
-    "body": "",
+    "summary": {
+      "ru": "zip() работает с кортежами так же, как со списками. Возвращает итератор кортежей.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "zip(t1, t2, ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-zip-с-кортежами",
@@ -795,8 +915,14 @@
     "id": "zip-со-списками",
     "title": "zip() со списками",
     "kind": "term",
-    "summary": "zip() объединяет элементы нескольких итерируемых объектов в кортежи. Останавливается на самом коротком.",
-    "body": "",
+    "summary": {
+      "ru": "zip() объединяет элементы нескольких итерируемых объектов в кортежи. Останавливается на самом коротком.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "zip(lst1, lst2, ...)  |  zip(*matrix)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-zip-со-списками",
@@ -836,8 +962,14 @@
     "id": "вложенные-списки-матрицы",
     "title": "Вложенные списки / матрицы",
     "kind": "term",
-    "summary": "Список списков используется как двумерная матрица. Доступ через двойной индекс matrix[row][col].",
-    "body": "",
+    "summary": {
+      "ru": "Список списков используется как двумерная матрица. Доступ через двойной индекс matrix[row][col].",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "matrix[i][j]  |  [[val]*cols for _ in range(rows)]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-вложенные-списки-матрицы",
@@ -881,8 +1013,14 @@
     "id": "вложенный-list-comprehension",
     "title": "Вложенный list comprehension",
     "kind": "term",
-    "summary": "List comprehension может содержать несколько вложенных for, что позволяет строить вложенные списки или «разворачивать» матрицы в плоский список.",
-    "body": "",
+    "summary": {
+      "ru": "List comprehension может содержать несколько вложенных for, что позволяет строить вложенные списки или «разворачивать» матрицы в плоский список.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "[[выражение for j in inner] for i in outer]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-вложенный-list-comprehension",
@@ -913,8 +1051,14 @@
     "id": "индексирование-и-срезы-кортежа",
     "title": "Индексирование и срезы кортежа",
     "kind": "term",
-    "summary": "Индексирование и срезы работают так же, как у строк и списков, но результат — кортеж или элемент (неизменяемый).",
-    "body": "",
+    "summary": {
+      "ru": "Индексирование и срезы работают так же, как у строк и списков, но результат — кортеж или элемент (неизменяемый).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "t[i]  |  t[a:b:c]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-индексирование-и-срезы-кортежа",
@@ -949,8 +1093,14 @@
     "id": "индексирование-списка",
     "title": "Индексирование списка",
     "kind": "term",
-    "summary": "Доступ к элементу по индексу. Отрицательные индексы — от конца. Поддерживает присваивание.",
-    "body": "",
+    "summary": {
+      "ru": "Доступ к элементу по индексу. Отрицательные индексы — от конца. Поддерживает присваивание.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst[i]  |  lst[i] = val",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-индексирование-списка",
@@ -987,8 +1137,14 @@
     "id": "кортеж-в-return-функции",
     "title": "Кортеж в return функции",
     "kind": "term",
-    "summary": "Функция может возвращать несколько значений — Python упаковывает их в кортеж.",
-    "body": "",
+    "summary": {
+      "ru": "Функция может возвращать несколько значений — Python упаковывает их в кортеж.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "return a, b, c  # ≡ return (a, b, c)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-кортеж-в-return-функции",
@@ -1033,8 +1189,14 @@
     "id": "кортеж-как-ключ-словаря",
     "title": "Кортеж как ключ словаря",
     "kind": "term",
-    "summary": "Кортежи хэшируемы (если все элементы хэшируемы), поэтому могут быть ключами словаря. Списки — нет.",
-    "body": "",
+    "summary": {
+      "ru": "Кортежи хэшируемы (если все элементы хэшируемы), поэтому могут быть ключами словаря. Списки — нет.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d[tuple_key] = val",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-кортеж-как-ключ-словаря",
@@ -1078,8 +1240,14 @@
     "id": "наименованный-кортеж-namedtuple",
     "title": "Наименованный кортеж namedtuple",
     "kind": "term",
-    "summary": "namedtuple создаёт класс кортежа с именованными полями. Поля доступны по имени и по индексу.",
-    "body": "",
+    "summary": {
+      "ru": "namedtuple создаёт класс кортежа с именованными полями. Поля доступны по имени и по индексу.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from collections import namedtuple\nNT = namedtuple('NT', ['field1', 'field2'])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-наименованный-кортеж-namedtuple",
@@ -1121,8 +1289,14 @@
     "id": "неизменяемость-кортежа",
     "title": "Неизменяемость кортежа",
     "kind": "term",
-    "summary": "Кортежи неизменяемы: нельзя изменить, добавить или удалить элемент. Обходы: создать новый кортеж, преобразовать в список.",
-    "body": "",
+    "summary": {
+      "ru": "Кортежи неизменяемы: нельзя изменить, добавить или удалить элемент. Обходы: создать новый кортеж, преобразовать в список.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "t[i] = val  # TypeError",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-неизменяемость-кортежа",
@@ -1167,8 +1341,14 @@
     "id": "объединение-повторение-списков",
     "title": "+ объединение / * повторение списков",
     "kind": "term",
-    "summary": "Оператор + возвращает новый список-объединение. * повторяет список n раз. Для mutable объектов * создаёт shallow копии.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор + возвращает новый список-объединение. * повторяет список n раз. Для mutable объектов * создаёт shallow копии.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst1 + lst2  |  lst * n",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-объединение-повторение-списков",
@@ -1202,8 +1382,14 @@
     "id": "распаковка-кортежа",
     "title": "Распаковка кортежа",
     "kind": "term",
-    "summary": "Распаковка позволяет присвоить элементы переменным. * захватывает остаток. _ — соглашение для игнорируемых значений.",
-    "body": "",
+    "summary": {
+      "ru": "Распаковка позволяет присвоить элементы переменным. * захватывает остаток. _ — соглашение для игнорируемых значений.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a, b = t  |  a, *rest = t  |  a, _, b = t",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-распаковка-кортежа",
@@ -1252,8 +1438,14 @@
     "id": "распаковка-списка",
     "title": "Распаковка списка — *",
     "kind": "term",
-    "summary": "Распаковка позволяет присвоить элементы переменным. * захватывает остаток как список.",
-    "body": "",
+    "summary": {
+      "ru": "Распаковка позволяет присвоить элементы переменным. * захватывает остаток как список.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a, b, *rest = lst  |  *head, last = lst  |  a, *_, b = lst",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-распаковка-списка",
@@ -1295,8 +1487,14 @@
     "id": "создание-кортежа",
     "title": "Создание кортежа",
     "kind": "term",
-    "summary": "Кортеж создаётся скобками (), конструктором tuple(), или простым перечислением. Один элемент требует замыкающей запятой: (x,).",
-    "body": "",
+    "summary": {
+      "ru": "Кортеж создаётся скобками (), конструктором tuple(), или простым перечислением. Один элемент требует замыкающей запятой: (x,).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "()  |  (x,)  |  (a, b)  |  tuple(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-создание-кортежа",
@@ -1332,8 +1530,14 @@
     "id": "создание-списка",
     "title": "Создание списка",
     "kind": "term",
-    "summary": "Список создаётся литералом [], конструктором list(), или списочным выражением. Может содержать элементы любых типов.",
-    "body": "",
+    "summary": {
+      "ru": "Список создаётся литералом [], конструктором list(), или списочным выражением. Может содержать элементы любых типов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "[]  |  list()  |  list(iterable)  |  [expr for x in iter]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-создание-списка",
@@ -1369,8 +1573,14 @@
     "id": "сортировка-ключом-key-lambda",
     "title": "Сортировка ключом key= / lambda",
     "kind": "term",
-    "summary": "key= принимает функцию, возвращающую значение для сравнения. lambda удобна для однострочных ключей.",
-    "body": "",
+    "summary": {
+      "ru": "key= принимает функцию, возвращающую значение для сравнения. lambda удобна для однострочных ключей.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sorted(lst, key=func)  |  lst.sort(key=lambda x: ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сортировка-ключом-key-lambda",
@@ -1413,8 +1623,14 @@
     "id": "списочные-выражения-list-comprehension",
     "title": "Списочные выражения (list comprehension)",
     "kind": "function",
-    "summary": "Компактный синтаксис создания списка с необязательной фильтрацией. Быстрее эквивалентного цикла for+append.",
-    "body": "",
+    "summary": {
+      "ru": "Компактный синтаксис создания списка с необязательной фильтрацией. Быстрее эквивалентного цикла for+append.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "[expr for var in iterable [if cond]]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-списочные-выражения-list-comprehension",
@@ -1461,8 +1677,14 @@
     "id": "срезы-с-шагом-2-1",
     "title": "Срезы с шагом [::2] / [::-1]",
     "kind": "term",
-    "summary": "Третий параметр среза — шаг: [start:stop:step]. Шаг 2 — каждый второй элемент. Шаг -1 — обратный порядок. Можно комбинировать start/stop со шагом.",
-    "body": "",
+    "summary": {
+      "ru": "Третий параметр среза — шаг: [start:stop:step]. Шаг 2 — каждый второй элемент. Шаг -1 — обратный порядок. Можно комбинировать start/stop со шагом.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst[start:stop:step]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-срезы-с-шагом-2-1",
@@ -1490,8 +1712,14 @@
     "id": "срезы-списка",
     "title": "Срезы списка",
     "kind": "term",
-    "summary": "Срезы возвращают новый список. s[a:b:c] — с шагом c. [::-1] — реверс. Срез без аргументов — поверхностная копия.",
-    "body": "",
+    "summary": {
+      "ru": "Срезы возвращают новый список. s[a:b:c] — с шагом c. [::-1] — реверс. Срез без аргументов — поверхностная копия.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lst[a:b]  |  lst[a:b:c]  |  lst[::-1]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-срезы-списка",
@@ -1530,8 +1758,14 @@
     "id": "условный-list-comprehension",
     "title": "Условный list comprehension",
     "kind": "term",
-    "summary": "Фильтрующий if в конце list comprehension отбирает элементы по условию. Не путать с тернарным оператором (if ... else ...) в начале выражения — тот преобразует, а не фильтрует.",
-    "body": "",
+    "summary": {
+      "ru": "Фильтрующий if в конце list comprehension отбирает элементы по условию. Не путать с тернарным оператором (if ... else ...) в начале выражения — тот преобразует, а не фильтрует.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "[выражение for x in iterable if условие]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-условный-list-comprehension",

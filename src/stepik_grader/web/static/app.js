@@ -319,6 +319,17 @@ function setTheme(value) {
 function setLang(value) {
   state.lang = value;
   localStorage.setItem("grader_lang", value);
+  // issue #363: контент глоссария локализуется сервером по ?lang=. Сбрасываем
+  // кеш карточек и, если раздел открыт, перезагружаем — summary/body сменят
+  // язык без перезагрузки страницы; ранее открытая карточка переоткрывается.
+  const openId = state.glossary.selectedId;
+  state.glossary.cards = [];
+  state.glossary.sections = [];
+  if (state.section === "glossary") {
+    loadGlossary().then(() => {
+      if (openId) selectGlossaryCard(openId, { fromHash: true });
+    });
+  }
 }
 
 // Синхронизировать контролы раздела «Настройки» с текущим состоянием (тему
@@ -510,7 +521,7 @@ function mountSandboxEditor() {
 // песочница (по коду) и режимы 1/2 (по коду редактора либо пути-файлу).
 async function fetchCodeTerms(body) {
   try {
-    const resp = await fetch("/api/code-terms", {
+    const resp = await fetch("/api/code-terms?lang=" + encodeURIComponent(state.lang), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -1884,6 +1895,7 @@ async function loadGlossary() {
   if (g.kind) params.set("kind", g.kind);
   if (g.status) params.set("status", g.status);
   if (g.sort) params.set("sort", g.sort);
+  params.set("lang", state.lang); // issue #363: язык summary/body карточек
   try {
     const r = await fetch("/api/glossary?" + params);
     g.cards = await r.json();
@@ -2008,7 +2020,7 @@ function selectGlossaryCard(id, opts = {}) {
     return;
   }
   // Deep-link (open_glossary/хэш) может указывать на карточку вне текущей выборки.
-  fetch("/api/glossary/" + encodeURIComponent(id))
+  fetch("/api/glossary/" + encodeURIComponent(id) + "?lang=" + encodeURIComponent(state.lang))
     .then(r => (r.ok ? r.json() : null))
     .then(c => {
       if (c) renderGlossaryDetail(c);

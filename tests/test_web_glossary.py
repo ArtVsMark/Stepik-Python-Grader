@@ -104,6 +104,54 @@ class TestGlossarySearchWithConfiguredStore:
         assert len(cards) > 0  # fell back to core/glossary.py, didn't raise
 
 
+class TestGlossaryI18n:
+    """issue #363: summary/body отдаются строкой выбранной локали (``?lang=``)."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_cache(self):
+        glossary_adapter._CARDS_CACHE.clear()
+        yield
+        glossary_adapter._CARDS_CACHE.clear()
+
+    @pytest.fixture
+    def store_path(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        card = GlossaryCard(
+            id="str.capitalize",
+            title="str.capitalize",
+            kind="function",
+            summary="Первая буква — заглавная",
+            summary_en="Capitalize the first letter",
+            status="ready",
+        )
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [card.to_dict()]}, ensure_ascii=False), encoding="utf-8"
+        )
+        return path
+
+    def test_search_serves_ru_by_default(self, store_path: pathlib.Path) -> None:
+        cards = glossary_adapter.glossary_search("", store_path=str(store_path))
+        assert cards[0]["summary"] == "Первая буква — заглавная"
+
+    def test_search_serves_en_when_requested(self, store_path: pathlib.Path) -> None:
+        cards = glossary_adapter.glossary_search("", lang="en", store_path=str(store_path))
+        assert cards[0]["summary"] == "Capitalize the first letter"
+
+    def test_get_localizes_by_lang(self, store_path: pathlib.Path) -> None:
+        card = glossary_adapter.glossary_get(
+            "str.capitalize", lang="en", store_path=str(store_path)
+        )
+        assert card is not None
+        assert card["summary"] == "Capitalize the first letter"
+
+    def test_code_terms_localizes_by_lang(self, store_path: pathlib.Path) -> None:
+        terms = glossary_adapter.code_terms(
+            "'x'.capitalize()", lang="en", store_path=str(store_path)
+        )
+        matched = [t for t in terms if t["id"] == "str.capitalize"]
+        assert matched and matched[0]["summary"] == "Capitalize the first letter"
+
+
 class TestCardCache:
     """issue #339: memoization карточек по mtime — без репарсинга на каждый вызов."""
 

@@ -3,8 +3,14 @@
     "id": ".exists-.is_file-.is_dir",
     "title": ".exists() / .is_file() / .is_dir()",
     "kind": "function",
-    "summary": "Методы для проверки существования пути и его типа (файл, директория).",
-    "body": "",
+    "summary": {
+      "ru": "Методы для проверки существования пути и его типа (файл, директория).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "p.exists()\np.is_file()\np.is_dir()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-.exists-.is_file-.is_dir",
@@ -33,8 +39,14 @@
     "id": ".glob-.rglob",
     "title": ".glob() / .rglob()",
     "kind": "function",
-    "summary": ".glob() ищет файлы по паттерну в директории, .rglob() — рекурсивно во всех поддиректориях.",
-    "body": "",
+    "summary": {
+      "ru": ".glob() ищет файлы по паттерну в директории, .rglob() — рекурсивно во всех поддиректориях.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "p.glob('*.py')\np.rglob('*.txt')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-.glob-.rglob",
@@ -62,8 +74,14 @@
     "id": ".iterdir",
     "title": ".iterdir()",
     "kind": "function",
-    "summary": "Итерирует по всем файлам и поддиректориям непосредственно в данной директории (не рекурсивно).",
-    "body": "",
+    "summary": {
+      "ru": "Итерирует по всем файлам и поддиректориям непосредственно в данной директории (не рекурсивно).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "for item in p.iterdir(): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-.iterdir",
@@ -93,8 +111,14 @@
     "id": ".mkdir-.unlink-.rename-.replace",
     "title": ".mkdir() / .unlink() / .rename() / .replace()",
     "kind": "function",
-    "summary": "Методы для создания директорий, удаления файлов, переименования. parents=True создаёт промежуточные папки.",
-    "body": "",
+    "summary": {
+      "ru": "Методы для создания директорий, удаления файлов, переименования. parents=True создаёт промежуточные папки.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "p.mkdir(parents=True, exist_ok=True)\np.unlink(missing_ok=True)\np.rename(target)\np.replace(target)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-.mkdir-.unlink-.rename-.replace",
@@ -123,8 +147,14 @@
     "id": ".name-.value",
     "title": ".name / .value",
     "kind": "term",
-    "summary": "Каждый элемент перечисления имеет атрибуты .name (строка) и .value (заданное значение).",
-    "body": "",
+    "summary": {
+      "ru": "Каждый элемент перечисления имеет атрибуты .name (строка) и .value (заданное значение).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "member.name  # → 'RED'\nmember.value # → 1",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-.name-.value",
@@ -154,8 +184,14 @@
     "id": ".read_text-.write_text-.read_bytes-.writ",
     "title": ".read_text() / .write_text() / .read_bytes() / .write_bytes()",
     "kind": "function",
-    "summary": "Методы для удобного чтения и записи файлов без явного open(). Поддерживают encoding.",
-    "body": "",
+    "summary": {
+      "ru": "Методы для удобного чтения и записи файлов без явного open(). Поддерживают encoding.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "p.read_text(encoding='utf-8')\np.write_text(data, encoding='utf-8')\np.read_bytes()\np.write_bytes(data)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-.read_text-.write_text-.read_bytes-.writ",
@@ -185,8 +221,14 @@
     "id": ".stem-.suffix-.suffixes-.name-.parent-.p",
     "title": ".stem / .suffix / .suffixes / .name / .parent / .parts",
     "kind": "term",
-    "summary": "Атрибуты объекта Path для доступа к компонентам: имя файла, расширение, родительская директория и т.д.",
-    "body": "",
+    "summary": {
+      "ru": "Атрибуты объекта Path для доступа к компонентам: имя файла, расширение, родительская директория и т.д.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "p.name, p.stem, p.suffix, p.suffixes, p.parent, p.parts",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-.stem-.suffix-.suffixes-.name-.parent-.p",
@@ -216,8 +258,14 @@
     "id": "Future-cf",
     "title": "Future",
     "kind": "term",
-    "summary": "Объект, представляющий результат асинхронно выполняемой операции. Возвращается методом submit(). Позволяет проверить статус и получить результат.",
-    "body": "",
+    "summary": {
+      "ru": "Объект, представляющий результат асинхронно выполняемой операции. Возвращается методом submit(). Позволяет проверить статус и получить результат.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "f = executor.submit(fn, *args)\nf.result()   # блокирует до готовности\nf.done()     # True если завершён\nf.cancel()   # отменить, если ещё не запущен",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-Future-cf",
@@ -244,8 +292,14 @@
     "id": "GIL",
     "title": "GIL",
     "kind": "term",
-    "summary": "Global Interpreter Lock — мьютекс CPython, позволяющий только одному потоку выполнять байт-код одновременно. Блокирует параллелизм CPU-задач, но не мешает I/O-операциям.",
-    "body": "",
+    "summary": {
+      "ru": "Global Interpreter Lock — мьютекс CPython, позволяющий только одному потоку выполнять байт-код одновременно. Блокирует параллелизм CPU-задач, но не мешает I/O-операциям.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "# GIL — концепция, не синтаксис",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-GIL",
@@ -276,8 +330,14 @@
     "id": "MagicMock",
     "title": "MagicMock",
     "kind": "term",
-    "summary": "Универсальный мок-объект, поддерживающий магические методы (__len__, __iter__ и т.д.). Позволяет имитировать любой объект без создания реальной зависимости.",
-    "body": "",
+    "summary": {
+      "ru": "Универсальный мок-объект, поддерживающий магические методы (__len__, __iter__ и т.д.). Позволяет имитировать любой объект без создания реальной зависимости.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from unittest.mock import MagicMock\nm = MagicMock()\nm.method.return_value = 42",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-MagicMock",
@@ -306,8 +366,14 @@
     "id": "ProcessPoolExecutor",
     "title": "ProcessPoolExecutor",
     "kind": "term",
-    "summary": "Пул процессов из concurrent.futures. Обходит GIL — каждый процесс имеет свой интерпретатор. Используй для CPU-интенсивных задач.",
-    "body": "",
+    "summary": {
+      "ru": "Пул процессов из concurrent.futures. Обходит GIL — каждый процесс имеет свой интерпретатор. Используй для CPU-интенсивных задач.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "with ProcessPoolExecutor(max_workers=N) as ex:\n    future = ex.submit(fn, *args)\n    results = ex.map(fn, iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ProcessPoolExecutor",
@@ -336,8 +402,14 @@
     "id": "ThreadPoolExecutor",
     "title": "ThreadPoolExecutor",
     "kind": "term",
-    "summary": "Пул потоков из модуля concurrent.futures. Управляет созданием и переиспользованием потоков. Удобен для параллельных I/O-задач.",
-    "body": "",
+    "summary": {
+      "ru": "Пул потоков из модуля concurrent.futures. Управляет созданием и переиспользованием потоков. Удобен для параллельных I/O-задач.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "with ThreadPoolExecutor(max_workers=N) as ex:\n    future = ex.submit(fn, *args)\n    results = ex.map(fn, iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ThreadPoolExecutor",
@@ -367,8 +439,14 @@
     "id": "__copy__-__deepcopy__",
     "title": "__copy__() / __deepcopy__()",
     "kind": "function",
-    "summary": "Методы для настройки поведения copy.copy() и copy.deepcopy() в пользовательских классах.",
-    "body": "",
+    "summary": {
+      "ru": "Методы для настройки поведения copy.copy() и copy.deepcopy() в пользовательских классах.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def __copy__(self): ...\ndef __deepcopy__(self, memo): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-__copy__-__deepcopy__",
@@ -402,8 +480,14 @@
     "id": "__post_init__",
     "title": "__post_init__",
     "kind": "term",
-    "summary": "Метод __post_init__ вызывается автоматически после __init__ для дополнительной валидации или обработки.",
-    "body": "",
+    "summary": {
+      "ru": "Метод __post_init__ вызывается автоматически после __init__ для дополнительной валидации или обработки.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def __post_init__(self): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-__post_init__",
@@ -436,8 +520,14 @@
     "id": "_missing_",
     "title": "_missing_()",
     "kind": "function",
-    "summary": "Классовый метод _missing_() вызывается, когда значение не найдено в перечислении (через Enum(value)).",
-    "body": "",
+    "summary": {
+      "ru": "Классовый метод _missing_() вызывается, когда значение не найдено в перечислении (через Enum(value)).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@classmethod\ndef _missing_(cls, value): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-_missing_",
@@ -468,8 +558,14 @@
     "id": "as-completed",
     "title": "as_completed()",
     "kind": "function",
-    "summary": "Возвращает итератор, который отдаёт Future по мере их завершения — не в порядке создания, а в порядке готовности.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает итератор, который отдаёт Future по мере их завершения — не в порядке создания, а в порядке готовности.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from concurrent.futures import as_completed\nfor future in as_completed(fs): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-as-completed",
@@ -500,8 +596,14 @@
     "id": "auto",
     "title": "auto()",
     "kind": "function",
-    "summary": "Автоматически назначает значения элементам перечисления (по умолчанию — последовательные числа).",
-    "body": "",
+    "summary": {
+      "ru": "Автоматически назначает значения элементам перечисления (по умолчанию — последовательные числа).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from enum import auto\nclass X(Enum):\n    A = auto()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-auto",
@@ -532,8 +634,14 @@
     "id": "bisect.bisect",
     "title": "bisect.bisect()",
     "kind": "function",
-    "summary": "bisect.bisect() — алиас для bisect_right(). Возвращает позицию вставки после равных элементов.",
-    "body": "",
+    "summary": {
+      "ru": "bisect.bisect() — алиас для bisect_right(). Возвращает позицию вставки после равных элементов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bisect.bisect(a, x)  # то же что bisect_right",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bisect.bisect",
@@ -561,8 +669,14 @@
     "id": "bisect.bisect_left-bisect.bisect_right",
     "title": "bisect.bisect_left() / bisect.bisect_right()",
     "kind": "function",
-    "summary": "Находят позицию для вставки элемента в отсортированный список. bisect_left — перед равными, bisect_right — после.",
-    "body": "",
+    "summary": {
+      "ru": "Находят позицию для вставки элемента в отсортированный список. bisect_left — перед равными, bisect_right — после.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bisect.bisect_left(a, x, lo=0, hi=len(a))\nbisect.bisect_right(a, x, lo=0, hi=len(a))",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bisect.bisect_left-bisect.bisect_right",
@@ -591,8 +705,14 @@
     "id": "bisect.insort_left-bisect.insort_right",
     "title": "bisect.insort_left() / bisect.insort_right()",
     "kind": "function",
-    "summary": "Вставляют элемент в нужную позицию отсортированного списка, сохраняя порядок. O(n) из-за сдвига.",
-    "body": "",
+    "summary": {
+      "ru": "Вставляют элемент в нужную позицию отсортированного списка, сохраняя порядок. O(n) из-за сдвига.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bisect.insort_left(a, x)\nbisect.insort_right(a, x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bisect.insort_left-bisect.insort_right",
@@ -622,8 +742,14 @@
     "id": "collections.chainmap",
     "title": "collections.ChainMap",
     "kind": "term",
-    "summary": "Объединяет несколько словарей в один вид. Поиск идёт по порядку. maps — список словарей, new_child() — новый дочерний уровень, parents — все кроме первого.",
-    "body": "",
+    "summary": {
+      "ru": "Объединяет несколько словарей в один вид. Поиск идёт по порядку. maps — список словарей, new_child() — новый дочерний уровень, parents — все кроме первого.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "collections.ChainMap(*maps)\n.new_child(m=None)\n.parents",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-collections.chainmap",
@@ -654,8 +780,14 @@
     "id": "collections.counter",
     "title": "collections.Counter",
     "kind": "term",
-    "summary": "Словарь для подсчёта элементов. Методы: most_common(n), elements(), поддерживает +, -, &, |.",
-    "body": "",
+    "summary": {
+      "ru": "Словарь для подсчёта элементов. Методы: most_common(n), elements(), поддерживает +, -, &, |.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "collections.Counter(iterable_or_mapping=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-collections.counter",
@@ -684,8 +816,14 @@
     "id": "collections.defaultdict",
     "title": "collections.defaultdict",
     "kind": "term",
-    "summary": "Словарь с фабрикой значений по умолчанию. При обращении к отсутствующему ключу создаёт значение через фабрику.",
-    "body": "",
+    "summary": {
+      "ru": "Словарь с фабрикой значений по умолчанию. При обращении к отсутствующему ключу создаёт значение через фабрику.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "collections.defaultdict(default_factory, ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-collections.defaultdict",
@@ -715,8 +853,14 @@
     "id": "collections.deque-1",
     "title": "collections.deque",
     "kind": "term",
-    "summary": "Двусторонняя очередь. appendleft/popleft — O(1). rotate() сдвигает элементы. maxlen ограничивает длину.",
-    "body": "",
+    "summary": {
+      "ru": "Двусторонняя очередь. appendleft/popleft — O(1). rotate() сдвигает элементы. maxlen ограничивает длину.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "collections.deque(iterable=(), maxlen=None)\n.appendleft(x) / .popleft()\n.rotate(n)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-collections.deque-1",
@@ -746,8 +890,14 @@
     "id": "collections.namedtuple",
     "title": "collections.namedtuple",
     "kind": "term",
-    "summary": "Создаёт подкласс tuple с именованными полями. Поддерживает _replace() (копия с изменёнными полями) и _asdict() (в словарь).",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт подкласс tuple с именованными полями. Поддерживает _replace() (копия с изменёнными полями) и _asdict() (в словарь).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "collections.namedtuple(typename, field_names)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-collections.namedtuple",
@@ -776,8 +926,14 @@
     "id": "collections.ordereddict",
     "title": "collections.OrderedDict",
     "kind": "term",
-    "summary": "Словарь, запоминающий порядок вставки. move_to_end() перемещает ключ в начало или конец.",
-    "body": "",
+    "summary": {
+      "ru": "Словарь, запоминающий порядок вставки. move_to_end() перемещает ключ в начало или конец.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "collections.OrderedDict(items=...)\nodict.move_to_end(key, last=True)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-collections.ordereddict",
@@ -806,8 +962,14 @@
     "id": "collections.userdict-userlist-userstring",
     "title": "collections.UserDict / UserList / UserString",
     "kind": "term",
-    "summary": "Обёртки для встроенных типов, предназначенные для наследования и расширения. Данные хранятся в атрибуте .data.",
-    "body": "",
+    "summary": {
+      "ru": "Обёртки для встроенных типов, предназначенные для наследования и расширения. Данные хранятся в атрибуте .data.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "collections.UserDict(dict=None)\ncollections.UserList(initlist=None)\ncollections.UserString(seq='')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-collections.userdict-userlist-userstring",
@@ -846,8 +1008,14 @@
     "id": "contextlib.closing",
     "title": "contextlib.closing",
     "kind": "term",
-    "summary": "Оборачивает объект, чтобы его метод close() вызывался автоматически при выходе из блока with.",
-    "body": "",
+    "summary": {
+      "ru": "Оборачивает объект, чтобы его метод close() вызывался автоматически при выходе из блока with.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "contextlib.closing(thing)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-contextlib.closing",
@@ -877,8 +1045,14 @@
     "id": "contextlib.contextmanager",
     "title": "contextlib.contextmanager",
     "kind": "term",
-    "summary": "Декоратор для создания контекстного менеджера из генераторной функции с yield.",
-    "body": "",
+    "summary": {
+      "ru": "Декоратор для создания контекстного менеджера из генераторной функции с yield.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@contextlib.contextmanager\ndef my_cm(): ...; yield value; ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-contextlib.contextmanager",
@@ -913,8 +1087,14 @@
     "id": "contextlib.exitstack",
     "title": "contextlib.ExitStack",
     "kind": "term",
-    "summary": "Позволяет динамически регистрировать произвольное число контекстных менеджеров и колбэков.",
-    "body": "",
+    "summary": {
+      "ru": "Позволяет динамически регистрировать произвольное число контекстных менеджеров и колбэков.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "with contextlib.ExitStack() as stack:\n    cm = stack.enter_context(some_cm())",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-contextlib.exitstack",
@@ -944,8 +1124,14 @@
     "id": "contextlib.nullcontext",
     "title": "contextlib.nullcontext",
     "kind": "term",
-    "summary": "Контекстный менеджер-заглушка, ничего не делающий. Полезен для условного использования КМ (Python 3.7+).",
-    "body": "",
+    "summary": {
+      "ru": "Контекстный менеджер-заглушка, ничего не делающий. Полезен для условного использования КМ (Python 3.7+).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "contextlib.nullcontext(enter_result=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-contextlib.nullcontext",
@@ -975,8 +1161,14 @@
     "id": "contextlib.redirect_stdout-redirect_stde",
     "title": "contextlib.redirect_stdout / redirect_stderr",
     "kind": "term",
-    "summary": "Временно перенаправляет sys.stdout или sys.stderr в другой файлоподобный объект.",
-    "body": "",
+    "summary": {
+      "ru": "Временно перенаправляет sys.stdout или sys.stderr в другой файлоподобный объект.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "contextlib.redirect_stdout(new_target)\ncontextlib.redirect_stderr(new_target)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-contextlib.redirect_stdout-redirect_stde",
@@ -1009,8 +1201,14 @@
     "id": "contextlib.suppress-1",
     "title": "contextlib.suppress",
     "kind": "term",
-    "summary": "Контекстный менеджер, который молча подавляет указанные типы исключений.",
-    "body": "",
+    "summary": {
+      "ru": "Контекстный менеджер, который молча подавляет указанные типы исключений.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "contextlib.suppress(*exceptions)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-contextlib.suppress-1",
@@ -1041,8 +1239,14 @@
     "id": "copy.copy",
     "title": "copy.copy()",
     "kind": "function",
-    "summary": "Создаёт поверхностную копию объекта: новый объект, но вложенные объекты остаются общими.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт поверхностную копию объекта: новый объект, но вложенные объекты остаются общими.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "copy.copy(obj)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-copy.copy",
@@ -1074,8 +1278,14 @@
     "id": "copy.deepcopy-1",
     "title": "copy.deepcopy()",
     "kind": "function",
-    "summary": "Рекурсивно копирует объект и все вложенные объекты. Изменения в копии не затрагивают оригинал.",
-    "body": "",
+    "summary": {
+      "ru": "Рекурсивно копирует объект и все вложенные объекты. Изменения в копии не затрагивают оригинал.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "copy.deepcopy(obj, memo=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-copy.deepcopy-1",
@@ -1107,8 +1317,14 @@
     "id": "dataclass-1",
     "title": "@dataclass",
     "kind": "term",
-    "summary": "Декоратор, автоматически генерирующий __init__, __repr__, __eq__ на основе аннотаций полей класса.",
-    "body": "",
+    "summary": {
+      "ru": "Декоратор, автоматически генерирующий __init__, __repr__, __eq__ на основе аннотаций полей класса.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@dataclass\nclass Name:\n    field: type = default",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dataclass-1",
@@ -1139,8 +1355,14 @@
     "id": "dataclass-frozen-true",
     "title": "@dataclass(frozen=True)",
     "kind": "function",
-    "summary": "frozen=True делает экземпляры неизменяемыми (аналог namedtuple) и хэшируемыми.",
-    "body": "",
+    "summary": {
+      "ru": "frozen=True делает экземпляры неизменяемыми (аналог namedtuple) и хэшируемыми.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@dataclass(frozen=True)\nclass Pt:\n    x: int; y: int",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dataclass-frozen-true",
@@ -1172,8 +1394,14 @@
     "id": "dataclass-order-true",
     "title": "@dataclass(order=True)",
     "kind": "function",
-    "summary": "order=True добавляет методы __lt__, __le__, __gt__, __ge__ на основе кортежа полей.",
-    "body": "",
+    "summary": {
+      "ru": "order=True добавляет методы __lt__, __le__, __gt__, __ge__ на основе кортежа полей.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@dataclass(order=True)\nclass X:\n    a: int; b: int",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dataclass-order-true",
@@ -1204,8 +1432,14 @@
     "id": "dataclasses.asdict-astuple",
     "title": "dataclasses.asdict() / astuple()",
     "kind": "function",
-    "summary": "asdict() рекурсивно конвертирует датакласс в словарь, astuple() — в кортеж.",
-    "body": "",
+    "summary": {
+      "ru": "asdict() рекурсивно конвертирует датакласс в словарь, astuple() — в кортеж.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dataclasses.asdict(obj)\ndataclasses.astuple(obj)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dataclasses.asdict-astuple",
@@ -1236,8 +1470,14 @@
     "id": "dataclasses.fields",
     "title": "dataclasses.fields()",
     "kind": "function",
-    "summary": "Возвращает кортеж объектов Field с метаданными каждого поля датакласса.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает кортеж объектов Field с метаданными каждого поля датакласса.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dataclasses.fields(class_or_instance)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dataclasses.fields",
@@ -1267,8 +1507,14 @@
     "id": "dataclasses.replace",
     "title": "dataclasses.replace()",
     "kind": "function",
-    "summary": "Создаёт новый экземпляр датакласса на основе существующего, заменяя указанные поля.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт новый экземпляр датакласса на основе существующего, заменяя указанные поля.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dataclasses.replace(obj, **changes)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dataclasses.replace",
@@ -1299,8 +1545,14 @@
     "id": "date-арифметика",
     "title": "date арифметика",
     "kind": "term",
-    "summary": "Вычитание дат даёт timedelta. Прибавление timedelta даёт новую дату.",
-    "body": "",
+    "summary": {
+      "ru": "Вычитание дат даёт timedelta. Прибавление timedelta даёт новую дату.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d1 - d2\nd + timedelta(days=n)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-date-арифметика",
@@ -1331,8 +1583,14 @@
     "id": "date.today-date.fromisoformat",
     "title": "date.today / date.fromisoformat",
     "kind": "term",
-    "summary": "date.today() — сегодня. date.fromisoformat() — из строки ISO.",
-    "body": "",
+    "summary": {
+      "ru": "date.today() — сегодня. date.fromisoformat() — из строки ISO.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from datetime import date\ndate.today()\ndate.fromisoformat('2024-01-01')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-date.today-date.fromisoformat",
@@ -1362,8 +1620,14 @@
     "id": "datetime.now-datetime.utcnow",
     "title": "datetime.now / datetime.utcnow",
     "kind": "term",
-    "summary": "datetime.now() возвращает текущие дату и время в локальном поясе, utcnow() — в UTC без tzinfo (naive).",
-    "body": "",
+    "summary": {
+      "ru": "datetime.now() возвращает текущие дату и время в локальном поясе, utcnow() — в UTC без tzinfo (naive).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from datetime import datetime\ndatetime.now()\ndatetime.utcnow()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-datetime.now-datetime.utcnow",
@@ -1394,8 +1658,14 @@
     "id": "datetime.strftime",
     "title": "datetime.strftime",
     "kind": "term",
-    "summary": "Форматирует объект datetime в строку по шаблону формата (коды %Y, %m, %d, %H и т.д.).",
-    "body": "",
+    "summary": {
+      "ru": "Форматирует объект datetime в строку по шаблону формата (коды %Y, %m, %d, %H и т.д.).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dt.strftime(format)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-datetime.strftime",
@@ -1424,8 +1694,14 @@
     "id": "datetime.strptime",
     "title": "datetime.strptime",
     "kind": "term",
-    "summary": "Парсит строку в объект datetime по шаблону формата (коды %Y, %m, %d и т.д.). Обратная операция для strftime().",
-    "body": "",
+    "summary": {
+      "ru": "Парсит строку в объект datetime по шаблону формата (коды %Y, %m, %d и т.д.). Обратная операция для strftime().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "datetime.strptime(date_string, format)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-datetime.strptime",
@@ -1455,8 +1731,14 @@
     "id": "dt-astimezone",
     "title": "astimezone()",
     "kind": "function",
-    "summary": "Конвертирует aware-datetime в другой часовой пояс. Если объект naive, считает его локальным.",
-    "body": "",
+    "summary": {
+      "ru": "Конвертирует aware-datetime в другой часовой пояс. Если объект naive, считает его локальным.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dt.astimezone(tz=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dt-astimezone",
@@ -1483,8 +1765,14 @@
     "id": "dt-combine",
     "title": "combine()",
     "kind": "function",
-    "summary": "Объединяет объекты date и time в один datetime. Полезно, когда дата и время хранятся раздельно.",
-    "body": "",
+    "summary": {
+      "ru": "Объединяет объекты date и time в один datetime. Полезно, когда дата и время хранятся раздельно.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "datetime.combine(date, time, tzinfo=self.tzinfo)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dt-combine",
@@ -1511,8 +1799,14 @@
     "id": "dt-fromtimestamp",
     "title": "fromtimestamp()",
     "kind": "function",
-    "summary": "Создаёт datetime из Unix-timestamp (секунд с 1970-01-01). По умолчанию в локальном часовом поясе; передай tz для UTC или другого.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт datetime из Unix-timestamp (секунд с 1970-01-01). По умолчанию в локальном часовом поясе; передай tz для UTC или другого.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "datetime.fromtimestamp(timestamp, tz=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dt-fromtimestamp",
@@ -1539,8 +1833,14 @@
     "id": "dt-isoweekday",
     "title": "isoweekday()",
     "kind": "function",
-    "summary": "Возвращает день недели по ISO: 1 — понедельник, 7 — воскресенье. В отличие от weekday(), нумерация начинается с 1.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает день недели по ISO: 1 — понедельник, 7 — воскресенье. В отличие от weekday(), нумерация начинается с 1.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "date.isoweekday() -> int  # 1=Mon … 7=Sun",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dt-isoweekday",
@@ -1566,8 +1866,14 @@
     "id": "dt-replace",
     "title": "replace()",
     "kind": "function",
-    "summary": "Создаёт новый объект datetime/date/time с заменёнными полями. Исходный объект не изменяется — datetime неизменяем.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт новый объект datetime/date/time с заменёнными полями. Исходный объект не изменяется — datetime неизменяем.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dt.replace(year=, month=, day=, hour=, minute=, second=, microsecond=, tzinfo=)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dt-replace",
@@ -1595,8 +1901,14 @@
     "id": "dt-timestamp",
     "title": "timestamp()",
     "kind": "function",
-    "summary": "Возвращает Unix-timestamp (секунды с 1970-01-01 00:00 UTC) как float. Объект должен быть timezone-aware или local.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает Unix-timestamp (секунды с 1970-01-01 00:00 UTC) как float. Объект должен быть timezone-aware или local.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "datetime.timestamp() -> float",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dt-timestamp",
@@ -1624,8 +1936,14 @@
     "id": "dt-timetuple",
     "title": "timetuple()",
     "kind": "function",
-    "summary": "Возвращает time.struct_time — совместимую с time.mktime() структуру. Удобно для передачи в функции модуля time.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает time.struct_time — совместимую с time.mktime() структуру. Удобно для передачи в функции модуля time.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "datetime.timetuple() -> time.struct_time",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dt-timetuple",
@@ -1654,8 +1972,14 @@
     "id": "dt-utcfromtimestamp",
     "title": "utcfromtimestamp()",
     "kind": "function",
-    "summary": "Создаёт naive datetime в UTC из Unix-timestamp. Устаревший метод — предпочтительнее fromtimestamp(ts, tz=timezone.utc).",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт naive datetime в UTC из Unix-timestamp. Устаревший метод — предпочтительнее fromtimestamp(ts, tz=timezone.utc).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "datetime.utcfromtimestamp(timestamp)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dt-utcfromtimestamp",
@@ -1683,8 +2007,14 @@
     "id": "dt-weekday",
     "title": "weekday()",
     "kind": "function",
-    "summary": "Возвращает день недели как целое число: 0 — понедельник, 6 — воскресенье. Удобно для условий и фильтрации по дням.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает день недели как целое число: 0 — понедельник, 6 — воскресенье. Удобно для условий и фильтрации по дням.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "date.weekday() -> int  # 0=Mon … 6=Sun",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dt-weekday",
@@ -1713,8 +2043,14 @@
     "id": "enum",
     "title": "Enum",
     "kind": "term",
-    "summary": "Базовый класс для создания именованных перечислений. Каждый элемент — уникальный символьный объект.",
-    "body": "",
+    "summary": {
+      "ru": "Базовый класс для создания именованных перечислений. Каждый элемент — уникальный символьный объект.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from enum import Enum\nclass Color(Enum):\n    RED = 1",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-enum",
@@ -1744,8 +2080,14 @@
     "id": "executor-submit",
     "title": "executor.submit()",
     "kind": "function",
-    "summary": "Отправляет вызов функции на выполнение в пул и немедленно возвращает объект Future, не дожидаясь результата.",
-    "body": "",
+    "summary": {
+      "ru": "Отправляет вызов функции на выполнение в пул и немедленно возвращает объект Future, не дожидаясь результата.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "future = executor.submit(fn, *args, **kwargs)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-executor-submit",
@@ -1775,8 +2117,14 @@
     "id": "field",
     "title": "field()",
     "kind": "function",
-    "summary": "Функция field() задаёт дополнительные параметры поля: значение по умолчанию, фабрику, участие в repr/compare/init.",
-    "body": "",
+    "summary": {
+      "ru": "Функция field() задаёт дополнительные параметры поля: значение по умолчанию, фабрику, участие в repr/compare/init.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dataclasses.field(*, default=MISSING, default_factory=MISSING, repr=True, hash=None, compare=True, init=True)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-field",
@@ -1807,8 +2155,14 @@
     "id": "file-buffering",
     "title": "buffering=",
     "kind": "term",
-    "summary": "Параметр open(), задающий политику буферизации: 0 — без буфера (только бинарный режим), 1 — построчно, >1 — размер буфера в байтах, -1 — системный default.",
-    "body": "",
+    "summary": {
+      "ru": "Параметр open(), задающий политику буферизации: 0 — без буфера (только бинарный режим), 1 — построчно, >1 — размер буфера в байтах, -1 — системный default.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "open(file, mode='r', buffering=-1)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-file-buffering",
@@ -1836,8 +2190,14 @@
     "id": "file-errors",
     "title": "errors=",
     "kind": "term",
-    "summary": "Параметр open(), определяющий реакцию на ошибки кодировки: 'strict' (по умолчанию, исключение), 'ignore', 'replace', 'backslashreplace'.",
-    "body": "",
+    "summary": {
+      "ru": "Параметр open(), определяющий реакцию на ошибки кодировки: 'strict' (по умолчанию, исключение), 'ignore', 'replace', 'backslashreplace'.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "open(file, encoding='utf-8', errors='strict')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-file-errors",
@@ -1865,8 +2225,14 @@
     "id": "file-flush",
     "title": "flush()",
     "kind": "function",
-    "summary": "Принудительно сбрасывает внутренний буфер записи в файл или поток. Полезно, если нужно убедиться, что данные записаны немедленно.",
-    "body": "",
+    "summary": {
+      "ru": "Принудительно сбрасывает внутренний буфер записи в файл или поток. Полезно, если нужно убедиться, что данные записаны немедленно.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "file.flush()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-file-flush",
@@ -1897,8 +2263,14 @@
     "id": "file-tell",
     "title": "tell()",
     "kind": "function",
-    "summary": "Возвращает текущую позицию курсора в файле в байтах. Используй вместе с seek() для навигации по файлу.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает текущую позицию курсора в файле в байтах. Используй вместе с seek() для навигации по файлу.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "file.tell() -> int",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-file-tell",
@@ -1927,8 +2299,14 @@
     "id": "file-truncate",
     "title": "truncate()",
     "kind": "function",
-    "summary": "Обрезает файл до указанного размера в байтах. Если size не указан — обрезает до текущей позиции курсора. Файл должен быть открыт на запись.",
-    "body": "",
+    "summary": {
+      "ru": "Обрезает файл до указанного размера в байтах. Если size не указан — обрезает до текущей позиции курсора. Файл должен быть открыт на запись.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "file.truncate(size=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-file-truncate",
@@ -1956,8 +2334,14 @@
     "id": "flag-intflag",
     "title": "Flag / IntFlag",
     "kind": "term",
-    "summary": "Flag и IntFlag поддерживают битовые операции: объединение через |, проверку через &.",
-    "body": "",
+    "summary": {
+      "ru": "Flag и IntFlag поддерживают битовые операции: объединение через |, проверку через &.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from enum import Flag, IntFlag\nclass Perm(Flag):\n    R = 1; W = 2; X = 4",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-flag-intflag",
@@ -1988,8 +2372,14 @@
     "id": "functools.cached_property",
     "title": "functools.cached_property",
     "kind": "term",
-    "summary": "Вычисляет значение свойства один раз и сохраняет в __dict__ экземпляра. При повторном обращении возвращает кэш без вызова метода.",
-    "body": "",
+    "summary": {
+      "ru": "Вычисляет значение свойства один раз и сохраняет в __dict__ экземпляра. При повторном обращении возвращает кэш без вызова метода.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@functools.cached_property",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.cached_property",
@@ -2022,8 +2412,14 @@
     "id": "functools.lru_cache-functools.cache-1",
     "title": "functools.lru_cache / functools.cache",
     "kind": "term",
-    "summary": "lru_cache кэширует результаты вызовов (LRU, ограниченный размер). cache — то же без ограничения (Python 3.9+). Только для хешируемых аргументов.",
-    "body": "",
+    "summary": {
+      "ru": "lru_cache кэширует результаты вызовов (LRU, ограниченный размер). cache — то же без ограничения (Python 3.9+). Только для хешируемых аргументов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@functools.lru_cache(maxsize=128)\n@functools.cache",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.lru_cache-functools.cache-1",
@@ -2055,8 +2451,14 @@
     "id": "functools.partial-1",
     "title": "functools.partial",
     "kind": "term",
-    "summary": "Создаёт новую функцию с частично заполненными аргументами. Полезно для создания специализированных версий функций.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт новую функцию с частично заполненными аргументами. Полезно для создания специализированных версий функций.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "functools.partial(func, /, *args, **kwargs) -> partial",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.partial-1",
@@ -2087,8 +2489,14 @@
     "id": "functools.reduce",
     "title": "functools.reduce",
     "kind": "term",
-    "summary": "Сворачивает итерируемое применяя функцию накопительно слева направо. Необязательный initializer — начальное значение.",
-    "body": "",
+    "summary": {
+      "ru": "Сворачивает итерируемое применяя функцию накопительно слева направо. Необязательный initializer — начальное значение.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "functools.reduce(function, iterable[, initializer])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.reduce",
@@ -2116,8 +2524,14 @@
     "id": "functools.singledispatch",
     "title": "functools.singledispatch",
     "kind": "term",
-    "summary": "Декоратор для создания обобщённых функций с диспетчеризацией по типу первого аргумента. Регистрация через @func.register.",
-    "body": "",
+    "summary": {
+      "ru": "Декоратор для создания обобщённых функций с диспетчеризацией по типу первого аргумента. Регистрация через @func.register.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@functools.singledispatch\n@func.register(type)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.singledispatch",
@@ -2151,8 +2565,14 @@
     "id": "functools.total_ordering",
     "title": "functools.total_ordering",
     "kind": "term",
-    "summary": "Декоратор класса. Дополняет недостающие операторы сравнения (<, <=, >, >=) при наличии __eq__ и хотя бы одного из них.",
-    "body": "",
+    "summary": {
+      "ru": "Декоратор класса. Дополняет недостающие операторы сравнения (<, <=, >, >=) при наличии __eq__ и хотя бы одного из них.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@functools.total_ordering",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.total_ordering",
@@ -2185,8 +2605,14 @@
     "id": "functools.wraps",
     "title": "functools.wraps",
     "kind": "term",
-    "summary": "Копирует метаданные декорируемой функции (__name__, __doc__, __annotations__) в функцию-обёртку. Обязателен при написании декораторов.",
-    "body": "",
+    "summary": {
+      "ru": "Копирует метаданные декорируемой функции (__name__, __doc__, __annotations__) в функцию-обёртку. Обязателен при написании декораторов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@functools.wraps(wrapped)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.wraps",
@@ -2222,8 +2648,14 @@
     "id": "grade-buckets-range-lookups",
     "title": "Grade buckets / range lookups",
     "kind": "term",
-    "summary": "Классическое применение bisect: быстрое определение категории по диапазону (оценки, тарифы, уровни).",
-    "body": "",
+    "summary": {
+      "ru": "Классическое применение bisect: быстрое определение категории по диапазону (оценки, тарифы, уровни).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "breakpoints = [...]\nlabels = [...]\nlabels[bisect.bisect(breakpoints, value)]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-grade-buckets-range-lookups",
@@ -2254,8 +2686,14 @@
     "id": "hashlib-md5",
     "title": "hashlib.md5()",
     "kind": "function",
-    "summary": "Создаёт объект MD5-хеша. Быстр, но не криптостоек — не используй для паролей. Подходит для контрольных сумм файлов.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт объект MD5-хеша. Быстр, но не криптостоек — не используй для паролей. Подходит для контрольных сумм файлов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "hashlib.md5(data=b'', usedforsecurity=True)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-hashlib-md5",
@@ -2283,8 +2721,14 @@
     "id": "hashlib-sha256",
     "title": "hashlib.sha256()",
     "kind": "function",
-    "summary": "Создаёт объект SHA-256 хеша. Криптографически стойкий алгоритм. Используй для проверки целостности данных и цифровых подписей.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт объект SHA-256 хеша. Криптографически стойкий алгоритм. Используй для проверки целостности данных и цифровых подписей.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "hashlib.sha256(data=b'')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-hashlib-sha256",
@@ -2316,8 +2760,14 @@
     "id": "heapq.heapify",
     "title": "heapq.heapify()",
     "kind": "function",
-    "summary": "Преобразует произвольный список в min-heap за O(n). Изменяет список на месте.",
-    "body": "",
+    "summary": {
+      "ru": "Преобразует произвольный список в min-heap за O(n). Изменяет список на месте.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "heapq.heapify(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.heapify",
@@ -2346,8 +2796,14 @@
     "id": "heapq.heappush-heapq.heappop",
     "title": "heapq.heappush() / heapq.heappop()",
     "kind": "function",
-    "summary": "heappush() добавляет элемент в кучу, heappop() извлекает и возвращает наименьший элемент.",
-    "body": "",
+    "summary": {
+      "ru": "heappush() добавляет элемент в кучу, heappop() извлекает и возвращает наименьший элемент.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "heapq.heappush(heap, item)\nheapq.heappop(heap)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.heappush-heapq.heappop",
@@ -2377,8 +2833,14 @@
     "id": "heapq.heapreplace-heapq.heappushpop",
     "title": "heapq.heapreplace() / heapq.heappushpop()",
     "kind": "function",
-    "summary": "heapreplace() извлекает минимум и вставляет новый элемент атомарно (эффективнее pop+push). heappushpop() — push потом pop.",
-    "body": "",
+    "summary": {
+      "ru": "heapreplace() извлекает минимум и вставляет новый элемент атомарно (эффективнее pop+push). heappushpop() — push потом pop.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "heapq.heapreplace(heap, item)\nheapq.heappushpop(heap, item)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.heapreplace-heapq.heappushpop",
@@ -2407,8 +2869,14 @@
     "id": "heapq.nlargest-heapq.nsmallest",
     "title": "heapq.nlargest() / heapq.nsmallest()",
     "kind": "function",
-    "summary": "Возвращает N наибольших или наименьших элементов последовательности. Работает с key-функцией.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает N наибольших или наименьших элементов последовательности. Работает с key-функцией.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "heapq.nlargest(n, iterable, key=None)\nheapq.nsmallest(n, iterable, key=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.nlargest-heapq.nsmallest",
@@ -2437,8 +2905,14 @@
     "id": "intenum-strenum",
     "title": "IntEnum / StrEnum",
     "kind": "term",
-    "summary": "IntEnum — перечисление, совместимое с int. StrEnum — совместимое со str (Python 3.11+).",
-    "body": "",
+    "summary": {
+      "ru": "IntEnum — перечисление, совместимое с int. StrEnum — совместимое со str (Python 3.11+).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class X(IntEnum): ...\nclass Y(StrEnum): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-intenum-strenum",
@@ -2470,8 +2944,14 @@
     "id": "io.bytesio",
     "title": "io.BytesIO",
     "kind": "term",
-    "summary": "Файлоподобный объект для бинарных данных в памяти. Аналог StringIO для байтов.",
-    "body": "",
+    "summary": {
+      "ru": "Файлоподобный объект для бинарных данных в памяти. Аналог StringIO для байтов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "io.BytesIO(initial_bytes=b'')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-io.bytesio",
@@ -2502,8 +2982,14 @@
     "id": "io.stringio",
     "title": "io.StringIO",
     "kind": "term",
-    "summary": "Файлоподобный объект, хранящий строковые данные в памяти. Удобен для тестирования и буферизации.",
-    "body": "",
+    "summary": {
+      "ru": "Файлоподобный объект, хранящий строковые данные в памяти. Удобен для тестирования и буферизации.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "io.StringIO(initial_value='', newline='\\n')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-io.stringio",
@@ -2534,8 +3020,14 @@
     "id": "io.textiowrapper",
     "title": "io.TextIOWrapper",
     "kind": "term",
-    "summary": "Оборачивает бинарный поток, добавляя кодирование/декодирование текста. Используется в open() внутри.",
-    "body": "",
+    "summary": {
+      "ru": "Оборачивает бинарный поток, добавляя кодирование/декодирование текста. Используется в open() внутри.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "io.TextIOWrapper(buffer, encoding=None, errors=None, newline=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-io.textiowrapper",
@@ -2567,8 +3059,14 @@
     "id": "logging-FileHandler",
     "title": "logging.FileHandler",
     "kind": "term",
-    "summary": "Обработчик, записывающий логи в файл. Поддерживает режимы 'a' (дополнять) и 'w' (перезаписывать), а также кодировку.",
-    "body": "",
+    "summary": {
+      "ru": "Обработчик, записывающий логи в файл. Поддерживает режимы 'a' (дополнять) и 'w' (перезаписывать), а также кодировку.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "handler = logging.FileHandler(filename, mode='a', encoding=None, delay=False)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-FileHandler",
@@ -2596,8 +3094,14 @@
     "id": "logging-Formatter",
     "title": "logging.Formatter",
     "kind": "term",
-    "summary": "Задаёт формат строк лога: время, уровень, имя логгера, сообщение и т.д. Привязывается к Handler.",
-    "body": "",
+    "summary": {
+      "ru": "Задаёт формат строк лога: время, уровень, имя логгера, сообщение и т.д. Привязывается к Handler.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "fmt = logging.Formatter(fmt=None, datefmt=None, style='%')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-Formatter",
@@ -2627,8 +3131,14 @@
     "id": "logging-Handler",
     "title": "logging.Handler",
     "kind": "term",
-    "summary": "Базовый класс для всех обработчиков логов. Определяет, куда и как отправляются записи: в консоль, файл, сеть. Не используется напрямую.",
-    "body": "",
+    "summary": {
+      "ru": "Базовый класс для всех обработчиков логов. Определяет, куда и как отправляются записи: в консоль, файл, сеть. Не используется напрямую.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "handler.setLevel(level)\nhandler.setFormatter(formatter)\nlogger.addHandler(handler)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-Handler",
@@ -2655,8 +3165,14 @@
     "id": "logging-StreamHandler",
     "title": "logging.StreamHandler",
     "kind": "term",
-    "summary": "Обработчик, выводящий логи в поток: по умолчанию в sys.stderr. Чаще всего используется для вывода в консоль.",
-    "body": "",
+    "summary": {
+      "ru": "Обработчик, выводящий логи в поток: по умолчанию в sys.stderr. Чаще всего используется для вывода в консоль.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "handler = logging.StreamHandler(stream=None)  # None → sys.stderr",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-StreamHandler",
@@ -2685,8 +3201,14 @@
     "id": "logging-basicConfig",
     "title": "logging.basicConfig()",
     "kind": "function",
-    "summary": "Быстрая базовая настройка системы логирования: уровень, формат, файл или поток вывода. Вызывается один раз до первого log-вызова.",
-    "body": "",
+    "summary": {
+      "ru": "Быстрая базовая настройка системы логирования: уровень, формат, файл или поток вывода. Вызывается один раз до первого log-вызова.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "logging.basicConfig(level=, format=, filename=, filemode=, encoding=)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-basicConfig",
@@ -2715,8 +3237,14 @@
     "id": "logging-debug",
     "title": "logging.debug()",
     "kind": "function",
-    "summary": "Записывает сообщение с уровнем DEBUG — самым низким. Используй для подробной диагностики при разработке. В production обычно отключён.",
-    "body": "",
+    "summary": {
+      "ru": "Записывает сообщение с уровнем DEBUG — самым низким. Используй для подробной диагностики при разработке. В production обычно отключён.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "logging.debug(msg, *args, **kwargs)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-debug",
@@ -2742,8 +3270,14 @@
     "id": "logging-error",
     "title": "logging.error()",
     "kind": "function",
-    "summary": "Записывает сообщение с уровнем ERROR. Используй для ошибок, из-за которых часть логики не выполнилась, но программа продолжает работу.",
-    "body": "",
+    "summary": {
+      "ru": "Записывает сообщение с уровнем ERROR. Используй для ошибок, из-за которых часть логики не выполнилась, но программа продолжает работу.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "logging.error(msg, *args, exc_info=False, **kwargs)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-error",
@@ -2770,8 +3304,14 @@
     "id": "logging-getLogger",
     "title": "logging.getLogger()",
     "kind": "function",
-    "summary": "Возвращает именованный логгер. Логгеры образуют иерархию по точке в имени. Лучше создавать логгер на уровне модуля: getLogger(__name__).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает именованный логгер. Логгеры образуют иерархию по точке в имени. Лучше создавать логгер на уровне модуля: getLogger(__name__).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "logger = logging.getLogger(name)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-getLogger",
@@ -2800,8 +3340,14 @@
     "id": "logging-info",
     "title": "logging.info()",
     "kind": "function",
-    "summary": "Записывает сообщение с уровнем INFO. Используй для штатных событий: запуск, успешное завершение, статус операции.",
-    "body": "",
+    "summary": {
+      "ru": "Записывает сообщение с уровнем INFO. Используй для штатных событий: запуск, успешное завершение, статус операции.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "logging.info(msg, *args, **kwargs)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-info",
@@ -2827,8 +3373,14 @@
     "id": "logging-warning",
     "title": "logging.warning()",
     "kind": "function",
-    "summary": "Записывает сообщение с уровнем WARNING. Используй для потенциальных проблем, которые не ломают работу прямо сейчас.",
-    "body": "",
+    "summary": {
+      "ru": "Записывает сообщение с уровнем WARNING. Используй для потенциальных проблем, которые не ломают работу прямо сейчас.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "logging.warning(msg, *args, **kwargs)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-logging-warning",
@@ -2853,8 +3405,14 @@
     "id": "math.acos",
     "title": "math.acos",
     "kind": "term",
-    "summary": "Арккосинус угла. Принимает значение из [-1, 1], возвращает угол в радианах из [0, π].",
-    "body": "",
+    "summary": {
+      "ru": "Арккосинус угла. Принимает значение из [-1, 1], возвращает угол в радианах из [0, π].",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.acos(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.acos",
@@ -2883,8 +3441,14 @@
     "id": "math.asin",
     "title": "math.asin",
     "kind": "term",
-    "summary": "Арксинус угла. Принимает значение из [-1, 1], возвращает угол в радианах из [-π/2, π/2].",
-    "body": "",
+    "summary": {
+      "ru": "Арксинус угла. Принимает значение из [-1, 1], возвращает угол в радианах из [-π/2, π/2].",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.asin(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.asin",
@@ -2913,8 +3477,14 @@
     "id": "math.atan",
     "title": "math.atan",
     "kind": "term",
-    "summary": "Арктангенс угла. Принимает любое вещественное число, возвращает угол в радианах из (-π/2, π/2).",
-    "body": "",
+    "summary": {
+      "ru": "Арктангенс угла. Принимает любое вещественное число, возвращает угол в радианах из (-π/2, π/2).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.atan(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.atan",
@@ -2943,8 +3513,14 @@
     "id": "math.atan2",
     "title": "math.atan2",
     "kind": "term",
-    "summary": "Арктангенс y/x с учётом квадранта — правильно обрабатывает все знаки. Результат в [-π, π].",
-    "body": "",
+    "summary": {
+      "ru": "Арктангенс y/x с учётом квадранта — правильно обрабатывает все знаки. Результат в [-π, π].",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.atan2(y, x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.atan2",
@@ -2973,8 +3549,14 @@
     "id": "math.ceil",
     "title": "math.ceil",
     "kind": "term",
-    "summary": "Округление вверх до ближайшего целого. math.ceil(2.1) → 3, math.ceil(-2.1) → -2.",
-    "body": "",
+    "summary": {
+      "ru": "Округление вверх до ближайшего целого. math.ceil(2.1) → 3, math.ceil(-2.1) → -2.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.ceil(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.ceil",
@@ -3003,8 +3585,14 @@
     "id": "math.comb",
     "title": "math.comb",
     "kind": "term",
-    "summary": "Биномиальный коэффициент C(n, k): число сочетаний из n элементов по k без повторений и без учёта порядка.",
-    "body": "",
+    "summary": {
+      "ru": "Биномиальный коэффициент C(n, k): число сочетаний из n элементов по k без повторений и без учёта порядка.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.comb(n, k)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.comb",
@@ -3033,8 +3621,14 @@
     "id": "math.cos",
     "title": "math.cos",
     "kind": "term",
-    "summary": "Возвращает косинус угла в радианах. Результат всегда в диапазоне [-1, 1]. Для градусов: math.cos(math.radians(угол)).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает косинус угла в радианах. Результат всегда в диапазоне [-1, 1]. Для градусов: math.cos(math.radians(угол)).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.cos(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.cos",
@@ -3063,8 +3657,14 @@
     "id": "math.degrees",
     "title": "math.degrees",
     "kind": "term",
-    "summary": "Конвертирует угол из радиан в градусы. math.degrees(math.pi) → 180.0.",
-    "body": "",
+    "summary": {
+      "ru": "Конвертирует угол из радиан в градусы. math.degrees(math.pi) → 180.0.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.degrees(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.degrees",
@@ -3093,8 +3693,14 @@
     "id": "math.e",
     "title": "math.e",
     "kind": "term",
-    "summary": "Число Эйлера e ≈ 2.718281828459045 — основание натурального логарифма.",
-    "body": "",
+    "summary": {
+      "ru": "Число Эйлера e ≈ 2.718281828459045 — основание натурального логарифма.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.e",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.e",
@@ -3123,8 +3729,14 @@
     "id": "math.exp",
     "title": "math.exp",
     "kind": "term",
-    "summary": "Возвращает e в степени x (экспоненту). Эквивалент math.e ** x, но точнее и быстрее для больших x.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает e в степени x (экспоненту). Эквивалент math.e ** x, но точнее и быстрее для больших x.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.exp(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.exp",
@@ -3153,8 +3765,14 @@
     "id": "math.fabs",
     "title": "math.fabs",
     "kind": "term",
-    "summary": "Возвращает абсолютное значение числа как float. В отличие от abs(), всегда возвращает float, а не int.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает абсолютное значение числа как float. В отличие от abs(), всегда возвращает float, а не int.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.fabs(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.fabs",
@@ -3183,8 +3801,14 @@
     "id": "math.factorial",
     "title": "math.factorial",
     "kind": "term",
-    "summary": "Возвращает факториал неотрицательного целого числа. factorial(5) → 120. Для отрицательных чисел — ValueError.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает факториал неотрицательного целого числа. factorial(5) → 120. Для отрицательных чисел — ValueError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.factorial(n)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.factorial",
@@ -3213,8 +3837,14 @@
     "id": "math.floor",
     "title": "math.floor",
     "kind": "term",
-    "summary": "Округление вниз до ближайшего целого. math.floor(2.9) → 2, math.floor(-2.9) → -3.",
-    "body": "",
+    "summary": {
+      "ru": "Округление вниз до ближайшего целого. math.floor(2.9) → 2, math.floor(-2.9) → -3.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.floor(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.floor",
@@ -3243,8 +3873,14 @@
     "id": "math.fsum",
     "title": "math.fsum",
     "kind": "term",
-    "summary": "Точная сумма чисел с плавающей точкой (без ошибок округления).",
-    "body": "",
+    "summary": {
+      "ru": "Точная сумма чисел с плавающей точкой (без ошибок округления).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.fsum(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.fsum",
@@ -3273,8 +3909,14 @@
     "id": "math.gcd",
     "title": "math.gcd",
     "kind": "term",
-    "summary": "Возвращает наибольший общий делитель двух или более целых чисел. math.gcd(48, 36) → 12. Python 3.9+: несколько аргументов.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает наибольший общий делитель двух или более целых чисел. math.gcd(48, 36) → 12. Python 3.9+: несколько аргументов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.gcd(*integers)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.gcd",
@@ -3303,8 +3945,14 @@
     "id": "math.hypot",
     "title": "math.hypot",
     "kind": "term",
-    "summary": "Евклидово расстояние от начала координат. Python 3.8+: любое число аргументов.",
-    "body": "",
+    "summary": {
+      "ru": "Евклидово расстояние от начала координат. Python 3.8+: любое число аргументов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.hypot(*coordinates)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.hypot",
@@ -3333,8 +3981,14 @@
     "id": "math.inf",
     "title": "math.inf",
     "kind": "term",
-    "summary": "Положительная бесконечность (float). Используется как начальное значение при поиске минимума или в сравнениях.",
-    "body": "",
+    "summary": {
+      "ru": "Положительная бесконечность (float). Используется как начальное значение при поиске минимума или в сравнениях.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.inf",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.inf",
@@ -3363,8 +4017,14 @@
     "id": "math.isclose",
     "title": "math.isclose",
     "kind": "term",
-    "summary": "Проверяет примерное равенство двух чисел с учётом погрешности.",
-    "body": "",
+    "summary": {
+      "ru": "Проверяет примерное равенство двух чисел с учётом погрешности.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.isclose(a, b, rel_tol=1e-9, abs_tol=0.0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.isclose",
@@ -3393,8 +4053,14 @@
     "id": "math.isfinite",
     "title": "math.isfinite",
     "kind": "term",
-    "summary": "Возвращает True, если число конечное — не inf и не nan. Удобно для проверки результата вычислений.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если число конечное — не inf и не nan. Удобно для проверки результата вычислений.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.isfinite(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.isfinite",
@@ -3423,8 +4089,14 @@
     "id": "math.isinf",
     "title": "math.isinf",
     "kind": "term",
-    "summary": "Возвращает True, если число бесконечно (float('inf') или float('-inf')).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если число бесконечно (float('inf') или float('-inf')).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.isinf(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.isinf",
@@ -3453,8 +4125,14 @@
     "id": "math.isnan",
     "title": "math.isnan",
     "kind": "term",
-    "summary": "Возвращает True, если число — NaN (Not a Number). Нельзя проверить через ==, так как nan != nan.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если число — NaN (Not a Number). Нельзя проверить через ==, так как nan != nan.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.isnan(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.isnan",
@@ -3483,8 +4161,14 @@
     "id": "math.lcm",
     "title": "math.lcm",
     "kind": "term",
-    "summary": "Возвращает наименьшее общее кратное целых чисел. math.lcm(4, 6) → 12. Python 3.9+.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает наименьшее общее кратное целых чисел. math.lcm(4, 6) → 12. Python 3.9+.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.lcm(*integers)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.lcm",
@@ -3513,8 +4197,14 @@
     "id": "math.log",
     "title": "math.log",
     "kind": "term",
-    "summary": "Натуральный логарифм. log(x, base) — логарифм по основанию base.",
-    "body": "",
+    "summary": {
+      "ru": "Натуральный логарифм. log(x, base) — логарифм по основанию base.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.log(x[, base])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.log",
@@ -3543,8 +4233,14 @@
     "id": "math.log10",
     "title": "math.log10",
     "kind": "term",
-    "summary": "Возвращает логарифм по основанию 10. Точнее, чем math.log(x, 10). Используется для порядка величин.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает логарифм по основанию 10. Точнее, чем math.log(x, 10). Используется для порядка величин.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.log10(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.log10",
@@ -3573,8 +4269,14 @@
     "id": "math.log2",
     "title": "math.log2",
     "kind": "term",
-    "summary": "Возвращает логарифм по основанию 2. Точнее и быстрее, чем math.log(x, 2). Полезен в алгоритмах с двоичным деревом.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает логарифм по основанию 2. Точнее и быстрее, чем math.log(x, 2). Полезен в алгоритмах с двоичным деревом.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.log2(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.log2",
@@ -3603,8 +4305,14 @@
     "id": "math.nan",
     "title": "math.nan",
     "kind": "term",
-    "summary": "Not a Number — специальное значение float для результата неопределённых операций. Не равно самому себе: nan != nan.",
-    "body": "",
+    "summary": {
+      "ru": "Not a Number — специальное значение float для результата неопределённых операций. Не равно самому себе: nan != nan.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.nan",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.nan",
@@ -3633,8 +4341,14 @@
     "id": "math.perm",
     "title": "math.perm",
     "kind": "term",
-    "summary": "Число размещений P(n, k): количество упорядоченных выборок k элементов из n без повторений.",
-    "body": "",
+    "summary": {
+      "ru": "Число размещений P(n, k): количество упорядоченных выборок k элементов из n без повторений.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.perm(n, k=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.perm",
@@ -3663,8 +4377,14 @@
     "id": "math.pi",
     "title": "math.pi",
     "kind": "term",
-    "summary": "Математическая константа π ≈ 3.141592653589793. Используется в тригонометрии и геометрии.",
-    "body": "",
+    "summary": {
+      "ru": "Математическая константа π ≈ 3.141592653589793. Используется в тригонометрии и геометрии.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.pi",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.pi",
@@ -3694,8 +4414,14 @@
     "id": "math.pow",
     "title": "math.pow",
     "kind": "term",
-    "summary": "Возводит x в степень y, всегда возвращает float. Отличие от **:  math.pow(-1, 0.5) — ValueError, ** — complex.",
-    "body": "",
+    "summary": {
+      "ru": "Возводит x в степень y, всегда возвращает float. Отличие от **:  math.pow(-1, 0.5) — ValueError, ** — complex.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.pow(x, y)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.pow",
@@ -3724,8 +4450,14 @@
     "id": "math.prod",
     "title": "math.prod",
     "kind": "term",
-    "summary": "Возвращает произведение всех элементов итерируемого. Python 3.8+. math.prod([2, 3, 4]) → 24.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает произведение всех элементов итерируемого. Python 3.8+. math.prod([2, 3, 4]) → 24.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.prod(iterable, start=1)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.prod",
@@ -3754,8 +4486,14 @@
     "id": "math.radians",
     "title": "math.radians",
     "kind": "term",
-    "summary": "Конвертирует угол из градусов в радианы. math.radians(180) → 3.14159... Нужно для тригонометрических функций.",
-    "body": "",
+    "summary": {
+      "ru": "Конвертирует угол из градусов в радианы. math.radians(180) → 3.14159... Нужно для тригонометрических функций.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.radians(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.radians",
@@ -3784,8 +4522,14 @@
     "id": "math.sin",
     "title": "math.sin",
     "kind": "term",
-    "summary": "Возвращает синус угла в радианах. Для перевода градусов в радианы используй math.radians().",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает синус угла в радианах. Для перевода градусов в радианы используй math.radians().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.sin(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.sin",
@@ -3814,8 +4558,14 @@
     "id": "math.sqrt",
     "title": "math.sqrt",
     "kind": "term",
-    "summary": "Возвращает квадратный корень числа как float. Для целочисленного результата используй isqrt(). Отрицательные числа вызывают ValueError.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает квадратный корень числа как float. Для целочисленного результата используй isqrt(). Отрицательные числа вызывают ValueError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.sqrt(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.sqrt",
@@ -3844,8 +4594,14 @@
     "id": "math.tan",
     "title": "math.tan",
     "kind": "term",
-    "summary": "Возвращает тангенс угла в радианах. math.tan(math.pi/4) ≈ 1.0. Не определён при x = π/2 + πn.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает тангенс угла в радианах. math.tan(math.pi/4) ≈ 1.0. Не определён при x = π/2 + πn.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.tan(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.tan",
@@ -3874,8 +4630,14 @@
     "id": "math.tau",
     "title": "math.tau",
     "kind": "term",
-    "summary": "Математическая константа τ = 2π ≈ 6.283185307179586. Удобна в формулах, где часто встречается 2π.",
-    "body": "",
+    "summary": {
+      "ru": "Математическая константа τ = 2π ≈ 6.283185307179586. Удобна в формулах, где часто встречается 2π.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.tau",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.tau",
@@ -3904,8 +4666,14 @@
     "id": "math.trunc",
     "title": "math.trunc",
     "kind": "term",
-    "summary": "Усечение дробной части — округление к нулю. math.trunc(2.9) → 2, math.trunc(-2.9) → -2.",
-    "body": "",
+    "summary": {
+      "ru": "Усечение дробной части — округление к нулю. math.trunc(2.9) → 2, math.trunc(-2.9) → -2.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "math.trunc(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-math.trunc",
@@ -3934,8 +4702,14 @@
     "id": "os-getenv",
     "title": "os.getenv()",
     "kind": "function",
-    "summary": "Возвращает значение переменной окружения по имени. Если переменная не задана, возвращает default (по умолчанию None). Безопаснее, чем os.environ[key].",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает значение переменной окружения по имени. Если переменная не задана, возвращает default (по умолчанию None). Безопаснее, чем os.environ[key].",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.getenv(key, default=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os-getenv",
@@ -3962,8 +4736,14 @@
     "id": "os-scandir",
     "title": "os.scandir()",
     "kind": "function",
-    "summary": "Эффективный итератор по содержимому директории. Возвращает объекты DirEntry с именем, путём и кешированными атрибутами — быстрее os.listdir() + os.stat().",
-    "body": "",
+    "summary": {
+      "ru": "Эффективный итератор по содержимому директории. Возвращает объекты DirEntry с именем, путём и кешированными атрибутами — быстрее os.listdir() + os.stat().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "with os.scandir(path='.') as it:\n    for entry in it: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os-scandir",
@@ -3992,8 +4772,14 @@
     "id": "os.environ",
     "title": "os.environ",
     "kind": "term",
-    "summary": "Словарь переменных окружения. Поддерживает get(), setitem, pop(). Изменения влияют на дочерние процессы.",
-    "body": "",
+    "summary": {
+      "ru": "Словарь переменных окружения. Поддерживает get(), setitem, pop(). Изменения влияют на дочерние процессы.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.environ  # os._Environ (MutableMapping)\nos.environ.get(key, default=None)\nos.environ[key] = value",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.environ",
@@ -4021,8 +4807,14 @@
     "id": "os.getcwd-os.chdir",
     "title": "os.getcwd() / os.chdir()",
     "kind": "function",
-    "summary": "os.getcwd() возвращает текущую рабочую директорию. os.chdir(path) меняет её.",
-    "body": "",
+    "summary": {
+      "ru": "os.getcwd() возвращает текущую рабочую директорию. os.chdir(path) меняет её.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.getcwd() -> str\nos.chdir(path: str) -> None",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.getcwd-os.chdir",
@@ -4051,8 +4843,14 @@
     "id": "os.getpid",
     "title": "os.getpid()",
     "kind": "function",
-    "summary": "Возвращает PID (идентификатор) текущего процесса. Полезно для логирования и создания временных файлов с уникальными именами.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает PID (идентификатор) текущего процесса. Полезно для логирования и создания временных файлов с уникальными именами.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.getpid() -> int",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.getpid",
@@ -4081,8 +4879,14 @@
     "id": "os.listdir",
     "title": "os.listdir()",
     "kind": "function",
-    "summary": "Возвращает список имён файлов и папок в указанной директории (без сортировки). По умолчанию — текущая директория.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает список имён файлов и папок в указанной директории (без сортировки). По умолчанию — текущая директория.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.listdir(path='.') -> list[str]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.listdir",
@@ -4110,8 +4914,14 @@
     "id": "os.makedirs-os.rmdir",
     "title": "os.makedirs() / os.rmdir()",
     "kind": "function",
-    "summary": "os.makedirs() создаёт папку включая промежуточные. os.rmdir() удаляет пустую папку.",
-    "body": "",
+    "summary": {
+      "ru": "os.makedirs() создаёт папку включая промежуточные. os.rmdir() удаляет пустую папку.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.makedirs(path, mode=0o777, exist_ok=False)\nos.rmdir(path)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.makedirs-os.rmdir",
@@ -4139,8 +4949,14 @@
     "id": "os.path.dirname-os.path.basename-os.path",
     "title": "os.path.dirname() / os.path.basename() / os.path.split()",
     "kind": "function",
-    "summary": "dirname() — директория пути. basename() — имя файла/папки. split() — кортеж (dirname, basename).",
-    "body": "",
+    "summary": {
+      "ru": "dirname() — директория пути. basename() — имя файла/папки. split() — кортеж (dirname, basename).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.path.dirname(path) -> str\nos.path.basename(path) -> str\nos.path.split(path) -> (head, tail)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.path.dirname-os.path.basename-os.path",
@@ -4169,8 +4985,14 @@
     "id": "os.path.exists-os.path.isfile-os.path.is",
     "title": "os.path.exists() / os.path.isfile() / os.path.isdir()",
     "kind": "function",
-    "summary": "os.path.exists() — путь существует. os.path.isfile() — это файл. os.path.isdir() — это папка.",
-    "body": "",
+    "summary": {
+      "ru": "os.path.exists() — путь существует. os.path.isfile() — это файл. os.path.isdir() — это папка.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.path.exists(path) -> bool\nos.path.isfile(path) -> bool\nos.path.isdir(path) -> bool",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.path.exists-os.path.isfile-os.path.is",
@@ -4198,8 +5020,14 @@
     "id": "os.path.join",
     "title": "os.path.join()",
     "kind": "function",
-    "summary": "Объединяет компоненты пути с учётом ОС. Абсолютный компонент сбрасывает предыдущие части.",
-    "body": "",
+    "summary": {
+      "ru": "Объединяет компоненты пути с учётом ОС. Абсолютный компонент сбрасывает предыдущие части.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.path.join(path, *paths) -> str",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.path.join",
@@ -4228,8 +5056,14 @@
     "id": "os.path.splitext",
     "title": "os.path.splitext()",
     "kind": "function",
-    "summary": "Разбивает путь на пару (root, ext), где ext — расширение файла с точкой. Удобно для смены расширения.",
-    "body": "",
+    "summary": {
+      "ru": "Разбивает путь на пару (root, ext), где ext — расширение файла с точкой. Удобно для смены расширения.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.path.splitext(path) -> (root, ext)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.path.splitext",
@@ -4258,8 +5092,14 @@
     "id": "os.remove-os.rename",
     "title": "os.remove() / os.rename()",
     "kind": "function",
-    "summary": "os.remove() удаляет файл. os.rename() переименовывает файл или папку. Для рекурсивного удаления папок — shutil.rmtree().",
-    "body": "",
+    "summary": {
+      "ru": "os.remove() удаляет файл. os.rename() переименовывает файл или папку. Для рекурсивного удаления папок — shutil.rmtree().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.remove(path)\nos.rename(src, dst)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.remove-os.rename",
@@ -4288,8 +5128,14 @@
     "id": "os.sep-os.linesep-os.pathsep",
     "title": "os.sep / os.linesep / os.pathsep",
     "kind": "term",
-    "summary": "Системные разделители: sep — разделитель пути ('/' или '\\\\'), linesep — перевод строки, pathsep — разделитель PATH (':' или ';').",
-    "body": "",
+    "summary": {
+      "ru": "Системные разделители: sep — разделитель пути ('/' или '\\\\'), linesep — перевод строки, pathsep — разделитель PATH (':' или ';').",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.sep      # '/' на Unix, '\\\\' на Windows\nos.linesep  # '\\n' на Unix, '\\r\\n' на Windows\nos.pathsep  # ':' на Unix, ';' на Windows",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.sep-os.linesep-os.pathsep",
@@ -4317,8 +5163,14 @@
     "id": "os.walk",
     "title": "os.walk()",
     "kind": "function",
-    "summary": "Генератор обхода дерева директорий. Для каждой папки возвращает (dirpath, dirnames, filenames).",
-    "body": "",
+    "summary": {
+      "ru": "Генератор обхода дерева директорий. Для каждой папки возвращает (dirpath, dirnames, filenames).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "os.walk(top, topdown=True, onerror=None, followlinks=False)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os.walk",
@@ -4350,8 +5202,14 @@
     "id": "path",
     "title": "Path()",
     "kind": "function",
-    "summary": "Создаёт объект пути из строки или компонентов. На Windows — WindowsPath, на Unix — PosixPath.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт объект пути из строки или компонентов. На Windows — WindowsPath, на Unix — PosixPath.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from pathlib import Path\np = Path('/some/path')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-path",
@@ -4379,8 +5237,14 @@
     "id": "path.home-path.cwd",
     "title": "Path.home() / Path.cwd()",
     "kind": "function",
-    "summary": "Path.home() возвращает домашний каталог пользователя, Path.cwd() — текущий рабочий каталог.",
-    "body": "",
+    "summary": {
+      "ru": "Path.home() возвращает домашний каталог пользователя, Path.cwd() — текущий рабочий каталог.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "Path.home()\nPath.cwd()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-path.home-path.cwd",
@@ -4407,8 +5271,14 @@
     "id": "path.stat",
     "title": "Path.stat()",
     "kind": "function",
-    "summary": "Возвращает структуру os.stat_result с метаданными файла: размер, время изменения, права доступа.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает структуру os.stat_result с метаданными файла: размер, время изменения, права доступа.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "p.stat()\np.stat().st_size\np.stat().st_mtime",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-path.stat",
@@ -4439,8 +5309,14 @@
     "id": "random.choice",
     "title": "random.choice",
     "kind": "term",
-    "summary": "Возвращает случайный элемент из непустой последовательности (list, tuple, str). При пустой — IndexError.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает случайный элемент из непустой последовательности (list, tuple, str). При пустой — IndexError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.choice(seq)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.choice",
@@ -4472,8 +5348,14 @@
     "id": "random.choices",
     "title": "random.choices",
     "kind": "term",
-    "summary": "Возвращает список из k случайных элементов с возвратом. Поддерживает веса (weights или cum_weights).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает список из k случайных элементов с возвратом. Поддерживает веса (weights или cum_weights).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.choices(population, weights=None, k=1)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.choices",
@@ -4504,8 +5386,14 @@
     "id": "random.gauss",
     "title": "random.gauss",
     "kind": "term",
-    "summary": "Возвращает случайное число из нормального (гауссова) распределения с параметрами mu (среднее) и sigma (ст. отклонение).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает случайное число из нормального (гауссова) распределения с параметрами mu (среднее) и sigma (ст. отклонение).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.gauss(mu=0.0, sigma=1.0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.gauss",
@@ -4535,8 +5423,14 @@
     "id": "random.randint",
     "title": "random.randint",
     "kind": "term",
-    "summary": "Возвращает случайное целое число из диапазона [a, b] включительно. Оба конца включены.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает случайное целое число из диапазона [a, b] включительно. Оба конца включены.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.randint(a, b)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.randint",
@@ -4567,8 +5461,14 @@
     "id": "random.random",
     "title": "random.random",
     "kind": "term",
-    "summary": "Возвращает псевдослучайное число из диапазона [0.0, 1.0) с равномерным распределением.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает псевдослучайное число из диапазона [0.0, 1.0) с равномерным распределением.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.random()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.random",
@@ -4599,8 +5499,14 @@
     "id": "random.randrange",
     "title": "random.randrange",
     "kind": "term",
-    "summary": "Возвращает случайный элемент из range(start, stop[, step]). Аналог choice(range(...)), но без создания списка.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает случайный элемент из range(start, stop[, step]). Аналог choice(range(...)), но без создания списка.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.randrange(stop)\nrandom.randrange(start, stop[, step])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.randrange",
@@ -4630,8 +5536,14 @@
     "id": "random.sample",
     "title": "random.sample",
     "kind": "term",
-    "summary": "Возвращает список из k уникальных случайных элементов без повторений. k не может превышать len(population).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает список из k уникальных случайных элементов без повторений. k не может превышать len(population).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.sample(population, k)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.sample",
@@ -4662,8 +5574,14 @@
     "id": "random.seed",
     "title": "random.seed",
     "kind": "term",
-    "summary": "Инициализирует генератор псевдослучайных чисел. Одинаковый seed — одинаковая последовательность.",
-    "body": "",
+    "summary": {
+      "ru": "Инициализирует генератор псевдослучайных чисел. Одинаковый seed — одинаковая последовательность.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.seed(a=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.seed",
@@ -4693,8 +5611,14 @@
     "id": "random.shuffle",
     "title": "random.shuffle",
     "kind": "term",
-    "summary": "Перемешивает список на месте случайным образом. Изменяет оригинальный объект, ничего не возвращает.",
-    "body": "",
+    "summary": {
+      "ru": "Перемешивает список на месте случайным образом. Изменяет оригинальный объект, ничего не возвращает.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.shuffle(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.shuffle",
@@ -4730,8 +5654,14 @@
     "id": "random.systemrandom",
     "title": "random.SystemRandom",
     "kind": "term",
-    "summary": "Криптографически безопасный генератор, использующий os.urandom().",
-    "body": "",
+    "summary": {
+      "ru": "Криптографически безопасный генератор, использующий os.urandom().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.SystemRandom()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.systemrandom",
@@ -4764,8 +5694,14 @@
     "id": "random.uniform",
     "title": "random.uniform",
     "kind": "term",
-    "summary": "Возвращает случайное вещественное число из диапазона [a, b] с равномерным распределением.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает случайное вещественное число из диапазона [a, b] с равномерным распределением.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "random.uniform(a, b)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-random.uniform",
@@ -4795,8 +5731,14 @@
     "id": "re-escape",
     "title": "re.escape()",
     "kind": "function",
-    "summary": "Экранирует все спецсимволы в строке, чтобы использовать её как литерал в регулярном выражении. Полезно, когда паттерн формируется из пользовательского ввода.",
-    "body": "",
+    "summary": {
+      "ru": "Экранирует все спецсимволы в строке, чтобы использовать её как литерал в регулярном выражении. Полезно, когда паттерн формируется из пользовательского ввода.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.escape(pattern) -> str",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re-escape",
@@ -4825,8 +5767,14 @@
     "id": "re-named-group",
     "title": "(?P<name>...)",
     "kind": "function",
-    "summary": "Именованная группа захвата. Позволяет обращаться к совпадению по имени через match.group('name') или match['name'] вместо числового индекса.",
-    "body": "",
+    "summary": {
+      "ru": "Именованная группа захвата. Позволяет обращаться к совпадению по имени через match.group('name') или match['name'] вместо числового индекса.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "(?P<name>pattern)\nmatch.group('name')\nmatch.groupdict()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re-named-group",
@@ -4854,8 +5802,14 @@
     "id": "re.compile",
     "title": "re.compile()",
     "kind": "function",
-    "summary": "Компилирует паттерн в объект RegexObject для повторного использования. Ускоряет многократные операции.",
-    "body": "",
+    "summary": {
+      "ru": "Компилирует паттерн в объект RegexObject для повторного использования. Ускоряет многократные операции.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.compile(pattern, flags=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.compile",
@@ -4884,8 +5838,14 @@
     "id": "re.escape",
     "title": "re.escape()",
     "kind": "function",
-    "summary": "Экранирует все спецсимволы в строке, чтобы использовать её как литеральный паттерн.",
-    "body": "",
+    "summary": {
+      "ru": "Экранирует все спецсимволы в строке, чтобы использовать её как литеральный паттерн.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.escape(pattern)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.escape",
@@ -4913,8 +5873,14 @@
     "id": "re.findall",
     "title": "re.findall()",
     "kind": "function",
-    "summary": "Возвращает список всех совпадений паттерна в строке. Если есть группы — список кортежей.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает список всех совпадений паттерна в строке. Если есть группы — список кортежей.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.findall(pattern, string, flags=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.findall",
@@ -4941,8 +5907,14 @@
     "id": "re.finditer",
     "title": "re.finditer()",
     "kind": "function",
-    "summary": "Возвращает итератор объектов Match для всех совпадений. Экономит память при большом тексте.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает итератор объектов Match для всех совпадений. Экономит память при большом тексте.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.finditer(pattern, string, flags=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.finditer",
@@ -4970,8 +5942,14 @@
     "id": "re.fullmatch",
     "title": "re.fullmatch()",
     "kind": "function",
-    "summary": "Проверяет совпадение паттерна со всей строкой целиком. Возвращает Match или None.",
-    "body": "",
+    "summary": {
+      "ru": "Проверяет совпадение паттерна со всей строкой целиком. Возвращает Match или None.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.fullmatch(pattern, string, flags=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.fullmatch",
@@ -4999,8 +5977,14 @@
     "id": "re.group-re.groups",
     "title": "re.group() / re.groups()",
     "kind": "function",
-    "summary": "Методы объекта Match для доступа к захваченным группам. group(0) — всё совпадение, group(n) — n-я группа.",
-    "body": "",
+    "summary": {
+      "ru": "Методы объекта Match для доступа к захваченным группам. group(0) — всё совпадение, group(n) — n-я группа.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "m.group(n=0)\nm.groups(default=None)\nm.groupdict()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.group-re.groups",
@@ -5030,8 +6014,14 @@
     "id": "re.match",
     "title": "re.match()",
     "kind": "function",
-    "summary": "Проверяет совпадение паттерна с начала строки. Возвращает объект Match или None.",
-    "body": "",
+    "summary": {
+      "ru": "Проверяет совпадение паттерна с начала строки. Возвращает объект Match или None.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.match(pattern, string, flags=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.match",
@@ -5059,8 +6049,14 @@
     "id": "re.search",
     "title": "re.search()",
     "kind": "function",
-    "summary": "Ищет первое совпадение паттерна в любом месте строки. Возвращает Match или None.",
-    "body": "",
+    "summary": {
+      "ru": "Ищет первое совпадение паттерна в любом месте строки. Возвращает Match или None.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.search(pattern, string, flags=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.search",
@@ -5088,8 +6084,14 @@
     "id": "re.split",
     "title": "re.split()",
     "kind": "function",
-    "summary": "Разбивает строку по совпадениям с паттерном. Группы в паттерне включаются в результат.",
-    "body": "",
+    "summary": {
+      "ru": "Разбивает строку по совпадениям с паттерном. Группы в паттерне включаются в результат.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.split(pattern, string, maxsplit=0, flags=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.split",
@@ -5116,8 +6118,14 @@
     "id": "re.sub-re.subn",
     "title": "re.sub() / re.subn()",
     "kind": "function",
-    "summary": "re.sub() заменяет совпадения строкой или функцией. re.subn() дополнительно возвращает число замен.",
-    "body": "",
+    "summary": {
+      "ru": "re.sub() заменяет совпадения строкой или функцией. re.subn() дополнительно возвращает число замен.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.sub(pattern, repl, string, count=0, flags=0)\nre.subn(pattern, repl, string, count=0, flags=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-re.sub-re.subn",
@@ -5145,8 +6153,14 @@
     "id": "string.ascii_letters",
     "title": "string.ascii_letters",
     "kind": "term",
-    "summary": "Строка из всех ASCII-букв: строчных и прописных (a-z + A-Z). Удобна для генерации паролей и валидации.",
-    "body": "",
+    "summary": {
+      "ru": "Строка из всех ASCII-букв: строчных и прописных (a-z + A-Z). Удобна для генерации паролей и валидации.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "string.ascii_letters  # 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-string.ascii_letters",
@@ -5175,8 +6189,14 @@
     "id": "string.ascii_lowercase",
     "title": "string.ascii_lowercase",
     "kind": "term",
-    "summary": "Строка 'abcdefghijklmnopqrstuvwxyz'. string.ascii_uppercase — 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.",
-    "body": "",
+    "summary": {
+      "ru": "Строка 'abcdefghijklmnopqrstuvwxyz'. string.ascii_uppercase — 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "string.ascii_lowercase  # 'abcdefghijklmnopqrstuvwxyz'\nstring.ascii_uppercase  # 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-string.ascii_lowercase",
@@ -5204,8 +6224,14 @@
     "id": "string.capwords",
     "title": "string.capwords()",
     "kind": "function",
-    "summary": "Разбивает строку по пробелам, делает каждое слово с заглавной буквы, склеивает обратно. Аналог title(), но убирает лишние пробелы.",
-    "body": "",
+    "summary": {
+      "ru": "Разбивает строку по пробелам, делает каждое слово с заглавной буквы, склеивает обратно. Аналог title(), но убирает лишние пробелы.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "string.capwords(s, sep=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-string.capwords",
@@ -5233,8 +6259,14 @@
     "id": "string.digits",
     "title": "string.digits",
     "kind": "term",
-    "summary": "Строка '0123456789'. Используется для проверки цифровых символов и генерации числовых кодов.",
-    "body": "",
+    "summary": {
+      "ru": "Строка '0123456789'. Используется для проверки цифровых символов и генерации числовых кодов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "string.digits  # '0123456789'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-string.digits",
@@ -5263,8 +6295,14 @@
     "id": "string.hexdigits",
     "title": "string.hexdigits",
     "kind": "term",
-    "summary": "Строка '0123456789abcdefABCDEF'. string.octdigits — '01234567'. Применяются при парсинге шестнадцатеричных/восьмеричных чисел.",
-    "body": "",
+    "summary": {
+      "ru": "Строка '0123456789abcdefABCDEF'. string.octdigits — '01234567'. Применяются при парсинге шестнадцатеричных/восьмеричных чисел.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "string.hexdigits  # '0123456789abcdefABCDEF'\nstring.octdigits  # '01234567'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-string.hexdigits",
@@ -5292,8 +6330,14 @@
     "id": "string.printable",
     "title": "string.printable",
     "kind": "term",
-    "summary": "Строка всех печатаемых символов: digits + ascii_letters + punctuation + whitespace. Длина — 100 символов.",
-    "body": "",
+    "summary": {
+      "ru": "Строка всех печатаемых символов: digits + ascii_letters + punctuation + whitespace. Длина — 100 символов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "string.printable  # digits + letters + punctuation + whitespace",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-string.printable",
@@ -5321,8 +6365,14 @@
     "id": "string.punctuation",
     "title": "string.punctuation",
     "kind": "term",
-    "summary": "Строка стандартных знаков пунктуации ASCII. Используется при фильтрации или проверке текста.",
-    "body": "",
+    "summary": {
+      "ru": "Строка стандартных знаков пунктуации ASCII. Используется при фильтрации или проверке текста.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "string.punctuation  # '!\"#$%&\\'()*+,-./:;<=>?@[\\\\]^_`{|}~'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-string.punctuation",
@@ -5350,8 +6400,14 @@
     "id": "string.template",
     "title": "string.Template",
     "kind": "term",
-    "summary": "Шаблон строки с подстановкой через $var или ${var}. Безопаснее % и format() для пользовательского ввода. Методы: substitute(), safe_substitute().",
-    "body": "",
+    "summary": {
+      "ru": "Шаблон строки с подстановкой через $var или ${var}. Безопаснее % и format() для пользовательского ввода. Методы: substitute(), safe_substitute().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "string.Template(template_string)\nt.substitute(mapping, **kwargs)\nt.safe_substitute(mapping, **kwargs)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-string.template",
@@ -5381,8 +6437,14 @@
     "id": "string.whitespace",
     "title": "string.whitespace",
     "kind": "term",
-    "summary": "Строка из пробельных символов: пробел, таб, новая строка, возврат каретки, вертикальный таб, перевод страницы.",
-    "body": "",
+    "summary": {
+      "ru": "Строка из пробельных символов: пробел, таб, новая строка, возврат каретки, вертикальный таб, перевод страницы.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "string.whitespace  # ' \\t\\n\\r\\x0b\\x0c'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-string.whitespace",
@@ -5410,8 +6472,14 @@
     "id": "subprocess-PIPE",
     "title": "subprocess.PIPE",
     "kind": "term",
-    "summary": "Константа для перенаправления stdin/stdout/stderr в трубопровод (pipe). Позволяет читать вывод или писать ввод программно.",
-    "body": "",
+    "summary": {
+      "ru": "Константа для перенаправления stdin/stdout/stderr в трубопровод (pipe). Позволяет читать вывод или писать ввод программно.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-subprocess-PIPE",
@@ -5441,8 +6509,14 @@
     "id": "subprocess-Popen",
     "title": "subprocess.Popen()",
     "kind": "function",
-    "summary": "Низкоуровневый запуск процесса с ручным управлением. Позволяет читать stdout/stderr в реальном времени и писать в stdin.",
-    "body": "",
+    "summary": {
+      "ru": "Низкоуровневый запуск процесса с ручным управлением. Позволяет читать stdout/stderr в реальном времени и писать в stdin.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "proc = subprocess.Popen(args, stdin=, stdout=, stderr=, text=False, ...)\nproc.communicate(input=None)\nproc.wait()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-subprocess-Popen",
@@ -5472,8 +6546,14 @@
     "id": "subprocess-check_output",
     "title": "subprocess.check_output()",
     "kind": "function",
-    "summary": "Запускает команду и возвращает её stdout как bytes (или str при text=True). При ненулевом коде возврата бросает CalledProcessError.",
-    "body": "",
+    "summary": {
+      "ru": "Запускает команду и возвращает её stdout как bytes (или str при text=True). При ненулевом коде возврата бросает CalledProcessError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "subprocess.check_output(args, *, text=False, stderr=None, timeout=None, ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-subprocess-check_output",
@@ -5502,8 +6582,14 @@
     "id": "subprocess-run",
     "title": "subprocess.run()",
     "kind": "function",
-    "summary": "Запускает команду, ждёт завершения и возвращает CompletedProcess. Основной способ вызова внешних программ в Python 3.5+.",
-    "body": "",
+    "summary": {
+      "ru": "Запускает команду, ждёт завершения и возвращает CompletedProcess. Основной способ вызова внешних программ в Python 3.5+.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "subprocess.run(args, *, capture_output=False, text=False, check=False, timeout=None, ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-subprocess-run",
@@ -5531,8 +6617,14 @@
     "id": "sys.argv",
     "title": "sys.argv",
     "kind": "term",
-    "summary": "Список аргументов командной строки. sys.argv[0] — имя скрипта, остальные — переданные аргументы.",
-    "body": "",
+    "summary": {
+      "ru": "Список аргументов командной строки. sys.argv[0] — имя скрипта, остальные — переданные аргументы.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sys.argv  # list[str]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.argv",
@@ -5562,8 +6654,14 @@
     "id": "sys.exit",
     "title": "sys.exit()",
     "kind": "function",
-    "summary": "Завершает программу. Аргумент 0 — успешное завершение, не-0 — ошибка. Поднимает SystemExit.",
-    "body": "",
+    "summary": {
+      "ru": "Завершает программу. Аргумент 0 — успешное завершение, не-0 — ошибка. Поднимает SystemExit.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sys.exit(status=0)\n# status: int или str",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.exit",
@@ -5599,8 +6697,14 @@
     "id": "sys.getrecursionlimit-sys.setrecursionli",
     "title": "sys.getrecursionlimit() / sys.setrecursionlimit()",
     "kind": "function",
-    "summary": "Получение и установка максимальной глубины рекурсии. По умолчанию 1000. Превышение вызывает RecursionError.",
-    "body": "",
+    "summary": {
+      "ru": "Получение и установка максимальной глубины рекурсии. По умолчанию 1000. Превышение вызывает RecursionError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sys.getrecursionlimit() -> int\nsys.setrecursionlimit(limit: int) -> None",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.getrecursionlimit-sys.setrecursionli",
@@ -5632,8 +6736,14 @@
     "id": "sys.getsizeof",
     "title": "sys.getsizeof()",
     "kind": "function",
-    "summary": "Возвращает размер объекта в байтах (без учёта вложенных объектов). Использует __sizeof__ плюс служебные данные GC.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает размер объекта в байтах (без учёта вложенных объектов). Использует __sizeof__ плюс служебные данные GC.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sys.getsizeof(object, default=...) -> int",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.getsizeof",
@@ -5661,8 +6771,14 @@
     "id": "sys.intern",
     "title": "sys.intern()",
     "kind": "function",
-    "summary": "Интернирует строку — гарантирует, что идентичные строки используют один объект в памяти. Ускоряет сравнение через 'is'.",
-    "body": "",
+    "summary": {
+      "ru": "Интернирует строку — гарантирует, что идентичные строки используют один объект в памяти. Ускоряет сравнение через 'is'.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sys.intern(string: str) -> str",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.intern",
@@ -5693,8 +6809,14 @@
     "id": "sys.modules",
     "title": "sys.modules",
     "kind": "term",
-    "summary": "Словарь всех загруженных модулей {имя: module}. Кэш импортов Python. Можно удалить модуль для перезагрузки.",
-    "body": "",
+    "summary": {
+      "ru": "Словарь всех загруженных модулей {имя: module}. Кэш импортов Python. Можно удалить модуль для перезагрузки.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sys.modules  # dict[str, ModuleType]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.modules",
@@ -5723,8 +6845,14 @@
     "id": "sys.path",
     "title": "sys.path",
     "kind": "term",
-    "summary": "Список директорий, в которых Python ищет модули при импорте. Можно модифицировать для добавления своих путей.",
-    "body": "",
+    "summary": {
+      "ru": "Список директорий, в которых Python ищет модули при импорте. Можно модифицировать для добавления своих путей.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sys.path  # list[str]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.path",
@@ -5752,8 +6880,14 @@
     "id": "sys.stdin-sys.stdout-sys.stderr",
     "title": "sys.stdin / sys.stdout / sys.stderr",
     "kind": "term",
-    "summary": "Стандартные потоки ввода/вывода/ошибок. Можно перенаправлять для тестирования или записи в файл.",
-    "body": "",
+    "summary": {
+      "ru": "Стандартные потоки ввода/вывода/ошибок. Можно перенаправлять для тестирования или записи в файл.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sys.stdin   # TextIOWrapper (чтение)\nsys.stdout  # TextIOWrapper (запись)\nsys.stderr  # TextIOWrapper (ошибки)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.stdin-sys.stdout-sys.stderr",
@@ -5781,8 +6915,14 @@
     "id": "sys.version-sys.platform-sys.implementat",
     "title": "sys.version / sys.platform / sys.implementation",
     "kind": "term",
-    "summary": "sys.version — строка версии Python. sys.platform — ОС ('linux', 'win32', 'darwin'). sys.implementation — детали реализации (CPython и т.д.).",
-    "body": "",
+    "summary": {
+      "ru": "sys.version — строка версии Python. sys.platform — ОС ('linux', 'win32', 'darwin'). sys.implementation — детали реализации (CPython и т.д.).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sys.version        # str\nsys.version_info   # named tuple (major, minor, micro)\nsys.platform       # str\nsys.implementation # namespace",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.version-sys.platform-sys.implementat",
@@ -5810,8 +6950,14 @@
     "id": "threading-event",
     "title": "threading.Event",
     "kind": "term",
-    "summary": "Механизм сигнализации между потоками. Один поток устанавливает флаг (set()), другие ждут его (wait()).",
-    "body": "",
+    "summary": {
+      "ru": "Механизм сигнализации между потоками. Один поток устанавливает флаг (set()), другие ждут его (wait()).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "e = threading.Event()\ne.set() / e.clear() / e.wait() / e.is_set()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-threading-event",
@@ -5845,8 +6991,14 @@
     "id": "threading-lock",
     "title": "threading.Lock",
     "kind": "term",
-    "summary": "Примитив взаимного исключения (мьютекс). Гарантирует, что только один поток в момент времени выполняет защищённый блок кода.",
-    "body": "",
+    "summary": {
+      "ru": "Примитив взаимного исключения (мьютекс). Гарантирует, что только один поток в момент времени выполняет защищённый блок кода.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lock = threading.Lock()\nlock.acquire() / lock.release()\nwith lock: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-threading-lock",
@@ -5879,8 +7031,14 @@
     "id": "threading-rlock",
     "title": "threading.RLock",
     "kind": "term",
-    "summary": "Реентрантный мьютекс — один поток может захватить его несколько раз без блокировки. Используй вместо Lock при рекурсивных вызовах.",
-    "body": "",
+    "summary": {
+      "ru": "Реентрантный мьютекс — один поток может захватить его несколько раз без блокировки. Используй вместо Lock при рекурсивных вызовах.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "rlock = threading.RLock()\nwith rlock: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-threading-rlock",
@@ -5910,8 +7068,14 @@
     "id": "threading-semaphore",
     "title": "threading.Semaphore",
     "kind": "term",
-    "summary": "Семафор ограничивает количество потоков, одновременно выполняющих блок кода. Полезен для ограничения параллельных запросов.",
-    "body": "",
+    "summary": {
+      "ru": "Семафор ограничивает количество потоков, одновременно выполняющих блок кода. Полезен для ограничения параллельных запросов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sem = threading.Semaphore(n)\nwith sem: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-threading-semaphore",
@@ -5942,8 +7106,14 @@
     "id": "threading-thread",
     "title": "threading.Thread",
     "kind": "term",
-    "summary": "Класс для создания и запуска потока. Потоки разделяют память процесса. Из-за GIL не ускоряет CPU-задачи, но хорош для I/O.",
-    "body": "",
+    "summary": {
+      "ru": "Класс для создания и запуска потока. Потоки разделяют память процесса. Из-за GIL не ускоряет CPU-задачи, но хорош для I/O.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "t = threading.Thread(target=func, args=(), kwargs={}, daemon=False)\nt.start()\nt.join()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-threading-thread",
@@ -5973,8 +7143,14 @@
     "id": "time-объект",
     "title": "time объект",
     "kind": "term",
-    "summary": "Объект времени (без даты). Часы, минуты, секунды, микросекунды.",
-    "body": "",
+    "summary": {
+      "ru": "Объект времени (без даты). Часы, минуты, секунды, микросекунды.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from datetime import time\ntime(hour, minute, second, microsecond)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-time-объект",
@@ -6004,8 +7180,14 @@
     "id": "timedelta",
     "title": "timedelta",
     "kind": "term",
-    "summary": "Промежуток времени. Поддерживает операции с датами: сложение, вычитание, сравнение. Хранит дни, секунды, микросекунды.",
-    "body": "",
+    "summary": {
+      "ru": "Промежуток времени. Поддерживает операции с датами: сложение, вычитание, сравнение. Хранит дни, секунды, микросекунды.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from datetime import timedelta\ntimedelta(days=0, seconds=0, ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-timedelta",
@@ -6038,8 +7220,14 @@
     "id": "timezone-aware-datetime",
     "title": "timezone aware datetime",
     "kind": "term",
-    "summary": "Datetime с учётом часового пояса. Используй timezone из datetime или pytz.",
-    "body": "",
+    "summary": {
+      "ru": "Datetime с учётом часового пояса. Используй timezone из datetime или pytz.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from datetime import timezone\ndatetime.now(timezone.utc)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-timezone-aware-datetime",
@@ -6070,8 +7258,14 @@
     "id": "unique",
     "title": "@unique",
     "kind": "term",
-    "summary": "Декоратор @unique запрещает дублирование значений в перечислении — вызывает ValueError при нарушении.",
-    "body": "",
+    "summary": {
+      "ru": "Декоратор @unique запрещает дублирование значений в перечислении — вызывает ValueError при нарушении.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from enum import unique\n@unique\nclass X(Enum): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-unique",
@@ -6102,8 +7296,14 @@
     "id": "unittest-TestCase",
     "title": "unittest.TestCase",
     "kind": "term",
-    "summary": "Базовый класс для тест-кейсов. Каждый метод, начинающийся с test_, запускается как отдельный тест. Предоставляет методы assert* для проверки результатов.",
-    "body": "",
+    "summary": {
+      "ru": "Базовый класс для тест-кейсов. Каждый метод, начинающийся с test_, запускается как отдельный тест. Предоставляет методы assert* для проверки результатов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class MyTests(unittest.TestCase):\n    def test_something(self): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-unittest-TestCase",
@@ -6133,8 +7333,14 @@
     "id": "unittest-assertEqual",
     "title": "assertEqual() / assertRaises()",
     "kind": "function",
-    "summary": "assertEqual(a, b) проверяет равенство. assertRaises(Exc) проверяет, что блок или вызов поднимает нужное исключение.",
-    "body": "",
+    "summary": {
+      "ru": "assertEqual(a, b) проверяет равенство. assertRaises(Exc) проверяет, что блок или вызов поднимает нужное исключение.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "self.assertEqual(a, b)\nself.assertRaises(ExcType, callable, *args)\nwith self.assertRaises(ExcType): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-unittest-assertEqual",
@@ -6166,8 +7372,14 @@
     "id": "unittest-mock-patch",
     "title": "unittest.mock.patch()",
     "kind": "function",
-    "summary": "Декоратор и контекстный менеджер для замены объектов в тестах на фиктивные (mock). Позволяет изолировать тестируемый код от внешних зависимостей.",
-    "body": "",
+    "summary": {
+      "ru": "Декоратор и контекстный менеджер для замены объектов в тестах на фиктивные (mock). Позволяет изолировать тестируемый код от внешних зависимостей.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from unittest.mock import patch\n@patch('module.ClassName')\ndef test(self, mock_cls): ...\n\nwith patch('module.func') as m: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-unittest-mock-patch",
@@ -6196,8 +7408,14 @@
     "id": "unittest-setUp",
     "title": "setUp() / tearDown()",
     "kind": "function",
-    "summary": "setUp() запускается перед каждым тестом, tearDown() — после. Используй для подготовки и очистки состояния (БД, файлы, моки).",
-    "body": "",
+    "summary": {
+      "ru": "setUp() запускается перед каждым тестом, tearDown() — после. Используй для подготовки и очистки состояния (БД, файлы, моки).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def setUp(self): ...    # до теста\ndef tearDown(self): ... # после теста",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-unittest-setUp",
@@ -6227,8 +7445,14 @@
     "id": "бинарный-поиск-через-bisect",
     "title": "Бинарный поиск через bisect",
     "kind": "term",
-    "summary": "bisect не проверяет наличие элемента, но можно реализовать бинарный поиск, проверив найденную позицию.",
-    "body": "",
+    "summary": {
+      "ru": "bisect не проверяет наличие элемента, но можно реализовать бинарный поиск, проверив найденную позицию.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "i = bisect_left(a, x)\nif i < len(a) and a[i] == x: found",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-бинарный-поиск-через-bisect",
@@ -6258,8 +7482,14 @@
     "id": "буферизация",
     "title": "Буферизация",
     "kind": "term",
-    "summary": "Буферизованный ввод-вывод накапливает данные в памяти перед записью. flush() принудительно сбрасывает буфер.",
-    "body": "",
+    "summary": {
+      "ru": "Буферизованный ввод-вывод накапливает данные в памяти перед записью. flush() принудительно сбрасывает буфер.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "open(file, buffering=-1)  # -1 авто, 0 без буфера (только binary), 1 строчный\nstream.flush()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-буферизация",
@@ -6290,8 +7520,14 @@
     "id": "группы-в-паттернах",
     "title": "Группы в паттернах",
     "kind": "term",
-    "summary": "Расширенные конструкции групп: именованные, не захватывающие, lookahead и lookbehind.",
-    "body": "",
+    "summary": {
+      "ru": "Расширенные конструкции групп: именованные, не захватывающие, lookahead и lookbehind.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "(?P<name>...) именованная\n(?:...) не захватывающая\n(?=...) lookahead\n(?!...) negative lookahead\n(?<=...) lookbehind",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-группы-в-паттернах",
@@ -6319,8 +7555,14 @@
     "id": "дни-между-датами",
     "title": "Дни между датами",
     "kind": "term",
-    "summary": "Вычисление количества дней между двумя датами через вычитание date-объектов — результат является timedelta.",
-    "body": "",
+    "summary": {
+      "ru": "Вычисление количества дней между двумя датами через вычитание date-объектов — результат является timedelta.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "(d2 - d1).days",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-дни-между-датами",
@@ -6351,8 +7593,14 @@
     "id": "итерация-и-сравнение-enum",
     "title": "Итерация и сравнение Enum",
     "kind": "term",
-    "summary": "Перечисления поддерживают итерацию по list(MyEnum) и сравнение через is / ==. IntEnum поддерживает <, >.",
-    "body": "",
+    "summary": {
+      "ru": "Перечисления поддерживают итерацию по list(MyEnum) и сравнение через is / ==. IntEnum поддерживает <, >.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "list(MyEnum)  # все элементы\nfor m in MyEnum: ...\nmember is MyEnum.X",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-итерация-и-сравнение-enum",
@@ -6382,8 +7630,14 @@
     "id": "коды-формата-datetime",
     "title": "Коды формата datetime",
     "kind": "term",
-    "summary": "Коды для strftime/strptime: %Y год, %m месяц, %d день, %H час (24ч), %M минута, %S секунда, %A день нед., %B месяц, %p AM/PM.",
-    "body": "",
+    "summary": {
+      "ru": "Коды для strftime/strptime: %Y год, %m месяц, %d день, %H час (24ч), %M минута, %S секунда, %A день нед., %B месяц, %p AM/PM.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "%Y %m %d %H %M %S %A %B %p",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-коды-формата-datetime",
@@ -6413,8 +7667,14 @@
     "id": "куча-как-приоритетная-очередь",
     "title": "Куча как приоритетная очередь",
     "kind": "term",
-    "summary": "Классический паттерн: хранить кортежи (приоритет, данные) в куче для эффективного планирования задач.",
-    "body": "",
+    "summary": {
+      "ru": "Классический паттерн: хранить кортежи (приоритет, данные) в куче для эффективного планирования задач.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "heapq.heappush(pq, (priority, task))\npriority, task = heapq.heappop(pq)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-куча-как-приоритетная-очередь",
@@ -6445,8 +7705,14 @@
     "id": "ловушки-копирования",
     "title": "Ловушки копирования",
     "kind": "term",
-    "summary": "Типичные ошибки: mutable default arguments, циклические ссылки, shared state при shallow copy.",
-    "body": "",
+    "summary": {
+      "ru": "Типичные ошибки: mutable default arguments, циклические ссылки, shared state при shallow copy.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "# Используй copy/deepcopy для безопасного копирования мутируемых объектов",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ловушки-копирования",
@@ -6483,8 +7749,14 @@
     "id": "оператор",
     "title": "/ оператор",
     "kind": "term",
-    "summary": "Оператор / для объектов Path объединяет компоненты пути, аналог os.path.join().",
-    "body": "",
+    "summary": {
+      "ru": "Оператор / для объектов Path объединяет компоненты пути, аналог os.path.join().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "Path('dir') / 'subdir' / 'file.txt'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-оператор",
@@ -6513,8 +7785,14 @@
     "id": "спецсимволы-паттернов",
     "title": "Спецсимволы паттернов",
     "kind": "term",
-    "summary": "Специальные символы регулярных выражений: метасимволы, классы, квантификаторы, якоря.",
-    "body": "",
+    "summary": {
+      "ru": "Специальные символы регулярных выражений: метасимволы, классы, квантификаторы, якоря.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": ". ^ $ * + ? {n,m} [] | () \\ \\d \\w \\s",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-спецсимволы-паттернов",
@@ -6542,8 +7820,14 @@
     "id": "флаги-re",
     "title": "Флаги re",
     "kind": "term",
-    "summary": "Флаги изменяют поведение паттерна: регистр, многострочность, совпадение точки с \\n, подробный синтаксис.",
-    "body": "",
+    "summary": {
+      "ru": "Флаги изменяют поведение паттерна: регистр, многострочность, совпадение точки с \\n, подробный синтаксис.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "re.IGNORECASE (re.I), re.MULTILINE (re.M), re.DOTALL (re.S), re.VERBOSE (re.X)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-флаги-re",

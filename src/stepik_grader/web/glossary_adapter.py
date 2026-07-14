@@ -116,6 +116,7 @@ def glossary_search(
     kind: str | None = None,
     status: str | None = None,
     sort: str | None = None,
+    lang: str = "ru",
     store_path: pathlib.Path | None = None,
 ) -> list[dict[str, Any]]:
     """Карточки, отфильтрованные по ``query`` и опциональным граням, отсортированные.
@@ -124,7 +125,9 @@ def glossary_search(
     - ``section``/``kind``/``status`` — точное совпадение соответствующего поля
       (issue #329); разделы НЕ объединяются — «Списки (list)» и «Кортежи (tuple)»
       фильтруются раздельно;
-    - ``sort`` — ``az``/``section``/``version`` (иначе порядок источника).
+    - ``sort`` — ``az``/``section``/``version`` (иначе порядок источника);
+    - ``lang`` — локаль ``?lang=`` (issue #363): ``summary``/``body`` отдаются
+      строкой выбранного языка (fallback RU).
     """
     cards = _all_cards(store_path)
     if query.strip():
@@ -136,13 +139,18 @@ def glossary_search(
     if status:
         cards = [c for c in cards if c.status == status]
     cards = _sort_cards(cards, sort)
-    return [c.to_dict() for c in cards]
+    return [c.to_api_dict(lang) for c in cards]
 
 
-def glossary_get(card_id: str, *, store_path: pathlib.Path | None = None) -> dict[str, Any] | None:
-    """Карточка по id, либо None (адаптер отдаёт 404 в этом случае)."""
+def glossary_get(
+    card_id: str, *, lang: str = "ru", store_path: pathlib.Path | None = None
+) -> dict[str, Any] | None:
+    """Карточка по id, либо None (адаптер отдаёт 404 в этом случае).
+
+    ``lang`` — локаль ``?lang=`` для ``summary``/``body`` (issue #363, fallback RU).
+    """
     card = next((c for c in _all_cards(store_path) if c.id == card_id), None)
-    return card.to_dict() if card is not None else None
+    return card.to_api_dict(lang) if card is not None else None
 
 
 # При коллизии «хвоста» (``split`` есть у str/bytes/bytearray) предпочитаем
@@ -220,7 +228,9 @@ def _inventory_sets() -> tuple[frozenset[str], frozenset[str]]:
     return _INVENTORY_SETS
 
 
-def code_terms(code: str, *, store_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
+def code_terms(
+    code: str, *, lang: str = "ru", store_path: pathlib.Path | None = None
+) -> list[dict[str, Any]]:
     """Термины глоссария для концепций, найденных в ``code`` (issue #321/#322/#367).
 
     Сканирует код (``scan_code_concepts`` — builtin'ы и методы из stdlib-
@@ -252,7 +262,7 @@ def code_terms(code: str, *, store_path: pathlib.Path | None = None) -> list[dic
                 {
                     "id": card.id,
                     "title": card.title,
-                    "summary": card.summary,
+                    "summary": card.localized("summary", lang),
                     "kind": card.kind,
                     "has_card": True,
                     "url": card.url,

@@ -17,6 +17,7 @@
 - CLI-витрина инсайтов: флаг `--insights` (сводка карточек «Подучить» + пункт меню «5. Подучить») и `--lint` для режимов 1/2 (блок «Стиль» из ruff-нарушений с однострочником правила) (#349).
 - Web API инсайтов (backend, часть #348): эндпоинты `GET /api/rules` (`?q&tag`), `/api/rules/{code}`, `/api/insights` + адаптеры `web/rules_adapter`/`web/insights_adapter` поверх core-слоя (#345/#347).
 - Web UI разделов «Правила»/«Подучить» (#348): list+detail правил (поиск, чипы-теги, deep-link `#/rules/<code>`, примеры «до/после»), карточки «Подучить» со статусом затухания + бейдж активных в sidebar, единый hash-роутер (замена glossary-only, риск R6). Закрывает эпик #342.
+- Двуязычные описания карточек глоссария (фундамент эпика #363): `summary`/`body` хранятся вложенным `{ru,en}`, web-API (`/api/glossary`, `/api/glossary/<id>`, `/api/code-terms`) отдаёт их строкой по `?lang=` с fallback на RU (`GlossaryCard.to_api_dict`/`localized`, обратная совместимость плоских `card.summary`); селект «Язык интерфейса» в «Настройках» переключает глоссарий на лету (#363).
 
 ### Changed
 - Web sidebar cleanup: dropped the dead «Рабочее пространство» label and the disabled «Настройки» stub → a working Settings section (theme/language, landing spot for the #342 history toggle); recent paths moved to a path-field `datalist` (#364).

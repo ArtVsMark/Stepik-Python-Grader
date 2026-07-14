@@ -63,6 +63,21 @@ def _as_str_list(value: Any) -> list[str]:
     raise ValueError(f"Ожидался список строк, получено: {value!r}")
 
 
+def _parse_localized(value: Any) -> tuple[str, str]:
+    """Разобрать текстовое поле карточки в пару ``(ru, en)`` (issue #363).
+
+    Двуязычный глоссарий поверх механизма ``?lang=`` (issue #264/#387): текстовые
+    поля хранятся вложенным объектом ``{"ru": ..., "en": ...}``. Приём терпим к
+    старому плоскому формату для обратной совместимости — строка трактуется как
+    ``ru`` (``en`` пуст), ``None`` → ``("", "")``.
+    """
+    if value is None:
+        return "", ""
+    if isinstance(value, dict):
+        return str(value.get("ru", "")), str(value.get("en", ""))
+    return str(value), ""
+
+
 @dataclass
 class GlossaryCard:
     """Карточка локального глоссария (термин/исключение/функция/конструкция).
@@ -76,7 +91,7 @@ class GlossaryCard:
     title: str
     kind: CardKind = "term"
     summary: str = ""  # однострочное пояснение (RU); синоним hint из core/glossary
-    body: str = ""  # расширенное описание (Markdown), опционально
+    body: str = ""  # расширенное описание (Markdown, RU), опционально
     syntax: str = ""  # сигнатура/шаблон использования, напр. "sorted(iterable, *, key=None)" (#325)
     status: CardStatus = "draft"
     url: str = ""  # ссылка во внешний Glossary-Python (куда карточка экспортируется)
@@ -90,6 +105,12 @@ class GlossaryCard:
     examples: list[str] = field(default_factory=list)
     related: list[str] = field(default_factory=list)  # id связанных карточек
     related_errors: list[str] = field(default_factory=list)  # коды/имена ошибок
+    # EN-переводы текстовых полей (issue #363). Плоские RU-атрибуты выше
+    # остаются источником по умолчанию (обратная совместимость всех читателей
+    # ``card.summary``); в JSON summary/body сериализуются вложенным {ru,en},
+    # а web-API сплющивает их по ?lang= через ``to_api_dict``/``localized``.
+    summary_en: str = ""
+    body_en: str = ""
 
     @property
     def search_terms(self) -> list[str]:
@@ -132,12 +153,18 @@ class GlossaryCard:
                 f"(ожидалось одно из {sorted(_CARD_STATUSES)})"
             )
 
+        # Текстовые поля — двуязычные (issue #363): вложенный {ru,en} или (старый
+        # плоский формат) строка → ru. ``hint`` — legacy-алиас summary из схемы
+        # Glossary-Python.
+        summary_ru, summary_en = _parse_localized(data.get("summary", data.get("hint", "")))
+        body_ru, body_en = _parse_localized(data.get("body", ""))
+
         return cls(
             id=card_id,
             title=title,
             kind=kind,  # type: ignore[arg-type]
-            summary=str(data.get("summary", data.get("hint", ""))),
-            body=str(data.get("body", "")),
+            summary=summary_ru,
+            body=body_ru,
             syntax=str(data.get("syntax", "")),
             status=status,  # type: ignore[arg-type]
             url=str(data.get("url", "")),
@@ -154,16 +181,33 @@ class GlossaryCard:
             examples=_as_str_list(data.get("examples")),
             related=_as_str_list(data.get("related")),
             related_errors=_as_str_list(data.get("related_errors")),
+            summary_en=summary_en,
+            body_en=body_en,
         )
 
+    def localized(self, field_name: str, lang: str = "ru") -> str:
+        """Текст двуязычного поля (``summary``/``body``) по локали ``lang``.
+
+        ``en`` — только если запрошен и непуст; иначе fallback на RU (плоский
+        атрибут), тот же принцип graceful degradation, что у ``resolve_lang``.
+        """
+        ru = str(getattr(self, field_name))
+        en = str(getattr(self, f"{field_name}_en"))
+        return en if lang == "en" and en else ru
+
     def to_dict(self) -> dict[str, Any]:
-        """Сериализовать карточку в JSON-совместимый dict (стабильный порядок)."""
+        """Сериализовать карточку в JSON-совместимый dict для хранилища.
+
+        Текстовые поля ``summary``/``body`` — вложенным {ru,en} (issue #363);
+        стабильный порядок ключей. Для web-API используй ``to_api_dict(lang)``,
+        который сплющивает их в строку по локали.
+        """
         return {
             "id": self.id,
             "title": self.title,
             "kind": self.kind,
-            "summary": self.summary,
-            "body": self.body,
+            "summary": {"ru": self.summary, "en": self.summary_en},
+            "body": {"ru": self.body, "en": self.body_en},
             "syntax": self.syntax,
             "status": self.status,
             "url": self.url,
@@ -178,6 +222,18 @@ class GlossaryCard:
             "related": list(self.related),
             "related_errors": list(self.related_errors),
         }
+
+    def to_api_dict(self, lang: str = "ru") -> dict[str, Any]:
+        """Представление карточки для web-API: ``summary``/``body`` — строки по ``lang``.
+
+        Хранилищный ``to_dict()`` держит вложенный {ru,en}; web-API отдаёт текст
+        уже выбранной локали (``?lang=``, issue #363), fallback на RU — так
+        контракт полей ``summary``/``body`` остаётся строковым (issue #264).
+        """
+        data = self.to_dict()
+        data["summary"] = self.localized("summary", lang)
+        data["body"] = self.localized("body", lang)
+        return data
 
 
 @dataclass

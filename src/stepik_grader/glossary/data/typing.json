@@ -3,8 +3,14 @@
     "id": "any-1",
     "title": "Any",
     "kind": "term",
-    "summary": "Специальный тип: совместим с любым типом. Отключает проверку типов. Используется при миграции кода или для действительно динамических значений.",
-    "body": "",
+    "summary": {
+      "ru": "Специальный тип: совместим с любым типом. Отключает проверку типов. Используется при миграции кода или для действительно динамических значений.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import Any\nx: Any = ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-any-1",
@@ -34,8 +40,14 @@
     "id": "callable-arg-ret",
     "title": "Callable[[arg], ret]",
     "kind": "term",
-    "summary": "Аннотация для callable-объектов. Callable[[A1, A2], R] — принимает A1, A2, возвращает R. Callable[..., R] — любые аргументы.",
-    "body": "",
+    "summary": {
+      "ru": "Аннотация для callable-объектов. Callable[[A1, A2], R] — принимает A1, A2, возвращает R. Callable[..., R] — любые аргументы.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import Callable\nCallable[[ArgType, ...], ReturnType]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-callable-arg-ret",
@@ -68,8 +80,14 @@
     "id": "classvar",
     "title": "ClassVar",
     "kind": "term",
-    "summary": "Указывает, что переменная является переменной класса, а не экземпляра. Не должна присваиваться через self.",
-    "body": "",
+    "summary": {
+      "ru": "Указывает, что переменная является переменной класса, а не экземпляра. Не должна присваиваться через self.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import ClassVar\nclass MyClass:\n    attr: ClassVar[type] = value",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-classvar",
@@ -105,8 +123,14 @@
     "id": "final",
     "title": "Final",
     "kind": "term",
-    "summary": "Обозначает переменную как константу — не должна переназначаться после инициализации. Только для статического анализа.",
-    "body": "",
+    "summary": {
+      "ru": "Обозначает переменную как константу — не должна переназначаться после инициализации. Только для статического анализа.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import Final\nX: Final = value\nX: Final[type] = value",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-final",
@@ -138,8 +162,14 @@
     "id": "generic-t",
     "title": "Generic[T]",
     "kind": "term",
-    "summary": "Базовый класс для создания обобщённых пользовательских классов. Параметры типа задаются через TypeVar.",
-    "body": "",
+    "summary": {
+      "ru": "Базовый класс для создания обобщённых пользовательских классов. Параметры типа задаются через TypeVar.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import Generic, TypeVar\nT = TypeVar('T')\nclass MyClass(Generic[T]): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-generic-t",
@@ -175,8 +205,14 @@
     "id": "int-str-list-dict-аннотации",
     "title": "int / str / list / dict (аннотации)",
     "kind": "function",
-    "summary": "С Python 3.9+ встроенные типы используются как обобщения напрямую: list[int], dict[str, int]. Ранее нужен был typing.List, typing.Dict.",
-    "body": "",
+    "summary": {
+      "ru": "С Python 3.9+ встроенные типы используются как обобщения напрямую: list[int], dict[str, int]. Ранее нужен был typing.List, typing.Dict.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "x: int = 5\ns: str = 'hi'\nitems: list[int] = [1, 2, 3]\nmapping: dict[str, int] = {'a': 1}",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-int-str-list-dict-аннотации",
@@ -206,8 +242,14 @@
     "id": "literal-v1-v2",
     "title": "Literal[v1, v2]",
     "kind": "term",
-    "summary": "Тип, допускающий только конкретные литеральные значения. Позволяет mypy/pyright проверить, что передаётся допустимое значение.",
-    "body": "",
+    "summary": {
+      "ru": "Тип, допускающий только конкретные литеральные значения. Позволяет mypy/pyright проверить, что передаётся допустимое значение.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import Literal\nLiteral['read', 'write']\nLiteral[1, 2, 3]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-literal-v1-v2",
@@ -240,8 +282,14 @@
     "id": "namedtuple",
     "title": "NamedTuple",
     "kind": "term",
-    "summary": "Типизированный именованный кортеж через наследование. Синтаксис класса с аннотациями.",
-    "body": "",
+    "summary": {
+      "ru": "Типизированный именованный кортеж через наследование. Синтаксис класса с аннотациями.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import NamedTuple\nclass MyTuple(NamedTuple):\n    field: type",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-namedtuple",
@@ -273,8 +321,14 @@
     "id": "optional-x-x-none",
     "title": "Optional[X] / X | None",
     "kind": "term",
-    "summary": "Optional[X] означает X | None. С Python 3.10+ можно писать X | None напрямую. Применяется для значений, которые могут отсутствовать.",
-    "body": "",
+    "summary": {
+      "ru": "Optional[X] означает X | None. С Python 3.10+ можно писать X | None напрямую. Применяется для значений, которые могут отсутствовать.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import Optional\nOptional[X]  # эквивалентно X | None\n# Python 3.10+: X | None",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-optional-x-x-none",
@@ -305,8 +359,14 @@
     "id": "protocol",
     "title": "Protocol",
     "kind": "term",
-    "summary": "Определяет интерфейс через структуру (duck typing). Класс считается совместимым, если реализует все методы Protocol, без явного наследования.",
-    "body": "",
+    "summary": {
+      "ru": "Определяет интерфейс через структуру (duck typing). Класс считается совместимым, если реализует все методы Protocol, без явного наследования.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import Protocol\nclass MyProtocol(Protocol):\n    def method(self) -> type: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-protocol",
@@ -341,8 +401,14 @@
     "id": "type_checking",
     "title": "TYPE_CHECKING",
     "kind": "term",
-    "summary": "Булева константа, True только при статическом анализе (mypy, pyright). Позволяет импортировать типы лишь для аннотаций, избегая циклических импортов в рантайме.",
-    "body": "",
+    "summary": {
+      "ru": "Булева константа, True только при статическом анализе (mypy, pyright). Позволяет импортировать типы лишь для аннотаций, избегая циклических импортов в рантайме.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from module import SomeType",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-type_checking",
@@ -372,8 +438,14 @@
     "id": "typeddict",
     "title": "TypedDict",
     "kind": "term",
-    "summary": "Словарь с фиксированными типизированными ключами. Только для статического анализа; в рантайме — обычный dict.",
-    "body": "",
+    "summary": {
+      "ru": "Словарь с фиксированными типизированными ключами. Только для статического анализа; в рантайме — обычный dict.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import TypedDict\nclass MyDict(TypedDict):\n    key: type",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-typeddict",
@@ -407,8 +479,14 @@
     "id": "typevar",
     "title": "TypeVar",
     "kind": "term",
-    "summary": "Переменная типа для создания обобщённых функций и классов. Ограничения задаются через bound= или явный список типов.",
-    "body": "",
+    "summary": {
+      "ru": "Переменная типа для создания обобщённых функций и классов. Ограничения задаются через bound= или явный список типов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import TypeVar\nT = TypeVar('T')\nT = TypeVar('T', bound=SomeType)\nT = TypeVar('T', int, str)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-typevar",
@@ -441,8 +519,14 @@
     "id": "union-x-y-x-y",
     "title": "Union[X, Y] / X | Y",
     "kind": "term",
-    "summary": "Union[X, Y] — значение может быть типа X или Y. С Python 3.10+ поддерживается сокращённая запись X | Y.",
-    "body": "",
+    "summary": {
+      "ru": "Union[X, Y] — значение может быть типа X или Y. С Python 3.10+ поддерживается сокращённая запись X | Y.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from typing import Union\nUnion[int, str]   # int или str\n# Python 3.10+: int | str",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-union-x-y-x-y",

@@ -3,8 +3,14 @@
     "id": "add-update",
     "title": "add() / update()",
     "kind": "function",
-    "summary": "add() добавляет один элемент (нет эффекта если уже есть). update() добавляет все элементы итерируемого объекта.",
-    "body": "",
+    "summary": {
+      "ru": "add() добавляет один элемент (нет эффекта если уже есть). update() добавляет все элементы итерируемого объекта.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.add(item)  |  s.update(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-add-update",
@@ -48,8 +54,14 @@
     "id": "chainmap",
     "title": "ChainMap",
     "kind": "term",
-    "summary": "collections.ChainMap объединяет несколько словарей в единый вид без копирования. Поиск ключа идёт по словарям слева направо. Запись и удаление затрагивают только первый словарь.",
-    "body": "",
+    "summary": {
+      "ru": "collections.ChainMap объединяет несколько словарей в единый вид без копирования. Поиск ключа идёт по словарям слева направо. Запись и удаление затрагивают только первый словарь.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from collections import ChainMap; ChainMap(*maps)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-chainmap",
@@ -80,8 +92,14 @@
     "id": "copy-deepcopy-словаря",
     "title": "copy() / deepcopy() словаря",
     "kind": "term",
-    "summary": "dict.copy() делает поверхностную копию: вложенные объекты не копируются, а разделяются между оригиналом и копией. copy.deepcopy() копирует полностью рекурсивно.",
-    "body": "",
+    "summary": {
+      "ru": "dict.copy() делает поверхностную копию: вложенные объекты не копируются, а разделяются между оригиналом и копией. copy.deepcopy() копирует полностью рекурсивно.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d.copy()  import copy; copy.deepcopy(d)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-copy-deepcopy-словаря",
@@ -113,8 +131,14 @@
     "id": "counter",
     "title": "Counter",
     "kind": "term",
-    "summary": "Counter из collections — словарь для подсчёта. Поддерживает арифметику, most_common, вычитание.",
-    "body": "",
+    "summary": {
+      "ru": "Counter из collections — словарь для подсчёта. Поддерживает арифметику, most_common, вычитание.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from collections import Counter\nc = Counter(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-counter",
@@ -159,8 +183,14 @@
     "id": "defaultdict",
     "title": "defaultdict",
     "kind": "term",
-    "summary": "defaultdict из collections автоматически создаёт значение по умолчанию при обращении к несуществующему ключу.",
-    "body": "",
+    "summary": {
+      "ru": "defaultdict из collections автоматически создаёт значение по умолчанию при обращении к несуществующему ключу.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from collections import defaultdict\nd = defaultdict(default_factory)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-defaultdict",
@@ -219,8 +249,14 @@
     "id": "del-d-key-pop-popitem-clear",
     "title": "del d[key] / pop() / popitem() / clear()",
     "kind": "function",
-    "summary": "del удаляет ключ (KeyError если нет). pop() удаляет и возвращает. popitem() удаляет последнюю пару. clear() очищает весь словарь.",
-    "body": "",
+    "summary": {
+      "ru": "del удаляет ключ (KeyError если нет). pop() удаляет и возвращает. popitem() удаляет последнюю пару. clear() очищает весь словарь.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "del d[key]  |  d.pop(key[, default])  |  d.popitem()  |  d.clear()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-del-d-key-pop-popitem-clear",
@@ -269,8 +305,14 @@
     "id": "dict-merge",
     "title": "d1 | d2",
     "kind": "term",
-    "summary": "Оператор объединения словарей (Python 3.9+). Создаёт новый словарь, объединяя d1 и d2. При конфликте ключей побеждает правый операнд.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор объединения словарей (Python 3.9+). Создаёт новый словарь, объединяя d1 и d2. При конфликте ключей побеждает правый операнд.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "merged = d1 | d2",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dict-merge",
@@ -298,8 +340,14 @@
     "id": "dict-merge-update",
     "title": "d1 |= d2",
     "kind": "term",
-    "summary": "Оператор обновления словаря на месте (Python 3.9+). Добавляет/перезаписывает в d1 все пары из d2 без создания нового объекта.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор обновления словаря на месте (Python 3.9+). Добавляет/перезаписывает в d1 все пары из d2 без создания нового объекта.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d1 |= d2",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dict-merge-update",
@@ -326,8 +374,14 @@
     "id": "dict.fromkeys",
     "title": "dict.fromkeys()",
     "kind": "function",
-    "summary": "Создаёт новый словарь из итерируемого набора ключей. Второй аргумент задаёт значение по умолчанию для всех ключей (по умолчанию None).",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт новый словарь из итерируемого набора ключей. Второй аргумент задаёт значение по умолчанию для всех ключей (по умолчанию None).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dict.fromkeys(iterable, value=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dict.fromkeys",
@@ -355,8 +409,14 @@
     "id": "frozenset-неизменяемое-множество",
     "title": "frozenset — неизменяемое множество",
     "kind": "term",
-    "summary": "frozenset — неизменяемая версия set. Хэшируемо, может быть ключом словаря или элементом другого множества.",
-    "body": "",
+    "summary": {
+      "ru": "frozenset — неизменяемая версия set. Хэшируемо, может быть ключом словаря или элементом другого множества.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "frozenset(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-frozenset-неизменяемое-множество",
@@ -396,8 +456,14 @@
     "id": "in-not-in-для-множеств-o-1",
     "title": "in / not in для множеств — O(1)",
     "kind": "function",
-    "summary": "Проверка принадлежности в множестве работает за O(1) (хэш-таблица), в отличие от O(n) для списков.",
-    "body": "",
+    "summary": {
+      "ru": "Проверка принадлежности в множестве работает за O(1) (хэш-таблица), в отличие от O(n) для списков.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "item in s  |  item not in s",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-in-not-in-для-множеств-o-1",
@@ -433,8 +499,14 @@
     "id": "in-not-in-для-словаря",
     "title": "in / not in для словаря",
     "kind": "term",
-    "summary": "in проверяет наличие КЛЮЧА в словаре за O(1). Для проверки значений используйте in d.values().",
-    "body": "",
+    "summary": {
+      "ru": "in проверяет наличие КЛЮЧА в словаре за O(1). Для проверки значений используйте in d.values().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "key in d  |  key not in d",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-in-not-in-для-словаря",
@@ -467,8 +539,14 @@
     "id": "issubset-issuperset-isdisjoint",
     "title": "issubset() / issuperset() / isdisjoint()",
     "kind": "function",
-    "summary": "issubset() — проверяет, является ли подмножеством. issuperset() — надмножеством. isdisjoint() — нет общих элементов.",
-    "body": "",
+    "summary": {
+      "ru": "issubset() — проверяет, является ли подмножеством. issuperset() — надмножеством. isdisjoint() — нет общих элементов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a.issubset(b)  |  a.issuperset(b)  |  a.isdisjoint(b)  |  a <= b  |  a >= b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-issubset-issuperset-isdisjoint",
@@ -506,8 +584,14 @@
     "id": "keys-values-items",
     "title": "keys() / values() / items()",
     "kind": "function",
-    "summary": "Возвращают представления (view objects): keys(), values(), items(). Динамически отражают изменения словаря.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращают представления (view objects): keys(), values(), items(). Динамически отражают изменения словаря.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d.keys()  |  d.values()  |  d.items()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-keys-values-items",
@@ -546,8 +630,14 @@
     "id": "ordereddict",
     "title": "OrderedDict",
     "kind": "term",
-    "summary": "OrderedDict из collections гарантирует порядок вставки (в Python 3.7+ обычный dict тоже сохраняет порядок). Имеет move_to_end() и popitem(last=).",
-    "body": "",
+    "summary": {
+      "ru": "OrderedDict из collections гарантирует порядок вставки (в Python 3.7+ обычный dict тоже сохраняет порядок). Имеет move_to_end() и popitem(last=).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from collections import OrderedDict\nod = OrderedDict()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ordereddict",
@@ -583,8 +673,14 @@
     "id": "remove-discard-pop",
     "title": "remove() / discard() / pop()",
     "kind": "function",
-    "summary": "remove() удаляет элемент (KeyError если нет). discard() удаляет без ошибки. pop() удаляет произвольный элемент.",
-    "body": "",
+    "summary": {
+      "ru": "remove() удаляет элемент (KeyError если нет). discard() удаляет без ошибки. pop() удаляет произвольный элемент.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.remove(item)  |  s.discard(item)  |  s.pop()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-remove-discard-pop",
@@ -630,8 +726,14 @@
     "id": "set-clear",
     "title": "set.clear()",
     "kind": "function",
-    "summary": "Удаляет все элементы из множества, делая его пустым. Изменяет объект на месте, не создавая новый.",
-    "body": "",
+    "summary": {
+      "ru": "Удаляет все элементы из множества, делая его пустым. Изменяет объект на месте, не создавая новый.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "set.clear()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-set-clear",
@@ -659,8 +761,14 @@
     "id": "set-copy",
     "title": "set.copy()",
     "kind": "function",
-    "summary": "Возвращает поверхностную копию множества. Изменения копии не затрагивают оригинал.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает поверхностную копию множества. Изменения копии не затрагивают оригинал.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "new_set = set.copy()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-set-copy",
@@ -689,8 +797,14 @@
     "id": "setdefault",
     "title": "setdefault()",
     "kind": "function",
-    "summary": "setdefault(key, default) возвращает значение по ключу, а если ключа нет — добавляет его с default и возвращает default.",
-    "body": "",
+    "summary": {
+      "ru": "setdefault(key, default) возвращает значение по ключу, а если ключа нет — добавляет его с default и возвращает default.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d.setdefault(key[, default])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-setdefault",
@@ -730,8 +844,14 @@
     "id": "union-intersection-difference-symmetric_",
     "title": "union() / intersection() / difference() / symmetric_difference()",
     "kind": "function",
-    "summary": "Методы-аналоги операторов. Принимают любые итерируемые объекты (не только множества).",
-    "body": "",
+    "summary": {
+      "ru": "Методы-аналоги операторов. Принимают любые итерируемые объекты (не только множества).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "s.union(*others)  |  s.intersection(*others)  |  s.difference(*others)  |  s.symmetric_difference(other)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-union-intersection-difference-symmetric_",
@@ -767,8 +887,14 @@
     "id": "вложенные-словари",
     "title": "Вложенные словари",
     "kind": "term",
-    "summary": "Значения словаря могут быть любого типа, включая другие словари. Доступ через цепочку ключей.",
-    "body": "",
+    "summary": {
+      "ru": "Значения словаря могут быть любого типа, включая другие словари. Доступ через цепочку ключей.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d[key1][key2]  |  d.get(k1, {}).get(k2)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-вложенные-словари",
@@ -814,8 +940,14 @@
     "id": "генераторы-множеств-set-comprehension",
     "title": "Генераторы множеств (set comprehension)",
     "kind": "function",
-    "summary": "Set comprehension создаёт множество аналогично list comprehension, но с фигурными скобками. Дубли автоматически удаляются.",
-    "body": "",
+    "summary": {
+      "ru": "Set comprehension создаёт множество аналогично list comprehension, но с фигурными скобками. Дубли автоматически удаляются.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "{expr for var in iterable [if cond]}",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-генераторы-множеств-set-comprehension",
@@ -853,8 +985,14 @@
     "id": "добавление-и-изменение-d-key-val-update",
     "title": "Добавление и изменение d[key]=val / update()",
     "kind": "function",
-    "summary": "Присваивание добавляет ключ или обновляет значение. update() обновляет несколько пар сразу.",
-    "body": "",
+    "summary": {
+      "ru": "Присваивание добавляет ключ или обновляет значение. update() обновляет несколько пар сразу.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d[key] = val  |  d.update(other)  |  d.update(**kwargs)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-добавление-и-изменение-d-key-val-update",
@@ -898,8 +1036,14 @@
     "id": "доступ-d-key-d.get",
     "title": "Доступ d[key] / d.get()",
     "kind": "function",
-    "summary": "d[key] возвращает значение или KeyError. d.get(key) возвращает None (или default) если ключа нет.",
-    "body": "",
+    "summary": {
+      "ru": "d[key] возвращает значение или KeyError. d.get(key) возвращает None (или default) если ключа нет.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d[key]  |  d.get(key[, default])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-доступ-d-key-d.get",
@@ -940,8 +1084,14 @@
     "id": "объединение-словарей",
     "title": "Объединение словарей",
     "kind": "term",
-    "summary": "update() изменяет словарь на месте. ** распаковка создаёт новый словарь. | (Python 3.9+) — оператор слияния.",
-    "body": "",
+    "summary": {
+      "ru": "update() изменяет словарь на месте. ** распаковка создаёт новый словарь. | (Python 3.9+) — оператор слияния.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d1.update(d2)  |  {**d1, **d2}  |  d1 | d2",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-объединение-словарей",
@@ -985,8 +1135,14 @@
     "id": "оператор-слияния-словарей",
     "title": "| оператор слияния словарей",
     "kind": "term",
-    "summary": "Оператор | (Python 3.9+) объединяет два словаря в новый. При совпадении ключей значение берётся из правого словаря. |= обновляет словарь на месте.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор | (Python 3.9+) объединяет два словаря в новый. При совпадении ключей значение берётся из правого словаря. |= обновляет словарь на месте.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d1 | d2  d1 |= d2",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-оператор-слияния-словарей",
@@ -1014,8 +1170,14 @@
     "id": "операции-над-множествами",
     "title": "Операции над множествами: | & - ^",
     "kind": "term",
-    "summary": "| — объединение, & — пересечение, - — разность, ^ — симметричная разность. |=, &=, -=, ^= изменяют на месте.",
-    "body": "",
+    "summary": {
+      "ru": "| — объединение, & — пересечение, - — разность, ^ — симметричная разность. |=, &=, -=, ^= изменяют на месте.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a | b  |  a & b  |  a - b  |  a ^ b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-операции-над-множествами",
@@ -1059,8 +1221,14 @@
     "id": "практические-задачи-с-множествами",
     "title": "Практические задачи с множествами",
     "kind": "term",
-    "summary": "Типичное применение: уникальные элементы, пересечения, разности, быстрая проверка принадлежности.",
-    "body": "",
+    "summary": {
+      "ru": "Типичное применение: уникальные элементы, пересечения, разности, быстрая проверка принадлежности.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "set(lst)  |  a & b  |  a - b  |  a ^ b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-практические-задачи-с-множествами",
@@ -1103,8 +1271,14 @@
     "id": "слияние-и-распаковка-словарей",
     "title": "Слияние и распаковка ** словарей",
     "kind": "term",
-    "summary": "** распаковывает словарь в именованные аргументы или создаёт слияние. При дублировании ключей побеждает последний.",
-    "body": "",
+    "summary": {
+      "ru": "** распаковывает словарь в именованные аргументы или создаёт слияние. При дублировании ключей побеждает последний.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "func(**d)  |  {**d1, **d2}  |  d1 | d2 (Python 3.9+)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-слияние-и-распаковка-словарей",
@@ -1147,8 +1321,14 @@
     "id": "словарные-выражения-dict-comprehension",
     "title": "Словарные выражения (dict comprehension)",
     "kind": "function",
-    "summary": "Dict comprehension создаёт словарь из итерируемого объекта. Поддерживает фильтрацию.",
-    "body": "",
+    "summary": {
+      "ru": "Dict comprehension создаёт словарь из итерируемого объекта. Поддерживает фильтрацию.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "{k: v for ... in ...}  |  {k: v for ... in ... if cond}",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-словарные-выражения-dict-comprehension",
@@ -1199,8 +1379,14 @@
     "id": "создание-множества",
     "title": "Создание множества",
     "kind": "term",
-    "summary": "Множество создаётся литералом {}, конструктором set() или frozenset(). Дубликаты автоматически удаляются. Порядок не гарантирован.",
-    "body": "",
+    "summary": {
+      "ru": "Множество создаётся литералом {}, конструктором set() или frozenset(). Дубликаты автоматически удаляются. Порядок не гарантирован.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "{a, b}  |  set(iterable)  |  frozenset(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-создание-множества",
@@ -1243,8 +1429,14 @@
     "id": "создание-словаря",
     "title": "Создание словаря",
     "kind": "term",
-    "summary": "Словарь создаётся литералом {k:v}, конструктором dict(), dict.fromkeys() или словарным выражением.",
-    "body": "",
+    "summary": {
+      "ru": "Словарь создаётся литералом {k:v}, конструктором dict(), dict.fromkeys() или словарным выражением.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "{}  |  dict()  |  {k: v}  |  dict.fromkeys(keys[, val])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-создание-словаря",
@@ -1283,8 +1475,14 @@
     "id": "сортировка-словаря",
     "title": "Сортировка словаря",
     "kind": "term",
-    "summary": "sorted(d.items()) сортирует пары. key= задаёт критерий сортировки. Результат — список кортежей или новый словарь.",
-    "body": "",
+    "summary": {
+      "ru": "sorted(d.items()) сортирует пары. key= задаёт критерий сортировки. Результат — список кортежей или новый словарь.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sorted(d.items())  |  sorted(d.items(), key=lambda x: x[1])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сортировка-словаря",

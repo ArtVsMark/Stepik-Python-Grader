@@ -3,8 +3,14 @@
     "id": "async-def-await",
     "title": "async def / await",
     "kind": "term",
-    "summary": "async def объявляет корутину. await приостанавливает выполнение до результата другой корутины.",
-    "body": "",
+    "summary": {
+      "ru": "async def объявляет корутину. await приостанавливает выполнение до результата другой корутины.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "async def name() -> T:\n    result = await other_coroutine()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-async-def-await",
@@ -35,8 +41,14 @@
     "id": "async-for-async-with",
     "title": "async for / async with",
     "kind": "term",
-    "summary": "async for итерирует по асинхронному итератору. async with использует асинхронный контекстный менеджер.",
-    "body": "",
+    "summary": {
+      "ru": "async for итерирует по асинхронному итератору. async with использует асинхронный контекстный менеджер.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "async for item in aiter: ...\nasync with ctx_manager() as obj: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-async-for-async-with",
@@ -67,8 +79,14 @@
     "id": "asyncio.create_task",
     "title": "asyncio.create_task()",
     "kind": "function",
-    "summary": "Оборачивает корутину в Task, запуская её в фоне event loop. Задача стартует немедленно, не дожидаясь await.",
-    "body": "",
+    "summary": {
+      "ru": "Оборачивает корутину в Task, запуская её в фоне event loop. Задача стартует немедленно, не дожидаясь await.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "task = asyncio.create_task(coro())",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-asyncio.create_task",
@@ -100,8 +118,14 @@
     "id": "asyncio.gather",
     "title": "asyncio.gather()",
     "kind": "function",
-    "summary": "Запускает несколько корутин конкурентно и ждёт завершения всех. Возвращает список результатов.",
-    "body": "",
+    "summary": {
+      "ru": "Запускает несколько корутин конкурентно и ждёт завершения всех. Возвращает список результатов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "results = await asyncio.gather(coro1, coro2, ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-asyncio.gather",
@@ -131,8 +155,14 @@
     "id": "asyncio.queue",
     "title": "asyncio.Queue",
     "kind": "term",
-    "summary": "Потокобезопасная очередь для обмена данными между корутинами. Поддерживает put/get с await.",
-    "body": "",
+    "summary": {
+      "ru": "Потокобезопасная очередь для обмена данными между корутинами. Поддерживает put/get с await.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "q = asyncio.Queue(maxsize=0)\nawait q.put(item)\nitem = await q.get()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-asyncio.queue",
@@ -167,8 +197,14 @@
     "id": "asyncio.run",
     "title": "asyncio.run()",
     "kind": "function",
-    "summary": "Запускает корутину верхнего уровня в новом event loop. Главная точка входа для async-программ (Python 3.7+).",
-    "body": "",
+    "summary": {
+      "ru": "Запускает корутину верхнего уровня в новом event loop. Главная точка входа для async-программ (Python 3.7+).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "asyncio.run(coro)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-asyncio.run",
@@ -200,8 +236,14 @@
     "id": "asyncio.sleep",
     "title": "asyncio.sleep()",
     "kind": "function",
-    "summary": "Приостанавливает корутину на указанное время, не блокируя event loop. Аналог time.sleep() для async.",
-    "body": "",
+    "summary": {
+      "ru": "Приостанавливает корутину на указанное время, не блокируя event loop. Аналог time.sleep() для async.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "await asyncio.sleep(seconds)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-asyncio.sleep",
@@ -232,8 +274,14 @@
     "id": "collections.deque",
     "title": "collections.deque",
     "kind": "term",
-    "summary": "Двусторонняя очередь. O(1) вставка/удаление с обоих концов. Поддерживает maxlen (скользящее окно).",
-    "body": "",
+    "summary": {
+      "ru": "Двусторонняя очередь. O(1) вставка/удаление с обоих концов. Поддерживает maxlen (скользящее окно).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from collections import deque\ndeque(iterable, maxlen=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-collections.deque",
@@ -290,8 +338,14 @@
     "id": "generator-function-yield",
     "title": "Generator function — yield",
     "kind": "term",
-    "summary": "Функция с yield — генераторная функция. Возвращает генератор. Выполнение приостанавливается при yield.",
-    "body": "",
+    "summary": {
+      "ru": "Функция с yield — генераторная функция. Возвращает генератор. Выполнение приостанавливается при yield.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def gen():\n    yield value",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-generator-function-yield",
@@ -365,8 +419,14 @@
     "id": "iter-next",
     "title": "iter() / next()",
     "kind": "function",
-    "summary": "iter() создаёт итератор из итерируемого. next() возвращает следующий элемент. Default-значение — вместо StopIteration.",
-    "body": "",
+    "summary": {
+      "ru": "iter() создаёт итератор из итерируемого. next() возвращает следующий элемент. Default-значение — вместо StopIteration.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "it = iter(obj)\nnext(it, default)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-iter-next",
@@ -409,8 +469,14 @@
     "id": "itertools.accumulate",
     "title": "itertools.accumulate",
     "kind": "term",
-    "summary": "Накапливающиеся промежуточные результаты применения функции. По умолчанию — сумма.",
-    "body": "",
+    "summary": {
+      "ru": "Накапливающиеся промежуточные результаты применения функции. По умолчанию — сумма.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from itertools import accumulate\naccumulate(iterable, func=operator.add)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-itertools.accumulate",
@@ -444,8 +510,14 @@
     "id": "itertools.chain",
     "title": "itertools.chain",
     "kind": "term",
-    "summary": "Последовательно перебирает несколько итерируемых как одно целое.",
-    "body": "",
+    "summary": {
+      "ru": "Последовательно перебирает несколько итерируемых как одно целое.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from itertools import chain\nchain(a, b, c)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-itertools.chain",
@@ -484,8 +556,14 @@
     "id": "itertools.combinations-permutations-prod",
     "title": "itertools.combinations / permutations / product",
     "kind": "term",
-    "summary": "combinations — подмножества без повторений. permutations — упорядоченные. product — декартово произведение.",
-    "body": "",
+    "summary": {
+      "ru": "combinations — подмножества без повторений. permutations — упорядоченные. product — декартово произведение.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "combinations(iter, r)\npermutations(iter, r)\nproduct(*iters)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-itertools.combinations-permutations-prod",
@@ -526,8 +604,14 @@
     "id": "itertools.cycle-repeat-count",
     "title": "itertools.cycle / repeat / count",
     "kind": "term",
-    "summary": "cycle — бесконечно повторяет итерируемый. repeat — повторяет элемент. count — бесконечный счётчик.",
-    "body": "",
+    "summary": {
+      "ru": "cycle — бесконечно повторяет итерируемый. repeat — повторяет элемент. count — бесконечный счётчик.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "cycle(iterable)\nrepeat(object, times)\ncount(start=0, step=1)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-itertools.cycle-repeat-count",
@@ -568,8 +652,14 @@
     "id": "itertools.groupby",
     "title": "itertools.groupby",
     "kind": "term",
-    "summary": "Группирует последовательные одинаковые элементы. Данные должны быть отсортированы по ключу!",
-    "body": "",
+    "summary": {
+      "ru": "Группирует последовательные одинаковые элементы. Данные должны быть отсортированы по ключу!",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from itertools import groupby\ngroupby(iterable, key=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-itertools.groupby",
@@ -612,8 +702,14 @@
     "id": "itertools.islice",
     "title": "itertools.islice",
     "kind": "term",
-    "summary": "Срез итератора без материализации. Аналог slice для итерируемых.",
-    "body": "",
+    "summary": {
+      "ru": "Срез итератора без материализации. Аналог slice для итерируемых.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from itertools import islice\nislice(iterable, stop)\nislice(iterable, start, stop[, step])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-itertools.islice",
@@ -653,8 +749,14 @@
     "id": "yield-from",
     "title": "yield from",
     "kind": "term",
-    "summary": "Делегирует yield другому генератору или итерируемому. Упрощает вложенные генераторы.",
-    "body": "",
+    "summary": {
+      "ru": "Делегирует yield другому генератору или итерируемому. Упрощает вложенные генераторы.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "yield from iterable",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-yield-from",
@@ -705,8 +807,14 @@
     "id": "генераторное-выражение",
     "title": "Генераторное выражение",
     "kind": "term",
-    "summary": "Ленивый аналог list comprehension в круглых скобках. Не создаёт список в памяти.",
-    "body": "",
+    "summary": {
+      "ru": "Ленивый аналог list comprehension в круглых скобках. Не создаёт список в памяти.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "(expr for x in iterable if condition)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-генераторное-выражение",
@@ -746,8 +854,14 @@
     "id": "итератор-__iter__-__next__",
     "title": "Итератор __iter__ / __next__",
     "kind": "term",
-    "summary": "Итератор — объект с __iter__ и __next__. __next__ возвращает следующее значение или поднимает StopIteration.",
-    "body": "",
+    "summary": {
+      "ru": "Итератор — объект с __iter__ и __next__. __next__ возвращает следующее значение или поднимает StopIteration.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class Iter:\n    def __iter__(self): return self\n    def __next__(self): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-итератор-__iter__-__next__",

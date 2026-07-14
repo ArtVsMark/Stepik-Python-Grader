@@ -3,8 +3,14 @@
     "id": "assert",
     "title": "assert",
     "kind": "exception",
-    "summary": "Утверждение — проверяет условие и вызывает AssertionError при False. Используется для отладки и тестов. Отключается с -O.",
-    "body": "",
+    "summary": {
+      "ru": "Утверждение — проверяет условие и вызывает AssertionError при False. Используется для отладки и тестов. Отключается с -O.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "assert condition, 'message'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-assert",
@@ -52,8 +58,14 @@
     "id": "attributeerror",
     "title": "AttributeError",
     "kind": "exception",
-    "summary": "Вызывается при обращении к несуществующему атрибуту или методу объекта.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается при обращении к несуществующему атрибуту или методу объекта.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise AttributeError('сообщение')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-AttributeError",
@@ -79,8 +91,14 @@
     "id": "contextlib.suppress",
     "title": "contextlib.suppress",
     "kind": "exception",
-    "summary": "Подавляет указанные исключения. Аналог try/except pass. Читаемее и лаконичнее.",
-    "body": "",
+    "summary": {
+      "ru": "Подавляет указанные исключения. Аналог try/except pass. Читаемее и лаконичнее.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from contextlib import suppress\nwith suppress(FileNotFoundError):\n    os.remove('file')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-contextlib.suppress",
@@ -119,8 +137,14 @@
     "id": "else-в-try-except",
     "title": "else в try-except",
     "kind": "exception",
-    "summary": "Блок else выполняется, только если в try не возникло исключения. Отделяет «счастливый путь» от обработки ошибок.",
-    "body": "",
+    "summary": {
+      "ru": "Блок else выполняется, только если в try не возникло исключения. Отделяет «счастливый путь» от обработки ошибок.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "try:\n    ...\nexcept Error:\n    ...\nelse:\n    # только при успехе",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-else-в-try-except",
@@ -183,8 +207,14 @@
     "id": "filenotfounderror",
     "title": "FileNotFoundError",
     "kind": "exception",
-    "summary": "Вызывается при попытке открыть или работать с файлом, которого не существует. Подкласс OSError.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается при попытке открыть или работать с файлом, которого не существует. Подкласс OSError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise FileNotFoundError('файл не найден')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-FileNotFoundError",
@@ -212,8 +242,14 @@
     "id": "finally",
     "title": "finally",
     "kind": "exception",
-    "summary": "Блок finally выполняется всегда — независимо от того, было ли исключение. Используется для освобождения ресурсов.",
-    "body": "",
+    "summary": {
+      "ru": "Блок finally выполняется всегда — независимо от того, было ли исключение. Используется для освобождения ресурсов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "try:\n    ...\nfinally:\n    cleanup()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-finally",
@@ -280,8 +316,14 @@
     "id": "importerror",
     "title": "ImportError",
     "kind": "exception",
-    "summary": "Вызывается, если импорт модуля не удался — модуль найден, но при загрузке произошла ошибка.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается, если импорт модуля не удался — модуль найден, но при загрузке произошла ошибка.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise ImportError('сообщение')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ImportError",
@@ -308,8 +350,14 @@
     "id": "indexerror",
     "title": "IndexError",
     "kind": "exception",
-    "summary": "Вызывается при обращении к элементу последовательности по несуществующему индексу.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается при обращении к элементу последовательности по несуществующему индексу.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise IndexError('сообщение')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-IndexError",
@@ -338,8 +386,14 @@
     "id": "keyerror",
     "title": "KeyError",
     "kind": "exception",
-    "summary": "Вызывается при обращении к несуществующему ключу словаря. Используй .get() чтобы избежать.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается при обращении к несуществующему ключу словаря. Используй .get() чтобы избежать.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise KeyError(key)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-KeyError",
@@ -368,8 +422,14 @@
     "id": "modulenotfounderror",
     "title": "ModuleNotFoundError",
     "kind": "exception",
-    "summary": "Подкласс ImportError. Вызывается, когда модуль вообще не найден в sys.path. Python 3.6+.",
-    "body": "",
+    "summary": {
+      "ru": "Подкласс ImportError. Вызывается, когда модуль вообще не найден в sys.path. Python 3.6+.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise ModuleNotFoundError('No module named ...')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ModuleNotFoundError",
@@ -396,8 +456,14 @@
     "id": "nameerror",
     "title": "NameError",
     "kind": "exception",
-    "summary": "Вызывается при использовании имени переменной или функции, которая не определена в текущей области видимости.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается при использовании имени переменной или функции, которая не определена в текущей области видимости.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise NameError('сообщение')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-NameError",
@@ -422,8 +488,14 @@
     "id": "notimplementederror",
     "title": "NotImplementedError",
     "kind": "exception",
-    "summary": "Вызывается в абстрактных методах, которые обязаны быть переопределены в подклассах. Показывает, что метод намеренно не реализован.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается в абстрактных методах, которые обязаны быть переопределены в подклассах. Показывает, что метод намеренно не реализован.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise NotImplementedError('переопредели метод')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-NotImplementedError",
@@ -451,8 +523,14 @@
     "id": "oserror",
     "title": "OSError",
     "kind": "exception",
-    "summary": "Базовый класс для ошибок операционной системы: работа с файлами, сетью, процессами. FileNotFoundError и PermissionError — его подклассы.",
-    "body": "",
+    "summary": {
+      "ru": "Базовый класс для ошибок операционной системы: работа с файлами, сетью, процессами. FileNotFoundError и PermissionError — его подклассы.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise OSError(errno, strerror)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-OSError",
@@ -480,8 +558,14 @@
     "id": "permissionerror",
     "title": "PermissionError",
     "kind": "exception",
-    "summary": "Вызывается при попытке выполнить операцию без необходимых прав доступа к файлу или ресурсу.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается при попытке выполнить операцию без необходимых прав доступа к файлу или ресурсу.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise PermissionError('нет доступа')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-PermissionError",
@@ -508,8 +592,14 @@
     "id": "raise",
     "title": "raise",
     "kind": "exception",
-    "summary": "Генерирует исключение вручную. raise from — цепочка исключений. re-raise — raise без аргументов.",
-    "body": "",
+    "summary": {
+      "ru": "Генерирует исключение вручную. raise from — цепочка исключений. re-raise — raise без аргументов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise ValueError('msg')\nraise RuntimeError('msg') from original",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-raise",
@@ -578,8 +668,14 @@
     "id": "recursionerror",
     "title": "RecursionError",
     "kind": "exception",
-    "summary": "Вызывается при превышении максимальной глубины рекурсии (по умолчанию 1000). Подкласс RuntimeError.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается при превышении максимальной глубины рекурсии (по умолчанию 1000). Подкласс RuntimeError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise RecursionError('...')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-RecursionError",
@@ -609,8 +705,14 @@
     "id": "stopiteration",
     "title": "StopIteration",
     "kind": "exception",
-    "summary": "Сигнализирует об исчерпании итератора. Автоматически перехватывается циклом for и генераторами — вручную поднимать нужно редко.",
-    "body": "",
+    "summary": {
+      "ru": "Сигнализирует об исчерпании итератора. Автоматически перехватывается циклом for и генераторами — вручную поднимать нужно редко.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise StopIteration",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-StopIteration",
@@ -640,8 +742,14 @@
     "id": "try-except",
     "title": "try / except",
     "kind": "exception",
-    "summary": "Блок try содержит код, который может вызвать исключение. except перехватывает его. else — если исключения не было. finally — всегда.",
-    "body": "",
+    "summary": {
+      "ru": "Блок try содержит код, который может вызвать исключение. except перехватывает его. else — если исключения не было. finally — всегда.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "try:\n    ...\nexcept ErrorType:\n    ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-try-except",
@@ -703,8 +811,14 @@
     "id": "typeerror",
     "title": "TypeError",
     "kind": "exception",
-    "summary": "Вызывается при операции или функции с объектом неподходящего типа. Частый случай: сложение str и int.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается при операции или функции с объектом неподходящего типа. Частый случай: сложение str и int.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise TypeError('сообщение')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-TypeError",
@@ -731,8 +845,14 @@
     "id": "valueerror",
     "title": "ValueError",
     "kind": "exception",
-    "summary": "Вызывается, когда функция получает аргумент правильного типа, но недопустимого значения. Например, int('abc') или math.sqrt(-1).",
-    "body": "",
+    "summary": {
+      "ru": "Вызывается, когда функция получает аргумент правильного типа, но недопустимого значения. Например, int('abc') или math.sqrt(-1).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "raise ValueError('сообщение')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ValueError",
@@ -761,8 +881,14 @@
     "id": "иерархия-исключений",
     "title": "Иерархия исключений",
     "kind": "exception",
-    "summary": "Встроенные исключения образуют иерархию. BaseException → Exception → стандартные исключения.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенные исключения образуют иерархию. BaseException → Exception → стандартные исключения.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "BaseException\n  SystemExit, KeyboardInterrupt\n  Exception\n    ValueError, TypeError, IndexError...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-иерархия-исключений",
@@ -813,8 +939,14 @@
     "id": "пользовательские-исключения",
     "title": "Пользовательские исключения",
     "kind": "exception",
-    "summary": "Создавай классы исключений, наследуясь от Exception. Можно добавлять атрибуты и иерархию.",
-    "body": "",
+    "summary": {
+      "ru": "Создавай классы исключений, наследуясь от Exception. Можно добавлять атрибуты и иерархию.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class MyError(Exception):\n    pass",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-пользовательские-исключения",
