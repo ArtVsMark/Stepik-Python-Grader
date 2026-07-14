@@ -252,13 +252,14 @@ class _Handler(BaseHTTPRequestHandler):
                 kind=(qs.get("kind") or [""])[0] or None,
                 status=(qs.get("status") or [""])[0] or None,
                 sort=(qs.get("sort") or [""])[0] or None,
+                lang=lang,
             )
             self._send(200, "application/json; charset=utf-8", _json(cards))
         elif parsed.path == "/api/glossary/missing":
             self._send(200, "application/json; charset=utf-8", _json(glossary_missing()))
         elif parsed.path.startswith("/api/glossary/"):
             card_id = parsed.path[len("/api/glossary/") :]
-            card = glossary_get(card_id)
+            card = glossary_get(card_id, lang=lang)
             if card is None:
                 self._send(
                     404,
@@ -360,7 +361,9 @@ class _Handler(BaseHTTPRequestHandler):
                 raw_code = body.get("code")
                 terms_code = raw_code if isinstance(raw_code, str) else ""
             self._send(
-                200, "application/json; charset=utf-8", _json({"terms": code_terms(terms_code)})
+                200,
+                "application/json; charset=utf-8",
+                _json({"terms": code_terms(terms_code, lang=lang)}),
             )
             return
         if parsed.path == "/api/download":

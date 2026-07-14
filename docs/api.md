@@ -73,9 +73,13 @@ concern).
 (дефолт 1000). Одинаково для query-параметров (`/api/grade`) и JSON `params`
 (`/api/v1/runs`).
 
-**Локализация (issue #264).** `?lang=ru|en` (по умолчанию `ru`) — влияет на
+**Локализация (issue #264, #363).** `?lang=ru|en` (по умолчанию `ru`) — влияет на
 `message`/`message_id`/`message_params` в JSON-ответах при ошибках/пустых
-результатах. Не влияет на структуру данных.
+результатах, а также на текстовые поля `summary`/`body` карточек глоссария
+(`/api/glossary`, `/api/glossary/<id>`, `/api/code-terms` — issue #363). Карточки
+хранятся двуязычно (`summary`/`body` — вложенный `{ru, en}`), но в ответе API
+отдаются **строкой** выбранной локали с fallback на `ru` — структура ответа не
+меняется.
 
 **Формат ответа.** Все `/api/*`-ответы — `application/json; charset=utf-8`,
 кроме отмеченных иначе.
@@ -159,9 +163,11 @@ curl "http://127.0.0.1:8000/api/source?path=task_1.py"
 | `kind` | нет | `function` / `exception` / `construct` / `term` |
 | `status` | нет | `new` / `draft` / `ready` / `exported` |
 | `sort` | нет | `az` (A–Я) / `section` (раздел→A–Я) / `version` (версионированные вперёд) |
+| `lang` | нет | `ru`/`en` (issue #363) — локаль `summary`/`body` в ответе (fallback `ru`) |
 
 ```
 curl "http://127.0.0.1:8000/api/glossary?q=ZeroDivisionError"
+curl "http://127.0.0.1:8000/api/glossary?q=sorted&lang=en"
 curl "http://127.0.0.1:8000/api/glossary?section=Кортежи%20(tuple)&sort=az"
 curl "http://127.0.0.1:8000/api/glossary?kind=exception&sort=az"
 ```

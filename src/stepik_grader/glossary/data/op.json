@@ -3,8 +3,14 @@
     "id": "abs",
     "title": "abs()",
     "kind": "function",
-    "summary": "Встроенная функция, возвращающая абсолютное значение (модуль) числа. Работает с int, float и complex.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция, возвращающая абсолютное значение (модуль) числа. Работает с int, float и complex.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "abs(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-abs",
@@ -32,8 +38,14 @@
     "id": "and-or-not",
     "title": "and, or, not",
     "kind": "construct",
-    "summary": "Логические операторы. and — оба истинны; or — хотя бы одно истинно; not — отрицание. Используют короткое замыкание (lazy evaluation).",
-    "body": "",
+    "summary": {
+      "ru": "Логические операторы. and — оба истинны; or — хотя бы одно истинно; not — отрицание. Используют короткое замыкание (lazy evaluation).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a and b | a or b | not a",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-and-or-not",
@@ -67,8 +79,14 @@
     "id": "any-all",
     "title": "any() / all()",
     "kind": "function",
-    "summary": "any() — True если хотя бы один элемент True. all() — True если все элементы True. Работают лениво.",
-    "body": "",
+    "summary": {
+      "ru": "any() — True если хотя бы один элемент True. all() — True если все элементы True. Работают лениво.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "any(iterable)\nall(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-any-all",
@@ -106,8 +124,14 @@
     "id": "args",
     "title": "*args",
     "kind": "term",
-    "summary": "Принимает произвольное число позиционных аргументов как кортеж.",
-    "body": "",
+    "summary": {
+      "ru": "Принимает произвольное число позиционных аргументов как кортеж.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def f(*args): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-args",
@@ -148,8 +172,14 @@
     "id": "bool",
     "title": "bool",
     "kind": "term",
-    "summary": "Логический тип данных. Подкласс int: True == 1, False == 0. bool(x) возвращает результат проверки истинности x.",
-    "body": "",
+    "summary": {
+      "ru": "Логический тип данных. Подкласс int: True == 1, False == 0. bool(x) возвращает результат проверки истинности x.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bool([x])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bool",
@@ -178,8 +208,14 @@
     "id": "break",
     "title": "break",
     "kind": "construct",
-    "summary": "Оператор немедленного выхода из ближайшего цикла. При наличии else-блока у цикла — он НЕ выполняется после break.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор немедленного выхода из ближайшего цикла. При наличии else-блока у цикла — он НЕ выполняется после break.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "break",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-break",
@@ -223,8 +259,14 @@
     "id": "bytearray",
     "title": "bytearray",
     "kind": "term",
-    "summary": "Изменяемая последовательность байт. В отличие от bytes, поддерживает присвоение по индексу и методы append(), extend().",
-    "body": "",
+    "summary": {
+      "ru": "Изменяемая последовательность байт. В отличие от bytes, поддерживает присвоение по индексу и методы append(), extend().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bytearray(n)  bytearray(iterable)  bytearray(b\"...\")",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bytearray",
@@ -253,8 +295,14 @@
     "id": "bytes",
     "title": "bytes",
     "kind": "term",
-    "summary": "Неизменяемая последовательность байт (целых чисел 0–255). Используется для бинарных данных и текста в определённой кодировке.",
-    "body": "",
+    "summary": {
+      "ru": "Неизменяемая последовательность байт (целых чисел 0–255). Используется для бинарных данных и текста в определённой кодировке.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bytes(n)  bytes(iterable)  b\"...\"  bytes.fromhex(hex_str)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bytes",
@@ -282,8 +330,14 @@
     "id": "cmath",
     "title": "cmath",
     "kind": "term",
-    "summary": "Модуль cmath предоставляет математические функции для комплексных чисел.",
-    "body": "",
+    "summary": {
+      "ru": "Модуль cmath предоставляет математические функции для комплексных чисел.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "import cmath\ncmath.sqrt(-1)  # → 1j",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-cmath",
@@ -311,8 +365,14 @@
     "id": "complex",
     "title": "complex",
     "kind": "term",
-    "summary": "Встроенный тип для комплексных чисел вида a+bj. Поддерживает арифметику, атрибуты .real и .imag, метод conjugate().",
-    "body": "",
+    "summary": {
+      "ru": "Встроенный тип для комплексных чисел вида a+bj. Поддерживает арифметику, атрибуты .real и .imag, метод conjugate().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "complex(real, imag)  a+bj  z.real  z.imag  abs(z)  z.conjugate()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-complex",
@@ -340,8 +400,14 @@
     "id": "continue",
     "title": "continue",
     "kind": "construct",
-    "summary": "Оператор пропуска оставшейся части тела цикла и перехода к следующей итерации.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор пропуска оставшейся части тела цикла и перехода к следующей итерации.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "continue",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-continue",
@@ -381,8 +447,14 @@
     "id": "csv",
     "title": "csv",
     "kind": "term",
-    "summary": "Модуль csv — чтение и запись CSV-файлов. reader/writer для строк, DictReader/DictWriter для словарей.",
-    "body": "",
+    "summary": {
+      "ru": "Модуль csv — чтение и запись CSV-файлов. reader/writer для строк, DictReader/DictWriter для словарей.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "import csv\ncsv.reader(f)\ncsv.writer(f)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-csv",
@@ -441,8 +513,14 @@
     "id": "decimal.decimal",
     "title": "decimal.Decimal",
     "kind": "term",
-    "summary": "Точная десятичная арифметика без ошибок float. Незаменима в финансовых вычислениях.",
-    "body": "",
+    "summary": {
+      "ru": "Точная десятичная арифметика без ошибок float. Незаменима в финансовых вычислениях.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from decimal import Decimal\nDecimal('1.1') + Decimal('2.2')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-decimal.decimal",
@@ -470,8 +548,14 @@
     "id": "decimal.getcontext-setcontext",
     "title": "decimal.getcontext() / setcontext()",
     "kind": "function",
-    "summary": "Управляет точностью (prec), режимом округления и обработкой ошибок для операций с Decimal.",
-    "body": "",
+    "summary": {
+      "ru": "Управляет точностью (prec), режимом округления и обработкой ошибок для операций с Decimal.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "decimal.getcontext().prec = 50\ndecimal.setcontext(decimal.Context(prec=10))",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-decimal.getcontext-setcontext",
@@ -500,8 +584,14 @@
     "id": "def",
     "title": "def",
     "kind": "term",
-    "summary": "Объявление функции с помощью ключевого слова def. Тело функции отделяется отступом.",
-    "body": "",
+    "summary": {
+      "ru": "Объявление функции с помощью ключевого слова def. Тело функции отделяется отступом.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def имя(параметры):\n    тело",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-def",
@@ -541,8 +631,14 @@
     "id": "divmod",
     "title": "divmod()",
     "kind": "function",
-    "summary": "Встроенная функция, возвращающая кортеж (частное, остаток) — результат целочисленного деления и остатка. Эффективнее двух отдельных операций.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция, возвращающая кортеж (частное, остаток) — результат целочисленного деления и остатка. Эффективнее двух отдельных операций.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "divmod(a, b) -> (a // b, a % b)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-divmod",
@@ -572,8 +668,14 @@
     "id": "ellipsis-...",
     "title": "Ellipsis ...",
     "kind": "term",
-    "summary": "Специальный синглтон Ellipsis (литерал ...). Используется как заглушка тела функции/класса, в аннотациях типов (Callable[..., int]), в NumPy для многомерных срезов.",
-    "body": "",
+    "summary": {
+      "ru": "Специальный синглтон Ellipsis (литерал ...). Используется как заглушка тела функции/класса, в аннотациях типов (Callable[..., int]), в NumPy для многомерных срезов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "...  Ellipsis  type(...) -> ellipsis",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ellipsis-...",
@@ -601,8 +703,14 @@
     "id": "else-в-циклах",
     "title": "else в циклах",
     "kind": "construct",
-    "summary": "Блок else у цикла выполняется, только если цикл завершился БЕЗ break. Удобен для паттерна «поиск с флагом».",
-    "body": "",
+    "summary": {
+      "ru": "Блок else у цикла выполняется, только если цикл завершился БЕЗ break. Удобен для паттерна «поиск с флагом».",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "for/while ...:\n    ...\nelse:\n    блок_если_не_break",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-else-в-циклах",
@@ -641,8 +749,14 @@
     "id": "enumerate",
     "title": "enumerate()",
     "kind": "function",
-    "summary": "Встроенная функция, добавляющая счётчик к итерируемому объекту. Возвращает кортежи (индекс, значение). Параметр start задаёт начальный индекс.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция, добавляющая счётчик к итерируемому объекту. Возвращает кортежи (индекс, значение). Параметр start задаёт начальный индекс.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "enumerate(iterable, start=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-enumerate",
@@ -676,8 +790,14 @@
     "id": "filter",
     "title": "filter()",
     "kind": "function",
-    "summary": "Отбирает элементы, для которых функция возвращает True. Возвращает итератор.",
-    "body": "",
+    "summary": {
+      "ru": "Отбирает элементы, для которых функция возвращает True. Возвращает итератор.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "filter(func, iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-filter",
@@ -721,8 +841,14 @@
     "id": "float",
     "title": "float",
     "kind": "term",
-    "summary": "Тип числа с плавающей точкой двойной точности (64 бит, IEEE 754). Принимает числа, строки и специальные значения: 'inf', '-inf', 'nan'.",
-    "body": "",
+    "summary": {
+      "ru": "Тип числа с плавающей точкой двойной точности (64 бит, IEEE 754). Принимает числа, строки и специальные значения: 'inf', '-inf', 'nan'.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "float([x])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-float",
@@ -751,8 +877,14 @@
     "id": "for",
     "title": "for",
     "kind": "construct",
-    "summary": "Цикл перебора элементов итерируемого объекта. Выполняет тело цикла для каждого элемента: списка, строки, range, словаря и т.д.",
-    "body": "",
+    "summary": {
+      "ru": "Цикл перебора элементов итерируемого объекта. Выполняет тело цикла для каждого элемента: списка, строки, range, словаря и т.д.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "for переменная in итерируемое:\n    блок",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-for",
@@ -787,8 +919,14 @@
     "id": "for-...-in-reversed",
     "title": "for ... in reversed()",
     "kind": "function",
-    "summary": "reversed() возвращает итератор, обходящий последовательность в обратном порядке. Работает со списками, кортежами, строками, range и любыми объектами с __reversed__.",
-    "body": "",
+    "summary": {
+      "ru": "reversed() возвращает итератор, обходящий последовательность в обратном порядке. Работает со списками, кортежами, строками, range и любыми объектами с __reversed__.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "for item in reversed(sequence): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-for-...-in-reversed",
@@ -816,8 +954,14 @@
     "id": "fractions.fraction",
     "title": "fractions.Fraction",
     "kind": "term",
-    "summary": "Представляет рациональные числа точно как пару целых (числитель/знаменатель). Без погрешностей float.",
-    "body": "",
+    "summary": {
+      "ru": "Представляет рациональные числа точно как пару целых (числитель/знаменатель). Без погрешностей float.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from fractions import Fraction\nFraction(1, 3)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-fractions.fraction",
@@ -845,8 +989,14 @@
     "id": "functools.lru_cache-functools.cache",
     "title": "functools.lru_cache / functools.cache",
     "kind": "term",
-    "summary": "Мемоизация: кэширует результаты вызовов функции. lru_cache(maxsize=...) ограничивает размер. cache — без ограничений (Python 3.9+).",
-    "body": "",
+    "summary": {
+      "ru": "Мемоизация: кэширует результаты вызовов функции. lru_cache(maxsize=...) ограничивает размер. cache — без ограничений (Python 3.9+).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@lru_cache(maxsize=None)\ndef f(n): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.lru_cache-functools.cache",
@@ -896,8 +1046,14 @@
     "id": "functools.partial",
     "title": "functools.partial",
     "kind": "term",
-    "summary": "Создаёт новую функцию с частично заполненными аргументами (частичное применение).",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт новую функцию с частично заполненными аргументами (частичное применение).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from functools import partial\nnew_f = partial(f, arg=val)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.partial",
@@ -935,8 +1091,14 @@
     "id": "global-nonlocal",
     "title": "global / nonlocal",
     "kind": "term",
-    "summary": "global объявляет переменную из глобального пространства. nonlocal — из охватывающей функции (не глобальной).",
-    "body": "",
+    "summary": {
+      "ru": "global объявляет переменную из глобального пространства. nonlocal — из охватывающей функции (не глобальной).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "global x\nnonlocal y",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-global-nonlocal",
@@ -1007,8 +1169,14 @@
     "id": "if",
     "title": "if",
     "kind": "construct",
-    "summary": "Оператор условного ветвления. Выполняет блок кода, если условие истинно. Условие — любое выражение, которое Python приводит к bool.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор условного ветвления. Выполняет блок кода, если условие истинно. Условие — любое выражение, которое Python приводит к bool.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "if условие:\n    блок",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-if",
@@ -1047,8 +1215,14 @@
     "id": "if-elif-else",
     "title": "if-elif-else",
     "kind": "construct",
-    "summary": "Каскадный оператор выбора из нескольких вариантов. Проверяет условия последовательно, выполняет первый истинный блок.",
-    "body": "",
+    "summary": {
+      "ru": "Каскадный оператор выбора из нескольких вариантов. Проверяет условия последовательно, выполняет первый истинный блок.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "if условие1:\n    ...\nelif условие2:\n    ...\nelse:\n    ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-if-elif-else",
@@ -1087,8 +1261,14 @@
     "id": "if-else",
     "title": "if-else",
     "kind": "construct",
-    "summary": "Двухветочный оператор условия. Если условие истинно — выполняется if-блок, иначе — else-блок.",
-    "body": "",
+    "summary": {
+      "ru": "Двухветочный оператор условия. Если условие истинно — выполняется if-блок, иначе — else-блок.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "if условие:\n    блок1\nelse:\n    блок2",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-if-else",
@@ -1128,8 +1308,14 @@
     "id": "in",
     "title": "in",
     "kind": "construct",
-    "summary": "Оператор принадлежности. Проверяет, содержится ли элемент в коллекции. Работает со строками, списками, кортежами, множествами, словарями (по ключам).",
-    "body": "",
+    "summary": {
+      "ru": "Оператор принадлежности. Проверяет, содержится ли элемент в коллекции. Работает со строками, списками, кортежами, множествами, словарями (по ключам).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "элемент in коллекция -> bool",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-in",
@@ -1159,8 +1345,14 @@
     "id": "int",
     "title": "int",
     "kind": "term",
-    "summary": "Целое число произвольной точности. Принимает строку с основанием системы счисления: int('ff', 16) → 255.",
-    "body": "",
+    "summary": {
+      "ru": "Целое число произвольной точности. Принимает строку с основанием системы счисления: int('ff', 16) → 255.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "int([x]) | int(x, base)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-int",
@@ -1189,8 +1381,14 @@
     "id": "int.bit_length-to_bytes-from_bytes",
     "title": "int.bit_length() / to_bytes() / from_bytes()",
     "kind": "function",
-    "summary": "bit_length() возвращает число бит, необходимых для записи числа. to_bytes() сериализует целое в байты. from_bytes() десериализует байты обратно в int.",
-    "body": "",
+    "summary": {
+      "ru": "bit_length() возвращает число бит, необходимых для записи числа. to_bytes() сериализует целое в байты. from_bytes() десериализует байты обратно в int.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "n.bit_length()  n.to_bytes(length, byteorder)  int.from_bytes(bytes, byteorder)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-int.bit_length-to_bytes-from_bytes",
@@ -1218,8 +1416,14 @@
     "id": "is-is-not",
     "title": "is / is not",
     "kind": "construct",
-    "summary": "Операторы тождества. Проверяют, указывают ли две переменные на ОДИН объект в памяти. Используйте is/is not для проверки None, True, False — не ==.",
-    "body": "",
+    "summary": {
+      "ru": "Операторы тождества. Проверяют, указывают ли две переменные на ОДИН объект в памяти. Используйте is/is not для проверки None, True, False — не ==.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a is b | a is not b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-is-is-not",
@@ -1250,8 +1454,14 @@
     "id": "isinstance",
     "title": "isinstance()",
     "kind": "function",
-    "summary": "Встроенная функция проверки принадлежности объекта к типу или кортежу типов. В отличие от type(), учитывает наследование.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция проверки принадлежности объекта к типу или кортежу типов. В отличие от type(), учитывает наследование.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "isinstance(object, classinfo) -> bool",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-isinstance",
@@ -1283,8 +1493,14 @@
     "id": "json",
     "title": "json",
     "kind": "term",
-    "summary": "Сериализация/десериализация JSON. dumps/loads — строки. dump/load — файлы. Поддерживает dict, list, str, int, float, bool, None.",
-    "body": "",
+    "summary": {
+      "ru": "Сериализация/десериализация JSON. dumps/loads — строки. dump/load — файлы. Поддерживает dict, list, str, int, float, bool, None.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "import json\njson.dumps(obj)\njson.loads(s)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-json",
@@ -1338,8 +1554,14 @@
     "id": "kwargs",
     "title": "**kwargs",
     "kind": "term",
-    "summary": "Принимает произвольное число ключевых аргументов как словарь.",
-    "body": "",
+    "summary": {
+      "ru": "Принимает произвольное число ключевых аргументов как словарь.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def f(**kwargs): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-kwargs",
@@ -1384,8 +1606,14 @@
     "id": "lambda",
     "title": "lambda",
     "kind": "term",
-    "summary": "Анонимная функция — выражение, возвращающее функцию. Только одно выражение.",
-    "body": "",
+    "summary": {
+      "ru": "Анонимная функция — выражение, возвращающее функцию. Только одно выражение.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lambda параметры: выражение",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-lambda",
@@ -1426,8 +1654,14 @@
     "id": "map",
     "title": "map()",
     "kind": "function",
-    "summary": "Применяет функцию к каждому элементу итерируемого. Возвращает итератор.",
-    "body": "",
+    "summary": {
+      "ru": "Применяет функцию к каждому элементу итерируемого. Возвращает итератор.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "map(func, iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-map",
@@ -1472,8 +1706,14 @@
     "id": "match-case",
     "title": "match / case",
     "kind": "construct",
-    "summary": "Structural Pattern Matching (Python 3.10+). Позволяет сопоставлять значение с образцами: литералами, типами, структурами. case _ — универсальный паттерн (аналог else). Guard (if) добавляет дополнительное условие в ветку case.",
-    "body": "",
+    "summary": {
+      "ru": "Structural Pattern Matching (Python 3.10+). Позволяет сопоставлять значение с образцами: литералами, типами, структурами. case _ — универсальный паттерн (аналог else). Guard (if) добавляет дополнительное условие в ветку case.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "match subject:\n    case pattern1: ...\n    case pattern2 if guard: ...\n    case _: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-match-case",
@@ -1508,8 +1748,14 @@
     "id": "nonetype",
     "title": "NoneType",
     "kind": "term",
-    "summary": "Тип единственного объекта None — отсутствие значения. Используется как значение по умолчанию, возвращаемое значение функций без return, и sentinel.",
-    "body": "",
+    "summary": {
+      "ru": "Тип единственного объекта None — отсутствие значения. Используется как значение по умолчанию, возвращаемое значение функций без return, и sentinel.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "None",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-nonetype",
@@ -1539,8 +1785,14 @@
     "id": "open",
     "title": "open()",
     "kind": "function",
-    "summary": "Открывает файл. Режимы: r (чтение), w (запись, перезапись), a (добавление), x (создание), b (бинарный). Используй with.",
-    "body": "",
+    "summary": {
+      "ru": "Открывает файл. Режимы: r (чтение), w (запись, перезапись), a (добавление), x (создание), b (бинарный). Используй with.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "open(path, mode='r', encoding=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-open",
@@ -1593,8 +1845,14 @@
     "id": "os",
     "title": "os",
     "kind": "term",
-    "summary": "Модуль os — интерфейс к операционной системе. Работа с файлами, директориями, переменными окружения.",
-    "body": "",
+    "summary": {
+      "ru": "Модуль os — интерфейс к операционной системе. Работа с файлами, директориями, переменными окружения.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "import os\nos.getcwd()\nos.listdir()\nos.path.join()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-os",
@@ -1636,8 +1894,14 @@
     "id": "pathlib.path",
     "title": "pathlib.Path",
     "kind": "term",
-    "summary": "Объектно-ориентированный API для работы с путями файловой системы. Кроссплатформенный.",
-    "body": "",
+    "summary": {
+      "ru": "Объектно-ориентированный API для работы с путями файловой системы. Кроссплатформенный.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from pathlib import Path\np = Path('/some/path')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-pathlib.path",
@@ -1690,8 +1954,14 @@
     "id": "pickle",
     "title": "pickle",
     "kind": "term",
-    "summary": "Сериализация Python-объектов в бинарный формат. Сохраняет произвольные объекты. Не безопасно для ненадёжных данных!",
-    "body": "",
+    "summary": {
+      "ru": "Сериализация Python-объектов в бинарный формат. Сохраняет произвольные объекты. Не безопасно для ненадёжных данных!",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "import pickle\npickle.dump(obj, f)\npickle.load(f)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-pickle",
@@ -1737,8 +2007,14 @@
     "id": "pow",
     "title": "pow()",
     "kind": "function",
-    "summary": "Встроенная функция возведения в степень. С двумя аргументами — как **; с тремя (base, exp, mod) — модульное возведение в степень, эффективно для больших чисел.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция возведения в степень. С двумя аргументами — как **; с тремя (base, exp, mod) — модульное возведение в степень, эффективно для больших чисел.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "pow(base, exp[, mod])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-pow",
@@ -1765,8 +2041,14 @@
     "id": "range",
     "title": "range()",
     "kind": "function",
-    "summary": "Встроенная функция, генерирующая последовательность целых чисел. Не хранит все числа в памяти — ленивая генерация. Используется в for-циклах.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция, генерирующая последовательность целых чисел. Не хранит все числа в памяти — ленивая генерация. Используется в for-циклах.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "range(stop) | range(start, stop) | range(start, stop, step)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-range",
@@ -1797,8 +2079,14 @@
     "id": "read-readline-readlines",
     "title": "read() / readline() / readlines()",
     "kind": "function",
-    "summary": "read() — весь файл строкой. readline() — одна строка. readlines() — список строк.",
-    "body": "",
+    "summary": {
+      "ru": "read() — весь файл строкой. readline() — одна строка. readlines() — список строк.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "f.read()\nf.readline()\nf.readlines()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-read-readline-readlines",
@@ -1841,8 +2129,14 @@
     "id": "reduce",
     "title": "reduce()",
     "kind": "function",
-    "summary": "Сворачивает итерируемый объект в одно значение, последовательно применяя функцию. Из модуля functools.",
-    "body": "",
+    "summary": {
+      "ru": "Сворачивает итерируемый объект в одно значение, последовательно применяя функцию. Из модуля functools.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from functools import reduce\nreduce(func, iterable[, initializer])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-reduce",
@@ -1882,8 +2176,14 @@
     "id": "return",
     "title": "return",
     "kind": "term",
-    "summary": "Возвращает значение из функции. Без return — возвращает None. Может возвращать кортеж.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает значение из функции. Без return — возвращает None. Может возвращать кортеж.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "return значение",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-return",
@@ -1936,8 +2236,14 @@
     "id": "round",
     "title": "round()",
     "kind": "function",
-    "summary": "Встроенная функция округления числа. С одним аргументом возвращает int; с ndigits — округляет до указанного количества знаков после запятой. Использует банковское (к ближайшему чётному) округление.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция округления числа. С одним аргументом возвращает int; с ndigits — округляет до указанного количества знаков после запятой. Использует банковское (к ближайшему чётному) округление.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "round(number[, ndigits])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-round",
@@ -1965,8 +2271,14 @@
     "id": "sorted-с-key",
     "title": "sorted() с key=",
     "kind": "term",
-    "summary": "Возвращает новый отсортированный список. key= задаёт функцию для ключа сортировки. reverse= — обратный порядок.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает новый отсортированный список. key= задаёт функцию для ключа сортировки. reverse= — обратный порядок.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sorted(iterable, key=None, reverse=False)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sorted-с-key",
@@ -2007,8 +2319,14 @@
     "id": "statistics.mean-median-mode",
     "title": "statistics.mean() / median() / mode()",
     "kind": "function",
-    "summary": "Функции модуля statistics для вычисления среднего, медианы и моды набора данных.",
-    "body": "",
+    "summary": {
+      "ru": "Функции модуля statistics для вычисления среднего, медианы и моды набора данных.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "statistics.mean(data)\nstatistics.median(data)\nstatistics.mode(data)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-statistics.mean-median-mode",
@@ -2036,8 +2354,14 @@
     "id": "statistics.quantiles",
     "title": "statistics.quantiles()",
     "kind": "function",
-    "summary": "Вычисляет квантили набора данных. n=4 → квартили, n=100 → перцентили.",
-    "body": "",
+    "summary": {
+      "ru": "Вычисляет квантили набора данных. n=4 → квартили, n=100 → перцентили.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "statistics.quantiles(data, n=4, method='exclusive')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-statistics.quantiles",
@@ -2065,8 +2389,14 @@
     "id": "statistics.stdev-variance-pstdev",
     "title": "statistics.stdev() / variance() / pstdev()",
     "kind": "function",
-    "summary": "Функции для измерения разброса: stdev/variance — выборочные, pstdev/pvariance — генеральной совокупности.",
-    "body": "",
+    "summary": {
+      "ru": "Функции для измерения разброса: stdev/variance — выборочные, pstdev/pvariance — генеральной совокупности.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "statistics.stdev(data)\nstatistics.variance(data)\nstatistics.pstdev(data)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-statistics.stdev-variance-pstdev",
@@ -2095,8 +2425,14 @@
     "id": "stdin-stdout",
     "title": "stdin / stdout",
     "kind": "term",
-    "summary": "sys.stdin — стандартный ввод. sys.stdout — стандартный вывод. Используются для потокового ввода/вывода.",
-    "body": "",
+    "summary": {
+      "ru": "sys.stdin — стандартный ввод. sys.stdout — стандартный вывод. Используются для потокового ввода/вывода.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "import sys\nfor line in sys.stdin: ...\nprint(..., file=sys.stdout)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-stdin-stdout",
@@ -2143,8 +2479,14 @@
     "id": "str",
     "title": "str",
     "kind": "term",
-    "summary": "Неизменяемая последовательность символов Unicode. Поддерживает богатый набор методов форматирования, поиска и преобразования.",
-    "body": "",
+    "summary": {
+      "ru": "Неизменяемая последовательность символов Unicode. Поддерживает богатый набор методов форматирования, поиска и преобразования.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str([object]) | \"текст\" | 'текст'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str",
@@ -2173,8 +2515,14 @@
     "id": "type",
     "title": "type()",
     "kind": "function",
-    "summary": "Встроенная функция, возвращающая тип объекта. С одним аргументом возвращает тип; с тремя — создаёт новый класс динамически.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция, возвращающая тип объекта. С одним аргументом возвращает тип; с тремя — создаёт новый класс динамически.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "type(object) -> type",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-type",
@@ -2204,8 +2552,14 @@
     "id": "walrus-operator",
     "title": "Walrus operator :=",
     "kind": "term",
-    "summary": "Оператор «морж» (:=) — присваивает значение переменной прямо внутри выражения (Python 3.8+). Удобен в условиях while, в list comprehension и в if.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор «морж» (:=) — присваивает значение переменной прямо внутри выражения (Python 3.8+). Удобен в условиях while, в list comprehension и в if.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "variable := expression",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-walrus-operator",
@@ -2236,8 +2590,14 @@
     "id": "while",
     "title": "while",
     "kind": "construct",
-    "summary": "Цикл с предусловием. Выполняет тело, пока условие истинно. Требует явного изменения условия, иначе — бесконечный цикл.",
-    "body": "",
+    "summary": {
+      "ru": "Цикл с предусловием. Выполняет тело, пока условие истинно. Требует явного изменения условия, иначе — бесконечный цикл.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "while условие:\n    блок",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-while",
@@ -2277,8 +2637,14 @@
     "id": "write-writelines",
     "title": "write() / writelines()",
     "kind": "function",
-    "summary": "write(str) — записывает строку. writelines(iterable) — записывает список строк (без автоматических переносов).",
-    "body": "",
+    "summary": {
+      "ru": "write(str) — записывает строку. writelines(iterable) — записывает список строк (без автоматических переносов).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "f.write('text')\nf.writelines(['a','b'])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-write-writelines",
@@ -2318,8 +2684,14 @@
     "id": "zip",
     "title": "zip()",
     "kind": "function",
-    "summary": "Встроенная функция, объединяющая несколько итерируемых объектов в один. Возвращает кортежи из соответствующих элементов. Останавливается по наименьшему.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция, объединяющая несколько итерируемых объектов в один. Возвращает кортежи из соответствующих элементов. Останавливается по наименьшему.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "zip(*iterables)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-zip",
@@ -2353,8 +2725,14 @@
     "id": "zip-enumerate-reversed",
     "title": "zip() / enumerate() / reversed()",
     "kind": "function",
-    "summary": "zip() — попарно объединяет итерируемые. enumerate() — добавляет индекс. reversed() — обратный порядок.",
-    "body": "",
+    "summary": {
+      "ru": "zip() — попарно объединяет итерируемые. enumerate() — добавляет индекс. reversed() — обратный порядок.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "zip(a, b)\nenumerate(iterable, start=0)\nreversed(sequence)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-zip-enumerate-reversed",
@@ -2398,8 +2776,14 @@
     "id": "zip-strict-true",
     "title": "zip(strict=True)",
     "kind": "function",
-    "summary": "Параметр strict=True (Python 3.10+) заставляет zip() выбрасывать ValueError, если переданные итерируемые объекты имеют разную длину. Без strict= zip молча останавливается на самом коротком.",
-    "body": "",
+    "summary": {
+      "ru": "Параметр strict=True (Python 3.10+) заставляет zip() выбрасывать ValueError, если переданные итерируемые объекты имеют разную длину. Без strict= zip молча останавливается на самом коротком.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "zip(*iterables, strict=False)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-zip-strict-true",
@@ -2428,8 +2812,14 @@
     "id": "аннотации-типов-type-hints",
     "title": "Аннотации типов (type hints)",
     "kind": "function",
-    "summary": "Подсказки типов для параметров и возвращаемых значений. Не влияют на выполнение, но помогают IDE и mypy.",
-    "body": "",
+    "summary": {
+      "ru": "Подсказки типов для параметров и возвращаемых значений. Не влияют на выполнение, но помогают IDE и mypy.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def f(x: int) -> str: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-аннотации-типов-type-hints",
@@ -2481,8 +2871,14 @@
     "id": "бинарный-поиск",
     "title": "Бинарный поиск",
     "kind": "term",
-    "summary": "Поиск в отсортированном массиве за O(log n). Каждый шаг делит область поиска пополам.",
-    "body": "",
+    "summary": {
+      "ru": "Поиск в отсортированном массиве за O(log n). Каждый шаг делит область поиска пополам.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def binary_search(arr, target):",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-бинарный-поиск",
@@ -2562,8 +2958,14 @@
     "id": "битовые-операции",
     "title": "Битовые операции",
     "kind": "term",
-    "summary": "& (AND), | (OR), ^ (XOR), ~ (NOT), << (сдвиг влево), >> (сдвиг вправо). Используются для масок, оптимизации, криптографии.",
-    "body": "",
+    "summary": {
+      "ru": "& (AND), | (OR), ^ (XOR), ~ (NOT), << (сдвиг влево), >> (сдвиг вправо). Используются для масок, оптимизации, криптографии.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a & b  # AND\na | b  # OR\na ^ b  # XOR\n~a     # NOT\na << n # left shift\na >> n # right shift",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-битовые-операции",
@@ -2621,8 +3023,14 @@
     "id": "вложенные-условия",
     "title": "Вложенные условия",
     "kind": "construct",
-    "summary": "Оператор if внутри другого if. Позволяет проверять комбинации условий. Следует использовать осторожно — глубокая вложенность снижает читаемость.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор if внутри другого if. Позволяет проверять комбинации условий. Следует использовать осторожно — глубокая вложенность снижает читаемость.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "if условие1:\n    if условие2:\n        блок",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-вложенные-условия",
@@ -2663,8 +3071,14 @@
     "id": "вложенные-циклы",
     "title": "Вложенные циклы",
     "kind": "construct",
-    "summary": "Цикл внутри другого цикла. Внутренний цикл выполняется полностью на каждой итерации внешнего. break/continue работают только с ближайшим циклом.",
-    "body": "",
+    "summary": {
+      "ru": "Цикл внутри другого цикла. Внутренний цикл выполняется полностью на каждой итерации внешнего. break/continue работают только с ближайшим циклом.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "for i in ...:\n    for j in ...:\n        блок",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-вложенные-циклы",
@@ -2705,8 +3119,14 @@
     "id": "вызываемые-объекты-__call__",
     "title": "Вызываемые объекты __call__",
     "kind": "term",
-    "summary": "Объект с методом __call__ можно вызывать как функцию. Используется для stateful callable, декораторов-классов.",
-    "body": "",
+    "summary": {
+      "ru": "Объект с методом __call__ можно вызывать как функцию. Используется для stateful callable, декораторов-классов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "class F:\n    def __call__(self, x): ...\nf = F()\nf(10)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-вызываемые-объекты-__call__",
@@ -2763,8 +3183,14 @@
     "id": "вычитание",
     "title": "- вычитание",
     "kind": "term",
-    "summary": "Бинарный оператор вычитания. Унарный минус меняет знак числа.",
-    "body": "",
+    "summary": {
+      "ru": "Бинарный оператор вычитания. Унарный минус меняет знак числа.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a - b | -a",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-вычитание",
@@ -2793,8 +3219,14 @@
     "id": "два-указателя-two-pointers",
     "title": "Два указателя (two pointers)",
     "kind": "function",
-    "summary": "Два индекса движутся навстречу друг другу или в одном направлении. O(n) для задач на отсортированных массивах.",
-    "body": "",
+    "summary": {
+      "ru": "Два индекса движутся навстречу друг другу или в одном направлении. O(n) для задач на отсортированных массивах.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "lo, hi = 0, len(arr)-1\nwhile lo < hi: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-два-указателя-two-pointers",
@@ -2867,8 +3299,14 @@
     "id": "декораторы",
     "title": "Декораторы",
     "kind": "term",
-    "summary": "Функция высшего порядка, оборачивающая другую функцию для изменения её поведения. Используется @синтаксис.",
-    "body": "",
+    "summary": {
+      "ru": "Функция высшего порядка, оборачивающая другую функцию для изменения её поведения. Используется @синтаксис.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@decorator\ndef func(): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-декораторы",
@@ -2956,8 +3394,14 @@
     "id": "деление",
     "title": "/ деление",
     "kind": "term",
-    "summary": "Оператор деления. Всегда возвращает float, даже при делении двух целых. Деление на ноль вызывает ZeroDivisionError.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор деления. Всегда возвращает float, даже при делении двух целых. Деление на ноль вызывает ZeroDivisionError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a / b -> float",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-деление",
@@ -2988,8 +3432,14 @@
     "id": "замыкания",
     "title": "Замыкания",
     "kind": "term",
-    "summary": "Вложенная функция захватывает переменную из охватывающей области. Используется для фабрик функций и инкапсуляции состояния.",
-    "body": "",
+    "summary": {
+      "ru": "Вложенная функция захватывает переменную из охватывающей области. Используется для фабрик функций и инкапсуляции состояния.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def outer():\n    x = 10\n    def inner():\n        return x\n    return inner",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-замыкания",
@@ -3054,8 +3504,14 @@
     "id": "итерация-по-файлу",
     "title": "Итерация по файлу",
     "kind": "term",
-    "summary": "Файловый объект — итерируемый. Каждая итерация возвращает строку. Эффективно для больших файлов.",
-    "body": "",
+    "summary": {
+      "ru": "Файловый объект — итерируемый. Каждая итерация возвращает строку. Эффективно для больших файлов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "for line in f:\n    ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-итерация-по-файлу",
@@ -3096,8 +3552,14 @@
     "id": "локальные-и-глобальные-переменные",
     "title": "Локальные и глобальные переменные",
     "kind": "term",
-    "summary": "LEGB-правило: Local → Enclosing → Global → Built-in. Локальная переменная существует только внутри функции.",
-    "body": "",
+    "summary": {
+      "ru": "LEGB-правило: Local → Enclosing → Global → Built-in. Локальная переменная существует только внутри функции.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "x = 10  # глобальная\ndef f():\n    x = 5  # локальная",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-локальные-и-глобальные-переменные",
@@ -3155,8 +3617,14 @@
     "id": "нод-нок-алгоритм-евклида",
     "title": "НОД / НОК / алгоритм Евклида",
     "kind": "term",
-    "summary": "НОД (GCD) — наибольший общий делитель. НОК (LCM) = a*b/GCD(a,b). Алгоритм Евклида — O(log min(a,b)).",
-    "body": "",
+    "summary": {
+      "ru": "НОД (GCD) — наибольший общий делитель. НОК (LCM) = a*b/GCD(a,b). Алгоритм Евклида — O(log min(a,b)).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def gcd(a, b):\n    while b: a, b = b, a%b\n    return a",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-нод-нок-алгоритм-евклида",
@@ -3213,8 +3681,14 @@
     "id": "обработка-цифр-числа",
     "title": "Обработка цифр числа",
     "kind": "construct",
-    "summary": "Паттерн перебора цифр числа через строковое преобразование или деление на 10. Используется для задач: сумма цифр, произведение, подсчёт, максимальная цифра.",
-    "body": "",
+    "summary": {
+      "ru": "Паттерн перебора цифр числа через строковое преобразование или деление на 10. Используется для задач: сумма цифр, произведение, подсчёт, максимальная цифра.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "for d in str(abs(n)): | while n > 0: d = n % 10; n //= 10",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-обработка-цифр-числа",
@@ -3250,8 +3724,14 @@
     "id": "операторы-присваивания",
     "title": "Операторы присваивания",
     "kind": "term",
-    "summary": "Составные операторы присваивания: +=, -=, *=, /=, //=, %=, **=. Сочетают операцию с присваиванием, изменяя переменную на месте.",
-    "body": "",
+    "summary": {
+      "ru": "Составные операторы присваивания: +=, -=, *=, /=, //=, %=, **=. Сочетают операцию с присваиванием, изменяя переменную на месте.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "x op= value  # эквивалент x = x op value",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-операторы-присваивания",
@@ -3280,8 +3760,14 @@
     "id": "операторы-сравнения",
     "title": "Операторы сравнения",
     "kind": "construct",
-    "summary": "Операторы ==, !=, >, <, >=, <= сравнивают два значения и возвращают bool. Python поддерживает цепочки сравнений: a < b < c.",
-    "body": "",
+    "summary": {
+      "ru": "Операторы ==, !=, >, <, >=, <= сравнивают два значения и возвращают bool. Python поддерживает цепочки сравнений: a < b < c.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a == b | a != b | a > b | a < b | a >= b | a <= b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-операторы-сравнения",
@@ -3312,8 +3798,14 @@
     "id": "остаток",
     "title": "% остаток",
     "kind": "term",
-    "summary": "Оператор получения остатка от деления (modulo). Знак результата совпадает со знаком делителя. Широко используется для проверки чётности и цикличности.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор получения остатка от деления (modulo). Знак результата совпадает со знаком делителя. Широко используется для проверки чётности и цикличности.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a % b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-остаток",
@@ -3345,8 +3837,14 @@
     "id": "очередь-queue",
     "title": "Очередь (queue)",
     "kind": "function",
-    "summary": "FIFO — первый вошёл, первый вышел. Реализуется через deque. Применения: BFS, задачи планирования.",
-    "body": "",
+    "summary": {
+      "ru": "FIFO — первый вошёл, первый вышел. Реализуется через deque. Применения: BFS, задачи планирования.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "from collections import deque\nqueue = deque()\nqueue.append(x)   # enqueue\nqueue.popleft()   # dequeue",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-очередь-queue",
@@ -3419,8 +3917,14 @@
     "id": "параметры-и-аргументы",
     "title": "Параметры и аргументы",
     "kind": "term",
-    "summary": "Параметры — имена в определении функции. Аргументы — значения при вызове. Позиционные передаются по порядку, ключевые — по имени.",
-    "body": "",
+    "summary": {
+      "ru": "Параметры — имена в определении функции. Аргументы — значения при вызове. Позиционные передаются по порядку, ключевые — по имени.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def f(a, b): ...\nf(1, 2)  # позиционные\nf(a=1, b=2)  # ключевые",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-параметры-и-аргументы",
@@ -3457,8 +3961,14 @@
     "id": "параметры-по-умолчанию",
     "title": "Параметры по умолчанию",
     "kind": "term",
-    "summary": "Параметры могут иметь значение по умолчанию. Изменяемые объекты как default — ловушка! Используй None-паттерн.",
-    "body": "",
+    "summary": {
+      "ru": "Параметры могут иметь значение по умолчанию. Изменяемые объекты как default — ловушка! Используй None-паттерн.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def f(x, y=10): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-параметры-по-умолчанию",
@@ -3502,8 +4012,14 @@
     "id": "побитовые-операторы",
     "title": "Побитовые операторы",
     "kind": "term",
-    "summary": "Операторы для работы с числами на уровне отдельных бит: & (AND), | (OR), ^ (XOR), ~ (NOT/инверсия), << (сдвиг влево), >> (сдвиг вправо).",
-    "body": "",
+    "summary": {
+      "ru": "Операторы для работы с числами на уровне отдельных бит: & (AND), | (OR), ^ (XOR), ~ (NOT/инверсия), << (сдвиг влево), >> (сдвиг вправо).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a & b  a | b  a ^ b  ~a  a << n  a >> n",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-побитовые-операторы",
@@ -3531,8 +4047,14 @@
     "id": "преобразование-типов",
     "title": "Преобразование типов",
     "kind": "term",
-    "summary": "Явное приведение одного типа к другому с помощью встроенных функций int(), float(), str(), bool(). При невозможной конвертации возникает ValueError или TypeError.",
-    "body": "",
+    "summary": {
+      "ru": "Явное приведение одного типа к другому с помощью встроенных функций int(), float(), str(), bool(). При невозможной конвертации возникает ValueError или TypeError.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "int(x) | float(x) | str(x) | bool(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-преобразование-типов",
@@ -3562,8 +4084,14 @@
     "id": "префиксные-суммы",
     "title": "Префиксные суммы",
     "kind": "term",
-    "summary": "Массив prefix[i] = sum(arr[0..i]). Позволяет за O(1) найти сумму на отрезке [l, r].",
-    "body": "",
+    "summary": {
+      "ru": "Массив prefix[i] = sum(arr[0..i]). Позволяет за O(1) найти сумму на отрезке [l, r].",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "prefix[i] = prefix[i-1] + arr[i]\nsum(l, r) = prefix[r] - prefix[l-1]",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-префиксные-суммы",
@@ -3630,8 +4158,14 @@
     "id": "приоритет-операций",
     "title": "Приоритет операций",
     "kind": "term",
-    "summary": "Порядок вычисления выражений: ** > унарный минус > * / // % > + -. Скобки повышают приоритет. Помнить: PEMDAS / BODMAS.",
-    "body": "",
+    "summary": {
+      "ru": "Порядок вычисления выражений: ** > унарный минус > * / // % > + -. Скобки повышают приоритет. Помнить: PEMDAS / BODMAS.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "( ) → ** → -x → * / // % → + -",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-приоритет-операций",
@@ -3659,8 +4193,14 @@
     "id": "распаковка-в-for",
     "title": "Распаковка в for",
     "kind": "construct",
-    "summary": "При итерации по последовательности кортежей (или других итерируемых) можно сразу распаковывать элементы в несколько переменных прямо в заголовке for.",
-    "body": "",
+    "summary": {
+      "ru": "При итерации по последовательности кортежей (или других итерируемых) можно сразу распаковывать элементы в несколько переменных прямо в заголовке for.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "for x, y in iterable: ...\nfor a, b, c in iterable: ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-распаковка-в-for",
@@ -3691,8 +4231,14 @@
     "id": "рекурсия",
     "title": "Рекурсия",
     "kind": "term",
-    "summary": "Функция вызывает себя. Требует базовый случай. Глубина по умолчанию ~1000 (sys.setrecursionlimit).",
-    "body": "",
+    "summary": {
+      "ru": "Функция вызывает себя. Требует базовый случай. Глубина по умолчанию ~1000 (sys.setrecursionlimit).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def f(n):\n    if n == 0: return 1\n    return n * f(n-1)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-рекурсия",
@@ -3752,8 +4298,14 @@
     "id": "системы-счисления",
     "title": "Системы счисления",
     "kind": "term",
-    "summary": "Перевод между двоичной, восьмеричной, десятичной и шестнадцатеричной системами.",
-    "body": "",
+    "summary": {
+      "ru": "Перевод между двоичной, восьмеричной, десятичной и шестнадцатеричной системами.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bin(n), oct(n), hex(n)\nint(s, base)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-системы-счисления",
@@ -3811,8 +4363,14 @@
     "id": "сложение",
     "title": "+ сложение",
     "kind": "term",
-    "summary": "Бинарный оператор сложения. Для чисел — арифметическое сложение; для строк и списков — конкатенация; для множеств — объединение.",
-    "body": "",
+    "summary": {
+      "ru": "Бинарный оператор сложения. Для чисел — арифметическое сложение; для строк и списков — конкатенация; для множеств — объединение.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a + b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сложение",
@@ -3840,8 +4398,14 @@
     "id": "сортировка-вставками",
     "title": "Сортировка вставками",
     "kind": "term",
-    "summary": "O(n²) в худшем, O(n) для почти отсортированных. Вставляет каждый элемент на правильное место.",
-    "body": "",
+    "summary": {
+      "ru": "O(n²) в худшем, O(n) для почти отсортированных. Вставляет каждый элемент на правильное место.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def insertion_sort(arr):",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сортировка-вставками",
@@ -3911,8 +4475,14 @@
     "id": "сортировка-выбором",
     "title": "Сортировка выбором",
     "kind": "term",
-    "summary": "O(n²). Находит минимальный элемент и ставит на нужное место. Минимум обменов (O(n)).",
-    "body": "",
+    "summary": {
+      "ru": "O(n²). Находит минимальный элемент и ставит на нужное место. Минимум обменов (O(n)).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def selection_sort(arr):",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сортировка-выбором",
@@ -3982,8 +4552,14 @@
     "id": "сортировка-пузырьком",
     "title": "Сортировка пузырьком",
     "kind": "term",
-    "summary": "O(n²). Сравнивает соседние элементы и меняет местами. Наглядна, но медленна. Оптимизация — флаг обмена.",
-    "body": "",
+    "summary": {
+      "ru": "O(n²). Сравнивает соседние элементы и меняет местами. Наглядна, но медленна. Оптимизация — флаг обмена.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def bubble_sort(arr):",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сортировка-пузырьком",
@@ -4055,8 +4631,14 @@
     "id": "стек-stack",
     "title": "Стек (stack)",
     "kind": "function",
-    "summary": "LIFO — последний вошёл, первый вышел. Реализуется через list. Применения: скобки, история, DFS.",
-    "body": "",
+    "summary": {
+      "ru": "LIFO — последний вошёл, первый вышел. Реализуется через list. Применения: скобки, история, DFS.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "stack = []\nstack.append(x)  # push\nstack.pop()      # pop",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-стек-stack",
@@ -4146,8 +4728,14 @@
     "id": "степень",
     "title": "** степень",
     "kind": "term",
-    "summary": "Оператор возведения в степень. Выполняется справа налево (правоассоциативен). Поддерживает дробные степени (корни) и отрицательные показатели.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор возведения в степень. Выполняется справа налево (правоассоциативен). Поддерживает дробные степени (корни) и отрицательные показатели.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a ** b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-степень",
@@ -4175,8 +4763,14 @@
     "id": "тернарный-оператор",
     "title": "Тернарный оператор",
     "kind": "construct",
-    "summary": "Компактная форма if-else в одну строку. Возвращает одно из двух значений в зависимости от условия. Читается: «значение_если_истина if условие else значение_если_ложь».",
-    "body": "",
+    "summary": {
+      "ru": "Компактная форма if-else в одну строку. Возвращает одно из двух значений в зависимости от условия. Читается: «значение_если_истина if условие else значение_если_ложь».",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "значение_если_истина if условие else значение_если_ложь",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-тернарный-оператор",
@@ -4214,8 +4808,14 @@
     "id": "умножение",
     "title": "* умножение",
     "kind": "term",
-    "summary": "Бинарный оператор умножения. Для строк и списков — повторение.",
-    "body": "",
+    "summary": {
+      "ru": "Бинарный оператор умножения. Для строк и списков — повторение.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a * b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-умножение",
@@ -4244,8 +4844,14 @@
     "id": "хеш-таблица-dict",
     "title": "Хеш-таблица (dict)",
     "kind": "function",
-    "summary": "Dict в Python — хеш-таблица. O(1) в среднем для get/set/del. Применения: подсчёт, кэш, индексирование.",
-    "body": "",
+    "summary": {
+      "ru": "Dict в Python — хеш-таблица. O(1) в среднем для get/set/del. Применения: подсчёт, кэш, индексирование.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "d = {}\nd[key] = value\nd.get(key, default)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-хеш-таблица-dict",
@@ -4303,8 +4909,14 @@
     "id": "целочисленное-деление",
     "title": "// целочисленное деление",
     "kind": "term",
-    "summary": "Оператор целочисленного (этажного) деления. Возвращает наибольшее целое, не превышающее частное. Для float аргументов возвращает float.",
-    "body": "",
+    "summary": {
+      "ru": "Оператор целочисленного (этажного) деления. Возвращает наибольшее целое, не превышающее частное. Для float аргументов возвращает float.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a // b",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-целочисленное-деление",
@@ -4333,8 +4945,14 @@
     "id": "цепочка-сравнений",
     "title": "Цепочка сравнений",
     "kind": "term",
-    "summary": "Python позволяет записывать несколько сравнений подряд в одном выражении. Выражение 1 < x < 10 эквивалентно (1 < x) and (x < 10) и вычисляется слева направо.",
-    "body": "",
+    "summary": {
+      "ru": "Python позволяет записывать несколько сравнений подряд в одном выражении. Выражение 1 < x < 10 эквивалентно (1 < x) and (x < 10) и вычисляется слева направо.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "a < b < c  a == b == c  a <= b >= c",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-цепочка-сравнений",
@@ -4363,8 +4981,14 @@
     "id": "числа-фибоначчи",
     "title": "Числа Фибоначчи",
     "kind": "term",
-    "summary": "F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2). Итеративно O(n), рекурсивно O(2^n), с lru_cache O(n).",
-    "body": "",
+    "summary": {
+      "ru": "F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2). Итеративно O(n), рекурсивно O(2^n), с lru_cache O(n).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "def fib(n): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-числа-фибоначчи",

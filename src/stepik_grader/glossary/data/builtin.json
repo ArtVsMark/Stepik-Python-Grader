@@ -3,8 +3,14 @@
     "id": "__import__",
     "title": "__import__",
     "kind": "term",
-    "summary": "Низкоуровневый импорт модуля. Обычно используй importlib.import_module.",
-    "body": "",
+    "summary": {
+      "ru": "Низкоуровневый импорт модуля. Обычно используй importlib.import_module.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "__import__(name, ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-__import__",
@@ -35,8 +41,14 @@
     "id": "abs-1",
     "title": "abs",
     "kind": "term",
-    "summary": "Возвращает абсолютное значение (модуль) числа. Работает с int, float и complex (возвращает float для комплексных).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает абсолютное значение (модуль) числа. Работает с int, float и complex (возвращает float для комплексных).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "abs(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-abs-1",
@@ -63,8 +75,14 @@
     "id": "all",
     "title": "all",
     "kind": "term",
-    "summary": "Возвращает True, если все элементы итерируемого истинны, или если итерируемый пуст. Использует ленивое вычисление.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если все элементы итерируемого истинны, или если итерируемый пуст. Использует ленивое вычисление.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "all(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-all",
@@ -91,8 +109,14 @@
     "id": "any",
     "title": "any",
     "kind": "term",
-    "summary": "Возвращает True, если хотя бы один элемент итерируемого истинен. Использует ленивое вычисление.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если хотя бы один элемент итерируемого истинен. Использует ленивое вычисление.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "any(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-any",
@@ -119,8 +143,14 @@
     "id": "ascii",
     "title": "ascii",
     "kind": "term",
-    "summary": "Возвращает repr() объекта, но заменяет все не-ASCII символы на escape-последовательности \\xNN, \\uNNNN или \\UNNNNNNNN.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает repr() объекта, но заменяет все не-ASCII символы на escape-последовательности \\xNN, \\uNNNN или \\UNNNNNNNN.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "ascii(object)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ascii",
@@ -147,8 +177,14 @@
     "id": "bin",
     "title": "bin",
     "kind": "term",
-    "summary": "Преобразует целое число в строку двоичного представления с префиксом '0b'. Отрицательные числа: bin(-5) → '-0b101'.",
-    "body": "",
+    "summary": {
+      "ru": "Преобразует целое число в строку двоичного представления с префиксом '0b'. Отрицательные числа: bin(-5) → '-0b101'.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bin(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bin",
@@ -175,8 +211,14 @@
     "id": "bool-1",
     "title": "bool",
     "kind": "term",
-    "summary": "Логический тип данных. Подкласс int: True == 1, False == 0. bool(x) возвращает результат проверки истинности x.",
-    "body": "",
+    "summary": {
+      "ru": "Логический тип данных. Подкласс int: True == 1, False == 0. bool(x) возвращает результат проверки истинности x.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bool(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bool-1",
@@ -203,8 +245,14 @@
     "id": "breakpoint",
     "title": "breakpoint",
     "kind": "term",
-    "summary": "Вызывает встроенный отладчик pdb в месте вызова. Python 3.7+. Поведение можно переопределить через PYTHONBREAKPOINT.",
-    "body": "",
+    "summary": {
+      "ru": "Вызывает встроенный отладчик pdb в месте вызова. Python 3.7+. Поведение можно переопределить через PYTHONBREAKPOINT.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "breakpoint()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-breakpoint",
@@ -232,8 +280,14 @@
     "id": "bytearray-1",
     "title": "bytearray",
     "kind": "term",
-    "summary": "Изменяемая последовательность байт. В отличие от bytes, поддерживает присвоение по индексу и методы append(), extend().",
-    "body": "",
+    "summary": {
+      "ru": "Изменяемая последовательность байт. В отличие от bytes, поддерживает присвоение по индексу и методы append(), extend().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bytearray(source, encoding)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bytearray-1",
@@ -262,8 +316,14 @@
     "id": "bytes-1",
     "title": "bytes",
     "kind": "term",
-    "summary": "Неизменяемая последовательность байт (целых чисел 0–255). Используется для бинарных данных и текста в определённой кодировке.",
-    "body": "",
+    "summary": {
+      "ru": "Неизменяемая последовательность байт (целых чисел 0–255). Используется для бинарных данных и текста в определённой кодировке.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "bytes(source, encoding)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bytes-1",
@@ -290,8 +350,14 @@
     "id": "callable",
     "title": "callable",
     "kind": "term",
-    "summary": "Возвращает True, если объект можно вызвать: функция, класс, лямбда или объект с методом __call__.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если объект можно вызвать: функция, класс, лямбда или объект с методом __call__.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "callable(object)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-callable",
@@ -320,8 +386,14 @@
     "id": "chr",
     "title": "chr",
     "kind": "term",
-    "summary": "Возвращает строку из одного символа по его Unicode кодовой точке (целое число). Обратная функция для ord().",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает строку из одного символа по его Unicode кодовой точке (целое число). Обратная функция для ord().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "chr(i)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-chr",
@@ -348,8 +420,14 @@
     "id": "classmethod-1",
     "title": "classmethod",
     "kind": "term",
-    "summary": "Дескриптор для создания метода класса. Обычно используется как @classmethod.",
-    "body": "",
+    "summary": {
+      "ru": "Дескриптор для создания метода класса. Обычно используется как @classmethod.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@classmethod\ndef f(cls): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-classmethod-1",
@@ -381,8 +459,14 @@
     "id": "compile",
     "title": "compile",
     "kind": "term",
-    "summary": "Компилирует строку или AST в объект кода (code object). Используется с exec() или eval() для динамического кода.",
-    "body": "",
+    "summary": {
+      "ru": "Компилирует строку или AST в объект кода (code object). Используется с exec() или eval() для динамического кода.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "compile(source, filename, mode)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-compile",
@@ -411,8 +495,14 @@
     "id": "complex-1",
     "title": "complex",
     "kind": "term",
-    "summary": "Встроенный тип для комплексных чисел вида a+bj. Поддерживает арифметику, атрибуты .real и .imag, метод conjugate().",
-    "body": "",
+    "summary": {
+      "ru": "Встроенный тип для комплексных чисел вида a+bj. Поддерживает арифметику, атрибуты .real и .imag, метод conjugate().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "complex(real=0, imag=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-complex-1",
@@ -440,8 +530,14 @@
     "id": "delattr",
     "title": "delattr",
     "kind": "term",
-    "summary": "Удаляет атрибут объекта по имени. Эквивалент del obj.attr, но позволяет передать имя атрибута как строку динамически.",
-    "body": "",
+    "summary": {
+      "ru": "Удаляет атрибут объекта по имени. Эквивалент del obj.attr, но позволяет передать имя атрибута как строку динамически.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "delattr(object, name)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-delattr",
@@ -474,8 +570,14 @@
     "id": "dict",
     "title": "dict",
     "kind": "term",
-    "summary": "Изменяемый маппинг: хранит пары ключ–значение. Ключи уникальны и хешируемы. С Python 3.7 сохраняет порядок вставки.",
-    "body": "",
+    "summary": {
+      "ru": "Изменяемый маппинг: хранит пары ключ–значение. Ключи уникальны и хешируемы. С Python 3.7 сохраняет порядок вставки.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dict(**kwargs)\ndict(mapping)\ndict(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dict",
@@ -503,8 +605,14 @@
     "id": "dir",
     "title": "dir",
     "kind": "term",
-    "summary": "Список атрибутов объекта (или локального пространства имён).",
-    "body": "",
+    "summary": {
+      "ru": "Список атрибутов объекта (или локального пространства имён).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "dir([object])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-dir",
@@ -534,8 +642,14 @@
     "id": "divmod-1",
     "title": "divmod",
     "kind": "term",
-    "summary": "Возвращает кортеж (целое частное, остаток от деления). Эквивалент (a // b, a % b), но выполняется за одну операцию.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает кортеж (целое частное, остаток от деления). Эквивалент (a // b, a % b), но выполняется за одну операцию.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "divmod(a, b)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-divmod-1",
@@ -563,8 +677,14 @@
     "id": "end",
     "title": "end=",
     "kind": "term",
-    "summary": "Параметр функции print(), задающий строку, добавляемую в конец вывода. По умолчанию — символ новой строки '\\n'. Позволяет выводить на одной строке.",
-    "body": "",
+    "summary": {
+      "ru": "Параметр функции print(), задающий строку, добавляемую в конец вывода. По умолчанию — символ новой строки '\\n'. Позволяет выводить на одной строке.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "print(*objects, end='строка')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-end",
@@ -591,8 +711,14 @@
     "id": "enumerate-1",
     "title": "enumerate",
     "kind": "term",
-    "summary": "Оборачивает итерируемый объект, добавляя счётчик. Возвращает пары (индекс, значение). Удобно в циклах for.",
-    "body": "",
+    "summary": {
+      "ru": "Оборачивает итерируемый объект, добавляя счётчик. Возвращает пары (индекс, значение). Удобно в циклах for.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "enumerate(iterable, start=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-enumerate-1",
@@ -621,8 +747,14 @@
     "id": "eval",
     "title": "eval",
     "kind": "term",
-    "summary": "Вычисляет выражение из строки. ВНИМАНИЕ: небезопасен для ненадёжного ввода!",
-    "body": "",
+    "summary": {
+      "ru": "Вычисляет выражение из строки. ВНИМАНИЕ: небезопасен для ненадёжного ввода!",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "eval(expression[, globals[, locals]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-eval",
@@ -650,8 +782,14 @@
     "id": "exec",
     "title": "exec",
     "kind": "term",
-    "summary": "Выполняет динамически созданный Python-код: строку или code object. Изменяет переданное пространство имён.",
-    "body": "",
+    "summary": {
+      "ru": "Выполняет динамически созданный Python-код: строку или code object. Изменяет переданное пространство имён.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "exec(object[, globals[, locals]])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-exec",
@@ -683,8 +821,14 @@
     "id": "filter-1",
     "title": "filter",
     "kind": "term",
-    "summary": "Фильтрует элементы итерируемого, оставляя только те, для которых функция возвращает True. Возвращает ленивый итератор.",
-    "body": "",
+    "summary": {
+      "ru": "Фильтрует элементы итерируемого, оставляя только те, для которых функция возвращает True. Возвращает ленивый итератор.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "filter(func, iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-filter-1",
@@ -712,8 +856,14 @@
     "id": "float-1",
     "title": "float",
     "kind": "term",
-    "summary": "Тип числа с плавающей точкой двойной точности (64 бит, IEEE 754). Принимает числа, строки и специальные значения: 'inf', '-inf', 'nan'.",
-    "body": "",
+    "summary": {
+      "ru": "Тип числа с плавающей точкой двойной точности (64 бит, IEEE 754). Принимает числа, строки и специальные значения: 'inf', '-inf', 'nan'.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "float(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-float-1",
@@ -740,8 +890,14 @@
     "id": "format",
     "title": "format",
     "kind": "term",
-    "summary": "Форматирует значение по строке спецификации формата (format spec). Вызывает метод __format__ объекта.",
-    "body": "",
+    "summary": {
+      "ru": "Форматирует значение по строке спецификации формата (format spec). Вызывает метод __format__ объекта.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "format(value, format_spec='')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-format",
@@ -768,8 +924,14 @@
     "id": "frozenset",
     "title": "frozenset",
     "kind": "term",
-    "summary": "Неизменяемое множество. Поддерживает все операции set (объединение, пересечение и т.д.), но не поддерживает add() и remove(). Хешируемо — можно использовать как ключ словаря.",
-    "body": "",
+    "summary": {
+      "ru": "Неизменяемое множество. Поддерживает все операции set (объединение, пересечение и т.д.), но не поддерживает add() и remove(). Хешируемо — можно использовать как ключ словаря.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "frozenset(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-frozenset",
@@ -798,8 +960,14 @@
     "id": "getattr",
     "title": "getattr",
     "kind": "term",
-    "summary": "Получает атрибут объекта по имени как строке. Третий аргумент — значение по умолчанию, если атрибут не существует (иначе AttributeError).",
-    "body": "",
+    "summary": {
+      "ru": "Получает атрибут объекта по имени как строке. Третий аргумент — значение по умолчанию, если атрибут не существует (иначе AttributeError).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "getattr(object, name[, default])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-getattr",
@@ -829,8 +997,14 @@
     "id": "globals",
     "title": "globals",
     "kind": "term",
-    "summary": "Возвращает словарь глобального пространства имён текущего модуля.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает словарь глобального пространства имён текущего модуля.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "globals()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-globals",
@@ -859,8 +1033,14 @@
     "id": "hasattr",
     "title": "hasattr",
     "kind": "term",
-    "summary": "Возвращает True, если у объекта есть атрибут с указанным именем. Реализован через попытку getattr() — проверяет наличие без исключения.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если у объекта есть атрибут с указанным именем. Реализован через попытку getattr() — проверяет наличие без исключения.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "hasattr(object, name)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-hasattr",
@@ -890,8 +1070,14 @@
     "id": "hash",
     "title": "hash",
     "kind": "term",
-    "summary": "Возвращает целочисленный хеш объекта. Объект должен быть хешируемым (неизменяемым). Используется словарями и множествами.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает целочисленный хеш объекта. Объект должен быть хешируемым (неизменяемым). Используется словарями и множествами.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "hash(object)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-hash",
@@ -920,8 +1106,14 @@
     "id": "help",
     "title": "help",
     "kind": "term",
-    "summary": "Выводит встроенную справку по объекту, функции или модулю. В интерактивном режиме без аргумента запускает интерактивную справку.",
-    "body": "",
+    "summary": {
+      "ru": "Выводит встроенную справку по объекту, функции или модулю. В интерактивном режиме без аргумента запускает интерактивную справку.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "help([object])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-help",
@@ -948,8 +1140,14 @@
     "id": "hex",
     "title": "hex",
     "kind": "term",
-    "summary": "Преобразует целое число в строку шестнадцатеричного представления с префиксом '0x'. Буквы в нижнем регистре.",
-    "body": "",
+    "summary": {
+      "ru": "Преобразует целое число в строку шестнадцатеричного представления с префиксом '0x'. Буквы в нижнем регистре.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "hex(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-hex",
@@ -976,8 +1174,14 @@
     "id": "id",
     "title": "id",
     "kind": "term",
-    "summary": "Возвращает уникальный идентификатор объекта (адрес в памяти).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает уникальный идентификатор объекта (адрес в памяти).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "id(object)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-id",
@@ -1007,8 +1211,14 @@
     "id": "input",
     "title": "input()",
     "kind": "function",
-    "summary": "Встроенная функция для чтения строки с клавиатуры. Выводит необязательный приглашающий текст и возвращает введённую строку без символа новой строки.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция для чтения строки с клавиатуры. Выводит необязательный приглашающий текст и возвращает введённую строку без символа новой строки.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "input([prompt]) -> str",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-input",
@@ -1036,8 +1246,14 @@
     "id": "input-1",
     "title": "input",
     "kind": "term",
-    "summary": "Читает строку с клавиатуры и возвращает её без символа новой строки. Необязательный аргумент prompt — подсказка пользователю.",
-    "body": "",
+    "summary": {
+      "ru": "Читает строку с клавиатуры и возвращает её без символа новой строки. Необязательный аргумент prompt — подсказка пользователю.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "input([prompt])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-input-1",
@@ -1068,8 +1284,14 @@
     "id": "int-1",
     "title": "int",
     "kind": "term",
-    "summary": "Целое число произвольной точности. Принимает строку с основанием системы счисления: int('ff', 16) → 255.",
-    "body": "",
+    "summary": {
+      "ru": "Целое число произвольной точности. Принимает строку с основанием системы счисления: int('ff', 16) → 255.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "int(x, base=10)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-int-1",
@@ -1096,8 +1318,14 @@
     "id": "isinstance-1",
     "title": "isinstance",
     "kind": "term",
-    "summary": "True если объект является экземпляром класса (или подкласса).",
-    "body": "",
+    "summary": {
+      "ru": "True если объект является экземпляром класса (или подкласса).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "isinstance(object, classinfo)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-isinstance-1",
@@ -1124,8 +1352,14 @@
     "id": "issubclass",
     "title": "issubclass",
     "kind": "term",
-    "summary": "Возвращает True, если класс является подклассом указанного класса или одного из классов в кортеже.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает True, если класс является подклассом указанного класса или одного из классов в кортеже.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "issubclass(class, classinfo)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-issubclass",
@@ -1154,8 +1388,14 @@
     "id": "iter",
     "title": "iter",
     "kind": "term",
-    "summary": "Возвращает итератор. С двумя аргументами — вызывает функцию до значения sentinel.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает итератор. С двумя аргументами — вызывает функцию до значения sentinel.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "iter(object)\niter(callable, sentinel)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-iter",
@@ -1187,8 +1427,14 @@
     "id": "list",
     "title": "list",
     "kind": "term",
-    "summary": "Создаёт изменяемый список из итерируемого или пустой список. list() без аргументов эквивалентен [].",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт изменяемый список из итерируемого или пустой список. list() без аргументов эквивалентен [].",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "list(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-list",
@@ -1215,8 +1461,14 @@
     "id": "locals",
     "title": "locals",
     "kind": "term",
-    "summary": "Возвращает словарь текущего локального пространства имён. В модуле совпадает с globals(). Копия, не ссылка.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает словарь текущего локального пространства имён. В модуле совпадает с globals(). Копия, не ссылка.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "locals()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-locals",
@@ -1248,8 +1500,14 @@
     "id": "map-1",
     "title": "map",
     "kind": "term",
-    "summary": "Применяет функцию к каждому элементу итерируемого и возвращает ленивый итератор результатов.",
-    "body": "",
+    "summary": {
+      "ru": "Применяет функцию к каждому элементу итерируемого и возвращает ленивый итератор результатов.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "map(func, iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-map-1",
@@ -1276,8 +1534,14 @@
     "id": "max",
     "title": "max",
     "kind": "term",
-    "summary": "Возвращает наибольший элемент итерируемого или наибольший из переданных аргументов. Поддерживает key-функцию.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает наибольший элемент итерируемого или наибольший из переданных аргументов. Поддерживает key-функцию.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "max(iterable, *, key=None)\nmax(a, b, ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-max",
@@ -1304,8 +1568,14 @@
     "id": "memoryview",
     "title": "memoryview",
     "kind": "term",
-    "summary": "Создаёт объект представления буфера без копирования данных. Позволяет работать со срезами бинарных данных эффективно.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт объект представления буфера без копирования данных. Позволяет работать со срезами бинарных данных эффективно.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "memoryview(object)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-memoryview",
@@ -1335,8 +1605,14 @@
     "id": "min",
     "title": "min",
     "kind": "term",
-    "summary": "Возвращает наименьший элемент итерируемого или наименьший из переданных аргументов. Поддерживает key-функцию.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает наименьший элемент итерируемого или наименьший из переданных аргументов. Поддерживает key-функцию.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "min(iterable, *, key=None)\nmin(a, b, ...)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-min",
@@ -1363,8 +1639,14 @@
     "id": "next",
     "title": "next",
     "kind": "term",
-    "summary": "Возвращает следующий элемент итератора. default — если итератор исчерпан.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает следующий элемент итератора. default — если итератор исчерпан.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "next(iterator[, default])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-next",
@@ -1393,8 +1675,14 @@
     "id": "object",
     "title": "object",
     "kind": "term",
-    "summary": "Базовый класс всех классов Python. Предоставляет методы по умолчанию: __str__, __repr__, __eq__, __hash__ и другие магические методы.",
-    "body": "",
+    "summary": {
+      "ru": "Базовый класс всех классов Python. Предоставляет методы по умолчанию: __str__, __repr__, __eq__, __hash__ и другие магические методы.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "object()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-object",
@@ -1423,8 +1711,14 @@
     "id": "oct",
     "title": "oct",
     "kind": "term",
-    "summary": "Преобразует целое число в строку восьмеричного представления с префиксом '0o'.",
-    "body": "",
+    "summary": {
+      "ru": "Преобразует целое число в строку восьмеричного представления с префиксом '0o'.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "oct(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-oct",
@@ -1451,8 +1745,14 @@
     "id": "open-1",
     "title": "open",
     "kind": "term",
-    "summary": "Открывает файл и возвращает файловый объект. Поддерживает текстовый и бинарный режимы, кодировки, буферизацию.",
-    "body": "",
+    "summary": {
+      "ru": "Открывает файл и возвращает файловый объект. Поддерживает текстовый и бинарный режимы, кодировки, буферизацию.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "open(file, mode='r', encoding=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-open-1",
@@ -1481,8 +1781,14 @@
     "id": "ord",
     "title": "ord",
     "kind": "term",
-    "summary": "Возвращает Unicode кодовую точку (целое число) символа. Принимает строку длиной 1. Обратная функция для chr().",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает Unicode кодовую точку (целое число) символа. Принимает строку длиной 1. Обратная функция для chr().",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "ord(c)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ord",
@@ -1509,8 +1815,14 @@
     "id": "pow-1",
     "title": "pow",
     "kind": "term",
-    "summary": "Возводит x в степень y. С третьим аргументом вычисляет pow(x, y, mod) — модульное возведение в степень (эффективно).",
-    "body": "",
+    "summary": {
+      "ru": "Возводит x в степень y. С третьим аргументом вычисляет pow(x, y, mod) — модульное возведение в степень (эффективно).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "pow(base, exp[, mod])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-pow-1",
@@ -1537,8 +1849,14 @@
     "id": "print",
     "title": "print()",
     "kind": "function",
-    "summary": "Встроенная функция для вывода данных на стандартный вывод (экран). Принимает любое количество аргументов, разделяет их параметром sep и заканчивает строку параметром end.",
-    "body": "",
+    "summary": {
+      "ru": "Встроенная функция для вывода данных на стандартный вывод (экран). Принимает любое количество аргументов, разделяет их параметром sep и заканчивает строку параметром end.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "print(*objects, sep=' ', end='\\n', file=sys.stdout, flush=False)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-print",
@@ -1570,8 +1888,14 @@
     "id": "print-1",
     "title": "print",
     "kind": "term",
-    "summary": "Выводит объекты в поток (по умолчанию stdout). Принимает несколько аргументов, sep для разделителя и end для символа конца строки.",
-    "body": "",
+    "summary": {
+      "ru": "Выводит объекты в поток (по умолчанию stdout). Принимает несколько аргументов, sep для разделителя и end для символа конца строки.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "print(*objects, sep=' ', end='\\n', file=sys.stdout, flush=False)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-print-1",
@@ -1599,8 +1923,14 @@
     "id": "print-file-flush",
     "title": "print(file=, flush=)",
     "kind": "function",
-    "summary": "Параметр file= перенаправляет вывод в произвольный файловый объект (по умолчанию sys.stdout). flush=True немедленно сбрасывает внутренний буфер потока, не дожидаясь его заполнения.",
-    "body": "",
+    "summary": {
+      "ru": "Параметр file= перенаправляет вывод в произвольный файловый объект (по умолчанию sys.stdout). flush=True немедленно сбрасывает внутренний буфер потока, не дожидаясь его заполнения.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "print(*objects, sep=\" \", end=\"\\n\", file=sys.stdout, flush=False)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-print-file-flush",
@@ -1630,8 +1960,14 @@
     "id": "property-1",
     "title": "property",
     "kind": "term",
-    "summary": "Создаёт управляемый атрибут с геттером, сеттером и делитером. Позволяет добавить логику к обычному доступу к атрибуту без изменения интерфейса.",
-    "body": "",
+    "summary": {
+      "ru": "Создаёт управляемый атрибут с геттером, сеттером и делитером. Позволяет добавить логику к обычному доступу к атрибуту без изменения интерфейса.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "property(fget=None, fset=None, fdel=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-property-1",
@@ -1665,8 +2001,14 @@
     "id": "range-1",
     "title": "range",
     "kind": "term",
-    "summary": "Неизменяемая последовательность целых чисел. Используется в циклах for и срезах. Ленивая — не хранит все числа в памяти сразу.",
-    "body": "",
+    "summary": {
+      "ru": "Неизменяемая последовательность целых чисел. Используется в циклах for и срезах. Ленивая — не хранит все числа в памяти сразу.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "range(stop)\nrange(start, stop[, step])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-range-1",
@@ -1693,8 +2035,14 @@
     "id": "repr",
     "title": "repr",
     "kind": "term",
-    "summary": "Возвращает строку с официальным представлением объекта — такую, по которой можно воссоздать объект (по возможности).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает строку с официальным представлением объекта — такую, по которой можно воссоздать объект (по возможности).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "repr(object)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-repr",
@@ -1721,8 +2069,14 @@
     "id": "repr-vs-str",
     "title": "repr() vs str()",
     "kind": "function",
-    "summary": "str() возвращает «читаемое» представление объекта для вывода пользователю. repr() возвращает «однозначное» представление, пригодное для воспроизведения объекта в коде; используется в интерактивной консоли и при отладке.",
-    "body": "",
+    "summary": {
+      "ru": "str() возвращает «читаемое» представление объекта для вывода пользователю. repr() возвращает «однозначное» представление, пригодное для воспроизведения объекта в коде; используется в интерактивной консоли и при отладке.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str(object)  repr(object)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-repr-vs-str",
@@ -1750,8 +2104,14 @@
     "id": "reversed",
     "title": "reversed",
     "kind": "term",
-    "summary": "Возвращает обратный итератор для последовательности. Не копирует данные — ленивое вычисление.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает обратный итератор для последовательности. Не копирует данные — ленивое вычисление.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "reversed(sequence)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-reversed",
@@ -1779,8 +2139,14 @@
     "id": "round-1",
     "title": "round",
     "kind": "term",
-    "summary": "Округляет до ndigits знаков. Банковское округление (к чётному).",
-    "body": "",
+    "summary": {
+      "ru": "Округляет до ndigits знаков. Банковское округление (к чётному).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "round(number, ndigits=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-round-1",
@@ -1807,8 +2173,14 @@
     "id": "sep",
     "title": "sep=",
     "kind": "term",
-    "summary": "Параметр функции print(), задающий разделитель между аргументами. По умолчанию — пробел. Может быть любой строкой, включая пустую.",
-    "body": "",
+    "summary": {
+      "ru": "Параметр функции print(), задающий разделитель между аргументами. По умолчанию — пробел. Может быть любой строкой, включая пустую.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "print(*objects, sep='разделитель')",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sep",
@@ -1835,8 +2207,14 @@
     "id": "set",
     "title": "set",
     "kind": "term",
-    "summary": "Изменяемое множество уникальных хешируемых элементов без определённого порядка. Поддерживает операции объединения, пересечения и разности.",
-    "body": "",
+    "summary": {
+      "ru": "Изменяемое множество уникальных хешируемых элементов без определённого порядка. Поддерживает операции объединения, пересечения и разности.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "set(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-set",
@@ -1864,8 +2242,14 @@
     "id": "setattr",
     "title": "setattr",
     "kind": "term",
-    "summary": "Устанавливает атрибут объекта по имени. Эквивалент obj.name = value, но позволяет задать имя атрибута динамически как строку.",
-    "body": "",
+    "summary": {
+      "ru": "Устанавливает атрибут объекта по имени. Эквивалент obj.name = value, но позволяет задать имя атрибута динамически как строку.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "setattr(object, name, value)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-setattr",
@@ -1897,8 +2281,14 @@
     "id": "sorted",
     "title": "sorted",
     "kind": "term",
-    "summary": "Возвращает новый отсортированный список. Принимает key и reverse. Не изменяет исходную последовательность.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает новый отсортированный список. Принимает key и reverse. Не изменяет исходную последовательность.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sorted(iterable, key=None, reverse=False)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sorted",
@@ -1925,8 +2315,14 @@
     "id": "staticmethod-1",
     "title": "staticmethod",
     "kind": "term",
-    "summary": "Декоратор, создающий статический метод класса — без параметров self и cls. Принадлежит классу, но не зависит от экземпляра или самого класса.",
-    "body": "",
+    "summary": {
+      "ru": "Декоратор, создающий статический метод класса — без параметров self и cls. Принадлежит классу, но не зависит от экземпляра или самого класса.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "@staticmethod\ndef f(): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-staticmethod-1",
@@ -1958,8 +2354,14 @@
     "id": "str-1",
     "title": "str",
     "kind": "term",
-    "summary": "Неизменяемая последовательность символов Unicode. Поддерживает богатый набор методов форматирования, поиска и преобразования.",
-    "body": "",
+    "summary": {
+      "ru": "Неизменяемая последовательность символов Unicode. Поддерживает богатый набор методов форматирования, поиска и преобразования.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "str(object)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str-1",
@@ -1986,8 +2388,14 @@
     "id": "sum",
     "title": "sum",
     "kind": "term",
-    "summary": "Суммирует элементы итерируемого. start — начальное значение.",
-    "body": "",
+    "summary": {
+      "ru": "Суммирует элементы итерируемого. start — начальное значение.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "sum(iterable, start=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-sum",
@@ -2014,8 +2422,14 @@
     "id": "super-1",
     "title": "super",
     "kind": "term",
-    "summary": "Возвращает прокси-объект следующего класса в порядке разрешения методов (MRO). Используется для вызова методов родительского класса.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает прокси-объект следующего класса в порядке разрешения методов (MRO). Используется для вызова методов родительского класса.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "super()\nsuper(type, obj_or_type)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-super-1",
@@ -2046,8 +2460,14 @@
     "id": "tuple",
     "title": "tuple",
     "kind": "term",
-    "summary": "Неизменяемая упорядоченная последовательность элементов. Хешируема (если элементы хешируемы) — можно использовать как ключ словаря.",
-    "body": "",
+    "summary": {
+      "ru": "Неизменяемая упорядоченная последовательность элементов. Хешируема (если элементы хешируемы) — можно использовать как ключ словаря.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "tuple(iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-tuple",
@@ -2075,8 +2495,14 @@
     "id": "type-1",
     "title": "type",
     "kind": "term",
-    "summary": "Возвращает тип объекта. С тремя аргументами — создаёт новый класс.",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает тип объекта. С тремя аргументами — создаёт новый класс.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "type(object)\ntype(name, bases, dict)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-type-1",
@@ -2104,8 +2530,14 @@
     "id": "vars",
     "title": "vars",
     "kind": "term",
-    "summary": "Возвращает __dict__ объекта или словарь текущего локального пространства имён (без аргументов — аналог locals()).",
-    "body": "",
+    "summary": {
+      "ru": "Возвращает __dict__ объекта или словарь текущего локального пространства имён (без аргументов — аналог locals()).",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "vars([object])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-vars",
@@ -2135,8 +2567,14 @@
     "id": "zip-1",
     "title": "zip",
     "kind": "term",
-    "summary": "Объединяет несколько итерируемых в итератор кортежей из соответствующих элементов. Останавливается на кратчайшем.",
-    "body": "",
+    "summary": {
+      "ru": "Объединяет несколько итерируемых в итератор кортежей из соответствующих элементов. Останавливается на кратчайшем.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "zip(*iterables)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-zip-1",
@@ -2165,8 +2603,14 @@
     "id": "переменные",
     "title": "Переменные",
     "kind": "term",
-    "summary": "Именованные области памяти для хранения значений. В Python переменные динамически типизированы — тип определяется значением, а не объявлением.",
-    "body": "",
+    "summary": {
+      "ru": "Именованные области памяти для хранения значений. В Python переменные динамически типизированы — тип определяется значением, а не объявлением.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "имя_переменной = значение",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-переменные",
@@ -2195,8 +2639,14 @@
     "id": "числовые-литералы",
     "title": "Числовые литералы",
     "kind": "term",
-    "summary": "Python поддерживает запись чисел в двоичной (0b), восьмеричной (0o) и шестнадцатеричной (0x) системах счисления, разделитель _ для читаемости, а также экспоненциальную нотацию.",
-    "body": "",
+    "summary": {
+      "ru": "Python поддерживает запись чисел в двоичной (0b), восьмеричной (0o) и шестнадцатеричной (0x) системах счисления, разделитель _ для читаемости, а также экспоненциальную нотацию.",
+      "en": ""
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
     "syntax": "0b<биты>  0o<цифры>  0x<цифры>  <цифры>_<цифры>  <число>e<порядок>",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-числовые-литералы",
