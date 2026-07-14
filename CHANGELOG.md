@@ -13,6 +13,7 @@
 - `--history`/`record_history`: opt-in SQLite-история прогонов (`.grader_history.db`, `core/history.py` — схема v1 runs/case_results/lint_violations, WAL, `user_version`-миграции, best-effort); по умолчанию выключена, фундамент будущих разделов «Правила»/«Подучить» (#344).
 - `rules/` — база карточек правил PEP 8: `RuleCard` + `JsonRulesProvider` + bundled `pep8_ru.json` (≥30 кодов E/W/F); общий mtime-кеш вынесен из web-адаптера в `core/mtime_cache` (#345).
 - `core/lint.py` — opt-in PEP-проверка решения через ruff (extra `[lint]`, best-effort, не влияет на вердикт) + опциональное поле `lint` в контракте результата (#346).
+- `core/insights.py` — таксономия падений (`failure_kind`) + затухание карточек «Подучить» (`classify_status`/`learning_cards`: active/fading/archived/watch по номерам прогонов, пороги N/T/K в конфиге); `failure_kind` пишется в историю при `--history` (#347).
 
 ### Documentation
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan

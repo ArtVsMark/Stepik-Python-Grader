@@ -228,6 +228,11 @@ def read_recent_runs(
                 ).fetchall()
                 run = dict(row)
                 run["cases"] = [dict(c) for c in cases]
+                lint = conn.execute(
+                    "SELECT rule_code FROM lint_violations WHERE run_id = ? ORDER BY rule_code",
+                    (row["id"],),
+                ).fetchall()
+                run["lint"] = [r["rule_code"] for r in lint]
                 result.append(run)
             return result
     except (sqlite3.Error, OSError):

@@ -73,8 +73,39 @@ AST/tokenize-чекер не пишем — не дублируем pycodestyle 
 ## История прогонов (issue #344, фундамент)
 
 `core/history.py` (SQLite `.grader_history.db`) хранит `runs`/`case_results`/
-`lint_violations` — на этой истории раздел «Подучить» считает частоту падений
-и затухание карточек. Опции: `--history`/`record_history` (см.
-[configuration.md](configuration.md)). Таксономия падений и алгоритм затухания
-(`failure_kind`, статусы карточек) — issue #347, будут описаны здесь же по мере
-реализации.
+`lint_violations` — фундамент, на котором считаются карточки «Подучить». Опции:
+`--history`/`record_history` (см. [configuration.md](configuration.md)).
+
+---
+
+## Таксономия падений и затухание (`core/insights.py`, issue #347)
+
+**Ключ карточки** «Подучить» — `failure_kind` (падение) или `rule_code` (lint).
+`failure_kind` — чистая классификация исхода кейса (заполняется при записи в
+историю):
+
+| kind | Когда |
+|---|---|
+| `timeout` | TLE |
+| `runtime-error:<Класс>` | RE (имя исключения из stderr тем же `lookup_from_error`; `runtime-error` без класса) |
+| `output-format` | WA, где вывод совпал с точностью до пробелов/пустых строк/регистра |
+| `wrong-answer` | прочие WA |
+| `slow` | SLOWER/MUCH_SLOWER режимов 3/4 |
+
+**Статус карточки** — чистая функция `classify_status(flags)` от истории её
+ключа в последних `N` прогонах (`True` = встречался), **по номерам прогонов, а
+не по календарю** (тестируемо без часов/freezegun):
+
+| status | Правило |
+|---|---|
+| `active` | ≥`T` попаданий в окне и последний прогон «грязный» |
+| `fading` | был активен, 1..`K`-1 последних прогонов чистые |
+| `archived` | ≥`K` чистых прогонов подряд → исчезает из «Подучить», остаётся в «архиве побед» |
+| `watch` | появлялся, но ниже порога активности (первое появление / «мигающая» ошибка) |
+
+Пороги `N`/`T`/`K` (default 10/2/3) настраиваются в `[tool.stepik-grader]`
+(`insights_window_n`/`insights_active_threshold_t`/`insights_clean_streak_k`).
+`learning_cards(db_path)` агрегирует карточки из истории на лету — **без
+хранимого состояния**; `archived` по умолчанию скрыты (`include_archived=True`
+для «архива побед»), а `runtime-error:<Класс>` несёт `glossary_id` — ссылку на
+карточку исключения в глоссарии.

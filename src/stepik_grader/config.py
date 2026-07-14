@@ -60,6 +60,12 @@ class GraderConfig:
     # core/history.py): фундамент разделов «Правила»/«Подучить» (эпик #342).
     # По умолчанию выключена (#134) — включается --history/--no-history или полем.
     record_history: bool = False
+    # issue #347 — пороги затухания карточек «Подучить» (core/insights.py):
+    # окно последних N прогонов, порог активности T, чистая серия K до архива.
+    # По номерам прогонов, не по календарю (тестируемость без freezegun).
+    insights_window_n: int = 10
+    insights_active_threshold_t: int = 2
+    insights_clean_streak_k: int = 3
     # issue #266 — квоты SandboxRunner (--sandbox, core/sandbox/).
     # sandbox_max_cpu_seconds — жёсткий лимит CPU-времени (backstop ПОД
     # общим wall-clock timeout_seconds, не вместо него).
