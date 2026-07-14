@@ -35,47 +35,6 @@
     "related_errors": []
   },
   {
-    "id": "capitalize-title-swapcase",
-    "title": "capitalize() / title() / swapcase()",
-    "kind": "function",
-    "summary": {
-      "ru": "capitalize() — первая буква заглавная, остальные строчные. title() — каждое слово с заглавной. swapcase() — меняет регистр каждого символа.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.capitalize()  |  s.title()  |  s.swapcase()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-capitalize-title-swapcase",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "регистр",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello world'.capitalize())",
-      "# → 'Hello world'",
-      "print('hello world'.title())",
-      "# → 'Hello World'",
-      "print('Hello World'.swapcase())",
-      "# → 'hELLO wORLD'",
-      "print('HELLO'.capitalize())",
-      "# → 'Hello'",
-      "print(\"it's a test\".title())",
-      "# → \"It'S A Test\" (апостроф — разделитель)",
-      "print('aAbBcC'.swapcase())",
-      "# → 'AaBbCc'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "center-ljust-rjust-zfill",
     "title": "center() / ljust() / rjust() / zfill()",
     "kind": "function",
@@ -455,88 +414,6 @@
     "related_errors": []
   },
   {
-    "id": "isdigit-isalpha-isalnum-isspace",
-    "title": "isdigit() / isalpha() / isalnum() / isspace()",
-    "kind": "function",
-    "summary": {
-      "ru": "Методы проверки состава строки. Все возвращают False для пустой строки.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.isdigit()  |  s.isalpha()  |  s.isalnum()  |  s.isspace()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-isdigit-isalpha-isalnum-isspace",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('123'.isdigit())",
-      "# → True",
-      "print('12.3'.isdigit())",
-      "# → False",
-      "print('abc'.isalpha())",
-      "# → True",
-      "print('abc123'.isalpha())",
-      "# → False",
-      "print('abc123'.isalnum())",
-      "# → True",
-      "print('   '.isspace())",
-      "# → True",
-      "print(''.isdigit())",
-      "# → False (пустая строка)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "islower-isupper-istitle",
-    "title": "islower() / isupper() / istitle()",
-    "kind": "function",
-    "summary": {
-      "ru": "Проверяют регистр строки. Требуют хотя бы один буквенный символ.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.islower()  |  s.isupper()  |  s.istitle()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-islower-isupper-istitle",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "регистр",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.islower())",
-      "# → True",
-      "print('HELLO'.isupper())",
-      "# → True",
-      "print('Hello World'.istitle())",
-      "# → True",
-      "print('hello world'.istitle())",
-      "# → False",
-      "print('123'.islower())",
-      "# → False (нет букв)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "join",
     "title": "join()",
     "kind": "function",
@@ -818,171 +695,6 @@
     "related_errors": []
   },
   {
-    "id": "str-isascii",
-    "title": "isascii()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если все символы строки входят в ASCII (коды 0–127) или строка пуста. Python 3.7+.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isascii() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isascii",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isascii",
-    "version": "3.7",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'hello'.isascii()     # True",
-      "'привет'.isascii()    # False",
-      "'hello!'.isascii()    # True — знаки пунктуации тоже ASCII",
-      "''.isascii()          # True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-isdecimal",
-    "title": "isdecimal()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если все символы — десятичные цифры (только Unicode Decimal). Строже, чем isnumeric() и isdigit().",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isdecimal() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isdecimal",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isdecimal",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'123'.isdecimal()     # True",
-      "'12.3'.isdecimal()    # False — точка",
-      "'²'.isdecimal()       # False — надстрочный символ",
-      "'١٢٣'.isdecimal()     # True — арабские цифры"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-isidentifier",
-    "title": "isidentifier()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если строка — корректный Python-идентификатор (можно использовать как имя переменной). Проверяй с keyword.iskeyword() для полного анализа.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isidentifier() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isidentifier",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isidentifier",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'my_var'.isidentifier()   # True",
-      "'2var'.isidentifier()     # False — начинается с цифры",
-      "'for'.isidentifier()      # True — но это ключевое слово!",
-      "import keyword",
-      "keyword.iskeyword('for')  # True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-isnumeric",
-    "title": "isnumeric()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если все символы — числовые Unicode. Принимает дроби, надстрочные цифры — шире, чем isdecimal() и isdigit().",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isnumeric() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isnumeric",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isnumeric",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'123'.isnumeric()   # True",
-      "'²'.isnumeric()     # True — надстрочный",
-      "'½'.isnumeric()     # True — дробь",
-      "'12.3'.isnumeric()  # False"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-isprintable",
-    "title": "isprintable()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если все символы строки считаются печатаемыми (нет управляющих символов типа \\n, \\t). Пустая строка возвращает True.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isprintable() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isprintable",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isprintable",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'hello'.isprintable()     # True",
-      "'hello\\n'.isprintable()   # False — \\n непечатаем",
-      "''.isprintable()           # True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "str.expandtabs",
     "title": "str.expandtabs()",
     "kind": "function",
@@ -1195,48 +907,6 @@
       "# → ['a', 'b', 'c']",
       "print('xxhelloxx'.strip('x'))",
       "# → 'hello'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "upper-lower",
-    "title": "upper() / lower()",
-    "kind": "function",
-    "summary": {
-      "ru": "upper() переводит все символы в верхний регистр, lower() — в нижний. casefold() — агрессивный lower() для сравнения.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.upper()  |  s.lower()  |  s.casefold()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-upper-lower",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "регистр",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.upper())",
-      "# → 'HELLO'",
-      "print('WORLD'.lower())",
-      "# → 'world'",
-      "print('Python3'.lower())",
-      "# → 'python3'",
-      "s1, s2 = 'Hello', 'HELLO'",
-      "print(s1.lower() == s2.lower())",
-      "# → True",
-      "print('Straße'.casefold())",
-      "# → 'strasse'",
-      "print('MiXeD'.upper())",
-      "# → 'MIXED'"
     ],
     "related": [],
     "related_errors": []
@@ -1616,6 +1286,582 @@
       "# → 'Bob is 25'",
       "print('%05d' % 42)",
       "# → '00042'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.capitalize",
+    "title": "str.capitalize",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию строки: первый символ — заглавный, остальные строчные.",
+      "en": "Return a copy with the first character capitalized and the rest lowercased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.capitalize()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.capitalize",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('привет МИР'.capitalize())   # → Привет мир",
+      "print('123abc'.capitalize())       # → 123abc",
+      "print('ALREADY Done'.capitalize())  # → Already done"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.title",
+    "title": "str.title",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает строку, где каждое слово начинается с заглавной буквы, остальные строчные.",
+      "en": "Return a titlecased version: each word starts with an uppercase letter."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.title()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.title",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello world'.title())   # → Hello World",
+      "print('пример строки'.title())  # → Пример Строки",
+      "print(\"don't stop\".title())    # → Don'T Stop"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.swapcase",
+    "title": "str.swapcase",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию строки с инверсией регистра: заглавные ↔ строчные.",
+      "en": "Return a copy with uppercase characters converted to lowercase and vice versa."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.swapcase()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.swapcase",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('Hello World'.swapcase())  # → hELLO wORLD",
+      "print('Привет'.swapcase())       # → пРИВЕТ",
+      "print('abcABC123'.swapcase())    # → ABCabc123"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.upper",
+    "title": "str.upper",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию строки, где все символы приведены к верхнему регистру.",
+      "en": "Return a copy with all cased characters converted to uppercase."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.upper()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.upper",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('Hello'.upper())     # → HELLO",
+      "print('привет'.upper())    # → ПРИВЕТ",
+      "print('straße'.upper())    # → STRASSE"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.lower",
+    "title": "str.lower",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию строки, где все символы приведены к нижнему регистру.",
+      "en": "Return a copy with all cased characters converted to lowercase."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.lower()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.lower",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('HELLO'.lower())     # → hello",
+      "print('ПРИВЕТ'.lower())    # → привет",
+      "print('Hello World'.lower())  # → hello world"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.casefold",
+    "title": "str.casefold",
+    "kind": "function",
+    "summary": {
+      "ru": "Как lower(), но агрессивнее — для регистронезависимого сравнения (напр. ß → ss).",
+      "en": "Aggressive lowercasing for caseless matching (e.g. ß → ss)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.casefold()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.casefold",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('Straße'.casefold())  # → strasse",
+      "print('ß'.casefold() == 'ss')  # → True",
+      "print('HeLLo'.casefold())   # → hello"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isalnum",
+    "title": "str.isalnum",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка непуста и все символы буквенно-цифровые.",
+      "en": "True if the string is non-empty and all characters are alphanumeric."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isalnum()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isalnum",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc123'.isalnum())  # → True",
+      "print('a b'.isalnum())     # → False",
+      "print(''.isalnum())        # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isalpha",
+    "title": "str.isalpha",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка непуста и все символы — буквы.",
+      "en": "True if the string is non-empty and all characters are letters."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isalpha()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isalpha",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.isalpha())    # → True",
+      "print('Привет'.isalpha())  # → True",
+      "print('abc1'.isalpha())   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isdigit",
+    "title": "str.isdigit",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если все символы — цифры (включая надстрочные, напр. ²).",
+      "en": "True if all characters are digits (including superscripts like ²)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isdigit()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isdigit",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('123'.isdigit())   # → True",
+      "print('²'.isdigit())     # → True",
+      "print('12.3'.isdigit())  # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isdecimal",
+    "title": "str.isdecimal",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если все символы — десятичные цифры (0–9); строже isdigit.",
+      "en": "True if all characters are decimal digits (0–9); stricter than isdigit."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isdecimal()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isdecimal",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('123'.isdecimal())  # → True",
+      "print('²'.isdecimal())    # → False",
+      "print(''.isdecimal())     # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isnumeric",
+    "title": "str.isnumeric",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если все символы числовые — включая дроби и римские (½, Ⅴ).",
+      "en": "True if all characters are numeric, including fractions and numerals (½, Ⅴ)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isnumeric()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isnumeric",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('123'.isnumeric())  # → True",
+      "print('½'.isnumeric())    # → True",
+      "print('1.2'.isnumeric())  # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isspace",
+    "title": "str.isspace",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка непуста и все символы — пробельные.",
+      "en": "True if the string is non-empty and all characters are whitespace."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isspace()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isspace",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('   '.isspace())    # → True",
+      "print(' \\t\\n'.isspace())  # → True",
+      "print(''.isspace())       # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.islower",
+    "title": "str.islower",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если в строке есть буквы и все они строчные.",
+      "en": "True if all cased characters are lowercase and there is at least one."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.islower()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.islower",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.islower())    # → True",
+      "print('Abc'.islower())    # → False",
+      "print('abc123'.islower())  # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isupper",
+    "title": "str.isupper",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если в строке есть буквы и все они заглавные.",
+      "en": "True if all cased characters are uppercase and there is at least one."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isupper()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isupper",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('ABC'.isupper())   # → True",
+      "print('Abc'.isupper())   # → False",
+      "print('ABC!'.isupper())  # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.istitle",
+    "title": "str.istitle",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если каждое слово начинается с заглавной буквы (title-регистр).",
+      "en": "True if the string is titlecased: each word starts with an uppercase letter."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.istitle()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.istitle",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('Hello World'.istitle())  # → True",
+      "print('hello world'.istitle())  # → False",
+      "print('HELLO'.istitle())        # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isidentifier",
+    "title": "str.isidentifier",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка — допустимый идентификатор Python (в т.ч. ключевые слова).",
+      "en": "True if the string is a valid Python identifier (keywords included)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isidentifier()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isidentifier",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('x1'.isidentifier())    # → True",
+      "print('1x'.isidentifier())    # → False",
+      "print('for'.isidentifier())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isascii",
+    "title": "str.isascii",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка пуста или все символы — из диапазона ASCII.",
+      "en": "True if the string is empty or all characters are ASCII."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isascii()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isascii",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.isascii())     # → True",
+      "print('café'.isascii())    # → False",
+      "print(''.isascii())        # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isprintable",
+    "title": "str.isprintable",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка пуста или все символы печатаемые (без \\t, \\n и т.п.).",
+      "en": "True if the string is empty or all characters are printable (no \\t, \\n, …)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isprintable()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isprintable",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc 123'.isprintable())  # → True",
+      "print('a\\tb'.isprintable())     # → False",
+      "print(''.isprintable())         # → True"
     ],
     "related": [],
     "related_errors": []
