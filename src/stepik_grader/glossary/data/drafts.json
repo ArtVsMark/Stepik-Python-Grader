@@ -20188,34 +20188,6 @@
     "related_errors": []
   },
   {
-    "id": "str.count",
-    "title": "str.count",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return the number of non-overlapping occurrences of substring sub in string S[start:end].",
-      "en": ""
-    },
-    "syntax": "",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.count",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "str.encode",
     "title": "str.encode",
     "kind": "function",
@@ -20231,62 +20203,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.encode",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.endswith",
-    "title": "str.endswith",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return True if the string ends with the specified suffix, False otherwise.",
-      "en": ""
-    },
-    "syntax": "",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.endswith",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.find",
-    "title": "str.find",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return the lowest index in S where substring sub is found, such that sub is contained within S[start:end].",
-      "en": ""
-    },
-    "syntax": "",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.find",
     "version": "",
     "section": "Строки (str)",
     "subcat": "",
@@ -20343,62 +20259,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.format_map",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.index",
-    "title": "str.index",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return the lowest index in S where substring sub is found, such that sub is contained within S[start:end].",
-      "en": ""
-    },
-    "syntax": "",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.index",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.join",
-    "title": "str.join",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Concatenate any number of strings.",
-      "en": ""
-    },
-    "syntax": "join(self, iterable, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.join",
     "version": "",
     "section": "Строки (str)",
     "subcat": "",
@@ -20496,34 +20356,6 @@
     "related_errors": []
   },
   {
-    "id": "str.partition",
-    "title": "str.partition",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Partition the string into three parts using the given separator.",
-      "en": ""
-    },
-    "syntax": "partition(self, sep, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.partition",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "str.removeprefix",
     "title": "str.removeprefix",
     "kind": "function",
@@ -20608,62 +20440,6 @@
     "related_errors": []
   },
   {
-    "id": "str.rfind",
-    "title": "str.rfind",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return the highest index in S where substring sub is found, such that sub is contained within S[start:end].",
-      "en": ""
-    },
-    "syntax": "",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rfind",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.rindex",
-    "title": "str.rindex",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return the highest index in S where substring sub is found, such that sub is contained within S[start:end].",
-      "en": ""
-    },
-    "syntax": "",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rindex",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "str.rjust",
     "title": "str.rjust",
     "kind": "function",
@@ -20692,62 +20468,6 @@
     "related_errors": []
   },
   {
-    "id": "str.rpartition",
-    "title": "str.rpartition",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Partition the string into three parts using the given separator.",
-      "en": ""
-    },
-    "syntax": "rpartition(self, sep, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rpartition",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.rsplit",
-    "title": "str.rsplit",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return a list of the substrings in the string, using sep as the separator string.",
-      "en": ""
-    },
-    "syntax": "rsplit(self, /, sep=None, maxsplit=-1)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rsplit",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "str.rstrip",
     "title": "str.rstrip",
     "kind": "function",
@@ -20763,62 +20483,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rstrip",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.split",
-    "title": "str.split",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return a list of the substrings in the string, using sep as the separator string.",
-      "en": ""
-    },
-    "syntax": "split(self, /, sep=None, maxsplit=-1)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.split",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.startswith",
-    "title": "str.startswith",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return True if the string starts with the specified prefix, False otherwise.",
-      "en": ""
-    },
-    "syntax": "",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.startswith",
     "version": "",
     "section": "Строки (str)",
     "subcat": "",

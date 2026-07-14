@@ -120,45 +120,6 @@
     "related_errors": []
   },
   {
-    "id": "count",
-    "title": "count()",
-    "kind": "function",
-    "summary": {
-      "ru": "Подсчитывает число непересекающихся вхождений подстроки. Для пустой строки возвращает len(s)+1.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.count(sub[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-count",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "поиск",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.count('l'))",
-      "# → 2",
-      "print('banana'.count('an'))",
-      "# → 2 (непересекающиеся)",
-      "print('aaaa'.count('aa'))",
-      "# → 2",
-      "print('hello'.count('x'))",
-      "# → 0",
-      "print('abc'.count(''))",
-      "# → 4 (len+1)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "encode-decode",
     "title": "encode() / decode()",
     "kind": "function",
@@ -249,47 +210,6 @@
     "related_errors": []
   },
   {
-    "id": "find-rfind",
-    "title": "find() / rfind()",
-    "kind": "function",
-    "summary": {
-      "ru": "find() возвращает индекс первого вхождения подстроки или -1 если не найдено. rfind() ищет с конца.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.find(sub[, start[, end]])  |  s.rfind(sub[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-find-rfind",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "поиск",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.find('l'))",
-      "# → 2",
-      "print('hello'.find('x'))",
-      "# → -1",
-      "print('hello hello'.rfind('hello'))",
-      "# → 6",
-      "print('abcabc'.find('b', 3))",
-      "# → 4 (поиск с позиции 3)",
-      "print('abcabc'.find('b', 0, 2))",
-      "# → 1 (поиск до позиции 2)",
-      "print('abcabc'.rfind('a'))",
-      "# → 3"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "format-метод-форматирования",
     "title": "format() — метод форматирования",
     "kind": "term",
@@ -367,90 +287,6 @@
       "# → True (пустая всегда входит)",
       "print('P' in 'python')",
       "# → False (регистрозависимо)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "index-rindex",
-    "title": "index() / rindex()",
-    "kind": "function",
-    "summary": {
-      "ru": "index() как find(), но бросает ValueError если подстрока не найдена. rindex() ищет с конца.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.index(sub[, start[, end]])  |  s.rindex(sub[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-index-rindex",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "поиск",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.index('l'))",
-      "# → 2",
-      "print('hello'.rindex('l'))",
-      "# → 3",
-      "try:",
-      "'hello'.index('x')",
-      "except ValueError as e:",
-      "print(e)",
-      "# → substring not found",
-      "print('abcabc'.index('b', 3))",
-      "# → 4",
-      "print('abcabc'.rindex('b'))",
-      "# → 4"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "join",
-    "title": "join()",
-    "kind": "function",
-    "summary": {
-      "ru": "Объединяет элементы итерируемого объекта в строку, вставляя разделитель между ними.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "sep.join(iterable)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-join",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "объединение",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(' '.join(['Hello', 'World']))",
-      "# → 'Hello World'",
-      "print(','.join(['a', 'b', 'c']))",
-      "# → 'a,b,c'",
-      "print(''.join(['p', 'y', 't', 'h', 'o', 'n']))",
-      "# → 'python'",
-      "nums = [str(n) for n in [1, 2, 3]]",
-      "print('-'.join(nums))",
-      "# → '1-2-3'",
-      "print('|'.join(['only']))",
-      "# → 'only'",
-      "print(' '.join([]))",
-      "# → ''"
     ],
     "related": [],
     "related_errors": []
@@ -574,90 +410,6 @@
     "related_errors": []
   },
   {
-    "id": "split-rsplit",
-    "title": "split() / rsplit()",
-    "kind": "function",
-    "summary": {
-      "ru": "split() разбивает строку на список по разделителю. rsplit() — с конца. maxsplit ограничивает число разбиений.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.split([sep[, maxsplit]])  |  s.rsplit([sep[, maxsplit]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-split-rsplit",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "разбивка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('a b c'.split())",
-      "# → ['a', 'b', 'c']",
-      "print('a,b,c'.split(','))",
-      "# → ['a', 'b', 'c']",
-      "print('a,b,c'.split(',', 1))",
-      "# → ['a', 'b,c']",
-      "print('a,b,c'.rsplit(',', 1))",
-      "# → ['a,b', 'c']",
-      "print('  a  b  '.split())",
-      "# → ['a', 'b'] (несколько пробелов)",
-      "print('a,,b'.split(','))",
-      "# → ['a', '', 'b'] (пустые строки)",
-      "print('hello'.split('x'))",
-      "# → ['hello'] (разделитель не найден)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "startswith-endswith",
-    "title": "startswith() / endswith()",
-    "kind": "function",
-    "summary": {
-      "ru": "Проверяют, начинается/оканчивается ли строка на заданный префикс/суффикс. Принимают кортеж строк или диапазон start/end.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.startswith(prefix[, start[, end]])  |  s.endswith(suffix[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-startswith-endswith",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.startswith('he'))",
-      "# → True",
-      "print('hello'.endswith('lo'))",
-      "# → True",
-      "print('hello'.startswith(('hi', 'he')))",
-      "# → True (кортеж префиксов)",
-      "print('file.py'.endswith(('.py', '.js')))",
-      "# → True",
-      "print('hello'.startswith('lo', 3))",
-      "# → True (с позиции 3)",
-      "print('hello'.endswith('he', 0, 2))",
-      "# → True (до позиции 2)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "str-format_map",
     "title": "format_map()",
     "kind": "function",
@@ -766,41 +518,6 @@
     "related_errors": []
   },
   {
-    "id": "str.partition-str.rpartition",
-    "title": "str.partition() / str.rpartition()",
-    "kind": "function",
-    "summary": {
-      "ru": "partition() ищет первое вхождение разделителя и возвращает кортеж из трёх частей: до разделителя, сам разделитель, после. rpartition() — с конца строки.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.partition(sep) -> (before, sep, after)  str.rpartition(sep) -> (before, sep, after)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.partition-str.rpartition",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "разбивка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(\"user@example.com\".partition(\"@\"))   # → ('user', '@', 'example.com')",
-      "print(\"a::b::c\".partition(\"::\"))            # → ('a', '::', 'b::c')",
-      "print(\"a::b::c\".rpartition(\"::\"))           # → ('a::b', '::', 'c')",
-      "print(\"hello\".partition(\"x\"))               # → ('hello', '', '')",
-      "host, _, port = \"localhost:8080\".partition(\":\")",
-      "print(host, port)  # → localhost 8080"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "str.removeprefix-str.removesuffix",
     "title": "str.removeprefix() / str.removesuffix()",
     "kind": "function",
@@ -831,40 +548,6 @@
       "print(\"image.png\".removesuffix(\".png\"))        # → image",
       "print(\"hello\".removeprefix(\"xyz\"))             # → hello",
       "print(\"hello\".removesuffix(\"xyz\"))             # → hello"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.splitlines",
-    "title": "str.splitlines()",
-    "kind": "function",
-    "summary": {
-      "ru": "Разбивает строку по символам конца строки (\\n, \\r\\n, \\r и др.) и возвращает список строк. Параметр keepends=True сохраняет разделители в результатах.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.splitlines(keepends=False)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.splitlines",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "разбивка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(\"a\\nb\\nc\".splitlines())             # → ['a', 'b', 'c']",
-      "print(\"a\\r\\nb\\nc\".splitlines())           # → ['a', 'b', 'c']",
-      "print(\"a\\nb\\n\".splitlines())              # → ['a', 'b']",
-      "print(\"a\\nb\".splitlines(keepends=True))   # → ['a\\n', 'b']",
-      "print(\"\".splitlines())                     # → []"
     ],
     "related": [],
     "related_errors": []
@@ -1862,6 +1545,422 @@
       "print('abc 123'.isprintable())  # → True",
       "print('a\\tb'.isprintable())     # → False",
       "print(''.isprintable())         # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.find",
+    "title": "str.find",
+    "kind": "function",
+    "summary": {
+      "ru": "Индекс первого вхождения подстроки или -1, если не найдена. Опц. start/end.",
+      "en": "Return the lowest index of the substring, or -1 if not found. Optional start/end."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.find(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.find",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello'.find('l'))     # → 2",
+      "print('hello'.find('z'))     # → -1",
+      "print('hello'.find('l', 3))  # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rfind",
+    "title": "str.rfind",
+    "kind": "function",
+    "summary": {
+      "ru": "Индекс последнего вхождения подстроки или -1 (поиск с конца).",
+      "en": "Return the highest index of the substring, or -1 if not found (search from the right)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rfind(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rfind",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello'.rfind('l'))  # → 3",
+      "print('hello'.rfind('z'))  # → -1",
+      "print('abcabc'.rfind('a'))  # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.index",
+    "title": "str.index",
+    "kind": "function",
+    "summary": {
+      "ru": "Как find, но бросает ValueError, если подстрока не найдена.",
+      "en": "Like find, but raise ValueError when the substring is not found."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.index(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.index",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello'.index('e'))    # → 1",
+      "print('abcabc'.index('c'))   # → 2",
+      "print('hello'.index('l', 3))  # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rindex",
+    "title": "str.rindex",
+    "kind": "function",
+    "summary": {
+      "ru": "Как rfind, но бросает ValueError, если подстрока не найдена (поиск с конца).",
+      "en": "Like rfind, but raise ValueError when the substring is not found."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rindex(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rindex",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abcabc'.rindex('a'))  # → 3",
+      "print('abcabc'.rindex('b'))  # → 4",
+      "print('hello'.rindex('l'))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.count",
+    "title": "str.count",
+    "kind": "function",
+    "summary": {
+      "ru": "Число непересекающихся вхождений подстроки. Опц. диапазон start/end.",
+      "en": "Return the number of non-overlapping occurrences of the substring."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.count(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.count",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('banana'.count('a'))   # → 3",
+      "print('banana'.count('na'))  # → 2",
+      "print('aaa'.count('aa'))     # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.startswith",
+    "title": "str.startswith",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка начинается с префикса (или одного из кортежа префиксов).",
+      "en": "True if the string starts with the prefix (or one of a tuple of prefixes)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.startswith(prefix[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.startswith",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello'.startswith('he'))          # → True",
+      "print('hello'.startswith('lo'))          # → False",
+      "print('hello'.startswith(('hi', 'he')))  # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.endswith",
+    "title": "str.endswith",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка заканчивается суффиксом (или одним из кортежа суффиксов).",
+      "en": "True if the string ends with the suffix (or one of a tuple of suffixes)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.endswith(suffix[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.endswith",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('file.py'.endswith('.py'))            # → True",
+      "print('file.py'.endswith('.txt'))           # → False",
+      "print('file.py'.endswith(('.py', '.txt')))  # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.split",
+    "title": "str.split",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает строку по разделителю в список. Без аргумента — по любым пробелам.",
+      "en": "Split the string by a separator into a list; with no argument, split on any whitespace."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.split(sep=None, maxsplit=-1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.split",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a,b,c'.split(','))   # → ['a', 'b', 'c']",
+      "print('a  b   c'.split())   # → ['a', 'b', 'c']",
+      "print('a,b,c'.split(',', 1))  # → ['a', 'b,c']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rsplit",
+    "title": "str.rsplit",
+    "kind": "function",
+    "summary": {
+      "ru": "Как split, но при заданном maxsplit разбивает с конца строки.",
+      "en": "Like split, but split from the right when maxsplit is given."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rsplit(sep=None, maxsplit=-1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rsplit",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a,b,c'.rsplit(',', 1))  # → ['a,b', 'c']",
+      "print('a,b,c'.rsplit(','))     # → ['a', 'b', 'c']",
+      "print('a b c'.rsplit(None, 1))  # → ['a b', 'c']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.splitlines",
+    "title": "str.splitlines",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает строку по границам строк (\\n, \\r и др.) в список без переводов строк.",
+      "en": "Split the string at line boundaries into a list, without the line breaks."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.splitlines(keepends=False)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.splitlines",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a\\nb\\nc'.splitlines())  # → ['a', 'b', 'c']",
+      "print('a\\nb\\n'.splitlines())   # → ['a', 'b']",
+      "print('one line'.splitlines())  # → ['one line']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.partition",
+    "title": "str.partition",
+    "kind": "function",
+    "summary": {
+      "ru": "Делит строку по первому разделителю на кортеж (до, разделитель, после).",
+      "en": "Split at the first occurrence of the separator into a (head, sep, tail) tuple."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.partition(sep)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.partition",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a=b=c'.partition('='))  # → ('a', '=', 'b=c')",
+      "print('abc'.partition('='))    # → ('abc', '', '')",
+      "print('k: v'.partition(': '))  # → ('k', ': ', 'v')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rpartition",
+    "title": "str.rpartition",
+    "kind": "function",
+    "summary": {
+      "ru": "Делит строку по последнему разделителю на кортеж (до, разделитель, после).",
+      "en": "Split at the last occurrence of the separator into a (head, sep, tail) tuple."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rpartition(sep)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rpartition",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a=b=c'.rpartition('='))  # → ('a=b', '=', 'c')",
+      "print('abc'.rpartition('='))    # → ('', '', 'abc')",
+      "print('a/b/c'.rpartition('/'))  # → ('a/b', '/', 'c')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.join",
+    "title": "str.join",
+    "kind": "function",
+    "summary": {
+      "ru": "Собирает строки итерабельного в одну через строку-разделитель (получатель).",
+      "en": "Concatenate an iterable of strings using the string as the separator."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sep.join(iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.join",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "объединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print(','.join(['a', 'b', 'c']))  # → a,b,c",
+      "print(''.join(['1', '2', '3']))   # → 123",
+      "print('-'.join('abc'))            # → a-b-c"
     ],
     "related": [],
     "related_errors": []
