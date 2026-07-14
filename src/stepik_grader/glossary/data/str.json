@@ -35,210 +35,6 @@
     "related_errors": []
   },
   {
-    "id": "capitalize-title-swapcase",
-    "title": "capitalize() / title() / swapcase()",
-    "kind": "function",
-    "summary": {
-      "ru": "capitalize() — первая буква заглавная, остальные строчные. title() — каждое слово с заглавной. swapcase() — меняет регистр каждого символа.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.capitalize()  |  s.title()  |  s.swapcase()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-capitalize-title-swapcase",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "регистр",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello world'.capitalize())",
-      "# → 'Hello world'",
-      "print('hello world'.title())",
-      "# → 'Hello World'",
-      "print('Hello World'.swapcase())",
-      "# → 'hELLO wORLD'",
-      "print('HELLO'.capitalize())",
-      "# → 'Hello'",
-      "print(\"it's a test\".title())",
-      "# → \"It'S A Test\" (апостроф — разделитель)",
-      "print('aAbBcC'.swapcase())",
-      "# → 'AaBbCc'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "center-ljust-rjust-zfill",
-    "title": "center() / ljust() / rjust() / zfill()",
-    "kind": "function",
-    "summary": {
-      "ru": "Выравнивание строки до заданной ширины символом-заполнителем (по умолчанию пробел). zfill() заполняет нулями слева.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.center(width[, fill])  |  s.ljust(width[, fill])  |  s.rjust(width[, fill])  |  s.zfill(width)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-center-ljust-rjust-zfill",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "выравнивание",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hi'.center(10))",
-      "# → '    hi    '",
-      "print('hi'.center(10, '-'))",
-      "# → '----hi----'",
-      "print('hi'.ljust(10, '.'))",
-      "# → 'hi........'",
-      "print('hi'.rjust(10, '.'))",
-      "# → '........hi'",
-      "print('42'.zfill(5))",
-      "# → '00042'",
-      "print('-3'.zfill(5))",
-      "# → '-0003'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "chr-ord",
-    "title": "chr() / ord()",
-    "kind": "function",
-    "summary": {
-      "ru": "ord() возвращает Unicode code point символа. chr() возвращает символ по code point.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "ord(c)  |  chr(i)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-chr-ord",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "символы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(ord('A'))",
-      "# → 65",
-      "print(chr(65))",
-      "# → 'A'",
-      "print(ord('а'))",
-      "# → 1072 (кириллица)",
-      "alphabet = [chr(i) for i in range(65, 91)]",
-      "print(alphabet[:5])",
-      "# → ['A', 'B', 'C', 'D', 'E']",
-      "msg = 'hello'",
-      "encrypted = ''.join(chr(ord(c) + 1) for c in msg)",
-      "print(encrypted)",
-      "# → 'ifmmp' (шифр Цезаря +1)",
-      "print(chr(128512))",
-      "# → '😀'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "count",
-    "title": "count()",
-    "kind": "function",
-    "summary": {
-      "ru": "Подсчитывает число непересекающихся вхождений подстроки. Для пустой строки возвращает len(s)+1.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.count(sub[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-count",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "поиск",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.count('l'))",
-      "# → 2",
-      "print('banana'.count('an'))",
-      "# → 2 (непересекающиеся)",
-      "print('aaaa'.count('aa'))",
-      "# → 2",
-      "print('hello'.count('x'))",
-      "# → 0",
-      "print('abc'.count(''))",
-      "# → 4 (len+1)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "encode-decode",
-    "title": "encode() / decode()",
-    "kind": "function",
-    "summary": {
-      "ru": "encode() кодирует строку в байты. decode() декодирует байты обратно в строку. errors: 'strict', 'ignore', 'replace'.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.encode([encoding[, errors]])  |  b.decode([encoding[, errors]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-encode-decode",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "кодировки",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.encode('utf-8'))",
-      "# → b'hello'",
-      "print('Привет'.encode('utf-8'))",
-      "# → b'\\xd0\\x9f\\xd1\\x80\\xd0\\xb8\\xd0\\xb2\\xd0\\xb5\\xd1\\x82'",
-      "print(b'hello'.decode('utf-8'))",
-      "# → 'hello'",
-      "print('hello'.encode('latin-1'))",
-      "# → b'hello'",
-      "print('café'.encode('utf-8', errors='replace'))",
-      "# → b'caf\\xc3\\xa9'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "f-строки",
     "title": "f-строки",
     "kind": "term",
@@ -285,47 +81,6 @@
       "val = 1234567.89",
       "print(f'{val:,.2f}')",
       "# → '1,234,567.89'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "find-rfind",
-    "title": "find() / rfind()",
-    "kind": "function",
-    "summary": {
-      "ru": "find() возвращает индекс первого вхождения подстроки или -1 если не найдено. rfind() ищет с конца.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.find(sub[, start[, end]])  |  s.rfind(sub[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-find-rfind",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "поиск",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.find('l'))",
-      "# → 2",
-      "print('hello'.find('x'))",
-      "# → -1",
-      "print('hello hello'.rfind('hello'))",
-      "# → 6",
-      "print('abcabc'.find('b', 3))",
-      "# → 4 (поиск с позиции 3)",
-      "print('abcabc'.find('b', 0, 2))",
-      "# → 1 (поиск до позиции 2)",
-      "print('abcabc'.rfind('a'))",
-      "# → 3"
     ],
     "related": [],
     "related_errors": []
@@ -413,172 +168,6 @@
     "related_errors": []
   },
   {
-    "id": "index-rindex",
-    "title": "index() / rindex()",
-    "kind": "function",
-    "summary": {
-      "ru": "index() как find(), но бросает ValueError если подстрока не найдена. rindex() ищет с конца.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.index(sub[, start[, end]])  |  s.rindex(sub[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-index-rindex",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "поиск",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.index('l'))",
-      "# → 2",
-      "print('hello'.rindex('l'))",
-      "# → 3",
-      "try:",
-      "'hello'.index('x')",
-      "except ValueError as e:",
-      "print(e)",
-      "# → substring not found",
-      "print('abcabc'.index('b', 3))",
-      "# → 4",
-      "print('abcabc'.rindex('b'))",
-      "# → 4"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "isdigit-isalpha-isalnum-isspace",
-    "title": "isdigit() / isalpha() / isalnum() / isspace()",
-    "kind": "function",
-    "summary": {
-      "ru": "Методы проверки состава строки. Все возвращают False для пустой строки.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.isdigit()  |  s.isalpha()  |  s.isalnum()  |  s.isspace()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-isdigit-isalpha-isalnum-isspace",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('123'.isdigit())",
-      "# → True",
-      "print('12.3'.isdigit())",
-      "# → False",
-      "print('abc'.isalpha())",
-      "# → True",
-      "print('abc123'.isalpha())",
-      "# → False",
-      "print('abc123'.isalnum())",
-      "# → True",
-      "print('   '.isspace())",
-      "# → True",
-      "print(''.isdigit())",
-      "# → False (пустая строка)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "islower-isupper-istitle",
-    "title": "islower() / isupper() / istitle()",
-    "kind": "function",
-    "summary": {
-      "ru": "Проверяют регистр строки. Требуют хотя бы один буквенный символ.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.islower()  |  s.isupper()  |  s.istitle()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-islower-isupper-istitle",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "регистр",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.islower())",
-      "# → True",
-      "print('HELLO'.isupper())",
-      "# → True",
-      "print('Hello World'.istitle())",
-      "# → True",
-      "print('hello world'.istitle())",
-      "# → False",
-      "print('123'.islower())",
-      "# → False (нет букв)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "join",
-    "title": "join()",
-    "kind": "function",
-    "summary": {
-      "ru": "Объединяет элементы итерируемого объекта в строку, вставляя разделитель между ними.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "sep.join(iterable)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-join",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "объединение",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(' '.join(['Hello', 'World']))",
-      "# → 'Hello World'",
-      "print(','.join(['a', 'b', 'c']))",
-      "# → 'a,b,c'",
-      "print(''.join(['p', 'y', 't', 'h', 'o', 'n']))",
-      "# → 'python'",
-      "nums = [str(n) for n in [1, 2, 3]]",
-      "print('-'.join(nums))",
-      "# → '1-2-3'",
-      "print('|'.join(['only']))",
-      "# → 'only'",
-      "print(' '.join([]))",
-      "# → ''"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "len-для-строк",
     "title": "len() для строк",
     "kind": "term",
@@ -651,592 +240,6 @@
       "m = re.search(r\"\\d+\", \"abc123\")",
       "print(m.group())        # → 123",
       "print(r\"abc\" == \"abc\")  # → True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "replace",
-    "title": "replace()",
-    "kind": "function",
-    "summary": {
-      "ru": "Заменяет все (или count первых) вхождений old на new. Не изменяет оригинал.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.replace(old, new[, count])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-replace",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "замена",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('aabbcc'.replace('b', 'X'))",
-      "# → 'aaXXcc'",
-      "print('hello hello'.replace('hello', 'hi'))",
-      "# → 'hi hi'",
-      "print('hello hello'.replace('hello', 'hi', 1))",
-      "# → 'hi hello'",
-      "print('remove spaces'.replace(' ', ''))",
-      "# → 'removespaces'",
-      "print('aaa'.replace('a', 'bb'))",
-      "# → 'bbbbbb'",
-      "print('no match'.replace('x', 'y'))",
-      "# → 'no match'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "split-rsplit",
-    "title": "split() / rsplit()",
-    "kind": "function",
-    "summary": {
-      "ru": "split() разбивает строку на список по разделителю. rsplit() — с конца. maxsplit ограничивает число разбиений.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.split([sep[, maxsplit]])  |  s.rsplit([sep[, maxsplit]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-split-rsplit",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "разбивка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('a b c'.split())",
-      "# → ['a', 'b', 'c']",
-      "print('a,b,c'.split(','))",
-      "# → ['a', 'b', 'c']",
-      "print('a,b,c'.split(',', 1))",
-      "# → ['a', 'b,c']",
-      "print('a,b,c'.rsplit(',', 1))",
-      "# → ['a,b', 'c']",
-      "print('  a  b  '.split())",
-      "# → ['a', 'b'] (несколько пробелов)",
-      "print('a,,b'.split(','))",
-      "# → ['a', '', 'b'] (пустые строки)",
-      "print('hello'.split('x'))",
-      "# → ['hello'] (разделитель не найден)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "startswith-endswith",
-    "title": "startswith() / endswith()",
-    "kind": "function",
-    "summary": {
-      "ru": "Проверяют, начинается/оканчивается ли строка на заданный префикс/суффикс. Принимают кортеж строк или диапазон start/end.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.startswith(prefix[, start[, end]])  |  s.endswith(suffix[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-startswith-endswith",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.startswith('he'))",
-      "# → True",
-      "print('hello'.endswith('lo'))",
-      "# → True",
-      "print('hello'.startswith(('hi', 'he')))",
-      "# → True (кортеж префиксов)",
-      "print('file.py'.endswith(('.py', '.js')))",
-      "# → True",
-      "print('hello'.startswith('lo', 3))",
-      "# → True (с позиции 3)",
-      "print('hello'.endswith('he', 0, 2))",
-      "# → True (до позиции 2)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-format_map",
-    "title": "format_map()",
-    "kind": "function",
-    "summary": {
-      "ru": "Аналог format(**mapping), но без копирования словаря. Принимает маппинг напрямую, включая пользовательские классы с __missing__.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.format_map(mapping)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-format_map",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.format_map",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "форматирование",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "data = {'name': 'Артём', 'level': 'middle'}",
-      "print('{name} — {level}'.format_map(data))",
-      "# Артём — middle",
-      "# Пользовательский маппинг с default",
-      "class Default(dict):",
-      "def __missing__(self, key): return f'<{key}?>'",
-      "print('{name} {age}'.format_map(Default(name='Артём')))",
-      "# Артём <age?>"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-isascii",
-    "title": "isascii()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если все символы строки входят в ASCII (коды 0–127) или строка пуста. Python 3.7+.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isascii() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isascii",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isascii",
-    "version": "3.7",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'hello'.isascii()     # True",
-      "'привет'.isascii()    # False",
-      "'hello!'.isascii()    # True — знаки пунктуации тоже ASCII",
-      "''.isascii()          # True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-isdecimal",
-    "title": "isdecimal()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если все символы — десятичные цифры (только Unicode Decimal). Строже, чем isnumeric() и isdigit().",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isdecimal() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isdecimal",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isdecimal",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'123'.isdecimal()     # True",
-      "'12.3'.isdecimal()    # False — точка",
-      "'²'.isdecimal()       # False — надстрочный символ",
-      "'١٢٣'.isdecimal()     # True — арабские цифры"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-isidentifier",
-    "title": "isidentifier()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если строка — корректный Python-идентификатор (можно использовать как имя переменной). Проверяй с keyword.iskeyword() для полного анализа.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isidentifier() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isidentifier",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isidentifier",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'my_var'.isidentifier()   # True",
-      "'2var'.isidentifier()     # False — начинается с цифры",
-      "'for'.isidentifier()      # True — но это ключевое слово!",
-      "import keyword",
-      "keyword.iskeyword('for')  # True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-isnumeric",
-    "title": "isnumeric()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если все символы — числовые Unicode. Принимает дроби, надстрочные цифры — шире, чем isdecimal() и isdigit().",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isnumeric() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isnumeric",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isnumeric",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'123'.isnumeric()   # True",
-      "'²'.isnumeric()     # True — надстрочный",
-      "'½'.isnumeric()     # True — дробь",
-      "'12.3'.isnumeric()  # False"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-isprintable",
-    "title": "isprintable()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает True, если все символы строки считаются печатаемыми (нет управляющих символов типа \\n, \\t). Пустая строка возвращает True.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.isprintable() -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-isprintable",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isprintable",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "проверка символов",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "'hello'.isprintable()     # True",
-      "'hello\\n'.isprintable()   # False — \\n непечатаем",
-      "''.isprintable()           # True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.expandtabs",
-    "title": "str.expandtabs()",
-    "kind": "function",
-    "summary": {
-      "ru": "Заменяет символы табуляции (\\t) пробелами так, чтобы следующий символ оказался на ближайшей позиции, кратной tabsize (по умолчанию 8).",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.expandtabs(tabsize=8)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.expandtabs",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "форматирование",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(\"a\\tb\\tc\".expandtabs())       # → a       b       c",
-      "print(\"a\\tb\\tc\".expandtabs(4))      # → a   b   c",
-      "print(\"ab\\tcd\".expandtabs(4))       # → ab  cd",
-      "print(\"abc\\tde\".expandtabs(4))      # → abc de",
-      "print(\"1\\t2\\t3\".expandtabs(2))      # → 1 2 3"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.maketrans-str.translate",
-    "title": "str.maketrans() / str.translate()",
-    "kind": "function",
-    "summary": {
-      "ru": "maketrans() создаёт таблицу замены символов. translate() применяет эту таблицу к строке. Позволяет заменять или удалять произвольные символы за один проход.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.maketrans(x[, y[, z]])  str.translate(table)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.maketrans-str.translate",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "замена",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "t = str.maketrans(\"aeiou\", \"*****\")",
-      "print(\"hello world\".translate(t))    # → h*ll* w*rld",
-      "t2 = str.maketrans(\"\", \"\", \"aeiou\")",
-      "print(\"hello world\".translate(t2))   # → hll wrld",
-      "t3 = str.maketrans({\"a\": \"@\", \"e\": \"3\"})",
-      "print(\"cafe\".translate(t3))          # → c@f3",
-      "t4 = str.maketrans(\"abc\", \"123\")",
-      "print(\"abcabc\".translate(t4))        # → 123123"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.partition-str.rpartition",
-    "title": "str.partition() / str.rpartition()",
-    "kind": "function",
-    "summary": {
-      "ru": "partition() ищет первое вхождение разделителя и возвращает кортеж из трёх частей: до разделителя, сам разделитель, после. rpartition() — с конца строки.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.partition(sep) -> (before, sep, after)  str.rpartition(sep) -> (before, sep, after)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.partition-str.rpartition",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "разбивка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(\"user@example.com\".partition(\"@\"))   # → ('user', '@', 'example.com')",
-      "print(\"a::b::c\".partition(\"::\"))            # → ('a', '::', 'b::c')",
-      "print(\"a::b::c\".rpartition(\"::\"))           # → ('a::b', '::', 'c')",
-      "print(\"hello\".partition(\"x\"))               # → ('hello', '', '')",
-      "host, _, port = \"localhost:8080\".partition(\":\")",
-      "print(host, port)  # → localhost 8080"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.removeprefix-str.removesuffix",
-    "title": "str.removeprefix() / str.removesuffix()",
-    "kind": "function",
-    "summary": {
-      "ru": "Удаляют указанный префикс или суффикс, если строка начинается/заканчивается на него. В отличие от lstrip/rstrip, работают с подстроками, а не наборами символов (Python 3.9+).",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.removeprefix(prefix)  str.removesuffix(suffix)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.removeprefix-str.removesuffix",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "3.9+",
-    "section": "Строки (str)",
-    "subcat": "обрезка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(\"Hello, World\".removeprefix(\"Hello, \"))  # → World",
-      "print(\"Hello, World\".removesuffix(\", World\"))  # → Hello",
-      "print(\"test_func\".removeprefix(\"test_\"))       # → func",
-      "print(\"image.png\".removesuffix(\".png\"))        # → image",
-      "print(\"hello\".removeprefix(\"xyz\"))             # → hello",
-      "print(\"hello\".removesuffix(\"xyz\"))             # → hello"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.splitlines",
-    "title": "str.splitlines()",
-    "kind": "function",
-    "summary": {
-      "ru": "Разбивает строку по символам конца строки (\\n, \\r\\n, \\r и др.) и возвращает список строк. Параметр keepends=True сохраняет разделители в результатах.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.splitlines(keepends=False)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.splitlines",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "разбивка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(\"a\\nb\\nc\".splitlines())             # → ['a', 'b', 'c']",
-      "print(\"a\\r\\nb\\nc\".splitlines())           # → ['a', 'b', 'c']",
-      "print(\"a\\nb\\n\".splitlines())              # → ['a', 'b']",
-      "print(\"a\\nb\".splitlines(keepends=True))   # → ['a\\n', 'b']",
-      "print(\"\".splitlines())                     # → []"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "strip-lstrip-rstrip",
-    "title": "strip() / lstrip() / rstrip()",
-    "kind": "function",
-    "summary": {
-      "ru": "strip() удаляет пробельные символы (или указанные символы) с обоих концов строки. lstrip() — слева, rstrip() — справа.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.strip([chars])  |  s.lstrip([chars])  |  s.rstrip([chars])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-strip-lstrip-rstrip",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "обрезка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('  hello  '.strip())",
-      "# → 'hello'",
-      "print('  hello  '.lstrip())",
-      "# → 'hello  '",
-      "print('  hello  '.rstrip())",
-      "# → '  hello'",
-      "print('***hi***'.strip('*'))",
-      "# → 'hi'",
-      "lines = ['  a  ', ' b ', '  c']",
-      "print([l.strip() for l in lines])",
-      "# → ['a', 'b', 'c']",
-      "print('xxhelloxx'.strip('x'))",
-      "# → 'hello'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "upper-lower",
-    "title": "upper() / lower()",
-    "kind": "function",
-    "summary": {
-      "ru": "upper() переводит все символы в верхний регистр, lower() — в нижний. casefold() — агрессивный lower() для сравнения.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.upper()  |  s.lower()  |  s.casefold()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-upper-lower",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "регистр",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.upper())",
-      "# → 'HELLO'",
-      "print('WORLD'.lower())",
-      "# → 'world'",
-      "print('Python3'.lower())",
-      "# → 'python3'",
-      "s1, s2 = 'Hello', 'HELLO'",
-      "print(s1.lower() == s2.lower())",
-      "# → True",
-      "print('Straße'.casefold())",
-      "# → 'strasse'",
-      "print('MiXeD'.upper())",
-      "# → 'MIXED'"
     ],
     "related": [],
     "related_errors": []
@@ -1616,6 +619,1478 @@
       "# → 'Bob is 25'",
       "print('%05d' % 42)",
       "# → '00042'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.capitalize",
+    "title": "str.capitalize",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию строки: первый символ — заглавный, остальные строчные.",
+      "en": "Return a copy with the first character capitalized and the rest lowercased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.capitalize()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.capitalize",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('привет МИР'.capitalize())   # → Привет мир",
+      "print('123abc'.capitalize())       # → 123abc",
+      "print('ALREADY Done'.capitalize())  # → Already done"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.title",
+    "title": "str.title",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает строку, где каждое слово начинается с заглавной буквы, остальные строчные.",
+      "en": "Return a titlecased version: each word starts with an uppercase letter."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.title()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.title",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello world'.title())   # → Hello World",
+      "print('пример строки'.title())  # → Пример Строки",
+      "print(\"don't stop\".title())    # → Don'T Stop"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.swapcase",
+    "title": "str.swapcase",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию строки с инверсией регистра: заглавные ↔ строчные.",
+      "en": "Return a copy with uppercase characters converted to lowercase and vice versa."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.swapcase()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.swapcase",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('Hello World'.swapcase())  # → hELLO wORLD",
+      "print('Привет'.swapcase())       # → пРИВЕТ",
+      "print('abcABC123'.swapcase())    # → ABCabc123"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.upper",
+    "title": "str.upper",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию строки, где все символы приведены к верхнему регистру.",
+      "en": "Return a copy with all cased characters converted to uppercase."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.upper()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.upper",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('Hello'.upper())     # → HELLO",
+      "print('привет'.upper())    # → ПРИВЕТ",
+      "print('straße'.upper())    # → STRASSE"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.lower",
+    "title": "str.lower",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию строки, где все символы приведены к нижнему регистру.",
+      "en": "Return a copy with all cased characters converted to lowercase."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.lower()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.lower",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('HELLO'.lower())     # → hello",
+      "print('ПРИВЕТ'.lower())    # → привет",
+      "print('Hello World'.lower())  # → hello world"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.casefold",
+    "title": "str.casefold",
+    "kind": "function",
+    "summary": {
+      "ru": "Как lower(), но агрессивнее — для регистронезависимого сравнения (напр. ß → ss).",
+      "en": "Aggressive lowercasing for caseless matching (e.g. ß → ss)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.casefold()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.casefold",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('Straße'.casefold())  # → strasse",
+      "print('ß'.casefold() == 'ss')  # → True",
+      "print('HeLLo'.casefold())   # → hello"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isalnum",
+    "title": "str.isalnum",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка непуста и все символы буквенно-цифровые.",
+      "en": "True if the string is non-empty and all characters are alphanumeric."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isalnum()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isalnum",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc123'.isalnum())  # → True",
+      "print('a b'.isalnum())     # → False",
+      "print(''.isalnum())        # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isalpha",
+    "title": "str.isalpha",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка непуста и все символы — буквы.",
+      "en": "True if the string is non-empty and all characters are letters."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isalpha()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isalpha",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.isalpha())    # → True",
+      "print('Привет'.isalpha())  # → True",
+      "print('abc1'.isalpha())   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isdigit",
+    "title": "str.isdigit",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если все символы — цифры (включая надстрочные, напр. ²).",
+      "en": "True if all characters are digits (including superscripts like ²)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isdigit()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isdigit",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('123'.isdigit())   # → True",
+      "print('²'.isdigit())     # → True",
+      "print('12.3'.isdigit())  # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isdecimal",
+    "title": "str.isdecimal",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если все символы — десятичные цифры (0–9); строже isdigit.",
+      "en": "True if all characters are decimal digits (0–9); stricter than isdigit."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isdecimal()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isdecimal",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('123'.isdecimal())  # → True",
+      "print('²'.isdecimal())    # → False",
+      "print(''.isdecimal())     # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isnumeric",
+    "title": "str.isnumeric",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если все символы числовые — включая дроби и римские (½, Ⅴ).",
+      "en": "True if all characters are numeric, including fractions and numerals (½, Ⅴ)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isnumeric()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isnumeric",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('123'.isnumeric())  # → True",
+      "print('½'.isnumeric())    # → True",
+      "print('1.2'.isnumeric())  # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isspace",
+    "title": "str.isspace",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка непуста и все символы — пробельные.",
+      "en": "True if the string is non-empty and all characters are whitespace."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isspace()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isspace",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('   '.isspace())    # → True",
+      "print(' \\t\\n'.isspace())  # → True",
+      "print(''.isspace())       # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.islower",
+    "title": "str.islower",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если в строке есть буквы и все они строчные.",
+      "en": "True if all cased characters are lowercase and there is at least one."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.islower()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.islower",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.islower())    # → True",
+      "print('Abc'.islower())    # → False",
+      "print('abc123'.islower())  # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isupper",
+    "title": "str.isupper",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если в строке есть буквы и все они заглавные.",
+      "en": "True if all cased characters are uppercase and there is at least one."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isupper()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isupper",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('ABC'.isupper())   # → True",
+      "print('Abc'.isupper())   # → False",
+      "print('ABC!'.isupper())  # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.istitle",
+    "title": "str.istitle",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если каждое слово начинается с заглавной буквы (title-регистр).",
+      "en": "True if the string is titlecased: each word starts with an uppercase letter."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.istitle()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.istitle",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('Hello World'.istitle())  # → True",
+      "print('hello world'.istitle())  # → False",
+      "print('HELLO'.istitle())        # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isidentifier",
+    "title": "str.isidentifier",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка — допустимый идентификатор Python (в т.ч. ключевые слова).",
+      "en": "True if the string is a valid Python identifier (keywords included)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isidentifier()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isidentifier",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('x1'.isidentifier())    # → True",
+      "print('1x'.isidentifier())    # → False",
+      "print('for'.isidentifier())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isascii",
+    "title": "str.isascii",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка пуста или все символы — из диапазона ASCII.",
+      "en": "True if the string is empty or all characters are ASCII."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isascii()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isascii",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.isascii())     # → True",
+      "print('café'.isascii())    # → False",
+      "print(''.isascii())        # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.isprintable",
+    "title": "str.isprintable",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка пуста или все символы печатаемые (без \\t, \\n и т.п.).",
+      "en": "True if the string is empty or all characters are printable (no \\t, \\n, …)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.isprintable()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isprintable",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "проверка символов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc 123'.isprintable())  # → True",
+      "print('a\\tb'.isprintable())     # → False",
+      "print(''.isprintable())         # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.find",
+    "title": "str.find",
+    "kind": "function",
+    "summary": {
+      "ru": "Индекс первого вхождения подстроки или -1, если не найдена. Опц. start/end.",
+      "en": "Return the lowest index of the substring, or -1 if not found. Optional start/end."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.find(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.find",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello'.find('l'))     # → 2",
+      "print('hello'.find('z'))     # → -1",
+      "print('hello'.find('l', 3))  # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rfind",
+    "title": "str.rfind",
+    "kind": "function",
+    "summary": {
+      "ru": "Индекс последнего вхождения подстроки или -1 (поиск с конца).",
+      "en": "Return the highest index of the substring, or -1 if not found (search from the right)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rfind(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rfind",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello'.rfind('l'))  # → 3",
+      "print('hello'.rfind('z'))  # → -1",
+      "print('abcabc'.rfind('a'))  # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.index",
+    "title": "str.index",
+    "kind": "function",
+    "summary": {
+      "ru": "Как find, но бросает ValueError, если подстрока не найдена.",
+      "en": "Like find, but raise ValueError when the substring is not found."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.index(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.index",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello'.index('e'))    # → 1",
+      "print('abcabc'.index('c'))   # → 2",
+      "print('hello'.index('l', 3))  # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rindex",
+    "title": "str.rindex",
+    "kind": "function",
+    "summary": {
+      "ru": "Как rfind, но бросает ValueError, если подстрока не найдена (поиск с конца).",
+      "en": "Like rfind, but raise ValueError when the substring is not found."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rindex(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rindex",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abcabc'.rindex('a'))  # → 3",
+      "print('abcabc'.rindex('b'))  # → 4",
+      "print('hello'.rindex('l'))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.count",
+    "title": "str.count",
+    "kind": "function",
+    "summary": {
+      "ru": "Число непересекающихся вхождений подстроки. Опц. диапазон start/end.",
+      "en": "Return the number of non-overlapping occurrences of the substring."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.count(sub[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.count",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('banana'.count('a'))   # → 3",
+      "print('banana'.count('na'))  # → 2",
+      "print('aaa'.count('aa'))     # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.startswith",
+    "title": "str.startswith",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка начинается с префикса (или одного из кортежа префиксов).",
+      "en": "True if the string starts with the prefix (or one of a tuple of prefixes)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.startswith(prefix[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.startswith",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hello'.startswith('he'))          # → True",
+      "print('hello'.startswith('lo'))          # → False",
+      "print('hello'.startswith(('hi', 'he')))  # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.endswith",
+    "title": "str.endswith",
+    "kind": "function",
+    "summary": {
+      "ru": "True, если строка заканчивается суффиксом (или одним из кортежа суффиксов).",
+      "en": "True if the string ends with the suffix (or one of a tuple of suffixes)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.endswith(suffix[, start[, end]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.endswith",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('file.py'.endswith('.py'))            # → True",
+      "print('file.py'.endswith('.txt'))           # → False",
+      "print('file.py'.endswith(('.py', '.txt')))  # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.split",
+    "title": "str.split",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает строку по разделителю в список. Без аргумента — по любым пробелам.",
+      "en": "Split the string by a separator into a list; with no argument, split on any whitespace."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.split(sep=None, maxsplit=-1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.split",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a,b,c'.split(','))   # → ['a', 'b', 'c']",
+      "print('a  b   c'.split())   # → ['a', 'b', 'c']",
+      "print('a,b,c'.split(',', 1))  # → ['a', 'b,c']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rsplit",
+    "title": "str.rsplit",
+    "kind": "function",
+    "summary": {
+      "ru": "Как split, но при заданном maxsplit разбивает с конца строки.",
+      "en": "Like split, but split from the right when maxsplit is given."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rsplit(sep=None, maxsplit=-1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rsplit",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a,b,c'.rsplit(',', 1))  # → ['a,b', 'c']",
+      "print('a,b,c'.rsplit(','))     # → ['a', 'b', 'c']",
+      "print('a b c'.rsplit(None, 1))  # → ['a b', 'c']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.splitlines",
+    "title": "str.splitlines",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает строку по границам строк (\\n, \\r и др.) в список без переводов строк.",
+      "en": "Split the string at line boundaries into a list, without the line breaks."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.splitlines(keepends=False)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.splitlines",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a\\nb\\nc'.splitlines())  # → ['a', 'b', 'c']",
+      "print('a\\nb\\n'.splitlines())   # → ['a', 'b']",
+      "print('one line'.splitlines())  # → ['one line']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.partition",
+    "title": "str.partition",
+    "kind": "function",
+    "summary": {
+      "ru": "Делит строку по первому разделителю на кортеж (до, разделитель, после).",
+      "en": "Split at the first occurrence of the separator into a (head, sep, tail) tuple."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.partition(sep)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.partition",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a=b=c'.partition('='))  # → ('a', '=', 'b=c')",
+      "print('abc'.partition('='))    # → ('abc', '', '')",
+      "print('k: v'.partition(': '))  # → ('k', ': ', 'v')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rpartition",
+    "title": "str.rpartition",
+    "kind": "function",
+    "summary": {
+      "ru": "Делит строку по последнему разделителю на кортеж (до, разделитель, после).",
+      "en": "Split at the last occurrence of the separator into a (head, sep, tail) tuple."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rpartition(sep)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rpartition",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "разбивка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a=b=c'.rpartition('='))  # → ('a=b', '=', 'c')",
+      "print('abc'.rpartition('='))    # → ('', '', 'abc')",
+      "print('a/b/c'.rpartition('/'))  # → ('a/b', '/', 'c')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.join",
+    "title": "str.join",
+    "kind": "function",
+    "summary": {
+      "ru": "Собирает строки итерабельного в одну через строку-разделитель (получатель).",
+      "en": "Concatenate an iterable of strings using the string as the separator."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sep.join(iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.join",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "объединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print(','.join(['a', 'b', 'c']))  # → a,b,c",
+      "print(''.join(['1', '2', '3']))   # → 123",
+      "print('-'.join('abc'))            # → a-b-c"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.strip",
+    "title": "str.strip",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без ведущих и хвостовых символов (по умолчанию пробелов).",
+      "en": "Return a copy with leading and trailing characters removed (whitespace by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.strip([chars])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.strip",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('  hi  '.strip())    # → hi",
+      "print('xxhixx'.strip('x'))  # → hi",
+      "print('...a.'.strip('.'))   # → a"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.lstrip",
+    "title": "str.lstrip",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без ведущих символов слева (по умолчанию пробелов).",
+      "en": "Return a copy with leading characters removed (whitespace by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.lstrip([chars])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.lstrip",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('  hi'.lstrip())     # → hi",
+      "print('xxhi'.lstrip('x'))  # → hi",
+      "print('--a--'.lstrip('-'))  # → a--"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rstrip",
+    "title": "str.rstrip",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без хвостовых символов справа (по умолчанию пробелов).",
+      "en": "Return a copy with trailing characters removed (whitespace by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rstrip([chars])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rstrip",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hi  '.rstrip())     # → hi",
+      "print('hixx'.rstrip('x'))  # → hi",
+      "print('--a--'.rstrip('-'))  # → --a"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.center",
+    "title": "str.center",
+    "kind": "function",
+    "summary": {
+      "ru": "Центрирует строку в поле ширины width, дополняя символом fillchar (по умолч. пробел).",
+      "en": "Center the string in a field of the given width, padded with fillchar (space by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.center(width[, fillchar])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.center",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hi'.center(6, '*'))  # → **hi**",
+      "print('hi'.center(5))       # →   hi ",
+      "print('hi'.center(1))       # → hi"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.ljust",
+    "title": "str.ljust",
+    "kind": "function",
+    "summary": {
+      "ru": "Выравнивает строку по левому краю в поле ширины width, дополняя справа fillchar.",
+      "en": "Left-justify the string in a field of the given width, padded on the right."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.ljust(width[, fillchar])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.ljust",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hi'.ljust(5, '.'))  # → hi...",
+      "print('hi'.ljust(5) + '|')  # → hi   |",
+      "print('hello'.ljust(3))    # → hello"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rjust",
+    "title": "str.rjust",
+    "kind": "function",
+    "summary": {
+      "ru": "Выравнивает строку по правому краю в поле ширины width, дополняя слева fillchar.",
+      "en": "Right-justify the string in a field of the given width, padded on the left."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rjust(width[, fillchar])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rjust",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hi'.rjust(5, '.'))  # → ...hi",
+      "print('42'.rjust(5, '0'))  # → 00042",
+      "print('hello'.rjust(3))    # → hello"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.zfill",
+    "title": "str.zfill",
+    "kind": "function",
+    "summary": {
+      "ru": "Дополняет строку нулями слева до ширины width; знак +/- остаётся впереди.",
+      "en": "Pad the string on the left with zeros to the given width; a leading sign is kept."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.zfill(width)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.zfill",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('42'.zfill(5))    # → 00042",
+      "print('-42'.zfill(5))   # → -0042",
+      "print('3.14'.zfill(6))  # → 003.14"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.replace",
+    "title": "str.replace",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию, где все вхождения old заменены на new. Опц. лимит count.",
+      "en": "Return a copy with all occurrences of old replaced by new (optional count limit)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.replace(old, new[, count])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.replace",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a.b.c'.replace('.', '_'))    # → a_b_c",
+      "print('aaa'.replace('a', 'b', 2))   # → bba",
+      "print('hello'.replace('l', ''))     # → heo"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.translate",
+    "title": "str.translate",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет символы по таблице (обычно из str.maketrans): ord(символа) → замена.",
+      "en": "Map characters through a translation table (usually from str.maketrans)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.translate(table)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.translate",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.translate(str.maketrans('abc', 'xyz')))  # → xyz",
+      "print('a-b-c'.translate(str.maketrans('', '', '-')))  # → abc",
+      "print('cat'.translate({ord('a'): 'A'}))  # → cAt"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.maketrans",
+    "title": "str.maketrans",
+    "kind": "function",
+    "summary": {
+      "ru": "Статический метод: строит таблицу перевода для translate из двух строк (и опц. удаляемых).",
+      "en": "Static method: build a translation table for translate from two strings (plus optional deletes)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "str.maketrans(x[, y[, z]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.maketrans",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.translate(str.maketrans('ab', 'AB')))  # → ABc",
+      "t = str.maketrans({'x': 'y'}); print('xox'.translate(t))  # → yoy",
+      "print('a1b2'.translate(str.maketrans('', '', '12')))  # → ab"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.removeprefix",
+    "title": "str.removeprefix",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без префикса prefix, если он есть; иначе строку без изменений (Python 3.9+).",
+      "en": "Return a copy with the given prefix removed if present, otherwise unchanged (Python 3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.removeprefix(prefix)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removeprefix",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('test_foo'.removeprefix('test_'))  # → foo",
+      "print('foo'.removeprefix('test_'))       # → foo",
+      "print('__x'.removeprefix('_'))           # → _x"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.removesuffix",
+    "title": "str.removesuffix",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без суффикса suffix, если он есть; иначе строку без изменений (Python 3.9+).",
+      "en": "Return a copy with the given suffix removed if present, otherwise unchanged (Python 3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.removesuffix(suffix)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removesuffix",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('file.py'.removesuffix('.py'))   # → file",
+      "print('file'.removesuffix('.py'))      # → file",
+      "print('x__'.removesuffix('_'))         # → x_"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.expandtabs",
+    "title": "str.expandtabs",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет табы пробелами до колонок кратных tabsize (по умолчанию 8).",
+      "en": "Replace tabs with spaces, aligning to columns that are multiples of tabsize (default 8)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.expandtabs(tabsize=8)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.expandtabs",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a\\tb'.expandtabs(4))   # → a   b",
+      "print('ab\\tc'.expandtabs(4))  # → ab  c",
+      "print('a\\tb'.expandtabs(1))   # → a b"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.encode",
+    "title": "str.encode",
+    "kind": "function",
+    "summary": {
+      "ru": "Кодирует строку в байты по указанной кодировке (по умолчанию UTF-8).",
+      "en": "Encode the string to bytes using the given codec (UTF-8 by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.encode(encoding='utf-8', errors='strict')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.encode",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "кодировки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.encode())            # → b'abc'",
+      "print('café'.encode('utf-8'))    # → b'caf\\xc3\\xa9'",
+      "print('hi'.encode('ascii'))      # → b'hi'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.format_map",
+    "title": "str.format_map",
+    "kind": "function",
+    "summary": {
+      "ru": "Как format, но берёт подстановки прямо из переданного словаря (без копирования).",
+      "en": "Like format, but take substitutions directly from a mapping (no copy)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.format_map(mapping)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.format_map",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "форматирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('{x}!'.format_map({'x': 'ok'}))          # → ok!",
+      "print('{a}-{b}'.format_map({'a': 1, 'b': 2}))  # → 1-2",
+      "print('{name}'.format_map({'name': 'Аня'}))    # → Аня"
     ],
     "related": [],
     "related_errors": []
