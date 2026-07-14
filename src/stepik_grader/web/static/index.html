@@ -28,6 +28,10 @@
       <a class="sidebar-item" href="#glossary" data-section="glossary">
         Глоссарий <span class="sidebar-badge" id="sidebar-badge-glossary" hidden></span>
       </a>
+      <a class="sidebar-item" href="#rules" data-section="rules">Правила (PEP)</a>
+      <a class="sidebar-item" href="#insights" data-section="insights">
+        Подучить <span class="sidebar-badge" id="sidebar-badge-insights" hidden></span>
+      </a>
       <a class="sidebar-item" href="#sandbox" data-section="sandbox">Песочница</a>
       <div class="sidebar-divider"></div>
       <div class="sidebar-label">Настройки</div>
@@ -284,6 +288,54 @@
             </div>
             <div id="glossary-detail-content" hidden></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ПРАВИЛА (PEP)» (issue #348) ══ -->
+    <section id="view-rules" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title">Правила (PEP 8)</h1>
+      </div>
+      <div class="split-pane">
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title">Правила</span></div>
+          <div class="panel-body">
+            <div class="form-group">
+              <input class="form-input" id="rules-search" type="text" placeholder="Поиск по коду или названию…">
+            </div>
+            <div id="rules-chips" class="chip-row" role="group" aria-label="Быстрые фильтры по тегам"></div>
+            <div id="rules-count" class="hint" aria-live="polite"></div>
+            <ul id="rules-cards" class="side-list"></ul>
+          </div>
+        </div>
+        <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title">Карточка правила</span></div>
+          <div class="panel-body">
+            <div id="rules-empty" class="empty-state">
+              <h3>Правило не выбрано</h3>
+              <p>Выберите код слева, чтобы увидеть объяснение и примеры «до/после».</p>
+            </div>
+            <div id="rules-detail-content" hidden></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ПОДУЧИТЬ» (issue #348) ══ -->
+    <section id="view-insights" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title">Подучить</h1>
+      </div>
+      <div class="split-pane-panel">
+        <div class="panel-header"><span class="panel-title">Частые ошибки</span></div>
+        <div class="panel-body">
+          <div id="insights-empty" class="empty-state">
+            <h3>Пока пусто — и это отлично 🎉</h3>
+            <p>Прогоняйте решения с историей (<code>--history</code>), и здесь появятся
+              карточки частых ошибок с прогрессом их исправления.</p>
+          </div>
+          <ul id="insights-cards" class="insight-list" hidden></ul>
         </div>
       </div>
     </section>

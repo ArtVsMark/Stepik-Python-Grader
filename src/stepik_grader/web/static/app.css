@@ -523,6 +523,22 @@ select.form-input { cursor: pointer; }
 .side-list li.gloss-draft { opacity: .6; }
 .side-list li.gloss-draft.selected { opacity: 1; }
 
+/* Разделы «Правила» и «Подучить» (issue #348) */
+.rule-code { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; color: var(--color-primary); }
+.code-block.code-bad { border-left: 3px solid var(--color-error, #c0392b); }
+.code-block.code-good { border-left: 3px solid var(--color-success, #2e7d32); }
+.rule-body { margin: var(--space-3) 0; color: var(--color-text); }
+
+.insight-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.insight-card { padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); border-left-width: 3px; }
+.insight-card.insight-active { border-left-color: var(--color-warning); }
+.insight-card.insight-fading { border-left-color: var(--color-primary); }
+.insight-card.insight-watch { border-left-color: var(--color-text-faint); }
+.insight-card.insight-archived { border-left-color: var(--color-success, #2e7d32); }
+.insight-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-1); }
+.insight-key { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; overflow-wrap: anywhere; }
+.insight-status { font-size: var(--text-sm); white-space: nowrap; }
+
 /* issue #317: песочница — stderr красным, поле stdin как редактор. */
 .sandbox-stderr { color: var(--color-error); }
 textarea#sandbox-stdin { min-height: 72px; resize: vertical; white-space: pre; }
