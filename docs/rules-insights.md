@@ -76,11 +76,18 @@ AST/tokenize-чекер не пишем — не дублируем pycodestyle 
 `lint_violations` — фундамент, на котором считаются карточки «Подучить». Опции:
 `--history`/`record_history` (см. [configuration.md](configuration.md)).
 
+> **Статус `lint_violations` (2026-07-14).** Таблица заведена схемно, но пока
+> **не наполняется**: `LintRecord` нигде не конструируется, `record_run` не
+> получает `lint=` (продюсер — issue #346, см. секцию «Опциональное поле `lint`»
+> в [result-contract.md](result-contract.md)). Следствие — категория «lint» ниже
+> пока недостижима; `runs`/`case_results` (падения) заполняются и работают.
+
 ---
 
 ## Таксономия падений и затухание (`core/insights.py`, issue #347)
 
-**Ключ карточки** «Подучить» — `failure_kind` (падение) или `rule_code` (lint).
+**Ключ карточки** «Подучить» — `failure_kind` (падение) или `rule_code` (lint —
+пока не продюсится, см. заметку о `lint_violations` выше, issue #346).
 `failure_kind` — чистая классификация исхода кейса (заполняется при записи в
 историю):
 

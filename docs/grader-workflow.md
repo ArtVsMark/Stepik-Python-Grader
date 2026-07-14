@@ -263,7 +263,7 @@ stepik-grader --mode 3 --dir . --output markdown > BENCHMARK.md
 ### `--watch` (roadmap, issue #54)
 
 ```bash
-pip install "stepik-grader[watch]"     # опциональная зависимость: watchfiles
+pip install "stepik-python-grader[watch]"   # опциональная зависимость: watchfiles
 
 stepik-grader --mode 1 --file task.py --watch
 stepik-grader --mode 2 --dir . --watch

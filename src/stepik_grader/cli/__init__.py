@@ -352,7 +352,7 @@ def _interactive_menu() -> None:
 def _watch_and_rerun(watch_path: pathlib.Path, rerun: Callable[[], None]) -> None:
     """Перезапускать rerun() при изменении файлов внутри watch_path (issue #54).
 
-    watchfiles — опциональная зависимость (`pip install stepik-grader[watch]`);
+    watchfiles — опциональная зависимость (`pip install stepik-python-grader[watch]`);
     её отсутствие не должно ронять грейдер, если пользователь не просил --watch.
     Перезапускает ВЕСЬ вызов rerun() на любое изменение внутри watch_path —
     не отслеживает, какой именно файл изменился, для простоты и надёжности
