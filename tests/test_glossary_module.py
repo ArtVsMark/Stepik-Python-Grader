@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import threading
 
 import pytest
 
@@ -256,6 +257,28 @@ def test_missing_queue_append_dedupes_and_merges_sources(tmp_path: pathlib.Path)
     result = append_missing_entries(path, [GlossaryMissingEntry(concept="x", seen_in=["b.py"])])
     assert len(result) == 1
     assert set(result[0].seen_in) == {"a.py", "b.py"}
+
+
+def test_missing_queue_append_is_thread_safe(tmp_path: pathlib.Path) -> None:
+    # issue #352: append_missing_entries — read-modify-write (load → merge →
+    # save всего файла). N потоков добавляют по уникальному concept; без
+    # процессного лока конкурентные вызовы затирали бы добавки друг друга
+    # (последний save побеждает). С локом должны сохраниться все N.
+    path = tmp_path / "queue.json"
+    n = 40
+
+    def worker(i: int) -> None:
+        append_missing_entries(path, [GlossaryMissingEntry(concept=f"c{i}", seen_in=[f"{i}.py"])])
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    result = load_missing_queue(path)
+    assert {entry.concept for entry in result} == {f"c{i}" for i in range(n)}
+    assert len(result) == n
 
 
 def test_missing_queue_append_keeps_first_origin_but_fills_module(

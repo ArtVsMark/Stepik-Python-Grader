@@ -48,6 +48,16 @@ import tempfile
 from dataclasses import dataclass, field
 from typing import Any
 
+__all__ = [
+    "ENCODING",
+    "SIMILAR_THRESHOLD_PERCENT",
+    "WARMUP_RUNS",
+    "MicrobenchResult",
+    "run_microbench",
+    "apply_relative_micro",
+    "apply_relative_ranking",
+]
+
 # resource — POSIX-only (RLIMIT_AS best-effort memory cap, issue #43 S-01).
 # На Windows модуль отсутствует; лимит памяти там не применяется — тот же
 # паттерн graceful degradation, что и в grader_core.py / executor.py.

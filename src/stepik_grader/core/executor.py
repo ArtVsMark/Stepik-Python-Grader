@@ -33,6 +33,13 @@ import sys
 import types
 from dataclasses import dataclass, field
 
+__all__ = [
+    "TIMEOUT",
+    "RunResult",
+    "run_solution",
+    "main",
+]
+
 # stepik_grader.config isn't importable when executor.py runs as a subprocess
 # script (python src/stepik_grader/core/executor.py sets sys.path[0] to that
 # script's own directory, not a place where the stepik_grader package root

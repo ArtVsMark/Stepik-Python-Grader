@@ -1,8 +1,9 @@
 # Структура проекта
 
 > Вынесено из README (issue #104 / эпик #102). Обзор проекта — в
-> [README](../README.md). Полное дерево `core/` с зависимостями и
-> инвариантами поддерживается в [`CLAUDE.md`](../CLAUDE.md).
+> [README](../README.md). Граф зависимостей (DAG), слои и роли модулей — в
+> [`architecture.md`](architecture.md); это дерево — канонический перечень
+> файлов (CLAUDE.md § Структура делегирует его сюда).
 
 ```
 Stepik-Python-Grader/
@@ -27,7 +28,8 @@ Stepik-Python-Grader/
 │       │   ├── downloader_adapter.py # download_task — адаптер над downloader.py (issue #186)
 │       │   ├── glossary_adapter.py   # glossary_search/get/missing — адаптеры над glossary/
 │       │   ├── commands.py        # Реестр команд для command palette (leaf)
-│       │   ├── runs.py            # Async job-модель для bench/microbench (issue #262)
+│       │   ├── runs.py            # Async job-модель для bench/microbench/playground/trace (issue #262)
+│       │   ├── playground.py      # Песочница: запуск кода со stdin, вывод/статус (issue #317)
 │       │   ├── i18n.py            # message_id-каталог веб-API (issue #264)
 │       │   └── static/            # index.html/app.css/app.js — без build-шага
 │       ├── ide.py                 # Генерация .vscode/tasks.json (--init-vscode)
@@ -47,7 +49,8 @@ Stepik-Python-Grader/
 │           ├── executor.py       # Запускатель решений: compile + exec с таймаутом
 │           ├── microbench_runner.py  # Timeit-микробенчмарк через subprocess + os.devnull
 │           ├── normalizers.py    # Нормализация вывода: округление float, sort/whitespace
-│           ├── glossary.py       # Карта исключений → подсказка + ссылка (issue #72)
+│           ├── glossary.py       # Компактная карта исключений → подсказка + ссылка, leaf (issue #72)
+│           ├── error_glossary.py # Единый RE-резолвер: bundled JSON-база → компактная карта fallback (issue #356)
 │           ├── cache.py          # Opt-in кэш результатов (issue #56)
 │           ├── stepik_client.py  # Infrastructure: OAuth2, requests.Session, Stepik API
 │           ├── oauth_flow.py     # Infrastructure/Auth: OAuth2-фасад поверх stepik_client
@@ -59,6 +62,8 @@ Stepik-Python-Grader/
 │           ├── storage.py        # Utilities: load/save JSON, save_secrets (нет project-зависимостей)
 │           ├── i18n.py           # Загрузка JSON-локалей меню/CLI (issue #144)
 │           ├── stats.py          # Opt-in локальная статистика запусков (issue #268)
+│           ├── diag_log.py       # Opt-in диагностическое логирование сети/OAuth с редакцией секретов (issue #146)
+│           ├── tracer.py         # Пошаговый трассировщик кода (sys.settrace → JSON-трейс) для песочницы (issue #318)
 │           └── sandbox/          # SandboxRunner: OS-изолированный запуск, --sandbox (issue #266)
 │               ├── __init__.py   # SandboxRunner, SandboxUnavailableError, выбор backend'а по ОС
 │               ├── _linux.py     # bubblewrap (bwrap) backend

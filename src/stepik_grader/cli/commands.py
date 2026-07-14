@@ -24,7 +24,6 @@
 from __future__ import annotations
 
 import json
-import os
 import pathlib
 from typing import Any
 
@@ -45,6 +44,15 @@ from stepik_grader.core.reporter import (
     print_correctness_results,
     rich_track,
 )
+
+
+def _rel(path: pathlib.Path, base: pathlib.Path) -> str:
+    """Относительный путь для колонок таблиц (с ``..`` при выходе за ``base``).
+
+    Прямая замена ``os.path.relpath`` на pathlib (issue #354): лексический
+    расчёт без обращения к ФС, ``walk_up=True`` разрешает ``..`` (Python 3.12+).
+    """
+    return str(path.relative_to(base, walk_up=True))
 
 
 def _verdict_counts_from_cases(cases: list[dict[str, Any]]) -> dict[str, int]:
@@ -112,6 +120,24 @@ def _run_tests_maybe_cached(
     result = ctx.run_tests(solution, test_dir, verbose=verbose, verbose_callback=callback)
     cache.put(solution, solution_sha, tests_sha, result)
     return result, False
+
+
+def _resolve_individual_test_dir(
+    ctx: CliContext, path: pathlib.Path, directory: pathlib.Path
+) -> pathlib.Path:
+    """tests/ для одного решения в директории-режиме (2/3): по решению, иначе общий.
+
+    Сначала ищет ``tests/`` рядом с самим решением (``resolve_test_dir``); при
+    отсутствии откатывается на общий ``tests/`` директории.
+    ``resolve_test_dir_from_input(is_dir=True)`` всегда возвращает ``Path``
+    (никогда None), поэтому результат не-опционален. issue #354 — дедуп двух
+    идентичных копий в режимах 2 и 3.
+    """
+    individual_test_dir = resolve_test_dir(path)
+    if individual_test_dir is None or not individual_test_dir.is_dir():
+        individual_test_dir = ctx.resolve_test_dir_from_input(directory, is_dir=True)
+    assert individual_test_dir is not None
+    return individual_test_dir
 
 
 def _run_mode_1(
@@ -194,7 +220,7 @@ def _run_mode_2(
         print(ctx.t("no_solutions_found"))
         return
 
-    col_file = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
+    col_file = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
 
     rows: list[tuple[pathlib.Path, dict[str, Any]]] = []
     machine_output = output != "text"
@@ -202,12 +228,7 @@ def _run_mode_2(
     cache_hits = 0
     track = scripts if machine_output else rich_track(scripts, description="Проверка решений...")
     for path in track:
-        individual_test_dir = resolve_test_dir(path)
-        if individual_test_dir is None or not individual_test_dir.is_dir():
-            individual_test_dir = ctx.resolve_test_dir_from_input(directory, is_dir=True)
-        # ctx.resolve_test_dir_from_input(is_dir=True) always returns a Path (never
-        # the None its is_dir=False passthrough branch can produce) -- narrows for mypy.
-        assert individual_test_dir is not None
+        individual_test_dir = _resolve_individual_test_dir(ctx, path, directory)
         result, from_cache = _run_tests_maybe_cached(
             ctx, path, individual_test_dir, verbose=verbose, output=output, cache=cache
         )
@@ -268,12 +289,7 @@ def _run_mode_3(
     machine_output = output != "text"
     track = scripts if machine_output else rich_track(scripts, description="Бенчмарк решений...")
     for path in track:
-        individual_test_dir = resolve_test_dir(path)
-        if individual_test_dir is None or not individual_test_dir.is_dir():
-            individual_test_dir = ctx.resolve_test_dir_from_input(directory, is_dir=True)
-        # ctx.resolve_test_dir_from_input(is_dir=True) always returns a Path (never
-        # the None its is_dir=False passthrough branch can produce) -- narrows for mypy.
-        assert individual_test_dir is not None
+        individual_test_dir = _resolve_individual_test_dir(ctx, path, directory)
         results[path] = ctx.run_benchmark(path, individual_test_dir, repeats=repeats)
 
     apply_relative_ranking(
@@ -312,13 +328,13 @@ def _run_mode_3(
 
     ok = {k: v for k, v in results.items() if not v.get("error")}
 
-    col = max((len(os.path.relpath(p, directory)) for p in scripts), default=20) + 2
+    col = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
     ranked = sorted(ok.items(), key=lambda x: x[1]["median"])
     print_benchmark_results(ranked, directory, col_file=col)
 
     for path, data in sorted(results.items()):
         if data.get("error"):
-            rel = os.path.relpath(path, directory)
+            rel = _rel(path, directory)
             print(f"  {rel}: {data['error']}")
 
 
@@ -409,7 +425,7 @@ def _run_mode_4(
 
         ok_rows = {k: v for k, v in bench.items() if not v.get("error")}
 
-        col = max((len(os.path.relpath(p, directory)) for p in paths), default=20) + 2
+        col = max((len(_rel(p, directory)) for p in paths), default=20) + 2
 
         if ok_rows:
             ranked = sorted(ok_rows.items(), key=lambda x: x[1]["median"])
@@ -420,7 +436,7 @@ def _run_mode_4(
 
         for path, data in sorted(bench.items()):
             if data.get("error"):
-                rel = os.path.relpath(path, directory)
+                rel = _rel(path, directory)
                 print(f"  ✗ {rel}: {data['error']}")
 
         if not ok_rows and not any(v.get("error") for v in bench.values()):

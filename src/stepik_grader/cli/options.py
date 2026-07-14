@@ -5,7 +5,7 @@
 Выделено из cli.py без изменения поведения (issue #119, Stage 1 эпика
 #117): safe-extraction кандидаты первого extraction-PR — не импортируют
 stepik_grader.cli и не содержат mutable module-level state (_LANG,
-_MESSAGES, _LOCALE_MESSAGES остаются в cli/__init__.py, issue #117).
+_LOCALE_MESSAGES остаются в cli/__init__.py, issue #117).
 
 Имена реэкспортированы фасадом ``stepik_grader.cli`` (``cli/__init__.py``)
 как ``cli._build_arg_parser`` и т.д. для обратной совместимости с

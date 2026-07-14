@@ -1,15 +1,17 @@
-"""Tests for core/i18n.py — JSON-locale loader (issue #141/#144).
+"""Tests for core/i18n.py — JSON-locale loader (issue #141/#144/#355).
 
 Проверяет ``load_locale_messages()`` (graceful degradation на отсутствующий/
-битый файл) и то, что ``cli._t()`` действительно консультирует JSON-локаль
-перед статическим ``_MESSAGES`` — новое сообщение можно добавить только через
-JSON, не трогая существующий словарь.
+битый файл) и то, что ``cli._t()`` — тонкая обёртка над единым JSON-каталогом
+``core/locales/<lang>.json`` (issue #355 слил захардкоженный ``_MESSAGES`` в
+JSON; отдельного словаря больше нет).
 """
 
 from __future__ import annotations
 
 import json
 import pathlib
+
+import pytest
 
 from stepik_grader import cli
 from stepik_grader.core.i18n import load_locale_messages
@@ -61,19 +63,22 @@ def test_load_locale_messages_coerces_values_to_str(tmp_path: pathlib.Path, monk
 
 
 # ---------------------------------------------------------------------------
-# cli._t() — приоритет JSON-локали над статическим _MESSAGES (issue #144)
+# cli._t() — тонкая обёртка над единым JSON-каталогом (issue #355)
 # ---------------------------------------------------------------------------
 
 
-def test_t_falls_back_to_static_messages_when_key_absent_in_locale(monkeypatch) -> None:
-    monkeypatch.setattr(cli, "_LOCALE_MESSAGES", {"ru": {}, "en": {}})
+def test_t_reads_cli_message_from_locale_catalog(monkeypatch) -> None:
+    # CLI-сообщения слиты в core/locales/*.json (issue #355); _t() читает их
+    # напрямую из загруженного каталога, без отдельного захардкоженного словаря.
     monkeypatch.setattr(cli, "_LANG", "en")
     assert cli._t("goodbye") == "Goodbye!"
+    monkeypatch.setattr(cli, "_LANG", "ru")
+    assert cli._t("goodbye") == "До свидания!"
 
 
-def test_t_prefers_json_locale_over_static_messages(monkeypatch) -> None:
-    # Новое сообщение добавлено ТОЛЬКО через JSON-локаль (не в _MESSAGES) --
-    # это и есть issue #144's "новые сообщения можно добавлять через JSON".
+def test_t_resolves_key_from_locale_messages_mapping(monkeypatch) -> None:
+    # _t() резолвит ключ строго из _LOCALE_MESSAGES[_LANG]: подмена каталога
+    # меняет вывод — единственный источник это JSON-каталог.
     monkeypatch.setattr(
         cli, "_LOCALE_MESSAGES", {"ru": {"brand_new_key": "Привет из JSON"}, "en": {}}
     )
@@ -81,28 +86,14 @@ def test_t_prefers_json_locale_over_static_messages(monkeypatch) -> None:
     assert cli._t("brand_new_key") == "Привет из JSON"
 
 
-def test_t_json_locale_overrides_existing_key_when_present(monkeypatch) -> None:
-    # Существующий ключ _MESSAGES тоже можно переопределить через JSON, если
-    # он там есть -- реальные core/locales/*.json (issue #264) используют
-    # отдельное, непересекающееся пространство ключей веб-слоя, так что для
-    # ключей _MESSAGES (как "goodbye") поведение CLI не меняется (см.
-    # test_existing_cli_messages_unaffected_by_web_catalog_keys).
-    monkeypatch.setattr(cli, "_LOCALE_MESSAGES", {"ru": {"goodbye": "Пока (из JSON)"}, "en": {}})
-    monkeypatch.setattr(cli, "_LANG", "ru")
-    assert cli._t("goodbye") == "Пока (из JSON)"
-
-
-def test_t_kwargs_formatting_still_works_with_locale_fallback(monkeypatch) -> None:
-    monkeypatch.setattr(cli, "_LOCALE_MESSAGES", {"ru": {}, "en": {}})
+def test_t_kwargs_formatting(monkeypatch) -> None:
     monkeypatch.setattr(cli, "_LANG", "en")
     assert cli._t("file_not_found", path="x.py") == "File not found: x.py"
 
 
-def test_existing_cli_messages_unaffected_by_web_catalog_keys() -> None:
-    # core/locales/{ru,en}.json теперь содержат каталог сообщений веб-слоя
-    # (issue #264, snake_case-ключи вроде "path_not_found") -- пространство
-    # ключей не пересекается с _MESSAGES CLI (см. test_i18n_guardrails.py
-    # для проверок самого web-каталога), поэтому _t() для любого ключа
-    # _MESSAGES по-прежнему откатывается на статический словарь, как до #264.
-    assert set(cli._LOCALE_MESSAGES["ru"]).isdisjoint(cli._MESSAGES.keys())
-    assert set(cli._LOCALE_MESSAGES["en"]).isdisjoint(cli._MESSAGES.keys())
+def test_t_raises_keyerror_on_unknown_key(monkeypatch) -> None:
+    # Отсутствующий ключ — программная ошибка, а не тихий фолбэк (парность
+    # ru/en стережёт check_locale_guardrails.py): _t() поднимает KeyError.
+    monkeypatch.setattr(cli, "_LANG", "en")
+    with pytest.raises(KeyError):
+        cli._t("no_such_key_anywhere")

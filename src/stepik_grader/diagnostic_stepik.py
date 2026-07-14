@@ -26,6 +26,42 @@ from stepik_grader.core.oauth_flow import authorize_via_browser, load_secrets, m
 from stepik_grader.core.stepik_client import API_HOST
 from stepik_grader.downloader import parse_stepik_step_url
 
+__all__ = [
+    "OAUTH_TIMEOUT_SECONDS",
+    "create_user_session",
+    "api_get",
+    "get_lesson_data",
+    "get_step_data",
+    "get_step_data_by_position",
+    "save_json",
+    "extract_zip_url_from_text",
+    "collect_string_candidates",
+    "extract_zip_url_from_step_data",
+    "build_diagnostic_result",
+    "print_result_summary",
+    "main",
+]
+
+# Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md).
+# Свой локальный _console (leaf-совместимо, не тянет core/reporter), issue #354.
+try:
+    from rich.console import Console
+
+    _console: Console | None = Console()
+    _RICH = True
+except ImportError:  # pragma: no cover
+    _console = None
+    _RICH = False
+
+
+def _print(text: str) -> None:
+    """Печать статусной строки через rich (markup off — безопасно для путей/URL)."""
+    if _RICH and _console is not None:
+        _console.print(text, markup=False)
+    else:
+        print(text)
+
+
 # Задача 6: таймаут ожидания OAuth-кода от браузера
 OAUTH_TIMEOUT_SECONDS = 120
 
@@ -45,15 +81,15 @@ def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -
     auth_url = f"{API_HOST}/oauth2/authorize/?" + urlencode(
         {"response_type": "code", "client_id": client_id, "redirect_uri": redirect_uri}
     )
-    print("\nОткрой в браузере и подтверди доступ приложению:")
-    print(auth_url)
-    print(f"\nОжидание редиректа с code (таймаут {OAUTH_TIMEOUT_SECONDS}s)...")
+    _print("\nОткрой в браузере и подтверди доступ приложению:")
+    _print(auth_url)
+    _print(f"\nОжидание редиректа с code (таймаут {OAUTH_TIMEOUT_SECONDS}s)...")
 
     token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
     access_token = token_data.get("access_token")
     if not access_token:
         raise RuntimeError("Stepik не вернул access_token.")
-    print("✅ Authorization code получен.")
+    _print("✅ Authorization code получен.")
     return make_session(str(access_token))
 
 
@@ -208,18 +244,18 @@ def print_result_summary(
     output_dir: pathlib.Path,
 ) -> None:
     """Вывести читаемый итог диагностики в консоль."""
-    print("\n=== Результат диагностики ===")
-    print(f"Lesson ID:        {result['lesson_id']}")
-    print(f"Lesson title:     {result['lesson_title']}")
-    print(f"Step ID:          {result['step_id']}")
-    print(f"Step position:    {result['step_position']}")
-    print(f"Block name:       {result['block_name']}")
-    print(f"Block keys:       {result['block_keys']}")
-    print(f"Block text exists:{result['block_text_exists']}")
-    print(f"ZIP найден:       {'да' if result['zip_found'] else 'нет'}")
+    _print("\n=== Результат диагностики ===")
+    _print(f"Lesson ID:        {result['lesson_id']}")
+    _print(f"Lesson title:     {result['lesson_title']}")
+    _print(f"Step ID:          {result['step_id']}")
+    _print(f"Step position:    {result['step_position']}")
+    _print(f"Block name:       {result['block_name']}")
+    _print(f"Block keys:       {result['block_keys']}")
+    _print(f"Block text exists:{result['block_text_exists']}")
+    _print(f"ZIP найден:       {'да' if result['zip_found'] else 'нет'}")
     if result["zip_url"]:
-        print(f"ZIP URL:          {result['zip_url']}")
-    print(f"Результаты сохранены в: {output_dir.resolve()}")
+        _print(f"ZIP URL:          {result['zip_url']}")
+    _print(f"Результаты сохранены в: {output_dir.resolve()}")
 
 
 # ---------------------------------------------------------------------------
@@ -240,15 +276,15 @@ def main() -> None:
     configure_diagnostics("debug", log_dir=output_dir)
     try:
         client_id, client_secret, redirect_uri = load_secrets(pathlib.Path(secrets_file))
-        print("✅ secrets.json успешно прочитан.")
+        _print("✅ secrets.json успешно прочитан.")
         lesson_id, step_position = parse_stepik_step_url(step_url)
-        print(f"✅ URL распознан: lesson_id={lesson_id}, step={step_position}")
+        _print(f"✅ URL распознан: lesson_id={lesson_id}, step={step_position}")
         session = create_user_session(client_id, client_secret, redirect_uri)
-        print("✅ OAuth access token пользователя успешно получен.")
+        _print("✅ OAuth access token пользователя успешно получен.")
         step_id, lesson, step_data = get_step_data_by_position(session, lesson_id, step_position)
-        print("✅ Step data получены через API /steps/{id}.")
+        _print("✅ Step data получены через API /steps/{id}.")
     except Exception as error:  # noqa: BLE001
-        print(f"❌ Ошибка диагностики: {error}")
+        _print(f"❌ Ошибка диагностики: {error}")
         return
     lesson_path = save_json(output_dir, "lesson_debug.json", lesson)
     step_path = save_json(output_dir, "step_debug.json", step_data)

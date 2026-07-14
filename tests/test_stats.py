@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import threading
 
 from stepik_grader.core import stats
 
@@ -108,3 +109,31 @@ class TestRotation:
         last_entry = json.loads(lines[-1])
         assert last_entry["verdicts"] == {"AC": 19}
         assert len(lines) < 20  # some older entries were dropped by rotation
+
+
+class TestConcurrency:
+    def test_concurrent_record_run_keeps_every_entry_intact(self, tmp_path: pathlib.Path) -> None:
+        # issue #352: record_run serializes rotation+append under a process lock.
+        # N threads write at once (no rotation at the default threshold); every
+        # line must be a valid JSON entry and all N must be present — no
+        # interleaved/lost writes on platforms without atomic append.
+        path = tmp_path / ".grader_stats.jsonl"
+        n = 50
+
+        def worker(i: int) -> None:
+            stats.record_run(1, {"AC": 1}, float(i), stats_path=path)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == n
+        # Each line parses independently (no torn/interleaved records).
+        for line in lines:
+            json.loads(line)
+        summary = stats.read_summary(stats_path=path)
+        assert summary["total_runs"] == n
+        assert summary["verdict_totals"] == {"AC": n}

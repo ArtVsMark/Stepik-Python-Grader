@@ -34,6 +34,7 @@
 | `pytest_plugin.py` | Application / Plugin | pytest-плагин (`pytest --grader-mode`, issue #57): запуск тест-кейсов грейдера как pytest-тестов |
 | `core/cache.py` | Infrastructure / Utilities | Кэш результатов `.grader_cache/` (issue #56): ключ по контенту решения+тестов, graceful degradation при битом/отсутствующем кэше |
 | `core/glossary.py` | Infrastructure / Utilities (leaf) | Компактная встроенная карта исключений (`GlossaryEntry.anchor`/`.url`, `GLOSSARY_BASE_URL`, ~28 записей) для error cards при RE; leaf-модуль, отдельная сущность от пакета `glossary/` (issue #72) |
+| `core/error_glossary.py` | Application-facing helper | Единый RE-резолвер `resolve_error_hint`/`card_url` для CLI (`reporter`) и web (`viewmodels`): по имени исключения ищет карточку в комплектной JSON-базе (`glossary/data/`) и добирает пустоты из компактной `core/glossary.py`; провайдер грузится лениво, ошибки graceful (issue #356) |
 | `core/grader_core.py` | Application | Исполнение тест-кейса в subprocess и агрегация статистики: 4 режима работы (`run_tests`, `run_benchmark`, `run_microbench_mode`) |
 | `core/test_loader.py` | Application | Обнаружение файлов-решений, загрузка тест-кейсов (`load_test_cases`), `resolve_test_dir` (Issue #45 A-01) |
 | `core/mode_detector.py` | Application | Детекция режима запуска stdin/function (`_detect_run_mode`, `is_function_only_solution`) (Issue #45 A-01) |
@@ -95,7 +96,7 @@ cli/rendering.py       ──→  (ничего в проекте; чистый 
 cli/interactive.py     ──→  core/grader_core.py  (find_all_solution_files/collect_grouped_files), cli/context.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
 web/server.py          ──→  web/commands.py, web/downloader_adapter.py, web/glossary_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (тонкий HTTP-роутинг)
 web/viewmodels.py      ──→  core/grader_core.py, core/microbench_runner.py, core/reporter.py, core/test_loader.py  (web → core, ациклично)
-web/viewmodels.py      ──→  core/glossary.py  (lookup_from_error для error card при RE)
+web/viewmodels.py      ──→  core/error_glossary.py  (resolve_error_hint для error card при RE)
 web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
 web/viewmodels.py      ──→  config.py
 web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/storage.py, core/test_loader.py
@@ -108,8 +109,9 @@ core/sandbox/          ──→  core/runner.py  (реализует Runner-п�
 cli/__init__.py        ──→  core/sandbox/  (--sandbox: SandboxRunner/SandboxUnavailableError)
 cli/commands.py        ──→  core/stats.py  (record_run для --stats, issue #268)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
-core/reporter.py       ──→  core/glossary.py  (glossary-блок в error card при RE)
+core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
+core/error_glossary.py ──→  core/glossary.py, glossary/json_provider.py  (bundled JSON → компактная карта fallback, лениво; issue #356 — glossary/ не тянет core/, ацикл)
 ide.py                 (только stdlib — генерация конфигов VS Code; project-импортов нет)
 diagnostic_stepik.py ──→  core/stepik_client.py
 diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url

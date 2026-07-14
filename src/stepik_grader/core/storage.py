@@ -15,6 +15,12 @@ import os
 import pathlib
 from typing import Any
 
+__all__ = [
+    "load_json_file",
+    "save_json_file",
+    "save_secrets",
+]
+
 
 def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
     """Читает JSON-файл и возвращает dict.

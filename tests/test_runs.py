@@ -8,11 +8,11 @@ job-lifecycle логики.
 from __future__ import annotations
 
 import pathlib
-import time
 
 import pytest
 
 from stepik_grader.web import runs
+from tests._wait import wait_until
 
 
 def _make_task(tmp_path: pathlib.Path, body: str, *, name: str = "task.py") -> pathlib.Path:
@@ -27,15 +27,16 @@ def _make_task(tmp_path: pathlib.Path, body: str, *, name: str = "task.py") -> p
 
 
 def _poll_until_terminal(job_id: str, *, timeout: float = 15.0) -> dict:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+    def _terminal() -> dict | None:
         job = runs.get_job(job_id)
         assert job is not None
         data = job.to_status_dict()
-        if data["status"] in ("done", "error", "cancelled"):
-            return data
-        time.sleep(0.05)
-    raise TimeoutError(f"job {job_id} did not reach a terminal state within {timeout}s")
+        return data if data["status"] in ("done", "error", "cancelled") else None
+
+    data = wait_until(_terminal, timeout=timeout)
+    if data is None:
+        raise TimeoutError(f"job {job_id} did not reach a terminal state within {timeout}s")
+    return data
 
 
 class TestSubmitJobBench:
@@ -55,17 +56,14 @@ class TestSubmitJobBench:
         sol = _make_task(tmp_path, "import time\ntime.sleep(0.05)\nprint(int(input()) + 1)\n")
         job = runs.submit_job("bench", sol, {"repeats": 5, "lang": "ru"})
 
-        seen_total_before_done = False
-        deadline = time.monotonic() + 10.0
-        while time.monotonic() < deadline:
+        # progress.total выставляется, как только воркер узнал число тиков —
+        # ждём этого момента (решение спит 0.05с, т.е. total виден до завершения).
+        def _total_known() -> dict | None:
             data = job.to_status_dict()
-            if data["progress"]["total"] > 0:
-                seen_total_before_done = True
-            if data["status"] in ("done", "error", "cancelled"):
-                break
-            time.sleep(0.02)
+            return data if data["progress"]["total"] > 0 else None
 
-        assert seen_total_before_done
+        data = wait_until(_total_known, timeout=10.0)
+        assert data is not None and data["progress"]["total"] > 0
 
 
 class TestSubmitJobTests:
@@ -136,8 +134,8 @@ class TestCancelJob:
         sol = _make_task(tmp_path, "import time\ntime.sleep(30)\nprint(input())\n")
         job = runs.submit_job("bench", sol, {"repeats": 20, "lang": "ru"})
 
-        # give the worker a moment to actually start the subprocess
-        time.sleep(0.3)
+        # wait until the worker actually starts the subprocess (status='running')
+        assert wait_until(lambda: job.status == "running"), "worker did not start the job"
         assert runs.cancel_job(job.id) is True
 
         data = _poll_until_terminal(job.id)
@@ -159,7 +157,7 @@ class TestCancelJob:
         sol = _make_task(tmp_path, "import time\ntime.sleep(30)\nprint(input())\n")
         job = runs.submit_job("bench", sol, {"repeats": 20, "lang": "ru"})
 
-        time.sleep(0.3)
+        assert wait_until(lambda: job.status == "running"), "worker did not start the job"
         assert runs.cancel_job(job.id) is True
         _poll_until_terminal(job.id)
 
@@ -241,7 +239,7 @@ class TestTtlSweep:
         не только "done"/"error"."""
         sol = _make_task(tmp_path, "import time\ntime.sleep(30)\nprint(input())\n")
         job = runs.submit_job("bench", sol, {"repeats": 20, "lang": "ru"})
-        time.sleep(0.3)
+        assert wait_until(lambda: job.status == "running"), "worker did not start the job"
         assert runs.cancel_job(job.id) is True
         data = _poll_until_terminal(job.id)
         assert data["status"] == "cancelled"

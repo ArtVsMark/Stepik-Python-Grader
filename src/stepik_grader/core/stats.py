@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import pathlib
 import platform
+import threading
 import time
 from typing import Any
 
@@ -37,6 +38,15 @@ __all__ = ["STATS_FILE_NAME", "record_run", "read_summary"]
 STATS_FILE_NAME = ".grader_stats.jsonl"
 _MAX_BYTES = 1 * 1024 * 1024  # 1 MiB — ротация (оставить новую половину строк)
 _SCHEMA_VERSION = 1
+
+# Процессный лок вокруг ротации + append (issue #352). Web-слой пишет статистику
+# из многопоточного ThreadPoolExecutor (web/runs.py); без сериализации
+# read-modify-write ротации (_rotate_if_needed: прочитать файл целиком и
+# переписать половину) конкурентные потоки могут затирать записи друг друга.
+# Process-level Lock достаточно для модели «один процесс, много потоков»;
+# межпроцессную гонку (CLI и web одновременно) он НЕ закрывает — её снимет
+# переход истории на SQLite/WAL (issue #344).
+_WRITE_LOCK = threading.Lock()
 
 
 def _default_path() -> pathlib.Path:
@@ -78,18 +88,19 @@ def record_run(
     ронять грейдинг, тот же принцип, что у ``GraderCache`` (issue #56).
     """
     path = stats_path or _default_path()
+    entry = {
+        "v": _SCHEMA_VERSION,
+        "ts": time.time(),
+        "mode": mode,
+        "os": platform.system(),
+        "verdicts": verdicts,
+        "total_time": total_time,
+    }
     try:
-        _rotate_if_needed(path)
-        entry = {
-            "v": _SCHEMA_VERSION,
-            "ts": time.time(),
-            "mode": mode,
-            "os": platform.system(),
-            "verdicts": verdicts,
-            "total_time": total_time,
-        }
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        with _WRITE_LOCK:
+            _rotate_if_needed(path)
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except OSError:
         pass
 

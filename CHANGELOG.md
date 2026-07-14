@@ -9,7 +9,63 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Internal
+- Replaced fixed `time.sleep` pauses in the async web-layer tests with a shared
+  `wait_until(predicate, timeout, interval)` helper (`tests/_wait.py`, issue
+  #357). The job-model and playground tests polled workers with hard-coded
+  0.02–0.3s sleeps — timing-dependent and flaky on slow CI. They now wait on the
+  actual condition (job status `running`, terminal status, pidfile appears,
+  killed process reaped) with a deadline, so `test_runs.py`,
+  `test_web_playground.py` and `test_web.py` no longer contain bare host-side
+  `time.sleep` (the deliberate `time.sleep(30)` TLE fixtures inside solution
+  bodies are untouched). Also faster — the suite returns as soon as the
+  condition holds. Verified with 3 consecutive green web-suite runs.
+
 ### Refactored
+- Unified the two glossaries behind one RE-hint resolver (issue #356): the CLI
+  reporter and the web error card both resolved RuntimeError hints only from the
+  compact `core/glossary.py` map (~28 exceptions), leaving the bundled JSON base
+  (`glossary/data/`, ~140 exception cards) invisible to them. A new
+  `core/error_glossary.py` (`resolve_error_hint`) now consults the bundled base
+  first (by `id == exception name lowercased`) and fills empty fields from the
+  compact map, so CLI and web show the same, richer card for covered exceptions.
+  A single `card_url()` replaces the three previously divergent URL strategies
+  (compact anchor, bundled `#e-<Name>`, empty). The bundled provider loads
+  lazily and is mtime-cached; a broken/absent base degrades gracefully to the
+  compact map. `core/glossary.py` stays a leaf, `core/reporter.py` still imports
+  no web layer, and the DAG stays acyclic (`glossary/` does not import `core/`).
+  Exception-name extraction is factored out into `exception_name_from_error`.
+- Consolidated the CLI's two parallel i18n mechanisms into one (issue #355):
+  the hardcoded `_MESSAGES` dict in `cli/__init__.py` (48 keys) is merged into
+  the JSON locale catalog (`core/locales/{ru,en}.json`), and `_t()` is now a
+  thin wrapper reading straight from `_LOCALE_MESSAGES` — no static fallback.
+  New CLI strings now flow through the same JSON catalog as the web layer, so
+  the ru/en parity guardrail (`scripts/check_locale_guardrails.py`) covers them
+  too. The `_MESSAGES` keys did not overlap the existing web catalog, so the
+  merge is a pure addition (35 → 83 keys per locale). `--lang`/auto-detection
+  behaviour is unchanged; `test_i18n.py` is rewritten for the single-catalog
+  model.
+- Small code-style hygiene from the 2026-07 audit (issue #354, behaviour
+  unchanged):
+  - Added `__all__` to the 8 modules that lacked it (project checklist requires
+    it): `downloader`, `diagnostic_stepik`, `pytest_plugin`,
+    `core/{executor,stepik_client,storage,microbench_runner,parsers}`.
+  - Bare `print()` → an `_console`-with-`print()`-fallback helper (rich,
+    graceful, `markup=False`) in the three CLI-ish modules that used bare
+    prints: `downloader.py` (19), `diagnostic_stepik.py` (20),
+    `downloader_config.py` (8) — following the leaf-local `_console` pattern of
+    `glossary/coverage.py`.
+  - `os.path.relpath` → `Path.relative_to(other, walk_up=True)` (Python 3.12+,
+    "paths are pathlib"): `cli/commands.py` (a new `_rel()` helper, 5 sites),
+    `core/reporter.py` (4), `core/test_loader.py` (1, collapsing a
+    try/relative_to/except-relpath into one line). `import os` dropped where it
+    became unused.
+  - `run_single_test` (`core/grader_core.py`): 7 near-identical early-return
+    error dicts → a `_fail_result()` factory.
+  - `main()` (`cli/__init__.py`): the duplicated watch/no-watch branches of
+    modes 1 and 2 → a shared `_dispatch_with_watch()` helper.
+  - Deduplicated the per-solution `test_dir` resolution shared by modes 2/3
+    (`cli/commands.py`) into `_resolve_individual_test_dir()`.
 - `downloader.py` SRP split (issue #302): the 32 KB module mixing config,
   HTML parsing, ZIP/GitHub download, format writing and interactive prompts
   is now a ~13 KB coordinator (`build_task_directory`, `save_task_files`,
@@ -25,6 +81,53 @@
   downloader tests re-split across per-module test files.
 
 ### Fixed
+- Documentation drift found by the 2026-07 audit (issue #353), all corrected
+  against the actual code:
+  - CLAUDE.md invariant #4 was titled "Нет sandbox", contradicting its own
+    metrics footnote and the `core/sandbox/` backends — reworded to
+    "sandbox is opt-in" (`--sandbox`/#266); the "no isolation by default" body
+    is kept.
+  - The diagnostic-logging epic #146 (`core/diag_log.py`, #341) was still listed
+    as open in CLAUDE.md, CHECKPOINT.md and docs/claude-handoff.md — moved to
+    "implemented".
+  - docs/project-structure.md gained the three missing modules
+    (`core/diag_log.py`, `core/tracer.py`, `web/playground.py`) and dropped the
+    circular "core/ tree lives in CLAUDE.md" cross-reference.
+  - Web docs: web-current.md § Layout no longer claims draggable splitters or a
+    3-column detail panel (`.split-pane` is a fixed `1fr 1fr`; "Детали" is a
+    tab); the "two sections / three blocks" framing is now four sections
+    (Песочница/#314). web-design.md marks glossary deep-linking `#/glossary/<id>`
+    as implemented (#329). api.md fixes the self-contradictory cancel response
+    (200 for an existing job, 404 only when absent) and drops the non-existent
+    `mode=file`. The `state.section` comment in app.js now lists all four values.
+  - Metric drift (test count 1179 → 1308) is intentionally deferred to the
+    v1.8.0 release (issue #358).
+- File-write races in two best-effort stores (issue #352): stats rotation
+  (`core/stats.py`, the read-modify-write in `_rotate_if_needed`) and the
+  glossary "missing" queue (`glossary/json_provider.append_missing_entries`,
+  a whole-file load→merge→save) had no locking, so the web layer's
+  `ThreadPoolExecutor` could interleave concurrent writers and drop entries.
+  Both critical sections are now serialized by a module-level `threading.Lock`.
+  This covers the single-process, multi-thread (web) model; cross-process races
+  (CLI and web at once) are explicitly out of scope and will be closed by the
+  SQLite/WAL history layer (issue #344). Best-effort semantics are unchanged (an
+  `OSError` still never breaks grading). Adds concurrent-writer regression tests
+  for both stores.
+- `--sandbox` was silently ignored when combined with `--serve` (issue #351):
+  the `--serve` branch returns before `set_runner()`, so the web server always
+  executed code with the plain `LocalRunner` even when the user explicitly asked
+  for the sandbox — a false sense of isolation. `stepik-grader --serve
+  --sandbox` now fails fast with an explicit, localized error (`ru`/`en`)
+  instead of starting an unprotected server. Wiring `SandboxRunner` into the
+  web layer remains a separate task (outside issue #266).
+- Broken `TYPE_CHECKING` import in `core/reporter.py` (issue #350): the
+  annotation-only import read `from core.grader_core import TestCase` — a path
+  missing the `stepik_grader.` prefix. Under `TYPE_CHECKING` it never failed at
+  runtime, and `mypy --ignore-missing-imports` stayed silent, so `TestCase` in
+  every reporter annotation was effectively `Any` and went unchecked. Fixed to
+  `from stepik_grader.core.grader_core import TestCase` (which re-exports it
+  from `test_loader`); mypy still passes, confirming no hidden type errors were
+  masked behind the `Any`.
 - Small web UI inconsistencies from the audit (issue #331). Case-verdict
   badges now recognize `CANCELLED` (neutral) and `SANDBOX_VIOLATION` (error)
   from `docs/result-contract.md` instead of silently falling back to a

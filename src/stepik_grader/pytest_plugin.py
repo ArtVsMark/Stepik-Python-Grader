@@ -30,6 +30,14 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+__all__ = [
+    "GraderFailure",
+    "GraderFile",
+    "GraderItem",
+    "pytest_addoption",
+    "pytest_collect_file",
+]
+
 if TYPE_CHECKING:
     import os
     import pathlib

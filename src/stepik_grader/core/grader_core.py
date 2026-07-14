@@ -204,6 +204,38 @@ def set_runner(runner: Runner) -> None:
     _RUNNER = runner
 
 
+def _fail_result(
+    case: TestCase,
+    *,
+    error: str,
+    verdict: str,
+    time: float = 0.0,
+    memory: float = 0.0,
+    timed_out: bool = False,
+    exit_code: int | None = None,
+) -> dict[str, Any]:
+    """Case-result dict для неуспешного раннего исхода ``run_single_test``.
+
+    Общая форма всех возвратов до сравнения вывода
+    (RE/TLE/CANCELLED/SANDBOX_VIOLATION): ``passed=False``, пустой ``output``,
+    ``expected`` из кейса, без ``diff``. Различаются только
+    ``error``/``verdict``/``time``/``memory``/``timed_out``/``exit_code``
+    (issue #354 — убирает семь почти одинаковых литералов).
+    """
+    return {
+        "passed": False,
+        "output": [],
+        "expected": case.expected_lines,
+        "diff": "",
+        "time": time,
+        "memory": memory,
+        "error": error,
+        "timed_out": timed_out,
+        "verdict": verdict,
+        "exit_code": exit_code,
+    }
+
+
 def run_single_test(
     solution_path: pathlib.Path,
     case: TestCase,
@@ -246,36 +278,18 @@ def run_single_test(
             # legacy function-mode: блок задаёт переменные, вызов собираем сами
             func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
             if func_name is None:
-                return {
-                    "passed": False,
-                    "output": [],
-                    "expected": case.expected_lines,
-                    "diff": "",
-                    "time": 0.0,
-                    "memory": 0.0,
-                    "error": (
+                return _fail_result(
+                    case,
+                    error=(
                         "function_name not found"
                         " (meta.json missing and no function def in solution)"
                     ),
-                    "timed_out": False,
-                    "verdict": "RE",
-                    "exit_code": None,
-                }
+                    verdict="RE",
+                )
             try:
                 wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
             except ValueError as exc:
-                return {
-                    "passed": False,
-                    "output": [],
-                    "expected": case.expected_lines,
-                    "diff": "",
-                    "time": 0.0,
-                    "memory": 0.0,
-                    "error": str(exc),
-                    "timed_out": False,
-                    "verdict": "RE",
-                    "exit_code": None,
-                }
+                return _fail_result(case, error=str(exc), verdict="RE")
         # Записываем wrapper во временный файл; удаляется после запуска
         tmp_wrapper = tempfile.NamedTemporaryFile(
             mode="w",
@@ -309,18 +323,7 @@ def run_single_test(
                 os.unlink(tmp_wrapper.name)
 
     if outcome.launch_error is not None:
-        return {
-            "passed": False,
-            "output": [],
-            "expected": case.expected_lines,
-            "diff": "",
-            "time": 0.0,
-            "memory": 0.0,
-            "error": outcome.launch_error,
-            "timed_out": False,
-            "verdict": "RE",
-            "exit_code": None,
-        }
+        return _fail_result(case, error=outcome.launch_error, verdict="RE")
 
     if outcome.sandbox_violation is not None:
         # issue #266 — SandboxRunner (core/sandbox/) proactively killed the
@@ -331,66 +334,46 @@ def run_single_test(
         # by the kernel INSIDE the sandbox and surface as an ordinary non-zero
         # exit (RE) instead -- Runner doesn't inspect the child's traceback to
         # relabel those. LocalRunner never sets this field.
-        return {
-            "passed": False,
-            "output": [],
-            "expected": case.expected_lines,
-            "diff": "",
-            "time": outcome.elapsed,
-            "memory": outcome.peak_memory_mb,
-            "error": f"Sandbox violation: {outcome.sandbox_violation}",
-            "timed_out": False,
-            "verdict": "SANDBOX_VIOLATION",
-            "exit_code": None,
-        }
+        return _fail_result(
+            case,
+            error=f"Sandbox violation: {outcome.sandbox_violation}",
+            verdict="SANDBOX_VIOLATION",
+            time=outcome.elapsed,
+            memory=outcome.peak_memory_mb,
+        )
 
     if outcome.cancelled:
         # issue #262 — async job model cancellation, distinct from a genuine
         # solution timeout (TLE): a cancelled run must never be mislabeled as
         # "your solution is too slow" in the UI.
-        return {
-            "passed": False,
-            "output": [],
-            "expected": case.expected_lines,
-            "diff": "",
-            "time": outcome.elapsed,
-            "memory": 0.0,
-            "error": "Cancelled by user",
-            "timed_out": False,
-            "verdict": "CANCELLED",
-            "exit_code": None,
-        }
+        return _fail_result(
+            case,
+            error="Cancelled by user",
+            verdict="CANCELLED",
+            time=outcome.elapsed,
+        )
 
     if outcome.timed_out:
-        return {
-            "passed": False,
-            "output": [],
-            "expected": case.expected_lines,
-            "diff": "",
-            "time": outcome.elapsed,
-            "memory": 0.0,
-            "error": f"Timeout after {timeout}s",
-            "timed_out": True,
-            "verdict": "TLE",
-            "exit_code": None,
-        }
+        return _fail_result(
+            case,
+            error=f"Timeout after {timeout}s",
+            verdict="TLE",
+            time=outcome.elapsed,
+            timed_out=True,
+        )
 
     stdout = outcome.stdout.decode(ENCODING, errors="replace")
     stderr = outcome.stderr.decode(ENCODING, errors="replace")
 
     if outcome.returncode != 0:
-        return {
-            "passed": False,
-            "output": [],
-            "expected": case.expected_lines,
-            "diff": "",
-            "time": outcome.elapsed,
-            "memory": outcome.peak_memory_mb,
-            "error": stderr.strip(),
-            "timed_out": False,
-            "verdict": "RE",
-            "exit_code": outcome.returncode,
-        }
+        return _fail_result(
+            case,
+            error=stderr.strip(),
+            verdict="RE",
+            time=outcome.elapsed,
+            memory=outcome.peak_memory_mb,
+            exit_code=outcome.returncode,
+        )
 
     actual_lines = [line.rstrip("\n") for line in stdout.splitlines()]
     passed = actual_lines == case.expected_lines

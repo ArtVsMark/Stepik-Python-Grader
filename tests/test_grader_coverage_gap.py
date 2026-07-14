@@ -77,17 +77,17 @@ class TestPlainTextOutput:
     """Покрывает plain-text ветки print_correctness_results и print_benchmark_results."""
 
     def test_print_correctness_results_plain(self, capsys) -> None:
-        rows = [("base/task1.py", _DUMMY_CORRECTNESS_RESULT)]
+        rows = [(pathlib.Path("base/task1.py"), _DUMMY_CORRECTNESS_RESULT)]
         with patch("stepik_grader.core.reporter._RICH", False):
-            print_correctness_results(rows, "base", col_file=20)
+            print_correctness_results(rows, pathlib.Path("base"), col_file=20)
         out = capsys.readouterr().out
         assert "task1.py" in out
         assert "FAIL" in out
 
     def test_print_benchmark_results_plain(self, capsys) -> None:
-        rows = [("base/task1.py", _DUMMY_BENCHMARK_DATA)]
+        rows = [(pathlib.Path("base/task1.py"), _DUMMY_BENCHMARK_DATA)]
         with patch("stepik_grader.core.reporter._RICH", False):
-            print_benchmark_results(rows, "base", col_file=20, title="bench")
+            print_benchmark_results(rows, pathlib.Path("base"), col_file=20, title="bench")
         out = capsys.readouterr().out
         assert "task1.py" in out
         assert "SIMILAR" in out
@@ -106,19 +106,24 @@ class TestPlainTextOutput:
 
     def test_format_correctness_row_ok(self) -> None:
         row = format_correctness_row(
-            "base/task1.py", "base", _DUMMY_CORRECTNESS_RESULT, col_file=15
+            pathlib.Path("base/task1.py"),
+            pathlib.Path("base"),
+            _DUMMY_CORRECTNESS_RESULT,
+            col_file=15,
         )
         assert "FAIL" in row
         assert "task1.py" in row
 
     def test_format_benchmark_row(self) -> None:
-        row = format_benchmark_row("base/task1.py", "base", _DUMMY_BENCHMARK_DATA, col_file=15)
+        row = format_benchmark_row(
+            pathlib.Path("base/task1.py"), pathlib.Path("base"), _DUMMY_BENCHMARK_DATA, col_file=15
+        )
         assert "SIMILAR" in row
         assert "task1.py" in row
 
     def test_print_correctness_results_rich(self) -> None:
         """rich-ветка: Console.print вызывается без исключений."""
-        rows = [("base/task1.py", _DUMMY_CORRECTNESS_RESULT)]
+        rows = [(pathlib.Path("base/task1.py"), _DUMMY_CORRECTNESS_RESULT)]
         mock_console, mock_table_cls, mock_text_cls = _make_rich_mocks()
         with (
             patch("stepik_grader.core.reporter._RICH", True),
@@ -126,12 +131,12 @@ class TestPlainTextOutput:
             patch("stepik_grader.core.reporter.Table", mock_table_cls),
             patch("stepik_grader.core.reporter.Text", mock_text_cls),
         ):
-            print_correctness_results(rows, "base", col_file=20)
+            print_correctness_results(rows, pathlib.Path("base"), col_file=20)
         mock_console.print.assert_called_once()
 
     def test_print_benchmark_results_rich(self) -> None:
         """rich-ветка: Console.print вызывается без исключений."""
-        rows = [("base/task1.py", _DUMMY_BENCHMARK_DATA)]
+        rows = [(pathlib.Path("base/task1.py"), _DUMMY_BENCHMARK_DATA)]
         mock_console, mock_table_cls, mock_text_cls = _make_rich_mocks()
         with (
             patch("stepik_grader.core.reporter._RICH", True),
@@ -139,7 +144,7 @@ class TestPlainTextOutput:
             patch("stepik_grader.core.reporter.Table", mock_table_cls),
             patch("stepik_grader.core.reporter.Text", mock_text_cls),
         ):
-            print_benchmark_results(rows, "base", col_file=20)
+            print_benchmark_results(rows, pathlib.Path("base"), col_file=20)
         mock_console.print.assert_called_once()
 
 

@@ -12,6 +12,10 @@ from __future__ import annotations
 
 import re
 
+__all__ = [
+    "parse_testblock_file",
+]
+
 
 def parse_testblock_file(text: str) -> list[str]:
     """Разобрать input.txt/output.txt с маркерами блоков `# TEST_N:`.

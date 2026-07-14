@@ -49,6 +49,9 @@
   [`SECURITY.md`](SECURITY.md).
 - Async job-модель для веб-бенчмарка (issue **#262**): `POST /api/v1/runs` +
   прогресс/отмена. Полный справочник HTTP API — [`docs/api.md`](docs/api.md).
+- Диагностическое логирование сети/OAuth (эпик **#146**, #341): opt-in
+  `core/diag_log.py` с редакцией секретов, подключён в
+  `stepik_client`/`oauth_flow`/`downloader` — [`docs/logging.md`](docs/logging.md).
 - Security-аудит (эпики #146/#151/#97): закрыты утечка OAuth-токена,
   Login-CSRF, отсутствие лимитов на тело запроса, права `secrets.json`,
   path-confinement и Host/Origin guard в `--serve`.
@@ -82,8 +85,6 @@
   accounts, issues #153–#155) — отложен до реального спроса на server mode.
 - **#130** — SQLite persistence (история запусков/учебные данные, issues
   #131–#135).
-- **#146** — diagnostic logging для downloader/stepik_client/oauth_flow
-  (issues #147–#149).
 - **#97** — эпик анализа/развития: локальный CLI → WEB/Server IDE (родитель
   #151/#130/#146).
 - **#59** (backlog) — долгосрочные идеи (Docker-sandbox, другие платформы,

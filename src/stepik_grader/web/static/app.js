@@ -29,7 +29,7 @@ const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 // command palette, action cards и сценарных кнопок.
 // ---------------------------------------------------------------------------
 const state = {
-  section: localStorage.getItem("grader_section") || "check", // "check" | "glossary"
+  section: localStorage.getItem("grader_section") || "check", // "check" | "glossary" | "downloader" | "sandbox"
   mode: localStorage.getItem("grader_mode") || "tests", // "file" | "tests" | "bench" | "microbench"
   configTab: "path", // "path" | "params"
   resultTab: "table", // "table" | "detail" | "log" | "reference"

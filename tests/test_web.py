@@ -7,7 +7,6 @@ import json
 import pathlib
 import re
 import threading
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -15,6 +14,7 @@ import urllib.request
 import pytest
 
 from stepik_grader import web
+from tests._wait import wait_until
 
 
 def _make_task(tmp_path: pathlib.Path, body: str, *, with_tests: bool = True) -> pathlib.Path:
@@ -104,20 +104,25 @@ class TestGradePath:
         self, tmp_path: pathlib.Path
     ) -> None:
         """J7 (web-current.md): unknown exception in an RE case gets queued for the
-        glossary backlog, since core/glossary.py has no card for it (ValueError
-        IS in the compact glossary, so raise something that isn't)."""
+        glossary backlog when no card exists for it. Since #356 the RE hint
+        resolver also consults the bundled JSON base (~140 stdlib exceptions),
+        so "unknown" now means absent from BOTH sources — a custom (non-stdlib)
+        exception is guaranteed to qualify."""
         from stepik_grader.glossary.json_provider import load_missing_queue
 
-        sol = _make_task(tmp_path, "raise ArithmeticError('unusual')\n")
-        # ArithmeticError itself isn't in core/glossary.py's curated ~28 entries
-        # (only its subclasses ZeroDivisionError/OverflowError/FloatingPointError are).
+        sol = _make_task(
+            tmp_path,
+            "class UnlistedError(Exception):\n    pass\n\n\nraise UnlistedError('unusual')\n",
+        )
+        # A user-defined exception is in neither the compact map nor the bundled
+        # JSON base, so it stays a genuine glossary gap.
         queue_path = tmp_path / "missing.json"
 
         web.grade_path(sol, missing_queue_path=queue_path)
 
         entries = load_missing_queue(queue_path)
         assert len(entries) == 1
-        assert entries[0].concept == "ArithmeticError"
+        assert entries[0].concept == "UnlistedError"
         assert entries[0].kind == "exception"
         assert entries[0].origin == "error"
         assert entries[0].verdict == "RE"
@@ -1368,15 +1373,16 @@ class TestApiLangQueryParam:
 
 
 def _poll_run(server: str, run_id: str, *, timeout: float = 15.0) -> dict:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+    def _terminal() -> dict | None:
         status, body = _get(server + f"/api/v1/runs/{run_id}")
         assert status == 200
         data = json.loads(body)
-        if data["status"] in ("done", "error", "cancelled"):
-            return data
-        time.sleep(0.05)
-    raise TimeoutError(f"run {run_id} did not reach a terminal state within {timeout}s")
+        return data if data["status"] in ("done", "error", "cancelled") else None
+
+    data = wait_until(_terminal, timeout=timeout)
+    if data is None:
+        raise TimeoutError(f"run {run_id} did not reach a terminal state within {timeout}s")
+    return data
 
 
 class TestRunsApiGoldenComparison:
@@ -1465,10 +1471,7 @@ class TestRunsApiCancel:
         assert create_status == 202
         run_id = json.loads(create_body)["run_id"]
 
-        deadline = time.monotonic() + 10.0
-        while not pidfile.exists() and time.monotonic() < deadline:
-            time.sleep(0.05)
-        assert pidfile.exists(), "child process never started"
+        assert wait_until(pidfile.exists, timeout=10.0), "child process never started"
         pid = int(pidfile.read_text().strip())
 
         cancel_status, cancel_body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
@@ -1479,12 +1482,8 @@ class TestRunsApiCancel:
         assert data["status"] == "cancelled"
         assert data["message_id"] == "run_cancelled"
 
-        # Best-effort: give the OS a brief moment to actually reap the killed
-        # process before asserting it's gone.
-        deadline = time.monotonic() + 3.0
-        while psutil.pid_exists(pid) and time.monotonic() < deadline:
-            time.sleep(0.05)
-        assert not psutil.pid_exists(pid)
+        # Best-effort: wait for the OS to actually reap the killed process.
+        assert wait_until(lambda: not psutil.pid_exists(pid), timeout=3.0)
 
     def test_cancel_unknown_run_is_404(self, server: str) -> None:
         status, body = _post(server + "/api/v1/runs/no-such-id/cancel", b"")
@@ -1623,15 +1622,12 @@ class TestRunsApiValidation:
         assert status == 202
         run_id = json.loads(body)["run_id"]
 
-        deadline = time.monotonic() + 10.0
-        total = 0
-        while time.monotonic() < deadline:
-            status, body = _get(server + f"/api/v1/runs/{run_id}")
-            data = json.loads(body)
-            total = data["progress"]["total"]
-            if total > 0 or data["status"] in ("done", "error", "cancelled"):
-                break
-            time.sleep(0.02)
+        def _total_known() -> int | None:
+            _, body = _get(server + f"/api/v1/runs/{run_id}")
+            total = json.loads(body)["progress"]["total"]
+            return total if total > 0 else None
+
+        total = wait_until(_total_known, timeout=10.0)
         # 1 case * clamped repeats (max 1000) -- not 1 * 999_999.
         assert total == 1000
 

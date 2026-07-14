@@ -11,15 +11,14 @@
 
 from __future__ import annotations
 
-import os
 import pathlib
 from typing import TYPE_CHECKING, Any
 
-from stepik_grader.core.glossary import lookup_from_error
+from stepik_grader.core.error_glossary import resolve_error_hint
 from stepik_grader.core.result import TestResult
 
 if TYPE_CHECKING:
-    from core.grader_core import TestCase
+    from stepik_grader.core.grader_core import TestCase
 
 __all__ = [
     "fmt_time",
@@ -108,7 +107,7 @@ def format_correctness_row(
     total = result["total"]
     passed = result["passed"]
     status = _correctness_status(result)
-    rel = os.path.relpath(path, base_dir)
+    rel = str(path.relative_to(base_dir, walk_up=True))
     total_t = result["total_time"]
     avg_t = result["avg_time"]
     mem = result["peak_memory_mb"]
@@ -135,7 +134,7 @@ def format_benchmark_row(
     path: pathlib.Path, base_dir: pathlib.Path, data: dict[str, Any], *, col_file: int
 ) -> str:
     """Сформатировать строку benchmark-таблицы для режимов 3 и 4."""
-    rel_path = os.path.relpath(path, base_dir)
+    rel_path = str(path.relative_to(base_dir, walk_up=True))
     return (
         f"{rel_path:<{col_file}} {data['runs']:>4}  "
         f"{fmt_time(data['min']):>10}  {fmt_time(data['median']):>10}  "
@@ -214,7 +213,7 @@ def print_correctness_results(
             status = _correctness_status(result)
             color = _STATUS_COLORS.get(status, "white")
             table.add_row(
-                os.path.relpath(path, base_dir),
+                str(path.relative_to(base_dir, walk_up=True)),
                 f"{result['passed']}/{result['total']}",
                 f"{result['total_time']:.4f}",
                 f"{result['avg_time']:.4f}",
@@ -262,7 +261,7 @@ def print_benchmark_results(
             verdict = data["verdict"]
             color = _VERDICT_COLORS.get(verdict, "white")
             table.add_row(
-                os.path.relpath(path, base_dir),
+                str(path.relative_to(base_dir, walk_up=True)),
                 str(data["runs"]),
                 fmt_time(data["min"]),
                 fmt_time(data["median"]),
@@ -345,8 +344,9 @@ def print_case_verbose(case: TestCase, r: dict[str, Any]) -> None:
 
     if result.error:
         _cprint(f"    [ERROR] {result.error}", style="red")
-        # issue #72: подсказка по типу исключения + ссылка на глоссарий.
-        entry = lookup_from_error(result.error)
+        # issue #72/#356: подсказка по типу исключения + ссылка на глоссарий,
+        # из общей базы карточек (bundled JSON → компактная карта fallback).
+        entry = resolve_error_hint(result.error)
         if entry is not None:
             _cprint(f"    💡 {entry.exception}: {entry.hint}", style="yellow")
             _cprint(f"       {entry.url}", style="blue")

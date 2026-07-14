@@ -185,8 +185,10 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 - **#157 — sandbox/сеть-off/квоты.** Требования к `SandboxRunner` —
   [server-mode.md § Sandbox](server-mode.md#sandbox-и-сетевая-изоляция-issue-157).
 - **#152 — ADR server mode.** Решение и альтернативы — [adr/0001-server-mode.md](adr/0001-server-mode.md).
-- **#150 — диагностика/логирование.** Opt-in лог-файл, редакция секретов —
-  [logging.md](logging.md); реализация в `stepik_client`/`oauth_flow`/`downloader`.
+- **#150 — диагностика/логирование (✅ реализовано, эпик #146 / #341).** Opt-in
+  лог-файл с редакцией секретов — [logging.md](logging.md); реализация —
+  `core/diag_log.py`, подключена в `stepik_client`/`oauth_flow`/`downloader`
+  (дочерние #147–#149 закрыты).
 
 ## Порядок и зависимости
 
