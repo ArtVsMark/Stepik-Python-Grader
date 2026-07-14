@@ -9,6 +9,18 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Documentation
+- Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan
+  (2026-07-14) with verified `file:line` coordinates covering (1) promoting all
+  832 autodraft glossary cards to `ready` in six prioritized waves and (2) the
+  UX optimization of the web "Проверка решений" section (owner items а–к):
+  sidebar cleanup with a real «Настройки» section, removing the History block
+  and the always-empty reference tab, merging the Details and Log tabs, a
+  per-mode config panel without tabs, wider "Functions in code" detection
+  (inventory-driven sets, constructs, `os.path.join` mismatch fix), and a
+  stacked layout with CLI-aligned tables for modes 3/4. Filed as epics #362
+  (web UX, children #364–#370) and #363 (glossary, pilot wave #371).
+
 ## [1.8.0] - 2026-07-14
 
 ### Internal
