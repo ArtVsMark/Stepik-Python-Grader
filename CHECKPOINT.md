@@ -13,9 +13,9 @@
 
 ---
 
-## Snapshot: v1.7.0 (stable)
+## Snapshot: v1.8.0 (stable)
 
-**Текущая версия: 1.7.0**
+**Текущая версия: 1.8.0**
 
 > Строка-маркер выше существует только для CI-проверки дрейфа
 > (`scripts/check_version_consistency.py`, issue #165) — она сверяется с
@@ -23,7 +23,7 @@
 > и [`docs/versions.md`](docs/versions.md); этот файл остаётся историческим
 > snapshot, а не источником истины по версиям.
 
-- Тестов: 1179 · Покрытие: 93% (cross-OS combined; single-OS ubuntu — 86.1%,
+- Тестов: 1317 · Покрытие: 93% (cross-OS combined; single-OS ubuntu — ~87.5%,
   структурно ограничено `core/sandbox/`'s тремя ОС-специфичными backend'ами,
   см. [`docs/architecture.md`](docs/architecture.md)) · Python: 3.12 / 3.13 /
   3.14 (экспериментальная, только ubuntu в CI)
@@ -52,6 +52,10 @@
 - Диагностическое логирование сети/OAuth (эпик **#146**, #341): opt-in
   `core/diag_log.py` с редакцией секретов, подключён в
   `stepik_client`/`oauth_flow`/`downloader` — [`docs/logging.md`](docs/logging.md).
+- Гигиена по аудиту 2026-07 (эпик **#343**, v1.8.0): багфиксы (#350–#352),
+  дрейф доков (#353), консолидация «двойников» — единый i18n-каталог (#355) и
+  единый RE-резолвер глоссария `core/error_glossary.py` (#356), мелкая гигиена
+  код-стайла (#354), детерминированные web-тесты (#357).
 - Security-аудит (эпики #146/#151/#97): закрыты утечка OAuth-токена,
   Login-CSRF, отсутствие лимитов на тело запроса, права `secrets.json`,
   path-confinement и Host/Origin guard в `--serve`.
