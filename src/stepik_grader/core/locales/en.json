@@ -15,6 +15,7 @@
   "specify_path_folder": "Specify a path to a folder.",
   "specify_path_file": "Specify a path to a file.",
   "glossary_card_not_found": "Card not found: {card_id}",
+  "rule_card_not_found": "Rule not found: {code}",
   "content_length_required": "The Content-Length header is required and must be a non-negative number.",
   "body_too_large": "Request body exceeds the limit of {limit} bytes.",
   "body_invalid_json": "Request body must be valid JSON.",

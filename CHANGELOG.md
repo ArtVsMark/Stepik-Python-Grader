@@ -15,6 +15,7 @@
 - `core/lint.py` — opt-in PEP-проверка решения через ruff (extra `[lint]`, best-effort, не влияет на вердикт) + опциональное поле `lint` в контракте результата (#346).
 - `core/insights.py` — таксономия падений (`failure_kind`) + затухание карточек «Подучить» (`classify_status`/`learning_cards`: active/fading/archived/watch по номерам прогонов, пороги N/T/K в конфиге); `failure_kind` пишется в историю при `--history` (#347).
 - CLI-витрина инсайтов: флаг `--insights` (сводка карточек «Подучить» + пункт меню «5. Подучить») и `--lint` для режимов 1/2 (блок «Стиль» из ruff-нарушений с однострочником правила) (#349).
+- Web API инсайтов (backend, часть #348): эндпоинты `GET /api/rules` (`?q&tag`), `/api/rules/{code}`, `/api/insights` + адаптеры `web/rules_adapter`/`web/insights_adapter` поверх core-слоя (#345/#347); UI-разделы «Правила»/«Подучить» — следующим PR.
 
 ### Documentation
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan
