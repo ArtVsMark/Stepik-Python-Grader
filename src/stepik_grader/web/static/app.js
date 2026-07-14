@@ -29,10 +29,10 @@ const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 // command palette, action cards и сценарных кнопок.
 // ---------------------------------------------------------------------------
 const state = {
-  section: localStorage.getItem("grader_section") || "check", // "check" | "glossary" | "downloader" | "sandbox"
+  section: localStorage.getItem("grader_section") || "check", // check|glossary|downloader|rules|insights|sandbox|settings
+  lang: localStorage.getItem("grader_lang") || "ru", // issue #364 — язык сообщений сервера (?lang=)
   mode: localStorage.getItem("grader_mode") || "tests", // "file" | "tests" | "bench" | "microbench"
-  configTab: "path", // "path" | "params"
-  resultTab: "table", // "table" | "detail" | "log" | "reference"
+  resultTab: "table", // "table" | "detail"
   lastResult: null,
   selectedRow: null,
   selectedCase: null,
@@ -209,7 +209,14 @@ function renderActionCards() {
     if (el) el.innerHTML = "";
     return;
   }
-  renderCommandButtons(el, visibleCommands());
+  let cmds = visibleCommands();
+  // issue #368 (2.и): в режиме 2 (папка) действия разбора — только копирование
+  // входа/выхода; run_again остаётся в палитре (Ctrl+K). Контент разбора (diff,
+  // диагностика, глоссарий) не режется — это не «действия».
+  if (state.mode === "tests") {
+    cmds = cmds.filter(c => c.id === "copy_input" || c.id === "copy_output");
+  }
+  renderCommandButtons(el, cmds);
 }
 
 async function loadCommands() {
@@ -298,6 +305,29 @@ function cycleTheme() {
   state.theme = state.theme === "system" ? "light" : state.theme === "light" ? "dark" : "system";
   localStorage.setItem("grader_theme", state.theme);
   applyTheme();
+  syncSettingsControls(); // держим select «Настроек» в согласии с топбар-тумблером
+}
+
+// -- Настройки (issue #364) --------------------------------------------------
+
+function setTheme(value) {
+  state.theme = value;
+  localStorage.setItem("grader_theme", value);
+  applyTheme();
+}
+
+function setLang(value) {
+  state.lang = value;
+  localStorage.setItem("grader_lang", value);
+}
+
+// Синхронизировать контролы раздела «Настройки» с текущим состоянием (тему
+// можно менять и топбар-тумблером — тогда select не должен отставать).
+function syncSettingsControls() {
+  const themeSel = $("#settings-theme");
+  const langSel = $("#settings-lang");
+  if (themeSel) themeSel.value = state.theme;
+  if (langSel) langSel.value = state.lang;
 }
 
 // -- Section switch (Проверка решений / Глоссарий) ----------------------------
@@ -317,6 +347,7 @@ function setSection(section) {
   $("#view-rules").hidden = section !== "rules";
   $("#view-insights").hidden = section !== "insights";
   $("#view-sandbox").hidden = section !== "sandbox";
+  $("#view-settings").hidden = section !== "settings";
   if (section === "glossary" && !state.glossary.cards.length) loadGlossary();
   if (section === "rules" && !state.rules.cards.length) loadRules();
   if (section === "insights") loadInsights();
@@ -324,6 +355,7 @@ function setSection(section) {
     mountSandboxEditor(); // issue #317: ленивый монтаж
     loadCodeTerms(); // issue #321: обновить «Функции в коде» под текущий код
   }
+  if (section === "settings") syncSettingsControls(); // issue #364
 }
 
 function openGlossaryForSelectedCase() {
@@ -339,20 +371,7 @@ function openGlossaryForSelectedCase() {
   if (id) selectGlossaryCard(id);
 }
 
-// -- Config-panel tabs (Путь / Параметры) -------------------------------------
-
-function setConfigTab(tab) {
-  state.configTab = tab;
-  document.querySelectorAll("[data-conftab]").forEach(b => {
-    const active = b.dataset.conftab === tab;
-    b.classList.toggle("active", active);
-    b.setAttribute("aria-selected", String(active));
-  });
-  $("#conftab-path").hidden = tab !== "path";
-  $("#conftab-params").hidden = tab !== "params";
-}
-
-// -- Result-panel tabs (Таблица / Детали / Лог / Эталон) ----------------------
+// -- Result-panel tabs (Таблица / Разбор) -------------------------------------
 
 function setResultTab(tab) {
   state.resultTab = tab;
@@ -363,37 +382,6 @@ function setResultTab(tab) {
   });
   $("#restab-table").hidden = tab !== "table";
   $("#restab-detail").hidden = tab !== "detail";
-  $("#restab-log").hidden = tab !== "log";
-  $("#restab-reference").hidden = tab !== "reference";
-  if (tab === "log") renderLogTab();
-  if (tab === "reference") renderReferenceTab();
-}
-
-function renderLogTab() {
-  const el = $("#log-content");
-  const c = getSelectedCase();
-  if (!c) {
-    el.innerHTML = emptyState("Нет данных", "Выберите тест-кейс во вкладке «Таблица».");
-    return;
-  }
-  let h = "";
-  if (c.stdin) h += '<div class="field-label">stdin</div>' + codeBlock(c.stdin);
-  const out = c.actual || c.stderr || c.error || "";
-  h += '<div class="field-label">stdout/stderr</div>' + (out ? codeBlock(out) : codeBlock("(пусто)"));
-  el.innerHTML = h;
-}
-
-function renderReferenceTab() {
-  const el = $("#reference-content");
-  const src = state.lastResult && state.lastResult.reference_source;
-  if (!src) {
-    el.innerHTML = emptyState(
-      "Эталон не выбран",
-      "«Найти эталонное решение» пока не реализовано (issue #55) — здесь появится его код."
-    );
-    return;
-  }
-  el.innerHTML = '<div class="field-label">' + esc(state.lastResult.reference_file || "reference") + "</div>" + codeBlock(src);
 }
 
 // -- Проверка решений: grade/render -------------------------------------------
@@ -406,16 +394,19 @@ function setMode(m) {
     b.setAttribute("aria-pressed", String(active));
   });
   $("#file-picker-group").hidden = m !== "file";
+  // issue #366: параметры режимов 3/4 — инлайн под полем пути (вкладок больше нет).
+  $("#repeats-group").hidden = m !== "bench";
   $("#microbench-config").hidden = m !== "microbench";
-  const repeatsGroup = $("#repeats").closest(".form-group");
-  if (repeatsGroup) repeatsGroup.hidden = m !== "bench";
-  updateParamsTabAvailability(m);
   resetFilePicker();
   localStorage.setItem("grader_mode", m);
   if (m === "microbench") updateMicroCustomVisibility();
-  // issue #324: «Функции в коде» уместны там, где объясняют код, — режимы 1/2;
-  // в bench/microbench (3/4) скрываем. issue #323: обновить под новый режим.
-  $("#check-terms-block").hidden = m === "bench" || m === "microbench";
+  // issue #324/#366 (2.з): «Функции в коде» — только режим 1. В режиме 2 путь —
+  // папка, панель почти всегда пустует и мешает; в 3/4 неуместна.
+  $("#check-terms-block").hidden = m !== "file";
+  // issue #370 (2.к): режимы 3/4 — вертикальный стек (конфиг компактной полосой
+  // сверху, результаты во всю ширину); режимы 1/2 остаются двухколоночными.
+  const checkPane = $("#view-check .split-pane");
+  if (checkPane) checkPane.classList.toggle("split-pane--stacked", m === "bench" || m === "microbench");
   loadCheckTerms();
 }
 
@@ -431,19 +422,6 @@ function getMicroNumber() {
   if (profile !== "custom") return Number(profile);
   const custom = Number($("#micro-custom").value) || 1000;
   return Math.min(500000, Math.max(100, custom));
-}
-
-// -- Режим 1 «Один файл» — параметры недоступны, скрыть вкладку целиком;
-// режим 2 «Тесты» — параметров реально нет (repeats только для bench), вкладка
-// видна, но серая/некликабельная; bench/microbench — вкладка активна.
-function updateParamsTabAvailability(m) {
-  const tab = document.querySelector('[data-conftab="params"]');
-  if (!tab) return;
-  tab.hidden = m === "file";
-  const disabled = m === "tests";
-  tab.classList.toggle("disabled", disabled);
-  tab.setAttribute("aria-disabled", String(disabled));
-  if ((tab.hidden || disabled) && state.configTab === "params") setConfigTab("path");
 }
 
 // ---------------------------------------------------------------------------
@@ -597,19 +575,18 @@ async function loadCodeTerms() {
   renderTermsInto(el, await fetchCodeTerms({ code }), "Знакомых функций не найдено");
 }
 
-// режимы 1/2 (issue #323): код редактора (режим 1) либо путь-файл решения
+// режим 1 (issue #323/#366): панель питается кодом редактора либо выбранным в
+// пикере файлом. В режимах 2/3/4 блок скрыт (setMode), так что путь-ветку
+// режима 2 не запрашиваем (issue #366/2.з).
 async function loadCheckTerms() {
   const el = $("#check-terms");
   if (!el) return;
   let body = null;
   const code = getEditorCode();
-  if (state.mode === "file" && code.trim()) {
+  if (code.trim()) {
     body = { code };
   } else if (state.selectedSolutionFile) {
     body = { path: state.selectedSolutionFile };
-  } else {
-    const path = $("#path").value.trim();
-    if (path.endsWith(".py")) body = { path };
   }
   if (!body) {
     el.innerHTML = '<li class="empty">Начните вводить код или выберите решение</li>';
@@ -785,12 +762,11 @@ async function grade() {
     await gradeAsync(path, backendMode);
     return;
   }
-  const q = new URLSearchParams({ path, mode: backendMode });
+  const q = new URLSearchParams({ path, mode: backendMode, lang: state.lang }); // issue #364
   try {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
     state.lastResult = data;
-    addHistoryEntry(path, state.mode, data);
     render(data);
     updateCheckSidebarBadge(data);
     announceResult(summaryFromResult(data)); // issue #298
@@ -849,8 +825,6 @@ function _finishGradeUI() {
   $("#run").textContent = "▶ Запустить";
   renderDetailPanel();
   renderResultSummaryBadges();
-  if (state.resultTab === "log") renderLogTab();
-  if (state.resultTab === "reference") renderReferenceTab();
   // issue #298 (a11y): после завершения прогона фокус уходит на панель
   // результатов (tabindex="-1"), чтобы клавиатурный/скринридер-пользователь
   // оказался у сводки, а не остался на кнопке «Запустить».
@@ -916,7 +890,8 @@ async function gradeAsync(path, backendMode, code = null) {
   if (code != null) reqBody.code = code; // issue #297 — код режима 1 в теле
   let created;
   try {
-    const createResp = await fetch("/api/v1/runs", {
+    // issue #364: язык сообщений сервер читает из ?lang= POST-запроса (не из тела).
+    const createResp = await fetch("/api/v1/runs?" + new URLSearchParams({ lang: state.lang }), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(reqBody),
@@ -965,7 +940,6 @@ async function gradeAsync(path, backendMode, code = null) {
       $("#bar").innerHTML = "";
       if (data.status === "done") {
         state.lastResult = data.result;
-        addHistoryEntry(path, state.mode, data.result);
         render(data.result);
         updateCheckSidebarBadge(data.result);
         announceResult(summaryFromResult(data.result)); // issue #298
@@ -1748,9 +1722,14 @@ function renderDetailPanel() {
   let h =
     '<div class="bar">#' + c.n + " " + renderVerdict(c.verdict) + " · " + c.time + " s</div>";
   if (c.stdin) h += '<div class="field-label">Вход (stdin)</div>' + codeBlock(c.stdin);
+  // issue #368 (2.е): ядро разбора — сравнение «Ожидалось / Получено». Для WA —
+  // двухколоночно (на узкой панели колонки стекаются), плюс diff.
   if (c.verdict === "WA") {
-    h += '<div class="field-label">Ожидалось</div>' + codeBlock(c.expected);
-    h += '<div class="field-label">Получено</div>' + codeBlock(c.actual);
+    h +=
+      '<div class="compare-grid">' +
+      '<div><div class="field-label">Ожидалось</div>' + codeBlock(c.expected) + "</div>" +
+      '<div><div class="field-label">Получено</div>' + codeBlock(c.actual) + "</div>" +
+      "</div>";
     if (c.diff) h += '<div class="field-label">Diff</div>' + codeBlock(c.diff);
   } else if (c.actual) {
     h += '<div class="field-label">Вывод</div>' + codeBlock(c.actual);
@@ -1767,6 +1746,13 @@ function renderDetailPanel() {
       c.suggestions.map(esc).join(" ") +
       "</div>";
   }
+  // issue #368 (2.е): «Сырой stdout/stderr» — коллапсируемая секция (единственное,
+  // что бывший «Лог» давал сверх «Деталей»); свёрнута по умолчанию.
+  const raw = c.actual || c.stderr || c.error || "";
+  h +=
+    '<details class="raw-output"><summary>Сырой stdout/stderr</summary>' +
+    codeBlock(raw || "(пусто)") +
+    "</details>";
   h += '<div id="detail-actions" class="action-cards"></div>';
   content.innerHTML = h;
   renderActionCards();
@@ -1774,35 +1760,53 @@ function renderDetailPanel() {
 
 function renderBench(rows) {
   const ranked = rows.filter(r => !r.error);
-  const refRow = rows.find(r => r.verdict === "REFERENCE");
-  const best = refRow || ranked[0];
   const similarCount = ranked.filter(r => r.verdict === "SIMILAR" || r.verdict === "REFERENCE").length;
   $("#bar").textContent = "";
+  // issue #370: KPI унифицированы с режимом 4 — «Решений / Лучшая медиана / Схожих».
   let h = kpiGrid([
-    { label: "Файлов", value: rows.length },
-    { label: best && best.verdict === "REFERENCE" ? "Эталон" : "Медиана", value: best ? best.median : "—" },
+    { label: "Решений", value: rows.length },
+    { label: "Лучшая медиана", value: ranked.length ? ranked[0].median : "—" },
     { label: "Схожих", value: ranked.length ? similarCount + " / " + ranked.length : "—" },
   ]);
-  h += '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
+  h += benchTable(rows, {
+    fields: { min: "min", median: "median", mean: "mean", max: "max", stdev: "stdev" },
+    memLabel: "Память, МБ",
+  });
+  $("#out").innerHTML = h;
+}
+
+// issue #370: единая структура таблиц режимов 3/4 = CLI-репортер
+// (Файл/Runs/Min/Median/Mean/Max/Std dev/Память/%/Вердикт). Различия между
+// режимами — только имена полей (единицы s vs µs) и подпись памяти (issue #66).
+function benchTable(rows, { fields, memLabel, memTitle }) {
+  const memTh =
+    '<th scope="col"' + (memTitle ? ' title="' + esc(memTitle) + '"' : "") + ">" + esc(memLabel) + "</th>";
+  let h =
+    '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
     '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Runs</th>' +
-    '<th scope="col">Min</th><th scope="col">Median</th><th scope="col">%</th>' +
-    '<th scope="col">Вердикт</th><th scope="col">Память, МБ</th></tr></thead><tbody>';
+    '<th scope="col">Min</th><th scope="col">Median</th><th scope="col">Mean</th>' +
+    '<th scope="col">Max</th><th scope="col">Std dev</th>' +
+    memTh +
+    '<th scope="col">%</th><th scope="col">Вердикт</th></tr></thead><tbody>';
   rows.forEach(row => {
     if (row.error) {
       h +=
-        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="5">' + esc(row.error) +
-        "</td><td></td></tr>";
+        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="8">' + esc(row.error) +
+        "</td><td>" + renderVerdict(row.verdict) + "</td></tr>";
       return;
     }
     h +=
       '<tr><td class="mono">' + esc(row.file) + '</td><td class="mono">' + row.runs + "</td>" +
-      '<td class="mono">' + esc(row.min) + "</td>" +
-      '<td class="mono">' + esc(row.median) + "</td>" +
+      '<td class="mono">' + esc(row[fields.min]) + "</td>" +
+      '<td class="mono">' + esc(row[fields.median]) + "</td>" +
+      '<td class="mono">' + esc(row[fields.mean]) + "</td>" +
+      '<td class="mono">' + esc(row[fields.max]) + "</td>" +
+      '<td class="mono">' + esc(row[fields.stdev]) + "</td>" +
+      '<td class="mono">' + (row.memory_mb ?? "—") + "</td>" +
       '<td class="mono">' + row.relative + "%</td>" +
-      "<td>" + renderVerdict(row.verdict) + "</td>" +
-      '<td class="mono">' + (row.memory_mb ?? "—") + "</td></tr>";
+      "<td>" + renderVerdict(row.verdict) + "</td></tr>";
   });
-  $("#out").innerHTML = h + "</tbody></table></div>";
+  return h + "</tbody></table></div>";
 }
 
 function renderMicrobench(data) {
@@ -1818,36 +1822,16 @@ function renderMicrobench(data) {
       "</p>";
   }
   h += kpiGrid([
-    { label: "Файлов", value: rows.length },
-    { label: "Медиана, µs", value: ok.length ? ok[0].median_us : "—" },
+    { label: "Решений", value: rows.length },
+    { label: "Лучшая медиана, µs", value: ok.length ? ok[0].median_us : "—" },
     { label: "Схожих", value: ok.length ? similarCount + " / " + ok.length : "—" },
   ]);
-  h += '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
-    '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Runs</th>' +
-    '<th scope="col">Min µs</th><th scope="col">Median µs</th><th scope="col">Mean µs</th>' +
-    '<th scope="col">Max µs</th><th scope="col">StdDev µs</th><th scope="col">%</th>' +
-    '<th scope="col">Вердикт</th>' +
-    '<th scope="col" title="tracemalloc (stdin) / RSS (function), issue #66">Py-heap, МБ</th>' +
-    "</tr></thead><tbody>";
-  rows.forEach(row => {
-    if (row.error) {
-      h +=
-        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="7">' + esc(row.error) +
-        "</td><td>" + renderVerdict(row.verdict) + "</td></tr>";
-      return;
-    }
-    h +=
-      '<tr><td class="mono">' + esc(row.file) + '</td><td class="mono">' + row.runs + "</td>" +
-      '<td class="mono">' + row.min_us + "</td>" +
-      '<td class="mono">' + row.median_us + "</td>" +
-      '<td class="mono">' + row.mean_us + "</td>" +
-      '<td class="mono">' + row.max_us + "</td>" +
-      '<td class="mono">' + row.stdev_us + "</td>" +
-      '<td class="mono">' + row.relative + "%</td>" +
-      "<td>" + renderVerdict(row.verdict) + "</td>" +
-      '<td class="mono">' + (row.memory_mb ?? "—") + "</td></tr>";
+  h += benchTable(rows, {
+    fields: { min: "min_us", median: "median_us", mean: "mean_us", max: "max_us", stdev: "stdev_us" },
+    memLabel: "Py-heap, МБ",
+    memTitle: "tracemalloc (stdin) / RSS (function), issue #66",
   });
-  $("#out").innerHTML = h + "</tbody></table></div>";
+  $("#out").innerHTML = h;
 }
 
 function errorCard(g) {
@@ -1859,7 +1843,7 @@ function errorCard(g) {
   );
 }
 
-// -- История / Недавние пути (в левой панели «Конфигурация») -----------------
+// -- Недавние пути (в левой панели «Конфигурация») ---------------------------
 
 function addRecentPath(path) {
   let recent = JSON.parse(localStorage.getItem("grader_recent_paths") || "[]");
@@ -1870,70 +1854,11 @@ function addRecentPath(path) {
 
 function renderRecentPaths(recent) {
   recent = recent || JSON.parse(localStorage.getItem("grader_recent_paths") || "[]");
-  const el = $("#recent-paths-list");
-  if (!recent.length) {
-    el.innerHTML = '<li class="empty">Пока пусто</li>';
-    return;
-  }
-  el.innerHTML = recent.map(p => '<li data-path="' + esc(p) + '">' + esc(p) + "</li>").join("");
-  el.querySelectorAll("li[data-path]").forEach(li =>
-    li.addEventListener("click", () => {
-      $("#path").value = li.dataset.path;
-      // Недавние пути — всегда папки; в режиме «Один файл» сначала нужно
-      // найти решения и выбрать конкретный файл, поэтому не грейдим сразу.
-      if (state.mode !== "file") grade();
-    })
-  );
-}
-
-function addHistoryEntry(path, mode, data) {
-  const rows = data.rows || [];
-  const summary =
-    data.kind === "error"
-      ? "ошибка"
-      : mode === "bench"
-        ? "бенчмарк · " + rows.length
-        : mode === "microbench"
-          ? "микробенч · " + rows.length
-          : rows.filter(r => r.status === "OK").length + "/" + rows.length + " OK";
-  let history = JSON.parse(localStorage.getItem("grader_history") || "[]");
-  history = [{ path, mode, summary }, ...history].slice(0, 10);
-  localStorage.setItem("grader_history", JSON.stringify(history));
-  renderHistory(history);
-}
-
-function renderHistory(history) {
-  history = history || JSON.parse(localStorage.getItem("grader_history") || "[]");
-  const el = $("#history-list");
-  if (!history.length) {
-    el.innerHTML = '<li class="empty">Пока пусто</li>';
-    return;
-  }
-  el.innerHTML = history
-    .map(h => {
-      const name = h.path.split(/[\\/]/).pop();
-      return (
-        '<li data-path="' + esc(h.path) + '" data-mode="' + esc(h.mode) + '">' +
-        esc(name) + " — " + esc(h.summary) + "</li>"
-      );
-    })
-    .join("");
-  el.querySelectorAll("li[data-path]").forEach(li =>
-    li.addEventListener("click", () => {
-      const mode = li.dataset.mode;
-      setMode(mode); // сбрасывает file-picker state (resetFilePicker внутри setMode)
-      if (mode === "file") {
-        // В истории режима «Один файл» path — это конкретный проверенный
-        // файл, а не папка; папку для #path восстанавливаем эвристически.
-        state.selectedSolutionFile = li.dataset.path;
-        $("#path").value = li.dataset.path.replace(/[\\/][^\\/]*$/, "");
-        updateRunButtonState();
-      } else {
-        $("#path").value = li.dataset.path;
-      }
-      grade();
-    })
-  );
+  const el = $("#recent-paths-datalist");
+  if (!el) return;
+  // issue #364: недавние пути — <option> нативного datalist у поля #path. Выбор
+  // подставляет путь; запуск — по Enter/«Запустить» (как при ручном вводе).
+  el.innerHTML = recent.map(p => '<option value="' + esc(p) + '"></option>').join("");
 }
 
 // -- Глоссарий: поиск / карточка / очередь пополнения (J7) --------------------
@@ -2393,9 +2318,6 @@ document
   .querySelectorAll("[data-glview]")
   .forEach(b => b.addEventListener("click", () => setGlossaryView(b.dataset.glview)));
 document
-  .querySelectorAll("[data-conftab]")
-  .forEach(b => b.addEventListener("click", () => setConfigTab(b.dataset.conftab)));
-document
   .querySelectorAll("[data-restab]")
   .forEach(b => b.addEventListener("click", () => setResultTab(b.dataset.restab)));
 
@@ -2436,6 +2358,8 @@ $("#downloader-url").addEventListener("keydown", e => {
   if (e.key === "Enter") downloadTask();
 });
 $("#theme-toggle").addEventListener("click", cycleTheme);
+$("#settings-theme").addEventListener("change", e => setTheme(e.target.value)); // issue #364
+$("#settings-lang").addEventListener("change", e => setLang(e.target.value)); // issue #364
 $("#palette-btn").addEventListener("click", openPalette);
 $("#palette-overlay").addEventListener("click", e => {
   if (e.target.id === "palette-overlay") closePalette();
@@ -2522,9 +2446,7 @@ applyTheme();
 mountEditor();
 setSection(state.section);
 setMode(state.mode);
-setConfigTab(state.configTab);
 setResultTab(state.resultTab);
-renderHistory();
 renderRecentPaths();
 loadCommands();
 routeFromHash(); // открыть карточку из #/glossary/<id>, если ссылка прямая (issue #329)

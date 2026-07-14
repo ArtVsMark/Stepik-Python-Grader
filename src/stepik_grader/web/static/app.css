@@ -275,6 +275,13 @@ a, button, [role="button"] {
 .split-pane { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; gap: 0; }
 .split-pane-panel { display: flex; flex-direction: column; overflow: hidden; background: var(--color-bg); }
 .split-pane-panel + .split-pane-panel { border-left: 1px solid var(--color-border); }
+/* issue #370: режимы 3/4 — вертикальный стек. Конфиг компактной полосой сверху
+   (форм-группы в ряд), панель результатов — во всю ширину под ним. */
+.split-pane--stacked { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+.split-pane--stacked > .split-pane-panel + .split-pane-panel { border-left: none; border-top: 1px solid var(--color-border); }
+.split-pane--stacked > .split-pane-panel:first-child .panel-body { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); }
+.split-pane--stacked > .split-pane-panel:first-child .form-group { margin: 0; }
+.split-pane--stacked > .split-pane-panel:first-child .form-group:first-child { flex: 1 1 320px; }
 .panel-header {
   display: flex; align-items: center; gap: var(--space-3);
   padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-divider);
@@ -456,6 +463,12 @@ select.form-input { cursor: pointer; }
 /* -- ErrorCard detail (вкладка «Детали») ----------------------------------- */
 .field-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted); margin: var(--space-3) 0 var(--space-1); font-weight: 600; }
 .field-label:first-child { margin-top: 0; }
+/* issue #368: «Разбор» — двухколоночное «Ожидалось/Получено» (стек на узкой панели). */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+@media (max-width: 720px) { .compare-grid { grid-template-columns: 1fr; } }
+.raw-output { margin-top: var(--space-4); }
+.raw-output > summary { cursor: pointer; font-size: var(--text-xs); color: var(--color-text-muted); padding: var(--space-2) 0; }
+.raw-output > summary:hover { color: var(--color-text); }
 .action-cards { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
 .action-card {
   background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);

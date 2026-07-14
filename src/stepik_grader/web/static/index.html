@@ -20,7 +20,6 @@
 
   <nav class="sidebar" aria-label="Основная навигация">
     <div class="sidebar-section">
-      <div class="sidebar-label">Рабочее пространство</div>
       <a class="sidebar-item active" href="#check" data-section="check" aria-current="page">
         Проверка решений <span class="sidebar-badge" id="sidebar-badge-check" hidden></span>
       </a>
@@ -34,8 +33,9 @@
       </a>
       <a class="sidebar-item" href="#sandbox" data-section="sandbox">Песочница</a>
       <div class="sidebar-divider"></div>
-      <div class="sidebar-label">Настройки</div>
-      <a class="sidebar-item disabled" aria-disabled="true">Настройки</a>
+      <!-- issue #364: рабочий раздел «Настройки» вместо мёртвой disabled-заглушки;
+           метка-заголовок «Рабочее пространство» убрана (ничего не группировала). -->
+      <a class="sidebar-item" href="#settings" data-section="settings">Настройки</a>
     </div>
   </nav>
 
@@ -63,22 +63,47 @@
         <div class="split-pane-panel">
           <div class="panel-header">
             <span class="panel-title">Конфигурация</span>
-            <div class="panel-tabs" role="tablist">
-              <button class="panel-tab active" data-conftab="path" role="tab" aria-selected="true">Путь</button>
-              <!-- issue #331: начальное состояние совпадает с дефолт-режимом
-                   (tests → «Параметры» отключены); setMode() уточняет при
-                   загрузке под сохранённый режим. Раньше был хардкод
-                   aria-disabled="false", не совпадавший с дефолтом. -->
-              <button class="panel-tab disabled" data-conftab="params" role="tab" aria-selected="false" aria-disabled="true">Параметры</button>
-            </div>
           </div>
 
-          <div class="panel-body" id="conftab-path">
+          <div class="panel-body">
             <div class="form-group">
               <label class="form-label" for="path">Папка с решениями</label>
-              <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__"
+              <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__" list="recent-paths-datalist"
                      placeholder="Путь к файлу решения (.py) или папке с решениями">
             </div>
+            <!-- issue #364: недавние пути — подсказки datalist у поля пути
+                 (вариант А), а не постоянный блок в панели. -->
+            <datalist id="recent-paths-datalist"></datalist>
+
+            <!-- issue #366: параметры режимов 3/4 — инлайн под полем пути (вкладок
+                 конфиг-панели больше нет); setMode() показывает нужный блок по
+                 режиму: repeats → bench (3), микро-профиль → microbench (4). -->
+            <div class="form-group" id="repeats-group" hidden>
+              <label class="form-label" for="repeats">Повторов на тест-кейс</label>
+              <select class="form-input" id="repeats">
+                <option value="5">низкий · 5</option>
+                <option value="15" selected>средний · 15</option>
+                <option value="50">высокий · 50</option>
+              </select>
+            </div>
+            <div id="microbench-config" hidden>
+              <div class="form-group">
+                <label class="form-label" for="micro-profile">Профиль нагрузки (calls/run)</label>
+                <select class="form-input" id="micro-profile">
+                  <option value="500">fast · 500</option>
+                  <option value="1000" selected>normal · 1 000</option>
+                  <option value="5000">thorough · 5 000</option>
+                  <option value="50000">deep · 50 000</option>
+                  <option value="100000">hard · 100 000</option>
+                  <option value="custom">custom…</option>
+                </select>
+              </div>
+              <div class="form-group" id="micro-custom-group" hidden>
+                <label class="form-label" for="micro-custom">Своё число вызовов (100–500 000)</label>
+                <input class="form-input" id="micro-custom" type="number" min="100" max="500000" value="1000">
+              </div>
+            </div>
+
             <div id="file-picker-group" hidden>
               <div class="row" style="margin-bottom:var(--space-3)">
                 <button id="find-solutions-btn" class="btn btn-secondary" type="button">Найти решения</button>
@@ -106,7 +131,7 @@
                 </div>
               </div>
             </div>
-            <div class="hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Детали».</div>
+            <div class="hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Разбор».</div>
 
             <!-- issue #323: «Функции в коде» — мини-карточки функций текущего
                  решения (замена мёртвого виджета «Связанные термины»). Скрыт в
@@ -114,41 +139,6 @@
             <div id="check-terms-block">
               <div class="section-heading">Функции в коде</div>
               <ul id="check-terms" class="side-list"><li class="empty">Начните вводить код или выберите решение</li></ul>
-            </div>
-
-            <div class="section-heading">Недавние пути</div>
-            <ul id="recent-paths-list" class="side-list"><li class="empty">Пока пусто</li></ul>
-
-            <div class="section-heading">История</div>
-            <ul id="history-list" class="side-list"><li class="empty">Пока пусто</li></ul>
-          </div>
-
-          <div class="panel-body" id="conftab-params" hidden>
-            <div class="form-group">
-              <label class="form-label" for="repeats">Повторов на тест-кейс</label>
-              <select class="form-input" id="repeats">
-                <option value="5">низкий · 5</option>
-                <option value="15" selected>средний · 15</option>
-                <option value="50">высокий · 50</option>
-              </select>
-            </div>
-
-            <div id="microbench-config" hidden>
-              <div class="form-group">
-                <label class="form-label" for="micro-profile">Профиль нагрузки (calls/run)</label>
-                <select class="form-input" id="micro-profile">
-                  <option value="500">fast · 500</option>
-                  <option value="1000" selected>normal · 1 000</option>
-                  <option value="5000">thorough · 5 000</option>
-                  <option value="50000">deep · 50 000</option>
-                  <option value="100000">hard · 100 000</option>
-                  <option value="custom">custom…</option>
-                </select>
-              </div>
-              <div class="form-group" id="micro-custom-group" hidden>
-                <label class="form-label" for="micro-custom">Своё число вызовов (100–500 000)</label>
-                <input class="form-input" id="micro-custom" type="number" min="100" max="500000" value="1000">
-              </div>
             </div>
           </div>
         </div>
@@ -159,9 +149,7 @@
             <span class="panel-title">Результаты</span>
             <div class="panel-tabs" role="tablist">
               <button class="panel-tab active" data-restab="table" role="tab" aria-selected="true">Таблица</button>
-              <button class="panel-tab" data-restab="detail" role="tab" aria-selected="false">Детали</button>
-              <button class="panel-tab" data-restab="log" role="tab" aria-selected="false">Лог</button>
-              <button class="panel-tab" data-restab="reference" role="tab" aria-selected="false">Эталон</button>
+              <button class="panel-tab" data-restab="detail" role="tab" aria-selected="false">Разбор</button>
             </div>
             <div class="panel-actions" id="result-summary-badges"></div>
           </div>
@@ -183,14 +171,6 @@
               <p>Выберите тест-кейс во вкладке «Таблица», чтобы увидеть разбор.</p>
             </div>
             <div id="detail-content" hidden></div>
-          </div>
-
-          <div class="panel-body" id="restab-log" hidden>
-            <div id="log-content"></div>
-          </div>
-
-          <div class="panel-body" id="restab-reference" hidden>
-            <div id="reference-content"></div>
           </div>
         </div>
 
@@ -384,6 +364,39 @@
             </div>
             <div id="sandbox-output" hidden></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «НАСТРОЙКИ» (issue #364) ══ -->
+    <section id="view-settings" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title">Настройки</h1>
+      </div>
+      <div class="split-pane-panel">
+        <div class="panel-header"><span class="panel-title">Интерфейс</span></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label" for="settings-theme">Тема оформления</label>
+            <select class="form-input" id="settings-theme">
+              <option value="system">Системная</option>
+              <option value="light">Светлая</option>
+              <option value="dark">Тёмная</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="settings-lang">Язык сообщений</label>
+            <select class="form-input" id="settings-lang">
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+            <div class="hint">Язык сообщений сервера при проверке решений (<code>?lang=</code>);
+              применяется к новым запросам.</div>
+          </div>
+
+          <div class="section-heading">История прогонов</div>
+          <p class="hint">История ошибок (раздел «Подучить», эпик #342) собирается
+            на SQLite при запуске грейдера с историей. Тумблер записи появится здесь.</p>
         </div>
       </div>
     </section>

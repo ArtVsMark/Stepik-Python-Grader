@@ -18,6 +18,19 @@
 - Web API инсайтов (backend, часть #348): эндпоинты `GET /api/rules` (`?q&tag`), `/api/rules/{code}`, `/api/insights` + адаптеры `web/rules_adapter`/`web/insights_adapter` поверх core-слоя (#345/#347).
 - Web UI разделов «Правила»/«Подучить» (#348): list+detail правил (поиск, чипы-теги, deep-link `#/rules/<code>`, примеры «до/после»), карточки «Подучить» со статусом затухания + бейдж активных в sidebar, единый hash-роутер (замена glossary-only, риск R6). Закрывает эпик #342.
 
+### Changed
+- Web sidebar cleanup: dropped the dead «Рабочее пространство» label and the disabled «Настройки» stub → a working Settings section (theme/language, landing spot for the #342 history toggle); recent paths moved to a path-field `datalist` (#364).
+- Web config panel: removed the «Путь»/«Параметры» tabs — mode 3/4 params render inline under the path field, «Функции в коде» shows only in mode 1 (#366).
+- Web result panel: merged «Детали»+«Лог» into one «Разбор» tab (side-by-side «Ожидалось/Получено» + collapsible raw stdout/stderr); mode-2 action cards limited to copy input/output (#368).
+- Web modes 3/4: stacked layout (config strip on top, results full-width) + benchmark tables/KPI aligned to the CLI reporter (Mean/Max/Std dev added to mode 3) (#370).
+
+### Removed
+- Web: the localStorage «История» block in the config panel (product history returns on SQLite in «Подучить», epic #342) (#365).
+- Web: the always-empty «Эталон» result tab (a reference is a `REFERENCE` row in the modes 3/4 tables; #55 backend groundwork kept) (#369).
+
+### Fixed
+- Web «Функции в коде»: inventory-driven builtin/method detection (stdlib inventory instead of a narrow hardcode), syntax-construct detection (comprehensions, lambda, slice, f-string, unpacking, ternary, walrus, decorator, with, try), and `os.path.join` no longer misdetected as the `str.join` method (#367).
+
 ### Documentation
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan
   (2026-07-14) with verified `file:line` coordinates covering (1) promoting all
