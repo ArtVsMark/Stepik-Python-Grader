@@ -9,6 +9,8 @@
 раздел. Не путать с этим блоком.
 -->
 
+## [1.8.0] - 2026-07-14
+
 ### Internal
 - Replaced fixed `time.sleep` pauses in the async web-layer tests with a shared
   `wait_until(predicate, timeout, interval)` helper (`tests/_wait.py`, issue
