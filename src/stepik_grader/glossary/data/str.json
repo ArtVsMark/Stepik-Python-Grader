@@ -35,89 +35,6 @@
     "related_errors": []
   },
   {
-    "id": "chr-ord",
-    "title": "chr() / ord()",
-    "kind": "function",
-    "summary": {
-      "ru": "ord() возвращает Unicode code point символа. chr() возвращает символ по code point.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "ord(c)  |  chr(i)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-chr-ord",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "символы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(ord('A'))",
-      "# → 65",
-      "print(chr(65))",
-      "# → 'A'",
-      "print(ord('а'))",
-      "# → 1072 (кириллица)",
-      "alphabet = [chr(i) for i in range(65, 91)]",
-      "print(alphabet[:5])",
-      "# → ['A', 'B', 'C', 'D', 'E']",
-      "msg = 'hello'",
-      "encrypted = ''.join(chr(ord(c) + 1) for c in msg)",
-      "print(encrypted)",
-      "# → 'ifmmp' (шифр Цезаря +1)",
-      "print(chr(128512))",
-      "# → '😀'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "encode-decode",
-    "title": "encode() / decode()",
-    "kind": "function",
-    "summary": {
-      "ru": "encode() кодирует строку в байты. decode() декодирует байты обратно в строку. errors: 'strict', 'ignore', 'replace'.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.encode([encoding[, errors]])  |  b.decode([encoding[, errors]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-encode-decode",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "кодировки",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hello'.encode('utf-8'))",
-      "# → b'hello'",
-      "print('Привет'.encode('utf-8'))",
-      "# → b'\\xd0\\x9f\\xd1\\x80\\xd0\\xb8\\xd0\\xb2\\xd0\\xb5\\xd1\\x82'",
-      "print(b'hello'.decode('utf-8'))",
-      "# → 'hello'",
-      "print('hello'.encode('latin-1'))",
-      "# → b'hello'",
-      "print('café'.encode('utf-8', errors='replace'))",
-      "# → b'caf\\xc3\\xa9'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "f-строки",
     "title": "f-строки",
     "kind": "term",
@@ -323,43 +240,6 @@
       "m = re.search(r\"\\d+\", \"abc123\")",
       "print(m.group())        # → 123",
       "print(r\"abc\" == \"abc\")  # → True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-format_map",
-    "title": "format_map()",
-    "kind": "function",
-    "summary": {
-      "ru": "Аналог format(**mapping), но без копирования словаря. Принимает маппинг напрямую, включая пользовательские классы с __missing__.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.format_map(mapping)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-format_map",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.format_map",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "форматирование",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "data = {'name': 'Артём', 'level': 'middle'}",
-      "print('{name} — {level}'.format_map(data))",
-      "# Артём — middle",
-      "# Пользовательский маппинг с default",
-      "class Default(dict):",
-      "def __missing__(self, key): return f'<{key}?>'",
-      "print('{name} {age}'.format_map(Default(name='Артём')))",
-      "# Артём <age?>"
     ],
     "related": [],
     "related_errors": []
@@ -2147,6 +2027,70 @@
       "print('a\\tb'.expandtabs(4))   # → a   b",
       "print('ab\\tc'.expandtabs(4))  # → ab  c",
       "print('a\\tb'.expandtabs(1))   # → a b"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.encode",
+    "title": "str.encode",
+    "kind": "function",
+    "summary": {
+      "ru": "Кодирует строку в байты по указанной кодировке (по умолчанию UTF-8).",
+      "en": "Encode the string to bytes using the given codec (UTF-8 by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.encode(encoding='utf-8', errors='strict')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.encode",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "кодировки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.encode())            # → b'abc'",
+      "print('café'.encode('utf-8'))    # → b'caf\\xc3\\xa9'",
+      "print('hi'.encode('ascii'))      # → b'hi'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.format_map",
+    "title": "str.format_map",
+    "kind": "function",
+    "summary": {
+      "ru": "Как format, но берёт подстановки прямо из переданного словаря (без копирования).",
+      "en": "Like format, but take substitutions directly from a mapping (no copy)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.format_map(mapping)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.format_map",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "форматирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('{x}!'.format_map({'x': 'ok'}))          # → ok!",
+      "print('{a}-{b}'.format_map({'a': 1, 'b': 2}))  # → 1-2",
+      "print('{name}'.format_map({'name': 'Аня'}))    # → Аня"
     ],
     "related": [],
     "related_errors": []
