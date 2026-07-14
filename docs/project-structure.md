@@ -13,7 +13,7 @@ Stepik-Python-Grader/
 │       ├── __main__.py            # python -m stepik_grader → grader.main()
 │       ├── py.typed              # PEP 561 маркер типов (issue #101)
 │       ├── grader.py              # Тонкий фасад обратной совместимости (Sprint 7)
-│       ├── cli/                   # Интерактивное меню (режимы 0-4) + stepik-grader entry point
+│       ├── cli/                   # Интерактивное меню (режимы 0-5) + stepik-grader entry point
 │       │   ├── __init__.py        # Compatibility facade + main() (issue #117/#119/#120/#121)
 │       │   ├── options.py         # argparse-парсер, --verbose/--cache resolution (leaf, issue #119)
 │       │   ├── context.py         # CliContext — явные зависимости для handlers (leaf, issue #120)

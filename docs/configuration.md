@@ -90,7 +90,10 @@ microbench_max_cases = 5
 | `glossary_missing_queue` | `str` | `".grader_glossary_missing.json"` | Путь к очереди пополнения глоссария (J7 — недостающие карточки). См. [glossary.md](glossary.md). |
 | `job_workers` | `int` | `2` | Размер пула воркеров async job-модели `--serve` (`POST /api/v1/runs`, issue #262) — сколько bench/microbench-задач исполняются параллельно. Не CLI-флаг. |
 | `record_stats` | `bool` | `false` | Включить локальную статистику запусков по умолчанию (эквивалент `--stats`, issue #268). Отдельный запуск форсируется `--no-stats`. |
-| `record_history` | `bool` | `false` | Писать историю прогонов в SQLite-базу `.grader_history.db` по умолчанию (эквивалент `--history`, issue #344). Отдельный запуск форсируется `--no-history`. Основа будущих разделов «Правила»/«Подучить» (эпик #342). |
+| `record_history` | `bool` | `false` | Писать историю прогонов в SQLite-базу `.grader_history.db` по умолчанию (эквивалент `--history`, issue #344). Отдельный запуск форсируется `--no-history`. Основа разделов «Правила»/«Подучить» (эпик #342). |
+| `insights_window_n` | `int` | `10` | Окно последних N прогонов для статуса карточек «Подучить» (эпик #342, issue #347, `core/insights.py`) — по номерам прогонов, не по календарю. |
+| `insights_active_threshold_t` | `int` | `2` | Порог активности T: ≥T попаданий ключа ошибки в окне N → карточка «активна». |
+| `insights_clean_streak_k` | `int` | `3` | Чистая серия K: ≥K подряд чистых прогонов → карточка уходит в «архив побед». |
 | `sandbox_max_cpu_seconds` | `float` | `10.0` | `--sandbox` (issue #266): жёсткий лимит CPU-времени решения (backstop под общим `timeout_seconds`). |
 | `sandbox_max_processes` | `int` | `32` | `--sandbox`: лимит числа процессов решения (anti-fork-bomb). На Linux под bwrap — абсолютное значение; на голом POSIX/macOS — бюджет сверх текущего числа процессов пользователя. См. [SECURITY.md](../SECURITY.md). |
 | `sandbox_max_output_bytes` | `int` | `10485760` (10 МБ) | `--sandbox`: лимит суммарного размера stdout+stderr решения. |

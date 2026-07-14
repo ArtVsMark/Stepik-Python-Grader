@@ -1,4 +1,4 @@
-"""cli/__init__.py — интерактивное меню и argparse CLI грейдера (режимы 0-4).
+"""cli/__init__.py — интерактивное меню и argparse CLI грейдера (режимы 0-5).
 
 Архитектурный слой: Application / CLI.
 Оркестрирует core.grader_core (загрузка/исполнение) и core.reporter
