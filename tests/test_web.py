@@ -7,7 +7,6 @@ import json
 import pathlib
 import re
 import threading
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -15,6 +14,7 @@ import urllib.request
 import pytest
 
 from stepik_grader import web
+from tests._wait import wait_until
 
 
 def _make_task(tmp_path: pathlib.Path, body: str, *, with_tests: bool = True) -> pathlib.Path:
@@ -1373,15 +1373,16 @@ class TestApiLangQueryParam:
 
 
 def _poll_run(server: str, run_id: str, *, timeout: float = 15.0) -> dict:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+    def _terminal() -> dict | None:
         status, body = _get(server + f"/api/v1/runs/{run_id}")
         assert status == 200
         data = json.loads(body)
-        if data["status"] in ("done", "error", "cancelled"):
-            return data
-        time.sleep(0.05)
-    raise TimeoutError(f"run {run_id} did not reach a terminal state within {timeout}s")
+        return data if data["status"] in ("done", "error", "cancelled") else None
+
+    data = wait_until(_terminal, timeout=timeout)
+    if data is None:
+        raise TimeoutError(f"run {run_id} did not reach a terminal state within {timeout}s")
+    return data
 
 
 class TestRunsApiGoldenComparison:
@@ -1470,10 +1471,7 @@ class TestRunsApiCancel:
         assert create_status == 202
         run_id = json.loads(create_body)["run_id"]
 
-        deadline = time.monotonic() + 10.0
-        while not pidfile.exists() and time.monotonic() < deadline:
-            time.sleep(0.05)
-        assert pidfile.exists(), "child process never started"
+        assert wait_until(pidfile.exists, timeout=10.0), "child process never started"
         pid = int(pidfile.read_text().strip())
 
         cancel_status, cancel_body = _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
@@ -1484,12 +1482,8 @@ class TestRunsApiCancel:
         assert data["status"] == "cancelled"
         assert data["message_id"] == "run_cancelled"
 
-        # Best-effort: give the OS a brief moment to actually reap the killed
-        # process before asserting it's gone.
-        deadline = time.monotonic() + 3.0
-        while psutil.pid_exists(pid) and time.monotonic() < deadline:
-            time.sleep(0.05)
-        assert not psutil.pid_exists(pid)
+        # Best-effort: wait for the OS to actually reap the killed process.
+        assert wait_until(lambda: not psutil.pid_exists(pid), timeout=3.0)
 
     def test_cancel_unknown_run_is_404(self, server: str) -> None:
         status, body = _post(server + "/api/v1/runs/no-such-id/cancel", b"")
@@ -1628,15 +1622,12 @@ class TestRunsApiValidation:
         assert status == 202
         run_id = json.loads(body)["run_id"]
 
-        deadline = time.monotonic() + 10.0
-        total = 0
-        while time.monotonic() < deadline:
-            status, body = _get(server + f"/api/v1/runs/{run_id}")
-            data = json.loads(body)
-            total = data["progress"]["total"]
-            if total > 0 or data["status"] in ("done", "error", "cancelled"):
-                break
-            time.sleep(0.02)
+        def _total_known() -> int | None:
+            _, body = _get(server + f"/api/v1/runs/{run_id}")
+            total = json.loads(body)["progress"]["total"]
+            return total if total > 0 else None
+
+        total = wait_until(_total_known, timeout=10.0)
         # 1 case * clamped repeats (max 1000) -- not 1 * 999_999.
         assert total == 1000
 

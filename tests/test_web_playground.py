@@ -10,7 +10,6 @@ from __future__ import annotations
 import dataclasses
 import json
 import threading
-import time
 import urllib.error
 import urllib.request
 
@@ -18,6 +17,7 @@ import pytest
 
 from stepik_grader import web
 from stepik_grader.web import playground, runs
+from tests._wait import wait_until
 
 # ---------------------------------------------------------------------------
 # run_playground — прямые вызовы
@@ -87,15 +87,16 @@ class TestRunPlayground:
 
 
 def _poll_until_terminal(job_id: str, *, timeout: float = 15.0) -> dict:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+    def _terminal() -> dict | None:
         job = runs.get_job(job_id)
         assert job is not None
         data = job.to_status_dict()
-        if data["status"] in ("done", "error", "cancelled"):
-            return data
-        time.sleep(0.05)
-    raise TimeoutError(f"job {job_id} did not reach terminal state within {timeout}s")
+        return data if data["status"] in ("done", "error", "cancelled") else None
+
+    data = wait_until(_terminal, timeout=timeout)
+    if data is None:
+        raise TimeoutError(f"job {job_id} did not reach terminal state within {timeout}s")
+    return data
 
 
 class TestPlaygroundJob:
@@ -110,7 +111,8 @@ class TestPlaygroundJob:
         job = runs.submit_job(
             "playground", None, {"lang": "ru"}, code="while True:\n    pass", stdin=""
         )
-        time.sleep(0.2)  # дать воркеру стартовать subprocess
+        # ждём, пока воркер реально стартует subprocess (status='running')
+        assert wait_until(lambda: job.status == "running"), "worker did not start the job"
         assert runs.cancel_job(job.id) is True
         data = _poll_until_terminal(job.id)
         assert data["status"] == "cancelled"
@@ -183,13 +185,11 @@ class TestPlaygroundHttp:
         assert status == 202
         run_id = created["run_id"]
 
-        deadline = time.monotonic() + 15
-        data = None
-        while time.monotonic() < deadline:
+        def _terminal() -> dict | None:
             data = _get(server + "/api/v1/runs/" + run_id)
-            if data["status"] in ("done", "error", "cancelled"):
-                break
-            time.sleep(0.05)
+            return data if data["status"] in ("done", "error", "cancelled") else None
+
+        data = wait_until(_terminal, timeout=15.0)
         assert data is not None and data["status"] == "done"
         assert data["result"]["status"] == "OK"
         assert data["result"]["stdout"] == "web\n"

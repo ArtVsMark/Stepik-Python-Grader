@@ -9,6 +9,18 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Internal
+- Replaced fixed `time.sleep` pauses in the async web-layer tests with a shared
+  `wait_until(predicate, timeout, interval)` helper (`tests/_wait.py`, issue
+  #357). The job-model and playground tests polled workers with hard-coded
+  0.02–0.3s sleeps — timing-dependent and flaky on slow CI. They now wait on the
+  actual condition (job status `running`, terminal status, pidfile appears,
+  killed process reaped) with a deadline, so `test_runs.py`,
+  `test_web_playground.py` and `test_web.py` no longer contain bare host-side
+  `time.sleep` (the deliberate `time.sleep(30)` TLE fixtures inside solution
+  bodies are untouched). Also faster — the suite returns as soon as the
+  condition holds. Verified with 3 consecutive green web-suite runs.
+
 ### Refactored
 - Unified the two glossaries behind one RE-hint resolver (issue #356): the CLI
   reporter and the web error card both resolved RuntimeError hints only from the
