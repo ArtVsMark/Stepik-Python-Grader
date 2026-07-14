@@ -173,9 +173,22 @@ _BUILTIN_METHODS: frozenset[str] = frozenset(
 class _CodeScanner(ast.NodeVisitor):
     """Обходит AST решения, собирая импорты, определения и «интересные» вызовы."""
 
-    def __init__(self, notable_builtins: frozenset[str], *, detect_methods: bool = False) -> None:
+    def __init__(
+        self,
+        notable_builtins: frozenset[str],
+        *,
+        methods: frozenset[str] | None = None,
+        detect_constructs: bool = False,
+    ) -> None:
         self._notable = notable_builtins
-        self._detect_methods = detect_methods  # issue #322: методы встроенных типов
+        # issue #322/#367: имена методов встроенных типов (None → метод-эвристику
+        # не применяем). Набор передаётся извне (инвентарь), а не хардкодится.
+        self._methods = methods
+        # issue #367: синтаксические конструкции (comprehensions, lambda, срез,
+        # f-строка, распаковка, тернарный, walrus, декоратор, with, try). Gated:
+        # панель «Функции в коде» включает, узкий MissingConceptDetector — нет
+        # (сохраняем его прежнее поведение: только match/case + вызовы).
+        self._detect_constructs = detect_constructs
         self.import_aliases: dict[str, str] = {}  # alias -> module (import x [as y])
         self.from_imports: dict[str, str] = {}  # local -> "module.name"
         self.defined_names: set[str] = set()  # def/class/assign/args — пользовательские
@@ -186,7 +199,15 @@ class _CodeScanner(ast.NodeVisitor):
 
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
-            self.import_aliases[alias.asname or alias.name] = alias.name
+            if alias.asname:
+                self.import_aliases[alias.asname] = alias.name
+            else:
+                # `import a` и `import a.b.c` связывают ИМЯ верхнего уровня `a`
+                # в неймспейсе (issue #367 — иначе `os.path.join` при `import os`
+                # не находил корень-модуль). Полное имя тоже регистрируем.
+                self.import_aliases[alias.name] = alias.name
+                top = alias.name.split(".", 1)[0]
+                self.import_aliases.setdefault(top, top)
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -200,14 +221,20 @@ class _CodeScanner(ast.NodeVisitor):
         self.defined_names.add(node.name)
         for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs):
             self.defined_names.add(arg.arg)
+        if node.decorator_list:
+            self._construct("decorator", "@decorator")
         self.generic_visit(node)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self.defined_names.add(node.name)
+        if node.decorator_list:
+            self._construct("decorator", "@decorator")
         self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.defined_names.add(node.name)
+        if node.decorator_list:
+            self._construct("decorator", "@decorator")
         self.generic_visit(node)
 
     def visit_Assign(self, node: ast.Assign) -> None:
@@ -218,14 +245,37 @@ class _CodeScanner(ast.NodeVisitor):
 
     # -- обнаружение концепций -------------------------------------------
 
+    @staticmethod
+    def _attr_chain(node: ast.Attribute) -> tuple[str, str] | None:
+        """Развернуть цепочку Attribute до корня-``Name`` → ``(root, dotted_path)``.
+
+        ``os.path.join`` → ``("os", "path.join")``; ``math.sqrt`` → ``("math",
+        "sqrt")``. None, если корень — не ``Name`` (``f().attr``,
+        ``x.strip().split``): тогда матч идёт по метод-эвристике (issue #367).
+        """
+        parts = [node.attr]
+        cur: ast.expr = node.value
+        while isinstance(cur, ast.Attribute):
+            parts.append(cur.attr)
+            cur = cur.value
+        if isinstance(cur, ast.Name):
+            parts.append(cur.id)
+            parts.reverse()
+            return parts[0], ".".join(parts[1:])
+        return None
+
     def visit_Call(self, node: ast.Call) -> None:
         func = node.func
         if isinstance(func, ast.Attribute):
-            root = func.value.id if isinstance(func.value, ast.Name) else None
-            if root is not None and root in self.import_aliases:
+            chain = self._attr_chain(func)
+            root = chain[0] if chain is not None else None
+            if chain is not None and root in self.import_aliases:
+                # issue #367: `os.path.join(...)` разворачивается в целостное
+                # `os.path.join`, а не путается с методом `str.join`.
                 module = self.import_aliases[root]
-                self._record(f"{module}.{func.attr}", "function", f"{root}.{func.attr}(...)")
-            elif self._detect_methods and func.attr in _BUILTIN_METHODS:
+                attr_path = chain[1]
+                self._record(f"{module}.{attr_path}", "function", f"{root}.{attr_path}(...)")
+            elif self._methods is not None and func.attr in self._methods:
                 # issue #322: `x.split()` → метод встроенного типа (эвристика,
                 # тип получателя статически неизвестен — confidence="low").
                 recv = root if root is not None else "…"
@@ -242,28 +292,98 @@ class _CodeScanner(ast.NodeVisitor):
         self._record("match/case", "construct", "match ...: case ...")
         self.generic_visit(node)
 
+    # -- синтаксические конструкции (issue #367, только при detect_constructs) --
+
+    def _construct(self, concept: str, snippet: str) -> None:
+        if self._detect_constructs:
+            self._record(concept, "construct", snippet)
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:
+        self._construct("list comprehension", "[x for x in ...]")
+        self.generic_visit(node)
+
+    def visit_SetComp(self, node: ast.SetComp) -> None:
+        self._construct("set comprehension", "{x for x in ...}")
+        self.generic_visit(node)
+
+    def visit_DictComp(self, node: ast.DictComp) -> None:
+        self._construct("dict comprehension", "{k: v for ... in ...}")
+        self.generic_visit(node)
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        self._construct("generator expression", "(x for x in ...)")
+        self.generic_visit(node)
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        self._construct("lambda", "lambda x: ...")
+        self.generic_visit(node)
+
+    def visit_IfExp(self, node: ast.IfExp) -> None:
+        self._construct("ternary", "a if cond else b")
+        self.generic_visit(node)
+
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        self._construct("walrus", "(n := ...)")
+        self.generic_visit(node)
+
+    def visit_JoinedStr(self, node: ast.JoinedStr) -> None:
+        self._construct("f-string", 'f"...{x}..."')
+        self.generic_visit(node)
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if isinstance(node.slice, ast.Slice):
+            self._construct("slice", "seq[a:b]")
+        self.generic_visit(node)
+
+    def visit_Starred(self, node: ast.Starred) -> None:
+        self._construct("unpacking", "*args / a, *b = ...")
+        self.generic_visit(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        self._construct("with", "with ... as ...:")
+        self.generic_visit(node)
+
+    def visit_AsyncWith(self, node: ast.AsyncWith) -> None:
+        self._construct("with", "async with ...:")
+        self.generic_visit(node)
+
+    def visit_Try(self, node: ast.Try) -> None:
+        self._construct("try/except", "try: ... except ...:")
+        self.generic_visit(node)
+
     def _record(self, concept: str, kind: str, snippet: str) -> None:
         self.found.setdefault(concept, (kind, snippet))
 
 
 def scan_code_concepts(
-    code: str, *, notable_builtins: frozenset[str] | None = None
+    code: str,
+    *,
+    notable_builtins: frozenset[str] | None = None,
+    methods: frozenset[str] | None = None,
 ) -> dict[str, tuple[str, str]]:
     """Концепции, найденные в коде (без фильтра «известных»): ``concept -> (kind, snippet)``.
 
     Публичная обёртка над ``_CodeScanner`` для витрин «функции в коде» (issue
     #321/#322) — в отличие от ``MissingConceptDetector.detect_from_code`` НЕ
     отсеивает покрытые карточками концепции (это делает потребитель, сопоставляя
-    с базой) и распознаёт **шире**: повседневные builtin'ы
-    (``CODE_TERM_BUILTINS``) и методы встроенных типов (``x.split()``, kind
-    ``method``). Синтаксически некорректный код → пустой словарь.
+    с базой) и распознаёт **шире**: builtin'ы, методы встроенных типов
+    (``x.split()``, kind ``method``) и синтаксические конструкции
+    (comprehensions, lambda, срез, f-строка, распаковка, тернарный, walrus,
+    декоратор, with, try — issue #367).
+
+    ``notable_builtins``/``methods`` (issue #367) переопределяют наборы имён —
+    потребитель (``web/glossary_adapter``) собирает их из ``stdlib_inventory``
+    вместо узкого хардкода. По умолчанию — курируемые ``CODE_TERM_BUILTINS``/
+    ``_BUILTIN_METHODS`` (обратная совместимость). Синтаксически некорректный
+    код → пустой словарь.
     """
     try:
         tree = ast.parse(code)
     except SyntaxError:
         return {}
     notable = CODE_TERM_BUILTINS if notable_builtins is None else frozenset(notable_builtins)
-    scanner = _CodeScanner(notable, detect_methods=True)
+    method_set = _BUILTIN_METHODS if methods is None else frozenset(methods)
+    scanner = _CodeScanner(notable, methods=method_set, detect_constructs=True)
     scanner.visit(tree)
     return dict(scanner.found)
 

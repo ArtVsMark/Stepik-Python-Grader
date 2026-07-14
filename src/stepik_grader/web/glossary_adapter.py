@@ -25,6 +25,7 @@ from stepik_grader.glossary.json_provider import (
     load_missing_queue,
 )
 from stepik_grader.glossary.models import GlossaryCard
+from stepik_grader.glossary.stdlib_inventory import build_stdlib_inventory
 
 __all__ = [
     "glossary_search",
@@ -189,11 +190,42 @@ def _match_card(concept: str, index: dict[str, GlossaryCard]) -> GlossaryCard | 
     return index.get(tail)
 
 
-def code_terms(code: str, *, store_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
-    """Термины глоссария для концепций, найденных в ``code`` (issue #321/#322).
+# issue #367: наборы builtins/методов для сканера — из stdlib-инвентаря (issue
+# #196), а не из узкого хардкода detector.py. Инвентарь детерминирован и
+# стабилен в пределах процесса (интроспекция running-интерпретатора, без ФС),
+# поэтому считается один раз лениво и кешируется в модульном глобале.
+_INVENTORY_SETS: tuple[frozenset[str], frozenset[str]] | None = None
 
-    Сканирует код (``scan_code_concepts`` — builtin'ы, вызовы stdlib, методы,
-    ``match/case``) и сопоставляет с карточками базы. Возвращает **все**
+
+def _inventory_sets() -> tuple[frozenset[str], frozenset[str]]:
+    """``(builtins, methods)`` из ``stdlib_inventory`` для ``scan_code_concepts``.
+
+    ``builtins`` — имена встроенных функций/классов (``frozenset``, ``super``,
+    ``hash``, …, которых узкий ``CODE_TERM_BUILTINS`` не знал); ``methods`` —
+    имена публичных методов встроенных типов (``removeprefix``, ``translate``,
+    bytes-методы, …). Кешируется на весь процесс.
+    """
+    global _INVENTORY_SETS
+    if _INVENTORY_SETS is None:
+        items = build_stdlib_inventory()
+        builtins_names = frozenset(
+            it.qualname
+            for it in items
+            if it.module == "builtins" and it.kind in ("function", "class")
+        )
+        method_names = frozenset(
+            it.qualname.rsplit(".", 1)[-1] for it in items if it.kind == "method"
+        )
+        _INVENTORY_SETS = (builtins_names, method_names)
+    return _INVENTORY_SETS
+
+
+def code_terms(code: str, *, store_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
+    """Термины глоссария для концепций, найденных в ``code`` (issue #321/#322/#367).
+
+    Сканирует код (``scan_code_concepts`` — builtin'ы и методы из stdlib-
+    инвентаря, вызовы stdlib с разворотом цепочки ``os.path.join``, синтаксические
+    конструкции) и сопоставляет с карточками базы. Возвращает **все**
     распознанные концепции (а не только покрытые) в виде
     ``{id, title, summary, kind, has_card, url, confidence, snippet}``:
     покрытые несут данные карточки (``has_card=True``), непокрытые —
@@ -201,7 +233,8 @@ def code_terms(code: str, *, store_path: pathlib.Path | None = None) -> list[dic
     ``confidence="low"`` (тип получателя статически неизвестен). Порядок:
     покрытые вперёд, затем по ``title``.
     """
-    concepts = scan_code_concepts(code)
+    notable_builtins, methods = _inventory_sets()
+    concepts = scan_code_concepts(code, notable_builtins=notable_builtins, methods=methods)
     if not concepts:
         return []
     index = _card_index(_all_cards(store_path))
