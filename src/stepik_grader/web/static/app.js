@@ -403,6 +403,10 @@ function setMode(m) {
   // issue #324/#366 (2.з): «Функции в коде» — только режим 1. В режиме 2 путь —
   // папка, панель почти всегда пустует и мешает; в 3/4 неуместна.
   $("#check-terms-block").hidden = m !== "file";
+  // issue #370 (2.к): режимы 3/4 — вертикальный стек (конфиг компактной полосой
+  // сверху, результаты во всю ширину); режимы 1/2 остаются двухколоночными.
+  const checkPane = $("#view-check .split-pane");
+  if (checkPane) checkPane.classList.toggle("split-pane--stacked", m === "bench" || m === "microbench");
   loadCheckTerms();
 }
 
@@ -1756,35 +1760,53 @@ function renderDetailPanel() {
 
 function renderBench(rows) {
   const ranked = rows.filter(r => !r.error);
-  const refRow = rows.find(r => r.verdict === "REFERENCE");
-  const best = refRow || ranked[0];
   const similarCount = ranked.filter(r => r.verdict === "SIMILAR" || r.verdict === "REFERENCE").length;
   $("#bar").textContent = "";
+  // issue #370: KPI унифицированы с режимом 4 — «Решений / Лучшая медиана / Схожих».
   let h = kpiGrid([
-    { label: "Файлов", value: rows.length },
-    { label: best && best.verdict === "REFERENCE" ? "Эталон" : "Медиана", value: best ? best.median : "—" },
+    { label: "Решений", value: rows.length },
+    { label: "Лучшая медиана", value: ranked.length ? ranked[0].median : "—" },
     { label: "Схожих", value: ranked.length ? similarCount + " / " + ranked.length : "—" },
   ]);
-  h += '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
+  h += benchTable(rows, {
+    fields: { min: "min", median: "median", mean: "mean", max: "max", stdev: "stdev" },
+    memLabel: "Память, МБ",
+  });
+  $("#out").innerHTML = h;
+}
+
+// issue #370: единая структура таблиц режимов 3/4 = CLI-репортер
+// (Файл/Runs/Min/Median/Mean/Max/Std dev/Память/%/Вердикт). Различия между
+// режимами — только имена полей (единицы s vs µs) и подпись памяти (issue #66).
+function benchTable(rows, { fields, memLabel, memTitle }) {
+  const memTh =
+    '<th scope="col"' + (memTitle ? ' title="' + esc(memTitle) + '"' : "") + ">" + esc(memLabel) + "</th>";
+  let h =
+    '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
     '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Runs</th>' +
-    '<th scope="col">Min</th><th scope="col">Median</th><th scope="col">%</th>' +
-    '<th scope="col">Вердикт</th><th scope="col">Память, МБ</th></tr></thead><tbody>';
+    '<th scope="col">Min</th><th scope="col">Median</th><th scope="col">Mean</th>' +
+    '<th scope="col">Max</th><th scope="col">Std dev</th>' +
+    memTh +
+    '<th scope="col">%</th><th scope="col">Вердикт</th></tr></thead><tbody>';
   rows.forEach(row => {
     if (row.error) {
       h +=
-        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="5">' + esc(row.error) +
-        "</td><td></td></tr>";
+        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="8">' + esc(row.error) +
+        "</td><td>" + renderVerdict(row.verdict) + "</td></tr>";
       return;
     }
     h +=
       '<tr><td class="mono">' + esc(row.file) + '</td><td class="mono">' + row.runs + "</td>" +
-      '<td class="mono">' + esc(row.min) + "</td>" +
-      '<td class="mono">' + esc(row.median) + "</td>" +
+      '<td class="mono">' + esc(row[fields.min]) + "</td>" +
+      '<td class="mono">' + esc(row[fields.median]) + "</td>" +
+      '<td class="mono">' + esc(row[fields.mean]) + "</td>" +
+      '<td class="mono">' + esc(row[fields.max]) + "</td>" +
+      '<td class="mono">' + esc(row[fields.stdev]) + "</td>" +
+      '<td class="mono">' + (row.memory_mb ?? "—") + "</td>" +
       '<td class="mono">' + row.relative + "%</td>" +
-      "<td>" + renderVerdict(row.verdict) + "</td>" +
-      '<td class="mono">' + (row.memory_mb ?? "—") + "</td></tr>";
+      "<td>" + renderVerdict(row.verdict) + "</td></tr>";
   });
-  $("#out").innerHTML = h + "</tbody></table></div>";
+  return h + "</tbody></table></div>";
 }
 
 function renderMicrobench(data) {
@@ -1800,36 +1822,16 @@ function renderMicrobench(data) {
       "</p>";
   }
   h += kpiGrid([
-    { label: "Файлов", value: rows.length },
-    { label: "Медиана, µs", value: ok.length ? ok[0].median_us : "—" },
+    { label: "Решений", value: rows.length },
+    { label: "Лучшая медиана, µs", value: ok.length ? ok[0].median_us : "—" },
     { label: "Схожих", value: ok.length ? similarCount + " / " + ok.length : "—" },
   ]);
-  h += '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
-    '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Runs</th>' +
-    '<th scope="col">Min µs</th><th scope="col">Median µs</th><th scope="col">Mean µs</th>' +
-    '<th scope="col">Max µs</th><th scope="col">StdDev µs</th><th scope="col">%</th>' +
-    '<th scope="col">Вердикт</th>' +
-    '<th scope="col" title="tracemalloc (stdin) / RSS (function), issue #66">Py-heap, МБ</th>' +
-    "</tr></thead><tbody>";
-  rows.forEach(row => {
-    if (row.error) {
-      h +=
-        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="7">' + esc(row.error) +
-        "</td><td>" + renderVerdict(row.verdict) + "</td></tr>";
-      return;
-    }
-    h +=
-      '<tr><td class="mono">' + esc(row.file) + '</td><td class="mono">' + row.runs + "</td>" +
-      '<td class="mono">' + row.min_us + "</td>" +
-      '<td class="mono">' + row.median_us + "</td>" +
-      '<td class="mono">' + row.mean_us + "</td>" +
-      '<td class="mono">' + row.max_us + "</td>" +
-      '<td class="mono">' + row.stdev_us + "</td>" +
-      '<td class="mono">' + row.relative + "%</td>" +
-      "<td>" + renderVerdict(row.verdict) + "</td>" +
-      '<td class="mono">' + (row.memory_mb ?? "—") + "</td></tr>";
+  h += benchTable(rows, {
+    fields: { min: "min_us", median: "median_us", mean: "mean_us", max: "max_us", stdev: "stdev_us" },
+    memLabel: "Py-heap, МБ",
+    memTitle: "tracemalloc (stdin) / RSS (function), issue #66",
   });
-  $("#out").innerHTML = h + "</tbody></table></div>";
+  $("#out").innerHTML = h;
 }
 
 function errorCard(g) {

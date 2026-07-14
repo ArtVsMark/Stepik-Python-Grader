@@ -275,6 +275,13 @@ a, button, [role="button"] {
 .split-pane { display: grid; grid-template-columns: 1fr 1fr; flex: 1; overflow: hidden; gap: 0; }
 .split-pane-panel { display: flex; flex-direction: column; overflow: hidden; background: var(--color-bg); }
 .split-pane-panel + .split-pane-panel { border-left: 1px solid var(--color-border); }
+/* issue #370: режимы 3/4 — вертикальный стек. Конфиг компактной полосой сверху
+   (форм-группы в ряд), панель результатов — во всю ширину под ним. */
+.split-pane--stacked { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+.split-pane--stacked > .split-pane-panel + .split-pane-panel { border-left: none; border-top: 1px solid var(--color-border); }
+.split-pane--stacked > .split-pane-panel:first-child .panel-body { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); }
+.split-pane--stacked > .split-pane-panel:first-child .form-group { margin: 0; }
+.split-pane--stacked > .split-pane-panel:first-child .form-group:first-child { flex: 1 1 320px; }
 .panel-header {
   display: flex; align-items: center; gap: var(--space-3);
   padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-divider);

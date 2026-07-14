@@ -594,6 +594,11 @@ def grade_benchmark(
                 "runs": d["runs"],
                 "min": fmt_time(d["min"]),
                 "median": fmt_time(d["median"]),
+                # issue #370: полный набор колонок как в CLI-репортере (mean/max/
+                # std dev) — бэкенд уже считает их в run_benchmark.
+                "mean": fmt_time(d["mean"]),
+                "max": fmt_time(d["max"]),
+                "stdev": fmt_time(d["stdev"]),
                 "relative": round(d.get("relative", 1.0) * 100, 1),
                 "verdict": d.get("verdict", "SIMILAR"),
                 "memory_mb": round(d["peak_memory_mb"], 2),
