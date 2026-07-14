@@ -10,6 +10,19 @@
 -->
 
 ### Refactored
+- Unified the two glossaries behind one RE-hint resolver (issue #356): the CLI
+  reporter and the web error card both resolved RuntimeError hints only from the
+  compact `core/glossary.py` map (~28 exceptions), leaving the bundled JSON base
+  (`glossary/data/`, ~140 exception cards) invisible to them. A new
+  `core/error_glossary.py` (`resolve_error_hint`) now consults the bundled base
+  first (by `id == exception name lowercased`) and fills empty fields from the
+  compact map, so CLI and web show the same, richer card for covered exceptions.
+  A single `card_url()` replaces the three previously divergent URL strategies
+  (compact anchor, bundled `#e-<Name>`, empty). The bundled provider loads
+  lazily and is mtime-cached; a broken/absent base degrades gracefully to the
+  compact map. `core/glossary.py` stays a leaf, `core/reporter.py` still imports
+  no web layer, and the DAG stays acyclic (`glossary/` does not import `core/`).
+  Exception-name extraction is factored out into `exception_name_from_error`.
 - Consolidated the CLI's two parallel i18n mechanisms into one (issue #355):
   the hardcoded `_MESSAGES` dict in `cli/__init__.py` (48 keys) is merged into
   the JSON locale catalog (`core/locales/{ru,en}.json`), and `_t()` is now a

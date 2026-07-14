@@ -28,6 +28,7 @@ __all__ = [
     "GlossaryEntry",
     "lookup",
     "lookup_from_error",
+    "exception_name_from_error",
     "all_entries",
 ]
 
@@ -112,20 +113,30 @@ def all_entries() -> list[GlossaryEntry]:
     return list(_ENTRIES.values())
 
 
-def lookup_from_error(error_text: str) -> GlossaryEntry | None:
-    """Найти известное исключение в тексте ошибки (трейсбеке) и вернуть запись.
+def exception_name_from_error(error_text: str) -> str | None:
+    """Имя класса исключения из последней строки трейсбека, или None.
 
     Питоновский трейсбек заканчивается строкой вида ``RecursionError: ...``
-    (для встроенных исключений — без префикса модуля). Берём последнюю
-    непустую строку, отделяем имя до первого двоеточия, отбрасываем возможный
-    ``module.``-префикс и ищем в курированном наборе. None, если не совпало.
+    (для встроенных — без префикса модуля). Берём последнюю непустую строку,
+    отделяем имя до первого двоеточия и отбрасываем возможный ``module.``-
+    префикс (``foo.BarError`` → ``BarError``). Вынесено (issue #356), чтобы и
+    компактный ``lookup_from_error``, и резолвер по JSON-базе
+    (``core/error_glossary``) извлекали имя одинаково.
     """
     if not error_text:
         return None
     lines = [ln for ln in error_text.strip().splitlines() if ln.strip()]
     if not lines:
         return None
-    last = lines[-1].strip()
-    candidate = last.split(":", 1)[0].strip()
-    candidate = candidate.split(".")[-1]  # foo.BarError → BarError
-    return _ENTRIES.get(candidate)
+    candidate = lines[-1].strip().split(":", 1)[0].strip().split(".")[-1]
+    return candidate or None
+
+
+def lookup_from_error(error_text: str) -> GlossaryEntry | None:
+    """Найти известное исключение в тексте ошибки (трейсбеке) и вернуть запись.
+
+    Имя класса извлекает ``exception_name_from_error``; затем ищем его в
+    курированном наборе. None, если имя не выделилось или не совпало.
+    """
+    name = exception_name_from_error(error_text)
+    return _ENTRIES.get(name) if name else None

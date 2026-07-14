@@ -14,7 +14,7 @@ from __future__ import annotations
 import pathlib
 from typing import TYPE_CHECKING, Any
 
-from stepik_grader.core.glossary import lookup_from_error
+from stepik_grader.core.error_glossary import resolve_error_hint
 from stepik_grader.core.result import TestResult
 
 if TYPE_CHECKING:
@@ -344,8 +344,9 @@ def print_case_verbose(case: TestCase, r: dict[str, Any]) -> None:
 
     if result.error:
         _cprint(f"    [ERROR] {result.error}", style="red")
-        # issue #72: подсказка по типу исключения + ссылка на глоссарий.
-        entry = lookup_from_error(result.error)
+        # issue #72/#356: подсказка по типу исключения + ссылка на глоссарий,
+        # из общей базы карточек (bundled JSON → компактная карта fallback).
+        entry = resolve_error_hint(result.error)
         if entry is not None:
             _cprint(f"    💡 {entry.exception}: {entry.hint}", style="yellow")
             _cprint(f"       {entry.url}", style="blue")

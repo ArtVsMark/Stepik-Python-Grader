@@ -104,20 +104,25 @@ class TestGradePath:
         self, tmp_path: pathlib.Path
     ) -> None:
         """J7 (web-current.md): unknown exception in an RE case gets queued for the
-        glossary backlog, since core/glossary.py has no card for it (ValueError
-        IS in the compact glossary, so raise something that isn't)."""
+        glossary backlog when no card exists for it. Since #356 the RE hint
+        resolver also consults the bundled JSON base (~140 stdlib exceptions),
+        so "unknown" now means absent from BOTH sources — a custom (non-stdlib)
+        exception is guaranteed to qualify."""
         from stepik_grader.glossary.json_provider import load_missing_queue
 
-        sol = _make_task(tmp_path, "raise ArithmeticError('unusual')\n")
-        # ArithmeticError itself isn't in core/glossary.py's curated ~28 entries
-        # (only its subclasses ZeroDivisionError/OverflowError/FloatingPointError are).
+        sol = _make_task(
+            tmp_path,
+            "class UnlistedError(Exception):\n    pass\n\n\nraise UnlistedError('unusual')\n",
+        )
+        # A user-defined exception is in neither the compact map nor the bundled
+        # JSON base, so it stays a genuine glossary gap.
         queue_path = tmp_path / "missing.json"
 
         web.grade_path(sol, missing_queue_path=queue_path)
 
         entries = load_missing_queue(queue_path)
         assert len(entries) == 1
-        assert entries[0].concept == "ArithmeticError"
+        assert entries[0].concept == "UnlistedError"
         assert entries[0].kind == "exception"
         assert entries[0].origin == "error"
         assert entries[0].verdict == "RE"

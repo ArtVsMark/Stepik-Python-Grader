@@ -49,7 +49,8 @@ Stepik-Python-Grader/
 │           ├── executor.py       # Запускатель решений: compile + exec с таймаутом
 │           ├── microbench_runner.py  # Timeit-микробенчмарк через subprocess + os.devnull
 │           ├── normalizers.py    # Нормализация вывода: округление float, sort/whitespace
-│           ├── glossary.py       # Карта исключений → подсказка + ссылка (issue #72)
+│           ├── glossary.py       # Компактная карта исключений → подсказка + ссылка, leaf (issue #72)
+│           ├── error_glossary.py # Единый RE-резолвер: bundled JSON-база → компактная карта fallback (issue #356)
 │           ├── cache.py          # Opt-in кэш результатов (issue #56)
 │           ├── stepik_client.py  # Infrastructure: OAuth2, requests.Session, Stepik API
 │           ├── oauth_flow.py     # Infrastructure/Auth: OAuth2-фасад поверх stepik_client

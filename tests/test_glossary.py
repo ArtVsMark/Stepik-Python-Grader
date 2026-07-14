@@ -156,7 +156,9 @@ def test_web_case_view_includes_glossary_on_error() -> None:
     view = web._case_view(1, {"passed": False, "error": "KeyError: 'x'", "verdict": "RE"})
     assert "glossary" in view
     assert view["glossary"]["exception"] == "KeyError"
-    assert view["glossary"]["url"].endswith("#keyerror")
+    # issue #356: подсказка теперь из общей bundled-базы — её url это DOM-анкор
+    # витрины (#e-KeyError), а не вычисляемый #keyerror компактной карты.
+    assert view["glossary"]["url"].endswith("#e-KeyError")
 
 
 def test_web_case_view_no_glossary_when_passed() -> None:

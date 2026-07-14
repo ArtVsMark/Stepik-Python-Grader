@@ -17,7 +17,7 @@ from collections.abc import Callable
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.glossary import lookup_from_error
+from stepik_grader.core.error_glossary import resolve_error_hint
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
     SIMILAR_THRESHOLD,
@@ -213,8 +213,10 @@ def _case_view(
     passed = bool(case.get("passed"))
     actual = "\n".join(case.get("output") or [])
 
-    # issue #72: карточка ошибки — тип исключения, пояснение, ссылка на глоссарий.
-    entry = lookup_from_error(error) if error else None
+    # issue #72/#356: карточка ошибки — тип исключения, пояснение, ссылка на
+    # глоссарий; из общей базы (bundled JSON → компактная карта fallback), тот
+    # же резолвер, что у CLI-репортера.
+    entry = resolve_error_hint(error) if error else None
     glossary_ids = [entry.anchor] if entry is not None and verdict == "RE" else []
 
     view: dict[str, Any] = {

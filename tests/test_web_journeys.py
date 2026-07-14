@@ -179,14 +179,15 @@ class TestMissingGlossaryDraftJourney:
     def test_queued_entry_visible_through_glossary_missing_adapter(
         self, tmp_path: pathlib.Path
     ) -> None:
-        # ArithmeticError isn't in core/glossary.py's curated ~28 entries
-        # (only its subclasses ZeroDivisionError/OverflowError/FloatingPointError
-        # are), so grading it triggers the J7 missing-queue write.
-        sol = _make_re_task(tmp_path, "ArithmeticError('unusual')")
+        # Since #356 the RE hint resolver also consults the bundled JSON base
+        # (~140 stdlib exceptions), so a genuine glossary gap must be absent from
+        # BOTH sources — a user-defined (non-stdlib) exception qualifies. Built
+        # inline via type() so _make_re_task's single `raise {exc}` still works.
+        sol = _make_re_task(tmp_path, "type('UnlistedError', (Exception,), {})('unusual')")
         queue_path = tmp_path / "missing.json"
 
         web.grade_path(sol, missing_queue_path=queue_path)
         entries = glossary_adapter.glossary_missing(queue_path=queue_path)
 
         assert len(entries) == 1
-        assert entries[0]["concept"] == "ArithmeticError"
+        assert entries[0]["concept"] == "UnlistedError"
