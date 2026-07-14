@@ -118,3 +118,18 @@ def test_insights_lint_and_glossary_ref(server: str, tmp_path: pathlib.Path, mon
     cards = {c["key"]: c for c in json.loads(body)}
     assert cards["runtime-error:KeyError"]["glossary_id"] == "keyerror"
     assert cards["E501"]["category"] == "lint"
+
+
+def test_insights_journey_fail_to_archive(server: str, tmp_path: pathlib.Path, monkeypatch) -> None:
+    """User-journey (issue #348): падения → карточка active → чистые прогоны → архив (скрыт)."""
+    monkeypatch.chdir(tmp_path)
+    db = tmp_path / history.HISTORY_DB_NAME
+    for _ in range(3):  # 3 падения
+        history.record_run(1, [CaseRecord(1, "WA", failure_kind="wrong-answer")], db_path=db)
+    _, body = _get(server + "/api/insights")
+    assert any(c["key"] == "wrong-answer" and c["status"] == "active" for c in json.loads(body))
+
+    for _ in range(3):  # 3 чистых прогона → архив → исчезает из «Подучить»
+        history.record_run(1, [CaseRecord(1, "OK")], db_path=db)
+    _, body = _get(server + "/api/insights")
+    assert not any(c["key"] == "wrong-answer" for c in json.loads(body))

@@ -47,6 +47,8 @@ const state = {
     cards: [], missing: [], sections: [], total: 0,
     selectedId: null, view: "cards",
   },
+  rules: { query: "", tag: "", cards: [], selectedId: null }, // issue #348
+  insights: { cards: [] }, // issue #348
   solutions: [], // режим 1 — файлы, найденные /api/solutions в указанной папке
   selectedSolutionFile: null, // режим 1 — выбранный для проверки файл (полный путь)
   activeRunId: null, // issue #262 — id текущего опрашиваемого async job (tests/bench/microbench)
@@ -312,8 +314,12 @@ function setSection(section) {
   $("#view-check").hidden = section !== "check";
   $("#view-downloader").hidden = section !== "downloader";
   $("#view-glossary").hidden = section !== "glossary";
+  $("#view-rules").hidden = section !== "rules";
+  $("#view-insights").hidden = section !== "insights";
   $("#view-sandbox").hidden = section !== "sandbox";
   if (section === "glossary" && !state.glossary.cards.length) loadGlossary();
+  if (section === "rules" && !state.rules.cards.length) loadRules();
+  if (section === "insights") loadInsights();
   if (section === "sandbox") {
     mountSandboxEditor(); // issue #317: ленивый монтаж
     loadCodeTerms(); // issue #321: обновить «Функции в коде» под текущий код
@@ -2092,6 +2098,21 @@ function parseGlossaryHash() {
 }
 
 async function routeFromHash() {
+  // issue #348: единый hash-роутер (замена glossary-only, риск R6) — deep-links
+  // #/rules/<code>, #/insights и #/glossary/<id>.
+  const h = location.hash;
+  const rule = h.match(/^#\/rules\/(.+)$/);
+  if (rule) {
+    const code = decodeURIComponent(rule[1]);
+    if (state.section !== "rules") setSection("rules");
+    if (!state.rules.cards.length) await loadRules();
+    if (state.rules.selectedId !== code) selectRuleCard(code, { fromHash: true });
+    return;
+  }
+  if (h === "#/insights") {
+    if (state.section !== "insights") setSection("insights");
+    return;
+  }
   const id = parseGlossaryHash();
   if (!id) return;
   if (state.section !== "glossary") setSection("glossary");
@@ -2144,6 +2165,155 @@ function setGlossaryView(view) {
   const filters = $("#glossary-filters");
   if (filters) filters.hidden = view !== "cards"; // фильтры только для карточек (issue #329)
   if (view === "missing" && !state.glossary.missing.length) loadMissing();
+}
+
+// -- Раздел «Правила (PEP)» (issue #348) --------------------------------------
+
+const RULE_TAGS = ["whitespace", "imports", "blank-lines", "comparisons", "statements", "pyflakes"];
+
+async function loadRules() {
+  const r = state.rules;
+  const params = new URLSearchParams();
+  if (r.query) params.set("q", r.query);
+  if (r.tag) params.set("tag", r.tag);
+  try {
+    const resp = await fetch("/api/rules?" + params);
+    r.cards = await resp.json();
+  } catch (e) {
+    r.cards = [];
+  }
+  renderRulesChips();
+  renderRulesList();
+  const cnt = $("#rules-count");
+  if (cnt) cnt.textContent = r.cards.length + " правил";
+}
+
+function renderRulesChips() {
+  const el = $("#rules-chips");
+  if (!el) return;
+  el.innerHTML = RULE_TAGS.map(t => {
+    const active = state.rules.tag === t ? " active" : "";
+    return '<button type="button" class="chip' + active + '" data-tag="' + esc(t) + '">' + esc(t) + "</button>";
+  }).join("");
+  el.querySelectorAll(".chip").forEach(b =>
+    b.addEventListener("click", () => {
+      state.rules.tag = state.rules.tag === b.dataset.tag ? "" : b.dataset.tag;
+      loadRules();
+    })
+  );
+}
+
+function renderRulesList() {
+  const el = $("#rules-cards");
+  if (!el) return;
+  if (!state.rules.cards.length) {
+    el.innerHTML = '<li class="empty">Ничего не найдено</li>';
+    return;
+  }
+  el.innerHTML = state.rules.cards
+    .map(c => {
+      const sel = c.id === state.rules.selectedId ? " selected" : "";
+      return '<li data-rule="' + esc(c.id) + '" class="' + sel + '"><span class="rule-code">' +
+        esc(c.id) + "</span> " + esc(c.title) + "</li>";
+    })
+    .join("");
+  el.querySelectorAll("li[data-rule]").forEach(li =>
+    li.addEventListener("click", () => selectRuleCard(li.dataset.rule))
+  );
+}
+
+function selectRuleCard(code, opts = {}) {
+  state.rules.selectedId = code;
+  renderRulesList();
+  if (!opts.fromHash) {
+    const target = "#/rules/" + encodeURIComponent(code);
+    if (location.hash !== target) location.hash = target;
+  }
+  const card = state.rules.cards.find(c => c.id === code);
+  if (card) {
+    renderRuleDetail(card);
+    return;
+  }
+  fetch("/api/rules/" + encodeURIComponent(code))
+    .then(r => (r.ok ? r.json() : null))
+    .then(c => { if (c) renderRuleDetail(c); })
+    .catch(() => {});
+}
+
+function renderRuleDetail(card) {
+  $("#rules-empty").hidden = true;
+  const el = $("#rules-detail-content");
+  el.hidden = false;
+  const sev = card.severity ? ' <span class="badge badge-neutral">' + esc(card.severity) + "</span>" : "";
+  const bad = card.example_bad
+    ? '<div class="form-label">Как не надо</div><pre class="code-block code-bad">' + esc(card.example_bad) + "</pre>"
+    : "";
+  const good = card.example_good
+    ? '<div class="form-label">Как надо</div><pre class="code-block code-good">' + esc(card.example_good) + "</pre>"
+    : "";
+  const links = [
+    card.pep_url ? '<a href="' + esc(card.pep_url) + '" target="_blank" rel="noopener">PEP 8 →</a>' : "",
+    card.docs_url ? '<a href="' + esc(card.docs_url) + '" target="_blank" rel="noopener">Документация →</a>' : "",
+  ].filter(Boolean).map(a => "<p>" + a + "</p>").join("");
+  el.innerHTML =
+    '<h2><span class="rule-code">' + esc(card.id) + "</span> " + esc(card.title) + sev + "</h2>" +
+    (card.summary ? "<p>" + esc(card.summary) + "</p>" : "") +
+    (card.body ? '<div class="rule-body">' + esc(card.body) + "</div>" : "") +
+    bad + good + links;
+}
+
+// -- Раздел «Подучить» (issue #348) -------------------------------------------
+
+const INSIGHT_STATUS = {
+  active: { icon: "🔥", label: "активна" },
+  fading: { icon: "🌤", label: "угасает" },
+  watch: { icon: "👀", label: "наблюдение" },
+  archived: { icon: "✅", label: "в архиве" },
+};
+
+async function loadInsights() {
+  try {
+    const r = await fetch("/api/insights");
+    state.insights.cards = await r.json();
+  } catch (e) {
+    state.insights.cards = [];
+  }
+  renderInsights();
+  updateInsightsBadge();
+}
+
+function renderInsights() {
+  const empty = $("#insights-empty");
+  const list = $("#insights-cards");
+  if (!list) return;
+  const cards = state.insights.cards;
+  empty.hidden = cards.length > 0;
+  list.hidden = cards.length === 0;
+  list.innerHTML = cards
+    .map(c => {
+      const st = INSIGHT_STATUS[c.status] || { icon: "•", label: c.status };
+      const ref = c.glossary_id
+        ? ' · <a href="#/glossary/' + esc(c.glossary_id) + '">→ глоссарий</a>'
+        : c.category === "lint"
+          ? ' · <a href="#/rules/' + esc(c.key) + '">→ правило</a>'
+          : "";
+      return (
+        '<li class="insight-card insight-' + esc(c.status) + '">' +
+        '<div class="insight-head"><span class="insight-status">' + st.icon + " " + esc(st.label) +
+        '</span> <span class="insight-key">' + esc(c.key) + "</span></div>" +
+        '<div class="hint">замечено в ' + c.hits + " из " + c.runs_considered + " прогонов" + ref + "</div>" +
+        "</li>"
+      );
+    })
+    .join("");
+}
+
+function updateInsightsBadge() {
+  const el = $("#sidebar-badge-insights");
+  if (!el) return;
+  const active = state.insights.cards.filter(c => c.status === "active").length;
+  el.textContent = String(active);
+  el.hidden = active === 0;
 }
 
 // -- Загрузчик задач: скачивание со Stepik (issue #186) -----------------------
@@ -2276,6 +2446,12 @@ $("#glossary-search").addEventListener("input", e => {
   clearTimeout(glossarySearchTimer);
   state.glossary.query = e.target.value;
   glossarySearchTimer = setTimeout(() => loadGlossary(), 200);
+});
+let rulesSearchTimer; // issue #348
+$("#rules-search").addEventListener("input", e => {
+  clearTimeout(rulesSearchTimer);
+  state.rules.query = e.target.value;
+  rulesSearchTimer = setTimeout(() => loadRules(), 200);
 });
 $("#glossary-section").addEventListener("change", e => {
   state.glossary.section = e.target.value;
