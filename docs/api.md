@@ -26,6 +26,9 @@
 - [`GET /api/glossary`](#get-apiglossary)
 - [`GET /api/glossary/missing`](#get-apiglossarymissing)
 - [`GET /api/glossary/<id>`](#get-apiglossaryid)
+- [`GET /api/rules`](#get-apirules)
+- [`GET /api/rules/<code>`](#get-apirulescode)
+- [`GET /api/insights`](#get-apiinsights)
 - [`POST /api/code-terms`](#post-apicode-terms)
 - [`GET /api/commands`](#get-apicommands)
 - [`POST /api/download`](#post-apidownload)
@@ -181,6 +184,40 @@ glossary_card_not_found}`.
 
 ```
 curl http://127.0.0.1:8000/api/glossary/ZeroDivisionError
+```
+
+## `GET /api/rules`
+
+Карточки правил PEP 8 (issue #348, эпик #342). Параметры: `q` — поиск по
+id/title/tags (подстрока), `tag` — точное совпадение метки.
+
+**200** — список карточек (`id`, `title`, `summary`, `body`, `pep_url`,
+`severity`, `status`, `tags`, `example_bad`, `example_good`).
+
+```
+curl "http://127.0.0.1:8000/api/rules?q=E501"
+curl "http://127.0.0.1:8000/api/rules?tag=imports"
+```
+
+## `GET /api/rules/<code>`
+
+Одна карточка правила по коду. **200** карточка, либо **404** `{"kind":
+"error", message_id: rule_card_not_found}`.
+
+```
+curl http://127.0.0.1:8000/api/rules/E501
+```
+
+## `GET /api/insights`
+
+Карточки «Подучить» из истории прогонов (issue #348, эпик #342): частые ошибки
+и их затухание. **200** — список `{key, category, status, hits,
+runs_considered, glossary_id}`; `status` ∈ `active|fading|watch` (архивные
+скрыты). Пустая/отсутствующая история → `[]`. Читает `.grader_history.db` из
+рабочей папки сервера (opt-in `--history`).
+
+```
+curl http://127.0.0.1:8000/api/insights
 ```
 
 ## `POST /api/code-terms`

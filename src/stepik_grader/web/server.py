@@ -36,6 +36,8 @@ from stepik_grader.web.glossary_adapter import (
     queue_code_gaps,
 )
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message, resolve_lang
+from stepik_grader.web.insights_adapter import insights_cards
+from stepik_grader.web.rules_adapter import rules_get, rules_search
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
@@ -266,6 +268,28 @@ class _Handler(BaseHTTPRequestHandler):
                             "kind": "error",
                             **message_fields("glossary_card_not_found", lang, card_id=card_id),
                         }
+                    ),
+                )
+            else:
+                self._send(200, "application/json; charset=utf-8", _json(card))
+        elif parsed.path == "/api/rules":
+            qs = parse_qs(parsed.query)
+            cards = rules_search(
+                (qs.get("q") or [""])[0],
+                tag=(qs.get("tag") or [""])[0] or None,
+            )
+            self._send(200, "application/json; charset=utf-8", _json(cards))
+        elif parsed.path == "/api/insights":
+            self._send(200, "application/json; charset=utf-8", _json(insights_cards()))
+        elif parsed.path.startswith("/api/rules/"):
+            code = parsed.path[len("/api/rules/") :]
+            card = rules_get(code)
+            if card is None:
+                self._send(
+                    404,
+                    "application/json; charset=utf-8",
+                    _json(
+                        {"kind": "error", **message_fields("rule_card_not_found", lang, code=code)}
                     ),
                 )
             else:

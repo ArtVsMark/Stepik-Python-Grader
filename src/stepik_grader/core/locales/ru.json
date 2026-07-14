@@ -15,6 +15,7 @@
   "specify_path_folder": "Укажите путь к папке.",
   "specify_path_file": "Укажите путь к файлу.",
   "glossary_card_not_found": "Карточка не найдена: {card_id}",
+  "rule_card_not_found": "Правило не найдено: {code}",
   "content_length_required": "Заголовок Content-Length обязателен и должен быть неотрицательным числом.",
   "body_too_large": "Тело запроса превышает лимит {limit} байт.",
   "body_invalid_json": "Тело запроса должно быть валидным JSON.",
