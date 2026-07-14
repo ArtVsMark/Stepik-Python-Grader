@@ -790,7 +790,6 @@ async function grade() {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
     state.lastResult = data;
-    addHistoryEntry(path, state.mode, data);
     render(data);
     updateCheckSidebarBadge(data);
     announceResult(summaryFromResult(data)); // issue #298
@@ -965,7 +964,6 @@ async function gradeAsync(path, backendMode, code = null) {
       $("#bar").innerHTML = "";
       if (data.status === "done") {
         state.lastResult = data.result;
-        addHistoryEntry(path, state.mode, data.result);
         render(data.result);
         updateCheckSidebarBadge(data.result);
         announceResult(summaryFromResult(data.result)); // issue #298
@@ -1859,7 +1857,7 @@ function errorCard(g) {
   );
 }
 
-// -- История / Недавние пути (в левой панели «Конфигурация») -----------------
+// -- Недавние пути (в левой панели «Конфигурация») ---------------------------
 
 function addRecentPath(path) {
   let recent = JSON.parse(localStorage.getItem("grader_recent_paths") || "[]");
@@ -1882,56 +1880,6 @@ function renderRecentPaths(recent) {
       // Недавние пути — всегда папки; в режиме «Один файл» сначала нужно
       // найти решения и выбрать конкретный файл, поэтому не грейдим сразу.
       if (state.mode !== "file") grade();
-    })
-  );
-}
-
-function addHistoryEntry(path, mode, data) {
-  const rows = data.rows || [];
-  const summary =
-    data.kind === "error"
-      ? "ошибка"
-      : mode === "bench"
-        ? "бенчмарк · " + rows.length
-        : mode === "microbench"
-          ? "микробенч · " + rows.length
-          : rows.filter(r => r.status === "OK").length + "/" + rows.length + " OK";
-  let history = JSON.parse(localStorage.getItem("grader_history") || "[]");
-  history = [{ path, mode, summary }, ...history].slice(0, 10);
-  localStorage.setItem("grader_history", JSON.stringify(history));
-  renderHistory(history);
-}
-
-function renderHistory(history) {
-  history = history || JSON.parse(localStorage.getItem("grader_history") || "[]");
-  const el = $("#history-list");
-  if (!history.length) {
-    el.innerHTML = '<li class="empty">Пока пусто</li>';
-    return;
-  }
-  el.innerHTML = history
-    .map(h => {
-      const name = h.path.split(/[\\/]/).pop();
-      return (
-        '<li data-path="' + esc(h.path) + '" data-mode="' + esc(h.mode) + '">' +
-        esc(name) + " — " + esc(h.summary) + "</li>"
-      );
-    })
-    .join("");
-  el.querySelectorAll("li[data-path]").forEach(li =>
-    li.addEventListener("click", () => {
-      const mode = li.dataset.mode;
-      setMode(mode); // сбрасывает file-picker state (resetFilePicker внутри setMode)
-      if (mode === "file") {
-        // В истории режима «Один файл» path — это конкретный проверенный
-        // файл, а не папка; папку для #path восстанавливаем эвристически.
-        state.selectedSolutionFile = li.dataset.path;
-        $("#path").value = li.dataset.path.replace(/[\\/][^\\/]*$/, "");
-        updateRunButtonState();
-      } else {
-        $("#path").value = li.dataset.path;
-      }
-      grade();
     })
   );
 }
@@ -2524,7 +2472,6 @@ setSection(state.section);
 setMode(state.mode);
 setConfigTab(state.configTab);
 setResultTab(state.resultTab);
-renderHistory();
 renderRecentPaths();
 loadCommands();
 routeFromHash(); // открыть карточку из #/glossary/<id>, если ссылка прямая (issue #329)
