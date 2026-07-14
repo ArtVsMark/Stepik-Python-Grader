@@ -29,7 +29,8 @@ const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 // command palette, action cards и сценарных кнопок.
 // ---------------------------------------------------------------------------
 const state = {
-  section: localStorage.getItem("grader_section") || "check", // "check" | "glossary" | "downloader" | "sandbox"
+  section: localStorage.getItem("grader_section") || "check", // check|glossary|downloader|rules|insights|sandbox|settings
+  lang: localStorage.getItem("grader_lang") || "ru", // issue #364 — язык сообщений сервера (?lang=)
   mode: localStorage.getItem("grader_mode") || "tests", // "file" | "tests" | "bench" | "microbench"
   resultTab: "table", // "table" | "detail" | "log"
   lastResult: null,
@@ -297,6 +298,29 @@ function cycleTheme() {
   state.theme = state.theme === "system" ? "light" : state.theme === "light" ? "dark" : "system";
   localStorage.setItem("grader_theme", state.theme);
   applyTheme();
+  syncSettingsControls(); // держим select «Настроек» в согласии с топбар-тумблером
+}
+
+// -- Настройки (issue #364) --------------------------------------------------
+
+function setTheme(value) {
+  state.theme = value;
+  localStorage.setItem("grader_theme", value);
+  applyTheme();
+}
+
+function setLang(value) {
+  state.lang = value;
+  localStorage.setItem("grader_lang", value);
+}
+
+// Синхронизировать контролы раздела «Настройки» с текущим состоянием (тему
+// можно менять и топбар-тумблером — тогда select не должен отставать).
+function syncSettingsControls() {
+  const themeSel = $("#settings-theme");
+  const langSel = $("#settings-lang");
+  if (themeSel) themeSel.value = state.theme;
+  if (langSel) langSel.value = state.lang;
 }
 
 // -- Section switch (Проверка решений / Глоссарий) ----------------------------
@@ -316,6 +340,7 @@ function setSection(section) {
   $("#view-rules").hidden = section !== "rules";
   $("#view-insights").hidden = section !== "insights";
   $("#view-sandbox").hidden = section !== "sandbox";
+  $("#view-settings").hidden = section !== "settings";
   if (section === "glossary" && !state.glossary.cards.length) loadGlossary();
   if (section === "rules" && !state.rules.cards.length) loadRules();
   if (section === "insights") loadInsights();
@@ -323,6 +348,7 @@ function setSection(section) {
     mountSandboxEditor(); // issue #317: ленивый монтаж
     loadCodeTerms(); // issue #321: обновить «Функции в коде» под текущий код
   }
+  if (section === "settings") syncSettingsControls(); // issue #364
 }
 
 function openGlossaryForSelectedCase() {
@@ -741,7 +767,7 @@ async function grade() {
     await gradeAsync(path, backendMode);
     return;
   }
-  const q = new URLSearchParams({ path, mode: backendMode });
+  const q = new URLSearchParams({ path, mode: backendMode, lang: state.lang }); // issue #364
   try {
     const r = await fetch("/api/grade?" + q.toString());
     const data = await r.json();
@@ -870,7 +896,8 @@ async function gradeAsync(path, backendMode, code = null) {
   if (code != null) reqBody.code = code; // issue #297 — код режима 1 в теле
   let created;
   try {
-    const createResp = await fetch("/api/v1/runs", {
+    // issue #364: язык сообщений сервер читает из ?lang= POST-запроса (не из тела).
+    const createResp = await fetch("/api/v1/runs?" + new URLSearchParams({ lang: state.lang }), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(reqBody),
@@ -1823,20 +1850,11 @@ function addRecentPath(path) {
 
 function renderRecentPaths(recent) {
   recent = recent || JSON.parse(localStorage.getItem("grader_recent_paths") || "[]");
-  const el = $("#recent-paths-list");
-  if (!recent.length) {
-    el.innerHTML = '<li class="empty">Пока пусто</li>';
-    return;
-  }
-  el.innerHTML = recent.map(p => '<li data-path="' + esc(p) + '">' + esc(p) + "</li>").join("");
-  el.querySelectorAll("li[data-path]").forEach(li =>
-    li.addEventListener("click", () => {
-      $("#path").value = li.dataset.path;
-      // Недавние пути — всегда папки; в режиме «Один файл» сначала нужно
-      // найти решения и выбрать конкретный файл, поэтому не грейдим сразу.
-      if (state.mode !== "file") grade();
-    })
-  );
+  const el = $("#recent-paths-datalist");
+  if (!el) return;
+  // issue #364: недавние пути — <option> нативного datalist у поля #path. Выбор
+  // подставляет путь; запуск — по Enter/«Запустить» (как при ручном вводе).
+  el.innerHTML = recent.map(p => '<option value="' + esc(p) + '"></option>').join("");
 }
 
 // -- Глоссарий: поиск / карточка / очередь пополнения (J7) --------------------
@@ -2336,6 +2354,8 @@ $("#downloader-url").addEventListener("keydown", e => {
   if (e.key === "Enter") downloadTask();
 });
 $("#theme-toggle").addEventListener("click", cycleTheme);
+$("#settings-theme").addEventListener("change", e => setTheme(e.target.value)); // issue #364
+$("#settings-lang").addEventListener("change", e => setLang(e.target.value)); // issue #364
 $("#palette-btn").addEventListener("click", openPalette);
 $("#palette-overlay").addEventListener("click", e => {
   if (e.target.id === "palette-overlay") closePalette();

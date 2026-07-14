@@ -20,7 +20,6 @@
 
   <nav class="sidebar" aria-label="Основная навигация">
     <div class="sidebar-section">
-      <div class="sidebar-label">Рабочее пространство</div>
       <a class="sidebar-item active" href="#check" data-section="check" aria-current="page">
         Проверка решений <span class="sidebar-badge" id="sidebar-badge-check" hidden></span>
       </a>
@@ -34,8 +33,9 @@
       </a>
       <a class="sidebar-item" href="#sandbox" data-section="sandbox">Песочница</a>
       <div class="sidebar-divider"></div>
-      <div class="sidebar-label">Настройки</div>
-      <a class="sidebar-item disabled" aria-disabled="true">Настройки</a>
+      <!-- issue #364: рабочий раздел «Настройки» вместо мёртвой disabled-заглушки;
+           метка-заголовок «Рабочее пространство» убрана (ничего не группировала). -->
+      <a class="sidebar-item" href="#settings" data-section="settings">Настройки</a>
     </div>
   </nav>
 
@@ -68,9 +68,13 @@
           <div class="panel-body">
             <div class="form-group">
               <label class="form-label" for="path">Папка с решениями</label>
-              <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__"
+              <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__" list="recent-paths-datalist"
                      placeholder="Путь к файлу решения (.py) или папке с решениями">
             </div>
+            <!-- issue #364: недавние пути — подсказки datalist у поля пути
+                 (вариант А), а не постоянный блок в панели. -->
+            <datalist id="recent-paths-datalist"></datalist>
+
             <!-- issue #366: параметры режимов 3/4 — инлайн под полем пути (вкладок
                  конфиг-панели больше нет); setMode() показывает нужный блок по
                  режиму: repeats → bench (3), микро-профиль → microbench (4). -->
@@ -136,9 +140,6 @@
               <div class="section-heading">Функции в коде</div>
               <ul id="check-terms" class="side-list"><li class="empty">Начните вводить код или выберите решение</li></ul>
             </div>
-
-            <div class="section-heading">Недавние пути</div>
-            <ul id="recent-paths-list" class="side-list"><li class="empty">Пока пусто</li></ul>
           </div>
         </div>
 
@@ -368,6 +369,39 @@
             </div>
             <div id="sandbox-output" hidden></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «НАСТРОЙКИ» (issue #364) ══ -->
+    <section id="view-settings" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title">Настройки</h1>
+      </div>
+      <div class="split-pane-panel">
+        <div class="panel-header"><span class="panel-title">Интерфейс</span></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label class="form-label" for="settings-theme">Тема оформления</label>
+            <select class="form-input" id="settings-theme">
+              <option value="system">Системная</option>
+              <option value="light">Светлая</option>
+              <option value="dark">Тёмная</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="settings-lang">Язык сообщений</label>
+            <select class="form-input" id="settings-lang">
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+            <div class="hint">Язык сообщений сервера при проверке решений (<code>?lang=</code>);
+              применяется к новым запросам.</div>
+          </div>
+
+          <div class="section-heading">История прогонов</div>
+          <p class="hint">История ошибок (раздел «Подучить», эпик #342) собирается
+            на SQLite при запуске грейдера с историей. Тумблер записи появится здесь.</p>
         </div>
       </div>
     </section>
