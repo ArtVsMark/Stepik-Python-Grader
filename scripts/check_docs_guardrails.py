@@ -36,9 +36,11 @@ from pathlib import Path
 
 __all__ = [
     "README_LINE_BUDGET",
+    "CHANGELOG_MAX_VERSIONS",
     "check_readme_budget",
     "check_markdown_links",
     "check_docs_index_completeness",
+    "check_changelog_version_budget",
     "collect_markdown_files",
     "github_slug",
     "main",
@@ -50,12 +52,21 @@ _ROOT = Path(__file__).resolve().parent.parent
 # §«Документация: README как витрина» — при изменении править оба места.
 README_LINE_BUDGET = 220
 
+# Лимит числа версионных заголовков `## [X.Y.0]` в живом CHANGELOG.md (issue
+# #373). Держим только [Unreleased] + три последних MINOR; более старые релизы
+# ротируются в docs/changelog-archive.md. Синхронизировать с CLAUDE.md
+# §«Обновление CHANGELOG.md» и CONTRIBUTING.md §«Версионирование».
+CHANGELOG_MAX_VERSIONS = 3
+
 # [текст](target) — не изображение (нет ведущего "!"), target без пробелов/скобок.
 _LINK_RE = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)\)")
 # Заголовки ATX: "# ...", "## ..." и т.д.
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 # Внешние схемы, которые не проверяем (сеть/почта/якоря протоколов).
 _EXTERNAL_RE = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|//|#?mailto)", re.IGNORECASE)
+# Версионный заголовок релиза в CHANGELOG.md: "## [1.8.0] - ДАТА" (issue #373).
+# "[Unreleased]" и до-версионные "## [unreleased] / <дата>" не матчатся.
+_CHANGELOG_VERSION_RE = re.compile(r"^## \[\d+\.\d+\.\d+\]")
 
 
 def collect_markdown_files() -> list[Path]:
@@ -177,12 +188,40 @@ def check_docs_index_completeness(errors: list[str]) -> None:
     print(f"docs/ index: checked {checked} file(s) against docs/README.md.")
 
 
+def check_changelog_version_budget(errors: list[str]) -> None:
+    """CHANGELOG.md держит не более ``CHANGELOG_MAX_VERSIONS`` версионных релизов.
+
+    Считаются заголовки вида ``## [X.Y.Z] - ДАТА`` (issue #373). ``[Unreleased]``
+    и до-версионные ``## [unreleased] / <дата>`` из архива не в счёт. Перебор —
+    сигнал ротировать самую старую версию в ``docs/changelog-archive.md``.
+    """
+    changelog = _ROOT / "CHANGELOG.md"
+    versions = [
+        ln
+        for ln in changelog.read_text(encoding="utf-8").splitlines()
+        if _CHANGELOG_VERSION_RE.match(ln)
+    ]
+    if len(versions) > CHANGELOG_MAX_VERSIONS:
+        errors.append(
+            f"CHANGELOG.md: {len(versions)} versioned releases exceed the budget "
+            f"of {CHANGELOG_MAX_VERSIONS} (issue #373). Rotate the oldest into "
+            "docs/changelog-archive.md (keep [Unreleased] + the newest "
+            f"{CHANGELOG_MAX_VERSIONS} MINOR releases)."
+        )
+    else:
+        print(
+            f"CHANGELOG.md: {len(versions)}/{CHANGELOG_MAX_VERSIONS} versioned "
+            "release(s) (within budget)."
+        )
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_readme_budget(errors)
     check_markdown_links(errors)
     check_docs_index_completeness(errors)
+    check_changelog_version_budget(errors)
 
     if errors:
         print("\nFAIL: documentation guardrails violated:")

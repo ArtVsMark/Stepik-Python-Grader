@@ -255,6 +255,12 @@ MAJOR . MINOR . PATCH
 - `CHANGELOG.md`: блок `[Unreleased]` копится и при теге переносится в
   `[X.Y.0]`. Промежуточные PATCH-версии в CHANGELOG **не** документируются
   построчно (иначе CHANGELOG превратится в `git log`).
+- **Краткость и ротация CHANGELOG (issue #373).** Запись = одна строка на
+  изменение (`- <что> (#PR)`), детали — в PR/issue; многострочные пересказы —
+  антипаттерн (раздули `[Unreleased]` перед v1.8.0). В живом `CHANGELOG.md`
+  держим только `[Unreleased]` + **три последних MINOR**; более старые релизы
+  ротируются в [`docs/changelog-archive.md`](docs/changelog-archive.md), а
+  `scripts/check_docs_guardrails.py` стережёт лимит в 3 версионных заголовка.
 
 ### Release-версия vs dev-версия (после PR #183 / issue #162)
 
