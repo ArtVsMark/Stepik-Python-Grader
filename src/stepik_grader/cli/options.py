@@ -149,6 +149,24 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--insights",
+        action="store_true",
+        help=(
+            "Показать сводку карточек «Подучить» (частые ошибки и их затухание) "
+            "из накопленной истории прогонов и выйти. Требует включённую "
+            "--history. Issue #349."
+        ),
+    )
+    parser.add_argument(
+        "--lint",
+        action="store_true",
+        help=(
+            "После проверки режимов 1/2 показать блок «Стиль» — нарушения PEP 8 "
+            "от ruff (требует extra: pip install stepik-python-grader[lint]). "
+            "Не влияет на вердикт. Issue #349."
+        ),
+    )
+    parser.add_argument(
         "--serve",
         action="store_true",
         help=(

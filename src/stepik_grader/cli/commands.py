@@ -27,8 +27,9 @@ import json
 import pathlib
 from typing import Any
 
+from stepik_grader import rules
 from stepik_grader.cli.context import CliContext
-from stepik_grader.core import glossary, history, insights, stats
+from stepik_grader.core import glossary, history, insights, lint, stats
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
@@ -42,6 +43,7 @@ from stepik_grader.core.reporter import (
     print_benchmark_results,
     print_case_verbose,
     print_correctness_results,
+    print_lint_block,
     rich_track,
 )
 
@@ -125,6 +127,32 @@ def _history_db_path() -> pathlib.Path:
     return pathlib.Path.cwd() / history.HISTORY_DB_NAME
 
 
+def _print_lint_blocks(
+    solutions: list[pathlib.Path], base: pathlib.Path | None, output: str
+) -> None:
+    """Блоки «Стиль» по решениям режимов 1/2 (``--lint``, issue #349).
+
+    Только текстовый вывод (машинные форматы не трогаем). Если ruff недоступен
+    (extra ``[lint]`` не установлен) — печатает подсказку об установке один раз,
+    а не по разу на решение. Линт НЕ влияет на вердикт — информационный блок.
+    """
+    if output != "text" or not solutions:
+        return
+    if not lint.ruff_available():
+        print(
+            "Стиль пропущен: ruff не установлен. "
+            "Установите extra: pip install stepik-python-grader[lint] (issue #349)."
+        )
+        return
+    provider = rules.bundled_rules()
+    multi = len(solutions) > 1
+    for sol in solutions:
+        violations = lint.run_lint(sol)
+        if violations and multi and base is not None:
+            print(f"\n{_rel(sol, base)}")
+        print_lint_block(violations, rules_provider=provider)
+
+
 __all__ = [
     "_run_mode_1",
     "_run_mode_2",
@@ -198,6 +226,7 @@ def _run_mode_1(
     use_cache: bool = False,
     record_stats: bool = False,
     record_history: bool = False,
+    record_lint: bool = False,
 ) -> None:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1."""
     if not solution.is_file():
@@ -259,6 +288,8 @@ def _run_mode_1(
     print()
     base = solution.resolve().parent
     print_correctness_results([(solution, result)], base, col_file=col_file)
+    if record_lint:
+        _print_lint_blocks([solution], None, output)
 
 
 def _run_mode_2(
@@ -270,6 +301,7 @@ def _run_mode_2(
     use_cache: bool = False,
     record_stats: bool = False,
     record_history: bool = False,
+    record_lint: bool = False,
 ) -> None:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2."""
     if not directory.is_dir():
@@ -335,6 +367,8 @@ def _run_mode_2(
     print_correctness_results(rows, directory, col_file=col_file)
     if cache is not None:
         print(ctx.t("cache_summary", hits=cache_hits, total=len(rows)))
+    if record_lint:
+        _print_lint_blocks([p for p, _ in rows], directory, output)
 
 
 def _run_mode_3(

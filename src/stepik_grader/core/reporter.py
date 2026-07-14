@@ -30,6 +30,8 @@ __all__ = [
     "print_benchmark_results",
     "print_case_verbose",
     "print_stats_summary",
+    "print_insights_summary",
+    "print_lint_block",
     "rich_track",
 ]
 
@@ -315,6 +317,80 @@ def print_stats_summary(summary: dict[str, Any]) -> None:
     for name, value in rows:
         print(f"{name:<20} {value:>15}")
     print(_SEP)
+
+
+_INSIGHT_STATUS_LABEL: dict[str, str] = {
+    "active": "активна",
+    "fading": "угасает",
+    "watch": "наблюдение",
+    "archived": "в архиве",
+}
+
+
+def _insight_reference(card: Any, rules_provider: Any) -> str:
+    """Ссылка карточки инсайта: правило PEP (lint) или глоссарий (runtime-error)."""
+    if card.category == "lint" and rules_provider is not None:
+        rule = rules_provider.get(card.key)
+        if rule is not None:
+            return rule.pep_url or rule.docs_url or ""
+    if card.glossary_id:
+        return f"glossary:{card.glossary_id}"
+    return ""
+
+
+def print_insights_summary(cards: list[Any], *, rules_provider: Any = None) -> None:
+    """Напечатать сводку карточек «Подучить» (issue #349).
+
+    Предполагает непустой ``cards`` — пустое состояние («данных нет») печатает
+    вызывающая сторона локализованным сообщением ДО вызова (тот же паттерн, что
+    ``print_stats_summary``). ``rules_provider`` — для ссылок lint-карточек.
+    """
+    rows = [
+        (
+            card.key,
+            _INSIGHT_STATUS_LABEL.get(card.status, card.status),
+            f"{card.hits}/{card.runs_considered}",
+            _insight_reference(card, rules_provider),
+        )
+        for card in cards
+    ]
+    if _RICH and _console is not None:
+        table = Table(title="Подучить", show_lines=False)
+        table.add_column("Ключ", style="cyan")
+        table.add_column("Статус")
+        table.add_column("Замечен", justify="right")
+        table.add_column("Ссылка")
+        for key, status, seen, ref in rows:
+            table.add_row(key, status, seen, ref)
+        _console.print(table)
+        return
+    print(_SEP)
+    for key, status, seen, ref in rows:
+        print(f"{key:<34} {status:<12} {seen:>8}  {ref}")
+    print(_SEP)
+
+
+def print_lint_block(violations: list[Any], *, rules_provider: Any = None) -> None:
+    """Блок «Стиль» после результатов режимов 1/2 (issue #349).
+
+    Группирует нарушения по коду (``⚐ E501 ×3 [строки …]``) с однострочником
+    правила из ``rules_provider``. Пустой список — тихо ничего. Линт НЕ влияет
+    на вердикт — чисто информационный блок (эпик #342, § 9.4).
+    """
+    if not violations:
+        return
+    by_code: dict[str, list[int]] = {}
+    for v in violations:
+        by_code.setdefault(v.rule_code, []).append(v.line_no)
+    _cprint("Стиль (не влияет на вердикт):", style="yellow")
+    for code in sorted(by_code):
+        lines = sorted(n for n in by_code[code] if n > 0)
+        rule = rules_provider.get(code) if rules_provider is not None else None
+        note = f" — {rule.summary or rule.title}" if rule is not None else ""
+        shown = ", ".join(str(n) for n in lines[:10])
+        more = "…" if len(lines) > 10 else ""
+        loc = f" [строки {shown}{more}]" if lines else ""
+        _cprint(f"  ⚐ {code} ×{len(by_code[code])}{loc}{note}", style="yellow")
 
 
 def _cprint(text: str, *, style: str = "") -> None:
