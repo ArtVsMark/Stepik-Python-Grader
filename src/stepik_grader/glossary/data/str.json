@@ -35,47 +35,6 @@
     "related_errors": []
   },
   {
-    "id": "center-ljust-rjust-zfill",
-    "title": "center() / ljust() / rjust() / zfill()",
-    "kind": "function",
-    "summary": {
-      "ru": "Выравнивание строки до заданной ширины символом-заполнителем (по умолчанию пробел). zfill() заполняет нулями слева.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.center(width[, fill])  |  s.ljust(width[, fill])  |  s.rjust(width[, fill])  |  s.zfill(width)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-center-ljust-rjust-zfill",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "выравнивание",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('hi'.center(10))",
-      "# → '    hi    '",
-      "print('hi'.center(10, '-'))",
-      "# → '----hi----'",
-      "print('hi'.ljust(10, '.'))",
-      "# → 'hi........'",
-      "print('hi'.rjust(10, '.'))",
-      "# → '........hi'",
-      "print('42'.zfill(5))",
-      "# → '00042'",
-      "print('-3'.zfill(5))",
-      "# → '-0003'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "chr-ord",
     "title": "chr() / ord()",
     "kind": "function",
@@ -369,47 +328,6 @@
     "related_errors": []
   },
   {
-    "id": "replace",
-    "title": "replace()",
-    "kind": "function",
-    "summary": {
-      "ru": "Заменяет все (или count первых) вхождений old на new. Не изменяет оригинал.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.replace(old, new[, count])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-replace",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "замена",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('aabbcc'.replace('b', 'X'))",
-      "# → 'aaXXcc'",
-      "print('hello hello'.replace('hello', 'hi'))",
-      "# → 'hi hi'",
-      "print('hello hello'.replace('hello', 'hi', 1))",
-      "# → 'hi hello'",
-      "print('remove spaces'.replace(' ', ''))",
-      "# → 'removespaces'",
-      "print('aaa'.replace('a', 'bb'))",
-      "# → 'bbbbbb'",
-      "print('no match'.replace('x', 'y'))",
-      "# → 'no match'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "str-format_map",
     "title": "format_map()",
     "kind": "function",
@@ -442,154 +360,6 @@
       "def __missing__(self, key): return f'<{key}?>'",
       "print('{name} {age}'.format_map(Default(name='Артём')))",
       "# Артём <age?>"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.expandtabs",
-    "title": "str.expandtabs()",
-    "kind": "function",
-    "summary": {
-      "ru": "Заменяет символы табуляции (\\t) пробелами так, чтобы следующий символ оказался на ближайшей позиции, кратной tabsize (по умолчанию 8).",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.expandtabs(tabsize=8)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.expandtabs",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "форматирование",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(\"a\\tb\\tc\".expandtabs())       # → a       b       c",
-      "print(\"a\\tb\\tc\".expandtabs(4))      # → a   b   c",
-      "print(\"ab\\tcd\".expandtabs(4))       # → ab  cd",
-      "print(\"abc\\tde\".expandtabs(4))      # → abc de",
-      "print(\"1\\t2\\t3\".expandtabs(2))      # → 1 2 3"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.maketrans-str.translate",
-    "title": "str.maketrans() / str.translate()",
-    "kind": "function",
-    "summary": {
-      "ru": "maketrans() создаёт таблицу замены символов. translate() применяет эту таблицу к строке. Позволяет заменять или удалять произвольные символы за один проход.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.maketrans(x[, y[, z]])  str.translate(table)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.maketrans-str.translate",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "замена",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "t = str.maketrans(\"aeiou\", \"*****\")",
-      "print(\"hello world\".translate(t))    # → h*ll* w*rld",
-      "t2 = str.maketrans(\"\", \"\", \"aeiou\")",
-      "print(\"hello world\".translate(t2))   # → hll wrld",
-      "t3 = str.maketrans({\"a\": \"@\", \"e\": \"3\"})",
-      "print(\"cafe\".translate(t3))          # → c@f3",
-      "t4 = str.maketrans(\"abc\", \"123\")",
-      "print(\"abcabc\".translate(t4))        # → 123123"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str.removeprefix-str.removesuffix",
-    "title": "str.removeprefix() / str.removesuffix()",
-    "kind": "function",
-    "summary": {
-      "ru": "Удаляют указанный префикс или суффикс, если строка начинается/заканчивается на него. В отличие от lstrip/rstrip, работают с подстроками, а не наборами символов (Python 3.9+).",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str.removeprefix(prefix)  str.removesuffix(suffix)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str.removeprefix-str.removesuffix",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "3.9+",
-    "section": "Строки (str)",
-    "subcat": "обрезка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print(\"Hello, World\".removeprefix(\"Hello, \"))  # → World",
-      "print(\"Hello, World\".removesuffix(\", World\"))  # → Hello",
-      "print(\"test_func\".removeprefix(\"test_\"))       # → func",
-      "print(\"image.png\".removesuffix(\".png\"))        # → image",
-      "print(\"hello\".removeprefix(\"xyz\"))             # → hello",
-      "print(\"hello\".removesuffix(\"xyz\"))             # → hello"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "strip-lstrip-rstrip",
-    "title": "strip() / lstrip() / rstrip()",
-    "kind": "function",
-    "summary": {
-      "ru": "strip() удаляет пробельные символы (или указанные символы) с обоих концов строки. lstrip() — слева, rstrip() — справа.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "s.strip([chars])  |  s.lstrip([chars])  |  s.rstrip([chars])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-strip-lstrip-rstrip",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Строки (str)",
-    "subcat": "обрезка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "str"
-    ],
-    "examples": [
-      "print('  hello  '.strip())",
-      "# → 'hello'",
-      "print('  hello  '.lstrip())",
-      "# → 'hello  '",
-      "print('  hello  '.rstrip())",
-      "# → '  hello'",
-      "print('***hi***'.strip('*'))",
-      "# → 'hi'",
-      "lines = ['  a  ', ' b ', '  c']",
-      "print([l.strip() for l in lines])",
-      "# → ['a', 'b', 'c']",
-      "print('xxhelloxx'.strip('x'))",
-      "# → 'hello'"
     ],
     "related": [],
     "related_errors": []
@@ -1961,6 +1731,422 @@
       "print(','.join(['a', 'b', 'c']))  # → a,b,c",
       "print(''.join(['1', '2', '3']))   # → 123",
       "print('-'.join('abc'))            # → a-b-c"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.strip",
+    "title": "str.strip",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без ведущих и хвостовых символов (по умолчанию пробелов).",
+      "en": "Return a copy with leading and trailing characters removed (whitespace by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.strip([chars])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.strip",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('  hi  '.strip())    # → hi",
+      "print('xxhixx'.strip('x'))  # → hi",
+      "print('...a.'.strip('.'))   # → a"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.lstrip",
+    "title": "str.lstrip",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без ведущих символов слева (по умолчанию пробелов).",
+      "en": "Return a copy with leading characters removed (whitespace by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.lstrip([chars])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.lstrip",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('  hi'.lstrip())     # → hi",
+      "print('xxhi'.lstrip('x'))  # → hi",
+      "print('--a--'.lstrip('-'))  # → a--"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rstrip",
+    "title": "str.rstrip",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без хвостовых символов справа (по умолчанию пробелов).",
+      "en": "Return a copy with trailing characters removed (whitespace by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rstrip([chars])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rstrip",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hi  '.rstrip())     # → hi",
+      "print('hixx'.rstrip('x'))  # → hi",
+      "print('--a--'.rstrip('-'))  # → --a"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.center",
+    "title": "str.center",
+    "kind": "function",
+    "summary": {
+      "ru": "Центрирует строку в поле ширины width, дополняя символом fillchar (по умолч. пробел).",
+      "en": "Center the string in a field of the given width, padded with fillchar (space by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.center(width[, fillchar])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.center",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hi'.center(6, '*'))  # → **hi**",
+      "print('hi'.center(5))       # →   hi ",
+      "print('hi'.center(1))       # → hi"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.ljust",
+    "title": "str.ljust",
+    "kind": "function",
+    "summary": {
+      "ru": "Выравнивает строку по левому краю в поле ширины width, дополняя справа fillchar.",
+      "en": "Left-justify the string in a field of the given width, padded on the right."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.ljust(width[, fillchar])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.ljust",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hi'.ljust(5, '.'))  # → hi...",
+      "print('hi'.ljust(5) + '|')  # → hi   |",
+      "print('hello'.ljust(3))    # → hello"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.rjust",
+    "title": "str.rjust",
+    "kind": "function",
+    "summary": {
+      "ru": "Выравнивает строку по правому краю в поле ширины width, дополняя слева fillchar.",
+      "en": "Right-justify the string in a field of the given width, padded on the left."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.rjust(width[, fillchar])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.rjust",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('hi'.rjust(5, '.'))  # → ...hi",
+      "print('42'.rjust(5, '0'))  # → 00042",
+      "print('hello'.rjust(3))    # → hello"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.zfill",
+    "title": "str.zfill",
+    "kind": "function",
+    "summary": {
+      "ru": "Дополняет строку нулями слева до ширины width; знак +/- остаётся впереди.",
+      "en": "Pad the string on the left with zeros to the given width; a leading sign is kept."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.zfill(width)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.zfill",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('42'.zfill(5))    # → 00042",
+      "print('-42'.zfill(5))   # → -0042",
+      "print('3.14'.zfill(6))  # → 003.14"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.replace",
+    "title": "str.replace",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию, где все вхождения old заменены на new. Опц. лимит count.",
+      "en": "Return a copy with all occurrences of old replaced by new (optional count limit)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.replace(old, new[, count])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.replace",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a.b.c'.replace('.', '_'))    # → a_b_c",
+      "print('aaa'.replace('a', 'b', 2))   # → bba",
+      "print('hello'.replace('l', ''))     # → heo"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.translate",
+    "title": "str.translate",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет символы по таблице (обычно из str.maketrans): ord(символа) → замена.",
+      "en": "Map characters through a translation table (usually from str.maketrans)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.translate(table)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.translate",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.translate(str.maketrans('abc', 'xyz')))  # → xyz",
+      "print('a-b-c'.translate(str.maketrans('', '', '-')))  # → abc",
+      "print('cat'.translate({ord('a'): 'A'}))  # → cAt"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.maketrans",
+    "title": "str.maketrans",
+    "kind": "function",
+    "summary": {
+      "ru": "Статический метод: строит таблицу перевода для translate из двух строк (и опц. удаляемых).",
+      "en": "Static method: build a translation table for translate from two strings (plus optional deletes)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "str.maketrans(x[, y[, z]])",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.maketrans",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('abc'.translate(str.maketrans('ab', 'AB')))  # → ABc",
+      "t = str.maketrans({'x': 'y'}); print('xox'.translate(t))  # → yoy",
+      "print('a1b2'.translate(str.maketrans('', '', '12')))  # → ab"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.removeprefix",
+    "title": "str.removeprefix",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без префикса prefix, если он есть; иначе строку без изменений (Python 3.9+).",
+      "en": "Return a copy with the given prefix removed if present, otherwise unchanged (Python 3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.removeprefix(prefix)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removeprefix",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('test_foo'.removeprefix('test_'))  # → foo",
+      "print('foo'.removeprefix('test_'))       # → foo",
+      "print('__x'.removeprefix('_'))           # → _x"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.removesuffix",
+    "title": "str.removesuffix",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию без суффикса suffix, если он есть; иначе строку без изменений (Python 3.9+).",
+      "en": "Return a copy with the given suffix removed if present, otherwise unchanged (Python 3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.removesuffix(suffix)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removesuffix",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('file.py'.removesuffix('.py'))   # → file",
+      "print('file'.removesuffix('.py'))      # → file",
+      "print('x__'.removesuffix('_'))         # → x_"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "str.expandtabs",
+    "title": "str.expandtabs",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет табы пробелами до колонок кратных tabsize (по умолчанию 8).",
+      "en": "Replace tabs with spaces, aligning to columns that are multiples of tabsize (default 8)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "s.expandtabs(tabsize=8)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.expandtabs",
+    "version": "",
+    "section": "Строки (str)",
+    "subcat": "замена",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "str"
+    ],
+    "examples": [
+      "print('a\\tb'.expandtabs(4))   # → a   b",
+      "print('ab\\tc'.expandtabs(4))  # → ab  c",
+      "print('a\\tb'.expandtabs(1))   # → a b"
     ],
     "related": [],
     "related_errors": []
