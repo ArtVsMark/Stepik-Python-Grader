@@ -147,7 +147,7 @@ pip install -e ".[dev]"      # + pytest, pytest-cov, ruff, mypy
 **Шаг 5. Проверить установку:**
 
 ```bash
-python -m stepik_grader --version   # напр. 1.5.0
+python -m stepik_grader --version   # напр. 1.8.0
 ```
 
 > Проект использует src-layout (`src/stepik_grader/`, Issue #35) — модули
