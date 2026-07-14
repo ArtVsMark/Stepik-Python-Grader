@@ -21,6 +21,8 @@
   stacked layout with CLI-aligned tables for modes 3/4. Filed as epics #362
   (web UX, children #364–#370) and #363 (glossary, pilot wave #371).
 
+## [1.8.0] - 2026-07-14
+
 ### Internal
 - Replaced fixed `time.sleep` pauses in the async web-layer tests with a shared
   `wait_until(predicate, timeout, interval)` helper (`tests/_wait.py`, issue
