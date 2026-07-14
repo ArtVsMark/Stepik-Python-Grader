@@ -8,8 +8,9 @@
 1. **Возврат статического источника истины.** ``[project]`` в ``pyproject.toml``
    не должен снова объявлять ``version = "..."`` — только ``dynamic = ["version"]``.
 2. **Дрейф "текущей версии" в документации.** ``CHECKPOINT.md`` (и, мягко,
-   таблица метрик ``CLAUDE.md``) и верхняя запись ``CHANGELOG.md`` должны
-   соответствовать актуальному релизному baseline — последнему git-тегу ``vX.Y.0``.
+   таблица метрик ``CLAUDE.md`` и таблица эволюции ``docs/versions.md``) и
+   верхняя запись ``CHANGELOG.md`` должны соответствовать актуальному релизному
+   baseline — последнему git-тегу ``vX.Y.0``.
 
 Baseline вычисляется из git (``git describe --tags --abbrev=0``). Сравнение
 CHECKPOINT/CLAUDE ведётся только по ``MAJOR.MINOR`` — PATCH в схеме проекта это
@@ -44,6 +45,7 @@ _PYPROJECT = _ROOT / "pyproject.toml"
 _CHECKPOINT = _ROOT / "CHECKPOINT.md"
 _CHANGELOG = _ROOT / "CHANGELOG.md"
 _CLAUDE = _ROOT / "CLAUDE.md"
+_VERSIONS = _ROOT / "docs" / "versions.md"
 
 _SEMVERISH = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
@@ -145,6 +147,22 @@ def _check_claude_metrics(baseline: tuple[int, int, int], warnings: list[str]) -
         )
 
 
+def _check_versions_md(baseline: tuple[int, int, int], warnings: list[str]) -> None:
+    """docs/versions.md: таблица эволюции имеет колонку последнего релиза (мягко).
+
+    Таблица «Эволюция версий» — про качественные скачки, свободный формат;
+    поэтому warning, а не error (владелец может решить не выделять релиз в
+    отдельную колонку). Закрывает слепую зону аудита #381: без этой проверки
+    канон уже отставал — таблица кончалась на v1.7.0 при git-теге v1.8.0.
+    """
+    tag = f"v{baseline[0]}.{baseline[1]}.0"
+    if tag not in _VERSIONS.read_text(encoding="utf-8"):
+        warnings.append(
+            f"docs/versions.md: evolution table has no column for the latest "
+            f"release {tag}. Add a {tag} column at the next MINOR release."
+        )
+
+
 def main() -> int:
     """Вернуть 0, если дрейфа версий нет; 1 — если найден."""
     baseline = _latest_tag_baseline()
@@ -162,6 +180,7 @@ def main() -> int:
         _check_checkpoint(baseline, errors)
         _check_changelog(baseline, errors)
         _check_claude_metrics(baseline, warnings)
+        _check_versions_md(baseline, warnings)
 
     for w in warnings:
         print(f"  WARNING: {w}")

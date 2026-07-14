@@ -31,7 +31,7 @@
 
 | Способ | Область | Пример |
 |---|---|---|
-| Флаг CLI | один запуск | `--diagnostic` / `--verbose` |
+| Флаг CLI | один запуск | `--diagnostic` |
 | Переменная окружения | сессия/CI | `STEPIK_GRADER_LOG=debug` |
 | Диагностическая утилита | разбор API/токена | `python -m stepik_grader.diagnostic_stepik` |
 

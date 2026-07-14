@@ -81,7 +81,7 @@ pytest tests/ --cov=. --cov-report=term-missing -q      # покрытие (ин
 ### Запуск
 
 ```bash
-python -m stepik_grader.grader              # интерактивное меню (режимы 0-4)
+python -m stepik_grader.grader              # интерактивное меню (режимы 0-5)
 python -m stepik_grader.downloader          # скачать задачу по URL Stepik
 python -m stepik_grader.diagnostic_stepik   # диагностика API и токена
 stepik-grader                               # то же, если пакет установлен
@@ -178,7 +178,8 @@ chore(deps): bump psutil upper bound
 Ручную сверку версий делать не нужно: за дрейф отвечает CI
 (`scripts/check_version_consistency.py`, issue #165). Полная политика — в
 [`CONTRIBUTING.md § Версионирование`](CONTRIBUTING.md#версионирование-issue-68).
-UX-полировка вывода `--version` (dev vs release маркер) — задача #163, см.
+UX-полировка вывода `--version` (dev vs release маркер) — задача #163 **закрыта**
+(реализовано; ср. § Открытая работа ниже); архивная постановка —
 [`docs/claude-handoff.md`](docs/claude-handoff.md).
 
 `scripts/version.py`'s "логическая" `X.Y.Z` (README `Version`-бейдж) считает

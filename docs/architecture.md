@@ -13,7 +13,7 @@
 | Модуль | Архитектурный слой | Что делает |
 |---|---|---|
 | `grader.py` | Application | Тонкий фасад обратной совместимости — реэкспортирует `core/grader_core.py`, `core/reporter.py`, `cli/__init__.py` |
-| `cli/__init__.py` | Application / CLI | Интерактивное меню (режимы 0-4), non-interactive argparse CLI, профили нагрузки, mutable i18n state (`_LANG`/`_MESSAGES`); реэкспортирует `cli/options.py`, `cli/rendering.py` и тонкие обёртки `_run_mode_1..4` над `cli/commands.py` для обратной совместимости фасада; строит `CliContext` заново на каждый вызов (`_build_cli_context()`), чтобы monkeypatch на facade-имена долетал до handlers; консольная команда `stepik-grader` (issue #117/#119/#120/#121) |
+| `cli/__init__.py` | Application / CLI | Интерактивное меню (режимы 0-5), non-interactive argparse CLI, профили нагрузки, mutable i18n state (`_LANG`/`_MESSAGES`); реэкспортирует `cli/options.py`, `cli/rendering.py` и тонкие обёртки `_run_mode_1..4` над `cli/commands.py` для обратной совместимости фасада; строит `CliContext` заново на каждый вызов (`_build_cli_context()`), чтобы monkeypatch на facade-имена долетал до handlers; консольная команда `stepik-grader` (issue #117/#119/#120/#121) |
 | `cli/options.py` | Application / CLI (leaf) | argparse-парсер (`_build_arg_parser`) и разрешение `--verbose/--quiet`/`--cache` в конкретные bool (`_resolve_verbosity`, `_resolve_use_cache`), `_force_utf8_stdio`; не импортирует `cli/__init__.py`, реэкспортирован им как `cli._build_arg_parser` и т.д. (issue #119, Stage 1 эпика #117) |
 | `cli/context.py` | Application / CLI (leaf) | `CliContext` (frozen dataclass) — явные зависимости для command/interactive handlers (`t`, `run_tests`, `run_benchmark`, `run_microbench_mode`, `resolve_test_dir_from_input`, `print_tabular`, `pick_path_via_dialog`, `ask_bench_profile`, `ask_micro_profile`, `run_mode_1..4`); не импортирует `cli/__init__.py`/`cli/commands.py`/`cli/interactive.py` (issue #120, расширено issue #121 Phase 2) |
 | `cli/commands.py` | Application / CLI (leaf) | Реализация `_run_mode_1..4` и `_run_tests_maybe_cached`; принимают `CliContext` первым параметром вместо чтения module globals; не импортирует `cli/__init__.py`, вызывается из тонких обёрток фасада (issue #120, Stage 2 эпика #117) |
@@ -23,13 +23,16 @@
 | `downloader.py` | Application | Координатор загрузки задач (issue #302, после SRP-разбиения): `build_task_directory`, `save_task_files` (выбор источника тестов), `process_step_url`, CLI `main`. Специализированные роли вынесены (см. ниже), их публичные имена реэкспортируются для обратной совместимости |
 | `downloader_config.py` | Application | Конфиг `stepik_config.json` + интерактив загрузчика (issue #302): `slugify`, `ask_value`, `create_or_update_config`, `load_or_create_config`, `normalize_config_paths`. Держится вне `core/` намеренно — `input()`-интерактив не место в чистых Domain-модулях |
 | `diagnostic_stepik.py` | Application / Diagnostics | Диагностика: проверяет структуру ответа API и корректность токена авторизации |
-| `web/server.py` | Application / Web | HTTP-хендлер (stdlib `http.server`, `--serve`): роутинг `GET /api/grade`\|`/api/glossary*`\|`/api/commands`\|`/api/solutions`\|`/api/source`, `POST /api/download`\|`/api/save-solution`; статика (`static/{index.html,app.css,app.js}`) читается один раз при импорте; тонкий слой поверх `viewmodels.py`/адаптеров ниже, бизнес-логики не добавляет |
+| `web/server.py` | Application / Web | HTTP-хендлер (stdlib `http.server`, `--serve`): роутинг `GET /api/grade`\|`/api/glossary*`\|`/api/glossary/missing`\|`/api/rules`(`/{code}`)\|`/api/insights`\|`/api/commands`\|`/api/solutions`\|`/api/source`\|`/api/v1/runs`(`/{id}`), `POST /api/download`\|`/api/save-solution`\|`/api/code-terms`\|`/api/v1/runs`(`/{id}/cancel`); статика (`static/` — `index.html`/`app.css`/`app.js` + `fonts/` + `vendor/codemirror-bundle@6.mjs`) читается при импорте; тонкий слой поверх `viewmodels.py`/адаптеров ниже, бизнес-логики не добавляет |
 | `web/viewmodels.py` | Application / Web | Грейдинг → JSON: `grade_path`/`grade_benchmark`/`grade_microbench`/`list_solutions`/`read_source`/`save_solution`; ErrorCard-мэппинг (`_case_view`) с glossary-lookup и J7 missing-queue wiring (issue #125/#186/#187) |
 | `web/downloader_adapter.py` | Application / Web | `download_task` — тонкий адаптер над `downloader.py`: OAuth без похода в браузер, раздел «Загрузчик задач» (issue #186) |
-| `web/glossary_adapter.py` | Application / Web | `glossary_search`/`glossary_get`/`glossary_missing` — тонкие адаптеры над `glossary/json_provider.py` (или fallback на компактный `core/glossary.py`) для раздела «Глоссарий» (issue #125) |
+| `web/glossary_adapter.py` | Application / Web | `glossary_search`/`glossary_get`/`glossary_missing`/`code_terms` — тонкие адаптеры над `glossary/json_provider.py` (или fallback на компактный `core/glossary.py`) для разделов «Глоссарий»/«Функции в коде» (issue #125); `code_terms` собирает inventory-driven наборы из `glossary/stdlib_inventory` (issue #367) |
+| `web/rules_adapter.py` | Application / Web | `rules_search`/`rules_get` — тонкий адаптер над пакетом `rules/` (`bundled_rules`) для раздела «Правила (PEP)» (issue #379) |
+| `web/insights_adapter.py` | Application / Web | `insights_cards`/`active_count` — адаптер над `core/insights`+`core/history` для раздела «Подучить» (issue #379) |
 | `web/commands.py` | Application / Web (leaf) | Реестр команд (`COMMANDS`, `filter_commands`) для command palette/action cards; не импортирует ничего из проекта |
-| `web/runs.py` | Application / Web | Async job-модель для bench/microbench (`submit_job`/`get_job`/`cancel_job`, issue #262) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
-| `web/i18n.py` | Application / Web (leaf) | `message_id`-каталог веб-API (issue #264): `resolve_lang`/`message_fields`/`render_message`, JSON-локали `web/locales/<lang>.json`; не импортирует ничего из проекта |
+| `web/runs.py` | Application / Web | Async job-модель для bench/microbench/playground/trace (`submit_job`/`get_job`/`cancel_job`, issue #262) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
+| `web/playground.py` | Application / Web | `run_playground` — запуск кода со stdin через `core/runner.LocalRunner` (issue #317, раздел «Песочница»); потребитель — `web/runs.py` |
+| `web/i18n.py` | Application / Web | `message_id`-каталог веб-API (issue #264): `resolve_lang`/`message_fields`/`render_message`; рендер поверх `core/i18n.load_locale_messages` (локали в `core/locales/<lang>.json`, **не** `web/locales/`); импортирует `core/i18n.py` — не leaf |
 | `ide.py` | Application / IDE | IDE-интеграция `--init-vscode`: генерация конфигов VS Code (tasks/launch) |
 | `pytest_plugin.py` | Application / Plugin | pytest-плагин (`pytest --grader-mode`, issue #57): запуск тест-кейсов грейдера как pytest-тестов |
 | `core/cache.py` | Infrastructure / Utilities | Кэш результатов `.grader_cache/` (issue #56): ключ по контенту решения+тестов, graceful degradation при битом/отсутствующем кэше |
@@ -42,13 +45,14 @@
 | `core/reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA, адаптивное форматирование времени (`fmt_time`) |
 | `core/result.py` | Domain (leaf) | `TestResult` (frozen dataclass) + `Verdict` Literal — типизированная модель case result (issue #112/#113); `from_dict`/`to_dict` конвертируют форму, которую по-прежнему возвращает `run_single_test()` (`dict[str, Any]`, контракт не меняется — [result-contract.md](result-contract.md)); используется `core/reporter.print_case_verbose` вместо чтения произвольных dict-ключей |
 | `core/runner.py` | Infrastructure | `Runner` Protocol + `RunSpec`/`RunOutcome` + `LocalRunner` — абстракция запуска кода (issue #136/#137/#138, `docs/server-mode.md § Runner-слой`); `LocalRunner` — subprocess + best-effort лимит памяти (POSIX) + psutil-мониторинг RSS, то же поведение, что раньше жило внутри `run_single_test`. `SandboxRunner` (issue #266, реализован, см. `core/sandbox/`) — тот же протокол, ОС-уровневая изоляция; инъекция через `grader_core.set_runner()` |
+| `core/tracer.py` | Infrastructure (leaf) | Пошаговый трассировщик `trace_code` (`sys.settrace` → JSON-трейс) для web-песочницы (issue #318): исполнение в subprocess, нормализованные `obj_id`, лимит шагов; только stdlib, project-импортов нет |
 | `core/sandbox/` | Infrastructure | `SandboxRunner`/`SandboxUnavailableError` (issue #266, `--sandbox`) — ОС-специфичный backend по платформе: `_linux.py` (bubblewrap), `_macos.py` (sandbox-exec/Seatbelt), `_windows.py` (Job Objects, ctypes); `_posix_bootstrap.py`/`_posix_common.py` — общий POSIX-код лимитов (CPU/FS/processes) для Linux и macOS; `_run_dir.py` — эфемерная run-директория. Реализует тот же `Runner`-протокол, что `LocalRunner` — см. [server-mode.md § Runner-слой](server-mode.md), гарантии по ОС — [SECURITY.md](../SECURITY.md) |
 | `core/stats.py` | Infrastructure / Utilities | Opt-in локальная статистика запусков (issue #268): `record_run`/`read_summary`, JSON Lines `.grader_stats.jsonl`, best-effort (переживает битый/отсутствующий файл), size-based ротация |
 | `core/history.py` | Infrastructure / Utilities | Opt-in SQLite-история прогонов (issue #344, эпик #342): `record_run`/`read_recent_runs`, база `.grader_history.db` (runs/case_results/lint_violations), WAL + `user_version`-миграции, best-effort. Фундамент разделов «Правила»/«Подучить» |
 | `core/mtime_cache.py` | Infrastructure / Utilities | Generic mtime-инвалидируемый кеш загрузки (issue #345): `mtime_signature`/`MtimeCache[T]`. Вынесено из `web/glossary_adapter` (#339), переиспользуется провайдерами glossary и rules (не копипаст) |
 | `core/lint.py` | Infrastructure / Utilities | Opt-in PEP-проверка через ruff (issue #346, эпик #342): `run_lint`→`list[Violation]`, `ruff_available`, `LintUnavailable`; extra `[lint]`, best-effort, НЕ влияет на вердикт |
 | `core/insights.py` | Infrastructure / Utilities | Таксономия падений + затухание карточек «Подучить» (issue #347, эпик #342): `failure_kind`/`classify_status`/`learning_cards` — чистые функции + агрегация из истории, статусы active/fading/archived/watch по номерам прогонов (не по календарю) |
-| `rules/` (пакет) | Domain (leaf) | Карточки правил PEP 8 (issue #345, эпик #342): `RuleCard` (`models.py`) + `JsonRulesProvider` (`json_provider.py`) + bundled `data/pep8_ru.json` (≥30 кодов E/W/F). По образцу `glossary/`, кеш bundled-базы через `core/mtime_cache` |
+| `rules/` (пакет) | Domain | Карточки правил PEP 8 (issue #345, эпик #342): `RuleCard` (`models.py`) + `JsonRulesProvider` (`json_provider.py`) + bundled `data/pep8_ru.json` (≥30 кодов E/W/F). По образцу `glossary/`; `json_provider` тянет `core/mtime_cache` — не leaf |
 | `core/executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
@@ -61,6 +65,7 @@
 | `core/test_source_fetcher.py` | Infrastructure | Скачивание тестов из внешних источников (issue #302): `download_zip_tests` (Stepik ZIP), `download_github_tests` (GitHub Contents API) → Format 3; безопасность сторонних хостов через `stepik_client` (issue #240) |
 | `core/step_content.py` | Domain (leaf) | Извлечение данных из ответов Stepik API (issue #302): `parse_stepik_step_url`, `extract_python_code`, `extract_submission_code`, `extract_function_name`. Чистые `dict/str -> данные`, без сети/ФС |
 | `core/i18n.py` | Infrastructure / Utilities (leaf) | `load_locale_messages(lang)` — JSON-локали `core/locales/<lang>.json` (issue #141/#144); аддитивный путь поверх статического `_MESSAGES` в `cli/__init__.py` — новые сообщения через JSON, без переписывания существующих; graceful degradation на отсутствующий/битый файл |
+| `core/diag_log.py` | Infrastructure / Diagnostics (leaf) | Opt-in диагностическое логирование сети/OAuth с редакцией секретов (issue #146/#341): `configure_diagnostics`/`get_logger`/`register_secret`; подключён в `cli/__init__`, `downloader`, `diagnostic_stepik`, `core/stepik_client`, `core/oauth_flow`; только stdlib (`logging`/`re`/`pathlib`) |
 | `glossary/models.py` | Domain (leaf) | Типизированные модели локального глоссария: `GlossaryCard`, `GlossaryMissingEntry` (issue #126) |
 | `glossary/json_provider.py` | Domain | `JsonGlossaryProvider` (загрузка/поиск локальной JSON-базы карточек) + очередь пополнения (issue #126) |
 | `glossary/detector.py` | Domain | `MissingConceptDetector` — консервативный AST-детектор недостающих функций/конструкций/исключений (issue #126) |
@@ -99,21 +104,23 @@ cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/repor
 cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)
 cli/interactive.py     ──→  core/grader_core.py  (find_all_solution_files/collect_grouped_files), cli/context.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
-web/server.py          ──→  web/commands.py, web/downloader_adapter.py, web/glossary_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (тонкий HTTP-роутинг)
+web/server.py          ──→  web/commands.py, web/downloader_adapter.py, web/glossary_adapter.py, web/rules_adapter.py, web/insights_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (тонкий HTTP-роутинг)
 web/viewmodels.py      ──→  core/grader_core.py, core/microbench_runner.py, core/reporter.py, core/test_loader.py  (web → core, ациклично)
 web/viewmodels.py      ──→  core/error_glossary.py  (resolve_error_hint для error card при RE)
 web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
 web/viewmodels.py      ──→  config.py
 web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/storage.py, core/test_loader.py
-web/glossary_adapter.py   ──→  core/glossary.py, glossary/json_provider.py, glossary/models.py, config.py
+web/glossary_adapter.py   ──→  core/glossary.py, core/mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, config.py  (issue #367 — stdlib_inventory для code_terms)
+web/rules_adapter.py       ──→  rules/  (bundled_rules)
+web/insights_adapter.py    ──→  core/history.py, core/insights.py, config.py
 web/commands.py            (только stdlib — реестр команд, project-импортов нет)
-web/runs.py            ──→  web/viewmodels.py, web/i18n.py, core/test_loader.py  (async job-модель, issue #262)
-web/i18n.py                (только stdlib/json — message_id-каталог, project-импортов нет, issue #264)
-core/grader_core.py    ──→  core/sandbox/  (set_runner() — точка инъекции SandboxRunner, issue #266)
+web/runs.py            ──→  web/viewmodels.py, web/i18n.py, web/playground.py, core/test_loader.py, core/tracer.py  (async job-модель + песочница/трейс, issue #262/#317/#318)
+web/playground.py      ──→  core/runner.py  (LocalRunner/RunSpec), config.py
+web/i18n.py            ──→  core/i18n.py  (load_locale_messages — рендер поверх core-локалей core/locales/<lang>.json, issue #264)
 core/sandbox/          ──→  core/runner.py  (реализует Runner-протокол: RunSpec/RunOutcome)
-cli/__init__.py        ──→  core/sandbox/  (--sandbox: SandboxRunner/SandboxUnavailableError)
+cli/__init__.py        ──→  core/sandbox/  (--sandbox: импорт SandboxRunner/SandboxUnavailableError + grader_core.set_runner() — точка инъекции Runner; сам grader_core НЕ зависит от sandbox, issue #266)
 cli/commands.py        ──→  core/stats.py  (record_run для --stats, issue #268)
-cli/commands.py        ──→  core/history.py (record_run для --history, issue #344)
+cli/commands.py        ──→  core/history.py, core/insights.py, core/lint.py, core/glossary.py  (--history/--insights/--lint + glossary-подсказки, эпик #342)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
@@ -129,6 +136,8 @@ glossary/json_provider.py ──→  glossary/models.py
 glossary/detector.py      ──→  glossary/models.py
 glossary/stdlib_inventory.py  (только stdlib — интроспекция builtins/исключений/курируемых модулей; project-импортов нет)
 glossary/coverage.py      ──→  glossary/stdlib_inventory.py, glossary/models.py, glossary/json_provider.py
+rules/json_provider.py    ──→  core/mtime_cache.py, rules/models.py  (кеш bundled-базы; пакет rules/ не leaf)
+cli/__init__.py / downloader.py / diagnostic_stepik.py / core/stepik_client.py / core/oauth_flow.py  ──→  core/diag_log.py  (opt-in диаг-логирование с редакцией секретов, issue #146/#341; сам diag_log — leaf, только stdlib)
 ```
 
 Подпакет `glossary/` (issue #126) — самодостаточный островок: зависит только

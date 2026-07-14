@@ -25,7 +25,8 @@ Closes #
 - [ ] Новые функции: type hints + docstring; новые модули: `__all__` и
       `from __future__ import annotations`
 - [ ] Версия не правится вручную (динамическая, `setuptools-scm`)
-- [ ] CHANGELOG.md / CHECKPOINT.md обновлены (если завершена фича/спринт)
+- [ ] CHANGELOG.md: запись под `## [Unreleased]` добавлена — в КАЖДОМ PR (#373), без исключений для рефакторингов
+- [ ] CHECKPOINT.md / docs/history.md — НЕ на каждый PR, только при релизе
 - [ ] Нет секретов в диффе (`secrets.json`, токены, `stepik_config.json`)
 
 ## Как проверял

@@ -42,9 +42,10 @@ stepik-grader
   2. Проверить все решения в папке
   3. Бенчмарк решений в папке
   4. Микро-бенчмарк (timeit) для папки
+  5. Подучить — частые ошибки из истории прогонов
   0. Выход
 ==================================================
-Выберите режим [0-4]:
+Выберите режим [0-5]:
 ```
 
 ---
@@ -262,7 +263,7 @@ stepik-grader --mode 3 --dir . --output markdown > BENCHMARK.md
 ### `--watch` (roadmap, issue #54)
 
 ```bash
-pip install "stepik-grader[watch]"     # опциональная зависимость: watchfiles
+pip install "stepik-python-grader[watch]"   # опциональная зависимость: watchfiles
 
 stepik-grader --mode 1 --file task.py --watch
 stepik-grader --mode 2 --dir . --watch

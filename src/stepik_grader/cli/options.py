@@ -100,7 +100,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Перезапускать --mode 1/2 при изменении файла решения "
-            "(требует: pip install stepik-grader[watch]). Issue #54. Для --mode 2 "
+            "(требует: pip install stepik-python-grader[watch]). Issue #54. Для --mode 2 "
             "перезапуск инкрементальный — кэш прогоняет только изменённый файл "
             "(--no-cache отключает). Issue #71."
         ),

@@ -76,7 +76,7 @@
   (`scripts/generate_*_badge.py`, CI коммитит `.github/badges/*.json` после
   каждого прогона на push в main).
 - Packaging hygiene: MIT `LICENSE` + `py.typed`.
-- Полный diff — [`CHANGELOG.md § [1.7.0]`](CHANGELOG.md).
+- Полный diff — [`CHANGELOG.md § [1.8.0]`](CHANGELOG.md).
 
 ---
 
@@ -87,10 +87,8 @@
 
 - **#151** (backlog) — серверный трек (SandboxRunner+контейнеры/PostgreSQL/
   accounts, issues #153–#155) — отложен до реального спроса на server mode.
-- **#130** — SQLite persistence (история запусков/учебные данные, issues
-  #131–#135).
 - **#97** — эпик анализа/развития: локальный CLI → WEB/Server IDE (родитель
-  #151/#130/#146).
+  #151; #130/#146 — закрыты).
 - **#59** (backlog) — долгосрочные идеи (Docker-sandbox, другие платформы,
   AI-подсказки, дашборд прогресса).
 - **#55** — полуавтоматический импорт закреплённого решения из Stepik JSON.

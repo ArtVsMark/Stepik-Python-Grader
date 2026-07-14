@@ -1,4 +1,4 @@
-"""Tests for cli.py — интерактивное меню и argparse CLI (режимы 0-4).
+"""Tests for cli.py — интерактивное меню и argparse CLI (режимы 0-5).
 
 Покрывает ветки _interactive_menu(), не задействованные другими тестами
 (Issue #21 finding #8): happy-path и error-branches для режимов 1-4, main().
