@@ -148,3 +148,41 @@ def test_adr_subfolder_is_not_required_in_index(tmp_path, monkeypatch) -> None:
     errors: list[str] = []
     module.check_docs_index_completeness(errors)
     assert errors == []
+
+
+def test_changelog_within_version_budget_passes(tmp_path, monkeypatch) -> None:
+    """[Unreleased] + 3 версии + до-версионные записи → без ошибок (issue #373)."""
+    module = _load_module()
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## [Unreleased]\n\n"
+        "## [1.8.0] - 2026-07-14\n\n## [1.7.0] - 2026-07-12\n\n## [1.6.0] - 2026-07-08\n\n"
+        "## [unreleased] / 2026-06-25 — до-версионная запись из архива\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_changelog_version_budget(errors)
+    assert errors == []
+
+
+def test_changelog_over_version_budget_is_flagged(tmp_path, monkeypatch) -> None:
+    """Четыре версионных релиза в живом CHANGELOG.md → ошибка (issue #373)."""
+    module = _load_module()
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## [Unreleased]\n\n"
+        "## [1.8.0] - 2026-07-14\n\n## [1.7.0] - 2026-07-12\n\n"
+        "## [1.6.0] - 2026-07-08\n\n## [1.5.0] - 2026-07-06\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_changelog_version_budget(errors)
+    assert any("versioned releases exceed the budget" in e for e in errors), errors
+
+
+def test_changelog_version_budget_on_current_repo() -> None:
+    """На актуальном main живой CHANGELOG.md в пределах лимита версий (issue #373)."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_changelog_version_budget(errors)
+    assert errors == []
