@@ -200,19 +200,20 @@ def _interactive_menu(ctx: CliContext) -> None:
         print(ctx.t("goodbye"))
         return
 
-    # issue #268: интерактивное меню не проходит через argparse, поэтому
-    # --stats/--no-stats недоступны — читаем [tool.stepik-grader] record_stats
-    # из CONFIG напрямую, в отличие от use_cache (у кэша в меню нет тумблера
-    # вовсе, см. ctx.run_mode_N вызовы ниже без use_cache).
+    # issue #268/#344: интерактивное меню не проходит через argparse, поэтому
+    # --stats/--history и их --no-* недоступны — читаем [tool.stepik-grader]
+    # record_stats/record_history из CONFIG напрямую, в отличие от use_cache
+    # (у кэша в меню нет тумблера вовсе, см. ctx.run_mode_N вызовы без use_cache).
     record_stats = CONFIG.record_stats
+    record_history = CONFIG.record_history
 
     if choice == "1":
         solution = _prompt_path(ctx, "enter_solution_path", want_dir=False)
-        ctx.run_mode_1(solution, record_stats=record_stats)
+        ctx.run_mode_1(solution, record_stats=record_stats, record_history=record_history)
 
     elif choice == "2":
         directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-        ctx.run_mode_2(directory, record_stats=record_stats)
+        ctx.run_mode_2(directory, record_stats=record_stats, record_history=record_history)
 
     elif choice == "3":
         directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
@@ -227,7 +228,7 @@ def _interactive_menu(ctx: CliContext) -> None:
             print(ctx.t("no_solutions_found"))
             return
         repeats = ctx.ask_bench_profile()
-        ctx.run_mode_3(directory, repeats, record_stats=record_stats)
+        ctx.run_mode_3(directory, repeats, record_stats=record_stats, record_history=record_history)
 
     elif choice == "4":
         directory = _prompt_path(ctx, "enter_folder_with_solutions_path", want_dir=True)
@@ -238,7 +239,7 @@ def _interactive_menu(ctx: CliContext) -> None:
             print(ctx.t("no_solutions_found"))
             return
         number = ctx.ask_micro_profile()
-        ctx.run_mode_4(directory, number, record_stats=record_stats)
+        ctx.run_mode_4(directory, number, record_stats=record_stats, record_history=record_history)
 
     else:
         print(ctx.t("unknown_choice"))

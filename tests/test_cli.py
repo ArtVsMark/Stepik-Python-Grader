@@ -851,7 +851,9 @@ class TestStatsFlags:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
         monkeypatch.setattr(
-            cli.options, "CONFIG", types.SimpleNamespace(record_stats=True, use_cache=False)
+            cli.options,
+            "CONFIG",
+            types.SimpleNamespace(record_stats=True, record_history=False, use_cache=False),
         )
         calls = []
         monkeypatch.setattr(cli, "_run_mode_1", lambda *a, **k: calls.append(k.get("record_stats")))

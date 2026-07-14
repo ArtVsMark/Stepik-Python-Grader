@@ -40,3 +40,6 @@ t.py
 .grader_cache/
 .grader_glossary_missing.json
 .grader_stats.jsonl
+.grader_history.db
+.grader_history.db-wal
+.grader_history.db-shm
