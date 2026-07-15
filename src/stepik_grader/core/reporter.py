@@ -31,6 +31,7 @@ __all__ = [
     "print_case_verbose",
     "print_stats_summary",
     "print_insights_summary",
+    "print_progress_summary",
     "print_lint_block",
     "rich_track",
 ]
@@ -382,6 +383,48 @@ def print_insights_summary(cards: list[Any], *, rules_provider: Any = None) -> N
     print(_SEP)
     for key, status, seen, ref in rows:
         print(f"{key:<34} {status:<12} {seen:>8}  {ref}")
+    print(_SEP)
+
+
+def _fmt_duration(secs: float | None) -> str:
+    """Секунды → компактная строка (``—``/``42с``/``7м``/``1.3ч``), issue #431."""
+    if secs is None:
+        return "—"
+    if secs < 60:
+        return f"{secs:.0f}с"
+    if secs < 3600:
+        return f"{secs / 60:.0f}м"
+    return f"{secs / 3600:.1f}ч"
+
+
+def print_progress_summary(progress: list[Any]) -> None:
+    """Сводка «Прогресс»: попыток/времени до первого полного AC по задаче (issue #431).
+
+    Предполагает непустой ``progress`` — empty state печатает вызывающая сторона
+    (тот же паттерн, что ``print_insights_summary``).
+    """
+    rows = [
+        (
+            p.task_key or "(без задачи)",
+            "✅" if p.solved else "…",
+            str(p.attempts),
+            _fmt_duration(p.seconds_to_first_ac),
+        )
+        for p in progress
+    ]
+    if _RICH and _console is not None:
+        table = Table(title="Прогресс (до первого AC)", show_lines=False)
+        table.add_column("Задача", style="cyan")
+        table.add_column("Решено")
+        table.add_column("Попыток", justify="right")
+        table.add_column("Время", justify="right")
+        for task, solved, attempts, dur in rows:
+            table.add_row(task, solved, attempts, dur)
+        _console.print(table)
+        return
+    print(_SEP)
+    for task, solved, attempts, dur in rows:
+        print(f"{task:<34} {solved:<6} {attempts:>8}  {dur:>8}")
     print(_SEP)
 
 

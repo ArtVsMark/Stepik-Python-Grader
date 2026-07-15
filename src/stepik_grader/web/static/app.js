@@ -2150,8 +2150,13 @@ function renderRulesList() {
   el.innerHTML = state.rules.cards
     .map(c => {
       const sel = c.id === state.rules.selectedId ? " selected" : "";
-      return '<li data-rule="' + esc(c.id) + '" class="' + sel + '"><span class="rule-code">' +
-        esc(c.id) + "</span> " + esc(c.title) + "</li>";
+      // issue #403: подсветить правила, которые пользователь нарушал лично.
+      const violated = c.violated ? " violated" : "";
+      const badge = c.violated
+        ? ' <span class="rule-violated" title="Вы нарушали это правило">⚠</span>'
+        : "";
+      return '<li data-rule="' + esc(c.id) + '" class="' + sel + violated + '"><span class="rule-code">' +
+        esc(c.id) + "</span> " + esc(c.title) + badge + "</li>";
     })
     .join("");
   el.querySelectorAll("li[data-rule]").forEach(li =>

@@ -79,6 +79,7 @@
   "cache_cleared": "🗑 Cache cleared: {count} entries removed.",
   "stats_no_data": "No data — stats recording is off (--stats/[tool.stepik-grader] record_stats) or hasn't accumulated yet.",
   "insights_no_data": "No insights yet — run solutions with history on (--history) to gather «Learn» cards.",
+  "progress_exported": "Progress exported: {path}",
   "sandbox_unavailable": "❌ --sandbox is unavailable on this machine: {reason}",
   "watch_dependency_missing": "--watch requires the watchfiles package: pip install \"stepik-grader[watch]\"",
   "watch_waiting": "👀 Watching for changes: {path} (Ctrl+C to stop)",

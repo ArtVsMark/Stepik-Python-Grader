@@ -90,7 +90,11 @@ from stepik_grader.core.grader_core import (
     set_runner,
 )
 from stepik_grader.core.i18n import load_locale_messages
-from stepik_grader.core.reporter import print_insights_summary, print_stats_summary
+from stepik_grader.core.reporter import (
+    print_insights_summary,
+    print_progress_summary,
+    print_stats_summary,
+)
 
 __all__ = ["main"]
 
@@ -434,6 +438,25 @@ def main(argv: list[str] | None = None) -> None:
             print_stats_summary(summary)
         return
 
+    if args.export_progress:
+        from stepik_grader.core import history, progress_export
+
+        db_path = pathlib.Path.cwd() / history.HISTORY_DB_NAME
+        report = progress_export.build_progress_report(db_path)
+        if report["total_runs"] == 0:
+            print(_t("insights_no_data"))  # дружелюбно, не ошибка (issue #432)
+            return
+        fmt = args.export_progress
+        rendered = (
+            progress_export.render_markdown(report)
+            if fmt == "md"
+            else progress_export.render_html(report)
+        )
+        out = pathlib.Path.cwd() / f"grader-progress.{fmt}"
+        out.write_text(rendered, encoding="utf-8")
+        print(_t("progress_exported", path=out))
+        return
+
     if args.insights:
         from stepik_grader import rules
         from stepik_grader.core import history, insights
@@ -445,10 +468,14 @@ def main(argv: list[str] | None = None) -> None:
             t=CONFIG.insights_active_threshold_t,
             k=CONFIG.insights_clean_streak_k,
         )
-        if not cards:
+        progress = insights.time_to_first_green(db_path)  # issue #431: TTFG
+        if not cards and not progress:
             print(_t("insights_no_data"))
         else:
-            print_insights_summary(cards, rules_provider=rules.bundled_rules())
+            if progress:
+                print_progress_summary(progress)
+            if cards:
+                print_insights_summary(cards, rules_provider=rules.bundled_rules())
         return
 
     if args.init_vscode:

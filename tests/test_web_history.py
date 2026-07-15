@@ -161,3 +161,45 @@ def test_cancelled_run_is_not_recorded(tmp_path, monkeypatch) -> None:
     viewmodels.grade_path(sol, cancel_event=ev)
 
     assert not _db(tmp_path).exists()
+
+
+# ---------------------------------------------------------------------------
+# web-адаптеры: TTFG-прогресс (#431) и violated-флаг «Правил» (#403)
+# ---------------------------------------------------------------------------
+
+
+def test_progress_rows_adapter_reads_history(tmp_path) -> None:
+    from stepik_grader.web import insights_adapter
+
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(1, [history.CaseRecord(1, "WA")], db_path=db, task_key="a", duration_s=1.0)
+    history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="a", duration_s=1.0)
+    rows = insights_adapter.progress_rows(db_path=db)
+    assert len(rows) == 1
+    assert rows[0]["task_key"] == "a"
+    assert rows[0]["solved"] is True
+    assert rows[0]["attempts"] == 2
+
+
+def test_progress_rows_empty_history(tmp_path) -> None:
+    from stepik_grader.web import insights_adapter
+
+    assert insights_adapter.progress_rows(db_path=tmp_path / "nope.db") == []
+
+
+def test_rules_search_marks_personal_violations(tmp_path) -> None:
+    from stepik_grader.web import rules_adapter
+
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(
+        1,
+        [history.CaseRecord(1, "AC")],
+        db_path=db,
+        task_key="t",
+        lint=[history.LintRecord("E501", 1, "long")],
+    )
+    cards = {c["id"]: c for c in rules_adapter.rules_search(db_path=db)}
+    assert cards["E501"]["violated"] is True
+    # Другое правило (не нарушал) — violated=False.
+    other = next(cid for cid in cards if cid != "E501")
+    assert cards[other]["violated"] is False

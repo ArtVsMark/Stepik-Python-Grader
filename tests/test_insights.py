@@ -15,6 +15,8 @@ from stepik_grader.core.insights import (
     classify_status,
     failure_kind,
     learning_cards,
+    time_to_first_green,
+    violated_rule_codes,
 )
 
 # --------------------------------------------------------------------------- #
@@ -161,3 +163,63 @@ def test_learning_cards_includes_lint_keys(tmp_path) -> None:
     cards = learning_cards(db)
     lint_cards = [c for c in cards if c.category == "lint"]
     assert [c.key for c in lint_cards] == ["E501"]
+
+
+# --------------------------------------------------------------------------- #
+# time_to_first_green — TTFG-метрика по задачам (issue #431)
+# --------------------------------------------------------------------------- #
+
+
+def test_ttfg_counts_attempts_and_solved(tmp_path: Path) -> None:
+    db = tmp_path / "h.db"
+    # задача "a": WA, затем полный AC (2 попытки, решена)
+    history.record_run(1, [CaseRecord(1, "WA")], db_path=db, task_key="a", duration_s=1.0)
+    history.record_run(
+        1, [CaseRecord(1, "AC"), CaseRecord(2, "AC")], db_path=db, task_key="a", duration_s=1.0
+    )
+    # задача "b": только WA (не решена)
+    history.record_run(1, [CaseRecord(1, "WA")], db_path=db, task_key="b", duration_s=1.0)
+
+    prog = {p.task_key: p for p in time_to_first_green(db)}
+    assert prog["a"].solved is True
+    assert prog["a"].attempts == 2
+    assert prog["a"].total_runs == 2
+    assert prog["a"].seconds_to_first_ac is not None
+    assert prog["b"].solved is False
+    assert prog["b"].attempts == 1
+
+
+def test_ttfg_empty_history_is_empty_list(tmp_path: Path) -> None:
+    assert time_to_first_green(tmp_path / "nope.db") == []
+
+
+def test_ttfg_partial_ac_run_not_counted_solved(tmp_path: Path) -> None:
+    """Прогон с частичным AC (не все кейсы) не считается решением."""
+    db = tmp_path / "h.db"
+    history.record_run(
+        1, [CaseRecord(1, "AC"), CaseRecord(2, "WA")], db_path=db, task_key="t", duration_s=1.0
+    )
+    (p,) = time_to_first_green(db)
+    assert p.solved is False
+
+
+# --------------------------------------------------------------------------- #
+# violated_rule_codes — персональные lint-нарушения (issue #403)
+# --------------------------------------------------------------------------- #
+
+
+def test_violated_rule_codes_from_history(tmp_path: Path) -> None:
+    db = tmp_path / "h.db"
+    history.record_run(
+        1,
+        [CaseRecord(1, "AC")],
+        db_path=db,
+        task_key="t",
+        duration_s=1.0,
+        lint=[LintRecord("F401", 1, "unused"), LintRecord("E501", 2, "long")],
+    )
+    assert violated_rule_codes(db) == {"F401", "E501"}
+
+
+def test_violated_rule_codes_empty_history(tmp_path: Path) -> None:
+    assert violated_rule_codes(tmp_path / "nope.db") == set()

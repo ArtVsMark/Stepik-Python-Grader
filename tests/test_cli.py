@@ -1051,3 +1051,26 @@ def test_collect_lint_runs_ruff_when_available(monkeypatch, tmp_path) -> None:
     sol.write_text("import os\n", encoding="utf-8")
     collected = commands._collect_lint([sol])
     assert collected == {sol: sentinel}
+
+
+# ---------------------------------------------------------------------------
+# --export-progress — экспорт агрегатов прогресса (issue #432)
+# ---------------------------------------------------------------------------
+
+
+def test_export_progress_md_writes_file(tmp_path, monkeypatch) -> None:
+    from stepik_grader.core import history
+
+    monkeypatch.chdir(tmp_path)
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="t")
+    cli.main(["--export-progress", "md"])
+    out = tmp_path / "grader-progress.md"
+    assert out.exists()
+    assert "Прогресс Stepik-Grader" in out.read_text(encoding="utf-8")
+
+
+def test_export_progress_empty_history_writes_nothing(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    cli.main(["--export-progress", "html"])  # пустая история → дружелюбно, без файла
+    assert not (tmp_path / "grader-progress.html").exists()
