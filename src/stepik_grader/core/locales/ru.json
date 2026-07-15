@@ -23,6 +23,7 @@
   "specify_url": "Укажите url.",
   "specify_folder": "Укажите папку.",
   "specify_code": "Укажите code (строка).",
+  "specify_oauth_creds": "Укажите client_id и client_secret.",
   "path_outside_workspace": "Путь вне рабочей директории сервера: {path}",
   "invalid_host": "Недопустимый Host — запрос отклонён.",
   "invalid_origin": "Недопустимый Origin/Referer — запрос отклонён.",

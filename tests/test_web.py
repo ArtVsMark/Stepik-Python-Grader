@@ -1898,3 +1898,79 @@ class TestRunServerSandbox:
         monkeypatch.setattr(sandbox_mod, "SandboxRunner", _raise)
         with pytest.raises(SandboxUnavailableError):
             server_mod.run_server(port=0, sandbox=True)
+
+
+# ---------------------------------------------------------------------------
+# Браузерный OAuth в --serve — /api/auth/status + /api/auth/start (issue #402)
+# ---------------------------------------------------------------------------
+
+
+class TestAuthApi:
+    def test_status_no_secrets(self, server: str) -> None:
+        status, body = _get(server + "/api/auth/status")
+        assert status == 200
+        assert json.loads(body) == {"authorized": False, "reason": "no_secrets"}
+
+    def test_status_ok_with_valid_token(self, server: str, tmp_path: pathlib.Path) -> None:
+        import time
+
+        (tmp_path / "secrets.json").write_text(
+            json.dumps(
+                {
+                    "client_id": "a",
+                    "client_secret": "b",
+                    "redirect_uri": "c",
+                    "access_token": "tok",
+                    "expires_at": time.time() + 3600,
+                }
+            ),
+            encoding="utf-8",
+        )
+        status, body = _get(server + "/api/auth/status")
+        assert status == 200
+        assert json.loads(body) == {"authorized": True, "reason": "ok"}
+
+    def test_start_requires_creds(self, server: str) -> None:
+        status, body = _post(
+            server + "/api/auth/start",
+            json.dumps({"client_id": "only-id"}).encode("utf-8"),
+        )
+        assert status == 400
+        assert json.loads(body)["message_id"] == "specify_oauth_creds"
+
+    def test_start_wrong_host_is_403(self, server: str) -> None:
+        status, body = _post(
+            server + "/api/auth/start",
+            json.dumps({"client_id": "a", "client_secret": "b"}).encode("utf-8"),
+            headers={"Host": "evil.example.com"},
+        )
+        assert status == 403
+        assert json.loads(body)["message_id"] == "invalid_host"
+
+    def test_start_runs_flow_and_writes_secrets(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """POST /api/auth/start → async-job → браузерный flow (мок) → done; креды
+        записаны в secrets.json, реальный браузер не открывается."""
+        from stepik_grader.web import auth_adapter
+
+        captured: dict[str, object] = {}
+
+        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+            captured["args"] = (client_id, client_secret, redirect_uri)
+            return {"access_token": "t"}
+
+        monkeypatch.setattr(auth_adapter, "authorize_and_get_token", _fake_authorize)
+        status, body = _post(
+            server + "/api/auth/start",
+            json.dumps({"client_id": "cid", "client_secret": "csec"}).encode("utf-8"),
+        )
+        assert status == 202
+        run_id = json.loads(body)["run_id"]
+        data = _poll_run(server, run_id)
+        assert data["status"] == "done", data
+        assert data["result"] == {"authorized": True, "reason": "ok"}
+        assert captured["args"] == ("cid", "csec", auth_adapter.DEFAULT_REDIRECT_URI)
+        secrets = json.loads((tmp_path / "secrets.json").read_text(encoding="utf-8"))
+        assert secrets["client_id"] == "cid"
+        assert secrets["client_secret"] == "csec"

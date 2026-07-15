@@ -37,6 +37,8 @@
 - [`POST /api/v1/runs`](#post-apiv1runs)
 - [`GET /api/v1/runs/<id>`](#get-apiv1runsid)
 - [`POST /api/v1/runs/<id>/cancel`](#post-apiv1runsidcancel)
+- [`GET /api/auth/status`](#get-apiauthstatus)
+- [`POST /api/auth/start`](#post-apiauthstart)
 
 ---
 
@@ -419,6 +421,47 @@ message_id: run_not_found}` — только если job не найдена и
 
 ```
 curl -X POST http://127.0.0.1:8000/api/v1/runs/<run_id>/cancel
+```
+
+---
+
+## `GET /api/auth/status`
+
+Статус OAuth-авторизации Stepik по `secrets.json` в рабочей директории сервера
+(issue #402). Читает только локальный файл, сети не касается.
+
+**200** `{"authorized": bool, "reason": "ok"|"no_token"|"no_secrets"}`:
+`ok` — валидный токен; `no_token` — креды есть, но токена нет/истёк (нужен
+браузерный flow); `no_secrets` — файла нет или креды неполные (нужна форма).
+Битый/нечитаемый файл трактуется как `no_secrets` (best-effort, не 500).
+
+```
+curl http://127.0.0.1:8000/api/auth/status
+```
+
+## `POST /api/auth/start`
+
+Запустить браузерный OAuth-flow первого запуска (issue #402). Тело —
+`{"client_id": "...", "client_secret": "...", "redirect_uri"?: "..."}`
+(`redirect_uri` по умолчанию `http://localhost:8080/callback`). Пишет креды в
+`secrets.json` (0600) и стартует loopback-OAuth как async-job (`kind="auth"`);
+опрос прогресса/итога — через `GET /api/v1/runs/<id>` (как у bench/microbench).
+
+- Успех → **202** `{"run_id": "...", "status": "queued"}`; job по завершении —
+  `{"status": "done", "result": {"authorized": true, "reason": "ok"}}`.
+- Нет `client_id`/`client_secret` → **400** `{"kind": "error", message_id:
+  specify_oauth_creds}`.
+- Общие POST-гарды (`Content-Length`, Host/Origin/Fetch-Metadata) — как у всех
+  POST `/api/*`.
+
+`webbrowser.open` открывается на **машине сервера** — предназначено для
+локального `--serve` (localhost, single-user); для удалённого сервера (#151,
+не в scope) не применимо.
+
+```
+curl -X POST http://127.0.0.1:8000/api/auth/start \
+  -H 'Content-Type: application/json' \
+  -d '{"client_id":"...","client_secret":"..."}'
 ```
 
 ---

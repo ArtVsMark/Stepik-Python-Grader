@@ -23,6 +23,7 @@
   "specify_url": "Specify url.",
   "specify_folder": "Specify a folder.",
   "specify_code": "Specify code (a string).",
+  "specify_oauth_creds": "Provide client_id and client_secret.",
   "path_outside_workspace": "Path outside the server's working directory: {path}",
   "invalid_host": "Invalid Host — request rejected.",
   "invalid_origin": "Invalid Origin/Referer — request rejected.",

@@ -25,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from stepik_grader.web import runs
+from stepik_grader.web import auth_adapter, runs
 from stepik_grader.web.commands import filter_commands
 from stepik_grader.web.downloader_adapter import download_task
 from stepik_grader.web.glossary_adapter import (
@@ -327,6 +327,14 @@ class _Handler(BaseHTTPRequestHandler):
                     return
                 data = read_source(confined, lang=lang)
             self._send(200, "application/json; charset=utf-8", _json(data))
+        elif parsed.path == "/api/auth/status":
+            # issue #402: валиден ли токен Stepik по secrets.json в workspace.
+            secrets_path = self.server.workspace / "secrets.json"
+            self._send(
+                200,
+                "application/json; charset=utf-8",
+                _json(auth_adapter.auth_status(secrets_path)),
+            )
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
 
@@ -337,6 +345,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/api/v1/runs/") and parsed.path.endswith("/cancel"):
             self._handle_cancel_run(parsed)
+            return
+        if parsed.path == "/api/auth/start":
+            self._handle_auth_start(parsed)
             return
         if parsed.path not in ("/api/download", "/api/save-solution", "/api/code-terms"):
             self._send(404, "text/plain; charset=utf-8", b"not found")
@@ -580,6 +591,50 @@ class _Handler(BaseHTTPRequestHandler):
         raw_stdin = body.get("stdin")
         stdin = raw_stdin if isinstance(raw_stdin, str) else ""
         job = runs.submit_job(kind, None, {"lang": lang}, code=code, stdin=stdin)
+        self._send(
+            202,
+            "application/json; charset=utf-8",
+            _json({"run_id": job.id, "status": job.status}),
+        )
+
+    def _handle_auth_start(self, parsed: Any) -> None:
+        """POST /api/auth/start (issue #402) — тело ``{client_id, client_secret,
+        redirect_uri?}`` → ``202`` + ``{run_id, status}``. Записывает креды в
+        ``secrets.json`` (workspace) и запускает браузерный OAuth-flow как
+        async-job (``kind="auth"``); опрос — через ``GET /api/v1/runs/{id}``.
+
+        ``webbrowser.open`` открывается на МАШИНЕ СЕРВЕРА — корректно только для
+        локального ``--serve`` (localhost, single-user). Под ``_guard_request``
+        (Host/Origin/Fetch-Metadata, #242/#399) — сторонняя страница не
+        инициирует OAuth-flow.
+        """
+        lang = _lang_from_query(parsed)
+        if not self._guard_request(lang):
+            return
+        body = self._read_json_body(lang)
+        if body is None:
+            return
+        client_id = str(body.get("client_id") or "").strip()
+        client_secret = str(body.get("client_secret") or "").strip()
+        redirect_uri = (
+            str(body.get("redirect_uri") or "").strip() or auth_adapter.DEFAULT_REDIRECT_URI
+        )
+        if not client_id or not client_secret:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("specify_oauth_creds", lang)}),
+            )
+            return
+        secrets_path = self.server.workspace / "secrets.json"
+        params: dict[str, Any] = {
+            "lang": lang,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": redirect_uri,
+            "secrets_path": str(secrets_path),
+        }
+        job = runs.submit_job("auth", None, params)
         self._send(
             202,
             "application/json; charset=utf-8",

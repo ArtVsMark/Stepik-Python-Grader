@@ -185,13 +185,18 @@ OAuth-авторизацию — веб-раздел лишь показывае
 логики скачивания в web нет, DAG без циклов сохраняется (`web →
 downloader → core`).
 
-**OAuth.** Требует настроенного `secrets.json`
-([installation.md](installation.md#работа-с-api-stepik-oauth)). Браузерный
-OAuth-редирект **не реализован и не планируется для веб-раздела** — первичная
-авторизация остаётся за CLI (`downloader`/`diagnostic_stepik`);
-`try_create_session_without_browser` проверяет валидный токен/обновляет по
-`refresh_token`, а если ни один путь не сработал — веб-раздел показывает
-понятную ошибку «нужна авторизация» со ссылкой на `installation.md`.
+**OAuth.** Браузерный OAuth-мастер первого запуска доступен прямо в web
+(issue #402): раздел «Загрузчик задач» проверяет токен (`GET /api/auth/status`)
+и при его отсутствии показывает форму `client_id`/`client_secret` — кнопка
+«Авторизоваться в браузере» запускает `POST /api/auth/start`, который пишет
+`secrets.json` (0600) и проводит loopback-OAuth как async-job (`kind="auth"`,
+опрос через `GET /api/v1/runs/{id}`). Так авторизоваться можно без ручного
+создания `secrets.json` и без CLI. Тонкий адаптер `web/auth_adapter.py` над
+`core/oauth_flow` (DAG `web → core` без циклов); `webbrowser.open`
+открывается на машине сервера — корректно только для локального `--serve`
+(localhost, single-user), для удалённого сервера (#151) не применимо.
+`try_create_session_without_browser` по-прежнему обслуживает уже-валидный
+токен/обновление по `refresh_token` без похода в браузер.
 
 **Non-goal.** Массовое/batch-скачивание курса целиком, планировщик
 обновлений — вне рамок; один шаг за раз, как в CLI.

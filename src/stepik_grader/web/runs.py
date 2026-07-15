@@ -220,6 +220,9 @@ def _run_job(
     if kind == "trace":
         _run_trace_job(job, code or "", stdin or "", lang)
         return
+    if kind == "auth":
+        _run_auth_job(job, params, lang)
+        return
 
     assert path is not None  # tests/bench/microbench всегда с path (см. submit_job)
     temp_code_path: str | None = None
@@ -320,6 +323,33 @@ def _run_playground_job(job: Job, code: str, stdin: str, lang: str) -> None:
         else:
             job.status = "done"
             job.result = result
+
+
+def _run_auth_job(job: Job, params: dict[str, Any], lang: str) -> None:
+    """Тело auth-job'ы (issue #402): браузерный OAuth-flow первого запуска.
+
+    Блокирующий (до 120с) поход в браузер вынесен на воркер-поток, чтобы не
+    держать HTTP-обработчик ``--serve``. Креды/путь приходят в ``params`` от
+    ``server._handle_auth_start`` (уже под ``_guard_request``). Ленивый импорт
+    ``auth_adapter`` — не тянуть OAuth/requests-стек при простом старте сервера.
+    """
+    from stepik_grader.web import auth_adapter
+
+    try:
+        result = auth_adapter.perform_browser_auth(
+            pathlib.Path(str(params["secrets_path"])),
+            str(params["client_id"]),
+            str(params["client_secret"]),
+            str(params["redirect_uri"]),
+        )
+    except Exception as exc:  # noqa: BLE001 — safety net, как _run_job/_run_playground_job
+        with job.lock:
+            job.status = "error"
+            job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
+        return
+    with job.lock:
+        job.status = "done"
+        job.result = result
 
 
 def _run_trace_job(job: Job, code: str, stdin: str, lang: str) -> None:
