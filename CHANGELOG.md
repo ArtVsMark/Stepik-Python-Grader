@@ -55,6 +55,7 @@
 - Added `docs/issue-audit-2026-07-15.md` — full audit of all 253 issue against code (208 DONE, 98% closed honestly); filed epic #413 for the two real loose ends (#411 docs, #412 dead `WARMUP_RUNS`).
 - Added `docs/audit-2026-07-14.md` — multi-agent 8-role deep audit of v1.8.0+[Unreleased]: reproduced SQLite history migration race + connection leak, empty web «Подучить» (history is CLI-only), web-without-sandbox, diffuse web↔core boundary, 3 web-boundary security gaps, glossary hot-path perf, doc metric drift; filed as epic #392 with 18 prioritized child issues (#393–#410).
 - Added `docs/roles.md` — canonical 13-role response template; CLAUDE.md gains a compact «🎭 Режим ответов (роли)» trigger block so the roles apply on every request without bloating the file.
+- Reactivated `docs/claude-handoff.md` with a wave-ordered work plan for all open issues — 6 waves + background, hard/soft dependency edges, code-verified corrections, and epic-dedup guidance; synced the CLAUDE.md § Открытая работа pointer.
 
 ### Internal
 - Added a soft `docs/versions.md` release-column guard to `check_version_consistency.py`; archived `claude-handoff.md`, stamped `audit-2026-07.md` as implemented, fixed the stale CHANGELOG policy in GitHub PR/issue templates and the #163 contradiction in CLAUDE.md (#386).
