@@ -8,28 +8,45 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+from stepik_grader.core import history, insights
 from stepik_grader.rules import bundled_rules
 
 __all__ = ["rules_search", "rules_get"]
 
 
-def rules_search(query: str = "", *, tag: str | None = None) -> list[dict[str, Any]]:
+def _db_path(db_path: Path | None) -> Path:
+    return db_path if db_path is not None else Path.cwd() / history.HISTORY_DB_NAME
+
+
+def rules_search(
+    query: str = "", *, tag: str | None = None, db_path: Path | None = None
+) -> list[dict[str, Any]]:
     """Карточки правил по ``query`` (подстрока id/title/tags) и опциональному ``tag``.
 
     Пустой ``query`` — без текстового фильтра (вся база). ``tag`` — точное
-    совпадение метки (без регистра). Результат — список dict'ов для JSON.
+    совпадение метки (без регистра). Каждая карточка получает ``violated`` —
+    нарушал ли пользователь это правило лично (issue #403, из истории lint).
+    Результат — список dict'ов для JSON.
     """
     provider = bundled_rules()
     cards = provider.search(query) if query.strip() else provider.all()
     if tag:
         needle = tag.lower()
         cards = [c for c in cards if needle in {t.lower() for t in c.tags}]
-    return [c.to_dict() for c in cards]
+    violated = insights.violated_rule_codes(_db_path(db_path))
+    return [{**c.to_dict(), "violated": c.id in violated} for c in cards]
 
 
-def rules_get(code: str) -> dict[str, Any] | None:
-    """Карточка правила по коду (``E501``), либо ``None`` (адаптер отдаёт 404)."""
+def rules_get(code: str, *, db_path: Path | None = None) -> dict[str, Any] | None:
+    """Карточка правила по коду (``E501``), либо ``None`` (адаптер отдаёт 404).
+
+    Добавляет ``violated`` — нарушал ли пользователь это правило лично (#403).
+    """
     card = bundled_rules().get(code)
-    return card.to_dict() if card is not None else None
+    if card is None:
+        return None
+    violated = insights.violated_rule_codes(_db_path(db_path))
+    return {**card.to_dict(), "violated": card.id in violated}

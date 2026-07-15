@@ -29,6 +29,7 @@
 - [`GET /api/rules`](#get-apirules)
 - [`GET /api/rules/<code>`](#get-apirulescode)
 - [`GET /api/insights`](#get-apiinsights)
+- [`GET /api/progress`](#get-apiprogress)
 - [`POST /api/code-terms`](#post-apicode-terms)
 - [`GET /api/commands`](#get-apicommands)
 - [`POST /api/download`](#post-apidownload)
@@ -198,7 +199,9 @@ curl http://127.0.0.1:8000/api/glossary/ZeroDivisionError
 id/title/tags (подстрока), `tag` — точное совпадение метки.
 
 **200** — список карточек (`id`, `title`, `summary`, `body`, `pep_url`,
-`severity`, `status`, `tags`, `example_bad`, `example_good`).
+`severity`, `status`, `tags`, `example_bad`, `example_good`, `violated`).
+`violated` (issue #403) — нарушал ли пользователь это правило лично (из истории
+lint; `false` без истории/нарушений).
 
 ```
 curl "http://127.0.0.1:8000/api/rules?q=E501"
@@ -224,6 +227,19 @@ runs_considered, glossary_id}`; `status` ∈ `active|fading|watch` (архивн
 
 ```
 curl http://127.0.0.1:8000/api/insights
+```
+
+## `GET /api/progress`
+
+TTFG-метрика прогресса по задачам (issue #431): сколько попыток/времени заняло
+дойти до первого полного AC. **200** — список
+`{task_key, attempts, solved, total_runs, seconds_to_first_ac}`
+(`seconds_to_first_ac` — `null`, если задача ещё не решена). Пустая/
+отсутствующая история → `[]`. Считается на лету из `.grader_history.db`, без
+хранимого состояния.
+
+```
+curl http://127.0.0.1:8000/api/progress
 ```
 
 ## `POST /api/code-terms`

@@ -19,8 +19,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from stepik_grader.core import glossary, history, normalizers
 
@@ -30,9 +31,12 @@ __all__ = [
     "DEFAULT_CLEAN_K",
     "CardStatus",
     "InsightCard",
+    "TaskProgress",
     "failure_kind",
     "classify_status",
     "learning_cards",
+    "time_to_first_green",
+    "violated_rule_codes",
 ]
 
 # Пороги затухания по умолчанию (переопределяются из [tool.stepik-grader]):
@@ -139,6 +143,99 @@ class InsightCard:
     hits: int  # число прогонов окна, где ключ встретился
     runs_considered: int  # размер рассмотренного окна прогонов
     glossary_id: str | None = None  # для runtime-error:<Класс> — id карточки исключения
+
+
+@dataclass(frozen=True)
+class TaskProgress:
+    """Метрика «попыток/времени до первого полного AC» по одной задаче (issue #431).
+
+    ``attempts`` — число прогонов до первого полного AC включительно (если задача
+    ещё не решена — всего прогонов). ``seconds_to_first_ac`` — секунды от первого
+    прогона задачи до первого полного AC (``None``, если не решена или метки
+    времени не распарсились). Считается на лету из истории, без хранимого
+    состояния (§ 9.2).
+    """
+
+    task_key: str
+    attempts: int
+    solved: bool
+    total_runs: int
+    seconds_to_first_ac: float | None = None
+
+
+def _run_is_full_ac(run: dict[str, Any]) -> bool:
+    """Прогон «решён» — есть кейсы и все вердикты AC (корректность, режимы 1/2)."""
+    cases = run.get("cases", [])
+    return bool(cases) and all(c.get("verdict") == "AC" for c in cases)
+
+
+def _parse_ts(raw: Any) -> datetime | None:
+    """ISO-метка времени из истории → ``datetime`` (``None`` при сбое)."""
+    if not isinstance(raw, str):
+        return None
+    try:
+        return datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def time_to_first_green(db_path: Path, *, limit: int = 1000) -> list[TaskProgress]:
+    """Сколько попыток/времени заняло дойти до первого полного AC по каждой задаче.
+
+    issue #431: главный измеримый показатель ценности для ученика («архив
+    побед», retention). Читает историю (``read_recent_runs``), группирует по
+    ``task_key`` в хронологическом порядке, для каждой задачи находит первый
+    полностью-AC прогон. Пустая история → ``[]`` (дружелюбный empty state —
+    забота вызывающей стороны). Считается на лету, без нового хранимого
+    состояния (AC #431).
+    """
+    runs = history.read_recent_runs(db_path, limit=limit)
+    if not runs:
+        return []
+    # read_recent_runs отдаёт новые первыми — разворачиваем в хронологию.
+    by_task: dict[str, list[dict[str, Any]]] = {}
+    for run in reversed(runs):
+        by_task.setdefault(run.get("task_key") or "", []).append(run)
+
+    progress: list[TaskProgress] = []
+    for task_key, task_runs in by_task.items():
+        first_ts = _parse_ts(task_runs[0].get("ts_utc"))
+        solved = False
+        seconds: float | None = None
+        attempts = len(task_runs)
+        for i, run in enumerate(task_runs, 1):
+            if _run_is_full_ac(run):
+                solved = True
+                attempts = i
+                ac_ts = _parse_ts(run.get("ts_utc"))
+                if first_ts is not None and ac_ts is not None:
+                    seconds = (ac_ts - first_ts).total_seconds()
+                break
+        progress.append(
+            TaskProgress(
+                task_key=task_key,
+                attempts=attempts,
+                solved=solved,
+                total_runs=len(task_runs),
+                seconds_to_first_ac=seconds,
+            )
+        )
+    return sorted(progress, key=lambda p: p.task_key)
+
+
+def violated_rule_codes(db_path: Path, *, limit: int = DEFAULT_WINDOW_N) -> set[str]:
+    """Коды правил, которые пользователь лично нарушал (issue #403).
+
+    Для подсветки персональных нарушений в разделе «Правила»: множество
+    ``rule_code`` из lint последних ``limit`` прогонов истории. Пустая/
+    отсутствующая история → пустое множество (не ошибка).
+    """
+    return {
+        code
+        for run in history.read_recent_runs(db_path, limit=limit)
+        for code in run.get("lint", [])
+        if code
+    }
 
 
 def learning_cards(

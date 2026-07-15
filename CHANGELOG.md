@@ -12,6 +12,9 @@
 ### Added
 - Web grading now records runs to the local history DB (`source="web"`) so the «Подучить» section fills up in `--serve` — history is on by default for `--serve` (opt-out with `--no-history`); the grading→history helpers moved to `core/history_recording` so both CLI and web share them (#395).
 - Lint violations now flow into history (`run_lint → LintRecord → record_run(lint=...)`) in CLI modes 1/2 (`--lint --history`) and web grading, so «Подучить» surfaces personal PEP-8 cards; ruff runs once per solution, shared by the «Стиль» print and the history record (#403).
+- «Подучить» now reports time-to-first-green per task (attempts + time to the first full AC) in `--insights` and `GET /api/progress`, computed on the fly from history with no stored state (#431).
+- `--export-progress md|html` exports aggregate progress (per-task TTFG, verdict and failure-kind tallies — never solution source) to a self-contained file; empty history is a friendly message, not an error (#432).
+- The web «Правила» section highlights rules you've personally violated (`violated` flag on `/api/rules`, from history lint) — completes the deferred highlight from #403.
 - `--history`/`record_history`: opt-in SQLite-история прогонов (`.grader_history.db`, `core/history.py` — схема v1 runs/case_results/lint_violations, WAL, `user_version`-миграции, best-effort); по умолчанию выключена, фундамент будущих разделов «Правила»/«Подучить» (#344).
 - `rules/` — база карточек правил PEP 8: `RuleCard` + `JsonRulesProvider` + bundled `pep8_ru.json` (≥30 кодов E/W/F); общий mtime-кеш вынесен из web-адаптера в `core/mtime_cache` (#345).
 - `core/lint.py` — opt-in PEP-проверка решения через ruff (extra `[lint]`, best-effort, не влияет на вердикт) + опциональное поле `lint` в контракте результата (#346).

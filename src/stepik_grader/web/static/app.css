@@ -538,6 +538,9 @@ select.form-input { cursor: pointer; }
 
 /* Разделы «Правила» и «Подучить» (issue #348) */
 .rule-code { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; color: var(--color-primary); }
+/* issue #403: подсветка правил, которые пользователь нарушал лично. */
+#rules-cards li.violated { border-left: 3px solid var(--color-warning, #d98a00); }
+.rule-violated { color: var(--color-warning, #d98a00); font-size: 0.9em; }
 .code-block.code-bad { border-left: 3px solid var(--color-error, #c0392b); }
 .code-block.code-good { border-left: 3px solid var(--color-success, #2e7d32); }
 .rule-body { margin: var(--space-3) 0; color: var(--color-text); }

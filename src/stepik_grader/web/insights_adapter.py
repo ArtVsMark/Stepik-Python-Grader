@@ -16,11 +16,20 @@ from typing import Any
 from stepik_grader.config import CONFIG
 from stepik_grader.core import history, insights
 
-__all__ = ["insights_cards", "active_count"]
+__all__ = ["insights_cards", "active_count", "progress_rows"]
 
 
 def _db_path(db_path: Path | None) -> Path:
     return db_path if db_path is not None else Path.cwd() / history.HISTORY_DB_NAME
+
+
+def progress_rows(*, db_path: Path | None = None) -> list[dict[str, Any]]:
+    """TTFG-прогресс по задачам → список dict'ов для `/api/progress` (issue #431).
+
+    Попыток/времени до первого полного AC по каждой `task_key`. Пустая/
+    отсутствующая история → ``[]`` (дружелюбный empty state рендерит фронтенд).
+    """
+    return [asdict(p) for p in insights.time_to_first_green(_db_path(db_path))]
 
 
 def insights_cards(

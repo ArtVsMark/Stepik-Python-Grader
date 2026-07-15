@@ -158,6 +158,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--export-progress",
+        choices=["md", "html"],
+        default=None,
+        metavar="{md,html}",
+        help=(
+            "Экспортировать агрегаты прогресса (попыток/времени до первого AC по "
+            "задачам, тали вердиктов и типов падений — без исходников решений) из "
+            ".grader_history.db в самодостаточный файл grader-progress.md/.html и "
+            "выйти. Issue #432."
+        ),
+    )
+    parser.add_argument(
         "--lint",
         action="store_true",
         help=(

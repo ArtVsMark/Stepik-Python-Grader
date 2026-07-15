@@ -36,7 +36,7 @@ from stepik_grader.web.glossary_adapter import (
     queue_code_gaps,
 )
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message, resolve_lang
-from stepik_grader.web.insights_adapter import insights_cards
+from stepik_grader.web.insights_adapter import insights_cards, progress_rows
 from stepik_grader.web.rules_adapter import rules_get, rules_search
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
@@ -284,6 +284,9 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(200, "application/json; charset=utf-8", _json(cards))
         elif parsed.path == "/api/insights":
             self._send(200, "application/json; charset=utf-8", _json(insights_cards()))
+        elif parsed.path == "/api/progress":
+            # issue #431: TTFG — попыток/времени до первого AC по задачам.
+            self._send(200, "application/json; charset=utf-8", _json(progress_rows()))
         elif parsed.path.startswith("/api/rules/"):
             code = parsed.path[len("/api/rules/") :]
             card = rules_get(code)

@@ -79,6 +79,7 @@
   "cache_cleared": "🗑 Кэш очищен: удалено записей — {count}.",
   "stats_no_data": "Нет данных — статистика выключена (--stats/[tool.stepik-grader] record_stats) или ещё не накопилась.",
   "insights_no_data": "Пока нет инсайтов — прогоните решения с историей (--history), чтобы накопить карточки «Подучить».",
+  "progress_exported": "Прогресс экспортирован: {path}",
   "sandbox_unavailable": "❌ --sandbox недоступен на этой машине: {reason}",
   "watch_dependency_missing": "--watch требует пакет watchfiles: pip install \"stepik-grader[watch]\"",
   "watch_waiting": "👀 Слежу за изменениями: {path} (Ctrl+C — остановить)",
