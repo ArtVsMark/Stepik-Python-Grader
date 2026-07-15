@@ -111,7 +111,7 @@ Backend выбирается автоматически по ОС при ста�
 |---|---|---|---|
 | Сеть | ✅ ядром (`--unshare-net`) | ✅ ядром (`deny network*`) | ❌ **не реализовано** (см. ниже) |
 | Запись вне tmp | ✅ ядром (mount namespace) | ✅ ядром (Seatbelt) | ⚠️ только относительные пути (cwd); абсолютные пути **не блокируются** |
-| Чтение файлов | ⚠️ только интерпретатор+stdlib (см. ниже) | ❌ не ограничено (`allow file-read*`) — см. пояснение ниже | ⚠️ обычные ACL пользователя, без доп. ограничения |
+| Чтение файлов | ⚠️ интерпретатор+stdlib + `/usr` ro (загрузчик/libc, см. ниже) | ❌ не ограничено (`allow file-read*`) — см. пояснение ниже | ⚠️ обычные ACL пользователя, без доп. ограничения |
 | Память | ✅ ядром (`RLIMIT_AS`) + psutil-backstop | ⚠️ только psutil-поллинг (`RLIMIT_AS` не работает на Darwin) | ✅ ядром (`JOB_OBJECT_LIMIT_JOB_MEMORY`, commit-charge — быстрее, чем POSIX RLIMIT_AS на практике) |
 | CPU-время | ✅ ядром (`RLIMIT_CPU`, SIGXCPU) | ✅ ядром (`RLIMIT_CPU`) | ⚠️ psutil-поллинг (Job Object лимит — backstop, не основной детектор) |
 | Anti-fork-bomb | ✅ абсолютный `RLIMIT_NPROC` (свежий user namespace, счётчик с 0) | ⚠️ сэмплированный бюджет (нет namespace-аналога, слабее) | ✅ `JOB_OBJECT_LIMIT_ACTIVE_PROCESS` (per-job, без cross-UID гочи) |
@@ -149,6 +149,31 @@ Backend выбирается автоматически по ОС при ста�
   Seatbelt-политика OpenAI Codex). Не потеря гарантии — изоляция чтения для
   macOS никогда не заявлялась в таблице выше; запись/сеть/ресурсы
   по-прежнему ограничены ядром.
+
+### Проверка Linux-песочницы в CI (issue #420)
+
+Обычные раннеры GitHub Actions запрещают `bwrap` создать **непривилегированный
+user namespace** целиком: `--unshare-user` завершается `setting up uid map:
+Permission denied`, а `--unshare-net` — `RTM_NEWADDR: Operation not permitted`.
+Поэтому Linux-бэкенд гоняется в CI внутри **privileged-контейнера** (job
+`sandbox-linux`), где и userns, и netns доступны. Там исполняется весь
+`tests/test_sandbox_runner.py` под ПОЛНОЙ изоляцией: запуск интерпретатора в
+песочнице, ФС-изоляция, **реальная сетевая изоляция** (`test_network_blocked`),
+`RLIMIT_AS` (память), `output_size`, timeout. Покрытие `_linux.py` вливается в
+cross-OS combine.
+
+**anti-fork-bomb** (`RLIMIT_NPROC`) из CI-набора исключён (`--deselect`): его
+сдерживание зависит от сброса kernel-ucounts через `--unshare-user`, который во
+вложенных user-namespace окружениях (в т.ч. контейнерах) ведёт себя нестабильно
+— проверяется полным набором на локальной машине / self-hosted-раннере и
+кросс-OS эквивалентом (`test_process_count_contained`) в Windows-наборе.
+
+Бэкенд монтирует `/usr` read-only (issue #420): ELF-загрузчик (`ld-linux`) и
+`libc` интерпретатора живут под `/usr` даже когда сам интерпретатор стоит вне
+его (Docker-образы `python`, hostedtoolcache на CI, pyenv) — без этого bwrap
+падает `execvp: No such file` на загрузчике. Это read-only доступ на чтение
+системных библиотек; запись/сеть/ресурсы по-прежнему изолированы ядром, а
+site-packages виртуального окружения по-прежнему НЕ пробрасываются.
 
 ### Что означает `SANDBOX_VIOLATION` (и чего не означает)
 

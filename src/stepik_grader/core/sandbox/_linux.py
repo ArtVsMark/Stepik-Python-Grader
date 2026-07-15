@@ -46,8 +46,17 @@ def _python_tree_binds() -> list[str]:
     ``base_prefix``/``base_exec_prefix`` — venv-интерпретатор часто лишь
     тонкий launcher/symlink в базовую установку (issue #266 план,
     подтверждено Plan-агентом). Дедуплицирует пересекающиеся пути.
+
+    issue #420: ``/usr`` монтируется всегда — ELF-загрузчик (``ld-linux``) и
+    ``libc`` интерпретатора живут под ``/usr`` (usrmerge), а сам интерпретатор
+    может стоять ВНЕ ``/usr`` (``/usr/local`` в Docker-образах python,
+    hostedtoolcache на CI, pyenv). Без ``/usr`` bwrap падает
+    ``execvp: No such file`` уже на загрузчике интерпретатора. Для
+    системного Python (``sys.prefix == /usr``) это ничего не меняет — ``/usr``
+    и так был в списке.
     """
     candidates = {
+        "/usr",
         sys.prefix,
         sys.exec_prefix,
         sys.base_prefix,

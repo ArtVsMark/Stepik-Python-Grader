@@ -13,8 +13,11 @@ Structure:
 
 from __future__ import annotations
 
+import functools
+import os
 import pathlib
 import shutil
+import subprocess
 import sys
 
 import pytest
@@ -196,82 +199,188 @@ def _write_script(tmp_path: pathlib.Path, body: str, name: str = "sol.py") -> pa
     return path
 
 
+def _probe_usrmerge_symlink_args() -> list[str]:
+    """usrmerge-симлинки для пробы netns (issue #420).
+
+    Локальная копия логики ``_linux._usrmerge_symlink_args`` — сознательно НЕ
+    импортируем боевой модуль здесь, потому что проба вызывается в ``skipif`` на
+    этапе сбора тестов, а ранний импорт ``_linux`` проставил бы атрибут
+    ``_linux`` на пакете и сломал бы юнит-тесты диспетчеризации, которые
+    подменяют модуль через ``sys.modules``. Пробе не нужна точность боевого
+    хелпера — достаточно, чтобы ``/usr/bin/true`` успешно запустился, когда
+    netns работает.
+    """
+    args: list[str] = []
+    for link in ("/lib", "/lib64", "/lib32", "/libx32", "/bin", "/sbin"):
+        p = pathlib.Path(link)
+        try:
+            if p.is_symlink() and p.resolve().is_relative_to("/usr"):
+                args += ["--symlink", os.readlink(link), link]
+        except OSError:
+            pass
+    return args
+
+
+@functools.lru_cache(maxsize=1)
+def _bwrap_netns_works() -> bool:
+    """Проверить, может ли ``bwrap --unshare-net`` поднять loopback здесь (issue #420).
+
+    Раннеры GitHub Actions это запрещают (``RTM_NEWADDR: Operation not
+    permitted``), а обычный десктоп/privileged-контейнер — разрешают. Гоняет
+    максимум один throwaway ``bwrap`` (кэшируется). Успех = netns доступен и
+    ``/usr/bin/true`` реально исполнился; любой ненулевой код/ошибка = netns
+    недоступен здесь → сетевые sandbox-тесты корректно скипаются.
+    """
+    if sys.platform != "linux":
+        return False
+    bwrap = shutil.which("bwrap")
+    if bwrap is None:
+        return False
+    argv = [bwrap, "--ro-bind", "/usr", "/usr"]
+    argv += _probe_usrmerge_symlink_args()
+    argv += ["--tmpfs", "/tmp", "--dev", "/dev", "--proc", "/proc"]
+    argv += ["--unshare-net", "--unshare-user", "--", "/usr/bin/true"]
+    try:
+        return subprocess.run(argv, capture_output=True, timeout=15).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+# --- Shared scenario assertions (issue #420): one source of truth for what each
+# isolation guarantee means. Each takes an already-constructed Runner, so a single
+# scenario body serves the Linux class here and stays reusable for other backends. ---
+
+
+def _assert_normal_run(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+    path = _write_script(tmp_path, "print('hello')\n")
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=5.0))
+    assert outcome.launch_error is None
+    assert outcome.returncode == 0
+    assert outcome.stdout.decode().strip() == "hello"
+
+
+def _assert_write_outside_run_dir_blocked(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+    target = tmp_path / "escape-target.txt"
+    path = _write_script(tmp_path, f"open({str(target)!r}, 'w').write('pwned')\n")
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=5.0))
+    assert not target.exists()
+    assert outcome.returncode != 0
+
+
+def _assert_network_blocked(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+    path = _write_script(
+        tmp_path,
+        "import socket\n"
+        "s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n"
+        "s.settimeout(3)\n"
+        "s.connect(('93.184.216.34', 80))\n"
+        "print('connected')\n",
+    )
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=8.0))
+    assert outcome.returncode != 0
+    assert b"connected" not in outcome.stdout
+
+
+def _assert_fork_bomb_contained(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+    path = _write_script(
+        tmp_path,
+        "import subprocess, sys\n"
+        "procs = []\n"
+        "for _ in range(200):\n"
+        "    cmd = [sys.executable, '-c', 'import time; time.sleep(5)']\n"
+        "    procs.append(subprocess.Popen(cmd))\n"
+        "print('spawned', len(procs))\n",
+    )
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=8.0))
+    assert outcome.returncode != 0
+    assert b"spawned 200" not in outcome.stdout
+
+
+def _assert_memory_overrun_violation(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+    path = _write_script(
+        tmp_path,
+        "data = []\nwhile True:\n    data.append(bytearray(10 * 1024 * 1024))\n",
+    )
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=10.0, max_memory_mb=64))
+    assert outcome.timed_out is False
+    # Kernel RLIMIT_AS rejection (RE-style MemoryError) or our own psutil
+    # backstop (sandbox_violation="memory") are both acceptable -- see
+    # RunOutcome.sandbox_violation docstring on why we don't force one.
+    assert outcome.sandbox_violation == "memory" or outcome.returncode != 0
+
+
+def _assert_output_size_violation(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+    path = _write_script(tmp_path, "import sys\nwhile True:\n    sys.stdout.write('x' * 65536)\n")
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=5.0))
+    assert outcome.sandbox_violation == "output_size"
+
+
+def _assert_infinite_loop_times_out(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+    path = _write_script(tmp_path, "while True:\n    pass\n")
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=2.0))
+    assert outcome.timed_out is True
+
+
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux-only backend")
 @pytest.mark.skipif(shutil.which("bwrap") is None, reason="bubblewrap (bwrap) not installed")
+@pytest.mark.skipif(
+    not _bwrap_netns_works(),
+    reason="bwrap --unshare-net unavailable here (e.g. GitHub Actions loopback restriction, #420)",
+)
 class TestLinuxSandboxRunner:
+    """Полная изоляция bwrap, включая сетевую (netns). Гейт ``_bwrap_netns_works``
+    скипает класс там, где непривилегированный netns недоступен (обычные
+    GHA-раннеры, issue #420); реально гоняется локально и в CI-job'е
+    ``sandbox-linux`` (privileged-контейнер, где netns/userns доступны)."""
+
     def _runner(self):
         from stepik_grader.core.sandbox._linux import create_backend
 
         return create_backend()
 
     def test_normal_run_ac(self, tmp_path: pathlib.Path) -> None:
-        path = _write_script(tmp_path, "print('hello')\n")
-        outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=5.0))
-        assert outcome.launch_error is None
-        assert outcome.returncode == 0
-        assert outcome.stdout.decode().strip() == "hello"
+        _assert_normal_run(self._runner(), tmp_path)
 
     def test_write_outside_run_dir_blocked(self, tmp_path: pathlib.Path) -> None:
-        target = tmp_path / "escape-target.txt"
-        path = _write_script(
-            tmp_path,
-            f"open({str(target)!r}, 'w').write('pwned')\n",
-        )
-        outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=5.0))
-        assert not target.exists()
-        assert outcome.returncode != 0
+        _assert_write_outside_run_dir_blocked(self._runner(), tmp_path)
 
     def test_network_blocked(self, tmp_path: pathlib.Path) -> None:
-        path = _write_script(
-            tmp_path,
-            "import socket\n"
-            "s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n"
-            "s.settimeout(3)\n"
-            "s.connect(('93.184.216.34', 80))\n"
-            "print('connected')\n",
-        )
-        outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=8.0))
-        assert outcome.returncode != 0
-        assert b"connected" not in outcome.stdout
+        _assert_network_blocked(self._runner(), tmp_path)
 
     def test_fork_bomb_contained(self, tmp_path: pathlib.Path) -> None:
-        path = _write_script(
-            tmp_path,
-            "import subprocess, sys\n"
-            "procs = []\n"
-            "for _ in range(200):\n"
-            "    cmd = [sys.executable, '-c', 'import time; time.sleep(5)']\n"
-            "    procs.append(subprocess.Popen(cmd))\n"
-            "print('spawned', len(procs))\n",
-        )
-        outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=8.0))
-        assert outcome.returncode != 0
-        assert b"spawned 200" not in outcome.stdout
+        _assert_fork_bomb_contained(self._runner(), tmp_path)
 
     def test_memory_overrun_violation(self, tmp_path: pathlib.Path) -> None:
-        path = _write_script(
-            tmp_path,
-            "data = []\nwhile True:\n    data.append(bytearray(10 * 1024 * 1024))\n",
-        )
-        outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=10.0, max_memory_mb=64))
-        assert outcome.timed_out is False
-        # Kernel RLIMIT_AS rejection (RE-style MemoryError) or our own psutil
-        # backstop (sandbox_violation="memory") are both acceptable -- see
-        # RunOutcome.sandbox_violation docstring on why we don't force one.
-        assert outcome.sandbox_violation == "memory" or outcome.returncode != 0
+        _assert_memory_overrun_violation(self._runner(), tmp_path)
 
     def test_output_size_violation(self, tmp_path: pathlib.Path) -> None:
-        path = _write_script(
-            tmp_path,
-            "import sys\nwhile True:\n    sys.stdout.write('x' * 65536)\n",
-        )
-        outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=5.0))
-        assert outcome.sandbox_violation == "output_size"
+        _assert_output_size_violation(self._runner(), tmp_path)
 
     def test_infinite_loop_still_times_out(self, tmp_path: pathlib.Path) -> None:
-        path = _write_script(tmp_path, "while True:\n    pass\n")
-        outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=2.0))
-        assert outcome.timed_out is True
+        _assert_infinite_loop_times_out(self._runner(), tmp_path)
+
+
+def test_linux_sandbox_not_silently_skipped() -> None:
+    """issue #420 guard (крит. 3): в CI-job'е ``sandbox-linux`` (privileged-
+    контейнер) установлен ``STEPIK_REQUIRE_SANDBOX_TESTS=1`` — тогда молчаливый
+    skip Linux-песочницы обязан стать ЖЁСТКИМ падением, а не тихим no-op.
+    Проверяем всё, от чего зависит запуск полного ``TestLinuxSandboxRunner``:
+    Linux + установленный bwrap + рабочий netns (``--unshare-user``/
+    ``--unshare-net`` под privileged). Если что-то отвалилось — job краснеет,
+    а не проходит с тихо скипнутым классом. Локально/в обычной матрице без
+    переменной — обычный skip.
+    """
+    if not os.environ.get("STEPIK_REQUIRE_SANDBOX_TESTS"):
+        pytest.skip("guard enforced only in the CI sandbox-linux job")
+    assert sys.platform == "linux", "sandbox-linux job must run on Linux"
+    assert shutil.which("bwrap") is not None, (
+        "bwrap must be installed in the sandbox-linux job — sandbox tests would "
+        "otherwise silently skip (#420 guard)"
+    )
+    assert _bwrap_netns_works(), (
+        "bwrap --unshare-net/--unshare-user must work in the privileged sandbox-linux "
+        "job — the full TestLinuxSandboxRunner class would otherwise silently skip (#420 guard)"
+    )
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS-only backend")
@@ -405,7 +514,9 @@ def _current_platform_backend_available() -> bool:
     if sys.platform == "win32":
         return True
     if sys.platform == "linux":
-        return shutil.which("bwrap") is not None
+        # issue #420: golden-сравнение гоняет боевой SandboxRunner() (netns on) —
+        # требует не только bwrap, но и рабочего netns (на GHA его нет).
+        return shutil.which("bwrap") is not None and _bwrap_netns_works()
     if sys.platform == "darwin":
         return shutil.which("sandbox-exec") is not None
     return False

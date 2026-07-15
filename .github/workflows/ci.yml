@@ -62,13 +62,12 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      # issue #420: bubblewrap НЕ ставится в CI намеренно. GitHub Actions runners
-      # запрещают bwrap поднять loopback в сетевом namespace (--unshare-net даёт
-      # `RTM_NEWADDR: Operation not permitted`), поэтому НИ ОДИН sandbox-прогон на
-      # раннере не стартует — тесты падали бы, а не давали покрытие. Linux
-      # SandboxRunner проверяется локально (`apt-get install bubblewrap` +
-      # `pytest tests/test_sandbox_runner.py`); в CI тесты корректно скипаются
-      # (skipif bwrap отсутствует). Backend-фикс usrmerge (#420) — в _linux.py.
+      # issue #420: в матрице test bubblewrap НАМЕРЕННО не ставится — sandbox-тесты
+      # здесь скипаются (skipif bwrap отсутствует). Раннеры GitHub Actions не дают
+      # bwrap создать непривилегированный user namespace (uid map / netns loopback),
+      # поэтому полный Linux-бэкенд гоняется отдельным job'ом `sandbox-linux` ниже
+      # (privileged-контейнер, где userns/netns доступны). Backend-фиксы usrmerge
+      # и биндинг /usr (#420) — в _linux.py.
 
       - name: Ruff lint
         run: ruff check .
@@ -171,7 +170,10 @@ jobs:
   # here from the `test` job, issue #283) — one place doing badge commits
   # avoids two jobs racing to push .github/badges/*.json independently.
   coverage-combine:
-    needs: test
+    # issue #420: + sandbox-linux — его .coverage.sandbox-linux (покрытие
+    # _linux.py, недостижимое в матрице без bwrap) подхватывается download'ом
+    # по маске coverage-data-* и вливается в cross-OS combine.
+    needs: [test, sandbox-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -295,3 +297,63 @@ jobs:
 
       - name: Run e2e tests
         run: pytest tests/e2e/ -v --no-cov
+
+  # issue #420: Linux SandboxRunner (bwrap) реально гоняется в CI под ПОЛНОЙ
+  # изоляцией, включая сетевую. Раннеры GitHub Actions запрещают
+  # непривилегированные user namespaces целиком (`bwrap: setting up uid map:
+  # Permission denied`) и netns loopback (`RTM_NEWADDR EPERM`) — поэтому job
+  # идёт в PRIVILEGED-контейнере, где userns и netns доступны (проверено:
+  # test_network_blocked проходит, реальная сетевая изоляция). Гоняет весь
+  # tests/test_sandbox_runner.py: запуск в песочнице, ФС-изоляция, сеть, память,
+  # output-size, timeout. fork-bomb (RLIMIT_NPROC) исключена — её сдерживание
+  # зависит от сброса kernel-ucounts и во вложенном userns нестабильно.
+  # Отдельный job (не строка в матрице test): не бьём по per-OS gate (#294) /
+  # cross-OS combine (#283); .coverage вливается в combine → _linux.py > 0%.
+  sandbox-linux:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12-slim
+      options: --privileged
+    steps:
+      # git нужен ДО checkout: без него actions/checkout тянет tarball через REST
+      # API без .git, а setuptools-scm требует историю+теги. bwrap — тем же шагом.
+      - name: Install git + bubblewrap (before checkout)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git bubblewrap
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # setuptools-scm читает версию из git; в контейнере repo принадлежит
+      # другому uid → git ругается на "dubious ownership" без этого.
+      - name: Trust workspace for git (setuptools-scm)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      # STEPIK_REQUIRE_SANDBOX_TESTS=1 превращает молчаливый skip Linux-песочницы
+      # в жёсткое падение (test_linux_sandbox_not_silently_skipped проверяет
+      # bwrap+netns). fork-bomb deselect'ится (см. коммент к job'у).
+      # --cov-fail-under=0: job гоняет только sandbox-тесты, общий % низкий — gate
+      # 85% (полный прогон) неприменим; нужны данные покрытия _linux.py для combine.
+      - name: Run full Linux sandbox tests (privileged, netns on)
+        env:
+          STEPIK_REQUIRE_SANDBOX_TESTS: "1"
+        run: |
+          pytest tests/test_sandbox_runner.py \
+            --deselect "tests/test_sandbox_runner.py::TestLinuxSandboxRunner::test_fork_bomb_contained" \
+            --cov-fail-under=0 -p no:cacheprovider
+
+      - name: Rename coverage data for combine (#283/#420)
+        run: mv .coverage .coverage.sandbox-linux
+
+      - name: Upload coverage data (#420)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-sandbox-linux
+          path: .coverage.sandbox-linux
+          # v4 исключает dotfiles по умолчанию; .coverage.* нужно явно.
+          include-hidden-files: true
