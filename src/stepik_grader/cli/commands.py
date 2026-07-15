@@ -73,6 +73,11 @@ def _verdict_counts_from_cases(cases: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
+def _has_failures(cases: list[dict[str, Any]]) -> bool:
+    """Есть ли среди кейсов непройденные (для nudge «Подучить», issue #430)."""
+    return any(not c.get("passed") for c in cases)
+
+
 def _verdict_counts_from_bench(results: dict[pathlib.Path, dict[str, Any]]) -> dict[str, int]:
     """Тальи вердиктов решений для режимов 3/4 (issue #268 — статистика).
 
@@ -206,8 +211,14 @@ def _run_mode_1(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
+    nudge_history: bool = False,
 ) -> None:
-    """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1."""
+    """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1.
+
+    ``nudge_history`` (issue #430) — печатать ли однократную подсказку про
+    «Подучить» после прогона с падениями (только текст-вывод). Интерактивное
+    меню передаёт ``True``, когда история выключена; CLI ``--mode 1`` — нет.
+    """
     if not solution.is_file():
         print(ctx.t("file_not_found", path=solution))
         return
@@ -275,6 +286,8 @@ def _run_mode_1(
     print_correctness_results([(solution, result)], base, col_file=col_file)
     if record_lint:
         _print_lint_blocks([solution], None, output, lint_by_sol)
+    if nudge_history and _has_failures(result["cases"]):
+        print(ctx.t("nudge_enable_history"))
 
 
 def _run_mode_2(
@@ -287,8 +300,13 @@ def _run_mode_2(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
+    nudge_history: bool = False,
 ) -> None:
-    """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2."""
+    """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2.
+
+    ``nudge_history`` (issue #430) — см. ``_run_mode_1``: однократная подсказка
+    про «Подучить» после прогона с падениями (только текст-вывод, только меню).
+    """
     if not directory.is_dir():
         print(ctx.t("dir_not_found", path=directory))
         return
@@ -361,6 +379,8 @@ def _run_mode_2(
         print(ctx.t("cache_summary", hits=cache_hits, total=len(rows)))
     if record_lint:
         _print_lint_blocks([p for p, _ in rows], directory, output, lint_by_sol)
+    if nudge_history and _has_failures([c for _, result in rows for c in result["cases"]]):
+        print(ctx.t("nudge_enable_history"))
 
 
 def _run_mode_3(

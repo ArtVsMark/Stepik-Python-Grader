@@ -245,6 +245,7 @@ def _run_mode_1(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
+    nudge_history: bool = False,
 ) -> None:
     """Режим 1: проверить одно решение (verbose). Тонкая обёртка над commands._run_mode_1."""
     commands._run_mode_1(
@@ -256,6 +257,7 @@ def _run_mode_1(
         record_stats=record_stats,
         record_history=record_history,
         record_lint=record_lint,
+        nudge_history=nudge_history,
     )
 
 
@@ -268,6 +270,7 @@ def _run_mode_2(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
+    nudge_history: bool = False,
 ) -> None:
     """Режим 2: проверить все решения в папке. Тонкая обёртка над commands._run_mode_2."""
     commands._run_mode_2(
@@ -279,6 +282,7 @@ def _run_mode_2(
         record_stats=record_stats,
         record_history=record_history,
         record_lint=record_lint,
+        nudge_history=nudge_history,
     )
 
 

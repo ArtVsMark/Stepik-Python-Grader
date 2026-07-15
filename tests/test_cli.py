@@ -230,7 +230,7 @@ class TestArgparseCli:
 
 class TestMode1:
     def test_file_not_found(self, capsys, monkeypatch) -> None:
-        inputs = iter(["1", "/no/such/file.py"])
+        inputs = iter(["1", "/no/such/file.py", "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "File not found" in capsys.readouterr().out
@@ -243,7 +243,7 @@ class TestMode1:
         (tests_dir / "input_1.txt").write_text("4", encoding="utf-8")
         (tests_dir / "expected_1.txt").write_text("5", encoding="utf-8")
 
-        inputs = iter(["1", str(sol)])
+        inputs = iter(["1", str(sol), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         out = capsys.readouterr().out
@@ -259,7 +259,7 @@ class TestMode1:
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n", encoding="utf-8")
 
-        inputs = iter(["1", str(sol)])
+        inputs = iter(["1", str(sol), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         out = capsys.readouterr().out
@@ -274,13 +274,13 @@ class TestMode1:
 
 class TestMode2:
     def test_directory_not_found(self, capsys, monkeypatch) -> None:
-        inputs = iter(["2", "/no/such/dir"])
+        inputs = iter(["2", "/no/such/dir", "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "Directory not found" in capsys.readouterr().out
 
     def test_no_solution_files_found(self, tmp_path: pathlib.Path, capsys, monkeypatch) -> None:
-        inputs = iter(["2", str(tmp_path)])
+        inputs = iter(["2", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "No solution files found" in capsys.readouterr().out
@@ -293,13 +293,13 @@ class TestMode2:
 
 class TestMode3:
     def test_directory_not_found(self, capsys, monkeypatch) -> None:
-        inputs = iter(["3", "/no/such/dir"])
+        inputs = iter(["3", "/no/such/dir", "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "Directory not found" in capsys.readouterr().out
 
     def test_no_solution_files_found(self, tmp_path: pathlib.Path, capsys, monkeypatch) -> None:
-        inputs = iter(["3", str(tmp_path)])
+        inputs = iter(["3", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "No solution files found" in capsys.readouterr().out
@@ -330,7 +330,7 @@ class TestMode3:
         monkeypatch.setattr(cli, "run_benchmark", fake_run_benchmark)
         monkeypatch.setattr(cli, "_ask_bench_profile", lambda: 5)
 
-        inputs = iter(["3", str(tmp_path)])
+        inputs = iter(["3", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         out = capsys.readouterr().out
@@ -345,14 +345,14 @@ class TestMode3:
 
 class TestMode4:
     def test_directory_not_found(self, capsys, monkeypatch) -> None:
-        inputs = iter(["4", "/no/such/dir"])
+        inputs = iter(["4", "/no/such/dir", "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "Directory not found" in capsys.readouterr().out
 
     def test_no_solution_files_found(self, tmp_path: pathlib.Path, capsys, monkeypatch) -> None:
         monkeypatch.setattr(cli, "_ask_micro_profile", lambda: 500)
-        inputs = iter(["4", str(tmp_path)])
+        inputs = iter(["4", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "No solution files found" in capsys.readouterr().out
@@ -370,7 +370,7 @@ class TestMode4:
         monkeypatch.setattr(
             cli, "_resolve_test_dir_from_input", lambda *a, **k: tmp_path / "does_not_exist"
         )
-        inputs = iter(["4", str(tmp_path)])
+        inputs = iter(["4", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "Tests not found" in capsys.readouterr().out
@@ -382,7 +382,7 @@ class TestMode4:
 
         monkeypatch.setattr(cli, "_ask_micro_profile", lambda: 500)
         monkeypatch.setattr(cli, "run_microbench_mode", lambda *a, **k: {})
-        inputs = iter(["4", str(tmp_path)])
+        inputs = iter(["4", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "No test cases found" in capsys.readouterr().out
@@ -410,7 +410,7 @@ class TestMode4:
 
         monkeypatch.setattr(cli, "_ask_micro_profile", lambda: 500)
         monkeypatch.setattr(cli, "run_microbench_mode", fake_run_microbench_mode)
-        inputs = iter(["4", str(tmp_path)])
+        inputs = iter(["4", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         out = capsys.readouterr().out
@@ -428,7 +428,7 @@ class TestMode4:
             "run_microbench_mode",
             lambda paths, test_dir, **k: {paths[0]: {"error": "SyntaxError"}},
         )
-        inputs = iter(["4", str(tmp_path)])
+        inputs = iter(["4", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert "SyntaxError" in capsys.readouterr().out
@@ -596,8 +596,9 @@ class TestDialogFallbackMenu:
         picked = []
         monkeypatch.setattr(cli, "_pick_path_via_dialog", lambda *, want_dir: str(sol))
         monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: picked.append(solution))
-        # Последовательный ввод: сначала выбор режима "1", потом пустой путь.
-        inputs = iter(["1", ""])
+        # Последовательный ввод: режим "1", пустой путь (→ диалог), затем "0" —
+        # выход из зацикленного меню (issue #445).
+        inputs = iter(["1", "", "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert picked == [str(sol)]
@@ -608,14 +609,14 @@ class TestDialogFallbackMenu:
             cli, "_pick_path_via_dialog", lambda *, want_dir: got.append(want_dir) or str(tmp_path)
         )
         monkeypatch.setattr(cli, "_run_mode_2", lambda directory, **k: None)
-        inputs = iter(["2", ""])
+        inputs = iter(["2", "", "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()
         assert got == [True]  # для папки — askdirectory
 
     def test_empty_input_and_dialog_cancelled_is_graceful(self, monkeypatch, capsys) -> None:
         # autouse-фикстура уже возвращает None (отмена диалога).
-        inputs = iter(["1", ""])
+        inputs = iter(["1", "", "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         cli._interactive_menu()  # не должно быть трейсбека
         assert "File not found" in capsys.readouterr().out

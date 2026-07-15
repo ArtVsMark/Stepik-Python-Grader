@@ -66,7 +66,7 @@ class TestMode2PerSolutionTestDir:
 
         monkeypatch.setattr(cli, "run_tests", fake_run_tests)
 
-        inputs = iter(["2", str(tmp_path)])
+        inputs = iter(["2", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
 
         grader._interactive_menu()
@@ -106,7 +106,7 @@ class TestMode2PerSolutionTestDir:
             }
 
         monkeypatch.setattr(cli, "run_tests", fake_run_tests)
-        inputs = iter(["2", str(tmp_path)])
+        inputs = iter(["2", str(tmp_path), "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
 
         grader._interactive_menu()
