@@ -161,7 +161,8 @@ stepik-grader --serve --no-root-confinement    # без изоляции пут�
   режим запоминаются (localStorage).
 - В поле пути — файл решения (`.py`) или папка с решениями; тесты
   резолвятся так же, как в режимах 1/2/3.
-- Тот же threat model, что у CLI (нет OS-sandbox) — запускай свои решения.
+- Тот же threat model, что у CLI: без `--sandbox` изоляции нет — запускай свои
+  решения. `--serve --sandbox` (issue #396) включает OS-изоляцию и в web.
 
 **Рабочая директория (`--root`, issue #261).** Все пути из запросов
 (`/api/grade`, `/api/source`, `/api/solutions`, `/api/save-solution`,
@@ -310,11 +311,15 @@ use_cache = true
 
 ```bash
 stepik-grader --mode 1 --file task.py --sandbox   # исполнить в ОС-изолированной песочнице
+stepik-grader --serve --sandbox                   # то же для web (issue #396)
 ```
 
-Opt-in ОС-уровневая изоляция исполнения для `--mode 1/2/3/4` вместо обычного
-subprocess: bubblewrap на Linux, `sandbox-exec` на macOS, Job Objects на
-Windows. Backend выбирается автоматически по текущей ОС; если недоступен
+Opt-in ОС-уровневая изоляция исполнения для `--mode 1/2/3/4` и для `--serve`
+(issue #396) вместо обычного subprocess: bubblewrap на Linux, `sandbox-exec` на
+macOS, Job Objects на Windows. В web `SandboxRunner` ставится активным runner'ом
+до старта сервера — grade/playground/microbench изолируются разом; пошаговый
+трейс под `--sandbox` недоступен (трассировщику нужен пакет проекта в
+исполняющем процессе). Backend выбирается автоматически по текущей ОС; если недоступен
 (нет `bwrap`/`sandbox-exec`/Job Object API) — команда сразу завершается
 ошибкой, без тихого отката на обычный запуск. Гарантии изоляции **разные по
 ОС** (сеть/ФС/память/CPU/anti-fork-bomb) — полная таблица асимметрии и
