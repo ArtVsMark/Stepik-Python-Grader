@@ -37,6 +37,9 @@
 - SQLite history survives concurrent first-time init (idempotent `CREATE ... IF NOT EXISTS` — no more silently lost records) and closes the connection if `_connect` fails mid-setup (#393).
 - Re-downloading a task clears `tests/` first, so stale cases from a previous download can't produce a silent wrong verdict (#394).
 - Web: cancelling a tests/trace job reports `cancelled` instead of a `zip()` error or `done`; non-UTF8 solution files return a JSON error instead of a 500 on `/api/source`, `/api/code-terms`, and bench reference (#422, #423).
+- Security: OAuth tokens are written with `save_secrets` (atomic, `0600`) instead of `save_json_file` (`0644`), closing a world/group-readable gap that bypassed #243 (#400).
+- Security: the CSRF guard now rejects `Sec-Fetch-Site: cross-site` requests (Fetch Metadata), covering a cross-site request even when Origin/Referer are absent; non-browser clients are unaffected (#399).
+- Security: `POST /api/download` now confines its `root` (download target) to the workspace — an out-of-root `root` is rejected 403 instead of letting `download_task` `mkdir` arbitrary directories (#401).
 
 ### Documentation
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan
