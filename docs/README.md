@@ -26,6 +26,7 @@
 | Архив CHANGELOG: ротированные релизы 1.1.0–1.5.0 (issue #373) + до-тегового периода (до #162/#183), построчный английский лог | [changelog-archive.md](changelog-archive.md) |
 | Внести вклад: код-стайл, форматы тестов, версионирование | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Инварианты ядра и правила для агентов | [../CLAUDE.md](../CLAUDE.md) |
+| Режим ответов Claude: полный шаблон 13 ролей + матрица подключения | [roles.md](roles.md) |
 | Политика безопасности, ответственное раскрытие уязвимостей | [../SECURITY.md](../SECURITY.md) |
 | Архив постановок для Claude Code (все закрыты: #125/#186/#187/#129, #161/#163, #126/#190/#191) | [claude-handoff.md](claude-handoff.md) |
 | История спринтов и roadmap (архив) | [history.md](history.md) |
@@ -62,6 +63,7 @@
 | Архив CHANGELOG: ротированные релизы (1.1.0–1.5.0, issue #373) + до-тегового периода (до #162/#183) | [changelog-archive.md](changelog-archive.md) | ../CHANGELOG.md (там — только живая часть: актуальный Unreleased + три последних MINOR) |
 | Политика версионирования (схема тег=MINOR+1, release vs dev) | [../CONTRIBUTING.md](../CONTRIBUTING.md) § Версионирование | README, CLAUDE.md, versions.md, history.md |
 | Инварианты ядра, правила для агентов | [../CLAUDE.md](../CLAUDE.md) | docs/* |
+| Полный шаблон 13 ролей для ответов Claude (профили, правила, матрица) | [roles.md](roles.md) | CLAUDE.md (там — только компактный триггер-блок § Режим ответов) |
 | История спринтов/roadmap, подробные примечания к issue (архив) | [history.md](history.md) | CLAUDE.md (там — только действующие инварианты) |
 | Архив постановок для Claude (scope/non-goals; все закрыты) | [claude-handoff.md](claude-handoff.md) | CLAUDE.md (там — короткие указатели); канон продукта — web-current.md/web-design.md |
 
