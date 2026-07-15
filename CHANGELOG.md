@@ -42,7 +42,7 @@
 - Security: the CSRF guard now rejects `Sec-Fetch-Site: cross-site` requests (Fetch Metadata), covering a cross-site request even when Origin/Referer are absent; non-browser clients are unaffected (#399).
 - Security: `POST /api/download` now confines its `root` (download target) to the workspace — an out-of-root `root` is rejected 403 instead of letting `download_task` `mkdir` arbitrary directories (#401).
 - Security: the microbench (mode-4 stdin) path now runs its bench script through the active Runner instead of a bare `python -c`, so `--sandbox` actually isolates it — the `--sandbox --mode 4` bypass is closed (#417).
-- Sandbox: the Linux bubblewrap backend recreates the top-level usrmerge symlinks (`/lib64` → `/usr/lib64`, …) inside the jail, so the solution's ELF loader resolves — the backend was unusable (and its tests never ran) on usrmerge systems like modern Ubuntu / CI (#420).
+- Sandbox: the Linux bubblewrap backend recreates the top-level usrmerge symlinks (`/lib64` → `/usr/lib64`, …) inside the jail, so the solution's ELF loader resolves — `--sandbox` was unusable on usrmerge systems like modern Ubuntu (#420).
 
 ### Documentation
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan
@@ -72,7 +72,6 @@
 ### Internal
 - Added a soft `docs/versions.md` release-column guard to `check_version_consistency.py`; archived `claude-handoff.md`, stamped `audit-2026-07.md` as implemented, fixed the stale CHANGELOG policy in GitHub PR/issue templates and the #163 contradiction in CLAUDE.md (#386).
 - Added a global 120s per-test deadline (`pytest-timeout`, `thread` method) so a hung subprocess/thread fails one test instead of hanging every CI matrix job (#444).
-- CI installs bubblewrap on the Ubuntu job (+ a `command -v bwrap` guard) so the Linux `SandboxRunner` tests actually run instead of silently skipping — closing a coverage/regression blind spot for `core/sandbox/_linux.py` (#420).
 
 ## [1.8.0] - 2026-07-14
 
