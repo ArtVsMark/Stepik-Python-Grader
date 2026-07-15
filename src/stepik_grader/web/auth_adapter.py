@@ -48,9 +48,15 @@ def auth_status(secrets_path: pathlib.Path) -> dict[str, Any]:
         return {"authorized": False, "reason": "no_secrets"}
     try:
         secrets = load_json_file(secrets_path)
-    except (OSError, ValueError, IsADirectoryError):
+    except (OSError, ValueError):
         return {"authorized": False, "reason": "no_secrets"}
-    if token_is_valid(secrets):
+    try:
+        valid = token_is_valid(secrets)
+    except (ValueError, TypeError):
+        # Битый expires_at/access_token (напр. строка вместо числа) — трактуем как
+        # «валидного токена нет», а не роняем сервер (best-effort, см. docstring).
+        valid = False
+    if valid:
         return {"authorized": True, "reason": "ok"}
     has_creds = all(str(secrets.get(field, "")).strip() for field in _CRED_FIELDS)
     return {"authorized": False, "reason": "no_token" if has_creds else "no_secrets"}
@@ -64,16 +70,23 @@ def perform_browser_auth(
 ) -> dict[str, Any]:
     """Записать креды в ``secrets.json`` (0600) и провести браузерный OAuth (issue #402).
 
-    Сначала сохраняет ``client_id``/``client_secret``/``redirect_uri`` через
-    ``save_secrets`` (атомарно, 0600), затем ``authorize_and_get_token`` открывает
-    браузер, ловит код на loopback-callback и дописывает токены в тот же файл.
-    Порядок важен: ``authorize_and_get_token`` объединяет токены с СУЩЕСТВУЮЩИМ
-    содержимым ``secrets.json`` — без предварительной записи кредов файл остался
-    бы без ``client_id``/``client_secret``. Блокирует до 120с — только из job.
+    Сначала обновляет ``client_id``/``client_secret``/``redirect_uri`` в
+    ``secrets.json`` через ``save_secrets`` (атомарно, 0600), СОХРАНЯЯ прочие поля
+    (напр. ``refresh_token`` при повторной авторизации), затем
+    ``authorize_and_get_token`` открывает браузер, ловит код на loopback-callback
+    и дописывает токены в тот же файл. Порядок важен: без предварительной записи
+    кредов файл остался бы без ``client_id``/``client_secret``. Блокирует до 120с
+    — только из job.
     """
-    save_secrets(
-        secrets_path,
-        {"client_id": client_id, "client_secret": client_secret, "redirect_uri": redirect_uri},
+    existing: dict[str, Any] = {}
+    if secrets_path.exists() and secrets_path.is_file():
+        try:
+            existing = load_json_file(secrets_path)
+        except (OSError, ValueError):
+            existing = {}
+    existing.update(
+        {"client_id": client_id, "client_secret": client_secret, "redirect_uri": redirect_uri}
     )
+    save_secrets(secrets_path, existing)
     authorize_and_get_token(client_id, client_secret, redirect_uri, secrets_path)
     return {"authorized": True, "reason": "ok"}

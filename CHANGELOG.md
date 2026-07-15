@@ -48,6 +48,7 @@
 
 ### Fixed
 - Interactive menu no longer crashes when `.grader_settings.json` can't be written (read-only cwd / full disk): the history toggle degrades to session-only; menu docs now show items 6/7 and the `[0-7]` prompt; the recursive `_print` fallback in `downloader_config` was fixed (#445, #430, #433).
+- Web OAuth hardening (#402 review): `/api/auth/status` survives a malformed `expires_at` instead of 500-ing, re-auth preserves an existing `refresh_token`, `redirect_uri` must be loopback, and the browser wizard stops polling on a vanished job; the CLI wizard no longer writes an empty `secrets.json` (#402, #433).
 - `--sandbox` on Linux now binds `/usr` read-only so the interpreter's ELF loader (`ld-linux`) and `libc` are reachable even when Python lives outside `/usr` (Docker `python` images, CI hostedtoolcache, pyenv) — previously bwrap failed with `execvp: No such file` on such interpreters (#420).
 - Mode-4 microbench "much slower" solutions are now classified as slow in «Подучить» insights — the verdict was emitted as `"MUCH SLOWER"` (space), which `insights._BENCH_SLOW` (underscore-only) silently skipped (#397).
 - Web «Функции в коде»: inventory-driven builtin/method detection (stdlib inventory instead of a narrow hardcode), syntax-construct detection (comprehensions, lambda, slice, f-string, unpacking, ternary, walrus, decorator, with, try), and `os.path.join` no longer misdetected as the `str.join` method (#367).

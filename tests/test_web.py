@@ -1947,6 +1947,22 @@ class TestAuthApi:
         assert status == 403
         assert json.loads(body)["message_id"] == "invalid_host"
 
+    def test_start_rejects_non_loopback_redirect(self, server: str) -> None:
+        """issue #402 (harden): redirect_uri с не-loopback host → 400, callback
+        не биндится на все интерфейсы."""
+        status, body = _post(
+            server + "/api/auth/start",
+            json.dumps(
+                {
+                    "client_id": "a",
+                    "client_secret": "b",
+                    "redirect_uri": "http://0.0.0.0:8080/callback",
+                }
+            ).encode("utf-8"),
+        )
+        assert status == 400
+        assert json.loads(body)["message_id"] == "invalid_redirect_uri"
+
     def test_start_runs_flow_and_writes_secrets(
         self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1974,3 +1990,33 @@ class TestAuthApi:
         secrets = json.loads((tmp_path / "secrets.json").read_text(encoding="utf-8"))
         assert secrets["client_id"] == "cid"
         assert secrets["client_secret"] == "csec"
+
+    def test_status_no_token_over_http(self, server: str, tmp_path: pathlib.Path) -> None:
+        """Креды есть, токена нет → no_token через GET /api/auth/status."""
+        (tmp_path / "secrets.json").write_text(
+            json.dumps({"client_id": "a", "client_secret": "b", "redirect_uri": "c"}),
+            encoding="utf-8",
+        )
+        status, body = _get(server + "/api/auth/status")
+        assert status == 200
+        assert json.loads(body) == {"authorized": False, "reason": "no_token"}
+
+    def test_start_flow_error_becomes_error_status(
+        self, server: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OAuth-flow бросил (120с таймаут / сбой браузера) → job error, не hang."""
+        from stepik_grader.web import auth_adapter
+
+        def _boom(*_a, **_k):
+            raise TimeoutError("OAuth code not received within 120s")
+
+        monkeypatch.setattr(auth_adapter, "authorize_and_get_token", _boom)
+        status, body = _post(
+            server + "/api/auth/start",
+            json.dumps({"client_id": "cid", "client_secret": "csec"}).encode("utf-8"),
+        )
+        assert status == 202
+        run_id = json.loads(body)["run_id"]
+        data = _poll_run(server, run_id)
+        assert data["status"] == "error"
+        assert "120s" in (data.get("message") or "")

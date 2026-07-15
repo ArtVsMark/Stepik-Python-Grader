@@ -2386,6 +2386,14 @@ function pollAuth(runId) {
     try {
       const r = await fetch("/api/v1/runs/" + runId);
       const data = await r.json();
+      if (!r.ok || !data.status) {
+        // Job исчез (404 run_not_found) или ответ без статуса — не крутить опрос
+        // бесконечно (issue #402).
+        if (progress)
+          progress.textContent = data.message || "Не удалось получить статус авторизации.";
+        if (btn) btn.disabled = false;
+        return;
+      }
       if (data.status === "done") {
         loadAuthStatus(); // перерисует панель как «Доступ активен»
         return;

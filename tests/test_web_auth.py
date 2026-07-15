@@ -60,6 +60,41 @@ def test_auth_status_corrupt_json_is_no_secrets(tmp_path: Path) -> None:
     assert auth_adapter.auth_status(path)["reason"] == "no_secrets"
 
 
+def test_auth_status_bad_expires_type_does_not_crash(tmp_path: Path) -> None:
+    """Битый expires_at (строка вместо числа) → best-effort no_token, не исключение."""
+    path = tmp_path / "secrets.json"
+    path.write_text(
+        json.dumps(
+            {
+                "client_id": "a",
+                "client_secret": "b",
+                "redirect_uri": "c",
+                "access_token": "tok",
+                "expires_at": "soon",
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert auth_adapter.auth_status(path) == {"authorized": False, "reason": "no_token"}
+
+
+def test_perform_browser_auth_preserves_refresh_token(tmp_path: Path, monkeypatch) -> None:
+    """Повторная авторизация не затирает существующий refresh_token до успеха flow."""
+    path = tmp_path / "secrets.json"
+    path.write_text(json.dumps({"client_id": "old", "refresh_token": "keep-me"}), encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+        seen["file_at_flow"] = json.loads(Path(secrets_path).read_text(encoding="utf-8"))
+        return {}
+
+    monkeypatch.setattr(auth_adapter, "authorize_and_get_token", _fake_authorize)
+    auth_adapter.perform_browser_auth(path, "new-id", "new-secret", "uri")
+    # refresh_token сохранён при перезаписи кредов.
+    assert seen["file_at_flow"]["refresh_token"] == "keep-me"
+    assert seen["file_at_flow"]["client_id"] == "new-id"
+
+
 def test_perform_browser_auth_writes_creds_then_authorizes(tmp_path: Path, monkeypatch) -> None:
     """Сначала пишет креды в secrets.json (0600), затем browser-flow добирает токен."""
     path = tmp_path / "secrets.json"

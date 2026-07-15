@@ -26,11 +26,12 @@ Stepik-Python-Grader/
 │       │   ├── server.py          # HTTP-хендлер (http.server), роутинг /api/*
 │       │   ├── viewmodels.py      # grade_path/grade_benchmark/grade_microbench/save_solution → JSON
 │       │   ├── downloader_adapter.py # download_task — адаптер над downloader.py (issue #186)
+│       │   ├── auth_adapter.py       # auth_status/perform_browser_auth — браузерный OAuth в --serve (issue #402)
 │       │   ├── glossary_adapter.py   # glossary_search/get/missing/code_terms — адаптеры над glossary/
 │       │   ├── rules_adapter.py      # rules_search/rules_get — адаптер над пакетом rules/ (issue #379)
 │       │   ├── insights_adapter.py   # insights_cards — адаптер над core/insights+history (issue #379)
 │       │   ├── commands.py        # Реестр команд для command palette (leaf)
-│       │   ├── runs.py            # Async job-модель для bench/microbench/playground/trace (issue #262)
+│       │   ├── runs.py            # Async job-модель: bench/microbench/playground/trace/auth (issue #262/#402)
 │       │   ├── playground.py      # Песочница: запуск кода со stdin, вывод/статус (issue #317)
 │       │   ├── i18n.py            # message_id-каталог веб-API (issue #264)
 │       │   └── static/            # index.html/app.css/app.js + fonts/ + vendor/ (codemirror @6) — без build-шага (issue #362)

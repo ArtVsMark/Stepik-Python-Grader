@@ -24,6 +24,7 @@
   "specify_folder": "Укажите папку.",
   "specify_code": "Укажите code (строка).",
   "specify_oauth_creds": "Укажите client_id и client_secret.",
+  "invalid_redirect_uri": "redirect_uri должен указывать на localhost (loopback).",
   "path_outside_workspace": "Путь вне рабочей директории сервера: {path}",
   "invalid_host": "Недопустимый Host — запрос отклонён.",
   "invalid_origin": "Недопустимый Origin/Referer — запрос отклонён.",

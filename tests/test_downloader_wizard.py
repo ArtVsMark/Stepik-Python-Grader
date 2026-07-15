@@ -51,6 +51,26 @@ def test_create_secrets_custom_redirect(tmp_path: Path, monkeypatch) -> None:
     assert result["redirect_uri"] == "http://localhost:9999/cb"
 
 
+def test_create_secrets_prints_oauth_instructions(tmp_path: Path, monkeypatch, capsys) -> None:
+    """issue #433 crit 2: печатается ссылка на OAuth-приложение и требуемые поля."""
+    _feed(monkeypatch, ["id", "sec", ""])
+    downloader_config.create_secrets_interactively(tmp_path / "secrets.json")
+    out = capsys.readouterr().out
+    assert downloader_config.STEPIK_OAUTH_APPS_URL in out
+    assert "Confidential" in out
+    assert "Authorization code" in out
+    assert downloader_config.DEFAULT_REDIRECT_URI in out
+
+
+def test_create_secrets_empty_creds_does_not_write(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Пустые client_id/secret → файл НЕ создаётся (не пишем невалидный secrets.json)."""
+    secrets_path = tmp_path / "secrets.json"
+    _feed(monkeypatch, ["", "", ""])
+    downloader_config.create_secrets_interactively(secrets_path)
+    assert not secrets_path.exists()
+    assert "не создан" in capsys.readouterr().out
+
+
 def test_create_secrets_is_owner_only_on_posix(tmp_path: Path, monkeypatch) -> None:
     if os.name == "nt":
         return  # NTFS ACL, не Unix-биты — see storage.save_secrets docstring

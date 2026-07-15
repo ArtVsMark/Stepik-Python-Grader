@@ -87,7 +87,8 @@ def create_secrets_interactively(secrets_path: pathlib.Path) -> dict[str, str]:
     :data:`DEFAULT_REDIRECT_URI`) и пишет файл через
     :func:`~stepik_grader.core.storage.save_secrets` (атомарно, 0600). Токены НЕ
     запрашиваются — их добудет обычный browser-flow ``create_user_session`` при
-    первом запуске. Возвращает записанный словарь.
+    первом запуске. Пустые ``client_id``/``client_secret`` → файл НЕ создаётся
+    (не пишем заведомо невалидный secrets.json). Возвращает собранный словарь.
     """
     _print("\n🔑 Настройка доступа к Stepik (OAuth).")
     _print(f"1. Откройте {STEPIK_OAUTH_APPS_URL} и создайте приложение:")
@@ -99,16 +100,20 @@ def create_secrets_interactively(secrets_path: pathlib.Path) -> dict[str, str]:
     client_id = ask_value("Client id")
     client_secret = ask_value("Client secret")
     redirect_uri = ask_value("Redirect uri", DEFAULT_REDIRECT_URI)
-    if not client_id or not client_secret:
-        _print(
-            "⚠️ Client id и Client secret обязательны — заполните их и повторите "
-            "(при первом запуске будет предложено снова)."
-        )
     secrets: dict[str, str] = {
         "client_id": client_id,
         "client_secret": client_secret,
         "redirect_uri": redirect_uri or DEFAULT_REDIRECT_URI,
     }
+    if not client_id or not client_secret:
+        # issue #402-review: не писать заведомо невалидный secrets.json — иначе
+        # файл «существует», но load_secrets_dict позже упадёт ValueError. Честнее
+        # не создавать файл и дать загрузчику показать дружелюбную ошибку.
+        _print(
+            "⚠️ Client id и Client secret обязательны — файл не создан. "
+            "Заполните их и запустите загрузчик снова."
+        )
+        return secrets
     save_secrets(secrets_path, secrets)
     _print(f"✅ secrets.json сохранён: {secrets_path} (доступ только владельцу, 0600)")
     return secrets

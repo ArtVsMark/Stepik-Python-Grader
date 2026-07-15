@@ -626,6 +626,17 @@ class _Handler(BaseHTTPRequestHandler):
                 _json({"kind": "error", **message_fields("specify_oauth_creds", lang)}),
             )
             return
+        # issue #402 (harden): callback-сервер (wait_for_auth_code) биндится на
+        # host из redirect_uri. Принимаем только loopback — иначе тело POST могло
+        # бы забиндить callback на все интерфейсы (0.0.0.0) на ~120с.
+        redirect_host = (urlparse(redirect_uri).hostname or "").lower()
+        if redirect_host not in ("localhost", "127.0.0.1", "::1"):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("invalid_redirect_uri", lang)}),
+            )
+            return
         secrets_path = self.server.workspace / "secrets.json"
         params: dict[str, Any] = {
             "lang": lang,

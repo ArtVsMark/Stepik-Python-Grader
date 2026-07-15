@@ -331,7 +331,9 @@ def _run_auth_job(job: Job, params: dict[str, Any], lang: str) -> None:
     Блокирующий (до 120с) поход в браузер вынесен на воркер-поток, чтобы не
     держать HTTP-обработчик ``--serve``. Креды/путь приходят в ``params`` от
     ``server._handle_auth_start`` (уже под ``_guard_request``). Ленивый импорт
-    ``auth_adapter`` — не тянуть OAuth/requests-стек при простом старте сервера.
+    ``auth_adapter`` держит ``runs.py`` импортируемым в изоляции (тесты) без
+    OAuth/requests-стека; в самом ``--serve`` он всё равно грузится через
+    ``server.py`` (верхнеуровневый импорт).
     """
     from stepik_grader.web import auth_adapter
 

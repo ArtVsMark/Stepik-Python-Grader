@@ -26,11 +26,12 @@
 | `web/server.py` | Application / Web | HTTP-хендлер (stdlib `http.server`, `--serve`): роутинг `GET /api/grade`\|`/api/glossary*`\|`/api/glossary/missing`\|`/api/rules`(`/{code}`)\|`/api/insights`\|`/api/commands`\|`/api/solutions`\|`/api/source`\|`/api/v1/runs`(`/{id}`), `POST /api/download`\|`/api/save-solution`\|`/api/code-terms`\|`/api/v1/runs`(`/{id}/cancel`); статика (`static/` — `index.html`/`app.css`/`app.js` + `fonts/` + `vendor/codemirror-bundle@6.mjs`) читается при импорте; тонкий слой поверх `viewmodels.py`/адаптеров ниже, бизнес-логики не добавляет |
 | `web/viewmodels.py` | Application / Web | Грейдинг → JSON: `grade_path`/`grade_benchmark`/`grade_microbench`/`list_solutions`/`read_source`/`save_solution`; ErrorCard-мэппинг (`_case_view`) с glossary-lookup и J7 missing-queue wiring (issue #125/#186/#187) |
 | `web/downloader_adapter.py` | Application / Web | `download_task` — тонкий адаптер над `downloader.py`: OAuth без похода в браузер, раздел «Загрузчик задач» (issue #186) |
+| `web/auth_adapter.py` | Application / Web | `auth_status`/`perform_browser_auth` — тонкий адаптер над `core/oauth_flow` для браузерного OAuth-мастера первого запуска в `--serve` (issue #402); `perform_browser_auth` исполняется async-job'ой `kind="auth"` (см. `web/runs.py`) |
 | `web/glossary_adapter.py` | Application / Web | `glossary_search`/`glossary_get`/`glossary_missing`/`code_terms` — тонкие адаптеры над `glossary/json_provider.py` (или fallback на компактный `core/glossary.py`) для разделов «Глоссарий»/«Функции в коде» (issue #125); `code_terms` собирает inventory-driven наборы из `glossary/stdlib_inventory` (issue #367) |
 | `web/rules_adapter.py` | Application / Web | `rules_search`/`rules_get` — тонкий адаптер над пакетом `rules/` (`bundled_rules`) для раздела «Правила (PEP)» (issue #379) |
 | `web/insights_adapter.py` | Application / Web | `insights_cards`/`active_count` — адаптер над `core/insights`+`core/history` для раздела «Подучить» (issue #379) |
 | `web/commands.py` | Application / Web (leaf) | Реестр команд (`COMMANDS`, `filter_commands`) для command palette/action cards; не импортирует ничего из проекта |
-| `web/runs.py` | Application / Web | Async job-модель для bench/microbench/playground/trace (`submit_job`/`get_job`/`cancel_job`, issue #262) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
+| `web/runs.py` | Application / Web | Async job-модель для bench/microbench/playground/trace/auth (`submit_job`/`get_job`/`cancel_job`, issue #262; `kind="auth"` — браузерный OAuth #402) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
 | `web/playground.py` | Application / Web | `run_playground` — запуск кода со stdin через `core/runner.LocalRunner` (issue #317, раздел «Песочница»); потребитель — `web/runs.py` |
 | `web/i18n.py` | Application / Web | `message_id`-каталог веб-API (issue #264): `resolve_lang`/`message_fields`/`render_message`; рендер поверх `core/i18n.load_locale_messages` (локали в `core/locales/<lang>.json`, **не** `web/locales/`); импортирует `core/i18n.py` — не leaf |
 | `ide.py` | Application / IDE | IDE-интеграция `--init-vscode`: генерация конфигов VS Code (tasks/launch) |
@@ -104,17 +105,18 @@ cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/repor
 cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)
 cli/interactive.py     ──→  core/grader_core.py  (find_all_solution_files/collect_grouped_files), cli/context.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
-web/server.py          ──→  web/commands.py, web/downloader_adapter.py, web/glossary_adapter.py, web/rules_adapter.py, web/insights_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (тонкий HTTP-роутинг)
+web/server.py          ──→  web/commands.py, web/downloader_adapter.py, web/auth_adapter.py, web/glossary_adapter.py, web/rules_adapter.py, web/insights_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (тонкий HTTP-роутинг)
 web/viewmodels.py      ──→  core/grader_core.py, core/microbench_runner.py, core/reporter.py, core/test_loader.py  (web → core, ациклично)
 web/viewmodels.py      ──→  core/error_glossary.py  (resolve_error_hint для error card при RE)
 web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
 web/viewmodels.py      ──→  config.py
 web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/storage.py, core/test_loader.py
+web/auth_adapter.py       ──→  core/oauth_flow.py, core/storage.py  (браузерный OAuth-мастер --serve, issue #402)
 web/glossary_adapter.py   ──→  core/glossary.py, core/mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, config.py  (issue #367 — stdlib_inventory для code_terms)
 web/rules_adapter.py       ──→  rules/  (bundled_rules)
 web/insights_adapter.py    ──→  core/history.py, core/insights.py, config.py
 web/commands.py            (только stdlib — реестр команд, project-импортов нет)
-web/runs.py            ──→  web/viewmodels.py, web/i18n.py, web/playground.py, core/test_loader.py, core/tracer.py  (async job-модель + песочница/трейс, issue #262/#317/#318)
+web/runs.py            ──→  web/viewmodels.py, web/i18n.py, web/playground.py, web/auth_adapter.py (ленивый, kind="auth"), core/test_loader.py, core/tracer.py  (async job-модель + песочница/трейс/OAuth, issue #262/#317/#318/#402)
 web/playground.py      ──→  core/runner.py  (LocalRunner/RunSpec), config.py
 web/i18n.py            ──→  core/i18n.py  (load_locale_messages — рендер поверх core-локалей core/locales/<lang>.json, issue #264)
 core/sandbox/          ──→  core/runner.py  (реализует Runner-протокол: RunSpec/RunOutcome)

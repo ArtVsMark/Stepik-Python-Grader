@@ -203,8 +203,9 @@ class TestMain:
             downloader.main()
         mock_sess.assert_not_called()
 
-    def test_auth_error_aborts(self, tmp_path: pathlib.Path):
-        """Ошибка авторизации → return до цикла обработки URL."""
+    def test_auth_error_aborts(self, tmp_path: pathlib.Path, capsys):
+        """Ошибка авторизации → дружелюбная подсказка со следующим шагом + return
+        до цикла обработки URL (issue #433 crit 3)."""
         cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
         with (
             patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
@@ -216,6 +217,9 @@ class TestMain:
         ):
             downloader.main()
         mock_input.assert_not_called()
+        out = capsys.readouterr().out
+        assert "diagnostic_stepik" in out  # следующий шаг, а не голый текст ошибки
+        assert downloader.STEPIK_OAUTH_APPS_URL in out
 
     def test_processes_urls_until_blank(self, tmp_path: pathlib.Path):
         """Цикл обрабатывает URL пока не введена пустая строка."""
