@@ -32,6 +32,11 @@
 
 ### Fixed
 - Web «Функции в коде»: inventory-driven builtin/method detection (stdlib inventory instead of a narrow hardcode), syntax-construct detection (comprehensions, lambda, slice, f-string, unpacking, ternary, walrus, decorator, with, try), and `os.path.join` no longer misdetected as the `str.join` method (#367).
+- CLI modes 1–4 no longer crash with `ValueError` on a relative solution path — `reporter._safe_rel`/`cli._rel` fall back to the raw path when path and base have different anchors (#440).
+- Runner no longer hangs or leaks CPU-orphans on TLE/cancel: kills the whole solution process group (POSIX `killpg` + psutil tree, bounded reap), writes stdin off-thread (stdin-deadlock fix), and returns partial stdout/stderr on timeout — mirrored in the sandbox POSIX path (#418, #419, #421).
+- SQLite history survives concurrent first-time init (idempotent `CREATE ... IF NOT EXISTS` — no more silently lost records) and closes the connection if `_connect` fails mid-setup (#393).
+- Re-downloading a task clears `tests/` first, so stale cases from a previous download can't produce a silent wrong verdict (#394).
+- Web: cancelling a tests/trace job reports `cancelled` instead of a `zip()` error or `done`; non-UTF8 solution files return a JSON error instead of a 500 on `/api/source`, `/api/code-terms`, and bench reference (#422, #423).
 
 ### Documentation
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan
@@ -59,6 +64,7 @@
 
 ### Internal
 - Added a soft `docs/versions.md` release-column guard to `check_version_consistency.py`; archived `claude-handoff.md`, stamped `audit-2026-07.md` as implemented, fixed the stale CHANGELOG policy in GitHub PR/issue templates and the #163 contradiction in CLAUDE.md (#386).
+- Added a global 120s per-test deadline (`pytest-timeout`, `thread` method) so a hung subprocess/thread fails one test instead of hanging every CI matrix job (#444).
 
 ## [1.8.0] - 2026-07-14
 
