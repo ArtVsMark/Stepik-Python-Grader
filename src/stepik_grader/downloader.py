@@ -75,8 +75,10 @@ from stepik_grader.core.test_source_fetcher import (
 from stepik_grader.core.tests_writer import save_tests
 from stepik_grader.downloader_config import (
     DEFAULT_ROOT_DIR,  # noqa: F401 — back-compat реэкспорт
+    STEPIK_OAUTH_APPS_URL,
     ask_value,  # noqa: F401 — back-compat реэкспорт
     create_or_update_config,  # noqa: F401 — back-compat реэкспорт
+    create_secrets_interactively,  # noqa: F401 — back-compat реэкспорт (issue #433)
     load_or_create_config,
     normalize_config_paths,
     slugify,
@@ -341,7 +343,14 @@ def main() -> None:
         secrets = load_secrets_dict(secrets_path)
         session = create_user_session(secrets, secrets_path)
     except Exception as error:  # noqa: BLE001
-        _print(f"❌ Ошибка подготовки данных: {error}")
+        # issue #433: дружелюбная ошибка со следующим шагом, а не голый текст.
+        _print(f"❌ Не удалось авторизоваться в Stepik: {error}")
+        _print(
+            "   Проверьте client_id / client_secret / redirect_uri в secrets.json — "
+            f"они должны совпадать с полями OAuth-приложения ({STEPIK_OAUTH_APPS_URL})."
+        )
+        _print("   Диагностика токена:  python -m stepik_grader.diagnostic_stepik")
+        _print("   Подробнее об OAuth:  docs/installation.md")
         return
 
     _print("\nВведите URL шагов (по одному, пустая строка — завершение):")

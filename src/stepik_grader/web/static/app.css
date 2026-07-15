@@ -482,6 +482,11 @@ select.form-input { cursor: pointer; }
 .msg { color: var(--color-error); margin-top: var(--space-4); }
 /* issue #296: cancelled run is not a failure -- neutral tone, not error red. */
 .msg-neutral { color: var(--color-text-muted); margin-top: var(--space-4); }
+/* issue #402: мастер авторизации Stepik в загрузчике */
+.auth-panel { margin-bottom: var(--space-5); padding: var(--space-4); border: 1px solid oklch(from var(--color-text) l c h / 0.12); border-radius: 8px; }
+.auth-panel .msg { color: var(--color-text); }
+.auth-ok { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; color: var(--color-text); }
+.btn-sm { padding: var(--space-1, 4px) var(--space-3); font-size: var(--text-sm); }
 /* issue #298 (a11y): visually hidden but exposed to assistive tech — used for
    the aria-live result-summary announcer (#result-announce). */
 .sr-only {

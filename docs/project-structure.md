@@ -13,7 +13,7 @@ Stepik-Python-Grader/
 │       ├── __main__.py            # python -m stepik_grader → grader.main()
 │       ├── py.typed              # PEP 561 маркер типов (issue #101)
 │       ├── grader.py              # Тонкий фасад обратной совместимости (Sprint 7)
-│       ├── cli/                   # Интерактивное меню (режимы 0-5) + stepik-grader entry point
+│       ├── cli/                   # Интерактивное меню (режимы 0-7) + stepik-grader entry point
 │       │   ├── __init__.py        # Compatibility facade + main() (issue #117/#119/#120/#121)
 │       │   ├── options.py         # argparse-парсер, --verbose/--cache resolution (leaf, issue #119)
 │       │   ├── context.py         # CliContext — явные зависимости для handlers (leaf, issue #120)
@@ -26,11 +26,12 @@ Stepik-Python-Grader/
 │       │   ├── server.py          # HTTP-хендлер (http.server), роутинг /api/*
 │       │   ├── viewmodels.py      # grade_path/grade_benchmark/grade_microbench/save_solution → JSON
 │       │   ├── downloader_adapter.py # download_task — адаптер над downloader.py (issue #186)
+│       │   ├── auth_adapter.py       # auth_status/perform_browser_auth — браузерный OAuth в --serve (issue #402)
 │       │   ├── glossary_adapter.py   # glossary_search/get/missing/code_terms — адаптеры над glossary/
 │       │   ├── rules_adapter.py      # rules_search/rules_get — адаптер над пакетом rules/ (issue #379)
 │       │   ├── insights_adapter.py   # insights_cards — адаптер над core/insights+history (issue #379)
 │       │   ├── commands.py        # Реестр команд для command palette (leaf)
-│       │   ├── runs.py            # Async job-модель для bench/microbench/playground/trace (issue #262)
+│       │   ├── runs.py            # Async job-модель: bench/microbench/playground/trace/auth (issue #262/#402)
 │       │   ├── playground.py      # Песочница: запуск кода со stdin, вывод/статус (issue #317)
 │       │   ├── i18n.py            # message_id-каталог веб-API (issue #264)
 │       │   └── static/            # index.html/app.css/app.js + fonts/ + vendor/ (codemirror @6) — без build-шага (issue #362)

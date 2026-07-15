@@ -357,8 +357,14 @@ def _interactive_menu(ctx: CliContext) -> None:
             # issue #430: тумблер записи истории, сохраняемый между запусками.
             record_history = not record_history
             settings.record_history = record_history
-            user_settings.save_settings(settings, settings_path)
-            print(ctx.t("history_toggled_on" if record_history else "history_toggled_off"))
+            try:
+                user_settings.save_settings(settings, settings_path)
+            except OSError as exc:
+                # Best-effort, симметрично load_settings: read-only cwd / полный
+                # диск не должны ронять меню. Переключение действует на сессию.
+                print(ctx.t("history_save_failed", error=exc))
+            else:
+                print(ctx.t("history_toggled_on" if record_history else "history_toggled_off"))
 
         else:
             print(ctx.t("unknown_choice"))
