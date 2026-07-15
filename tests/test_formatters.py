@@ -180,6 +180,43 @@ class TestFormatBenchmarkRow:
 
 
 # ---------------------------------------------------------------------------
+# issue #440: относительный путь против абсолютной базы не роняет вывод
+# ---------------------------------------------------------------------------
+
+
+class TestRelativePathDifferentAnchor:
+    """`Path.relative_to(base, walk_up=True)` кидает ValueError при разных
+    anchor'ах (относительный ввод `task.py` против абсолютной базы). Режимы
+    1/2/3/4 и запись истории должны отдавать путь как есть, а не падать
+    трейсбеком (issue #440)."""
+
+    def test_safe_rel_falls_back_on_different_anchor(self) -> None:
+        assert reporter._safe_rel(pathlib.Path("task.py"), pathlib.Path("/abs/dir")) == "task.py"
+
+    def test_safe_rel_normal_relative(self) -> None:
+        rel = reporter._safe_rel(pathlib.Path("/abs/dir/task.py"), pathlib.Path("/abs/dir"))
+        assert rel == "task.py"
+
+    def test_correctness_row_relative_path_no_crash(self) -> None:
+        row = format_correctness_row(
+            pathlib.Path("task.py"), pathlib.Path("/abs/dir"), _ok_result(), col_file=20
+        )
+        assert "task.py" in row
+
+    def test_benchmark_row_relative_path_no_crash(self) -> None:
+        row = format_benchmark_row(
+            pathlib.Path("task.py"), pathlib.Path("/abs/dir"), _bench_data(), col_file=20
+        )
+        assert "task.py" in row
+
+    def test_commands_rel_falls_back_on_different_anchor(self) -> None:
+        """task_key под --history: относительный dir против абсолютного cwd."""
+        from stepik_grader.cli.commands import _rel
+
+        assert _rel(pathlib.Path("."), pathlib.Path("/abs/cwd")) == "."
+
+
+# ---------------------------------------------------------------------------
 # print_correctness_header / print_benchmark_header
 # ---------------------------------------------------------------------------
 

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import signal
 import subprocess
 import sys
 import threading
@@ -44,6 +45,11 @@ except ImportError:
     resource = None  # type: ignore[assignment]
 
 __all__ = ["RunSpec", "RunOutcome", "Runner", "LocalRunner"]
+
+# issue #418: после kill дерева процессов даём ограниченное время на reap —
+# внук, унаследовавший pipe, может держать его открытым, и тогда
+# communicate()/wait() без предела виснет (репро: 8.1 с при timeout=2.0).
+_KILL_REAP_TIMEOUT = 5.0
 
 
 @dataclass(frozen=True)
@@ -213,6 +219,81 @@ def _measure_peak_memory(
     result[0] = peak
 
 
+def _write_stdin(pipe: Any, data: bytes | None) -> None:
+    """Записать stdin и закрыть pipe — в отдельном потоке (issue #419).
+
+    Ребёнок, не читающий ввод, при ``stdin`` больше pipe-буфера заблокировал бы
+    синхронный ``write`` в главном потоке до входа в poll-цикл — тогда ни
+    ``spec.timeout``, ни ``spec.cancel_event`` не сработали бы. Вынос в
+    daemon-поток разрывает этот deadlock: поток просто зависнет на ``write`` и
+    умрёт вместе с процессом (``BrokenPipeError`` после kill дерева).
+    """
+    try:
+        if data is not None:
+            pipe.write(data)
+    except (BrokenPipeError, OSError):
+        pass
+    finally:
+        try:
+            pipe.close()
+        except OSError:
+            pass
+
+
+def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
+    """Убить всё дерево процессов решения, а не только прямого ребёнка (issue #418).
+
+    Решение может породить внуков (multiprocessing/subprocess); внук,
+    унаследовавший stdout/stderr, держит pipe открытым и вешает
+    ``communicate()``/``wait()`` без таймаута, а осиротевший внук продолжает
+    жечь CPU после TLE/cancel. Бьём по группе процессов на POSIX (``os.killpg``
+    — работает благодаря ``start_new_session=True`` при spawn) и добиваем дерево
+    через psutil (кросс-ОС, единственный путь на Windows). Best-effort:
+    полностью демонизированный (double-fork + setsid) внук может уйти — это
+    осознанный предел без OS-sandbox.
+    """
+    # Собираем детей ДО убийства родителя, пока связь parent->child ещё видна.
+    try:
+        children = psutil.Process(proc.pid).children(recursive=True)
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        children = []
+
+    if os.name == "posix":
+        try:
+            # os.killpg/getpgid + signal.SIGKILL — POSIX-only, отсутствуют в
+            # typeshed под Windows; ветка защищена os.name, но CI гоняет mypy на
+            # каждой ОС матрицы (та же причина, что SIGXCPU в _posix_common.py).
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)  # type: ignore[attr-defined]
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
+
+    try:
+        proc.kill()
+    except OSError:
+        pass
+
+    for child in children:
+        try:
+            child.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+
+def _reap_after_kill(proc: subprocess.Popen[bytes]) -> tuple[bytes, bytes]:
+    """``communicate()`` после kill, ограниченный по времени (issue #418/#421).
+
+    Возвращает частичный ``(stdout, stderr)``, накопленный к моменту TLE, и не
+    блокируется дольше ``_KILL_REAP_TIMEOUT`` даже если внук держит pipe.
+    """
+    try:
+        out, err = proc.communicate(timeout=_KILL_REAP_TIMEOUT)
+        return out or b"", err or b""
+    except subprocess.TimeoutExpired:
+        return b"", b""
+    except (OSError, ValueError):
+        return b"", b""
+
+
 class LocalRunner:
     """Subprocess-реализация ``Runner`` (текущее поведение, issue #138).
 
@@ -234,6 +315,11 @@ class LocalRunner:
         child_env["PYTHONUTF8"] = "1"
 
         start = time.perf_counter()
+        popen_kwargs: dict[str, Any] = {}
+        if os.name == "posix":
+            # issue #418: своя сессия/группа процессов, чтобы при TLE/cancel
+            # убить всё дерево решения (os.killpg), а не только прямого ребёнка.
+            popen_kwargs["start_new_session"] = True
         try:
             proc: subprocess.Popen[bytes] = subprocess.Popen(
                 [sys.executable, spec.path],
@@ -241,6 +327,7 @@ class LocalRunner:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 env=child_env,
+                **popen_kwargs,
             )
             # issue #67: лимит памяти ставим на pid ПОСЛЕ spawn (prlimit), а не
             # через preexec_fn — тот небезопасен при активном psutil-потоке.
@@ -260,10 +347,17 @@ class LocalRunner:
                         input=spec.stdin, timeout=spec.timeout
                     )
                 except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.communicate()
-                    stop_event.set()
-                    return RunOutcome(timed_out=True, elapsed=spec.timeout)
+                    # issue #418: убить всё дерево (внуки держат pipe → иначе
+                    # communicate() виснет); issue #421: вернуть частичный вывод,
+                    # накопленный до TLE, с ограниченным reap.
+                    _kill_process_tree(proc)
+                    partial_out, partial_err = _reap_after_kill(proc)
+                    return RunOutcome(
+                        stdout=partial_out,
+                        stderr=partial_err,
+                        timed_out=True,
+                        elapsed=spec.timeout,
+                    )
                 finally:
                     stop_event.set()
 
@@ -328,15 +422,13 @@ class LocalRunner:
             reader.start()
 
         if proc.stdin is not None:
-            if spec.stdin is not None:
-                try:
-                    proc.stdin.write(spec.stdin)
-                except (BrokenPipeError, OSError):
-                    pass
-            try:
-                proc.stdin.close()
-            except OSError:
-                pass
+            # issue #419: запись stdin — в отдельном потоке, а не синхронно в
+            # главном (иначе не-читающий ребёнок при большом stdin повесил бы
+            # write до входа в poll-цикл, и timeout/cancel не сработали бы).
+            writer = threading.Thread(
+                target=_write_stdin, args=(proc.stdin, spec.stdin), daemon=True
+            )
+            writer.start()
 
         assert spec.cancel_event is not None
         cancelled = False
@@ -353,20 +445,40 @@ class LocalRunner:
                 break
 
         if cancelled or timed_out:
-            proc.kill()
-            proc.wait()
+            # issue #418: убить всё дерево, reap ограничен по времени.
+            _kill_process_tree(proc)
+            try:
+                proc.wait(timeout=_KILL_REAP_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                pass
 
         for reader in readers:
             reader.join(timeout=1.0)
 
         elapsed = time.perf_counter() - start
+        # issue #421: reader'ы уже слили частичный вывод в память — вернуть его
+        # и при TLE/cancel, а не выбрасывать.
+        stdout = b"".join(stdout_chunks)
+        stderr = b"".join(stderr_chunks)
         if timed_out:
-            return RunOutcome(timed_out=True, elapsed=spec.timeout)
+            return RunOutcome(
+                stdout=stdout,
+                stderr=stderr,
+                timed_out=True,
+                elapsed=spec.timeout,
+                peak_memory_mb=peak_mb_result[0],
+            )
         if cancelled:
-            return RunOutcome(cancelled=True, elapsed=elapsed)
+            return RunOutcome(
+                stdout=stdout,
+                stderr=stderr,
+                cancelled=True,
+                elapsed=elapsed,
+                peak_memory_mb=peak_mb_result[0],
+            )
         return RunOutcome(
-            stdout=b"".join(stdout_chunks),
-            stderr=b"".join(stderr_chunks),
+            stdout=stdout,
+            stderr=stderr,
             returncode=proc.returncode,
             elapsed=elapsed,
             peak_memory_mb=peak_mb_result[0],

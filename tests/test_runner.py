@@ -14,6 +14,7 @@ from __future__ import annotations
 import pathlib
 import sys
 import threading
+import time
 import warnings
 
 import pytest
@@ -391,6 +392,73 @@ def test_local_runner_satisfies_runner_protocol() -> None:
     from stepik_grader.core.runner import Runner
 
     assert isinstance(LocalRunner(), Runner)
+
+
+# ---------------------------------------------------------------------------
+# LocalRunner.run() — TLE/cancel не должны зависать и терять вывод
+# (issue #418 группа процессов, #419 stdin-deadlock, #421 частичный вывод)
+# ---------------------------------------------------------------------------
+
+
+def test_local_runner_returns_partial_output_on_timeout(tmp_path: pathlib.Path) -> None:
+    """issue #421: вывод, напечатанный до TLE, доступен в outcome.stdout,
+    а не выбрасывается."""
+    path = _write_script(
+        tmp_path,
+        "import sys, time\nsys.stdout.write('partial\\n')\nsys.stdout.flush()\ntime.sleep(30)\n",
+    )
+    spec = RunSpec(path=path, stdin=None, timeout=0.3, measure_memory=False)
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.timed_out is True
+    assert b"partial" in outcome.stdout
+
+
+def test_local_runner_timeout_does_not_hang_on_orphan_holding_pipe(
+    tmp_path: pathlib.Path,
+) -> None:
+    """issue #418: решение спавнит внука, наследующего stdout, и оба висят.
+    Без убийства группы процессов communicate() зависла бы на открытом pipe
+    внука — run() должен вернуться за ~timeout, а не за время сна внука."""
+    path = _write_script(
+        tmp_path,
+        "import subprocess, sys, time\n"
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+        "time.sleep(30)\n",
+    )
+    spec = RunSpec(path=path, stdin=None, timeout=0.3, measure_memory=False)
+
+    t0 = time.perf_counter()
+    outcome = LocalRunner().run(spec)
+    wall = time.perf_counter() - t0
+
+    assert outcome.timed_out is True
+    assert wall < 8.0, f"зависание на pipe внука: {wall:.1f}s"
+
+
+def test_local_runner_polling_large_stdin_non_reading_child_times_out(
+    tmp_path: pathlib.Path,
+) -> None:
+    """issue #419: ребёнок не читает stdin и висит; большой stdin переполнил бы
+    pipe-буфер и заблокировал бы синхронную запись до входа в poll-цикл. С
+    записью stdin в отдельном потоке timeout/cancel всё равно срабатывают."""
+    path = _write_script(tmp_path, "import time\ntime.sleep(30)\n")
+    big_stdin = b"x" * (1024 * 1024)  # 1 MiB — заведомо больше pipe-буфера (~64 KiB)
+    spec = RunSpec(
+        path=path,
+        stdin=big_stdin,
+        timeout=0.3,
+        measure_memory=False,
+        cancel_event=threading.Event(),
+    )
+
+    t0 = time.perf_counter()
+    outcome = LocalRunner().run(spec)
+    wall = time.perf_counter() - t0
+
+    assert outcome.timed_out is True
+    assert wall < 8.0, f"deadlock записи stdin в главном потоке: {wall:.1f}s"
 
 
 def test_sys_executable_used_for_interpreter(tmp_path: pathlib.Path) -> None:

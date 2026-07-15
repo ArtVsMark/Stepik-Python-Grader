@@ -338,5 +338,13 @@ def _run_trace_job(job: Job, code: str, stdin: str, lang: str) -> None:
             job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
         return
     with job.lock:
-        job.status = "done"
-        job.result = result
+        # issue #422: если пользователь отменил во время трассировки, финализируем
+        # как cancelled, а не done — как _run_job/_run_playground_job. trace_code
+        # cancel_event не прерывает (best-effort через таймаут), но статус обязан
+        # отразить запрошенную отмену.
+        if job.cancel_event.is_set():
+            job.status = "cancelled"
+            job.message_fields = message_fields("run_cancelled", lang)
+        else:
+            job.status = "done"
+            job.result = result

@@ -68,6 +68,20 @@ except ImportError:  # pragma: no cover
 _SEP = "-" * 107
 
 
+def _safe_rel(path: pathlib.Path, base: pathlib.Path) -> str:
+    """Относительный путь для колонок таблиц, устойчивый к разным anchor'ам.
+
+    ``Path.relative_to(base, walk_up=True)`` кидает ``ValueError``, когда путь и
+    база имеют разные anchor'ы (относительный ввод ``task.py`` против
+    абсолютного ``base``; разные диски на Windows) — issue #440. В этом случае
+    отдаём сам путь строкой, а не роняем режимы 1/2/3/4 трейсбеком.
+    """
+    try:
+        return str(path.relative_to(base, walk_up=True))
+    except ValueError:
+        return str(path)
+
+
 def fmt_time(t: float) -> str:
     """Отформатировать время с автовыбором единиц (s / ms / µs / ns).
 
@@ -109,7 +123,7 @@ def format_correctness_row(
     total = result["total"]
     passed = result["passed"]
     status = _correctness_status(result)
-    rel = str(path.relative_to(base_dir, walk_up=True))
+    rel = _safe_rel(path, base_dir)
     total_t = result["total_time"]
     avg_t = result["avg_time"]
     mem = result["peak_memory_mb"]
@@ -136,7 +150,7 @@ def format_benchmark_row(
     path: pathlib.Path, base_dir: pathlib.Path, data: dict[str, Any], *, col_file: int
 ) -> str:
     """Сформатировать строку benchmark-таблицы для режимов 3 и 4."""
-    rel_path = str(path.relative_to(base_dir, walk_up=True))
+    rel_path = _safe_rel(path, base_dir)
     return (
         f"{rel_path:<{col_file}} {data['runs']:>4}  "
         f"{fmt_time(data['min']):>10}  {fmt_time(data['median']):>10}  "
@@ -215,7 +229,7 @@ def print_correctness_results(
             status = _correctness_status(result)
             color = _STATUS_COLORS.get(status, "white")
             table.add_row(
-                str(path.relative_to(base_dir, walk_up=True)),
+                _safe_rel(path, base_dir),
                 f"{result['passed']}/{result['total']}",
                 f"{result['total_time']:.4f}",
                 f"{result['avg_time']:.4f}",
@@ -263,7 +277,7 @@ def print_benchmark_results(
             verdict = data["verdict"]
             color = _VERDICT_COLORS.get(verdict, "white")
             table.add_row(
-                str(path.relative_to(base_dir, walk_up=True)),
+                _safe_rel(path, base_dir),
                 str(data["runs"]),
                 fmt_time(data["min"]),
                 fmt_time(data["median"]),

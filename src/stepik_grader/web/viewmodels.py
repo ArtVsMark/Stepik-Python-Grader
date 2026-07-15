@@ -311,7 +311,10 @@ def read_source(path: pathlib.Path, *, lang: str = DEFAULT_LANG) -> dict[str, An
     try:
         source = p.read_text(encoding=CONFIG.encoding)
         mtime = p.stat().st_mtime
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
+        # issue #423: не-UTF8 файл (cp1251/бинарь) даёт UnicodeDecodeError
+        # (подкласс ValueError, не OSError) — вернуть JSON-ошибку, а не ронять
+        # обработчик 500/RemoteDisconnected (кириллица на Windows — типовой случай).
         return {"kind": "error", **message_fields("file_read_failed", lang, error=str(exc))}
     # ``mtime`` — baseline для optimistic locking режима 1 (issue #297): фронтенд
     # запоминает его при загрузке файла и присылает обратно в save_solution как
@@ -443,6 +446,12 @@ def grade_path(
         # run_tests() уже прогнал их в том же порядке (issue #125), поэтому
         # zip по позиции корректен без изменения сигнатуры run_tests().
         test_cases = load_test_cases(test_dir)
+        # issue #422: на отмене run_tests возвращает усечённый префикс cases —
+        # выравниваем число тест-кейсов под реально прогнанные, иначе
+        # zip(strict=True) падает ValueError, и job.status становится error
+        # вместо cancelled (красная ошибка в UI на обычной отмене).
+        cases_run = res["cases"]
+        paired = zip(cases_run, test_cases[: len(cases_run)], strict=True)
         rows.append(
             {
                 "file": _rel(sol, base),
@@ -461,7 +470,7 @@ def grade_path(
                         missing_queue_path=missing_queue_path,
                         lang=lang,
                     )
-                    for i, (c, tc) in enumerate(zip(res["cases"], test_cases, strict=True), 1)
+                    for i, (c, tc) in enumerate(paired, 1)
                 ],
             }
         )
@@ -612,7 +621,8 @@ def grade_benchmark(
     if ref_path is not None:
         try:
             response["reference_source"] = ref_path.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, UnicodeDecodeError):
+            # issue #423: не-UTF8 reference-файл не должен ронять bench-ответ.
             response["reference_source"] = None
         response["reference_file"] = _rel(ref_path, base)
     return response

@@ -71,8 +71,12 @@ class LintRecord:
 
 # DDL схемы v1 (канон — docs/audit-2026-07.md § 9.2). Применяется миграцией
 # user_version 0→1; менять существующую версию нельзя — только добавлять v2+.
+# ``IF NOT EXISTS`` на всех CREATE (issue #393): при одновременной инициализации
+# свежей БД двумя процессами оба видят user_version=0, но идемпотентный DDL не
+# роняет второго ``OperationalError: table runs already exists`` (иначе запись
+# тихо терялась через best-effort except в record_run).
 _SCHEMA_V1 = """
-CREATE TABLE runs (
+CREATE TABLE IF NOT EXISTS runs (
     id            INTEGER PRIMARY KEY,
     ts_utc        TEXT    NOT NULL,
     mode          INTEGER NOT NULL,
@@ -82,7 +86,7 @@ CREATE TABLE runs (
     solution_hash TEXT,
     duration_s    REAL
 );
-CREATE TABLE case_results (
+CREATE TABLE IF NOT EXISTS case_results (
     run_id       INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
     case_no      INTEGER NOT NULL,
     verdict      TEXT    NOT NULL,
@@ -91,15 +95,15 @@ CREATE TABLE case_results (
     failure_kind TEXT,
     PRIMARY KEY (run_id, case_no)
 );
-CREATE TABLE lint_violations (
+CREATE TABLE IF NOT EXISTS lint_violations (
     run_id    INTEGER NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
     rule_code TEXT    NOT NULL,
     line_no   INTEGER NOT NULL,
     message   TEXT
 );
-CREATE INDEX idx_runs_task  ON runs(task_key, id);
-CREATE INDEX idx_cases_kind ON case_results(failure_kind);
-CREATE INDEX idx_lint_rule  ON lint_violations(rule_code);
+CREATE INDEX IF NOT EXISTS idx_runs_task  ON runs(task_key, id);
+CREATE INDEX IF NOT EXISTS idx_cases_kind ON case_results(failure_kind);
+CREATE INDEX IF NOT EXISTS idx_lint_rule  ON lint_violations(rule_code);
 """
 
 
@@ -124,22 +128,43 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if version >= SCHEMA_VERSION:
         return
     if version == 0:
+        # DDL идемпотентен (CREATE ... IF NOT EXISTS), поэтому параллельная
+        # инициализация двумя процессами безопасна (issue #393); write-lock
+        # sqlite сериализует сам DDL, busy_timeout соединения ждёт освобождения.
         conn.executescript(_SCHEMA_V1)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         conn.commit()
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
-    """Открыть соединение, включить WAL/FK и домигрировать до ``SCHEMA_VERSION``.
+    """Открыть соединение, включить best-effort WAL + FK и домигрировать до
+    ``SCHEMA_VERSION``.
 
     ``sqlite3.connect`` создаёт файл БД — вызывать только на пути записи или
     после проверки ``db_path.is_file()`` на пути чтения (чтобы не плодить БД
     при выключенной истории, #134).
     """
     conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    _migrate(conn)
+    try:
+        # issue #393: явный busy_timeout, чтобы конкурентные писатели ЖДАЛИ
+        # write-lock, а не падали sqlite3.OperationalError -> тихая потеря записи.
+        conn.execute("PRAGMA busy_timeout=10000")
+        # Смена journal_mode в WAL невозможна, пока к БД открыты ДРУГИЕ соединения
+        # (барьерная конкурентная первая инициализация из многих потоков/
+        # процессов) — sqlite возвращает SQLITE_BUSY, и busy_timeout тут не
+        # помогает. WAL — оптимизация, а не требование: глотаем отказ и работаем в
+        # дефолтном rollback-journal (следующее соединение доставит WAL, когда
+        # контекст разрядится). Иначе весь прогон терялся бы на Windows (#393).
+        with contextlib.suppress(sqlite3.OperationalError):
+            conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        _migrate(conn)
+    except BaseException:
+        # issue #393: closing(_connect(...)) не обернёт conn, если _connect упал
+        # ДО return (PRAGMA/миграция кинули) — вызыватель получит исключение
+        # вместо объекта, и fd утечёт. Закрываем сами и пробрасываем.
+        conn.close()
+        raise
     return conn
 
 
