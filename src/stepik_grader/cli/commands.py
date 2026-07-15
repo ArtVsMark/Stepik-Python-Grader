@@ -53,8 +53,15 @@ def _rel(path: pathlib.Path, base: pathlib.Path) -> str:
 
     Прямая замена ``os.path.relpath`` на pathlib (issue #354): лексический
     расчёт без обращения к ФС, ``walk_up=True`` разрешает ``..`` (Python 3.12+).
+
+    Устойчив к разным anchor'ам (issue #440): относительный ``path`` против
+    абсолютного ``base`` (или разные диски на Windows) даёт ``ValueError`` —
+    тогда отдаём путь как есть, а не роняем режим/запись истории трейсбеком.
     """
-    return str(path.relative_to(base, walk_up=True))
+    try:
+        return str(path.relative_to(base, walk_up=True))
+    except ValueError:
+        return str(path)
 
 
 def _verdict_counts_from_cases(cases: list[dict[str, Any]]) -> dict[str, int]:
