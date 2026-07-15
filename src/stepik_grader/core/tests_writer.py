@@ -23,18 +23,31 @@ __all__ = ["save_tests", "write_testblock_tests"]
 
 
 def _reset_tests_dir(tests_dir: pathlib.Path) -> None:
-    """Очистить ``tests/`` перед записью нового набора кейсов (issue #394).
+    """Очистить содержимое ``tests/`` перед записью нового набора (issue #394).
 
     Перескачивание в существующую ``task_dir`` иначе оставляет устаревшие
     артефакты прошлого прогона: лишние ``N``/``N.clue`` при меньшем числе
     кейсов, а при смене формата — висящие Format-1 файлы поверх Format-3
     (автодетект отдаёт приоритет Format 1, и старый набор молча побеждает).
-    Смешанный набор даёт тихий неверный вердикт, поэтому каталог
-    пересоздаётся с нуля.
+    Смешанный набор даёт тихий неверный вердикт.
+
+    Чистим *содержимое*, а не сам узел ``tests/``: ``shutil.rmtree(tests_dir)``
+    падал бы ``OSError`` на симлинке (POSIX) и ``PermissionError`` на
+    заблокированном/read-only файле (Windows) — старый ``mkdir(exist_ok=True)``
+    этого не делал, и обрывать скачивание из-за одного неудаляемого файла
+    нельзя. Удаление каждого элемента — best-effort под ``OSError``.
     """
-    if tests_dir.exists():
-        shutil.rmtree(tests_dir)
     tests_dir.mkdir(parents=True, exist_ok=True)
+    for entry in tests_dir.iterdir():
+        try:
+            if entry.is_dir() and not entry.is_symlink():
+                shutil.rmtree(entry, ignore_errors=True)
+            else:
+                entry.unlink()
+        except OSError:
+            # Не роняем запись из-за одного неудаляемого файла (locked/read-only
+            # на Windows, симлинк) — write_text ниже всё равно перезапишет по имени.
+            pass
 
 
 def save_tests(task_dir: pathlib.Path, tests: list[tuple[str, str, str]]) -> int:

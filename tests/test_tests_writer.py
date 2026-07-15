@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 from stepik_grader.core.tests_writer import save_tests, write_testblock_tests
 
 
@@ -78,3 +80,22 @@ class TestReDownloadCleansStale:
         assert (tdir / "input.txt").exists()
         assert not (tdir / "1").exists()
         assert not (tdir / "1.clue").exists()
+
+    def test_symlinked_tests_dir_does_not_crash(self, tmp_path: pathlib.Path) -> None:
+        """issue #394 regression: tests/ как симлинк не роняет запись —
+        shutil.rmtree(символической ссылки) кидал OSError, а старый
+        mkdir(exist_ok=True) не падал. Чистим содержимое, а не узел."""
+        real = tmp_path / "real_tests"
+        real.mkdir()
+        (real / "stale").write_text("old", encoding="utf-8")
+        link = tmp_path / "tests"
+        try:
+            link.symlink_to(real, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            pytest.skip("symlinks unsupported on this platform/privilege")
+
+        # save_tests пишет в tmp_path/tests (симлинк) — не должно бросать
+        save_tests(tmp_path, [("i1", "o1", "stdin")])
+
+        assert (link / "1").read_text() == "i1"
+        assert not (link / "stale").exists()  # устаревшее очищено сквозь симлинк
