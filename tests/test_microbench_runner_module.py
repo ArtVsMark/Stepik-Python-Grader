@@ -4,9 +4,10 @@ microbench_runner.py is now LIVE — grader.py imports run_microbench from it an
 calls it from run_microbench_mode (stdin path). These tests exercise the module's
 public surface directly.
 
-run_microbench runs the solution as a real subprocess (python -c) and redirects
-the solution's stdout to os.devnull during the timeit.repeat call (repeat=5), so
-printed output never leaks into the parsed timings. Its signature is
+run_microbench runs the bench script through the active grader_core._RUNNER
+(issue #417) and redirects the solution's stdout to os.devnull during the
+timeit.repeat call (repeat=5), so printed output never leaks into the parsed
+timings. Its signature is
 (source_code, *, stdin_data: str, number) and it returns a dict with keys
 'times' (list[float]) and 'error' (str).
 
@@ -16,9 +17,6 @@ tests/test_microbench.py.
 """
 
 from __future__ import annotations
-
-import subprocess
-from unittest.mock import patch
 
 from stepik_grader.core import microbench_runner
 from stepik_grader.core.microbench_runner import (
@@ -86,35 +84,41 @@ def test_microbench_runner_stdout_suppressed() -> None:
     assert all(0.0 < t < 1.0 for t in result["times"])
 
 
-def test_microbench_runner_timeout_returns_error() -> None:
-    """proc.communicate(timeout=60) → TimeoutExpired (issue #67: Popen вместо
-    subprocess.run, чтобы применить prlimit после spawn).
+def test_microbench_runner_timeout_returns_error(monkeypatch) -> None:
+    """issue #417: bench исполняется через активный grader_core._RUNNER; таймаут
+    приходит как RunOutcome(timed_out=True).
 
     Issue #47 R-01: error message reports the iteration count (`number`) that
-    was running when the timeout fired -- the most useful diagnostic
-    available without a genuine per-call timeout inside the child process.
+    was running when the timeout fired -- the most useful diagnostic available
+    without a genuine per-call timeout inside the child process.
     """
-    with patch("stepik_grader.core.microbench_runner.subprocess.Popen") as mock_popen:
-        proc = mock_popen.return_value
-        # Первый communicate(timeout=60) кидает TimeoutExpired; второй (после
-        # proc.kill()) возвращает пустой вывод.
-        proc.communicate.side_effect = [
-            subprocess.TimeoutExpired(cmd="python", timeout=60),
-            ("", ""),
-        ]
-        result = run_microbench("x = 1\n", stdin_data="", number=5000)
+    from stepik_grader.core import grader_core
+    from stepik_grader.core.runner import RunOutcome
+
+    class _TimeoutRunner:
+        def run(self, spec):
+            return RunOutcome(timed_out=True, elapsed=60.0)
+
+    monkeypatch.setattr(grader_core, "_RUNNER", _TimeoutRunner())
+    result = run_microbench("x = 1\n", stdin_data="", number=5000)
     assert result["times"] == []
     assert "number=5000" in result["error"]
     assert "60s" in result["error"]
     assert result["peak_memory_mb"] == 0.0
-    proc.kill.assert_called_once()
 
 
-def test_microbench_runner_unexpected_exception_returns_error() -> None:
-    """OSError при spawn (Popen не смог запустить процесс) → error-результат."""
-    with patch("stepik_grader.core.microbench_runner.subprocess.Popen") as mock_popen:
-        mock_popen.side_effect = OSError("no such file")
-        result = run_microbench("x = 1\n", stdin_data="", number=5)
+def test_microbench_runner_unexpected_exception_returns_error(monkeypatch) -> None:
+    """issue #417: сбой запуска (Runner не смог спавнить дочерний процесс)
+    приходит как RunOutcome(launch_error=...) → error-результат."""
+    from stepik_grader.core import grader_core
+    from stepik_grader.core.runner import RunOutcome
+
+    class _LaunchErrorRunner:
+        def run(self, spec):
+            return RunOutcome(launch_error="no such file")
+
+    monkeypatch.setattr(grader_core, "_RUNNER", _LaunchErrorRunner())
+    result = run_microbench("x = 1\n", stdin_data="", number=5)
     assert result["times"] == []
     assert "no such file" in result["error"]
     assert result["peak_memory_mb"] == 0.0

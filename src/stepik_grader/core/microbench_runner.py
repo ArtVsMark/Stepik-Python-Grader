@@ -1,21 +1,24 @@
-"""microbench_runner.py — timeit-микробенчмарк через subprocess + os.devnull.
+"""microbench_runner.py — timeit-микробенчмарк через активный Runner + os.devnull.
 
 Используется grader.py: ``run_microbench`` импортируется и вызывается из
 ``grader.run_microbench_mode`` для stdin-режима.
 
 Архитектура:
-    Исходник решения пишется во временный файл и запускается через
-    ``python -c`` с timeit.repeat. На время замера stdout решения
+    Код решения инлайнится (через ``repr``) в self-contained bench-скрипт с
+    timeit.repeat; скрипт пишется во временный ``.py`` и исполняется через
+    активный ``grader_core._RUNNER`` (``LocalRunner`` или ``SandboxRunner`` при
+    ``--serve --sandbox``, issue #417). На время замера stdout решения
     перенаправляется в os.devnull, чтобы его print()-вывод не смешивался с
     числами-таймингами и не ломал парсинг. stdin сбрасывается перед каждой
     итерацией через инжектированную в builtins функцию ``_reset_stdin``.
 
-    Передача исходника через файл (а не heredoc) исключает поломку на тройных
-    кавычках (''' / \"\"\") внутри решения.
+    Инлайн через ``repr`` (а не heredoc/чтение файла) исключает поломку на
+    тройных кавычках внутри решения и делает bench исполнимым в песочнице, где
+    смонтирован только сам bench-скрипт.
 
     Временный файл создаётся с delete=False и удаляется вручную в finally —
     это единственный кросс-платформенный способ: delete_on_close=False (3.12+)
-    работает иначе на Linux и Windows и непригоден для передачи пути в subprocess.
+    работает иначе на Linux и Windows.
 
     Память (Issue #25): psutil-подход режима 3 (отдельный поток, читающий RSS
     дочернего процесса) здесь неприменим — все 5 повторов timeit.repeat идут
@@ -42,11 +45,11 @@ import contextlib
 import os
 import pathlib
 import statistics
-import subprocess
-import sys
 import tempfile
 from dataclasses import dataclass, field
 from typing import Any
+
+from stepik_grader.core.runner import RunSpec
 
 __all__ = [
     "ENCODING",
@@ -57,14 +60,6 @@ __all__ = [
     "apply_relative_micro",
     "apply_relative_ranking",
 ]
-
-# resource — POSIX-only (RLIMIT_AS best-effort memory cap, issue #43 S-01).
-# На Windows модуль отсутствует; лимит памяти там не применяется — тот же
-# паттерн graceful degradation, что и в grader_core.py / executor.py.
-try:
-    import resource
-except ImportError:
-    resource = None  # type: ignore[assignment]
 
 ENCODING: str = "utf-8"
 SIMILAR_THRESHOLD_PERCENT = 5.0
@@ -104,26 +99,6 @@ class MicrobenchResult:
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
-def _apply_memory_limit(pid: int, max_memory_mb: int | None) -> None:
-    """Best-effort лимит RLIMIT_AS на дочерний pid ПОСЛЕ spawn (issue #67).
-
-    Дублирует одноимённый helper из grader_core.py — грейдер сам импортирует
-    microbench_runner (не наоборот), кросс-импорт создал бы цикл в DAG;
-    helper небольшой, дублирование дешевле нарушения слойности.
-
-    ``resource.prlimit`` вместо preexec_fn — потокобезопасно (не форкает в
-    многопоточном родителе). Linux-only: на macOS prlimit отсутствует
-    (``AttributeError``), на Windows нет модуля ``resource`` — там no-op.
-    """
-    if resource is None or max_memory_mb is None:
-        return
-    limit_bytes = max_memory_mb * 1024 * 1024
-    try:
-        resource.prlimit(pid, resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
-    except (AttributeError, ValueError, OSError):
-        pass
-
-
 def run_microbench(
     source_code: str,
     *,
@@ -133,12 +108,13 @@ def run_microbench(
 ) -> dict[str, Any]:
     """Запустить timeit-microbenchmark для исходного кода.
 
-    Код запускается как строка через python -c.
+    Код инлайнится в self-contained bench-скрипт и исполняется через активный
+    ``grader_core._RUNNER`` (issue #417), а не напрямую subprocess'ом.
     stdin сбрасывается перед каждой итерацией через _reset_stdin() в начале stmt.
 
-    Временный файл создаётся с delete=False и удаляется в блоке finally —
-    это единственный надёжный кросс-платформенный способ передать путь к файлу
-    в subprocess. delete_on_close=False (Python 3.12+) ведёт себя по-разному
+    bench-скрипт пишется во временный файл с delete=False и удаляется в блоке
+    finally — единственный надёжный кросс-платформенный способ передать путь
+    Runner'у. delete_on_close=False (Python 3.12+) ведёт себя по-разному
     на Linux (удаляет при close) и Windows, и непригоден здесь.
 
     max_memory_mb: best-effort лимит адресного пространства дочернего процесса
@@ -150,105 +126,96 @@ def run_microbench(
         peak_memory_mb (float)       — пик Python-heap (tracemalloc), не RSS
                                         процесса; 0.0 при ошибке
     """
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".py",
-        encoding=ENCODING,
-        delete=False,
+    # bench_script self-contained: код решения инлайнится через repr (без чтения
+    # внешних файлов), поэтому bench исполним и в песочнице, где смонтирован
+    # только сам bench-скрипт (issue #417). _reset_stdin инжектится через
+    # builtins (globals не пробрасываются через timeit.repeat в Python 3.14+).
+    # stdout решения подавляется на время замера, чтобы на stdout остались
+    # ИСКЛЮЧИТЕЛЬНО 5 чисел-таймингов + строка MEM:.
+    bench_script = (
+        "import timeit as _timeit, sys as _sys, io as _io, os as _os, "
+        "builtins as _builtins, tracemalloc as _tm\n"
+        "_stdin = " + repr(stdin_data) + "\n"
+        "def _reset_stdin():\n"
+        "    _sys.stdin = _io.StringIO(_stdin)\n"
+        "_builtins._reset_stdin = _reset_stdin\n"
+        "_reset_stdin()\n"
+        "_code = " + repr(source_code) + "\n"
+        "_stmt = '_reset_stdin()\\n' + _code\n"
+        f"_number = {number}\n"
+        "_real_stdout = _sys.stdout\n"
+        "_devnull = open(_os.devnull, 'w')\n"
+        "_sys.stdout = _devnull\n"
+        "_tm.start()\n"
+        "try:\n"
+        "    _times = _timeit.repeat(\n"
+        "        stmt=_stmt,\n"
+        "        setup='pass',\n"
+        "        repeat=5,\n"
+        "        number=_number,\n"
+        "    )\n"
+        "finally:\n"
+        "    _sys.stdout = _real_stdout\n"
+        "    _devnull.close()\n"
+        "_, _peak_bytes = _tm.get_traced_memory()\n"
+        "_tm.stop()\n"
+        "_per = [t / _number for t in _times]\n"
+        "print('\\n'.join(str(t) for t in _per))\n"
+        "print('MEM:' + str(_peak_bytes))\n"
     )
+
+    # issue #417: исполнять bench-скрипт через активный grader_core._RUNNER
+    # (LocalRunner или SandboxRunner при --serve --sandbox), а не напрямую
+    # `python -c` мимо изоляции. Per-call тайминги замеряются ВНУТРИ дочернего
+    # процесса (timeit.repeat), поэтому обёртка песочницы их не искажает; лимит
+    # памяти теперь ставит сам Runner (RunSpec.max_memory_mb).
+    from stepik_grader.core import grader_core  # локальный импорт: избежать цикла в DAG
+
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding=ENCODING, delete=False)
     try:
-        tmp.write(source_code)
+        tmp.write(bench_script)
         tmp.flush()
         tmp.close()
-        code_path = tmp.name
-
-        # Весь вспомогательный код помещаем в bench_script через exec,
-        # чтобы _reset_stdin была доступна в глобальном пространстве stmt.
-        # stmt — строка, выполняемая timeit; globals не пробрасываются через repeat()
-        # в Python 3.14+, поэтому инжектируем функцию через builtins.
-        # stdout решения подавляется на время замера: иначе его print()-вывод
-        # попадает на stdout вперемешку с таймингами и портит парсинг.
-        # Реальный stdout сохраняется и восстанавливается только для печати таймингов,
-        # так что на stdout оказываются ИСКЛЮЧИТЕЛЬНО 5 чисел-таймингов.
-        # os и contextlib используются здесь (в finally), а не только внутри bench_script.
-        bench_script = (
-            "import timeit as _timeit, sys as _sys, io as _io, os as _os, "
-            "builtins as _builtins, tracemalloc as _tm\n"
-            "_stdin = " + repr(stdin_data) + "\n"
-            "def _reset_stdin():\n"
-            "    _sys.stdin = _io.StringIO(_stdin)\n"
-            "_builtins._reset_stdin = _reset_stdin\n"
-            "_reset_stdin()\n"
-            f"with open({code_path!r}, encoding='utf-8') as _f:\n"
-            "    _code = _f.read()\n"
-            "_stmt = '_reset_stdin()\\n' + _code\n"
-            f"_number = {number}\n"
-            "_real_stdout = _sys.stdout\n"
-            "_devnull = open(_os.devnull, 'w')\n"
-            "_sys.stdout = _devnull\n"
-            "_tm.start()\n"
-            "try:\n"
-            "    _times = _timeit.repeat(\n"
-            "        stmt=_stmt,\n"
-            "        setup='pass',\n"
-            "        repeat=5,\n"
-            "        number=_number,\n"
-            "    )\n"
-            "finally:\n"
-            "    _sys.stdout = _real_stdout\n"
-            "    _devnull.close()\n"
-            "_, _peak_bytes = _tm.get_traced_memory()\n"
-            "_tm.stop()\n"
-            "_per = [t / _number for t in _times]\n"
-            "print('\\n'.join(str(t) for t in _per))\n"
-            "print('MEM:' + str(_peak_bytes))\n"
-        )
-
-        try:
-            # issue #67: Popen (не subprocess.run), чтобы поставить лимит памяти
-            # на pid ПОСЛЕ spawn через prlimit — preexec_fn небезопасен.
-            proc = subprocess.Popen(
-                [sys.executable, "-c", bench_script],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding=ENCODING,
+        outcome = grader_core._RUNNER.run(
+            RunSpec(
+                path=pathlib.Path(tmp.name),
+                stdin=None,
+                timeout=60.0,
+                measure_memory=False,
+                max_memory_mb=max_memory_mb,
             )
-            _apply_memory_limit(proc.pid, max_memory_mb)
-            try:
-                stdout, stderr = proc.communicate(timeout=60)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.communicate()
-                # issue #47 R-01: no per-call timeout exists inside the child
-                # (timeit.repeat runs number x 5 as one opaque call, so we can't
-                # report which iteration hung) -- surface the iteration count
-                # instead, so a hang at number=50000 isn't indistinguishable
-                # from one at number=5.
-                return {
-                    "times": [],
-                    "error": (
-                        f"microbench timeout: exceeded 60s running number={number} "
-                        "iterations per repeat (5 repeats total)"
-                    ),
-                    "peak_memory_mb": 0.0,
-                }
-            if proc.returncode != 0:
-                return {"times": [], "error": stderr.strip(), "peak_memory_mb": 0.0}
-            lines = stdout.strip().splitlines()
-            mem_lines = [line for line in lines if line.startswith("MEM:")]
-            time_lines = [line for line in lines if not line.startswith("MEM:")]
-            times = [float(line) for line in time_lines if line.strip()]
-            peak_mb = float(mem_lines[-1][len("MEM:") :]) / 1024 / 1024 if mem_lines else 0.0
-            return {"times": times, "error": "", "peak_memory_mb": peak_mb}
-        except (OSError, ValueError) as exc:
-            # OSError: Popen couldn't spawn the child process.
-            # ValueError: float(line) failed on unparseable subprocess stdout.
-            return {"times": [], "error": str(exc), "peak_memory_mb": 0.0}
+        )
     finally:
         with contextlib.suppress(OSError):
             os.unlink(tmp.name)
+
+    if outcome.launch_error is not None:
+        return {"times": [], "error": outcome.launch_error, "peak_memory_mb": 0.0}
+    if outcome.timed_out:
+        # issue #47 R-01: no per-call timeout inside the child (timeit.repeat is
+        # one opaque call) -- surface the iteration count, not which repeat hung.
+        return {
+            "times": [],
+            "error": (
+                f"microbench timeout: exceeded 60s running number={number} "
+                "iterations per repeat (5 repeats total)"
+            ),
+            "peak_memory_mb": 0.0,
+        }
+    stdout = outcome.stdout.decode(ENCODING, errors="replace")
+    stderr = outcome.stderr.decode(ENCODING, errors="replace")
+    if outcome.returncode != 0:
+        return {"times": [], "error": stderr.strip(), "peak_memory_mb": 0.0}
+    try:
+        result_lines = stdout.strip().splitlines()
+        mem_lines = [line for line in result_lines if line.startswith("MEM:")]
+        time_lines = [line for line in result_lines if not line.startswith("MEM:")]
+        times = [float(line) for line in time_lines if line.strip()]
+        peak_mb = float(mem_lines[-1][len("MEM:") :]) / 1024 / 1024 if mem_lines else 0.0
+    except ValueError as exc:
+        # float() failed on unparseable child stdout.
+        return {"times": [], "error": str(exc), "peak_memory_mb": 0.0}
+    return {"times": times, "error": "", "peak_memory_mb": peak_mb}
 
 
 def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResult]:
