@@ -100,6 +100,37 @@ class TestGradePath:
         assert case["exit_code"] not in (0, None)
         assert case["stderr"] == case["error"]
 
+    def test_cancel_midrun_no_zip_strict_crash(self, tmp_path: pathlib.Path) -> None:
+        """issue #422: отмена усекает res['cases'] — grade_path не должен падать
+        ValueError на zip(strict=True) при большем числе загруженных тест-кейсов
+        (иначе job.status=error вместо cancelled, красная ошибка в UI)."""
+        sol = tmp_path / "task.py"
+        sol.write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        tests = tmp_path / "tests"
+        tests.mkdir()
+        for i in range(1, 4):  # три кейса
+            (tests / str(i)).write_text(str(i), encoding="utf-8")
+            (tests / f"{i}.clue").write_text(str(i + 1), encoding="utf-8")
+
+        cancel = threading.Event()
+
+        def _cancel_after_tick(*args: object, **kwargs: object) -> None:
+            cancel.set()  # отмена после первого тика прогресса run_tests
+
+        data = web.grade_path(sol, progress_callback=_cancel_after_tick, cancel_event=cancel)
+
+        assert data["kind"] == "file"  # не бросило ValueError
+        assert len(data["rows"][0]["cases"]) < 3  # набор усечён, структура валидна
+
+    def test_read_source_non_utf8_returns_error(self, tmp_path: pathlib.Path) -> None:
+        """issue #423: не-UTF8 файл даёт kind=error, а не UnicodeDecodeError/500."""
+        from stepik_grader.web.viewmodels import read_source
+
+        p = tmp_path / "cp1251.py"
+        p.write_bytes(b"x = '\xff\xfe'\n")  # 0xFF — заведомо невалидный UTF-8
+        data = read_source(p)
+        assert data["kind"] == "error"
+
     def test_unknown_re_exception_queues_missing_glossary_entry(
         self, tmp_path: pathlib.Path
     ) -> None:

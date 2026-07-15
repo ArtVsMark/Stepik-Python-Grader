@@ -128,6 +128,30 @@ class TestSubmitJobMicrobench:
         assert data["progress"]["total"] == 1  # one tick per solution
 
 
+class TestTraceCancel:
+    """issue #422: _run_trace_job должен финализировать отменённую трассировку
+    как cancelled, а не done (trace_code сам cancel_event не прерывает)."""
+
+    def test_trace_cancelled_when_cancel_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(runs, "trace_code", lambda code, stdin, timeout: {"steps": []})
+        job = runs.Job("trace-cancel", "trace")
+        job.cancel_event.set()
+
+        runs._run_trace_job(job, "print(1)", "", "ru")
+
+        assert job.status == "cancelled"
+        assert job.result is None
+
+    def test_trace_done_when_not_cancelled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(runs, "trace_code", lambda code, stdin, timeout: {"steps": [1]})
+        job = runs.Job("trace-done", "trace")
+
+        runs._run_trace_job(job, "print(1)", "", "ru")
+
+        assert job.status == "done"
+        assert job.result == {"steps": [1]}
+
+
 class TestCancelJob:
     def test_cancel_running_job_marks_cancelled(self, tmp_path: pathlib.Path) -> None:
         """issue #296: отмена — отдельный терминальный статус, не "error"."""

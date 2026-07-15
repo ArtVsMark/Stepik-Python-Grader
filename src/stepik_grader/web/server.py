@@ -354,7 +354,9 @@ class _Handler(BaseHTTPRequestHandler):
                     return  # _confined_path уже отправил ошибку
                 try:
                     terms_code = confined.read_text(encoding="utf-8")
-                except OSError:
+                except (OSError, UnicodeDecodeError):
+                    # issue #423: не-UTF8 файл не должен ронять /api/code-terms —
+                    # best-effort детект пробелов на пустом коде.
                     terms_code = ""
                 queue_code_gaps(terms_code, source=confined.name)
             else:
