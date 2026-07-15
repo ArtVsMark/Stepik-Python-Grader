@@ -32,7 +32,7 @@ from stepik_grader.core.stepik_client import (
     token_is_valid,
     wait_for_auth_code,
 )
-from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
+from stepik_grader.core.storage import load_json_file, save_secrets
 
 _log = get_logger("oauth_flow")  # issue #149: диагностический лог OAuth (opt-in)
 
@@ -150,5 +150,7 @@ def authorize_and_get_token(
     if path.exists() and path.is_file():
         secrets = load_json_file(path)
     secrets.update(token_data)
-    save_json_file(path, secrets)
+    # issue #400: токены — через save_secrets (атомарно, 0600), а не
+    # save_json_file (0644, world/group-readable), иначе обходится фикс #243.
+    save_secrets(path, secrets)
     return secrets
