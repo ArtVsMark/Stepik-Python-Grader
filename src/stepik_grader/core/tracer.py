@@ -262,26 +262,46 @@ def trace_code(
     max_steps: int = DEFAULT_MAX_STEPS,
     timeout: float = 10.0,
 ) -> dict[str, Any]:
-    """Оттрейсить ``code`` (со ``stdin``) в subprocess; вернуть JSON-трейс.
+    """Оттрейсить ``code`` (со ``stdin``) через активный Runner; вернуть JSON-трейс.
 
     Возвращает ``{steps, stdout, truncated, error}`` (см. ``run_trace``) либо
-    ``{steps: [], error: {...}}`` при таймауте/сбое subprocess. Не исполняет
-    код в процессе сервера — трассировка идёт в дочернем интерпретаторе.
+    ``{steps: [], error: {...}}`` при таймауте/сбое. Не исполняет код в процессе
+    сервера — трассировка идёт в дочернем интерпретаторе.
+
+    Под ``--serve --sandbox`` пошаговый трейс **недоступен** (issue #396):
+    трассировщик требует пакет грейдера (``stepik_grader.core.tracer``) в
+    дочернем процессе, а ``SandboxRunner`` намеренно не пробрасывает
+    site-packages проекта в изоляцию (SECURITY.md) — честно отказываем, а не
+    исполняем трейс вне песочницы.
     """
-    # issue #396: трассировать через активный grader_core._RUNNER (LocalRunner
-    # или SandboxRunner при --serve --sandbox), а не собственным subprocess'ом.
-    # bootstrap self-contained: код решения инлайнится через repr и трейсится
-    # прямым вызовом run_trace() (без чтения внешнего файла), поэтому исполним и
-    # в песочнице, где смонтирован только сам bootstrap. run_trace печатает
-    # JSON-трейс в stdout — тот же контракт, что у `-m`-входа. UTF-8 окружение
-    # ставит сам Runner (PYTHONIOENCODING/PYTHONUTF8).
+    from stepik_grader.core import grader_core  # локальный импорт: избежать цикла в DAG
+
+    # issue #396: под sandbox трассировщик не изолируем (пакет проекта не в
+    # песочнице) — честный отказ вместо исполнения вне изоляции / ModuleNotFoundError.
+    if type(grader_core._RUNNER).__name__ == "SandboxRunner":
+        return {
+            "steps": [],
+            "stdout": "",
+            "truncated": False,
+            "error": {
+                "type": "SandboxError",
+                "message": (
+                    "Пошаговый трейс недоступен под --sandbox: трассировщик требует "
+                    "пакет грейдера, который не пробрасывается в изолированную среду."
+                ),
+            },
+        }
+
+    # Вне песочницы: bootstrap инлайнит код через repr и трейсит прямым вызовом
+    # run_trace() (импорт tracer работает — LocalRunner делит окружение с
+    # сервером). run_trace печатает JSON-трейс в stdout — тот же контракт, что у
+    # ``-m``-входа. UTF-8 окружение ставит сам Runner.
     bootstrap = (
         "import json as _json, sys as _sys\n"
         "from stepik_grader.core import tracer as _tracer\n"
         "_result = _tracer.run_trace(" + repr(code) + ", 'solution.py', " + repr(max_steps) + ")\n"
         "_sys.stdout.write(_json.dumps(_result, ensure_ascii=False, allow_nan=False))\n"
     )
-    from stepik_grader.core import grader_core  # локальный импорт: избежать цикла в DAG
 
     tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding="utf-8", delete=False)
     try:

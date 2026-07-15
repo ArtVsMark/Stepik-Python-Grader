@@ -223,3 +223,20 @@ def test_run_trace_restores_previous_trace_hook() -> None:
     sentinel = sys.gettrace()
     t.run_trace("z = 1\n", "<trace-test>", max_steps=10)
     assert sys.gettrace() is sentinel
+
+
+def test_trace_code_refuses_under_sandbox(monkeypatch) -> None:
+    """issue #396: под --sandbox трассировщик не изолируем (пакет грейдера не
+    пробрасывается в песочницу) — trace_code честно отказывает SandboxError'ом,
+    а не исполняет трейс вне изоляции и не роняет ModuleNotFoundError."""
+    from stepik_grader.core import grader_core
+
+    class SandboxRunner:  # имя класса важно — trace_code сверяет type().__name__
+        def run(self, spec):  # noqa: ANN001, ANN201
+            raise AssertionError("не должно вызываться — трейс отклонён до исполнения")
+
+    monkeypatch.setattr(grader_core, "_RUNNER", SandboxRunner())
+    result = trace_code("x = 1\n")
+    assert result["steps"] == []
+    assert result["error"]["type"] == "SandboxError"
+    assert "--sandbox" in result["error"]["message"]
