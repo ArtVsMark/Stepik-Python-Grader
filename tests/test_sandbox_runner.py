@@ -247,9 +247,8 @@ def _bwrap_netns_works() -> bool:
 
 
 # --- Shared scenario assertions (issue #420): one source of truth for what each
-# isolation guarantee means, exercised by BOTH the full-isolation Linux class and
-# the no-network CI variant. Each takes an already-constructed Runner so the same
-# scenario can run under unshare_net=True and unshare_net=False. ---
+# isolation guarantee means. Each takes an already-constructed Runner, so a single
+# scenario body serves the Linux class here and stays reusable for other backends. ---
 
 
 def _assert_normal_run(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
@@ -329,8 +328,10 @@ def _assert_infinite_loop_times_out(runner, tmp_path: pathlib.Path) -> None:  # 
     reason="bwrap --unshare-net unavailable here (e.g. GitHub Actions loopback restriction, #420)",
 )
 class TestLinuxSandboxRunner:
-    """Полная изоляция (включая netns). Скипается там, где netns недоступен —
-    сетевую изоляцию под GHA проверить нельзя (см. ``_bwrap_netns_works``)."""
+    """Полная изоляция bwrap, включая сетевую (netns). Гейт ``_bwrap_netns_works``
+    скипает класс там, где непривилегированный netns недоступен (обычные
+    GHA-раннеры, issue #420); реально гоняется локально и в CI-job'е
+    ``sandbox-linux`` (privileged-контейнер, где netns/userns доступны)."""
 
     def _runner(self):
         from stepik_grader.core.sandbox._linux import create_backend
@@ -359,61 +360,26 @@ class TestLinuxSandboxRunner:
         _assert_infinite_loop_times_out(self._runner(), tmp_path)
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="Linux-only backend")
-@pytest.mark.skipif(shutil.which("bwrap") is None, reason="bubblewrap (bwrap) not installed")
-class TestLinuxSandboxRunnerNoNet:
-    """issue #420: подмножество изоляции БЕЗ ``--unshare-net`` — гоняется в CI
-    (в т.ч. на GHA, где netns недоступен). Покрывает ФС-изоляцию, ``RLIMIT_*``
-    (в т.ч. fork-bomb через ``RLIMIT_NPROC``), output-size и timeout — всё, что
-    не зависит от сетевого namespace. Сетевую изоляцию НЕ проверяет (в этом
-    режиме сеть намеренно не изолирована — это тест-seam, не боевой путь).
-    Даёт ``_linux.py > 0%`` в CI и ловит регрессии bwrap-обвязки (класс бага
-    usmerge из #420), которые матрица иначе не увидела бы.
-    """
-
-    def _runner(self):
-        from stepik_grader.core.sandbox._linux import LinuxSandboxRunner
-
-        return LinuxSandboxRunner(pathlib.Path(shutil.which("bwrap")), unshare_net=False)
-
-    # Форк-бомба (RLIMIT_NPROC) СОЗНАТЕЛЬНО не входит в этот CI-набор: её
-    # сдерживание опирается на сброс kernel-ucounts через --unshare-user, а он
-    # ведёт себя по-разному во вложенных user-namespace окружениях (в некоторых
-    # контейнерах лимит вообще не срабатывает) — на required-job это давало бы
-    # флаки. Проверка процессов остаётся в полном netns-классе (local/
-    # self-hosted) и в Windows/macOS-наборах. Здесь — только детерминированные
-    # по окружению гарантии: запуск, ФС-изоляция, память, output-size, timeout.
-
-    def test_normal_run_ac(self, tmp_path: pathlib.Path) -> None:
-        _assert_normal_run(self._runner(), tmp_path)
-
-    def test_write_outside_run_dir_blocked(self, tmp_path: pathlib.Path) -> None:
-        _assert_write_outside_run_dir_blocked(self._runner(), tmp_path)
-
-    def test_memory_overrun_violation(self, tmp_path: pathlib.Path) -> None:
-        _assert_memory_overrun_violation(self._runner(), tmp_path)
-
-    def test_output_size_violation(self, tmp_path: pathlib.Path) -> None:
-        _assert_output_size_violation(self._runner(), tmp_path)
-
-    def test_infinite_loop_still_times_out(self, tmp_path: pathlib.Path) -> None:
-        _assert_infinite_loop_times_out(self._runner(), tmp_path)
-
-
 def test_linux_sandbox_not_silently_skipped() -> None:
-    """issue #420 guard (крит. 3): в CI-job'е ``sandbox-linux`` установлен
-    ``STEPIK_REQUIRE_SANDBOX_TESTS=1`` — тогда молчаливый skip Linux-песочницы
-    (bwrap внезапно пропал, импорт бэкенда сломался) обязан стать ЖЁСТКИМ
-    падением, а не тихим no-op. Наличие bwrap на Linux гарантирует, что
-    ``TestLinuxSandboxRunnerNoNet`` (гейт: linux + bwrap) реально отработает.
-    Локально/в обычной матрице без переменной — обычный skip.
+    """issue #420 guard (крит. 3): в CI-job'е ``sandbox-linux`` (privileged-
+    контейнер) установлен ``STEPIK_REQUIRE_SANDBOX_TESTS=1`` — тогда молчаливый
+    skip Linux-песочницы обязан стать ЖЁСТКИМ падением, а не тихим no-op.
+    Проверяем всё, от чего зависит запуск полного ``TestLinuxSandboxRunner``:
+    Linux + установленный bwrap + рабочий netns (``--unshare-user``/
+    ``--unshare-net`` под privileged). Если что-то отвалилось — job краснеет,
+    а не проходит с тихо скипнутым классом. Локально/в обычной матрице без
+    переменной — обычный skip.
     """
     if not os.environ.get("STEPIK_REQUIRE_SANDBOX_TESTS"):
         pytest.skip("guard enforced only in the CI sandbox-linux job")
     assert sys.platform == "linux", "sandbox-linux job must run on Linux"
     assert shutil.which("bwrap") is not None, (
-        "bwrap must be installed in the sandbox-linux job — no-net sandbox tests "
-        "would otherwise silently skip (#420 guard)"
+        "bwrap must be installed in the sandbox-linux job — sandbox tests would "
+        "otherwise silently skip (#420 guard)"
+    )
+    assert _bwrap_netns_works(), (
+        "bwrap --unshare-net/--unshare-user must work in the privileged sandbox-linux "
+        "job — the full TestLinuxSandboxRunner class would otherwise silently skip (#420 guard)"
     )
 
 

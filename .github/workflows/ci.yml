@@ -64,11 +64,10 @@ jobs:
 
       # issue #420: в матрице test bubblewrap НАМЕРЕННО не ставится — sandbox-тесты
       # здесь скипаются (skipif bwrap отсутствует). Раннеры GitHub Actions не дают
-      # bwrap поднять loopback в netns (--unshare-net → RTM_NEWADDR EPERM), поэтому
-      # полный Linux-бэкенд гоняется отдельными job'ами ниже: `sandbox-linux`
-      # (без сетевой изоляции — ФС/rlimit/output/timeout, покрытие _linux.py
-      # вливается в combine) и `sandbox-linux-privileged` (эксперимент: netns под
-      # privileged-контейнером). Backend-фикс usrmerge (#420) — в _linux.py.
+      # bwrap создать непривилегированный user namespace (uid map / netns loopback),
+      # поэтому полный Linux-бэкенд гоняется отдельным job'ом `sandbox-linux` ниже
+      # (privileged-контейнер, где userns/netns доступны). Backend-фиксы usrmerge
+      # и биндинг /usr (#420) — в _linux.py.
 
       - name: Ruff lint
         run: ruff check .
@@ -299,77 +298,25 @@ jobs:
       - name: Run e2e tests
         run: pytest tests/e2e/ -v --no-cov
 
-  # issue #420 (вариант C): Linux SandboxRunner (bwrap) реально гоняется в CI —
-  # но БЕЗ сетевой изоляции (--unshare-net): раннеры GitHub Actions запрещают
-  # bwrap поднять loopback в netns (RTM_NEWADDR EPERM). Проверяем всё, что от
-  # netns не зависит: запуск интерпретатора в песочнице (ловит регрессии
-  # usrmerge-обвязки — тот самый класс бага #420), ФС-изоляцию, RLIMIT_AS
-  # (память), output-size, timeout. Сетевая изоляция и process-count остаются в
-  # полном netns-классе (local/self-hosted) и в Windows/macOS-наборах. Отдельный
-  # job, а не строка в матрице test: не бьём по тонко настроенным per-OS gate
-  # (#294) и cross-OS combine (#283); его .coverage вливается в combine и даёт
-  # _linux.py > 0% в объединённом покрытии.
+  # issue #420: Linux SandboxRunner (bwrap) реально гоняется в CI под ПОЛНОЙ
+  # изоляцией, включая сетевую. Раннеры GitHub Actions запрещают
+  # непривилегированные user namespaces целиком (`bwrap: setting up uid map:
+  # Permission denied`) и netns loopback (`RTM_NEWADDR EPERM`) — поэтому job
+  # идёт в PRIVILEGED-контейнере, где userns и netns доступны (проверено:
+  # test_network_blocked проходит, реальная сетевая изоляция). Гоняет весь
+  # tests/test_sandbox_runner.py: запуск в песочнице, ФС-изоляция, сеть, память,
+  # output-size, timeout. fork-bomb (RLIMIT_NPROC) исключена — её сдерживание
+  # зависит от сброса kernel-ucounts и во вложенном userns нестабильно.
+  # Отдельный job (не строка в матрице test): не бьём по per-OS gate (#294) /
+  # cross-OS combine (#283); .coverage вливается в combine → _linux.py > 0%.
   sandbox-linux:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-
-      - name: Install bubblewrap
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends bubblewrap
-
-      # issue #420 (крит. 3): guard от молчаливого skip — если bwrap не
-      # установился, no-net sandbox-тесты тихо скипнулись бы; здесь job падает.
-      - name: Guard — bubblewrap must be installed (#420)
-        run: command -v bwrap
-
-      # STEPIK_REQUIRE_SANDBOX_TESTS=1 превращает skip Linux-песочницы в жёсткое
-      # падение внутри теста-стража (test_linux_sandbox_not_silently_skipped).
-      # --cov-fail-under=0: этот job гоняет только sandbox-тесты, общий процент
-      # низкий — gate 85% (для полного прогона) здесь неприменим; нам важны лишь
-      # данные покрытия _linux.py для combine, а не порог этого частичного набора.
-      - name: Run Linux sandbox tests (no-net subset)
-        env:
-          STEPIK_REQUIRE_SANDBOX_TESTS: "1"
-        run: pytest tests/test_sandbox_runner.py --cov-fail-under=0 -p no:cacheprovider
-
-      - name: Rename coverage data for combine (#283/#420)
-        run: mv .coverage .coverage.sandbox-linux
-
-      - name: Upload coverage data (#420)
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-data-sandbox-linux
-          path: .coverage.sandbox-linux
-          # v4 исключает dotfiles по умолчанию; .coverage.* нужно явно.
-          include-hidden-files: true
-
-  # issue #420 (вариант A — ЭКСПЕРИМЕНТ, non-blocking): гипотеза — privileged-
-  # контейнер снимает запрет GHA на bwrap --unshare-net (loopback RTM_NEWADDR).
-  # Проверить это можно только реальным прогоном (локально/в обычном job'е —
-  # нельзя). continue-on-error: job НЕ блокирует мерж. Зелёный = privileged
-  # реально поднимает netns И полный netns-набор (минус env-зависимая fork-bomb)
-  # прошёл в изоляции → критерии #420 закрываемы полностью. Красный = гипотеза
-  # не подтвердилась, рабочим остаётся вариант C (sandbox-linux выше).
-  sandbox-linux-privileged:
-    runs-on: ubuntu-latest
-    continue-on-error: true
     container:
       image: python:3.12-slim
       options: --privileged
     steps:
-      # git нужен ДО checkout: без него actions/checkout скачивает tarball через
-      # REST API без .git, а setuptools-scm требует историю+теги для версии.
-      # bubblewrap ставим тем же шагом.
+      # git нужен ДО checkout: без него actions/checkout тянет tarball через REST
+      # API без .git, а setuptools-scm требует историю+теги. bwrap — тем же шагом.
       - name: Install git + bubblewrap (before checkout)
         run: |
           apt-get update
@@ -387,22 +334,26 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      # Вердикт эксперимента: если netns под privileged НЕ работает, этот шаг
-      # падает (bwrap --unshare-net ненулевой код) → job красный (но
-      # continue-on-error). Если работает — /usr/bin/true исполняется, идём
-      # дальше к реальным netns-тестам.
-      - name: Verdict probe — bwrap --unshare-net under --privileged
+      # STEPIK_REQUIRE_SANDBOX_TESTS=1 превращает молчаливый skip Linux-песочницы
+      # в жёсткое падение (test_linux_sandbox_not_silently_skipped проверяет
+      # bwrap+netns). fork-bomb deselect'ится (см. коммент к job'у).
+      # --cov-fail-under=0: job гоняет только sandbox-тесты, общий % низкий — gate
+      # 85% (полный прогон) неприменим; нужны данные покрытия _linux.py для combine.
+      - name: Run full Linux sandbox tests (privileged, netns on)
+        env:
+          STEPIK_REQUIRE_SANDBOX_TESTS: "1"
         run: |
-          bwrap --ro-bind /usr /usr \
-            --symlink usr/lib /lib --symlink usr/lib64 /lib64 \
-            --symlink usr/bin /bin --symlink usr/sbin /sbin \
-            --tmpfs /tmp --dev /dev --proc /proc \
-            --unshare-net --unshare-user -- /usr/bin/true
-
-      # Полный netns-класс минус fork-bomb (её сдерживание зависит от kernel-
-      # ucounts и во вложенном userns может не сработать — это не про netns).
-      - name: Run full netns sandbox tests (minus env-flaky fork-bomb)
-        run: |
-          pytest "tests/test_sandbox_runner.py::TestLinuxSandboxRunner" \
+          pytest tests/test_sandbox_runner.py \
             --deselect "tests/test_sandbox_runner.py::TestLinuxSandboxRunner::test_fork_bomb_contained" \
-            --cov-fail-under=0 -p no:cacheprovider -rs
+            --cov-fail-under=0 -p no:cacheprovider
+
+      - name: Rename coverage data for combine (#283/#420)
+        run: mv .coverage .coverage.sandbox-linux
+
+      - name: Upload coverage data (#420)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data-sandbox-linux
+          path: .coverage.sandbox-linux
+          # v4 исключает dotfiles по умолчанию; .coverage.* нужно явно.
+          include-hidden-files: true

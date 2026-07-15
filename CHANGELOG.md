@@ -32,9 +32,10 @@
 - Web: the always-empty «Эталон» result tab (a reference is a `REFERENCE` row in the modes 3/4 tables; #55 backend groundwork kept) (#369).
 
 ### Internal
-- CI now exercises the Linux `bwrap` sandbox backend: a dedicated `sandbox-linux` job runs the no-network subset (FS/rlimit/output/timeout via a test-only `LinuxSandboxRunner(unshare_net=False)` seam) so `_linux.py` is covered in the combined report, plus an experimental privileged-container job probing full netns isolation — GitHub Actions forbids `bwrap --unshare-net` (loopback `RTM_NEWADDR` EPERM), so network isolation and fork-bomb containment stay validated locally/self-hosted (#420).
+- CI now exercises the Linux `bwrap` sandbox backend for real: a dedicated `sandbox-linux` job runs the full `test_sandbox_runner.py` (FS isolation, real network isolation, memory, output-size, timeout) inside a privileged container — GitHub Actions forbids unprivileged user namespaces (uid-map/netns), so a privileged container is the only way to run it on GHA; `_linux.py` coverage is merged into the combined report (fork-bomb deselected as its ucounts containment is nested-userns-dependent) (#420).
 
 ### Fixed
+- `--sandbox` on Linux now binds `/usr` read-only so the interpreter's ELF loader (`ld-linux`) and `libc` are reachable even when Python lives outside `/usr` (Docker `python` images, CI hostedtoolcache, pyenv) — previously bwrap failed with `execvp: No such file` on such interpreters (#420).
 - Web «Функции в коде»: inventory-driven builtin/method detection (stdlib inventory instead of a narrow hardcode), syntax-construct detection (comprehensions, lambda, slice, f-string, unpacking, ternary, walrus, decorator, with, try), and `os.path.join` no longer misdetected as the `str.join` method (#367).
 - CLI modes 1–4 no longer crash with `ValueError` on a relative solution path — `reporter._safe_rel`/`cli._rel` fall back to the raw path when path and base have different anchors (#440).
 - Runner no longer hangs or leaks CPU-orphans on TLE/cancel: kills the whole solution process group (POSIX `killpg` + psutil tree, bounded reap), writes stdin off-thread (stdin-deadlock fix), and returns partial stdout/stderr on timeout — mirrored in the sandbox POSIX path (#418, #419, #421).
