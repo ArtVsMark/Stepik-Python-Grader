@@ -12,10 +12,13 @@
 Два входа:
 
 - ``trace_code(code, stdin, ...)`` — оркестратор (вызывается web-слоем): пишет
-  код во временный файл, спавнит ``python -m stepik_grader.core.tracer <file>``
-  со ``stdin``, ловит JSON-трейс из stdout. Общий wall-clock таймаут.
-- ``python -m stepik_grader.core.tracer <file>`` — в subprocess: ставит
-  ``settrace``, ``exec``'ает код, печатает JSON-трейс.
+  self-contained bootstrap (код инлайнится через ``repr`` + прямой вызов
+  ``run_trace``) во временный файл и исполняет его через активный
+  ``grader_core._RUNNER`` (``LocalRunner`` или ``SandboxRunner`` при
+  ``--serve --sandbox``, issue #396), ловит JSON-трейс из stdout. Общий
+  wall-clock таймаут.
+- ``python -m stepik_grader.core.tracer <file>`` — прямой/отладочный вход в
+  subprocess: ставит ``settrace``, ``exec``'ает код, печатает JSON-трейс.
 
 Лимиты против бесконечных циклов/раздутого трейса: ``max_steps`` (усечение с
 флагом ``truncated``), обрезка строк/контейнеров/глубины при кодировании.
@@ -31,11 +34,12 @@ import io
 import json
 import os
 import pathlib
-import subprocess
 import sys
 import tempfile
 import types
 from typing import Any
+
+from stepik_grader.core.runner import RunSpec
 
 __all__ = ["trace_code", "DEFAULT_MAX_STEPS"]
 
@@ -264,43 +268,55 @@ def trace_code(
     ``{steps: [], error: {...}}`` при таймауте/сбое subprocess. Не исполняет
     код в процессе сервера — трассировка идёт в дочернем интерпретаторе.
     """
+    # issue #396: трассировать через активный grader_core._RUNNER (LocalRunner
+    # или SandboxRunner при --serve --sandbox), а не собственным subprocess'ом.
+    # bootstrap self-contained: код решения инлайнится через repr и трейсится
+    # прямым вызовом run_trace() (без чтения внешнего файла), поэтому исполним и
+    # в песочнице, где смонтирован только сам bootstrap. run_trace печатает
+    # JSON-трейс в stdout — тот же контракт, что у `-m`-входа. UTF-8 окружение
+    # ставит сам Runner (PYTHONIOENCODING/PYTHONUTF8).
+    bootstrap = (
+        "import json as _json, sys as _sys\n"
+        "from stepik_grader.core import tracer as _tracer\n"
+        "_result = _tracer.run_trace(" + repr(code) + ", 'solution.py', " + repr(max_steps) + ")\n"
+        "_sys.stdout.write(_json.dumps(_result, ensure_ascii=False, allow_nan=False))\n"
+    )
+    from stepik_grader.core import grader_core  # локальный импорт: избежать цикла в DAG
+
     tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding="utf-8", delete=False)
     try:
-        tmp.write(code)
+        tmp.write(bootstrap)
         tmp.close()
-        child_env = os.environ.copy()
-        child_env["PYTHONIOENCODING"] = "utf-8"
-        child_env["PYTHONUTF8"] = "1"
-        try:
-            completed = subprocess.run(
-                [sys.executable, "-m", "stepik_grader.core.tracer", tmp.name, str(max_steps)],
-                input=stdin.encode("utf-8"),
-                capture_output=True,
+        outcome = grader_core._RUNNER.run(
+            RunSpec(
+                path=pathlib.Path(tmp.name),
+                stdin=stdin.encode("utf-8"),
                 timeout=timeout,
-                env=child_env,
-                check=False,
+                measure_memory=False,
             )
-        except subprocess.TimeoutExpired:  # pragma: no cover — таймаут долгого трейса
-            return {
-                "steps": [],
-                "stdout": "",
-                "truncated": True,
-                "error": {"type": "TimeoutError", "message": f"exceeded {timeout}s"},
-            }
-        raw = completed.stdout.decode("utf-8", errors="replace")
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:  # pragma: no cover — subprocess не выдал валидный JSON
-            stderr = completed.stderr.decode("utf-8", errors="replace")
-            return {
-                "steps": [],
-                "stdout": "",
-                "truncated": False,
-                "error": {"type": "TraceError", "message": stderr[:500] or "no trace produced"},
-            }
+        )
     finally:
         with contextlib.suppress(OSError):  # уборка временного файла
             os.unlink(tmp.name)
+
+    if outcome.timed_out:  # pragma: no cover — таймаут долгого трейса
+        return {
+            "steps": [],
+            "stdout": "",
+            "truncated": True,
+            "error": {"type": "TimeoutError", "message": f"exceeded {timeout}s"},
+        }
+    raw = outcome.stdout.decode("utf-8", errors="replace")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:  # pragma: no cover — дочерний процесс не выдал валидный JSON
+        stderr = outcome.launch_error or outcome.stderr.decode("utf-8", errors="replace")
+        return {
+            "steps": [],
+            "stdout": "",
+            "truncated": False,
+            "error": {"type": "TraceError", "message": stderr[:500] or "no trace produced"},
+        }
 
 
 if __name__ == "__main__":

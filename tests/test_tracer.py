@@ -1,8 +1,9 @@
 """Tests for core/tracer.py — пошаговый трейс исполнения (issue #318).
 
-``trace_code`` спавнит subprocess ``python -m stepik_grader.core.tracer`` —
-тесты гоняют реальную трассировку (не мок), проверяя структуру JSON-трейса:
-кадры стека, heap со ссылками по id (aliasing), события, лимиты, stdin.
+``trace_code`` исполняет self-contained bootstrap через активный
+grader_core._RUNNER (issue #396) — тесты гоняют реальную трассировку (не мок),
+проверяя структуру JSON-трейса: кадры стека, heap со ссылками по id (aliasing),
+события, лимиты, stdin.
 """
 
 from __future__ import annotations
