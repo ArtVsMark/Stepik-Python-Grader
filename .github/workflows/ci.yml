@@ -62,6 +62,20 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
+      # issue #420: install bubblewrap so the Linux SandboxRunner backend tests
+      # (tests/test_sandbox_runner.py, skipif bwrap missing) actually RUN in CI
+      # instead of silently skipping — otherwise core/sandbox/_linux.py stays 0%
+      # and sandbox regressions (incl. the #418 _posix_common changes) go unseen.
+      - name: Install bubblewrap (Linux sandbox backend, issue #420)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap
+
+      # issue #420: guard against a silent skip — if bwrap somehow isn't on PATH
+      # the Linux sandbox tests would skip and give false confidence. Fail loudly.
+      - name: Guard — bwrap present so sandbox tests are not skipped (issue #420)
+        if: matrix.os == 'ubuntu-latest'
+        run: command -v bwrap
+
       - name: Ruff lint
         run: ruff check .
 
