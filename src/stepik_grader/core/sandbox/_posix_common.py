@@ -26,7 +26,7 @@ from typing import Any
 
 import psutil
 
-from stepik_grader.core.runner import RunOutcome
+from stepik_grader.core.runner import _KILL_REAP_TIMEOUT, RunOutcome, _kill_process_tree
 
 __all__ = ["run_argv_with_limits"]
 
@@ -93,6 +93,9 @@ def run_argv_with_limits(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
+            # issue #418: своя сессия/группа — чтобы при TLE/лимите убить всё
+            # дерево (os.killpg), а не только прямой процесс изоляции.
+            start_new_session=True,
         )
     except OSError as exc:
         return RunOutcome(launch_error=str(exc))
@@ -153,7 +156,16 @@ def run_argv_with_limits(
             break
         time.sleep(0.02)
 
-    proc.wait()
+    # issue #418: reap ограничен по времени; если процесс ещё жив (внук держит
+    # pipe), добить всё дерево и подождать ограниченно, а не висеть в wait().
+    try:
+        proc.wait(timeout=_KILL_REAP_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        try:
+            proc.wait(timeout=_KILL_REAP_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            pass
     mem_stop.set()
     for r in readers:
         r.join(timeout=1.0)
@@ -171,7 +183,14 @@ def run_argv_with_limits(
             sandbox_violation="memory", elapsed=elapsed, peak_memory_mb=peak_mb_result[0]
         )
     if timed_out:
-        return RunOutcome(timed_out=True, elapsed=elapsed, peak_memory_mb=peak_mb_result[0])
+        # issue #421: вернуть частичный вывод, накопленный reader'ами до TLE.
+        return RunOutcome(
+            stdout=b"".join(stdout_chunks),
+            stderr=b"".join(stderr_chunks),
+            timed_out=True,
+            elapsed=elapsed,
+            peak_memory_mb=peak_mb_result[0],
+        )
 
     # signal.SIGXCPU отсутствует в typeshed под Windows -- модуль реально
     # импортируется только backend'ами _linux.py/_macos.py, но CI гоняет mypy
