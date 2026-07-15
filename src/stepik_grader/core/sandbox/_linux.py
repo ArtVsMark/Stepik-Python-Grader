@@ -66,6 +66,25 @@ def _python_tree_binds() -> list[str]:
     return deduped
 
 
+def _usrmerge_symlink_args() -> list[str]:
+    """bwrap-аргументы, воссоздающие top-level usrmerge-симлинки внутри песочницы.
+
+    На usrmerge-системах (совр. Ubuntu, включая GitHub CI runners) top-level
+    ``/lib``/``/lib64``/``/bin``/… — симлинки в ``/usr/lib*``/``/usr/bin``. Мы
+    биндим только ``/usr`` (``_python_tree_binds``), поэтому без этих симлинков
+    ELF-загрузчик решения (``/lib64/ld-linux-*``) внутри песочницы не находится
+    и bwrap падает ``execvp: No such file`` на самом интерпретаторе (issue #420).
+    Воссоздаём только реально существующие симлинки, ведущие в примонтированный
+    ``/usr`` — не пробрасываем произвольные симлинки хоста.
+    """
+    args: list[str] = []
+    for link in ("/lib", "/lib64", "/lib32", "/libx32", "/bin", "/sbin"):
+        p = Path(link)
+        if p.is_symlink() and p.resolve().is_relative_to("/usr"):
+            args += ["--symlink", os.readlink(link), link]
+    return args
+
+
 def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
     cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
     max_memory_bytes = (spec.max_memory_mb or CONFIG.max_memory_mb or 1024) * 1024 * 1024
@@ -81,6 +100,9 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
     argv = [str(bwrap)]
     for tree in _python_tree_binds():
         argv += ["--ro-bind", tree, tree]
+    # issue #420: воссоздать usrmerge-симлинки (/lib64 -> /usr/lib64 и т.п.) ПОСЛЕ
+    # bind'а /usr — иначе ELF-загрузчик решения не находится (см. helper).
+    argv += _usrmerge_symlink_args()
     argv += ["--tmpfs", "/tmp"]
     argv += ["--bind", str(run_dir), str(run_dir)]
     argv += ["--dev", "/dev", "--proc", "/proc"]

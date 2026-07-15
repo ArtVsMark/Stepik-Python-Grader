@@ -724,6 +724,7 @@ def run_server(
     *,
     root: pathlib.Path | None = None,
     confine: bool = True,
+    sandbox: bool = False,
 ) -> None:
     """Запустить веб-интерфейс на http://host:port (Ctrl+C — остановить).
 
@@ -735,7 +736,19 @@ def run_server(
     — конфайнить ли пути запросов в неё; ``False`` (``--no-root-
     confinement``) — явный откат к прежнему поведению (доступ к любому
     пути на диске), issue #261.
+
+    ``sandbox`` (issue #396) — включить OS-изоляцию исполнения кода. Ставит
+    ``SandboxRunner`` активным ``grader_core._RUNNER`` ДО старта: все пути
+    исполнения (grade/playground/microbench/trace) консультируют его, поэтому
+    изолируются разом. ``SandboxRunner()`` бросает ``SandboxUnavailableError``,
+    если backend недоступен (нет bwrap и т.п.) — пробрасываем вызывающему
+    (CLI → ``parser.error``), никогда не откатываясь молча на ``LocalRunner``.
     """
+    if sandbox:
+        from stepik_grader.core.grader_core import set_runner
+        from stepik_grader.core.sandbox import SandboxRunner
+
+        set_runner(SandboxRunner())
     workspace = root.expanduser().resolve() if root else pathlib.Path.cwd().resolve()
     server = _GraderServer((host, port), _Handler, workspace=workspace, confine=confine)
     url = f"http://{host}:{port}"
@@ -744,6 +757,8 @@ def run_server(
     # через message-catalog, локаль здесь всегда DEFAULT_LANG (ru), т.к. это
     # локальный вывод в терминал, не HTTP-ответ с ``?lang=``.
     print(render_message("server_running", url=url))
+    if sandbox:
+        print(render_message("server_sandbox_active"))
     if confine:
         print(render_message("server_workspace_confined", workspace=workspace))
     else:

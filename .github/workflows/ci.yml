@@ -62,6 +62,14 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
+      # issue #420: bubblewrap НЕ ставится в CI намеренно. GitHub Actions runners
+      # запрещают bwrap поднять loopback в сетевом namespace (--unshare-net даёт
+      # `RTM_NEWADDR: Operation not permitted`), поэтому НИ ОДИН sandbox-прогон на
+      # раннере не стартует — тесты падали бы, а не давали покрытие. Linux
+      # SandboxRunner проверяется локально (`apt-get install bubblewrap` +
+      # `pytest tests/test_sandbox_runner.py`); в CI тесты корректно скипаются
+      # (skipif bwrap отсутствует). Backend-фикс usrmerge (#420) — в _linux.py.
+
       - name: Ruff lint
         run: ruff check .
 

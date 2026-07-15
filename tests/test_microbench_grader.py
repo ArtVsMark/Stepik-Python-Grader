@@ -16,8 +16,6 @@ from __future__ import annotations
 
 import pathlib
 
-import pytest
-
 from stepik_grader import grader
 
 
@@ -229,75 +227,13 @@ def test_run_microbench_number_parameter() -> None:
 
 
 def test_run_microbench_accepts_generous_memory_limit() -> None:
-    """A generous max_memory_mb must not interfere with a trivial computation."""
+    """A generous max_memory_mb must not interfere with a trivial computation.
+
+    issue #417: лимит памяти теперь ставит сам Runner (RunSpec.max_memory_mb),
+    а не собственный _apply_memory_limit микробенча (тот удалён; версия runner'а
+    покрыта в test_runner.py). Здесь — end-to-end проверка, что параметр
+    принимается и не мешает тривиальному вычислению.
+    """
     result = grader.run_microbench("x = 1 + 1\n", stdin_data="", number=5, max_memory_mb=512)
     assert result["error"] == ""
     assert len(result["times"]) == 5
-
-
-def test_apply_memory_limit_noop_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    from stepik_grader.core import microbench_runner
-
-    calls: list[tuple] = []
-
-    class _FakeResource:
-        RLIMIT_AS = "RLIMIT_AS"
-
-        @staticmethod
-        def prlimit(*args):
-            calls.append(args)
-
-    monkeypatch.setattr(microbench_runner, "resource", _FakeResource)
-    microbench_runner._apply_memory_limit(123, None)
-    assert calls == []
-
-
-def test_apply_memory_limit_noop_when_resource_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Windows has no `resource` module — must degrade to a no-op, not crash."""
-    from stepik_grader.core import microbench_runner
-
-    monkeypatch.setattr(microbench_runner, "resource", None)
-    microbench_runner._apply_memory_limit(123, 1024)  # must not raise
-
-
-def test_apply_memory_limit_calls_prlimit_with_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
-    from stepik_grader.core import microbench_runner
-
-    calls: list[tuple] = []
-
-    class _FakeResource:
-        RLIMIT_AS = "RLIMIT_AS"
-
-        @staticmethod
-        def prlimit(pid, which, limits):
-            calls.append((pid, which, limits))
-
-    monkeypatch.setattr(microbench_runner, "resource", _FakeResource)
-    microbench_runner._apply_memory_limit(4321, 64)
-
-    expected_bytes = 64 * 1024 * 1024
-    assert calls == [(4321, "RLIMIT_AS", (expected_bytes, expected_bytes))]
-
-
-@pytest.mark.parametrize(
-    "exc",
-    [AttributeError("no prlimit on macOS"), ValueError("invalid limit"), OSError("not permitted")],
-)
-def test_apply_memory_limit_swallows_prlimit_failure(
-    monkeypatch: pytest.MonkeyPatch, exc: Exception
-) -> None:
-    """prlimit отсутствует на macOS (AttributeError) / нет прав (OSError) — не
-    падаем, пропускаем cap (issue #67). См. парный тест в test_grader_core.py."""
-    from stepik_grader.core import microbench_runner
-
-    class _FakeResource:
-        RLIMIT_AS = "RLIMIT_AS"
-
-        @staticmethod
-        def prlimit(*args):
-            raise exc
-
-    monkeypatch.setattr(microbench_runner, "resource", _FakeResource)
-    microbench_runner._apply_memory_limit(1, 64)  # must not raise
