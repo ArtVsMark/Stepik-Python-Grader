@@ -19,6 +19,7 @@
 - Web UI разделов «Правила»/«Подучить» (#348): list+detail правил (поиск, чипы-теги, deep-link `#/rules/<code>`, примеры «до/после»), карточки «Подучить» со статусом затухания + бейдж активных в sidebar, единый hash-роутер (замена glossary-only, риск R6). Закрывает эпик #342.
 - Двуязычные описания карточек глоссария (фундамент эпика #363): `summary`/`body` хранятся вложенным `{ru,en}`, web-API (`/api/glossary`, `/api/glossary/<id>`, `/api/code-terms`) отдаёт их строкой по `?lang=` с fallback на RU (`GlossaryCard.to_api_dict`/`localized`, обратная совместимость плоских `card.summary`); селект «Язык интерфейса» в «Настройках» переключает глоссарий на лету (#363).
 - Глоссарий, волна В1 «Строки (str)» (#371): 45 методов `str` доведены до `ready` гранулярными двуязычными карточками (RU+EN `summary`, примеры `# → результат`, прогнанные в Python); групповые карточки (`capitalize/title/swapcase`, `find/rfind`, `split/rsplit` и др.) расформированы на отдельные методы, черновики перенесены из `drafts.json` в `str.json` (#363).
+- Web: `--serve --sandbox` now isolates code execution — the `SandboxRunner` is injected as the active runner and the grade, playground and microbench paths all honor it; the step tracer refuses under `--sandbox` (its module can't be exposed to the isolated child, so it returns a clear error instead of running unsandboxed) (#396).
 
 ### Changed
 - Web sidebar cleanup: dropped the dead «Рабочее пространство» label and the disabled «Настройки» stub → a working Settings section (theme/language, landing spot for the #342 history toggle); recent paths moved to a path-field `datalist` (#364).
@@ -40,6 +41,8 @@
 - Security: OAuth tokens are written with `save_secrets` (atomic, `0600`) instead of `save_json_file` (`0644`), closing a world/group-readable gap that bypassed #243 (#400).
 - Security: the CSRF guard now rejects `Sec-Fetch-Site: cross-site` requests (Fetch Metadata), covering a cross-site request even when Origin/Referer are absent; non-browser clients are unaffected (#399).
 - Security: `POST /api/download` now confines its `root` (download target) to the workspace — an out-of-root `root` is rejected 403 instead of letting `download_task` `mkdir` arbitrary directories (#401).
+- Security: the microbench (mode-4 stdin) path now runs its bench script through the active Runner instead of a bare `python -c`, so `--sandbox` actually isolates it — the `--sandbox --mode 4` bypass is closed (#417).
+- Sandbox: the Linux bubblewrap backend recreates the top-level usrmerge symlinks (`/lib64` → `/usr/lib64`, …) inside the jail, so the solution's ELF loader resolves — the backend was unusable (and its tests never ran) on usrmerge systems like modern Ubuntu / CI (#420).
 
 ### Documentation
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan
@@ -69,6 +72,7 @@
 ### Internal
 - Added a soft `docs/versions.md` release-column guard to `check_version_consistency.py`; archived `claude-handoff.md`, stamped `audit-2026-07.md` as implemented, fixed the stale CHANGELOG policy in GitHub PR/issue templates and the #163 contradiction in CLAUDE.md (#386).
 - Added a global 120s per-test deadline (`pytest-timeout`, `thread` method) so a hung subprocess/thread fails one test instead of hanging every CI matrix job (#444).
+- CI installs bubblewrap on the Ubuntu job (+ a `command -v bwrap` guard) so the Linux `SandboxRunner` tests actually run instead of silently skipping — closing a coverage/regression blind spot for `core/sandbox/_linux.py` (#420).
 
 ## [1.8.0] - 2026-07-14
 
