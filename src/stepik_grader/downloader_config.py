@@ -14,13 +14,16 @@ import pathlib
 import re
 from typing import Any
 
-from stepik_grader.core.storage import load_json_file, save_json_file
+from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
 
 __all__ = [
     "DEFAULT_ROOT_DIR",
+    "DEFAULT_REDIRECT_URI",
+    "STEPIK_OAUTH_APPS_URL",
     "slugify",
     "ask_value",
     "create_or_update_config",
+    "create_secrets_interactively",
     "load_or_create_config",
     "normalize_config_paths",
 ]
@@ -43,10 +46,14 @@ def _print(text: str) -> None:
     if _RICH and _console is not None:
         _console.print(text, markup=False)
     else:
-        _print(text)
+        print(text)
 
 
 DEFAULT_ROOT_DIR = "StepikTasks"
+# issue #433 — guided-настройка OAuth: где создать приложение Stepik и дефолтный
+# redirect_uri (должен совпадать с полем «Redirect uris» приложения).
+STEPIK_OAUTH_APPS_URL = "https://stepik.org/oauth2/applications/"
+DEFAULT_REDIRECT_URI = "http://localhost:8080/callback"
 
 
 def slugify(text: str) -> str:
@@ -64,6 +71,47 @@ def ask_value(prompt: str, default: str = "") -> str:
     suffix = f" [{default}]" if default else ""
     value = input(f"{prompt}{suffix}: ").strip()
     return value or default
+
+
+def _confirm_yes(prompt: str) -> bool:
+    """Y/n-подтверждение; пустой ввод (Enter) и «да»-варианты → True."""
+    answer = input(f"{prompt} [Y/n]: ").strip().lower()
+    return answer in {"", "y", "yes", "д", "да"}
+
+
+def create_secrets_interactively(secrets_path: pathlib.Path) -> dict[str, str]:
+    """Пошагово создаёт ``secrets.json`` с OAuth-данными Stepik (issue #433).
+
+    Печатает, где завести OAuth-приложение Stepik и какие поля указать, затем
+    спрашивает ``client_id``/``client_secret`` и ``redirect_uri`` (дефолт
+    :data:`DEFAULT_REDIRECT_URI`) и пишет файл через
+    :func:`~stepik_grader.core.storage.save_secrets` (атомарно, 0600). Токены НЕ
+    запрашиваются — их добудет обычный browser-flow ``create_user_session`` при
+    первом запуске. Возвращает записанный словарь.
+    """
+    _print("\n🔑 Настройка доступа к Stepik (OAuth).")
+    _print(f"1. Откройте {STEPIK_OAUTH_APPS_URL} и создайте приложение:")
+    _print("   • Name: любое (например, stepik-grader)")
+    _print("   • Client type: Confidential")
+    _print("   • Authorization grant type: Authorization code")
+    _print(f"   • Redirect uris: {DEFAULT_REDIRECT_URI}")
+    _print("2. Скопируйте Client id и Client secret созданного приложения.\n")
+    client_id = ask_value("Client id")
+    client_secret = ask_value("Client secret")
+    redirect_uri = ask_value("Redirect uri", DEFAULT_REDIRECT_URI)
+    if not client_id or not client_secret:
+        _print(
+            "⚠️ Client id и Client secret обязательны — заполните их и повторите "
+            "(при первом запуске будет предложено снова)."
+        )
+    secrets: dict[str, str] = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri or DEFAULT_REDIRECT_URI,
+    }
+    save_secrets(secrets_path, secrets)
+    _print(f"✅ secrets.json сохранён: {secrets_path} (доступ только владельцу, 0600)")
+    return secrets
 
 
 def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
@@ -115,13 +163,20 @@ def normalize_config_paths(
         secrets_path = pathlib.Path.cwd() / secrets_path
     if not secrets_path.exists() or not secrets_path.is_file():
         _print(f"⚠️ Файл secrets не найден: {secrets_path}")
-        config = create_or_update_config(config_path)
-        root_dir = pathlib.Path(str(config["root_dir"]))
-        secrets_path = pathlib.Path(str(config["secrets_path"]))
-        if not root_dir.is_absolute():
-            root_dir = pathlib.Path.cwd() / root_dir
-        if not secrets_path.is_absolute():
-            secrets_path = pathlib.Path.cwd() / secrets_path
+        # issue #433: предложить пошаговое создание secrets.json прямо здесь.
+        # Прежняя ветка лишь пере-запрашивала ПУТЬ, что при отсутствии готового
+        # файла давало цикл path→FileNotFoundError. Отказ сохраняет прежнее
+        # поведение (указать другой путь к уже существующему файлу).
+        if _confirm_yes("Создать secrets.json сейчас (пошагово)?"):
+            create_secrets_interactively(secrets_path)
+        else:
+            config = create_or_update_config(config_path)
+            root_dir = pathlib.Path(str(config["root_dir"]))
+            secrets_path = pathlib.Path(str(config["secrets_path"]))
+            if not root_dir.is_absolute():
+                root_dir = pathlib.Path.cwd() / root_dir
+            if not secrets_path.is_absolute():
+                secrets_path = pathlib.Path.cwd() / secrets_path
     normalized: dict[str, Any] = {
         "root_dir": str(root_dir),
         "secrets_path": str(secrets_path),

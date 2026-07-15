@@ -105,15 +105,18 @@ class TestConfigFunctions:
         assert pathlib.Path(result["secrets_path"]).is_absolute()
 
     def test_normalize_secrets_not_found_reprompts(self, tmp_path: pathlib.Path):
-        """secrets-файл не существует → повторный запрос конфига."""
+        """secrets-файл не существует + отказ от wizard'а (#433) → повторный запрос конфига."""
         good_secrets = tmp_path / "good.json"
         good_secrets.write_text("{}", encoding="utf-8")
         cfg_path = tmp_path / "cfg.json"
         config = {"root_dir": "r", "secrets_path": str(tmp_path / "missing.json")}
-        with patch(
-            "stepik_grader.downloader_config.create_or_update_config",
-            return_value={"root_dir": "r2", "secrets_path": str(good_secrets)},
-        ) as mock_create:
+        with (
+            patch("builtins.input", return_value="n"),  # issue #433: не создавать wizard'ом
+            patch(
+                "stepik_grader.downloader_config.create_or_update_config",
+                return_value={"root_dir": "r2", "secrets_path": str(good_secrets)},
+            ) as mock_create,
+        ):
             result = normalize_config_paths(config, cfg_path)
         mock_create.assert_called_once()
         assert pathlib.Path(result["root_dir"]).is_absolute()
