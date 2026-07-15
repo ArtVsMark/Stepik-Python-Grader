@@ -87,18 +87,39 @@ def _verdict_counts_from_bench(results: dict[pathlib.Path, dict[str, Any]]) -> d
     return counts
 
 
+def _collect_lint(
+    solutions: list[pathlib.Path],
+) -> dict[pathlib.Path, list[lint.Violation]] | None:
+    """Прогнать ruff по каждому решению ОДИН раз (issue #403).
+
+    Единый источник lint'а и для печати блока «Стиль» (#349), и для записи в
+    историю (#346/#403) — чтобы ruff не запускался дважды при ``--lint --history``.
+    ``None`` — ruff недоступен (extra ``[lint]`` не установлен); ``{}`` — решений
+    нет. Best-effort: ``run_lint`` сам проглатывает сбои в пустой список.
+    """
+    if not solutions:
+        return {}
+    if not lint.ruff_available():
+        return None
+    return {sol: lint.run_lint(sol) for sol in solutions}
+
+
 def _print_lint_blocks(
-    solutions: list[pathlib.Path], base: pathlib.Path | None, output: str
+    solutions: list[pathlib.Path],
+    base: pathlib.Path | None,
+    output: str,
+    collected: dict[pathlib.Path, list[lint.Violation]] | None,
 ) -> None:
     """Блоки «Стиль» по решениям режимов 1/2 (``--lint``, issue #349).
 
-    Только текстовый вывод (машинные форматы не трогаем). Если ruff недоступен
-    (extra ``[lint]`` не установлен) — печатает подсказку об установке один раз,
-    а не по разу на решение. Линт НЕ влияет на вердикт — информационный блок.
+    Печатает уже собранные ``_collect_lint`` нарушения (не запускает ruff
+    повторно, issue #403). Только текстовый вывод (машинные форматы не трогаем).
+    ``collected is None`` — ruff недоступен: печатаем подсказку об установке один
+    раз. Линт НЕ влияет на вердикт — информационный блок.
     """
     if output != "text" or not solutions:
         return
-    if not lint.ruff_available():
+    if collected is None:
         print(
             "Стиль пропущен: ruff не установлен. "
             "Установите extra: pip install stepik-python-grader[lint] (issue #349)."
@@ -107,7 +128,7 @@ def _print_lint_blocks(
     provider = rules.bundled_rules()
     multi = len(solutions) > 1
     for sol in solutions:
-        violations = lint.run_lint(sol)
+        violations = collected.get(sol, [])
         if violations and multi and base is not None:
             print(f"\n{_rel(sol, base)}")
         print_lint_block(violations, rules_provider=provider)
@@ -211,6 +232,8 @@ def _run_mode_1(
     if from_cache and output == "text":
         print(ctx.t("cache_hit"))
 
+    # issue #403: собрать lint один раз — и для истории, и для печати ниже.
+    lint_by_sol = _collect_lint([solution]) if record_lint else None
     if record_stats:
         stats.record_run(1, _verdict_counts_from_cases(result["cases"]), result["total_time"])
     if record_history:
@@ -222,6 +245,10 @@ def _run_mode_1(
             solution_name=solution.name,
             solution_hash=hash_solution(solution),
             duration_s=result["total_time"],
+            lint=history_recording.lint_records_from_violations(
+                (lint_by_sol or {}).get(solution, [])
+            )
+            or None,
         )
 
     if output == "json":
@@ -247,7 +274,7 @@ def _run_mode_1(
     base = solution.resolve().parent
     print_correctness_results([(solution, result)], base, col_file=col_file)
     if record_lint:
-        _print_lint_blocks([solution], None, output)
+        _print_lint_blocks([solution], None, output, lint_by_sol)
 
 
 def _run_mode_2(
@@ -289,18 +316,25 @@ def _run_mode_2(
     if cache is not None:
         cache.save()
 
+    # issue #403: собрать lint по всем решениям один раз — для истории и печати.
+    lint_by_sol = _collect_lint([p for p, _ in rows]) if record_lint else None
     if record_stats or record_history:
         all_cases = [c for _, result in rows for c in result["cases"]]
         total_time = sum(result["total_time"] for _, result in rows)
         if record_stats:
             stats.record_run(2, _verdict_counts_from_cases(all_cases), total_time)
         if record_history:
+            # Агрегатный прогон режима 2 → объединённые нарушения всех решений
+            # (карточки «Подучить» агрегируют по rule_code, атрибуция по файлу тут
+            # не нужна).
+            all_violations = [v for sol in lint_by_sol.values() for v in sol] if lint_by_sol else []
             history.record_run(
                 2,
                 history_recording.cases_from_test_results(all_cases),
                 db_path=history_recording.default_history_db_path(),
                 task_key=_rel(directory, pathlib.Path.cwd()),
                 duration_s=total_time,
+                lint=history_recording.lint_records_from_violations(all_violations) or None,
             )
 
     if output == "json":
@@ -326,7 +360,7 @@ def _run_mode_2(
     if cache is not None:
         print(ctx.t("cache_summary", hits=cache_hits, total=len(rows)))
     if record_lint:
-        _print_lint_blocks([p for p, _ in rows], directory, output)
+        _print_lint_blocks([p for p, _ in rows], directory, output, lint_by_sol)
 
 
 def _run_mode_3(

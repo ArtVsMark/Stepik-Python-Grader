@@ -127,6 +127,27 @@ def test_default_override_falls_back_to_config(tmp_path, monkeypatch) -> None:
     assert not _db(tmp_path).exists()
 
 
+def test_grade_path_records_lint_when_ruff_available(tmp_path, monkeypatch) -> None:
+    """issue #403: web-грейд пишет lint-нарушения в историю (ruff — opt-in extra)."""
+    if not viewmodels._ruff_available_cached():
+        pytest.skip("ruff не установлен (extra [lint]) — lint в историю не пишется")
+    monkeypatch.chdir(tmp_path)
+    # F401: неиспользуемый импорт — гарантированное нарушение.
+    sol = tmp_path / "task1.py"
+    sol.write_text("import os\na, b = int(input()), int(input())\nprint(a + b)\n", encoding="utf-8")
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "input_1.txt").write_text("3\n7\n", encoding="utf-8")
+    (tests / "expected_1.txt").write_text("10\n", encoding="utf-8")
+    viewmodels.set_web_record_history(True)
+
+    viewmodels.grade_path(sol)
+
+    runs = history.read_recent_runs(_db(tmp_path))
+    # read_recent_runs отдаёт lint как список rule_code-строк (как ждёт insights).
+    assert "F401" in runs[0]["lint"]
+
+
 def test_cancelled_run_is_not_recorded(tmp_path, monkeypatch) -> None:
     """Отменённый прогон не пишет частичную историю (issue #395)."""
     import threading

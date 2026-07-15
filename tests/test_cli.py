@@ -1015,3 +1015,39 @@ class TestFacadeNamespaceContract:
         monkeypatch.setattr(cli, "_print_tabular", _spy)
         cli.main(["--mode", "1", "--file", str(sol), "--output", "csv"])
         assert calls == ["csv"]
+
+
+# ---------------------------------------------------------------------------
+# _collect_lint — единый прогон ruff для печати + истории (issue #403)
+# ---------------------------------------------------------------------------
+
+
+def test_collect_lint_none_when_ruff_unavailable(monkeypatch, tmp_path) -> None:
+    """ruff недоступен (нет extra [lint]) → None (печать покажет подсказку)."""
+    from stepik_grader.cli import commands
+    from stepik_grader.core import lint
+
+    monkeypatch.setattr(lint, "ruff_available", lambda: False)
+    sol = tmp_path / "s.py"
+    sol.write_text("x = 1\n", encoding="utf-8")
+    assert commands._collect_lint([sol]) is None
+
+
+def test_collect_lint_empty_for_no_solutions() -> None:
+    from stepik_grader.cli import commands
+
+    assert commands._collect_lint([]) == {}
+
+
+def test_collect_lint_runs_ruff_when_available(monkeypatch, tmp_path) -> None:
+    """ruff доступен → dict {sol: [Violation, ...]} (один прогон на решение)."""
+    from stepik_grader.cli import commands
+    from stepik_grader.core import lint
+
+    monkeypatch.setattr(lint, "ruff_available", lambda: True)
+    sentinel = [lint.Violation(rule_code="F401", line_no=1, message="x")]
+    monkeypatch.setattr(lint, "run_lint", lambda sol: sentinel)
+    sol = tmp_path / "s.py"
+    sol.write_text("import os\n", encoding="utf-8")
+    collected = commands._collect_lint([sol])
+    assert collected == {sol: sentinel}

@@ -11,6 +11,7 @@ issue #397 — ранжирование живёт в core, не дублиру�
 
 from __future__ import annotations
 
+import functools
 import pathlib
 import re
 import threading
@@ -19,7 +20,7 @@ from collections.abc import Callable
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core import history, history_recording
+from stepik_grader.core import history, history_recording, lint
 from stepik_grader.core.cache import hash_solution
 from stepik_grader.core.error_glossary import resolve_error_hint
 from stepik_grader.core.grader_core import (
@@ -423,6 +424,33 @@ def _history_enabled() -> bool:
     return CONFIG.record_history if _web_record_history is None else _web_record_history
 
 
+@functools.lru_cache(maxsize=1)
+def _ruff_available_cached() -> bool:
+    """Доступен ли ruff (extra ``[lint]``), кэш на процесс (issue #403).
+
+    ``lint.ruff_available()`` запускает subprocess — кэшируем, чтобы не платить
+    его на каждый web-грейд. Для типичного пользователя без extra ``[lint]``
+    — один ``False`` за жизнь процесса, lint в историю не пишется.
+    """
+    return lint.ruff_available()
+
+
+def _web_lint_records(solutions: list[pathlib.Path]) -> list[history.LintRecord]:
+    """Собрать lint по решениям для истории (issue #403, best-effort).
+
+    Гоняет ruff только если он установлен (opt-in extra ``[lint]``) — иначе
+    пусто, без латентности. Любой сбой ruff → пустой список: линт информационный,
+    не должен ронять грейдинг/запись.
+    """
+    if not _ruff_available_cached():
+        return []
+    try:
+        violations = [v for sol in solutions for v in lint.run_lint(sol)]
+    except (lint.LintUnavailable, OSError):
+        return []
+    return history_recording.lint_records_from_violations(violations)
+
+
 def _record_history_if_enabled(
     mode: int,
     case_records: list[history.CaseRecord],
@@ -534,9 +562,10 @@ def grade_path(
             }
         )
 
-    # issue #395: наполнить историю (при отмене — не пишем частичный прогон).
+    # issue #395/#403: наполнить историю (+ lint), кроме случая отмены. Гейт
+    # _history_enabled() здесь — чтобы не гонять ruff/сборку записей впустую.
     cancelled = cancel_event is not None and cancel_event.is_set()
-    if not cancelled and graded:
+    if not cancelled and graded and _history_enabled():
         if kind == "file":
             sol, res = graded[0]
             _record_history_if_enabled(
@@ -546,6 +575,7 @@ def grade_path(
                 solution_name=sol.name,
                 solution_hash=hash_solution(sol),
                 duration_s=res["total_time"],
+                lint_records=_web_lint_records([sol]) or None,
             )
         else:
             all_cases = [c for _, r in graded for c in r["cases"]]
@@ -555,6 +585,7 @@ def grade_path(
                 history_recording.cases_from_test_results(all_cases),
                 task_key=_rel(base, pathlib.Path.cwd()),
                 duration_s=total_time,
+                lint_records=_web_lint_records([s for s, _ in graded]) or None,
             )
     return {"kind": kind, "mode": "tests", "base": str(base), "rows": rows}
 
@@ -664,7 +695,7 @@ def grade_benchmark(
 
     # issue #395: наполнить историю (mode 3), кроме случая отмены.
     cancelled = cancel_event is not None and cancel_event.is_set()
-    if not cancelled and results:
+    if not cancelled and results and _history_enabled():
         total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
         _record_history_if_enabled(
             3,
@@ -787,7 +818,7 @@ def grade_microbench(
 
     # issue #395: наполнить историю (mode 4), кроме случая отмены.
     cancelled = cancel_event is not None and cancel_event.is_set()
-    if not cancelled and results:
+    if not cancelled and results and _history_enabled():
         total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
         _record_history_if_enabled(
             4,
