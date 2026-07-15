@@ -348,8 +348,8 @@ def _resolve_cli_path_or_error(
 
 
 def _interactive_menu() -> None:
-    """Показать меню один раз, выполнить режим и завершить работу. Тонкая
-    обёртка над interactive._interactive_menu."""
+    """Цикл интерактивного меню до «0»/EOF (issue #445). Тонкая обёртка над
+    interactive._interactive_menu."""
     interactive._interactive_menu(_build_cli_context())
 
 

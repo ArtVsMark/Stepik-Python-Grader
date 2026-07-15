@@ -208,6 +208,21 @@ def test_history_toggle_off_persists(tmp_path: Path, monkeypatch, capsys) -> Non
     assert user_settings.load_settings(path).record_history is False
 
 
+def test_history_toggle_save_failure_is_graceful(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Сбой сохранения (read-only cwd / полный диск) не роняет меню — best-effort,
+    симметрично load_settings (review-находка PR-A)."""
+    monkeypatch.chdir(tmp_path)
+
+    def _boom(*_a, **_k):
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(user_settings, "save_settings", _boom)
+    inputs = iter(["7", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()  # не должно упасть трейсбеком
+    assert "session" in capsys.readouterr().out  # history_save_failed (en)
+
+
 def test_toggle_on_then_mode_records_history(tmp_path: Path, monkeypatch) -> None:
     """После включения тумблера режим 1 вызывается с record_history=True."""
     monkeypatch.chdir(tmp_path)

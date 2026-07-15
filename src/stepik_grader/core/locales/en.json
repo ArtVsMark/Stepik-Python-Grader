@@ -64,6 +64,7 @@
   "toggle_off": "OFF",
   "history_toggled_on": "✅ Run history enabled — the «Learn» section will fill up. Saved to .grader_settings.json.",
   "history_toggled_off": "⏹ Run history disabled. Saved to .grader_settings.json.",
+  "history_save_failed": "⚠️ Could not save the setting to .grader_settings.json ({error}). The change applies to this session only.",
   "nudge_enable_history": "💡 Some tests failed. Enable run-history recording (menu item 7) — the «Learn» section will collect your frequent mistakes.",
   "path_dialog_hint": "  (press Enter with no input to open a file/folder picker, if available)",
   "input_default_used": "  «{value}» is not a number, using the default: {default}.",

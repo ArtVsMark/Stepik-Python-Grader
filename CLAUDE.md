@@ -116,7 +116,7 @@ pytest tests/ --cov=. --cov-report=term-missing -q      # покрытие (ин
 ### Запуск
 
 ```bash
-python -m stepik_grader.grader              # интерактивное меню (режимы 0-5)
+python -m stepik_grader.grader              # интерактивное меню (режимы 0-7)
 python -m stepik_grader.downloader          # скачать задачу по URL Stepik
 python -m stepik_grader.diagnostic_stepik   # диагностика API и токена
 stepik-grader                               # то же, если пакет установлен
