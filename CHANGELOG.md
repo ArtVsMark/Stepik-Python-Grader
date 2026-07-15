@@ -49,6 +49,7 @@
   CONTRIBUTING.md) and a CI version-count guard in `check_docs_guardrails.py` (#373).
 - Docs audit after v1.8.0 (epic #381): closed the release gap — `versions.md` gains a v1.8.0 column, CHECKPOINT/CONTRIBUTING/installation refreshed (#382).
 - Synced docs and code locales to the #342 wave — menu 0–5, six web sections, `insights_*` config keys, README feature list/security (#383).
+- Added `docs/audit-2026-07-15.md` — multi-role audit (8 roles + fact-check of the external v1.8.0 audit template), verified by live repros; ships a 39-issue backlog in 7 epics under one umbrella epic. Role appendices under `docs/audit-2026-07-15/`.
 - Fixed factual doc errors (logging `--verbose`, server-mode `cancelled`, `stepik-python-grader[watch]` package name) and marked the result `lint` field as schema-only until wired in #346 (#384).
 - Refreshed `architecture.md`/`project-structure.md` — 5 missing modules, DAG edges, false-leaf/phantom-edge fixes (#385).
 
