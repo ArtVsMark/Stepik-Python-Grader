@@ -137,7 +137,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
-    """Открыть соединение, включить WAL/FK и домигрировать до ``SCHEMA_VERSION``.
+    """Открыть соединение, включить best-effort WAL + FK и домигрировать до
+    ``SCHEMA_VERSION``.
 
     ``sqlite3.connect`` создаёт файл БД — вызывать только на пути записи или
     после проверки ``db_path.is_file()`` на пути чтения (чтобы не плодить БД
@@ -145,7 +146,17 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     """
     conn = sqlite3.connect(db_path)
     try:
-        conn.execute("PRAGMA journal_mode=WAL")
+        # issue #393: явный busy_timeout, чтобы конкурентные писатели ЖДАЛИ
+        # write-lock, а не падали sqlite3.OperationalError -> тихая потеря записи.
+        conn.execute("PRAGMA busy_timeout=10000")
+        # Смена journal_mode в WAL невозможна, пока к БД открыты ДРУГИЕ соединения
+        # (барьерная конкурентная первая инициализация из многих потоков/
+        # процессов) — sqlite возвращает SQLITE_BUSY, и busy_timeout тут не
+        # помогает. WAL — оптимизация, а не требование: глотаем отказ и работаем в
+        # дефолтном rollback-journal (следующее соединение доставит WAL, когда
+        # контекст разрядится). Иначе весь прогон терялся бы на Windows (#393).
+        with contextlib.suppress(sqlite3.OperationalError):
+            conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         _migrate(conn)
     except BaseException:
