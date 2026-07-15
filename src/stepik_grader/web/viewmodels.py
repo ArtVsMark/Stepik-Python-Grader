@@ -3,8 +3,10 @@
 Архитектурный слой: Application/UI (web-адаптер). Переиспользует
 ``core/grader_core`` (``run_tests``/``run_benchmark``), ``core/test_loader``
 (``find_all_solution_files``/``resolve_test_dir``),
-``core/microbench_runner.apply_relative_ranking`` и ``core/reporter.fmt_time``
-— логика грейдинга и форматирования не дублируется. ``web → core` ациклично.
+``core/microbench_runner`` (``apply_relative_ranking``/``apply_reference_ranking``,
+issue #397 — ранжирование живёт в core, не дублируется) и
+``core/reporter.fmt_time`` — логика грейдинга и форматирования не дублируется.
+``web → core`` ациклично.
 """
 
 from __future__ import annotations
@@ -25,7 +27,10 @@ from stepik_grader.core.grader_core import (
     run_microbench_mode,
     run_tests,
 )
-from stepik_grader.core.microbench_runner import apply_relative_ranking
+from stepik_grader.core.microbench_runner import (
+    apply_reference_ranking,
+    apply_relative_ranking,
+)
 from stepik_grader.core.reporter import fmt_time
 from stepik_grader.core.test_loader import (
     collect_grouped_files,
@@ -442,16 +447,10 @@ def grade_path(
             status = "NO TESTS"
         else:
             status = "OK" if res["passed"] == res["total"] else "FAIL"
-        # Отдельная (дешёвая) загрузка тест-кейсов ради stdin для ErrorCard —
-        # run_tests() уже прогнал их в том же порядке (issue #125), поэтому
-        # zip по позиции корректен без изменения сигнатуры run_tests().
-        test_cases = load_test_cases(test_dir)
-        # issue #422: на отмене run_tests возвращает усечённый префикс cases —
-        # выравниваем число тест-кейсов под реально прогнанные, иначе
-        # zip(strict=True) падает ValueError, и job.status становится error
-        # вместо cancelled (красная ошибка в UI на обычной отмене).
-        cases_run = res["cases"]
-        paired = zip(cases_run, test_cases[: len(cases_run)], strict=True)
+        # issue #397: run_tests кладёт "stdin" в каждый кейс — больше не
+        # перечитываем тест-кейсы и не зипуем по позиции. Снята и хрупкость
+        # #422: усечённый на отмене префикс cases самодостаточен (у каждого
+        # уже есть свой stdin), zip(strict=True) с рассинхроном не нужен.
         rows.append(
             {
                 "file": _rel(sol, base),
@@ -465,53 +464,16 @@ def grade_path(
                     _case_view(
                         i,
                         c,
-                        stdin="\n".join(tc.input_lines),
+                        stdin=c.get("stdin", ""),
                         source=_rel(sol, base),
                         missing_queue_path=missing_queue_path,
                         lang=lang,
                     )
-                    for i, (c, tc) in enumerate(paired, 1)
+                    for i, c in enumerate(res["cases"], 1)
                 ],
             }
         )
     return {"kind": kind, "mode": "tests", "base": str(base), "rows": rows}
-
-
-def _apply_reference_ranking(
-    results: dict[pathlib.Path, dict[str, Any]],
-    reference_path: pathlib.Path,
-    *,
-    similar_threshold: float,
-    much_slower_threshold: float,
-) -> None:
-    """Ранжирование относительно ``reference_path`` вместо самого быстрого решения.
-
-    Режим «Сравнение» (Compare, редизайн под маску эпика #123): та же формула
-    относительного времени, что и ``apply_relative_ranking``
-    (``core/microbench_runner.py``), но baseline — не ``min(median)``, а
-    медиана указанного эталонного решения. Вердикты: ``REFERENCE`` (сам
-    эталон), ``FASTER`` (заметно быстрее эталона — симметрично "похожести"
-    вокруг порога), ``SIMILAR``, ``SLOWER``, ``MUCH_SLOWER``. Мутирует
-    ``results`` in place, как и ``apply_relative_ranking``; entries с ``error``
-    не трогаются. Не вызывать без предварительной проверки, что
-    ``reference_path in results`` и у него нет ``error`` — это ответственность
-    вызывающей стороны (``grade_benchmark``).
-    """
-    ok = {k: v for k, v in results.items() if not v.get("error")}
-    base_median = ok[reference_path]["median"]
-    faster_bound = 1.0 / similar_threshold if similar_threshold > 0 else 1.0
-    for path, v in ok.items():
-        v["relative"] = v["median"] / base_median if base_median > 0 else 1.0
-        if path == reference_path:
-            v["verdict"] = "REFERENCE"
-        elif v["relative"] < faster_bound:
-            v["verdict"] = "FASTER"
-        elif v["relative"] <= similar_threshold:
-            v["verdict"] = "SIMILAR"
-        elif v["relative"] <= much_slower_threshold:
-            v["verdict"] = "SLOWER"
-        else:
-            v["verdict"] = "MUCH_SLOWER"
 
 
 def grade_benchmark(
@@ -580,7 +542,7 @@ def grade_benchmark(
         )
 
     if ref_path is not None:
-        _apply_reference_ranking(
+        apply_reference_ranking(
             results,
             ref_path,
             similar_threshold=SIMILAR_THRESHOLD,

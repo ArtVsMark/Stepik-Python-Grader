@@ -60,10 +60,10 @@ card «Open glossary» и история браузера работали ка�
 | Create test | `create_test` | любой кейс | Заготовка нового тест-кейса (`N`/`N.clue`) из stdin/expected |
 | Compare solutions | `compare_solutions` | режим bench / ≥2 решения | Открыть сравнение (таблица bench уже ранжирует по медиане) |
 
-Backend-функция `grade_benchmark(reference=...)`/`_apply_reference_ranking`
-(вердикты `REFERENCE`/`FASTER` поверх `SIMILAR`/`SLOWER`/`MUCH_SLOWER`,
-`core/microbench_runner.apply_relative_ranking` не тронут) **уже есть в коде
-и покрыта тестами**, но фронтенд её не вызывает ни в одном режиме —
+Backend-функция `grade_benchmark(reference=...)`/
+`core/microbench_runner.apply_reference_ranking` (вердикты `REFERENCE`/`FASTER`
+поверх `SIMILAR`/`SLOWER`/`MUCH_SLOWER`; ранжирование живёт в core, issue #397)
+**уже есть в коде и покрыта тестами**, но фронтенд её не вызывает ни в одном режиме —
 пригодится, когда `compare_solutions`/эталонное решение из #55 понадобится
 подключить к UI. Кнопка «Найти эталонное решение» в UI режима 1 существует,
 но `disabled` — задел под #55 (переоткрыт, полуавтоматический импорт

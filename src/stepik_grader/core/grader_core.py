@@ -445,7 +445,8 @@ def run_tests(
         avg_time   (float) — среднее время на тест
         peak_memory_mb (float) — пик памяти (МБ)
         first_fail (int | None) — индекс первого упавшего теста
-        cases      (list)  — детальные результаты по каждому кейсу
+        cases      (list)  — детальные результаты по каждому кейсу; каждый
+                             включает "stdin" (вход кейса, issue #397)
     """
     test_cases = load_test_cases(test_dir)
     # Определяем режим запуска один раз для всех тест-кейсов.
@@ -463,6 +464,11 @@ def run_tests(
         if cancel_event is not None and cancel_event.is_set():
             break
         r = run_single_test(solution_path, case, timeout=timeout, cancel_event=cancel_event)
+        # issue #397: приложить stdin кейса к результату — web-презентация
+        # (grade_path → ErrorCard) больше не перечитывает тест-кейсы вторым
+        # проходом ради stdin. Дешевле и без zip по позиции (снимает хрупкость
+        # #422 на отмене).
+        r["stdin"] = "\n".join(case.input_lines)
         results.append(r)
         total_time += r["time"]
         peak_mb = max(peak_mb, r["memory"])

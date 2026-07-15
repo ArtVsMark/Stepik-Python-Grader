@@ -41,7 +41,7 @@ def test_apply_relative_micro_two_solutions() -> None:
     slow = MicrobenchResult(file="slow.py", repeats=10, timings=[0.002])
     results = apply_relative_micro([fast, slow])
     assert results[0].verdict == "SIMILAR"
-    assert results[1].verdict in {"SLOWER", "MUCH SLOWER"}
+    assert results[1].verdict in {"SLOWER", "MUCH_SLOWER"}
 
 
 def test_run_microbench_syntax_error() -> None:

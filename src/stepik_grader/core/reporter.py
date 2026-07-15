@@ -207,8 +207,9 @@ _STATUS_COLORS: dict[str, str] = {
 _VERDICT_COLORS: dict[str, str] = {
     "SIMILAR": "green",
     "SLOWER": "yellow",
+    # issue #397: единый вердикт "MUCH_SLOWER" (подчёркивание) — двойной алиас
+    # с пробел-формой больше не нужен (apply_relative_micro унифицирован).
     "MUCH_SLOWER": "red",
-    "MUCH SLOWER": "red",
 }
 
 

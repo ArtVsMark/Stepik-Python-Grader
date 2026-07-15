@@ -59,6 +59,7 @@ __all__ = [
     "run_microbench",
     "apply_relative_micro",
     "apply_relative_ranking",
+    "apply_reference_ranking",
 ]
 
 ENCODING: str = "utf-8"
@@ -238,7 +239,11 @@ def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResu
         elif delta <= 15:
             r.verdict = "SLOWER"
         else:
-            r.verdict = "MUCH SLOWER"
+            # issue #397: единый вердикт "MUCH_SLOWER" (подчёркивание) во всех
+            # путях. Раньше здесь была форма с пробелом ("MUCH SLOWER"), из-за
+            # чего insights._BENCH_SLOW (знает только "MUCH_SLOWER") молча не
+            # относил такие прогоны к «медленным», а reporter держал двойной алиас.
+            r.verdict = "MUCH_SLOWER"
 
     for r in results:
         if r.error:
@@ -266,6 +271,41 @@ def apply_relative_ranking(
     for v in ok.values():
         v["relative"] = v["median"] / min_median if min_median > 0 else 1.0
         if v["relative"] <= similar_threshold:
+            v["verdict"] = "SIMILAR"
+        elif v["relative"] <= much_slower_threshold:
+            v["verdict"] = "SLOWER"
+        else:
+            v["verdict"] = "MUCH_SLOWER"
+
+
+def apply_reference_ranking(
+    results: dict[pathlib.Path, dict[str, Any]],
+    reference_path: pathlib.Path,
+    *,
+    similar_threshold: float,
+    much_slower_threshold: float,
+) -> None:
+    """Rank each OK result relative to ``reference_path`` instead of the fastest.
+
+    Sibling of ``apply_relative_ranking`` (issue #397: обе baseline-стратегии
+    ранжирования живут в core, а не дублируются в web-презентации). Та же формула
+    относительного времени, но baseline — медиана эталонного решения, а не
+    ``min(median)``. Вердикты: ``REFERENCE`` (сам эталон), ``FASTER`` (заметно
+    быстрее эталона — симметрично «похожести» вокруг порога), ``SIMILAR``,
+    ``SLOWER``, ``MUCH_SLOWER``. Мутирует ``results`` in place; entries с
+    truthy ``error`` не трогаются. Вызывающая сторона обязана убедиться, что
+    ``reference_path in results`` и у него нет ``error`` (как в ``grade_benchmark``).
+    """
+    ok = {k: v for k, v in results.items() if not v.get("error")}
+    base_median = ok[reference_path]["median"]
+    faster_bound = 1.0 / similar_threshold if similar_threshold > 0 else 1.0
+    for path, v in ok.items():
+        v["relative"] = v["median"] / base_median if base_median > 0 else 1.0
+        if path == reference_path:
+            v["verdict"] = "REFERENCE"
+        elif v["relative"] < faster_bound:
+            v["verdict"] = "FASTER"
+        elif v["relative"] <= similar_threshold:
             v["verdict"] = "SIMILAR"
         elif v["relative"] <= much_slower_threshold:
             v["verdict"] = "SLOWER"

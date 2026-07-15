@@ -21,6 +21,7 @@ from __future__ import annotations
 from stepik_grader.core import microbench_runner
 from stepik_grader.core.microbench_runner import (
     MicrobenchResult,
+    apply_reference_ranking,
     apply_relative_micro,
     apply_relative_ranking,
     run_microbench,
@@ -125,17 +126,18 @@ def test_microbench_runner_unexpected_exception_returns_error(monkeypatch) -> No
 
 
 def test_microbench_runner_apply_relative_orders_by_median() -> None:
-    """apply_relative_micro labels the fastest SIMILAR and slower ones SLOWER/MUCH SLOWER.
+    """apply_relative_micro labels the fastest SIMILAR and slower ones SLOWER/MUCH_SLOWER.
 
     REFACTORING INVARIANT: any merged verdict logic must keep the fastest at
     relative_percent == 100.0 and verdict SIMILAR.
+    issue #397: единый вердикт "MUCH_SLOWER" (подчёркивание) во всех путях.
     """
     fast = MicrobenchResult(file="fast.py", repeats=10, timings=[0.001])
     slow = MicrobenchResult(file="slow.py", repeats=10, timings=[0.010])
     out = apply_relative_micro([fast, slow])
     assert out[0].verdict == "SIMILAR"
     assert out[0].relative_percent == 100.0
-    assert out[1].verdict == "MUCH SLOWER"
+    assert out[1].verdict == "MUCH_SLOWER"
     assert out[1].relative_percent > 100.0
 
 
@@ -202,3 +204,39 @@ def test_apply_relative_ranking_zero_median_defaults_to_similar() -> None:
     results = {"a.py": {"median": 0.0}, "b.py": {"median": 0.0}}
     apply_relative_ranking(results, similar_threshold=1.15, much_slower_threshold=1.5)
     assert all(v["relative"] == 1.0 and v["verdict"] == "SIMILAR" for v in results.values())
+
+
+# ---------------------------------------------------------------------------
+# apply_reference_ranking — ранжирование относительно эталона (issue #397:
+# перенесено из web/viewmodels в core, чтобы не дублировать формулу).
+# ---------------------------------------------------------------------------
+
+
+def test_apply_reference_ranking_labels_relative_to_reference() -> None:
+    """Эталон помечается REFERENCE; быстрее — FASTER, медленнее — SLOWER/MUCH_SLOWER."""
+    results = {
+        "ref.py": {"median": 1.0},
+        "faster.py": {"median": 0.5},
+        "similar.py": {"median": 1.1},
+        "slower.py": {"median": 1.3},
+        "much.py": {"median": 2.0},
+        "broken.py": {"error": "SyntaxError"},
+    }
+    apply_reference_ranking(results, "ref.py", similar_threshold=1.15, much_slower_threshold=1.5)
+
+    assert results["ref.py"]["verdict"] == "REFERENCE"
+    assert results["ref.py"]["relative"] == 1.0
+    assert results["faster.py"]["verdict"] == "FASTER"
+    assert results["similar.py"]["verdict"] == "SIMILAR"
+    assert results["slower.py"]["verdict"] == "SLOWER"
+    assert results["much.py"]["verdict"] == "MUCH_SLOWER"
+    # Ошибочные записи не трогаются.
+    assert "verdict" not in results["broken.py"]
+
+
+def test_apply_reference_ranking_zero_reference_median_defaults_to_one() -> None:
+    """base_median == 0 избегает деления на ноль (relative == 1.0)."""
+    results = {"ref.py": {"median": 0.0}, "b.py": {"median": 0.0}}
+    apply_reference_ranking(results, "ref.py", similar_threshold=1.15, much_slower_threshold=1.5)
+    assert results["ref.py"]["verdict"] == "REFERENCE"
+    assert all(v["relative"] == 1.0 for v in results.values())
