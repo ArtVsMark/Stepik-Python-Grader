@@ -29,7 +29,7 @@ from typing import Any
 
 from stepik_grader import rules
 from stepik_grader.cli.context import CliContext
-from stepik_grader.core import glossary, history, insights, lint, stats
+from stepik_grader.core import history, history_recording, lint, stats
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
@@ -87,53 +87,6 @@ def _verdict_counts_from_bench(results: dict[pathlib.Path, dict[str, Any]]) -> d
     return counts
 
 
-def _history_cases_from_cases(cases: list[dict[str, Any]]) -> list[history.CaseRecord]:
-    """CaseRecord'ы режимов 1/2 из ``result['cases']`` (issue #344).
-
-    ``error_class`` для RE достаётся тем же ``lookup_from_error``, что и
-    CLI-подсказка; ``failure_kind`` — таксономия § 9.3 (issue #347).
-    """
-    records: list[history.CaseRecord] = []
-    for i, c in enumerate(cases, 1):
-        verdict = c.get("verdict") or ("AC" if c.get("passed") else "WA")
-        raw_time = c.get("time")
-        time_ms = float(raw_time) * 1000 if isinstance(raw_time, int | float) else None
-        error = c.get("error") or ""
-        error_class = None
-        if verdict == "RE" and error:
-            entry = glossary.lookup_from_error(error)
-            error_class = entry.exception if entry else None
-        fkind = insights.failure_kind(
-            verdict, error=error, output=c.get("output"), expected=c.get("expected")
-        )
-        records.append(
-            history.CaseRecord(
-                i, verdict, time_ms=time_ms, error_class=error_class, failure_kind=fkind
-            )
-        )
-    return records
-
-
-def _history_cases_from_bench(
-    results: dict[pathlib.Path, dict[str, Any]],
-) -> list[history.CaseRecord]:
-    """CaseRecord'ы режимов 3/4 — вердикт по решению (issue #344).
-
-    Бенчмарк не даёт per-case вердиктов проверки — пишем один CaseRecord на
-    решение (``ERR`` при ошибке, иначе relative-вердикт ранжирования).
-    """
-    records: list[history.CaseRecord] = []
-    for i, data in enumerate(results.values(), 1):
-        verdict = "ERR" if data.get("error") else (data.get("verdict") or "ERR")
-        records.append(history.CaseRecord(i, verdict, failure_kind=insights.failure_kind(verdict)))
-    return records
-
-
-def _history_db_path() -> pathlib.Path:
-    """Путь БД истории в текущей рабочей папке (issue #344)."""
-    return pathlib.Path.cwd() / history.HISTORY_DB_NAME
-
-
 def _print_lint_blocks(
     solutions: list[pathlib.Path], base: pathlib.Path | None, output: str
 ) -> None:
@@ -168,8 +121,6 @@ __all__ = [
     "_run_tests_maybe_cached",
     "_verdict_counts_from_cases",
     "_verdict_counts_from_bench",
-    "_history_cases_from_cases",
-    "_history_cases_from_bench",
 ]
 
 
@@ -265,8 +216,8 @@ def _run_mode_1(
     if record_history:
         history.record_run(
             1,
-            _history_cases_from_cases(result["cases"]),
-            db_path=_history_db_path(),
+            history_recording.cases_from_test_results(result["cases"]),
+            db_path=history_recording.default_history_db_path(),
             task_key=_rel(solution.parent, pathlib.Path.cwd()),
             solution_name=solution.name,
             solution_hash=hash_solution(solution),
@@ -346,8 +297,8 @@ def _run_mode_2(
         if record_history:
             history.record_run(
                 2,
-                _history_cases_from_cases(all_cases),
-                db_path=_history_db_path(),
+                history_recording.cases_from_test_results(all_cases),
+                db_path=history_recording.default_history_db_path(),
                 task_key=_rel(directory, pathlib.Path.cwd()),
                 duration_s=total_time,
             )
@@ -420,8 +371,8 @@ def _run_mode_3(
         if record_history:
             history.record_run(
                 3,
-                _history_cases_from_bench(results),
-                db_path=_history_db_path(),
+                history_recording.cases_from_bench_results(results),
+                db_path=history_recording.default_history_db_path(),
                 task_key=_rel(directory, pathlib.Path.cwd()),
                 duration_s=total_time,
             )
@@ -571,8 +522,8 @@ def _run_mode_4(
         if record_history:
             history.record_run(
                 4,
-                _history_cases_from_bench(all_bench_results),
-                db_path=_history_db_path(),
+                history_recording.cases_from_bench_results(all_bench_results),
+                db_path=history_recording.default_history_db_path(),
                 task_key=_rel(directory, pathlib.Path.cwd()),
                 duration_s=total_time,
             )

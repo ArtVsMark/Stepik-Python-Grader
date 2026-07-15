@@ -19,6 +19,8 @@ from collections.abc import Callable
 from typing import Any
 
 from stepik_grader.config import CONFIG
+from stepik_grader.core import history, history_recording
+from stepik_grader.core.cache import hash_solution
 from stepik_grader.core.error_glossary import resolve_error_hint
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
@@ -398,6 +400,61 @@ def save_solution(
     return {"ok": True, "path": str(target), "mtime": mtime}
 
 
+# issue #395: оверрайд флага истории для web. ``CONFIG`` — frozen dataclass, а
+# ``--serve`` должен включать историю по умолчанию; ``run_server`` ставит сюда
+# True/False. None → падаем на ``CONFIG.record_history`` (тесты, зовущие grade_*
+# напрямую, поведения не меняют).
+_web_record_history: bool | None = None
+
+
+def set_web_record_history(enabled: bool | None) -> None:
+    """Переопределить флаг записи истории для web-слоя (issue #395).
+
+    ``run_server`` вызывает с ``True`` (история по умолчанию для ``--serve``,
+    приватная локальная БД) или ``False`` (``--no-history``). ``None`` —
+    вернуться к ``CONFIG.record_history``.
+    """
+    global _web_record_history
+    _web_record_history = enabled
+
+
+def _history_enabled() -> bool:
+    """Активна ли запись истории для web: оверрайд, иначе ``CONFIG`` (issue #395)."""
+    return CONFIG.record_history if _web_record_history is None else _web_record_history
+
+
+def _record_history_if_enabled(
+    mode: int,
+    case_records: list[history.CaseRecord],
+    *,
+    task_key: str,
+    duration_s: float,
+    solution_name: str | None = None,
+    solution_hash: str | None = None,
+    lint_records: list[history.LintRecord] | None = None,
+) -> None:
+    """Записать web-прогон в историю под гейтом записи (issue #395).
+
+    ``source="web"`` — так браузерная аудитория (та, «кому консоль барьер»)
+    наполняет ``.grader_history.db``, и раздел «Подучить» перестаёт быть
+    структурно пустым. Best-effort: сам ``record_run`` проглатывает ошибки БД
+    (см. ``core/history``), поэтому запись никогда не роняет грейдинг.
+    """
+    if not _history_enabled():
+        return
+    history.record_run(
+        mode,
+        case_records,
+        db_path=history_recording.default_history_db_path(),
+        source="web",
+        task_key=task_key,
+        solution_name=solution_name,
+        solution_hash=solution_hash,
+        duration_s=duration_s,
+        lint=lint_records or None,
+    )
+
+
 def grade_path(
     path: pathlib.Path,
     *,
@@ -429,6 +486,7 @@ def grade_path(
     kind, base, solutions = resolved
 
     rows: list[dict[str, Any]] = []
+    graded: list[tuple[pathlib.Path, dict[str, Any]]] = []  # issue #395: для истории
     for sol in solutions:
         if cancel_event is not None and cancel_event.is_set():
             break
@@ -439,6 +497,8 @@ def grade_path(
         res = run_tests(
             sol, test_dir, progress_callback=progress_callback, cancel_event=cancel_event
         )
+        if res["total"] > 0:
+            graded.append((sol, res))
         # total == 0 (tests/ существует, но не содержит распознаваемых кейсов)
         # — это не провал решения, а отсутствие проверки; тот же исход, что и
         # для отсутствующей tests/ выше (issue #299 — раньше эта ветка давала
@@ -473,6 +533,29 @@ def grade_path(
                 ],
             }
         )
+
+    # issue #395: наполнить историю (при отмене — не пишем частичный прогон).
+    cancelled = cancel_event is not None and cancel_event.is_set()
+    if not cancelled and graded:
+        if kind == "file":
+            sol, res = graded[0]
+            _record_history_if_enabled(
+                1,
+                history_recording.cases_from_test_results(res["cases"]),
+                task_key=_rel(sol.parent, pathlib.Path.cwd()),
+                solution_name=sol.name,
+                solution_hash=hash_solution(sol),
+                duration_s=res["total_time"],
+            )
+        else:
+            all_cases = [c for _, r in graded for c in r["cases"]]
+            total_time = sum(r["total_time"] for _, r in graded)
+            _record_history_if_enabled(
+                2,
+                history_recording.cases_from_test_results(all_cases),
+                task_key=_rel(base, pathlib.Path.cwd()),
+                duration_s=total_time,
+            )
     return {"kind": kind, "mode": "tests", "base": str(base), "rows": rows}
 
 
@@ -578,6 +661,17 @@ def grade_benchmark(
     for sol, d in results.items():
         if d.get("error"):
             rows.append({"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]})
+
+    # issue #395: наполнить историю (mode 3), кроме случая отмены.
+    cancelled = cancel_event is not None and cancel_event.is_set()
+    if not cancelled and results:
+        total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
+        _record_history_if_enabled(
+            3,
+            history_recording.cases_from_bench_results(results),
+            task_key=_rel(base, pathlib.Path.cwd()),
+            duration_s=total_time,
+        )
 
     response: dict[str, Any] = {"kind": kind, "mode": "bench", "base": str(base), "rows": rows}
     if ref_path is not None:
@@ -690,6 +784,17 @@ def grade_microbench(
     for sol, d in results.items():
         if d.get("error"):
             rows.append({"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]})
+
+    # issue #395: наполнить историю (mode 4), кроме случая отмены.
+    cancelled = cancel_event is not None and cancel_event.is_set()
+    if not cancelled and results:
+        total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
+        _record_history_if_enabled(
+            4,
+            history_recording.cases_from_bench_results(results),
+            task_key=_rel(base, pathlib.Path.cwd()),
+            duration_s=total_time,
+        )
 
     response: dict[str, Any] = {"kind": kind, "mode": "microbench", "base": str(base), "rows": rows}
     if kind == "dir":

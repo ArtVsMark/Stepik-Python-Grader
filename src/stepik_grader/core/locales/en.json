@@ -28,6 +28,7 @@
   "invalid_origin": "Invalid Origin/Referer — request rejected.",
   "server_running": "🌐 Grader web interface: {url}  (Ctrl+C to stop)",
   "server_sandbox_active": "   🔒 OS sandbox enabled (--sandbox): code runs isolated",
+  "server_history_active": "   📈 Run history enabled: the «Подучить» section fills up as you grade (--no-history to disable)",
   "server_workspace_confined": "   Working directory: {workspace}  (paths outside it are rejected with 403)",
   "server_workspace_unconfined": "   Working directory: {workspace}  (path confinement DISABLED via --no-root-confinement — any path on disk is accessible)",
   "server_stopped": "\nStopped.",

@@ -473,6 +473,10 @@ def main(argv: list[str] | None = None) -> None:
                 root=args.root,
                 confine=not args.no_root_confinement,
                 sandbox=args.sandbox,
+                # issue #395: для --serve история включена по умолчанию
+                # (локальная приватная БД наполняет «Подучить»); --no-history
+                # выключает. Отличие от режимов 1-4, где дефолт — opt-in.
+                record_history=args.history is not False,
             )
         except SandboxUnavailableError as exc:
             parser.error(_t("sandbox_unavailable", reason=str(exc)))

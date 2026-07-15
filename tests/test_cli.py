@@ -717,7 +717,9 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--port", "9090"])
-        assert called == [{"port": 9090, "root": None, "confine": True, "sandbox": False}]
+        assert called == [
+            {"port": 9090, "root": None, "confine": True, "sandbox": False, "record_history": True}
+        ]
 
     def test_serve_uses_default_port(self, monkeypatch) -> None:
         from stepik_grader import web
@@ -725,7 +727,9 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve"])
-        assert called == [{"port": 8000, "root": None, "confine": True, "sandbox": False}]
+        assert called == [
+            {"port": 8000, "root": None, "confine": True, "sandbox": False, "record_history": True}
+        ]
 
     def test_serve_passes_root(self, monkeypatch) -> None:
         from stepik_grader import web
@@ -734,7 +738,13 @@ class TestEntrypointSideEffectFlags:
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--root", "/some/dir"])
         assert called == [
-            {"port": 8000, "root": pathlib.Path("/some/dir"), "confine": True, "sandbox": False}
+            {
+                "port": 8000,
+                "root": pathlib.Path("/some/dir"),
+                "confine": True,
+                "sandbox": False,
+                "record_history": True,
+            }
         ]
 
     def test_serve_no_root_confinement_disables_confine(self, monkeypatch) -> None:
@@ -743,7 +753,9 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--no-root-confinement"])
-        assert called == [{"port": 8000, "root": None, "confine": False, "sandbox": False}]
+        assert called == [
+            {"port": 8000, "root": None, "confine": False, "sandbox": False, "record_history": True}
+        ]
 
     def test_serve_passes_sandbox_flag(self, monkeypatch) -> None:
         # issue #396: --sandbox теперь проброшен в web — run_server сам ставит
@@ -754,7 +766,21 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--sandbox"])
-        assert called == [{"port": 8000, "root": None, "confine": True, "sandbox": True}]
+        assert called == [
+            {"port": 8000, "root": None, "confine": True, "sandbox": True, "record_history": True}
+        ]
+
+    def test_serve_no_history_disables_recording(self, monkeypatch) -> None:
+        # issue #395: --serve включает историю по умолчанию (наполнить «Подучить»);
+        # явный --no-history выключает запись.
+        from stepik_grader import web
+
+        called = []
+        monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
+        cli.main(["--serve", "--no-history"])
+        assert called == [
+            {"port": 8000, "root": None, "confine": True, "sandbox": False, "record_history": False}
+        ]
 
     def test_serve_sandbox_unavailable_is_rejected(self, monkeypatch, capsys) -> None:
         # issue #396: если backend песочницы недоступен (нет bwrap и т.п.),

@@ -45,6 +45,7 @@ from stepik_grader.web.viewmodels import (
     list_solutions,
     read_source,
     save_solution,
+    set_web_record_history,
 )
 
 __all__ = ["run_server"]
@@ -725,6 +726,7 @@ def run_server(
     root: pathlib.Path | None = None,
     confine: bool = True,
     sandbox: bool = False,
+    record_history: bool = True,
 ) -> None:
     """Запустить веб-интерфейс на http://host:port (Ctrl+C — остановить).
 
@@ -743,7 +745,14 @@ def run_server(
     изолируются разом. ``SandboxRunner()`` бросает ``SandboxUnavailableError``,
     если backend недоступен (нет bwrap и т.п.) — пробрасываем вызывающему
     (CLI → ``parser.error``), никогда не откатываясь молча на ``LocalRunner``.
+
+    ``record_history`` (issue #395, по умолчанию ``True`` для ``--serve``) —
+    писать ли web-прогоны в локальную приватную ``.grader_history.db``, чтобы
+    наполнялся раздел «Подучить». В отличие от CLI (opt-in ``--history``), для
+    браузерной аудитории история включена по умолчанию; ``--no-history``
+    выключает. Ставит оверрайд в ``viewmodels`` (``CONFIG`` — frozen).
     """
+    set_web_record_history(record_history)
     if sandbox:
         from stepik_grader.core.grader_core import set_runner
         from stepik_grader.core.sandbox import SandboxRunner
@@ -763,6 +772,8 @@ def run_server(
         print(render_message("server_workspace_confined", workspace=workspace))
     else:
         print(render_message("server_workspace_unconfined", workspace=workspace))
+    if record_history:
+        print(render_message("server_history_active"))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
