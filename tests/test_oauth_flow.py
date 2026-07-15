@@ -569,3 +569,22 @@ class TestAuthorizeAndGetToken:
         assert secrets_path.exists()
         saved = json.loads(secrets_path.read_text(encoding="utf-8"))
         assert saved["access_token"] == "a"
+
+    def test_tokens_written_with_0600_permissions(self, tmp_path, monkeypatch):
+        """issue #400: токены пишутся через save_secrets (атомарно, 0600), а не
+        save_json_file (0644, world/group-readable) — иначе обходится фикс #243."""
+        import os
+        import stat
+
+        secrets_path = tmp_path / "secrets.json"
+        monkeypatch.setattr(
+            oauth_flow,
+            "authorize_via_browser",
+            lambda *a, **k: {"access_token": "tok", "refresh_token": "ref"},
+        )
+        authorize_and_get_token("cid", "csecret", "http://x/cb", secrets_path)
+
+        assert secrets_path.is_file()
+        if os.name == "posix":  # семантика 0600 — POSIX; на Windows chmod иной
+            mode = stat.S_IMODE(secrets_path.stat().st_mode)
+            assert mode == 0o600, oct(mode)
