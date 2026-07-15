@@ -459,17 +459,23 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.serve:
-        # issue #351: --sandbox неприменим к --serve. Ветка --serve возвращается
-        # ДО set_runner() ниже, поэтому раньше флаг молча игнорировался и
-        # web-сервер всё равно исполнял код LocalRunner'ом — ложное чувство
-        # изоляции. Проброс SandboxRunner в web — отдельная задача (вне #266);
-        # до тех пор честно отказываем, а не проглатываем флаг безопасности.
-        if args.sandbox:
-            parser.error(_t("sandbox_serve_unsupported"))
+        # issue #396: --sandbox теперь проброшен в web — run_server ставит
+        # SandboxRunner активным _RUNNER, изолируя все пути исполнения. Если
+        # backend недоступен на этой машине, честно отказываем (parser.error),
+        # как и путь --mode --sandbox, а не запускаем без изоляции.
         # Ленивый импорт: http.server-стек тянем только когда реально нужен.
         from stepik_grader import web
+        from stepik_grader.core.sandbox import SandboxUnavailableError
 
-        web.run_server(port=args.port, root=args.root, confine=not args.no_root_confinement)
+        try:
+            web.run_server(
+                port=args.port,
+                root=args.root,
+                confine=not args.no_root_confinement,
+                sandbox=args.sandbox,
+            )
+        except SandboxUnavailableError as exc:
+            parser.error(_t("sandbox_unavailable", reason=str(exc)))
         return
 
     if args.mode is None:

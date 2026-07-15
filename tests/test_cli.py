@@ -717,7 +717,7 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--port", "9090"])
-        assert called == [{"port": 9090, "root": None, "confine": True}]
+        assert called == [{"port": 9090, "root": None, "confine": True, "sandbox": False}]
 
     def test_serve_uses_default_port(self, monkeypatch) -> None:
         from stepik_grader import web
@@ -725,7 +725,7 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve"])
-        assert called == [{"port": 8000, "root": None, "confine": True}]
+        assert called == [{"port": 8000, "root": None, "confine": True, "sandbox": False}]
 
     def test_serve_passes_root(self, monkeypatch) -> None:
         from stepik_grader import web
@@ -733,7 +733,9 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--root", "/some/dir"])
-        assert called == [{"port": 8000, "root": pathlib.Path("/some/dir"), "confine": True}]
+        assert called == [
+            {"port": 8000, "root": pathlib.Path("/some/dir"), "confine": True, "sandbox": False}
+        ]
 
     def test_serve_no_root_confinement_disables_confine(self, monkeypatch) -> None:
         from stepik_grader import web
@@ -741,22 +743,34 @@ class TestEntrypointSideEffectFlags:
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
         cli.main(["--serve", "--no-root-confinement"])
-        assert called == [{"port": 8000, "root": None, "confine": False}]
+        assert called == [{"port": 8000, "root": None, "confine": False, "sandbox": False}]
 
-    def test_serve_with_sandbox_is_rejected(self, monkeypatch, capsys) -> None:
-        # issue #351: --sandbox неприменим к --serve (SandboxRunner в web не
-        # проброшен). Раньше флаг молча игнорировался и сервер стартовал
-        # обычным LocalRunner'ом — ложное чувство изоляции. Теперь честный
-        # parser.error ДО запуска сервера.
+    def test_serve_passes_sandbox_flag(self, monkeypatch) -> None:
+        # issue #396: --sandbox теперь проброшен в web — run_server сам ставит
+        # SandboxRunner активным _RUNNER. Раньше (#351) комбинация отклонялась
+        # parser.error, т.к. sandbox в web не был реализован.
         from stepik_grader import web
 
         called = []
         monkeypatch.setattr(web, "run_server", lambda **kwargs: called.append(kwargs))
+        cli.main(["--serve", "--sandbox"])
+        assert called == [{"port": 8000, "root": None, "confine": True, "sandbox": True}]
+
+    def test_serve_sandbox_unavailable_is_rejected(self, monkeypatch, capsys) -> None:
+        # issue #396: если backend песочницы недоступен (нет bwrap и т.п.),
+        # run_server бросает SandboxUnavailableError — CLI честно отказывает
+        # parser.error, а не запускает сервер без изоляции.
+        from stepik_grader import web
+        from stepik_grader.core.sandbox import SandboxUnavailableError
+
+        def _raise(**kwargs: object) -> None:
+            raise SandboxUnavailableError("no sandbox backend here")
+
+        monkeypatch.setattr(web, "run_server", _raise)
         with pytest.raises(SystemExit):
             cli.main(["--serve", "--sandbox"])
-        assert called == []  # сервер не должен стартовать
         err = capsys.readouterr().err
-        assert "--sandbox" in err and "--serve" in err
+        assert "no sandbox backend here" in err
 
 
 # ---------------------------------------------------------------------------

@@ -50,21 +50,29 @@ class TestRunPlayground:
         assert result["stdout"] == ""
 
     def test_launch_error_is_re(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # issue #396: playground исполняет через активный grader_core._RUNNER
+        # (не жёсткий LocalRunner) — подменяем именно его.
+        from stepik_grader.core import grader_core
         from stepik_grader.core.runner import RunOutcome
 
-        monkeypatch.setattr(
-            playground.LocalRunner, "run", lambda self, spec: RunOutcome(launch_error="nope")
-        )
+        class _FakeRunner:
+            def run(self, spec: object) -> RunOutcome:
+                return RunOutcome(launch_error="nope")
+
+        monkeypatch.setattr(grader_core, "_RUNNER", _FakeRunner())
         result = playground.run_playground("x = 1")
         assert result["status"] == "RE"
         assert result["stderr"] == "nope"
 
     def test_cancelled_status(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from stepik_grader.core import grader_core
         from stepik_grader.core.runner import RunOutcome
 
-        monkeypatch.setattr(
-            playground.LocalRunner, "run", lambda self, spec: RunOutcome(cancelled=True)
-        )
+        class _FakeRunner:
+            def run(self, spec: object) -> RunOutcome:
+                return RunOutcome(cancelled=True)
+
+        monkeypatch.setattr(grader_core, "_RUNNER", _FakeRunner())
         assert playground.run_playground("x = 1")["status"] == "CANCELLED"
 
     def test_timeout_is_tle(self, monkeypatch: pytest.MonkeyPatch) -> None:

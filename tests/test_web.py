@@ -1844,3 +1844,57 @@ def test_error_card_url_field_is_passed_through_esc() -> None:
     # errorCard() must run g.url through esc() before inserting it into
     # href="..." -- if a future edit inlines g.url directly, this fails.
     assert r'href="' + "'" + " + esc(g.url) + " + "'" + '"' in web._APP_JS
+
+
+# ---------------------------------------------------------------------------
+# run_server(sandbox=...) — проброс OS-песочницы в web (issue #396)
+# ---------------------------------------------------------------------------
+
+
+class TestRunServerSandbox:
+    def test_sandbox_true_sets_sandbox_runner_before_serving(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """issue #396: run_server(sandbox=True) ставит SandboxRunner активным
+        grader_core._RUNNER ДО старта — grade/playground/microbench/trace идут
+        через него, поэтому изолируются разом."""
+        import stepik_grader.core.sandbox as sandbox_mod
+        from stepik_grader.core import grader_core
+        from stepik_grader.web import server as server_mod
+
+        class _FakeSandboxRunner:
+            pass
+
+        class _FakeServer:
+            def __init__(self, *a: object, **k: object) -> None:
+                pass
+
+            def serve_forever(self) -> None:
+                raise KeyboardInterrupt  # немедленно завершаем run_server
+
+            def server_close(self) -> None:
+                pass
+
+        monkeypatch.setattr(sandbox_mod, "SandboxRunner", _FakeSandboxRunner)
+        monkeypatch.setattr(server_mod, "_GraderServer", _FakeServer)
+
+        original = grader_core._RUNNER
+        try:
+            server_mod.run_server(port=0, sandbox=True)
+            assert isinstance(grader_core._RUNNER, _FakeSandboxRunner)
+        finally:
+            grader_core.set_runner(original)
+
+    def test_sandbox_unavailable_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """SandboxUnavailableError (нет backend'а) пробрасывается вызывающему
+        (CLI → parser.error), сервер не стартует — без молчаливого отката."""
+        import stepik_grader.core.sandbox as sandbox_mod
+        from stepik_grader.core.sandbox import SandboxUnavailableError
+        from stepik_grader.web import server as server_mod
+
+        def _raise() -> None:
+            raise SandboxUnavailableError("no backend")
+
+        monkeypatch.setattr(sandbox_mod, "SandboxRunner", _raise)
+        with pytest.raises(SandboxUnavailableError):
+            server_mod.run_server(port=0, sandbox=True)

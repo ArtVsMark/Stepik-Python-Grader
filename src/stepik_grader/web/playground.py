@@ -3,14 +3,15 @@
 Архитектурный слой: Application/UI (web-адаптер), как ``viewmodels.py``.
 
 Раздел «Песочница»: не проверка против тест-кейсов, а «запусти этот код с
-этим вводом и покажи вывод». Переиспользует ``LocalRunner`` (тот же
-subprocess-путь, что грейдинг) — общий wall-clock таймаут, best-effort лимит
-памяти (POSIX), кооперативная отмена через ``cancel_event``.
+этим вводом и покажи вывод». Исполняет через активный ``grader_core._RUNNER``
+(тот же путь, что грейдинг) — общий wall-clock таймаут, best-effort лимит
+памяти (POSIX), кооперативная отмена через ``cancel_event``. По умолчанию это
+``LocalRunner``; при ``--serve --sandbox`` (issue #396) — ``SandboxRunner``,
+поэтому песочница web изолируется вместе с grade-путём.
 
-Безопасности OS-уровня нет (инвариант CLAUDE.md №4): код исполняется в
-subprocess без изоляции ФС/сети, с правами пользователя. Только доверенный код,
-как и в грейдинге. Внешние guard'ы (localhost-only, лимит тела #259) — забота
-``server.py``.
+По умолчанию (без ``--sandbox``) OS-изоляции нет (инвариант CLAUDE.md №4): код
+исполняется в subprocess без изоляции ФС/сети, с правами пользователя. Внешние
+guard'ы (localhost-only, лимит тела #259) — забота ``server.py``.
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ import threading
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.runner import LocalRunner, RunSpec
+from stepik_grader.core import grader_core
+from stepik_grader.core.runner import RunSpec
 
 __all__ = ["run_playground"]
 
@@ -59,7 +61,7 @@ def run_playground(
     try:
         tmp.write(code)
         tmp.close()
-        outcome = LocalRunner().run(
+        outcome = grader_core._RUNNER.run(
             RunSpec(
                 path=pathlib.Path(tmp.name),
                 stdin=stdin.encode("utf-8"),
