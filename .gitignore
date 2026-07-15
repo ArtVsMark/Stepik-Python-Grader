@@ -43,3 +43,4 @@ t.py
 .grader_history.db
 .grader_history.db-wal
 .grader_history.db-shm
+.grader_settings.json

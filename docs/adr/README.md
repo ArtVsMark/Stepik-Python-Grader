@@ -27,3 +27,4 @@ API-поверхность) нельзя закапывать в issue/PR — о
 | ADR | Решение | Статус |
 |---|---|---|
 | [0001](0001-server-mode.md) | Направление на server mode через Runner-абстракцию (без немедленной реализации) | Proposed |
+| [0002](0002-history-opt-in.md) | Запись истории прогонов в CLI остаётся opt-in (тумблер в меню + nudge, web — default-on) | Accepted |

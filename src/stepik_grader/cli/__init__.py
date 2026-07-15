@@ -245,9 +245,9 @@ def _run_mode_1(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
-) -> None:
+) -> bool:
     """Режим 1: проверить одно решение (verbose). Тонкая обёртка над commands._run_mode_1."""
-    commands._run_mode_1(
+    return commands._run_mode_1(
         _build_cli_context(),
         solution,
         verbose=verbose,
@@ -268,9 +268,9 @@ def _run_mode_2(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
-) -> None:
+) -> bool:
     """Режим 2: проверить все решения в папке. Тонкая обёртка над commands._run_mode_2."""
-    commands._run_mode_2(
+    return commands._run_mode_2(
         _build_cli_context(),
         directory,
         verbose=verbose,
@@ -353,7 +353,7 @@ def _interactive_menu() -> None:
     interactive._interactive_menu(_build_cli_context())
 
 
-def _watch_and_rerun(watch_path: pathlib.Path, rerun: Callable[[], None]) -> None:
+def _watch_and_rerun(watch_path: pathlib.Path, rerun: Callable[[], object]) -> None:
     """Перезапускать rerun() при изменении файлов внутри watch_path (issue #54).
 
     watchfiles — опциональная зависимость (`pip install stepik-python-grader[watch]`);
@@ -381,7 +381,7 @@ def _watch_and_rerun(watch_path: pathlib.Path, rerun: Callable[[], None]) -> Non
         pass
 
 
-def _dispatch_with_watch(target: pathlib.Path, run: Callable[[], None], *, watch: bool) -> None:
+def _dispatch_with_watch(target: pathlib.Path, run: Callable[[], object], *, watch: bool) -> None:
     """Запустить ``run`` один раз или, под ``--watch``, перезапускать при
     изменениях ``target``.
 

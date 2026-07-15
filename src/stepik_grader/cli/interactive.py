@@ -35,6 +35,7 @@ import pathlib
 
 from stepik_grader.cli.context import CliContext
 from stepik_grader.config import CONFIG
+from stepik_grader.core import user_settings
 from stepik_grader.core.grader_core import collect_grouped_files, find_all_solution_files
 
 __all__ = [
@@ -65,11 +66,21 @@ _MICRO_PROFILES: dict[str, int] = {
 }
 
 
-def _ask_number(prompt: str, *, default: int) -> int:
+def _ask_number(prompt: str, *, default: int, ctx: CliContext | None = None) -> int:
+    """Спросить целое число: пустой ввод → default, нечисловой → default с подсказкой.
+
+    issue #445: при нечисловом (но непустом) вводе печатаем сообщение о
+    подстановке значения по умолчанию через ``ctx`` вместо тихого проглатывания.
+    ``ctx=None`` сохраняет обратную совместимость для вызовов без локали.
+    """
     raw = input(prompt).strip()
+    if not raw:
+        return default
     try:
-        return int(raw) if raw else default
+        return int(raw)
     except ValueError:
+        if ctx is not None:
+            print(ctx.t("input_default_used", value=raw, default=default))
         return default
 
 
@@ -85,7 +96,7 @@ def _ask_bench_profile(ctx: CliContext) -> int:
     if repeats is None:
         repeats = _BENCH_PROFILES["2"]
     if repeats == 0:
-        repeats = _ask_number(ctx.t("enter_repeats_prompt"), default=15)
+        repeats = _ask_number(ctx.t("enter_repeats_prompt"), default=15, ctx=ctx)
         repeats = max(5, min(100, repeats))
     return repeats
 
@@ -104,12 +115,13 @@ def _ask_micro_profile(ctx: CliContext) -> int:
     if number is None:
         number = _MICRO_PROFILES["2"]
     if number == 0:
-        number = _ask_number(ctx.t("enter_calls_prompt"), default=1000)
+        number = _ask_number(ctx.t("enter_calls_prompt"), default=1000, ctx=ctx)
         number = max(100, min(500_000, number))
     return number
 
 
-def _print_menu(ctx: CliContext) -> None:
+def _print_menu(ctx: CliContext, *, record_history: bool = False) -> None:
+    """Отрисовать меню. ``record_history`` — состояние тумблера истории (issue #430)."""
     print("\n" + "=" * 50)
     print(ctx.t("menu_title"))
     print("=" * 50)
@@ -118,6 +130,9 @@ def _print_menu(ctx: CliContext) -> None:
     print(ctx.t("menu_3"))
     print(ctx.t("menu_4"))
     print(ctx.t("menu_5"))
+    print(ctx.t("menu_6"))
+    state = ctx.t("toggle_on") if record_history else ctx.t("toggle_off")
+    print(ctx.t("menu_7", state=state))
     print(ctx.t("menu_0"))
     print("=" * 50)
 
@@ -162,7 +177,12 @@ def _prompt_path(ctx: CliContext, prompt_key: str, *, want_dir: bool) -> pathlib
     Пустой путь на выходе (пустой ввод + отмена/недоступность диалога)
     корректно обрабатывается вызывающими режимами через их обычные
     "file/dir not found" сообщения (issue #79).
+
+    issue #445: перед вводом печатаем мягкую подсказку про файловый диалог
+    (открывается на пустой Enter). Формулировка не обещает диалог в
+    headless-окружении, где ``_pick_path_via_dialog`` вернёт ``None``.
     """
+    print(ctx.t("path_dialog_hint"))
     raw = input(ctx.t(prompt_key)).strip()
     if raw:
         return pathlib.Path(raw)
@@ -192,72 +212,153 @@ def _resolve_cli_path_or_error(
     parser.error(f"--mode {args.mode} requires {flag}")
 
 
-def _interactive_menu(ctx: CliContext) -> None:
-    """Показать меню один раз, выполнить выбранный режим и завершить работу."""
-    _print_menu(ctx)
-    choice = input(ctx.t("select_mode_prompt")).strip()
+def _show_insights(ctx: CliContext) -> None:
+    """Пункт «Подучить» (5): карточки частых ошибок из истории прогонов."""
+    from stepik_grader import rules
+    from stepik_grader.core import history, insights
+    from stepik_grader.core.reporter import print_insights_summary
 
-    if choice == "0":
-        print(ctx.t("goodbye"))
-        return
-
-    # issue #268/#344: интерактивное меню не проходит через argparse, поэтому
-    # --stats/--history и их --no-* недоступны — читаем [tool.stepik-grader]
-    # record_stats/record_history из CONFIG напрямую, в отличие от use_cache
-    # (у кэша в меню нет тумблера вовсе, см. ctx.run_mode_N вызовы без use_cache).
-    record_stats = CONFIG.record_stats
-    record_history = CONFIG.record_history
-
-    if choice == "1":
-        solution = _prompt_path(ctx, "enter_solution_path", want_dir=False)
-        ctx.run_mode_1(solution, record_stats=record_stats, record_history=record_history)
-
-    elif choice == "2":
-        directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-        ctx.run_mode_2(directory, record_stats=record_stats, record_history=record_history)
-
-    elif choice == "3":
-        directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-        if not directory.is_dir():
-            print(ctx.t("dir_not_found", path=directory))
-            return
-        # find_all_solution_files/collect_grouped_files: импортированы напрямую
-        # из core.grader_core, а не через ctx — ни один тест не патчит их
-        # через cli.X (проверено grep), в отличие от остальных зависимостей
-        # этой функции.
-        if not find_all_solution_files(directory):
-            print(ctx.t("no_solutions_found"))
-            return
-        repeats = ctx.ask_bench_profile()
-        ctx.run_mode_3(directory, repeats, record_stats=record_stats, record_history=record_history)
-
-    elif choice == "4":
-        directory = _prompt_path(ctx, "enter_folder_with_solutions_path", want_dir=True)
-        if not directory.is_dir():
-            print(ctx.t("dir_not_found", path=directory))
-            return
-        if not collect_grouped_files(directory):
-            print(ctx.t("no_solutions_found"))
-            return
-        number = ctx.ask_micro_profile()
-        ctx.run_mode_4(directory, number, record_stats=record_stats, record_history=record_history)
-
-    elif choice == "5":
-        from stepik_grader import rules
-        from stepik_grader.core import history, insights
-        from stepik_grader.core.reporter import print_insights_summary
-
-        db_path = pathlib.Path.cwd() / history.HISTORY_DB_NAME
-        cards = insights.learning_cards(
-            db_path,
-            n=CONFIG.insights_window_n,
-            t=CONFIG.insights_active_threshold_t,
-            k=CONFIG.insights_clean_streak_k,
-        )
-        if not cards:
-            print(ctx.t("insights_no_data"))
-        else:
-            print_insights_summary(cards, rules_provider=rules.bundled_rules())
-
+    db_path = pathlib.Path.cwd() / history.HISTORY_DB_NAME
+    cards = insights.learning_cards(
+        db_path,
+        n=CONFIG.insights_window_n,
+        t=CONFIG.insights_active_threshold_t,
+        k=CONFIG.insights_clean_streak_k,
+    )
+    if not cards:
+        print(ctx.t("insights_no_data"))
     else:
-        print(ctx.t("unknown_choice"))
+        print_insights_summary(cards, rules_provider=rules.bundled_rules())
+
+
+def _maybe_nudge_history(
+    ctx: CliContext, had_failures: bool, *, record_history: bool, nudged: bool
+) -> bool:
+    """Однократный (за сессию меню) nudge про «Подучить» после прогона с падениями.
+
+    issue #430: печатается только при выключенной истории и только если ещё не
+    показывали в этой сессии меню («не чаще раза за запуск»). Возвращает
+    обновлённый флаг ``nudged``.
+    """
+    if had_failures and not record_history and not nudged:
+        print(ctx.t("nudge_enable_history"))
+        return True
+    return nudged
+
+
+def _interactive_menu(ctx: CliContext) -> None:
+    """Цикл интерактивного меню: показывать меню и выполнять режимы до «0»/EOF.
+
+    issue #445: меню зациклено — после завершения режима оно снова доступно,
+    процесс не нужно перезапускать на каждую проверку. Выход — пункт «0» или
+    конец потока ввода (EOF/Ctrl+D). Ранние ошибки пути в режимах 3/4 больше не
+    выкидывают из всего меню (``continue`` вместо прежнего ``return``).
+
+    issue #430: пункт 7 переключает запись истории прогонов; выбор сохраняется
+    в ``.grader_settings.json`` между запусками (user-state переопределяет
+    ``CONFIG.record_history``). После прогона с падениями (режимы 1/2) при
+    выключенной истории печатается однократный nudge про «Подучить».
+    """
+    settings_path = user_settings.default_settings_path()
+    settings = user_settings.load_settings(settings_path)
+    # issue #268/#344: интерактивное меню не проходит через argparse, поэтому
+    # --stats/--history и их --no-* недоступны — record_stats читаем из CONFIG.
+    record_stats = CONFIG.record_stats
+    # issue #430: тумблер истории из user-state (если задан) переопределяет
+    # CONFIG-дефолт; None → пользователь не переопределял, наследуем pyproject.
+    record_history = (
+        settings.record_history if settings.record_history is not None else CONFIG.record_history
+    )
+    # issue #430: nudge «Подучить» показываем не чаще раза за сессию меню.
+    nudged = False
+
+    while True:
+        _print_menu(ctx, record_history=record_history)
+        try:
+            choice = input(ctx.t("select_mode_prompt")).strip()
+        except EOFError:
+            # Конец потока ввода (Ctrl+D / пайп без «0») — корректный выход.
+            print(ctx.t("goodbye"))
+            return
+
+        if choice == "0":
+            print(ctx.t("goodbye"))
+            return
+
+        if choice == "1":
+            solution = _prompt_path(ctx, "enter_solution_path", want_dir=False)
+            had_failures = ctx.run_mode_1(
+                solution, record_stats=record_stats, record_history=record_history
+            )
+            nudged = _maybe_nudge_history(
+                ctx, had_failures, record_history=record_history, nudged=nudged
+            )
+
+        elif choice == "2":
+            directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
+            had_failures = ctx.run_mode_2(
+                directory, record_stats=record_stats, record_history=record_history
+            )
+            nudged = _maybe_nudge_history(
+                ctx, had_failures, record_history=record_history, nudged=nudged
+            )
+
+        elif choice == "3":
+            directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
+            if not directory.is_dir():
+                print(ctx.t("dir_not_found", path=directory))
+                continue
+            # find_all_solution_files/collect_grouped_files: импортированы
+            # напрямую из core.grader_core, а не через ctx — ни один тест не
+            # патчит их через cli.X (проверено grep).
+            if not find_all_solution_files(directory):
+                print(ctx.t("no_solutions_found"))
+                continue
+            repeats = ctx.ask_bench_profile()
+            ctx.run_mode_3(
+                directory, repeats, record_stats=record_stats, record_history=record_history
+            )
+
+        elif choice == "4":
+            directory = _prompt_path(ctx, "enter_folder_with_solutions_path", want_dir=True)
+            if not directory.is_dir():
+                print(ctx.t("dir_not_found", path=directory))
+                continue
+            if not collect_grouped_files(directory):
+                print(ctx.t("no_solutions_found"))
+                continue
+            number = ctx.ask_micro_profile()
+            ctx.run_mode_4(
+                directory, number, record_stats=record_stats, record_history=record_history
+            )
+
+        elif choice == "5":
+            _show_insights(ctx)
+
+        elif choice == "6":
+            # issue #445: запуск web-интерфейса из меню. run_server блокирует
+            # поток до Ctrl+C; ловим KeyboardInterrupt, чтобы вернуться в меню,
+            # а не завершать процесс. Ленивый импорт http.server-стека — как в
+            # cli.main(--serve). Песочница не включается (меню без --sandbox).
+            # issue #430/#395: web-канал пишет историю ПО УМОЛЧАНИЮ (как --serve),
+            # если пользователь явно не выключил тумблер: None (не трогали) → True,
+            # True → True, False (явно выкл) → False. Симметрично `args.history is
+            # not False` в cli.main(--serve) — иначе web из меню расходился бы с
+            # --serve и с empty-state «история пишется автоматически».
+            from stepik_grader import web
+
+            web_history = settings.record_history is not False
+            try:
+                web.run_server(record_history=web_history)
+            except KeyboardInterrupt:
+                pass
+
+        elif choice == "7":
+            # issue #430: тумблер записи истории, сохраняемый между запусками.
+            record_history = not record_history
+            settings.record_history = record_history
+            user_settings.save_settings(settings, settings_path)
+            print(ctx.t("history_toggled_on" if record_history else "history_toggled_off"))
+
+        else:
+            print(ctx.t("unknown_choice"))
