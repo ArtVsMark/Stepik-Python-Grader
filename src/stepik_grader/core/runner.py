@@ -260,7 +260,10 @@ def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
 
     if os.name == "posix":
         try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            # os.killpg/getpgid + signal.SIGKILL — POSIX-only, отсутствуют в
+            # typeshed под Windows; ветка защищена os.name, но CI гоняет mypy на
+            # каждой ОС матрицы (та же причина, что SIGXCPU в _posix_common.py).
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)  # type: ignore[attr-defined]
         except (ProcessLookupError, PermissionError, OSError):
             pass
 
