@@ -45,3 +45,36 @@ class TestWriteTestblockTests:
         write_testblock_tests(tests_dir, {10: ("ten", "TEN"), 2: ("two", "TWO")})
         input_text = (tests_dir / "input.txt").read_text(encoding="utf-8")
         assert input_text.index("# TEST_2:") < input_text.index("# TEST_10:")
+
+
+class TestReDownloadCleansStale:
+    """issue #394: перезапись очищает tests/ — устаревшие артефакты не остаются
+    и не дают смешанный набор с тихим неверным вердиктом."""
+
+    def test_fewer_cases_removes_stale_files(self, tmp_path: pathlib.Path):
+        save_tests(
+            tmp_path,
+            [("i1", "o1", "stdin"), ("i2", "o2", "stdin"), ("i3", "o3", "stdin")],
+        )
+        tdir = tmp_path / "tests"
+        assert (tdir / "3").exists()
+
+        # перескачивание с меньшим числом кейсов
+        save_tests(tmp_path, [("j1", "p1", "stdin")])
+
+        assert (tdir / "1").read_text() == "j1"
+        assert not (tdir / "2").exists()
+        assert not (tdir / "3").exists()
+        assert not (tdir / "3.clue").exists()
+
+    def test_format_switch_removes_old_format1_files(self, tmp_path: pathlib.Path):
+        save_tests(tmp_path, [("i1", "o1", "stdin")])
+        tdir = tmp_path / "tests"
+        assert (tdir / "1").exists()
+
+        # перескачивание в Format 3 — старые N/N.clue не должны перебивать вердикт
+        write_testblock_tests(tdir, {1: ("10", "20")})
+
+        assert (tdir / "input.txt").exists()
+        assert not (tdir / "1").exists()
+        assert not (tdir / "1.clue").exists()

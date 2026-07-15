@@ -17,8 +17,24 @@ ZIP/GitHub. Сеть и извлечение остаются в ``downloader.py
 from __future__ import annotations
 
 import pathlib
+import shutil
 
 __all__ = ["save_tests", "write_testblock_tests"]
+
+
+def _reset_tests_dir(tests_dir: pathlib.Path) -> None:
+    """Очистить ``tests/`` перед записью нового набора кейсов (issue #394).
+
+    Перескачивание в существующую ``task_dir`` иначе оставляет устаревшие
+    артефакты прошлого прогона: лишние ``N``/``N.clue`` при меньшем числе
+    кейсов, а при смене формата — висящие Format-1 файлы поверх Format-3
+    (автодетект отдаёт приоритет Format 1, и старый набор молча побеждает).
+    Смешанный набор даёт тихий неверный вердикт, поэтому каталог
+    пересоздаётся с нуля.
+    """
+    if tests_dir.exists():
+        shutil.rmtree(tests_dir)
+    tests_dir.mkdir(parents=True, exist_ok=True)
 
 
 def save_tests(task_dir: pathlib.Path, tests: list[tuple[str, str, str]]) -> int:
@@ -26,10 +42,10 @@ def save_tests(task_dir: pathlib.Path, tests: list[tuple[str, str, str]]) -> int
 
     ``tests`` — список троек (input_data, expected_output, test_type), где
     ``test_type`` — "stdin" | "function". Возвращает количество сохранённых
-    тестов.
+    тестов. Каталог ``tests/`` очищается перед записью (issue #394).
     """
     tests_dir = task_dir / "tests"
-    tests_dir.mkdir(parents=True, exist_ok=True)
+    _reset_tests_dir(tests_dir)
     for i, (input_data, expected, test_type) in enumerate(tests, start=1):
         (tests_dir / str(i)).write_text(input_data, encoding="utf-8")
         (tests_dir / f"{i}.clue").write_text(expected, encoding="utf-8")
@@ -51,8 +67,11 @@ def write_testblock_tests(tests_dir: pathlib.Path, pairs: dict[int, tuple[str, s
     в ``_download_zip_tests`` и ``_download_github_tests`` — байт-в-байт тот же
     формат, что и до issue #302 (заголовок ``# INPUT DATA:``/``# OUTPUT DATA:``,
     пустая строка + ``# TEST_N:`` + текст + перевод строки на кейс).
+
+    Каталог ``tests/`` очищается перед записью (issue #394), чтобы висящие
+    Format-1 файлы прошлого скачивания не перебивали свежий Format 3.
     """
-    tests_dir.mkdir(parents=True, exist_ok=True)
+    _reset_tests_dir(tests_dir)
     input_lines = ["# INPUT DATA:\n"]
     output_lines = ["# OUTPUT DATA:\n"]
     for idx in sorted(pairs.keys()):
