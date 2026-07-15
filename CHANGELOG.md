@@ -31,6 +31,9 @@
 - Web: the localStorage «История» block in the config panel (product history returns on SQLite in «Подучить», epic #342) (#365).
 - Web: the always-empty «Эталон» result tab (a reference is a `REFERENCE` row in the modes 3/4 tables; #55 backend groundwork kept) (#369).
 
+### Internal
+- CI now exercises the Linux `bwrap` sandbox backend: a dedicated `sandbox-linux` job runs the no-network subset (FS/rlimit/output/timeout via a test-only `LinuxSandboxRunner(unshare_net=False)` seam) so `_linux.py` is covered in the combined report, plus an experimental privileged-container job probing full netns isolation — GitHub Actions forbids `bwrap --unshare-net` (loopback `RTM_NEWADDR` EPERM), so network isolation and fork-bomb containment stay validated locally/self-hosted (#420).
+
 ### Fixed
 - Web «Функции в коде»: inventory-driven builtin/method detection (stdlib inventory instead of a narrow hardcode), syntax-construct detection (comprehensions, lambda, slice, f-string, unpacking, ternary, walrus, decorator, with, try), and `os.path.join` no longer misdetected as the `str.join` method (#367).
 - CLI modes 1–4 no longer crash with `ValueError` on a relative solution path — `reporter._safe_rel`/`cli._rel` fall back to the raw path when path and base have different anchors (#440).

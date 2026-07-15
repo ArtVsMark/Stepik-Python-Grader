@@ -85,7 +85,14 @@ def _usrmerge_symlink_args() -> list[str]:
     return args
 
 
-def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
+def _build_bwrap_argv(
+    bwrap: Path,
+    spec: RunSpec,
+    run_dir: Path,
+    script_path: Path,
+    *,
+    unshare_net: bool = True,
+) -> list[str]:
     cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
     max_memory_bytes = (spec.max_memory_mb or CONFIG.max_memory_mb or 1024) * 1024 * 1024
     bootstrap = _posix_bootstrap.build_bootstrap_argv(
@@ -106,7 +113,13 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
     argv += ["--tmpfs", "/tmp"]
     argv += ["--bind", str(run_dir), str(run_dir)]
     argv += ["--dev", "/dev", "--proc", "/proc"]
-    argv += ["--unshare-net", "--unshare-pid", "--unshare-user"]
+    # issue #420: --unshare-net — часть боевой изоляции (сеть off ядром). Флаг
+    # unshare_net=False существует ТОЛЬКО как тест-seam для CI: раннеры GitHub
+    # Actions запрещают bwrap поднять loopback в netns (RTM_NEWADDR EPERM),
+    # поэтому сетевую изоляцию там проверить нельзя, а ФС/rlimit/fork-bomb —
+    # можно. create_backend() всегда даёт unshare_net=True; прод сеть не делит.
+    net_args = ["--unshare-net"] if unshare_net else []
+    argv += net_args + ["--unshare-pid", "--unshare-user"]
     argv += ["--die-with-parent", "--new-session"]
     argv += [
         "--clearenv",
@@ -127,10 +140,20 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
 
 
 class LinuxSandboxRunner:
-    """``Runner`` изолирующий выполнение через bubblewrap на Linux."""
+    """``Runner`` изолирующий выполнение через bubblewrap на Linux.
 
-    def __init__(self, bwrap_path: Path) -> None:
+    ``unshare_net`` — ТЕСТ-ONLY seam (issue #420). По умолчанию ``True``
+    (полная изоляция, включая свежий network namespace). ``False`` отключает
+    ТОЛЬКО сетевую изоляцию, сохраняя ФС/pid/user namespaces и все
+    ``RLIMIT_*`` — нужен исключительно для CI, где раннеры GitHub Actions
+    не дают bwrap поднять loopback в netns. Прод-путь (``create_backend()``)
+    ВСЕГДА конструирует бэкенд с ``unshare_net=True`` — никогда не отключайте
+    сетевую изоляцию в боевом коде.
+    """
+
+    def __init__(self, bwrap_path: Path, *, unshare_net: bool = True) -> None:
         self._bwrap = bwrap_path
+        self._unshare_net = unshare_net
 
     def run(self, spec: RunSpec) -> RunOutcome:
         with ephemeral_run_dir() as run_dir:
@@ -150,7 +173,9 @@ class LinuxSandboxRunner:
             )
 
     def _build_argv(self, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:
-        return _build_bwrap_argv(self._bwrap, spec, run_dir, script_path)
+        return _build_bwrap_argv(
+            self._bwrap, spec, run_dir, script_path, unshare_net=self._unshare_net
+        )
 
 
 def create_backend() -> LinuxSandboxRunner:
