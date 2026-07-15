@@ -1280,6 +1280,18 @@ class TestApiHostOriginGuard:
         status, _ = _get(server + "/api/grade")
         assert status == 200
 
+    def test_cross_site_fetch_metadata_is_rejected(self, server: str) -> None:
+        """issue #399: Sec-Fetch-Site: cross-site отклоняется даже без Origin/
+        Referer (Fetch Metadata — браузерный межсайтовый запрос)."""
+        status, body = _get(server + "/api/grade", headers={"Sec-Fetch-Site": "cross-site"})
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_same_origin_fetch_metadata_is_allowed(self, server: str) -> None:
+        """Sec-Fetch-Site: same-origin (собственные fetch страницы) — проходит."""
+        status, _ = _get(server + "/api/grade", headers={"Sec-Fetch-Site": "same-origin"})
+        assert status == 200
+
     def test_cross_site_referer_on_post_is_rejected(self, server: str) -> None:
         status, body = _post(
             server + "/api/save-solution",

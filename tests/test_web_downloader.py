@@ -244,9 +244,9 @@ class TestDownloadTaskErrors:
 
 @pytest.fixture
 def server(tmp_path: pathlib.Path):
-    # issue #261: /api/download's own `root` (where to download TO) isn't
-    # confined — workspace here only has to exist for the handler's other
-    # incidental uses (e.g. the `/` index page's __DEFAULT_PATH__).
+    # issue #401: /api/download's own `root` (where to download TO) is now
+    # confined to the workspace too (was excluded under #261) — an out-of-root
+    # `root` is rejected 403 instead of letting download_task mkdir anywhere.
     httpd = web._GraderServer(("127.0.0.1", 0), web._Handler, workspace=tmp_path, confine=True)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
@@ -303,3 +303,40 @@ class TestApiDownloadHttpEndpoint:
         with pytest.raises(urllib.error.HTTPError) as exc:
             urllib.request.urlopen(server + "/api/download", timeout=5)  # noqa: S310
         assert exc.value.code == 404
+
+    def test_root_outside_workspace_is_403(self, server, tmp_path):
+        """issue #401: root (куда скачивать) конфайнится в workspace — путь
+        наружу отклоняется 403, а не создаёт каталог произвольно через mkdir."""
+        outside = str(tmp_path.parent / "evil_download_dir")
+        status, body = _post(
+            server + "/api/download",
+            json.dumps({"url": "https://stepik.org/lesson/1/step/4", "root": outside}).encode(
+                "utf-8"
+            ),
+        )
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_root_inside_workspace_is_allowed(self, server, tmp_path, monkeypatch):
+        """root-поддиректория внутри workspace конфайнмент проходит (200)."""
+        monkeypatch.chdir(tmp_path)
+        _write_secrets(tmp_path / "secrets.json")
+        task_dir = _make_task_dir_with_tests(tmp_path)
+        with (
+            patch(
+                "stepik_grader.web.downloader_adapter.try_create_session_without_browser",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "stepik_grader.downloader.process_step_url",
+                return_value=(task_dir, 1, "html_table"),
+            ),
+        ):
+            status, body = _post(
+                server + "/api/download",
+                json.dumps({"url": "https://stepik.org/lesson/1/step/4", "root": "SubDir"}).encode(
+                    "utf-8"
+                ),
+            )
+        assert status == 200
+        assert json.loads(body)["ok"] is True

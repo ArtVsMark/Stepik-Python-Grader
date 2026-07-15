@@ -160,8 +160,9 @@ class _Handler(BaseHTTPRequestHandler):
     в ``server.workspace`` (``--root``, по умолчанию — cwd на момент запуска
     ``--serve``) — выход за пределы отклоняется 403-м. Отключается явно
     (``--no-root-confinement``) — сознательный откат пользователя.
-    ``/api/download`` (``root`` — куда СКАЧИВАТЬ задачу) в это
-    конфайнментование не входит — отдельный concern.
+    ``/api/download`` (``root`` — куда СКАЧИВАТЬ задачу) с issue #401 тоже
+    конфайнится в ``workspace``: произвольный ``root`` из тела запроса иначе
+    создавал бы каталоги вне рабочей директории через ``mkdir``.
     """
 
     # Уточнение типа сервера (issue #261) — self.server на самом деле
@@ -377,7 +378,17 @@ class _Handler(BaseHTTPRequestHandler):
                     _json({"ok": False, **message_fields("specify_url", lang)}),
                 )
                 return
-            root = str(body.get("root") or "").strip() or None
+            # issue #401: root (куда скачивать) из тела запроса — конфайнить в
+            # workspace, иначе download_task через mkdir создаёт произвольные
+            # каталоги вне рабочей директории.
+            raw_root = str(body.get("root") or "").strip()
+            if raw_root:
+                confined = self._confined_path(raw_root, lang)
+                if confined is None:
+                    return  # _confined_path уже отправил 403
+                root: str | None = str(confined)
+            else:
+                root = None
             data = download_task(url, root=root)
         else:  # /api/save-solution
             raw_folder = str(body.get("folder") or "").strip()
@@ -621,8 +632,9 @@ class _Handler(BaseHTTPRequestHandler):
         preflight никакой другой защиты нет). Оба заголовка при полном
         отсутствии считаются допустимыми: не-браузерные клиенты (curl, тесты)
         их не отправляют, а странице чужого происхождения их не подделать —
-        браузер выставляет Origin/Referer сам. ``lang`` — локаль сообщения 403
-        (issue #264).
+        браузер выставляет Origin/Referer сам; дополнительно ``Sec-Fetch-Site:
+        cross-site`` отклоняется (Fetch Metadata, issue #399). ``lang`` — локаль
+        сообщения 403 (issue #264).
         """
         if not self._host_header_is_allowed():
             self._send(
@@ -646,6 +658,12 @@ class _Handler(BaseHTTPRequestHandler):
         return hostname in _ALLOWED_HOSTNAMES
 
     def _origin_is_allowed(self) -> bool:
+        # issue #399: Fetch Metadata. Браузеры шлют Sec-Fetch-Site на каждый
+        # запрос; ``cross-site`` — межсайтовый контекст (в т.ч. если атакующему
+        # удалось убрать Origin/Referer) → отклоняем. Не-браузерные клиенты
+        # (curl, тесты) заголовок не шлют — их поведение не меняется.
+        if (self.headers.get("Sec-Fetch-Site") or "").strip().lower() == "cross-site":
+            return False
         value = self.headers.get("Origin") or self.headers.get("Referer")
         if not value:
             return True
