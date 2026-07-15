@@ -26,6 +26,7 @@ dependencies = [
 dev = [
     "pytest>=8.2",
     "pytest-cov>=5.0",
+    "pytest-timeout>=2.3",
     "ruff>=0.15.19",
     "mypy>=1.10",
 ]
@@ -113,6 +114,13 @@ known-first-party = ["stepik_grader"]
 
 [tool.pytest.ini_options]
 addopts = "--cov=src --cov-report=term-missing --cov-report=xml -v --tb=short"
+# issue #444: global per-test deadline (pytest-timeout). The suite is full of
+# real subprocesses/threads; a hung child (e.g. a regression of the runner
+# process-group / stdin-deadlock fixes, #418/#419) would otherwise hang the
+# whole run and all CI matrix jobs. `thread` method interrupts without SIGALRM,
+# so it is portable to Windows. Per-test override: @pytest.mark.timeout(N).
+timeout = 120
+timeout_method = "thread"
 testpaths = ["tests"]
 python_classes = ["Test*"]
 # issue #263: tests/e2e/ (Playwright smoke tests against a real --serve
