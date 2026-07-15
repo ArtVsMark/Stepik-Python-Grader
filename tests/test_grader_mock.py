@@ -387,6 +387,34 @@ class TestRunTests:
         assert result["total_time"] >= 0
         assert abs(result["avg_time"] - result["total_time"] / 2) < 1e-9
 
+    def test_cases_include_stdin(self, tmp_path: pathlib.Path) -> None:
+        """issue #397: каждый кейс в result["cases"] несёт свой stdin, чтобы
+        web-путь (grade_path → ErrorCard) не перечитывал тест-кейсы вторым
+        проходом. stdin == "\\n".join(input_lines) (без хвостового перевода)."""
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        (test_dir / "input_1.txt").write_text("3\n7\n")
+        (test_dir / "expected_1.txt").write_text("10\n")
+        (test_dir / "input_2.txt").write_text("5\n")
+        (test_dir / "expected_2.txt").write_text("5\n")
+
+        sol = tmp_path / "task1.py"
+        sol.write_text("# mock\n")
+
+        responses = [b"10\n", b"5\n"]
+        call_count = 0
+
+        def fake_popen(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            out = responses[call_count % 2]
+            call_count += 1
+            return _make_popen_mock(stdout=out)
+
+        with patch("subprocess.Popen", side_effect=fake_popen):
+            result = grader.run_tests(sol, test_dir)
+
+        assert [c["stdin"] for c in result["cases"]] == ["3\n7", "5"]
+
 
 # ---------------------------------------------------------------------------
 # run_tests / run_benchmark — progress_callback + cancel_event (issue #262)
