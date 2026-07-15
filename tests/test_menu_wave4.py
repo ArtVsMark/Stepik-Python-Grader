@@ -141,14 +141,31 @@ def test_ask_number_empty_uses_default_silently(monkeypatch, capsys) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_web_menu_item_launches_server(monkeypatch) -> None:
+def test_web_menu_item_default_on_for_fresh_user(tmp_path: Path, monkeypatch) -> None:
+    """Свежий пользователь (нет .grader_settings.json) → web-история ВКЛючена по
+    умолчанию, как --serve (#395): пункт меню не должен расходиться с --serve."""
+    monkeypatch.chdir(tmp_path)
     called: list[dict] = []
     monkeypatch.setattr(web, "run_server", lambda **k: called.append(k))
     inputs = iter(["6", "0"])
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
     cli._interactive_menu()
-    assert len(called) == 1
-    assert "record_history" in called[0]
+    assert called == [{"record_history": True}]
+
+
+def test_web_menu_item_respects_explicit_off(tmp_path: Path, monkeypatch) -> None:
+    """Явно выключенный тумблер (settings False) → web-история тоже выключена."""
+    monkeypatch.chdir(tmp_path)
+    user_settings.save_settings(
+        user_settings.UserSettings(record_history=False),
+        tmp_path / user_settings.SETTINGS_FILE_NAME,
+    )
+    called: list[dict] = []
+    monkeypatch.setattr(web, "run_server", lambda **k: called.append(k))
+    inputs = iter(["6", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert called == [{"record_history": False}]
 
 
 def test_web_menu_item_survives_keyboard_interrupt(monkeypatch, capsys) -> None:
@@ -246,3 +263,26 @@ def test_no_nudge_when_history_on(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
     cli._interactive_menu()
     assert "💡" not in capsys.readouterr().out
+
+
+def test_nudge_only_once_per_session(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Два падающих прогона за одну сессию меню → nudge печатается РОВНО один раз
+    (#430(2): не чаще раза за запуск; «запуск» = сессия зацикленного меню)."""
+    monkeypatch.chdir(tmp_path)
+    sol = _make_solution(tmp_path)
+    monkeypatch.setattr(cli, "run_tests", lambda *a, **k: _failing_result())
+    inputs = iter(["1", str(sol), "1", str(sol), "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert capsys.readouterr().out.count("💡") == 1
+
+
+def test_nudge_after_fail_mode2(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Падение в режиме 2 (папка) тоже вызывает nudge при выключенной истории."""
+    monkeypatch.chdir(tmp_path)
+    _make_solution(tmp_path)
+    monkeypatch.setattr(cli, "run_tests", lambda *a, **k: _failing_result())
+    inputs = iter(["2", str(tmp_path), "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert "💡" in capsys.readouterr().out

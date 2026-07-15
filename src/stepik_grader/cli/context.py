@@ -46,7 +46,9 @@ class CliContext:
     pick_path_via_dialog: Callable[..., Path | None]
     ask_bench_profile: Callable[[], int]
     ask_micro_profile: Callable[[], int]
-    run_mode_1: Callable[..., None]
-    run_mode_2: Callable[..., None]
+    # Режимы 1/2 возвращают had_failures (issue #430 — меню решает про nudge);
+    # режимы 3/4 (бенчмарки) — None.
+    run_mode_1: Callable[..., bool]
+    run_mode_2: Callable[..., bool]
     run_mode_3: Callable[..., None]
     run_mode_4: Callable[..., None]

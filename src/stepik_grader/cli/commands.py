@@ -211,17 +211,17 @@ def _run_mode_1(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
-    nudge_history: bool = False,
-) -> None:
+) -> bool:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1.
 
-    ``nudge_history`` (issue #430) — печатать ли однократную подсказку про
-    «Подучить» после прогона с падениями (только текст-вывод). Интерактивное
-    меню передаёт ``True``, когда история выключена; CLI ``--mode 1`` — нет.
+    Возвращает ``had_failures`` — были ли непройденные кейсы. Интерактивное меню
+    (issue #430) решает по этому флагу, печатать ли однократный за сессию nudge
+    «Подучить»; CLI ``--mode 1`` возврат игнорирует. ``False`` также на ранних
+    выходах (файл/тесты не найдены — прогона не было).
     """
     if not solution.is_file():
         print(ctx.t("file_not_found", path=solution))
-        return
+        return False
 
     test_dir = resolve_test_dir(solution)
     if test_dir is None or not test_dir.is_dir():
@@ -232,7 +232,7 @@ def _run_mode_1(
                 expected=str(solution.resolve().parent / "tests"),
             )
         )
-        return
+        return False
 
     cache = GraderCache() if use_cache else None
     result, from_cache = _run_tests_maybe_cached(
@@ -262,9 +262,11 @@ def _run_mode_1(
             or None,
         )
 
+    had_failures = _has_failures(result["cases"])
+
     if output == "json":
         print(json.dumps({"file": str(solution), **result}, ensure_ascii=False))
-        return
+        return had_failures
     if output in ("csv", "markdown"):
         rows = [
             {
@@ -278,7 +280,7 @@ def _run_mode_1(
             for i, c in enumerate(result["cases"], start=1)
         ]
         ctx.print_tabular(output, rows, ["index", "passed", "verdict", "time", "memory", "error"])
-        return
+        return had_failures
 
     col_file = 28
     print()
@@ -286,8 +288,7 @@ def _run_mode_1(
     print_correctness_results([(solution, result)], base, col_file=col_file)
     if record_lint:
         _print_lint_blocks([solution], None, output, lint_by_sol)
-    if nudge_history and _has_failures(result["cases"]):
-        print(ctx.t("nudge_enable_history"))
+    return had_failures
 
 
 def _run_mode_2(
@@ -300,21 +301,21 @@ def _run_mode_2(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
-    nudge_history: bool = False,
-) -> None:
+) -> bool:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2.
 
-    ``nudge_history`` (issue #430) — см. ``_run_mode_1``: однократная подсказка
-    про «Подучить» после прогона с падениями (только текст-вывод, только меню).
+    Возвращает ``had_failures`` (см. ``_run_mode_1``) — были ли непройденные
+    кейсы среди всех решений; меню решает по нему про однократный nudge. ``False``
+    на ранних выходах (папка/решения не найдены).
     """
     if not directory.is_dir():
         print(ctx.t("dir_not_found", path=directory))
-        return
+        return False
 
     scripts = find_all_solution_files(directory)
     if not scripts:
         print(ctx.t("no_solutions_found"))
-        return
+        return False
 
     col_file = max((len(_rel(p, directory)) for p in scripts), default=20) + 2
 
@@ -355,9 +356,11 @@ def _run_mode_2(
                 lint=history_recording.lint_records_from_violations(all_violations) or None,
             )
 
+    had_failures = _has_failures([c for _, result in rows for c in result["cases"]])
+
     if output == "json":
         print(json.dumps({"results": {str(p): r for p, r in rows}}, ensure_ascii=False))
-        return
+        return had_failures
     if output in ("csv", "markdown"):
         table_rows = [{"file": path, **result} for path, result in rows]
         fields = [
@@ -372,15 +375,14 @@ def _run_mode_2(
             "first_fail",
         ]
         ctx.print_tabular(output, table_rows, fields)
-        return
+        return had_failures
 
     print_correctness_results(rows, directory, col_file=col_file)
     if cache is not None:
         print(ctx.t("cache_summary", hits=cache_hits, total=len(rows)))
     if record_lint:
         _print_lint_blocks([p for p, _ in rows], directory, output, lint_by_sol)
-    if nudge_history and _has_failures([c for _, result in rows for c in result["cases"]]):
-        print(ctx.t("nudge_enable_history"))
+    return had_failures
 
 
 def _run_mode_3(

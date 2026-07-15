@@ -231,6 +231,21 @@ def _show_insights(ctx: CliContext) -> None:
         print_insights_summary(cards, rules_provider=rules.bundled_rules())
 
 
+def _maybe_nudge_history(
+    ctx: CliContext, had_failures: bool, *, record_history: bool, nudged: bool
+) -> bool:
+    """Однократный (за сессию меню) nudge про «Подучить» после прогона с падениями.
+
+    issue #430: печатается только при выключенной истории и только если ещё не
+    показывали в этой сессии меню («не чаще раза за запуск»). Возвращает
+    обновлённый флаг ``nudged``.
+    """
+    if had_failures and not record_history and not nudged:
+        print(ctx.t("nudge_enable_history"))
+        return True
+    return nudged
+
+
 def _interactive_menu(ctx: CliContext) -> None:
     """Цикл интерактивного меню: показывать меню и выполнять режимы до «0»/EOF.
 
@@ -254,6 +269,8 @@ def _interactive_menu(ctx: CliContext) -> None:
     record_history = (
         settings.record_history if settings.record_history is not None else CONFIG.record_history
     )
+    # issue #430: nudge «Подучить» показываем не чаще раза за сессию меню.
+    nudged = False
 
     while True:
         _print_menu(ctx, record_history=record_history)
@@ -270,20 +287,20 @@ def _interactive_menu(ctx: CliContext) -> None:
 
         if choice == "1":
             solution = _prompt_path(ctx, "enter_solution_path", want_dir=False)
-            ctx.run_mode_1(
-                solution,
-                record_stats=record_stats,
-                record_history=record_history,
-                nudge_history=not record_history,
+            had_failures = ctx.run_mode_1(
+                solution, record_stats=record_stats, record_history=record_history
+            )
+            nudged = _maybe_nudge_history(
+                ctx, had_failures, record_history=record_history, nudged=nudged
             )
 
         elif choice == "2":
             directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-            ctx.run_mode_2(
-                directory,
-                record_stats=record_stats,
-                record_history=record_history,
-                nudge_history=not record_history,
+            had_failures = ctx.run_mode_2(
+                directory, record_stats=record_stats, record_history=record_history
+            )
+            nudged = _maybe_nudge_history(
+                ctx, had_failures, record_history=record_history, nudged=nudged
             )
 
         elif choice == "3":
@@ -322,12 +339,17 @@ def _interactive_menu(ctx: CliContext) -> None:
             # issue #445: запуск web-интерфейса из меню. run_server блокирует
             # поток до Ctrl+C; ловим KeyboardInterrupt, чтобы вернуться в меню,
             # а не завершать процесс. Ленивый импорт http.server-стека — как в
-            # cli.main(--serve). Песочница не включается (меню без --sandbox);
-            # история — по текущему состоянию тумблера.
+            # cli.main(--serve). Песочница не включается (меню без --sandbox).
+            # issue #430/#395: web-канал пишет историю ПО УМОЛЧАНИЮ (как --serve),
+            # если пользователь явно не выключил тумблер: None (не трогали) → True,
+            # True → True, False (явно выкл) → False. Симметрично `args.history is
+            # not False` в cli.main(--serve) — иначе web из меню расходился бы с
+            # --serve и с empty-state «история пишется автоматически».
             from stepik_grader import web
 
+            web_history = settings.record_history is not False
             try:
-                web.run_server(record_history=record_history)
+                web.run_server(record_history=web_history)
             except KeyboardInterrupt:
                 pass
 
