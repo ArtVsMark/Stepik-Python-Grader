@@ -140,6 +140,69 @@ def test_concurrent_writes_under_wal(tmp_path: Path) -> None:
     assert len(history.read_recent_runs(db, limit=1000)) == n + 1
 
 
+def test_concurrent_init_no_data_loss(tmp_path: Path) -> None:
+    """issue #393: одновременная ПЕРВАЯ инициализация свежей БД многими потоками
+    (без прогрева) не теряет записи. Раньше второй мигрирующий поток получал
+    ``OperationalError: table runs already exists``, и запись тихо терялась
+    через best-effort except в record_run."""
+    db = _db(tmp_path)
+    n = 40
+    barrier = threading.Barrier(n)
+    ids: list[int | None] = []
+    lock = threading.Lock()
+
+    def worker(i: int) -> None:
+        barrier.wait()  # стартуем миграцию максимально одновременно
+        rid = history.record_run(1, [CaseRecord(1, "OK")], db_path=db, task_key=f"t{i}")
+        with lock:
+            ids.append(rid)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert all(r is not None for r in ids), "часть записей потеряна на гонке миграции"
+    assert len(history.read_recent_runs(db, limit=1000)) == n
+
+
+def test_connect_closes_connection_on_migration_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #393: если _connect падает ДО return (PRAGMA/миграция кинули),
+    соединение закрывается сами, а не течёт fd — ``closing(_connect(...))`` не
+    успевает обернуть объект, если само выражение бросает исключение."""
+    db = _db(tmp_path)
+    real_connect = history.sqlite3.connect
+    closed: list[bool] = []
+
+    class _TrackingConn:
+        def __init__(self, inner: sqlite3.Connection) -> None:
+            self._inner = inner
+
+        def __getattr__(self, name: str):  # type: ignore[no-untyped-def]
+            return getattr(self._inner, name)
+
+        def close(self) -> None:
+            closed.append(True)
+            self._inner.close()
+
+    def _fake_connect(*args: object, **kwargs: object) -> _TrackingConn:
+        return _TrackingConn(real_connect(*args, **kwargs))  # type: ignore[arg-type]
+
+    def _boom(conn: sqlite3.Connection) -> None:
+        raise sqlite3.OperationalError("boom")
+
+    monkeypatch.setattr(history.sqlite3, "connect", _fake_connect)
+    monkeypatch.setattr(history, "_migrate", _boom)
+
+    with pytest.raises(sqlite3.OperationalError):
+        history._connect(db)
+
+    assert closed == [True], "соединение не закрыто при сбое миграции (утечка fd)"
+
+
 def test_hash_solution_is_deterministic_sha256() -> None:
     """hash_solution == sha256 hexdigest от utf-8 кода."""
     assert history.hash_solution("print(1)") == hashlib.sha256(b"print(1)").hexdigest()
