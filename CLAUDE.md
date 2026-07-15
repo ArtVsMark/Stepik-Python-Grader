@@ -165,8 +165,12 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
 3. **Graceful fallback** — `rich` опционален; весь вывод через `_console`.
 4. **Sandbox — только opt-in** — по умолчанию `executor.py`/`LocalRunner`
    запускают код в subprocess **без** изоляции ФС/сети; OS-изоляция включается
-   явным `--sandbox` (`core/sandbox/`, три backend'а, issue #266) и в web-слой
-   пока не проброшена (issue #351). Дефолт «нет изоляции» документировать
+   явным `--sandbox` (`core/sandbox/`, три backend'а, issue #266) — и в CLI
+   (`--mode 1/2/3/4`), и в web (`--serve --sandbox`, issue #396: `SandboxRunner`
+   ставится активным runner'ом до старта, поэтому grade/playground/microbench
+   изолируются разом). Исключение — пошаговый трейс: под `--sandbox` он
+   недоступен (`core/tracer.py`). Недоступный backend — `parser.error`, а не
+   молчаливый откат на `LocalRunner`. Дефолт «нет изоляции» документировать
    везде, где релевантно.
 5. **Обратная совместимость** — все имена из `__all__` остаются доступными
    через `from stepik_grader.grader import X`.
@@ -302,8 +306,9 @@ ADR-0001): Runner-слой **#140** и контракт результата **#
 ([docs/result-contract.md](docs/result-contract.md)) — оба закрыты и уже
 реализованы (`core/runner.py`, `core/result.py`), не переизобретать. API
 удалённого исполнения **#156** и sandbox-требования **#157** закрыты как
-дизайн — сам сервер/sandbox не реализованы, отдельных implementation-issue
-пока нет. Диагностическое логирование — эпик **#146** реализован (#341):
+дизайн. Локальный `SandboxRunner` реализован (#266; в web — #396); не
+реализованы именно **server-mode** sandbox с контейнерами/квотами (дизайн
+#157, открытый **#153**) и сам удалённый сервер (**#151**). Диагностическое логирование — эпик **#146** реализован (#341):
 opt-in `core/diag_log.py` с редакцией секретов, подключён в
 `stepik_client`/`oauth_flow`/`downloader`; докс-часть — **#150**
 ([docs/logging.md](docs/logging.md)). Дочерние **#147**/**#148**/**#149**

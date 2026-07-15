@@ -49,6 +49,8 @@
 - Sandbox: the Linux bubblewrap backend recreates the top-level usrmerge symlinks (`/lib64` → `/usr/lib64`, …) inside the jail, so the solution's ELF loader resolves — `--sandbox` was unusable on usrmerge systems like modern Ubuntu (#420).
 
 ### Documentation
+- Synced the sandbox contract with the code after #396: `--serve --sandbox` isolates web execution (CLAUDE.md invariant 4, README, `docs/configuration.md`, `docs/web-current.md`, `docs/grader-workflow.md` claimed the opposite and pointed at the closed #351) (#453).
+- Marked Wave 2 done (#450/#451/#452) in `docs/claude-handoff.md`, refreshed the open-issue count to 46 and named Wave 3 as the entry point (#453).
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan
   (2026-07-14) with verified `file:line` coordinates covering (1) promoting all
   832 autodraft glossary cards to `ready` in six prioritized waves and (2) the
