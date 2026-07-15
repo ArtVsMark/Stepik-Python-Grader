@@ -42,17 +42,19 @@ jobs:
         experimental: [false]
         include:
           # issue #454: requires-python = ">=3.12" без верхней границы обещает
-          # 3.14, а проверяем её только здесь. Windows добавлен вторым: это
-          # массовая ОС аудитории (курсы Stepik) и единственная, где sandbox
-          # завязан на Job Objects (core/sandbox/_windows.py). macOS+3.14 —
-          # осознанно вне матрицы: нет ни разработчиков, ни доли аудитории.
-          # experimental: true → continue-on-error, merge не блокируется;
+          # 3.14 — покрываем её на всех трёх ОС (ubuntu/windows/macOS) для полноты
+          # слепой зоны: sandbox завязан на OS-специфичные backend'ы (bwrap/Job
+          # Objects/sandbox-exec), которые смена версии Python задевает вероятнее
+          # всего. experimental: true → continue-on-error, merge не блокируется;
           # coverage-combine и бейджи фильтруются по 3.12 && !experimental,
           # поэтому эти job'ы их не задевают.
           - os: ubuntu-latest
             python-version: "3.14"
             experimental: true
           - os: windows-latest
+            python-version: "3.14"
+            experimental: true
+          - os: macos-latest
             python-version: "3.14"
             experimental: true
 
