@@ -51,6 +51,7 @@
 - Synced docs and code locales to the #342 wave — menu 0–5, six web sections, `insights_*` config keys, README feature list/security (#383).
 - Fixed factual doc errors (logging `--verbose`, server-mode `cancelled`, `stepik-python-grader[watch]` package name) and marked the result `lint` field as schema-only until wired in #346 (#384).
 - Refreshed `architecture.md`/`project-structure.md` — 5 missing modules, DAG edges, false-leaf/phantom-edge fixes (#385).
+- Added `docs/issue-audit-2026-07-15.md` — full audit of all 253 issue against code (208 DONE, 98% closed honestly); filed epic #413 for the two real loose ends (#411 docs, #412 dead `WARMUP_RUNS`).
 
 ### Internal
 - Added a soft `docs/versions.md` release-column guard to `check_version_consistency.py`; archived `claude-handoff.md`, stamped `audit-2026-07.md` as implemented, fixed the stale CHANGELOG policy in GitHub PR/issue templates and the #163 contradiction in CLAUDE.md (#386).
