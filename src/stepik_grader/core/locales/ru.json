@@ -28,6 +28,7 @@
   "invalid_origin": "Недопустимый Origin/Referer — запрос отклонён.",
   "server_running": "🌐 Веб-интерфейс грейдера: {url}  (Ctrl+C — остановить)",
   "server_sandbox_active": "   🔒 OS-песочница включена (--sandbox): код исполняется изолированно",
+  "server_history_active": "   📈 История прогонов включена: раздел «Подучить» наполняется по мере проверок (--no-history — выключить)",
   "server_workspace_confined": "   Рабочая директория: {workspace}  (пути вне неё отклоняются 403)",
   "server_workspace_unconfined": "   Рабочая директория: {workspace}  (конфайнмент путей ОТКЛЮЧЁН --no-root-confinement — доступен любой путь на диске)",
   "server_stopped": "\nОстановлено.",
