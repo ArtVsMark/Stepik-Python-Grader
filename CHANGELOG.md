@@ -32,7 +32,7 @@
 - Web: the always-empty «Эталон» result tab (a reference is a `REFERENCE` row in the modes 3/4 tables; #55 backend groundwork kept) (#369).
 
 ### Internal
-- CI matrix now covers Windows + Python 3.14 (experimental, non-blocking) — `requires-python = ">=3.12"` promises 3.14 but it was only exercised on ubuntu, leaving the Job Objects sandbox backend and the project's main desktop platform unverified there (#455).
+- CI matrix now covers Windows + Python 3.14 (experimental, non-blocking) — `requires-python = ">=3.12"` promises 3.14 but it was only exercised on ubuntu, leaving the Job Objects sandbox backend and the project's main desktop platform unverified there (#456).
 - CI now exercises the Linux `bwrap` sandbox backend for real: a dedicated `sandbox-linux` job runs the full `test_sandbox_runner.py` (FS isolation, real network isolation, memory, output-size, timeout) inside a privileged container — GitHub Actions forbids unprivileged user namespaces (uid-map/netns), so a privileged container is the only way to run it on GHA; `_linux.py` coverage is merged into the combined report (fork-bomb deselected as its ucounts containment is nested-userns-dependent) (#420).
 
 ### Fixed
