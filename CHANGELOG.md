@@ -68,6 +68,7 @@
 
 ### Fixed
 - Async-run TTL is measured from completion (`Job.completed_at`, stamped on the transition to a terminal status) instead of from queue time, so a bench/microbench that runs longer than the 15-minute TTL stays retrievable after it finishes — `GET /api/v1/runs/{id}` no longer 404s a just-finished long run; and `storage.save_json_file` now writes atomically (unique temp in the same dir + `fsync` + `os.replace`, preserving existing perms), so an interrupted/concurrent write to the grader cache / `meta.json` / downloader config can't leave a truncated file (#408).
+- Microbench now actually applies `WARMUP_RUNS` (previously a dead constant covered only by an existence test): it runs that many untimed dry executions of the statement before `timeit.repeat` and outside `tracemalloc`, so cold-start (imports/lazy init/caches) no longer inflates the reported min/median or peak memory. The bench-script build is extracted to a testable `_build_bench_script`, and the constant tests now assert the warmup is wired into the script (#412).
 - Web code editors now use a theme-driven CodeMirror syntax highlight style built on `--cm-*` CSS variables (≥4.5:1 in light and dark) instead of the light-only `defaultHighlightStyle` that rendered keywords at ~1.85:1 on the dark editor background; the vendored bundle was rebuilt to export `HighlightStyle`/`tags` (#425).
 - Web dark/light theme contrast now meets WCAG AA: primary-button text decoupled via `--color-on-primary`/`--color-primary-btn`, brighter dark `--color-text-muted`/`--color-primary`/`--color-error` (+ darker highlights), new `--color-text-placeholder`, and `.section-heading`/`.term-card-kind` moved off `--color-text-faint` (#424).
 - Web `.hint` help text now has its own muted style instead of rendering as body text, code editors expose an `aria-label` to screen readers (`.cm-content`), and the mobile sidebar keeps its group divider across all 7 sections (#409).
@@ -90,6 +91,7 @@
 
 ### Documentation
 - Added ADR-0003 (AI integration strategy): BYOK OpenAI-compatible over `requests` — one code path for cloud providers and local ollama, opt-in, no new dependencies, secrets redacted via `diag_log`; unblocks `--ai-hints` (#435) and the glossary LLM pipeline (#438) (#468, #434).
+- ADR-0001 (server-mode direction) status corrected `Proposed` → `Accepted` (phases 1–2 are implemented: Runner layer #140, result-contract #116; full server mode stays an open v2.0 backlog); `docs/trace-format.md` now documents the `type` field every heap object carries — including the depth-limit `{type, repr}` and cycle-break `{type}` cases — that `core/tracer.py` has always emitted (#411).
 - Synced the sandbox contract with the code after #396: `--serve --sandbox` isolates web execution (CLAUDE.md invariant 4, README, `docs/configuration.md`, `docs/web-current.md`, `docs/grader-workflow.md` claimed the opposite and pointed at the closed #351) (#453).
 - Marked Wave 2 done (#450/#451/#452) in `docs/claude-handoff.md`, refreshed the open-issue count to 46 and named Wave 3 as the entry point (#453).
 - Added `docs/web-glossary-optimization-2026-07.md` — owner-requested plan

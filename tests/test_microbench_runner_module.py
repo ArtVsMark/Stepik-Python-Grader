@@ -160,9 +160,12 @@ def test_microbench_runner_apply_relative_best_is_zero() -> None:
 
 
 def test_microbench_runner_module_constants() -> None:
-    """Module exposes the threshold and warmup constants used by the verdict logic."""
+    """Module exposes the threshold constant and applies WARMUP_RUNS in the bench script."""
     assert microbench_runner.SIMILAR_THRESHOLD_PERCENT == 5.0
-    assert isinstance(microbench_runner.WARMUP_RUNS, int)
+    # issue #412: WARMUP_RUNS — не мёртвая константа, а число прогревочных
+    # прогонов, реально вшитых в bench-скрипт перед замером.
+    script = microbench_runner._build_bench_script("x = 1\n", stdin_data="", number=1000)
+    assert f"_warmup = {microbench_runner.WARMUP_RUNS}" in script
     assert microbench_runner.WARMUP_RUNS >= 1
 
 

@@ -26,6 +26,6 @@ API-поверхность) нельзя закапывать в issue/PR — о
 
 | ADR | Решение | Статус |
 |---|---|---|
-| [0001](0001-server-mode.md) | Направление на server mode через Runner-абстракцию (без немедленной реализации) | Proposed |
+| [0001](0001-server-mode.md) | Направление на server mode через Runner-абстракцию (без немедленной реализации) | Accepted |
 | [0002](0002-history-opt-in.md) | Запись истории прогонов в CLI остаётся opt-in (тумблер в меню + nudge, web — default-on) | Accepted |
 | [0003](0003-ai-integration.md) | AI-интеграция — BYOK OpenAI-compatible на `requests` (облако + ollama одним кодом, opt-in, без новых зависимостей) | Accepted |

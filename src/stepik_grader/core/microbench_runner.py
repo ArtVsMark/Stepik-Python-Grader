@@ -63,6 +63,9 @@ __all__ = [
 
 ENCODING: str = "utf-8"
 SIMILAR_THRESHOLD_PERCENT = 5.0
+# issue #412: число холостых прогонов stmt ПЕРЕД замером — праймит импорты/кэши,
+# чтобы cold-start не завышал min/median. Вшивается в bench-скрипт
+# (_build_bench_script) как `_warmup`; вне tracemalloc/timeit.repeat.
 WARMUP_RUNS = 3
 
 
@@ -103,6 +106,57 @@ class MicrobenchResult:
         return statistics.stdev(self.timings) if len(self.timings) > 1 else 0.0
 
 
+def _build_bench_script(source_code: str, stdin_data: str, number: int) -> str:
+    """Собрать self-contained bench-скрипт для timeit-замера одного решения.
+
+    Код решения инлайнится через ``repr`` (без чтения внешних файлов) — bench
+    исполним и в песочнице, где смонтирован только сам скрипт (issue #417).
+    ``_reset_stdin`` инжектится через builtins (globals не пробрасываются через
+    ``timeit.repeat`` в Python 3.14+). stdout решения подавляется в
+    ``os.devnull`` на время замера — на stdout остаются ИСКЛЮЧИТЕЛЬНО 5
+    чисел-таймингов + строка ``MEM:``.
+
+    Прогрев (issue #412): ``WARMUP_RUNS`` холостых прогонов ``_stmt`` выполняются
+    ПЕРЕД замером и ВНЕ ``tracemalloc`` — праймят импорты, ленивую инициализацию
+    и кэши, чтобы cold-start первого прогона не завышал min/median (в измеряемые
+    время и память прогрев не входит).
+    """
+    return (
+        "import timeit as _timeit, sys as _sys, io as _io, os as _os, "
+        "builtins as _builtins, tracemalloc as _tm\n"
+        "_stdin = " + repr(stdin_data) + "\n"
+        "def _reset_stdin():\n"
+        "    _sys.stdin = _io.StringIO(_stdin)\n"
+        "_builtins._reset_stdin = _reset_stdin\n"
+        "_reset_stdin()\n"
+        "_code = " + repr(source_code) + "\n"
+        "_stmt = '_reset_stdin()\\n' + _code\n"
+        f"_number = {number}\n"
+        f"_warmup = {WARMUP_RUNS}\n"
+        "_real_stdout = _sys.stdout\n"
+        "_devnull = open(_os.devnull, 'w')\n"
+        "_sys.stdout = _devnull\n"
+        "try:\n"
+        "    # прогрев до замера: холостые прогоны праймят кэши/импорты (issue #412)\n"
+        "    _timeit.timeit(stmt=_stmt, setup='pass', number=_warmup)\n"
+        "    _tm.start()\n"
+        "    _times = _timeit.repeat(\n"
+        "        stmt=_stmt,\n"
+        "        setup='pass',\n"
+        "        repeat=5,\n"
+        "        number=_number,\n"
+        "    )\n"
+        "    _peak_bytes = _tm.get_traced_memory()[1]\n"
+        "    _tm.stop()\n"
+        "finally:\n"
+        "    _sys.stdout = _real_stdout\n"
+        "    _devnull.close()\n"
+        "_per = [t / _number for t in _times]\n"
+        "print('\\n'.join(str(t) for t in _per))\n"
+        "print('MEM:' + str(_peak_bytes))\n"
+    )
+
+
 def run_microbench(
     source_code: str,
     *,
@@ -130,43 +184,7 @@ def run_microbench(
         peak_memory_mb (float)       — пик Python-heap (tracemalloc), не RSS
                                         процесса; 0.0 при ошибке
     """
-    # bench_script self-contained: код решения инлайнится через repr (без чтения
-    # внешних файлов), поэтому bench исполним и в песочнице, где смонтирован
-    # только сам bench-скрипт (issue #417). _reset_stdin инжектится через
-    # builtins (globals не пробрасываются через timeit.repeat в Python 3.14+).
-    # stdout решения подавляется на время замера, чтобы на stdout остались
-    # ИСКЛЮЧИТЕЛЬНО 5 чисел-таймингов + строка MEM:.
-    bench_script = (
-        "import timeit as _timeit, sys as _sys, io as _io, os as _os, "
-        "builtins as _builtins, tracemalloc as _tm\n"
-        "_stdin = " + repr(stdin_data) + "\n"
-        "def _reset_stdin():\n"
-        "    _sys.stdin = _io.StringIO(_stdin)\n"
-        "_builtins._reset_stdin = _reset_stdin\n"
-        "_reset_stdin()\n"
-        "_code = " + repr(source_code) + "\n"
-        "_stmt = '_reset_stdin()\\n' + _code\n"
-        f"_number = {number}\n"
-        "_real_stdout = _sys.stdout\n"
-        "_devnull = open(_os.devnull, 'w')\n"
-        "_sys.stdout = _devnull\n"
-        "_tm.start()\n"
-        "try:\n"
-        "    _times = _timeit.repeat(\n"
-        "        stmt=_stmt,\n"
-        "        setup='pass',\n"
-        "        repeat=5,\n"
-        "        number=_number,\n"
-        "    )\n"
-        "finally:\n"
-        "    _sys.stdout = _real_stdout\n"
-        "    _devnull.close()\n"
-        "_, _peak_bytes = _tm.get_traced_memory()\n"
-        "_tm.stop()\n"
-        "_per = [t / _number for t in _times]\n"
-        "print('\\n'.join(str(t) for t in _per))\n"
-        "print('MEM:' + str(_peak_bytes))\n"
-    )
+    bench_script = _build_bench_script(source_code, stdin_data, number)
 
     # issue #417: исполнять bench-скрипт через активный grader_core._RUNNER
     # (LocalRunner или SandboxRunner при --serve --sandbox), а не напрямую
