@@ -86,8 +86,13 @@ def redact(text: str) -> str:
     return text
 
 
+# issue #410 (S5): голый Formatter для редакции трейсбэка — formatException
+# доступен и без привязки к конкретному хендлеру.
+_EXC_FORMATTER = logging.Formatter()
+
+
 class _RedactingFilter(logging.Filter):
-    """Редактирует секреты в финальном сообщении записи до вывода (на уровне логгера)."""
+    """Редактирует секреты в сообщении, трейсбэке и stack_info записи до вывода."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         try:
@@ -96,6 +101,16 @@ class _RedactingFilter(logging.Filter):
             message = str(record.msg)
         record.msg = redact(message)
         record.args = ()
+        # issue #410 (S5): редактировать и трейсбэк — при exc_info=True он иначе
+        # утёк бы мимо редакции (record.msg покрывает только само сообщение).
+        # Готовим redacted exc_text заранее: Formatter.format видит непустой
+        # exc_text и не переформатирует exc_info повторно.
+        if record.exc_info and not record.exc_text:
+            record.exc_text = redact(_EXC_FORMATTER.formatException(record.exc_info))
+        elif record.exc_text:
+            record.exc_text = redact(record.exc_text)
+        if record.stack_info:
+            record.stack_info = redact(record.stack_info)
         return True
 
 

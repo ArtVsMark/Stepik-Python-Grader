@@ -38,24 +38,39 @@ class TestParseTestblockFile:
         result = parse_testblock_file(text)
         assert result == ["", "ok"]
 
-    def test_input_data_line_skipped(self) -> None:
-        """Строки # INPUT DATA: внутри блока пропускаются."""
-        text = "# TEST_1:\n# INPUT DATA: something\nactual content\n"
+    def test_input_data_header_skipped_before_first_block(self) -> None:
+        """Заголовок # INPUT DATA: ДО первого # TEST_N: пропускается (файловый заголовок).
+
+        Это форма, которую пишет ``write_testblock_tests`` (Format 3): первая
+        строка файла — ``# INPUT DATA:``, затем пустая строка и блоки.
+        """
+        text = "# INPUT DATA:\n# TEST_1:\nactual content\n"
         result = parse_testblock_file(text)
         assert result == ["actual content"]
 
-    def test_input_data_line_skipped_multiple_blocks(self) -> None:
-        """# INPUT DATA: пропускается в каждом блоке независимо."""
+    def test_input_data_inside_block_is_preserved(self) -> None:
+        """issue #410 (B6): # INPUT DATA: ВНУТРИ блока — реальные данные, не заголовок.
+
+        Прежде такая строка молча терялась (безусловный skip). Теперь строка,
+        начинающаяся с ``# INPUT DATA:`` внутри открытого блока, сохраняется как
+        часть данных кейса.
+        """
+        text = "# TEST_1:\n# INPUT DATA: something\nactual content\n"
+        result = parse_testblock_file(text)
+        assert result == ["# INPUT DATA: something\nactual content"]
+
+    def test_input_data_header_skipped_but_in_block_kept(self) -> None:
+        """Заголовок вне блока пропущен, но одноимённая строка в блоке — сохранена."""
         text = (
+            "# INPUT DATA:\n"  # файловый заголовок — пропускается
             "# TEST_1:\n"
-            "# INPUT DATA: ignored\n"
+            "# INPUT DATA: real payload\n"  # внутри блока — сохраняется
             "line1\n"
             "# TEST_2:\n"
-            "# INPUT DATA: also ignored\n"
             "line2\n"
         )
         result = parse_testblock_file(text)
-        assert result == ["line1", "line2"]
+        assert result == ["# INPUT DATA: real payload\nline1", "line2"]
 
     def test_no_markers_returns_empty_list(self) -> None:
         """Файл без маркеров # TEST_N: → пустой список."""

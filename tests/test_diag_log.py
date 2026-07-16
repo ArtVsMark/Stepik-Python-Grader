@@ -64,6 +64,52 @@ class TestRedact:
         assert diag_log.redact("обычное сообщение без секретов") == "обычное сообщение без секретов"
 
 
+class TestRedactTraceback:
+    """issue #410 (S5): редакция распространяется на трейсбэк и stack_info.
+
+    Прежде ``_RedactingFilter`` чистил только ``record.msg``; при
+    ``exc_info=True`` секрет из текста исключения утекал в лог мимо редакции
+    (``Formatter`` дописывает трейсбэк отдельно). Теперь фильтр готовит
+    ``exc_text``/``stack_info`` уже отредактированными.
+    """
+
+    def test_secret_in_exception_message_redacted(self, tmp_path: pathlib.Path) -> None:
+        """Секрет в тексте исключения не утекает через трейсбэк (exc_info=True)."""
+        diag_log.configure_diagnostics("debug", log_dir=tmp_path)
+        try:
+            raise ValueError("сбой: Authorization: Bearer leaky.token_value_here")
+        except ValueError:
+            diag_log.get_logger("test").debug("ошибка обмена", exc_info=True)
+        logging.getLogger("stepik_grader").handlers[0].flush()
+        out = (tmp_path / "grader.log").read_text(encoding="utf-8")
+        assert "leaky.token_value_here" not in out
+        assert "Bearer ***redacted***" in out
+        assert "Traceback" in out and "ValueError" in out  # структура трейсбэка цела
+
+    def test_registered_secret_in_traceback_redacted(self, tmp_path: pathlib.Path) -> None:
+        """Зарегистрированный секрет маскируется и внутри трейсбэка."""
+        diag_log.register_secret("registeredsecretvalue123")
+        diag_log.configure_diagnostics("debug", log_dir=tmp_path)
+        try:
+            raise RuntimeError("dump registeredsecretvalue123 inside")
+        except RuntimeError:
+            diag_log.get_logger("test").error("upstream failed", exc_info=True)
+        logging.getLogger("stepik_grader").handlers[0].flush()
+        out = (tmp_path / "grader.log").read_text(encoding="utf-8")
+        assert "registeredsecretvalue123" not in out
+        assert "***redacted***" in out
+
+    def test_stack_info_redacted(self, tmp_path: pathlib.Path) -> None:
+        """stack_info=True тоже проходит через редакцию (registered secret)."""
+        diag_log.register_secret("stackleak987654")
+        diag_log.configure_diagnostics("debug", log_dir=tmp_path)
+        diag_log.get_logger("test").debug("trace stackleak987654 here", stack_info=True)
+        logging.getLogger("stepik_grader").handlers[0].flush()
+        out = (tmp_path / "grader.log").read_text(encoding="utf-8")
+        assert "stackleak987654" not in out
+        assert "Stack (most recent call last)" in out  # сам stack_info записан
+
+
 class TestConfigure:
     def test_off_creates_no_file(self, tmp_path: pathlib.Path) -> None:
         assert diag_log.configure_diagnostics("off", log_dir=tmp_path) is False

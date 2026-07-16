@@ -21,7 +21,10 @@ def parse_testblock_file(text: str) -> list[str]:
     """Разобрать input.txt/output.txt с маркерами блоков `# TEST_N:`.
 
     Возвращает список содержимого блоков (каждый .strip()).
-    Строки `# INPUT DATA:` игнорируются.
+
+    Строка-заголовок `# INPUT DATA:` (её пишет `write_testblock_tests` первой,
+    ДО первого `# TEST_N:`) пропускается только ВНЕ блока. Внутри открытого
+    блока такая же строка — реальные данные кейса и СОХРАНЯЕТСЯ (issue #410, B6).
 
     Пустые блоки СОХРАНЯЮТСЯ как `''` (например, `# TEST_5:` без данных),
     чтобы индексы input- и output-блоков оставались синхронными.
@@ -36,7 +39,10 @@ def parse_testblock_file(text: str) -> list[str]:
                 blocks.append("\n".join(current_lines).strip())
                 current_lines = []
             in_block = True
-        elif line.strip().startswith("# INPUT DATA:"):
+        elif not in_block and line.strip().startswith("# INPUT DATA:"):
+            # issue #410 (B6): `# INPUT DATA:` — файловый заголовок (до первого
+            # `# TEST_N:`), пропускаем только ВНЕ блока. Внутри открытого блока
+            # такая строка — реальные данные кейса, иначе они бы терялись.
             continue
         elif in_block:
             current_lines.append(line)
