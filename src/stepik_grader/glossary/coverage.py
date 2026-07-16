@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import argparse
+import pathlib
 from dataclasses import dataclass
 from datetime import date
 
@@ -280,7 +281,7 @@ def main(argv: list[str] | None = None) -> None:
     known: set[str] = set()
     if args.cards:
         try:
-            provider = JsonGlossaryProvider.load(args.cards)
+            provider = JsonGlossaryProvider.load(pathlib.Path(args.cards))
         except GlossaryError as exc:
             parser.error(str(exc))
             return  # недостижимо (parser.error поднимает SystemExit); для mypy
@@ -297,8 +298,9 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.missing_out:
         missing = missing_entries_from_inventory(inventory, known=known)
-        append_missing_entries(args.missing_out, missing)
-        _print(f"Missing entries written to {args.missing_out} ({len(missing)} stdlib_scan gaps)")
+        missing_out = pathlib.Path(args.missing_out)
+        append_missing_entries(missing_out, missing)
+        _print(f"Missing entries written to {missing_out} ({len(missing)} stdlib_scan gaps)")
 
 
 if __name__ == "__main__":

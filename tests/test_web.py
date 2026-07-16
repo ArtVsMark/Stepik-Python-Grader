@@ -272,7 +272,7 @@ class TestErrorCardFields:
                 "error": "CustomProjectError: boom",
                 "exit_code": 1,
             },
-            missing_queue_path=str(tmp_path / "missing.json"),
+            missing_queue_path=tmp_path / "missing.json",
         )
         assert case["glossary_ids"] == []
         assert case["suggestions"] == []

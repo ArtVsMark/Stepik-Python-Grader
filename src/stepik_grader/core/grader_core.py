@@ -82,6 +82,7 @@ from stepik_grader.core.mode_detector import (
     is_function_only_solution,
 )
 from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line
+from stepik_grader.core.result import CaseResult, Verdict
 from stepik_grader.core.runner import (
     LocalRunner,
     Runner,  # noqa: F401  (реэкспорт — часть публичного API Runner-абстракции)
@@ -199,12 +200,12 @@ def _fail_result(
     case: TestCase,
     *,
     error: str,
-    verdict: str,
+    verdict: Verdict,
     time: float = 0.0,
     memory: float = 0.0,
     timed_out: bool = False,
     exit_code: int | None = None,
-) -> dict[str, Any]:
+) -> CaseResult:
     """Case-result dict для неуспешного раннего исхода ``run_single_test``.
 
     Общая форма всех возвратов до сравнения вывода
@@ -323,7 +324,7 @@ def _map_outcome_to_result(
     outcome: RunOutcome,
     case: TestCase,
     timeout: float,
-) -> dict[str, Any]:
+) -> CaseResult:
     """Чистая функция: сырой ``RunOutcome`` → словарь-результат кейса (issue #406).
 
     Порядок веток verdict: ``launch_error`` → RE; ``sandbox_violation`` →
@@ -425,7 +426,7 @@ def run_single_test(
     timeout: float = TIMEOUT_SECONDS,
     measure_memory: bool = MEASURE_CHILD_MEMORY,
     cancel_event: threading.Event | None = None,
-) -> dict[str, Any]:
+) -> CaseResult:
     """Запустить одно решение на одном тест-кейсе и вернуть словарь с результатами.
 
     Тонкий оркестратор (issue #406): ``_prepare_run_spec`` выбирает стратегию
@@ -481,7 +482,7 @@ def run_tests(
     test_dir: pathlib.Path,
     *,
     verbose: bool = False,
-    verbose_callback: Callable[[TestCase, dict[str, Any]], None] | None = None,
+    verbose_callback: Callable[[TestCase, CaseResult], None] | None = None,
     timeout: float = TIMEOUT_SECONDS,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
@@ -520,7 +521,7 @@ def run_tests(
     # Определяем режим запуска один раз для всех тест-кейсов.
     _apply_run_mode_override(test_cases, solution_path, test_dir)
 
-    results = []
+    results: list[CaseResult] = []
     total_time = 0.0
     passed = 0
     failed = 0

@@ -89,7 +89,9 @@ jobs:
         run: ruff format --check .
 
       - name: Type check
-        run: mypy src/stepik_grader --ignore-missing-imports
+        # issue #441: строгость задаётся [tool.mypy] в pyproject.toml (источник
+        # истины), --ignore-missing-imports переехал туда — команда упрощена.
+        run: mypy src/stepik_grader
 
       - name: Version consistency (issue #165)
         run: python scripts/check_version_consistency.py

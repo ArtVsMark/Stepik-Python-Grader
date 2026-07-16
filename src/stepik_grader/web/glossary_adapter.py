@@ -343,7 +343,7 @@ def queue_code_gaps(
 
 def glossary_missing(*, queue_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
     """Очередь пополнения (J7) — пусто при отсутствующем/битом файле очереди."""
-    path = queue_path if queue_path is not None else CONFIG.glossary_missing_queue
+    path = queue_path if queue_path is not None else pathlib.Path(CONFIG.glossary_missing_queue)
     try:
         entries = load_missing_queue(path)
     except GlossaryError:
