@@ -57,7 +57,6 @@ _FONTS_DIR = _STATIC_DIR / "fonts"
 _VENDOR_DIR = _STATIC_DIR / "vendor"
 _INDEX_HTML = (_STATIC_DIR / "index.html").read_text(encoding="utf-8")
 _APP_CSS = (_STATIC_DIR / "app.css").read_text(encoding="utf-8")
-_APP_JS = (_STATIC_DIR / "app.js").read_text(encoding="utf-8")
 
 # issue #265 — вендоренный ESM-бандл CodeMirror 6 (без CDN, тот же принцип,
 # что у шрифтов issue #260); один самодостаточный файл вместо importmap +
