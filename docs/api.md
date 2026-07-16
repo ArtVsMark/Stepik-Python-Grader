@@ -33,6 +33,7 @@
 - [`POST /api/code-terms`](#post-apicode-terms)
 - [`GET /api/commands`](#get-apicommands)
 - [`POST /api/download`](#post-apidownload)
+- [`POST /api/import-reference`](#post-apiimport-reference)
 - [`POST /api/save-solution`](#post-apisave-solution)
 - [`POST /api/v1/runs`](#post-apiv1runs)
 - [`GET /api/v1/runs/<id>`](#get-apiv1runsid)
@@ -309,6 +310,27 @@ concern).
 curl -X POST http://127.0.0.1:8000/api/download \
   -H "Content-Type: application/json" \
   -d '{"url": "https://stepik.org/lesson/.../step/1"}'
+```
+
+## `POST /api/import-reference`
+
+Импортировать закреплённое решение Stepik (+ топовые по лайкам) из ветки
+solutions шага в папку задачи как `task{N}_{100+}.py` — reference-competitor
+для режимов 2–4 (issue #55). Читает `meta.json` из папки, код тянет через
+`/api/comments?...&expand=submission`. `path` конфайнится в workspace.
+
+Тело JSON: `{"path": "<папка задачи>", "top"?: <N=5>}`.
+
+- `path` пустой → **400** `specify_folder`; вне workspace → **403**.
+- Успех → **200** `{"ok": true, "files": ["task{N}_100.py", ...], "message"}`;
+  `ok=false` с понятным `message` при ошибке (нет `secrets.json`/OAuth без
+  браузера, нет ветки решений, решений нет, код не извлёкся) — HTTP всё равно
+  **200**, как у `/api/download`.
+
+```
+curl -X POST http://127.0.0.1:8000/api/import-reference \
+  -H "Content-Type: application/json" \
+  -d '{"path": "StepikTasks/module2/task3", "top": 5}'
 ```
 
 ## `POST /api/save-solution`

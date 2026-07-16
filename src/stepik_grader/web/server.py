@@ -25,6 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from stepik_grader.core.stepik_reference import DEFAULT_MAX_TOP
 from stepik_grader.web import auth_adapter, runs
 from stepik_grader.web.commands import filter_commands
 from stepik_grader.web.downloader_adapter import download_task
@@ -37,6 +38,7 @@ from stepik_grader.web.glossary_adapter import (
 )
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message, resolve_lang
 from stepik_grader.web.insights_adapter import insights_cards, progress_rows
+from stepik_grader.web.reference_adapter import import_reference
 from stepik_grader.web.rules_adapter import rules_get, rules_search
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
@@ -349,7 +351,12 @@ class _Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/auth/start":
             self._handle_auth_start(parsed)
             return
-        if parsed.path not in ("/api/download", "/api/save-solution", "/api/code-terms"):
+        if parsed.path not in (
+            "/api/download",
+            "/api/save-solution",
+            "/api/code-terms",
+            "/api/import-reference",
+        ):
             self._send(404, "text/plain; charset=utf-8", b"not found")
             return
         lang = _lang_from_query(parsed)
@@ -405,6 +412,23 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 root = None
             data = download_task(url, root=root)
+        elif parsed.path == "/api/import-reference":
+            # issue #55: закреплённое решение Stepik → task{N}_{100+}.py в папке
+            # задачи. path конфайнится в workspace (как download's root).
+            raw_folder = str(body.get("path") or "").strip()
+            if not raw_folder:
+                self._send(
+                    400,
+                    "application/json; charset=utf-8",
+                    _json({"ok": False, **message_fields("specify_folder", lang)}),
+                )
+                return
+            confined_dir = self._confined_path(raw_folder, lang)
+            if confined_dir is None:
+                return  # _confined_path уже отправил 403
+            raw_top = body.get("top")
+            top = raw_top if isinstance(raw_top, int) and raw_top > 0 else DEFAULT_MAX_TOP
+            data = import_reference(str(confined_dir), top=top)
         else:  # /api/save-solution
             raw_folder = str(body.get("folder") or "").strip()
             if not raw_folder:

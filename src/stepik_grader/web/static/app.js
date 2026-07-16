@@ -707,6 +707,41 @@ async function refreshSolutionsList() {
   }
 }
 
+// issue #55: импорт закреплённого решения Stepik (+топовые) в папку задачи как
+// task{N}_{100+}.py. Берёт тот же путь папки, что «Найти решения»; при успехе
+// обновляет список — импортированные reference-файлы появляются как решения.
+async function findReference() {
+  const folder = $("#path").value.trim();
+  const list = $("#solutions-list");
+  if (!folder) {
+    list.innerHTML = '<li class="empty">Укажите папку задачи (со скачанной meta.json).</li>';
+    return;
+  }
+  const btn = $("#find-reference-btn");
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Импорт…";
+  list.innerHTML = '<li class="empty">Импорт эталона из Stepik…</li>';
+  try {
+    const r = await fetch("/api/import-reference", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: folder }),
+    });
+    const data = await r.json();
+    if (!data.ok) {
+      list.innerHTML = '<li class="empty">' + esc(data.message) + "</li>";
+      return;
+    }
+    await refreshSolutionsList(); // покажет task{N}_{100+}.py среди решений
+  } catch (e) {
+    list.innerHTML = '<li class="empty">Ошибка запроса.</li>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
 function renderSolutionsList() {
   const el = $("#solutions-list");
   if (!state.solutions.length) {
@@ -2514,6 +2549,7 @@ $("#path").addEventListener("keydown", e => {
   else grade();
 });
 $("#find-solutions-btn").addEventListener("click", findSolutions);
+$("#find-reference-btn").addEventListener("click", findReference); // issue #55
 $("#save-solution-btn").addEventListener("click", saveSolution); // issue #297
 $("#path").addEventListener("input", updateDirtyIndicator); // issue #297 — папка влияет на доступность «Сохранить»
 $("#path").addEventListener("input", () => {
