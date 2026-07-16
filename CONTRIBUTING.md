@@ -210,10 +210,12 @@ task_12.py     # двузначный суффикс
 
 1. Создайте ветку: `git checkout -b feat/your-feature`
 2. Внесите изменения с тестами
-3. Прогоните `pytest tests/ -v`
-4. Прогоните `mypy src/stepik_grader`
-5. Прогоните `pre-commit run --all-files`
-6. Создайте Pull Request в `main`
+3. Обновите `CHANGELOG.md` — запись под `## [Unreleased]` в **каждом** PR, без
+   исключений для рефакторингов (одна строка на изменение, issue #373)
+4. Прогоните `pytest tests/ -v`
+5. Прогоните `mypy src/stepik_grader`
+6. Прогоните `pre-commit run --all-files`
+7. Создайте Pull Request в `main`
 
 ### Правила коммитов (Conventional Commits)
 

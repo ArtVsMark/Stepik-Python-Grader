@@ -679,15 +679,26 @@ class TestParseTestblockFile:
         assert len(blocks) == 3
         assert blocks[1] == ""
 
-    def test_input_data_marker_ignored(self) -> None:
+    def test_input_data_header_ignored(self) -> None:
+        """Заголовок # INPUT DATA: ДО первого # TEST_N: пропускается (issue #410, B6)."""
+        text = textwrap.dedent("""\
+            # INPUT DATA:
+            # TEST_1:
+            42
+        """)
+        blocks = grader._parse_testblock_file(text)
+        assert len(blocks) == 1
+        assert blocks[0] == "42"
+
+    def test_input_data_inside_block_preserved(self) -> None:
+        """# INPUT DATA: ВНУТРИ блока — данные кейса, сохраняется (issue #410, B6)."""
         text = textwrap.dedent("""\
             # TEST_1:
             # INPUT DATA:
             42
         """)
         blocks = grader._parse_testblock_file(text)
-        assert len(blocks) == 1
-        assert blocks[0] == "42"
+        assert blocks == ["# INPUT DATA:\n42"]
 
     def test_no_blocks(self) -> None:
         assert grader._parse_testblock_file("just some text\n") == []

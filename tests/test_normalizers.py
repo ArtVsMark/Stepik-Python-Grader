@@ -91,6 +91,40 @@ def test_normalize_floats_idempotent_on_extremes() -> None:
 
 
 # ---------------------------------------------------------------------------
+# normalize_floats — dotted-числа НЕ корёжатся (issue #410, B5)
+#
+# Прежний ``_FLOAT_RE`` матчил float ВНУТРИ версий/IP: ``3.10.5`` → ``3.1.5``
+# (первые два сегмента как один float ``3.10`` → ``3.1``), а ``1.2.3.4`` — рвался
+# по-сегментно. lookbehind/lookahead (`(?<![\d.])`/`(?!\.\d)`) защищают именно
+# dotted-последовательности, не трогая обычные float'ы.
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_floats_preserves_semver_like_version() -> None:
+    """Версия ``3.10.5`` не должна схлопываться до ``3.1.5``."""
+    assert normalize_floats("3.10.5") == "3.10.5"
+
+
+def test_normalize_floats_preserves_ipv4() -> None:
+    """IPv4-адрес не должен нормализоваться по сегментам."""
+    assert normalize_floats("192.168.1.1") == "192.168.1.1"
+    assert normalize_floats("1.2.3.4") == "1.2.3.4"
+
+
+def test_normalize_floats_preserves_version_in_text() -> None:
+    """Версия внутри текста остаётся дословной."""
+    assert normalize_floats("Python 3.10.5") == "Python 3.10.5"
+    assert normalize_floats("v2.7.18") == "v2.7.18"
+
+
+def test_normalize_floats_still_rounds_plain_floats_after_fix() -> None:
+    """B5-защита не должна ломать нормализацию обычных (не dotted) float'ов."""
+    assert normalize_floats("5.000000000000001") == "5.0"
+    assert normalize_floats("3.14159265358979") == "3.141592654"
+    assert normalize_floats("a 1.0 b 2.5 c") == "a 1.0 b 2.5 c"
+
+
+# ---------------------------------------------------------------------------
 # sort_lines
 # ---------------------------------------------------------------------------
 
