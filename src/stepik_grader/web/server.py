@@ -209,279 +209,358 @@ class _Handler(BaseHTTPRequestHandler):
         else:
             self._send(404, "text/plain; charset=utf-8", b"not found")
 
+    # -- Реестр маршрутов (issue #427) — декларативная таблица path→handler-метод
+    # вместо растущих if/elif в do_GET/do_POST. Точные пути ищутся в dict (O(1)),
+    # затем префиксы по порядку (первое совпадение), суффикс опционален (POST
+    # /cancel). Один диспетчер `_dispatch` на оба метода; HTTP-контракт не
+    # меняется (docs/api.md). Новый эндпоинт = запись в таблице + метод-хендлер.
+    _API_GET_EXACT = {
+        "/api/grade": "_get_grade",
+        "/api/glossary": "_get_glossary",
+        "/api/glossary/missing": "_get_glossary_missing",
+        "/api/rules": "_get_rules",
+        "/api/insights": "_get_insights",
+        "/api/progress": "_get_progress",
+        "/api/commands": "_get_commands",
+        "/api/solutions": "_get_solutions",
+        "/api/source": "_get_source",
+        "/api/auth/status": "_get_auth_status",
+    }
+    _API_GET_PREFIX = (
+        ("/api/v1/runs/", "_get_run_status"),
+        ("/api/glossary/", "_get_glossary_card"),
+        ("/api/rules/", "_get_rule_card"),
+    )
+    _API_POST_EXACT = {
+        "/api/v1/runs": "_handle_create_run",
+        "/api/auth/start": "_handle_auth_start",
+        "/api/code-terms": "_post_code_terms",
+        "/api/download": "_post_download",
+        "/api/import-reference": "_post_import_reference",
+        "/api/save-solution": "_post_save_solution",
+    }
+    _API_POST_PREFIX = (("/api/v1/runs/", "_handle_cancel_run", "/cancel"),)
+
+    def _dispatch(
+        self,
+        exact: dict[str, str],
+        prefixes: tuple[tuple[str, ...], ...],
+        parsed: Any,
+        *args: Any,
+    ) -> None:
+        """Единый диспетчер (issue #427): точное совпадение → префикс(+суффикс) →
+        404. Хендлер — имя метода, вызывается с ``(parsed, *args)`` (GET
+        прокидывает ``lang``, POST — нет)."""
+        handler = exact.get(parsed.path)
+        if handler is None:
+            for entry in prefixes:
+                prefix, name = entry[0], entry[1]
+                suffix = entry[2] if len(entry) > 2 else ""
+                if parsed.path.startswith(prefix) and (not suffix or parsed.path.endswith(suffix)):
+                    handler = name
+                    break
+        if handler is None:
+            self._send(404, "text/plain; charset=utf-8", b"not found")
+            return
+        getattr(self, handler)(parsed, *args)
+
     def _dispatch_api_get(self, parsed: Any, lang: str) -> None:
         """Диспетчеризация GET /api/* — вызывается только после `_guard_request()`.
 
         ``lang`` — локаль ``?lang=`` запроса (issue #264), уже разрешённая
-        ``_lang_from_query()`` в ``do_GET`` — прокидывается дальше в
-        ``viewmodels.py``/каталог сообщений для рендера ``message``.
+        ``_lang_from_query()`` в ``do_GET`` — прокидывается в хендлеры и дальше
+        в ``viewmodels.py``/каталог сообщений для рендера ``message``.
         """
-        if parsed.path.startswith("/api/v1/runs/"):
-            run_id = parsed.path[len("/api/v1/runs/") :]
-            if not run_id or "/" in run_id:
-                self._send(404, "text/plain; charset=utf-8", b"not found")
-                return
-            job = runs.get_job(run_id)
-            if job is None:
-                self._send(
-                    404,
-                    "application/json; charset=utf-8",
-                    _json(
-                        {"kind": "error", **message_fields("run_not_found", lang, run_id=run_id)}
-                    ),
-                )
-                return
-            self._send(200, "application/json; charset=utf-8", _json(job.to_status_dict()))
-        elif parsed.path == "/api/grade":
-            # DEPRECATED для bench/microbench (issue #262): синхронный —
-            # держит HTTP-запрос открытым на всю длительность бенчмарка, без
-            # прогресса и без отмены. POST /api/v1/runs + polling — асинхронная
-            # замена (см. web/runs.py). Оставлен как тонкая sync-обёртка для
-            # обратной совместимости и для режимов 1/2 (обычные тесты), которые
-            # вне scope #262 — поведение не меняется, TODO(#267) docs/api.md.
-            qs = parse_qs(parsed.query)
-            path = (qs.get("path") or [""])[0].strip()
-            mode = (qs.get("mode") or ["tests"])[0]
-            if not path:
-                data: dict[str, Any] = {
-                    "kind": "error",
-                    **message_fields("specify_path_file_or_folder", lang),
-                    "rows": [],
-                }
-            else:
-                confined = self._confined_path(path, lang)
-                if confined is None:
-                    return
-                path = confined
-                if mode == "bench":
-                    reference = (qs.get("reference") or [""])[0].strip() or None
-                    repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
-                    data = grade_benchmark(path, repeats=repeats, reference=reference, lang=lang)
-                elif mode == "microbench":
-                    number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
-                    data = grade_microbench(path, number=number, lang=lang)
-                else:
-                    data = grade_path(path, lang=lang)
-            self._send(200, "application/json; charset=utf-8", _json(data))
-        elif parsed.path == "/api/glossary":
-            qs = parse_qs(parsed.query)
-            query = (qs.get("q") or [""])[0]
-            # Опциональные грани фильтра/сортировки (issue #329); пустые → None.
-            cards = glossary_search(
-                query,
-                section=(qs.get("section") or [""])[0] or None,
-                kind=(qs.get("kind") or [""])[0] or None,
-                status=(qs.get("status") or [""])[0] or None,
-                sort=(qs.get("sort") or [""])[0] or None,
-                lang=lang,
-            )
-            self._send(200, "application/json; charset=utf-8", _json(cards))
-        elif parsed.path == "/api/glossary/missing":
-            self._send(200, "application/json; charset=utf-8", _json(glossary_missing()))
-        elif parsed.path.startswith("/api/glossary/"):
-            card_id = parsed.path[len("/api/glossary/") :]
-            card = glossary_get(card_id, lang=lang)
-            if card is None:
-                self._send(
-                    404,
-                    "application/json; charset=utf-8",
-                    _json(
-                        {
-                            "kind": "error",
-                            **message_fields("glossary_card_not_found", lang, card_id=card_id),
-                        }
-                    ),
-                )
-            else:
-                self._send(200, "application/json; charset=utf-8", _json(card))
-        elif parsed.path == "/api/rules":
-            qs = parse_qs(parsed.query)
-            cards = rules_search(
-                (qs.get("q") or [""])[0],
-                tag=(qs.get("tag") or [""])[0] or None,
-            )
-            self._send(200, "application/json; charset=utf-8", _json(cards))
-        elif parsed.path == "/api/insights":
-            self._send(200, "application/json; charset=utf-8", _json(insights_cards()))
-        elif parsed.path == "/api/progress":
-            # issue #431: TTFG — попыток/времени до первого AC по задачам.
-            self._send(200, "application/json; charset=utf-8", _json(progress_rows()))
-        elif parsed.path.startswith("/api/rules/"):
-            code = parsed.path[len("/api/rules/") :]
-            card = rules_get(code)
-            if card is None:
-                self._send(
-                    404,
-                    "application/json; charset=utf-8",
-                    _json(
-                        {"kind": "error", **message_fields("rule_card_not_found", lang, code=code)}
-                    ),
-                )
-            else:
-                self._send(200, "application/json; charset=utf-8", _json(card))
-        elif parsed.path == "/api/commands":
-            qs = parse_qs(parsed.query)
-            raw_context = (qs.get("context") or [""])[0]
-            context = {tag for tag in raw_context.split(",") if tag} or None
-            self._send(200, "application/json; charset=utf-8", _json(filter_commands(context)))
-        elif parsed.path == "/api/solutions":
-            qs = parse_qs(parsed.query)
-            path = (qs.get("path") or [""])[0].strip()
-            if not path:
-                data = {"kind": "error", **message_fields("specify_path_folder", lang), "files": []}
-            else:
-                confined = self._confined_path(path, lang)
-                if confined is None:
-                    return
-                data = list_solutions(confined, lang=lang)
-            self._send(200, "application/json; charset=utf-8", _json(data))
-        elif parsed.path == "/api/source":
-            qs = parse_qs(parsed.query)
-            path = (qs.get("path") or [""])[0].strip()
-            if not path:
-                data = {"kind": "error", **message_fields("specify_path_file", lang)}
-            else:
-                confined = self._confined_path(path, lang)
-                if confined is None:
-                    return
-                data = read_source(confined, lang=lang)
-            self._send(200, "application/json; charset=utf-8", _json(data))
-        elif parsed.path == "/api/auth/status":
-            # issue #402: валиден ли токен Stepik по secrets.json в workspace.
-            secrets_path = self.server.workspace / "secrets.json"
+        self._dispatch(self._API_GET_EXACT, self._API_GET_PREFIX, parsed, lang)
+
+    def _get_run_status(self, parsed: Any, lang: str) -> None:
+        run_id = parsed.path[len("/api/v1/runs/") :]
+        if not run_id or "/" in run_id:
+            self._send(404, "text/plain; charset=utf-8", b"not found")
+            return
+        job = runs.get_job(run_id)
+        if job is None:
             self._send(
-                200,
+                404,
                 "application/json; charset=utf-8",
-                _json(auth_adapter.auth_status(secrets_path)),
+                _json({"kind": "error", **message_fields("run_not_found", lang, run_id=run_id)}),
+            )
+            return
+        self._send(200, "application/json; charset=utf-8", _json(job.to_status_dict()))
+
+    def _get_grade(self, parsed: Any, lang: str) -> None:
+        # DEPRECATED для bench/microbench (issue #262): синхронный — держит
+        # HTTP-запрос открытым на всю длительность бенчмарка, без прогресса и
+        # без отмены. POST /api/v1/runs + polling — асинхронная замена (см.
+        # web/runs.py). Оставлен как тонкая sync-обёртка для обратной
+        # совместимости и для режимов 1/2 (обычные тесты), вне scope #262 —
+        # поведение не меняется, TODO(#267) docs/api.md.
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        mode = (qs.get("mode") or ["tests"])[0]
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_file_or_folder", lang),
+                "rows": [],
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return
+            path = confined
+            if mode == "bench":
+                reference = (qs.get("reference") or [""])[0].strip() or None
+                repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
+                data = grade_benchmark(path, repeats=repeats, reference=reference, lang=lang)
+            elif mode == "microbench":
+                number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
+                data = grade_microbench(path, number=number, lang=lang)
+            else:
+                data = grade_path(path, lang=lang)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_glossary(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        query = (qs.get("q") or [""])[0]
+        # Опциональные грани фильтра/сортировки (issue #329); пустые → None.
+        cards = glossary_search(
+            query,
+            section=(qs.get("section") or [""])[0] or None,
+            kind=(qs.get("kind") or [""])[0] or None,
+            status=(qs.get("status") or [""])[0] or None,
+            sort=(qs.get("sort") or [""])[0] or None,
+            lang=lang,
+        )
+        self._send(200, "application/json; charset=utf-8", _json(cards))
+
+    def _get_glossary_missing(self, parsed: Any, lang: str) -> None:
+        self._send(200, "application/json; charset=utf-8", _json(glossary_missing()))
+
+    def _get_glossary_card(self, parsed: Any, lang: str) -> None:
+        card_id = parsed.path[len("/api/glossary/") :]
+        card = glossary_get(card_id, lang=lang)
+        if card is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "kind": "error",
+                        **message_fields("glossary_card_not_found", lang, card_id=card_id),
+                    }
+                ),
             )
         else:
-            self._send(404, "text/plain; charset=utf-8", b"not found")
+            self._send(200, "application/json; charset=utf-8", _json(card))
+
+    def _get_rules(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        cards = rules_search(
+            (qs.get("q") or [""])[0],
+            tag=(qs.get("tag") or [""])[0] or None,
+        )
+        self._send(200, "application/json; charset=utf-8", _json(cards))
+
+    def _get_insights(self, parsed: Any, lang: str) -> None:
+        self._send(200, "application/json; charset=utf-8", _json(insights_cards()))
+
+    def _get_progress(self, parsed: Any, lang: str) -> None:
+        # issue #431: TTFG — попыток/времени до первого AC по задачам.
+        self._send(200, "application/json; charset=utf-8", _json(progress_rows()))
+
+    def _get_rule_card(self, parsed: Any, lang: str) -> None:
+        code = parsed.path[len("/api/rules/") :]
+        card = rules_get(code)
+        if card is None:
+            self._send(
+                404,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("rule_card_not_found", lang, code=code)}),
+            )
+        else:
+            self._send(200, "application/json; charset=utf-8", _json(card))
+
+    def _get_commands(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        raw_context = (qs.get("context") or [""])[0]
+        context = {tag for tag in raw_context.split(",") if tag} or None
+        self._send(200, "application/json; charset=utf-8", _json(filter_commands(context)))
+
+    def _get_solutions(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {
+                "kind": "error",
+                **message_fields("specify_path_folder", lang),
+                "files": [],
+            }
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return
+            data = list_solutions(confined, lang=lang)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_source(self, parsed: Any, lang: str) -> None:
+        qs = parse_qs(parsed.query)
+        path = (qs.get("path") or [""])[0].strip()
+        if not path:
+            data: dict[str, Any] = {"kind": "error", **message_fields("specify_path_file", lang)}
+        else:
+            confined = self._confined_path(path, lang)
+            if confined is None:
+                return
+            data = read_source(confined, lang=lang)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _get_auth_status(self, parsed: Any, lang: str) -> None:
+        # issue #402: валиден ли токен Stepik по secrets.json в workspace.
+        secrets_path = self.server.workspace / "secrets.json"
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json(auth_adapter.auth_status(secrets_path)),
+        )
 
     def do_POST(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
-        parsed = urlparse(self.path)
-        if parsed.path == "/api/v1/runs":
-            self._handle_create_run(parsed)
-            return
-        if parsed.path.startswith("/api/v1/runs/") and parsed.path.endswith("/cancel"):
-            self._handle_cancel_run(parsed)
-            return
-        if parsed.path == "/api/auth/start":
-            self._handle_auth_start(parsed)
-            return
-        if parsed.path not in (
-            "/api/download",
-            "/api/save-solution",
-            "/api/code-terms",
-            "/api/import-reference",
-        ):
-            self._send(404, "text/plain; charset=utf-8", b"not found")
-            return
+        self._dispatch(self._API_POST_EXACT, self._API_POST_PREFIX, urlparse(self.path))
+
+    def _guard_and_read_body(self, parsed: Any) -> tuple[str, dict[str, Any]] | None:
+        """Общий preamble body-эндпоинтов POST (issue #427): localhost/Origin
+        guard (#242/#399) + чтение/валидация JSON-тела (#259). Возвращает
+        ``(lang, body)`` либо ``None``, уже отправив 400/403/413 (паттерн
+        «ответ внутри, отказ через None», как ``_confined_path``). Group A
+        (create-run/cancel/auth-start) держат свой preamble внутри себя."""
         lang = _lang_from_query(parsed)
         if not self._guard_request(lang):
-            return
+            return None
         body = self._read_json_body(lang)
         if body is None:
+            return None
+        return lang, body
+
+    def _post_code_terms(self, parsed: Any) -> None:
+        # issue #321/#322: мини-карточки глоссария по коду. Тело — либо {code}
+        # (режим 1/песочница, debounce), либо {path} (режим 2, разово после
+        # прогона): path конфайнится и читается, пробелы решения дозаписываются
+        # в очередь «Недостающее» (practice-driven канал).
+        res = self._guard_and_read_body(parsed)
+        if res is None:
             return
-        if parsed.path == "/api/code-terms":
-            # issue #321/#322: мини-карточки глоссария по коду. Тело — либо
-            # {code} (режим 1/песочница, debounce), либо {path} (режим 2, разово
-            # после прогона): path конфайнится и читается, пробелы решения
-            # дозаписываются в очередь «Недостающее» (practice-driven канал).
-            terms_path = str(body.get("path") or "").strip()
-            if terms_path:
-                confined = self._confined_path(terms_path, lang)
-                if confined is None:
-                    return  # _confined_path уже отправил ошибку
-                try:
-                    terms_code = confined.read_text(encoding="utf-8")
-                except (OSError, UnicodeDecodeError):
-                    # issue #423: не-UTF8 файл не должен ронять /api/code-terms —
-                    # best-effort детект пробелов на пустом коде.
-                    terms_code = ""
-                queue_code_gaps(terms_code, source=confined.name)
-            else:
-                raw_code = body.get("code")
-                terms_code = raw_code if isinstance(raw_code, str) else ""
+        lang, body = res
+        terms_path = str(body.get("path") or "").strip()
+        if terms_path:
+            confined = self._confined_path(terms_path, lang)
+            if confined is None:
+                return  # _confined_path уже отправил ошибку
+            try:
+                terms_code = confined.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                # issue #423: не-UTF8 файл не должен ронять /api/code-terms —
+                # best-effort детект пробелов на пустом коде.
+                terms_code = ""
+            queue_code_gaps(terms_code, source=confined.name)
+        else:
+            raw_code = body.get("code")
+            terms_code = raw_code if isinstance(raw_code, str) else ""
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"terms": code_terms(terms_code, lang=lang)}),
+        )
+
+    def _post_download(self, parsed: Any) -> None:
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        url = str(body.get("url") or "").strip()
+        if not url:
             self._send(
-                200,
+                400,
                 "application/json; charset=utf-8",
-                _json({"terms": code_terms(terms_code, lang=lang)}),
+                _json({"ok": False, **message_fields("specify_url", lang)}),
             )
             return
-        if parsed.path == "/api/download":
-            url = str(body.get("url") or "").strip()
-            if not url:
-                self._send(
-                    400,
-                    "application/json; charset=utf-8",
-                    _json({"ok": False, **message_fields("specify_url", lang)}),
-                )
-                return
-            # issue #401: root (куда скачивать) из тела запроса — конфайнить в
-            # workspace, иначе download_task через mkdir создаёт произвольные
-            # каталоги вне рабочей директории.
-            raw_root = str(body.get("root") or "").strip()
-            if raw_root:
-                confined = self._confined_path(raw_root, lang)
-                if confined is None:
-                    return  # _confined_path уже отправил 403
-                root: str | None = str(confined)
-            else:
-                root = None
-            data = download_task(url, root=root)
-        elif parsed.path == "/api/import-reference":
-            # issue #55: закреплённое решение Stepik → task{N}_{100+}.py в папке
-            # задачи. path конфайнится в workspace (как download's root).
-            raw_folder = str(body.get("path") or "").strip()
-            if not raw_folder:
-                self._send(
-                    400,
-                    "application/json; charset=utf-8",
-                    _json({"ok": False, **message_fields("specify_folder", lang)}),
-                )
-                return
-            confined_dir = self._confined_path(raw_folder, lang)
-            if confined_dir is None:
+        # issue #401: root (куда скачивать) из тела запроса — конфайнить в
+        # workspace, иначе download_task через mkdir создаёт произвольные
+        # каталоги вне рабочей директории.
+        raw_root = str(body.get("root") or "").strip()
+        if raw_root:
+            confined = self._confined_path(raw_root, lang)
+            if confined is None:
                 return  # _confined_path уже отправил 403
-            raw_top = body.get("top")
-            top = raw_top if isinstance(raw_top, int) and raw_top > 0 else DEFAULT_MAX_TOP
-            data = import_reference(str(confined_dir), top=top)
-        else:  # /api/save-solution
-            raw_folder = str(body.get("folder") or "").strip()
-            if not raw_folder:
-                self._send(
-                    400,
-                    "application/json; charset=utf-8",
-                    _json({"ok": False, **message_fields("specify_folder", lang)}),
-                )
-                return
-            confined_folder = self._confined_path(raw_folder, lang)
-            if confined_folder is None:
-                return
-            code = body.get("code")
-            if not isinstance(code, str):
-                self._send(
-                    400,
-                    "application/json; charset=utf-8",
-                    _json({"ok": False, **message_fields("specify_code", lang)}),
-                )
-                return
-            raw_path = str(body.get("path") or "").strip() or None
-            target_path: pathlib.Path | None = None
-            if raw_path:
-                confined_target = self._confined_path(raw_path, lang)
-                if confined_target is None:
-                    return
-                target_path = confined_target
-            # issue #297: optimistic locking — фронтенд присылает mtime,
-            # запомненный при загрузке файла; save_solution откажет с
-            # conflict=True, если файл на диске с тех пор изменился. Нечисловое/
-            # отсутствующее значение → None (проверка не применяется).
-            raw_mtime = body.get("expected_mtime")
-            expected_mtime = float(raw_mtime) if isinstance(raw_mtime, int | float) else None
-            data = save_solution(
-                confined_folder, target_path, code, lang=lang, expected_mtime=expected_mtime
+            root: str | None = str(confined)
+        else:
+            root = None
+        data = download_task(url, root=root)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _post_import_reference(self, parsed: Any) -> None:
+        # issue #55: закреплённое решение Stepik → task{N}_{100+}.py в папке
+        # задачи. path конфайнится в workspace (как download's root).
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        raw_folder = str(body.get("path") or "").strip()
+        if not raw_folder:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("specify_folder", lang)}),
             )
+            return
+        confined_dir = self._confined_path(raw_folder, lang)
+        if confined_dir is None:
+            return  # _confined_path уже отправил 403
+        raw_top = body.get("top")
+        top = raw_top if isinstance(raw_top, int) and raw_top > 0 else DEFAULT_MAX_TOP
+        data = import_reference(str(confined_dir), top=top)
+        self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _post_save_solution(self, parsed: Any) -> None:
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        raw_folder = str(body.get("folder") or "").strip()
+        if not raw_folder:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("specify_folder", lang)}),
+            )
+            return
+        confined_folder = self._confined_path(raw_folder, lang)
+        if confined_folder is None:
+            return
+        code = body.get("code")
+        if not isinstance(code, str):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("specify_code", lang)}),
+            )
+            return
+        raw_path = str(body.get("path") or "").strip() or None
+        target_path: pathlib.Path | None = None
+        if raw_path:
+            confined_target = self._confined_path(raw_path, lang)
+            if confined_target is None:
+                return
+            target_path = confined_target
+        # issue #297: optimistic locking — фронтенд присылает mtime, запомненный
+        # при загрузке файла; save_solution откажет с conflict=True, если файл на
+        # диске с тех пор изменился. Нечисловое/отсутствующее значение → None
+        # (проверка не применяется).
+        raw_mtime = body.get("expected_mtime")
+        expected_mtime = float(raw_mtime) if isinstance(raw_mtime, int | float) else None
+        data = save_solution(
+            confined_folder, target_path, code, lang=lang, expected_mtime=expected_mtime
+        )
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _read_json_body(self, lang: str = DEFAULT_LANG) -> dict[str, Any] | None:
