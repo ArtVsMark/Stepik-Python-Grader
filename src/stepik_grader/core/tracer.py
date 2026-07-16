@@ -32,7 +32,6 @@ from __future__ import annotations
 import contextlib
 import io
 import json
-import os
 import pathlib
 import sys
 import tempfile
@@ -41,7 +40,7 @@ from typing import Any
 
 from stepik_grader.core.runner import RunSpec
 
-__all__ = ["trace_code", "DEFAULT_MAX_STEPS"]
+__all__ = ["DEFAULT_MAX_STEPS", "trace_code"]
 
 DEFAULT_MAX_STEPS = 1000
 _MAX_STR = 200  # обрезка длинных строк в трейсе
@@ -123,7 +122,7 @@ def _encode_obj(value: Any, heap: dict[str, Any], depth: int) -> dict[str, Any]:
 def _safe_repr(value: Any) -> str:
     try:
         return repr(value)
-    except Exception:  # noqa: BLE001 — repr пользовательского объекта может кинуть что угодно
+    except Exception:
         return f"<{type(value).__name__}>"
 
 
@@ -216,7 +215,7 @@ def run_trace(code: str, target_file: str, max_steps: int = DEFAULT_MAX_STEPS) -
     sys.settrace(tracer)
     try:
         exec(compiled, namespace)  # noqa: S102 — доверенный код песочницы (нет OS-sandbox)
-    except BaseException as exc:  # noqa: BLE001 — ошибку исполнения показываем как шаг-исключение
+    except BaseException as exc:
         error = {"type": type(exc).__name__, "message": str(exc)}
     finally:
         sys.settrace(prev_trace)  # вернуть, что было (не None) — не глушить coverage/pdb
@@ -303,7 +302,10 @@ def trace_code(
         "_sys.stdout.write(_json.dumps(_result, ensure_ascii=False, allow_nan=False))\n"
     )
 
-    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding="utf-8", delete=False)
+    # delete=False намеренно: путь файла уходит в RunSpec раннеру, чистится в finally.
+    tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
+        mode="w", suffix=".py", encoding="utf-8", delete=False
+    )
     try:
         tmp.write(bootstrap)
         tmp.close()
@@ -317,7 +319,7 @@ def trace_code(
         )
     finally:
         with contextlib.suppress(OSError):  # уборка временного файла
-            os.unlink(tmp.name)
+            pathlib.Path(tmp.name).unlink()
 
     if outcome.timed_out:  # pragma: no cover — таймаут долгого трейса
         return {

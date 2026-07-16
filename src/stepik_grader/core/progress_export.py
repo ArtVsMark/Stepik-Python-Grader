@@ -25,8 +25,8 @@ from stepik_grader.core import history, insights
 __all__ = [
     "SCHEMA",
     "build_progress_report",
-    "render_markdown",
     "render_html",
+    "render_markdown",
 ]
 
 # Версия формата агрегата — для будущего импорта «класса» (AC #432).

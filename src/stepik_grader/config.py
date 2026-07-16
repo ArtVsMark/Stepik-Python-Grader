@@ -24,7 +24,7 @@ import pathlib
 import tomllib
 from dataclasses import dataclass
 
-__all__ = ["GraderConfig", "load_config", "get_config", "CONFIG"]  # noqa: F822 (CONFIG — module __getattr__, PEP 562)
+__all__ = ["CONFIG", "GraderConfig", "get_config", "load_config"]  # noqa: F822 (CONFIG — module __getattr__, PEP 562)
 
 _ENV_CONFIG_PATH = "STEPIK_GRADER_CONFIG"
 

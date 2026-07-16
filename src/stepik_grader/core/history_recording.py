@@ -21,10 +21,10 @@ from typing import Any
 from stepik_grader.core import glossary, history, insights
 
 __all__ = [
-    "cases_from_test_results",
     "cases_from_bench_results",
-    "lint_records_from_violations",
+    "cases_from_test_results",
     "default_history_db_path",
+    "lint_records_from_violations",
 ]
 
 

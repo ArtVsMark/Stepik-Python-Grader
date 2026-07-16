@@ -15,10 +15,10 @@ from typing import Any
 from urllib.parse import urlparse
 
 __all__ = [
-    "parse_stepik_step_url",
+    "extract_function_name",
     "extract_python_code",
     "extract_submission_code",
-    "extract_function_name",
+    "parse_stepik_step_url",
     "pick_solutions_thread",
 ]
 

@@ -113,7 +113,7 @@ def download_task(url: str, *, root: str | None = None) -> dict[str, Any]:
         return {"ok": False, "message": str(exc)}
     except requests.RequestException as exc:
         return {"ok": False, "message": f"Сетевая ошибка при обращении к Stepik: {exc}"}
-    except Exception as exc:  # noqa: BLE001 — веб-адаптер не должен падать 500 на любой сбой fetch_*
+    except Exception as exc:
         return {"ok": False, "message": f"Непредвиденная ошибка: {exc}"}
 
     files = sorted(p.name for p in task_dir.iterdir() if p.is_file())

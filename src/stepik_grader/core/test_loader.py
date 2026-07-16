@@ -27,11 +27,11 @@ from stepik_grader.core.parsers import parse_testblock_file as _parse_testblock_
 
 __all__ = [
     "TestCase",
-    "is_solution_file",
-    "find_all_solution_files",
     "collect_grouped_files",
-    "load_text_lines",
+    "find_all_solution_files",
+    "is_solution_file",
     "load_test_cases",
+    "load_text_lines",
     "resolve_test_dir",
 ]
 
@@ -49,6 +49,8 @@ _SOLUTION_FILE_RE = re.compile(r"task(?:\d+)?(?:_\d+)?\.py")
 
 @dataclass
 class TestCase:
+    """Один тест-кейс: индекс, входные/ожидаемые строки и тип запуска (stdin/function)."""
+
     __test__ = False  # prevent pytest from collecting this as a test class
     index: int
     input_lines: list[str]
@@ -68,6 +70,7 @@ def is_solution_file(file_name: str) -> bool:
 
 
 def find_all_solution_files(directory: pathlib.Path) -> list[pathlib.Path]:
+    """Рекурсивно собрать все файлы-решения в ``directory`` (отсортировано)."""
     scripts = []
 
     for root, _, files in os.walk(directory):
@@ -79,6 +82,7 @@ def find_all_solution_files(directory: pathlib.Path) -> list[pathlib.Path]:
 
 
 def collect_grouped_files(directory: pathlib.Path) -> dict[str, list[pathlib.Path]]:
+    """Сгруппировать файлы-решения по номеру задачи (ключ — ``taskN``)."""
     grouped: dict[str, list[pathlib.Path]] = defaultdict(list)
 
     for root, _, files in os.walk(directory):

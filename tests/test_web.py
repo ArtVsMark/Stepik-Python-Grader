@@ -739,7 +739,7 @@ def server(tmp_path: pathlib.Path, server_factory) -> str:
 def _get(url: str, headers: dict[str, str] | None = None) -> tuple[int, bytes]:
     req = urllib.request.Request(url, headers=headers or {})
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
+        with urllib.request.urlopen(req, timeout=5) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
@@ -808,13 +808,13 @@ class TestHttpHandler:
     # -- static routes (issue #125 — JS/CSS extracted from _INDEX_HTML) ------
 
     def test_static_app_css_served(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:  # noqa: S310
+        with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:
             assert resp.status == 200
             assert "text/css" in resp.headers["Content-Type"]
             assert b":root" in resp.read()
 
     def test_static_app_js_served(self, server: str) -> None:
-        with urllib.request.urlopen(server + "/static/app.js", timeout=5) as resp:  # noqa: S310
+        with urllib.request.urlopen(server + "/static/app.js", timeout=5) as resp:
             assert resp.status == 200
             assert "javascript" in resp.headers["Content-Type"]
             # issue #426: app.js is now the ES-module entry that imports the
@@ -833,7 +833,7 @@ class TestHttpHandler:
         ],
     )
     def test_static_font_served(self, server: str, name: str) -> None:
-        with urllib.request.urlopen(server + "/static/fonts/" + name, timeout=5) as resp:  # noqa: S310
+        with urllib.request.urlopen(server + "/static/fonts/" + name, timeout=5) as resp:
             assert resp.status == 200
             assert resp.headers["Content-Type"] == "font/woff2"
             body = resp.read()
@@ -942,7 +942,7 @@ def _post(url: str, body: bytes, headers: dict[str, str] | None = None) -> tuple
     for name, value in (headers or {}).items():
         req.add_header(name, value)
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
+        with urllib.request.urlopen(req, timeout=5) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()

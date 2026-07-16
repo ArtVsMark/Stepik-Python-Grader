@@ -232,7 +232,7 @@ def test_trace_code_refuses_under_sandbox(monkeypatch) -> None:
     from stepik_grader.core import grader_core
 
     class SandboxRunner:  # имя класса важно — trace_code сверяет type().__name__
-        def run(self, spec):  # noqa: ANN001, ANN201
+        def run(self, spec):
             raise AssertionError("не должно вызываться — трейс отклонён до исполнения")
 
     monkeypatch.setattr(grader_core, "_RUNNER", SandboxRunner())

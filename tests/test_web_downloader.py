@@ -261,7 +261,7 @@ def _post(url: str, body: bytes) -> tuple[int, bytes]:
     req = urllib.request.Request(url, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
+        with urllib.request.urlopen(req, timeout=5) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
@@ -301,7 +301,7 @@ class TestApiDownloadHttpEndpoint:
 
     def test_get_on_download_endpoint_is_404(self, server):
         with pytest.raises(urllib.error.HTTPError) as exc:
-            urllib.request.urlopen(server + "/api/download", timeout=5)  # noqa: S310
+            urllib.request.urlopen(server + "/api/download", timeout=5)
         assert exc.value.code == 404
 
     def test_root_outside_workspace_is_403(self, server, tmp_path):

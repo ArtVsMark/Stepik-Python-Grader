@@ -214,7 +214,7 @@ def _probe_usrmerge_symlink_args() -> list[str]:
         p = pathlib.Path(link)
         try:
             if p.is_symlink() and p.resolve().is_relative_to("/usr"):
-                args += ["--symlink", os.readlink(link), link]
+                args += ["--symlink", str(p.readlink()), link]
         except OSError:
             pass
     return args
@@ -250,7 +250,7 @@ def _bwrap_netns_works() -> bool:
 # scenario body serves the Linux class here and stays reusable for other backends. ---
 
 
-def _assert_normal_run(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+def _assert_normal_run(runner, tmp_path: pathlib.Path) -> None:
     path = _write_script(tmp_path, "print('hello')\n")
     outcome = runner.run(RunSpec(path=path, stdin=None, timeout=5.0))
     assert outcome.launch_error is None
@@ -258,7 +258,7 @@ def _assert_normal_run(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
     assert outcome.stdout.decode().strip() == "hello"
 
 
-def _assert_write_outside_run_dir_blocked(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+def _assert_write_outside_run_dir_blocked(runner, tmp_path: pathlib.Path) -> None:
     target = tmp_path / "escape-target.txt"
     path = _write_script(tmp_path, f"open({str(target)!r}, 'w').write('pwned')\n")
     outcome = runner.run(RunSpec(path=path, stdin=None, timeout=5.0))
@@ -266,7 +266,7 @@ def _assert_write_outside_run_dir_blocked(runner, tmp_path: pathlib.Path) -> Non
     assert outcome.returncode != 0
 
 
-def _assert_network_blocked(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+def _assert_network_blocked(runner, tmp_path: pathlib.Path) -> None:
     path = _write_script(
         tmp_path,
         "import socket\n"
@@ -280,7 +280,7 @@ def _assert_network_blocked(runner, tmp_path: pathlib.Path) -> None:  # noqa: AN
     assert b"connected" not in outcome.stdout
 
 
-def _assert_fork_bomb_contained(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+def _assert_fork_bomb_contained(runner, tmp_path: pathlib.Path) -> None:
     path = _write_script(
         tmp_path,
         "import subprocess, sys\n"
@@ -295,7 +295,7 @@ def _assert_fork_bomb_contained(runner, tmp_path: pathlib.Path) -> None:  # noqa
     assert b"spawned 200" not in outcome.stdout
 
 
-def _assert_memory_overrun_violation(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+def _assert_memory_overrun_violation(runner, tmp_path: pathlib.Path) -> None:
     path = _write_script(
         tmp_path,
         "data = []\nwhile True:\n    data.append(bytearray(10 * 1024 * 1024))\n",
@@ -308,13 +308,13 @@ def _assert_memory_overrun_violation(runner, tmp_path: pathlib.Path) -> None:  #
     assert outcome.sandbox_violation == "memory" or outcome.returncode != 0
 
 
-def _assert_output_size_violation(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+def _assert_output_size_violation(runner, tmp_path: pathlib.Path) -> None:
     path = _write_script(tmp_path, "import sys\nwhile True:\n    sys.stdout.write('x' * 65536)\n")
     outcome = runner.run(RunSpec(path=path, stdin=None, timeout=5.0))
     assert outcome.sandbox_violation == "output_size"
 
 
-def _assert_infinite_loop_times_out(runner, tmp_path: pathlib.Path) -> None:  # noqa: ANN001
+def _assert_infinite_loop_times_out(runner, tmp_path: pathlib.Path) -> None:
     path = _write_script(tmp_path, "while True:\n    pass\n")
     outcome = runner.run(RunSpec(path=path, stdin=None, timeout=2.0))
     assert outcome.timed_out is True

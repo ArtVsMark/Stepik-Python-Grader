@@ -42,7 +42,6 @@
 from __future__ import annotations
 
 import contextlib
-import os
 import pathlib
 import statistics
 import tempfile
@@ -56,10 +55,10 @@ __all__ = [
     "SIMILAR_THRESHOLD_PERCENT",
     "WARMUP_RUNS",
     "MicrobenchResult",
-    "run_microbench",
+    "apply_reference_ranking",
     "apply_relative_micro",
     "apply_relative_ranking",
-    "apply_reference_ranking",
+    "run_microbench",
 ]
 
 ENCODING: str = "utf-8"
@@ -80,18 +79,22 @@ class MicrobenchResult:
 
     @property
     def min_time(self) -> float:
+        """Минимальный per-call тайминг; 0.0 при отсутствии замеров."""
         return min(self.timings) if self.timings else 0.0
 
     @property
     def median_time(self) -> float:
+        """Медианный per-call тайминг; 0.0 при отсутствии замеров."""
         return statistics.median(self.timings) if self.timings else 0.0
 
     @property
     def mean_time(self) -> float:
+        """Средний per-call тайминг; 0.0 при отсутствии замеров."""
         return statistics.mean(self.timings) if self.timings else 0.0
 
     @property
     def max_time(self) -> float:
+        """Максимальный per-call тайминг; 0.0 при отсутствии замеров."""
         return max(self.timings) if self.timings else 0.0
 
     @property
@@ -172,7 +175,10 @@ def run_microbench(
     # памяти теперь ставит сам Runner (RunSpec.max_memory_mb).
     from stepik_grader.core import grader_core  # локальный импорт: избежать цикла в DAG
 
-    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding=ENCODING, delete=False)
+    # delete=False намеренно: путь файла уходит в RunSpec раннеру, чистится в finally.
+    tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
+        mode="w", suffix=".py", encoding=ENCODING, delete=False
+    )
     try:
         tmp.write(bench_script)
         tmp.flush()
@@ -188,7 +194,7 @@ def run_microbench(
         )
     finally:
         with contextlib.suppress(OSError):
-            os.unlink(tmp.name)
+            pathlib.Path(tmp.name).unlink()
 
     if outcome.launch_error is not None:
         return {"times": [], "error": outcome.launch_error, "peak_memory_mb": 0.0}

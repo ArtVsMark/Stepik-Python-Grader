@@ -221,8 +221,8 @@ __all__ = [
     "_run_mode_3",
     "_run_mode_4",
     "_run_tests_maybe_cached",
-    "_verdict_counts_from_cases",
     "_verdict_counts_from_bench",
+    "_verdict_counts_from_cases",
 ]
 
 

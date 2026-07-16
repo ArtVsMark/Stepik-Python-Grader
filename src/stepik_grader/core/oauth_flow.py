@@ -37,16 +37,16 @@ from stepik_grader.core.storage import load_json_file, save_secrets
 _log = get_logger("oauth_flow")  # issue #149: диагностический лог OAuth (opt-in)
 
 __all__ = [
+    "authorize_and_get_token",
+    "authorize_via_browser",
+    "create_user_session",
     "load_secrets",
     "load_secrets_dict",
-    "token_is_valid",
-    "wait_for_auth_code",
-    "authorize_via_browser",
-    "authorize_and_get_token",
-    "create_user_session",
     "make_session",
     "refresh_access_token",
+    "token_is_valid",
     "try_create_session_without_browser",
+    "wait_for_auth_code",
 ]
 
 _REQUIRED_FIELDS = ("client_id", "client_secret", "redirect_uri")

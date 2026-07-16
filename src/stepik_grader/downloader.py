@@ -87,9 +87,9 @@ from stepik_grader.downloader_config import (
 __all__ = [
     "CONFIG_FILE",
     "build_task_directory",
-    "save_task_files",
-    "process_step_url",
     "main",
+    "process_step_url",
+    "save_task_files",
 ]
 
 # Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md).
@@ -332,7 +332,7 @@ def main() -> None:
     try:
         config = load_or_create_config(config_path)
         config = normalize_config_paths(config, config_path)
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         _print(f"❌ Ошибка работы с конфигом: {error}")
         return
 
@@ -342,7 +342,7 @@ def main() -> None:
     try:
         secrets = load_secrets_dict(secrets_path)
         session = create_user_session(secrets, secrets_path)
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         # issue #433: дружелюбная ошибка со следующим шагом, а не голый текст.
         _print(f"❌ Не удалось авторизоваться в Stepik: {error}")
         _print(
@@ -360,7 +360,7 @@ def main() -> None:
             break
         try:
             process_step_url(step_url, session, root_dir)
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
             _print(f"❌ Ошибка обработки шага: {error}")
 
 

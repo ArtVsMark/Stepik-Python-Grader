@@ -37,8 +37,8 @@ __all__ = [
     "CategoryCoverage",
     "CoverageReport",
     "build_coverage_report",
-    "missing_entries_from_inventory",
     "main",
+    "missing_entries_from_inventory",
 ]
 
 try:

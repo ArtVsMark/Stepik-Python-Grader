@@ -35,12 +35,12 @@ import sys
 from pathlib import Path
 
 __all__ = [
-    "README_LINE_BUDGET",
     "CHANGELOG_MAX_VERSIONS",
-    "check_readme_budget",
-    "check_markdown_links",
-    "check_docs_index_completeness",
+    "README_LINE_BUDGET",
     "check_changelog_version_budget",
+    "check_docs_index_completeness",
+    "check_markdown_links",
+    "check_readme_budget",
     "collect_markdown_files",
     "github_slug",
     "main",

@@ -36,7 +36,7 @@ from stepik_grader.core.runner import RunOutcome, RunSpec
 from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
 from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
-__all__ = ["create_backend", "LinuxSandboxRunner"]
+__all__ = ["LinuxSandboxRunner", "create_backend"]
 
 
 def _python_tree_binds() -> list[str]:
@@ -90,7 +90,7 @@ def _usrmerge_symlink_args() -> list[str]:
     for link in ("/lib", "/lib64", "/lib32", "/libx32", "/bin", "/sbin"):
         p = Path(link)
         if p.is_symlink() and p.resolve().is_relative_to("/usr"):
-            args += ["--symlink", os.readlink(link), link]
+            args += ["--symlink", str(p.readlink()), link]
     return args
 
 

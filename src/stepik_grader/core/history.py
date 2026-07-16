@@ -36,9 +36,9 @@ __all__ = [
     "SCHEMA_VERSION",
     "CaseRecord",
     "LintRecord",
-    "record_run",
-    "read_recent_runs",
     "hash_solution",
+    "read_recent_runs",
+    "record_run",
 ]
 
 HISTORY_DB_NAME = ".grader_history.db"

@@ -14,7 +14,7 @@ from typing import Any
 from stepik_grader.core import history, insights
 from stepik_grader.rules import bundled_rules
 
-__all__ = ["rules_search", "rules_get"]
+__all__ = ["rules_get", "rules_search"]
 
 
 def _db_path(db_path: Path | None) -> Path:

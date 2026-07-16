@@ -22,9 +22,9 @@ from .models import RuleCard
 
 __all__ = [
     "BUNDLED_RULES_DIR",
+    "JsonRulesProvider",
     "RulesError",
     "RulesProvider",
-    "JsonRulesProvider",
     "bundled_rules",
 ]
 
@@ -110,7 +110,7 @@ class JsonRulesProvider:
         if not file_path.exists():
             raise RulesError(f"Файл правил не найден: {file_path}")
         try:
-            with open(file_path, encoding="utf-8") as fh:
+            with file_path.open(encoding="utf-8") as fh:
                 payload = json.load(fh)
         except json.JSONDecodeError as exc:
             raise RulesError(f"{file_path}: невалидный JSON — {exc}") from exc

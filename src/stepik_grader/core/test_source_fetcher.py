@@ -27,7 +27,7 @@ from stepik_grader.core.stepik_client import (
 )
 from stepik_grader.core.tests_writer import write_testblock_tests
 
-__all__ = ["download_zip_tests", "download_github_tests"]
+__all__ = ["download_github_tests", "download_zip_tests"]
 
 _GITHUB_TREE_RE = re.compile(
     r"github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/(?:tree|blob)/(?P<branch>[^/]+)/(?P<path>.+)"

@@ -23,17 +23,17 @@ if TYPE_CHECKING:
 
 __all__ = [
     "fmt_time",
-    "format_correctness_row",
-    "print_correctness_header",
-    "print_correctness_results",
     "format_benchmark_row",
+    "format_correctness_row",
     "print_benchmark_header",
     "print_benchmark_results",
     "print_case_verbose",
-    "print_stats_summary",
+    "print_correctness_header",
+    "print_correctness_results",
     "print_insights_summary",
-    "print_progress_summary",
     "print_lint_block",
+    "print_progress_summary",
+    "print_stats_summary",
     "rich_track",
 ]
 
@@ -70,7 +70,8 @@ except ImportError:  # pragma: no cover
     class Text:  # type: ignore[no-redef]
         pass
 
-    def rich_track(sequence: Any, description: str = "") -> Any:  # type: ignore[misc]  # noqa: ARG001
+    def rich_track(sequence: Any, description: str = "") -> Any:  # type: ignore[misc]
+        """Fallback-заглушка ``rich.progress.track`` (rich не установлен): без прогресс-бара."""
         return sequence
 
 
