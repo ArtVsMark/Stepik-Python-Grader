@@ -17,15 +17,15 @@ from typing import Any
 from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
 
 __all__ = [
-    "DEFAULT_ROOT_DIR",
     "DEFAULT_REDIRECT_URI",
+    "DEFAULT_ROOT_DIR",
     "STEPIK_OAUTH_APPS_URL",
-    "slugify",
     "ask_value",
     "create_or_update_config",
     "create_secrets_interactively",
     "load_or_create_config",
     "normalize_config_paths",
+    "slugify",
 ]
 
 # Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md).

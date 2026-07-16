@@ -28,9 +28,9 @@ __all__ = [
     "GlossaryError",
     "GlossaryProvider",
     "JsonGlossaryProvider",
+    "append_missing_entries",
     "load_missing_queue",
     "save_missing_queue",
-    "append_missing_entries",
 ]
 
 # Комплектная база карточек (581 карточка, импорт из Glossary-Python, issue
@@ -130,7 +130,7 @@ class JsonGlossaryProvider:
         if not file_path.exists():
             raise GlossaryError(f"Файл глоссария не найден: {file_path}")
         try:
-            with open(file_path, encoding="utf-8") as fh:
+            with file_path.open(encoding="utf-8") as fh:
                 payload = json.load(fh)
         except json.JSONDecodeError as exc:
             raise GlossaryError(f"{file_path}: невалидный JSON — {exc}") from exc
@@ -186,7 +186,7 @@ def load_missing_queue(path: pathlib.Path) -> list[GlossaryMissingEntry]:
     if not path.exists():
         return []
     try:
-        with open(path, encoding="utf-8") as fh:
+        with path.open(encoding="utf-8") as fh:
             payload = json.load(fh)
     except json.JSONDecodeError as exc:
         raise GlossaryError(f"{path}: невалидный JSON очереди — {exc}") from exc
@@ -209,7 +209,7 @@ def save_missing_queue(path: pathlib.Path, entries: list[GlossaryMissingEntry]) 
     """Записать очередь пополнения в JSON-файл (создавая родительские директории)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = [entry.to_dict() for entry in entries]
-    with open(path, "w", encoding="utf-8") as fh:
+    with path.open("w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2)
 
 

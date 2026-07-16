@@ -31,9 +31,9 @@ import sys
 from pathlib import Path
 
 __all__ = [
-    "collect_referenced_message_ids",
     "check_en_ru_key_parity",
     "check_ru_covers_referenced_ids",
+    "collect_referenced_message_ids",
     "load_locale_keys",
     "main",
 ]

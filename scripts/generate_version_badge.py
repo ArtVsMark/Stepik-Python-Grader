@@ -28,7 +28,7 @@ import json
 import pathlib
 from collections.abc import Callable
 
-__all__ = ["load_project_version_fn", "build_badge_payload", "main"]
+__all__ = ["build_badge_payload", "load_project_version_fn", "main"]
 
 _VERSION_SCRIPT = pathlib.Path(__file__).resolve().parent / "version.py"
 

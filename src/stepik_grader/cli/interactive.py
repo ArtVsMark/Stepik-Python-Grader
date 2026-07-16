@@ -31,6 +31,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import pathlib
 
 from stepik_grader.cli.context import CliContext
@@ -348,10 +349,8 @@ def _interactive_menu(ctx: CliContext) -> None:
             from stepik_grader import web
 
             web_history = settings.record_history is not False
-            try:
+            with contextlib.suppress(KeyboardInterrupt):
                 web.run_server(record_history=web_history)
-            except KeyboardInterrupt:
-                pass
 
         elif choice == "7":
             # issue #430: тумблер записи истории, сохраняемый между запусками.

@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import contextlib
 import difflib
-import os
 import pathlib
 import statistics
 import tempfile
@@ -38,17 +37,17 @@ from stepik_grader.config import CONFIG
 __all__ = [
     "BenchStats",
     "TestCase",
+    "collect_grouped_files",
+    "find_all_solution_files",
     "is_function_only_solution",
     "is_solution_file",
-    "find_all_solution_files",
-    "collect_grouped_files",
     "load_test_cases",
     "load_text_lines",
-    "run_single_test",
-    "run_tests",
+    "resolve_test_dir",
     "run_benchmark",
     "run_microbench_mode",
-    "resolve_test_dir",
+    "run_single_test",
+    "run_tests",
     "set_runner",
 ]
 # TIMEOUT_SECONDS/ENCODING/SIMILAR_THRESHOLD/MUCH_SLOWER_THRESHOLD/
@@ -85,7 +84,7 @@ from stepik_grader.core.normalizers import normalize_floats as _normalize_output
 from stepik_grader.core.result import CaseResult, Verdict
 from stepik_grader.core.runner import (
     LocalRunner,
-    Runner,  # noqa: F401  (реэкспорт — часть публичного API Runner-абстракции)
+    Runner,
     RunOutcome,
     RunSpec,
     _apply_memory_limit,  # noqa: F401  (реэкспорт для тестов/grader.py facade)
@@ -297,7 +296,9 @@ def _prepare_run_spec(
             return _RunPlan(error=str(exc))
 
     # Записываем wrapper во временный файл; run_single_test удалит его после запуска.
-    tmp_wrapper = tempfile.NamedTemporaryFile(
+
+    # путь уходит в RunSpec раннеру), удаляется вызывающей стороной после запуска.
+    tmp_wrapper = tempfile.NamedTemporaryFile(  # noqa: SIM115
         mode="w",
         suffix=".py",
         encoding=ENCODING,
@@ -472,7 +473,7 @@ def run_single_test(
         # Удаляем временный wrapper-файл (contextlib.suppress — безопасно при краше)
         if plan.tmp_wrapper_path is not None:
             with contextlib.suppress(OSError):
-                os.unlink(plan.tmp_wrapper_path)
+                plan.tmp_wrapper_path.unlink()
 
     return _map_outcome_to_result(outcome, case, timeout)
 

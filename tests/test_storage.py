@@ -185,7 +185,7 @@ def test_save_secrets_fixes_permissions_of_preexisting_wide_open_file(
     """Файл, оставшийся от старой версии с широкими правами, приводится к 0600."""
     secrets_file = tmp_path / "secrets.json"
     secrets_file.write_text("{}", encoding="utf-8")
-    os.chmod(secrets_file, 0o644)
+    secrets_file.chmod(0o644)
 
     save_secrets(secrets_file, {"access_token": "AT"})
 

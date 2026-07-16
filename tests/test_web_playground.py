@@ -175,12 +175,12 @@ def _post(url: str, body: dict) -> tuple[int, dict]:
     req = urllib.request.Request(
         url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
     )
-    with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
+    with urllib.request.urlopen(req, timeout=5) as resp:
         return resp.status, json.loads(resp.read())
 
 
 def _get(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310
+    with urllib.request.urlopen(url, timeout=5) as resp:
         return json.loads(resp.read())
 
 

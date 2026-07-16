@@ -35,7 +35,7 @@ def _make_scripted_handler(statuses: list[int]) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(b"{}")
 
-        def log_message(self, format: str, *args: object) -> None:  # noqa: A002
+        def log_message(self, format: str, *args: object) -> None:
             pass  # тихий сервер — не засорять test output
 
     ScriptedHandler.request_count = request_count  # type: ignore[attr-defined]

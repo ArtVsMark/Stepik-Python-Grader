@@ -17,7 +17,6 @@ guard'ы (localhost-only, лимит тела #259) — забота ``server.py
 from __future__ import annotations
 
 import contextlib
-import os
 import pathlib
 import tempfile
 import threading
@@ -57,7 +56,10 @@ def run_playground(
     через ``cancel_event``). Никакой сверки с ожидаемым выводом — это
     песочница, не грейдинг.
     """
-    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".py", encoding="utf-8", delete=False)
+    # delete=False намеренно: путь файла уходит в RunSpec раннеру, чистится в finally.
+    tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
+        mode="w", suffix=".py", encoding="utf-8", delete=False
+    )
     try:
         tmp.write(code)
         tmp.close()
@@ -73,7 +75,7 @@ def run_playground(
         )
     finally:
         with contextlib.suppress(OSError):  # уборка временного файла
-            os.unlink(tmp.name)
+            pathlib.Path(tmp.name).unlink()
 
     duration_ms = int(outcome.elapsed * 1000)
     if outcome.launch_error is not None:

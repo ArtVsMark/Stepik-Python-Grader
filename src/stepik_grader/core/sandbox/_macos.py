@@ -55,7 +55,7 @@ from stepik_grader.core.runner import RunOutcome, RunSpec
 from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
 from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
-__all__ = ["create_backend", "MacSandboxRunner"]
+__all__ = ["MacSandboxRunner", "create_backend"]
 
 _DEPRECATION_MARKERS = (b"sandbox-exec", b"deprecated")
 

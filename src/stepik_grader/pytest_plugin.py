@@ -95,6 +95,7 @@ class GraderFile(pytest.File):
     """Коллектор одного файла-решения: один Item на тест-кейс."""
 
     def collect(self) -> Iterable[GraderItem]:
+        """Собрать по одному ``GraderItem`` на каждый тест-кейс файла-решения."""
         from stepik_grader.core.test_loader import (
             _apply_run_mode_override,
             load_test_cases,
@@ -124,6 +125,7 @@ class GraderItem(pytest.Item):
         self.solution = solution
 
     def runtest(self) -> None:
+        """Прогнать кейс через ``run_single_test``; провал → ``GraderFailure``."""
         from stepik_grader.core.grader_core import run_single_test
 
         result = run_single_test(self.solution, self.case)
@@ -149,4 +151,5 @@ class GraderItem(pytest.Item):
         return super().repr_failure(excinfo)
 
     def reportinfo(self) -> tuple[os.PathLike[str] | str, int | None, str]:
+        """Заголовок отчёта pytest для кейса (путь, строка, человекочитаемое имя)."""
         return self.path, 0, f"grader: {self.name}"

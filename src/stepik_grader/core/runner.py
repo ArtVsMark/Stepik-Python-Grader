@@ -23,6 +23,7 @@ verdict/diff остаётся выше по стеку (``grader_core.py``); ``R
 
 from __future__ import annotations
 
+import contextlib
 import os
 import pathlib
 import signal
@@ -44,7 +45,7 @@ try:
 except ImportError:
     resource = None  # type: ignore[assignment]
 
-__all__ = ["RunSpec", "RunOutcome", "Runner", "LocalRunner"]
+__all__ = ["LocalRunner", "RunOutcome", "RunSpec", "Runner"]
 
 # issue #418: после kill дерева процессов даём ограниченное время на reap —
 # внук, унаследовавший pipe, может держать его открытым, и тогда
@@ -148,13 +149,11 @@ def _apply_memory_limit(pid: int, max_memory_mb: int | None) -> None:
     if resource is None or max_memory_mb is None:
         return
     limit_bytes = max_memory_mb * 1024 * 1024
-    try:
-        # typeshed помечает prlimit/RLIMIT_AS Linux-only; на macOS prlimit
-        # отсутствует (AttributeError), OSError — нет процесса/прав, ValueError —
-        # некорректный лимит. Любую из них глотаем: лишь пропускаем cap.
+    # typeshed помечает prlimit/RLIMIT_AS Linux-only; на macOS prlimit
+    # отсутствует (AttributeError), OSError — нет процесса/прав, ValueError —
+    # некорректный лимит. Любую из них глотаем: лишь пропускаем cap.
+    with contextlib.suppress(AttributeError, ValueError, OSError):
         resource.prlimit(pid, resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
-    except (AttributeError, ValueError, OSError):
-        pass
 
 
 def _measure_peak_memory(
@@ -234,10 +233,8 @@ def _write_stdin(pipe: Any, data: bytes | None) -> None:
     except (BrokenPipeError, OSError):
         pass
     finally:
-        try:
+        with contextlib.suppress(OSError):
             pipe.close()
-        except OSError:
-            pass
 
 
 def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
@@ -259,24 +256,18 @@ def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
         children = []
 
     if os.name == "posix":
-        try:
-            # os.killpg/getpgid + signal.SIGKILL — POSIX-only, отсутствуют в
-            # typeshed под Windows; ветка защищена os.name, но CI гоняет mypy на
-            # каждой ОС матрицы (та же причина, что SIGXCPU в _posix_common.py).
+        # os.killpg/getpgid + signal.SIGKILL — POSIX-only, отсутствуют в
+        # typeshed под Windows; ветка защищена os.name, но CI гоняет mypy на
+        # каждой ОС матрицы (та же причина, что SIGXCPU в _posix_common.py).
+        with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)  # type: ignore[attr-defined]
-        except (ProcessLookupError, PermissionError, OSError):
-            pass
 
-    try:
+    with contextlib.suppress(OSError):
         proc.kill()
-    except OSError:
-        pass
 
     for child in children:
-        try:
+        with contextlib.suppress(psutil.NoSuchProcess, psutil.AccessDenied):
             child.kill()
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
 
 
 def _reap_after_kill(proc: subprocess.Popen[bytes]) -> tuple[bytes, bytes]:
@@ -306,6 +297,12 @@ class LocalRunner:
     """
 
     def run(self, spec: RunSpec) -> RunOutcome:
+        """Исполнить ``spec`` в subprocess и вернуть сырой ``RunOutcome``.
+
+        Реализация ``Runner``-протокола по умолчанию (без ОС-изоляции): запускает
+        интерпретатор через ``sys.executable``, подаёт stdin, замеряет время и
+        пиковую память (psutil-поток), при TLE/cancel убивает группу процессов.
+        """
         peak_mb_result: list[float] = [0.0]
         stop_event = threading.Event()
         mem_thread: threading.Thread | None = None
@@ -447,10 +444,8 @@ class LocalRunner:
         if cancelled or timed_out:
             # issue #418: убить всё дерево, reap ограничен по времени.
             _kill_process_tree(proc)
-            try:
+            with contextlib.suppress(subprocess.TimeoutExpired):
                 proc.wait(timeout=_KILL_REAP_TIMEOUT)
-            except subprocess.TimeoutExpired:
-                pass
 
         for reader in readers:
             reader.join(timeout=1.0)

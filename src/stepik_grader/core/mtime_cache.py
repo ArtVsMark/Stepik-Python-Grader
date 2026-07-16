@@ -18,7 +18,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-__all__ = ["mtime_signature", "MtimeCache"]
+__all__ = ["MtimeCache", "mtime_signature"]
 
 
 def mtime_signature(files: list[Path]) -> float:

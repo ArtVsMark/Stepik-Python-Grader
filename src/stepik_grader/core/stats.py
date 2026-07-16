@@ -33,7 +33,7 @@ import threading
 import time
 from typing import Any
 
-__all__ = ["STATS_FILE_NAME", "record_run", "read_summary"]
+__all__ = ["STATS_FILE_NAME", "read_summary", "record_run"]
 
 STATS_FILE_NAME = ".grader_stats.jsonl"
 _MAX_BYTES = 1 * 1024 * 1024  # 1 MiB — ротация (оставить новую половину строк)
@@ -99,7 +99,7 @@ def record_run(
     try:
         with _WRITE_LOCK:
             _rotate_if_needed(path)
-            with open(path, "a", encoding="utf-8") as f:
+            with path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except OSError:
         pass

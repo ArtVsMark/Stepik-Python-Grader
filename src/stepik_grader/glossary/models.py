@@ -21,13 +21,13 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 __all__ = [
-    "CardStatus",
     "CardKind",
-    "MissingKind",
-    "MissingStatus",
-    "MissingOrigin",
+    "CardStatus",
     "GlossaryCard",
     "GlossaryMissingEntry",
+    "MissingKind",
+    "MissingOrigin",
+    "MissingStatus",
 ]
 
 # Жизненный цикл карточки: new (обнаружена) → draft (наполняется) →

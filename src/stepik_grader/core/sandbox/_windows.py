@@ -51,6 +51,7 @@ process-count нарушения, см. докстринг ``RunOutcome.sandbox_
 
 from __future__ import annotations
 
+import contextlib
 import ctypes
 import math
 import os
@@ -67,7 +68,7 @@ from stepik_grader.config import CONFIG
 from stepik_grader.core.runner import RunOutcome, RunSpec
 from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
-__all__ = ["create_backend", "WindowsSandboxRunner"]
+__all__ = ["WindowsSandboxRunner", "create_backend"]
 
 _CREATE_SUSPENDED = 0x00000004
 
@@ -162,7 +163,7 @@ def _create_job_object(max_memory_mb: float, cpu_seconds: int, max_processes: in
 
 def _assign_and_resume(job: int, proc: subprocess.Popen[bytes]) -> None:
     kernel32 = _kernel32()
-    handle = proc._handle  # type: ignore[attr-defined]  # noqa: SLF001
+    handle = proc._handle  # type: ignore[attr-defined]
     if not kernel32.AssignProcessToJobObject(job, handle):
         raise OSError(
             "AssignProcessToJobObject failed: " + ctypes.FormatError()  # type: ignore[attr-defined]
@@ -321,14 +322,10 @@ class WindowsSandboxRunner:
 
         if proc.stdin is not None:
             if spec.stdin is not None:
-                try:
+                with contextlib.suppress(BrokenPipeError, OSError):
                     proc.stdin.write(spec.stdin)
-                except (BrokenPipeError, OSError):
-                    pass
-            try:
+            with contextlib.suppress(OSError):
                 proc.stdin.close()
-            except OSError:
-                pass
 
         timed_out = False
         while True:

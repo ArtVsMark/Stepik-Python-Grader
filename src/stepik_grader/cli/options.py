@@ -22,11 +22,11 @@ from stepik_grader.config import CONFIG
 
 __all__ = [
     "_build_arg_parser",
-    "_resolve_verbosity",
-    "_resolve_use_cache",
-    "_resolve_record_stats",
-    "_resolve_record_history",
     "_force_utf8_stdio",
+    "_resolve_record_history",
+    "_resolve_record_stats",
+    "_resolve_use_cache",
+    "_resolve_verbosity",
 ]
 
 

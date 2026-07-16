@@ -23,11 +23,11 @@ import re
 from pathlib import Path
 
 __all__ = [
-    "get_logger",
-    "configure_diagnostics",
-    "register_secret",
-    "redact",
     "DIAGNOSTICS_DIR",
+    "configure_diagnostics",
+    "get_logger",
+    "redact",
+    "register_secret",
 ]
 
 _ROOT = "stepik_grader"
@@ -92,7 +92,7 @@ class _RedactingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             message = record.getMessage()
-        except Exception:  # noqa: BLE001 — кривые %-args не должны ронять логирование
+        except Exception:
             message = str(record.msg)
         record.msg = redact(message)
         record.args = ()

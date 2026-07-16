@@ -28,9 +28,9 @@ import pathlib
 import xml.etree.ElementTree as ET
 
 __all__ = [
-    "compute_coverage_percent",
     "badge_color",
     "build_badge_payload",
+    "compute_coverage_percent",
     "main",
 ]
 

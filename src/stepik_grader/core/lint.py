@@ -25,7 +25,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-__all__ = ["DEFAULT_SELECT", "Violation", "LintUnavailable", "ruff_available", "run_lint"]
+__all__ = ["DEFAULT_SELECT", "LintUnavailable", "Violation", "ruff_available", "run_lint"]
 
 # Наборы правил ruff по умолчанию: pycodestyle errors/warnings (E/W) +
 # pyflakes (F). Совпадает с карточками rules/data/pep8_ru.json (#345).

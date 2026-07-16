@@ -15,8 +15,8 @@ import re
 from html.parser import HTMLParser
 
 __all__ = [
-    "extract_tests_from_html",
     "extract_external_test_links",
+    "extract_tests_from_html",
     "is_function_style",
 ]
 
@@ -116,7 +116,7 @@ def extract_tests_from_html(html: str) -> list[tuple[str, str, str]]:
     parser.feed(html)
     tests: list[tuple[str, str, str]] = []
     for row in parser.rows:
-        if len(row) < 3:  # noqa: PLR2004
+        if len(row) < 3:
             continue
         input_data = row[1].strip()
         expected = row[2].strip()

@@ -37,14 +37,14 @@ from stepik_grader.core.stepik_client import (
 from stepik_grader.core.storage import load_json_file, save_json_file
 
 __all__ = [
-    "ReferenceSolution",
-    "REFERENCE_SLOT_START",
     "DEFAULT_MAX_TOP",
     "DEFAULT_MIN_LIKES",
-    "select_reference_solutions",
-    "reference_slot_filename",
-    "next_free_reference_slot",
+    "REFERENCE_SLOT_START",
+    "ReferenceSolution",
     "import_references_from_task_dir",
+    "next_free_reference_slot",
+    "reference_slot_filename",
+    "select_reference_solutions",
 ]
 
 _log = get_logger("stepik_reference")
