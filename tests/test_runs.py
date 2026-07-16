@@ -255,8 +255,11 @@ class TestTtlSweep:
         job = runs.submit_job("bench", sol, {"repeats": 1, "lang": "ru"})
         _poll_until_terminal(job.id)
 
-        # Simulate TTL expiry without sleeping 15 real minutes.
-        job.created_at -= runs._JOB_TTL_SECONDS + 1
+        # Simulate TTL expiry without sleeping 15 real minutes (issue #408:
+        # TTL меряется от completed_at — момента перехода в терминал, не от
+        # created_at/постановки в очередь).
+        assert job.completed_at is not None
+        job.completed_at -= runs._JOB_TTL_SECONDS + 1
 
         assert runs.get_job(job.id) is None
 
@@ -270,9 +273,25 @@ class TestTtlSweep:
         data = _poll_until_terminal(job.id)
         assert data["status"] == "cancelled"
 
-        job.created_at -= runs._JOB_TTL_SECONDS + 1
+        assert job.completed_at is not None
+        job.completed_at -= runs._JOB_TTL_SECONDS + 1
 
         assert runs.get_job(job.id) is None
+
+    def test_long_job_kept_full_ttl_after_completion(self, tmp_path: pathlib.Path) -> None:
+        """issue #408: TTL меряется от ЗАВЕРШЕНИЯ, не от постановки в очередь —
+        job, поставленный в очередь давно (дольше TTL назад), но завершившийся
+        только что, доступен ещё TTL после финиша (раньше выметался сразу после
+        долгого bench, и следующий GET /api/v1/runs/{id} возвращал 404)."""
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        job = runs.submit_job("bench", sol, {"repeats": 1, "lang": "ru"})
+        _poll_until_terminal(job.id)
+
+        # Долгий прогон: created_at задолго до TTL, но completed_at свежий.
+        # Старим ТОЛЬКО created_at — уборка не должна тронуть job.
+        job.created_at -= 10 * runs._JOB_TTL_SECONDS
+
+        assert runs.get_job(job.id) is job  # не выметен: TTL идёт от completed_at
 
 
 class TestBackPressure:

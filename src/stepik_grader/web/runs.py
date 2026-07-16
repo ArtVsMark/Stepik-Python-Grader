@@ -54,6 +54,10 @@ __all__ = ["Job", "TooManyRunsError", "submit_job", "get_job", "cancel_job"]
 # их по-разному — см. static/app.js). message_id="run_cancelled" по-прежнему
 # заполняется в message_fields (см. _run_job()) — не только status.
 _STATUSES = ("queued", "running", "done", "error", "cancelled")
+# Терминальные статусы (issue #408): при переходе в любой из них Job штампует
+# completed_at, и TTL-уборка (_sweep_expired_locked) меряется ОТ НЕГО, а не от
+# постановки в очередь — иначе долгий bench выметается сразу после финиша.
+_TERMINAL_STATUSES = ("done", "error", "cancelled")
 
 _JOB_TTL_SECONDS = 15 * 60
 
@@ -69,14 +73,30 @@ class Job:
     def __init__(self, job_id: str, kind: str) -> None:
         self.id = job_id
         self.kind = kind  # "bench" | "microbench" — для диагностики
-        self.status: str = "queued"
+        self._status: str = "queued"
         self.created_at = time.monotonic()
+        # issue #408: момент перехода в терминальный статус (None пока job не
+        # завершилась) — от него меряется TTL-уборка, см. status.setter ниже.
+        self.completed_at: float | None = None
         self.progress: dict[str, int] = {"done": 0, "total": 0}
         self.result: dict[str, Any] | None = None
         self.message_fields: dict[str, Any] | None = None
         self.cancel_event = threading.Event()
         self.lock = threading.Lock()
         self.future: Future[None] | None = None
+
+    @property
+    def status(self) -> str:
+        return self._status
+
+    @status.setter
+    def status(self, value: str) -> None:
+        # issue #408: штампуем completed_at при ПЕРВОМ переходе в терминал —
+        # ДО присвоения _status, чтобы sweeper (читает без self.lock, под
+        # _JOBS_LOCK), увидев терминальный статус, гарантированно видел и время.
+        if value in _TERMINAL_STATUSES and self.completed_at is None:
+            self.completed_at = time.monotonic()
+        self._status = value
 
     def to_status_dict(self) -> dict[str, Any]:
         """Форма ответа ``GET /api/v1/runs/{id}`` — ``{"status","progress",
@@ -117,10 +137,13 @@ def _sweep_expired_locked() -> None:
     """Удалить завершённые job'ы старше TTL. Вызывать только под
     ``_JOBS_LOCK`` — иначе гонка на удаление/итерацию словаря."""
     now = time.monotonic()
+    # issue #408: TTL от completed_at (момент финиша), не от created_at.
+    # completed_at выставлен ⟺ job в терминальном статусе (Job.status.setter),
+    # поэтому отдельная проверка статуса больше не нужна.
     expired = [
         job_id
         for job_id, job in _JOBS.items()
-        if job.status in ("done", "error", "cancelled") and now - job.created_at > _JOB_TTL_SECONDS
+        if job.completed_at is not None and now - job.completed_at > _JOB_TTL_SECONDS
     ]
     for job_id in expired:
         del _JOBS[job_id]
