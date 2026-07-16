@@ -34,6 +34,7 @@ from stepik_grader.core.microbench_runner import (
     apply_reference_ranking,
     apply_relative_ranking,
 )
+from stepik_grader.core.mtime_cache import MtimeCache
 from stepik_grader.core.reporter import fmt_time
 from stepik_grader.core.test_loader import (
     collect_grouped_files,
@@ -181,14 +182,33 @@ def _error_card_actions(
     return actions
 
 
+# issue #404: search-термины store'а кешируются по mtime. Раньше каждый RE-кейс
+# через _queue_missing_concept заново читал и разбирал всю базу (~1.3 МБ) ради
+# набора известных терминов; теперь — один разбор на неизменный файл, инвалидация
+# по mtime (тот же MtimeCache, что у glossary_adapter #339 и rules #345).
+# Детектор строит собственный нормализованный набор и лишь читает known (см.
+# detector._normalize_known), поэтому общий set безопасно шарить между потоками.
+_TERMS_CACHE: MtimeCache[set[str]] = MtimeCache()
+
+
 def _known_glossary_terms() -> set[str]:
-    """Search-термины настроенной локальной базы (пусто, если store не задан)."""
-    if not CONFIG.glossary_store:
+    """Search-термины настроенной локальной базы (пусто, если store не задан).
+
+    Кешируется по mtime store'а (issue #404): отсутствующий store → пустое
+    множество; битый store (``GlossaryError``) → тоже пустое (best-effort, как
+    и прежде) и НЕ кешируется как ошибка (``on_error`` у MtimeCache).
+    """
+    store = CONFIG.glossary_store
+    if not store:
         return set()
-    try:
-        return JsonGlossaryProvider.load(pathlib.Path(CONFIG.glossary_store)).known_terms()
-    except GlossaryError:
-        return set()
+    p = pathlib.Path(store)
+    terms = _TERMS_CACHE.get_or_load(
+        f"store:{p}",
+        [p],
+        lambda: JsonGlossaryProvider.load(p).known_terms(),
+        on_error=GlossaryError,
+    )
+    return terms if terms is not None else set()
 
 
 def _queue_missing_concept(

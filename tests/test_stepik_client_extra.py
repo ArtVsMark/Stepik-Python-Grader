@@ -16,7 +16,6 @@ import pytest
 from stepik_grader.core import stepik_client
 from stepik_grader.core.stepik_client import (
     _cached_api_get,
-    _get_with_retry,
     authorize_via_browser,
     fetch_course_data,
     fetch_lesson_data,
@@ -136,17 +135,6 @@ class TestAuthorizeViaBrowserState:
             authorize_via_browser("cid", "cs", "http://localhost:8080/cb")
             states.append(mock_wait.call_args.args[3])
         assert states[0] != states[1]
-
-
-class TestGetWithRetryNoAttempts:
-    """_get_with_retry с retries=0 не делает попыток и бросает RuntimeError."""
-
-    def test_zero_retries_raises_runtime_error(self):
-        """retries=0 → цикл не выполняется → RuntimeError (last_exc is None)."""
-        session = MagicMock()
-        with pytest.raises(RuntimeError, match="no attempts made"):
-            _get_with_retry(session, "http://x", retries=0)
-        session.get.assert_not_called()
 
 
 class TestCachedApiGet:

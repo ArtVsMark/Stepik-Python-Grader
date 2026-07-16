@@ -114,8 +114,10 @@ class TestGlossaryI18n:
     @pytest.fixture(autouse=True)
     def _clear_cache(self):
         glossary_adapter._CARDS_CACHE.clear()
+        glossary_adapter._INDEX_CACHE.clear()  # issue #404: тот же жизненный цикл
         yield
         glossary_adapter._CARDS_CACHE.clear()
+        glossary_adapter._INDEX_CACHE.clear()
 
     @pytest.fixture
     def store_path(self, tmp_path: pathlib.Path) -> pathlib.Path:
@@ -162,8 +164,10 @@ class TestCardCache:
     @pytest.fixture(autouse=True)
     def _clear_cache(self):
         glossary_adapter._CARDS_CACHE.clear()
+        glossary_adapter._INDEX_CACHE.clear()  # issue #404: тот же жизненный цикл
         yield
         glossary_adapter._CARDS_CACHE.clear()
+        glossary_adapter._INDEX_CACHE.clear()
 
     @staticmethod
     def _write(path: pathlib.Path, cards: list[GlossaryCard]) -> None:
@@ -669,3 +673,69 @@ class TestCommandsHttpEndpoint:
         assert "copy_input" in ids
         assert "explain_error" in ids
         assert "open_glossary" not in ids
+
+
+class TestGlossaryIndexCache:
+    """issue #404: производные индексы источника (by_id для glossary_get, by_concept
+    для code_terms) кешируются по mtime — не пересобираются на каждый запрос."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_cache(self):
+        glossary_adapter._CARDS_CACHE.clear()
+        glossary_adapter._INDEX_CACHE.clear()
+        yield
+        glossary_adapter._CARDS_CACHE.clear()
+        glossary_adapter._INDEX_CACHE.clear()
+
+    @staticmethod
+    def _write(path: pathlib.Path, cards: list[GlossaryCard]) -> None:
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def test_index_built_once_across_consumers(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """glossary_get и code_terms делят один кешированный индекс: сбор — единожды."""
+        p = tmp_path / "g.json"
+        self._write(
+            p, [GlossaryCard(id="str.split", title="str.split", kind="function", status="ready")]
+        )
+        calls = 0
+        real_build = glossary_adapter._build_index
+
+        def counting(cards: list[GlossaryCard]) -> glossary_adapter._GlossaryIndex:
+            nonlocal calls
+            calls += 1
+            return real_build(cards)
+
+        monkeypatch.setattr(glossary_adapter, "_build_index", counting)
+        assert glossary_adapter.glossary_get("str.split", store_path=p) is not None
+        glossary_adapter.code_terms("'x'.split()", store_path=p)
+        glossary_adapter.glossary_get("str.split", store_path=p)
+        assert calls == 1  # индекс собран один раз, дальше — из кеша (оба потребителя)
+
+    def test_index_rebuilds_on_mtime_change(self, tmp_path: pathlib.Path) -> None:
+        """Правка store со сдвигом mtime → индекс пересобирается, новинка видна."""
+        p = tmp_path / "g.json"
+        self._write(p, [GlossaryCard(id="a", title="A", status="ready")])
+        assert glossary_adapter.glossary_get("a", store_path=p) is not None
+        assert glossary_adapter.glossary_get("b", store_path=p) is None  # b ещё нет
+
+        self._write(
+            p,
+            [
+                GlossaryCard(id="a", title="A", status="ready"),
+                GlossaryCard(id="b", title="B", status="ready"),
+            ],
+        )
+        st = p.stat()
+        os.utime(p, (st.st_atime + 10, st.st_mtime + 10))
+        assert glossary_adapter.glossary_get("b", store_path=p) is not None  # индекс обновился
+
+    def test_glossary_get_returns_none_for_unknown_id(self, tmp_path: pathlib.Path) -> None:
+        """by_id.get на несуществующем id → None (адаптер отдаст 404)."""
+        p = tmp_path / "g.json"
+        self._write(p, [GlossaryCard(id="a", title="A", status="ready")])
+        assert glossary_adapter.glossary_get("missing", store_path=p) is None

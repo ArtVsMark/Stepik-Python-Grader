@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -96,3 +97,61 @@ def test_bundled_rules_ids_unique_and_have_examples() -> None:
 def test_bundled_rules_dir_exists() -> None:
     assert BUNDLED_RULES_DIR.is_dir()
     assert any(BUNDLED_RULES_DIR.glob("*.json"))
+
+
+# ---------------------------------------------------------------------------
+# issue #405 (T2): каждая ветка валидации JsonRulesProvider → RulesError
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("content", "match"),
+    [
+        ("42", "ожидался список карточек"),  # корень не list/dict
+        ('{"rules": "nope"}', "должно быть списком"),  # 'rules' не список
+        ("[1, 2]", "должен быть объектом"),  # элемент не объект
+    ],
+)
+def test_provider_rejects_malformed_json_structure(
+    tmp_path: Path, content: str, match: str
+) -> None:
+    """Каждая структурная ветка `_iter_card_dicts` → понятная RulesError."""
+    f = tmp_path / "rules.json"
+    f.write_text(content, encoding="utf-8")
+    with pytest.raises(RulesError, match=match):
+        JsonRulesProvider.from_file(f)
+
+
+def test_provider_from_file_missing_raises_rules_error(tmp_path: Path) -> None:
+    """Несуществующий файл → RulesError, не голый FileNotFoundError."""
+    with pytest.raises(RulesError, match="не найден"):
+        JsonRulesProvider.from_file(tmp_path / "nope.json")
+
+
+def test_provider_from_directory_not_a_dir_raises(tmp_path: Path) -> None:
+    """from_directory на файле (не каталоге) → RulesError."""
+    f = tmp_path / "afile.json"
+    f.write_text("[]", encoding="utf-8")
+    with pytest.raises(RulesError, match="не найдена"):
+        JsonRulesProvider.from_directory(f)
+
+
+def test_provider_rejects_invalid_card(tmp_path: Path) -> None:
+    """Карточка без обязательных полей → RulesError (обёртка ValueError from_dict)."""
+    f = tmp_path / "rules.json"
+    f.write_text("[{}]", encoding="utf-8")  # пустой объект — нет обязательных полей
+    with pytest.raises(RulesError):
+        JsonRulesProvider.from_file(f)
+
+
+def test_bundled_rules_missing_dir_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Отсутствующий каталог bundled → ПУСТОЙ провайдер, не исключение (graceful
+    degradation, как у глоссария #126) — витрина покажет пустой раздел."""
+    from stepik_grader.rules import json_provider
+
+    json_provider._BUNDLED_CACHE.clear()  # сбросить возможный прогретый провайдер
+    monkeypatch.setattr(json_provider, "BUNDLED_RULES_DIR", Path("/no/such/rules/dir"))
+    provider = json_provider.bundled_rules()
+    assert isinstance(provider, JsonRulesProvider)
+    assert provider.all() == []
+    json_provider._BUNDLED_CACHE.clear()  # не оставлять монки-состояние соседям

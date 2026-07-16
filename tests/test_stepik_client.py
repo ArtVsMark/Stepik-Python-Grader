@@ -45,6 +45,12 @@ class TestTokenIsValid:
 
 
 class TestGetWithRetry:
+    """issue #404: прикладная retry-петля снята — повтор transient-сбоев (сеть,
+    429, 5xx) живёт в транспортном ``urllib3.Retry`` (см. ``make_session`` и
+    tests/test_stepik_client_retry.py). Здесь проверяется остаточный контракт
+    хелпера: один GET на уровне приложения, ``raise_for_status``, проброс ошибок.
+    """
+
     def test_success_first_try(self):
         mock_session = MagicMock()
         mock_resp = MagicMock()
@@ -54,27 +60,25 @@ class TestGetWithRetry:
         assert result is mock_resp
         assert mock_session.get.call_count == 1
 
-    def test_retries_on_network_error(self):
+    def test_single_attempt_no_application_retry(self):
+        """Сетевая ошибка пробрасывается сразу: прикладного повтора нет — ровно
+        один вызов ``session.get`` (повтор был бы на транспортном уровне)."""
+        mock_session = MagicMock()
+        mock_session.get.side_effect = requests.ConnectionError("boom")
+        with pytest.raises(requests.ConnectionError):
+            _get_with_retry(mock_session, "http://example.com")
+        assert mock_session.get.call_count == 1
+
+    def test_raise_for_status_propagates(self):
+        """Не-retryable 4xx (404/403) поднимается через ``raise_for_status`` —
+        транспортный Retry их не трогает, поэтому хелпер обязан их проявить."""
         mock_session = MagicMock()
         mock_resp = MagicMock()
-        mock_resp.raise_for_status = MagicMock()
-        mock_session.get.side_effect = [
-            requests.ConnectionError("timeout"),
-            requests.ConnectionError("timeout"),
-            mock_resp,
-        ]
-        with patch("stepik_grader.core.stepik_client.time.sleep"):
-            result = _get_with_retry(mock_session, "http://example.com", retries=3, backoff=0.01)
-        assert result is mock_resp
-        assert mock_session.get.call_count == 3
-
-    def test_raises_after_max_retries(self):
-        mock_session = MagicMock()
-        mock_session.get.side_effect = requests.ConnectionError("always fails")
-        with patch("stepik_grader.core.stepik_client.time.sleep"):
-            with pytest.raises(requests.ConnectionError):
-                _get_with_retry(mock_session, "http://example.com", retries=2, backoff=0.01)
-        assert mock_session.get.call_count == 2
+        mock_resp.raise_for_status.side_effect = requests.HTTPError("404")
+        mock_session.get.return_value = mock_resp
+        with pytest.raises(requests.HTTPError):
+            _get_with_retry(mock_session, "http://example.com")
+        assert mock_session.get.call_count == 1
 
 
 def test_cache_constants() -> None:

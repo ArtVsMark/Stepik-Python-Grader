@@ -37,7 +37,10 @@ def normalize_floats(text: str) -> str:
     def _round_float(m: re.Match[str]) -> str:
         try:
             return str(round(float(m.group()), 9))
-        except ValueError:
+        # issue #405: ветка защитная и недостижима реальным входом — _FLOAT_RE
+        # матчит только валидный float-синтаксис, а overflow float() даёт inf,
+        # не ValueError. Оставлена на случай будущих правок regex.
+        except ValueError:  # pragma: no cover
             return m.group()
 
     return "\n".join(_FLOAT_RE.sub(_round_float, line) for line in text.split("\n"))

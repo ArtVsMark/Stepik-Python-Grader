@@ -30,6 +30,7 @@ PokolenieTestes/
 coverage.xml
 .coveragerc.ci
 .pytest_cache/
+.hypothesis/
 t.py
 .stepik_cache/
 .grader_cache/
