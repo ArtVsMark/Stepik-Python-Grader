@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import requests
+
 from stepik_grader.core.diag_log import get_logger
 from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
 from stepik_grader.core.step_content import extract_submission_code, pick_solutions_thread
@@ -145,12 +147,18 @@ def import_references_from_task_dir(
     secrets_path: Path = Path("secrets.json"),
     max_top: int = DEFAULT_MAX_TOP,
     min_likes: int = DEFAULT_MIN_LIKES,
+    session: requests.Session | None = None,
 ) -> list[Path]:
     """Импортирует reference-решения из ветки solutions в директорию задачи.
 
     Читает ``task_dir/meta.json`` (сохранён downloader'ом), проходит цепочку до
     закреплённого решения, сохраняет эталон + топовые как ``task{N}_{100+}.py``
     и дописывает привязку в meta.json. Возвращает пути сохранённых файлов.
+
+    ``session`` — готовая авторизованная сессия (dependency injection): web-слой
+    передаёт non-browser сессию (``try_create_session_without_browser``), чтобы
+    сервер не блокировался на браузерном OAuth. ``None`` (CLI) → создаётся через
+    ``create_user_session`` (может открыть браузер при протухшем refresh).
 
     Бросает понятные ошибки на каждом обрыве цепочки (нет meta.json, ветка
     решений не открыта/отсутствует, решений нет, код не извлёкся).
@@ -166,8 +174,9 @@ def import_references_from_task_dir(
     if not lesson_id or not step_position:
         raise ValueError("meta.json неполный: нет lesson_id/step_position")
 
-    secrets = load_secrets_dict(secrets_path)
-    session = create_user_session(secrets, secrets_path)
+    if session is None:
+        secrets = load_secrets_dict(secrets_path)
+        session = create_user_session(secrets, secrets_path)
 
     step = fetch_step_data(session, int(lesson_id), int(step_position))
     # NB: поле is_solutions_unlocked отражает UI-состояние пользователя (открыл
