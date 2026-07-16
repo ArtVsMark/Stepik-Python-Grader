@@ -29,3 +29,7 @@ API-поверхность) нельзя закапывать в issue/PR — о
 | [0001](0001-server-mode.md) | Направление на server mode через Runner-абстракцию (без немедленной реализации) | Accepted |
 | [0002](0002-history-opt-in.md) | Запись истории прогонов в CLI остаётся opt-in (тумблер в меню + nudge, web — default-on) | Accepted |
 | [0003](0003-ai-integration.md) | AI-интеграция — BYOK OpenAI-compatible на `requests` (облако + ollama одним кодом, opt-in, без новых зависимостей) | Accepted |
+| [0004](0004-src-layout.md) | Раскладка пакета — src-layout (`src/stepik_grader/`), чистая миграция без root-shim'ов | Accepted |
+| [0005](0005-dynamic-versioning.md) | Версия пакета — динамическая из git-тегов (`setuptools-scm`), статической `version` нет | Accepted |
+| [0006](0006-runner-abstraction.md) | Абстракция исполнения — протокол `Runner` (`RunSpec`/`RunOutcome`, `LocalRunner`, verdict наверху) | Accepted |
+| [0007](0007-sandbox-backends.md) | OS-песочница — opt-in `--sandbox`, три нативных backend'а по ОС, fail-loud без тихого fallback | Accepted |

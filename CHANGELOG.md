@@ -95,6 +95,7 @@
 - Sandbox: the Linux bubblewrap backend recreates the top-level usrmerge symlinks (`/lib64` → `/usr/lib64`, …) inside the jail, so the solution's ELF loader resolves — `--sandbox` was unusable on usrmerge systems like modern Ubuntu (#420).
 
 ### Documentation
+- Added four retroactive ADRs recording already-implemented decisions (#410, D3): ADR-0004 (src-layout, #35), ADR-0005 (dynamic versioning via `setuptools-scm`, #162), ADR-0006 (`Runner` execution abstraction, #140), ADR-0007 (opt-in OS sandbox backends, #157/#266) — closing the "no ADR for setuptools-scm/src-layout/sandbox/Runner" audit gap (#410).
 - `CONTRIBUTING.md` «Процесс внесения изменений» gains an explicit "update `CHANGELOG.md` under `[Unreleased]` in every PR" step (#410).
 - Added ADR-0003 (AI integration strategy): BYOK OpenAI-compatible over `requests` — one code path for cloud providers and local ollama, opt-in, no new dependencies, secrets redacted via `diag_log`; unblocks `--ai-hints` (#435) and the glossary LLM pipeline (#438) (#468, #434).
 - ADR-0001 (server-mode direction) status corrected `Proposed` → `Accepted` (phases 1–2 are implemented: Runner layer #140, result-contract #116; full server mode stays an open v2.0 backlog); `docs/trace-format.md` now documents the `type` field every heap object carries — including the depth-limit `{type, repr}` and cycle-break `{type}` cases — that `core/tracer.py` has always emitted (#411).
