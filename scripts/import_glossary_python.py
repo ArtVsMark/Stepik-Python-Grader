@@ -37,10 +37,10 @@ from stepik_grader.core.glossary import GLOSSARY_BASE_URL  # noqa: E402
 from stepik_grader.glossary.models import GlossaryCard  # noqa: E402
 
 __all__ = [
-    "extract_external_cards",
     "external_to_card",
-    "run_import",
+    "extract_external_cards",
     "main",
+    "run_import",
 ]
 
 _DATA_RE = re.compile(r'<script[^>]*id="glossary-data"[^>]*>(.*?)</script>', re.DOTALL)

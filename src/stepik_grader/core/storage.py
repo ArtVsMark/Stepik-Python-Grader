@@ -34,7 +34,7 @@ def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
     """
     if file_path.is_dir():
         raise IsADirectoryError(f"Ожидался файл, получена директория: {file_path}")
-    with open(file_path, encoding="utf-8") as file:
+    with file_path.open(encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, dict):
         raise ValueError(f"Ожидался JSON-объект в файле {file_path}")
@@ -59,6 +59,7 @@ def save_json_file(file_path: pathlib.Path, payload: dict[str, Any]) -> None:
     fd, tmp_name = tempfile.mkstemp(
         dir=file_path.parent, prefix=f".{file_path.name}.", suffix=".tmp"
     )
+    tmp_path = pathlib.Path(tmp_name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as file:
             file.write(data)
@@ -68,12 +69,12 @@ def save_json_file(file_path: pathlib.Path, payload: dict[str, Any]) -> None:
         # файла остаётся 0600 — не секрет, но owner-only безопаснее и локально
         # достаточно. На Windows chmod по сути no-op (права — NTFS ACL).
         with contextlib.suppress(OSError):
-            os.chmod(tmp_name, file_path.stat().st_mode & 0o777)
-        os.replace(tmp_name, file_path)
+            tmp_path.chmod(file_path.stat().st_mode & 0o777)
+        tmp_path.replace(file_path)
     except OSError:
         # best-effort уборка temp при сбое записи/replace — цель не тронута.
         with contextlib.suppress(OSError):
-            os.unlink(tmp_name)
+            tmp_path.unlink()
         raise
 
 
@@ -95,4 +96,4 @@ def save_secrets(secrets_path: pathlib.Path, data: dict[str, Any]) -> None:
     fd = os.open(secrets_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as file:
         file.write(payload)
-    os.chmod(secrets_path, 0o600)
+    secrets_path.chmod(0o600)

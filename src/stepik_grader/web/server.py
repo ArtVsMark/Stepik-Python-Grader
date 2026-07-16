@@ -18,6 +18,7 @@ OS-sandbox (см. ``core/runner.py``, CLAUDE.md). Сервер слушает т
 
 from __future__ import annotations
 
+import contextlib
 import html
 import json
 import pathlib
@@ -189,7 +190,7 @@ class _Handler(BaseHTTPRequestHandler):
     # _GraderServer, а не базовый socketserver.BaseServer из typeshed.
     server: _GraderServer  # type: ignore[assignment]
 
-    def do_GET(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
+    def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/":
             page = _INDEX_HTML.replace(
@@ -424,7 +425,7 @@ class _Handler(BaseHTTPRequestHandler):
             _json(auth_adapter.auth_status(secrets_path)),
         )
 
-    def do_POST(self) -> None:  # noqa: N802 (имя задано BaseHTTPRequestHandler)
+    def do_POST(self) -> None:
         self._dispatch(self._API_POST_EXACT, self._API_POST_PREFIX, urlparse(self.path))
 
     def _guard_and_read_body(self, parsed: Any) -> tuple[str, dict[str, Any]] | None:
@@ -595,10 +596,8 @@ class _Handler(BaseHTTPRequestHandler):
             # 2×лимит — не безусловное чтение произвольного (attacker-
             # controlled) length, а лишь снятие типичного чуть-за-лимитом
             # хвоста.
-            try:
+            with contextlib.suppress(OSError):
                 self.rfile.read(min(length, _MAX_BODY_BYTES * 2))
-            except OSError:
-                pass
             self._send(
                 413,
                 "application/json; charset=utf-8",
@@ -897,7 +896,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, *_args: Any) -> None:  # noqa: N802
+    def log_message(self, *_args: Any) -> None:
         """Приглушить пер-запросный лог в stdout (иначе шумно)."""
 
 

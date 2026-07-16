@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-__all__ = ["RuleSeverity", "RuleStatus", "RuleCard"]
+__all__ = ["RuleCard", "RuleSeverity", "RuleStatus"]
 
 # Тяжесть нарушения — по духу pycodestyle: E### → error/warning, W### →
 # warning, соглашения оформления — convention. На вердикт проверки НЕ влияет

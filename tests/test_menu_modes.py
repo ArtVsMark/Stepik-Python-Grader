@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import os
 import pathlib
 
 from stepik_grader import cli, grader
@@ -51,7 +50,7 @@ class TestMode2PerSolutionTestDir:
         def fake_run_tests(
             path, test_dir, *, verbose=False, verbose_callback=None, timeout=grader.TIMEOUT_SECONDS
         ):
-            used[os.path.basename(path)] = test_dir
+            used[pathlib.Path(path).name] = test_dir
             return {
                 "total": 1,
                 "passed": 1,

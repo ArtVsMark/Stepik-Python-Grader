@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["normalize_floats", "sort_lines", "normalize_whitespace"]
+__all__ = ["normalize_floats", "normalize_whitespace", "sort_lines"]
 
 _FLOAT_RE = re.compile(r"-?\d+\.\d+(?:[eE][+-]?\d+)?")
 

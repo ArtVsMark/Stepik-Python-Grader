@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 from stepik_grader.core.diag_log import get_logger, register_secret
 
-__all__ = ["FailureContext", "AI_MARKER_RU", "AI_MARKER_EN", "is_configured", "explain_failure"]
+__all__ = ["AI_MARKER_EN", "AI_MARKER_RU", "FailureContext", "explain_failure", "is_configured"]
 
 _log = get_logger("ai_hints")
 
@@ -159,7 +159,7 @@ def _post_chat(config: object, messages: list[dict[str, str]], key: str | None) 
         resp.raise_for_status()
         data = resp.json()
         content = data["choices"][0]["message"]["content"]
-    except Exception as exc:  # noqa: BLE001 — graceful skip: AI никогда не роняет грейдинг
+    except Exception as exc:
         _log.debug("ai_hints: пропуск (ошибка канала): %s", exc)
         return None
     text = str(content or "").strip()

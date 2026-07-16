@@ -28,10 +28,10 @@ from stepik_grader.glossary.models import GlossaryCard
 from stepik_grader.glossary.stdlib_inventory import build_stdlib_inventory
 
 __all__ = [
-    "glossary_search",
+    "code_terms",
     "glossary_get",
     "glossary_missing",
-    "code_terms",
+    "glossary_search",
     "queue_code_gaps",
 ]
 

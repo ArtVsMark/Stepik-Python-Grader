@@ -17,7 +17,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal, NotRequired, TypedDict
 
-__all__ = ["Verdict", "CaseResult", "TestResult"]
+__all__ = ["CaseResult", "TestResult", "Verdict"]
 
 Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED", "SANDBOX_VIOLATION"]
 

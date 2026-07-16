@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import re
 import sys
 from pathlib import Path
@@ -192,10 +193,8 @@ def main() -> int:
     # падает UnicodeEncodeError (CI windows-latest, тест test_cli_exits_zero).
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if reconfigure is not None:
-        try:
+        with contextlib.suppress(ValueError, OSError):  # зависит от платформы stdout
             reconfigure(encoding="utf-8")
-        except (ValueError, OSError):  # pragma: no cover - зависит от платформы stdout
-            pass
     themes = load_tokens()
     print(f"WCAG-контраст токен-пар — {_CSS_PATH.name}\n")
     worst = 21.0

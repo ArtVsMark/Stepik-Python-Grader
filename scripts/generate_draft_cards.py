@@ -43,12 +43,12 @@ from stepik_grader.glossary.stdlib_inventory import (  # noqa: E402
 )
 
 __all__ = [
-    "resolve_object",
     "docs_url_for",
-    "section_for",
     "draft_card",
-    "run_generate",
     "main",
+    "resolve_object",
+    "run_generate",
+    "section_for",
 ]
 
 _DOCS = "https://docs.python.org/3/library"

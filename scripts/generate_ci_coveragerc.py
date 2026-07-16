@@ -38,7 +38,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-__all__ = ["other_platforms_omit", "main"]
+__all__ = ["main", "other_platforms_omit"]
 
 _ROOT = Path(__file__).resolve().parent.parent
 

@@ -23,7 +23,6 @@ MVP без новых зависимостей: реестр job'ов — module
 from __future__ import annotations
 
 import contextlib
-import os
 import pathlib
 import tempfile
 import threading
@@ -44,7 +43,7 @@ from stepik_grader.web.viewmodels import (
     grade_path,
 )
 
-__all__ = ["Job", "TooManyRunsError", "submit_job", "get_job", "cancel_job"]
+__all__ = ["Job", "TooManyRunsError", "cancel_job", "get_job", "submit_job"]
 
 # issue #262 добавил ровно 4 статуса ("cancelled" сообщался как status="error"
 # + message_id="run_cancelled"); issue #296 выделяет отмену в отдельный
@@ -87,6 +86,7 @@ class Job:
 
     @property
     def status(self) -> str:
+        """Текущий статус job'ы (``queued``/``running``/``done``/``error``/``cancelled``)."""
         return self._status
 
     @status.setter
@@ -282,7 +282,8 @@ def _run_job(
         graded_path = path
         if code is not None:
             parent = path if path.is_dir() else path.parent
-            tmp = tempfile.NamedTemporaryFile(
+            # delete=False намеренно: путь файла грейдится ниже, чистится в finally.
+            tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
                 mode="w", suffix=".py", encoding="utf-8", delete=False, dir=parent
             )
             try:
@@ -340,7 +341,7 @@ def _run_job(
             else:
                 job.status = "done"
                 job.result = result
-    except Exception as exc:  # noqa: BLE001 — safety net (issue #262): a bug in
+    except Exception as exc:
         # this worker thread must never leave the job stuck "running" forever
         # with no way for the poller to find out; surfaced via message_fields
         # the same way any other /api/* error is, not via logging (no
@@ -351,7 +352,7 @@ def _run_job(
     finally:
         if temp_code_path is not None:
             with contextlib.suppress(OSError):
-                os.unlink(temp_code_path)
+                pathlib.Path(temp_code_path).unlink()
 
 
 def _run_playground_job(job: Job, code: str, stdin: str, lang: str) -> None:
@@ -363,7 +364,7 @@ def _run_playground_job(job: Job, code: str, stdin: str, lang: str) -> None:
     """
     try:
         result = run_playground(code, stdin, cancel_event=job.cancel_event)
-    except Exception as exc:  # noqa: BLE001 — safety net, как в _run_job
+    except Exception as exc:
         with job.lock:
             job.status = "error"
             job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
@@ -396,7 +397,7 @@ def _run_auth_job(job: Job, params: dict[str, Any], lang: str) -> None:
             str(params["client_secret"]),
             str(params["redirect_uri"]),
         )
-    except Exception as exc:  # noqa: BLE001 — safety net, как _run_job/_run_playground_job
+    except Exception as exc:
         with job.lock:
             job.status = "error"
             job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
@@ -416,7 +417,7 @@ def _run_trace_job(job: Job, code: str, stdin: str, lang: str) -> None:
     """
     try:
         result = trace_code(code, stdin, timeout=float(CONFIG.timeout_seconds))
-    except Exception as exc:  # noqa: BLE001 — safety net, как в _run_job
+    except Exception as exc:
         with job.lock:
             job.status = "error"
             job.message_fields = message_fields("run_internal_error", lang, error=str(exc))

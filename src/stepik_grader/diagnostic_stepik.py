@@ -29,18 +29,18 @@ from stepik_grader.downloader import parse_stepik_step_url
 
 __all__ = [
     "OAUTH_TIMEOUT_SECONDS",
-    "create_user_session",
     "api_get",
+    "build_diagnostic_result",
+    "collect_string_candidates",
+    "create_user_session",
+    "extract_zip_url_from_step_data",
+    "extract_zip_url_from_text",
     "get_lesson_data",
     "get_step_data",
     "get_step_data_by_position",
-    "save_json",
-    "extract_zip_url_from_text",
-    "collect_string_candidates",
-    "extract_zip_url_from_step_data",
-    "build_diagnostic_result",
-    "print_result_summary",
     "main",
+    "print_result_summary",
+    "save_json",
 ]
 
 # Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md).
@@ -287,7 +287,7 @@ def main() -> None:
         _print("✅ OAuth access token пользователя успешно получен.")
         step_id, lesson, step_data = get_step_data_by_position(session, lesson_id, step_position)
         _print("✅ Step data получены через API /steps/{id}.")
-    except Exception as error:  # noqa: BLE001
+    except Exception as error:
         _print(f"❌ Ошибка диагностики: {error}")
         return
     lesson_path = save_json(output_dir, "lesson_debug.json", lesson)

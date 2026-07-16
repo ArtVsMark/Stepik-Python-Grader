@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import ipaddress
 import json as _json_mod
@@ -40,31 +41,31 @@ from stepik_grader.core.storage import save_secrets
 
 __all__ = [
     "API_HOST",
-    "RETRY_STATUS_FORCELIST",
-    "HEADERS",
-    "make_session",
-    "STEPIK_HOST",
-    "EXTERNAL_DOWNLOAD_ALLOWED_HOSTS",
-    "ExternalUrlRejected",
-    "is_stepik_url",
-    "validate_external_url",
-    "external_download_get",
-    "token_is_valid",
-    "refresh_access_token",
-    "wait_for_auth_code",
-    "authorize_via_browser",
-    "create_user_session",
     "CACHE_DIR",
     "CACHE_TTL_SECONDS",
-    "fetch_step_data",
-    "fetch_lesson_data",
-    "fetch_unit_data",
-    "fetch_section_data",
-    "fetch_course_data",
-    "fetch_submission_data",
-    "fetch_discussion_threads",
-    "fetch_discussion_proxy",
+    "EXTERNAL_DOWNLOAD_ALLOWED_HOSTS",
+    "HEADERS",
+    "RETRY_STATUS_FORCELIST",
+    "STEPIK_HOST",
+    "ExternalUrlRejected",
+    "authorize_via_browser",
+    "create_user_session",
+    "external_download_get",
     "fetch_comments_with_submissions",
+    "fetch_course_data",
+    "fetch_discussion_proxy",
+    "fetch_discussion_threads",
+    "fetch_lesson_data",
+    "fetch_section_data",
+    "fetch_step_data",
+    "fetch_submission_data",
+    "fetch_unit_data",
+    "is_stepik_url",
+    "make_session",
+    "refresh_access_token",
+    "token_is_valid",
+    "validate_external_url",
+    "wait_for_auth_code",
 ]
 
 _log = get_logger("stepik_client")  # issue #148: диагностический лог (opt-in)
@@ -277,7 +278,7 @@ def _make_oauth_handler(
     """
 
     class OAuthHandler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             req = urlparse(self.path)
             params = parse_qs(req.query)
             if req.path != path:
@@ -302,7 +303,7 @@ def _make_oauth_handler(
             self.end_headers()
             self.wfile.write(b"<h1>OK. You can close this tab.</h1>")
 
-        def log_message(self, fmt: str, *args: object) -> None:  # noqa: D401
+        def log_message(self, fmt: str, *args: object) -> None:
             pass
 
     return OAuthHandler
@@ -383,10 +384,8 @@ def authorize_via_browser(
     }
     auth_url = f"{API_HOST}/oauth2/authorize/?{urlencode(params)}"
     print(f"Открываю браузер: {auth_url}")
-    try:
+    with contextlib.suppress(OSError):
         webbrowser.open(auth_url)
-    except OSError:
-        pass
 
     code = wait_for_auth_code(host, port, path, state)
     register_secret(client_secret)
@@ -511,10 +510,8 @@ def _cached_api_get(
 
     response = _get_with_retry(session, url, params=params)
     data: dict[str, Any] = response.json()
-    try:
+    with contextlib.suppress(OSError):
         cache_file.write_text(_json_mod.dumps(data, ensure_ascii=False), encoding="utf-8")
-    except OSError:
-        pass
     return data
 
 

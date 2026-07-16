@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import signal
 import subprocess
 import threading
@@ -135,14 +136,10 @@ def run_argv_with_limits(
 
     if proc.stdin is not None:
         if stdin is not None:
-            try:
+            with contextlib.suppress(BrokenPipeError, OSError):
                 proc.stdin.write(stdin)
-            except (BrokenPipeError, OSError):
-                pass
-        try:
+        with contextlib.suppress(OSError):
             proc.stdin.close()
-        except OSError:
-            pass
 
     timed_out = False
     while True:
@@ -162,10 +159,8 @@ def run_argv_with_limits(
         proc.wait(timeout=_KILL_REAP_TIMEOUT)
     except subprocess.TimeoutExpired:
         _kill_process_tree(proc)
-        try:
+        with contextlib.suppress(subprocess.TimeoutExpired):
             proc.wait(timeout=_KILL_REAP_TIMEOUT)
-        except subprocess.TimeoutExpired:
-            pass
     mem_stop.set()
     for r in readers:
         r.join(timeout=1.0)

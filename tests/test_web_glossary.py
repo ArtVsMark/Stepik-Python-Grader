@@ -535,7 +535,7 @@ def server(tmp_path: pathlib.Path):
 
 
 def _get(url: str) -> tuple[int, bytes]:
-    with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310 (localhost only)
+    with urllib.request.urlopen(url, timeout=5) as resp:
         return resp.status, resp.read()
 
 
@@ -543,7 +543,7 @@ def _post_json(url: str, body: dict) -> tuple[int, bytes]:
     req = urllib.request.Request(
         url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
     )
-    with urllib.request.urlopen(req, timeout=5) as resp:  # noqa: S310 (localhost only)
+    with urllib.request.urlopen(req, timeout=5) as resp:
         return resp.status, resp.read()
 
 

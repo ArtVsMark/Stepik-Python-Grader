@@ -20,10 +20,10 @@ from .models import RuleCard, RuleSeverity, RuleStatus
 __all__ = [
     "BUNDLED_RULES_DIR",
     "JsonRulesProvider",
-    "RulesError",
-    "RulesProvider",
     "RuleCard",
     "RuleSeverity",
     "RuleStatus",
+    "RulesError",
+    "RulesProvider",
     "bundled_rules",
 ]

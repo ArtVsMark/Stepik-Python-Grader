@@ -16,7 +16,7 @@ from typing import Any
 from stepik_grader.config import CONFIG
 from stepik_grader.core import history, insights
 
-__all__ = ["insights_cards", "active_count", "progress_rows"]
+__all__ = ["active_count", "insights_cards", "progress_rows"]
 
 
 def _db_path(db_path: Path | None) -> Path:

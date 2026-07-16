@@ -26,10 +26,10 @@ from dataclasses import dataclass
 __all__ = [
     "GLOSSARY_BASE_URL",
     "GlossaryEntry",
+    "all_entries",
+    "exception_name_from_error",
     "lookup",
     "lookup_from_error",
-    "exception_name_from_error",
-    "all_entries",
 ]
 
 # Базовый URL полного глоссария (GitHub Pages отдельного проекта Glossary-Python).

@@ -66,7 +66,7 @@ def import_reference(path: str, *, top: int = DEFAULT_MAX_TOP) -> dict[str, Any]
         return {"ok": False, "message": str(exc)}
     except requests.RequestException as exc:
         return {"ok": False, "message": f"Сетевая ошибка при обращении к Stepik: {exc}"}
-    except Exception as exc:  # noqa: BLE001 — веб-адаптер не должен падать 500 на сбой fetch_*
+    except Exception as exc:
         return {"ok": False, "message": f"Непредвиденная ошибка: {exc}"}
 
     return {

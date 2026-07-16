@@ -28,10 +28,10 @@ from dataclasses import dataclass
 from typing import Literal
 
 __all__ = [
+    "NOTABLE_BUILTIN_TYPES",
+    "NOTABLE_STDLIB_MODULES",
     "InventoryKind",
     "StdlibItem",
-    "NOTABLE_STDLIB_MODULES",
-    "NOTABLE_BUILTIN_TYPES",
     "build_stdlib_inventory",
 ]
 

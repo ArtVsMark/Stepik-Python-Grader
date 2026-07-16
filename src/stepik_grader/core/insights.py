@@ -26,14 +26,14 @@ from typing import Any, Literal
 from stepik_grader.core import glossary, history, normalizers
 
 __all__ = [
-    "DEFAULT_WINDOW_N",
     "DEFAULT_ACTIVE_T",
     "DEFAULT_CLEAN_K",
+    "DEFAULT_WINDOW_N",
     "CardStatus",
     "InsightCard",
     "TaskProgress",
-    "failure_kind",
     "classify_status",
+    "failure_kind",
     "learning_cards",
     "time_to_first_green",
     "violated_rule_codes",
