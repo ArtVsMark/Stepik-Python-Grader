@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import pathlib
+import shutil
 from typing import TYPE_CHECKING, Any
 
 from stepik_grader.core.error_glossary import resolve_error_hint
@@ -36,6 +37,13 @@ __all__ = [
     "rich_track",
 ]
 
+# Ширина вывода: кап 200 (как раньше), но сжимаемся под узкий терминал (issue
+# #409) — на 80–120-колоночных экранах таблицы/разделители больше не переносятся
+# и не распухают. Без терминала (CI, пайп) fallback=(200, …) сохраняет прежний
+# вывод, поэтому детерминизм тестов не меняется.
+_TABLE_WIDTH = 107  # проектная ширина таблиц корректности/бенчмарка
+_TERM_WIDTH = min(shutil.get_terminal_size(fallback=(200, 24)).columns, 200)
+
 # rich — опциональная зависимость для цветного вывода таблиц и прогресс-баров.
 # При её отсутствии грейдер откатывается на простой текстовый вывод.
 try:
@@ -44,7 +52,7 @@ try:
     from rich.table import Table
     from rich.text import Text
 
-    _console: Console | None = Console(width=200)
+    _console: Console | None = Console(width=_TERM_WIDTH)
     _RICH = True
 except ImportError:  # pragma: no cover
     _console = None
@@ -66,7 +74,7 @@ except ImportError:  # pragma: no cover
         return sequence
 
 
-_SEP = "-" * 107
+_SEP = "-" * min(_TABLE_WIDTH, _TERM_WIDTH)
 
 
 def _safe_rel(path: pathlib.Path, base: pathlib.Path) -> str:

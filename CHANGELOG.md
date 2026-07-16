@@ -43,12 +43,16 @@
 - Web: the always-empty «Эталон» result tab (a reference is a `REFERENCE` row in the modes 3/4 tables; #55 backend groundwork kept) (#369).
 
 ### Internal
+- `scripts/check_contrast.py` + `tests/test_contrast.py` enforce WCAG contrast of design-token pairs (button, badges, muted, placeholder, active states) in both themes, so a token regression fails the test suite (#424).
 - CI matrix now covers Windows + Python 3.14 (experimental, non-blocking) — `requires-python = ">=3.12"` promises 3.14 but it was only exercised on ubuntu, leaving the Job Objects sandbox backend and the project's main desktop platform unverified there (#456).
 - CI matrix extends Python 3.14 to macOS too (experimental, non-blocking), so all three OSes exercise 3.14 and the `sandbox-exec` backend is verified on the newest Python (#456).
 - CI now exercises the Linux `bwrap` sandbox backend for real: a dedicated `sandbox-linux` job runs the full `test_sandbox_runner.py` (FS isolation, real network isolation, memory, output-size, timeout) inside a privileged container — GitHub Actions forbids unprivileged user namespaces (uid-map/netns), so a privileged container is the only way to run it on GHA; `_linux.py` coverage is merged into the combined report (fork-bomb deselected as its ucounts containment is nested-userns-dependent) (#420).
 - Grading ranking centralised in `core/microbench_runner`: reference ranking moved out of `web/viewmodels`, benchmark verdict unified to `MUCH_SLOWER`, and `run_tests` now carries per-case `stdin` so the web path no longer re-reads test cases (drops the mode-1 `zip(strict=True)` fragility from #422) (#397).
 
 ### Fixed
+- Web dark/light theme contrast now meets WCAG AA: primary-button text decoupled via `--color-on-primary`/`--color-primary-btn`, brighter dark `--color-text-muted`/`--color-primary`/`--color-error` (+ darker highlights), new `--color-text-placeholder`, and `.section-heading`/`.term-card-kind` moved off `--color-text-faint` (#424).
+- Web `.hint` help text now has its own muted style instead of rendering as body text, code editors expose an `aria-label` to screen readers (`.cm-content`), and the mobile sidebar keeps its group divider across all 7 sections (#409).
+- CLI reporter width now adapts to the terminal (`min(terminal, 200)`) so correctness/benchmark tables and separators no longer wrap or bloat on 80–120-column terminals (#409).
 - Interactive menu no longer crashes when `.grader_settings.json` can't be written (read-only cwd / full disk): the history toggle degrades to session-only; menu docs now show items 6/7 and the `[0-7]` prompt; the recursive `_print` fallback in `downloader_config` was fixed (#445, #430, #433).
 - Web OAuth hardening (#402 review): `/api/auth/status` survives a malformed `expires_at` instead of 500-ing, re-auth preserves an existing `refresh_token`, `redirect_uri` must be loopback, and the browser wizard stops polling on a vanished job; the CLI wizard no longer writes an empty `secrets.json` (#402, #433).
 - `--sandbox` on Linux now binds `/usr` read-only so the interpreter's ELF loader (`ld-linux`) and `libc` are reachable even when Python lives outside `/usr` (Docker `python` images, CI hostedtoolcache, pyenv) — previously bwrap failed with `execvp: No such file` on such interpreters (#420).

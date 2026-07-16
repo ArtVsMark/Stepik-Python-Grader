@@ -448,7 +448,9 @@ let sandboxView = null; // issue #317: отдельный редактор пе�
 
 // Фабрика CodeMirror-редактора: общий theme/набор расширений для редактора
 // режима 1 и песочницы (issue #317). onChange (опц.) — колбэк на docChanged.
-function makeEditor(mount, onChange) {
+// label (issue #409) — доступное имя для .cm-content (скринридеры, WCAG 4.1.2):
+// нативный <label for=…> не достаёт до contenteditable-узла CodeMirror.
+function makeEditor(mount, onChange, label) {
   const theme = EditorView.theme({
     "&": { color: "var(--color-text)", backgroundColor: "transparent" },
     ".cm-content": {
@@ -467,7 +469,7 @@ function makeEditor(mount, onChange) {
     },
     ".cm-activeLineGutter": { backgroundColor: "var(--color-surface-offset-2)" },
     "&.cm-focused": { outline: "none" }, // focus ring is :focus-within in app.css
-    ".cm-placeholder": { color: "var(--color-text-faint)" },
+    ".cm-placeholder": { color: "var(--color-text-placeholder)" },
   });
   return new EditorView({
     doc: "",
@@ -481,6 +483,7 @@ function makeEditor(mount, onChange) {
       python(),
       theme,
       cmPlaceholder(mount.dataset.placeholder || ""),
+      EditorView.contentAttributes.of({ "aria-label": label || "Редактор кода" }),
       EditorView.updateListener.of(update => {
         if (update.docChanged && onChange) onChange();
       }),
@@ -496,7 +499,7 @@ function mountEditor() {
     updateDirtyIndicator(); // issue #297
     clearTimeout(checkTermsTimer); // issue #323: обновить панель под новый код
     checkTermsTimer = setTimeout(loadCheckTerms, 400);
-  });
+  }, "Редактор решения");
   // <label for="solution-editor"> can't natively focus a contenteditable div
   // the way it would a real <textarea> -- wire it manually (issue #265
   // acceptance criterion: editor must be keyboard-reachable).
@@ -513,7 +516,7 @@ function mountSandboxEditor() {
   sandboxView = makeEditor(mount, () => {
     clearTimeout(sandboxTermsTimer);
     sandboxTermsTimer = setTimeout(loadCodeTerms, 400);
-  });
+  }, "Редактор кода песочницы");
   const label = document.querySelector('label[for="sandbox-editor"]');
   if (label) label.addEventListener("click", () => sandboxView.focus());
 }
