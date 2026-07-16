@@ -426,9 +426,11 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
 
 
 def test_switch_section_cycles_all_sections(page: Any, e2e_server: str, tmp_path: Path) -> None:
-    """J (issue #331): команда «Переключить раздел» циклит по всем 4 разделам
-    (раньше — 2-позиционный тумблер check↔glossary, терявший downloader/sandbox)."""
-    sections = ["check", "downloader", "glossary", "sandbox"]
+    """J (issue #428): команда «Переключить раздел» циклит по ВСЕМ 7 разделам
+    через единый реестр SECTIONS (раньше — жёсткий 4-элементный список
+    check/downloader/glossary/sandbox, терявший rules/insights/settings —
+    рецидив #317, находка аудита #331)."""
+    sections = ["check", "downloader", "glossary", "rules", "insights", "sandbox", "settings"]
 
     def visible() -> str:
         return next(s for s in sections if not page.locator(f"#view-{s}").is_hidden())
@@ -446,10 +448,10 @@ def test_switch_section_cycles_all_sections(page: Any, e2e_server: str, tmp_path
     page.goto(e2e_server + "/")
     page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
     seq = [visible()]
-    for _ in range(4):
+    for _ in range(len(sections)):
         cycle()
         seq.append(visible())
-    assert seq == ["check", "downloader", "glossary", "sandbox", "check"], seq
+    assert seq == [*sections, "check"], seq
 
 
 def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path: Path) -> None:
