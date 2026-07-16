@@ -51,6 +51,7 @@
 - Grading ranking centralised in `core/microbench_runner`: reference ranking moved out of `web/viewmodels`, benchmark verdict unified to `MUCH_SLOWER`, and `run_tests` now carries per-case `stdin` so the web path no longer re-reads test cases (drops the mode-1 `zip(strict=True)` fragility from #422) (#397).
 
 ### Fixed
+- Web code editors now use a theme-driven CodeMirror syntax highlight style built on `--cm-*` CSS variables (≥4.5:1 in light and dark) instead of the light-only `defaultHighlightStyle` that rendered keywords at ~1.85:1 on the dark editor background; the vendored bundle was rebuilt to export `HighlightStyle`/`tags` (#425).
 - Web dark/light theme contrast now meets WCAG AA: primary-button text decoupled via `--color-on-primary`/`--color-primary-btn`, brighter dark `--color-text-muted`/`--color-primary`/`--color-error` (+ darker highlights), new `--color-text-placeholder`, and `.section-heading`/`.term-card-kind` moved off `--color-text-faint` (#424).
 - Web `.hint` help text now has its own muted style instead of rendering as body text, code editors expose an `aria-label` to screen readers (`.cm-content`), and the mobile sidebar keeps its group divider across all 7 sections (#409).
 - CLI reporter width now adapts to the terminal (`min(terminal, 200)`) so correctness/benchmark tables and separators no longer wrap or bloat on 80–120-column terminals (#409).

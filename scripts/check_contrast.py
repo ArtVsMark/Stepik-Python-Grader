@@ -142,6 +142,16 @@ _PAIRS: list[Pair] = [
     Pair("error / surface", "--color-error", "--color-surface", 4.5),
     Pair("success / surface", "--color-success", "--color-surface", 4.5),
     Pair("warning / surface", "--color-warning", "--color-surface", 4.5),
+    # issue #425: цвета подсветки синтаксиса CodeMirror на фоне редактора
+    # (--color-surface) — все ≥4.5:1 в обеих темах.
+    Pair("cm-keyword / surface", "--cm-keyword", "--color-surface", 4.5),
+    Pair("cm-literal / surface", "--cm-literal", "--color-surface", 4.5),
+    Pair("cm-string / surface", "--cm-string", "--color-surface", 4.5),
+    Pair("cm-function / surface", "--cm-function", "--color-surface", 4.5),
+    Pair("cm-type / surface", "--cm-type", "--color-surface", 4.5),
+    Pair("cm-operator / surface", "--cm-operator", "--color-surface", 4.5),
+    Pair("cm-comment / surface", "--cm-comment", "--color-surface", 4.5),
+    Pair("cm-invalid / surface", "--cm-invalid", "--color-surface", 4.5),
 ]
 
 
