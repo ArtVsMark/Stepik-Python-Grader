@@ -65,10 +65,17 @@ def test_run_microbench_uses_builtins() -> None:
     assert result["times"]
 
 
-def test_warmup_runs_constant_exists() -> None:
-    """Константа WARMUP_RUNS экспортируется из модуля."""
-    assert isinstance(WARMUP_RUNS, int)
-    assert WARMUP_RUNS >= 1
+def test_warmup_applied_in_bench_script() -> None:
+    """WARMUP_RUNS реально применяется: прогрев вшит в bench-скрипт ДО замера (issue #412)."""
+    from stepik_grader.core.microbench_runner import _build_bench_script
+
+    assert isinstance(WARMUP_RUNS, int) and WARMUP_RUNS >= 1
+    script = _build_bench_script("x = 1\n", stdin_data="", number=1000)
+    assert f"_warmup = {WARMUP_RUNS}" in script
+    # прогрев (timeit.timeit) предшествует замеру (timeit.repeat) и стартует до
+    # tracemalloc — в измеряемые время/память не входит.
+    assert script.index("_timeit.timeit(") < script.index("_timeit.repeat(")
+    assert script.index("_timeit.timeit(") < script.index("_tm.start()")
 
 
 def test_run_microbench_with_input() -> None:
