@@ -17,7 +17,14 @@ repos:
     hooks:
       - id: check-ast          # SyntaxError — главное
       - id: check-json         # валидный JSON
+      # Вендор-бандл codemirror — сгенерированный esbuild-артефакт: правящие
+      # текст хуки не должны его трогать (трейлинг-пробел из минификации, а
+      # слепой тримминг может задеть строковый литерал). Пересобирается по
+      # рецепту static/vendor/VERSIONS.md, не редактируется вручную.
       - id: end-of-file-fixer  # пустая строка в конце файла
+        exclude: &vendor_generated '^src/stepik_grader/web/static/vendor/.*\.mjs$'
       - id: trailing-whitespace
+        exclude: *vendor_generated
       - id: mixed-line-ending
         args: [--fix=lf]
+        exclude: *vendor_generated
