@@ -817,7 +817,9 @@ class TestHttpHandler:
         with urllib.request.urlopen(server + "/static/app.js", timeout=5) as resp:  # noqa: S310
             assert resp.status == 200
             assert "javascript" in resp.headers["Content-Type"]
-            assert b"function grade" in resp.read()
+            # issue #426: app.js is now the ES-module entry that imports the
+            # split feature modules (grade/sandbox/… were extracted out of it).
+            assert b"import {" in resp.read()
 
     # -- static/fonts/*.woff2 (issue #260 — вендоринг вместо Google Fonts CDN) --
 
@@ -1830,14 +1832,15 @@ class TestRunsApiMode1Tests:
 # character reaching that attribute unescaped would let it be broken out of.
 #
 # issue #125: the JS moved from an inline <script> in _INDEX_HTML to its own
-# static/app.js file (re-exported as web._APP_JS) — these regressions now grep
-# that instead.
+# static/app.js file; issue #426 split it into ES modules, so these source-level
+# regressions grep web._STATIC_JS_SOURCES (all static/*.js concatenated) — a
+# pinned pattern may live in any module now, not just app.js.
 
 
 def _ht_table_source() -> str:
-    start = web._APP_JS.index("const HT = {")
-    end = web._APP_JS.index("};", start)
-    return web._APP_JS[start:end]
+    start = web._STATIC_JS_SOURCES.index("const HT = {")
+    end = web._STATIC_JS_SOURCES.index("};", start)
+    return web._STATIC_JS_SOURCES[start:end]
 
 
 def test_client_esc_table_covers_html_and_attribute_special_chars() -> None:
@@ -1849,7 +1852,7 @@ def test_client_esc_table_covers_html_and_attribute_special_chars() -> None:
 def test_client_esc_regex_includes_quote_chars() -> None:
     # The replace() char class must include both quote characters, or esc()
     # would keep stripping only &/</> and leave href="...' open to breakout.
-    assert "replace(/[&<>\"']/g" in web._APP_JS
+    assert "replace(/[&<>\"']/g" in web._STATIC_JS_SOURCES
 
 
 # ---------------------------------------------------------------------------
@@ -1865,18 +1868,18 @@ def test_render_verdict_emits_verdict_text_not_colour_only() -> None:
     """WCAG 1.4.1: verdict badge must carry the verdict string as text, not
     convey meaning by colour class alone -- renderVerdict() interpolates esc(v)
     into the span body."""
-    start = web._APP_JS.index("function renderVerdict(")
-    end = web._APP_JS.index("}", start)
-    body = web._APP_JS[start:end]
+    start = web._STATIC_JS_SOURCES.index("function renderVerdict(")
+    end = web._STATIC_JS_SOURCES.index("}", start)
+    body = web._STATIC_JS_SOURCES[start:end]
     assert "esc(v)" in body, "renderVerdict no longer inlines the verdict text"
 
 
 def test_progress_bar_has_progressbar_role_and_aria_values() -> None:
     """issue #298: the progress bar markup exposes role=progressbar + aria-value*."""
-    assert 'role="progressbar"' in web._APP_JS
-    assert "aria-valuemin=" in web._APP_JS
-    assert "aria-valuemax=" in web._APP_JS
-    assert "aria-valuenow=" in web._APP_JS
+    assert 'role="progressbar"' in web._STATIC_JS_SOURCES
+    assert "aria-valuemin=" in web._STATIC_JS_SOURCES
+    assert "aria-valuemax=" in web._STATIC_JS_SOURCES
+    assert "aria-valuenow=" in web._STATIC_JS_SOURCES
 
 
 def test_result_announce_live_region_present() -> None:
@@ -1888,7 +1891,7 @@ def test_result_announce_live_region_present() -> None:
 def test_error_card_url_field_is_passed_through_esc() -> None:
     # errorCard() must run g.url through esc() before inserting it into
     # href="..." -- if a future edit inlines g.url directly, this fails.
-    assert r'href="' + "'" + " + esc(g.url) + " + "'" + '"' in web._APP_JS
+    assert r'href="' + "'" + " + esc(g.url) + " + "'" + '"' in web._STATIC_JS_SOURCES
 
 
 # ---------------------------------------------------------------------------

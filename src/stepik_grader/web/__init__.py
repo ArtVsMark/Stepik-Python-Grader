@@ -10,8 +10,8 @@
 from __future__ import annotations
 
 from stepik_grader.web.server import (
-    _APP_JS,  # noqa: F401 — re-exported for test back-compat (source-regression tests)
     _INDEX_HTML,  # noqa: F401 — re-exported for test back-compat
+    _STATIC_JS_SOURCES,  # noqa: F401 — re-exported for source-regression tests (#426: all static/*.js)
     _GraderServer,  # noqa: F401 — re-exported for tests (issue #261 — workspace/confine)
     _Handler,  # noqa: F401 — re-exported for test back-compat
     run_server,

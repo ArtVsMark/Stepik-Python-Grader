@@ -57,7 +57,6 @@ _FONTS_DIR = _STATIC_DIR / "fonts"
 _VENDOR_DIR = _STATIC_DIR / "vendor"
 _INDEX_HTML = (_STATIC_DIR / "index.html").read_text(encoding="utf-8")
 _APP_CSS = (_STATIC_DIR / "app.css").read_text(encoding="utf-8")
-_APP_JS = (_STATIC_DIR / "app.js").read_text(encoding="utf-8")
 
 # issue #265 — вендоренный ESM-бандл CodeMirror 6 (без CDN, тот же принцип,
 # что у шрифтов issue #260); один самодостаточный файл вместо importmap +
@@ -66,13 +65,24 @@ _APP_JS = (_STATIC_DIR / "app.js").read_text(encoding="utf-8")
 # Content-Type text/javascript — браузер принимает его для ES-модулей.
 _VENDOR_FILES = ("codemirror-bundle@6.mjs",)
 
-# Небольшой фиксированный allowlist — не файловый static-сервер (нет
-# path-traversal поверхности): единственные статические файлы, которые вообще
-# существуют в static/, уже загружены выше. Шрифты (issue #260, вендоринг
-# вместо Google Fonts CDN) — bytes, не str, поэтому отдельная map.
+# issue #426 — фиксированный allowlist текстовой статики, построенный СКАНОМ
+# static/ ОДИН РАЗ при импорте. Это по-прежнему НЕ пофайловый сервер: запрос
+# матчится по точному ключу словаря, per-request резолюции пути/чтения с диска
+# нет — path-traversal поверхности нет, как и раньше. Скан снимает ручную
+# регистрацию каждого static/*.js: app.js разбит на ES-модули (issue #426), и
+# новый модуль подхватывается автоматически, без правки этого списка. Порядок
+# ключей детерминирован (sorted). Шрифты (issue #260) — bytes, отдельная map ниже.
 _STATIC_ROUTES: dict[str, tuple[str, str]] = {
     "/static/app.css": ("text/css; charset=utf-8", _APP_CSS),
-    "/static/app.js": ("application/javascript; charset=utf-8", _APP_JS),
+    # static/*.js: app.js (entry) + извлечённые ES-модули (#426).
+    **{
+        f"/static/{js.name}": (
+            "application/javascript; charset=utf-8",
+            js.read_text(encoding="utf-8"),
+        )
+        for js in sorted(_STATIC_DIR.glob("*.js"))
+    },
+    # Вендоренный ESM-бандл CodeMirror 6 (issue #265/#295), text/javascript.
     **{
         f"/static/vendor/{name}": (
             "text/javascript; charset=utf-8",
@@ -81,6 +91,13 @@ _STATIC_ROUTES: dict[str, tuple[str, str]] = {
         for name in _VENDOR_FILES
     },
 }
+
+# Все ES-модули фронтенда одной строкой — для grep-регрессий инвариантов
+# фронтенда в тестах (issue #426: после распила app.js паттерны живут в разных
+# модулях; тест ищет по всему набору static/*.js, а не только по app.js).
+_STATIC_JS_SOURCES: str = "\n".join(
+    body for path, (_ctype, body) in _STATIC_ROUTES.items() if path.endswith(".js")
+)
 _STATIC_BINARY_ROUTES: dict[str, tuple[str, bytes]] = {
     f"/static/fonts/{name}": ("font/woff2", (_FONTS_DIR / name).read_bytes())
     for name in (
