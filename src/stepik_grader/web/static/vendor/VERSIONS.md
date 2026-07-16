@@ -33,8 +33,14 @@ files.
 imports (see `entry.js` in the build recipe below) — `EditorState`,
 `EditorView`, `lineNumbers`, `keymap`, `placeholder`, `defaultKeymap`,
 `history`, `historyKeymap`, `indentWithTab`, `syntaxHighlighting`,
-`defaultHighlightStyle`, `indentOnInput`, `python` — from these packages
-(pinned 2026-07-13):
+`HighlightStyle`, `indentOnInput`, `python`, `tags` — from these packages
+(pinned 2026-07-13; last built 2026-07-16 with esbuild 0.28.1):
+
+`HighlightStyle` (from `@codemirror/language`) and `tags` (from
+`@lezer/highlight`) were added in issue #425 so `app.js` builds a
+theme-driven syntax highlight style on `--cm-*` CSS variables (readable in
+light and dark) instead of the light-only `defaultHighlightStyle` — which is
+therefore no longer exported.
 
 | Package | Version |
 |---|---|
@@ -74,14 +80,16 @@ npm install --no-save \
   @codemirror/language@6.12.4 \
   @codemirror/commands@6.10.4 \
   @codemirror/lang-python@6.2.1 \
+  @lezer/highlight@1.2.3 \
   esbuild@latest
 
 cat > entry.js << 'EOF'
 export { EditorState } from "@codemirror/state";
 export { EditorView, lineNumbers, keymap, placeholder } from "@codemirror/view";
 export { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-export { syntaxHighlighting, defaultHighlightStyle, indentOnInput } from "@codemirror/language";
+export { syntaxHighlighting, HighlightStyle, indentOnInput } from "@codemirror/language";
 export { python } from "@codemirror/lang-python";
+export { tags } from "@lezer/highlight";
 EOF
 
 npx esbuild entry.js --bundle --format=esm --platform=browser --minify \

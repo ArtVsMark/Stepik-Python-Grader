@@ -13,8 +13,8 @@ import {
   EditorState,
   EditorView, lineNumbers, keymap, placeholder as cmPlaceholder,
   defaultKeymap, history, historyKeymap, indentWithTab,
-  syntaxHighlighting, defaultHighlightStyle, indentOnInput,
-  python,
+  syntaxHighlighting, HighlightStyle, indentOnInput,
+  python, tags,
 } from "/static/vendor/codemirror-bundle@6.mjs";
 
 const $ = s => document.querySelector(s);
@@ -446,6 +446,37 @@ function getMicroNumber() {
 let cmView = null;
 let sandboxView = null; // issue #317: отдельный редактор песочницы
 
+// issue #425: подсветка синтаксиса на CSS-переменных темы (--cm-*), а не на
+// светлом defaultHighlightStyle из бандла (keyword давал ~1.85:1 на тёмном
+// фоне — код был нечитаем). Все --cm-* заданы в app.css для light и dark с
+// контрастом ≥4.5:1 к фону редактора (--color-surface, проверяет
+// scripts/check_contrast.py). Токены-теги и HighlightStyle экспортируются
+// пересобранным бандлом (static/vendor/VERSIONS.md).
+const themeHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: "var(--cm-keyword)" },
+  { tag: [tags.atom, tags.bool, tags.null, tags.number], color: "var(--cm-literal)" },
+  {
+    tag: [tags.string, tags.special(tags.string), tags.docString, tags.character, tags.inserted],
+    color: "var(--cm-string)",
+  },
+  { tag: [tags.regexp, tags.escape], color: "var(--cm-string)" },
+  {
+    tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.labelName],
+    color: "var(--cm-function)",
+  },
+  { tag: [tags.typeName, tags.className, tags.namespace, tags.self], color: "var(--cm-type)" },
+  { tag: [tags.operator, tags.derefOperator], color: "var(--cm-operator)" },
+  {
+    tag: [tags.comment, tags.lineComment, tags.blockComment, tags.meta],
+    color: "var(--cm-comment)",
+    fontStyle: "italic",
+  },
+  { tag: tags.invalid, color: "var(--cm-invalid)" },
+  { tag: tags.strong, fontWeight: "bold" },
+  { tag: tags.emphasis, fontStyle: "italic" },
+  { tag: tags.link, textDecoration: "underline" },
+]);
+
 // Фабрика CodeMirror-редактора: общий theme/набор расширений для редактора
 // режима 1 и песочницы (issue #317). onChange (опц.) — колбэк на docChanged.
 // label (issue #409) — доступное имя для .cm-content (скринридеры, WCAG 4.1.2):
@@ -478,7 +509,7 @@ function makeEditor(mount, onChange, label) {
       lineNumbers(),
       history(),
       indentOnInput(),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      syntaxHighlighting(themeHighlightStyle, { fallback: true }),
       keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
       python(),
       theme,

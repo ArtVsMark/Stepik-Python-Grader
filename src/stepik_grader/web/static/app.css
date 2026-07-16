@@ -77,6 +77,16 @@
   --color-gold:            #d19900;
   --color-blue:            #006494;
   --color-purple:          #7a39bb;
+  /* issue #425: подсветка синтаксиса CodeMirror — на фоне редактора
+     (--color-surface), все ≥4.5:1 в обеих темах (scripts/check_contrast.py). */
+  --cm-keyword:            #7a39bb;
+  --cm-literal:            #a15600;
+  --cm-string:             #3f6d1f;
+  --cm-function:           #006494;
+  --cm-type:               #8a5a00;
+  --cm-operator:           #0c6b70;
+  --cm-comment:            #67665f;
+  --cm-invalid:            #a12c7b;
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
@@ -139,6 +149,14 @@
   --color-gold:            #e8af34;
   --color-blue:            #5591c7;
   --color-purple:          #a86fdf;
+  --cm-keyword:            #b98ce6;
+  --cm-literal:            #e0975a;
+  --cm-string:             #8fbf6a;
+  --cm-function:           #5591c7;
+  --cm-type:               #d1a250;
+  --cm-operator:           #63aab4;
+  --cm-comment:            #918f8b;
+  --cm-invalid:            #e488bf;
   --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.22);
   --shadow-md: 0 4px 12px oklch(0 0 0 / 0.32);
   --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.44);
@@ -160,6 +178,9 @@
     --color-warning: #d98a5c; --color-warning-highlight: #564942; /* issue #298 a11y — см. [data-theme="dark"] */
     --color-error: #e488bf; --color-error-highlight: #43353d;
     --color-notification: #dd6974;
+    --cm-keyword: #b98ce6; --cm-literal: #e0975a; --cm-string: #8fbf6a;
+    --cm-function: #5591c7; --cm-type: #d1a250; --cm-operator: #63aab4;
+    --cm-comment: #918f8b; --cm-invalid: #e488bf;
     --shadow-sm: 0 1px 2px oklch(0 0 0/0.22);
     --shadow-md: 0 4px 12px oklch(0 0 0/0.32);
     --shadow-lg: 0 12px 32px oklch(0 0 0/0.44);
