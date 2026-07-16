@@ -23,7 +23,8 @@
 > и [`docs/versions.md`](docs/versions.md); этот файл остаётся историческим
 > snapshot, а не источником истины по версиям.
 
-- Тестов: 1317 · Покрытие: 93% (cross-OS combined; single-OS ubuntu — ~87.5%,
+- Тестов: 1317 · Покрытие: 93% cross-OS combined — **снапшот на момент релиза
+  v1.8.0; актуальные числа в живых бейджах README** (single-OS ubuntu ~87.5%,
   структурно ограничено `core/sandbox/`'s тремя ОС-специфичными backend'ами,
   см. [`docs/architecture.md`](docs/architecture.md)) · Python: 3.12 / 3.13 /
   3.14 (экспериментальная, только ubuntu в CI)
