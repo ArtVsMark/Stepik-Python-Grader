@@ -245,6 +245,7 @@ def _run_mode_1(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
+    ai_hints: bool = False,
 ) -> bool:
     """Режим 1: проверить одно решение (verbose). Тонкая обёртка над commands._run_mode_1."""
     return commands._run_mode_1(
@@ -256,6 +257,7 @@ def _run_mode_1(
         record_stats=record_stats,
         record_history=record_history,
         record_lint=record_lint,
+        ai_hints=ai_hints,
     )
 
 
@@ -268,6 +270,7 @@ def _run_mode_2(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
+    ai_hints: bool = False,
 ) -> bool:
     """Режим 2: проверить все решения в папке. Тонкая обёртка над commands._run_mode_2."""
     return commands._run_mode_2(
@@ -279,6 +282,7 @@ def _run_mode_2(
         record_stats=record_stats,
         record_history=record_history,
         record_lint=record_lint,
+        ai_hints=ai_hints,
     )
 
 
@@ -532,6 +536,7 @@ def main(argv: list[str] | None = None) -> None:
     record_stats = _resolve_record_stats(args)
     record_history = _resolve_record_history(args)
     record_lint = args.lint  # разовый флаг режимов 1/2 (issue #349), без config-дефолта
+    ai_hints = args.ai_hints  # разовый флаг AI-подсказок режимов 1/2 (issue #435)
 
     if args.sandbox:
         # issue #266: жёсткий отказ, если backend недоступен на этой машине --
@@ -563,6 +568,7 @@ def main(argv: list[str] | None = None) -> None:
                 record_stats=record_stats,
                 record_history=record_history,
                 record_lint=record_lint,
+                ai_hints=ai_hints,
             ),
             watch=args.watch,
         )
@@ -583,6 +589,7 @@ def main(argv: list[str] | None = None) -> None:
                 record_stats=record_stats,
                 record_history=record_history,
                 record_lint=record_lint,
+                ai_hints=ai_hints,
             ),
             watch=args.watch,
         )

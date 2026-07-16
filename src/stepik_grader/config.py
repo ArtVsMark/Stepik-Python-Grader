@@ -86,6 +86,18 @@ class GraderConfig:
     sandbox_max_cpu_seconds: float = 10.0
     sandbox_max_processes: int = 32
     sandbox_max_output_bytes: int = 10 * 1024 * 1024
+    # issue #435 / ADR-0003 — opt-in AI-подсказки при WA/RE (--ai-hints). BYOK,
+    # OpenAI-compatible `{ai_base_url}/chat/completions` на requests (без SDK и
+    # новых зависимостей). Дефолт выключено: ai_base_url=None → graceful skip.
+    # ai_api_key_env — ИМЯ env-переменной с ключом; значение ключа НИКОГДА не в
+    # конфиге/файлах, читается из окружения в момент вызова и регистрируется в
+    # diag_log.register_secret. Локальный провайдер (ollama,
+    # http://localhost:11434/v1) ключа не требует.
+    ai_base_url: str | None = None
+    ai_model: str | None = None
+    ai_api_key_env: str = "STEPIK_GRADER_AI_KEY"
+    ai_max_tokens: int = 400
+    ai_timeout_seconds: float = 20.0
 
 
 def _find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path | None:

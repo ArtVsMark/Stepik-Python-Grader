@@ -73,6 +73,7 @@ def test_main_watch_mode2_enables_cache(monkeypatch: pytest.MonkeyPatch) -> None
         record_stats: bool,
         record_history: bool,
         record_lint: bool = False,
+        ai_hints: bool = False,
     ) -> None:
         captured["use_cache"] = use_cache
 
@@ -95,6 +96,7 @@ def test_main_watch_mode2_no_cache_opts_out(monkeypatch: pytest.MonkeyPatch) -> 
         record_stats: bool,
         record_history: bool,
         record_lint: bool = False,
+        ai_hints: bool = False,
     ) -> None:
         captured["use_cache"] = use_cache
 
@@ -118,6 +120,7 @@ def test_main_watch_mode1_does_not_auto_enable_cache(monkeypatch: pytest.MonkeyP
         record_stats: bool,
         record_history: bool,
         record_lint: bool = False,
+        ai_hints: bool = False,
     ) -> None:
         captured["use_cache"] = use_cache
 
