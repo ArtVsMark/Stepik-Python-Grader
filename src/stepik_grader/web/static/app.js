@@ -25,11 +25,18 @@ const HT = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 
 // ---------------------------------------------------------------------------
+// Единый реестр разделов (issue #428): порядок = порядок Ctrl-переключения
+// команды «Переключить раздел». И setSection() (показ/скрытие #view-*), и
+// switch_section() ходят по нему — новый раздел добавляется один раз здесь и
+// забыть его нельзя (устраняет рецидив #317: switch_section циклил 4 из 7).
+// ---------------------------------------------------------------------------
+const SECTIONS = ["check", "downloader", "glossary", "rules", "insights", "sandbox", "settings"];
+
 // State (issue #125) — единый источник состояния для split-pane workspace,
 // command palette, action cards и сценарных кнопок.
 // ---------------------------------------------------------------------------
 const state = {
-  section: localStorage.getItem("grader_section") || "check", // check|glossary|downloader|rules|insights|sandbox|settings
+  section: localStorage.getItem("grader_section") || "check", // одно из SECTIONS
   lang: localStorage.getItem("grader_lang") || "ru", // issue #364 — язык сообщений сервера (?lang=)
   mode: localStorage.getItem("grader_mode") || "tests", // "file" | "tests" | "bench" | "microbench"
   resultTab: "table", // "table" | "detail"
@@ -177,11 +184,11 @@ const ACTION_HANDLERS = {
   open_glossary: () => openGlossaryForSelectedCase(),
   toggle_theme: () => cycleTheme(),
   switch_section: () => {
-    // issue #317: циклическое переключение по всем разделам (раньше — только
-    // check↔glossary, теряя downloader/sandbox — ср. находка аудита #331).
-    const order = ["check", "downloader", "glossary", "sandbox"];
-    const i = order.indexOf(state.section);
-    setSection(order[(i + 1) % order.length]);
+    // issue #428: циклическое переключение по ВСЕМ разделам через единый
+    // реестр SECTIONS (раньше — жёсткий 4-элементный список, терявший
+    // rules/insights/settings — рецидив #317, находка аудита #331).
+    const i = SECTIONS.indexOf(state.section);
+    setSection(SECTIONS[(i + 1) % SECTIONS.length]);
   },
 };
 
@@ -352,13 +359,11 @@ function setSection(section) {
     if (active) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
-  $("#view-check").hidden = section !== "check";
-  $("#view-downloader").hidden = section !== "downloader";
-  $("#view-glossary").hidden = section !== "glossary";
-  $("#view-rules").hidden = section !== "rules";
-  $("#view-insights").hidden = section !== "insights";
-  $("#view-sandbox").hidden = section !== "sandbox";
-  $("#view-settings").hidden = section !== "settings";
+  // issue #428: показать выбранный #view-*, скрыть остальные — по единому
+  // реестру SECTIONS (id раздела == суффикс #view-<section>).
+  SECTIONS.forEach(s => {
+    $("#view-" + s).hidden = section !== s;
+  });
   if (section === "glossary" && !state.glossary.cards.length) loadGlossary();
   if (section === "rules" && !state.rules.cards.length) loadRules();
   if (section === "insights") loadInsights();

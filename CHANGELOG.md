@@ -41,6 +41,7 @@
 - Web config panel: removed the «Путь»/«Параметры» tabs — mode 3/4 params render inline under the path field, «Функции в коде» shows only in mode 1 (#366).
 - Web result panel: merged «Детали»+«Лог» into one «Разбор» tab (side-by-side «Ожидалось/Получено» + collapsible raw stdout/stderr); mode-2 action cards limited to copy input/output (#368).
 - Web modes 3/4: stacked layout (config strip on top, results full-width) + benchmark tables/KPI aligned to the CLI reporter (Mean/Max/Std dev added to mode 3) (#370).
+- Web: check-mode buttons now lead with the task («Один файл / Папка / Бенчмарк / Микробенчмарк») and demote «Режим N» to a secondary caption instead of CLI-jargon-first; «Переключить раздел» cycles all 7 sections via one shared `SECTIONS` registry used by both `setSection`/`switch_section` (rules/insights/settings were silently dropped — a regression of #317); an internal issue number was removed from a user-facing tooltip (#428).
 
 ### Removed
 - Web: the localStorage «История» block in the config panel (product history returns on SQLite in «Подучить», epic #342) (#365).
