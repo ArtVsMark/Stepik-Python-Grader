@@ -45,6 +45,7 @@
 ### Removed
 - Web: the localStorage «История» block in the config panel (product history returns on SQLite in «Подучить», epic #342) (#365).
 - Web: the always-empty «Эталон» result tab (a reference is a `REFERENCE` row in the modes 3/4 tables; #55 backend groundwork kept) (#369).
+- `core/executor.py` (dead `run_solution`/`RunResult`/`main`, superseded by `LocalRunner` since #138 — only its own tests exercised it) and the now-unused `executor_timeout` config field / `EXECUTOR_TIMEOUT` env var; execution has a single path (`LocalRunner`), `grader.py` `__all__` unchanged (#406).
 
 ### Internal
 - Pre-commit `ruff` hook bumped `v0.11.13` → `v0.15.21` to match `pyproject.toml` (`ruff>=0.15.19`) and CI; dropped the now-obsolete `--unsafe-fixes` (added only for the since-removed `UP038` rule) that silently rewrote `core/tracer.py` hot-path `isinstance`-tuples to the slower PEP 604 form, and renamed `id: ruff` → `ruff-check` (legacy alias in 0.15.x) (#467).
@@ -54,6 +55,7 @@
 - CI matrix extends Python 3.14 to macOS too (experimental, non-blocking), so all three OSes exercise 3.14 and the `sandbox-exec` backend is verified on the newest Python (#456).
 - CI now exercises the Linux `bwrap` sandbox backend for real: a dedicated `sandbox-linux` job runs the full `test_sandbox_runner.py` (FS isolation, real network isolation, memory, output-size, timeout) inside a privileged container — GitHub Actions forbids unprivileged user namespaces (uid-map/netns), so a privileged container is the only way to run it on GHA; `_linux.py` coverage is merged into the combined report (fork-bomb deselected as its ucounts containment is nested-userns-dependent) (#420).
 - Grading ranking centralised in `core/microbench_runner`: reference ranking moved out of `web/viewmodels`, benchmark verdict unified to `MUCH_SLOWER`, and `run_tests` now carries per-case `stdin` so the web path no longer re-reads test cases (drops the mode-1 `zip(strict=True)` fragility from #422) (#397).
+- `run_single_test` decomposed into `_prepare_run_spec` (strategy/wrapper → `RunSpec`) and the pure `_map_outcome_to_result` (`RunOutcome` → verdict dict), so every verdict branch (RE/TLE/CANCELLED/SANDBOX_VIOLATION/AC/WA) is unit-tested in isolation without a subprocess (#406).
 
 ### Fixed
 - Web code editors now use a theme-driven CodeMirror syntax highlight style built on `--cm-*` CSS variables (≥4.5:1 in light and dark) instead of the light-only `defaultHighlightStyle` that rendered keywords at ~1.85:1 on the dark editor background; the vendored bundle was rebuilt to export `HighlightStyle`/`tags` (#425).

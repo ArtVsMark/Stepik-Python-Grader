@@ -865,4 +865,4 @@ adapters-слоем над `downloader.py`.
   [api.md § Общие правила](api.md#общие-правила-для-всех-api).
   Полноценный multi-tenant sandbox — вне рамок этого документа, см.
   [server-mode.md](server-mode.md) и запрет в
-  [`CLAUDE.md`](../CLAUDE.md): «НЕ запускать executor.py с untrusted-кодом».
+  [`CLAUDE.md`](../CLAUDE.md): «НЕ запускать untrusted-код через LocalRunner».

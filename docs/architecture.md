@@ -54,7 +54,6 @@
 | `core/lint.py` | Infrastructure / Utilities | Opt-in PEP-проверка через ruff (issue #346, эпик #342): `run_lint`→`list[Violation]`, `ruff_available`, `LintUnavailable`; extra `[lint]`, best-effort, НЕ влияет на вердикт |
 | `core/insights.py` | Infrastructure / Utilities | Таксономия падений + затухание карточек «Подучить» (issue #347, эпик #342): `failure_kind`/`classify_status`/`learning_cards` — чистые функции + агрегация из истории, статусы active/fading/archived/watch по номерам прогонов (не по календарю) |
 | `rules/` (пакет) | Domain | Карточки правил PEP 8 (issue #345, эпик #342): `RuleCard` (`models.py`) + `JsonRulesProvider` (`json_provider.py`) + bundled `data/pep8_ru.json` (≥30 кодов E/W/F). По образцу `glossary/`; `json_provider` тянет `core/mtime_cache` — не leaf |
-| `core/executor.py` | Infrastructure | Запускатель решений: `compile + exec` с таймаутом и изолированным namespace |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
 | `core/storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
@@ -89,7 +88,7 @@ core/test_source_fetcher.py ──→  core/stepik_client.py, core/parsers.py, c
 core/task_page_parser.py / core/tests_writer.py / core/step_content.py  ──→  (ничего в проекте; чистые leaf, только stdlib)
 core/stepik_client.py ──→  core/storage.py
 grader.py              ──→  core/grader_core.py, core/reporter.py, cli/__init__.py  (тонкий фасад)
-core/grader_core.py    ──→  core/executor.py, core/microbench_runner.py, core/normalizers.py, core/runner.py
+core/grader_core.py    ──→  core/microbench_runner.py, core/normalizers.py, core/runner.py
 core/grader_core.py    ──→  core/test_loader.py, core/mode_detector.py, core/wrapper_builder.py
 core/test_loader.py    ──→  core/mode_detector.py, core/parsers.py
 core/mode_detector.py  ──→  core/storage.py
@@ -184,7 +183,7 @@ downloader.py больше не импортирует grader.py: дублиру
 │  cli/ (меню, публичная точка входа — stepik-grader)             │
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure  (core/)                                       │
-│  core/stepik_client.py  │  core/executor.py                    │
+│  core/stepik_client.py  │  core/runner.py                      │
 │  core/microbench_runner.py  │  core/oauth_flow.py              │
 │  core/cache.py (.grader_cache/, #56)  │  core/stats.py (#268)   │
 │  core/history.py (.grader_history.db, WAL, #344)               │

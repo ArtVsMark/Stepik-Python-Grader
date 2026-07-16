@@ -59,16 +59,6 @@ __all__ = [
 # по-прежнему реэкспортирует их явно по имени (backward-compat __all__ этого
 # фасада не менялся) — новый код должен читать stepik_grader.config.CONFIG.
 
-# executor.py — вспомогательный модуль для запуска кода из строки (не из файла).
-# run_solution() используется в тестах (tests/test_executor.py); grader сам его не вызывает.
-# Импортируем RunResult для аннотаций и совместимости.
-try:
-    from stepik_grader.core.executor import (
-        RunResult as _ExecutorRunResult,  # noqa: F401  (реэкспорт для тестов)
-    )
-except ImportError:
-    _ExecutorRunResult = None  # type: ignore[assignment,misc]
-
 # run_single_test() делегирует фактический subprocess-запуск LocalRunner'у
 # (issue #136/#137/#138, docs/server-mode.md § Runner-слой) — не меняет
 # поведение, только выделяет абстракцию Runner для будущего SandboxRunner
@@ -95,6 +85,7 @@ from stepik_grader.core.normalizers import normalize_floats as _normalize_output
 from stepik_grader.core.runner import (
     LocalRunner,
     Runner,  # noqa: F401  (реэкспорт — часть публичного API Runner-абстракции)
+    RunOutcome,
     RunSpec,
     _apply_memory_limit,  # noqa: F401  (реэкспорт для тестов/grader.py facade)
     _measure_peak_memory,  # noqa: F401  (реэкспорт для тестов/grader.py facade)
@@ -236,92 +227,111 @@ def _fail_result(
     }
 
 
-def run_single_test(
+@dataclass(frozen=True)
+class _RunPlan:
+    """План запуска одного кейса в ``run_single_test`` (issue #406).
+
+    Либо готовый ``spec`` (плюс ``tmp_wrapper_path`` — временный wrapper-файл
+    function-mode, который ``run_single_test`` удаляет после запуска), либо
+    ``error`` — ошибка подготовки (нет ``function_name`` / невалидный wrapper),
+    при которой запуск не производится и кейс сразу маппится в RE. Инвариант:
+    ровно одно из ``spec``/``error`` заполнено.
+    """
+
+    spec: RunSpec | None = None
+    tmp_wrapper_path: pathlib.Path | None = None
+    error: str | None = None
+
+
+def _prepare_run_spec(
     solution_path: pathlib.Path,
     case: TestCase,
     *,
-    timeout: float = TIMEOUT_SECONDS,
-    measure_memory: bool = MEASURE_CHILD_MEMORY,
-    cancel_event: threading.Event | None = None,
-) -> dict[str, Any]:
-    """Запустить одно решение на одном тест-кейсе и вернуть словарь с результатами.
+    timeout: float,
+    measure_memory: bool,
+    cancel_event: threading.Event | None,
+) -> _RunPlan:
+    """Выбрать стратегию запуска кейса и собрать ``RunSpec`` (issue #406).
 
-    Для test_type='stdin'  — запускает решение напрямую, подаёт stdin.
-    Для test_type='function' — генерирует временный wrapper-скрипт,
-      который импортирует функцию и вызывает её с аргументами из input_data.
-      Файл решения при этом не модифицируется.
+    stdin-режим → ``RunSpec`` со stdin-байтами кейса (``tmp_wrapper_path`` None).
+    function-режим → сгенерировать wrapper (python-generation call-блок или
+      legacy function-mode), записать во временный ``.py`` и указать на него
+      ``RunSpec.path`` (``tmp_wrapper_path`` задан — вызывающая сторона удаляет
+      файл после запуска; сам файл решения не модифицируется). Ошибка
+      подготовки (нет ``function_name`` / ``ValueError`` из wrapper-builder) →
+      ``_RunPlan(error=...)``: запуск не делается, кейс сразу RE.
 
-    Возвращаемый словарь:
-        passed    (bool)   — прошёл ли тест
-        output    (list)   — фактический вывод (строки)
-        expected  (list)   — ожидаемый вывод (строки)
-        diff      (str)    — unified diff при несовпадении
-        time      (float)  — время выполнения в секундах
-        memory    (float)  — пик памяти в МБ (0 если measure_memory=False)
-        error     (str)    — сообщение об ошибке (пустая = нет ошибки)
-        timed_out (bool)   — истёк ли таймаут
-        exit_code (int | None) — код возврата процесса решения; None, если
-            процесс не завершился нормально (ошибка запуска/таймаут) —
-            issue #125, ErrorCard.exit_code в web-слое.
+    Выделена из ``run_single_test`` — вся не-исполняющая «стратегия+wrapper»
+    логика в одном месте, тестируемая без реального subprocess-запуска.
     """
-    # --- Выбор стратегии запуска ---
-    tmp_wrapper: Any = None  # NamedTemporaryFile или None
-    run_path: pathlib.Path = solution_path
-    stdin_bytes: bytes | None
-
-    if case.test_type == "function":
-        input_data = "\n".join(case.input_lines)
-        if _is_python_code_block(input_data):
-            # python-generation function-call: блок уже содержит print(func(...))
-            wrapper_src = _build_call_wrapper(solution_path, input_data)
-        else:
-            # legacy function-mode: блок задаёт переменные, вызов собираем сами
-            func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
-            if func_name is None:
-                return _fail_result(
-                    case,
-                    error=(
-                        "function_name not found"
-                        " (meta.json missing and no function def in solution)"
-                    ),
-                    verdict="RE",
-                )
-            try:
-                wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
-            except ValueError as exc:
-                return _fail_result(case, error=str(exc), verdict="RE")
-        # Записываем wrapper во временный файл; удаляется после запуска
-        tmp_wrapper = tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".py",
-            encoding=ENCODING,
-            delete=False,
-        )
-        tmp_wrapper.write(wrapper_src)
-        tmp_wrapper.flush()
-        tmp_wrapper.close()
-        run_path = pathlib.Path(tmp_wrapper.name)
-        stdin_bytes = None  # wrapper не читает stdin
-    else:
+    if case.test_type != "function":
         stdin_data = "\n".join(case.input_lines) + "\n"
-        stdin_bytes = stdin_data.encode(ENCODING)
+        return _RunPlan(
+            spec=RunSpec(
+                path=solution_path,
+                stdin=stdin_data.encode(ENCODING),
+                timeout=timeout,
+                measure_memory=measure_memory,
+                max_memory_mb=CONFIG.max_memory_mb,
+                cancel_event=cancel_event,
+            )
+        )
 
-    spec = RunSpec(
-        path=run_path,
-        stdin=stdin_bytes,
-        timeout=timeout,
-        measure_memory=measure_memory,
-        max_memory_mb=CONFIG.max_memory_mb,
-        cancel_event=cancel_event,
+    input_data = "\n".join(case.input_lines)
+    if _is_python_code_block(input_data):
+        # python-generation function-call: блок уже содержит print(func(...))
+        wrapper_src = _build_call_wrapper(solution_path, input_data)
+    else:
+        # legacy function-mode: блок задаёт переменные, вызов собираем сами
+        func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
+        if func_name is None:
+            return _RunPlan(
+                error=(
+                    "function_name not found (meta.json missing and no function def in solution)"
+                )
+            )
+        try:
+            wrapper_src = _build_function_wrapper(solution_path, input_data, func_name)
+        except ValueError as exc:
+            return _RunPlan(error=str(exc))
+
+    # Записываем wrapper во временный файл; run_single_test удалит его после запуска.
+    tmp_wrapper = tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".py",
+        encoding=ENCODING,
+        delete=False,
     )
-    try:
-        outcome = _RUNNER.run(spec)
-    finally:
-        # Удаляем временный wrapper-файл (contextlib.suppress — безопасно при краше)
-        if tmp_wrapper is not None:
-            with contextlib.suppress(OSError):
-                os.unlink(tmp_wrapper.name)
+    tmp_wrapper.write(wrapper_src)
+    tmp_wrapper.flush()
+    tmp_wrapper.close()
+    wrapper_path = pathlib.Path(tmp_wrapper.name)
+    return _RunPlan(
+        spec=RunSpec(
+            path=wrapper_path,
+            stdin=None,  # wrapper не читает stdin
+            timeout=timeout,
+            measure_memory=measure_memory,
+            max_memory_mb=CONFIG.max_memory_mb,
+            cancel_event=cancel_event,
+        ),
+        tmp_wrapper_path=wrapper_path,
+    )
 
+
+def _map_outcome_to_result(
+    outcome: RunOutcome,
+    case: TestCase,
+    timeout: float,
+) -> dict[str, Any]:
+    """Чистая функция: сырой ``RunOutcome`` → словарь-результат кейса (issue #406).
+
+    Порядок веток verdict: ``launch_error`` → RE; ``sandbox_violation`` →
+    SANDBOX_VIOLATION; ``cancelled`` → CANCELLED; ``timed_out`` → TLE;
+    ненулевой ``returncode`` → RE; иначе сравнение вывода (с нормализацией
+    float-строк) → AC/WA (+unified diff). Без I/O и без subprocess — каждую
+    ветку verdict можно проверить изолированно (issue #406 acceptance).
+    """
     if outcome.launch_error is not None:
         return _fail_result(case, error=outcome.launch_error, verdict="RE")
 
@@ -406,6 +416,64 @@ def run_single_test(
         "verdict": "AC" if passed else "WA",
         "exit_code": outcome.returncode,
     }
+
+
+def run_single_test(
+    solution_path: pathlib.Path,
+    case: TestCase,
+    *,
+    timeout: float = TIMEOUT_SECONDS,
+    measure_memory: bool = MEASURE_CHILD_MEMORY,
+    cancel_event: threading.Event | None = None,
+) -> dict[str, Any]:
+    """Запустить одно решение на одном тест-кейсе и вернуть словарь с результатами.
+
+    Тонкий оркестратор (issue #406): ``_prepare_run_spec`` выбирает стратегию
+    (stdin/function-wrapper) и собирает ``RunSpec`` либо возвращает prep-ошибку;
+    активный ``_RUNNER`` исполняет spec; ``_map_outcome_to_result`` маппит сырой
+    ``RunOutcome`` в словарь-результат. Временный wrapper-файл function-mode
+    удаляется здесь, после запуска.
+
+    Для test_type='stdin'  — запускает решение напрямую, подаёт stdin.
+    Для test_type='function' — генерирует временный wrapper-скрипт,
+      который импортирует функцию и вызывает её с аргументами из input_data.
+      Файл решения при этом не модифицируется.
+
+    Возвращаемый словарь:
+        passed    (bool)   — прошёл ли тест
+        output    (list)   — фактический вывод (строки)
+        expected  (list)   — ожидаемый вывод (строки)
+        diff      (str)    — unified diff при несовпадении
+        time      (float)  — время выполнения в секундах
+        memory    (float)  — пик памяти в МБ (0 если measure_memory=False)
+        error     (str)    — сообщение об ошибке (пустая = нет ошибки)
+        timed_out (bool)   — истёк ли таймаут
+        exit_code (int | None) — код возврата процесса решения; None, если
+            процесс не завершился нормально (ошибка запуска/таймаут) —
+            issue #125, ErrorCard.exit_code в web-слое.
+    """
+    plan = _prepare_run_spec(
+        solution_path,
+        case,
+        timeout=timeout,
+        measure_memory=measure_memory,
+        cancel_event=cancel_event,
+    )
+    if plan.error is not None:
+        # prep-ошибка (нет function_name / невалидный wrapper) → RE без запуска.
+        return _fail_result(case, error=plan.error, verdict="RE")
+    if plan.spec is None:  # pragma: no cover — инвариант _RunPlan: error is None ⇒ spec задан
+        return _fail_result(case, error="run spec preparation failed", verdict="RE")
+
+    try:
+        outcome = _RUNNER.run(plan.spec)
+    finally:
+        # Удаляем временный wrapper-файл (contextlib.suppress — безопасно при краше)
+        if plan.tmp_wrapper_path is not None:
+            with contextlib.suppress(OSError):
+                os.unlink(plan.tmp_wrapper_path)
+
+    return _map_outcome_to_result(outcome, case, timeout)
 
 
 def run_tests(

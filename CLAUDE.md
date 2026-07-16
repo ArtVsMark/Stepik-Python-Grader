@@ -21,7 +21,7 @@
    (requirements.txt удалён — pyproject.toml единственный источник; не воссоздавать)
 ❌ НЕ коммитить secrets.json, stepik_config.json, StepikTasks/, .grader_cache/,
    .grader_stats.jsonl
-❌ НЕ запускать executor.py с untrusted-кодом — нет OS-sandbox
+❌ НЕ запускать untrusted-код через LocalRunner (core/runner.py) — нет OS-sandbox
 ❌ НЕ трогать .github/workflows/ без явной задачи
 ❌ НЕ править version в pyproject.toml вручную — версия динамическая, из git-тегов
    (setuptools-scm, issue #162). См. § Версионирование.
@@ -163,8 +163,8 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
 2. **Leaf-модули** — `storage.py`, `normalizers.py`, `glossary.py` не
    импортируют ничего из проекта. Не добавлять в них project-импорты.
 3. **Graceful fallback** — `rich` опционален; весь вывод через `_console`.
-4. **Sandbox — только opt-in** — по умолчанию `executor.py`/`LocalRunner`
-   запускают код в subprocess **без** изоляции ФС/сети; OS-изоляция включается
+4. **Sandbox — только opt-in** — по умолчанию `LocalRunner`
+   запускает код в subprocess **без** изоляции ФС/сети; OS-изоляция включается
    явным `--sandbox` (`core/sandbox/`, три backend'а, issue #266) — и в CLI
    (`--mode 1/2/3/4`), и в web (`--serve --sandbox`, issue #396: `SandboxRunner`
    ставится активным runner'ом до старта, поэтому grade/playground/microbench

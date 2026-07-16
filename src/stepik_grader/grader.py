@@ -28,7 +28,6 @@ from stepik_grader.core.grader_core import (
     _build_call_wrapper,
     _build_function_wrapper,
     _detect_run_mode,
-    _ExecutorRunResult,
     _is_python_code_block,
     _is_safe_constant,
     _measure_peak_memory,

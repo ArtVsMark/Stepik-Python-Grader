@@ -7,8 +7,7 @@ Structure:
 - Real backend scenario tests, gated with ``pytest.mark.skipif`` on actual
   availability of that backend's OS tool/API, so they execute for real only
   on their native CI runner (ubuntu/macos/windows-latest) — same convention
-  as ``test_executor.py``'s ``SIGALRM`` gating and ``test_storage.py``'s
-  POSIX-only permission-bits gating.
+  as ``test_storage.py``'s POSIX-only permission-bits gating.
 """
 
 from __future__ import annotations

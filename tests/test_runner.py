@@ -470,3 +470,33 @@ def test_sys_executable_used_for_interpreter(tmp_path: pathlib.Path) -> None:
     outcome = LocalRunner().run(spec)
 
     assert outcome.stdout.decode().strip() == sys.executable
+
+
+# ---------------------------------------------------------------------------
+# Parity с удалённым tests/test_executor.py (issue #406 retire): поведение,
+# которое раньше проверялось на executor.run_solution, теперь — на LocalRunner.
+# ---------------------------------------------------------------------------
+
+
+def test_local_runner_syntax_error_surfaces_in_stderr(tmp_path: pathlib.Path) -> None:
+    """Невалидный синтаксис решения → ненулевой returncode + SyntaxError в stderr."""
+    path = _write_script(tmp_path, "def broken(\n")
+    spec = RunSpec(path=path, stdin=None, timeout=5.0, measure_memory=False)
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.launch_error is None
+    assert outcome.returncode != 0
+    assert b"SyntaxError" in outcome.stderr
+
+
+def test_local_runner_forces_utf8_for_cyrillic_output(tmp_path: pathlib.Path) -> None:
+    """LocalRunner форсит PYTHONIOENCODING/PYTHONUTF8 ребёнку — кириллица в
+    stdout не ломается даже там, где системная локаль cp1251 (Windows)."""
+    path = _write_script(tmp_path, "print('Привет, мир')\n")
+    spec = RunSpec(path=path, stdin=None, timeout=5.0, measure_memory=False)
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.returncode == 0
+    assert outcome.stdout.decode("utf-8").strip() == "Привет, мир"

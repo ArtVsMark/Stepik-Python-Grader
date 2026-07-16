@@ -162,7 +162,7 @@ python -m stepik_grader --version   # напр. 1.8.0
 | Пакет | Назначение | Используется в |
 |-------|------------|----------------|
 | `requests>=2.34.2` | HTTP-запросы к Stepik API, OAuth2, скачивание ZIP | `core/stepik_client.py`, `downloader.py` |
-| `psutil>=5.9` | Замер памяти и мониторинг процессов | `core/grader_core.py`, `core/executor.py` |
+| `psutil>=5.9` | Замер памяти и мониторинг процессов | `core/grader_core.py`, `core/runner.py` |
 | `rich>=13.0` | Цветные таблицы, прогресс-бар, WA diff в терминале | `core/reporter.py` |
 
 Dev-зависимости (`pip install -e ".[dev]"`):

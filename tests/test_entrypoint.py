@@ -6,7 +6,7 @@
 `python -m stepik_grader.grader` (`grader.py`), которые staged-декомпозиция
 cli.py (issues #117-#121) обязана не сломать. Эти тесты запускают настоящие
 subprocess'ы, а не импортируют cli напрямую — тот же паттерн, что уже
-используют tests/test_version_script.py и tests/test_executor.py.
+использует tests/test_version_script.py.
 """
 
 from __future__ import annotations

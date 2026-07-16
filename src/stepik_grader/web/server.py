@@ -12,7 +12,7 @@ CodeMirror 6 (issue #265, MIT, см. ``static/vendor/LICENSE``) вендорен
 рендера, ни для факта своего запуска.
 
 Threat model тот же, что у CLI: решения запускаются в subprocess без
-OS-sandbox (см. ``core/executor.py``, CLAUDE.md). Сервер слушает только
+OS-sandbox (см. ``core/runner.py``, CLAUDE.md). Сервер слушает только
 127.0.0.1 — запускай для своих решений на своей машине.
 """
 

@@ -37,8 +37,8 @@ from typing import Any, Protocol, runtime_checkable
 import psutil
 
 # resource — POSIX-only (RLIMIT_AS для best-effort memory cap, issue #43 S-01).
-# На Windows модуль отсутствует; лимит памяти там не применяется (как и
-# SIGALRM-таймаут в executor.py — тот же паттерн graceful degradation).
+# На Windows модуль отсутствует; лимит памяти там не применяется — тот же
+# паттерн graceful degradation, что и у POSIX-only лимитов песочницы.
 try:
     import resource
 except ImportError:

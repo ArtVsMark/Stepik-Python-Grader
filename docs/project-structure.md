@@ -49,7 +49,6 @@ Stepik-Python-Grader/
 │           ├── reporter.py       # rich-таблицы, вывод, verbose-diff
 │           ├── result.py         # TestResult (frozen dataclass) + Verdict Literal (leaf, issue #112/#113)
 │           ├── runner.py         # Runner Protocol + LocalRunner — абстракция запуска кода (issue #136-138)
-│           ├── executor.py       # Запускатель решений: compile + exec с таймаутом
 │           ├── microbench_runner.py  # Timeit-микробенчмарк через subprocess + os.devnull
 │           ├── normalizers.py    # Нормализация вывода: округление float, sort/whitespace
 │           ├── glossary.py       # Компактная карта исключений → подсказка + ссылка, leaf (issue #72)
