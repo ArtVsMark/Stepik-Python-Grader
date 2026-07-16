@@ -179,7 +179,6 @@ exclude_lines = [
 
 [tool.stepik-grader]
 timeout_seconds = 10.0
-executor_timeout = 10
 similar_threshold = 1.15
 much_slower_threshold = 1.50
 measure_child_memory = true

@@ -49,8 +49,7 @@ mode — это именно такой переход, поэтому он пр
 > без изменения поведения. Ниже — контракт как есть в коде (не только дизайн).
 
 Раньше исполнение было размазано между `core/grader_core.py` (subprocess
-одного кейса), `core/executor.py` (`compile+exec`, используется в тестах) и
-`core/microbench_runner.py` (timeit). `Runner` — явная абстракция запуска,
+одного кейса) и `core/microbench_runner.py` (timeit). `Runner` — явная абстракция запуска,
 чтобы сменить механизм изоляции (будущий `SandboxRunner`), не трогая грейдинг.
 
 **Слой (реализовано в `core/runner.py`):**
@@ -110,7 +109,7 @@ backend'а (`core/sandbox/_windows.py`, issue #266 `--sandbox`). Не закры
 6 «Изоляция по клиентам» выше требует и сетевую изоляцию тоже).
 `LocalRunner`-путь (без `--sandbox`) на Windows остаётся как был: точного
 внутрипроцессного таймаута через `SIGALRM` нет (защита — только внешний
-`subprocess.run(timeout=...)`, см. `core/executor.py`), лимит памяти —
+`subprocess.run(timeout=...)`, см. `core/runner.py`), лимит памяти —
 best-effort лишь на POSIX.
 
 **Реализация не привязана к Docker.** `SandboxRunner` — интерфейс; конкретный

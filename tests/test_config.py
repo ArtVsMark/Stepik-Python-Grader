@@ -14,7 +14,6 @@ def test_grader_config_defaults() -> None:
     """GraderConfig() создаётся с задокументированными дефолтами."""
     cfg = GraderConfig()
     assert cfg.timeout_seconds == 10.0
-    assert cfg.executor_timeout == 10
     assert cfg.similar_threshold == 1.15
     assert cfg.much_slower_threshold == 1.50
     assert cfg.measure_child_memory is True
@@ -202,7 +201,6 @@ def test_dataclass_fields_matches_known_field_set() -> None:
     field_names = {f.name for f in dataclasses.fields(GraderConfig)}
     assert field_names == {
         "timeout_seconds",
-        "executor_timeout",
         "similar_threshold",
         "much_slower_threshold",
         "measure_child_memory",

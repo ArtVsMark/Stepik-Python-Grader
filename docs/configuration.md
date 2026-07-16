@@ -66,7 +66,6 @@
 ```toml
 [tool.stepik-grader]
 timeout_seconds = 10.0
-executor_timeout = 10
 similar_threshold = 1.15
 much_slower_threshold = 1.50
 measure_child_memory = true
@@ -78,7 +77,6 @@ microbench_max_cases = 5
 | Ключ | Тип | Дефолт | Назначение |
 |---|---|---|---|
 | `timeout_seconds` | `float` | `10.0` | Таймаут subprocess одного тест-кейса (режимы 1–3), защита от зависания. |
-| `executor_timeout` | `int` | `10` | Таймаут `core/executor.py` (`signal.alarm` на Unix). |
 | `similar_threshold` | `float` | `1.15` | Порог вердикта `SIMILAR` в бенчмарке (относительно быстрейшего). |
 | `much_slower_threshold` | `float` | `1.50` | Порог вердикта `MUCH SLOWER` в бенчмарке. |
 | `measure_child_memory` | `bool` | `true` | `true` — мониторинг дочернего процесса через `psutil` (честнее, медленнее); `false` — RSS родителя (быстро, грубо). |
@@ -160,17 +158,6 @@ StepikTasks/
 
 ```python
 TIMEOUT_SECONDS: float = 10.0  # секунд
-```
-
-### Таймаут executor
-
-В `core/executor.py` таймаут берётся из переменной окружения `EXECUTOR_TIMEOUT`
-(по умолчанию `10` с, соответствует `CONFIG.executor_timeout`). На Unix —
-`signal.alarm`; на Windows (где `SIGALRM` недоступен) защита обеспечивается
-таймаутом subprocess уровня `core/grader_core.py`:
-
-```python
-TIMEOUT: int = int(os.environ.get("EXECUTOR_TIMEOUT", "10"))
 ```
 
 ### Microbench (режим 4)
@@ -284,15 +271,13 @@ ZIP-архивы автоматически конвертируются в Form
 может использовать сколько угодно памяти. Ограничений диска или сети нет ни на
 одной платформе. Запускай только доверенные решения (свои собственные или
 скачанные из Stepik as-is) — grader не предназначен для проверки произвольного
-untrusted-кода (`core/executor.py` явно задокументирован как «нет sandbox на
-уровне ОС» в [`CLAUDE.md`](../CLAUDE.md)).
+untrusted-кода («нет sandbox на уровне ОС» задокументировано в
+[`CLAUDE.md`](../CLAUDE.md) и докстринге `core/runner.py`).
 
-- **Режимы 1–3 (`grader_core.run_single_test`):** решение запускается напрямую
-  через `subprocess.Popen` (для function-mode — во временном wrapper-скрипте,
-  импортирующем функцию решения). Единственная защита — `timeout=` у
-  `proc.communicate()` (`grader_core.TIMEOUT_SECONDS`, по умолчанию 10 с);
-  `core/executor.py` (`run_solution`) реализует ту же модель с `signal.alarm`
-  на Unix, но используется только в тестах, не в самом grader'е.
+- **Режимы 1–3 (`grader_core.run_single_test` → `core/runner.py` `LocalRunner`):**
+  решение запускается напрямую через `subprocess.Popen` (для function-mode — во
+  временном wrapper-скрипте, импортирующем функцию решения). Единственная защита —
+  `timeout=` у `proc.communicate()` (`grader_core.TIMEOUT_SECONDS`, по умолчанию 10 с).
 - **Режим 4 (`core/microbench_runner.py`):** решения запускаются через
   subprocess (`python -c`) с `timeit.repeat`, защищены фиксированным
   `subprocess.run(timeout=60)`. Исходник передаётся через временный файл;

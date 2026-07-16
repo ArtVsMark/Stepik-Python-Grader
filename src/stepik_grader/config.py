@@ -1,7 +1,7 @@
 """config.py — единая конфигурация грейдера.
 
 Архитектурный слой: Application / Configuration.
-Заменяет разбросанные по grader_core.py / core/executor.py хардкод-константы
+Заменяет разбросанные по grader_core.py хардкод-константы
 единой точкой правды. Значения переопределяются через секцию
 [tool.stepik-grader] в pyproject.toml; при отсутствии файла или секции
 используются дефолты из GraderConfig.
@@ -34,7 +34,6 @@ class GraderConfig:
     """Единая конфигурация грейдера. frozen=True — потокобезопасно."""
 
     timeout_seconds: float = 10.0
-    executor_timeout: int = 10
     similar_threshold: float = 1.15
     much_slower_threshold: float = 1.50
     measure_child_memory: bool = True
