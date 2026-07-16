@@ -32,7 +32,7 @@
 - `README.en.md` — an English entry point (install, quick start, generic mode for your own non-Stepik tests across formats 1–3, links to the bilingual web UI/glossary via `?lang=en`), linked from `README.md`; canonical content stays in `docs/*`, linked rather than duplicated (#437).
 
 ### Changed
-- Glossary web section shows only `status=ready` cards by default (787 auto-draft cards hidden unless `?status=all`/`draft` is chosen); privately-named auto-drafts (`os._exit`, `_pickle.X` — not dunders) are always excluded from student-facing search/lists, while the missing-term detector and queue still see the full base (#436).
+- Glossary web section shows only `status=ready` cards by default (787 auto-draft cards hidden unless `?status=all`/`draft` is chosen); privately-named auto-drafts (`os._exit`, `_pickle.X` — not dunders, ~11 cards) are always excluded from student-facing search/lists. The private filter applies only to non-`ready` cards, so hand-authored `ready` cards (incl. OOP dunder-operator cards) stay visible; the missing-term detector and queue still see the full base (#436).
 - Web sidebar cleanup: dropped the dead «Рабочее пространство» label and the disabled «Настройки» stub → a working Settings section (theme/language, landing spot for the #342 history toggle); recent paths moved to a path-field `datalist` (#364).
 - Web config panel: removed the «Путь»/«Параметры» tabs — mode 3/4 params render inline under the path field, «Функции в коде» shows only in mode 1 (#366).
 - Web result panel: merged «Детали»+«Лог» into one «Разбор» tab (side-by-side «Ожидалось/Получено» + collapsible raw stdout/stderr); mode-2 action cards limited to copy input/output (#368).

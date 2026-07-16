@@ -145,14 +145,17 @@ def glossary_search(
     - ``lang`` — локаль ``?lang=`` (issue #363): ``summary``/``body`` отдаются
       строкой выбранного языка (fallback RU).
 
-    Приватно-именованные автодрафты (``_module``/``obj._attr``, см.
+    Приватно-именованные АВТОДРАФТЫ (``_module``/``obj._attr``, см.
     ``_is_private_name``) скрыты из выдачи ученика ВСЕГДА, даже под явным
-    ``?status=draft`` (issue #436 AC2). Фильтр живёт здесь, а не в ``_all_cards``,
-    поэтому детектор/очередь (``code_terms``/``queue_code_gaps``) по-прежнему видят
-    ПОЛНУЮ базу (AC3).
+    ``?status=draft`` (issue #436 AC2). Фильтр применяется ТОЛЬКО к не-``ready``
+    карточкам: рукописные/промотированные ``ready`` (включая легитимные
+    dunder-slug OOP-карточки ``__add__``/``__len__`` и ``_missing_``) приватностью
+    имени не прячутся — иначе они регрессионно исчезли бы из поиска. Фильтр живёт
+    здесь, а не в ``_all_cards``, поэтому детектор/очередь
+    (``code_terms``/``queue_code_gaps``) по-прежнему видят ПОЛНУЮ базу (AC3).
     """
     cards = _all_cards(store_path)
-    cards = [c for c in cards if not _is_private_name(c.id)]
+    cards = [c for c in cards if c.status == "ready" or not _is_private_name(c.id)]
     if query.strip():
         cards = [c for c in cards if c.matches(query)]
     if section:

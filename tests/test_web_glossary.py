@@ -310,6 +310,15 @@ class TestGlossaryReadyDefaultAndPrivate:
             ),
             # дандер-метод — легитимная публичная карточка, НЕ приватная
             GlossaryCard(id="str.__len__", title="str.__len__()", kind="function", status="ready"),
+            # регрессия #436: рукописная ready-карточка со slug-именем «выглядит»
+            # приватной (сегмент __add__…-operators не заканчивается на __), но
+            # приватный фильтр не должен её прятать — она ready.
+            GlossaryCard(
+                id="__add__-__mul__-operators",
+                title="Операторные методы (__add__/__mul__)",
+                kind="term",
+                status="ready",
+            ),
         ]
         path = tmp_path / "g.json"
         path.write_text(
@@ -320,7 +329,20 @@ class TestGlossaryReadyDefaultAndPrivate:
 
     def test_default_shows_only_ready_non_private(self, store_path: pathlib.Path) -> None:
         ids = {c["id"] for c in glossary_adapter.glossary_search("", store_path=str(store_path))}
-        assert ids == {"str.split", "str.__len__"}
+        # все ready видны (в т.ч. slug-имя __add__…-operators); draft-приватные — нет
+        assert ids == {"str.split", "str.__len__", "__add__-__mul__-operators"}
+
+    def test_ready_slug_card_not_hidden_as_private(self, store_path: pathlib.Path) -> None:
+        # регрессия #436: ready-карточка со slug-именем не должна пропадать из
+        # выдачи (иначе OOP-карточки операторных методов исчезали бы из поиска).
+        for st in ("", "all"):
+            ids = {
+                c["id"]
+                for c in glossary_adapter.glossary_search(
+                    "", status=st or None, store_path=str(store_path)
+                )
+            }
+            assert "__add__-__mul__-operators" in ids, st
 
     def test_private_hidden_even_under_all(self, store_path: pathlib.Path) -> None:
         ids = {
