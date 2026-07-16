@@ -44,7 +44,7 @@
 - Web: the always-empty «Эталон» result tab (a reference is a `REFERENCE` row in the modes 3/4 tables; #55 backend groundwork kept) (#369).
 
 ### Internal
-- Pre-commit `ruff` hook bumped `v0.11.13` → `v0.15.21` to match `pyproject.toml` (`ruff>=0.15.19`) and CI; dropped the now-obsolete `--unsafe-fixes` (added only for the since-removed `UP038` rule) that silently rewrote `core/tracer.py` hot-path `isinstance`-tuples to the slower PEP 604 form, and renamed `id: ruff` → `ruff-check` (legacy alias in 0.15.x).
+- Pre-commit `ruff` hook bumped `v0.11.13` → `v0.15.21` to match `pyproject.toml` (`ruff>=0.15.19`) and CI; dropped the now-obsolete `--unsafe-fixes` (added only for the since-removed `UP038` rule) that silently rewrote `core/tracer.py` hot-path `isinstance`-tuples to the slower PEP 604 form, and renamed `id: ruff` → `ruff-check` (legacy alias in 0.15.x) (#467).
 - `scripts/check_contrast.py` + `tests/test_contrast.py` enforce WCAG contrast of design-token pairs (button, badges, muted, placeholder, active states) in both themes, so a token regression fails the test suite (#424).
 - CI matrix now covers Windows + Python 3.14 (experimental, non-blocking) — `requires-python = ">=3.12"` promises 3.14 but it was only exercised on ubuntu, leaving the Job Objects sandbox backend and the project's main desktop platform unverified there (#456).
 - CI matrix extends Python 3.14 to macOS too (experimental, non-blocking), so all three OSes exercise 3.14 and the `sandbox-exec` backend is verified on the newest Python (#456).
