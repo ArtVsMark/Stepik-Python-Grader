@@ -132,7 +132,7 @@ def _create_job_object(max_memory_mb: float, cpu_seconds: int, max_processes: in
     Поднимает ``OSError`` при сбое любого шага Win32 API.
     """
     kernel32 = _kernel32()
-    job = kernel32.CreateJobObjectW(None, None)
+    job: int = kernel32.CreateJobObjectW(None, None)
     if not job:
         raise OSError("CreateJobObjectW failed: " + ctypes.FormatError())  # type: ignore[attr-defined]
 

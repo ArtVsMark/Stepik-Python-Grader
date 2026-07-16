@@ -104,29 +104,26 @@ class JsonGlossaryProvider:
     # -- конструкторы загрузки -------------------------------------------
 
     @classmethod
-    def from_file(cls, path: pathlib.Path | str) -> JsonGlossaryProvider:
+    def from_file(cls, path: pathlib.Path) -> JsonGlossaryProvider:
         """Загрузить карточки из одного JSON-файла."""
-        file_path = pathlib.Path(path)
-        return cls(cls._load_cards_from_file(file_path))
+        return cls(cls._load_cards_from_file(path))
 
     @classmethod
-    def from_directory(cls, path: pathlib.Path | str) -> JsonGlossaryProvider:
+    def from_directory(cls, path: pathlib.Path) -> JsonGlossaryProvider:
         """Загрузить карточки из всех ``*.json`` в директории (отсортировано)."""
-        dir_path = pathlib.Path(path)
-        if not dir_path.is_dir():
-            raise GlossaryError(f"Директория глоссария не найдена: {dir_path}")
+        if not path.is_dir():
+            raise GlossaryError(f"Директория глоссария не найдена: {path}")
         cards: list[GlossaryCard] = []
-        for json_file in sorted(dir_path.glob("*.json")):
+        for json_file in sorted(path.glob("*.json")):
             cards.extend(cls._load_cards_from_file(json_file))
         return cls(cards)
 
     @classmethod
-    def load(cls, path: pathlib.Path | str) -> JsonGlossaryProvider:
+    def load(cls, path: pathlib.Path) -> JsonGlossaryProvider:
         """Автоопределение: директория → from_directory, иначе from_file."""
-        target = pathlib.Path(path)
-        if target.is_dir():
-            return cls.from_directory(target)
-        return cls.from_file(target)
+        if path.is_dir():
+            return cls.from_directory(path)
+        return cls.from_file(path)
 
     @staticmethod
     def _load_cards_from_file(file_path: pathlib.Path) -> list[GlossaryCard]:
@@ -184,37 +181,35 @@ class JsonGlossaryProvider:
 # ---------------------------------------------------------------------------
 
 
-def load_missing_queue(path: pathlib.Path | str) -> list[GlossaryMissingEntry]:
+def load_missing_queue(path: pathlib.Path) -> list[GlossaryMissingEntry]:
     """Прочитать очередь пополнения из JSON-файла (пустой список, если нет файла)."""
-    file_path = pathlib.Path(path)
-    if not file_path.exists():
+    if not path.exists():
         return []
     try:
-        with open(file_path, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8") as fh:
             payload = json.load(fh)
     except json.JSONDecodeError as exc:
-        raise GlossaryError(f"{file_path}: невалидный JSON очереди — {exc}") from exc
+        raise GlossaryError(f"{path}: невалидный JSON очереди — {exc}") from exc
     if isinstance(payload, dict):
         payload = payload.get("missing", [])
     if not isinstance(payload, list):
-        raise GlossaryError(f"{file_path}: очередь должна быть списком объектов")
+        raise GlossaryError(f"{path}: очередь должна быть списком объектов")
     entries: list[GlossaryMissingEntry] = []
     for raw in payload:
         if not isinstance(raw, dict):
-            raise GlossaryError(f"{file_path}: элемент очереди должен быть объектом")
+            raise GlossaryError(f"{path}: элемент очереди должен быть объектом")
         try:
             entries.append(GlossaryMissingEntry.from_dict(raw))
         except ValueError as exc:
-            raise GlossaryError(f"{file_path}: {exc}") from exc
+            raise GlossaryError(f"{path}: {exc}") from exc
     return entries
 
 
-def save_missing_queue(path: pathlib.Path | str, entries: list[GlossaryMissingEntry]) -> None:
+def save_missing_queue(path: pathlib.Path, entries: list[GlossaryMissingEntry]) -> None:
     """Записать очередь пополнения в JSON-файл (создавая родительские директории)."""
-    file_path = pathlib.Path(path)
-    file_path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     payload = [entry.to_dict() for entry in entries]
-    with open(file_path, "w", encoding="utf-8") as fh:
+    with open(path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2)
 
 
@@ -228,7 +223,7 @@ _MISSING_QUEUE_LOCK = threading.Lock()
 
 
 def append_missing_entries(
-    path: pathlib.Path | str, entries: list[GlossaryMissingEntry]
+    path: pathlib.Path, entries: list[GlossaryMissingEntry]
 ) -> list[GlossaryMissingEntry]:
     """Дозаписать элементы в очередь, дедуплицируя по ``concept``.
 

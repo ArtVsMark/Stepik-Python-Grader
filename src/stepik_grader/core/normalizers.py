@@ -34,7 +34,7 @@ def normalize_floats(text: str) -> str:
         '0.0000001'         → '1e-07'
     """
 
-    def _round_float(m: re.Match) -> str:  # type: ignore[type-arg]
+    def _round_float(m: re.Match[str]) -> str:
         try:
             return str(round(float(m.group()), 9))
         except ValueError:

@@ -16,7 +16,7 @@ import shutil
 from typing import TYPE_CHECKING, Any
 
 from stepik_grader.core.error_glossary import resolve_error_hint
-from stepik_grader.core.result import TestResult
+from stepik_grader.core.result import CaseResult, TestResult
 
 if TYPE_CHECKING:
     from stepik_grader.core.grader_core import TestCase
@@ -472,7 +472,7 @@ def _cprint(text: str, *, style: str = "") -> None:
         print(text)
 
 
-def print_case_verbose(case: TestCase, r: dict[str, Any]) -> None:
+def print_case_verbose(case: TestCase, r: CaseResult) -> None:
     """Подробный вывод одного тест-кейса (режим 1, verbose): вердикт + diff при WA.
 
     ``r`` — case-result dict (форма ``run_single_test()``, issue #116); сразу

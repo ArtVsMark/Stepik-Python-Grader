@@ -17,6 +17,7 @@ import html
 import json
 import pathlib
 import re
+from typing import Any
 from urllib.parse import urlencode
 
 import requests
@@ -98,39 +99,42 @@ def create_user_session(client_id: str, client_secret: str, redirect_uri: str) -
 # ---------------------------------------------------------------------------
 
 
-def api_get(session: requests.Session, url: str) -> dict:  # type: ignore[type-arg]
+def api_get(session: requests.Session, url: str) -> dict[str, Any]:
     """GET-запрос к Stepik API; проверяет Content-Type и статус."""
     response = session.get(url, timeout=30)
     response.raise_for_status()
     content_type = response.headers.get("Content-Type", "")
     if "json" not in content_type.lower():
         raise ValueError(f"Ожидался JSON от API, но получен Content-Type: {content_type}")
-    return response.json()  # type: ignore[return-value]
+    data: dict[str, Any] = response.json()
+    return data
 
 
-def get_lesson_data(session: requests.Session, lesson_id: int) -> dict:  # type: ignore[type-arg]
+def get_lesson_data(session: requests.Session, lesson_id: int) -> dict[str, Any]:
     """Получить данные урока по lesson_id."""
     data = api_get(session, f"{API_HOST}/api/lessons/{lesson_id}")
     lessons = data.get("lessons", [])
     if not lessons:
         raise ValueError(f"API не вернул lesson для id={lesson_id}")
-    return lessons[0]
+    lesson: dict[str, Any] = lessons[0]
+    return lesson
 
 
-def get_step_data(session: requests.Session, step_id: int) -> dict:  # type: ignore[type-arg]
+def get_step_data(session: requests.Session, step_id: int) -> dict[str, Any]:
     """Получить данные шага по step_id."""
     data = api_get(session, f"{API_HOST}/api/steps/{step_id}")
     steps = data.get("steps", [])
     if not steps:
         raise ValueError(f"API не вернул step для step_id={step_id}")
-    return steps[0]
+    step: dict[str, Any] = steps[0]
+    return step
 
 
 def get_step_data_by_position(
     session: requests.Session,
     lesson_id: int,
     step_position: int,
-) -> tuple[int, dict, dict]:  # type: ignore[type-arg]
+) -> tuple[int, dict[str, Any], dict[str, Any]]:
     """Получить step_id, lesson, step_data по позиции шага в уроке."""
     lesson = get_lesson_data(session, lesson_id)
     steps = lesson.get("steps", [])
@@ -151,7 +155,7 @@ def get_step_data_by_position(
 def save_json(
     output_dir: pathlib.Path,
     filename: str,
-    payload: dict,  # type: ignore[type-arg]
+    payload: dict[str, Any],
 ) -> pathlib.Path:
     """Сохранить payload как JSON-файл в output_dir."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -205,7 +209,7 @@ def collect_string_candidates(payload: object) -> list[str]:
     return candidates
 
 
-def extract_zip_url_from_step_data(step_data: dict) -> str | None:  # type: ignore[type-arg]
+def extract_zip_url_from_step_data(step_data: dict[str, Any]) -> str | None:
     """Найти ZIP-URL во всех строковых полях step_data."""
     for candidate in collect_string_candidates(step_data):
         zip_url = extract_zip_url_from_text(candidate)
@@ -215,13 +219,13 @@ def extract_zip_url_from_step_data(step_data: dict) -> str | None:  # type: igno
 
 
 def build_diagnostic_result(
-    lesson: dict,  # type: ignore[type-arg]
+    lesson: dict[str, Any],
     step_id: int,
-    step_data: dict,  # type: ignore[type-arg]
+    step_data: dict[str, Any],
     zip_url: str | None,
     lesson_path: pathlib.Path,
     step_path: pathlib.Path,
-) -> dict:  # type: ignore[type-arg]
+) -> dict[str, Any]:
     """Собрать итоговый словарь диагностики."""
     block = step_data.get("block", {}) if isinstance(step_data, dict) else {}
     return {
@@ -240,7 +244,7 @@ def build_diagnostic_result(
 
 
 def print_result_summary(
-    result: dict,  # type: ignore[type-arg]
+    result: dict[str, Any],
     output_dir: pathlib.Path,
 ) -> None:
     """Вывести читаемый итог диагностики в консоль."""

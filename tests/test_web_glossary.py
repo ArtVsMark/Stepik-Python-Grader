@@ -494,7 +494,7 @@ class TestCodeTerms:
 
 class TestGlossaryMissing:
     def test_missing_queue_absent_file_returns_empty(self, tmp_path: pathlib.Path) -> None:
-        assert glossary_adapter.glossary_missing(queue_path=str(tmp_path / "nope.json")) == []
+        assert glossary_adapter.glossary_missing(queue_path=tmp_path / "nope.json") == []
 
     def test_missing_queue_returns_entries(self, tmp_path: pathlib.Path) -> None:
         from stepik_grader.glossary.json_provider import save_missing_queue
@@ -505,7 +505,7 @@ class TestGlossaryMissing:
             [GlossaryMissingEntry(concept="functools.reduce", kind="function")],
         )
 
-        entries = glossary_adapter.glossary_missing(queue_path=str(queue_path))
+        entries = glossary_adapter.glossary_missing(queue_path=queue_path)
 
         assert len(entries) == 1
         assert entries[0]["concept"] == "functools.reduce"

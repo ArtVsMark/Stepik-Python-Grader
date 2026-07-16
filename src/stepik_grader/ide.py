@@ -58,7 +58,7 @@ VSCODE_TASKS: dict[str, Any] = {
 
 
 def write_vscode_tasks(
-    target_dir: str | pathlib.Path = ".",
+    target_dir: pathlib.Path = pathlib.Path("."),
     *,
     overwrite: bool = False,
 ) -> tuple[bool, pathlib.Path]:
@@ -67,7 +67,7 @@ def write_vscode_tasks(
     Возвращает ``(written, path)``. ``written == False``, если файл уже
     существует и ``overwrite=False`` — чужой конфиг не перезатираем молча.
     """
-    path = pathlib.Path(target_dir) / ".vscode" / "tasks.json"
+    path = target_dir / ".vscode" / "tasks.json"
     if path.exists() and not overwrite:
         return False, path
     path.parent.mkdir(parents=True, exist_ok=True)

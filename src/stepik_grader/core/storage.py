@@ -30,7 +30,7 @@ def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
             на Windows open() бросает PermissionError вместо IsADirectoryError).
         ValueError: если корень JSON не является объектом.
     """
-    if pathlib.Path(file_path).is_dir():
+    if file_path.is_dir():
         raise IsADirectoryError(f"Ожидался файл, получена директория: {file_path}")
     with open(file_path, encoding="utf-8") as file:
         data = json.load(file)
@@ -58,7 +58,6 @@ def save_secrets(secrets_path: pathlib.Path, data: dict[str, Any]) -> None:
     защищён только стандартными правами профиля пользователя ОС
     (issue #243, security audit finding F-04).
     """
-    secrets_path = pathlib.Path(secrets_path)
     secrets_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(data, ensure_ascii=False, indent=2)
 

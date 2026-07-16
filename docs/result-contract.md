@@ -19,14 +19,18 @@
 
 | Уровень | Что описывает | Кто строит | Форма сегодня |
 |---|---|---|---|
-| **Case result** | Один тест-кейс на одном решении | `core.grader_core.run_single_test` | `dict[str, Any]` |
+| **Case result** | Один тест-кейс на одном решении | `core.grader_core.run_single_test` | `CaseResult` (TypedDict) |
 | **Solution result** | Одно решение на всех кейсах (агрегат) | `run_tests` / `run_benchmark` | `dict[str, Any]` |
 | **Run result** | Прогон пути (файл/папка) — набор решений | адаптер (`cli.py`, `web.grade_path`) | `dict` / `ResultViewModel` |
 
-Сегодня уровни — обычные `dict` ядра (см. docstring `run_single_test`); Web
-маппит их в JSON ViewModel. Контракт описывает **имена и смысл полей**, а не
-Python-тип — будущий типизированный `TestResult`/`dataclass` (если появится)
-обязан сохранить эти имена.
+Case-уровень формализован как `CaseResult` (`TypedDict`,
+`core.result`, issue #442): mypy проверяет ключи и типы полей во всей цепочке
+CLI→web→pytest-плагин, но **runtime-представление остаётся обычным `dict`** —
+это по-прежнему та же форма на границе JSON-вывода. Solution/Run-уровни пока
+остаются нетипизированными `dict` ядра (см. docstring `run_tests`); Web маппит
+их в JSON ViewModel. Контракт описывает **имена и смысл полей**, а не
+конкретный Python-тип — любая типизированная модель (`CaseResult`, `TestResult`)
+обязана сохранить эти имена.
 
 ## Case result — поля
 
@@ -44,6 +48,7 @@ Python-тип — будущий типизированный `TestResult`/`data
 | `memory` | `float` | ✓ | Пик памяти, МБ (`0.0`, если замер выключен) |
 | `error` | `str` | ✓ | Сообщение об ошибке; пустая строка = ошибки нет |
 | `timed_out` | `bool` | ✓ | Истёк ли таймаут |
+| `exit_code` | `int \| None` | ✓ | Код возврата процесса решения; `None`, если процесс не завершился нормально (ошибка запуска/таймаут) — issue #125 |
 
 **Инвариант согласованности:** `verdict` — производное от остальных полей и
 должно с ними согласоваться:
@@ -194,12 +199,13 @@ Python-тип — будущий типизированный `TestResult`/`data
 
 > **Типизированный `TestResult` реализован** (issue #112/#113):
 > `stepik_grader.core.result.TestResult` — frozen dataclass с полями case
-> result выше + `Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED", "SANDBOX_VIOLATION"]`. `from_dict()`/
-> `to_dict()` конвертируют форму, которую **по-прежнему** возвращает
-> `run_single_test()` (этот контракт не меняется — `dict[str, Any]` остаётся
-> формой на границе CLI JSON-вывода, `run_tests()`/`run_benchmark()` и
-> `/api/grade`). `TestResult` используется там, где нужна типобезопасность
-> поверх словаря — сейчас: `core/reporter.print_case_verbose` (issue #114)
-> конвертирует dict в `TestResult` на входе вместо чтения произвольных
-> dict-ключей. Источник истины формы по-прежнему — этот документ + docstring
-> `run_single_test`.
+> result выше + `Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED", "SANDBOX_VIOLATION"]`. Рядом
+> живёт `CaseResult` (`TypedDict`, issue #442) — статический тип **того же
+> словаря**: `run_single_test()` теперь аннотирован `-> CaseResult`, а
+> `from_dict()` принимает любой `Mapping[str, Any]` (в т.ч. `CaseResult`).
+> Runtime-форма при этом не менялась — обычный `dict` на границе CLI
+> JSON-вывода, `run_tests()`/`run_benchmark()` и `/api/grade`. `TestResult`
+> используется там, где нужна типобезопасность поверх словаря — сейчас:
+> `core/reporter.print_case_verbose` (issue #114) конвертирует dict в
+> `TestResult` на входе вместо чтения произвольных dict-ключей. Источник истины
+> формы по-прежнему — этот документ + docstring `run_single_test`.

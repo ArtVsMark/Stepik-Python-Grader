@@ -328,7 +328,8 @@ def trace_code(
         }
     raw = outcome.stdout.decode("utf-8", errors="replace")
     try:
-        return json.loads(raw)
+        trace: dict[str, Any] = json.loads(raw)
+        return trace
     except json.JSONDecodeError:  # pragma: no cover — дочерний процесс не выдал валидный JSON
         stderr = outcome.launch_error or outcome.stderr.decode("utf-8", errors="replace")
         return {
