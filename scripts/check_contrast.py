@@ -177,6 +177,15 @@ def check(css_path: Path = _CSS_PATH) -> list[str]:
 
 def main() -> int:
     """CLI-точка: печать таблицы контраста + ненулевой код при провале."""
+    # Windows-консоль по умолчанию cp1252 не кодирует кириллицу/✓/— в выводе —
+    # переключаем stdout на utf-8, иначе `python scripts/check_contrast.py`
+    # падает UnicodeEncodeError (CI windows-latest, тест test_cli_exits_zero).
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        try:
+            reconfigure(encoding="utf-8")
+        except (ValueError, OSError):  # pragma: no cover - зависит от платформы stdout
+            pass
     themes = load_tokens()
     print(f"WCAG-контраст токен-пар — {_CSS_PATH.name}\n")
     worst = 21.0
