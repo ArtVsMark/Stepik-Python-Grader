@@ -1,9 +1,15 @@
 repos:
+  # rev держать в тон ruff из pyproject.toml (`ruff>=0.15.19`, в CI/окружении
+  # 0.15.x) — иначе хук СТРОЖЕ апстрима и молча правит код правилами, которых
+  # CI уже не знает. --unsafe-fixes здесь не нужен: он добавлялся ровно ради
+  # UP038 (isinstance-кортежи → PEP 604), а ruff удалил это правило как вредное
+  # (X|Y в isinstance медленнее tuple-формы), поэтому с --unsafe-fixes хук
+  # переписывал горячий путь core/tracer.py на более медленную форму.
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.13
+    rev: v0.15.21
     hooks:
-      - id: ruff
-        args: [--fix, --unsafe-fixes]
+      - id: ruff-check   # в 0.15.x `ruff` стал legacy alias для ruff-check
+        args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
