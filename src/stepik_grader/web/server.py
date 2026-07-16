@@ -532,6 +532,30 @@ class _Handler(BaseHTTPRequestHandler):
             return None
         return body
 
+    def _submit_or_429(
+        self,
+        lang: str,
+        kind: str,
+        path: pathlib.Path | None,
+        params: dict[str, Any],
+        *,
+        code: str | None = None,
+        stdin: str | None = None,
+    ) -> runs.Job | None:
+        """``runs.submit_job`` с back-pressure (issue #429): при превышении
+        лимита активных job'ов шлёт ``429`` с ``too_many_runs`` и возвращает
+        ``None`` (паттерн «ответ внутри, отказ через None», как
+        ``_confined_path``/``_read_json_body``); иначе — созданная ``Job``."""
+        try:
+            return runs.submit_job(kind, path, params, code=code, stdin=stdin)
+        except runs.TooManyRunsError as exc:
+            self._send(
+                429,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("too_many_runs", lang, limit=exc.limit)}),
+            )
+            return None
+
     def _handle_create_run(self, parsed: Any) -> None:
         """POST /api/v1/runs (issue #262/#297) — тело ``{"path","code"?,"mode",
         "params"?}`` → ``202`` + ``{"run_id","status"}``. Асинхронная
@@ -589,7 +613,9 @@ class _Handler(BaseHTTPRequestHandler):
         # mode == "tests" (issue #297): корректность режима 1, никаких
         # числовых params (кроме lang) — только code в теле.
 
-        job = runs.submit_job(mode, confined, params, code=code)
+        job = self._submit_or_429(lang, mode, confined, params, code=code)
+        if job is None:
+            return
         self._send(
             202,
             "application/json; charset=utf-8",
@@ -614,7 +640,9 @@ class _Handler(BaseHTTPRequestHandler):
             return
         raw_stdin = body.get("stdin")
         stdin = raw_stdin if isinstance(raw_stdin, str) else ""
-        job = runs.submit_job(kind, None, {"lang": lang}, code=code, stdin=stdin)
+        job = self._submit_or_429(lang, kind, None, {"lang": lang}, code=code, stdin=stdin)
+        if job is None:
+            return
         self._send(
             202,
             "application/json; charset=utf-8",
@@ -669,7 +697,9 @@ class _Handler(BaseHTTPRequestHandler):
             "redirect_uri": redirect_uri,
             "secrets_path": str(secrets_path),
         }
-        job = runs.submit_job("auth", None, params)
+        job = self._submit_or_429(lang, "auth", None, params)
+        if job is None:
+            return
         self._send(
             202,
             "application/json; charset=utf-8",

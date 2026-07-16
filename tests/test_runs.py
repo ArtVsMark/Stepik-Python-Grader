@@ -7,7 +7,9 @@ job-lifecycle логики.
 
 from __future__ import annotations
 
+import dataclasses
 import pathlib
+import threading
 
 import pytest
 
@@ -271,3 +273,59 @@ class TestTtlSweep:
         job.created_at -= runs._JOB_TTL_SECONDS + 1
 
         assert runs.get_job(job.id) is None
+
+
+class TestBackPressure:
+    """issue #429 — лимит одновременных нетерминальных job'ов + safety-net."""
+
+    def test_over_limit_raises_then_frees_after_completion(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Изоляция: свежий реестр и низкий лимит вместо дефолтных 20.
+        monkeypatch.setattr(runs, "_JOBS", {})
+        monkeypatch.setattr(runs, "CONFIG", dataclasses.replace(runs.CONFIG, max_active_runs=2))
+        # Блокирующее тело держит job'ы нетерминальными до release.set().
+        release = threading.Event()
+
+        def _blocking(job: runs.Job, *args: object, **kwargs: object) -> None:
+            with job.lock:
+                job.status = "running"
+            release.wait(10)
+            with job.lock:
+                job.status = "done"
+
+        monkeypatch.setattr(runs, "_run_job", _blocking)
+
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        j1 = runs.submit_job("tests", sol, {"lang": "ru"})
+        j2 = runs.submit_job("tests", sol, {"lang": "ru"})
+
+        # Третий сверх лимита → отказ (источник HTTP-429).
+        with pytest.raises(runs.TooManyRunsError) as excinfo:
+            runs.submit_job("tests", sol, {"lang": "ru"})
+        assert excinfo.value.limit == 2
+
+        # После завершения активных — submit снова проходит.
+        release.set()
+        assert _poll_until_terminal(j1.id)["status"] == "done"
+        assert _poll_until_terminal(j2.id)["status"] == "done"
+        j3 = runs.submit_job("tests", sol, {"lang": "ru"})
+        assert isinstance(j3, runs.Job)
+        _poll_until_terminal(j3.id)
+
+    def test_safety_net_grade_path_raise_becomes_error(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Исключение в grade_path → job терминальна со status=error, не вечное
+        running (safety-net _run_job, issue #429 критерий)."""
+
+        def _boom(*args: object, **kwargs: object) -> object:
+            raise RuntimeError("boom in grade")
+
+        monkeypatch.setattr(runs, "grade_path", _boom)
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        job = runs.submit_job("tests", sol, {"lang": "ru"})
+        data = _poll_until_terminal(job.id)
+        assert data["status"] == "error"
+        assert data["message_id"] == "run_internal_error"
+        assert "boom in grade" in data["message"]

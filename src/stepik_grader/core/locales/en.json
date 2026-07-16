@@ -38,6 +38,7 @@
   "invalid_run_mode": "Invalid run mode: {mode}.",
   "run_cancelled": "Run cancelled by user.",
   "run_internal_error": "Internal run error: {error}",
+  "too_many_runs": "Too many active runs (limit {limit}). Wait for the current runs to finish and retry.",
   "bench_profile_header": "  Load profiles (repeats per solution):",
   "bench_profile_1": "    1  low       —   5 runs",
   "bench_profile_2": "    2  medium    —  15 runs",

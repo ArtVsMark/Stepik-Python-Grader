@@ -10,6 +10,7 @@
 -->
 
 ### Added
+- `POST /api/v1/runs` now applies back-pressure: at most `CONFIG.max_active_runs` (default 20) concurrent non-terminal jobs, exceeding it returns **429** `too_many_runs` (with `limit`) instead of unboundedly growing the `_JOBS` registry / executor queue; the safety-net that turns a worker-thread crash into a terminal `error` job is now covered by a test. A seam for server mode (#151) (#429).
 - `--import-reference <task_dir>` imports the pinned Stepik solution (plus top-liked ones, `--import-top N`, default 5) from the step's solutions thread into the task folder as `task{N}_{100+}.py`, ready as a reference competitor in modes 2–4; code is fetched via `/api/comments?...&expand=submission` (the private submission is otherwise 403), deduped, and the binding is recorded in meta.json (#464, #55).
 - Web: the «Найти эталонное решение» button in the check section now imports the pinned Stepik reference into the current task folder via `POST /api/import-reference` (non-browser session, path confined to the workspace) and refreshes the solutions list, so imported references show up for comparison in modes 2–4 (#466, #55).
 - Web grading now records runs to the local history DB (`source="web"`) so the «Подучить» section fills up in `--serve` — history is on by default for `--serve` (opt-out with `--no-history`); the grading→history helpers moved to `core/history_recording` so both CLI and web share them (#395).

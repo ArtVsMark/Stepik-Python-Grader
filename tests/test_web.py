@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import http.client
 import json
 import pathlib
@@ -14,6 +15,7 @@ import urllib.request
 import pytest
 
 from stepik_grader import web
+from stepik_grader.web import runs
 from tests._wait import wait_until
 
 
@@ -1426,6 +1428,49 @@ def _poll_run(server: str, run_id: str, *, timeout: float = 15.0) -> dict:
     if data is None:
         raise TimeoutError(f"run {run_id} did not reach a terminal state within {timeout}s")
     return data
+
+
+class TestRunsApiBackPressure:
+    """issue #429 — POST /api/v1/runs отвечает 429 при превышении лимита
+    активных job'ов; после их завершения снова принимает (202)."""
+
+    def test_over_limit_returns_429_then_recovers(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Сервер живёт в этом же процессе (отдельный поток) — monkeypatch модуля
+        # runs виден серверному потоку. Свежий реестр + лимит 1 для изоляции.
+        monkeypatch.setattr(runs, "_JOBS", {})
+        monkeypatch.setattr(runs, "CONFIG", dataclasses.replace(runs.CONFIG, max_active_runs=1))
+        release = threading.Event()
+
+        def _blocking(job: runs.Job, *args: object, **kwargs: object) -> None:
+            with job.lock:
+                job.status = "running"
+            release.wait(10)
+            with job.lock:
+                job.status = "done"
+
+        monkeypatch.setattr(runs, "_run_job", _blocking)
+
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        payload = json.dumps({"path": str(sol), "mode": "tests"}).encode("utf-8")
+
+        s1, b1 = _post(server + "/api/v1/runs", payload)
+        assert s1 == 202  # первый — в пределах лимита
+        run1 = json.loads(b1)["run_id"]
+
+        s2, b2 = _post(server + "/api/v1/runs", payload)
+        assert s2 == 429  # второй сверх лимита
+        data = json.loads(b2)
+        assert data["kind"] == "error"
+        assert data["message_id"] == "too_many_runs"
+
+        # Освобождаем первый → лимит снова доступен → 202.
+        release.set()
+        _poll_run(server, run1)
+        s3, b3 = _post(server + "/api/v1/runs", payload)
+        assert s3 == 202
+        _poll_run(server, json.loads(b3)["run_id"])
 
 
 class TestRunsApiGoldenComparison:

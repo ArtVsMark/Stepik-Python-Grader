@@ -377,6 +377,11 @@ curl -X POST http://127.0.0.1:8000/api/save-solution \
 - `path` пустой → **400** `specify_path_file_or_folder`.
 - `mode` не `tests`/`bench`/`microbench` → **400** `invalid_run_mode`.
 - `path` вне workspace → **403** `path_outside_workspace`.
+- Активных (нетерминальных) job'ов уже `CONFIG.max_active_runs` (дефолт 20,
+  настройка сервера через `pyproject.toml`) → **429** `too_many_runs` (поле
+  `limit`), issue #429. Back-pressure общий для всех kind (tests/bench/
+  microbench/playground/trace/auth) — реестр `_JOBS`/очередь executor'а не
+  растут без отказа. После завершения любых job'ов submit снова проходит.
 - `code` (опционально) — исполняемое содержимое из временного файла рядом с
   `path`, БЕЗ записи в целевой файл (редактируемое окно режима 1, issue #297 —
   «Проверить» не пишет на диск, гонки save→grade между окнами нет); только
