@@ -213,6 +213,7 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "glossary_store",
         "glossary_missing_queue",
         "job_workers",
+        "max_active_runs",
         "record_stats",
         "record_history",
         "insights_window_n",

@@ -44,7 +44,7 @@ from stepik_grader.web.viewmodels import (
     grade_path,
 )
 
-__all__ = ["Job", "submit_job", "get_job", "cancel_job"]
+__all__ = ["Job", "TooManyRunsError", "submit_job", "get_job", "cancel_job"]
 
 # issue #262 добавил ровно 4 статуса ("cancelled" сообщался как status="error"
 # + message_id="run_cancelled"); issue #296 выделяет отмену в отдельный
@@ -126,6 +126,29 @@ def _sweep_expired_locked() -> None:
         del _JOBS[job_id]
 
 
+class TooManyRunsError(RuntimeError):
+    """Достигнут лимит одновременных нетерминальных job'ов (issue #429).
+
+    Несётся из :func:`submit_job` при превышении ``CONFIG.max_active_runs``;
+    ``server.py`` ловит и отвечает ``429`` с ``too_many_runs``. ``limit`` —
+    действующий лимит (для сообщения пользователю).
+    """
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(f"too many active runs (limit {limit})")
+        self.limit = limit
+
+
+def _count_active_locked() -> int:
+    """Число нетерминальных (``queued``/``running``) job'ов в реестре.
+
+    Вызывать под ``_JOBS_LOCK``. Чтение ``job.status`` без ``job.lock`` — тот же
+    грязно-читающий приём, что и ``_sweep_expired_locked`` (атрибут-строка
+    читается атомарно; off-by-one на границе running↔done безвреден для
+    эвристического лимита back-pressure)."""
+    return sum(1 for j in _JOBS.values() if j.status in ("queued", "running"))
+
+
 def submit_job(
     kind: str,
     path: pathlib.Path | None,
@@ -169,8 +192,14 @@ def submit_job(
     """
     job = Job(uuid.uuid4().hex, kind)
     with _JOBS_LOCK:
-        _JOBS[job.id] = job
         _sweep_expired_locked()
+        # issue #429 — back-pressure: сметаем истёкшие терминальные job'ы, затем
+        # отказываем, если активных (нетерминальных) уже не меньше лимита. Иначе
+        # цикл POST'ов растит реестр/очередь executor'а без отказа (TTL чистит
+        # только терминальные, каждый результат живёт 15 мин).
+        if _count_active_locked() >= max(1, CONFIG.max_active_runs):
+            raise TooManyRunsError(CONFIG.max_active_runs)
+        _JOBS[job.id] = job
     job.future = _get_executor().submit(_run_job, job, kind, path, params, code, stdin)
     return job
 
