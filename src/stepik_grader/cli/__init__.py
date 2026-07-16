@@ -485,6 +485,22 @@ def main(argv: list[str] | None = None) -> None:
         print(_t("vscode_written" if written else "vscode_exists", path=path))
         return
 
+    if args.import_reference:
+        # issue #55: закреплённое решение Stepik + топовые как task{N}_{100+}.py.
+        import requests
+
+        from stepik_grader.core.stepik_reference import import_references_from_task_dir
+
+        try:
+            saved = import_references_from_task_dir(args.import_reference, max_top=args.import_top)
+        except (FileNotFoundError, ValueError, OSError, requests.RequestException) as exc:
+            print(f"❌ Импорт reference не удался: {exc}")
+            raise SystemExit(1) from exc
+        print(f"✅ Импортировано reference-решений: {len(saved)}")
+        for saved_path in saved:
+            print(f"   {saved_path.name}")
+        return
+
     if args.serve:
         # issue #396: --sandbox теперь проброшен в web — run_server ставит
         # SandboxRunner активным _RUNNER, изолируя все пути исполнения. Если
