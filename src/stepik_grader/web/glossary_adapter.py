@@ -11,7 +11,7 @@ JSON-база не настроена (``CONFIG.glossary_store is None``), — �
 from __future__ import annotations
 
 import pathlib
-from typing import Any
+from typing import Any, NamedTuple
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.glossary import all_entries
@@ -93,14 +93,39 @@ def _fallback_cards() -> list[GlossaryCard]:
 _CARDS_CACHE: MtimeCache[list[GlossaryCard]] = MtimeCache()
 
 
-def _all_cards(store_path: pathlib.Path | None) -> list[GlossaryCard]:
-    """Карточки источника по приоритету: явный store → ``CONFIG.glossary_store``
-    → комплектная база (issue #326) → компактный fallback (``core/glossary.py``).
+class _GlossaryIndex(NamedTuple):
+    """Производные индексы источника (issue #404) — считаются один раз на источник.
 
-    Комплектная база (``glossary/data/*.json``, 581 карточка) делает раздел
-    «Глоссарий» полноценным на свежей установке без конфигурации; fallback на
-    ~28 исключений остаётся, если каталог отсутствует/пуст/битый. Результат
-    кешируется по mtime источника (issue #339) — без репарсинга на каждый запрос.
+    ``by_id`` — ``id -> карточка`` для O(1) ``glossary_get`` (был O(n)-скан
+    ``next(...)`` на каждый ``/api/glossary/{id}``); ``by_concept`` — индекс
+    ``_card_index`` (id/alias/«хвост» → карточка) для ``code_terms`` (был пересбор
+    словаря со внутренним ``sorted()`` по ~1400 карточкам на каждый
+    ``/api/code-terms``).
+    """
+
+    by_id: dict[str, GlossaryCard]
+    by_concept: dict[str, GlossaryCard]
+
+
+# Производные индексы кешируются по ТОЙ ЖЕ сигнатуре источника (ключ + mtime
+# файлов), что и _CARDS_CACHE, поэтому инвалидируются синхронно с карточками:
+# правка store перечитывает и карточки, и индексы. Read-only, гонка на пересчёт
+# идемпотентна — как и у _CARDS_CACHE (общий MtimeCache без лока).
+_INDEX_CACHE: MtimeCache[_GlossaryIndex] = MtimeCache()
+
+
+def _resolve_source(
+    store_path: pathlib.Path | None,
+) -> tuple[str, list[pathlib.Path], list[GlossaryCard]]:
+    """``(cache_key, files, cards)`` для источника по приоритету: явный store →
+    ``CONFIG.glossary_store`` → комплектная база (issue #326) → компактный
+    fallback (``core/glossary.py``).
+
+    ``cache_key``/``files`` — сигнатура источника (issue #404): по ней и
+    ``_CARDS_CACHE``, и ``_INDEX_CACHE`` инвалидируются вместе. Для fallback —
+    ``("fallback", [])``: ``mtime_signature([]) == 0.0`` стабильна, а статические
+    карточки ``core/glossary.py`` не меняются, поэтому производный индекс тоже
+    кешируется корректно.
     """
     path = store_path if store_path is not None else CONFIG.glossary_store
     if path:
@@ -109,7 +134,7 @@ def _all_cards(store_path: pathlib.Path | None) -> list[GlossaryCard]:
             f"store:{p}", [p], lambda: JsonGlossaryProvider.load(p).all(), on_error=GlossaryError
         )
         if cards is not None:
-            return cards
+            return f"store:{p}", [p], cards
     if BUNDLED_GLOSSARY_DIR.is_dir() and any(BUNDLED_GLOSSARY_DIR.glob("*.json")):
         files = sorted(BUNDLED_GLOSSARY_DIR.glob("*.json"))
         cards = _CARDS_CACHE.get_or_load(
@@ -119,8 +144,31 @@ def _all_cards(store_path: pathlib.Path | None) -> list[GlossaryCard]:
             on_error=GlossaryError,
         )
         if cards is not None:
-            return cards
-    return _fallback_cards()
+            return "bundled", files, cards
+    return "fallback", [], _fallback_cards()
+
+
+def _all_cards(store_path: pathlib.Path | None) -> list[GlossaryCard]:
+    """Карточки источника (комплектная база ~1400 карточек делает раздел
+    «Глоссарий» полноценным на свежей установке; fallback на ~28 исключений —
+    если каталог отсутствует/пуст/битый). Кешируется по mtime источника (#339)."""
+    return _resolve_source(store_path)[2]
+
+
+def _build_index(cards: list[GlossaryCard]) -> _GlossaryIndex:
+    """Собрать оба производных индекса из карточек (id-first-wins, как прежний
+    ``next(...)``-скан в ``glossary_get``)."""
+    by_id: dict[str, GlossaryCard] = {}
+    for card in cards:
+        by_id.setdefault(card.id, card)
+    return _GlossaryIndex(by_id=by_id, by_concept=_card_index(cards))
+
+
+def _glossary_index(store_path: pathlib.Path | None) -> _GlossaryIndex:
+    """Производные индексы источника с кешем по его mtime-сигнатуре (issue #404)."""
+    key, files, cards = _resolve_source(store_path)
+    index = _INDEX_CACHE.get_or_load(key, files, lambda: _build_index(cards))
+    return index if index is not None else _build_index(cards)
 
 
 def glossary_search(
@@ -176,7 +224,7 @@ def glossary_get(
 
     ``lang`` — локаль ``?lang=`` для ``summary``/``body`` (issue #363, fallback RU).
     """
-    card = next((c for c in _all_cards(store_path) if c.id == card_id), None)
+    card = _glossary_index(store_path).by_id.get(card_id)  # issue #404: O(1) вместо O(n)
     return card.to_api_dict(lang) if card is not None else None
 
 
@@ -274,7 +322,7 @@ def code_terms(
     concepts = scan_code_concepts(code, notable_builtins=notable_builtins, methods=methods)
     if not concepts:
         return []
-    index = _card_index(_all_cards(store_path))
+    index = _glossary_index(store_path).by_concept  # issue #404: индекс кеширован по mtime
     seen_cards: set[str] = set()
     seen_concepts: set[str] = set()
     terms: list[dict[str, Any]] = []

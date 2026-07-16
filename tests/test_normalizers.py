@@ -62,27 +62,32 @@ def test_normalize_floats_empty_string() -> None:
 
 
 # ---------------------------------------------------------------------------
-# normalize_floats — ветка ValueError (строки 32-33)
+# normalize_floats — экстремальные РЕАЛЬНЫЕ входы (issue #405)
+#
+# Прежний тест здесь монкипатчил ``builtins.float``, чтобы искусственно войти в
+# защитную ветку ``except ValueError``. Проверялось поведение самого монкипатча,
+# а не функции — тавтология. Ветка недостижима реальным входом (``_FLOAT_RE``
+# матчит только валидный float-синтаксис, а overflow ``float()`` даёт ``inf``,
+# не ``ValueError``), поэтому помечена ``# pragma: no cover``, а тест заменён
+# проверками фактического поведения на краевых входах.
 # ---------------------------------------------------------------------------
 
 
-def test_normalize_floats_value_error_branch(monkeypatch) -> None:
-    """Ветка except ValueError: возвращает исходную группу без изменений."""
-    import builtins as _builtins_module
+def test_normalize_floats_overflow_to_inf() -> None:
+    """Оверфлоу float() даёт 'inf' (не ValueError) — round/str проносят его насквозь."""
+    assert normalize_floats("1.0e999") == "inf"
 
-    original = _builtins_module.float
 
-    def _raising_float(x):
-        if isinstance(x, str):
-            raise ValueError("mocked")
-        return original(x)
+def test_normalize_floats_overflow_to_negative_inf() -> None:
+    """Отрицательный оверфлоу → '-inf' (знак сохраняется, ветка ValueError не нужна)."""
+    assert normalize_floats("-1.0e999") == "-inf"
 
-    try:
-        _builtins_module.float = _raising_float  # type: ignore[assignment]
-        result = normalize_floats("3.14")
-        assert result == "3.14"
-    finally:
-        _builtins_module.float = original  # type: ignore[assignment]
+
+def test_normalize_floats_idempotent_on_extremes() -> None:
+    """Повторная нормализация — тождество (round до 9 знаков — стабильная точка)."""
+    for text in ("3.14159265358979", "0.0000001", "-2.71828182845904", "1.5e+10", "1.0e999"):
+        once = normalize_floats(text)
+        assert normalize_floats(once) == once
 
 
 # ---------------------------------------------------------------------------

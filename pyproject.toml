@@ -29,6 +29,8 @@ dev = [
     "pytest-timeout>=2.3",
     "ruff>=0.15.19",
     "mypy>=1.10",
+    # issue #405: property-based тесты (parse_testblock_file, normalize_floats).
+    "hypothesis>=6.0",
 ]
 watch = [
     "watchfiles>=0.21,<2.0",
@@ -174,7 +176,10 @@ python_classes = ["Test*"]
 # the CLAUDE.md pre-commit checklist don't require a browser install. Run
 # explicitly: `pytest tests/e2e/` (norecursedirs only skips *implicit*
 # recursion, an explicit path is still collected).
-norecursedirs = ["tests/e2e"]
+# issue #405: setting this key REPLACES pytest's defaults, so the ".*" hidden-dir
+# ignore is restored explicitly -- otherwise hypothesis's example DB (.hypothesis/)
+# trips the plugin's "norecursedirs replaced defaults" warning on every run.
+norecursedirs = ["tests/e2e", ".*", "build", "dist", "*.egg", "node_modules", "venv"]
 
 [tool.coverage.paths]
 # issue #283: lets `coverage combine` merge the three OS matrix jobs' data

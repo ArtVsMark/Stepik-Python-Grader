@@ -94,3 +94,39 @@ def test_cache_clear_forces_reload(tmp_path) -> None:
     cache.clear()
     cache.get_or_load("k", [f], load)
     assert n == 2
+
+
+def test_cache_concurrent_hits_return_identical_object(tmp_path) -> None:
+    """issue #405: кеш — module-level singleton, шарится потоками
+    ThreadingHTTPServer. После прогрева N параллельных get_or_load одного ключа
+    (mtime не менялся) отдают ОДИН И ТОТ ЖЕ объект — не пересобирают его на
+    каждый поток/запрос (горячий путь /api/glossary*, #404)."""
+    import threading
+
+    f = tmp_path / "src.txt"
+    f.write_text("x", encoding="utf-8")
+    cache: MtimeCache[object] = MtimeCache()
+    calls = 0
+
+    def load() -> object:
+        nonlocal calls
+        calls += 1
+        return object()  # свежий объект — идентичность различима
+
+    warm = cache.get_or_load("k", [f], load)  # прогрев одним потоком
+    results: list[object] = []
+    barrier = threading.Barrier(8)
+
+    def worker() -> None:
+        barrier.wait()  # старт всех потоков одновременно — максимум гонки
+        results.append(cache.get_or_load("k", [f], load))
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(results) == 8
+    assert all(r is warm for r in results)  # тот же объект во всех потоках
+    assert calls == 1  # ни одного пересбора после прогрева

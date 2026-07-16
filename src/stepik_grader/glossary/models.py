@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Any, Literal
 
 __all__ = [
@@ -112,9 +113,17 @@ class GlossaryCard:
     summary_en: str = ""
     body_en: str = ""
 
-    @property
+    @cached_property
     def search_terms(self) -> list[str]:
-        """Все строки, по которым карточка находится поиском (lower-case)."""
+        """Все строки, по которым карточка находится поиском (lower-case).
+
+        ``cached_property`` (issue #404): термины строятся один раз на карточку и
+        переиспользуются на каждом ``matches``/``known_terms``/``queue_code_gaps``
+        — раньше каждый такой вызов заново приводил id/title/aliases/keywords/tags
+        к нижнему регистру. Карточки после загрузки иммутабельны (см.
+        ``web/glossary_adapter._all_cards`` — общий read-only список), поэтому кеш
+        не устаревает; при гонке потоков ThreadingHTTPServer пересчёт идемпотентен
+        (Python 3.12 ``cached_property`` — без общего лока)."""
         terms = [self.id, self.title, *self.aliases, *self.keywords, *self.tags]
         return [t.lower() for t in terms if t]
 

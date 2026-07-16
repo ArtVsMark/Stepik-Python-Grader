@@ -104,9 +104,9 @@ def make_session(
     автоматически с экспоненциальным backoff (``backoff_factor`` удваивается с
     каждой попыткой; ``Retry`` также уважает заголовок ``Retry-After``, если
     сервер его прислал). Действует на уровне транспорта — применяется к любому
-    запросу через эту сессию, а не только к вызовам ``_get_with_retry()``
-    (который остаётся дополнительным уровнем повтора при сетевых
-    исключениях — см. его docstring). Прочие 4xx (напр. 404) не повторяются.
+    запросу через эту сессию и является ЕДИНСТВЕННЫМ уровнем повтора: прикладной
+    ``_get_with_retry()`` больше свою петлю не держит (issue #404), а лишь
+    вызывает ``raise_for_status`` и логирует. Прочие 4xx (напр. 404) не повторяются.
 
     Args:
         retries: максимальное число попыток на статусы из
@@ -457,36 +457,25 @@ def _get_with_retry(
     session: requests.Session,
     url: str,
     params: dict[str, Any] | None = None,
-    retries: int = 3,
-    backoff: float = 1.0,
     timeout: int = 30,
 ) -> requests.Response:
-    """GET-запрос с повтором при сетевых ошибках (exponential backoff).
+    """GET к Stepik API с ``raise_for_status`` и debug-логированием (issue #148).
 
-    Parameters
-    ----------
-    retries:
-        Максимальное число попыток (включая первую).
-    backoff:
-        Базовая задержка в секундах; удваивается с каждой попыткой.
+    Повтор transient-сбоев (сетевые ошибки, 429, временные 5xx с backoff и
+    ``Retry-After``) выполняет ТРАНСПОРТНЫЙ слой — ``urllib3.util.Retry`` на
+    ``HTTPAdapter`` сессии (см. ``make_session``). Прежняя прикладная retry-петля
+    здесь дублировала его (те же сетевые исключения, свой backoff) и снята
+    (issue #404): единый источник истины повторов — транспорт. Функция оставляет
+    за собой лишь то, чего транспорт не делает: ``raise_for_status`` для
+    не-retryable 4xx (404/403 в forcelist не входят) и запись запроса в
+    диагностический лог.
     """
-    last_exc: requests.RequestException | None = None
-    for attempt in range(retries):
-        try:
-            # URL/параметры санитизируются редакцией логгера (issue #148)
-            _log.debug("GET %s params=%s (попытка %d/%d)", url, params, attempt + 1, retries)
-            response = session.get(url, params=params, timeout=timeout)
-            response.raise_for_status()
-            _log.debug("GET %s → %d", url, response.status_code)
-            return response
-        except requests.RequestException as exc:
-            last_exc = exc
-            _log.warning("GET %s не удался (попытка %d/%d): %s", url, attempt + 1, retries, exc)
-            if attempt < retries - 1:
-                time.sleep(backoff * (2**attempt))
-    if last_exc is None:
-        raise RuntimeError(f"_get_with_retry called with retries={retries}, no attempts made")
-    raise last_exc
+    # URL/параметры санитизируются редакцией логгера (issue #148)
+    _log.debug("GET %s params=%s", url, params)
+    response = session.get(url, params=params, timeout=timeout)
+    response.raise_for_status()
+    _log.debug("GET %s → %d", url, response.status_code)
+    return response
 
 
 CACHE_DIR = pathlib.Path(".stepik_cache")
