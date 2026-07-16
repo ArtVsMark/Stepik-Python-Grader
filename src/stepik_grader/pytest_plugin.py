@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 
     from _pytest._code.code import ExceptionInfo, TerminalRepr
 
+    from stepik_grader.core.result import CaseResult
     from stepik_grader.core.test_loader import TestCase
 
 
@@ -85,7 +86,7 @@ def pytest_collect_file(parent: pytest.Collector, file_path: Any) -> GraderFile 
 class GraderFailure(Exception):
     """Провал тест-кейса грейдера — несёт result-словарь run_single_test."""
 
-    def __init__(self, result: dict[str, Any]) -> None:
+    def __init__(self, result: CaseResult) -> None:
         self.result = result
         super().__init__(result.get("error") or "grader test case failed")
 

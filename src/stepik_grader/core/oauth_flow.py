@@ -52,7 +52,7 @@ __all__ = [
 _REQUIRED_FIELDS = ("client_id", "client_secret", "redirect_uri")
 
 
-def load_secrets_dict(secrets_path: pathlib.Path | str) -> dict[str, Any]:
+def load_secrets_dict(secrets_path: pathlib.Path) -> dict[str, Any]:
     """Читает и валидирует secrets.json, возвращает полный словарь.
 
     Включает токены (access_token / refresh_token / expires_at), если они есть.
@@ -63,14 +63,14 @@ def load_secrets_dict(secrets_path: pathlib.Path | str) -> dict[str, Any]:
         IsADirectoryError: если путь указывает на директорию
         ValueError: если корень не JSON-объект или отсутствует обязательное поле
     """
-    data = load_json_file(pathlib.Path(secrets_path))
+    data = load_json_file(secrets_path)
     for field in _REQUIRED_FIELDS:
         if not str(data.get(field, "")).strip():
             raise ValueError(f"В secrets.json должно быть заполнено поле {field!r}")
     return data
 
 
-def load_secrets(secrets_path: pathlib.Path | str) -> tuple[str, str, str]:
+def load_secrets(secrets_path: pathlib.Path) -> tuple[str, str, str]:
     """Читает OAuth-учётные данные из secrets.json.
 
     Returns:
@@ -132,7 +132,7 @@ def authorize_and_get_token(
     client_id: str,
     client_secret: str,
     redirect_uri: str,
-    secrets_path: pathlib.Path | str = pathlib.Path("secrets.json"),
+    secrets_path: pathlib.Path = pathlib.Path("secrets.json"),
 ) -> dict[str, Any]:
     """Выполняет полный OAuth2 flow и сохраняет токены в secrets_path.
 
@@ -143,14 +143,13 @@ def authorize_and_get_token(
     Returns:
         Обновлённый словарь secrets (исходные поля + новые токены).
     """
-    path = pathlib.Path(secrets_path)
     token_data = authorize_via_browser(client_id, client_secret, redirect_uri)
 
     secrets: dict[str, Any] = {}
-    if path.exists() and path.is_file():
-        secrets = load_json_file(path)
+    if secrets_path.exists() and secrets_path.is_file():
+        secrets = load_json_file(secrets_path)
     secrets.update(token_data)
     # issue #400: токены — через save_secrets (атомарно, 0600), а не
     # save_json_file (0644, world/group-readable), иначе обходится фикс #243.
-    save_secrets(path, secrets)
+    save_secrets(secrets_path, secrets)
     return secrets

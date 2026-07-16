@@ -17,7 +17,7 @@ import re
 import threading
 from collections import Counter
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core import history, history_recording, lint
@@ -49,6 +49,9 @@ from stepik_grader.glossary.json_provider import (
     append_missing_entries,
 )
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message
+
+if TYPE_CHECKING:
+    from stepik_grader.core.result import CaseResult
 
 # Вердикты-"ошибки" (в отличие от AC) — ErrorCard-поля (severity/stderr/
 # suggestions/...) заполняются только для них (issue #125, web-current.md §
@@ -183,7 +186,7 @@ def _known_glossary_terms() -> set[str]:
     if not CONFIG.glossary_store:
         return set()
     try:
-        return JsonGlossaryProvider.load(CONFIG.glossary_store).known_terms()
+        return JsonGlossaryProvider.load(pathlib.Path(CONFIG.glossary_store)).known_terms()
     except GlossaryError:
         return set()
 
@@ -208,7 +211,7 @@ def _queue_missing_concept(
 
 def _case_view(
     index: int,
-    case: dict[str, Any],
+    case: CaseResult,
     *,
     stdin: str = "",
     source: str = "",

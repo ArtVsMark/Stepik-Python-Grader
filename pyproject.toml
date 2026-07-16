@@ -112,6 +112,28 @@ known-first-party = ["stepik_grader"]
 # core/reporter.py / cli.py -- every import in it is intentionally "unused" here.
 "src/stepik_grader/grader.py" = ["F401", "F403", "F405", "I001"]
 
+# issue #441: достигнутый уровень типизации зафиксирован здесь (конфиг —
+# источник истины), а не флагами в CI. Проект проходит эти четыре проверки с
+# нулём ошибок, поэтому CI-команда упрощена до `mypy src/stepik_grader`
+# (--ignore-missing-imports переехал в конфиг). До полного --strict остаются
+# ошибки [attr-defined] на untyped-стабах сторонних либ (psutil/requests/
+# ctypes) — их не берём, чтобы не плодить # type: ignore на границе.
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_return_any = true
+# warn_unused_ignores СОЗНАТЕЛЬНО НЕ включён. Часть `# type: ignore` в проекте
+# платформозависима: ОС-специфичные `# type: ignore[attr-defined]` в
+# core/sandbox/_macos.py, core/sandbox/_posix_common.py, core/runner.py,
+# core/stepik_client.py, web/server.py опираются на символы (ctypes/fcntl/
+# resource/select), доступные не на всех ОС — на одной платформе они «unused»,
+# на другой обязательны. Глобальный warn_unused_ignores ложно падал бы на
+# каждой ОС по очереди (та же логика per-OS, что у двух чисел покрытия,
+# issue #283). Точечная чистка мёртвых ignore — задача ruff RUF100 (issue #443).
+
 [tool.pytest.ini_options]
 addopts = "--cov=src --cov-report=term-missing --cov-report=xml -v --tb=short"
 # issue #444: global per-test deadline (pytest-timeout). The suite is full of

@@ -13,12 +13,43 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, NotRequired, TypedDict
 
-__all__ = ["Verdict", "TestResult"]
+__all__ = ["Verdict", "CaseResult", "TestResult"]
 
 Verdict = Literal["AC", "WA", "TLE", "RE", "CANCELLED", "SANDBOX_VIOLATION"]
+
+
+class CaseResult(TypedDict):
+    """Типизированная форма case-result dict'а — возврата ``run_single_test`` (issue #442).
+
+    Формализует тот же контракт, что описан в
+    [`docs/result-contract.md § Case result`](../../../docs/result-contract.md)
+    и в docstring ``run_single_test`` (источник истины полей). В отличие от
+    frozen-dataclass ``TestResult`` (типобезопасный носитель формы для
+    reporter'а), ``CaseResult`` — это тип самого словаря, который ядро гоняет по
+    цепочке CLI→web→pytest-плагин: даёт mypy ловить опечатки ключей и типы полей
+    без изменения runtime-представления (по-прежнему обычный ``dict``).
+
+    Все девять контрактных полей + ``exit_code`` присутствуют всегда (их пишут
+    ``_fail_result`` и ``_map_outcome_to_result``). ``stdin`` — ``NotRequired``:
+    его дописывает ``run_tests`` каждому кейсу постфактум (issue #397), сам
+    ``run_single_test`` его не проставляет.
+    """
+
+    passed: bool
+    verdict: Verdict
+    output: list[str]
+    expected: list[str]
+    diff: str
+    time: float
+    memory: float
+    error: str
+    timed_out: bool
+    exit_code: int | None
+    stdin: NotRequired[str]
 
 
 @dataclass(frozen=True)
@@ -47,7 +78,7 @@ class TestResult:
     timed_out: bool = False
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> TestResult:
+    def from_dict(cls, data: Mapping[str, Any]) -> TestResult:
         """Собрать из case-result dict (форма ``run_single_test()``).
 
         Терпимо к отсутствующим необязательным полям: ``verdict`` по

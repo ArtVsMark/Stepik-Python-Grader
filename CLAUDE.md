@@ -109,7 +109,7 @@ pip install -e ".[dev]"            # runtime (requests/psutil/rich) + pytest/ruf
 pytest tests/ -x -q --tb=short                          # тесты
 ruff check .                                             # линтер
 ruff format --check .                                    # форматтер (проверка)
-mypy src/stepik_grader --ignore-missing-imports         # типы (issue #49 C-02)
+mypy src/stepik_grader                                  # типы (строгость в [tool.mypy], issue #441)
 pytest tests/ --cov=. --cov-report=term-missing -q      # покрытие (информационно)
 ```
 
@@ -332,7 +332,7 @@ opt-in `core/diag_log.py` с редакцией секретов, подключ
 [ ] pytest tests/ -x -q --tb=short   → все зелёные
 [ ] ruff check .                      → 0 ошибок
 [ ] ruff format --check .             → 0 ошибок
-[ ] mypy src/stepik_grader --ignore-missing-imports  → 0 ошибок
+[ ] mypy src/stepik_grader            → 0 ошибок (строгость в [tool.mypy])
 [ ] Новые функции: type hints + docstring; новые модули: __all__
 [ ] from __future__ import annotations в начале нового файла
 [ ] Коммит в формате Conventional Commits

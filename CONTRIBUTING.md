@@ -198,7 +198,9 @@ task_12.py     # двузначный суффикс
 - **Docstrings** для всех публичных функций (краткий формат Google-style)
 - **PEP 8** — форматирование через `ruff format` (настроен в `pyproject.toml`)
 - **Линтинг** через `ruff check`
-- **Типизация** через `mypy src/stepik_grader --ignore-missing-imports` (Sprint D, issue #49 C-02)
+- **Типизация** через `mypy src/stepik_grader` — строгость (`disallow_untyped_defs`,
+  `disallow_incomplete_defs`, `check_untyped_defs`, `warn_return_any`,
+  `ignore_missing_imports`) задана в `[tool.mypy]` (Sprint D, issue #49 C-02 / #441)
 - Все импорты в начале файла (никаких lazy imports без явной причины)
 - Константы модуля — в начале файла, до функций
 
@@ -209,7 +211,7 @@ task_12.py     # двузначный суффикс
 1. Создайте ветку: `git checkout -b feat/your-feature`
 2. Внесите изменения с тестами
 3. Прогоните `pytest tests/ -v`
-4. Прогоните `mypy src/stepik_grader --ignore-missing-imports`
+4. Прогоните `mypy src/stepik_grader`
 5. Прогоните `pre-commit run --all-files`
 6. Создайте Pull Request в `main`
 

@@ -639,7 +639,8 @@ def fetch_discussion_threads(
         f"{API_HOST}/api/discussion-threads",
         params={"ids[]": thread_ids},
     )
-    return data.get("discussion-threads", [])
+    threads: list[dict[str, Any]] = data.get("discussion-threads", [])
+    return threads
 
 
 def fetch_discussion_proxy(

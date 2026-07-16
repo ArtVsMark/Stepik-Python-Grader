@@ -291,7 +291,7 @@ def _resolve_use_cache(args: argparse.Namespace, *, incremental: bool) -> bool:
       3. Иначе — дефолт из pyproject ([tool.stepik-grader] use_cache).
     """
     if args.cache is not None:
-        return args.cache
+        return bool(args.cache)
     if incremental:
         return True
     return CONFIG.use_cache
@@ -306,7 +306,7 @@ def _resolve_record_stats(args: argparse.Namespace) -> bool:
     "включаться автоматически" (в отличие от --watch --mode 2 и кэша).
     """
     if args.stats is not None:
-        return args.stats
+        return bool(args.stats)
     return CONFIG.record_stats
 
 
@@ -318,7 +318,7 @@ def _resolve_record_history(args: argparse.Namespace) -> bool:
     record_history``). Симметрично ``_resolve_record_stats``.
     """
     if args.history is not None:
-        return args.history
+        return bool(args.history)
     return CONFIG.record_history
 
 
