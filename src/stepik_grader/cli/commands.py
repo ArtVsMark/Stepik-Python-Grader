@@ -29,7 +29,16 @@ from typing import Any
 
 from stepik_grader import rules
 from stepik_grader.cli.context import CliContext
-from stepik_grader.core import history, history_recording, lint, stats
+from stepik_grader.config import get_config
+from stepik_grader.core import (
+    ai_hints,
+    error_glossary,
+    history,
+    history_recording,
+    insights,
+    lint,
+    stats,
+)
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
@@ -139,6 +148,73 @@ def _print_lint_blocks(
         print_lint_block(violations, rules_provider=provider)
 
 
+_AI_NOT_CONFIGURED_HINT = (
+    "AI-подсказки (--ai-hints) пропущены: провайдер не настроен. Задайте "
+    "[tool.stepik-grader] ai_base_url и ai_model (ключ — в env-переменной, имя "
+    "которой в ai_api_key_env), напр. ollama http://localhost:11434/v1 (без "
+    "ключа) или облачный OpenAI-совместимый endpoint. Без настройки в сеть "
+    "ничего не отправляется. Подробнее — docs/grader-workflow.md."
+)
+
+
+def _read_solution_code(solution: pathlib.Path) -> str:
+    """Содержимое решения для заземления AI-промпта (best-effort, «» при сбое)."""
+    try:
+        return solution.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _build_failure_context(
+    case: dict[str, Any], *, code: str, lang: str
+) -> ai_hints.FailureContext:
+    """Заземляющий контекст упавшего кейса из case-dict + якорей
+    (``insights.failure_kind``, ``error_glossary.resolve_error_hint``)."""
+    verdict = str(case.get("verdict") or ("AC" if case.get("passed") else "WA"))
+    error = str(case.get("error", ""))
+    kind = insights.failure_kind(
+        verdict, error=error, output=case.get("output"), expected=case.get("expected")
+    )
+    entry = error_glossary.resolve_error_hint(error) if error else None
+    card = f"{entry.exception}: {entry.hint}" if entry else ""
+    return ai_hints.FailureContext(
+        verdict=verdict,
+        lang=lang,
+        case_input=str(case.get("stdin", "")),
+        expected="\n".join(case.get("expected", [])),
+        actual="\n".join(case.get("output", [])),
+        diff=str(case.get("diff", "")),
+        error=error,
+        failure_kind=kind or "",
+        card_text=card,
+        code=code,
+    )
+
+
+def _print_ai_hints(rows: list[tuple[pathlib.Path, dict[str, Any]]], *, lang: str = "ru") -> None:
+    """AI-объяснения упавших кейсов режимов 1/2 (``--ai-hints``, issue #435, ADR-0003).
+
+    Только текстовый вывод; opt-in. Грейдинг НИКОГДА не падает из-за AI —
+    ``explain_failure`` глушит любые ошибки канала в ``None``. Провайдер не
+    настроен → одна подсказка, как включить (только если есть что объяснять)."""
+    has_fail = any(not c.get("passed") for _, result in rows for c in result["cases"])
+    if not has_fail:
+        return
+    config = get_config()
+    if not ai_hints.is_configured(config):
+        print(f"\n{_AI_NOT_CONFIGURED_HINT}")
+        return
+    for solution, result in rows:
+        code = _read_solution_code(solution)
+        for index, case in enumerate(result["cases"], start=1):
+            if case.get("passed"):
+                continue
+            fc = _build_failure_context(case, code=code, lang=lang)
+            hint = ai_hints.explain_failure(fc, config)
+            if hint:
+                print(f"\n· {solution.name} · тест {index}:\n{hint}")
+
+
 __all__ = [
     "_run_mode_1",
     "_run_mode_2",
@@ -211,6 +287,7 @@ def _run_mode_1(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
+    ai_hints: bool = False,
 ) -> bool:
     """Режим 1: проверить одно решение (verbose). Общий код для меню и --mode 1.
 
@@ -288,6 +365,8 @@ def _run_mode_1(
     print_correctness_results([(solution, result)], base, col_file=col_file)
     if record_lint:
         _print_lint_blocks([solution], None, output, lint_by_sol)
+    if ai_hints:
+        _print_ai_hints([(solution, result)])
     return had_failures
 
 
@@ -301,6 +380,7 @@ def _run_mode_2(
     record_stats: bool = False,
     record_history: bool = False,
     record_lint: bool = False,
+    ai_hints: bool = False,
 ) -> bool:
     """Режим 2: проверить все решения в папке. Общий код для меню и --mode 2.
 
@@ -382,6 +462,8 @@ def _run_mode_2(
         print(ctx.t("cache_summary", hits=cache_hits, total=len(rows)))
     if record_lint:
         _print_lint_blocks([p for p, _ in rows], directory, output, lint_by_sol)
+    if ai_hints:
+        _print_ai_hints(rows)
     return had_failures
 
 

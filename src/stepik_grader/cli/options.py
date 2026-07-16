@@ -179,6 +179,17 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--ai-hints",
+        action="store_true",
+        help=(
+            "После проверки режимов 1/2 показать AI-объяснение упавших кейсов "
+            "(WA/RE) через OpenAI-совместимый endpoint (BYOK, ADR-0003). По "
+            "умолчанию выключено; без ai_base_url/ai_model в pyproject.toml — "
+            "тихий пропуск с подсказкой. Ничего не уходит в сеть без настройки. "
+            "Не влияет на вердикт. Issue #435."
+        ),
+    )
+    parser.add_argument(
         "--serve",
         action="store_true",
         help=(

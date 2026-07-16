@@ -222,6 +222,11 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "sandbox_max_cpu_seconds",
         "sandbox_max_processes",
         "sandbox_max_output_bytes",
+        "ai_base_url",
+        "ai_model",
+        "ai_api_key_env",
+        "ai_max_tokens",
+        "ai_timeout_seconds",
     }
 
 
