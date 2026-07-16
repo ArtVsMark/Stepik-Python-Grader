@@ -2020,3 +2020,160 @@ class TestAuthApi:
         data = _poll_run(server, run_id)
         assert data["status"] == "error"
         assert "120s" in (data.get("message") or "")
+
+
+# ---------------------------------------------------------------------------
+# /api/import-reference — импорт закреплённого решения Stepik (issue #55)
+# ---------------------------------------------------------------------------
+
+
+class TestApiImportReference:
+    _TARGET = "stepik_grader.web.server.import_reference"
+
+    def test_happy_path_returns_files(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            self._TARGET,
+            lambda path, *, top=5: {"ok": True, "files": ["task3_100.py"], "message": "ok"},
+        )
+        task_dir = tmp_path / "task"
+        task_dir.mkdir()
+        status, body = _post(
+            server + "/api/import-reference", json.dumps({"path": str(task_dir)}).encode()
+        )
+        assert status == 200
+        data = json.loads(body)
+        assert data["ok"] is True
+        assert data["files"] == ["task3_100.py"]
+
+    def test_missing_path_is_400(self, server: str, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            self._TARGET, lambda *a, **k: pytest.fail("adapter не должен вызываться без path")
+        )
+        status, _ = _post(server + "/api/import-reference", json.dumps({}).encode())
+        assert status == 400
+
+    def test_path_outside_workspace_is_403_before_adapter(
+        self,
+        server: str,
+        tmp_path_factory: pytest.TempPathFactory,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        called: list[int] = []
+        monkeypatch.setattr(
+            self._TARGET,
+            lambda path, *, top=5: called.append(1) or {"ok": True, "files": [], "message": ""},
+        )
+        outside = tmp_path_factory.mktemp("outside")
+        status, _ = _post(
+            server + "/api/import-reference", json.dumps({"path": str(outside)}).encode()
+        )
+        assert status == 403
+        assert not called  # confinement сработал до вызова adapter
+
+    def test_adapter_error_is_200_with_ok_false(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # ошибка цепочки (нет ветки/решений) — HTTP 200, ok=False (паттерн download)
+        monkeypatch.setattr(
+            self._TARGET,
+            lambda path, *, top=5: {"ok": False, "message": "У задачи нет ветки решений"},
+        )
+        task_dir = tmp_path / "t"
+        task_dir.mkdir()
+        status, body = _post(
+            server + "/api/import-reference", json.dumps({"path": str(task_dir)}).encode()
+        )
+        assert status == 200
+        assert json.loads(body)["ok"] is False
+
+    def test_top_param_forwarded(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        seen: dict[str, int] = {}
+        monkeypatch.setattr(
+            self._TARGET,
+            lambda path, *, top=5: seen.update(top=top) or {"ok": True, "files": [], "message": ""},
+        )
+        task_dir = tmp_path / "t"
+        task_dir.mkdir()
+        _post(
+            server + "/api/import-reference",
+            json.dumps({"path": str(task_dir), "top": 3}).encode(),
+        )
+        assert seen["top"] == 3
+
+
+class TestReferenceAdapterUnit:
+    _MOD = "stepik_grader.web.reference_adapter"
+
+    def _patch_config(self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+        monkeypatch.setattr(
+            self._MOD + "._resolve_config", lambda _root: (tmp_path, tmp_path / "secrets.json")
+        )
+
+    def test_no_secrets_returns_ok_false(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from stepik_grader.web.reference_adapter import import_reference
+
+        self._patch_config(monkeypatch, tmp_path)
+
+        def _raise(_p):
+            raise FileNotFoundError("no secrets")
+
+        monkeypatch.setattr(self._MOD + ".load_secrets_dict", _raise)
+        result = import_reference(str(tmp_path))
+        assert result["ok"] is False
+        assert "secrets" in result["message"].lower()
+
+    def test_no_browser_session_returns_ok_false(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from stepik_grader.web.reference_adapter import import_reference
+
+        self._patch_config(monkeypatch, tmp_path)
+        monkeypatch.setattr(self._MOD + ".load_secrets_dict", lambda _p: {})
+        monkeypatch.setattr(self._MOD + ".try_create_session_without_browser", lambda _s, _p: None)
+        result = import_reference(str(tmp_path))
+        assert result["ok"] is False
+        assert "авториз" in result["message"].lower()
+
+    def test_happy_returns_filenames(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from stepik_grader.web import reference_adapter
+
+        self._patch_config(monkeypatch, tmp_path)
+        monkeypatch.setattr(self._MOD + ".load_secrets_dict", lambda _p: {})
+        monkeypatch.setattr(
+            self._MOD + ".try_create_session_without_browser", lambda _s, _p: object()
+        )
+        monkeypatch.setattr(
+            reference_adapter,
+            "import_references_from_task_dir",
+            lambda _d, *, max_top, session: [tmp_path / "task3_100.py", tmp_path / "task3_101.py"],
+        )
+        result = reference_adapter.import_reference(str(tmp_path), top=2)
+        assert result["ok"] is True
+        assert result["files"] == ["task3_100.py", "task3_101.py"]
+
+    def test_core_error_becomes_ok_false(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from stepik_grader.web import reference_adapter
+
+        self._patch_config(monkeypatch, tmp_path)
+        monkeypatch.setattr(self._MOD + ".load_secrets_dict", lambda _p: {})
+        monkeypatch.setattr(
+            self._MOD + ".try_create_session_without_browser", lambda _s, _p: object()
+        )
+
+        def _raise(_d, *, max_top, session):
+            raise ValueError("У задачи нет ветки решений")
+
+        monkeypatch.setattr(reference_adapter, "import_references_from_task_dir", _raise)
+        result = reference_adapter.import_reference(str(tmp_path))
+        assert result["ok"] is False
+        assert "ветк" in result["message"]
