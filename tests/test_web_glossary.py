@@ -31,13 +31,15 @@ class TestGlossarySearchNoStoreConfigured:
     """store_path=None (and no CONFIG.glossary_store) → комплектная база (#326);
     при её отсутствии — компактный ``core/glossary.py`` fallback."""
 
-    def test_search_empty_query_returns_all_cards(self) -> None:
-        cards = glossary_adapter.glossary_search("")
-        # база — импортированные ready-карточки (#326) + автогенерированные
-        # черновики (#328); есть и те, и другие статусы.
-        assert len(cards) > 500
-        assert any(c["status"] == "ready" for c in cards)
-        assert any(c["status"] == "draft" for c in cards)
+    def test_search_default_shows_only_ready(self) -> None:
+        # issue #436: дефолтная выдача — только ready (черновики автогенерации
+        # скрыты); ?status=all показывает всё, и его больше.
+        default_cards = glossary_adapter.glossary_search("")
+        assert default_cards
+        assert all(c["status"] == "ready" for c in default_cards)
+        all_cards = glossary_adapter.glossary_search("", status="all")
+        assert any(c["status"] == "draft" for c in all_cards)
+        assert len(all_cards) > len(default_cards)
 
     def test_search_matches_known_exception(self) -> None:
         cards = glossary_adapter.glossary_search("RecursionError")
@@ -90,7 +92,9 @@ class TestGlossarySearchWithConfiguredStore:
         return path
 
     def test_search_returns_configured_cards_not_fallback(self, store_path: pathlib.Path) -> None:
-        cards = glossary_adapter.glossary_search("", store_path=str(store_path))
+        # status="all": store-карточки без явного ready не должны отфильтроваться
+        # дефолтом (issue #436) — тест про источник, не про статус-фильтр.
+        cards = glossary_adapter.glossary_search("", status="all", store_path=str(store_path))
         ids = {c["id"] for c in cards}
         assert ids == {"functools-reduce", "match-case"}
 
@@ -249,7 +253,10 @@ class TestGlossaryFilterAndSort:
         assert {c["id"] for c in lists} == {"list-append", "zzz-term"}
 
     def test_kind_filter(self, store_path: pathlib.Path) -> None:
-        res = glossary_adapter.glossary_search("", kind="construct", store_path=str(store_path))
+        # status="all": kind-фильтр проверяем по всей базе (match-case — draft).
+        res = glossary_adapter.glossary_search(
+            "", kind="construct", status="all", store_path=str(store_path)
+        )
         assert {c["id"] for c in res} == {"match-case"}
 
     def test_status_filter(self, store_path: pathlib.Path) -> None:
@@ -279,9 +286,77 @@ class TestGlossaryFilterAndSort:
         assert sections == sorted(sections, key=str.lower)
 
     def test_sort_version_orders_versioned_first(self, store_path: pathlib.Path) -> None:
-        res = glossary_adapter.glossary_search("", sort="version", store_path=str(store_path))
+        # status="all": версионированная карточка match-case — draft (issue #436).
+        res = glossary_adapter.glossary_search(
+            "", sort="version", status="all", store_path=str(store_path)
+        )
         assert res[0]["version"] == "3.10"  # версионированные — вперёд
         assert all(c["version"] == "" for c in res[1:])  # без версии — в конец
+
+
+class TestGlossaryReadyDefaultAndPrivate:
+    """issue #436: дефолт ready + скрытие приватных автодрафтов из выдачи."""
+
+    @pytest.fixture
+    def store_path(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        cards = [
+            GlossaryCard(id="str.split", title="str.split()", kind="function", status="ready"),
+            GlossaryCard(id="os._exit", title="os._exit()", kind="function", status="draft"),
+            GlossaryCard(
+                id="_pickle.pickleerror",
+                title="_pickle.PickleError",
+                kind="exception",
+                status="draft",
+            ),
+            # дандер-метод — легитимная публичная карточка, НЕ приватная
+            GlossaryCard(id="str.__len__", title="str.__len__()", kind="function", status="ready"),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_default_shows_only_ready_non_private(self, store_path: pathlib.Path) -> None:
+        ids = {c["id"] for c in glossary_adapter.glossary_search("", store_path=str(store_path))}
+        assert ids == {"str.split", "str.__len__"}
+
+    def test_private_hidden_even_under_all(self, store_path: pathlib.Path) -> None:
+        ids = {
+            c["id"]
+            for c in glossary_adapter.glossary_search("", status="all", store_path=str(store_path))
+        }
+        assert "os._exit" not in ids
+        assert "_pickle.pickleerror" not in ids
+        assert "str.__len__" in ids  # дандер не скрыт
+
+    def test_private_hidden_under_explicit_draft(self, store_path: pathlib.Path) -> None:
+        ids = {
+            c["id"]
+            for c in glossary_adapter.glossary_search(
+                "", status="draft", store_path=str(store_path)
+            )
+        }
+        assert ids == set()  # обе draft-карточки приватны → скрыты (AC2)
+
+    def test_detector_base_keeps_full_set(self, store_path: pathlib.Path) -> None:
+        # _all_cards (питает code_terms/queue_code_gaps) НЕ фильтруется — детектор
+        # видит полную базу, включая приватные/draft (issue #436 AC3).
+        all_ids = {c.id for c in glossary_adapter._all_cards(store_path)}
+        assert {"os._exit", "_pickle.pickleerror", "str.split", "str.__len__"} <= all_ids
+
+
+def test_is_private_name_unit() -> None:
+    from stepik_grader.web.glossary_adapter import _is_private_name
+
+    assert _is_private_name("os._exit")
+    assert _is_private_name("_pickle.pickleerror")
+    assert _is_private_name("warnings._optionerror")
+    assert not _is_private_name("str.split")
+    assert not _is_private_name("__init__")  # дандер публичен
+    assert not _is_private_name("str.__len__")
+    assert not _is_private_name("input")
 
 
 # ---------------------------------------------------------------------------

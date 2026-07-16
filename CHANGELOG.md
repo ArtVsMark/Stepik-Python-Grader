@@ -31,6 +31,7 @@
 - Web `--serve` gains a first-run browser OAuth wizard: the «Загрузчик задач» section checks the token (`GET /api/auth/status`) and, when missing, offers a client_id/secret form whose «Authorize» button runs the loopback OAuth flow as an async job (`POST /api/auth/start` → `kind="auth"`, polled via `/api/v1/runs/{id}`) and writes `secrets.json` (`0600`) — no manual secrets file or CLI step needed; thin `web/auth_adapter.py` over `core/oauth_flow` (#402).
 
 ### Changed
+- Glossary web section shows only `status=ready` cards by default (787 auto-draft cards hidden unless `?status=all`/`draft` is chosen); privately-named auto-drafts (`os._exit`, `_pickle.X` — not dunders) are always excluded from student-facing search/lists, while the missing-term detector and queue still see the full base (#436).
 - Web sidebar cleanup: dropped the dead «Рабочее пространство» label and the disabled «Настройки» stub → a working Settings section (theme/language, landing spot for the #342 history toggle); recent paths moved to a path-field `datalist` (#364).
 - Web config panel: removed the «Путь»/«Параметры» tabs — mode 3/4 params render inline under the path field, «Функции в коде» shows only in mode 1 (#366).
 - Web result panel: merged «Детали»+«Лог» into one «Разбор» tab (side-by-side «Ожидалось/Получено» + collapsible raw stdout/stderr); mode-2 action cards limited to copy input/output (#368).
