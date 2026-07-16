@@ -62,6 +62,9 @@ __all__ = [
     "fetch_section_data",
     "fetch_course_data",
     "fetch_submission_data",
+    "fetch_discussion_threads",
+    "fetch_discussion_proxy",
+    "fetch_comments_with_submissions",
 ]
 
 _log = get_logger("stepik_client")  # issue #148: диагностический лог (opt-in)
@@ -611,3 +614,68 @@ def fetch_submission_data(
     )
     submissions: list[dict[str, Any]] = response.json().get("submissions", [])
     return submissions[0] if submissions else None
+
+
+# ---------------------------------------------------------------------------
+# Discussions / solutions (issue #55): ветка обсуждений шага и закреплённые
+# решения. Read-only публичные данные → кэшируются как fetch_lesson/course.
+# ---------------------------------------------------------------------------
+
+
+def fetch_discussion_threads(
+    session: requests.Session,
+    thread_ids: list[str],
+) -> list[dict[str, Any]]:
+    """Возвращает объекты discussion-thread'ов шага по их id.
+
+    У шага ``discussion_threads`` — список id вида ``"77-2506803-1"``. Каждый
+    объект несёт поле ``thread`` (``"default"`` — обычные обсуждения,
+    ``"solutions"`` — ветка решений, открывающаяся после сдачи).
+    """
+    if not thread_ids:
+        return []
+    data = _cached_api_get(
+        session,
+        f"{API_HOST}/api/discussion-threads",
+        params={"ids[]": thread_ids},
+    )
+    return data.get("discussion-threads", [])
+
+
+def fetch_discussion_proxy(
+    session: requests.Session,
+    proxy_id: str,
+) -> dict[str, Any]:
+    """Возвращает discussion-proxy по id (списки id комментариев ветки).
+
+    Содержит ``discussions`` (все id), ``discussions_most_liked`` (топ по
+    лайкам, отсортировано убыв.) и др. ``proxy_id`` берётся из объекта thread
+    (``discussion_proxy``).
+    """
+    data = _cached_api_get(session, f"{API_HOST}/api/discussion-proxies/{proxy_id}")
+    proxies: list[dict[str, Any]] = data.get("discussion-proxies", [])
+    if not proxies:
+        raise ValueError(f"discussion-proxy {proxy_id} не найден")
+    return proxies[0]
+
+
+def fetch_comments_with_submissions(
+    session: requests.Session,
+    comment_ids: list[int],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Возвращает ``(comments, submissions)`` для списка id комментариев.
+
+    Ключ — параметр ``expand=submission`` (issue #55): без него сабмишн
+    закреплённого решения приватен (``/api/submissions/{id}`` → 403,
+    ``?ids[]=`` → пусто), а с ним код приходит в top-level массиве
+    ``submissions`` ответа ``/api/comments``. Каждый comment ссылается на свой
+    сабмишн полем ``submission`` (id), связываемым с ``submissions[].id``.
+    """
+    if not comment_ids:
+        return [], []
+    data = _cached_api_get(
+        session,
+        f"{API_HOST}/api/comments",
+        params={"ids[]": comment_ids, "expand": "submission"},
+    )
+    return data.get("comments", []), data.get("submissions", [])

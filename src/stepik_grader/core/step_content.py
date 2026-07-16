@@ -19,6 +19,7 @@ __all__ = [
     "extract_python_code",
     "extract_submission_code",
     "extract_function_name",
+    "pick_solutions_thread",
 ]
 
 
@@ -54,6 +55,18 @@ def extract_submission_code(submission: dict[str, Any] | None) -> str | None:
     reply: dict[str, Any] = submission.get("reply") or {}
     code = reply.get("code")
     return str(code) if code else None
+
+
+def pick_solutions_thread(threads: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Возвращает thread ветки решений (``thread == "solutions"``) или None.
+
+    У шага два thread'а: ``"default"`` (обычные обсуждения) и ``"solutions"``
+    (закреплённые/пользовательские решения, открывается после сдачи, issue #55).
+    """
+    for thread in threads:
+        if thread.get("thread") == "solutions":
+            return thread
+    return None
 
 
 def extract_function_name(template_code: str) -> str | None:

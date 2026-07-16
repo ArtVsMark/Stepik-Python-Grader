@@ -230,6 +230,28 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "по Ctrl+Shift+B). Эпик #80 Tier 2 / issue #58."
         ),
     )
+    parser.add_argument(
+        "--import-reference",
+        type=pathlib.Path,
+        metavar="TASK_DIR",
+        help=(
+            "Импортировать закреплённое решение Stepik (+топовые по лайкам) из "
+            "ветки решений в папку задачи как task{N}_{100+}.py для сравнения в "
+            "режимах 2–4 и выйти. Читает meta.json из TASK_DIR (нужна скачанная "
+            "задача и OAuth). Issue #55."
+        ),
+    )
+    parser.add_argument(
+        "--import-top",
+        type=int,
+        default=5,
+        metavar="N",
+        help=(
+            "Сколько топовых по лайкам решений импортировать сверх закреплённого "
+            "(--import-reference). По умолчанию 5; нулёвые по лайкам не берутся. "
+            "Issue #55."
+        ),
+    )
     return parser
 
 
