@@ -52,6 +52,20 @@ def _sort_cards(cards: list[GlossaryCard], sort: str | None) -> list[GlossaryCar
     return cards
 
 
+def _is_private_name(card_id: str) -> bool:
+    """True для приватно-именованных карточек (issue #436).
+
+    Приватным считается id, у которого ХОТЯ БЫ один сегмент (по точкам) начинается
+    с одиночного ``_``, но НЕ является дандером ``__x__``. Примеры приватных:
+    ``os._exit``, ``_pickle.pickleerror``, ``warnings._optionerror``. Дандеры
+    (``__init__``, ``str.__len__``) — легитимные публичные карточки, НЕ приватны.
+    """
+    for segment in card_id.split("."):
+        if segment.startswith("_") and not (segment.startswith("__") and segment.endswith("__")):
+            return True
+    return False
+
+
 def _fallback_cards() -> list[GlossaryCard]:
     """Компактный глоссарий (core/glossary.py) как GlossaryCard — zero-config."""
     return [
@@ -122,22 +136,35 @@ def glossary_search(
     """Карточки, отфильтрованные по ``query`` и опциональным граням, отсортированные.
 
     - ``query`` — подстрока по search-терминам (пустой = без текстового фильтра);
-    - ``section``/``kind``/``status`` — точное совпадение соответствующего поля
-      (issue #329); разделы НЕ объединяются — «Списки (list)» и «Кортежи (tuple)»
-      фильтруются раздельно;
+    - ``section``/``kind`` — точное совпадение соответствующего поля (issue #329);
+      разделы НЕ объединяются — «Списки (list)» и «Кортежи (tuple)» раздельно;
+    - ``status`` (issue #436) — по умолчанию (``None``) выдача ограничена
+      ``ready`` (черновики автогенерации не шумят); ``"all"`` — показать все
+      статусы; иное значение — точное совпадение (``draft``/``new``/…);
     - ``sort`` — ``az``/``section``/``version`` (иначе порядок источника);
     - ``lang`` — локаль ``?lang=`` (issue #363): ``summary``/``body`` отдаются
       строкой выбранного языка (fallback RU).
+
+    Приватно-именованные АВТОДРАФТЫ (``_module``/``obj._attr``, см.
+    ``_is_private_name``) скрыты из выдачи ученика ВСЕГДА, даже под явным
+    ``?status=draft`` (issue #436 AC2). Фильтр применяется ТОЛЬКО к не-``ready``
+    карточкам: рукописные/промотированные ``ready`` (включая легитимные
+    dunder-slug OOP-карточки ``__add__``/``__len__`` и ``_missing_``) приватностью
+    имени не прячутся — иначе они регрессионно исчезли бы из поиска. Фильтр живёт
+    здесь, а не в ``_all_cards``, поэтому детектор/очередь
+    (``code_terms``/``queue_code_gaps``) по-прежнему видят ПОЛНУЮ базу (AC3).
     """
     cards = _all_cards(store_path)
+    cards = [c for c in cards if c.status == "ready" or not _is_private_name(c.id)]
     if query.strip():
         cards = [c for c in cards if c.matches(query)]
     if section:
         cards = [c for c in cards if c.section == section]
     if kind:
         cards = [c for c in cards if c.kind == kind]
-    if status:
-        cards = [c for c in cards if c.status == status]
+    effective_status = status if status else "ready"
+    if effective_status != "all":
+        cards = [c for c in cards if c.status == effective_status]
     cards = _sort_cards(cards, sort)
     return [c.to_api_dict(lang) for c in cards]
 

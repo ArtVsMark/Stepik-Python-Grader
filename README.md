@@ -7,7 +7,7 @@
 [![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14%20%28exp%29-blue)
 
-> **Status:** Stable
+> **Status:** Stable &nbsp;·&nbsp; 🇬🇧 [English quick start & generic mode](README.en.md)
 
 > Локальный грейдер для курсов «Поколение Python» на Stepik.
 > Скачивает данные задачи с сайта и позволяет не только проверить решение локально, но и **сравнить несколько решений более честно**: сначала по корректности, потом по benchmark-метрикам.
@@ -41,7 +41,7 @@
   от `watchfiles`)
 - 🧪 Playwright e2e-смоук фронтенда + регрессия на XSS (опционально: extra
   `[e2e]` — см. [CONTRIBUTING.md § E2E-тесты](CONTRIBUTING.md#e2e-тесты-playwright-опционально-issue-263))
-- 📚 Локальный глоссарий-модуль (581 карточка): функции/исключения/конструкции,
+- 📚 Локальный глоссарий-модуль (601 готовая карточка из ≈1388; черновики-автодрафты скрыты по умолчанию, issue #436): функции/исключения/конструкции,
   детектор недостающих терминов, deep-link из error cards
 - 🎓 Правила PEP 8 и раздел «Подучить» — частые ошибки из истории прогонов с
   затуханием (`--insights` / `--lint`, эпик #342)
