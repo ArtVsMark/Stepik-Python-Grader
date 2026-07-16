@@ -111,6 +111,34 @@ def test_save_json_file_roundtrip(tmp_path: pathlib.Path) -> None:
     assert load_json_file(file) == original
 
 
+def test_save_json_file_atomic_keeps_original_on_write_failure(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #408: сбой на шаге публикации (os.replace) не оставляет усечённый
+    файл — цель сохраняет прежнее полное содержимое, temp убран."""
+    file = tmp_path / "cache.json"
+    save_json_file(file, {"v": 1})  # исходная полная версия
+
+    def _boom(*_a: object, **_k: object) -> None:
+        raise OSError("simulated crash before publish")
+
+    monkeypatch.setattr(os, "replace", _boom)
+    with pytest.raises(OSError):
+        save_json_file(file, {"v": 2})
+
+    assert load_json_file(file) == {"v": 1}  # не усечён — старая версия цела
+    assert {p.name for p in tmp_path.iterdir()} == {"cache.json"}  # temp убран
+
+
+def test_save_json_file_leaves_no_temp_on_success(tmp_path: pathlib.Path) -> None:
+    """Успешная атомарная запись (и перезапись) не оставляет .tmp рядом с целью."""
+    file = tmp_path / "meta.json"
+    save_json_file(file, {"a": 1})
+    save_json_file(file, {"a": 2})  # перезапись — тоже атомарна
+    assert load_json_file(file) == {"a": 2}
+    assert {p.name for p in tmp_path.iterdir()} == {"meta.json"}
+
+
 # ── save_secrets ──────────────────────────────────────────────────────────────
 
 

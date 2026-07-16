@@ -10,9 +10,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import pathlib
+import tempfile
 from typing import Any
 
 __all__ = [
@@ -40,10 +42,39 @@ def load_json_file(file_path: pathlib.Path) -> dict[str, Any]:
 
 
 def save_json_file(file_path: pathlib.Path, payload: dict[str, Any]) -> None:
-    """Сохраняет dict как JSON-файл, создавая родительские директории."""
+    """Атомарно сохраняет dict как JSON-файл, создавая родительские директории.
+
+    issue #408: пишем во временный файл в ТОЙ ЖЕ директории и заменяем цель
+    через ``os.replace`` (атомарный rename на POSIX и Windows) — прерывание,
+    краш или конкурентная запись не оставляют усечённый файл, а читатель видит
+    либо старую, либо новую полную версию (прежний ``open("w")`` сначала обрезал
+    целевой файл). Temp рядом с целью — чтобы replace шёл в пределах одной ФС
+    (rename между ФС не атомарен). Общий атомарный писатель для
+    cache.py/meta.json/downloader-config (все зовут эту функцию).
+    """
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(file_path, "w", encoding="utf-8") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2)
+    data = json.dumps(payload, ensure_ascii=False, indent=2)
+    # mkstemp в той же директории → уникальное имя (параллельные писатели не
+    # делят temp) и приватные права 0600 на время записи.
+    fd, tmp_name = tempfile.mkstemp(
+        dir=file_path.parent, prefix=f".{file_path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            file.write(data)
+            file.flush()
+            os.fsync(file.fileno())
+        # Сохранить права уже существующего файла (mkstemp даёт 0600); для нового
+        # файла остаётся 0600 — не секрет, но owner-only безопаснее и локально
+        # достаточно. На Windows chmod по сути no-op (права — NTFS ACL).
+        with contextlib.suppress(OSError):
+            os.chmod(tmp_name, file_path.stat().st_mode & 0o777)
+        os.replace(tmp_name, file_path)
+    except OSError:
+        # best-effort уборка temp при сбое записи/replace — цель не тронута.
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
+        raise
 
 
 def save_secrets(secrets_path: pathlib.Path, data: dict[str, Any]) -> None:
