@@ -18,6 +18,8 @@
 | Контракт результата проверки (поля, вердикты) для CLI/Web/API | [result-contract.md](result-contract.md) |
 | Формат JSON-трейса пошагового исполнения (песочница, `core/tracer.py`) | [trace-format.md](trace-format.md) |
 | Дизайн server mode: Runner-слой, API удалённого исполнения, sandbox | [server-mode.md](server-mode.md) |
+| Дизайн server-mode sandbox-backend (контейнеры, cgroups v2, netns) | [server-sandbox-design.md](server-sandbox-design.md) |
+| Дизайн server-mode данных (PostgreSQL поверх SQLite, accounts/workspaces, RBAC) | [server-data-model.md](server-data-model.md) |
 | Диагностический режим и лог-файл (редакция секретов, opt-in) | [logging.md](logging.md) |
 | Архитектурные решения (ADR) | [adr/README.md](adr/README.md) |
 | Посмотреть дерево файлов проекта | [project-structure.md](project-structure.md) |
@@ -56,6 +58,8 @@
 | Архитектура: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) | README, CLAUDE.md (там — инварианты, не дублирующее описание) |
 | Контракт результата проверки (поля case/solution/run, вердикты, стабильность) | [result-contract.md](result-contract.md) | web-current.md (там — ViewModel-надстройки), configuration.md (там — таблица вердиктов) |
 | Дизайн server mode (Runner/SandboxRunner, API удалённого исполнения, sandbox-требования) | [server-mode.md](server-mode.md) | SECURITY.md (там — короткая политика), ADR-0001 (там — решение, не спецификация), api.md (там — текущие эндпоинты, не дизайн) |
+| Дизайн server-mode sandbox-backend: контейнеры, cgroups v2/netns/seccomp, отображение требований #157 на примитивы (issue #153) | [server-sandbox-design.md](server-sandbox-design.md) | server-mode.md (там — требования #157, не «как»), ADR-0008 (там — решение о классе backend, не спецификация) |
+| Дизайн server-mode данных: доменная модель, PostgreSQL поверх SQLite-истории, accounts/workspaces/courses, RBAC (issue #154/#155) | [server-data-model.md](server-data-model.md) | history.py (там — локальная SQLite-схема), ADR-0009 (там — решение, не спецификация), server-mode.md (там — фазовая карта) |
 | Диагностический режим, лог-файл, редакция секретов | [logging.md](logging.md) | SECURITY.md, configuration.md |
 | Архитектурные решения (контекст/решение/альтернативы/последствия) | [adr/README.md](adr/README.md) | docs/* (дизайн-доки описывают «как», ADR — «почему») |
 | Дерево файлов проекта | [project-structure.md](project-structure.md) | README |

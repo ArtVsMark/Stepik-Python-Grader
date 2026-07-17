@@ -33,3 +33,5 @@ API-поверхность) нельзя закапывать в issue/PR — о
 | [0005](0005-dynamic-versioning.md) | Версия пакета — динамическая из git-тегов (`setuptools-scm`), статической `version` нет | Accepted |
 | [0006](0006-runner-abstraction.md) | Абстракция исполнения — протокол `Runner` (`RunSpec`/`RunOutcome`, `LocalRunner`, verdict наверху) | Accepted |
 | [0007](0007-sandbox-backends.md) | OS-песочница — opt-in `--sandbox`, три нативных backend'а по ОС, fail-loud без тихого fallback | Accepted |
+| [0008](0008-server-sandbox-backend.md) | Класс sandbox-backend для server mode — OS-контейнер (namespaces+cgroups v2+seccomp), дополняет ADR-0001 | Proposed |
+| [0009](0009-server-data-model.md) | Единая доменная модель + PostgreSQL-надмножество SQLite для server mode (accounts/workspaces/RBAC) | Proposed |
