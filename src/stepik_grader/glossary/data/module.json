@@ -20225,5 +20225,1059 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "os.pread",
+    "title": "os.pread",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает n байтов из дескриптора с заданной позиции, не меняя текущее смещение. Доступно на Unix.",
+      "en": "Read n bytes from a descriptor at a given offset without moving the position. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.pread(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.pread",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — позиционный ввод-вывод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'pread') or callable(os.pread))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.pwrite",
+    "title": "os.pwrite",
+    "kind": "function",
+    "summary": {
+      "ru": "Пишет байты в дескриптор по заданной позиции, не меняя текущее смещение. Доступно на Unix.",
+      "en": "Write bytes to a descriptor at a given offset without moving the position. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.pwrite(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.pwrite",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — позиционный ввод-вывод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'pwrite') or callable(os.pwrite))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.preadv",
+    "title": "os.preadv",
+    "kind": "function",
+    "summary": {
+      "ru": "Как pread, но читает сразу в несколько буферов (scatter read) с заданной позиции. Доступно на Unix.",
+      "en": "Like pread, but scatters into multiple buffers at an offset. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.preadv(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.preadv",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — позиционный ввод-вывод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'preadv') or callable(os.preadv))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.pwritev",
+    "title": "os.pwritev",
+    "kind": "function",
+    "summary": {
+      "ru": "Как pwrite, но пишет сразу из нескольких буферов (gather write) по заданной позиции. Доступно на Unix.",
+      "en": "Like pwrite, but gathers from multiple buffers at an offset. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.pwritev(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.pwritev",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — позиционный ввод-вывод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'pwritev') or callable(os.pwritev))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.readv",
+    "title": "os.readv",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает из дескриптора сразу в несколько буферов (scatter read). Доступно на Unix.",
+      "en": "Read from a descriptor into multiple buffers (scatter read). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.readv(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.readv",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — позиционный ввод-вывод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'readv') or callable(os.readv))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.writev",
+    "title": "os.writev",
+    "kind": "function",
+    "summary": {
+      "ru": "Пишет в дескриптор сразу из нескольких буферов (gather write). Доступно на Unix.",
+      "en": "Write to a descriptor from multiple buffers (gather write). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.writev(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.writev",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — позиционный ввод-вывод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'writev') or callable(os.writev))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sendfile",
+    "title": "os.sendfile",
+    "kind": "function",
+    "summary": {
+      "ru": "Копирует данные между дескрипторами напрямую в ядре, без буфера в пространстве пользователя. Доступно на Unix.",
+      "en": "Copy data between descriptors in the kernel, without a user-space buffer. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sendfile(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sendfile",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — эффективное копирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sendfile') or callable(os.sendfile))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.copy_file_range",
+    "title": "os.copy_file_range",
+    "kind": "function",
+    "summary": {
+      "ru": "Копирует диапазон байтов между файлами в ядре (без прохода через пользовательский буфер; Python 3.8+). Доступно на Linux.",
+      "en": "Copy a range of bytes between files in the kernel (3.8+). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.copy_file_range(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.copy_file_range",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — эффективное копирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'copy_file_range') or callable(os.copy_file_range))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.splice",
+    "title": "os.splice",
+    "kind": "function",
+    "summary": {
+      "ru": "Перемещает данные между дескрипторами через канал (pipe) без копирования в пространство пользователя (Python 3.10+). Доступно на Linux.",
+      "en": "Move data between descriptors via a pipe without user-space copies (3.10+). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.splice(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.splice",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — эффективное копирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'splice') or callable(os.splice))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getxattr",
+    "title": "os.getxattr",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает значение расширенного атрибута файла по имени. Доступно на Linux.",
+      "en": "Return the value of a file's extended attribute by name. Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getxattr(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getxattr",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — расширенные атрибуты (xattr)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getxattr') or callable(os.getxattr))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setxattr",
+    "title": "os.setxattr",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает расширенный атрибут файла. Доступно на Linux.",
+      "en": "Set an extended attribute on a file. Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setxattr(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setxattr",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — расширенные атрибуты (xattr)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setxattr') or callable(os.setxattr))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.listxattr",
+    "title": "os.listxattr",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список имён расширенных атрибутов файла. Доступно на Linux.",
+      "en": "Return the list of a file's extended attribute names. Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.listxattr(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.listxattr",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — расширенные атрибуты (xattr)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'listxattr') or callable(os.listxattr))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.removexattr",
+    "title": "os.removexattr",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет расширенный атрибут файла. Доступно на Linux.",
+      "en": "Remove an extended attribute from a file. Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.removexattr(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.removexattr",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — расширенные атрибуты (xattr)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'removexattr') or callable(os.removexattr))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.eventfd",
+    "title": "os.eventfd",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт дескриптор-счётчик событий для межпоточной/межпроцессной сигнализации (Python 3.10+). Доступно на Linux.",
+      "en": "Create an event-counter file descriptor for signalling (3.10+). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.eventfd(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.eventfd",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — события и таймеры (fd)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'eventfd') or callable(os.eventfd))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.eventfd_read",
+    "title": "os.eventfd_read",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает (и обнуляет) значение счётчика из eventfd-дескриптора. Доступно на Linux.",
+      "en": "Read (and reset) the counter value from an eventfd. Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.eventfd_read(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.eventfd_read",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — события и таймеры (fd)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'eventfd_read') or callable(os.eventfd_read))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.eventfd_write",
+    "title": "os.eventfd_write",
+    "kind": "function",
+    "summary": {
+      "ru": "Прибавляет значение к счётчику eventfd-дескриптора. Доступно на Linux.",
+      "en": "Add a value to an eventfd counter. Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.eventfd_write(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.eventfd_write",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — события и таймеры (fd)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'eventfd_write') or callable(os.eventfd_write))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.timerfd_create",
+    "title": "os.timerfd_create",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт дескриптор таймера, срабатывания которого можно читать как события (Python 3.13+). Доступно на Linux.",
+      "en": "Create a timer file descriptor whose expirations are readable as events (3.13+). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.timerfd_create(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.timerfd_create",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — события и таймеры (fd)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'timerfd_create') or callable(os.timerfd_create))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.timerfd_settime",
+    "title": "os.timerfd_settime",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт время старта и период таймер-дескриптора (в секундах, float). Доступно на Linux.",
+      "en": "Arm or disarm a timerfd (start and interval in seconds). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.timerfd_settime(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.timerfd_settime",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — события и таймеры (fd)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'timerfd_settime') or callable(os.timerfd_settime))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.timerfd_settime_ns",
+    "title": "os.timerfd_settime_ns",
+    "kind": "function",
+    "summary": {
+      "ru": "Как timerfd_settime, но в наносекундах (int). Доступно на Linux.",
+      "en": "Like timerfd_settime, but in nanoseconds (int). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.timerfd_settime_ns(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.timerfd_settime_ns",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — события и таймеры (fd)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'timerfd_settime_ns') or callable(os.timerfd_settime_ns))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.timerfd_gettime",
+    "title": "os.timerfd_gettime",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает оставшееся время и период таймер-дескриптора (в секундах). Доступно на Linux.",
+      "en": "Return a timerfd's remaining time and interval (in seconds). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.timerfd_gettime(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.timerfd_gettime",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — события и таймеры (fd)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'timerfd_gettime') or callable(os.timerfd_gettime))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.timerfd_gettime_ns",
+    "title": "os.timerfd_gettime_ns",
+    "kind": "function",
+    "summary": {
+      "ru": "Как timerfd_gettime, но в наносекундах. Доступно на Linux.",
+      "en": "Like timerfd_gettime, but in nanoseconds. Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.timerfd_gettime_ns(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.timerfd_gettime_ns",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — события и таймеры (fd)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'timerfd_gettime_ns') or callable(os.timerfd_gettime_ns))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.memfd_create",
+    "title": "os.memfd_create",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт анонимный файл в памяти и возвращает его дескриптор (Python 3.8+). Доступно на Linux.",
+      "en": "Create an anonymous in-memory file and return its descriptor (3.8+). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.memfd_create(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.memfd_create",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — спец. дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'memfd_create') or callable(os.memfd_create))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.pidfd_open",
+    "title": "os.pidfd_open",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает дескриптор, ссылающийся на процесс по PID (для надёжной посылки сигналов; Python 3.9+). Доступно на Linux.",
+      "en": "Return a file descriptor referring to a process by PID (3.9+). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.pidfd_open(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.pidfd_open",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — спец. дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'pidfd_open') or callable(os.pidfd_open))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.pipe2",
+    "title": "os.pipe2",
+    "kind": "function",
+    "summary": {
+      "ru": "Как pipe, но сразу задаёт флаги (напр. O_NONBLOCK/O_CLOEXEC) для обоих концов. Доступно на Linux.",
+      "en": "Like pipe, but atomically sets flags (e.g. O_NONBLOCK/O_CLOEXEC). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.pipe2(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.pipe2",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — спец. дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'pipe2') or callable(os.pipe2))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setns",
+    "title": "os.setns",
+    "kind": "function",
+    "summary": {
+      "ru": "Присоединяет процесс к пространству имён (namespace) по дескриптору (Python 3.12+). Доступно на Linux.",
+      "en": "Attach the process to a namespace by file descriptor (3.12+). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setns(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setns",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — пространства имён",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setns') or callable(os.setns))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.unshare",
+    "title": "os.unshare",
+    "kind": "function",
+    "summary": {
+      "ru": "Отсоединяет части исполнительного контекста процесса в новые пространства имён (Python 3.12+). Доступно на Linux.",
+      "en": "Disassociate parts of the process's execution context into new namespaces (3.12+). Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.unshare(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.unshare",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — пространства имён",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'unshare') or callable(os.unshare))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.posix_fadvise",
+    "title": "os.posix_fadvise",
+    "kind": "function",
+    "summary": {
+      "ru": "Сообщает ядру о предполагаемом характере доступа к файлу (последовательный/случайный) для оптимизации кеша. Доступно на Unix.",
+      "en": "Advise the kernel about the expected file access pattern. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.posix_fadvise(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.posix_fadvise",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — советы ядру",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'posix_fadvise') or callable(os.posix_fadvise))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.posix_fallocate",
+    "title": "os.posix_fallocate",
+    "kind": "function",
+    "summary": {
+      "ru": "Заранее выделяет место на диске под файл заданного размера. Доступно на Unix.",
+      "en": "Pre-allocate disk space for a file of a given size. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.posix_fallocate(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.posix_fallocate",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — советы ядру",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'posix_fallocate') or callable(os.posix_fallocate))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.get_blocking",
+    "title": "os.get_blocking",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, находится ли дескриптор в блокирующем режиме ввода-вывода. Доступно на Unix.",
+      "en": "Check whether a descriptor is in blocking I/O mode. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.get_blocking(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.get_blocking",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — режим дескриптора",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'get_blocking') or callable(os.get_blocking))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.set_blocking",
+    "title": "os.set_blocking",
+    "kind": "function",
+    "summary": {
+      "ru": "Переключает дескриптор между блокирующим и неблокирующим режимом. Доступно на Unix.",
+      "en": "Set a descriptor's blocking/non-blocking I/O mode. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.set_blocking(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.set_blocking",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — режим дескриптора",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'set_blocking') or callable(os.set_blocking))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getrandom",
+    "title": "os.getrandom",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает случайные байты напрямую от системного генератора (getrandom); может блокироваться до готовности энтропии. Доступно на Linux.",
+      "en": "Return random bytes directly from the system getrandom source. Availability: Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getrandom(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getrandom",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — случайность",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getrandom') or callable(os.getrandom))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.major",
+    "title": "os.major",
+    "kind": "function",
+    "summary": {
+      "ru": "Извлекает старший номер (major) из идентификатора устройства (напр. из st_rdev). Доступно на Unix.",
+      "en": "Extract the major device number from a raw device id. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.major(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.major",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — номера устройств",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'major') or callable(os.major))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.minor",
+    "title": "os.minor",
+    "kind": "function",
+    "summary": {
+      "ru": "Извлекает младший номер (minor) из идентификатора устройства. Доступно на Unix.",
+      "en": "Extract the minor device number from a raw device id. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.minor(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.minor",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — номера устройств",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'minor') or callable(os.minor))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.makedev",
+    "title": "os.makedev",
+    "kind": "function",
+    "summary": {
+      "ru": "Собирает идентификатор устройства из старшего и младшего номеров (обратное major/minor). Доступно на Unix.",
+      "en": "Compose a raw device id from major and minor numbers. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.makedev(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.makedev",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — номера устройств",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'makedev') or callable(os.makedev))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
