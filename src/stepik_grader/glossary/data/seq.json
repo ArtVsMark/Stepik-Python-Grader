@@ -2917,5 +2917,1518 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "bytearray.capitalize",
+    "title": "bytearray.capitalize",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию: первый байт в верхнем регистре, остальные — в нижнем.",
+      "en": "Return a copy with the first byte upper-cased and the rest lower-cased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.capitalize(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.capitalize",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'hello').capitalize())   # → bytearray(b'Hello')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.lower",
+    "title": "bytearray.lower",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию с ASCII-буквами в нижнем регистре.",
+      "en": "Return a copy with ASCII letters lower-cased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.lower(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.lower",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'ABC').lower())   # → bytearray(b'abc')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.upper",
+    "title": "bytearray.upper",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию с ASCII-буквами в верхнем регистре.",
+      "en": "Return a copy with ASCII letters upper-cased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.upper(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.upper",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'abc').upper())   # → bytearray(b'ABC')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.title",
+    "title": "bytearray.title",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию в «заголовочном» регистре.",
+      "en": "Return a title-cased copy."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.title(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.title",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'hi there').title())   # → bytearray(b'Hi There')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.swapcase",
+    "title": "bytearray.swapcase",
+    "kind": "function",
+    "summary": {
+      "ru": "Меняет регистр ASCII-букв на противоположный.",
+      "en": "Swap the case of ASCII letters."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.swapcase(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.swapcase",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'AbC').swapcase())   # → bytearray(b'aBc')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.center",
+    "title": "bytearray.center",
+    "kind": "function",
+    "summary": {
+      "ru": "Центрирует в поле заданной ширины байтом-заполнителем.",
+      "en": "Center in a field of the given width using a fill byte."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.center(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.center",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'hi').center(6, b'*'))   # → bytearray(b'**hi**')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.ljust",
+    "title": "bytearray.ljust",
+    "kind": "function",
+    "summary": {
+      "ru": "Выравнивает по левому краю в поле заданной ширины.",
+      "en": "Left-justify in a field of the given width."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.ljust(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.ljust",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'hi').ljust(5, b'.'))   # → bytearray(b'hi...')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.rjust",
+    "title": "bytearray.rjust",
+    "kind": "function",
+    "summary": {
+      "ru": "Выравнивает по правому краю в поле заданной ширины.",
+      "en": "Right-justify in a field of the given width."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.rjust(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.rjust",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'hi').rjust(5, b'.'))   # → bytearray(b'...hi')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.zfill",
+    "title": "bytearray.zfill",
+    "kind": "function",
+    "summary": {
+      "ru": "Дополняет слева нулями до заданной длины.",
+      "en": "Pad on the left with zeros to a given length."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.zfill(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.zfill",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'42').zfill(5))   # → bytearray(b'00042')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.expandtabs",
+    "title": "bytearray.expandtabs",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет табуляции пробелами до следующей позиции табуляции.",
+      "en": "Replace tabs with spaces up to the next tab stop."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.expandtabs(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.expandtabs",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'a\\tb').expandtabs(4))   # → bytearray(b'a   b')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.count",
+    "title": "bytearray.count",
+    "kind": "function",
+    "summary": {
+      "ru": "Считает непересекающиеся вхождения подпоследовательности.",
+      "en": "Count non-overlapping occurrences of a subsequence."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.count(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.count",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'banana').count(b'a'))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.find",
+    "title": "bytearray.find",
+    "kind": "function",
+    "summary": {
+      "ru": "Индекс первого вхождения подпоследовательности или -1.",
+      "en": "Index of the first occurrence, or -1."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.find(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.find",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'banana').find(b'na'))   # → 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.rfind",
+    "title": "bytearray.rfind",
+    "kind": "function",
+    "summary": {
+      "ru": "Индекс последнего вхождения подпоследовательности или -1.",
+      "en": "Index of the last occurrence, or -1."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.rfind(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.rfind",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'banana').rfind(b'na'))   # → 4"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.index",
+    "title": "bytearray.index",
+    "kind": "function",
+    "summary": {
+      "ru": "Как find, но бросает ValueError, если не найдено.",
+      "en": "Like find, but raises ValueError if not found."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.index(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.index",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'banana').index(b'na'))   # → 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.rindex",
+    "title": "bytearray.rindex",
+    "kind": "function",
+    "summary": {
+      "ru": "Как rfind, но бросает ValueError, если не найдено.",
+      "en": "Like rfind, but raises ValueError if not found."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.rindex(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.rindex",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'banana').rindex(b'na'))   # → 4"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.startswith",
+    "title": "bytearray.startswith",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет заданный префикс.",
+      "en": "Check for a given prefix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.startswith(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.startswith",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'hello').startswith(b'he'))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.endswith",
+    "title": "bytearray.endswith",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет заданный суффикс.",
+      "en": "Check for a given suffix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.endswith(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.endswith",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'hello').endswith(b'lo'))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.join",
+    "title": "bytearray.join",
+    "kind": "function",
+    "summary": {
+      "ru": "Соединяет последовательность байтовых объектов через разделитель.",
+      "en": "Join a sequence of bytes with this separator."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.join(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.join",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'-').join([b'a', b'b']))   # → bytearray(b'a-b')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.split",
+    "title": "bytearray.split",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает по разделителю (по умолчанию по пробельным).",
+      "en": "Split on a separator (whitespace by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.split(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.split",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'a b').split())   # → [bytearray(b'a'), bytearray(b'b')]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.rsplit",
+    "title": "bytearray.rsplit",
+    "kind": "function",
+    "summary": {
+      "ru": "Как split, но справа и с ограничением числа разбиений.",
+      "en": "Like split, but from the right with a max count."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.rsplit(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.rsplit",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'a b c').rsplit(None, 1))   # → [bytearray(b'a b'), bytearray(b'c')]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.partition",
+    "title": "bytearray.partition",
+    "kind": "function",
+    "summary": {
+      "ru": "Делит по первому разделителю на тройку.",
+      "en": "Split at the first separator into a triple."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.partition(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.partition",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'a=b').partition(b'='))   # → (bytearray(b'a'), bytearray(b'='), bytearray(b'b'))"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.rpartition",
+    "title": "bytearray.rpartition",
+    "kind": "function",
+    "summary": {
+      "ru": "Делит по последнему разделителю на тройку.",
+      "en": "Split at the last separator into a triple."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.rpartition(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.rpartition",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'a=b=c').rpartition(b'='))   # → (bytearray(b'a=b'), bytearray(b'='), bytearray(b'c'))"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.splitlines",
+    "title": "bytearray.splitlines",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает по границам строк.",
+      "en": "Split at line boundaries."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.splitlines(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.splitlines",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'a\\nb').splitlines())   # → [bytearray(b'a'), bytearray(b'b')]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.strip",
+    "title": "bytearray.strip",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает байты (по умолчанию пробельные) с обоих концов.",
+      "en": "Strip bytes (whitespace by default) from both ends."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.strip(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.strip",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'  hi  ').strip())   # → bytearray(b'hi')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.lstrip",
+    "title": "bytearray.lstrip",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает байты слева.",
+      "en": "Strip bytes from the left."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.lstrip(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.lstrip",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'  hi').lstrip())   # → bytearray(b'hi')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.rstrip",
+    "title": "bytearray.rstrip",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает байты справа.",
+      "en": "Strip bytes from the right."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.rstrip(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.rstrip",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'hi  ').rstrip())   # → bytearray(b'hi')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.removeprefix",
+    "title": "bytearray.removeprefix",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает заданный префикс, если он есть (3.9+).",
+      "en": "Remove a given prefix if present (3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.removeprefix(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.removeprefix",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'foobar').removeprefix(b'foo'))   # → bytearray(b'bar')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.removesuffix",
+    "title": "bytearray.removesuffix",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает заданный суффикс, если он есть (3.9+).",
+      "en": "Remove a given suffix if present (3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.removesuffix(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.removesuffix",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'foobar').removesuffix(b'bar'))   # → bytearray(b'foo')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.replace",
+    "title": "bytearray.replace",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию с заменой вхождений подпоследовательности.",
+      "en": "Return a copy with occurrences replaced."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.replace(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.replace",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — замена и перевод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'aaa').replace(b'a', b'b'))   # → bytearray(b'bbb')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.translate",
+    "title": "bytearray.translate",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет байты по таблице перевода (256 байт).",
+      "en": "Map bytes through a 256-byte translation table."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.translate(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.translate",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — замена и перевод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'abc').translate(bytes.maketrans(b'a', b'X')))   # → bytearray(b'Xbc')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.maketrans",
+    "title": "bytearray.maketrans",
+    "kind": "function",
+    "summary": {
+      "ru": "Статический метод: строит таблицу перевода из двух байтовых объектов.",
+      "en": "A static method building a translation table."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.maketrans(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.maketrans",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — замена и перевод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(len(bytearray.maketrans(b'ab', b'AB')))   # → 256"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.decode",
+    "title": "bytearray.decode",
+    "kind": "function",
+    "summary": {
+      "ru": "Декодирует в строку (str) по кодировке (по умолчанию UTF-8).",
+      "en": "Decode to a str using an encoding (UTF-8 by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.decode(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.decode",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — кодирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'hi').decode())   # → hi"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.hex",
+    "title": "bytearray.hex",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает шестнадцатеричное представление как строку.",
+      "en": "Return a hexadecimal string of the bytes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.hex(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.hex",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — кодирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'abc').hex())   # → 616263"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.fromhex",
+    "title": "bytearray.fromhex",
+    "kind": "function",
+    "summary": {
+      "ru": "Статический метод: создаёт bytearray из шестнадцатеричной строки.",
+      "en": "A static method creating a bytearray from a hex string."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.fromhex(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.fromhex",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — кодирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray.fromhex('616263'))   # → bytearray(b'abc')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.isalnum",
+    "title": "bytearray.isalnum",
+    "kind": "function",
+    "summary": {
+      "ru": "Все байты — ASCII-буквы/цифры и последовательность непуста.",
+      "en": "All bytes are ASCII letters/digits and non-empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.isalnum(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.isalnum",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'abc123').isalnum())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.isalpha",
+    "title": "bytearray.isalpha",
+    "kind": "function",
+    "summary": {
+      "ru": "Все байты — ASCII-буквы и последовательность непуста.",
+      "en": "All bytes are ASCII letters and non-empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.isalpha(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.isalpha",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'abc').isalpha())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.isascii",
+    "title": "bytearray.isascii",
+    "kind": "function",
+    "summary": {
+      "ru": "Все байты — ASCII (0–127).",
+      "en": "All bytes are ASCII (0–127)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.isascii(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.isascii",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'abc').isascii())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.isdigit",
+    "title": "bytearray.isdigit",
+    "kind": "function",
+    "summary": {
+      "ru": "Все байты — ASCII-цифры и последовательность непуста.",
+      "en": "All bytes are ASCII digits and non-empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.isdigit(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.isdigit",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'123').isdigit())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.islower",
+    "title": "bytearray.islower",
+    "kind": "function",
+    "summary": {
+      "ru": "Все буквенные байты — в нижнем регистре.",
+      "en": "All cased bytes are lower-case."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.islower(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.islower",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'abc').islower())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.isspace",
+    "title": "bytearray.isspace",
+    "kind": "function",
+    "summary": {
+      "ru": "Все байты — пробельные и последовательность непуста.",
+      "en": "All bytes are whitespace and non-empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.isspace(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.isspace",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'   ').isspace())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.istitle",
+    "title": "bytearray.istitle",
+    "kind": "function",
+    "summary": {
+      "ru": "Последовательность в «заголовочном» регистре.",
+      "en": "The bytes are title-cased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.istitle(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.istitle",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'Hi There').istitle())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.isupper",
+    "title": "bytearray.isupper",
+    "kind": "function",
+    "summary": {
+      "ru": "Все буквенные байты — в верхнем регистре.",
+      "en": "All cased bytes are upper-case."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.isupper(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.isupper",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'ABC').isupper())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.append",
+    "title": "bytearray.append",
+    "kind": "function",
+    "summary": {
+      "ru": "Добавляет один байт (int 0–255) в конец (изменяет объект).",
+      "en": "Append a single byte (int 0–255) in place."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.append(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.append",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — мутирующие",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "ba = bytearray(b'ab')",
+      "ba.append(99)",
+      "print(ba)   # → bytearray(b'abc')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.extend",
+    "title": "bytearray.extend",
+    "kind": "function",
+    "summary": {
+      "ru": "Дописывает байты из итерируемого в конец (изменяет объект).",
+      "en": "Extend with bytes from an iterable in place."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.extend(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.extend",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — мутирующие",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "ba = bytearray(b'ab')",
+      "ba.extend(b'cd')",
+      "print(ba)   # → bytearray(b'abcd')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.insert",
+    "title": "bytearray.insert",
+    "kind": "function",
+    "summary": {
+      "ru": "Вставляет байт по индексу (изменяет объект).",
+      "en": "Insert a byte at an index in place."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.insert(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.insert",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — мутирующие",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "ba = bytearray(b'ac')",
+      "ba.insert(1, 98)",
+      "print(ba)   # → bytearray(b'abc')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.pop",
+    "title": "bytearray.pop",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет и возвращает байт по индексу (по умолчанию последний).",
+      "en": "Remove and return a byte at an index (last by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.pop(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.pop",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — мутирующие",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "ba = bytearray(b'abc')",
+      "print(ba.pop())   # → 99"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.remove",
+    "title": "bytearray.remove",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет первое вхождение байта с данным значением.",
+      "en": "Remove the first occurrence of a byte value."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.remove(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.remove",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — мутирующие",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "ba = bytearray(b'abc')",
+      "ba.remove(98)",
+      "print(ba)   # → bytearray(b'ac')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.reverse",
+    "title": "bytearray.reverse",
+    "kind": "function",
+    "summary": {
+      "ru": "Разворачивает байты на месте.",
+      "en": "Reverse the bytes in place."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.reverse(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.reverse",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — мутирующие",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "ba = bytearray(b'abc')",
+      "ba.reverse()",
+      "print(ba)   # → bytearray(b'cba')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.clear",
+    "title": "bytearray.clear",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет все байты (делает пустым).",
+      "en": "Remove all bytes (make it empty)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.clear(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.clear",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — мутирующие",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "ba = bytearray(b'abc')",
+      "ba.clear()",
+      "print(ba)   # → bytearray(b'')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytearray.copy",
+    "title": "bytearray.copy",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает поверхностную копию (новый bytearray).",
+      "en": "Return a shallow copy (a new bytearray)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ba.copy(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.copy",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytearray — мутирующие",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "print(bytearray(b'abc').copy())   # → bytearray(b'abc')"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
