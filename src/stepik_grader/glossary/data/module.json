@@ -18990,5 +18990,1240 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "os.chdir",
+    "title": "os.chdir",
+    "kind": "function",
+    "summary": {
+      "ru": "Меняет текущий рабочий каталог процесса.",
+      "en": "Change the process's current working directory."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.chdir(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.chdir",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — каталоги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "cwd = os.getcwd()",
+      "os.chdir(cwd)",
+      "print(os.getcwd() == cwd)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.mkdir",
+    "title": "os.mkdir",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт один каталог по указанному пути.",
+      "en": "Create a single directory at the given path."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.mkdir(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.mkdir",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — каталоги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "base = tempfile.mkdtemp()",
+      "d = os.path.join(base, 'sub')",
+      "os.mkdir(d)",
+      "print(os.path.isdir(d))   # → True",
+      "os.rmdir(d)",
+      "os.rmdir(base)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.makedirs",
+    "title": "os.makedirs",
+    "kind": "function",
+    "summary": {
+      "ru": "Рекурсивно создаёт каталог и все промежуточные родительские.",
+      "en": "Recursively create a directory and any missing parents."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.makedirs(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.makedirs",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — каталоги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "base = tempfile.mkdtemp()",
+      "d = os.path.join(base, 'a', 'b')",
+      "os.makedirs(d)",
+      "print(os.path.isdir(d))   # → True",
+      "os.removedirs(d)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.rmdir",
+    "title": "os.rmdir",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет пустой каталог.",
+      "en": "Remove an empty directory."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.rmdir(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.rmdir",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — каталоги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "d = tempfile.mkdtemp()",
+      "os.rmdir(d)",
+      "print(os.path.exists(d))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.removedirs",
+    "title": "os.removedirs",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет каталог и вверх по дереву все ставшие пустыми родительские.",
+      "en": "Remove a directory and any parents that become empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.removedirs(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.removedirs",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — каталоги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "base = tempfile.mkdtemp()",
+      "d = os.path.join(base, 'a', 'b')",
+      "os.makedirs(d)",
+      "os.removedirs(d)",
+      "print(os.path.exists(base))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.rename",
+    "title": "os.rename",
+    "kind": "function",
+    "summary": {
+      "ru": "Переименовывает или перемещает файл/каталог.",
+      "en": "Rename or move a file/directory."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.rename(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.rename",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — переименование/перемещение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "fd, p = tempfile.mkstemp()",
+      "os.close(fd)",
+      "p2 = p + '_r'",
+      "os.rename(p, p2)",
+      "print(os.path.exists(p2) and not os.path.exists(p))   # → True",
+      "os.remove(p2)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.renames",
+    "title": "os.renames",
+    "kind": "function",
+    "summary": {
+      "ru": "Как rename, но создаёт недостающие каталоги назначения и убирает опустевшие исходные.",
+      "en": "Like rename, but creates missing target dirs and prunes empty source dirs."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.renames(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.renames",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — переименование/перемещение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "base = tempfile.mkdtemp()",
+      "fd, p = tempfile.mkstemp(dir=base)",
+      "os.close(fd)",
+      "p2 = os.path.join(base, 'sub', 'f')",
+      "os.renames(p, p2)",
+      "print(os.path.isfile(p2))   # → True",
+      "os.remove(p2)",
+      "os.rmdir(os.path.dirname(p2))",
+      "os.rmdir(base)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.link",
+    "title": "os.link",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт жёсткую ссылку на файл (второе имя того же inode).",
+      "en": "Create a hard link to a file."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.link(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.link",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — ссылки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "fd, p = tempfile.mkstemp()",
+      "os.close(fd)",
+      "p2 = p + '_l'",
+      "os.link(p, p2)",
+      "print(os.path.exists(p2))   # → True",
+      "os.remove(p2)",
+      "os.remove(p)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.symlink",
+    "title": "os.symlink",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт символическую ссылку на путь. Доступно на Unix.",
+      "en": "Create a symbolic link to a path. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.symlink(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.symlink",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — ссылки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'symlink') or callable(os.symlink))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.readlink",
+    "title": "os.readlink",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает путь, на который указывает символическая ссылка.",
+      "en": "Return the path a symbolic link points to."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.readlink(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.readlink",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — ссылки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'readlink') or callable(os.readlink))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.unlink",
+    "title": "os.unlink",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет файл (синоним os.remove).",
+      "en": "Remove a file (a synonym of os.remove)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.unlink(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.unlink",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — удаление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "fd, p = tempfile.mkstemp()",
+      "os.close(fd)",
+      "os.unlink(p)",
+      "print(os.path.exists(p))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.utime",
+    "title": "os.utime",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает время доступа и изменения файла (atime, mtime).",
+      "en": "Set a file's access and modification times (atime, mtime)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.utime(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.utime",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — метаданные",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "fd, p = tempfile.mkstemp()",
+      "os.close(fd)",
+      "os.utime(p, (100, 200))",
+      "print(os.path.getmtime(p))   # → 200.0",
+      "os.remove(p)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.chmod",
+    "title": "os.chmod",
+    "kind": "function",
+    "summary": {
+      "ru": "Меняет права доступа к файлу (режим). На Windows поддерживается лишь бит «только чтение».",
+      "en": "Change a file's permission bits (mode)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.chmod(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.chmod",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — права и владелец",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'chmod') or callable(os.chmod))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.chown",
+    "title": "os.chown",
+    "kind": "function",
+    "summary": {
+      "ru": "Меняет владельца (uid) и группу (gid) файла. Доступно на Unix.",
+      "en": "Change a file's owner (uid) and group (gid). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.chown(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.chown",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — права и владелец",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'chown') or callable(os.chown))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.lchown",
+    "title": "os.lchown",
+    "kind": "function",
+    "summary": {
+      "ru": "Как chown, но для самой символической ссылки, не следуя по ней. Доступно на Unix.",
+      "en": "Like chown, but affects the symlink itself, not its target. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.lchown(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.lchown",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — права и владелец",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'lchown') or callable(os.lchown))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.chroot",
+    "title": "os.chroot",
+    "kind": "function",
+    "summary": {
+      "ru": "Меняет корневой каталог процесса (требует привилегий). Доступно на Unix.",
+      "en": "Change the process's root directory (needs privilege). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.chroot(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.chroot",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — каталоги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'chroot') or callable(os.chroot))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.mkfifo",
+    "title": "os.mkfifo",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт именованный канал (FIFO). Доступно на Unix.",
+      "en": "Create a named pipe (FIFO). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.mkfifo(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.mkfifo",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — спецфайлы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'mkfifo') or callable(os.mkfifo))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.mknod",
+    "title": "os.mknod",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт узел файловой системы (спецфайл устройства, FIFO и т.п.). Доступно на Unix.",
+      "en": "Create a filesystem node (device special file, FIFO, etc.). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.mknod(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.mknod",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — спецфайлы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'mknod') or callable(os.mknod))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fsync",
+    "title": "os.fsync",
+    "kind": "function",
+    "summary": {
+      "ru": "Принудительно сбрасывает буферы файла (по дескриптору) на диск.",
+      "en": "Flush a file descriptor's buffers to disk."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fsync(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fsync",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — синхронизация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "fd, p = tempfile.mkstemp()",
+      "os.write(fd, b'x')",
+      "print(os.fsync(fd) is None)   # → True",
+      "os.close(fd)",
+      "os.remove(p)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fdatasync",
+    "title": "os.fdatasync",
+    "kind": "function",
+    "summary": {
+      "ru": "Как fsync, но синхронизирует только данные, без части метаданных. Доступно на Unix.",
+      "en": "Like fsync, but flushes only data, not all metadata. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fdatasync(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fdatasync",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — синхронизация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'fdatasync') or callable(os.fdatasync))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sync",
+    "title": "os.sync",
+    "kind": "function",
+    "summary": {
+      "ru": "Сбрасывает на диск буферы всех файловых систем. Доступно на Unix.",
+      "en": "Flush all filesystem buffers to disk. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sync(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sync",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — синхронизация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sync') or callable(os.sync))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fchdir",
+    "title": "os.fchdir",
+    "kind": "function",
+    "summary": {
+      "ru": "Меняет текущий каталог на тот, что задан открытым дескриптором. Доступно на Unix.",
+      "en": "Change the working directory to the one given by an open fd. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fchdir(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fchdir",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — каталоги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'fchdir') or callable(os.fchdir))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fchmod",
+    "title": "os.fchmod",
+    "kind": "function",
+    "summary": {
+      "ru": "Как chmod, но по открытому файловому дескриптору. Доступно на Unix.",
+      "en": "Like chmod, but by an open file descriptor. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fchmod(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fchmod",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — права и владелец",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'fchmod') or callable(os.fchmod))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fchown",
+    "title": "os.fchown",
+    "kind": "function",
+    "summary": {
+      "ru": "Как chown, но по открытому файловому дескриптору. Доступно на Unix.",
+      "en": "Like chown, but by an open file descriptor. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fchown(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fchown",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — права и владелец",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'fchown') or callable(os.fchown))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.lockf",
+    "title": "os.lockf",
+    "kind": "function",
+    "summary": {
+      "ru": "Применяет или снимает POSIX-блокировку на область файла (по дескриптору). Доступно на Unix.",
+      "en": "Apply or release a POSIX lock on a file region (by fd). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.lockf(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.lockf",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — блокировки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'lockf') or callable(os.lockf))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.popen",
+    "title": "os.popen",
+    "kind": "function",
+    "summary": {
+      "ru": "Открывает канал к команде оболочки: возвращает файловый объект для чтения её вывода или записи ввода.",
+      "en": "Open a pipe to a shell command as a file object."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.popen(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.popen",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — процессы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'popen') or callable(os.popen))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fwalk",
+    "title": "os.fwalk",
+    "kind": "function",
+    "summary": {
+      "ru": "Как os.walk, но дополнительно выдаёт дескриптор каталога (безопаснее к гонкам). Доступно на Unix.",
+      "en": "Like os.walk, but also yields a directory file descriptor. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fwalk(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fwalk",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — обход дерева",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'fwalk') or callable(os.fwalk))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.statvfs",
+    "title": "os.statvfs",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает статистику файловой системы по пути (размер блока, свободное место). Доступно на Unix.",
+      "en": "Return filesystem statistics for a path (block size, free space). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.statvfs(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.statvfs",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'statvfs') or callable(os.statvfs))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fstatvfs",
+    "title": "os.fstatvfs",
+    "kind": "function",
+    "summary": {
+      "ru": "Как statvfs, но по открытому файловому дескриптору. Доступно на Unix.",
+      "en": "Like statvfs, but by an open file descriptor. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fstatvfs(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fstatvfs",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'fstatvfs') or callable(os.fstatvfs))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.statvfs_result",
+    "title": "os.statvfs_result",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип результата os.statvfs(): поля f_bsize, f_blocks, f_bfree и др. Доступно на Unix.",
+      "en": "The result type of os.statvfs(): f_bsize, f_blocks, f_bfree, etc. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.statvfs_result(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.statvfs_result",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'statvfs_result') or callable(os.statvfs_result))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.pathconf",
+    "title": "os.pathconf",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает значение системного ограничения для пути (напр. максимальную длину имени). Доступно на Unix.",
+      "en": "Return a system configuration limit for a path. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.pathconf(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.pathconf",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — конфигурация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'pathconf') or callable(os.pathconf))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fpathconf",
+    "title": "os.fpathconf",
+    "kind": "function",
+    "summary": {
+      "ru": "Как pathconf, но по открытому файловому дескриптору. Доступно на Unix.",
+      "en": "Like pathconf, but by an open file descriptor. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fpathconf(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fpathconf",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — конфигурация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'fpathconf') or callable(os.fpathconf))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.confstr",
+    "title": "os.confstr",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает строковое системное конфигурационное значение по имени. Доступно на Unix.",
+      "en": "Return a string system configuration value by name. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.confstr(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.confstr",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — конфигурация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'confstr') or callable(os.confstr))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sysconf",
+    "title": "os.sysconf",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает числовое системное конфигурационное значение по имени (напр. число процессоров). Доступно на Unix.",
+      "en": "Return an integer system configuration value by name. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sysconf(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sysconf",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — конфигурация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sysconf') or callable(os.sysconf))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getloadavg",
+    "title": "os.getloadavg",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает среднюю загрузку системы за 1, 5 и 15 минут. Доступно на Unix.",
+      "en": "Return the system load average over 1, 5 and 15 minutes. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getloadavg(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getloadavg",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getloadavg') or callable(os.getloadavg))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.uname",
+    "title": "os.uname",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает информацию об операционной системе (имя ядра, хост, версия, архитектура). Доступно на Unix.",
+      "en": "Return information about the operating system (kernel, host, release, machine). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.uname(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.uname",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'uname') or callable(os.uname))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.uname_result",
+    "title": "os.uname_result",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип результата os.uname(): поля sysname, nodename, release, version, machine. Доступно на Unix.",
+      "en": "The result type of os.uname(): sysname, nodename, release, version, machine. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.uname_result(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.uname_result",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'uname_result') or callable(os.uname_result))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getenvb",
+    "title": "os.getenvb",
+    "kind": "function",
+    "summary": {
+      "ru": "Как getenv, но ключ и значение — байты (bytes); только для Unix. Доступно на Unix.",
+      "en": "Like getenv, but the key and value are bytes; Unix only. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getenvb(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getenvb",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — окружение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getenvb') or callable(os.getenvb))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
