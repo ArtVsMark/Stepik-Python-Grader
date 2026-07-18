@@ -30,10 +30,11 @@
 
 1. **Practice-driven** — из реальной практики: решения/ошибки (RE/WA),
    которые `MissingConceptDetector` встречает без карточки (журнал J7).
-2. **Source-driven** — из будущего сканирования покрытия официального
-   Python/stdlib (инвентаризация того, что ещё не описано). Это плановый
-   источник (см. follow-up #195–#198 в [claude-handoff.md](claude-handoff.md));
-   сетевого скана не предполагается.
+2. **Source-driven** — из сканирования покрытия официального Python/stdlib
+   (инвентаризация того, что ещё не описано). Реализован (#195–#198):
+   `glossary/stdlib_inventory.py` + `glossary/coverage.py` (§ Инвентарь и
+   § Coverage-отчёт ниже), CLI `python -m stepik_grader.glossary.coverage`;
+   офлайн, сетевого скана нет.
 
 Продуктовая роль относительно WEB MVP — каноничен
 [web-current.md § Глоссарий](web-current.md#глоссарий-как-локальный-knowledge-модуль).
@@ -323,7 +324,7 @@ python -m stepik_grader.glossary.coverage \
 
 ## Границы (что НЕ входит)
 
-- **WEB UI и endpoint'ы** (`/api/glossary*`) — реализация в #125/#129.
+- **WEB UI и endpoint'ы** (`/api/glossary*`) — не входят в формат хранения (эта тема); реализованы в web-слое (`web/glossary_adapter.py`, #125/#129), справочник эндпоинтов — [api.md](api.md).
 - **Экспортёр во внешний Glossary-Python** — отдельная задача #126-follow-up.
 - **SQLite-хранилище** (#130+) — сейчас JSON-first; API провайдера
   (`GlossaryProvider`-протокол) абстрагирует источник для будущей замены.

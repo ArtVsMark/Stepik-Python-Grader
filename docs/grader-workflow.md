@@ -171,7 +171,8 @@ stepik-grader --serve --no-root-confinement    # без изоляции пут�
 - В поле пути — файл решения (`.py`) или папка с решениями; тесты
   резолвятся так же, как в режимах 1/2/3.
 - Тот же threat model, что у CLI: без `--sandbox` изоляции нет — запускай свои
-  решения. `--serve --sandbox` (issue #396) включает OS-изоляцию и в web.
+  решения. `--serve --sandbox` (issue #396) включает OS-изоляцию и в web. Полная
+  threat model — [configuration.md § Ограничения и безопасность](configuration.md#ограничения-и-безопасность).
 
 **Рабочая директория (`--root`, issue #261).** Все пути из запросов
 (`/api/grade`, `/api/source`, `/api/solutions`, `/api/save-solution`,
@@ -258,7 +259,7 @@ stepik-grader --mode 2 --dir . --output json > results.json
 `run_benchmark()`/`run_microbench_mode()` (ключи `file`/`results`/`groups` в
 зависимости от режима), без отдельной документированной схемы.
 
-### `--output csv` / `--output markdown` (roadmap, issues #53, #58)
+### `--output csv` / `--output markdown` (issues #53, #58)
 
 ```bash
 stepik-grader --mode 2 --dir . --output csv > results.csv
@@ -270,7 +271,7 @@ stepik-grader --mode 3 --dir . --output markdown > BENCHMARK.md
 для сохранения в файл используется обычное перенаправление шелла, отдельного
 флага "сохранить в файл" нет.
 
-### `--watch` (roadmap, issue #54)
+### `--watch` (issue #54)
 
 ```bash
 pip install "stepik-python-grader[watch]"   # опциональная зависимость: watchfiles
@@ -290,6 +291,33 @@ stepik-grader --mode 2 --dir . --watch
 кэша — на папке с десятком задач цикл обратной связи не деградирует. В конце
 печатается сводка «N из M решений из кэша». Отключить можно флагом
 `--no-cache` (тогда каждый раз перезапускается вся папка, как раньше).
+
+### `--import-reference` / `--import-top` (issue #55)
+
+```bash
+stepik-grader --import-reference ./task_123               # закреплённое + топ-5 по лайкам
+stepik-grader --import-reference ./task_123 --import-top 3
+```
+
+Импортирует закреплённое решение Stepik (и топовые по лайкам, `--import-top N`,
+по умолчанию 5; нулевые по лайкам не берутся) из ветки решений шага в папку
+задачи как `task{N}_{100+}.py` — готовый reference-competitor для сравнения в
+режимах 2–4, затем выходит. Читает `meta.json` из `TASK_DIR` (нужна скачанная
+задача и OAuth-токен, см. [installation.md](installation.md)). Реализация —
+`core/stepik_reference.py`; в web — кнопка «Найти эталонное решение».
+
+### `--export-progress md|html` (issue #432)
+
+```bash
+stepik-grader --export-progress md      # → grader-progress.md
+stepik-grader --export-progress html    # → grader-progress.html
+```
+
+Экспортирует агрегаты прогресса из локальной истории (`.grader_history.db`):
+попыток и времени до первого AC по задачам, тали вердиктов и типов падений —
+**без исходников решений** — в самодостаточный файл `grader-progress.md`/`.html`
+и выходит. Требует включённой истории (`--history`); пустая история — дружелюбное
+сообщение, не ошибка.
 
 ### `--cache` / `--clear-cache` (issue #56)
 
