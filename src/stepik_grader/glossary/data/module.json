@@ -4791,12 +4791,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getcwd())  # → '/home/user/workspace'",
+      "print(type(os.getcwd()))  # → <class 'str'>",
+      "start = os.getcwd()  # запомнить текущий каталог",
       "os.chdir('/tmp')",
-      "print(os.getcwd())  # → '/tmp'",
-      "os.chdir('/home/user/workspace')",
-      "print(os.getcwd())  # → '/home/user/workspace'",
-      "print(type(os.getcwd()))  # → <class 'str'>"
+      "print(os.getcwd())  # → /tmp",
+      "os.chdir(start)  # вернуться в исходный каталог"
     ],
     "related": [],
     "related_errors": []

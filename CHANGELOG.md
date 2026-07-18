@@ -86,6 +86,7 @@
 - Added a global 120s per-test deadline (`pytest-timeout`, `thread` method) so a hung subprocess/thread fails one test instead of hanging every CI matrix job (#444).
 
 ### Fixed
+- Fixed 5 non-reproducing `ready` glossary examples surfaced by `glossary_draft_pipeline check`: the hardcoded `os.chdir('/home/user/workspace')`, the `min([])`/`int('3.14')` error demos (now `try/except`), a misplaced `dir()[:5]` slice, and an invalid f-string align spec (`{width}^`→`^{width}`); `check` on Python 3.13 now reports `error=0` (#504).
 - `normalize_floats` no longer mangles dotted numbers — versions (`3.10.5`) and IPv4 (`1.2.3.4`) survive (regex lookbehind/lookahead), while plain floats still round to 9 places (#410).
 - `parse_testblock_file` skips `# INPUT DATA:` only as the file header (before the first `# TEST_N:`); the same line inside a block is now kept as real case data instead of being silently dropped (#410).
 - Security: the diagnostic logger redacts secrets in exception tracebacks (`exc_info`) and `stack_info`, not just the message — a token in an exception text no longer leaks to `grader.log` (#410).
