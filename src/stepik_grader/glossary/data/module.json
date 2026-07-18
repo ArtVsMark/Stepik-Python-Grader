@@ -17905,5 +17905,1090 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "os.getuid",
+    "title": "os.getuid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает реальный идентификатор пользователя (UID) процесса. Доступно на Unix.",
+      "en": "Return the process's real user id (UID). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getuid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getuid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getuid') or callable(os.getuid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.geteuid",
+    "title": "os.geteuid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает эффективный UID процесса (используется для проверки прав). Доступно на Unix.",
+      "en": "Return the process's effective user id. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.geteuid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.geteuid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'geteuid') or callable(os.geteuid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getgid",
+    "title": "os.getgid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает реальный идентификатор группы (GID) процесса. Доступно на Unix.",
+      "en": "Return the process's real group id (GID). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getgid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getgid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getgid') or callable(os.getgid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getegid",
+    "title": "os.getegid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает эффективный GID процесса. Доступно на Unix.",
+      "en": "Return the process's effective group id. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getegid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getegid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getegid') or callable(os.getegid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getresuid",
+    "title": "os.getresuid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает тройку (реальный, эффективный, сохранённый) UID. Доступно на Unix.",
+      "en": "Return the (real, effective, saved) user ids. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getresuid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getresuid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getresuid') or callable(os.getresuid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getresgid",
+    "title": "os.getresgid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает тройку (реальный, эффективный, сохранённый) GID. Доступно на Unix.",
+      "en": "Return the (real, effective, saved) group ids. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getresgid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getresgid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getresgid') or callable(os.getresgid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getgroups",
+    "title": "os.getgroups",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список дополнительных идентификаторов групп процесса. Доступно на Unix.",
+      "en": "Return the list of supplemental group ids. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getgroups(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getgroups",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getgroups') or callable(os.getgroups))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getgrouplist",
+    "title": "os.getgrouplist",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список групп, к которым принадлежит пользователь (по имени и базовому GID). Доступно на Unix.",
+      "en": "Return the group ids a user belongs to (by name and base GID). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getgrouplist(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getgrouplist",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getgrouplist') or callable(os.getgrouplist))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getlogin",
+    "title": "os.getlogin",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает имя пользователя, вошедшего в управляющий терминал процесса. Доступно на Unix.",
+      "en": "Return the name of the user logged in on the controlling terminal. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getlogin(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getlogin",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getlogin') or callable(os.getlogin))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setuid",
+    "title": "os.setuid",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает реальный UID процесса (требует привилегий). Доступно на Unix.",
+      "en": "Set the process's real user id (needs privilege). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setuid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setuid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setuid') or callable(os.setuid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.seteuid",
+    "title": "os.seteuid",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает эффективный UID процесса. Доступно на Unix.",
+      "en": "Set the process's effective user id. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.seteuid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.seteuid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'seteuid') or callable(os.seteuid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setgid",
+    "title": "os.setgid",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает реальный GID процесса. Доступно на Unix.",
+      "en": "Set the process's real group id. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setgid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setgid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setgid') or callable(os.setgid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setegid",
+    "title": "os.setegid",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает эффективный GID процесса. Доступно на Unix.",
+      "en": "Set the process's effective group id. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setegid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setegid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setegid') or callable(os.setegid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setreuid",
+    "title": "os.setreuid",
+    "kind": "function",
+    "summary": {
+      "ru": "Одновременно задаёт реальный и эффективный UID. Доступно на Unix.",
+      "en": "Set both the real and effective user ids. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setreuid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setreuid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setreuid') or callable(os.setreuid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setregid",
+    "title": "os.setregid",
+    "kind": "function",
+    "summary": {
+      "ru": "Одновременно задаёт реальный и эффективный GID. Доступно на Unix.",
+      "en": "Set both the real and effective group ids. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setregid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setregid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setregid') or callable(os.setregid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setresuid",
+    "title": "os.setresuid",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт реальный, эффективный и сохранённый UID. Доступно на Unix.",
+      "en": "Set the real, effective and saved user ids. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setresuid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setresuid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setresuid') or callable(os.setresuid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setresgid",
+    "title": "os.setresgid",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт реальный, эффективный и сохранённый GID. Доступно на Unix.",
+      "en": "Set the real, effective and saved group ids. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setresgid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setresgid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setresgid') or callable(os.setresgid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setgroups",
+    "title": "os.setgroups",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт список дополнительных групп процесса. Доступно на Unix.",
+      "en": "Set the process's supplemental group ids. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setgroups(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setgroups",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setgroups') or callable(os.setgroups))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.initgroups",
+    "title": "os.initgroups",
+    "kind": "function",
+    "summary": {
+      "ru": "Инициализирует дополнительные группы процесса по имени пользователя и базовому GID. Доступно на Unix.",
+      "en": "Initialize the supplemental groups from a username and base GID. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.initgroups(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.initgroups",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — идентификаторы пользователя/группы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'initgroups') or callable(os.initgroups))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getpgid",
+    "title": "os.getpgid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает идентификатор группы процессов (PGID) для заданного PID. Доступно на Unix.",
+      "en": "Return the process-group id (PGID) of a given PID. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getpgid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getpgid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сессии и группы процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getpgid') or callable(os.getpgid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getpgrp",
+    "title": "os.getpgrp",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает PGID текущего процесса. Доступно на Unix.",
+      "en": "Return the current process's process-group id. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getpgrp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getpgrp",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сессии и группы процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getpgrp') or callable(os.getpgrp))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getsid",
+    "title": "os.getsid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает идентификатор сессии (SID) для заданного PID. Доступно на Unix.",
+      "en": "Return the session id (SID) of a given PID. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getsid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getsid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сессии и группы процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getsid') or callable(os.getsid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setpgid",
+    "title": "os.setpgid",
+    "kind": "function",
+    "summary": {
+      "ru": "Помещает процесс в указанную группу процессов. Доступно на Unix.",
+      "en": "Place a process into a given process group. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setpgid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setpgid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сессии и группы процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setpgid') or callable(os.setpgid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setpgrp",
+    "title": "os.setpgrp",
+    "kind": "function",
+    "summary": {
+      "ru": "Делает текущий процесс лидером новой группы процессов. Доступно на Unix.",
+      "en": "Make the current process a process-group leader. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setpgrp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setpgrp",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сессии и группы процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setpgrp') or callable(os.setpgrp))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setsid",
+    "title": "os.setsid",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт новую сессию, делая процесс её лидером (отвязка от терминала). Доступно на Unix.",
+      "en": "Create a new session with the process as leader (detach from terminal). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setsid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setsid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сессии и группы процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setsid') or callable(os.setsid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.tcgetpgrp",
+    "title": "os.tcgetpgrp",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает группу процессов, управляющую терминалом (по дескриптору). Доступно на Unix.",
+      "en": "Return the process group controlling a terminal (by fd). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.tcgetpgrp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.tcgetpgrp",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сессии и группы процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'tcgetpgrp') or callable(os.tcgetpgrp))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.tcsetpgrp",
+    "title": "os.tcsetpgrp",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт группу процессов, управляющую терминалом. Доступно на Unix.",
+      "en": "Set the process group controlling a terminal. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.tcsetpgrp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.tcsetpgrp",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сессии и группы процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'tcsetpgrp') or callable(os.tcsetpgrp))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.ctermid",
+    "title": "os.ctermid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает путь к управляющему терминалу процесса. Доступно на Unix.",
+      "en": "Return the path of the controlling terminal. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.ctermid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.ctermid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — псевдотерминалы (pty)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'ctermid') or callable(os.ctermid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.openpty",
+    "title": "os.openpty",
+    "kind": "function",
+    "summary": {
+      "ru": "Открывает новую пару псевдотерминала: возвращает дескрипторы (master, slave). Доступно на Unix.",
+      "en": "Open a new pseudo-terminal pair; returns (master, slave) fds. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.openpty(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.openpty",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — псевдотерминалы (pty)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'openpty') or callable(os.openpty))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.posix_openpt",
+    "title": "os.posix_openpt",
+    "kind": "function",
+    "summary": {
+      "ru": "Открывает master-устройство псевдотерминала и возвращает его дескриптор. Доступно на Unix.",
+      "en": "Open a pseudo-terminal master device and return its fd. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.posix_openpt(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.posix_openpt",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — псевдотерминалы (pty)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'posix_openpt') or callable(os.posix_openpt))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.grantpt",
+    "title": "os.grantpt",
+    "kind": "function",
+    "summary": {
+      "ru": "Изменяет владельца и права slave-устройства псевдотерминала (по master-дескриптору). Доступно на Unix.",
+      "en": "Grant access to the slave pseudo-terminal (by master fd). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.grantpt(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.grantpt",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — псевдотерминалы (pty)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'grantpt') or callable(os.grantpt))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.unlockpt",
+    "title": "os.unlockpt",
+    "kind": "function",
+    "summary": {
+      "ru": "Разблокирует slave-устройство псевдотерминала для открытия. Доступно на Unix.",
+      "en": "Unlock the slave pseudo-terminal for opening. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.unlockpt(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.unlockpt",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — псевдотерминалы (pty)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'unlockpt') or callable(os.unlockpt))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.ptsname",
+    "title": "os.ptsname",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает путь к slave-устройству псевдотерминала (по master-дескриптору). Доступно на Unix.",
+      "en": "Return the path of the slave pseudo-terminal (by master fd). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.ptsname(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.ptsname",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — псевдотерминалы (pty)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'ptsname') or callable(os.ptsname))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.ttyname",
+    "title": "os.ttyname",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает путь к терминалу, связанному с файловым дескриптором. Доступно на Unix.",
+      "en": "Return the terminal path associated with a file descriptor. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.ttyname(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.ttyname",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — псевдотерминалы (pty)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'ttyname') or callable(os.ttyname))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.login_tty",
+    "title": "os.login_tty",
+    "kind": "function",
+    "summary": {
+      "ru": "Делает указанный дескриптор управляющим терминалом текущего процесса (для сессии). Доступно на Unix.",
+      "en": "Make a file descriptor the controlling terminal of the process. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.login_tty(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.login_tty",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — псевдотерминалы (pty)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'login_tty') or callable(os.login_tty))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
