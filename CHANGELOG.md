@@ -41,6 +41,7 @@
 - Dropped the stale "lint not wired yet" note from `docs/rules-insights.md` and `docs/result-contract.md` — the lint→history contour is closed (#403), the «lint» learning-card category is reachable (#495).
 - Completed the `docs/configuration.md` reference: documented the `max_active_runs` + five `ai_*` config keys and the `CANCELLED`/`SANDBOX_VIOLATION` verdicts already declared by `core/result.py` (#497).
 - Brought `docs/architecture.md` (module table + DAG) and `docs/project-structure.md` (tree) up to date with 6 shipped modules (`core/{ai_hints,history_recording,progress_export,user_settings,stepik_reference}`, `web/reference_adapter`) and the `core/locales/` directory (#496).
+- Re-framed `docs/claude-handoff.md` as an archive: the 2026-07-15 wave plan is now a historical snapshot (all waves shipped), fixed the open-issue counter (8, not 46), dropped the "Wave 3 entry point", and marked #153/#154/#155 closed (#484) and #55 implemented (#498).
 
 ### Changed
 - Glossary web section shows only `status=ready` cards by default (787 auto-draft cards hidden unless `?status=all`/`draft` is chosen); privately-named auto-drafts (`os._exit`, `_pickle.X` — not dunders, ~11 cards) are always excluded from student-facing search/lists. The private filter applies only to non-`ready` cards, so hand-authored `ready` cards (incl. OOP dunder-operator cards) stay visible; the missing-term detector and queue still see the full base (#436).
