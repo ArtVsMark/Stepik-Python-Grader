@@ -9742,5 +9742,590 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "contextlib.redirect_stdout",
+    "title": "contextlib.redirect_stdout",
+    "kind": "term",
+    "summary": {
+      "ru": "Контекстный менеджер: временно перенаправляет sys.stdout в указанный файловый объект.",
+      "en": "A context manager that temporarily redirects sys.stdout to a file object."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "with contextlib.redirect_stdout(target): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/contextlib.html#contextlib.redirect_stdout",
+    "version": "",
+    "section": "Модуль contextlib",
+    "subcat": "перенаправление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "contextlib"
+    ],
+    "examples": [
+      "import contextlib, io",
+      "buf = io.StringIO()",
+      "with contextlib.redirect_stdout(buf):",
+      "    print('hi')",
+      "print(buf.getvalue().strip())   # → hi"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "contextlib.redirect_stderr",
+    "title": "contextlib.redirect_stderr",
+    "kind": "term",
+    "summary": {
+      "ru": "Контекстный менеджер: временно перенаправляет sys.stderr в указанный файловый объект.",
+      "en": "A context manager that temporarily redirects sys.stderr to a file object."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "with contextlib.redirect_stderr(target): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/contextlib.html#contextlib.redirect_stderr",
+    "version": "",
+    "section": "Модуль contextlib",
+    "subcat": "перенаправление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "contextlib"
+    ],
+    "examples": [
+      "import contextlib, io, sys",
+      "buf = io.StringIO()",
+      "with contextlib.redirect_stderr(buf):",
+      "    print('err', file=sys.stderr)",
+      "print(buf.getvalue().strip())   # → err"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "contextlib.chdir",
+    "title": "contextlib.chdir",
+    "kind": "term",
+    "summary": {
+      "ru": "Контекстный менеджер: временно меняет текущий рабочий каталог, восстанавливая его на выходе (Python 3.11+).",
+      "en": "A context manager that temporarily changes the current working directory (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "with contextlib.chdir(path): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/contextlib.html#contextlib.chdir",
+    "version": "",
+    "section": "Модуль contextlib",
+    "subcat": "менеджеры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "contextlib"
+    ],
+    "examples": [
+      "import contextlib",
+      "cm = contextlib.chdir('.')",
+      "print(hasattr(cm, '__enter__') and hasattr(cm, '__exit__'))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "contextlib.AbstractContextManager",
+    "title": "contextlib.AbstractContextManager",
+    "kind": "term",
+    "summary": {
+      "ru": "Абстрактный базовый класс контекстного менеджера (протокол __enter__/__exit__); любой класс с этими методами — его виртуальный подкласс.",
+      "en": "The ABC for context managers (the __enter__/__exit__ protocol)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class C(contextlib.AbstractContextManager): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/contextlib.html#contextlib.AbstractContextManager",
+    "version": "",
+    "section": "Модуль contextlib",
+    "subcat": "протоколы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "contextlib"
+    ],
+    "examples": [
+      "import contextlib",
+      "class CM:",
+      "    def __enter__(self): return self",
+      "    def __exit__(self, *a): return False",
+      "print(issubclass(CM, contextlib.AbstractContextManager))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "contextlib.AbstractAsyncContextManager",
+    "title": "contextlib.AbstractAsyncContextManager",
+    "kind": "term",
+    "summary": {
+      "ru": "Абстрактный базовый класс асинхронного контекстного менеджера (протокол __aenter__/__aexit__, для async with).",
+      "en": "The ABC for async context managers (the __aenter__/__aexit__ protocol)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class C(contextlib.AbstractAsyncContextManager): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/contextlib.html#contextlib.AbstractAsyncContextManager",
+    "version": "",
+    "section": "Модуль contextlib",
+    "subcat": "протоколы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "contextlib"
+    ],
+    "examples": [
+      "import contextlib",
+      "class ACM:",
+      "    async def __aenter__(self): return self",
+      "    async def __aexit__(self, *a): return False",
+      "print(issubclass(ACM, contextlib.AbstractAsyncContextManager))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "contextlib.ContextDecorator",
+    "title": "contextlib.ContextDecorator",
+    "kind": "term",
+    "summary": {
+      "ru": "Базовый класс, позволяющий использовать контекстный менеджер ещё и как декоратор функции (@cm).",
+      "en": "A base class letting a context manager also be used as a function decorator."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class C(contextlib.ContextDecorator): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/contextlib.html#contextlib.ContextDecorator",
+    "version": "",
+    "section": "Модуль contextlib",
+    "subcat": "менеджеры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "contextlib"
+    ],
+    "examples": [
+      "import contextlib",
+      "print(hasattr(contextlib.ContextDecorator, '_recreate_cm'))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "contextlib.AsyncExitStack",
+    "title": "contextlib.AsyncExitStack",
+    "kind": "term",
+    "summary": {
+      "ru": "Асинхронный аналог ExitStack: динамически регистрирует и корректно закрывает несколько (async) контекстных менеджеров (Python 3.7+).",
+      "en": "An async ExitStack: dynamically manage several (async) context managers (3.7+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "async with contextlib.AsyncExitStack() as stack: ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/contextlib.html#contextlib.AsyncExitStack",
+    "version": "",
+    "section": "Модуль contextlib",
+    "subcat": "менеджеры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "contextlib"
+    ],
+    "examples": [
+      "import contextlib",
+      "print(issubclass(contextlib.AsyncExitStack, contextlib.AbstractAsyncContextManager))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "contextlib.asynccontextmanager",
+    "title": "contextlib.asynccontextmanager",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор: превращает асинхронную генераторную функцию (один yield) в асинхронный контекстный менеджер (Python 3.7+).",
+      "en": "A decorator turning an async generator (with one yield) into an async context manager (3.7+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@contextlib.asynccontextmanager",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/contextlib.html#contextlib.asynccontextmanager",
+    "version": "",
+    "section": "Модуль contextlib",
+    "subcat": "менеджеры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "contextlib"
+    ],
+    "examples": [
+      "import contextlib, inspect",
+      "@contextlib.asynccontextmanager",
+      "async def cm():",
+      "    yield 1",
+      "print(hasattr(cm(), '__aenter__'))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "contextlib.aclosing",
+    "title": "contextlib.aclosing",
+    "kind": "term",
+    "summary": {
+      "ru": "Асинхронный контекстный менеджер, гарантирующий вызов aclose() у асинхронного ресурса на выходе (Python 3.10+).",
+      "en": "An async context manager ensuring aclose() is called on exit (3.10+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "async with contextlib.aclosing(thing): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/contextlib.html#contextlib.aclosing",
+    "version": "",
+    "section": "Модуль contextlib",
+    "subcat": "менеджеры",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "contextlib"
+    ],
+    "examples": [
+      "import contextlib",
+      "print(hasattr(contextlib.aclosing, '__call__'))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "abc.ABC",
+    "title": "abc.ABC",
+    "kind": "term",
+    "summary": {
+      "ru": "Вспомогательный базовый класс с метаклассом ABCMeta: наследование от него делает класс абстрактным (нельзя создать экземпляр при наличии абстрактных методов).",
+      "en": "A helper base class using ABCMeta; subclassing it makes a class abstract."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class Base(abc.ABC): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/abc.html#abc.ABC",
+    "version": "",
+    "section": "Модуль abc",
+    "subcat": "абстрактные классы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "abc"
+    ],
+    "examples": [
+      "import abc",
+      "class Base(abc.ABC):",
+      "    @abc.abstractmethod",
+      "    def area(self): ...",
+      "try:",
+      "    Base()",
+      "except TypeError:",
+      "    print('нельзя создать абстрактный')   # → нельзя создать абстрактный"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "abc.ABCMeta",
+    "title": "abc.ABCMeta",
+    "kind": "term",
+    "summary": {
+      "ru": "Метакласс для определения абстрактных базовых классов; ABC — удобная обёртка над ним.",
+      "en": "The metaclass for defining abstract base classes; ABC is a convenience wrapper."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class C(metaclass=abc.ABCMeta): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/abc.html#abc.ABCMeta",
+    "version": "",
+    "section": "Модуль abc",
+    "subcat": "абстрактные классы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "abc"
+    ],
+    "examples": [
+      "import abc",
+      "print(type(abc.ABC) is abc.ABCMeta)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "abc.abstractmethod",
+    "title": "abc.abstractmethod",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор, помечающий метод абстрактным: подкласс обязан его переопределить, иначе остаётся абстрактным.",
+      "en": "A decorator marking a method abstract; subclasses must override it."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@abc.abstractmethod",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/abc.html#abc.abstractmethod",
+    "version": "",
+    "section": "Модуль abc",
+    "subcat": "абстрактные классы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "abc"
+    ],
+    "examples": [
+      "import abc",
+      "class B(abc.ABC):",
+      "    @abc.abstractmethod",
+      "    def f(self): ...",
+      "print('f' in B.__abstractmethods__)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "abc.abstractproperty",
+    "title": "abc.abstractproperty",
+    "kind": "term",
+    "summary": {
+      "ru": "Устарело (deprecated): абстрактное свойство. Используйте @property поверх @abstractmethod.",
+      "en": "Deprecated: an abstract property. Use @property on top of @abstractmethod instead."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@abc.abstractproperty  # deprecated",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/abc.html#abc.abstractproperty",
+    "version": "",
+    "section": "Модуль abc",
+    "subcat": "абстрактные классы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "abc"
+    ],
+    "examples": [
+      "import abc",
+      "print(callable(abc.abstractproperty))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "abc.abstractclassmethod",
+    "title": "abc.abstractclassmethod",
+    "kind": "term",
+    "summary": {
+      "ru": "Устарело (deprecated): абстрактный classmethod. Используйте @classmethod поверх @abstractmethod.",
+      "en": "Deprecated: an abstract classmethod. Use @classmethod on top of @abstractmethod."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@abc.abstractclassmethod  # deprecated",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/abc.html#abc.abstractclassmethod",
+    "version": "",
+    "section": "Модуль abc",
+    "subcat": "абстрактные классы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "abc"
+    ],
+    "examples": [
+      "import abc",
+      "print(callable(abc.abstractclassmethod))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "abc.abstractstaticmethod",
+    "title": "abc.abstractstaticmethod",
+    "kind": "term",
+    "summary": {
+      "ru": "Устарело (deprecated): абстрактный staticmethod. Используйте @staticmethod поверх @abstractmethod.",
+      "en": "Deprecated: an abstract staticmethod. Use @staticmethod on top of @abstractmethod."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@abc.abstractstaticmethod  # deprecated",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/abc.html#abc.abstractstaticmethod",
+    "version": "",
+    "section": "Модуль abc",
+    "subcat": "абстрактные классы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "abc"
+    ],
+    "examples": [
+      "import abc",
+      "print(callable(abc.abstractstaticmethod))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "abc.get_cache_token",
+    "title": "abc.get_cache_token",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущий токен кеша ABC; меняется при регистрации новых виртуальных подклассов (для инвалидации кешей).",
+      "en": "Return the current ABC cache token; changes when virtual subclasses are registered."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "abc.get_cache_token()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/abc.html#abc.get_cache_token",
+    "version": "",
+    "section": "Модуль abc",
+    "subcat": "abc-служебные",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "abc"
+    ],
+    "examples": [
+      "import abc",
+      "print(isinstance(abc.get_cache_token(), int))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "abc.update_abstractmethods",
+    "title": "abc.update_abstractmethods",
+    "kind": "function",
+    "summary": {
+      "ru": "Пересчитывает набор абстрактных методов класса (напр. после динамического добавления методов; Python 3.10+).",
+      "en": "Recompute a class's set of abstract methods (3.10+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "abc.update_abstractmethods(cls)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/abc.html#abc.update_abstractmethods",
+    "version": "",
+    "section": "Модуль abc",
+    "subcat": "abc-служебные",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "abc"
+    ],
+    "examples": [
+      "import abc",
+      "class C: pass",
+      "print(abc.update_abstractmethods(C) is C)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "string.Formatter",
+    "title": "string.Formatter",
+    "kind": "term",
+    "summary": {
+      "ru": "Класс-движок форматирования строк (та же логика, что str.format), допускающий переопределение поведения полей.",
+      "en": "A string-formatting engine class (the same logic as str.format), with overridable behavior."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "string.Formatter().format(template, *args, **kwargs)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/string.html#string.Formatter",
+    "version": "",
+    "section": "Модуль string",
+    "subcat": "форматирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "string"
+    ],
+    "examples": [
+      "import string",
+      "f = string.Formatter()",
+      "print(f.format('{0}-{1}', 'a', 'b'))   # → a-b"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
