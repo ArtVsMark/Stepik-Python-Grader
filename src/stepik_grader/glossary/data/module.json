@@ -11137,5 +11137,484 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "collections.UserDict",
+    "title": "collections.UserDict",
+    "kind": "term",
+    "summary": {
+      "ru": "Обёртка над dict с содержимым в атрибуте .data; основа для собственных словарных классов через наследование (в отличие от прямого наследования dict, все методы идут через .data).",
+      "en": "A dict wrapper exposing its contents via .data; a base for custom mapping classes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class MyDict(collections.UserDict): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.html#collections.UserDict",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "обёртки типов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "from collections import UserDict",
+      "d = UserDict({'a': 1})",
+      "d['b'] = 2",
+      "print(d['a'], d['b'], isinstance(d.data, dict))   # → 1 2 True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.UserList",
+    "title": "collections.UserList",
+    "kind": "term",
+    "summary": {
+      "ru": "Обёртка над list с содержимым в атрибуте .data; удобна для создания собственных списочных классов наследованием.",
+      "en": "A list wrapper exposing its contents via .data; a base for custom list classes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class MyList(collections.UserList): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.html#collections.UserList",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "обёртки типов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "from collections import UserList",
+      "l = UserList([1, 2])",
+      "l.append(3)",
+      "print(list(l))   # → [1, 2, 3]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.UserString",
+    "title": "collections.UserString",
+    "kind": "term",
+    "summary": {
+      "ru": "Обёртка над str с содержимым в атрибуте .data; удобна для создания собственных строковых классов наследованием.",
+      "en": "A str wrapper exposing its contents via .data; a base for custom string classes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class MyStr(collections.UserString): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.html#collections.UserString",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "обёртки типов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "from collections import UserString",
+      "s = UserString('ab')",
+      "print(s.upper(), len(s))   # → AB 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.IOBase",
+    "title": "io.IOBase",
+    "kind": "term",
+    "summary": {
+      "ru": "Абстрактный базовый класс всех потоков ввода-вывода (файлов и StringIO/BytesIO); задаёт общий интерфейс close/readable/writable/seekable.",
+      "en": "The abstract base class of all I/O streams (files, StringIO/BytesIO)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "issubclass(cls, io.IOBase)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.IOBase",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "абстрактные базы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "print(issubclass(io.RawIOBase, io.IOBase))   # → True",
+      "print(isinstance(io.StringIO(), io.IOBase))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.RawIOBase",
+    "title": "io.RawIOBase",
+    "kind": "term",
+    "summary": {
+      "ru": "Абстрактный базовый класс сырых (небуферизованных) бинарных потоков; его конкретная реализация — FileIO.",
+      "en": "The abstract base class for raw (unbuffered) binary streams; FileIO is its implementation."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "issubclass(cls, io.RawIOBase)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.RawIOBase",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "абстрактные базы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "print(issubclass(io.FileIO, io.RawIOBase))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.BufferedIOBase",
+    "title": "io.BufferedIOBase",
+    "kind": "term",
+    "summary": {
+      "ru": "Абстрактный базовый класс буферизованных бинарных потоков (BytesIO, BufferedReader/Writer и др.).",
+      "en": "The abstract base class for buffered binary streams (BytesIO, BufferedReader/Writer, …)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "issubclass(cls, io.BufferedIOBase)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.BufferedIOBase",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "абстрактные базы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "print(issubclass(io.BytesIO, io.BufferedIOBase))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.TextIOBase",
+    "title": "io.TextIOBase",
+    "kind": "term",
+    "summary": {
+      "ru": "Абстрактный базовый класс текстовых потоков (StringIO, объект открытого текстового файла); работает со str, а не bytes.",
+      "en": "The abstract base class for text streams (StringIO, an opened text file); works with str."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "issubclass(cls, io.TextIOBase)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.TextIOBase",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "абстрактные базы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "print(issubclass(io.StringIO, io.TextIOBase))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.FileIO",
+    "title": "io.FileIO",
+    "kind": "term",
+    "summary": {
+      "ru": "Сырой (небуферизованный) бинарный поток к файлу по имени или дескриптору; низкоуровневая основа, поверх которой open() строит буферизацию.",
+      "en": "A raw (unbuffered) binary stream to a file by name or descriptor."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.FileIO(name, mode='r')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.FileIO",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "бинарные потоки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "print(issubclass(io.FileIO, io.RawIOBase))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.BufferedReader",
+    "title": "io.BufferedReader",
+    "kind": "term",
+    "summary": {
+      "ru": "Буферизованный поток бинарного чтения поверх сырого потока; сглаживает мелкие read() крупными блоками.",
+      "en": "A buffered binary read stream wrapping a raw stream."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.BufferedReader(raw)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.BufferedReader",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "бинарные потоки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "b = io.BufferedReader(io.BytesIO(b'hello'))",
+      "print(b.read())   # → b'hello'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.BufferedWriter",
+    "title": "io.BufferedWriter",
+    "kind": "term",
+    "summary": {
+      "ru": "Буферизованный поток бинарной записи поверх сырого потока; накапливает данные и сбрасывает их пачкой при flush/close.",
+      "en": "A buffered binary write stream wrapping a raw stream; flushes in batches."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.BufferedWriter(raw)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.BufferedWriter",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "бинарные потоки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "raw = io.BytesIO()",
+      "w = io.BufferedWriter(raw)",
+      "w.write(b'hi')",
+      "w.flush()",
+      "print(raw.getvalue())   # → b'hi'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.BufferedRandom",
+    "title": "io.BufferedRandom",
+    "kind": "term",
+    "summary": {
+      "ru": "Буферизованный поток с произвольным доступом (чтение и запись + seek) поверх сырого потока — для файлов, открытых в режиме 'r+b'.",
+      "en": "A buffered random-access stream (read+write+seek) over a raw stream."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.BufferedRandom(raw)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.BufferedRandom",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "бинарные потоки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "print(issubclass(io.BufferedRandom, io.BufferedIOBase))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.BufferedRWPair",
+    "title": "io.BufferedRWPair",
+    "kind": "term",
+    "summary": {
+      "ru": "Буферизованный объект, объединяющий отдельный поток чтения и отдельный поток записи (например, для сокета или пары каналов).",
+      "en": "A buffered object pairing a separate reader and writer stream."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.BufferedRWPair(reader, writer)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.BufferedRWPair",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "бинарные потоки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "p = io.BufferedRWPair(io.BytesIO(b'ab'), io.BytesIO())",
+      "print(p.read())   # → b'ab'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.IncrementalNewlineDecoder",
+    "title": "io.IncrementalNewlineDecoder",
+    "kind": "term",
+    "summary": {
+      "ru": "Инкрементальный декодер, приводящий переводы строк к '\\n' (universal newlines) по мере поступления байтов; используется текстовыми потоками.",
+      "en": "An incremental decoder that normalizes newlines to '\\n' as bytes arrive."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.IncrementalNewlineDecoder(decoder, translate)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.IncrementalNewlineDecoder",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "служебные",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io, codecs",
+      "base = codecs.getincrementaldecoder('utf-8')()",
+      "d = io.IncrementalNewlineDecoder(base, translate=True)",
+      "print(repr(d.decode(b'a\\r\\nb')))   # → 'a\\nb'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.text_encoding",
+    "title": "io.text_encoding",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает переданную кодировку, а если это None — кодировку по умолчанию для текстовых файлов (обычно 'utf-8'); помогает библиотекам корректно проставлять encoding (Python 3.10+).",
+      "en": "Return the given encoding, or the default text encoding if None (3.10+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.text_encoding(encoding)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.text_encoding",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "служебные",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "print(io.text_encoding('utf-8'))   # → utf-8"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.open_code",
+    "title": "io.open_code",
+    "kind": "function",
+    "summary": {
+      "ru": "Открывает файл для чтения как исполняемый код с учётом аудит-хуков безопасности; предпочтительнее open() для загрузки кода (Python 3.8+).",
+      "en": "Open a file for reading as executable code, honoring audit hooks (3.8+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.open_code(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.open_code",
+    "version": "",
+    "section": "Модуль io",
+    "subcat": "служебные",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "print(callable(io.open_code))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
