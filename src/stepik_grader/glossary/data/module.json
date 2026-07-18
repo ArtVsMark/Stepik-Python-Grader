@@ -11615,5 +11615,731 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "random.betavariate",
+    "title": "random.betavariate",
+    "kind": "function",
+    "summary": {
+      "ru": "Случайное число из бета-распределения (параметры alpha>0, beta>0); результат всегда в диапазоне [0, 1].",
+      "en": "A random number from the beta distribution (alpha>0, beta>0); always in [0, 1]."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.betavariate(alpha, beta)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.betavariate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(0.0 <= random.betavariate(2.0, 3.0) <= 1.0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.binomialvariate",
+    "title": "random.binomialvariate",
+    "kind": "function",
+    "summary": {
+      "ru": "Число успехов в n испытаниях Бернулли с вероятностью p — целое из биномиального распределения в диапазоне [0, n] (Python 3.12+).",
+      "en": "The number of successes in n Bernoulli trials with probability p; an int in [0, n] (3.12+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.binomialvariate(n=1, p=0.5)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.binomialvariate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(0 <= random.binomialvariate(10, 0.5) <= 10)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.expovariate",
+    "title": "random.expovariate",
+    "kind": "function",
+    "summary": {
+      "ru": "Случайное число из экспоненциального распределения с интенсивностью lambd; результат всегда неотрицателен.",
+      "en": "A random number from the exponential distribution with rate lambd; always non-negative."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.expovariate(lambd=1.0)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.expovariate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(random.expovariate(1.0) >= 0.0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.gammavariate",
+    "title": "random.gammavariate",
+    "kind": "function",
+    "summary": {
+      "ru": "Случайное число из гамма-распределения (параметры alpha>0, beta>0); результат всегда положителен.",
+      "en": "A random number from the gamma distribution (alpha>0, beta>0); always positive."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.gammavariate(alpha, beta)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.gammavariate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(random.gammavariate(2.0, 3.0) > 0.0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.lognormvariate",
+    "title": "random.lognormvariate",
+    "kind": "function",
+    "summary": {
+      "ru": "Случайное число из логнормального распределения (логарифм подчинён нормальному с mu, sigma); результат всегда положителен.",
+      "en": "A random number from the log-normal distribution; always positive."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.lognormvariate(mu, sigma)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.lognormvariate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(random.lognormvariate(0.0, 1.0) > 0.0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.normalvariate",
+    "title": "random.normalvariate",
+    "kind": "function",
+    "summary": {
+      "ru": "Случайное число из нормального (гауссова) распределения со средним mu и стандартным отклонением sigma.",
+      "en": "A random number from the normal (Gaussian) distribution with mean mu and stddev sigma."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.normalvariate(mu=0.0, sigma=1.0)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.normalvariate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(isinstance(random.normalvariate(0.0, 1.0), float))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.paretovariate",
+    "title": "random.paretovariate",
+    "kind": "function",
+    "summary": {
+      "ru": "Случайное число из распределения Парето с параметром формы alpha; результат всегда не меньше 1.",
+      "en": "A random number from the Pareto distribution with shape alpha; always ≥ 1."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.paretovariate(alpha)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.paretovariate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(random.paretovariate(1.0) >= 1.0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.triangular",
+    "title": "random.triangular",
+    "kind": "function",
+    "summary": {
+      "ru": "Случайное число из треугольного распределения на отрезке [low, high] с модой mode; результат в этих границах.",
+      "en": "A random number from the triangular distribution on [low, high] with mode; within the bounds."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.triangular(low=0.0, high=1.0, mode=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.triangular",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(0.0 <= random.triangular(0.0, 10.0, 5.0) <= 10.0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.vonmisesvariate",
+    "title": "random.vonmisesvariate",
+    "kind": "function",
+    "summary": {
+      "ru": "Случайный угол из распределения фон Мизеса (кругового аналога нормального) с центром mu и концентрацией kappa; результат в [0, 2π].",
+      "en": "A random angle from the von Mises distribution (mu, kappa); in [0, 2π]."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.vonmisesvariate(mu, kappa)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.vonmisesvariate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random, math",
+      "print(0.0 <= random.vonmisesvariate(0.0, 1.0) <= 2 * math.pi)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.weibullvariate",
+    "title": "random.weibullvariate",
+    "kind": "function",
+    "summary": {
+      "ru": "Случайное число из распределения Вейбулла (параметры масштаба alpha и формы beta); результат всегда неотрицателен.",
+      "en": "A random number from the Weibull distribution (scale alpha, shape beta); always non-negative."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.weibullvariate(alpha, beta)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.weibullvariate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "распределения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(random.weibullvariate(1.0, 1.0) >= 0.0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.getrandbits",
+    "title": "random.getrandbits",
+    "kind": "function",
+    "summary": {
+      "ru": "Целое число из k случайных бит (0 ≤ результат < 2**k); опирается на воспроизводимое ядро генератора, поэтому под фиксированным seed стабильно между версиями Python.",
+      "en": "An int of k random bits (0 ≤ result < 2**k); reproducible under a fixed seed."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.getrandbits(k)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.getrandbits",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "биты и байты",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "random.seed(0)",
+      "print(random.getrandbits(8))   # → 216"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.randbytes",
+    "title": "random.randbytes",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает bytes из n случайных байтов (Python 3.9+); удобно для генерации токенов/солей в некриптографических задачах.",
+      "en": "Return n random bytes as a bytes object (3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.randbytes(n)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.randbytes",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "биты и байты",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "print(len(random.randbytes(4)))   # → 4"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.getstate",
+    "title": "random.getstate",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает внутреннее состояние генератора (непрозрачный объект); позже его можно вернуть через setstate, чтобы повторить ту же последовательность.",
+      "en": "Return the generator's internal state; restore it later with setstate to replay the sequence."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "state = random.getstate()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.getstate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "состояние ГСЧ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "random.seed(1)",
+      "state = random.getstate()",
+      "a = random.random()",
+      "random.setstate(state)",
+      "print(a == random.random())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "random.setstate",
+    "title": "random.setstate",
+    "kind": "function",
+    "summary": {
+      "ru": "Восстанавливает внутреннее состояние генератора из объекта, полученного ранее через getstate — генерация продолжится с той же точки.",
+      "en": "Restore the generator's internal state from a getstate() object."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "random.setstate(state)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/random.html#random.setstate",
+    "version": "",
+    "section": "Модуль random",
+    "subcat": "состояние ГСЧ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "random"
+    ],
+    "examples": [
+      "import random",
+      "random.seed(1)",
+      "saved = random.getstate()",
+      "first = random.random()",
+      "random.setstate(saved)",
+      "print(random.random() == first)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.EnumType",
+    "title": "enum.EnumType",
+    "kind": "term",
+    "summary": {
+      "ru": "Метакласс всех перечислений: именно он превращает класс с атрибутами-константами в Enum (проверяет уникальность, создаёт члены). Актуальное имя с Python 3.11.",
+      "en": "The metaclass of all enumerations; turns a class of constants into an Enum (3.11+ name)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class E(enum.Enum): ...  # type(E) is enum.EnumType",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.EnumType",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "метакласс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "class Color(enum.Enum):",
+      "    RED = 1",
+      "print(type(Color).__name__)   # → EnumType"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.EnumMeta",
+    "title": "enum.EnumMeta",
+    "kind": "term",
+    "summary": {
+      "ru": "Прежнее имя метакласса перечислений — псевдоним enum.EnumType, оставленный для обратной совместимости.",
+      "en": "The former name of the enum metaclass — an alias of enum.EnumType kept for compatibility."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "enum.EnumMeta is enum.EnumType",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.EnumMeta",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "метакласс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(enum.EnumMeta is enum.EnumType)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.EnumDict",
+    "title": "enum.EnumDict",
+    "kind": "term",
+    "summary": {
+      "ru": "Специальный словарь-пространство имён, используемый метаклассом при создании перечисления: отслеживает порядок и запрещает дубли членов (публичный класс с Python 3.13).",
+      "en": "The special namespace dict used while creating an enum; tracks order and forbids duplicate members (public in 3.13+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ns = enum.EnumDict()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.EnumDict",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "метакласс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "d = enum.EnumDict() if hasattr(enum, 'EnumDict') else {}",
+      "d['A'] = 1",
+      "print(d['A'])   # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.global_enum",
+    "title": "enum.global_enum",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор класса-перечисления: переносит его члены в глобальное пространство имён модуля (доступ по имени без префикса) и настраивает их repr под «модульный» стиль.",
+      "en": "A class decorator that injects an enum's members into the module globals and adjusts their repr."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@enum.global_enum",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.global_enum",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "глобализация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(callable(enum.global_enum))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.global_enum_repr",
+    "title": "enum.global_enum_repr",
+    "kind": "function",
+    "summary": {
+      "ru": "Функция repr для членов перечисления, «глобализированного» через global_enum: показывает имя как модульную константу (module.MEMBER).",
+      "en": "The repr function for members of a global_enum-decorated enum (shows module.MEMBER)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "enum.global_enum_repr(member)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.global_enum_repr",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "глобализация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(callable(enum.global_enum_repr))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.global_flag_repr",
+    "title": "enum.global_flag_repr",
+    "kind": "function",
+    "summary": {
+      "ru": "Функция repr для членов флагового перечисления (Flag), глобализированного через global_enum.",
+      "en": "The repr function for members of a global_enum-decorated Flag."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "enum.global_flag_repr(member)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.global_flag_repr",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "глобализация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(callable(enum.global_flag_repr))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.global_str",
+    "title": "enum.global_str",
+    "kind": "function",
+    "summary": {
+      "ru": "Функция __str__ для членов глобализированного перечисления: печатает голое имя члена без префикса класса.",
+      "en": "The __str__ function for members of a globalized enum (bare member name)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "enum.global_str(member)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.global_str",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "глобализация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(callable(enum.global_str))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.pickle_by_enum_name",
+    "title": "enum.pickle_by_enum_name",
+    "kind": "function",
+    "summary": {
+      "ru": "Функция-редьюсер для pickle: сериализует член перечисления по паре (класс, имя члена) вместо значения — надёжнее при изменении значений.",
+      "en": "A pickle reducer that serializes an enum member by (class, member name) instead of by value."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "member.__reduce_ex__ = enum.pickle_by_enum_name",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.pickle_by_enum_name",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "pickle",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(callable(enum.pickle_by_enum_name))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.pickle_by_global_name",
+    "title": "enum.pickle_by_global_name",
+    "kind": "function",
+    "summary": {
+      "ru": "Функция-редьюсер для pickle: сериализует член глобализированного перечисления по его глобальному имени в модуле.",
+      "en": "A pickle reducer that serializes a globalized enum member by its module-global name."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "member.__reduce_ex__ = enum.pickle_by_global_name",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.pickle_by_global_name",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "pickle",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(callable(enum.pickle_by_global_name))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
