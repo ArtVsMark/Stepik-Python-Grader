@@ -75,7 +75,7 @@
 | `glossary/models.py` | Domain (leaf) | Типизированные модели локального глоссария: `GlossaryCard`, `GlossaryMissingEntry` (issue #126) |
 | `glossary/json_provider.py` | Domain | `JsonGlossaryProvider` (загрузка/поиск локальной JSON-базы карточек) + очередь пополнения (issue #126) |
 | `glossary/detector.py` | Domain | `MissingConceptDetector` — консервативный AST-детектор недостающих функций/конструкций/исключений (issue #126) |
-| `glossary/stdlib_inventory.py` | Domain (leaf) | Офлайн-инвентарь официального Python/stdlib через интроспекцию (`build_stdlib_inventory`, `StdlibItem`, `NOTABLE_STDLIB_MODULES`) — source-driven сторона покрытия (issue #196); только stdlib, не тянет `core/*` |
+| `glossary/stdlib_inventory.py` | Domain (leaf) | Офлайн-инвентарь официального Python/stdlib через интроспекцию (`build_stdlib_inventory`, `StdlibItem`, `NOTABLE_STDLIB_MODULES`) — source-driven сторона покрытия (issue #196); только stdlib, не тянет `core/*`. Обход `BaseException` фильтруется `_is_official_stdlib_exception` (по `sys.stdlib_module_names` + отсев приватных модулей/классов), чтобы в инвентарь не попадали исключения стороннего/приватного/собственного кода, случайно загруженного в процесс (#363) |
 | `glossary/coverage.py` | Domain | Сопоставление инвентаря с локальной базой (`build_coverage_report`, `missing_entries_from_inventory`) + CLI `python -m stepik_grader.glossary.coverage` (issue #197/#198); зависит только от leaf-модулей пакета `glossary/` |
 
 Основные возможности (пользовательский взгляд) — в [README](../README.md);
@@ -166,7 +166,13 @@ issue #125/#129 закрыты) — его потребитель, как `web �
 **Модули покрытия глоссария (source-driven, issue #195–#198).**
 `glossary/stdlib_inventory.py` — leaf: строит офлайн-инвентарь официального
 Python/stdlib интроспекцией running-интерпретатора (без сети, без исполнения
-пользовательского кода), не импортируя ничего из проекта.
+пользовательского кода), не импортируя ничего из проекта. Рекурсивный обход
+`BaseException.__subclasses__()` видит исключения всех загруженных в процесс
+модулей, поэтому фильтруется `_is_official_stdlib_exception`: остаются только
+`builtins` и модули из `sys.stdlib_module_names` без приватных сегментов/имён —
+сторонний (`rich`), приватный (`_pickle`) и собственный (`stepik_grader`) код в
+инвентарь и, как следствие, в очередь черновиков не попадает (инвариант истины
+глоссария, эпик #363).
 `glossary/coverage.py` сопоставляет этот инвентарь с известными терминами
 локальной базы (`JsonGlossaryProvider.known_terms()`) и строит `CoverageReport`
 плюс список `GlossaryMissingEntry(origin="stdlib_scan")` для очереди пополнения
