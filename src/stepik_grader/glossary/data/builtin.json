@@ -2669,5 +2669,111 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "len",
+    "title": "len()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает число элементов в объекте (длину): последовательности, множества, словаря, строки.",
+      "en": "Return the number of items in a container (its length)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "len(obj)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functions.html#len",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "Встроенные функции",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "print(len([1, 2, 3]))     # → 3",
+      "print(len('abcd'))        # → 4",
+      "print(len({'a': 1}))      # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "aiter",
+    "title": "aiter()",
+    "kind": "function",
+    "summary": {
+      "ru": "Асинхронный аналог iter(): возвращает асинхронный итератор объекта (вызывает __aiter__). Работает с async for / anext().",
+      "en": "Async analog of iter(): return an async iterator for the object (calls __aiter__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "aiter(async_iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functions.html#aiter",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "Встроенные функции",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def main():",
+      "    async def agen():",
+      "        yield 1",
+      "        yield 2",
+      "    it = aiter(agen())",
+      "    print(await anext(it))   # → 1",
+      "asyncio.run(main())"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "anext",
+    "title": "anext()",
+    "kind": "function",
+    "summary": {
+      "ru": "Асинхронный аналог next(): возвращает awaitable для следующего элемента async-итератора; с default не поднимает StopAsyncIteration.",
+      "en": "Async analog of next(): return an awaitable for the next item of an async iterator."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "anext(async_iterator, default)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functions.html#anext",
+    "version": "",
+    "section": "Встроенные функции",
+    "subcat": "Встроенные функции",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "builtin"
+    ],
+    "examples": [
+      "import asyncio",
+      "async def main():",
+      "    async def agen():",
+      "        yield 10",
+      "    it = aiter(agen())",
+      "    print(await anext(it))          # → 10",
+      "    print(await anext(it, 'конец'))  # → конец",
+      "asyncio.run(main())"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]

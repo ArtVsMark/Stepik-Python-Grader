@@ -1018,5 +1018,1820 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "baseexception",
+    "title": "BaseException",
+    "kind": "exception",
+    "summary": {
+      "ru": "Корень всей иерархии исключений; ловит абсолютно всё, включая SystemExit/KeyboardInterrupt. В прикладном коде почти никогда не ловят напрямую.",
+      "en": "The root of the exception hierarchy; catches everything, including SystemExit/KeyboardInterrupt."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise BaseException",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#BaseException",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise BaseException",
+      "except BaseException as e:",
+      "    print(type(e).__name__)   # → BaseException"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "exception",
+    "title": "Exception",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовый класс всех обычных (прикладных) исключений. `except Exception` — типовой перехват, не задевающий SystemExit/KeyboardInterrupt.",
+      "en": "The base class of all ordinary (non-system-exit) exceptions; `except Exception` is the usual broad catch."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise Exception",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#Exception",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise Exception",
+      "except Exception as e:",
+      "    print(type(e).__name__)   # → Exception"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "arithmeticerror",
+    "title": "ArithmeticError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовый класс арифметических ошибок: ZeroDivisionError, OverflowError, FloatingPointError.",
+      "en": "Base class for arithmetic errors: ZeroDivisionError, OverflowError, FloatingPointError."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ArithmeticError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ArithmeticError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ArithmeticError",
+      "except ArithmeticError as e:",
+      "    print(type(e).__name__)   # → ArithmeticError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "zerodivisionerror",
+    "title": "ZeroDivisionError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Деление (или взятие остатка) на ноль: 1/0, 5 % 0.",
+      "en": "Division or modulo by zero, e.g. 1/0 or 5 % 0."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ZeroDivisionError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ZeroDivisionError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    1 / 0",
+      "except ZeroDivisionError as e:",
+      "    print(type(e).__name__)   # → ZeroDivisionError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "overflowerror",
+    "title": "OverflowError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Результат арифметической операции слишком велик для типа (обычно float): math.exp(1000).",
+      "en": "The result of an arithmetic operation is too large to represent (typically for float)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise OverflowError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#OverflowError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise OverflowError",
+      "except OverflowError as e:",
+      "    print(type(e).__name__)   # → OverflowError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "floatingpointerror",
+    "title": "FloatingPointError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка операции с плавающей точкой. В CPython по умолчанию не возникает (нужна спец. настройка), но входит в иерархию.",
+      "en": "A floating-point operation failed; not raised by default in CPython but part of the hierarchy."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise FloatingPointError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#FloatingPointError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise FloatingPointError",
+      "except FloatingPointError as e:",
+      "    print(type(e).__name__)   # → FloatingPointError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "assertionerror",
+    "title": "AssertionError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Условие оператора assert оказалось ложным: assert x > 0.",
+      "en": "An assert statement's condition was false."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise AssertionError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#AssertionError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    assert 1 == 2",
+      "except AssertionError as e:",
+      "    print(type(e).__name__)   # → AssertionError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "lookuperror",
+    "title": "LookupError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовый класс ошибок поиска по ключу/индексу: IndexError и KeyError.",
+      "en": "Base class for lookup errors: IndexError and KeyError."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise LookupError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#LookupError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise LookupError",
+      "except LookupError as e:",
+      "    print(type(e).__name__)   # → LookupError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "runtimeerror",
+    "title": "RuntimeError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Общая ошибка времени выполнения, не подходящая под другие категории.",
+      "en": "A generic runtime error that doesn't fit other categories."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise RuntimeError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#RuntimeError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise RuntimeError",
+      "except RuntimeError as e:",
+      "    print(type(e).__name__)   # → RuntimeError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "eoferror",
+    "title": "EOFError",
+    "kind": "exception",
+    "summary": {
+      "ru": "input() достиг конца ввода (EOF), не получив данных.",
+      "en": "input() hit end-of-file (EOF) without reading any data."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise EOFError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#EOFError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise EOFError",
+      "except EOFError as e:",
+      "    print(type(e).__name__)   # → EOFError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "keyboardinterrupt",
+    "title": "KeyboardInterrupt",
+    "kind": "exception",
+    "summary": {
+      "ru": "Пользователь прервал программу (Ctrl+C). Наследует BaseException, поэтому `except Exception` его не ловит.",
+      "en": "The user interrupted execution (Ctrl+C). Inherits BaseException, so `except Exception` won't catch it."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise KeyboardInterrupt",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#KeyboardInterrupt",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise KeyboardInterrupt",
+      "except KeyboardInterrupt as e:",
+      "    print(type(e).__name__)   # → KeyboardInterrupt"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "systemexit",
+    "title": "SystemExit",
+    "kind": "exception",
+    "summary": {
+      "ru": "Поднимается sys.exit() для завершения программы. Наследует BaseException.",
+      "en": "Raised by sys.exit() to terminate the program. Inherits BaseException."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise SystemExit",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#SystemExit",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise SystemExit",
+      "except SystemExit as e:",
+      "    print(type(e).__name__)   # → SystemExit"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "generatorexit",
+    "title": "GeneratorExit",
+    "kind": "exception",
+    "summary": {
+      "ru": "Поднимается внутри генератора при его закрытии (.close()). Наследует BaseException.",
+      "en": "Raised inside a generator when it is closed (.close()). Inherits BaseException."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise GeneratorExit",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#GeneratorExit",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise GeneratorExit",
+      "except GeneratorExit as e:",
+      "    print(type(e).__name__)   # → GeneratorExit"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "stopasynciteration",
+    "title": "StopAsyncIteration",
+    "kind": "exception",
+    "summary": {
+      "ru": "Сигнал исчерпания асинхронного итератора (аналог StopIteration для async for).",
+      "en": "Signals that an async iterator is exhausted (async analog of StopIteration)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise StopAsyncIteration",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#StopAsyncIteration",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise StopAsyncIteration",
+      "except StopAsyncIteration as e:",
+      "    print(type(e).__name__)   # → StopAsyncIteration"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "memoryerror",
+    "title": "MemoryError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Операции не хватило памяти.",
+      "en": "An operation ran out of memory."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise MemoryError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#MemoryError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise MemoryError",
+      "except MemoryError as e:",
+      "    print(type(e).__name__)   # → MemoryError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "referenceerror",
+    "title": "ReferenceError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Обращение к weakref-прокси на уже удалённый объект.",
+      "en": "Accessing a weak-reference proxy to an object that has been garbage-collected."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ReferenceError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ReferenceError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ReferenceError",
+      "except ReferenceError as e:",
+      "    print(type(e).__name__)   # → ReferenceError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "systemerror",
+    "title": "SystemError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Внутренняя ошибка интерпретатора (не фатальная). Обычно повод сообщить о баге.",
+      "en": "An internal interpreter error (non-fatal); usually worth reporting as a bug."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise SystemError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#SystemError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise SystemError",
+      "except SystemError as e:",
+      "    print(type(e).__name__)   # → SystemError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "buffererror",
+    "title": "BufferError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Операция с buffer-протоколом невозможна (напр. изменение размера при экспортированном буфере).",
+      "en": "A buffer-related operation could not be performed."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise BufferError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#BufferError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise BufferError",
+      "except BufferError as e:",
+      "    print(type(e).__name__)   # → BufferError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "unboundlocalerror",
+    "title": "UnboundLocalError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Чтение локальной переменной до присваивания (подкласс NameError); частая ловушка с присваиванием в функции.",
+      "en": "Reading a local variable before it was assigned (a subclass of NameError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise UnboundLocalError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#UnboundLocalError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise UnboundLocalError",
+      "except UnboundLocalError as e:",
+      "    print(type(e).__name__)   # → UnboundLocalError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "syntaxerror",
+    "title": "SyntaxError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Синтаксически некорректный код (обнаруживается при компиляции): eval('1 +').",
+      "en": "Syntactically invalid code, detected at compile time."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise SyntaxError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#SyntaxError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    eval('1 +')",
+      "except SyntaxError as e:",
+      "    print(type(e).__name__)   # → SyntaxError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "indentationerror",
+    "title": "IndentationError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Некорректные отступы (подкласс SyntaxError).",
+      "en": "Incorrect indentation (a subclass of SyntaxError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise IndentationError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#IndentationError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    exec(' x = 1')",
+      "except IndentationError as e:",
+      "    print(type(e).__name__)   # → IndentationError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "taberror",
+    "title": "TabError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Непоследовательное смешение табов и пробелов в отступах (подкласс IndentationError).",
+      "en": "Inconsistent mixing of tabs and spaces in indentation (a subclass of IndentationError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise TabError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#TabError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise TabError",
+      "except TabError as e:",
+      "    print(type(e).__name__)   # → TabError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "unicodeerror",
+    "title": "UnicodeError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовый класс ошибок кодирования/декодирования Unicode (подкласс ValueError).",
+      "en": "Base class for Unicode encoding/decoding errors (a subclass of ValueError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise UnicodeError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#UnicodeError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise UnicodeError",
+      "except UnicodeError as e:",
+      "    print(type(e).__name__)   # → UnicodeError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "unicodedecodeerror",
+    "title": "UnicodeDecodeError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Не удалось декодировать байты в строку: b'\\xff'.decode('utf-8').",
+      "en": "Failed to decode bytes into a string."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise UnicodeDecodeError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#UnicodeDecodeError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    b'\\xff'.decode('utf-8')",
+      "except UnicodeDecodeError as e:",
+      "    print(type(e).__name__)   # → UnicodeDecodeError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "unicodeencodeerror",
+    "title": "UnicodeEncodeError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Не удалось закодировать строку в байты: '☃'.encode('ascii').",
+      "en": "Failed to encode a string into bytes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise UnicodeEncodeError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#UnicodeEncodeError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    '\\u2603'.encode('ascii')",
+      "except UnicodeEncodeError as e:",
+      "    print(type(e).__name__)   # → UnicodeEncodeError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "unicodetranslateerror",
+    "title": "UnicodeTranslateError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка при переводе Unicode-символов (редкая, при str.translate с codec-обработчиком).",
+      "en": "An error while translating Unicode characters (rare)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise UnicodeTranslateError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#UnicodeTranslateError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise UnicodeTranslateError('x', 0, 1, 'reason')",
+      "except UnicodeTranslateError as e:",
+      "    print(type(e).__name__)   # → UnicodeTranslateError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "fileexistserror",
+    "title": "FileExistsError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Попытка создать файл/каталог, который уже существует (подкласс OSError).",
+      "en": "Trying to create a file or directory that already exists (a subclass of OSError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise FileExistsError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#FileExistsError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise FileExistsError",
+      "except FileExistsError as e:",
+      "    print(type(e).__name__)   # → FileExistsError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "isadirectoryerror",
+    "title": "IsADirectoryError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Файловая операция ожидала файл, но получила каталог (подкласс OSError).",
+      "en": "A file operation expected a file but got a directory (a subclass of OSError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise IsADirectoryError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#IsADirectoryError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise IsADirectoryError",
+      "except IsADirectoryError as e:",
+      "    print(type(e).__name__)   # → IsADirectoryError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "notadirectoryerror",
+    "title": "NotADirectoryError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Операция ожидала каталог, но получила не-каталог (подкласс OSError).",
+      "en": "An operation expected a directory but got a non-directory (a subclass of OSError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise NotADirectoryError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#NotADirectoryError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise NotADirectoryError",
+      "except NotADirectoryError as e:",
+      "    print(type(e).__name__)   # → NotADirectoryError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "interruptederror",
+    "title": "InterruptedError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Системный вызов был прерван сигналом (подкласс OSError). В современном Python обычно повторяется автоматически.",
+      "en": "A system call was interrupted by a signal (a subclass of OSError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise InterruptedError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#InterruptedError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise InterruptedError",
+      "except InterruptedError as e:",
+      "    print(type(e).__name__)   # → InterruptedError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "childprocesserror",
+    "title": "ChildProcessError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка операции над дочерним процессом (напр. wait без детей; подкласс OSError).",
+      "en": "An operation on a child process failed (a subclass of OSError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ChildProcessError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ChildProcessError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ChildProcessError",
+      "except ChildProcessError as e:",
+      "    print(type(e).__name__)   # → ChildProcessError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "processlookuperror",
+    "title": "ProcessLookupError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Указанный процесс не существует (подкласс OSError).",
+      "en": "The given process does not exist (a subclass of OSError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ProcessLookupError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ProcessLookupError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ProcessLookupError",
+      "except ProcessLookupError as e:",
+      "    print(type(e).__name__)   # → ProcessLookupError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "timeouterror",
+    "title": "TimeoutError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Истёк тайм-аут системной функции (подкласс OSError).",
+      "en": "A system function timed out (a subclass of OSError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise TimeoutError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#TimeoutError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise TimeoutError",
+      "except TimeoutError as e:",
+      "    print(type(e).__name__)   # → TimeoutError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "blockingioerror",
+    "title": "BlockingIOError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Неблокирующая операция ввода-вывода заблокировалась бы (подкласс OSError).",
+      "en": "A non-blocking I/O operation would have blocked (a subclass of OSError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise BlockingIOError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#BlockingIOError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise BlockingIOError",
+      "except BlockingIOError as e:",
+      "    print(type(e).__name__)   # → BlockingIOError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "connectionerror",
+    "title": "ConnectionError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовый класс сетевых ошибок соединения (подкласс OSError).",
+      "en": "Base class for connection-related errors (a subclass of OSError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ConnectionError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ConnectionError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ConnectionError",
+      "except ConnectionError as e:",
+      "    print(type(e).__name__)   # → ConnectionError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "connectionreseterror",
+    "title": "ConnectionResetError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Соединение сброшено удалённой стороной (подкласс ConnectionError).",
+      "en": "The connection was reset by the peer (a subclass of ConnectionError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ConnectionResetError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ConnectionResetError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ConnectionResetError",
+      "except ConnectionResetError as e:",
+      "    print(type(e).__name__)   # → ConnectionResetError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "connectionrefusederror",
+    "title": "ConnectionRefusedError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Удалённая сторона отклонила попытку соединения (подкласс ConnectionError).",
+      "en": "The remote end refused the connection (a subclass of ConnectionError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ConnectionRefusedError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ConnectionRefusedError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ConnectionRefusedError",
+      "except ConnectionRefusedError as e:",
+      "    print(type(e).__name__)   # → ConnectionRefusedError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "connectionabortederror",
+    "title": "ConnectionAbortedError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Соединение прервано (aborted) хостом (подкласс ConnectionError).",
+      "en": "The connection was aborted by the host (a subclass of ConnectionError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ConnectionAbortedError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ConnectionAbortedError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ConnectionAbortedError",
+      "except ConnectionAbortedError as e:",
+      "    print(type(e).__name__)   # → ConnectionAbortedError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "brokenpipeerror",
+    "title": "BrokenPipeError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Запись в закрытый на другом конце канал/сокет (подкласс ConnectionError).",
+      "en": "Writing to a pipe/socket closed on the other end (a subclass of ConnectionError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise BrokenPipeError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#BrokenPipeError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise BrokenPipeError",
+      "except BrokenPipeError as e:",
+      "    print(type(e).__name__)   # → BrokenPipeError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "exceptiongroup",
+    "title": "ExceptionGroup",
+    "kind": "exception",
+    "summary": {
+      "ru": "Группа нескольких исключений сразу (Python 3.11+); обрабатывается except*.",
+      "en": "A group of several exceptions at once (3.11+); handled with except*."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ExceptionGroup",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ExceptionGroup",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ExceptionGroup('несколько ошибок', [ValueError('a'), KeyError('b')])",
+      "except ExceptionGroup as e:",
+      "    print(type(e).__name__)   # → ExceptionGroup"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "baseexceptiongroup",
+    "title": "BaseExceptionGroup",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовая группа исключений, включающая системные (SystemExit/KeyboardInterrupt); родитель ExceptionGroup (3.11+).",
+      "en": "A group that may include system-exiting exceptions; parent of ExceptionGroup (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise BaseExceptionGroup",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#BaseExceptionGroup",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise BaseExceptionGroup('группа', [KeyboardInterrupt()])",
+      "except BaseExceptionGroup as e:",
+      "    print(type(e).__name__)   # → BaseExceptionGroup"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "pythonfinalizationerror",
+    "title": "PythonFinalizationError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Операция запрещена во время финализации интерпретатора (напр. запуск нового потока при завершении, 3.13+).",
+      "en": "An operation is blocked during interpreter finalization (3.13+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise PythonFinalizationError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#PythonFinalizationError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise PythonFinalizationError",
+      "except PythonFinalizationError as e:",
+      "    print(type(e).__name__)   # → PythonFinalizationError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "warning",
+    "title": "Warning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовый класс всех предупреждений (обычно показываются, а не поднимаются).",
+      "en": "Base class for all warning categories (usually shown, not raised)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise Warning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#Warning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise Warning",
+      "except Warning as e:",
+      "    print(type(e).__name__)   # → Warning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "deprecationwarning",
+    "title": "DeprecationWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Использование устаревшей возможности, предназначенной для разработчиков.",
+      "en": "Use of a deprecated feature, aimed at developers."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise DeprecationWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#DeprecationWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise DeprecationWarning",
+      "except DeprecationWarning as e:",
+      "    print(type(e).__name__)   # → DeprecationWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "pendingdeprecationwarning",
+    "title": "PendingDeprecationWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Возможность устареет в будущем (мягче DeprecationWarning).",
+      "en": "A feature that will be deprecated in the future."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise PendingDeprecationWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#PendingDeprecationWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise PendingDeprecationWarning",
+      "except PendingDeprecationWarning as e:",
+      "    print(type(e).__name__)   # → PendingDeprecationWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "runtimewarning",
+    "title": "RuntimeWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Сомнительное поведение во время выполнения.",
+      "en": "Dubious runtime behavior."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise RuntimeWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#RuntimeWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise RuntimeWarning",
+      "except RuntimeWarning as e:",
+      "    print(type(e).__name__)   # → RuntimeWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "syntaxwarning",
+    "title": "SyntaxWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Сомнительный синтаксис (напр. подозрительное сравнение).",
+      "en": "Dubious syntax."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise SyntaxWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#SyntaxWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise SyntaxWarning",
+      "except SyntaxWarning as e:",
+      "    print(type(e).__name__)   # → SyntaxWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "userwarning",
+    "title": "UserWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Категория предупреждений по умолчанию для warnings.warn().",
+      "en": "The default category for warnings.warn()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise UserWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#UserWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise UserWarning",
+      "except UserWarning as e:",
+      "    print(type(e).__name__)   # → UserWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "futurewarning",
+    "title": "FutureWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Изменение поведения в будущем, предназначенное для конечных пользователей.",
+      "en": "A coming behavior change aimed at end users."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise FutureWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#FutureWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise FutureWarning",
+      "except FutureWarning as e:",
+      "    print(type(e).__name__)   # → FutureWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "importwarning",
+    "title": "ImportWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Возможная ошибка при импорте (по умолчанию скрыта).",
+      "en": "A possible mistake in module import (hidden by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ImportWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ImportWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ImportWarning",
+      "except ImportWarning as e:",
+      "    print(type(e).__name__)   # → ImportWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "unicodewarning",
+    "title": "UnicodeWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Предупреждение, связанное с Unicode.",
+      "en": "A Unicode-related warning."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise UnicodeWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#UnicodeWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise UnicodeWarning",
+      "except UnicodeWarning as e:",
+      "    print(type(e).__name__)   # → UnicodeWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "byteswarning",
+    "title": "BytesWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Предупреждение о сомнительных операциях с bytes/bytearray.",
+      "en": "A warning about dubious bytes/bytearray operations."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise BytesWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#BytesWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise BytesWarning",
+      "except BytesWarning as e:",
+      "    print(type(e).__name__)   # → BytesWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "resourcewarning",
+    "title": "ResourceWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Не освобождённый ресурс (напр. незакрытый файл/сокет; по умолчанию скрыт).",
+      "en": "A resource was not released (e.g. an unclosed file; hidden by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise ResourceWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#ResourceWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise ResourceWarning",
+      "except ResourceWarning as e:",
+      "    print(type(e).__name__)   # → ResourceWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "encodingwarning",
+    "title": "EncodingWarning",
+    "kind": "exception",
+    "summary": {
+      "ru": "Открытие текстового файла без явной кодировки (полагаясь на локаль).",
+      "en": "Opening a text file without an explicit encoding (relying on the locale)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise EncodingWarning",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#EncodingWarning",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise EncodingWarning",
+      "except EncodingWarning as e:",
+      "    print(type(e).__name__)   # → EncodingWarning"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "_incompleteinputerror",
+    "title": "_IncompleteInputError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Внутреннее: код синтаксически неполон (используется REPL для многострочного ввода).",
+      "en": "Internal: source is syntactically incomplete (used by the REPL for multi-line input)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise _IncompleteInputError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/exceptions.html#_IncompleteInputError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "встроенные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "try:",
+      "    raise _IncompleteInputError",
+      "except _IncompleteInputError as e:",
+      "    print(type(e).__name__)   # → _IncompleteInputError"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
