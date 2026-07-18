@@ -2833,5 +2833,1195 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "json.decoder.jsondecodeerror",
+    "title": "json.JSONDecodeError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Некорректный JSON при разборе: json.loads('{bad'). Несёт позицию ошибки (pos/lineno/colno).",
+      "en": "Subclass of ValueError with the following additional properties:"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise json.JSONDecodeError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/json.html#json.JSONDecodeError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import json",
+      "try:",
+      "    json.loads('{bad')",
+      "except json.JSONDecodeError as e:",
+      "    print(type(e).__name__)   # → JSONDecodeError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "re.patternerror",
+    "title": "re.PatternError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка компиляции регулярного выражения: re.compile('['). Синоним — re.error.",
+      "en": "Exception raised for invalid regular expressions"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise re.PatternError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/re.html#re.PatternError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import re",
+      "try:",
+      "    re.compile('[')",
+      "except re.PatternError as e:",
+      "    print(type(e).__name__)   # → PatternError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.statisticserror",
+    "title": "statistics.StatisticsError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Некорректные данные для статистической функции: statistics.mean([]).",
+      "en": "Inappropriate argument value (of correct type)"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise statistics.StatisticsError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.StatisticsError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import statistics",
+      "try:",
+      "    raise statistics.StatisticsError",
+      "except statistics.StatisticsError as e:",
+      "    print(type(e).__name__)   # → StatisticsError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dataclasses.frozeninstanceerror",
+    "title": "dataclasses.FrozenInstanceError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Попытка изменить поле frozen-dataclass (@dataclass(frozen=True)).",
+      "en": "Attribute not found"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise dataclasses.FrozenInstanceError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/dataclasses.html#dataclasses.FrozenInstanceError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import dataclasses",
+      "try:",
+      "    raise dataclasses.FrozenInstanceError",
+      "except dataclasses.FrozenInstanceError as e:",
+      "    print(type(e).__name__)   # → FrozenInstanceError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "io.unsupportedoperation",
+    "title": "io.UnsupportedOperation",
+    "kind": "exception",
+    "summary": {
+      "ru": "Операция не поддержана потоком (напр. запись в файл, открытый для чтения; подкласс OSError и ValueError).",
+      "en": "Base class for I/O related errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise io.UnsupportedOperation",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.UnsupportedOperation",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import io",
+      "try:",
+      "    raise io.UnsupportedOperation",
+      "except io.UnsupportedOperation as e:",
+      "    print(type(e).__name__)   # → UnsupportedOperation"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "struct.error",
+    "title": "struct.error",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка упаковки/распаковки struct (несоответствие формата и данных).",
+      "en": "Common base class for all non-exit exceptions"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise struct.error",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/struct.html#struct.error",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import struct",
+      "try:",
+      "    raise struct.error",
+      "except struct.error as e:",
+      "    print(type(e).__name__)   # → error"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "zlib.error",
+    "title": "zlib.error",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка сжатия/распаковки zlib (напр. повреждённые данные).",
+      "en": "Common base class for all non-exit exceptions"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise zlib.error",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/zlib.html#zlib.error",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import zlib",
+      "try:",
+      "    raise zlib.error",
+      "except zlib.error as e:",
+      "    print(type(e).__name__)   # → error"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "copy.error",
+    "title": "copy.Error",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка операции копирования в модуле copy.",
+      "en": "Common base class for all non-exit exceptions"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise copy.Error",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/copy.html#copy.Error",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import copy",
+      "try:",
+      "    raise copy.Error",
+      "except copy.Error as e:",
+      "    print(type(e).__name__)   # → Error"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "locale.error",
+    "title": "locale.Error",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка модуля locale (напр. неизвестная локаль в setlocale).",
+      "en": "Common base class for all non-exit exceptions"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise locale.Error",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/locale.html#locale.Error",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import locale",
+      "try:",
+      "    raise locale.Error",
+      "except locale.Error as e:",
+      "    print(type(e).__name__)   # → Error"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "argparse.argumenterror",
+    "title": "argparse.ArgumentError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка значения аргумента командной строки при разборе (argparse).",
+      "en": "An error from creating or using an argument (optional or positional)"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise argparse.ArgumentError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/argparse.html#argparse.ArgumentError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import argparse",
+      "try:",
+      "    raise argparse.ArgumentError(None, 'плохой аргумент')",
+      "except argparse.ArgumentError as e:",
+      "    print(type(e).__name__)   # → ArgumentError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "argparse.argumenttypeerror",
+    "title": "argparse.ArgumentTypeError",
+    "kind": "exception",
+    "summary": {
+      "ru": "type-функция аргумента argparse отвергла значение.",
+      "en": "An error from trying to convert a command line string to a type"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise argparse.ArgumentTypeError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/argparse.html#argparse.ArgumentTypeError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import argparse",
+      "try:",
+      "    raise argparse.ArgumentTypeError",
+      "except argparse.ArgumentTypeError as e:",
+      "    print(type(e).__name__)   # → ArgumentTypeError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "shutil.error",
+    "title": "shutil.Error",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовая ошибка операций shutil (напр. copytree собрала несколько ошибок).",
+      "en": "Base class for I/O related errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise shutil.Error",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/shutil.html#shutil.Error",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import shutil",
+      "try:",
+      "    raise shutil.Error",
+      "except shutil.Error as e:",
+      "    print(type(e).__name__)   # → Error"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "shutil.samefileerror",
+    "title": "shutil.SameFileError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Источник и приёмник copy() — один и тот же файл (подкласс shutil.Error).",
+      "en": "Raised when source and destination are the same file"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise shutil.SameFileError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/shutil.html#shutil.SameFileError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import shutil",
+      "try:",
+      "    raise shutil.SameFileError",
+      "except shutil.SameFileError as e:",
+      "    print(type(e).__name__)   # → SameFileError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "shutil.specialfileerror",
+    "title": "shutil.SpecialFileError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Операция над специальным файлом (сокет/устройство), который нельзя скопировать как обычный.",
+      "en": "Raised when trying to do a kind of operation (e.g"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise shutil.SpecialFileError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/shutil.html#shutil.SpecialFileError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import shutil",
+      "try:",
+      "    raise shutil.SpecialFileError",
+      "except shutil.SpecialFileError as e:",
+      "    print(type(e).__name__)   # → SpecialFileError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "shutil.execerror",
+    "title": "shutil.ExecError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка выполнения внешней команды в shutil.",
+      "en": "Raised when a command could not be executed"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise shutil.ExecError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/shutil.html#shutil.ExecError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import shutil",
+      "try:",
+      "    raise shutil.ExecError",
+      "except shutil.ExecError as e:",
+      "    print(type(e).__name__)   # → ExecError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "shutil.readerror",
+    "title": "shutil.ReadError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Архив не распознан/повреждён при unpack_archive.",
+      "en": "Raised when an archive cannot be read"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise shutil.ReadError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/shutil.html#shutil.ReadError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import shutil",
+      "try:",
+      "    raise shutil.ReadError",
+      "except shutil.ReadError as e:",
+      "    print(type(e).__name__)   # → ReadError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "shutil.registryerror",
+    "title": "shutil.RegistryError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка реестра форматов архивов/распаковщиков shutil.",
+      "en": "Raised when a registry operation with the archiving\nand unpacking registries fails"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise shutil.RegistryError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/shutil.html#shutil.RegistryError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import shutil",
+      "try:",
+      "    raise shutil.RegistryError",
+      "except shutil.RegistryError as e:",
+      "    print(type(e).__name__)   # → RegistryError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "threading.brokenbarriererror",
+    "title": "threading.BrokenBarrierError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Barrier сломан (сброшен/таймаут), пока поток ждал на нём.",
+      "en": "Unspecified run-time error"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise threading.BrokenBarrierError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/threading.html#threading.BrokenBarrierError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import threading",
+      "try:",
+      "    raise threading.BrokenBarrierError",
+      "except threading.BrokenBarrierError as e:",
+      "    print(type(e).__name__)   # → BrokenBarrierError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "tokenize.tokenerror",
+    "title": "tokenize.TokenError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка токенизации Python-исходника (напр. незакрытая скобка/строка).",
+      "en": "Common base class for all non-exit exceptions"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise tokenize.TokenError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/tokenize.html#tokenize.TokenError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import tokenize",
+      "try:",
+      "    raise tokenize.TokenError",
+      "except tokenize.TokenError as e:",
+      "    print(type(e).__name__)   # → TokenError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "zipimport.zipimporterror",
+    "title": "zipimport.ZipImportError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Не удалось импортировать модуль из ZIP-архива (подкласс ImportError).",
+      "en": "Import can't find module, or can't find name in module"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise zipimport.ZipImportError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/zipimport.html#zipimport.ZipImportError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import zipimport",
+      "try:",
+      "    raise zipimport.ZipImportError",
+      "except zipimport.ZipImportError as e:",
+      "    print(type(e).__name__)   # → ZipImportError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "signal.itimererror",
+    "title": "signal.ItimerError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка setitimer/getitimer (подкласс OSError).",
+      "en": "Base class for I/O related errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise signal.ItimerError",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/signal.html#signal.ItimerError",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import signal",
+      "try:",
+      "    raise signal.ItimerError",
+      "except signal.ItimerError as e:",
+      "    print(type(e).__name__)   # → ItimerError"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.decimalexception",
+    "title": "decimal.DecimalException",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовый класс всех сигналов-исключений модуля decimal (подкласс ArithmeticError).",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.DecimalException",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.DecimalException",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.DecimalException",
+      "except decimal.DecimalException as e:",
+      "    print(type(e).__name__)   # → DecimalException"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.invalidoperation",
+    "title": "decimal.InvalidOperation",
+    "kind": "exception",
+    "summary": {
+      "ru": "Недопустимая операция decimal (напр. Decimal('nan') в сравнении, деление 0/0).",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.InvalidOperation",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.InvalidOperation",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.InvalidOperation",
+      "except decimal.InvalidOperation as e:",
+      "    print(type(e).__name__)   # → InvalidOperation"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.divisionbyzero",
+    "title": "decimal.DivisionByZero",
+    "kind": "exception",
+    "summary": {
+      "ru": "Деление ненулевого Decimal на ноль (аналог ZeroDivisionError для decimal).",
+      "en": "Second argument to a division or modulo operation was zero"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.DivisionByZero",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.DivisionByZero",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.DivisionByZero",
+      "except decimal.DivisionByZero as e:",
+      "    print(type(e).__name__)   # → DivisionByZero"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.divisionimpossible",
+    "title": "decimal.DivisionImpossible",
+    "kind": "exception",
+    "summary": {
+      "ru": "Целочисленное деление decimal не может дать корректный результат.",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.DivisionImpossible",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.DivisionImpossible",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.DivisionImpossible",
+      "except decimal.DivisionImpossible as e:",
+      "    print(type(e).__name__)   # → DivisionImpossible"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.divisionundefined",
+    "title": "decimal.DivisionUndefined",
+    "kind": "exception",
+    "summary": {
+      "ru": "Деление 0/0 в decimal (результат не определён).",
+      "en": "Second argument to a division or modulo operation was zero"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.DivisionUndefined",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.DivisionUndefined",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.DivisionUndefined",
+      "except decimal.DivisionUndefined as e:",
+      "    print(type(e).__name__)   # → DivisionUndefined"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.overflow",
+    "title": "decimal.Overflow",
+    "kind": "exception",
+    "summary": {
+      "ru": "Экспонента результата decimal превысила максимум контекста.",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.Overflow",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.Overflow",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.Overflow",
+      "except decimal.Overflow as e:",
+      "    print(type(e).__name__)   # → Overflow"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.underflow",
+    "title": "decimal.Underflow",
+    "kind": "exception",
+    "summary": {
+      "ru": "Результат decimal слишком мал (субнормализован и округлён к нулю).",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.Underflow",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.Underflow",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.Underflow",
+      "except decimal.Underflow as e:",
+      "    print(type(e).__name__)   # → Underflow"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.inexact",
+    "title": "decimal.Inexact",
+    "kind": "exception",
+    "summary": {
+      "ru": "Округление decimal отбросило ненулевые разряды (результат неточен).",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.Inexact",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.Inexact",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.Inexact",
+      "except decimal.Inexact as e:",
+      "    print(type(e).__name__)   # → Inexact"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.rounded",
+    "title": "decimal.Rounded",
+    "kind": "exception",
+    "summary": {
+      "ru": "Результат decimal был округлён (даже если точность не потеряна).",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.Rounded",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.Rounded",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.Rounded",
+      "except decimal.Rounded as e:",
+      "    print(type(e).__name__)   # → Rounded"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.subnormal",
+    "title": "decimal.Subnormal",
+    "kind": "exception",
+    "summary": {
+      "ru": "Результат decimal субнормален (экспонента ниже Emin).",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.Subnormal",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.Subnormal",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.Subnormal",
+      "except decimal.Subnormal as e:",
+      "    print(type(e).__name__)   # → Subnormal"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.clamped",
+    "title": "decimal.Clamped",
+    "kind": "exception",
+    "summary": {
+      "ru": "Экспонента результата decimal изменена, чтобы уложиться в допустимый диапазон.",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.Clamped",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.Clamped",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.Clamped",
+      "except decimal.Clamped as e:",
+      "    print(type(e).__name__)   # → Clamped"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.conversionsyntax",
+    "title": "decimal.ConversionSyntax",
+    "kind": "exception",
+    "summary": {
+      "ru": "Некорректная строка при создании Decimal из строки.",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.ConversionSyntax",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.ConversionSyntax",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.ConversionSyntax",
+      "except decimal.ConversionSyntax as e:",
+      "    print(type(e).__name__)   # → ConversionSyntax"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.floatoperation",
+    "title": "decimal.FloatOperation",
+    "kind": "exception",
+    "summary": {
+      "ru": "Смешивание Decimal и float при включённой ловушке FloatOperation.",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.FloatOperation",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.FloatOperation",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.FloatOperation",
+      "except decimal.FloatOperation as e:",
+      "    print(type(e).__name__)   # → FloatOperation"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.invalidcontext",
+    "title": "decimal.InvalidContext",
+    "kind": "exception",
+    "summary": {
+      "ru": "Недопустимая настройка контекста decimal.",
+      "en": "Base class for arithmetic errors"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise decimal.InvalidContext",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.InvalidContext",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "модульные исключения",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "exc"
+    ],
+    "examples": [
+      "import decimal",
+      "try:",
+      "    raise decimal.InvalidContext",
+      "except decimal.InvalidContext as e:",
+      "    print(type(e).__name__)   # → InvalidContext"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
