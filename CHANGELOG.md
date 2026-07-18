@@ -91,6 +91,7 @@
 - First property-based tests (hypothesis, new `[dev]` dep): `parse_testblock_file` block-count-equals-marker-count invariant and `normalize_floats` never-raises / idempotent / line-count-preserving properties; the tautological monkeypatched-`float` test was replaced with real overflow (`1.0e999 → inf`) and idempotency inputs, and the unreachable defensive `except ValueError` branch marked `# pragma: no cover` (#405).
 - Added a soft `docs/versions.md` release-column guard to `check_version_consistency.py`; archived `claude-handoff.md`, stamped `audit-2026-07.md` as implemented, fixed the stale CHANGELOG policy in GitHub PR/issue templates and the #163 contradiction in CLAUDE.md (#386).
 - Added a global 120s per-test deadline (`pytest-timeout`, `thread` method) so a hung subprocess/thread fails one test instead of hanging every CI matrix job (#444).
+- `docs/audit-2026-07-18.md` + `docs/roadmap-epics-2026-07-18.md` — multi-role audit (13 CLAUDE.md roles, code-grounded snapshot of HEAD, gates independently re-run: 1645 passed / 89.21% cov) and the derived roadmap (one umbrella epic + epics E1–E10 + issues, ready to file), linked from `docs/README.md`.
 
 ### Fixed
 - Fixed 5 non-reproducing `ready` glossary examples surfaced by `glossary_draft_pipeline check`: the hardcoded `os.chdir('/home/user/workspace')`, the `min([])`/`int('3.14')` error demos (now `try/except`), a misplaced `dir()[:5]` slice, and an invalid f-string align spec (`{width}^`→`^{width}`); `check` on Python 3.13 now reports `error=0` (#504).
