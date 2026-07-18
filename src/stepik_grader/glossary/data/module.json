@@ -8600,5 +8600,341 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "enum.IntEnum",
+    "title": "enum.IntEnum",
+    "kind": "term",
+    "summary": {
+      "ru": "Перечисление, члены которого — ещё и int: их можно сравнивать с числами и использовать в арифметике.",
+      "en": "An enumeration whose members are also ints (comparable to and usable as numbers)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class C(enum.IntEnum): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.IntEnum",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "виды enum",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "class Color(enum.IntEnum):",
+      "    RED = 1",
+      "    GREEN = 2",
+      "print(Color.RED == 1)        # → True",
+      "print(int(Color.GREEN) + 1)  # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.StrEnum",
+    "title": "enum.StrEnum",
+    "kind": "term",
+    "summary": {
+      "ru": "Перечисление, члены которого — ещё и str (Python 3.11+): ведут себя как строки.",
+      "en": "An enumeration whose members are also str (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class C(enum.StrEnum): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.StrEnum",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "виды enum",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "class Size(enum.StrEnum):",
+      "    S = 'small'",
+      "    L = 'large'",
+      "print(Size.S == 'small')   # → True",
+      "print(Size.S.upper())      # → SMALL"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.Flag",
+    "title": "enum.Flag",
+    "kind": "term",
+    "summary": {
+      "ru": "Перечисление битовых флагов: члены комбинируются операторами | & ^ ~.",
+      "en": "A bit-flag enumeration whose members combine with | & ^ ~."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class C(enum.Flag): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.Flag",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "флаги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "class Perm(enum.Flag):",
+      "    R = 1",
+      "    W = 2",
+      "    X = 4",
+      "print((Perm.R | Perm.W).value)      # → 3",
+      "print(Perm.R in (Perm.R | Perm.W))  # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.IntFlag",
+    "title": "enum.IntFlag",
+    "kind": "term",
+    "summary": {
+      "ru": "Битовые флаги, которые ещё и int: комбинируются и сравниваются как числа.",
+      "en": "Bit flags that are also ints (combine and compare as numbers)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class C(enum.IntFlag): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.IntFlag",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "флаги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "class Mode(enum.IntFlag):",
+      "    A = 1",
+      "    B = 2",
+      "print((Mode.A | Mode.B) == 3)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.ReprEnum",
+    "title": "enum.ReprEnum",
+    "kind": "term",
+    "summary": {
+      "ru": "Базовый класс для IntEnum/StrEnum: сохраняет repr подмешанного типа (int/str), а не Enum (Python 3.11+).",
+      "en": "The base for IntEnum/StrEnum: keeps the mixed-in type's repr (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class C(int, enum.ReprEnum): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.ReprEnum",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "виды enum",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(issubclass(enum.IntEnum, enum.ReprEnum))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.member",
+    "title": "enum.member",
+    "kind": "term",
+    "summary": {
+      "ru": "Обёртка, принудительно делающая значение членом перечисления (Python 3.11+); полезно для функций/дескрипторов.",
+      "en": "A wrapper forcing a value to become an enum member (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "X = enum.member(value)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.member",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "члены",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "class C(enum.Enum):",
+      "    X = enum.member(1)",
+      "print(C.X.value)   # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.nonmember",
+    "title": "enum.nonmember",
+    "kind": "term",
+    "summary": {
+      "ru": "Обёртка, не дающая значению стать членом перечисления — остаётся обычным атрибутом класса (Python 3.11+).",
+      "en": "A wrapper preventing a value from becoming an enum member (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "H = enum.nonmember(value)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.nonmember",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "члены",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "class C(enum.Enum):",
+      "    X = 1",
+      "    HELPER = enum.nonmember(99)",
+      "print(C.HELPER)   # → 99",
+      "print(len(C))     # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.verify",
+    "title": "enum.verify",
+    "kind": "term",
+    "summary": {
+      "ru": "Декоратор класса, проверяющий ограничения перечисления (UNIQUE/CONTINUOUS/NAMED_FLAGS) при определении (Python 3.11+).",
+      "en": "A class decorator enforcing enum constraints (UNIQUE/CONTINUOUS/NAMED_FLAGS) at definition (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@enum.verify(enum.UNIQUE)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.verify",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "проверки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "@enum.verify(enum.UNIQUE)",
+      "class C(enum.Enum):",
+      "    A = 1",
+      "    B = 2",
+      "print(len(C))   # → 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.EnumCheck",
+    "title": "enum.EnumCheck",
+    "kind": "term",
+    "summary": {
+      "ru": "Перечисление возможных проверок для verify(): UNIQUE, CONTINUOUS, NAMED_FLAGS (Python 3.11+).",
+      "en": "An enumeration of checks for verify(): UNIQUE, CONTINUOUS, NAMED_FLAGS (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "enum.EnumCheck",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.EnumCheck",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "проверки",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(enum.EnumCheck.UNIQUE.name)   # → UNIQUE"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "enum.FlagBoundary",
+    "title": "enum.FlagBoundary",
+    "kind": "term",
+    "summary": {
+      "ru": "Стратегия обработки битов вне определённых флагов: STRICT/CONFORM/EJECT/KEEP (Python 3.11+).",
+      "en": "The strategy for out-of-range flag bits: STRICT/CONFORM/EJECT/KEEP (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "enum.FlagBoundary",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/enum.html#enum.FlagBoundary",
+    "version": "",
+    "section": "Модуль enum",
+    "subcat": "флаги",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "enum"
+    ],
+    "examples": [
+      "import enum",
+      "print(enum.FlagBoundary.STRICT.name)   # → STRICT"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]

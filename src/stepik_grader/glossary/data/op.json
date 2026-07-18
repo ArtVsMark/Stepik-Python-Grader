@@ -6054,5 +6054,162 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "pathlib.PurePath",
+    "title": "pathlib.PurePath",
+    "kind": "term",
+    "summary": {
+      "ru": "Путь без обращения к ФС: только вычисления над строкой пути (name/suffix/parts/parent, оператор /).",
+      "en": "A filesystem path for pure computation, with no I/O (name/suffix/parts/parent)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "pathlib.PurePath(*segments)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.PurePath",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "чистые пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "pathlib"
+    ],
+    "examples": [
+      "import pathlib",
+      "p = pathlib.PurePath('a/b/c.txt')",
+      "print(p.name, p.suffix)   # → c.txt .txt",
+      "print(p.parts)            # → ('a', 'b', 'c.txt')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "pathlib.PurePosixPath",
+    "title": "pathlib.PurePosixPath",
+    "kind": "term",
+    "summary": {
+      "ru": "Чистый путь с семантикой POSIX (разделитель /) — независимо от ОС, где выполняется код.",
+      "en": "A pure path with POSIX semantics (/ separator), regardless of the host OS."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "pathlib.PurePosixPath(*segments)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.PurePosixPath",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "чистые пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "pathlib"
+    ],
+    "examples": [
+      "import pathlib",
+      "print(pathlib.PurePosixPath('/a/b').parts)   # → ('/', 'a', 'b')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "pathlib.PureWindowsPath",
+    "title": "pathlib.PureWindowsPath",
+    "kind": "term",
+    "summary": {
+      "ru": "Чистый путь с семантикой Windows (разделитель \\, буквы дисков) — независимо от текущей ОС.",
+      "en": "A pure path with Windows semantics (\\ separator, drive letters), regardless of the host OS."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "pathlib.PureWindowsPath(*segments)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.PureWindowsPath",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "чистые пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "pathlib"
+    ],
+    "examples": [
+      "import pathlib",
+      "print(str(pathlib.PureWindowsPath('a', 'b')))   # → a\\b"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "pathlib.PosixPath",
+    "title": "pathlib.PosixPath",
+    "kind": "term",
+    "summary": {
+      "ru": "Конкретный путь с вводом-выводом на POSIX-системах (Linux/macOS); что возвращает Path() там. Подкласс PurePosixPath.",
+      "en": "A concrete path with I/O on POSIX systems (Linux/macOS); what Path() returns there."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "pathlib.PosixPath(*segments)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.PosixPath",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "конкретные пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "pathlib"
+    ],
+    "examples": [
+      "import pathlib",
+      "print(issubclass(pathlib.PosixPath, pathlib.PurePosixPath))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "pathlib.WindowsPath",
+    "title": "pathlib.WindowsPath",
+    "kind": "term",
+    "summary": {
+      "ru": "Конкретный путь с вводом-выводом на Windows; что возвращает Path() там. Подкласс PureWindowsPath.",
+      "en": "A concrete path with I/O on Windows; what Path() returns there."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "pathlib.WindowsPath(*segments)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.WindowsPath",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "конкретные пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "pathlib"
+    ],
+    "examples": [
+      "import pathlib",
+      "print(issubclass(pathlib.WindowsPath, pathlib.PureWindowsPath))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
