@@ -18956,62 +18956,6 @@
     "related_errors": []
   },
   {
-    "id": "tuple.count",
-    "title": "tuple.count",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return number of occurrences of value.",
-      "en": ""
-    },
-    "syntax": "count(self, value, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#tuple.count",
-    "version": "",
-    "section": "Кортежи (tuple)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "tuple.index",
-    "title": "tuple.index",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return first index of value.",
-      "en": ""
-    },
-    "syntax": "index(self, value, start=0, stop=9223372036854775807, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html#tuple.index",
-    "version": "",
-    "section": "Кортежи (tuple)",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "typing.BinaryIO",
     "title": "typing.BinaryIO",
     "kind": "term",
