@@ -246,62 +246,6 @@
     "related_errors": []
   },
   {
-    "id": "del-d-key-pop-popitem-clear",
-    "title": "del d[key] / pop() / popitem() / clear()",
-    "kind": "function",
-    "summary": {
-      "ru": "del удаляет ключ (KeyError если нет). pop() удаляет и возвращает. popitem() удаляет последнюю пару. clear() очищает весь словарь.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "del d[key]  |  d.pop(key[, default])  |  d.popitem()  |  d.clear()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-del-d-key-pop-popitem-clear",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Словари (dict)",
-    "subcat": "доступ",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "d = {'a': 1, 'b': 2, 'c': 3}",
-      "del d['a']",
-      "print(d)",
-      "# → {'b': 2, 'c': 3}",
-      "val = d.pop('b')",
-      "print(val, d)",
-      "# → 2 {'c': 3}",
-      "print(d.pop('x', 'missing'))",
-      "# → 'missing' (default)",
-      "d2 = {'a': 1, 'b': 2, 'c': 3}",
-      "k, v = d2.popitem()",
-      "print(k, v)",
-      "# → 'c' 3 (последняя пара)",
-      "d3 = {'a': 1, 'b': 2}",
-      "d3.clear()",
-      "print(d3)",
-      "# → {}",
-      "try:",
-      "del d['z']",
-      "except KeyError as e:",
-      "print(e)",
-      "# → 'z'",
-      "try:",
-      "{}.popitem()",
-      "except KeyError as e:",
-      "print(e)",
-      "# → 'popitem(): dictionary is empty'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "dict-merge",
     "title": "d1 | d2",
     "kind": "term",
@@ -581,52 +525,6 @@
     "related_errors": []
   },
   {
-    "id": "keys-values-items",
-    "title": "keys() / values() / items()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращают представления (view objects): keys(), values(), items(). Динамически отражают изменения словаря.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "d.keys()  |  d.values()  |  d.items()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-keys-values-items",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Словари (dict)",
-    "subcat": "перебор",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "d = {'a': 1, 'b': 2, 'c': 3}",
-      "print(list(d.keys()))",
-      "# → ['a', 'b', 'c']",
-      "print(list(d.values()))",
-      "# → [1, 2, 3]",
-      "print(list(d.items()))",
-      "# → [('a', 1), ('b', 2), ('c', 3)]",
-      "for k, v in d.items():",
-      "print(k, '->', v)",
-      "# → a -> 1 / b -> 2 / c -> 3",
-      "print('a' in d.keys())",
-      "# → True",
-      "print(1 in d.values())",
-      "# → True",
-      "for k in d:",
-      "print(k)",
-      "# → a b c (итерация по ключам)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "ordereddict",
     "title": "OrderedDict",
     "kind": "term",
@@ -794,53 +692,6 @@
     "related_errors": []
   },
   {
-    "id": "setdefault",
-    "title": "setdefault()",
-    "kind": "function",
-    "summary": {
-      "ru": "setdefault(key, default) возвращает значение по ключу, а если ключа нет — добавляет его с default и возвращает default.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "d.setdefault(key[, default])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-setdefault",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Словари (dict)",
-    "subcat": "методы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "d = {'a': 1}",
-      "print(d.setdefault('a', 99))",
-      "# → 1 (ключ уже есть)",
-      "print(d.setdefault('b', 2))",
-      "# → 2",
-      "print(d)",
-      "# → {'a': 1, 'b': 2}",
-      "groups = {}",
-      "for word in ['cat', 'car', 'dog', 'door']:",
-      "groups.setdefault(word[0], []).append(word)",
-      "print(groups)",
-      "# → {'c': ['cat', 'car'], 'd': ['dog', 'door']}",
-      "counter = {}",
-      "for c in 'hello':",
-      "counter.setdefault(c, 0)",
-      "counter[c] += 1",
-      "print(counter)",
-      "# → {'h': 1, 'e': 1, 'l': 2, 'o': 1}"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "union-intersection-difference-symmetric_",
     "title": "union() / intersection() / difference() / symmetric_difference()",
     "kind": "function",
@@ -977,105 +828,6 @@
       "no_vowels = {c for c in 'hello' if c not in 'aeiou'}",
       "print(no_vowels)",
       "# → {'h', 'l'}"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "добавление-и-изменение-d-key-val-update",
-    "title": "Добавление и изменение d[key]=val / update()",
-    "kind": "function",
-    "summary": {
-      "ru": "Присваивание добавляет ключ или обновляет значение. update() обновляет несколько пар сразу.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "d[key] = val  |  d.update(other)  |  d.update(**kwargs)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-добавление-и-изменение-d-key-val-update",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Словари (dict)",
-    "subcat": "доступ",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "d = {'a': 1}",
-      "d['b'] = 2",
-      "print(d)",
-      "# → {'a': 1, 'b': 2}",
-      "d['a'] = 99",
-      "print(d)",
-      "# → {'a': 99, 'b': 2}",
-      "d.update({'c': 3, 'd': 4})",
-      "print(d)",
-      "# → {'a': 99, 'b': 2, 'c': 3, 'd': 4}",
-      "d.update(e=5, f=6)",
-      "print('e' in d)",
-      "# → True",
-      "d2 = {}",
-      "for k, v in [('x', 1), ('y', 2)]:",
-      "d2[k] = v",
-      "print(d2)",
-      "# → {'x': 1, 'y': 2}",
-      "d3 = {'a': 1}",
-      "d3.update({'a': 100, 'b': 2})",
-      "print(d3)",
-      "# → {'a': 100, 'b': 2} (update перезаписывает)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "доступ-d-key-d.get",
-    "title": "Доступ d[key] / d.get()",
-    "kind": "function",
-    "summary": {
-      "ru": "d[key] возвращает значение или KeyError. d.get(key) возвращает None (или default) если ключа нет.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "d[key]  |  d.get(key[, default])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-доступ-d-key-d.get",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Словари (dict)",
-    "subcat": "доступ",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "mapset"
-    ],
-    "examples": [
-      "d = {'a': 1, 'b': 2, 'c': 3}",
-      "print(d['a'])",
-      "# → 1",
-      "try:",
-      "d['x']",
-      "except KeyError as e:",
-      "print(e)",
-      "# → 'x'",
-      "print(d.get('b'))",
-      "# → 2",
-      "print(d.get('x'))",
-      "# → None",
-      "print(d.get('x', 0))",
-      "# → 0 (default)",
-      "print(d.get('a', 99))",
-      "# → 1 (ключ есть — default не используется)",
-      "nested = {'user': {'name': 'Alice', 'age': 30}}",
-      "print(nested.get('user', {}).get('name'))",
-      "# → 'Alice'"
     ],
     "related": [],
     "related_errors": []
@@ -1509,6 +1261,436 @@
       "# → {'banana': 3, 'cherry': 2, 'apple': 1} (по значению убыв.)",
       "print(sorted(d, key=d.get))",
       "# → ['apple', 'cherry', 'banana']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.clear",
+    "title": "dict.clear",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет все пары, оставляя пустой словарь (на месте).",
+      "en": "Remove all items, leaving an empty dict (in place)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.clear()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.clear",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "удаление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1, 'b': 2}",
+      "d.clear()",
+      "print(d)        # → {}",
+      "print(len(d))   # → 0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.copy",
+    "title": "dict.copy",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает поверхностную (shallow) копию словаря: вложенные объекты разделяются с оригиналом.",
+      "en": "Return a shallow copy of the dict; nested objects are shared with the original."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.copy()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.copy",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "копирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "a = {'x': 1}",
+      "b = a.copy()",
+      "b['y'] = 2",
+      "print(a)   # → {'x': 1}",
+      "print(b)   # → {'x': 1, 'y': 2}"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.get",
+    "title": "dict.get",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает значение по ключу или default (по умолчанию None), не вызывая KeyError.",
+      "en": "Return the value for a key, or default (None by default), without raising KeyError."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.get(key, default=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.get",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "доступ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1}",
+      "print(d.get('a'))      # → 1",
+      "print(d.get('z'))      # → None",
+      "print(d.get('z', 0))   # → 0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.items",
+    "title": "dict.items",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает динамическое представление (view) пар (ключ, значение); отражает изменения словаря.",
+      "en": "Return a dynamic view of (key, value) pairs; reflects later changes to the dict."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.items()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.items",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "перебор",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1, 'b': 2}",
+      "print(list(d.items()))   # → [('a', 1), ('b', 2)]",
+      "print(dict(d.items()))   # → {'a': 1, 'b': 2}"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.keys",
+    "title": "dict.keys",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает динамическое представление (view) ключей словаря.",
+      "en": "Return a dynamic view of the dict's keys."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.keys()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.keys",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "перебор",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1, 'b': 2}",
+      "print(list(d.keys()))   # → ['a', 'b']",
+      "view = d.keys()",
+      "d['c'] = 3",
+      "print(list(view))       # → ['a', 'b', 'c'] (view динамичен)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.pop",
+    "title": "dict.pop",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет ключ и возвращает его значение; default или KeyError, если ключа нет.",
+      "en": "Remove a key and return its value; default or KeyError if the key is absent."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.pop(key, default)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.pop",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "удаление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1, 'b': 2}",
+      "print(d.pop('a'))       # → 1",
+      "print(d.pop('z', -1))   # → -1",
+      "print(d)                # → {'b': 2}"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.popitem",
+    "title": "dict.popitem",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет и возвращает последнюю добавленную пару (LIFO, с Python 3.7); KeyError на пустом словаре.",
+      "en": "Remove and return the last inserted (key, value) pair (LIFO since 3.7); KeyError if empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.popitem()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.popitem",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "удаление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1, 'b': 2}",
+      "print(d.popitem())   # → ('b', 2)",
+      "print(d)             # → {'a': 1}"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.setdefault",
+    "title": "dict.setdefault",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает значение по ключу; если ключа нет — добавляет его со значением default и возвращает default.",
+      "en": "Return the value for a key; if absent, insert it with default and return default."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.setdefault(key, default=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.setdefault",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "доступ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1}",
+      "print(d.setdefault('a', 0))   # → 1",
+      "print(d.setdefault('b', 2))   # → 2",
+      "print(d)                      # → {'a': 1, 'b': 2}"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.update",
+    "title": "dict.update",
+    "kind": "function",
+    "summary": {
+      "ru": "Добавляет или заменяет пары из другого словаря, итерируемого пар или именованных аргументов (на месте).",
+      "en": "Add or replace pairs from another dict, an iterable of pairs, or keyword arguments (in place)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.update(other, **kwargs)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.update",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "изменение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1}",
+      "d.update({'b': 2})",
+      "d.update(c=3)",
+      "print(d)        # → {'a': 1, 'b': 2, 'c': 3}",
+      "d.update(a=10)",
+      "print(d['a'])   # → 10 (перезапись)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "dict.values",
+    "title": "dict.values",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает динамическое представление (view) значений словаря.",
+      "en": "Return a dynamic view of the dict's values."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d.values()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.values",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "перебор",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1, 'b': 2}",
+      "print(list(d.values()))   # → [1, 2]",
+      "print(sum(d.values()))    # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "del-для-словаря",
+    "title": "del d[key]",
+    "kind": "construct",
+    "summary": {
+      "ru": "Оператор del удаляет пару по ключу (KeyError, если ключа нет). Для удаления с возвратом значения — dict.pop()/dict.popitem().",
+      "en": "The del operator removes a pair by key (KeyError if absent). To delete and return a value, use dict.pop()/dict.popitem()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "del d[key]",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "доступ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1, 'b': 2}",
+      "del d['a']",
+      "print(d)          # → {'b': 2}",
+      "print('a' in d)   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "доступ-d-key",
+    "title": "Доступ d[key]",
+    "kind": "construct",
+    "summary": {
+      "ru": "d[key] возвращает значение по ключу или вызывает KeyError, если ключа нет. Чтобы избежать ошибки при отсутствии ключа — dict.get() с default.",
+      "en": "d[key] returns the value for a key or raises KeyError if absent. To avoid the error on a missing key, use dict.get() with a default."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d[key]",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "доступ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1, 'b': 2}",
+      "print(d['a'])         # → 1",
+      "print('z' in d)       # → False (проверка перед d[key])"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "добавление-изменение-d-key-val",
+    "title": "d[key] = value",
+    "kind": "construct",
+    "summary": {
+      "ru": "Присваивание d[key] = value добавляет новый ключ или заменяет значение существующего. Для нескольких пар сразу — dict.update().",
+      "en": "Assigning d[key] = value adds a new key or replaces an existing value. For several pairs at once, use dict.update()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "d[key] = value",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#mapping-types-dict",
+    "version": "",
+    "section": "Словари (dict)",
+    "subcat": "доступ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "dict"
+    ],
+    "examples": [
+      "d = {'a': 1}",
+      "d['b'] = 2",
+      "print(d)   # → {'a': 1, 'b': 2}",
+      "d['a'] = 99",
+      "print(d)   # → {'a': 99, 'b': 2}"
     ],
     "related": [],
     "related_errors": []
