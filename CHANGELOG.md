@@ -54,6 +54,7 @@
 - Dropped the stale "roadmap" labels from the `--output csv/markdown` and `--watch` sections of `docs/grader-workflow.md` (both shipped) and documented the `--import-reference`/`--import-top` and `--export-progress` flags (#499).
 - De-duplicated the incomplete `/api/*` route list in `docs/architecture.md` down to a pointer to the `docs/api.md` canon, and linked the `docs/grader-workflow.md` threat-model one-liner to its `docs/configuration.md` canon (#502).
 - Re-framed the source-driven coverage source and the `/api/glossary*` endpoints in `docs/glossary.md` from "future/planned" to implemented (#195–#198 and #125/#129 are closed; modules and endpoints exist) (#501).
+- Synced `docs/web-design.md` with the shipped web UI: marked web-OAuth (#402) and the reference-import button (#55) implemented (dropped the risky "don't touch until #55" directive), and added the Rules/Insights/Sandbox/Settings sections plus `#/rules`/`#/insights` deep-links to the status tracker (#500).
 
 ### Changed
 - Glossary web section shows only `status=ready` cards by default (787 auto-draft cards hidden unless `?status=all`/`draft` is chosen); privately-named auto-drafts (`os._exit`, `_pickle.X` — not dunders, ~11 cards) are always excluded from student-facing search/lists. The private filter applies only to non-`ready` cards, so hand-authored `ready` cards (incl. OOP dunder-operator cards) stay visible; the missing-term detector and queue still see the full base (#436).
