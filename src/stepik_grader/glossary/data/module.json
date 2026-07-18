@@ -8936,5 +8936,811 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "math.isqrt",
+    "title": "math.isqrt",
+    "kind": "function",
+    "summary": {
+      "ru": "Целочисленный квадратный корень: округляет √n вниз до целого (для точной арифметики).",
+      "en": "Integer square root: the floor of √n (exact integer arithmetic)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.isqrt(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.isqrt",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "корни/степени",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.isqrt(17))   # → 4"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.cbrt",
+    "title": "math.cbrt",
+    "kind": "function",
+    "summary": {
+      "ru": "Кубический корень числа (Python 3.11+).",
+      "en": "The cube root of a number (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.cbrt(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.cbrt",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "корни/степени",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(round(math.cbrt(27), 4))   # → 3.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.exp2",
+    "title": "math.exp2",
+    "kind": "function",
+    "summary": {
+      "ru": "2 в степени x (Python 3.11+).",
+      "en": "2 raised to the power x (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.exp2(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.exp2",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "корни/степени",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.exp2(3))   # → 8.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.expm1",
+    "title": "math.expm1",
+    "kind": "function",
+    "summary": {
+      "ru": "exp(x) − 1, точно при малых x (без потери значимости).",
+      "en": "exp(x) − 1, accurate for small x."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.expm1(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.expm1",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "корни/степени",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.expm1(0))   # → 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.log1p",
+    "title": "math.log1p",
+    "kind": "function",
+    "summary": {
+      "ru": "Натуральный логарифм ln(1 + x), точно при малых x.",
+      "en": "The natural logarithm ln(1 + x), accurate for small x."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.log1p(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.log1p",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "корни/степени",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.log1p(0))   # → 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.sinh",
+    "title": "math.sinh",
+    "kind": "function",
+    "summary": {
+      "ru": "Гиперболический синус.",
+      "en": "Hyperbolic sine."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.sinh(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.sinh",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "гиперболические",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.sinh(0))   # → 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.cosh",
+    "title": "math.cosh",
+    "kind": "function",
+    "summary": {
+      "ru": "Гиперболический косинус.",
+      "en": "Hyperbolic cosine."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.cosh(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.cosh",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "гиперболические",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.cosh(0))   # → 1.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.tanh",
+    "title": "math.tanh",
+    "kind": "function",
+    "summary": {
+      "ru": "Гиперболический тангенс.",
+      "en": "Hyperbolic tangent."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.tanh(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.tanh",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "гиперболические",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.tanh(0))   # → 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.asinh",
+    "title": "math.asinh",
+    "kind": "function",
+    "summary": {
+      "ru": "Обратный гиперболический синус.",
+      "en": "Inverse hyperbolic sine."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.asinh(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.asinh",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "гиперболические",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.asinh(0))   # → 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.acosh",
+    "title": "math.acosh",
+    "kind": "function",
+    "summary": {
+      "ru": "Обратный гиперболический косинус (аргумент ≥ 1).",
+      "en": "Inverse hyperbolic cosine (argument ≥ 1)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.acosh(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.acosh",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "гиперболические",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.acosh(1))   # → 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.atanh",
+    "title": "math.atanh",
+    "kind": "function",
+    "summary": {
+      "ru": "Обратный гиперболический тангенс (|аргумент| < 1).",
+      "en": "Inverse hyperbolic tangent (|argument| < 1)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.atanh(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.atanh",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "гиперболические",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.atanh(0))   # → 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.erf",
+    "title": "math.erf",
+    "kind": "function",
+    "summary": {
+      "ru": "Функция ошибок (интеграл Гаусса); полезна в статистике.",
+      "en": "The error function (Gauss integral); used in statistics."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.erf(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.erf",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "спецфункции",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.erf(0))   # → 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.erfc",
+    "title": "math.erfc",
+    "kind": "function",
+    "summary": {
+      "ru": "Дополнительная функция ошибок: 1 − erf(x), точно при больших x.",
+      "en": "The complementary error function 1 − erf(x)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.erfc(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.erfc",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "спецфункции",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.erfc(0))   # → 1.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.gamma",
+    "title": "math.gamma",
+    "kind": "function",
+    "summary": {
+      "ru": "Гамма-функция: обобщение факториала (gamma(n) = (n−1)!).",
+      "en": "The gamma function: a generalization of factorial (gamma(n) = (n−1)!)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.gamma(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.gamma",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "спецфункции",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.gamma(5))   # → 24.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.lgamma",
+    "title": "math.lgamma",
+    "kind": "function",
+    "summary": {
+      "ru": "Натуральный логарифм модуля гамма-функции (без переполнения).",
+      "en": "The natural log of the absolute value of the gamma function."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.lgamma(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.lgamma",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "спецфункции",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.lgamma(1))   # → 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.fmod",
+    "title": "math.fmod",
+    "kind": "function",
+    "summary": {
+      "ru": "Остаток от деления как в C (fmod): знак совпадает со знаком x (отличается от %).",
+      "en": "The C-library fmod remainder: the sign matches x (differs from %)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.fmod(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.fmod",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "остаток",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.fmod(10, 3))   # → 1.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.remainder",
+    "title": "math.remainder",
+    "kind": "function",
+    "summary": {
+      "ru": "Остаток по IEEE 754: x − round(x/y)·y, результат в [−y/2, y/2].",
+      "en": "The IEEE 754 remainder: x − round(x/y)·y."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.remainder(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.remainder",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "остаток",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.remainder(10, 3))   # → 1.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.copysign",
+    "title": "math.copysign",
+    "kind": "function",
+    "summary": {
+      "ru": "Число с модулем x и знаком y.",
+      "en": "A value with the magnitude of x and the sign of y."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.copysign(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.copysign",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "представление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.copysign(3, -1))   # → -3.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.frexp",
+    "title": "math.frexp",
+    "kind": "function",
+    "summary": {
+      "ru": "Раскладывает число на мантиссу m и экспоненту e: x = m·2^e, 0.5 ≤ |m| < 1.",
+      "en": "Decompose a number into mantissa m and exponent e: x = m·2^e."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.frexp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.frexp",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "представление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.frexp(8))   # → (0.5, 4)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.modf",
+    "title": "math.modf",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает пару (дробная_часть, целая_часть) как float.",
+      "en": "Return the (fractional, integer) parts as a pair of floats."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.modf(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.modf",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "представление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.modf(3.5))   # → (0.5, 3.0)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.ldexp",
+    "title": "math.ldexp",
+    "kind": "function",
+    "summary": {
+      "ru": "Обратная frexp: x·2^i (собирает число из мантиссы и экспоненты).",
+      "en": "The inverse of frexp: x·2^i."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.ldexp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.ldexp",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "представление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.ldexp(0.5, 3))   # → 4.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.ulp",
+    "title": "math.ulp",
+    "kind": "function",
+    "summary": {
+      "ru": "Величина младшего разряда (unit in the last place) числа — шаг между соседними float.",
+      "en": "The value of the least significant bit (unit in the last place)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.ulp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.ulp",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "представление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.ulp(1.0))   # → 2.220446049250313e-16"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.nextafter",
+    "title": "math.nextafter",
+    "kind": "function",
+    "summary": {
+      "ru": "Следующее представимое float-число после x в сторону y.",
+      "en": "The next representable float after x toward y."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.nextafter(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.nextafter",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "представление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.nextafter(1.0, 2.0))   # → 1.0000000000000002"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.dist",
+    "title": "math.dist",
+    "kind": "function",
+    "summary": {
+      "ru": "Евклидово расстояние между двумя точками (последовательностями координат).",
+      "en": "The Euclidean distance between two points."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.dist(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.dist",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "геометрия",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.dist((0, 0), (3, 4)))   # → 5.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.sumprod",
+    "title": "math.sumprod",
+    "kind": "function",
+    "summary": {
+      "ru": "Сумма попарных произведений двух последовательностей (скалярное произведение, 3.12+).",
+      "en": "The sum of products of two sequences (dot product; 3.12+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.sumprod(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.sumprod",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "произведение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.sumprod((1, 2, 3), (4, 5, 6)))   # → 32"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "math.fma",
+    "title": "math.fma",
+    "kind": "function",
+    "summary": {
+      "ru": "Слитное умножение-сложение x·y + z за одно округление (Python 3.13+).",
+      "en": "Fused multiply-add x·y + z with a single rounding (3.13+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "math.fma(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/math.html#math.fma",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "произведение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "math"
+    ],
+    "examples": [
+      "import math",
+      "print(math.fma(2, 3, 4))   # → 10.0"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
