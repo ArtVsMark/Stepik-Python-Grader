@@ -553,102 +553,6 @@
     "related_errors": []
   },
   {
-    "id": "itertools.combinations-permutations-prod",
-    "title": "itertools.combinations / permutations / product",
-    "kind": "term",
-    "summary": {
-      "ru": "combinations — подмножества без повторений. permutations — упорядоченные. product — декартово произведение.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "combinations(iter, r)\npermutations(iter, r)\nproduct(*iters)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-itertools.combinations-permutations-prod",
-    "docs_url": "https://docs.python.org/3/glossary.html#term-generator",
-    "version": "",
-    "section": "Итераторы и генераторы",
-    "subcat": "itertools",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "iter"
-    ],
-    "examples": [
-      "from itertools import combinations",
-      "print(list(combinations('ABC', 2)))  # → [(A,B),(A,C),(B,C)]",
-      "print(list(combinations([1,2,3,4], 3)))  # → C(4,3)=4 кортежа",
-      "from itertools import permutations",
-      "print(list(permutations('ABC', 2)))  # → 6 пар",
-      "print(list(permutations([1,2,3])))  # → все 3!=6 перестановок",
-      "from itertools import product",
-      "print(list(product('AB', repeat=2)))  # → [('A','A'),('A','B'),('B','A'),('B','B')]",
-      "print(list(product([0,1],[0,1])))  # → 4 пары",
-      "# Подсчёт",
-      "from itertools import combinations",
-      "print(sum(1 for _ in combinations(range(10),3)))  # → C(10,3)=120",
-      "# product для декартова произведения размеров",
-      "from itertools import product as prod",
-      "coords = list(prod(range(3),range(3)))",
-      "print(len(coords))  # → 9",
-      "# combinations_with_replacement",
-      "from itertools import combinations_with_replacement",
-      "print(list(combinations_with_replacement('AB',2)))  # → [('A','A'),('A','B'),('B','B')]"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "itertools.cycle-repeat-count",
-    "title": "itertools.cycle / repeat / count",
-    "kind": "term",
-    "summary": {
-      "ru": "cycle — бесконечно повторяет итерируемый. repeat — повторяет элемент. count — бесконечный счётчик.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "cycle(iterable)\nrepeat(object, times)\ncount(start=0, step=1)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-itertools.cycle-repeat-count",
-    "docs_url": "https://docs.python.org/3/glossary.html#term-generator",
-    "version": "",
-    "section": "Итераторы и генераторы",
-    "subcat": "itertools",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "iter"
-    ],
-    "examples": [
-      "from itertools import cycle, islice",
-      "colors = cycle(['red','green','blue'])",
-      "print(list(islice(colors, 7)))  # → ['red','green','blue','red','green','blue','red']",
-      "from itertools import repeat",
-      "print(list(repeat(42, 5)))  # → [42,42,42,42,42]",
-      "print(list(map(pow, range(5), repeat(2))))  # → [0,1,4,9,16]",
-      "from itertools import count",
-      "from itertools import islice",
-      "c = count(10, 2)",
-      "print(list(islice(c, 5)))  # → [10,12,14,16,18]",
-      "# Чередование двух последовательностей",
-      "from itertools import cycle",
-      "ops = cycle(['+', '-', '*'])",
-      "nums = [1,2,3,4,5,6]",
-      "result = list(zip(nums, ops))",
-      "print(result)  # → [(1,'+'),(2,'-'),(3,'*'),(4,'+'),(5,'-'),(6,'*')]",
-      "# repeat как аргумент для map",
-      "from itertools import repeat",
-      "print(list(map(lambda x,y: x**y, [2,3,4], repeat(3))))  # → [8,27,64]"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "itertools.groupby",
     "title": "itertools.groupby",
     "kind": "term",
@@ -933,6 +837,505 @@
       "self.i -= 1",
       "return val",
       "print(list(Reversed([1,2,3,4])))  # → [4,3,2,1]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.count",
+    "title": "itertools.count",
+    "kind": "function",
+    "summary": {
+      "ru": "Бесконечный счётчик: start, start+step, … Часто с zip()/islice().",
+      "en": "An infinite counter: start, start+step, …"
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.count(start=0, step=1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.count",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "c = itertools.count(10)",
+      "print(next(c), next(c), next(c))   # → 10 11 12"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.cycle",
+    "title": "itertools.cycle",
+    "kind": "function",
+    "summary": {
+      "ru": "Бесконечно повторяет элементы итерируемого по кругу.",
+      "en": "Repeat the elements of an iterable endlessly, cycling."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.cycle(iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.cycle",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "c = itertools.cycle([1, 2, 3])",
+      "print([next(c) for _ in range(5)])   # → [1, 2, 3, 1, 2]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.repeat",
+    "title": "itertools.repeat",
+    "kind": "function",
+    "summary": {
+      "ru": "Повторяет одно значение: бесконечно или ровно times раз.",
+      "en": "Repeat a single value endlessly or exactly `times` times."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.repeat(obj, times)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.repeat",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.repeat('x', 3)))   # → ['x', 'x', 'x']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.combinations",
+    "title": "itertools.combinations",
+    "kind": "function",
+    "summary": {
+      "ru": "Все сочетания длины r из итерируемого (без повторов, порядок не важен).",
+      "en": "All length-r combinations of the iterable (no repeats, order-independent)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.combinations(iterable, r)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.combinations",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.combinations([1, 2, 3], 2)))   # → [(1, 2), (1, 3), (2, 3)]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.combinations_with_replacement",
+    "title": "itertools.combinations_with_replacement",
+    "kind": "function",
+    "summary": {
+      "ru": "Сочетания длины r с повторами элементов.",
+      "en": "Length-r combinations allowing repeated elements."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.combinations_with_replacement(iterable, r)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.combinations_with_replacement",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.combinations_with_replacement([1, 2], 2)))   # → [(1, 1), (1, 2), (2, 2)]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.permutations",
+    "title": "itertools.permutations",
+    "kind": "function",
+    "summary": {
+      "ru": "Все перестановки длины r из итерируемого (порядок важен).",
+      "en": "All length-r permutations of the iterable (order matters)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.permutations(iterable, r=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.permutations",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.permutations([1, 2, 3], 2)))   # → [(1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2)]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.product",
+    "title": "itertools.product",
+    "kind": "function",
+    "summary": {
+      "ru": "Декартово произведение итерируемых (вложенные циклы как плоский итератор).",
+      "en": "Cartesian product of iterables (nested loops as a flat iterator)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.product(*iterables, repeat=1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.product",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.product([1, 2], ['a', 'b'])))   # → [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.compress",
+    "title": "itertools.compress",
+    "kind": "function",
+    "summary": {
+      "ru": "Отбирает элементы data, где соответствующий элемент selectors истинен.",
+      "en": "Select elements of data where the corresponding selector is true."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.compress(data, selectors)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.compress",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.compress(['a', 'b', 'c', 'd'], [1, 0, 1, 0])))   # → ['a', 'c']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.dropwhile",
+    "title": "itertools.dropwhile",
+    "kind": "function",
+    "summary": {
+      "ru": "Пропускает элементы, пока предикат истинен, затем отдаёт остаток целиком.",
+      "en": "Drop elements while the predicate is true, then yield the rest."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.dropwhile(predicate, iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.dropwhile",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.dropwhile(lambda x: x < 3, [1, 2, 3, 1, 2])))   # → [3, 1, 2]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.takewhile",
+    "title": "itertools.takewhile",
+    "kind": "function",
+    "summary": {
+      "ru": "Отдаёт элементы, пока предикат истинен, затем останавливается.",
+      "en": "Yield elements while the predicate is true, then stop."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.takewhile(predicate, iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.takewhile",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.takewhile(lambda x: x < 3, [1, 2, 3, 1])))   # → [1, 2]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.filterfalse",
+    "title": "itertools.filterfalse",
+    "kind": "function",
+    "summary": {
+      "ru": "Отдаёт элементы, для которых предикат ложен (обратное filter()).",
+      "en": "Yield elements for which the predicate is false (the opposite of filter())."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.filterfalse(predicate, iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.filterfalse",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.filterfalse(lambda x: x % 2, [1, 2, 3, 4])))   # → [2, 4]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.starmap",
+    "title": "itertools.starmap",
+    "kind": "function",
+    "summary": {
+      "ru": "Как map(), но аргументы берутся распаковкой кортежей: f(*args).",
+      "en": "Like map(), but arguments are taken by unpacking each tuple: f(*args)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.starmap(function, iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.starmap",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.starmap(pow, [(2, 3), (3, 2)])))   # → [8, 9]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.pairwise",
+    "title": "itertools.pairwise",
+    "kind": "function",
+    "summary": {
+      "ru": "Соседние пары элементов: (s0,s1), (s1,s2), … (Python 3.10+).",
+      "en": "Successive overlapping pairs: (s0,s1), (s1,s2), … (3.10+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.pairwise(iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.pairwise",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.pairwise([1, 2, 3, 4])))   # → [(1, 2), (2, 3), (3, 4)]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.batched",
+    "title": "itertools.batched",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает итерируемое на кортежи длины n (последний может быть короче); Python 3.12+.",
+      "en": "Batch an iterable into tuples of length n (the last may be shorter); 3.12+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.batched(iterable, n)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.batched",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.batched([1, 2, 3, 4, 5], 2)))   # → [(1, 2), (3, 4), (5,)]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.zip_longest",
+    "title": "itertools.zip_longest",
+    "kind": "function",
+    "summary": {
+      "ru": "Как zip(), но продолжает до самого длинного итерируемого, добивая fillvalue.",
+      "en": "Like zip(), but continues to the longest iterable, padding with fillvalue."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.zip_longest(*iterables, fillvalue=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.zip_longest",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "print(list(itertools.zip_longest([1, 2], ['a'], fillvalue='?')))   # → [(1, 'a'), (2, '?')]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "itertools.tee",
+    "title": "itertools.tee",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт n независимых итераторов из одного (исходный дальше использовать нельзя).",
+      "en": "Create n independent iterators from a single iterable."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "itertools.tee(iterable, n=2)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.tee",
+    "version": "",
+    "section": "Модуль itertools",
+    "subcat": "itertools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "itertools"
+    ],
+    "examples": [
+      "import itertools",
+      "a, b = itertools.tee([1, 2, 3])",
+      "print(list(a), list(b))   # → [1, 2, 3] [1, 2, 3]"
     ],
     "related": [],
     "related_errors": []
