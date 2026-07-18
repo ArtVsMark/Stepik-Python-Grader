@@ -21279,5 +21279,232 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "functools.partialmethod",
+    "title": "functools.partialmethod",
+    "kind": "function",
+    "summary": {
+      "ru": "Дескриптор для частичного применения метода: как partial, но для методов класса (учитывает self).",
+      "en": "A descriptor for partial application of a method (like partial, but for methods)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "attr = functools.partialmethod(method, *args)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functools.html#functools.partialmethod",
+    "version": "",
+    "section": "Модуль functools",
+    "subcat": "частичное применение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "functools"
+    ],
+    "examples": [
+      "from functools import partialmethod",
+      "class Cell:",
+      "    def set(self, v): self.value = v",
+      "    set_on = partialmethod(set, True)",
+      "c = Cell()",
+      "c.set_on()",
+      "print(c.value)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "functools.singledispatchmethod",
+    "title": "functools.singledispatchmethod",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор метода с одиночной диспетчеризацией: выбирает реализацию по типу первого аргумента (после self).",
+      "en": "A method decorator with single dispatch on the type of the first argument (after self)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@functools.singledispatchmethod",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functools.html#functools.singledispatchmethod",
+    "version": "",
+    "section": "Модуль functools",
+    "subcat": "обобщённые функции",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "functools"
+    ],
+    "examples": [
+      "from functools import singledispatchmethod",
+      "class C:",
+      "    @singledispatchmethod",
+      "    def f(self, x): return 'other'",
+      "    @f.register",
+      "    def _(self, x: int): return 'int'",
+      "print(C().f(5))   # → int"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "json.JSONDecoder",
+    "title": "json.JSONDecoder",
+    "kind": "term",
+    "summary": {
+      "ru": "Класс-декодер JSON → объекты Python; позволяет настроить разбор (напр. хук объектов). json.loads использует его внутри.",
+      "en": "The JSON→Python decoder class; allows customizing parsing (e.g. object hooks)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "json.JSONDecoder().decode(s)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/json.html#json.JSONDecoder",
+    "version": "",
+    "section": "Модуль json",
+    "subcat": "классы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "json"
+    ],
+    "examples": [
+      "import json",
+      "print(json.JSONDecoder().decode('[1, 2]'))   # → [1, 2]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "json.JSONEncoder",
+    "title": "json.JSONEncoder",
+    "kind": "term",
+    "summary": {
+      "ru": "Класс-кодер объектов Python → JSON; для сериализации нестандартных типов переопределяют метод default. json.dumps использует его внутри.",
+      "en": "The Python→JSON encoder class; override default() to serialize custom types."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "json.JSONEncoder().encode(obj)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/json.html#json.JSONEncoder",
+    "version": "",
+    "section": "Модуль json",
+    "subcat": "классы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "json"
+    ],
+    "examples": [
+      "import json",
+      "print(json.JSONEncoder().encode([1, 2]))   # → [1, 2]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "slice",
+    "title": "slice",
+    "kind": "term",
+    "summary": {
+      "ru": "Встроенный тип объекта среза: slice(start, stop, step). Создаётся неявно синтаксисом a[start:stop:step] и передаётся в __getitem__.",
+      "en": "The built-in slice object type: slice(start, stop, step), created by a[start:stop:step]."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "slice(start, stop, step)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functions.html#slice",
+    "version": "",
+    "section": "Встроенные типы",
+    "subcat": "срезы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "slice"
+    ],
+    "examples": [
+      "s = slice(1, 5, 2)",
+      "print((s.start, s.stop, s.step))   # → (1, 5, 2)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.kde",
+    "title": "statistics.kde",
+    "kind": "function",
+    "summary": {
+      "ru": "Оценка плотности распределения ядром (kernel density estimation): возвращает функцию плотности по выборке (Python 3.13+).",
+      "en": "Kernel density estimation: returns a density function estimated from data (3.13+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.kde(data, h, kernel='normal')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.kde",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "статистика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(not hasattr(statistics, 'kde') or callable(statistics.kde))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.kde_random",
+    "title": "statistics.kde_random",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает генератор случайных чисел из оценки плотности ядром (kde), полученной по выборке (Python 3.13+).",
+      "en": "Return a random-number generator drawing from a kernel density estimate (3.13+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.kde_random(data, h, kernel='normal')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.kde_random",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "статистика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(not hasattr(statistics, 'kde_random') or callable(statistics.kde_random))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
