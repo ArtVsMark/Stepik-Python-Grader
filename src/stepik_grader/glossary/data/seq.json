@@ -1,152 +1,5 @@
 [
   {
-    "id": "append",
-    "title": "append()",
-    "kind": "function",
-    "summary": {
-      "ru": "Добавляет один элемент в конец списка. Изменяет список на месте, возвращает None.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.append(item)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-append",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "добавление",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = []",
-      "lst.append(1)",
-      "print(lst)",
-      "# → [1]",
-      "lst.append('hello')",
-      "print(lst)",
-      "# → [1, 'hello']",
-      "lst.append([2, 3])",
-      "print(lst)",
-      "# → [1, 'hello', [2, 3]] (список как элемент)",
-      "lst.append(None)",
-      "print(lst)",
-      "# → [1, 'hello', [2, 3], None]",
-      "for i in range(3):",
-      "lst.append(i)",
-      "print(lst[-3:])",
-      "# → [0, 1, 2]",
-      "result = lst.append(99)",
-      "print(result)",
-      "# → None (всегда None)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "clear",
-    "title": "clear()",
-    "kind": "function",
-    "summary": {
-      "ru": "Удаляет все элементы списка. Список остаётся в памяти как пустой.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.clear()",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-clear",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "удаление",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [1, 2, 3]",
-      "lst.clear()",
-      "print(lst)",
-      "# → []",
-      "lst2 = list(range(10))",
-      "lst2.clear()",
-      "print(len(lst2))",
-      "# → 0",
-      "lst3 = []",
-      "lst3.clear()",
-      "print(lst3)",
-      "# → [] (нет эффекта на пустой)",
-      "a = [1, 2, 3]",
-      "b = a",
-      "a.clear()",
-      "print(b)",
-      "# → [] (b тоже пуст, тот же объект)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "copy-поверхностная-копия",
-    "title": "copy() — поверхностная копия",
-    "kind": "term",
-    "summary": {
-      "ru": "copy() создаёт новый список с теми же ссылками на элементы (shallow copy). Вложенные объекты НЕ копируются.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.copy()  |  lst[:]  |  list(lst)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-copy-поверхностная-копия",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "копирование",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "a = [1, 2, 3]",
-      "b = a.copy()",
-      "b.append(4)",
-      "print(a, b)",
-      "# → [1, 2, 3] [1, 2, 3, 4]",
-      "print(a is b)",
-      "# → False",
-      "nested = [[1, 2], [3, 4]]",
-      "shallow = nested.copy()",
-      "shallow[0].append(99)",
-      "print(nested)",
-      "# → [[1, 2, 99], [3, 4]] (shallow — вложенный список изменился!)",
-      "import copy",
-      "deep = copy.deepcopy(nested)",
-      "deep[0].append(0)",
-      "print(nested[0])",
-      "# → [1, 2, 99] (оригинал не затронут)",
-      "c = a[:]",
-      "print(c)",
-      "# → [1, 2, 3]",
-      "d = list(a)",
-      "print(d)",
-      "# → [1, 2, 3]"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "copy.deepcopy",
     "title": "copy.deepcopy()",
     "kind": "function",
@@ -223,46 +76,6 @@
       "except ValueError as e:",
       "print(e)",
       "# → tuple.index(x): x not in tuple"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "count-для-списка",
-    "title": "count() для списка",
-    "kind": "term",
-    "summary": {
-      "ru": "Подсчитывает вхождения значения в списке. Сравнение через ==.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.count(val)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-count-для-списка",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "поиск",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [1, 2, 2, 3, 2, 1]",
-      "print(lst.count(2))",
-      "# → 3",
-      "print(lst.count(5))",
-      "# → 0",
-      "print([].count(1))",
-      "# → 0",
-      "print([None, None, 1].count(None))",
-      "# → 2",
-      "print([[1, 2], [1, 2], [3]].count([1, 2]))",
-      "# → 2"
     ],
     "related": [],
     "related_errors": []
@@ -362,59 +175,6 @@
     "related_errors": []
   },
   {
-    "id": "extend",
-    "title": "extend()",
-    "kind": "function",
-    "summary": {
-      "ru": "Добавляет все элементы итерируемого объекта в конец списка. Изменяет список на месте.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.extend(iterable)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-extend",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "добавление",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [1, 2, 3]",
-      "lst.extend([4, 5, 6])",
-      "print(lst)",
-      "# → [1, 2, 3, 4, 5, 6]",
-      "lst.extend('abc')",
-      "print(lst)",
-      "# → [1, 2, 3, 4, 5, 6, 'a', 'b', 'c']",
-      "lst2 = [1, 2]",
-      "lst2.extend((3, 4))",
-      "print(lst2)",
-      "# → [1, 2, 3, 4]",
-      "lst3 = [1]",
-      "lst3.extend(range(3))",
-      "print(lst3)",
-      "# → [1, 0, 1, 2]",
-      "a = [1, 2]",
-      "b = [3, 4]",
-      "a.extend(b)",
-      "print(a)",
-      "# → [1, 2, 3, 4]",
-      "lst4 = []",
-      "lst4.extend([])",
-      "print(lst4)",
-      "# → []"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "in-not-in-для-списков",
     "title": "in / not in для списков",
     "kind": "term",
@@ -450,94 +210,6 @@
       "# → True (сравнение подсписков)",
       "print(None in [1, None, 3])",
       "# → True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "index",
-    "title": "index()",
-    "kind": "function",
-    "summary": {
-      "ru": "Возвращает индекс первого вхождения значения. Опциональные start/end ограничивают диапазон поиска. ValueError если не найдено.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.index(val[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-index",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "поиск",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [1, 2, 3, 2, 1]",
-      "print(lst.index(2))",
-      "# → 1",
-      "print(lst.index(2, 2))",
-      "# → 3 (поиск с позиции 2)",
-      "try:",
-      "lst.index(99)",
-      "except ValueError as e:",
-      "print(e)",
-      "# → 99 is not in list",
-      "print(lst.index(1, 1, 4))",
-      "# → 4 (в диапазоне [1:4])",
-      "print(['a', 'b', 'c'].index('b'))",
-      "# → 1"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "insert",
-    "title": "insert()",
-    "kind": "function",
-    "summary": {
-      "ru": "Вставляет элемент перед указанным индексом. Индекс >= len — вставка в конец, < 0 — отсчёт с конца.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.insert(i, item)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-insert",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "добавление",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [1, 2, 3]",
-      "lst.insert(0, 0)",
-      "print(lst)",
-      "# → [0, 1, 2, 3]",
-      "lst.insert(2, 99)",
-      "print(lst)",
-      "# → [0, 1, 99, 2, 3]",
-      "lst.insert(len(lst), 100)",
-      "print(lst)",
-      "# → [0, 1, 99, 2, 3, 100]",
-      "lst.insert(-1, 50)",
-      "print(lst)",
-      "# → [0, 1, 99, 2, 3, 50, 100]",
-      "lst.insert(1000, 'end')",
-      "print(lst[-1])",
-      "# → 'end' (индекс больше длины — вставка в конец)"
     ],
     "related": [],
     "related_errors": []
@@ -666,205 +338,6 @@
       "evens_sq = list(map(lambda x: x**2, filter(lambda x: x%2==0, nums)))",
       "print(evens_sq)",
       "# → [4, 16, 36]"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "pop",
-    "title": "pop()",
-    "kind": "function",
-    "summary": {
-      "ru": "Удаляет и возвращает элемент по индексу (по умолчанию последний). IndexError при пустом списке или неверном индексе.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.pop([i])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-pop",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "удаление",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [1, 2, 3, 4, 5]",
-      "print(lst.pop())",
-      "# → 5",
-      "print(lst.pop(0))",
-      "# → 1",
-      "print(lst.pop(1))",
-      "# → 3",
-      "stack = [1, 2, 3]",
-      "stack.pop()",
-      "print(stack)",
-      "# → [1, 2] (LIFO стек)",
-      "queue = [1, 2, 3]",
-      "queue.pop(0)",
-      "print(queue)",
-      "# → [2, 3] (FIFO очередь)",
-      "try:",
-      "[].pop()",
-      "except IndexError as e:",
-      "print(e)",
-      "# → pop from empty list"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "remove",
-    "title": "remove()",
-    "kind": "function",
-    "summary": {
-      "ru": "Удаляет первое вхождение указанного значения. Если не найдено — ValueError.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.remove(item)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-remove",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "удаление",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [1, 2, 3, 2, 1]",
-      "lst.remove(2)",
-      "print(lst)",
-      "# → [1, 3, 2, 1] (первое вхождение)",
-      "lst.remove(1)",
-      "print(lst)",
-      "# → [3, 2, 1]",
-      "try:",
-      "lst.remove(99)",
-      "except ValueError as e:",
-      "print(e)",
-      "# → list.remove(x): x not in list",
-      "lst2 = [1, 1, 1]",
-      "while 1 in lst2:",
-      "lst2.remove(1)",
-      "print(lst2)",
-      "# → []",
-      "lst3 = ['a', 'b', 'a']",
-      "lst3.remove('a')",
-      "print(lst3)",
-      "# → ['b', 'a']",
-      "lst4 = [None, False, 0]",
-      "lst4.remove(False)",
-      "print(lst4)",
-      "# → [None, 0] (False удалён первым)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "reverse-reversed",
-    "title": "reverse() / reversed()",
-    "kind": "function",
-    "summary": {
-      "ru": "reverse() переворачивает список на месте. reversed() возвращает итератор в обратном порядке.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.reverse()  |  reversed(lst)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-reverse-reversed",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "сортировка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [1, 2, 3, 4, 5]",
-      "lst.reverse()",
-      "print(lst)",
-      "# → [5, 4, 3, 2, 1]",
-      "lst2 = [1, 2, 3]",
-      "print(list(reversed(lst2)))",
-      "# → [3, 2, 1]",
-      "print(lst2)",
-      "# → [1, 2, 3] (orig не изменён)",
-      "for x in reversed([10, 20, 30]):",
-      "print(x, end=' ')",
-      "# → 30 20 10",
-      "print([].reverse())",
-      "# → None (in-place, возвращает None)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "sort-sorted",
-    "title": "sort() / sorted()",
-    "kind": "function",
-    "summary": {
-      "ru": "sort() сортирует список на месте (in-place). sorted() возвращает новый список. key= задаёт функцию ключа, reverse=True — обратный порядок.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "lst.sort([key=None, reverse=False])  |  sorted(iterable[, key, reverse])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-sort-sorted",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "сортировка",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [3, 1, 4, 1, 5, 9, 2]",
-      "lst.sort()",
-      "print(lst)",
-      "# → [1, 1, 2, 3, 4, 5, 9]",
-      "lst.sort(reverse=True)",
-      "print(lst)",
-      "# → [9, 5, 4, 3, 2, 1, 1]",
-      "words = ['banana', 'apple', 'cherry', 'fig']",
-      "print(sorted(words))",
-      "# → ['apple', 'banana', 'cherry', 'fig']",
-      "print(sorted(words, key=len))",
-      "# → ['fig', 'apple', 'banana', 'cherry']",
-      "print(sorted(words, key=lambda w: w[-1]))",
-      "# → ['banana', 'apple', 'fig', 'cherry'] (по последнему символу)",
-      "pairs = [(1, 'b'), (3, 'a'), (2, 'c')]",
-      "print(sorted(pairs, key=lambda x: x[1]))",
-      "# → [(3, 'a'), (1, 'b'), (2, 'c')]",
-      "orig = [3, 1, 2]",
-      "s = sorted(orig)",
-      "print(orig, s)",
-      "# → [3, 1, 2] [1, 2, 3] (orig не изменён)",
-      "strs = ['10', '9', '100']",
-      "print(sorted(strs, key=int))",
-      "# → ['9', '10', '100']"
     ],
     "related": [],
     "related_errors": []
@@ -1785,6 +1258,378 @@
       "words = [\"apple\", \"hi\", \"banana\", \"ok\"]",
       "print([w for w in words if len(w) > 3])     # → ['apple', 'banana']",
       "print([x if x > 0 else 0 for x in lst])    # → [1, 0, 3, 0, 5]  (тернарный)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.append",
+    "title": "list.append",
+    "kind": "function",
+    "summary": {
+      "ru": "Добавляет один элемент в конец списка (на месте); возвращает None.",
+      "en": "Append a single item to the end of the list in place; returns None."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.append(item)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "добавление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "lst = [1, 2]",
+      "lst.append(3)",
+      "print(lst)          # → [1, 2, 3]",
+      "lst.append([4, 5])",
+      "print(lst)          # → [1, 2, 3, [4, 5]]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.clear",
+    "title": "list.clear",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет все элементы, оставляя пустой список (на месте).",
+      "en": "Remove all items, leaving an empty list (in place)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.clear()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "удаление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "lst = [1, 2, 3]",
+      "lst.clear()",
+      "print(lst)        # → []",
+      "print(len(lst))   # → 0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.count",
+    "title": "list.count",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает число вхождений значения в список (сравнение через ==).",
+      "en": "Return the number of occurrences of a value in the list (compared with ==)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.count(value)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "nums = [1, 2, 2, 3, 2]",
+      "print(nums.count(2))   # → 3",
+      "print(nums.count(9))   # → 0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.copy",
+    "title": "list.copy",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает поверхностную (shallow) копию списка: новый список с теми же ссылками на элементы; вложенные объекты не копируются.",
+      "en": "Return a shallow copy: a new list with the same element references; nested objects are not copied."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.copy()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "копирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "a = [1, 2, 3]",
+      "b = a.copy()",
+      "b.append(4)",
+      "print(a)   # → [1, 2, 3]",
+      "print(b)   # → [1, 2, 3, 4]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.extend",
+    "title": "list.extend",
+    "kind": "function",
+    "summary": {
+      "ru": "Добавляет все элементы итерируемого объекта в конец списка (на месте).",
+      "en": "Append all items from an iterable to the end of the list (in place)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.extend(iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "добавление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "lst = [1, 2]",
+      "lst.extend([3, 4])",
+      "print(lst)          # → [1, 2, 3, 4]",
+      "lst.extend('ab')",
+      "print(lst)          # → [1, 2, 3, 4, 'a', 'b']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.index",
+    "title": "list.index",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает индекс первого вхождения значения; опциональные start/end сужают диапазон; ValueError, если не найдено.",
+      "en": "Return the index of the first matching value; optional start/end narrow the search; raises ValueError if absent."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.index(value, start=0, stop=len)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "letters = ['a', 'b', 'c', 'b']",
+      "print(letters.index('b'))      # → 1",
+      "print(letters.index('b', 2))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.insert",
+    "title": "list.insert",
+    "kind": "function",
+    "summary": {
+      "ru": "Вставляет элемент перед указанным индексом; индекс ≥ len — в конец, отрицательный — от конца.",
+      "en": "Insert an item before the given index; index ≥ len appends, negative counts from the end."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.insert(index, item)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "добавление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "lst = [1, 2, 3]",
+      "lst.insert(1, 99)",
+      "print(lst)   # → [1, 99, 2, 3]",
+      "lst.insert(0, 'start')",
+      "print(lst)   # → ['start', 1, 99, 2, 3]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.pop",
+    "title": "list.pop",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет и возвращает элемент по индексу (по умолчанию последний); IndexError на пустом/неверном индексе.",
+      "en": "Remove and return the item at the index (last by default); raises IndexError if empty or out of range."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.pop(index=-1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "удаление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "lst = [1, 2, 3]",
+      "print(lst.pop())    # → 3",
+      "print(lst.pop(0))   # → 1",
+      "print(lst)          # → [2]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.remove",
+    "title": "list.remove",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет первое вхождение значения; ValueError, если значение не найдено.",
+      "en": "Remove the first matching value; raises ValueError if not found."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.remove(value)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "удаление",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "lst = [1, 2, 3, 2]",
+      "lst.remove(2)",
+      "print(lst)   # → [1, 3, 2]",
+      "lst.remove(2)",
+      "print(lst)   # → [1, 3]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.reverse",
+    "title": "list.reverse",
+    "kind": "function",
+    "summary": {
+      "ru": "Переворачивает список на месте. Для нового обратного итератора без изменения списка — встроенная reversed().",
+      "en": "Reverse the list in place. For a new reversed iterator without mutating, use the built-in reversed()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.reverse()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "сортировка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "lst = [1, 2, 3]",
+      "lst.reverse()",
+      "print(lst)     # → [3, 2, 1]",
+      "chars = ['a', 'b', 'c']",
+      "chars.reverse()",
+      "print(chars)   # → ['c', 'b', 'a']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "list.sort",
+    "title": "list.sort",
+    "kind": "function",
+    "summary": {
+      "ru": "Сортирует список на месте; key= задаёт функцию ключа, reverse=True — обратный порядок. Для нового списка без изменения исходного — встроенная sorted().",
+      "en": "Sort the list in place; key= sets a key function, reverse=True descending. For a new sorted list without mutating, use the built-in sorted()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "lst.sort(*, key=None, reverse=False)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/tutorial/datastructures.html",
+    "version": "",
+    "section": "Списки (list)",
+    "subcat": "сортировка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "list"
+    ],
+    "examples": [
+      "lst = [3, 1, 2]",
+      "lst.sort()",
+      "print(lst)              # → [1, 2, 3]",
+      "lst.sort(reverse=True)",
+      "print(lst)              # → [3, 2, 1]",
+      "words = ['bb', 'a', 'ccc']",
+      "words.sort(key=len)",
+      "print(words)            # → ['a', 'bb', 'ccc']"
     ],
     "related": [],
     "related_errors": []
