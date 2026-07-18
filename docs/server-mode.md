@@ -127,8 +127,9 @@ sandbox-механизма. Любая тяжёлая зависимость/д�
 2. Ни `core/grader_core.py`, ни адаптеры (CLI/Web/API) не знают, какой Runner
    активен — выбор инжектируется (конфиг/DI), поведение результата одинаково.
 3. `SandboxRunner` не ослабляет контракт результата: тот же
-   [case result](result-contract.md#case-result--поля), плюс возможный новый
-   вердикт для sandbox-нарушения (аддитивно, см. правило 3 контракта).
+   [case result](result-contract.md#case-result--поля), плюс аддитивный вердикт
+   `SANDBOX_VIOLATION` для sandbox-нарушения — **уже реализован** (`core/result.py`,
+   локальный `--sandbox` #266; правило 3 контракта).
 
 ---
 

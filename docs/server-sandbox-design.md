@@ -75,7 +75,7 @@ per-tenant учёта). Каждый прогон — в своей cgroup v2:
 
 | Лимит | Контроллер cgroup v2 | Превышение → |
 |---|---|---|
-| Память (RSS+page cache) | `memory.max` (+ `memory.swap.max=0`) | OOM-kill процесса → вердикт памяти (`MLE`/`sandbox_violation`) |
+| Память (RSS+page cache) | `memory.max` (+ `memory.swap.max=0`) | OOM-kill процесса → аддитивный вердикт `SANDBOX_VIOLATION` (нарушение лимита памяти) |
 | CPU-время (доля) | `cpu.max` (quota/period) | троттлинг; wall-таймаут остаётся верхней границей |
 | Число процессов/потоков | `pids.max` | форк-бомба упирается в лимит → `sandbox_violation` |
 | Wall-время | внешний дедлайн супервизора (как сейчас `subprocess timeout`) | `TLE`, kill всей cgroup |
