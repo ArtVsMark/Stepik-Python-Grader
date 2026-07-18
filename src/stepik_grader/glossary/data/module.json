@@ -16324,5 +16324,1586 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "os.WIFEXITED",
+    "title": "os.WIFEXITED",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет по статусу waitpid, завершился ли дочерний процесс нормально (через exit). Доступно на Unix.",
+      "en": "Test whether a child exited normally (via exit). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.WIFEXITED(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.WIFEXITED",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — разбор статуса (W*)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'WIFEXITED') or callable(os.WIFEXITED))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.WEXITSTATUS",
+    "title": "os.WEXITSTATUS",
+    "kind": "function",
+    "summary": {
+      "ru": "Извлекает из статуса код возврата нормально завершившегося процесса. Доступно на Unix.",
+      "en": "Return the exit code of a normally-terminated child. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.WEXITSTATUS(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.WEXITSTATUS",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — разбор статуса (W*)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'WEXITSTATUS') or callable(os.WEXITSTATUS))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.WIFSIGNALED",
+    "title": "os.WIFSIGNALED",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, был ли процесс завершён сигналом. Доступно на Unix.",
+      "en": "Test whether a child was terminated by a signal. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.WIFSIGNALED(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.WIFSIGNALED",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — разбор статуса (W*)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'WIFSIGNALED') or callable(os.WIFSIGNALED))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.WTERMSIG",
+    "title": "os.WTERMSIG",
+    "kind": "function",
+    "summary": {
+      "ru": "Извлекает номер сигнала, завершившего процесс. Доступно на Unix.",
+      "en": "Return the signal number that terminated a child. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.WTERMSIG(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.WTERMSIG",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — разбор статуса (W*)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'WTERMSIG') or callable(os.WTERMSIG))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.WIFSTOPPED",
+    "title": "os.WIFSTOPPED",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, был ли процесс остановлен (не завершён). Доступно на Unix.",
+      "en": "Test whether a child was stopped (not terminated). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.WIFSTOPPED(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.WIFSTOPPED",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — разбор статуса (W*)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'WIFSTOPPED') or callable(os.WIFSTOPPED))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.WSTOPSIG",
+    "title": "os.WSTOPSIG",
+    "kind": "function",
+    "summary": {
+      "ru": "Извлекает номер сигнала, остановившего процесс. Доступно на Unix.",
+      "en": "Return the signal number that stopped a child. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.WSTOPSIG(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.WSTOPSIG",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — разбор статуса (W*)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'WSTOPSIG') or callable(os.WSTOPSIG))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.WIFCONTINUED",
+    "title": "os.WIFCONTINUED",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, был ли остановленный процесс возобновлён (SIGCONT). Доступно на Unix.",
+      "en": "Test whether a stopped child was resumed (SIGCONT). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.WIFCONTINUED(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.WIFCONTINUED",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — разбор статуса (W*)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'WIFCONTINUED') or callable(os.WIFCONTINUED))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.WCOREDUMP",
+    "title": "os.WCOREDUMP",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, оставил ли завершённый процесс дамп памяти (core). Доступно на Unix.",
+      "en": "Test whether a terminated child produced a core dump. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.WCOREDUMP(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.WCOREDUMP",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — разбор статуса (W*)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'WCOREDUMP') or callable(os.WCOREDUMP))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fork",
+    "title": "os.fork",
+    "kind": "function",
+    "summary": {
+      "ru": "Порождает дочерний процесс копированием текущего: возвращает 0 в потомке и PID потомка в родителе. Доступно на Unix.",
+      "en": "Fork a child process; returns 0 in the child and the child PID in the parent. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fork(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fork",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — создание процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'fork') or callable(os.fork))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.forkpty",
+    "title": "os.forkpty",
+    "kind": "function",
+    "summary": {
+      "ru": "Как fork, но потомок получает новый псевдотерминал (pty) как управляющий; возвращает (pid, fd). Доступно на Unix.",
+      "en": "Like fork, but the child gets a new pseudo-terminal; returns (pid, fd). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.forkpty(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.forkpty",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — создание процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'forkpty') or callable(os.forkpty))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.register_at_fork",
+    "title": "os.register_at_fork",
+    "kind": "function",
+    "summary": {
+      "ru": "Регистрирует функции-обработчики, вызываемые до/после os.fork() (в родителе и потомке). Доступно на Unix.",
+      "en": "Register callables run before/after os.fork() in parent and child. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.register_at_fork(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.register_at_fork",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — создание процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'register_at_fork') or callable(os.register_at_fork))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.execv",
+    "title": "os.execv",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет текущий процесс новой программой (путь + список аргументов); при успехе не возвращается. Доступно на Unix.",
+      "en": "Replace the current process with a new program (path + args list). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.execv(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.execv",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (exec)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'execv') or callable(os.execv))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.execve",
+    "title": "os.execve",
+    "kind": "function",
+    "summary": {
+      "ru": "Как execv, но с явным словарём переменных окружения для новой программы. Доступно на Unix.",
+      "en": "Like execv, but with an explicit environment dict. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.execve(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.execve",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (exec)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'execve') or callable(os.execve))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.execl",
+    "title": "os.execl",
+    "kind": "function",
+    "summary": {
+      "ru": "Как execv, но аргументы передаются перечислением, а не списком. Доступно на Unix.",
+      "en": "Like execv, but arguments are passed inline rather than as a list. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.execl(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.execl",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (exec)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'execl') or callable(os.execl))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.execle",
+    "title": "os.execle",
+    "kind": "function",
+    "summary": {
+      "ru": "Как execl, но с окружением (последний аргумент — словарь env). Доступно на Unix.",
+      "en": "Like execl, but the last argument is an environment dict. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.execle(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.execle",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (exec)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'execle') or callable(os.execle))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.execlp",
+    "title": "os.execlp",
+    "kind": "function",
+    "summary": {
+      "ru": "Как execl, но программа ищется в каталогах PATH. Доступно на Unix.",
+      "en": "Like execl, but the program is looked up in PATH. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.execlp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.execlp",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (exec)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'execlp') or callable(os.execlp))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.execlpe",
+    "title": "os.execlpe",
+    "kind": "function",
+    "summary": {
+      "ru": "Как execlp, но с явным окружением (последний аргумент — словарь env). Доступно на Unix.",
+      "en": "Like execlp, but with an explicit environment dict. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.execlpe(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.execlpe",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (exec)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'execlpe') or callable(os.execlpe))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.execvp",
+    "title": "os.execvp",
+    "kind": "function",
+    "summary": {
+      "ru": "Как execv, но программа ищется в каталогах PATH. Доступно на Unix.",
+      "en": "Like execv, but the program is looked up in PATH. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.execvp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.execvp",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (exec)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'execvp') or callable(os.execvp))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.execvpe",
+    "title": "os.execvpe",
+    "kind": "function",
+    "summary": {
+      "ru": "Как execvp, но с явным окружением. Доступно на Unix.",
+      "en": "Like execvp, but with an explicit environment dict. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.execvpe(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.execvpe",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (exec)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'execvpe') or callable(os.execvpe))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.spawnv",
+    "title": "os.spawnv",
+    "kind": "function",
+    "summary": {
+      "ru": "Запускает новую программу (путь + список аргументов) в отдельном процессе; возвращает PID или код возврата в зависимости от режима. Доступно на Unix.",
+      "en": "Run a new program in a new process (path + args list). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.spawnv(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.spawnv",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'spawnv') or callable(os.spawnv))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.spawnve",
+    "title": "os.spawnve",
+    "kind": "function",
+    "summary": {
+      "ru": "Как spawnv, но с явным окружением. Доступно на Unix.",
+      "en": "Like spawnv, but with an explicit environment dict. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.spawnve(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.spawnve",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'spawnve') or callable(os.spawnve))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.spawnl",
+    "title": "os.spawnl",
+    "kind": "function",
+    "summary": {
+      "ru": "Как spawnv, но аргументы перечислением. Доступно на Unix.",
+      "en": "Like spawnv, but with inline arguments. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.spawnl(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.spawnl",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'spawnl') or callable(os.spawnl))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.spawnle",
+    "title": "os.spawnle",
+    "kind": "function",
+    "summary": {
+      "ru": "Как spawnl, но с окружением (последний аргумент — env). Доступно на Unix.",
+      "en": "Like spawnl, but with an environment dict as the last argument. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.spawnle(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.spawnle",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'spawnle') or callable(os.spawnle))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.spawnlp",
+    "title": "os.spawnlp",
+    "kind": "function",
+    "summary": {
+      "ru": "Как spawnl, но программа ищется в PATH. Доступно на Unix.",
+      "en": "Like spawnl, but the program is looked up in PATH. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.spawnlp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.spawnlp",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'spawnlp') or callable(os.spawnlp))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.spawnlpe",
+    "title": "os.spawnlpe",
+    "kind": "function",
+    "summary": {
+      "ru": "Как spawnlp, но с явным окружением. Доступно на Unix.",
+      "en": "Like spawnlp, but with an explicit environment dict. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.spawnlpe(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.spawnlpe",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'spawnlpe') or callable(os.spawnlpe))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.spawnvp",
+    "title": "os.spawnvp",
+    "kind": "function",
+    "summary": {
+      "ru": "Как spawnv, но программа ищется в PATH. Доступно на Unix.",
+      "en": "Like spawnv, but the program is looked up in PATH. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.spawnvp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.spawnvp",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'spawnvp') or callable(os.spawnvp))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.spawnvpe",
+    "title": "os.spawnvpe",
+    "kind": "function",
+    "summary": {
+      "ru": "Как spawnvp, но с явным окружением. Доступно на Unix.",
+      "en": "Like spawnvp, but with an explicit environment dict. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.spawnvpe(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.spawnvpe",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'spawnvpe') or callable(os.spawnvpe))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.posix_spawn",
+    "title": "os.posix_spawn",
+    "kind": "function",
+    "summary": {
+      "ru": "Эффективно запускает новую программу через системный вызов posix_spawn; возвращает PID (Python 3.8+). Доступно на Unix.",
+      "en": "Launch a program via the posix_spawn syscall; returns the PID (3.8+). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.posix_spawn(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.posix_spawn",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'posix_spawn') or callable(os.posix_spawn))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.posix_spawnp",
+    "title": "os.posix_spawnp",
+    "kind": "function",
+    "summary": {
+      "ru": "Как posix_spawn, но программа ищется в PATH. Доступно на Unix.",
+      "en": "Like posix_spawn, but the program is looked up in PATH. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.posix_spawnp(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.posix_spawnp",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ (spawn)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'posix_spawnp') or callable(os.posix_spawnp))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.wait",
+    "title": "os.wait",
+    "kind": "function",
+    "summary": {
+      "ru": "Ждёт завершения любого дочернего процесса; возвращает (pid, статус). Доступно на Unix.",
+      "en": "Wait for any child to finish; returns (pid, status). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.wait(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.wait",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — ожидание процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'wait') or callable(os.wait))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.waitpid",
+    "title": "os.waitpid",
+    "kind": "function",
+    "summary": {
+      "ru": "Ждёт завершения конкретного дочернего процесса по PID; возвращает (pid, статус). Доступно на Unix.",
+      "en": "Wait for a specific child by PID; returns (pid, status). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.waitpid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.waitpid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — ожидание процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'waitpid') or callable(os.waitpid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.wait3",
+    "title": "os.wait3",
+    "kind": "function",
+    "summary": {
+      "ru": "Как wait, но дополнительно возвращает информацию об использовании ресурсов (rusage). Доступно на Unix.",
+      "en": "Like wait, but also returns resource-usage info (rusage). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.wait3(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.wait3",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — ожидание процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'wait3') or callable(os.wait3))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.wait4",
+    "title": "os.wait4",
+    "kind": "function",
+    "summary": {
+      "ru": "Как waitpid, но дополнительно возвращает rusage. Доступно на Unix.",
+      "en": "Like waitpid, but also returns rusage. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.wait4(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.wait4",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — ожидание процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'wait4') or callable(os.wait4))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.waitid",
+    "title": "os.waitid",
+    "kind": "function",
+    "summary": {
+      "ru": "Гибко ждёт изменения состояния дочернего процесса; возвращает объект с подробностями. Доступно на Unix.",
+      "en": "Flexibly wait for a child's state change; returns a details object. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.waitid(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.waitid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — ожидание процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'waitid') or callable(os.waitid))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.waitid_result",
+    "title": "os.waitid_result",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип результата os.waitid(): именованный кортеж (si_pid, si_uid, si_signo, si_status, si_code). Доступно на Unix.",
+      "en": "The result type of os.waitid(): a named tuple (si_pid, si_uid, …). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.waitid_result(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.waitid_result",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — ожидание процессов",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'waitid_result') or callable(os.waitid_result))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.kill",
+    "title": "os.kill",
+    "kind": "function",
+    "summary": {
+      "ru": "Посылает сигнал процессу по PID. Доступно на Unix.",
+      "en": "Send a signal to a process by PID. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.kill(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.kill",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сигналы и приоритет",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'kill') or callable(os.kill))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.killpg",
+    "title": "os.killpg",
+    "kind": "function",
+    "summary": {
+      "ru": "Посылает сигнал всей группе процессов. Доступно на Unix.",
+      "en": "Send a signal to a whole process group. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.killpg(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.killpg",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сигналы и приоритет",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'killpg') or callable(os.killpg))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.nice",
+    "title": "os.nice",
+    "kind": "function",
+    "summary": {
+      "ru": "Увеличивает «любезность» (nice) процесса, понижая его приоритет планирования. Доступно на Unix.",
+      "en": "Increase a process's niceness, lowering its scheduling priority. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.nice(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.nice",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сигналы и приоритет",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'nice') or callable(os.nice))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getpriority",
+    "title": "os.getpriority",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает приоритет планирования (nice) процесса/группы/пользователя. Доступно на Unix.",
+      "en": "Return the scheduling priority (nice) of a process/group/user. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getpriority(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getpriority",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сигналы и приоритет",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'getpriority') or callable(os.getpriority))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.setpriority",
+    "title": "os.setpriority",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает приоритет планирования (nice) процесса/группы/пользователя. Доступно на Unix.",
+      "en": "Set the scheduling priority (nice) of a process/group/user. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.setpriority(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.setpriority",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — сигналы и приоритет",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'setpriority') or callable(os.setpriority))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_yield",
+    "title": "os.sched_yield",
+    "kind": "function",
+    "summary": {
+      "ru": "Добровольно уступает процессор другим готовым к выполнению процессам. Доступно на Unix.",
+      "en": "Voluntarily yield the CPU to other runnable processes. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_yield(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_yield",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_yield') or callable(os.sched_yield))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_getaffinity",
+    "title": "os.sched_getaffinity",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает множество ядер CPU, на которых разрешено выполняться процессу. Доступно на Unix.",
+      "en": "Return the set of CPUs a process is allowed to run on. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_getaffinity(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_getaffinity",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_getaffinity') or callable(os.sched_getaffinity))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_setaffinity",
+    "title": "os.sched_setaffinity",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт множество ядер CPU, на которых разрешено выполняться процессу (привязка к ядрам). Доступно на Unix.",
+      "en": "Set the CPUs a process is allowed to run on (CPU affinity). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_setaffinity(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_setaffinity",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_setaffinity') or callable(os.sched_setaffinity))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_getscheduler",
+    "title": "os.sched_getscheduler",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает политику планирования процесса (напр. SCHED_OTHER/SCHED_FIFO). Доступно на Unix.",
+      "en": "Return a process's scheduling policy (e.g. SCHED_OTHER/SCHED_FIFO). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_getscheduler(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_getscheduler",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_getscheduler') or callable(os.sched_getscheduler))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_setscheduler",
+    "title": "os.sched_setscheduler",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт политику планирования и параметры процесса. Доступно на Unix.",
+      "en": "Set a process's scheduling policy and parameters. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_setscheduler(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_setscheduler",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_setscheduler') or callable(os.sched_setscheduler))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_getparam",
+    "title": "os.sched_getparam",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает параметры планирования процесса (приоритет реального времени). Доступно на Unix.",
+      "en": "Return a process's scheduling parameters (RT priority). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_getparam(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_getparam",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_getparam') or callable(os.sched_getparam))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_setparam",
+    "title": "os.sched_setparam",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт параметры планирования процесса. Доступно на Unix.",
+      "en": "Set a process's scheduling parameters. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_setparam(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_setparam",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_setparam') or callable(os.sched_setparam))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_get_priority_max",
+    "title": "os.sched_get_priority_max",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает максимальный приоритет для заданной политики планирования. Доступно на Unix.",
+      "en": "Return the maximum priority for a scheduling policy. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_get_priority_max(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_get_priority_max",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_get_priority_max') or callable(os.sched_get_priority_max))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_get_priority_min",
+    "title": "os.sched_get_priority_min",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает минимальный приоритет для заданной политики планирования. Доступно на Unix.",
+      "en": "Return the minimum priority for a scheduling policy. Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_get_priority_min(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_get_priority_min",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_get_priority_min') or callable(os.sched_get_priority_min))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_rr_get_interval",
+    "title": "os.sched_rr_get_interval",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает квант времени round-robin для процесса (политика SCHED_RR). Доступно на Unix.",
+      "en": "Return the round-robin time quantum for a process (SCHED_RR). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_rr_get_interval(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_rr_get_interval",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_rr_get_interval') or callable(os.sched_rr_get_interval))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.sched_param",
+    "title": "os.sched_param",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип-контейнер параметров планирования (поле sched_priority) для sched_setscheduler/sched_setparam. Доступно на Unix.",
+      "en": "A container type for scheduling parameters (sched_priority). Availability: Unix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.sched_param(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.sched_param",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — планировщик (sched)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'sched_param') or callable(os.sched_param))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
