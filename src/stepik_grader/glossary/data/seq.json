@@ -1657,5 +1657,1265 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "bytes.capitalize",
+    "title": "bytes.capitalize",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию: первый байт в верхнем регистре, остальные — в нижнем.",
+      "en": "Return a copy with the first byte upper-cased and the rest lower-cased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.capitalize(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.capitalize",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'hello'.capitalize())   # → b'Hello'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.lower",
+    "title": "bytes.lower",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию, где ASCII-буквы приведены к нижнему регистру.",
+      "en": "Return a copy with ASCII letters lower-cased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.lower(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.lower",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'ABC'.lower())   # → b'abc'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.upper",
+    "title": "bytes.upper",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию, где ASCII-буквы приведены к верхнему регистру.",
+      "en": "Return a copy with ASCII letters upper-cased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.upper(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.upper",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'abc'.upper())   # → b'ABC'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.title",
+    "title": "bytes.title",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию в «заголовочном» регистре (каждое слово с большой буквы).",
+      "en": "Return a title-cased copy (each word capitalized)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.title(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.title",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'hello world'.title())   # → b'Hello World'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.swapcase",
+    "title": "bytes.swapcase",
+    "kind": "function",
+    "summary": {
+      "ru": "Меняет регистр ASCII-букв на противоположный.",
+      "en": "Swap the case of ASCII letters."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.swapcase(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.swapcase",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — регистр",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'AbC'.swapcase())   # → b'aBc'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.center",
+    "title": "bytes.center",
+    "kind": "function",
+    "summary": {
+      "ru": "Центрирует байты в поле заданной ширины, заполняя байтом-заполнителем.",
+      "en": "Center the bytes in a field of the given width using a fill byte."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.center(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.center",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'hi'.center(6, b'*'))   # → b'**hi**'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.ljust",
+    "title": "bytes.ljust",
+    "kind": "function",
+    "summary": {
+      "ru": "Выравнивает по левому краю в поле заданной ширины.",
+      "en": "Left-justify in a field of the given width."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.ljust(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.ljust",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'hi'.ljust(5, b'.'))   # → b'hi...'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.rjust",
+    "title": "bytes.rjust",
+    "kind": "function",
+    "summary": {
+      "ru": "Выравнивает по правому краю в поле заданной ширины.",
+      "en": "Right-justify in a field of the given width."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.rjust(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.rjust",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'hi'.rjust(5, b'.'))   # → b'...hi'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.zfill",
+    "title": "bytes.zfill",
+    "kind": "function",
+    "summary": {
+      "ru": "Дополняет слева нулями до заданной длины (учитывает ведущий знак).",
+      "en": "Pad on the left with zeros to a given length."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.zfill(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.zfill",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'42'.zfill(5))   # → b'00042'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.expandtabs",
+    "title": "bytes.expandtabs",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет символы табуляции пробелами до следующей позиции табуляции.",
+      "en": "Replace tab characters with spaces up to the next tab stop."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.expandtabs(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.expandtabs",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — выравнивание",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'a\\tb'.expandtabs(4))   # → b'a   b'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.count",
+    "title": "bytes.count",
+    "kind": "function",
+    "summary": {
+      "ru": "Считает число непересекающихся вхождений подпоследовательности.",
+      "en": "Count non-overlapping occurrences of a subsequence."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.count(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.count",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'banana'.count(b'a'))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.find",
+    "title": "bytes.find",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает индекс первого вхождения подпоследовательности или -1.",
+      "en": "Return the index of the first occurrence, or -1."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.find(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.find",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'banana'.find(b'na'))   # → 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.rfind",
+    "title": "bytes.rfind",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает индекс последнего вхождения подпоследовательности или -1.",
+      "en": "Return the index of the last occurrence, or -1."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.rfind(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.rfind",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'banana'.rfind(b'na'))   # → 4"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.index",
+    "title": "bytes.index",
+    "kind": "function",
+    "summary": {
+      "ru": "Как find, но бросает ValueError, если подпоследовательность не найдена.",
+      "en": "Like find, but raises ValueError if not found."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.index(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.index",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'banana'.index(b'na'))   # → 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.rindex",
+    "title": "bytes.rindex",
+    "kind": "function",
+    "summary": {
+      "ru": "Как rfind, но бросает ValueError, если не найдено.",
+      "en": "Like rfind, but raises ValueError if not found."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.rindex(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.rindex",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'banana'.rindex(b'na'))   # → 4"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.startswith",
+    "title": "bytes.startswith",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, начинаются ли байты с заданного префикса.",
+      "en": "Check whether the bytes start with a prefix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.startswith(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.startswith",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'hello'.startswith(b'he'))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.endswith",
+    "title": "bytes.endswith",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, заканчиваются ли байты заданным суффиксом.",
+      "en": "Check whether the bytes end with a suffix."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.endswith(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.endswith",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — поиск",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'hello'.endswith(b'lo'))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.join",
+    "title": "bytes.join",
+    "kind": "function",
+    "summary": {
+      "ru": "Соединяет последовательность байтовых объектов через разделитель.",
+      "en": "Join a sequence of bytes with this separator."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.join(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.join",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'-'.join([b'a', b'b', b'c']))   # → b'a-b-c'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.split",
+    "title": "bytes.split",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает байты по разделителю (по умолчанию — по пробельным).",
+      "en": "Split the bytes on a separator (whitespace by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.split(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.split",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'a b c'.split())   # → [b'a', b'b', b'c']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.rsplit",
+    "title": "bytes.rsplit",
+    "kind": "function",
+    "summary": {
+      "ru": "Как split, но разбивает справа и с ограничением числа разбиений.",
+      "en": "Like split, but splits from the right with a max count."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.rsplit(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.rsplit",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'a b c'.rsplit(None, 1))   # → [b'a b', b'c']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.partition",
+    "title": "bytes.partition",
+    "kind": "function",
+    "summary": {
+      "ru": "Делит по первому вхождению разделителя на тройку (до, разделитель, после).",
+      "en": "Split at the first separator into (head, sep, tail)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.partition(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.partition",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'a=b=c'.partition(b'='))   # → (b'a', b'=', b'b=c')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.rpartition",
+    "title": "bytes.rpartition",
+    "kind": "function",
+    "summary": {
+      "ru": "Делит по последнему вхождению разделителя на тройку.",
+      "en": "Split at the last separator into (head, sep, tail)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.rpartition(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.rpartition",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'a=b=c'.rpartition(b'='))   # → (b'a=b', b'=', b'c')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.splitlines",
+    "title": "bytes.splitlines",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает байты по границам строк.",
+      "en": "Split the bytes at line boundaries."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.splitlines(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.splitlines",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — разбиение и соединение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'a\\nb'.splitlines())   # → [b'a', b'b']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.strip",
+    "title": "bytes.strip",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает заданные байты (по умолчанию пробельные) с обоих концов.",
+      "en": "Strip given bytes (whitespace by default) from both ends."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.strip(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.strip",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'  hi  '.strip())   # → b'hi'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.lstrip",
+    "title": "bytes.lstrip",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает заданные байты слева.",
+      "en": "Strip given bytes from the left."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.lstrip(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.lstrip",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'  hi'.lstrip())   # → b'hi'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.rstrip",
+    "title": "bytes.rstrip",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает заданные байты справа.",
+      "en": "Strip given bytes from the right."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.rstrip(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.rstrip",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'hi  '.rstrip())   # → b'hi'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.removeprefix",
+    "title": "bytes.removeprefix",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает заданный префикс, если он есть (Python 3.9+).",
+      "en": "Remove a given prefix if present (3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.removeprefix(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.removeprefix",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'foobar'.removeprefix(b'foo'))   # → b'bar'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.removesuffix",
+    "title": "bytes.removesuffix",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает заданный суффикс, если он есть (Python 3.9+).",
+      "en": "Remove a given suffix if present (3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.removesuffix(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.removesuffix",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — обрезка",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'foobar'.removesuffix(b'bar'))   # → b'foo'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.replace",
+    "title": "bytes.replace",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает копию с заменой всех (или первых count) вхождений.",
+      "en": "Return a copy with occurrences of a subsequence replaced."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.replace(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.replace",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — замена и перевод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'aaa'.replace(b'a', b'b'))   # → b'bbb'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.translate",
+    "title": "bytes.translate",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет байты по таблице перевода (256 байт).",
+      "en": "Map bytes through a 256-byte translation table."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.translate(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.translate",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — замена и перевод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'abc'.translate(bytes.maketrans(b'a', b'X')))   # → b'Xbc'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.maketrans",
+    "title": "bytes.maketrans",
+    "kind": "function",
+    "summary": {
+      "ru": "Статический метод: строит таблицу перевода из двух байтовых объектов (для translate).",
+      "en": "A static method building a translation table for translate()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.maketrans(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.maketrans",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — замена и перевод",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(len(bytes.maketrans(b'ab', b'AB')))   # → 256"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.decode",
+    "title": "bytes.decode",
+    "kind": "function",
+    "summary": {
+      "ru": "Декодирует байты в строку (str) по заданной кодировке (по умолчанию UTF-8).",
+      "en": "Decode the bytes to a str using an encoding (UTF-8 by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.decode(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.decode",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — кодирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'hi'.decode())   # → hi"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.hex",
+    "title": "bytes.hex",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает шестнадцатеричное представление байтов как строку.",
+      "en": "Return a hexadecimal string of the bytes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.hex(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.hex",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — кодирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'abc'.hex())   # → 616263"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.fromhex",
+    "title": "bytes.fromhex",
+    "kind": "function",
+    "summary": {
+      "ru": "Статический метод: создаёт bytes из шестнадцатеричной строки.",
+      "en": "A static method creating bytes from a hex string."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.fromhex(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.fromhex",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — кодирование",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(bytes.fromhex('48656c6c6f'))   # → b'Hello'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.isalnum",
+    "title": "bytes.isalnum",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что все байты — ASCII-буквы или цифры и последовательность непуста.",
+      "en": "Check that all bytes are ASCII letters/digits and non-empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.isalnum(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.isalnum",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'abc123'.isalnum())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.isalpha",
+    "title": "bytes.isalpha",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что все байты — ASCII-буквы и последовательность непуста.",
+      "en": "Check that all bytes are ASCII letters and non-empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.isalpha(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.isalpha",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'abc'.isalpha())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.isascii",
+    "title": "bytes.isascii",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что все байты — ASCII (0–127); пустая последовательность тоже True.",
+      "en": "Check that all bytes are ASCII (0–127)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.isascii(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.isascii",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'abc'.isascii())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.isdigit",
+    "title": "bytes.isdigit",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что все байты — ASCII-цифры и последовательность непуста.",
+      "en": "Check that all bytes are ASCII digits and non-empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.isdigit(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.isdigit",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'123'.isdigit())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.islower",
+    "title": "bytes.islower",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что все буквенные байты — в нижнем регистре.",
+      "en": "Check that all cased bytes are lower-case."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.islower(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.islower",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'abc'.islower())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.isspace",
+    "title": "bytes.isspace",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что все байты — пробельные и последовательность непуста.",
+      "en": "Check that all bytes are whitespace and non-empty."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.isspace(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.isspace",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'   '.isspace())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.istitle",
+    "title": "bytes.istitle",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что последовательность в «заголовочном» регистре.",
+      "en": "Check that the bytes are title-cased."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.istitle(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.istitle",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'Hello World'.istitle())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "bytes.isupper",
+    "title": "bytes.isupper",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что все буквенные байты — в верхнем регистре.",
+      "en": "Check that all cased bytes are upper-case."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "b.isupper(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytes.isupper",
+    "version": "",
+    "section": "Байтовые последовательности",
+    "subcat": "bytes — проверки is*",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "bytes"
+    ],
+    "examples": [
+      "print(b'ABC'.isupper())   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
