@@ -12341,5 +12341,1629 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "operator.add",
+    "title": "operator.add",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a + b (функциональный эквивалент оператора `+`).",
+      "en": "Return a + b (the functional form of `+`)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.add(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.add",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "арифметика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.add(1, 2))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.sub",
+    "title": "operator.sub",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a − b (функциональный эквивалент `-`).",
+      "en": "Return a − b (the functional form of `-`)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.sub(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.sub",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "арифметика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.sub(5, 2))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.mul",
+    "title": "operator.mul",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a * b (функциональный эквивалент `*`).",
+      "en": "Return a * b (the functional form of `*`)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.mul(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.mul",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "арифметика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.mul(3, 4))   # → 12"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.truediv",
+    "title": "operator.truediv",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a / b — истинное деление с плавающей точкой (эквивалент `/`).",
+      "en": "Return a / b — true division (the functional form of `/`)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.truediv(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.truediv",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "арифметика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.truediv(7, 2))   # → 3.5"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.floordiv",
+    "title": "operator.floordiv",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a // b — целочисленное деление с округлением вниз (эквивалент `//`).",
+      "en": "Return a // b — floor division (the functional form of `//`)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.floordiv(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.floordiv",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "арифметика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.floordiv(7, 2))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.mod",
+    "title": "operator.mod",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a % b — остаток от деления (эквивалент `%`).",
+      "en": "Return a % b — the remainder (the functional form of `%`)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.mod(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.mod",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "арифметика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.mod(7, 3))   # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.neg",
+    "title": "operator.neg",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает −a (унарный минус).",
+      "en": "Return −a (unary negation)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.neg(a)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.neg",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "арифметика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.neg(3))   # → -3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.pos",
+    "title": "operator.pos",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает +a (унарный плюс; для чисел — само значение, но может вызывать __pos__).",
+      "en": "Return +a (unary plus)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.pos(a)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.pos",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "арифметика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.pos(-3))   # → -3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.and_",
+    "title": "operator.and_",
+    "kind": "function",
+    "summary": {
+      "ru": "Побитовое И: a & b (подчёркивание в имени — чтобы не совпасть с ключевым словом `and`).",
+      "en": "Bitwise AND: a & b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.and_(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.and_",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "битовые",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.and_(5, 3))   # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.or_",
+    "title": "operator.or_",
+    "kind": "function",
+    "summary": {
+      "ru": "Побитовое ИЛИ: a | b (подчёркивание — чтобы не совпасть с `or`).",
+      "en": "Bitwise OR: a | b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.or_(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.or_",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "битовые",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.or_(5, 2))   # → 7"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.xor",
+    "title": "operator.xor",
+    "kind": "function",
+    "summary": {
+      "ru": "Побитовое исключающее ИЛИ: a ^ b.",
+      "en": "Bitwise XOR: a ^ b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.xor(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.xor",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "битовые",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.xor(5, 3))   # → 6"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.invert",
+    "title": "operator.invert",
+    "kind": "function",
+    "summary": {
+      "ru": "Побитовая инверсия ~a (эквивалентно −a−1 для int).",
+      "en": "Bitwise inversion ~a."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.invert(a)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.invert",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "битовые",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.invert(0))   # → -1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.inv",
+    "title": "operator.inv",
+    "kind": "function",
+    "summary": {
+      "ru": "Псевдоним operator.invert: побитовая инверсия ~a.",
+      "en": "An alias of operator.invert: bitwise inversion ~a."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.inv(a)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.inv",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "битовые",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.inv(5))   # → -6"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.lshift",
+    "title": "operator.lshift",
+    "kind": "function",
+    "summary": {
+      "ru": "Сдвиг влево: a << b (умножение на 2**b).",
+      "en": "Left shift: a << b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.lshift(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.lshift",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "битовые",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.lshift(1, 3))   # → 8"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.rshift",
+    "title": "operator.rshift",
+    "kind": "function",
+    "summary": {
+      "ru": "Сдвиг вправо: a >> b (целочисленное деление на 2**b).",
+      "en": "Right shift: a >> b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.rshift(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.rshift",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "битовые",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.rshift(16, 2))   # → 4"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.eq",
+    "title": "operator.eq",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a == b (функциональный эквивалент `==`).",
+      "en": "Return a == b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.eq(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.eq",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "сравнение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.eq(1, 1))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.ne",
+    "title": "operator.ne",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a != b.",
+      "en": "Return a != b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.ne(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.ne",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "сравнение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.ne(1, 2))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.lt",
+    "title": "operator.lt",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a < b.",
+      "en": "Return a < b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.lt(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.lt",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "сравнение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.lt(1, 2))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.le",
+    "title": "operator.le",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a <= b.",
+      "en": "Return a <= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.le(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.le",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "сравнение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.le(2, 2))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.gt",
+    "title": "operator.gt",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a > b.",
+      "en": "Return a > b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.gt(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.gt",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "сравнение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.gt(3, 2))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.ge",
+    "title": "operator.ge",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a >= b.",
+      "en": "Return a >= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.ge(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.ge",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "сравнение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.ge(2, 2))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.is_",
+    "title": "operator.is_",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверка тождества: a is b (тот же объект в памяти).",
+      "en": "Identity test: a is b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.is_(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.is_",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "тождество и логика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "x = []",
+      "print(operator.is_(x, x))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.is_not",
+    "title": "operator.is_not",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверка нетождества: a is not b.",
+      "en": "Negated identity test: a is not b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.is_not(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.is_not",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "тождество и логика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.is_not([], []))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.not_",
+    "title": "operator.not_",
+    "kind": "function",
+    "summary": {
+      "ru": "Логическое НЕ: not a (возвращает bool).",
+      "en": "Logical negation: not a."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.not_(a)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.not_",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "тождество и логика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.not_(False))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.truth",
+    "title": "operator.truth",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает истинностное значение объекта как bool (эквивалент bool(a)).",
+      "en": "Return the truth value of a as a bool."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.truth(a)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.truth",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "тождество и логика",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.truth([1]))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.concat",
+    "title": "operator.concat",
+    "kind": "function",
+    "summary": {
+      "ru": "Конкатенация двух последовательностей: a + b (списки, строки, кортежи).",
+      "en": "Concatenate two sequences: a + b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.concat(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.concat",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "последовательности",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.concat([1], [2]))   # → [1, 2]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.contains",
+    "title": "operator.contains",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверка вхождения: b in a (обратите внимание на порядок аргументов).",
+      "en": "Membership test: b in a (note the argument order)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.contains(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.contains",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "последовательности",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.contains([1, 2, 3], 2))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.countOf",
+    "title": "operator.countOf",
+    "kind": "function",
+    "summary": {
+      "ru": "Число вхождений b в последовательности a.",
+      "en": "The number of occurrences of b in a."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.countOf(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.countOf",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "последовательности",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.countOf([1, 2, 2, 3], 2))   # → 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.indexOf",
+    "title": "operator.indexOf",
+    "kind": "function",
+    "summary": {
+      "ru": "Индекс первого вхождения b в a (аналог list.index).",
+      "en": "The index of the first occurrence of b in a."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.indexOf(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.indexOf",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "последовательности",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.indexOf([1, 2, 3], 3))   # → 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.getitem",
+    "title": "operator.getitem",
+    "kind": "function",
+    "summary": {
+      "ru": "Доступ по ключу/индексу: a[b].",
+      "en": "Item access: a[b]."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.getitem(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.getitem",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "последовательности",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.getitem([10, 20, 30], 1))   # → 20"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.setitem",
+    "title": "operator.setitem",
+    "kind": "function",
+    "summary": {
+      "ru": "Присваивание по ключу/индексу: a[b] = c (мутирует объект).",
+      "en": "Item assignment: a[b] = c."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.setitem(a, b, c)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.setitem",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "последовательности",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "l = [0, 0]",
+      "operator.setitem(l, 0, 9)",
+      "print(l)   # → [9, 0]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.delitem",
+    "title": "operator.delitem",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаление по ключу/индексу: del a[b].",
+      "en": "Item deletion: del a[b]."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.delitem(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.delitem",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "последовательности",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "l = [1, 2, 3]",
+      "operator.delitem(l, 1)",
+      "print(l)   # → [1, 3]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.length_hint",
+    "title": "operator.length_hint",
+    "kind": "function",
+    "summary": {
+      "ru": "Оценка длины объекта: точная (len) или предполагаемая через __length_hint__ (для итераторов); второй аргумент — значение по умолчанию.",
+      "en": "Estimate an object's length (exact or via __length_hint__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.length_hint(obj, default=0)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.length_hint",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "последовательности",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.length_hint([1, 2, 3]))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.matmul",
+    "title": "operator.matmul",
+    "kind": "function",
+    "summary": {
+      "ru": "Матричное умножение: a @ b (вызывает __matmul__; используется, например, в NumPy).",
+      "en": "Matrix multiplication: a @ b (invokes __matmul__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.matmul(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.matmul",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "матричное умножение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "class M:",
+      "    def __matmul__(self, other): return 'mm'",
+      "print(operator.matmul(M(), M()))   # → mm"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.call",
+    "title": "operator.call",
+    "kind": "function",
+    "summary": {
+      "ru": "Вызывает объект с аргументами: call(f, *args, **kwargs) == f(*args, **kwargs) (Python 3.11+).",
+      "en": "Call an object: call(f, *args, **kwargs) == f(*args, **kwargs) (3.11+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.call(f, *args, **kwargs)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.call",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "вызов и доступ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.call(abs, -5))   # → 5"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.itemgetter",
+    "title": "operator.itemgetter",
+    "kind": "function",
+    "summary": {
+      "ru": "Фабрика: возвращает функцию, извлекающую элемент(ы) по фиксированному индексу/ключу — удобно для key= в sorted/map.",
+      "en": "A factory returning a callable that fetches items by fixed index/key."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "f = operator.itemgetter(index)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.itemgetter",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "вызов и доступ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "g = operator.itemgetter(1)",
+      "print(g([10, 20, 30]))   # → 20"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.attrgetter",
+    "title": "operator.attrgetter",
+    "kind": "function",
+    "summary": {
+      "ru": "Фабрика: возвращает функцию, извлекающую атрибут(ы) по фиксированному имени (поддерживает точечные пути).",
+      "en": "A factory returning a callable that fetches attributes by fixed name."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "f = operator.attrgetter('attr')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.attrgetter",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "вызов и доступ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "g = operator.attrgetter('real')",
+      "print(g(3 + 4j))   # → 3.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.methodcaller",
+    "title": "operator.methodcaller",
+    "kind": "function",
+    "summary": {
+      "ru": "Фабрика: возвращает функцию, вызывающую у объекта метод с фиксированным именем и аргументами.",
+      "en": "A factory returning a callable that calls a fixed method on its argument."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "f = operator.methodcaller('method', *args)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.methodcaller",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "вызов и доступ",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "g = operator.methodcaller('upper')",
+      "print(g('abc'))   # → ABC"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.iadd",
+    "title": "operator.iadd",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place сложение: a += b (для изменяемых типов мутирует a, для неизменяемых — как add).",
+      "en": "In-place addition: a += b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.iadd(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.iadd",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.iadd(1, 2))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.isub",
+    "title": "operator.isub",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place вычитание: a −= b.",
+      "en": "In-place subtraction: a −= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.isub(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.isub",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.isub(5, 2))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.imul",
+    "title": "operator.imul",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place умножение: a *= b.",
+      "en": "In-place multiplication: a *= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.imul(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.imul",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.imul(3, 4))   # → 12"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.itruediv",
+    "title": "operator.itruediv",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place истинное деление: a /= b.",
+      "en": "In-place true division: a /= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.itruediv(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.itruediv",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.itruediv(7, 2))   # → 3.5"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.ifloordiv",
+    "title": "operator.ifloordiv",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place целочисленное деление: a //= b.",
+      "en": "In-place floor division: a //= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.ifloordiv(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.ifloordiv",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.ifloordiv(7, 2))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.imod",
+    "title": "operator.imod",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place остаток: a %= b.",
+      "en": "In-place modulo: a %= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.imod(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.imod",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.imod(7, 3))   # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.ipow",
+    "title": "operator.ipow",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place возведение в степень: a **= b.",
+      "en": "In-place exponentiation: a **= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.ipow(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.ipow",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.ipow(2, 3))   # → 8"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.iand",
+    "title": "operator.iand",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place побитовое И: a &= b.",
+      "en": "In-place bitwise AND: a &= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.iand(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.iand",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.iand(5, 3))   # → 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.ior",
+    "title": "operator.ior",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place побитовое ИЛИ: a |= b.",
+      "en": "In-place bitwise OR: a |= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.ior(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.ior",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.ior(5, 2))   # → 7"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.ixor",
+    "title": "operator.ixor",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place исключающее ИЛИ: a ^= b.",
+      "en": "In-place bitwise XOR: a ^= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.ixor(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.ixor",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.ixor(5, 3))   # → 6"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.ilshift",
+    "title": "operator.ilshift",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place сдвиг влево: a <<= b.",
+      "en": "In-place left shift: a <<= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.ilshift(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.ilshift",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.ilshift(1, 3))   # → 8"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.irshift",
+    "title": "operator.irshift",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place сдвиг вправо: a >>= b.",
+      "en": "In-place right shift: a >>= b."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.irshift(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.irshift",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.irshift(16, 2))   # → 4"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.iconcat",
+    "title": "operator.iconcat",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place конкатенация: a += b для последовательностей (мутирует список).",
+      "en": "In-place concatenation: a += b for sequences."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.iconcat(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.iconcat",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.iconcat([1], [2]))   # → [1, 2]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "operator.imatmul",
+    "title": "operator.imatmul",
+    "kind": "function",
+    "summary": {
+      "ru": "In-place матричное умножение: a @= b (вызывает __imatmul__).",
+      "en": "In-place matrix multiplication: a @= b (invokes __imatmul__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.imatmul(a, b)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.imatmul",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "на месте (in-place)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "class M:",
+      "    def __imatmul__(self, other): return 'imm'",
+      "print(operator.imatmul(M(), M()))   # → imm"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
