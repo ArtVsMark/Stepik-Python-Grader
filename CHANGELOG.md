@@ -38,6 +38,7 @@
 ### Documentation
 - Server-mode sandbox-backend design (no code): `docs/server-sandbox-design.md` + ADR-0008 pin the backend *class* (OS container — namespaces + cgroups v2 + netns + seccomp, rootless with a privileged fallback) and map every #157 requirement onto Linux primitives; the concrete OCI runtime stays a deployment choice (#153).
 - Server-mode data-model design (no code): `docs/server-data-model.md` + ADR-0009 specify one domain model with two storage backends — the PostgreSQL server schema is a superset of the local SQLite history (tenancy columns + native types, no duplicate model) — plus the accounts/workspaces/courses/tasks hierarchy, RBAC, and the SQLite→PG migration strategy (#154, #155).
+- Dropped the stale "lint not wired yet" note from `docs/rules-insights.md` and `docs/result-contract.md` — the lint→history contour is closed (#403), the «lint» learning-card category is reachable (#495).
 
 ### Changed
 - Glossary web section shows only `status=ready` cards by default (787 auto-draft cards hidden unless `?status=all`/`draft` is chosen); privately-named auto-drafts (`os._exit`, `_pickle.X` — not dunders, ~11 cards) are always excluded from student-facing search/lists. The private filter applies only to non-`ready` cards, so hand-authored `ready` cards (incl. OOP dunder-operator cards) stay visible; the missing-term detector and queue still see the full base (#436).
