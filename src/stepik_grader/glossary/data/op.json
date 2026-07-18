@@ -2281,41 +2281,6 @@
     "related_errors": []
   },
   {
-    "id": "statistics.mean-median-mode",
-    "title": "statistics.mean() / median() / mode()",
-    "kind": "function",
-    "summary": {
-      "ru": "Функции модуля statistics для вычисления среднего, медианы и моды набора данных.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "statistics.mean(data)\nstatistics.median(data)\nstatistics.mode(data)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-statistics.mean-median-mode",
-    "docs_url": "https://docs.python.org/3/library/numbers.html",
-    "version": "",
-    "section": "Числа и математика",
-    "subcat": "statistics",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "op"
-    ],
-    "examples": [
-      "import statistics",
-      "statistics.mean([1, 2, 3, 4, 5]) # → 3",
-      "statistics.median([1, 3, 5]) # → 3",
-      "statistics.median([1, 3]) # → 2.0",
-      "statistics.mode([1, 2, 2, 3]) # → 2",
-      "statistics.multimode([1,1,2,2]) # → [1, 2]"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "statistics.quantiles",
     "title": "statistics.quantiles()",
     "kind": "function",
@@ -2346,42 +2311,6 @@
       "statistics.quantiles(data, n=2) # → [5.5]  медиана",
       "statistics.quantiles([1,2,3,4,5,6,7,8,9,10], n=10)",
       "# → [1.9, 2.8, 3.7, 4.6, 5.5, 6.4, 7.3, 8.2, 9.1]"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "statistics.stdev-variance-pstdev",
-    "title": "statistics.stdev() / variance() / pstdev()",
-    "kind": "function",
-    "summary": {
-      "ru": "Функции для измерения разброса: stdev/variance — выборочные, pstdev/pvariance — генеральной совокупности.",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "statistics.stdev(data)\nstatistics.variance(data)\nstatistics.pstdev(data)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-statistics.stdev-variance-pstdev",
-    "docs_url": "https://docs.python.org/3/library/numbers.html",
-    "version": "",
-    "section": "Числа и математика",
-    "subcat": "statistics",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "op"
-    ],
-    "examples": [
-      "import statistics",
-      "data = [2, 4, 4, 4, 5, 5, 7, 9]",
-      "statistics.mean(data) # → 5.0",
-      "statistics.variance(data) # → 4.571... (выборочная)",
-      "statistics.pvariance(data) # → 4.0 (генеральная)",
-      "statistics.stdev(data) # → 2.138...",
-      "statistics.pstdev(data) # → 2.0"
     ],
     "related": [],
     "related_errors": []
@@ -5559,6 +5488,569 @@
     "examples": [
       "import json, io",
       "print(json.load(io.StringIO('[1, 2, 3]')))   # → [1, 2, 3]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.mean",
+    "title": "statistics.mean",
+    "kind": "function",
+    "summary": {
+      "ru": "Среднее арифметическое данных.",
+      "en": "Arithmetic mean (average) of the data."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.mean(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.mean",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "среднее",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.mean([1, 2, 3, 4]))   # → 2.5"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.fmean",
+    "title": "statistics.fmean",
+    "kind": "function",
+    "summary": {
+      "ru": "Быстрое среднее арифметическое как float (быстрее mean, Python 3.8+).",
+      "en": "Fast floating-point arithmetic mean (faster than mean; 3.8+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.fmean(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.fmean",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "среднее",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.fmean([1, 2, 3, 4]))   # → 2.5"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.geometric_mean",
+    "title": "statistics.geometric_mean",
+    "kind": "function",
+    "summary": {
+      "ru": "Среднее геометрическое (корень n-й степени из произведения).",
+      "en": "Geometric mean (the n-th root of the product)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.geometric_mean(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.geometric_mean",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "среднее",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(round(statistics.geometric_mean([1, 4, 16]), 1))   # → 4.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.harmonic_mean",
+    "title": "statistics.harmonic_mean",
+    "kind": "function",
+    "summary": {
+      "ru": "Среднее гармоническое (обратное к среднему обратных); полезно для скоростей/темпов.",
+      "en": "Harmonic mean (reciprocal of the mean of reciprocals)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.harmonic_mean(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.harmonic_mean",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "среднее",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.harmonic_mean([1, 2, 4]))   # → 1.7142857142857142"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.median",
+    "title": "statistics.median",
+    "kind": "function",
+    "summary": {
+      "ru": "Медиана — среднее значение отсортированных данных (для чётной длины — среднее двух центральных).",
+      "en": "Median — the middle value of sorted data."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.median(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.median",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "медиана",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.median([1, 2, 3, 4]))   # → 2.5",
+      "print(statistics.median([1, 3, 5]))      # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.median_low",
+    "title": "statistics.median_low",
+    "kind": "function",
+    "summary": {
+      "ru": "Нижняя медиана: при чётной длине возвращает меньшее из двух центральных (всегда элемент данных).",
+      "en": "Low median: for even-length data returns the smaller of the two middle values."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.median_low(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.median_low",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "медиана",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.median_low([1, 2, 3, 4]))   # → 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.median_high",
+    "title": "statistics.median_high",
+    "kind": "function",
+    "summary": {
+      "ru": "Верхняя медиана: при чётной длине возвращает большее из двух центральных.",
+      "en": "High median: for even-length data returns the larger of the two middle values."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.median_high(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.median_high",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "медиана",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.median_high([1, 2, 3, 4]))   # → 3"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.median_grouped",
+    "title": "statistics.median_grouped",
+    "kind": "function",
+    "summary": {
+      "ru": "Медиана сгруппированных (непрерывных) данных с интерполяцией по интервалу.",
+      "en": "Median of grouped continuous data, interpolated within the interval."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.median_grouped(data, interval=1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.median_grouped",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "медиана",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.median_grouped([1, 2, 2, 3, 4, 4, 4]))   # → 3.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.mode",
+    "title": "statistics.mode",
+    "kind": "function",
+    "summary": {
+      "ru": "Мода — самое частое значение (первое при равенстве). Работает и с нечисловыми данными.",
+      "en": "Mode — the most common value (the first one on a tie)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.mode(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.mode",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "мода",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.mode([1, 1, 2, 3]))       # → 1",
+      "print(statistics.mode(['a', 'b', 'a']))   # → a"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.multimode",
+    "title": "statistics.multimode",
+    "kind": "function",
+    "summary": {
+      "ru": "Список всех мод (значений с максимальной частотой); пустой список для пустых данных.",
+      "en": "A list of all modes (values with the highest frequency)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.multimode(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.multimode",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "мода",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.multimode([1, 1, 2, 2, 3]))   # → [1, 2]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.stdev",
+    "title": "statistics.stdev",
+    "kind": "function",
+    "summary": {
+      "ru": "Выборочное стандартное отклонение (на n−1 степенях свободы).",
+      "en": "Sample standard deviation (with n−1 degrees of freedom)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.stdev(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.stdev",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "разброс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.stdev([2, 4, 4, 4, 5, 5, 7, 9]))   # → 2.138089935299395"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.pstdev",
+    "title": "statistics.pstdev",
+    "kind": "function",
+    "summary": {
+      "ru": "Стандартное отклонение генеральной совокупности (на n степенях свободы).",
+      "en": "Population standard deviation (with n degrees of freedom)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.pstdev(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.pstdev",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "разброс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.pstdev([2, 4, 4, 4, 5, 5, 7, 9]))   # → 2.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.variance",
+    "title": "statistics.variance",
+    "kind": "function",
+    "summary": {
+      "ru": "Выборочная дисперсия (квадрат stdev, на n−1).",
+      "en": "Sample variance (the square of stdev, with n−1)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.variance(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.variance",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "разброс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.variance([1, 2, 3, 4, 5]))   # → 2.5"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.pvariance",
+    "title": "statistics.pvariance",
+    "kind": "function",
+    "summary": {
+      "ru": "Дисперсия генеральной совокупности (на n).",
+      "en": "Population variance (with n)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.pvariance(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.pvariance",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "разброс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.pvariance([1, 2, 3, 4, 5]))   # → 2"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.correlation",
+    "title": "statistics.correlation",
+    "kind": "function",
+    "summary": {
+      "ru": "Коэффициент корреляции Пирсона (или Спирмена) двух наборов, от −1 до 1 (Python 3.10+).",
+      "en": "Pearson's (or Spearman's) correlation coefficient of two datasets, −1..1 (3.10+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.correlation(x, y)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.correlation",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "связь",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.correlation([1, 2, 3], [2, 4, 6]))   # → 1.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.covariance",
+    "title": "statistics.covariance",
+    "kind": "function",
+    "summary": {
+      "ru": "Выборочная ковариация двух наборов данных (Python 3.10+).",
+      "en": "Sample covariance of two datasets (3.10+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.covariance(x, y)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.covariance",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "связь",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "print(statistics.covariance([1, 2, 3], [2, 4, 6]))   # → 2.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.linear_regression",
+    "title": "statistics.linear_regression",
+    "kind": "function",
+    "summary": {
+      "ru": "Линейная регрессия: наклон и точка пересечения (slope, intercept) методом наименьших квадратов (Python 3.10+).",
+      "en": "Linear regression: slope and intercept by least squares (3.10+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.linear_regression(x, y)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.linear_regression",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "связь",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "r = statistics.linear_regression([1, 2, 3], [2, 4, 6])",
+      "print(round(r.slope, 1), round(r.intercept, 1))   # → 2.0 0.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "statistics.NormalDist",
+    "title": "statistics.NormalDist",
+    "kind": "term",
+    "summary": {
+      "ru": "Нормальное распределение (μ, σ): методы pdf/cdf, выборка samples, арифметика.",
+      "en": "A normal distribution (μ, σ) with pdf/cdf/samples and arithmetic."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "statistics.NormalDist(mu=0.0, sigma=1.0)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.NormalDist",
+    "version": "",
+    "section": "Модуль statistics",
+    "subcat": "распределение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "statistics"
+    ],
+    "examples": [
+      "import statistics",
+      "nd = statistics.NormalDist(0, 1)",
+      "print(nd.mean, nd.stdev)   # → 0.0 1.0",
+      "print(round(nd.cdf(0), 2))   # → 0.5"
     ],
     "related": [],
     "related_errors": []

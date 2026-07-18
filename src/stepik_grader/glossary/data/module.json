@@ -7991,5 +7991,169 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "datetime.date",
+    "title": "datetime.date",
+    "kind": "term",
+    "summary": {
+      "ru": "Календарная дата (год, месяц, день) без времени. date.today() — сегодня, weekday() — день недели (0=пн).",
+      "en": "A calendar date (year, month, day) without time."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "datetime.date(year, month, day)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.date",
+    "version": "",
+    "section": "Модуль datetime",
+    "subcat": "дата",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "datetime"
+    ],
+    "examples": [
+      "import datetime",
+      "d = datetime.date(2024, 1, 15)",
+      "print(d)              # → 2024-01-15",
+      "print(d.weekday())    # → 0",
+      "print(d.year, d.month)  # → 2024 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "datetime.datetime",
+    "title": "datetime.datetime",
+    "kind": "term",
+    "summary": {
+      "ru": "Момент времени: дата + время. datetime.now() — текущий; поддерживает арифметику с timedelta и strftime().",
+      "en": "A moment in time: date plus time; supports arithmetic with timedelta and strftime()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "datetime.datetime(year, month, day, hour=0, minute=0, second=0)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.datetime",
+    "version": "",
+    "section": "Модуль datetime",
+    "subcat": "дата-время",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "datetime"
+    ],
+    "examples": [
+      "import datetime",
+      "dt = datetime.datetime(2024, 1, 15, 10, 30)",
+      "print(dt)                     # → 2024-01-15 10:30:00",
+      "print(dt.strftime('%d.%m.%Y'))  # → 15.01.2024"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "datetime.time",
+    "title": "datetime.time",
+    "kind": "term",
+    "summary": {
+      "ru": "Время суток (часы, минуты, секунды, микросекунды) без даты.",
+      "en": "A time of day (hour, minute, second, microsecond) without a date."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "datetime.time(hour=0, minute=0, second=0)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.time",
+    "version": "",
+    "section": "Модуль datetime",
+    "subcat": "время",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "datetime"
+    ],
+    "examples": [
+      "import datetime",
+      "t = datetime.time(10, 30, 45)",
+      "print(t)         # → 10:30:45",
+      "print(t.hour, t.minute)  # → 10 30"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "datetime.timezone",
+    "title": "datetime.timezone",
+    "kind": "term",
+    "summary": {
+      "ru": "Часовой пояс с фиксированным смещением от UTC (подкласс tzinfo). datetime.timezone.utc — сам UTC.",
+      "en": "A time zone with a fixed offset from UTC (a subclass of tzinfo)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "datetime.timezone(offset)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.timezone",
+    "version": "",
+    "section": "Модуль datetime",
+    "subcat": "часовой пояс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "datetime"
+    ],
+    "examples": [
+      "import datetime",
+      "tz = datetime.timezone(datetime.timedelta(hours=3))",
+      "print(tz)   # → UTC+03:00",
+      "print(datetime.timezone.utc)   # → UTC"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "datetime.tzinfo",
+    "title": "datetime.tzinfo",
+    "kind": "term",
+    "summary": {
+      "ru": "Абстрактный базовый класс сведений о часовом поясе; конкретная реализация — timezone.",
+      "en": "An abstract base class for time-zone information; the concrete implementation is timezone."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "class MyTz(datetime.tzinfo): ...",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.tzinfo",
+    "version": "",
+    "section": "Модуль datetime",
+    "subcat": "часовой пояс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "datetime"
+    ],
+    "examples": [
+      "import datetime",
+      "print(issubclass(datetime.timezone, datetime.tzinfo))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
