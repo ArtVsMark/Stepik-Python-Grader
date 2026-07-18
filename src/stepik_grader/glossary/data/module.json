@@ -13965,5 +13965,938 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "os.path.basename",
+    "title": "os.path.basename",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает последний компонент пути (имя файла/каталога).",
+      "en": "Return the final component of a path (the file/dir name)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.basename(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.basename",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.basename('/a/b/c.txt'))   # → c.txt"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.dirname",
+    "title": "os.path.dirname",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает путь без последнего компонента (родительский каталог).",
+      "en": "Return the path without its final component (the parent directory)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.dirname(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.dirname",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.dirname('/a/b/c.txt'))   # → /a/b"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.split",
+    "title": "os.path.split",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает путь на пару (родитель, имя) — dirname и basename вместе.",
+      "en": "Split a path into a (head, tail) pair — dirname and basename together."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.split(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.split",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.split('/a/b/c'))   # → ('/a/b', 'c')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.splitdrive",
+    "title": "os.path.splitdrive",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает путь на пару (диск, остаток); на не-Windows диск всегда пустой.",
+      "en": "Split a path into a (drive, rest) pair; the drive is empty on non-Windows."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.splitdrive(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.splitdrive",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.splitdrive('/a/b'))   # → ('', '/a/b')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.splitroot",
+    "title": "os.path.splitroot",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбивает путь на тройку (диск, корень, остаток) (Python 3.12+).",
+      "en": "Split a path into a (drive, root, tail) triple (3.12+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.splitroot(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.splitroot",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.splitroot('/a/b'))   # → ('', '/', 'a/b')"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.normcase",
+    "title": "os.path.normcase",
+    "kind": "function",
+    "summary": {
+      "ru": "Нормализует регистр и разделители пути; на POSIX возвращает строку без изменений, на Windows приводит к нижнему регистру и меняет / на \\.",
+      "en": "Normalize path case and separators; a no-op on POSIX."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.normcase(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.normcase",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.normcase('abc'))   # → abc"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.normpath",
+    "title": "os.path.normpath",
+    "kind": "function",
+    "summary": {
+      "ru": "Убирает избыточные разделители и переходы (`.`/`..`), приводя путь к каноничному виду.",
+      "en": "Collapse redundant separators and up-level references (`.`/`..`)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.normpath(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.normpath",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.normpath('a/./'))   # → a"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.commonprefix",
+    "title": "os.path.commonprefix",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает самый длинный общий префикс строк списка — посимвольно (не по компонентам пути!).",
+      "en": "Return the longest common prefix of a list of strings — character-wise, not path-aware."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.commonprefix(list)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.commonprefix",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.commonprefix(['abcd', 'abef']))   # → ab"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.commonpath",
+    "title": "os.path.commonpath",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает самый длинный общий подпуть списка путей — по компонентам (в отличие от commonprefix).",
+      "en": "Return the longest common sub-path of a list — component-wise."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.commonpath(paths)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.commonpath",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.commonpath(['/usr/a', '/usr/b']).endswith('usr'))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.relpath",
+    "title": "os.path.relpath",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает путь к path относительно каталога start.",
+      "en": "Return a path to `path` relative to the `start` directory."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.relpath(path, start)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.relpath",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — разбор пути",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.relpath('/a/b/c', '/a/b'))   # → c"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.abspath",
+    "title": "os.path.abspath",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает нормализованный абсолютный путь (относительный достраивается от текущего каталога).",
+      "en": "Return a normalized absolute version of a path."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.abspath(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.abspath",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — абсолютизация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.isabs(os.path.abspath('x')))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.realpath",
+    "title": "os.path.realpath",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает канонический путь, разрешая все символические ссылки по дороге.",
+      "en": "Return the canonical path, resolving any symlinks."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.realpath(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.realpath",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — абсолютизация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.isabs(os.path.realpath('.')))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.expanduser",
+    "title": "os.path.expanduser",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет ведущий `~` (или `~user`) на домашний каталог пользователя; без `~` путь не меняется.",
+      "en": "Expand a leading `~` (or `~user`) to the user's home directory."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.expanduser(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.expanduser",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — абсолютизация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.expanduser('foo'))   # → foo"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.expandvars",
+    "title": "os.path.expandvars",
+    "kind": "function",
+    "summary": {
+      "ru": "Подставляет значения переменных окружения вида `$VAR`/`${VAR}` в строке пути.",
+      "en": "Expand environment variables of the form `$VAR`/`${VAR}` in a path."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.expandvars(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.expandvars",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — абсолютизация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.expandvars('no vars here'))   # → no vars here"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.isabs",
+    "title": "os.path.isabs",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, является ли путь абсолютным.",
+      "en": "Check whether a path is absolute."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.isabs(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.isabs",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — абсолютизация",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.isabs('relative/path'))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.exists",
+    "title": "os.path.exists",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, существует ли путь (следуя символическим ссылкам).",
+      "en": "Check whether a path exists (following symlinks)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.exists(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.exists",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — проверки существования и типа",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.exists(os.__file__))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.lexists",
+    "title": "os.path.lexists",
+    "kind": "function",
+    "summary": {
+      "ru": "Как exists, но не следует по символической ссылке (True даже для «битой» ссылки).",
+      "en": "Like exists, but does not follow symlinks (True even for a broken link)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.lexists(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.lexists",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — проверки существования и типа",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.lexists(os.__file__))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.isdir",
+    "title": "os.path.isdir",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, существует ли путь и является ли он каталогом.",
+      "en": "Check whether a path exists and is a directory."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.isdir(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.isdir",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — проверки существования и типа",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.isdir(os.path.dirname(os.__file__)))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.isfile",
+    "title": "os.path.isfile",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, существует ли путь и является ли он обычным файлом.",
+      "en": "Check whether a path exists and is a regular file."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.isfile(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.isfile",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — проверки существования и типа",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.isfile(os.__file__))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.islink",
+    "title": "os.path.islink",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, является ли путь символической ссылкой (False, если пути нет).",
+      "en": "Check whether a path is a symbolic link (False if it does not exist)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.islink(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.islink",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — проверки существования и типа",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.islink('not_a_link_xyz'))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.ismount",
+    "title": "os.path.ismount",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, является ли путь точкой монтирования файловой системы.",
+      "en": "Check whether a path is a filesystem mount point."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.ismount(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.ismount",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — проверки существования и типа",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.ismount('some_file.txt'))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.isjunction",
+    "title": "os.path.isjunction",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, является ли путь junction-точкой Windows (на других ОС всегда False; Python 3.12+).",
+      "en": "Check whether a path is a Windows junction (always False on other OSes; 3.12+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.isjunction(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.isjunction",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — проверки существования и типа",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.isjunction(os.__file__))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.isdevdrive",
+    "title": "os.path.isdevdrive",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, расположен ли путь на Dev Drive (функция Windows; на других ОС всегда False; Python 3.12+).",
+      "en": "Check whether a path is on a Dev Drive (a Windows feature; False elsewhere; 3.12+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.isdevdrive(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.isdevdrive",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — проверки существования и типа",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.isdevdrive('.'))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.getsize",
+    "title": "os.path.getsize",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает размер файла в байтах.",
+      "en": "Return the size of a file in bytes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.getsize(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.getsize",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — метаданные (stat)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.getsize(os.__file__) > 0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.getmtime",
+    "title": "os.path.getmtime",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает время последнего изменения файла (секунды с эпохи, float).",
+      "en": "Return the last-modification time of a file (seconds since the epoch)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.getmtime(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.getmtime",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — метаданные (stat)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.getmtime(os.__file__) > 0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.getatime",
+    "title": "os.path.getatime",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает время последнего доступа к файлу (секунды с эпохи, float).",
+      "en": "Return the last-access time of a file (seconds since the epoch)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.getatime(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.getatime",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — метаданные (stat)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.getatime(os.__file__) > 0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.getctime",
+    "title": "os.path.getctime",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает время последнего изменения метаданных (POSIX) или создания (Windows) файла.",
+      "en": "Return the metadata-change time (POSIX) or creation time (Windows) of a file."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.getctime(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.getctime",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — метаданные (stat)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.getctime(os.__file__) > 0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.samefile",
+    "title": "os.path.samefile",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, ссылаются ли два пути на один и тот же файл (по устройству и inode).",
+      "en": "Check whether two paths refer to the same file (by device and inode)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.samefile(p1, p2)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.samefile",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — метаданные (stat)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.path.samefile(os.__file__, os.__file__))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.samestat",
+    "title": "os.path.samestat",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, описывают ли два объекта os.stat_result один и тот же файл.",
+      "en": "Check whether two os.stat_result objects describe the same file."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.samestat(s1, s2)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.samestat",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — метаданные (stat)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "s = os.stat(os.__file__)",
+      "print(os.path.samestat(s, s))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.path.sameopenfile",
+    "title": "os.path.sameopenfile",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, ссылаются ли два файловых дескриптора на один и тот же файл.",
+      "en": "Check whether two file descriptors refer to the same file."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.sameopenfile(fd1, fd2)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.sameopenfile",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os.path — метаданные (stat)",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "fd = os.open(os.__file__, os.O_RDONLY)",
+      "print(os.path.sameopenfile(fd, fd))   # → True",
+      "os.close(fd)"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
