@@ -14898,5 +14898,1431 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "os.fsencode",
+    "title": "os.fsencode",
+    "kind": "function",
+    "summary": {
+      "ru": "Кодирует путь (str) в bytes в кодировке файловой системы.",
+      "en": "Encode a path (str) to bytes using the filesystem encoding."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fsencode(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fsencode",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — кодирование путей",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.fsencode('abc'))   # → b'abc'"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fsdecode",
+    "title": "os.fsdecode",
+    "kind": "function",
+    "summary": {
+      "ru": "Декодирует путь (bytes) в str из кодировки файловой системы.",
+      "en": "Decode a path (bytes) to str using the filesystem encoding."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fsdecode(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fsdecode",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — кодирование путей",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.fsdecode(b'abc'))   # → abc"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fspath",
+    "title": "os.fspath",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает путь как str/bytes: для строки — её саму, для объекта с __fspath__ (напр. Path) — его результат.",
+      "en": "Return the path as str/bytes, calling __fspath__ if present (e.g. Path)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fspath(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fspath",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — кодирование путей",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.fspath('a/b'))   # → a/b"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getenv",
+    "title": "os.getenv",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает значение переменной окружения или default, если её нет.",
+      "en": "Return an environment variable's value, or default if unset."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getenv(key, default=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getenv",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — окружение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.getenv('NO_SUCH_VAR_XYZ', 'default'))   # → default"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.putenv",
+    "title": "os.putenv",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает переменную окружения на уровне ОС (для дочерних процессов); os.environ обновляется отдельно.",
+      "en": "Set an environment variable at the OS level (for child processes)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.putenv(key, value)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.putenv",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — окружение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "os.putenv('GLOSSARY_DEMO', 'x')",
+      "print('set')   # → set"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.unsetenv",
+    "title": "os.unsetenv",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет переменную окружения на уровне ОС.",
+      "en": "Unset an environment variable at the OS level."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.unsetenv(key)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.unsetenv",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — окружение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "os.unsetenv('GLOSSARY_DEMO')",
+      "print('unset')   # → unset"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.get_exec_path",
+    "title": "os.get_exec_path",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список каталогов для поиска исполняемых файлов (из PATH).",
+      "en": "Return the list of directories searched for executables (from PATH)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.get_exec_path()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.get_exec_path",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — окружение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(isinstance(os.get_exec_path(), list))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getppid",
+    "title": "os.getppid",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает PID родительского процесса.",
+      "en": "Return the parent process id."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getppid()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getppid",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — процесс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.getppid() >= 0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.umask",
+    "title": "os.umask",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает маску прав создаваемых файлов и возвращает предыдущее значение.",
+      "en": "Set the file-creation mode mask and return the previous value."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.umask(mask)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.umask",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — процесс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "old = os.umask(0o022)",
+      "os.umask(old)",
+      "print(isinstance(old, int))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.times",
+    "title": "os.times",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает именованный кортеж процессорного времени (user/system/…, 5 полей).",
+      "en": "Return a named tuple of process times (user/system/…, 5 fields)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.times()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.times",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — процесс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(len(os.times()))   # → 5"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.times_result",
+    "title": "os.times_result",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип результата os.times(): именованный кортеж с полями user/system/children_user/children_system/elapsed.",
+      "en": "The result type of os.times(): a named tuple (user/system/children_*/elapsed)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.times_result(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.times_result",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — процесс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "tr = os.times_result((1.0, 2.0, 3.0, 4.0, 5.0))",
+      "print(tr.elapsed)   # → 5.0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.waitstatus_to_exitcode",
+    "title": "os.waitstatus_to_exitcode",
+    "kind": "function",
+    "summary": {
+      "ru": "Преобразует «сырой» статус завершения (от waitpid) в код возврата процесса (Python 3.9+).",
+      "en": "Convert a raw wait status (from waitpid) to an exit code (3.9+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.waitstatus_to_exitcode(status)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.waitstatus_to_exitcode",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — процесс",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.waitstatus_to_exitcode(0))   # → 0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.cpu_count",
+    "title": "os.cpu_count",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает число логических процессоров в системе (или None, если не определить).",
+      "en": "Return the number of logical CPUs (or None if undetermined)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.cpu_count()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.cpu_count",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print((os.cpu_count() or 1) > 0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.urandom",
+    "title": "os.urandom",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает n случайных байтов от криптографического генератора ОС.",
+      "en": "Return n cryptographically strong random bytes from the OS."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.urandom(n)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.urandom",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(len(os.urandom(8)))   # → 8"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.strerror",
+    "title": "os.strerror",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текстовое описание кода ошибки errno.",
+      "en": "Return the text message for an errno error code."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.strerror(code)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.strerror",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(isinstance(os.strerror(2), str))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.device_encoding",
+    "title": "os.device_encoding",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает кодировку, связанную с устройством по файловому дескриптору (или None, если это не терминал).",
+      "en": "Return the encoding of the device tied to a file descriptor, or None."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.device_encoding(fd)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.device_encoding",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — терминал и устройства",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "enc = os.device_encoding(0)",
+      "print(enc is None or isinstance(enc, str))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.get_terminal_size",
+    "title": "os.get_terminal_size",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает размер терминала (columns, lines); бросает OSError, если вывод не привязан к терминалу.",
+      "en": "Return the terminal size (columns, lines); raises OSError if not a terminal."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.get_terminal_size()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.get_terminal_size",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — терминал и устройства",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(callable(os.get_terminal_size))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.isatty",
+    "title": "os.isatty",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, привязан ли файловый дескриптор к терминалу (tty).",
+      "en": "Check whether a file descriptor is attached to a terminal (tty)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.isatty(fd)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.isatty",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — терминал и устройства",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "r, w = os.pipe()",
+      "print(os.isatty(r))   # → False",
+      "os.close(r)",
+      "os.close(w)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.terminal_size",
+    "title": "os.terminal_size",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип результата os.get_terminal_size(): именованный кортеж с полями columns и lines.",
+      "en": "The result type of os.get_terminal_size(): a named tuple (columns, lines)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.terminal_size((cols, lines))",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.terminal_size",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — терминал и устройства",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "ts = os.terminal_size((80, 24))",
+      "print(ts.columns)   # → 80"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.abort",
+    "title": "os.abort",
+    "kind": "function",
+    "summary": {
+      "ru": "Немедленно завершает процесс сигналом SIGABRT (без очистки/финализаторов).",
+      "en": "Terminate the process immediately with SIGABRT (no cleanup)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.abort()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.abort",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — аварийное завершение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(callable(os.abort))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os._exit",
+    "title": "os._exit",
+    "kind": "function",
+    "summary": {
+      "ru": "Немедленно завершает процесс с кодом n, минуя финализаторы Python (для дочернего после fork).",
+      "en": "Exit the process immediately with status n, skipping Python cleanup."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os._exit(n)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os._exit",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — аварийное завершение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(callable(os._exit))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.system",
+    "title": "os.system",
+    "kind": "function",
+    "summary": {
+      "ru": "Выполняет команду в системной оболочке и возвращает её код завершения.",
+      "en": "Run a command in the system shell and return its exit status."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.system(command)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.system",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — аварийное завершение",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(callable(os.system))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getcwd",
+    "title": "os.getcwd",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущий рабочий каталог как строку (str).",
+      "en": "Return the current working directory as a str."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getcwd()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getcwd",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — рабочий каталог",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(isinstance(os.getcwd(), str))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.getcwdb",
+    "title": "os.getcwdb",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущий рабочий каталог как байты (bytes).",
+      "en": "Return the current working directory as bytes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.getcwdb()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.getcwdb",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — рабочий каталог",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(isinstance(os.getcwdb(), bytes))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.close",
+    "title": "os.close",
+    "kind": "function",
+    "summary": {
+      "ru": "Закрывает файловый дескриптор.",
+      "en": "Close a file descriptor."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.close(fd)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.close",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "r, w = os.pipe()",
+      "print(os.close(r) is None)   # → True",
+      "os.close(w)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.closerange",
+    "title": "os.closerange",
+    "kind": "function",
+    "summary": {
+      "ru": "Закрывает все дескрипторы в диапазоне [fd_low, fd_high), игнорируя ошибки.",
+      "en": "Close all file descriptors in the range [fd_low, fd_high), ignoring errors."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.closerange(fd_low, fd_high)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.closerange",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(callable(os.closerange))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.dup",
+    "title": "os.dup",
+    "kind": "function",
+    "summary": {
+      "ru": "Дублирует файловый дескриптор, возвращая новый.",
+      "en": "Duplicate a file descriptor, returning a new one."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.dup(fd)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.dup",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "fd = os.open(os.__file__, os.O_RDONLY)",
+      "fd2 = os.dup(fd)",
+      "print(fd2 != fd)   # → True",
+      "os.close(fd)",
+      "os.close(fd2)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.dup2",
+    "title": "os.dup2",
+    "kind": "function",
+    "summary": {
+      "ru": "Дублирует fd в fd2 (закрыв fd2 при необходимости) и возвращает fd2.",
+      "en": "Duplicate fd onto fd2 (closing fd2 first if needed) and return fd2."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.dup2(fd, fd2)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.dup2",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "fd = os.open(os.__file__, os.O_RDONLY)",
+      "fd2 = os.dup(fd)",
+      "print(os.dup2(fd, fd2) == fd2)   # → True",
+      "os.close(fd)",
+      "os.close(fd2)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.read",
+    "title": "os.read",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает до n байтов из файлового дескриптора, возвращая bytes.",
+      "en": "Read up to n bytes from a file descriptor, returning bytes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.read(fd, n)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.read",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "r, w = os.pipe()",
+      "os.write(w, b'hello')",
+      "print(os.read(r, 5))   # → b'hello'",
+      "os.close(r)",
+      "os.close(w)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.write",
+    "title": "os.write",
+    "kind": "function",
+    "summary": {
+      "ru": "Пишет байты в файловый дескриптор, возвращая число записанных байтов.",
+      "en": "Write bytes to a file descriptor, returning the number written."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.write(fd, data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.write",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "r, w = os.pipe()",
+      "print(os.write(w, b'hi'))   # → 2",
+      "os.close(r)",
+      "os.close(w)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.lseek",
+    "title": "os.lseek",
+    "kind": "function",
+    "summary": {
+      "ru": "Перемещает позицию чтения/записи дескриптора (SEEK_SET/CUR/END) и возвращает новую позицию.",
+      "en": "Move a descriptor's read/write position and return the new offset."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.lseek(fd, pos, whence)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.lseek",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "fd = os.open(os.__file__, os.O_RDONLY)",
+      "os.lseek(fd, 0, os.SEEK_END)",
+      "print(os.lseek(fd, 0, os.SEEK_CUR) > 0)   # → True",
+      "os.close(fd)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fstat",
+    "title": "os.fstat",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает os.stat_result для открытого файлового дескриптора.",
+      "en": "Return an os.stat_result for an open file descriptor."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fstat(fd)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fstat",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "fd = os.open(os.__file__, os.O_RDONLY)",
+      "print(os.fstat(fd).st_size > 0)   # → True",
+      "os.close(fd)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.ftruncate",
+    "title": "os.ftruncate",
+    "kind": "function",
+    "summary": {
+      "ru": "Усекает файл, открытый по дескриптору, до указанной длины.",
+      "en": "Truncate the file behind a descriptor to a given length."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.ftruncate(fd, length)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.ftruncate",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "fd, p = tempfile.mkstemp()",
+      "os.write(fd, b'hello')",
+      "os.ftruncate(fd, 2)",
+      "os.close(fd)",
+      "print(os.path.getsize(p))   # → 2",
+      "os.remove(p)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.fdopen",
+    "title": "os.fdopen",
+    "kind": "function",
+    "summary": {
+      "ru": "Оборачивает файловый дескриптор в файловый объект Python (как open()).",
+      "en": "Wrap a file descriptor in a Python file object (like open())."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.fdopen(fd, mode)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.fdopen",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "fd = os.open(os.__file__, os.O_RDONLY)",
+      "f = os.fdopen(fd)",
+      "print(hasattr(f, 'read'))   # → True",
+      "f.close()"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.pipe",
+    "title": "os.pipe",
+    "kind": "function",
+    "summary": {
+      "ru": "Создаёт канал (pipe): возвращает пару дескрипторов (для чтения, для записи).",
+      "en": "Create a pipe: return a (read_fd, write_fd) pair."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.pipe()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.pipe",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "r, w = os.pipe()",
+      "print(isinstance(r, int) and isinstance(w, int))   # → True",
+      "os.close(r)",
+      "os.close(w)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.get_inheritable",
+    "title": "os.get_inheritable",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, наследуется ли дескриптор дочерними процессами.",
+      "en": "Check whether a file descriptor is inheritable by child processes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.get_inheritable(fd)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.get_inheritable",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "r, w = os.pipe()",
+      "print(isinstance(os.get_inheritable(r), bool))   # → True",
+      "os.close(r)",
+      "os.close(w)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.set_inheritable",
+    "title": "os.set_inheritable",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт флаг наследуемости файлового дескриптора дочерними процессами.",
+      "en": "Set whether a file descriptor is inheritable by child processes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.set_inheritable(fd, inheritable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.set_inheritable",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "r, w = os.pipe()",
+      "os.set_inheritable(r, True)",
+      "print(os.get_inheritable(r))   # → True",
+      "os.close(r)",
+      "os.close(w)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.truncate",
+    "title": "os.truncate",
+    "kind": "function",
+    "summary": {
+      "ru": "Усекает файл по пути до указанной длины.",
+      "en": "Truncate the file at a path to a given length."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.truncate(path, length)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.truncate",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "import tempfile",
+      "fd, p = tempfile.mkstemp()",
+      "os.write(fd, b'hello')",
+      "os.close(fd)",
+      "os.truncate(p, 2)",
+      "print(os.path.getsize(p))   # → 2",
+      "os.remove(p)"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.access",
+    "title": "os.access",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет права доступа к пути (R_OK/W_OK/X_OK/F_OK) для реального uid/gid.",
+      "en": "Check access permissions for a path (R_OK/W_OK/X_OK/F_OK)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.access(path, mode)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.access",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.access(os.__file__, os.R_OK))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.stat",
+    "title": "os.stat",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает os.stat_result с метаданными файла (размер, права, времена).",
+      "en": "Return an os.stat_result with a file's metadata."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.stat(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.stat",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.stat(os.__file__).st_size > 0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.lstat",
+    "title": "os.lstat",
+    "kind": "function",
+    "summary": {
+      "ru": "Как stat, но не следует по символической ссылке (описывает саму ссылку).",
+      "en": "Like stat, but does not follow symlinks (describes the link itself)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.lstat(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.lstat",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(os.lstat(os.__file__).st_size > 0)   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.scandir",
+    "title": "os.scandir",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает итератор os.DirEntry по элементам каталога — эффективнее listdir (кеширует stat).",
+      "en": "Return an iterator of os.DirEntry for a directory — more efficient than listdir."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.scandir(path)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.scandir",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "d = os.path.dirname(os.__file__)",
+      "with os.scandir(d) as it:",
+      "    print(any(e.is_file() for e in it))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.stat_result",
+    "title": "os.stat_result",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип результата os.stat()/os.fstat(): объект с полями st_size, st_mode, st_mtime и др.",
+      "en": "The result type of os.stat()/os.fstat(): has st_size, st_mode, st_mtime, etc."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.stat(path)  # → os.stat_result",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.stat_result",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(isinstance(os.stat(os.__file__), os.stat_result))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "os.DirEntry",
+    "title": "os.DirEntry",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип элемента, возвращаемого os.scandir(): даёт name, path и быстрые is_file()/is_dir()/stat() с кешем.",
+      "en": "The item type yielded by os.scandir(): name, path, and cached is_file()/is_dir()/stat()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "entry.name  # os.DirEntry",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.DirEntry",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "d = os.path.dirname(os.__file__)",
+      "it = os.scandir(d)",
+      "print(isinstance(next(it), os.DirEntry))   # → True",
+      "it.close()"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]

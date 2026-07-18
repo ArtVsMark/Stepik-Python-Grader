@@ -2996,34 +2996,6 @@
     "related_errors": []
   },
   {
-    "id": "os.DirEntry",
-    "title": "os.DirEntry",
-    "kind": "term",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "DirEntry()",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.DirEntry",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.WCOREDUMP",
     "title": "os.WCOREDUMP",
     "kind": "function",
@@ -3248,90 +3220,6 @@
     "related_errors": []
   },
   {
-    "id": "os._exit",
-    "title": "os._exit",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Exit to the system with specified status, without normal exit processing.",
-      "en": ""
-    },
-    "syntax": "_exit(status)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os._exit",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.abort",
-    "title": "os.abort",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Abort the interpreter immediately.",
-      "en": ""
-    },
-    "syntax": "abort()",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.abort",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.access",
-    "title": "os.access",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Use the real uid/gid to test for access to a path.",
-      "en": ""
-    },
-    "syntax": "access(path, mode, *, dir_fd=None, effective_ids=False, follow_symlinks=True)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.access",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.chdir",
     "title": "os.chdir",
     "kind": "function",
@@ -3444,62 +3332,6 @@
     "related_errors": []
   },
   {
-    "id": "os.close",
-    "title": "os.close",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Close a file descriptor.",
-      "en": ""
-    },
-    "syntax": "close(fd)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.close",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.closerange",
-    "title": "os.closerange",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Closes all file descriptors in [fd_low, fd_high), ignoring errors.",
-      "en": ""
-    },
-    "syntax": "closerange(fd_low, fd_high, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.closerange",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.confstr",
     "title": "os.confstr",
     "kind": "function",
@@ -3556,34 +3388,6 @@
     "related_errors": []
   },
   {
-    "id": "os.cpu_count",
-    "title": "os.cpu_count",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return the number of logical CPUs in the system.",
-      "en": ""
-    },
-    "syntax": "cpu_count()",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.cpu_count",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.ctermid",
     "title": "os.ctermid",
     "kind": "function",
@@ -3599,90 +3403,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.ctermid",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.device_encoding",
-    "title": "os.device_encoding",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return a string describing the encoding of a terminal's file descriptor.",
-      "en": ""
-    },
-    "syntax": "device_encoding(fd)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.device_encoding",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.dup",
-    "title": "os.dup",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return a duplicate of a file descriptor.",
-      "en": ""
-    },
-    "syntax": "dup(fd, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.dup",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.dup2",
-    "title": "os.dup2",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Duplicate file descriptor.",
-      "en": ""
-    },
-    "syntax": "dup2(fd, fd2, inheritable=True)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.dup2",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -4116,34 +3836,6 @@
     "related_errors": []
   },
   {
-    "id": "os.fdopen",
-    "title": "os.fdopen",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "fdopen(fd, mode='r', buffering=-1, encoding=None, *args, **kwargs)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.fdopen",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.fork",
     "title": "os.fork",
     "kind": "function",
@@ -4228,118 +3920,6 @@
     "related_errors": []
   },
   {
-    "id": "os.fsdecode",
-    "title": "os.fsdecode",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Decode filename (an os.PathLike, bytes, or str) from the filesystem\nencoding with 'surrogateescape' error handler, return str unchanged. On\nWindows, use 'strict' error handler if the file system encoding is\n'mbcs' (which is the default encoding).",
-      "en": ""
-    },
-    "syntax": "fsdecode(filename)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.fsdecode",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.fsencode",
-    "title": "os.fsencode",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Encode filename (an os.PathLike, bytes, or str) to the filesystem\nencoding with 'surrogateescape' error handler, return bytes unchanged.\nOn Windows, use 'strict' error handler if the file system encoding is\n'mbcs' (which is the default encoding).",
-      "en": ""
-    },
-    "syntax": "fsencode(filename)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.fsencode",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.fspath",
-    "title": "os.fspath",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return the file system path representation of the object.",
-      "en": ""
-    },
-    "syntax": "fspath(path)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.fspath",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.fstat",
-    "title": "os.fstat",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Perform a stat system call on the given file descriptor.",
-      "en": ""
-    },
-    "syntax": "fstat(fd)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.fstat",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.fstatvfs",
     "title": "os.fstatvfs",
     "kind": "function",
@@ -4383,34 +3963,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.fsync",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.ftruncate",
-    "title": "os.ftruncate",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Truncate a file, specified by file descriptor, to a specific length.",
-      "en": ""
-    },
-    "syntax": "ftruncate(fd, length, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.ftruncate",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -4480,146 +4032,6 @@
     "related_errors": []
   },
   {
-    "id": "os.get_exec_path",
-    "title": "os.get_exec_path",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Returns the sequence of directories that will be searched for the\nnamed executable (similar to a shell) when launching a process.",
-      "en": ""
-    },
-    "syntax": "get_exec_path(env=None)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.get_exec_path",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.get_inheritable",
-    "title": "os.get_inheritable",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Get the close-on-exe flag of the specified file descriptor.",
-      "en": ""
-    },
-    "syntax": "get_inheritable(fd, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.get_inheritable",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.get_terminal_size",
-    "title": "os.get_terminal_size",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return the size of the terminal window as (columns, lines).",
-      "en": ""
-    },
-    "syntax": "",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.get_terminal_size",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.getcwd",
-    "title": "os.getcwd",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return a unicode string representing the current working directory.",
-      "en": ""
-    },
-    "syntax": "getcwd()",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.getcwd",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.getcwdb",
-    "title": "os.getcwdb",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return a bytes string representing the current working directory.",
-      "en": ""
-    },
-    "syntax": "getcwdb()",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.getcwdb",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.getegid",
     "title": "os.getegid",
     "kind": "function",
@@ -4635,34 +4047,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.getegid",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.getenv",
-    "title": "os.getenv",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Get an environment variable, return None if it doesn't exist.\nThe optional second argument can specify an alternate default.\nkey, default and the result are str.",
-      "en": ""
-    },
-    "syntax": "getenv(key, default=None)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.getenv",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -4928,34 +4312,6 @@
     "related_errors": []
   },
   {
-    "id": "os.getppid",
-    "title": "os.getppid",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return the parent's process id.",
-      "en": ""
-    },
-    "syntax": "getppid()",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.getppid",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.getpriority",
     "title": "os.getpriority",
     "kind": "function",
@@ -5208,34 +4564,6 @@
     "related_errors": []
   },
   {
-    "id": "os.isatty",
-    "title": "os.isatty",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return True if the fd is connected to a terminal.",
-      "en": ""
-    },
-    "syntax": "isatty(fd, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.isatty",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.kill",
     "title": "os.kill",
     "kind": "function",
@@ -5419,62 +4747,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.login_tty",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.lseek",
-    "title": "os.lseek",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Set the position of a file descriptor.  Return the new position.",
-      "en": ""
-    },
-    "syntax": "lseek(fd, position, whence, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.lseek",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.lstat",
-    "title": "os.lstat",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Perform a stat system call on the given path, without following symbolic links.",
-      "en": ""
-    },
-    "syntax": "lstat(path, *, dir_fd=None)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.lstat",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -5824,34 +5096,6 @@
     "related_errors": []
   },
   {
-    "id": "os.pipe",
-    "title": "os.pipe",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Create a pipe.",
-      "en": ""
-    },
-    "syntax": "pipe()",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.pipe",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.pipe2",
     "title": "os.pipe2",
     "kind": "function",
@@ -6132,34 +5376,6 @@
     "related_errors": []
   },
   {
-    "id": "os.putenv",
-    "title": "os.putenv",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Change or add an environment variable.",
-      "en": ""
-    },
-    "syntax": "putenv(name, value, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.putenv",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.pwrite",
     "title": "os.pwrite",
     "kind": "function",
@@ -6203,34 +5419,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.pwritev",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.read",
-    "title": "os.read",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Read from a file descriptor.  Returns a bytes object.",
-      "en": ""
-    },
-    "syntax": "read(fd, length, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.read",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -6455,34 +5643,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.rmdir",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.scandir",
-    "title": "os.scandir",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return an iterator of DirEntry objects for given path.",
-      "en": ""
-    },
-    "syntax": "scandir(path=None)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.scandir",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -6847,34 +6007,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.set_blocking",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.set_inheritable",
-    "title": "os.set_inheritable",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Set the inheritable flag of the specified file descriptor.",
-      "en": ""
-    },
-    "syntax": "set_inheritable(fd, inheritable, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.set_inheritable",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -7560,62 +6692,6 @@
     "related_errors": []
   },
   {
-    "id": "os.stat",
-    "title": "os.stat",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Perform a stat system call on the given path.",
-      "en": ""
-    },
-    "syntax": "stat(path, *, dir_fd=None, follow_symlinks=True)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.stat",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.stat_result",
-    "title": "os.stat_result",
-    "kind": "term",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "stat_result: Result from stat, fstat, or lstat.",
-      "en": ""
-    },
-    "syntax": "stat_result(iterable=(), /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.stat_result",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.statvfs",
     "title": "os.statvfs",
     "kind": "function",
@@ -7659,34 +6735,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.statvfs_result",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.strerror",
-    "title": "os.strerror",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Translate an error code to a message string.",
-      "en": ""
-    },
-    "syntax": "strerror(code, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.strerror",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -7784,34 +6832,6 @@
     "related_errors": []
   },
   {
-    "id": "os.system",
-    "title": "os.system",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Execute the command in a subshell.",
-      "en": ""
-    },
-    "syntax": "system(command)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.system",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.tcgetpgrp",
     "title": "os.tcgetpgrp",
     "kind": "function",
@@ -7855,34 +6875,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.tcsetpgrp",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.terminal_size",
-    "title": "os.terminal_size",
-    "kind": "term",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "A tuple of (columns, lines) for holding terminal window size",
-      "en": ""
-    },
-    "syntax": "terminal_size(iterable=(), /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.terminal_size",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -8036,90 +7028,6 @@
     "related_errors": []
   },
   {
-    "id": "os.times",
-    "title": "os.times",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return a collection containing process timing information.",
-      "en": ""
-    },
-    "syntax": "times()",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.times",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.times_result",
-    "title": "os.times_result",
-    "kind": "term",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "times_result: Result from os.times().",
-      "en": ""
-    },
-    "syntax": "times_result(iterable=(), /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.times_result",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.truncate",
-    "title": "os.truncate",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Truncate a file, specified by path, to a specific length.",
-      "en": ""
-    },
-    "syntax": "truncate(path, length)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.truncate",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.ttyname",
     "title": "os.ttyname",
     "kind": "function",
@@ -8135,34 +7043,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.ttyname",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.umask",
-    "title": "os.umask",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Set the current numeric umask and return the previous umask.",
-      "en": ""
-    },
-    "syntax": "umask(mask, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.umask",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -8288,34 +7168,6 @@
     "related_errors": []
   },
   {
-    "id": "os.unsetenv",
-    "title": "os.unsetenv",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Delete an environment variable.",
-      "en": ""
-    },
-    "syntax": "unsetenv(name, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.unsetenv",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.unshare",
     "title": "os.unshare",
     "kind": "function",
@@ -8331,34 +7183,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.unshare",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.urandom",
-    "title": "os.urandom",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Return a bytes object containing random bytes suitable for cryptographic use.",
-      "en": ""
-    },
-    "syntax": "urandom(size, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.urandom",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
@@ -8555,62 +7379,6 @@
     "status": "draft",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.waitpid",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.waitstatus_to_exitcode",
-    "title": "os.waitstatus_to_exitcode",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Convert a wait status to an exit code.",
-      "en": ""
-    },
-    "syntax": "waitstatus_to_exitcode(status)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.waitstatus_to_exitcode",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "autodraft"
-    ],
-    "examples": [],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.write",
-    "title": "os.write",
-    "kind": "function",
-    "summary": {
-      "ru": "",
-      "en": ""
-    },
-    "body": {
-      "ru": "Write a bytes object to a file descriptor.",
-      "en": ""
-    },
-    "syntax": "write(fd, data, /)",
-    "status": "draft",
-    "url": "",
-    "docs_url": "https://docs.python.org/3/library/os.html#os.write",
     "version": "",
     "section": "Модуль os",
     "subcat": "",
