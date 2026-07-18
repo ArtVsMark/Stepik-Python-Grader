@@ -38,49 +38,6 @@
     "related_errors": []
   },
   {
-    "id": "count-index-для-кортежа",
-    "title": "count() / index() для кортежа",
-    "kind": "term",
-    "summary": {
-      "ru": "count() считает вхождения. index() возвращает первый индекс значения (ValueError если нет).",
-      "en": ""
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "t.count(val)  |  t.index(val[, start[, end]])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-count-index-для-кортежа",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Кортежи (tuple)",
-    "subcat": "методы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "t = (1, 2, 2, 3, 2, 4)",
-      "print(t.count(2))",
-      "# → 3",
-      "print(t.count(5))",
-      "# → 0",
-      "print(t.index(3))",
-      "# → 3",
-      "print(t.index(2, 3))",
-      "# → 4 (поиск с позиции 3)",
-      "try:",
-      "t.index(99)",
-      "except ValueError as e:",
-      "print(e)",
-      "# → tuple.index(x): x not in tuple"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "del-для-списка",
     "title": "del для списка",
     "kind": "term",
@@ -1630,6 +1587,70 @@
       "words = ['bb', 'a', 'ccc']",
       "words.sort(key=len)",
       "print(words)            # → ['a', 'bb', 'ccc']"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "tuple.count",
+    "title": "tuple.count",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает число вхождений значения в кортеж (сравнение через ==).",
+      "en": "Return the number of occurrences of a value in the tuple (compared with ==)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "t.count(value)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#common-sequence-operations",
+    "version": "",
+    "section": "Кортежи (tuple)",
+    "subcat": "методы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "tuple"
+    ],
+    "examples": [
+      "t = (1, 2, 2, 3, 2)",
+      "print(t.count(2))   # → 3",
+      "print(t.count(9))   # → 0"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "tuple.index",
+    "title": "tuple.index",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает индекс первого вхождения значения; опциональные start/end сужают диапазон; ValueError, если не найдено.",
+      "en": "Return the index of the first matching value; optional start/end narrow the search; raises ValueError if absent."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "t.index(value, start=0, stop=len)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#common-sequence-operations",
+    "version": "",
+    "section": "Кортежи (tuple)",
+    "subcat": "методы",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "tuple"
+    ],
+    "examples": [
+      "t = (10, 20, 30, 20)",
+      "print(t.index(20))      # → 1",
+      "print(t.index(20, 2))   # → 3"
     ],
     "related": [],
     "related_errors": []
