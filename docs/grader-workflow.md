@@ -171,7 +171,8 @@ stepik-grader --serve --no-root-confinement    # без изоляции пут�
 - В поле пути — файл решения (`.py`) или папка с решениями; тесты
   резолвятся так же, как в режимах 1/2/3.
 - Тот же threat model, что у CLI: без `--sandbox` изоляции нет — запускай свои
-  решения. `--serve --sandbox` (issue #396) включает OS-изоляцию и в web.
+  решения. `--serve --sandbox` (issue #396) включает OS-изоляцию и в web. Полная
+  threat model — [configuration.md § Ограничения и безопасность](configuration.md#ограничения-и-безопасность).
 
 **Рабочая директория (`--root`, issue #261).** Все пути из запросов
 (`/api/grade`, `/api/source`, `/api/solutions`, `/api/save-solution`,
