@@ -113,10 +113,11 @@ def test_bundled_drafts_present_and_marked() -> None:
     # Комплектные черновики в репозитории: помечены draft + tag autodraft.
     provider = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR)
     drafts = [c for c in provider.all() if c.status == "draft"]
-    # Мягкий «пол»: кампания #363 планомерно переводит черновики в ready, поэтому
-    # их число убывает (832 → …). Порог лишь страхует от случайного стирания
-    # drafts.json целиком; содержательная часть теста — корректная разметка ниже.
-    assert len(drafts) > 10
+    # Эпик #363 завершён: stdlib-черновики доведены до ready, а не-stdlib имена
+    # (сторонний rich, приватные _pickle/_lzma, собственный stepik_grader и т.п.)
+    # отфильтрованы из инвентаря (`_is_official_stdlib_exception`) и больше не
+    # порождают черновики. Комплектных черновиков может не остаться вовсе —
+    # проверяем не их количество, а корректную разметку тех, что есть.
     assert all("autodraft" in c.tags for c in drafts)
     assert all(c.docs_url.startswith("https://docs.python.org/3/") for c in drafts)
 

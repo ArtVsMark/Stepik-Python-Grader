@@ -4023,5 +4023,36 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "encodings.CodecRegistryError",
+    "title": "encodings.CodecRegistryError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка реестра кодеков: поднимается при сбое поиска/регистрации кодека в системе encodings (подкласс LookupError и SystemError).",
+      "en": "A codec registry error, raised on failures looking up or registering a codec."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise encodings.CodecRegistryError(...)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/codecs.html",
+    "version": "",
+    "section": "Исключения",
+    "subcat": "исключения модулей",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "encodings"
+    ],
+    "examples": [
+      "import encodings",
+      "print(issubclass(encodings.CodecRegistryError, Exception))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]

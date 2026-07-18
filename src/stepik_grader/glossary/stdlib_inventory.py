@@ -214,9 +214,50 @@ def _all_exception_classes() -> list[type[BaseException]]:
     return sorted(seen, key=lambda cls: (cls.__module__, cls.__qualname__))
 
 
+# Публично выглядящие (без ведущего ``_``), но НЕ входящие в документированный
+# API исключения stdlib — внутренние детали реализации. Отфильтровываются явно:
+# эвристика по ``__all__`` ненадёжна (напр. ``shutil.__all__`` не перечисляет свои
+# публичные ``ReadError``/``RegistryError``), а по имени такие не отличить.
+_NON_PUBLIC_STDLIB_EXCEPTIONS: frozenset[str] = frozenset(
+    {
+        "inspect.ClassFoundException",  # внутреннее исключение BlockFinder
+        "inspect.EndOfBlock",  # внутреннее исключение BlockFinder
+    }
+)
+
+
+def _is_official_stdlib_exception(cls: type[BaseException]) -> bool:
+    """Относится ли класс-исключение к официальному Python/stdlib.
+
+    Обход ``BaseException.__subclasses__()`` видит исключения ВСЕХ загруженных в
+    процессе модулей — стороннего кода (``rich``), приватных C-ускорителей
+    (``_pickle``), собственного пакета (``stepik_grader``). Полнота глоссария
+    меряется относительно официального Python/stdlib (CLAUDE.md § Истина
+    глоссария), поэтому такие имена в инвентарь не берём.
+    """
+    module = cls.__module__ or "builtins"
+    if module == "builtins":
+        return True
+    # Сторонний код / собственный пакет: нет среди stdlib-модулей.
+    if module.split(".")[0] not in sys.stdlib_module_names:
+        return False
+    # Приватный модуль/подмодуль (``_pickle``, ``_lzma``, ``pathlib._abc``).
+    if any(part.startswith("_") for part in module.split(".")):
+        return False
+    # Приватный класс (``pickle._Stop``, ``shutil._GiveupOnFastCopy``).
+    if cls.__qualname__.startswith("_"):
+        return False
+    # Публично выглядящие, но недокументированные внутренности реализации.
+    if f"{module}.{cls.__qualname__}" in _NON_PUBLIC_STDLIB_EXCEPTIONS:
+        return False
+    return True
+
+
 def _exception_items(version: str) -> list[StdlibItem]:
     items: list[StdlibItem] = []
     for cls in _all_exception_classes():
+        if not _is_official_stdlib_exception(cls):
+            continue
         module = cls.__module__ or "builtins"
         qualname = cls.__qualname__ if module == "builtins" else f"{module}.{cls.__qualname__}"
         items.append(

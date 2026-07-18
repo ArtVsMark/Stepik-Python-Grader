@@ -32,14 +32,17 @@ class TestGlossarySearchNoStoreConfigured:
     при её отсутствии — компактный ``core/glossary.py`` fallback."""
 
     def test_search_default_shows_only_ready(self) -> None:
-        # issue #436: дефолтная выдача — только ready (черновики автогенерации
-        # скрыты); ?status=all показывает всё, и его больше.
+        # issue #436: дефолтная выдача — только ready (черновики скрыты);
+        # ?status=all — надмножество. После завершения эпика #363 комплектных
+        # черновиков может не остаться, поэтому здесь проверяем инвариант
+        # default⊆all и «в default только ready»; сам статус-фильтр на
+        # контролируемом черновике — в TestGlossarySearchWithConfiguredStore.
         default_cards = glossary_adapter.glossary_search("")
         assert default_cards
         assert all(c["status"] == "ready" for c in default_cards)
         all_cards = glossary_adapter.glossary_search("", status="all")
-        assert any(c["status"] == "draft" for c in all_cards)
-        assert len(all_cards) > len(default_cards)
+        assert {c["id"] for c in default_cards} <= {c["id"] for c in all_cards}
+        assert len(all_cards) >= len(default_cards)
 
     def test_search_matches_known_exception(self) -> None:
         cards = glossary_adapter.glossary_search("RecursionError")
@@ -106,6 +109,27 @@ class TestGlossarySearchWithConfiguredStore:
     def test_missing_store_file_falls_back_gracefully(self, tmp_path: pathlib.Path) -> None:
         cards = glossary_adapter.glossary_search("", store_path=str(tmp_path / "nope.json"))
         assert len(cards) > 0  # fell back to core/glossary.py, didn't raise
+
+    def test_status_filter_hides_drafts_by_default(self, tmp_path: pathlib.Path) -> None:
+        # issue #436: дефолт скрывает draft-карточки, ?status=all показывает их.
+        # Проверяется на контролируемом store (комплектных черновиков после #363
+        # может не быть — см. TestGlossarySearchNoStoreConfigured выше).
+        cards = [
+            GlossaryCard(id="ready-one", title="Ready", kind="function", status="ready"),
+            GlossaryCard(id="draft-one", title="Draft", kind="function", status="draft"),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        sp = str(path)
+        default_ids = {c["id"] for c in glossary_adapter.glossary_search("", store_path=sp)}
+        all_ids = {
+            c["id"] for c in glossary_adapter.glossary_search("", status="all", store_path=sp)
+        }
+        assert default_ids == {"ready-one"}
+        assert all_ids == {"ready-one", "draft-one"}
 
 
 class TestGlossaryI18n:
