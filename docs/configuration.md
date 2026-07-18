@@ -95,6 +95,12 @@ microbench_max_cases = 5
 | `sandbox_max_cpu_seconds` | `float` | `10.0` | `--sandbox` (issue #266): жёсткий лимит CPU-времени решения (backstop под общим `timeout_seconds`). |
 | `sandbox_max_processes` | `int` | `32` | `--sandbox`: лимит числа процессов решения (anti-fork-bomb). На Linux под bwrap — абсолютное значение; на голом POSIX/macOS — бюджет сверх текущего числа процессов пользователя. См. [SECURITY.md](../SECURITY.md). |
 | `sandbox_max_output_bytes` | `int` | `10485760` (10 МБ) | `--sandbox`: лимит суммарного размера stdout+stderr решения. |
+| `max_active_runs` | `int` | `20` | Back-pressure async job-модели `--serve` (`POST /api/v1/runs`, issue #429): максимум одновременных нетерминальных job'ов; превышение → `429 too_many_runs`. Настройка сервера, не CLI-флаг и не параметр запроса. Фундамент server mode (#151). |
+| `ai_base_url` | `str \| None` | `None` | `--ai-hints` (issue #435, ADR-0003): базовый URL OpenAI-совместимого эндпоинта (`{ai_base_url}/chat/completions`, на `requests`, без SDK). `None` — AI выключен (graceful skip). Работает и с облаком, и с локальным `ollama`. |
+| `ai_model` | `str \| None` | `None` | Имя модели для `--ai-hints`. |
+| `ai_api_key_env` | `str` | `"STEPIK_GRADER_AI_KEY"` | **Имя** env-переменной с API-ключом (не сам ключ). Значение ключа никогда не в конфиге/файлах — читается из окружения в момент вызова и редактируется в логах (`diag_log`). Локальному провайдеру (`ollama`) ключ не нужен. |
+| `ai_max_tokens` | `int` | `400` | Лимит токенов ответа AI-подсказки. |
+| `ai_timeout_seconds` | `float` | `20.0` | Таймаут запроса к AI-эндпоинту; при истечении/сетевой ошибке — тихий пропуск, грейдинг не падает. |
 
 > **Приватность (`record_stats`/`--stats`, issue #268).** Статистика —
 > только локальный файл `.grader_stats.jsonl` в текущей директории (режимы,
@@ -251,12 +257,16 @@ ZIP-архивы автоматически конвертируются в Form
 
 ### Вердикты тест-кейсов
 
+Полный набор — `Verdict` в `core/result.py` (6 значений); канон полей — [result-contract.md](result-contract.md).
+
 | Вердикт | Значение |
 |---------|----------|
 | AC | Accepted — вывод совпал с ожидаемым |
 | WA | Wrong Answer — вывод не совпал |
 | TLE | Time Limit Exceeded — превышен таймаут |
 | RE | Runtime Error — процесс завершился с ненулевым кодом |
+| CANCELLED | Прогон отменён (async job `--serve` через `RunSpec.cancel_event`), а не по таймауту (issue #262). |
+| SANDBOX_VIOLATION | Под `--sandbox` нарушен лимит песочницы (память/процессы/размер вывода) — аддитивный вердикт, не ломающий AC/WA/TLE/RE (issue #266). |
 
 ---
 

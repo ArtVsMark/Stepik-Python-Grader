@@ -30,6 +30,7 @@
 | `web/glossary_adapter.py` | Application / Web | `glossary_search`/`glossary_get`/`glossary_missing`/`code_terms` — тонкие адаптеры над `glossary/json_provider.py` (или fallback на компактный `core/glossary.py`) для разделов «Глоссарий»/«Функции в коде» (issue #125); `code_terms` собирает inventory-driven наборы из `glossary/stdlib_inventory` (issue #367) |
 | `web/rules_adapter.py` | Application / Web | `rules_search`/`rules_get` — тонкий адаптер над пакетом `rules/` (`bundled_rules`) для раздела «Правила (PEP)» (issue #379) |
 | `web/insights_adapter.py` | Application / Web | `insights_cards`/`active_count` — адаптер над `core/insights`+`core/history` для раздела «Подучить» (issue #379) |
+| `web/reference_adapter.py` | Application / Web | `import_reference` — тонкий адаптер над `core/stepik_reference` для кнопки «Найти эталонное решение» (импорт закреплённого решения Stepik в задачу, issue #55); web-аутентификация без браузера, как `downloader_adapter` |
 | `web/commands.py` | Application / Web (leaf) | Реестр команд (`COMMANDS`, `filter_commands`) для command palette/action cards; не импортирует ничего из проекта |
 | `web/runs.py` | Application / Web | Async job-модель для bench/microbench/playground/trace/auth (`submit_job`/`get_job`/`cancel_job`, issue #262; `kind="auth"` — браузерный OAuth #402) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
 | `web/playground.py` | Application / Web | `run_playground` — запуск кода со stdin через `core/runner.LocalRunner` (issue #317, раздел «Песочница»); потребитель — `web/runs.py` |
@@ -53,6 +54,11 @@
 | `core/mtime_cache.py` | Infrastructure / Utilities | Generic mtime-инвалидируемый кеш загрузки (issue #345): `mtime_signature`/`MtimeCache[T]`. Вынесено из `web/glossary_adapter` (#339), переиспользуется провайдерами glossary и rules (не копипаст) |
 | `core/lint.py` | Infrastructure / Utilities | Opt-in PEP-проверка через ruff (issue #346, эпик #342): `run_lint`→`list[Violation]`, `ruff_available`, `LintUnavailable`; extra `[lint]`, best-effort, НЕ влияет на вердикт |
 | `core/insights.py` | Infrastructure / Utilities | Таксономия падений + затухание карточек «Подучить» (issue #347, эпик #342): `failure_kind`/`classify_status`/`learning_cards` — чистые функции + агрегация из истории, статусы active/fading/archived/watch по номерам прогонов (не по календарю) |
+| `core/history_recording.py` | Application-service | Сборка записей истории из результатов грейдинга (issue #395): `cases_from_test_results`/`cases_from_bench_results`/`lint_records_from_violations`/`default_history_db_path`. Вынесено из `cli/commands.py`, чтобы и CLI (режимы 1-4), и web (`web/viewmodels`) наполняли `.grader_history.db` одним кодом (web не импортирует cli) |
+| `core/ai_hints.py` | Application / Integration | Opt-in AI-объяснение падений WA/RE (`--ai-hints`, issue #435, ADR-0003): BYOK, OpenAI-совместимый `{ai_base_url}/chat/completions` на голом `requests` (облако + `ollama` одним кодом, без новых зависимостей); off по умолчанию, network/timeout/invalid-key → тихий пропуск, грейдинг не падает |
+| `core/progress_export.py` | Application-service | Экспорт прогресса в Markdown/HTML (`--export-progress`, issue #432) над `core/history`/`core/insights`: `build_progress_report`/`render_markdown`/`render_html` — per-task TTFG и tallies решённого, без сети |
+| `core/user_settings.py` | Application / Configuration (leaf) | Персистентные пользовательские настройки CLI (issue #430, `.grader_settings.json`) — тумблер записи истории из меню и т.п.; отдельный слой от frozen `config.py` (изменяемые пользователем настройки, не `pyproject.toml`); project-импортов нет |
+| `core/stepik_reference.py` | Application | Импорт закреплённых/топовых решений Stepik как reference-competitor'ов для режимов 2–4 (`--import-reference`/`--import-top`, issue #55): `import_references_from_task_dir`; НЕ часть grading-core (вторичный конкурент, не источник первичной проверки) |
 | `rules/` (пакет) | Domain | Карточки правил PEP 8 (issue #345, эпик #342): `RuleCard` (`models.py`) + `JsonRulesProvider` (`json_provider.py`) + bundled `data/pep8_ru.json` (≥30 кодов E/W/F). По образцу `glossary/`; `json_provider` тянет `core/mtime_cache` — не leaf |
 | `core/microbench_runner.py` | Infrastructure | Timeit-микробенчмарк через subprocess (`python -c`) + подавление stdout решения в `os.devnull`; peak memory через `tracemalloc` |
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
@@ -122,6 +128,17 @@ core/sandbox/          ──→  core/runner.py  (реализует Runner-п�
 cli/__init__.py        ──→  core/sandbox/  (--sandbox: импорт SandboxRunner/SandboxUnavailableError + grader_core.set_runner() — точка инъекции Runner; сам grader_core НЕ зависит от sandbox, issue #266)
 cli/commands.py        ──→  core/stats.py  (record_run для --stats, issue #268)
 cli/commands.py        ──→  core/history.py, core/insights.py, core/lint.py, core/glossary.py  (--history/--insights/--lint + glossary-подсказки, эпик #342)
+cli/commands.py        ──→  core/ai_hints.py, core/history_recording.py  (--ai-hints + наполнение истории, issue #435/#395)
+cli/__init__.py        ──→  core/progress_export.py  (--export-progress, issue #432), core/stepik_reference.py  (--import-reference/--import-top, issue #55)
+cli/interactive.py     ──→  core/user_settings.py  (тумблер записи истории из меню, issue #430)
+web/server.py          ──→  core/stepik_reference.py, web/reference_adapter.py  (POST /api/import-reference, issue #55)
+web/viewmodels.py      ──→  core/history_recording.py  (наполнение .grader_history.db из web-грейдинга, issue #395)
+web/reference_adapter.py ──→  core/stepik_reference.py, core/oauth_flow.py, web/downloader_adapter.py  (import-reference без браузера, issue #55)
+core/history_recording.py ──→  core/history.py, core/insights.py, core/glossary.py  (записи RunRecord/CaseRecord/LintRecord)
+core/progress_export.py   ──→  core/history.py, core/insights.py  (агрегаты прогресса, issue #432)
+core/ai_hints.py          ──→  core/diag_log.py  (редакция ключа; config передаётся вызывающим, requests — вне проекта)
+core/stepik_reference.py  ──→  core/oauth_flow.py, core/stepik_client.py, core/step_content.py, core/storage.py, core/diag_log.py  (issue #55)
+core/user_settings.py     (только stdlib — .grader_settings.json, issue #430; leaf, project-импортов нет)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
