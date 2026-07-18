@@ -10327,5 +10327,815 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "collections.abc.Iterable",
+    "title": "collections.abc.Iterable",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол «можно перебирать в for» (есть __iter__).",
+      "en": "The protocol for objects usable in a for loop (has __iter__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Iterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "итерация"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance([1, 2], abc.Iterable))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Iterator",
+    "title": "collections.abc.Iterator",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол итератора: есть __next__ и __iter__ (возвращает себя).",
+      "en": "The iterator protocol: has __next__ and __iter__."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Iterator)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "итерация"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance(iter([1]), abc.Iterator))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Reversible",
+    "title": "collections.abc.Reversible",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол «можно перебрать в обратном порядке» (есть __reversed__).",
+      "en": "The protocol for objects supporting reversed() (has __reversed__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Reversible)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Reversible",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "итерация"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance([1], abc.Reversible))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Generator",
+    "title": "collections.abc.Generator",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол генератора: итератор с методами send/throw/close.",
+      "en": "The generator protocol: an iterator with send/throw/close."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Generator)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Generator",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "итерация"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "def g():",
+      "    yield 1",
+      "print(isinstance(g(), abc.Generator))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Sized",
+    "title": "collections.abc.Sized",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол «имеет длину» (есть __len__).",
+      "en": "The protocol for objects with a length (has __len__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Sized)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Sized",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "контейнеры"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance([1, 2], abc.Sized))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Container",
+    "title": "collections.abc.Container",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол «поддерживает проверку in» (есть __contains__).",
+      "en": "The protocol for membership testing with `in` (has __contains__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Container)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Container",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "контейнеры"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance([1], abc.Container))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Collection",
+    "title": "collections.abc.Collection",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол-объединение Sized + Iterable + Container (типичный контейнер).",
+      "en": "The combination of Sized + Iterable + Container (a typical container)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Collection)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Collection",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "контейнеры"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance([1], abc.Collection))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Hashable",
+    "title": "collections.abc.Hashable",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол «хешируемый» (есть __hash__): можно класть в set / ключом dict.",
+      "en": "The protocol for hashable objects (has __hash__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Hashable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Hashable",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "контейнеры"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance(1, abc.Hashable))    # → True",
+      "print(isinstance([], abc.Hashable))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Sequence",
+    "title": "collections.abc.Sequence",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол неизменяемой последовательности: индексация, срезы, len, in (list, tuple, str).",
+      "en": "The immutable sequence protocol (indexing, slicing, len, in)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Sequence)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "последовательности"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance([1], abc.Sequence))   # → True",
+      "print(isinstance((1,), abc.Sequence))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.MutableSequence",
+    "title": "collections.abc.MutableSequence",
+    "kind": "term",
+    "summary": {
+      "ru": "Изменяемая последовательность (list): плюс append/insert/__setitem__ — кортеж не подходит.",
+      "en": "The mutable sequence protocol (list): adds append/insert/__setitem__."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.MutableSequence)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableSequence",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "последовательности"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance([], abc.MutableSequence))   # → True",
+      "print(isinstance((), abc.MutableSequence))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Mapping",
+    "title": "collections.abc.Mapping",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол неизменяемого отображения ключ→значение (доступ по ключу, len, in).",
+      "en": "The immutable mapping protocol (key access, len, in)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Mapping)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "отображения"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance({}, abc.Mapping))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.MutableMapping",
+    "title": "collections.abc.MutableMapping",
+    "kind": "term",
+    "summary": {
+      "ru": "Изменяемое отображение (dict): плюс __setitem__/__delitem__/update.",
+      "en": "The mutable mapping protocol (dict): adds __setitem__/__delitem__/update."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.MutableMapping)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "отображения"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance({}, abc.MutableMapping))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.MutableSet",
+    "title": "collections.abc.MutableSet",
+    "kind": "term",
+    "summary": {
+      "ru": "Изменяемое множество (set): add/discard — frozenset не подходит.",
+      "en": "The mutable set protocol (set): add/discard."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.MutableSet)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableSet",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "множества"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance(set(), abc.MutableSet))         # → True",
+      "print(isinstance(frozenset(), abc.MutableSet))   # → False"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.KeysView",
+    "title": "collections.abc.KeysView",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип представления ключей словаря (d.keys()).",
+      "en": "The type of a dict keys view (d.keys())."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.KeysView)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.KeysView",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "представления"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance({}.keys(), abc.KeysView))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.ValuesView",
+    "title": "collections.abc.ValuesView",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип представления значений словаря (d.values()).",
+      "en": "The type of a dict values view (d.values())."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.ValuesView)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.ValuesView",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "представления"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance({}.values(), abc.ValuesView))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.ItemsView",
+    "title": "collections.abc.ItemsView",
+    "kind": "term",
+    "summary": {
+      "ru": "Тип представления пар словаря (d.items()).",
+      "en": "The type of a dict items view (d.items())."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.ItemsView)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.ItemsView",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "представления"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance({}.items(), abc.ItemsView))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.MappingView",
+    "title": "collections.abc.MappingView",
+    "kind": "term",
+    "summary": {
+      "ru": "Базовый класс представлений словаря (KeysView/ValuesView/ItemsView).",
+      "en": "The base class of dict views (KeysView/ValuesView/ItemsView)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.MappingView)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.MappingView",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "представления"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance({}.keys(), abc.MappingView))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Buffer",
+    "title": "collections.abc.Buffer",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол буфера: объект отдаёт доступ к своей памяти (bytes, bytearray, memoryview; Python 3.12+).",
+      "en": "The buffer protocol: an object exposing its memory (3.12+)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Buffer)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Buffer",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "буфер"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance(b'x', abc.Buffer))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.ByteString",
+    "title": "collections.abc.ByteString",
+    "kind": "term",
+    "summary": {
+      "ru": "Устарело (deprecated, удаление в 3.17): общий тип bytes/bytearray. Используйте Buffer или конкретные типы.",
+      "en": "Deprecated (removal in 3.17): a common type for bytes/bytearray. Use Buffer instead."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.ByteString)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.ByteString",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "буфер"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "print(isinstance(b'x', abc.ByteString))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Awaitable",
+    "title": "collections.abc.Awaitable",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол «можно await» (есть __await__).",
+      "en": "The protocol for objects usable with await (has __await__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Awaitable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Awaitable",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "async"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "async def f(): pass",
+      "c = f()",
+      "print(isinstance(c, abc.Awaitable))   # → True",
+      "c.close()"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.Coroutine",
+    "title": "collections.abc.Coroutine",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол корутины: awaitable с методами send/throw/close.",
+      "en": "The coroutine protocol: an awaitable with send/throw/close."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.Coroutine)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.Coroutine",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "async"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "async def f(): pass",
+      "c = f()",
+      "print(isinstance(c, abc.Coroutine))   # → True",
+      "c.close()"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.AsyncIterable",
+    "title": "collections.abc.AsyncIterable",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол «можно перебирать в async for» (есть __aiter__).",
+      "en": "The protocol for objects usable in async for (has __aiter__)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.AsyncIterable)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.AsyncIterable",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "async"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "async def ag():",
+      "    yield 1",
+      "print(isinstance(ag(), abc.AsyncIterable))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.AsyncIterator",
+    "title": "collections.abc.AsyncIterator",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол асинхронного итератора: есть __anext__ и __aiter__.",
+      "en": "The async iterator protocol: has __anext__ and __aiter__."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.AsyncIterator)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.AsyncIterator",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "async"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "async def ag():",
+      "    yield 1",
+      "print(isinstance(ag(), abc.AsyncIterator))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "collections.abc.AsyncGenerator",
+    "title": "collections.abc.AsyncGenerator",
+    "kind": "term",
+    "summary": {
+      "ru": "Протокол асинхронного генератора: async-итератор с asend/athrow/aclose.",
+      "en": "The async generator protocol: an async iterator with asend/athrow/aclose."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "isinstance(obj, collections.abc.AsyncGenerator)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/collections.abc.html#collections.abc.AsyncGenerator",
+    "version": "",
+    "section": "Модуль collections",
+    "subcat": "collections.abc — протоколы",
+    "aliases": [],
+    "keywords": [
+      "async"
+    ],
+    "tags": [
+      "collections"
+    ],
+    "examples": [
+      "import collections.abc as abc",
+      "async def ag():",
+      "    yield 1",
+      "print(isinstance(ag(), abc.AsyncGenerator))   # → True"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]

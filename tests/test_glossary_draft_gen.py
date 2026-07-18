@@ -113,7 +113,10 @@ def test_bundled_drafts_present_and_marked() -> None:
     # Комплектные черновики в репозитории: помечены draft + tag autodraft.
     provider = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR)
     drafts = [c for c in provider.all() if c.status == "draft"]
-    assert len(drafts) > 500
+    # Мягкий «пол»: кампания #363 планомерно переводит черновики в ready, поэтому
+    # их число убывает (832 → …). Порог лишь страхует от случайного стирания
+    # drafts.json целиком; содержательная часть теста — корректная разметка ниже.
+    assert len(drafts) > 10
     assert all("autodraft" in c.tags for c in drafts)
     assert all(c.docs_url.startswith("https://docs.python.org/3/") for c in drafts)
 
