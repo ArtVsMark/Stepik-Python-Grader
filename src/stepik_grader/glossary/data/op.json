@@ -3968,7 +3968,10 @@
       "print(str(100))  # → \"100\"",
       "print(bool(0))  # → False",
       "print(bool(\"\"))  # → False",
-      "print(int(\"3.14\"))  # → ValueError (нельзя напрямую)",
+      "try:",
+      "    int(\"3.14\")",
+      "except ValueError as e:",
+      "    print(type(e).__name__)  # → ValueError (нельзя напрямую)",
       "print(int(float(\"3.14\")))  # → 3 (через float)"
     ],
     "related": [],

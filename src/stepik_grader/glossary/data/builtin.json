@@ -1702,7 +1702,7 @@
       "print(isinstance('hi', object))  # → True",
       "class A(object): pass  # явно наследуется",
       "print(A.__bases__)  # → (<class 'object'>,)",
-      "print(dir(object()))[:5]  # → базовые методы"
+      "print(dir(object())[:2])  # → ['__class__', '__delattr__']"
     ],
     "related": [],
     "related_errors": []

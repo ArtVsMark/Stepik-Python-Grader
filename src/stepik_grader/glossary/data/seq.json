@@ -205,8 +205,11 @@
       "# → 9",
       "print(sum(lst))",
       "# → 31",
-      "print(min([]))",
-      "# → ValueError: min() arg is an empty sequence (крайний случай)",
+      "try:",
+      "    min([])",
+      "except ValueError as e:",
+      "    print(type(e).__name__)",
+      "# → ValueError (min на пустой последовательности — крайний случай)",
       "print(sum([]))",
       "# → 0"
     ],

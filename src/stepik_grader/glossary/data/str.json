@@ -76,8 +76,8 @@
       "print(f'{s!r}')",
       "# → \"'hello'\"",
       "width = 10",
-      "print(f'{\"center\":{width}^}')",
-      "# → '  center  '",
+      "print(f'{\"center\":^{width}}')",
+      "# → center (выравнивание по центру, ширина 10)",
       "val = 1234567.89",
       "print(f'{val:,.2f}')",
       "# → '1,234,567.89'"
