@@ -7853,5 +7853,143 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "functools.lru_cache",
+    "title": "functools.lru_cache",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор: кеширует результаты функции по аргументам (LRU, ограничен maxsize). Ускоряет повторные и рекурсивные вызовы.",
+      "en": "Decorator caching a function's results by arguments (LRU-bounded by maxsize)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@functools.lru_cache(maxsize=128)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functools.html#functools.lru_cache",
+    "version": "",
+    "section": "Модуль functools",
+    "subcat": "functools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "functools"
+    ],
+    "examples": [
+      "import functools",
+      "@functools.lru_cache",
+      "def sq(n):",
+      "    return n * n",
+      "print(sq(4))                        # → 16",
+      "print(sq(4), sq.cache_info().hits)  # → 16 1"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "functools.cache",
+    "title": "functools.cache",
+    "kind": "function",
+    "summary": {
+      "ru": "Декоратор: простой неограниченный кеш (как lru_cache(maxsize=None)), добавлен в Python 3.9.",
+      "en": "Decorator for a simple unbounded cache (like lru_cache(maxsize=None)); added in 3.9."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "@functools.cache",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functools.html#functools.cache",
+    "version": "",
+    "section": "Модуль functools",
+    "subcat": "functools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "functools"
+    ],
+    "examples": [
+      "import functools",
+      "@functools.cache",
+      "def f(n):",
+      "    return n + 1",
+      "print(f(10), f(10))   # → 11 11"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "functools.cmp_to_key",
+    "title": "functools.cmp_to_key",
+    "kind": "function",
+    "summary": {
+      "ru": "Превращает старую функцию сравнения cmp(a, b)→int в key-функцию для sorted()/min()/max().",
+      "en": "Convert an old-style cmp(a, b) comparison function into a key function for sorted()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "functools.cmp_to_key(cmp_func)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functools.html#functools.cmp_to_key",
+    "version": "",
+    "section": "Модуль functools",
+    "subcat": "functools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "functools"
+    ],
+    "examples": [
+      "import functools",
+      "def cmp(a, b):",
+      "    return a - b",
+      "print(sorted([3, 1, 2], key=functools.cmp_to_key(cmp)))   # → [1, 2, 3]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "functools.update_wrapper",
+    "title": "functools.update_wrapper",
+    "kind": "function",
+    "summary": {
+      "ru": "Копирует метаданные (__name__, __doc__, …) с обёрнутой функции на обёртку; основа декоратора @functools.wraps.",
+      "en": "Copy metadata (__name__, __doc__, …) from a wrapped function onto the wrapper."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "functools.update_wrapper(wrapper, wrapped)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/functools.html#functools.update_wrapper",
+    "version": "",
+    "section": "Модуль functools",
+    "subcat": "functools",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "functools"
+    ],
+    "examples": [
+      "import functools",
+      "def orig():",
+      "    'док'",
+      "def wrap():",
+      "    pass",
+      "functools.update_wrapper(wrap, orig)",
+      "print(wrap.__name__)   # → orig"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]

@@ -5434,5 +5434,133 @@
     ],
     "related": [],
     "related_errors": []
+  },
+  {
+    "id": "json.dumps",
+    "title": "json.dumps",
+    "kind": "function",
+    "summary": {
+      "ru": "Сериализует объект Python в JSON-строку (dict/list/str/int/float/bool/None).",
+      "en": "Serialize a Python object to a JSON string."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "json.dumps(obj, *, indent=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/json.html#json.dumps",
+    "version": "",
+    "section": "Модуль json",
+    "subcat": "json",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "json"
+    ],
+    "examples": [
+      "import json",
+      "print(json.dumps({'a': 1, 'b': [2, 3]}))   # → {\"a\": 1, \"b\": [2, 3]}",
+      "print(json.dumps([1, 2, 3]))                 # → [1, 2, 3]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "json.loads",
+    "title": "json.loads",
+    "kind": "function",
+    "summary": {
+      "ru": "Разбирает JSON-строку в объект Python.",
+      "en": "Parse a JSON string into a Python object."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "json.loads(s)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/json.html#json.loads",
+    "version": "",
+    "section": "Модуль json",
+    "subcat": "json",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "json"
+    ],
+    "examples": [
+      "import json",
+      "print(json.loads('{\"x\": 5, \"y\": true}'))   # → {'x': 5, 'y': True}",
+      "print(json.loads('[1, 2, 3]'))              # → [1, 2, 3]"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "json.dump",
+    "title": "json.dump",
+    "kind": "function",
+    "summary": {
+      "ru": "Сериализует объект в JSON и пишет в файловый объект (потоково, без промежуточной строки).",
+      "en": "Serialize an object as JSON and write it to a file object."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "json.dump(obj, fp)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/json.html#json.dump",
+    "version": "",
+    "section": "Модуль json",
+    "subcat": "json",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "json"
+    ],
+    "examples": [
+      "import json, io",
+      "buf = io.StringIO()",
+      "json.dump({'a': 1}, buf)",
+      "print(buf.getvalue())   # → {\"a\": 1}"
+    ],
+    "related": [],
+    "related_errors": []
+  },
+  {
+    "id": "json.load",
+    "title": "json.load",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает JSON из файлового объекта и возвращает объект Python.",
+      "en": "Read JSON from a file object and return a Python object."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "json.load(fp)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/json.html#json.load",
+    "version": "",
+    "section": "Модуль json",
+    "subcat": "json",
+    "aliases": [],
+    "keywords": [],
+    "tags": [
+      "json"
+    ],
+    "examples": [
+      "import json, io",
+      "print(json.load(io.StringIO('[1, 2, 3]')))   # → [1, 2, 3]"
+    ],
+    "related": [],
+    "related_errors": []
   }
 ]
