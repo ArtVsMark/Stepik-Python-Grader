@@ -57,7 +57,15 @@ _KILL_REAP_TIMEOUT = 5.0
 class RunSpec:
     """Что запустить (`server-mode.md` § Runner-слой): путь к исполняемому
     файлу, stdin, лимиты. Не зависит от механизма изоляции — одинаков для
-    ``LocalRunner`` и будущего ``SandboxRunner``.
+    ``LocalRunner`` и ``SandboxRunner``.
+
+    **Два слоя (issue #550).** Сериализуемое ЯДРО — ``path``/``stdin``/
+    ``timeout``/``measure_memory``/``max_memory_mb`` — полностью описывает запуск
+    и может быть перекодировано (JSON/pickle) для отправки удалённому backend'у
+    (server mode, #151). ``cancel_event`` — ЛОКАЛЬНЫЙ-only канал: ``threading.Event``
+    несериализуем и осмыслен лишь в текущем процессе; remote/Docker-backend
+    отменяет прогон своим механизмом, а не переносом Event, поэтому
+    сериализующий слой обязан пропускать ``cancel_event``.
 
     ``cancel_event`` (issue #262) — опциональный сигнал best-effort отмены
     для async job-модели (``web/runs.py``). ``None`` (по умолчанию) сохраняет
@@ -123,7 +131,17 @@ class Runner(Protocol):
     Контракт не зависит от subprocess — реализация вольна выбрать любой
     механизм (``LocalRunner`` — subprocess на этой машине, будущий
     ``SandboxRunner`` — контейнер/VM с сетевой изоляцией).
+
+    ``supports_project_imports`` (issue #550) — capability-флаг: пробрасывает ли
+    Runner пакет грейдера (site-packages проекта) в дочерний процесс. ``True`` у
+    ``LocalRunner`` (общее окружение с сервером/CLI), ``False`` у
+    ``SandboxRunner`` (ОС-изоляция намеренно НЕ даёт доступ к site-packages,
+    SECURITY.md). Потребители (``core/tracer``) консультируют способность вместо
+    хрупкого ``type(runner).__name__ == "SandboxRunner"`` — новый backend
+    (Docker/remote) объявляет флаг сам и не обходит guard молча.
     """
+
+    supports_project_imports: bool
 
     def run(self, spec: RunSpec) -> RunOutcome:
         """Запустить ``spec`` и вернуть сырой итог (без вычисления вердикта)."""
@@ -329,6 +347,11 @@ class LocalRunner:
     UTF-8 окружение (``PYTHONIOENCODING``/``PYTHONUTF8``), иначе на Windows по
     умолчанию используется cp1251, что ломает кириллицу в выводе.
     """
+
+    # issue #550: LocalRunner делит окружение с сервером/CLI — site-packages
+    # проекта доступны дочернему процессу (трассировщик импортируется). tracer
+    # консультирует эту способность вместо проверки имени класса.
+    supports_project_imports = True
 
     def run(self, spec: RunSpec) -> RunOutcome:
         """Исполнить ``spec`` в subprocess и вернуть сырой ``RunOutcome``.

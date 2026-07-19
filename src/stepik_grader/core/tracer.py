@@ -275,9 +275,11 @@ def trace_code(
     """
     from stepik_grader.core import grader_core  # локальный импорт: избежать цикла в DAG
 
-    # issue #396: под sandbox трассировщик не изолируем (пакет проекта не в
-    # песочнице) — честный отказ вместо исполнения вне изоляции / ModuleNotFoundError.
-    if type(grader_core._RUNNER).__name__ == "SandboxRunner":
+    # issue #550: под sandbox трассировщик не изолируем (пакет проекта не в
+    # песочнице) — консультируем capability активного раннера
+    # (``supports_project_imports``) вместо хрупкого ``type(_RUNNER).__name__``;
+    # новый backend (Docker/remote) объявляет флаг сам и не обходит этот отказ.
+    if not grader_core.active_runner().supports_project_imports:
         return {
             "steps": [],
             "stdout": "",

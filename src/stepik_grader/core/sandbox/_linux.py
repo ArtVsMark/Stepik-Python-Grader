@@ -150,6 +150,8 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
 class LinuxSandboxRunner:
     """``Runner`` изолирующий выполнение через bubblewrap на Linux."""
 
+    supports_project_imports = False  # issue #550: site-packages проекта не в песочнице
+
     def __init__(self, bwrap_path: Path) -> None:
         self._bwrap = bwrap_path
 

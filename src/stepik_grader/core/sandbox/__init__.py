@@ -50,6 +50,11 @@ class SandboxRunner:
     CLI, если backend недоступен, а не посреди прогона на первом тест-кейсе.
     """
 
+    # issue #550: ОС-изоляция намеренно НЕ пробрасывает site-packages проекта в
+    # песочницу (SECURITY.md) — пакет грейдера недоступен дочернему процессу,
+    # поэтому пошаговый трейс под --sandbox честно отклоняется (core/tracer).
+    supports_project_imports = False
+
     def __init__(self) -> None:
         system = platform.system()
         if system == "Linux":

@@ -225,18 +225,52 @@ def test_run_trace_restores_previous_trace_hook() -> None:
     assert sys.gettrace() is sentinel
 
 
-def test_trace_code_refuses_under_sandbox(monkeypatch) -> None:
-    """issue #396: под --sandbox трассировщик не изолируем (пакет грейдера не
-    пробрасывается в песочницу) — trace_code честно отказывает SandboxError'ом,
-    а не исполняет трейс вне изоляции и не роняет ModuleNotFoundError."""
+def test_trace_code_refuses_when_runner_lacks_project_imports(monkeypatch) -> None:
+    """issue #550: под --sandbox трассировщик не изолируем (пакет грейдера не
+    пробрасывается в песочницу) — trace_code честно отказывает SandboxError'ом.
+
+    Отказ идёт по capability ``supports_project_imports``, а НЕ по имени класса:
+    произвольная обёртка / новый backend (Docker/remote) с флагом ``False`` тоже
+    распознаётся — имя класса здесь намеренно НЕ ``SandboxRunner``."""
     from stepik_grader.core import grader_core
 
-    class SandboxRunner:  # имя класса важно — trace_code сверяет type().__name__
+    class IsolatedRunner:  # имя НЕ "SandboxRunner" — распознаётся по capability
+        supports_project_imports = False
+
         def run(self, spec):
             raise AssertionError("не должно вызываться — трейс отклонён до исполнения")
 
-    monkeypatch.setattr(grader_core, "_RUNNER", SandboxRunner())
+    monkeypatch.setattr(grader_core, "_RUNNER", IsolatedRunner())
     result = trace_code("x = 1\n")
     assert result["steps"] == []
     assert result["error"]["type"] == "SandboxError"
     assert "--sandbox" in result["error"]["message"]
+
+
+def test_trace_code_runs_when_runner_supports_project_imports(monkeypatch) -> None:
+    """issue #550: раннер с ``supports_project_imports=True`` (``LocalRunner`` и
+    любой неизолирующий backend) — трейс исполняется, отказа нет."""
+    from stepik_grader.core import grader_core
+    from stepik_grader.core.runner import LocalRunner
+
+    monkeypatch.setattr(grader_core, "_RUNNER", LocalRunner())
+    trace = trace_code("x = 1\ny = 2\n")
+    assert trace["error"] is None
+    assert len(trace["steps"]) >= 1
+
+
+def test_runner_capability_flags_are_explicit() -> None:
+    """issue #550 acceptance: ``LocalRunner=True``, ``SandboxRunner=False`` —
+    объявлены явно на классах (без конструирования platform-backend'а).
+
+    Флаги трёх backend-классов (``LinuxSandboxRunner``/``MacSandboxRunner``/
+    ``WindowsSandboxRunner``) НЕ проверяем импортом здесь: их присваивание
+    ``self._backend: Runner`` в фасаде статически гарантирует mypy (без
+    ``supports_project_imports`` они не пройдут ``Runner`` Protocol), а прямой
+    импорт ``_linux``/``_macos``/``_windows`` тут загрязнил бы ``sys.modules``
+    для монкейпатч-тестов ``test_sandbox_runner``."""
+    from stepik_grader.core.runner import LocalRunner
+    from stepik_grader.core.sandbox import SandboxRunner
+
+    assert LocalRunner.supports_project_imports is True
+    assert SandboxRunner.supports_project_imports is False

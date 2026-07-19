@@ -106,6 +106,8 @@ def _strip_deprecation_warning(stderr: bytes) -> bytes:
 class MacSandboxRunner:
     """``Runner`` изолирующий выполнение через ``sandbox-exec`` на macOS."""
 
+    supports_project_imports = False  # issue #550: site-packages проекта не в песочнице
+
     def __init__(self, sandbox_exec_path: Path) -> None:
         self._sandbox_exec = sandbox_exec_path
 
