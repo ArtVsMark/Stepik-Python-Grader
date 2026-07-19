@@ -293,6 +293,7 @@ def _run_mode_3(
     output: str = "text",
     record_stats: bool = False,
     record_history: bool = False,
+    ai_hints: bool = False,
 ) -> None:
     """Режим 3: subprocess-бенчмарк папки. Тонкая обёртка над commands._run_mode_3."""
     commands._run_mode_3(
@@ -302,6 +303,7 @@ def _run_mode_3(
         output=output,
         record_stats=record_stats,
         record_history=record_history,
+        ai_hints=ai_hints,
     )
 
 
@@ -312,6 +314,7 @@ def _run_mode_4(
     output: str = "text",
     record_stats: bool = False,
     record_history: bool = False,
+    ai_hints: bool = False,
 ) -> None:
     """Режим 4: timeit micro-bench папки. Тонкая обёртка над commands._run_mode_4."""
     commands._run_mode_4(
@@ -321,6 +324,7 @@ def _run_mode_4(
         output=output,
         record_stats=record_stats,
         record_history=record_history,
+        ai_hints=ai_hints,
     )
 
 
@@ -536,7 +540,7 @@ def main(argv: list[str] | None = None) -> None:
     record_stats = _resolve_record_stats(args)
     record_history = _resolve_record_history(args)
     record_lint = args.lint  # разовый флаг режимов 1/2 (issue #349), без config-дефолта
-    ai_hints = args.ai_hints  # разовый флаг AI-подсказок режимов 1/2 (issue #435)
+    ai_hints = args.ai_hints  # разовый флаг AI-подсказок режимов 1–4 (issue #435/#542)
 
     if args.sandbox:
         # issue #266: жёсткий отказ, если backend недоступен на этой машине --
@@ -604,6 +608,7 @@ def main(argv: list[str] | None = None) -> None:
             output=args.output,
             record_stats=record_stats,
             record_history=record_history,
+            ai_hints=ai_hints,
         )
     elif args.mode == 4:
         if args.watch:
@@ -616,4 +621,5 @@ def main(argv: list[str] | None = None) -> None:
             output=args.output,
             record_stats=record_stats,
             record_history=record_history,
+            ai_hints=ai_hints,
         )

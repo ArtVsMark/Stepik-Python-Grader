@@ -16,8 +16,10 @@ from stepik_grader.cli import commands
 from stepik_grader.config import CONFIG
 
 
-def _make_task(tmp_path: pathlib.Path, body: str) -> pathlib.Path:
-    sol = tmp_path / "sol.py"
+def _make_task(tmp_path: pathlib.Path, body: str, *, name: str = "sol.py") -> pathlib.Path:
+    """Решение + tests/ (legacy N/N.clue). ``name`` — режимы 3/4 сканируют папку
+    через find_all_solution_files, которому нужно имя-решение (``task1.py``)."""
+    sol = tmp_path / name
     sol.write_text(body, encoding="utf-8")
     tests = tmp_path / "tests"
     tests.mkdir()
@@ -93,5 +95,38 @@ def test_ai_hints_passing_case_silent(tmp_path, monkeypatch, capsys) -> None:
     sol = _make_task(tmp_path, "print(int(input()) + 1)\n")  # 4+1=5 → AC
     _configure(monkeypatch)
     cli.main(["--mode", "1", "--file", str(sol), "--ai-hints"])
+    out = capsys.readouterr().out
+    assert "AI-подсказк" not in out
+
+
+def test_ai_hints_mode3_explains_erroring_solution(tmp_path, monkeypatch, capsys) -> None:
+    """Режим 3 (бенчмарк) + --ai-hints → решение с ошибкой исполнения объясняется
+    тем же core-хелпером (issue #542)."""
+    monkeypatch.chdir(tmp_path)
+    _make_task(tmp_path, "print(int(input()) // 0)\n", name="task1.py")  # ZeroDivisionError
+    _configure(monkeypatch)
+    monkeypatch.setattr(requests, "post", lambda url, **kw: _Resp())
+    cli.main(["--mode", "3", "--dir", str(tmp_path), "--repeats", "1", "--ai-hints"])
+    out = capsys.readouterr().out
+    assert "AI-подсказка" in out  # маркер AI-generated по крашнувшемуся решению
+
+
+def test_ai_hints_mode4_explains_erroring_solution(tmp_path, monkeypatch, capsys) -> None:
+    """Режим 4 (micro-bench) + --ai-hints → крашнувшееся решение объясняется (issue #542)."""
+    monkeypatch.chdir(tmp_path)
+    _make_task(tmp_path, "print(int(input()) // 0)\n", name="task1.py")  # ZeroDivisionError
+    _configure(monkeypatch)
+    monkeypatch.setattr(requests, "post", lambda url, **kw: _Resp())
+    cli.main(["--mode", "4", "--dir", str(tmp_path), "--number", "1", "--ai-hints"])
+    out = capsys.readouterr().out
+    assert "AI-подсказка" in out
+
+
+def test_ai_hints_mode3_no_flag_silent(tmp_path, monkeypatch, capsys) -> None:
+    """Режим 3 без --ai-hints → никакого AI-вывода, даже если решение крашится."""
+    monkeypatch.chdir(tmp_path)
+    _make_task(tmp_path, "print(int(input()) // 0)\n", name="task1.py")
+    _configure(monkeypatch)
+    cli.main(["--mode", "3", "--dir", str(tmp_path), "--repeats", "1"])
     out = capsys.readouterr().out
     assert "AI-подсказк" not in out
