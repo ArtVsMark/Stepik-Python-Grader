@@ -3,8 +3,8 @@
 Архитектурный слой: Application/UI (web-адаптер), как ``viewmodels.py``.
 
 Раздел «Песочница»: не проверка против тест-кейсов, а «запусти этот код с
-этим вводом и покажи вывод». Исполняет через активный ``grader_core._RUNNER``
-(тот же путь, что грейдинг) — общий wall-clock таймаут, best-effort лимит
+этим вводом и покажи вывод». Исполняет через ``grading.run_spec()`` — активный
+``Runner`` (тот же путь, что грейдинг) — общий wall-clock таймаут, best-effort лимит
 памяти (POSIX), кооперативная отмена через ``cancel_event``. По умолчанию это
 ``LocalRunner``; при ``--serve --sandbox`` (issue #396) — ``SandboxRunner``,
 поэтому песочница web изолируется вместе с grade-путём.
@@ -23,8 +23,7 @@ import threading
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core import grader_core
-from stepik_grader.core.runner import RunSpec
+from stepik_grader.web.grading import RunSpec, run_spec
 
 __all__ = ["run_playground"]
 
@@ -63,7 +62,7 @@ def run_playground(
     try:
         tmp.write(code)
         tmp.close()
-        outcome = grader_core._RUNNER.run(
+        outcome = run_spec(
             RunSpec(
                 path=pathlib.Path(tmp.name),
                 stdin=stdin.encode("utf-8"),
