@@ -1018,7 +1018,7 @@ class TestApiInputLimits:
         captured: dict[str, object] = {}
 
         def fake_grade_benchmark(
-            path: str, repeats: int, reference: str | None = None, lang: str = "ru"
+            path: str, repeats: int, reference: str | None = None, lang: str = "ru", **_kwargs
         ) -> dict:
             captured["repeats"] = repeats
             return {"kind": "bench", "mode": "bench", "rows": []}
@@ -1036,7 +1036,7 @@ class TestApiInputLimits:
         captured: dict[str, object] = {}
 
         def fake_grade_benchmark(
-            path: str, repeats: int, reference: str | None = None, lang: str = "ru"
+            path: str, repeats: int, reference: str | None = None, lang: str = "ru", **_kwargs
         ) -> dict:
             captured["repeats"] = repeats
             return {"kind": "bench", "mode": "bench", "rows": []}
@@ -1053,7 +1053,7 @@ class TestApiInputLimits:
     ) -> None:
         captured: dict[str, object] = {}
 
-        def fake_grade_microbench(path: str, number: int, lang: str = "ru") -> dict:
+        def fake_grade_microbench(path: str, number: int, lang: str = "ru", **_kwargs) -> dict:
             captured["number"] = number
             return {"kind": "microbench", "mode": "microbench", "rows": []}
 
@@ -1069,7 +1069,7 @@ class TestApiInputLimits:
     ) -> None:
         captured: dict[str, object] = {}
 
-        def fake_grade_microbench(path: str, number: int, lang: str = "ru") -> dict:
+        def fake_grade_microbench(path: str, number: int, lang: str = "ru", **_kwargs) -> dict:
             captured["number"] = number
             return {"kind": "microbench", "mode": "microbench", "rows": []}
 
@@ -1088,7 +1088,7 @@ class TestApiInputLimits:
         captured: dict[str, object] = {}
 
         def fake_grade_benchmark(
-            path: str, repeats: int, reference: str | None = None, lang: str = "ru"
+            path: str, repeats: int, reference: str | None = None, lang: str = "ru", **_kwargs
         ) -> dict:
             captured["repeats"] = repeats
             return {"kind": "bench", "mode": "bench", "rows": []}

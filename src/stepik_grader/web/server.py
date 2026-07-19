@@ -313,12 +313,20 @@ class _Handler(BaseHTTPRequestHandler):
             if mode == "bench":
                 reference = (qs.get("reference") or [""])[0].strip() or None
                 repeats = _clamp(_int(qs.get("repeats"), 15), *_REPEATS_RANGE)
-                data = grade_benchmark(path, repeats=repeats, reference=reference, lang=lang)
+                data = grade_benchmark(
+                    path,
+                    repeats=repeats,
+                    reference=reference,
+                    lang=lang,
+                    workspace=self.server.workspace,
+                )
             elif mode == "microbench":
                 number = _clamp(_int(qs.get("number"), 1000), *_NUMBER_RANGE)
-                data = grade_microbench(path, number=number, lang=lang)
+                data = grade_microbench(
+                    path, number=number, lang=lang, workspace=self.server.workspace
+                )
             else:
-                data = grade_path(path, lang=lang)
+                data = grade_path(path, lang=lang, workspace=self.server.workspace)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _get_glossary(self, parsed: Any, lang: str) -> None:
@@ -642,7 +650,9 @@ class _Handler(BaseHTTPRequestHandler):
         ``None`` (паттерн «ответ внутри, отказ через None», как
         ``_confined_path``/``_read_json_body``); иначе — созданная ``Job``."""
         try:
-            return runs.submit_job(kind, path, params, code=code, stdin=stdin)
+            return runs.submit_job(
+                kind, path, params, code=code, stdin=stdin, workspace=self.server.workspace
+            )
         except runs.TooManyRunsError as exc:
             self._send(
                 429,

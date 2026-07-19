@@ -80,6 +80,19 @@ def _rel(path: pathlib.Path, base: pathlib.Path) -> str:
         return path.name
 
 
+def _task_key(path: pathlib.Path, workspace: pathlib.Path | None) -> str:
+    """``task_key`` для истории — относительно ``workspace`` сервера, не cwd.
+
+    issue #539: конфайнмент web идёт от ``server.workspace`` (``--root``), а
+    ключ задачи считался от ``pathlib.Path.cwd()``. При ``--root != cwd`` ключи
+    коллизировали/дрейфовали между запусками, искажая TTFG и раздел «Подучить».
+    ``workspace=None`` (не-web вызовы / обратная совместимость публичного API) —
+    fallback на cwd, прежнее поведение.
+    """
+    base = workspace if workspace is not None else pathlib.Path.cwd()
+    return _rel(path, base)
+
+
 def _resolve_solutions(
     path: pathlib.Path, *, lang: str = DEFAULT_LANG
 ) -> tuple[str, pathlib.Path, list[pathlib.Path]] | dict[str, Any]:
@@ -513,6 +526,7 @@ def grade_path(
     lang: str = DEFAULT_LANG,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
+    workspace: pathlib.Path | None = None,
 ) -> dict[str, Any]:
     """Прогрейдить файл/папку на корректность (режим 1/2).
 
@@ -594,7 +608,7 @@ def grade_path(
             _record_history_if_enabled(
                 1,
                 history_recording.cases_from_test_results(res["cases"]),
-                task_key=_rel(sol.parent, pathlib.Path.cwd()),
+                task_key=_task_key(sol.parent, workspace),
                 solution_name=sol.name,
                 solution_hash=hash_solution(sol),
                 duration_s=res["total_time"],
@@ -606,7 +620,7 @@ def grade_path(
             _record_history_if_enabled(
                 2,
                 history_recording.cases_from_test_results(all_cases),
-                task_key=_rel(base, pathlib.Path.cwd()),
+                task_key=_task_key(base, workspace),
                 duration_s=total_time,
                 lint_records=_web_lint_records([s for s, _ in graded]) or None,
             )
@@ -621,6 +635,7 @@ def grade_benchmark(
     lang: str = DEFAULT_LANG,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
+    workspace: pathlib.Path | None = None,
 ) -> dict[str, Any]:
     """Бенчмаркнуть файл/папку (режим 3) и ранжировать по медиане.
 
@@ -723,7 +738,7 @@ def grade_benchmark(
         _record_history_if_enabled(
             3,
             history_recording.cases_from_bench_results(results),
-            task_key=_rel(base, pathlib.Path.cwd()),
+            task_key=_task_key(base, workspace),
             duration_s=total_time,
         )
 
@@ -745,6 +760,7 @@ def grade_microbench(
     lang: str = DEFAULT_LANG,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
+    workspace: pathlib.Path | None = None,
 ) -> dict[str, Any]:
     """Микро-бенчмарк (режим 4, timeit) файла/папки — issue #187.
 
@@ -846,7 +862,7 @@ def grade_microbench(
         _record_history_if_enabled(
             4,
             history_recording.cases_from_bench_results(results),
-            task_key=_rel(base, pathlib.Path.cwd()),
+            task_key=_task_key(base, workspace),
             duration_s=total_time,
         )
 
