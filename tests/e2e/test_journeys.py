@@ -13,6 +13,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from playwright.sync_api import expect
+
 from tests.e2e._helpers import write_task
 
 _TIMEOUT_MS = 10_000
@@ -64,10 +66,10 @@ def test_mode2_result_announced_and_focused_for_a11y(
     # aria-live summary region carries a one-line verdict summary.
     announce = page.locator("#result-announce")
     assert announce.get_attribute("aria-live") == "polite"
-    page.wait_for_function(
-        "document.getElementById('result-announce').textContent.includes('OK')",
-        timeout=_TIMEOUT_MS,
-    )
+    # issue #563: CSP (default-src 'self', без 'unsafe-eval') запрещает in-page
+    # eval, а Playwright'овский wait_for_function(<строка>) поллит именно через
+    # eval → падает. web-first expect() ждёт по протоколу, без eval.
+    expect(announce).to_contain_text("OK", timeout=_TIMEOUT_MS)
     assert "OK" in announce.text_content()
 
     # Verdict badge conveys meaning as TEXT, not by colour alone (WCAG 1.4.1).
@@ -98,10 +100,7 @@ def test_bench_progressbar_exposes_aria_roles(page: Any, e2e_server: str, tmp_pa
     assert int(pb.get_attribute("aria-valuemax")) >= 1
 
     # And the run still completes and announces a summary.
-    page.wait_for_function(
-        "document.getElementById('result-announce').textContent.includes('авершён')",
-        timeout=_TIMEOUT_MS,
-    )
+    expect(page.locator("#result-announce")).to_contain_text("авершён", timeout=_TIMEOUT_MS)
 
 
 def test_check_code_terms_panel_and_mode_visibility(
@@ -165,10 +164,7 @@ def test_mode1_file_picker_edit_check_then_save(page: Any, e2e_server: str, tmp_
     # doc is empty, so length > 0 is already true before the real code
     # loads -- wait for the actual expected substring instead.
     editor_content = page.locator("#solution-editor .cm-content")
-    page.wait_for_function(
-        "document.querySelector('#solution-editor .cm-content').textContent.includes('99')",
-        timeout=_TIMEOUT_MS,
-    )
+    expect(editor_content).to_contain_text("99", timeout=_TIMEOUT_MS)
     assert "99" in editor_content.text_content()  # the original (wrong) code loaded
 
     # Freshly loaded file -> no unsaved changes yet.
@@ -228,10 +224,7 @@ def test_glossary_chip_filter_and_deeplink(page: Any, e2e_server: str, tmp_path:
     # и синхронизирует селект раздела (разделы не объединяются).
     page.wait_for_selector("#glossary-chips .chip", timeout=_TIMEOUT_MS)
     page.click('#glossary-chips .chip[data-section="Исключения"]')
-    page.wait_for_function(
-        "() => document.querySelector('#glossary-section').value === 'Исключения'",
-        timeout=_TIMEOUT_MS,
-    )
+    expect(page.locator("#glossary-section")).to_have_value("Исключения", timeout=_TIMEOUT_MS)
     assert page.locator("#glossary-count").text_content().startswith("Показано")
 
     # Deep-link: прямой хэш открывает конкретную карточку.
@@ -501,9 +494,7 @@ def test_progress_section_opens_and_renders(page: Any, e2e_server: str, tmp_path
     page.wait_for_selector("#view-progress:not([hidden])", timeout=_TIMEOUT_MS)
     # /api/progress ответил и renderProgress отработал: виден либо empty-state,
     # либо KPI-контент (если оба скрыты — loadProgress упал, ловим таймаутом).
-    page.wait_for_function(
-        "() => { const e = document.getElementById('progress-empty');"
-        " const c = document.getElementById('progress-content');"
-        " return (e && !e.hidden) || (c && !c.hidden); }",
+    page.wait_for_selector(
+        "#progress-empty:not([hidden]), #progress-content:not([hidden])",
         timeout=_TIMEOUT_MS,
     )

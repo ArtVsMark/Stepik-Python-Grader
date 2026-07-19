@@ -845,6 +845,51 @@ class TestHttpHandler:
         внешнего домена (Google Fonts CDN был единственным источником) —
         только placeholder-текст со ссылкой-примером допустим."""
         assert "fonts.googleapis.com" not in web._INDEX_HTML
+
+
+class TestSecurityHeaders:
+    """issue #563: CSP + X-Content-Type-Options на ответах и read-timeout."""
+
+    def test_html_response_carries_csp_and_nosniff(self, server: str) -> None:
+        with urllib.request.urlopen(server + "/", timeout=5) as resp:
+            csp = resp.headers["Content-Security-Policy"]
+            assert resp.headers["X-Content-Type-Options"] == "nosniff"
+        for token in (
+            "default-src 'self'",
+            "base-uri 'none'",
+            "object-src 'none'",
+            # script остаётся строгим 'self' (главный барьер XSS); 'unsafe-inline'
+            # только для style — его требует вендоренный CodeMirror (issue #563).
+            "style-src 'self' 'unsafe-inline'",
+            "font-src 'self'",
+        ):
+            assert token in csp, token
+        assert "script-src" not in csp  # script наследует строгий default-src 'self'
+
+    def test_static_css_carries_nosniff(self, server: str) -> None:
+        with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:
+            assert resp.headers["X-Content-Type-Options"] == "nosniff"
+
+    def test_api_json_carries_nosniff(self, server: str) -> None:
+        # /api/grade без path → JSON-ошибка (200), заголовок nosniff всё равно есть.
+        with urllib.request.urlopen(server + "/api/grade", timeout=5) as resp:
+            assert resp.headers["X-Content-Type-Options"] == "nosniff"
+
+    def test_no_inline_styles_in_served_static(self) -> None:
+        """Наш собственный код не полагается на 'unsafe-inline' в CSP (его
+        требует лишь вендоренный CodeMirror) — гейт против регресса: ни HTML, ни
+        один static/*.js не содержат ``style="``/``style='``. Динамика идёт через
+        CSSOM (``el.style.prop``), классы — через app.css (issue #563)."""
+        for source, label in (
+            (web._INDEX_HTML, "index.html"),
+            (web._STATIC_JS_SOURCES, "static/*.js"),
+        ):
+            assert 'style="' not in source, f"инлайновый style= в {label}"
+            assert "style='" not in source, f"инлайновый style= в {label}"
+
+    def test_handler_has_read_timeout(self) -> None:
+        """Соединение получает read-timeout — медленный клиент не держит поток."""
+        assert web._Handler.timeout == 30
         assert "fonts.gstatic.com" not in web._INDEX_HTML
         assert not re.search(r'(?:href|src)="https?://', web._INDEX_HTML)
 

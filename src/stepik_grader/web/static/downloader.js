@@ -22,7 +22,7 @@ function renderDownloaderResult(data) {
   h += '<div class="field-label">Файлы</div>' + codeBlock(data.files.join("\n"));
   if (data.files.length) {
     h +=
-      '<button id="downloader-goto-check" class="btn btn-secondary" style="margin-top:var(--space-3)">' +
+      '<button id="downloader-goto-check" class="btn btn-secondary mt-3">' +
       "Перейти к проверке</button>";
   }
   content.innerHTML = h;
