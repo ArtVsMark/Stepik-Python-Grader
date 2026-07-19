@@ -54,6 +54,25 @@
 
 ---
 
+## Чем отличается от оригинала
+
+| Возможность | Оригинал | Этот форк |
+|---|---|---|
+| Проверка одного файла на корректность | ✅ | ✅ |
+| Сравнение и бенчмарк решений (режимы 3/4, оценка по median, вердикты SIMILAR/SLOWER, профили нагрузки) | ❌ | ✅ |
+| Интеграция со Stepik — OAuth2, автоскачивание задачи и тест-кейсов, диагностика API | ❌ | ✅ |
+| Локальный веб-интерфейс (`--serve`) + интеграция с VS Code / PyCharm | ❌ | ✅ |
+| Локальный глоссарий Python — карточки + детектор недостающих терминов + deep-link из error cards | ❌ | ✅ |
+| Правила PEP 8 + раздел «Подучить» (частые ошибки из истории прогонов с затуханием) | ❌ | ✅ |
+| Опциональная OS-песочница исполнения (`--sandbox`) с сетевой/ФС-изоляцией | ❌ | ✅ |
+| Двуязычный интерфейс RU/EN — CLI, web-оболочка, глоссарий | ❌ | ✅ |
+| Локальная история прогонов (SQLite) + статистика — офлайн | ❌ | ✅ |
+| Инженерная база — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) на 3 ОС, 1700+ тестов | ❌ | ✅ |
+
+Эволюция по релизам (`v1.0.0 … v1.8.0`) — в [docs/versions.md](docs/versions.md).
+
+---
+
 ## Быстрый старт
 
 **Установить** (проще всего через [pipx](https://pipx.pypa.io)):
@@ -119,6 +138,32 @@ as-is).
 Подробная threat model — в
 [docs/configuration.md § Ограничения и безопасность](docs/configuration.md#ограничения-и-безопасность).
 Как сообщить об уязвимости — [SECURITY.md](SECURITY.md).
+
+---
+
+## Прозрачность и доверие
+
+- ✅ **1700+ автотестов** (pytest), CI-матрица на 3 ОС × Python 3.12/3.13 (+3.14
+  экспериментально) — живые бейджи покрытия single-OS и cross-OS в шапке.
+- 🧠 **Строгий mypy** (`disallow_untyped_defs`, `warn_return_any`, …) + `ruff`
+  (lint + format) в pre-commit и CI — типы и стиль проверяются на каждый PR.
+- 🔐 **Приватный репорт уязвимостей** (GitHub Private Vulnerability Reporting) +
+  документированная threat model — [SECURITY.md](SECURITY.md).
+- 📦 **Публикация на PyPI через OIDC trusted publishing** — без хранимого токена
+  в секретах; релизный dist собирается один раз в CI.
+- 📜 **MIT**, открытая история изменений — [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## Первый вклад за 15 минут
+
+Новичок? Возьмите issue с меткой
+[`good first issue`](https://github.com/ArtVsMark/Stepik-Python-Grader/labels/good%20first%20issue)
+— это задачи с понятным объёмом и ссылками на канон. Пошаговый онбординг (форк →
+ветка от `main` → локальные гейты `pytest`/`ruff`/`mypy` → PR по Conventional
+Commits) — в [CONTRIBUTING.md § Первый вклад за 15 минут](CONTRIBUTING.md#первый-вклад-за-15-минут).
+Вопросы, идеи и «покажу своё» — в
+[Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions).
 
 ---
 

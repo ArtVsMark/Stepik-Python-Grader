@@ -7,6 +7,30 @@
 
 ---
 
+## Первый вклад за 15 минут
+
+Короткий путь для новичка — от нуля до открытого PR:
+
+1. **Выберите задачу.** Метки [`good first issue`](https://github.com/ArtVsMark/Stepik-Python-Grader/labels/good%20first%20issue)
+   и [`help wanted`](https://github.com/ArtVsMark/Stepik-Python-Grader/labels/help%20wanted)
+   — задачи с понятным объёмом. Вопросы/идеи — в
+   [Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions).
+2. **Форк + ветка от свежего `main`** (`git checkout -b <type>/<slug>`,
+   Conventional Commits — см. [§ Правила коммитов](#правила-коммитов-conventional-commits)).
+3. **Установка** (5 минут): `python -m venv .venv && source .venv/bin/activate`
+   → `pip install -e ".[dev]"` (см. [§ Установка](#установка)).
+4. **Локальные гейты перед PR** (зеркалят CI): `pytest tests/ -x -q` ·
+   `ruff check .` · `ruff format --check .` · `mypy src/stepik_grader scripts`
+   (см. [§ Запуск тестов](#запуск-тестов)).
+5. **Одна строка в `CHANGELOG.md`** под `## [Unreleased]` + PR в `main` (черновик
+   можно; см. [§ Процесс внесения изменений](#процесс-внесения-изменений)).
+
+Не уверены, за что взяться, или хотите обсудить идею? Откройте
+[Discussion](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions) — это
+ни к чему не обязывает.
+
+---
+
 ## Архитектура проекта
 
 Подробная архитектурная карта (DAG модулей, слои, «что умеет каждый модуль»)

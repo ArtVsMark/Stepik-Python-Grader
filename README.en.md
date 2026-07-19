@@ -89,6 +89,46 @@ glossary render in English (`?lang=en`). The glossary ships ready cards
 
 ---
 
+## Why this fork
+
+| Feature | Original | This fork |
+|---|---|---|
+| Single-file correctness check | ✅ | ✅ |
+| Solution comparison & benchmarks (modes 3/4, median-based, SIMILAR/SLOWER verdicts) | ❌ | ✅ |
+| Stepik integration — OAuth2, auto-download of task & test cases, API diagnostics | ❌ | ✅ |
+| Local web UI (`--serve`) + VS Code / PyCharm integration | ❌ | ✅ |
+| Local Python glossary — cards + missing-term detector + deep links from error cards | ❌ | ✅ |
+| PEP 8 rules + «Practice» section (frequent mistakes from run history) | ❌ | ✅ |
+| Optional OS sandbox (`--sandbox`) with network/FS isolation | ❌ | ✅ |
+| Bilingual RU/EN interface — CLI, web shell, glossary | ❌ | ✅ |
+| Local run history (SQLite) + stats — offline | ❌ | ✅ |
+| Engineering base — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) on 3 OSes, 1700+ tests | ❌ | ✅ |
+
+Per-release evolution — [docs/versions.md](docs/versions.md).
+
+---
+
+## Transparency & trust
+
+- ✅ **1700+ automated tests** (pytest), CI matrix over 3 OSes × Python 3.12/3.13 (+3.14 experimental) — live coverage badges (single-OS + cross-OS) in the header.
+- 🧠 **Strict mypy** + `ruff` (lint + format) in pre-commit and CI on every PR.
+- 🔐 **Private vulnerability reporting** + a documented threat model — [SECURITY.md](SECURITY.md).
+- 📦 **PyPI publishing via OIDC trusted publishing** — no stored token.
+- 📜 **MIT**, open changelog — [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## First contribution in 15 minutes
+
+New here? Pick a
+[`good first issue`](https://github.com/ArtVsMark/Stepik-Python-Grader/labels/good%20first%20issue),
+fork, branch off `main`, run the local gates (`pytest` / `ruff` / `mypy`), add one
+`CHANGELOG.md` line, and open a PR. Full onboarding —
+[CONTRIBUTING.md](CONTRIBUTING.md). Questions & ideas —
+[Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions).
+
+---
+
 ## More
 
 Full documentation lives under [docs/](docs/README.md). This page is an English
