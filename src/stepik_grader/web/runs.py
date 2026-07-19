@@ -32,6 +32,8 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
 from stepik_grader.config import CONFIG
+from stepik_grader.core.ai_hints import explain_failure, is_configured
+from stepik_grader.core.failure_context import build_failure_context
 from stepik_grader.web.grading import find_all_solution_files, trace_code
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
 from stepik_grader.web.playground import run_playground
@@ -280,6 +282,9 @@ def _run_job(
     if kind == "auth":
         _run_auth_job(job, params, lang)
         return
+    if kind == "hint":
+        _run_hint_job(job, code or "", params, lang)
+        return
 
     assert path is not None  # tests/bench/microbench всегда с path (см. submit_job)
     temp_code_path: str | None = None
@@ -384,6 +389,32 @@ def _run_playground_job(job: Job, code: str, stdin: str, lang: str) -> None:
         else:
             job.status = "done"
             job.result = result
+
+
+def _run_hint_job(job: Job, code: str, params: dict[str, Any], lang: str) -> None:
+    """Тело hint-job'ы (issue #543): AI-объяснение упавшего кейса.
+
+    Контекст строится общим core-хелпером ``build_failure_context`` (issue #542)
+    из ``params["case"]`` + кода решения (заземление промпта); ``explain_failure``
+    глушит любые ошибки канала в ``None`` — UI/грейдинг не падают. Согласие
+    (consent) проверено СИНХРОННО на входе (``server._handle_create_hint``) — сюда
+    без согласия не доходит, в сеть без него ничего не уходит. Результат —
+    ``{"hint": str|None, "configured": bool}`` (``hint=None`` при не настроенном
+    провайдере или пустом ответе — graceful skip).
+    """
+    try:
+        raw_case = params.get("case")
+        case = raw_case if isinstance(raw_case, dict) else {}
+        fc = build_failure_context(case, code=code, lang=lang)
+        hint = explain_failure(fc, CONFIG)
+    except Exception as exc:
+        with job.lock:
+            job.status = "error"
+            job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
+        return
+    with job.lock:
+        job.status = "done"
+        job.result = {"hint": hint, "configured": is_configured(CONFIG)}
 
 
 def _run_auth_job(job: Job, params: dict[str, Any], lang: str) -> None:

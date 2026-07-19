@@ -40,14 +40,21 @@ SETTINGS_FILE_NAME = ".grader_settings.json"
 
 @dataclass
 class UserSettings:
-    """Пользовательские настройки, переключаемые из меню (issue #430).
+    """Пользовательские настройки, переключаемые из меню/web (issue #430).
 
     ``record_history``: ``None`` — не переопределено (наследовать
     ``CONFIG.record_history``); ``True``/``False`` — явный выбор пользователя,
     сохранённый между запусками.
+
+    ``ai_hint_consent`` (issue #543): однократное явное согласие пользователя на
+    отправку кода/ввода-вывода AI-провайдеру (web ``POST /api/v1/hint``). ``None``
+    — не давалось (запрос в сеть не уйдёт, эндпоинт вернёт ``consent_required``);
+    ``True`` — дано и запомнено между запусками. Приватность: без согласия ничего
+    не отправляется наружу.
     """
 
     record_history: bool | None = None
+    ai_hint_consent: bool | None = None
 
 
 def default_settings_path() -> Path:
@@ -77,7 +84,11 @@ def load_settings(path: Path) -> UserSettings:
     if not isinstance(data, dict):
         return UserSettings()
     record_history = data.get("record_history")
-    return UserSettings(record_history=record_history if isinstance(record_history, bool) else None)
+    ai_hint_consent = data.get("ai_hint_consent")
+    return UserSettings(
+        record_history=record_history if isinstance(record_history, bool) else None,
+        ai_hint_consent=ai_hint_consent if isinstance(ai_hint_consent, bool) else None,
+    )
 
 
 def save_settings(settings: UserSettings, path: Path) -> None:
@@ -92,4 +103,6 @@ def save_settings(settings: UserSettings, path: Path) -> None:
     payload: dict[str, object] = {}
     if settings.record_history is not None:
         payload["record_history"] = settings.record_history
+    if settings.ai_hint_consent is not None:
+        payload["ai_hint_consent"] = settings.ai_hint_consent
     atomic_write_json(path, payload, fsync=False)

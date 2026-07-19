@@ -24,16 +24,33 @@ from stepik_grader.core.ai_hints import FailureContext
 __all__ = ["build_failure_context"]
 
 
+def _as_lines(value: object) -> list[str] | None:
+    r"""Нормализовать ``output``/``expected`` кейса в список строк (или ``None``).
+
+    ``run_tests`` даёт списки строк (``CaseResult``), а web-слой (``POST
+    /api/v1/hint``, issue #543) присылает уже склеенный текст — принимаем обе
+    формы: ``list`` как есть, ``str`` разбиваем по ``\n``, всё прочее/``None`` →
+    ``None`` («нет данных» для ``insights.failure_kind``).
+    """
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    if isinstance(value, str):
+        return value.split("\n")
+    return None
+
+
 def build_failure_context(
     case: Mapping[str, Any], *, code: str = "", lang: str = "ru"
 ) -> FailureContext:
-    """Собрать ``FailureContext`` из case-dict проверки + якорей.
+    r"""Собрать ``FailureContext`` из case-dict проверки + якорей.
 
     ``case`` — словарь одного кейса формы ``CaseResult`` (режимы 1/2, web) или
     bench-dict решения (режимы 3/4: только ``verdict``/``error``, без
     ``output``/``expected``/``stdin``/``diff``). Все поля читаются через ``.get``
     с дефолтами, поэтому обе формы валидны — отсутствующие дают пустые строки.
-    Якоря: ``insights.failure_kind`` (таксономия падения) и
+    ``output``/``expected`` принимаются и списком строк (``run_tests``), и одной
+    склеенной строкой (web-payload, issue #543) — см. :func:`_as_lines`. Якоря:
+    ``insights.failure_kind`` (таксономия падения) и
     ``error_glossary.resolve_error_hint`` (карточка ошибки для RE).
 
     ``code`` — исходник решения (заземление промпта), ``lang`` — язык ответа.
@@ -42,17 +59,17 @@ def build_failure_context(
     """
     verdict = str(case.get("verdict") or ("AC" if case.get("passed") else "WA"))
     error = str(case.get("error", ""))
-    kind = insights.failure_kind(
-        verdict, error=error, output=case.get("output"), expected=case.get("expected")
-    )
+    output = _as_lines(case.get("output"))
+    expected = _as_lines(case.get("expected"))
+    kind = insights.failure_kind(verdict, error=error, output=output, expected=expected)
     entry = error_glossary.resolve_error_hint(error) if error else None
     card = f"{entry.exception}: {entry.hint}" if entry else ""
     return FailureContext(
         verdict=verdict,
         lang=lang,
         case_input=str(case.get("stdin", "")),
-        expected="\n".join(case.get("expected") or []),
-        actual="\n".join(case.get("output") or []),
+        expected="\n".join(expected or []),
+        actual="\n".join(output or []),
         diff=str(case.get("diff", "")),
         error=error,
         failure_kind=kind or "",

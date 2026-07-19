@@ -458,6 +458,18 @@
   </div>
 </div>
 
+<!-- issue #543: однократное явное согласие на AI-подсказку (код/IO уходят провайдеру). -->
+<div id="ai-consent-overlay" class="palette-overlay" hidden>
+  <div class="palette ai-consent" role="dialog" aria-modal="true" aria-labelledby="ai-consent-title">
+    <h2 id="ai-consent-title" data-i18n="ai.consent_title">Согласие на AI-подсказку</h2>
+    <p class="ai-consent-body" data-i18n="ai.consent_body">AI-подсказка отправит ваш код и ввод-вывод AI-провайдеру. Рекомендуется локальный провайдер (ollama) — данные не покинут вашу машину. Для несовершеннолетних требуется согласие представителя. Без согласия в сеть ничего не отправляется.</p>
+    <div class="ai-consent-actions">
+      <button id="ai-consent-accept" class="btn" type="button" data-i18n="ai.consent_accept">Согласен, объяснить</button>
+      <button id="ai-consent-decline" class="btn btn-secondary" type="button" data-i18n="ai.consent_decline">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <!-- issue #295: CodeMirror 6 is a single self-contained vendored ESM bundle
      (static/vendor/codemirror-bundle@6.mjs — no CDN, see
      static/vendor/VERSIONS.md) that app.js imports directly by URL; no

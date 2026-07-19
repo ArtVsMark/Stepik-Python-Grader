@@ -26,6 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from stepik_grader.core import user_settings
 from stepik_grader.core.stepik_reference import DEFAULT_MAX_TOP
 from stepik_grader.web import auth_adapter, runs
 from stepik_grader.web.commands import filter_commands
@@ -259,6 +260,7 @@ class _Handler(BaseHTTPRequestHandler):
     )
     _API_POST_EXACT = {
         "/api/v1/runs": "_handle_create_run",
+        "/api/v1/hint": "_handle_create_hint",
         "/api/auth/start": "_handle_auth_start",
         "/api/code-terms": "_post_code_terms",
         "/api/download": "_post_download",
@@ -772,6 +774,76 @@ class _Handler(BaseHTTPRequestHandler):
         raw_stdin = body.get("stdin")
         stdin = raw_stdin if isinstance(raw_stdin, str) else ""
         job = self._submit_or_429(lang, kind, None, {"lang": lang}, code=code, stdin=stdin)
+        if job is None:
+            return
+        self._send(
+            202,
+            "application/json; charset=utf-8",
+            _json({"run_id": job.id, "status": job.status}),
+        )
+
+    def _handle_create_hint(self, parsed: Any) -> None:
+        """POST /api/v1/hint (issue #543) — AI-объяснение упавшего кейса как async-job.
+
+        Тело: ``{"verdict","stdin"?,"expected"?,"actual"?,"diff"?,"error"?,
+        "path"?|"code"?,"consent"?}`` → ``202`` + ``{"run_id","status"}``; результат
+        (``{"hint": str|None, "configured": bool}``) — через ``GET /api/v1/runs/{id}``.
+
+        Приватность (в т.ч. несовершеннолетних): подсказка отправляет код и ввод-вывод
+        AI-провайдеру, поэтому нужно ОБЯЗАТЕЛЬНОЕ однократное явное согласие. Без
+        согласия — ``403 consent_required``, в сеть НИЧЕГО не уходит (job не ставится,
+        провайдер не вызывается). ``consent: true`` в теле фиксирует согласие в
+        ``.grader_settings.json`` (``ai_hint_consent``) — далее не требуется. Провайдер
+        не настроен → job вернёт ``hint=null`` (graceful, грейдинг не затрагивается).
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+
+        # Consent-гейт — синхронно, ДО любого обращения к провайдеру (приватность).
+        settings_path = self.server.workspace / user_settings.SETTINGS_FILE_NAME
+        settings = user_settings.load_settings(settings_path)
+        granted = settings.ai_hint_consent is True
+        if body.get("consent") is True and not granted:
+            settings.ai_hint_consent = True
+            with contextlib.suppress(OSError):
+                user_settings.save_settings(settings, settings_path)
+            granted = True
+        if not granted:
+            self._send(
+                403,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("consent_required", lang)}),
+            )
+            return
+
+        # Код решения для заземления промпта: из confined-пути (грейд по файлу) или
+        # из тела (playground/инлайн). Отсутствие — не ошибка (промпт без кода).
+        code = ""
+        raw_path = str(body.get("path") or "").strip()
+        if raw_path:
+            confined = self._confined_path(raw_path, lang)
+            if confined is None:
+                return
+            with contextlib.suppress(OSError):
+                code = confined.read_text(encoding="utf-8")
+        else:
+            raw_code = body.get("code")
+            if isinstance(raw_code, str):
+                code = raw_code
+
+        # web зовёт stdout кейса "actual"; нормализуем в CaseResult-форму для
+        # общего core-хелпера build_failure_context (issue #542, str|list толерантен).
+        case: dict[str, Any] = {
+            "verdict": str(body.get("verdict") or ""),
+            "stdin": str(body.get("stdin") or ""),
+            "expected": str(body.get("expected") or ""),
+            "output": str(body.get("actual") or ""),
+            "diff": str(body.get("diff") or ""),
+            "error": str(body.get("error") or ""),
+        }
+        job = self._submit_or_429(lang, "hint", None, {"lang": lang, "case": case}, code=code)
         if job is None:
             return
         self._send(

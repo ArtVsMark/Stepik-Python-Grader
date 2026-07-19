@@ -1,6 +1,6 @@
 // grade.js — проверка (режимы 1–4), рендер результата, палитра команд (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
-import { $, SECTIONS, codeBlock, cycleTheme, esc, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, setSection, skeletonBlock, state, t, tp } from "./core.js";
+import { $, SECTIONS, codeBlock, cycleTheme, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, setSection, skeletonBlock, state, t, tp } from "./core.js";
 
 // issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
 // как {ru, en}; раньше рендер жёстко брал .ru — теперь выбираем по state.lang
@@ -832,6 +832,13 @@ function toggleExplain() {
   renderDetailPanel();
 }
 
+// issue #543 — путь решения выбранного кейса (для заземления AI-промпта кодом).
+function selectedSolutionPath() {
+  const rows = (state.lastResult && state.lastResult.rows) || [];
+  const row = rows[state.selectedRow];
+  return row && row.file ? row.file : "";
+}
+
 function renderDetailPanel() {
   const c = getSelectedCase();
   const empty = $("#detail-empty");
@@ -879,8 +886,33 @@ function renderDetailPanel() {
     '<details class="raw-output"><summary>' + esc(t("grade.raw_output")) + "</summary>" +
     codeBlock(raw || t("common.empty_paren")) +
     "</details>";
+  // issue #543 — «Объяснить (AI)» на упавшем кейсе (opt-in, consent-gated).
+  if (c.verdict !== "AC") {
+    h +=
+      '<button id="ai-explain-btn" class="btn btn-secondary ai-explain-btn" type="button">' +
+      esc(t("ai.explain")) +
+      "</button>" +
+      '<div id="ai-hint-out" class="ai-hint-out" hidden></div>';
+  }
   h += '<div id="detail-actions" class="action-cards"></div>';
   content.innerHTML = h;
+  const aiBtn = $("#ai-explain-btn");
+  if (aiBtn) {
+    aiBtn.addEventListener("click", () =>
+      explainFailureWithAi(
+        {
+          verdict: c.verdict,
+          stdin: c.stdin || "",
+          expected: c.expected || "",
+          actual: c.actual || "",
+          diff: c.diff || "",
+          error: c.stderr || c.error || "",
+          path: selectedSolutionPath(),
+        },
+        $("#ai-hint-out")
+      )
+    );
+  }
   renderActionCards();
 }
 

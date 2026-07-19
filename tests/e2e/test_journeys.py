@@ -597,3 +597,36 @@ def test_english_localizes_dynamic_sandbox_output(
     expect(page.locator("#sandbox-status")).to_have_text("Success", timeout=_TIMEOUT_MS)
     expect(page.locator("#sandbox-output")).to_contain_text("Output (stdout)")
     assert not _CYRILLIC.search(page.locator("#sandbox-output").inner_text())
+
+
+def test_ai_hint_button_consent_and_graceful_skip(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #543): «Объяснить (AI)» на упавшем кейсе → обязательная модалка
+    согласия → после согласия graceful skip (провайдер в e2e-сервере не настроен,
+    ничего наружу не уходит, подсказка деградирует до сообщения)."""
+    write_task(tmp_path, "print(int(input()) + 2)\n")  # 4+2=6 ≠ 5 → WA
+
+    page.goto(e2e_server + "/")
+    page.click('.mode-btn[data-mode="tests"]')
+    page.fill("#path", str(tmp_path))
+    page.click("#run")
+
+    page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)
+    page.click('td.file-cell[data-toggle="0"]')
+    page.click('tr.case-row[data-row="0"][data-case="0"]')
+    page.wait_for_selector("#restab-detail:not([hidden])", timeout=_TIMEOUT_MS)
+
+    # Кнопка «Объяснить (AI)» видна на упавшем кейсе.
+    ai_btn = page.locator("#ai-explain-btn")
+    ai_btn.wait_for(state="visible", timeout=_TIMEOUT_MS)
+
+    # Первый клик → обязательная модалка согласия (без неё запрос не уходит).
+    ai_btn.click()
+    overlay = page.locator("#ai-consent-overlay")
+    overlay.wait_for(state="visible", timeout=_TIMEOUT_MS)
+
+    # Соглашаемся → запрос уходит; провайдер не настроен → graceful skip.
+    page.click("#ai-consent-accept")
+    expect(overlay).to_be_hidden(timeout=_TIMEOUT_MS)
+    expect(page.locator("#ai-hint-out")).to_contain_text("ai_base_url", timeout=_TIMEOUT_MS)

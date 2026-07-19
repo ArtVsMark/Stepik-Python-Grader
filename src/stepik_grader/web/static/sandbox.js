@@ -1,5 +1,5 @@
 // sandbox.js — песочница: запуск/трейс, редактор, карточки ошибок (#426).
-import { $, esc, fetchCodeTerms, makeEditor, registerSectionHook, renderTermsInto, state, t } from "./core.js";
+import { $, esc, explainFailureWithAi, fetchCodeTerms, makeEditor, registerSectionHook, renderTermsInto, state, t } from "./core.js";
 import { showTracePlayer } from "./trace-player.js";
 
 let sandboxView = null; // issue #317: отдельный редактор песочницы
@@ -197,7 +197,25 @@ function renderSandboxResult(r) {
   if (r.duration_ms != null) meta.push(t("sandbox.duration_ms", { ms: r.duration_ms }));
   if (r.truncated) meta.push(t("sandbox.truncated"));
   if (meta.length) parts.push('<div class="hint">' + esc(meta.join(" · ")) + "</div>");
+  // issue #543 — «Объяснить (AI)» на ошибке исполнения (opt-in, consent-gated).
+  if (r.status === "RE") {
+    parts.push(
+      '<button id="sandbox-ai-explain" class="btn btn-secondary ai-explain-btn" type="button">' +
+        esc(t("ai.explain")) +
+        "</button>",
+      '<div id="sandbox-ai-hint-out" class="ai-hint-out" hidden></div>'
+    );
+  }
   $("#sandbox-output").innerHTML = parts.join("");
+  const aiBtn = $("#sandbox-ai-explain");
+  if (aiBtn) {
+    aiBtn.addEventListener("click", () =>
+      explainFailureWithAi(
+        { verdict: "RE", error: r.stderr || "", code: getSandboxCode() },
+        $("#sandbox-ai-hint-out")
+      )
+    );
+  }
 }
 
 function renderSandboxError(msg, neutral = false) {
