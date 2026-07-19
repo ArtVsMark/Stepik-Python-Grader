@@ -47,6 +47,43 @@ async function routeFromHash() {
   if (state.glossary.selectedId !== id) selectGlossaryCard(id, { fromHash: true });
 }
 
+// issue #565 — статус OS-изоляции (бейдж в шапке) и однократное уведомление о
+// локальном сборе истории. Флаги приходят с сервера в data-атрибутах <body>;
+// читаем dataset (без inline-eval, работает под строгим CSP #563).
+function initExecModeBadge() {
+  const badge = $("#exec-mode-badge");
+  if (!badge) return;
+  const sandboxed = document.body.dataset.sandbox === "true";
+  if (sandboxed) {
+    badge.textContent = "🔒 OS-изоляция";
+    badge.className = "badge badge-neutral";
+    badge.title = "Код исполняется в OS-песочнице (--sandbox): изоляция ФС и сети.";
+  } else {
+    badge.textContent = "⚠ Без OS-изоляции";
+    badge.className = "badge badge-warning";
+    badge.title =
+      "Код исполняется без OS-изоляции ФС/сети — запускайте только доверенные " +
+      "решения. Для недоверенного кода перезапустите сервер с флагом --sandbox.";
+  }
+  badge.hidden = false;
+}
+
+function maybeShowHistoryNotice() {
+  const notice = $("#history-notice");
+  if (!notice) return;
+  // Уведомляем только если история реально пишется и уведомление ещё не видели.
+  if (document.body.dataset.recordHistory !== "true") return;
+  if (localStorage.getItem("grader_history_notice_seen") === "1") return;
+  notice.hidden = false;
+  const dismiss = $("#history-notice-dismiss");
+  if (dismiss) {
+    dismiss.addEventListener("click", () => {
+      localStorage.setItem("grader_history_notice_seen", "1");
+      notice.hidden = true;
+    });
+  }
+}
+
 // -- Wiring / init -------------------------------------------------------------
 
 document
@@ -203,3 +240,7 @@ routeFromHash(); // открыть карточку из #/glossary/<id>, есл
 // Восстановить последний путь.
 const savedPath = localStorage.getItem("grader_path");
 if (savedPath) $("#path").value = savedPath;
+
+// issue #565: показать статус OS-изоляции и (однократно) уведомить о истории.
+initExecModeBadge();
+maybeShowHistoryNotice();

@@ -6,7 +6,7 @@
 <title>Stepik Python Grader</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
+<body data-sandbox="__EXEC_SANDBOX__" data-record-history="__RECORD_HISTORY__">
 <a class="sr-only" href="#main-content">Перейти к содержимому</a>
 
 <div class="app-shell">
@@ -14,6 +14,8 @@
   <header class="topbar" role="banner">
     <span class="topbar-logo">🐍 Stepik Python Grader</span>
     <span class="spacer"></span>
+    <!-- issue #565: статус OS-изоляции исполнения кода; текст/вид ставит JS по data-sandbox. -->
+    <span id="exec-mode-badge" class="badge" hidden></span>
     <button id="theme-toggle" class="btn-icon" title="Переключить тему" aria-label="Переключить тему">🌓</button>
     <button id="palette-btn" class="btn-icon" title="Ctrl+K / ⌘K" aria-label="Открыть палитру команд">⌘K</button>
   </header>
@@ -424,13 +426,21 @@
           </div>
 
           <div class="section-heading">История прогонов</div>
-          <p class="hint">История ошибок (раздел «Подучить», эпик #342) собирается
-            на SQLite при запуске грейдера с историей. Тумблер записи появится здесь.</p>
+          <p class="hint" id="history-status">История ошибок (раздел «Подучить», эпик
+            #342) собирается на SQLite.</p>
         </div>
       </div>
     </section>
 
   </main>
+</div>
+
+<!-- issue #565: однократное уведомление о локальном сборе истории (localStorage-гейт в app.js). -->
+<div id="history-notice" class="notice" role="status" hidden>
+  <span class="notice-text">Прогоны сохраняются локально в <code>.grader_history.db</code>
+    для раздела «Подучить» — хранится <strong>sha256</strong> решения, не исходный код.
+    Отключить: перезапуск сервера с <code>--no-history</code>.</span>
+  <button id="history-notice-dismiss" class="btn btn-secondary" type="button">Понятно</button>
 </div>
 
 <div id="palette-overlay" class="palette-overlay" hidden>

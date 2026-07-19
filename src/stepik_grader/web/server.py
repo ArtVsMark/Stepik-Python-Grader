@@ -131,7 +131,9 @@ class _GraderServer(ThreadingHTTPServer):
     ``workspace`` и ``confine`` живут на сервере (не на классе ``_Handler``,
     инстанцируемом заново под каждый запрос) — единственное место, где их
     можно надёжно связать с конкретным запущенным сервером без глобального
-    мутабельного состояния.
+    мутабельного состояния. Здесь же — флаги режима ``sandbox`` и
+    ``record_history`` (issue #565): ``do_GET`` инжектит их в HTML, чтобы фронт
+    показал баннер «есть/нет OS-изоляции» и статус локального сбора истории.
     """
 
     def __init__(
@@ -141,9 +143,13 @@ class _GraderServer(ThreadingHTTPServer):
         *,
         workspace: pathlib.Path,
         confine: bool,
+        sandbox: bool = False,
+        record_history: bool = True,
     ) -> None:
         self.workspace = workspace
         self.confine = confine
+        self.sandbox = sandbox
+        self.record_history = record_history
         super().__init__(server_address, handler_cls)
 
 
@@ -200,8 +206,14 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/":
-            page = _INDEX_HTML.replace(
-                "__DEFAULT_PATH__", html.escape(str(self.server.workspace), quote=True)
+            # issue #565: инжектим флаги режима в data-атрибуты <body>, фронт
+            # читает их для баннера OS-изоляции и статуса истории.
+            page = (
+                _INDEX_HTML.replace(
+                    "__DEFAULT_PATH__", html.escape(str(self.server.workspace), quote=True)
+                )
+                .replace("__EXEC_SANDBOX__", "true" if self.server.sandbox else "false")
+                .replace("__RECORD_HISTORY__", "true" if self.server.record_history else "false")
             )
             self._send(200, "text/html; charset=utf-8", page.encode("utf-8"))
         elif parsed.path in _STATIC_ROUTES:
@@ -1015,7 +1027,14 @@ def run_server(
 
         set_runner(SandboxRunner())
     workspace = root.expanduser().resolve() if root else pathlib.Path.cwd().resolve()
-    server = _GraderServer((host, port), _Handler, workspace=workspace, confine=confine)
+    server = _GraderServer(
+        (host, port),
+        _Handler,
+        workspace=workspace,
+        confine=confine,
+        sandbox=sandbox,
+        record_history=record_history,
+    )
     url = f"http://{host}:{port}"
     # Консольный вывод оператора сервера (не JSON-ответ API) — тоже через
     # каталог сообщений (issue #264): вся кириллица в этом файле проходит

@@ -712,9 +712,20 @@ def server_factory():
     параметризуемая workspace/confine); все созданные серверы гасятся в teardown."""
     started: list[tuple[web._GraderServer, threading.Thread]] = []
 
-    def _make(workspace: pathlib.Path, *, confine: bool = True) -> str:
+    def _make(
+        workspace: pathlib.Path,
+        *,
+        confine: bool = True,
+        sandbox: bool = False,
+        record_history: bool = True,
+    ) -> str:
         httpd = web._GraderServer(
-            ("127.0.0.1", 0), web._Handler, workspace=workspace, confine=confine
+            ("127.0.0.1", 0),
+            web._Handler,
+            workspace=workspace,
+            confine=confine,
+            sandbox=sandbox,
+            record_history=record_history,
         )
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)
         thread.start()
@@ -800,6 +811,26 @@ class TestHttpHandler:
         # Плейсхолдер __DEFAULT_PATH__ должен быть заменён на реальный cwd.
         _, body = _get(server + "/")
         assert b"__DEFAULT_PATH__" not in body
+
+    def test_index_injects_exec_mode_flags_default(self, server: str) -> None:
+        """issue #565: HTML несёт data-флаги режима; дефолт — без OS-изоляции, история on."""
+        _, body = _get(server + "/")
+        page = body.decode("utf-8")
+        assert 'data-sandbox="false"' in page
+        assert 'data-record-history="true"' in page
+        # плейсхолдеры заменены, «сырых» не осталось
+        assert "__EXEC_SANDBOX__" not in page
+        assert "__RECORD_HISTORY__" not in page
+
+    def test_index_injects_exec_mode_flags_sandbox_no_history(
+        self, tmp_path: pathlib.Path, server_factory
+    ) -> None:
+        """issue #565: при sandbox=True и record_history=False флаги отражают режим."""
+        url = server_factory(tmp_path, sandbox=True, record_history=False)
+        _, body = _get(url + "/")
+        page = body.decode("utf-8")
+        assert 'data-sandbox="true"' in page
+        assert 'data-record-history="false"' in page
 
     def test_unknown_path_404(self, server: str) -> None:
         status, _ = _get(server + "/nope")
