@@ -37,6 +37,7 @@ from stepik_grader.config import CONFIG
 __all__ = [
     "BenchStats",
     "TestCase",
+    "active_runner",
     "collect_grouped_files",
     "find_all_solution_files",
     "is_function_only_solution",
@@ -206,6 +207,18 @@ def run_spec(spec: RunSpec) -> RunOutcome:
     поэтому ``set_runner()`` и тестовые подмены ``_RUNNER`` видны немедленно.
     """
     return _RUNNER.run(spec)
+
+
+def active_runner() -> Runner:
+    """Активный ``Runner`` процесса — публичный аксессор его capability-флагов.
+
+    Замена прямому доступу к приватному ``_RUNNER`` (issue #550): ``core/tracer``
+    консультирует ``active_runner().supports_project_imports``, чтобы решить,
+    доступен ли пошаговый трейс, вместо хрупкого ``type(_RUNNER).__name__ ==
+    "SandboxRunner"``. Читает module-global при каждом вызове — ``set_runner()``
+    и тестовые подмены видны немедленно.
+    """
+    return _RUNNER
 
 
 def _fail_result(

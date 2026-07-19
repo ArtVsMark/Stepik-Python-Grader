@@ -219,6 +219,8 @@ class WindowsSandboxRunner:
     изоляция) — память/CPU/число процессов реально изолированы ядром.
     """
 
+    supports_project_imports = False  # issue #550: site-packages проекта не в песочнице
+
     def run(self, spec: RunSpec) -> RunOutcome:
         with ephemeral_run_dir() as run_dir:
             script_path = run_dir / "solution.py"
