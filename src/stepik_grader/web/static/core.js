@@ -103,7 +103,7 @@ function codeBlock(code) {
 
 function skeletonBlock() {
   return (
-    '<div style="padding:var(--space-4)">' +
+    '<div class="pad-4">' +
     '<div class="skeleton skeleton-heading"></div>' +
     '<div class="skeleton skeleton-text"></div>' +
     '<div class="skeleton skeleton-text"></div>' +

@@ -190,6 +190,13 @@ class _Handler(BaseHTTPRequestHandler):
     # _GraderServer, а не базовый socketserver.BaseServer из typeshed.
     server: _GraderServer  # type: ignore[assignment]
 
+    # issue #563: read-timeout на соединение — медленный/зависший клиент
+    # (slow-loris, не дочитавший запрос) не держит воркер-поток бесконечно.
+    # ``socketserver`` ставит его на сокет в ``setup()``; блокирующие
+    # read/write рвутся ``socket.timeout`` через 30с (ответы не стримятся, а
+    # грейд считается в Python вне сокет-операций — долгий прогон не рвётся).
+    timeout = 30
+
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/":
@@ -900,10 +907,30 @@ class _Handler(BaseHTTPRequestHandler):
         hostname = (urlparse(value).hostname or "").lower()
         return hostname in _ALLOWED_HOSTNAMES
 
+    # issue #563: CSP на HTML. Скрипты строго 'self' (весь JS self-hosted —
+    # см. static/) — это главный барьер против XSS; base-uri/object-src
+    # заперты; шрифты 'self'. style-src вынужденно несёт 'unsafe-inline':
+    # вендоренный CodeMirror 6 (static/vendor/) инжектит стили рантайм-тегом
+    # <style>.textContent в light-DOM (style-mod: CSP-чистый путь через
+    # constructable CSSStyleSheet включается только для shadow-DOM), а
+    # nonce/hash для его динамических тем невозможны без пофайловой пересборки.
+    # Наш СОБСТВЕННЫЙ разметочный код при этом свободен от инлайновых style=
+    # (гейт `test_no_inline_styles_in_served_static`) — на 'unsafe-inline'
+    # опирается только сторонний редактор, не наша поверхность; уберём его,
+    # когда CodeMirror начнёт поддерживать nonce/constructable в light-DOM.
+    # nosniff — на всех ответах, чтобы браузер не угадывал MIME.
+    _CSP = (
+        "default-src 'self'; base-uri 'none'; object-src 'none'; "
+        "style-src 'self' 'unsafe-inline'; font-src 'self'"
+    )
+
     def _send(self, code: int, ctype: str, body: bytes) -> None:
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if ctype.startswith("text/html"):
+            self.send_header("Content-Security-Policy", self._CSP)
         self.end_headers()
         self.wfile.write(body)
 

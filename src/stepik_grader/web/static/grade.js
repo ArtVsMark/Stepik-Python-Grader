@@ -684,8 +684,12 @@ function updateProgressBar(done, total) {
   $("#bar").innerHTML =
     '<div class="progress-track" role="progressbar" aria-label="Прогресс проверки" ' +
     'aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + done + '">' +
-    '<div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+    '<div class="progress-fill"></div></div>' +
     '<div class="progress-label">' + done + " / " + total + "</div>";
+  // issue #563: ширину ставим через CSSOM (el.style.width), а не инлайновым
+  // style= в HTML-строке — иначе строгий CSP (style-src 'self') её блокирует.
+  const fill = $("#bar").querySelector(".progress-fill");
+  if (fill) fill.style.width = pct + "%";
 }
 
 function cancelActiveRun() {
@@ -749,7 +753,7 @@ function renderTests(rows) {
     { label: "OK", value: ok, delta: rows.length ? Math.round((ok / rows.length) * 100) + "%" : "", variant: "up" },
     { label: "FAIL", value: rows.length - ok, variant: (rows.length - ok) ? "down" : "neutral" },
   ]);
-  h += '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
+  h += '<div class="data-table-wrap">' +
     '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Passed</th>' +
     '<th scope="col">Статус</th><th scope="col">Σ время</th><th scope="col">Avg</th>' +
     '<th scope="col">Память, МБ</th></tr></thead><tbody>';
@@ -762,7 +766,7 @@ function renderTests(rows) {
       '<td class="mono">' + (row.avg_time ?? "—") + "</td>" +
       '<td class="mono">' + (row.memory_mb ?? "—") + "</td></tr>";
     h +=
-      '<tr class="caserow" id="c' + i + '" style="display:none"><td colspan="6">' +
+      '<tr class="caserow" id="c' + i + '"><td colspan="6">' +
       casesHtml(i, row.cases) +
       "</td></tr>";
   });
@@ -801,7 +805,7 @@ function wireCaseRowClicks() {
 
 function toggleRow(i) {
   const el = $("#c" + i);
-  el.style.display = el.style.display === "none" ? "table-row" : "none";
+  el.classList.toggle("is-open");
 }
 
 function selectCase(rowIndex, caseIndex) {
@@ -903,7 +907,7 @@ function benchTable(rows, { fields, memLabel, memTitle }) {
   const memTh =
     '<th scope="col"' + (memTitle ? ' title="' + esc(memTitle) + '"' : "") + ">" + esc(memLabel) + "</th>";
   let h =
-    '<div class="data-table-wrap" style="padding:0 var(--space-4) var(--space-4)">' +
+    '<div class="data-table-wrap">' +
     '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Runs</th>' +
     '<th scope="col">Min</th><th scope="col">Median</th><th scope="col">Mean</th>' +
     '<th scope="col">Max</th><th scope="col">Std dev</th>' +
@@ -938,7 +942,7 @@ function renderMicrobench(data) {
   let h = "";
   if (data.other_groups && data.other_groups.length) {
     h +=
-      '<p class="hint" style="padding:var(--space-3) var(--space-4) 0">Группа «' +
+      '<p class="hint pad-t3-x4">Группа «' +
       esc(data.group) + '» · остальные (не показаны): ' + data.other_groups.map(esc).join(", ") +
       "</p>";
   }
