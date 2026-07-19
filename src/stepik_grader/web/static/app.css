@@ -722,3 +722,28 @@ a.term-card-link:hover { background: var(--color-surface-offset); }
    (раньше — инлайновый style="display:none" + запись в el.style.display). */
 .caserow { display: none; }
 .caserow.is-open { display: table-row; }
+
+/* issue #565: однократное уведомление о локальном сборе истории — ненавязчивый
+   тост снизу справа поверх контента (position:fixed, не двигает layout). */
+.notice {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 380px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--text-sm);
+}
+.notice .notice-text { color: var(--color-text-muted); line-height: 1.5; }
+.notice .btn { align-self: flex-end; }
+@media (max-width: 640px) {
+  .notice { left: var(--space-4); right: var(--space-4); max-width: none; }
+}

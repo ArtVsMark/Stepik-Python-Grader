@@ -153,6 +153,16 @@ function syncSettingsControls() {
   const langSel = $("#settings-lang");
   if (themeSel) themeSel.value = state.theme;
   if (langSel) langSel.value = state.lang;
+  // issue #565: реальный статус локальной истории (флаг с сервера в <body>) —
+  // runtime-тумблера нет, история задаётся флагом старта сервера.
+  const hist = $("#history-status");
+  if (hist) {
+    const on = document.body.dataset.recordHistory === "true";
+    hist.textContent = on
+      ? "Сейчас: включена. Прогоны пишутся в .grader_history.db (хранится sha256 "
+        + "решения, не исходный код). Чтобы выключить — перезапустите сервер с --no-history."
+      : "Сейчас: выключена (сервер запущен с --no-history) — прогоны не сохраняются.";
+  }
 }
 
 // -- Section switch (Проверка решений / Глоссарий) ----------------------------

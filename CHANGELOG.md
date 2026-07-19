@@ -10,6 +10,7 @@
 -->
 
 ### Added
+- Web `--serve` now surfaces the execution mode: a topbar badge shows whether OS isolation is on (`--sandbox`) or off, plus a one-time notice explaining the local history collection (stores a sha256, not source; disable with `--no-history`) and the current history status in Settings — the server injects the flags into the page's `<body>` data-attributes; SECURITY.md / docs/web-current.md document the accepted Sec-Fetch/CSRF residual risks (#565).
 - `--ai-hints` — opt-in AI explanation of failing WA/RE cases (CLI modes 1/2) via a BYOK OpenAI-compatible endpoint on bare `requests`; off by default, silent-skip on any failure, works with cloud and local ollama (ADR-0003) (#435).
 - `POST /api/v1/runs` applies back-pressure — at most `CONFIG.max_active_runs` (default 20) concurrent non-terminal jobs, else **429** `too_many_runs`; a seam for server mode (#151) (#429).
 - `--import-reference <task_dir>` imports the pinned Stepik solution (+ top-liked, `--import-top N`, default 5) into the task folder as `task{N}_{100+}.py` — a reference competitor for modes 2–4, binding recorded in `meta.json` (#464, #55).
