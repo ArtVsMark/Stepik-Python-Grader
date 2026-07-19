@@ -198,7 +198,7 @@ task_12.py     # двузначный суффикс
 - **Docstrings** для всех публичных функций (краткий формат Google-style)
 - **PEP 8** — форматирование через `ruff format` (настроен в `pyproject.toml`)
 - **Линтинг** через `ruff check`
-- **Типизация** через `mypy src/stepik_grader` — строгость (`disallow_untyped_defs`,
+- **Типизация** через `mypy src/stepik_grader scripts` — строгость (`disallow_untyped_defs`,
   `disallow_incomplete_defs`, `check_untyped_defs`, `warn_return_any`,
   `ignore_missing_imports`) задана в `[tool.mypy]` (Sprint D, issue #49 C-02 / #441)
 - Все импорты в начале файла (никаких lazy imports без явной причины)
@@ -213,7 +213,7 @@ task_12.py     # двузначный суффикс
 3. Обновите `CHANGELOG.md` — запись под `## [Unreleased]` в **каждом** PR, без
    исключений для рефакторингов (одна строка на изменение, issue #373)
 4. Прогоните `pytest tests/ -v`
-5. Прогоните `mypy src/stepik_grader`
+5. Прогоните `mypy src/stepik_grader scripts`
 6. Прогоните `pre-commit run --all-files`
 7. Создайте Pull Request в `main`
 

@@ -96,7 +96,9 @@ jobs:
       - name: Type check
         # issue #441: строгость задаётся [tool.mypy] в pyproject.toml (источник
         # истины), --ignore-missing-imports переехал туда — команда упрощена.
-        run: mypy src/stepik_grader
+        # issue #558: scripts/ (релиз-логика: version/бейджи/coverage-конфиг) тоже
+        # под тип-гейтом — раньше 2000+ строк CI-скриптов не проверялись.
+        run: mypy src/stepik_grader scripts
 
       - name: Version consistency (issue #165)
         run: python scripts/check_version_consistency.py
@@ -115,6 +117,15 @@ jobs:
         run: python scripts/generate_ci_coveragerc.py "$(python -c 'import platform; print(platform.system())')"
 
       - name: Run tests
+        # issue #558: на mac/win-job'ах матрицы включаем anti-silent-skip guard
+        # (обобщение #420 с Linux) — их sandbox-backend'ы (sandbox-exec / Job
+        # Objects) встроены в ОС, поэтому их поломка/недоступность должна ПАДАТЬ,
+        # а не тихо skip'аться (test_{macos,windows}_sandbox_not_silently_skipped).
+        # На ubuntu переменную НЕ ставим: матричный Linux-job намеренно без bwrap
+        # (песочница скипается; полный прогон — в отдельном privileged sandbox-linux).
+        # Пустая строка на ubuntu = «не требовать» (guard'ы само-гейтятся по env).
+        env:
+          STEPIK_REQUIRE_SANDBOX_TESTS: ${{ (matrix.os == 'macos-latest' || matrix.os == 'windows-latest') && '1' || '' }}
         run: pytest -q --cov-config=.coveragerc.ci
 
       # issue #283: each OS job only ever exercises its OWN core/sandbox/
