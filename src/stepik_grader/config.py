@@ -43,8 +43,10 @@ class GraderConfig:
     use_cache: bool = False  # issue #56 — opt-in кэш результатов (--cache)
     # issue #125 — локальная база карточек глоссария (None → компактный
     # core/glossary.py как fallback) и очередь пополнения (MissingConceptDetector).
+    # issue #552: очередь — SQLite/WAL (``.db``); legacy ``.json``-сосед разово
+    # импортируется при первой записи (обратная совместимость).
     glossary_store: str | None = None
-    glossary_missing_queue: str = ".grader_glossary_missing.json"
+    glossary_missing_queue: str = ".grader_glossary_missing.db"
     # issue #262 — размер пула воркеров async job-модели (POST /api/v1/runs,
     # web/runs.py). Не CLI-флаг: одноразовая настройка сервера через
     # pyproject.toml, а не параметр запроса. Дефолт 2 — достаточно, чтобы

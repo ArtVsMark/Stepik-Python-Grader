@@ -1,14 +1,19 @@
 """json_provider.py — загрузка/поиск локальной базы карточек глоссария (issue #126).
 
 Архитектурный слой: Domain. Зависит от ``glossary/models.py`` и общего top-level
-``atomic_io`` (оба stdlib-leaf), НЕ тянет ничего из ``core/`` — DAG остаётся
-ацикличным, а подпакет ``glossary/`` независим от ``core/`` (ADR-0011).
+``db`` (оба stdlib-leaf), НЕ тянет ничего из ``core/`` — DAG остаётся ацикличным,
+а подпакет ``glossary/`` независим от ``core/`` (ADR-0011).
 
 ``JsonGlossaryProvider`` — JSON-first реализация абстракции ``GlossaryProvider``
-(SQLite отложен, см. web-current.md). Читает карточки из одного JSON-файла или из
-директории с ``*.json``, валидирует минимальные поля и предоставляет поиск/
-выборку. Очередь пополнения (``GlossaryMissingEntry``) сериализуется в
-отдельный JSON-файл — детектор пишет туда обнаруженные пробелы.
+(карточки читаются из одного JSON-файла или директории с ``*.json``, валидируются
+минимальные поля, поиск/выборка).
+
+Очередь пополнения (``GlossaryMissingEntry``) — SQLite/WAL (issue #552, ADR-0011)
+через общий top-level ``db`` (не ``core/``, чтобы ``glossary/`` не тянул
+``core/``): read-modify-write под ``BEGIN IMMEDIATE`` закрывает межпроцессную
+гонку CLI+web, которую прежний JSON (+ ``_MISSING_QUEUE_LOCK`` только на потоки)
+не снимал. Legacy JSON-очереди читаются на чтение и один раз мигрируются в SQLite
+при первой записи (обратная совместимость).
 
 Принцип graceful degradation (как у кэша #56): битый/отсутствующий источник —
 понятная ``GlossaryError``, а не падение всего грейдера; вызывающий код решает,
@@ -17,12 +22,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import pathlib
+import sqlite3
 import threading
 from typing import Any, Protocol, runtime_checkable
 
-from stepik_grader.atomic_io import atomic_write_json
+from stepik_grader import db
 
 from .models import GlossaryCard, GlossaryMissingEntry
 
@@ -181,14 +188,122 @@ class JsonGlossaryProvider:
 
 
 # ---------------------------------------------------------------------------
-# Очередь пополнения (backlog недостающих карточек)
+# Очередь пополнения (backlog недостающих карточек) — SQLite/WAL (issue #552)
 # ---------------------------------------------------------------------------
+#
+# Хранилище — SQLite (schema v1, таблица ``missing_entries``, PRIMARY KEY по
+# ``concept``): списковые поля ``seen_in``/``suggested_tags`` держатся JSON-текстом
+# в колонках. Порядок — по ``rowid`` (порядок вставки, как прежний JSON-список).
+# Read-modify-write в ``append_missing_entries`` идёт под ``BEGIN IMMEDIATE`` —
+# конкурентный писатель (другой ПРОЦЕСС: CLI + web) ЖДЁТ write-lock (busy_timeout),
+# а не затирает добавку; это и есть durability-выигрыш #552 поверх атомарности #551.
+
+_QUEUE_SCHEMA_VERSION = 1
+_QUEUE_SCHEMA_V1 = """
+CREATE TABLE IF NOT EXISTS missing_entries (
+    concept        TEXT PRIMARY KEY,
+    kind           TEXT NOT NULL,
+    status         TEXT NOT NULL,
+    reason         TEXT NOT NULL DEFAULT '',
+    snippet        TEXT NOT NULL DEFAULT '',
+    seen_in        TEXT NOT NULL DEFAULT '[]',
+    suggested_tags TEXT NOT NULL DEFAULT '[]',
+    verdict        TEXT,
+    first_seen     TEXT NOT NULL DEFAULT '',
+    origin         TEXT NOT NULL DEFAULT 'solution',
+    module         TEXT NOT NULL DEFAULT '',
+    qualname       TEXT NOT NULL DEFAULT ''
+);
+"""
+
+# Магия заголовка SQLite-файла — отличить SQLite-очередь от legacy JSON / мусора.
+_SQLITE_MAGIC = b"SQLite format 3\x00"
+
+# Процессный лок вокруг read-modify-write очереди (issue #352): в пределах ОДНОГО
+# процесса потоки (ThreadPoolExecutor web/runs.py) сериализуются здесь дёшево, без
+# busy-wait; межпроцессную гонку CLI+web закрывает ``BEGIN IMMEDIATE`` +
+# ``busy_timeout`` соединения (issue #552).
+_MISSING_QUEUE_LOCK = threading.Lock()
 
 
-def load_missing_queue(path: pathlib.Path) -> list[GlossaryMissingEntry]:
-    """Прочитать очередь пополнения из JSON-файла (пустой список, если нет файла)."""
-    if not path.exists():
-        return []
+def _queue_migrate(conn: sqlite3.Connection) -> None:
+    db.apply_schema(conn, version=_QUEUE_SCHEMA_VERSION, ddl=_QUEUE_SCHEMA_V1)
+
+
+def _connect_queue(path: pathlib.Path) -> sqlite3.Connection:
+    """SQLite-соединение очереди (общий ``db.connect`` + автокоммит-режим).
+
+    ``isolation_level=None`` — чтобы явные ``BEGIN IMMEDIATE``/``COMMIT`` были
+    единственным управлением транзакцией (иначе драйвер откроет неявную deferred-
+    транзакцию, и upgrade read→write-lock упрётся в ``SQLITE_BUSY_SNAPSHOT``).
+    """
+    conn = db.connect(path, migrate=_queue_migrate)
+    conn.isolation_level = None
+    return conn
+
+
+def _is_sqlite_db(path: pathlib.Path) -> bool:
+    """True, если файл начинается с SQLite-магии (иначе legacy JSON / мусор / нет)."""
+    try:
+        with path.open("rb") as fh:
+            return fh.read(16) == _SQLITE_MAGIC
+    except OSError:
+        return False
+
+
+def _row_to_entry(row: sqlite3.Row) -> GlossaryMissingEntry:
+    return GlossaryMissingEntry.from_dict(
+        {
+            "concept": row["concept"],
+            "kind": row["kind"],
+            "status": row["status"],
+            "reason": row["reason"],
+            "snippet": row["snippet"],
+            "seen_in": json.loads(row["seen_in"]),
+            "suggested_tags": json.loads(row["suggested_tags"]),
+            "verdict": row["verdict"],
+            "first_seen": row["first_seen"],
+            "origin": row["origin"],
+            "module": row["module"],
+            "qualname": row["qualname"],
+        }
+    )
+
+
+def _read_all_rows(conn: sqlite3.Connection) -> list[GlossaryMissingEntry]:
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("SELECT * FROM missing_entries ORDER BY rowid").fetchall()
+    return [_row_to_entry(row) for row in rows]
+
+
+def _replace_all_rows(conn: sqlite3.Connection, entries: list[GlossaryMissingEntry]) -> None:
+    conn.execute("DELETE FROM missing_entries")
+    conn.executemany(
+        "INSERT INTO missing_entries (concept, kind, status, reason, snippet, "
+        "seen_in, suggested_tags, verdict, first_seen, origin, module, qualname) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            (
+                entry.concept,
+                entry.kind,
+                entry.status,
+                entry.reason,
+                entry.snippet,
+                json.dumps(entry.seen_in, ensure_ascii=False),
+                json.dumps(entry.suggested_tags, ensure_ascii=False),
+                entry.verdict,
+                entry.first_seen,
+                entry.origin,
+                entry.module,
+                entry.qualname,
+            )
+            for entry in entries
+        ],
+    )
+
+
+def _read_legacy_json_queue(path: pathlib.Path) -> list[GlossaryMissingEntry]:
+    """Прочитать legacy JSON-очередь (формат до #552) в список элементов."""
     try:
         with path.open(encoding="utf-8") as fh:
             payload = json.load(fh)
@@ -209,24 +324,77 @@ def load_missing_queue(path: pathlib.Path) -> list[GlossaryMissingEntry]:
     return entries
 
 
-def save_missing_queue(path: pathlib.Path, entries: list[GlossaryMissingEntry]) -> None:
-    """Записать очередь пополнения в JSON-файл атомарно (issue #551).
+def _ensure_queue_db(path: pathlib.Path) -> None:
+    """Гарантировать, что ``path`` — валидная SQLite-очередь (миграция legacy JSON).
 
-    Через общий ``atomic_write_json`` (temp в той же директории + ``os.replace``):
-    обрыв между truncate и завершением больше не оставляет усечённый backlog
-    (#363) — читатель видит старую либо новую полную версию.
+    Уже SQLite → no-op. ``path`` хранит legacy JSON (или мусор) — читаем его
+    best-effort, удаляем файл (``sqlite3`` не откроет не-SQLite файл) и пересоздаём
+    как SQLite с теми же элементами. Файла нет, но рядом legacy ``<stem>.json``
+    (сменился дефолт пути на ``.db``, #552) → импортируем его один раз. Вызывается
+    только на пути записи под ``_MISSING_QUEUE_LOCK``.
     """
-    payload = [entry.to_dict() for entry in entries]
-    atomic_write_json(path, payload, fsync=True)
+    if path.exists() and _is_sqlite_db(path):
+        return
+    legacy: list[GlossaryMissingEntry] = []
+    if path.exists():
+        with contextlib.suppress(GlossaryError, OSError):
+            legacy = _read_legacy_json_queue(path)
+        with contextlib.suppress(OSError):
+            path.unlink()
+    else:
+        sibling = path.with_suffix(".json")
+        if sibling != path and sibling.exists() and not _is_sqlite_db(sibling):
+            with contextlib.suppress(GlossaryError, OSError):
+                legacy = _read_legacy_json_queue(sibling)
+    # Создать родительскую директорию (как прежний atomic-JSON-писатель, #551):
+    # sqlite3.connect создаёт сам файл БД, но не путь к нему.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with contextlib.closing(_connect_queue(path)) as conn:
+        if legacy:
+            conn.execute("BEGIN IMMEDIATE")
+            _replace_all_rows(conn, legacy)
+            conn.execute("COMMIT")
 
 
-# Процессный лок вокруг read-modify-write очереди пополнения (issue #352).
-# append_missing_entries читает весь файл и переписывает его целиком; web-слой
-# может вызывать это из нескольких потоков (ThreadPoolExecutor, web/runs.py) —
-# без сериализации конкурентные вызовы затирают добавки друг друга. Process-level
-# Lock достаточен для модели «один процесс, много потоков»; межпроцессную гонку
-# (CLI и web одновременно) он не закрывает — её снимет SQLite/WAL (issue #344).
-_MISSING_QUEUE_LOCK = threading.Lock()
+def load_missing_queue(path: pathlib.Path) -> list[GlossaryMissingEntry]:
+    """Прочитать очередь пополнения (пустой список, если файла нет).
+
+    Читает SQLite-очередь (issue #552) либо, для обратной совместимости, legacy
+    JSON (read-only — миграция в SQLite происходит при первой записи). Битая
+    БД/JSON → ``GlossaryError`` (вызывающий решает: показать или продолжить пусто).
+    Файл не создаётся, если его нет (opt-in, как история #134).
+    """
+    if not path.exists():
+        return []
+    if not _is_sqlite_db(path):
+        return _read_legacy_json_queue(path)
+    try:
+        with contextlib.closing(_connect_queue(path)) as conn:
+            return _read_all_rows(conn)
+    except (sqlite3.Error, ValueError) as exc:
+        raise GlossaryError(f"{path}: ошибка чтения SQLite-очереди — {exc}") from exc
+
+
+def save_missing_queue(path: pathlib.Path, entries: list[GlossaryMissingEntry]) -> None:
+    """Заменить очередь пополнения целиком (replace-all) в SQLite/WAL (issue #552).
+
+    Транзакция ``BEGIN IMMEDIATE`` сериализует конкурентных писателей (в т.ч.
+    межпроцессно). Legacy JSON по пути один раз мигрируется в SQLite перед записью.
+    """
+    with _MISSING_QUEUE_LOCK:
+        try:
+            _ensure_queue_db(path)
+            with contextlib.closing(_connect_queue(path)) as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                try:
+                    _replace_all_rows(conn, entries)
+                    conn.execute("COMMIT")
+                except BaseException:
+                    with contextlib.suppress(sqlite3.Error):
+                        conn.execute("ROLLBACK")
+                    raise
+        except (sqlite3.Error, OSError) as exc:
+            raise GlossaryError(f"{path}: ошибка записи SQLite-очереди — {exc}") from exc
 
 
 def append_missing_entries(
@@ -241,25 +409,40 @@ def append_missing_entries(
     из новой записи — так source-driven скан (issue #196/#197) обогащает уже
     обнаруженный practice-driven пробел. Возвращает итоговую очередь.
 
-    Read-modify-write (load → merge → save) сериализован процессным
-    ``_MISSING_QUEUE_LOCK`` (issue #352), чтобы конкурентные web-потоки не
-    затирали добавки друг друга.
+    Read-modify-write идёт в ОДНОЙ транзакции ``BEGIN IMMEDIATE`` (issue #552):
+    write-lock берётся до чтения, поэтому конкурентный писатель — как другой поток
+    (``_MISSING_QUEUE_LOCK``), так и другой ПРОЦЕСС (busy_timeout) — ждёт, а не
+    затирает добавку.
     """
     with _MISSING_QUEUE_LOCK:
-        existing = load_missing_queue(path)
-        by_concept: dict[str, GlossaryMissingEntry] = {e.concept: e for e in existing}
-        for entry in entries:
-            current = by_concept.get(entry.concept)
-            if current is None:
-                by_concept[entry.concept] = entry
-                existing.append(entry)
-            else:
-                for src in entry.seen_in:
-                    if src not in current.seen_in:
-                        current.seen_in.append(src)
-                if not current.module and entry.module:
-                    current.module = entry.module
-                if not current.qualname and entry.qualname:
-                    current.qualname = entry.qualname
-        save_missing_queue(path, existing)
-        return existing
+        try:
+            _ensure_queue_db(path)
+            with contextlib.closing(_connect_queue(path)) as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                try:
+                    existing = _read_all_rows(conn)
+                    by_concept: dict[str, GlossaryMissingEntry] = {
+                        entry.concept: entry for entry in existing
+                    }
+                    for entry in entries:
+                        current = by_concept.get(entry.concept)
+                        if current is None:
+                            by_concept[entry.concept] = entry
+                            existing.append(entry)
+                        else:
+                            for src in entry.seen_in:
+                                if src not in current.seen_in:
+                                    current.seen_in.append(src)
+                            if not current.module and entry.module:
+                                current.module = entry.module
+                            if not current.qualname and entry.qualname:
+                                current.qualname = entry.qualname
+                    _replace_all_rows(conn, existing)
+                    conn.execute("COMMIT")
+                except BaseException:
+                    with contextlib.suppress(sqlite3.Error):
+                        conn.execute("ROLLBACK")
+                    raise
+                return existing
+        except (sqlite3.Error, OSError, ValueError) as exc:
+            raise GlossaryError(f"{path}: ошибка записи SQLite-очереди — {exc}") from exc

@@ -64,6 +64,7 @@
 | `core/normalizers.py` | Infrastructure / Utilities | Нормализация вывода для сравнения: `normalize_floats` (округление float до 9 знаков), `sort_lines`, `normalize_whitespace` (experimental) |
 | `core/storage.py` | Infrastructure / Utilities | Чтение и запись JSON-файлов (`load_json_file`, `save_json_file`, `save_secrets`); нет зависимостей от других модулей проекта |
 | `atomic_io.py` (top-level) | Infrastructure / Utilities (leaf) | Общий атомарный JSON-писатель `atomic_write_json` (issue #551, ADR-0011): temp в той же директории (`mkstemp`) + `os.replace`, опциональный `fsync`. Живёт вне `core/` намеренно — им пользуются и `core/user_settings`, и независимые от `core/` подпакеты (`glossary/`), без ребра `glossary → core`. Stdlib-only, project-импортов нет |
+| `db.py` (top-level) | Infrastructure / Utilities (leaf) | Общий SQLite-коннектор (issue #552, ADR-0011): `connect` (PRAGMA WAL/FK/`busy_timeout` + callback-миграция + close-on-fail) и примитивы `user_version`/`set_user_version`/`apply_schema`. Вынесен из `core/history`; им пользуются и `core/history`, и очередь пополнения глоссария (`glossary/json_provider`, SQLite/WAL). Top-level (как `atomic_io`), чтобы `glossary/` не тянул `core/`. Stdlib-only (`sqlite3`), project-импортов нет |
 | `core/stepik_client.py` | Infrastructure / HTTP | OAuth2-авторизация, `requests.Session`, GET-запросы к Stepik REST API, скачивание сабмишнов |
 | `core/oauth_flow.py` | Infrastructure / Auth | OAuth2-фасад: единая точка входа для авторизации — `load_secrets`, `load_secrets_dict`, `token_is_valid`, `authorize_and_get_token`; устраняет дублирование между `downloader.py` и `diagnostic_stepik.py` |
 | `core/parsers.py` | Infrastructure / Utilities | Парсинг тест-блоков (`# TEST_N:`) — единственный источник истины для `grader.py` и `downloader.py` |
@@ -140,6 +141,7 @@ core/progress_export.py   ──→  core/history.py, core/insights.py  (агр�
 core/ai_hints.py          ──→  core/diag_log.py  (редакция ключа; config передаётся вызывающим, requests — вне проекта)
 core/stepik_reference.py  ──→  core/oauth_flow.py, core/stepik_client.py, core/step_content.py, core/storage.py, core/diag_log.py  (issue #55)
 core/user_settings.py     ──→  atomic_io.py  (.grader_settings.json атомарно, issue #430/#551; иначе stdlib-leaf)
+core/history.py           ──→  db.py  (.grader_history.db через общий SQLite-коннектор, issue #344/#552; иначе stdlib-leaf)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
@@ -151,7 +153,7 @@ downloader.py        ──→  core/oauth_flow.py
 diagnostic_stepik.py ──→  core/oauth_flow.py
 core/oauth_flow.py    ──→  core/stepik_client.py
 core/oauth_flow.py    ──→  core/storage.py
-glossary/json_provider.py ──→  glossary/models.py, atomic_io.py  (очередь пополнения атомарно, issue #551; НЕ тянет core/)
+glossary/json_provider.py ──→  glossary/models.py, db.py  (очередь пополнения на SQLite/WAL, issue #552; top-level db — НЕ тянет core/)
 glossary/detector.py      ──→  glossary/models.py
 glossary/stdlib_inventory.py  (только stdlib — интроспекция builtins/исключений/курируемых модулей; project-импортов нет)
 glossary/coverage.py      ──→  glossary/stdlib_inventory.py, glossary/models.py, glossary/json_provider.py
@@ -215,16 +217,16 @@ downloader.py больше не импортирует grader.py: дублиру
 ├───────────────────────────────────────────────────────────────┤
 │  Infrastructure / Utilities  (leaf, no deps)                  │
 │  core/storage.py  │  core/normalizers.py  │  core/glossary.py  │
-│  core/i18n.py  │  atomic_io.py (top-level, #551)               │
+│  core/i18n.py  │  atomic_io.py (#551)  │  db.py (#552)         │
 └───────────────────────────────────────────────────────────────┘
 ```
 
 `core/storage.py`, `core/normalizers.py`, `core/glossary.py` и top-level
-`atomic_io.py` — leaf-модули: не импортируют ничего из проекта, легко
-тестируются изолированно. `atomic_io.py` (общий атомарный JSON-писатель, issue
-#551/ADR-0011) держится на верхнем уровне, а не в `core/`, чтобы им могли
-пользоваться независимые от `core/` подпакеты (`glossary/`), не порождая ребра
-`glossary → core`. Пакет
+`atomic_io.py`/`db.py` — leaf-модули: не импортируют ничего из проекта, легко
+тестируются изолированно. `atomic_io.py` (атомарный JSON-писатель, #551) и `db.py`
+(общий SQLite-коннектор, #552) держатся на верхнем уровне, а не в `core/`, чтобы
+ими могли пользоваться независимые от `core/` подпакеты (`glossary/`), не порождая
+ребра `glossary → core` (ADR-0011). Пакет
 `glossary/` (issue #126) — самостоятельный островок и НЕ то же самое, что
 leaf-модуль `core/glossary.py`: первый — расширенный knowledge-модуль
 (карточки/детектор/очередь), второй — компактная карта исключений для error

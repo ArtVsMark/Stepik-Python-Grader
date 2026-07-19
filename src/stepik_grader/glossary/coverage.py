@@ -257,8 +257,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--missing-out",
         default=None,
-        help="Путь для JSON-очереди пробелов (origin=stdlib_scan); "
-        "дозаписывается идемпотентно через append_missing_entries.",
+        help="Путь для SQLite-очереди пробелов (origin=stdlib_scan, issue #552); "
+        "дозаписывается идемпотентно через append_missing_entries. Legacy "
+        "JSON-очередь по этому пути разово мигрируется в SQLite.",
     )
     parser.add_argument(
         "--modules",
@@ -299,8 +300,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.missing_out:
         missing = missing_entries_from_inventory(inventory, known=known)
         missing_out = pathlib.Path(args.missing_out)
-        # issue #551: битая очередь / ошибка ФС не должна ронять coverage-CLI —
-        # best-effort, как и сама запись (append_missing_entries → atomic_write_json).
+        # issue #551/#552: битая очередь / ошибка ФС / sqlite не должна ронять
+        # coverage-CLI — best-effort, как и сама запись (append_missing_entries →
+        # SQLite, ошибки завёрнуты в GlossaryError).
         try:
             append_missing_entries(missing_out, missing)
         except (GlossaryError, OSError) as exc:
