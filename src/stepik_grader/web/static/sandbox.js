@@ -1,5 +1,5 @@
 // sandbox.js — песочница: запуск/трейс, редактор, карточки ошибок (#426).
-import { $, esc, fetchCodeTerms, makeEditor, registerSectionHook, renderTermsInto, state } from "./core.js";
+import { $, esc, fetchCodeTerms, makeEditor, registerSectionHook, renderTermsInto, state, t } from "./core.js";
 import { showTracePlayer } from "./trace-player.js";
 
 let sandboxView = null; // issue #317: отдельный редактор песочницы
@@ -11,7 +11,7 @@ function mountSandboxEditor() {
   sandboxView = makeEditor(mount, () => {
     clearTimeout(sandboxTermsTimer);
     sandboxTermsTimer = setTimeout(loadCodeTerms, 400);
-  }, "Редактор кода песочницы");
+  }, t("editor.sandbox_label"));
   const label = document.querySelector('label[for="sandbox-editor"]');
   if (label) label.addEventListener("click", () => sandboxView.focus());
 }
@@ -23,10 +23,10 @@ async function loadCodeTerms() {
   const el = $("#sandbox-terms");
   if (!el) return;
   if (!code.trim()) {
-    el.innerHTML = '<li class="empty">Начните вводить код</li>';
+    el.innerHTML = '<li class="empty">' + esc(t("sandbox.terms_empty")) + "</li>";
     return;
   }
-  renderTermsInto(el, await fetchCodeTerms({ code }), "Знакомых функций не найдено");
+  renderTermsInto(el, await fetchCodeTerms({ code }), t("check.terms_none"));
 }
 
 // режим 1 (issue #323/#366): панель питается кодом редактора либо выбранным в
@@ -37,10 +37,10 @@ function getSandboxCode() {
 }
 
 const SANDBOX_STATUS = {
-  OK: ["Успешно", "badge-success"],
-  RE: ["Ошибка выполнения", "badge-error"],
-  TLE: ["Превышено время", "badge-warning"],
-  CANCELLED: ["Отменено", "badge-neutral"],
+  OK: ["sandbox.status_ok", "badge-success"],
+  RE: ["sandbox.status_re", "badge-error"],
+  TLE: ["sandbox.status_tle", "badge-warning"],
+  CANCELLED: ["sandbox.status_cancelled", "badge-neutral"],
 };
 
 // issue #319: POST /api/v1/runs + polling, общий для песочницы (playground) и
@@ -56,9 +56,9 @@ async function submitSandboxRun(body) {
       body: JSON.stringify(body),
     });
     created = await resp.json();
-    if (resp.status !== 202) return { status: "error", message: created.message || "Не удалось запустить." };
+    if (resp.status !== 202) return { status: "error", message: created.message || t("sandbox.start_failed") };
   } catch (e) {
-    return { status: "error", message: "Ошибка запроса: " + String(e) };
+    return { status: "error", message: t("common.request_error_detail", { detail: String(e) }) };
   }
   const runId = created.run_id;
   state.sandbox.activeRunId = runId;
@@ -71,7 +71,7 @@ async function submitSandboxRun(body) {
         if (state.sandbox.activeRunId !== runId) return resolve({ status: "cancelled" });
         data = await r.json();
       } catch (e) {
-        return resolve({ status: "error", message: "Ошибка запроса: " + String(e) });
+        return resolve({ status: "error", message: t("common.request_error_detail", { detail: String(e) }) });
       }
       if (data.status === "queued" || data.status === "running") {
         setTimeout(poll, 300);
@@ -100,11 +100,11 @@ function _startSandboxUI(busyMsg) {
 async function runPlayground() {
   const code = getSandboxCode();
   if (!code.trim() || state.sandbox.activeRunId) return;
-  _startSandboxUI("Выполняется…");
+  _startSandboxUI(t("sandbox.running"));
   const data = await submitSandboxRun({ mode: "playground", code, stdin: $("#sandbox-stdin").value });
   if (data.status === "done") renderSandboxResult(data.result);
-  else if (data.status === "cancelled") renderSandboxError(data.message || "Прогон отменён.", true);
-  else renderSandboxError(data.message || "Ошибка выполнения.");
+  else if (data.status === "cancelled") renderSandboxError(data.message || t("sandbox.run_cancelled"), true);
+  else renderSandboxError(data.message || t("sandbox.exec_error"));
   _finishSandboxUI();
 }
 
@@ -113,11 +113,11 @@ async function runPlayground() {
 async function runTrace() {
   const code = getSandboxCode();
   if (!code.trim() || state.sandbox.activeRunId) return;
-  _startSandboxUI("Трассировка…");
+  _startSandboxUI(t("sandbox.tracing"));
   const data = await submitSandboxRun({ mode: "trace", code, stdin: $("#sandbox-stdin").value });
   if (data.status === "done") showTracePlayer(data.result, code);
-  else if (data.status === "cancelled") renderSandboxError(data.message || "Прогон отменён.", true);
-  else renderSandboxError(data.message || "Ошибка выполнения.");
+  else if (data.status === "cancelled") renderSandboxError(data.message || t("sandbox.run_cancelled"), true);
+  else renderSandboxError(data.message || t("sandbox.exec_error"));
   _finishSandboxUI();
 }
 
@@ -142,7 +142,7 @@ function setSandboxStatus(status) {
     return;
   }
   el.className = "badge " + entry[1];
-  el.textContent = entry[0];
+  el.textContent = t(entry[0]);
   el.hidden = false;
 }
 
@@ -174,7 +174,7 @@ function sandboxErrorCard(stderr) {
     esc(exc) +
     '</strong> <a class="trace-error-link" href="#/glossary/' +
     encodeURIComponent(exc.toLowerCase()) +
-    '">открыть карточку →</a></div>'
+    '">' + esc(t("sandbox.open_card")) + "</a></div>"
   );
 }
 
@@ -183,19 +183,19 @@ function renderSandboxResult(r) {
   const parts = [];
   if (r.status === "RE") parts.push(sandboxErrorCard(r.stderr));
   parts.push(
-    '<div class="form-label">Вывод (stdout)</div>',
+    '<div class="form-label">' + esc(t("sandbox.output_stdout")) + "</div>",
     '<pre class="code-block">' +
-      (r.stdout ? esc(r.stdout) : '<span class="hint">(пусто)</span>') +
+      (r.stdout ? esc(r.stdout) : '<span class="hint">' + esc(t("common.empty_paren")) + "</span>") +
       "</pre>"
   );
   if (r.stderr) {
-    parts.push('<div class="form-label">Ошибки (stderr)</div>');
+    parts.push('<div class="form-label">' + esc(t("sandbox.output_stderr")) + "</div>");
     parts.push('<pre class="code-block sandbox-stderr">' + esc(r.stderr) + "</pre>");
   }
   const meta = [];
-  if (r.exit_code != null) meta.push("код выхода: " + r.exit_code);
-  if (r.duration_ms != null) meta.push(r.duration_ms + " мс");
-  if (r.truncated) meta.push("вывод обрезан");
+  if (r.exit_code != null) meta.push(t("sandbox.exit_code", { code: r.exit_code }));
+  if (r.duration_ms != null) meta.push(t("sandbox.duration_ms", { ms: r.duration_ms }));
+  if (r.truncated) meta.push(t("sandbox.truncated"));
   if (meta.length) parts.push('<div class="hint">' + esc(meta.join(" · ")) + "</div>");
   $("#sandbox-output").innerHTML = parts.join("");
 }

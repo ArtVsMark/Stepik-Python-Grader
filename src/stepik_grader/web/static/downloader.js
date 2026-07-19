@@ -1,5 +1,5 @@
 // downloader.js — загрузчик задач Stepik + браузерный OAuth (#426).
-import { $, codeBlock, esc, kpiGrid, registerSectionHook, setSection, skeletonBlock } from "./core.js";
+import { $, codeBlock, esc, kpiGrid, registerSectionHook, setSection, skeletonBlock, t } from "./core.js";
 import { addRecentPath, setMode } from "./grade.js";
 
 function renderDownloaderResult(data) {
@@ -14,16 +14,16 @@ function renderDownloaderResult(data) {
   }
 
   let h = kpiGrid([
-    { label: "Тестов", value: data.tests.count },
-    { label: "Файлов", value: data.files.length },
+    { label: t("downloader.kpi_tests"), value: data.tests.count },
+    { label: t("downloader.kpi_files"), value: data.files.length },
   ]);
   if (data.message) h += '<p class="msg">' + esc(data.message) + "</p>";
-  h += '<div class="field-label">Путь</div>' + codeBlock(data.path);
-  h += '<div class="field-label">Файлы</div>' + codeBlock(data.files.join("\n"));
+  h += '<div class="field-label">' + esc(t("downloader.col_path")) + "</div>" + codeBlock(data.path);
+  h += '<div class="field-label">' + esc(t("downloader.col_files")) + "</div>" + codeBlock(data.files.join("\n"));
   if (data.files.length) {
     h +=
       '<button id="downloader-goto-check" class="btn btn-secondary mt-3">' +
-      "Перейти к проверке</button>";
+      esc(t("downloader.goto_check")) + "</button>";
   }
   content.innerHTML = h;
 
@@ -47,12 +47,12 @@ async function loadAuthStatus() {
   const panel = $("#auth-panel");
   if (!panel) return;
   panel.hidden = false;
-  panel.innerHTML = '<p class="msg">Проверка доступа к Stepik…</p>';
+  panel.innerHTML = '<p class="msg">' + esc(t("auth.checking")) + "</p>";
   try {
     const r = await fetch("/api/auth/status");
     renderAuthPanel(await r.json());
   } catch (e) {
-    panel.innerHTML = '<p class="msg">Не удалось проверить доступ: ' + esc(String(e)) + "</p>";
+    panel.innerHTML = '<p class="msg">' + esc(t("auth.check_failed", { detail: String(e) })) + "</p>";
   }
 }
 
@@ -61,26 +61,25 @@ function renderAuthPanel(data) {
   if (!panel) return;
   if (data && data.authorized) {
     panel.innerHTML =
-      '<div class="auth-ok">✅ Доступ к Stepik активен. ' +
-      '<button id="auth-recheck" class="btn btn-secondary btn-sm">Проверить токен</button></div>';
+      '<div class="auth-ok">' + esc(t("auth.active")) + " " +
+      '<button id="auth-recheck" class="btn btn-secondary btn-sm">' + esc(t("auth.recheck")) + "</button></div>";
     return;
   }
   const redirect = "http://localhost:8080/callback";
   panel.innerHTML =
     '<div class="auth-form">' +
-    '<p class="msg">Для загрузки задач нужен доступ к Stepik — авторизуйтесь прямо здесь, ' +
-    "без ручного создания <code>secrets.json</code>.</p>" +
-    '<p class="hint">1. Создайте приложение на ' +
+    '<p class="msg">' + esc(t("auth.form_intro")) + " <code>secrets.json</code>.</p>" +
+    '<p class="hint">' + esc(t("auth.form_step1_pre")) + " " +
     '<a href="https://stepik.org/oauth2/applications/" target="_blank" rel="noopener">' +
-    "stepik.org/oauth2/applications</a>: Client type = Confidential, grant type = " +
-    "Authorization code, Redirect uris = <code>" +
+    "stepik.org/oauth2/applications</a>" +
+    esc(t("auth.form_step1_post")) + " <code>" +
     redirect +
     "</code>.</p>" +
-    '<div class="form-group"><label class="form-label" for="auth-client-id">Client id</label>' +
+    '<div class="form-group"><label class="form-label" for="auth-client-id">' + esc(t("auth.client_id")) + "</label>" +
     '<input class="form-input" id="auth-client-id" type="text" autocomplete="off"></div>' +
-    '<div class="form-group"><label class="form-label" for="auth-client-secret">Client secret</label>' +
+    '<div class="form-group"><label class="form-label" for="auth-client-secret">' + esc(t("auth.client_secret")) + "</label>" +
     '<input class="form-input" id="auth-client-secret" type="password" autocomplete="off"></div>' +
-    '<button id="auth-start" class="btn btn-primary">🔑 Авторизоваться в браузере</button>' +
+    '<button id="auth-start" class="btn btn-primary">' + esc(t("auth.start_btn")) + "</button>" +
     '<div id="auth-progress" class="hint" hidden></div>' +
     "</div>";
 }
@@ -94,13 +93,12 @@ async function startBrowserAuth() {
   const clientSecret = secEl ? secEl.value.trim() : "";
   if (progress) progress.hidden = false;
   if (!clientId || !clientSecret) {
-    if (progress) progress.textContent = "Укажите client_id и client_secret.";
+    if (progress) progress.textContent = t("auth.need_credentials");
     return;
   }
   if (btn) btn.disabled = true;
   if (progress)
-    progress.textContent =
-      "Открываю браузер… завершите вход в открывшейся вкладке (до 2 минут).";
+    progress.textContent = t("auth.opening_browser");
   try {
     const resp = await fetch("/api/auth/start", {
       method: "POST",
@@ -109,13 +107,13 @@ async function startBrowserAuth() {
     });
     const created = await resp.json();
     if (!created.run_id) {
-      if (progress) progress.textContent = created.message || "Не удалось запустить авторизацию.";
+      if (progress) progress.textContent = created.message || t("auth.start_failed");
       if (btn) btn.disabled = false;
       return;
     }
     pollAuth(created.run_id);
   } catch (e) {
-    if (progress) progress.textContent = "Ошибка запроса: " + String(e);
+    if (progress) progress.textContent = t("common.request_error_detail", { detail: String(e) });
     if (btn) btn.disabled = false;
   }
 }
@@ -131,7 +129,7 @@ function pollAuth(runId) {
         // Job исчез (404 run_not_found) или ответ без статуса — не крутить опрос
         // бесконечно (issue #402).
         if (progress)
-          progress.textContent = data.message || "Не удалось получить статус авторизации.";
+          progress.textContent = data.message || t("auth.status_failed");
         if (btn) btn.disabled = false;
         return;
       }
@@ -141,14 +139,13 @@ function pollAuth(runId) {
       }
       if (data.status === "error" || data.status === "cancelled") {
         if (progress)
-          progress.textContent =
-            data.message || "Не удалось авторизоваться. Проверьте client_id/client_secret.";
+          progress.textContent = data.message || t("auth.auth_failed");
         if (btn) btn.disabled = false;
         return;
       }
       setTimeout(step, 800);
     } catch (e) {
-      if (progress) progress.textContent = "Ошибка опроса: " + String(e);
+      if (progress) progress.textContent = t("auth.poll_error", { detail: String(e) });
       if (btn) btn.disabled = false;
     }
   };
@@ -161,7 +158,7 @@ async function downloadTask() {
   const root = $("#downloader-root").value.trim();
   const btn = $("#downloader-run");
   btn.disabled = true;
-  btn.textContent = "Скачивание…";
+  btn.textContent = t("downloader.downloading");
   $("#downloader-empty").hidden = true;
   const content = $("#downloader-content");
   content.hidden = false;
@@ -175,10 +172,10 @@ async function downloadTask() {
     const data = await r.json();
     renderDownloaderResult(data);
   } catch (e) {
-    content.innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
+    content.innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
   } finally {
     btn.disabled = false;
-    btn.textContent = "▶ Скачать";
+    btn.textContent = t("downloader.download_btn");
   }
 }
 

@@ -1,5 +1,5 @@
 // trace-player.js — пошаговый плеер трейса + диаграмма памяти (#426).
-import { $, esc, state } from "./core.js";
+import { $, esc, state, t } from "./core.js";
 import { renderSandboxError, setSandboxStatus } from "./sandbox.js";
 
 const _FMT_MAX_DEPTH = 2; // глубже — компактный repr, чтобы не рисовать вложенность целиком
@@ -9,8 +9,8 @@ function showTracePlayer(trace, code) {
   const steps = (trace && trace.steps) || [];
   if (!steps.length) {
     // трейс не собрался (сбой/таймаут subprocess) либо программа без шагов
-    const msg = trace && trace.error ? trace.error.message : "Трейс пуст — нет шагов.";
-    return renderSandboxError(msg || "Не удалось оттрассировать.");
+    const msg = trace && trace.error ? trace.error.message : t("trace.empty");
+    return renderSandboxError(msg || t("trace.failed"));
   }
   state.sandbox.trace = {
     steps,
@@ -42,18 +42,18 @@ function tracePlayerShell(tr) {
     )
     .join("");
   const trunc = tr.truncated
-    ? '<div class="trace-truncated hint">⚠ показаны первые ' + m + " шагов (лимит/таймаут)</div>"
+    ? '<div class="trace-truncated hint">' + esc(t("trace.truncated", { n: m })) + "</div>"
     : "";
   return (
     '<div class="trace-player">' +
-    '<div class="trace-controls" role="group" aria-label="Управление трейсом">' +
-    '<button class="btn-icon" data-trace="first" title="В начало" aria-label="В начало">⏮</button>' +
-    '<button class="btn-icon" data-trace="prev" title="Назад (←)" aria-label="Предыдущий шаг">◀</button>' +
+    '<div class="trace-controls" role="group" aria-label="' + esc(t("trace.controls_aria")) + '">' +
+    '<button class="btn-icon" data-trace="first" title="' + esc(t("trace.ctl_first")) + '" aria-label="' + esc(t("trace.ctl_first")) + '">⏮</button>' +
+    '<button class="btn-icon" data-trace="prev" title="' + esc(t("trace.ctl_prev")) + '" aria-label="' + esc(t("trace.ctl_prev_aria")) + '">◀</button>' +
     '<input type="range" id="trace-slider" class="trace-slider" min="0" max="' +
     (m - 1) +
-    '" value="0" aria-label="Позиция в трейсе">' +
-    '<button class="btn-icon" data-trace="next" title="Вперёд (→)" aria-label="Следующий шаг">▶</button>' +
-    '<button class="btn-icon" data-trace="last" title="В конец" aria-label="В конец">⏭</button>' +
+    '" value="0" aria-label="' + esc(t("trace.slider_aria")) + '">' +
+    '<button class="btn-icon" data-trace="next" title="' + esc(t("trace.ctl_next")) + '" aria-label="' + esc(t("trace.ctl_next_aria")) + '">▶</button>' +
+    '<button class="btn-icon" data-trace="last" title="' + esc(t("trace.ctl_last")) + '" aria-label="' + esc(t("trace.ctl_last")) + '">⏭</button>' +
     '<span id="trace-step-label" class="trace-step-label" aria-live="polite" aria-atomic="true"></span>' +
     "</div>" +
     trunc +
@@ -62,15 +62,15 @@ function tracePlayerShell(tr) {
     codeHtml +
     "</pre>" +
     '<div class="trace-vars-head">' +
-    '<span class="form-label">Переменные</span>' +
-    '<div class="trace-view-toggle" role="group" aria-label="Вид переменных">' +
-    '<button type="button" data-traceview="table" class="active">Таблица</button>' +
-    '<button type="button" data-traceview="diagram">Диаграмма</button>' +
+    '<span class="form-label">' + esc(t("trace.variables")) + "</span>" +
+    '<div class="trace-view-toggle" role="group" aria-label="' + esc(t("trace.view_aria")) + '">' +
+    '<button type="button" data-traceview="table" class="active">' + esc(t("trace.view_table")) + "</button>" +
+    '<button type="button" data-traceview="diagram">' + esc(t("trace.view_diagram")) + "</button>" +
     "</div>" +
     "</div>" +
     '<div class="trace-frames" id="trace-frames"></div>' +
     "</div>" +
-    '<div class="form-label">Вывод (stdout)</div>' +
+    '<div class="form-label">' + esc(t("trace.output_stdout")) + "</div>" +
     '<pre class="code-block trace-stdout" id="trace-stdout"></pre>' +
     '<div class="msg trace-error" id="trace-error" hidden></div>' +
     "</div>"
@@ -144,7 +144,7 @@ function renderTraceStep(idx) {
       esc(tr.error.message) +
       ' <a class="trace-error-link" href="#/glossary/' +
       encodeURIComponent(gid) +
-      '">открыть в глоссарии →</a>';
+      '">' + esc(t("trace.open_glossary")) + "</a>";
   } else {
     errEl.hidden = true;
   }
@@ -152,7 +152,7 @@ function renderTraceStep(idx) {
   // 5. состояние контролов (слайдер, счётчик, дизейбл крайних кнопок)
   const last = tr.steps.length - 1;
   $("#trace-slider").value = String(idx);
-  $("#trace-step-label").textContent = "шаг " + (idx + 1) + " из " + tr.steps.length;
+  $("#trace-step-label").textContent = t("trace.step_counter", { n: idx + 1, total: tr.steps.length });
   const out = $("#sandbox-output");
   out.querySelector('[data-trace="first"]').disabled = idx === 0;
   out.querySelector('[data-trace="prev"]').disabled = idx === 0;
@@ -167,11 +167,11 @@ function renderTraceFrames(step, prev) {
   for (let k = frames.length - 1; k >= 0; k--) {
     const fr = frames[k];
     const prevFr = prev && prev.stack && prev.stack[k]; // тот же уровень стека в пред. шаге
-    const title = k === 0 ? "Глобальные" : esc(fr.func) + "()";
+    const title = k === 0 ? esc(t("trace.globals")) : esc(fr.func) + "()";
     const names = Object.keys(fr.locals || {});
     let body;
     if (!names.length) {
-      body = '<div class="hint">нет переменных</div>';
+      body = '<div class="hint">' + esc(t("trace.no_vars")) + "</div>";
     } else {
       const rows = names.map(name => {
         const ref = fr.locals[name];
@@ -263,9 +263,9 @@ function renderTraceDiagram(step, prev) {
   const host = $("#trace-frames");
   if (ids.length > _MEM_MAX_NODES) {
     host.innerHTML =
-      '<div class="hint mem-toobig">Слишком много объектов (' +
-      ids.length +
-      ") для диаграммы — показана таблица.</div>" +
+      '<div class="hint mem-toobig">' +
+      esc(t("trace.too_many_objects", { n: ids.length })) +
+      "</div>" +
       renderTraceFrames(step, prev);
     return;
   }
@@ -289,7 +289,7 @@ function memFramesHtml(step, prev) {
   for (let k = frames.length - 1; k >= 0; k--) {
     const fr = frames[k];
     const prevFr = prev && prev.stack && prev.stack[k];
-    const title = k === 0 ? "Глобальные" : esc(fr.func) + "()";
+    const title = k === 0 ? esc(t("trace.globals")) : esc(fr.func) + "()";
     const names = Object.keys(fr.locals || {});
     const rows = names.map(name => {
       const ref = fr.locals[name];
@@ -306,7 +306,7 @@ function memFramesHtml(step, prev) {
         '<div class="' + cls + '"><span class="mem-var-name">' + esc(name) + "</span>" + slot + "</div>"
       );
     });
-    const body = rows.length ? rows.join("") : '<div class="hint">нет переменных</div>';
+    const body = rows.length ? rows.join("") : '<div class="hint">' + esc(t("trace.no_vars")) + "</div>";
     out.push('<div class="mem-frame"><div class="mem-frame-title">' + title + "</div>" + body + "</div>");
   }
   return out.join("");

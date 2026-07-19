@@ -1,6 +1,6 @@
 // app.js — entry: связывание слушателей и bootstrap; импортирует модули (#426).
 import { loadGlossary, loadRules, parseGlossaryHash, renderGlossaryChips, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
-import { $, applyTheme, applyUiLocale, cycleTheme, setSection, setTheme, state } from "./core.js";
+import { $, applyTheme, applyUiLocale, cycleTheme, setSection, setTheme, state, t } from "./core.js";
 import { downloadTask, loadAuthStatus, startBrowserAuth } from "./downloader.js";
 import { cancelActiveRun, checkTermsTimer, closePalette, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, openPalette, paletteCommands, renderPaletteList, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
@@ -11,8 +11,13 @@ function setLang(value) {
   localStorage.setItem("grader_lang", value);
   // issue #545: статическую оболочку (data-i18n в index.html) локализуем сразу —
   // fire-and-forget, applyUiLocale берёт каталог из кеша (или один раз фетчит),
-  // UI не блокируется. Динамика JS-рендеров разделов — отдельный issue #546.
+  // UI не блокируется.
   applyUiLocale(value);
+  // issue #546: динамика JS-рендеров берёт язык из state.lang при следующем
+  // рендере; здесь обновляем то, что уже на экране и не перерисуется само —
+  // тултип бейджа OS-изоляции и (если открыты «Настройки») статус истории.
+  initExecModeBadge();
+  if (state.section === "settings") setSection("settings"); // хук → syncSettingsControls
   // issue #363: контент глоссария локализуется сервером по ?lang=. Сбрасываем
   // кеш карточек и, если раздел открыт, перезагружаем — summary/body сменят
   // язык без перезагрузки страницы; ранее открытая карточка переоткрывается.
@@ -59,15 +64,13 @@ function initExecModeBadge() {
   if (!badge) return;
   const sandboxed = document.body.dataset.sandbox === "true";
   if (sandboxed) {
-    badge.textContent = "🔒 OS-изоляция";
+    badge.textContent = t("execmode.sandboxed");
     badge.className = "badge badge-neutral";
-    badge.title = "Код исполняется в OS-песочнице (--sandbox): изоляция ФС и сети.";
+    badge.title = t("execmode.sandboxed_title");
   } else {
-    badge.textContent = "⚠ Без OS-изоляции";
+    badge.textContent = t("execmode.unsandboxed");
     badge.className = "badge badge-warning";
-    badge.title =
-      "Код исполняется без OS-изоляции ФС/сети — запускайте только доверенные " +
-      "решения. Для недоверенного кода перезапустите сервер с флагом --sandbox.";
+    badge.title = t("execmode.unsandboxed_title");
   }
   badge.hidden = false;
 }
