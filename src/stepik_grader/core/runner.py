@@ -156,16 +156,50 @@ def _apply_memory_limit(pid: int, max_memory_mb: int | None) -> None:
         resource.prlimit(pid, resource.RLIMIT_AS, (limit_bytes, limit_bytes))  # type: ignore[attr-defined]
 
 
+def sample_tree_rss(proc: psutil.Process) -> float:
+    """Суммарный RSS (МБ) процесса ``proc`` и всех его потомков — единый замер
+    памяти для ``LocalRunner`` и ``SandboxRunner`` (issue #556).
+
+    Замер одного ``proc.pid`` недостоверен под ``--sandbox``: наблюдаемый pid —
+    процесс изоляции (bwrap/sandbox-exec), а решение исполняется его потомком
+    (внук в отдельном PID-namespace на Linux при ``--unshare-pid``). С точки
+    зрения хоста этот потомок всё равно виден как обычный host-PID и попадает в
+    ``children(recursive=True)``, поэтому суммирование поддерева даёт память
+    решения, а не только обёртки-изолятора. Для ``LocalRunner`` (решение —
+    прямой ребёнок) дополнительно учитывается память любых порождённых им
+    процессов (multiprocessing/subprocess) — тоже точнее прежнего.
+
+    Память самого ``proc`` читается напрямую, и её ошибку (процесс исчез/зомби/
+    нет доступа) НЕ глотаем — это сигнал вызывающей стороне (быстрый выход →
+    warn в ``_measure_peak_memory``, обрыв поллинга в песочнице). Потомки —
+    best-effort: исчезнувший в момент обхода узел пропускаем, не обнуляя итог.
+    """
+    total = float(proc.memory_info().rss) / 1024 / 1024
+    try:
+        children = proc.children(recursive=True)
+    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        return total
+    for child in children:
+        try:
+            total += float(child.memory_info().rss) / 1024 / 1024
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+    return total
+
+
 def _measure_peak_memory(
     proc: subprocess.Popen[bytes], result: list[float], stop: threading.Event
 ) -> None:
-    """Поток: замерять RSS дочернего процесса до его завершения.
+    """Поток: замерять RSS дерева дочернего процесса (proc + потомки, issue
+    #556) до его завершения.
 
     Делает первый замер немедленно (до первого sleep), чтобы уловить
     даже очень короткие процессы (< 20 мс). Затем продолжает опрос
     каждые 20 мс до сигнала stop.
 
-    Записывает пик памяти (МБ) в result[0].
+    Записывает пик памяти (МБ) в result[0]. Замер идёт через общий
+    ``sample_tree_rss`` — тот же helper, что и в песочнице, поэтому память
+    решения, породившего внуков (multiprocessing/subprocess), не теряется.
     """
 
     # issue #48 R-05: proc.pid is read after Popen but before communicate() --
@@ -197,7 +231,7 @@ def _measure_peak_memory(
     try:
         ps_proc = psutil.Process(proc.pid)
         try:
-            rss = ps_proc.memory_info().rss / 1024 / 1024
+            rss = sample_tree_rss(ps_proc)
             if rss > peak:
                 peak = rss
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
@@ -206,7 +240,7 @@ def _measure_peak_memory(
             return
         while not stop.is_set():
             try:
-                rss = ps_proc.memory_info().rss / 1024 / 1024
+                rss = sample_tree_rss(ps_proc)
                 if rss > peak:
                     peak = rss
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):

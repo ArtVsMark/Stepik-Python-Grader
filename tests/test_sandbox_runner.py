@@ -18,6 +18,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -183,6 +184,99 @@ def test_sandbox_runner_propagates_backend_unavailable(monkeypatch: pytest.Monke
 
     with pytest.raises(sandbox_pkg.SandboxUnavailableError, match="bwrap not found"):
         sandbox_pkg.SandboxRunner()
+
+
+# ---------------------------------------------------------------------------
+# _posix_common.run_argv_with_limits — partial output on violations + tree-RSS
+# memory detector in isolation from RLIMIT_AS (issue #556). These run argv
+# directly (no bwrap needed) on POSIX; the real bwrap e2e stays in
+# TestLinuxSandboxRunner. On Windows the sandbox uses _windows.py instead.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="_posix_common is the POSIX sandbox path")
+def test_output_size_violation_carries_partial_stdout() -> None:
+    """issue #556: вывод, напечатанный до обрыва по лимиту размера, не теряется."""
+    from stepik_grader.core.sandbox._posix_common import run_argv_with_limits
+
+    code = (
+        "import sys\n"
+        "sys.stdout.write('BEGIN\\n')\n"
+        "sys.stdout.flush()\n"
+        "while True:\n"
+        "    sys.stdout.write('y' * 65536)\n"
+    )
+    outcome = run_argv_with_limits(
+        [sys.executable, "-c", code], stdin=None, timeout=5.0, max_output_bytes=4096
+    )
+    assert outcome.sandbox_violation == "output_size"
+    assert b"BEGIN" in outcome.stdout
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="_posix_common is the POSIX sandbox path")
+def test_memory_violation_carries_partial_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """issue #556: memory-violation-ветка прикладывает частичный stdout (как TLE).
+
+    Детектор памяти правится по времени (под лимитом ~0.6с — ребёнок успевает
+    напечатать, затем над лимитом), без реальной аллокации/тайминговой флаки.
+    """
+    from stepik_grader.core.sandbox import _posix_common
+
+    start = time.perf_counter()
+
+    def _fake_tree_rss(_proc: object) -> float:
+        return 9999.0 if time.perf_counter() - start > 0.6 else 1.0
+
+    monkeypatch.setattr(_posix_common, "sample_tree_rss", _fake_tree_rss)
+
+    code = "import sys, time\nsys.stdout.write('HELLO\\n')\nsys.stdout.flush()\ntime.sleep(30)\n"
+    outcome = _posix_common.run_argv_with_limits(
+        [sys.executable, "-c", code],
+        stdin=None,
+        timeout=10.0,
+        max_output_bytes=1_000_000,
+        max_memory_mb=64,
+    )
+    assert outcome.sandbox_violation == "memory"
+    assert outcome.timed_out is False
+    assert b"HELLO" in outcome.stdout
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="_posix_common is the POSIX sandbox path")
+def test_memory_detector_fires_from_tree_sample_without_rlimit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """issue #556: psutil tree-RSS детектор в ИЗОЛЯЦИИ от RLIMIT_AS (обычный argv,
+    без bwrap) флагает превышение. До фикса замерялся только pid-обёртки, и
+    память внука могла не попасть под лимит — теперь считается всё поддерево."""
+    from stepik_grader.core.sandbox import _posix_common
+
+    monkeypatch.setattr(_posix_common, "sample_tree_rss", lambda _p: 9999.0)
+
+    code = "import time\ntime.sleep(30)\n"
+    outcome = _posix_common.run_argv_with_limits(
+        [sys.executable, "-c", code],
+        stdin=None,
+        timeout=10.0,
+        max_output_bytes=1_000_000,
+        max_memory_mb=64,
+    )
+    assert outcome.sandbox_violation == "memory"
+    assert outcome.timed_out is False
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="_posix_common is the POSIX sandbox path")
+def test_re_outcome_carries_partial_stdout() -> None:
+    """issue #556: RE-исход (ненулевой код) несёт stdout, напечатанный до падения."""
+    from stepik_grader.core.sandbox._posix_common import run_argv_with_limits
+
+    code = "import sys\nprint('printed-before-crash')\nsys.exit(3)\n"
+    outcome = run_argv_with_limits(
+        [sys.executable, "-c", code], stdin=None, timeout=5.0, max_output_bytes=1_000_000
+    )
+    assert outcome.returncode == 3
+    assert outcome.sandbox_violation is None
+    assert b"printed-before-crash" in outcome.stdout
 
 
 # ---------------------------------------------------------------------------

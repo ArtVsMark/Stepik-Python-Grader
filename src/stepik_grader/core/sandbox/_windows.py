@@ -65,7 +65,7 @@ from typing import Any
 import psutil
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.runner import RunOutcome, RunSpec
+from stepik_grader.core.runner import RunOutcome, RunSpec, sample_tree_rss
 from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
 __all__ = ["WindowsSandboxRunner", "create_backend"]
@@ -190,7 +190,9 @@ def _poll_resources(
         ps_proc = psutil.Process(proc.pid)
         while not stop.is_set():
             try:
-                rss = ps_proc.memory_info().rss / 1024 / 1024
+                # issue #556: суммируем RSS всего дерева (решение может породить
+                # процессы под тем же Job Object), а не только прямого ребёнка.
+                rss = sample_tree_rss(ps_proc)
                 if rss > peak:
                     peak = rss
                 if rss > max_memory_mb:
