@@ -426,11 +426,20 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
 
 
 def test_switch_section_cycles_all_sections(page: Any, e2e_server: str, tmp_path: Path) -> None:
-    """J (issue #428): команда «Переключить раздел» циклит по ВСЕМ 7 разделам
+    """J (issue #428): команда «Переключить раздел» циклит по ВСЕМ 8 разделам
     через единый реестр SECTIONS (раньше — жёсткий 4-элементный список
     check/downloader/glossary/sandbox, терявший rules/insights/settings —
-    рецидив #317, находка аудита #331)."""
-    sections = ["check", "downloader", "glossary", "rules", "insights", "sandbox", "settings"]
+    рецидив #317, находка аудита #331; «Прогресс» добавлен в #538)."""
+    sections = [
+        "check",
+        "downloader",
+        "glossary",
+        "rules",
+        "insights",
+        "progress",
+        "sandbox",
+        "settings",
+    ]
 
     def visible() -> str:
         return next(s for s in sections if not page.locator(f"#view-{s}").is_hidden())
@@ -480,3 +489,21 @@ def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path
     theme = page.evaluate("document.documentElement.getAttribute('data-theme')")
     assert theme == "light"  # system -> light (cycleTheme's first step)
     assert page.locator("#theme-toggle").text_content() == "☀️"
+
+
+def test_progress_section_opens_and_renders(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """issue #538: раздел «Прогресс» открывается и рендерит один из двух исходов —
+    KPI-контент (непустая история) ИЛИ дружелюбный empty-state, — устойчиво к
+    состоянию истории в cwd сервера. Наполнение KPI из данных покрыто unit-тестом
+    ``test_progress_report_adapter_aggregates_history``."""
+    page.goto(e2e_server + "/")
+    page.click('.sidebar-item[data-section="progress"]')
+    page.wait_for_selector("#view-progress:not([hidden])", timeout=_TIMEOUT_MS)
+    # /api/progress ответил и renderProgress отработал: виден либо empty-state,
+    # либо KPI-контент (если оба скрыты — loadProgress упал, ловим таймаутом).
+    page.wait_for_function(
+        "() => { const e = document.getElementById('progress-empty');"
+        " const c = document.getElementById('progress-content');"
+        " return (e && !e.hidden) || (c && !c.hidden); }",
+        timeout=_TIMEOUT_MS,
+    )

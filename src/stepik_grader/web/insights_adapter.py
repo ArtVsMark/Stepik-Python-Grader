@@ -14,20 +14,34 @@ from pathlib import Path
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core import history, insights
+from stepik_grader.core import history, insights, progress_export
 
-__all__ = ["active_count", "insights_cards", "progress_rows"]
+__all__ = ["active_count", "insights_cards", "progress_report", "progress_rows"]
 
 
 def _db_path(db_path: Path | None) -> Path:
     return db_path if db_path is not None else Path.cwd() / history.HISTORY_DB_NAME
 
 
+def progress_report(*, db_path: Path | None = None) -> dict[str, Any]:
+    """Агрегатный отчёт прогресса → dict для `/api/progress` (issue #538/#432).
+
+    Тонкая обёртка над ``progress_export.build_progress_report`` (тот же движок,
+    что CLI ``--export-progress`` — логика в core, не дублируется): KPI
+    ``solved_tasks``/``total_tasks``, тали ``verdicts``/``failure_kinds`` и TTFG
+    по задачам (``tasks``). Пустая/отсутствующая история → отчёт с нулевыми
+    счётчиками (``build_progress_report`` читает историю best-effort, не 500).
+    """
+    return progress_export.build_progress_report(_db_path(db_path))
+
+
 def progress_rows(*, db_path: Path | None = None) -> list[dict[str, Any]]:
-    """TTFG-прогресс по задачам → список dict'ов для `/api/progress` (issue #431).
+    """TTFG-прогресс по задачам → список dict'ов (issue #431).
 
     Попыток/времени до первого полного AC по каждой `task_key`. Пустая/
-    отсутствующая история → ``[]`` (дружелюбный empty state рендерит фронтенд).
+    отсутствующая история → ``[]``. С issue #538 ``/api/progress`` отдаёт полный
+    ``progress_report`` (в нём те же строки в ``tasks``); эта функция оставлена
+    как тонкий per-task адаптер для повторного использования/тестов.
     """
     return [asdict(p) for p in insights.time_to_first_green(_db_path(db_path))]
 

@@ -29,7 +29,7 @@ const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 // switch_section() ходят по нему — новый раздел добавляется один раз здесь и
 // забыть его нельзя (устраняет рецидив #317: switch_section циклил 4 из 7).
 // ---------------------------------------------------------------------------
-const SECTIONS = ["check", "downloader", "glossary", "rules", "insights", "sandbox", "settings"];
+const SECTIONS = ["check", "downloader", "glossary", "rules", "insights", "progress", "sandbox", "settings"];
 
 // State (issue #125) — единый источник состояния для split-pane workspace,
 // command palette, action cards и сценарных кнопок.
@@ -55,6 +55,7 @@ const state = {
   },
   rules: { query: "", tag: "", cards: [], selectedId: null }, // issue #348
   insights: { cards: [] }, // issue #348
+  progress: { report: null }, // issue #538 — агрегатный отчёт из /api/progress
   solutions: [], // режим 1 — файлы, найденные /api/solutions в указанной папке
   selectedSolutionFile: null, // режим 1 — выбранный для проверки файл (полный путь)
   activeRunId: null, // issue #262 — id текущего опрашиваемого async job (tests/bench/microbench)
