@@ -158,10 +158,7 @@ function syncSettingsControls() {
   const hist = $("#history-status");
   if (hist) {
     const on = document.body.dataset.recordHistory === "true";
-    hist.textContent = on
-      ? "Сейчас: включена. Прогоны пишутся в .grader_history.db (хранится sha256 "
-        + "решения, не исходный код). Чтобы выключить — перезапустите сервер с --no-history."
-      : "Сейчас: выключена (сервер запущен с --no-history) — прогоны не сохраняются.";
+    hist.textContent = on ? t("settings.history_status_on") : t("settings.history_status_off");
   }
 }
 
@@ -255,7 +252,7 @@ function makeEditor(mount, onChange, label) {
       python(),
       theme,
       cmPlaceholder(mount.dataset.placeholder || ""),
-      EditorView.contentAttributes.of({ "aria-label": label || "Редактор кода" }),
+      EditorView.contentAttributes.of({ "aria-label": label || t("editor.default_label") }),
       EditorView.updateListener.of(update => {
         if (update.docChanged && onChange) onChange();
       }),
@@ -288,7 +285,7 @@ function renderTermCards(terms) {
           esc(t.title) +
           "</span>" +
           kind +
-          '<span class="term-card-summary hint">карточки ещё нет</span></span></li>'
+          '<span class="term-card-summary hint">' + esc(t("terms.no_card")) + "</span></span></li>"
         );
       }
       const uncertain = t.confidence === "low" ? " term-card-uncertain" : "";
@@ -340,6 +337,47 @@ async function _loadUiCatalog() {
   return _uiCatalog;
 }
 
+// issue #546 — синхронный доступ к каталогу для ДИНАМИЧЕСКИХ строк JS-рендеров
+// (то, что data-i18n покрыть не может: результаты грейда, статусы прогона,
+// тултипы, empty-state, собираемые в JS). Каталог уже кеширован в _uiCatalog;
+// гарантия «загружен до первого t()» — top-level await ниже (core.js импортируют
+// все рендер-модули, поэтому их выполнение ждёт загрузку). {name} в строке
+// подставляется из params. Отсутствующий ключ → видимый маркер ⟦key⟧ + warn, а
+// НЕ тихий RU-fallback (acceptance #546; жёсткая проверка полноты — #547).
+function t(key, params) {
+  const dict = (_uiCatalog && _uiCatalog[state.lang]) || {};
+  if (!Object.hasOwn(dict, key)) {
+    console.warn("t: ключ «" + key + "» отсутствует в локали «" + state.lang + "»");
+    return "⟦" + key + "⟧"; // ⟦key⟧ — видимый маркер пропущенного перевода
+  }
+  let str = dict[key];
+  if (params) {
+    str = str.replace(/\{(\w+)\}/g, (m, name) =>
+      Object.hasOwn(params, name) ? String(params[name]) : m
+    );
+  }
+  return str;
+}
+
+// issue #546 — выбор формы множественного числа. RU: три формы (one/few/many);
+// EN: две (one/many, «few» не используется). Возвращает суффикс каталожного
+// ключа: строки лежат под <key>.one/.few/.many в обоих языках (в en .few — копия
+// .many, чтобы паритет ключей #547 держался).
+function pluralForm(n, lang) {
+  if (lang === "en") return n === 1 ? "one" : "many";
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "one";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "few";
+  return "many";
+}
+
+// issue #546 — плюрализованный перевод: tp(5, "grade.n_solutions") → строка формы
+// «many» с уже подставленным {n}. Доп. params сливаются поверх {n}.
+function tp(n, key, params) {
+  return t(key + "." + pluralForm(n, state.lang), { ...params, n });
+}
+
 async function applyUiLocale(lang) {
   let cat;
   try {
@@ -365,6 +403,17 @@ async function applyUiLocale(lang) {
 // issue #426 — раздел «Настройки» (синхронизация контролов) — core-резидент.
 registerSectionHook("settings", () => syncSettingsControls());
 
+// issue #546 — ГАРАНТИЯ: каталог ui.json загружен до первого синхронного
+// t()/tp(). Top-level await блокирует выполнение всех импортирующих core.js
+// модулей (а его импортируют все рендеры) до завершения загрузки. Строгий CSP
+// (#563) не мешает — это fetch same-origin, не eval. Сбой сети → t() отдаёт
+// видимые маркеры, приложение всё равно поднимается (не виснет на await).
+try {
+  await _loadUiCatalog();
+} catch {
+  // каталог недоступен — t() вернёт ⟦key⟧-маркеры (осознанно, не тихий RU)
+}
+
 export {
   $,
   SECTIONS,
@@ -383,4 +432,6 @@ export {
   setTheme,
   skeletonBlock,
   state,
+  t,
+  tp,
 };

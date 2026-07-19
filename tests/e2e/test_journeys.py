@@ -10,6 +10,7 @@ explicitly: ``pytest tests/e2e/`` (after ``pip install -e ".[e2e]"`` +
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,7 @@ from playwright.sync_api import expect
 from tests.e2e._helpers import write_task
 
 _TIMEOUT_MS = 10_000
+_CYRILLIC = re.compile(r"[А-Яа-яЁё]")
 
 
 def test_mode2_folder_grading_shows_table_and_detail_tab(
@@ -545,3 +547,53 @@ def test_settings_english_localizes_static_shell(
         "Check solutions", timeout=_TIMEOUT_MS
     )
     expect(page.locator("html")).to_have_attribute("lang", "en", timeout=_TIMEOUT_MS)
+
+
+def _switch_to_english(page: Any) -> None:
+    """Переключить язык интерфейса на English через раздел «Настройки»."""
+    page.click('[data-section="settings"]')
+    page.wait_for_selector("#view-settings:not([hidden])", timeout=_TIMEOUT_MS)
+    page.select_option("#settings-lang", "en")
+
+
+def test_english_localizes_command_palette_empty_state(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """issue #546: пустой результат палитры команд рендерится клиентом через t() —
+    на English это «Nothing found» (детерминированно, без обращения к серверу).
+
+    Проверяет ДИНАМИКУ JS-рендера (не только data-i18n оболочку #545): строка
+    берётся из каталога по state.lang в момент рендера, а не из разметки."""
+    page.goto(e2e_server + "/")
+    _switch_to_english(page)
+
+    page.keyboard.press("Control+k")
+    page.wait_for_selector("#palette-overlay:not([hidden])", timeout=_TIMEOUT_MS)
+    page.fill("#palette-input", "zzzzznope")  # заведомо несуществующая команда
+
+    empty = page.locator("#palette-list .empty")
+    expect(empty).to_have_text("Nothing found", timeout=_TIMEOUT_MS)
+    assert not _CYRILLIC.search(empty.inner_text())
+
+
+def test_english_localizes_dynamic_sandbox_output(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """issue #546: результат прогона песочницы (клиентский JS-рендер через t())
+    на English — статус «Success», подпись «Output (stdout)», без кириллицы.
+
+    Статус берётся из SANDBOX_STATUS, где хранятся КЛЮЧИ, а t() резолвит их в
+    setSandboxStatus по текущему языку (смена языка на лету не ломается)."""
+    page.goto(e2e_server + "/")
+    _switch_to_english(page)
+
+    page.click('[data-section="sandbox"]')
+    page.wait_for_selector("#view-sandbox:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click("#sandbox-editor .cm-content")
+    page.keyboard.type('print("hi")')
+    page.click("#sandbox-run")
+
+    page.wait_for_selector("#sandbox-output pre.code-block", timeout=_TIMEOUT_MS)
+    expect(page.locator("#sandbox-status")).to_have_text("Success", timeout=_TIMEOUT_MS)
+    expect(page.locator("#sandbox-output")).to_contain_text("Output (stdout)")
+    assert not _CYRILLIC.search(page.locator("#sandbox-output").inner_text())

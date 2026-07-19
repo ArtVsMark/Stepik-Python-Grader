@@ -1,6 +1,13 @@
 // grade.js — проверка (режимы 1–4), рендер результата, палитра команд (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
-import { $, SECTIONS, codeBlock, cycleTheme, esc, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, setSection, skeletonBlock, state } from "./core.js";
+import { $, SECTIONS, codeBlock, cycleTheme, esc, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, setSection, skeletonBlock, state, t, tp } from "./core.js";
+
+// issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
+// как {ru, en}; раньше рендер жёстко брал .ru — теперь выбираем по state.lang
+// (fallback на .ru, если .en пуст).
+function cmdTitle(c) {
+  return (state.lang === "en" && c.title.en) ? c.title.en : c.title.ru;
+}
 
 const VERDICT_BADGE = {
   AC: "badge badge-success", OK: "badge badge-success",
@@ -82,7 +89,7 @@ function renderCommandButtons(el, commands) {
   el.innerHTML = commands
     .map(
       c =>
-        '<button class="action-card" data-cmd="' + esc(c.id) + '">' + esc(c.title.ru) + "</button>"
+        '<button class="action-card" data-cmd="' + esc(c.id) + '">' + esc(cmdTitle(c)) + "</button>"
     )
     .join("");
   el.querySelectorAll("[data-cmd]").forEach(btn =>
@@ -153,7 +160,7 @@ function renderPaletteList() {
   const cmds = paletteCommands();
   const list = $("#palette-list");
   if (!cmds.length) {
-    list.innerHTML = '<li class="empty">Ничего не найдено</li>';
+    list.innerHTML = '<li class="empty">' + esc(t("common.nothing_found")) + "</li>";
     return;
   }
   state.paletteActiveIndex = Math.min(state.paletteActiveIndex, cmds.length - 1);
@@ -162,7 +169,7 @@ function renderPaletteList() {
       const active = i === state.paletteActiveIndex ? " active" : "";
       const kbd = c.shortcut ? '<span class="kbd">' + esc(c.shortcut) + "</span>" : "";
       return (
-        '<li data-idx="' + i + '" class="' + active + '"><span>' + esc(c.title.ru) + "</span>" + kbd + "</li>"
+        '<li data-idx="' + i + '" class="' + active + '"><span>' + esc(cmdTitle(c)) + "</span>" + kbd + "</li>"
       );
     })
     .join("");
@@ -244,7 +251,7 @@ function mountEditor() {
     updateDirtyIndicator(); // issue #297
     clearTimeout(checkTermsTimer); // issue #323: обновить панель под новый код
     checkTermsTimer = setTimeout(loadCheckTerms, 400);
-  }, "Редактор решения");
+  }, t("editor.solution_label"));
   // <label for="solution-editor"> can't natively focus a contenteditable div
   // the way it would a real <textarea> -- wire it manually (issue #265
   // acceptance criterion: editor must be keyboard-reachable).
@@ -265,10 +272,10 @@ async function loadCheckTerms() {
     body = { path: state.selectedSolutionFile };
   }
   if (!body) {
-    el.innerHTML = '<li class="empty">Начните вводить код или выберите решение</li>';
+    el.innerHTML = '<li class="empty">' + esc(t("check.terms_empty")) + "</li>";
     return;
   }
-  renderTermsInto(el, await fetchCodeTerms(body), "Знакомых функций не найдено");
+  renderTermsInto(el, await fetchCodeTerms(body), t("check.terms_none"));
 }
 
 function getEditorCode() {
@@ -316,7 +323,7 @@ async function refreshSolutionsList() {
   const folder = $("#path").value.trim();
   const list = $("#solutions-list");
   if (!folder) return;
-  list.innerHTML = '<li class="empty">Поиск…</li>';
+  list.innerHTML = '<li class="empty">' + esc(t("check.searching")) + "</li>";
   try {
     const r = await fetch("/api/solutions?" + new URLSearchParams({ path: folder }));
     const data = await r.json();
@@ -329,7 +336,7 @@ async function refreshSolutionsList() {
     renderSolutionsList();
   } catch (e) {
     state.solutions = [];
-    list.innerHTML = '<li class="empty">Ошибка запроса.</li>';
+    list.innerHTML = '<li class="empty">' + esc(t("common.request_error")) + "</li>";
   }
 }
 
@@ -340,14 +347,14 @@ async function findReference() {
   const folder = $("#path").value.trim();
   const list = $("#solutions-list");
   if (!folder) {
-    list.innerHTML = '<li class="empty">Укажите папку задачи (со скачанной meta.json).</li>';
+    list.innerHTML = '<li class="empty">' + esc(t("check.need_task_folder")) + "</li>";
     return;
   }
   const btn = $("#find-reference-btn");
   btn.disabled = true;
   const original = btn.textContent;
-  btn.textContent = "Импорт…";
-  list.innerHTML = '<li class="empty">Импорт эталона из Stepik…</li>';
+  btn.textContent = t("check.importing");
+  list.innerHTML = '<li class="empty">' + esc(t("check.importing_reference")) + "</li>";
   try {
     const r = await fetch("/api/import-reference", {
       method: "POST",
@@ -361,7 +368,7 @@ async function findReference() {
     }
     await refreshSolutionsList(); // покажет task{N}_{100+}.py среди решений
   } catch (e) {
-    list.innerHTML = '<li class="empty">Ошибка запроса.</li>';
+    list.innerHTML = '<li class="empty">' + esc(t("common.request_error")) + "</li>";
   } finally {
     btn.disabled = false;
     btn.textContent = original;
@@ -371,7 +378,7 @@ async function findReference() {
 function renderSolutionsList() {
   const el = $("#solutions-list");
   if (!state.solutions.length) {
-    el.innerHTML = '<li class="empty">Решения не найдены.</li>';
+    el.innerHTML = '<li class="empty">' + esc(t("check.no_solutions")) + "</li>";
     return;
   }
   el.innerHTML = state.solutions
@@ -445,7 +452,7 @@ async function grade() {
   }
   const btn = $("#run");
   btn.disabled = true;
-  btn.textContent = "Проверка…";
+  btn.textContent = t("check.checking");
   $("#bar").innerHTML = "";
   $("#out").innerHTML = skeletonBlock();
   state.selectedRow = null;
@@ -478,8 +485,8 @@ async function grade() {
     updateCheckSidebarBadge(data);
     announceResult(summaryFromResult(data)); // issue #298
   } catch (e) {
-    $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
-    announceResult("Ошибка запроса"); // issue #298
+    $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
+    announceResult(t("common.request_error")); // issue #298
   } finally {
     _finishGradeUI();
   }
@@ -521,7 +528,7 @@ async function saveSolution() {
     markEditorSaved(code, saved.mtime);
     await refreshSolutionsList();
   } catch (e) {
-    $("#out").innerHTML = '<p class="msg">Не удалось сохранить код: ' + esc(String(e)) + "</p>";
+    $("#out").innerHTML = '<p class="msg">' + esc(t("check.save_failed", { detail: String(e) })) + "</p>";
   } finally {
     updateDirtyIndicator();
   }
@@ -529,7 +536,7 @@ async function saveSolution() {
 
 function _finishGradeUI() {
   updateRunButtonState();
-  $("#run").textContent = "▶ Запустить";
+  $("#run").textContent = t("check.run");
   renderDetailPanel();
   renderResultSummaryBadges();
   // issue #298 (a11y): после завершения прогона фокус уходит на панель
@@ -555,31 +562,25 @@ function announceResult(text) {
 // Краткая человекочитаемая сводка результата грейда для screen-reader-объявления.
 function summaryFromResult(data) {
   if (!data || data.kind === "error") {
-    return data && data.message ? data.message : "Ошибка проверки";
+    return data && data.message ? data.message : t("grade.check_error");
   }
-  if (!data.rows || !data.rows.length) return "Результатов нет";
+  if (!data.rows || !data.rows.length) return t("grade.no_results");
   if (data.mode === "bench" || data.mode === "microbench") {
-    const label = data.mode === "bench" ? "Бенчмарк" : "Микробенчмарк";
-    return label + " завершён: " + data.rows.length + " " + _plur(data.rows.length, "решение", "решения", "решений");
+    const label = t(data.mode === "bench" ? "check.mode_bench" : "check.mode_microbench");
+    return t("grade.bench_done", { label, summary: tp(data.rows.length, "grade.n_solutions") });
   }
   const ok = data.rows.filter(r => r.status === "OK").length;
   if (data.rows.length === 1) {
     const r = data.rows[0];
-    return "Проверка завершена: " + r.file + " — " + r.status + ", " + r.passed + " из " + r.total;
+    return t("grade.check_done_single", { file: r.file, status: r.status, passed: r.passed, total: r.total });
   }
-  return (
-    "Проверка завершена: " + data.rows.length + " " + _plur(data.rows.length, "решение", "решения", "решений") +
-    ", " + ok + " OK, " + (data.rows.length - ok) + " FAIL"
-  );
-}
-
-// Русская плюрализация (1 решение / 2 решения / 5 решений).
-function _plur(n, one, few, many) {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return one;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
-  return many;
+  // issue #546: плюрализация «решений» вынесена в core.tp (locale-aware: ru
+  // one/few/many, en one/many) — прежняя русская _plur удалена.
+  return t("grade.check_done_multi", {
+    summary: tp(data.rows.length, "grade.n_solutions"),
+    ok,
+    fail: data.rows.length - ok,
+  });
 }
 
 // issue #262 — async job model: POST /api/v1/runs, затем polling
@@ -606,14 +607,14 @@ async function gradeAsync(path, backendMode, code = null) {
     created = await createResp.json();
     if (createResp.status !== 202) {
       $("#out").innerHTML =
-        '<p class="msg">' + esc(created.message || "Не удалось запустить задачу.") + "</p>";
-      announceResult(created.message || "Не удалось запустить задачу"); // issue #298
+        '<p class="msg">' + esc(created.message || t("grade.start_failed")) + "</p>";
+      announceResult(created.message || t("grade.start_failed")); // issue #298
       _finishGradeUI();
       return;
     }
   } catch (e) {
-    $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
-    announceResult("Ошибка запроса"); // issue #298
+    $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
+    announceResult(t("common.request_error")); // issue #298
     _finishGradeUI();
     return;
   }
@@ -634,8 +635,8 @@ async function gradeAsync(path, backendMode, code = null) {
         data = await statusResp.json();
       } catch (e) {
         if (state.activeRunId !== runId) return resolve();
-        $("#out").innerHTML = '<p class="msg">Ошибка запроса: ' + esc(String(e)) + "</p>";
-        announceResult("Ошибка запроса"); // issue #298
+        $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
+        announceResult(t("common.request_error")); // issue #298
         return resolve();
       }
       updateProgressBar(data.progress.done, data.progress.total);
@@ -654,12 +655,12 @@ async function gradeAsync(path, backendMode, code = null) {
         // issue #296: отдельный нейтральный статус — не провал грейдера,
         // не показываем красным (.msg), как настоящую ошибку.
         $("#out").innerHTML =
-          '<p class="msg-neutral">' + esc(data.message || "Задача отменена.") + "</p>";
-        announceResult(data.message || "Прогон отменён"); // issue #298
+          '<p class="msg-neutral">' + esc(data.message || t("grade.task_cancelled")) + "</p>";
+        announceResult(data.message || t("grade.run_cancelled")); // issue #298
       } else {
         $("#out").innerHTML =
-          '<p class="msg">' + esc(data.message || "Задача завершилась с ошибкой.") + "</p>";
-        announceResult(data.message || "Задача завершилась с ошибкой"); // issue #298
+          '<p class="msg">' + esc(data.message || t("grade.task_failed")) + "</p>";
+        announceResult(data.message || t("grade.task_failed")); // issue #298
       }
       resolve();
     };
@@ -675,14 +676,14 @@ function updateProgressBar(done, total) {
   // ещё не посчитан) — progressbar без aria-valuenow + aria-valuetext.
   if (!total) {
     $("#bar").innerHTML =
-      '<div class="progress-track" role="progressbar" aria-label="Прогресс проверки" ' +
-      'aria-valuetext="Выполняется">' +
+      '<div class="progress-track" role="progressbar" aria-label="' + esc(t("grade.progress_aria")) + '" ' +
+      'aria-valuetext="' + esc(t("grade.progress_running")) + '">' +
       '<div class="progress-fill progress-indeterminate"></div></div>';
     return;
   }
   const pct = Math.min(100, Math.round((done / total) * 100));
   $("#bar").innerHTML =
-    '<div class="progress-track" role="progressbar" aria-label="Прогресс проверки" ' +
+    '<div class="progress-track" role="progressbar" aria-label="' + esc(t("grade.progress_aria")) + '" ' +
     'aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + done + '">' +
     '<div class="progress-fill"></div></div>' +
     '<div class="progress-label">' + done + " / " + total + "</div>";
@@ -749,14 +750,14 @@ function renderTests(rows) {
   const ok = rows.filter(r => r.status === "OK").length;
   $("#bar").textContent = "";
   let h = kpiGrid([
-    { label: "Решений", value: rows.length },
+    { label: t("grade.kpi_solutions"), value: rows.length },
     { label: "OK", value: ok, delta: rows.length ? Math.round((ok / rows.length) * 100) + "%" : "", variant: "up" },
     { label: "FAIL", value: rows.length - ok, variant: (rows.length - ok) ? "down" : "neutral" },
   ]);
   h += '<div class="data-table-wrap">' +
-    '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Passed</th>' +
-    '<th scope="col">Статус</th><th scope="col">Σ время</th><th scope="col">Avg</th>' +
-    '<th scope="col">Память, МБ</th></tr></thead><tbody>';
+    '<table class="data-table"><thead><tr><th scope="col">' + esc(t("grade.col_file")) + '</th><th scope="col">Passed</th>' +
+    '<th scope="col">' + esc(t("grade.col_status")) + '</th><th scope="col">' + esc(t("grade.col_total_time")) + '</th><th scope="col">Avg</th>' +
+    '<th scope="col">' + esc(t("grade.col_memory")) + '</th></tr></thead><tbody>';
   rows.forEach((row, i) => {
     h +=
       '<tr><td class="file-cell mono" data-toggle="' + i + '">' + esc(row.file) + '</td>' +
@@ -778,7 +779,7 @@ function renderTests(rows) {
 }
 
 function casesHtml(rowIndex, cases) {
-  if (!cases || !cases.length) return "<em>нет тест-кейсов</em>";
+  if (!cases || !cases.length) return "<em>" + esc(t("grade.no_cases")) + "</em>";
   return (
     '<table class="data-table">' +
     cases
@@ -846,28 +847,28 @@ function renderDetailPanel() {
 
   let h =
     '<div class="bar">#' + c.n + " " + renderVerdict(c.verdict) + " · " + c.time + " s</div>";
-  if (c.stdin) h += '<div class="field-label">Вход (stdin)</div>' + codeBlock(c.stdin);
+  if (c.stdin) h += '<div class="field-label">' + esc(t("grade.field_stdin")) + "</div>" + codeBlock(c.stdin);
   // issue #368 (2.е): ядро разбора — сравнение «Ожидалось / Получено». Для WA —
   // двухколоночно (на узкой панели колонки стекаются), плюс diff.
   if (c.verdict === "WA") {
     h +=
       '<div class="compare-grid">' +
-      '<div><div class="field-label">Ожидалось</div>' + codeBlock(c.expected) + "</div>" +
-      '<div><div class="field-label">Получено</div>' + codeBlock(c.actual) + "</div>" +
+      '<div><div class="field-label">' + esc(t("grade.field_expected")) + "</div>" + codeBlock(c.expected) + "</div>" +
+      '<div><div class="field-label">' + esc(t("grade.field_actual")) + "</div>" + codeBlock(c.actual) + "</div>" +
       "</div>";
     if (c.diff) h += '<div class="field-label">Diff</div>' + codeBlock(c.diff);
   } else if (c.actual) {
-    h += '<div class="field-label">Вывод</div>' + codeBlock(c.actual);
+    h += '<div class="field-label">' + esc(t("grade.field_output")) + "</div>" + codeBlock(c.actual);
   }
   if (c.verdict === "RE" || c.verdict === "TLE") {
-    h += '<div class="field-label">Диагностика</div>' + codeBlock(c.stderr || c.error || "");
+    h += '<div class="field-label">' + esc(t("grade.field_diagnostics")) + "</div>" + codeBlock(c.stderr || c.error || "");
     if (c.exit_code != null) h += '<div class="hint">exit code: ' + esc(c.exit_code) + "</div>";
     if (c.timeout_s != null) h += '<div class="hint">timeout: ' + esc(c.timeout_s) + " s</div>";
   }
   if (c.glossary) h += errorCard(c.glossary);
   if (state.explainOpen && c.suggestions && c.suggestions.length) {
     h +=
-      '<div class="errcard severity-' + esc(c.severity || "error") + '"><strong>Подсказка:</strong> ' +
+      '<div class="errcard severity-' + esc(c.severity || "error") + '"><strong>' + esc(t("grade.hint_label")) + "</strong> " +
       c.suggestions.map(esc).join(" ") +
       "</div>";
   }
@@ -875,8 +876,8 @@ function renderDetailPanel() {
   // что бывший «Лог» давал сверх «Деталей»); свёрнута по умолчанию.
   const raw = c.actual || c.stderr || c.error || "";
   h +=
-    '<details class="raw-output"><summary>Сырой stdout/stderr</summary>' +
-    codeBlock(raw || "(пусто)") +
+    '<details class="raw-output"><summary>' + esc(t("grade.raw_output")) + "</summary>" +
+    codeBlock(raw || t("common.empty_paren")) +
     "</details>";
   h += '<div id="detail-actions" class="action-cards"></div>';
   content.innerHTML = h;
@@ -889,13 +890,13 @@ function renderBench(rows) {
   $("#bar").textContent = "";
   // issue #370: KPI унифицированы с режимом 4 — «Решений / Лучшая медиана / Схожих».
   let h = kpiGrid([
-    { label: "Решений", value: rows.length },
-    { label: "Лучшая медиана", value: ranked.length ? ranked[0].median : "—" },
-    { label: "Схожих", value: ranked.length ? similarCount + " / " + ranked.length : "—" },
+    { label: t("grade.kpi_solutions"), value: rows.length },
+    { label: t("grade.kpi_best_median"), value: ranked.length ? ranked[0].median : "—" },
+    { label: t("grade.kpi_similar"), value: ranked.length ? similarCount + " / " + ranked.length : "—" },
   ]);
   h += benchTable(rows, {
     fields: { min: "min", median: "median", mean: "mean", max: "max", stdev: "stdev" },
-    memLabel: "Память, МБ",
+    memLabel: t("grade.col_memory"),
   });
   $("#out").innerHTML = h;
 }
@@ -908,11 +909,11 @@ function benchTable(rows, { fields, memLabel, memTitle }) {
     '<th scope="col"' + (memTitle ? ' title="' + esc(memTitle) + '"' : "") + ">" + esc(memLabel) + "</th>";
   let h =
     '<div class="data-table-wrap">' +
-    '<table class="data-table"><thead><tr><th scope="col">Файл</th><th scope="col">Runs</th>' +
+    '<table class="data-table"><thead><tr><th scope="col">' + esc(t("grade.col_file")) + '</th><th scope="col">Runs</th>' +
     '<th scope="col">Min</th><th scope="col">Median</th><th scope="col">Mean</th>' +
     '<th scope="col">Max</th><th scope="col">Std dev</th>' +
     memTh +
-    '<th scope="col">%</th><th scope="col">Вердикт</th></tr></thead><tbody>';
+    '<th scope="col">%</th><th scope="col">' + esc(t("grade.col_verdict")) + '</th></tr></thead><tbody>';
   rows.forEach(row => {
     if (row.error) {
       h +=
@@ -942,18 +943,21 @@ function renderMicrobench(data) {
   let h = "";
   if (data.other_groups && data.other_groups.length) {
     h +=
-      '<p class="hint pad-t3-x4">Группа «' +
-      esc(data.group) + '» · остальные (не показаны): ' + data.other_groups.map(esc).join(", ") +
+      '<p class="hint pad-t3-x4">' +
+      t("grade.microbench_group", {
+        group: esc(data.group),
+        others: data.other_groups.map(esc).join(", "),
+      }) +
       "</p>";
   }
   h += kpiGrid([
-    { label: "Решений", value: rows.length },
-    { label: "Лучшая медиана, µs", value: ok.length ? ok[0].median_us : "—" },
-    { label: "Схожих", value: ok.length ? similarCount + " / " + ok.length : "—" },
+    { label: t("grade.kpi_solutions"), value: rows.length },
+    { label: t("grade.kpi_best_median_us"), value: ok.length ? ok[0].median_us : "—" },
+    { label: t("grade.kpi_similar"), value: ok.length ? similarCount + " / " + ok.length : "—" },
   ]);
   h += benchTable(rows, {
     fields: { min: "min_us", median: "median_us", mean: "mean_us", max: "max_us", stdev: "stdev_us" },
-    memLabel: "Py-heap, МБ",
+    memLabel: t("grade.col_pyheap"),
     memTitle: "tracemalloc (stdin) / RSS (function), issue #66",
   });
   $("#out").innerHTML = h;
@@ -964,7 +968,7 @@ function errorCard(g) {
     '<div class="errcard"><span class="errcard-ex">💡 ' + esc(g.exception) + "</span> " +
     esc(g.hint) +
     ' <a href="' + esc(g.url) + '" target="_blank" rel="noopener">' +
-    "открыть карточку в глоссарии →</a></div>"
+    esc(t("grade.open_glossary_card")) + "</a></div>"
   );
 }
 

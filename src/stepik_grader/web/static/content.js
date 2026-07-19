@@ -1,5 +1,5 @@
 // content.js — глоссарий, правила (PEP), «Подучить» (hash-навигация, #426).
-import { $, esc, getSelectedCase, registerSectionHook, setSection, state } from "./core.js";
+import { $, esc, getSelectedCase, registerSectionHook, setSection, state, t, tp } from "./core.js";
 
 function openGlossaryForSelectedCase() {
   const c = getSelectedCase();
@@ -16,14 +16,17 @@ function openGlossaryForSelectedCase() {
 
 // -- Result-panel tabs (Таблица / Разбор) -------------------------------------
 
+// issue #546: label — КЛЮЧ каталога (перевод при рендере через t()), а не
+// готовая строка (иначе язык зафиксировался бы на импорте). Поле section —
+// значение фильтра, сопоставляется с именами разделов сервера: НЕ переводить.
 const GLOSSARY_CHIPS = [
-  { label: "Строки", section: "Строки (str)" },
-  { label: "Списки", section: "Списки (list)" },
-  { label: "Кортежи", section: "Кортежи (tuple)" },
-  { label: "Словари", section: "Словари (dict)" },
-  { label: "Множества", section: "Множества (set)" },
-  { label: "Встроенные", section: "Встроенные функции" },
-  { label: "Исключения", section: "Исключения" },
+  { labelKey: "glossary.chip_str", section: "Строки (str)" },
+  { labelKey: "glossary.chip_list", section: "Списки (list)" },
+  { labelKey: "glossary.chip_tuple", section: "Кортежи (tuple)" },
+  { labelKey: "glossary.chip_dict", section: "Словари (dict)" },
+  { labelKey: "glossary.chip_set", section: "Множества (set)" },
+  { labelKey: "glossary.chip_builtins", section: "Встроенные функции" },
+  { labelKey: "glossary.chip_exceptions", section: "Исключения" },
 ];
 
 async function loadGlossary() {
@@ -64,7 +67,7 @@ function renderGlossaryChips() {
       const active = state.glossary.section === ch.section ? " active" : "";
       return (
         '<button type="button" class="chip' + active + '" data-section="' +
-        esc(ch.section) + '">' + esc(ch.label) + "</button>"
+        esc(ch.section) + '">' + esc(t(ch.labelKey)) + "</button>"
       );
     })
     .join("");
@@ -76,7 +79,7 @@ function renderGlossaryChips() {
 function renderGlossaryFilters() {
   const sel = $("#glossary-section");
   if (!sel) return;
-  sel.innerHTML = ['<option value="">Все разделы</option>']
+  sel.innerHTML = ['<option value="">' + esc(t("glossary.section_all")) + "</option>"]
     .concat(state.glossary.sections.map(s => '<option value="' + esc(s) + '">' + esc(s) + "</option>"))
     .join("");
   sel.value = state.glossary.section;
@@ -86,7 +89,7 @@ function renderGlossaryCount() {
   const el = $("#glossary-count");
   if (!el) return;
   const g = state.glossary;
-  el.textContent = g.total ? "Показано " + g.cards.length + " из " + g.total : "";
+  el.textContent = g.total ? t("glossary.count_shown", { shown: g.cards.length, total: g.total }) : "";
 }
 
 function toggleGlossarySection(section) {
@@ -118,7 +121,7 @@ function updateGlossarySidebarBadge() {
 function renderGlossaryList() {
   const el = $("#glossary-cards");
   if (!state.glossary.cards.length) {
-    el.innerHTML = '<li class="empty">Ничего не найдено</li>';
+    el.innerHTML = '<li class="empty">' + esc(t("common.nothing_found")) + "</li>";
     return;
   }
   el.innerHTML = state.glossary.cards
@@ -136,7 +139,7 @@ function renderGlossaryList() {
 function renderGlossaryMissing() {
   const el = $("#glossary-missing");
   if (!state.glossary.missing.length) {
-    el.innerHTML = '<li class="empty">Пусто</li>';
+    el.innerHTML = '<li class="empty">' + esc(t("glossary.missing_empty")) + "</li>";
     return;
   }
   el.innerHTML = state.glossary.missing
@@ -180,24 +183,24 @@ function renderGlossaryDetail(card) {
   const meta = [card.kind, card.section, card.subcat].filter(Boolean).map(esc).join(" · ");
   const draftBadge =
     card.status === "draft"
-      ? ' <span class="badge badge-warning">черновик</span>' // issue #328
+      ? ' <span class="badge badge-warning">' + esc(t("glossary.draft_badge")) + "</span>" // issue #328
       : "";
   const verBadge = card.version
     ? ' <span class="badge badge-neutral">Python ' + esc(card.version) + "</span>"
     : "";
   const syntax = card.syntax
-    ? '<div class="form-label">Синтаксис</div><pre class="code-block">' + esc(card.syntax) + "</pre>"
+    ? '<div class="form-label">' + esc(t("glossary.syntax")) + '</div><pre class="code-block">' + esc(card.syntax) + "</pre>"
     : "";
   const examples = card.examples && card.examples.length
-    ? '<div class="form-label">Примеры</div>' +
+    ? '<div class="form-label">' + esc(t("glossary.examples")) + "</div>" +
       card.examples.map(ex => '<pre class="code-block">' + esc(ex) + "</pre>").join("")
     : "";
   const links = [
     card.docs_url
-      ? '<a href="' + esc(card.docs_url) + '" target="_blank" rel="noopener">Документация Python →</a>'
+      ? '<a href="' + esc(card.docs_url) + '" target="_blank" rel="noopener">' + esc(t("glossary.docs_python")) + "</a>"
       : "",
     card.url
-      ? '<a href="' + esc(card.url) + '" target="_blank" rel="noopener">Открыть во внешнем глоссарии →</a>'
+      ? '<a href="' + esc(card.url) + '" target="_blank" rel="noopener">' + esc(t("glossary.external_link")) + "</a>"
       : "",
   ].filter(Boolean).map(a => "<p>" + a + "</p>").join("");
   el.innerHTML =
@@ -238,7 +241,7 @@ async function loadRules() {
   renderRulesChips();
   renderRulesList();
   const cnt = $("#rules-count");
-  if (cnt) cnt.textContent = r.cards.length + " правил";
+  if (cnt) cnt.textContent = tp(r.cards.length, "rules.n_rules");
 }
 
 function renderRulesChips() {
@@ -260,7 +263,7 @@ function renderRulesList() {
   const el = $("#rules-cards");
   if (!el) return;
   if (!state.rules.cards.length) {
-    el.innerHTML = '<li class="empty">Ничего не найдено</li>';
+    el.innerHTML = '<li class="empty">' + esc(t("common.nothing_found")) + "</li>";
     return;
   }
   el.innerHTML = state.rules.cards
@@ -269,7 +272,7 @@ function renderRulesList() {
       // issue #403: подсветить правила, которые пользователь нарушал лично.
       const violated = c.violated ? " violated" : "";
       const badge = c.violated
-        ? ' <span class="rule-violated" title="Вы нарушали это правило">⚠</span>'
+        ? ' <span class="rule-violated" title="' + esc(t("rules.violated_title")) + '">⚠</span>'
         : "";
       return '<li data-rule="' + esc(c.id) + '" class="' + sel + violated + '"><span class="rule-code">' +
         esc(c.id) + "</span> " + esc(c.title) + badge + "</li>";
@@ -304,14 +307,14 @@ function renderRuleDetail(card) {
   el.hidden = false;
   const sev = card.severity ? ' <span class="badge badge-neutral">' + esc(card.severity) + "</span>" : "";
   const bad = card.example_bad
-    ? '<div class="form-label">Как не надо</div><pre class="code-block code-bad">' + esc(card.example_bad) + "</pre>"
+    ? '<div class="form-label">' + esc(t("rules.example_bad")) + '</div><pre class="code-block code-bad">' + esc(card.example_bad) + "</pre>"
     : "";
   const good = card.example_good
-    ? '<div class="form-label">Как надо</div><pre class="code-block code-good">' + esc(card.example_good) + "</pre>"
+    ? '<div class="form-label">' + esc(t("rules.example_good")) + '</div><pre class="code-block code-good">' + esc(card.example_good) + "</pre>"
     : "";
   const links = [
-    card.pep_url ? '<a href="' + esc(card.pep_url) + '" target="_blank" rel="noopener">PEP 8 →</a>' : "",
-    card.docs_url ? '<a href="' + esc(card.docs_url) + '" target="_blank" rel="noopener">Документация →</a>' : "",
+    card.pep_url ? '<a href="' + esc(card.pep_url) + '" target="_blank" rel="noopener">' + esc(t("rules.pep_link")) + "</a>" : "",
+    card.docs_url ? '<a href="' + esc(card.docs_url) + '" target="_blank" rel="noopener">' + esc(t("rules.docs_link")) + "</a>" : "",
   ].filter(Boolean).map(a => "<p>" + a + "</p>").join("");
   el.innerHTML =
     '<h2><span class="rule-code">' + esc(card.id) + "</span> " + esc(card.title) + sev + "</h2>" +
@@ -322,11 +325,13 @@ function renderRuleDetail(card) {
 
 // -- Раздел «Подучить» (issue #348) -------------------------------------------
 
+// issue #546: label — КЛЮЧ каталога (перевод при рендере через t()), иконки —
+// как есть. Fallback для неизвестного статуса задаётся в renderInsights.
 const INSIGHT_STATUS = {
-  active: { icon: "🔥", label: "активна" },
-  fading: { icon: "🌤", label: "угасает" },
-  watch: { icon: "👀", label: "наблюдение" },
-  archived: { icon: "✅", label: "в архиве" },
+  active: { icon: "🔥", label: "insights.status_active" },
+  fading: { icon: "🌤", label: "insights.status_fading" },
+  watch: { icon: "👀", label: "insights.status_watch" },
+  archived: { icon: "✅", label: "insights.status_archived" },
 };
 
 async function loadInsights() {
@@ -351,15 +356,15 @@ function renderInsights() {
     .map(c => {
       const st = INSIGHT_STATUS[c.status] || { icon: "•", label: c.status };
       const ref = c.glossary_id
-        ? ' · <a href="#/glossary/' + esc(c.glossary_id) + '">→ глоссарий</a>'
+        ? ' · <a href="#/glossary/' + esc(c.glossary_id) + '">' + esc(t("insights.link_glossary")) + "</a>"
         : c.category === "lint"
-          ? ' · <a href="#/rules/' + esc(c.key) + '">→ правило</a>'
+          ? ' · <a href="#/rules/' + esc(c.key) + '">' + esc(t("insights.link_rule")) + "</a>"
           : "";
       return (
         '<li class="insight-card insight-' + esc(c.status) + '">' +
-        '<div class="insight-head"><span class="insight-status">' + st.icon + " " + esc(st.label) +
+        '<div class="insight-head"><span class="insight-status">' + st.icon + " " + esc(t(st.label)) +
         '</span> <span class="insight-key">' + esc(c.key) + "</span></div>" +
-        '<div class="hint">замечено в ' + c.hits + " из " + c.runs_considered + " прогонов" + ref + "</div>" +
+        '<div class="hint">' + tp(c.runs_considered, "insights.seen_in", { hits: c.hits }) + ref + "</div>" +
         "</li>"
       );
     })
@@ -389,9 +394,9 @@ async function loadProgress() {
 // Человекочитаемое время до первого AC (зеркалит progress_export._fmt_secs).
 function fmtSecs(secs) {
   if (secs == null) return "—";
-  if (secs < 90) return Math.round(secs) + " с";
-  if (secs < 5400) return Math.round(secs / 60) + " мин";
-  return (secs / 3600).toFixed(1) + " ч";
+  if (secs < 90) return Math.round(secs) + t("progress.unit_sec");
+  if (secs < 5400) return Math.round(secs / 60) + t("progress.unit_min");
+  return (secs / 3600).toFixed(1) + t("progress.unit_hour");
 }
 
 function renderProgress() {
@@ -408,16 +413,16 @@ function renderProgress() {
   const verdicts = rep.verdicts || {};
   const totalCases = Object.values(verdicts).reduce((a, b) => a + b, 0);
   $("#progress-kpis").innerHTML = kpiGrid([
-    { label: "Решено задач", value: rep.solved_tasks + " / " + rep.total_tasks },
-    { label: "Серия AC", value: rep.streak || 0 },
-    { label: "Прогонов", value: rep.total_runs },
-    { label: "Успешных кейсов (AC)", value: (verdicts.AC || 0) + (totalCases ? " / " + totalCases : "") },
+    { label: t("progress.kpi_solved"), value: rep.solved_tasks + " / " + rep.total_tasks },
+    { label: t("progress.kpi_streak"), value: rep.streak || 0 },
+    { label: t("progress.kpi_runs"), value: rep.total_runs },
+    { label: t("progress.kpi_ac_cases"), value: (verdicts.AC || 0) + (totalCases ? " / " + totalCases : "") },
   ]);
 
   // issue #540: видимые достижения — заслуженные бейджи ярче, ещё не взятые приглушены.
   const badges = rep.badges || [];
   $("#progress-badges").innerHTML = badges.length
-    ? '<h2 class="section-heading">Достижения</h2><div class="chip-row">' +
+    ? '<h2 class="section-heading">' + esc(t("progress.achievements")) + '</h2><div class="chip-row">' +
       badges
         .map(
           b =>
@@ -430,15 +435,17 @@ function renderProgress() {
 
   const vItems = Object.entries(verdicts);
   $("#progress-verdicts").innerHTML = vItems.length
-    ? '<h2 class="section-heading">Вердикты кейсов</h2><div class="chip-row">' +
+    ? '<h2 class="section-heading">' + esc(t("progress.verdicts")) + '</h2><div class="chip-row">' +
       vItems.map(([k, n]) => '<span class="chip">' + esc(k) + ": " + esc(n) + "</span>").join("") +
       "</div>"
     : "";
 
   const tasks = rep.tasks || [];
   $("#progress-tasks").innerHTML = tasks.length
-    ? '<h2 class="section-heading">Задачи</h2><table class="data-table"><thead><tr>' +
-      "<th>Задача</th><th>Попыток</th><th>Решена</th><th>До первого AC</th></tr></thead><tbody>" +
+    ? '<h2 class="section-heading">' + esc(t("progress.tasks_heading")) + '</h2><table class="data-table"><thead><tr>' +
+      "<th>" + esc(t("progress.col_task")) + "</th><th>" + esc(t("progress.col_attempts")) +
+      "</th><th>" + esc(t("progress.col_solved")) + "</th><th>" + esc(t("progress.col_time_to_ac")) +
+      "</th></tr></thead><tbody>" +
       tasks
         .map(
           t =>
