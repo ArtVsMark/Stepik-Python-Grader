@@ -167,6 +167,72 @@ def test_concurrent_init_no_data_loss(tmp_path: Path) -> None:
     assert len(history.read_recent_runs(db, limit=1000)) == n
 
 
+def test_record_run_retries_transient_operational_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #605: транзиентный ``OperationalError`` (SQLITE_BUSY) повторяется,
+    а не теряется тихо — запись проходит со второй попытки."""
+    db = _db(tmp_path)
+    real_connect = history._connect
+    calls = {"n": 0}
+
+    def flaky_connect(path: Path) -> sqlite3.Connection:
+        calls["n"] += 1
+        if calls["n"] < 2:
+            raise sqlite3.OperationalError("database is locked")
+        return real_connect(path)
+
+    monkeypatch.setattr(history, "_connect", flaky_connect)
+    monkeypatch.setattr(history.time, "sleep", lambda *_: None)  # тест не спит
+
+    rid = history.record_run(1, [CaseRecord(1, "OK")], db_path=db, task_key="t")
+
+    assert rid is not None
+    assert calls["n"] == 2
+    assert len(history.read_recent_runs(db, limit=10)) == 1
+
+
+def test_record_run_gives_up_after_persistent_lock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #605: при неснимаемой блокировке — best-effort ``None`` после
+    ``_WRITE_ATTEMPTS`` попыток, без исключения (грейдинг не должен падать)."""
+    db = _db(tmp_path)
+    calls = {"n": 0}
+
+    def always_locked(path: Path) -> sqlite3.Connection:
+        calls["n"] += 1
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(history, "_connect", always_locked)
+    monkeypatch.setattr(history.time, "sleep", lambda *_: None)
+
+    rid = history.record_run(1, [CaseRecord(1, "OK")], db_path=db, task_key="t")
+
+    assert rid is None
+    assert calls["n"] == history._WRITE_ATTEMPTS
+
+
+def test_record_run_non_operational_error_not_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #605: не-транзиентная ``sqlite3.Error`` (напр. IntegrityError) —
+    сразу ``None``, без ретраев (повторять смысла нет)."""
+    db = _db(tmp_path)
+    calls = {"n": 0}
+
+    def integrity_boom(path: Path) -> sqlite3.Connection:
+        calls["n"] += 1
+        raise sqlite3.IntegrityError("boom")
+
+    monkeypatch.setattr(history, "_connect", integrity_boom)
+
+    rid = history.record_run(1, [CaseRecord(1, "OK")], db_path=db, task_key="t")
+
+    assert rid is None
+    assert calls["n"] == 1
+
+
 def test_connect_closes_connection_on_migration_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
