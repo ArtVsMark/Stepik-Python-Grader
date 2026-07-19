@@ -58,6 +58,22 @@ def _ok(*_a: object, **_k: object) -> _FakeResponse:
     )
 
 
+def test_build_user_prompt_includes_grounding_section() -> None:
+    """#544: непустой grounding рендерится отдельной секцией «Релевантные карточки»."""
+    ctx = ai_hints.FailureContext(
+        verdict="WA", failure_kind="wrong-answer", grounding="sorted — отсортированный список"
+    )
+    prompt = ai_hints._build_user_prompt(ctx)
+    assert "Релевантные карточки глоссария" in prompt
+    assert "sorted — отсортированный список" in prompt
+
+
+def test_build_user_prompt_omits_empty_grounding() -> None:
+    """Пустой grounding → секции нет (промпт деградирует к плоскому)."""
+    ctx = ai_hints.FailureContext(verdict="WA", failure_kind="wrong-answer")
+    assert "Релевантные карточки" not in ai_hints._build_user_prompt(ctx)
+
+
 def test_skip_when_not_configured() -> None:
     """Дефолт (нет ai_base_url) → is_configured ложно, explain_failure → None."""
     assert ai_hints.is_configured(CONFIG) is False

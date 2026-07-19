@@ -77,6 +77,7 @@ class FailureContext:
     failure_kind: str = ""  # таксономия insights.failure_kind
     card_text: str = ""  # текст карточки error_glossary/lint
     code: str = ""  # исходный код решения (усечённый)
+    grounding: str = ""  # top-k карточки глоссария по концептам кода (issue #544)
 
 
 def is_configured(config: object) -> bool:
@@ -120,6 +121,8 @@ def _build_user_prompt(ctx: FailureContext) -> str:
         parts.append(f"Ошибка/трейсбек:\n{_clip(ctx.error, 1000)}")
     if ctx.card_text:
         parts.append(f"Справка (карточка):\n{_clip(ctx.card_text, 800)}")
+    if ctx.grounding:
+        parts.append(f"Релевантные карточки глоссария:\n{_clip(ctx.grounding, 1200)}")
     if ctx.code:
         parts.append(f"Код решения:\n{_clip(ctx.code, 1500)}")
     return "\n\n".join(parts)
