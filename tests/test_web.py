@@ -878,6 +878,43 @@ class TestHttpHandler:
         assert "fonts.googleapis.com" not in web._INDEX_HTML
 
 
+class TestUiLocaleCatalog:
+    """issue #545 — каталог i18n статической оболочки (/static/locales/ui.json)
+    и его согласованность с data-i18n-разметкой index.html."""
+
+    def test_ui_locales_served_as_json(self, server: str) -> None:
+        with urllib.request.urlopen(server + "/static/locales/ui.json", timeout=5) as resp:
+            assert resp.status == 200
+            assert "application/json" in resp.headers["Content-Type"]
+            # _send ставит nosniff на все ответы (issue #563)
+            assert resp.headers["X-Content-Type-Options"] == "nosniff"
+            cat = json.loads(resp.read())
+        assert set(cat) == {"ru", "en"}
+        assert cat["ru"] and cat["en"]  # непустые каталоги
+
+    def test_ui_locales_ru_en_key_parity(self, server: str) -> None:
+        """Наборы ключей ru и en идентичны (паритет обязателен, иначе рассинхрон)."""
+        _, body = _get(server + "/static/locales/ui.json")
+        cat = json.loads(body)
+        assert set(cat["ru"]) == set(cat["en"])
+
+    def test_every_index_data_i18n_key_is_in_catalog(self, server: str) -> None:
+        """Каждый ключ data-i18n[/-placeholder/-title/-aria-label] из index.html
+        присутствует в обеих локалях каталога (issue #545)."""
+        _, body = _get(server + "/static/locales/ui.json")
+        cat = json.loads(body)
+        keys = set(
+            re.findall(
+                r'data-i18n(?:-placeholder|-title|-aria-label)?="([^"]+)"',
+                web._INDEX_HTML,
+            )
+        )
+        assert keys, "в index.html нет ни одного data-i18n — разметка не размечена"
+        for key in keys:
+            assert key in cat["ru"], f"ключ {key!r} отсутствует в локали ru"
+            assert key in cat["en"], f"ключ {key!r} отсутствует в локали en"
+
+
 class TestSecurityHeaders:
     """issue #563: CSP + X-Content-Type-Options на ответах и read-timeout."""
 

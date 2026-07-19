@@ -96,6 +96,7 @@ stepik_grader = [
     "web/static/*",
     "web/static/fonts/*",
     "web/static/vendor/*",
+    "web/static/locales/*",
 ]
 
 [tool.ruff]

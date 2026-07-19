@@ -10,6 +10,7 @@
 -->
 
 ### Added
+- Web `--serve` UI chrome is now localizable: a `web/static/locales/ui.json` catalog (ru/en, identical key sets) plus `data-i18n[-placeholder/-title/-aria-label]` on every static text node of `index.html`, and an `applyUiLocale(lang)` that swaps them (catalog served at `/static/locales/ui.json`, fetched once); selecting English now translates the static shell, not just glossary content — dynamic JS-render strings follow in #546 (#545).
 - Web `--serve` now surfaces the execution mode: a topbar badge shows whether OS isolation is on (`--sandbox`) or off, plus a one-time notice explaining the local history collection (stores a sha256, not source; disable with `--no-history`) and the current history status in Settings — the server injects the flags into the page's `<body>` data-attributes; SECURITY.md / docs/web-current.md document the accepted Sec-Fetch/CSRF residual risks (#565).
 - `--ai-hints` — opt-in AI explanation of failing WA/RE cases (CLI modes 1/2) via a BYOK OpenAI-compatible endpoint on bare `requests`; off by default, silent-skip on any failure, works with cloud and local ollama (ADR-0003) (#435).
 - `POST /api/v1/runs` applies back-pressure — at most `CONFIG.max_active_runs` (default 20) concurrent non-terminal jobs, else **429** `too_many_runs`; a seam for server mode (#151) (#429).
