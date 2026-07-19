@@ -151,6 +151,32 @@ class TestSaveTaskFiles:
         assert result == (0, "none")
         assert (tmp_path / "task.md").exists()
 
+    def test_existing_nonempty_solution_not_overwritten(self, tmp_path: pathlib.Path):
+        """issue #554: повторное скачивание не затирает написанное решение студента."""
+        main_file = tmp_path / "task3_1.py"
+        student_code = "# моё решение\nprint(input())\n"
+        main_file.write_text(student_code, encoding="utf-8")
+        step = self._step(text="")
+        save_task_files(tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock())
+        assert main_file.read_text(encoding="utf-8") == student_code
+
+    def test_empty_solution_is_filled_from_template(self, tmp_path: pathlib.Path):
+        """issue #554: пустой (пробельный) task{N}_1.py всё ещё заполняется шаблоном."""
+        main_file = tmp_path / "task3_1.py"
+        main_file.write_text("   \n", encoding="utf-8")
+        step = self._step(text="")
+        save_task_files(tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock())
+        assert main_file.read_text(encoding="utf-8") == "def f(): pass"
+
+    def test_non_utf8_solution_preserved(self, tmp_path: pathlib.Path):
+        """issue #554: решение в не-UTF-8 (cp1251) сохраняется, загрузчик не падает."""
+        main_file = tmp_path / "task3_1.py"
+        raw = "# решение\nprint('привет')\n".encode("cp1251")
+        main_file.write_bytes(raw)
+        step = self._step(text="")
+        save_task_files(tmp_path, step, None, self._meta(), self._meta(), self._meta(), MagicMock())
+        assert main_file.read_bytes() == raw
+
 
 class TestProcessStepUrl:
     """process_step_url оркеструет вызовы fetch_* и save_task_files."""

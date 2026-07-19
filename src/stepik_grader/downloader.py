@@ -144,6 +144,23 @@ def build_task_directory(
     return root_dir.joinpath(*parts)
 
 
+def _is_blank_or_missing(path: pathlib.Path) -> bool:
+    """True, если файла нет или он пуст (только пробельные байты).
+
+    issue #554: страхует ``save_task_files`` от затирания написанного
+    студентом ``task{N}_1.py`` при повторном скачивании шага. Читает байты
+    (не ``read_text``), чтобы решение в не-UTF-8 кодировке (частый cp1251 у
+    студентов на Windows) считалось непустым и сохранялось, а не роняло
+    загрузчик ``UnicodeDecodeError``.
+    """
+    if not path.exists():
+        return True
+    try:
+        return not path.read_bytes().strip()
+    except OSError:
+        return False
+
+
 def save_task_files(
     task_dir: pathlib.Path,
     step: dict[str, Any],
@@ -156,7 +173,9 @@ def save_task_files(
     """Сохраняет рабочие файлы, solution.py, meta.json, task.md и tests/ в task_dir.
 
     Схема рабочих файлов:
-      task{pos}_1.py  — основное решение (из template_code или пустая заглушка)
+      task{pos}_1.py  — основное решение (из template_code или пустая заглушка);
+                        повторное скачивание НЕ перезаписывает непустой файл
+                        (issue #554)
       task{pos}_2.py  — заглушка для альтернативного решения 1 (всегда создаётся)
 
     Порядок поиска тестов:
@@ -182,7 +201,12 @@ def save_task_files(
     alt_file = task_dir / f"task{step_position}_2.py"
 
     main_content = template_code if template_code else ""
-    main_file.write_text(main_content, encoding="utf-8")
+    # issue #554: писать шаблон только в отсутствующий или пустой файл, чтобы
+    # повторное скачивание шага НЕ затирало уже написанное решение (раньше
+    # write_text был безусловным — асимметрия с защищённым alt_file ниже и
+    # реальная потеря данных студента).
+    if _is_blank_or_missing(main_file):
+        main_file.write_text(main_content, encoding="utf-8")
 
     if not alt_file.exists():
         alt_file.write_text("", encoding="utf-8")
