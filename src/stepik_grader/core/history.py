@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import contextlib
 import sqlite3
+import threading
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -44,6 +46,22 @@ __all__ = [
 
 HISTORY_DB_NAME = ".grader_history.db"
 SCHEMA_VERSION = 1
+
+# Процесс-локальная сериализация записи (как ``_WRITE_LOCK`` в ``stats.py``,
+# issue #605/#393). ``WAL`` снимает МЕЖпроцессную гонку CLI+web, но на Windows
+# при барьерной ПЕРВОЙ инициализации свежей БД WAL не включается (нельзя, пока
+# открыты другие соединения) — БД падает в rollback-journal с грубыми
+# блокировками, и ВНУТРИпроцессные конкурентные писатели (40 потоков в тесте;
+# реально — CLI-грейд и web-воркеры в одном процессе) изредка теряли запись
+# через best-effort ``except``. Лок сериализует их детерминированно; как бонус,
+# при сериализации соединения открываются по одному и WAL успевает включиться.
+_WRITE_LOCK = threading.Lock()
+
+# Короткий retry записи при транзиентной блокировке БД перед best-effort сдачей
+# (issue #605): МЕЖпроцессную гонку (отдельные процессы лока не разделяют)
+# ``busy_timeout`` покрывает не всегда — повтор ловит остаток вместо тихой потери.
+_WRITE_ATTEMPTS = 3
+_WRITE_RETRY_DELAY_S = 0.1
 
 
 @dataclass(frozen=True)
@@ -160,33 +178,50 @@ def record_run(
     не должна ронять грейдинг. Путь передаётся явно (opt-in, #134): вызывающая
     сторона включает историю флагом ``--history``/конфигом.
     """
-    try:
-        with contextlib.closing(_connect(db_path)) as conn:
-            cur = conn.execute(
-                "INSERT INTO runs (ts_utc, mode, source, task_key, solution_name, "
-                "solution_hash, duration_s) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (_utc_now_iso(), mode, source, task_key, solution_name, solution_hash, duration_s),
-            )
-            run_id = cur.lastrowid
-            if cases:
-                conn.executemany(
-                    "INSERT INTO case_results (run_id, case_no, verdict, time_ms, "
-                    "error_class, failure_kind) VALUES (?, ?, ?, ?, ?, ?)",
-                    [
-                        (run_id, c.case_no, c.verdict, c.time_ms, c.error_class, c.failure_kind)
-                        for c in cases
-                    ],
+    for attempt in range(_WRITE_ATTEMPTS):
+        try:
+            with _WRITE_LOCK, contextlib.closing(_connect(db_path)) as conn:
+                cur = conn.execute(
+                    "INSERT INTO runs (ts_utc, mode, source, task_key, solution_name, "
+                    "solution_hash, duration_s) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        _utc_now_iso(),
+                        mode,
+                        source,
+                        task_key,
+                        solution_name,
+                        solution_hash,
+                        duration_s,
+                    ),
                 )
-            if lint:
-                conn.executemany(
-                    "INSERT INTO lint_violations (run_id, rule_code, line_no, message) "
-                    "VALUES (?, ?, ?, ?)",
-                    [(run_id, v.rule_code, v.line_no, v.message) for v in lint],
-                )
-            conn.commit()
-            return run_id
-    except (sqlite3.Error, OSError):
-        return None
+                run_id = cur.lastrowid
+                if cases:
+                    conn.executemany(
+                        "INSERT INTO case_results (run_id, case_no, verdict, time_ms, "
+                        "error_class, failure_kind) VALUES (?, ?, ?, ?, ?, ?)",
+                        [
+                            (run_id, c.case_no, c.verdict, c.time_ms, c.error_class, c.failure_kind)
+                            for c in cases
+                        ],
+                    )
+                if lint:
+                    conn.executemany(
+                        "INSERT INTO lint_violations (run_id, rule_code, line_no, message) "
+                        "VALUES (?, ?, ?, ?)",
+                        [(run_id, v.rule_code, v.line_no, v.message) for v in lint],
+                    )
+                conn.commit()
+                return run_id
+        except sqlite3.OperationalError:
+            # Транзиентная блокировка БД (SQLITE_BUSY/"database is locked") —
+            # межпроцессная гонка мимо _WRITE_LOCK; короткий backoff и повтор,
+            # best-effort сдача только после исчерпания попыток (issue #605).
+            if attempt == _WRITE_ATTEMPTS - 1:
+                return None
+            time.sleep(_WRITE_RETRY_DELAY_S * (attempt + 1))
+        except (sqlite3.Error, OSError):
+            return None
+    return None
 
 
 def read_recent_runs(
