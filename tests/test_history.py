@@ -33,7 +33,7 @@ def test_record_and_read_roundtrip(tmp_path: Path) -> None:
         db_path=db,
         task_key="course/lesson/01",
         solution_name="task.py",
-        solution_hash=history.hash_solution("print(1)"),
+        solution_hash=hashlib.sha256(b"print(1)").hexdigest(),
         duration_s=0.3,
     )
     assert run_id == 1
@@ -203,6 +203,46 @@ def test_connect_closes_connection_on_migration_failure(
     assert closed == [True], "соединение не закрыто при сбое миграции (утечка fd)"
 
 
-def test_hash_solution_is_deterministic_sha256() -> None:
-    """hash_solution == sha256 hexdigest от utf-8 кода."""
-    assert history.hash_solution("print(1)") == hashlib.sha256(b"print(1)").hexdigest()
+def test_read_recent_runs_batches_cases_and_lint_across_runs(tmp_path: Path) -> None:
+    """read_recent_runs группирует cases/lint по всем прогонам без N+1 (issue #553).
+
+    Контракт после батч-выборки (один запрос на cases, один на lint для всех
+    прогонов): у каждого прогона свои cases (по case_no) и lint (по rule_code);
+    прогон без cases/lint отдаёт пустые списки; порядок прогонов — id DESC.
+    """
+    db = _db(tmp_path)
+    r1 = history.record_run(
+        1,
+        [CaseRecord(2, "WA"), CaseRecord(1, "OK")],
+        db_path=db,
+        task_key="t",
+        lint=[LintRecord("E501", 3), LintRecord("E225", 1)],
+    )
+    r2 = history.record_run(2, [], db_path=db, task_key="t")  # без cases и lint
+    r3 = history.record_run(
+        1, [CaseRecord(1, "RE", error_class="ValueError")], db_path=db, task_key="t"
+    )
+    assert (r1, r2, r3) == (1, 2, 3)
+
+    runs = history.read_recent_runs(db, task_key="t")
+    assert [run["id"] for run in runs] == [3, 2, 1]  # id DESC
+
+    by_id = {run["id"]: run for run in runs}
+    # r1: cases по case_no (1,2), lint по rule_code (E225,E501)
+    assert [c["case_no"] for c in by_id[1]["cases"]] == [1, 2]
+    assert by_id[1]["lint"] == ["E225", "E501"]
+    # r2: пусто (пустые списки, а не отсутствие ключей)
+    assert by_id[2]["cases"] == []
+    assert by_id[2]["lint"] == []
+    # r3: один case, без lint
+    assert [c["verdict"] for c in by_id[3]["cases"]] == ["RE"]
+    assert by_id[3]["cases"][0]["error_class"] == "ValueError"
+    assert by_id[3]["lint"] == []
+    # контракт case-словаря: ровно 5 ключей (run_id из батч-запроса исключён)
+    assert set(by_id[1]["cases"][0]) == {
+        "case_no",
+        "verdict",
+        "time_ms",
+        "error_class",
+        "failure_kind",
+    }

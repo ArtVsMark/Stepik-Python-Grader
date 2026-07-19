@@ -36,6 +36,9 @@ __all__ = [
 CACHE_DIR_NAME = ".grader_cache"
 _CACHE_FILE_NAME = "results.json"
 _CACHE_VERSION = 1
+# Верхняя граница числа записей кэша (issue #553): backstop против неограниченного
+# роста results.json. При превышении отбрасываются самые старые по порядку вставки.
+_CACHE_MAX_ENTRIES = 512
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -43,7 +46,13 @@ def _sha256_bytes(data: bytes) -> str:
 
 
 def hash_solution(solution_path: pathlib.Path) -> str:
-    """sha256 содержимого файла решения."""
+    """sha256 содержимого файла решения.
+
+    Единый источник хеша решения для всего пакета (issue #553): кормит и ключ
+    кэша (``solution_sha``), и колонку ``runs.solution_hash`` истории через
+    ``cli/commands`` и ``web/viewmodels`` (реэкспорт — фасад ``web/grading``).
+    Прежняя дублирующая ``history.hash_solution(code: str)`` удалена.
+    """
     return _sha256_bytes(solution_path.read_bytes())
 
 
@@ -128,8 +137,35 @@ class GraderCache:
             "result": result,
         }
 
+    def prune(self) -> int:
+        """Удалить мёртвые записи; вернуть их число (issue #553).
+
+        Ключ записи — абсолютный путь решения; если файла больше нет
+        (удалён/перемещён), запись мертва — при повторном появлении файла тест
+        просто перепрогонится (кэш регенерируем). Дополнительно ограничивает число
+        записей ``_CACHE_MAX_ENTRIES``, отбрасывая самые старые по порядку вставки
+        (backstop против неограниченного роста ``results.json``).
+        """
+        entries: dict[str, Any] = self._data["entries"]
+        removed = 0
+        for key in list(entries):
+            try:
+                alive = pathlib.Path(key).exists()
+            except OSError:
+                alive = False
+            if not alive:
+                del entries[key]
+                removed += 1
+        surplus = len(entries) - _CACHE_MAX_ENTRIES
+        if surplus > 0:
+            for key in list(entries)[:surplus]:  # самые старые по порядку вставки
+                del entries[key]
+                removed += 1
+        return removed
+
     def save(self) -> None:
-        """Записать накопленные изменения в .grader_cache/results.json."""
+        """Прунит мёртвые записи (issue #553) и пишет .grader_cache/results.json."""
+        self.prune()
         save_json_file(self.cache_file, self._data)
 
     def clear(self) -> int:

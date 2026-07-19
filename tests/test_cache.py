@@ -93,6 +93,7 @@ def test_cache_put_get_roundtrip(tmp_path: pathlib.Path) -> None:
 def test_cache_persists_across_instances(tmp_path: pathlib.Path) -> None:
     cache_dir = tmp_path / CACHE_DIR_NAME
     sol = tmp_path / "task.py"
+    sol.write_text("print(1)\n", encoding="utf-8")  # реальный файл — save() не пруниет живую запись
     first = GraderCache(cache_dir=cache_dir)
     first.put(sol, "s", "t", {"ok": True})
     first.save()
@@ -112,8 +113,12 @@ def test_cache_miss_on_changed_hash(tmp_path: pathlib.Path) -> None:
 def test_cache_clear_removes_file_and_counts(tmp_path: pathlib.Path) -> None:
     cache_dir = tmp_path / CACHE_DIR_NAME
     cache = GraderCache(cache_dir=cache_dir)
-    cache.put(tmp_path / "a.py", "s", "t", {})
-    cache.put(tmp_path / "b.py", "s", "t", {})
+    a = tmp_path / "a.py"
+    a.write_text("a\n", encoding="utf-8")  # реальные файлы — save() не пруниет живые записи
+    b = tmp_path / "b.py"
+    b.write_text("b\n", encoding="utf-8")
+    cache.put(a, "s", "t", {})
+    cache.put(b, "s", "t", {})
     cache.save()
     assert cache.cache_file.exists()
 
@@ -216,3 +221,53 @@ def test_clear_cache_flag(
     out = capsys.readouterr().out
     assert "Cache cleared" in out
     assert not (tmp_path / CACHE_DIR_NAME / "results.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# pruning (issue #553)
+# ---------------------------------------------------------------------------
+
+
+def test_prune_drops_entries_for_missing_solution_files(tmp_path: pathlib.Path) -> None:
+    """save() пруниет записи, чей файл-решение исчез (issue #553)."""
+    cache = GraderCache(cache_dir=tmp_path / CACHE_DIR_NAME)
+    alive = tmp_path / "alive.py"
+    alive.write_text("x = 1\n", encoding="utf-8")
+    gone = tmp_path / "gone.py"
+    gone.write_text("y = 2\n", encoding="utf-8")
+
+    cache.put(alive, "sa", "ta", {"verdict": "AC"})
+    cache.put(gone, "sg", "tg", {"verdict": "AC"})
+    gone.unlink()  # файл решения удалён
+
+    assert cache.prune() == 1
+    assert cache.get(alive, "sa", "ta") == {"verdict": "AC"}  # живой цел
+    assert cache.get(gone, "sg", "tg") is None  # мёртвый выброшен
+
+    # save() тоже пруниет: перезагруженный кэш не содержит мёртвой записи
+    cache.save()
+    reloaded = GraderCache(cache_dir=tmp_path / CACHE_DIR_NAME)
+    assert reloaded.get(alive, "sa", "ta") == {"verdict": "AC"}
+    assert reloaded.get(gone, "sg", "tg") is None
+
+
+def test_prune_caps_total_entries_dropping_oldest(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """prune ограничивает число записей ``_CACHE_MAX_ENTRIES``, отбрасывая старейшие."""
+    from stepik_grader.core import cache as cache_mod
+
+    monkeypatch.setattr(cache_mod, "_CACHE_MAX_ENTRIES", 3)
+    cache = GraderCache(cache_dir=tmp_path / CACHE_DIR_NAME)
+    paths = []
+    for i in range(5):
+        sol = tmp_path / f"s{i}.py"
+        sol.write_text(f"x = {i}\n", encoding="utf-8")
+        paths.append(sol)
+        cache.put(sol, f"s{i}", "t", {"i": i})
+
+    assert cache.prune() == 2  # все файлы существуют → срабатывает только size-cap (5 → 3)
+    # выброшены два самых старых по вставке (s0, s1); s2..s4 сохранены
+    assert cache.get(paths[0], "s0", "t") is None
+    assert cache.get(paths[1], "s1", "t") is None
+    assert cache.get(paths[4], "s4", "t") == {"i": 4}

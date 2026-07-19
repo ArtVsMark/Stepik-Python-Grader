@@ -24,8 +24,8 @@ Best-effort по всему модулю (принцип ``GraderCache``/``stats
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import sqlite3
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,7 +38,6 @@ __all__ = [
     "SCHEMA_VERSION",
     "CaseRecord",
     "LintRecord",
-    "hash_solution",
     "read_recent_runs",
     "record_run",
 ]
@@ -107,11 +106,6 @@ CREATE INDEX IF NOT EXISTS idx_runs_task  ON runs(task_key, id);
 CREATE INDEX IF NOT EXISTS idx_cases_kind ON case_results(failure_kind);
 CREATE INDEX IF NOT EXISTS idx_lint_rule  ON lint_violations(rule_code);
 """
-
-
-def hash_solution(code: str) -> str:
-    """sha256 текста решения (для колонки ``runs.solution_hash``)."""
-    return hashlib.sha256(code.encode("utf-8")).hexdigest()
 
 
 def _utc_now_iso() -> str:
@@ -218,20 +212,39 @@ def read_recent_runs(
                 f"SELECT * FROM runs {clause} ORDER BY id DESC LIMIT ?",
                 (*head, limit),
             ).fetchall()
+            run_ids = [row["id"] for row in rows]
+            # Один запрос на cases и один на lint для ВСЕХ выбранных прогонов
+            # вместо N+1 (по запросу на каждый run, issue #553). Контракт не
+            # меняется: cases по case_no, lint по rule_code, прогоны по id DESC.
+            cases_by_run: dict[int, list[dict[str, Any]]] = defaultdict(list)
+            lint_by_run: dict[int, list[str]] = defaultdict(list)
+            if run_ids:
+                placeholders = ",".join("?" * len(run_ids))
+                for case in conn.execute(
+                    "SELECT run_id, case_no, verdict, time_ms, error_class, failure_kind "
+                    f"FROM case_results WHERE run_id IN ({placeholders}) ORDER BY run_id, case_no",
+                    run_ids,
+                ):
+                    cases_by_run[case["run_id"]].append(
+                        {
+                            "case_no": case["case_no"],
+                            "verdict": case["verdict"],
+                            "time_ms": case["time_ms"],
+                            "error_class": case["error_class"],
+                            "failure_kind": case["failure_kind"],
+                        }
+                    )
+                for violation in conn.execute(
+                    "SELECT run_id, rule_code FROM lint_violations "
+                    f"WHERE run_id IN ({placeholders}) ORDER BY run_id, rule_code",
+                    run_ids,
+                ):
+                    lint_by_run[violation["run_id"]].append(violation["rule_code"])
             result: list[dict[str, Any]] = []
             for row in rows:
-                cases = conn.execute(
-                    "SELECT case_no, verdict, time_ms, error_class, failure_kind "
-                    "FROM case_results WHERE run_id = ? ORDER BY case_no",
-                    (row["id"],),
-                ).fetchall()
                 run = dict(row)
-                run["cases"] = [dict(c) for c in cases]
-                lint = conn.execute(
-                    "SELECT rule_code FROM lint_violations WHERE run_id = ? ORDER BY rule_code",
-                    (row["id"],),
-                ).fetchall()
-                run["lint"] = [r["rule_code"] for r in lint]
+                run["cases"] = cases_by_run.get(row["id"], [])
+                run["lint"] = lint_by_run.get(row["id"], [])
                 result.append(run)
             return result
     except (sqlite3.Error, OSError):
