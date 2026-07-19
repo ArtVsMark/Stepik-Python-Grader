@@ -80,15 +80,20 @@ _CARD_KIND: dict[str, str] = {
 
 def resolve_object(item: StdlibItem) -> object | None:
     """Разрешить ``StdlibItem`` в живой объект Python (или None, если не вышло)."""
+    # getattr/import возвращают Any; аннотируем как object, чтобы функция не
+    # «протекала» Any наружу (warn_return_any, issue #558 — scripts под mypy).
     try:
         if item.kind == "method":
             type_name, method_name = item.qualname.split(".", 1)
-            return getattr(getattr(builtins, type_name), method_name)
+            method: object = getattr(getattr(builtins, type_name), method_name)
+            return method
         if item.module == "builtins":
-            return getattr(builtins, item.qualname)
+            builtin_obj: object = getattr(builtins, item.qualname)
+            return builtin_obj
         module = importlib.import_module(item.module)
         name = item.qualname[len(item.module) + 1 :]
-        return getattr(module, name)
+        member: object = getattr(module, name)
+        return member
     except (ImportError, AttributeError, ValueError):
         return None
 

@@ -460,12 +460,14 @@ def test_linux_sandbox_not_silently_skipped() -> None:
     Проверяем всё, от чего зависит запуск полного ``TestLinuxSandboxRunner``:
     Linux + установленный bwrap + рабочий netns (``--unshare-user``/
     ``--unshare-net`` под privileged). Если что-то отвалилось — job краснеет,
-    а не проходит с тихо скипнутым классом. Локально/в обычной матрице без
-    переменной — обычный skip.
+    а не проходит с тихо скипнутым классом.
+
+    Само-гейт по платформе И переменной (issue #558): матричные mac/win-job'ы
+    тоже ставят ``STEPIK_REQUIRE_SANDBOX_TESTS=1`` (свои guard'ы ниже) — без
+    проверки платформы этот тест ложно падал бы там на «assert linux».
     """
-    if not os.environ.get("STEPIK_REQUIRE_SANDBOX_TESTS"):
-        pytest.skip("guard enforced only in the CI sandbox-linux job")
-    assert sys.platform == "linux", "sandbox-linux job must run on Linux"
+    if sys.platform != "linux" or not os.environ.get("STEPIK_REQUIRE_SANDBOX_TESTS"):
+        pytest.skip("guard enforced only on Linux with STEPIK_REQUIRE_SANDBOX_TESTS")
     assert shutil.which("bwrap") is not None, (
         "bwrap must be installed in the sandbox-linux job — sandbox tests would "
         "otherwise silently skip (#420 guard)"
@@ -473,6 +475,37 @@ def test_linux_sandbox_not_silently_skipped() -> None:
     assert _bwrap_netns_works(), (
         "bwrap --unshare-net/--unshare-user must work in the privileged sandbox-linux "
         "job — the full TestLinuxSandboxRunner class would otherwise silently skip (#420 guard)"
+    )
+
+
+def test_macos_sandbox_not_silently_skipped() -> None:
+    """issue #558 guard (QA-3): обобщение #420-паттерна на macOS. В матричном
+    macOS-job'е установлен ``STEPIK_REQUIRE_SANDBOX_TESTS=1`` — тогда молчаливый
+    skip ``TestMacSandboxRunner`` (нет ``sandbox-exec``) обязан стать ЖЁСТКИМ
+    падением. Само-гейт по платформе И переменной (см. Linux-guard выше).
+    """
+    if sys.platform != "darwin" or not os.environ.get("STEPIK_REQUIRE_SANDBOX_TESTS"):
+        pytest.skip("guard enforced only on macOS with STEPIK_REQUIRE_SANDBOX_TESTS")
+    assert shutil.which("sandbox-exec") is not None, (
+        "sandbox-exec must be available on the macOS runner — TestMacSandboxRunner "
+        "would otherwise silently skip (#558 guard)"
+    )
+
+
+def test_windows_sandbox_not_silently_skipped() -> None:
+    """issue #558 guard (QA-3): обобщение #420-паттерна на Windows. В матричном
+    Windows-job'е установлен ``STEPIK_REQUIRE_SANDBOX_TESTS=1`` — Job Objects
+    backend (ctypes) встроен, поэтому проверяем, что он реально КОНСТРУИРУЕТСЯ
+    (сломанный backend иначе не «скипнулся» бы, а тихо ронял бы каждый тест
+    класса). Само-гейт по платформе И переменной.
+    """
+    if sys.platform != "win32" or not os.environ.get("STEPIK_REQUIRE_SANDBOX_TESTS"):
+        pytest.skip("guard enforced only on Windows with STEPIK_REQUIRE_SANDBOX_TESTS")
+    from stepik_grader.core.sandbox._windows import create_backend
+
+    assert create_backend() is not None, (
+        "Windows Job Objects backend must be constructible — TestWindowsSandboxRunner "
+        "would otherwise fail rather than genuinely exercise the sandbox (#558 guard)"
     )
 
 
