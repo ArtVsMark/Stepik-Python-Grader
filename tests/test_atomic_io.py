@@ -4,8 +4,9 @@
 JSON-значения, создание директорий, отсутствие временных остатков, сохранность
 кириллицы (``ensure_ascii=False``) и — главное — crash-safety: обрыв записи не
 оставляет усечённый файл (temp-then-replace), а прежняя версия цели уцелевает.
-Атомарность под конкуренцией: параллельные писатели одной цели никогда не видят
-битый/усечённый JSON (уникальный ``mkstemp`` + ``os.replace``).
+Потокобезопасность примитива проверяется на РАЗНЫХ целях (уникальный ``mkstemp``,
+нет разделяемого состояния); сериализация писателей ОДНОЙ цели — забота
+вызывающего (см. ``append_missing_entries``), а не самого примитива.
 """
 
 from __future__ import annotations
@@ -129,29 +130,28 @@ def test_replace_failure_propagates_and_cleans_temp(
     assert list(tmp_path.iterdir()) == []  # temp best-effort убран
 
 
-def test_concurrent_writers_keep_file_valid_and_leak_no_temp(tmp_path: pathlib.Path) -> None:
-    """Параллельные писатели одной цели: финал — полная валидная версия, без temp-остатков.
+def test_atomic_write_is_thread_safe_across_distinct_targets(tmp_path: pathlib.Path) -> None:
+    """``atomic_write_json`` безопасен для конкурентного вызова из многих потоков.
 
-    Уникальный ``mkstemp`` (а не общий ``.tmp``) гарантирует, что писатели не
-    делят временный файл, а ``os.replace`` атомарен — конкурентные замены не
-    затирают друг друга в недопустимое состояние, финал — вывод одного из
-    писателей целиком, все temp'ы поглощены своими ``replace``.
+    У функции нет разделяемого изменяемого состояния, а ``mkstemp`` даёт
+    уникальные temp'ы — поэтому N потоков, каждый пишущий СВОЮ цель по многу раз,
+    все завершаются без ошибок, финалы валидны и полны, ни одного осиротевшего
+    ``*.tmp`` не остаётся (уникальность temp-имён под нагрузкой).
 
-    Намеренно БЕЗ конкурентного чтения: на Windows ``os.replace`` не может
-    заменить файл, открытый на чтение другим потоком (замена упала бы
-    ``PermissionError`` — это семантика файловых блокировок ОС, а не порча;
-    атомарность записи от этого не страдает, читатель держит прежний inode). На
-    POSIX читатель дополнительно никогда не видит усечённую версию (inode-swap);
-    эту гарантию для читателя кросс-платформенно покрывают crash-safety-тесты
-    выше (цель либо старая полная, либо новая полная, но не усечённая).
+    Сериализация писателей ОДНОЙ цели — забота вызывающего (``append_missing_entries``
+    оборачивает вызов в процессный лок ``_MISSING_QUEUE_LOCK``): сам примитив её не
+    обещает, а на Windows конкурентный ``os.replace`` одной цели вообще может дать
+    ``PermissionError`` (sharing violation при одновременной замене) — это семантика
+    ОС, а не порча. Атомарность одной записи (читатель не видит усечённого файла)
+    кросс-платформенно покрывают crash-safety-тесты выше.
     """
-    path = tmp_path / "data.json"
     errors: list[Exception] = []
 
     def _writer(writer_id: int) -> None:
+        target = tmp_path / f"data_{writer_id}.json"
         try:
-            for _ in range(25):
-                atomic_write_json(path, {"writer": writer_id, "payload": list(range(50))})
+            for n in range(25):
+                atomic_write_json(target, {"writer": writer_id, "n": n, "payload": list(range(50))})
         except Exception as exc:  # копим для ассерта в главном потоке
             errors.append(exc)
 
@@ -162,7 +162,10 @@ def test_concurrent_writers_keep_file_valid_and_leak_no_temp(tmp_path: pathlib.P
         thread.join()
 
     assert not errors, f"конкурентная запись дала ошибку: {errors}"
-    data = json.loads(path.read_text(encoding="utf-8"))  # финал — полный валидный JSON
-    assert data["payload"] == list(range(50))  # версия одного писателя целиком
-    assert 0 <= data["writer"] < 6
-    assert list(tmp_path.iterdir()) == [path]  # без осиротевших temp
+    # Только цели, без осиротевших temp по всем потокам.
+    assert sorted(tmp_path.iterdir()) == [tmp_path / f"data_{i}.json" for i in range(6)]
+    for i in range(6):
+        data = json.loads((tmp_path / f"data_{i}.json").read_text(encoding="utf-8"))
+        assert data["writer"] == i
+        assert data["n"] == 24  # последняя запись цикла
+        assert data["payload"] == list(range(50))  # полная валидная версия
