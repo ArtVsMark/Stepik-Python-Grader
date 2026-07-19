@@ -31,8 +31,35 @@ def progress_report(*, db_path: Path | None = None) -> dict[str, Any]:
     ``solved_tasks``/``total_tasks``, тали ``verdicts``/``failure_kinds`` и TTFG
     по задачам (``tasks``). Пустая/отсутствующая история → отчёт с нулевыми
     счётчиками (``build_progress_report`` читает историю best-effort, не 500).
+
+    issue #540: дополняет отчёт «видимыми достижениями» — текущей серией AC
+    (``streak``) и списком бейджей (``badges``), выведенными из той же истории
+    чистыми функциями, без нового хранимого состояния.
     """
-    return progress_export.build_progress_report(_db_path(db_path))
+    path = _db_path(db_path)
+    report = progress_export.build_progress_report(path)
+    report["streak"] = insights.current_streak(path)
+    report["badges"] = _achievement_badges(report)
+    return report
+
+
+def _achievement_badges(report: dict[str, Any]) -> list[dict[str, Any]]:
+    """Бейджи достижений из агрегатов отчёта (issue #540) — чистая функция.
+
+    Без нового состояния: выводятся из ``verdicts``/``solved_tasks``/``streak``
+    уже собранного отчёта; ``earned`` — заслужен ли бейдж.
+    """
+    ac = report.get("verdicts", {}).get("AC", 0)
+    solved = report.get("solved_tasks", 0)
+    streak = report.get("streak", 0)
+    specs = [
+        ("first_ac", "Первая AC", ac >= 1),
+        ("streak_3", "Серия 3", streak >= 3),
+        ("streak_7", "Серия 7", streak >= 7),
+        ("solved_5", "5 решённых", solved >= 5),
+        ("solved_10", "10 решённых", solved >= 10),
+    ]
+    return [{"id": bid, "label": label, "earned": earned} for bid, label, earned in specs]
 
 
 def progress_rows(*, db_path: Path | None = None) -> list[dict[str, Any]]:

@@ -257,3 +257,23 @@ def test_rules_search_marks_personal_violations(tmp_path) -> None:
     # Другое правило (не нарушал) — violated=False.
     other = next(cid for cid in cards if cid != "E501")
     assert cards[other]["violated"] is False
+
+
+def test_progress_report_includes_streak_and_badges(tmp_path) -> None:
+    """issue #540: progress_report несёт видимые достижения — streak и badges."""
+    from stepik_grader.web import insights_adapter
+
+    db = tmp_path / history.HISTORY_DB_NAME
+    for tk in ("t1", "t2", "t3"):
+        history.record_run(
+            1, [history.CaseRecord(1, "AC")], db_path=db, task_key=tk, duration_s=1.0
+        )
+
+    rep = insights_adapter.progress_report(db_path=db)
+    assert rep["streak"] == 3
+    earned = {b["id"] for b in rep["badges"] if b["earned"]}
+    assert earned == {"first_ac", "streak_3"}  # streak_7/solved_5/solved_10 ещё нет
+
+    rep0 = insights_adapter.progress_report(db_path=tmp_path / "nope.db")
+    assert rep0["streak"] == 0
+    assert all(not b["earned"] for b in rep0["badges"])

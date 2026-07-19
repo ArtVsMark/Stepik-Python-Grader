@@ -33,6 +33,7 @@ __all__ = [
     "InsightCard",
     "TaskProgress",
     "classify_status",
+    "current_streak",
     "failure_kind",
     "learning_cards",
     "time_to_first_green",
@@ -221,6 +222,21 @@ def time_to_first_green(db_path: Path, *, limit: int = 1000) -> list[TaskProgres
             )
         )
     return sorted(progress, key=lambda p: p.task_key)
+
+
+def current_streak(db_path: Path, *, limit: int = 1000) -> int:
+    """Текущая серия: сколько последних прогонов подряд — полный AC (issue #540).
+
+    ``read_recent_runs`` отдаёт новые первыми, поэтому считаем с начала списка до
+    первого не-AC прогона. Пустая/отсутствующая история → 0. Чистая функция, без
+    нового хранимого состояния — «видимое достижение» из уже собранной истории.
+    """
+    streak = 0
+    for run in history.read_recent_runs(db_path, limit=limit):
+        if not _run_is_full_ac(run):
+            break
+        streak += 1
+    return streak
 
 
 def violated_rule_codes(db_path: Path, *, limit: int = DEFAULT_WINDOW_N) -> set[str]:

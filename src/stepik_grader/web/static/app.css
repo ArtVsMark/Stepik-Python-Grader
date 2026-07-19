@@ -573,6 +573,7 @@ select.form-input { cursor: pointer; }
 }
 .chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .chip.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+.chip-locked { opacity: 0.5; } /* issue #540: ещё не взятый бейдж приглушён */
 .glossary-filter-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
 .glossary-filter-row .form-input { flex: 1; min-width: 96px; font-size: var(--text-xs); padding: var(--space-1) var(--space-2); }
 #glossary-count { font-size: var(--text-xs); }
