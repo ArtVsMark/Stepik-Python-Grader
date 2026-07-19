@@ -153,6 +153,7 @@ jobs:
           for attempt in 1 2 3; do
             python scripts/generate_coverage_badge.py --label "coverage (ubuntu)"
             python scripts/generate_version_badge.py
+            python scripts/generate_glossary_badge.py
             git add .github/badges/
             # --cached, not plain `git diff`: a brand-new badge file (e.g.
             # coverage-combined.json on its first-ever run) is untracked, and

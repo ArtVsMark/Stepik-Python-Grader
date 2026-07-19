@@ -1,6 +1,7 @@
 # Stepik Python Grader — English quick start
 
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](docs/glossary.md)
 
 > A local grader for the «Поколение Python» Stepik courses — **and for any
 > directory of test cases**. Русская версия: [README.md](README.md).
@@ -83,8 +84,8 @@ stepik-grader --serve
 ```
 
 Open `http://127.0.0.1:8000/?lang=en` — the web interface and the local Python
-glossary render in English (`?lang=en`). The glossary ships ~600 ready cards
-(functions, exceptions, constructs) with deep links from error cards.
+glossary render in English (`?lang=en`). The glossary ships ready cards
+(functions, exceptions, constructs — live count in the Glossary badge above) with deep links from error cards.
 
 ---
 
