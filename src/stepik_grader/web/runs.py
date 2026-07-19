@@ -22,7 +22,6 @@ MVP без новых зависимостей: реестр job'ов — module
 
 from __future__ import annotations
 
-import contextlib
 import pathlib
 import tempfile
 import threading
@@ -258,6 +257,27 @@ def cancel_job(run_id: str) -> bool:
     return True
 
 
+def _robust_unlink(path: pathlib.Path, *, attempts: int = 5, delay: float = 0.05) -> None:
+    """Удалить файл, терпя транзиентную блокировку на Windows (issue #605).
+
+    Только что вышедший субпроцесс может ещё миг держать хэндл temp-файла
+    (антивирус/индексатор/задержка релиза), и на Windows ``unlink`` тогда кидает
+    ``PermissionError`` (⊂ ``OSError``). Ретраим несколько раз с нарастающей
+    паузой, затем тихо сдаёмся — best-effort, как и прежний ``suppress(OSError)``:
+    утёкший temp не должен ронять job.
+    """
+    for attempt in range(attempts):
+        try:
+            path.unlink()
+            return
+        except FileNotFoundError:
+            return
+        except OSError:
+            if attempt == attempts - 1:
+                return
+            time.sleep(delay * (attempt + 1))
+
+
 def _run_job(
     job: Job,
     kind: str,
@@ -288,11 +308,14 @@ def _run_job(
 
     assert path is not None  # tests/bench/microbench всегда с path (см. submit_job)
     temp_code_path: str | None = None
+    result: dict[str, Any] | None = None
+    error: Exception | None = None
     try:
         graded_path = path
         if code is not None:
             parent = path if path.is_dir() else path.parent
-            # delete=False намеренно: путь файла грейдится ниже, чистится в finally.
+            # delete=False намеренно: путь файла грейдится ниже, чистится в
+            # finally — ДО публикации терминального статуса (issue #605).
             tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
                 mode="w", suffix=".py", encoding="utf-8", delete=False, dir=parent
             )
@@ -343,29 +366,36 @@ def _run_job(
                 cancel_event=job.cancel_event,
                 workspace=workspace,
             )
-
-        with job.lock:
-            if job.cancel_event.is_set():
-                # issue #296: отдельный терминальный статус, не "error" —
-                # отмена пользователем не провал грейдера/решения (клиент не
-                # должен ретраить "error", но обязан не ретраить "cancelled").
-                job.status = "cancelled"
-                job.message_fields = message_fields("run_cancelled", lang)
-            else:
-                job.status = "done"
-                job.result = result
     except Exception as exc:
         # this worker thread must never leave the job stuck "running" forever
         # with no way for the poller to find out; surfaced via message_fields
         # the same way any other /api/* error is, not via logging (no
         # centralized web-layer logging exists yet — issue #150/#147-149).
-        with job.lock:
-            job.status = "error"
-            job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
+        error = exc
     finally:
+        # issue #605: чистим temp ДО публикации терминального статуса, чтобы
+        # поллер, увидев done/error/cancelled, никогда не застал висящий temp
+        # (раньше unlink шёл после job.status="done" — гонка видимости). А сам
+        # unlink терпит транзиентную блокировку файла на Windows (субпроцесс мог
+        # ещё держать хэндл сразу после выхода) — bounded-retry, не one-shot.
         if temp_code_path is not None:
-            with contextlib.suppress(OSError):
-                pathlib.Path(temp_code_path).unlink()
+            _robust_unlink(pathlib.Path(temp_code_path))
+
+    # Терминальный статус публикуется ПОСЛЕ зачистки temp — инвариант "job
+    # терминален ⇒ temp уже удалён" (issue #605).
+    with job.lock:
+        if error is not None:
+            job.status = "error"
+            job.message_fields = message_fields("run_internal_error", lang, error=str(error))
+        elif job.cancel_event.is_set():
+            # issue #296: отдельный терминальный статус, не "error" — отмена
+            # пользователем не провал грейдера/решения (клиент не должен ретраить
+            # "error", но обязан не ретраить "cancelled").
+            job.status = "cancelled"
+            job.message_fields = message_fields("run_cancelled", lang)
+        else:
+            job.status = "done"
+            job.result = result
 
 
 def _run_playground_job(job: Job, code: str, stdin: str, lang: str) -> None:
