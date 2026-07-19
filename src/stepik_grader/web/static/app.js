@@ -1,6 +1,6 @@
 // app.js — entry: связывание слушателей и bootstrap; импортирует модули (#426).
 import { loadGlossary, loadRules, parseGlossaryHash, renderGlossaryChips, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
-import { $, applyTheme, cycleTheme, setSection, setTheme, state } from "./core.js";
+import { $, applyTheme, applyUiLocale, cycleTheme, setSection, setTheme, state } from "./core.js";
 import { downloadTask, loadAuthStatus, startBrowserAuth } from "./downloader.js";
 import { cancelActiveRun, checkTermsTimer, closePalette, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, openPalette, paletteCommands, renderPaletteList, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
@@ -9,6 +9,10 @@ import { drawMemArrows, renderTraceStep } from "./trace-player.js";
 function setLang(value) {
   state.lang = value;
   localStorage.setItem("grader_lang", value);
+  // issue #545: статическую оболочку (data-i18n в index.html) локализуем сразу —
+  // fire-and-forget, applyUiLocale берёт каталог из кеша (или один раз фетчит),
+  // UI не блокируется. Динамика JS-рендеров разделов — отдельный issue #546.
+  applyUiLocale(value);
   // issue #363: контент глоссария локализуется сервером по ?lang=. Сбрасываем
   // кеш карточек и, если раздел открыт, перезагружаем — summary/body сменят
   // язык без перезагрузки страницы; ранее открытая карточка переоткрывается.
@@ -229,6 +233,7 @@ window.addEventListener("resize", () => {
 });
 
 applyTheme();
+applyUiLocale(state.lang); // issue #545 — восстановленный из localStorage язык применяем к разметке при загрузке
 mountEditor();
 setSection(state.section);
 setMode(state.mode);

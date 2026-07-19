@@ -58,6 +58,10 @@ _FONTS_DIR = _STATIC_DIR / "fonts"
 _VENDOR_DIR = _STATIC_DIR / "vendor"
 _INDEX_HTML = (_STATIC_DIR / "index.html").read_text(encoding="utf-8")
 _APP_CSS = (_STATIC_DIR / "app.css").read_text(encoding="utf-8")
+# issue #545 — JSON-каталог i18n статической оболочки (ru/en). Отдаётся как
+# /static/locales/ui.json; ``applyUiLocale()`` в static/core.js применяет его к
+# узлам data-i18n. Читается один раз при импорте — тот же паттерн, что _APP_CSS.
+_UI_LOCALES = (_STATIC_DIR / "locales" / "ui.json").read_text(encoding="utf-8")
 
 # issue #265 — вендоренный ESM-бандл CodeMirror 6 (без CDN, тот же принцип,
 # что у шрифтов issue #260); один самодостаточный файл вместо importmap +
@@ -75,6 +79,8 @@ _VENDOR_FILES = ("codemirror-bundle@6.mjs",)
 # ключей детерминирован (sorted). Шрифты (issue #260) — bytes, отдельная map ниже.
 _STATIC_ROUTES: dict[str, tuple[str, str]] = {
     "/static/app.css": ("text/css; charset=utf-8", _APP_CSS),
+    # issue #545 — JSON-каталог i18n оболочки (ru/en) для applyUiLocale().
+    "/static/locales/ui.json": ("application/json; charset=utf-8", _UI_LOCALES),
     # static/*.js: app.js (entry) + извлечённые ES-модули (#426).
     **{
         f"/static/{js.name}": (

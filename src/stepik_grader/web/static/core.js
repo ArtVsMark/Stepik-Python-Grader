@@ -320,6 +320,48 @@ function renderTermsInto(el, terms, emptyMsg) {
 
 // песочница (issue #321): по коду редактора песочницы
 
+// ---------------------------------------------------------------------------
+// issue #545 — i18n статической оболочки. Каталог ui.json (ru/en) применяется к
+// узлам index.html, размеченным data-i18n (textContent) и
+// data-i18n-placeholder/-title/-aria-label (соответствующие атрибуты). Каталог
+// грузится один раз (fetch same-origin — разрешён строгим CSP default-src
+// 'self', issue #563) и кешируется в модульной переменной; смена языка идёт из
+// кеша, без повторного запроса. Отсутствующий ключ — console.warn + оставляем
+// текущий текст (мягкий guardrail; жёсткая проверка полноты — issue #547), без
+// тихого RU-fallback как «нормы». Динамические литералы JS-рендеров здесь НЕ
+// трогаются — это отдельный issue #546.
+// ---------------------------------------------------------------------------
+let _uiCatalog = null;
+
+async function _loadUiCatalog() {
+  if (_uiCatalog) return _uiCatalog;
+  const resp = await fetch("/static/locales/ui.json");
+  _uiCatalog = await resp.json();
+  return _uiCatalog;
+}
+
+async function applyUiLocale(lang) {
+  let cat;
+  try {
+    cat = await _loadUiCatalog();
+  } catch {
+    return; // каталог недоступен — разметка остаётся с RU-fallback из index.html
+  }
+  const dict = cat[lang] || {};
+  const apply = (attr, set) => {
+    document.querySelectorAll("[" + attr + "]").forEach(el => {
+      const key = el.getAttribute(attr);
+      if (Object.hasOwn(dict, key)) set(el, dict[key]);
+      else console.warn("applyUiLocale: ключ «" + key + "» отсутствует в локали «" + lang + "»");
+    });
+  };
+  apply("data-i18n", (el, v) => { el.textContent = v; });
+  apply("data-i18n-placeholder", (el, v) => { el.placeholder = v; });
+  apply("data-i18n-title", (el, v) => { el.setAttribute("title", v); });
+  apply("data-i18n-aria-label", (el, v) => { el.setAttribute("aria-label", v); });
+  document.documentElement.lang = lang;
+}
+
 // issue #426 — раздел «Настройки» (синхронизация контролов) — core-резидент.
 registerSectionHook("settings", () => syncSettingsControls());
 
@@ -327,6 +369,7 @@ export {
   $,
   SECTIONS,
   applyTheme,
+  applyUiLocale,
   codeBlock,
   cycleTheme,
   esc,

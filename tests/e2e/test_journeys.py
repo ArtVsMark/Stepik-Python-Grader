@@ -521,3 +521,27 @@ def test_history_notice_shown_once(page: Any, e2e_server: str, tmp_path: Path) -
     expect(notice).to_be_hidden()
     page.reload()
     expect(page.locator("#history-notice")).to_be_hidden()
+
+
+def test_settings_english_localizes_static_shell(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """issue #545: выбор English в «Настройках» локализует СТАТИЧЕСКУЮ оболочку
+    (data-i18n) без перезагрузки — сайдбар и <html lang> становятся английскими.
+
+    Под строгим CSP (default-src 'self', без 'unsafe-eval', issue #563)
+    используем только web-first ``expect(...)`` — оно ждёт по протоколу, без
+    in-page eval (``page.wait_for_function`` со строкой падал бы EvalError)."""
+    page.goto(e2e_server + "/")
+    # Открываем «Настройки» — селект языка внутри скрытого раздела, для
+    # select_option нужен видимый элемент.
+    page.click('.sidebar-item[data-section="settings"]')
+    page.wait_for_selector("#view-settings:not([hidden])", timeout=_TIMEOUT_MS)
+
+    page.select_option("#settings-lang", "en")
+
+    # Chrome оболочки сменил язык: пункт сайдбара и атрибут <html lang>.
+    expect(page.locator('.sidebar-item[data-section="check"]')).to_have_text(
+        "Check solutions", timeout=_TIMEOUT_MS
+    )
+    expect(page.locator("html")).to_have_attribute("lang", "en", timeout=_TIMEOUT_MS)

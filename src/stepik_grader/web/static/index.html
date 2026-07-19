@@ -7,38 +7,40 @@
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body data-sandbox="__EXEC_SANDBOX__" data-record-history="__RECORD_HISTORY__">
-<a class="sr-only" href="#main-content">Перейти к содержимому</a>
+<a class="sr-only" href="#main-content" data-i18n="a11y.skip_to_content">Перейти к содержимому</a>
 
 <div class="app-shell">
 
   <header class="topbar" role="banner">
-    <span class="topbar-logo">🐍 Stepik Python Grader</span>
+    <span class="topbar-logo" data-i18n="topbar.logo">🐍 Stepik Python Grader</span>
     <span class="spacer"></span>
     <!-- issue #565: статус OS-изоляции исполнения кода; текст/вид ставит JS по data-sandbox. -->
     <span id="exec-mode-badge" class="badge" hidden></span>
-    <button id="theme-toggle" class="btn-icon" title="Переключить тему" aria-label="Переключить тему">🌓</button>
-    <button id="palette-btn" class="btn-icon" title="Ctrl+K / ⌘K" aria-label="Открыть палитру команд">⌘K</button>
+    <button id="theme-toggle" class="btn-icon" title="Переключить тему" aria-label="Переключить тему"
+            data-i18n-title="topbar.theme_toggle" data-i18n-aria-label="topbar.theme_toggle">🌓</button>
+    <button id="palette-btn" class="btn-icon" title="Ctrl+K / ⌘K" aria-label="Открыть палитру команд"
+            data-i18n-aria-label="topbar.palette_aria">⌘K</button>
   </header>
 
-  <nav class="sidebar" aria-label="Основная навигация">
+  <nav class="sidebar" aria-label="Основная навигация" data-i18n-aria-label="nav.aria">
     <div class="sidebar-section">
       <a class="sidebar-item active" href="#check" data-section="check" aria-current="page">
-        Проверка решений <span class="sidebar-badge" id="sidebar-badge-check" hidden></span>
+        <span data-i18n="nav.check">Проверка решений</span> <span class="sidebar-badge" id="sidebar-badge-check" hidden></span>
       </a>
-      <a class="sidebar-item" href="#downloader" data-section="downloader">Загрузчик задач</a>
+      <a class="sidebar-item" href="#downloader" data-section="downloader" data-i18n="nav.downloader">Загрузчик задач</a>
       <a class="sidebar-item" href="#glossary" data-section="glossary">
-        Глоссарий <span class="sidebar-badge" id="sidebar-badge-glossary" hidden></span>
+        <span data-i18n="nav.glossary">Глоссарий</span> <span class="sidebar-badge" id="sidebar-badge-glossary" hidden></span>
       </a>
-      <a class="sidebar-item" href="#rules" data-section="rules">Правила (PEP)</a>
+      <a class="sidebar-item" href="#rules" data-section="rules" data-i18n="nav.rules">Правила (PEP)</a>
       <a class="sidebar-item" href="#insights" data-section="insights">
-        Подучить <span class="sidebar-badge" id="sidebar-badge-insights" hidden></span>
+        <span data-i18n="nav.insights">Подучить</span> <span class="sidebar-badge" id="sidebar-badge-insights" hidden></span>
       </a>
-      <a class="sidebar-item" href="#progress" data-section="progress">Прогресс</a>
-      <a class="sidebar-item" href="#sandbox" data-section="sandbox">Песочница</a>
+      <a class="sidebar-item" href="#progress" data-section="progress" data-i18n="nav.progress">Прогресс</a>
+      <a class="sidebar-item" href="#sandbox" data-section="sandbox" data-i18n="nav.sandbox">Песочница</a>
       <div class="sidebar-divider"></div>
       <!-- issue #364: рабочий раздел «Настройки» вместо мёртвой disabled-заглушки;
            метка-заголовок «Рабочее пространство» убрана (ничего не группировала). -->
-      <a class="sidebar-item" href="#settings" data-section="settings">Настройки</a>
+      <a class="sidebar-item" href="#settings" data-section="settings" data-i18n="nav.settings">Настройки</a>
     </div>
   </nav>
 
@@ -47,16 +49,16 @@
     <!-- ══ РАЗДЕЛ «ПРОВЕРКА РЕШЕНИЙ» ══ -->
     <section id="view-check" class="main-view">
       <div class="page-header">
-        <h1 class="page-title">Проверка решений</h1>
+        <h1 class="page-title" data-i18n="check.title">Проверка решений</h1>
         <div class="page-actions">
-          <div class="mode-row" role="group" aria-label="Режим проверки">
-            <button class="mode-btn" data-mode="file" aria-pressed="false">Один файл<br><span class="mode-btn-sub">Режим 1</span></button>
-            <button class="mode-btn active" data-mode="tests" aria-pressed="true">Папка<br><span class="mode-btn-sub">Режим 2</span></button>
-            <button class="mode-btn" data-mode="bench" aria-pressed="false">Бенчмарк<br><span class="mode-btn-sub">Режим 3</span></button>
-            <button class="mode-btn" data-mode="microbench" aria-pressed="false">Микробенчмарк<br><span class="mode-btn-sub">Режим 4</span></button>
+          <div class="mode-row" role="group" aria-label="Режим проверки" data-i18n-aria-label="check.mode_group_aria">
+            <button class="mode-btn" data-mode="file" aria-pressed="false"><span data-i18n="check.mode_file">Один файл</span><br><span class="mode-btn-sub" data-i18n="check.mode_file_sub">Режим 1</span></button>
+            <button class="mode-btn active" data-mode="tests" aria-pressed="true"><span data-i18n="check.mode_tests">Папка</span><br><span class="mode-btn-sub" data-i18n="check.mode_tests_sub">Режим 2</span></button>
+            <button class="mode-btn" data-mode="bench" aria-pressed="false"><span data-i18n="check.mode_bench">Бенчмарк</span><br><span class="mode-btn-sub" data-i18n="check.mode_bench_sub">Режим 3</span></button>
+            <button class="mode-btn" data-mode="microbench" aria-pressed="false"><span data-i18n="check.mode_microbench">Микробенчмарк</span><br><span class="mode-btn-sub" data-i18n="check.mode_microbench_sub">Режим 4</span></button>
           </div>
-          <button id="run" class="btn btn-primary">▶ Запустить</button>
-          <button id="cancel-run" class="btn btn-secondary" hidden>Отменить</button>
+          <button id="run" class="btn btn-primary" data-i18n="check.run">▶ Запустить</button>
+          <button id="cancel-run" class="btn btn-secondary" hidden data-i18n="check.cancel">Отменить</button>
         </div>
       </div>
 
@@ -65,14 +67,15 @@
         <!-- LEFT — Конфигурация -->
         <div class="split-pane-panel">
           <div class="panel-header">
-            <span class="panel-title">Конфигурация</span>
+            <span class="panel-title" data-i18n="check.config_title">Конфигурация</span>
           </div>
 
           <div class="panel-body">
             <div class="form-group">
-              <label class="form-label" for="path">Папка с решениями</label>
+              <label class="form-label" for="path" data-i18n="check.path_label">Папка с решениями</label>
               <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__" list="recent-paths-datalist"
-                     placeholder="Путь к файлу решения (.py) или папке с решениями">
+                     placeholder="Путь к файлу решения (.py) или папке с решениями"
+                     data-i18n-placeholder="check.path_placeholder">
             </div>
             <!-- issue #364: недавние пути — подсказки datalist у поля пути
                  (вариант А), а не постоянный блок в панели. -->
@@ -82,45 +85,46 @@
                  конфиг-панели больше нет); setMode() показывает нужный блок по
                  режиму: repeats → bench (3), микро-профиль → microbench (4). -->
             <div class="form-group" id="repeats-group" hidden>
-              <label class="form-label" for="repeats">Повторов на тест-кейс</label>
+              <label class="form-label" for="repeats" data-i18n="check.repeats_label">Повторов на тест-кейс</label>
               <select class="form-input" id="repeats">
-                <option value="5">низкий · 5</option>
-                <option value="15" selected>средний · 15</option>
-                <option value="50">высокий · 50</option>
+                <option value="5" data-i18n="check.repeats_low">низкий · 5</option>
+                <option value="15" selected data-i18n="check.repeats_medium">средний · 15</option>
+                <option value="50" data-i18n="check.repeats_high">высокий · 50</option>
               </select>
             </div>
             <div id="microbench-config" hidden>
               <div class="form-group">
-                <label class="form-label" for="micro-profile">Профиль нагрузки (calls/run)</label>
+                <label class="form-label" for="micro-profile" data-i18n="check.micro_profile_label">Профиль нагрузки (calls/run)</label>
                 <select class="form-input" id="micro-profile">
-                  <option value="500">fast · 500</option>
-                  <option value="1000" selected>normal · 1 000</option>
-                  <option value="5000">thorough · 5 000</option>
-                  <option value="50000">deep · 50 000</option>
-                  <option value="100000">hard · 100 000</option>
-                  <option value="custom">custom…</option>
+                  <option value="500" data-i18n="check.micro_fast">fast · 500</option>
+                  <option value="1000" selected data-i18n="check.micro_normal">normal · 1 000</option>
+                  <option value="5000" data-i18n="check.micro_thorough">thorough · 5 000</option>
+                  <option value="50000" data-i18n="check.micro_deep">deep · 50 000</option>
+                  <option value="100000" data-i18n="check.micro_hard">hard · 100 000</option>
+                  <option value="custom" data-i18n="check.micro_custom">custom…</option>
                 </select>
               </div>
               <div class="form-group" id="micro-custom-group" hidden>
-                <label class="form-label" for="micro-custom">Своё число вызовов (100–500 000)</label>
+                <label class="form-label" for="micro-custom" data-i18n="check.micro_custom_label">Своё число вызовов (100–500 000)</label>
                 <input class="form-input" id="micro-custom" type="number" min="100" max="500000" value="1000">
               </div>
             </div>
 
             <div id="file-picker-group" hidden>
               <div class="row mb-3">
-                <button id="find-solutions-btn" class="btn btn-secondary" type="button">Найти решения</button>
+                <button id="find-solutions-btn" class="btn btn-secondary" type="button" data-i18n="check.find_solutions">Найти решения</button>
                 <button id="find-reference-btn" class="btn btn-secondary" type="button"
-                        title="Импортировать закреплённое решение Stepik (+топовые) из ветки решений как эталон для сравнения">Найти эталонное решение</button>
+                        title="Импортировать закреплённое решение Stepik (+топовые) из ветки решений как эталон для сравнения"
+                        data-i18n="check.find_reference" data-i18n-title="check.find_reference_title">Найти эталонное решение</button>
               </div>
               <ul id="solutions-list" class="side-list"></ul>
               <div class="form-group">
                 <label class="form-label" for="solution-editor">
-                  Код решения
+                  <span data-i18n="check.code_label">Код решения</span>
                   <!-- issue #297: индикатор несохранённых изменений. «Проверить»
                        больше не пишет на диск (грейд из временного файла) —
                        запись только по явному «Сохранить». -->
-                  <span id="editor-dirty" class="editor-dirty" hidden>● не сохранено</span>
+                  <span id="editor-dirty" class="editor-dirty" hidden data-i18n="check.editor_dirty">● не сохранено</span>
                 </label>
                 <!-- issue #265: CodeMirror 6 mounts into this div (see app.js
                      mountEditor()) instead of a plain <textarea>. tabindex
@@ -130,18 +134,18 @@
                 <div class="form-input code-editor" id="solution-editor" tabindex="0"
                      data-placeholder="Выберите решение слева или начните вводить новое. «Проверить» запускает без записи на диск, «Сохранить» пишет файл."></div>
                 <div class="row mt-3">
-                  <button id="save-solution-btn" class="btn btn-secondary" type="button" disabled>Сохранить</button>
+                  <button id="save-solution-btn" class="btn btn-secondary" type="button" disabled data-i18n="check.save">Сохранить</button>
                 </div>
               </div>
             </div>
-            <div class="hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Разбор».</div>
+            <div class="hint" data-i18n="check.hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Разбор».</div>
 
             <!-- issue #323: «Функции в коде» — мини-карточки функций текущего
                  решения (замена мёртвого виджета «Связанные термины»). Скрыт в
                  режимах 3/4 (issue #324) через #check-terms-block. -->
             <div id="check-terms-block">
-              <div class="section-heading">Функции в коде</div>
-              <ul id="check-terms" class="side-list"><li class="empty">Начните вводить код или выберите решение</li></ul>
+              <div class="section-heading" data-i18n="check.functions_heading">Функции в коде</div>
+              <ul id="check-terms" class="side-list"><li class="empty" data-i18n="check.terms_empty">Начните вводить код или выберите решение</li></ul>
             </div>
           </div>
         </div>
@@ -149,10 +153,10 @@
         <!-- RIGHT — Результаты -->
         <div class="split-pane-panel">
           <div class="panel-header">
-            <span class="panel-title">Результаты</span>
+            <span class="panel-title" data-i18n="check.results_title">Результаты</span>
             <div class="panel-tabs" role="tablist">
-              <button class="panel-tab active" data-restab="table" role="tab" aria-selected="true">Таблица</button>
-              <button class="panel-tab" data-restab="detail" role="tab" aria-selected="false">Разбор</button>
+              <button class="panel-tab active" data-restab="table" role="tab" aria-selected="true" data-i18n="check.tab_table">Таблица</button>
+              <button class="panel-tab" data-restab="detail" role="tab" aria-selected="false" data-i18n="check.tab_detail">Разбор</button>
             </div>
             <div class="panel-actions" id="result-summary-badges"></div>
           </div>
@@ -170,8 +174,8 @@
 
           <div class="panel-body" id="restab-detail" hidden>
             <div id="detail-empty" class="empty-state">
-              <h3>Кейс не выбран</h3>
-              <p>Выберите тест-кейс во вкладке «Таблица», чтобы увидеть разбор.</p>
+              <h3 data-i18n="check.detail_empty_title">Кейс не выбран</h3>
+              <p data-i18n="check.detail_empty_text">Выберите тест-кейс во вкладке «Таблица», чтобы увидеть разбор.</p>
             </div>
             <div id="detail-content" hidden></div>
           </div>
@@ -183,34 +187,34 @@
     <!-- ══ РАЗДЕЛ «ЗАГРУЗЧИК ЗАДАЧ» ══ -->
     <section id="view-downloader" class="main-view" hidden>
       <div class="page-header">
-        <h1 class="page-title">Загрузчик задач</h1>
+        <h1 class="page-title" data-i18n="downloader.title">Загрузчик задач</h1>
       </div>
       <div class="split-pane">
         <div class="split-pane-panel">
-          <div class="panel-header"><span class="panel-title">Загрузка</span></div>
+          <div class="panel-header"><span class="panel-title" data-i18n="downloader.panel_load">Загрузка</span></div>
           <div class="panel-body">
             <!-- issue #402: мастер авторизации Stepik (заполняется renderAuthPanel) -->
             <div id="auth-panel" class="auth-panel" hidden></div>
             <div class="form-group">
-              <label class="form-label" for="downloader-url">URL шага Stepik</label>
+              <label class="form-label" for="downloader-url" data-i18n="downloader.url_label">URL шага Stepik</label>
               <input class="form-input" id="downloader-url" type="text"
                      placeholder="https://stepik.org/lesson/569749/step/4?unit=564263">
             </div>
             <div class="form-group">
-              <label class="form-label" for="downloader-root">Корневая папка (опционально)</label>
+              <label class="form-label" for="downloader-root" data-i18n="downloader.root_label">Корневая папка (опционально)</label>
               <input class="form-input" id="downloader-root" type="text" placeholder="StepikTasks">
             </div>
-            <button id="downloader-run" class="btn btn-primary">▶ Скачать</button>
-            <div class="hint">Требуется настроенный <code>secrets.json</code> — см.
-              <code>docs/installation.md</code> § Работа с API Stepik (OAuth).</div>
+            <button id="downloader-run" class="btn btn-primary" data-i18n="downloader.run">▶ Скачать</button>
+            <div class="hint"><span data-i18n="downloader.hint_pre">Требуется настроенный</span> <code>secrets.json</code> <span data-i18n="downloader.hint_see">— см.</span>
+              <code>docs/installation.md</code> <span data-i18n="downloader.hint_section">§ Работа с API Stepik (OAuth).</span></div>
           </div>
         </div>
         <div class="split-pane-panel">
-          <div class="panel-header"><span class="panel-title">Результат</span></div>
+          <div class="panel-header"><span class="panel-title" data-i18n="downloader.panel_result">Результат</span></div>
           <div class="panel-body" id="downloader-result">
             <div id="downloader-empty" class="empty-state">
-              <h3>Ничего не скачано</h3>
-              <p>Введите URL шага и нажмите «Скачать».</p>
+              <h3 data-i18n="downloader.empty_title">Ничего не скачано</h3>
+              <p data-i18n="downloader.empty_text">Введите URL шага и нажмите «Скачать».</p>
             </div>
             <div id="downloader-content" hidden></div>
           </div>
@@ -221,41 +225,41 @@
     <!-- ══ РАЗДЕЛ «ГЛОССАРИЙ» ══ -->
     <section id="view-glossary" class="main-view" hidden>
       <div class="page-header">
-        <h1 class="page-title">Глоссарий</h1>
+        <h1 class="page-title" data-i18n="glossary.title">Глоссарий</h1>
       </div>
       <div class="split-pane">
         <div class="split-pane-panel">
-          <div class="panel-header"><span class="panel-title">Карточки</span></div>
+          <div class="panel-header"><span class="panel-title" data-i18n="glossary.cards_title">Карточки</span></div>
           <div class="panel-body">
             <div class="form-group">
-              <input class="form-input" id="glossary-search" type="text" placeholder="Поиск по глоссарию…">
+              <input class="form-input" id="glossary-search" type="text" placeholder="Поиск по глоссарию…" data-i18n-placeholder="glossary.search_placeholder">
             </div>
             <div class="mode-row mb-4">
-              <button class="mode-btn active" data-glview="cards">Карточки</button>
-              <button class="mode-btn" data-glview="missing">Недостающее</button>
+              <button class="mode-btn active" data-glview="cards" data-i18n="glossary.view_cards">Карточки</button>
+              <button class="mode-btn" data-glview="missing" data-i18n="glossary.view_missing">Недостающее</button>
             </div>
             <div id="glossary-filters">
-              <div id="glossary-chips" class="chip-row" role="group" aria-label="Быстрые фильтры по разделам"></div>
+              <div id="glossary-chips" class="chip-row" role="group" aria-label="Быстрые фильтры по разделам" data-i18n-aria-label="glossary.chips_aria"></div>
               <div class="glossary-filter-row">
-                <select class="form-input" id="glossary-section" aria-label="Раздел">
-                  <option value="">Все разделы</option>
+                <select class="form-input" id="glossary-section" aria-label="Раздел" data-i18n-aria-label="glossary.section_aria">
+                  <option value="" data-i18n="glossary.section_all">Все разделы</option>
                 </select>
-                <select class="form-input" id="glossary-kind" aria-label="Тип">
-                  <option value="">Все типы</option>
-                  <option value="function">Функции</option>
-                  <option value="exception">Исключения</option>
-                  <option value="construct">Конструкции</option>
-                  <option value="term">Термины</option>
+                <select class="form-input" id="glossary-kind" aria-label="Тип" data-i18n-aria-label="glossary.kind_aria">
+                  <option value="" data-i18n="glossary.kind_all">Все типы</option>
+                  <option value="function" data-i18n="glossary.kind_function">Функции</option>
+                  <option value="exception" data-i18n="glossary.kind_exception">Исключения</option>
+                  <option value="construct" data-i18n="glossary.kind_construct">Конструкции</option>
+                  <option value="term" data-i18n="glossary.kind_term">Термины</option>
                 </select>
-                <select class="form-input" id="glossary-status" aria-label="Статус">
-                  <option value="">Готовые (по умолчанию)</option>
-                  <option value="draft">Черновики</option>
-                  <option value="all">Все статусы</option>
+                <select class="form-input" id="glossary-status" aria-label="Статус" data-i18n-aria-label="glossary.status_aria">
+                  <option value="" data-i18n="glossary.status_ready">Готовые (по умолчанию)</option>
+                  <option value="draft" data-i18n="glossary.status_draft">Черновики</option>
+                  <option value="all" data-i18n="glossary.status_all">Все статусы</option>
                 </select>
-                <select class="form-input" id="glossary-sort" aria-label="Сортировка">
-                  <option value="az">А–Я</option>
-                  <option value="section">По разделам</option>
-                  <option value="version">По версии</option>
+                <select class="form-input" id="glossary-sort" aria-label="Сортировка" data-i18n-aria-label="glossary.sort_aria">
+                  <option value="az" data-i18n="glossary.sort_az">А–Я</option>
+                  <option value="section" data-i18n="glossary.sort_section">По разделам</option>
+                  <option value="version" data-i18n="glossary.sort_version">По версии</option>
                 </select>
               </div>
               <div id="glossary-count" class="hint" aria-live="polite"></div>
@@ -265,11 +269,11 @@
           </div>
         </div>
         <div class="split-pane-panel">
-          <div class="panel-header"><span class="panel-title">Карточка</span></div>
+          <div class="panel-header"><span class="panel-title" data-i18n="glossary.card_title">Карточка</span></div>
           <div class="panel-body">
             <div id="glossary-empty" class="empty-state">
-              <h3>Карточка не выбрана</h3>
-              <p>Выберите термин слева, чтобы увидеть описание.</p>
+              <h3 data-i18n="glossary.empty_title">Карточка не выбрана</h3>
+              <p data-i18n="glossary.empty_text">Выберите термин слева, чтобы увидеть описание.</p>
             </div>
             <div id="glossary-detail-content" hidden></div>
           </div>
@@ -280,26 +284,26 @@
     <!-- ══ РАЗДЕЛ «ПРАВИЛА (PEP)» (issue #348) ══ -->
     <section id="view-rules" class="main-view" hidden>
       <div class="page-header">
-        <h1 class="page-title">Правила (PEP 8)</h1>
+        <h1 class="page-title" data-i18n="rules.title">Правила (PEP 8)</h1>
       </div>
       <div class="split-pane">
         <div class="split-pane-panel">
-          <div class="panel-header"><span class="panel-title">Правила</span></div>
+          <div class="panel-header"><span class="panel-title" data-i18n="rules.panel_title">Правила</span></div>
           <div class="panel-body">
             <div class="form-group">
-              <input class="form-input" id="rules-search" type="text" placeholder="Поиск по коду или названию…">
+              <input class="form-input" id="rules-search" type="text" placeholder="Поиск по коду или названию…" data-i18n-placeholder="rules.search_placeholder">
             </div>
-            <div id="rules-chips" class="chip-row" role="group" aria-label="Быстрые фильтры по тегам"></div>
+            <div id="rules-chips" class="chip-row" role="group" aria-label="Быстрые фильтры по тегам" data-i18n-aria-label="rules.chips_aria"></div>
             <div id="rules-count" class="hint" aria-live="polite"></div>
             <ul id="rules-cards" class="side-list"></ul>
           </div>
         </div>
         <div class="split-pane-panel">
-          <div class="panel-header"><span class="panel-title">Карточка правила</span></div>
+          <div class="panel-header"><span class="panel-title" data-i18n="rules.card_title">Карточка правила</span></div>
           <div class="panel-body">
             <div id="rules-empty" class="empty-state">
-              <h3>Правило не выбрано</h3>
-              <p>Выберите код слева, чтобы увидеть объяснение и примеры «до/после».</p>
+              <h3 data-i18n="rules.empty_title">Правило не выбрано</h3>
+              <p data-i18n="rules.empty_text">Выберите код слева, чтобы увидеть объяснение и примеры «до/после».</p>
             </div>
             <div id="rules-detail-content" hidden></div>
           </div>
@@ -310,16 +314,16 @@
     <!-- ══ РАЗДЕЛ «ПОДУЧИТЬ» (issue #348) ══ -->
     <section id="view-insights" class="main-view" hidden>
       <div class="page-header">
-        <h1 class="page-title">Подучить</h1>
+        <h1 class="page-title" data-i18n="insights.title">Подучить</h1>
       </div>
       <div class="split-pane-panel">
-        <div class="panel-header"><span class="panel-title">Частые ошибки</span></div>
+        <div class="panel-header"><span class="panel-title" data-i18n="insights.panel_title">Частые ошибки</span></div>
         <div class="panel-body">
           <div id="insights-empty" class="empty-state">
-            <h3>Пока пусто — и это отлично 🎉</h3>
-            <p>Откройте раздел <a href="#check" data-section="check">«Проверка решений»</a> и
-              прогоните решение — в веб-интерфейсе история пишется автоматически, и здесь
-              появятся карточки частых ошибок с прогрессом их исправления.</p>
+            <h3 data-i18n="insights.empty_title">Пока пусто — и это отлично 🎉</h3>
+            <p><span data-i18n="insights.empty_pre">Откройте раздел</span> <a href="#check" data-section="check" data-i18n="insights.empty_link">«Проверка решений»</a>
+              <span data-i18n="insights.empty_post">и прогоните решение — в веб-интерфейсе история пишется автоматически, и здесь
+              появятся карточки частых ошибок с прогрессом их исправления.</span></p>
           </div>
           <ul id="insights-cards" class="insight-list" hidden></ul>
         </div>
@@ -329,16 +333,16 @@
     <!-- ══ РАЗДЕЛ «ПРОГРЕСС» (issue #538) ══ -->
     <section id="view-progress" class="main-view" hidden>
       <div class="page-header">
-        <h1 class="page-title">Прогресс</h1>
+        <h1 class="page-title" data-i18n="progress.title">Прогресс</h1>
       </div>
       <div class="split-pane-panel">
-        <div class="panel-header"><span class="panel-title">Ваш прогресс по истории прогонов</span></div>
+        <div class="panel-header"><span class="panel-title" data-i18n="progress.panel_title">Ваш прогресс по истории прогонов</span></div>
         <div class="panel-body">
           <div id="progress-empty" class="empty-state">
-            <h3>Пока пусто 📊</h3>
-            <p>Откройте раздел <a href="#check" data-section="check">«Проверка решений»</a> и
-              прогоните решение — в веб-интерфейсе история пишется автоматически, и здесь
-              появятся KPI: решено задач, время до первого зачёта, разбор вердиктов.</p>
+            <h3 data-i18n="progress.empty_title">Пока пусто 📊</h3>
+            <p><span data-i18n="progress.empty_pre">Откройте раздел</span> <a href="#check" data-section="check" data-i18n="progress.empty_link">«Проверка решений»</a>
+              <span data-i18n="progress.empty_post">и прогоните решение — в веб-интерфейсе история пишется автоматически, и здесь
+              появятся KPI: решено задач, время до первого зачёта, разбор вердиктов.</span></p>
           </div>
           <div id="progress-content" hidden>
             <div id="progress-kpis"></div>
@@ -353,44 +357,46 @@
     <!-- ══ РАЗДЕЛ «ПЕСОЧНИЦА» (issue #317) ══ -->
     <section id="view-sandbox" class="main-view" hidden>
       <div class="page-header">
-        <h1 class="page-title">Песочница</h1>
+        <h1 class="page-title" data-i18n="sandbox.title">Песочница</h1>
         <div class="page-actions">
-          <button id="sandbox-run" class="btn btn-primary">▶ Запустить</button>
-          <button id="sandbox-step" class="btn btn-secondary" title="Пошаговое исполнение">⏭ Пошагово</button>
-          <button id="sandbox-cancel" class="btn btn-secondary" hidden>Отменить</button>
+          <button id="sandbox-run" class="btn btn-primary" data-i18n="sandbox.run">▶ Запустить</button>
+          <button id="sandbox-step" class="btn btn-secondary" title="Пошаговое исполнение"
+                  data-i18n="sandbox.step" data-i18n-title="sandbox.step_title">⏭ Пошагово</button>
+          <button id="sandbox-cancel" class="btn btn-secondary" hidden data-i18n="sandbox.cancel">Отменить</button>
         </div>
       </div>
       <div class="split-pane">
         <!-- LEFT — код + входные данные -->
         <div class="split-pane-panel">
-          <div class="panel-header"><span class="panel-title">Код и ввод</span></div>
+          <div class="panel-header"><span class="panel-title" data-i18n="sandbox.code_input_title">Код и ввод</span></div>
           <div class="panel-body">
             <div class="form-group">
-              <label class="form-label" for="sandbox-editor">Код</label>
+              <label class="form-label" for="sandbox-editor" data-i18n="sandbox.code_label">Код</label>
               <div class="form-input code-editor" id="sandbox-editor" tabindex="0"
                    data-placeholder="Напишите код Python. «Запустить» исполнит его с введёнными ниже данными."></div>
             </div>
             <div class="form-group">
-              <label class="form-label" for="sandbox-stdin">Входные данные (stdin)</label>
+              <label class="form-label" for="sandbox-stdin" data-i18n="sandbox.stdin_label">Входные данные (stdin)</label>
               <textarea class="form-input code-editor" id="sandbox-stdin" rows="4"
-                        placeholder="Строки, которые получит программа через input()/sys.stdin"></textarea>
+                        placeholder="Строки, которые получит программа через input()/sys.stdin"
+                        data-i18n-placeholder="sandbox.stdin_placeholder"></textarea>
             </div>
 
             <!-- issue #321: мини-карточки функций, задействованных в коде -->
-            <div class="section-heading">Функции в коде</div>
-            <ul id="sandbox-terms" class="side-list"><li class="empty">Начните вводить код</li></ul>
+            <div class="section-heading" data-i18n="sandbox.functions_heading">Функции в коде</div>
+            <ul id="sandbox-terms" class="side-list"><li class="empty" data-i18n="sandbox.terms_empty">Начните вводить код</li></ul>
           </div>
         </div>
         <!-- RIGHT — вывод -->
         <div class="split-pane-panel">
           <div class="panel-header">
-            <span class="panel-title">Вывод</span>
+            <span class="panel-title" data-i18n="sandbox.output_title">Вывод</span>
             <span id="sandbox-status" class="badge badge-neutral" hidden></span>
           </div>
           <div class="panel-body">
             <div id="sandbox-empty" class="empty-state">
-              <h3>Пока пусто</h3>
-              <p>Нажмите «Запустить», чтобы увидеть вывод программы.</p>
+              <h3 data-i18n="sandbox.empty_title">Пока пусто</h3>
+              <p data-i18n="sandbox.empty_text">Нажмите «Запустить», чтобы увидеть вывод программы.</p>
             </div>
             <div id="sandbox-output" hidden></div>
           </div>
@@ -401,31 +407,31 @@
     <!-- ══ РАЗДЕЛ «НАСТРОЙКИ» (issue #364) ══ -->
     <section id="view-settings" class="main-view" hidden>
       <div class="page-header">
-        <h1 class="page-title">Настройки</h1>
+        <h1 class="page-title" data-i18n="settings.title">Настройки</h1>
       </div>
       <div class="split-pane-panel">
-        <div class="panel-header"><span class="panel-title">Интерфейс</span></div>
+        <div class="panel-header"><span class="panel-title" data-i18n="settings.panel_title">Интерфейс</span></div>
         <div class="panel-body">
           <div class="form-group">
-            <label class="form-label" for="settings-theme">Тема оформления</label>
+            <label class="form-label" for="settings-theme" data-i18n="settings.theme_label">Тема оформления</label>
             <select class="form-input" id="settings-theme">
-              <option value="system">Системная</option>
-              <option value="light">Светлая</option>
-              <option value="dark">Тёмная</option>
+              <option value="system" data-i18n="settings.theme_system">Системная</option>
+              <option value="light" data-i18n="settings.theme_light">Светлая</option>
+              <option value="dark" data-i18n="settings.theme_dark">Тёмная</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label" for="settings-lang">Язык интерфейса</label>
+            <label class="form-label" for="settings-lang" data-i18n="settings.lang_label">Язык интерфейса</label>
             <select class="form-input" id="settings-lang">
-              <option value="ru">Русский</option>
-              <option value="en">English</option>
+              <option value="ru" data-i18n="settings.lang_ru">Русский</option>
+              <option value="en" data-i18n="settings.lang_en">English</option>
             </select>
-            <div class="hint">Язык сообщений сервера и описаний глоссария
-              (<code>?lang=</code>); глоссарий переключается сразу, сообщения —
-              на новых запросах.</div>
+            <div class="hint"><span data-i18n="settings.lang_hint_pre">Язык сообщений сервера и описаний глоссария
+              (</span><code>?lang=</code><span data-i18n="settings.lang_hint_post">); глоссарий переключается сразу, сообщения —
+              на новых запросах.</span></div>
           </div>
 
-          <div class="section-heading">История прогонов</div>
+          <div class="section-heading" data-i18n="settings.history_heading">История прогонов</div>
           <p class="hint" id="history-status">История ошибок (раздел «Подучить», эпик
             #342) собирается на SQLite.</p>
         </div>
@@ -437,15 +443,15 @@
 
 <!-- issue #565: однократное уведомление о локальном сборе истории (localStorage-гейт в app.js). -->
 <div id="history-notice" class="notice" role="status" hidden>
-  <span class="notice-text">Прогоны сохраняются локально в <code>.grader_history.db</code>
-    для раздела «Подучить» — хранится <strong>sha256</strong> решения, не исходный код.
-    Отключить: перезапуск сервера с <code>--no-history</code>.</span>
-  <button id="history-notice-dismiss" class="btn btn-secondary" type="button">Понятно</button>
+  <span class="notice-text"><span data-i18n="notice.history_pre">Прогоны сохраняются локально в</span> <code>.grader_history.db</code>
+    <span data-i18n="notice.history_mid1">для раздела «Подучить» — хранится</span> <strong>sha256</strong> <span data-i18n="notice.history_mid2">решения, не исходный код.
+    Отключить: перезапуск сервера с</span> <code>--no-history</code>.</span>
+  <button id="history-notice-dismiss" class="btn btn-secondary" type="button" data-i18n="notice.history_dismiss">Понятно</button>
 </div>
 
 <div id="palette-overlay" class="palette-overlay" hidden>
-  <div class="palette" role="dialog" aria-modal="true" aria-label="Палитра команд">
-    <input id="palette-input" type="text" placeholder="Введите команду…" autocomplete="off">
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Палитра команд" data-i18n-aria-label="palette.aria">
+    <input id="palette-input" type="text" placeholder="Введите команду…" autocomplete="off" data-i18n-placeholder="palette.input_placeholder">
     <ul id="palette-list"></ul>
   </div>
 </div>
