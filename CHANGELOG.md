@@ -133,6 +133,7 @@
 - Web history: the per-task `task_key` is now computed relative to the server workspace (`--root`) instead of the process CWD, so runs recorded when `--root` differs from CWD get a stable, non-colliding key — fixing distorted time-to-first-green and «Подучить» aggregates; threaded through the sync `/api/grade` handler and the async job runner (#539).
 
 ### Documentation
+- `CONTRIBUTING.md` gains a «Добавь свою карточку в глоссарий» section — a 3-step, human-review-mandatory on-ramp for adding a glossary card via `scripts/glossary_draft_pipeline.py` (find a gap → propose a validated draft → review & PR), so contributing a card is a documented first contribution (#537).
 - Added four retroactive ADRs recording already-implemented decisions (#410, D3): ADR-0004 (src-layout, #35), ADR-0005 (dynamic versioning via `setuptools-scm`, #162), ADR-0006 (`Runner` execution abstraction, #140), ADR-0007 (opt-in OS sandbox backends, #157/#266) — closing the "no ADR for setuptools-scm/src-layout/sandbox/Runner" audit gap (#410).
 - `CONTRIBUTING.md` «Процесс внесения изменений» gains an explicit "update `CHANGELOG.md` under `[Unreleased]` in every PR" step (#410).
 - Added ADR-0003 (AI integration strategy): BYOK OpenAI-compatible over `requests` — one code path for cloud providers and local ollama, opt-in, no new dependencies, secrets redacted via `diag_log`; unblocks `--ai-hints` (#435) and the glossary LLM pipeline (#438) (#468, #434).
