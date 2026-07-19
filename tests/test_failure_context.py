@@ -112,3 +112,12 @@ def test_cli_and_web_build_identical_context(tmp_path: pathlib.Path) -> None:
     assert fc_web.card_text == ""
     assert fc_web.code == code
     assert fc_web.lang == "ru"
+
+
+def test_build_grounds_prompt_from_code_concepts() -> None:
+    """#544: build_failure_context заземляет промпт карточками глоссария по
+    концептам кода; без кода заземления нет (плоский промпт)."""
+    case = {"passed": False, "verdict": "WA", "output": ["6"], "expected": ["5"]}
+    fc = build_failure_context(case, code="print(sorted([3, 1]))", lang="ru")
+    assert "sorted" in fc.grounding  # bundled-карточка sorted подтянута по концепту
+    assert build_failure_context(case, code="").grounding == ""

@@ -19,6 +19,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from stepik_grader.core import error_glossary, insights
+from stepik_grader.core.ai_grounding import retrieve_grounding
 from stepik_grader.core.ai_hints import FailureContext
 
 __all__ = ["build_failure_context"]
@@ -64,6 +65,9 @@ def build_failure_context(
     kind = insights.failure_kind(verdict, error=error, output=output, expected=expected)
     entry = error_glossary.resolve_error_hint(error) if error else None
     card = f"{entry.exception}: {entry.hint}" if entry else ""
+    # issue #544: retrieval-заземление — top-k карточек глоссария по концептам кода
+    # (офлайн, деградирует к "" при пустом результате → плоский промпт).
+    grounding = retrieve_grounding(code, lang=lang) if code else ""
     return FailureContext(
         verdict=verdict,
         lang=lang,
@@ -75,4 +79,5 @@ def build_failure_context(
         failure_kind=kind or "",
         card_text=card,
         code=code,
+        grounding=grounding,
     )
