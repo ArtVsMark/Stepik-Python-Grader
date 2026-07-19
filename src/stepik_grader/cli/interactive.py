@@ -31,7 +31,6 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import pathlib
 
 from stepik_grader.cli.context import CliContext
@@ -277,93 +276,104 @@ def _interactive_menu(ctx: CliContext) -> None:
         _print_menu(ctx, record_history=record_history)
         try:
             choice = input(ctx.t("select_mode_prompt")).strip()
-        except EOFError:
-            # Конец потока ввода (Ctrl+D / пайп без «0») — корректный выход.
-            print(ctx.t("goodbye"))
-            return
 
-        if choice == "0":
-            print(ctx.t("goodbye"))
-            return
+            if choice == "0":
+                print(ctx.t("goodbye"))
+                return
 
-        if choice == "1":
-            solution = _prompt_path(ctx, "enter_solution_path", want_dir=False)
-            had_failures = ctx.run_mode_1(
-                solution, record_stats=record_stats, record_history=record_history
-            )
-            nudged = _maybe_nudge_history(
-                ctx, had_failures, record_history=record_history, nudged=nudged
-            )
+            if choice == "1":
+                solution = _prompt_path(ctx, "enter_solution_path", want_dir=False)
+                had_failures = ctx.run_mode_1(
+                    solution, record_stats=record_stats, record_history=record_history
+                )
+                nudged = _maybe_nudge_history(
+                    ctx, had_failures, record_history=record_history, nudged=nudged
+                )
 
-        elif choice == "2":
-            directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-            had_failures = ctx.run_mode_2(
-                directory, record_stats=record_stats, record_history=record_history
-            )
-            nudged = _maybe_nudge_history(
-                ctx, had_failures, record_history=record_history, nudged=nudged
-            )
+            elif choice == "2":
+                directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
+                had_failures = ctx.run_mode_2(
+                    directory, record_stats=record_stats, record_history=record_history
+                )
+                nudged = _maybe_nudge_history(
+                    ctx, had_failures, record_history=record_history, nudged=nudged
+                )
 
-        elif choice == "3":
-            directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
-            if not directory.is_dir():
-                print(ctx.t("dir_not_found", path=directory))
-                continue
-            # find_all_solution_files/collect_grouped_files: импортированы
-            # напрямую из core.grader_core, а не через ctx — ни один тест не
-            # патчит их через cli.X (проверено grep).
-            if not find_all_solution_files(directory):
-                print(ctx.t("no_solutions_found"))
-                continue
-            repeats = ctx.ask_bench_profile()
-            ctx.run_mode_3(
-                directory, repeats, record_stats=record_stats, record_history=record_history
-            )
+            elif choice == "3":
+                directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
+                if not directory.is_dir():
+                    print(ctx.t("dir_not_found", path=directory))
+                    continue
+                # find_all_solution_files/collect_grouped_files: импортированы
+                # напрямую из core.grader_core, а не через ctx — ни один тест не
+                # патчит их через cli.X (проверено grep).
+                if not find_all_solution_files(directory):
+                    print(ctx.t("no_solutions_found"))
+                    continue
+                repeats = ctx.ask_bench_profile()
+                ctx.run_mode_3(
+                    directory, repeats, record_stats=record_stats, record_history=record_history
+                )
 
-        elif choice == "4":
-            directory = _prompt_path(ctx, "enter_folder_with_solutions_path", want_dir=True)
-            if not directory.is_dir():
-                print(ctx.t("dir_not_found", path=directory))
-                continue
-            if not collect_grouped_files(directory):
-                print(ctx.t("no_solutions_found"))
-                continue
-            number = ctx.ask_micro_profile()
-            ctx.run_mode_4(
-                directory, number, record_stats=record_stats, record_history=record_history
-            )
+            elif choice == "4":
+                directory = _prompt_path(ctx, "enter_folder_with_solutions_path", want_dir=True)
+                if not directory.is_dir():
+                    print(ctx.t("dir_not_found", path=directory))
+                    continue
+                if not collect_grouped_files(directory):
+                    print(ctx.t("no_solutions_found"))
+                    continue
+                number = ctx.ask_micro_profile()
+                ctx.run_mode_4(
+                    directory, number, record_stats=record_stats, record_history=record_history
+                )
 
-        elif choice == "5":
-            _show_insights(ctx)
+            elif choice == "5":
+                _show_insights(ctx)
 
-        elif choice == "6":
-            # issue #445: запуск web-интерфейса из меню. run_server блокирует
-            # поток до Ctrl+C; ловим KeyboardInterrupt, чтобы вернуться в меню,
-            # а не завершать процесс. Ленивый импорт http.server-стека — как в
-            # cli.main(--serve). Песочница не включается (меню без --sandbox).
-            # issue #430/#395: web-канал пишет историю ПО УМОЛЧАНИЮ (как --serve),
-            # если пользователь явно не выключил тумблер: None (не трогали) → True,
-            # True → True, False (явно выкл) → False. Симметрично `args.history is
-            # not False` в cli.main(--serve) — иначе web из меню расходился бы с
-            # --serve и с empty-state «история пишется автоматически».
-            from stepik_grader import web
+            elif choice == "6":
+                # issue #445: запуск web-интерфейса из меню. run_server блокирует
+                # поток до Ctrl+C; ловим KeyboardInterrupt, чтобы вернуться в меню,
+                # а не завершать процесс. Ленивый импорт http.server-стека — как в
+                # cli.main(--serve). Песочница не включается (меню без --sandbox).
+                # issue #430/#395: web-канал пишет историю ПО УМОЛЧАНИЮ (как --serve),
+                # если пользователь явно не выключил тумблер: None (не трогали) → True,
+                # True → True, False (явно выкл) → False. Симметрично `args.history is
+                # not False` в cli.main(--serve) — иначе web из меню расходился бы с
+                # --serve и с empty-state «история пишется автоматически».
+                from stepik_grader import web
 
-            web_history = settings.record_history is not False
-            with contextlib.suppress(KeyboardInterrupt):
-                web.run_server(record_history=web_history)
+                web_history = settings.record_history is not False
+                try:
+                    web.run_server(record_history=web_history)
+                except KeyboardInterrupt:
+                    # Ctrl+C в сервере возвращает в меню, не завершает процесс.
+                    pass
+                except OSError as exc:
+                    # issue #555: занятый порт / отказ bind не должны ронять меню —
+                    # печатаем сообщение и возвращаемся к выбору режима (симметрично
+                    # OSError-контуру пункта 7 и обработке в cli.main(--serve)).
+                    print(ctx.t("server_start_failed", error=exc))
 
-        elif choice == "7":
-            # issue #430: тумблер записи истории, сохраняемый между запусками.
-            record_history = not record_history
-            settings.record_history = record_history
-            try:
-                user_settings.save_settings(settings, settings_path)
-            except OSError as exc:
-                # Best-effort, симметрично load_settings: read-only cwd / полный
-                # диск не должны ронять меню. Переключение действует на сессию.
-                print(ctx.t("history_save_failed", error=exc))
+            elif choice == "7":
+                # issue #430: тумблер записи истории, сохраняемый между запусками.
+                record_history = not record_history
+                settings.record_history = record_history
+                try:
+                    user_settings.save_settings(settings, settings_path)
+                except OSError as exc:
+                    # Best-effort, симметрично load_settings: read-only cwd / полный
+                    # диск не должны ронять меню. Переключение действует на сессию.
+                    print(ctx.t("history_save_failed", error=exc))
+                else:
+                    print(ctx.t("history_toggled_on" if record_history else "history_toggled_off"))
+
             else:
-                print(ctx.t("history_toggled_on" if record_history else "history_toggled_off"))
-
-        else:
-            print(ctx.t("unknown_choice"))
+                print(ctx.t("unknown_choice"))
+        except EOFError:
+            # issue #555: EOF/Ctrl+D на ЛЮБОМ prompt (выбор режима ИЛИ вложенный
+            # ввод пути/числа/профиля в _prompt_path/_ask_*) — корректный выход,
+            # не трейсбек. Пайповый ввод (`printf '1\n' | ... grader`) завершается
+            # штатно, а не падает на вложенном input() после исчерпания потока.
+            print(ctx.t("goodbye"))
+            return

@@ -105,6 +105,19 @@ def test_eof_exits_gracefully(monkeypatch, capsys) -> None:
     assert "Goodbye" in capsys.readouterr().out
 
 
+def test_eof_on_nested_prompt_exits_gracefully(monkeypatch, capsys) -> None:
+    """issue #555: EOF на вложенном prompt (путь после выбора режима 1) — goodbye, не трейсбек."""
+
+    def _inputs():
+        yield "1"  # выбор режима 1 проходит...
+        raise EOFError  # ...а на запросе пути поток исчерпан (пайп `printf '1\n'`)
+
+    gen = _inputs()
+    monkeypatch.setattr("builtins.input", lambda *a: next(gen))
+    cli._interactive_menu()  # не должно упасть трейсбеком на вложенном input()
+    assert "Goodbye" in capsys.readouterr().out
+
+
 # ---------------------------------------------------------------------------
 # #445: подсказка про файловый диалог + сообщение о подстановке дефолта
 # ---------------------------------------------------------------------------
@@ -179,6 +192,21 @@ def test_web_menu_item_survives_keyboard_interrupt(monkeypatch, capsys) -> None:
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
     cli._interactive_menu()
     assert "Goodbye" in capsys.readouterr().out
+
+
+def test_web_menu_item_survives_oserror(monkeypatch, capsys) -> None:
+    """issue #555: занятый порт (OSError) в run_server не роняет меню — «0» ещё работает."""
+
+    def _raise_oserror(**_k):
+        raise OSError("port already in use")
+
+    monkeypatch.setattr(web, "run_server", _raise_oserror)
+    inputs = iter(["6", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    out = capsys.readouterr().out
+    assert "web server" in out  # server_start_failed (en)
+    assert "Goodbye" in out  # дошли до «0» после ошибки, меню выжило
 
 
 # ---------------------------------------------------------------------------
