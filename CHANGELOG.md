@@ -200,6 +200,7 @@
 - Stamped the five one-off snapshot audits (`docs/audit-2026-07*.md`, `docs/issue-audit-2026-07-15.md`, `docs/web-glossary-optimization-2026-07.md`) and their `audit-2026-07-15/role-*.md` appendices as archives (work closed, read as history), and flagged them «(архив)» in the `docs/README.md` index; §9 wireframes kept, links intact (#503).
 - Fixed cosmetic doc drift: `ADR-0003` field name (`ai_api_key`→`ai_api_key_env`), `ADR-0001`/`CHECKPOINT.md` #153-155/#55 status, the non-existent `MLE` verdict in `server-sandbox-design.md`, stale `logging.md` follow-up notes, `versions.md` setuptools-scm, `trace-format.md`/`server-mode.md` sandbox notes (#505, #506).
 - CHANGELOG `[Unreleased]` hygiene: one-lined multi-sentence entries and merged the duplicate `### Internal`/`### Documentation` subsections (#373 policy) (#507).
+- Archived `docs/audit-2026-07-18.md` and its `docs/roadmap-epics-2026-07-18.md` E1–E10 roadmap into `docs/archive/` on completion of program epic #524 (all E1–E10 sub-epics shipped) — the audit cycle is closed, both read as history; `docs/README.md` and `docs/archive/README.md` indexes updated (#524).
 
 ## [1.8.0] - 2026-07-14
 
