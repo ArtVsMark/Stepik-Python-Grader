@@ -126,6 +126,8 @@
 - Security: `POST /api/download` now confines its `root` (download target) to the workspace — an out-of-root `root` is rejected 403 instead of letting `download_task` `mkdir` arbitrary directories (#401).
 - Security: the microbench (mode-4 stdin) path now runs its bench script through the active Runner instead of a bare `python -c`, so `--sandbox` actually isolates it — the `--sandbox --mode 4` bypass is closed (#417).
 - Sandbox: the Linux bubblewrap backend recreates the top-level usrmerge symlinks (`/lib64` → `/usr/lib64`, …) inside the jail, so the solution's ELF loader resolves — `--sandbox` was unusable on usrmerge systems like modern Ubuntu (#420).
+- Re-downloading a task no longer overwrites a non-empty `task{N}_1.py` — the template is written only to a missing or blank file (symmetric to the already-guarded `task{N}_2.py`), so a student's written solution survives a re-download; the emptiness check reads bytes, so a solution in a non-UTF-8 encoding (e.g. cp1251) is preserved instead of crashing the downloader (#554).
+- Interactive menu: EOF/Ctrl+D on any nested prompt (solution/folder path, load profile) now exits with a clean goodbye instead of a traceback (`printf '1\n' | … grader` terminates cleanly), and menu item 6 (web server) catches `OSError` such as a busy port and returns to the menu instead of crashing (#555).
 
 ### Documentation
 - Added four retroactive ADRs recording already-implemented decisions (#410, D3): ADR-0004 (src-layout, #35), ADR-0005 (dynamic versioning via `setuptools-scm`, #162), ADR-0006 (`Runner` execution abstraction, #140), ADR-0007 (opt-in OS sandbox backends, #157/#266) — closing the "no ADR for setuptools-scm/src-layout/sandbox/Runner" audit gap (#410).
