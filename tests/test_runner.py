@@ -11,11 +11,13 @@ Two halves:
 
 from __future__ import annotations
 
+import contextlib
 import pathlib
 import sys
 import threading
 import time
 import warnings
+from typing import Any
 
 import pytest
 
@@ -183,6 +185,120 @@ def test_measure_peak_memory_unreliable_warning_deduped_across_calls(
 
     unreliable = [w for w in caught if "unreliable" in str(w.message)]
     assert len(unreliable) == 1, unreliable
+
+
+# ---------------------------------------------------------------------------
+# sample_tree_rss — суммарный RSS процесса + потомков (issue #556)
+# ---------------------------------------------------------------------------
+
+
+class _FakePsProc:
+    """Мини-заглушка ``psutil.Process`` для табличных тестов ``sample_tree_rss``."""
+
+    def __init__(
+        self,
+        rss_mb: float,
+        *,
+        children: list[_FakePsProc] | None = None,
+        raise_mem: Exception | None = None,
+        raise_children: Exception | None = None,
+    ) -> None:
+        self._rss_mb = rss_mb
+        self._children = children or []
+        self._raise_mem = raise_mem
+        self._raise_children = raise_children
+
+    def memory_info(self) -> Any:
+        import types
+
+        if self._raise_mem is not None:
+            raise self._raise_mem
+        return types.SimpleNamespace(rss=int(self._rss_mb * 1024 * 1024))
+
+    def children(self, recursive: bool = False) -> list[_FakePsProc]:
+        if self._raise_children is not None:
+            raise self._raise_children
+        return self._children
+
+
+def test_sample_tree_rss_sums_self_and_children() -> None:
+    from stepik_grader.core.runner import sample_tree_rss
+
+    root = _FakePsProc(10.0, children=[_FakePsProc(3.0), _FakePsProc(7.0)])
+    assert sample_tree_rss(root) == pytest.approx(20.0)
+
+
+def test_sample_tree_rss_skips_vanished_child_without_zeroing_total() -> None:
+    """Исчезнувший в момент обхода потомок пропускается, а не обнуляет итог."""
+    import psutil
+
+    from stepik_grader.core.runner import sample_tree_rss
+
+    root = _FakePsProc(
+        10.0,
+        children=[_FakePsProc(5.0), _FakePsProc(0.0, raise_mem=psutil.NoSuchProcess(1))],
+    )
+    assert sample_tree_rss(root) == pytest.approx(15.0)
+
+
+def test_sample_tree_rss_children_error_returns_self_only() -> None:
+    import psutil
+
+    from stepik_grader.core.runner import sample_tree_rss
+
+    root = _FakePsProc(10.0, raise_children=psutil.AccessDenied())
+    assert sample_tree_rss(root) == pytest.approx(10.0)
+
+
+def test_sample_tree_rss_root_error_propagates() -> None:
+    """Ошибку самого корня НЕ глотаем — это сигнал вызывающей стороне (warn/обрыв)."""
+    import psutil
+
+    from stepik_grader.core.runner import sample_tree_rss
+
+    root = _FakePsProc(0.0, raise_mem=psutil.NoSuchProcess(1))
+    with pytest.raises(psutil.NoSuchProcess):
+        sample_tree_rss(root)
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="видимость памяти внука с хоста проверяем на POSIX"
+)
+def test_sample_tree_rss_includes_grandchild_real_process(tmp_path: pathlib.Path) -> None:
+    """issue #556 суть: с хоста память внука видна в поддереве, но не в замере
+    одного корневого pid. Родитель спавнит внука, аллоцирующего ~60 МБ; ждём,
+    пока внук выделит память, и сверяем tree-RSS против own-RSS корня."""
+    import subprocess
+
+    import psutil
+
+    from stepik_grader.core.runner import sample_tree_rss
+
+    code = (
+        "import subprocess, sys, time\n"
+        "subprocess.Popen([sys.executable, '-c', "
+        "'buf = bytearray(60 * 1024 * 1024)\\nimport time; time.sleep(30)'])\n"
+        "time.sleep(30)\n"
+    )
+    proc = subprocess.Popen([sys.executable, "-c", code])
+    try:
+        ps = psutil.Process(proc.pid)
+        tree = own = 0.0
+        deadline = time.perf_counter() + 5.0
+        while time.perf_counter() < deadline:
+            try:
+                own = ps.memory_info().rss / 1024 / 1024
+                tree = sample_tree_rss(ps)
+            except psutil.Error:
+                break
+            if tree - own > 40:
+                break
+            time.sleep(0.1)
+        assert tree - own > 40, f"внук не учтён в дереве: tree={tree:.1f} own={own:.1f}"
+    finally:
+        proc.kill()
+        with contextlib.suppress(Exception):
+            proc.wait(timeout=5)
 
 
 # ---------------------------------------------------------------------------

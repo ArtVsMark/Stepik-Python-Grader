@@ -27,7 +27,12 @@ from typing import Any
 
 import psutil
 
-from stepik_grader.core.runner import _KILL_REAP_TIMEOUT, RunOutcome, _kill_process_tree
+from stepik_grader.core.runner import (
+    _KILL_REAP_TIMEOUT,
+    RunOutcome,
+    _kill_process_tree,
+    sample_tree_rss,
+)
 
 __all__ = ["run_argv_with_limits"]
 
@@ -48,12 +53,23 @@ def _poll_memory(
     stop: threading.Event,
     peak_result: list[float],
 ) -> None:
+    """Поллинг RSS дерева процесса изоляции и принудительный kill при
+    превышении ``max_memory_mb`` (issue #556).
+
+    ``proc.pid`` здесь — процесс изоляции (bwrap/sandbox-exec), а решение
+    исполняется его потомком; замеряем всё поддерево через общий
+    ``sample_tree_rss`` (тот же helper, что и ``LocalRunner``), иначе память
+    решения-внука не видна и детектор не срабатывает. Это и есть активное
+    enforcement памяти в песочнице — на Linux поверх него ещё стоит kernel-
+    backstop ``RLIMIT_AS`` (см. ``_linux.py``); на macOS поллинг —
+    единственная линия обороны.
+    """
     peak = 0.0
     try:
         ps_proc = psutil.Process(proc.pid)
         while not stop.is_set():
             try:
-                rss = ps_proc.memory_info().rss / 1024 / 1024
+                rss = sample_tree_rss(ps_proc)
                 if rss > peak:
                     peak = rss
                 if rss > max_memory_mb:
@@ -169,13 +185,25 @@ def run_argv_with_limits(
 
     elapsed = time.perf_counter() - start
 
+    # issue #556: приложить частичный stdout/stderr, накопленный reader'ами до
+    # обрыва по нарушению — как это уже делает ветка TLE ниже. Без этого студент
+    # видел бы пустой вывод у решения, которое что-то напечатало перед тем, как
+    # упереться в лимит вывода/памяти.
     if output_exceeded.is_set():
         return RunOutcome(
-            sandbox_violation="output_size", elapsed=elapsed, peak_memory_mb=peak_mb_result[0]
+            sandbox_violation="output_size",
+            stdout=b"".join(stdout_chunks),
+            stderr=b"".join(stderr_chunks),
+            elapsed=elapsed,
+            peak_memory_mb=peak_mb_result[0],
         )
     if mem_exceeded.is_set():
         return RunOutcome(
-            sandbox_violation="memory", elapsed=elapsed, peak_memory_mb=peak_mb_result[0]
+            sandbox_violation="memory",
+            stdout=b"".join(stdout_chunks),
+            stderr=b"".join(stderr_chunks),
+            elapsed=elapsed,
+            peak_memory_mb=peak_mb_result[0],
         )
     if timed_out:
         # issue #421: вернуть частичный вывод, накопленный reader'ами до TLE.
