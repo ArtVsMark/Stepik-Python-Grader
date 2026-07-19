@@ -29,7 +29,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, cast
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -202,6 +202,12 @@ def validate_external_url(url: str) -> None:
         raise ExternalUrlRejected(f"Host не входит в allowlist внешних загрузок: {hostname!r}")
 
 
+# issue #564: сколько редиректов внешней загрузки готовы пройти, ревалидируя
+# каждый hop. Легитимная цепочка GitHub — github.com → codeload.github.com —
+# один hop; 5 с запасом.
+_MAX_EXTERNAL_REDIRECT_HOPS = 5
+
+
 def external_download_get(
     url: str,
     *,
@@ -213,13 +219,30 @@ def external_download_get(
     Используется для ZIP/GitHub-ссылок из текста задачи Stepik, которые не
     являются самим Stepik API — им не передаётся Bearer-токен текущей
     OAuth-сессии. URL сначала проверяется через :func:`validate_external_url`.
+
+    Редиректы НЕ следуются автоматически (issue #564): каждый ``Location``
+    заново прогоняется через :func:`validate_external_url`, иначе allowlist-хост
+    мог бы 30x-редиректом увести запрос на loopback/приватный/metadata-адрес
+    (SSRF-обход валидации, которая раньше проверяла только исходный URL).
+    Относительный ``Location`` абсолютизируется от текущего URL. Больше
+    ``_MAX_EXTERNAL_REDIRECT_HOPS`` hop'ов — отказ.
     """
     validate_external_url(url)
     session = requests.Session()
     session.headers.update(HEADERS)
     if headers:
         session.headers.update(headers)
-    return session.get(url, timeout=timeout)
+
+    current = url
+    for _hop in range(_MAX_EXTERNAL_REDIRECT_HOPS + 1):
+        response = session.get(current, timeout=timeout, allow_redirects=False)
+        if not response.is_redirect:
+            return response
+        current = urljoin(current, response.headers.get("Location", ""))
+        validate_external_url(current)
+    raise ExternalUrlRejected(
+        f"Превышен лимит редиректов ({_MAX_EXTERNAL_REDIRECT_HOPS}) для {url!r}"
+    )
 
 
 # ---------------------------------------------------------------------------

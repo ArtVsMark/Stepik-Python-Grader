@@ -80,7 +80,11 @@ def redact(text: str) -> str:
     """Отредактировать секреты в строке: паттерны токенов/заголовков + известные значения."""
     for pattern in _PATTERNS:
         text = pattern.sub(lambda m: m.group(1) + _MASK, text)
-    for secret in _SECRETS:
+    # issue #564: снимок множества перед итерацией — под многопоточным web
+    # другой поток может параллельно вызвать register_secret (_SECRETS.add),
+    # а прямая итерация set во время .replace() дала бы "Set changed size
+    # during iteration". tuple(_SECRETS) строится атомарно (GIL, C-уровень).
+    for secret in tuple(_SECRETS):
         if secret in text:
             text = text.replace(secret, _MASK)
     return text
