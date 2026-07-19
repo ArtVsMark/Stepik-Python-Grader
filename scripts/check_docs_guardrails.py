@@ -13,12 +13,15 @@
    на существующий файл, а якоря — на существующий заголовок в целевом
    Markdown-файле. Внешние ссылки (http/https/mailto и т.п.) осознанно НЕ
    проверяются — сетевые проверки делают CI флаки.
-3. **Docs index completeness (issue #300).** Каждый файл ``docs/*.md`` (кроме
-   самого ``docs/README.md``) должен быть упомянут в ``docs/README.md`` — иначе
-   индекс расходится с фактическим составом каталога (как произошло с
-   ``changelog-archive.md``). Не рекурсивно: ``docs/adr/*.md`` каталогизируются
-   собственным индексом ``docs/adr/README.md``, на который ``docs/README.md``
-   уже ссылается одной строкой — перечислять каждый ADR отдельно не требуется.
+3. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
+   (кроме самого ``<dir>/README.md``) должен быть упомянут в ``<dir>/README.md``
+   — иначе индекс расходится с фактическим составом каталога (как произошло с
+   ``changelog-archive.md``). **Рекурсивно (issue #562):** проверка применяется
+   к ``docs/`` и к КАЖДОМУ подкаталогу с собственным ``README.md``-индексом
+   (``docs/adr/`` → ``docs/adr/README.md``, ``docs/archive/`` →
+   ``docs/archive/README.md``). Подкаталог без своего ``README.md`` отдельно не
+   индексируется — родитель ссылается на него одной строкой (``role-*.md``-
+   приложения к сводному аудиту, ADR-набор до появления adr/README.md).
 
 Никаких внешних зависимостей: чистый ``re`` + ``pathlib``, детерминированно и
 кроссплатформенно (Windows/Linux/macOS).
@@ -168,24 +171,33 @@ def check_markdown_links(errors: list[str]) -> None:
 
 
 def check_docs_index_completeness(errors: list[str]) -> None:
-    """Каждый docs/*.md (кроме docs/README.md) упомянут в docs/README.md.
+    """Каждый ``<dir>/*.md`` упомянут в ``<dir>/README.md`` — для ``docs/`` и
+    каждого подкаталога с собственным ``README.md``-индексом (issue #300/#562).
 
-    Не рекурсивно — docs/adr/*.md каталогизируются собственным индексом
-    (docs/adr/README.md), см. докстринг модуля, пункт 3.
+    Рекурсивно (issue #562): проверяются ``docs/`` (``docs/README.md``),
+    ``docs/adr/`` (``docs/adr/README.md``), ``docs/archive/``
+    (``docs/archive/README.md``) и т.д. Подкаталог БЕЗ собственного ``README.md``
+    отдельно не индексируется — его файлы каталогизируются родительским индексом
+    одной строкой (как ``role-*.md``-приложения к сводному аудиту).
     """
-    readme = _ROOT / "docs" / "README.md"
-    index_text = readme.read_text(encoding="utf-8")
+    docs_root = _ROOT / "docs"
+    index_dirs = [docs_root] + sorted(
+        p for p in docs_root.rglob("*") if p.is_dir() and (p / "README.md").is_file()
+    )
     checked = 0
-    for md in sorted((_ROOT / "docs").glob("*.md")):
-        if md.name == "README.md":
-            continue
-        checked += 1
-        if md.name not in index_text:
-            errors.append(
-                f"docs/README.md: '{md.name}' exists in docs/ but is not referenced "
-                "in the navigation index (issue #300)."
-            )
-    print(f"docs/ index: checked {checked} file(s) against docs/README.md.")
+    for d in index_dirs:
+        index_text = (d / "README.md").read_text(encoding="utf-8")
+        idx_rel = (d / "README.md").relative_to(_ROOT)
+        for md in sorted(d.glob("*.md")):
+            if md.name == "README.md":
+                continue
+            checked += 1
+            if md.name not in index_text:
+                errors.append(
+                    f"{idx_rel}: '{md.name}' exists in {d.relative_to(_ROOT)}/ but is not "
+                    "referenced in the navigation index (issue #300/#562)."
+                )
+    print(f"docs/ index: checked {checked} file(s) against per-directory README indexes.")
 
 
 def check_changelog_version_budget(errors: list[str]) -> None:

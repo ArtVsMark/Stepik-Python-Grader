@@ -136,18 +136,51 @@ def test_unindexed_docs_file_is_flagged(tmp_path, monkeypatch) -> None:
     assert any("orphan.md" in e for e in errors), errors
 
 
-def test_adr_subfolder_is_not_required_in_index(tmp_path, monkeypatch) -> None:
-    """docs/adr/*.md не проверяется напрямую — каталогизируется adr/README.md."""
+def test_subdir_file_checked_against_its_own_index(tmp_path, monkeypatch) -> None:
+    """Рекурсия #562: docs/adr/*.md проверяется против adr/README.md (не против
+    docs/README.md); упомянутый в своём индексе файл → без ошибок."""
     module = _load_module()
     docs = tmp_path / "docs"
     (docs / "adr").mkdir(parents=True)
     (docs / "README.md").write_text("[ADR index](adr/README.md)\n", encoding="utf-8")
-    (docs / "adr" / "README.md").write_text("# ADR index\n", encoding="utf-8")
+    (docs / "adr" / "README.md").write_text(
+        "# ADR index\n\n[0001](0001-decision.md)\n", encoding="utf-8"
+    )
     (docs / "adr" / "0001-decision.md").write_text("# Decision\n", encoding="utf-8")
     monkeypatch.setattr(module, "_ROOT", tmp_path)
     errors: list[str] = []
     module.check_docs_index_completeness(errors)
     assert errors == []
+
+
+def test_unindexed_subdir_file_is_flagged(tmp_path, monkeypatch) -> None:
+    """Рекурсия #562: файл в подкаталоге с собственным README, не упомянутый в
+    этом README, → ошибка (полнота индекса на КАЖДОМ уровне)."""
+    module = _load_module()
+    docs = tmp_path / "docs"
+    (docs / "archive").mkdir(parents=True)
+    (docs / "README.md").write_text("[archive](archive/README.md)\n", encoding="utf-8")
+    (docs / "archive" / "README.md").write_text("# Archive index\n", encoding="utf-8")
+    (docs / "archive" / "old-audit.md").write_text("# Old\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_index_completeness(errors)
+    assert any("old-audit.md" in e for e in errors), errors
+
+
+def test_subdir_without_readme_not_recursed(tmp_path, monkeypatch) -> None:
+    """Подкаталог БЕЗ собственного README отдельно не индексируется — его файлы
+    каталогизируются родителем (role-*.md-приложения к сводному аудиту, #562)."""
+    module = _load_module()
+    docs = tmp_path / "docs"
+    (docs / "archive" / "appendix").mkdir(parents=True)
+    (docs / "README.md").write_text("[archive](archive/README.md)\n", encoding="utf-8")
+    (docs / "archive" / "README.md").write_text("# Archive\n", encoding="utf-8")
+    (docs / "archive" / "appendix" / "role-x.md").write_text("# Role\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_index_completeness(errors)
+    assert errors == []  # appendix/ без README → рекурсия его не трогает
 
 
 def test_changelog_within_version_budget_passes(tmp_path, monkeypatch) -> None:

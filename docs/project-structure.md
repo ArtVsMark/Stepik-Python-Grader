@@ -43,7 +43,7 @@ Stepik-Python-Grader/
 │       ├── downloader.py         # Application: координатор загрузки задач (issue #302)
 │       ├── downloader_config.py  # Application: конфиг stepik_config.json + интерактив (issue #302)
 │       ├── diagnostic_stepik.py  # Диагностика API и токена
-│       └── core/                  # Internal Infrastructure/Utility модули (Issue #23, #26)
+│       ├── core/                  # Internal Infrastructure/Utility модули (Issue #23, #26)
 │           ├── __init__.py
 │           ├── grader_core.py    # Исполнение тест-кейса в subprocess, агрегация статистики
 │           ├── test_loader.py    # Обнаружение файлов-решений, загрузка тест-кейсов (Issue #45 A-01)
@@ -100,7 +100,7 @@ Stepik-Python-Grader/
 │           ├── json_provider.py  # JsonRulesProvider + bundled_rules() (кеш core/mtime_cache)
 │           └── data/pep8_ru.json # Комплектная база ≥30 карточек правил (package-data)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов; включает pytester
-├── tests/                     # 1150+ тестов (pytest)
+├── tests/                     # pytest-набор (число — в CI-прогоне / бейджах README)
 ├── docs/                      # База знаний (архитектура, структура, версии) — эпик #102
 ├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.12/3.13/3.14
 ├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
