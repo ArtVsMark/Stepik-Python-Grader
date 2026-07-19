@@ -1028,8 +1028,8 @@ def run_server(
     """
     set_web_record_history(record_history)
     if sandbox:
-        from stepik_grader.core.grader_core import set_runner
         from stepik_grader.core.sandbox import SandboxRunner
+        from stepik_grader.web.grading import set_runner
 
         set_runner(SandboxRunner())
     workspace = root.expanduser().resolve() if root else pathlib.Path.cwd().resolve()

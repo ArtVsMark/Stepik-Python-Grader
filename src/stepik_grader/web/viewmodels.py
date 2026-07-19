@@ -21,33 +21,29 @@ from typing import TYPE_CHECKING, Any
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core import history, history_recording, lint
-from stepik_grader.core.cache import hash_solution
 from stepik_grader.core.error_glossary import resolve_error_hint
-from stepik_grader.core.grader_core import (
-    MUCH_SLOWER_THRESHOLD,
-    SIMILAR_THRESHOLD,
-    run_benchmark,
-    run_microbench_mode,
-    run_tests,
-)
-from stepik_grader.core.microbench_runner import (
-    apply_reference_ranking,
-    apply_relative_ranking,
-)
 from stepik_grader.core.mtime_cache import MtimeCache
-from stepik_grader.core.reporter import fmt_time
-from stepik_grader.core.test_loader import (
-    collect_grouped_files,
-    find_all_solution_files,
-    is_solution_file,
-    load_test_cases,
-    resolve_test_dir,
-)
 from stepik_grader.glossary.detector import MissingConceptDetector
 from stepik_grader.glossary.json_provider import (
     GlossaryError,
     JsonGlossaryProvider,
     append_missing_entries,
+)
+from stepik_grader.web.grading import (
+    MUCH_SLOWER_THRESHOLD,
+    SIMILAR_THRESHOLD,
+    apply_reference_ranking,
+    apply_relative_ranking,
+    collect_grouped_files,
+    find_all_solution_files,
+    fmt_time,
+    hash_solution,
+    is_solution_file,
+    load_test_cases,
+    resolve_test_dir,
+    run_benchmark,
+    run_microbench_mode,
+    run_tests,
 )
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields, render_message
 

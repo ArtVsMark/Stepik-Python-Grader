@@ -237,3 +237,166 @@ def test_import_graph_is_non_trivial() -> None:
     graph = _build_import_graph()
     assert len(graph) > 50, "Ожидались десятки модулей — путь к пакету сломан?"
     assert sum(len(v) for v in graph.values()) > 50, "Рёбра не извлеклись — сломан парсер импортов?"
+
+
+# ---------------------------------------------------------------------------
+# Boundary-guard web↔core (issue #549, ADR-0010): web-слой касается ядра только
+# через ПУБЛИЧНУЮ поверхность, а исполнительное grade-ядро — только через фасад
+# web/grading. Три структурные защиты + guard-the-guard.
+# ---------------------------------------------------------------------------
+
+# Пакеты ядра, к которым web ходит только по публичной поверхности.
+_CORE_PKG_PREFIXES = ("stepik_grader.core", "stepik_grader.glossary", "stepik_grader.rules")
+
+# Модули исполнительного ядра, реэкспортируемые фасадом ``web/grading.py``. Их
+# ПРЯМОЙ импорт разрешён только в самом фасаде и в адаптерах (сервисный слой,
+# ADR-0010); прочие web-модули берут эти примитивы из ``web.grading``.
+_GRADE_CORE_MODULES = frozenset(
+    {
+        "stepik_grader.core.cache",
+        "stepik_grader.core.grader_core",
+        "stepik_grader.core.microbench_runner",
+        "stepik_grader.core.reporter",
+        "stepik_grader.core.runner",
+        "stepik_grader.core.test_loader",
+        "stepik_grader.core.tracer",
+    }
+)
+
+
+def _web_files() -> list[pathlib.Path]:
+    return sorted((_PKG_ROOT / "web").rglob("*.py"))
+
+
+def _is_core_pkg(module: str) -> bool:
+    return any(module == p or module.startswith(p + ".") for p in _CORE_PKG_PREFIXES)
+
+
+def _private_core_imports(path: pathlib.Path) -> list[str]:
+    """Импортируемые из core/glossary/rules ПРИВАТНЫЕ имена (``from X import _name``)."""
+    offenders: list[str] = []
+    for node in ast.walk(_parse(path)):
+        if isinstance(node, ast.ImportFrom):
+            resolved = _resolve_from_target(path, node)
+            if _is_core_pkg(resolved):
+                offenders += [f"{resolved}.{a.name}" for a in node.names if a.name.startswith("_")]
+        elif isinstance(node, ast.Import):
+            offenders += [
+                a.name
+                for a in node.names
+                if _is_core_pkg(a.name) and a.name.rsplit(".", 1)[-1].startswith("_")
+            ]
+    return offenders
+
+
+def _core_module_locals(path: pathlib.Path, modules: set[str]) -> dict[str, str]:
+    """Локальные имена, связанные с core-МОДУЛЕМ (для детекта ``._private``-доступа).
+
+    ``from stepik_grader.core import grader_core`` → {"grader_core": "...grader_core"};
+    ``import ...grader_core as gc`` → {"gc": "...grader_core"}. Имена-НЕ-модули
+    (``from ...grader_core import run_tests``) не связываются — ``run_tests`` не в
+    ``modules``.
+    """
+    binds: dict[str, str] = {}
+    for node in ast.walk(_parse(path)):
+        if isinstance(node, ast.ImportFrom):
+            resolved = _resolve_from_target(path, node)
+            if not _is_core_pkg(resolved):
+                continue
+            for alias in node.names:
+                submodule = f"{resolved}.{alias.name}"
+                if submodule in modules:  # alias — реальный core-подмодуль
+                    binds[alias.asname or alias.name] = submodule
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name in modules and _is_core_pkg(alias.name):
+                    binds[alias.asname or alias.name.split(".")[0]] = alias.name
+    return binds
+
+
+def _private_core_attr_access(path: pathlib.Path, modules: set[str]) -> list[str]:
+    """Доступ к приватным атрибутам импортированных core-модулей (``grader_core._RUNNER``)."""
+    locals_map = _core_module_locals(path, modules)
+    offenders: list[str] = []
+    for node in ast.walk(_parse(path)):
+        if isinstance(node, ast.Attribute) and node.attr.startswith("_"):
+            val = node.value
+            if isinstance(val, ast.Name) and val.id in locals_map:
+                offenders.append(f"{val.id}.{node.attr}")
+    return offenders
+
+
+def _direct_grade_core_imports(path: pathlib.Path) -> list[str]:
+    """Прямые импорты grade-core модулей (в обход ``web/grading``), включая ленивые."""
+    offenders: list[str] = []
+    for node in ast.walk(_parse(path)):
+        if isinstance(node, ast.ImportFrom):
+            if _resolve_from_target(path, node) in _GRADE_CORE_MODULES:
+                offenders.append(_resolve_from_target(path, node))
+        elif isinstance(node, ast.Import):
+            offenders += [a.name for a in node.names if a.name in _GRADE_CORE_MODULES]
+    return offenders
+
+
+def test_web_does_not_import_private_core_names() -> None:
+    """ADR-0010: ни один web-модуль не импортирует приватные ``_``-имена из ядра."""
+    violations = {_module_name(p): off for p in _web_files() if (off := _private_core_imports(p))}
+    assert not violations, (
+        "web импортирует приватные core-имена (нарушение публичной границы, "
+        "ADR-0010 / issue #549):\n"
+        + "\n".join(f"  {mod}: {', '.join(off)}" for mod, off in violations.items())
+    )
+
+
+def test_web_does_not_touch_private_core_attributes() -> None:
+    """ADR-0010: web не разыменовывает приватные атрибуты core-модулей (``mod._X``)."""
+    modules = {_module_name(p) for p in _iter_module_files()}
+    violations = {
+        _module_name(p): off for p in _web_files() if (off := _private_core_attr_access(p, modules))
+    }
+    assert not violations, (
+        "web обращается к приватным атрибутам core-модулей (напр. `grader_core._RUNNER` — "
+        "используйте публичный `run_spec`, ADR-0010 / issue #549):\n"
+        + "\n".join(f"  {mod}: {', '.join(off)}" for mod, off in violations.items())
+    )
+
+
+def test_web_grade_core_only_via_grading_facade() -> None:
+    """ADR-0010: grade-ядро импортируется в web только через ``web/grading`` (и адаптеры)."""
+    violations = {}
+    for path in _web_files():
+        if path.name == "grading.py" or path.name.endswith("_adapter.py"):
+            continue  # фасад и сервисный слой (адаптеры) — легитимно
+        if off := _direct_grade_core_imports(path):
+            violations[_module_name(path)] = off
+    assert not violations, (
+        "web-модуль импортирует grade-ядро напрямую, минуя фасад `web.grading` "
+        "(ADR-0010 / issue #549):\n"
+        + "\n".join(f"  {mod}: {', '.join(off)}" for mod, off in violations.items())
+    )
+
+
+def test_boundary_guard_catches_synthetic_violations(tmp_path: pathlib.Path) -> None:
+    """Guard-the-guard: детекторы реально ловят приватный импорт / атрибут / прямой grade-core."""
+    modules = {"stepik_grader.core.grader_core"}
+
+    priv_import = tmp_path / "bad_import.py"
+    priv_import.write_text("from stepik_grader.core.grader_core import _RUNNER\n", encoding="utf-8")
+    assert _private_core_imports(priv_import) == ["stepik_grader.core.grader_core._RUNNER"]
+
+    priv_attr = tmp_path / "bad_attr.py"
+    priv_attr.write_text(
+        "from stepik_grader.core import grader_core\nx = grader_core._RUNNER\n", encoding="utf-8"
+    )
+    assert _private_core_attr_access(priv_attr, modules) == ["grader_core._RUNNER"]
+
+    direct = tmp_path / "bad_direct.py"
+    direct.write_text("from stepik_grader.core.grader_core import run_tests\n", encoding="utf-8")
+    assert _direct_grade_core_imports(direct) == ["stepik_grader.core.grader_core"]
+
+    # Публичный импорт из non-grade core-модуля — НЕ нарушение.
+    ok = tmp_path / "ok.py"
+    ok.write_text("from stepik_grader.core.history import record_run\n", encoding="utf-8")
+    assert _private_core_imports(ok) == []
+    assert _direct_grade_core_imports(ok) == []
+    assert _private_core_attr_access(ok, {"stepik_grader.core.history"}) == []

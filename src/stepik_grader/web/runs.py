@@ -32,8 +32,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.test_loader import find_all_solution_files
-from stepik_grader.core.tracer import trace_code
+from stepik_grader.web.grading import find_all_solution_files, trace_code
 from stepik_grader.web.i18n import DEFAULT_LANG, message_fields
 from stepik_grader.web.playground import run_playground
 from stepik_grader.web.viewmodels import (

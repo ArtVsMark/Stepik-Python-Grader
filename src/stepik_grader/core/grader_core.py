@@ -47,6 +47,7 @@ __all__ = [
     "run_benchmark",
     "run_microbench_mode",
     "run_single_test",
+    "run_spec",
     "run_tests",
     "set_runner",
 ]
@@ -193,6 +194,18 @@ def set_runner(runner: Runner) -> None:
     """
     global _RUNNER
     _RUNNER = runner
+
+
+def run_spec(spec: RunSpec) -> RunOutcome:
+    """Исполнить один ``RunSpec`` через активный ``Runner`` и вернуть сырой итог.
+
+    Публичная точка запуска для потребителей вне грейдинга (web-песочница,
+    issue #317): прячет выбор backend'а (``LocalRunner``/``SandboxRunner``) за
+    публичной поверхностью — вызывающему не нужно (и нельзя, ADR-0010) трогать
+    приватный синглтон ``_RUNNER``. Читает module-global при каждом вызове,
+    поэтому ``set_runner()`` и тестовые подмены ``_RUNNER`` видны немедленно.
+    """
+    return _RUNNER.run(spec)
 
 
 def _fail_result(
