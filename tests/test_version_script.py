@@ -3,7 +3,8 @@
 Схема (CONTRIBUTING.md §Версионирование) — НЕ SemVer: MAJOR.MINOR из тега
 ``vX.Y.0``, PATCH = число коммитов после тега, БЕЗ badge-бота
 (``chore(ci): update badges``, issue #231); до первого тега — fallback на
-MAJOR.MINOR из pyproject + то же число коммитов без бота.
+MAJOR.MINOR из метаданных установленного пакета (setuptools-scm, issue #557) +
+то же число коммитов без бота.
 """
 
 from __future__ import annotations
@@ -61,8 +62,13 @@ def test_tagged_path_parses_commits_as_patch(monkeypatch) -> None:
 
 
 def test_fallback_when_no_tags(monkeypatch) -> None:
-    """До первого тега (git describe → None) — MAJOR.MINOR из pyproject,
-    PATCH = число коммитов; версия всё равно валидна."""
+    """До первого тега (git describe → None) — MAJOR.MINOR из метаданных пакета
+    (setuptools-scm), НЕ деградирует в 0.0; PATCH = число коммитов (issue #557).
+
+    Метадату мокаем детерминированно: без тегов в клоне setuptools-scm и сам дал бы
+    ``0.0`` — fix проверяем на реалистичной ``X.Y.0.postN`` из установки, где теги
+    были (напр. wheel из PyPI рядом с shallow git-клоном без тегов).
+    """
     module = _load_module()
 
     def fake_git(*args: str) -> str | None:
@@ -73,9 +79,33 @@ def test_fallback_when_no_tags(monkeypatch) -> None:
         return None
 
     monkeypatch.setattr(module, "_git", fake_git)
+    monkeypatch.setattr(module, "_dist_version", lambda _name: "1.8.0.post5+gabc123")
+
     version = module.project_version()
-    assert version.endswith(".42"), version
+    # Регрессия #557: прежде fallback читал удалённый [project].version и всегда
+    # давал 0.0.N (маскировалось ассертом только на суффикс). Теперь MAJOR.MINOR
+    # берётся из метаданных: 1.8 из "1.8.0.post5+...", PATCH=42.
+    assert version == "1.8.42", version
+    assert not version.startswith("0.0."), version
     assert _XYZ.match(version), version
+
+
+def test_major_minor_from_metadata_parses_scm_version(monkeypatch) -> None:
+    """``X.Y.0.postN+g<hash>`` (формат post-release setuptools-scm) → (MAJOR, MINOR)."""
+    module = _load_module()
+    monkeypatch.setattr(module, "_dist_version", lambda _name: "2.5.0.post3+gdeadbee")
+    assert module._major_minor_from_metadata() == ("2", "5")
+
+
+def test_major_minor_from_metadata_missing_package(monkeypatch) -> None:
+    """Пакет не установлен → ('0','0') (последний резерв, issue #557)."""
+    module = _load_module()
+
+    def _raise(_name: str) -> str:
+        raise module.PackageNotFoundError(_name)
+
+    monkeypatch.setattr(module, "_dist_version", _raise)
+    assert module._major_minor_from_metadata() == ("0", "0")
 
 
 def test_patch_count_excludes_badge_bot_commits(monkeypatch) -> None:
