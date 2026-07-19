@@ -32,14 +32,13 @@ from stepik_grader.cli.context import CliContext
 from stepik_grader.config import get_config
 from stepik_grader.core import (
     ai_hints,
-    error_glossary,
     history,
     history_recording,
-    insights,
     lint,
     stats,
 )
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
+from stepik_grader.core.failure_context import build_failure_context
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
     SIMILAR_THRESHOLD,
@@ -165,54 +164,67 @@ def _read_solution_code(solution: pathlib.Path) -> str:
         return ""
 
 
-def _build_failure_context(
-    case: dict[str, Any], *, code: str, lang: str
-) -> ai_hints.FailureContext:
-    """Заземляющий контекст упавшего кейса из case-dict + якорей
-    (``insights.failure_kind``, ``error_glossary.resolve_error_hint``)."""
-    verdict = str(case.get("verdict") or ("AC" if case.get("passed") else "WA"))
-    error = str(case.get("error", ""))
-    kind = insights.failure_kind(
-        verdict, error=error, output=case.get("output"), expected=case.get("expected")
-    )
-    entry = error_glossary.resolve_error_hint(error) if error else None
-    card = f"{entry.exception}: {entry.hint}" if entry else ""
-    return ai_hints.FailureContext(
-        verdict=verdict,
-        lang=lang,
-        case_input=str(case.get("stdin", "")),
-        expected="\n".join(case.get("expected", [])),
-        actual="\n".join(case.get("output", [])),
-        diff=str(case.get("diff", "")),
-        error=error,
-        failure_kind=kind or "",
-        card_text=card,
-        code=code,
-    )
+def _resolve_ai_config() -> object | None:
+    """Конфиг AI-канала, если провайдер настроен; иначе печать подсказки + ``None``.
+
+    Общий гейт режимов 1–4 (issue #542): провайдер не настроен → одна подсказка,
+    как включить, и ``None`` (вызывающий выходит). Звать ТОЛЬКО когда есть что
+    объяснять (есть упавшие кейсы/решения) — иначе подсказка печатается впустую.
+    """
+    config = get_config()
+    if not ai_hints.is_configured(config):
+        print(f"\n{_AI_NOT_CONFIGURED_HINT}")
+        return None
+    return config
 
 
 def _print_ai_hints(rows: list[tuple[pathlib.Path, dict[str, Any]]], *, lang: str = "ru") -> None:
-    """AI-объяснения упавших кейсов режимов 1/2 (``--ai-hints``, issue #435, ADR-0003).
+    """AI-объяснения упавших кейсов режимов 1/2 (``--ai-hints``, issue #435/#542, ADR-0003).
 
     Только текстовый вывод; opt-in. Грейдинг НИКОГДА не падает из-за AI —
-    ``explain_failure`` глушит любые ошибки канала в ``None``. Провайдер не
+    ``explain_failure`` глушит любые ошибки канала в ``None``. Контекст строится
+    общим core-хелпером ``build_failure_context`` (issue #542). Провайдер не
     настроен → одна подсказка, как включить (только если есть что объяснять)."""
     has_fail = any(not c.get("passed") for _, result in rows for c in result["cases"])
     if not has_fail:
         return
-    config = get_config()
-    if not ai_hints.is_configured(config):
-        print(f"\n{_AI_NOT_CONFIGURED_HINT}")
+    config = _resolve_ai_config()
+    if config is None:
         return
     for solution, result in rows:
         code = _read_solution_code(solution)
         for index, case in enumerate(result["cases"], start=1):
             if case.get("passed"):
                 continue
-            fc = _build_failure_context(case, code=code, lang=lang)
+            fc = build_failure_context(case, code=code, lang=lang)
             hint = ai_hints.explain_failure(fc, config)
             if hint:
                 print(f"\n· {solution.name} · тест {index}:\n{hint}")
+
+
+def _print_ai_hints_bench(
+    results: dict[pathlib.Path, dict[str, Any]], base: pathlib.Path, *, lang: str = "ru"
+) -> None:
+    """AI-объяснения упавших решений режимов 3/4 (``--ai-hints``, issue #542).
+
+    Бенчмарк не даёт per-case ``output``/``expected``/``diff`` — объясняем
+    решения с ошибкой исполнения (crash/RE), строя контекст ТЕМ ЖЕ core-хелпером
+    ``build_failure_context`` из ``verdict``+``error``. Только текстовый вывод;
+    грейдинг НИКОГДА не падает. Провайдер не настроен → одна подсказка (если есть
+    что объяснять)."""
+    failing = [(path, data) for path, data in sorted(results.items()) if data.get("error")]
+    if not failing:
+        return
+    config = _resolve_ai_config()
+    if config is None:
+        return
+    for path, data in failing:
+        code = _read_solution_code(path)
+        case = {"verdict": str(data.get("verdict") or "RE"), "error": str(data.get("error", ""))}
+        fc = build_failure_context(case, code=code, lang=lang)
+        hint = ai_hints.explain_failure(fc, config)
+        if hint:
+            print(f"\n· {_rel(path, base)}:\n{hint}")
 
 
 __all__ = [
@@ -475,6 +487,7 @@ def _run_mode_3(
     output: str = "text",
     record_stats: bool = False,
     record_history: bool = False,
+    ai_hints: bool = False,
 ) -> None:
     """Режим 3: subprocess-бенчмарк папки. Общий код для меню и --mode 3."""
     if not directory.is_dir():
@@ -547,6 +560,9 @@ def _run_mode_3(
             rel = _rel(path, directory)
             print(f"  {rel}: {data['error']}")
 
+    if ai_hints:
+        _print_ai_hints_bench(results, directory)
+
 
 _MODE4_FIELDS = [
     "group",
@@ -572,6 +588,7 @@ def _run_mode_4(
     output: str = "text",
     record_stats: bool = False,
     record_history: bool = False,
+    ai_hints: bool = False,
 ) -> None:
     """Режим 4: timeit micro-bench папки. Общий код для меню и --mode 4."""
     if not directory.is_dir():
@@ -674,3 +691,6 @@ def _run_mode_4(
         # issue #66: сноска о методике "Py-heap" печатается один раз под всеми
         # группами, а не под каждой таблицей.
         print(ctx.t("micro_mem_note"))
+
+    if ai_hints and not machine_output:
+        _print_ai_hints_bench(all_bench_results, directory)
