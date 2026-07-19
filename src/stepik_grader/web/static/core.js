@@ -400,6 +400,104 @@ async function applyUiLocale(lang) {
   document.documentElement.lang = lang;
 }
 
+// issue #543 — AI-подсказка по упавшему кейсу (POST /api/v1/hint, async-job).
+// Единая точка для grade/playground: consent-гейт → сабмит → опрос → рендер.
+// Приватность: код/ввод-вывод уходят AI-провайдеру только после явного
+// однократного согласия; согласие помнится (localStorage + server-side).
+const _AI_CONSENT_KEY = "grader_ai_consent";
+
+function _aiConsentGranted() {
+  return localStorage.getItem(_AI_CONSENT_KEY) === "1";
+}
+
+// Модальное окно согласия (index.html #ai-consent-overlay). Promise<boolean>:
+// true — пользователь согласился (запоминаем), false — отменил.
+function _requestAiConsent() {
+  return new Promise(resolve => {
+    const overlay = $("#ai-consent-overlay");
+    const accept = $("#ai-consent-accept");
+    const decline = $("#ai-consent-decline");
+    if (!overlay || !accept || !decline) {
+      resolve(false);
+      return;
+    }
+    const done = ok => {
+      overlay.hidden = true;
+      accept.removeEventListener("click", onAccept);
+      decline.removeEventListener("click", onDecline);
+      resolve(ok);
+    };
+    const onAccept = () => {
+      localStorage.setItem(_AI_CONSENT_KEY, "1");
+      done(true);
+    };
+    const onDecline = () => done(false);
+    accept.addEventListener("click", onAccept);
+    decline.addEventListener("click", onDecline);
+    overlay.hidden = false;
+    accept.focus();
+  });
+}
+
+// POST /api/v1/hint + опрос /api/v1/runs/<id>. Возвращает {hint, configured} |
+// null (сеть/ошибка/таймаут). consent:true шлём всегда, когда дошли сюда —
+// сервер идемпотентно фиксирует согласие (403 без него — страховка).
+async function _submitHint(payload) {
+  let runId;
+  try {
+    const resp = await fetch("/api/v1/hint?lang=" + encodeURIComponent(state.lang), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (resp.status !== 202) return null;
+    runId = (await resp.json()).run_id;
+  } catch {
+    return null;
+  }
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 400));
+    let data;
+    try {
+      const r = await fetch("/api/v1/runs/" + encodeURIComponent(runId));
+      data = await r.json();
+    } catch {
+      continue;
+    }
+    if (data.status === "done") return data.result || null;
+    if (data.status === "error" || data.status === "cancelled") return null;
+  }
+  return null;
+}
+
+// Единый flow «Объяснить (AI)»: рендерит результат/статусы в outEl.
+async function explainFailureWithAi(payload, outEl) {
+  if (!outEl) return;
+  if (!_aiConsentGranted()) {
+    const ok = await _requestAiConsent();
+    if (!ok) return; // отказ — ничего не отправляем
+  }
+  outEl.hidden = false;
+  outEl.innerHTML = '<p class="msg-neutral">' + esc(t("ai.hint_loading")) + "</p>";
+  const res = await _submitHint({ ...payload, consent: true, lang: state.lang });
+  if (!res) {
+    outEl.innerHTML = '<p class="msg">' + esc(t("ai.hint_error")) + "</p>";
+    return;
+  }
+  if (!res.hint) {
+    const key = res.configured ? "ai.hint_empty" : "ai.hint_not_configured";
+    outEl.innerHTML = '<p class="msg-neutral">' + esc(t(key)) + "</p>";
+    return;
+  }
+  outEl.innerHTML =
+    '<div class="errcard ai-hint"><strong>' +
+    esc(t("ai.hint_title")) +
+    "</strong> " +
+    esc(res.hint) +
+    "</div>";
+}
+
 // issue #426 — раздел «Настройки» (синхронизация контролов) — core-резидент.
 registerSectionHook("settings", () => syncSettingsControls());
 
@@ -422,6 +520,7 @@ export {
   codeBlock,
   cycleTheme,
   esc,
+  explainFailureWithAi,
   fetchCodeTerms,
   getSelectedCase,
   kpiGrid,

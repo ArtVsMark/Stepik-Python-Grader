@@ -2338,3 +2338,87 @@ class TestReferenceAdapterUnit:
         result = reference_adapter.import_reference(str(tmp_path))
         assert result["ok"] is False
         assert "ветк" in result["message"]
+
+
+class TestAiHintApi:
+    """POST /api/v1/hint (issue #543): async AI-подсказка + обязательный consent.
+
+    Мокаем канал на уровне ``runs.explain_failure``/``runs.is_configured`` (сам
+    explain_failure покрыт в test_ai_hints.py) — проверяем плумбинг эндпоинт →
+    job → результат, consent-гейт и graceful skip.
+    """
+
+    _HINT = "🤖 AI-подсказка: попробуй прибавить 1"
+
+    def test_hint_requires_consent_nothing_sent(self, server, monkeypatch) -> None:
+        """Без согласия → 403 consent_required; провайдер НЕ вызывается (в сеть 0)."""
+        called: list[int] = []
+        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: called.append(1) or "x")
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        body = json.dumps({"verdict": "WA", "actual": "6", "expected": "5"}).encode()
+        status, resp = _post(server + "/api/v1/hint", body)
+        assert status == 403
+        assert json.loads(resp)["message_id"] == "consent_required"
+        assert called == []  # job не поставлен, explain_failure не вызван
+
+    def test_hint_configured_returns_marked_hint(self, server, monkeypatch) -> None:
+        """consent:true + настроенный канал → 202 → job отдаёт hint отдельным полем;
+        контекст собран из полей тела (verdict/actual/expected/stdin)."""
+        captured: dict[str, object] = {}
+
+        def _fake(fc: object, cfg: object) -> str:
+            captured["fc"] = fc
+            return self._HINT
+
+        monkeypatch.setattr(runs, "explain_failure", _fake)
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        body = json.dumps(
+            {"verdict": "WA", "stdin": "4", "expected": "5", "actual": "6", "consent": True}
+        ).encode()
+        status, resp = _post(server + "/api/v1/hint", body)
+        assert status == 202
+        data = _poll_run(server, json.loads(resp)["run_id"])
+        assert data["status"] == "done"
+        assert data["result"] == {"hint": self._HINT, "configured": True}
+        fc = captured["fc"]
+        assert fc.verdict == "WA"  # type: ignore[attr-defined]
+        assert fc.actual == "6" and fc.expected == "5"  # type: ignore[attr-defined]
+        assert fc.case_input == "4"  # type: ignore[attr-defined]
+
+    def test_hint_not_configured_graceful_null(self, server, monkeypatch) -> None:
+        """consent:true, провайдер не настроен → job done с hint=null (graceful)."""
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: False)
+        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: None)
+        body = json.dumps(
+            {"verdict": "RE", "error": "ZeroDivisionError: x", "consent": True}
+        ).encode()
+        status, resp = _post(server + "/api/v1/hint", body)
+        assert status == 202
+        data = _poll_run(server, json.loads(resp)["run_id"])
+        assert data["status"] == "done"
+        assert data["result"] == {"hint": None, "configured": False}
+
+    def test_hint_consent_persists_across_requests(self, server, tmp_path, monkeypatch) -> None:
+        """consent:true фиксируется в .grader_settings.json; далее без consent проходит."""
+        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: self._HINT)
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        first = json.dumps({"verdict": "WA", "actual": "6", "consent": True}).encode()
+        status1, resp1 = _post(server + "/api/v1/hint", first)
+        assert status1 == 202
+        _poll_run(server, json.loads(resp1)["run_id"])
+        settings_file = tmp_path / ".grader_settings.json"
+        assert settings_file.exists()
+        assert json.loads(settings_file.read_text(encoding="utf-8"))["ai_hint_consent"] is True
+        # Второй запрос БЕЗ поля consent — согласие уже запомнено сервером.
+        second = json.dumps({"verdict": "WA", "actual": "7"}).encode()
+        status2, _ = _post(server + "/api/v1/hint", second)
+        assert status2 == 202
+
+    def test_hint_path_outside_workspace_rejected(self, server, monkeypatch) -> None:
+        """consent даёт согласие, но path вне workspace → 403 path_outside_workspace."""
+        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: self._HINT)
+        monkeypatch.setattr(runs, "is_configured", lambda cfg: True)
+        body = json.dumps({"verdict": "WA", "path": "../../etc/passwd", "consent": True}).encode()
+        status, resp = _post(server + "/api/v1/hint", body)
+        assert status == 403
+        assert json.loads(resp)["message_id"] == "path_outside_workspace"

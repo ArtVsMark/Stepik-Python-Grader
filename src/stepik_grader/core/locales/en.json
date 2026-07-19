@@ -39,6 +39,7 @@
   "run_cancelled": "Run cancelled by user.",
   "run_internal_error": "Internal run error: {error}",
   "too_many_runs": "Too many active runs (limit {limit}). Wait for the current runs to finish and retry.",
+  "consent_required": "Consent required: the AI hint sends your code and its input/output to the AI provider. Nothing is sent over the network without your explicit consent.",
   "bench_profile_header": "  Load profiles (repeats per solution):",
   "bench_profile_1": "    1  low       —   5 runs",
   "bench_profile_2": "    2  medium    —  15 runs",

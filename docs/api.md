@@ -460,6 +460,40 @@ message_id: run_not_found}` — только если job не найдена и
 curl -X POST http://127.0.0.1:8000/api/v1/runs/<run_id>/cancel
 ```
 
+## `POST /api/v1/hint`
+
+AI-объяснение упавшего кейса как async job (issue #543, ADR-0003, эпик E3) —
+opt-in BYOK через OpenAI-совместимый endpoint. Возвращает `run_id`; результат
+(`{"hint": str|null, "configured": bool}`) — через `GET /api/v1/runs/<id>`.
+Контекст (verdict/ввод-вывод/diff/ошибка + код решения) заземляет промпт общим
+core-хелпером `build_failure_context` (issue #542).
+
+Тело JSON: `{"verdict": "...", "stdin"?, "expected"?, "actual"?, "diff"?,
+"error"?, "path"?|"code"?, "consent"?, "lang"?}`. `path` (в workspace) →
+сервер читает код решения для заземления; иначе `code` из тела
+(playground/инлайн).
+
+- **Приватность (обязательное согласие):** подсказка отправляет ваш код и
+  ввод-вывод AI-провайдеру. Без согласия — **403** `consent_required`, в сеть
+  НИЧЕГО не уходит (job не ставится, провайдер не вызывается). `"consent": true`
+  в теле фиксирует однократное согласие в `.grader_settings.json`
+  (`ai_hint_consent`) рабочей директории — далее не требуется. Рекомендация:
+  локальный ollama (данные не покидают машину); для несовершеннолетних — согласие
+  представителя.
+- `path` вне workspace → **403** `path_outside_workspace`.
+- Активных job'ов уже `CONFIG.max_active_runs` → **429** `too_many_runs`.
+- Провайдер не настроен (`ai_base_url`/`ai_model` пусты) → job завершается с
+  `{"hint": null, "configured": false}` (graceful skip; грейдинг не затрагивается,
+  в сеть ничего не уходит).
+- Успех → **202** `{"run_id": "...", "status": "queued"}`.
+
+```
+# после согласия — объяснить WA-кейс режима 1:
+curl -X POST http://127.0.0.1:8000/api/v1/hint \
+  -H "Content-Type: application/json" \
+  -d '{"path": "task.py", "verdict": "WA", "stdin": "4", "expected": "5", "actual": "6", "consent": true}'
+```
+
 ---
 
 ## `GET /api/auth/status`

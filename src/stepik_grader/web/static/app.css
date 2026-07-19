@@ -747,3 +747,12 @@ a.term-card-link:hover { background: var(--color-surface-offset); }
 @media (max-width: 640px) {
   .notice { left: var(--space-4); right: var(--space-4); max-width: none; }
 }
+
+/* issue #543 — AI-подсказка: кнопка «Объяснить», её вывод и модалка согласия.
+   Только раскладка (без цветов) — переиспользуем .btn/.errcard/.palette-токены,
+   contrast-guard (#424) не задеваем. */
+.ai-explain-btn { margin-top: var(--space-3); }
+.ai-hint-out { margin-top: var(--space-3); }
+.errcard.ai-hint { margin-top: var(--space-3); }
+.ai-consent .ai-consent-body { margin: var(--space-3) 0; line-height: 1.5; }
+.ai-consent-actions { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
