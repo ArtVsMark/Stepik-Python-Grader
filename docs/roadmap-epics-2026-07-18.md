@@ -290,7 +290,7 @@ E10 ← (нет зависимостей)   безопасность web
 
 #### `docs(adr): ADR-0010 граница web↔core + ADR-0011 персистентность`
 
-**Проблема / Контекст.** Service-слой и SQL-унификация — решения уровня ADR (границы, durability, дорогой откат), но фиксируются в коде без зафиксированного контекста; премиса «нет общего ContentProvider» ложна (`json_provider.py:41`/`:49`).
+**Проблема / Контекст.** Service-слой и SQL-унификация — решения уровня ADR (границы, durability, дорогой откат), но фиксируются в коде без зафиксированного контекста; премиса «нет общего ContentProvider» ложна — существуют два раздельных `@runtime_checkable`-протокола в разных подпакетах: `RulesProvider` (`rules/json_provider.py:41`) и `GlossaryProvider` (`glossary/json_provider.py:49`), а не единый `json_provider.py`.
 
 **Acceptance criteria.**
 - [ ] ADR-0010 (Proposed): адаптеры = сервисный слой, отдельный тяжёлый Service-слой не вводим; общий ContentProvider НЕ вводим (правило трёх); web-фасад для grade/bench/microbench.
