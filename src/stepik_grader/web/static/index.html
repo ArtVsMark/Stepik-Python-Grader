@@ -432,8 +432,10 @@
           </div>
 
           <div class="section-heading" data-i18n="settings.history_heading">История прогонов</div>
-          <p class="hint" id="history-status">История ошибок (раздел «Подучить», эпик
-            #342) собирается на SQLite.</p>
+          <!-- Текст заполняется динамически в syncSettingsControls() через t()
+               (settings.history_status_on/off, #546) — раздел скрыт до открытия,
+               поэтому статической RU-заглушки здесь нет (guardrail #547). -->
+          <p class="hint" id="history-status"></p>
         </div>
       </div>
     </section>
