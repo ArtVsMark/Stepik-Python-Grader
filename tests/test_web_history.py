@@ -78,6 +78,33 @@ def test_grade_path_dir_records_mode2(tmp_path, monkeypatch) -> None:
     assert len(runs[0]["cases"]) == 4
 
 
+def test_task_key_relative_to_workspace_not_cwd(tmp_path, monkeypatch) -> None:
+    """issue #539: task_key считается от workspace (--root), а не cwd, и стабилен между cwd.
+
+    Без фикса ключ, взятый от cwd, из чужого каталога дал бы basename ``task01``,
+    а из корня — ``ws/course/task01`` (разные ключи → искажение TTFG/«Подучить»).
+    От workspace он инвариантен к cwd и стабилен между прогонами: ``course/task01``.
+    """
+    ws = tmp_path / "ws"
+    task_dir = ws / "course" / "task01"
+    task_dir.mkdir(parents=True)
+    sol = _make_task(task_dir)
+    other = tmp_path / "elsewhere"
+    other.mkdir()
+
+    keys: list[str] = []
+    monkeypatch.setattr(history, "record_run", lambda *a, **k: keys.append(k["task_key"]))
+    viewmodels.set_web_record_history(True)
+
+    monkeypatch.chdir(other)  # cwd ≠ workspace
+    viewmodels.grade_path(sol, workspace=ws)
+    monkeypatch.chdir(tmp_path)  # другой cwd — ключ не должен поменяться
+    viewmodels.grade_path(sol, workspace=ws)
+
+    expected = str(pathlib.Path("course") / "task01")
+    assert keys == [expected, expected]
+
+
 def test_grade_benchmark_records_mode3(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     _make_task(tmp_path)

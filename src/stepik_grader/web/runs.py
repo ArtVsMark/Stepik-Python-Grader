@@ -179,6 +179,7 @@ def submit_job(
     *,
     code: str | None = None,
     stdin: str | None = None,
+    workspace: pathlib.Path | None = None,
 ) -> Job:
     """Поставить tests/bench/microbench в очередь async job'ов (issue #262/#297).
 
@@ -212,6 +213,10 @@ def submit_job(
     провалидированные/кламп'нутые вызывающей стороной (``server.py``),
     прокидываются в ``grade_path``/``grade_benchmark``/``grade_microbench``
     как есть (для ``tests`` значим только ``lang``).
+
+    ``workspace`` — корень сервера (``server.workspace`` / ``--root``);
+    прокидывается в grade-функции ради стабильного ``task_key`` истории,
+    инвариантного к cwd процесса-воркера (issue #539).
     """
     job = Job(uuid.uuid4().hex, kind)
     with _JOBS_LOCK:
@@ -223,7 +228,7 @@ def submit_job(
         if _count_active_locked() >= max(1, CONFIG.max_active_runs):
             raise TooManyRunsError(CONFIG.max_active_runs)
         _JOBS[job.id] = job
-    job.future = _get_executor().submit(_run_job, job, kind, path, params, code, stdin)
+    job.future = _get_executor().submit(_run_job, job, kind, path, params, code, stdin, workspace)
     return job
 
 
@@ -259,6 +264,7 @@ def _run_job(
     params: dict[str, Any],
     code: str | None,
     stdin: str | None = None,
+    workspace: pathlib.Path | None = None,
 ) -> None:
     """Тело job'ы — выполняется на потоке ``ThreadPoolExecutor`` (issue #262)."""
     with job.lock:
@@ -312,6 +318,7 @@ def _run_job(
                 lang=lang,
                 progress_callback=_tick,
                 cancel_event=job.cancel_event,
+                workspace=workspace,
             )
         elif kind == "bench":
             result = grade_benchmark(
@@ -321,6 +328,7 @@ def _run_job(
                 lang=lang,
                 progress_callback=_tick,
                 cancel_event=job.cancel_event,
+                workspace=workspace,
             )
         else:  # "microbench"
             result = grade_microbench(
@@ -329,6 +337,7 @@ def _run_job(
                 lang=lang,
                 progress_callback=_tick,
                 cancel_event=job.cancel_event,
+                workspace=workspace,
             )
 
         with job.lock:
