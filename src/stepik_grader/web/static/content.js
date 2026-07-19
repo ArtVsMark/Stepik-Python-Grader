@@ -409,9 +409,24 @@ function renderProgress() {
   const totalCases = Object.values(verdicts).reduce((a, b) => a + b, 0);
   $("#progress-kpis").innerHTML = kpiGrid([
     { label: "Решено задач", value: rep.solved_tasks + " / " + rep.total_tasks },
+    { label: "Серия AC", value: rep.streak || 0 },
     { label: "Прогонов", value: rep.total_runs },
     { label: "Успешных кейсов (AC)", value: (verdicts.AC || 0) + (totalCases ? " / " + totalCases : "") },
   ]);
+
+  // issue #540: видимые достижения — заслуженные бейджи ярче, ещё не взятые приглушены.
+  const badges = rep.badges || [];
+  $("#progress-badges").innerHTML = badges.length
+    ? '<h2 class="section-heading">Достижения</h2><div class="chip-row">' +
+      badges
+        .map(
+          b =>
+            '<span class="chip' + (b.earned ? "" : " chip-locked") + '">' +
+            (b.earned ? "🏅 " : "🔒 ") + esc(b.label) + "</span>",
+        )
+        .join("") +
+      "</div>"
+    : "";
 
   const vItems = Object.entries(verdicts);
   $("#progress-verdicts").innerHTML = vItems.length

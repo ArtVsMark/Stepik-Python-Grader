@@ -13,6 +13,7 @@ from stepik_grader.core.history import CaseRecord, LintRecord
 from stepik_grader.core.insights import (
     InsightCard,
     classify_status,
+    current_streak,
     failure_kind,
     learning_cards,
     time_to_first_green,
@@ -223,3 +224,22 @@ def test_violated_rule_codes_from_history(tmp_path: Path) -> None:
 
 def test_violated_rule_codes_empty_history(tmp_path: Path) -> None:
     assert violated_rule_codes(tmp_path / "nope.db") == set()
+
+
+# --------------------------------------------------------------------------- #
+# current_streak — текущая серия AC-подряд (issue #540)
+# --------------------------------------------------------------------------- #
+
+
+def test_current_streak_counts_consecutive_ac_from_newest(tmp_path: Path) -> None:
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="a", duration_s=1.0)
+    history.record_run(1, [CaseRecord(1, "WA")], db_path=db, task_key="b", duration_s=1.0)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="c", duration_s=1.0)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="d", duration_s=1.0)
+    # порядок (новые первыми): d(AC), c(AC), b(WA), a(AC) → серия = 2, обрывается на WA
+    assert current_streak(db) == 2
+
+
+def test_current_streak_empty_history_zero(tmp_path: Path) -> None:
+    assert current_streak(tmp_path / "nope.db") == 0
