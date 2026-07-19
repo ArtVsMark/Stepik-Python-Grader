@@ -18,15 +18,16 @@ function openGlossaryForSelectedCase() {
 
 // issue #546: label — КЛЮЧ каталога (перевод при рендере через t()), а не
 // готовая строка (иначе язык зафиксировался бы на импорте). Поле section —
-// значение фильтра, сопоставляется с именами разделов сервера: НЕ переводить.
+// значение фильтра, сопоставляется с именами разделов сервера: НЕ переводить
+// (маркер `i18n-exempt` освобождает эти строки от guardrail'а #547).
 const GLOSSARY_CHIPS = [
-  { labelKey: "glossary.chip_str", section: "Строки (str)" },
-  { labelKey: "glossary.chip_list", section: "Списки (list)" },
-  { labelKey: "glossary.chip_tuple", section: "Кортежи (tuple)" },
-  { labelKey: "glossary.chip_dict", section: "Словари (dict)" },
-  { labelKey: "glossary.chip_set", section: "Множества (set)" },
-  { labelKey: "glossary.chip_builtins", section: "Встроенные функции" },
-  { labelKey: "glossary.chip_exceptions", section: "Исключения" },
+  { labelKey: "glossary.chip_str", section: "Строки (str)" }, // i18n-exempt: серверный фильтр
+  { labelKey: "glossary.chip_list", section: "Списки (list)" }, // i18n-exempt: серверный фильтр
+  { labelKey: "glossary.chip_tuple", section: "Кортежи (tuple)" }, // i18n-exempt: серверный фильтр
+  { labelKey: "glossary.chip_dict", section: "Словари (dict)" }, // i18n-exempt: серверный фильтр
+  { labelKey: "glossary.chip_set", section: "Множества (set)" }, // i18n-exempt: серверный фильтр
+  { labelKey: "glossary.chip_builtins", section: "Встроенные функции" }, // i18n-exempt: серверный фильтр
+  { labelKey: "glossary.chip_exceptions", section: "Исключения" }, // i18n-exempt: серверный фильтр
 ];
 
 async function loadGlossary() {

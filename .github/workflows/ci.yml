@@ -26,6 +26,11 @@ jobs:
       # без pip install — держим в том же быстром job, что и docs-guardrails.
       - name: Locale message catalog guardrails (issue #264)
         run: python scripts/check_locale_guardrails.py
+      # issue #547: локализация web-UI оболочки (ui.json + data-i18n #545 +
+      # t()/tp() #546) — паритет ru/en, покрытие ключей, нет голой кириллицы вне
+      # каталога. Тоже чистый stdlib (html.parser/json), без pip install.
+      - name: Web UI locale guardrails (issue #547)
+        run: python scripts/check_ui_locale_guardrails.py
 
   test:
     runs-on: ${{ matrix.os }}
