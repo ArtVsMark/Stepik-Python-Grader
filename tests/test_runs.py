@@ -242,9 +242,56 @@ class TestInlineCode:
         )
         _poll_until_terminal(job.id)
 
-        # No stray .py files besides the original solution should remain.
+        # issue #605: cleanup runs BEFORE the terminal status is published, so a
+        # poller that has just seen "done" must never observe a stray temp .py
+        # (previously the unlink ran after job.status="done" — a visibility race).
         py_files = {p.name for p in tmp_path.glob("*.py")}
         assert py_files == {"task.py"}
+
+
+class TestRobustUnlink:
+    """issue #605: temp-файл inline-кода удаляется устойчиво к Windows-блокировке."""
+
+    def test_retries_then_succeeds_on_transient_lock(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        target = tmp_path / "locked.py"
+        target.write_text("x", encoding="utf-8")
+        real_unlink = pathlib.Path.unlink
+        calls = {"n": 0}
+
+        def flaky_unlink(self: pathlib.Path, *a: object, **k: object) -> None:
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise PermissionError("file is locked by another process")
+            real_unlink(self, *a, **k)
+
+        monkeypatch.setattr(pathlib.Path, "unlink", flaky_unlink)
+        runs._robust_unlink(target, attempts=5, delay=0)  # delay=0 → тест не спит
+
+        assert calls["n"] == 3
+        assert not target.exists()
+
+    def test_gives_up_silently_after_attempts(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        target = tmp_path / "stuck.py"
+        target.write_text("x", encoding="utf-8")
+        calls = {"n": 0}
+
+        def always_locked(self: pathlib.Path, *a: object, **k: object) -> None:
+            calls["n"] += 1
+            raise PermissionError("permanently locked")
+
+        monkeypatch.setattr(pathlib.Path, "unlink", always_locked)
+        # best-effort: не должно бросить, даже если файл так и не удалился.
+        runs._robust_unlink(target, attempts=3, delay=0)
+
+        assert calls["n"] == 3  # все попытки исчерпаны, без исключения
+
+    def test_missing_file_is_noop(self, tmp_path: pathlib.Path) -> None:
+        # FileNotFoundError (файл уже удалён) — тихий успех, без ретраев/исключения.
+        runs._robust_unlink(tmp_path / "does-not-exist.py", attempts=3, delay=0)
 
 
 class TestTtlSweep:
