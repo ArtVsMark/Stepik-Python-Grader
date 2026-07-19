@@ -2,8 +2,9 @@
 
 - **Статус:** Proposed
 - **Дата:** 2026-07-19
-- **Связанные issue:** #529 (эпик E5), #548 (этот ADR); реализация — #530 (эпик E6:
-  `core/db.py` + миграция missing-queue на SQLite/WAL); контекст — #344 (history),
+- **Связанные issue:** #529 (эпик E5), #548 (этот ADR); реализация — #530 (эпик E6):
+  #551 (общий `atomic_io.atomic_write_json` + атомарная запись missing-queue/settings),
+  #552 (`core/db.py` + миграция missing-queue на SQLite/WAL); контекст — #344 (history),
   #408 (атомарный JSON)
 - **Связанный дизайн:** [docs/architecture.md](../architecture.md),
   [docs/configuration.md](../configuration.md), [docs/logging.md](../logging.md)
@@ -20,9 +21,17 @@
 | `core/storage.py` | произвольный путь | JSON | атомарно (`mkstemp`+`os.replace`+`fsync`) |
 | `core/stats.py` | `.grader_stats.jsonl` | JSONL append-only | устойчив к обрыву построчно; process-only Lock |
 | `core/cache.py` | `.grader_cache/results.json` | JSON | opt-in, регенерируемо |
-| `glossary/json_provider.py` | missing-queue JSON | JSON | **голый `open("w")`** — неатомарен; process-only Lock |
-| `core/user_settings.py` | `.grader_settings.json` | JSON | атомарно без `fsync` |
+| `glossary/json_provider.py` | missing-queue JSON | JSON | атомарно с #551 (`atomic_write_json`, `fsync`); межпроцессная гонка остаётся (process-only Lock) → SQLite в #552 |
+| `core/user_settings.py` | `.grader_settings.json` | JSON | атомарно с #551 (`atomic_write_json`, `mkstemp` без `fsync`; прежний фиксированный `.tmp` делили писатели) |
 | config/secrets | `stepik_config.json`/`secrets.json` | JSON | secrets `0600`, атомарно |
+
+> **Обновление (#551, первый шаг E6).** Атомарность записи missing-queue и
+> settings уже закрыта — общий `atomic_write_json` заменил голый `open("w")`
+> (missing-queue) и фиксированный `.tmp` (settings). Осталась ровно
+> **межпроцессная гонка** CLI+web для missing-queue — её снимает миграция на
+> SQLite/WAL (#552). То есть durability и гонка развязаны на два шага: сперва
+> атомарный JSON-писатель (#551), затем SQLite для кросс-процессной безопасности
+> (#552).
 
 SQLite-подключение + PRAGMA-шаблон (`_connect`, `journal_mode=WAL`,
 `busy_timeout`, `foreign_keys=ON`, `user_version`-миграция) сегодня заперты внутри

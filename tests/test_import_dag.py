@@ -8,7 +8,8 @@ CLAUDE.md § «Архитектурные инварианты» фиксиру�
    модулями ``stepik_grader``. Цикл на уровне *загрузки модуля* — это реальный
    ``ImportError`` в проде, а не косметика.
 2. **Leaf-модули** — ``core/storage.py``, ``core/normalizers.py``,
-   ``core/glossary.py`` не импортируют ничего из проекта (только stdlib).
+   ``core/glossary.py``, ``atomic_io.py`` не импортируют ничего из проекта
+   (только stdlib).
 
 Модель рёбер — консервативная и совпадает с семантикой загрузки CPython:
 
@@ -35,11 +36,15 @@ _SRC_ROOT = pathlib.Path(__file__).parent.parent / "src"
 _PKG = "stepik_grader"
 _PKG_ROOT = _SRC_ROOT / _PKG
 
-# CLAUDE.md § «Архитектурные инварианты», п.2 — эти три модуля leaf по контракту.
+# CLAUDE.md § «Архитектурные инварианты», п.2 — эти модули leaf по контракту.
+# ``atomic_io`` — общий top-level атомарный JSON-писатель (issue #551, ADR-0011):
+# живёт вне ``core/``, чтобы независимые от core подпакеты (``glossary/``) могли
+# им пользоваться, не создавая ребра ``glossary → core``; сам он — stdlib-only.
 _LEAF_MODULES = (
     "stepik_grader.core.storage",
     "stepik_grader.core.normalizers",
     "stepik_grader.core.glossary",
+    "stepik_grader.atomic_io",
 )
 
 
@@ -204,7 +209,7 @@ def test_import_graph_has_no_cycles() -> None:
 
 @pytest.mark.parametrize("leaf", _LEAF_MODULES)
 def test_leaf_module_has_no_project_imports(leaf: str) -> None:
-    """Leaf-инвариант (CLAUDE.md п.2): storage/normalizers/glossary — только stdlib.
+    """Leaf-инвариант (CLAUDE.md п.2): каждый leaf из ``_LEAF_MODULES`` — только stdlib.
 
     Учитываются ВСЕ импорты (в т.ч. ленивые и TYPE_CHECKING): «не импортирует
     ничего из проекта» — абсолютное правило, а не только про загрузку.

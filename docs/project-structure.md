@@ -21,6 +21,7 @@ Stepik-Python-Grader/
 │       │   ├── rendering.py       # csv/markdown table output (leaf, issue #121 Phase 1)
 │       │   └── interactive.py     # _interactive_menu, _ask_*, _pick_path_via_dialog (leaf, issue #121 Phase 2)
 │       ├── config.py              # GraderConfig, CONFIG — единая конфигурация
+│       ├── atomic_io.py           # Utilities: atomic_write_json (temp+os.replace, leaf, issue #551/ADR-0011)
 │       ├── web/                   # Локальный веб-интерфейс (--serve), issue #58/#125/#186/#187
 │       │   ├── __init__.py        # Публичный API пакета (реэкспорт для back-compat)
 │       │   ├── server.py          # HTTP-хендлер (http.server), роутинг /api/*

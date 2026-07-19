@@ -299,8 +299,14 @@ def main(argv: list[str] | None = None) -> None:
     if args.missing_out:
         missing = missing_entries_from_inventory(inventory, known=known)
         missing_out = pathlib.Path(args.missing_out)
-        append_missing_entries(missing_out, missing)
-        _print(f"Missing entries written to {missing_out} ({len(missing)} stdlib_scan gaps)")
+        # issue #551: битая очередь / ошибка ФС не должна ронять coverage-CLI —
+        # best-effort, как и сама запись (append_missing_entries → atomic_write_json).
+        try:
+            append_missing_entries(missing_out, missing)
+        except (GlossaryError, OSError) as exc:
+            _print(f"Warning: не удалось записать очередь пополнения в {missing_out}: {exc}")
+        else:
+            _print(f"Missing entries written to {missing_out} ({len(missing)} stdlib_scan gaps)")
 
 
 if __name__ == "__main__":

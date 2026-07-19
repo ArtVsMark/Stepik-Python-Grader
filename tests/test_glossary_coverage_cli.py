@@ -89,3 +89,23 @@ def test_main_restricts_modules_via_flag(tmp_path: pathlib.Path) -> None:
 def test_main_invalid_cards_path_exits_with_error() -> None:
     with pytest.raises(SystemExit):
         main(["--cards", "/definitely/does/not/exist.json"])
+
+
+def test_main_broken_missing_queue_warns_not_crashes(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Битая существующая очередь пополнения не роняет coverage-CLI (issue #551).
+
+    ``append_missing_entries`` читает очередь перед дозаписью; невалидный JSON →
+    ``GlossaryError``. CLI ловит её (и ``OSError``), печатает предупреждение и
+    завершается штатно — сводка покрытия уже напечатана, скан не должен падать
+    из-за повреждённого backlog-файла.
+    """
+    out_path = tmp_path / "missing.json"
+    out_path.write_text("{ это не валидный JSON", encoding="utf-8")
+
+    main(["--modules", "math", "--missing-out", str(out_path)])  # без исключения
+
+    out = capsys.readouterr().out
+    assert "Warning" in out
+    assert str(out_path) in out
