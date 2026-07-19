@@ -107,5 +107,9 @@ def test_main_broken_missing_queue_warns_not_crashes(
     main(["--modules", "math", "--missing-out", str(out_path)])  # без исключения
 
     out = capsys.readouterr().out
+    # rich мягко переносит длинную строку предупреждения по ширине консоли
+    # (в CI не-TTY → 80), вставляя перенос прямо внутрь длинного пути (на macOS
+    # tmp_path особенно длинный) — сверяем путь по схлопнутому пробелу.
+    collapsed = "".join(out.split())
     assert "Warning" in out
-    assert str(out_path) in out
+    assert str(out_path) in collapsed

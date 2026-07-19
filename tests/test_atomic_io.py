@@ -129,22 +129,29 @@ def test_replace_failure_propagates_and_cleans_temp(
     assert list(tmp_path.iterdir()) == []  # temp best-effort убран
 
 
-def test_concurrent_writers_never_observe_truncated_json(tmp_path: pathlib.Path) -> None:
-    """Параллельные писатели одной цели: читатель всегда видит валидный JSON.
+def test_concurrent_writers_keep_file_valid_and_leak_no_temp(tmp_path: pathlib.Path) -> None:
+    """Параллельные писатели одной цели: финал — полная валидная версия, без temp-остатков.
 
     Уникальный ``mkstemp`` (а не общий ``.tmp``) гарантирует, что писатели не
-    делят временный файл, а ``os.replace`` атомарен — читатель ловит либо старую,
-    либо новую полную версию, но никогда усечённую.
+    делят временный файл, а ``os.replace`` атомарен — конкурентные замены не
+    затирают друг друга в недопустимое состояние, финал — вывод одного из
+    писателей целиком, все temp'ы поглощены своими ``replace``.
+
+    Намеренно БЕЗ конкурентного чтения: на Windows ``os.replace`` не может
+    заменить файл, открытый на чтение другим потоком (замена упала бы
+    ``PermissionError`` — это семантика файловых блокировок ОС, а не порча;
+    атомарность записи от этого не страдает, читатель держит прежний inode). На
+    POSIX читатель дополнительно никогда не видит усечённую версию (inode-swap);
+    эту гарантию для читателя кросс-платформенно покрывают crash-safety-тесты
+    выше (цель либо старая полная, либо новая полная, но не усечённая).
     """
     path = tmp_path / "data.json"
-    atomic_write_json(path, {"writer": -1, "payload": []})
     errors: list[Exception] = []
 
     def _writer(writer_id: int) -> None:
         try:
             for _ in range(25):
                 atomic_write_json(path, {"writer": writer_id, "payload": list(range(50))})
-                json.loads(path.read_text(encoding="utf-8"))  # чтение вперемешку
         except Exception as exc:  # копим для ассерта в главном потоке
             errors.append(exc)
 
@@ -154,7 +161,8 @@ def test_concurrent_writers_never_observe_truncated_json(tmp_path: pathlib.Path)
     for thread in threads:
         thread.join()
 
-    assert not errors, f"конкурентная запись/чтение дала ошибку: {errors}"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["payload"] == list(range(50))  # финальная версия — полная
+    assert not errors, f"конкурентная запись дала ошибку: {errors}"
+    data = json.loads(path.read_text(encoding="utf-8"))  # финал — полный валидный JSON
+    assert data["payload"] == list(range(50))  # версия одного писателя целиком
+    assert 0 <= data["writer"] < 6
     assert list(tmp_path.iterdir()) == [path]  # без осиротевших temp
