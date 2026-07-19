@@ -5,6 +5,7 @@
 [![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/version.json&cacheSeconds=300)](CHANGELOG.md)
 [![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 [![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](docs/glossary.md)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14%20%28exp%29-blue)
 
 > **Status:** Stable &nbsp;·&nbsp; 🇬🇧 [English quick start & generic mode](README.en.md)
@@ -41,7 +42,7 @@
   от `watchfiles`)
 - 🧪 Playwright e2e-смоук фронтенда + регрессия на XSS (опционально: extra
   `[e2e]` — см. [CONTRIBUTING.md § E2E-тесты](CONTRIBUTING.md#e2e-тесты-playwright-опционально-issue-263))
-- 📚 Локальный глоссарий-модуль (601 готовая карточка из ≈1388; черновики-автодрафты скрыты по умолчанию, issue #436): функции/исключения/конструкции,
+- 📚 Локальный глоссарий-модуль (число готовых карточек — в бейдже Glossary выше; эпик #363 завершён, черновиков нет): функции/исключения/конструкции,
   детектор недостающих терминов, deep-link из error cards
 - 🎓 Правила PEP 8 и раздел «Подучить» — частые ошибки из истории прогонов с
   затуханием (`--insights` / `--lint`, эпик #342)
