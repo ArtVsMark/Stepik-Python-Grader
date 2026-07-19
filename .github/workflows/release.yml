@@ -6,11 +6,12 @@ on:
       - "v*"
 
 jobs:
-  release:
+  # issue #559: dist собирается ОДИН раз здесь и передаётся артефактом в оба
+  # потребителя (GitHub Release + PyPI) через upload/download-artifact — раньше
+  # release и pypi-publish собирали `python -m build` дважды (двойная сборка,
+  # риск рассинхрона wheel/sdist между двумя запусками).
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
       - uses: actions/checkout@v5
         # issue #162: setuptools-scm берёт версию из git-тегов — нужна полная
@@ -27,6 +28,26 @@ jobs:
         run: |
           python -m pip install --upgrade build
           python -m build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  github-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # issue #559: артефакт из job `build` — без повторной сборки. Сам релиз
+      # генерируется API по тегу (checkout не нужен).
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -44,32 +65,23 @@ jobs:
   #        Workflow:     release.yml
   #        Environment:  pypi
   # Recommended: dry-run against test.pypi.org first (see the commented step).
-  # This job is independent of the GitHub Release job above (`needs: release`
-  # only orders it after a successful build): if the trusted publisher is not
-  # configured yet, only THIS job fails — the GitHub Release still publishes.
+  # This job is independent of the GitHub Release job above — both fan out from
+  # `build` (issue #559), so if the trusted publisher is not configured yet,
+  # only THIS job fails; the GitHub Release still publishes.
   pypi-publish:
-    needs: release
+    needs: build
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
       id-token: write  # mint the OIDC token PyPI trusted publishing verifies
 
     steps:
-      - uses: actions/checkout@v5
-        # issue #162: setuptools-scm берёт версию из git-тегов — нужна полная
-        # история и теги, иначе сборка на теге не определит X.Y.0.
+      # issue #559: тот же артефакт из job `build` — publish без повторной сборки.
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
         with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Build sdist and wheel
-        run: |
-          python -m pip install --upgrade build
-          python -m build
+          name: dist
+          path: dist
 
       # Dry-run on TestPyPI first — uncomment, publish once, verify
       # `pipx install -i https://test.pypi.org/simple/ stepik-python-grader`,

@@ -205,7 +205,16 @@ jobs:
     # issue #420: + sandbox-linux — его .coverage.sandbox-linux (покрытие
     # _linux.py, недостижимое в матрице без bwrap) подхватывается download'ом
     # по маске coverage-data-* и вливается в cross-OS combine.
+    #
+    # issue #559: раньше `needs: [test, sandbox-linux]` был ЖЁСТКИМ — падение
+    # flaky privileged-контейнера sandbox-linux тихо СКИПАЛО весь combine (немой
+    # skip: ни gate, ни бейджа, ни сигнала). Теперь job запускается всегда, когда
+    # прошёл `test` (sandbox-linux остаётся в needs лишь для ОРДЕРА — дождаться
+    # его артефакта, если он есть). combine_coverage.py детектит отсутствие
+    # .coverage.sandbox-linux и ГРОМКО сигналит (::warning:: + degraded=true), а
+    # строгий --fail-under=90 применяет только при полных данных.
     needs: [test, sandbox-linux]
+    if: ${{ !cancelled() && needs.test.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -231,12 +240,17 @@ jobs:
           path: coverage-artifacts
           merge-multiple: true
 
-      - name: Combine and report (issue #283)
+      # issue #559: combine + строгий gate вынесены в scripts/combine_coverage.py
+      # (тестируемо, под mypy как #558). Скрипт детектит отсутствие ожидаемых
+      # .coverage.<suffix> (напр. sandbox-linux упал) → ::warning:: + degraded=true
+      # вместо немого недосчёта; строгий --fail-under=90 только при полных данных.
+      - name: Combine and report (issue #283/#559)
+        id: combine
         run: |
-          coverage combine coverage-artifacts
-          coverage report -m
-          coverage report --fail-under=90
-          coverage xml
+          python scripts/combine_coverage.py \
+            --artifacts coverage-artifacts --fail-under 90 \
+            --require ubuntu-latest --require windows-latest \
+            --require macos-latest --require sandbox-linux
 
       # Same retry logic as the test job's badge step — two pushes to main
       # close together race on this commit; on conflict, abort the rebase,
@@ -247,7 +261,11 @@ jobs:
       # badge here — the version badge is coverage-independent and already
       # handled by the `test` job's own badge step.
       - name: Update combined coverage badge (main only)
-        if: github.event_name == 'push'
+        # issue #559: при деградации (нет ожидаемых coverage-данных, напр. упал
+        # sandbox-linux) бейдж НЕ публикуем — иначе показали бы недосчитанное
+        # число как «правду». Пометка о пропуске — в ::warning:: из
+        # combine_coverage.py выше; прошлый честный бейдж остаётся в силе.
+        if: github.event_name == 'push' && steps.combine.outputs.degraded != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
