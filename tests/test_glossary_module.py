@@ -170,6 +170,26 @@ def test_card_matches_by_alias_and_keyword() -> None:
     assert not card.matches("   ")
 
 
+def test_card_matches_by_summary_and_body_fulltext() -> None:
+    """issue #536: поиск находит карточку по слову из summary/body, не только по терминам."""
+    card = GlossaryCard.from_dict(
+        {
+            "id": "gc",
+            "title": "Garbage collector",
+            "summary": {"ru": "Управление памятью", "en": "memory reclaim"},
+            "body": {"ru": "Подсчёт ссылок и обход циклов.", "en": "reference counting"},
+        }
+    )
+    assert card.matches("памятью")  # RU summary
+    assert card.matches("reclaim")  # EN summary
+    assert card.matches("ссылок")  # RU body
+    assert card.matches("counting")  # EN body
+    assert card.matches("Garbage")  # термины (title) по-прежнему работают
+    assert not card.matches("несуществующее")
+    # search_terms (питает known_terms/coverage) остаётся узким — текст туда не попадает
+    assert not any("памятью" in term for term in card.search_terms)
+
+
 # ---------------------------------------------------------------------------
 # JsonGlossaryProvider — загрузка
 # ---------------------------------------------------------------------------
@@ -260,6 +280,25 @@ def test_provider_search_by_title_alias_tag() -> None:
     assert [c.id for c in provider.search("recursion")] == ["recursionerror"]
     assert [c.id for c in provider.search("reduce")] == ["functools.reduce"]  # alias
     assert {c.id for c in provider.search("syntax")} == {"match-case"}  # tag
+
+
+def test_provider_search_finds_body_only_word(tmp_path: pathlib.Path) -> None:
+    """issue #536: provider.search (общий путь web glossary_search и CLI) находит по тексту body."""
+    path = tmp_path / "cards.json"
+    path.write_text(
+        json.dumps(
+            {
+                "cards": [
+                    {"id": "gc", "title": "GC", "body": {"ru": "обходциклов", "en": ""}},
+                    {"id": "other", "title": "Other"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    provider = JsonGlossaryProvider.from_file(path)
+    # слово есть только в body карточки gc — раньше не находилось; порядок стабилен
+    assert [c.id for c in provider.search("обходциклов")] == ["gc"]
 
 
 def test_provider_list_by_status_and_tag() -> None:

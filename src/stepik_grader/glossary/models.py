@@ -127,12 +127,30 @@ class GlossaryCard:
         terms = [self.id, self.title, *self.aliases, *self.keywords, *self.tags]
         return [t.lower() for t in terms if t]
 
+    @cached_property
+    def full_text_terms(self) -> list[str]:
+        """``search_terms`` плюс полнотекстовые поля (summary/body, RU+EN), lower-case.
+
+        issue #536: поиск по карточке ищет и в её тексте, не только в
+        id/title/aliases/keywords/tags. Держится отдельно от ``search_terms``,
+        потому что те питают ``known_terms``/coverage и детектор пробелов — туда
+        summary/body попадать НЕ должны (иначе концепт ложно считался бы
+        «покрытым» по любому упоминанию в тексте). Тот же ``cached_property``-
+        контракт иммутабельной карточки, что и у ``search_terms``.
+        """
+        extra = (self.summary, self.body, self.summary_en, self.body_en)
+        return [*self.search_terms, *(text.lower() for text in extra if text)]
+
     def matches(self, query: str) -> bool:
-        """True, если ``query`` (подстрока, без регистра) есть в search_terms."""
+        """True, если ``query`` (подстрока, без регистра) есть в тексте карточки.
+
+        Полнотекстовый поиск (issue #536): id/title/aliases/keywords/tags И
+        summary/body (RU+EN). ``search_terms`` (для coverage) остаётся узким.
+        """
         needle = query.strip().lower()
         if not needle:
             return False
-        return any(needle in term for term in self.search_terms)
+        return any(needle in term for term in self.full_text_terms)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> GlossaryCard:
