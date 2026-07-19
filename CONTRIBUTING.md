@@ -354,6 +354,14 @@ PEP 440 (`X.Y.0.postN+g<hash>`) — это то, что понимают `pip`/P
   Stepik» (другие языки/платформы).
 - Ручное редактирование версии в `pyproject.toml` не требуется и запрещено —
   всё делает тег.
+- **⛔ Блокирующий шаг ПЕРЕД тегом `vX.Y.0` — ротация CHANGELOG (issue #562).**
+  До постановки тега перенеси самый старый MINOR из `CHANGELOG.md` в
+  [`docs/changelog-archive.md`](docs/changelog-archive.md) дословно, чтобы в
+  живом `CHANGELOG.md` осталось ровно `[Unreleased]` + **три последних MINOR**
+  (см. «Краткость и ротация CHANGELOG» выше), и переименуй `[Unreleased]` →
+  `[X.Y.0] — ДАТА`, добавив сверху новый пустой `[Unreleased]`. Это **не**
+  опциональная уборка, а гейт: `check_docs_guardrails.py` держит версионный
+  бюджет `CHANGELOG.md` = 3, и без ротации CI на релизе **падает**.
 
 **CI-защита от дрейфа.** `scripts/check_version_consistency.py` (issue #165)
 следит, чтобы (1) статический `version` не вернулся в `pyproject.toml` и

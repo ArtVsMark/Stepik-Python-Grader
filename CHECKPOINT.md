@@ -23,11 +23,12 @@
 > и [`docs/versions.md`](docs/versions.md); этот файл остаётся историческим
 > snapshot, а не источником истины по версиям.
 
-- Тестов: 1317 · Покрытие: 93% cross-OS combined — **снапшот на момент релиза
-  v1.8.0; актуальные числа в живых бейджах README** (single-OS ubuntu ~87.5%,
-  структурно ограничено `core/sandbox/`'s тремя ОС-специфичными backend'ами,
-  см. [`docs/architecture.md`](docs/architecture.md)) · Python: 3.12 / 3.13 /
-  3.14 (экспериментальная, только ubuntu в CI)
+- Тестов и покрытие: **см. живые бейджи README** (`Coverage (ubuntu)` single-OS
+  + `Coverage (all OS)` cross-OS; число тестов — из CI-прогона). Хардкод чисел
+  здесь намеренно убран, чтобы snapshot не расходился с реальностью (issue #562);
+  single-OS структурно ниже cross-OS из-за трёх ОС-специфичных backend'ов
+  `core/sandbox/` (см. [`docs/architecture.md`](docs/architecture.md)) · Python:
+  3.12 / 3.13 / 3.14 (экспериментальная, только ubuntu в CI)
 - CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
   × 3.12/3.13 + ubuntu 3.14-experimental + отдельный `coverage-combine` job —
   зелёный
