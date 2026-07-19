@@ -18,6 +18,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from playwright.sync_api import expect
+
 from tests.e2e._helpers import write_task
 
 _TIMEOUT_MS = 10_000
@@ -50,11 +52,9 @@ def test_xss_payload_in_stdout_is_escaped_not_executed(
     detail = page.locator("#detail-content")
     detail.wait_for(state="visible", timeout=_TIMEOUT_MS)
     # Wait for the code block holding the rendered payload specifically,
-    # rather than racing the detail panel's own render.
-    page.wait_for_function(
-        "document.querySelector('#detail-content').textContent.includes('onerror')",
-        timeout=_TIMEOUT_MS,
-    )
+    # rather than racing the detail panel's own render. issue #563: CSP blocks
+    # in-page eval, so use web-first expect() instead of wait_for_function.
+    expect(page.locator("#detail-content")).to_contain_text("onerror", timeout=_TIMEOUT_MS)
 
     # 1) The onerror handler never fired -- no live <img> was created.
     xss_flag = page.evaluate("window.__xss")
