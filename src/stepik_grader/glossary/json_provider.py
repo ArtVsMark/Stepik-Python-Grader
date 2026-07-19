@@ -1,7 +1,8 @@
 """json_provider.py — загрузка/поиск локальной базы карточек глоссария (issue #126).
 
-Архитектурный слой: Domain. Зависит только от ``glossary/models.py`` (stdlib),
-не тянет ничего из ``core/`` — DAG остаётся ацикличным.
+Архитектурный слой: Domain. Зависит от ``glossary/models.py`` и общего top-level
+``atomic_io`` (оба stdlib-leaf), НЕ тянет ничего из ``core/`` — DAG остаётся
+ацикличным, а подпакет ``glossary/`` независим от ``core/`` (ADR-0011).
 
 ``JsonGlossaryProvider`` — JSON-first реализация абстракции ``GlossaryProvider``
 (SQLite отложен, см. web-current.md). Читает карточки из одного JSON-файла или из
@@ -20,6 +21,8 @@ import json
 import pathlib
 import threading
 from typing import Any, Protocol, runtime_checkable
+
+from stepik_grader.atomic_io import atomic_write_json
 
 from .models import GlossaryCard, GlossaryMissingEntry
 
@@ -207,11 +210,14 @@ def load_missing_queue(path: pathlib.Path) -> list[GlossaryMissingEntry]:
 
 
 def save_missing_queue(path: pathlib.Path, entries: list[GlossaryMissingEntry]) -> None:
-    """Записать очередь пополнения в JSON-файл (создавая родительские директории)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+    """Записать очередь пополнения в JSON-файл атомарно (issue #551).
+
+    Через общий ``atomic_write_json`` (temp в той же директории + ``os.replace``):
+    обрыв между truncate и завершением больше не оставляет усечённый backlog
+    (#363) — читатель видит старую либо новую полную версию.
+    """
     payload = [entry.to_dict() for entry in entries]
-    with path.open("w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False, indent=2)
+    atomic_write_json(path, payload, fsync=True)
 
 
 # Процессный лок вокруг read-modify-write очереди пополнения (issue #352).

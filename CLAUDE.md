@@ -160,8 +160,14 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
 ## 🏗️ Архитектурные инварианты
 
 1. **DAG без циклов** — новые импорты не создают циклических зависимостей.
-2. **Leaf-модули** — `storage.py`, `normalizers.py`, `glossary.py` не
-   импортируют ничего из проекта. Не добавлять в них project-импорты.
+2. **Leaf-модули** — `storage.py`, `normalizers.py`, `glossary.py`,
+   `atomic_io.py` не импортируют ничего из проекта. Не добавлять в них
+   project-импорты. `atomic_io.py` (общий top-level атомарный JSON-писатель,
+   issue #551/ADR-0011) живёт вне `core/` намеренно: подпакеты `glossary/`/
+   `rules/` не тянут `core/`, поэтому общий писатель — на верхнем уровне, чтобы
+   им пользовались и они, и `core/user_settings.py`, не порождая ребра
+   `glossary → core`. `user_settings.py`/`glossary/json_provider.py` импортируют
+   ровно его (единственное проектное ребро — на stdlib-leaf).
 3. **Graceful fallback** — `rich` опционален; весь вывод через `_console`.
 4. **Sandbox — только opt-in** — по умолчанию `LocalRunner`
    запускает код в subprocess **без** изоляции ФС/сети; OS-изоляция включается

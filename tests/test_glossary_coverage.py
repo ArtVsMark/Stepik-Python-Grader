@@ -158,3 +158,16 @@ def test_missing_entries_write_is_idempotent(tmp_path: pathlib.Path) -> None:
     on_disk = load_missing_queue(path)
     assert len(on_disk) == len(entries)
     assert {e.concept for e in on_disk} == {e.concept for e in entries}
+
+
+def test_missing_entries_write_leaves_no_tmp_leftover(tmp_path: pathlib.Path) -> None:
+    """Атомарная запись очереди (issue #551) не оставляет temp-остатков.
+
+    ``append_missing_entries`` → ``save_missing_queue`` → ``atomic_write_json``:
+    после записи в директории лежит ровно целевой файл, никаких осиротевших
+    ``*.tmp`` от temp-then-replace.
+    """
+    path = tmp_path / "missing.json"
+    entries = missing_entries_from_inventory(_INVENTORY, known=set(), today="2026-07-08")
+    append_missing_entries(path, entries)
+    assert list(tmp_path.iterdir()) == [path]

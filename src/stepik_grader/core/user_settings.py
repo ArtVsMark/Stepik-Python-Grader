@@ -14,8 +14,9 @@ issue #430), в файле ``.grader_settings.json`` в рабочей дире�
 (``CONFIG.record_history``) → дефолт ``False``. ``record_history is None``
 означает «пользователь не переопределял» — тогда меню наследует ``CONFIG``.
 
-Leaf-модуль: не импортирует ничего из проекта (только stdlib), как
-``storage.py``/``normalizers.py``/``glossary.py`` (инвариант CLAUDE.md).
+Атомарную запись настроек делегирует общему top-level ``atomic_io.atomic_write_json``
+(issue #551) — единственный проектный импорт (сам ``atomic_io`` — stdlib-leaf);
+прежний статус «ноль проектных импортов» сменён на это одно ребро.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+
+from stepik_grader.atomic_io import atomic_write_json
 
 __all__ = [
     "SETTINGS_FILE_NAME",
@@ -78,15 +81,15 @@ def load_settings(path: Path) -> UserSettings:
 
 
 def save_settings(settings: UserSettings, path: Path) -> None:
-    """Записать настройки в ``path`` атомарно (temp-файл + ``replace``).
+    """Записать настройки в ``path`` атомарно через общий ``atomic_write_json``.
 
     Пишутся только явно заданные (не-``None``) поля, чтобы файл не фиксировал
-    «наследуемые из CONFIG» значения. Атомарная замена исключает частично
-    записанный файл при сбое.
+    «наследуемые из CONFIG» значения. ``atomic_write_json`` (issue #551) сменил
+    прежний фиксированный ``.tmp`` (его делили параллельные писатели — гонка) на
+    уникальный ``mkstemp``; ``fsync=False`` — настройки редки и не критичны,
+    достаточно атомарности замены.
     """
     payload: dict[str, object] = {}
     if settings.record_history is not None:
         payload["record_history"] = settings.record_history
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    atomic_write_json(path, payload, fsync=False)
