@@ -31,6 +31,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from stepik_grader import db
+
 __all__ = [
     "HISTORY_DB_NAME",
     "SCHEMA_VERSION",
@@ -120,52 +122,24 @@ def _utc_now_iso() -> str:
 def _migrate(conn: sqlite3.Connection) -> None:
     """Идемпотентная миграция ``user_version`` 0→``SCHEMA_VERSION`` (#135).
 
-    ``user_version=0`` (свежая/пустая БД) → создаём схему v1 и ставим версию.
-    Актуальная или новее — no-op (повторный вызов безопасен). Будущие версии
-    добавляют свои ветки здесь, не трогая ``_SCHEMA_V1``.
+    Делегирует общему ``db.apply_schema`` (issue #552): ``user_version=0``
+    (свежая/пустая БД) → создаём схему v1 и ставим версию; актуальная/новее —
+    no-op. DDL идемпотентен (``CREATE ... IF NOT EXISTS``), поэтому параллельная
+    инициализация двумя процессами безопасна (#393). Будущие инкрементальные
+    версии (1→2) добавляют свою миграцию поверх этого вызова.
     """
-    version = conn.execute("PRAGMA user_version").fetchone()[0]
-    if version >= SCHEMA_VERSION:
-        return
-    if version == 0:
-        # DDL идемпотентен (CREATE ... IF NOT EXISTS), поэтому параллельная
-        # инициализация двумя процессами безопасна (issue #393); write-lock
-        # sqlite сериализует сам DDL, busy_timeout соединения ждёт освобождения.
-        conn.executescript(_SCHEMA_V1)
-        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-        conn.commit()
+    db.apply_schema(conn, version=SCHEMA_VERSION, ddl=_SCHEMA_V1)
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
-    """Открыть соединение, включить best-effort WAL + FK и домигрировать до
-    ``SCHEMA_VERSION``.
+    """Открыть соединение (общий ``db.connect``: WAL + FK + busy_timeout) и
+    домигрировать до ``SCHEMA_VERSION`` (issue #552).
 
     ``sqlite3.connect`` создаёт файл БД — вызывать только на пути записи или
     после проверки ``db_path.is_file()`` на пути чтения (чтобы не плодить БД
     при выключенной истории, #134).
     """
-    conn = sqlite3.connect(db_path)
-    try:
-        # issue #393: явный busy_timeout, чтобы конкурентные писатели ЖДАЛИ
-        # write-lock, а не падали sqlite3.OperationalError -> тихая потеря записи.
-        conn.execute("PRAGMA busy_timeout=10000")
-        # Смена journal_mode в WAL невозможна, пока к БД открыты ДРУГИЕ соединения
-        # (барьерная конкурентная первая инициализация из многих потоков/
-        # процессов) — sqlite возвращает SQLITE_BUSY, и busy_timeout тут не
-        # помогает. WAL — оптимизация, а не требование: глотаем отказ и работаем в
-        # дефолтном rollback-journal (следующее соединение доставит WAL, когда
-        # контекст разрядится). Иначе весь прогон терялся бы на Windows (#393).
-        with contextlib.suppress(sqlite3.OperationalError):
-            conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        _migrate(conn)
-    except BaseException:
-        # issue #393: closing(_connect(...)) не обернёт conn, если _connect упал
-        # ДО return (PRAGMA/миграция кинули) — вызыватель получит исключение
-        # вместо объекта, и fd утечёт. Закрываем сами и пробрасываем.
-        conn.close()
-        raise
-    return conn
+    return db.connect(db_path, migrate=_migrate)
 
 
 def record_run(

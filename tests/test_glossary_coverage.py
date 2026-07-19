@@ -147,7 +147,7 @@ def test_coverage_report_has_methods_category() -> None:
 
 
 def test_missing_entries_write_is_idempotent(tmp_path: pathlib.Path) -> None:
-    path = tmp_path / "missing.json"
+    path = tmp_path / "missing.db"
     entries = missing_entries_from_inventory(_INVENTORY, known=set(), today="2026-07-08")
 
     first = append_missing_entries(path, entries)
@@ -160,14 +160,16 @@ def test_missing_entries_write_is_idempotent(tmp_path: pathlib.Path) -> None:
     assert {e.concept for e in on_disk} == {e.concept for e in entries}
 
 
-def test_missing_entries_write_leaves_no_tmp_leftover(tmp_path: pathlib.Path) -> None:
-    """Атомарная запись очереди (issue #551) не оставляет temp-остатков.
+def test_missing_entries_write_creates_sqlite_no_stray_temp(tmp_path: pathlib.Path) -> None:
+    """Запись очереди даёт SQLite-файл (issue #552) без осиротевших temp-остатков.
 
-    ``append_missing_entries`` → ``save_missing_queue`` → ``atomic_write_json``:
-    после записи в директории лежит ровно целевой файл, никаких осиротевших
-    ``*.tmp`` от temp-then-replace.
+    После записи целевой файл существует, начинается с SQLite-магии, и в
+    директории нет ``*.tmp`` (WAL-сайдкары ``-wal``/``-shm`` допустимы — их
+    подчищает checkpoint при закрытии соединения).
     """
-    path = tmp_path / "missing.json"
+    path = tmp_path / "missing.db"
     entries = missing_entries_from_inventory(_INVENTORY, known=set(), today="2026-07-08")
     append_missing_entries(path, entries)
-    assert list(tmp_path.iterdir()) == [path]
+    assert path.exists()
+    assert path.open("rb").read(16) == b"SQLite format 3\x00"
+    assert not list(tmp_path.glob("*.tmp"))

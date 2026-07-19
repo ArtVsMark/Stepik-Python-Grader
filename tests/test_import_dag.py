@@ -37,14 +37,16 @@ _PKG = "stepik_grader"
 _PKG_ROOT = _SRC_ROOT / _PKG
 
 # CLAUDE.md § «Архитектурные инварианты», п.2 — эти модули leaf по контракту.
-# ``atomic_io`` — общий top-level атомарный JSON-писатель (issue #551, ADR-0011):
-# живёт вне ``core/``, чтобы независимые от core подпакеты (``glossary/``) могли
-# им пользоваться, не создавая ребра ``glossary → core``; сам он — stdlib-only.
+# ``atomic_io`` (issue #551) и ``db`` (issue #552) — общие top-level инфра-leaf'ы
+# (атомарный JSON-писатель и SQLite-коннектор): живут вне ``core/``, чтобы
+# независимые от core подпакеты (``glossary/``) могли ими пользоваться, не создавая
+# ребра ``glossary → core`` (ADR-0011); сами — stdlib-only.
 _LEAF_MODULES = (
     "stepik_grader.core.storage",
     "stepik_grader.core.normalizers",
     "stepik_grader.core.glossary",
     "stepik_grader.atomic_io",
+    "stepik_grader.db",
 )
 
 

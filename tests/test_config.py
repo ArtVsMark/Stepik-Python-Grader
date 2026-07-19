@@ -22,7 +22,7 @@ def test_grader_config_defaults() -> None:
     assert cfg.max_memory_mb == 1024
     assert cfg.use_cache is False
     assert cfg.glossary_store is None
-    assert cfg.glossary_missing_queue == ".grader_glossary_missing.json"
+    assert cfg.glossary_missing_queue == ".grader_glossary_missing.db"
     assert cfg.job_workers == 2
     assert cfg.record_stats is False
     assert cfg.sandbox_max_cpu_seconds == 10.0

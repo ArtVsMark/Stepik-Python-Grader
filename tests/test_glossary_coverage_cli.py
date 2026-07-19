@@ -1,18 +1,18 @@
 """Smoke tests for the coverage scan CLI entrypoint (issue #198).
 
 Покрывает ``python -m stepik_grader.glossary.coverage``: печать сводки
-покрытия по категориям, запись missing JSON, обработку невалидного пути к
-базе карточек. Расчёт покрытия/пробелов уже покрыт
+покрытия по категориям, запись missing-очереди (SQLite/WAL, issue #552),
+обработку невалидного пути к базе карточек. Расчёт покрытия/пробелов уже покрыт
 ``tests/test_glossary_coverage.py`` — здесь только CLI-обвязка.
 """
 
 from __future__ import annotations
 
-import json
 import pathlib
 
 import pytest
 
+from stepik_grader.glossary import load_missing_queue
 from stepik_grader.glossary.coverage import build_coverage_report, format_report_summary, main
 from stepik_grader.glossary.stdlib_inventory import build_stdlib_inventory
 
@@ -51,22 +51,21 @@ def test_main_with_cards_reduces_reported_missing(capsys: pytest.CaptureFixture[
     assert _total_missing(with_cards) <= _total_missing(without_cards)
 
 
-def test_main_writes_missing_json(tmp_path: pathlib.Path) -> None:
-    out_path = tmp_path / "missing.json"
+def test_main_writes_missing_queue(tmp_path: pathlib.Path) -> None:
+    out_path = tmp_path / "missing.db"
     main(["--missing-out", str(out_path)])
     assert out_path.exists()
-    payload = json.loads(out_path.read_text(encoding="utf-8"))
-    assert isinstance(payload, list)
-    assert len(payload) > 0
-    assert all(entry["origin"] == "stdlib_scan" for entry in payload)
+    entries = load_missing_queue(out_path)
+    assert len(entries) > 0
+    assert all(entry.origin == "stdlib_scan" for entry in entries)
 
 
-def test_main_writing_missing_json_twice_is_idempotent(tmp_path: pathlib.Path) -> None:
-    out_path = tmp_path / "missing.json"
+def test_main_writing_missing_queue_twice_is_idempotent(tmp_path: pathlib.Path) -> None:
+    out_path = tmp_path / "missing.db"
     main(["--missing-out", str(out_path)])
-    first = json.loads(out_path.read_text(encoding="utf-8"))
+    first = load_missing_queue(out_path)
     main(["--missing-out", str(out_path)])
-    second = json.loads(out_path.read_text(encoding="utf-8"))
+    second = load_missing_queue(out_path)
     assert len(first) == len(second)
 
 
@@ -75,13 +74,13 @@ def test_main_restricts_modules_via_flag(tmp_path: pathlib.Path) -> None:
     # модулей (kind function/class); exceptions собираются рекурсивным обходом
     # BaseException по ВСЕМ уже загруженным в процессе классам (см.
     # stdlib_inventory.py), поэтому их модули отфильтровываем из проверки.
-    out_path = tmp_path / "missing.json"
+    out_path = tmp_path / "missing.db"
     main(["--modules", "math", "--missing-out", str(out_path)])
-    payload = json.loads(out_path.read_text(encoding="utf-8"))
+    entries = load_missing_queue(out_path)
     non_exception_modules = {
-        entry["module"]
-        for entry in payload
-        if entry["kind"] != "exception" and entry["module"] != "builtins"
+        entry.module
+        for entry in entries
+        if entry.kind != "exception" and entry.module != "builtins"
     }
     assert non_exception_modules == {"math"}
 
@@ -91,25 +90,22 @@ def test_main_invalid_cards_path_exits_with_error() -> None:
         main(["--cards", "/definitely/does/not/exist.json"])
 
 
-def test_main_broken_missing_queue_warns_not_crashes(
+def test_main_unwritable_queue_warns_not_crashes(
     tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Битая существующая очередь пополнения не роняет coverage-CLI (issue #551).
+    """Незаписываемая очередь пополнения не роняет coverage-CLI (issue #551/#552).
 
-    ``append_missing_entries`` читает очередь перед дозаписью; невалидный JSON →
-    ``GlossaryError``. CLI ловит её (и ``OSError``), печатает предупреждение и
-    завершается штатно — сводка покрытия уже напечатана, скан не должен падать
-    из-за повреждённого backlog-файла.
+    Путь-директория вместо файла: ``sqlite3`` не откроет её как БД →
+    ``append_missing_entries`` заворачивает ошибку в ``GlossaryError``. CLI ловит
+    её (и ``OSError``), печатает предупреждение и завершается штатно — сводка
+    покрытия уже напечатана, скан не должен падать из-за неисправного backlog.
     """
-    out_path = tmp_path / "missing.json"
-    out_path.write_text("{ это не валидный JSON", encoding="utf-8")
+    out_path = tmp_path / "queue_is_a_dir"
+    out_path.mkdir()
 
     main(["--modules", "math", "--missing-out", str(out_path)])  # без исключения
 
     out = capsys.readouterr().out
-    # rich мягко переносит длинную строку предупреждения по ширине консоли
-    # (в CI не-TTY → 80), вставляя перенос прямо внутрь длинного пути (на macOS
-    # tmp_path особенно длинный) — сверяем путь по схлопнутому пробелу.
-    collapsed = "".join(out.split())
+    # "Warning" стоит в начале строки предупреждения — rich-перенос по ширине
+    # консоли (CI не-TTY → 80) его не рвёт.
     assert "Warning" in out
-    assert str(out_path) in collapsed
