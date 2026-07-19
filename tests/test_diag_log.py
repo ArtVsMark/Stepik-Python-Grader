@@ -156,3 +156,49 @@ def test_make_session_token_is_redacted(tmp_path: pathlib.Path) -> None:
     diag_log.get_logger("test").debug("токен realaccesstoken9999 не должен утечь")
     logging.getLogger("stepik_grader").handlers[0].flush()
     assert "realaccesstoken9999" not in (tmp_path / "grader.log").read_text(encoding="utf-8")
+
+
+def test_redact_thread_safe_under_concurrent_register() -> None:
+    """issue #564: параллельные ``register_secret`` + ``redact`` не бросают
+    'Set changed size during iteration'.
+
+    До фикса ``redact`` итерировал ``_SECRETS`` напрямую, а между проверками
+    выполнялся Python-код (``.replace``) — GIL мог переключиться на поток,
+    делающий ``_SECRETS.add``, и следующий шаг итерации падал ``RuntimeError``.
+    Снимок ``tuple(_SECRETS)`` строится атомарно, поэтому гонки нет. На старом
+    коде этот тест краснел бы, на новом — стабильно зелёный.
+    """
+    import threading
+
+    for i in range(100):  # затравка, чтобы redact реально обходил набор
+        diag_log.register_secret(f"seedsecretvalue{i:04d}pad")
+
+    stop = threading.Event()
+    errors: list[BaseException] = []
+
+    def _adder() -> None:
+        # Непрерывная смена размера набора во время итерации redact. Держим
+        # набор ограниченным (сброс при переполнении), иначе O(n) redact рос бы
+        # неограниченно; сам сброс — тоже смена размера, усиливает проверку.
+        i = 0
+        while not stop.is_set():
+            diag_log.register_secret(f"live-secret-value-{i:06d}")
+            i += 1
+            if len(diag_log._SECRETS) > 500:
+                diag_log._SECRETS.clear()
+
+    def _redactor() -> None:
+        try:
+            for _ in range(1000):
+                diag_log.redact("log line with seedsecretvalue0001pad in it")
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            stop.set()
+
+    adder = threading.Thread(target=_adder, daemon=True)
+    adder.start()
+    _redactor()
+    adder.join(timeout=2.0)
+
+    assert not errors, errors
