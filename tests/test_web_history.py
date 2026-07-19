@@ -214,6 +214,33 @@ def test_progress_rows_empty_history(tmp_path) -> None:
     assert insights_adapter.progress_rows(db_path=tmp_path / "nope.db") == []
 
 
+def test_progress_report_adapter_aggregates_history(tmp_path) -> None:
+    """issue #538: progress_report отдаёт KPI/вердикты/TTFG из build_progress_report."""
+    from stepik_grader.web import insights_adapter
+
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(1, [history.CaseRecord(1, "WA")], db_path=db, task_key="t1", duration_s=1.0)
+    history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="t1", duration_s=1.0)
+    history.record_run(1, [history.CaseRecord(1, "WA")], db_path=db, task_key="t2", duration_s=1.0)
+
+    rep = insights_adapter.progress_report(db_path=db)
+    assert rep["total_runs"] == 3
+    assert rep["total_tasks"] == 2
+    assert rep["solved_tasks"] == 1  # t1 достиг AC, t2 — нет
+    assert rep["verdicts"] == {"AC": 1, "WA": 2}
+    assert {t["task_key"] for t in rep["tasks"]} == {"t1", "t2"}
+
+
+def test_progress_report_empty_history_graceful(tmp_path) -> None:
+    """issue #538: пустая/отсутствующая история → нулевой отчёт, не ошибка (не 500)."""
+    from stepik_grader.web import insights_adapter
+
+    rep = insights_adapter.progress_report(db_path=tmp_path / "nope.db")
+    assert rep["total_runs"] == 0
+    assert rep["solved_tasks"] == 0
+    assert rep["tasks"] == []
+
+
 def test_rules_search_marks_personal_violations(tmp_path) -> None:
     from stepik_grader.web import rules_adapter
 

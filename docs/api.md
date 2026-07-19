@@ -234,12 +234,22 @@ curl http://127.0.0.1:8000/api/insights
 
 ## `GET /api/progress`
 
-TTFG-метрика прогресса по задачам (issue #431): сколько попыток/времени заняло
-дойти до первого полного AC. **200** — список
-`{task_key, attempts, solved, total_runs, seconds_to_first_ac}`
-(`seconds_to_first_ac` — `null`, если задача ещё не решена). Пустая/
-отсутствующая история → `[]`. Считается на лету из `.grader_history.db`, без
-хранимого состояния.
+Агрегатный отчёт прогресса из истории (issue #538/#432) — тот же движок, что CLI
+`--export-progress` (`progress_export.build_progress_report`). **200** — объект:
+
+- `schema` — версия формата отчёта;
+- `total_runs` — число прогонов в истории;
+- `total_tasks`/`solved_tasks` — сводные счётчики задач;
+- `tasks` — TTFG по задачам:
+  `{task_key, attempts, solved, total_runs, seconds_to_first_ac}`
+  (`seconds_to_first_ac` — `null`, если задача ещё не решена);
+- `verdicts` — тали вердиктов кейсов (`{"AC": n, "WA": n, ...}`);
+- `failure_kinds` — тали ключей падений (`{"timeout": n, ...}`).
+
+Пустая/отсутствующая история → отчёт с нулевыми счётчиками (не ошибка, не 500).
+Считается на лету из `.grader_history.db`, без хранимого состояния; раздел
+«Прогресс» web-оболочки рендерит эти KPI (issue #538). Исходники решений в отчёт
+не попадают.
 
 ```
 curl http://127.0.0.1:8000/api/progress

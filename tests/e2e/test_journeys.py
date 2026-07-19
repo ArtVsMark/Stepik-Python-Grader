@@ -480,3 +480,24 @@ def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path
     theme = page.evaluate("document.documentElement.getAttribute('data-theme')")
     assert theme == "light"  # system -> light (cycleTheme's first step)
     assert page.locator("#theme-toggle").text_content() == "☀️"
+
+
+def test_progress_section_shows_kpis_from_history(
+    page: Any, e2e_server: str, tmp_path: Path, monkeypatch: Any
+) -> None:
+    """issue #538: раздел «Прогресс» открывается и показывает KPI при непустой истории."""
+    from stepik_grader.core import history
+
+    # /api/progress читает историю из cwd сервера (тот же процесс) — направим её в tmp_path.
+    monkeypatch.chdir(tmp_path)
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(
+        1, [history.CaseRecord(1, "AC")], db_path=db, task_key="course/t1", duration_s=2.0
+    )
+
+    page.goto(e2e_server + "/")
+    page.click('.sidebar-item[data-section="progress"]')
+    page.wait_for_selector("#view-progress:not([hidden])", timeout=_TIMEOUT_MS)
+    page.wait_for_selector("#progress-content:not([hidden])", timeout=_TIMEOUT_MS)
+    assert page.locator("#progress-kpis .kpi-card").count() >= 1
+    assert "course/t1" in page.locator("#progress-tasks").inner_text()

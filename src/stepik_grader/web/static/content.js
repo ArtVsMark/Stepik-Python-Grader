@@ -374,6 +374,67 @@ function updateInsightsBadge() {
   el.hidden = active === 0;
 }
 
+// -- Прогресс: агрегатный отчёт из истории (issue #538) -----------------------
+
+async function loadProgress() {
+  try {
+    const r = await fetch("/api/progress");
+    state.progress.report = await r.json();
+  } catch (e) {
+    state.progress.report = null;
+  }
+  renderProgress();
+}
+
+// Человекочитаемое время до первого AC (зеркалит progress_export._fmt_secs).
+function fmtSecs(secs) {
+  if (secs == null) return "—";
+  if (secs < 90) return Math.round(secs) + " с";
+  if (secs < 5400) return Math.round(secs / 60) + " мин";
+  return (secs / 3600).toFixed(1) + " ч";
+}
+
+function renderProgress() {
+  const empty = $("#progress-empty");
+  const content = $("#progress-content");
+  if (!content) return;
+  const rep = state.progress.report;
+  // Пустая/отсутствующая история → build_progress_report даёт total_runs=0.
+  const isEmpty = !rep || !rep.total_runs;
+  empty.hidden = !isEmpty;
+  content.hidden = isEmpty;
+  if (isEmpty) return;
+
+  const verdicts = rep.verdicts || {};
+  const totalCases = Object.values(verdicts).reduce((a, b) => a + b, 0);
+  $("#progress-kpis").innerHTML = kpiGrid([
+    { label: "Решено задач", value: rep.solved_tasks + " / " + rep.total_tasks },
+    { label: "Прогонов", value: rep.total_runs },
+    { label: "Успешных кейсов (AC)", value: (verdicts.AC || 0) + (totalCases ? " / " + totalCases : "") },
+  ]);
+
+  const vItems = Object.entries(verdicts);
+  $("#progress-verdicts").innerHTML = vItems.length
+    ? '<h2 class="section-heading">Вердикты кейсов</h2><div class="chip-row">' +
+      vItems.map(([k, n]) => '<span class="chip">' + esc(k) + ": " + esc(n) + "</span>").join("") +
+      "</div>"
+    : "";
+
+  const tasks = rep.tasks || [];
+  $("#progress-tasks").innerHTML = tasks.length
+    ? '<h2 class="section-heading">Задачи</h2><table class="data-table"><thead><tr>' +
+      "<th>Задача</th><th>Попыток</th><th>Решена</th><th>До первого AC</th></tr></thead><tbody>" +
+      tasks
+        .map(
+          t =>
+            "<tr><td>" + esc(t.task_key) + "</td><td>" + esc(t.attempts) + "</td><td>" +
+            (t.solved ? "✓" : "—") + "</td><td>" + esc(fmtSecs(t.seconds_to_first_ac)) + "</td></tr>",
+        )
+        .join("") +
+      "</tbody></table>"
+    : "";
+}
+
 // -- Загрузчик задач: скачивание со Stepik (issue #186) -----------------------
 
 
@@ -385,6 +446,7 @@ registerSectionHook("rules", () => {
   if (!state.rules.cards.length) loadRules();
 });
 registerSectionHook("insights", () => loadInsights());
+registerSectionHook("progress", () => loadProgress());
 
 export {
   loadGlossary,

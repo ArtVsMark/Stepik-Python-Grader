@@ -31,6 +31,7 @@
       <a class="sidebar-item" href="#insights" data-section="insights">
         Подучить <span class="sidebar-badge" id="sidebar-badge-insights" hidden></span>
       </a>
+      <a class="sidebar-item" href="#progress" data-section="progress">Прогресс</a>
       <a class="sidebar-item" href="#sandbox" data-section="sandbox">Песочница</a>
       <div class="sidebar-divider"></div>
       <!-- issue #364: рабочий раздел «Настройки» вместо мёртвой disabled-заглушки;
@@ -319,6 +320,29 @@
               появятся карточки частых ошибок с прогрессом их исправления.</p>
           </div>
           <ul id="insights-cards" class="insight-list" hidden></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ РАЗДЕЛ «ПРОГРЕСС» (issue #538) ══ -->
+    <section id="view-progress" class="main-view" hidden>
+      <div class="page-header">
+        <h1 class="page-title">Прогресс</h1>
+      </div>
+      <div class="split-pane-panel">
+        <div class="panel-header"><span class="panel-title">Ваш прогресс по истории прогонов</span></div>
+        <div class="panel-body">
+          <div id="progress-empty" class="empty-state">
+            <h3>Пока пусто 📊</h3>
+            <p>Откройте раздел <a href="#check" data-section="check">«Проверка решений»</a> и
+              прогоните решение — в веб-интерфейсе история пишется автоматически, и здесь
+              появятся KPI: решено задач, время до первого зачёта, разбор вердиктов.</p>
+          </div>
+          <div id="progress-content" hidden>
+            <div id="progress-kpis"></div>
+            <div id="progress-verdicts"></div>
+            <div id="progress-tasks"></div>
+          </div>
         </div>
       </div>
     </section>
