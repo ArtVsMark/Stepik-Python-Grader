@@ -13,9 +13,9 @@
 
 ---
 
-## Snapshot: v1.8.0 (stable)
+## Snapshot: v1.9.0 (stable)
 
-**Текущая версия: 1.8.0**
+**Текущая версия: 1.9.0**
 
 > Строка-маркер выше существует только для CI-проверки дрейфа
 > (`scripts/check_version_consistency.py`, issue #165) — она сверяется с
@@ -41,6 +41,16 @@
 
 ### Реализовано (см. каноны, здесь без дублей)
 
+- **Фичи v1.9.0** поверх WEB workspace: AI-подсказки (эпик E3) — web
+  `POST /api/v1/hint` + CLI `--ai-hints`, opt-in BYOK с обязательным
+  consent-gate и grounding через локальный глоссарий; полная локализация
+  web-UI (эпик E4: `ui.json` + `t()/tp()`, ru/en); разделы обучения
+  «Прогресс»/«Правила»/«Подучить» с историей прогонов на SQLite (эпики
+  **#342/#348**); границы web↔core (ADR-0010/0011: `web/grading`-фасад,
+  общий `core/db.py`, атомарный `atomic_io.py`); web `--serve --sandbox`
+  (#396); импорт эталонного решения Stepik (`--import-reference`, #55).
+- **Глоссарий #363 завершён:** 832 авточерновика → 0, ~1333 `ready`-карточки
+  против официального Python/stdlib (волны В1–В6, батчи 1–20).
 - WEB workspace (эпик **#123**, закрыт): split-pane UI, command palette,
   раздел «Глоссарий», Downloader-блок (**#186**), микро-бенчмарк в вебе
   (**#187**), сквозные user-journey тесты (**#129**) — что реализовано:
@@ -78,7 +88,7 @@
   (`scripts/generate_*_badge.py`, CI коммитит `.github/badges/*.json` после
   каждого прогона на push в main).
 - Packaging hygiene: MIT `LICENSE` + `py.typed`.
-- Полный diff — [`CHANGELOG.md § [1.8.0]`](CHANGELOG.md).
+- Полный diff — [`CHANGELOG.md § [1.9.0]`](CHANGELOG.md).
 
 ---
 
