@@ -161,6 +161,28 @@ def _is_blank_or_missing(path: pathlib.Path) -> bool:
         return False
 
 
+def _warn_if_stale_tests(task_dir: pathlib.Path) -> None:
+    """Предупредить, что в ``tests/`` остались кейсы от прошлого скачивания.
+
+    Очистка ``tests/`` (``_reset_tests_dir``) выполняется только когда новый
+    набор кейсов реально получен. Если перекачивание не принесло тестов, старые
+    файлы остаются, и решение молча грейдится против устаревших кейсов —
+    тихий неверный вердикт (issue #626).
+
+    Удалять их нельзя: документация прямо разрешает заполнять ``tests/``
+    вручную, поэтому автоматический снос затирал бы работу пользователя.
+    Вместо этого — явное предупреждение.
+    """
+    tests_dir = task_dir / "tests"
+    if not tests_dir.is_dir() or not any(tests_dir.iterdir()):
+        return
+    _print(
+        "  ⚠️ В tests/ остались файлы от прошлого скачивания (или добавленные "
+        "вручную) — они НЕ обновлены. Проверь их актуальность: иначе вердикт "
+        "будет посчитан по устаревшим кейсам."
+    )
+
+
 def save_task_files(
     task_dir: pathlib.Path,
     step: dict[str, Any],
@@ -240,6 +262,7 @@ def save_task_files(
     block: dict[str, Any] = step.get("block") or {}
     text = str(block.get("text", ""))
     if not text:
+        _warn_if_stale_tests(task_dir)
         return 0, "none"
 
     (task_dir / "task.md").write_text(text, encoding="utf-8")
@@ -270,10 +293,12 @@ def save_task_files(
                 _print(f"  🔗 Скачано {count} тестов с GitHub")
                 return count, "github_link"
         _print("  ⚠️ GitHub: ни одна ссылка не дала тестов")
+        _warn_if_stale_tests(task_dir)
         return 0, "none"
 
     # 4. Ничего не нашли
     _print("  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены")
+    _warn_if_stale_tests(task_dir)
     return 0, "none"
 
 

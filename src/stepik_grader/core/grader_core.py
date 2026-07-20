@@ -29,7 +29,7 @@ import statistics
 import tempfile
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from stepik_grader.config import CONFIG
@@ -408,9 +408,14 @@ def _map_outcome_to_result(
     stderr = outcome.stderr.decode(ENCODING, errors="replace")
 
     if outcome.returncode != 0:
+        # Процесс, убитый сигналом (segfault, OOM-killer, отрицательный
+        # returncode), не оставляет stderr. Пустая строка ошибки делала такой
+        # результат неотличимым от WA в статистике run_tests — она считает
+        # ошибки по truthiness поля error, и RE молча попадал в failed
+        # (issue #625). Подставляем осмысленное сообщение с кодом выхода.
         return _fail_result(
             case,
-            error=stderr.strip(),
+            error=stderr.strip() or f"Process exited with code {outcome.returncode} (no stderr)",
             verdict="RE",
             time=outcome.elapsed,
             memory=outcome.peak_memory_mb,
@@ -573,7 +578,13 @@ def run_tests(
         total_time += r["time"]
         peak_mb = max(peak_mb, r["memory"])
 
-        if r["error"]:
+        if r.get("verdict") == "CANCELLED":
+            # Отмена прогона — не вердикт о решении (issue #625). Раньше кейс
+            # попадал в errors и выставлял first_fail, из-за чего UI показывал
+            # «первый упавший тест» там, где пользователь просто нажал «Отмена».
+            # Кейс остаётся в cases/total, чтобы было видно, на чём прервались.
+            pass
+        elif r["error"]:
             errors += 1
             if first_fail is None:
                 first_fail = case.index
@@ -734,9 +745,20 @@ def run_microbench_mode(
             break
         code = path.read_text(encoding=ENCODING)
 
+        # issue #623: режим запуска определяется РЕШЕНИЕМ (meta.json/AST), а не
+        # только per-case .type — как это уже делают run_tests и run_benchmark.
+        # Без override function-only решение уходило на stdin-путь, где микробенч
+        # мерит лишь время определения функций и выдаёт бессмысленный SIMILAR.
+        # Копия кейсов обязательна: _apply_run_mode_override мутирует список на
+        # месте и не откатывает "function" обратно, поэтому общий список протёк
+        # бы на следующие решения группы.
+        cases_for_path = _apply_run_mode_override(
+            [replace(case) for case in cases_to_bench], path, test_dir
+        )
+
         all_times: list[float] = []
         peak_mb = 0.0
-        for case in cases_to_bench:
+        for case in cases_for_path:
             input_data = "\n".join(case.input_lines)
 
             if case.test_type == "function" and _is_python_code_block(input_data):
