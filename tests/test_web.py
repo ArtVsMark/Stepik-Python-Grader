@@ -934,6 +934,18 @@ class TestSecurityHeaders:
             assert token in csp, token
         assert "script-src" not in csp  # script наследует строгий default-src 'self'
 
+    def test_html_response_denies_framing(self, server: str) -> None:
+        """issue #631: страницу нельзя встроить в чужой iframe (clickjacking).
+
+        Внутрифреймовые вызовы идут в СВОЙ origin, поэтому CSRF-guard их не
+        режет — без этих заголовков жертва кликает по невидимым кнопкам
+        «Проверить»/«Скачать» своего же грейдера.
+        """
+        with urllib.request.urlopen(server + "/", timeout=5) as resp:
+            assert "frame-ancestors 'none'" in resp.headers["Content-Security-Policy"]
+            # X-Frame-Options — для браузеров, не понимающих frame-ancestors.
+            assert resp.headers["X-Frame-Options"] == "DENY"
+
     def test_static_css_carries_nosniff(self, server: str) -> None:
         with urllib.request.urlopen(server + "/static/app.css", timeout=5) as resp:
             assert resp.headers["X-Content-Type-Options"] == "nosniff"

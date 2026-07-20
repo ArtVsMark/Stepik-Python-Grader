@@ -23,8 +23,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import pathlib
+import sys
 from typing import Any
 
 from stepik_grader import rules
@@ -36,6 +38,7 @@ from stepik_grader.core import (
     history_recording,
     lint,
     stats,
+    user_settings,
 )
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.failure_context import build_failure_context
@@ -155,6 +158,63 @@ _AI_NOT_CONFIGURED_HINT = (
     "ничего не отправляется. Подробнее — docs/grader-workflow.md."
 )
 
+_AI_CONSENT_PROMPT = (
+    "AI-подсказка отправит ваш код и его ввод-вывод внешнему AI-провайдеру. "
+    "Рекомендуется локальный провайдер (например, ollama) — тогда данные не "
+    "покидают машину. Согласие спрашивается один раз и сохраняется в "
+    f"{user_settings.SETTINGS_FILE_NAME}."
+)
+
+_AI_CONSENT_REQUIRED_HINT = (
+    "AI-подсказки (--ai-hints) пропущены: нужно однократное явное согласие на "
+    "отправку кода AI-провайдеру, а сессия неинтерактивная. Запустите грейдер "
+    "интерактивно один раз, чтобы дать согласие (или включите подсказки в "
+    "веб-интерфейсе). В сеть ничего не отправлено."
+)
+
+
+def _ensure_ai_consent() -> bool:
+    """Однократное явное согласие на отправку кода AI-провайдеру (issue #630).
+
+    AI-подсказка отправляет код решения и его ввод-вывод внешнему провайдеру,
+    поэтому web-путь с issue #543 требует явного согласия и без него отвечает
+    ``403 consent_required``, ничего не отправляя. CLI этот гейт не проверял и
+    слал код молча — приватность (в том числе несовершеннолетних студентов)
+    соблюдалась лишь в одном из двух путей.
+
+    Согласие хранится в ``.grader_settings.json`` (``ai_hint_consent``) — тот же
+    ключ и тот же файл, что у web, поэтому данное однажды согласие действует для
+    обоих путей. Отказ намеренно НЕ фиксируется: пользователь может передумать,
+    а «залипший» отказ пришлось бы править руками в JSON.
+
+    В неинтерактивной сессии (нет TTY: CI, пайп) согласие не запрашивается —
+    подсказки просто пропускаются с явным сообщением.
+    """
+    settings_path = user_settings.default_settings_path()
+    settings = user_settings.load_settings(settings_path)
+    if settings.ai_hint_consent is True:
+        return True
+
+    if not sys.stdin.isatty():
+        print(f"\n{_AI_CONSENT_REQUIRED_HINT}")
+        return False
+
+    print(f"\n{_AI_CONSENT_PROMPT}")
+    try:
+        answer = input("Отправить код AI-провайдеру? [y/N]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+
+    if answer not in {"y", "yes", "д", "да"}:
+        print("AI-подсказки пропущены — согласие не дано. В сеть ничего не отправлено.")
+        return False
+
+    settings.ai_hint_consent = True
+    with contextlib.suppress(OSError):
+        user_settings.save_settings(settings, settings_path)
+    return True
+
 
 def _read_solution_code(solution: pathlib.Path) -> str:
     """Содержимое решения для заземления AI-промпта (best-effort, «» при сбое)."""
@@ -174,6 +234,11 @@ def _resolve_ai_config() -> object | None:
     config = get_config()
     if not ai_hints.is_configured(config):
         print(f"\n{_AI_NOT_CONFIGURED_HINT}")
+        return None
+    # issue #630: consent-гейт ДО любого обращения к провайдеру — как в web
+    # (403 consent_required). Общая точка для режимов 1-4, поэтому оба
+    # вызывающих (_print_ai_hints / _print_ai_hints_bench) закрыты разом.
+    if not _ensure_ai_consent():
         return None
     return config
 
