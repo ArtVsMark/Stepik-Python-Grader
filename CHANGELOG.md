@@ -9,6 +9,8 @@
 раздел. Не путать с этим блоком.
 -->
 
+## [1.9.0] - 2026-07-20
+
 ### Added
 - README/README.en showcase and newcomer on-ramp (epic E9): a «Чем отличается от оригинала» / «Why this fork» comparison table (five rows added — local glossary, PEP-8 «Practice», optional OS sandbox, RU/EN UI, SQLite run history — mirrored into `docs/versions.md`), a «Прозрачность и доверие» / «Transparency & trust» block (1700+ tests, strict mypy + ruff, private vulnerability reporting, PyPI OIDC trusted publishing), and a «Первый вклад за 15 минут» / «First contribution in 15 minutes» section in README + CONTRIBUTING linking `good first issue`/Discussions; the visual assets (hero-GIF/screenshots) and the GitHub-admin community setup (labels/topics/Discussions) are tracked as separate maintainer tasks (#560, #561).
 - Web `--serve` AI hints (epic E3): an «Объяснить (AI)» button on each failing grade case and playground runtime error explains it via `POST /api/v1/hint` (async job over `runs.py`, grounded through the shared `build_failure_context` from #542), returning the hint as a separate `{hint, configured}` field — `hint=null` (graceful skip) when no provider is configured, so grading is never affected. A **mandatory one-time explicit consent** gate guards it: because the hint sends your code and its input/output to the AI provider (privacy, incl. minors), the first request without consent gets **403** `consent_required` and nothing leaves the machine; `consent:true` records it in `.grader_settings.json` (`ai_hint_consent`). Opt-in BYOK over bare `requests`, no provider SDK (#543).
@@ -1331,96 +1333,7 @@
   Escape) were verified manually against a running server, the same
   no-JS-test-runner tradeoff #125 already documented.
 
-## [1.6.0] - 2026-07-08
-
-### Added
-- Glossary coverage relative to official Python/stdlib (issues #195–#198, part
-  of epic #123). `GlossaryMissingEntry` gained `origin`
-  (`solution`/`error`/`stdlib_scan`), `module` and `qualname` fields
-  distinguishing practice-driven gaps (`MissingConceptDetector`) from
-  source-driven ones, with `kind`/`status`/`origin` validation on load (issues
-  #190/#195; old queues without the new fields still load with defaults). New
-  leaf module `stdlib_inventory.py` builds a deterministic, offline inventory
-  of Python builtins, exceptions (recursive `BaseException` walk) and a
-  curated set of stdlib modules — no network, no user-code execution (issue
-  #196). New `coverage.py` compares that inventory against the local card base
-  and produces a `CoverageReport` (`builtins`/`exceptions`/`stdlib` categories
-  with covered/missing/ratio) plus `GlossaryMissingEntry(origin="stdlib_scan")`
-  backlog entries; repeated scans stay idempotent via the existing
-  concept-keyed dedup (issue #197). CLI entrypoint `python -m
-  stepik_grader.glossary.coverage [--cards PATH] [--missing-out PATH]
-  [--modules a,b,c]` prints the coverage summary and optionally appends
-  missing entries, via its own rich-optional printer so the module stays a
-  leaf (issue #198). Format and API documented in `docs/glossary.md`.
-- `--version` now distinguishes dev builds from releases (issue #163, closes
-  epic #161): off-tag output gets an explicit `(dev build, not a release)`
-  suffix appended to the existing `setuptools-scm` string; on-tag output is
-  unchanged (clean `X.Y.0`).
-- Live README badges, replacing a hand-maintained static `Coverage` badge that
-  had silently drifted from the real number. `scripts/generate_coverage_badge.py`
-  and `scripts/generate_version_badge.py` write shields.io "endpoint badge" JSON
-  (`.github/badges/*.json`) from the real `pytest --cov` result and the
-  project's logical `X.Y.Z` version (`scripts/version.py`) respectively; CI
-  (`ubuntu-latest`/3.12 leg, push to `main` only) regenerates and commits both
-  files together after each test run. A new `Version` badge sits next to
-  `Release` in README so `main` drifting ahead of the last tagged release is
-  visible without checking git.
-- Security policy (PR #203, issue #201): `SECURITY.md` with a responsible
-  disclosure process and supported-versions note; README/threat-model docs link
-  to it. Full policy lives in `SECURITY.md` (not duplicated here).
-- Project workflow templates (PR #203, issue #202): GitHub PR and issue
-  templates under `.github/`.
-
-- Local glossary knowledge-module foundation (issue #126, part of epic #123).
-  New `stepik_grader.glossary` subpackage: typed `GlossaryCard` /
-  `GlossaryMissingEntry` models, `JsonGlossaryProvider` for loading and
-  searching a local JSON card base (single file or directory; search by
-  id/title/aliases/keywords/tags; filter by status/tag) with clear
-  `GlossaryError` on missing/broken JSON, a JSON missing-entry queue
-  (`load`/`save`/`append` with dedup), and a conservative, deterministic
-  `MissingConceptDetector` that finds uncovered stdlib calls, notable builtins,
-  `match/case` and traceback exceptions via AST (never executes user code) and
-  suppresses concepts already covered by known glossary terms. JSON format and
-  Python API documented in `docs/glossary.md` with a sample fixture at
-  `docs/examples/glossary.sample.json`. The external Glossary-Python project
-  stays a one-way export target; the local base is the source of truth. WEB UI,
-  endpoints and the exporter remain in #125/#129.
-- Packaging hygiene (PR-1, epic #98): explicit MIT `LICENSE` at the repo root
-  and PEP 639 SPDX license metadata in `pyproject.toml` (`license = "MIT"` +
-  `license-files = ["LICENSE"]`, issue #100); PEP 561 `py.typed` marker so
-  downstream consumers' type checkers see the package's type hints (issue #101).
-  Build requirement bumped to `setuptools>=77` for SPDX support; `py.typed`
-  declared in `[tool.setuptools.package-data]`. (Version sync, issue #99, was
-  already done — see the pre-merge version rule in CLAUDE.md.)
-- Glossary hints on runtime errors (issue #72, first brick of epic #96).
-  New leaf module `core/glossary.py` holds a curated map of ~28 built-in
-  Python exceptions → a one-line Russian hint + a link to the full card in the
-  separate Glossary-Python project (not a copy of the 581-card glossary — the
-  "vendor a thin layer" choice from epic #96: offline hints, link out for
-  depth). Single source of truth for two surfaces: `reporter.print_case_verbose`
-  prints a hint line + URL on an RE verdict (CLI verbose); `web._case_view`
-  attaches a `glossary` block that the web UI renders as an error card with a
-  link. `lookup_from_error` parses the exception name from the traceback's last
-  line (dropping any `module.` prefix). The base URL and anchor scheme
-  (`#<classname-lowercased>`) are single constants, trivially adjustable if the
-  glossary's anchors change.
-
-### Changed
-- Glossary source-of-truth / coverage-truth clarification (PR #203, issues
-  #194/#200): docs and the Claude handoff now state the invariant consistently —
-  the internal Stepik-Python-Grader base is the content source of truth, official
-  Python/stdlib is the completeness/coverage truth, and the external
-  Glossary-Python is an export/vitrine target only (never the completeness
-  benchmark). Canonical wording in `docs/glossary.md`; not duplicated here.
-- Documentation split (PR-2, epic #102): README is now a lean showcase; heavy
-  technical sections moved into a `docs/` knowledge base — `docs/architecture.md`
-  (module DAG + layers, #105), `docs/project-structure.md` (file tree, #104),
-  `docs/versions.md` (release-comparison table + fork-vs-original, #106). README
-  becomes a lean showcase with one-line pointers to `docs/` and an
-  updated table of contents. CONTRIBUTING gains a "README as showcase, `docs/`
-  as knowledge base" rule so it doesn't bloat again (#107).
-
 ---
 
-Более ранние релизы (**1.1.0 – 1.5.0**) и до-версионные записи вынесены в
+Более ранние релизы (**1.1.0 – 1.6.0**) и до-версионные записи вынесены в
 [docs/changelog-archive.md](docs/changelog-archive.md) (issue #373).
