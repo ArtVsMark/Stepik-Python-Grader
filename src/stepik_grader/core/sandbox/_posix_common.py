@@ -21,8 +21,10 @@ from __future__ import annotations
 import contextlib
 import signal
 import subprocess
+import sys
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import psutil
@@ -82,6 +84,27 @@ def _poll_memory(
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         pass
     peak_result[0] = peak
+
+
+def build_minimal_env() -> dict[str, str]:
+    """Минимальное окружение дочернего процесса — без секретов родителя.
+
+    Изолированному коду не нужен ``os.environ`` грейдера: там живут BYOK
+    AI-ключ (``CONFIG.ai_api_key_env``), а в server-mode — весь env оператора.
+    Наследование этого окружения обходит единственный сетевой контроль
+    macOS-профиля: вывести ``os.environ`` можно прямо в stdout, который
+    грейдер возвращает в ответе (issue #627).
+
+    Соответствует тому, что Linux-backend задаёт через ``bwrap --clearenv
+    --setenv`` (``_linux.py``), а Windows-backend — явным dict (``_windows.py``).
+    Передавать результат в ``run_argv_with_limits(env=...)`` обязательно:
+    ``env=None`` означает наследование окружения родителя.
+    """
+    return {
+        "PATH": str(Path(sys.executable).resolve().parent),
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1",
+    }
 
 
 def run_argv_with_limits(

@@ -138,6 +138,12 @@ class MacSandboxRunner:
                 timeout=spec.timeout,
                 max_output_bytes=CONFIG.sandbox_max_output_bytes,
                 max_memory_mb=float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024),
+                # issue #627: без явного env sandbox-exec наследовал весь
+                # os.environ грейдера (BYOK AI-ключ, а на сервере — env
+                # оператора). Linux чистит через --clearenv, Windows строит
+                # минимальный dict — macOS был единственным backend'ом,
+                # отдававшим окружение родителя недоверенному коду.
+                env=_posix_common.build_minimal_env(),
             )
             outcome.stderr = _strip_deprecation_warning(outcome.stderr)
             return outcome

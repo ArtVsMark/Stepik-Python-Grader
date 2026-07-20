@@ -89,11 +89,36 @@ def save_secrets(secrets_path: pathlib.Path, data: dict[str, Any]) -> None:
     биты режима), поэтому там вызов практически no-op и файл остаётся
     защищён только стандартными правами профиля пользователя ОС
     (issue #243, security audit finding F-04).
+
+    Запись **атомарна** (issue #628): temp-файл в той же директории через
+    ``mkstemp`` (создаётся сразу с 0600 — окна с широкими правами нет), затем
+    ``os.replace``. Прежний путь ``os.open(..., O_TRUNC)`` писал поверх цели:
+    конкурентный читатель мог получить усечённый JSON (``--serve`` работает на
+    ``ThreadingHTTPServer``, а обновление токена идёт из потока-обработчика), а
+    краш ровно в момент записи затирал ``refresh_token`` — пользователю
+    приходилось заново проходить браузерный OAuth. Докстринги
+    ``oauth_flow``/``web.auth_adapter``, обещавшие атомарность, теперь верны.
     """
     secrets_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(data, ensure_ascii=False, indent=2)
 
-    fd = os.open(secrets_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as file:
-        file.write(payload)
-    secrets_path.chmod(0o600)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=secrets_path.parent, prefix=f".{secrets_path.name}.", suffix=".tmp"
+    )
+    tmp_path = pathlib.Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            file.write(payload)
+            file.flush()
+            os.fsync(file.fileno())
+        # В отличие от save_json_file права цели НЕ наследуются: секреты всегда
+        # приводятся к 0600, даже если старый файл остался с более широкими
+        # правами от прежней версии (issue #243). os.replace переносит режим
+        # temp-файла на цель, поэтому гарантия сохраняется и после замены.
+        with contextlib.suppress(OSError):
+            tmp_path.chmod(0o600)
+        tmp_path.replace(secrets_path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            tmp_path.unlink()
+        raise
