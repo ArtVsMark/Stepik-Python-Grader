@@ -374,8 +374,9 @@ class LocalRunner:
             # issue #418: своя сессия/группа процессов, чтобы при TLE/cancel
             # убить всё дерево решения (os.killpg), а не только прямого ребёнка.
             popen_kwargs["start_new_session"] = True
+        proc: subprocess.Popen[bytes] | None = None
         try:
-            proc: subprocess.Popen[bytes] = subprocess.Popen(
+            proc = subprocess.Popen(
                 [sys.executable, spec.path],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -438,6 +439,16 @@ class LocalRunner:
         except OSError as exc:
             stop_event.set()
             return RunOutcome(launch_error=str(exc), timed_out=False)
+        finally:
+            # issue #624: гарантированная уборка. Внешний try ловил только
+            # OSError (спавн) и TimeoutExpired (внутри) — KeyboardInterrupt,
+            # ошибка из Thread.start() или неожиданное исключение в
+            # communicate уходили наружу, оставляя живой процесс решения.
+            # На сервере это прямая утечка ресурсов. На штатных путях процесс
+            # уже завершён (poll() != None), поэтому kill не срабатывает.
+            stop_event.set()
+            if proc is not None and proc.poll() is None:
+                _kill_process_tree(proc)
 
     def _run_with_polling(
         self,
