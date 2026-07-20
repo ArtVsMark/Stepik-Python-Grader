@@ -993,6 +993,15 @@ class _Handler(BaseHTTPRequestHandler):
             return False
         value = self.headers.get("Origin") or self.headers.get("Referer")
         if not value:
+            # issue #631: отсутствие ОБОИХ заголовков намеренно НЕ считается
+            # нарушением (fail-open). Fail-closed на state-changing запросах
+            # сломал бы документированное не-браузерное использование API
+            # (docs/api.md, curl/скрипты, собственные тесты — они Origin не
+            # шлют), а браузерный вектор уже закрыт двумя барьерами выше:
+            # Host-check (только 127.0.0.1/localhost) и Sec-Fetch-Site, который
+            # современные браузеры шлют всегда. Остаточный риск — легаси-браузер
+            # без Fetch Metadata, подавивший Referer; на сервере эта эвристика
+            # всё равно заменяется полноценной аутентификацией (эпик #621).
             return True
         hostname = (urlparse(value).hostname or "").lower()
         return hostname in _ALLOWED_HOSTNAMES
@@ -1011,7 +1020,7 @@ class _Handler(BaseHTTPRequestHandler):
     # nosniff — на всех ответах, чтобы браузер не угадывал MIME.
     _CSP = (
         "default-src 'self'; base-uri 'none'; object-src 'none'; "
-        "style-src 'self' 'unsafe-inline'; font-src 'self'"
+        "style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'none'"
     )
 
     def _send(self, code: int, ctype: str, body: bytes) -> None:
@@ -1021,6 +1030,13 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         if ctype.startswith("text/html"):
             self.send_header("Content-Security-Policy", self._CSP)
+            # issue #631: anti-clickjacking. Без этого страницу можно встроить
+            # в <iframe> на чужом сайте: внутрифреймовые вызовы идут в СВОЙ
+            # origin, поэтому CSRF-guard их не режет — жертва кликает по
+            # невидимым «Проверить»/«Скачать». frame-ancestors в CSP выше
+            # закрывает то же для современных браузеров, X-Frame-Options — для
+            # старых, не понимающих эту директиву.
+            self.send_header("X-Frame-Options", "DENY")
         self.end_headers()
         self.wfile.write(body)
 

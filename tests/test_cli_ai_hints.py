@@ -29,9 +29,14 @@ def _make_task(tmp_path: pathlib.Path, body: str, *, name: str = "sol.py") -> pa
 
 
 def _configure(monkeypatch) -> None:
-    """Включить AI-канал (is_configured → True) для commands._print_ai_hints."""
+    """Включить AI-канал (is_configured → True) для commands._print_ai_hints.
+
+    Заодно снимается consent-гейт (issue #630): эти тесты проверяют ВЫВОД
+    подсказок, а само согласие покрыто отдельно в test_w1_cli_consent.py.
+    """
     cfg = dataclasses.replace(CONFIG, ai_base_url="http://test.local/v1", ai_model="m")
     monkeypatch.setattr(commands, "get_config", lambda: cfg)
+    monkeypatch.setattr(commands, "_ensure_ai_consent", lambda: True)
 
 
 class _Resp:

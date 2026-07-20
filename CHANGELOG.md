@@ -10,6 +10,8 @@
 -->
 
 ### Security
+- CLI `--ai-hints` требует однократного явного согласия перед отправкой кода AI-провайдеру — тот же гейт и тот же ключ `ai_hint_consent`, что в web (раньше CLI слал код молча); в неинтерактивной сессии подсказки пропускаются, в сеть ничего не уходит (#630)
+- Веб-страница запрещает встраивание в iframe (`frame-ancestors 'none'` + `X-Frame-Options: DENY`) — закрыт clickjacking, который CSRF-guard не ловит, т.к. внутрифреймовые вызовы идут в свой origin (#631)
 - macOS-sandbox больше не наследует `os.environ` грейдера: `sandbox-exec` запускается с минимальным env (`PATH`/`PYTHONIOENCODING`/`PYTHONUTF8`), как Linux (`--clearenv`) и Windows; BYOK AI-ключ не утекает в изолированный код. Строка про env добавлена в таблицу гарантий `SECURITY.md` (#627)
 - `save_secrets` пишет атомарно (`mkstemp` 0600 → `os.replace`) вместо `O_TRUNC` поверх цели: краш или конкурентное чтение больше не оставляют усечённый `secrets.json` с потерей `refresh_token` (#628)
 
