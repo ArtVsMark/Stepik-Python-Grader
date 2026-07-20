@@ -11,9 +11,66 @@ core/mode_detector.py).
 
 from __future__ import annotations
 
+import ast
 import pathlib
 
+from stepik_grader.core.mode_detector import _is_safe_constant
+
 __all__: list[str] = []
+
+# Связывание аргументов для именованного стиля теста (`a = 5`): сперва по имени
+# параметра, иначе — позиционно в порядке присваиваний блока (issue #622).
+# Имена параметров и имена переменных теста часто расходятся (date1/date2 vs
+# start/end), поэтому fallback обязателен, иначе получаем KeyError → ложный RE.
+_NAMED_BINDING_TEMPLATE = """_sig = inspect.signature({func})
+_local_vars = locals()
+_param_names = list(_sig.parameters)
+if all(_n in _local_vars for _n in _param_names):
+    _args = [_local_vars[_n] for _n in _param_names]
+else:
+    _assigned = {assigned}
+    _args = [_local_vars[_n] for _n in _assigned if _n in _local_vars][: len(_param_names)]"""
+
+
+def _top_level_literal_args(block: str) -> list[str] | None:
+    """Вернуть позиционные аргументы, если блок — только безопасные литералы.
+
+    Возвращает список исходных фрагментов (``["5", "10"]``) для блока вида
+    ``5\\n10``, где каждая строка — самостоятельное литеральное выражение.
+    Возвращает ``None``, если блок не подходит под этот стиль (есть
+    присваивания, вызовы, имена или синтаксическая ошибка).
+    """
+    if not block.strip():
+        return None
+    try:
+        tree = ast.parse(block)
+    except SyntaxError:
+        return None
+    if not tree.body:
+        return None
+
+    args: list[str] = []
+    for stmt in tree.body:
+        if not isinstance(stmt, ast.Expr) or not _is_safe_constant(stmt.value):
+            return None
+        args.append(ast.unparse(stmt.value))
+    return args
+
+
+def _assigned_names(block: str) -> list[str]:
+    """Имена, которым блок присваивает значения на верхнем уровне, по порядку."""
+    try:
+        tree = ast.parse(block)
+    except SyntaxError:
+        return []
+
+    names: list[str] = []
+    for stmt in tree.body:
+        if isinstance(stmt, ast.Assign):
+            names.extend(t.id for t in stmt.targets if isinstance(t, ast.Name))
+        elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+            names.append(stmt.target.id)
+    return names
 
 
 def _build_function_wrapper(
@@ -21,20 +78,18 @@ def _build_function_wrapper(
 ) -> str:
     """Генерирует исходный код скрипта-обёртки для function-mode запуска.
 
-    Стратегия передачи аргументов — позиционная через inspect.signature:
-      1. Импортирует функцию из файла решения.
-      2. Выполняет input_data (объявления переменных из тест-кейса).
-      3. Узнаёт количество и порядок параметров через inspect.signature.
-      4. Собирает аргументы из locals() по имени параметра и вызывает функцию.
+    Поддерживает два стиля legacy-теста (issue #622):
 
-    Важно: имена параметров функции ДОЛЖНЫ совпадать с именами переменных в input_data.
-    Если совпадения нет (date1/date2 vs start/end) — используй позиционный формат тестов:
-      файл без расширения с аргументами по одному на строку (позиционный формат).
+    1. **Именованный** — блок объявляет переменные (``a = 5``). Блок
+       исполняется, аргументы берутся из ``locals()`` по имени параметра;
+       если имена не совпали (``date1/date2`` vs ``start/end``) — позиционно,
+       в порядке присваиваний блока.
+    2. **Позиционный** — блок состоит из голых литералов (``5\\n10``).
+       Значения извлекаются статически из AST, сам блок не исполняется.
 
     Args:
         solution_path: абсолютный путь к файлу решения.
-        input_data:    содержимое .type=function тест-кейса
-                       (строки вида "d1 = date(2020, 1, 1)").
+        input_data:    содержимое .type=function тест-кейса.
         function_name: имя функции для импорта.
     """
     abs_path = str(solution_path.resolve())
@@ -49,6 +104,21 @@ def _build_function_wrapper(
         raise ValueError(f"Invalid function_name for code generation: {function_name!r}")
     if not module_stem.isidentifier():
         raise ValueError(f"Invalid module filename stem for code generation: {module_stem!r}")
+
+    # Выбор стратегии связывания аргументов (issue #622).
+    literal_args = _top_level_literal_args(safe_input)
+    if literal_args is not None:
+        # Позиционный стиль: блок — голые литералы. Значения извлечены из AST,
+        # сам блок НЕ исполняем (иначе значения просто отбрасываются как
+        # выражения-statement'ы, и связывать было бы нечего).
+        setup_block = "# позиционный стиль: аргументы извлечены из теста статически"
+        binding = f"_args = [{', '.join(literal_args)}]"
+    else:
+        # Именованный стиль: блок объявляет переменные — исполняем его.
+        setup_block = safe_input
+        binding = _NAMED_BINDING_TEMPLATE.format(
+            func=safe_func, assigned=repr(_assigned_names(safe_input))
+        )
 
     # repr() безопасно интерполирует путь (включая Windows-бэкслеши и спецсимволы).
     # Стандартные импорты — ДО sys.path.insert: иначе одноимённый файл рядом с
@@ -68,17 +138,14 @@ sys.path.insert(0, str(pathlib.Path({abs_path!r}).parent))
 # Импортируем функцию из файла решения
 from {module_stem} import {safe_func}
 
-# Выполняем объявления переменных из тест-кейса
-{safe_input}
+# Данные тест-кейса
+{setup_block}
 
-# Определяем аргументы через inspect.signature (позиционно, по имени параметра)
-# locals() снимается в переменную ДО списочного выражения: список сам по себе
-# создаёт вложенную область видимости, и locals() внутри неё видит только эту
-# область (PEP 709 / PEP 667) — на Python 3.11/3.13+ это KeyError на модульных
-# переменных вроде _p; на 3.12 "случайно" работало из-за деталей реализации.
-_sig = inspect.signature({safe_func})
-_local_vars = locals()
-_args = [_local_vars[_p] for _p in _sig.parameters]
+# Связывание аргументов. locals() снимается в переменную ДО списочного
+# выражения: список сам по себе создаёт вложенную область видимости, и locals()
+# внутри неё видит только эту область (PEP 709 / PEP 667) — на Python 3.11/3.13+
+# это KeyError на модульных переменных; на 3.12 "случайно" работало.
+{binding}
 print({safe_func}(*_args))
 """
 

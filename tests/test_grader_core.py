@@ -17,6 +17,7 @@ import warnings
 import pytest
 
 from stepik_grader import grader
+from stepik_grader.core import mode_detector
 
 # ---------------------------------------------------------------------------
 # _is_python_code_block  (parametrized — replaces 4 separate test functions)
@@ -310,6 +311,101 @@ def test_build_function_wrapper_rejects_invalid_module_stem(tmp_path: pathlib.Pa
 
     with pytest.raises(ValueError, match="Invalid module filename stem"):
         grader._build_function_wrapper(sol, "x = 1", "solve")
+
+
+# ---------------------------------------------------------------------------
+# Маршрутизация function-mode (issue #622)
+# ---------------------------------------------------------------------------
+
+
+def _add_solution(tmp_path: pathlib.Path) -> pathlib.Path:
+    """Решение-функция `add(a, b)` для legacy function-mode тестов."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    return sol
+
+
+def test_function_mode_named_assignment_gives_ac(tmp_path: pathlib.Path) -> None:
+    """Legacy-блок с присваиваниями должен вызывать решение, а не молча выполняться.
+
+    Регрессия #622: `a = 5` содержит ast.Name в контексте Store, поэтому старый
+    предикат `_is_python_code_block` считал блок кодом и отправлял его в
+    call-wrapper. Тот исполнял присваивания и ничего не печатал → ложный WA.
+    """
+    sol = _add_solution(tmp_path)
+    case = grader.TestCase(
+        index=1, input_lines=["a = 5", "b = 10"], expected_lines=["15"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["15"]
+
+
+def test_function_mode_bare_values_gives_ac(tmp_path: pathlib.Path) -> None:
+    """Голые значения связываются позиционно, а не через locals() по имени.
+
+    Регрессия #622: `5\\n10` уходило в function-wrapper, который искал в locals()
+    переменные с именами параметров → KeyError → ложный RE.
+    """
+    sol = _add_solution(tmp_path)
+    case = grader.TestCase(
+        index=1, input_lines=["5", "10"], expected_lines=["15"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["15"]
+
+
+def test_function_mode_binds_positionally_on_name_mismatch(tmp_path: pathlib.Path) -> None:
+    """Если имена переменных теста не совпали с параметрами — связываем по порядку.
+
+    Прежний wrapper требовал точного совпадения имён (docstring прямо предупреждал
+    про `date1/date2` vs `start/end`), иначе KeyError. Теперь есть позиционный
+    fallback в порядке присваиваний блока.
+    """
+    sol = _add_solution(tmp_path)
+    case = grader.TestCase(
+        index=1, input_lines=["x = 2", "y = 3"], expected_lines=["5"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["5"]
+
+
+def test_format3_print_block_still_uses_call_wrapper(tmp_path: pathlib.Path) -> None:
+    """Формат 3 (блок сам печатает) не должен пострадать от нового маршрута."""
+    sol = _add_solution(tmp_path)
+    case = grader.TestCase(
+        index=1, input_lines=["print(add(4, 6))"], expected_lines=["10"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["10"]
+
+
+@pytest.mark.parametrize(
+    ("block", "func", "expected"),
+    [
+        ("print(add(1, 2))", "add", True),  # блок печатает сам — формат 3
+        ("add(1, 2)", "add", True),  # вызов решения (печатает само решение)
+        ("a = 5\nb = 10", "add", False),  # только данные — legacy
+        ("d1 = date(2020, 1, 1)", "solve", False),  # данные, хотя есть вызов date()
+        ("5", "add", False),  # голый литерал
+        ("", "add", False),  # пустой блок
+        ("04.11.2021", "add", False),  # не парсится
+    ],
+)
+def test_block_invokes_solution_predicate(block: str, func: str, expected: bool) -> None:
+    """Предикат маршрутизации различает «блок печатает сам» и «блок — это данные»."""
+    assert mode_detector._block_invokes_solution(block, func) is expected
 
 
 def test_build_function_wrapper_imports_stdlib_before_sys_path_insert(
