@@ -133,6 +133,46 @@ def _is_python_code_block(block: str) -> bool:
     return any(isinstance(node, ast.Name) for node in ast.walk(tree))
 
 
+def _block_invokes_solution(block: str, function_name: str | None) -> bool:
+    """Вернуть True, если тест-блок сам вызывает решение и печатает результат.
+
+    Это признак формата python-generation (format 3), где блок — полноценный
+    драйвер теста (``print(func(...))``): его достаточно исполнить как есть
+    (``_build_call_wrapper``). Legacy function-mode блоки, наоборот, только
+    объявляют данные (``a = 5`` или голые ``5\\n10``) — вызов и печать собирает
+    ``_build_function_wrapper``.
+
+    Раньше маршрут выбирался по ``_is_python_code_block``, то есть по «похоже ли
+    на Python-код». Присваивание ``a = 5`` содержит ``ast.Name`` в контексте
+    Store и потому считалось кодом — legacy-блок уходил в call-wrapper, который
+    исполнял присваивание и ничего не печатал (ложный WA). А голые значения
+    уходили в function-wrapper, требующий именованных переменных (ложный RE).
+    Признаком формата 3 является именно вывод, а не наличие имён (issue #622).
+
+    Примеры:
+        ``print(func(5))``          → True  (блок печатает сам)
+        ``solve([1, 2])``           → True  (вызов функции решения)
+        ``a = 5``                   → False (только данные)
+        ``d1 = date(2020, 1, 1)``   → False (данные, хотя есть вызов date)
+        ``5``                       → False (голый литерал)
+    """
+    if not block.strip():
+        return False
+    try:
+        tree = ast.parse(block)
+    except SyntaxError:
+        return False
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+            continue
+        if node.func.id == "print":
+            return True
+        if function_name and node.func.id == function_name:
+            return True
+    return False
+
+
 def _read_meta_function_name(solution_path: pathlib.Path) -> str | None:
     """Прочитать function_name из meta.json рядом с файлом решения.
 

@@ -76,6 +76,7 @@ __all__ = [
 from stepik_grader.core.microbench_runner import apply_relative_ranking, run_microbench
 from stepik_grader.core.mode_detector import (
     _ast_function_name,
+    _block_invokes_solution,
     _detect_run_mode,  # noqa: F401  (реэкспорт для grader.py, не вызывается здесь напрямую)
     _is_python_code_block,
     _is_safe_constant,  # noqa: F401  (реэкспорт для grader.py, не вызывается здесь напрямую)
@@ -304,12 +305,15 @@ def _prepare_run_spec(
         )
 
     input_data = "\n".join(case.input_lines)
-    if _is_python_code_block(input_data):
+    # Маршрут выбирается по тому, печатает ли блок результат сам (формат 3),
+    # а не по «похоже ли на Python-код»: присваивание `a = 5` — это данные
+    # legacy-теста, а не драйвер (issue #622).
+    func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
+    if _block_invokes_solution(input_data, func_name):
         # python-generation function-call: блок уже содержит print(func(...))
         wrapper_src = _build_call_wrapper(solution_path, input_data)
     else:
-        # legacy function-mode: блок задаёт переменные, вызов собираем сами
-        func_name = _read_meta_function_name(solution_path) or _ast_function_name(solution_path)
+        # legacy function-mode: блок задаёт данные, вызов собираем сами
         if func_name is None:
             return _RunPlan(
                 error=(
