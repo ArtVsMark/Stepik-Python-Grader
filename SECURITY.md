@@ -143,6 +143,7 @@ Backend выбирается автоматически по ОС при ста�
 | Сеть | ✅ ядром (`--unshare-net`) | ✅ ядром (`deny network*`) | ❌ **не реализовано** (см. ниже) |
 | Запись вне tmp | ✅ ядром (mount namespace) | ✅ ядром (Seatbelt) | ⚠️ только относительные пути (cwd); абсолютные пути **не блокируются** |
 | Чтение файлов | ⚠️ интерпретатор+stdlib + `/usr` ro (загрузчик/libc, см. ниже) | ❌ не ограничено (`allow file-read*`) — см. пояснение ниже | ⚠️ обычные ACL пользователя, без доп. ограничения |
+| Переменные окружения | ✅ очищается (`--clearenv` + только `PATH`/`PYTHONIOENCODING`/`PYTHONUTF8`) | ✅ то же явным `env` (issue #627) | ✅ то же явным dict |
 | Память | ✅ ядром (`RLIMIT_AS`) + psutil-backstop | ⚠️ только psutil-поллинг (`RLIMIT_AS` не работает на Darwin) | ✅ ядром (`JOB_OBJECT_LIMIT_JOB_MEMORY`, commit-charge — быстрее, чем POSIX RLIMIT_AS на практике) |
 | CPU-время | ✅ ядром (`RLIMIT_CPU`, SIGXCPU) | ✅ ядром (`RLIMIT_CPU`) | ⚠️ psutil-поллинг (Job Object лимит — backstop, не основной детектор) |
 | Anti-fork-bomb | ✅ абсолютный `RLIMIT_NPROC` (свежий user namespace, счётчик с 0) | ⚠️ сэмплированный бюджет (нет namespace-аналога, слабее) | ✅ `JOB_OBJECT_LIMIT_ACTIVE_PROCESS` (per-job, без cross-UID гочи) |

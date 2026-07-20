@@ -9,6 +9,10 @@
 раздел. Не путать с этим блоком.
 -->
 
+### Security
+- macOS-sandbox больше не наследует `os.environ` грейдера: `sandbox-exec` запускается с минимальным env (`PATH`/`PYTHONIOENCODING`/`PYTHONUTF8`), как Linux (`--clearenv`) и Windows; BYOK AI-ключ не утекает в изолированный код. Строка про env добавлена в таблицу гарантий `SECURITY.md` (#627)
+- `save_secrets` пишет атомарно (`mkstemp` 0600 → `os.replace`) вместо `O_TRUNC` поверх цели: краш или конкурентное чтение больше не оставляют усечённый `secrets.json` с потерей `refresh_token` (#628)
+
 ### Fixed
 - `run_microbench_mode` применяет `_apply_run_mode_override` (как `run_tests`/`run_benchmark`) — function-only решение больше не мерится по stdin-пути; override идёт по копии кейсов, чтобы не протекать между решениями (#623)
 - `LocalRunner.run` гарантирует уборку дочернего процесса через `try/finally` — неожиданное исключение после spawn больше не оставляет живой процесс (#624)
