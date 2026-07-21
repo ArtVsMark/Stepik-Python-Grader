@@ -312,3 +312,77 @@ def test_read_recent_runs_batches_cases_and_lint_across_runs(tmp_path: Path) -> 
         "error_class",
         "failure_kind",
     }
+
+
+# ---------------------------------------------------------------------------
+# issue #642: retention — backstop роста БД истории
+# ---------------------------------------------------------------------------
+
+
+def test_retention_caps_runs_per_task(tmp_path: Path) -> None:
+    """max_runs_per_task оставляет только N последних прогонов на task_key (#642)."""
+    db = _db(tmp_path)
+    for i in range(5):
+        history.record_run(
+            1,
+            [CaseRecord(1, "OK")],
+            db_path=db,
+            task_key="t",
+            solution_name=f"s{i}.py",
+            max_runs_per_task=3,
+        )
+    runs = history.read_recent_runs(db, task_key="t")
+    # последние 3 (id DESC); s0/s1 вытеснены
+    assert [r["solution_name"] for r in runs] == ["s4.py", "s3.py", "s2.py"]
+
+
+def test_retention_cascades_to_cases_and_lint(tmp_path: Path) -> None:
+    """Удержание уносит case_results/lint_violations вытесненных прогонов (#642, FK cascade)."""
+    db = _db(tmp_path)
+    for _ in range(4):
+        history.record_run(
+            1,
+            [CaseRecord(1, "OK"), CaseRecord(2, "WA")],
+            db_path=db,
+            task_key="t",
+            lint=[LintRecord("E501", 1)],
+            max_runs_per_task=2,
+        )
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 2
+        # 2 оставшихся прогона × 2 case = 4; по 1 lint = 2 — без сирот
+        assert conn.execute("SELECT COUNT(*) FROM case_results").fetchone()[0] == 4
+        assert conn.execute("SELECT COUNT(*) FROM lint_violations").fetchone()[0] == 2
+        orphans = conn.execute(
+            "SELECT COUNT(*) FROM case_results WHERE run_id NOT IN (SELECT id FROM runs)"
+        ).fetchone()[0]
+        assert orphans == 0
+
+
+def test_retention_is_per_task_key(tmp_path: Path) -> None:
+    """Удержание для одного task_key не трогает прогоны другого (#642)."""
+    db = _db(tmp_path)
+    for _ in range(4):
+        history.record_run(1, [CaseRecord(1, "OK")], db_path=db, task_key="a", max_runs_per_task=2)
+    history.record_run(1, [CaseRecord(1, "OK")], db_path=db, task_key="b", max_runs_per_task=2)
+    assert len(history.read_recent_runs(db, task_key="a")) == 2  # обрезан до cap
+    assert len(history.read_recent_runs(db, task_key="b")) == 1  # не тронут
+
+
+def test_retention_disabled_when_none(tmp_path: Path) -> None:
+    """max_runs_per_task=None — retention выключен, все прогоны остаются (#642)."""
+    db = _db(tmp_path)
+    for _ in range(6):
+        history.record_run(
+            1, [CaseRecord(1, "OK")], db_path=db, task_key="t", max_runs_per_task=None
+        )
+    assert len(history.read_recent_runs(db, task_key="t")) == 6
+
+
+def test_retention_default_keeps_small_history(tmp_path: Path) -> None:
+    """Дефолтный cap (_MAX_RUNS_PER_TASK) не режет обычные объёмы (#642)."""
+    db = _db(tmp_path)
+    assert history._MAX_RUNS_PER_TASK >= 5  # sanity: дефолт заметно больше теста
+    for _ in range(5):
+        history.record_run(1, [CaseRecord(1, "OK")], db_path=db, task_key="t")
+    assert len(history.read_recent_runs(db, task_key="t")) == 5
