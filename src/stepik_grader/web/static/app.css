@@ -424,16 +424,27 @@ select.form-input { cursor: pointer; }
 }
 #solution-editor .cm-editor { height: 100%; }
 
-.mode-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
-/* issue #663: min-width был 80px, и это ЛОМАЛО защиту от переполнения. У flex
-   `flex: 1` разворачивается в `flex-basis: 0`, поэтому ширина делится поровну
-   независимо от содержимого; обычно элемент не сжимается уже контента за счёт
-   `min-width: auto`, но явное значение эту защиту отключает. «Микробенчмарк»
-   требовал 122px, получал 101px и при `overflow: visible` вылезал на кнопку
-   «Запустить». `fit-content` гарантирует минимум по содержимому, а `flex: 1`
-   продолжает распределять остаток. */
+/* issue #663: раньше здесь был flex с `flex: 1` + `min-width: 80px`, и это
+   ломало защиту от переполнения: `flex: 1` разворачивается в `flex-basis: 0`
+   (ширина делится поровну независимо от содержимого), а явный `min-width` в
+   пикселях отключает `min-width: auto`, который обычно не даёт flex-элементу
+   сжаться уже контента. «Микробенчмарк» требовал 122px, получал 101px и при
+   `overflow: visible` вылезал на кнопку «Запустить».
+
+   Grid решает обе задачи разом: `1fr` — это `minmax(auto, 1fr)`, поэтому
+   колонки РАВНЫ между собой и при этом не уже самой длинной подписи. Flex так
+   не умеет — там равенство и «не уже контента» противоречат друг другу
+   (получались рваные ширины).
+
+   На узких экранах четыре колонки по ширине «Микробенчмарка» не помещаются,
+   поэтому ниже 768px раскладка переходит в 2×2 (см. блок RESPONSIVE). */
+.mode-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+}
 .mode-btn {
-  flex: 1; min-width: fit-content; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
   border: 1px solid var(--color-border); font-size: var(--text-xs); font-weight: 500;
   color: var(--color-text-muted); background: var(--color-surface); text-align: center; cursor: pointer;
 }
@@ -576,6 +587,9 @@ select.form-input { cursor: pointer; }
   .sidebar-item { padding: var(--space-2); white-space: nowrap; flex: 0 0 auto; }
   .split-pane { grid-template-columns: 1fr; }
   .split-pane-panel + .split-pane-panel { border-left: none; border-top: 1px solid var(--color-border); }
+  /* issue #663: четыре равные колонки по ширине «Микробенчмарка» на узком
+     экране не помещаются (колонка не может стать уже подписи), поэтому 2×2. */
+  .mode-row { grid-template-columns: repeat(2, 1fr); }
   .page-header { flex-direction: column; align-items: stretch; }
   .page-actions { margin-left: 0; }
 }
