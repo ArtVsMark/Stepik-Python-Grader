@@ -848,6 +848,43 @@ a.term-card-link:hover { background: var(--color-surface-offset); }
   background: var(--color-primary-highlight);
 }
 
+/* issue #636: выровненный посимвольный diff разбора WA.
+   Семантика цвета — продуктовая, а не git'овая: «Ожидалось» это верный
+   результат (success-оттенок), «Получено» — ошибочный (error-оттенок).
+   Фоны берутся из *-highlight токенов, поэтому обе темы и contrast-guard
+   (#424) остаются в силе. */
+.inline-diff {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  background: var(--color-surface);
+}
+.diff-row { display: flex; gap: var(--space-2); padding: 0 var(--space-2); white-space: pre; }
+.diff-mark { width: 1ch; color: var(--color-text-muted); flex: 0 0 auto; }
+.diff-lineno {
+  min-width: 2.5ch; text-align: right; color: var(--color-text-faint);
+  flex: 0 0 auto; user-select: none;
+}
+.diff-text { flex: 1 1 auto; }
+.diff-expected { background: var(--color-success-highlight); }
+.diff-actual { background: var(--color-error-highlight); }
+/* Сам различающийся фрагмент — сильнее фона строки, чтобы глаз падал на него,
+   а не на всю строку. */
+.diff-chunk {
+  background: var(--color-surface-dynamic);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  padding: 0 1px;
+}
+/* Невидимые символы — видимыми: именно на пробелах и табах чаще всего и
+   расходятся вывод с эталоном (класс output-format в insights.py). */
+.ws-mark { color: var(--color-text-muted); opacity: .75; }
+.raw-diff { margin-top: var(--space-3); }
+.raw-diff summary { cursor: pointer; color: var(--color-text-muted); font-size: var(--text-xs); }
+
 /* Инлайн-ошибка рядом с действием (issue #633): раньше ошибка сохранения
    уходила в дальнюю панель #out, которая на вкладке «Разбор» скрыта. */
 .inline-error {
