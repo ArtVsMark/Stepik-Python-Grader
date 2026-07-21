@@ -32,7 +32,7 @@ const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 const SECTIONS = ["check", "downloader", "glossary", "rules", "insights", "progress", "sandbox", "settings"];
 
 // State (issue #125) — единый источник состояния для split-pane workspace,
-// command palette, action cards и сценарных кнопок.
+// action cards и сценарных кнопок (палитра удалена — issue #658).
 // ---------------------------------------------------------------------------
 const state = {
   section: localStorage.getItem("grader_section") || "check", // одно из SECTIONS
@@ -44,9 +44,6 @@ const state = {
   selectedCase: null,
   explainOpen: false,
   commands: [], // fetched once from /api/commands
-  paletteOpen: false,
-  paletteActiveIndex: 0,
-  paletteReturnFocus: null,
   theme: localStorage.getItem("grader_theme") || "system", // "system" | "light" | "dark"
   glossary: {
     query: "", section: "", kind: "", status: "", sort: "az",
@@ -120,7 +117,8 @@ function emptyState(title, hint) {
   );
 }
 
-// -- Command registry: one filter, two surfaces (command palette / action cards) --
+// -- Command registry: единый фильтр под карточки действий (issue #658: вторая
+// поверхность, палитра команд, удалена — все её команды и так были кнопками) --
 
 function applyTheme() {
   const root = document.documentElement;

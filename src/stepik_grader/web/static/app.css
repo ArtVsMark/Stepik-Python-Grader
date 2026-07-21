@@ -189,7 +189,7 @@
 
 /* ── BASE RESET ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-/* [hidden] и .app-shell/.split-pane/.palette-overlay имеют ту же
+/* [hidden] и .app-shell/.split-pane/.modal-overlay имеют ту же
    specificity (0,1,0) — без этого правила класс с display:grid/flex
    побеждает в каскаде, и [hidden] перестаёт скрывать элемент. */
 [hidden] { display: none !important; }
@@ -540,16 +540,14 @@ select.form-input { cursor: pointer; }
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
-/* -- Command palette ------------------------------------------------------- */
-.palette-overlay { position: fixed; inset: 0; background: oklch(0 0 0 / 0.5); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 100; }
-.palette { background: var(--color-surface); color: var(--color-text); width: min(560px, 92vw); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; border: 1px solid var(--color-border); }
-.palette input { width: 100%; border: 0; border-bottom: 1px solid var(--color-border); padding: var(--space-4); font-size: var(--text-base); background: transparent; color: inherit; }
-.palette input:focus-visible { outline: none; }
-.palette ul { list-style: none; margin: 0; padding: var(--space-1); max-height: 50vh; overflow-y: auto; }
-.palette li { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); cursor: pointer; display: flex; justify-content: space-between; gap: var(--space-2); }
-.palette li.active { background: var(--color-primary-btn); color: var(--color-on-primary); }
-.palette li .kbd { opacity: .6; font-size: var(--text-xs); }
-.palette .empty { padding: var(--space-4); color: var(--color-text-muted); }
+/* -- Модальное окно --------------------------------------------------------
+   issue #658: классы назывались .palette*, потому что появились вместе с
+   палитрой команд. Палитра удалена (все её команды и так были кнопками), а
+   разметка осталась нужна модалке AI-согласия — поэтому имена приведены к
+   нейтральным. Правила под список команд (input/ul/li/.kbd) удалены вместе
+   с палитрой: у модалки согласия свой контент. */
+.modal-overlay { position: fixed; inset: 0; background: oklch(0 0 0 / 0.5); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 100; }
+.modal { background: var(--color-surface); color: var(--color-text); width: min(560px, 92vw); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; border: 1px solid var(--color-border); }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
@@ -813,7 +811,7 @@ a.term-card-link:hover { background: var(--color-surface-offset); }
 }
 
 /* issue #543 — AI-подсказка: кнопка «Объяснить», её вывод и модалка согласия.
-   Только раскладка (без цветов) — переиспользуем .btn/.errcard/.palette-токены,
+   Только раскладка (без цветов) — переиспользуем .btn/.errcard/.modal-токены,
    contrast-guard (#424) не задеваем. */
 .ai-explain-btn { margin-top: var(--space-3); }
 .ai-hint-out { margin-top: var(--space-3); }
