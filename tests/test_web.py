@@ -2006,6 +2006,34 @@ def test_clipboard_errors_are_no_longer_swallowed() -> None:
     assert 'toast(t("common.copy_failed"), "error")' in body
 
 
+def test_sections_registry_lists_every_sidebar_section() -> None:
+    """Реестр SECTIONS совпадает с разделами sidebar (issue #317/#428/#538).
+
+    Регрессия, которую это стережёт: раньше список разделов дублировался в
+    коде жёстко, и `rules`/`insights`/`settings` из него выпадали — раздел
+    существовал в навигации, но переключение по реестру его не видело.
+
+    До #658 зону охранял e2e-тест циклического переключения через палитру
+    команд. Палитра удалена, и сам цикл перестал быть достижимым (после смены
+    раздела панель с карточкой действий скрывается), поэтому полнота реестра
+    проверяется здесь — дёшево и точнее, чем через браузер. Достижимость самих
+    разделов проверяет e2e `test_all_sections_reachable_from_sidebar`.
+    """
+    match = re.search(r"const SECTIONS = \[(.*?)\]", web._STATIC_JS_SOURCES, re.S)
+    assert match, "реестр SECTIONS не найден в static/*.js"
+    registry = re.findall(r'"([a-z]+)"', match.group(1))
+
+    # Только пункты навигации: `data-section` встречается ещё и в пустых
+    # состояниях («Откройте раздел „Проверка решений“»), их считать нельзя.
+    nav = re.search(r'<nav class="sidebar".*?</nav>', web._INDEX_HTML, re.S)
+    assert nav, "sidebar-навигация не найдена в разметке"
+    sidebar = re.findall(r'data-section="([a-z]+)"', nav.group(0))
+
+    assert registry == sidebar, (
+        f"реестр и sidebar разошлись: в реестре {registry}, в разметке {sidebar}"
+    )
+
+
 # --- issue #635: загрузка .py перетаскиванием ------------------------------
 
 
@@ -2080,6 +2108,41 @@ def test_section_and_tab_switching_go_through_motion_helper() -> None:
     tab_body = _js_fn_body("setResultTab")
     assert ".hidden = tab !==" not in tab_body
     assert "revealWithMotion(" in tab_body
+
+
+def test_mode_buttons_are_equal_width_and_fit_their_labels() -> None:
+    """Регрессия #663: подпись «Микробенчмарк» вылезала за границы кнопки.
+
+    Раньше раскладка была на flex: `flex: 1` разворачивается в `flex-basis: 0`
+    (ширина делится поровну независимо от содержимого), а явный `min-width` в
+    пикселях отключал `min-width: auto`, который обычно не даёт flex-элементу
+    сжаться уже контента. Кнопка получала 101px при потребности в 122px и при
+    `overflow: visible` наезжала на «Запустить».
+
+    Grid закрывает обе задачи разом: `1fr` — это `minmax(auto, 1fr)`, поэтому
+    колонки равны между собой И не уже самой длинной подписи. Flex так не
+    умеет: там «равные» и «не уже контента» противоречат друг другу.
+    """
+    css = (pathlib.Path(web.__file__).parent / "static" / "app.css").read_text(encoding="utf-8")
+    row_start = css.index(".mode-row {")
+    row_rule = css[row_start : css.index("}", row_start)]
+
+    assert "display: grid" in row_rule
+    assert "repeat(4, 1fr)" in row_rule, (
+        "колонки должны быть равными (1fr), иначе ширины кнопок разъедутся"
+    )
+
+    btn_start = css.index(".mode-btn {")
+    btn_rule = css[btn_start : css.index("}", btn_start)]
+    assert not re.search(r"min-width:\s*\d+px", btn_rule), (
+        "фиксированный min-width в пикселях уже ломал раскладку — длинная "
+        "подпись снова вылезет за кнопку (#663)"
+    )
+
+    # На узком экране четыре колонки по ширине «Микробенчмарка» не помещаются.
+    assert re.search(r"\.mode-row\s*\{\s*grid-template-columns:\s*repeat\(2, 1fr\)", css), (
+        "нужен мобильный брейкпоинт 2×2, иначе на 375px появится горизонтальный скролл"
+    )
 
 
 def test_view_enter_animation_reuses_shared_motion_token() -> None:

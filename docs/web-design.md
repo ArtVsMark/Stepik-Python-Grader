@@ -82,7 +82,8 @@ Backend-функция `grade_benchmark(reference=...)`/
   `src/stepik_grader/web/commands.py` это фиксированный словарь тегов
   контекста — сознательное упрощение при реализации #125, не баг и не
   недоделка, задокументировано как окончательное решение в
-  [web-current.md § Command palette](web-current.md#command-palette-ctrlk).
+  [web-current.md § Реестр команд](web-current.md#реестр-команд)
+  (сама палитра удалена в #658 — команды и так были кнопками).
 - Поиск в палитре — substring, не fuzzy-matching; апгрейд до fuzzy остаётся
   идеей "later".
 

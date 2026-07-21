@@ -33,7 +33,7 @@ Stepik-Python-Grader/
 │       │   ├── rules_adapter.py      # rules_search/rules_get — адаптер над пакетом rules/ (issue #379)
 │       │   ├── insights_adapter.py   # insights_cards — адаптер над core/insights+history (issue #379)
 │       │   ├── reference_adapter.py  # import_reference — адаптер над core/stepik_reference (кнопка «эталон», issue #55)
-│       │   ├── commands.py        # Реестр команд для command palette (leaf)
+│       │   ├── commands.py        # Реестр команд для action cards (leaf)
 │       │   ├── runs.py            # Async job-модель: bench/microbench/playground/trace/auth (issue #262/#402)
 │       │   ├── playground.py      # Песочница: запуск кода со stdin, вывод/статус (issue #317)
 │       │   ├── i18n.py            # message_id-каталог веб-API (issue #264)
