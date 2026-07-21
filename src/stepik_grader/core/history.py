@@ -32,10 +32,10 @@ import sqlite3
 import threading
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from stepik_grader import db
 
@@ -43,7 +43,10 @@ __all__ = [
     "HISTORY_DB_NAME",
     "SCHEMA_VERSION",
     "CaseRecord",
+    "HistoryRepository",
     "LintRecord",
+    "RunRecord",
+    "SqliteHistoryRepository",
     "read_recent_runs",
     "record_run",
 ]
@@ -102,6 +105,28 @@ class LintRecord:
     rule_code: str
     line_no: int
     message: str | None = None
+
+
+@dataclass(frozen=True)
+class RunRecord:
+    """Один прогон как доменная модель (ADR-0009).
+
+    Явный тип вместо россыпи параметров ``record_run`` — единственная доменная
+    модель прогона для обоих бэкендов (SQLite локально, PostgreSQL на сервере:
+    серверная схема добавит tenancy-колонки как надмножество, а не параллельный
+    тип). ``cases``/``lint`` — вложенные ``CaseRecord``/``LintRecord``. ``mode``
+    — 1..4; ``source`` — ``'cli'``/``'web'``; ``task_key`` — относительный путь
+    папки задачи (``''`` если её нет).
+    """
+
+    mode: int
+    cases: list[CaseRecord]
+    source: str = "cli"
+    task_key: str = ""
+    solution_name: str | None = None
+    solution_hash: str | None = None
+    duration_s: float | None = None
+    lint: list[LintRecord] = field(default_factory=list)
 
 
 # DDL схемы v1 (канон — docs/audit-2026-07.md § 9.2). Применяется миграцией
@@ -170,6 +195,177 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return db.connect(db_path, migrate=_migrate)
 
 
+@runtime_checkable
+class HistoryRepository(Protocol):
+    """Абстракция хранилища истории (ADR-0009): одна доменная модель, разные бэкенды.
+
+    ``SqliteHistoryRepository`` — локальный бэкенд (фаза 0, файл на пользователя);
+    серверный PostgreSQL-бэкенд (фаза 3) встанет рядом той же поверхностью, а не
+    переписыванием доменной логики истории/insights — аналогично тому, как
+    ``Runner`` абстрагирует исполнение (ADR-0001).
+    """
+
+    def add_run(
+        self, record: RunRecord, *, max_runs_per_task: int | None = _MAX_RUNS_PER_TASK
+    ) -> int | None:
+        """Записать прогон, вернуть его id (или ``None`` при best-effort сбое)."""
+        ...
+
+    def recent_runs(self, *, task_key: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        """Последние прогоны (новые первыми) с вложенными ``cases``/``lint``."""
+        ...
+
+
+@dataclass(frozen=True)
+class SqliteHistoryRepository:
+    """Локальный SQLite-бэкенд истории (ADR-0009, фаза 0).
+
+    Оборачивает прежний module-функциональный путь БЕЗ смены поведения: тот же
+    файл ``.grader_history.db``, та же схема/миграции, тот же retention (#642),
+    тот же best-effort и та же межпоточная сериализация. Использует module-level
+    ``_connect``/``_WRITE_LOCK``/``_MAX_RUNS_PER_TASK`` bare-именами — тесты патчат
+    их через ``history.X`` (late-binding сохранён).
+    """
+
+    db_path: Path
+
+    def add_run(
+        self, record: RunRecord, *, max_runs_per_task: int | None = _MAX_RUNS_PER_TASK
+    ) -> int | None:
+        """Записать один прогон (+ cases и lint) в SQLite; вернуть ``run_id``.
+
+        ``max_runs_per_task`` (issue #642) — retention: после вставки для
+        ``record.task_key`` остаётся не более ``max_runs_per_task`` последних
+        прогонов, старые удаляются (FK ``ON DELETE CASCADE`` уносит их
+        ``case_results``/``lint_violations``). ``None`` отключает retention.
+
+        Best-effort: любая ``sqlite3.Error``/``OSError`` тихо проглатывается
+        (возврат ``None``), как у ``stats.record_run``/``GraderCache`` — история
+        не должна ронять грейдинг.
+        """
+        for attempt in range(_WRITE_ATTEMPTS):
+            try:
+                with _WRITE_LOCK, contextlib.closing(_connect(self.db_path)) as conn:
+                    cur = conn.execute(
+                        "INSERT INTO runs (ts_utc, mode, source, task_key, solution_name, "
+                        "solution_hash, duration_s) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            _utc_now_iso(),
+                            record.mode,
+                            record.source,
+                            record.task_key,
+                            record.solution_name,
+                            record.solution_hash,
+                            record.duration_s,
+                        ),
+                    )
+                    run_id = cur.lastrowid
+                    if record.cases:
+                        conn.executemany(
+                            "INSERT INTO case_results (run_id, case_no, verdict, time_ms, "
+                            "error_class, failure_kind) VALUES (?, ?, ?, ?, ?, ?)",
+                            [
+                                (
+                                    run_id,
+                                    c.case_no,
+                                    c.verdict,
+                                    c.time_ms,
+                                    c.error_class,
+                                    c.failure_kind,
+                                )
+                                for c in record.cases
+                            ],
+                        )
+                    if record.lint:
+                        conn.executemany(
+                            "INSERT INTO lint_violations (run_id, rule_code, line_no, message) "
+                            "VALUES (?, ?, ?, ?)",
+                            [(run_id, v.rule_code, v.line_no, v.message) for v in record.lint],
+                        )
+                    if max_runs_per_task is not None:
+                        # issue #642: retention — оставить не более max_runs_per_task
+                        # последних прогонов для ЭТОГО task_key (рост БД идёт через
+                        # него, поэтому полный скан не нужен). OFFSET-подзапрос по
+                        # монотонному id находит границу «(cap+1)-й с конца»: всё с
+                        # id ≤ неё — на удаление; FK ON DELETE CASCADE уносит их
+                        # case_results/lint_violations. Прогонов ≤ cap → подзапрос
+                        # даёт NULL, `id <= NULL` ложно — не удаляется ничего.
+                        conn.execute(
+                            "DELETE FROM runs WHERE task_key = ? AND id <= "
+                            "(SELECT id FROM runs WHERE task_key = ? "
+                            "ORDER BY id DESC LIMIT 1 OFFSET ?)",
+                            (record.task_key, record.task_key, max_runs_per_task),
+                        )
+                    conn.commit()
+                    return run_id
+            except sqlite3.OperationalError:
+                # Транзиентная блокировка БД (SQLITE_BUSY/"database is locked") —
+                # межпроцессная гонка мимо _WRITE_LOCK; короткий backoff и повтор,
+                # best-effort сдача только после исчерпания попыток (issue #605).
+                if attempt == _WRITE_ATTEMPTS - 1:
+                    return None
+                time.sleep(_WRITE_RETRY_DELAY_S * (attempt + 1))
+            except (sqlite3.Error, OSError):
+                return None
+        return None
+
+    def recent_runs(self, *, task_key: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        """Последние прогоны (новые первыми) с вложенными ``cases``.
+
+        Отсутствующая/битая БД → пустой список (graceful, не ошибка); файл не
+        создаётся, если его нет (#134). Фильтр по ``task_key`` опционален.
+        """
+        if not self.db_path.is_file():
+            return []
+        try:
+            with contextlib.closing(_connect(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                clause = "WHERE task_key = ?" if task_key is not None else ""
+                head = (task_key,) if task_key is not None else ()
+                rows = conn.execute(
+                    f"SELECT * FROM runs {clause} ORDER BY id DESC LIMIT ?",
+                    (*head, limit),
+                ).fetchall()
+                run_ids = [row["id"] for row in rows]
+                # Один запрос на cases и один на lint для ВСЕХ выбранных прогонов
+                # вместо N+1 (по запросу на каждый run, issue #553). Контракт не
+                # меняется: cases по case_no, lint по rule_code, прогоны по id DESC.
+                cases_by_run: dict[int, list[dict[str, Any]]] = defaultdict(list)
+                lint_by_run: dict[int, list[str]] = defaultdict(list)
+                if run_ids:
+                    placeholders = ",".join("?" * len(run_ids))
+                    for case in conn.execute(
+                        "SELECT run_id, case_no, verdict, time_ms, error_class, failure_kind "
+                        f"FROM case_results WHERE run_id IN ({placeholders}) "
+                        "ORDER BY run_id, case_no",
+                        run_ids,
+                    ):
+                        cases_by_run[case["run_id"]].append(
+                            {
+                                "case_no": case["case_no"],
+                                "verdict": case["verdict"],
+                                "time_ms": case["time_ms"],
+                                "error_class": case["error_class"],
+                                "failure_kind": case["failure_kind"],
+                            }
+                        )
+                    for violation in conn.execute(
+                        "SELECT run_id, rule_code FROM lint_violations "
+                        f"WHERE run_id IN ({placeholders}) ORDER BY run_id, rule_code",
+                        run_ids,
+                    ):
+                        lint_by_run[violation["run_id"]].append(violation["rule_code"])
+                result: list[dict[str, Any]] = []
+                for row in rows:
+                    run = dict(row)
+                    run["cases"] = cases_by_run.get(row["id"], [])
+                    run["lint"] = lint_by_run.get(row["id"], [])
+                    result.append(run)
+                return result
+        except (sqlite3.Error, OSError):
+            return []
+
+
 def record_run(
     mode: int,
     cases: list[CaseRecord],
@@ -183,83 +379,26 @@ def record_run(
     lint: list[LintRecord] | None = None,
     max_runs_per_task: int | None = _MAX_RUNS_PER_TASK,
 ) -> int | None:
-    """Записать один прогон (+ его cases и lint) в историю; вернуть ``run_id``.
+    """Записать один прогон в локальную историю; вернуть ``run_id`` (или ``None``).
 
-    ``mode`` — 1..4; ``source`` — ``'cli'``/``'web'``; ``task_key`` —
-    относительный путь папки задачи (``''`` если её нет). ``cases`` — per-case
-    результаты (для режимов 3/4 — по решению, verdict бенчмарка). ``lint``
-    пуст в #344 (наполнит #346).
-
-    ``max_runs_per_task`` (issue #642) — retention: после вставки для этого
-    ``task_key`` остаётся не более ``max_runs_per_task`` последних прогонов,
-    старые удаляются (FK ``ON DELETE CASCADE`` уносит их ``case_results``/
-    ``lint_violations``). ``None`` отключает retention (например, для тестов или
-    осознанно безлимитного хранения). По умолчанию — ``_MAX_RUNS_PER_TASK``;
-    на сервере лимит задают явно.
-
-    Best-effort: любая ``sqlite3.Error``/``OSError`` тихо проглатывается
-    (возврат ``None``), как у ``stats.record_run``/``GraderCache`` — история
-    не должна ронять грейдинг. Путь передаётся явно (opt-in, #134): вызывающая
-    сторона включает историю флагом ``--history``/конфигом.
+    Тонкая обёртка над ``SqliteHistoryRepository.add_run`` (ADR-0009): собирает
+    параметры в доменный ``RunRecord`` и делегирует локальному бэкенду. Сигнатура
+    сохранена для существующих вызывающих (``cli``/``web``) и тестов — поведение,
+    retention (#642) и best-effort те же. Путь передаётся явно (opt-in, #134).
     """
-    for attempt in range(_WRITE_ATTEMPTS):
-        try:
-            with _WRITE_LOCK, contextlib.closing(_connect(db_path)) as conn:
-                cur = conn.execute(
-                    "INSERT INTO runs (ts_utc, mode, source, task_key, solution_name, "
-                    "solution_hash, duration_s) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        _utc_now_iso(),
-                        mode,
-                        source,
-                        task_key,
-                        solution_name,
-                        solution_hash,
-                        duration_s,
-                    ),
-                )
-                run_id = cur.lastrowid
-                if cases:
-                    conn.executemany(
-                        "INSERT INTO case_results (run_id, case_no, verdict, time_ms, "
-                        "error_class, failure_kind) VALUES (?, ?, ?, ?, ?, ?)",
-                        [
-                            (run_id, c.case_no, c.verdict, c.time_ms, c.error_class, c.failure_kind)
-                            for c in cases
-                        ],
-                    )
-                if lint:
-                    conn.executemany(
-                        "INSERT INTO lint_violations (run_id, rule_code, line_no, message) "
-                        "VALUES (?, ?, ?, ?)",
-                        [(run_id, v.rule_code, v.line_no, v.message) for v in lint],
-                    )
-                if max_runs_per_task is not None:
-                    # issue #642: retention — оставить не более max_runs_per_task
-                    # последних прогонов для ЭТОГО task_key (рост БД идёт через
-                    # него, поэтому полный скан не нужен). OFFSET-подзапрос по
-                    # монотонному id находит границу «(cap+1)-й с конца»: всё с
-                    # id ≤ неё — на удаление; FK ON DELETE CASCADE уносит их
-                    # case_results/lint_violations. Прогонов ≤ cap → подзапрос
-                    # даёт NULL, `id <= NULL` ложно — не удаляется ничего.
-                    conn.execute(
-                        "DELETE FROM runs WHERE task_key = ? AND id <= "
-                        "(SELECT id FROM runs WHERE task_key = ? "
-                        "ORDER BY id DESC LIMIT 1 OFFSET ?)",
-                        (task_key, task_key, max_runs_per_task),
-                    )
-                conn.commit()
-                return run_id
-        except sqlite3.OperationalError:
-            # Транзиентная блокировка БД (SQLITE_BUSY/"database is locked") —
-            # межпроцессная гонка мимо _WRITE_LOCK; короткий backoff и повтор,
-            # best-effort сдача только после исчерпания попыток (issue #605).
-            if attempt == _WRITE_ATTEMPTS - 1:
-                return None
-            time.sleep(_WRITE_RETRY_DELAY_S * (attempt + 1))
-        except (sqlite3.Error, OSError):
-            return None
-    return None
+    return SqliteHistoryRepository(db_path).add_run(
+        RunRecord(
+            mode=mode,
+            cases=cases,
+            source=source,
+            task_key=task_key,
+            solution_name=solution_name,
+            solution_hash=solution_hash,
+            duration_s=duration_s,
+            lint=lint or [],
+        ),
+        max_runs_per_task=max_runs_per_task,
+    )
 
 
 def read_recent_runs(
@@ -270,55 +409,7 @@ def read_recent_runs(
 ) -> list[dict[str, Any]]:
     """Последние прогоны (новые первыми) с вложенными ``cases``.
 
-    Отсутствующая/битая БД → пустой список (graceful, не ошибка); файл не
-    создаётся, если его нет (#134). Фильтр по ``task_key`` опционален.
-    Используется тестами (roundtrip) и будущим разделом «Подучить» (#347).
+    Тонкая обёртка над ``SqliteHistoryRepository.recent_runs`` (ADR-0009).
+    Сигнатура сохранена для тестов (roundtrip) и раздела «Подучить» (#347).
     """
-    if not db_path.is_file():
-        return []
-    try:
-        with contextlib.closing(_connect(db_path)) as conn:
-            conn.row_factory = sqlite3.Row
-            clause = "WHERE task_key = ?" if task_key is not None else ""
-            head = (task_key,) if task_key is not None else ()
-            rows = conn.execute(
-                f"SELECT * FROM runs {clause} ORDER BY id DESC LIMIT ?",
-                (*head, limit),
-            ).fetchall()
-            run_ids = [row["id"] for row in rows]
-            # Один запрос на cases и один на lint для ВСЕХ выбранных прогонов
-            # вместо N+1 (по запросу на каждый run, issue #553). Контракт не
-            # меняется: cases по case_no, lint по rule_code, прогоны по id DESC.
-            cases_by_run: dict[int, list[dict[str, Any]]] = defaultdict(list)
-            lint_by_run: dict[int, list[str]] = defaultdict(list)
-            if run_ids:
-                placeholders = ",".join("?" * len(run_ids))
-                for case in conn.execute(
-                    "SELECT run_id, case_no, verdict, time_ms, error_class, failure_kind "
-                    f"FROM case_results WHERE run_id IN ({placeholders}) ORDER BY run_id, case_no",
-                    run_ids,
-                ):
-                    cases_by_run[case["run_id"]].append(
-                        {
-                            "case_no": case["case_no"],
-                            "verdict": case["verdict"],
-                            "time_ms": case["time_ms"],
-                            "error_class": case["error_class"],
-                            "failure_kind": case["failure_kind"],
-                        }
-                    )
-                for violation in conn.execute(
-                    "SELECT run_id, rule_code FROM lint_violations "
-                    f"WHERE run_id IN ({placeholders}) ORDER BY run_id, rule_code",
-                    run_ids,
-                ):
-                    lint_by_run[violation["run_id"]].append(violation["rule_code"])
-            result: list[dict[str, Any]] = []
-            for row in rows:
-                run = dict(row)
-                run["cases"] = cases_by_run.get(row["id"], [])
-                run["lint"] = lint_by_run.get(row["id"], [])
-                result.append(run)
-            return result
-    except (sqlite3.Error, OSError):
-        return []
+    return SqliteHistoryRepository(db_path).recent_runs(task_key=task_key, limit=limit)

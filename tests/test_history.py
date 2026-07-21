@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from stepik_grader.core import history
-from stepik_grader.core.history import CaseRecord, LintRecord
+from stepik_grader.core.history import CaseRecord, LintRecord, RunRecord
 
 
 def _db(tmp_path: Path) -> Path:
@@ -386,3 +386,68 @@ def test_retention_default_keeps_small_history(tmp_path: Path) -> None:
     for _ in range(5):
         history.record_run(1, [CaseRecord(1, "OK")], db_path=db, task_key="t")
     assert len(history.read_recent_runs(db, task_key="t")) == 5
+
+
+# ---------------------------------------------------------------------------
+# issue #639: RunRecord + абстракция репозитория (ADR-0009)
+# ---------------------------------------------------------------------------
+
+
+def test_run_record_defaults() -> None:
+    """RunRecord: обязательны mode/cases; source/task_key/lint — дефолты (ADR-0009)."""
+    rec = RunRecord(mode=1, cases=[CaseRecord(1, "OK")])
+    assert rec.source == "cli"
+    assert rec.task_key == ""
+    assert rec.solution_name is None
+    assert rec.lint == []
+
+
+def test_sqlite_repository_roundtrip(tmp_path: Path) -> None:
+    """SqliteHistoryRepository.add_run/recent_runs — roundtrip доменной модели RunRecord."""
+    repo = history.SqliteHistoryRepository(_db(tmp_path))
+    run_id = repo.add_run(
+        RunRecord(
+            mode=2,
+            cases=[CaseRecord(1, "OK"), CaseRecord(2, "WA")],
+            task_key="course/01",
+            solution_name="task.py",
+            lint=[LintRecord("E501", 3)],
+        )
+    )
+    assert run_id == 1
+    runs = repo.recent_runs(task_key="course/01")
+    assert len(runs) == 1
+    assert runs[0]["mode"] == 2
+    assert runs[0]["solution_name"] == "task.py"
+    assert [c["verdict"] for c in runs[0]["cases"]] == ["OK", "WA"]
+    assert runs[0]["lint"] == ["E501"]
+
+
+def test_record_run_wrapper_matches_repository(tmp_path: Path) -> None:
+    """record_run/read_recent_runs — тонкие обёртки: тот же результат, что прямой
+    repo.add_run/recent_runs (обратная совместимость сохранена, ADR-0009)."""
+    db = _db(tmp_path)
+    rid = history.record_run(
+        1, [CaseRecord(1, "OK")], db_path=db, task_key="t", solution_name="a.py"
+    )
+    assert rid == 1
+    via_repo = history.SqliteHistoryRepository(db).recent_runs(task_key="t")
+    via_func = history.read_recent_runs(db, task_key="t")
+    assert via_repo == via_func
+    assert via_func[0]["solution_name"] == "a.py"
+
+
+def test_sqlite_repository_satisfies_protocol(tmp_path: Path) -> None:
+    """SqliteHistoryRepository удовлетворяет @runtime_checkable HistoryRepository (ADR-0009)."""
+    repo = history.SqliteHistoryRepository(_db(tmp_path))
+    assert isinstance(repo, history.HistoryRepository)
+
+
+def test_repository_retention_applies(tmp_path: Path) -> None:
+    """Retention (#642) действует и через прямой repo.add_run(max_runs_per_task=...)."""
+    repo = history.SqliteHistoryRepository(_db(tmp_path))
+    for _ in range(5):
+        repo.add_run(
+            RunRecord(mode=1, cases=[CaseRecord(1, "OK")], task_key="t"), max_runs_per_task=2
+        )
+    assert len(repo.recent_runs(task_key="t")) == 2
