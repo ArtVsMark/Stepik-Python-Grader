@@ -512,6 +512,43 @@ try {
   // каталог недоступен — t() вернёт ⟦key⟧-маркеры (осознанно, не тихий RU)
 }
 
+/**
+ * Короткое ненавязчивое уведомление в углу экрана (issue #633).
+ *
+ * До этого действия молчали: copyToClipboard глушил ошибку в `.catch(() => {})`,
+ * а сообщения об ошибках затирали панель результатов `#out` — причём на вкладке
+ * «Разбор» она вообще скрыта, так что текст уходил в никуда.
+ *
+ * Ошибки получают `role="alert"` и живут дольше — их нельзя пропустить;
+ * остальные — `role="status"`, чтобы скринридер не прерывал пользователя.
+ * Сообщение подставляется через textContent (не innerHTML) — на вход приходят
+ * в том числе строки от сервера.
+ *
+ * @param {string} message — готовый локализованный текст
+ * @param {"info"|"success"|"error"} [kind]
+ * @param {{timeout?: number}} [options]
+ */
+function toast(message, kind = "info", options = {}) {
+  const stack = $("#toast-stack");
+  if (!stack) return;
+
+  const el = document.createElement("div");
+  el.className = "toast toast-" + kind;
+  el.setAttribute("role", kind === "error" ? "alert" : "status");
+  el.textContent = message;
+  stack.appendChild(el);
+
+  // Кадр на применение начального состояния — иначе элемент сразу окажется в
+  // конечном и переход появления не отработает.
+  requestAnimationFrame(() => el.classList.add("toast-visible"));
+
+  const life = options.timeout ?? (kind === "error" ? 6000 : 2500);
+  window.setTimeout(() => {
+    el.classList.remove("toast-visible");
+    window.setTimeout(() => el.remove(), 200);
+  }, life);
+}
+
 export {
   $,
   SECTIONS,
@@ -532,5 +569,6 @@ export {
   skeletonBlock,
   state,
   t,
+  toast,
   tp,
 };

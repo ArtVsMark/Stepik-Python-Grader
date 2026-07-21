@@ -1,6 +1,6 @@
 // grade.js — проверка (режимы 1–4), рендер результата, палитра команд (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
-import { $, SECTIONS, codeBlock, cycleTheme, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, setSection, skeletonBlock, state, t, tp } from "./core.js";
+import { $, SECTIONS, codeBlock, cycleTheme, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, setSection, skeletonBlock, state, t, toast, tp } from "./core.js";
 
 // issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
 // как {ru, en}; раньше рендер жёстко брал .ru — теперь выбираем по state.lang
@@ -55,9 +55,16 @@ function visibleCommands() {
 }
 
 function copyToClipboard(text) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).catch(() => {});
+  // issue #633: раньше результат копирования не подтверждался никак, а ошибка
+  // глушилась в пустой .catch — пользователь не мог отличить успех от провала.
+  if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    toast(t("common.copy_failed"), "error");
+    return;
   }
+  navigator.clipboard.writeText(text).then(
+    () => toast(t("common.copied"), "success"),
+    () => toast(t("common.copy_failed"), "error"),
+  );
 }
 
 const ACTION_HANDLERS = {
@@ -486,6 +493,7 @@ async function grade() {
     announceResult(summaryFromResult(data)); // issue #298
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
+    toast(t("common.request_error"), "error");
     announceResult(t("common.request_error")); // issue #298
   } finally {
     _finishGradeUI();
@@ -515,7 +523,10 @@ async function saveSolution() {
     });
     const saved = await resp.json();
     if (!saved.ok) {
-      $("#out").innerHTML = '<p class="msg">' + esc(saved.message) + "</p>";
+      // issue #633: ошибка сохранения — рядом с кнопкой, а не в панели #out:
+      // та показывает результаты грейда (их незачем терять) и на вкладке
+      // «Разбор» вообще скрыта, так что сообщение уходило в никуда.
+      showSaveError(saved.message);
       // Конфликт: обновляем baseline mtime на актуальный с диска НЕ можем (не
       // знаем его), но повторный клик пойдёт без ложного конфликта, если
       // пользователь осознанно перезапишет — упрощаем: снимаем optimistic-guard
@@ -524,13 +535,34 @@ async function saveSolution() {
       updateDirtyIndicator();
       return;
     }
+    clearSaveError();
     state.selectedSolutionFile = saved.path;
     markEditorSaved(code, saved.mtime);
+    toast(t("check.saved"), "success");
     await refreshSolutionsList();
   } catch (e) {
-    $("#out").innerHTML = '<p class="msg">' + esc(t("check.save_failed", { detail: String(e) })) + "</p>";
+    showSaveError(t("check.save_failed", { detail: String(e) }));
   } finally {
     updateDirtyIndicator();
+  }
+}
+
+/** Показать ошибку сохранения рядом с кнопкой + продублировать тостом (#633). */
+function showSaveError(message) {
+  const slot = $("#save-error");
+  if (slot) {
+    slot.textContent = message;
+    slot.hidden = false;
+  }
+  toast(message, "error");
+}
+
+/** Убрать инлайн-ошибку сохранения после успешной записи (#633). */
+function clearSaveError() {
+  const slot = $("#save-error");
+  if (slot) {
+    slot.textContent = "";
+    slot.hidden = true;
   }
 }
 
@@ -614,6 +646,7 @@ async function gradeAsync(path, backendMode, code = null) {
     }
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
+    toast(t("common.request_error"), "error");
     announceResult(t("common.request_error")); // issue #298
     _finishGradeUI();
     return;
@@ -636,6 +669,7 @@ async function gradeAsync(path, backendMode, code = null) {
       } catch (e) {
         if (state.activeRunId !== runId) return resolve();
         $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
+        toast(t("common.request_error"), "error");
         announceResult(t("common.request_error")); // issue #298
         return resolve();
       }

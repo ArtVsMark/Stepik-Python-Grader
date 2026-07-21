@@ -136,6 +136,9 @@
                 <div class="row mt-3">
                   <button id="save-solution-btn" class="btn btn-secondary" type="button" disabled data-i18n="check.save">Сохранить</button>
                 </div>
+                <!-- issue #633: ошибка сохранения — рядом с кнопкой, а не в
+                     дальней панели #out (на вкладке «Разбор» она скрыта). -->
+                <p id="save-error" class="inline-error" role="alert" hidden></p>
               </div>
             </div>
             <div class="hint" data-i18n="check.hint">«Проверить» грейдит текущий код без записи на диск. «Сохранить» — записать в файл. Клик по тест-кейсу — разбор во вкладке «Разбор».</div>
@@ -475,6 +478,10 @@
      static/vendor/VERSIONS.md) that app.js imports directly by URL; no
      import map needed (issue #265's importmap + per-package esm.sh bundles
      + Node browser-compat shims are gone). -->
+<!-- issue #633: стек тостов. aria-live на контейнере не ставим — каждый тост
+     несёт собственную role (status/alert), иначе анонс дублируется. -->
+<div id="toast-stack" class="toast-stack"></div>
+
 <script type="module" src="/static/app.js"></script>
 </body>
 </html>
