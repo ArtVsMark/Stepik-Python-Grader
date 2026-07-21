@@ -1,5 +1,5 @@
 // sandbox.js — песочница: запуск/трейс, редактор, карточки ошибок (#426).
-import { $, esc, explainFailureWithAi, fetchCodeTerms, makeEditor, registerSectionHook, renderTermsInto, state, t } from "./core.js";
+import { $, esc, explainFailureWithAi, fetchCodeTerms, makeEditor, registerSectionHook, renderTermsInto, skeletonWithLabel, state, t } from "./core.js";
 import { showTracePlayer } from "./trace-player.js";
 
 let sandboxView = null; // issue #317: отдельный редактор песочницы
@@ -93,7 +93,9 @@ function _startSandboxUI(busyMsg) {
   $("#sandbox-empty").hidden = true;
   const out = $("#sandbox-output");
   out.hidden = false;
-  out.innerHTML = '<p class="hint">' + esc(busyMsg) + "</p>";
+  // issue #637: скелетон вместо текстовой строки — тот же язык ожидания, что
+  // в грейде и загрузчике; сам текст сохранён для скринридера.
+  out.innerHTML = skeletonWithLabel(busyMsg);
   setSandboxStatus(null);
 }
 

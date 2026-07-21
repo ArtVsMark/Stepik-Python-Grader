@@ -2006,6 +2006,60 @@ def test_clipboard_errors_are_no_longer_swallowed() -> None:
     assert 'toast(t("common.copy_failed"), "error")' in body
 
 
+# --- issue #637: a11y и клавиатурные потоки ---------------------------------
+
+
+def test_consent_modal_traps_focus_and_restores_it() -> None:
+    """Модалка согласия удерживает фокус и возвращает его при закрытии (#637).
+
+    `aria-modal` в разметке — лишь обещание скринридеру, сам атрибут ничего не
+    удерживает: `Tab` свободно уходил на страницу под оверлеем, где можно было
+    нажимать кнопки, пока диалог «ждёт» ответа. Плюс `Escape`: диалог с двумя
+    вариантами обязан закрываться отказом.
+    """
+    start = web._STATIC_JS_SOURCES.index("function _requestAiConsent(")
+    body = web._STATIC_JS_SOURCES[start : web._STATIC_JS_SOURCES.index("\n}", start)]
+
+    assert 'e.key === "Escape"' in body, "Escape должен закрывать диалог отказом"
+    assert 'e.key !== "Tab"' in body, "нужен перехват Tab на краях"
+    assert "returnFocus" in body, "фокус обязан вернуться туда, откуда открыли"
+
+
+def test_waiting_states_share_one_skeleton_language() -> None:
+    """Ожидание везде показывается скелетоном, а не смесью скелетон/текст (#637).
+
+    Раньше грейд и загрузчик рисовали скелетон, а список решений и песочница —
+    текстовые заглушки. Текст не выброшен, а спрятан в `sr-only`: скелетон сам
+    по себе декоративен, и незрячий пользователь остался бы без сигнала.
+    """
+    src = web._STATIC_JS_SOURCES
+    assert "function skeletonWithLabel(" in src
+    assert "function skeletonListItems(" in src
+    assert "sr-only" in src and 'role="status"' in src
+
+    # Текстовые заглушки ожидания заменены на скелетоны.
+    assert 'skeletonListItems(t("check.searching"))' in src
+    assert "skeletonWithLabel(busyMsg)" in src
+
+
+def test_check_shortcuts_do_not_fire_while_typing() -> None:
+    """Цифры-режимы не срабатывают, пока пользователь печатает (#637).
+
+    Иначе ввод «2 3» в поле stdin или в редакторе переключал бы режим прямо
+    под руками. Редактор кода — contenteditable (CodeMirror), поэтому одной
+    проверки на input/textarea мало.
+    """
+    src = web._STATIC_JS_SOURCES
+    assert "function _isTyping(" in src
+    assert "isContentEditable" in src, "CodeMirror — contenteditable, его надо учесть"
+    assert "!_isTyping(e.target)" in src
+
+    # Ctrl+S обязан перехватываться, иначе браузер откроет «Сохранить страницу».
+    start = src.index("_MODE_BY_DIGIT")
+    body = src[start : start + 2000]
+    assert "e.preventDefault()" in body
+
+
 # --- issue #636: инлайн-diff разбора WA -------------------------------------
 
 

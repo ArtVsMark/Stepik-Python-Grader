@@ -1,6 +1,6 @@
 // grade.js — проверка (режимы 1–4), рендер результата, карточки действий (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
-import { $, SECTIONS, codeBlock, cycleTheme, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, state, t, toast, tp } from "./core.js";
+import { $, SECTIONS, codeBlock, cycleTheme, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, skeletonListItems, state, t, toast, tp } from "./core.js";
 
 // issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
 // как {ru, en}; раньше рендер жёстко брал .ru — теперь выбираем по state.lang
@@ -342,7 +342,8 @@ async function refreshSolutionsList() {
   const folder = $("#path").value.trim();
   const list = $("#solutions-list");
   if (!folder) return;
-  list.innerHTML = '<li class="empty">' + esc(t("check.searching")) + "</li>";
+  // issue #637: единый язык ожидания — скелетон вместо текстовой заглушки
+  list.innerHTML = skeletonListItems(t("check.searching"));
   try {
     const r = await fetch("/api/solutions?" + new URLSearchParams({ path: folder }));
     const data = await r.json();
