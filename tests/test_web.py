@@ -2006,6 +2006,48 @@ def test_clipboard_errors_are_no_longer_swallowed() -> None:
     assert 'toast(t("common.copy_failed"), "error")' in body
 
 
+# --- issue #636: инлайн-diff разбора WA -------------------------------------
+
+
+def test_wa_detail_uses_aligned_inline_diff() -> None:
+    """Разбор WA показывает выровненный diff, а не два блока + сырую строку.
+
+    Раньше «Ожидалось/Получено» рендерились двумя `codeBlock` плюс необработанный
+    вывод difflib — искать различие приходилось глазами.
+    """
+    src = web._STATIC_JS_SOURCES
+    assert "function renderInlineDiff(" in src
+    assert "renderInlineDiff(c.expected, c.actual)" in src
+    # Сырой diff остаётся, но свёрнутым — он больше не основной способ понять WA.
+    assert "details class='raw-diff'" in src
+
+
+def test_diff_marks_only_ambiguous_whitespace_on_full_lines() -> None:
+    """Точками помечаются табы и ХВОСТОВЫЕ пробелы, а не каждый пробел.
+
+    Регрессия из разработки #636: первая версия прогоняла всю строку через
+    пометку всех пробелов, и обычный текст читался как «extra·line». Межсловный
+    пробел ничем не примечателен, а хвостовой невидим и регулярно оказывается
+    причиной WA — метить нужно только его. Внутри различающегося фрагмента
+    помечаются все пробелы: там пробел и ЕСТЬ различие.
+    """
+    src = web._STATIC_JS_SOURCES
+    assert "function escWithHiddenMarks(" in src
+
+    start = src.index("function escWithHiddenMarks(")
+    body = src[start : src.index("\n}", start)]
+    assert "[ \\t]+$" in body, "должен вычленяться именно хвостовой пробел"
+
+    # Целые строки (совпавшая / лишняя / недостающая) — через «щадящую» пометку.
+    for call in (
+        'escWithHiddenMarks(a), t("grade.diff_line_extra")',
+        'escWithHiddenMarks(e), t("grade.diff_line_missing")',
+    ):
+        assert call in src, call
+    # А внутри подсвеченного фрагмента — полная пометка.
+    assert 'visibleWhitespace(mid) + "</mark>"' in src
+
+
 # --- issue #659: топбар — язык и состояние темы ----------------------------
 
 
