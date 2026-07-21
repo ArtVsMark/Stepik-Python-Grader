@@ -2,7 +2,7 @@
 import { loadGlossary, loadRules, parseGlossaryHash, renderGlossaryChips, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
 import { $, applyTheme, applyUiLocale, cycleTheme, setSection, setTheme, state, t } from "./core.js";
 import { downloadTask, loadAuthStatus, startBrowserAuth } from "./downloader.js";
-import { cancelActiveRun, checkTermsTimer, closePalette, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, openPalette, paletteCommands, renderPaletteList, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
+import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
 import { drawMemArrows, renderTraceStep } from "./trace-player.js";
 
@@ -153,10 +153,6 @@ $("#auth-panel").addEventListener("click", e => {
 $("#theme-toggle").addEventListener("click", cycleTheme);
 $("#settings-theme").addEventListener("change", e => setTheme(e.target.value)); // issue #364
 $("#settings-lang").addEventListener("change", e => setLang(e.target.value)); // issue #364
-$("#palette-btn").addEventListener("click", openPalette);
-$("#palette-overlay").addEventListener("click", e => {
-  if (e.target.id === "palette-overlay") closePalette();
-});
 
 let glossarySearchTimer = null;
 $("#glossary-search").addEventListener("input", e => {
@@ -188,40 +184,6 @@ $("#glossary-sort").addEventListener("change", e => {
   loadGlossary();
 });
 
-$("#palette-input").addEventListener("input", () => {
-  state.paletteActiveIndex = 0;
-  renderPaletteList();
-});
-$("#palette-input").addEventListener("keydown", e => {
-  const cmds = paletteCommands();
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    state.paletteActiveIndex = Math.min(state.paletteActiveIndex + 1, cmds.length - 1);
-    renderPaletteList();
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    state.paletteActiveIndex = Math.max(state.paletteActiveIndex - 1, 0);
-    renderPaletteList();
-  } else if (e.key === "Enter") {
-    e.preventDefault();
-    const cmd = cmds[state.paletteActiveIndex];
-    closePalette();
-    if (cmd) runCommand(cmd.id);
-  } else if (e.key === "Escape") {
-    e.preventDefault();
-    closePalette();
-  }
-});
-document.addEventListener("keydown", e => {
-  const key = e.key.toLowerCase();
-  if ((e.ctrlKey || e.metaKey) && key === "k") {
-    e.preventDefault();
-    if (state.paletteOpen) closePalette();
-    else openPalette();
-  } else if (e.key === "Escape" && state.paletteOpen) {
-    closePalette();
-  }
-});
 
 window.addEventListener("hashchange", routeFromHash); // issue #329: deep-link на карточку
 

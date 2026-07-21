@@ -18,8 +18,6 @@
     <span id="exec-mode-badge" class="badge" hidden></span>
     <button id="theme-toggle" class="btn-icon" title="Переключить тему" aria-label="Переключить тему"
             data-i18n-title="topbar.theme_toggle" data-i18n-aria-label="topbar.theme_toggle">🌓</button>
-    <button id="palette-btn" class="btn-icon" title="Ctrl+K / ⌘K" aria-label="Открыть палитру команд"
-            data-i18n-aria-label="topbar.palette_aria">⌘K</button>
   </header>
 
   <nav class="sidebar" aria-label="Основная навигация" data-i18n-aria-label="nav.aria">
@@ -454,16 +452,9 @@
   <button id="history-notice-dismiss" class="btn btn-secondary" type="button" data-i18n="notice.history_dismiss">Понятно</button>
 </div>
 
-<div id="palette-overlay" class="palette-overlay" hidden>
-  <div class="palette" role="dialog" aria-modal="true" aria-label="Палитра команд" data-i18n-aria-label="palette.aria">
-    <input id="palette-input" type="text" placeholder="Введите команду…" autocomplete="off" data-i18n-placeholder="palette.input_placeholder">
-    <ul id="palette-list"></ul>
-  </div>
-</div>
-
 <!-- issue #543: однократное явное согласие на AI-подсказку (код/IO уходят провайдеру). -->
-<div id="ai-consent-overlay" class="palette-overlay" hidden>
-  <div class="palette ai-consent" role="dialog" aria-modal="true" aria-labelledby="ai-consent-title">
+<div id="ai-consent-overlay" class="modal-overlay" hidden>
+  <div class="modal ai-consent" role="dialog" aria-modal="true" aria-labelledby="ai-consent-title">
     <h2 id="ai-consent-title" data-i18n="ai.consent_title">Согласие на AI-подсказку</h2>
     <p class="ai-consent-body" data-i18n="ai.consent_body">AI-подсказка отправит ваш код и ввод-вывод AI-провайдеру. Рекомендуется локальный провайдер (ollama) — данные не покинут вашу машину. Для несовершеннолетних требуется согласие представителя. Без согласия в сеть ничего не отправляется.</p>
     <div class="ai-consent-actions">

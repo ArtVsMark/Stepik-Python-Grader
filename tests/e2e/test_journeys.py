@@ -1,6 +1,6 @@
 """test_journeys.py -- Playwright smoke tests for the 4 core web UI journeys
 (issue #263, see docs/web-current.md J0-J7): mode 2 (folder grading), mode 1
-(single-file picker + editable window), glossary search, command palette.
+(single-file picker + editable window), glossary search, навигация по разделам.
 
 Not part of the default ``pytest``/``pytest tests/`` sweep -- see
 ``tests/e2e/conftest.py`` and ``norecursedirs`` in ``pyproject.toml``. Run
@@ -420,11 +420,18 @@ def test_sandbox_code_terms_and_error_card(page: Any, e2e_server: str, tmp_path:
     assert "zerodivision" in page.locator("#glossary-detail-content").inner_text().lower()
 
 
-def test_switch_section_cycles_all_sections(page: Any, e2e_server: str, tmp_path: Path) -> None:
-    """J (issue #428): команда «Переключить раздел» циклит по ВСЕМ 8 разделам
-    через единый реестр SECTIONS (раньше — жёсткий 4-элементный список
-    check/downloader/glossary/sandbox, терявший rules/insights/settings —
-    рецидив #317, находка аудита #331; «Прогресс» добавлен в #538)."""
+def test_all_sections_reachable_from_sidebar(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J (issue #428/#317, «Прогресс» — #538): все 8 разделов открываются из
+    sidebar, и в каждый момент виден ровно один.
+
+    Раньше эту зону охранял тест циклического переключения командой
+    «Переключить раздел» через палитру. Палитра удалена (#658), и сам цикл
+    перестал быть достижимым: после смены раздела панель разбора с карточкой
+    действий скрывается — повторно нажимать нечего. Поэтому e2e проверяет
+    реальный пользовательский путь (навигацию по sidebar), а полноту самого
+    реестра SECTIONS стережёт source-guard
+    `test_sections_registry_lists_every_sidebar_section` в tests/test_web.py.
+    """
     sections = [
         "check",
         "downloader",
@@ -436,54 +443,14 @@ def test_switch_section_cycles_all_sections(page: Any, e2e_server: str, tmp_path
         "settings",
     ]
 
-    def visible() -> str:
-        return next(s for s in sections if not page.locator(f"#view-{s}").is_hidden())
-
-    def cycle() -> None:
-        page.keyboard.press("Control+k")
-        page.wait_for_selector("#palette-overlay:not([hidden])", timeout=_TIMEOUT_MS)
-        page.fill("#palette-input", "Переключить раздел")
-        page.locator("#palette-list li", has_text="Переключить раздел").first.wait_for(
-            state="visible", timeout=_TIMEOUT_MS
-        )
-        page.keyboard.press("Enter")
-        page.wait_for_selector("#palette-overlay[hidden]", state="attached", timeout=_TIMEOUT_MS)
-
     page.goto(e2e_server + "/")
     page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
-    seq = [visible()]
-    for _ in range(len(sections)):
-        cycle()
-        seq.append(visible())
-    assert seq == [*sections, "check"], seq
 
-
-def test_command_palette_opens_and_executes(page: Any, e2e_server: str, tmp_path: Path) -> None:
-    """J: command palette -- Ctrl+K/триггер открывает палитру, команда исполняется."""
-    page.goto(e2e_server + "/")
-
-    # Entry point 1: the palette trigger button.
-    page.click("#palette-btn")
-    page.wait_for_selector("#palette-overlay:not([hidden])", timeout=_TIMEOUT_MS)
-    page.keyboard.press("Escape")
-    # state="attached" (not the default "visible") -- a [hidden] element is
-    # by definition never "visible", so waiting for visibility here would
-    # never resolve; we only need the attribute to be present.
-    page.wait_for_selector("#palette-overlay[hidden]", state="attached", timeout=_TIMEOUT_MS)
-
-    # Entry point 2: Ctrl+K -- filter to "toggle theme" and execute it.
-    page.keyboard.press("Control+k")
-    page.wait_for_selector("#palette-overlay:not([hidden])", timeout=_TIMEOUT_MS)
-    page.fill("#palette-input", "тема")
-    page.locator("#palette-list li", has_text="Переключить тему").wait_for(
-        state="visible", timeout=_TIMEOUT_MS
-    )
-    page.keyboard.press("Enter")
-
-    page.wait_for_selector("#palette-overlay[hidden]", state="attached", timeout=_TIMEOUT_MS)
-    theme = page.evaluate("document.documentElement.getAttribute('data-theme')")
-    assert theme == "light"  # system -> light (cycleTheme's first step)
-    assert page.locator("#theme-toggle").text_content() == "☀️"
+    for section in sections:
+        page.click(f'[data-section="{section}"]')
+        page.wait_for_selector(f"#view-{section}:not([hidden])", timeout=_TIMEOUT_MS)
+        visible = [s for s in sections if not page.locator(f"#view-{s}").is_hidden()]
+        assert visible == [section], visible
 
 
 def test_progress_section_opens_and_renders(page: Any, e2e_server: str, tmp_path: Path) -> None:
@@ -554,26 +521,6 @@ def _switch_to_english(page: Any) -> None:
     page.click('[data-section="settings"]')
     page.wait_for_selector("#view-settings:not([hidden])", timeout=_TIMEOUT_MS)
     page.select_option("#settings-lang", "en")
-
-
-def test_english_localizes_command_palette_empty_state(
-    page: Any, e2e_server: str, tmp_path: Path
-) -> None:
-    """issue #546: пустой результат палитры команд рендерится клиентом через t() —
-    на English это «Nothing found» (детерминированно, без обращения к серверу).
-
-    Проверяет ДИНАМИКУ JS-рендера (не только data-i18n оболочку #545): строка
-    берётся из каталога по state.lang в момент рендера, а не из разметки."""
-    page.goto(e2e_server + "/")
-    _switch_to_english(page)
-
-    page.keyboard.press("Control+k")
-    page.wait_for_selector("#palette-overlay:not([hidden])", timeout=_TIMEOUT_MS)
-    page.fill("#palette-input", "zzzzznope")  # заведомо несуществующая команда
-
-    empty = page.locator("#palette-list .empty")
-    expect(empty).to_have_text("Nothing found", timeout=_TIMEOUT_MS)
-    assert not _CYRILLIC.search(empty.inner_text())
 
 
 def test_english_localizes_dynamic_sandbox_output(

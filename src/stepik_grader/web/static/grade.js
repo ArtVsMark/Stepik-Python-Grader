@@ -1,4 +1,4 @@
-// grade.js — проверка (режимы 1–4), рендер результата, палитра команд (#426).
+// grade.js — проверка (режимы 1–4), рендер результата, карточки действий (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
 import { $, SECTIONS, codeBlock, cycleTheme, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, state, t, toast, tp } from "./core.js";
 
@@ -112,7 +112,8 @@ function renderActionCards() {
   }
   let cmds = visibleCommands();
   // issue #368 (2.и): в режиме 2 (папка) действия разбора — только копирование
-  // входа/выхода; run_again остаётся в палитре (Ctrl+K). Контент разбора (diff,
+  // входа/выхода. Повтор прогона доступен главной кнопкой «Запустить» (issue
+  // #658: палитра, где он раньше жил, удалена). Контент разбора (diff,
   // диагностика, глоссарий) не режется — это не «действия».
   if (state.mode === "tests") {
     cmds = cmds.filter(c => c.id === "copy_input" || c.id === "copy_output");
@@ -129,65 +130,6 @@ async function loadCommands() {
   }
 }
 
-// -- Command palette (Ctrl+K / ⌘K) -------------------------------------------
-
-function paletteCommands() {
-  const q = ($("#palette-input").value || "").trim().toLowerCase();
-  let cmds = visibleCommands();
-  if (q) {
-    cmds = cmds.filter(
-      c =>
-        c.title.ru.toLowerCase().includes(q) ||
-        c.title.en.toLowerCase().includes(q) ||
-        (c.keywords || []).some(k => k.toLowerCase().includes(q))
-    );
-  }
-  return cmds;
-}
-
-function openPalette() {
-  state.paletteOpen = true;
-  state.paletteActiveIndex = 0;
-  state.paletteReturnFocus = document.activeElement;
-  $("#palette-overlay").hidden = false;
-  $("#palette-input").value = "";
-  renderPaletteList();
-  $("#palette-input").focus();
-}
-
-function closePalette() {
-  state.paletteOpen = false;
-  $("#palette-overlay").hidden = true;
-  if (state.paletteReturnFocus && state.paletteReturnFocus.focus) {
-    state.paletteReturnFocus.focus();
-  }
-}
-
-function renderPaletteList() {
-  const cmds = paletteCommands();
-  const list = $("#palette-list");
-  if (!cmds.length) {
-    list.innerHTML = '<li class="empty">' + esc(t("common.nothing_found")) + "</li>";
-    return;
-  }
-  state.paletteActiveIndex = Math.min(state.paletteActiveIndex, cmds.length - 1);
-  list.innerHTML = cmds
-    .map((c, i) => {
-      const active = i === state.paletteActiveIndex ? " active" : "";
-      const kbd = c.shortcut ? '<span class="kbd">' + esc(c.shortcut) + "</span>" : "";
-      return (
-        '<li data-idx="' + i + '" class="' + active + '"><span>' + esc(cmdTitle(c)) + "</span>" + kbd + "</li>"
-      );
-    })
-    .join("");
-  list.querySelectorAll("li[data-idx]").forEach(li =>
-    li.addEventListener("click", () => {
-      const cmd = cmds[Number(li.dataset.idx)];
-      closePalette();
-      if (cmd) runCommand(cmd.id);
-    })
-  );
-}
 
 // -- Theme toggle -------------------------------------------------------------
 
@@ -1135,16 +1077,12 @@ export {
   addRecentPath,
   cancelActiveRun,
   checkTermsTimer,
-  closePalette,
   findReference,
   findSolutions,
   grade,
   loadCheckTerms,
   loadCommands,
   mountEditor,
-  openPalette,
-  paletteCommands,
-  renderPaletteList,
   renderRecentPaths,
   runCommand,
   saveSolution,
