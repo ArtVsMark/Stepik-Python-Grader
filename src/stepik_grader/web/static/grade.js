@@ -885,6 +885,120 @@ function selectedSolutionPath() {
   return row && row.file ? row.file : "";
 }
 
+// ---------------------------------------------------------------------------
+// Инлайн-diff разбора WA (issue #636)
+//
+// Раньше «Ожидалось/Получено» показывались двумя блоками плюс сырая строка
+// difflib — глазами искать различие приходилось самому. Особенно мучительно,
+// когда строки отличаются пробелами: по таксономии insights.py (ключ
+// output-format) это один из самых частых классов WA, и именно ради него в
+// проекте сознательно оставлено строгое сравнение вывода. Поэтому различия
+// подсвечиваются посимвольно, а невидимые символы получают видимые маркеры.
+// ---------------------------------------------------------------------------
+
+/** Общий префикс/суффикс двух строк → середина, которой они различаются. */
+function splitCommon(a, b) {
+  let head = 0;
+  while (head < a.length && head < b.length && a[head] === b[head]) head++;
+  let tail = 0;
+  while (
+    tail < a.length - head &&
+    tail < b.length - head &&
+    a[a.length - 1 - tail] === b[b.length - 1 - tail]
+  ) {
+    tail++;
+  }
+  return {
+    head: a.slice(0, head),
+    aMid: a.slice(head, a.length - tail),
+    bMid: b.slice(head, b.length - tail),
+    tail: a.slice(a.length - tail),
+  };
+}
+
+/**
+ * Все пробелы и табы — видимыми. Только для различающегося фрагмента: там
+ * пробел и ЕСТЬ различие, поэтому его нужно показать явно.
+ */
+function visibleWhitespace(text) {
+  return esc(text)
+    .replace(/ /g, '<span class="ws-mark">·</span>')
+    .replace(/\t/g, '<span class="ws-mark">→</span>');
+}
+
+/**
+ * Экранировать строку целиком, пометив лишь неоднозначное: табы в любом месте
+ * и ХВОСТОВЫЕ пробелы. Помечать все пробелы подряд нельзя — «extra·line»
+ * читается хуже обычного текста, а межсловный пробел ничем не примечателен.
+ * Хвостовой же невидим и при этом регулярно оказывается причиной WA.
+ */
+function escWithHiddenMarks(text) {
+  const trailing = text.match(/[ \t]+$/);
+  const body = trailing ? text.slice(0, -trailing[0].length) : text;
+  return (
+    esc(body).replace(/\t/g, '<span class="ws-mark">→</span>') +
+    (trailing ? visibleWhitespace(trailing[0]) : "")
+  );
+}
+
+/** Строка diff: маркер, номер и содержимое. */
+function diffRow(kind, lineNo, html, title) {
+  const marks = { same: " ", expected: "−", actual: "+" };
+  return (
+    '<div class="diff-row diff-' + kind + '"' + (title ? ' title="' + esc(title) + '"' : "") + ">" +
+    '<span class="diff-mark" aria-hidden="true">' + marks[kind] + "</span>" +
+    '<span class="diff-lineno">' + (lineNo == null ? "" : lineNo) + "</span>" +
+    '<span class="diff-text">' + html + "</span>" +
+    "</div>"
+  );
+}
+
+/**
+ * Выровненный посимвольный diff «Ожидалось vs Получено» (issue #636).
+ *
+ * Строки сопоставляются по позиции: вывод решения и эталон почти всегда
+ * совпадают по числу строк, а когда нет — лишняя/недостающая помечается
+ * отдельно. Полноценный LCS тут избыточен: он усложнил бы код ради редкого
+ * случая сдвига, который и так виден по маркерам.
+ */
+function renderInlineDiff(expected, actual) {
+  const exp = String(expected ?? "").split("\n");
+  const act = String(actual ?? "").split("\n");
+  const rows = [];
+
+  for (let i = 0; i < Math.max(exp.length, act.length); i++) {
+    const e = exp[i];
+    const a = act[i];
+
+    if (e === undefined) {
+      rows.push(diffRow("actual", i + 1, escWithHiddenMarks(a), t("grade.diff_line_extra")));
+      continue;
+    }
+    if (a === undefined) {
+      rows.push(diffRow("expected", i + 1, escWithHiddenMarks(e), t("grade.diff_line_missing")));
+      continue;
+    }
+    if (e === a) {
+      rows.push(diffRow("same", i + 1, escWithHiddenMarks(e)));
+      continue;
+    }
+
+    const { head, aMid, bMid, tail } = splitCommon(e, a);
+    const wrap = mid =>
+      escWithHiddenMarks(head) +
+      (mid ? '<mark class="diff-chunk">' + visibleWhitespace(mid) + "</mark>" : "") +
+      escWithHiddenMarks(tail);
+    rows.push(diffRow("expected", i + 1, wrap(aMid)));
+    rows.push(diffRow("actual", i + 1, wrap(bMid)));
+  }
+
+  return (
+    '<div class="field-label">' + esc(t("grade.diff_title")) + "</div>" +
+    '<div class="inline-diff">' + rows.join("") + "</div>" +
+    '<div class="hint">' + esc(t("grade.diff_legend")) + "</div>"
+  );
+}
+
 function renderDetailPanel() {
   const c = getSelectedCase();
   const empty = $("#detail-empty");
@@ -904,12 +1018,14 @@ function renderDetailPanel() {
   // issue #368 (2.е): ядро разбора — сравнение «Ожидалось / Получено». Для WA —
   // двухколоночно (на узкой панели колонки стекаются), плюс diff.
   if (c.verdict === "WA") {
-    h +=
-      '<div class="compare-grid">' +
-      '<div><div class="field-label">' + esc(t("grade.field_expected")) + "</div>" + codeBlock(c.expected) + "</div>" +
-      '<div><div class="field-label">' + esc(t("grade.field_actual")) + "</div>" + codeBlock(c.actual) + "</div>" +
-      "</div>";
-    if (c.diff) h += '<div class="field-label">Diff</div>' + codeBlock(c.diff);
+    h += renderInlineDiff(c.expected, c.actual);
+    // Сырой unified diff остаётся, но свёрнутым: выровненный разбор выше
+    // отвечает на «чем именно отличается», а этот — для привычных к difflib.
+    if (c.diff) {
+      h +=
+        "<details class='raw-diff'><summary>" + esc(t("grade.diff_raw")) + "</summary>" +
+        codeBlock(c.diff) + "</details>";
+    }
   } else if (c.actual) {
     h += '<div class="field-label">' + esc(t("grade.field_output")) + "</div>" + codeBlock(c.actual);
   }
