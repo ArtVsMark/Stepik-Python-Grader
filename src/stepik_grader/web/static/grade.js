@@ -265,6 +265,75 @@ function mountEditor() {
   // acceptance criterion: editor must be keyboard-reachable).
   const label = document.querySelector('label[for="solution-editor"]');
   if (label) label.addEventListener("click", () => cmView.focus());
+  wireEditorFileDrop(mount);
+}
+
+/**
+ * Загрузка .py перетаскиванием в редактор (issue #635).
+ *
+ * ВАЖНО про поле пути: браузер НЕ отдаёт абсолютный путь брошенного файла —
+ * `dataTransfer` даёт объект `File` только с именем. Это граница безопасности,
+ * а не недоработка (File System Access API тоже отдаёт handle без пути).
+ * Поэтому drop подставляет СОДЕРЖИМОЕ файла в редактор, а «Папка с решениями»
+ * остаётся за пользователем: она нужна серверу, чтобы найти каталог `tests/`.
+ *
+ * Слушатели — на фазе capture: CodeMirror обрабатывает drop сам, и без
+ * перехвата он вставил бы имя файла как текст. Перетаскивание ТЕКСТА при этом
+ * не ломается — обработчик выходит сразу, если файлов в переносе нет.
+ */
+function wireEditorFileDrop(mount) {
+  if (!mount) return;
+
+  const setDragState = active => mount.classList.toggle("dropzone-active", active);
+  const hasFiles = e => Boolean(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length);
+
+  mount.addEventListener(
+    "dragover",
+    e => {
+      if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes("Files")) return;
+      // Без preventDefault браузер откроет файл вместо передачи в обработчик.
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      setDragState(true);
+    },
+    true,
+  );
+
+  // dragleave стреляет и при переходе между потомками — гасим подсветку только
+  // когда указатель реально покинул редактор.
+  mount.addEventListener("dragleave", e => {
+    if (!mount.contains(e.relatedTarget)) setDragState(false);
+  });
+
+  mount.addEventListener(
+    "drop",
+    e => {
+      if (!hasFiles(e)) return; // перенос текста — отдаём CodeMirror
+      e.preventDefault();
+      e.stopPropagation();
+      setDragState(false);
+      loadDroppedFile(e.dataTransfer.files[0]);
+    },
+    true,
+  );
+}
+
+/** Прочитать брошенный файл в редактор с понятным отчётом (issue #635). */
+function loadDroppedFile(file) {
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith(".py")) {
+    toast(t("check.drop_not_python", { name: file.name }), "error");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    setEditorCode(String(reader.result || ""));
+    updateRunButtonState();
+    updateDirtyIndicator();
+    toast(t("check.drop_loaded", { name: file.name }), "success");
+  };
+  reader.onerror = () => toast(t("check.drop_failed", { name: file.name }), "error");
+  reader.readAsText(file, "utf-8");
 }
 
 // issue #317: редактор песочницы монтируется лениво при первом входе в раздел.

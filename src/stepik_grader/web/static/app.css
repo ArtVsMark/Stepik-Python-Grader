@@ -795,6 +795,14 @@ a.term-card-link:hover { background: var(--color-surface-offset); }
   .toast { max-width: none; }
 }
 
+/* issue #635: подсветка редактора, когда над ним тащат файл. outline вместо
+   border — не сдвигает содержимое и не ломает раскладку CodeMirror. */
+.code-editor.dropzone-active {
+  outline: 2px dashed var(--color-primary);
+  outline-offset: -2px;
+  background: var(--color-primary-highlight);
+}
+
 /* Инлайн-ошибка рядом с действием (issue #633): раньше ошибка сохранения
    уходила в дальнюю панель #out, которая на вкладке «Разбор» скрыта. */
 .inline-error {

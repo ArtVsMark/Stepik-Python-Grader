@@ -2006,6 +2006,55 @@ def test_clipboard_errors_are_no_longer_swallowed() -> None:
     assert 'toast(t("common.copy_failed"), "error")' in body
 
 
+# --- issue #635: загрузка .py перетаскиванием ------------------------------
+
+
+def test_editor_accepts_dropped_python_file() -> None:
+    """Перетаскивание .py грузит содержимое в редактор (issue #635)."""
+    src = web._STATIC_JS_SOURCES
+    assert "function wireEditorFileDrop(" in src
+    assert "function loadDroppedFile(" in src
+    # Содержимое читается и кладётся в редактор, а не пытается стать путём.
+    assert "readAsText(file" in src
+    assert "setEditorCode(String(reader.result" in src
+    # Не-Python отклоняется явным сообщением, а не молча.
+    assert 'endsWith(".py")' in src
+    assert 'toast(t("check.drop_not_python"' in src
+
+
+def test_file_drop_is_captured_before_codemirror() -> None:
+    """Слушатели drop/dragover — на фазе capture (issue #635).
+
+    CodeMirror обрабатывает drop сам: без перехвата он вставил бы имя файла как
+    текст. При этом перетаскивание ТЕКСТА должно продолжать работать штатно,
+    поэтому обработчик выходит, если файлов в переносе нет.
+    """
+    body = _js_fn_body("wireEditorFileDrop")
+    assert body.count("true,") >= 2, "drop/dragover должны слушаться на capture"
+    assert "if (!hasFiles(e)) return;" in body
+
+
+def test_drop_does_not_pretend_to_set_path() -> None:
+    """Регрессия #635: подставить путь брошенного файла браузер не даёт.
+
+    `dataTransfer` отдаёт `File` только с именем — абсолютного пути там нет
+    (граница безопасности). Поэтому обработчик не трогает поле пути, а
+    сообщение честно просит указать папку с задачей: без неё сервер не найдёт
+    `tests/`. Если кто-то попробует «починить» это присваиванием в #path,
+    тест упадёт.
+    """
+    body = _js_fn_body("loadDroppedFile")
+    assert '$("#path").value =' not in body
+
+    catalog = json.loads(
+        (pathlib.Path(web.__file__).parent / "static" / "locales" / "ui.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "{name}" in catalog["ru"]["check.drop_loaded"]
+    assert "папку" in catalog["ru"]["check.drop_loaded"]
+
+
 # --- issue #634: переходы вместо телепортации ------------------------------
 
 
