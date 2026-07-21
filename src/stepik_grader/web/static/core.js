@@ -109,6 +109,28 @@ function skeletonBlock() {
   );
 }
 
+/**
+ * Скелетон + невидимая подпись для скринридера (issue #637).
+ *
+ * Единый язык ожидания: раньше одни места рисовали скелетон, другие — текст
+ * («Поиск…», «Выполняется»). Свели к скелетону, но текст не выбрасываем, а
+ * прячем в sr-only: сам по себе скелетон — чистая декорация, и незрячий
+ * пользователь остался бы вообще без сигнала, что идёт загрузка.
+ *
+ * @param {string} label — уже локализованный текст статуса
+ */
+function skeletonWithLabel(label) {
+  return '<span class="sr-only" role="status">' + esc(label) + "</span>" + skeletonBlock();
+}
+
+/** Скелетон-заглушка для списков (`<ul>`): три строки-плейсхолдера. */
+function skeletonListItems(label) {
+  return (
+    '<li class="sr-only" role="status">' + esc(label) + "</li>" +
+    '<li class="skeleton skeleton-text"></li>'.repeat(3)
+  );
+}
+
 function emptyState(title, hint) {
   return (
     '<div class="empty-state"><h3>' + esc(title) + "</h3>" +
@@ -461,10 +483,16 @@ function _requestAiConsent() {
       resolve(false);
       return;
     }
+    // issue #637: куда вернуть фокус при закрытии. Без этого он улетает в
+    // начало документа, и клавиатурный пользователь теряет место в интерфейсе.
+    const returnFocus = document.activeElement;
+
     const done = ok => {
       overlay.hidden = true;
       accept.removeEventListener("click", onAccept);
       decline.removeEventListener("click", onDecline);
+      overlay.removeEventListener("keydown", onKeydown);
+      if (returnFocus && typeof returnFocus.focus === "function") returnFocus.focus();
       resolve(ok);
     };
     const onAccept = () => {
@@ -472,8 +500,30 @@ function _requestAiConsent() {
       done(true);
     };
     const onDecline = () => done(false);
+
+    // issue #637: focus-trap. Разметка объявляет aria-modal, но сам атрибут
+    // ничего не удерживает — это лишь обещание скринридеру. Tab свободно уходил
+    // на страницу под оверлеем, где пользователь мог нажимать кнопки, пока
+    // модалка «ждёт» ответа. Плюс Escape: диалог с двумя вариантами обязан
+    // закрываться отказом, а не только кликом.
+    const onKeydown = e => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onDecline();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const stops = [accept, decline];
+      const edge = e.shiftKey ? stops[0] : stops[stops.length - 1];
+      if (document.activeElement === edge) {
+        e.preventDefault();
+        (e.shiftKey ? stops[stops.length - 1] : stops[0]).focus();
+      }
+    };
+
     accept.addEventListener("click", onAccept);
     decline.addEventListener("click", onDecline);
+    overlay.addEventListener("keydown", onKeydown);
     overlay.hidden = false;
     accept.focus();
   });
@@ -607,6 +657,8 @@ export {
   revealWithMotion,
   setSection,
   skeletonBlock,
+  skeletonListItems,
+  skeletonWithLabel,
   state,
   syncLangButtons,
   t,

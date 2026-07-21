@@ -129,6 +129,52 @@ document.addEventListener("keydown", e => {
   e.preventDefault();
   renderTraceStep(state.sandbox.trace.idx + (e.key === "ArrowRight" ? 1 : -1));
 });
+// issue #637: клавиатурные потоки для частых действий раздела «Проверка».
+// Без мыши нельзя было ни запустить прогон из редактора, ни сохранить файл —
+// power-user поток отсутствовал, хотя редактор кода полноэкранный и работа в
+// нём клавиатурная по природе.
+const _MODE_BY_DIGIT = { 1: "file", 2: "tests", 3: "bench", 4: "microbench" };
+
+/** Печатает ли пользователь прямо сейчас (поле ввода или редактор кода). */
+function _isTyping(target) {
+  if (!target) return false;
+  if (target.isContentEditable) return true; // CodeMirror — contenteditable
+  return Boolean(target.matches && target.matches("input, textarea, select"));
+}
+
+document.addEventListener("keydown", e => {
+  if (state.section !== "check") return;
+  const mod = e.ctrlKey || e.metaKey;
+
+  // Ctrl/⌘+Enter — запустить проверку. Намеренно работает и внутри редактора:
+  // это главный сценарий, ради которого хоткей и нужен.
+  if (mod && e.key === "Enter") {
+    e.preventDefault();
+    grade();
+    return;
+  }
+
+  // Ctrl/⌘+S — сохранить решение. preventDefault обязателен: иначе браузер
+  // откроет собственный диалог сохранения страницы. Уважаем disabled-состояние
+  // кнопки, чтобы хоткей не делал того, чего не делает клик.
+  if (mod && (e.key === "s" || e.key === "S")) {
+    e.preventDefault();
+    const saveBtn = $("#save-solution-btn");
+    if (saveBtn && !saveBtn.disabled) saveSolution();
+    return;
+  }
+
+  // Цифры 1-4 — режим проверки. Только когда пользователь НЕ печатает: иначе
+  // ввод «2 3» в поле stdin или кода переключал бы режимы под руками.
+  if (!mod && !e.altKey && !_isTyping(e.target)) {
+    const mode = _MODE_BY_DIGIT[e.key];
+    if (mode) {
+      e.preventDefault();
+      setMode(mode);
+    }
+  }
+});
+
 $("#path").addEventListener("keydown", e => {
   if (e.key !== "Enter") return;
   if (state.mode === "file") findSolutions();
