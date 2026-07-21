@@ -44,7 +44,7 @@ import sysconfig
 from pathlib import Path
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.runner import RunOutcome, RunSpec
+from stepik_grader.core.runner import RunOutcome, RunSpec, spec_source_bytes
 from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
 from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
@@ -159,7 +159,7 @@ class LinuxSandboxRunner:
         with ephemeral_run_dir() as run_dir:
             script_path = run_dir / "solution.py"
             try:
-                script_path.write_bytes(spec.path.read_bytes())
+                script_path.write_bytes(spec_source_bytes(spec))
             except OSError as exc:
                 return RunOutcome(launch_error=str(exc))
 

@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 
-from stepik_grader.core.runner import LocalRunner, RunSpec
+from stepik_grader.core.runner import LocalRunner, RunSpec, spec_source_bytes
 
 # ---------------------------------------------------------------------------
 # _apply_memory_limit — best-effort RLIMIT_AS cap via prlimit (issue #67, #43 S-01)
@@ -413,6 +413,52 @@ def test_run_spec_defaults() -> None:
     assert spec.measure_memory is True
     assert spec.max_memory_mb is None
     assert spec.cancel_event is None
+
+
+# ---------------------------------------------------------------------------
+# issue #638: сериализуемый RunSpec — code вместо/помимо локального пути
+# ---------------------------------------------------------------------------
+
+
+def test_run_spec_requires_path_or_code() -> None:
+    """RunSpec без path и без code — ValueError: нечего исполнять (#638)."""
+    with pytest.raises(ValueError, match="path.*code"):
+        RunSpec(stdin=None, timeout=5.0)
+
+
+def test_spec_source_bytes_prefers_code(tmp_path: pathlib.Path) -> None:
+    """spec_source_bytes отдаёт code (переносимо на remote), даже если задан path (#638)."""
+    f = tmp_path / "s.py"
+    f.write_bytes(b"from-disk")
+    assert spec_source_bytes(RunSpec(path=f, code=b"inline", stdin=None, timeout=5.0)) == b"inline"
+
+
+def test_spec_source_bytes_reads_path(tmp_path: pathlib.Path) -> None:
+    """Без code spec_source_bytes читает байты локального path (#638)."""
+    f = tmp_path / "s.py"
+    f.write_bytes(b"print(1)\n")
+    assert spec_source_bytes(RunSpec(path=f, stdin=None, timeout=5.0)) == b"print(1)\n"
+
+
+def test_local_runner_executes_inline_code() -> None:
+    """LocalRunner материализует spec.code во временный .py и исполняет его БЕЗ
+    локального path — доказывает сериализуемость ядра RunSpec (#638)."""
+    spec = RunSpec(code=b"print('from-code')\n", stdin=None, timeout=5.0, measure_memory=False)
+    outcome = LocalRunner().run(spec)
+    assert outcome.returncode == 0
+    assert b"from-code" in outcome.stdout
+
+
+def test_local_runner_code_spec_reads_stdin() -> None:
+    """code-spec получает stdin по полному пути исполнения (не только запуск, #638)."""
+    spec = RunSpec(
+        code=b"import sys; sys.stdout.write(sys.stdin.read().upper())\n",
+        stdin=b"hi\n",
+        timeout=5.0,
+        measure_memory=False,
+    )
+    outcome = LocalRunner().run(spec)
+    assert b"HI" in outcome.stdout
 
 
 def test_run_outcome_defaults() -> None:
