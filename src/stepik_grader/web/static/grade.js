@@ -1,6 +1,6 @@
 // grade.js — проверка (режимы 1–4), рендер результата, палитра команд (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
-import { $, SECTIONS, codeBlock, cycleTheme, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, setSection, skeletonBlock, state, t, toast, tp } from "./core.js";
+import { $, SECTIONS, codeBlock, cycleTheme, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, state, t, toast, tp } from "./core.js";
 
 // issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
 // как {ru, en}; раньше рендер жёстко брал .ru — теперь выбираем по state.lang
@@ -198,8 +198,9 @@ function setResultTab(tab) {
     b.classList.toggle("active", active);
     b.setAttribute("aria-selected", String(active));
   });
-  $("#restab-table").hidden = tab !== "table";
-  $("#restab-detail").hidden = tab !== "detail";
+  // issue #634: вкладки результатов тоже появлялись мгновенным свитчем .hidden
+  revealWithMotion($("#restab-table"), tab === "table");
+  revealWithMotion($("#restab-detail"), tab === "detail");
 }
 
 // -- Проверка решений: grade/render -------------------------------------------

@@ -2006,6 +2006,47 @@ def test_clipboard_errors_are_no_longer_swallowed() -> None:
     assert 'toast(t("common.copy_failed"), "error")' in body
 
 
+# --- issue #634: переходы вместо телепортации ------------------------------
+
+
+def _js_fn_body(name: str) -> str:
+    """Тело JS-функции из конкатенации static/*.js — для source-регрессий."""
+    start = web._STATIC_JS_SOURCES.index(f"function {name}(")
+    return web._STATIC_JS_SOURCES[start : web._STATIC_JS_SOURCES.index("\n}", start)]
+
+
+def test_section_and_tab_switching_go_through_motion_helper() -> None:
+    """Регрессия #634: разделы и вкладки переключались мгновенным `.hidden`.
+
+    `hidden` — это `display: none`, его нельзя анимировать переходом, поэтому
+    появление должно идти через общий помощник с CSS-анимацией. Прямое
+    присваивание `.hidden` вернуло бы телепортацию.
+    """
+    assert "function revealWithMotion(" in web._STATIC_JS_SOURCES
+
+    section_body = _js_fn_body("setSection")
+    assert ".hidden = section !== s" not in section_body
+    assert "revealWithMotion(" in section_body
+
+    tab_body = _js_fn_body("setResultTab")
+    assert ".hidden = tab !==" not in tab_body
+    assert "revealWithMotion(" in tab_body
+
+
+def test_view_enter_animation_reuses_shared_motion_token() -> None:
+    """Длительность/кривая входа — из общего токена, а не хардкод.
+
+    До #634 `--transition-interactive` была объявлена, но почти не
+    использовалась; смысл правки — задействовать её, а не завести дубль.
+    """
+    css = (pathlib.Path(web.__file__).parent / "static" / "app.css").read_text(encoding="utf-8")
+    assert "@keyframes view-enter" in css
+    assert "animation: view-enter var(--transition-interactive)" in css
+    # Глобальный prefers-reduced-motion гасит анимации через !important —
+    # пер-компонентные блоки не нужны и не должны заводиться заново.
+    assert "animation-duration: 0.01ms !important" in css
+
+
 def test_save_errors_go_to_inline_slot_not_results_panel() -> None:
     """Регрессия #633: ошибка сохранения затирала панель результатов #out.
 

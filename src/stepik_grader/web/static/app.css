@@ -460,6 +460,17 @@ select.form-input { cursor: pointer; }
   height: 100%; width: 0; border-radius: var(--radius-full); background: var(--color-primary);
   transition: width 200ms ease-out;
 }
+/* issue #634: вход раздела/вкладки. Переключение шло через .hidden, то есть
+   display:none — его нельзя анимировать переходом, поэтому появление оформлено
+   анимацией, которую перезапускает revealWithMotion() (core.js). Длительность и
+   кривая — из общего токена; глобальный prefers-reduced-motion (см. выше)
+   гасит её автоматически, отдельный блок не нужен. */
+@keyframes view-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.view-enter { animation: view-enter var(--transition-interactive); }
+
 @keyframes progress-indeterminate-slide { 0%{margin-left:-40%} 100%{margin-left:100%} }
 .progress-indeterminate {
   width: 40%; animation: progress-indeterminate-slide 1.2s ease-in-out infinite;
@@ -782,9 +793,6 @@ a.term-card-link:hover { background: var(--color-surface-offset); }
 @media (max-width: 640px) {
   .toast-stack { left: var(--space-4); right: var(--space-4); }
   .toast { max-width: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .toast { transition: none; }
 }
 
 /* Инлайн-ошибка рядом с действием (issue #633): раньше ошибка сохранения
