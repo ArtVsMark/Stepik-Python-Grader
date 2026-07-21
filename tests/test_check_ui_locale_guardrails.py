@@ -146,6 +146,69 @@ def test_all_keys_present_passes(monkeypatch, tmp_path: Path) -> None:
     assert errors == []
 
 
+# -- Жёстко зашитая латиница (issue #670) ------------------------------------
+
+
+def test_hardcoded_latin_text_node_flagged(monkeypatch, tmp_path: Path) -> None:
+    """Английский заголовок в разметке ловится (issue #670).
+
+    Ровно та регрессия, ради которой проверка и добавлена: восемь заголовков
+    таблиц (`Passed`/`Avg`/`Runs`/`Min`/`Median`/`Mean`/`Max`/`Std dev`) были
+    зашиты по-английски и показывались в русском интерфейсе. Проверка на голую
+    кириллицу их не видела — она ищет непереведённый РУССКИЙ.
+    """
+    module = _load_module()
+    _setup(
+        module,
+        monkeypatch,
+        tmp_path,
+        catalog={"ru": {}, "en": {}},
+        js={"m.js": "h += '<th scope=\"col\">Passed</th>';\n"},
+    )
+    errors: list[str] = []
+    module.check_no_hardcoded_latin_text(errors)
+    assert any("m.js" in e and "Passed" in e for e in errors), errors
+
+
+def test_localized_header_is_not_flagged(monkeypatch, tmp_path: Path) -> None:
+    """Заголовок через t() нарушением не считается.
+
+    Подпись приходит конкатенацией, поэтому литерал обрывается на `>` и под
+    шаблон текстового узла не подпадает — ложных срабатываний на правильном
+    коде быть не должно.
+    """
+    module = _load_module()
+    _setup(
+        module,
+        monkeypatch,
+        tmp_path,
+        catalog={"ru": {"g.col": "Пройдено"}, "en": {"g.col": "Passed"}},
+        js={"m.js": "h += '<th scope=\"col\">' + esc(t(\"g.col\")) + '</th>';\n"},
+    )
+    errors: list[str] = []
+    module.check_no_hardcoded_latin_text(errors)
+    assert errors == []
+
+
+def test_verdict_codes_are_allowed(monkeypatch, tmp_path: Path) -> None:
+    """Коды вердиктов — не подписи интерфейса, их переводить нельзя.
+
+    `AC`/`WA`/`TLE` печатаются одинаково в CLI и web и задокументированы в
+    docs/result-contract.md, поэтому живут в белом списке.
+    """
+    module = _load_module()
+    _setup(
+        module,
+        monkeypatch,
+        tmp_path,
+        catalog={"ru": {}, "en": {}},
+        js={"m.js": "h += '<span class=\"badge\">AC</span><span>WA</span>';\n"},
+    )
+    errors: list[str] = []
+    module.check_no_hardcoded_latin_text(errors)
+    assert errors == []
+
+
 # -- Голая кириллица ---------------------------------------------------------
 
 
