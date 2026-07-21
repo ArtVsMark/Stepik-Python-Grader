@@ -2082,6 +2082,28 @@ def test_section_and_tab_switching_go_through_motion_helper() -> None:
     assert "revealWithMotion(" in tab_body
 
 
+def test_mode_buttons_cannot_shrink_below_their_label() -> None:
+    """Регрессия #663: подпись «Микробенчмарк» вылезала за границы кнопки.
+
+    `.mode-btn` имеет `flex: 1`, что разворачивается в `flex-basis: 0` — ширина
+    делится поровну независимо от содержимого. От переполнения обычно спасает
+    `min-width: auto` (flex-элемент не сжимается уже контента), но ЯВНОЕ
+    значение в пикселях эту защиту отключает: кнопка получала 101px при
+    потребности в 122px и при `overflow: visible` наезжала на «Запустить».
+
+    Поэтому фиксированный `min-width` в пикселях здесь недопустим.
+    """
+    css = (pathlib.Path(web.__file__).parent / "static" / "app.css").read_text(encoding="utf-8")
+    start = css.index(".mode-btn {")
+    rule = css[start : css.index("}", start)]
+
+    assert "min-width: fit-content" in rule
+    assert not re.search(r"min-width:\s*\d+px", rule), (
+        "фиксированный min-width отключает защиту flex от переполнения — "
+        "длинная подпись снова вылезет за кнопку (#663)"
+    )
+
+
 def test_view_enter_animation_reuses_shared_motion_token() -> None:
     """Длительность/кривая входа — из общего токена, а не хардкод.
 
