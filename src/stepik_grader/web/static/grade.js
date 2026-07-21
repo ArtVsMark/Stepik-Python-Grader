@@ -801,8 +801,9 @@ function renderTests(rows) {
     { label: "FAIL", value: rows.length - ok, variant: (rows.length - ok) ? "down" : "neutral" },
   ]);
   h += '<div class="data-table-wrap">' +
-    '<table class="data-table"><thead><tr><th scope="col">' + esc(t("grade.col_file")) + '</th><th scope="col">Passed</th>' +
-    '<th scope="col">' + esc(t("grade.col_status")) + '</th><th scope="col">' + esc(t("grade.col_total_time")) + '</th><th scope="col">Avg</th>' +
+    '<table class="data-table"><thead><tr><th scope="col">' + esc(t("grade.col_file")) + '</th><th scope="col">' + esc(t("grade.col_passed")) + '</th>' +
+    '<th scope="col">' + esc(t("grade.col_status")) + '</th><th scope="col">' + esc(t("grade.col_total_time")) + '</th>' +
+    '<th scope="col">' + esc(t("grade.col_avg")) + '</th>' +
     '<th scope="col">' + esc(t("grade.col_memory")) + '</th></tr></thead><tbody>';
   rows.forEach((row, i) => {
     h +=
@@ -1103,9 +1104,12 @@ function benchTable(rows, { fields, memLabel, memTitle }) {
     '<th scope="col"' + (memTitle ? ' title="' + esc(memTitle) + '"' : "") + ">" + esc(memLabel) + "</th>";
   let h =
     '<div class="data-table-wrap">' +
-    '<table class="data-table"><thead><tr><th scope="col">' + esc(t("grade.col_file")) + '</th><th scope="col">Runs</th>' +
-    '<th scope="col">Min</th><th scope="col">Median</th><th scope="col">Mean</th>' +
-    '<th scope="col">Max</th><th scope="col">Std dev</th>' +
+    '<table class="data-table"><thead><tr><th scope="col">' + esc(t("grade.col_file")) + '</th><th scope="col">' + esc(t("grade.col_runs")) + '</th>' +
+    '<th scope="col">' + esc(t("grade.col_min")) + '</th>' +
+    '<th scope="col">' + esc(t("grade.col_median")) + '</th>' +
+    '<th scope="col">' + esc(t("grade.col_mean")) + '</th>' +
+    '<th scope="col">' + esc(t("grade.col_max")) + '</th>' +
+    '<th scope="col">' + esc(t("grade.col_stdev")) + '</th>' +
     memTh +
     '<th scope="col">%</th><th scope="col">' + esc(t("grade.col_verdict")) + '</th></tr></thead><tbody>';
   rows.forEach(row => {

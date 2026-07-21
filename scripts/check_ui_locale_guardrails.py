@@ -5,7 +5,7 @@
 web-API (`core/locales/*.json`), но НЕ саму UI-оболочку (`web/static/`). После
 эпика E4 (`ui.json` статики #545 + динамика JS-рендеров #546) регресс
 локализации UI был невидим ни e2e, ни guardrail'ом — эта проверка закрывает
-дыру тремя машинными защитами:
+дыру четырьмя машинными защитами:
 
 1. **Паритет ru/en в `ui.json`.** Оба языка обязаны иметь ровно один и тот же
    набор ключей — иначе `?lang=en`/`t(key)` частично покажет русский текст (или
@@ -18,6 +18,11 @@ web-API (`core/locales/*.json`), но НЕ саму UI-оболочку (`web/st
    и переводимых атрибутах `index.html` без `data-i18n`, ни в строковых
    литералах JS — кроме комментариев, `console.warn`/`console.error`-диагностики
    и строк, помеченных `i18n-exempt` (серверные фильтр-значения `GLOSSARY_CHIPS`).
+4. **Нет жёстко зашитой латиницы в текстовых узлах JS-рендера** (issue #670).
+   Зеркало пункта 3: тот ловит непереведённый РУССКИЙ, а зашитый английский
+   проходил молча — из-за чего восемь заголовков таблиц (`Passed`/`Avg`/`Runs`/
+   `Min`/`Median`/`Mean`/`Max`/`Std dev`) показывались в русском интерфейсе как
+   есть. Исключения — коды вердиктов, единицы и имена (`LATIN_TEXT_ALLOWLIST`).
 
 По образцу `check_locale_guardrails.py`: чистый stdlib (`html.parser`/`json`/
 `pathlib`) — детерминированно и кроссплатформенно (Windows/Linux/macOS).
@@ -39,9 +44,11 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 __all__ = [
+    "LATIN_TEXT_ALLOWLIST",
     "check_key_parity",
     "check_keys_present",
     "check_no_bare_cyrillic",
+    "check_no_hardcoded_latin_text",
     "collect_index_html",
     "has_cyrillic",
     "load_ui_catalog",
@@ -74,6 +81,36 @@ _TRANSLATABLE_ATTRS = {
 }
 # Теги, чьё текстовое содержимое не является видимой UI-надписью.
 _NON_VISIBLE_TAGS = frozenset({"script", "style", "template"})
+
+# issue #670: латиница, которую переводить НЕ нужно, — коды и термины, а не
+# подписи интерфейса. Всё остальное в текстовых узлах JS-рендера обязано идти
+# через t() (см. check_no_hardcoded_latin_text).
+LATIN_TEXT_ALLOWLIST = frozenset(
+    {
+        # Коды вердиктов из docs/result-contract.md — печатаются как есть и в CLI.
+        "AC",
+        "WA",
+        "TLE",
+        "RE",
+        "OK",
+        "FAIL",
+        "ERR",
+        "SIMILAR",
+        "SLOWER",
+        "MUCH_SLOWER",
+        "FASTER",
+        "REFERENCE",
+        "CANCELLED",
+        "SANDBOX_VIOLATION",
+        "NO TESTS",
+        # Стандартные имена и единицы.
+        "PEP",
+        "s",
+        "ms",
+        "MB",
+        "Stepik Python Grader",
+    }
+)
 # HTML5 void-элементы — без закрывающего тега, в стек вложенности не кладём.
 _VOID_TAGS = frozenset(
     {
@@ -339,12 +376,50 @@ def check_no_bare_cyrillic(errors: list[str]) -> None:
         print("No bare Cyrillic literals outside ui.json (index.html + JS renders clean).")
 
 
+def check_no_hardcoded_latin_text(errors: list[str]) -> None:
+    """Текстовые узлы латиницей в JS-рендере обязаны идти через ``t()`` (#670).
+
+    Зеркало ``check_no_bare_cyrillic``. Тот ловит НЕпереведённый русский, но
+    молча пропускал зашитый английский — из-за чего восемь заголовков таблиц
+    (``Passed``/``Avg``/``Runs``/``Min``/``Median``/``Mean``/``Max``/``Std dev``)
+    годами показывались в русском интерфейсе как есть. Причём в тех же строках
+    соседние заголовки уже шли через ``t()`` — то есть это была оговорка,
+    которую нечему было поймать.
+
+    Ищем ``>Текст<`` внутри строковых литералов: именно так JS отдаёт текстовый
+    узел в разметку. Локализованный вариант под шаблон не подпадает — там
+    литерал обрывается на ``>``, а значение приходит конкатенацией.
+
+    Исключения — ``LATIN_TEXT_ALLOWLIST`` и маркер ``i18n-exempt`` в строке.
+    """
+    pattern = re.compile(r">([A-Za-z][A-Za-z ]*[A-Za-z]|[A-Za-z])<")
+    for name in _JS_FILES:
+        path = _STATIC / name
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for lineno, content in _iter_js_string_literals(path.read_text(encoding="utf-8")):
+            line_text = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
+            if "i18n-exempt" in line_text:
+                continue
+            for match in pattern.finditer(content):
+                text = match.group(1).strip()
+                if text in LATIN_TEXT_ALLOWLIST:
+                    continue
+                errors.append(
+                    f"{name}:{lineno}: латинский текст в разметке без t(): {text!r} "
+                    "(перевести через t() + ключ в ui.json, либо добавить в "
+                    "LATIN_TEXT_ALLOWLIST, если это код/термин)"
+                )
+    if not errors:
+        print("No hardcoded Latin text nodes in JS renders (all go through t()).")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_key_parity(errors)
     check_keys_present(errors)
     check_no_bare_cyrillic(errors)
+    check_no_hardcoded_latin_text(errors)
 
     if errors:
         print("\nFAIL: UI locale guardrails violated:")
