@@ -2110,6 +2110,41 @@ def test_section_and_tab_switching_go_through_motion_helper() -> None:
     assert "revealWithMotion(" in tab_body
 
 
+def test_mode_buttons_are_equal_width_and_fit_their_labels() -> None:
+    """Регрессия #663: подпись «Микробенчмарк» вылезала за границы кнопки.
+
+    Раньше раскладка была на flex: `flex: 1` разворачивается в `flex-basis: 0`
+    (ширина делится поровну независимо от содержимого), а явный `min-width` в
+    пикселях отключал `min-width: auto`, который обычно не даёт flex-элементу
+    сжаться уже контента. Кнопка получала 101px при потребности в 122px и при
+    `overflow: visible` наезжала на «Запустить».
+
+    Grid закрывает обе задачи разом: `1fr` — это `minmax(auto, 1fr)`, поэтому
+    колонки равны между собой И не уже самой длинной подписи. Flex так не
+    умеет: там «равные» и «не уже контента» противоречат друг другу.
+    """
+    css = (pathlib.Path(web.__file__).parent / "static" / "app.css").read_text(encoding="utf-8")
+    row_start = css.index(".mode-row {")
+    row_rule = css[row_start : css.index("}", row_start)]
+
+    assert "display: grid" in row_rule
+    assert "repeat(4, 1fr)" in row_rule, (
+        "колонки должны быть равными (1fr), иначе ширины кнопок разъедутся"
+    )
+
+    btn_start = css.index(".mode-btn {")
+    btn_rule = css[btn_start : css.index("}", btn_start)]
+    assert not re.search(r"min-width:\s*\d+px", btn_rule), (
+        "фиксированный min-width в пикселях уже ломал раскладку — длинная "
+        "подпись снова вылезет за кнопку (#663)"
+    )
+
+    # На узком экране четыре колонки по ширине «Микробенчмарка» не помещаются.
+    assert re.search(r"\.mode-row\s*\{\s*grid-template-columns:\s*repeat\(2, 1fr\)", css), (
+        "нужен мобильный брейкпоинт 2×2, иначе на 375px появится горизонтальный скролл"
+    )
+
+
 def test_view_enter_animation_reuses_shared_motion_token() -> None:
     """Длительность/кривая входа — из общего токена, а не хардкод.
 
