@@ -257,6 +257,32 @@ a, button, [role="button"] {
 .btn-icon:hover { background: var(--color-surface-dynamic); color: var(--color-text); }
 .btn-icon:active { background: var(--color-surface-offset-2); }
 
+/* issue #659: сегментированный переключатель языка в topbar. Два состояния,
+   поэтому не селект: выбор виден без раскрытия и меняется одним кликом. */
+.lang-switch {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.lang-btn {
+  padding: 0 var(--space-2);
+  height: 32px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+  border: 0;
+}
+.lang-btn + .lang-btn { border-left: 1px solid var(--color-border); }
+.lang-btn:hover { background: var(--color-surface-dynamic); color: var(--color-text); }
+.lang-btn.active {
+  background: var(--color-primary-highlight);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 /* ── SIDEBAR ── */
 .sidebar {
   grid-area: sidebar;

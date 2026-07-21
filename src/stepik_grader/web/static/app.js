@@ -1,6 +1,6 @@
 // app.js — entry: связывание слушателей и bootstrap; импортирует модули (#426).
 import { loadGlossary, loadRules, parseGlossaryHash, renderGlossaryChips, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
-import { $, applyTheme, applyUiLocale, cycleTheme, setSection, setTheme, state, t } from "./core.js";
+import { $, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
 import { downloadTask, loadAuthStatus, startBrowserAuth } from "./downloader.js";
 import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
@@ -9,10 +9,15 @@ import { drawMemArrows, renderTraceStep } from "./trace-player.js";
 function setLang(value) {
   state.lang = value;
   localStorage.setItem("grader_lang", value);
+  syncLangButtons();
   // issue #545: статическую оболочку (data-i18n в index.html) локализуем сразу —
   // fire-and-forget, applyUiLocale берёт каталог из кеша (или один раз фетчит),
   // UI не блокируется.
   applyUiLocale(value);
+  // issue #659: data-i18n на кнопке темы несёт ключ СИСТЕМНОГО состояния
+  // (нужен до старта JS), поэтому после перелокализации разметки подпись
+  // надо вернуть к фактическому режиму — иначе она соврёт при light/dark.
+  applyTheme();
   // issue #546: динамика JS-рендеров берёт язык из state.lang при следующем
   // рендере; здесь обновляем то, что уже на экране и не перерисуется само —
   // тултип бейджа OS-изоляции и (если открыты «Настройки») статус истории.
@@ -151,8 +156,13 @@ $("#auth-panel").addEventListener("click", e => {
   else if (t.id === "auth-recheck") loadAuthStatus();
 });
 $("#theme-toggle").addEventListener("click", cycleTheme);
-$("#settings-theme").addEventListener("change", e => setTheme(e.target.value)); // issue #364
-$("#settings-lang").addEventListener("change", e => setLang(e.target.value)); // issue #364
+// issue #659: язык переключается в topbar. Селекты «Настроек» убраны — они
+// дублировали тумблеры; тема живёт на #theme-toggle (cycleTheme выше).
+document.querySelectorAll("#lang-switch .lang-btn").forEach(btn =>
+  btn.addEventListener("click", () => {
+    if (btn.dataset.lang !== state.lang) setLang(btn.dataset.lang);
+  })
+);
 
 let glossarySearchTimer = null;
 $("#glossary-search").addEventListener("input", e => {
@@ -198,6 +208,7 @@ window.addEventListener("resize", () => {
 });
 
 applyTheme();
+syncLangButtons(); // issue #659 — язык из localStorage отражаем на тумблере
 applyUiLocale(state.lang); // issue #545 — восстановленный из localStorage язык применяем к разметке при загрузке
 mountEditor();
 setSection(state.section);

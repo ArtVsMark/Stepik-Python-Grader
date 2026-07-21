@@ -120,37 +120,57 @@ function emptyState(title, hint) {
 // -- Command registry: единый фильтр под карточки действий (issue #658: вторая
 // поверхность, палитра команд, удалена — все её команды и так были кнопками) --
 
+const THEME_STATE_KEYS = {
+  system: "topbar.theme_state_system",
+  light: "topbar.theme_state_light",
+  dark: "topbar.theme_state_dark",
+};
+
 function applyTheme() {
   const root = document.documentElement;
+  const btn = $("#theme-toggle");
   if (state.theme === "system") {
     root.removeAttribute("data-theme");
-    $("#theme-toggle").textContent = "🌓";
+    btn.textContent = "🌓";
   } else {
     root.setAttribute("data-theme", state.theme);
-    $("#theme-toggle").textContent = state.theme === "dark" ? "🌙" : "☀️";
+    btn.textContent = state.theme === "dark" ? "🌙" : "☀️";
   }
+  // issue #659: подпись называет ТЕКУЩИЙ режим. Иконка его и раньше отражала,
+  // но «системная» на глаз неотличима от остальных, а скринридер видел лишь
+  // статичное «Переключить тему» — состояние было доступно только зрячему и
+  // только по догадке. Раньше его показывал селект в «Настройках»; селект
+  // убран, поэтому состояние обязано читаться прямо здесь.
+  //
+  // Ключи перечислены явной картой, а не собираются конкатенацией: guardrail
+  // локалей (check_ui_locale_guardrails) разбирает вызовы переводчика
+  // статически, и склейка строки с переменной дала бы ему обрубок префикса
+  // вместо трёх реальных ключей.
+  const label = t(THEME_STATE_KEYS[state.theme]);
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
+}
+
+/** Отразить текущий язык на сегментированном переключателе topbar (#659). */
+function syncLangButtons() {
+  document.querySelectorAll("#lang-switch .lang-btn").forEach(btn => {
+    const active = btn.dataset.lang === state.lang;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function cycleTheme() {
   state.theme = state.theme === "system" ? "light" : state.theme === "light" ? "dark" : "system";
   localStorage.setItem("grader_theme", state.theme);
   applyTheme();
-  syncSettingsControls(); // держим select «Настроек» в согласии с топбар-тумблером
 }
 
 // -- Настройки (issue #364) --------------------------------------------------
 
-function setTheme(value) {
-  state.theme = value;
-  localStorage.setItem("grader_theme", value);
-  applyTheme();
-}
-
 function syncSettingsControls() {
-  const themeSel = $("#settings-theme");
-  const langSel = $("#settings-lang");
-  if (themeSel) themeSel.value = state.theme;
-  if (langSel) langSel.value = state.lang;
+  // issue #659: селектов темы и языка здесь больше нет — они переехали в
+  // topbar тумблерами. Раздел остался под редкие настройки.
   // issue #565: реальный статус локальной истории (флаг с сервера в <body>) —
   // runtime-тумблера нет, история задаётся флагом старта сервера.
   const hist = $("#history-status");
@@ -586,9 +606,9 @@ export {
   renderTermsInto,
   revealWithMotion,
   setSection,
-  setTheme,
   skeletonBlock,
   state,
+  syncLangButtons,
   t,
   toast,
   tp,

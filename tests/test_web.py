@@ -2006,6 +2006,66 @@ def test_clipboard_errors_are_no_longer_swallowed() -> None:
     assert 'toast(t("common.copy_failed"), "error")' in body
 
 
+# --- issue #659: топбар — язык и состояние темы ----------------------------
+
+
+def test_language_switch_lives_in_topbar_not_settings() -> None:
+    """Язык переключается тумблером в topbar, а не селектом в «Настройках».
+
+    Раздел «Настройки» состоял почти целиком из дублей topbar-тумблеров; язык
+    при этом был спрятан именно там, хотя переключают его часто.
+    """
+    assert 'id="lang-switch"' in web._INDEX_HTML
+    assert 'data-lang="ru"' in web._INDEX_HTML
+    assert 'data-lang="en"' in web._INDEX_HTML
+
+    # Селекты-дубли убраны вместе с их обработчиками.
+    assert 'id="settings-theme"' not in web._INDEX_HTML
+    assert 'id="settings-lang"' not in web._INDEX_HTML
+    assert "settings-lang" not in web._STATIC_JS_SOURCES
+    assert "settings-theme" not in web._STATIC_JS_SOURCES
+
+
+def test_theme_button_label_names_the_current_mode() -> None:
+    """Подпись кнопки темы называет текущий режим (issue #659).
+
+    Иконка режим отражала и раньше, но «системная» на глаз неотличима от
+    остальных, а скринридер видел статичное «Переключить тему». Состояние
+    показывал селект в «Настройках» — он убран, поэтому режим обязан читаться
+    с самой кнопки.
+
+    Ключи проверяются как явная карта: guardrail локалей разбирает вызовы
+    переводчика статически, и склейка ключа с переменной дала бы ему обрубок
+    префикса вместо трёх реальных ключей.
+    """
+    assert "THEME_STATE_KEYS" in web._STATIC_JS_SOURCES
+    for mode in ("system", "light", "dark"):
+        assert f'"topbar.theme_state_{mode}"' in web._STATIC_JS_SOURCES
+
+    catalog = json.loads(
+        (pathlib.Path(web.__file__).parent / "static" / "locales" / "ui.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for lang in ("ru", "en"):
+        for mode in ("system", "light", "dark"):
+            assert catalog[lang][f"topbar.theme_state_{mode}"]
+
+
+def test_theme_label_is_restored_after_language_switch() -> None:
+    """После смены языка подпись темы возвращается к фактическому режиму.
+
+    На кнопке висит `data-i18n` с ключом СИСТЕМНОГО состояния — он нужен, пока
+    JS не стартовал. Но `applyUiLocale` при смене языка переписывает атрибуты
+    по разметке, и без повторного `applyTheme()` подпись соврала бы: показывала
+    бы «системная» при включённой светлой или тёмной теме.
+    """
+    start = web._STATIC_JS_SOURCES.index("function setLang(")
+    body = web._STATIC_JS_SOURCES[start : web._STATIC_JS_SOURCES.index("\n}", start)]
+    assert "applyUiLocale(value)" in body
+    assert "applyTheme()" in body, "после перелокализации разметки подпись темы должна обновиться"
+
+
 def test_sections_registry_lists_every_sidebar_section() -> None:
     """Реестр SECTIONS совпадает с разделами sidebar (issue #317/#428/#538).
 
