@@ -65,7 +65,7 @@ from typing import Any
 import psutil
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.runner import RunOutcome, RunSpec, sample_tree_rss
+from stepik_grader.core.runner import RunOutcome, RunSpec, sample_tree_rss, spec_source_bytes
 from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
 __all__ = ["WindowsSandboxRunner", "create_backend"]
@@ -225,7 +225,7 @@ class WindowsSandboxRunner:
         with ephemeral_run_dir() as run_dir:
             script_path = run_dir / "solution.py"
             try:
-                script_path.write_bytes(spec.path.read_bytes())
+                script_path.write_bytes(spec_source_bytes(spec))
             except OSError as exc:
                 return RunOutcome(launch_error=str(exc))
 

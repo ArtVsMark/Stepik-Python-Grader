@@ -29,6 +29,7 @@ import pathlib
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import warnings
@@ -45,7 +46,7 @@ try:
 except ImportError:
     resource = None  # type: ignore[assignment]
 
-__all__ = ["LocalRunner", "RunOutcome", "RunSpec", "Runner"]
+__all__ = ["LocalRunner", "RunOutcome", "RunSpec", "Runner", "spec_source_bytes"]
 
 # issue #418: после kill дерева процессов даём ограниченное время на reap —
 # внук, унаследовавший pipe, может держать его открытым, и тогда
@@ -55,18 +56,26 @@ _KILL_REAP_TIMEOUT = 5.0
 
 @dataclass(frozen=True)
 class RunSpec:
-    """Что запустить (`server-mode.md` § Runner-слой): путь к исполняемому
-    файлу, stdin, лимиты. Не зависит от механизма изоляции — одинаков для
-    ``LocalRunner`` и ``SandboxRunner``.
+    """Что запустить (`server-mode.md` § Runner-слой): исходник решения, stdin,
+    лимиты. Не зависит от механизма изоляции — одинаков для ``LocalRunner`` и
+    ``SandboxRunner``.
 
-    **Два слоя (issue #550).** Сериализуемое ЯДРО — ``path``/``stdin``/
+    **Два слоя (issue #550/#638).** Сериализуемое ЯДРО — ``code``/``stdin``/
     ``timeout``/``measure_memory``/``max_memory_mb``/``max_output_bytes`` —
-    полностью описывает запуск
-    и может быть перекодировано (JSON/pickle) для отправки удалённому backend'у
-    (server mode, #151). ``cancel_event`` — ЛОКАЛЬНЫЙ-only канал: ``threading.Event``
-    несериализуем и осмыслен лишь в текущем процессе; remote/Docker-backend
-    отменяет прогон своим механизмом, а не переносом Event, поэтому
-    сериализующий слой обязан пропускать ``cancel_event``.
+    полностью описывает запуск и может быть перекодировано (JSON/pickle) для
+    отправки удалённому backend'у (server mode, #151). Ключевое здесь — ``code``
+    (issue #638): само СОДЕРЖИМОЕ исполняемого скрипта. Раньше spec нёс только
+    ``path`` — путь на ЛОКАЛЬНОЙ ФС раннера, которого на удалённой стороне не
+    существует, поэтому ядро было не по-настоящему сериализуемым. Теперь удалённый
+    раннер материализует ``code`` у себя (как это уже делают sandbox-backend'ы,
+    ``spec_source_bytes``), а ``path`` — лишь ЛОКАЛЬНАЯ оптимизация: исполнить
+    существующий файл на месте без лишней копии. Задан должен быть хотя бы один из
+    ``path``/``code`` (``__post_init__``); при ``code`` путь можно не передавать.
+
+    ``cancel_event`` — ЛОКАЛЬНЫЙ-only канал: ``threading.Event`` несериализуем и
+    осмыслен лишь в текущем процессе; remote/Docker-backend отменяет прогон своим
+    механизмом, а не переносом Event, поэтому сериализующий слой обязан пропускать
+    ``cancel_event``.
 
     ``cancel_event`` (issue #262) — опциональный сигнал best-effort отмены
     для async job-модели (``web/runs.py``). ``None`` (по умолчанию) сохраняет
@@ -75,9 +84,14 @@ class RunSpec:
     расходов) — CLI и синхронный ``/api/grade`` его не передают.
     """
 
-    path: pathlib.Path
     stdin: bytes | None
     timeout: float
+    # issue #638: локальный путь к скрипту — оптимизация (исполнить на месте без
+    # копии), НЕ обязательное поле. ``code`` ниже несёт содержимое для remote.
+    path: pathlib.Path | None = None
+    # issue #638: содержимое исполняемого скрипта. Задан либо он, либо ``path``
+    # (``__post_init__``). Для сериализуемого ядра/remote — источник истины.
+    code: bytes | None = None
     measure_memory: bool = True
     max_memory_mb: int | None = None
     # issue #629: потолок НАКОПЛЕНИЯ stdout+stderr. ``None`` — без ограничения
@@ -86,6 +100,30 @@ class RunSpec:
     # max_memory_mb выше.
     max_output_bytes: int | None = None
     cancel_event: threading.Event | None = None
+
+    def __post_init__(self) -> None:
+        """Инвариант: задан хотя бы один источник скрипта — ``path`` или ``code``.
+
+        Без него spec не описывал бы, что исполнять. ``frozen``-датакласс
+        допускает ``__post_init__`` для чистой валидации (без мутации полей).
+        """
+        if self.path is None and self.code is None:
+            raise ValueError("RunSpec requires 'path' (local file) or 'code' (inline source)")
+
+
+def spec_source_bytes(spec: RunSpec) -> bytes:
+    """Содержимое исполняемого скрипта ``spec`` (issue #638).
+
+    ``spec.code`` (переносимо на remote) в приоритете; иначе — байты локального
+    ``spec.path``. Инвариант ``RunSpec.__post_init__`` гарантирует хотя бы один
+    источник, поэтому чтение ``path`` безопасно, когда ``code`` пуст. Единая
+    точка «достать исходник» для sandbox-backend'ов (материализация в
+    ``run_dir``) и будущего remote-раннера.
+    """
+    if spec.code is not None:
+        return spec.code
+    assert spec.path is not None  # инвариант __post_init__: задан path или code
+    return spec.path.read_bytes()
 
 
 @dataclass
@@ -414,6 +452,25 @@ class LocalRunner:
         child_env["PYTHONIOENCODING"] = "utf-8"
         child_env["PYTHONUTF8"] = "1"
 
+        # issue #638: spec может нести содержимое решения (``code``) вместо/помимо
+        # локального ``path``. Есть ``code`` → материализуем во временный .py и
+        # исполняем его (то же сделал бы remote-раннер у себя); иначе исполняем
+        # существующий ``path`` без копии (локальная оптимизация). Инвариант
+        # ``RunSpec.__post_init__`` гарантирует, что задан один из двух.
+        tmp_code_path: pathlib.Path | None = None
+        if spec.code is not None:
+            try:
+                fd, tmp_name = tempfile.mkstemp(suffix=".py")
+                with os.fdopen(fd, "wb") as fh:
+                    fh.write(spec.code)
+            except OSError as exc:
+                return RunOutcome(launch_error=str(exc), timed_out=False)
+            tmp_code_path = pathlib.Path(tmp_name)
+            exec_path: pathlib.Path = tmp_code_path
+        else:
+            assert spec.path is not None  # инвариант __post_init__: задан path или code
+            exec_path = spec.path
+
         start = time.perf_counter()
         popen_kwargs: dict[str, Any] = {}
         if os.name == "posix":
@@ -423,7 +480,7 @@ class LocalRunner:
         proc: subprocess.Popen[bytes] | None = None
         try:
             proc = subprocess.Popen(
-                [sys.executable, spec.path],
+                [sys.executable, exec_path],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -495,6 +552,10 @@ class LocalRunner:
             stop_event.set()
             if proc is not None and proc.poll() is None:
                 _kill_process_tree(proc)
+            # issue #638: убрать временный файл, материализованный из spec.code.
+            if tmp_code_path is not None:
+                with contextlib.suppress(OSError):
+                    tmp_code_path.unlink()
 
     def _run_with_polling(
         self,

@@ -51,7 +51,7 @@ from pathlib import Path
 import psutil
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.runner import RunOutcome, RunSpec
+from stepik_grader.core.runner import RunOutcome, RunSpec, spec_source_bytes
 from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
 from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
@@ -116,7 +116,7 @@ class MacSandboxRunner:
             script_path = run_dir / "solution.py"
             profile_path = run_dir / "profile.sb"
             try:
-                script_path.write_bytes(spec.path.read_bytes())
+                script_path.write_bytes(spec_source_bytes(spec))
                 profile_path.write_text(_build_profile(run_dir), encoding="utf-8")
             except OSError as exc:
                 return RunOutcome(launch_error=str(exc))
