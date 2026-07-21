@@ -164,6 +164,28 @@ function syncSettingsControls() {
 
 // -- Section switch (Проверка решений / Глоссарий) ----------------------------
 
+/**
+ * Показать/скрыть блок с коротким входом вместо телепортации (issue #634).
+ *
+ * `hidden` — это `display: none`, а его нельзя анимировать переходом, поэтому
+ * вход оформлен CSS-анимацией `.view-enter`. Класс снимается и ставится заново
+ * через принудительный reflow: без этого повторный показ того же блока
+ * анимацию не перезапустит (браузер не увидит смены состояния).
+ *
+ * Анимация запускается только на переходе скрыт → показан, чтобы перерисовка
+ * уже видимого блока не дёргалась.
+ */
+function revealWithMotion(el, visible) {
+  if (!el) return;
+  const wasHidden = el.hidden;
+  el.hidden = !visible;
+  if (visible && wasHidden) {
+    el.classList.remove("view-enter");
+    void el.offsetWidth;
+    el.classList.add("view-enter");
+  }
+}
+
 function setSection(section) {
   state.section = section;
   localStorage.setItem("grader_section", section);
@@ -176,7 +198,7 @@ function setSection(section) {
   // issue #428: показать выбранный #view-*, скрыть остальные — по единому
   // реестру SECTIONS (id раздела == суффикс #view-<section>).
   SECTIONS.forEach(s => {
-    $("#view-" + s).hidden = section !== s;
+    revealWithMotion($("#view-" + s), section === s);
   });
   // issue #426: ленивая загрузка раздела — через реестр хуков (каждый feature-
   // модуль регистрирует свой при импорте), чтобы core не импортировал фичи.
@@ -564,6 +586,7 @@ export {
   makeEditor,
   registerSectionHook,
   renderTermsInto,
+  revealWithMotion,
   setSection,
   setTheme,
   skeletonBlock,
