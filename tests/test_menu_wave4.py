@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from stepik_grader import cli, web
+from stepik_grader import cli, downloader, web
 from stepik_grader.cli import interactive
 from stepik_grader.core import user_settings
 
@@ -329,3 +329,125 @@ def test_nudge_after_fail_mode2(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
     cli._interactive_menu()
     assert "💡" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# #643: скачивание задачи из меню (пункт 8, downloader in-process)
+# ---------------------------------------------------------------------------
+
+
+def test_menu_shows_download_hint_and_item(monkeypatch, capsys) -> None:
+    """Меню печатает подсказку про скачивание и пункт 8."""
+    inputs = iter(["0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    out = capsys.readouterr().out
+    assert "Item 8 downloads" in out  # menu_download_hint (en)
+    assert "Download a task from Stepik" in out  # menu_8 (en)
+
+
+def test_download_menu_item_calls_downloader(monkeypatch) -> None:
+    """Пункт 8 вызывает downloader.main() in-process, затем возврат в меню."""
+    called: list[bool] = []
+    monkeypatch.setattr(downloader, "main", lambda: called.append(True))
+    inputs = iter(["8", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert called == [True]
+
+
+def test_download_menu_item_survives_keyboard_interrupt(monkeypatch, capsys) -> None:
+    """Ctrl+C в downloader.main() возвращает в меню, не роняет процесс — «0» ещё работает."""
+
+    def _raise_kbd() -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(downloader, "main", _raise_kbd)
+    inputs = iter(["8", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert "Goodbye" in capsys.readouterr().out  # дошли до «0» после Ctrl+C
+
+
+# ---------------------------------------------------------------------------
+# #645(1): обогащённое пустое состояние (no_solutions_found)
+# ---------------------------------------------------------------------------
+
+
+def test_empty_state_mode3_shows_guidance(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Режим 3 в папке без решений печатает паттерн имён, путь и next-step (скачать)."""
+    empty = tmp_path / "empty3"
+    empty.mkdir()
+    inputs = iter(["3", str(empty), "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    out = capsys.readouterr().out
+    assert "task*.py" in out  # ожидаемый паттерн имён
+    assert "Download it from Stepik" in out  # next-step (en)
+    assert str(empty) in out  # путь в сообщении
+
+
+def test_empty_state_mode4_shows_guidance(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Режим 4 в папке без решений — тот же обогащённый empty state с путём."""
+    empty = tmp_path / "empty4"
+    empty.mkdir()
+    inputs = iter(["4", str(empty), "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    out = capsys.readouterr().out
+    assert "task*.py" in out
+    assert str(empty) in out
+
+
+# ---------------------------------------------------------------------------
+# #645(2): positive-nudge после серии успехов (петля удержания)
+# ---------------------------------------------------------------------------
+
+
+def test_success_streak_nudge_when_history_off(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Серия из K успешных прогонов при выключенной истории → 🎉-nudge ровно раз за сессию."""
+    monkeypatch.chdir(tmp_path)
+    sol = _make_solution(tmp_path)
+    monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: False)  # без падений
+    inputs = iter(["1", str(sol), "1", str(sol), "1", str(sol), "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert capsys.readouterr().out.count("🎉") == 1  # nudge_success_streak
+
+
+def test_no_success_nudge_below_threshold(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Меньше K успехов подряд → positive-nudge не печатается."""
+    monkeypatch.chdir(tmp_path)
+    sol = _make_solution(tmp_path)
+    monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: False)
+    inputs = iter(["1", str(sol), "1", str(sol), "0"])  # только 2 успеха (< 3)
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert "🎉" not in capsys.readouterr().out
+
+
+def test_success_streak_resets_on_failure(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Провал сбрасывает стрик — после него не набирается K успехов подряд, 🎉 нет."""
+    monkeypatch.chdir(tmp_path)
+    sol = _make_solution(tmp_path)
+    results = iter([False, True, False, False])  # успех, ПРОВАЛ, успех, успех
+    monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: next(results))
+    inputs = iter(["1", str(sol), "1", str(sol), "1", str(sol), "1", str(sol), "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert "🎉" not in capsys.readouterr().out  # макс. 2 успеха подряд после сброса
+
+
+def test_no_success_nudge_when_history_on(tmp_path: Path, monkeypatch, capsys) -> None:
+    """История включена → petля уже работает, positive-nudge не нужен."""
+    monkeypatch.chdir(tmp_path)
+    sol = _make_solution(tmp_path)
+    user_settings.save_settings(
+        user_settings.UserSettings(record_history=True),
+        tmp_path / user_settings.SETTINGS_FILE_NAME,
+    )
+    monkeypatch.setattr(cli, "_run_mode_1", lambda solution, **k: False)
+    inputs = iter(["1", str(sol), "1", str(sol), "1", str(sol), "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert "🎉" not in capsys.readouterr().out
