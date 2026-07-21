@@ -1980,6 +1980,47 @@ def test_client_esc_regex_includes_quote_chars() -> None:
     assert "replace(/[&<>\"']/g" in web._STATIC_JS_SOURCES
 
 
+# --- issue #633: обратная связь на действия -------------------------------
+
+
+def test_toast_primitive_is_exported_and_mounted() -> None:
+    """Тост-примитив есть в JS, а контейнер под него — в разметке."""
+    assert "function toast(" in web._STATIC_JS_SOURCES
+    assert 'id="toast-stack"' in web._INDEX_HTML
+
+
+def test_clipboard_errors_are_no_longer_swallowed() -> None:
+    """Регрессия #633: копирование молчало — ошибка глушилась пустым catch.
+
+    Пустой ``.catch(() => {})`` делал успех и провал неотличимыми: пользователь
+    не знал, попал ли текст в буфер.
+    """
+    start = web._STATIC_JS_SOURCES.index("function copyToClipboard(")
+    end = web._STATIC_JS_SOURCES.index("\n}", start)
+    body = web._STATIC_JS_SOURCES[start:end]
+
+    # Именно в этой функции пустой catch недопустим. Fire-and-forget отмена
+    # прогона (grade.js/sandbox.js) — легитимный случай и под проверку не идёт.
+    assert ".catch(() => {})" not in body
+    assert 'toast(t("common.copied"), "success")' in body
+    assert 'toast(t("common.copy_failed"), "error")' in body
+
+
+def test_save_errors_go_to_inline_slot_not_results_panel() -> None:
+    """Регрессия #633: ошибка сохранения затирала панель результатов #out.
+
+    Панель показывает результаты грейда (терять их незачем), а на вкладке
+    «Разбор» она вообще скрыта — сообщение уходило в никуда. Теперь ошибка
+    печатается рядом с кнопкой «Сохранить».
+    """
+    assert 'id="save-error"' in web._INDEX_HTML
+    assert "function showSaveError(" in web._STATIC_JS_SOURCES
+    # saveSolution больше не пишет ошибки в #out
+    start = web._STATIC_JS_SOURCES.index("async function saveSolution(")
+    end = web._STATIC_JS_SOURCES.index("function showSaveError(", start)
+    assert '$("#out").innerHTML' not in web._STATIC_JS_SOURCES[start:end]
+
+
 # ---------------------------------------------------------------------------
 # Client-side a11y — source-level regression checks (issue #298)
 # ---------------------------------------------------------------------------

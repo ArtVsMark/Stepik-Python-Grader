@@ -748,6 +748,54 @@ a.term-card-link:hover { background: var(--color-surface-offset); }
   .notice { left: var(--space-4); right: var(--space-4); max-width: none; }
 }
 
+/* Тосты (issue #633) — обратная связь на действия, которые раньше молчали.
+   Стек над .notice по z-index, но не перехватывает клики: pointer-events:none
+   на контейнере, чтобы всплывающее уведомление не блокировало кнопки под ним. */
+.toast-stack {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.toast {
+  max-width: 380px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity var(--transition-interactive),
+    transform var(--transition-interactive);
+}
+.toast-visible { opacity: 1; transform: none; }
+.toast-success { border-left-color: var(--color-success); }
+.toast-error { border-left-color: var(--color-error); }
+@media (max-width: 640px) {
+  .toast-stack { left: var(--space-4); right: var(--space-4); }
+  .toast { max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: none; }
+}
+
+/* Инлайн-ошибка рядом с действием (issue #633): раньше ошибка сохранения
+   уходила в дальнюю панель #out, которая на вкладке «Разбор» скрыта. */
+.inline-error {
+  margin-top: var(--space-2);
+  color: var(--color-error);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
 /* issue #543 — AI-подсказка: кнопка «Объяснить», её вывод и модалка согласия.
    Только раскладка (без цветов) — переиспользуем .btn/.errcard/.palette-токены,
    contrast-guard (#424) не задеваем. */
