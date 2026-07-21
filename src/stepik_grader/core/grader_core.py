@@ -300,6 +300,7 @@ def _prepare_run_spec(
                 timeout=timeout,
                 measure_memory=measure_memory,
                 max_memory_mb=CONFIG.max_memory_mb,
+                max_output_bytes=CONFIG.max_output_bytes,
                 cancel_event=cancel_event,
             )
         )
@@ -345,6 +346,7 @@ def _prepare_run_spec(
             timeout=timeout,
             measure_memory=measure_memory,
             max_memory_mb=CONFIG.max_memory_mb,
+            max_output_bytes=CONFIG.max_output_bytes,
             cancel_event=cancel_event,
         ),
         tmp_wrapper_path=wrapper_path,
