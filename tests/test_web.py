@@ -2006,6 +2006,34 @@ def test_clipboard_errors_are_no_longer_swallowed() -> None:
     assert 'toast(t("common.copy_failed"), "error")' in body
 
 
+def test_sections_registry_lists_every_sidebar_section() -> None:
+    """Реестр SECTIONS совпадает с разделами sidebar (issue #317/#428/#538).
+
+    Регрессия, которую это стережёт: раньше список разделов дублировался в
+    коде жёстко, и `rules`/`insights`/`settings` из него выпадали — раздел
+    существовал в навигации, но переключение по реестру его не видело.
+
+    До #658 зону охранял e2e-тест циклического переключения через палитру
+    команд. Палитра удалена, и сам цикл перестал быть достижимым (после смены
+    раздела панель с карточкой действий скрывается), поэтому полнота реестра
+    проверяется здесь — дёшево и точнее, чем через браузер. Достижимость самих
+    разделов проверяет e2e `test_all_sections_reachable_from_sidebar`.
+    """
+    match = re.search(r"const SECTIONS = \[(.*?)\]", web._STATIC_JS_SOURCES, re.S)
+    assert match, "реестр SECTIONS не найден в static/*.js"
+    registry = re.findall(r'"([a-z]+)"', match.group(1))
+
+    # Только пункты навигации: `data-section` встречается ещё и в пустых
+    # состояниях («Откройте раздел „Проверка решений“»), их считать нельзя.
+    nav = re.search(r'<nav class="sidebar".*?</nav>', web._INDEX_HTML, re.S)
+    assert nav, "sidebar-навигация не найдена в разметке"
+    sidebar = re.findall(r'data-section="([a-z]+)"', nav.group(0))
+
+    assert registry == sidebar, (
+        f"реестр и sidebar разошлись: в реестре {registry}, в разметке {sidebar}"
+    )
+
+
 # --- issue #635: загрузка .py перетаскиванием ------------------------------
 
 
