@@ -69,6 +69,7 @@ def run_playground(
                 timeout=float(CONFIG.timeout_seconds),
                 measure_memory=False,  # песочнице пик RSS не нужен — без psutil-потока
                 max_memory_mb=CONFIG.max_memory_mb,
+                max_output_bytes=CONFIG.max_output_bytes,
                 cancel_event=cancel_event,
             )
         )

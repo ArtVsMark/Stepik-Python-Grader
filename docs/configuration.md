@@ -95,6 +95,7 @@ microbench_max_cases = 5
 | `sandbox_max_cpu_seconds` | `float` | `10.0` | `--sandbox` (issue #266): жёсткий лимит CPU-времени решения (backstop под общим `timeout_seconds`). |
 | `sandbox_max_processes` | `int` | `32` | `--sandbox`: лимит числа процессов решения (anti-fork-bomb). На Linux под bwrap — абсолютное значение; на голом POSIX/macOS — бюджет сверх текущего числа процессов пользователя. См. [SECURITY.md](../SECURITY.md). |
 | `sandbox_max_output_bytes` | `int` | `10485760` (10 МБ) | `--sandbox`: лимит суммарного размера stdout+stderr решения. |
+| `max_output_bytes` | `int` | `10485760` (10 МБ) | Потолок **накопления** stdout+stderr на обычном пути (без `--sandbox`, issue #629). Вывод сверх лимита отбрасывается (в stderr добавляется пометка), чтение продолжается, процесс доживает до своего `timeout_seconds` — так ограничивается память хоста, а не время жизни решения. Действует на пути с отменой (веб-прогоны и песочница). |
 | `max_active_runs` | `int` | `20` | Back-pressure async job-модели `--serve` (`POST /api/v1/runs`, issue #429): максимум одновременных нетерминальных job'ов; превышение → `429 too_many_runs`. Настройка сервера, не CLI-флаг и не параметр запроса. Фундамент server mode (#151). |
 | `ai_base_url` | `str \| None` | `None` | `--ai-hints` (issue #435, ADR-0003): базовый URL OpenAI-совместимого эндпоинта (`{ai_base_url}/chat/completions`, на `requests`, без SDK). `None` — AI выключен (graceful skip). Работает и с облаком, и с локальным `ollama`. |
 | `ai_model` | `str \| None` | `None` | Имя модели для `--ai-hints`. |

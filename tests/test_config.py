@@ -28,6 +28,7 @@ def test_grader_config_defaults() -> None:
     assert cfg.sandbox_max_cpu_seconds == 10.0
     assert cfg.sandbox_max_processes == 32
     assert cfg.sandbox_max_output_bytes == 10 * 1024 * 1024
+    assert cfg.max_output_bytes == 10 * 1024 * 1024  # issue #629
 
 
 def test_grader_config_is_frozen() -> None:
@@ -220,6 +221,7 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "sandbox_max_cpu_seconds",
         "sandbox_max_processes",
         "sandbox_max_output_bytes",
+        "max_output_bytes",
         "ai_base_url",
         "ai_model",
         "ai_api_key_env",

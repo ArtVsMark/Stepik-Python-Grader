@@ -87,6 +87,13 @@ class GraderConfig:
     sandbox_max_cpu_seconds: float = 10.0
     sandbox_max_processes: int = 32
     sandbox_max_output_bytes: int = 10 * 1024 * 1024
+    # issue #629 — потолок вывода для ДЕФОЛТНОГО пути (LocalRunner, без
+    # --sandbox). Раньше лимит был только у SandboxRunner, а обычный прогон
+    # копил stdout/stderr в память без границы: решение с бесконечным print
+    # набивало RAM хоста за секунды таймаута. Ограничивается НАКОПЛЕНИЕ (вывод
+    # сверх лимита отбрасывается, чтение продолжается), а не время жизни
+    # процесса — он доживает до собственного timeout_seconds.
+    max_output_bytes: int = 10 * 1024 * 1024
     # issue #435 / ADR-0003 — opt-in AI-подсказки при WA/RE (--ai-hints). BYOK,
     # OpenAI-compatible `{ai_base_url}/chat/completions` на requests (без SDK и
     # новых зависимостей). Дефолт выключено: ai_base_url=None → graceful skip.

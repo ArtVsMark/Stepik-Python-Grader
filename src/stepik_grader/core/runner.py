@@ -60,7 +60,8 @@ class RunSpec:
     ``LocalRunner`` и ``SandboxRunner``.
 
     **Два слоя (issue #550).** Сериализуемое ЯДРО — ``path``/``stdin``/
-    ``timeout``/``measure_memory``/``max_memory_mb`` — полностью описывает запуск
+    ``timeout``/``measure_memory``/``max_memory_mb``/``max_output_bytes`` —
+    полностью описывает запуск
     и может быть перекодировано (JSON/pickle) для отправки удалённому backend'у
     (server mode, #151). ``cancel_event`` — ЛОКАЛЬНЫЙ-only канал: ``threading.Event``
     несериализуем и осмыслен лишь в текущем процессе; remote/Docker-backend
@@ -79,6 +80,11 @@ class RunSpec:
     timeout: float
     measure_memory: bool = True
     max_memory_mb: int | None = None
+    # issue #629: потолок НАКОПЛЕНИЯ stdout+stderr. ``None`` — без ограничения
+    # (прежнее поведение). Лимит приходит из спецификации, а не читается из
+    # CONFIG внутри раннера: модуль намеренно config-agnostic, как timeout и
+    # max_memory_mb выше.
+    max_output_bytes: int | None = None
     cancel_event: threading.Event | None = None
 
 
@@ -322,6 +328,46 @@ def _kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
             child.kill()
 
 
+class _OutputBudget:
+    """Общий на stdout+stderr бюджет накопления вывода (issue #629).
+
+    Лимит применяется к ХРАНЕНИЮ, а не к чтению: дренаж продолжается и после
+    исчерпания бюджета, просто лишнее отбрасывается. Перестать читать нельзя —
+    OS pipe-буфер заполнится, ребёнок заблокируется на ``write``, и вместо
+    ограничения памяти мы получим зависший до таймаута процесс (ровно тот
+    deadlock, ради которого дренаж и вынесен в потоки).
+
+    Бюджет общий для обоих потоков, поэтому доступ под ``Lock``.
+    """
+
+    def __init__(self, limit: int | None) -> None:
+        self._limit = limit
+        self._lock = threading.Lock()
+        self._used = 0
+        self.truncated = False
+
+    def take(self, chunk: bytes) -> bytes:
+        """Вернуть часть ``chunk``, помещающуюся в бюджет (может быть пустой)."""
+        if self._limit is None:
+            return chunk
+        with self._lock:
+            room = self._limit - self._used
+            if room <= 0:
+                self.truncated = True
+                return b""
+            if len(chunk) <= room:
+                self._used += len(chunk)
+                return chunk
+            self._used = self._limit
+            self.truncated = True
+            return chunk[:room]
+
+
+def _truncation_note(limit: int | None) -> bytes:
+    """Пометка в stderr о том, что вывод обрезан (issue #629)."""
+    return f"\n[stepik-grader] вывод обрезан: превышен лимит {limit} байт\n".encode()
+
+
 def _reap_after_kill(proc: subprocess.Popen[bytes]) -> tuple[bytes, bytes]:
     """``communicate()`` после kill, ограниченный по времени (issue #418/#421).
 
@@ -471,11 +517,17 @@ class LocalRunner:
         """
         stdout_chunks: list[bytes] = []
         stderr_chunks: list[bytes] = []
+        # issue #629: до появления бюджета sink'и росли без границы — решение с
+        # бесконечным print набивало RAM хоста за секунды таймаута, а при пуле
+        # параллельных web-job'ов это клало весь процесс по OOM.
+        budget = _OutputBudget(spec.max_output_bytes)
 
         def _drain(pipe: Any, sink: list[bytes]) -> None:
             try:
                 for chunk in iter(lambda: pipe.read(65536), b""):
-                    sink.append(chunk)
+                    kept = budget.take(chunk)
+                    if kept:
+                        sink.append(kept)
             except (OSError, ValueError):
                 pass
 
@@ -523,6 +575,10 @@ class LocalRunner:
         # и при TLE/cancel, а не выбрасывать.
         stdout = b"".join(stdout_chunks)
         stderr = b"".join(stderr_chunks)
+        if budget.truncated:
+            # Пометка идёт в stderr, а не в stdout: stdout сравнивается с
+            # ожидаемым выводом, и служебная строка ломала бы вердикт.
+            stderr += _truncation_note(spec.max_output_bytes)
         if timed_out:
             return RunOutcome(
                 stdout=stdout,
