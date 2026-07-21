@@ -19,6 +19,10 @@ Best-effort по всему модулю (принцип ``GraderCache``/``stats
 модуль ничего не создаёт (требование #134 — CLI без БД, пока не задан
 ``--history``). Таксономия ``failure_kind`` (§ 9.3) и наполнение
 ``lint_violations`` — за будущими #347/#346; здесь колонки лишь заводятся.
+
+Рост БД ограничен retention (issue #642): ``record_run`` держит не более
+``_MAX_RUNS_PER_TASK`` последних прогонов на ``task_key`` — backstop, которого
+у истории (в отличие от ``cache.py``/``stats.py``) раньше не было.
 """
 
 from __future__ import annotations
@@ -62,6 +66,18 @@ _WRITE_LOCK = threading.Lock()
 # ``busy_timeout`` покрывает не всегда — повтор ловит остаток вместо тихой потери.
 _WRITE_ATTEMPTS = 3
 _WRITE_RETRY_DELAY_S = 0.1
+
+# issue #642: backstop роста БД истории. У ``cache.py`` есть cap
+# ``_CACHE_MAX_ENTRIES=512``, у ``stats.py`` — ротация по ``_MAX_BYTES``; у
+# истории backstop'а не было — ``record_run`` только INSERT'ил, без ``DELETE``/
+# лимита, и файл рос линейно (особенно на сервере, где web пишет ``source='web'``
+# по всем пользователям: раздувание файла, деградация ``idx_runs_task`` и
+# GROUP BY-выборок «Подучить», рост ``-wal``). Держим не более
+# ``_MAX_RUNS_PER_TASK`` последних прогонов на ``task_key``. Раздел «Подучить»
+# смотрит окно последних N (``CONFIG.insights_window_n`` ≪ этого cap), поэтому
+# удержание не режет инсайты. Значение переопределяется параметром
+# ``record_run(max_runs_per_task=...)`` — на сервере его задают явно.
+_MAX_RUNS_PER_TASK = 200
 
 
 @dataclass(frozen=True)
@@ -165,6 +181,7 @@ def record_run(
     solution_hash: str | None = None,
     duration_s: float | None = None,
     lint: list[LintRecord] | None = None,
+    max_runs_per_task: int | None = _MAX_RUNS_PER_TASK,
 ) -> int | None:
     """Записать один прогон (+ его cases и lint) в историю; вернуть ``run_id``.
 
@@ -172,6 +189,13 @@ def record_run(
     относительный путь папки задачи (``''`` если её нет). ``cases`` — per-case
     результаты (для режимов 3/4 — по решению, verdict бенчмарка). ``lint``
     пуст в #344 (наполнит #346).
+
+    ``max_runs_per_task`` (issue #642) — retention: после вставки для этого
+    ``task_key`` остаётся не более ``max_runs_per_task`` последних прогонов,
+    старые удаляются (FK ``ON DELETE CASCADE`` уносит их ``case_results``/
+    ``lint_violations``). ``None`` отключает retention (например, для тестов или
+    осознанно безлимитного хранения). По умолчанию — ``_MAX_RUNS_PER_TASK``;
+    на сервере лимит задают явно.
 
     Best-effort: любая ``sqlite3.Error``/``OSError`` тихо проглатывается
     (возврат ``None``), как у ``stats.record_run``/``GraderCache`` — история
@@ -209,6 +233,20 @@ def record_run(
                         "INSERT INTO lint_violations (run_id, rule_code, line_no, message) "
                         "VALUES (?, ?, ?, ?)",
                         [(run_id, v.rule_code, v.line_no, v.message) for v in lint],
+                    )
+                if max_runs_per_task is not None:
+                    # issue #642: retention — оставить не более max_runs_per_task
+                    # последних прогонов для ЭТОГО task_key (рост БД идёт через
+                    # него, поэтому полный скан не нужен). OFFSET-подзапрос по
+                    # монотонному id находит границу «(cap+1)-й с конца»: всё с
+                    # id ≤ неё — на удаление; FK ON DELETE CASCADE уносит их
+                    # case_results/lint_violations. Прогонов ≤ cap → подзапрос
+                    # даёт NULL, `id <= NULL` ложно — не удаляется ничего.
+                    conn.execute(
+                        "DELETE FROM runs WHERE task_key = ? AND id <= "
+                        "(SELECT id FROM runs WHERE task_key = ? "
+                        "ORDER BY id DESC LIMIT 1 OFFSET ?)",
+                        (task_key, task_key, max_runs_per_task),
                     )
                 conn.commit()
                 return run_id
