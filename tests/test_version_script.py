@@ -1,10 +1,10 @@
 """Tests for scripts/version.py — версионирование по схеме проекта (issue #68).
 
 Схема (CONTRIBUTING.md §Версионирование) — НЕ SemVer: MAJOR.MINOR из тега
-``vX.Y.0``, PATCH = число коммитов после тега, БЕЗ badge-бота
-(``chore(ci): update badges``, issue #231); до первого тега — fallback на
-MAJOR.MINOR из метаданных установленного пакета (setuptools-scm, issue #557) +
-то же число коммитов без бота.
+``vX.Y.0``, PATCH = число first-parent коммитов (≈ смерженных PR) после тега,
+БЕЗ badge-бота (``chore(ci): update badges``, issue #231); до первого тега —
+fallback на MAJOR.MINOR из метаданных установленного пакета (setuptools-scm,
+issue #557) + то же first-parent число без бота.
 """
 
 from __future__ import annotations
@@ -127,8 +127,31 @@ def test_patch_count_excludes_badge_bot_commits(monkeypatch) -> None:
     assert module.project_version() == "2.0.5"
 
     rev_list_call = next(c for c in calls if c[:2] == ("rev-list", "--count"))
-    assert rev_list_call[2] == "v2.0.0..HEAD"
+    assert "v2.0.0..HEAD" in rev_list_call
     assert "--invert-grep" in rev_list_call
     assert "--fixed-strings" in rev_list_call
     grep_index = rev_list_call.index("--grep")
     assert "update badges" in rev_list_call[grep_index + 1]
+
+
+def test_patch_count_uses_first_parent(monkeypatch) -> None:
+    """PATCH считается по first-parent линии — один смерженный PR = один коммит,
+    без внутренних коммитов PR и merge-дублей (объективная метрика «число
+    принятых изменений»)."""
+    module = _load_module()
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(*args: str) -> str | None:
+        calls.append(args)
+        if args[:1] == ("describe",):
+            return "v2.0.0"
+        if args[:2] == ("rev-list", "--count"):
+            return "3"
+        return None
+
+    monkeypatch.setattr(module, "_git", fake_git)
+    assert module.project_version() == "2.0.3"
+
+    rev_list_call = next(c for c in calls if c[:2] == ("rev-list", "--count"))
+    assert "--first-parent" in rev_list_call
+    assert "v2.0.0..HEAD" in rev_list_call
