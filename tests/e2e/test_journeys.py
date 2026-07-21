@@ -502,12 +502,9 @@ def test_settings_english_localizes_static_shell(
     используем только web-first ``expect(...)`` — оно ждёт по протоколу, без
     in-page eval (``page.wait_for_function`` со строкой падал бы EvalError)."""
     page.goto(e2e_server + "/")
-    # Открываем «Настройки» — селект языка внутри скрытого раздела, для
-    # select_option нужен видимый элемент.
-    page.click('.sidebar-item[data-section="settings"]')
-    page.wait_for_selector("#view-settings:not([hidden])", timeout=_TIMEOUT_MS)
-
-    page.select_option("#settings-lang", "en")
+    # issue #659: язык переключается тумблером в topbar — он виден всегда,
+    # открывать «Настройки» больше не нужно (селект оттуда убран как дубль).
+    page.click('#lang-switch .lang-btn[data-lang="en"]')
 
     # Chrome оболочки сменил язык: пункт сайдбара и атрибут <html lang>.
     expect(page.locator('.sidebar-item[data-section="check"]')).to_have_text(
@@ -517,10 +514,9 @@ def test_settings_english_localizes_static_shell(
 
 
 def _switch_to_english(page: Any) -> None:
-    """Переключить язык интерфейса на English через раздел «Настройки»."""
-    page.click('[data-section="settings"]')
-    page.wait_for_selector("#view-settings:not([hidden])", timeout=_TIMEOUT_MS)
-    page.select_option("#settings-lang", "en")
+    """Переключить язык интерфейса на English тумблером в topbar (#659)."""
+    page.click('#lang-switch .lang-btn[data-lang="en"]')
+    expect(page.locator("html")).to_have_attribute("lang", "en", timeout=_TIMEOUT_MS)
 
 
 def test_english_localizes_dynamic_sandbox_output(

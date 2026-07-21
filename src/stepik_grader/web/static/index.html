@@ -16,8 +16,19 @@
     <span class="spacer"></span>
     <!-- issue #565: статус OS-изоляции исполнения кода; текст/вид ставит JS по data-sandbox. -->
     <span id="exec-mode-badge" class="badge" hidden></span>
-    <button id="theme-toggle" class="btn-icon" title="Переключить тему" aria-label="Переключить тему"
-            data-i18n-title="topbar.theme_toggle" data-i18n-aria-label="topbar.theme_toggle">🌓</button>
+    <!-- issue #659: язык — частое действие, ему место на виду, а не в «Настройках».
+         Два состояния, поэтому сегментированный переключатель, а не селект. -->
+    <div id="lang-switch" class="lang-switch" role="group" aria-label="Язык интерфейса"
+         title="Язык интерфейса и глоссария; серверные сообщения — на новых запросах"
+         data-i18n-aria-label="topbar.lang_group_aria" data-i18n-title="topbar.lang_title">
+      <button class="lang-btn" type="button" data-lang="ru" aria-pressed="true">RU</button>
+      <button class="lang-btn" type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+    <!-- issue #659: подпись кнопки темы называет ТЕКУЩИЙ режим (её ставит
+         applyTheme через t()), иначе «Системная» неотличима от остальных. -->
+    <button id="theme-toggle" class="btn-icon" aria-label="Тема: системная — нажмите, чтобы выбрать светлую"
+            title="Тема: системная — нажмите, чтобы выбрать светлую"
+            data-i18n-aria-label="topbar.theme_state_system" data-i18n-title="topbar.theme_state_system">🌓</button>
   </header>
 
   <nav class="sidebar" aria-label="Основная навигация" data-i18n-aria-label="nav.aria">
@@ -413,25 +424,9 @@
       <div class="split-pane-panel">
         <div class="panel-header"><span class="panel-title" data-i18n="settings.panel_title">Интерфейс</span></div>
         <div class="panel-body">
-          <div class="form-group">
-            <label class="form-label" for="settings-theme" data-i18n="settings.theme_label">Тема оформления</label>
-            <select class="form-input" id="settings-theme">
-              <option value="system" data-i18n="settings.theme_system">Системная</option>
-              <option value="light" data-i18n="settings.theme_light">Светлая</option>
-              <option value="dark" data-i18n="settings.theme_dark">Тёмная</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="settings-lang" data-i18n="settings.lang_label">Язык интерфейса</label>
-            <select class="form-input" id="settings-lang">
-              <option value="ru" data-i18n="settings.lang_ru">Русский</option>
-              <option value="en" data-i18n="settings.lang_en">English</option>
-            </select>
-            <div class="hint"><span data-i18n="settings.lang_hint_pre">Язык сообщений сервера и описаний глоссария
-              (</span><code>?lang=</code><span data-i18n="settings.lang_hint_post">); глоссарий переключается сразу, сообщения —
-              на новых запросах.</span></div>
-          </div>
-
+          <!-- issue #659: тема и язык переехали в topbar — это частые действия,
+               и селекты здесь были дублем тумблеров. Раздел остаётся под то,
+               что действительно настраивается редко. -->
           <div class="section-heading" data-i18n="settings.history_heading">История прогонов</div>
           <!-- Текст заполняется динамически в syncSettingsControls() через t()
                (settings.history_status_on/off, #546) — раздел скрыт до открытия,
