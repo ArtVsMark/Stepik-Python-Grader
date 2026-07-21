@@ -1,7 +1,7 @@
 """Tests for core/tracer.py — пошаговый трейс исполнения (issue #318).
 
-``trace_code`` исполняет self-contained bootstrap через активный
-grader_core._RUNNER (issue #396) — тесты гоняют реальную трассировку (не мок),
+``trace_code`` исполняет self-contained bootstrap через ``grader_core.run_spec()``
+активным Runner'ом (issue #396/#640) — тесты гоняют реальную трассировку (не мок),
 проверяя структуру JSON-трейса: кадры стека, heap со ссылками по id (aliasing),
 события, лимиты, stdin.
 """
@@ -257,6 +257,24 @@ def test_trace_code_runs_when_runner_supports_project_imports(monkeypatch) -> No
     trace = trace_code("x = 1\ny = 2\n")
     assert trace["error"] is None
     assert len(trace["steps"]) >= 1
+
+
+def test_trace_code_uses_public_run_spec(monkeypatch) -> None:
+    """issue #640: trace_code исполняет bootstrap через публичный
+    ``grader_core.run_spec()``, а не через приватный ``_RUNNER`` напрямую —
+    единственная точка выбора backend'а. Guard против возврата к ``_RUNNER.run``."""
+    from stepik_grader.core import grader_core
+    from stepik_grader.core.runner import RunOutcome
+
+    calls: list = []
+
+    def fake_run_spec(spec):
+        calls.append(spec)
+        return RunOutcome()  # пустой stdout → trace_code вернёт error, но run_spec вызван
+
+    monkeypatch.setattr(grader_core, "run_spec", fake_run_spec)
+    trace_code("x = 1\n")
+    assert len(calls) == 1  # ровно один прогон, через публичный run_spec
 
 
 def test_runner_capability_flags_are_explicit() -> None:

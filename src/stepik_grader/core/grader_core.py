@@ -469,9 +469,9 @@ def run_single_test(
 
     Тонкий оркестратор (issue #406): ``_prepare_run_spec`` выбирает стратегию
     (stdin/function-wrapper) и собирает ``RunSpec`` либо возвращает prep-ошибку;
-    активный ``_RUNNER`` исполняет spec; ``_map_outcome_to_result`` маппит сырой
-    ``RunOutcome`` в словарь-результат. Временный wrapper-файл function-mode
-    удаляется здесь, после запуска.
+    ``run_spec()`` исполняет spec через активный Runner; ``_map_outcome_to_result``
+    маппит сырой ``RunOutcome`` в словарь-результат. Временный wrapper-файл
+    function-mode удаляется здесь, после запуска.
 
     Для test_type='stdin'  — запускает решение напрямую, подаёт stdin.
     Для test_type='function' — генерирует временный wrapper-скрипт,
@@ -505,7 +505,10 @@ def run_single_test(
         return _fail_result(case, error="run spec preparation failed", verdict="RE")
 
     try:
-        outcome = _RUNNER.run(plan.spec)
+        # issue #640: через публичный run_spec(), а не прямой _RUNNER.run — так
+        # `_RUNNER.run(spec)` живёт в единственном месте (run_spec), которое и
+        # станет точкой выбора per-request Runner'а при серверном пивоте.
+        outcome = run_spec(plan.spec)
     finally:
         # Удаляем временный wrapper-файл (contextlib.suppress — безопасно при краше)
         if plan.tmp_wrapper_path is not None:

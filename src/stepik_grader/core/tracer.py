@@ -13,9 +13,9 @@
 
 - ``trace_code(code, stdin, ...)`` — оркестратор (вызывается web-слоем): пишет
   self-contained bootstrap (код инлайнится через ``repr`` + прямой вызов
-  ``run_trace``) во временный файл и исполняет его через активный
-  ``grader_core._RUNNER`` (``LocalRunner`` или ``SandboxRunner`` при
-  ``--serve --sandbox``, issue #396), ловит JSON-трейс из stdout. Общий
+  ``run_trace``) во временный файл и исполняет его через
+  ``grader_core.run_spec()`` активным Runner'ом (``LocalRunner`` или
+  ``SandboxRunner`` при ``--serve --sandbox``, issue #396/#640), ловит JSON-трейс из stdout. Общий
   wall-clock таймаут.
 - ``python -m stepik_grader.core.tracer <file>`` — прямой/отладочный вход в
   subprocess: ставит ``settrace``, ``exec``'ает код, печатает JSON-трейс.
@@ -311,7 +311,10 @@ def trace_code(
     try:
         tmp.write(bootstrap)
         tmp.close()
-        outcome = grader_core._RUNNER.run(
+        # issue #640: через публичный grader_core.run_spec(), а не приватный
+        # _RUNNER — выбор backend'а спрятан за одной точкой (ADR-0010); active_runner()
+        # выше уже консультируется публично для capability-гейта sandbox.
+        outcome = grader_core.run_spec(
             RunSpec(
                 path=pathlib.Path(tmp.name),
                 stdin=stdin.encode("utf-8"),
