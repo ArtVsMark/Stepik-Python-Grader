@@ -4,17 +4,19 @@
 Схема проекта (см. CONTRIBUTING.md §Версионирование, issue #68) — НЕ SemVer:
 
   * MAJOR.MINOR берутся из последнего git-тега вида ``vX.Y.0``;
-  * PATCH = число коммитов после этого тега, БЕЗ автогенерированных
-    badge-коммитов CI (``chore(ci): update badges [skip ci]``,
-    ``.github/workflows/ci.yml``) — иначе PATCH растёт почти вдвое быстрее
-    реальных изменений: этот коммит бот создаёт отдельно почти на каждый push
-    в main вдобавок к самому merge-коммиту (issue #231).
+  * PATCH = число ПРИНЯТЫХ изменений после этого тега — коммитов на first-parent
+    линии (``--first-parent``: один смерженный PR даёт ровно один коммit — свой
+    merge-commit, без внутренних коммитов PR и merge-дублей), БЕЗ
+    автогенерированных badge-коммитов CI (``chore(ci): update badges [skip ci]``,
+    ``.github/workflows/ci.yml``, issue #231). Так счётчик не зависит от того,
+    как автор дробил PR на коммиты, и не завышается ни badge-ботом (коммитит
+    прямо в main почти на каждый push), ни merge-коммитами.
 
 До первого тега ``git describe`` завершается ошибкой — тогда MAJOR.MINOR
 читаются из версии установленного пакета (``importlib.metadata`` поверх
 setuptools-scm; статической ``[project].version`` в pyproject нет —
-``dynamic = ["version"]``, issue #162/#183), а PATCH = число коммитов в истории
-по той же логике исключения (монотонный счётчик, разумный fallback уже сейчас).
+``dynamic = ["version"]``, issue #162/#183), а PATCH = число first-parent
+изменений в истории по той же логике исключения (монотонный счётчик).
 
 Запуск::
 
@@ -74,15 +76,20 @@ def _major_minor_from_metadata() -> tuple[str, str]:
 
 
 def _commits_since(rev_range: str) -> str:
-    """Число «настоящих» коммитов в rev_range, без badge-бота (issue #231).
+    """Число «принятых изменений» в rev_range: first-parent, без badge-бота.
 
-    --invert-grep --grep=<подстрока> --fixed-strings исключает коммиты,
-    сообщение которых содержит _BOT_COMMIT_GREP буквально (не regex).
+    ``--first-parent`` (объективная метрика: один смерженный PR = один коммит на
+    first-parent линии main — его merge-commit; внутренние коммиты PR и
+    merge-дубли не считаются, поэтому счётчик не зависит от дробления PR на
+    коммиты). ``--invert-grep --grep=<подстрока> --fixed-strings`` дополнительно
+    исключает badge-коммиты бота (``chore(ci): update badges``, issue #231),
+    которые попадают на first-parent линию (коммитятся прямо в main).
     """
     return (
         _git(
             "rev-list",
             "--count",
+            "--first-parent",
             rev_range,
             "--invert-grep",
             "--grep",
