@@ -6,8 +6,8 @@
 Архитектура:
     Код решения инлайнится (через ``repr``) в self-contained bench-скрипт с
     timeit.repeat; скрипт пишется во временный ``.py`` и исполняется через
-    активный ``grader_core._RUNNER`` (``LocalRunner`` или ``SandboxRunner`` при
-    ``--serve --sandbox``, issue #417). На время замера stdout решения
+    ``grader_core.run_spec()`` активным Runner'ом (``LocalRunner`` или
+    ``SandboxRunner`` при ``--serve --sandbox``, issue #417). На время замера stdout решения
     перенаправляется в os.devnull, чтобы его print()-вывод не смешивался с
     числами-таймингами и не ломал парсинг. stdin сбрасывается перед каждой
     итерацией через инжектированную в builtins функцию ``_reset_stdin``.
@@ -166,8 +166,8 @@ def run_microbench(
 ) -> dict[str, Any]:
     """Запустить timeit-microbenchmark для исходного кода.
 
-    Код инлайнится в self-contained bench-скрипт и исполняется через активный
-    ``grader_core._RUNNER`` (issue #417), а не напрямую subprocess'ом.
+    Код инлайнится в self-contained bench-скрипт и исполняется через
+    ``grader_core.run_spec()`` активным Runner'ом (issue #417/#640), а не напрямую subprocess'ом.
     stdin сбрасывается перед каждой итерацией через _reset_stdin() в начале stmt.
 
     bench-скрипт пишется во временный файл с delete=False и удаляется в блоке
@@ -186,11 +186,13 @@ def run_microbench(
     """
     bench_script = _build_bench_script(source_code, stdin_data, number)
 
-    # issue #417: исполнять bench-скрипт через активный grader_core._RUNNER
-    # (LocalRunner или SandboxRunner при --serve --sandbox), а не напрямую
-    # `python -c` мимо изоляции. Per-call тайминги замеряются ВНУТРИ дочернего
-    # процесса (timeit.repeat), поэтому обёртка песочницы их не искажает; лимит
-    # памяти теперь ставит сам Runner (RunSpec.max_memory_mb).
+    # issue #417: исполнять bench-скрипт через активный Runner (LocalRunner или
+    # SandboxRunner при --serve --sandbox), а не напрямую `python -c` мимо
+    # изоляции. Per-call тайминги замеряются ВНУТРИ дочернего процесса
+    # (timeit.repeat), поэтому обёртка песочницы их не искажает; лимит памяти
+    # теперь ставит сам Runner (RunSpec.max_memory_mb). issue #640: через
+    # публичный grader_core.run_spec(), а не приватный _RUNNER — выбор backend'а
+    # спрятан за одной точкой (ADR-0010).
     from stepik_grader.core import grader_core  # локальный импорт: избежать цикла в DAG
 
     # delete=False намеренно: путь файла уходит в RunSpec раннеру, чистится в finally.
@@ -201,7 +203,7 @@ def run_microbench(
         tmp.write(bench_script)
         tmp.flush()
         tmp.close()
-        outcome = grader_core._RUNNER.run(
+        outcome = grader_core.run_spec(
             RunSpec(
                 path=pathlib.Path(tmp.name),
                 stdin=None,

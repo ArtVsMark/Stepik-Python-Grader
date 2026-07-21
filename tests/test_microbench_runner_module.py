@@ -125,6 +125,24 @@ def test_microbench_runner_unexpected_exception_returns_error(monkeypatch) -> No
     assert result["peak_memory_mb"] == 0.0
 
 
+def test_microbench_runner_uses_public_run_spec(monkeypatch) -> None:
+    """issue #640: bench исполняется через публичный ``grader_core.run_spec()``,
+    а не через приватный ``_RUNNER`` напрямую — единственная точка выбора
+    backend'а. Guard против возврата к ``_RUNNER.run``."""
+    from stepik_grader.core import grader_core
+    from stepik_grader.core.runner import RunOutcome
+
+    calls: list = []
+
+    def fake_run_spec(spec):
+        calls.append(spec)
+        return RunOutcome()  # пустой stdout → error-результат, но run_spec вызван
+
+    monkeypatch.setattr(grader_core, "run_spec", fake_run_spec)
+    run_microbench("x = 1\n", stdin_data="", number=5)
+    assert len(calls) == 1  # ровно один прогон, через публичный run_spec
+
+
 def test_microbench_runner_apply_relative_orders_by_median() -> None:
     """apply_relative_micro labels the fastest SIMILAR and slower ones SLOWER/MUCH_SLOWER.
 
