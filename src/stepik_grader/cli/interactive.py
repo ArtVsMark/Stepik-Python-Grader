@@ -31,6 +31,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import pathlib
 
 from stepik_grader.cli.context import CliContext
@@ -121,9 +122,15 @@ def _ask_micro_profile(ctx: CliContext) -> int:
 
 
 def _print_menu(ctx: CliContext, *, record_history: bool = False) -> None:
-    """Отрисовать меню. ``record_history`` — состояние тумблера истории (issue #430)."""
+    """Отрисовать меню. ``record_history`` — состояние тумблера истории (issue #430).
+
+    issue #643: подсказка про скачивание печатается сразу под заголовком — новичок
+    без задачи на диске видит точку входа в воронку (пункт 8: скачать со Stepik)
+    раньше режимов проверки, а не упирается в «нечего проверять».
+    """
     print("\n" + "=" * 50)
     print(ctx.t("menu_title"))
+    print(ctx.t("menu_download_hint"))
     print("=" * 50)
     print(ctx.t("menu_1"))
     print(ctx.t("menu_2"))
@@ -133,6 +140,7 @@ def _print_menu(ctx: CliContext, *, record_history: bool = False) -> None:
     print(ctx.t("menu_6"))
     state = ctx.t("toggle_on") if record_history else ctx.t("toggle_off")
     print(ctx.t("menu_7", state=state))
+    print(ctx.t("menu_8"))
     print(ctx.t("menu_0"))
     print("=" * 50)
 
@@ -246,6 +254,30 @@ def _maybe_nudge_history(
     return nudged
 
 
+# issue #645: сколько успешных прогонов подряд собрать, прежде чем предложить
+# включить историю. Достаточно большой порог, чтобы nudge не срабатывал на
+# первом же успехе, но и не терялся в длинной серии.
+_SUCCESS_STREAK_NUDGE_K = 3
+
+
+def _maybe_nudge_success_streak(
+    ctx: CliContext, success_streak: int, *, record_history: bool, nudged_success: bool
+) -> bool:
+    """Однократный (за сессию меню) позитивный nudge после серии успешных прогонов.
+
+    issue #645: петля удержания (история → «Подучить»/«Прогресс») выключена по
+    умолчанию (ADR-0002), поэтому раньше habit loop подталкивался ТОЛЬКО провалом
+    (``_maybe_nudge_history``). После серии из ``_SUCCESS_STREAK_NUDGE_K`` успешных
+    прогонов подряд при выключенной истории предлагаем включить запись, чтобы
+    стрик и разборы начали накапливаться. Печатается не чаще раза за сессию.
+    Возвращает обновлённый флаг ``nudged_success``.
+    """
+    if not record_history and not nudged_success and success_streak >= _SUCCESS_STREAK_NUDGE_K:
+        print(ctx.t("nudge_success_streak", count=success_streak))
+        return True
+    return nudged_success
+
+
 def _interactive_menu(ctx: CliContext) -> None:
     """Цикл интерактивного меню: показывать меню и выполнять режимы до «0»/EOF.
 
@@ -258,6 +290,13 @@ def _interactive_menu(ctx: CliContext) -> None:
     в ``.grader_settings.json`` между запусками (user-state переопределяет
     ``CONFIG.record_history``). После прогона с падениями (режимы 1/2) при
     выключенной истории печатается однократный nudge про «Подучить».
+
+    issue #643: пункт 8 скачивает задачу со Stepik по URL шага (downloader
+    in-process), замыкая воронку download→grade в одной точке входа.
+
+    issue #645: серию успешных прогонов подряд при выключенной истории тоже
+    сопровождает однократный positive-nudge — habit loop подталкивается не
+    только провалом, но и успехом (дефолт истории по ADR-0002 не меняется).
     """
     settings_path = user_settings.default_settings_path()
     settings = user_settings.load_settings(settings_path)
@@ -271,6 +310,10 @@ def _interactive_menu(ctx: CliContext) -> None:
     )
     # issue #430: nudge «Подучить» показываем не чаще раза за сессию меню.
     nudged = False
+    # issue #645: серия успешных прогонов подряд (режимы 1/2) для позитивного
+    # nudge про включение истории; nudged_success ограничивает его разом за сессию.
+    success_streak = 0
+    nudged_success = False
 
     while True:
         _print_menu(ctx, record_history=record_history)
@@ -289,6 +332,13 @@ def _interactive_menu(ctx: CliContext) -> None:
                 nudged = _maybe_nudge_history(
                     ctx, had_failures, record_history=record_history, nudged=nudged
                 )
+                success_streak = 0 if had_failures else success_streak + 1
+                nudged_success = _maybe_nudge_success_streak(
+                    ctx,
+                    success_streak,
+                    record_history=record_history,
+                    nudged_success=nudged_success,
+                )
 
             elif choice == "2":
                 directory = _prompt_path(ctx, "enter_folder_path", want_dir=True)
@@ -297,6 +347,13 @@ def _interactive_menu(ctx: CliContext) -> None:
                 )
                 nudged = _maybe_nudge_history(
                     ctx, had_failures, record_history=record_history, nudged=nudged
+                )
+                success_streak = 0 if had_failures else success_streak + 1
+                nudged_success = _maybe_nudge_success_streak(
+                    ctx,
+                    success_streak,
+                    record_history=record_history,
+                    nudged_success=nudged_success,
                 )
 
             elif choice == "3":
@@ -308,7 +365,7 @@ def _interactive_menu(ctx: CliContext) -> None:
                 # напрямую из core.grader_core, а не через ctx — ни один тест не
                 # патчит их через cli.X (проверено grep).
                 if not find_all_solution_files(directory):
-                    print(ctx.t("no_solutions_found"))
+                    print(ctx.t("no_solutions_found", path=directory))
                     continue
                 repeats = ctx.ask_bench_profile()
                 ctx.run_mode_3(
@@ -321,7 +378,7 @@ def _interactive_menu(ctx: CliContext) -> None:
                     print(ctx.t("dir_not_found", path=directory))
                     continue
                 if not collect_grouped_files(directory):
-                    print(ctx.t("no_solutions_found"))
+                    print(ctx.t("no_solutions_found", path=directory))
                     continue
                 number = ctx.ask_micro_profile()
                 ctx.run_mode_4(
@@ -367,6 +424,20 @@ def _interactive_menu(ctx: CliContext) -> None:
                     print(ctx.t("history_save_failed", error=exc))
                 else:
                     print(ctx.t("history_toggled_on" if record_history else "history_toggled_off"))
+
+            elif choice == "8":
+                # issue #643: скачивание задачи со Stepik прямо из меню — цикл
+                # download→grade больше не распадается на отдельный вызов
+                # `python -m stepik_grader.downloader`. Ленивый импорт (как web в
+                # пункте 6). downloader.main() сам грузит конфиг, при отсутствии
+                # secrets.json запускает пошаговый мастер (#433), авторизуется и
+                # крутит цикл ввода URL шагов до пустой строки; по завершении —
+                # обратно в меню. Ctrl+C прерывает скачивание, не роняя меню.
+                from stepik_grader import downloader
+
+                # Ctrl+C прерывает скачивание и возвращает в меню, не роняя процесс.
+                with contextlib.suppress(KeyboardInterrupt):
+                    downloader.main()
 
             else:
                 print(ctx.t("unknown_choice"))
