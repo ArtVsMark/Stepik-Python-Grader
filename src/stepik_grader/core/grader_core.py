@@ -277,6 +277,7 @@ def _prepare_run_spec(
     timeout: float,
     measure_memory: bool,
     cancel_event: threading.Event | None,
+    max_memory_mb: int | None = None,
 ) -> _RunPlan:
     """Выбрать стратегию запуска кейса и собрать ``RunSpec`` (issue #406).
 
@@ -291,6 +292,8 @@ def _prepare_run_spec(
     Выделена из ``run_single_test`` — вся не-исполняющая «стратегия+wrapper»
     логика в одном месте, тестируемая без реального subprocess-запуска.
     """
+    # issue #641: per-run memory-override (из API limits); None → дефолт CONFIG.
+    mem_cap = CONFIG.max_memory_mb if max_memory_mb is None else max_memory_mb
     if case.test_type != "function":
         stdin_data = "\n".join(case.input_lines) + "\n"
         return _RunPlan(
@@ -299,7 +302,7 @@ def _prepare_run_spec(
                 stdin=stdin_data.encode(ENCODING),
                 timeout=timeout,
                 measure_memory=measure_memory,
-                max_memory_mb=CONFIG.max_memory_mb,
+                max_memory_mb=mem_cap,
                 max_output_bytes=CONFIG.max_output_bytes,
                 cancel_event=cancel_event,
             )
@@ -345,7 +348,7 @@ def _prepare_run_spec(
             stdin=None,  # wrapper не читает stdin
             timeout=timeout,
             measure_memory=measure_memory,
-            max_memory_mb=CONFIG.max_memory_mb,
+            max_memory_mb=mem_cap,
             max_output_bytes=CONFIG.max_output_bytes,
             cancel_event=cancel_event,
         ),
@@ -464,6 +467,7 @@ def run_single_test(
     timeout: float = TIMEOUT_SECONDS,
     measure_memory: bool = MEASURE_CHILD_MEMORY,
     cancel_event: threading.Event | None = None,
+    max_memory_mb: int | None = None,
 ) -> CaseResult:
     """Запустить одно решение на одном тест-кейсе и вернуть словарь с результатами.
 
@@ -497,6 +501,7 @@ def run_single_test(
         timeout=timeout,
         measure_memory=measure_memory,
         cancel_event=cancel_event,
+        max_memory_mb=max_memory_mb,
     )
     if plan.error is not None:
         # prep-ошибка (нет function_name / невалидный wrapper) → RE без запуска.
@@ -527,6 +532,7 @@ def run_tests(
     timeout: float = TIMEOUT_SECONDS,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
+    max_memory_mb: int | None = None,
 ) -> dict[str, Any]:
     """Запустить все тест-кейсы для решения и собрать статистику.
 
@@ -573,7 +579,13 @@ def run_tests(
     for case in test_cases:
         if cancel_event is not None and cancel_event.is_set():
             break
-        r = run_single_test(solution_path, case, timeout=timeout, cancel_event=cancel_event)
+        r = run_single_test(
+            solution_path,
+            case,
+            timeout=timeout,
+            cancel_event=cancel_event,
+            max_memory_mb=max_memory_mb,
+        )
         # issue #397: приложить stdin кейса к результату — web-презентация
         # (grade_path → ErrorCard) больше не перечитывает тест-кейсы вторым
         # проходом ради stdin. Дешевле и без zip по позиции (снимает хрупкость
@@ -633,6 +645,7 @@ def run_benchmark(
     repeats: int = 15,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
+    max_memory_mb: int | None = None,
 ) -> dict[str, Any]:
     """Запустить все тест-кейсы в режиме benchmark и собрать статистику времени.
 
@@ -667,7 +680,13 @@ def run_benchmark(
         for _ in range(max(1, repeats)):
             if cancel_event is not None and cancel_event.is_set():
                 return {"error": "cancelled", "runs": 0, "cancelled": True}
-            r = run_single_test(solution_path, case, timeout=timeout, cancel_event=cancel_event)
+            r = run_single_test(
+                solution_path,
+                case,
+                timeout=timeout,
+                cancel_event=cancel_event,
+                max_memory_mb=max_memory_mb,
+            )
             if r.get("verdict") == "CANCELLED":
                 return {"error": r["error"], "runs": 0, "cancelled": True}
             if r["error"] or r["timed_out"]:

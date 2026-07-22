@@ -523,6 +523,8 @@ def grade_path(
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
     workspace: pathlib.Path | None = None,
+    timeout: float | None = None,
+    max_memory_mb: int | None = None,
 ) -> dict[str, Any]:
     """Прогрейдить файл/папку на корректность (режим 1/2).
 
@@ -556,7 +558,12 @@ def grade_path(
             rows.append({"file": _rel(sol, base), "status": "NO TESTS", "passed": 0, "total": 0})
             continue
         res = run_tests(
-            sol, test_dir, progress_callback=progress_callback, cancel_event=cancel_event
+            sol,
+            test_dir,
+            timeout=CONFIG.timeout_seconds if timeout is None else timeout,
+            max_memory_mb=max_memory_mb,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
         )
         if res["total"] > 0:
             graded.append((sol, res))
@@ -632,6 +639,8 @@ def grade_benchmark(
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
     workspace: pathlib.Path | None = None,
+    timeout: float | None = None,
+    max_memory_mb: int | None = None,
 ) -> dict[str, Any]:
     """Бенчмаркнуть файл/папку (режим 3) и ранжировать по медиане.
 
@@ -673,6 +682,8 @@ def grade_benchmark(
                 sol,
                 test_dir,
                 repeats=max(1, repeats),
+                timeout=CONFIG.timeout_seconds if timeout is None else timeout,
+                max_memory_mb=max_memory_mb,
                 progress_callback=progress_callback,
                 cancel_event=cancel_event,
             )

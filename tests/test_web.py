@@ -1026,6 +1026,23 @@ class TestSecurityHeaders:
         status, _ = _post(server + "/api/save-solution", b"not json")
         assert status == 400
 
+    def test_api_save_solution_non_string_code_is_400(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        """issue #646 (T5): code не строка → 400 (server.py:578, ветка была без теста)."""
+        status, body = _post(
+            server + "/api/save-solution",
+            json.dumps({"folder": str(tmp_path), "code": 123}).encode("utf-8"),
+        )
+        assert status == 400
+        assert json.loads(body)["ok"] is False
+
+    def test_api_body_not_json_object_is_400(self, server: str) -> None:
+        """issue #646 (T5): тело — валидный JSON, но не объект → 400 (server.py:657)."""
+        status, body = _post(server + "/api/save-solution", json.dumps([1, 2, 3]).encode("utf-8"))
+        assert status == 400
+        assert json.loads(body)["ok"] is False
+
     def test_api_save_solution_returns_mtime(self, server: str, tmp_path: pathlib.Path) -> None:
         """issue #297: ответ save-solution несёт mtime (новый baseline фронта)."""
         status, body = _post(
@@ -1654,6 +1671,31 @@ class TestRunsApiGoldenComparison:
         assert {r["file"]: r["verdict"] for r in async_data["rows"]} == {
             r["file"]: r["verdict"] for r in sync_data["rows"]
         }
+
+    def test_tests_run_honors_per_run_timeout_limit(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        """issue #641: limits.timeout_s из тела POST /api/v1/runs доходит до RunSpec.
+
+        Дискриминирующий тест: решение спит 3 c. Под дефолтным timeout (10 c) оно
+        успело бы и дало AC; per-run ``timeout_s=0.5`` режет его в TLE. Значит
+        именно лимит из API применён (server → runs → grade → RunSpec), а не
+        глобальный CONFIG.
+        """
+        sol = _make_task(tmp_path, "import time\ntime.sleep(3)\nprint(int(input()) + 1)\n")
+
+        create_status, create_body = _post(
+            server + "/api/v1/runs",
+            json.dumps({"path": str(sol), "mode": "tests", "limits": {"timeout_s": 0.5}}).encode(
+                "utf-8"
+            ),
+        )
+        assert create_status == 202
+        run_id = json.loads(create_body)["run_id"]
+
+        result = _poll_run(server, run_id)["result"]
+        verdicts = [c["verdict"] for row in result["rows"] for c in row["cases"]]
+        assert verdicts == ["TLE"], result
 
 
 class TestRunsApiCancel:

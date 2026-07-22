@@ -46,6 +46,8 @@ try:
 except ImportError:
     resource = None  # type: ignore[assignment]
 
+from stepik_grader.config import CONFIG
+
 __all__ = ["LocalRunner", "RunOutcome", "RunSpec", "Runner", "spec_source_bytes"]
 
 # issue #418: после kill дерева процессов даём ограниченное время на reap —
@@ -421,6 +423,41 @@ def _reap_after_kill(proc: subprocess.Popen[bytes]) -> tuple[bytes, bytes]:
         return b"", b""
 
 
+# issue #632: типовые подстроки в ИМЕНИ env-переменной, выдающие секрет. Скраб
+# по denylist, а не allowlist: дефолтный LocalRunner делит окружение с грейдером/
+# сервером и должен сохранить project-import (PYTHONPATH/VIRTUAL_ENV и пр.) для
+# трассировщика — вырезаем только заведомо секретное, не трогая остальное.
+_SECRET_ENV_SUBSTRINGS: tuple[str, ...] = (
+    "SECRET",
+    "TOKEN",
+    "PASSWORD",
+    "PASSWD",
+    "API_KEY",
+    "APIKEY",
+    "ACCESS_KEY",
+    "PRIVATE_KEY",
+    "CREDENTIAL",
+)
+
+
+def _scrub_secret_env(env: dict[str, str]) -> None:
+    """Удалить из ``env`` секрет-переменные перед spawn решения (issue #632).
+
+    Мутирует ``env`` на месте. Дефолтный ``LocalRunner`` исполняет код БЕЗ
+    ОС-изоляции и наследует окружение грейдера (а под ``--serve`` без
+    ``--sandbox`` — всё окружение сервера), но собственные секреты грейдера коду
+    решения не нужны и не должны в него утекать. Убирается сконфигурированное имя
+    AI-ключа (``CONFIG.ai_api_key_env``, даже если оператор его переименовал) и
+    любая переменная, чьё имя содержит типовую секрет-подстроку. Sandbox-бэкенды
+    чистят окружение целиком; здесь — консервативный denylist, чтобы не сломать
+    project-import (см. ``supports_project_imports``).
+    """
+    ai_key_var = CONFIG.ai_api_key_env
+    for name in list(env):
+        if name == ai_key_var or any(sub in name.upper() for sub in _SECRET_ENV_SUBSTRINGS):
+            env.pop(name, None)
+
+
 class LocalRunner:
     """Subprocess-реализация ``Runner`` (текущее поведение, issue #138).
 
@@ -449,6 +486,7 @@ class LocalRunner:
         mem_thread: threading.Thread | None = None
 
         child_env = os.environ.copy()
+        _scrub_secret_env(child_env)  # issue #632: не наследовать секреты грейдера
         child_env["PYTHONIOENCODING"] = "utf-8"
         child_env["PYTHONUTF8"] = "1"
 

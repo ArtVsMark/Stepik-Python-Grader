@@ -130,6 +130,12 @@ _ALLOWED_HOSTNAMES = ("127.0.0.1", "localhost")
 _MAX_BODY_BYTES = 1024 * 1024
 _REPEATS_RANGE = (1, 1000)
 _NUMBER_RANGE = (1, 1_000_000)
+# issue #641: границы per-run лимитов из тела POST /api/v1/runs
+# (``limits: {timeout_s, memory_mb}``) — override серверных дефолтов в разумных
+# пределах. Верх memory совпадает с дефолтом ``CONFIG.max_memory_mb`` (1024): запрос
+# не поднимает потолок выше серверного максимума; timeout — до 60 с (6× дефолтных 10).
+_TIMEOUT_S_RANGE = (1.0, 60.0)
+_MEMORY_MB_RANGE = (16, 1024)
 
 
 class _GraderServer(ThreadingHTTPServer):
@@ -746,6 +752,11 @@ class _Handler(BaseHTTPRequestHandler):
         # mode == "tests" (issue #297): корректность режима 1, никаких
         # числовых params (кроме lang) — только code в теле.
 
+        # issue #641: опц. per-run лимиты {timeout_s, memory_mb} — override дефолтов
+        # сервера в границах диапазонов. Пусто → grade-слой берёт дефолт из CONFIG.
+        # microbench их не потребляет (run_microbench_mode держит серверные дефолты).
+        params.update(_parse_run_limits(body))
+
         job = self._submit_or_429(lang, mode, confined, params, code=code)
         if job is None:
             return
@@ -1075,6 +1086,29 @@ def _to_int(value: Any, default: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _parse_run_limits(body: dict[str, Any]) -> dict[str, float | int]:
+    """Per-run лимиты ``{timeout_s?, memory_mb?}`` из тела POST /api/v1/runs (issue #641).
+
+    Возвращает только числовые заданные ключи, зажатые в серверные границы
+    (``_TIMEOUT_S_RANGE``/``_MEMORY_MB_RANGE``). Отсутствие блока ``limits`` или
+    нечисловой мусор (строка/``null``/``bool``) → ключ не добавляется, и grade-слой
+    берёт дефолт из ``CONFIG``. Override не поднимает потолок выше серверного
+    максимума (верх диапазонов).
+    """
+    raw = body.get("limits")
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, float | int] = {}
+    timeout_s = raw.get("timeout_s")
+    if isinstance(timeout_s, int | float) and not isinstance(timeout_s, bool):
+        lo, hi = _TIMEOUT_S_RANGE
+        out["timeout_s"] = max(lo, min(hi, float(timeout_s)))
+    memory_mb = raw.get("memory_mb")
+    if isinstance(memory_mb, int | float) and not isinstance(memory_mb, bool):
+        out["memory_mb"] = _clamp(int(memory_mb), *_MEMORY_MB_RANGE)
+    return out
 
 
 def _json(data: Any) -> bytes:
