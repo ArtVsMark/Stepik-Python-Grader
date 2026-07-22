@@ -414,6 +414,25 @@ def _assert_infinite_loop_times_out(runner, tmp_path: pathlib.Path) -> None:
     assert outcome.timed_out is True
 
 
+def _assert_read_outside_run_dir_blocked(runner, tmp_path: pathlib.Path) -> None:
+    """Чтение секрета ВНЕ run_dir заблокировано (SEC-CORE-03, escape-PoC #648).
+
+    Решение читает файл по абсолютному пути вне run_dir и печатает его —
+    эксфильтрация секрета через stdout. Backend с изоляцией ЧТЕНИЯ (Linux bwrap:
+    файл не в bind'ах, host ``/tmp`` скрыт свежим ``--tmpfs``) чтения не даёт —
+    секрет не попадает в stdout, процесс падает (``FileNotFoundError``). Контраст
+    с macOS (``(allow file-read*)``) и Windows, где чтение НЕ изолировано —
+    характеризующие тесты в соответствующих классах.
+    """
+    secret = "S3CRET-sandbox-exfil-648"
+    secret_file = tmp_path / "outside_secret.txt"
+    secret_file.write_text(secret, encoding="utf-8")
+    path = _write_script(tmp_path, f"print(open({str(secret_file)!r}, encoding='utf-8').read())\n")
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=5.0))
+    assert secret.encode() not in outcome.stdout
+    assert outcome.returncode != 0
+
+
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux-only backend")
 @pytest.mark.skipif(shutil.which("bwrap") is None, reason="bubblewrap (bwrap) not installed")
 @pytest.mark.skipif(
@@ -451,6 +470,11 @@ class TestLinuxSandboxRunner:
 
     def test_infinite_loop_still_times_out(self, tmp_path: pathlib.Path) -> None:
         _assert_infinite_loop_times_out(self._runner(), tmp_path)
+
+    def test_read_outside_run_dir_blocked(self, tmp_path: pathlib.Path) -> None:
+        # issue #648: bwrap изолирует ЧТЕНИЕ (файл вне bind'ов недоступен) —
+        # в отличие от macOS/Windows; секрет не эксфильтруется.
+        _assert_read_outside_run_dir_blocked(self._runner(), tmp_path)
 
 
 def test_linux_sandbox_not_silently_skipped() -> None:
@@ -566,6 +590,29 @@ class TestMacSandboxRunner:
         path = _write_script(tmp_path, "while True:\n    pass\n")
         outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=2.0))
         assert outcome.timed_out is True
+
+    def test_file_read_outside_run_dir_not_isolated(self, tmp_path: pathlib.Path) -> None:
+        """ПРОБЕЛ (SEC-CORE-03, escape-PoC #648): чтение файлов НЕ изолировано.
+
+        macOS-профиль сознательно несёт ``(allow file-read*)`` без ограничения по
+        пути (``_macos.py``: перечисление путей даёт SIGABRT в dyld/CPython ещё до
+        кода решения; SECURITY.md для macOS изоляцию ЧТЕНИЯ никогда не обещал —
+        только запись/сеть/ресурсы). Характеризующий тест: sandboxed-код читает
+        секрет вне run_dir по абсолютному пути и печатает его → эксфильтрация
+        через stdout проходит. Красный тест = на macOS появилась изоляция чтения
+        → снять оговорку в ``_macos.py``/SECURITY.md и переписать на
+        ``_assert_read_outside_run_dir_blocked`` (как Linux). Симметрично
+        Windows-части #648 (``test_absolute_path_read_exfiltrates_secret``).
+        """
+        secret = "S3CRET-macos-exfil-648"
+        secret_file = tmp_path / "outside_secret.txt"
+        secret_file.write_text(secret, encoding="utf-8")
+        path = _write_script(
+            tmp_path, f"print(open({str(secret_file)!r}, encoding='utf-8').read())\n"
+        )
+        outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=5.0))
+        assert outcome.returncode == 0, outcome.stderr.decode("utf-8", errors="replace")
+        assert secret in outcome.stdout.decode("utf-8", errors="replace")
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only backend")
