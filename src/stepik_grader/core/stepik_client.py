@@ -27,6 +27,7 @@ import secrets as secrets_module
 import threading
 import time
 import webbrowser
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, cast
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
@@ -48,7 +49,9 @@ __all__ = [
     "RETRY_STATUS_FORCELIST",
     "STEPIK_HOST",
     "ExternalUrlRejected",
+    "SubmissionResult",
     "authorize_via_browser",
+    "create_attempt",
     "create_user_session",
     "external_download_get",
     "fetch_comments_with_submissions",
@@ -58,11 +61,16 @@ __all__ = [
     "fetch_lesson_data",
     "fetch_section_data",
     "fetch_step_data",
+    "fetch_step_languages",
     "fetch_submission_data",
     "fetch_unit_data",
     "is_stepik_url",
     "make_session",
+    "poll_submission",
+    "read_step_id",
     "refresh_access_token",
+    "submit_and_wait",
+    "submit_solution",
     "token_is_valid",
     "validate_external_url",
     "wait_for_auth_code",
@@ -623,6 +631,186 @@ def fetch_submission_data(
     )
     submissions: list[dict[str, Any]] = response.json().get("submissions", [])
     return submissions[0] if submissions else None
+
+
+# ---------------------------------------------------------------------------
+# Отправка решения на Stepik (issue #683): attempt → submission → poll вердикта.
+# Пишущие POST-эндпоинты (в отличие от read-only GET выше). Авторизация — Bearer
+# OAuth-токеном сессии (authorization_code flow, тот же токен, что скачивает
+# задачи); CSRF для API-POST под Bearer не требуется. Сам сабмит — необратимое
+# действие на платформе, поэтому инициируется явным действием пользователя.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SubmissionResult:
+    """Итог отправки решения на Stepik (issue #683).
+
+    ``status``: ``"correct"`` — зачтено, ``"wrong"`` — не зачтено,
+    ``"evaluation"`` — всё ещё проверяется (poll не дождался вердикта),
+    ``"error"`` — сбой отправки. ``hint`` — сообщение проверяющей системы
+    Stepik, ``score`` — начисленный балл (если есть), ``submission_id`` — id
+    сабмишна (для ссылки на решение).
+    """
+
+    status: str
+    hint: str = ""
+    score: str = ""
+    submission_id: int | None = None
+
+
+def _post_json(
+    session: requests.Session,
+    url: str,
+    payload: dict[str, Any],
+    timeout: int = 30,
+) -> requests.Response:
+    """POST JSON к Stepik API с ``raise_for_status`` и debug-логом (issue #683).
+
+    Зеркалит ``_get_with_retry``: повтор transient-сбоев — транспортный слой
+    (``urllib3.util.Retry`` на ``HTTPAdapter`` сессии), здесь только
+    ``raise_for_status`` для не-retryable 4xx и запись в диагностический лог.
+    """
+    _log.debug("POST %s", url)
+    response = session.post(url, json=payload, timeout=timeout)
+    response.raise_for_status()
+    _log.debug("POST %s → %d", url, response.status_code)
+    return response
+
+
+def create_attempt(session: requests.Session, step_id: int) -> int:
+    """Создать attempt для code-challenge шага (POST /api/attempts) → ``attempt_id``.
+
+    Raises:
+        ValueError: если Stepik не вернул attempt (напр. шаг не code-challenge).
+    """
+    resp = _post_json(session, f"{API_HOST}/api/attempts", {"attempt": {"step": step_id}})
+    attempts: list[dict[str, Any]] = resp.json().get("attempts", [])
+    if not attempts:
+        raise ValueError(f"Stepik не вернул attempt для шага {step_id}")
+    return int(attempts[0]["id"])
+
+
+def submit_solution(
+    session: requests.Session,
+    attempt_id: int,
+    code: str,
+    language: str = "python3",
+) -> int:
+    """Отправить код в attempt (POST /api/submissions) → ``submission_id``.
+
+    Raises:
+        ValueError: если Stepik не вернул submission.
+    """
+    payload = {"submission": {"attempt": attempt_id, "reply": {"language": language, "code": code}}}
+    resp = _post_json(session, f"{API_HOST}/api/submissions", payload)
+    submissions: list[dict[str, Any]] = resp.json().get("submissions", [])
+    if not submissions:
+        raise ValueError("Stepik не вернул submission после отправки")
+    return int(submissions[0]["id"])
+
+
+def poll_submission(
+    session: requests.Session,
+    submission_id: int,
+    *,
+    timeout: float = 60.0,
+    interval: float = 1.5,
+) -> SubmissionResult:
+    """Опрашивать статус сабмишна, пока он не выйдет из ``evaluation`` (или timeout).
+
+    GET /api/submissions/{id} → ``status`` (correct/wrong/evaluation). По таймауту
+    возвращает ``status="evaluation"`` — проверка не успела завершиться, клиент
+    покажет «отправлено, оценивается».
+    """
+    deadline = time.monotonic() + timeout
+    last: dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        resp = _get_with_retry(session, f"{API_HOST}/api/submissions/{submission_id}")
+        subs: list[dict[str, Any]] = resp.json().get("submissions", [])
+        if not subs:
+            break
+        last = subs[0]
+        status = str(last.get("status", ""))
+        if status and status != "evaluation":
+            return SubmissionResult(
+                status=status,
+                hint=str(last.get("hint", "")),
+                score=str(last.get("score", "")),
+                submission_id=submission_id,
+            )
+        time.sleep(interval)
+    return SubmissionResult(
+        status=str(last.get("status") or "evaluation"),
+        hint=str(last.get("hint", "")),
+        submission_id=submission_id,
+    )
+
+
+def fetch_step_languages(session: requests.Session, step_id: int) -> list[str]:
+    """Языки, разрешённые code-challenge шагом (issue #683).
+
+    Ключи ``block.options.code_templates`` шага (напр. ``['python3.10',
+    'python3.12']``). Пусто — шаг не code-challenge или без шаблонов. Знать
+    точный идентификатор критично: Stepik отвергает неверный
+    (``Unknown language: python3``), а версию (``python3.10``) знает только сам
+    шаг — эмпирически подтверждено живым сабмитом.
+    """
+    resp = _get_with_retry(session, f"{API_HOST}/api/steps/{step_id}")
+    steps: list[dict[str, Any]] = resp.json().get("steps", [])
+    if not steps:
+        return []
+    options = steps[0].get("block", {}).get("options", {})
+    templates = options.get("code_templates", {})
+    return list(templates) if isinstance(templates, dict) else []
+
+
+def _pick_python_language(languages: list[str]) -> str:
+    """Выбрать python-язык из разрешённых шагом (issue #683).
+
+    Предпочитает самую свежую версию (``python3.12`` перед ``python3.10`` —
+    код решения совместим), fallback — ``python3`` (пусть Stepik ответит, если
+    шаг вообще не про Python).
+    """
+    pythons = sorted((raw for raw in languages if "python" in raw.lower()), reverse=True)
+    return pythons[0] if pythons else "python3"
+
+
+def submit_and_wait(
+    session: requests.Session,
+    step_id: int,
+    code: str,
+    *,
+    language: str | None = None,
+    timeout: float = 60.0,
+) -> SubmissionResult:
+    """Полный поток отправки (issue #683): attempt → submission → poll до вердикта.
+
+    ``language=None`` — определить автоматически из разрешённых языков шага
+    (``fetch_step_languages`` → ``_pick_python_language``); иначе использовать
+    заданный. Автоопределение обязательно: хардкод ``python3`` Stepik отвергает.
+    """
+    if language is None:
+        language = _pick_python_language(fetch_step_languages(session, step_id))
+    attempt_id = create_attempt(session, step_id)
+    submission_id = submit_solution(session, attempt_id, code, language)
+    return poll_submission(session, submission_id, timeout=timeout)
+
+
+def read_step_id(task_dir: pathlib.Path) -> int | None:
+    """Прочитать ``step_id`` из ``meta.json`` папки задачи (issue #683).
+
+    ``meta.json`` пишется downloader'ом при скачивании шага. ``None`` — если
+    файла нет, JSON битый или поля ``step_id`` нет/не int (задача скачана не
+    downloader'ом или папка не является задачей Stepik).
+    """
+    try:
+        raw = (task_dir / "meta.json").read_text(encoding="utf-8")
+        data = _json_mod.loads(raw)
+    except (OSError, ValueError):
+        return None
+    step_id = data.get("step_id") if isinstance(data, dict) else None
+    return int(step_id) if isinstance(step_id, int) else None
 
 
 # ---------------------------------------------------------------------------
