@@ -73,3 +73,35 @@ def test_load_ignores_unknown_keys(tmp_path: Path) -> None:
     path = tmp_path / user_settings.SETTINGS_FILE_NAME
     path.write_text('{"record_history": true, "future_key": 42}', encoding="utf-8")
     assert user_settings.load_settings(path).record_history is True
+
+
+def test_onboarding_seen_roundtrip(tmp_path: Path) -> None:
+    """issue #660: флаг закрытия стартового экрана переживает запись/чтение."""
+    path = tmp_path / user_settings.SETTINGS_FILE_NAME
+    user_settings.save_settings(UserSettings(onboarding_seen=True), path)
+    assert user_settings.load_settings(path).onboarding_seen is True
+
+
+def test_onboarding_seen_omitted_when_none(tmp_path: Path) -> None:
+    path = tmp_path / user_settings.SETTINGS_FILE_NAME
+    user_settings.save_settings(UserSettings(onboarding_seen=None), path)
+    assert "onboarding_seen" not in path.read_text(encoding="utf-8")
+
+
+def test_onboarding_seen_wrong_type_ignored(tmp_path: Path) -> None:
+    path = tmp_path / user_settings.SETTINGS_FILE_NAME
+    path.write_text('{"onboarding_seen": "yes"}', encoding="utf-8")
+    assert user_settings.load_settings(path).onboarding_seen is None
+
+
+def test_settings_fields_are_independent(tmp_path: Path) -> None:
+    """issue #660: onboarding_seen пишется/читается рядом с record_history и
+    ai_hint_consent, не затирая их (все три — независимые опт-ины)."""
+    path = tmp_path / user_settings.SETTINGS_FILE_NAME
+    user_settings.save_settings(
+        UserSettings(record_history=True, ai_hint_consent=True, onboarding_seen=True), path
+    )
+    loaded = user_settings.load_settings(path)
+    assert loaded.record_history is True
+    assert loaded.ai_hint_consent is True
+    assert loaded.onboarding_seen is True

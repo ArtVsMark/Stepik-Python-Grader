@@ -96,6 +96,86 @@ function maybeShowHistoryNotice() {
   }
 }
 
+// issue #660 — стартовый экран-онбординг. Первый показ по data-onboarding-seen
+// (флаг в .grader_settings.json, инжектится сервером в <body>); повторно —
+// кнопкой #onboarding-open. Focus-trap, Escape и возврат фокуса — как в модалке
+// AI-согласия (core.js _requestAiConsent).
+let _onboardingReturnFocus = null;
+
+function _persistOnboardingSeen() {
+  // Идемпотентно (сервер пишет флаг лишь при первом true). fire-and-forget:
+  // закрытие модалки не ждёт сети и не падает при офлайне.
+  fetch("/api/v1/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ onboarding_seen: true }),
+  }).catch(() => {});
+  document.body.dataset.onboardingSeen = "true";
+}
+
+function _onboardingKeydown(e) {
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeOnboarding();
+    return;
+  }
+  if (e.key !== "Tab") return;
+  const stops = $("#onboarding-overlay").querySelectorAll("button");
+  if (!stops.length) return;
+  const first = stops[0];
+  const last = stops[stops.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+function openOnboarding() {
+  const overlay = $("#onboarding-overlay");
+  if (!overlay) return;
+  _onboardingReturnFocus = document.activeElement;
+  overlay.hidden = false;
+  overlay.addEventListener("keydown", _onboardingKeydown);
+  const first = $("#onboarding-go-check");
+  if (first) first.focus();
+}
+
+function closeOnboarding() {
+  const overlay = $("#onboarding-overlay");
+  if (!overlay) return;
+  overlay.hidden = true;
+  overlay.removeEventListener("keydown", _onboardingKeydown);
+  _persistOnboardingSeen();
+  if (_onboardingReturnFocus && typeof _onboardingReturnFocus.focus === "function") {
+    _onboardingReturnFocus.focus();
+  }
+}
+
+function _onboardingGo(section) {
+  closeOnboarding();
+  setSection(section);
+}
+
+function initOnboarding() {
+  const overlay = $("#onboarding-overlay");
+  if (!overlay) return;
+  const openBtn = $("#onboarding-open");
+  if (openBtn) openBtn.addEventListener("click", openOnboarding);
+  const goCheck = $("#onboarding-go-check");
+  if (goCheck) goCheck.addEventListener("click", () => _onboardingGo("check"));
+  const goDl = $("#onboarding-go-downloader");
+  if (goDl) goDl.addEventListener("click", () => _onboardingGo("downloader"));
+  const closeBtn = $("#onboarding-close");
+  if (closeBtn) closeBtn.addEventListener("click", closeOnboarding);
+  const closeX = $("#onboarding-close-x");
+  if (closeX) closeX.addEventListener("click", closeOnboarding);
+  // Первый показ: сервер прислал data-onboarding-seen="false" (флаг ещё не стоял).
+  if (document.body.dataset.onboardingSeen !== "true") openOnboarding();
+}
+
 // -- Wiring / init -------------------------------------------------------------
 
 document
@@ -271,3 +351,5 @@ if (savedPath) $("#path").value = savedPath;
 // issue #565: показать статус OS-изоляции и (однократно) уведомить о истории.
 initExecModeBadge();
 maybeShowHistoryNotice();
+// issue #660: стартовый экран-онбординг — авто при первом запуске, далее по кнопке.
+initOnboarding();

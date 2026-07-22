@@ -51,10 +51,18 @@ class UserSettings:
     — не давалось (запрос в сеть не уйдёт, эндпоинт вернёт ``consent_required``);
     ``True`` — дано и запомнено между запусками. Приватность: без согласия ничего
     не отправляется наружу.
+
+    ``onboarding_seen`` (issue #660): показан ли пользователю стартовый экран-
+    онбординг веб-интерфейса. ``None``/``False`` — ещё не закрыт (веб покажет
+    модалку при первом заходе); ``True`` — закрыт, больше не всплывает
+    автоматически (открыть заново можно кнопкой в topbar). Машинный факт «первый
+    запуск на этой рабочей директории», а не per-браузер, поэтому живёт здесь, а
+    не в ``localStorage`` (в отличие от однократного history-notice, issue #565).
     """
 
     record_history: bool | None = None
     ai_hint_consent: bool | None = None
+    onboarding_seen: bool | None = None
 
 
 def default_settings_path() -> Path:
@@ -85,9 +93,11 @@ def load_settings(path: Path) -> UserSettings:
         return UserSettings()
     record_history = data.get("record_history")
     ai_hint_consent = data.get("ai_hint_consent")
+    onboarding_seen = data.get("onboarding_seen")
     return UserSettings(
         record_history=record_history if isinstance(record_history, bool) else None,
         ai_hint_consent=ai_hint_consent if isinstance(ai_hint_consent, bool) else None,
+        onboarding_seen=onboarding_seen if isinstance(onboarding_seen, bool) else None,
     )
 
 
@@ -105,4 +115,6 @@ def save_settings(settings: UserSettings, path: Path) -> None:
         payload["record_history"] = settings.record_history
     if settings.ai_hint_consent is not None:
         payload["ai_hint_consent"] = settings.ai_hint_consent
+    if settings.onboarding_seen is not None:
+        payload["onboarding_seen"] = settings.onboarding_seen
     atomic_write_json(path, payload, fsync=False)
