@@ -75,6 +75,16 @@ AI-подсказки в web (`POST /api/v1/hint`, issue #543) — opt-in и **�
 - Настройка OAuth —
   [docs/installation.md § Работа с API Stepik (OAuth)](docs/installation.md#работа-с-api-stepik-oauth).
 
+## Цепочка поставок (supply-chain)
+
+Поверхность узкая осознанно: **3 прямые runtime-зависимости** (`requests` /
+`psutil` / `rich`) и **ноль CDN** в веб-оболочке — все JS/CSS/шрифты вендорены и
+коммитятся как готовые артефакты. `pip-audit` по runtime-замыканию против PyPI
+Advisory DB — без известных уязвимостей (2026-07-20, раунд 2); в CI сигнал
+держит свежим информационный не-блокирующий джоб `supply-chain`. Полный инвентарь
+(версии, лицензии, вендоренные ассеты, как перепроверить) —
+[docs/supply-chain.md](docs/supply-chain.md).
+
 ## Server / IDE-режим (на будущее)
 
 Текущий `--serve` слушает только `127.0.0.1`. Любой переход к серверному
