@@ -18,11 +18,17 @@ from __future__ import annotations
 
 import re
 
-from hypothesis import given, settings
-from hypothesis import strategies as st
+import pytest
 
 from stepik_grader.core.normalizers import normalize_floats
 from stepik_grader.core.parsers import parse_testblock_file
+
+# issue #646 (T3): без hypothesis в venv жёсткий top-level import обрушивал ВСЮ
+# коллекцию pytest, а не один модуль. importorskip пропускает только этот файл.
+pytest.importorskip("hypothesis")
+
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 # Печатный ASCII без '#' — исключает и маркер ``# TEST_N:``, и все юникод-границы
 # строк, на которые дробит ``str.splitlines()`` (\n, \r, \x0b, \x1c-\x1e,  …),
