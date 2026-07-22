@@ -36,6 +36,7 @@
 | `web/playground.py` | Application / Web | `run_playground` — запуск кода со stdin через `core/runner.LocalRunner` (issue #317, раздел «Песочница»); потребитель — `web/runs.py` |
 | `web/i18n.py` | Application / Web | `message_id`-каталог веб-API (issue #264): `resolve_lang`/`message_fields`/`render_message`; рендер поверх `core/i18n.load_locale_messages` (локали в `core/locales/<lang>.json`, **не** `web/locales/`); импортирует `core/i18n.py` — не leaf |
 | `ide.py` | Application / IDE | IDE-интеграция `--init-vscode`: генерация конфигов VS Code (tasks/launch) |
+| `launcher.py` | Application / GUI | GUI-лаунчер веб-интерфейса без командной строки (issue #661): tkinter-окно (выбор запуска простой/с изоляцией `--sandbox`, порт, папка, Запустить/Остановить, статус) поднимает `--serve` **отдельным процессом**; gui-script `stepik-grader-gui`. Только stdlib — project-импортов нет (leaf) |
 | `pytest_plugin.py` | Application / Plugin | pytest-плагин (`pytest --grader-mode`, issue #57): запуск тест-кейсов грейдера как pytest-тестов |
 | `core/cache.py` | Infrastructure / Utilities | Кэш результатов `.grader_cache/` (issue #56): ключ по контенту решения+тестов, graceful degradation при битом/отсутствующем кэше |
 | `core/glossary.py` | Infrastructure / Utilities (leaf) | Компактная встроенная карта исключений (`GlossaryEntry.anchor`/`.url`, `GLOSSARY_BASE_URL`, ~28 записей) для error cards при RE; leaf-модуль, отдельная сущность от пакета `glossary/` (issue #72) |
@@ -147,6 +148,7 @@ core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: g
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
 core/error_glossary.py ──→  core/glossary.py, glossary/json_provider.py  (bundled JSON → компактная карта fallback, лениво; issue #356 — glossary/ не тянет core/, ацикл)
 ide.py                 (только stdlib — генерация конфигов VS Code; project-импортов нет)
+launcher.py            (только stdlib + tkinter/subprocess — поднимает --serve отдельным процессом; project-импортов нет, leaf)
 diagnostic_stepik.py ──→  core/stepik_client.py
 diagnostic_stepik.py ──→  downloader.py       ← parse_stepik_step_url
 downloader.py        ──→  core/oauth_flow.py
