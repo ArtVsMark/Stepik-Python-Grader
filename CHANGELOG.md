@@ -33,6 +33,7 @@
 - Веб-страница запрещает встраивание в iframe (`frame-ancestors 'none'` + `X-Frame-Options: DENY`) — закрыт clickjacking, который CSRF-guard не ловит, т.к. внутрифреймовые вызовы идут в свой origin (#631)
 - macOS-sandbox больше не наследует `os.environ` грейдера: `sandbox-exec` запускается с минимальным env (`PATH`/`PYTHONIOENCODING`/`PYTHONUTF8`), как Linux (`--clearenv`) и Windows; BYOK AI-ключ не утекает в изолированный код. Строка про env добавлена в таблицу гарантий `SECURITY.md` (#627)
 - `save_secrets` пишет атомарно (`mkstemp` 0600 → `os.replace`) вместо `O_TRUNC` поверх цели: краш или конкурентное чтение больше не оставляют усечённый `secrets.json` с потерей `refresh_token` (#628)
+- `LocalRunner` вычищает секреты грейдера из окружения subprocess решения (`CONFIG.ai_api_key_env` и переменные с секрет-подстроками в имени: `*_TOKEN`/`*_SECRET`/`*_PASSWORD`/…), сохраняя `PATH`/`PYTHONPATH` — дефолтный путь исполняет код без ОС-изоляции и под `--serve` без `--sandbox` делит окружение сервера; defense-in-depth (#632)
 
 ### Fixed
 - Web: заголовки таблиц результатов и подписи профилей микробенча переведены — в русском интерфейсе больше не остаётся английских `Passed`/`Avg`/`Runs`/`Min`/`Median`/`Mean`/`Max`/`Std dev`; `check_ui_locale_guardrails.py` получил четвёртую защиту — запрет жёстко зашитой латиницы в текстовых узлах JS-рендера (#670)
