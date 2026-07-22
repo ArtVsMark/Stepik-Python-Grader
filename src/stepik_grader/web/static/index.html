@@ -72,6 +72,12 @@
           </div>
           <button id="run" class="btn btn-primary" data-i18n="check.run">▶ Запустить</button>
           <button id="cancel-run" class="btn btn-secondary" hidden data-i18n="check.cancel">Отменить</button>
+          <!-- issue #683: отправка решения режима 1 на Stepik. Видна только в режиме
+               «Один файл» (setMode), активна лишь после полного AC; клик требует
+               подтверждения (необратимое действие на платформе). -->
+          <button id="stepik-submit" class="btn btn-secondary" hidden disabled
+                  data-i18n="stepik.submit" data-i18n-title="stepik.submit_title"
+                  title="Отправить решение на Stepik — доступно после прохождения всех тестов">↑ Отправить в Stepik</button>
         </div>
       </div>
 

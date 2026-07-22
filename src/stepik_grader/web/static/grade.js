@@ -164,6 +164,9 @@ function setMode(m) {
   // issue #324/#366 (2.з): «Функции в коде» — только режим 1. В режиме 2 путь —
   // папка, панель почти всегда пустует и мешает; в 3/4 неуместна.
   $("#check-terms-block").hidden = m !== "file";
+  // issue #683: «Отправить в Stepik» — только режим 1; сброс в disabled до грейда.
+  $("#stepik-submit").hidden = m !== "file";
+  updateStepikSubmitButton(state.lastResult);
   // issue #370 (2.к): режимы 3/4 — вертикальный стек (конфиг компактной полосой
   // сверху, результаты во всю ширину); режимы 1/2 остаются двухколоночными.
   const checkPane = $("#view-check .split-pane");
@@ -504,6 +507,7 @@ async function grade() {
     render(data);
     updateCheckSidebarBadge(data);
     announceResult(summaryFromResult(data)); // issue #298
+    updateStepikSubmitButton(data); // issue #683
   } catch (e) {
     $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
     toast(t("common.request_error"), "error");
@@ -589,6 +593,91 @@ function _finishGradeUI() {
   // оказался у сводки, а не остался на кнопке «Запустить».
   const panel = $("#restab-table");
   if (panel && state.resultTab === "table") panel.focus();
+}
+
+// issue #683: «Отправить в Stepik» активна только в режиме 1 после ПОЛНОГО AC
+// (все тест-кейсы прошли). В прочих режимах / при неполном прохождении — disabled.
+function updateStepikSubmitButton(data) {
+  const btn = $("#stepik-submit");
+  if (!btn) return;
+  const rows = (data && data.rows) || [];
+  const allPassed =
+    state.mode === "file" &&
+    rows.length > 0 &&
+    rows.every(r => (r.total || 0) > 0 && r.passed === r.total);
+  btn.disabled = !allPassed;
+}
+
+// issue #683: отправка решения режима 1 на Stepik. Сабмит НЕОБРАТИМ (реальная
+// попытка на платформе), поэтому требует явного подтверждения. step_id/язык
+// определяет сервер (meta.json + code_templates шага); вердикт — через poll.
+async function submitToStepik() {
+  const btn = $("#stepik-submit");
+  if (!btn || btn.disabled) return;
+  const path = $("#path").value.trim();
+  const code = getEditorCode();
+  if (!path || !code.trim()) return;
+  if (!window.confirm(t("stepik.confirm"))) return;
+
+  btn.disabled = true;
+  const prevText = btn.textContent;
+  btn.textContent = t("stepik.submitting");
+  try {
+    const resp = await fetch("/api/stepik/submit?lang=" + encodeURIComponent(state.lang), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, code }),
+    });
+    if (resp.status !== 202) {
+      let msg = t("stepik.submit_error");
+      try {
+        msg = (await resp.json()).message || msg;
+      } catch {
+        /* тело не JSON — оставляем дефолт */
+      }
+      toast(msg, "error");
+      return;
+    }
+    const runId = (await resp.json()).run_id;
+    const data = await _pollStepikRun(runId);
+    if (!data || data.status === "error") {
+      toast((data && data.message) || t("stepik.submit_error"), "error");
+      return;
+    }
+    const res = data.result || {};
+    if (res.status === "correct") {
+      toast(t("stepik.correct", { score: res.score || "1" }), "success");
+    } else if (res.status === "wrong") {
+      toast(res.hint ? t("stepik.wrong", { hint: res.hint }) : t("stepik.wrong_nohint"), "error");
+    } else {
+      toast(t("stepik.evaluating"), "neutral");
+    }
+  } catch {
+    toast(t("stepik.submit_error"), "error");
+  } finally {
+    btn.textContent = prevText;
+    updateStepikSubmitButton(state.lastResult);
+  }
+}
+
+// Опрос /api/v1/runs/{id} до терминального статуса (как gradeAsync). Сабмит +
+// оценка Stepik могут идти до ~минуты — держим щедрый дедлайн.
+async function _pollStepikRun(runId) {
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 800));
+    let data;
+    try {
+      const r = await fetch("/api/v1/runs/" + encodeURIComponent(runId));
+      data = await r.json();
+    } catch {
+      continue;
+    }
+    if (data.status === "done" || data.status === "error" || data.status === "cancelled") {
+      return data;
+    }
+  }
+  return null;
 }
 
 // issue #298 (a11y): одна строка-сводка исхода в polite live region
@@ -1209,6 +1298,7 @@ export {
   saveSolution,
   setMode,
   setResultTab,
+  submitToStepik,
   updateDirtyIndicator,
   updateMicroCustomVisibility,
 };
