@@ -51,6 +51,13 @@ lint = [
 [project.scripts]
 stepik-grader = "stepik_grader.cli:main"
 
+# issue #661: GUI-лаунчер веб-интерфейса без командной строки. gui-scripts (не
+# обычный scripts) — на Windows создаёт pythonw-exe БЕЗ консольного окна: двойной
+# клик открывает окно-лаунчер, а не терминал (тот самый «ярлык» из issue).
+# Кроссплатформенно: на Linux/macOS ведёт себя как обычный консольный скрипт.
+[project.gui-scripts]
+stepik-grader-gui = "stepik_grader.launcher:main"
+
 # issue #57: pytest-плагин. Регистрируется как pytest11 entry point, поэтому
 # `pytest --grader-mode` доступен всюду, где установлен stepik-python-grader.
 # По умолчанию no-op (см. pytest_plugin._grader_enabled).

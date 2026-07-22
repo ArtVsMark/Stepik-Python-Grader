@@ -43,6 +43,7 @@ Stepik-Python-Grader/
 │       ├── downloader.py         # Application: координатор загрузки задач (issue #302)
 │       ├── downloader_config.py  # Application: конфиг stepik_config.json + интерактив (issue #302)
 │       ├── diagnostic_stepik.py  # Диагностика API и токена
+│       ├── launcher.py           # GUI-лаунчер веб-интерфейса (tkinter; --serve отдельным процессом), leaf, issue #661
 │       ├── core/                  # Internal Infrastructure/Utility модули (Issue #23, #26)
 │           ├── __init__.py
 │           ├── grader_core.py    # Исполнение тест-кейса в subprocess, агрегация статистики
