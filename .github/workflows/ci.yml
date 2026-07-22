@@ -407,3 +407,29 @@ jobs:
           path: .coverage.sandbox-linux
           # v4 исключает dotfiles по умолчанию; .coverage.* нужно явно.
           include-hidden-files: true
+
+  # issue #693 (аудит 2026-07-20, раунд 2): supply-chain — информационный аудит
+  # runtime-зависимостей на известные уязвимости (pip-audit по PyPI Advisory DB).
+  # continue-on-error: НЕ блокирует merge — новая CVE в requests/urllib3/… не
+  # должна валить несвязанный PR, но обязана краснеть в логах (сигнал мейнтейнеру
+  # обновить границы версий). Полный инвентарь и ручной аудит — docs/supply-chain.md.
+  # pip-audit ставится ad-hoc, НЕ в pyproject.toml (не runtime и не dev-зависимость).
+  supply-chain:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      # fetch-depth: 0 — setuptools-scm вычисляет версию из git-истории+тегов при
+      # pip install . (иначе сборка пакета падает без .git).
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install package (runtime deps) + pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install . pip-audit
+      - name: pip-audit (informational, non-blocking)
+        run: pip-audit --skip-editable

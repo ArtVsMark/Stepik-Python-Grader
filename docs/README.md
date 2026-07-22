@@ -13,6 +13,7 @@
 | WEB MVP: замыслы, отложенное, отклонённое | [web-design.md](web-design.md) |
 | Справочник HTTP API `--serve`: эндпоинты, лимиты, коды ответов, curl-примеры | [api.md](api.md) |
 | Справочник: конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) |
+| Цепочка поставок: инвентарь runtime-зависимостей и вендоренных веб-ассетов, аудит `pip-audit`, лицензии | [supply-chain.md](supply-chain.md) |
 | Локальный глоссарий: формат JSON карточек/очереди, Python-API (`stepik_grader.glossary`) | [glossary.md](glossary.md) |
 | Понять архитектуру: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) |
 | Контракт результата проверки (поля, вердикты) для CLI/Web/API | [result-contract.md](result-contract.md) |
@@ -52,6 +53,7 @@
 | WEB MVP — замыслы, отложенное, отклонённое (будущая архитектура web UI) | [web-design.md](web-design.md) | web-current.md (там — только реализованное) |
 | Справочник HTTP API (эндпоинты/параметры/лимиты/коды/curl для `--serve`) | [api.md](api.md) | server-mode.md (там — дизайн будущего сетевого API, не справочник по текущим эндпоинтам) |
 | Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [configuration.md](configuration.md) | README, CONTRIBUTING, grader-workflow.md |
+| Цепочка поставок: runtime-зависимости, вендоренные веб-ассеты, `pip-audit`, лицензии | [supply-chain.md](supply-chain.md) | SECURITY.md (там — короткий указатель), vendor/VERSIONS.md (там — рецепт сборки CodeMirror, не инвентарь) |
 | Формат JSON локального глоссария (карточки/очередь) и API `stepik_grader.glossary` | [glossary.md](glossary.md) | web-current.md (там — продуктовый контекст, не формат хранения) |
 | Архитектура: модули, слои, граф зависимостей, «что умеет» | [architecture.md](architecture.md) | README, CLAUDE.md (там — инварианты, не дублирующее описание) |
 | Контракт результата проверки (поля case/solution/run, вердикты, стабильность) | [result-contract.md](result-contract.md) | web-current.md (там — ViewModel-надстройки), configuration.md (там — таблица вердиктов) |
