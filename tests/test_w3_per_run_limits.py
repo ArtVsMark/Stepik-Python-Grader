@@ -17,7 +17,7 @@ import pathlib
 from stepik_grader import grader, web
 from stepik_grader.config import CONFIG
 from stepik_grader.core.grader_core import _prepare_run_spec
-from stepik_grader.web.server import _MEMORY_MB_RANGE, _TIMEOUT_S_RANGE, _parse_run_limits
+from stepik_grader.web.api_routes import _MEMORY_MB_RANGE, _TIMEOUT_S_RANGE, _parse_run_limits
 
 # ---------------------------------------------------------------------------
 # Парсинг и кламп лимитов из тела запроса (server._parse_run_limits)

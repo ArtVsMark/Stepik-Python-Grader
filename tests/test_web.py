@@ -1125,7 +1125,7 @@ def _post_raw(
 
 class TestApiInputLimits:
     def test_clamp_helper(self) -> None:
-        from stepik_grader.web.server import _clamp
+        from stepik_grader.web.api_routes import _clamp
 
         assert _clamp(5, 1, 10) == 5
         assert _clamp(-5, 1, 10) == 1
@@ -1165,7 +1165,7 @@ class TestApiInputLimits:
             captured["repeats"] = repeats
             return {"kind": "bench", "mode": "bench", "rows": []}
 
-        monkeypatch.setattr("stepik_grader.web.server.grade_benchmark", fake_grade_benchmark)
+        monkeypatch.setattr("stepik_grader.web.api_routes.grade_benchmark", fake_grade_benchmark)
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
         q = urllib.parse.urlencode({"path": str(sol), "mode": "bench", "repeats": "0"})
         status, _ = _get(server + "/api/grade?" + q)
@@ -1183,7 +1183,7 @@ class TestApiInputLimits:
             captured["repeats"] = repeats
             return {"kind": "bench", "mode": "bench", "rows": []}
 
-        monkeypatch.setattr("stepik_grader.web.server.grade_benchmark", fake_grade_benchmark)
+        monkeypatch.setattr("stepik_grader.web.api_routes.grade_benchmark", fake_grade_benchmark)
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
         q = urllib.parse.urlencode({"path": str(sol), "mode": "bench", "repeats": "999999999"})
         status, _ = _get(server + "/api/grade?" + q)
@@ -1199,7 +1199,7 @@ class TestApiInputLimits:
             captured["number"] = number
             return {"kind": "microbench", "mode": "microbench", "rows": []}
 
-        monkeypatch.setattr("stepik_grader.web.server.grade_microbench", fake_grade_microbench)
+        monkeypatch.setattr("stepik_grader.web.api_routes.grade_microbench", fake_grade_microbench)
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
         q = urllib.parse.urlencode({"path": str(sol), "mode": "microbench", "number": "-5"})
         status, _ = _get(server + "/api/grade?" + q)
@@ -1215,7 +1215,7 @@ class TestApiInputLimits:
             captured["number"] = number
             return {"kind": "microbench", "mode": "microbench", "rows": []}
 
-        monkeypatch.setattr("stepik_grader.web.server.grade_microbench", fake_grade_microbench)
+        monkeypatch.setattr("stepik_grader.web.api_routes.grade_microbench", fake_grade_microbench)
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
         q = urllib.parse.urlencode(
             {"path": str(sol), "mode": "microbench", "number": "99999999999"}
@@ -1235,7 +1235,7 @@ class TestApiInputLimits:
             captured["repeats"] = repeats
             return {"kind": "bench", "mode": "bench", "rows": []}
 
-        monkeypatch.setattr("stepik_grader.web.server.grade_benchmark", fake_grade_benchmark)
+        monkeypatch.setattr("stepik_grader.web.api_routes.grade_benchmark", fake_grade_benchmark)
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
         q = urllib.parse.urlencode({"path": str(sol), "mode": "bench", "repeats": "abc"})
         status, _ = _get(server + "/api/grade?" + q)
@@ -2593,7 +2593,7 @@ class TestAuthApi:
 
 
 class TestApiImportReference:
-    _TARGET = "stepik_grader.web.server.import_reference"
+    _TARGET = "stepik_grader.web.api_routes.import_reference"
 
     def test_happy_path_returns_files(
         self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
