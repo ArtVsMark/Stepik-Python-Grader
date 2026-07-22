@@ -339,6 +339,11 @@ def _run_job(
             with job.lock:
                 job.progress["done"] = done_counter
 
+        # issue #641: per-run лимиты из тела запроса (parse/clamp — в server.py);
+        # None → grade-слой падает на дефолт CONFIG. microbench лимиты не берёт
+        # (run_microbench_mode держит серверные дефолты) — осознанно вне scope.
+        timeout_s = params.get("timeout_s")
+        memory_mb = params.get("memory_mb")
         if kind == "tests":
             result = grade_path(
                 graded_path,
@@ -346,6 +351,8 @@ def _run_job(
                 progress_callback=_tick,
                 cancel_event=job.cancel_event,
                 workspace=workspace,
+                timeout=timeout_s,
+                max_memory_mb=memory_mb,
             )
         elif kind == "bench":
             result = grade_benchmark(
@@ -356,6 +363,8 @@ def _run_job(
                 progress_callback=_tick,
                 cancel_event=job.cancel_event,
                 workspace=workspace,
+                timeout=timeout_s,
+                max_memory_mb=memory_mb,
             )
         else:  # "microbench"
             result = grade_microbench(

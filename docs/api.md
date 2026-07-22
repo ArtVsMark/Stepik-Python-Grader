@@ -382,7 +382,7 @@ curl -X POST http://127.0.0.1:8000/api/save-solution \
 
 Тело JSON: `{"path": "...", "code"?: "...", "mode":
 "tests"|"bench"|"microbench", "params"?: {"repeats"?, "reference"?,
-"number"?}}`.
+"number"?}, "limits"?: {"timeout_s"?, "memory_mb"?}}`.
 
 - `path` пустой → **400** `specify_path_file_or_folder`.
 - `mode` не `tests`/`bench`/`microbench` → **400** `invalid_run_mode`.
@@ -400,6 +400,11 @@ curl -X POST http://127.0.0.1:8000/api/save-solution \
   там же).
 - `mode="tests"` (issue #297) — грейд корректности (тот же результат, что у
   `GET /api/grade?mode=tests`), без числовых `params`.
+- `limits` (опционально, issue #641) — per-run override дефолтов сервера:
+  `timeout_s` (зажим в 1..60 с) и `memory_mb` (16..1024 МБ). Мусор/отсутствие →
+  дефолт из `CONFIG` (`timeout_seconds`/`max_memory_mb`). Верх диапазона не выше
+  серверного максимума. Действует для `mode="tests"`/`"bench"`; `microbench`
+  держит серверные дефолты.
 - `mode="playground"` (issue #317) — раздел «Песочница»: тело
   `{"mode":"playground","code":"...","stdin"?:"..."}` **без** `path` и без
   тестов. Пустой/пробельный `code` → **400** `specify_code`. Результат job'ы
