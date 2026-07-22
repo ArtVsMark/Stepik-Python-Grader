@@ -1626,6 +1626,57 @@ def _poll_run(server: str, run_id: str, *, timeout: float = 15.0) -> dict:
     return data
 
 
+class TestStepikSubmit:
+    """POST /api/stepik/submit (issue #683) — отправка решения режима 1 на Stepik.
+
+    Живой сабмит на Stepik не делается (нужен реальный токен); проверяются
+    валидация входа и путь «нет токена → stepik_auth_required» на пустом
+    workspace без secrets.json.
+    """
+
+    def test_empty_code_rejected(self, tmp_path: pathlib.Path, server_factory) -> None:
+        url = server_factory(tmp_path)
+        status, body = _post(url + "/api/stepik/submit", json.dumps({"code": ""}).encode("utf-8"))
+        assert status == 400
+        assert json.loads(body)["message_id"] == "stepik_no_code"
+
+    def test_no_step_id_rejected(self, tmp_path: pathlib.Path, server_factory) -> None:
+        url = server_factory(tmp_path)
+        status, body = _post(
+            url + "/api/stepik/submit", json.dumps({"code": "print(1)"}).encode("utf-8")
+        )
+        assert status == 400
+        assert json.loads(body)["message_id"] == "stepik_no_step_id"
+
+    def test_step_id_from_meta_then_auth_required(
+        self, tmp_path: pathlib.Path, server_factory
+    ) -> None:
+        """step_id читается из meta.json; без secrets.json job → stepik_auth_required."""
+        task = tmp_path / "task"
+        task.mkdir()
+        (task / "meta.json").write_text(json.dumps({"step_id": 123}), encoding="utf-8")
+        url = server_factory(tmp_path)
+        status, body = _post(
+            url + "/api/stepik/submit",
+            json.dumps({"code": "print(1)", "path": "task"}).encode("utf-8"),
+        )
+        assert status == 202
+        data = _poll_run(url, json.loads(body)["run_id"])
+        assert data["status"] == "error"
+        assert data["message_id"] == "stepik_auth_required"
+
+    def test_explicit_step_id_queues_job(self, tmp_path: pathlib.Path, server_factory) -> None:
+        url = server_factory(tmp_path)
+        status, body = _post(
+            url + "/api/stepik/submit",
+            json.dumps({"code": "print(1)", "step_id": 123}).encode("utf-8"),
+        )
+        assert status == 202
+        data = _poll_run(url, json.loads(body)["run_id"])
+        assert data["status"] == "error"
+        assert data["message_id"] == "stepik_auth_required"
+
+
 class TestRunsApiBackPressure:
     """issue #429 — POST /api/v1/runs отвечает 429 при превышении лимита
     активных job'ов; после их завершения снова принимает (202)."""

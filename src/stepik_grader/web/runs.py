@@ -305,6 +305,9 @@ def _run_job(
     if kind == "hint":
         _run_hint_job(job, code or "", params, lang)
         return
+    if kind == "stepik_submit":
+        _run_stepik_submit_job(job, code or "", params, lang)
+        return
 
     assert path is not None  # tests/bench/microbench всегда с path (см. submit_job)
     temp_code_path: str | None = None
@@ -454,6 +457,55 @@ def _run_hint_job(job: Job, code: str, params: dict[str, Any], lang: str) -> Non
     with job.lock:
         job.status = "done"
         job.result = {"hint": hint, "configured": is_configured(CONFIG)}
+
+
+def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: str) -> None:
+    """Тело job'ы отправки решения на Stepik (issue #683, часть 2).
+
+    Создаёт Stepik-сессию из ``secrets.json`` рабочей директории
+    (``params["secrets_path"]``) и отправляет ``code`` на шаг
+    ``params["step_id"]`` через core-поток ``submit_and_wait`` (attempt →
+    submission → poll вердикта, авто-язык из ``code_templates`` шага). Нет
+    валидного токена → ``error`` ``stepik_auth_required`` (в сеть ничего не
+    уходит). Ленивый импорт stepik/oauth-стека держит ``runs.py`` импортируемым
+    в изоляции (как ``_run_auth_job``). Результат — ``{status, hint, score,
+    submission_id}`` (``status`` = correct/wrong/evaluation).
+    """
+    from stepik_grader.core import stepik_client
+    from stepik_grader.core.oauth_flow import (
+        load_secrets_dict,
+        try_create_session_without_browser,
+    )
+
+    try:
+        secrets_path = pathlib.Path(str(params["secrets_path"]))
+        step_id = int(params["step_id"])
+        try:
+            session = try_create_session_without_browser(
+                load_secrets_dict(secrets_path), secrets_path
+            )
+        except (OSError, ValueError):
+            # нет/битый secrets.json — трактуем как «нет авторизации», не как сбой
+            session = None
+        if session is None:
+            with job.lock:
+                job.status = "error"
+                job.message_fields = message_fields("stepik_auth_required", lang)
+            return
+        result = stepik_client.submit_and_wait(session, step_id, code)
+    except Exception as exc:
+        with job.lock:
+            job.status = "error"
+            job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
+        return
+    with job.lock:
+        job.status = "done"
+        job.result = {
+            "status": result.status,
+            "hint": result.hint,
+            "score": result.score,
+            "submission_id": result.submission_id,
+        }
 
 
 def _run_auth_job(job: Job, params: dict[str, Any], lang: str) -> None:

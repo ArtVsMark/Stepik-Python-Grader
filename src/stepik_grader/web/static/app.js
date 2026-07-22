@@ -2,7 +2,7 @@
 import { loadGlossary, loadRules, parseGlossaryHash, renderGlossaryChips, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
 import { $, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
 import { downloadTask, loadAuthStatus, startBrowserAuth } from "./downloader.js";
-import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
+import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
 import { drawMemArrows, renderTraceStep } from "./trace-player.js";
 
@@ -196,6 +196,7 @@ document
 
 $("#run").addEventListener("click", grade);
 $("#cancel-run").addEventListener("click", cancelActiveRun);
+$("#stepik-submit").addEventListener("click", submitToStepik); // issue #683
 $("#sandbox-run").addEventListener("click", runPlayground); // issue #317
 $("#sandbox-step").addEventListener("click", runTrace); // issue #319
 $("#sandbox-cancel").addEventListener("click", cancelSandboxRun);
