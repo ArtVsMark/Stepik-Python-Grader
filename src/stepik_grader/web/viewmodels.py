@@ -515,6 +515,87 @@ def _record_history_if_enabled(
     )
 
 
+def _bench_row(sol: pathlib.Path, d: dict[str, Any], base: pathlib.Path) -> dict[str, Any]:
+    """Строка ответа режима 3 (bench) для одного решения — секунды (issue #647).
+
+    Полный набор колонок как в CLI-репортере (mean/max/std dev) — бэкенд уже
+    считает их в ``run_benchmark`` (issue #370).
+    """
+    return {
+        "file": _rel(sol, base),
+        "runs": d["runs"],
+        "min": fmt_time(d["min"]),
+        "median": fmt_time(d["median"]),
+        "mean": fmt_time(d["mean"]),
+        "max": fmt_time(d["max"]),
+        "stdev": fmt_time(d["stdev"]),
+        "relative": round(d.get("relative", 1.0) * 100, 1),
+        "verdict": d.get("verdict", "SIMILAR"),
+        "memory_mb": round(d["peak_memory_mb"], 2),
+    }
+
+
+def _microbench_row(sol: pathlib.Path, d: dict[str, Any], base: pathlib.Path) -> dict[str, Any]:
+    """Строка ответа режима 4 (microbench) для одного решения — микросекунды (issue #647)."""
+    return {
+        "file": _rel(sol, base),
+        "runs": d["runs"],
+        "min_us": round(d["min"] * 1e6, 3),
+        "median_us": round(d["median"] * 1e6, 3),
+        "mean_us": round(d["mean"] * 1e6, 3),
+        "max_us": round(d["max"] * 1e6, 3),
+        "stdev_us": round(d["stdev"] * 1e6, 3),
+        "relative": round(d.get("relative", 1.0) * 100, 1),
+        "verdict": d.get("verdict", "SIMILAR"),
+        "memory_mb": round(d["peak_memory_mb"], 2),
+    }
+
+
+def _ranked_bench_rows(
+    results: dict[pathlib.Path, dict[str, Any]],
+    base: pathlib.Path,
+    row_of: Callable[[pathlib.Path, dict[str, Any], pathlib.Path], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Строки bench/microbench-ответа: успешные по возрастанию ``median``, ошибочные — в конец.
+
+    Общий скелет режимов 3 и 4 (issue #647): различаются лишь набором/форматом
+    колонок успешной строки (секунды vs µs) — его задаёт ``row_of``. Ошибочная
+    строка (``verdict="ERR"``) одинакова для обоих режимов.
+    """
+    ok = {s: d for s, d in results.items() if not d.get("error")}
+    rows = [row_of(sol, ok[sol], base) for sol in sorted(ok, key=lambda s: ok[s]["median"])]
+    rows += [
+        {"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]}
+        for sol, d in results.items()
+        if d.get("error")
+    ]
+    return rows
+
+
+def _record_bench_history(
+    mode: int,
+    results: dict[pathlib.Path, dict[str, Any]],
+    base: pathlib.Path,
+    workspace: pathlib.Path | None,
+    cancel_event: threading.Event | None,
+) -> None:
+    """Записать историю bench/microbench-прогона (mode 3/4), кроме отмены (issue #647/#395).
+
+    Идентична для режимов 3 и 4 — оба берут длительность как Σ(mean·runs) и
+    сериализуют ``results`` через ``cases_from_bench_results``.
+    """
+    cancelled = cancel_event is not None and cancel_event.is_set()
+    if cancelled or not results or not _history_enabled():
+        return
+    total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
+    _record_history_if_enabled(
+        mode,
+        history_recording.cases_from_bench_results(results),
+        task_key=_task_key(base, workspace),
+        duration_s=total_time,
+    )
+
+
 def grade_path(
     path: pathlib.Path,
     *,
@@ -714,40 +795,8 @@ def grade_benchmark(
             much_slower_threshold=MUCH_SLOWER_THRESHOLD,
         )
 
-    ok = {s: d for s, d in results.items() if not d.get("error")}
-    rows: list[dict[str, Any]] = []
-    for sol in sorted(ok, key=lambda s: ok[s]["median"]):
-        d = ok[sol]
-        rows.append(
-            {
-                "file": _rel(sol, base),
-                "runs": d["runs"],
-                "min": fmt_time(d["min"]),
-                "median": fmt_time(d["median"]),
-                # issue #370: полный набор колонок как в CLI-репортере (mean/max/
-                # std dev) — бэкенд уже считает их в run_benchmark.
-                "mean": fmt_time(d["mean"]),
-                "max": fmt_time(d["max"]),
-                "stdev": fmt_time(d["stdev"]),
-                "relative": round(d.get("relative", 1.0) * 100, 1),
-                "verdict": d.get("verdict", "SIMILAR"),
-                "memory_mb": round(d["peak_memory_mb"], 2),
-            }
-        )
-    for sol, d in results.items():
-        if d.get("error"):
-            rows.append({"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]})
-
-    # issue #395: наполнить историю (mode 3), кроме случая отмены.
-    cancelled = cancel_event is not None and cancel_event.is_set()
-    if not cancelled and results and _history_enabled():
-        total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
-        _record_history_if_enabled(
-            3,
-            history_recording.cases_from_bench_results(results),
-            task_key=_task_key(base, workspace),
-            duration_s=total_time,
-        )
+    rows = _ranked_bench_rows(results, base, _bench_row)
+    _record_bench_history(3, results, base, workspace, cancel_event)
 
     response: dict[str, Any] = {"kind": kind, "mode": "bench", "base": str(base), "rows": rows}
     if ref_path is not None:
@@ -840,38 +889,8 @@ def grade_microbench(
             "rows": [],
         }
 
-    ok = {s: d for s, d in results.items() if not d.get("error")}
-    rows: list[dict[str, Any]] = []
-    for sol in sorted(ok, key=lambda s: ok[s]["median"]):
-        d = ok[sol]
-        rows.append(
-            {
-                "file": _rel(sol, base),
-                "runs": d["runs"],
-                "min_us": round(d["min"] * 1e6, 3),
-                "median_us": round(d["median"] * 1e6, 3),
-                "mean_us": round(d["mean"] * 1e6, 3),
-                "max_us": round(d["max"] * 1e6, 3),
-                "stdev_us": round(d["stdev"] * 1e6, 3),
-                "relative": round(d.get("relative", 1.0) * 100, 1),
-                "verdict": d.get("verdict", "SIMILAR"),
-                "memory_mb": round(d["peak_memory_mb"], 2),
-            }
-        )
-    for sol, d in results.items():
-        if d.get("error"):
-            rows.append({"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]})
-
-    # issue #395: наполнить историю (mode 4), кроме случая отмены.
-    cancelled = cancel_event is not None and cancel_event.is_set()
-    if not cancelled and results and _history_enabled():
-        total_time = sum(d.get("mean", 0.0) * d.get("runs", 0) for d in results.values())
-        _record_history_if_enabled(
-            4,
-            history_recording.cases_from_bench_results(results),
-            task_key=_task_key(base, workspace),
-            duration_s=total_time,
-        )
+    rows = _ranked_bench_rows(results, base, _microbench_row)
+    _record_bench_history(4, results, base, workspace, cancel_event)
 
     response: dict[str, Any] = {"kind": kind, "mode": "microbench", "base": str(base), "rows": rows}
     if kind == "dir":

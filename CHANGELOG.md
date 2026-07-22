@@ -51,6 +51,7 @@
 - core: microbench/tracer и grade-path исполняют `RunSpec` через публичный `grader_core.run_spec()`, а не приватный `_RUNNER` напрямую — `_RUNNER.run` теперь в единственном месте (`run_spec`), что замораживает точку выбора backend'а под будущий per-request Runner (без изменения поведения; late-binding сохранён) (#640)
 - `docs/audit-2026-07-20.md` — мультиролевой аудит v1.9.0 (14 срезов, 89 находок с `file:line`, 32 адверсариальные верификации, deep-dive по серверному пивоту и web-интерактивности, волны W0–W7) (#613)
 - Тесты: закрыты дыры, вскрытые аудитом — покрытие `_is_safe_constant` (было 0%), `pytest.importorskip("hypothesis")` (без плагина падал сбор всего набора, а не один модуль), `conftest.py`-guard громко предупреждает при отсутствии `pytest-timeout` (глобальный дедлайн молча не действовал), тесты 400-веток валидации `web/server.py` (#646)
+- Web: почти дословный дубль скелета `grade_benchmark`/`grade_microbench` (сборка строк «ok по median, ошибки в конец» + запись истории mode 3/4) вынесен в `_ranked_bench_rows`/`_record_bench_history` с `row_of`-колбэком (`_bench_row`/`_microbench_row`) — расходятся только колонки (секунды vs µs); поведение и HTTP-контракт не изменены (DEV-02 из #647)
 
 ## [1.9.0] - 2026-07-20
 
