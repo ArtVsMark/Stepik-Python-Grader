@@ -11,6 +11,10 @@ it at any folder with solutions and a `tests/` directory and it just runs — no
 account, no download, no OAuth. The web UI and the glossary are bilingual
 (`?lang=en`).
 
+![Web UI (--serve): grading a folder of solutions against test cases, verdict OK and a results table](docs/assets/hero-serve.gif)
+
+![Case detail: input 4 produces output 5, verdict AC, with copy-input and copy-output actions](docs/assets/serve-detail.png)
+
 ---
 
 ## Install
