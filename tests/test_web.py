@@ -1132,7 +1132,7 @@ class TestApiInputLimits:
         assert _clamp(999, 1, 10) == 10
 
     def test_post_body_over_limit_is_413(self, server: str, tmp_path: pathlib.Path) -> None:
-        from stepik_grader.web.server import _MAX_BODY_BYTES
+        from stepik_grader.web.http_guards import _MAX_BODY_BYTES
 
         oversized = json.dumps({"folder": str(tmp_path), "code": "x" * (_MAX_BODY_BYTES + 10)})
         status, body = _post(server + "/api/save-solution", oversized.encode("utf-8"))
