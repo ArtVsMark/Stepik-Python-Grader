@@ -222,6 +222,22 @@ chore(deps): bump psutil upper bound
 
 ---
 
+## 🏷️ Метки при заведении issue
+
+Новый issue — **всегда** с метками навигации (полный список — `gh label list`):
+
+- **`area/*`** — область: `area/cli|web|glossary|docs|sandbox|core|rules`.
+- **`difficulty/*`** — сложность: `difficulty/easy|medium|hard`.
+- **`good first issue`** / **`help wanted`** — только для изолированных задач с
+  низким барьером входа: они питают онрамп «Первый вклад за 15 минут»
+  ([CONTRIBUTING.md](CONTRIBUTING.md)), поэтому не вешать их на то, что реально
+  не посильно новичку.
+
+Плюс тип по смыслу (`enhancement`/`bug`/`tech-debt`/`security`/`documentation`).
+Канон и расшифровка меток — [CONTRIBUTING.md § Метки при заведении issue](CONTRIBUTING.md).
+
+---
+
 ## 🔢 Версионирование (кратко)
 
 **Не SemVer.** Собственная схема (тег = MINOR+1, PATCH = число коммитов после
