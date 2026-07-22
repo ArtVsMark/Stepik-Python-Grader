@@ -194,8 +194,12 @@ Job-Object-песочнице и подтверждают, что исходящ
 `tests/test_sandbox_runner.py`: Linux (`bwrap`) — позитивный тест, что чтение
 ЗАБЛОКИРОВАНО (файл вне bind'ов недоступен, host `/tmp` скрыт tmpfs); macOS
 (`sandbox-exec`) — характеризующий тест, что чтение ПРОХОДИТ (`allow file-read*`,
-как Windows). Остальные векторы Linux/macOS (сеть/запись/fork/ресурсы/таймаут)
-уже покрыты `TestLinuxSandboxRunner`/`TestMacSandboxRunner` того же файла.
+как Windows). Symlink-write наружу из `run_dir` тоже закреплён
+(`_assert_symlink_write_outside_blocked`; ожидание — заблокирован: bwrap резолвит
+цель в mount-namespace, Seatbelt — по canonical-пути; красный тест = реальный
+обход ограничения записи). Остальные векторы Linux/macOS
+(сеть/запись/fork/ресурсы/таймаут) уже покрыты
+`TestLinuxSandboxRunner`/`TestMacSandboxRunner` того же файла.
 
 ### Проверка Linux-песочницы в CI (issue #420)
 

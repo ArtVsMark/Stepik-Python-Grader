@@ -433,6 +433,36 @@ def _assert_read_outside_run_dir_blocked(runner, tmp_path: pathlib.Path) -> None
     assert outcome.returncode != 0
 
 
+def _assert_symlink_write_outside_blocked(runner, tmp_path: pathlib.Path) -> None:
+    """Запись через symlink из run_dir наружу заблокирована (escape-PoC #648).
+
+    Классический symlink-побег: решение создаёт в run_dir символическую ссылку на
+    абсолютный путь ВНЕ run_dir и пишет через неё — это обошло бы наивную
+    prefix-проверку пути (ссылка «выглядит» внутри run_dir). Ни один POSIX-backend
+    так не проверяет: bwrap изолирует mount-namespace (цель вне bind'ов там
+    отсутствует), Seatbelt применяет правило записи к canonical/резолвленному пути
+    (target вне run_dir → deny). Ожидание — побег НЕ проходит: host-target не
+    создан, процесс падает. Красный тест = запись через symlink обходит
+    ограничение записи (реальный побег, в отличие от прямой записи вовне) → это
+    уже находка, тогда тест переписывается на характеризующий и снимается оговорка.
+
+    run_dir находится через ``dirname(__file__)`` (сам скрипт лежит в run_dir),
+    а не через cwd — cwd на macOS-backend'е не гарантированно равен run_dir.
+    """
+    target = tmp_path / "symlink-escape-target.txt"
+    path = _write_script(
+        tmp_path,
+        "import os\n"
+        "run_dir = os.path.dirname(os.path.abspath(__file__))\n"
+        "link = os.path.join(run_dir, 'escape_link')\n"
+        f"os.symlink({str(target)!r}, link)\n"
+        "open(link, 'w', encoding='utf-8').write('pwned-via-symlink')\n",
+    )
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=5.0))
+    assert not target.exists()
+    assert outcome.returncode != 0
+
+
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux-only backend")
 @pytest.mark.skipif(shutil.which("bwrap") is None, reason="bubblewrap (bwrap) not installed")
 @pytest.mark.skipif(
@@ -475,6 +505,11 @@ class TestLinuxSandboxRunner:
         # issue #648: bwrap изолирует ЧТЕНИЕ (файл вне bind'ов недоступен) —
         # в отличие от macOS/Windows; секрет не эксфильтруется.
         _assert_read_outside_run_dir_blocked(self._runner(), tmp_path)
+
+    def test_symlink_write_outside_run_dir_blocked(self, tmp_path: pathlib.Path) -> None:
+        # issue #648: symlink-побег — bwrap резолвит цель В mount-namespace, вне
+        # bind'ов её нет; запись через ссылку наружу не проходит.
+        _assert_symlink_write_outside_blocked(self._runner(), tmp_path)
 
 
 def test_linux_sandbox_not_silently_skipped() -> None:
@@ -613,6 +648,14 @@ class TestMacSandboxRunner:
         outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=5.0))
         assert outcome.returncode == 0, outcome.stderr.decode("utf-8", errors="replace")
         assert secret in outcome.stdout.decode("utf-8", errors="replace")
+
+    def test_symlink_write_outside_run_dir_blocked(self, tmp_path: pathlib.Path) -> None:
+        # issue #648: единственная эмпирически-неподтверждённая точка "symlink
+        # избыточен" — проверяем, что Seatbelt применяет write-правило к canonical
+        # (резолвленному) пути ссылки, а не к литеральному «внутри run_dir». Иначе
+        # symlink обошёл бы (subpath run_dir)-ограничение записи. Ожидание: побег
+        # заблокирован (host-target не создан). Красный тест здесь = реальный обход.
+        _assert_symlink_write_outside_blocked(self._runner(), tmp_path)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only backend")
