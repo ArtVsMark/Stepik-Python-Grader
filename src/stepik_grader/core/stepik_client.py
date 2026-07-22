@@ -61,6 +61,7 @@ __all__ = [
     "fetch_lesson_data",
     "fetch_section_data",
     "fetch_step_data",
+    "fetch_step_languages",
     "fetch_submission_data",
     "fetch_unit_data",
     "is_stepik_url",
@@ -746,15 +747,51 @@ def poll_submission(
     )
 
 
+def fetch_step_languages(session: requests.Session, step_id: int) -> list[str]:
+    """Языки, разрешённые code-challenge шагом (issue #683).
+
+    Ключи ``block.options.code_templates`` шага (напр. ``['python3.10',
+    'python3.12']``). Пусто — шаг не code-challenge или без шаблонов. Знать
+    точный идентификатор критично: Stepik отвергает неверный
+    (``Unknown language: python3``), а версию (``python3.10``) знает только сам
+    шаг — эмпирически подтверждено живым сабмитом.
+    """
+    resp = _get_with_retry(session, f"{API_HOST}/api/steps/{step_id}")
+    steps: list[dict[str, Any]] = resp.json().get("steps", [])
+    if not steps:
+        return []
+    options = steps[0].get("block", {}).get("options", {})
+    templates = options.get("code_templates", {})
+    return list(templates) if isinstance(templates, dict) else []
+
+
+def _pick_python_language(languages: list[str]) -> str:
+    """Выбрать python-язык из разрешённых шагом (issue #683).
+
+    Предпочитает самую свежую версию (``python3.12`` перед ``python3.10`` —
+    код решения совместим), fallback — ``python3`` (пусть Stepik ответит, если
+    шаг вообще не про Python).
+    """
+    pythons = sorted((raw for raw in languages if "python" in raw.lower()), reverse=True)
+    return pythons[0] if pythons else "python3"
+
+
 def submit_and_wait(
     session: requests.Session,
     step_id: int,
     code: str,
     *,
-    language: str = "python3",
+    language: str | None = None,
     timeout: float = 60.0,
 ) -> SubmissionResult:
-    """Полный поток отправки (issue #683): attempt → submission → poll до вердикта."""
+    """Полный поток отправки (issue #683): attempt → submission → poll до вердикта.
+
+    ``language=None`` — определить автоматически из разрешённых языков шага
+    (``fetch_step_languages`` → ``_pick_python_language``); иначе использовать
+    заданный. Автоопределение обязательно: хардкод ``python3`` Stepik отвергает.
+    """
+    if language is None:
+        language = _pick_python_language(fetch_step_languages(session, step_id))
     attempt_id = create_attempt(session, step_id)
     submission_id = submit_solution(session, attempt_id, code, language)
     return poll_submission(session, submission_id, timeout=timeout)

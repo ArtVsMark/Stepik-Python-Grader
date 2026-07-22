@@ -17,7 +17,9 @@ import pytest
 from stepik_grader.core import stepik_client
 from stepik_grader.core.stepik_client import (
     SubmissionResult,
+    _pick_python_language,
     create_attempt,
+    fetch_step_languages,
     poll_submission,
     read_step_id,
     submit_and_wait,
@@ -125,18 +127,53 @@ class TestPollSubmission:
         assert result.status == "evaluation"
 
 
+_TEMPLATES = {
+    "steps": [{"block": {"options": {"code_templates": {"python3.10": "", "python3.12": ""}}}}]
+}
+
+
 class TestSubmitAndWait:
-    def test_full_flow(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_full_flow_explicit_language(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(stepik_client.time, "sleep", lambda _s: None)
         session = _FakeSession(
             post_payloads=[{"attempts": [{"id": 42}]}, {"submissions": [{"id": 7}]}],
             get_payloads=[{"submissions": [{"id": 7, "status": "correct"}]}],
         )
-        result = submit_and_wait(session, step_id=123, code="print(1)")  # type: ignore[arg-type]
+        result = submit_and_wait(session, step_id=123, code="print(1)", language="python3.12")  # type: ignore[arg-type]
         assert result.status == "correct"
         assert result.submission_id == 7
         assert session.post_calls[0][0].endswith("/api/attempts")
         assert session.post_calls[1][0].endswith("/api/submissions")
+        assert session.post_calls[1][1]["submission"]["reply"]["language"] == "python3.12"
+
+    def test_autodetects_language_from_step(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """language=None → берётся из code_templates шага (не хардкод python3)."""
+        monkeypatch.setattr(stepik_client.time, "sleep", lambda _s: None)
+        session = _FakeSession(
+            post_payloads=[{"attempts": [{"id": 1}]}, {"submissions": [{"id": 2}]}],
+            get_payloads=[_TEMPLATES, {"submissions": [{"id": 2, "status": "correct"}]}],
+        )
+        result = submit_and_wait(session, step_id=123, code="x")  # type: ignore[arg-type]
+        assert result.status == "correct"
+        assert session.post_calls[1][1]["submission"]["reply"]["language"] == "python3.12"
+
+
+class TestFetchStepLanguages:
+    def test_returns_code_template_keys(self) -> None:
+        session = _FakeSession(get_payloads=[_TEMPLATES])
+        assert fetch_step_languages(session, 2321459) == ["python3.10", "python3.12"]  # type: ignore[arg-type]
+
+    def test_empty_when_no_steps(self) -> None:
+        session = _FakeSession(get_payloads=[{"steps": []}])
+        assert fetch_step_languages(session, 1) == []  # type: ignore[arg-type]
+
+
+class TestPickPythonLanguage:
+    def test_prefers_newest_python(self) -> None:
+        assert _pick_python_language(["python3.10", "python3.12"]) == "python3.12"
+
+    def test_fallback_when_no_python(self) -> None:
+        assert _pick_python_language(["java", "c++"]) == "python3"
 
 
 class TestReadStepId:
