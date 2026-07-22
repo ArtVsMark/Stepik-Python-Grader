@@ -137,6 +137,7 @@ class _ApiRoutesMixin(_GuardMixin):
     _API_POST_EXACT = {
         "/api/v1/runs": "_handle_create_run",
         "/api/v1/hint": "_handle_create_hint",
+        "/api/v1/settings": "_handle_update_settings",
         "/api/auth/start": "_handle_auth_start",
         "/api/code-terms": "_post_code_terms",
         "/api/download": "_post_download",
@@ -582,6 +583,30 @@ class _ApiRoutesMixin(_GuardMixin):
             "application/json; charset=utf-8",
             _json({"run_id": job.id, "status": job.status}),
         )
+
+    def _handle_update_settings(self, parsed: Any) -> None:
+        """POST /api/v1/settings (issue #660) — write-through UI-настроек в
+        ``.grader_settings.json``.
+
+        Тело: ``{"onboarding_seen"?: bool}`` → ``200 {"ok": true}``. Пишутся только
+        явно переданные bool-поля. Клиент шлёт ``true`` при закрытии стартового
+        экрана с отмеченной галкой «не показывать» (чтобы он не всплывал снова) и
+        ``false``, если галку сняли (вернуть авто-показ при следующем запуске).
+        ``ai_hint_consent`` идёт своим consent-путём (``/api/v1/hint``), а не сюда —
+        у него отдельная приватностная семантика.
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        _lang, body = res
+        settings_path = self.server.workspace / user_settings.SETTINGS_FILE_NAME
+        settings = user_settings.load_settings(settings_path)
+        value = body.get("onboarding_seen")
+        if isinstance(value, bool) and settings.onboarding_seen is not value:
+            settings.onboarding_seen = value
+            with contextlib.suppress(OSError):
+                user_settings.save_settings(settings, settings_path)
+        self._send(200, "application/json; charset=utf-8", _json({"ok": True}))
 
     def _handle_create_hint(self, parsed: Any) -> None:
         """POST /api/v1/hint (issue #543) — AI-объяснение упавшего кейса как async-job.

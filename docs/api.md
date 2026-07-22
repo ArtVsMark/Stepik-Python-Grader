@@ -501,6 +501,30 @@ curl -X POST http://127.0.0.1:8000/api/v1/hint \
 
 ---
 
+## `POST /api/v1/settings`
+
+Write-through UI-настроек в `.grader_settings.json` рабочей директории (issue
+#660). Пока единственное поле — `onboarding_seen` (показан ли стартовый
+экран-онбординг). Клиент шлёт `true` при закрытии онбординга с отмеченной галкой
+«не показывать» и `false`, если галку сняли (вернуть авто-показ при следующем
+запуске). `ai_hint_consent` сюда НЕ пишется — у него отдельный consent-путь
+(`POST /api/v1/hint`).
+
+Тело JSON: `{"onboarding_seen"?: bool}`. Пишутся только явно переданные
+bool-поля (прочие не трогаются — `save_settings` сохраняет лишь не-`None`).
+Начальное состояние флага сервер инжектит в `data-onboarding-seen` страницы (как
+`data-sandbox`), отдельного GET нет.
+
+- Успех → **200** `{"ok": true}`.
+
+```
+curl -X POST http://127.0.0.1:8000/api/v1/settings \
+  -H "Content-Type: application/json" \
+  -d '{"onboarding_seen": true}'
+```
+
+---
+
 ## `GET /api/auth/status`
 
 Статус OAuth-авторизации Stepik по `secrets.json` в рабочей директории сервера

@@ -6,7 +6,7 @@
 <title>Stepik Python Grader</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
-<body data-sandbox="__EXEC_SANDBOX__" data-record-history="__RECORD_HISTORY__">
+<body data-sandbox="__EXEC_SANDBOX__" data-record-history="__RECORD_HISTORY__" data-onboarding-seen="__ONBOARDING_SEEN__">
 <a class="sr-only" href="#main-content" data-i18n="a11y.skip_to_content">Перейти к содержимому</a>
 
 <div class="app-shell">
@@ -29,6 +29,10 @@
     <button id="theme-toggle" class="btn-icon" aria-label="Тема: системная — нажмите, чтобы выбрать светлую"
             title="Тема: системная — нажмите, чтобы выбрать светлую"
             data-i18n-aria-label="topbar.theme_state_system" data-i18n-title="topbar.theme_state_system">🌓</button>
+    <!-- issue #660: повторно открыть стартовый экран-онбординг (первый показ — авто). -->
+    <button id="onboarding-open" class="btn-icon" aria-label="Как пользоваться"
+            title="Как пользоваться" data-i18n-aria-label="onboarding.open_aria"
+            data-i18n-title="onboarding.open_title">?</button>
   </header>
 
   <nav class="sidebar" aria-label="Основная навигация" data-i18n-aria-label="nav.aria">
@@ -456,6 +460,49 @@
       <button id="ai-consent-accept" class="btn" type="button" data-i18n="ai.consent_accept">Согласен, объяснить</button>
       <button id="ai-consent-decline" class="btn btn-secondary" type="button" data-i18n="ai.consent_decline">Отмена</button>
     </div>
+  </div>
+</div>
+
+<!-- issue #660: стартовый экран-онбординг. Первый показ — по data-onboarding-seen
+     (флаг в .grader_settings.json), повторно — кнопкой #onboarding-open. Focus-trap,
+     Escape и возврат фокуса — как в модалке AI-согласия (core.js _requestAiConsent). -->
+<div id="onboarding-overlay" class="modal-overlay" hidden>
+  <div class="modal onboarding" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+    <div class="onboarding-head">
+      <h2 id="onboarding-title"><span aria-hidden="true">🐍</span> <span data-i18n="onboarding.title">С чего начать</span></h2>
+      <button id="onboarding-close-x" class="btn-icon" type="button" aria-label="Закрыть"
+              data-i18n-aria-label="onboarding.close_aria">✕</button>
+    </div>
+    <p class="onboarding-lead" data-i18n="onboarding.lead">Локальная проверка решений Python — быстрый офлайн-цикл без ожидания Stepik.</p>
+
+    <div class="onboarding-label" data-i18n="onboarding.modes_label">Режимы проверки</div>
+    <ul class="onboarding-modes">
+      <li><span class="onboarding-ic" aria-hidden="true">📄</span><span><strong data-i18n="onboarding.mode_file">Один файл</strong> <span class="onboarding-desc" data-i18n="onboarding.mode_file_desc">— проверить одно решение по тест-кейсам.</span></span></li>
+      <li><span class="onboarding-ic" aria-hidden="true">📁</span><span><strong data-i18n="onboarding.mode_tests">Папка</strong> <span class="onboarding-desc" data-i18n="onboarding.mode_tests_desc">— проверить все решения в папке разом.</span></span></li>
+      <li><span class="onboarding-ic" aria-hidden="true">⚡</span><span><strong data-i18n="onboarding.mode_bench">Бенчмарк</strong> <span class="onboarding-desc" data-i18n="onboarding.mode_bench_desc">— сравнить скорость решений на повторных прогонах.</span></span></li>
+      <li><span class="onboarding-ic" aria-hidden="true">🔬</span><span><strong data-i18n="onboarding.mode_microbench">Микробенчмарк</strong> <span class="onboarding-desc" data-i18n="onboarding.mode_microbench_desc">— точный замер одной функции (calls/run).</span></span></li>
+    </ul>
+
+    <div class="onboarding-note">
+      <span class="onboarding-ic" aria-hidden="true">🛡️</span>
+      <p><strong data-i18n="onboarding.sandbox_title">Изоляция выключена по умолчанию.</strong> <span class="onboarding-desc" data-i18n="onboarding.sandbox_body">Грейдер рассчитан на ваш доверенный код. Изоляцию сети, файлов и ресурсов включают при запуске — галкой в лаунчере или флагом --sandbox. Из этого окна режим не переключить: сервер уже работает.</span></p>
+    </div>
+    <div class="onboarding-note">
+      <span class="onboarding-ic" aria-hidden="true">⬇️</span>
+      <p><strong data-i18n="onboarding.download_title">Скачивание задач — по желанию.</strong> <span class="onboarding-desc" data-i18n="onboarding.download_body">Проверять решения можно без входа. Чтобы скачивать задачи со Stepik по URL, нужен OAuth (secrets.json).</span></p>
+    </div>
+
+    <label class="onboarding-dont-show">
+      <input type="checkbox" id="onboarding-dont-show" checked>
+      <span data-i18n="onboarding.dont_show">Не открывать это окно автоматически при следующем запуске</span>
+    </label>
+    <div class="onboarding-actions">
+      <button id="onboarding-go-check" class="btn btn-primary" type="button" data-i18n="onboarding.go_check">▶ Проверить решение</button>
+      <button id="onboarding-go-downloader" class="btn btn-secondary" type="button" data-i18n="onboarding.go_downloader">Скачать задачу</button>
+      <span class="spacer"></span>
+      <button id="onboarding-close" class="btn btn-secondary" type="button" data-i18n="onboarding.close">Закрыть</button>
+    </div>
+    <p class="onboarding-reopen hint" data-i18n="onboarding.reopen">Открыть снова — кнопкой «?» вверху справа.</p>
   </div>
 </div>
 

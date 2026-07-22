@@ -23,6 +23,7 @@ import pathlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
+from stepik_grader.core import user_settings
 from stepik_grader.web.api_routes import _ApiRoutesMixin
 from stepik_grader.web.http_guards import (
     _lang_from_query,
@@ -158,12 +159,22 @@ class _Handler(_ApiRoutesMixin):
         if parsed.path == "/":
             # issue #565: инжектим флаги режима в data-атрибуты <body>, фронт
             # читает их для баннера OS-изоляции и статуса истории.
+            # issue #660: онбординг показывается при первом заходе — флаг живёт в
+            # .grader_settings.json (машинный факт «первый запуск на этой рабочей
+            # директории»), читаем его тут и инжектим в data-onboarding-seen.
+            onboarding_seen = (
+                user_settings.load_settings(
+                    self.server.workspace / user_settings.SETTINGS_FILE_NAME
+                ).onboarding_seen
+                is True
+            )
             page = (
                 _INDEX_HTML.replace(
                     "__DEFAULT_PATH__", html.escape(str(self.server.workspace), quote=True)
                 )
                 .replace("__EXEC_SANDBOX__", "true" if self.server.sandbox else "false")
                 .replace("__RECORD_HISTORY__", "true" if self.server.record_history else "false")
+                .replace("__ONBOARDING_SEEN__", "true" if onboarding_seen else "false")
             )
             self._send(200, "text/html; charset=utf-8", page.encode("utf-8"))
         elif parsed.path in _STATIC_ROUTES:
