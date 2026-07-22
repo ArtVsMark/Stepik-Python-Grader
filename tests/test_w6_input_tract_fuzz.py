@@ -53,8 +53,24 @@ _MALFORMED_HTML = [
     "<table><tr><td>x</td><td>y</td><td>z</td><td>w</td></tr></table>",  # > 3 колонок
 ]
 
+# Короткие id: без них большой кейс (~28k символов) попадает в nodeid → в env-
+# переменную PYTEST_CURRENT_TEST, а на Windows лимит env — 32767 символов (#691).
+_MALFORMED_HTML_IDS = [
+    "empty",
+    "unclosed-table",
+    "td-without-tr",
+    "one-column",
+    "null-in-cell",
+    "uppercase-unclosed",
+    "many-unclosed-cells",
+    "html-entities",
+    "control-bytes",
+    "empty-cells",
+    "extra-columns",
+]
 
-@pytest.mark.parametrize("html", _MALFORMED_HTML)
+
+@pytest.mark.parametrize("html", _MALFORMED_HTML, ids=_MALFORMED_HTML_IDS)
 def test_extract_tests_never_raises_on_malformed_html(html: str) -> None:
     """Парсер таблицы кейсов не бросает на битом HTML и держит форму результата."""
     result = extract_tests_from_html(html)
@@ -65,13 +81,15 @@ def test_extract_tests_never_raises_on_malformed_html(html: str) -> None:
         assert item[2] in ("stdin", "function")
 
 
-@pytest.mark.parametrize("html", _MALFORMED_HTML)
+@pytest.mark.parametrize("html", _MALFORMED_HTML, ids=_MALFORMED_HTML_IDS)
 def test_extract_external_links_never_raises_on_malformed_html(html: str) -> None:
     """Извлечение ZIP/GitHub-ссылок не бросает и всегда возвращает две строки-списка."""
     zips, githubs = extract_external_test_links(html)
     assert isinstance(zips, list) and isinstance(githubs, list)
 
 
+# Короткие id обязательны: без них кейс "9"*100000 попал бы в nodeid → в env-
+# переменную PYTEST_CURRENT_TEST, а на Windows лимит env — 32767 символов (#691).
 @pytest.mark.parametrize(
     "text",
     [
@@ -81,10 +99,22 @@ def test_extract_external_links_never_raises_on_malformed_html(html: str) -> Non
         "\x00\x01\x02",  # только control-байты
         "(" * 5000,  # экстремальная вложенность
         "переменная = 5",  # unicode-идентификатор (function-mode)
-        "9" * 100_000,  # гигантский числовой литерал
+        "9" * 100_000,  # гигантский числовой литерал (int-conversion limit)
         "def f(:",  # синтаксически битое
         "print(input())",  # заведомо stdin
         "мусор ! @ # $ %",
+    ],
+    ids=[
+        "empty",
+        "spaces",
+        "null-in-assign",
+        "only-control",
+        "deep-nest-5k",
+        "unicode-ident",
+        "big-int-100k",
+        "broken-syntax",
+        "stdin-call",
+        "garbage",
     ],
 )
 def test_is_function_style_never_raises(text: str) -> None:
