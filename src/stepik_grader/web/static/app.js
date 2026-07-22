@@ -102,15 +102,16 @@ function maybeShowHistoryNotice() {
 // AI-согласия (core.js _requestAiConsent).
 let _onboardingReturnFocus = null;
 
-function _persistOnboardingSeen() {
-  // Идемпотентно (сервер пишет флаг лишь при первом true). fire-and-forget:
-  // закрытие модалки не ждёт сети и не падает при офлайне.
+function _persistOnboardingSeen(seen) {
+  // Галка «не показывать» отмечена → seen=true (больше не всплывать); снята →
+  // false (вернуть авто-показ при следующем запуске). fire-and-forget: закрытие
+  // не ждёт сети и не падает при офлайне; сервер пишет флаг при изменении.
   fetch("/api/v1/settings", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ onboarding_seen: true }),
+    body: JSON.stringify({ onboarding_seen: seen }),
   }).catch(() => {});
-  document.body.dataset.onboardingSeen = "true";
+  document.body.dataset.onboardingSeen = seen ? "true" : "false";
 }
 
 function _onboardingKeydown(e) {
@@ -120,7 +121,7 @@ function _onboardingKeydown(e) {
     return;
   }
   if (e.key !== "Tab") return;
-  const stops = $("#onboarding-overlay").querySelectorAll("button");
+  const stops = $("#onboarding-overlay").querySelectorAll("button, input");
   if (!stops.length) return;
   const first = stops[0];
   const last = stops[stops.length - 1];
@@ -148,7 +149,9 @@ function closeOnboarding() {
   if (!overlay) return;
   overlay.hidden = true;
   overlay.removeEventListener("keydown", _onboardingKeydown);
-  _persistOnboardingSeen();
+  // Галка checked (дефолт) → больше не авто-показ; снята → покажется снова.
+  const dontShow = $("#onboarding-dont-show");
+  _persistOnboardingSeen(dontShow ? dontShow.checked : true);
   if (_onboardingReturnFocus && typeof _onboardingReturnFocus.focus === "function") {
     _onboardingReturnFocus.focus();
   }

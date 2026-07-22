@@ -589,11 +589,11 @@ class _ApiRoutesMixin(_GuardMixin):
         ``.grader_settings.json``.
 
         Тело: ``{"onboarding_seen"?: bool}`` → ``200 {"ok": true}``. Пишутся только
-        явно переданные поля (остальные не трогаются — ``save_settings`` сохраняет
-        лишь не-``None``). Пока единственное поле — флаг закрытия стартового экрана;
-        клиент дёргает эндпоинт при закрытии онбординга, чтобы он не всплывал
-        снова. ``ai_hint_consent`` идёт своим consent-путём (``/api/v1/hint``), а не
-        сюда — у него отдельная приватностная семантика.
+        явно переданные bool-поля. Клиент шлёт ``true`` при закрытии стартового
+        экрана с отмеченной галкой «не показывать» (чтобы он не всплывал снова) и
+        ``false``, если галку сняли (вернуть авто-показ при следующем запуске).
+        ``ai_hint_consent`` идёт своим consent-путём (``/api/v1/hint``), а не сюда —
+        у него отдельная приватностная семантика.
         """
         res = self._guard_and_read_body(parsed)
         if res is None:
@@ -601,8 +601,9 @@ class _ApiRoutesMixin(_GuardMixin):
         _lang, body = res
         settings_path = self.server.workspace / user_settings.SETTINGS_FILE_NAME
         settings = user_settings.load_settings(settings_path)
-        if body.get("onboarding_seen") is True and settings.onboarding_seen is not True:
-            settings.onboarding_seen = True
+        value = body.get("onboarding_seen")
+        if isinstance(value, bool) and settings.onboarding_seen is not value:
+            settings.onboarding_seen = value
             with contextlib.suppress(OSError):
                 user_settings.save_settings(settings, settings_path)
         self._send(200, "application/json; charset=utf-8", _json({"ok": True}))

@@ -869,6 +869,21 @@ class TestHttpHandler:
             is True
         )
 
+    def test_settings_endpoint_can_reset_onboarding(
+        self, tmp_path: pathlib.Path, server_factory
+    ) -> None:
+        """issue #660: снятая галка «не показывать» (POST false) возвращает авто-показ."""
+        from stepik_grader.core import user_settings
+
+        settings_path = tmp_path / user_settings.SETTINGS_FILE_NAME
+        user_settings.save_settings(user_settings.UserSettings(onboarding_seen=True), settings_path)
+        url = server_factory(tmp_path)
+        status, _ = _post(
+            url + "/api/v1/settings", json.dumps({"onboarding_seen": False}).encode("utf-8")
+        )
+        assert status == 200
+        assert user_settings.load_settings(settings_path).onboarding_seen is False
+
     def test_unknown_path_404(self, server: str) -> None:
         status, _ = _get(server + "/nope")
         assert status == 404

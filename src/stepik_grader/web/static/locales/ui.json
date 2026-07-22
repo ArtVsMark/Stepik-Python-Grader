@@ -343,7 +343,8 @@
     "onboarding.go_check": "▶ Проверить решение",
     "onboarding.go_downloader": "Скачать задачу",
     "onboarding.close": "Закрыть",
-    "onboarding.reopen": "Открыть снова — кнопкой «?» вверху справа."
+    "onboarding.reopen": "Открыть снова — кнопкой «?» вверху справа.",
+    "onboarding.dont_show": "Не открывать это окно автоматически при следующем запуске"
   },
   "en": {
     "a11y.skip_to_content": "Skip to content",
@@ -689,6 +690,7 @@
     "onboarding.go_check": "▶ Check a solution",
     "onboarding.go_downloader": "Download a task",
     "onboarding.close": "Close",
-    "onboarding.reopen": "Reopen with the «?» button at the top right."
+    "onboarding.reopen": "Reopen with the «?» button at the top right.",
+    "onboarding.dont_show": "Don't open this window automatically on next start"
   }
 }
