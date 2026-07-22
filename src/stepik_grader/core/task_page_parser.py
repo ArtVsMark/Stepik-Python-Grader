@@ -90,8 +90,11 @@ def is_function_style(input_text: str) -> bool:
         return False
     try:
         tree = ast.parse(stripped)
-    except SyntaxError:
-        # Если не парсится — не можем определить режим, считаем stdin
+    except (SyntaxError, ValueError):
+        # Не парсится — режим не определить, считаем stdin. ValueError: ast.parse
+        # документированно бросает его на исходнике с null-байтами (issue #691;
+        # версинно-зависимо — часть CPython отдаёт SyntaxError). Вход — ячейка
+        # HTML-таблицы задачи Stepik, т.е. подконтролен странице (fuzz-вектор).
         return False
 
     has_assignment = False
