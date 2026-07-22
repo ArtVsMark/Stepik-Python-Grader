@@ -138,6 +138,7 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/v1/runs": "_handle_create_run",
         "/api/v1/hint": "_handle_create_hint",
         "/api/v1/settings": "_handle_update_settings",
+        "/api/stepik/submit": "_handle_stepik_submit",
         "/api/auth/start": "_handle_auth_start",
         "/api/code-terms": "_post_code_terms",
         "/api/download": "_post_download",
@@ -607,6 +608,67 @@ class _ApiRoutesMixin(_GuardMixin):
             with contextlib.suppress(OSError):
                 user_settings.save_settings(settings, settings_path)
         self._send(200, "application/json; charset=utf-8", _json({"ok": True}))
+
+    def _handle_stepik_submit(self, parsed: Any) -> None:
+        """POST /api/stepik/submit (issue #683) — отправить решение режима 1 на Stepik.
+
+        Тело: ``{"code", "path"?, "step_id"?}`` → ``202`` + ``{"run_id","status"}``;
+        вердикт (``{"status": "correct"|"wrong"|"evaluation", "hint", "score",
+        "submission_id"}``) — через ``GET /api/v1/runs/{id}``. ``step_id`` берётся
+        из тела или из ``meta.json`` папки задачи (``read_step_id``). Пустой код →
+        **400** ``stepik_no_code``; не Stepik-задача (нет step_id) → **400**
+        ``stepik_no_step_id``; нет валидного токена → job завершается
+        ``stepik_auth_required`` (в сеть ничего). Отправка — необратимое действие,
+        поэтому UI требует явного подтверждения ДО вызова этого эндпоинта.
+        """
+        from stepik_grader.core.stepik_client import read_step_id
+
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+
+        code = str(body.get("code") or "")
+        if not code.strip():
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("stepik_no_code", lang)}),
+            )
+            return
+
+        step_id = body.get("step_id")
+        if not isinstance(step_id, int):
+            raw_path = str(body.get("path") or "").strip()
+            if raw_path:
+                confined = self._confined_path(raw_path, lang)
+                if confined is None:
+                    return
+                task_dir = confined if confined.is_dir() else confined.parent
+                step_id = read_step_id(task_dir)
+        if not isinstance(step_id, int):
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"kind": "error", **message_fields("stepik_no_step_id", lang)}),
+            )
+            return
+
+        secrets_path = self.server.workspace / "secrets.json"
+        job = self._submit_or_429(
+            lang,
+            "stepik_submit",
+            None,
+            {"step_id": step_id, "secrets_path": str(secrets_path)},
+            code=code,
+        )
+        if job is None:
+            return
+        self._send(
+            202,
+            "application/json; charset=utf-8",
+            _json({"run_id": job.id, "status": job.status}),
+        )
 
     def _handle_create_hint(self, parsed: Any) -> None:
         """POST /api/v1/hint (issue #543) — AI-объяснение упавшего кейса как async-job.

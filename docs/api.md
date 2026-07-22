@@ -525,6 +525,37 @@ curl -X POST http://127.0.0.1:8000/api/v1/settings \
 
 ---
 
+## `POST /api/stepik/submit`
+
+Отправить решение (режим 1) на Stepik как async job (issue #683) — attempt →
+submission → poll вердикта на стороне сервера. Возвращает `run_id`; вердикт
+(`{"status": "correct"|"wrong"|"evaluation", "hint": str, "score": str,
+"submission_id": int}`) — через `GET /api/v1/runs/<id>`.
+
+Тело JSON: `{"code": "...", "path"?: "...", "step_id"?: int}`. `step_id` берётся
+из тела или из `meta.json` папки задачи по `path` (`read_step_id`); язык
+определяется автоматически из `code_templates` шага.
+
+- Пустой `code` → **400** `stepik_no_code`.
+- Не Stepik-задача (нет `step_id` в теле и в `meta.json`) → **400**
+  `stepik_no_step_id`.
+- `path` вне workspace → **403** `path_outside_workspace`.
+- Нет валидного OAuth-токена (`secrets.json`) → job завершается **error**
+  `stepik_auth_required` (в сеть ничего не уходит).
+- Активных job'ов уже `CONFIG.max_active_runs` → **429** `too_many_runs`.
+- Успех → **202** `{"run_id": "...", "status": "queued"}`.
+
+Отправка — **необратимое действие** на платформе, поэтому UI требует явного
+подтверждения пользователя перед вызовом этого эндпоинта.
+
+```
+curl -X POST http://127.0.0.1:8000/api/stepik/submit \
+  -H "Content-Type: application/json" \
+  -d '{"path": "StepikTasks/lesson-1-step-1", "code": "print(1)"}'
+```
+
+---
+
 ## `GET /api/auth/status`
 
 Статус OAuth-авторизации Stepik по `secrets.json` в рабочей директории сервера
