@@ -41,27 +41,37 @@ def _make_popen_mock(
     returncode: int = 0,
     timeout: bool = False,
 ) -> MagicMock:
-    """Фабрика: возвращает mock subprocess.Popen с нужным поведением.
+    """Фабрика: mock ``subprocess.Popen`` под drain-путь ``_run_with_polling``.
 
-    При timeout=True первый вызов communicate() бросает TimeoutExpired,
-    второй (после proc.kill()) возвращает (b'', b'') — имитирует реальное
-    поведение subprocess при TLE.
+    issue #629: ``run_single_test`` всегда задаёт ``max_output_bytes`` (из CONFIG),
+    поэтому грейд идёт poll/drain-путём — stdout/stderr читаются порциями до EOF
+    в фоновых потоках, а завершение ждётся ``proc.wait(timeout=...)`` (а не
+    единым ``communicate()``). Мок отдаёт вывод одной порцией + EOF (``b""``);
+    один инстанс дренируется один раз (свежий mock на кейс — ``fake_popen`` ниже).
+
+    ``timeout=True``: первый ``wait()`` бросает ``TimeoutExpired`` (реальный TLE),
+    второй (reap после ``proc.kill()``) возвращает код.
     """
     mock_proc = MagicMock()
     mock_proc.pid = 12345
     mock_proc.returncode = returncode
     mock_proc.kill = MagicMock()
+    mock_proc.poll.return_value = returncode  # not None → finally-guard не убивает
+    # Дренаж читает порциями до сигнального b"" (одна порция вывода + EOF).
+    mock_proc.stdout.read.side_effect = [stdout, b""]
+    mock_proc.stderr.read.side_effect = [stderr, b""]
 
     if timeout:
-        # grader.py после TimeoutExpired делает: proc.kill(); proc.communicate()
-        # Поэтому side_effect — список: [raise, return (b'', b'')]
-        mock_proc.communicate.side_effect = [
+        mock_proc.wait.side_effect = [
             subprocess.TimeoutExpired(cmd="python", timeout=10.0),
-            (b"", b""),
+            returncode,  # reap-wait после proc.kill()
         ]
     else:
-        mock_proc.communicate.return_value = (stdout, stderr)
+        mock_proc.wait.return_value = returncode
 
+    # Fast-путь (без лимита/отмены) run_single_test не использует, но communicate
+    # застаблен на случай прямых вызовов.
+    mock_proc.communicate.return_value = (stdout, stderr)
     return mock_proc
 
 
@@ -161,15 +171,12 @@ class TestRunSingleTestStdin:
         assert result["timed_out"] is False
 
     def test_tle_timeout(self, tmp_path: pathlib.Path) -> None:
-        """subprocess.TimeoutExpired → verdict=TLE, timed_out=True.
+        """proc.wait(timeout) → TimeoutExpired → verdict=TLE, timed_out=True.
 
-        Mock настроен как список side_effect:
-          1-й communicate(input=..., timeout=...) → TimeoutExpired
-          2-й communicate()                       → (b'', b'')
-        Это точно воспроизводит реальный путь в grader.py:
-          proc.communicate(input=..., timeout=...) → TimeoutExpired
-          proc.kill()
-          proc.communicate()  ← cleanup-вызов без аргументов
+        issue #629: грейд с лимитом идёт drain-путём (``_run_with_polling``):
+        вывод сливают фоновые reader'ы, а завершение ждёт ``proc.wait(timeout)``.
+        Мок: 1-й ``wait()`` бросает ``TimeoutExpired`` (TLE), 2-й (reap после
+        ``proc.kill()``) возвращает код — точная имитация реального TLE-пути.
         """
         sol = tmp_path / "task1.py"
         sol.write_text("import time; time.sleep(100)\n")

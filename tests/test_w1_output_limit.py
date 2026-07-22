@@ -116,3 +116,49 @@ def test_polling_path_without_limit_keeps_full_output(tmp_path: pathlib.Path) ->
 
     assert len(outcome.stdout) >= 200 * 100
     assert "вывод обрезан" not in outcome.stderr.decode("utf-8", errors="replace")
+
+
+# ---------------------------------------------------------------------------
+# Синхронный/CLI путь (без cancel_event): communicate → bounded poll при лимите
+# (issue #629 — раньше капился только web-poll-путь с cancel_event, а
+# proc.communicate() читал stdout решения в память без предела → OOM хоста)
+# ---------------------------------------------------------------------------
+
+
+def test_sync_path_caps_output_when_limited(tmp_path: pathlib.Path) -> None:
+    """Без cancel_event, но с лимитом — вывод капится (путь CLI/синхронного /api/grade)."""
+    spec = RunSpec(
+        path=_loud_script(tmp_path),
+        stdin=None,
+        timeout=60.0,
+        measure_memory=False,
+        max_output_bytes=10_000,
+        # НЕТ cancel_event — раньше это шло в communicate() без предела.
+    )
+
+    outcome = LocalRunner().run(spec)
+
+    assert len(outcome.stdout) <= 10_000, "накопление превысило лимит на sync-пути"
+    assert "вывод обрезан" in outcome.stderr.decode("utf-8", errors="replace")
+    # Процесс НЕ убит: дренаж продолжался, решение доработало штатно.
+    assert outcome.timed_out is False
+    assert outcome.returncode == 0
+
+
+def test_fast_path_without_limit_or_cancel_keeps_full_output(tmp_path: pathlib.Path) -> None:
+    """Контроль: без лимита и без cancel — быстрый communicate, весь вывод цел."""
+    script = tmp_path / "chatty.py"
+    script.write_text("for _ in range(200):\n    print('y' * 100)\n", encoding="utf-8")
+    spec = RunSpec(
+        path=script,
+        stdin=None,
+        timeout=60.0,
+        measure_memory=False,
+        max_output_bytes=None,
+    )
+
+    outcome = LocalRunner().run(spec)
+
+    assert len(outcome.stdout) >= 200 * 100
+    assert "вывод обрезан" not in outcome.stderr.decode("utf-8", errors="replace")
+    assert outcome.returncode == 0

@@ -80,10 +80,11 @@ class RunSpec:
     ``cancel_event``.
 
     ``cancel_event`` (issue #262) — опциональный сигнал best-effort отмены
-    для async job-модели (``web/runs.py``). ``None`` (по умолчанию) сохраняет
-    прежнее поведение ``LocalRunner.run()`` один в один (единственный
-    блокирующий ``proc.communicate(timeout=...)``, без poll-накладных
-    расходов) — CLI и синхронный ``/api/grade`` его не передают.
+    для async job-модели (``web/runs.py``). Единственный блокирующий
+    ``proc.communicate(timeout=...)`` (без poll-накладных) остаётся только когда
+    И ``cancel_event`` нет, И вывод не ограничен (``max_output_bytes is None``);
+    при заданном лимите путь poll-дренажа капит накопление даже без отмены
+    (issue #629), иначе синхронный ``/api/grade``/CLI мог бы набить RAM хоста.
     """
 
     stdin: bytes | None
@@ -537,7 +538,14 @@ class LocalRunner:
                 )
                 mem_thread.start()
 
-            if spec.cancel_event is None:
+            # issue #629: одиночный блокирующий communicate() — только когда вывод
+            # НЕ ограничен (нечего капить) И нет отмены. При заданном
+            # max_output_bytes (грейдинг всегда ставит его из CONFIG) идём
+            # poll-путём с bounded-дренажем: communicate() читает весь stdout
+            # решения в память без предела, и бешеный print на синхронном
+            # /api/grade / в CLI набил бы RAM хоста по OOM (раньше капился только
+            # poll-путь web async job'ов).
+            if spec.cancel_event is None and spec.max_output_bytes is None:
                 try:
                     stdout_bytes, stderr_bytes = proc.communicate(
                         input=spec.stdin, timeout=spec.timeout
@@ -602,8 +610,12 @@ class LocalRunner:
         start: float,
         peak_mb_result: list[float],
     ) -> RunOutcome:
-        """Poll-версия ``proc.communicate()`` — прерывается по
-        ``spec.cancel_event``, не только по ``spec.timeout`` (issue #262).
+        """Poll-версия ``proc.communicate()`` с bounded-дренажем вывода.
+
+        Прерывается по ``spec.cancel_event`` (issue #262) и капит накопление
+        stdout+stderr по ``spec.max_output_bytes`` (issue #629). Вызывается,
+        когда задан хотя бы один из них; ``cancel_event`` опционален (``None`` →
+        просто poll без отмены).
 
         Дренирует stdout/stderr в фоновых потоках всё время ожидания — как
         это делает сам ``communicate()`` внутри себя. Без этого дочерний
@@ -646,19 +658,30 @@ class LocalRunner:
             )
             writer.start()
 
-        assert spec.cancel_event is not None
+        # issue #629: путь обслуживает и bounded-вывод БЕЗ отмены (max_output_bytes
+        # задан, cancel_event нет). Дренаж-потоки уже капят вывод; ждать завершения:
+        #   • cancel_event нет → блокирующий proc.wait(timeout) без poll-латентности
+        #     (тот же эффективный wait, что внутри communicate(), но с bounded-выводом;
+        #     poll-цикл добавлял бы 0.1-с гранулярность опроса КАЖДОМУ синхронному грейду);
+        #   • cancel_event есть → poll-цикл, чтобы реагировать на отмену между тиками.
         cancelled = False
         timed_out = False
-        while True:
-            if proc.poll() is not None:
-                break
-            remaining = spec.timeout - (time.perf_counter() - start)
-            if remaining <= 0:
+        if spec.cancel_event is None:
+            try:
+                proc.wait(timeout=spec.timeout)
+            except subprocess.TimeoutExpired:
                 timed_out = True
-                break
-            if spec.cancel_event.wait(min(0.1, remaining)):
-                cancelled = True
-                break
+        else:
+            while True:
+                if proc.poll() is not None:
+                    break
+                remaining = spec.timeout - (time.perf_counter() - start)
+                if remaining <= 0:
+                    timed_out = True
+                    break
+                if spec.cancel_event.wait(min(0.1, remaining)):
+                    cancelled = True
+                    break
 
         if cancelled or timed_out:
             # issue #418: убить всё дерево, reap ограничен по времени.
