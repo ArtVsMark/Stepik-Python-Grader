@@ -1,67 +1,141 @@
 [
   {
-    "id": ".exists-.is_file-.is_dir",
-    "title": ".exists() / .is_file() / .is_dir()",
+    "id": "path.exists",
+    "title": ".exists()",
     "kind": "function",
     "summary": {
-      "ru": "Методы для проверки существования пути и его типа (файл, директория).",
-      "en": "Methods that check whether a path exists and what it is (a file or a directory)."
+      "ru": "Проверяет, существует ли путь (файл, каталог или что-то ещё). Для несуществующего пути возвращает False, не поднимая исключение.",
+      "en": "Check whether the path exists (file, directory or anything else); returns False instead of raising for a missing path."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "p.exists()\np.is_file()\np.is_dir()",
+    "syntax": "p.exists()",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-.exists-.is_file-.is_dir",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.exists",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "проверки",
     "aliases": [],
     "keywords": [
       "exists",
-      "is_file",
-      "is_dir"
+      "Path.exists"
     ],
     "tags": [
       "module"
     ],
     "examples": [
       "from pathlib import Path",
-      "p = Path('/tmp')",
-      "p.exists() # → True",
-      "p.is_dir() # → True",
-      "p.is_file() # → False",
-      "Path('/nonexistent').exists() # → False",
-      "Path('/tmp').is_dir() # → True"
+      "Path('/tmp').exists() # → True",
+      "Path('/nonexistent').exists() # → False"
     ],
-    "related": [],
+    "related": [
+      "path.is_file",
+      "path.is_dir"
+    ],
     "related_errors": []
   },
   {
-    "id": ".glob-.rglob",
-    "title": ".glob() / .rglob()",
+    "id": "path.is_file",
+    "title": ".is_file()",
     "kind": "function",
     "summary": {
-      "ru": ".glob() ищет файлы по паттерну в директории, .rglob() — рекурсивно во всех поддиректориях.",
-      "en": ".glob() finds files matching a pattern in the directory, .rglob() does the same recursively through every subdirectory."
+      "ru": "Проверяет, что путь существует и указывает на обычный файл. Для каталога и для несуществующего пути — False.",
+      "en": "Check that the path exists and points to a regular file; False for a directory or a missing path."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "p.glob('*.py')\np.rglob('*.txt')",
+    "syntax": "p.is_file()",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-.glob-.rglob",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_file",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "проверки",
+    "aliases": [],
+    "keywords": [
+      "is_file",
+      "Path.is_file"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "Path('/etc/hosts').is_file() # → True",
+      "Path('/tmp').is_file() # → False (это каталог)"
+    ],
+    "related": [
+      "path.exists",
+      "path.is_dir"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.is_dir",
+    "title": ".is_dir()",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что путь существует и указывает на каталог. Для файла и для несуществующего пути — False.",
+      "en": "Check that the path exists and points to a directory; False for a file or a missing path."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.is_dir()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_dir",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "проверки",
+    "aliases": [],
+    "keywords": [
+      "is_dir",
+      "Path.is_dir"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "Path('/tmp').is_dir() # → True",
+      "Path('/etc/hosts').is_dir() # → False (это файл)"
+    ],
+    "related": [
+      "path.exists",
+      "path.is_file"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.glob",
+    "title": ".glob()",
+    "kind": "function",
+    "summary": {
+      "ru": "Ищет файлы по шаблону внутри каталога и возвращает ленивый генератор путей. Шаблон `**/` включает рекурсивный обход.",
+      "en": "Match files against a pattern inside the directory, yielding paths lazily; the `**/` pattern walks recursively."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.glob('*.py')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "поиск",
     "aliases": [],
     "keywords": [
       "glob",
-      "rglob"
+      "Path.glob"
     ],
     "tags": [
       "module"
@@ -71,10 +145,49 @@
       "p = Path('/tmp')",
       "list(p.glob('*.txt')) # → все .txt в /tmp",
       "list(p.glob('*/*.py')) # → .py на уровень глубже",
-      "list(p.rglob('*.cfg')) # → все .cfg рекурсивно",
       "list(Path('.').glob('**/*.py')) # → все .py рекурсивно"
     ],
-    "related": [],
+    "related": [
+      "path.rglob"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.rglob",
+    "title": ".rglob()",
+    "kind": "function",
+    "summary": {
+      "ru": "Рекурсивно ищет файлы по шаблону во всех поддиректориях — то же, что `.glob()` с ведущим `**/`.",
+      "en": "Match files against a pattern recursively in all subdirectories — equivalent to `.glob()` with a leading `**/`."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.rglob('*.txt')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.rglob",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [
+      "rglob",
+      "Path.rglob"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "p = Path('/tmp')",
+      "list(p.rglob('*.cfg')) # → все .cfg рекурсивно",
+      "list(p.rglob('*')) # → всё содержимое дерева"
+    ],
+    "related": [
+      "path.glob"
+    ],
     "related_errors": []
   },
   {
@@ -117,30 +230,28 @@
     "related_errors": []
   },
   {
-    "id": ".mkdir-.unlink-.rename-.replace",
-    "title": ".mkdir() / .unlink() / .rename() / .replace()",
+    "id": "path.mkdir",
+    "title": ".mkdir()",
     "kind": "function",
     "summary": {
-      "ru": "Методы для создания директорий, удаления файлов, переименования. parents=True создаёт промежуточные папки.",
-      "en": "Methods for creating directories, deleting files and renaming. parents=True creates the intermediate folders."
+      "ru": "Создаёт каталог. `parents=True` доводит промежуточные каталоги, `exist_ok=True` не считает ошибкой уже существующий.",
+      "en": "Create a directory; `parents=True` also creates missing parents and `exist_ok=True` tolerates an existing one."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "p.mkdir(parents=True, exist_ok=True)\np.unlink(missing_ok=True)\np.rename(target)\np.replace(target)",
+    "syntax": "p.mkdir(parents=True, exist_ok=True)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-.mkdir-.unlink-.rename-.replace",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.mkdir",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "операции",
     "aliases": [],
     "keywords": [
       "mkdir",
-      "unlink",
-      "rename",
-      "replace"
+      "Path.mkdir"
     ],
     "tags": [
       "module"
@@ -148,13 +259,136 @@
     "examples": [
       "from pathlib import Path",
       "Path('/tmp/new_dir').mkdir(exist_ok=True)",
+      "Path('/tmp/a/b/c').mkdir(parents=True, exist_ok=True)"
+    ],
+    "related": [
+      "path.unlink",
+      "path.rename",
+      "path.replace"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.unlink",
+    "title": ".unlink()",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет файл или символическую ссылку. `missing_ok=True` подавляет FileNotFoundError. Каталоги удаляет `.rmdir()`.",
+      "en": "Delete a file or symlink; `missing_ok=True` suppresses FileNotFoundError. Use `.rmdir()` for directories."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.unlink(missing_ok=True)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.unlink",
+    "version": "3.8",
+    "section": "Модуль pathlib",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "unlink",
+      "Path.unlink"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
       "f = Path('/tmp/hello_path.txt')",
       "f.write_text('hi')",
-      "f.rename('/tmp/hello2_path.txt')",
-      "Path('/tmp/hello2_path.txt').unlink()",
-      "Path('/tmp/new_dir').rmdir()"
+      "f.unlink() # → файл удалён",
+      "f.unlink(missing_ok=True) # → повторный вызов не падает"
     ],
-    "related": [],
+    "related": [
+      "path.mkdir",
+      "path.rename",
+      "path.replace"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.rename",
+    "title": ".rename()",
+    "kind": "function",
+    "summary": {
+      "ru": "Переименовывает (перемещает) путь и возвращает новый Path. Поведение при уже существующей цели зависит от ОС — на Windows будет ошибка.",
+      "en": "Rename (move) the path and return the new Path; behaviour when the target exists is platform-dependent and raises on Windows."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.rename(target)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.rename",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "rename",
+      "Path.rename"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "f = Path('/tmp/old_path.txt')",
+      "f.write_text('data')",
+      "new = f.rename('/tmp/new_path.txt')",
+      "new.name # → 'new_path.txt'"
+    ],
+    "related": [
+      "path.mkdir",
+      "path.unlink",
+      "path.replace"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.replace",
+    "title": ".replace()",
+    "kind": "function",
+    "summary": {
+      "ru": "Переименовывает путь, безусловно перезаписывая цель, если она существует. В отличие от `.rename()` ведёт себя одинаково на всех платформах.",
+      "en": "Rename the path, unconditionally replacing the target if it exists — unlike `.rename()`, behaves the same on every platform."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.replace(target)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.replace",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "replace",
+      "Path.replace"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "src = Path('/tmp/src.txt'); src.write_text('new')",
+      "dst = Path('/tmp/dst.txt'); dst.write_text('old')",
+      "src.replace(dst) # → dst перезаписан",
+      "dst.read_text() # → 'new'"
+    ],
+    "related": [
+      "path.mkdir",
+      "path.unlink",
+      "path.rename"
+    ],
     "related_errors": []
   },
   {
@@ -198,30 +432,28 @@
     "related_errors": []
   },
   {
-    "id": ".read_text-.write_text-.read_bytes-.writ",
-    "title": ".read_text() / .write_text() / .read_bytes() / .write_bytes()",
+    "id": "path.read_text",
+    "title": ".read_text()",
     "kind": "function",
     "summary": {
-      "ru": "Методы для удобного чтения и записи файлов без явного open(). Поддерживают encoding.",
-      "en": "Methods for reading and writing files conveniently, without an explicit open(). They accept an encoding."
+      "ru": "Читает файл целиком в строку и сам закрывает его — open() не нужен. Кодировку стоит задавать явно: `encoding='utf-8'`.",
+      "en": "Read the whole file into a string and close it — no open() needed; pass `encoding='utf-8'` explicitly."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "p.read_text(encoding='utf-8')\np.write_text(data, encoding='utf-8')\np.read_bytes()\np.write_bytes(data)",
+    "syntax": "p.read_text(encoding='utf-8')",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-.read_text-.write_text-.read_bytes-.writ",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.read_text",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "чтение/запись",
     "aliases": [],
     "keywords": [
       "read_text",
-      "write_text",
-      "read_bytes",
-      "write_bytes"
+      "Path.read_text"
     ],
     "tags": [
       "module"
@@ -231,12 +463,134 @@
       "p = Path('/tmp/test_pathlib.txt')",
       "p.write_text('hello world', encoding='utf-8')",
       "p.read_text() # → 'hello world'",
-      "p.write_bytes(b'\\x00\\x01')",
-      "p.read_bytes() # → b'\\x00\\x01'",
-      "p.write_text('line1\\nline2')",
-      "len(p.read_text().splitlines()) # → 2"
+      "len(p.read_text().splitlines()) # → 1"
     ],
-    "related": [],
+    "related": [
+      "path.write_text",
+      "path.read_bytes",
+      "path.write_bytes"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.write_text",
+    "title": ".write_text()",
+    "kind": "function",
+    "summary": {
+      "ru": "Записывает строку в файл, перезаписывая его целиком, и возвращает число записанных символов. Файл закрывается сам.",
+      "en": "Write a string to the file, overwriting it entirely, and return the number of characters written; the file is closed automatically."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.write_text(data, encoding='utf-8')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_text",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "чтение/запись",
+    "aliases": [],
+    "keywords": [
+      "write_text",
+      "Path.write_text"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "p = Path('/tmp/test_pathlib.txt')",
+      "p.write_text('hello world', encoding='utf-8') # → 11",
+      "p.write_text('line1\\nline2')",
+      "p.read_text().splitlines() # → ['line1', 'line2']"
+    ],
+    "related": [
+      "path.read_text",
+      "path.read_bytes",
+      "path.write_bytes"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.read_bytes",
+    "title": ".read_bytes()",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает файл целиком в объект bytes — бинарный аналог `.read_text()`, без декодирования и без параметра encoding.",
+      "en": "Read the whole file into a bytes object — the binary counterpart of `.read_text()`, with no decoding and no encoding parameter."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.read_bytes()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.read_bytes",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "чтение/запись",
+    "aliases": [],
+    "keywords": [
+      "read_bytes",
+      "Path.read_bytes"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "p = Path('/tmp/test_pathlib.bin')",
+      "p.write_bytes(b'\\x00\\x01')",
+      "p.read_bytes() # → b'\\x00\\x01'"
+    ],
+    "related": [
+      "path.read_text",
+      "path.write_text",
+      "path.write_bytes"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.write_bytes",
+    "title": ".write_bytes()",
+    "kind": "function",
+    "summary": {
+      "ru": "Записывает bytes в файл, перезаписывая его целиком, и возвращает число записанных байт. Бинарный аналог `.write_text()`.",
+      "en": "Write bytes to the file, overwriting it entirely, and return the number of bytes written — the binary counterpart of `.write_text()`."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.write_bytes(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_bytes",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "чтение/запись",
+    "aliases": [],
+    "keywords": [
+      "write_bytes",
+      "Path.write_bytes"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "p = Path('/tmp/test_pathlib.bin')",
+      "p.write_bytes(b'\\xff\\xfe') # → 2",
+      "p.read_bytes() # → b'\\xff\\xfe'"
+    ],
+    "related": [
+      "path.read_text",
+      "path.write_text",
+      "path.read_bytes"
+    ],
     "related_errors": []
   },
   {
@@ -700,28 +1054,28 @@
     "related_errors": []
   },
   {
-    "id": "bisect.bisect_left-bisect.bisect_right",
-    "title": "bisect.bisect_left() / bisect.bisect_right()",
+    "id": "bisect.bisect_left",
+    "title": "bisect.bisect_left()",
     "kind": "function",
     "summary": {
-      "ru": "Находят позицию для вставки элемента в отсортированный список. bisect_left — перед равными, bisect_right — после.",
-      "en": "They find the position at which to insert an item into a sorted list. bisect_left — before any equal items, bisect_right — after them."
+      "ru": "Возвращает индекс, куда вставить x в отсортированный список, чтобы порядок сохранился — ПЕРЕД уже равными элементами. Поиск за O(log n).",
+      "en": "Return the index at which to insert x into a sorted list keeping it sorted — before any equal entries. O(log n) search."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "bisect.bisect_left(a, x, lo=0, hi=len(a))\nbisect.bisect_right(a, x, lo=0, hi=len(a))",
+    "syntax": "bisect.bisect_left(a, x, lo=0, hi=len(a))",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-bisect.bisect_left-bisect.bisect_right",
-    "docs_url": "https://docs.python.org/3/library/bisect.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/bisect.html#bisect.bisect_left",
     "version": "",
     "section": "Модуль bisect",
     "subcat": "позиция",
     "aliases": [],
     "keywords": [
       "bisect.bisect_left",
-      "bisect.bisect_right"
+      "bisect_left"
     ],
     "tags": [
       "module"
@@ -729,38 +1083,118 @@
     "examples": [
       "import bisect",
       "a = [1, 3, 3, 5, 7]",
-      "bisect.bisect_left(a, 3) # → 1",
-      "bisect.bisect_right(a, 3) # → 3",
+      "bisect.bisect_left(a, 3) # → 1 (перед равными)",
       "bisect.bisect_left(a, 4) # → 3",
-      "bisect.bisect_right(a, 0) # → 0",
       "bisect.bisect_left(a, 8) # → 5"
     ],
-    "related": [],
+    "related": [
+      "bisect.bisect_right",
+      "bisect.insort_left"
+    ],
     "related_errors": []
   },
   {
-    "id": "bisect.insort_left-bisect.insort_right",
-    "title": "bisect.insort_left() / bisect.insort_right()",
+    "id": "bisect.bisect_right",
+    "title": "bisect.bisect_right()",
     "kind": "function",
     "summary": {
-      "ru": "Вставляют элемент в нужную позицию отсортированного списка, сохраняя порядок. O(n) из-за сдвига.",
-      "en": "They insert an item at the right position of a sorted list, keeping it in order. O(n), because the rest has to be shifted."
+      "ru": "Возвращает индекс, куда вставить x в отсортированный список, чтобы порядок сохранился — ПОСЛЕ уже равных элементов. Синоним bisect().",
+      "en": "Return the index at which to insert x into a sorted list keeping it sorted — after any equal entries. Alias of bisect()."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "bisect.insort_left(a, x)\nbisect.insort_right(a, x)",
+    "syntax": "bisect.bisect_right(a, x, lo=0, hi=len(a))",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-bisect.insort_left-bisect.insort_right",
-    "docs_url": "https://docs.python.org/3/library/bisect.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/bisect.html#bisect.bisect_right",
+    "version": "",
+    "section": "Модуль bisect",
+    "subcat": "позиция",
+    "aliases": [],
+    "keywords": [
+      "bisect.bisect_right",
+      "bisect_right"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import bisect",
+      "a = [1, 3, 3, 5, 7]",
+      "bisect.bisect_right(a, 3) # → 3 (после равных)",
+      "bisect.bisect_right(a, 0) # → 0",
+      "bisect.bisect_right(a, 3) - bisect.bisect_left(a, 3) # → 2 (сколько троек)"
+    ],
+    "related": [
+      "bisect.bisect_left",
+      "bisect.insort_right"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "bisect.insort_left",
+    "title": "bisect.insort_left()",
+    "kind": "function",
+    "summary": {
+      "ru": "Вставляет x в отсортированный список ПЕРЕД равными элементами, сохраняя порядок. Поиск места O(log n), но сама вставка O(n) из-за сдвига.",
+      "en": "Insert x into a sorted list before any equal entries, keeping it sorted; the search is O(log n) but the insertion itself is O(n) due to shifting."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "bisect.insort_left(a, x)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/bisect.html#bisect.insort_left",
     "version": "",
     "section": "Модуль bisect",
     "subcat": "вставка",
     "aliases": [],
     "keywords": [
       "bisect.insort_left",
-      "bisect.insort_right"
+      "insort_left"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import bisect",
+      "a = [1, 3, 4, 5]",
+      "bisect.insort_left(a, 3)",
+      "a # → [1, 3, 3, 4, 5]"
+    ],
+    "related": [
+      "bisect.insort_right",
+      "bisect.bisect_left"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "bisect.insort_right",
+    "title": "bisect.insort_right()",
+    "kind": "function",
+    "summary": {
+      "ru": "Вставляет x в отсортированный список ПОСЛЕ равных элементов, сохраняя порядок. Синоним insort(). Вставка O(n) из-за сдвига.",
+      "en": "Insert x into a sorted list after any equal entries, keeping it sorted; alias of insort(). The insertion is O(n) due to shifting."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "bisect.insort_right(a, x)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/bisect.html#bisect.insort_right",
+    "version": "",
+    "section": "Модуль bisect",
+    "subcat": "вставка",
+    "aliases": [],
+    "keywords": [
+      "bisect.insort_right",
+      "insort_right"
     ],
     "tags": [
       "module"
@@ -770,12 +1204,13 @@
       "a = [1, 3, 5]",
       "bisect.insort_right(a, 4)",
       "a # → [1, 3, 4, 5]",
-      "bisect.insort_left(a, 3)",
-      "a # → [1, 3, 3, 4, 5]",
       "bisect.insort_right(a, 0)",
-      "a # → [0, 1, 3, 3, 4, 5]"
+      "a # → [0, 1, 3, 4, 5]"
     ],
-    "related": [],
+    "related": [
+      "bisect.insort_left",
+      "bisect.bisect_right"
+    ],
     "related_errors": []
   },
   {
@@ -1591,28 +2026,28 @@
     "related_errors": []
   },
   {
-    "id": "date.today-date.fromisoformat",
-    "title": "date.today / date.fromisoformat",
-    "kind": "term",
+    "id": "date.today",
+    "title": "date.today()",
+    "kind": "function",
     "summary": {
-      "ru": "date.today() — сегодня. date.fromisoformat() — из строки ISO.",
-      "en": "date.today() — today's date. date.fromisoformat() — a date from an ISO string."
+      "ru": "Возвращает сегодняшнюю дату как объект date (без времени). Классовый метод — вызывается на самом классе date.",
+      "en": "Return today's date as a date object (no time part); a classmethod called on the date class itself."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "from datetime import date\ndate.today()\ndate.fromisoformat('2024-01-01')",
+    "syntax": "from datetime import date\ndate.today()",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-date.today-date.fromisoformat",
-    "docs_url": "https://docs.python.org/3/library/datetime.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.date.today",
     "version": "",
     "section": "Модуль datetime",
     "subcat": "date",
     "aliases": [],
     "keywords": [
       "date.today",
-      "date.fromisoformat"
+      "today"
     ],
     "tags": [
       "module"
@@ -1621,54 +2056,130 @@
       "from datetime import date",
       "today = date.today()",
       "print(today)  # → 2024-xx-xx",
-      "print(today.year, today.month, today.day)",
-      "d = date.fromisoformat('2024-03-15')",
-      "print(d)  # → 2024-03-15",
-      "print(d.isoformat())  # → 2024-03-15",
-      "print(date(2024, 1, 1))  # → 2024-01-01"
+      "print(today.year, today.month, today.day)"
     ],
-    "related": [],
+    "related": [
+      "date.fromisoformat",
+      "datetime.now"
+    ],
     "related_errors": []
   },
   {
-    "id": "datetime.now-datetime.utcnow",
-    "title": "datetime.now / datetime.utcnow",
-    "kind": "term",
+    "id": "date.fromisoformat",
+    "title": "date.fromisoformat()",
+    "kind": "function",
     "summary": {
-      "ru": "datetime.now() возвращает текущие дату и время в локальном поясе, utcnow() — в UTC без tzinfo (naive).",
-      "en": "datetime.now() returns the current date and time in the local time zone, utcnow() — in UTC with no tzinfo (naive)."
+      "ru": "Разбирает строку формата ISO 8601 ('ГГГГ-ММ-ДД') в объект date. Обратная операция к .isoformat(); при неверном формате — ValueError.",
+      "en": "Parse an ISO 8601 string ('YYYY-MM-DD') into a date object — the inverse of .isoformat(); raises ValueError on a malformed string."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "from datetime import datetime\ndatetime.now()\ndatetime.utcnow()",
+    "syntax": "from datetime import date\ndate.fromisoformat('2024-01-01')",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-datetime.now-datetime.utcnow",
-    "docs_url": "https://docs.python.org/3/library/datetime.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.date.fromisoformat",
+    "version": "",
+    "section": "Модуль datetime",
+    "subcat": "date",
+    "aliases": [],
+    "keywords": [
+      "date.fromisoformat",
+      "fromisoformat"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from datetime import date",
+      "d = date.fromisoformat('2024-03-15')",
+      "print(d)  # → 2024-03-15",
+      "print(d.isoformat())  # → 2024-03-15 (обратно в строку)"
+    ],
+    "related": [
+      "date.today"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "datetime.now",
+    "title": "datetime.now()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущие дату и время. Без аргумента — в локальном поясе и без tzinfo (naive); с datetime.now(timezone.utc) — осознанный объект в UTC.",
+      "en": "Return the current date and time: naive local time by default, or an aware UTC object when called as datetime.now(timezone.utc)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "from datetime import datetime\ndatetime.now(tz=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.datetime.now",
     "version": "",
     "section": "Модуль datetime",
     "subcat": "datetime",
     "aliases": [],
     "keywords": [
       "datetime.now",
-      "datetime.utcnow"
+      "now"
     ],
     "tags": [
       "module"
     ],
     "examples": [
-      "from datetime import datetime",
+      "from datetime import datetime, timezone",
       "now = datetime.now()",
       "print(now)  # → 2024-xx-xx xx:xx:xx.xxxxxx",
-      "print(now.year, now.month, now.day)",
       "print(now.hour, now.minute, now.second)",
-      "from datetime import timezone",
       "utc = datetime.now(timezone.utc)",
-      "print(utc)  # → с UTC timezone",
-      "print(datetime(2024, 6, 15, 12, 0, 0))"
+      "print(utc.tzinfo)  # → UTC (осознанный объект)"
     ],
-    "related": [],
+    "related": [
+      "datetime.utcnow",
+      "date.today"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "datetime.utcnow",
+    "title": "datetime.utcnow()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущее время UTC, но БЕЗ tzinfo (naive) — из-за этого его легко спутать с локальным. Устарел с Python 3.12: используй datetime.now(timezone.utc).",
+      "en": "Return the current UTC time as a naive object (no tzinfo), which is easy to confuse with local time. Deprecated since Python 3.12 — use datetime.now(timezone.utc)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "from datetime import datetime\ndatetime.utcnow()  # deprecated, 3.12+",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow",
+    "version": "3.12",
+    "section": "Модуль datetime",
+    "subcat": "datetime",
+    "aliases": [],
+    "keywords": [
+      "datetime.utcnow",
+      "utcnow"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from datetime import datetime, timezone",
+      "old = datetime.utcnow()  # naive, устарело",
+      "print(old.tzinfo)  # → None (нет пояса!)",
+      "new = datetime.now(timezone.utc)  # современный аналог",
+      "print(new.tzinfo)  # → UTC"
+    ],
+    "related": [
+      "datetime.now"
+    ],
     "related_errors": []
   },
   {
@@ -2456,48 +2967,6 @@
     "related_errors": []
   },
   {
-    "id": "functools.lru_cache-functools.cache-1",
-    "title": "functools.lru_cache / functools.cache",
-    "kind": "term",
-    "summary": {
-      "ru": "lru_cache кэширует результаты вызовов (LRU, ограниченный размер). cache — то же без ограничения (Python 3.9+). Только для хешируемых аргументов.",
-      "en": "lru_cache caches the results of calls (LRU, bounded size). cache is the same thing without a bound (Python 3.9+). Only for hashable arguments."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "@functools.lru_cache(maxsize=128)\n@functools.cache",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.lru_cache-functools.cache-1",
-    "docs_url": "https://docs.python.org/3/library/functools.html",
-    "version": "3.9+",
-    "section": "Модуль functools",
-    "subcat": "кэширование",
-    "aliases": [],
-    "keywords": [
-      "functools.lru_cache",
-      "functools.cache"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "from functools import lru_cache, cache",
-      "@lru_cache(maxsize=128)",
-      "def fib(n):",
-      "return n if n < 2 else fib(n-1) + fib(n-2)",
-      "print(fib(10))  # → 55",
-      "print(fib.cache_info())  # → CacheInfo(hits=8, misses=11, maxsize=128, currsize=11)",
-      "fib.cache_clear()  # → очистка кэша",
-      "@cache",
-      "def fact(n): return 1 if n == 0 else n * fact(n-1)",
-      "print(fact(5))  # → 120"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "functools.partial-1",
     "title": "functools.partial",
     "kind": "term",
@@ -2847,28 +3316,28 @@
     "related_errors": []
   },
   {
-    "id": "heapq.heappush-heapq.heappop",
-    "title": "heapq.heappush() / heapq.heappop()",
+    "id": "heapq.heappush",
+    "title": "heapq.heappush()",
     "kind": "function",
     "summary": {
-      "ru": "heappush() добавляет элемент в кучу, heappop() извлекает и возвращает наименьший элемент.",
-      "en": "heappush() adds an item to the heap, heappop() removes the smallest item and returns it."
+      "ru": "Добавляет элемент в кучу, сохраняя её инвариант. Куча — обычный список, минимум всегда лежит в heap[0]. Сложность O(log n).",
+      "en": "Push an item onto the heap, preserving the heap invariant; the heap is a plain list whose smallest item is always heap[0]. O(log n)."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "heapq.heappush(heap, item)\nheapq.heappop(heap)",
+    "syntax": "heapq.heappush(heap, item)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.heappush-heapq.heappop",
-    "docs_url": "https://docs.python.org/3/library/heapq.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.heappush",
     "version": "",
     "section": "Модуль heapq",
     "subcat": "операции",
     "aliases": [],
     "keywords": [
       "heapq.heappush",
-      "heapq.heappop"
+      "heappush"
     ],
     "tags": [
       "module"
@@ -2879,36 +3348,79 @@
       "heapq.heappush(h, 3)",
       "heapq.heappush(h, 1)",
       "heapq.heappush(h, 2)",
-      "heapq.heappop(h) # → 1",
-      "heapq.heappop(h) # → 2",
-      "h # → [3]"
+      "h[0] # → 1 (минимум всегда первый)"
     ],
-    "related": [],
+    "related": [
+      "heapq.heappop",
+      "heapq.heapreplace",
+      "heapq.heappushpop"
+    ],
     "related_errors": []
   },
   {
-    "id": "heapq.heapreplace-heapq.heappushpop",
-    "title": "heapq.heapreplace() / heapq.heappushpop()",
+    "id": "heapq.heappop",
+    "title": "heapq.heappop()",
     "kind": "function",
     "summary": {
-      "ru": "heapreplace() извлекает минимум и вставляет новый элемент атомарно (эффективнее pop+push). heappushpop() — push потом pop.",
-      "en": "heapreplace() pops the minimum and pushes a new item in one step (more efficient than pop+push). heappushpop() pushes first, then pops."
+      "ru": "Извлекает и возвращает наименьший элемент кучи, сохраняя её инвариант. На пустой куче поднимает IndexError. Сложность O(log n).",
+      "en": "Pop and return the smallest item from the heap, preserving the invariant; raises IndexError on an empty heap. O(log n)."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "heapq.heapreplace(heap, item)\nheapq.heappushpop(heap, item)",
+    "syntax": "heapq.heappop(heap)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.heapreplace-heapq.heappushpop",
-    "docs_url": "https://docs.python.org/3/library/heapq.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.heappop",
+    "version": "",
+    "section": "Модуль heapq",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "heapq.heappop",
+      "heappop"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import heapq",
+      "h = [1, 2, 3]",
+      "heapq.heappop(h) # → 1",
+      "heapq.heappop(h) # → 2",
+      "h # → [3]"
+    ],
+    "related": [
+      "heapq.heappush",
+      "heapq.heapreplace",
+      "heapq.heappushpop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "heapq.heapreplace",
+    "title": "heapq.heapreplace()",
+    "kind": "function",
+    "summary": {
+      "ru": "Извлекает минимум и вставляет новый элемент одним проходом — эффективнее пары heappop()+heappush(). Сначала извлекает, потом вставляет.",
+      "en": "Pop the smallest item and push a new one in a single pass — more efficient than heappop() followed by heappush(). Pops first, then pushes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "heapq.heapreplace(heap, item)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.heapreplace",
     "version": "",
     "section": "Модуль heapq",
     "subcat": "операции",
     "aliases": [],
     "keywords": [
       "heapq.heapreplace",
-      "heapq.heappushpop"
+      "heapreplace"
     ],
     "tags": [
       "module"
@@ -2917,37 +3429,78 @@
       "import heapq",
       "h = [1, 3, 5]",
       "heapq.heapreplace(h, 4) # → 1  (извлекли 1, вставили 4)",
-      "h # → [3, 4, 5]",
-      "h2 = [3, 5, 7]",
-      "heapq.heappushpop(h2, 1) # → 1  (1 < min, сразу вернули)",
-      "heapq.heappushpop(h2, 9) # → 3  (вставили 9, извлекли 3)"
+      "h # → [3, 4, 5]"
     ],
-    "related": [],
+    "related": [
+      "heapq.heappushpop",
+      "heapq.heappush",
+      "heapq.heappop"
+    ],
     "related_errors": []
   },
   {
-    "id": "heapq.nlargest-heapq.nsmallest",
-    "title": "heapq.nlargest() / heapq.nsmallest()",
+    "id": "heapq.heappushpop",
+    "title": "heapq.heappushpop()",
     "kind": "function",
     "summary": {
-      "ru": "Возвращает N наибольших или наименьших элементов последовательности. Работает с key-функцией.",
-      "en": "Returns the N largest or N smallest items of a sequence. A key function is supported."
+      "ru": "Вставляет элемент и сразу извлекает минимум — порядок обратный heapreplace(). Если новый элемент меньше всех, он же и вернётся, куча не изменится.",
+      "en": "Push an item and immediately pop the smallest — the reverse order of heapreplace(); if the new item is the smallest, it is returned and the heap is unchanged."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "heapq.nlargest(n, iterable, key=None)\nheapq.nsmallest(n, iterable, key=None)",
+    "syntax": "heapq.heappushpop(heap, item)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.nlargest-heapq.nsmallest",
-    "docs_url": "https://docs.python.org/3/library/heapq.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.heappushpop",
+    "version": "",
+    "section": "Модуль heapq",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "heapq.heappushpop",
+      "heappushpop"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import heapq",
+      "h = [3, 5, 7]",
+      "heapq.heappushpop(h, 1) # → 1  (1 < min, сразу вернули)",
+      "heapq.heappushpop(h, 9) # → 3  (вставили 9, извлекли 3)"
+    ],
+    "related": [
+      "heapq.heapreplace",
+      "heapq.heappush",
+      "heapq.heappop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "heapq.nlargest",
+    "title": "heapq.nlargest()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список из n наибольших элементов в порядке убывания. Принимает key=, как sorted(). При n≈len(iterable) дешевле обычный sorted().",
+      "en": "Return a list of the n largest items in descending order; accepts key= like sorted(). For n close to len(iterable) a plain sorted() is cheaper."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "heapq.nlargest(n, iterable, key=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.nlargest",
     "version": "",
     "section": "Модуль heapq",
     "subcat": "выборка",
     "aliases": [],
     "keywords": [
       "heapq.nlargest",
-      "heapq.nsmallest"
+      "nlargest"
     ],
     "tags": [
       "module"
@@ -2956,12 +3509,52 @@
       "import heapq",
       "data = [3, 1, 4, 1, 5, 9, 2, 6]",
       "heapq.nlargest(3, data) # → [9, 6, 5]",
-      "heapq.nsmallest(3, data) # → [1, 1, 2]",
       "records = [{'v': 5}, {'v': 1}, {'v': 9}]",
       "heapq.nlargest(2, records, key=lambda x: x['v'])",
       "# → [{'v': 9}, {'v': 5}]"
     ],
-    "related": [],
+    "related": [
+      "heapq.nsmallest"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "heapq.nsmallest",
+    "title": "heapq.nsmallest()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список из n наименьших элементов в порядке возрастания. Принимает key=, как sorted(). При n=1 дешевле min().",
+      "en": "Return a list of the n smallest items in ascending order; accepts key= like sorted(). For n=1 plain min() is cheaper."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "heapq.nsmallest(n, iterable, key=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.nsmallest",
+    "version": "",
+    "section": "Модуль heapq",
+    "subcat": "выборка",
+    "aliases": [],
+    "keywords": [
+      "heapq.nsmallest",
+      "nsmallest"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import heapq",
+      "data = [3, 1, 4, 1, 5, 9, 2, 6]",
+      "heapq.nsmallest(3, data) # → [1, 1, 2]",
+      "words = ['banana', 'kiwi', 'apple']",
+      "heapq.nsmallest(2, words, key=len) # → ['kiwi', 'apple']"
+    ],
+    "related": [
+      "heapq.nlargest"
+    ],
     "related_errors": []
   },
   {
@@ -4886,44 +5479,6 @@
     "related_errors": []
   },
   {
-    "id": "os.getcwd-os.chdir",
-    "title": "os.getcwd() / os.chdir()",
-    "kind": "function",
-    "summary": {
-      "ru": "os.getcwd() возвращает текущую рабочую директорию. os.chdir(path) меняет её.",
-      "en": "os.getcwd() returns the current working directory. os.chdir(path) changes it."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "os.getcwd() -> str\nos.chdir(path: str) -> None",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.getcwd-os.chdir",
-    "docs_url": "https://docs.python.org/3/library/os.html",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "навигация",
-    "aliases": [],
-    "keywords": [
-      "os.getcwd",
-      "os.chdir"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "import os",
-      "print(type(os.getcwd()))  # → <class 'str'>",
-      "start = os.getcwd()  # запомнить текущий каталог",
-      "os.chdir('/tmp')",
-      "print(os.getcwd())  # → /tmp",
-      "os.chdir(start)  # вернуться в исходный каталог"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.getpid",
     "title": "os.getpid()",
     "kind": "function",
@@ -4990,123 +5545,6 @@
       "print(os.listdir('/tmp'))  # → содержимое /tmp",
       "print(len(os.listdir('.')))  # → кол-во объектов в директории",
       "sorted_files = sorted(os.listdir('.'))  # → отсортированный список"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.makedirs-os.rmdir",
-    "title": "os.makedirs() / os.rmdir()",
-    "kind": "function",
-    "summary": {
-      "ru": "os.makedirs() создаёт папку включая промежуточные. os.rmdir() удаляет пустую папку.",
-      "en": "os.makedirs() creates a folder together with the intermediate ones. os.rmdir() removes an empty folder."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "os.makedirs(path, mode=0o777, exist_ok=False)\nos.rmdir(path)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.makedirs-os.rmdir",
-    "docs_url": "https://docs.python.org/3/library/os.html",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "директории",
-    "aliases": [],
-    "keywords": [
-      "os.makedirs",
-      "os.rmdir"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "import os",
-      "os.makedirs('a/b/c', exist_ok=True)  # → создаёт вложенные папки",
-      "os.makedirs('new_dir', exist_ok=True)  # → не ошибка если папка уже есть",
-      "os.rmdir('a/b/c')  # → удаляет только пустую c",
-      "print(os.path.isdir('a/b'))  # → True",
-      "os.makedirs('/tmp/test_dir', exist_ok=True)  # → создаёт в /tmp"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.path.dirname-os.path.basename-os.path",
-    "title": "os.path.dirname() / os.path.basename() / os.path.split()",
-    "kind": "function",
-    "summary": {
-      "ru": "dirname() — директория пути. basename() — имя файла/папки. split() — кортеж (dirname, basename).",
-      "en": "dirname() — the directory part of a path. basename() — the file or folder name. split() — the tuple (dirname, basename)."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "os.path.dirname(path) -> str\nos.path.basename(path) -> str\nos.path.split(path) -> (head, tail)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.path.dirname-os.path.basename-os.path",
-    "docs_url": "https://docs.python.org/3/library/os.html",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "os.path",
-    "aliases": [],
-    "keywords": [
-      "os.path.dirname",
-      "os.path.basename",
-      "os.path.split"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "import os",
-      "path = '/home/user/file.txt'",
-      "print(os.path.dirname(path))  # → /home/user",
-      "print(os.path.basename(path))  # → file.txt",
-      "print(os.path.split(path))  # → ('/home/user', 'file.txt')",
-      "print(os.path.basename('/home/user/'))  # → '' (пустой хвост)",
-      "print(os.path.dirname('file.txt'))  # → ''"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.path.exists-os.path.isfile-os.path.is",
-    "title": "os.path.exists() / os.path.isfile() / os.path.isdir()",
-    "kind": "function",
-    "summary": {
-      "ru": "os.path.exists() — путь существует. os.path.isfile() — это файл. os.path.isdir() — это папка.",
-      "en": "os.path.exists() — the path exists. os.path.isfile() — it is a file. os.path.isdir() — it is a folder."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "os.path.exists(path) -> bool\nos.path.isfile(path) -> bool\nos.path.isdir(path) -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.path.exists-os.path.isfile-os.path.is",
-    "docs_url": "https://docs.python.org/3/library/os.html",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "os.path",
-    "aliases": [],
-    "keywords": [
-      "os.path.exists",
-      "os.path.isfile",
-      "os.path.isdir"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "import os",
-      "print(os.path.exists('/tmp'))  # → True",
-      "print(os.path.isfile('/tmp'))  # → False",
-      "print(os.path.isdir('/tmp'))  # → True",
-      "print(os.path.isfile('/etc/hosts'))  # → True",
-      "print(os.path.exists('/nonexistent'))  # → False"
     ],
     "related": [],
     "related_errors": []
@@ -5184,42 +5622,47 @@
     "related_errors": []
   },
   {
-    "id": "os.remove-os.rename",
-    "title": "os.remove() / os.rename()",
+    "id": "os.remove",
+    "title": "os.remove",
     "kind": "function",
     "summary": {
-      "ru": "os.remove() удаляет файл. os.rename() переименовывает файл или папку. Для рекурсивного удаления папок — shutil.rmtree().",
-      "en": "os.remove() deletes a file. os.rename() renames a file or a folder. To delete a folder recursively use shutil.rmtree()."
+      "ru": "Удаляет файл. Каталоги не удаляет — для них os.rmdir(), а для непустого дерева shutil.rmtree(). Полный синоним os.unlink().",
+      "en": "Delete a file; directories need os.rmdir() (or shutil.rmtree() for a non-empty tree). Exact synonym of os.unlink()."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "os.remove(path)\nos.rename(src, dst)",
+    "syntax": "os.remove(path)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.remove-os.rename",
-    "docs_url": "https://docs.python.org/3/library/os.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.remove",
     "version": "",
     "section": "Модуль os",
-    "subcat": "файлы",
+    "subcat": "os — удаление",
     "aliases": [],
     "keywords": [
       "os.remove",
-      "os.rename"
+      "remove"
     ],
     "tags": [
-      "module"
+      "os"
     ],
     "examples": [
       "import os",
-      "os.remove('old_file.txt')  # → удаляет файл",
-      "os.rename('old.txt', 'new.txt')  # → переименование",
-      "os.rename('file.txt', '/tmp/file.txt')  # → перемещение",
+      "import tempfile",
+      "fd, p = tempfile.mkstemp()",
+      "os.close(fd)",
+      "os.remove(p)",
+      "print(os.path.exists(p))   # → False",
       "if os.path.exists('temp.txt'):",
-      "os.remove('temp.txt')  # → безопасное удаление",
-      "os.rename('folder_a', 'folder_b')  # → переименование папки"
+      "    os.remove('temp.txt')  # → безопасное удаление"
     ],
-    "related": [],
+    "related": [
+      "os.unlink",
+      "os.rename",
+      "os.rmdir"
+    ],
     "related_errors": []
   },
   {
@@ -5336,28 +5779,28 @@
     "related_errors": []
   },
   {
-    "id": "path.home-path.cwd",
-    "title": "Path.home() / Path.cwd()",
+    "id": "path.home",
+    "title": "Path.home()",
     "kind": "function",
     "summary": {
-      "ru": "Path.home() возвращает домашний каталог пользователя, Path.cwd() — текущий рабочий каталог.",
-      "en": "Path.home() returns the user's home directory, Path.cwd() the current working directory."
+      "ru": "Возвращает домашний каталог пользователя как Path. Классовый метод — вызывается на самом Path, не на экземпляре.",
+      "en": "Return the user's home directory as a Path; a classmethod called on Path itself rather than on an instance."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "Path.home()\nPath.cwd()",
+    "syntax": "Path.home()",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-path.home-path.cwd",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.home",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "создание",
     "aliases": [],
     "keywords": [
-      "Path.home",
-      "Path.cwd"
+      "home",
+      "Path.home"
     ],
     "tags": [
       "module"
@@ -5365,11 +5808,48 @@
     "examples": [
       "from pathlib import Path",
       "Path.home() # → PosixPath('/home/username')",
-      "Path.cwd() # → PosixPath('/current/dir')",
-      "Path.home() / 'Downloads' # → PosixPath('/home/username/Downloads')",
-      "str(Path.cwd()).startswith('/') # → True"
+      "Path.home() / 'Downloads' # → PosixPath('/home/username/Downloads')"
     ],
-    "related": [],
+    "related": [
+      "path.cwd"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.cwd",
+    "title": "Path.cwd()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущий рабочий каталог как Path — pathlib-аналог `os.getcwd()`, который отдаёт строку.",
+      "en": "Return the current working directory as a Path — the pathlib counterpart of `os.getcwd()`, which returns a string."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "Path.cwd()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.cwd",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "создание",
+    "aliases": [],
+    "keywords": [
+      "cwd",
+      "Path.cwd"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "Path.cwd() # → PosixPath('/current/dir')",
+      "Path.cwd().name # → имя текущего каталога"
+    ],
+    "related": [
+      "path.home"
+    ],
     "related_errors": []
   },
   {
@@ -6081,28 +6561,28 @@
     "related_errors": []
   },
   {
-    "id": "re.group-re.groups",
-    "title": "re.group() / re.groups()",
+    "id": "re.group",
+    "title": "re.group()",
     "kind": "function",
     "summary": {
-      "ru": "Методы объекта Match для доступа к захваченным группам. group(0) — всё совпадение, group(n) — n-я группа.",
-      "en": "The methods of a Match object that give access to the captured groups. group(0) is the whole match, group(n) the n-th group."
+      "ru": "Возвращает текст одной захваченной группы объекта Match. group(0) (или group()) — всё совпадение целиком, group(n) — n-я группа.",
+      "en": "Return the text of a single captured group of a Match object: group(0) (or group()) is the whole match, group(n) is the n-th group."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "m.group(n=0)\nm.groups(default=None)\nm.groupdict()",
+    "syntax": "m.group(n=0)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-re.group-re.groups",
-    "docs_url": "https://docs.python.org/3/library/re.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/re.html#re.Match.group",
     "version": "",
     "section": "Модуль re",
     "subcat": "группы",
     "aliases": [],
     "keywords": [
       "re.group",
-      "re.groups"
+      "group"
     ],
     "tags": [
       "module"
@@ -6112,12 +6592,92 @@
       "m = re.match(r'(\\w+)@(\\w+)', 'user@host')",
       "m.group() # → 'user@host'",
       "m.group(1) # → 'user'",
-      "m.group(2) # → 'host'",
-      "m.groups() # → ('user', 'host')",
-      "m2 = re.match(r'(?P<y>\\d{4})-(?P<m>\\d{2})', '2024-01')",
-      "m2.groupdict() # → {'y': '2024', 'm': '01'}"
+      "m.group(2) # → 'host'"
     ],
-    "related": [],
+    "related": [
+      "re.groups",
+      "re.groupdict"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "re.groups",
+    "title": "re.groups()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает кортеж ВСЕХ захваченных групп объекта Match (без группы 0). Незахваченным группам подставляется default (по умолчанию None).",
+      "en": "Return a tuple of all captured groups of a Match object (group 0 excluded); groups that did not participate get default (None by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "m.groups(default=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/re.html#re.Match.groups",
+    "version": "",
+    "section": "Модуль re",
+    "subcat": "группы",
+    "aliases": [],
+    "keywords": [
+      "re.groups",
+      "groups"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import re",
+      "m = re.match(r'(\\w+)@(\\w+)', 'user@host')",
+      "m.groups() # → ('user', 'host')",
+      "m2 = re.match(r'(a)(b)?', 'a')",
+      "m2.groups() # → ('a', None)",
+      "m2.groups(default='-') # → ('a', '-')"
+    ],
+    "related": [
+      "re.group",
+      "re.groupdict"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "re.groupdict",
+    "title": "re.groupdict()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает словарь ИМЕНОВАННЫХ групп объекта Match — тех, что заданы через (?P<имя>...). Безымянные группы в словарь не попадают.",
+      "en": "Return a dict of the named groups of a Match object — those declared with (?P<name>...); unnamed groups are not included."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "m.groupdict(default=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/re.html#re.Match.groupdict",
+    "version": "",
+    "section": "Модуль re",
+    "subcat": "группы",
+    "aliases": [],
+    "keywords": [
+      "re.groupdict",
+      "groupdict"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import re",
+      "m = re.match(r'(?P<y>\\d{4})-(?P<m>\\d{2})', '2024-01')",
+      "m.groupdict() # → {'y': '2024', 'm': '01'}",
+      "m.group('y') # → '2024' (по имени)"
+    ],
+    "related": [
+      "re.group",
+      "re.groups"
+    ],
     "related_errors": []
   },
   {
@@ -6775,45 +7335,77 @@
     "related_errors": []
   },
   {
-    "id": "sys.getrecursionlimit-sys.setrecursionli",
-    "title": "sys.getrecursionlimit() / sys.setrecursionlimit()",
+    "id": "sys.getrecursionlimit",
+    "title": "sys.getrecursionlimit()",
     "kind": "function",
     "summary": {
-      "ru": "Получение и установка максимальной глубины рекурсии. По умолчанию 1000. Превышение вызывает RecursionError.",
-      "en": "Reading and setting the maximum recursion depth. The default is 1000. Going past it raises RecursionError."
+      "ru": "Возвращает текущий предел глубины рекурсии интерпретатора (по умолчанию 1000). При его превышении поднимается RecursionError.",
+      "en": "Return the interpreter's current maximum recursion depth (1000 by default); exceeding it raises RecursionError."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "sys.getrecursionlimit() -> int\nsys.setrecursionlimit(limit: int) -> None",
+    "syntax": "sys.getrecursionlimit() -> int",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.getrecursionlimit-sys.setrecursionli",
-    "docs_url": "https://docs.python.org/3/library/sys.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/sys.html#sys.getrecursionlimit",
     "version": "",
     "section": "Модуль sys",
     "subcat": "рекурсия",
     "aliases": [],
     "keywords": [
       "sys.getrecursionlimit",
-      "sys.setrecursionlimit"
+      "getrecursionlimit"
     ],
     "tags": [
       "module"
     ],
     "examples": [
       "import sys",
-      "print(sys.getrecursionlimit())  # → 1000",
-      "sys.setrecursionlimit(5000)  # → установка нового лимита",
+      "print(sys.getrecursionlimit())  # → 1000"
+    ],
+    "related": [
+      "sys.setrecursionlimit"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sys.setrecursionlimit",
+    "title": "sys.setrecursionlimit()",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает предел глубины рекурсии. Слишком большое значение может уронить процесс по переполнению стека — это не защита, а предохранитель.",
+      "en": "Set the maximum recursion depth; too high a value can crash the process with a stack overflow — the limit is a safeguard, not a hard guarantee."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sys.setrecursionlimit(limit: int) -> None",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/sys.html#sys.setrecursionlimit",
+    "version": "",
+    "section": "Модуль sys",
+    "subcat": "рекурсия",
+    "aliases": [],
+    "keywords": [
+      "sys.setrecursionlimit",
+      "setrecursionlimit"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import sys",
+      "sys.setrecursionlimit(5000)",
       "print(sys.getrecursionlimit())  # → 5000",
-      "try:",
-      "def f(): return f()",
-      "f()",
-      "except RecursionError:",
-      "print('RecursionError')  # → RecursionError",
       "sys.setrecursionlimit(1000)  # → возврат к стандарту"
     ],
-    "related": [],
+    "related": [
+      "sys.getrecursionlimit"
+    ],
     "related_errors": []
   },
   {
@@ -7422,20 +8014,20 @@
     "related_errors": []
   },
   {
-    "id": "unittest-assertEqual",
-    "title": "assertEqual() / assertRaises()",
+    "id": "unittest.assertEqual",
+    "title": "assertEqual()",
     "kind": "function",
     "summary": {
-      "ru": "assertEqual(a, b) проверяет равенство. assertRaises(Exc) проверяет, что блок или вызов поднимает нужное исключение.",
-      "en": "assertEqual(a, b) checks equality. assertRaises(Exc) checks that the block or the call raises the expected exception."
+      "ru": "Проверяет, что два значения равны (==), и при расхождении печатает оба. Базовое утверждение TestCase — на нём строится большинство проверок.",
+      "en": "Assert that two values are equal (==), printing both on failure; the basic TestCase assertion most checks are built on."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "self.assertEqual(a, b)\nself.assertRaises(ExcType, callable, *args)\nwith self.assertRaises(ExcType): ...",
+    "syntax": "self.assertEqual(first, second, msg=None)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-unittest-assertEqual",
+    "url": "",
     "docs_url": "https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertEqual",
     "version": "",
     "section": "Модуль unittest",
@@ -7443,7 +8035,7 @@
     "aliases": [],
     "keywords": [
       "assertEqual",
-      "assertRaises"
+      "TestCase.assertEqual"
     ],
     "tags": [
       "module"
@@ -7451,16 +8043,55 @@
     "examples": [
       "import unittest",
       "class Tests(unittest.TestCase):",
-      "def test_equal(self):",
-      "self.assertEqual(2 ** 3, 8)",
-      "self.assertNotEqual(1, 2)",
-      "def test_raises(self):",
-      "with self.assertRaises(ValueError):",
-      "int('abc')",
-      "def test_raises2(self):",
-      "self.assertRaises(ZeroDivisionError, lambda: 1/0)"
+      "    def test_equal(self):",
+      "        self.assertEqual(2 ** 3, 8)",
+      "        self.assertNotEqual(1, 2)"
     ],
-    "related": [],
+    "related": [
+      "unittest.assertRaises",
+      "unittest.setUp"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "unittest.assertRaises",
+    "title": "assertRaises()",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что код поднимает нужное исключение. Как контекстный менеджер (with) проверяет блок, а с вызываемым объектом — конкретный вызов.",
+      "en": "Assert that code raises the expected exception: as a context manager (with) it checks a block, or pass a callable to check a single call."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "with self.assertRaises(ExcType): ...\nself.assertRaises(ExcType, callable, *args)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertRaises",
+    "version": "",
+    "section": "Модуль unittest",
+    "subcat": "проверки",
+    "aliases": [],
+    "keywords": [
+      "assertRaises",
+      "TestCase.assertRaises"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import unittest",
+      "class Tests(unittest.TestCase):",
+      "    def test_raises(self):",
+      "        with self.assertRaises(ValueError):",
+      "            int('abc')",
+      "    def test_raises_call(self):",
+      "        self.assertRaises(ZeroDivisionError, lambda: 1 / 0)"
+    ],
+    "related": [
+      "unittest.assertEqual"
+    ],
     "related_errors": []
   },
   {
@@ -7502,20 +8133,20 @@
     "related_errors": []
   },
   {
-    "id": "unittest-setUp",
-    "title": "setUp() / tearDown()",
+    "id": "unittest.setUp",
+    "title": "setUp()",
     "kind": "function",
     "summary": {
-      "ru": "setUp() запускается перед каждым тестом, tearDown() — после. Используй для подготовки и очистки состояния (БД, файлы, моки).",
-      "en": "setUp() runs before every test, tearDown() after it. Use them to prepare and clean up state (databases, files, mocks)."
+      "ru": "Запускается перед КАЖДЫМ тестом метода класса — готовит состояние (файлы, БД, моки). Падение в setUp помечает тест как error, а не fail.",
+      "en": "Run before EVERY test method of the class to prepare state (files, DB, mocks); a failure inside setUp marks the test as an error, not a failure."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "def setUp(self): ...    # до теста\ndef tearDown(self): ... # после теста",
+    "syntax": "def setUp(self): ...    # до каждого теста",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-unittest-setUp",
+    "url": "",
     "docs_url": "https://docs.python.org/3/library/unittest.html#unittest.TestCase.setUp",
     "version": "",
     "section": "Модуль unittest",
@@ -7523,7 +8154,7 @@
     "aliases": [],
     "keywords": [
       "setUp",
-      "tearDown"
+      "TestCase.setUp"
     ],
     "tags": [
       "module"
@@ -7531,14 +8162,55 @@
     "examples": [
       "import unittest",
       "class DBTest(unittest.TestCase):",
-      "def setUp(self):",
-      "self.data = {'key': 'val'}   # инициализация",
-      "def tearDown(self):",
-      "self.data.clear()            # очистка",
-      "def test_key(self):",
-      "self.assertIn('key', self.data)"
+      "    def setUp(self):",
+      "        self.data = {'key': 'val'}   # инициализация",
+      "    def test_key(self):",
+      "        self.assertIn('key', self.data)"
     ],
-    "related": [],
+    "related": [
+      "unittest.tearDown",
+      "unittest.assertEqual"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "unittest.tearDown",
+    "title": "tearDown()",
+    "kind": "function",
+    "summary": {
+      "ru": "Запускается после КАЖДОГО теста — освобождает то, что занял setUp. Вызывается даже если тест упал, но только если сам setUp отработал успешно.",
+      "en": "Run after EVERY test to release what setUp acquired; it still runs when the test fails, but only if setUp itself completed successfully."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "def tearDown(self): ... # после каждого теста",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/unittest.html#unittest.TestCase.tearDown",
+    "version": "",
+    "section": "Модуль unittest",
+    "subcat": "фикстуры",
+    "aliases": [],
+    "keywords": [
+      "tearDown",
+      "TestCase.tearDown"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import unittest",
+      "class DBTest(unittest.TestCase):",
+      "    def setUp(self):",
+      "        self.data = {'key': 'val'}",
+      "    def tearDown(self):",
+      "        self.data.clear()            # очистка"
+    ],
+    "related": [
+      "unittest.setUp"
+    ],
     "related_errors": []
   },
   {
@@ -7986,7 +8658,9 @@
       "print(sq(4))                        # → 16",
       "print(sq(4), sq.cache_info().hits)  # → 16 1"
     ],
-    "related": [],
+    "related": [
+      "functools.cache"
+    ],
     "related_errors": []
   },
   {
@@ -8020,7 +8694,9 @@
       "    return n + 1",
       "print(f(10), f(10))   # → 11 11"
     ],
-    "related": [],
+    "related": [
+      "functools.lru_cache"
+    ],
     "related_errors": []
   },
   {
@@ -14166,9 +14842,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.basename('/a/b/c.txt'))   # → c.txt"
+      "print(os.path.basename('/a/b/c.txt'))   # → c.txt",
+      "path = '/home/user/file.txt'",
+      "print(os.path.basename(path))  # → file.txt",
+      "print(os.path.basename('/home/user/'))  # → '' (пустой хвост)"
     ],
-    "related": [],
+    "related": [
+      "os.path.dirname",
+      "os.path.split"
+    ],
     "related_errors": []
   },
   {
@@ -14197,9 +14879,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.dirname('/a/b/c.txt'))   # → /a/b"
+      "print(os.path.dirname('/a/b/c.txt'))   # → /a/b",
+      "path = '/home/user/file.txt'",
+      "print(os.path.dirname(path))  # → /home/user",
+      "print(os.path.dirname('file.txt'))  # → '' (без каталога)"
     ],
-    "related": [],
+    "related": [
+      "os.path.basename",
+      "os.path.split"
+    ],
     "related_errors": []
   },
   {
@@ -14228,9 +14916,14 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.split('/a/b/c'))   # → ('/a/b', 'c')"
+      "print(os.path.split('/a/b/c'))   # → ('/a/b', 'c')",
+      "path = '/home/user/file.txt'",
+      "print(os.path.split(path))  # → ('/home/user', 'file.txt')"
     ],
-    "related": [],
+    "related": [
+      "os.path.dirname",
+      "os.path.basename"
+    ],
     "related_errors": []
   },
   {
@@ -14631,9 +15324,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.exists(os.__file__))   # → True"
+      "print(os.path.exists(os.__file__))   # → True",
+      "print(os.path.exists('/tmp'))  # → True",
+      "print(os.path.exists('/nonexistent'))  # → False"
     ],
-    "related": [],
+    "related": [
+      "os.path.isfile",
+      "os.path.isdir",
+      "path.exists"
+    ],
     "related_errors": []
   },
   {
@@ -14693,9 +15392,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.isdir(os.path.dirname(os.__file__)))   # → True"
+      "print(os.path.isdir(os.path.dirname(os.__file__)))   # → True",
+      "print(os.path.isdir('/tmp'))  # → True",
+      "print(os.path.isdir('/etc/hosts'))  # → False (это файл)"
     ],
-    "related": [],
+    "related": [
+      "os.path.exists",
+      "os.path.isfile",
+      "path.is_dir"
+    ],
     "related_errors": []
   },
   {
@@ -14724,9 +15429,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.isfile(os.__file__))   # → True"
+      "print(os.path.isfile(os.__file__))   # → True",
+      "print(os.path.isfile('/etc/hosts'))  # → True",
+      "print(os.path.isfile('/tmp'))  # → False (это каталог)"
     ],
-    "related": [],
+    "related": [
+      "os.path.exists",
+      "os.path.isdir",
+      "path.is_file"
+    ],
     "related_errors": []
   },
   {
@@ -15777,7 +16488,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.getcwd()",
+    "syntax": "os.getcwd() -> str",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.getcwd",
@@ -15791,9 +16502,14 @@
     ],
     "examples": [
       "import os",
-      "print(isinstance(os.getcwd(), str))   # → True"
+      "print(isinstance(os.getcwd(), str))   # → True",
+      "print(type(os.getcwd()))  # → <class 'str'>",
+      "start = os.getcwd()  # запомнить текущий каталог"
     ],
-    "related": [],
+    "related": [
+      "os.chdir",
+      "path.cwd"
+    ],
     "related_errors": []
   },
   {
@@ -19177,7 +19893,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.chdir(...)",
+    "syntax": "os.chdir(path) -> None",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.chdir",
@@ -19193,9 +19909,15 @@
       "import os",
       "cwd = os.getcwd()",
       "os.chdir(cwd)",
-      "print(os.getcwd() == cwd)   # → True"
+      "print(os.getcwd() == cwd)   # → True",
+      "start = os.getcwd()",
+      "os.chdir('/tmp')",
+      "print(os.getcwd())  # → /tmp",
+      "os.chdir(start)  # вернуться в исходный каталог"
     ],
-    "related": [],
+    "related": [
+      "os.getcwd"
+    ],
     "related_errors": []
   },
   {
@@ -19247,7 +19969,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.makedirs(...)",
+    "syntax": "os.makedirs(name, mode=0o777, exist_ok=False)",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.makedirs",
@@ -19266,9 +19988,15 @@
       "d = os.path.join(base, 'a', 'b')",
       "os.makedirs(d)",
       "print(os.path.isdir(d))   # → True",
-      "os.removedirs(d)"
+      "os.removedirs(d)",
+      "os.makedirs('a/b/c', exist_ok=True)  # → создаёт вложенные папки",
+      "os.makedirs('new_dir', exist_ok=True)  # → не ошибка если папка уже есть"
     ],
-    "related": [],
+    "related": [
+      "os.rmdir",
+      "os.removedirs",
+      "path.mkdir"
+    ],
     "related_errors": []
   },
   {
@@ -19283,7 +20011,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.rmdir(...)",
+    "syntax": "os.rmdir(path)",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.rmdir",
@@ -19300,9 +20028,15 @@
       "import tempfile",
       "d = tempfile.mkdtemp()",
       "os.rmdir(d)",
-      "print(os.path.exists(d))   # → False"
+      "print(os.path.exists(d))   # → False",
+      "os.makedirs('a/b/c', exist_ok=True)",
+      "os.rmdir('a/b/c')  # → удаляет только пустую c",
+      "print(os.path.isdir('a/b'))  # → True"
     ],
-    "related": [],
+    "related": [
+      "os.makedirs",
+      "os.removedirs"
+    ],
     "related_errors": []
   },
   {
@@ -19353,7 +20087,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.rename(...)",
+    "syntax": "os.rename(src, dst)",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.rename",
@@ -19373,9 +20107,15 @@
       "p2 = p + '_r'",
       "os.rename(p, p2)",
       "print(os.path.exists(p2) and not os.path.exists(p))   # → True",
-      "os.remove(p2)"
+      "os.remove(p2)",
+      "os.rename('old.txt', 'new.txt')  # → переименование",
+      "os.rename('file.txt', '/tmp/file.txt')  # → перемещение",
+      "os.rename('folder_a', 'folder_b')  # → переименование папки"
     ],
-    "related": [],
+    "related": [
+      "os.remove",
+      "path.rename"
+    ],
     "related_errors": []
   },
   {

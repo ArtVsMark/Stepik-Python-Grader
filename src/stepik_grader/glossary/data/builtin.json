@@ -102,7 +102,9 @@
       "print(all(x>0 for x in [1,2,3]))  # → True",
       "print(all(x>0 for x in [1,-1,3]))  # → False"
     ],
-    "related": [],
+    "related": [
+      "any"
+    ],
     "related_errors": []
   },
   {
@@ -134,9 +136,13 @@
       "print(any([False,False]))  # → False",
       "print(any([]))  # → False",
       "print(any(x<0 for x in [1,-1,3]))  # → True",
-      "print(any(x==5 for x in range(10)))  # → True"
+      "print(any(x==5 for x in range(10)))  # → True",
+      "# ленивое вычисление — остановится на первом True",
+      "print(any(x > 100 for x in range(10**6)))  # → False"
     ],
-    "related": [],
+    "related": [
+      "all"
+    ],
     "related_errors": []
   },
   {
@@ -1561,7 +1567,11 @@
       "print(max([1,2,3], key=lambda x:-x))  # → 1",
       "print(max([], default=0))  # → 0"
     ],
-    "related": [],
+    "related": [
+      "min",
+      "sum",
+      "len"
+    ],
     "related_errors": []
   },
   {
@@ -1632,7 +1642,11 @@
       "print(min([1,2,3], key=lambda x:-x))  # → 3",
       "print(min([], default=0))  # → 0"
     ],
-    "related": [],
+    "related": [
+      "max",
+      "sum",
+      "len"
+    ],
     "related_errors": []
   },
   {
@@ -2132,7 +2146,10 @@
       "print(x, end=' ')  # → 3 2 1",
       "print(''.join(reversed('hello')))  # → olleh"
     ],
-    "related": [],
+    "related": [
+      "zip",
+      "enumerate"
+    ],
     "related_errors": []
   },
   {
@@ -2415,7 +2432,11 @@
       "print(sum([0.1]*10))  # → 1.0 (примерно)",
       "print(sum({'a':1,'b':2}.values()))  # → 3"
     ],
-    "related": [],
+    "related": [
+      "min",
+      "max",
+      "len"
+    ],
     "related_errors": []
   },
   {
@@ -2699,7 +2720,11 @@
       "print(len('abcd'))        # → 4",
       "print(len({'a': 1}))      # → 1"
     ],
-    "related": [],
+    "related": [
+      "min",
+      "max",
+      "sum"
+    ],
     "related_errors": []
   },
   {

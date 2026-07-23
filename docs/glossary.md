@@ -96,6 +96,31 @@
 
 Запуск отчёта: `python scripts/audit_glossary_cards.py --report`.
 
+### Одна концепция — одна карточка
+
+Бандлы module-методов (`title` вида `.exists() / .is_file() / .is_dir()`)
+разобраны на отдельные карточки: `pathlib`, `heapq`, `bisect`, `datetime`, `re`,
+`sys`, `decimal`, `unittest` и файловые методы `read()`/`write()`. Там, где
+одиночные карточки для этих вызовов уже существовали (`os`, встроенные функции,
+`functools`), бандл удалён как дубль, а его содержимое перелито в существующую
+карточку — новые карточки создавались только под реально непокрытые вызовы.
+Разделённые карточки связаны между собой полем `related`.
+
+**Намеренно остаются бандлами** — парные протоколы и эквивалентности, которые
+изучают только вместе и которые не являются двумя независимыми концепциями:
+`try / except`, `async def / await`, `__iter__ / __next__`,
+`__enter__ / __exit__`, `__str__ / __repr__`, `iter() / next()`,
+`Optional[X] / X | None`, `Union[X, Y] / X | Y`, `IntEnum / StrEnum`,
+`Flag / IntFlag`, `global / nonlocal`, `is / is not`, `match / case`,
+`in / not in`, срезы `[::2] / [::-1]`, а также группы атрибутов
+(`sys.stdin / sys.stdout / sys.stderr`, `os.sep / os.linesep / os.pathsep`).
+Им matcher-safety обеспечивают `keywords`, а не разбиение.
+
+Практическое следствие для новых карточек: карточке `kind="function"`, чей
+`title` — вызов (`.exists()`, `heapq.heappop()`), нужны `keywords` с чистым
+именем (`exists`, `heappop`). `id` — слаг, `title` — со скобками, и без
+`keywords` concept детектора не совпадёт ни с тем, ни с другим.
+
 ## Комплектная база (bundled, issue #326)
 
 В пакете лежит готовая база — `src/stepik_grader/glossary/data/*.json` (число

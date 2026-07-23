@@ -76,54 +76,6 @@
     "related_errors": []
   },
   {
-    "id": "any-all",
-    "title": "any() / all()",
-    "kind": "function",
-    "summary": {
-      "ru": "any() — True если хотя бы один элемент True. all() — True если все элементы True. Работают лениво.",
-      "en": "any() — True if at least one item is True. all() — True if every item is True. Both work lazily."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "any(iterable)\nall(iterable)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-any-all",
-    "docs_url": "https://docs.python.org/3/",
-    "version": "",
-    "section": "Функции",
-    "subcat": "логика",
-    "aliases": [],
-    "keywords": [
-      "any",
-      "all"
-    ],
-    "tags": [
-      "op"
-    ],
-    "examples": [
-      "print(any([False, True, False]))  # → True",
-      "print(all([True, True, True]))   # → True",
-      "print(any([]))  # → False",
-      "print(all([]))  # → True (пустой — вакуумная истина)",
-      "nums = [2, 4, 6, 7]",
-      "print(all(x % 2 == 0 for x in nums))  # → False",
-      "print(any(x % 2 != 0 for x in nums))  # → True",
-      "words = ['hello', 'world', '']",
-      "print(any(len(w) == 0 for w in words))  # → True",
-      "# Проверка прав",
-      "perms = {'read': True, 'write': False, 'exec': False}",
-      "print(any(perms.values()))  # → True",
-      "print(all(perms.values()))  # → False",
-      "# Ленивое вычисление — остановится на первом True",
-      "result = any(x > 100 for x in range(10**6))",
-      "print(result)  # → False"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "args",
     "title": "*args",
     "kind": "term",
@@ -548,28 +500,28 @@
     "related_errors": []
   },
   {
-    "id": "decimal.getcontext-setcontext",
-    "title": "decimal.getcontext() / setcontext()",
+    "id": "decimal.getcontext",
+    "title": "decimal.getcontext()",
     "kind": "function",
     "summary": {
-      "ru": "Управляет точностью (prec), режимом округления и обработкой ошибок для операций с Decimal.",
-      "en": "Controls the precision (prec), the rounding mode and the error handling of Decimal operations."
+      "ru": "Возвращает текущий контекст Decimal для этого потока. Его поля prec (точность) и rounding можно менять прямо на месте — они влияют на все операции.",
+      "en": "Return the current thread's Decimal context; its prec and rounding fields can be mutated in place and affect every subsequent operation."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "decimal.getcontext().prec = 50\ndecimal.setcontext(decimal.Context(prec=10))",
+    "syntax": "decimal.getcontext()\ndecimal.getcontext().prec = 50",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-decimal.getcontext-setcontext",
-    "docs_url": "https://docs.python.org/3/library/numbers.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.getcontext",
     "version": "",
     "section": "Числа и математика",
     "subcat": "decimal",
     "aliases": [],
     "keywords": [
       "decimal.getcontext",
-      "setcontext"
+      "getcontext"
     ],
     "tags": [
       "op"
@@ -580,10 +532,49 @@
       "ctx.prec # → 28 (по умолчанию)",
       "ctx.prec = 5",
       "decimal.Decimal(1) / decimal.Decimal(7) # → Decimal('0.14286')",
-      "decimal.getcontext().rounding = decimal.ROUND_HALF_UP",
-      "decimal.Decimal('2.5').quantize(decimal.Decimal('1')) # → Decimal('3')"
+      "decimal.getcontext().rounding = decimal.ROUND_HALF_UP"
     ],
-    "related": [],
+    "related": [
+      "decimal.setcontext"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.setcontext",
+    "title": "decimal.setcontext()",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет текущий контекст Decimal целиком на переданный. Удобно, когда нужен заранее собранный Context, а не правка полей по одному.",
+      "en": "Replace the current Decimal context wholesale with the given one — useful when you have a prebuilt Context rather than tweaking fields one by one."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "decimal.setcontext(ctx)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.setcontext",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "decimal",
+    "aliases": [],
+    "keywords": [
+      "decimal.setcontext",
+      "setcontext"
+    ],
+    "tags": [
+      "op"
+    ],
+    "examples": [
+      "import decimal",
+      "decimal.setcontext(decimal.Context(prec=10))",
+      "decimal.getcontext().prec # → 10",
+      "decimal.Decimal(1) / decimal.Decimal(3) # → Decimal('0.3333333333')"
+    ],
+    "related": [
+      "decimal.getcontext"
+    ],
     "related_errors": []
   },
   {
@@ -789,7 +780,10 @@
       "max_i, max_v = max(enumerate(nums), key=lambda x: x[1])",
       "print(max_i, max_v)  # → 2 8"
     ],
-    "related": [],
+    "related": [
+      "zip",
+      "reversed"
+    ],
     "related_errors": []
   },
   {
@@ -840,7 +834,9 @@
       "result = list(map(lambda x: x**2, filter(lambda x: x%2==0, range(6))))",
       "print(result)  # → [0, 4, 16]"
     ],
-    "related": [],
+    "related": [
+      "map"
+    ],
     "related_errors": []
   },
   {
@@ -987,66 +983,6 @@
       "Fraction(1, 3) * 3 # → Fraction(1, 1)",
       "Fraction(22, 7) # → Fraction(22, 7)",
       "float(Fraction(1, 3)) # → 0.3333333333333333"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "functools.lru_cache-functools.cache",
-    "title": "functools.lru_cache / functools.cache",
-    "kind": "term",
-    "summary": {
-      "ru": "Мемоизация: кэширует результаты вызовов функции. lru_cache(maxsize=...) ограничивает размер. cache — без ограничений (Python 3.9+).",
-      "en": "Memoization: caches the results of calls to a function. lru_cache(maxsize=...) bounds the size of the cache. cache is unbounded (Python 3.9+)."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "@lru_cache(maxsize=None)\ndef f(n): ...",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.lru_cache-functools.cache",
-    "docs_url": "https://docs.python.org/3/",
-    "version": "3.9+",
-    "section": "Функции",
-    "subcat": "functools",
-    "aliases": [],
-    "keywords": [
-      "functools.lru_cache",
-      "functools.cache"
-    ],
-    "tags": [
-      "op"
-    ],
-    "examples": [
-      "from functools import lru_cache",
-      "@lru_cache(maxsize=None)",
-      "def fib(n):",
-      "if n < 2: return n",
-      "return fib(n-1) + fib(n-2)",
-      "print(fib(40))  # → 102334155 (быстро!)",
-      "# Без кэша fib(35) — секунды, с кэшем — мгновенно",
-      "print(fib.cache_info())  # → CacheInfo(hits=..., misses=...)",
-      "@lru_cache(maxsize=128)",
-      "def factorial(n):",
-      "if n == 0: return 1",
-      "return n * factorial(n-1)",
-      "print(factorial(10))  # → 3628800",
-      "from functools import cache",
-      "@cache",
-      "def count_ways(n):",
-      "if n <= 1: return 1",
-      "return count_ways(n-1) + count_ways(n-2)",
-      "print(count_ways(10))  # → 89",
-      "# Сброс кэша",
-      "fib.cache_clear()",
-      "print(fib.cache_info())  # → CacheInfo(hits=0, misses=0, ...)",
-      "# lru_cache с ограничением",
-      "@lru_cache(maxsize=3)",
-      "def slow(x):",
-      "return x * x",
-      "for i in [1,2,3,4,1]:",
-      "print(slow(i), end=' ')  # → 1 4 9 16 1"
     ],
     "related": [],
     "related_errors": []
@@ -1671,9 +1607,13 @@
       "print(next(m))  # → '1'",
       "names = ['alice', 'bob']",
       "result3 = list(map(str.capitalize, names))",
-      "print(result3)  # → ['Alice', 'Bob']"
+      "print(result3)  # → ['Alice', 'Bob']",
+      "# map по двум последовательностям сразу",
+      "print(list(map(lambda x, y: x + y, [1,2,3], [10,20,30])))  # → [11,22,33]"
     ],
-    "related": [],
+    "related": [
+      "filter"
+    ],
     "related_errors": []
   },
   {
@@ -2050,57 +1990,127 @@
     "related_errors": []
   },
   {
-    "id": "read-readline-readlines",
-    "title": "read() / readline() / readlines()",
+    "id": "file.read",
+    "title": "read()",
     "kind": "function",
     "summary": {
-      "ru": "read() — весь файл строкой. readline() — одна строка. readlines() — список строк.",
-      "en": "read() — the whole file as one string. readline() — a single line. readlines() — the list of lines."
+      "ru": "Читает файл целиком в одну строку, либо ровно size символов, если аргумент задан. На большом файле съедает всю память — тогда лучше читать построчно.",
+      "en": "Read the whole file into a single string, or exactly size characters if given; on a large file this loads everything into memory — iterate by lines instead."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "f.read()\nf.readline()\nf.readlines()",
+    "syntax": "f.read(size=-1)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-read-readline-readlines",
-    "docs_url": "https://docs.python.org/3/library/functions.html#open",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.TextIOBase.read",
     "version": "",
     "section": "Файлы и I_O",
     "subcat": "чтение",
     "aliases": [],
     "keywords": [
-      "read",
-      "readline",
+      "read"
+    ],
+    "tags": [
+      "op"
+    ],
+    "examples": [
+      "with open('/tmp/demo.txt', 'w') as f:",
+      "    f.write('line1\\nline2\\nline3\\n')",
+      "with open('/tmp/demo.txt') as f:",
+      "    content = f.read()",
+      "print(repr(content))  # → 'line1\\nline2\\nline3\\n'",
+      "with open('/tmp/demo.txt') as f:",
+      "    print(f.read(5))  # → line1 (ровно 5 символов)"
+    ],
+    "related": [
+      "file.readline",
+      "file.readlines",
+      "file.write"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "file.readline",
+    "title": "readline()",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает одну строку вместе с завершающим '\\n'. По достижении конца файла возвращает пустую строку — по этому признаку и определяют конец.",
+      "en": "Read a single line including its trailing '\\n'; at end of file it returns an empty string, which is how EOF is detected."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "f.readline(size=-1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.IOBase.readline",
+    "version": "",
+    "section": "Файлы и I_O",
+    "subcat": "чтение",
+    "aliases": [],
+    "keywords": [
+      "readline"
+    ],
+    "tags": [
+      "op"
+    ],
+    "examples": [
+      "with open('/tmp/demo.txt', 'w') as f:",
+      "    f.write('line1\\nline2\\n')",
+      "with open('/tmp/demo.txt') as f:",
+      "    first = f.readline()",
+      "    second = f.readline()",
+      "print(repr(first))   # → 'line1\\n'",
+      "print(repr(second))  # → 'line2\\n'"
+    ],
+    "related": [
+      "file.read",
+      "file.readlines"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "file.readlines",
+    "title": "readlines()",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает весь файл в список строк, сохраняя '\\n' на концах. Снять переносы помогает .rstrip() или .splitlines() на результате .read().",
+      "en": "Read the whole file into a list of lines, keeping the trailing '\\n'; strip them with .rstrip() or use .splitlines() on the result of .read()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "f.readlines(hint=-1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.IOBase.readlines",
+    "version": "",
+    "section": "Файлы и I_O",
+    "subcat": "чтение",
+    "aliases": [],
+    "keywords": [
       "readlines"
     ],
     "tags": [
       "op"
     ],
     "examples": [
-      "# Создадим файл для примеров",
-      "with open('/tmp/demo.txt','w') as f:",
-      "f.write('line1\\nline2\\nline3\\n')",
+      "with open('/tmp/demo.txt', 'w') as f:",
+      "    f.write('line1\\nline2\\nline3\\n')",
       "with open('/tmp/demo.txt') as f:",
-      "content = f.read()",
-      "print(repr(content))  # → 'line1\\nline2\\nline3\\n'",
-      "with open('/tmp/demo.txt') as f:",
-      "first = f.readline()",
-      "second = f.readline()",
-      "print(first, second)  # → line1\\n  line2\\n",
-      "with open('/tmp/demo.txt') as f:",
-      "lines = f.readlines()",
+      "    lines = f.readlines()",
       "print(lines)  # → ['line1\\n','line2\\n','line3\\n']",
-      "# read(n) — n байт",
       "with open('/tmp/demo.txt') as f:",
-      "chunk = f.read(5)",
-      "print(chunk)  # → line1",
-      "# Убрать \\n",
-      "with open('/tmp/demo.txt') as f:",
-      "lines = [l.rstrip() for l in f.readlines()]",
-      "print(lines)  # → ['line1','line2','line3']"
+      "    print([s.rstrip() for s in f.readlines()])  # → ['line1','line2','line3']"
     ],
-    "related": [],
+    "related": [
+      "file.read",
+      "file.readline"
+    ],
     "related_errors": []
   },
   {
@@ -2544,53 +2554,81 @@
     "related_errors": []
   },
   {
-    "id": "write-writelines",
-    "title": "write() / writelines()",
+    "id": "file.write",
+    "title": "write()",
     "kind": "function",
     "summary": {
-      "ru": "write(str) — записывает строку. writelines(iterable) — записывает список строк (без автоматических переносов).",
-      "en": "write(str) writes a string. writelines(iterable) writes a list of strings (with no newlines added)."
+      "ru": "Записывает строку в файл и возвращает число записанных символов. Переносы строк сам не добавляет — '\\n' нужно писать явно.",
+      "en": "Write a string to the file and return the number of characters written; it adds no line breaks, so '\\n' must be written explicitly."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "f.write('text')\nf.writelines(['a','b'])",
+    "syntax": "f.write(s)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-write-writelines",
-    "docs_url": "https://docs.python.org/3/library/functions.html#open",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.TextIOBase.write",
     "version": "",
     "section": "Файлы и I_O",
     "subcat": "запись",
     "aliases": [],
     "keywords": [
-      "write",
+      "write"
+    ],
+    "tags": [
+      "op"
+    ],
+    "examples": [
+      "with open('/tmp/out.txt', 'w') as f:",
+      "    f.write('Hello')",
+      "    f.write('\\nWorld')",
+      "with open('/tmp/out.txt', 'w') as f:",
+      "    n = f.write('Hello World')",
+      "print(n)  # → 11"
+    ],
+    "related": [
+      "file.writelines",
+      "file.read"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "file.writelines",
+    "title": "writelines()",
+    "kind": "function",
+    "summary": {
+      "ru": "Записывает все строки из итерируемого подряд. Разделители НЕ добавляет — '\\n' должен быть в самих строках, иначе всё склеится в одну.",
+      "en": "Write every string from an iterable in sequence; it adds no separators, so '\\n' must already be in the strings or everything runs together."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "f.writelines(lines)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.IOBase.writelines",
+    "version": "",
+    "section": "Файлы и I_O",
+    "subcat": "запись",
+    "aliases": [],
+    "keywords": [
       "writelines"
     ],
     "tags": [
       "op"
     ],
     "examples": [
-      "with open('/tmp/out.txt','w') as f:",
-      "f.write('Hello')",
-      "f.write('\\nWorld')",
-      "# writelines",
-      "lines = ['line1\\n','line2\\n','line3\\n']",
-      "with open('/tmp/out2.txt','w') as f:",
-      "f.writelines(lines)",
-      "# Запись с генератором",
-      "with open('/tmp/out3.txt','w') as f:",
-      "f.writelines(f'{i}\\n' for i in range(5))",
-      "# Число символов, записанных write()",
-      "with open('/tmp/out.txt','w') as f:",
-      "n = f.write('Hello World')",
-      "print(n)  # → 11",
-      "# Бинарная запись",
-      "with open('/tmp/bytes.bin','wb') as f:",
-      "f.write(b'\\xff\\xfe\\x00\\x01')",
-      "print('binary written')"
+      "lines = ['line1\\n', 'line2\\n', 'line3\\n']",
+      "with open('/tmp/out2.txt', 'w') as f:",
+      "    f.writelines(lines)",
+      "with open('/tmp/out3.txt', 'w') as f:",
+      "    f.writelines(f'{i}\\n' for i in range(5))"
     ],
-    "related": [],
+    "related": [
+      "file.write"
+    ],
     "related_errors": []
   },
   {
@@ -2629,64 +2667,14 @@
       "print(d)  # → {\"a\": 1, \"b\": 2, \"c\": 3}",
       "from itertools import zip_longest",
       "result = list(zip_longest([1, 2, 3], [10, 20], fillvalue=0))",
-      "print(result)  # → [(1, 10), (2, 20), (3, 0)]"
+      "print(result)  # → [(1, 10), (2, 20), (3, 0)]",
+      "# словарь из двух списков",
+      "print(dict(zip(['a','b','c'], [1,2,3])))  # → {'a':1,'b':2,'c':3}"
     ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "zip-enumerate-reversed",
-    "title": "zip() / enumerate() / reversed()",
-    "kind": "function",
-    "summary": {
-      "ru": "zip() — попарно объединяет итерируемые. enumerate() — добавляет индекс. reversed() — обратный порядок.",
-      "en": "zip() pairs iterables up. enumerate() adds an index. reversed() gives the reverse order."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "zip(a, b)\nenumerate(iterable, start=0)\nreversed(sequence)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-zip-enumerate-reversed",
-    "docs_url": "https://docs.python.org/3/",
-    "version": "",
-    "section": "Функции",
-    "subcat": "итерация",
-    "aliases": [],
-    "keywords": [
-      "zip",
+    "related": [
       "enumerate",
       "reversed"
     ],
-    "tags": [
-      "op"
-    ],
-    "examples": [
-      "a = [1,2,3]",
-      "b = ['a','b','c']",
-      "for x, y in zip(a, b):",
-      "print(x, y)  # → 1 a / 2 b / 3 c",
-      "pairs = list(zip(a, b))",
-      "print(pairs)  # → [(1,'a'),(2,'b'),(3,'c')]",
-      "# enumerate",
-      "fruits = ['apple','banana','cherry']",
-      "for i, fruit in enumerate(fruits, start=1):",
-      "print(i, fruit)  # → 1 apple / 2 banana...",
-      "# dict из двух списков",
-      "keys = ['a','b','c']",
-      "vals = [1,2,3]",
-      "d = dict(zip(keys, vals))",
-      "print(d)  # → {'a':1,'b':2,'c':3}",
-      "# reversed",
-      "nums = [1,2,3,4,5]",
-      "print(list(reversed(nums)))  # → [5,4,3,2,1]",
-      "# zip с разными длинами (zip_longest)",
-      "from itertools import zip_longest",
-      "result = list(zip_longest([1,2,3],[10,20], fillvalue=0))",
-      "print(result)  # → [(1,10),(2,20),(3,0)]"
-    ],
-    "related": [],
     "related_errors": []
   },
   {
