@@ -156,8 +156,8 @@
     "title": "asyncio.Queue",
     "kind": "term",
     "summary": {
-      "ru": "Потокобезопасная очередь для обмена данными между корутинами. Поддерживает put/get с await.",
-      "en": "A queue for passing data between coroutines. put/get are awaited."
+      "ru": "Очередь для обмена данными между корутинами. put/get — с await. Не потокобезопасна: для обмена между потоками используй queue.Queue.",
+      "en": "A queue for passing data between coroutines. put/get are awaited. Not thread-safe: use queue.Queue to pass data between threads."
     },
     "body": {
       "ru": "",
