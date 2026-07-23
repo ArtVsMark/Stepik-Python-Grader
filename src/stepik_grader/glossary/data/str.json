@@ -5,7 +5,7 @@
     "kind": "term",
     "summary": {
       "ru": "Байтовые строки (b\"...\") хранят последовательность байт, а не Unicode-символов. Каждый элемент — целое число 0–255. Используются при работе с бинарными данными.",
-      "en": ""
+      "en": "Byte strings (b\"...\") hold a sequence of bytes rather than Unicode characters. Each item is an integer 0–255. Used when working with binary data."
     },
     "body": {
       "ru": "",
@@ -40,7 +40,7 @@
     "kind": "term",
     "summary": {
       "ru": "f-строки (f'...') — форматированные строковые литералы. Выражения в {} вычисляются во время выполнения.",
-      "en": ""
+      "en": "f-strings (f'...') are formatted string literals. The expressions inside {} are evaluated at run time."
     },
     "body": {
       "ru": "",
@@ -91,7 +91,7 @@
     "kind": "term",
     "summary": {
       "ru": "Метод str.format() подставляет аргументы по позиции или имени. Поддерживает спецификаторы формата.",
-      "en": ""
+      "en": "The str.format() method substitutes arguments by position or by name. It supports format specifiers."
     },
     "body": {
       "ru": "",
@@ -134,7 +134,7 @@
     "kind": "term",
     "summary": {
       "ru": "Проверяет, является ли одна строка подстрокой другой. Возвращает bool.",
-      "en": ""
+      "en": "Checks whether one string is a substring of another. Returns a bool."
     },
     "body": {
       "ru": "",
@@ -173,7 +173,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает количество символов в строке. Считает Unicode-символы как один символ.",
-      "en": ""
+      "en": "Returns the number of characters in a string. Every Unicode character counts as one."
     },
     "body": {
       "ru": "",
@@ -214,7 +214,7 @@
     "kind": "term",
     "summary": {
       "ru": "Raw-строки (r\"...\") не обрабатывают escape-последовательности: обратный слэш трактуется как обычный символ. Незаменимы для регулярных выражений и путей Windows.",
-      "en": ""
+      "en": "Raw strings (r\"...\") do not process escape sequences: a backslash is an ordinary character. Indispensable for regular expressions and Windows paths."
     },
     "body": {
       "ru": "",
@@ -250,7 +250,7 @@
     "kind": "term",
     "summary": {
       "ru": "Доступ к символу строки по индексу. Положительные индексы от начала (0), отрицательные — от конца (-1).",
-      "en": ""
+      "en": "Access to a character of a string by index. Positive indices count from the start (0), negative ones from the end (-1)."
     },
     "body": {
       "ru": "",
@@ -293,7 +293,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор + объединяет две строки в новую. Операнды должны быть строками.",
-      "en": ""
+      "en": "The + operator joins two strings into a new one. Both operands must be strings."
     },
     "body": {
       "ru": "",
@@ -335,7 +335,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор * повторяет строку n раз. При n <= 0 возвращает пустую строку.",
-      "en": ""
+      "en": "The * operator repeats a string n times. For n <= 0 it returns an empty string."
     },
     "body": {
       "ru": "",
@@ -375,7 +375,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строки создаются одинарными/двойными кавычками, тройными для многострочных, raw-строками (r''), байтами (b''), escape-последовательностями.",
-      "en": ""
+      "en": "Strings are written with single or double quotes, triple quotes for multi-line text, raw strings (r''), bytes (b'') and escape sequences."
     },
     "body": {
       "ru": "",
@@ -420,7 +420,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строки сравниваются лексикографически по Unicode code points символов.",
-      "en": ""
+      "en": "Strings are compared lexicographically by the Unicode code points of their characters."
     },
     "body": {
       "ru": "",
@@ -459,7 +459,7 @@
     "kind": "term",
     "summary": {
       "ru": "Получение подстроки по диапазону индексов. s[a:b] — от a до b (не включая b), s[a:b:c] — с шагом c. s[::-1] — реверс.",
-      "en": ""
+      "en": "Taking a substring by a range of indices. s[a:b] runs from a to b (b excluded), s[a:b:c] takes step c. s[::-1] reverses the string."
     },
     "body": {
       "ru": "",
@@ -503,7 +503,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строки в Python неизменяемы (immutable). Интернирование — кэширование коротких строк-идентификаторов. is проверяет идентичность объектов, == — равенство.",
-      "en": ""
+      "en": "Strings in Python are immutable. Interning caches short identifier-like strings. is checks object identity, == checks equality."
     },
     "body": {
       "ru": "",
@@ -552,7 +552,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строки в тройных кавычках (\"\"\"...\"\"\" или '''...''') могут содержать переносы строк и кавычки без экранирования. Используются для многострочных строк и docstring-документации.",
-      "en": ""
+      "en": "Triple-quoted strings (\"\"\"...\"\"\" or '''...''') may contain line breaks and quotes with no escaping. Used for multi-line text and for docstrings."
     },
     "body": {
       "ru": "",
@@ -590,7 +590,7 @@
     "kind": "function",
     "summary": {
       "ru": "Старый стиль форматирования через оператор %. %s — строка, %d — целое, %f — вещественное, %r — repr.",
-      "en": ""
+      "en": "The old formatting style, through the % operator. %s — string, %d — integer, %f — float, %r — repr."
     },
     "body": {
       "ru": "",

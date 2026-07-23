@@ -5,7 +5,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция, возвращающая абсолютное значение (модуль) числа. Работает с int, float и complex.",
-      "en": ""
+      "en": "Built-in function that returns the absolute value (magnitude) of a number. Works with int, float and complex."
     },
     "body": {
       "ru": "",
@@ -40,7 +40,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Логические операторы. and — оба истинны; or — хотя бы одно истинно; not — отрицание. Используют короткое замыкание (lazy evaluation).",
-      "en": ""
+      "en": "The logical operators. and — both are true; or — at least one is true; not — negation. They short-circuit (lazy evaluation)."
     },
     "body": {
       "ru": "",
@@ -81,7 +81,7 @@
     "kind": "function",
     "summary": {
       "ru": "any() — True если хотя бы один элемент True. all() — True если все элементы True. Работают лениво.",
-      "en": ""
+      "en": "any() — True if at least one item is True. all() — True if every item is True. Both work lazily."
     },
     "body": {
       "ru": "",
@@ -129,7 +129,7 @@
     "kind": "term",
     "summary": {
       "ru": "Принимает произвольное число позиционных аргументов как кортеж.",
-      "en": ""
+      "en": "Accepts any number of positional arguments as a tuple."
     },
     "body": {
       "ru": "",
@@ -177,7 +177,7 @@
     "kind": "term",
     "summary": {
       "ru": "Логический тип данных. Подкласс int: True == 1, False == 0. bool(x) возвращает результат проверки истинности x.",
-      "en": ""
+      "en": "The boolean type. A subclass of int: True == 1, False == 0. bool(x) returns the truth value of x."
     },
     "body": {
       "ru": "",
@@ -213,7 +213,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Оператор немедленного выхода из ближайшего цикла. При наличии else-блока у цикла — он НЕ выполняется после break.",
-      "en": ""
+      "en": "Statement that leaves the nearest enclosing loop immediately. If the loop has an else block, it is NOT executed after a break."
     },
     "body": {
       "ru": "",
@@ -264,7 +264,7 @@
     "kind": "term",
     "summary": {
       "ru": "Изменяемая последовательность байт. В отличие от bytes, поддерживает присвоение по индексу и методы append(), extend().",
-      "en": ""
+      "en": "A mutable sequence of bytes. Unlike bytes, it supports item assignment and the append() and extend() methods."
     },
     "body": {
       "ru": "",
@@ -300,7 +300,7 @@
     "kind": "term",
     "summary": {
       "ru": "Неизменяемая последовательность байт (целых чисел 0–255). Используется для бинарных данных и текста в определённой кодировке.",
-      "en": ""
+      "en": "An immutable sequence of bytes (integers 0–255). Used for binary data and for text in a particular encoding."
     },
     "body": {
       "ru": "",
@@ -335,7 +335,7 @@
     "kind": "term",
     "summary": {
       "ru": "Модуль cmath предоставляет математические функции для комплексных чисел.",
-      "en": ""
+      "en": "The cmath module provides mathematical functions for complex numbers."
     },
     "body": {
       "ru": "",
@@ -370,7 +370,7 @@
     "kind": "term",
     "summary": {
       "ru": "Встроенный тип для комплексных чисел вида a+bj. Поддерживает арифметику, атрибуты .real и .imag, метод conjugate().",
-      "en": ""
+      "en": "Built-in type for complex numbers of the form a+bj. Supports arithmetic, the .real and .imag attributes and the conjugate() method."
     },
     "body": {
       "ru": "",
@@ -405,7 +405,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Оператор пропуска оставшейся части тела цикла и перехода к следующей итерации.",
-      "en": ""
+      "en": "Statement that skips the rest of the loop body and moves on to the next iteration."
     },
     "body": {
       "ru": "",
@@ -452,7 +452,7 @@
     "kind": "term",
     "summary": {
       "ru": "Модуль csv — чтение и запись CSV-файлов. reader/writer для строк, DictReader/DictWriter для словарей.",
-      "en": ""
+      "en": "The csv module reads and writes CSV files. reader/writer work with rows, DictReader/DictWriter with dictionaries."
     },
     "body": {
       "ru": "",
@@ -518,7 +518,7 @@
     "kind": "term",
     "summary": {
       "ru": "Точная десятичная арифметика без ошибок float. Незаменима в финансовых вычислениях.",
-      "en": ""
+      "en": "Exact decimal arithmetic, free of float error. Indispensable in financial calculations."
     },
     "body": {
       "ru": "",
@@ -553,7 +553,7 @@
     "kind": "function",
     "summary": {
       "ru": "Управляет точностью (prec), режимом округления и обработкой ошибок для операций с Decimal.",
-      "en": ""
+      "en": "Controls the precision (prec), the rounding mode and the error handling of Decimal operations."
     },
     "body": {
       "ru": "",
@@ -592,7 +592,7 @@
     "kind": "term",
     "summary": {
       "ru": "Объявление функции с помощью ключевого слова def. Тело функции отделяется отступом.",
-      "en": ""
+      "en": "A function declaration with the def keyword. The body of the function is set off by indentation."
     },
     "body": {
       "ru": "",
@@ -639,7 +639,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция, возвращающая кортеж (частное, остаток) — результат целочисленного деления и остатка. Эффективнее двух отдельных операций.",
-      "en": ""
+      "en": "Built-in function that returns the tuple (quotient, remainder) — the results of floor division and of the modulo. More efficient than two separate operations."
     },
     "body": {
       "ru": "",
@@ -676,7 +676,7 @@
     "kind": "term",
     "summary": {
       "ru": "Специальный синглтон Ellipsis (литерал ...). Используется как заглушка тела функции/класса, в аннотациях типов (Callable[..., int]), в NumPy для многомерных срезов.",
-      "en": ""
+      "en": "The special singleton Ellipsis (written as the literal ...). Used as a placeholder body of a function or class, in type annotations (Callable[..., int]) and in NumPy for multi-dimensional slices."
     },
     "body": {
       "ru": "",
@@ -711,7 +711,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Блок else у цикла выполняется, только если цикл завершился БЕЗ break. Удобен для паттерна «поиск с флагом».",
-      "en": ""
+      "en": "A loop's else block runs only if the loop finished WITHOUT a break. Handy for the 'search with a flag' pattern."
     },
     "body": {
       "ru": "",
@@ -757,7 +757,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция, добавляющая счётчик к итерируемому объекту. Возвращает кортежи (индекс, значение). Параметр start задаёт начальный индекс.",
-      "en": ""
+      "en": "Built-in function that adds a counter to an iterable. It returns (index, value) tuples. The start parameter sets the initial index."
     },
     "body": {
       "ru": "",
@@ -798,7 +798,7 @@
     "kind": "function",
     "summary": {
       "ru": "Отбирает элементы, для которых функция возвращает True. Возвращает итератор.",
-      "en": ""
+      "en": "Keeps the items for which the function returns True. Returns an iterator."
     },
     "body": {
       "ru": "",
@@ -849,7 +849,7 @@
     "kind": "term",
     "summary": {
       "ru": "Тип числа с плавающей точкой двойной точности (64 бит, IEEE 754). Принимает числа, строки и специальные значения: 'inf', '-inf', 'nan'.",
-      "en": ""
+      "en": "Double-precision floating-point number type (64-bit, IEEE 754). Accepts numbers, strings and the special values 'inf', '-inf' and 'nan'."
     },
     "body": {
       "ru": "",
@@ -885,7 +885,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Цикл перебора элементов итерируемого объекта. Выполняет тело цикла для каждого элемента: списка, строки, range, словаря и т.д.",
-      "en": ""
+      "en": "A loop over the items of an iterable. It runs the loop body for every item: of a list, a string, a range, a dictionary and so on."
     },
     "body": {
       "ru": "",
@@ -927,7 +927,7 @@
     "kind": "construct",
     "summary": {
       "ru": "reversed() возвращает итератор, обходящий последовательность в обратном порядке. Работает со списками, кортежами, строками, range и любыми объектами с __reversed__.",
-      "en": ""
+      "en": "reversed() returns an iterator that walks a sequence backwards. It works with lists, tuples, strings, ranges and any object with __reversed__."
     },
     "body": {
       "ru": "",
@@ -962,7 +962,7 @@
     "kind": "term",
     "summary": {
       "ru": "Представляет рациональные числа точно как пару целых (числитель/знаменатель). Без погрешностей float.",
-      "en": ""
+      "en": "Represents rational numbers exactly, as a pair of integers (numerator and denominator). Without float error."
     },
     "body": {
       "ru": "",
@@ -997,7 +997,7 @@
     "kind": "term",
     "summary": {
       "ru": "Мемоизация: кэширует результаты вызовов функции. lru_cache(maxsize=...) ограничивает размер. cache — без ограничений (Python 3.9+).",
-      "en": ""
+      "en": "Memoization: caches the results of calls to a function. lru_cache(maxsize=...) bounds the size of the cache. cache is unbounded (Python 3.9+)."
     },
     "body": {
       "ru": "",
@@ -1057,7 +1057,7 @@
     "kind": "term",
     "summary": {
       "ru": "Создаёт новую функцию с частично заполненными аргументами (частичное применение).",
-      "en": ""
+      "en": "Creates a new function with some of the arguments already filled in (partial application)."
     },
     "body": {
       "ru": "",
@@ -1102,7 +1102,7 @@
     "kind": "term",
     "summary": {
       "ru": "global объявляет переменную из глобального пространства. nonlocal — из охватывающей функции (не глобальной).",
-      "en": ""
+      "en": "global declares a variable from the global namespace. nonlocal — one from an enclosing function (not the global scope)."
     },
     "body": {
       "ru": "",
@@ -1180,7 +1180,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Оператор условного ветвления. Выполняет блок кода, если условие истинно. Условие — любое выражение, которое Python приводит к bool.",
-      "en": ""
+      "en": "The conditional statement. It runs a block of code if the condition is true. The condition is any expression Python converts to a bool."
     },
     "body": {
       "ru": "",
@@ -1226,7 +1226,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Каскадный оператор выбора из нескольких вариантов. Проверяет условия последовательно, выполняет первый истинный блок.",
-      "en": ""
+      "en": "A cascade that picks one of several branches. It tests the conditions in turn and runs the first block whose condition is true."
     },
     "body": {
       "ru": "",
@@ -1272,7 +1272,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Двухветочный оператор условия. Если условие истинно — выполняется if-блок, иначе — else-блок.",
-      "en": ""
+      "en": "A two-branch conditional. If the condition is true the if block runs, otherwise the else block."
     },
     "body": {
       "ru": "",
@@ -1319,7 +1319,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Оператор принадлежности. Проверяет, содержится ли элемент в коллекции. Работает со строками, списками, кортежами, множествами, словарями (по ключам).",
-      "en": ""
+      "en": "The membership operator. It checks whether an item is contained in a collection. Works with strings, lists, tuples, sets and dictionaries (by key)."
     },
     "body": {
       "ru": "",
@@ -1356,7 +1356,7 @@
     "kind": "term",
     "summary": {
       "ru": "Целое число произвольной точности. Принимает строку с основанием системы счисления: int('ff', 16) → 255.",
-      "en": ""
+      "en": "Arbitrary-precision integer. Accepts a string together with its numeric base: int('ff', 16) → 255."
     },
     "body": {
       "ru": "",
@@ -1392,7 +1392,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Операторы тождества. Проверяют, указывают ли две переменные на ОДИН объект в памяти. Используйте is/is not для проверки None, True, False — не ==.",
-      "en": ""
+      "en": "The identity operators. They check whether two variables point at ONE object in memory. Use is/is not to test for None, True and False — not ==."
     },
     "body": {
       "ru": "",
@@ -1430,7 +1430,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция проверки принадлежности объекта к типу или кортежу типов. В отличие от type(), учитывает наследование.",
-      "en": ""
+      "en": "Built-in function that checks whether an object belongs to a type or to a tuple of types. Unlike type(), it honors inheritance."
     },
     "body": {
       "ru": "",
@@ -1469,7 +1469,7 @@
     "kind": "term",
     "summary": {
       "ru": "Сериализация/десериализация JSON. dumps/loads — строки. dump/load — файлы. Поддерживает dict, list, str, int, float, bool, None.",
-      "en": ""
+      "en": "JSON serialization and deserialization. dumps/loads work with strings, dump/load with files. Supports dict, list, str, int, float, bool and None."
     },
     "body": {
       "ru": "",
@@ -1530,7 +1530,7 @@
     "kind": "term",
     "summary": {
       "ru": "Принимает произвольное число ключевых аргументов как словарь.",
-      "en": ""
+      "en": "Accepts any number of keyword arguments as a dictionary."
     },
     "body": {
       "ru": "",
@@ -1582,7 +1582,7 @@
     "kind": "term",
     "summary": {
       "ru": "Анонимная функция — выражение, возвращающее функцию. Только одно выражение.",
-      "en": ""
+      "en": "An anonymous function — an expression that produces a function. Its body is a single expression."
     },
     "body": {
       "ru": "",
@@ -1630,7 +1630,7 @@
     "kind": "function",
     "summary": {
       "ru": "Применяет функцию к каждому элементу итерируемого. Возвращает итератор.",
-      "en": ""
+      "en": "Applies a function to every item of an iterable. Returns an iterator."
     },
     "body": {
       "ru": "",
@@ -1682,7 +1682,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Structural Pattern Matching (Python 3.10+). Позволяет сопоставлять значение с образцами: литералами, типами, структурами. case _ — универсальный паттерн (аналог else). Guard (if) добавляет дополнительное условие в ветку case.",
-      "en": ""
+      "en": "Structural pattern matching (Python 3.10+). It matches a value against patterns: literals, types, structures. case _ is the catch-all pattern (the counterpart of else). A guard (if) adds an extra condition to a case branch."
     },
     "body": {
       "ru": "",
@@ -1724,7 +1724,7 @@
     "kind": "term",
     "summary": {
       "ru": "Тип единственного объекта None — отсутствие значения. Используется как значение по умолчанию, возвращаемое значение функций без return, и sentinel.",
-      "en": ""
+      "en": "The type of the single object None — the absence of a value. Used as a default value, as the return value of functions without a return, and as a sentinel."
     },
     "body": {
       "ru": "",
@@ -1761,7 +1761,7 @@
     "kind": "function",
     "summary": {
       "ru": "Открывает файл. Режимы: r (чтение), w (запись, перезапись), a (добавление), x (создание), b (бинарный). Используй with.",
-      "en": ""
+      "en": "Opens a file. Modes: r (read), w (write, truncating), a (append), x (create), b (binary). Use it with with."
     },
     "body": {
       "ru": "",
@@ -1821,7 +1821,7 @@
     "kind": "term",
     "summary": {
       "ru": "Модуль os — интерфейс к операционной системе. Работа с файлами, директориями, переменными окружения.",
-      "en": ""
+      "en": "The os module is the interface to the operating system: files, directories and environment variables."
     },
     "body": {
       "ru": "",
@@ -1870,7 +1870,7 @@
     "kind": "term",
     "summary": {
       "ru": "Объектно-ориентированный API для работы с путями файловой системы. Кроссплатформенный.",
-      "en": ""
+      "en": "An object-oriented API for filesystem paths. Cross-platform."
     },
     "body": {
       "ru": "",
@@ -1930,7 +1930,7 @@
     "kind": "term",
     "summary": {
       "ru": "Сериализация Python-объектов в бинарный формат. Сохраняет произвольные объекты. Не безопасно для ненадёжных данных!",
-      "en": ""
+      "en": "Serialization of Python objects into a binary format. It stores arbitrary objects. Not safe for untrusted data!"
     },
     "body": {
       "ru": "",
@@ -1983,7 +1983,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция возведения в степень. С двумя аргументами — как **; с тремя (base, exp, mod) — модульное возведение в степень, эффективно для больших чисел.",
-      "en": ""
+      "en": "Built-in exponentiation function. With two arguments it is the same as **; with three (base, exp, mod) it does modular exponentiation, which is efficient for large numbers."
     },
     "body": {
       "ru": "",
@@ -2017,7 +2017,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция, генерирующая последовательность целых чисел. Не хранит все числа в памяти — ленивая генерация. Используется в for-циклах.",
-      "en": ""
+      "en": "Built-in function that generates a sequence of integers. It does not hold all the numbers in memory — the generation is lazy. Used in for loops."
     },
     "body": {
       "ru": "",
@@ -2055,7 +2055,7 @@
     "kind": "function",
     "summary": {
       "ru": "read() — весь файл строкой. readline() — одна строка. readlines() — список строк.",
-      "en": ""
+      "en": "read() — the whole file as one string. readline() — a single line. readlines() — the list of lines."
     },
     "body": {
       "ru": "",
@@ -2109,7 +2109,7 @@
     "kind": "function",
     "summary": {
       "ru": "Сворачивает итерируемый объект в одно значение, последовательно применяя функцию. Из модуля functools.",
-      "en": ""
+      "en": "Folds an iterable into a single value by applying a function step by step. From the functools module."
     },
     "body": {
       "ru": "",
@@ -2156,7 +2156,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает значение из функции. Без return — возвращает None. Может возвращать кортеж.",
-      "en": ""
+      "en": "Returns a value from a function. Without a return the function returns None. It can return a tuple."
     },
     "body": {
       "ru": "",
@@ -2216,7 +2216,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция округления числа. С одним аргументом возвращает int; с ndigits — округляет до указанного количества знаков после запятой. Использует банковское (к ближайшему чётному) округление.",
-      "en": ""
+      "en": "Built-in rounding function. With one argument it returns an int; with ndigits it rounds to that many decimal places. It uses banker's rounding (to the nearest even)."
     },
     "body": {
       "ru": "",
@@ -2251,7 +2251,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает новый отсортированный список. key= задаёт функцию для ключа сортировки. reverse= — обратный порядок.",
-      "en": ""
+      "en": "Returns a new sorted list. key= sets the function that produces the sort key. reverse= gives the reverse order."
     },
     "body": {
       "ru": "",
@@ -2299,7 +2299,7 @@
     "kind": "function",
     "summary": {
       "ru": "Вычисляет квантили набора данных. n=4 → квартили, n=100 → перцентили.",
-      "en": ""
+      "en": "Computes the quantiles of a data set. n=4 → quartiles, n=100 → percentiles."
     },
     "body": {
       "ru": "",
@@ -2334,7 +2334,7 @@
     "kind": "term",
     "summary": {
       "ru": "sys.stdin — стандартный ввод. sys.stdout — стандартный вывод. Используются для потокового ввода/вывода.",
-      "en": ""
+      "en": "sys.stdin is the standard input, sys.stdout the standard output. They are used for streaming input and output."
     },
     "body": {
       "ru": "",
@@ -2391,7 +2391,7 @@
     "kind": "term",
     "summary": {
       "ru": "Неизменяемая последовательность символов Unicode. Поддерживает богатый набор методов форматирования, поиска и преобразования.",
-      "en": ""
+      "en": "An immutable sequence of Unicode characters. Provides a rich set of formatting, searching and conversion methods."
     },
     "body": {
       "ru": "",
@@ -2427,7 +2427,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция, возвращающая тип объекта. С одним аргументом возвращает тип; с тремя — создаёт новый класс динамически.",
-      "en": ""
+      "en": "Built-in function that returns the type of an object. With one argument it returns the type; with three it creates a new class dynamically."
     },
     "body": {
       "ru": "",
@@ -2464,7 +2464,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор «морж» (:=) — присваивает значение переменной прямо внутри выражения (Python 3.8+). Удобен в условиях while, в list comprehension и в if.",
-      "en": ""
+      "en": "The walrus operator (:=) assigns a value to a variable inside an expression (Python 3.8+). Handy in while conditions, in comprehensions and in if."
     },
     "body": {
       "ru": "",
@@ -2502,7 +2502,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Цикл с предусловием. Выполняет тело, пока условие истинно. Требует явного изменения условия, иначе — бесконечный цикл.",
-      "en": ""
+      "en": "A loop with a pre-condition. It runs its body while the condition is true. The condition has to be changed explicitly, otherwise the loop never ends."
     },
     "body": {
       "ru": "",
@@ -2549,7 +2549,7 @@
     "kind": "function",
     "summary": {
       "ru": "write(str) — записывает строку. writelines(iterable) — записывает список строк (без автоматических переносов).",
-      "en": ""
+      "en": "write(str) writes a string. writelines(iterable) writes a list of strings (with no newlines added)."
     },
     "body": {
       "ru": "",
@@ -2599,7 +2599,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция, объединяющая несколько итерируемых объектов в один. Возвращает кортежи из соответствующих элементов. Останавливается по наименьшему.",
-      "en": ""
+      "en": "Built-in function that joins several iterables into one. It returns tuples of the corresponding items. It stops at the shortest one."
     },
     "body": {
       "ru": "",
@@ -2640,7 +2640,7 @@
     "kind": "function",
     "summary": {
       "ru": "zip() — попарно объединяет итерируемые. enumerate() — добавляет индекс. reversed() — обратный порядок.",
-      "en": ""
+      "en": "zip() pairs iterables up. enumerate() adds an index. reversed() gives the reverse order."
     },
     "body": {
       "ru": "",
@@ -2695,7 +2695,7 @@
     "kind": "function",
     "summary": {
       "ru": "Параметр strict=True (Python 3.10+) заставляет zip() выбрасывать ValueError, если переданные итерируемые объекты имеют разную длину. Без strict= zip молча останавливается на самом коротком.",
-      "en": ""
+      "en": "The strict=True parameter (Python 3.10+) makes zip() raise ValueError if the iterables passed have different lengths. Without strict= zip silently stops at the shortest one."
     },
     "body": {
       "ru": "",
@@ -2731,7 +2731,7 @@
     "kind": "function",
     "summary": {
       "ru": "Подсказки типов для параметров и возвращаемых значений. Не влияют на выполнение, но помогают IDE и mypy.",
-      "en": ""
+      "en": "Type hints for parameters and return values. They do not affect execution, but they help IDEs and mypy."
     },
     "body": {
       "ru": "",
@@ -2790,7 +2790,7 @@
     "kind": "term",
     "summary": {
       "ru": "Поиск в отсортированном массиве за O(log n). Каждый шаг делит область поиска пополам.",
-      "en": ""
+      "en": "A search in a sorted array in O(log n). Every step halves the range being searched."
     },
     "body": {
       "ru": "",
@@ -2877,7 +2877,7 @@
     "kind": "term",
     "summary": {
       "ru": "& (AND), | (OR), ^ (XOR), ~ (NOT), << (сдвиг влево), >> (сдвиг вправо). Используются для масок, оптимизации, криптографии.",
-      "en": ""
+      "en": "& (AND), | (OR), ^ (XOR), ~ (NOT), << (left shift), >> (right shift). Used for masks, optimization and cryptography."
     },
     "body": {
       "ru": "",
@@ -2942,7 +2942,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Оператор if внутри другого if. Позволяет проверять комбинации условий. Следует использовать осторожно — глубокая вложенность снижает читаемость.",
-      "en": ""
+      "en": "An if inside another if. It lets you test combinations of conditions. Use it carefully — deep nesting hurts readability."
     },
     "body": {
       "ru": "",
@@ -2990,7 +2990,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Цикл внутри другого цикла. Внутренний цикл выполняется полностью на каждой итерации внешнего. break/continue работают только с ближайшим циклом.",
-      "en": ""
+      "en": "A loop inside another loop. The inner loop runs in full on every iteration of the outer one. break/continue affect only the nearest loop."
     },
     "body": {
       "ru": "",
@@ -3038,7 +3038,7 @@
     "kind": "term",
     "summary": {
       "ru": "Объект с методом __call__ можно вызывать как функцию. Используется для stateful callable, декораторов-классов.",
-      "en": ""
+      "en": "An object with a __call__ method can be called like a function. Used for stateful callables and for class-based decorators."
     },
     "body": {
       "ru": "",
@@ -3102,7 +3102,7 @@
     "kind": "term",
     "summary": {
       "ru": "Бинарный оператор вычитания. Унарный минус меняет знак числа.",
-      "en": ""
+      "en": "The binary subtraction operator. The unary minus changes the sign of a number."
     },
     "body": {
       "ru": "",
@@ -3138,7 +3138,7 @@
     "kind": "function",
     "summary": {
       "ru": "Два индекса движутся навстречу друг другу или в одном направлении. O(n) для задач на отсортированных массивах.",
-      "en": ""
+      "en": "Two indices move towards each other or in the same direction. O(n) for problems on sorted arrays."
     },
     "body": {
       "ru": "",
@@ -3218,7 +3218,7 @@
     "kind": "term",
     "summary": {
       "ru": "Функция высшего порядка, оборачивающая другую функцию для изменения её поведения. Используется @синтаксис.",
-      "en": ""
+      "en": "A higher-order function that wraps another function to change its behavior. Applied with the @ syntax."
     },
     "body": {
       "ru": "",
@@ -3313,7 +3313,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор деления. Всегда возвращает float, даже при делении двух целых. Деление на ноль вызывает ZeroDivisionError.",
-      "en": ""
+      "en": "The division operator. It always returns a float, even when both operands are integers. Division by zero raises ZeroDivisionError."
     },
     "body": {
       "ru": "",
@@ -3351,7 +3351,7 @@
     "kind": "term",
     "summary": {
       "ru": "Вложенная функция захватывает переменную из охватывающей области. Используется для фабрик функций и инкапсуляции состояния.",
-      "en": ""
+      "en": "A nested function captures a variable from the enclosing scope. Used for function factories and to encapsulate state."
     },
     "body": {
       "ru": "",
@@ -3423,7 +3423,7 @@
     "kind": "term",
     "summary": {
       "ru": "Файловый объект — итерируемый. Каждая итерация возвращает строку. Эффективно для больших файлов.",
-      "en": ""
+      "en": "A file object is iterable. Every iteration yields one line. Efficient for large files."
     },
     "body": {
       "ru": "",
@@ -3471,7 +3471,7 @@
     "kind": "term",
     "summary": {
       "ru": "LEGB-правило: Local → Enclosing → Global → Built-in. Локальная переменная существует только внутри функции.",
-      "en": ""
+      "en": "The LEGB rule: Local → Enclosing → Global → Built-in. A local variable exists only inside its function."
     },
     "body": {
       "ru": "",
@@ -3536,7 +3536,7 @@
     "kind": "term",
     "summary": {
       "ru": "НОД (GCD) — наибольший общий делитель. НОК (LCM) = a*b/GCD(a,b). Алгоритм Евклида — O(log min(a,b)).",
-      "en": ""
+      "en": "GCD is the greatest common divisor. LCM = a*b/GCD(a, b). Euclid's algorithm takes O(log min(a, b))."
     },
     "body": {
       "ru": "",
@@ -3600,7 +3600,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Паттерн перебора цифр числа через строковое преобразование или деление на 10. Используется для задач: сумма цифр, произведение, подсчёт, максимальная цифра.",
-      "en": ""
+      "en": "The pattern for walking the digits of a number: convert it to a string, or divide by 10 repeatedly. Used for digit sum, product, counting and largest-digit problems."
     },
     "body": {
       "ru": "",
@@ -3643,7 +3643,7 @@
     "kind": "term",
     "summary": {
       "ru": "Составные операторы присваивания: +=, -=, *=, /=, //=, %=, **=. Сочетают операцию с присваиванием, изменяя переменную на месте.",
-      "en": ""
+      "en": "The augmented assignment operators: +=, -=, *=, /=, //=, %=, **=. They combine an operation with an assignment, updating the variable in place."
     },
     "body": {
       "ru": "",
@@ -3679,7 +3679,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Операторы ==, !=, >, <, >=, <= сравнивают два значения и возвращают bool. Python поддерживает цепочки сравнений: a < b < c.",
-      "en": ""
+      "en": "The operators ==, !=, >, <, >= and <= compare two values and return a bool. Python also supports chained comparisons: a < b < c."
     },
     "body": {
       "ru": "",
@@ -3717,7 +3717,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор получения остатка от деления (modulo). Знак результата совпадает со знаком делителя. Широко используется для проверки чётности и цикличности.",
-      "en": ""
+      "en": "The remainder (modulo) operator. The sign of the result follows the sign of the divisor. Widely used to test parity and periodicity."
     },
     "body": {
       "ru": "",
@@ -3756,7 +3756,7 @@
     "kind": "function",
     "summary": {
       "ru": "FIFO — первый вошёл, первый вышел. Реализуется через deque. Применения: BFS, задачи планирования.",
-      "en": ""
+      "en": "FIFO — first in, first out. Implemented with a deque. Uses: BFS and scheduling problems."
     },
     "body": {
       "ru": "",
@@ -3836,7 +3836,7 @@
     "kind": "term",
     "summary": {
       "ru": "Параметры — имена в определении функции. Аргументы — значения при вызове. Позиционные передаются по порядку, ключевые — по имени.",
-      "en": ""
+      "en": "Parameters are the names in the function definition. Arguments are the values at the call site. Positional ones are passed in order, keyword ones by name."
     },
     "body": {
       "ru": "",
@@ -3880,7 +3880,7 @@
     "kind": "term",
     "summary": {
       "ru": "Параметры могут иметь значение по умолчанию. Изменяемые объекты как default — ловушка! Используй None-паттерн.",
-      "en": ""
+      "en": "Parameters may have a default value. A mutable object as a default is a trap! Use the None pattern instead."
     },
     "body": {
       "ru": "",
@@ -3931,7 +3931,7 @@
     "kind": "term",
     "summary": {
       "ru": "Операторы для работы с числами на уровне отдельных бит: & (AND), | (OR), ^ (XOR), ~ (NOT/инверсия), << (сдвиг влево), >> (сдвиг вправо).",
-      "en": ""
+      "en": "Operators that work on numbers bit by bit: & (AND), | (OR), ^ (XOR), ~ (NOT/inversion), << (left shift), >> (right shift)."
     },
     "body": {
       "ru": "",
@@ -3966,7 +3966,7 @@
     "kind": "term",
     "summary": {
       "ru": "Явное приведение одного типа к другому с помощью встроенных функций int(), float(), str(), bool(). При невозможной конвертации возникает ValueError или TypeError.",
-      "en": ""
+      "en": "Explicit conversion of one type into another with the built-in int(), float(), str() and bool(). A conversion that is not possible raises ValueError or TypeError."
     },
     "body": {
       "ru": "",
@@ -4006,7 +4006,7 @@
     "kind": "term",
     "summary": {
       "ru": "Массив prefix[i] = sum(arr[0..i]). Позволяет за O(1) найти сумму на отрезке [l, r].",
-      "en": ""
+      "en": "The array prefix[i] = sum(arr[0..i]). It gives the sum over a range [l, r] in O(1)."
     },
     "body": {
       "ru": "",
@@ -4080,7 +4080,7 @@
     "kind": "term",
     "summary": {
       "ru": "Порядок вычисления выражений: ** > унарный минус > * / // % > + -. Скобки повышают приоритет. Помнить: PEMDAS / BODMAS.",
-      "en": ""
+      "en": "The order in which an expression is evaluated: ** > unary minus > * / // % > + -. Parentheses raise the precedence. Remember PEMDAS / BODMAS."
     },
     "body": {
       "ru": "",
@@ -4115,7 +4115,7 @@
     "kind": "construct",
     "summary": {
       "ru": "При итерации по последовательности кортежей (или других итерируемых) можно сразу распаковывать элементы в несколько переменных прямо в заголовке for.",
-      "en": ""
+      "en": "When iterating over a sequence of tuples (or of other iterables) you can unpack the items into several variables right in the for header."
     },
     "body": {
       "ru": "",
@@ -4153,7 +4153,7 @@
     "kind": "term",
     "summary": {
       "ru": "Функция вызывает себя. Требует базовый случай. Глубина по умолчанию ~1000 (sys.setrecursionlimit).",
-      "en": ""
+      "en": "A function calls itself. It needs a base case. The default depth is about 1000 (sys.setrecursionlimit)."
     },
     "body": {
       "ru": "",
@@ -4220,7 +4220,7 @@
     "kind": "term",
     "summary": {
       "ru": "Перевод между двоичной, восьмеричной, десятичной и шестнадцатеричной системами.",
-      "en": ""
+      "en": "Conversion between the binary, octal, decimal and hexadecimal systems."
     },
     "body": {
       "ru": "",
@@ -4285,7 +4285,7 @@
     "kind": "term",
     "summary": {
       "ru": "Бинарный оператор сложения. Для чисел — арифметическое сложение; для строк и списков — конкатенация; для множеств — объединение.",
-      "en": ""
+      "en": "The binary addition operator. For numbers it is arithmetic addition; for strings and lists, concatenation; for sets, union."
     },
     "body": {
       "ru": "",
@@ -4320,7 +4320,7 @@
     "kind": "term",
     "summary": {
       "ru": "O(n²) в худшем, O(n) для почти отсортированных. Вставляет каждый элемент на правильное место.",
-      "en": ""
+      "en": "O(n²) in the worst case, O(n) for nearly sorted data. It inserts every item into its proper place."
     },
     "body": {
       "ru": "",
@@ -4397,7 +4397,7 @@
     "kind": "term",
     "summary": {
       "ru": "O(n²). Находит минимальный элемент и ставит на нужное место. Минимум обменов (O(n)).",
-      "en": ""
+      "en": "O(n²). It finds the smallest item and puts it where it belongs. The number of swaps is minimal (O(n))."
     },
     "body": {
       "ru": "",
@@ -4474,7 +4474,7 @@
     "kind": "term",
     "summary": {
       "ru": "O(n²). Сравнивает соседние элементы и меняет местами. Наглядна, но медленна. Оптимизация — флаг обмена.",
-      "en": ""
+      "en": "O(n²). It compares neighboring items and swaps them. Easy to follow, but slow. It can be optimized with a swap flag."
     },
     "body": {
       "ru": "",
@@ -4553,7 +4553,7 @@
     "kind": "function",
     "summary": {
       "ru": "LIFO — последний вошёл, первый вышел. Реализуется через list. Применения: скобки, история, DFS.",
-      "en": ""
+      "en": "LIFO — last in, first out. Implemented with a list. Uses: bracket matching, history, DFS."
     },
     "body": {
       "ru": "",
@@ -4650,7 +4650,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор возведения в степень. Выполняется справа налево (правоассоциативен). Поддерживает дробные степени (корни) и отрицательные показатели.",
-      "en": ""
+      "en": "The exponentiation operator. It is evaluated right to left (right-associative). It supports fractional exponents (roots) and negative ones."
     },
     "body": {
       "ru": "",
@@ -4685,7 +4685,7 @@
     "kind": "construct",
     "summary": {
       "ru": "Компактная форма if-else в одну строку. Возвращает одно из двух значений в зависимости от условия. Читается: «значение_если_истина if условие else значение_если_ложь».",
-      "en": ""
+      "en": "The compact one-line form of if-else. It returns one of two values depending on the condition. Read it as: value_if_true if condition else value_if_false."
     },
     "body": {
       "ru": "",
@@ -4730,7 +4730,7 @@
     "kind": "term",
     "summary": {
       "ru": "Бинарный оператор умножения. Для строк и списков — повторение.",
-      "en": ""
+      "en": "The binary multiplication operator. For strings and lists it means repetition."
     },
     "body": {
       "ru": "",
@@ -4766,7 +4766,7 @@
     "kind": "function",
     "summary": {
       "ru": "Dict в Python — хеш-таблица. O(1) в среднем для get/set/del. Применения: подсчёт, кэш, индексирование.",
-      "en": ""
+      "en": "A Python dict is a hash table. get/set/del take O(1) on average. Uses: counting, caches, indexes."
     },
     "body": {
       "ru": "",
@@ -4831,7 +4831,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор целочисленного (этажного) деления. Возвращает наибольшее целое, не превышающее частное. Для float аргументов возвращает float.",
-      "en": ""
+      "en": "The floor division operator. It returns the largest integer not greater than the quotient. With float operands it returns a float."
     },
     "body": {
       "ru": "",
@@ -4867,7 +4867,7 @@
     "kind": "term",
     "summary": {
       "ru": "Python позволяет записывать несколько сравнений подряд в одном выражении. Выражение 1 < x < 10 эквивалентно (1 < x) and (x < 10) и вычисляется слева направо.",
-      "en": ""
+      "en": "Python lets you write several comparisons in a row in one expression. 1 < x < 10 is equivalent to (1 < x) and (x < 10) and is evaluated left to right."
     },
     "body": {
       "ru": "",
@@ -4903,7 +4903,7 @@
     "kind": "term",
     "summary": {
       "ru": "F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2). Итеративно O(n), рекурсивно O(2^n), с lru_cache O(n).",
-      "en": ""
+      "en": "F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2). Iteratively O(n), recursively O(2^n), with lru_cache O(n)."
     },
     "body": {
       "ru": "",

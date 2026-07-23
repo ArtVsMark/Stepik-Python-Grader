@@ -122,7 +122,7 @@ def test_bundled_multifunction_concepts_are_detector_known() -> None:
         assert concept not in still_missing, f"{concept} не покрыт карточкой (matcher-unsafe)"
 
 
-# --- EN-ratchet (issue #684, ось 3 — перевод отдельной волной) -------------
+# --- EN-ratchet (issue #684, ось 3 — волна перевода завершена, планка 0) ---
 
 
 def test_en_coverage_does_not_regress() -> None:

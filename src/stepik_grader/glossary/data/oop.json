@@ -5,7 +5,7 @@
     "kind": "term",
     "summary": {
       "ru": "Перегрузка операторов. __add__(+), __sub__(-), __mul__(*), __eq__(==), __lt__(<), __le__(<=), __hash__, __neg__.",
-      "en": ""
+      "en": "Operator overloading. __add__ (+), __sub__ (-), __mul__ (*), __eq__ (==), __lt__ (<), __le__ (<=), __hash__, __neg__."
     },
     "body": {
       "ru": "",
@@ -116,7 +116,7 @@
     "kind": "term",
     "summary": {
       "ru": "Контекстный менеджер (with-statement). __enter__ выполняется при входе, __exit__ — при выходе (в том числе при исключении).",
-      "en": ""
+      "en": "A context manager (the with statement). __enter__ runs on entry, __exit__ on exit — including when an exception is raised."
     },
     "body": {
       "ru": "",
@@ -213,7 +213,7 @@
     "kind": "term",
     "summary": {
       "ru": "Конструктор — вызывается при создании экземпляра. Инициализирует атрибуты объекта.",
-      "en": ""
+      "en": "The constructor — called when an instance is created. It initializes the object's attributes."
     },
     "body": {
       "ru": "",
@@ -291,7 +291,7 @@
     "kind": "term",
     "summary": {
       "ru": "Магические методы для протокола последовательности/контейнера. Позволяют использовать len(), [], in.",
-      "en": ""
+      "en": "The magic methods of the sequence/container protocol. They make len(), [] and in work on your object."
     },
     "body": {
       "ru": "",
@@ -391,7 +391,7 @@
     "kind": "term",
     "summary": {
       "ru": "__slots__ ограничивает атрибуты экземпляра, убирает __dict__, экономит память. Особенно полезно для большого числа объектов.",
-      "en": ""
+      "en": "__slots__ restricts the instance attributes, removes __dict__ and saves memory. Especially useful for large numbers of objects."
     },
     "body": {
       "ru": "",
@@ -460,7 +460,7 @@
     "kind": "term",
     "summary": {
       "ru": "__str__ — читаемое представление для print(). __repr__ — отладочное, воспроизводимое. repr() вызывает __repr__.",
-      "en": ""
+      "en": "__str__ — the readable representation used by print(). __repr__ — the debugging one, meant to be reproducible. repr() calls __repr__."
     },
     "body": {
       "ru": "",
@@ -534,7 +534,7 @@
     "kind": "term",
     "summary": {
       "ru": "Объявление класса. Класс — шаблон для создания объектов (экземпляров).",
-      "en": ""
+      "en": "A class declaration. A class is the template objects (instances) are created from."
     },
     "body": {
       "ru": "",
@@ -605,7 +605,7 @@
     "kind": "term",
     "summary": {
       "ru": "Метод класса. Первый параметр — cls (ссылка на класс). Используется для альтернативных конструкторов.",
-      "en": ""
+      "en": "A class method. Its first parameter is cls (a reference to the class). Used for alternative constructors."
     },
     "body": {
       "ru": "",
@@ -695,7 +695,7 @@
     "kind": "term",
     "summary": {
       "ru": "@dataclass автоматически генерирует __init__, __repr__, __eq__. field() настраивает отдельные поля.",
-      "en": ""
+      "en": "@dataclass generates __init__, __repr__ and __eq__ automatically. field() tunes individual fields."
     },
     "body": {
       "ru": "",
@@ -781,7 +781,7 @@
     "kind": "term",
     "summary": {
       "ru": "Превращает метод в атрибут (геттер). @x.setter — сеттер. @x.deleter — делитер. Вычисляемые атрибуты.",
-      "en": ""
+      "en": "Turns a method into an attribute (the getter). @x.setter is the setter, @x.deleter the deleter. Computed attributes."
     },
     "body": {
       "ru": "",
@@ -900,7 +900,7 @@
     "kind": "term",
     "summary": {
       "ru": "Ссылка на текущий экземпляр класса. Первый параметр методов экземпляра (имя — соглашение).",
-      "en": ""
+      "en": "A reference to the current instance of the class. The first parameter of instance methods (the name is a convention)."
     },
     "body": {
       "ru": "",
@@ -978,7 +978,7 @@
     "kind": "term",
     "summary": {
       "ru": "Статический метод. Не принимает self или cls. Просто функция внутри класса — логическая группировка.",
-      "en": ""
+      "en": "A static method. It takes neither self nor cls. Just a function inside the class — a logical grouping."
     },
     "body": {
       "ru": "",
@@ -1040,7 +1040,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает прокси-объект родительского класса. Используется для вызова методов родителя без явного указания имени.",
-      "en": ""
+      "en": "Returns a proxy object for the parent class. Used to call the parent's methods without naming it explicitly."
     },
     "body": {
       "ru": "",
@@ -1133,7 +1133,7 @@
     "kind": "term",
     "summary": {
       "ru": "abc.ABC и @abstractmethod запрещают создание экземпляров класса без реализации всех абстрактных методов.",
-      "en": ""
+      "en": "abc.ABC and @abstractmethod forbid creating instances of a class until every abstract method is implemented."
     },
     "body": {
       "ru": "",
@@ -1217,7 +1217,7 @@
     "kind": "term",
     "summary": {
       "ru": "Атрибуты класса — общие для всех экземпляров. Атрибуты экземпляра — уникальные для каждого. Изменяемые атрибуты класса — ловушка!",
-      "en": ""
+      "en": "Class attributes are shared by every instance. Instance attributes belong to one instance each. Mutable class attributes are a trap!"
     },
     "body": {
       "ru": "",
@@ -1287,7 +1287,7 @@
     "kind": "term",
     "summary": {
       "ru": "Одиночный _ — соглашение (внутренний). Двойной __ — name mangling (переименование _Class__attr). Нет настоящих private в Python.",
-      "en": ""
+      "en": "A single _ is a convention (internal use). A double __ triggers name mangling (renaming to _Class__attr). Python has no truly private members."
     },
     "body": {
       "ru": "",
@@ -1371,7 +1371,7 @@
     "kind": "term",
     "summary": {
       "ru": "Обычные методы класса. Первый параметр — self (ссылка на экземпляр). Могут читать и изменять состояние.",
-      "en": ""
+      "en": "The ordinary methods of a class. Their first parameter is self (a reference to the instance). They can read and change its state."
     },
     "body": {
       "ru": "",
@@ -1472,7 +1472,7 @@
     "kind": "term",
     "summary": {
       "ru": "Python поддерживает множественное наследование. Порядок разрешения методов (MRO) — C3-линеаризация.",
-      "en": ""
+      "en": "Python supports multiple inheritance. The method resolution order (MRO) is the C3 linearization."
     },
     "body": {
       "ru": "",
@@ -1557,7 +1557,7 @@
     "kind": "term",
     "summary": {
       "ru": "Дочерний класс наследует атрибуты и методы родительского. Переопределение методов — полиморфизм.",
-      "en": ""
+      "en": "A child class inherits the attributes and methods of its parent. Overriding methods gives polymorphism."
     },
     "body": {
       "ru": "",
@@ -1657,7 +1657,7 @@
     "kind": "term",
     "summary": {
       "ru": "Один интерфейс — разные реализации. В Python достигается переопределением методов и duck typing.",
-      "en": ""
+      "en": "One interface — different implementations. In Python it comes from overriding methods and from duck typing."
     },
     "body": {
       "ru": "",

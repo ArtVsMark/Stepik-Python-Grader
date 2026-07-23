@@ -5,7 +5,7 @@
     "kind": "term",
     "summary": {
       "ru": "Низкоуровневый импорт модуля. Обычно используй importlib.import_module.",
-      "en": ""
+      "en": "Low-level module import. Normally use importlib.import_module instead."
     },
     "body": {
       "ru": "",
@@ -43,7 +43,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает абсолютное значение (модуль) числа. Работает с int, float и complex (возвращает float для комплексных).",
-      "en": ""
+      "en": "Returns the absolute value (magnitude) of a number. Works with int, float and complex (returns a float for complex numbers)."
     },
     "body": {
       "ru": "",
@@ -77,7 +77,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если все элементы итерируемого истинны, или если итерируемый пуст. Использует ленивое вычисление.",
-      "en": ""
+      "en": "Returns True if all elements of the iterable are true, or if the iterable is empty. Evaluates lazily."
     },
     "body": {
       "ru": "",
@@ -111,7 +111,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если хотя бы один элемент итерируемого истинен. Использует ленивое вычисление.",
-      "en": ""
+      "en": "Returns True if at least one element of the iterable is true. Evaluates lazily."
     },
     "body": {
       "ru": "",
@@ -145,7 +145,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает repr() объекта, но заменяет все не-ASCII символы на escape-последовательности \\xNN, \\uNNNN или \\UNNNNNNNN.",
-      "en": ""
+      "en": "Returns repr() of the object but replaces every non-ASCII character with a \\xNN, \\uNNNN or \\UNNNNNNNN escape sequence."
     },
     "body": {
       "ru": "",
@@ -179,7 +179,7 @@
     "kind": "term",
     "summary": {
       "ru": "Преобразует целое число в строку двоичного представления с префиксом '0b'. Отрицательные числа: bin(-5) → '-0b101'.",
-      "en": ""
+      "en": "Converts an integer to its binary string representation with the '0b' prefix. Negative numbers: bin(-5) → '-0b101'."
     },
     "body": {
       "ru": "",
@@ -213,7 +213,7 @@
     "kind": "term",
     "summary": {
       "ru": "Логический тип данных. Подкласс int: True == 1, False == 0. bool(x) возвращает результат проверки истинности x.",
-      "en": ""
+      "en": "The boolean type. A subclass of int: True == 1, False == 0. bool(x) returns the truth value of x."
     },
     "body": {
       "ru": "",
@@ -247,7 +247,7 @@
     "kind": "term",
     "summary": {
       "ru": "Вызывает встроенный отладчик pdb в месте вызова. Python 3.7+. Поведение можно переопределить через PYTHONBREAKPOINT.",
-      "en": ""
+      "en": "Drops into the built-in pdb debugger at the point of the call. Python 3.7+. The behavior can be overridden through PYTHONBREAKPOINT."
     },
     "body": {
       "ru": "",
@@ -282,7 +282,7 @@
     "kind": "term",
     "summary": {
       "ru": "Изменяемая последовательность байт. В отличие от bytes, поддерживает присвоение по индексу и методы append(), extend().",
-      "en": ""
+      "en": "A mutable sequence of bytes. Unlike bytes, it supports item assignment and the append() and extend() methods."
     },
     "body": {
       "ru": "",
@@ -318,7 +318,7 @@
     "kind": "term",
     "summary": {
       "ru": "Неизменяемая последовательность байт (целых чисел 0–255). Используется для бинарных данных и текста в определённой кодировке.",
-      "en": ""
+      "en": "An immutable sequence of bytes (integers 0–255). Used for binary data and for text in a particular encoding."
     },
     "body": {
       "ru": "",
@@ -352,7 +352,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если объект можно вызвать: функция, класс, лямбда или объект с методом __call__.",
-      "en": ""
+      "en": "Returns True if the object can be called: a function, a class, a lambda or an object with a __call__ method."
     },
     "body": {
       "ru": "",
@@ -388,7 +388,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает строку из одного символа по его Unicode кодовой точке (целое число). Обратная функция для ord().",
-      "en": ""
+      "en": "Returns a one-character string for the given Unicode code point (an integer). The inverse of ord()."
     },
     "body": {
       "ru": "",
@@ -422,7 +422,7 @@
     "kind": "term",
     "summary": {
       "ru": "Дескриптор для создания метода класса. Обычно используется как @classmethod.",
-      "en": ""
+      "en": "Descriptor that creates a method bound to the class. Normally used as the @classmethod decorator."
     },
     "body": {
       "ru": "",
@@ -461,7 +461,7 @@
     "kind": "term",
     "summary": {
       "ru": "Компилирует строку или AST в объект кода (code object). Используется с exec() или eval() для динамического кода.",
-      "en": ""
+      "en": "Compiles a string or an AST into a code object. Used with exec() or eval() to run code built at runtime."
     },
     "body": {
       "ru": "",
@@ -497,7 +497,7 @@
     "kind": "term",
     "summary": {
       "ru": "Встроенный тип для комплексных чисел вида a+bj. Поддерживает арифметику, атрибуты .real и .imag, метод conjugate().",
-      "en": ""
+      "en": "Built-in type for complex numbers of the form a+bj. Supports arithmetic, the .real and .imag attributes and the conjugate() method."
     },
     "body": {
       "ru": "",
@@ -532,7 +532,7 @@
     "kind": "term",
     "summary": {
       "ru": "Удаляет атрибут объекта по имени. Эквивалент del obj.attr, но позволяет передать имя атрибута как строку динамически.",
-      "en": ""
+      "en": "Deletes the named attribute of an object. Equivalent to del obj.attr, but lets you pass the attribute name dynamically as a string."
     },
     "body": {
       "ru": "",
@@ -572,7 +572,7 @@
     "kind": "term",
     "summary": {
       "ru": "Изменяемый маппинг: хранит пары ключ–значение. Ключи уникальны и хешируемы. С Python 3.7 сохраняет порядок вставки.",
-      "en": ""
+      "en": "A mutable mapping: stores key–value pairs. Keys are unique and hashable. Since Python 3.7 it preserves insertion order."
     },
     "body": {
       "ru": "",
@@ -607,7 +607,7 @@
     "kind": "term",
     "summary": {
       "ru": "Список атрибутов объекта (или локального пространства имён).",
-      "en": ""
+      "en": "Lists the attributes of an object (or the names of the current local namespace)."
     },
     "body": {
       "ru": "",
@@ -644,7 +644,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает кортеж (целое частное, остаток от деления). Эквивалент (a // b, a % b), но выполняется за одну операцию.",
-      "en": ""
+      "en": "Returns the tuple (quotient, remainder) of a division. Equivalent to (a // b, a % b), but computed in a single operation."
     },
     "body": {
       "ru": "",
@@ -679,7 +679,7 @@
     "kind": "term",
     "summary": {
       "ru": "Параметр функции print(), задающий строку, добавляемую в конец вывода. По умолчанию — символ новой строки '\\n'. Позволяет выводить на одной строке.",
-      "en": ""
+      "en": "Parameter of print() that sets the string appended after the output. Defaults to the newline character '\\n'. Lets you print on a single line."
     },
     "body": {
       "ru": "",
@@ -713,7 +713,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оборачивает итерируемый объект, добавляя счётчик. Возвращает пары (индекс, значение). Удобно в циклах for.",
-      "en": ""
+      "en": "Wraps an iterable and adds a counter. Yields (index, value) pairs. Handy in for loops."
     },
     "body": {
       "ru": "",
@@ -749,7 +749,7 @@
     "kind": "term",
     "summary": {
       "ru": "Вычисляет выражение из строки. ВНИМАНИЕ: небезопасен для ненадёжного ввода!",
-      "en": ""
+      "en": "Evaluates an expression given as a string. WARNING: unsafe for untrusted input!"
     },
     "body": {
       "ru": "",
@@ -784,7 +784,7 @@
     "kind": "term",
     "summary": {
       "ru": "Выполняет динамически созданный Python-код: строку или code object. Изменяет переданное пространство имён.",
-      "en": ""
+      "en": "Executes dynamically created Python code: a string or a code object. Modifies the namespace it is given."
     },
     "body": {
       "ru": "",
@@ -823,7 +823,7 @@
     "kind": "term",
     "summary": {
       "ru": "Фильтрует элементы итерируемого, оставляя только те, для которых функция возвращает True. Возвращает ленивый итератор.",
-      "en": ""
+      "en": "Filters an iterable, keeping only the items for which the function returns True. Returns a lazy iterator."
     },
     "body": {
       "ru": "",
@@ -858,7 +858,7 @@
     "kind": "term",
     "summary": {
       "ru": "Тип числа с плавающей точкой двойной точности (64 бит, IEEE 754). Принимает числа, строки и специальные значения: 'inf', '-inf', 'nan'.",
-      "en": ""
+      "en": "Double-precision floating-point number type (64-bit, IEEE 754). Accepts numbers, strings and the special values 'inf', '-inf' and 'nan'."
     },
     "body": {
       "ru": "",
@@ -892,7 +892,7 @@
     "kind": "term",
     "summary": {
       "ru": "Форматирует значение по строке спецификации формата (format spec). Вызывает метод __format__ объекта.",
-      "en": ""
+      "en": "Formats a value according to a format specification string (format spec). Calls the object's __format__ method."
     },
     "body": {
       "ru": "",
@@ -926,7 +926,7 @@
     "kind": "term",
     "summary": {
       "ru": "Неизменяемое множество. Поддерживает все операции set (объединение, пересечение и т.д.), но не поддерживает add() и remove(). Хешируемо — можно использовать как ключ словаря.",
-      "en": ""
+      "en": "An immutable set. Supports every set operation (union, intersection and so on) but has no add() or remove(). Hashable — it can be used as a dictionary key."
     },
     "body": {
       "ru": "",
@@ -962,7 +962,7 @@
     "kind": "term",
     "summary": {
       "ru": "Получает атрибут объекта по имени как строке. Третий аргумент — значение по умолчанию, если атрибут не существует (иначе AttributeError).",
-      "en": ""
+      "en": "Gets an attribute of an object by its name given as a string. The third argument is the default value used when the attribute does not exist (otherwise AttributeError)."
     },
     "body": {
       "ru": "",
@@ -999,7 +999,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает словарь глобального пространства имён текущего модуля.",
-      "en": ""
+      "en": "Returns the dictionary of the global namespace of the current module."
     },
     "body": {
       "ru": "",
@@ -1035,7 +1035,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если у объекта есть атрибут с указанным именем. Реализован через попытку getattr() — проверяет наличие без исключения.",
-      "en": ""
+      "en": "Returns True if the object has an attribute with the given name. Implemented as a getattr() attempt — checks presence without raising."
     },
     "body": {
       "ru": "",
@@ -1072,7 +1072,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает целочисленный хеш объекта. Объект должен быть хешируемым (неизменяемым). Используется словарями и множествами.",
-      "en": ""
+      "en": "Returns the integer hash of an object. The object must be hashable (immutable). Used by dictionaries and sets."
     },
     "body": {
       "ru": "",
@@ -1108,7 +1108,7 @@
     "kind": "term",
     "summary": {
       "ru": "Выводит встроенную справку по объекту, функции или модулю. В интерактивном режиме без аргумента запускает интерактивную справку.",
-      "en": ""
+      "en": "Prints the built-in help for an object, function or module. With no argument in interactive mode it starts the interactive help."
     },
     "body": {
       "ru": "",
@@ -1142,7 +1142,7 @@
     "kind": "term",
     "summary": {
       "ru": "Преобразует целое число в строку шестнадцатеричного представления с префиксом '0x'. Буквы в нижнем регистре.",
-      "en": ""
+      "en": "Converts an integer to its hexadecimal string representation with the '0x' prefix. The letters are lower-case."
     },
     "body": {
       "ru": "",
@@ -1176,7 +1176,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает уникальный идентификатор объекта (адрес в памяти).",
-      "en": ""
+      "en": "Returns the unique identifier of an object (its address in memory)."
     },
     "body": {
       "ru": "",
@@ -1213,7 +1213,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция для чтения строки с клавиатуры. Выводит необязательный приглашающий текст и возвращает введённую строку без символа новой строки.",
-      "en": ""
+      "en": "Built-in function that reads a line from the keyboard. It prints an optional prompt and returns the line entered, without the trailing newline."
     },
     "body": {
       "ru": "",
@@ -1248,7 +1248,7 @@
     "kind": "term",
     "summary": {
       "ru": "Читает строку с клавиатуры и возвращает её без символа новой строки. Необязательный аргумент prompt — подсказка пользователю.",
-      "en": ""
+      "en": "Reads a line from the keyboard and returns it without the trailing newline. The optional prompt argument is the text shown to the user."
     },
     "body": {
       "ru": "",
@@ -1286,7 +1286,7 @@
     "kind": "term",
     "summary": {
       "ru": "Целое число произвольной точности. Принимает строку с основанием системы счисления: int('ff', 16) → 255.",
-      "en": ""
+      "en": "Arbitrary-precision integer. Accepts a string together with its numeric base: int('ff', 16) → 255."
     },
     "body": {
       "ru": "",
@@ -1320,7 +1320,7 @@
     "kind": "term",
     "summary": {
       "ru": "True если объект является экземпляром класса (или подкласса).",
-      "en": ""
+      "en": "True if the object is an instance of the class (or of a subclass of it)."
     },
     "body": {
       "ru": "",
@@ -1354,7 +1354,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если класс является подклассом указанного класса или одного из классов в кортеже.",
-      "en": ""
+      "en": "Returns True if the class is a subclass of the given class or of one of the classes in the tuple."
     },
     "body": {
       "ru": "",
@@ -1390,7 +1390,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает итератор. С двумя аргументами — вызывает функцию до значения sentinel.",
-      "en": ""
+      "en": "Returns an iterator. With two arguments it calls the function until it returns the sentinel value."
     },
     "body": {
       "ru": "",
@@ -1429,7 +1429,7 @@
     "kind": "term",
     "summary": {
       "ru": "Создаёт изменяемый список из итерируемого или пустой список. list() без аргументов эквивалентен [].",
-      "en": ""
+      "en": "Creates a mutable list from an iterable, or an empty list. list() with no arguments is equivalent to []."
     },
     "body": {
       "ru": "",
@@ -1463,7 +1463,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает словарь текущего локального пространства имён. В модуле совпадает с globals(). Копия, не ссылка.",
-      "en": ""
+      "en": "Returns a dictionary of the current local namespace. At module level it matches globals(). A copy, not a reference."
     },
     "body": {
       "ru": "",
@@ -1502,7 +1502,7 @@
     "kind": "term",
     "summary": {
       "ru": "Применяет функцию к каждому элементу итерируемого и возвращает ленивый итератор результатов.",
-      "en": ""
+      "en": "Applies a function to every item of an iterable and returns a lazy iterator of the results."
     },
     "body": {
       "ru": "",
@@ -1536,7 +1536,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает наибольший элемент итерируемого или наибольший из переданных аргументов. Поддерживает key-функцию.",
-      "en": ""
+      "en": "Returns the largest item of an iterable, or the largest of the arguments given. Supports a key function."
     },
     "body": {
       "ru": "",
@@ -1570,7 +1570,7 @@
     "kind": "term",
     "summary": {
       "ru": "Создаёт объект представления буфера без копирования данных. Позволяет работать со срезами бинарных данных эффективно.",
-      "en": ""
+      "en": "Creates a view into an object's buffer without copying the data. Lets you work with slices of binary data efficiently."
     },
     "body": {
       "ru": "",
@@ -1607,7 +1607,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает наименьший элемент итерируемого или наименьший из переданных аргументов. Поддерживает key-функцию.",
-      "en": ""
+      "en": "Returns the smallest item of an iterable, or the smallest of the arguments given. Supports a key function."
     },
     "body": {
       "ru": "",
@@ -1641,7 +1641,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает следующий элемент итератора. default — если итератор исчерпан.",
-      "en": ""
+      "en": "Returns the next item of an iterator. default is returned if the iterator is exhausted."
     },
     "body": {
       "ru": "",
@@ -1677,7 +1677,7 @@
     "kind": "term",
     "summary": {
       "ru": "Базовый класс всех классов Python. Предоставляет методы по умолчанию: __str__, __repr__, __eq__, __hash__ и другие магические методы.",
-      "en": ""
+      "en": "The base class of every Python class. Provides the default __str__, __repr__, __eq__, __hash__ and other magic methods."
     },
     "body": {
       "ru": "",
@@ -1713,7 +1713,7 @@
     "kind": "term",
     "summary": {
       "ru": "Преобразует целое число в строку восьмеричного представления с префиксом '0o'.",
-      "en": ""
+      "en": "Converts an integer to its octal string representation with the '0o' prefix."
     },
     "body": {
       "ru": "",
@@ -1747,7 +1747,7 @@
     "kind": "term",
     "summary": {
       "ru": "Открывает файл и возвращает файловый объект. Поддерживает текстовый и бинарный режимы, кодировки, буферизацию.",
-      "en": ""
+      "en": "Opens a file and returns a file object. Supports text and binary modes, encodings and buffering."
     },
     "body": {
       "ru": "",
@@ -1783,7 +1783,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает Unicode кодовую точку (целое число) символа. Принимает строку длиной 1. Обратная функция для chr().",
-      "en": ""
+      "en": "Returns the Unicode code point (an integer) of a character. Takes a string of length 1. The inverse of chr()."
     },
     "body": {
       "ru": "",
@@ -1817,7 +1817,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возводит x в степень y. С третьим аргументом вычисляет pow(x, y, mod) — модульное возведение в степень (эффективно).",
-      "en": ""
+      "en": "Raises x to the power of y. With a third argument it computes pow(x, y, mod) — modular exponentiation (efficiently)."
     },
     "body": {
       "ru": "",
@@ -1851,7 +1851,7 @@
     "kind": "function",
     "summary": {
       "ru": "Встроенная функция для вывода данных на стандартный вывод (экран). Принимает любое количество аргументов, разделяет их параметром sep и заканчивает строку параметром end.",
-      "en": ""
+      "en": "Built-in function that writes data to standard output (the screen). It takes any number of arguments, joins them with the sep parameter and ends the line with the end parameter."
     },
     "body": {
       "ru": "",
@@ -1890,7 +1890,7 @@
     "kind": "term",
     "summary": {
       "ru": "Выводит объекты в поток (по умолчанию stdout). Принимает несколько аргументов, sep для разделителя и end для символа конца строки.",
-      "en": ""
+      "en": "Writes objects to a stream (stdout by default). Takes several arguments, sep for the separator and end for the line terminator."
     },
     "body": {
       "ru": "",
@@ -1925,7 +1925,7 @@
     "kind": "function",
     "summary": {
       "ru": "Параметр file= перенаправляет вывод в произвольный файловый объект (по умолчанию sys.stdout). flush=True немедленно сбрасывает внутренний буфер потока, не дожидаясь его заполнения.",
-      "en": ""
+      "en": "The file= parameter redirects the output to any file object (sys.stdout by default). flush=True flushes the stream's internal buffer immediately instead of waiting for it to fill up."
     },
     "body": {
       "ru": "",
@@ -1962,7 +1962,7 @@
     "kind": "term",
     "summary": {
       "ru": "Создаёт управляемый атрибут с геттером, сеттером и делитером. Позволяет добавить логику к обычному доступу к атрибуту без изменения интерфейса.",
-      "en": ""
+      "en": "Creates a managed attribute with a getter, a setter and a deleter. Lets you add logic to ordinary attribute access without changing the interface."
     },
     "body": {
       "ru": "",
@@ -2003,7 +2003,7 @@
     "kind": "term",
     "summary": {
       "ru": "Неизменяемая последовательность целых чисел. Используется в циклах for и срезах. Ленивая — не хранит все числа в памяти сразу.",
-      "en": ""
+      "en": "An immutable sequence of integers. Used in for loops and in slices. Lazy — it does not hold all the numbers in memory at once."
     },
     "body": {
       "ru": "",
@@ -2037,7 +2037,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает строку с официальным представлением объекта — такую, по которой можно воссоздать объект (по возможности).",
-      "en": ""
+      "en": "Returns the official string representation of an object — one the object can be recreated from where possible."
     },
     "body": {
       "ru": "",
@@ -2071,7 +2071,7 @@
     "kind": "term",
     "summary": {
       "ru": "str() возвращает «читаемое» представление объекта для вывода пользователю. repr() возвращает «однозначное» представление, пригодное для воспроизведения объекта в коде; используется в интерактивной консоли и при отладке.",
-      "en": ""
+      "en": "str() returns the 'readable' representation of an object, meant for the user. repr() returns the 'unambiguous' representation, suitable for recreating the object in code; it is what the interactive console and debugging show."
     },
     "body": {
       "ru": "",
@@ -2106,7 +2106,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает обратный итератор для последовательности. Не копирует данные — ленивое вычисление.",
-      "en": ""
+      "en": "Returns a reverse iterator over a sequence. Does not copy the data — evaluated lazily."
     },
     "body": {
       "ru": "",
@@ -2141,7 +2141,7 @@
     "kind": "term",
     "summary": {
       "ru": "Округляет до ndigits знаков. Банковское округление (к чётному).",
-      "en": ""
+      "en": "Rounds to ndigits decimal places. Uses banker's rounding (ties go to the even digit)."
     },
     "body": {
       "ru": "",
@@ -2175,7 +2175,7 @@
     "kind": "term",
     "summary": {
       "ru": "Параметр функции print(), задающий разделитель между аргументами. По умолчанию — пробел. Может быть любой строкой, включая пустую.",
-      "en": ""
+      "en": "Parameter of print() that sets the separator between arguments. Defaults to a space. Can be any string, including an empty one."
     },
     "body": {
       "ru": "",
@@ -2209,7 +2209,7 @@
     "kind": "term",
     "summary": {
       "ru": "Изменяемое множество уникальных хешируемых элементов без определённого порядка. Поддерживает операции объединения, пересечения и разности.",
-      "en": ""
+      "en": "A mutable set of unique hashable items with no defined order. Supports union, intersection and difference operations."
     },
     "body": {
       "ru": "",
@@ -2244,7 +2244,7 @@
     "kind": "term",
     "summary": {
       "ru": "Устанавливает атрибут объекта по имени. Эквивалент obj.name = value, но позволяет задать имя атрибута динамически как строку.",
-      "en": ""
+      "en": "Sets an attribute of an object by name. Equivalent to obj.name = value, but lets you give the attribute name dynamically as a string."
     },
     "body": {
       "ru": "",
@@ -2283,7 +2283,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает новый отсортированный список. Принимает key и reverse. Не изменяет исходную последовательность.",
-      "en": ""
+      "en": "Returns a new sorted list. Accepts key and reverse. Does not modify the original sequence."
     },
     "body": {
       "ru": "",
@@ -2317,7 +2317,7 @@
     "kind": "term",
     "summary": {
       "ru": "Декоратор, создающий статический метод класса — без параметров self и cls. Принадлежит классу, но не зависит от экземпляра или самого класса.",
-      "en": ""
+      "en": "Decorator that creates a static method of a class — one with no self or cls parameter. It belongs to the class but depends neither on an instance nor on the class itself."
     },
     "body": {
       "ru": "",
@@ -2356,7 +2356,7 @@
     "kind": "term",
     "summary": {
       "ru": "Неизменяемая последовательность символов Unicode. Поддерживает богатый набор методов форматирования, поиска и преобразования.",
-      "en": ""
+      "en": "An immutable sequence of Unicode characters. Provides a rich set of formatting, searching and conversion methods."
     },
     "body": {
       "ru": "",
@@ -2390,7 +2390,7 @@
     "kind": "term",
     "summary": {
       "ru": "Суммирует элементы итерируемого. start — начальное значение.",
-      "en": ""
+      "en": "Sums the items of an iterable. start is the initial value."
     },
     "body": {
       "ru": "",
@@ -2424,7 +2424,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает прокси-объект следующего класса в порядке разрешения методов (MRO). Используется для вызова методов родительского класса.",
-      "en": ""
+      "en": "Returns a proxy object for the next class in the method resolution order (MRO). Used to call methods of a parent class."
     },
     "body": {
       "ru": "",
@@ -2462,7 +2462,7 @@
     "kind": "term",
     "summary": {
       "ru": "Неизменяемая упорядоченная последовательность элементов. Хешируема (если элементы хешируемы) — можно использовать как ключ словаря.",
-      "en": ""
+      "en": "An immutable ordered sequence of items. Hashable (if its items are) — it can be used as a dictionary key."
     },
     "body": {
       "ru": "",
@@ -2497,7 +2497,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает тип объекта. С тремя аргументами — создаёт новый класс.",
-      "en": ""
+      "en": "Returns the type of an object. With three arguments it creates a new class."
     },
     "body": {
       "ru": "",
@@ -2532,7 +2532,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает __dict__ объекта или словарь текущего локального пространства имён (без аргументов — аналог locals()).",
-      "en": ""
+      "en": "Returns the __dict__ of an object, or a dictionary of the current local namespace (with no argument — the same as locals())."
     },
     "body": {
       "ru": "",
@@ -2569,7 +2569,7 @@
     "kind": "term",
     "summary": {
       "ru": "Объединяет несколько итерируемых в итератор кортежей из соответствующих элементов. Останавливается на кратчайшем.",
-      "en": ""
+      "en": "Combines several iterables into an iterator of tuples of the corresponding items. Stops at the shortest one."
     },
     "body": {
       "ru": "",
@@ -2605,7 +2605,7 @@
     "kind": "term",
     "summary": {
       "ru": "Именованные области памяти для хранения значений. В Python переменные динамически типизированы — тип определяется значением, а не объявлением.",
-      "en": ""
+      "en": "Named places in memory that hold values. Python variables are dynamically typed — the type comes from the value, not from a declaration."
     },
     "body": {
       "ru": "",
@@ -2641,7 +2641,7 @@
     "kind": "term",
     "summary": {
       "ru": "Python поддерживает запись чисел в двоичной (0b), восьмеричной (0o) и шестнадцатеричной (0x) системах счисления, разделитель _ для читаемости, а также экспоненциальную нотацию.",
-      "en": ""
+      "en": "Python can write numbers in binary (0b), octal (0o) and hexadecimal (0x), allows the _ separator for readability, and supports exponential notation."
     },
     "body": {
       "ru": "",

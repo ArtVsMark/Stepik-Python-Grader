@@ -5,7 +5,7 @@
     "kind": "function",
     "summary": {
       "ru": "Методы для проверки существования пути и его типа (файл, директория).",
-      "en": ""
+      "en": "Methods that check whether a path exists and what it is (a file or a directory)."
     },
     "body": {
       "ru": "",
@@ -45,7 +45,7 @@
     "kind": "function",
     "summary": {
       "ru": ".glob() ищет файлы по паттерну в директории, .rglob() — рекурсивно во всех поддиректориях.",
-      "en": ""
+      "en": ".glob() finds files matching a pattern in the directory, .rglob() does the same recursively through every subdirectory."
     },
     "body": {
       "ru": "",
@@ -83,7 +83,7 @@
     "kind": "function",
     "summary": {
       "ru": "Итерирует по всем файлам и поддиректориям непосредственно в данной директории (не рекурсивно).",
-      "en": ""
+      "en": "Iterates over every file and subdirectory directly inside the given directory (not recursively)."
     },
     "body": {
       "ru": "",
@@ -122,7 +122,7 @@
     "kind": "function",
     "summary": {
       "ru": "Методы для создания директорий, удаления файлов, переименования. parents=True создаёт промежуточные папки.",
-      "en": ""
+      "en": "Methods for creating directories, deleting files and renaming. parents=True creates the intermediate folders."
     },
     "body": {
       "ru": "",
@@ -163,7 +163,7 @@
     "kind": "term",
     "summary": {
       "ru": "Каждый элемент перечисления имеет атрибуты .name (строка) и .value (заданное значение).",
-      "en": ""
+      "en": "Every member of an enumeration has a .name attribute (a string) and a .value attribute (the value given to it)."
     },
     "body": {
       "ru": "",
@@ -203,7 +203,7 @@
     "kind": "function",
     "summary": {
       "ru": "Методы для удобного чтения и записи файлов без явного open(). Поддерживают encoding.",
-      "en": ""
+      "en": "Methods for reading and writing files conveniently, without an explicit open(). They accept an encoding."
     },
     "body": {
       "ru": "",
@@ -245,7 +245,7 @@
     "kind": "term",
     "summary": {
       "ru": "Атрибуты объекта Path для доступа к компонентам: имя файла, расширение, родительская директория и т.д.",
-      "en": ""
+      "en": "Attributes of a Path object that give access to its components: the file name, the extension, the parent directory and so on."
     },
     "body": {
       "ru": "",
@@ -289,7 +289,7 @@
     "kind": "term",
     "summary": {
       "ru": "Объект, представляющий результат асинхронно выполняемой операции. Возвращается методом submit(). Позволяет проверить статус и получить результат.",
-      "en": ""
+      "en": "An object representing the result of an operation carried out asynchronously. Returned by submit(). It lets you check the status and collect the result."
     },
     "body": {
       "ru": "",
@@ -323,7 +323,7 @@
     "kind": "term",
     "summary": {
       "ru": "Global Interpreter Lock — мьютекс CPython, позволяющий только одному потоку выполнять байт-код одновременно. Блокирует параллелизм CPU-задач, но не мешает I/O-операциям.",
-      "en": ""
+      "en": "The Global Interpreter Lock — the CPython mutex that allows only one thread to execute bytecode at a time. It blocks parallelism for CPU-bound work, but does not get in the way of I/O."
     },
     "body": {
       "ru": "",
@@ -361,7 +361,7 @@
     "kind": "term",
     "summary": {
       "ru": "Универсальный мок-объект, поддерживающий магические методы (__len__, __iter__ и т.д.). Позволяет имитировать любой объект без создания реальной зависимости.",
-      "en": ""
+      "en": "A general-purpose mock object that supports the magic methods (__len__, __iter__ and so on). It can stand in for any object, so a real dependency is not needed."
     },
     "body": {
       "ru": "",
@@ -397,7 +397,7 @@
     "kind": "term",
     "summary": {
       "ru": "Пул процессов из concurrent.futures. Обходит GIL — каждый процесс имеет свой интерпретатор. Используй для CPU-интенсивных задач.",
-      "en": ""
+      "en": "A pool of processes from concurrent.futures. It gets around the GIL — every process has its own interpreter. Use it for CPU-intensive work."
     },
     "body": {
       "ru": "",
@@ -433,7 +433,7 @@
     "kind": "term",
     "summary": {
       "ru": "Пул потоков из модуля concurrent.futures. Управляет созданием и переиспользованием потоков. Удобен для параллельных I/O-задач.",
-      "en": ""
+      "en": "A pool of threads from the concurrent.futures module. It handles creating and reusing the threads. Convenient for parallel I/O work."
     },
     "body": {
       "ru": "",
@@ -470,7 +470,7 @@
     "kind": "function",
     "summary": {
       "ru": "Методы для настройки поведения copy.copy() и copy.deepcopy() в пользовательских классах.",
-      "en": ""
+      "en": "The methods that customize how copy.copy() and copy.deepcopy() behave for your own classes."
     },
     "body": {
       "ru": "",
@@ -514,7 +514,7 @@
     "kind": "term",
     "summary": {
       "ru": "Метод __post_init__ вызывается автоматически после __init__ для дополнительной валидации или обработки.",
-      "en": ""
+      "en": "The __post_init__ method is called automatically after __init__, for extra validation or processing."
     },
     "body": {
       "ru": "",
@@ -554,7 +554,7 @@
     "kind": "function",
     "summary": {
       "ru": "Классовый метод _missing_() вызывается, когда значение не найдено в перечислении (через Enum(value)).",
-      "en": ""
+      "en": "The _missing_() class method is called when a value is not found in the enumeration (through Enum(value))."
     },
     "body": {
       "ru": "",
@@ -592,7 +592,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает итератор, который отдаёт Future по мере их завершения — не в порядке создания, а в порядке готовности.",
-      "en": ""
+      "en": "Returns an iterator that yields the Futures as they finish — in the order they become ready, not the order they were created."
     },
     "body": {
       "ru": "",
@@ -632,7 +632,7 @@
     "kind": "function",
     "summary": {
       "ru": "Автоматически назначает значения элементам перечисления (по умолчанию — последовательные числа).",
-      "en": ""
+      "en": "Assigns values to the members of an enumeration automatically (consecutive numbers by default)."
     },
     "body": {
       "ru": "",
@@ -670,7 +670,7 @@
     "kind": "function",
     "summary": {
       "ru": "bisect.bisect() — алиас для bisect_right(). Возвращает позицию вставки после равных элементов.",
-      "en": ""
+      "en": "bisect.bisect() is an alias of bisect_right(). It returns the insertion position after any equal items."
     },
     "body": {
       "ru": "",
@@ -705,7 +705,7 @@
     "kind": "function",
     "summary": {
       "ru": "Находят позицию для вставки элемента в отсортированный список. bisect_left — перед равными, bisect_right — после.",
-      "en": ""
+      "en": "They find the position at which to insert an item into a sorted list. bisect_left — before any equal items, bisect_right — after them."
     },
     "body": {
       "ru": "",
@@ -744,7 +744,7 @@
     "kind": "function",
     "summary": {
       "ru": "Вставляют элемент в нужную позицию отсортированного списка, сохраняя порядок. O(n) из-за сдвига.",
-      "en": ""
+      "en": "They insert an item at the right position of a sorted list, keeping it in order. O(n), because the rest has to be shifted."
     },
     "body": {
       "ru": "",
@@ -784,7 +784,7 @@
     "kind": "term",
     "summary": {
       "ru": "Объединяет несколько словарей в один вид. Поиск идёт по порядку. maps — список словарей, new_child() — новый дочерний уровень, parents — все кроме первого.",
-      "en": ""
+      "en": "Joins several dictionaries into a single view. Lookup goes through them in order. maps is the list of dictionaries, new_child() adds a new child level, parents is everything but the first one."
     },
     "body": {
       "ru": "",
@@ -822,7 +822,7 @@
     "kind": "term",
     "summary": {
       "ru": "Словарь для подсчёта элементов. Методы: most_common(n), elements(), поддерживает +, -, &, |.",
-      "en": ""
+      "en": "A dictionary for counting items. Methods: most_common(n), elements(); it also supports +, -, & and |."
     },
     "body": {
       "ru": "",
@@ -858,7 +858,7 @@
     "kind": "term",
     "summary": {
       "ru": "Словарь с фабрикой значений по умолчанию. При обращении к отсутствующему ключу создаёт значение через фабрику.",
-      "en": ""
+      "en": "A dictionary with a factory for default values. When a missing key is accessed, the factory creates the value."
     },
     "body": {
       "ru": "",
@@ -895,7 +895,7 @@
     "kind": "term",
     "summary": {
       "ru": "Двусторонняя очередь. appendleft/popleft — O(1). rotate() сдвигает элементы. maxlen ограничивает длину.",
-      "en": ""
+      "en": "A double-ended queue. appendleft/popleft are O(1). rotate() shifts the items around. maxlen bounds the length."
     },
     "body": {
       "ru": "",
@@ -932,7 +932,7 @@
     "kind": "term",
     "summary": {
       "ru": "Создаёт подкласс tuple с именованными полями. Поддерживает _replace() (копия с изменёнными полями) и _asdict() (в словарь).",
-      "en": ""
+      "en": "Creates a subclass of tuple with named fields. It supports _replace() (a copy with some fields changed) and _asdict() (conversion to a dictionary)."
     },
     "body": {
       "ru": "",
@@ -968,7 +968,7 @@
     "kind": "term",
     "summary": {
       "ru": "Словарь, запоминающий порядок вставки. move_to_end() перемещает ключ в начало или конец.",
-      "en": ""
+      "en": "A dictionary that remembers the insertion order. move_to_end() moves a key to the front or to the back."
     },
     "body": {
       "ru": "",
@@ -1004,7 +1004,7 @@
     "kind": "term",
     "summary": {
       "ru": "Обёртки для встроенных типов, предназначенные для наследования и расширения. Данные хранятся в атрибуте .data.",
-      "en": ""
+      "en": "Wrappers around the built-in types, meant to be inherited from and extended. The data is kept in the .data attribute."
     },
     "body": {
       "ru": "",
@@ -1054,7 +1054,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оборачивает объект, чтобы его метод close() вызывался автоматически при выходе из блока with.",
-      "en": ""
+      "en": "Wraps an object so that its close() method is called automatically when the with block is left."
     },
     "body": {
       "ru": "",
@@ -1091,7 +1091,7 @@
     "kind": "term",
     "summary": {
       "ru": "Декоратор для создания контекстного менеджера из генераторной функции с yield.",
-      "en": ""
+      "en": "Decorator that turns a generator function with a yield into a context manager."
     },
     "body": {
       "ru": "",
@@ -1133,7 +1133,7 @@
     "kind": "term",
     "summary": {
       "ru": "Позволяет динамически регистрировать произвольное число контекстных менеджеров и колбэков.",
-      "en": ""
+      "en": "Lets you register any number of context managers and callbacks dynamically."
     },
     "body": {
       "ru": "",
@@ -1170,7 +1170,7 @@
     "kind": "term",
     "summary": {
       "ru": "Контекстный менеджер-заглушка, ничего не делающий. Полезен для условного использования КМ (Python 3.7+).",
-      "en": ""
+      "en": "A do-nothing placeholder context manager. Useful when a context manager is only sometimes needed (Python 3.7+)."
     },
     "body": {
       "ru": "",
@@ -1207,7 +1207,7 @@
     "kind": "term",
     "summary": {
       "ru": "Временно перенаправляет sys.stdout или sys.stderr в другой файлоподобный объект.",
-      "en": ""
+      "en": "Temporarily redirects sys.stdout or sys.stderr to another file-like object."
     },
     "body": {
       "ru": "",
@@ -1250,7 +1250,7 @@
     "kind": "term",
     "summary": {
       "ru": "Контекстный менеджер, который молча подавляет указанные типы исключений.",
-      "en": ""
+      "en": "A context manager that silently suppresses the given types of exception."
     },
     "body": {
       "ru": "",
@@ -1288,7 +1288,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт поверхностную копию объекта: новый объект, но вложенные объекты остаются общими.",
-      "en": ""
+      "en": "Creates a shallow copy of an object: the object itself is new, but the nested objects stay shared."
     },
     "body": {
       "ru": "",
@@ -1327,7 +1327,7 @@
     "kind": "function",
     "summary": {
       "ru": "Рекурсивно копирует объект и все вложенные объекты. Изменения в копии не затрагивают оригинал.",
-      "en": ""
+      "en": "Recursively copies an object and every object nested in it. Changes made to the copy do not touch the original."
     },
     "body": {
       "ru": "",
@@ -1368,7 +1368,7 @@
     "kind": "term",
     "summary": {
       "ru": "Декоратор, автоматически генерирующий __init__, __repr__, __eq__ на основе аннотаций полей класса.",
-      "en": ""
+      "en": "Decorator that generates __init__, __repr__ and __eq__ automatically from the annotated fields of the class."
     },
     "body": {
       "ru": "",
@@ -1406,7 +1406,7 @@
     "kind": "function",
     "summary": {
       "ru": "frozen=True делает экземпляры неизменяемыми (аналог namedtuple) и хэшируемыми.",
-      "en": ""
+      "en": "frozen=True makes the instances immutable (like a namedtuple) and hashable."
     },
     "body": {
       "ru": "",
@@ -1445,7 +1445,7 @@
     "kind": "function",
     "summary": {
       "ru": "order=True добавляет методы __lt__, __le__, __gt__, __ge__ на основе кортежа полей.",
-      "en": ""
+      "en": "order=True adds the __lt__, __le__, __gt__ and __ge__ methods, comparing the fields as a tuple."
     },
     "body": {
       "ru": "",
@@ -1483,7 +1483,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает кортеж объектов Field с метаданными каждого поля датакласса.",
-      "en": ""
+      "en": "Returns a tuple of Field objects holding the metadata of every field of the dataclass."
     },
     "body": {
       "ru": "",
@@ -1520,7 +1520,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт новый экземпляр датакласса на основе существующего, заменяя указанные поля.",
-      "en": ""
+      "en": "Creates a new dataclass instance from an existing one, replacing the fields given."
     },
     "body": {
       "ru": "",
@@ -1558,7 +1558,7 @@
     "kind": "term",
     "summary": {
       "ru": "Вычитание дат даёт timedelta. Прибавление timedelta даёт новую дату.",
-      "en": ""
+      "en": "Subtracting one date from another gives a timedelta. Adding a timedelta gives a new date."
     },
     "body": {
       "ru": "",
@@ -1596,7 +1596,7 @@
     "kind": "term",
     "summary": {
       "ru": "date.today() — сегодня. date.fromisoformat() — из строки ISO.",
-      "en": ""
+      "en": "date.today() — today's date. date.fromisoformat() — a date from an ISO string."
     },
     "body": {
       "ru": "",
@@ -1636,7 +1636,7 @@
     "kind": "term",
     "summary": {
       "ru": "datetime.now() возвращает текущие дату и время в локальном поясе, utcnow() — в UTC без tzinfo (naive).",
-      "en": ""
+      "en": "datetime.now() returns the current date and time in the local time zone, utcnow() — in UTC with no tzinfo (naive)."
     },
     "body": {
       "ru": "",
@@ -1677,7 +1677,7 @@
     "kind": "term",
     "summary": {
       "ru": "Форматирует объект datetime в строку по шаблону формата (коды %Y, %m, %d, %H и т.д.).",
-      "en": ""
+      "en": "Formats a datetime object into a string following a format template (the codes %Y, %m, %d, %H and so on)."
     },
     "body": {
       "ru": "",
@@ -1713,7 +1713,7 @@
     "kind": "term",
     "summary": {
       "ru": "Парсит строку в объект datetime по шаблону формата (коды %Y, %m, %d и т.д.). Обратная операция для strftime().",
-      "en": ""
+      "en": "Parses a string into a datetime object following a format template (the codes %Y, %m, %d and so on). The inverse of strftime()."
     },
     "body": {
       "ru": "",
@@ -1750,7 +1750,7 @@
     "kind": "function",
     "summary": {
       "ru": "Конвертирует aware-datetime в другой часовой пояс. Если объект naive, считает его локальным.",
-      "en": ""
+      "en": "Converts an aware datetime into another time zone. A naive object is treated as local time."
     },
     "body": {
       "ru": "",
@@ -1786,7 +1786,7 @@
     "kind": "function",
     "summary": {
       "ru": "Объединяет объекты date и time в один datetime. Полезно, когда дата и время хранятся раздельно.",
-      "en": ""
+      "en": "Combines a date object and a time object into a single datetime. Useful when the date and the time are stored separately."
     },
     "body": {
       "ru": "",
@@ -1822,7 +1822,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт datetime из Unix-timestamp (секунд с 1970-01-01). По умолчанию в локальном часовом поясе; передай tz для UTC или другого.",
-      "en": ""
+      "en": "Creates a datetime from a Unix timestamp (seconds since 1970-01-01). In the local time zone by default; pass tz for UTC or another one."
     },
     "body": {
       "ru": "",
@@ -1858,7 +1858,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает день недели по ISO: 1 — понедельник, 7 — воскресенье. В отличие от weekday(), нумерация начинается с 1.",
-      "en": ""
+      "en": "Returns the ISO day of the week: 1 is Monday, 7 is Sunday. Unlike weekday(), the numbering starts at 1."
     },
     "body": {
       "ru": "",
@@ -1893,7 +1893,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт новый объект datetime/date/time с заменёнными полями. Исходный объект не изменяется — datetime неизменяем.",
-      "en": ""
+      "en": "Creates a new datetime/date/time object with some fields replaced. The original is not changed — datetime is immutable."
     },
     "body": {
       "ru": "",
@@ -1930,7 +1930,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает Unix-timestamp (секунды с 1970-01-01 00:00 UTC) как float. Объект должен быть timezone-aware или local.",
-      "en": ""
+      "en": "Returns the Unix timestamp (seconds since 1970-01-01 00:00 UTC) as a float. The object has to be timezone-aware or local."
     },
     "body": {
       "ru": "",
@@ -1967,7 +1967,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает time.struct_time — совместимую с time.mktime() структуру. Удобно для передачи в функции модуля time.",
-      "en": ""
+      "en": "Returns a time.struct_time — the structure time.mktime() accepts. Convenient for passing values to functions of the time module."
     },
     "body": {
       "ru": "",
@@ -2005,7 +2005,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт naive datetime в UTC из Unix-timestamp. Устаревший метод — предпочтительнее fromtimestamp(ts, tz=timezone.utc).",
-      "en": ""
+      "en": "Creates a naive datetime in UTC from a Unix timestamp. A deprecated method — prefer fromtimestamp(ts, tz=timezone.utc)."
     },
     "body": {
       "ru": "",
@@ -2042,7 +2042,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает день недели как целое число: 0 — понедельник, 6 — воскресенье. Удобно для условий и фильтрации по дням.",
-      "en": ""
+      "en": "Returns the day of the week as an integer: 0 is Monday, 6 is Sunday. Convenient in conditions and for filtering by day."
     },
     "body": {
       "ru": "",
@@ -2080,7 +2080,7 @@
     "kind": "term",
     "summary": {
       "ru": "Базовый класс для создания именованных перечислений. Каждый элемент — уникальный символьный объект.",
-      "en": ""
+      "en": "The base class for named enumerations. Every member is a unique symbolic object."
     },
     "body": {
       "ru": "",
@@ -2117,7 +2117,7 @@
     "kind": "function",
     "summary": {
       "ru": "Отправляет вызов функции на выполнение в пул и немедленно возвращает объект Future, не дожидаясь результата.",
-      "en": ""
+      "en": "Sends a call to the pool for execution and immediately returns a Future object, without waiting for the result."
     },
     "body": {
       "ru": "",
@@ -2157,7 +2157,7 @@
     "kind": "function",
     "summary": {
       "ru": "Функция field() задаёт дополнительные параметры поля: значение по умолчанию, фабрику, участие в repr/compare/init.",
-      "en": ""
+      "en": "The field() function sets extra properties of a field: its default value, its factory, and whether it takes part in repr/compare/init."
     },
     "body": {
       "ru": "",
@@ -2195,7 +2195,7 @@
     "kind": "term",
     "summary": {
       "ru": "Параметр open(), задающий политику буферизации: 0 — без буфера (только бинарный режим), 1 — построчно, >1 — размер буфера в байтах, -1 — системный default.",
-      "en": ""
+      "en": "The open() parameter that sets the buffering policy: 0 — unbuffered (binary mode only), 1 — line buffered, >1 — the buffer size in bytes, -1 — the system default."
     },
     "body": {
       "ru": "",
@@ -2230,7 +2230,7 @@
     "kind": "term",
     "summary": {
       "ru": "Параметр open(), определяющий реакцию на ошибки кодировки: 'strict' (по умолчанию, исключение), 'ignore', 'replace', 'backslashreplace'.",
-      "en": ""
+      "en": "The open() parameter that decides what happens on an encoding error: 'strict' (the default, raises), 'ignore', 'replace', 'backslashreplace'."
     },
     "body": {
       "ru": "",
@@ -2265,7 +2265,7 @@
     "kind": "function",
     "summary": {
       "ru": "Принудительно сбрасывает внутренний буфер записи в файл или поток. Полезно, если нужно убедиться, что данные записаны немедленно.",
-      "en": ""
+      "en": "Forces the internal write buffer out to the file or stream. Useful when the data has to be written right away."
     },
     "body": {
       "ru": "",
@@ -2305,7 +2305,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает текущую позицию курсора в файле в байтах. Используй вместе с seek() для навигации по файлу.",
-      "en": ""
+      "en": "Returns the current position of the cursor in the file, in bytes. Use it together with seek() to move around a file."
     },
     "body": {
       "ru": "",
@@ -2343,7 +2343,7 @@
     "kind": "function",
     "summary": {
       "ru": "Обрезает файл до указанного размера в байтах. Если size не указан — обрезает до текущей позиции курсора. Файл должен быть открыт на запись.",
-      "en": ""
+      "en": "Truncates the file to the given size in bytes. With no size it truncates at the current cursor position. The file has to be open for writing."
     },
     "body": {
       "ru": "",
@@ -2380,7 +2380,7 @@
     "kind": "term",
     "summary": {
       "ru": "Flag и IntFlag поддерживают битовые операции: объединение через |, проверку через &.",
-      "en": ""
+      "en": "Flag and IntFlag support bitwise operations: members are combined with | and tested with &."
     },
     "body": {
       "ru": "",
@@ -2421,7 +2421,7 @@
     "kind": "term",
     "summary": {
       "ru": "Вычисляет значение свойства один раз и сохраняет в __dict__ экземпляра. При повторном обращении возвращает кэш без вызова метода.",
-      "en": ""
+      "en": "Computes the value of a property once and stores it in the instance's __dict__. Later accesses return the cached value without calling the method."
     },
     "body": {
       "ru": "",
@@ -2461,7 +2461,7 @@
     "kind": "term",
     "summary": {
       "ru": "lru_cache кэширует результаты вызовов (LRU, ограниченный размер). cache — то же без ограничения (Python 3.9+). Только для хешируемых аргументов.",
-      "en": ""
+      "en": "lru_cache caches the results of calls (LRU, bounded size). cache is the same thing without a bound (Python 3.9+). Only for hashable arguments."
     },
     "body": {
       "ru": "",
@@ -2503,7 +2503,7 @@
     "kind": "term",
     "summary": {
       "ru": "Создаёт новую функцию с частично заполненными аргументами. Полезно для создания специализированных версий функций.",
-      "en": ""
+      "en": "Creates a new function with some of the arguments already filled in. Useful for building specialized versions of a function."
     },
     "body": {
       "ru": "",
@@ -2541,7 +2541,7 @@
     "kind": "term",
     "summary": {
       "ru": "Сворачивает итерируемое применяя функцию накопительно слева направо. Необязательный initializer — начальное значение.",
-      "en": ""
+      "en": "Folds an iterable by applying a function cumulatively from left to right. The optional initializer is the starting value."
     },
     "body": {
       "ru": "",
@@ -2576,7 +2576,7 @@
     "kind": "term",
     "summary": {
       "ru": "Декоратор для создания обобщённых функций с диспетчеризацией по типу первого аргумента. Регистрация через @func.register.",
-      "en": ""
+      "en": "Decorator for writing generic functions that dispatch on the type of the first argument. Implementations are registered with @func.register."
     },
     "body": {
       "ru": "",
@@ -2617,7 +2617,7 @@
     "kind": "term",
     "summary": {
       "ru": "Декоратор класса. Дополняет недостающие операторы сравнения (<, <=, >, >=) при наличии __eq__ и хотя бы одного из них.",
-      "en": ""
+      "en": "A class decorator. Given __eq__ and at least one ordering method, it fills in the missing comparison operators (<, <=, >, >=)."
     },
     "body": {
       "ru": "",
@@ -2657,7 +2657,7 @@
     "kind": "term",
     "summary": {
       "ru": "Копирует метаданные декорируемой функции (__name__, __doc__, __annotations__) в функцию-обёртку. Обязателен при написании декораторов.",
-      "en": ""
+      "en": "Copies the metadata of the wrapped function (__name__, __doc__, __annotations__) onto the wrapper. A must when writing decorators."
     },
     "body": {
       "ru": "",
@@ -2700,7 +2700,7 @@
     "kind": "term",
     "summary": {
       "ru": "Классическое применение bisect: быстрое определение категории по диапазону (оценки, тарифы, уровни).",
-      "en": ""
+      "en": "The classic use of bisect: deciding quickly which range a value falls into (grades, price tiers, levels)."
     },
     "body": {
       "ru": "",
@@ -2738,7 +2738,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт объект MD5-хеша. Быстр, но не криптостоек — не используй для паролей. Подходит для контрольных сумм файлов.",
-      "en": ""
+      "en": "Creates an MD5 hash object. Fast, but not cryptographically strong — do not use it for passwords. Fine for file checksums."
     },
     "body": {
       "ru": "",
@@ -2775,7 +2775,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт объект SHA-256 хеша. Криптографически стойкий алгоритм. Используй для проверки целостности данных и цифровых подписей.",
-      "en": ""
+      "en": "Creates a SHA-256 hash object. A cryptographically strong algorithm. Use it for data integrity checks and digital signatures."
     },
     "body": {
       "ru": "",
@@ -2816,7 +2816,7 @@
     "kind": "function",
     "summary": {
       "ru": "Преобразует произвольный список в min-heap за O(n). Изменяет список на месте.",
-      "en": ""
+      "en": "Turns an arbitrary list into a min-heap in O(n). It rearranges the list in place."
     },
     "body": {
       "ru": "",
@@ -2852,7 +2852,7 @@
     "kind": "function",
     "summary": {
       "ru": "heappush() добавляет элемент в кучу, heappop() извлекает и возвращает наименьший элемент.",
-      "en": ""
+      "en": "heappush() adds an item to the heap, heappop() removes the smallest item and returns it."
     },
     "body": {
       "ru": "",
@@ -2892,7 +2892,7 @@
     "kind": "function",
     "summary": {
       "ru": "heapreplace() извлекает минимум и вставляет новый элемент атомарно (эффективнее pop+push). heappushpop() — push потом pop.",
-      "en": ""
+      "en": "heapreplace() pops the minimum and pushes a new item in one step (more efficient than pop+push). heappushpop() pushes first, then pops."
     },
     "body": {
       "ru": "",
@@ -2931,7 +2931,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает N наибольших или наименьших элементов последовательности. Работает с key-функцией.",
-      "en": ""
+      "en": "Returns the N largest or N smallest items of a sequence. A key function is supported."
     },
     "body": {
       "ru": "",
@@ -2970,7 +2970,7 @@
     "kind": "term",
     "summary": {
       "ru": "IntEnum — перечисление, совместимое с int. StrEnum — совместимое со str (Python 3.11+).",
-      "en": ""
+      "en": "IntEnum is an enumeration compatible with int. StrEnum is compatible with str (Python 3.11+)."
     },
     "body": {
       "ru": "",
@@ -3012,7 +3012,7 @@
     "kind": "term",
     "summary": {
       "ru": "Файлоподобный объект для бинарных данных в памяти. Аналог StringIO для байтов.",
-      "en": ""
+      "en": "A file-like object for binary data held in memory. The counterpart of StringIO for bytes."
     },
     "body": {
       "ru": "",
@@ -3050,7 +3050,7 @@
     "kind": "term",
     "summary": {
       "ru": "Файлоподобный объект, хранящий строковые данные в памяти. Удобен для тестирования и буферизации.",
-      "en": ""
+      "en": "A file-like object that keeps string data in memory. Convenient for testing and for buffering."
     },
     "body": {
       "ru": "",
@@ -3088,7 +3088,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оборачивает бинарный поток, добавляя кодирование/декодирование текста. Используется в open() внутри.",
-      "en": ""
+      "en": "Wraps a binary stream and adds text encoding and decoding. It is what open() uses internally."
     },
     "body": {
       "ru": "",
@@ -3127,7 +3127,7 @@
     "kind": "term",
     "summary": {
       "ru": "Обработчик, записывающий логи в файл. Поддерживает режимы 'a' (дополнять) и 'w' (перезаписывать), а также кодировку.",
-      "en": ""
+      "en": "A handler that writes log records to a file. It supports the modes 'a' (append) and 'w' (overwrite), as well as an encoding."
     },
     "body": {
       "ru": "",
@@ -3162,7 +3162,7 @@
     "kind": "term",
     "summary": {
       "ru": "Задаёт формат строк лога: время, уровень, имя логгера, сообщение и т.д. Привязывается к Handler.",
-      "en": ""
+      "en": "Sets the layout of a log line: the time, the level, the logger name, the message and so on. It is attached to a Handler."
     },
     "body": {
       "ru": "",
@@ -3199,7 +3199,7 @@
     "kind": "term",
     "summary": {
       "ru": "Базовый класс для всех обработчиков логов. Определяет, куда и как отправляются записи: в консоль, файл, сеть. Не используется напрямую.",
-      "en": ""
+      "en": "The base class of every log handler. It decides where the records go and how: to the console, a file, the network. Not used directly."
     },
     "body": {
       "ru": "",
@@ -3233,7 +3233,7 @@
     "kind": "term",
     "summary": {
       "ru": "Обработчик, выводящий логи в поток: по умолчанию в sys.stderr. Чаще всего используется для вывода в консоль.",
-      "en": ""
+      "en": "A handler that writes log records to a stream — sys.stderr by default. Most often used for console output."
     },
     "body": {
       "ru": "",
@@ -3269,7 +3269,7 @@
     "kind": "function",
     "summary": {
       "ru": "Быстрая базовая настройка системы логирования: уровень, формат, файл или поток вывода. Вызывается один раз до первого log-вызова.",
-      "en": ""
+      "en": "Quick basic setup of the logging system: the level, the format, the output file or stream. Call it once, before the first logging call."
     },
     "body": {
       "ru": "",
@@ -3307,7 +3307,7 @@
     "kind": "function",
     "summary": {
       "ru": "Записывает сообщение с уровнем DEBUG — самым низким. Используй для подробной диагностики при разработке. В production обычно отключён.",
-      "en": ""
+      "en": "Writes a message at the DEBUG level — the lowest one. Use it for detailed diagnostics during development. Usually switched off in production."
     },
     "body": {
       "ru": "",
@@ -3342,7 +3342,7 @@
     "kind": "function",
     "summary": {
       "ru": "Записывает сообщение с уровнем ERROR. Используй для ошибок, из-за которых часть логики не выполнилась, но программа продолжает работу.",
-      "en": ""
+      "en": "Writes a message at the ERROR level. Use it when part of the logic failed but the program keeps running."
     },
     "body": {
       "ru": "",
@@ -3378,7 +3378,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает именованный логгер. Логгеры образуют иерархию по точке в имени. Лучше создавать логгер на уровне модуля: getLogger(__name__).",
-      "en": ""
+      "en": "Returns a named logger. Loggers form a hierarchy along the dots in their names. Best created at module level: getLogger(__name__)."
     },
     "body": {
       "ru": "",
@@ -3416,7 +3416,7 @@
     "kind": "function",
     "summary": {
       "ru": "Записывает сообщение с уровнем INFO. Используй для штатных событий: запуск, успешное завершение, статус операции.",
-      "en": ""
+      "en": "Writes a message at the INFO level. Use it for normal events: startup, successful completion, the status of an operation."
     },
     "body": {
       "ru": "",
@@ -3451,7 +3451,7 @@
     "kind": "function",
     "summary": {
       "ru": "Записывает сообщение с уровнем WARNING. Используй для потенциальных проблем, которые не ломают работу прямо сейчас.",
-      "en": ""
+      "en": "Writes a message at the WARNING level. Use it for potential problems that are not breaking anything right now."
     },
     "body": {
       "ru": "",
@@ -3485,7 +3485,7 @@
     "kind": "term",
     "summary": {
       "ru": "Арккосинус угла. Принимает значение из [-1, 1], возвращает угол в радианах из [0, π].",
-      "en": ""
+      "en": "The arc cosine of a value. It takes a value in [-1, 1] and returns an angle in radians in [0, π]."
     },
     "body": {
       "ru": "",
@@ -3521,7 +3521,7 @@
     "kind": "term",
     "summary": {
       "ru": "Арксинус угла. Принимает значение из [-1, 1], возвращает угол в радианах из [-π/2, π/2].",
-      "en": ""
+      "en": "The arc sine of a value. It takes a value in [-1, 1] and returns an angle in radians in [-π/2, π/2]."
     },
     "body": {
       "ru": "",
@@ -3557,7 +3557,7 @@
     "kind": "term",
     "summary": {
       "ru": "Арктангенс угла. Принимает любое вещественное число, возвращает угол в радианах из (-π/2, π/2).",
-      "en": ""
+      "en": "The arc tangent of a value. It takes any real number and returns an angle in radians in (-π/2, π/2)."
     },
     "body": {
       "ru": "",
@@ -3593,7 +3593,7 @@
     "kind": "term",
     "summary": {
       "ru": "Арктангенс y/x с учётом квадранта — правильно обрабатывает все знаки. Результат в [-π, π].",
-      "en": ""
+      "en": "The arc tangent of y/x, taking the quadrant into account — it handles every combination of signs correctly. The result is in [-π, π]."
     },
     "body": {
       "ru": "",
@@ -3629,7 +3629,7 @@
     "kind": "term",
     "summary": {
       "ru": "Округление вверх до ближайшего целого. math.ceil(2.1) → 3, math.ceil(-2.1) → -2.",
-      "en": ""
+      "en": "Rounds up to the nearest integer. math.ceil(2.1) → 3, math.ceil(-2.1) → -2."
     },
     "body": {
       "ru": "",
@@ -3665,7 +3665,7 @@
     "kind": "term",
     "summary": {
       "ru": "Биномиальный коэффициент C(n, k): число сочетаний из n элементов по k без повторений и без учёта порядка.",
-      "en": ""
+      "en": "The binomial coefficient C(n, k): the number of ways to choose k items out of n, without repetition and without regard to order."
     },
     "body": {
       "ru": "",
@@ -3701,7 +3701,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает косинус угла в радианах. Результат всегда в диапазоне [-1, 1]. Для градусов: math.cos(math.radians(угол)).",
-      "en": ""
+      "en": "Returns the cosine of an angle given in radians. The result is always in [-1, 1]. For degrees: math.cos(math.radians(angle))."
     },
     "body": {
       "ru": "",
@@ -3737,7 +3737,7 @@
     "kind": "term",
     "summary": {
       "ru": "Конвертирует угол из радиан в градусы. math.degrees(math.pi) → 180.0.",
-      "en": ""
+      "en": "Converts an angle from radians to degrees. math.degrees(math.pi) → 180.0."
     },
     "body": {
       "ru": "",
@@ -3773,7 +3773,7 @@
     "kind": "term",
     "summary": {
       "ru": "Число Эйлера e ≈ 2.718281828459045 — основание натурального логарифма.",
-      "en": ""
+      "en": "Euler's number e ≈ 2.718281828459045 — the base of the natural logarithm."
     },
     "body": {
       "ru": "",
@@ -3809,7 +3809,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает e в степени x (экспоненту). Эквивалент math.e ** x, но точнее и быстрее для больших x.",
-      "en": ""
+      "en": "Returns e raised to the power of x (the exponential). Equivalent to math.e ** x, but more accurate and faster for large x."
     },
     "body": {
       "ru": "",
@@ -3845,7 +3845,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает абсолютное значение числа как float. В отличие от abs(), всегда возвращает float, а не int.",
-      "en": ""
+      "en": "Returns the absolute value of a number as a float. Unlike abs(), it always returns a float, never an int."
     },
     "body": {
       "ru": "",
@@ -3881,7 +3881,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает факториал неотрицательного целого числа. factorial(5) → 120. Для отрицательных чисел — ValueError.",
-      "en": ""
+      "en": "Returns the factorial of a non-negative integer. factorial(5) → 120. A negative number raises ValueError."
     },
     "body": {
       "ru": "",
@@ -3917,7 +3917,7 @@
     "kind": "term",
     "summary": {
       "ru": "Округление вниз до ближайшего целого. math.floor(2.9) → 2, math.floor(-2.9) → -3.",
-      "en": ""
+      "en": "Rounds down to the nearest integer. math.floor(2.9) → 2, math.floor(-2.9) → -3."
     },
     "body": {
       "ru": "",
@@ -3953,7 +3953,7 @@
     "kind": "term",
     "summary": {
       "ru": "Точная сумма чисел с плавающей точкой (без ошибок округления).",
-      "en": ""
+      "en": "An accurate sum of floating-point numbers (free of rounding error)."
     },
     "body": {
       "ru": "",
@@ -3989,7 +3989,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает наибольший общий делитель двух или более целых чисел. math.gcd(48, 36) → 12. Python 3.9+: несколько аргументов.",
-      "en": ""
+      "en": "Returns the greatest common divisor of two or more integers. math.gcd(48, 36) → 12. Python 3.9+: several arguments at once."
     },
     "body": {
       "ru": "",
@@ -4025,7 +4025,7 @@
     "kind": "term",
     "summary": {
       "ru": "Евклидово расстояние от начала координат. Python 3.8+: любое число аргументов.",
-      "en": ""
+      "en": "The Euclidean distance from the origin. Python 3.8+: any number of arguments."
     },
     "body": {
       "ru": "",
@@ -4061,7 +4061,7 @@
     "kind": "term",
     "summary": {
       "ru": "Положительная бесконечность (float). Используется как начальное значение при поиске минимума или в сравнениях.",
-      "en": ""
+      "en": "Positive infinity (a float). Used as the starting value when searching for a minimum, and in comparisons."
     },
     "body": {
       "ru": "",
@@ -4097,7 +4097,7 @@
     "kind": "term",
     "summary": {
       "ru": "Проверяет примерное равенство двух чисел с учётом погрешности.",
-      "en": ""
+      "en": "Checks whether two numbers are approximately equal, within a tolerance."
     },
     "body": {
       "ru": "",
@@ -4133,7 +4133,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если число конечное — не inf и не nan. Удобно для проверки результата вычислений.",
-      "en": ""
+      "en": "Returns True if the number is finite — neither inf nor nan. Handy for checking the result of a calculation."
     },
     "body": {
       "ru": "",
@@ -4169,7 +4169,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если число бесконечно (float('inf') или float('-inf')).",
-      "en": ""
+      "en": "Returns True if the number is infinite (float('inf') or float('-inf'))."
     },
     "body": {
       "ru": "",
@@ -4205,7 +4205,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает True, если число — NaN (Not a Number). Нельзя проверить через ==, так как nan != nan.",
-      "en": ""
+      "en": "Returns True if the number is NaN (Not a Number). It cannot be tested with ==, because nan != nan."
     },
     "body": {
       "ru": "",
@@ -4241,7 +4241,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает наименьшее общее кратное целых чисел. math.lcm(4, 6) → 12. Python 3.9+.",
-      "en": ""
+      "en": "Returns the least common multiple of the integers. math.lcm(4, 6) → 12. Python 3.9+."
     },
     "body": {
       "ru": "",
@@ -4277,7 +4277,7 @@
     "kind": "term",
     "summary": {
       "ru": "Натуральный логарифм. log(x, base) — логарифм по основанию base.",
-      "en": ""
+      "en": "The natural logarithm. log(x, base) is the logarithm to the given base."
     },
     "body": {
       "ru": "",
@@ -4313,7 +4313,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает логарифм по основанию 10. Точнее, чем math.log(x, 10). Используется для порядка величин.",
-      "en": ""
+      "en": "Returns the base-10 logarithm. More accurate than math.log(x, 10). Used for orders of magnitude."
     },
     "body": {
       "ru": "",
@@ -4349,7 +4349,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает логарифм по основанию 2. Точнее и быстрее, чем math.log(x, 2). Полезен в алгоритмах с двоичным деревом.",
-      "en": ""
+      "en": "Returns the base-2 logarithm. More accurate and faster than math.log(x, 2). Useful in binary-tree algorithms."
     },
     "body": {
       "ru": "",
@@ -4385,7 +4385,7 @@
     "kind": "term",
     "summary": {
       "ru": "Not a Number — специальное значение float для результата неопределённых операций. Не равно самому себе: nan != nan.",
-      "en": ""
+      "en": "Not a Number — the special float value produced by undefined operations. It is not equal to itself: nan != nan."
     },
     "body": {
       "ru": "",
@@ -4421,7 +4421,7 @@
     "kind": "term",
     "summary": {
       "ru": "Число размещений P(n, k): количество упорядоченных выборок k элементов из n без повторений.",
-      "en": ""
+      "en": "The number of permutations P(n, k): how many ordered selections of k items out of n there are, without repetition."
     },
     "body": {
       "ru": "",
@@ -4457,7 +4457,7 @@
     "kind": "term",
     "summary": {
       "ru": "Математическая константа π ≈ 3.141592653589793. Используется в тригонометрии и геометрии.",
-      "en": ""
+      "en": "The mathematical constant π ≈ 3.141592653589793. Used in trigonometry and geometry."
     },
     "body": {
       "ru": "",
@@ -4494,7 +4494,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возводит x в степень y, всегда возвращает float. Отличие от **:  math.pow(-1, 0.5) — ValueError, ** — complex.",
-      "en": ""
+      "en": "Raises x to the power of y and always returns a float. The difference from **: math.pow(-1, 0.5) raises ValueError, while ** gives a complex number."
     },
     "body": {
       "ru": "",
@@ -4530,7 +4530,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает произведение всех элементов итерируемого. Python 3.8+. math.prod([2, 3, 4]) → 24.",
-      "en": ""
+      "en": "Returns the product of all the items of an iterable. Python 3.8+. math.prod([2, 3, 4]) → 24."
     },
     "body": {
       "ru": "",
@@ -4566,7 +4566,7 @@
     "kind": "term",
     "summary": {
       "ru": "Конвертирует угол из градусов в радианы. math.radians(180) → 3.14159... Нужно для тригонометрических функций.",
-      "en": ""
+      "en": "Converts an angle from degrees to radians. math.radians(180) → 3.14159... Needed by the trigonometric functions."
     },
     "body": {
       "ru": "",
@@ -4602,7 +4602,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает синус угла в радианах. Для перевода градусов в радианы используй math.radians().",
-      "en": ""
+      "en": "Returns the sine of an angle given in radians. To convert degrees to radians use math.radians()."
     },
     "body": {
       "ru": "",
@@ -4638,7 +4638,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает квадратный корень числа как float. Для целочисленного результата используй isqrt(). Отрицательные числа вызывают ValueError.",
-      "en": ""
+      "en": "Returns the square root of a number as a float. For an integer result use isqrt(). A negative number raises ValueError."
     },
     "body": {
       "ru": "",
@@ -4674,7 +4674,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает тангенс угла в радианах. math.tan(math.pi/4) ≈ 1.0. Не определён при x = π/2 + πn.",
-      "en": ""
+      "en": "Returns the tangent of an angle given in radians. math.tan(math.pi/4) ≈ 1.0. It is undefined at x = π/2 + πn."
     },
     "body": {
       "ru": "",
@@ -4710,7 +4710,7 @@
     "kind": "term",
     "summary": {
       "ru": "Математическая константа τ = 2π ≈ 6.283185307179586. Удобна в формулах, где часто встречается 2π.",
-      "en": ""
+      "en": "The mathematical constant τ = 2π ≈ 6.283185307179586. Convenient in formulas where 2π keeps coming up."
     },
     "body": {
       "ru": "",
@@ -4746,7 +4746,7 @@
     "kind": "term",
     "summary": {
       "ru": "Усечение дробной части — округление к нулю. math.trunc(2.9) → 2, math.trunc(-2.9) → -2.",
-      "en": ""
+      "en": "Cuts off the fractional part — rounding towards zero. math.trunc(2.9) → 2, math.trunc(-2.9) → -2."
     },
     "body": {
       "ru": "",
@@ -4782,7 +4782,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает значение переменной окружения по имени. Если переменная не задана, возвращает default (по умолчанию None). Безопаснее, чем os.environ[key].",
-      "en": ""
+      "en": "Returns the value of an environment variable by name. If the variable is not set it returns default (None by default). Safer than os.environ[key]."
     },
     "body": {
       "ru": "",
@@ -4818,7 +4818,7 @@
     "kind": "function",
     "summary": {
       "ru": "Эффективный итератор по содержимому директории. Возвращает объекты DirEntry с именем, путём и кешированными атрибутами — быстрее os.listdir() + os.stat().",
-      "en": ""
+      "en": "An efficient iterator over the contents of a directory. It yields DirEntry objects with the name, the path and cached attributes — faster than os.listdir() + os.stat()."
     },
     "body": {
       "ru": "",
@@ -4856,7 +4856,7 @@
     "kind": "term",
     "summary": {
       "ru": "Словарь переменных окружения. Поддерживает get(), setitem, pop(). Изменения влияют на дочерние процессы.",
-      "en": ""
+      "en": "The dictionary of environment variables. It supports get(), item assignment and pop(). Changes are inherited by child processes."
     },
     "body": {
       "ru": "",
@@ -4891,7 +4891,7 @@
     "kind": "function",
     "summary": {
       "ru": "os.getcwd() возвращает текущую рабочую директорию. os.chdir(path) меняет её.",
-      "en": ""
+      "en": "os.getcwd() returns the current working directory. os.chdir(path) changes it."
     },
     "body": {
       "ru": "",
@@ -4929,7 +4929,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает PID (идентификатор) текущего процесса. Полезно для логирования и создания временных файлов с уникальными именами.",
-      "en": ""
+      "en": "Returns the PID (identifier) of the current process. Useful for logging and for giving temporary files unique names."
     },
     "body": {
       "ru": "",
@@ -4965,7 +4965,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает список имён файлов и папок в указанной директории (без сортировки). По умолчанию — текущая директория.",
-      "en": ""
+      "en": "Returns the list of file and folder names in the given directory (unsorted). The current directory by default."
     },
     "body": {
       "ru": "",
@@ -5000,7 +5000,7 @@
     "kind": "function",
     "summary": {
       "ru": "os.makedirs() создаёт папку включая промежуточные. os.rmdir() удаляет пустую папку.",
-      "en": ""
+      "en": "os.makedirs() creates a folder together with the intermediate ones. os.rmdir() removes an empty folder."
     },
     "body": {
       "ru": "",
@@ -5038,7 +5038,7 @@
     "kind": "function",
     "summary": {
       "ru": "dirname() — директория пути. basename() — имя файла/папки. split() — кортеж (dirname, basename).",
-      "en": ""
+      "en": "dirname() — the directory part of a path. basename() — the file or folder name. split() — the tuple (dirname, basename)."
     },
     "body": {
       "ru": "",
@@ -5078,7 +5078,7 @@
     "kind": "function",
     "summary": {
       "ru": "os.path.exists() — путь существует. os.path.isfile() — это файл. os.path.isdir() — это папка.",
-      "en": ""
+      "en": "os.path.exists() — the path exists. os.path.isfile() — it is a file. os.path.isdir() — it is a folder."
     },
     "body": {
       "ru": "",
@@ -5117,7 +5117,7 @@
     "kind": "function",
     "summary": {
       "ru": "Объединяет компоненты пути с учётом ОС. Абсолютный компонент сбрасывает предыдущие части.",
-      "en": ""
+      "en": "Joins the components of a path the way the OS expects. An absolute component discards everything before it."
     },
     "body": {
       "ru": "",
@@ -5153,7 +5153,7 @@
     "kind": "function",
     "summary": {
       "ru": "Разбивает путь на пару (root, ext), где ext — расширение файла с точкой. Удобно для смены расширения.",
-      "en": ""
+      "en": "Splits a path into the pair (root, ext), where ext is the file extension including the dot. Handy for changing an extension."
     },
     "body": {
       "ru": "",
@@ -5189,7 +5189,7 @@
     "kind": "function",
     "summary": {
       "ru": "os.remove() удаляет файл. os.rename() переименовывает файл или папку. Для рекурсивного удаления папок — shutil.rmtree().",
-      "en": ""
+      "en": "os.remove() deletes a file. os.rename() renames a file or a folder. To delete a folder recursively use shutil.rmtree()."
     },
     "body": {
       "ru": "",
@@ -5228,7 +5228,7 @@
     "kind": "term",
     "summary": {
       "ru": "Системные разделители: sep — разделитель пути ('/' или '\\\\'), linesep — перевод строки, pathsep — разделитель PATH (':' или ';').",
-      "en": ""
+      "en": "The system separators: sep — the path separator ('/' or '\\\\'), linesep — the line terminator, pathsep — the PATH separator (':' or ';')."
     },
     "body": {
       "ru": "",
@@ -5267,7 +5267,7 @@
     "kind": "function",
     "summary": {
       "ru": "Генератор обхода дерева директорий. Для каждой папки возвращает (dirpath, dirnames, filenames).",
-      "en": ""
+      "en": "A generator that walks a directory tree. For every folder it yields (dirpath, dirnames, filenames)."
     },
     "body": {
       "ru": "",
@@ -5306,7 +5306,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт объект пути из строки или компонентов. На Windows — WindowsPath, на Unix — PosixPath.",
-      "en": ""
+      "en": "Creates a path object from a string or from components. On Windows it is a WindowsPath, on Unix a PosixPath."
     },
     "body": {
       "ru": "",
@@ -5341,7 +5341,7 @@
     "kind": "function",
     "summary": {
       "ru": "Path.home() возвращает домашний каталог пользователя, Path.cwd() — текущий рабочий каталог.",
-      "en": ""
+      "en": "Path.home() returns the user's home directory, Path.cwd() the current working directory."
     },
     "body": {
       "ru": "",
@@ -5378,7 +5378,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает структуру os.stat_result с метаданными файла: размер, время изменения, права доступа.",
-      "en": ""
+      "en": "Returns an os.stat_result structure with the file's metadata: its size, modification time and permissions."
     },
     "body": {
       "ru": "",
@@ -5416,7 +5416,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает случайный элемент из непустой последовательности (list, tuple, str). При пустой — IndexError.",
-      "en": ""
+      "en": "Returns a random item of a non-empty sequence (list, tuple, str). An empty one raises IndexError."
     },
     "body": {
       "ru": "",
@@ -5455,7 +5455,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает список из k случайных элементов с возвратом. Поддерживает веса (weights или cum_weights).",
-      "en": ""
+      "en": "Returns a list of k random items chosen with replacement. Weights are supported (weights or cum_weights)."
     },
     "body": {
       "ru": "",
@@ -5493,7 +5493,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает случайное число из нормального (гауссова) распределения с параметрами mu (среднее) и sigma (ст. отклонение).",
-      "en": ""
+      "en": "Returns a random number from the normal (Gaussian) distribution with the parameters mu (the mean) and sigma (the standard deviation)."
     },
     "body": {
       "ru": "",
@@ -5530,7 +5530,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает случайное целое число из диапазона [a, b] включительно. Оба конца включены.",
-      "en": ""
+      "en": "Returns a random integer from the range [a, b] inclusive. Both ends are included."
     },
     "body": {
       "ru": "",
@@ -5568,7 +5568,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает псевдослучайное число из диапазона [0.0, 1.0) с равномерным распределением.",
-      "en": ""
+      "en": "Returns a pseudo-random number from [0.0, 1.0), uniformly distributed."
     },
     "body": {
       "ru": "",
@@ -5606,7 +5606,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает случайный элемент из range(start, stop[, step]). Аналог choice(range(...)), но без создания списка.",
-      "en": ""
+      "en": "Returns a random element of range(start, stop[, step]). Like choice(range(...)), but without building the list."
     },
     "body": {
       "ru": "",
@@ -5643,7 +5643,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает список из k уникальных случайных элементов без повторений. k не может превышать len(population).",
-      "en": ""
+      "en": "Returns a list of k distinct random items, without repetition. k cannot exceed len(population)."
     },
     "body": {
       "ru": "",
@@ -5681,7 +5681,7 @@
     "kind": "term",
     "summary": {
       "ru": "Инициализирует генератор псевдослучайных чисел. Одинаковый seed — одинаковая последовательность.",
-      "en": ""
+      "en": "Initializes the pseudo-random number generator. The same seed gives the same sequence."
     },
     "body": {
       "ru": "",
@@ -5718,7 +5718,7 @@
     "kind": "term",
     "summary": {
       "ru": "Перемешивает список на месте случайным образом. Изменяет оригинальный объект, ничего не возвращает.",
-      "en": ""
+      "en": "Shuffles a list in place at random. It changes the original object and returns nothing."
     },
     "body": {
       "ru": "",
@@ -5761,7 +5761,7 @@
     "kind": "term",
     "summary": {
       "ru": "Криптографически безопасный генератор, использующий os.urandom().",
-      "en": ""
+      "en": "A cryptographically secure generator that draws on os.urandom()."
     },
     "body": {
       "ru": "",
@@ -5801,7 +5801,7 @@
     "kind": "term",
     "summary": {
       "ru": "Возвращает случайное вещественное число из диапазона [a, b] с равномерным распределением.",
-      "en": ""
+      "en": "Returns a random floating-point number from the range [a, b], uniformly distributed."
     },
     "body": {
       "ru": "",
@@ -5838,7 +5838,7 @@
     "kind": "function",
     "summary": {
       "ru": "Экранирует все спецсимволы в строке, чтобы использовать её как литерал в регулярном выражении. Полезно, когда паттерн формируется из пользовательского ввода.",
-      "en": ""
+      "en": "Escapes every special character in a string so that it can be used as a literal inside a regular expression. Useful when the pattern is built from user input."
     },
     "body": {
       "ru": "",
@@ -5876,7 +5876,7 @@
     "kind": "function",
     "summary": {
       "ru": "Именованная группа захвата. Позволяет обращаться к совпадению по имени через match.group('name') или match['name'] вместо числового индекса.",
-      "en": ""
+      "en": "A named capturing group. It lets you reach the match by name, through match.group('name') or match['name'], instead of by a numeric index."
     },
     "body": {
       "ru": "",
@@ -5911,7 +5911,7 @@
     "kind": "function",
     "summary": {
       "ru": "Компилирует паттерн в объект RegexObject для повторного использования. Ускоряет многократные операции.",
-      "en": ""
+      "en": "Compiles a pattern into a RegexObject that can be reused. It speeds up repeated operations."
     },
     "body": {
       "ru": "",
@@ -5947,7 +5947,7 @@
     "kind": "function",
     "summary": {
       "ru": "Экранирует все спецсимволы в строке, чтобы использовать её как литеральный паттерн.",
-      "en": ""
+      "en": "Escapes every special character in a string so that it can be used as a literal pattern."
     },
     "body": {
       "ru": "",
@@ -5982,7 +5982,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает список всех совпадений паттерна в строке. Если есть группы — список кортежей.",
-      "en": ""
+      "en": "Returns the list of every match of the pattern in the string. If the pattern has groups, it is a list of tuples."
     },
     "body": {
       "ru": "",
@@ -6016,7 +6016,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает итератор объектов Match для всех совпадений. Экономит память при большом тексте.",
-      "en": ""
+      "en": "Returns an iterator of Match objects for every match. It saves memory on large texts."
     },
     "body": {
       "ru": "",
@@ -6051,7 +6051,7 @@
     "kind": "function",
     "summary": {
       "ru": "Проверяет совпадение паттерна со всей строкой целиком. Возвращает Match или None.",
-      "en": ""
+      "en": "Checks whether the pattern matches the whole string. Returns a Match or None."
     },
     "body": {
       "ru": "",
@@ -6086,7 +6086,7 @@
     "kind": "function",
     "summary": {
       "ru": "Методы объекта Match для доступа к захваченным группам. group(0) — всё совпадение, group(n) — n-я группа.",
-      "en": ""
+      "en": "The methods of a Match object that give access to the captured groups. group(0) is the whole match, group(n) the n-th group."
     },
     "body": {
       "ru": "",
@@ -6126,7 +6126,7 @@
     "kind": "function",
     "summary": {
       "ru": "Проверяет совпадение паттерна с начала строки. Возвращает объект Match или None.",
-      "en": ""
+      "en": "Checks whether the pattern matches at the start of the string. Returns a Match object or None."
     },
     "body": {
       "ru": "",
@@ -6161,7 +6161,7 @@
     "kind": "function",
     "summary": {
       "ru": "Ищет первое совпадение паттерна в любом месте строки. Возвращает Match или None.",
-      "en": ""
+      "en": "Finds the first match of the pattern anywhere in the string. Returns a Match or None."
     },
     "body": {
       "ru": "",
@@ -6196,7 +6196,7 @@
     "kind": "function",
     "summary": {
       "ru": "Разбивает строку по совпадениям с паттерном. Группы в паттерне включаются в результат.",
-      "en": ""
+      "en": "Splits a string at the matches of the pattern. Groups in the pattern are included in the result."
     },
     "body": {
       "ru": "",
@@ -6230,7 +6230,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строка из всех ASCII-букв: строчных и прописных (a-z + A-Z). Удобна для генерации паролей и валидации.",
-      "en": ""
+      "en": "The string of every ASCII letter, lower-case and upper-case (a-z + A-Z). Handy for generating passwords and for validation."
     },
     "body": {
       "ru": "",
@@ -6266,7 +6266,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строка 'abcdefghijklmnopqrstuvwxyz'. string.ascii_uppercase — 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.",
-      "en": ""
+      "en": "The string 'abcdefghijklmnopqrstuvwxyz'. string.ascii_uppercase is 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'."
     },
     "body": {
       "ru": "",
@@ -6301,7 +6301,7 @@
     "kind": "function",
     "summary": {
       "ru": "Разбивает строку по пробелам, делает каждое слово с заглавной буквы, склеивает обратно. Аналог title(), но убирает лишние пробелы.",
-      "en": ""
+      "en": "Splits a string on whitespace, capitalizes every word and joins it back together. Like title(), but it also collapses extra whitespace."
     },
     "body": {
       "ru": "",
@@ -6336,7 +6336,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строка '0123456789'. Используется для проверки цифровых символов и генерации числовых кодов.",
-      "en": ""
+      "en": "The string '0123456789'. Used to test for digit characters and to generate numeric codes."
     },
     "body": {
       "ru": "",
@@ -6372,7 +6372,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строка '0123456789abcdefABCDEF'. string.octdigits — '01234567'. Применяются при парсинге шестнадцатеричных/восьмеричных чисел.",
-      "en": ""
+      "en": "The string '0123456789abcdefABCDEF'. string.octdigits is '01234567'. Used when parsing hexadecimal and octal numbers."
     },
     "body": {
       "ru": "",
@@ -6407,7 +6407,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строка всех печатаемых символов: digits + ascii_letters + punctuation + whitespace. Длина — 100 символов.",
-      "en": ""
+      "en": "The string of every printable character: digits + ascii_letters + punctuation + whitespace. It is 100 characters long."
     },
     "body": {
       "ru": "",
@@ -6442,7 +6442,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строка стандартных знаков пунктуации ASCII. Используется при фильтрации или проверке текста.",
-      "en": ""
+      "en": "The string of the standard ASCII punctuation marks. Used when filtering or validating text."
     },
     "body": {
       "ru": "",
@@ -6477,7 +6477,7 @@
     "kind": "term",
     "summary": {
       "ru": "Шаблон строки с подстановкой через $var или ${var}. Безопаснее % и format() для пользовательского ввода. Методы: substitute(), safe_substitute().",
-      "en": ""
+      "en": "A string template with $var or ${var} substitution. Safer than % and format() for user input. Its methods: substitute(), safe_substitute()."
     },
     "body": {
       "ru": "",
@@ -6514,7 +6514,7 @@
     "kind": "term",
     "summary": {
       "ru": "Строка из пробельных символов: пробел, таб, новая строка, возврат каретки, вертикальный таб, перевод страницы.",
-      "en": ""
+      "en": "The string of the whitespace characters: space, tab, newline, carriage return, vertical tab and form feed."
     },
     "body": {
       "ru": "",
@@ -6549,7 +6549,7 @@
     "kind": "term",
     "summary": {
       "ru": "Константа для перенаправления stdin/stdout/stderr в трубопровод (pipe). Позволяет читать вывод или писать ввод программно.",
-      "en": ""
+      "en": "The constant that redirects stdin/stdout/stderr into a pipe. It lets the program read the output or write the input itself."
     },
     "body": {
       "ru": "",
@@ -6586,7 +6586,7 @@
     "kind": "function",
     "summary": {
       "ru": "Низкоуровневый запуск процесса с ручным управлением. Позволяет читать stdout/stderr в реальном времени и писать в stdin.",
-      "en": ""
+      "en": "Low-level process launching, managed by hand. It lets you read stdout/stderr as they come and write to stdin."
     },
     "body": {
       "ru": "",
@@ -6625,7 +6625,7 @@
     "kind": "function",
     "summary": {
       "ru": "Запускает команду и возвращает её stdout как bytes (или str при text=True). При ненулевом коде возврата бросает CalledProcessError.",
-      "en": ""
+      "en": "Runs a command and returns its stdout as bytes (or as a str with text=True). A non-zero exit code raises CalledProcessError."
     },
     "body": {
       "ru": "",
@@ -6663,7 +6663,7 @@
     "kind": "function",
     "summary": {
       "ru": "Запускает команду, ждёт завершения и возвращает CompletedProcess. Основной способ вызова внешних программ в Python 3.5+.",
-      "en": ""
+      "en": "Runs a command, waits for it to finish and returns a CompletedProcess. The main way to call external programs since Python 3.5."
     },
     "body": {
       "ru": "",
@@ -6700,7 +6700,7 @@
     "kind": "term",
     "summary": {
       "ru": "Список аргументов командной строки. sys.argv[0] — имя скрипта, остальные — переданные аргументы.",
-      "en": ""
+      "en": "The list of command-line arguments. sys.argv[0] is the script name, the rest are the arguments passed to it."
     },
     "body": {
       "ru": "",
@@ -6737,7 +6737,7 @@
     "kind": "function",
     "summary": {
       "ru": "Завершает программу. Аргумент 0 — успешное завершение, не-0 — ошибка. Поднимает SystemExit.",
-      "en": ""
+      "en": "Ends the program. The argument 0 means success, anything non-zero an error. It raises SystemExit."
     },
     "body": {
       "ru": "",
@@ -6780,7 +6780,7 @@
     "kind": "function",
     "summary": {
       "ru": "Получение и установка максимальной глубины рекурсии. По умолчанию 1000. Превышение вызывает RecursionError.",
-      "en": ""
+      "en": "Reading and setting the maximum recursion depth. The default is 1000. Going past it raises RecursionError."
     },
     "body": {
       "ru": "",
@@ -6822,7 +6822,7 @@
     "kind": "function",
     "summary": {
       "ru": "Возвращает размер объекта в байтах (без учёта вложенных объектов). Использует __sizeof__ плюс служебные данные GC.",
-      "en": ""
+      "en": "Returns the size of an object in bytes (not counting the objects nested in it). It uses __sizeof__ plus the GC bookkeeping."
     },
     "body": {
       "ru": "",
@@ -6857,7 +6857,7 @@
     "kind": "function",
     "summary": {
       "ru": "Интернирует строку — гарантирует, что идентичные строки используют один объект в памяти. Ускоряет сравнение через 'is'.",
-      "en": ""
+      "en": "Interns a string — it guarantees that identical strings share one object in memory. It speeds up comparison with 'is'."
     },
     "body": {
       "ru": "",
@@ -6895,7 +6895,7 @@
     "kind": "term",
     "summary": {
       "ru": "Словарь всех загруженных модулей {имя: module}. Кэш импортов Python. Можно удалить модуль для перезагрузки.",
-      "en": ""
+      "en": "The dictionary of every loaded module, {name: module}. Python's import cache. A module can be removed from it to force a reload."
     },
     "body": {
       "ru": "",
@@ -6931,7 +6931,7 @@
     "kind": "term",
     "summary": {
       "ru": "Список директорий, в которых Python ищет модули при импорте. Можно модифицировать для добавления своих путей.",
-      "en": ""
+      "en": "The list of directories Python searches for modules on import. It can be modified to add paths of your own."
     },
     "body": {
       "ru": "",
@@ -6966,7 +6966,7 @@
     "kind": "term",
     "summary": {
       "ru": "Стандартные потоки ввода/вывода/ошибок. Можно перенаправлять для тестирования или записи в файл.",
-      "en": ""
+      "en": "The standard input, output and error streams. They can be redirected for testing or to write to a file."
     },
     "body": {
       "ru": "",
@@ -7005,7 +7005,7 @@
     "kind": "term",
     "summary": {
       "ru": "sys.version — строка версии Python. sys.platform — ОС ('linux', 'win32', 'darwin'). sys.implementation — детали реализации (CPython и т.д.).",
-      "en": ""
+      "en": "sys.version — the Python version as a string. sys.platform — the OS ('linux', 'win32', 'darwin'). sys.implementation — details of the implementation (CPython and so on)."
     },
     "body": {
       "ru": "",
@@ -7044,7 +7044,7 @@
     "kind": "term",
     "summary": {
       "ru": "Механизм сигнализации между потоками. Один поток устанавливает флаг (set()), другие ждут его (wait()).",
-      "en": ""
+      "en": "A signalling mechanism between threads. One thread sets the flag (set()), the others wait for it (wait())."
     },
     "body": {
       "ru": "",
@@ -7085,7 +7085,7 @@
     "kind": "term",
     "summary": {
       "ru": "Примитив взаимного исключения (мьютекс). Гарантирует, что только один поток в момент времени выполняет защищённый блок кода.",
-      "en": ""
+      "en": "The mutual exclusion primitive (a mutex). It guarantees that only one thread at a time runs the protected block of code."
     },
     "body": {
       "ru": "",
@@ -7125,7 +7125,7 @@
     "kind": "term",
     "summary": {
       "ru": "Реентрантный мьютекс — один поток может захватить его несколько раз без блокировки. Используй вместо Lock при рекурсивных вызовах.",
-      "en": ""
+      "en": "A reentrant mutex — one thread can acquire it several times without blocking itself. Use it instead of Lock with recursive calls."
     },
     "body": {
       "ru": "",
@@ -7162,7 +7162,7 @@
     "kind": "term",
     "summary": {
       "ru": "Семафор ограничивает количество потоков, одновременно выполняющих блок кода. Полезен для ограничения параллельных запросов.",
-      "en": ""
+      "en": "A semaphore bounds how many threads may run a block of code at the same time. Useful for limiting parallel requests."
     },
     "body": {
       "ru": "",
@@ -7200,7 +7200,7 @@
     "kind": "term",
     "summary": {
       "ru": "Класс для создания и запуска потока. Потоки разделяют память процесса. Из-за GIL не ускоряет CPU-задачи, но хорош для I/O.",
-      "en": ""
+      "en": "The class for creating and starting a thread. Threads share the memory of the process. Because of the GIL it does not speed up CPU-bound work, but it is good for I/O."
     },
     "body": {
       "ru": "",
@@ -7237,7 +7237,7 @@
     "kind": "term",
     "summary": {
       "ru": "Объект времени (без даты). Часы, минуты, секунды, микросекунды.",
-      "en": ""
+      "en": "A time object (with no date). Hours, minutes, seconds and microseconds."
     },
     "body": {
       "ru": "",
@@ -7274,7 +7274,7 @@
     "kind": "term",
     "summary": {
       "ru": "Промежуток времени. Поддерживает операции с датами: сложение, вычитание, сравнение. Хранит дни, секунды, микросекунды.",
-      "en": ""
+      "en": "A span of time. It supports operations with dates: addition, subtraction and comparison. It stores days, seconds and microseconds."
     },
     "body": {
       "ru": "",
@@ -7314,7 +7314,7 @@
     "kind": "term",
     "summary": {
       "ru": "Datetime с учётом часового пояса. Используй timezone из datetime или pytz.",
-      "en": ""
+      "en": "A datetime that carries a time zone. Use timezone from datetime, or pytz."
     },
     "body": {
       "ru": "",
@@ -7352,7 +7352,7 @@
     "kind": "term",
     "summary": {
       "ru": "Декоратор @unique запрещает дублирование значений в перечислении — вызывает ValueError при нарушении.",
-      "en": ""
+      "en": "The @unique decorator forbids duplicate values in an enumeration — it raises ValueError when there are any."
     },
     "body": {
       "ru": "",
@@ -7390,7 +7390,7 @@
     "kind": "term",
     "summary": {
       "ru": "Базовый класс для тест-кейсов. Каждый метод, начинающийся с test_, запускается как отдельный тест. Предоставляет методы assert* для проверки результатов.",
-      "en": ""
+      "en": "The base class for test cases. Every method whose name starts with test_ is run as a separate test. It provides the assert* methods for checking results."
     },
     "body": {
       "ru": "",
@@ -7427,7 +7427,7 @@
     "kind": "function",
     "summary": {
       "ru": "assertEqual(a, b) проверяет равенство. assertRaises(Exc) проверяет, что блок или вызов поднимает нужное исключение.",
-      "en": ""
+      "en": "assertEqual(a, b) checks equality. assertRaises(Exc) checks that the block or the call raises the expected exception."
     },
     "body": {
       "ru": "",
@@ -7469,7 +7469,7 @@
     "kind": "function",
     "summary": {
       "ru": "Декоратор и контекстный менеджер для замены объектов в тестах на фиктивные (mock). Позволяет изолировать тестируемый код от внешних зависимостей.",
-      "en": ""
+      "en": "A decorator and a context manager that replace objects with mocks during a test. They isolate the code under test from its external dependencies."
     },
     "body": {
       "ru": "",
@@ -7507,7 +7507,7 @@
     "kind": "function",
     "summary": {
       "ru": "setUp() запускается перед каждым тестом, tearDown() — после. Используй для подготовки и очистки состояния (БД, файлы, моки).",
-      "en": ""
+      "en": "setUp() runs before every test, tearDown() after it. Use them to prepare and clean up state (databases, files, mocks)."
     },
     "body": {
       "ru": "",
@@ -7547,7 +7547,7 @@
     "kind": "term",
     "summary": {
       "ru": "bisect не проверяет наличие элемента, но можно реализовать бинарный поиск, проверив найденную позицию.",
-      "en": ""
+      "en": "bisect does not check whether the item is present, but a binary search can be built on it by checking the position it returns."
     },
     "body": {
       "ru": "",
@@ -7584,7 +7584,7 @@
     "kind": "term",
     "summary": {
       "ru": "Буферизованный ввод-вывод накапливает данные в памяти перед записью. flush() принудительно сбрасывает буфер.",
-      "en": ""
+      "en": "Buffered I/O collects the data in memory before writing it out. flush() forces the buffer out."
     },
     "body": {
       "ru": "",
@@ -7622,7 +7622,7 @@
     "kind": "term",
     "summary": {
       "ru": "Расширенные конструкции групп: именованные, не захватывающие, lookahead и lookbehind.",
-      "en": ""
+      "en": "The extended group constructs: named groups, non-capturing groups, lookahead and lookbehind."
     },
     "body": {
       "ru": "",
@@ -7657,7 +7657,7 @@
     "kind": "term",
     "summary": {
       "ru": "Вычисление количества дней между двумя датами через вычитание date-объектов — результат является timedelta.",
-      "en": ""
+      "en": "The number of days between two dates, found by subtracting two date objects — the result is a timedelta."
     },
     "body": {
       "ru": "",
@@ -7695,7 +7695,7 @@
     "kind": "term",
     "summary": {
       "ru": "Перечисления поддерживают итерацию по list(MyEnum) и сравнение через is / ==. IntEnum поддерживает <, >.",
-      "en": ""
+      "en": "Enumerations support iteration through list(MyEnum) and comparison with is / ==. IntEnum also supports < and >."
     },
     "body": {
       "ru": "",
@@ -7732,7 +7732,7 @@
     "kind": "term",
     "summary": {
       "ru": "Коды для strftime/strptime: %Y год, %m месяц, %d день, %H час (24ч), %M минута, %S секунда, %A день нед., %B месяц, %p AM/PM.",
-      "en": ""
+      "en": "The codes for strftime/strptime: %Y year, %m month, %d day, %H hour (24h), %M minute, %S second, %A weekday, %B month, %p AM/PM."
     },
     "body": {
       "ru": "",
@@ -7769,7 +7769,7 @@
     "kind": "term",
     "summary": {
       "ru": "Классический паттерн: хранить кортежи (приоритет, данные) в куче для эффективного планирования задач.",
-      "en": ""
+      "en": "The classic pattern: keep (priority, data) tuples in a heap to schedule tasks efficiently."
     },
     "body": {
       "ru": "",
@@ -7807,7 +7807,7 @@
     "kind": "term",
     "summary": {
       "ru": "Типичные ошибки: mutable default arguments, циклические ссылки, shared state при shallow copy.",
-      "en": ""
+      "en": "The usual mistakes: mutable default arguments, circular references, and shared state left behind by a shallow copy."
     },
     "body": {
       "ru": "",
@@ -7851,7 +7851,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор / для объектов Path объединяет компоненты пути, аналог os.path.join().",
-      "en": ""
+      "en": "The / operator on Path objects joins the components of a path, like os.path.join()."
     },
     "body": {
       "ru": "",
@@ -7887,7 +7887,7 @@
     "kind": "term",
     "summary": {
       "ru": "Специальные символы регулярных выражений: метасимволы, классы, квантификаторы, якоря.",
-      "en": ""
+      "en": "The special characters of regular expressions: metacharacters, character classes, quantifiers and anchors."
     },
     "body": {
       "ru": "",
@@ -7922,7 +7922,7 @@
     "kind": "term",
     "summary": {
       "ru": "Флаги изменяют поведение паттерна: регистр, многострочность, совпадение точки с \\n, подробный синтаксис.",
-      "en": ""
+      "en": "The flags change how a pattern behaves: case sensitivity, multi-line mode, whether the dot matches \\n, and verbose syntax."
     },
     "body": {
       "ru": "",

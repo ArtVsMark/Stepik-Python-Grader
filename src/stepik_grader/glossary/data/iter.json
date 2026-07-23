@@ -5,7 +5,7 @@
     "kind": "term",
     "summary": {
       "ru": "async def объявляет корутину. await приостанавливает выполнение до результата другой корутины.",
-      "en": ""
+      "en": "async def declares a coroutine. await suspends execution until another coroutine produces its result."
     },
     "body": {
       "ru": "",
@@ -43,7 +43,7 @@
     "kind": "term",
     "summary": {
       "ru": "async for итерирует по асинхронному итератору. async with использует асинхронный контекстный менеджер.",
-      "en": ""
+      "en": "async for iterates over an asynchronous iterator. async with uses an asynchronous context manager."
     },
     "body": {
       "ru": "",
@@ -81,7 +81,7 @@
     "kind": "function",
     "summary": {
       "ru": "Оборачивает корутину в Task, запуская её в фоне event loop. Задача стартует немедленно, не дожидаясь await.",
-      "en": ""
+      "en": "Wraps a coroutine in a Task, running it in the background of the event loop. The task starts immediately, without waiting for an await."
     },
     "body": {
       "ru": "",
@@ -120,7 +120,7 @@
     "kind": "function",
     "summary": {
       "ru": "Запускает несколько корутин конкурентно и ждёт завершения всех. Возвращает список результатов.",
-      "en": ""
+      "en": "Runs several coroutines concurrently and waits until all of them finish. Returns the list of results."
     },
     "body": {
       "ru": "",
@@ -157,7 +157,7 @@
     "kind": "term",
     "summary": {
       "ru": "Потокобезопасная очередь для обмена данными между корутинами. Поддерживает put/get с await.",
-      "en": ""
+      "en": "A queue for passing data between coroutines. put/get are awaited."
     },
     "body": {
       "ru": "",
@@ -199,7 +199,7 @@
     "kind": "function",
     "summary": {
       "ru": "Запускает корутину верхнего уровня в новом event loop. Главная точка входа для async-программ (Python 3.7+).",
-      "en": ""
+      "en": "Runs a top-level coroutine in a new event loop. The main entry point of an async program (Python 3.7+)."
     },
     "body": {
       "ru": "",
@@ -238,7 +238,7 @@
     "kind": "function",
     "summary": {
       "ru": "Приостанавливает корутину на указанное время, не блокируя event loop. Аналог time.sleep() для async.",
-      "en": ""
+      "en": "Suspends a coroutine for the given time without blocking the event loop. The async counterpart of time.sleep()."
     },
     "body": {
       "ru": "",
@@ -276,7 +276,7 @@
     "kind": "term",
     "summary": {
       "ru": "Двусторонняя очередь. O(1) вставка/удаление с обоих концов. Поддерживает maxlen (скользящее окно).",
-      "en": ""
+      "en": "A double-ended queue. O(1) insertion and removal at both ends. Supports maxlen (a sliding window)."
     },
     "body": {
       "ru": "",
@@ -340,7 +340,7 @@
     "kind": "term",
     "summary": {
       "ru": "Функция с yield — генераторная функция. Возвращает генератор. Выполнение приостанавливается при yield.",
-      "en": ""
+      "en": "A function with yield is a generator function. It returns a generator. Execution is suspended at each yield."
     },
     "body": {
       "ru": "",
@@ -421,7 +421,7 @@
     "kind": "function",
     "summary": {
       "ru": "iter() создаёт итератор из итерируемого. next() возвращает следующий элемент. Default-значение — вместо StopIteration.",
-      "en": ""
+      "en": "iter() builds an iterator out of an iterable. next() returns the following item. The default value is returned instead of raising StopIteration."
     },
     "body": {
       "ru": "",
@@ -474,7 +474,7 @@
     "kind": "term",
     "summary": {
       "ru": "Накапливающиеся промежуточные результаты применения функции. По умолчанию — сумма.",
-      "en": ""
+      "en": "The running intermediate results of applying a function. Sums by default."
     },
     "body": {
       "ru": "",
@@ -515,7 +515,7 @@
     "kind": "term",
     "summary": {
       "ru": "Последовательно перебирает несколько итерируемых как одно целое.",
-      "en": ""
+      "en": "Walks through several iterables one after another as if they were a single one."
     },
     "body": {
       "ru": "",
@@ -561,7 +561,7 @@
     "kind": "term",
     "summary": {
       "ru": "Группирует последовательные одинаковые элементы. Данные должны быть отсортированы по ключу!",
-      "en": ""
+      "en": "Groups consecutive equal items. The data must be sorted by the key first!"
     },
     "body": {
       "ru": "",
@@ -611,7 +611,7 @@
     "kind": "term",
     "summary": {
       "ru": "Срез итератора без материализации. Аналог slice для итерируемых.",
-      "en": ""
+      "en": "Slices an iterator without materializing it. The counterpart of a slice for iterables."
     },
     "body": {
       "ru": "",
@@ -658,7 +658,7 @@
     "kind": "term",
     "summary": {
       "ru": "Делегирует yield другому генератору или итерируемому. Упрощает вложенные генераторы.",
-      "en": ""
+      "en": "Delegates yielding to another generator or iterable. It simplifies nested generators."
     },
     "body": {
       "ru": "",
@@ -716,7 +716,7 @@
     "kind": "term",
     "summary": {
       "ru": "Ленивый аналог list comprehension в круглых скобках. Не создаёт список в памяти.",
-      "en": ""
+      "en": "The lazy counterpart of a list comprehension, written in parentheses. It does not build a list in memory."
     },
     "body": {
       "ru": "",
@@ -763,7 +763,7 @@
     "kind": "term",
     "summary": {
       "ru": "Итератор — объект с __iter__ и __next__. __next__ возвращает следующее значение или поднимает StopIteration.",
-      "en": ""
+      "en": "An iterator is an object with __iter__ and __next__. __next__ returns the next value or raises StopIteration."
     },
     "body": {
       "ru": "",

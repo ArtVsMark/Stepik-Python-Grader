@@ -5,7 +5,7 @@
     "kind": "term",
     "summary": {
       "ru": "Специальный тип: совместим с любым типом. Отключает проверку типов. Используется при миграции кода или для действительно динамических значений.",
-      "en": ""
+      "en": "A special type compatible with every other type. It turns type checking off. Used when migrating code or for genuinely dynamic values."
     },
     "body": {
       "ru": "",
@@ -42,7 +42,7 @@
     "kind": "term",
     "summary": {
       "ru": "Аннотация для callable-объектов. Callable[[A1, A2], R] — принимает A1, A2, возвращает R. Callable[..., R] — любые аргументы.",
-      "en": ""
+      "en": "Annotation for callable objects. Callable[[A1, A2], R] takes A1, A2 and returns R. Callable[..., R] accepts any arguments."
     },
     "body": {
       "ru": "",
@@ -82,7 +82,7 @@
     "kind": "term",
     "summary": {
       "ru": "Указывает, что переменная является переменной класса, а не экземпляра. Не должна присваиваться через self.",
-      "en": ""
+      "en": "Marks a variable as belonging to the class rather than to the instance. It must not be assigned through self."
     },
     "body": {
       "ru": "",
@@ -125,7 +125,7 @@
     "kind": "term",
     "summary": {
       "ru": "Обозначает переменную как константу — не должна переназначаться после инициализации. Только для статического анализа.",
-      "en": ""
+      "en": "Marks a variable as a constant — it must not be reassigned after initialization. For static analysis only."
     },
     "body": {
       "ru": "",
@@ -164,7 +164,7 @@
     "kind": "term",
     "summary": {
       "ru": "Базовый класс для создания обобщённых пользовательских классов. Параметры типа задаются через TypeVar.",
-      "en": ""
+      "en": "Base class for writing generic user-defined classes. The type parameters are declared with TypeVar."
     },
     "body": {
       "ru": "",
@@ -207,7 +207,7 @@
     "kind": "function",
     "summary": {
       "ru": "С Python 3.9+ встроенные типы используются как обобщения напрямую: list[int], dict[str, int]. Ранее нужен был typing.List, typing.Dict.",
-      "en": ""
+      "en": "Since Python 3.9 the built-in types are used as generics directly: list[int], dict[str, int]. Earlier this required typing.List and typing.Dict."
     },
     "body": {
       "ru": "",
@@ -244,7 +244,7 @@
     "kind": "term",
     "summary": {
       "ru": "Тип, допускающий только конкретные литеральные значения. Позволяет mypy/pyright проверить, что передаётся допустимое значение.",
-      "en": ""
+      "en": "A type that admits only the given literal values. Lets mypy/pyright check that an allowed value is passed."
     },
     "body": {
       "ru": "",
@@ -284,7 +284,7 @@
     "kind": "term",
     "summary": {
       "ru": "Типизированный именованный кортеж через наследование. Синтаксис класса с аннотациями.",
-      "en": ""
+      "en": "A typed named tuple defined by inheritance. Class syntax with annotations."
     },
     "body": {
       "ru": "",
@@ -323,7 +323,7 @@
     "kind": "term",
     "summary": {
       "ru": "Optional[X] означает X | None. С Python 3.10+ можно писать X | None напрямую. Применяется для значений, которые могут отсутствовать.",
-      "en": ""
+      "en": "Optional[X] means X | None. Since Python 3.10 you can write X | None directly. Used for values that may be absent."
     },
     "body": {
       "ru": "",
@@ -361,7 +361,7 @@
     "kind": "term",
     "summary": {
       "ru": "Определяет интерфейс через структуру (duck typing). Класс считается совместимым, если реализует все методы Protocol, без явного наследования.",
-      "en": ""
+      "en": "Defines an interface by structure (duck typing). A class is compatible if it implements every method of the Protocol, with no explicit inheritance."
     },
     "body": {
       "ru": "",
@@ -403,7 +403,7 @@
     "kind": "term",
     "summary": {
       "ru": "Булева константа, True только при статическом анализе (mypy, pyright). Позволяет импортировать типы лишь для аннотаций, избегая циклических импортов в рантайме.",
-      "en": ""
+      "en": "A boolean constant that is True only during static analysis (mypy, pyright). Lets you import types for annotations alone, avoiding circular imports at runtime."
     },
     "body": {
       "ru": "",
@@ -440,7 +440,7 @@
     "kind": "term",
     "summary": {
       "ru": "Словарь с фиксированными типизированными ключами. Только для статического анализа; в рантайме — обычный dict.",
-      "en": ""
+      "en": "A dictionary with a fixed set of typed keys. For static analysis only; at runtime it is an ordinary dict."
     },
     "body": {
       "ru": "",
@@ -481,7 +481,7 @@
     "kind": "term",
     "summary": {
       "ru": "Переменная типа для создания обобщённых функций и классов. Ограничения задаются через bound= или явный список типов.",
-      "en": ""
+      "en": "A type variable used to write generic functions and classes. Constraints are given with bound= or as an explicit list of types."
     },
     "body": {
       "ru": "",
@@ -521,7 +521,7 @@
     "kind": "term",
     "summary": {
       "ru": "Union[X, Y] — значение может быть типа X или Y. С Python 3.10+ поддерживается сокращённая запись X | Y.",
-      "en": ""
+      "en": "Union[X, Y] — the value may be of type X or of type Y. Since Python 3.10 the shorthand X | Y is supported."
     },
     "body": {
       "ru": "",
