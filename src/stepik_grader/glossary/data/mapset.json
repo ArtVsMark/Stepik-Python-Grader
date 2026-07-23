@@ -5,7 +5,7 @@
     "kind": "term",
     "summary": {
       "ru": "collections.ChainMap объединяет несколько словарей в единый вид без копирования. Поиск ключа идёт по словарям слева направо. Запись и удаление затрагивают только первый словарь.",
-      "en": ""
+      "en": "collections.ChainMap joins several dictionaries into a single view without copying them. A key is looked up in the dictionaries from left to right. Writes and deletions affect only the first one."
     },
     "body": {
       "ru": "",
@@ -43,7 +43,7 @@
     "kind": "term",
     "summary": {
       "ru": "dict.copy() делает поверхностную копию: вложенные объекты не копируются, а разделяются между оригиналом и копией. copy.deepcopy() копирует полностью рекурсивно.",
-      "en": ""
+      "en": "dict.copy() makes a shallow copy: nested objects are not copied but shared between the original and the copy. copy.deepcopy() copies everything recursively."
     },
     "body": {
       "ru": "",
@@ -82,7 +82,7 @@
     "kind": "term",
     "summary": {
       "ru": "Counter из collections — словарь для подсчёта. Поддерживает арифметику, most_common, вычитание.",
-      "en": ""
+      "en": "Counter from collections is a dictionary for counting. It supports arithmetic, most_common and subtraction."
     },
     "body": {
       "ru": "",
@@ -134,7 +134,7 @@
     "kind": "term",
     "summary": {
       "ru": "defaultdict из collections автоматически создаёт значение по умолчанию при обращении к несуществующему ключу.",
-      "en": ""
+      "en": "defaultdict from collections creates a default value automatically when a missing key is accessed."
     },
     "body": {
       "ru": "",
@@ -200,7 +200,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор объединения словарей (Python 3.9+). Создаёт новый словарь, объединяя d1 и d2. При конфликте ключей побеждает правый операнд.",
-      "en": ""
+      "en": "The dictionary merge operator (Python 3.9+). It builds a new dictionary out of d1 and d2. On a key conflict the right operand wins."
     },
     "body": {
       "ru": "",
@@ -235,7 +235,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор обновления словаря на месте (Python 3.9+). Добавляет/перезаписывает в d1 все пары из d2 без создания нового объекта.",
-      "en": ""
+      "en": "The in-place dictionary update operator (Python 3.9+). It adds or overwrites every pair of d2 in d1 without creating a new object."
     },
     "body": {
       "ru": "",
@@ -269,7 +269,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт новый словарь из итерируемого набора ключей. Второй аргумент задаёт значение по умолчанию для всех ключей (по умолчанию None).",
-      "en": ""
+      "en": "Creates a new dictionary from an iterable of keys. The second argument sets the same default value for every key (None by default)."
     },
     "body": {
       "ru": "",
@@ -304,7 +304,7 @@
     "kind": "term",
     "summary": {
       "ru": "frozenset — неизменяемая версия set. Хэшируемо, может быть ключом словаря или элементом другого множества.",
-      "en": ""
+      "en": "frozenset is the immutable version of set. It is hashable, so it can be a dictionary key or an item of another set."
     },
     "body": {
       "ru": "",
@@ -351,7 +351,7 @@
     "kind": "function",
     "summary": {
       "ru": "Проверка принадлежности в множестве работает за O(1) (хэш-таблица), в отличие от O(n) для списков.",
-      "en": ""
+      "en": "A membership test on a set takes O(1) (a hash table), unlike O(n) for lists."
     },
     "body": {
       "ru": "",
@@ -394,7 +394,7 @@
     "kind": "term",
     "summary": {
       "ru": "in проверяет наличие КЛЮЧА в словаре за O(1). Для проверки значений используйте in d.values().",
-      "en": ""
+      "en": "in checks for a KEY in the dictionary, in O(1). To test the values, use in d.values()."
     },
     "body": {
       "ru": "",
@@ -434,7 +434,7 @@
     "kind": "term",
     "summary": {
       "ru": "OrderedDict из collections гарантирует порядок вставки (в Python 3.7+ обычный dict тоже сохраняет порядок). Имеет move_to_end() и popitem(last=).",
-      "en": ""
+      "en": "OrderedDict from collections guarantees insertion order (since Python 3.7 a plain dict keeps it too). It also has move_to_end() and popitem(last=)."
     },
     "body": {
       "ru": "",
@@ -477,7 +477,7 @@
     "kind": "term",
     "summary": {
       "ru": "Значения словаря могут быть любого типа, включая другие словари. Доступ через цепочку ключей.",
-      "en": ""
+      "en": "Dictionary values may be of any type, including other dictionaries. They are reached through a chain of keys."
     },
     "body": {
       "ru": "",
@@ -530,7 +530,7 @@
     "kind": "function",
     "summary": {
       "ru": "Set comprehension создаёт множество аналогично list comprehension, но с фигурными скобками. Дубли автоматически удаляются.",
-      "en": ""
+      "en": "A set comprehension builds a set the same way a list comprehension builds a list, but with curly braces. Duplicates are removed automatically."
     },
     "body": {
       "ru": "",
@@ -575,7 +575,7 @@
     "kind": "term",
     "summary": {
       "ru": "update() изменяет словарь на месте. ** распаковка создаёт новый словарь. | (Python 3.9+) — оператор слияния.",
-      "en": ""
+      "en": "update() modifies the dictionary in place. ** unpacking builds a new one. | (Python 3.9+) is the merge operator."
     },
     "body": {
       "ru": "",
@@ -626,7 +626,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор | (Python 3.9+) объединяет два словаря в новый. При совпадении ключей значение берётся из правого словаря. |= обновляет словарь на месте.",
-      "en": ""
+      "en": "The | operator (Python 3.9+) merges two dictionaries into a new one. For a key present in both, the value comes from the right one. |= updates the dictionary in place."
     },
     "body": {
       "ru": "",
@@ -661,7 +661,7 @@
     "kind": "term",
     "summary": {
       "ru": "| — объединение, & — пересечение, - — разность, ^ — симметричная разность. |=, &=, -=, ^= изменяют на месте.",
-      "en": ""
+      "en": "| — union, & — intersection, - — difference, ^ — symmetric difference. |=, &=, -= and ^= change the set in place."
     },
     "body": {
       "ru": "",
@@ -712,7 +712,7 @@
     "kind": "term",
     "summary": {
       "ru": "Типичное применение: уникальные элементы, пересечения, разности, быстрая проверка принадлежности.",
-      "en": ""
+      "en": "Typical uses: unique items, intersections, differences and fast membership tests."
     },
     "body": {
       "ru": "",
@@ -762,7 +762,7 @@
     "kind": "term",
     "summary": {
       "ru": "** распаковывает словарь в именованные аргументы или создаёт слияние. При дублировании ключей побеждает последний.",
-      "en": ""
+      "en": "** unpacks a dictionary into keyword arguments or builds a merged one. On duplicate keys the last one wins."
     },
     "body": {
       "ru": "",
@@ -812,7 +812,7 @@
     "kind": "function",
     "summary": {
       "ru": "Dict comprehension создаёт словарь из итерируемого объекта. Поддерживает фильтрацию.",
-      "en": ""
+      "en": "A dict comprehension builds a dictionary out of an iterable. Filtering is supported."
     },
     "body": {
       "ru": "",
@@ -870,7 +870,7 @@
     "kind": "term",
     "summary": {
       "ru": "Множество создаётся литералом {}, конструктором set() или frozenset(). Дубликаты автоматически удаляются. Порядок не гарантирован.",
-      "en": ""
+      "en": "A set is written as a {} literal or built with set() or frozenset(). Duplicates are removed automatically. The order is not guaranteed."
     },
     "body": {
       "ru": "",
@@ -920,7 +920,7 @@
     "kind": "term",
     "summary": {
       "ru": "Словарь создаётся литералом {k:v}, конструктором dict(), dict.fromkeys() или словарным выражением.",
-      "en": ""
+      "en": "A dictionary is written as a {k: v} literal, or built with dict(), dict.fromkeys() or a dict comprehension."
     },
     "body": {
       "ru": "",
@@ -966,7 +966,7 @@
     "kind": "term",
     "summary": {
       "ru": "sorted(d.items()) сортирует пары. key= задаёт критерий сортировки. Результат — список кортежей или новый словарь.",
-      "en": ""
+      "en": "sorted(d.items()) sorts the pairs. key= sets the sorting criterion. The result is a list of tuples, or a new dictionary."
     },
     "body": {
       "ru": "",

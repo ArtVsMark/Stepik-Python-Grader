@@ -5,7 +5,7 @@
     "kind": "function",
     "summary": {
       "ru": "Создаёт полностью независимую глубокую копию объекта: все вложенные объекты тоже копируются. В отличие от list.copy() (поверхностная копия), изменение вложенных элементов не влияет на оригинал.",
-      "en": ""
+      "en": "Creates a fully independent deep copy of an object: every nested object is copied too. Unlike list.copy() (a shallow copy), changing a nested item does not affect the original."
     },
     "body": {
       "ru": "",
@@ -43,7 +43,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор del удаляет элемент по индексу, срез или весь список из памяти. Изменяет объект на месте.",
-      "en": ""
+      "en": "The del statement removes an item by index, a slice, or the whole list from memory. It modifies the object in place."
     },
     "body": {
       "ru": "",
@@ -90,7 +90,7 @@
     "kind": "term",
     "summary": {
       "ru": "enumerate() возвращает пары (индекс, элемент). start= задаёт начальный индекс.",
-      "en": ""
+      "en": "enumerate() yields (index, item) pairs. start= sets the initial index."
     },
     "body": {
       "ru": "",
@@ -137,7 +137,7 @@
     "kind": "term",
     "summary": {
       "ru": "Проверяет наличие элемента в списке за O(n). Возвращает bool.",
-      "en": ""
+      "en": "Checks whether an item is present in the list, in O(n). Returns a bool."
     },
     "body": {
       "ru": "",
@@ -177,7 +177,7 @@
     "kind": "function",
     "summary": {
       "ru": "len() — количество элементов. min()/max() — минимум/максимум. sum() — сумма числовых элементов.",
-      "en": ""
+      "en": "len() — the number of items. min()/max() — the smallest/largest one. sum() — the sum of numeric items."
     },
     "body": {
       "ru": "",
@@ -222,7 +222,7 @@
     "kind": "term",
     "summary": {
       "ru": "Встроенные функции работают с кортежами так же, как со списками.",
-      "en": ""
+      "en": "The built-in functions work with tuples exactly as they do with lists."
     },
     "body": {
       "ru": "",
@@ -260,7 +260,7 @@
     "kind": "term",
     "summary": {
       "ru": "map() применяет функцию к каждому элементу. filter() отбирает элементы по условию. Оба возвращают итераторы.",
-      "en": ""
+      "en": "map() applies a function to every item. filter() keeps the items that satisfy a condition. Both return iterators."
     },
     "body": {
       "ru": "",
@@ -308,7 +308,7 @@
     "kind": "term",
     "summary": {
       "ru": "zip() работает с кортежами так же, как со списками. Возвращает итератор кортежей.",
-      "en": ""
+      "en": "zip() works with tuples exactly as it does with lists. It returns an iterator of tuples."
     },
     "body": {
       "ru": "",
@@ -350,7 +350,7 @@
     "kind": "term",
     "summary": {
       "ru": "zip() объединяет элементы нескольких итерируемых объектов в кортежи. Останавливается на самом коротком.",
-      "en": ""
+      "en": "zip() joins the items of several iterables into tuples. It stops at the shortest one."
     },
     "body": {
       "ru": "",
@@ -397,7 +397,7 @@
     "kind": "term",
     "summary": {
       "ru": "Список списков используется как двумерная матрица. Доступ через двойной индекс matrix[row][col].",
-      "en": ""
+      "en": "A list of lists is used as a two-dimensional matrix. Items are reached through a double index, matrix[row][col]."
     },
     "body": {
       "ru": "",
@@ -448,7 +448,7 @@
     "kind": "term",
     "summary": {
       "ru": "List comprehension может содержать несколько вложенных for, что позволяет строить вложенные списки или «разворачивать» матрицы в плоский список.",
-      "en": ""
+      "en": "A list comprehension may contain several nested for clauses, which lets you build nested lists or flatten a matrix into a single list."
     },
     "body": {
       "ru": "",
@@ -486,7 +486,7 @@
     "kind": "term",
     "summary": {
       "ru": "Индексирование и срезы работают так же, как у строк и списков, но результат — кортеж или элемент (неизменяемый).",
-      "en": ""
+      "en": "Indexing and slicing work just as they do for strings and lists, but the result is a tuple or an item (immutable)."
     },
     "body": {
       "ru": "",
@@ -528,7 +528,7 @@
     "kind": "term",
     "summary": {
       "ru": "Доступ к элементу по индексу. Отрицательные индексы — от конца. Поддерживает присваивание.",
-      "en": ""
+      "en": "Access to an item by index. Negative indices count from the end. Assignment is supported."
     },
     "body": {
       "ru": "",
@@ -572,7 +572,7 @@
     "kind": "term",
     "summary": {
       "ru": "Функция может возвращать несколько значений — Python упаковывает их в кортеж.",
-      "en": ""
+      "en": "A function can return several values — Python packs them into a tuple."
     },
     "body": {
       "ru": "",
@@ -624,7 +624,7 @@
     "kind": "term",
     "summary": {
       "ru": "Кортежи хэшируемы (если все элементы хэшируемы), поэтому могут быть ключами словаря. Списки — нет.",
-      "en": ""
+      "en": "Tuples are hashable (if all their items are), so they can serve as dictionary keys. Lists cannot."
     },
     "body": {
       "ru": "",
@@ -675,7 +675,7 @@
     "kind": "term",
     "summary": {
       "ru": "namedtuple создаёт класс кортежа с именованными полями. Поля доступны по имени и по индексу.",
-      "en": ""
+      "en": "namedtuple creates a tuple class with named fields. The fields are reachable both by name and by index."
     },
     "body": {
       "ru": "",
@@ -724,7 +724,7 @@
     "kind": "term",
     "summary": {
       "ru": "Кортежи неизменяемы: нельзя изменить, добавить или удалить элемент. Обходы: создать новый кортеж, преобразовать в список.",
-      "en": ""
+      "en": "Tuples are immutable: an item cannot be changed, added or removed. Ways around it: build a new tuple, or convert it to a list."
     },
     "body": {
       "ru": "",
@@ -776,7 +776,7 @@
     "kind": "term",
     "summary": {
       "ru": "Оператор + возвращает новый список-объединение. * повторяет список n раз. Для mutable объектов * создаёт shallow копии.",
-      "en": ""
+      "en": "The + operator returns a new list — the concatenation of the two. * repeats a list n times. For mutable objects * produces shallow copies."
     },
     "body": {
       "ru": "",
@@ -817,7 +817,7 @@
     "kind": "term",
     "summary": {
       "ru": "Распаковка позволяет присвоить элементы переменным. * захватывает остаток. _ — соглашение для игнорируемых значений.",
-      "en": ""
+      "en": "Unpacking assigns the items to variables. * captures the rest. _ is the convention for values that are ignored."
     },
     "body": {
       "ru": "",
@@ -873,7 +873,7 @@
     "kind": "term",
     "summary": {
       "ru": "Распаковка позволяет присвоить элементы переменным. * захватывает остаток как список.",
-      "en": ""
+      "en": "Unpacking assigns the items to variables. * captures the rest as a list."
     },
     "body": {
       "ru": "",
@@ -922,7 +922,7 @@
     "kind": "term",
     "summary": {
       "ru": "Кортеж создаётся скобками (), конструктором tuple(), или простым перечислением. Один элемент требует замыкающей запятой: (x,).",
-      "en": ""
+      "en": "A tuple is written with parentheses (), with the tuple() constructor, or as a plain comma-separated list. A single item needs a trailing comma: (x,)."
     },
     "body": {
       "ru": "",
@@ -965,7 +965,7 @@
     "kind": "term",
     "summary": {
       "ru": "Список создаётся литералом [], конструктором list(), или списочным выражением. Может содержать элементы любых типов.",
-      "en": ""
+      "en": "A list is written as the [] literal, with the list() constructor, or as a list comprehension. It may hold items of any type."
     },
     "body": {
       "ru": "",
@@ -1008,7 +1008,7 @@
     "kind": "term",
     "summary": {
       "ru": "key= принимает функцию, возвращающую значение для сравнения. lambda удобна для однострочных ключей.",
-      "en": ""
+      "en": "key= takes a function that returns the value to compare by. A lambda is handy for one-line keys."
     },
     "body": {
       "ru": "",
@@ -1058,7 +1058,7 @@
     "kind": "function",
     "summary": {
       "ru": "Компактный синтаксис создания списка с необязательной фильтрацией. Быстрее эквивалентного цикла for+append.",
-      "en": ""
+      "en": "Compact syntax for building a list, with optional filtering. Faster than the equivalent for+append loop."
     },
     "body": {
       "ru": "",
@@ -1112,7 +1112,7 @@
     "kind": "term",
     "summary": {
       "ru": "Третий параметр среза — шаг: [start:stop:step]. Шаг 2 — каждый второй элемент. Шаг -1 — обратный порядок. Можно комбинировать start/stop со шагом.",
-      "en": ""
+      "en": "The third slice parameter is the step: [start:stop:step]. Step 2 takes every second item. Step -1 gives the reverse order. start/stop can be combined with a step."
     },
     "body": {
       "ru": "",
@@ -1147,7 +1147,7 @@
     "kind": "term",
     "summary": {
       "ru": "Срезы возвращают новый список. s[a:b:c] — с шагом c. [::-1] — реверс. Срез без аргументов — поверхностная копия.",
-      "en": ""
+      "en": "Slices return a new list. s[a:b:c] takes step c. [::-1] reverses it. A slice with no arguments is a shallow copy."
     },
     "body": {
       "ru": "",
@@ -1193,7 +1193,7 @@
     "kind": "term",
     "summary": {
       "ru": "Фильтрующий if в конце list comprehension отбирает элементы по условию. Не путать с тернарным оператором (if ... else ...) в начале выражения — тот преобразует, а не фильтрует.",
-      "en": ""
+      "en": "A filtering if at the end of a list comprehension selects items by a condition. Not to be confused with the ternary operator (if ... else ...) at the start of the expression — that one transforms rather than filters."
     },
     "body": {
       "ru": "",

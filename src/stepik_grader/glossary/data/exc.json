@@ -5,7 +5,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Утверждение — проверяет условие и вызывает AssertionError при False. Используется для отладки и тестов. Отключается с -O.",
-      "en": ""
+      "en": "An assertion — checks a condition and raises AssertionError when it is False. Used for debugging and tests. Disabled with -O."
     },
     "body": {
       "ru": "",
@@ -60,7 +60,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается при обращении к несуществующему атрибуту или методу объекта.",
-      "en": ""
+      "en": "Raised when an attribute or method that the object does not have is accessed."
     },
     "body": {
       "ru": "",
@@ -93,7 +93,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Подавляет указанные исключения. Аналог try/except pass. Читаемее и лаконичнее.",
-      "en": ""
+      "en": "Suppresses the given exceptions. The equivalent of try/except pass, but shorter and easier to read."
     },
     "body": {
       "ru": "",
@@ -139,7 +139,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Блок else выполняется, только если в try не возникло исключения. Отделяет «счастливый путь» от обработки ошибок.",
-      "en": ""
+      "en": "The else block runs only if no exception was raised inside try. It separates the happy path from error handling."
     },
     "body": {
       "ru": "",
@@ -209,7 +209,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается при попытке открыть или работать с файлом, которого не существует. Подкласс OSError.",
-      "en": ""
+      "en": "Raised on an attempt to open or use a file that does not exist. A subclass of OSError."
     },
     "body": {
       "ru": "",
@@ -244,7 +244,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Блок finally выполняется всегда — независимо от того, было ли исключение. Используется для освобождения ресурсов.",
-      "en": ""
+      "en": "The finally block always runs — whether or not an exception was raised. Used to release resources."
     },
     "body": {
       "ru": "",
@@ -318,7 +318,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается, если импорт модуля не удался — модуль найден, но при загрузке произошла ошибка.",
-      "en": ""
+      "en": "Raised when a module import fails — the module was found, but something went wrong while loading it."
     },
     "body": {
       "ru": "",
@@ -352,7 +352,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается при обращении к элементу последовательности по несуществующему индексу.",
-      "en": ""
+      "en": "Raised when a sequence is indexed with an index that does not exist."
     },
     "body": {
       "ru": "",
@@ -388,7 +388,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается при обращении к несуществующему ключу словаря. Используй .get() чтобы избежать.",
-      "en": ""
+      "en": "Raised when a dictionary key that does not exist is accessed. Use .get() to avoid it."
     },
     "body": {
       "ru": "",
@@ -424,7 +424,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Подкласс ImportError. Вызывается, когда модуль вообще не найден в sys.path. Python 3.6+.",
-      "en": ""
+      "en": "A subclass of ImportError. Raised when the module is not found in sys.path at all. Python 3.6+."
     },
     "body": {
       "ru": "",
@@ -458,7 +458,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается при использовании имени переменной или функции, которая не определена в текущей области видимости.",
-      "en": ""
+      "en": "Raised when a variable or function name that is not defined in the current scope is used."
     },
     "body": {
       "ru": "",
@@ -490,7 +490,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается в абстрактных методах, которые обязаны быть переопределены в подклассах. Показывает, что метод намеренно не реализован.",
-      "en": ""
+      "en": "Raised in abstract methods that subclasses are required to override. It shows that the method is deliberately left unimplemented."
     },
     "body": {
       "ru": "",
@@ -525,7 +525,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Базовый класс для ошибок операционной системы: работа с файлами, сетью, процессами. FileNotFoundError и PermissionError — его подклассы.",
-      "en": ""
+      "en": "The base class for operating system errors: files, network, processes. FileNotFoundError and PermissionError are its subclasses."
     },
     "body": {
       "ru": "",
@@ -560,7 +560,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается при попытке выполнить операцию без необходимых прав доступа к файлу или ресурсу.",
-      "en": ""
+      "en": "Raised on an attempt to perform an operation without the access rights the file or resource requires."
     },
     "body": {
       "ru": "",
@@ -594,7 +594,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Генерирует исключение вручную. raise from — цепочка исключений. re-raise — raise без аргументов.",
-      "en": ""
+      "en": "Raises an exception by hand. raise ... from chains exceptions together. A bare raise re-raises the current one."
     },
     "body": {
       "ru": "",
@@ -670,7 +670,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается при превышении максимальной глубины рекурсии (по умолчанию 1000). Подкласс RuntimeError.",
-      "en": ""
+      "en": "Raised when the maximum recursion depth (1000 by default) is exceeded. A subclass of RuntimeError."
     },
     "body": {
       "ru": "",
@@ -707,7 +707,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Сигнализирует об исчерпании итератора. Автоматически перехватывается циклом for и генераторами — вручную поднимать нужно редко.",
-      "en": ""
+      "en": "Signals that an iterator is exhausted. for loops and generators catch it automatically — you rarely need to raise it by hand."
     },
     "body": {
       "ru": "",
@@ -744,7 +744,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Блок try содержит код, который может вызвать исключение. except перехватывает его. else — если исключения не было. finally — всегда.",
-      "en": ""
+      "en": "The try block holds code that may raise an exception. except catches it. else runs if there was none. finally runs always."
     },
     "body": {
       "ru": "",
@@ -813,7 +813,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается при операции или функции с объектом неподходящего типа. Частый случай: сложение str и int.",
-      "en": ""
+      "en": "Raised by an operation or a function applied to an object of an unsuitable type. A common case: adding a str to an int."
     },
     "body": {
       "ru": "",
@@ -847,7 +847,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Вызывается, когда функция получает аргумент правильного типа, но недопустимого значения. Например, int('abc') или math.sqrt(-1).",
-      "en": ""
+      "en": "Raised when a function gets an argument of the right type but with an unacceptable value. For example, int('abc') or math.sqrt(-1)."
     },
     "body": {
       "ru": "",
@@ -883,7 +883,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Встроенные исключения образуют иерархию. BaseException → Exception → стандартные исключения.",
-      "en": ""
+      "en": "The built-in exceptions form a hierarchy. BaseException → Exception → the standard exceptions."
     },
     "body": {
       "ru": "",
@@ -941,7 +941,7 @@
     "kind": "exception",
     "summary": {
       "ru": "Создавай классы исключений, наследуясь от Exception. Можно добавлять атрибуты и иерархию.",
-      "en": ""
+      "en": "Write your own exception classes by inheriting from Exception. You can give them attributes and a hierarchy of their own."
     },
     "body": {
       "ru": "",
