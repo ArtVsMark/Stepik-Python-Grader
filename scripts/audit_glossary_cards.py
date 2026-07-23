@@ -45,7 +45,7 @@ __all__ = [
 # summary_en. СНИЖАТЬ тем же PR, которым добавляются переводы (issue #684);
 # поднимать — нельзя. Исходное значение волны — 525 (весь импорт из
 # Glossary-Python), цель — 0.
-MAX_CARDS_WITHOUT_EN = 313
+MAX_CARDS_WITHOUT_EN = 212
 
 
 def load_cards_by_file(
