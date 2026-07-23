@@ -18,6 +18,10 @@ env/
 .env
 .idea/
 .vscode/
+# Рабочий каталог Claude Code: сессионные worktrees, локальные настройки и
+# launch.json для preview — инструментальные артефакты конкретной машины, не
+# часть проекта (агентский контракт живёт в CLAUDE.md, он отслеживается).
+.claude/
 .DS_Store
 Thumbs.db
 *.egg-info/
