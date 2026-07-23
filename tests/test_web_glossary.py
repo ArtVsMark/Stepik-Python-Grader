@@ -401,6 +401,48 @@ class TestGlossaryGroupsAndRelevance:
         assert groups["str.split"] == "types"
         assert groups["keyerror"] == "builtins"
 
+    def test_section_label_localizes_by_lang(self, store_path: pathlib.Path) -> None:
+        # issue #685: `section` — серверное ЗНАЧЕНИЕ фильтра (остаётся русским),
+        # `section_label` — подпись для UI на языке запроса.
+        ru = {c["id"]: c for c in glossary_adapter.glossary_search("", store_path=str(store_path))}
+        en = {
+            c["id"]: c
+            for c in glossary_adapter.glossary_search("", lang="en", store_path=str(store_path))
+        }
+        assert ru["str.split"]["section_label"] == "Строки (str)"
+        assert en["str.split"]["section_label"] == "Strings (str)"
+        assert en["keyerror"]["section_label"] == "Exceptions"
+        # Имя модуля — идентификатор, переводится только слово «Модуль».
+        assert en["math.sqrt"]["section_label"] == "Module math"
+        assert en["math.sqrt"]["section"] == "Модуль math"
+
+    def test_section_label_falls_back_to_source_name(self, tmp_path: pathlib.Path) -> None:
+        # Незнакомый раздел показывается как есть, а не маркером пропущенного
+        # перевода: переименование раздела при аудите (#684) не ломает UI.
+        card = GlossaryCard(id="x", title="X", section="Совершенно новый раздел", status="ready")
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [card.to_dict()]}, ensure_ascii=False), encoding="utf-8"
+        )
+        res = glossary_adapter.glossary_search("", lang="en", store_path=str(path))
+        assert res[0]["section_label"] == "Совершенно новый раздел"
+
+    def test_get_card_carries_localized_section_label(self, store_path: pathlib.Path) -> None:
+        # Deep-link на карточку показывает раздел на том же языке, что и список.
+        card = glossary_adapter.glossary_get("math.sqrt", lang="en", store_path=str(store_path))
+        assert card is not None
+        assert card["section_label"] == "Module math"
+        assert card["group"] == "modules"
+
+    def test_every_bundled_section_has_english_label(self) -> None:
+        # Guard дрейфа: у каждого раздела комплектной базы есть EN-подпись —
+        # иначе в англоязычном UI раздел показался бы русским именем.
+        en_cards = glossary_adapter.glossary_search("", lang="en", status="all")
+        untranslated = sorted(
+            {c["section"] for c in en_cards if c["section"] and c["section_label"] == c["section"]}
+        )
+        assert untranslated == [], f"разделы без EN-подписи: {untranslated}"
+
     def test_unclassified_section_falls_into_other(self, tmp_path: pathlib.Path) -> None:
         # Семейства заменили селект «Раздел», поэтому раздел без явного семейства
         # обязан оставаться достижимым — через «Прочее», а не выпадать из навигации.

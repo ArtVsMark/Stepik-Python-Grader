@@ -80,6 +80,52 @@ _SECTION_GROUPS: dict[str, str] = {
 _OTHER_GROUP = "other"
 _GROUPS = frozenset({"modules", *_SECTION_GROUPS.values(), _OTHER_GROUP})
 
+# EN-подписи разделов (issue #685). Имя раздела — серверное ЗНАЧЕНИЕ фильтра
+# (`?section=`) и остаётся русским; наружу вместе с ним едет `section_label` —
+# то, что показывает UI. Переводы живут здесь, рядом с классификацией, а не в
+# ui.json: там ключ пришлось бы синтезировать из русской строки, и любой
+# переименованный при аудите (#684) раздел давал бы маркер ⟦…⟧ вместо текста.
+# Здесь незнакомый раздел просто показывается как есть.
+_MODULE_SECTION_PREFIX_EN = "Module "
+_SECTION_LABELS_EN: dict[str, str] = {
+    "Строки (str)": "Strings (str)",
+    "Списки (list)": "Lists (list)",
+    "Кортежи (tuple)": "Tuples (tuple)",
+    "Словари (dict)": "Dictionaries (dict)",
+    "Множества (set)": "Sets (set)",
+    "Байтовые последовательности": "Byte sequences",
+    "Числа и математика": "Numbers & math",
+    "Типы данных": "Data types",
+    "Встроенные типы": "Built-in types",
+    "Функции": "Functions",
+    "ООП": "OOP",
+    "Циклы": "Loops",
+    "Условный оператор": "Conditionals",
+    "Итераторы и генераторы": "Iterators & generators",
+    "Асинхронное программирование": "Async programming",
+    "Арифметика и операторы": "Arithmetic & operators",
+    "Аннотации и typing": "Annotations & typing",
+    "Встроенные функции": "Built-in functions",
+    "Исключения": "Exceptions",
+    "Ввод и вывод": "Input & output",
+    "Файлы и I_O": "Files & I/O",
+    "Алгоритмы и структуры данных": "Algorithms & data structures",
+}
+
+
+def _section_label(section: str, lang: str) -> str:
+    """Подпись раздела для UI: RU — как есть, EN — перевод (fallback — исходник).
+
+    Разделы модулей переводятся правилом «Модуль X» → «Module X»: имя модуля
+    (``math``, ``os``) — не текст для перевода, а идентификатор.
+    """
+    if lang != "en" or not section:
+        return section
+    if section.startswith(_MODULE_SECTION_PREFIX):
+        return _MODULE_SECTION_PREFIX_EN + section[len(_MODULE_SECTION_PREFIX) :]
+    return _SECTION_LABELS_EN.get(section, section)
+
+
 # При коллизии «хвоста» (``split`` есть у str/bytes/bytearray) предпочитаем
 # метод основного типа, который новичок и имеет в виду: str → list → dict → …
 # Работает и на матче концепций из кода (``_card_index``), и на тай-брейке
@@ -306,9 +352,17 @@ def glossary_search(
     if effective_status != "all":
         cards = [c for c in cards if c.status == effective_status]
     cards = _sort_cards(cards, sort, query)
-    # ``group`` — аддитивное поле ответа (issue #685): UI строит по нему списки
-    # разделов каждого семейства из одной первой загрузки.
-    return [{**c.to_api_dict(lang), "group": _card_group(c)} for c in cards]
+    # ``group``/``section_label`` — аддитивные поля ответа (issue #685): по
+    # первому UI строит семейства и списки их разделов, второе — подпись раздела
+    # на языке ``lang`` (само ``section`` остаётся серверным значением фильтра).
+    return [
+        {
+            **c.to_api_dict(lang),
+            "group": _card_group(c),
+            "section_label": _section_label(c.section, lang),
+        }
+        for c in cards
+    ]
 
 
 def glossary_get(
@@ -316,10 +370,18 @@ def glossary_get(
 ) -> dict[str, Any] | None:
     """Карточка по id, либо None (адаптер отдаёт 404 в этом случае).
 
-    ``lang`` — локаль ``?lang=`` для ``summary``/``body`` (issue #363, fallback RU).
+    ``lang`` — локаль ``?lang=`` для ``summary``/``body`` (issue #363, fallback RU)
+    и для подписи раздела ``section_label`` (issue #685) — как в ``glossary_search``,
+    чтобы deep-link на карточку показывал раздел на том же языке, что и список.
     """
     card = _glossary_index(store_path).by_id.get(card_id)  # issue #404: O(1) вместо O(n)
-    return card.to_api_dict(lang) if card is not None else None
+    if card is None:
+        return None
+    return {
+        **card.to_api_dict(lang),
+        "group": _card_group(card),
+        "section_label": _section_label(card.section, lang),
+    }
 
 
 def _card_index(cards: list[GlossaryCard]) -> dict[str, GlossaryCard]:

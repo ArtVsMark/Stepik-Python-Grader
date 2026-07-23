@@ -262,21 +262,18 @@
             </div>
             <!-- issue #685: навигация по разделам — раскрываемые семейства
                  (кнопки рисует JS из поля `group` карточек, покрытие 100%
-                 разделов), поэтому селект «Раздел» и чипы-дубли убраны. Селект
-                 «Статус» тоже убран из постоянной разметки: в комплектной базе
-                 черновиков нет, он появляется (renderGlossaryStatusFilter),
+                 разделов), поэтому селект «Раздел» и чипы-дубли убраны. Выбрав
+                 раздел, панель сворачивается, а сам выбор виден «пилюлей»
+                 #glossary-filter-pill — она же снимает фильтр. Селекты «Тип» и
+                 «Статус» тоже убраны: kind дублировал навигацию (исключения =
+                 раздел «Исключения», конструкции = «Синтаксис»), а черновиков в
+                 комплектной базе нет — «Статус» показывается (probeGlossaryDrafts)
                  только если в источнике реально есть не-ready карточки. -->
             <div id="glossary-filters">
-              <div id="glossary-groups" class="chip-row" role="group" aria-label="Семейства разделов" data-i18n-aria-label="glossary.groups_aria"></div>
-              <div id="glossary-group-sections" class="chip-row chip-row-nested" role="group" aria-label="Разделы семейства" data-i18n-aria-label="glossary.group_sections_aria" hidden></div>
+              <div id="glossary-groups" class="chip-grid" role="group" aria-label="Семейства разделов" data-i18n-aria-label="glossary.groups_aria"></div>
+              <div id="glossary-filter-pill" class="glossary-pill-row" hidden></div>
+              <div id="glossary-group-sections" class="chip-grid chip-grid-nested" role="group" aria-label="Разделы семейства" data-i18n-aria-label="glossary.group_sections_aria" hidden></div>
               <div class="glossary-filter-row">
-                <select class="form-input" id="glossary-kind" aria-label="Тип" data-i18n-aria-label="glossary.kind_aria">
-                  <option value="" data-i18n="glossary.kind_all">Все типы</option>
-                  <option value="function" data-i18n="glossary.kind_function">Функции</option>
-                  <option value="exception" data-i18n="glossary.kind_exception">Исключения</option>
-                  <option value="construct" data-i18n="glossary.kind_construct">Конструкции</option>
-                  <option value="term" data-i18n="glossary.kind_term">Термины</option>
-                </select>
                 <select class="form-input" id="glossary-sort" aria-label="Сортировка" data-i18n-aria-label="glossary.sort_aria">
                   <option value="relevance" data-i18n="glossary.sort_relevance">По релевантности</option>
                   <option value="az" data-i18n="glossary.sort_az">А–Я</option>

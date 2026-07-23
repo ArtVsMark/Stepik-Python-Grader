@@ -45,15 +45,18 @@ const state = {
   explainOpen: false,
   commands: [], // fetched once from /api/commands
   theme: localStorage.getItem("grader_theme") || "system", // "system" | "light" | "dark"
-  // issue #685: group — раскрытое семейство разделов ("modules"/"types"/…/"");
+  // issue #685: group — выбранное семейство разделов ("modules"/"types"/…/""),
+  // expanded — раскрыта ли под ним панель разделов (раскрытие отделено от
+  // фильтра: выбор раздела сворачивает панель, но фильтр остаётся);
   // sectionGroups — карта «раздел → семейство», sectionCounts/groupCounts —
-  // счётчики для подписей (всё из первой загрузки, правило считает сервер);
-  // hasDrafts — есть ли в источнике не-ready карточки (иначе селект «Статус»
-  // не показывается); sort по умолчанию — по релевантности.
+  // счётчики для подписей, sectionLabels — подписи разделов по ?lang= (всё
+  // считает сервер); hasDrafts — есть ли в источнике не-ready карточки (иначе
+  // селект «Статус» не показывается); sort по умолчанию — по релевантности.
   glossary: {
     query: "", section: "", kind: "", status: "", sort: "relevance", group: "",
+    expanded: false,
     cards: [], missing: [], sections: [], sectionGroups: {}, sectionCounts: {},
-    groupCounts: {}, hasDrafts: false, total: 0,
+    sectionLabels: {}, groupCounts: {}, hasDrafts: false, total: 0,
     selectedId: null, view: "cards",
   },
   rules: { query: "", tag: "", cards: [], selectedId: null }, // issue #348

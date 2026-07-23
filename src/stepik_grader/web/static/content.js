@@ -55,6 +55,8 @@ async function loadGlossary() {
   if (!g.sections.length && !g.query && !g.section && !g.kind && !g.group) {
     indexGlossarySections(g.cards);
     await probeGlossaryDrafts();
+  } else {
+    indexGlossarySectionLabels(g.cards); // подписи следуют за ?lang= каждой выдачи
   }
   // Контролы перерисовываются на КАЖДОЙ загрузке: смена языка (issue #363
   // сбрасывает кеш карточек и перезагружает раздел) обязана перевести и подписи
@@ -62,6 +64,7 @@ async function loadGlossary() {
   // пересоздаются только при смене языка/состава, иначе обновляется лишь их
   // состояние — иначе клик уносил бы фокус с только что нажатой кнопки.
   renderGlossaryGroups();
+  renderGlossaryFilterPill();
   renderGlossaryGroupSections();
   renderGlossaryList();
   renderGlossaryCount();
@@ -85,6 +88,23 @@ function indexGlossarySections(cards) {
       g.sectionCounts[c.section] = (g.sectionCounts[c.section] || 0) + 1;
     }
   });
+  indexGlossarySectionLabels(cards);
+}
+
+// issue #685: подписи разделов приходят с сервера (`section_label`, локаль
+// ?lang=) — имя раздела остаётся серверным значением фильтра. Карта обновляется
+// на КАЖДОЙ загрузке, а не только на первой: после смены языка при раскрытом
+// семействе приходят карточки только этого семейства, и его разделы обязаны
+// перевестись сразу.
+function indexGlossarySectionLabels(cards) {
+  const g = state.glossary;
+  cards.forEach(c => {
+    if (c.section) g.sectionLabels[c.section] = c.section_label || c.section;
+  });
+}
+
+function glossarySectionLabel(section) {
+  return state.glossary.sectionLabels[section] || section;
 }
 
 // issue #685: селект «Статус» — контрол не для ученика: в комплектной базе
@@ -114,9 +134,10 @@ function renderGlossaryGroups() {
     el.innerHTML = groups
       .map(
         gr =>
-          '<button type="button" class="chip chip-group" data-glgroup="' + esc(gr.id) + '">' +
+          '<button type="button" class="chip chip-group" data-glgroup="' + esc(gr.id) +
+          '" title="' + esc(t(gr.labelKey)) + '"><span class="chip-label">' +
           esc(t(gr.labelKey)) +
-          ' <span class="chip-count">' + g.groupCounts[gr.id] + "</span></button>"
+          '</span><span class="chip-count">' + g.groupCounts[gr.id] + "</span></button>"
       )
       .join("");
     el.querySelectorAll("button[data-glgroup]").forEach(b =>
@@ -125,51 +146,83 @@ function renderGlossaryGroups() {
     glossaryGroupsKey = key;
   }
   el.querySelectorAll("button[data-glgroup]").forEach(b => {
-    const on = g.group === b.dataset.glgroup;
-    b.classList.toggle("active", on);
-    b.setAttribute("aria-expanded", String(on));
+    const chosen = g.group === b.dataset.glgroup;
+    b.classList.toggle("active", chosen);
+    b.setAttribute("aria-expanded", String(chosen && g.expanded));
   });
 }
 
-let glossarySectionsKey = null; // «раскрытое семейство + язык» для панели разделов
-
-// Разделы раскрытого семейства: «Все» + сами разделы со счётчиками. Свёрнутое
-// семейство панель не рисует — под рукой остаётся только то, что выбрано.
-// Пересборка — как у ряда семейств, лишь при смене семейства/языка.
-function renderGlossaryGroupSections() {
-  const el = $("#glossary-group-sections");
+// «Пилюля» текущего фильтра: семейство и (если выбран) раздел — то, что раньше
+// было видно лишь по подсветке чипа в раскрытой панели. Панель после выбора
+// раздела сворачивается, поэтому выбор должен оставаться на виду; крестик
+// снимает фильтр целиком (клик по самому семейству лишь сворачивает панель и
+// выбор больше НЕ теряет).
+function renderGlossaryFilterPill() {
+  const el = $("#glossary-filter-pill");
   if (!el) return;
   const g = state.glossary;
   if (!g.group) {
     el.hidden = true;
     el.innerHTML = "";
-    glossarySectionsKey = null;
     return;
   }
-  const key = g.group + "|" + state.lang;
-  if (key !== glossarySectionsKey) {
-    const sections = g.sections.filter(s => g.sectionGroups[s] === g.group);
-    el.innerHTML = [
-      '<button type="button" class="chip" data-section="">' +
-        esc(t("glossary.section_all_short")) + "</button>",
-    ]
-      .concat(
-        sections.map(
-          s =>
-            '<button type="button" class="chip" data-section="' + esc(s) + '">' +
-            esc(s) + ' <span class="chip-count">' + (g.sectionCounts[s] || 0) + "</span></button>"
-        )
-      )
-      .join("");
-    el.querySelectorAll("button[data-section]").forEach(b =>
-      b.addEventListener("click", () => selectGlossarySection(b.dataset.section))
-    );
-    glossarySectionsKey = key;
-  }
+  const groupMeta = GLOSSARY_GROUPS.find(gr => gr.id === g.group);
+  const parts = [groupMeta ? t(groupMeta.labelKey) : g.group];
+  if (g.section) parts.push(glossarySectionLabel(g.section));
   el.hidden = false;
+  el.innerHTML =
+    '<span class="glossary-pill"><span class="chip-label">' +
+    esc(parts.join(" › ")) +
+    '</span><button type="button" class="glossary-pill-clear" aria-label="' +
+    esc(t("glossary.filter_clear")) + '" title="' + esc(t("glossary.filter_clear")) +
+    '">✕</button></span>';
+  el.querySelector(".glossary-pill-clear").addEventListener("click", clearGlossaryFilter);
+}
+
+// Разделы раскрытого семейства: «Все» + сами разделы со счётчиками. Свёрнутое
+// семейство панель не рисует — под рукой остаётся только то, что выбрано.
+// Панель пересобирается на каждый рендер (в отличие от ряда семейств): подписи
+// разделов приходят с сервера и обновляются уже ПОСЛЕ первого рендера при смене
+// языка — кеш по ключу «семейство+язык» законсервировал бы русские подписи в
+// англоязычном UI. Фокус при пересборке восстанавливается по data-section,
+// поэтому клавиатурная навигация не сбрасывается на начало.
+function renderGlossaryGroupSections() {
+  const el = $("#glossary-group-sections");
+  if (!el) return;
+  const g = state.glossary;
+  if (!g.group || !g.expanded) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  const focused = document.activeElement;
+  const focusedSection =
+    focused && el.contains(focused) ? focused.dataset.section : null;
+  const sections = g.sections.filter(s => g.sectionGroups[s] === g.group);
+  el.innerHTML = [
+    '<button type="button" class="chip' + (g.section ? "" : " active") + '" data-section="">' +
+      '<span class="chip-label">' + esc(t("glossary.section_all_short")) + "</span></button>",
+  ]
+    .concat(
+      sections.map(
+        s =>
+          '<button type="button" class="chip' + (g.section === s ? " active" : "") +
+          '" data-section="' + esc(s) + '" title="' + esc(glossarySectionLabel(s)) +
+          '"><span class="chip-label">' + esc(glossarySectionLabel(s)) +
+          '</span><span class="chip-count">' + (g.sectionCounts[s] || 0) + "</span></button>"
+      )
+    )
+    .join("");
   el.querySelectorAll("button[data-section]").forEach(b =>
-    b.classList.toggle("active", (b.dataset.section || "") === g.section)
+    b.addEventListener("click", () => selectGlossarySection(b.dataset.section))
   );
+  el.hidden = false;
+  if (focusedSection !== null) {
+    const restored = el.querySelector(
+      'button[data-section="' + CSS.escape(focusedSection) + '"]'
+    );
+    if (restored) restored.focus();
+  }
 }
 
 function renderGlossaryCount() {
@@ -179,24 +232,48 @@ function renderGlossaryCount() {
   el.textContent = g.total ? t("glossary.count_shown", { shown: g.cards.length, total: g.total }) : "";
 }
 
-// Раздел внутри раскрытого семейства: пустая строка — «Все» (только семейство).
+// Выбор раздела СВОРАЧИВАЕТ панель: список из 30 модулей не должен занимать
+// экран после того, как выбор сделан. Что именно выбрано, видно по «пилюле»
+// (renderGlossaryFilterPill), а вернуться к списку — клик по семейству.
+// Пустая строка — «Все» (фильтр = всё семейство).
 function selectGlossarySection(section) {
   const g = state.glossary;
   g.section = g.section === section ? "" : section;
+  g.expanded = false;
+  renderGlossaryGroups();
+  renderGlossaryFilterPill();
   renderGlossaryGroupSections();
   loadGlossary();
 }
 
-// issue #685: клик по семейству раскрывает его разделы И сразу фильтрует выдачу
-// (предварительный выбор — «Модули» без уточнения = все 707 карточек модулей);
-// повторный клик сворачивает и снимает фильтр. Раскрыто одно семейство за раз,
-// выбранный раздел при смене семейства сбрасывается — иначе пересечение
-// фильтров дало бы пустую выдачу.
+// issue #685: клик по семейству выбирает его (фильтр = всё семейство) и
+// раскрывает разделы; повторный клик по УЖЕ выбранному только сворачивает
+// панель, сохраняя выбранный раздел, — раскрытие отделено от фильтра. Снимает
+// фильтр крестик «пилюли» (clearGlossaryFilter), а не сворачивание. Раскрыто
+// одно семейство за раз; раздел при смене семейства сбрасывается, иначе
+// пересечение фильтров дало бы пустую выдачу.
 function toggleGlossaryGroup(group) {
   const g = state.glossary;
-  g.group = g.group === group ? "" : group;
-  if (g.sectionGroups[g.section] !== g.group) g.section = "";
+  if (g.group === group) {
+    g.expanded = !g.expanded;
+  } else {
+    g.group = group;
+    g.section = "";
+    g.expanded = true;
+  }
   renderGlossaryGroups();
+  renderGlossaryFilterPill();
+  renderGlossaryGroupSections();
+  loadGlossary();
+}
+
+function clearGlossaryFilter() {
+  const g = state.glossary;
+  g.group = "";
+  g.section = "";
+  g.expanded = false;
+  renderGlossaryGroups();
+  renderGlossaryFilterPill();
   renderGlossaryGroupSections();
   loadGlossary();
 }
@@ -280,7 +357,12 @@ function renderGlossaryDetail(card) {
   $("#glossary-empty").hidden = true;
   const el = $("#glossary-detail-content");
   el.hidden = false;
-  const meta = [card.kind, card.section, card.subcat].filter(Boolean).map(esc).join(" · ");
+  // issue #685: раздел в мете — локализованная подпись сервера (section_label),
+  // с откатом на карту списка и само имя, если карточка пришла без неё.
+  const sectionLabel = card.section
+    ? card.section_label || glossarySectionLabel(card.section)
+    : "";
+  const meta = [card.kind, sectionLabel, card.subcat].filter(Boolean).map(esc).join(" · ");
   const draftBadge =
     card.status === "draft"
       ? ' <span class="badge badge-warning">' + esc(t("glossary.draft_badge")) + "</span>" // issue #328

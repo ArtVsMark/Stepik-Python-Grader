@@ -224,15 +224,19 @@ def test_glossary_group_filter_and_deeplink(page: Any, e2e_server: str, tmp_path
 
     # Кнопки семейств отрисованы после загрузки карточек. Клик раскрывает
     # семейство и сразу фильтрует выдачу; внутри выбирается конкретный раздел
-    # (разделы не объединяются — issue #329).
+    # (разделы не объединяются — issue #329). После выбора панель сворачивается,
+    # а выбор виден «пилюлей»; крестик на ней снимает фильтр (issue #685).
     page.wait_for_selector("#glossary-groups button[data-glgroup]", timeout=_TIMEOUT_MS)
     page.click('#glossary-groups button[data-glgroup="builtins"]')
     expect(page.locator("#glossary-group-sections")).to_be_visible(timeout=_TIMEOUT_MS)
     page.click('#glossary-group-sections button[data-section="Исключения"]')
-    expect(
-        page.locator('#glossary-group-sections button[data-section="Исключения"]')
-    ).to_have_class(re.compile(r"\bactive\b"), timeout=_TIMEOUT_MS)
+    expect(page.locator("#glossary-group-sections")).to_be_hidden(timeout=_TIMEOUT_MS)
+    expect(page.locator("#glossary-filter-pill")).to_contain_text("Исключения", timeout=_TIMEOUT_MS)
     assert page.locator("#glossary-count").text_content().startswith("Показано")
+
+    # Крестик «пилюли» возвращает полную выдачу, а не только снимает раздел.
+    page.click(".glossary-pill-clear")
+    expect(page.locator("#glossary-filter-pill")).to_be_hidden(timeout=_TIMEOUT_MS)
 
     # Deep-link: прямой хэш открывает конкретную карточку.
     page.goto(e2e_server + "/#/glossary/keyerror")
