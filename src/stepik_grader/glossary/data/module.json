@@ -2026,28 +2026,28 @@
     "related_errors": []
   },
   {
-    "id": "date.today-date.fromisoformat",
-    "title": "date.today / date.fromisoformat",
-    "kind": "term",
+    "id": "date.today",
+    "title": "date.today()",
+    "kind": "function",
     "summary": {
-      "ru": "date.today() — сегодня. date.fromisoformat() — из строки ISO.",
-      "en": "date.today() — today's date. date.fromisoformat() — a date from an ISO string."
+      "ru": "Возвращает сегодняшнюю дату как объект date (без времени). Классовый метод — вызывается на самом классе date.",
+      "en": "Return today's date as a date object (no time part); a classmethod called on the date class itself."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "from datetime import date\ndate.today()\ndate.fromisoformat('2024-01-01')",
+    "syntax": "from datetime import date\ndate.today()",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-date.today-date.fromisoformat",
-    "docs_url": "https://docs.python.org/3/library/datetime.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.date.today",
     "version": "",
     "section": "Модуль datetime",
     "subcat": "date",
     "aliases": [],
     "keywords": [
       "date.today",
-      "date.fromisoformat"
+      "today"
     ],
     "tags": [
       "module"
@@ -2056,54 +2056,130 @@
       "from datetime import date",
       "today = date.today()",
       "print(today)  # → 2024-xx-xx",
-      "print(today.year, today.month, today.day)",
-      "d = date.fromisoformat('2024-03-15')",
-      "print(d)  # → 2024-03-15",
-      "print(d.isoformat())  # → 2024-03-15",
-      "print(date(2024, 1, 1))  # → 2024-01-01"
+      "print(today.year, today.month, today.day)"
     ],
-    "related": [],
+    "related": [
+      "date.fromisoformat",
+      "datetime.now"
+    ],
     "related_errors": []
   },
   {
-    "id": "datetime.now-datetime.utcnow",
-    "title": "datetime.now / datetime.utcnow",
-    "kind": "term",
+    "id": "date.fromisoformat",
+    "title": "date.fromisoformat()",
+    "kind": "function",
     "summary": {
-      "ru": "datetime.now() возвращает текущие дату и время в локальном поясе, utcnow() — в UTC без tzinfo (naive).",
-      "en": "datetime.now() returns the current date and time in the local time zone, utcnow() — in UTC with no tzinfo (naive)."
+      "ru": "Разбирает строку формата ISO 8601 ('ГГГГ-ММ-ДД') в объект date. Обратная операция к .isoformat(); при неверном формате — ValueError.",
+      "en": "Parse an ISO 8601 string ('YYYY-MM-DD') into a date object — the inverse of .isoformat(); raises ValueError on a malformed string."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "from datetime import datetime\ndatetime.now()\ndatetime.utcnow()",
+    "syntax": "from datetime import date\ndate.fromisoformat('2024-01-01')",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-datetime.now-datetime.utcnow",
-    "docs_url": "https://docs.python.org/3/library/datetime.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.date.fromisoformat",
+    "version": "",
+    "section": "Модуль datetime",
+    "subcat": "date",
+    "aliases": [],
+    "keywords": [
+      "date.fromisoformat",
+      "fromisoformat"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from datetime import date",
+      "d = date.fromisoformat('2024-03-15')",
+      "print(d)  # → 2024-03-15",
+      "print(d.isoformat())  # → 2024-03-15 (обратно в строку)"
+    ],
+    "related": [
+      "date.today"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "datetime.now",
+    "title": "datetime.now()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущие дату и время. Без аргумента — в локальном поясе и без tzinfo (naive); с datetime.now(timezone.utc) — осознанный объект в UTC.",
+      "en": "Return the current date and time: naive local time by default, or an aware UTC object when called as datetime.now(timezone.utc)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "from datetime import datetime\ndatetime.now(tz=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.datetime.now",
     "version": "",
     "section": "Модуль datetime",
     "subcat": "datetime",
     "aliases": [],
     "keywords": [
       "datetime.now",
-      "datetime.utcnow"
+      "now"
     ],
     "tags": [
       "module"
     ],
     "examples": [
-      "from datetime import datetime",
+      "from datetime import datetime, timezone",
       "now = datetime.now()",
       "print(now)  # → 2024-xx-xx xx:xx:xx.xxxxxx",
-      "print(now.year, now.month, now.day)",
       "print(now.hour, now.minute, now.second)",
-      "from datetime import timezone",
       "utc = datetime.now(timezone.utc)",
-      "print(utc)  # → с UTC timezone",
-      "print(datetime(2024, 6, 15, 12, 0, 0))"
+      "print(utc.tzinfo)  # → UTC (осознанный объект)"
     ],
-    "related": [],
+    "related": [
+      "datetime.utcnow",
+      "date.today"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "datetime.utcnow",
+    "title": "datetime.utcnow()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущее время UTC, но БЕЗ tzinfo (naive) — из-за этого его легко спутать с локальным. Устарел с Python 3.12: используй datetime.now(timezone.utc).",
+      "en": "Return the current UTC time as a naive object (no tzinfo), which is easy to confuse with local time. Deprecated since Python 3.12 — use datetime.now(timezone.utc)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "from datetime import datetime\ndatetime.utcnow()  # deprecated, 3.12+",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/datetime.html#datetime.datetime.utcnow",
+    "version": "3.12",
+    "section": "Модуль datetime",
+    "subcat": "datetime",
+    "aliases": [],
+    "keywords": [
+      "datetime.utcnow",
+      "utcnow"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from datetime import datetime, timezone",
+      "old = datetime.utcnow()  # naive, устарело",
+      "print(old.tzinfo)  # → None (нет пояса!)",
+      "new = datetime.now(timezone.utc)  # современный аналог",
+      "print(new.tzinfo)  # → UTC"
+    ],
+    "related": [
+      "datetime.now"
+    ],
     "related_errors": []
   },
   {
@@ -6527,28 +6603,28 @@
     "related_errors": []
   },
   {
-    "id": "re.group-re.groups",
-    "title": "re.group() / re.groups()",
+    "id": "re.group",
+    "title": "re.group()",
     "kind": "function",
     "summary": {
-      "ru": "Методы объекта Match для доступа к захваченным группам. group(0) — всё совпадение, group(n) — n-я группа.",
-      "en": "The methods of a Match object that give access to the captured groups. group(0) is the whole match, group(n) the n-th group."
+      "ru": "Возвращает текст одной захваченной группы объекта Match. group(0) (или group()) — всё совпадение целиком, group(n) — n-я группа.",
+      "en": "Return the text of a single captured group of a Match object: group(0) (or group()) is the whole match, group(n) is the n-th group."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "m.group(n=0)\nm.groups(default=None)\nm.groupdict()",
+    "syntax": "m.group(n=0)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-re.group-re.groups",
-    "docs_url": "https://docs.python.org/3/library/re.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/re.html#re.Match.group",
     "version": "",
     "section": "Модуль re",
     "subcat": "группы",
     "aliases": [],
     "keywords": [
       "re.group",
-      "re.groups"
+      "group"
     ],
     "tags": [
       "module"
@@ -6558,12 +6634,92 @@
       "m = re.match(r'(\\w+)@(\\w+)', 'user@host')",
       "m.group() # → 'user@host'",
       "m.group(1) # → 'user'",
-      "m.group(2) # → 'host'",
-      "m.groups() # → ('user', 'host')",
-      "m2 = re.match(r'(?P<y>\\d{4})-(?P<m>\\d{2})', '2024-01')",
-      "m2.groupdict() # → {'y': '2024', 'm': '01'}"
+      "m.group(2) # → 'host'"
     ],
-    "related": [],
+    "related": [
+      "re.groups",
+      "re.groupdict"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "re.groups",
+    "title": "re.groups()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает кортеж ВСЕХ захваченных групп объекта Match (без группы 0). Незахваченным группам подставляется default (по умолчанию None).",
+      "en": "Return a tuple of all captured groups of a Match object (group 0 excluded); groups that did not participate get default (None by default)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "m.groups(default=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/re.html#re.Match.groups",
+    "version": "",
+    "section": "Модуль re",
+    "subcat": "группы",
+    "aliases": [],
+    "keywords": [
+      "re.groups",
+      "groups"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import re",
+      "m = re.match(r'(\\w+)@(\\w+)', 'user@host')",
+      "m.groups() # → ('user', 'host')",
+      "m2 = re.match(r'(a)(b)?', 'a')",
+      "m2.groups() # → ('a', None)",
+      "m2.groups(default='-') # → ('a', '-')"
+    ],
+    "related": [
+      "re.group",
+      "re.groupdict"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "re.groupdict",
+    "title": "re.groupdict()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает словарь ИМЕНОВАННЫХ групп объекта Match — тех, что заданы через (?P<имя>...). Безымянные группы в словарь не попадают.",
+      "en": "Return a dict of the named groups of a Match object — those declared with (?P<name>...); unnamed groups are not included."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "m.groupdict(default=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/re.html#re.Match.groupdict",
+    "version": "",
+    "section": "Модуль re",
+    "subcat": "группы",
+    "aliases": [],
+    "keywords": [
+      "re.groupdict",
+      "groupdict"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import re",
+      "m = re.match(r'(?P<y>\\d{4})-(?P<m>\\d{2})', '2024-01')",
+      "m.groupdict() # → {'y': '2024', 'm': '01'}",
+      "m.group('y') # → '2024' (по имени)"
+    ],
+    "related": [
+      "re.group",
+      "re.groups"
+    ],
     "related_errors": []
   },
   {
@@ -7221,45 +7377,77 @@
     "related_errors": []
   },
   {
-    "id": "sys.getrecursionlimit-sys.setrecursionli",
-    "title": "sys.getrecursionlimit() / sys.setrecursionlimit()",
+    "id": "sys.getrecursionlimit",
+    "title": "sys.getrecursionlimit()",
     "kind": "function",
     "summary": {
-      "ru": "Получение и установка максимальной глубины рекурсии. По умолчанию 1000. Превышение вызывает RecursionError.",
-      "en": "Reading and setting the maximum recursion depth. The default is 1000. Going past it raises RecursionError."
+      "ru": "Возвращает текущий предел глубины рекурсии интерпретатора (по умолчанию 1000). При его превышении поднимается RecursionError.",
+      "en": "Return the interpreter's current maximum recursion depth (1000 by default); exceeding it raises RecursionError."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "sys.getrecursionlimit() -> int\nsys.setrecursionlimit(limit: int) -> None",
+    "syntax": "sys.getrecursionlimit() -> int",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-sys.getrecursionlimit-sys.setrecursionli",
-    "docs_url": "https://docs.python.org/3/library/sys.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/sys.html#sys.getrecursionlimit",
     "version": "",
     "section": "Модуль sys",
     "subcat": "рекурсия",
     "aliases": [],
     "keywords": [
       "sys.getrecursionlimit",
-      "sys.setrecursionlimit"
+      "getrecursionlimit"
     ],
     "tags": [
       "module"
     ],
     "examples": [
       "import sys",
-      "print(sys.getrecursionlimit())  # → 1000",
-      "sys.setrecursionlimit(5000)  # → установка нового лимита",
+      "print(sys.getrecursionlimit())  # → 1000"
+    ],
+    "related": [
+      "sys.setrecursionlimit"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sys.setrecursionlimit",
+    "title": "sys.setrecursionlimit()",
+    "kind": "function",
+    "summary": {
+      "ru": "Устанавливает предел глубины рекурсии. Слишком большое значение может уронить процесс по переполнению стека — это не защита, а предохранитель.",
+      "en": "Set the maximum recursion depth; too high a value can crash the process with a stack overflow — the limit is a safeguard, not a hard guarantee."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sys.setrecursionlimit(limit: int) -> None",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/sys.html#sys.setrecursionlimit",
+    "version": "",
+    "section": "Модуль sys",
+    "subcat": "рекурсия",
+    "aliases": [],
+    "keywords": [
+      "sys.setrecursionlimit",
+      "setrecursionlimit"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import sys",
+      "sys.setrecursionlimit(5000)",
       "print(sys.getrecursionlimit())  # → 5000",
-      "try:",
-      "def f(): return f()",
-      "f()",
-      "except RecursionError:",
-      "print('RecursionError')  # → RecursionError",
       "sys.setrecursionlimit(1000)  # → возврат к стандарту"
     ],
-    "related": [],
+    "related": [
+      "sys.getrecursionlimit"
+    ],
     "related_errors": []
   },
   {

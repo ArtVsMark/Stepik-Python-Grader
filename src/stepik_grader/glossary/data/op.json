@@ -548,28 +548,28 @@
     "related_errors": []
   },
   {
-    "id": "decimal.getcontext-setcontext",
-    "title": "decimal.getcontext() / setcontext()",
+    "id": "decimal.getcontext",
+    "title": "decimal.getcontext()",
     "kind": "function",
     "summary": {
-      "ru": "Управляет точностью (prec), режимом округления и обработкой ошибок для операций с Decimal.",
-      "en": "Controls the precision (prec), the rounding mode and the error handling of Decimal operations."
+      "ru": "Возвращает текущий контекст Decimal для этого потока. Его поля prec (точность) и rounding можно менять прямо на месте — они влияют на все операции.",
+      "en": "Return the current thread's Decimal context; its prec and rounding fields can be mutated in place and affect every subsequent operation."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "decimal.getcontext().prec = 50\ndecimal.setcontext(decimal.Context(prec=10))",
+    "syntax": "decimal.getcontext()\ndecimal.getcontext().prec = 50",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-decimal.getcontext-setcontext",
-    "docs_url": "https://docs.python.org/3/library/numbers.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.getcontext",
     "version": "",
     "section": "Числа и математика",
     "subcat": "decimal",
     "aliases": [],
     "keywords": [
       "decimal.getcontext",
-      "setcontext"
+      "getcontext"
     ],
     "tags": [
       "op"
@@ -580,10 +580,49 @@
       "ctx.prec # → 28 (по умолчанию)",
       "ctx.prec = 5",
       "decimal.Decimal(1) / decimal.Decimal(7) # → Decimal('0.14286')",
-      "decimal.getcontext().rounding = decimal.ROUND_HALF_UP",
-      "decimal.Decimal('2.5').quantize(decimal.Decimal('1')) # → Decimal('3')"
+      "decimal.getcontext().rounding = decimal.ROUND_HALF_UP"
     ],
-    "related": [],
+    "related": [
+      "decimal.setcontext"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "decimal.setcontext",
+    "title": "decimal.setcontext()",
+    "kind": "function",
+    "summary": {
+      "ru": "Заменяет текущий контекст Decimal целиком на переданный. Удобно, когда нужен заранее собранный Context, а не правка полей по одному.",
+      "en": "Replace the current Decimal context wholesale with the given one — useful when you have a prebuilt Context rather than tweaking fields one by one."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "decimal.setcontext(ctx)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/decimal.html#decimal.setcontext",
+    "version": "",
+    "section": "Числа и математика",
+    "subcat": "decimal",
+    "aliases": [],
+    "keywords": [
+      "decimal.setcontext",
+      "setcontext"
+    ],
+    "tags": [
+      "op"
+    ],
+    "examples": [
+      "import decimal",
+      "decimal.setcontext(decimal.Context(prec=10))",
+      "decimal.getcontext().prec # → 10",
+      "decimal.Decimal(1) / decimal.Decimal(3) # → Decimal('0.3333333333')"
+    ],
+    "related": [
+      "decimal.getcontext"
+    ],
     "related_errors": []
   },
   {
