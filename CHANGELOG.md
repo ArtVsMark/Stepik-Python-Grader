@@ -13,6 +13,7 @@
 - Web: палитра команд (`Ctrl+K`) — все её семь команд уже были доступны кнопками (главная «Запустить», карточки действий, тумблер темы, sidebar), уникальной возможности она не давала, а несла модалку без focus-trap и кнопку `⌘K` в topbar. Реестр команд сохранён — на нём держатся карточки действий; CSS-классы `.palette*` переименованы в нейтральные `.modal*` (их использует модалка AI-согласия) (#658)
 
 ### Added
+- Глоссарий: ревизия карточек `scripts/audit_glossary_cards.py` (отчёт-чеклист по `data/*.json` + жёсткие инварианты) и тест `test_glossary_card_audit.py` — обязательные поля ready-карточек, matcher-safety мультифункц. карточек, EN-ratchet ≤ 525 (#684)
 - Web API: `POST /api/stepik/submit` — отправка решения режима 1 на Stepik как async-job (attempt → submission → poll вердикта на сервере, авто-язык из шага); `step_id` из тела или `meta.json` папки задачи; нет валидного токена → job `stepik_auth_required` (в сеть ничего). Вердикт (`correct`/`wrong` + hint/score/submission_id) — через `GET /api/v1/runs/<id>`. Кнопка «Отправить в Stepik» в UI — следующим PR (#683)
 - core: клиент отправки решения на Stepik — attempt → submission → poll вердикта (`create_attempt`/`submit_solution`/`poll_submission`/`submit_and_wait`) + `read_step_id` из meta.json + `fetch_step_languages` с автовыбором языка из `code_templates` шага (`python3.10`/`python3.12`, не хардкод `python3` — иначе Stepik отвергает «Unknown language», подтверждено живым сабмитом) (`core/stepik_client.py`); авторизация Bearer-токеном сессии (CSRF под Bearer не нужен). Фундамент кнопки «Отправить в Stepik» в режиме 1 — web/UI отдельным PR (#683)
 - README/README.en: hero-GIF потока `--serve` + скриншоты (таблица результатов, разбор кейса, офлайн-глоссарий) в `docs/assets/` — визуальная витрина (#601)
@@ -32,6 +33,9 @@
 ### Changed
 - CLI: тупиковое пустое состояние «Файлы решений не найдены» (режимы 3/4) заменено на путь, ожидаемый шаблон имён `task*.py` и next-step (скачать со Stepik / создать вручную) (#645)
 - README: верх переписан вокруг «зачем это, если Stepik и так проверяет решения» (мгновенный офлайн-цикл, честное сравнение решений, «Подучить», офлайн-глоссарий); дублирующая таблица «vs оригинал» убрана в `docs/versions.md`; выправлен дрейф версий и счётчика тестов (README `v1.0.0…v1.8.0`, CLAUDE.md/`versions.md` «1600+» → «1700+») (#644)
+
+### Fixed
+- Глоссарий: 68 мультифункц. карточек (`.exists() / .is_file() / .is_dir()`, `os.getcwd() / os.chdir()` …) получили `keywords` с чистыми именами вызовов — детектор «Функции в коде» и coverage больше не помечают вложенные функции ложным пробелом (matcher-safety, #684)
 
 ### Security
 - Fuzz входного тракта Stepik (`tests/test_w6_input_tract_fuzz.py`, hypothesis): разбор `task_page_parser` не бросает на битом HTML/null/вложенности, регулярки ссылок линейны (нет ReDoS), `slugify`/`build_task_directory` защищают от path-injection (сепараторы/`..` вырезаются, каталог заперт под `root_dir`; имена ZIP/GitHub — только цифровой фильтр, Zip Slip невозможен); `is_function_style` расширен до `except (SyntaxError, ValueError)` — документированный контракт `ast.parse` на null-байтах (#691)

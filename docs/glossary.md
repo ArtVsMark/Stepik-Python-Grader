@@ -73,6 +73,27 @@
 
 Пример — [`examples/glossary.sample.json`](examples/glossary.sample.json).
 
+## Ревизия и инварианты карточек (issue #684)
+
+Комплектную базу сверяет `scripts/audit_glossary_cards.py` (отчёт-чеклист) и
+одноимённый тест `tests/test_glossary_card_audit.py` (CI-инварианты) по трём осям
+аудита #684:
+
+- **Обязательные поля `ready`-карточки** — `summary` (RU), `syntax`, `docs_url`,
+  `section`, `subcat`, `tags` (≥1), `examples` (≥1). Прочие поля
+  (`body`/`aliases`/`keywords`/`version`/`related`/`url`) осознанно опциональны.
+- **Matcher-safety мультифункциональных карточек** — если `title` перечисляет
+  несколько вызовов через ` / ` (напр. `os.getcwd() / os.chdir()`), карточке
+  нужны `keywords` с чистыми именами каждого вызова. Иначе детектор «Функции в
+  коде» (`detector._is_known` матчит concept `os.getcwd` или хвост `getcwd`, а не
+  склеенный `title`) и coverage ложно считают вложенное имя непокрытым. Гибрид
+  #684: часть бандлов разбита на 1-концепт-карточки, остальным добавлены `keywords`.
+- **EN-ratchet** — число карточек без `summary_en` не растёт выше
+  зафиксированного порога (перевод старого импорта — отдельной волной; новые
+  карточки двуязычны by design, issue #363).
+
+Запуск отчёта: `python scripts/audit_glossary_cards.py --report`.
+
 ## Комплектная база (bundled, issue #326)
 
 В пакете лежит готовая база — `src/stepik_grader/glossary/data/*.json` (число

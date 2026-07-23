@@ -19,7 +19,11 @@
     "section": "Модуль pathlib",
     "subcat": "проверки",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "exists",
+      "is_file",
+      "is_dir"
+    ],
     "tags": [
       "module"
     ],
@@ -55,7 +59,10 @@
     "section": "Модуль pathlib",
     "subcat": "поиск",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "glob",
+      "rglob"
+    ],
     "tags": [
       "module"
     ],
@@ -129,7 +136,12 @@
     "section": "Модуль pathlib",
     "subcat": "операции",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "mkdir",
+      "unlink",
+      "rename",
+      "replace"
+    ],
     "tags": [
       "module"
     ],
@@ -165,7 +177,10 @@
     "section": "Модуль enum",
     "subcat": "атрибуты",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "name",
+      "value"
+    ],
     "tags": [
       "module"
     ],
@@ -202,7 +217,12 @@
     "section": "Модуль pathlib",
     "subcat": "чтение/запись",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "read_text",
+      "write_text",
+      "read_bytes",
+      "write_bytes"
+    ],
     "tags": [
       "module"
     ],
@@ -239,7 +259,14 @@
     "section": "Модуль pathlib",
     "subcat": "части пути",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "stem",
+      "suffix",
+      "suffixes",
+      "name",
+      "parent",
+      "parts"
+    ],
     "tags": [
       "module"
     ],
@@ -457,7 +484,10 @@
     "section": "Модуль copy",
     "subcat": "кастомизация",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "__copy__",
+      "__deepcopy__"
+    ],
     "tags": [
       "module"
     ],
@@ -689,7 +719,10 @@
     "section": "Модуль bisect",
     "subcat": "позиция",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "bisect.bisect_left",
+      "bisect.bisect_right"
+    ],
     "tags": [
       "module"
     ],
@@ -725,7 +758,10 @@
     "section": "Модуль bisect",
     "subcat": "вставка",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "bisect.insort_left",
+      "bisect.insort_right"
+    ],
     "tags": [
       "module"
     ],
@@ -982,7 +1018,11 @@
     "section": "Модуль collections",
     "subcat": "user-классы",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "collections.UserDict",
+      "UserList",
+      "UserString"
+    ],
     "tags": [
       "module"
     ],
@@ -1181,7 +1221,10 @@
     "section": "Модуль contextlib",
     "subcat": "перенаправление",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "contextlib.redirect_stdout",
+      "redirect_stderr"
+    ],
     "tags": [
       "module"
     ],
@@ -1567,7 +1610,10 @@
     "section": "Модуль datetime",
     "subcat": "date",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "date.today",
+      "date.fromisoformat"
+    ],
     "tags": [
       "module"
     ],
@@ -1604,7 +1650,10 @@
     "section": "Модуль datetime",
     "subcat": "datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "datetime.now",
+      "datetime.utcnow"
+    ],
     "tags": [
       "module"
     ],
@@ -2345,7 +2394,10 @@
     "section": "Модуль enum",
     "subcat": "флаги",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "Flag",
+      "IntFlag"
+    ],
     "tags": [
       "module"
     ],
@@ -2423,7 +2475,10 @@
     "section": "Модуль functools",
     "subcat": "кэширование",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "functools.lru_cache",
+      "functools.cache"
+    ],
     "tags": [
       "module"
     ],
@@ -2811,7 +2866,10 @@
     "section": "Модуль heapq",
     "subcat": "операции",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "heapq.heappush",
+      "heapq.heappop"
+    ],
     "tags": [
       "module"
     ],
@@ -2848,7 +2906,10 @@
     "section": "Модуль heapq",
     "subcat": "операции",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "heapq.heapreplace",
+      "heapq.heappushpop"
+    ],
     "tags": [
       "module"
     ],
@@ -2884,7 +2945,10 @@
     "section": "Модуль heapq",
     "subcat": "выборка",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "heapq.nlargest",
+      "heapq.nsmallest"
+    ],
     "tags": [
       "module"
     ],
@@ -2920,7 +2984,10 @@
     "section": "Модуль enum",
     "subcat": "базовый",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "IntEnum",
+      "StrEnum"
+    ],
     "tags": [
       "module"
     ],
@@ -4838,7 +4905,10 @@
     "section": "Модуль os",
     "subcat": "навигация",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "os.getcwd",
+      "os.chdir"
+    ],
     "tags": [
       "module"
     ],
@@ -4944,7 +5014,10 @@
     "section": "Модуль os",
     "subcat": "директории",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "os.makedirs",
+      "os.rmdir"
+    ],
     "tags": [
       "module"
     ],
@@ -4979,7 +5052,11 @@
     "section": "Модуль os",
     "subcat": "os.path",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "os.path.dirname",
+      "os.path.basename",
+      "os.path.split"
+    ],
     "tags": [
       "module"
     ],
@@ -5015,7 +5092,11 @@
     "section": "Модуль os",
     "subcat": "os.path",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "os.path.exists",
+      "os.path.isfile",
+      "os.path.isdir"
+    ],
     "tags": [
       "module"
     ],
@@ -5122,7 +5203,10 @@
     "section": "Модуль os",
     "subcat": "файлы",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "os.remove",
+      "os.rename"
+    ],
     "tags": [
       "module"
     ],
@@ -5158,7 +5242,11 @@
     "section": "Модуль os",
     "subcat": "константы",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "os.sep",
+      "os.linesep",
+      "os.pathsep"
+    ],
     "tags": [
       "module"
     ],
@@ -5267,7 +5355,10 @@
     "section": "Модуль pathlib",
     "subcat": "создание",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "Path.home",
+      "Path.cwd"
+    ],
     "tags": [
       "module"
     ],
@@ -6009,7 +6100,10 @@
     "section": "Модуль re",
     "subcat": "группы",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "re.group",
+      "re.groups"
+    ],
     "tags": [
       "module"
     ],
@@ -6700,7 +6794,10 @@
     "section": "Модуль sys",
     "subcat": "рекурсия",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "sys.getrecursionlimit",
+      "sys.setrecursionlimit"
+    ],
     "tags": [
       "module"
     ],
@@ -6883,7 +6980,11 @@
     "section": "Модуль sys",
     "subcat": "потоки",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "sys.stdin",
+      "sys.stdout",
+      "sys.stderr"
+    ],
     "tags": [
       "module"
     ],
@@ -6918,7 +7019,11 @@
     "section": "Модуль sys",
     "subcat": "информация",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "sys.version",
+      "sys.platform",
+      "sys.implementation"
+    ],
     "tags": [
       "module"
     ],
@@ -7336,7 +7441,10 @@
     "section": "Модуль unittest",
     "subcat": "проверки",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "assertEqual",
+      "assertRaises"
+    ],
     "tags": [
       "module"
     ],
@@ -7413,7 +7521,10 @@
     "section": "Модуль unittest",
     "subcat": "фикстуры",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "setUp",
+      "tearDown"
+    ],
     "tags": [
       "module"
     ],
