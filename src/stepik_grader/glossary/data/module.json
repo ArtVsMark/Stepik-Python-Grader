@@ -1,67 +1,141 @@
 [
   {
-    "id": ".exists-.is_file-.is_dir",
-    "title": ".exists() / .is_file() / .is_dir()",
+    "id": "path.exists",
+    "title": ".exists()",
     "kind": "function",
     "summary": {
-      "ru": "Методы для проверки существования пути и его типа (файл, директория).",
-      "en": "Methods that check whether a path exists and what it is (a file or a directory)."
+      "ru": "Проверяет, существует ли путь (файл, каталог или что-то ещё). Для несуществующего пути возвращает False, не поднимая исключение.",
+      "en": "Check whether the path exists (file, directory or anything else); returns False instead of raising for a missing path."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "p.exists()\np.is_file()\np.is_dir()",
+    "syntax": "p.exists()",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-.exists-.is_file-.is_dir",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.exists",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "проверки",
     "aliases": [],
     "keywords": [
       "exists",
-      "is_file",
-      "is_dir"
+      "Path.exists"
     ],
     "tags": [
       "module"
     ],
     "examples": [
       "from pathlib import Path",
-      "p = Path('/tmp')",
-      "p.exists() # → True",
-      "p.is_dir() # → True",
-      "p.is_file() # → False",
-      "Path('/nonexistent').exists() # → False",
-      "Path('/tmp').is_dir() # → True"
+      "Path('/tmp').exists() # → True",
+      "Path('/nonexistent').exists() # → False"
     ],
-    "related": [],
+    "related": [
+      "path.is_file",
+      "path.is_dir"
+    ],
     "related_errors": []
   },
   {
-    "id": ".glob-.rglob",
-    "title": ".glob() / .rglob()",
+    "id": "path.is_file",
+    "title": ".is_file()",
     "kind": "function",
     "summary": {
-      "ru": ".glob() ищет файлы по паттерну в директории, .rglob() — рекурсивно во всех поддиректориях.",
-      "en": ".glob() finds files matching a pattern in the directory, .rglob() does the same recursively through every subdirectory."
+      "ru": "Проверяет, что путь существует и указывает на обычный файл. Для каталога и для несуществующего пути — False.",
+      "en": "Check that the path exists and points to a regular file; False for a directory or a missing path."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "p.glob('*.py')\np.rglob('*.txt')",
+    "syntax": "p.is_file()",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-.glob-.rglob",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_file",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "проверки",
+    "aliases": [],
+    "keywords": [
+      "is_file",
+      "Path.is_file"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "Path('/etc/hosts').is_file() # → True",
+      "Path('/tmp').is_file() # → False (это каталог)"
+    ],
+    "related": [
+      "path.exists",
+      "path.is_dir"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.is_dir",
+    "title": ".is_dir()",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что путь существует и указывает на каталог. Для файла и для несуществующего пути — False.",
+      "en": "Check that the path exists and points to a directory; False for a file or a missing path."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.is_dir()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.is_dir",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "проверки",
+    "aliases": [],
+    "keywords": [
+      "is_dir",
+      "Path.is_dir"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "Path('/tmp').is_dir() # → True",
+      "Path('/etc/hosts').is_dir() # → False (это файл)"
+    ],
+    "related": [
+      "path.exists",
+      "path.is_file"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.glob",
+    "title": ".glob()",
+    "kind": "function",
+    "summary": {
+      "ru": "Ищет файлы по шаблону внутри каталога и возвращает ленивый генератор путей. Шаблон `**/` включает рекурсивный обход.",
+      "en": "Match files against a pattern inside the directory, yielding paths lazily; the `**/` pattern walks recursively."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.glob('*.py')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.glob",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "поиск",
     "aliases": [],
     "keywords": [
       "glob",
-      "rglob"
+      "Path.glob"
     ],
     "tags": [
       "module"
@@ -71,10 +145,49 @@
       "p = Path('/tmp')",
       "list(p.glob('*.txt')) # → все .txt в /tmp",
       "list(p.glob('*/*.py')) # → .py на уровень глубже",
-      "list(p.rglob('*.cfg')) # → все .cfg рекурсивно",
       "list(Path('.').glob('**/*.py')) # → все .py рекурсивно"
     ],
-    "related": [],
+    "related": [
+      "path.rglob"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.rglob",
+    "title": ".rglob()",
+    "kind": "function",
+    "summary": {
+      "ru": "Рекурсивно ищет файлы по шаблону во всех поддиректориях — то же, что `.glob()` с ведущим `**/`.",
+      "en": "Match files against a pattern recursively in all subdirectories — equivalent to `.glob()` with a leading `**/`."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.rglob('*.txt')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.rglob",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "поиск",
+    "aliases": [],
+    "keywords": [
+      "rglob",
+      "Path.rglob"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "p = Path('/tmp')",
+      "list(p.rglob('*.cfg')) # → все .cfg рекурсивно",
+      "list(p.rglob('*')) # → всё содержимое дерева"
+    ],
+    "related": [
+      "path.glob"
+    ],
     "related_errors": []
   },
   {
@@ -117,30 +230,28 @@
     "related_errors": []
   },
   {
-    "id": ".mkdir-.unlink-.rename-.replace",
-    "title": ".mkdir() / .unlink() / .rename() / .replace()",
+    "id": "path.mkdir",
+    "title": ".mkdir()",
     "kind": "function",
     "summary": {
-      "ru": "Методы для создания директорий, удаления файлов, переименования. parents=True создаёт промежуточные папки.",
-      "en": "Methods for creating directories, deleting files and renaming. parents=True creates the intermediate folders."
+      "ru": "Создаёт каталог. `parents=True` доводит промежуточные каталоги, `exist_ok=True` не считает ошибкой уже существующий.",
+      "en": "Create a directory; `parents=True` also creates missing parents and `exist_ok=True` tolerates an existing one."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "p.mkdir(parents=True, exist_ok=True)\np.unlink(missing_ok=True)\np.rename(target)\np.replace(target)",
+    "syntax": "p.mkdir(parents=True, exist_ok=True)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-.mkdir-.unlink-.rename-.replace",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.mkdir",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "операции",
     "aliases": [],
     "keywords": [
       "mkdir",
-      "unlink",
-      "rename",
-      "replace"
+      "Path.mkdir"
     ],
     "tags": [
       "module"
@@ -148,13 +259,136 @@
     "examples": [
       "from pathlib import Path",
       "Path('/tmp/new_dir').mkdir(exist_ok=True)",
+      "Path('/tmp/a/b/c').mkdir(parents=True, exist_ok=True)"
+    ],
+    "related": [
+      "path.unlink",
+      "path.rename",
+      "path.replace"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.unlink",
+    "title": ".unlink()",
+    "kind": "function",
+    "summary": {
+      "ru": "Удаляет файл или символическую ссылку. `missing_ok=True` подавляет FileNotFoundError. Каталоги удаляет `.rmdir()`.",
+      "en": "Delete a file or symlink; `missing_ok=True` suppresses FileNotFoundError. Use `.rmdir()` for directories."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.unlink(missing_ok=True)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.unlink",
+    "version": "3.8",
+    "section": "Модуль pathlib",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "unlink",
+      "Path.unlink"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
       "f = Path('/tmp/hello_path.txt')",
       "f.write_text('hi')",
-      "f.rename('/tmp/hello2_path.txt')",
-      "Path('/tmp/hello2_path.txt').unlink()",
-      "Path('/tmp/new_dir').rmdir()"
+      "f.unlink() # → файл удалён",
+      "f.unlink(missing_ok=True) # → повторный вызов не падает"
     ],
-    "related": [],
+    "related": [
+      "path.mkdir",
+      "path.rename",
+      "path.replace"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.rename",
+    "title": ".rename()",
+    "kind": "function",
+    "summary": {
+      "ru": "Переименовывает (перемещает) путь и возвращает новый Path. Поведение при уже существующей цели зависит от ОС — на Windows будет ошибка.",
+      "en": "Rename (move) the path and return the new Path; behaviour when the target exists is platform-dependent and raises on Windows."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.rename(target)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.rename",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "rename",
+      "Path.rename"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "f = Path('/tmp/old_path.txt')",
+      "f.write_text('data')",
+      "new = f.rename('/tmp/new_path.txt')",
+      "new.name # → 'new_path.txt'"
+    ],
+    "related": [
+      "path.mkdir",
+      "path.unlink",
+      "path.replace"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.replace",
+    "title": ".replace()",
+    "kind": "function",
+    "summary": {
+      "ru": "Переименовывает путь, безусловно перезаписывая цель, если она существует. В отличие от `.rename()` ведёт себя одинаково на всех платформах.",
+      "en": "Rename the path, unconditionally replacing the target if it exists — unlike `.rename()`, behaves the same on every platform."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.replace(target)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.replace",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "replace",
+      "Path.replace"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "src = Path('/tmp/src.txt'); src.write_text('new')",
+      "dst = Path('/tmp/dst.txt'); dst.write_text('old')",
+      "src.replace(dst) # → dst перезаписан",
+      "dst.read_text() # → 'new'"
+    ],
+    "related": [
+      "path.mkdir",
+      "path.unlink",
+      "path.rename"
+    ],
     "related_errors": []
   },
   {
@@ -198,30 +432,28 @@
     "related_errors": []
   },
   {
-    "id": ".read_text-.write_text-.read_bytes-.writ",
-    "title": ".read_text() / .write_text() / .read_bytes() / .write_bytes()",
+    "id": "path.read_text",
+    "title": ".read_text()",
     "kind": "function",
     "summary": {
-      "ru": "Методы для удобного чтения и записи файлов без явного open(). Поддерживают encoding.",
-      "en": "Methods for reading and writing files conveniently, without an explicit open(). They accept an encoding."
+      "ru": "Читает файл целиком в строку и сам закрывает его — open() не нужен. Кодировку стоит задавать явно: `encoding='utf-8'`.",
+      "en": "Read the whole file into a string and close it — no open() needed; pass `encoding='utf-8'` explicitly."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "p.read_text(encoding='utf-8')\np.write_text(data, encoding='utf-8')\np.read_bytes()\np.write_bytes(data)",
+    "syntax": "p.read_text(encoding='utf-8')",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-.read_text-.write_text-.read_bytes-.writ",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.read_text",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "чтение/запись",
     "aliases": [],
     "keywords": [
       "read_text",
-      "write_text",
-      "read_bytes",
-      "write_bytes"
+      "Path.read_text"
     ],
     "tags": [
       "module"
@@ -231,12 +463,134 @@
       "p = Path('/tmp/test_pathlib.txt')",
       "p.write_text('hello world', encoding='utf-8')",
       "p.read_text() # → 'hello world'",
-      "p.write_bytes(b'\\x00\\x01')",
-      "p.read_bytes() # → b'\\x00\\x01'",
-      "p.write_text('line1\\nline2')",
-      "len(p.read_text().splitlines()) # → 2"
+      "len(p.read_text().splitlines()) # → 1"
     ],
-    "related": [],
+    "related": [
+      "path.write_text",
+      "path.read_bytes",
+      "path.write_bytes"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.write_text",
+    "title": ".write_text()",
+    "kind": "function",
+    "summary": {
+      "ru": "Записывает строку в файл, перезаписывая его целиком, и возвращает число записанных символов. Файл закрывается сам.",
+      "en": "Write a string to the file, overwriting it entirely, and return the number of characters written; the file is closed automatically."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.write_text(data, encoding='utf-8')",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_text",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "чтение/запись",
+    "aliases": [],
+    "keywords": [
+      "write_text",
+      "Path.write_text"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "p = Path('/tmp/test_pathlib.txt')",
+      "p.write_text('hello world', encoding='utf-8') # → 11",
+      "p.write_text('line1\\nline2')",
+      "p.read_text().splitlines() # → ['line1', 'line2']"
+    ],
+    "related": [
+      "path.read_text",
+      "path.read_bytes",
+      "path.write_bytes"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.read_bytes",
+    "title": ".read_bytes()",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает файл целиком в объект bytes — бинарный аналог `.read_text()`, без декодирования и без параметра encoding.",
+      "en": "Read the whole file into a bytes object — the binary counterpart of `.read_text()`, with no decoding and no encoding parameter."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.read_bytes()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.read_bytes",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "чтение/запись",
+    "aliases": [],
+    "keywords": [
+      "read_bytes",
+      "Path.read_bytes"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "p = Path('/tmp/test_pathlib.bin')",
+      "p.write_bytes(b'\\x00\\x01')",
+      "p.read_bytes() # → b'\\x00\\x01'"
+    ],
+    "related": [
+      "path.read_text",
+      "path.write_text",
+      "path.write_bytes"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.write_bytes",
+    "title": ".write_bytes()",
+    "kind": "function",
+    "summary": {
+      "ru": "Записывает bytes в файл, перезаписывая его целиком, и возвращает число записанных байт. Бинарный аналог `.write_text()`.",
+      "en": "Write bytes to the file, overwriting it entirely, and return the number of bytes written — the binary counterpart of `.write_text()`."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "p.write_bytes(data)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.write_bytes",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "чтение/запись",
+    "aliases": [],
+    "keywords": [
+      "write_bytes",
+      "Path.write_bytes"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "p = Path('/tmp/test_pathlib.bin')",
+      "p.write_bytes(b'\\xff\\xfe') # → 2",
+      "p.read_bytes() # → b'\\xff\\xfe'"
+    ],
+    "related": [
+      "path.read_text",
+      "path.write_text",
+      "path.read_bytes"
+    ],
     "related_errors": []
   },
   {
@@ -5336,28 +5690,28 @@
     "related_errors": []
   },
   {
-    "id": "path.home-path.cwd",
-    "title": "Path.home() / Path.cwd()",
+    "id": "path.home",
+    "title": "Path.home()",
     "kind": "function",
     "summary": {
-      "ru": "Path.home() возвращает домашний каталог пользователя, Path.cwd() — текущий рабочий каталог.",
-      "en": "Path.home() returns the user's home directory, Path.cwd() the current working directory."
+      "ru": "Возвращает домашний каталог пользователя как Path. Классовый метод — вызывается на самом Path, не на экземпляре.",
+      "en": "Return the user's home directory as a Path; a classmethod called on Path itself rather than on an instance."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "Path.home()\nPath.cwd()",
+    "syntax": "Path.home()",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-path.home-path.cwd",
-    "docs_url": "https://docs.python.org/3/library/pathlib.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.home",
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "создание",
     "aliases": [],
     "keywords": [
-      "Path.home",
-      "Path.cwd"
+      "home",
+      "Path.home"
     ],
     "tags": [
       "module"
@@ -5365,11 +5719,48 @@
     "examples": [
       "from pathlib import Path",
       "Path.home() # → PosixPath('/home/username')",
-      "Path.cwd() # → PosixPath('/current/dir')",
-      "Path.home() / 'Downloads' # → PosixPath('/home/username/Downloads')",
-      "str(Path.cwd()).startswith('/') # → True"
+      "Path.home() / 'Downloads' # → PosixPath('/home/username/Downloads')"
     ],
-    "related": [],
+    "related": [
+      "path.cwd"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "path.cwd",
+    "title": "Path.cwd()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает текущий рабочий каталог как Path — pathlib-аналог `os.getcwd()`, который отдаёт строку.",
+      "en": "Return the current working directory as a Path — the pathlib counterpart of `os.getcwd()`, which returns a string."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "Path.cwd()",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.Path.cwd",
+    "version": "",
+    "section": "Модуль pathlib",
+    "subcat": "создание",
+    "aliases": [],
+    "keywords": [
+      "cwd",
+      "Path.cwd"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "from pathlib import Path",
+      "Path.cwd() # → PosixPath('/current/dir')",
+      "Path.cwd().name # → имя текущего каталога"
+    ],
+    "related": [
+      "path.home"
+    ],
     "related_errors": []
   },
   {
