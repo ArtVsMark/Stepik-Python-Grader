@@ -97,7 +97,9 @@
     "section": "Модуль pathlib",
     "subcat": "обход",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "iterdir"
+    ],
     "tags": [
       "module"
     ],
@@ -604,7 +606,9 @@
     "section": "Модуль concurrent.futures",
     "subcat": "пул задач",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "as_completed"
+    ],
     "tags": [
       "module"
     ],
@@ -1337,7 +1341,9 @@
     "section": "Модуль copy",
     "subcat": "глубокая",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "copy.deepcopy"
+    ],
     "tags": [
       "module"
     ],
@@ -1758,7 +1764,9 @@
     "section": "Модуль datetime",
     "subcat": "методы datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "astimezone"
+    ],
     "tags": [
       "module"
     ],
@@ -1792,7 +1800,9 @@
     "section": "Модуль datetime",
     "subcat": "методы datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "combine"
+    ],
     "tags": [
       "module"
     ],
@@ -1826,7 +1836,9 @@
     "section": "Модуль datetime",
     "subcat": "методы datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "fromtimestamp"
+    ],
     "tags": [
       "module"
     ],
@@ -1860,7 +1872,9 @@
     "section": "Модуль datetime",
     "subcat": "методы datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "isoweekday"
+    ],
     "tags": [
       "module"
     ],
@@ -1893,7 +1907,9 @@
     "section": "Модуль datetime",
     "subcat": "методы datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "replace"
+    ],
     "tags": [
       "module"
     ],
@@ -1928,7 +1944,9 @@
     "section": "Модуль datetime",
     "subcat": "методы datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "timestamp"
+    ],
     "tags": [
       "module"
     ],
@@ -1963,7 +1981,9 @@
     "section": "Модуль datetime",
     "subcat": "методы datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "timetuple"
+    ],
     "tags": [
       "module"
     ],
@@ -1999,7 +2019,9 @@
     "section": "Модуль datetime",
     "subcat": "методы datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "utcfromtimestamp"
+    ],
     "tags": [
       "module"
     ],
@@ -2034,7 +2056,9 @@
     "section": "Модуль datetime",
     "subcat": "методы datetime",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "weekday"
+    ],
     "tags": [
       "module"
     ],
@@ -2107,7 +2131,10 @@
     "section": "Модуль concurrent.futures",
     "subcat": "пул задач",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "submit",
+      "executor.submit"
+    ],
     "tags": [
       "module"
     ],
@@ -2252,7 +2279,9 @@
     "section": "Файлы и I_O",
     "subcat": "буфер",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "flush"
+    ],
     "tags": [
       "module"
     ],
@@ -2290,7 +2319,9 @@
     "section": "Файлы и I_O",
     "subcat": "позиция в файле",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "tell"
+    ],
     "tags": [
       "module"
     ],
@@ -2326,7 +2357,9 @@
     "section": "Файлы и I_O",
     "subcat": "изменение размера",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "truncate"
+    ],
     "tags": [
       "module"
     ],
@@ -2719,7 +2752,9 @@
     "section": "Модуль hashlib",
     "subcat": "хеширование",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "hashlib.md5"
+    ],
     "tags": [
       "module"
     ],
@@ -2754,7 +2789,9 @@
     "section": "Модуль hashlib",
     "subcat": "хеширование",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "hashlib.sha256"
+    ],
     "tags": [
       "module"
     ],
@@ -3246,7 +3283,9 @@
     "section": "Модуль logging",
     "subcat": "настройка",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "logging.basicConfig"
+    ],
     "tags": [
       "module"
     ],
@@ -3282,7 +3321,9 @@
     "section": "Модуль logging",
     "subcat": "уровни",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "logging.debug"
+    ],
     "tags": [
       "module"
     ],
@@ -3315,7 +3356,9 @@
     "section": "Модуль logging",
     "subcat": "уровни",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "logging.error"
+    ],
     "tags": [
       "module"
     ],
@@ -3349,7 +3392,9 @@
     "section": "Модуль logging",
     "subcat": "настройка",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "logging.getLogger"
+    ],
     "tags": [
       "module"
     ],
@@ -3385,7 +3430,9 @@
     "section": "Модуль logging",
     "subcat": "уровни",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "logging.info"
+    ],
     "tags": [
       "module"
     ],
@@ -3418,7 +3465,9 @@
     "section": "Модуль logging",
     "subcat": "уровни",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "logging.warning"
+    ],
     "tags": [
       "module"
     ],
@@ -4747,7 +4796,9 @@
     "section": "Модуль os",
     "subcat": "переменные окружения",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "os.getenv"
+    ],
     "tags": [
       "module"
     ],
@@ -4781,7 +4832,9 @@
     "section": "Модуль os",
     "subcat": "файловая система",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "os.scandir"
+    ],
     "tags": [
       "module"
     ],
@@ -5799,7 +5852,9 @@
     "section": "Модуль re",
     "subcat": "утилиты",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "re.escape"
+    ],
     "tags": [
       "module"
     ],
@@ -6545,7 +6600,9 @@
     "section": "Модуль subprocess",
     "subcat": "запуск процессов",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "subprocess.Popen"
+    ],
     "tags": [
       "module"
     ],
@@ -6582,7 +6639,9 @@
     "section": "Модуль subprocess",
     "subcat": "запуск процессов",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "subprocess.check_output"
+    ],
     "tags": [
       "module"
     ],
@@ -6618,7 +6677,9 @@
     "section": "Модуль subprocess",
     "subcat": "запуск процессов",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "subprocess.run"
+    ],
     "tags": [
       "module"
     ],
@@ -7422,7 +7483,9 @@
     "section": "Модуль unittest",
     "subcat": "моки",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "unittest.mock.patch"
+    ],
     "tags": [
       "module"
     ],
