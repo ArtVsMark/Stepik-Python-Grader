@@ -237,13 +237,15 @@ class _ApiRoutesMixin(_GuardMixin):
     def _get_glossary(self, parsed: Any, lang: str) -> None:
         qs = parse_qs(parsed.query)
         query = (qs.get("q") or [""])[0]
-        # Опциональные грани фильтра/сортировки (issue #329); пустые → None.
+        # Опциональные грани фильтра/сортировки (issue #329, group — #685);
+        # пустые → None.
         cards = glossary_search(
             query,
             section=(qs.get("section") or [""])[0] or None,
             kind=(qs.get("kind") or [""])[0] or None,
             status=(qs.get("status") or [""])[0] or None,
             sort=(qs.get("sort") or [""])[0] or None,
+            group=(qs.get("group") or [""])[0] or None,
             lang=lang,
         )
         self._send(200, "application/json; charset=utf-8", _json(cards))

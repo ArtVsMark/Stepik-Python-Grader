@@ -190,6 +190,43 @@ def test_card_matches_by_summary_and_body_fulltext() -> None:
     assert not any("памятью" in term for term in card.search_terms)
 
 
+def test_card_matches_by_syntax_and_examples() -> None:
+    """issue #685: поиск охватывает syntax и examples, а не только summary/body."""
+    card = GlossaryCard.from_dict(
+        {
+            "id": "str.split",
+            "title": "str.split()",
+            "syntax": "str.split(sep=None, maxsplit=-1)",
+            "examples": ['"a,b".split(",")'],
+        }
+    )
+    assert card.matches("maxsplit")  # кусок сигнатуры
+    assert card.matches('"a,b"')  # фрагмент примера
+    assert not card.matches("rsplit")
+    # coverage-термины по-прежнему узкие: сигнатура/примеры туда не просачиваются
+    assert not any("maxsplit" in term for term in card.search_terms)
+
+
+def test_card_match_rank_orders_exact_prefix_substring_and_text() -> None:
+    """issue #685: точное совпадение id/title весит больше, чем упоминание в тексте."""
+    exact = GlossaryCard(id="sorted", title="sorted()", aliases=["сортировка"])
+    prefix = GlossaryCard(id="sorted-stability", title="sorted: устойчивость")
+    substring = GlossaryCard(id="list.sort", title="Как работает sorted внутри")
+    keyword = GlossaryCard(id="bisect.insort", title="insort", keywords=["sorted"])
+    text_only = GlossaryCard(id="heapq", title="heapq", summary="работает быстрее, чем sorted")
+    no_match = GlossaryCard(id="len", title="len()")
+
+    assert exact.match_rank("sorted") == 0
+    assert exact.match_rank("СОРТИРОВКА") == 0  # алиас, без учёта регистра
+    assert prefix.match_rank("sorted") == 1
+    assert substring.match_rank("sorted") == 2
+    assert keyword.match_rank("sorted") == 3
+    assert text_only.match_rank("sorted") == 4
+    assert no_match.match_rank("sorted") > 4
+    # Пустой запрос никого не ранжирует — порядок задаёт вызывающая сторона.
+    assert exact.match_rank("  ") == no_match.match_rank("sorted")
+
+
 # ---------------------------------------------------------------------------
 # JsonGlossaryProvider — загрузка
 # ---------------------------------------------------------------------------

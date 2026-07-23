@@ -30,6 +30,11 @@ const GLOSSARY_CHIPS = [
   { labelKey: "glossary.chip_exceptions", section: "Исключения" }, // i18n-exempt: серверный фильтр
 ];
 
+// issue #685: семейства разделов («Модули»/«Типы данных») — быстрый фильтр
+// поверх грани ?group=. Значения семейств живут в разметке
+// (`data-glgroup`), правило «раздел → семейство» — на сервере
+// (`glossary_adapter._card_group`) и приезжает полем `group` каждой карточки,
+// поэтому здесь оно НЕ повторяется.
 async function loadGlossary() {
   const g = state.glossary;
   const params = new URLSearchParams();
@@ -38,6 +43,7 @@ async function loadGlossary() {
   if (g.kind) params.set("kind", g.kind);
   if (g.status) params.set("status", g.status);
   if (g.sort) params.set("sort", g.sort);
+  if (g.group) params.set("group", g.group);
   params.set("lang", state.lang); // issue #363: язык summary/body карточек
   try {
     const r = await fetch("/api/glossary?" + params);
@@ -46,12 +52,17 @@ async function loadGlossary() {
     g.cards = [];
   }
   // Список разделов и общий счётчик — из первой невыбранной загрузки (все карточки).
-  if (!g.sections.length && !g.query && !g.section && !g.kind) {
+  if (!g.sections.length && !g.query && !g.section && !g.kind && !g.group) {
     g.total = g.cards.length;
     g.sections = [...new Set(g.cards.map(c => c.section).filter(Boolean))].sort((a, b) =>
       a.localeCompare(b, "ru")
     );
+    g.sectionGroups = {};
+    g.cards.forEach(c => {
+      if (c.section) g.sectionGroups[c.section] = c.group || "";
+    });
     renderGlossaryChips();
+    renderGlossaryGroups();
     renderGlossaryFilters();
   }
   renderGlossaryList();
@@ -62,7 +73,8 @@ async function loadGlossary() {
 function renderGlossaryChips() {
   const el = $("#glossary-chips");
   if (!el) return;
-  const avail = new Set(state.glossary.sections);
+  // issue #685: под активным семейством остаются только его разделы.
+  const avail = new Set(glossarySectionsForGroup());
   el.innerHTML = GLOSSARY_CHIPS.filter(ch => avail.has(ch.section))
     .map(ch => {
       const active = state.glossary.section === ch.section ? " active" : "";
@@ -77,13 +89,35 @@ function renderGlossaryChips() {
   );
 }
 
+function renderGlossaryGroups() {
+  const el = $("#glossary-groups");
+  if (!el) return;
+  el.querySelectorAll("button[data-glgroup]").forEach(b =>
+    b.classList.toggle("active", state.glossary.group === b.dataset.glgroup)
+  );
+}
+
+// issue #685: при активном семействе селект «Раздел» показывает только его
+// разделы (внутри «Модулей» — 30 модулей, а не полный список из 50+).
+function glossarySectionsForGroup() {
+  const g = state.glossary;
+  if (!g.group) return g.sections;
+  return g.sections.filter(s => g.sectionGroups[s] === g.group);
+}
+
 function renderGlossaryFilters() {
   const sel = $("#glossary-section");
   if (!sel) return;
-  sel.innerHTML = ['<option value="">' + esc(t("glossary.section_all")) + "</option>"]
-    .concat(state.glossary.sections.map(s => '<option value="' + esc(s) + '">' + esc(s) + "</option>"))
+  const g = state.glossary;
+  const allLabel = g.group === "modules"
+    ? t("glossary.section_all_modules")
+    : g.group === "types"
+      ? t("glossary.section_all_types")
+      : t("glossary.section_all");
+  sel.innerHTML = ['<option value="">' + esc(allLabel) + "</option>"]
+    .concat(glossarySectionsForGroup().map(s => '<option value="' + esc(s) + '">' + esc(s) + "</option>"))
     .join("");
-  sel.value = state.glossary.section;
+  sel.value = g.section;
 }
 
 function renderGlossaryCount() {
@@ -99,6 +133,18 @@ function toggleGlossarySection(section) {
   const sel = $("#glossary-section");
   if (sel) sel.value = g.section;
   renderGlossaryChips();
+  loadGlossary();
+}
+
+// issue #685: повторный клик по активному семейству снимает фильтр; раздел из
+// ДРУГОГО семейства сбрасывается, иначе пересечение фильтров даёт пустую выдачу.
+function toggleGlossaryGroup(group) {
+  const g = state.glossary;
+  g.group = g.group === group ? "" : group;
+  if (g.section && g.group && g.sectionGroups[g.section] !== g.group) g.section = "";
+  renderGlossaryGroups();
+  renderGlossaryChips();
+  renderGlossaryFilters();
   loadGlossary();
 }
 
@@ -480,4 +526,5 @@ export {
   selectGlossaryCard,
   selectRuleCard,
   setGlossaryView,
+  toggleGlossaryGroup,
 };

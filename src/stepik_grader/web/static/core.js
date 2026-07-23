@@ -45,9 +45,12 @@ const state = {
   explainOpen: false,
   commands: [], // fetched once from /api/commands
   theme: localStorage.getItem("grader_theme") || "system", // "system" | "light" | "dark"
+  // issue #685: group — семейство разделов ("modules"/"types"/""),
+  // sectionGroups — карта «раздел → семейство» (заполняется из первой загрузки,
+  // правило считает сервер), sort по умолчанию — по релевантности.
   glossary: {
-    query: "", section: "", kind: "", status: "", sort: "az",
-    cards: [], missing: [], sections: [], total: 0,
+    query: "", section: "", kind: "", status: "", sort: "relevance", group: "",
+    cards: [], missing: [], sections: [], sectionGroups: {}, total: 0,
     selectedId: null, view: "cards",
   },
   rules: { query: "", tag: "", cards: [], selectedId: null }, // issue #348

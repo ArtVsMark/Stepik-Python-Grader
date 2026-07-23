@@ -322,6 +322,128 @@ class TestGlossaryFilterAndSort:
         assert all(c["version"] == "" for c in res[1:])  # без версии — в конец
 
 
+class TestGlossaryGroupsAndRelevance:
+    """issue #685: грань ?group= (модули/типы данных) и сортировка по релевантности."""
+
+    @pytest.fixture
+    def store_path(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        cards = [
+            GlossaryCard(
+                id="math.sqrt",
+                title="math.sqrt()",
+                kind="function",
+                section="Модуль math",
+                status="ready",
+            ),
+            GlossaryCard(
+                id="itertools.chain",
+                title="itertools.chain()",
+                kind="function",
+                section="Модуль itertools",
+                status="ready",
+            ),
+            GlossaryCard(
+                id="str.split",
+                title="str.split()",
+                kind="function",
+                section="Строки (str)",
+                status="ready",
+                syntax="str.split(sep=None, maxsplit=-1)",
+                examples=['"a,b".split(",")'],
+            ),
+            GlossaryCard(
+                id="dict.get",
+                title="dict.get()",
+                kind="function",
+                section="Словари (dict)",
+                status="ready",
+            ),
+            GlossaryCard(
+                id="keyerror",
+                title="KeyError",
+                kind="exception",
+                section="Исключения",
+                status="ready",
+                summary="Возникает при обращении к отсутствующему ключу (dict.get спасает)",
+            ),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_group_modules_selects_module_sections(self, store_path: pathlib.Path) -> None:
+        res = glossary_adapter.glossary_search("", group="modules", store_path=str(store_path))
+        assert {c["id"] for c in res} == {"math.sqrt", "itertools.chain"}
+
+    def test_group_types_selects_builtin_type_sections(self, store_path: pathlib.Path) -> None:
+        res = glossary_adapter.glossary_search("", group="types", store_path=str(store_path))
+        assert {c["id"] for c in res} == {"str.split", "dict.get"}
+
+    def test_unknown_group_is_ignored_not_empty(self, store_path: pathlib.Path) -> None:
+        # Терпимость к мусору в query — как у неизвестного sort (порядок источника).
+        res = glossary_adapter.glossary_search("", group="bogus", store_path=str(store_path))
+        assert len(res) == 5
+
+    def test_group_combines_with_query(self, store_path: pathlib.Path) -> None:
+        res = glossary_adapter.glossary_search("chain", group="modules", store_path=str(store_path))
+        assert {c["id"] for c in res} == {"itertools.chain"}
+
+    def test_cards_carry_group_field(self, store_path: pathlib.Path) -> None:
+        # UI строит по нему списки разделов каждого семейства, не повторяя правило.
+        groups = {
+            c["id"]: c["group"]
+            for c in glossary_adapter.glossary_search("", store_path=str(store_path))
+        }
+        assert groups["math.sqrt"] == "modules"
+        assert groups["str.split"] == "types"
+        assert groups["keyerror"] == ""  # «Исключения» — вне обоих семейств
+
+    def test_search_finds_by_syntax_and_examples(self, store_path: pathlib.Path) -> None:
+        by_syntax = glossary_adapter.glossary_search("maxsplit", store_path=str(store_path))
+        assert {c["id"] for c in by_syntax} == {"str.split"}
+        by_example = glossary_adapter.glossary_search('"a,b"', store_path=str(store_path))
+        assert {c["id"] for c in by_example} == {"str.split"}
+
+    def test_sort_relevance_puts_title_match_before_text_mention(
+        self, store_path: pathlib.Path
+    ) -> None:
+        # «dict.get» упомянут в summary KeyError — но карточка самого метода выше.
+        res = glossary_adapter.glossary_search(
+            "dict.get", sort="relevance", store_path=str(store_path)
+        )
+        assert [c["id"] for c in res] == ["dict.get", "keyerror"]
+
+    def test_sort_relevance_without_query_falls_back_to_az(self, store_path: pathlib.Path) -> None:
+        # Приоритет типа-владельца тут НЕ применяется: «просто открыл раздел» —
+        # алфавитный список, иначе методы str. всплыли бы наверх.
+        titles = [
+            c["title"]
+            for c in glossary_adapter.glossary_search(
+                "", sort="relevance", store_path=str(store_path)
+            )
+        ]
+        assert titles == sorted(titles, key=str.lower)
+
+    def test_sort_relevance_prefers_main_type_over_alphabet(self, tmp_path: pathlib.Path) -> None:
+        # Запрос «split»: одноимённый метод основного типа — выше и однофамильцев
+        # (bytearray.split), и просто похожих имён (bytearray.rsplit).
+        cards = [
+            GlossaryCard(id="bytearray.rsplit", title="bytearray.rsplit()", status="ready"),
+            GlossaryCard(id="bytearray.split", title="bytearray.split()", status="ready"),
+            GlossaryCard(id="str.split", title="str.split()", status="ready"),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        res = glossary_adapter.glossary_search("split", sort="relevance", store_path=str(path))
+        assert [c["id"] for c in res] == ["str.split", "bytearray.split", "bytearray.rsplit"]
+
+
 class TestGlossaryReadyDefaultAndPrivate:
     """issue #436: дефолт ready + скрытие приватных автодрафтов из выдачи."""
 
@@ -630,6 +752,25 @@ class TestGlossaryHttpEndpoints:
         assert status == 200
         titles = [c["title"] for c in json.loads(body)]
         assert titles == sorted(titles, key=str.lower)
+
+    def test_api_glossary_group_param_filters_to_modules(self, server: str) -> None:
+        # issue #685: сервер прокидывает group в glossary_search (бандл-база —
+        # разделы «Модуль X»; проверяем инвариант грани, не конкретные карточки).
+        status, body = _get(
+            server + "/api/glossary?" + urllib.parse.urlencode({"group": "modules"})
+        )
+        assert status == 200
+        cards = json.loads(body)
+        assert cards and all(c["group"] == "modules" for c in cards)
+        assert all(c["section"].startswith("Модуль ") for c in cards)
+
+    def test_api_glossary_sort_relevance_ranks_exact_title_first(self, server: str) -> None:
+        status, body = _get(
+            server + "/api/glossary?" + urllib.parse.urlencode({"q": "sorted", "sort": "relevance"})
+        )
+        assert status == 200
+        cards = json.loads(body)
+        assert cards and cards[0]["id"] == "sorted"
 
     def test_api_glossary_missing_empty_by_default(self, server: str) -> None:
         # CONFIG.glossary_missing_queue defaults to a relative path that

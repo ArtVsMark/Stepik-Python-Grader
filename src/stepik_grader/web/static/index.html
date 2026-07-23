@@ -260,7 +260,14 @@
               <button class="mode-btn active" data-glview="cards" data-i18n="glossary.view_cards">Карточки</button>
               <button class="mode-btn" data-glview="missing" data-i18n="glossary.view_missing">Недостающее</button>
             </div>
+            <!-- issue #685: порядок контролов — по частоте использования, самые
+                 частые выше/левее. Семейства («Модули»/«Типы данных») и чипы
+                 разделов — первым делом, редкий «Статус» — последним селектом. -->
             <div id="glossary-filters">
+              <div id="glossary-groups" class="chip-row" role="group" aria-label="Семейства разделов" data-i18n-aria-label="glossary.groups_aria">
+                <button type="button" class="chip" data-glgroup="modules" data-i18n="glossary.group_modules">Модули</button>
+                <button type="button" class="chip" data-glgroup="types" data-i18n="glossary.group_types">Типы данных</button>
+              </div>
               <div id="glossary-chips" class="chip-row" role="group" aria-label="Быстрые фильтры по разделам" data-i18n-aria-label="glossary.chips_aria"></div>
               <div class="glossary-filter-row">
                 <select class="form-input" id="glossary-section" aria-label="Раздел" data-i18n-aria-label="glossary.section_aria">
@@ -273,15 +280,16 @@
                   <option value="construct" data-i18n="glossary.kind_construct">Конструкции</option>
                   <option value="term" data-i18n="glossary.kind_term">Термины</option>
                 </select>
+                <select class="form-input" id="glossary-sort" aria-label="Сортировка" data-i18n-aria-label="glossary.sort_aria">
+                  <option value="relevance" data-i18n="glossary.sort_relevance">По релевантности</option>
+                  <option value="az" data-i18n="glossary.sort_az">А–Я</option>
+                  <option value="section" data-i18n="glossary.sort_section">По разделам</option>
+                  <option value="version" data-i18n="glossary.sort_version">По версии</option>
+                </select>
                 <select class="form-input" id="glossary-status" aria-label="Статус" data-i18n-aria-label="glossary.status_aria">
                   <option value="" data-i18n="glossary.status_ready">Готовые (по умолчанию)</option>
                   <option value="draft" data-i18n="glossary.status_draft">Черновики</option>
                   <option value="all" data-i18n="glossary.status_all">Все статусы</option>
-                </select>
-                <select class="form-input" id="glossary-sort" aria-label="Сортировка" data-i18n-aria-label="glossary.sort_aria">
-                  <option value="az" data-i18n="glossary.sort_az">А–Я</option>
-                  <option value="section" data-i18n="glossary.sort_section">По разделам</option>
-                  <option value="version" data-i18n="glossary.sort_version">По версии</option>
                 </select>
               </div>
               <div id="glossary-count" class="hint" aria-live="polite"></div>

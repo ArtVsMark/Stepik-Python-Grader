@@ -52,6 +52,10 @@ _MISSING_KINDS: frozenset[str] = frozenset({"function", "exception", "construct"
 _MISSING_STATUSES: frozenset[str] = frozenset({"new", "draft"})
 _MISSING_ORIGINS: frozenset[str] = frozenset({"solution", "error", "stdlib_scan"})
 
+# Ранг «совпадения нет» (issue #685): заведомо больше любого ранга из
+# ``GlossaryCard.match_rank``, поэтому несовпавшие карточки всегда в хвосте.
+_NO_MATCH_RANK = 99
+
 
 def _as_str_list(value: Any) -> list[str]:
     """Привести значение поля JSON к списку строк (терпимо к None/строке)."""
@@ -129,28 +133,69 @@ class GlossaryCard:
 
     @cached_property
     def full_text_terms(self) -> list[str]:
-        """``search_terms`` плюс полнотекстовые поля (summary/body, RU+EN), lower-case.
+        """``search_terms`` плюс полнотекстовые поля, lower-case.
 
         issue #536: поиск по карточке ищет и в её тексте, не только в
-        id/title/aliases/keywords/tags. Держится отдельно от ``search_terms``,
+        id/title/aliases/keywords/tags. issue #685: охват расширен на ``syntax``
+        и ``examples`` — ученик ищет по куску сигнатуры (``maxsplit``,
+        ``key=None``) или по фрагменту примера, а раньше такой запрос не находил
+        карточку, хотя строка в ней есть. Держится отдельно от ``search_terms``,
         потому что те питают ``known_terms``/coverage и детектор пробелов — туда
-        summary/body попадать НЕ должны (иначе концепт ложно считался бы
+        текстовые поля попадать НЕ должны (иначе концепт ложно считался бы
         «покрытым» по любому упоминанию в тексте). Тот же ``cached_property``-
         контракт иммутабельной карточки, что и у ``search_terms``.
         """
-        extra = (self.summary, self.body, self.summary_en, self.body_en)
-        return [*self.search_terms, *(text.lower() for text in extra if text)]
+        extra = (self.summary, self.body, self.summary_en, self.body_en, self.syntax)
+        return [
+            *self.search_terms,
+            *(text.lower() for text in extra if text),
+            *(example.lower() for example in self.examples if example),
+        ]
 
     def matches(self, query: str) -> bool:
         """True, если ``query`` (подстрока, без регистра) есть в тексте карточки.
 
-        Полнотекстовый поиск (issue #536): id/title/aliases/keywords/tags И
-        summary/body (RU+EN). ``search_terms`` (для coverage) остаётся узким.
+        Полнотекстовый поиск (issue #536/#685): id/title/aliases/keywords/tags И
+        summary/body (RU+EN)/syntax/examples. ``search_terms`` (для coverage)
+        остаётся узким.
         """
         needle = query.strip().lower()
         if not needle:
             return False
         return any(needle in term for term in self.full_text_terms)
+
+    def match_rank(self, query: str) -> int:
+        """Качество совпадения ``query`` с карточкой: чем меньше, тем релевантнее.
+
+        Ранжирование выдачи поиска (issue #685): раньше совпадение по одной букве
+        в середине ``body`` весило столько же, сколько точное попадание в
+        ``title``, и карточка ``sorted`` тонула среди сотни упоминаний слова
+        «сортировка». Шкала:
+
+        ``0`` — точное совпадение id/title/alias; ``1`` — id/title начинается с
+        запроса; ``2`` — запрос входит в id/title/alias; ``3`` — совпал
+        keyword/tag; ``4`` — нашлось только в тексте (summary/body/syntax/
+        examples); ``_NO_MATCH_RANK`` — не совпало вовсе (в т.ч. пустой запрос,
+        тогда порядок задаёт тай-брейк вызывающей стороны).
+
+        Именем карточки считается и «хвост» её id после точки: запрос ``split``
+        обязан поднимать ``str.split``, а не ``bytearray.rsplit`` (у обоих
+        ``split`` — лишь подстрока полного id).
+        """
+        needle = query.strip().lower()
+        if not needle:
+            return _NO_MATCH_RANK
+        names = [self.id.lower(), self.title.lower(), self.id.rsplit(".", 1)[-1].lower()]
+        aliases = [alias.lower() for alias in self.aliases if alias]
+        if needle in names or needle in aliases:
+            return 0
+        if any(name.startswith(needle) for name in names):
+            return 1
+        if any(needle in term for term in (*names, *aliases)):
+            return 2
+        if any(needle in term.lower() for term in (*self.keywords, *self.tags) if term):
+            return 3
+        return 4 if self.matches(needle) else _NO_MATCH_RANK
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> GlossaryCard:

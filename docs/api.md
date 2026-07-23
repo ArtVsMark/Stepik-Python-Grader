@@ -162,18 +162,25 @@ curl "http://127.0.0.1:8000/api/source?path=task_1.py"
 
 | Параметр | Обязателен | Значение |
 |---|---|---|
-| `q` | нет | подстрока по `id`/`title`/`aliases`/`keywords`/`tags` (пусто = все) |
+| `q` | нет | подстрока по `id`/`title`/`aliases`/`keywords`/`tags`, `summary`/`body` (RU+EN, issue #536) и `syntax`/`examples` (issue #685); пусто = все |
 | `section` | нет | точное имя раздела (напр. `Кортежи (tuple)`) |
 | `kind` | нет | `function` / `exception` / `construct` / `term` |
 | `status` | нет | `new` / `draft` / `ready` / `exported` |
-| `sort` | нет | `az` (A–Я) / `section` (раздел→A–Я) / `version` (версионированные вперёд) |
+| `group` | нет | семейство разделов (issue #685): `modules` (все разделы «Модуль X») / `types` (встроенные типы данных); неизвестное значение игнорируется |
+| `sort` | нет | `relevance` (качество совпадения с `q`, при пустом `q` = `az`) / `az` (A–Я) / `section` (раздел→A–Я) / `version` (версионированные вперёд) |
 | `lang` | нет | `ru`/`en` (issue #363) — локаль `summary`/`body` в ответе (fallback `ru`) |
+
+Каждая карточка ответа несёт поле `group` (`modules`/`types`/`""`) — семейство
+её раздела, вычисляемое сервером (issue #685): UI строит по нему список разделов
+активного семейства, не повторяя правило у себя.
 
 ```
 curl "http://127.0.0.1:8000/api/glossary?q=ZeroDivisionError"
 curl "http://127.0.0.1:8000/api/glossary?q=sorted&lang=en"
 curl "http://127.0.0.1:8000/api/glossary?section=Кортежи%20(tuple)&sort=az"
 curl "http://127.0.0.1:8000/api/glossary?kind=exception&sort=az"
+curl "http://127.0.0.1:8000/api/glossary?group=modules&sort=az"
+curl "http://127.0.0.1:8000/api/glossary?q=split&sort=relevance"
 ```
 
 ## `GET /api/glossary/missing`
