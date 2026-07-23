@@ -1,43 +1,5 @@
 [
   {
-    "id": "copy.deepcopy",
-    "title": "copy.deepcopy()",
-    "kind": "function",
-    "summary": {
-      "ru": "Создаёт полностью независимую глубокую копию объекта: все вложенные объекты тоже копируются. В отличие от list.copy() (поверхностная копия), изменение вложенных элементов не влияет на оригинал.",
-      "en": "Creates a fully independent deep copy of an object: every nested object is copied too. Unlike list.copy() (a shallow copy), changing a nested item does not affect the original."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "import copy; copy.deepcopy(obj)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-copy.deepcopy",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "копирование",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "import copy",
-      "a = [[1, 2], [3, 4]]",
-      "b = a.copy(); b[0][0] = 99",
-      "print(a)  # → [[99, 2], [3, 4]]  (поверхностная: оригинал изменился)",
-      "a = [[1, 2], [3, 4]]",
-      "c = copy.deepcopy(a); c[0][0] = 99",
-      "print(a)  # → [[1, 2], [3, 4]]   (глубокая: оригинал не тронут)",
-      "print(c)  # → [[99, 2], [3, 4]]",
-      "print(a is c)  # → False"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "del-для-списка",
     "title": "del для списка",
     "kind": "term",
