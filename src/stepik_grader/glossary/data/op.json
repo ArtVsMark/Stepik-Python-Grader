@@ -95,7 +95,10 @@
     "section": "Функции",
     "subcat": "логика",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "any",
+      "all"
+    ],
     "tags": [
       "op"
     ],
@@ -564,7 +567,10 @@
     "section": "Числа и математика",
     "subcat": "decimal",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "decimal.getcontext",
+      "setcontext"
+    ],
     "tags": [
       "op"
     ],
@@ -1005,7 +1011,10 @@
     "section": "Функции",
     "subcat": "functools",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "functools.lru_cache",
+      "functools.cache"
+    ],
     "tags": [
       "op"
     ],
@@ -2060,7 +2069,11 @@
     "section": "Файлы и I_O",
     "subcat": "чтение",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "read",
+      "readline",
+      "readlines"
+    ],
     "tags": [
       "op"
     ],
@@ -2335,7 +2348,10 @@
     "section": "Файлы и I_O",
     "subcat": "потоки",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "stdin",
+      "stdout"
+    ],
     "tags": [
       "op"
     ],
@@ -2547,7 +2563,10 @@
     "section": "Файлы и I_O",
     "subcat": "запись",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "write",
+      "writelines"
+    ],
     "tags": [
       "op"
     ],
@@ -2635,7 +2654,11 @@
     "section": "Функции",
     "subcat": "итерация",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "zip",
+      "enumerate",
+      "reversed"
+    ],
     "tags": [
       "op"
     ],
