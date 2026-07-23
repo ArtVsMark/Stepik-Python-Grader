@@ -179,6 +179,8 @@ class _CodeScanner(ast.NodeVisitor):
         *,
         methods: frozenset[str] | None = None,
         detect_constructs: bool = False,
+        detect_exceptions: bool = False,
+        detect_attributes: bool = False,
     ) -> None:
         self._notable = notable_builtins
         # issue #322/#367: имена методов встроенных типов (None → метод-эвристику
@@ -189,9 +191,20 @@ class _CodeScanner(ast.NodeVisitor):
         # панель «Функции в коде» включает, узкий MissingConceptDetector — нет
         # (сохраняем его прежнее поведение: только match/case + вызовы).
         self._detect_constructs = detect_constructs
+        # issue #686: исключения, названные в коде (`raise ValueError`,
+        # `except KeyError:`), и атрибуты импортированных модулей без вызова
+        # (`math.pi`, `sys.argv`). Тоже gated: очередь пополнения ловит
+        # исключения из ТЕКСТА ошибки, а не из исходника, и её поведение здесь
+        # не меняется.
+        self._detect_exceptions = detect_exceptions
+        self._detect_attributes = detect_attributes
         self.import_aliases: dict[str, str] = {}  # alias -> module (import x [as y])
         self.from_imports: dict[str, str] = {}  # local -> "module.name"
         self.defined_names: set[str] = set()  # def/class/assign/args — пользовательские
+        # id() вложенных Attribute-узлов, уже покрытых внешней цепочкой (issue
+        # #686): из `os.path.join(...)` концепция — вся цепочка, а не ещё и
+        # промежуточный модуль `os.path`.
+        self._nested_attrs: set[int] = set()
         # concept -> (kind, snippet); dict сохраняет первое вхождение, дедуп по concept.
         self.found: dict[str, tuple[str, str]] = {}
 
@@ -285,11 +298,76 @@ class _CodeScanner(ast.NodeVisitor):
             if name in self.from_imports:
                 self._record(self.from_imports[name], "function", f"{name}(...)")
             elif name in self._notable and name not in self.defined_names:
-                self._record(name, "function", f"{name}(...)")
+                # issue #686: `ValueError("...")` — исключение, а не функция:
+                # kind решает панель, поэтому он должен быть точным.
+                kind = (
+                    "exception"
+                    if self._detect_exceptions and _looks_like_exception_name(name)
+                    else "function"
+                )
+                self._record(name, kind, f"{name}(...)")
         self.generic_visit(node)
 
     def visit_Match(self, node: ast.Match) -> None:
         self._record("match/case", "construct", "match ...: case ...")
+        self.generic_visit(node)
+
+    # -- исключения и атрибуты модулей (issue #686) ------------------------
+
+    def _record_exception(self, node: ast.expr | None, snippet: str) -> None:
+        """Записать имя исключения из узла ``raise``/``except`` (если оно похоже на класс).
+
+        Разбирает и голое имя (``ValueError``), и вызов (``ValueError("...")``),
+        и квалифицированное (``socket.timeout`` → ``timeout``), и кортеж в
+        ``except (A, B)``. Фильтр ``_looks_like_exception_name`` тот же, что у
+        разбора трейсбека, — произвольный идентификатор классом не станет.
+        """
+        if node is None:
+            return
+        if isinstance(node, ast.Call):
+            self._record_exception(node.func, snippet)
+            return
+        if isinstance(node, ast.Tuple):
+            for element in node.elts:
+                self._record_exception(element, snippet)
+            return
+        name = node.id if isinstance(node, ast.Name) else None
+        if name is None and isinstance(node, ast.Attribute):
+            name = node.attr
+        if name and _looks_like_exception_name(name):
+            self._record(name, "exception", snippet.format(name=name))
+
+    def visit_Raise(self, node: ast.Raise) -> None:
+        if self._detect_exceptions:
+            self._record_exception(node.exc, "raise {name}(...)")
+        self.generic_visit(node)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        if self._detect_exceptions:
+            self._record_exception(node.type, "except {name}:")
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        """Атрибут импортированного модуля без вызова: ``math.pi``, ``sys.argv``.
+
+        Карточки таких констант в базе есть, но панель их не показывала —
+        сканер реагировал только на ``Call`` (issue #686). Вызовы сюда тоже
+        попадают (``math.sqrt(1)``), но ``_record`` держит первое вхождение, а
+        ``visit_Call`` отрабатывает раньше — kind остаётся ``function``.
+
+        Записывается только ВНЕШНИЙ узел цепочки: у ``os.path.join`` концепция
+        одна (``os.path.join``), а промежуточный ``os.path`` — не отдельный
+        термин панели.
+        """
+        if self._detect_attributes and id(node) not in self._nested_attrs:
+            chain = self._attr_chain(node)
+            if chain is not None and chain[0] in self.import_aliases:
+                module = self.import_aliases[chain[0]]
+                self._record(f"{module}.{chain[1]}", "attribute", f"{chain[0]}.{chain[1]}")
+        inner = node.value
+        while isinstance(inner, ast.Attribute):
+            self._nested_attrs.add(id(inner))
+            inner = inner.value
         self.generic_visit(node)
 
     # -- синтаксические конструкции (issue #367, только при detect_constructs) --
@@ -371,6 +449,12 @@ def scan_code_concepts(
     (comprehensions, lambda, срез, f-строка, распаковка, тернарный, walrus,
     декоратор, with, try — issue #367).
 
+    issue #686: сюда же попадают **исключения**, названные в самом коде
+    (``raise ValueError``, ``except KeyError:``, kind ``exception``), и
+    **атрибуты импортированных модулей** без вызова (``math.pi``, ``sys.argv``,
+    kind ``attribute``) — карточки на них в базе есть, а панель их не видела,
+    потому что сканер реагировал только на вызовы.
+
     ``notable_builtins``/``methods`` (issue #367) переопределяют наборы имён —
     потребитель (``web/glossary_adapter``) собирает их из ``stdlib_inventory``
     вместо узкого хардкода. По умолчанию — курируемые ``CODE_TERM_BUILTINS``/
@@ -383,7 +467,13 @@ def scan_code_concepts(
         return {}
     notable = CODE_TERM_BUILTINS if notable_builtins is None else frozenset(notable_builtins)
     method_set = _BUILTIN_METHODS if methods is None else frozenset(methods)
-    scanner = _CodeScanner(notable, methods=method_set, detect_constructs=True)
+    scanner = _CodeScanner(
+        notable,
+        methods=method_set,
+        detect_constructs=True,
+        detect_exceptions=True,
+        detect_attributes=True,
+    )
     scanner.visit(tree)
     return dict(scanner.found)
 
