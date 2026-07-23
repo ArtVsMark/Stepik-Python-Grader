@@ -1,122 +1,256 @@
 #!/usr/bin/env python3
-"""scripts/audit_glossary_cards.py — аудит двуязычности карточек глоссария (issue #684).
+"""scripts/audit_glossary_cards.py — ревизия карточек глоссария (issue #684).
 
-Проблема: 525 карточек локальной базы (``src/stepik_grader/glossary/data/*.json``)
-— весь старый импорт из Glossary-Python (у всех заполнен ``url``) — имеют
-непустой RU ``summary`` и пустой ``summary_en``. Из-за пустого EN метод
-``GlossaryCard.localized`` молча откатывается на RU (graceful degradation
-``?lang=``, issue #363/#387), и в web карточка «не переключается» на английский.
-Снаружи это неотличимо от «перевод есть, просто совпал» — нужен машинный счётчик.
+Машинная сверка комплектной базы ``glossary/data/*.json`` по трём осям задачи
+#684, «Как измерить» → отчёт-чеклист + жёсткие инварианты для CI/тестов:
 
-Скрипт — **ratchet** («храповик») EN-покрытия: считает карточки без
-``summary_en`` и падает, если их стало больше ``MAX_CARDS_WITHOUT_EN``. Планка
-опускается по мере перевода (цель волны — 0) и никогда не поднимается обратно;
-тест ``tests/test_glossary_card_audit.py`` держит её в CI.
+1. **Структура (hard).** У каждой ``ready``-карточки есть минимально обязательный
+   набор полей (``REQUIRED_READY_FIELDS``) — de-facto-набор, который уже держат
+   все 1333 карточки; фиксируем его инвариантом, чтобы база не разъехалась.
+2. **Мультифункциональность / матч (hard).** Карточка, чей ``title`` перечисляет
+   несколько имён через `` / `` (напр. ``os.getcwd() / os.chdir()``), должна быть
+   «matcher-safe»: для КАЖДОГО перечисленного вызова его чистое имя достижимо
+   детектором пробелов (``detector._is_known``) — иначе ``«Функции в коде»`` и
+   coverage ложно считают имя непокрытым (см. issue #684, гибридное решение:
+   часть бандлов разбита на 1-концепт-карточки, остальным добит ``keywords``).
+3. **RU/EN (hard, ratchet).** Число карточек без ``summary_en`` не должно расти
+   выше ``MAX_CARDS_WITHOUT_EN``. Отдельная волна #684 перевела все 525 карточек
+   старого импорта из Glossary-Python, поэтому планка сведена к 0: теперь это
+   жёсткий гейт — новая карточка с RU-``summary`` обязана нести и EN.
 
-``body``/``body_en`` осознанно НЕ проверяются: в базе 0 карточек с непустым
-``body`` (расширенное описание нигде не заполнено), поэтому «пробел» там —
-фикция, а не долг перевода.
+Загрузка — через штатный ``JsonGlossaryProvider`` (та же валидация, что в
+рантайме), без самопального ``json.load``. Никаких внешних зависимостей.
 
 Запуск::
 
-    python scripts/audit_glossary_cards.py           # отчёт + exit 1 при нарушении
-    python scripts/audit_glossary_cards.py --list    # плюс id карточек без EN
+    python scripts/audit_glossary_cards.py            # отчёт + exit 0/1
+    python scripts/audit_glossary_cards.py --report   # только отчёт, exit 0
 """
 
 from __future__ import annotations
 
 import argparse
-import pathlib
 import sys
-from collections.abc import Iterable
+from collections import Counter
 
 from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR, JsonGlossaryProvider
 from stepik_grader.glossary.models import GlossaryCard
 
 __all__ = [
     "MAX_CARDS_WITHOUT_EN",
+    "REQUIRED_READY_FIELDS",
     "cards_missing_en",
-    "load_cards",
-    "load_cards_by_file",
+    "cards_missing_required_fields",
+    "is_matcher_safe",
     "main",
+    "multifunction_titles",
+    "part_to_concept",
+    "unsafe_multifunction_cards",
 ]
 
-# Планка EN-ratchet: сколько карточек с RU-summary ещё допустимо иметь без
-# summary_en. Волна #684 свела долг старого импорта из Glossary-Python (525
-# карточек) к нулю, поэтому планка — 0: КАЖДАЯ новая карточка с RU-summary
-# приезжает сразу с summary_en. Поднимать нельзя — это и есть храповик.
+# Минимально обязательный набор полей для status=ready (issue #684). Это de-facto
+# набор, который уже на 100% держат все карточки базы; список фиксирует его как
+# инвариант. ``body``/``aliases``/``keywords``/``version``/``related``/``url`` —
+# осознанно опциональны (заполнены у меньшинства), поэтому не входят.
+REQUIRED_READY_FIELDS: tuple[str, ...] = (
+    "summary",  # summary.ru
+    "syntax",
+    "docs_url",
+    "section",
+    "subcat",
+    "tags",  # >= 1
+    "examples",  # >= 1
+)
+
+# Ratchet EN-полноты (issue #684). EN-волна переведена: все 525 карточек старого
+# импорта из Glossary-Python получили summary_en, поэтому планка — 0. Значение
+# только УМЕНЬШАЕТСЯ; расти ему нельзя (новые карточки — двуязычны by design),
+# так что теперь ratchet работает как жёсткий гейт на каждую новую карточку.
 MAX_CARDS_WITHOUT_EN = 0
 
 
-def load_cards_by_file(
-    data_dir: pathlib.Path = BUNDLED_GLOSSARY_DIR,
-) -> dict[str, list[GlossaryCard]]:
-    """Карточки базы, сгруппированные по имени JSON-файла (отсортировано)."""
-    return {
-        json_file.name: JsonGlossaryProvider.from_file(json_file).all()
-        for json_file in sorted(data_dir.glob("*.json"))
-    }
+def _is_detector_part(part: str) -> bool:
+    """True, если часть title — вызов/dotted-путь, который эмитит детектор кода.
 
-
-def load_cards(data_dir: pathlib.Path = BUNDLED_GLOSSARY_DIR) -> list[GlossaryCard]:
-    """Все карточки базы глоссария одним списком."""
-    return JsonGlossaryProvider.load(data_dir).all()
-
-
-def cards_missing_en(cards: Iterable[GlossaryCard]) -> list[GlossaryCard]:
-    """Карточки с непустым RU ``summary``, но пустым ``summary_en``.
-
-    Карточки без RU-текста вообще не считаются долгом перевода: переводить
-    там нечего, ``localized`` в обеих локалях вернёт пустую строку.
+    Требуем matcher-safety только для того, что ``_CodeScanner`` реально
+    производит как concept (issue #684): явный вызов ``name()`` ИЛИ dotted-путь
+    ``mod.attr``. Голые ключевые слова/операторы (``try``, ``in``, ``await``,
+    ``is``, ``match``) и одиночные имена классов (``IntEnum``, ``Flag``) детектор
+    как function/method-concept не даёт — их не требуем (добивать им keyword
+    незачем). ``Optional[X]``, ``X | None``, ``[::2]`` тоже отсекаются.
     """
-    return [card for card in cards if card.summary.strip() and not card.summary_en.strip()]
+    part = part.strip()
+    if part.endswith("()"):
+        return True
+    # «Настоящая» точка (не только ведущая ``.method``): ``os.sep``, ``date.today``.
+    return "." in part.lstrip(".")
 
 
-def _build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Аудит EN-покрытия карточек глоссария")
-    parser.add_argument(
-        "--cards",
-        type=pathlib.Path,
-        default=BUNDLED_GLOSSARY_DIR,
-        help="директория с *.json карточками (по умолчанию — комплектная база)",
+def load_cards() -> list[GlossaryCard]:
+    """Загрузить все карточки комплектной базы штатным провайдером."""
+    return JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
+
+
+def _field_present(card: GlossaryCard, field: str) -> bool:
+    """True, если поле карточки непусто (summary — по RU-ветке; списки — len>0)."""
+    value = getattr(card, field)
+    if isinstance(value, list):
+        return len(value) > 0
+    return bool(str(value or "").strip())
+
+
+def cards_missing_required_fields(cards: list[GlossaryCard]) -> list[tuple[str, list[str]]]:
+    """Список ``(card_id, [пропущенные поля])`` для ready-карточек с пробелами."""
+    out: list[tuple[str, list[str]]] = []
+    for card in cards:
+        if card.status != "ready":
+            continue
+        missing = [f for f in REQUIRED_READY_FIELDS if not _field_present(card, f)]
+        if missing:
+            out.append((card.id, missing))
+    return out
+
+
+def cards_missing_en(cards: list[GlossaryCard]) -> list[str]:
+    """id карточек с непустым RU-summary, но пустым ``summary_en`` (issue #363)."""
+    return [c.id for c in cards if c.summary.strip() and not c.summary_en.strip()]
+
+
+def multifunction_titles(cards: list[GlossaryCard]) -> list[GlossaryCard]:
+    """Карточки, чей ``title`` перечисляет несколько имён через `` / ``."""
+    return [c for c in cards if " / " in c.title]
+
+
+def part_to_concept(part: str) -> str:
+    """Свести часть title к concept'у детектора: снять ведущую ``.`` и хвостовые ``()``.
+
+    ``.exists()`` → ``exists``; ``os.getcwd()`` → ``os.getcwd`` (dotted-путь
+    детектор сохраняет); ``functools.lru_cache`` → ``functools.lru_cache``.
+    """
+    return part.strip().lstrip(".").removesuffix("()")
+
+
+def is_matcher_safe(card: GlossaryCard, concept: str) -> bool:
+    """True, если ``concept`` достижим для карточки логикой ``detector._is_known``.
+
+    Держать в синхроне с ``glossary/detector.py::_is_known`` (issue #684): точное
+    равенство concept'а любому search-терму карточки ИЛИ совпадение по «хвосту»
+    после последней точки (``os.getcwd`` → ``getcwd``).
+    """
+    terms = set(card.search_terms)  # уже lower-case
+    concept_lc = concept.lower()
+    if concept_lc in terms:
+        return True
+    return concept_lc.rsplit(".", 1)[-1] in terms
+
+
+def unsafe_multifunction_cards(cards: list[GlossaryCard]) -> list[tuple[str, list[str]]]:
+    """``(card_id, [недостижимые concept'ы])`` для мультифункц. карточек без матча.
+
+    Проверяются только callable-подобные части title (см. ``_is_detector_part``);
+    не-callable части (``Optional[X]``, ``[::2]`` …) детектор не производит.
+    """
+    out: list[tuple[str, list[str]]] = []
+    for card in multifunction_titles(cards):
+        bad: list[str] = []
+        for part in card.title.split(" / "):
+            if not _is_detector_part(part):
+                continue
+            concept = part_to_concept(part)
+            if not is_matcher_safe(card, concept):
+                bad.append(concept)
+        if bad:
+            out.append((card.id, bad))
+    return out
+
+
+def _print_report(cards: list[GlossaryCard]) -> None:
+    """Печать отчёта-чеклиста (issue #684)."""
+    n = len(cards)
+    by_status = Counter(c.status for c in cards)
+    by_kind = Counter(c.kind for c in cards)
+    print(f"Карточек: {n}  |  статус: {dict(by_status)}  |  kind: {dict(by_kind)}\n")
+
+    # Присутствие полей.
+    print("Присутствие полей (non-empty), % от всех:")
+    all_fields = (
+        "summary",
+        "body",
+        "syntax",
+        "docs_url",
+        "url",
+        "version",
+        "section",
+        "subcat",
+        "aliases",
+        "keywords",
+        "tags",
+        "examples",
     )
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        dest="list_ids",
-        help="перечислить id карточек без summary_en",
-    )
-    return parser
+    for field in all_fields:
+        present = sum(_field_present(c, field) for c in cards)
+        mark = "*" if field in REQUIRED_READY_FIELDS else " "
+        print(f"  {mark} {field:<12} {present:>5} {100 * present / n:>4.0f}%")
+    print("  (* — обязательное для ready)\n")
+
+    missing_en = cards_missing_en(cards)
+    print(f"RU/EN: без summary_en — {len(missing_en)} (ratchet ≤ {MAX_CARDS_WITHOUT_EN})")
+    multi = multifunction_titles(cards)
+    unsafe = unsafe_multifunction_cards(cards)
+    print(f"Мультифункц. (title c ' / '): {len(multi)}; из них matcher-unsafe: {len(unsafe)}\n")
+
+
+def _check_invariants(cards: list[GlossaryCard]) -> list[str]:
+    """Собрать нарушения жёстких инвариантов (пустой список — всё чисто)."""
+    errors: list[str] = []
+
+    missing_fields = cards_missing_required_fields(cards)
+    if missing_fields:
+        errors.append(f"{len(missing_fields)} ready-карточек без обязательных полей:")
+        for cid, fields in missing_fields[:20]:
+            errors.append(f"    {cid}: нет {', '.join(fields)}")
+
+    unsafe = unsafe_multifunction_cards(cards)
+    if unsafe:
+        errors.append(
+            f"{len(unsafe)} мультифункц. карточек matcher-unsafe "
+            "(добавь keywords с чистыми именами или разбей на 1-концепт-карточки):"
+        )
+        for cid, concepts in unsafe[:30]:
+            errors.append(f"    {cid}: недостижимы {', '.join(concepts)}")
+
+    missing_en = cards_missing_en(cards)
+    if len(missing_en) > MAX_CARDS_WITHOUT_EN:
+        errors.append(
+            f"summary_en пуст у {len(missing_en)} карточек > ratchet "
+            f"{MAX_CARDS_WITHOUT_EN} (issue #684): новые карточки должны быть двуязычными."
+        )
+
+    return errors
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Напечатать отчёт EN-покрытия; 1 — планка ratchet превышена, иначе 0."""
-    args = _build_arg_parser().parse_args(argv)
-    by_file = load_cards_by_file(args.cards)
+    """Печать отчёта; при ``--report`` — только отчёт (exit 0), иначе + инварианты."""
+    parser = argparse.ArgumentParser(description="Ревизия карточек глоссария (issue #684).")
+    parser.add_argument(
+        "--report", action="store_true", help="только отчёт, без проверки инвариантов (exit 0)"
+    )
+    args = parser.parse_args(argv)
 
-    total_missing = 0
-    for name, cards in by_file.items():
-        missing = cards_missing_en(cards)
-        total_missing += len(missing)
-        if missing:
-            print(f"{name:15} без summary_en: {len(missing):4} из {len(cards):4}")
-            if args.list_ids:
-                for card in missing:
-                    print(f"    {card.id}")
+    cards = load_cards()
+    _print_report(cards)
 
-    print(f"\nВсего карточек без summary_en: {total_missing} (планка {MAX_CARDS_WITHOUT_EN})")
-    if total_missing > MAX_CARDS_WITHOUT_EN:
-        print(
-            f"ОШИБКА: EN-покрытие деградировало — {total_missing} > {MAX_CARDS_WITHOUT_EN}. "
-            "Заполни summary_en у новых карточек (issue #684).",
-            file=sys.stderr,
-        )
+    if args.report:
+        return 0
+
+    errors = _check_invariants(cards)
+    if errors:
+        print("FAIL: инварианты карточек глоссария нарушены (issue #684):")
+        for e in errors:
+            print(f"  - {e}" if not e.startswith("    ") else e)
         return 1
-    if total_missing < MAX_CARDS_WITHOUT_EN:
-        print(
-            f"Планка устарела: снизь MAX_CARDS_WITHOUT_EN до {total_missing} "
-            f"в {pathlib.Path(__file__).name}."
-        )
+
+    print("OK: структура, matcher-safety и EN-ratchet — в норме.")
     return 0
 
 

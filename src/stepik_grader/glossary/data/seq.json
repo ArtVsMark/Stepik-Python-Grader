@@ -191,7 +191,12 @@
     "section": "Списки (list)",
     "subcat": "агрегация",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "len",
+      "min",
+      "max",
+      "sum"
+    ],
     "tags": [
       "seq"
     ],
@@ -274,7 +279,10 @@
     "section": "Списки (list)",
     "subcat": "функциональное",
     "aliases": [],
-    "keywords": [],
+    "keywords": [
+      "map",
+      "filter"
+    ],
     "tags": [
       "seq"
     ],
