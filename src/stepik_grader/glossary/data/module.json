@@ -1054,28 +1054,28 @@
     "related_errors": []
   },
   {
-    "id": "bisect.bisect_left-bisect.bisect_right",
-    "title": "bisect.bisect_left() / bisect.bisect_right()",
+    "id": "bisect.bisect_left",
+    "title": "bisect.bisect_left()",
     "kind": "function",
     "summary": {
-      "ru": "Находят позицию для вставки элемента в отсортированный список. bisect_left — перед равными, bisect_right — после.",
-      "en": "They find the position at which to insert an item into a sorted list. bisect_left — before any equal items, bisect_right — after them."
+      "ru": "Возвращает индекс, куда вставить x в отсортированный список, чтобы порядок сохранился — ПЕРЕД уже равными элементами. Поиск за O(log n).",
+      "en": "Return the index at which to insert x into a sorted list keeping it sorted — before any equal entries. O(log n) search."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "bisect.bisect_left(a, x, lo=0, hi=len(a))\nbisect.bisect_right(a, x, lo=0, hi=len(a))",
+    "syntax": "bisect.bisect_left(a, x, lo=0, hi=len(a))",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-bisect.bisect_left-bisect.bisect_right",
-    "docs_url": "https://docs.python.org/3/library/bisect.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/bisect.html#bisect.bisect_left",
     "version": "",
     "section": "Модуль bisect",
     "subcat": "позиция",
     "aliases": [],
     "keywords": [
       "bisect.bisect_left",
-      "bisect.bisect_right"
+      "bisect_left"
     ],
     "tags": [
       "module"
@@ -1083,38 +1083,118 @@
     "examples": [
       "import bisect",
       "a = [1, 3, 3, 5, 7]",
-      "bisect.bisect_left(a, 3) # → 1",
-      "bisect.bisect_right(a, 3) # → 3",
+      "bisect.bisect_left(a, 3) # → 1 (перед равными)",
       "bisect.bisect_left(a, 4) # → 3",
-      "bisect.bisect_right(a, 0) # → 0",
       "bisect.bisect_left(a, 8) # → 5"
     ],
-    "related": [],
+    "related": [
+      "bisect.bisect_right",
+      "bisect.insort_left"
+    ],
     "related_errors": []
   },
   {
-    "id": "bisect.insort_left-bisect.insort_right",
-    "title": "bisect.insort_left() / bisect.insort_right()",
+    "id": "bisect.bisect_right",
+    "title": "bisect.bisect_right()",
     "kind": "function",
     "summary": {
-      "ru": "Вставляют элемент в нужную позицию отсортированного списка, сохраняя порядок. O(n) из-за сдвига.",
-      "en": "They insert an item at the right position of a sorted list, keeping it in order. O(n), because the rest has to be shifted."
+      "ru": "Возвращает индекс, куда вставить x в отсортированный список, чтобы порядок сохранился — ПОСЛЕ уже равных элементов. Синоним bisect().",
+      "en": "Return the index at which to insert x into a sorted list keeping it sorted — after any equal entries. Alias of bisect()."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "bisect.insort_left(a, x)\nbisect.insort_right(a, x)",
+    "syntax": "bisect.bisect_right(a, x, lo=0, hi=len(a))",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-bisect.insort_left-bisect.insort_right",
-    "docs_url": "https://docs.python.org/3/library/bisect.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/bisect.html#bisect.bisect_right",
+    "version": "",
+    "section": "Модуль bisect",
+    "subcat": "позиция",
+    "aliases": [],
+    "keywords": [
+      "bisect.bisect_right",
+      "bisect_right"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import bisect",
+      "a = [1, 3, 3, 5, 7]",
+      "bisect.bisect_right(a, 3) # → 3 (после равных)",
+      "bisect.bisect_right(a, 0) # → 0",
+      "bisect.bisect_right(a, 3) - bisect.bisect_left(a, 3) # → 2 (сколько троек)"
+    ],
+    "related": [
+      "bisect.bisect_left",
+      "bisect.insort_right"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "bisect.insort_left",
+    "title": "bisect.insort_left()",
+    "kind": "function",
+    "summary": {
+      "ru": "Вставляет x в отсортированный список ПЕРЕД равными элементами, сохраняя порядок. Поиск места O(log n), но сама вставка O(n) из-за сдвига.",
+      "en": "Insert x into a sorted list before any equal entries, keeping it sorted; the search is O(log n) but the insertion itself is O(n) due to shifting."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "bisect.insort_left(a, x)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/bisect.html#bisect.insort_left",
     "version": "",
     "section": "Модуль bisect",
     "subcat": "вставка",
     "aliases": [],
     "keywords": [
       "bisect.insort_left",
-      "bisect.insort_right"
+      "insort_left"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import bisect",
+      "a = [1, 3, 4, 5]",
+      "bisect.insort_left(a, 3)",
+      "a # → [1, 3, 3, 4, 5]"
+    ],
+    "related": [
+      "bisect.insort_right",
+      "bisect.bisect_left"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "bisect.insort_right",
+    "title": "bisect.insort_right()",
+    "kind": "function",
+    "summary": {
+      "ru": "Вставляет x в отсортированный список ПОСЛЕ равных элементов, сохраняя порядок. Синоним insort(). Вставка O(n) из-за сдвига.",
+      "en": "Insert x into a sorted list after any equal entries, keeping it sorted; alias of insort(). The insertion is O(n) due to shifting."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "bisect.insort_right(a, x)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/bisect.html#bisect.insort_right",
+    "version": "",
+    "section": "Модуль bisect",
+    "subcat": "вставка",
+    "aliases": [],
+    "keywords": [
+      "bisect.insort_right",
+      "insort_right"
     ],
     "tags": [
       "module"
@@ -1124,12 +1204,13 @@
       "a = [1, 3, 5]",
       "bisect.insort_right(a, 4)",
       "a # → [1, 3, 4, 5]",
-      "bisect.insort_left(a, 3)",
-      "a # → [1, 3, 3, 4, 5]",
       "bisect.insort_right(a, 0)",
-      "a # → [0, 1, 3, 3, 4, 5]"
+      "a # → [0, 1, 3, 4, 5]"
     ],
-    "related": [],
+    "related": [
+      "bisect.insort_left",
+      "bisect.bisect_right"
+    ],
     "related_errors": []
   },
   {
@@ -3201,28 +3282,28 @@
     "related_errors": []
   },
   {
-    "id": "heapq.heappush-heapq.heappop",
-    "title": "heapq.heappush() / heapq.heappop()",
+    "id": "heapq.heappush",
+    "title": "heapq.heappush()",
     "kind": "function",
     "summary": {
-      "ru": "heappush() добавляет элемент в кучу, heappop() извлекает и возвращает наименьший элемент.",
-      "en": "heappush() adds an item to the heap, heappop() removes the smallest item and returns it."
+      "ru": "Добавляет элемент в кучу, сохраняя её инвариант. Куча — обычный список, минимум всегда лежит в heap[0]. Сложность O(log n).",
+      "en": "Push an item onto the heap, preserving the heap invariant; the heap is a plain list whose smallest item is always heap[0]. O(log n)."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "heapq.heappush(heap, item)\nheapq.heappop(heap)",
+    "syntax": "heapq.heappush(heap, item)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.heappush-heapq.heappop",
-    "docs_url": "https://docs.python.org/3/library/heapq.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.heappush",
     "version": "",
     "section": "Модуль heapq",
     "subcat": "операции",
     "aliases": [],
     "keywords": [
       "heapq.heappush",
-      "heapq.heappop"
+      "heappush"
     ],
     "tags": [
       "module"
@@ -3233,36 +3314,79 @@
       "heapq.heappush(h, 3)",
       "heapq.heappush(h, 1)",
       "heapq.heappush(h, 2)",
-      "heapq.heappop(h) # → 1",
-      "heapq.heappop(h) # → 2",
-      "h # → [3]"
+      "h[0] # → 1 (минимум всегда первый)"
     ],
-    "related": [],
+    "related": [
+      "heapq.heappop",
+      "heapq.heapreplace",
+      "heapq.heappushpop"
+    ],
     "related_errors": []
   },
   {
-    "id": "heapq.heapreplace-heapq.heappushpop",
-    "title": "heapq.heapreplace() / heapq.heappushpop()",
+    "id": "heapq.heappop",
+    "title": "heapq.heappop()",
     "kind": "function",
     "summary": {
-      "ru": "heapreplace() извлекает минимум и вставляет новый элемент атомарно (эффективнее pop+push). heappushpop() — push потом pop.",
-      "en": "heapreplace() pops the minimum and pushes a new item in one step (more efficient than pop+push). heappushpop() pushes first, then pops."
+      "ru": "Извлекает и возвращает наименьший элемент кучи, сохраняя её инвариант. На пустой куче поднимает IndexError. Сложность O(log n).",
+      "en": "Pop and return the smallest item from the heap, preserving the invariant; raises IndexError on an empty heap. O(log n)."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "heapq.heapreplace(heap, item)\nheapq.heappushpop(heap, item)",
+    "syntax": "heapq.heappop(heap)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.heapreplace-heapq.heappushpop",
-    "docs_url": "https://docs.python.org/3/library/heapq.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.heappop",
+    "version": "",
+    "section": "Модуль heapq",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "heapq.heappop",
+      "heappop"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import heapq",
+      "h = [1, 2, 3]",
+      "heapq.heappop(h) # → 1",
+      "heapq.heappop(h) # → 2",
+      "h # → [3]"
+    ],
+    "related": [
+      "heapq.heappush",
+      "heapq.heapreplace",
+      "heapq.heappushpop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "heapq.heapreplace",
+    "title": "heapq.heapreplace()",
+    "kind": "function",
+    "summary": {
+      "ru": "Извлекает минимум и вставляет новый элемент одним проходом — эффективнее пары heappop()+heappush(). Сначала извлекает, потом вставляет.",
+      "en": "Pop the smallest item and push a new one in a single pass — more efficient than heappop() followed by heappush(). Pops first, then pushes."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "heapq.heapreplace(heap, item)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.heapreplace",
     "version": "",
     "section": "Модуль heapq",
     "subcat": "операции",
     "aliases": [],
     "keywords": [
       "heapq.heapreplace",
-      "heapq.heappushpop"
+      "heapreplace"
     ],
     "tags": [
       "module"
@@ -3271,37 +3395,78 @@
       "import heapq",
       "h = [1, 3, 5]",
       "heapq.heapreplace(h, 4) # → 1  (извлекли 1, вставили 4)",
-      "h # → [3, 4, 5]",
-      "h2 = [3, 5, 7]",
-      "heapq.heappushpop(h2, 1) # → 1  (1 < min, сразу вернули)",
-      "heapq.heappushpop(h2, 9) # → 3  (вставили 9, извлекли 3)"
+      "h # → [3, 4, 5]"
     ],
-    "related": [],
+    "related": [
+      "heapq.heappushpop",
+      "heapq.heappush",
+      "heapq.heappop"
+    ],
     "related_errors": []
   },
   {
-    "id": "heapq.nlargest-heapq.nsmallest",
-    "title": "heapq.nlargest() / heapq.nsmallest()",
+    "id": "heapq.heappushpop",
+    "title": "heapq.heappushpop()",
     "kind": "function",
     "summary": {
-      "ru": "Возвращает N наибольших или наименьших элементов последовательности. Работает с key-функцией.",
-      "en": "Returns the N largest or N smallest items of a sequence. A key function is supported."
+      "ru": "Вставляет элемент и сразу извлекает минимум — порядок обратный heapreplace(). Если новый элемент меньше всех, он же и вернётся, куча не изменится.",
+      "en": "Push an item and immediately pop the smallest — the reverse order of heapreplace(); if the new item is the smallest, it is returned and the heap is unchanged."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "heapq.nlargest(n, iterable, key=None)\nheapq.nsmallest(n, iterable, key=None)",
+    "syntax": "heapq.heappushpop(heap, item)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-heapq.nlargest-heapq.nsmallest",
-    "docs_url": "https://docs.python.org/3/library/heapq.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.heappushpop",
+    "version": "",
+    "section": "Модуль heapq",
+    "subcat": "операции",
+    "aliases": [],
+    "keywords": [
+      "heapq.heappushpop",
+      "heappushpop"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import heapq",
+      "h = [3, 5, 7]",
+      "heapq.heappushpop(h, 1) # → 1  (1 < min, сразу вернули)",
+      "heapq.heappushpop(h, 9) # → 3  (вставили 9, извлекли 3)"
+    ],
+    "related": [
+      "heapq.heapreplace",
+      "heapq.heappush",
+      "heapq.heappop"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "heapq.nlargest",
+    "title": "heapq.nlargest()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список из n наибольших элементов в порядке убывания. Принимает key=, как sorted(). При n≈len(iterable) дешевле обычный sorted().",
+      "en": "Return a list of the n largest items in descending order; accepts key= like sorted(). For n close to len(iterable) a plain sorted() is cheaper."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "heapq.nlargest(n, iterable, key=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.nlargest",
     "version": "",
     "section": "Модуль heapq",
     "subcat": "выборка",
     "aliases": [],
     "keywords": [
       "heapq.nlargest",
-      "heapq.nsmallest"
+      "nlargest"
     ],
     "tags": [
       "module"
@@ -3310,12 +3475,52 @@
       "import heapq",
       "data = [3, 1, 4, 1, 5, 9, 2, 6]",
       "heapq.nlargest(3, data) # → [9, 6, 5]",
-      "heapq.nsmallest(3, data) # → [1, 1, 2]",
       "records = [{'v': 5}, {'v': 1}, {'v': 9}]",
       "heapq.nlargest(2, records, key=lambda x: x['v'])",
       "# → [{'v': 9}, {'v': 5}]"
     ],
-    "related": [],
+    "related": [
+      "heapq.nsmallest"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "heapq.nsmallest",
+    "title": "heapq.nsmallest()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список из n наименьших элементов в порядке возрастания. Принимает key=, как sorted(). При n=1 дешевле min().",
+      "en": "Return a list of the n smallest items in ascending order; accepts key= like sorted(). For n=1 plain min() is cheaper."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "heapq.nsmallest(n, iterable, key=None)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/heapq.html#heapq.nsmallest",
+    "version": "",
+    "section": "Модуль heapq",
+    "subcat": "выборка",
+    "aliases": [],
+    "keywords": [
+      "heapq.nsmallest",
+      "nsmallest"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import heapq",
+      "data = [3, 1, 4, 1, 5, 9, 2, 6]",
+      "heapq.nsmallest(3, data) # → [1, 1, 2]",
+      "words = ['banana', 'kiwi', 'apple']",
+      "heapq.nsmallest(2, words, key=len) # → ['kiwi', 'apple']"
+    ],
+    "related": [
+      "heapq.nlargest"
+    ],
     "related_errors": []
   },
   {
