@@ -5240,44 +5240,6 @@
     "related_errors": []
   },
   {
-    "id": "os.getcwd-os.chdir",
-    "title": "os.getcwd() / os.chdir()",
-    "kind": "function",
-    "summary": {
-      "ru": "os.getcwd() возвращает текущую рабочую директорию. os.chdir(path) меняет её.",
-      "en": "os.getcwd() returns the current working directory. os.chdir(path) changes it."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "os.getcwd() -> str\nos.chdir(path: str) -> None",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.getcwd-os.chdir",
-    "docs_url": "https://docs.python.org/3/library/os.html",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "навигация",
-    "aliases": [],
-    "keywords": [
-      "os.getcwd",
-      "os.chdir"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "import os",
-      "print(type(os.getcwd()))  # → <class 'str'>",
-      "start = os.getcwd()  # запомнить текущий каталог",
-      "os.chdir('/tmp')",
-      "print(os.getcwd())  # → /tmp",
-      "os.chdir(start)  # вернуться в исходный каталог"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "os.getpid",
     "title": "os.getpid()",
     "kind": "function",
@@ -5344,123 +5306,6 @@
       "print(os.listdir('/tmp'))  # → содержимое /tmp",
       "print(len(os.listdir('.')))  # → кол-во объектов в директории",
       "sorted_files = sorted(os.listdir('.'))  # → отсортированный список"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.makedirs-os.rmdir",
-    "title": "os.makedirs() / os.rmdir()",
-    "kind": "function",
-    "summary": {
-      "ru": "os.makedirs() создаёт папку включая промежуточные. os.rmdir() удаляет пустую папку.",
-      "en": "os.makedirs() creates a folder together with the intermediate ones. os.rmdir() removes an empty folder."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "os.makedirs(path, mode=0o777, exist_ok=False)\nos.rmdir(path)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.makedirs-os.rmdir",
-    "docs_url": "https://docs.python.org/3/library/os.html",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "директории",
-    "aliases": [],
-    "keywords": [
-      "os.makedirs",
-      "os.rmdir"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "import os",
-      "os.makedirs('a/b/c', exist_ok=True)  # → создаёт вложенные папки",
-      "os.makedirs('new_dir', exist_ok=True)  # → не ошибка если папка уже есть",
-      "os.rmdir('a/b/c')  # → удаляет только пустую c",
-      "print(os.path.isdir('a/b'))  # → True",
-      "os.makedirs('/tmp/test_dir', exist_ok=True)  # → создаёт в /tmp"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.path.dirname-os.path.basename-os.path",
-    "title": "os.path.dirname() / os.path.basename() / os.path.split()",
-    "kind": "function",
-    "summary": {
-      "ru": "dirname() — директория пути. basename() — имя файла/папки. split() — кортеж (dirname, basename).",
-      "en": "dirname() — the directory part of a path. basename() — the file or folder name. split() — the tuple (dirname, basename)."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "os.path.dirname(path) -> str\nos.path.basename(path) -> str\nos.path.split(path) -> (head, tail)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.path.dirname-os.path.basename-os.path",
-    "docs_url": "https://docs.python.org/3/library/os.html",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "os.path",
-    "aliases": [],
-    "keywords": [
-      "os.path.dirname",
-      "os.path.basename",
-      "os.path.split"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "import os",
-      "path = '/home/user/file.txt'",
-      "print(os.path.dirname(path))  # → /home/user",
-      "print(os.path.basename(path))  # → file.txt",
-      "print(os.path.split(path))  # → ('/home/user', 'file.txt')",
-      "print(os.path.basename('/home/user/'))  # → '' (пустой хвост)",
-      "print(os.path.dirname('file.txt'))  # → ''"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "os.path.exists-os.path.isfile-os.path.is",
-    "title": "os.path.exists() / os.path.isfile() / os.path.isdir()",
-    "kind": "function",
-    "summary": {
-      "ru": "os.path.exists() — путь существует. os.path.isfile() — это файл. os.path.isdir() — это папка.",
-      "en": "os.path.exists() — the path exists. os.path.isfile() — it is a file. os.path.isdir() — it is a folder."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "os.path.exists(path) -> bool\nos.path.isfile(path) -> bool\nos.path.isdir(path) -> bool",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.path.exists-os.path.isfile-os.path.is",
-    "docs_url": "https://docs.python.org/3/library/os.html",
-    "version": "",
-    "section": "Модуль os",
-    "subcat": "os.path",
-    "aliases": [],
-    "keywords": [
-      "os.path.exists",
-      "os.path.isfile",
-      "os.path.isdir"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "import os",
-      "print(os.path.exists('/tmp'))  # → True",
-      "print(os.path.isfile('/tmp'))  # → False",
-      "print(os.path.isdir('/tmp'))  # → True",
-      "print(os.path.isfile('/etc/hosts'))  # → True",
-      "print(os.path.exists('/nonexistent'))  # → False"
     ],
     "related": [],
     "related_errors": []
@@ -5538,42 +5383,47 @@
     "related_errors": []
   },
   {
-    "id": "os.remove-os.rename",
-    "title": "os.remove() / os.rename()",
+    "id": "os.remove",
+    "title": "os.remove",
     "kind": "function",
     "summary": {
-      "ru": "os.remove() удаляет файл. os.rename() переименовывает файл или папку. Для рекурсивного удаления папок — shutil.rmtree().",
-      "en": "os.remove() deletes a file. os.rename() renames a file or a folder. To delete a folder recursively use shutil.rmtree()."
+      "ru": "Удаляет файл. Каталоги не удаляет — для них os.rmdir(), а для непустого дерева shutil.rmtree(). Полный синоним os.unlink().",
+      "en": "Delete a file; directories need os.rmdir() (or shutil.rmtree() for a non-empty tree). Exact synonym of os.unlink()."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "os.remove(path)\nos.rename(src, dst)",
+    "syntax": "os.remove(path)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-os.remove-os.rename",
-    "docs_url": "https://docs.python.org/3/library/os.html",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.remove",
     "version": "",
     "section": "Модуль os",
-    "subcat": "файлы",
+    "subcat": "os — удаление",
     "aliases": [],
     "keywords": [
       "os.remove",
-      "os.rename"
+      "remove"
     ],
     "tags": [
-      "module"
+      "os"
     ],
     "examples": [
       "import os",
-      "os.remove('old_file.txt')  # → удаляет файл",
-      "os.rename('old.txt', 'new.txt')  # → переименование",
-      "os.rename('file.txt', '/tmp/file.txt')  # → перемещение",
+      "import tempfile",
+      "fd, p = tempfile.mkstemp()",
+      "os.close(fd)",
+      "os.remove(p)",
+      "print(os.path.exists(p))   # → False",
       "if os.path.exists('temp.txt'):",
-      "os.remove('temp.txt')  # → безопасное удаление",
-      "os.rename('folder_a', 'folder_b')  # → переименование папки"
+      "    os.remove('temp.txt')  # → безопасное удаление"
     ],
-    "related": [],
+    "related": [
+      "os.unlink",
+      "os.rename",
+      "os.rmdir"
+    ],
     "related_errors": []
   },
   {
@@ -14557,9 +14407,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.basename('/a/b/c.txt'))   # → c.txt"
+      "print(os.path.basename('/a/b/c.txt'))   # → c.txt",
+      "path = '/home/user/file.txt'",
+      "print(os.path.basename(path))  # → file.txt",
+      "print(os.path.basename('/home/user/'))  # → '' (пустой хвост)"
     ],
-    "related": [],
+    "related": [
+      "os.path.dirname",
+      "os.path.split"
+    ],
     "related_errors": []
   },
   {
@@ -14588,9 +14444,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.dirname('/a/b/c.txt'))   # → /a/b"
+      "print(os.path.dirname('/a/b/c.txt'))   # → /a/b",
+      "path = '/home/user/file.txt'",
+      "print(os.path.dirname(path))  # → /home/user",
+      "print(os.path.dirname('file.txt'))  # → '' (без каталога)"
     ],
-    "related": [],
+    "related": [
+      "os.path.basename",
+      "os.path.split"
+    ],
     "related_errors": []
   },
   {
@@ -14619,9 +14481,14 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.split('/a/b/c'))   # → ('/a/b', 'c')"
+      "print(os.path.split('/a/b/c'))   # → ('/a/b', 'c')",
+      "path = '/home/user/file.txt'",
+      "print(os.path.split(path))  # → ('/home/user', 'file.txt')"
     ],
-    "related": [],
+    "related": [
+      "os.path.dirname",
+      "os.path.basename"
+    ],
     "related_errors": []
   },
   {
@@ -15022,9 +14889,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.exists(os.__file__))   # → True"
+      "print(os.path.exists(os.__file__))   # → True",
+      "print(os.path.exists('/tmp'))  # → True",
+      "print(os.path.exists('/nonexistent'))  # → False"
     ],
-    "related": [],
+    "related": [
+      "os.path.isfile",
+      "os.path.isdir",
+      "path.exists"
+    ],
     "related_errors": []
   },
   {
@@ -15084,9 +14957,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.isdir(os.path.dirname(os.__file__)))   # → True"
+      "print(os.path.isdir(os.path.dirname(os.__file__)))   # → True",
+      "print(os.path.isdir('/tmp'))  # → True",
+      "print(os.path.isdir('/etc/hosts'))  # → False (это файл)"
     ],
-    "related": [],
+    "related": [
+      "os.path.exists",
+      "os.path.isfile",
+      "path.is_dir"
+    ],
     "related_errors": []
   },
   {
@@ -15115,9 +14994,15 @@
     ],
     "examples": [
       "import os",
-      "print(os.path.isfile(os.__file__))   # → True"
+      "print(os.path.isfile(os.__file__))   # → True",
+      "print(os.path.isfile('/etc/hosts'))  # → True",
+      "print(os.path.isfile('/tmp'))  # → False (это каталог)"
     ],
-    "related": [],
+    "related": [
+      "os.path.exists",
+      "os.path.isdir",
+      "path.is_file"
+    ],
     "related_errors": []
   },
   {
@@ -16168,7 +16053,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.getcwd()",
+    "syntax": "os.getcwd() -> str",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.getcwd",
@@ -16182,9 +16067,14 @@
     ],
     "examples": [
       "import os",
-      "print(isinstance(os.getcwd(), str))   # → True"
+      "print(isinstance(os.getcwd(), str))   # → True",
+      "print(type(os.getcwd()))  # → <class 'str'>",
+      "start = os.getcwd()  # запомнить текущий каталог"
     ],
-    "related": [],
+    "related": [
+      "os.chdir",
+      "path.cwd"
+    ],
     "related_errors": []
   },
   {
@@ -19568,7 +19458,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.chdir(...)",
+    "syntax": "os.chdir(path) -> None",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.chdir",
@@ -19584,9 +19474,15 @@
       "import os",
       "cwd = os.getcwd()",
       "os.chdir(cwd)",
-      "print(os.getcwd() == cwd)   # → True"
+      "print(os.getcwd() == cwd)   # → True",
+      "start = os.getcwd()",
+      "os.chdir('/tmp')",
+      "print(os.getcwd())  # → /tmp",
+      "os.chdir(start)  # вернуться в исходный каталог"
     ],
-    "related": [],
+    "related": [
+      "os.getcwd"
+    ],
     "related_errors": []
   },
   {
@@ -19638,7 +19534,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.makedirs(...)",
+    "syntax": "os.makedirs(name, mode=0o777, exist_ok=False)",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.makedirs",
@@ -19657,9 +19553,15 @@
       "d = os.path.join(base, 'a', 'b')",
       "os.makedirs(d)",
       "print(os.path.isdir(d))   # → True",
-      "os.removedirs(d)"
+      "os.removedirs(d)",
+      "os.makedirs('a/b/c', exist_ok=True)  # → создаёт вложенные папки",
+      "os.makedirs('new_dir', exist_ok=True)  # → не ошибка если папка уже есть"
     ],
-    "related": [],
+    "related": [
+      "os.rmdir",
+      "os.removedirs",
+      "path.mkdir"
+    ],
     "related_errors": []
   },
   {
@@ -19674,7 +19576,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.rmdir(...)",
+    "syntax": "os.rmdir(path)",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.rmdir",
@@ -19691,9 +19593,15 @@
       "import tempfile",
       "d = tempfile.mkdtemp()",
       "os.rmdir(d)",
-      "print(os.path.exists(d))   # → False"
+      "print(os.path.exists(d))   # → False",
+      "os.makedirs('a/b/c', exist_ok=True)",
+      "os.rmdir('a/b/c')  # → удаляет только пустую c",
+      "print(os.path.isdir('a/b'))  # → True"
     ],
-    "related": [],
+    "related": [
+      "os.makedirs",
+      "os.removedirs"
+    ],
     "related_errors": []
   },
   {
@@ -19744,7 +19652,7 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "os.rename(...)",
+    "syntax": "os.rename(src, dst)",
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/os.html#os.rename",
@@ -19764,9 +19672,15 @@
       "p2 = p + '_r'",
       "os.rename(p, p2)",
       "print(os.path.exists(p2) and not os.path.exists(p))   # → True",
-      "os.remove(p2)"
+      "os.remove(p2)",
+      "os.rename('old.txt', 'new.txt')  # → переименование",
+      "os.rename('file.txt', '/tmp/file.txt')  # → перемещение",
+      "os.rename('folder_a', 'folder_b')  # → переименование папки"
     ],
-    "related": [],
+    "related": [
+      "os.remove",
+      "path.rename"
+    ],
     "related_errors": []
   },
   {
