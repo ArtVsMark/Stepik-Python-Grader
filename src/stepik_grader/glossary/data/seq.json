@@ -172,56 +172,6 @@
     "related_errors": []
   },
   {
-    "id": "len-min-max-sum",
-    "title": "len() / min() / max() / sum()",
-    "kind": "function",
-    "summary": {
-      "ru": "len() — количество элементов. min()/max() — минимум/максимум. sum() — сумма числовых элементов.",
-      "en": "len() — the number of items. min()/max() — the smallest/largest one. sum() — the sum of numeric items."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "len(lst)  |  min(lst)  |  max(lst)  |  sum(lst)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-len-min-max-sum",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "агрегация",
-    "aliases": [],
-    "keywords": [
-      "len",
-      "min",
-      "max",
-      "sum"
-    ],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "lst = [3, 1, 4, 1, 5, 9, 2, 6]",
-      "print(len(lst))",
-      "# → 8",
-      "print(min(lst))",
-      "# → 1",
-      "print(max(lst))",
-      "# → 9",
-      "print(sum(lst))",
-      "# → 31",
-      "try:",
-      "    min([])",
-      "except ValueError as e:",
-      "    print(type(e).__name__)",
-      "# → ValueError (min на пустой последовательности — крайний случай)",
-      "print(sum([]))",
-      "# → 0"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "len-min-max-sum-для-кортежей",
     "title": "len/min/max/sum для кортежей",
     "kind": "term",
@@ -255,57 +205,6 @@
       "# → 9",
       "print(sum(t))",
       "# → 31"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "map-filter-для-списков",
-    "title": "map() / filter() для списков",
-    "kind": "term",
-    "summary": {
-      "ru": "map() применяет функцию к каждому элементу. filter() отбирает элементы по условию. Оба возвращают итераторы.",
-      "en": "map() applies a function to every item. filter() keeps the items that satisfy a condition. Both return iterators."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "map(func, iterable)  |  filter(func, iterable)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-map-filter-для-списков",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
-    "version": "",
-    "section": "Списки (list)",
-    "subcat": "функциональное",
-    "aliases": [],
-    "keywords": [
-      "map",
-      "filter"
-    ],
-    "tags": [
-      "seq"
-    ],
-    "examples": [
-      "print(list(map(str, [1, 2, 3])))",
-      "# → ['1', '2', '3']",
-      "print(list(map(lambda x: x**2, [1, 2, 3, 4])))",
-      "# → [1, 4, 9, 16]",
-      "print(list(filter(lambda x: x > 2, [1, 2, 3, 4])))",
-      "# → [3, 4]",
-      "print(list(filter(None, [0, 1, '', 'a', None, 2])))",
-      "# → [1, 'a', 2] (filter(None, ...) — отбор истинных)",
-      "a = [1, 2, 3]",
-      "b = [10, 20, 30]",
-      "print(list(map(lambda x, y: x+y, a, b)))",
-      "# → [11, 22, 33]",
-      "words = ['hello', '', 'world', '']",
-      "print(list(filter(lambda w: w, words)))",
-      "# → ['hello', 'world']",
-      "nums = [1, 2, 3, 4, 5, 6]",
-      "evens_sq = list(map(lambda x: x**2, filter(lambda x: x%2==0, nums)))",
-      "print(evens_sq)",
-      "# → [4, 16, 36]"
     ],
     "related": [],
     "related_errors": []

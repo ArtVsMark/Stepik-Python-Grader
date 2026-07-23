@@ -2967,48 +2967,6 @@
     "related_errors": []
   },
   {
-    "id": "functools.lru_cache-functools.cache-1",
-    "title": "functools.lru_cache / functools.cache",
-    "kind": "term",
-    "summary": {
-      "ru": "lru_cache кэширует результаты вызовов (LRU, ограниченный размер). cache — то же без ограничения (Python 3.9+). Только для хешируемых аргументов.",
-      "en": "lru_cache caches the results of calls (LRU, bounded size). cache is the same thing without a bound (Python 3.9+). Only for hashable arguments."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "@functools.lru_cache(maxsize=128)\n@functools.cache",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.lru_cache-functools.cache-1",
-    "docs_url": "https://docs.python.org/3/library/functools.html",
-    "version": "3.9+",
-    "section": "Модуль functools",
-    "subcat": "кэширование",
-    "aliases": [],
-    "keywords": [
-      "functools.lru_cache",
-      "functools.cache"
-    ],
-    "tags": [
-      "module"
-    ],
-    "examples": [
-      "from functools import lru_cache, cache",
-      "@lru_cache(maxsize=128)",
-      "def fib(n):",
-      "return n if n < 2 else fib(n-1) + fib(n-2)",
-      "print(fib(10))  # → 55",
-      "print(fib.cache_info())  # → CacheInfo(hits=8, misses=11, maxsize=128, currsize=11)",
-      "fib.cache_clear()  # → очистка кэша",
-      "@cache",
-      "def fact(n): return 1 if n == 0 else n * fact(n-1)",
-      "print(fact(5))  # → 120"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "functools.partial-1",
     "title": "functools.partial",
     "kind": "term",
@@ -8700,7 +8658,9 @@
       "print(sq(4))                        # → 16",
       "print(sq(4), sq.cache_info().hits)  # → 16 1"
     ],
-    "related": [],
+    "related": [
+      "functools.cache"
+    ],
     "related_errors": []
   },
   {
@@ -8734,7 +8694,9 @@
       "    return n + 1",
       "print(f(10), f(10))   # → 11 11"
     ],
-    "related": [],
+    "related": [
+      "functools.lru_cache"
+    ],
     "related_errors": []
   },
   {
