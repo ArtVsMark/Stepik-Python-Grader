@@ -8056,20 +8056,20 @@
     "related_errors": []
   },
   {
-    "id": "unittest-assertEqual",
-    "title": "assertEqual() / assertRaises()",
+    "id": "unittest.assertEqual",
+    "title": "assertEqual()",
     "kind": "function",
     "summary": {
-      "ru": "assertEqual(a, b) проверяет равенство. assertRaises(Exc) проверяет, что блок или вызов поднимает нужное исключение.",
-      "en": "assertEqual(a, b) checks equality. assertRaises(Exc) checks that the block or the call raises the expected exception."
+      "ru": "Проверяет, что два значения равны (==), и при расхождении печатает оба. Базовое утверждение TestCase — на нём строится большинство проверок.",
+      "en": "Assert that two values are equal (==), printing both on failure; the basic TestCase assertion most checks are built on."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "self.assertEqual(a, b)\nself.assertRaises(ExcType, callable, *args)\nwith self.assertRaises(ExcType): ...",
+    "syntax": "self.assertEqual(first, second, msg=None)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-unittest-assertEqual",
+    "url": "",
     "docs_url": "https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertEqual",
     "version": "",
     "section": "Модуль unittest",
@@ -8077,7 +8077,7 @@
     "aliases": [],
     "keywords": [
       "assertEqual",
-      "assertRaises"
+      "TestCase.assertEqual"
     ],
     "tags": [
       "module"
@@ -8085,16 +8085,55 @@
     "examples": [
       "import unittest",
       "class Tests(unittest.TestCase):",
-      "def test_equal(self):",
-      "self.assertEqual(2 ** 3, 8)",
-      "self.assertNotEqual(1, 2)",
-      "def test_raises(self):",
-      "with self.assertRaises(ValueError):",
-      "int('abc')",
-      "def test_raises2(self):",
-      "self.assertRaises(ZeroDivisionError, lambda: 1/0)"
+      "    def test_equal(self):",
+      "        self.assertEqual(2 ** 3, 8)",
+      "        self.assertNotEqual(1, 2)"
     ],
-    "related": [],
+    "related": [
+      "unittest.assertRaises",
+      "unittest.setUp"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "unittest.assertRaises",
+    "title": "assertRaises()",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, что код поднимает нужное исключение. Как контекстный менеджер (with) проверяет блок, а с вызываемым объектом — конкретный вызов.",
+      "en": "Assert that code raises the expected exception: as a context manager (with) it checks a block, or pass a callable to check a single call."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "with self.assertRaises(ExcType): ...\nself.assertRaises(ExcType, callable, *args)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/unittest.html#unittest.TestCase.assertRaises",
+    "version": "",
+    "section": "Модуль unittest",
+    "subcat": "проверки",
+    "aliases": [],
+    "keywords": [
+      "assertRaises",
+      "TestCase.assertRaises"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import unittest",
+      "class Tests(unittest.TestCase):",
+      "    def test_raises(self):",
+      "        with self.assertRaises(ValueError):",
+      "            int('abc')",
+      "    def test_raises_call(self):",
+      "        self.assertRaises(ZeroDivisionError, lambda: 1 / 0)"
+    ],
+    "related": [
+      "unittest.assertEqual"
+    ],
     "related_errors": []
   },
   {
@@ -8136,20 +8175,20 @@
     "related_errors": []
   },
   {
-    "id": "unittest-setUp",
-    "title": "setUp() / tearDown()",
+    "id": "unittest.setUp",
+    "title": "setUp()",
     "kind": "function",
     "summary": {
-      "ru": "setUp() запускается перед каждым тестом, tearDown() — после. Используй для подготовки и очистки состояния (БД, файлы, моки).",
-      "en": "setUp() runs before every test, tearDown() after it. Use them to prepare and clean up state (databases, files, mocks)."
+      "ru": "Запускается перед КАЖДЫМ тестом метода класса — готовит состояние (файлы, БД, моки). Падение в setUp помечает тест как error, а не fail.",
+      "en": "Run before EVERY test method of the class to prepare state (files, DB, mocks); a failure inside setUp marks the test as an error, not a failure."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "def setUp(self): ...    # до теста\ndef tearDown(self): ... # после теста",
+    "syntax": "def setUp(self): ...    # до каждого теста",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-unittest-setUp",
+    "url": "",
     "docs_url": "https://docs.python.org/3/library/unittest.html#unittest.TestCase.setUp",
     "version": "",
     "section": "Модуль unittest",
@@ -8157,7 +8196,7 @@
     "aliases": [],
     "keywords": [
       "setUp",
-      "tearDown"
+      "TestCase.setUp"
     ],
     "tags": [
       "module"
@@ -8165,14 +8204,55 @@
     "examples": [
       "import unittest",
       "class DBTest(unittest.TestCase):",
-      "def setUp(self):",
-      "self.data = {'key': 'val'}   # инициализация",
-      "def tearDown(self):",
-      "self.data.clear()            # очистка",
-      "def test_key(self):",
-      "self.assertIn('key', self.data)"
+      "    def setUp(self):",
+      "        self.data = {'key': 'val'}   # инициализация",
+      "    def test_key(self):",
+      "        self.assertIn('key', self.data)"
     ],
-    "related": [],
+    "related": [
+      "unittest.tearDown",
+      "unittest.assertEqual"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "unittest.tearDown",
+    "title": "tearDown()",
+    "kind": "function",
+    "summary": {
+      "ru": "Запускается после КАЖДОГО теста — освобождает то, что занял setUp. Вызывается даже если тест упал, но только если сам setUp отработал успешно.",
+      "en": "Run after EVERY test to release what setUp acquired; it still runs when the test fails, but only if setUp itself completed successfully."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "def tearDown(self): ... # после каждого теста",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/unittest.html#unittest.TestCase.tearDown",
+    "version": "",
+    "section": "Модуль unittest",
+    "subcat": "фикстуры",
+    "aliases": [],
+    "keywords": [
+      "tearDown",
+      "TestCase.tearDown"
+    ],
+    "tags": [
+      "module"
+    ],
+    "examples": [
+      "import unittest",
+      "class DBTest(unittest.TestCase):",
+      "    def setUp(self):",
+      "        self.data = {'key': 'val'}",
+      "    def tearDown(self):",
+      "        self.data.clear()            # очистка"
+    ],
+    "related": [
+      "unittest.setUp"
+    ],
     "related_errors": []
   },
   {

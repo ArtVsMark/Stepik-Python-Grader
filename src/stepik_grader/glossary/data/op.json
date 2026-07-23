@@ -2089,57 +2089,127 @@
     "related_errors": []
   },
   {
-    "id": "read-readline-readlines",
-    "title": "read() / readline() / readlines()",
+    "id": "file.read",
+    "title": "read()",
     "kind": "function",
     "summary": {
-      "ru": "read() — весь файл строкой. readline() — одна строка. readlines() — список строк.",
-      "en": "read() — the whole file as one string. readline() — a single line. readlines() — the list of lines."
+      "ru": "Читает файл целиком в одну строку, либо ровно size символов, если аргумент задан. На большом файле съедает всю память — тогда лучше читать построчно.",
+      "en": "Read the whole file into a single string, or exactly size characters if given; on a large file this loads everything into memory — iterate by lines instead."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "f.read()\nf.readline()\nf.readlines()",
+    "syntax": "f.read(size=-1)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-read-readline-readlines",
-    "docs_url": "https://docs.python.org/3/library/functions.html#open",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.TextIOBase.read",
     "version": "",
     "section": "Файлы и I_O",
     "subcat": "чтение",
     "aliases": [],
     "keywords": [
-      "read",
-      "readline",
+      "read"
+    ],
+    "tags": [
+      "op"
+    ],
+    "examples": [
+      "with open('/tmp/demo.txt', 'w') as f:",
+      "    f.write('line1\\nline2\\nline3\\n')",
+      "with open('/tmp/demo.txt') as f:",
+      "    content = f.read()",
+      "print(repr(content))  # → 'line1\\nline2\\nline3\\n'",
+      "with open('/tmp/demo.txt') as f:",
+      "    print(f.read(5))  # → line1 (ровно 5 символов)"
+    ],
+    "related": [
+      "file.readline",
+      "file.readlines",
+      "file.write"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "file.readline",
+    "title": "readline()",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает одну строку вместе с завершающим '\\n'. По достижении конца файла возвращает пустую строку — по этому признаку и определяют конец.",
+      "en": "Read a single line including its trailing '\\n'; at end of file it returns an empty string, which is how EOF is detected."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "f.readline(size=-1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.IOBase.readline",
+    "version": "",
+    "section": "Файлы и I_O",
+    "subcat": "чтение",
+    "aliases": [],
+    "keywords": [
+      "readline"
+    ],
+    "tags": [
+      "op"
+    ],
+    "examples": [
+      "with open('/tmp/demo.txt', 'w') as f:",
+      "    f.write('line1\\nline2\\n')",
+      "with open('/tmp/demo.txt') as f:",
+      "    first = f.readline()",
+      "    second = f.readline()",
+      "print(repr(first))   # → 'line1\\n'",
+      "print(repr(second))  # → 'line2\\n'"
+    ],
+    "related": [
+      "file.read",
+      "file.readlines"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "file.readlines",
+    "title": "readlines()",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает весь файл в список строк, сохраняя '\\n' на концах. Снять переносы помогает .rstrip() или .splitlines() на результате .read().",
+      "en": "Read the whole file into a list of lines, keeping the trailing '\\n'; strip them with .rstrip() or use .splitlines() on the result of .read()."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "f.readlines(hint=-1)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.IOBase.readlines",
+    "version": "",
+    "section": "Файлы и I_O",
+    "subcat": "чтение",
+    "aliases": [],
+    "keywords": [
       "readlines"
     ],
     "tags": [
       "op"
     ],
     "examples": [
-      "# Создадим файл для примеров",
-      "with open('/tmp/demo.txt','w') as f:",
-      "f.write('line1\\nline2\\nline3\\n')",
+      "with open('/tmp/demo.txt', 'w') as f:",
+      "    f.write('line1\\nline2\\nline3\\n')",
       "with open('/tmp/demo.txt') as f:",
-      "content = f.read()",
-      "print(repr(content))  # → 'line1\\nline2\\nline3\\n'",
-      "with open('/tmp/demo.txt') as f:",
-      "first = f.readline()",
-      "second = f.readline()",
-      "print(first, second)  # → line1\\n  line2\\n",
-      "with open('/tmp/demo.txt') as f:",
-      "lines = f.readlines()",
+      "    lines = f.readlines()",
       "print(lines)  # → ['line1\\n','line2\\n','line3\\n']",
-      "# read(n) — n байт",
       "with open('/tmp/demo.txt') as f:",
-      "chunk = f.read(5)",
-      "print(chunk)  # → line1",
-      "# Убрать \\n",
-      "with open('/tmp/demo.txt') as f:",
-      "lines = [l.rstrip() for l in f.readlines()]",
-      "print(lines)  # → ['line1','line2','line3']"
+      "    print([s.rstrip() for s in f.readlines()])  # → ['line1','line2','line3']"
     ],
-    "related": [],
+    "related": [
+      "file.read",
+      "file.readline"
+    ],
     "related_errors": []
   },
   {
@@ -2583,53 +2653,81 @@
     "related_errors": []
   },
   {
-    "id": "write-writelines",
-    "title": "write() / writelines()",
+    "id": "file.write",
+    "title": "write()",
     "kind": "function",
     "summary": {
-      "ru": "write(str) — записывает строку. writelines(iterable) — записывает список строк (без автоматических переносов).",
-      "en": "write(str) writes a string. writelines(iterable) writes a list of strings (with no newlines added)."
+      "ru": "Записывает строку в файл и возвращает число записанных символов. Переносы строк сам не добавляет — '\\n' нужно писать явно.",
+      "en": "Write a string to the file and return the number of characters written; it adds no line breaks, so '\\n' must be written explicitly."
     },
     "body": {
       "ru": "",
       "en": ""
     },
-    "syntax": "f.write('text')\nf.writelines(['a','b'])",
+    "syntax": "f.write(s)",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-write-writelines",
-    "docs_url": "https://docs.python.org/3/library/functions.html#open",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.TextIOBase.write",
     "version": "",
     "section": "Файлы и I_O",
     "subcat": "запись",
     "aliases": [],
     "keywords": [
-      "write",
+      "write"
+    ],
+    "tags": [
+      "op"
+    ],
+    "examples": [
+      "with open('/tmp/out.txt', 'w') as f:",
+      "    f.write('Hello')",
+      "    f.write('\\nWorld')",
+      "with open('/tmp/out.txt', 'w') as f:",
+      "    n = f.write('Hello World')",
+      "print(n)  # → 11"
+    ],
+    "related": [
+      "file.writelines",
+      "file.read"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "file.writelines",
+    "title": "writelines()",
+    "kind": "function",
+    "summary": {
+      "ru": "Записывает все строки из итерируемого подряд. Разделители НЕ добавляет — '\\n' должен быть в самих строках, иначе всё склеится в одну.",
+      "en": "Write every string from an iterable in sequence; it adds no separators, so '\\n' must already be in the strings or everything runs together."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "f.writelines(lines)",
+    "status": "ready",
+    "url": "",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.IOBase.writelines",
+    "version": "",
+    "section": "Файлы и I_O",
+    "subcat": "запись",
+    "aliases": [],
+    "keywords": [
       "writelines"
     ],
     "tags": [
       "op"
     ],
     "examples": [
-      "with open('/tmp/out.txt','w') as f:",
-      "f.write('Hello')",
-      "f.write('\\nWorld')",
-      "# writelines",
-      "lines = ['line1\\n','line2\\n','line3\\n']",
-      "with open('/tmp/out2.txt','w') as f:",
-      "f.writelines(lines)",
-      "# Запись с генератором",
-      "with open('/tmp/out3.txt','w') as f:",
-      "f.writelines(f'{i}\\n' for i in range(5))",
-      "# Число символов, записанных write()",
-      "with open('/tmp/out.txt','w') as f:",
-      "n = f.write('Hello World')",
-      "print(n)  # → 11",
-      "# Бинарная запись",
-      "with open('/tmp/bytes.bin','wb') as f:",
-      "f.write(b'\\xff\\xfe\\x00\\x01')",
-      "print('binary written')"
+      "lines = ['line1\\n', 'line2\\n', 'line3\\n']",
+      "with open('/tmp/out2.txt', 'w') as f:",
+      "    f.writelines(lines)",
+      "with open('/tmp/out3.txt', 'w') as f:",
+      "    f.writelines(f'{i}\\n' for i in range(5))"
     ],
-    "related": [],
+    "related": [
+      "file.write"
+    ],
     "related_errors": []
   },
   {
