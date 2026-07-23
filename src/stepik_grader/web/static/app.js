@@ -1,5 +1,5 @@
 // app.js — entry: связывание слушателей и bootstrap; импортирует модули (#426).
-import { loadGlossary, loadRules, parseGlossaryHash, renderGlossaryChips, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
+import { loadGlossary, loadRules, parseGlossaryHash, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
 import { $, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
 import { downloadTask, loadAuthStatus, startBrowserAuth } from "./downloader.js";
 import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
@@ -26,9 +26,13 @@ function setLang(value) {
   // issue #363: контент глоссария локализуется сервером по ?lang=. Сбрасываем
   // кеш карточек и, если раздел открыт, перезагружаем — summary/body сменят
   // язык без перезагрузки страницы; ранее открытая карточка переоткрывается.
+  // issue #685: индекс разделов (sections/sectionGroups/счётчики) от языка НЕ
+  // зависит и здесь не сбрасывается: при раскрытом семействе перезагрузка
+  // вернёт только его карточки, и полный индекс восстановить будет неоткуда —
+  // список разделов схлопнулся бы до одного пункта «Все». Подписи разделов
+  // (section_label) догоняют язык из самой выдачи, см. loadGlossary.
   const openId = state.glossary.selectedId;
   state.glossary.cards = [];
-  state.glossary.sections = [];
   if (state.section === "glossary") {
     loadGlossary().then(() => {
       if (openId) selectGlossaryCard(openId, { fromHash: true });
@@ -306,15 +310,11 @@ $("#rules-search").addEventListener("input", e => {
   state.rules.query = e.target.value;
   rulesSearchTimer = setTimeout(() => loadRules(), 200);
 });
-$("#glossary-section").addEventListener("change", e => {
-  state.glossary.section = e.target.value;
-  renderGlossaryChips();
-  loadGlossary();
-});
-$("#glossary-kind").addEventListener("change", e => {
-  state.glossary.kind = e.target.value;
-  loadGlossary();
-});
+// issue #685: кнопки семейств, разделов и «пилюля» фильтра рисуются динамически
+// (из поля `group` карточек), поэтому свои слушатели навешивают сами — в
+// renderGlossaryGroups / renderGlossaryGroupSections / renderGlossaryFilterPill.
+// Селектов «Раздел» и «Тип» больше нет: их роль выполняют семейства (kind
+// дублировал навигацию — исключения = раздел «Исключения»).
 $("#glossary-status").addEventListener("change", e => {
   state.glossary.status = e.target.value;
   loadGlossary();

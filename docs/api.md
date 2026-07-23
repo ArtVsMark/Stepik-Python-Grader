@@ -162,18 +162,30 @@ curl "http://127.0.0.1:8000/api/source?path=task_1.py"
 
 | Параметр | Обязателен | Значение |
 |---|---|---|
-| `q` | нет | подстрока по `id`/`title`/`aliases`/`keywords`/`tags` (пусто = все) |
+| `q` | нет | подстрока по `id`/`title`/`aliases`/`keywords`/`tags`, `summary`/`body` (RU+EN, issue #536) и `syntax`/`examples` (issue #685); пусто = все |
 | `section` | нет | точное имя раздела (напр. `Кортежи (tuple)`) |
 | `kind` | нет | `function` / `exception` / `construct` / `term` |
 | `status` | нет | `new` / `draft` / `ready` / `exported` |
-| `sort` | нет | `az` (A–Я) / `section` (раздел→A–Я) / `version` (версионированные вперёд) |
+| `group` | нет | семейство разделов (issue #685): `modules` (все разделы «Модуль X») / `types` (встроенные типы) / `syntax` (конструкции языка) / `builtins` (встроенные функции и исключения) / `io` (ввод-вывод и файлы) / `algorithms` / `other` (разделы без явного семейства); неизвестное значение игнорируется |
+| `sort` | нет | `relevance` (качество совпадения с `q`, при пустом `q` = `az`) / `az` (A–Я) / `section` (раздел→A–Я) / `version` (версионированные вперёд) |
 | `lang` | нет | `ru`/`en` (issue #363) — локаль `summary`/`body` в ответе (fallback `ru`) |
+
+Каждая карточка ответа несёт два вычисляемых сервером поля (issue #685):
+`group` — семейство её раздела (UI строит по нему и кнопки семейств, и список
+разделов внутри раскрытого, не повторяя правило у себя) и `section_label` —
+подпись раздела на языке `?lang=` (`Модуль math` → `Module math`), тогда как
+само `section` остаётся серверным **значением фильтра** и не переводится.
+Семейства покрывают **все** разделы базы (неклассифицированный раздел падает в
+`other`), потому что в UI они заменили собой селект «Раздел». Те же два поля
+отдаёт и [`GET /api/glossary/<id>`](#get-apiglossaryid).
 
 ```
 curl "http://127.0.0.1:8000/api/glossary?q=ZeroDivisionError"
 curl "http://127.0.0.1:8000/api/glossary?q=sorted&lang=en"
 curl "http://127.0.0.1:8000/api/glossary?section=Кортежи%20(tuple)&sort=az"
 curl "http://127.0.0.1:8000/api/glossary?kind=exception&sort=az"
+curl "http://127.0.0.1:8000/api/glossary?group=modules&sort=az"
+curl "http://127.0.0.1:8000/api/glossary?q=split&sort=relevance"
 ```
 
 ## `GET /api/glossary/missing`

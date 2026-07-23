@@ -35,13 +35,142 @@ __all__ = [
     "queue_code_gaps",
 ]
 
-# Допустимые сортировки раздела «Глоссарий» (issue #329). Всё прочее → порядок
-# источника (без сортировки).
-_SORTS = frozenset({"az", "section", "version"})
+# Допустимые сортировки раздела «Глоссарий» (issue #329, relevance — #685).
+# Всё прочее → порядок источника (без сортировки).
+_SORTS = frozenset({"relevance", "az", "section", "version"})
+
+# Семейства разделов (issue #685) — грань ?group=, вычисляемая из ``section``,
+# без нового поля в карточках. Семейства покрывают ВСЕ разделы базы: в UI они
+# заменили собой селект «Раздел» и чипы, поэтому раздел без семейства стал бы
+# недостижимым в навигации. Страховка от такого дрейфа двойная: неизвестный
+# раздел падает в ``other`` («Прочее» — кнопка появляется, только если семейство
+# непусто), а тест ``test_every_bundled_section_has_explicit_group`` требует,
+# чтобы в комплектной базе ``other`` оставалось пустым — новый раздел из аудита
+# карточек (#684) обязан быть классифицирован здесь явно.
+_MODULE_SECTION_PREFIX = "Модуль "
+_SECTION_GROUPS: dict[str, str] = {
+    # Типы данных — встроенные типы и их методы.
+    "Строки (str)": "types",
+    "Списки (list)": "types",
+    "Кортежи (tuple)": "types",
+    "Словари (dict)": "types",
+    "Множества (set)": "types",
+    "Байтовые последовательности": "types",
+    "Числа и математика": "types",
+    "Типы данных": "types",
+    "Встроенные типы": "types",
+    # Синтаксис языка — конструкции, а не библиотечные функции.
+    "Функции": "syntax",
+    "ООП": "syntax",
+    "Циклы": "syntax",
+    "Условный оператор": "syntax",
+    "Итераторы и генераторы": "syntax",
+    "Асинхронное программирование": "syntax",
+    "Арифметика и операторы": "syntax",
+    "Аннотации и typing": "syntax",
+    # Встроенное и ошибки.
+    "Встроенные функции": "builtins",
+    "Исключения": "builtins",
+    # Ввод-вывод.
+    "Ввод и вывод": "io",
+    "Файлы и I_O": "io",
+    # Алгоритмы и структуры данных (учебная тема, не тип и не модуль).
+    "Алгоритмы и структуры данных": "algorithms",
+}
+_OTHER_GROUP = "other"
+_GROUPS = frozenset({"modules", *_SECTION_GROUPS.values(), _OTHER_GROUP})
+
+# EN-подписи разделов (issue #685). Имя раздела — серверное ЗНАЧЕНИЕ фильтра
+# (`?section=`) и остаётся русским; наружу вместе с ним едет `section_label` —
+# то, что показывает UI. Переводы живут здесь, рядом с классификацией, а не в
+# ui.json: там ключ пришлось бы синтезировать из русской строки, и любой
+# переименованный при аудите (#684) раздел давал бы маркер ⟦…⟧ вместо текста.
+# Здесь незнакомый раздел просто показывается как есть.
+_MODULE_SECTION_PREFIX_EN = "Module "
+_SECTION_LABELS_EN: dict[str, str] = {
+    "Строки (str)": "Strings (str)",
+    "Списки (list)": "Lists (list)",
+    "Кортежи (tuple)": "Tuples (tuple)",
+    "Словари (dict)": "Dictionaries (dict)",
+    "Множества (set)": "Sets (set)",
+    "Байтовые последовательности": "Byte sequences",
+    "Числа и математика": "Numbers & math",
+    "Типы данных": "Data types",
+    "Встроенные типы": "Built-in types",
+    "Функции": "Functions",
+    "ООП": "OOP",
+    "Циклы": "Loops",
+    "Условный оператор": "Conditionals",
+    "Итераторы и генераторы": "Iterators & generators",
+    "Асинхронное программирование": "Async programming",
+    "Арифметика и операторы": "Arithmetic & operators",
+    "Аннотации и typing": "Annotations & typing",
+    "Встроенные функции": "Built-in functions",
+    "Исключения": "Exceptions",
+    "Ввод и вывод": "Input & output",
+    "Файлы и I_O": "Files & I/O",
+    "Алгоритмы и структуры данных": "Algorithms & data structures",
+}
 
 
-def _sort_cards(cards: list[GlossaryCard], sort: str | None) -> list[GlossaryCard]:
-    """Отсортировать карточки: az (A–Z), section (раздел→A–Z), version (версия→A–Z)."""
+def _section_label(section: str, lang: str) -> str:
+    """Подпись раздела для UI: RU — как есть, EN — перевод (fallback — исходник).
+
+    Разделы модулей переводятся правилом «Модуль X» → «Module X»: имя модуля
+    (``math``, ``os``) — не текст для перевода, а идентификатор.
+    """
+    if lang != "en" or not section:
+        return section
+    if section.startswith(_MODULE_SECTION_PREFIX):
+        return _MODULE_SECTION_PREFIX_EN + section[len(_MODULE_SECTION_PREFIX) :]
+    return _SECTION_LABELS_EN.get(section, section)
+
+
+# При коллизии «хвоста» (``split`` есть у str/bytes/bytearray) предпочитаем
+# метод основного типа, который новичок и имеет в виду: str → list → dict → …
+# Работает и на матче концепций из кода (``_card_index``), и на тай-брейке
+# релевантной выдачи (``_sort_cards``, issue #685).
+_TYPE_PRIORITY: tuple[str, ...] = ("str.", "list.", "dict.", "set.", "tuple.")
+
+
+def _type_priority(card: GlossaryCard) -> int:
+    """Позиция типа-владельца карточки в ``_TYPE_PRIORITY`` (не из списка — в конец)."""
+    cid = card.id.lower()
+    for i, prefix in enumerate(_TYPE_PRIORITY):
+        if cid.startswith(prefix):
+            return i
+    return len(_TYPE_PRIORITY)
+
+
+def _card_group(card: GlossaryCard) -> str:
+    """Семейство карточки по её разделу (``modules``/``types``/… либо ``other``).
+
+    Отдаётся в API вместе с карточкой (issue #685): UI строит из этого поля и
+    ряд кнопок-семейств, и список разделов внутри раскрытого семейства — правило
+    классификации живёт только здесь и в JS не повторяется.
+    """
+    if card.section.startswith(_MODULE_SECTION_PREFIX):
+        return "modules"
+    return _SECTION_GROUPS.get(card.section, _OTHER_GROUP)
+
+
+def _sort_cards(cards: list[GlossaryCard], sort: str | None, query: str = "") -> list[GlossaryCard]:
+    """Отсортировать карточки: relevance, az (A–Z), section (раздел→A–Z), version.
+
+    ``relevance`` (issue #685) — по качеству совпадения с ``query``
+    (``GlossaryCard.match_rank``), тай-брейк — приоритет типа-владельца
+    (``str.split`` выше ``bytearray.split``, тот же ``_TYPE_PRIORITY``, что у
+    матча из кода) и затем A–Z. Без запроса ранжировать нечего, поэтому режим
+    вырождается ровно в ``az``: приоритет типа там не применяется (иначе
+    выдача «просто открыл раздел» перестала бы быть алфавитной — методы ``str.``
+    всплыли бы наверх).
+    """
+    if sort == "relevance":
+        if not query.strip():
+            return sorted(cards, key=lambda c: c.title.lower())
+        return sorted(
+            cards, key=lambda c: (c.match_rank(query), _type_priority(c), c.title.lower())
+        )
     if sort == "az":
         return sorted(cards, key=lambda c: c.title.lower())
     if sort == "section":
@@ -178,6 +307,7 @@ def glossary_search(
     kind: str | None = None,
     status: str | None = None,
     sort: str | None = None,
+    group: str | None = None,
     lang: str = "ru",
     store_path: pathlib.Path | None = None,
 ) -> list[dict[str, Any]]:
@@ -186,6 +316,12 @@ def glossary_search(
     - ``query`` — подстрока по search-терминам (пустой = без текстового фильтра);
     - ``section``/``kind`` — точное совпадение соответствующего поля (issue #329);
       разделы НЕ объединяются — «Списки (list)» и «Кортежи (tuple)» раздельно;
+    - ``group`` (issue #685) — семейство разделов: ``modules`` (все разделы
+      «Модуль X»), ``types`` (встроенные типы), ``syntax`` (конструкции языка),
+      ``builtins`` (встроенные функции и исключения), ``io`` (ввод-вывод и
+      файлы), ``algorithms``, ``other`` (не классифицированные разделы).
+      Считается из ``section`` (``_card_group``), нового поля в карточках не
+      требует; неизвестное значение игнорируется, как и неизвестный ``sort``;
     - ``status`` (issue #436) — по умолчанию (``None``) выдача ограничена
       ``ready`` (черновики автогенерации не шумят); ``"all"`` — показать все
       статусы; иное значение — точное совпадение (``draft``/``new``/…);
@@ -210,11 +346,23 @@ def glossary_search(
         cards = [c for c in cards if c.section == section]
     if kind:
         cards = [c for c in cards if c.kind == kind]
+    if group in _GROUPS:
+        cards = [c for c in cards if _card_group(c) == group]
     effective_status = status if status else "ready"
     if effective_status != "all":
         cards = [c for c in cards if c.status == effective_status]
-    cards = _sort_cards(cards, sort)
-    return [c.to_api_dict(lang) for c in cards]
+    cards = _sort_cards(cards, sort, query)
+    # ``group``/``section_label`` — аддитивные поля ответа (issue #685): по
+    # первому UI строит семейства и списки их разделов, второе — подпись раздела
+    # на языке ``lang`` (само ``section`` остаётся серверным значением фильтра).
+    return [
+        {
+            **c.to_api_dict(lang),
+            "group": _card_group(c),
+            "section_label": _section_label(c.section, lang),
+        }
+        for c in cards
+    ]
 
 
 def glossary_get(
@@ -222,15 +370,18 @@ def glossary_get(
 ) -> dict[str, Any] | None:
     """Карточка по id, либо None (адаптер отдаёт 404 в этом случае).
 
-    ``lang`` — локаль ``?lang=`` для ``summary``/``body`` (issue #363, fallback RU).
+    ``lang`` — локаль ``?lang=`` для ``summary``/``body`` (issue #363, fallback RU)
+    и для подписи раздела ``section_label`` (issue #685) — как в ``glossary_search``,
+    чтобы deep-link на карточку показывал раздел на том же языке, что и список.
     """
     card = _glossary_index(store_path).by_id.get(card_id)  # issue #404: O(1) вместо O(n)
-    return card.to_api_dict(lang) if card is not None else None
-
-
-# При коллизии «хвоста» (``split`` есть у str/bytes/bytearray) предпочитаем
-# метод основного типа, который новичок и имеет в виду: str → list → dict → …
-_TYPE_PRIORITY: tuple[str, ...] = ("str.", "list.", "dict.", "set.", "tuple.")
+    if card is None:
+        return None
+    return {
+        **card.to_api_dict(lang),
+        "group": _card_group(card),
+        "section_label": _section_label(card.section, lang),
+    }
 
 
 def _card_index(cards: list[GlossaryCard]) -> dict[str, GlossaryCard]:
@@ -242,16 +393,8 @@ def _card_index(cards: list[GlossaryCard]) -> dict[str, GlossaryCard]:
     ``str.split`` (issue #322). При конфликте «хвоста» побеждает карточка
     основного типа (``str.split`` важнее ``bytearray.split``).
     """
-
-    def priority(card: GlossaryCard) -> int:
-        cid = card.id.lower()
-        for i, prefix in enumerate(_TYPE_PRIORITY):
-            if cid.startswith(prefix):
-                return i
-        return len(_TYPE_PRIORITY)
-
     index: dict[str, GlossaryCard] = {}
-    for card in sorted(cards, key=priority):  # приоритетные типы кладутся первыми
+    for card in sorted(cards, key=_type_priority):  # приоритетные типы кладутся первыми
         keys = {card.id, card.id.rsplit(".", 1)[-1], *card.aliases}
         for key in keys:
             k = key.strip().lower()

@@ -630,6 +630,38 @@ select.form-input { cursor: pointer; }
 .chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .chip.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
 .chip-locked { opacity: 0.5; } /* issue #540: ещё не взятый бейдж приглушён */
+/* issue #685: навигация глоссария — сетка кнопок ОДНОГО размера (у чипов по
+   контенту ширина скакала, ряд выглядел рваным), длинная подпись обрезается
+   многоточием (полная — в title), счётчик всегда прижат вправо. */
+.chip-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: var(--space-2); margin-bottom: var(--space-2);
+}
+.chip-grid .chip { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.chip-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.chip-count { opacity: .65; font-variant-numeric: tabular-nums; }
+.chip-group[aria-expanded="true"] .chip-label::after { content: " ▾"; }
+.chip-group[aria-expanded="false"] .chip-label::after { content: " ▸"; }
+.chip-grid-nested {
+  margin-left: var(--space-3); padding-left: var(--space-3);
+  border-left: 2px solid var(--color-border);
+  /* «Модули» — 30 разделов: без ограничения панель утаскивала список карточек
+     за экран. Дальше — прокрутка внутри самой панели. */
+  max-height: 9.5rem; overflow-y: auto;
+}
+/* «Пилюля» текущего фильтра: видна и когда панель разделов свёрнута. */
+.glossary-pill-row { margin-bottom: var(--space-2); }
+.glossary-pill {
+  display: inline-flex; align-items: center; gap: var(--space-2); max-width: 100%;
+  padding: var(--space-1) var(--space-3); border-radius: 999px;
+  border: 1px solid var(--color-primary); background: var(--color-primary-highlight);
+  color: var(--color-primary); font-size: var(--text-xs); font-weight: 600;
+}
+.glossary-pill-clear {
+  border: none; background: none; cursor: pointer; padding: 0 0 0 var(--space-1);
+  color: inherit; font-size: var(--text-xs); line-height: 1;
+}
+.glossary-pill-clear:hover { opacity: .7; }
 .glossary-filter-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
 .glossary-filter-row .form-input { flex: 1; min-width: 96px; font-size: var(--text-xs); padding: var(--space-1) var(--space-2); }
 #glossary-count { font-size: var(--text-xs); }
