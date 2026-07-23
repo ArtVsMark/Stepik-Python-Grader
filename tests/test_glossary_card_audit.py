@@ -54,6 +54,44 @@ def test_no_matcher_unsafe_multifunction_cards() -> None:
     )
 
 
+def test_no_matcher_unsafe_single_function_cards() -> None:
+    """Одиночная карточка-вызов (`logging.debug()`, `.iterdir()`) достижима детектором."""
+    unsafe = _AUDIT.unsafe_single_function_cards(_AUDIT.load_cards())
+    assert unsafe == [], (
+        "matcher-unsafe одиночные карточки-вызовы (добавь чистое имя в keywords "
+        "или поправь kind): " + "; ".join(f"{cid} → {concept}" for cid, concept in unsafe[:10])
+    )
+
+
+def test_single_function_titles_skips_prose_and_bundles() -> None:
+    """В одиночный инвариант не попадают бандлы и «не одна функция» (PR #702)."""
+    ids = {c.id for c in _AUDIT.single_function_titles(_AUDIT.load_cards())}
+    assert "logging-debug" in ids and ".iterdir" in ids
+    # `repr() vs str()` и `for ... in reversed()` — не вызовы, а сравнение и
+    # конструкция: их чинил kind (term/construct), а не keywords.
+    assert {"repr-vs-str", "for-...-in-reversed"}.isdisjoint(ids)
+    assert "os.getcwd-os.chdir" not in ids  # бандл — за unsafe_multifunction_cards
+
+
+def test_bundled_single_function_concepts_are_detector_known() -> None:
+    """Интеграция: вызовы одиночных карточек не уходят в очередь «Недостающее»."""
+    known = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).known_terms()
+    detector = MissingConceptDetector()
+    code = (
+        "import copy, hashlib, logging, os, re, subprocess\n"
+        "from concurrent.futures import as_completed\n"
+        "from unittest.mock import patch\n"
+        'logging.basicConfig(); logging.debug("x"); logging.getLogger("a")\n'
+        'os.getenv("HOME"); os.scandir("."); re.escape("a"); copy.deepcopy([1])\n'
+        'hashlib.md5(b"x"); hashlib.sha256(b"x")\n'
+        'subprocess.run(["ls"]); subprocess.check_output(["ls"]); subprocess.Popen(["ls"])\n'
+        'as_completed([]); patch("m.f")\n'
+    )
+    emitted = {e.concept for e in detector.detect_from_code(code, known=set())}
+    assert "logging.debug" in emitted, "детектор не эмитит logging.debug — обнови образец кода"
+    assert [e.concept for e in detector.detect_from_code(code, known=known)] == []
+
+
 def test_part_to_concept_normalizes_calls_and_dotted_paths() -> None:
     """part_to_concept снимает ведущую точку и хвостовые скобки, хранит dotted-путь."""
     assert _AUDIT.part_to_concept(".is_file()") == "is_file"

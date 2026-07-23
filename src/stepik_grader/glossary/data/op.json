@@ -924,7 +924,7 @@
   {
     "id": "for-...-in-reversed",
     "title": "for ... in reversed()",
-    "kind": "function",
+    "kind": "construct",
     "summary": {
       "ru": "reversed() возвращает итератор, обходящий последовательность в обратном порядке. Работает со списками, кортежами, строками, range и любыми объектами с __reversed__.",
       "en": "reversed() returns an iterator that walks a sequence backwards. It works with lists, tuples, strings, ranges and any object with __reversed__."

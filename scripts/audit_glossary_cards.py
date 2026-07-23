@@ -7,12 +7,15 @@
 1. **Структура (hard).** У каждой ``ready``-карточки есть минимально обязательный
    набор полей (``REQUIRED_READY_FIELDS``) — de-facto-набор, который уже держат
    все 1333 карточки; фиксируем его инвариантом, чтобы база не разъехалась.
-2. **Мультифункциональность / матч (hard).** Карточка, чей ``title`` перечисляет
-   несколько имён через `` / `` (напр. ``os.getcwd() / os.chdir()``), должна быть
-   «matcher-safe»: для КАЖДОГО перечисленного вызова его чистое имя достижимо
-   детектором пробелов (``detector._is_known``) — иначе ``«Функции в коде»`` и
-   coverage ложно считают имя непокрытым (см. issue #684, гибридное решение:
-   часть бандлов разбита на 1-концепт-карточки, остальным добит ``keywords``).
+2. **Матч детектором (hard).** Карточка-вызов должна быть «matcher-safe»: её
+   чистое имя достижимо детектором пробелов (``detector._is_known``) — иначе
+   ``«Функции в коде»`` и coverage ложно считают имя непокрытым. Проверяется в
+   двух видах: мультифункциональные карточки, чей ``title`` перечисляет
+   несколько имён через `` / `` (напр. ``os.getcwd() / os.chdir()``), — по
+   КАЖДОМУ вызову (issue #684, гибридное решение: часть бандлов разбита на
+   1-концепт-карточки, остальным добит ``keywords``), и одиночные
+   ``kind="function"`` карточки, чей ``title`` — один вызов
+   (``logging.debug()``, ``.iterdir()``) — по нему одному (PR #702).
 3. **RU/EN (hard, ratchet).** Число карточек без ``summary_en`` не должно расти
    выше ``MAX_CARDS_WITHOUT_EN``. Отдельная волна #684 перевела все 525 карточек
    старого импорта из Glossary-Python, поэтому планка сведена к 0: теперь это
@@ -45,7 +48,9 @@ __all__ = [
     "main",
     "multifunction_titles",
     "part_to_concept",
+    "single_function_titles",
     "unsafe_multifunction_cards",
+    "unsafe_single_function_cards",
 ]
 
 # Минимально обязательный набор полей для status=ready (issue #684). Это de-facto
@@ -164,6 +169,42 @@ def unsafe_multifunction_cards(cards: list[GlossaryCard]) -> list[tuple[str, lis
     return out
 
 
+def single_function_titles(cards: list[GlossaryCard]) -> list[GlossaryCard]:
+    """Одиночные ``kind="function"`` карточки, чей ``title`` — ровно один вызов.
+
+    Бандлы (`` / ``) остаются за ``unsafe_multifunction_cards``. Title с пробелом
+    внутри (``repr() vs str()``, ``for ... in reversed()``, «Очередь (queue)»)
+    исключается намеренно: детектор такой concept не производит, а сама карточка
+    описывает не одну функцию — это сигнал неверного ``kind`` (лечится
+    ``term``/``construct``, PR #702), а не пробела в ``keywords``.
+    """
+    return [
+        c
+        for c in cards
+        if c.kind == "function"
+        and " / " not in c.title
+        and " " not in c.title.strip()
+        and _is_detector_part(c.title)
+    ]
+
+
+def unsafe_single_function_cards(cards: list[GlossaryCard]) -> list[tuple[str, str]]:
+    """``(card_id, недостижимый concept)`` для одиночных карточек-функций (PR #702).
+
+    Тот же баг matcher-safety, что у бандлов, но у карточки с одним вызовом:
+    ``title`` ``logging.debug()``/``.iterdir()`` не даёт search-терма, равного
+    concept'у детектора (``logging.debug``/``iterdir``), а ``id`` — слаг с дефисом.
+    Лечится чистым именем в ``keywords``: dotted-форма для модульных функций,
+    голое имя для методов.
+    """
+    out: list[tuple[str, str]] = []
+    for card in single_function_titles(cards):
+        concept = part_to_concept(card.title)
+        if not is_matcher_safe(card, concept):
+            out.append((card.id, concept))
+    return out
+
+
 def _print_report(cards: list[GlossaryCard]) -> None:
     """Печать отчёта-чеклиста (issue #684)."""
     n = len(cards)
@@ -197,7 +238,12 @@ def _print_report(cards: list[GlossaryCard]) -> None:
     print(f"RU/EN: без summary_en — {len(missing_en)} (ratchet ≤ {MAX_CARDS_WITHOUT_EN})")
     multi = multifunction_titles(cards)
     unsafe = unsafe_multifunction_cards(cards)
-    print(f"Мультифункц. (title c ' / '): {len(multi)}; из них matcher-unsafe: {len(unsafe)}\n")
+    print(f"Мультифункц. (title c ' / '): {len(multi)}; из них matcher-unsafe: {len(unsafe)}")
+    single = single_function_titles(cards)
+    unsafe_single = unsafe_single_function_cards(cards)
+    print(
+        f"Одиночные карточки-вызовы: {len(single)}; из них matcher-unsafe: {len(unsafe_single)}\n"
+    )
 
 
 def _check_invariants(cards: list[GlossaryCard]) -> list[str]:
@@ -218,6 +264,15 @@ def _check_invariants(cards: list[GlossaryCard]) -> list[str]:
         )
         for cid, concepts in unsafe[:30]:
             errors.append(f"    {cid}: недостижимы {', '.join(concepts)}")
+
+    unsafe_single = unsafe_single_function_cards(cards)
+    if unsafe_single:
+        errors.append(
+            f"{len(unsafe_single)} одиночных карточек-вызовов matcher-unsafe "
+            "(добавь чистое имя concept'а в keywords или поправь kind):"
+        )
+        for cid, concept in unsafe_single[:30]:
+            errors.append(f"    {cid}: недостижим {concept}")
 
     missing_en = cards_missing_en(cards)
     if len(missing_en) > MAX_CARDS_WITHOUT_EN:

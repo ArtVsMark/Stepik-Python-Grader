@@ -2068,7 +2068,7 @@
   {
     "id": "repr-vs-str",
     "title": "repr() vs str()",
-    "kind": "function",
+    "kind": "term",
     "summary": {
       "ru": "str() возвращает «читаемое» представление объекта для вывода пользователю. repr() возвращает «однозначное» представление, пригодное для воспроизведения объекта в коде; используется в интерактивной консоли и при отладке.",
       "en": "str() returns the 'readable' representation of an object, meant for the user. repr() returns the 'unambiguous' representation, suitable for recreating the object in code; it is what the interactive console and debugging show."
