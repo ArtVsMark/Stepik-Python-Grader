@@ -14,14 +14,15 @@
     "syntax": "abs(x)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-abs",
-    "docs_url": "https://docs.python.org/3/",
+    "docs_url": "https://docs.python.org/3/library/functions.html#abs",
     "version": "",
     "section": "Арифметика и операторы",
     "subcat": "числа",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "print(abs(-7))  # → 7",
@@ -138,14 +139,15 @@
     "syntax": "bool([x])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bool",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#bool",
     "version": "",
     "section": "Типы данных",
     "subcat": "логика",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "print(True, False)  # → True False",
@@ -222,17 +224,18 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "bytearray(n)  bytearray(iterable)  bytearray(b\"...\")",
+    "syntax": "bytearray(n)  bytearray(iterable)  bytearray(b\"...\")  bytearray(source, encoding)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bytearray",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#bytearray",
     "version": "",
     "section": "Типы данных",
     "subcat": "байты",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "ba = bytearray(5); print(ba)      # → bytearray(b'\\x00\\x00\\x00\\x00\\x00')",
@@ -258,17 +261,18 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "bytes(n)  bytes(iterable)  b\"...\"  bytes.fromhex(hex_str)",
+    "syntax": "bytes(n)  bytes(iterable)  b\"...\"  bytes.fromhex(hex_str)  bytes(source, encoding)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-bytes",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#bytes",
     "version": "",
     "section": "Типы данных",
     "subcat": "байты",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "print(bytes(5))              # → b'\\x00\\x00\\x00\\x00\\x00'",
@@ -276,7 +280,8 @@
       "print(bytes([72, 101, 108]))  # → b'Hel'",
       "print(bytes.fromhex(\"ff00ab\"))  # → b'\\xff\\x00\\xab'",
       "b = b\"ABC\"; print(b[0])      # → 65",
-      "print(b\"hello\".hex())         # → 68656c6c6f"
+      "print(b\"hello\".hex())         # → 68656c6c6f",
+      "print(bytes(\"hello\", \"utf-8\"))  # → b'hello' (из строки с кодировкой)"
     ],
     "related": [],
     "related_errors": []
@@ -331,14 +336,15 @@
     "syntax": "complex(real, imag)  a+bj  z.real  z.imag  abs(z)  z.conjugate()",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-complex",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#complex",
     "version": "",
     "section": "Типы данных",
     "subcat": "числа",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "z = 3 + 4j; print(z)           # → (3+4j)",
@@ -346,7 +352,8 @@
       "print(z.real, z.imag)           # → 3.0 4.0",
       "print(abs(z))                   # → 5.0",
       "print((1+2j) * (3+4j))          # → (-5+10j)",
-      "print(z.conjugate())            # → (3-4j)"
+      "print(z.conjugate())            # → (3-4j)",
+      "print(complex(\"3+4j\"))          # → (3+4j) (разбор строки)"
     ],
     "related": [],
     "related_errors": []
@@ -639,14 +646,15 @@
     "syntax": "divmod(a, b) -> (a // b, a % b)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-divmod",
-    "docs_url": "https://docs.python.org/3/",
+    "docs_url": "https://docs.python.org/3/library/functions.html#divmod",
     "version": "",
     "section": "Арифметика и операторы",
     "subcat": "числа",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "print(divmod(10, 3))  # → (3, 1)",
@@ -656,7 +664,8 @@
       "print(f\"{pages} страниц, остаток {rem}\")  # → 10 страниц, остаток 5",
       "q, r = divmod(17, 5)",
       "print(f\"17 = 5 * {q} + {r}\")  # → 17 = 5 * 3 + 2",
-      "print(divmod(-7, 2))  # → (-4, 1) (знак остатка — как у делителя)"
+      "print(divmod(-7, 2))  # → (-4, 1) (знак остатка — как у делителя)",
+      "print(divmod(3.5, 1.5))  # → (2.0, 0.5) (работает и с float)"
     ],
     "related": [],
     "related_errors": []
@@ -757,14 +766,15 @@
     "syntax": "enumerate(iterable, start=0)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-enumerate",
-    "docs_url": "https://docs.python.org/3/",
+    "docs_url": "https://docs.python.org/3/library/functions.html#enumerate",
     "version": "",
     "section": "Циклы",
     "subcat": "итерация",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "fruits = [\"яблоко\", \"банан\", \"вишня\"]",
@@ -778,7 +788,8 @@
       "print(\"индекс 20:\", i)  # → индекс 20: 1",
       "nums = [5, 3, 8, 1]",
       "max_i, max_v = max(enumerate(nums), key=lambda x: x[1])",
-      "print(max_i, max_v)  # → 2 8"
+      "print(max_i, max_v)  # → 2 8",
+      "print(dict(enumerate(\"abc\")))  # → {0: 'a', 1: 'b', 2: 'c'}"
     ],
     "related": [
       "zip",
@@ -801,14 +812,15 @@
     "syntax": "filter(func, iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-filter",
-    "docs_url": "https://docs.python.org/3/",
+    "docs_url": "https://docs.python.org/3/library/functions.html#filter",
     "version": "",
     "section": "Функции",
     "subcat": "функциональное",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "nums = [1, -2, 3, -4, 5]",
@@ -832,7 +844,8 @@
       "print(non_empty_d)  # → [{'a':1},{'b':2}]",
       "# filter + map",
       "result = list(map(lambda x: x**2, filter(lambda x: x%2==0, range(6))))",
-      "print(result)  # → [0, 4, 16]"
+      "print(result)  # → [0, 4, 16]",
+      "print(list(filter(str.isdigit, \"a1b2c3\")))  # → ['1', '2', '3']"
     ],
     "related": [
       "map"
@@ -854,14 +867,15 @@
     "syntax": "float([x])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-float",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#float",
     "version": "",
     "section": "Типы данных",
     "subcat": "числа",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "x = 3.14  # литерал float",
@@ -870,7 +884,8 @@
       "print(round(0.1 + 0.2, 10))  # → 0.3 (ошибка точности IEEE 754)",
       "import math; print(math.inf)  # → inf",
       "print(float(\"nan\"))  # → nan",
-      "print(0.1 + 0.2 == 0.3)  # → False (проблема точности float)"
+      "print(0.1 + 0.2 == 0.3)  # → False (проблема точности float)",
+      "print(float(42))  # → 42.0 (int → float)"
     ],
     "related": [],
     "related_errors": []
@@ -983,51 +998,6 @@
       "Fraction(1, 3) * 3 # → Fraction(1, 1)",
       "Fraction(22, 7) # → Fraction(22, 7)",
       "float(Fraction(1, 3)) # → 0.3333333333333333"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "functools.partial",
-    "title": "functools.partial",
-    "kind": "term",
-    "summary": {
-      "ru": "Создаёт новую функцию с частично заполненными аргументами (частичное применение).",
-      "en": "Creates a new function with some of the arguments already filled in (partial application)."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "from functools import partial\nnew_f = partial(f, arg=val)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-functools.partial",
-    "docs_url": "https://docs.python.org/3/",
-    "version": "",
-    "section": "Функции",
-    "subcat": "functools",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "op"
-    ],
-    "examples": [
-      "from functools import partial",
-      "def power(base, exp):",
-      "return base ** exp",
-      "square = partial(power, exp=2)",
-      "print(square(4))  # → 16",
-      "cube = partial(power, exp=3)",
-      "print(cube(3))  # → 27",
-      "add = lambda a, b: a + b",
-      "add10 = partial(add, 10)",
-      "print(add10(5))  # → 15",
-      "print_sep = partial(print, sep=', ')",
-      "print_sep(1, 2, 3)  # → 1, 2, 3",
-      "# partial с методом",
-      "from functools import partial",
-      "int2 = partial(int, base=2)",
-      "print(int2('1010'))  # → 10"
     ],
     "related": [],
     "related_errors": []
@@ -1301,14 +1271,15 @@
     "syntax": "int([x]) | int(x, base)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-int",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#int",
     "version": "",
     "section": "Типы данных",
     "subcat": "числа",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "x = 42  # обычное целое",
@@ -1317,7 +1288,8 @@
       "b = 0b1010  # двоичный → 10",
       "h = 0xFF  # шестнадцатеричный → 255",
       "big = 10 ** 100  # Python поддерживает big int без ограничений",
-      "print(int(\"FF\", 16))  # → 255 (из строки с основанием)"
+      "print(int(\"FF\", 16))  # → 255 (из строки с основанием)",
+      "print(int(3.99))  # → 3 (усечение, а не округление)"
     ],
     "related": [],
     "related_errors": []
@@ -1375,14 +1347,15 @@
     "syntax": "isinstance(object, classinfo) -> bool",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-isinstance",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#isinstance",
     "version": "",
     "section": "Типы данных",
     "subcat": "интроспекция",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "print(isinstance(42, int))  # → True",
@@ -1575,14 +1548,15 @@
     "syntax": "map(func, iterable)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-map",
-    "docs_url": "https://docs.python.org/3/",
+    "docs_url": "https://docs.python.org/3/library/functions.html#map",
     "version": "",
     "section": "Функции",
     "subcat": "функциональное",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "nums = [1, 2, 3, 4]",
@@ -1717,7 +1691,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "# Чтение текстового файла",
@@ -1932,21 +1907,23 @@
     "syntax": "pow(base, exp[, mod])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-pow",
-    "docs_url": "https://docs.python.org/3/",
+    "docs_url": "https://docs.python.org/3/library/functions.html#pow",
     "version": "",
     "section": "Арифметика и операторы",
     "subcat": "числа",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "print(pow(2, 10))  # → 1024",
       "print(pow(3, 3))  # → 27",
       "print(pow(2, -1))  # → 0.5 (отрицательный показатель)",
       "print(pow(2, 10, 1000))  # → 24 (2**10 % 1000, модульная арифметика)",
-      "print(pow(3, 100, 7))  # → 4 (быстрое вычисление по модулю)"
+      "print(pow(3, 100, 7))  # → 4 (быстрое вычисление по модулю)",
+      "print(pow(4, 0.5))  # → 2.0 (дробная степень — корень)"
     ],
     "related": [],
     "related_errors": []
@@ -1954,10 +1931,10 @@
   {
     "id": "range",
     "title": "range()",
-    "kind": "function",
+    "kind": "term",
     "summary": {
-      "ru": "Встроенная функция, генерирующая последовательность целых чисел. Не хранит все числа в памяти — ленивая генерация. Используется в for-циклах.",
-      "en": "Built-in function that generates a sequence of integers. It does not hold all the numbers in memory — the generation is lazy. Used in for loops."
+      "ru": "Неизменяемая последовательность целых чисел: не хранит все числа в памяти, а вычисляет их на лету. Используется в for-циклах и срезах.",
+      "en": "An immutable sequence of integers: it does not hold all the numbers in memory but computes them on the fly. Used in for loops and in slices."
     },
     "body": {
       "ru": "",
@@ -1966,14 +1943,15 @@
     "syntax": "range(stop) | range(start, stop) | range(start, stop, step)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-range",
-    "docs_url": "https://docs.python.org/3/",
+    "docs_url": "https://docs.python.org/3/library/functions.html#range",
     "version": "",
     "section": "Циклы",
     "subcat": "range",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "print(list(range(5)))  # → [0, 1, 2, 3, 4]",
@@ -2235,14 +2213,15 @@
     "syntax": "round(number[, ndigits])",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-round",
-    "docs_url": "https://docs.python.org/3/",
+    "docs_url": "https://docs.python.org/3/library/functions.html#round",
     "version": "",
     "section": "Арифметика и операторы",
     "subcat": "числа",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "print(round(3.7))  # → 4",
@@ -2410,14 +2389,15 @@
     "syntax": "str([object]) | \"текст\" | 'текст'",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-str",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#str",
     "version": "",
     "section": "Типы данных",
     "subcat": "строки",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "greeting = \"Привет\"  # строковый литерал",
@@ -2426,7 +2406,9 @@
       "print(len(\"Python\"))  # → 6",
       "print(\"Py\" in \"Python\")  # → True",
       "print(\"Python\"[0])  # → P (индексирование)",
-      "print(\"Python\"[1:4])  # → yth (срез)"
+      "print(\"Python\"[1:4])  # → yth (срез)",
+      "print(str(42), str(3.14), str(None))  # → 42 3.14 None (приведение к строке)",
+      "print(repr(str(42)))  # → '42' (результат — строка, а не число)"
     ],
     "related": [],
     "related_errors": []
@@ -2443,17 +2425,18 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "type(object) -> type",
+    "syntax": "type(object) -> type\ntype(name, bases, dict) -> type",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-type",
-    "docs_url": "https://docs.python.org/3/library/stdtypes.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#type",
     "version": "",
     "section": "Типы данных",
     "subcat": "интроспекция",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "print(type(42))  # → <class 'int'>",
@@ -2463,7 +2446,9 @@
       "print(type(None))  # → <class 'NoneType'>",
       "x = 42",
       "print(type(x) == int)  # → True (сравнение типов)",
-      "print(type(True) == type(1))  # → False (bool != int при type())"
+      "print(type(True) == type(1))  # → False (bool != int при type())",
+      "A = type(\"A\", (), {\"x\": 42})  # три аргумента — динамическое создание класса",
+      "print(A.x)  # → 42"
     ],
     "related": [],
     "related_errors": []
@@ -2646,14 +2631,15 @@
     "syntax": "zip(*iterables)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-zip",
-    "docs_url": "https://docs.python.org/3/",
+    "docs_url": "https://docs.python.org/3/library/functions.html#zip",
     "version": "",
     "section": "Циклы",
     "subcat": "итерация",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "op"
+      "op",
+      "builtin"
     ],
     "examples": [
       "names = [\"Анна\", \"Борис\", \"Вера\"]",
@@ -2669,7 +2655,8 @@
       "result = list(zip_longest([1, 2, 3], [10, 20], fillvalue=0))",
       "print(result)  # → [(1, 10), (2, 20), (3, 0)]",
       "# словарь из двух списков",
-      "print(dict(zip(['a','b','c'], [1,2,3])))  # → {'a':1,'b':2,'c':3}"
+      "print(dict(zip(['a','b','c'], [1,2,3])))  # → {'a':1,'b':2,'c':3}",
+      "print(list(zip([1, 2, 3], [4, 5])))  # → [(1, 4), (2, 5)] (по короткому)"
     ],
     "related": [
       "enumerate",

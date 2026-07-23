@@ -88,52 +88,6 @@
     "related_errors": []
   },
   {
-    "id": "contextlib.suppress",
-    "title": "contextlib.suppress",
-    "kind": "exception",
-    "summary": {
-      "ru": "Подавляет указанные исключения. Аналог try/except pass. Читаемее и лаконичнее.",
-      "en": "Suppresses the given exceptions. The equivalent of try/except pass, but shorter and easier to read."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "from contextlib import suppress\nwith suppress(FileNotFoundError):\n    os.remove('file')",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-contextlib.suppress",
-    "docs_url": "https://docs.python.org/3/library/exceptions.html",
-    "version": "",
-    "section": "Исключения",
-    "subcat": "contextlib",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "exc"
-    ],
-    "examples": [
-      "from contextlib import suppress",
-      "with suppress(FileNotFoundError):",
-      "import os",
-      "os.remove('/nonexistent_file')  # → тихо игнорируется",
-      "print('Continued normally')  # → Continued normally",
-      "with suppress(KeyError):",
-      "d = {'a': 1}",
-      "print(d['missing'])  # → подавлено",
-      "print('ok')  # → ok",
-      "with suppress(ZeroDivisionError, ValueError):",
-      "x = 1/0  # → подавлено",
-      "# Сравни с try/except pass",
-      "import os",
-      "try:",
-      "os.remove('no_file')",
-      "except FileNotFoundError:",
-      "pass  # эквивалент suppress"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "else-в-try-except",
     "title": "else в try-except",
     "kind": "exception",

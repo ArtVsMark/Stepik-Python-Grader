@@ -38,40 +38,6 @@
     "related_errors": []
   },
   {
-    "id": "abs-1",
-    "title": "abs",
-    "kind": "term",
-    "summary": {
-      "ru": "Возвращает абсолютное значение (модуль) числа. Работает с int, float и complex (возвращает float для комплексных).",
-      "en": "Returns the absolute value (magnitude) of a number. Works with int, float and complex (returns a float for complex numbers)."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "abs(x)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-abs-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#abs",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "числа",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(abs(-5))  # → 5",
-      "print(abs(3.14))  # → 3.14",
-      "print(abs(-3+4j))  # → 5.0",
-      "print(abs(0))  # → 0",
-      "print(sorted([-3,1,-2], key=abs))  # → [1, -2, -3]"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "all",
     "title": "all",
     "kind": "term",
@@ -214,40 +180,6 @@
     "related_errors": []
   },
   {
-    "id": "bool-1",
-    "title": "bool",
-    "kind": "term",
-    "summary": {
-      "ru": "Логический тип данных. Подкласс int: True == 1, False == 0. bool(x) возвращает результат проверки истинности x.",
-      "en": "The boolean type. A subclass of int: True == 1, False == 0. bool(x) returns the truth value of x."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "bool(x)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-bool-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#bool",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "типы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(bool(0))  # → False",
-      "print(bool(''))  # → False",
-      "print(bool([]))  # → False",
-      "print(bool(1))  # → True",
-      "print(bool('hello'))  # → True"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "breakpoint",
     "title": "breakpoint",
     "kind": "term",
@@ -278,76 +210,6 @@
       "os.environ['PYTHONBREAKPOINT']='0'  # отключить",
       "# breakpoint()  # → войти в pdb",
       "print('Debugging would start here')  # → debug point"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "bytearray-1",
-    "title": "bytearray",
-    "kind": "term",
-    "summary": {
-      "ru": "Изменяемая последовательность байт. В отличие от bytes, поддерживает присвоение по индексу и методы append(), extend().",
-      "en": "A mutable sequence of bytes. Unlike bytes, it supports item assignment and the append() and extend() methods."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "bytearray(source, encoding)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-bytearray-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#bytearray",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "типы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "ba = bytearray(5)",
-      "ba[0] = 65",
-      "print(ba)  # → bytearray(b'A\\x00...')",
-      "ba2 = bytearray(b'hello')",
-      "ba2[0] = ord('H')",
-      "print(ba2)  # → bytearray(b'Hello')",
-      "print(bytearray.fromhex('4142'))  # → bytearray(b'AB')"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "bytes-1",
-    "title": "bytes",
-    "kind": "term",
-    "summary": {
-      "ru": "Неизменяемая последовательность байт (целых чисел 0–255). Используется для бинарных данных и текста в определённой кодировке.",
-      "en": "An immutable sequence of bytes (integers 0–255). Used for binary data and for text in a particular encoding."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "bytes(source, encoding)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-bytes-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#bytes",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "типы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(bytes(5))  # → b'\\x00\\x00\\x00\\x00\\x00'",
-      "print(bytes([65,66,67]))  # → b'ABC'",
-      "print(bytes('hello','utf-8'))  # → b'hello'",
-      "b = bytes(b'hello'); print(b[0])  # → 104",
-      "print(b.hex())  # → 68656c6c6f"
     ],
     "related": [],
     "related_errors": []
@@ -423,45 +285,6 @@
     "related_errors": []
   },
   {
-    "id": "classmethod-1",
-    "title": "classmethod",
-    "kind": "term",
-    "summary": {
-      "ru": "Дескриптор для создания метода класса. Обычно используется как @classmethod.",
-      "en": "Descriptor that creates a method bound to the class. Normally used as the @classmethod decorator."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "@classmethod\ndef f(cls): ...",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-classmethod-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#classmethod",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "ООП",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "class C:",
-      "x = 10",
-      "@classmethod",
-      "def get_x(cls): return cls.x",
-      "print(C.get_x())  # → 10",
-      "class D(C): x = 20",
-      "print(D.get_x())  # → 20",
-      "print(type(C.__dict__['get_x']))  # → classmethod",
-      "c = C(); print(c.get_x())  # → 10",
-      "print(C.get_x.__func__)  # → функция"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "compile",
     "title": "compile",
     "kind": "term",
@@ -493,41 +316,6 @@
       "code2 = compile('[x**2 for x in range(5)]','<s>','eval')",
       "print(eval(code2))  # → [0,1,4,9,16]",
       "print(type(code))  # → <class 'code'>"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "complex-1",
-    "title": "complex",
-    "kind": "term",
-    "summary": {
-      "ru": "Встроенный тип для комплексных чисел вида a+bj. Поддерживает арифметику, атрибуты .real и .imag, метод conjugate().",
-      "en": "Built-in type for complex numbers of the form a+bj. Supports arithmetic, the .real and .imag attributes and the conjugate() method."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "complex(real=0, imag=0)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-complex-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#complex",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "типы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(complex(3, 4))   # → (3+4j)",
-      "print(complex('3+4j'))  # → (3+4j)",
-      "z = 3+4j",
-      "print(z.real, z.imag)  # → 3.0 4.0",
-      "print(abs(z))  # → 5.0",
-      "print(z.conjugate())  # → (3-4j)"
     ],
     "related": [],
     "related_errors": []
@@ -645,41 +433,6 @@
     "related_errors": []
   },
   {
-    "id": "divmod-1",
-    "title": "divmod",
-    "kind": "term",
-    "summary": {
-      "ru": "Возвращает кортеж (целое частное, остаток от деления). Эквивалент (a // b, a % b), но выполняется за одну операцию.",
-      "en": "Returns the tuple (quotient, remainder) of a division. Equivalent to (a // b, a % b), but computed in a single operation."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "divmod(a, b)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-divmod-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#divmod",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "числа",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(divmod(17, 5))  # → (3, 2)",
-      "print(divmod(10, 3))  # → (3, 1)",
-      "q, r = divmod(7, 2)",
-      "print(q, r)  # → 3 1",
-      "print(divmod(-7, 2))  # → (-4, 1)",
-      "print(divmod(3.5, 1.5))  # → (2.0, 0.5)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "end",
     "title": "end=",
     "kind": "term",
@@ -709,42 +462,6 @@
       "print(\"строка без переноса\", end=\"\")  # курсор остаётся на той же строке",
       "print(\"раз\", end=\"\\t\"); print(\"два\")  # → раз\tдва",
       "print(\"конец\", end=\"!\\n\")  # → конец!"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "enumerate-1",
-    "title": "enumerate",
-    "kind": "term",
-    "summary": {
-      "ru": "Оборачивает итерируемый объект, добавляя счётчик. Возвращает пары (индекс, значение). Удобно в циклах for.",
-      "en": "Wraps an iterable and adds a counter. Yields (index, value) pairs. Handy in for loops."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "enumerate(iterable, start=0)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-enumerate-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#enumerate",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "итераторы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "for i,v in enumerate(['a','b','c']):",
-      "print(i,v)  # → 0 a / 1 b / 2 c",
-      "for i,v in enumerate(['x','y'],start=1):",
-      "print(i,v)  # → 1 x / 2 y",
-      "print(list(enumerate('abc')))  # → [(0,'a'),(1,'b'),(2,'c')]",
-      "print(dict(enumerate('abc')))  # → {0:'a',1:'b',2:'c'}",
-      "print(list(enumerate(range(5),10)))  # → [(10,0)...]"
     ],
     "related": [],
     "related_errors": []
@@ -819,75 +536,6 @@
       "exec(f'def {name}(): return \"{name}\"', globals())",
       "make_func('hello')",
       "print(hello())  # → hello"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "filter-1",
-    "title": "filter",
-    "kind": "term",
-    "summary": {
-      "ru": "Фильтрует элементы итерируемого, оставляя только те, для которых функция возвращает True. Возвращает ленивый итератор.",
-      "en": "Filters an iterable, keeping only the items for which the function returns True. Returns a lazy iterator."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "filter(func, iterable)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-filter-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#filter",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "функциональное",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(list(filter(None,[0,'',1,2,None,False])))  # → [1,2]",
-      "print(list(filter(lambda x:x>0,[-1,0,1,2])))  # → [1,2]",
-      "print(list(filter(str.isdigit,'a1b2c3')))  # → ['1','2','3']",
-      "f = filter(lambda x:x%2==0,range(10))",
-      "print(list(f))  # → [0,2,4,6,8]",
-      "print(list(filter(lambda s:len(s)>3,['hi','hello','ok','world'])))"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "float-1",
-    "title": "float",
-    "kind": "term",
-    "summary": {
-      "ru": "Тип числа с плавающей точкой двойной точности (64 бит, IEEE 754). Принимает числа, строки и специальные значения: 'inf', '-inf', 'nan'.",
-      "en": "Double-precision floating-point number type (64-bit, IEEE 754). Accepts numbers, strings and the special values 'inf', '-inf' and 'nan'."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "float(x)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-float-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#float",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "типы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(float('3.14'))  # → 3.14",
-      "print(float(42))    # → 42.0",
-      "print(float('inf')) # → inf",
-      "print(float('nan')) # → nan",
-      "print(float('1e3')) # → 1000.0"
     ],
     "related": [],
     "related_errors": []
@@ -1243,113 +891,12 @@
       "# price = float(input(\"Цена: \"))  # → преобразование в float",
       "# Проверка: x = int(input()) if input().isdigit() else 0",
       "# line1 = input(\"Строка 1: \"); line2 = input(\"Строка 2: \")",
-      "# s = input(\"  hello  \").strip()  # → \"hello\" (убирает пробелы)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "input-1",
-    "title": "input",
-    "kind": "term",
-    "summary": {
-      "ru": "Читает строку с клавиатуры и возвращает её без символа новой строки. Необязательный аргумент prompt — подсказка пользователю.",
-      "en": "Reads a line from the keyboard and returns it without the trailing newline. The optional prompt argument is the text shown to the user."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "input([prompt])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-input-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#input",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "ввод/вывод",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "# В интерактивном режиме:",
-      "# name = input('Your name: ')  # → ждёт ввода",
-      "# Симуляция:",
-      "import io,sys",
+      "# s = input(\"  hello  \").strip()  # → \"hello\" (убирает пробелы)",
+      "# Симуляция ввода без клавиатуры:",
+      "import io, sys",
       "sys.stdin = io.StringIO('Alice\\n')",
-      "name = input()",
-      "print(name)  # → Alice",
-      "sys.stdin = sys.__stdin__",
-      "print(type(name))  # → str"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "int-1",
-    "title": "int",
-    "kind": "term",
-    "summary": {
-      "ru": "Целое число произвольной точности. Принимает строку с основанием системы счисления: int('ff', 16) → 255.",
-      "en": "Arbitrary-precision integer. Accepts a string together with its numeric base: int('ff', 16) → 255."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "int(x, base=10)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-int-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#int",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "типы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(int('42'))    # → 42",
-      "print(int(3.99))   # → 3 (усечение!)",
-      "print(int('1010',2))  # → 10 (двоичное)",
-      "print(int('ff',16))  # → 255",
-      "print(int('17',8))  # → 15"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "isinstance-1",
-    "title": "isinstance",
-    "kind": "term",
-    "summary": {
-      "ru": "True если объект является экземпляром класса (или подкласса).",
-      "en": "True if the object is an instance of the class (or of a subclass of it)."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "isinstance(object, classinfo)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-isinstance-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#isinstance",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "интроспекция/ООП",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(isinstance(42, int))    # → True",
-      "print(isinstance(42, (int,float)))  # → True",
-      "print(isinstance('hi', str))  # → True",
-      "print(isinstance(True, int))  # → True (bool подкласс int)",
-      "print(isinstance([], (list,tuple)))  # → True"
+      "print(input())  # → Alice",
+      "sys.stdin = sys.__stdin__"
     ],
     "related": [],
     "related_errors": []
@@ -1498,40 +1045,6 @@
       "return locals()",
       "print(g(1,2))  # → {'a':1,'b':2,'c':3}",
       "print(type(locals()))  # → dict"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "map-1",
-    "title": "map",
-    "kind": "term",
-    "summary": {
-      "ru": "Применяет функцию к каждому элементу итерируемого и возвращает ленивый итератор результатов.",
-      "en": "Applies a function to every item of an iterable and returns a lazy iterator of the results."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "map(func, iterable)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-map-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#map",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "функциональное",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(list(map(int,['1','2','3'])))  # → [1,2,3]",
-      "print(list(map(str.upper,['a','b'])))  # → ['A','B']",
-      "print(list(map(lambda x:x**2,[1,2,3,4])))  # → [1,4,9,16]",
-      "print(list(map(abs,[-1,-2,3,-4])))  # → [1,2,3,4]",
-      "print(list(map(lambda a,b:a+b,[1,2],[10,20])))  # → [11,22]"
     ],
     "related": [],
     "related_errors": []
@@ -1756,42 +1269,6 @@
     "related_errors": []
   },
   {
-    "id": "open-1",
-    "title": "open",
-    "kind": "term",
-    "summary": {
-      "ru": "Открывает файл и возвращает файловый объект. Поддерживает текстовый и бинарный режимы, кодировки, буферизацию.",
-      "en": "Opens a file and returns a file object. Supports text and binary modes, encodings and buffering."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "open(file, mode='r', encoding=None)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-open-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#open",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "файлы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "with open('/tmp/t.txt','w') as f: f.write('hi')",
-      "with open('/tmp/t.txt') as f: print(f.read())  # → hi",
-      "with open('/tmp/t.txt','rb') as f: print(f.read())  # → b'hi'",
-      "from pathlib import Path",
-      "Path('/tmp/t2.txt').write_text('hello')",
-      "with open('/tmp/t2.txt',encoding='utf-8') as f: print(f.read())  # → hello",
-      "print(type(open('/tmp/t.txt')))  # → TextIOWrapper"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "ord",
     "title": "ord",
     "kind": "term",
@@ -1821,40 +1298,6 @@
       "print(ord('а'))   # → 1072 (кириллица)",
       "print(ord('0'))   # → 48",
       "print([ord(c) for c in 'ABC'])  # → [65,66,67]"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "pow-1",
-    "title": "pow",
-    "kind": "term",
-    "summary": {
-      "ru": "Возводит x в степень y. С третьим аргументом вычисляет pow(x, y, mod) — модульное возведение в степень (эффективно).",
-      "en": "Raises x to the power of y. With a third argument it computes pow(x, y, mod) — modular exponentiation (efficiently)."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "pow(base, exp[, mod])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-pow-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#pow",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "числа",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(pow(2, 10))  # → 1024",
-      "print(pow(2, -1))  # → 0.5",
-      "print(pow(3, 2, 7))  # → 2 (9 % 7)",
-      "print(pow(10, 0))  # → 1",
-      "print(pow(4, 0.5))  # → 2.0"
     ],
     "related": [],
     "related_errors": []
@@ -1893,42 +1336,8 @@
       "print(f\"{3.14159:.2f}\")  # → 3.14",
       "with open(\"/tmp/_test.txt\", \"w\") as f:",
       "print(\"в файл\", file=f)  # записывает строку в файл",
-      "import sys; print(\"!\", flush=True, end=\"\", file=sys.stdout)  # → !"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "print-1",
-    "title": "print",
-    "kind": "term",
-    "summary": {
-      "ru": "Выводит объекты в поток (по умолчанию stdout). Принимает несколько аргументов, sep для разделителя и end для символа конца строки.",
-      "en": "Writes objects to a stream (stdout by default). Takes several arguments, sep for the separator and end for the line terminator."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "print(*objects, sep=' ', end='\\n', file=sys.stdout, flush=False)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-print-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#print",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "ввод/вывод",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(1, 2, 3)           # → 1 2 3",
-      "print(1, 2, sep='-')     # → 1-2",
-      "print('hi', end='!')      # → hi!",
-      "import sys",
-      "print('err', file=sys.stderr)",
-      "print(1, 2, 3, sep=', ', end='.\\n')  # → 1, 2, 3."
+      "import sys; print(\"!\", flush=True, end=\"\", file=sys.stdout)  # → !",
+      "import sys; print(\"ошибка\", file=sys.stderr)  # → в поток ошибок"
     ],
     "related": [],
     "related_errors": []
@@ -1966,81 +1375,6 @@
       "import io; buf = io.StringIO()",
       "print(\"в буфер\", file=buf); print(buf.getvalue())  # → в буфер",
       "print(1, 2, 3, sep=\"-\", file=sys.stdout, flush=True)  # → 1-2-3"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "property-1",
-    "title": "property",
-    "kind": "term",
-    "summary": {
-      "ru": "Создаёт управляемый атрибут с геттером, сеттером и делитером. Позволяет добавить логику к обычному доступу к атрибуту без изменения интерфейса.",
-      "en": "Creates a managed attribute with a getter, a setter and a deleter. Lets you add logic to ordinary attribute access without changing the interface."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "property(fget=None, fset=None, fdel=None)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-property-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#property",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "ООП",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "class C:",
-      "def __init__(self): self._x=0",
-      "def getx(self): return self._x",
-      "def setx(self,v): self._x=v",
-      "x = property(getx, setx)",
-      "c=C(); c.x=10",
-      "print(c.x)  # → 10",
-      "class D:",
-      "@property",
-      "def y(self): return 42",
-      "print(D().y)  # → 42",
-      "print(type(D.__dict__['y']))  # → property"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "range-1",
-    "title": "range",
-    "kind": "term",
-    "summary": {
-      "ru": "Неизменяемая последовательность целых чисел. Используется в циклах for и срезах. Ленивая — не хранит все числа в памяти сразу.",
-      "en": "An immutable sequence of integers. Used in for loops and in slices. Lazy — it does not hold all the numbers in memory at once."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "range(stop)\nrange(start, stop[, step])",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-range-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#range",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "итераторы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(list(range(5)))  # → [0,1,2,3,4]",
-      "print(list(range(2,8)))  # → [2,3,4,5,6,7]",
-      "print(list(range(0,10,2)))  # → [0,2,4,6,8]",
-      "print(list(range(5,0,-1)))  # → [5,4,3,2,1]",
-      "print(sum(range(101)))  # → 5050"
     ],
     "related": [],
     "related_errors": []
@@ -2150,40 +1484,6 @@
       "zip",
       "enumerate"
     ],
-    "related_errors": []
-  },
-  {
-    "id": "round-1",
-    "title": "round",
-    "kind": "term",
-    "summary": {
-      "ru": "Округляет до ndigits знаков. Банковское округление (к чётному).",
-      "en": "Rounds to ndigits decimal places. Uses banker's rounding (ties go to the even digit)."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "round(number, ndigits=0)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-round-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#round",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "числа",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(round(3.14159, 2))  # → 3.14",
-      "print(round(2.5))  # → 2 (банковское!)",
-      "print(round(3.5))  # → 4",
-      "print(round(3.14159))  # → 3",
-      "print(round(1234, -2))  # → 1200"
-    ],
-    "related": [],
     "related_errors": []
   },
   {
@@ -2329,79 +1629,6 @@
     "related_errors": []
   },
   {
-    "id": "staticmethod-1",
-    "title": "staticmethod",
-    "kind": "term",
-    "summary": {
-      "ru": "Декоратор, создающий статический метод класса — без параметров self и cls. Принадлежит классу, но не зависит от экземпляра или самого класса.",
-      "en": "Decorator that creates a static method of a class — one with no self or cls parameter. It belongs to the class but depends neither on an instance nor on the class itself."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "@staticmethod\ndef f(): ...",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-staticmethod-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#staticmethod",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "ООП",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "class Math:",
-      "@staticmethod",
-      "def add(a,b): return a+b",
-      "print(Math.add(3,4))  # → 7",
-      "print(Math().add(3,4))  # → 7",
-      "class Utils:",
-      "@staticmethod",
-      "def is_even(n): return n%2==0",
-      "print(Utils.is_even(4))  # → True",
-      "print(type(Utils.__dict__['is_even']))  # → staticmethod"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "str-1",
-    "title": "str",
-    "kind": "term",
-    "summary": {
-      "ru": "Неизменяемая последовательность символов Unicode. Поддерживает богатый набор методов форматирования, поиска и преобразования.",
-      "en": "An immutable sequence of Unicode characters. Provides a rich set of formatting, searching and conversion methods."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "str(object)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-str-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#str",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "типы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(str(42))     # → '42'",
-      "print(str(3.14))   # → '3.14'",
-      "print(str(True))   # → 'True'",
-      "print(str(None))   # → 'None'",
-      "print(str([1,2]))  # → '[1, 2]'"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "sum",
     "title": "sum",
     "kind": "term",
@@ -2440,44 +1667,6 @@
     "related_errors": []
   },
   {
-    "id": "super-1",
-    "title": "super",
-    "kind": "term",
-    "summary": {
-      "ru": "Возвращает прокси-объект следующего класса в порядке разрешения методов (MRO). Используется для вызова методов родительского класса.",
-      "en": "Returns a proxy object for the next class in the method resolution order (MRO). Used to call methods of a parent class."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "super()\nsuper(type, obj_or_type)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-super-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#super",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "ООП",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "class A:",
-      "def f(self): return 'A'",
-      "class B(A):",
-      "def f(self): return 'B+'+super().f()",
-      "print(B().f())  # → B+A",
-      "class C(B):",
-      "def f(self): return 'C+'+super().f()",
-      "print(C().f())  # → C+B+A",
-      "print(super(B, B()))  # → <super: B, B()>"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "tuple",
     "title": "tuple",
     "kind": "term",
@@ -2508,41 +1697,6 @@
       "a,b,c = t",
       "print(a,b,c)  # → 1 2 3",
       "print(tuple(zip([1,2],[3,4])))  # → ((1,3),(2,4))"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "type-1",
-    "title": "type",
-    "kind": "term",
-    "summary": {
-      "ru": "Возвращает тип объекта. С тремя аргументами — создаёт новый класс.",
-      "en": "Returns the type of an object. With three arguments it creates a new class."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "type(object)\ntype(name, bases, dict)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-type-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#type",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "типы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(type(42))         # → <class 'int'>",
-      "print(type('hello'))    # → <class 'str'>",
-      "print(type([1,2]))      # → <class 'list'>",
-      "print(type(None))       # → <class 'NoneType'>",
-      "A = type('A', (), {'x': 42})",
-      "print(A.x)  # → 42"
     ],
     "related": [],
     "related_errors": []
@@ -2580,42 +1734,6 @@
       "print(vars(int))['__add__']  # → метод int.__add__",
       "print(type(vars()))  # → dict",
       "print('print' in vars(__builtins__) if isinstance(vars(__builtins__),dict) else True)"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
-    "id": "zip-1",
-    "title": "zip",
-    "kind": "term",
-    "summary": {
-      "ru": "Объединяет несколько итерируемых в итератор кортежей из соответствующих элементов. Останавливается на кратчайшем.",
-      "en": "Combines several iterables into an iterator of tuples of the corresponding items. Stops at the shortest one."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "zip(*iterables)",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-zip-1",
-    "docs_url": "https://docs.python.org/3/library/functions.html#zip",
-    "version": "",
-    "section": "Встроенные функции",
-    "subcat": "итераторы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "builtin"
-    ],
-    "examples": [
-      "print(list(zip([1,2],[3,4])))  # → [(1,3),(2,4)]",
-      "print(dict(zip('abc',[1,2,3])))  # → {'a':1,'b':2,'c':3}",
-      "for a,b in zip([1,2],[10,20]):",
-      "print(a+b, end=' ')  # → 11 22",
-      "print(list(zip([1,2,3],[4,5])))  # → [(1,4),(2,5)] короткий!",
-      "from itertools import zip_longest",
-      "print(list(zip_longest([1,2,3],[4,5],fillvalue=0)))"
     ],
     "related": [],
     "related_errors": []

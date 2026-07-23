@@ -614,14 +614,15 @@
     "syntax": "@classmethod\ndef method(cls, ...): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-classmethod",
-    "docs_url": "https://docs.python.org/3/reference/datamodel.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#classmethod",
     "version": "",
     "section": "ООП",
     "subcat": "классы",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "oop"
+      "oop",
+      "builtin"
     ],
     "examples": [
       "class Date:",
@@ -690,92 +691,6 @@
     "related_errors": []
   },
   {
-    "id": "dataclass",
-    "title": "dataclass",
-    "kind": "term",
-    "summary": {
-      "ru": "@dataclass автоматически генерирует __init__, __repr__, __eq__. field() настраивает отдельные поля.",
-      "en": "@dataclass generates __init__, __repr__ and __eq__ automatically. field() tunes individual fields."
-    },
-    "body": {
-      "ru": "",
-      "en": ""
-    },
-    "syntax": "from dataclasses import dataclass\n@dataclass\nclass Point:\n    x: float\n    y: float",
-    "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#e-dataclass",
-    "docs_url": "https://docs.python.org/3/reference/datamodel.html",
-    "version": "",
-    "section": "ООП",
-    "subcat": "классы",
-    "aliases": [],
-    "keywords": [],
-    "tags": [
-      "oop"
-    ],
-    "examples": [
-      "from dataclasses import dataclass",
-      "@dataclass",
-      "class Point:",
-      "x: float",
-      "y: float",
-      "p = Point(1.0, 2.0)",
-      "print(p)  # → Point(x=1.0, y=2.0)",
-      "print(p.x, p.y)  # → 1.0 2.0",
-      "# __eq__ автоматически",
-      "print(Point(1,2) == Point(1,2))  # → True",
-      "print(Point(1,2) == Point(1,3))  # → False",
-      "from dataclasses import dataclass, field",
-      "@dataclass",
-      "class Inventory:",
-      "name: str",
-      "items: list = field(default_factory=list)",
-      "count: int = field(default=0, repr=False)",
-      "inv = Inventory('store')",
-      "inv.items.append('apple')",
-      "print(inv)  # → Inventory(name='store', items=['apple'])",
-      "# frozen=True — неизменяемый",
-      "@dataclass(frozen=True)",
-      "class ImmutablePoint:",
-      "x: float",
-      "y: float",
-      "ip = ImmutablePoint(1,2)",
-      "try:",
-      "ip.x = 5  # → FrozenInstanceError",
-      "except Exception as e:",
-      "print(e)",
-      "# __post_init__",
-      "@dataclass",
-      "class Circle:",
-      "radius: float",
-      "area: float = field(init=False)",
-      "def __post_init__(self):",
-      "import math",
-      "self.area = math.pi * self.radius**2",
-      "c = Circle(5)",
-      "print(round(c.area, 2))  # → 78.54",
-      "# order=True — для сравнения",
-      "@dataclass(order=True)",
-      "class Student:",
-      "grade: int",
-      "name: str",
-      "students = [Student(85,'Bob'), Student(90,'Alice')]",
-      "print(sorted(students))  # → сортировка по grade",
-      "# Наследование dataclass",
-      "@dataclass",
-      "class Animal:",
-      "name: str",
-      "sound: str",
-      "@dataclass",
-      "class Dog(Animal):",
-      "breed: str",
-      "d = Dog('Rex', 'Woof', 'Lab')",
-      "print(d)  # → Dog(name='Rex', sound='Woof', breed='Lab')"
-    ],
-    "related": [],
-    "related_errors": []
-  },
-  {
     "id": "property",
     "title": "@property",
     "kind": "term",
@@ -787,17 +702,18 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "@property\ndef x(self): return self._x",
+    "syntax": "@property\ndef x(self): return self._x\nproperty(fget=None, fset=None, fdel=None)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-property",
-    "docs_url": "https://docs.python.org/3/reference/datamodel.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#property",
     "version": "",
     "section": "ООП",
     "subcat": "property",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "oop"
+      "oop",
+      "builtin"
     ],
     "examples": [
       "class Circle:",
@@ -987,14 +903,15 @@
     "syntax": "@staticmethod\ndef method(...): ...",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-staticmethod",
-    "docs_url": "https://docs.python.org/3/reference/datamodel.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#staticmethod",
     "version": "",
     "section": "ООП",
     "subcat": "методы",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "oop"
+      "oop",
+      "builtin"
     ],
     "examples": [
       "class MathUtils:",
@@ -1046,17 +963,18 @@
       "ru": "",
       "en": ""
     },
-    "syntax": "super().__init__(...)\nsuper().method(...)",
+    "syntax": "super().__init__(...)\nsuper().method(...)\nsuper(type, obj_or_type)",
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-super",
-    "docs_url": "https://docs.python.org/3/reference/datamodel.html",
+    "docs_url": "https://docs.python.org/3/library/functions.html#super",
     "version": "",
     "section": "ООП",
     "subcat": "наследование",
     "aliases": [],
     "keywords": [],
     "tags": [
-      "oop"
+      "oop",
+      "builtin"
     ],
     "examples": [
       "class Animal:",
