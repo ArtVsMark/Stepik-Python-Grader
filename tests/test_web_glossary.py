@@ -392,14 +392,42 @@ class TestGlossaryGroupsAndRelevance:
         assert {c["id"] for c in res} == {"itertools.chain"}
 
     def test_cards_carry_group_field(self, store_path: pathlib.Path) -> None:
-        # UI строит по нему списки разделов каждого семейства, не повторяя правило.
+        # UI строит по нему кнопки семейств и списки их разделов, не повторяя правило.
         groups = {
             c["id"]: c["group"]
             for c in glossary_adapter.glossary_search("", store_path=str(store_path))
         }
         assert groups["math.sqrt"] == "modules"
         assert groups["str.split"] == "types"
-        assert groups["keyerror"] == ""  # «Исключения» — вне обоих семейств
+        assert groups["keyerror"] == "builtins"
+
+    def test_unclassified_section_falls_into_other(self, tmp_path: pathlib.Path) -> None:
+        # Семейства заменили селект «Раздел», поэтому раздел без явного семейства
+        # обязан оставаться достижимым — через «Прочее», а не выпадать из навигации.
+        card = GlossaryCard(id="x", title="X", section="Совершенно новый раздел", status="ready")
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [card.to_dict()]}, ensure_ascii=False), encoding="utf-8"
+        )
+        res = glossary_adapter.glossary_search("", group="other", store_path=str(path))
+        assert [c["id"] for c in res] == ["x"]
+
+    def test_every_bundled_section_has_explicit_group(self) -> None:
+        # Guard дрейфа (#684 активно правит разделы): «Прочее» в комплектной базе
+        # должно быть пустым — новый раздел классифицируется в _SECTION_GROUPS.
+        unclassified = glossary_adapter.glossary_search("", group="other", status="all")
+        assert unclassified == [], "разделы без семейства: " + ", ".join(
+            sorted({c["section"] for c in unclassified})
+        )
+
+    def test_groups_partition_the_whole_base(self) -> None:
+        # Ни одна карточка не теряется и не дублируется между семействами.
+        total = len(glossary_adapter.glossary_search("", status="all"))
+        by_group = sum(
+            len(glossary_adapter.glossary_search("", group=g, status="all"))
+            for g in sorted(glossary_adapter._GROUPS)
+        )
+        assert by_group == total
 
     def test_search_finds_by_syntax_and_examples(self, store_path: pathlib.Path) -> None:
         by_syntax = glossary_adapter.glossary_search("maxsplit", store_path=str(store_path))

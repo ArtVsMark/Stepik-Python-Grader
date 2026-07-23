@@ -1,5 +1,5 @@
 // app.js — entry: связывание слушателей и bootstrap; импортирует модули (#426).
-import { loadGlossary, loadRules, parseGlossaryHash, renderGlossaryChips, selectGlossaryCard, selectRuleCard, setGlossaryView, toggleGlossaryGroup } from "./content.js";
+import { loadGlossary, loadRules, parseGlossaryHash, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
 import { $, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
 import { downloadTask, loadAuthStatus, startBrowserAuth } from "./downloader.js";
 import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
@@ -306,17 +306,10 @@ $("#rules-search").addEventListener("input", e => {
   state.rules.query = e.target.value;
   rulesSearchTimer = setTimeout(() => loadRules(), 200);
 });
-// issue #685: кнопки семейств («Модули»/«Типы данных») — статичны в разметке,
-// поэтому слушатели вешаются один раз здесь (чипы разделов рисуются динамически
-// и навешивают свои в renderGlossaryChips).
-document.querySelectorAll("#glossary-groups button[data-glgroup]").forEach(btn =>
-  btn.addEventListener("click", () => toggleGlossaryGroup(btn.dataset.glgroup))
-);
-$("#glossary-section").addEventListener("change", e => {
-  state.glossary.section = e.target.value;
-  renderGlossaryChips();
-  loadGlossary();
-});
+// issue #685: кнопки семейств и разделов рисуются динамически (из поля `group`
+// карточек), поэтому свои слушатели навешивают сами — в renderGlossaryGroups /
+// renderGlossaryGroupSections. Селекта «Раздел» больше нет: его роль выполняет
+// раскрытое семейство.
 $("#glossary-kind").addEventListener("change", e => {
   state.glossary.kind = e.target.value;
   loadGlossary();

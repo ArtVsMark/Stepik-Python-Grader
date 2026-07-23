@@ -260,19 +260,16 @@
               <button class="mode-btn active" data-glview="cards" data-i18n="glossary.view_cards">Карточки</button>
               <button class="mode-btn" data-glview="missing" data-i18n="glossary.view_missing">Недостающее</button>
             </div>
-            <!-- issue #685: порядок контролов — по частоте использования, самые
-                 частые выше/левее. Семейства («Модули»/«Типы данных») и чипы
-                 разделов — первым делом, редкий «Статус» — последним селектом. -->
+            <!-- issue #685: навигация по разделам — раскрываемые семейства
+                 (кнопки рисует JS из поля `group` карточек, покрытие 100%
+                 разделов), поэтому селект «Раздел» и чипы-дубли убраны. Селект
+                 «Статус» тоже убран из постоянной разметки: в комплектной базе
+                 черновиков нет, он появляется (renderGlossaryStatusFilter),
+                 только если в источнике реально есть не-ready карточки. -->
             <div id="glossary-filters">
-              <div id="glossary-groups" class="chip-row" role="group" aria-label="Семейства разделов" data-i18n-aria-label="glossary.groups_aria">
-                <button type="button" class="chip" data-glgroup="modules" data-i18n="glossary.group_modules">Модули</button>
-                <button type="button" class="chip" data-glgroup="types" data-i18n="glossary.group_types">Типы данных</button>
-              </div>
-              <div id="glossary-chips" class="chip-row" role="group" aria-label="Быстрые фильтры по разделам" data-i18n-aria-label="glossary.chips_aria"></div>
+              <div id="glossary-groups" class="chip-row" role="group" aria-label="Семейства разделов" data-i18n-aria-label="glossary.groups_aria"></div>
+              <div id="glossary-group-sections" class="chip-row chip-row-nested" role="group" aria-label="Разделы семейства" data-i18n-aria-label="glossary.group_sections_aria" hidden></div>
               <div class="glossary-filter-row">
-                <select class="form-input" id="glossary-section" aria-label="Раздел" data-i18n-aria-label="glossary.section_aria">
-                  <option value="" data-i18n="glossary.section_all">Все разделы</option>
-                </select>
                 <select class="form-input" id="glossary-kind" aria-label="Тип" data-i18n-aria-label="glossary.kind_aria">
                   <option value="" data-i18n="glossary.kind_all">Все типы</option>
                   <option value="function" data-i18n="glossary.kind_function">Функции</option>
@@ -286,7 +283,7 @@
                   <option value="section" data-i18n="glossary.sort_section">По разделам</option>
                   <option value="version" data-i18n="glossary.sort_version">По версии</option>
                 </select>
-                <select class="form-input" id="glossary-status" aria-label="Статус" data-i18n-aria-label="glossary.status_aria">
+                <select class="form-input" id="glossary-status" aria-label="Статус" data-i18n-aria-label="glossary.status_aria" hidden>
                   <option value="" data-i18n="glossary.status_ready">Готовые (по умолчанию)</option>
                   <option value="draft" data-i18n="glossary.status_draft">Черновики</option>
                   <option value="all" data-i18n="glossary.status_all">Все статусы</option>

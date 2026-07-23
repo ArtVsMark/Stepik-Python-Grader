@@ -216,17 +216,22 @@ def test_glossary_search_and_open_card(page: Any, e2e_server: str, tmp_path: Pat
     assert page.locator("#glossary-empty").is_hidden()
 
 
-def test_glossary_chip_filter_and_deeplink(page: Any, e2e_server: str, tmp_path: Path) -> None:
-    """J: глоссарий (issue #329) -- чип-фильтр раздела + deep-link #/glossary/<id>."""
+def test_glossary_group_filter_and_deeplink(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J: глоссарий (issue #329/#685) -- семейство → раздел + deep-link #/glossary/<id>."""
     page.goto(e2e_server + "/")
     page.click('[data-section="glossary"]')
     page.wait_for_selector("#view-glossary:not([hidden])", timeout=_TIMEOUT_MS)
 
-    # Чипы отрисованы после загрузки карточек; клик по «Исключения» сужает выборку
-    # и синхронизирует селект раздела (разделы не объединяются).
-    page.wait_for_selector("#glossary-chips .chip", timeout=_TIMEOUT_MS)
-    page.click('#glossary-chips .chip[data-section="Исключения"]')
-    expect(page.locator("#glossary-section")).to_have_value("Исключения", timeout=_TIMEOUT_MS)
+    # Кнопки семейств отрисованы после загрузки карточек. Клик раскрывает
+    # семейство и сразу фильтрует выдачу; внутри выбирается конкретный раздел
+    # (разделы не объединяются — issue #329).
+    page.wait_for_selector("#glossary-groups button[data-glgroup]", timeout=_TIMEOUT_MS)
+    page.click('#glossary-groups button[data-glgroup="builtins"]')
+    expect(page.locator("#glossary-group-sections")).to_be_visible(timeout=_TIMEOUT_MS)
+    page.click('#glossary-group-sections button[data-section="Исключения"]')
+    expect(
+        page.locator('#glossary-group-sections button[data-section="Исключения"]')
+    ).to_have_class(re.compile(r"\bactive\b"), timeout=_TIMEOUT_MS)
     assert page.locator("#glossary-count").text_content().startswith("Показано")
 
     # Deep-link: прямой хэш открывает конкретную карточку.

@@ -45,12 +45,15 @@ const state = {
   explainOpen: false,
   commands: [], // fetched once from /api/commands
   theme: localStorage.getItem("grader_theme") || "system", // "system" | "light" | "dark"
-  // issue #685: group — семейство разделов ("modules"/"types"/""),
-  // sectionGroups — карта «раздел → семейство» (заполняется из первой загрузки,
-  // правило считает сервер), sort по умолчанию — по релевантности.
+  // issue #685: group — раскрытое семейство разделов ("modules"/"types"/…/"");
+  // sectionGroups — карта «раздел → семейство», sectionCounts/groupCounts —
+  // счётчики для подписей (всё из первой загрузки, правило считает сервер);
+  // hasDrafts — есть ли в источнике не-ready карточки (иначе селект «Статус»
+  // не показывается); sort по умолчанию — по релевантности.
   glossary: {
     query: "", section: "", kind: "", status: "", sort: "relevance", group: "",
-    cards: [], missing: [], sections: [], sectionGroups: {}, total: 0,
+    cards: [], missing: [], sections: [], sectionGroups: {}, sectionCounts: {},
+    groupCounts: {}, hasDrafts: false, total: 0,
     selectedId: null, view: "cards",
   },
   rules: { query: "", tag: "", cards: [], selectedId: null }, // issue #348

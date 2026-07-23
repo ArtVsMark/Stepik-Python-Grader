@@ -16,25 +16,25 @@ function openGlossaryForSelectedCase() {
 
 // -- Result-panel tabs (Таблица / Разбор) -------------------------------------
 
-// issue #546: label — КЛЮЧ каталога (перевод при рендере через t()), а не
-// готовая строка (иначе язык зафиксировался бы на импорте). Поле section —
-// значение фильтра, сопоставляется с именами разделов сервера: НЕ переводить
-// (маркер `i18n-exempt` освобождает эти строки от guardrail'а #547).
-const GLOSSARY_CHIPS = [
-  { labelKey: "glossary.chip_str", section: "Строки (str)" }, // i18n-exempt: серверный фильтр
-  { labelKey: "glossary.chip_list", section: "Списки (list)" }, // i18n-exempt: серверный фильтр
-  { labelKey: "glossary.chip_tuple", section: "Кортежи (tuple)" }, // i18n-exempt: серверный фильтр
-  { labelKey: "glossary.chip_dict", section: "Словари (dict)" }, // i18n-exempt: серверный фильтр
-  { labelKey: "glossary.chip_set", section: "Множества (set)" }, // i18n-exempt: серверный фильтр
-  { labelKey: "glossary.chip_builtins", section: "Встроенные функции" }, // i18n-exempt: серверный фильтр
-  { labelKey: "glossary.chip_exceptions", section: "Исключения" }, // i18n-exempt: серверный фильтр
+// issue #685: навигация по разделам — раскрываемые семейства. Порядок кнопок —
+// по частоте использования (модули и типы данных ученик открывает чаще всего);
+// сам состав семейств и принадлежность раздела считает сервер
+// (`glossary_adapter._card_group`) и присылает полем `group` каждой карточки,
+// поэтому правило классификации здесь НЕ повторяется — только порядок показа.
+// «other» («Прочее») страхует раздел, который забыли классифицировать: кнопка
+// появляется, лишь если такие карточки реально есть.
+// id — серверное значение грани ?group= (не переводится), labelKey — ключ
+// каталога (перевод при рендере через t(), иначе язык застыл бы на импорте).
+const GLOSSARY_GROUPS = [
+  { id: "modules", labelKey: "glossary.group_modules" }, // i18n-exempt: серверный фильтр
+  { id: "types", labelKey: "glossary.group_types" }, // i18n-exempt: серверный фильтр
+  { id: "syntax", labelKey: "glossary.group_syntax" }, // i18n-exempt: серверный фильтр
+  { id: "builtins", labelKey: "glossary.group_builtins" }, // i18n-exempt: серверный фильтр
+  { id: "io", labelKey: "glossary.group_io" }, // i18n-exempt: серверный фильтр
+  { id: "algorithms", labelKey: "glossary.group_algorithms" }, // i18n-exempt: серверный фильтр
+  { id: "other", labelKey: "glossary.group_other" }, // i18n-exempt: серверный фильтр
 ];
 
-// issue #685: семейства разделов («Модули»/«Типы данных») — быстрый фильтр
-// поверх грани ?group=. Значения семейств живут в разметке
-// (`data-glgroup`), правило «раздел → семейство» — на сервере
-// (`glossary_adapter._card_group`) и приезжает полем `group` каждой карточки,
-// поэтому здесь оно НЕ повторяется.
 async function loadGlossary() {
   const g = state.glossary;
   const params = new URLSearchParams();
@@ -51,73 +51,125 @@ async function loadGlossary() {
   } catch (e) {
     g.cards = [];
   }
-  // Список разделов и общий счётчик — из первой невыбранной загрузки (все карточки).
+  // Карта разделов/семейств и общий счётчик — из первой невыбранной загрузки.
   if (!g.sections.length && !g.query && !g.section && !g.kind && !g.group) {
-    g.total = g.cards.length;
-    g.sections = [...new Set(g.cards.map(c => c.section).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, "ru")
-    );
-    g.sectionGroups = {};
-    g.cards.forEach(c => {
-      if (c.section) g.sectionGroups[c.section] = c.group || "";
-    });
-    renderGlossaryChips();
-    renderGlossaryGroups();
-    renderGlossaryFilters();
+    indexGlossarySections(g.cards);
+    await probeGlossaryDrafts();
   }
+  // Контролы перерисовываются на КАЖДОЙ загрузке: смена языка (issue #363
+  // сбрасывает кеш карточек и перезагружает раздел) обязана перевести и подписи
+  // семейств — при активном семействе ветка выше не выполняется. Сами кнопки
+  // пересоздаются только при смене языка/состава, иначе обновляется лишь их
+  // состояние — иначе клик уносил бы фокус с только что нажатой кнопки.
+  renderGlossaryGroups();
+  renderGlossaryGroupSections();
   renderGlossaryList();
   renderGlossaryCount();
   updateGlossarySidebarBadge();
 }
 
-function renderGlossaryChips() {
-  const el = $("#glossary-chips");
-  if (!el) return;
-  // issue #685: под активным семейством остаются только его разделы.
-  const avail = new Set(glossarySectionsForGroup());
-  el.innerHTML = GLOSSARY_CHIPS.filter(ch => avail.has(ch.section))
-    .map(ch => {
-      const active = state.glossary.section === ch.section ? " active" : "";
-      return (
-        '<button type="button" class="chip' + active + '" data-section="' +
-        esc(ch.section) + '">' + esc(t(ch.labelKey)) + "</button>"
-      );
-    })
-    .join("");
-  el.querySelectorAll(".chip").forEach(b =>
-    b.addEventListener("click", () => toggleGlossarySection(b.dataset.section))
+function indexGlossarySections(cards) {
+  const g = state.glossary;
+  g.total = cards.length;
+  g.sections = [...new Set(cards.map(c => c.section).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "ru")
   );
+  g.sectionGroups = {};
+  g.sectionCounts = {};
+  g.groupCounts = {};
+  cards.forEach(c => {
+    const group = c.group || "other"; // i18n-exempt: серверное значение фильтра
+    g.groupCounts[group] = (g.groupCounts[group] || 0) + 1;
+    if (c.section) {
+      g.sectionGroups[c.section] = group;
+      g.sectionCounts[c.section] = (g.sectionCounts[c.section] || 0) + 1;
+    }
+  });
 }
+
+// issue #685: селект «Статус» — контрол не для ученика: в комплектной базе
+// черновиков нет, «Черновики» дало бы гарантированно пустой список. Один
+// дешёвый probe (?status=draft вернёт пустой массив) решает, показывать ли его
+// вообще — на своём store с автодрафтами фильтр остаётся доступен.
+async function probeGlossaryDrafts() {
+  try {
+    const r = await fetch("/api/glossary?status=draft");
+    state.glossary.hasDrafts = (await r.json()).length > 0;
+  } catch (e) {
+    state.glossary.hasDrafts = false;
+  }
+  const sel = $("#glossary-status");
+  if (sel) sel.hidden = !state.glossary.hasDrafts;
+}
+
+let glossaryGroupsKey = null; // «состав кнопок + язык», под который отрисован ряд
 
 function renderGlossaryGroups() {
   const el = $("#glossary-groups");
   if (!el) return;
-  el.querySelectorAll("button[data-glgroup]").forEach(b =>
-    b.classList.toggle("active", state.glossary.group === b.dataset.glgroup)
+  const g = state.glossary;
+  const groups = GLOSSARY_GROUPS.filter(gr => g.groupCounts[gr.id]);
+  const key = groups.map(gr => gr.id + ":" + g.groupCounts[gr.id]).join(",") + "|" + state.lang;
+  if (key !== glossaryGroupsKey) {
+    el.innerHTML = groups
+      .map(
+        gr =>
+          '<button type="button" class="chip chip-group" data-glgroup="' + esc(gr.id) + '">' +
+          esc(t(gr.labelKey)) +
+          ' <span class="chip-count">' + g.groupCounts[gr.id] + "</span></button>"
+      )
+      .join("");
+    el.querySelectorAll("button[data-glgroup]").forEach(b =>
+      b.addEventListener("click", () => toggleGlossaryGroup(b.dataset.glgroup))
+    );
+    glossaryGroupsKey = key;
+  }
+  el.querySelectorAll("button[data-glgroup]").forEach(b => {
+    const on = g.group === b.dataset.glgroup;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-expanded", String(on));
+  });
+}
+
+let glossarySectionsKey = null; // «раскрытое семейство + язык» для панели разделов
+
+// Разделы раскрытого семейства: «Все» + сами разделы со счётчиками. Свёрнутое
+// семейство панель не рисует — под рукой остаётся только то, что выбрано.
+// Пересборка — как у ряда семейств, лишь при смене семейства/языка.
+function renderGlossaryGroupSections() {
+  const el = $("#glossary-group-sections");
+  if (!el) return;
+  const g = state.glossary;
+  if (!g.group) {
+    el.hidden = true;
+    el.innerHTML = "";
+    glossarySectionsKey = null;
+    return;
+  }
+  const key = g.group + "|" + state.lang;
+  if (key !== glossarySectionsKey) {
+    const sections = g.sections.filter(s => g.sectionGroups[s] === g.group);
+    el.innerHTML = [
+      '<button type="button" class="chip" data-section="">' +
+        esc(t("glossary.section_all_short")) + "</button>",
+    ]
+      .concat(
+        sections.map(
+          s =>
+            '<button type="button" class="chip" data-section="' + esc(s) + '">' +
+            esc(s) + ' <span class="chip-count">' + (g.sectionCounts[s] || 0) + "</span></button>"
+        )
+      )
+      .join("");
+    el.querySelectorAll("button[data-section]").forEach(b =>
+      b.addEventListener("click", () => selectGlossarySection(b.dataset.section))
+    );
+    glossarySectionsKey = key;
+  }
+  el.hidden = false;
+  el.querySelectorAll("button[data-section]").forEach(b =>
+    b.classList.toggle("active", (b.dataset.section || "") === g.section)
   );
-}
-
-// issue #685: при активном семействе селект «Раздел» показывает только его
-// разделы (внутри «Модулей» — 30 модулей, а не полный список из 50+).
-function glossarySectionsForGroup() {
-  const g = state.glossary;
-  if (!g.group) return g.sections;
-  return g.sections.filter(s => g.sectionGroups[s] === g.group);
-}
-
-function renderGlossaryFilters() {
-  const sel = $("#glossary-section");
-  if (!sel) return;
-  const g = state.glossary;
-  const allLabel = g.group === "modules"
-    ? t("glossary.section_all_modules")
-    : g.group === "types"
-      ? t("glossary.section_all_types")
-      : t("glossary.section_all");
-  sel.innerHTML = ['<option value="">' + esc(allLabel) + "</option>"]
-    .concat(glossarySectionsForGroup().map(s => '<option value="' + esc(s) + '">' + esc(s) + "</option>"))
-    .join("");
-  sel.value = g.section;
 }
 
 function renderGlossaryCount() {
@@ -127,24 +179,25 @@ function renderGlossaryCount() {
   el.textContent = g.total ? t("glossary.count_shown", { shown: g.cards.length, total: g.total }) : "";
 }
 
-function toggleGlossarySection(section) {
+// Раздел внутри раскрытого семейства: пустая строка — «Все» (только семейство).
+function selectGlossarySection(section) {
   const g = state.glossary;
   g.section = g.section === section ? "" : section;
-  const sel = $("#glossary-section");
-  if (sel) sel.value = g.section;
-  renderGlossaryChips();
+  renderGlossaryGroupSections();
   loadGlossary();
 }
 
-// issue #685: повторный клик по активному семейству снимает фильтр; раздел из
-// ДРУГОГО семейства сбрасывается, иначе пересечение фильтров даёт пустую выдачу.
+// issue #685: клик по семейству раскрывает его разделы И сразу фильтрует выдачу
+// (предварительный выбор — «Модули» без уточнения = все 707 карточек модулей);
+// повторный клик сворачивает и снимает фильтр. Раскрыто одно семейство за раз,
+// выбранный раздел при смене семейства сбрасывается — иначе пересечение
+// фильтров дало бы пустую выдачу.
 function toggleGlossaryGroup(group) {
   const g = state.glossary;
   g.group = g.group === group ? "" : group;
-  if (g.section && g.group && g.sectionGroups[g.section] !== g.group) g.section = "";
+  if (g.sectionGroups[g.section] !== g.group) g.section = "";
   renderGlossaryGroups();
-  renderGlossaryChips();
-  renderGlossaryFilters();
+  renderGlossaryGroupSections();
   loadGlossary();
 }
 
@@ -522,9 +575,7 @@ export {
   loadRules,
   openGlossaryForSelectedCase,
   parseGlossaryHash,
-  renderGlossaryChips,
   selectGlossaryCard,
   selectRuleCard,
   setGlossaryView,
-  toggleGlossaryGroup,
 };

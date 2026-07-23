@@ -630,6 +630,18 @@ select.form-input { cursor: pointer; }
 .chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .chip.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
 .chip-locked { opacity: 0.5; } /* issue #540: ещё не взятый бейдж приглушён */
+/* issue #685: семейства разделов глоссария — кнопка-раскрывашка со счётчиком и
+   вложенный ряд её разделов (отступ + линия слева показывают подчинённость). */
+.chip-group[aria-expanded="true"]::after { content: " ▾"; }
+.chip-group[aria-expanded="false"]::after { content: " ▸"; }
+.chip-count { opacity: .65; font-variant-numeric: tabular-nums; }
+.chip-row-nested {
+  margin-left: var(--space-3); padding-left: var(--space-3);
+  border-left: 2px solid var(--color-border);
+  /* «Модули» — 30 разделов (7 строк чипов): без ограничения панель утаскивала
+     список карточек за экран. Дальше — прокрутка внутри самой панели. */
+  max-height: 9.5rem; overflow-y: auto;
+}
 .glossary-filter-row { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
 .glossary-filter-row .form-input { flex: 1; min-width: 96px; font-size: var(--text-xs); padding: var(--space-1) var(--space-2); }
 #glossary-count { font-size: var(--text-xs); }
