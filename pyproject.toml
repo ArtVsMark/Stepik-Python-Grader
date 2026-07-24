@@ -242,3 +242,10 @@ measure_child_memory = true
 microbench_max_cases = 5
 encoding = "utf-8"
 max_memory_mb = 1024
+
+[tool.ruff.format]
+# ruff 0.16 форматирует Python-блоки ВНУТРИ markdown, схлопывая намеренно
+# выровненные комментарии-аннотации и компактные импорты в docs/CLAUDE.md
+# (сделаны так для читаемости примеров). Проза-доки — не код проекта, ruff их
+# трогать не должен; .py форматируются как прежде.
+exclude = ["*.md"]
