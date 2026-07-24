@@ -197,6 +197,48 @@ def test_nested_attribute_link_not_recorded() -> None:
     assert "os.path" not in found
 
 
+@pytest.mark.parametrize(
+    ("snippet", "concept"),
+    [
+        ("for i in xs:\n    pass", "for"),
+        ("while c:\n    pass", "while"),
+        ("if c:\n    pass", "if"),
+        ("for i in xs:\n    break", "break"),
+        ("for i in xs:\n    continue", "continue"),
+        ("def f():\n    return 1", "return"),
+        ("def f():\n    pass", "def"),
+        ("class C:\n    pass", "class"),
+        ("assert x", "assert"),
+    ],
+)
+def test_language_keyword_construct_detected(snippet: str, concept: str) -> None:
+    assert _kinds(snippet).get(concept) == "construct"
+
+
+def _named(code: str) -> dict[str, str]:
+    # detect_names включён (как в web-адаптере) — голые ссылки на имена.
+    from stepik_grader.glossary.detector import scan_code_concepts as _scan
+
+    return {
+        c: kind
+        for c, (kind, _s) in _scan(
+            code, notable_builtins=frozenset({"int", "str", "Counter"}), detect_names=True
+        ).items()
+    }
+
+
+def test_bare_name_reference_detected_only_with_flag() -> None:
+    # Без detect_names голая ссылка не концепция; с флагом — kind "name".
+    assert "int" not in _kinds("x = isinstance(v, int)")
+    assert _named("x = isinstance(v, int)").get("int") == "name"
+
+
+def test_call_func_name_not_double_counted_as_reference() -> None:
+    # Имя-функция вызова остаётся вызовом, не дублируется голой ссылкой.
+    found = _named("s = str(1)")
+    assert found.get("str") == "function"
+
+
 def test_missing_detector_ignores_source_exceptions() -> None:
     # Инвариант: очередь пополнения ловит исключения из ТЕКСТА ошибки, а не из
     # исходника — её поведение issue #686 не меняет.

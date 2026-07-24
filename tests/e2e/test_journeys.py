@@ -125,6 +125,26 @@ def test_check_code_terms_panel_shows_exception_from_code(
     assert any("valueerror" in t.lower() for t in titles), titles
 
 
+def test_check_code_terms_panel_shows_bare_name_reference(
+    page: Any, e2e_server: str, tmp_path: Path
+) -> None:
+    """J (issue #686): имя с карточкой в позиции ссылки (не вызова) — в панели.
+
+    `isinstance(x, int)` — `int` во втором аргументе не вызывается, но карточка
+    есть; до #686 панель показывала только вызовы.
+    """
+    page.goto(e2e_server + "/")
+    page.wait_for_selector("#view-check:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click('.mode-btn[data-mode="file"]')
+    page.wait_for_selector("#file-picker-group:not([hidden])", timeout=_TIMEOUT_MS)
+    page.click("#solution-editor .cm-content")
+    page.keyboard.type("ok = isinstance(v, int)")
+
+    page.wait_for_selector("#check-terms .term-card", timeout=_TIMEOUT_MS)
+    titles = [t.lower() for t in page.locator("#check-terms .term-card-title").all_inner_texts()]
+    assert any(t == "int" for t in titles), titles
+
+
 def test_check_code_terms_panel_and_mode_visibility(
     page: Any, e2e_server: str, tmp_path: Path
 ) -> None:
