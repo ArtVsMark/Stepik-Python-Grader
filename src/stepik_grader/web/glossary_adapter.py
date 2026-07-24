@@ -10,7 +10,9 @@ JSON-база не настроена (``CONFIG.glossary_store is None``), — �
 
 from __future__ import annotations
 
+import keyword
 import pathlib
+import sys
 from typing import Any, NamedTuple
 
 from stepik_grader.config import CONFIG
@@ -229,11 +231,18 @@ class _GlossaryIndex(NamedTuple):
     ``next(...)`` на каждый ``/api/glossary/{id}``); ``by_concept`` — индекс
     ``_card_index`` (id/alias/«хвост» → карточка) для ``code_terms`` (был пересбор
     словаря со внутренним ``sorted()`` по ~1400 карточкам на каждый
-    ``/api/code-terms``).
+    ``/api/code-terms``); ``method_names`` (issue #686) — имена методов, которые
+    знает сама база (``_method_names_from_cards``): ими сканер дополняет
+    инвентарь встроенных типов, иначе ``Path.exists()`` остаётся незамеченным;
+    ``name_concepts`` (issue #686) — bare-имена всех карточек
+    (``_name_concepts_from_cards``): по ним сканер ловит голые ссылки
+    (``isinstance(x, int)``, ``x: Counter``), а не только вызовы.
     """
 
     by_id: dict[str, GlossaryCard]
     by_concept: dict[str, GlossaryCard]
+    method_names: frozenset[str]
+    name_concepts: frozenset[str]
 
 
 # Производные индексы кешируются по ТОЙ ЖЕ сигнатуре источника (ключ + mtime
@@ -290,7 +299,12 @@ def _build_index(cards: list[GlossaryCard]) -> _GlossaryIndex:
     by_id: dict[str, GlossaryCard] = {}
     for card in cards:
         by_id.setdefault(card.id, card)
-    return _GlossaryIndex(by_id=by_id, by_concept=_card_index(cards))
+    return _GlossaryIndex(
+        by_id=by_id,
+        by_concept=_card_index(cards),
+        method_names=_method_names_from_cards(cards),
+        name_concepts=_name_concepts_from_cards(cards),
+    )
 
 
 def _glossary_index(store_path: pathlib.Path | None) -> _GlossaryIndex:
@@ -427,9 +441,11 @@ def _inventory_sets() -> tuple[frozenset[str], frozenset[str]]:
     """``(builtins, methods)`` из ``stdlib_inventory`` для ``scan_code_concepts``.
 
     ``builtins`` — имена встроенных функций/классов (``frozenset``, ``super``,
-    ``hash``, …, которых узкий ``CODE_TERM_BUILTINS`` не знал); ``methods`` —
-    имена публичных методов встроенных типов (``removeprefix``, ``translate``,
-    bytes-методы, …). Кешируется на весь процесс.
+    ``hash``, …, которых узкий ``CODE_TERM_BUILTINS`` не знал) **и встроенных
+    исключений** (issue #686: без них ``ValueError("...")`` в коде не
+    распознавалось, хотя карточка есть); ``methods`` — имена публичных методов
+    встроенных типов (``removeprefix``, ``translate``, bytes-методы, …).
+    Кешируется на весь процесс.
     """
     global _INVENTORY_SETS
     if _INVENTORY_SETS is None:
@@ -437,7 +453,7 @@ def _inventory_sets() -> tuple[frozenset[str], frozenset[str]]:
         builtins_names = frozenset(
             it.qualname
             for it in items
-            if it.module == "builtins" and it.kind in ("function", "class")
+            if it.module == "builtins" and it.kind in ("function", "class", "exception")
         )
         method_names = frozenset(
             it.qualname.rsplit(".", 1)[-1] for it in items if it.kind == "method"
@@ -446,26 +462,84 @@ def _inventory_sets() -> tuple[frozenset[str], frozenset[str]]:
     return _INVENTORY_SETS
 
 
+def _name_concepts_from_cards(cards: list[GlossaryCard]) -> frozenset[str]:
+    """Bare-имена (без точки), на которые в базе есть карточка, — правильный регистр.
+
+    issue #686: сканер распознаёт голую ссылку на имя (``isinstance(x, int)``,
+    ``x: Counter``, ``class Foo(Enum)``) только если оно в этом наборе, поэтому
+    набор — это буквально «всё, на что есть карточка»: любой класс/функция
+    модуля или встроенное имя, а не курируемый список. Регистр берём из
+    ``title`` (``KeyError``, ``Counter``, ``NamedTuple``): id карточек
+    нормализован в нижний, а в коде имя пишется как в Python. Ключевые слова
+    (``for``, ``def``) исключены — они не ``Name``, их ловят visit-конструкции.
+    """
+    names: set[str] = set()
+    for card in cards:
+        if "." in card.id:
+            continue
+        title = card.title.replace("()", "").strip()
+        name = title if title.isidentifier() else (card.id if card.id.isidentifier() else "")
+        if name and not keyword.iskeyword(name):
+            names.add(name)
+    return frozenset(names)
+
+
+def _method_names_from_cards(cards: list[GlossaryCard]) -> frozenset[str]:
+    """Имена методов, известные самой базе: «хвосты» id вида ``Класс.метод``.
+
+    issue #686: stdlib-инвентарь знает методы только встроенных типов (204 имени
+    из ``builtins``), поэтому ``Path.exists()``/``Path.read_text()`` панель не
+    видела — хотя карточки ``path.exists``/``path.read_text`` в базе есть.
+    Источником имён становится сама база: если первый сегмент id — НЕ имя
+    stdlib-модуля, то это класс, а хвост — его метод. Проверка по
+    ``sys.stdlib_module_names`` не даёт превратить ``math.sqrt`` в «метод
+    ``sqrt``», иначе любой ``obj.sqrt()`` матчился бы на функцию модуля.
+    """
+    names: set[str] = set()
+    for card in cards:
+        head, _, tail = card.id.partition(".")
+        if not tail or "." in tail:
+            continue
+        if head in sys.stdlib_module_names:
+            continue
+        names.add(tail)
+    return frozenset(names)
+
+
 def code_terms(
     code: str, *, lang: str = "ru", store_path: pathlib.Path | None = None
 ) -> list[dict[str, Any]]:
-    """Термины глоссария для концепций, найденных в ``code`` (issue #321/#322/#367).
+    """Термины глоссария для концепций, найденных в ``code`` (issue #321/#322/#367/#686).
 
     Сканирует код (``scan_code_concepts`` — builtin'ы и методы из stdlib-
     инвентаря, вызовы stdlib с разворотом цепочки ``os.path.join``, синтаксические
-    конструкции) и сопоставляет с карточками базы. Возвращает **все**
+    конструкции, исключения из ``raise``/``except`` и атрибуты модулей) и
+    сопоставляет с карточками базы. Возвращает **все**
     распознанные концепции (а не только покрытые) в виде
     ``{id, title, summary, kind, has_card, url, confidence, snippet}``:
     покрытые несут данные карточки (``has_card=True``), непокрытые —
     сам концепт (``has_card=False``, панель рисует их приглушённо). Методы —
     ``confidence="low"`` (тип получателя статически неизвестен). Порядок:
     покрытые вперёд, затем по ``title``.
+
+    issue #686: набор имён методов — инвентарь встроенных типов ПЛЮС имена,
+    известные самой базе (``index.method_names``), поэтому в панель попадают и
+    методы stdlib-классов (``Path.exists()``), которых инвентарь не знает; набор
+    имён для голых ссылок (``detect_names``) — ``index.name_concepts`` вместе с
+    инвентарными builtins, поэтому распознаётся любое имя с карточкой, а не
+    только вызванное.
     """
-    notable_builtins, methods = _inventory_sets()
-    concepts = scan_code_concepts(code, notable_builtins=notable_builtins, methods=methods)
+    index_data = _glossary_index(store_path)  # issue #404: индекс кеширован по mtime
+    inventory_builtins, methods = _inventory_sets()
+    concepts = scan_code_concepts(
+        code,
+        notable_builtins=inventory_builtins | index_data.name_concepts,
+        methods=methods | index_data.method_names,
+        detect_names=True,
+    )
     if not concepts:
         return []
-    index = _glossary_index(store_path).by_concept  # issue #404: индекс кеширован по mtime
+    index = index_data.by_concept
     seen_cards: set[str] = set()
     seen_concepts: set[str] = set()
     terms: list[dict[str, Any]] = []

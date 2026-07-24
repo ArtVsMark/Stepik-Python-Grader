@@ -678,8 +678,12 @@ class TestCodeTerms:
         assert any(not t["has_card"] for t in terms)  # print — без карточки, ниже
 
     def test_user_defined_names_excluded(self, store_path: pathlib.Path) -> None:
+        # Пользовательское имя (helper) не концепция — ни как def, ни как вызов.
+        # Сами конструкции def/return (issue #686) при этом распознаются, но это
+        # не пользовательские имена, поэтому проверяем именно отсутствие helper.
         code = "def helper():\n    return 1\nhelper()\n"
-        assert glossary_adapter.code_terms(code, store_path=str(store_path)) == []
+        ids = {t["id"] for t in glossary_adapter.code_terms(code, store_path=str(store_path))}
+        assert "helper" not in ids
 
     def test_syntax_error_returns_empty(self, store_path: pathlib.Path) -> None:
         assert glossary_adapter.code_terms("def (:", store_path=str(store_path)) == []
@@ -687,6 +691,138 @@ class TestCodeTerms:
     def test_no_duplicate_card_for_repeated_concept(self, store_path: pathlib.Path) -> None:
         terms = glossary_adapter.code_terms("sorted([]); sorted([1])", store_path=str(store_path))
         assert [t["id"] for t in terms] == ["sorted"]
+
+    def test_exception_from_raise_and_except_matches_card(self, tmp_path: pathlib.Path) -> None:
+        # issue #686: раньше исключения в коде не распознавались вовсе — панель
+        # молчала, хотя карточек исключений в базе больше сотни.
+        cards = [
+            GlossaryCard(id="valueerror", title="ValueError", kind="exception", status="ready"),
+            GlossaryCard(id="keyerror", title="KeyError", kind="exception", status="ready"),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        code = "try:\n    int('x')\nexcept ValueError:\n    raise KeyError('bad')\n"
+        terms = {t["id"]: t for t in glossary_adapter.code_terms(code, store_path=str(path))}
+        assert terms["valueerror"]["has_card"] is True
+        assert terms["keyerror"]["has_card"] is True
+        assert terms["valueerror"]["snippet"] == "except ValueError:"
+        assert terms["keyerror"]["snippet"] == "raise KeyError(...)"
+
+    def test_module_attribute_without_call_detected(self, tmp_path: pathlib.Path) -> None:
+        # issue #686: `math.pi` — не вызов, сканер его не видел; карточка есть.
+        card = GlossaryCard(id="math.pi", title="math.pi", kind="term", status="ready")
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [card.to_dict()]}, ensure_ascii=False), encoding="utf-8"
+        )
+        terms = glossary_adapter.code_terms("import math\nprint(math.pi)\n", store_path=str(path))
+        assert any(t["id"] == "math.pi" and t["has_card"] for t in terms)
+
+    def test_nested_attribute_link_not_reported_separately(self, tmp_path: pathlib.Path) -> None:
+        # Из `os.path.join(...)` концепция одна — вся цепочка; промежуточный
+        # `os.path` отдельным термином панели быть не должен.
+        card = GlossaryCard(id="os.path.join", title="os.path.join()", status="ready")
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [card.to_dict()]}, ensure_ascii=False), encoding="utf-8"
+        )
+        ids = [
+            t["id"]
+            for t in glossary_adapter.code_terms(
+                "import os\np = os.path.join('a', 'b')\n", store_path=str(path)
+            )
+        ]
+        assert "os.path.join" in ids
+        assert "os.path" not in ids and "path" not in ids
+
+    def test_stdlib_class_method_matches_card_from_base(self, tmp_path: pathlib.Path) -> None:
+        # issue #686: stdlib-инвентарь знает методы только встроенных типов,
+        # поэтому имена методов классов берутся из самой базы (path.exists).
+        cards = [
+            GlossaryCard(id="path.exists", title="Path.exists()", status="ready"),
+            GlossaryCard(id="math.sqrt", title="math.sqrt()", status="ready"),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        code = "from pathlib import Path\nf = Path('x')\nif f.exists():\n    pass\n"
+        terms = {t["id"]: t for t in glossary_adapter.code_terms(code, store_path=str(path))}
+        assert terms["path.exists"]["has_card"] is True
+        assert terms["path.exists"]["confidence"] == "low"  # тип получателя неизвестен
+
+    def test_module_function_tail_is_not_treated_as_method(self, tmp_path: pathlib.Path) -> None:
+        # Обратная сторона предыдущего теста: `math.sqrt` — функция МОДУЛЯ,
+        # поэтому «sqrt» не должен становиться именем метода и матчить `obj.sqrt()`.
+        card = GlossaryCard(id="math.sqrt", title="math.sqrt()", status="ready")
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [card.to_dict()]}, ensure_ascii=False), encoding="utf-8"
+        )
+        terms = glossary_adapter.code_terms("obj = something()\nobj.sqrt()\n", store_path=str(path))
+        assert [t["id"] for t in terms if t["id"] == "math.sqrt"] == []
+
+    def test_bare_name_reference_matches_card(self, tmp_path: pathlib.Path) -> None:
+        # issue #686: имя с карточкой в позиции ссылки, а не вызова —
+        # `isinstance(x, int)`, аннотация `c: Counter`. Раньше не находилось.
+        cards = [
+            GlossaryCard(id="int", title="int", kind="term", status="ready"),
+            GlossaryCard(id="collections.counter", title="Counter", kind="term", status="ready"),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        code = (
+            "from collections import Counter\nc: Counter = Counter()\nassert isinstance(1, int)\n"
+        )
+        ids = {t["id"] for t in glossary_adapter.code_terms(code, store_path=str(path))}
+        assert "int" in ids  # голая ссылка во втором аргументе isinstance
+        assert "collections.counter" in ids  # аннотация c: Counter
+
+    def test_bare_name_call_not_duplicated_by_reference(self, tmp_path: pathlib.Path) -> None:
+        # Имя-функция вызова не должно ещё раз всплыть голой ссылкой — одна
+        # карточка на концепт (дедуп по id() call-func).
+        card = GlossaryCard(id="sorted", title="sorted()", kind="function", status="ready")
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [card.to_dict()]}, ensure_ascii=False), encoding="utf-8"
+        )
+        terms = glossary_adapter.code_terms("xs = sorted([3, 1])", store_path=str(path))
+        assert [t["id"] for t in terms].count("sorted") == 1
+
+    def test_user_variable_shadowing_builtin_is_not_reported(self, tmp_path: pathlib.Path) -> None:
+        # `int = 5` делает `int` пользовательской переменной — голая ссылка на
+        # неё концептом не считается («любое кроме значений переменных»).
+        card = GlossaryCard(id="int", title="int", kind="term", status="ready")
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [card.to_dict()]}, ensure_ascii=False), encoding="utf-8"
+        )
+        terms = glossary_adapter.code_terms("int = 5\ny = int\n", store_path=str(path))
+        assert [t["id"] for t in terms if t["id"] == "int"] == []
+
+    def test_language_keyword_construct_matches_card(self, tmp_path: pathlib.Path) -> None:
+        # issue #686: ключевые конструкции (for/while/if/…) — тоже совпадения с
+        # глоссарием, если карточка есть.
+        cards = [
+            GlossaryCard(id="for", title="for", kind="construct", status="ready"),
+            GlossaryCard(id="while", title="while", kind="construct", status="ready"),
+            GlossaryCard(id="break", title="break", kind="construct", status="ready"),
+        ]
+        path = tmp_path / "g.json"
+        path.write_text(
+            json.dumps({"cards": [c.to_dict() for c in cards]}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        code = "for i in range(3):\n    while True:\n        break\n"
+        ids = {t["id"] for t in glossary_adapter.code_terms(code, store_path=str(path))}
+        assert {"for", "while", "break"} <= ids
 
     def test_queue_code_gaps_appends_uncovered_concept(
         self, store_path: pathlib.Path, tmp_path: pathlib.Path
