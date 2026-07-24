@@ -21,7 +21,7 @@ Closes #
 - [ ] Ветка от свежего `main`, PR — в `main` (не коммит в `main` напрямую)
 - [ ] `pytest tests/ -x -q` — зелёные
 - [ ] `ruff check .` и `ruff format --check .` — чисто
-- [ ] `mypy src/stepik_grader --ignore-missing-imports` — чисто
+- [ ] `mypy src/stepik_grader scripts` — чисто
 - [ ] Новые функции: type hints + docstring; новые модули: `__all__` и
       `from __future__ import annotations`
 - [ ] Версия не правится вручную (динамическая, `setuptools-scm`)

@@ -379,6 +379,14 @@ URL-хэш `#/glossary/<id>` реализован (issue #329); общий deep-
 состояния — см.
 [web-design.md § Deep-linking через URL-хэш](web-design.md#deep-linking-через-url-хэш).
 
+**Стартовый онбординг-экран (issue #660).** При первом заходе поверх workspace
+показывается модальный экран-приветствие: что это, как проверить решение и где
+скачать задачу. Флаг «видел» персистентен на сервере (`onboarding_seen` —
+`POST /api/v1/settings`, см. [api.md](api.md); `data-onboarding-seen` на `body`),
+поэтому повторных показов нет; открыть снова можно кнопкой `#onboarding-open`.
+Как и модалки, экран держит focus-trap, закрытие по `Escape` и возврат фокуса
+на элемент-источник.
+
 ---
 
 ## Layout: split-pane workspace
