@@ -109,6 +109,13 @@ stepik_grader = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# ruff 0.16 начал форматировать Python-код внутри Markdown по умолчанию. Прозовые
+# доксы проекта (CLAUDE.md, docs/*.md) содержат иллюстративные и намеренно
+# усечённые фрагменты (`...`, псевдокод, выровненные комментарии) — гонять их
+# через форматтер бессмысленно и ломает `ruff format --check` в CI на PR, не
+# трогавших код. Исключаем Markdown из области ruff (lint по .md не идёт всё
+# равно). `ruff>=` в dev-extra без верхней границы — фиксируем именно поведение.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 # issue #443: PTH (только pathlib, инвариант CLAUDE.md), SIM105/SIM115
