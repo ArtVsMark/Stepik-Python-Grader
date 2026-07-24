@@ -51,7 +51,7 @@
 | `title` | string | ✓ | Заголовок карточки |
 | `kind` | `exception\|function\|construct\|term` | | Тип (по умолчанию `term`) |
 | `summary` | string | | Однострочное пояснение (RU); синоним — `hint` из `core/glossary.py` |
-| `body` | string | | Расширенное описание (Markdown) |
+| `body` | string | | Расширенное описание (RU, **простой текст, не Markdown** — web-UI выводит его через `esc()`, разметка отрисуется буквально) |
 | `syntax` | string | | Сигнатура/шаблон использования (напр. `sorted(iterable, *, key=None)`) |
 | `status` | `new\|draft\|ready\|exported` | | Жизненный цикл (по умолчанию `draft`) |
 | `url` | string | | Ссылка во внешний Glossary-Python (цель экспорта) |

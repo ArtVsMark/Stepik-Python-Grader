@@ -44,8 +44,8 @@
       "en": "The logical operators. and — both are true; or — at least one is true; not — negation. They short-circuit (lazy evaluation)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Неочевидное: and и or возвращают не True/False, а сам операнд — \"a or b\" даёт a, если оно истинно, иначе b; отсюда идиома значения по умолчанию (name or \"гость\"). Чистый bool из этой тройки гарантирует только not.",
+      "en": "The non-obvious part: and and or return one of the operands, not True/False — \"a or b\" yields a when a is truthy, otherwise b, which is why \"name or 'guest'\" is the classic default-value idiom. Only not is guaranteed to give a clean bool."
     },
     "syntax": "a and b | a or b | not a",
     "status": "ready",
@@ -85,8 +85,8 @@
       "en": "Accepts any number of positional arguments as a tuple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Внутри функции args — именно кортеж, а не список, поэтому менять его на месте нельзя. Любой параметр, объявленный после *args, становится keyword-only: передать его позиционно уже не выйдет, только по имени. Звёздочка в вызове f(*seq) делает обратное — распаковывает последовательность в отдельные аргументы.",
+      "en": "Inside the function args is a tuple, not a list, so you can't mutate it in place. Any parameter declared after *args becomes keyword-only — it can no longer be passed positionally, only by name. A star at the call site, f(*seq), does the reverse: it unpacks a sequence into separate arguments."
     },
     "syntax": "def f(*args): ...",
     "status": "ready",
@@ -133,8 +133,8 @@
       "en": "The boolean type. A subclass of int: True == 1, False == 0. bool(x) returns the truth value of x."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Раз bool — подкласс int, True равно 1 и сталкивается с ним как ключ словаря ({True: 'a', 1: 'b'} оставит одну запись), а в арифметике True ведёт себя как 1. Не сравнивайте с True/False явно (if x == True) — пишите просто if x:, иначе истинное значение вроде 2 (оно != True) даст неожиданный результат.",
+      "en": "Because bool subclasses int, True equals 1 and collides with it as a dict key ({True: 'a', 1: 'b'} keeps one entry), and True acts as 1 in arithmetic. Don't compare against True/False explicitly (if x == True) — just write if x:, or a truthy value like 2 (which is != True) will surprise you."
     },
     "syntax": "bool([x])",
     "status": "ready",
@@ -170,8 +170,8 @@
       "en": "Statement that leaves the nearest enclosing loop immediately. If the loop has an else block, it is NOT executed after a break."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "break выходит только из одного — самого внутреннего — цикла; выпрыгнуть сразу из нескольких вложенных нельзя, нужен флаг, вынос в функцию с return или исключение. Он естественно сочетается с else у цикла: else срабатывает, только если цикл дошёл до конца ни разу не встретив break — классическая идиома «не нашлось».",
+      "en": "break leaves only the single innermost loop; you can't jump straight out of several nested loops — use a flag, refactor into a function with return, or raise an exception. It pairs naturally with a loop's else: the else runs only if the loop finished without ever hitting break — the classic 'not found' idiom."
     },
     "syntax": "break",
     "status": "ready",
@@ -221,8 +221,8 @@
       "en": "A mutable sequence of bytes. Unlike bytes, it supports item assignment and the append() and extend() methods."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Берите bytearray, когда двоичные данные собираются или правятся по кусочкам: append(), extend() и присваивание по индексу/срезу меняют объект на месте, без копии на каждом шаге. Плата за изменяемость — bytearray нехешируем: ключом словаря или элементом множества он быть не может, там нужен неизменяемый bytes.",
+      "en": "Reach for bytearray when binary data is built up or patched piece by piece: append(), extend() and index/slice assignment mutate it in place instead of copying at every step. The price of mutability is that bytearray is unhashable — it can't be a dict key or set member, where you need the immutable bytes instead."
     },
     "syntax": "bytearray(n)  bytearray(iterable)  bytearray(b\"...\")  bytearray(source, encoding)",
     "status": "ready",
@@ -258,8 +258,8 @@
       "en": "An immutable sequence of bytes (integers 0–255). Used for binary data and for text in a particular encoding."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "bytes(5) даёт не цифры числа 5, а пять нулевых байт b'\\x00\\x00\\x00\\x00\\x00' — частая ловушка. Индексация возвращает int (b[0] → 65), а срез — снова bytes; менять содержимое нельзя, для этого есть изменяемый близнец bytearray.",
+      "en": "bytes(5) is not the digits of 5 but five zero bytes b'\\x00\\x00\\x00\\x00\\x00' — a common trap. Indexing yields an int (b[0] → 65) while slicing yields bytes again, and the contents are immutable — reach for its mutable twin bytearray when you need to change them."
     },
     "syntax": "bytes(n)  bytes(iterable)  b\"...\"  bytes.fromhex(hex_str)  bytes(source, encoding)",
     "status": "ready",
@@ -330,8 +330,8 @@
       "en": "Built-in type for complex numbers of the form a+bj. Supports arithmetic, the .real and .imag attributes and the conjugate() method."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Мнимая единица пишется с коэффициентом: 1j, а голое j — это имя переменной (NameError). Комплексные числа нельзя сравнивать через < и > (TypeError) — упорядоченности у них нет, работают только == и !=. Атрибуты .real и .imag всегда float, даже если число задано целыми.",
+      "en": "The imaginary unit needs a coefficient — write 1j; a bare j is just a variable name (NameError). Complex numbers have no ordering, so < and > raise TypeError — only == and != work. The .real and .imag attributes are always floats, even when you built the number from ints."
     },
     "syntax": "complex(real, imag)  a+bj  z.real  z.imag  abs(z)  z.conjugate()",
     "status": "ready",
@@ -367,8 +367,8 @@
       "en": "Statement that skips the rest of the loop body and moves on to the next iteration."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Осторожно в while: continue перескакивает сразу к проверке условия, минуя всё, что ниже — если счётчик увеличивается после continue, цикл зациклится навсегда. В for такой ловушки нет: итератор сам двигается к следующему элементу.",
+      "en": "Watch out in while loops: continue jumps straight back to the condition check, skipping everything below it — if you increment the counter after the continue, the loop hangs forever. In a for loop there's no such trap: the iterator advances to the next item on its own."
     },
     "syntax": "continue",
     "status": "ready",
@@ -593,8 +593,8 @@
       "en": "A function declaration with the def keyword. The body of the function is set off by indentation."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "def выполняется в тот момент, когда до него доходит поток, а значения аргументов по умолчанию вычисляются один раз — при определении, а не при каждом вызове. Поэтому изменяемый дефолт (def f(x, acc=[])) живёт между вызовами и накапливает данные; лечится это через acc=None и создание списка уже внутри тела.",
+      "en": "def is executed when control reaches it, and default argument values are evaluated once — at definition time, not on every call. So a mutable default (def f(x, acc=[])) is shared across calls and accumulates data; the fix is acc=None plus building the list inside the body."
     },
     "syntax": "def имя(параметры):\n    тело",
     "status": "ready",
@@ -679,8 +679,8 @@
       "en": "The special singleton Ellipsis (written as the literal ...). Used as a placeholder body of a function or class, in type annotations (Callable[..., int]) and in NumPy for multi-dimensional slices."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "... — это полноценный объект-синглтон (сравнивай через is), а не пустышка: pass — оператор, а ... — выражение, возвращающее сам Ellipsis. Удобен как уникальный сентинел, когда None — допустимое значение и не годится в роли «ничего не передано».",
+      "en": "... is a real singleton object (compare it with is), not a no-op: pass is a statement, whereas ... is an expression that evaluates to the Ellipsis object. It's handy as a unique sentinel when None is itself a valid value and can't stand for \"nothing passed\"."
     },
     "syntax": "...  Ellipsis  type(...) -> ellipsis",
     "status": "ready",
@@ -714,8 +714,8 @@
       "en": "A loop's else block runs only if the loop finished WITHOUT a break. Handy for the 'search with a flag' pattern."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ключ к пониманию — читать не «иначе», а «если не было break»: блок else отрабатывает при нормальном завершении цикла (в том числе когда цикл вообще не пошёл из-за пустого итерируемого) и пропускается только при break. Типичная ошибка — считать, что else привязан к if внутри цикла; на самом деле он относится к самому for/while.",
+      "en": "Read it not as \"else\" but as \"if no break\": the else block runs when the loop ends normally (including when it never started because the iterable was empty) and is skipped only on break. A common mistake is tying else to the if inside the loop — it actually belongs to the for/while itself."
     },
     "syntax": "for/while ...:\n    ...\nelse:\n    блок_если_не_break",
     "status": "ready",
@@ -760,8 +760,8 @@
       "en": "Built-in function that adds a counter to an iterable. It returns (index, value) tuples. The start parameter sets the initial index."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "enumerate избавляет от неуклюжего обхода через range(len(...)) с ручным доступом по индексу — сразу отдаёт пару (индекс, значение). Возвращает ленивый итератор, а не список, поэтому оборачивать в list() стоит, только если результат действительно нужен целиком.",
+      "en": "enumerate frees you from the clumsy range(len(...)) walk with manual indexing — it hands you the (index, value) pair directly. It returns a lazy iterator, not a list, so wrap it in list() only when you actually need the whole result at once."
     },
     "syntax": "enumerate(iterable, start=0)",
     "status": "ready",
@@ -806,8 +806,8 @@
       "en": "Keeps the items for which the function returns True. Returns an iterator."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Результат — ленивый итератор: он считается по мере обхода и исчерпывается после первого прохода, так что повторный list() по нему вернёт пустоту. Особый случай — filter(None, iterable): без функции отсеиваются все ложные по истинности элементы (0, '', None, пустые контейнеры).",
+      "en": "The result is a lazy iterator: it's computed as you traverse it and is exhausted after the first pass, so a second list() over it yields nothing. Special case — filter(None, iterable): with no function it drops every falsy element (0, '', None, empty containers)."
     },
     "syntax": "filter(func, iterable)",
     "status": "ready",
@@ -861,8 +861,8 @@
       "en": "Double-precision floating-point number type (64-bit, IEEE 754). Accepts numbers, strings and the special values 'inf', '-inf' and 'nan'."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Из-за двоичного представления сравнивать float через == опасно (0.1 + 0.2 != 0.3) — используй math.isclose. Особый случай — nan: он не равен ничему, включая самого себя, поэтому x == x для nan даёт False, а проверять надо через math.isnan(x).",
+      "en": "Because of binary representation, comparing floats with == is unreliable (0.1 + 0.2 != 0.3) — use math.isclose. The special value nan equals nothing, not even itself, so x == x is False for a nan — test it with math.isnan(x) instead."
     },
     "syntax": "float([x])",
     "status": "ready",
@@ -899,8 +899,8 @@
       "en": "A loop over the items of an iterable. It runs the loop body for every item: of a list, a string, a range, a dictionary and so on."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Переменная цикла не исчезает после его конца — она сохраняет последнее значение и остаётся видимой в остальном коде. Вторая частая ловушка — менять список (добавлять или удалять элементы) прямо во время обхода: итерация собьётся, безопаснее идти по копии или собирать новый список.",
+      "en": "The loop variable does not vanish when the loop ends — it keeps its last value and stays visible in the surrounding code. The other common trap is mutating a list (adding or removing items) while iterating over it: the iteration goes wrong, so walk over a copy or build a new list instead."
     },
     "syntax": "for переменная in итерируемое:\n    блок",
     "status": "ready",
@@ -941,8 +941,8 @@
       "en": "reversed() returns an iterator that walks a sequence backwards. It works with lists, tuples, strings, ranges and any object with __reversed__."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от среза sequence[::-1], reversed() ничего не копирует, а возвращает ленивый итератор — экономит память на длинных последовательностях. Именно поэтому ему нужна настоящая последовательность (с длиной и индексацией либо с __reversed__): обычный генератор или файловый объект в reversed() не завернуть.",
+      "en": "Unlike the slice sequence[::-1], reversed() copies nothing and returns a lazy iterator, saving memory on long sequences. That is also why it needs a real sequence (with a length and indexing, or __reversed__): you cannot pass a plain generator or a file object to reversed()."
     },
     "syntax": "for item in reversed(sequence): ...",
     "status": "ready",
@@ -1011,8 +1011,8 @@
       "en": "global declares a variable from the global namespace. nonlocal — one from an enclosing function (not the global scope)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Объявление нужно только для присваивания: читать глобальную переменную или менять на месте изменяемый объект (list.append) можно и без global. nonlocal требует, чтобы переменная уже существовала в охватывающей функции, — создать новую он не может и до глобальных имён не дотягивается.",
+      "en": "You only need these to rebind: reading a global, or mutating a mutable object in place (list.append), works without global. nonlocal requires the variable to already exist in an enclosing function — it can't create a new one and won't reach the global scope."
     },
     "syntax": "global x\nnonlocal y",
     "status": "ready",
@@ -1089,8 +1089,8 @@
       "en": "The conditional statement. It runs a block of code if the condition is true. The condition is any expression Python converts to a bool."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Условие — не обязательно сравнение: пустой список, 0, None и \"\" сами по себе ложны, поэтому \"if lst:\" читается как \"список непуст\". Из-за этого \"if x:\" и \"if x is not None:\" — разные проверки: 0 или пустая строка провалят первую, но пройдут вторую.",
+      "en": "The condition need not be a comparison: an empty list, 0, None and \"\" are all falsy on their own, so \"if lst:\" reads as \"the list is non-empty\". Because of that, \"if x:\" and \"if x is not None:\" differ — 0 or an empty string fail the first but pass the second."
     },
     "syntax": "if условие:\n    блок",
     "status": "ready",
@@ -1135,8 +1135,8 @@
       "en": "A cascade that picks one of several branches. It tests the conditions in turn and runs the first block whose condition is true."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка идёт сверху вниз и останавливается на первом истинном условии — остальные даже не вычисляются, поэтому порядок веток важен. Ставьте более узкие условия раньше: если написать elif score >= 60 до elif score >= 90, широкая ветка перехватит всё и строгая никогда не сработает.",
+      "en": "The checks run top to bottom and stop at the first true condition — the rest aren't even evaluated, so branch order matters. Put stricter conditions first: if \"score >= 60\" comes before \"score >= 90\", the broad branch swallows everything and the strict one never fires."
     },
     "syntax": "if условие1:\n    ...\nelif условие2:\n    ...\nelse:\n    ...",
     "status": "ready",
@@ -1181,8 +1181,8 @@
       "en": "A two-branch conditional. If the condition is true the if block runs, otherwise the else block."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Когда обе ветки лишь присваивают одной переменной, компактнее тернарное условное выражение вида \"A if условие else B\" — тот же выбор в одну строку вместо четырёх строк if-else. Полный if-else оставляйте для веток, где несколько действий.",
+      "en": "When both branches just assign to one variable, the ternary conditional expression \"A if condition else B\" is tighter — the same choice in one line instead of a four-line if-else. Keep the full if-else for branches that do several things."
     },
     "syntax": "if условие:\n    блок1\nelse:\n    блок2",
     "status": "ready",
@@ -1228,8 +1228,8 @@
       "en": "The membership operator. It checks whether an item is contained in a collection. Works with strings, lists, tuples, sets and dictionaries (by key)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Скрытая цена: в списке, кортеже и строке in — это линейный перебор O(n), а в множестве и словаре — почти мгновенный поиск по хешу O(1). Если постоянно проверяете принадлежность в большой коллекции, держите её множеством, а не списком.",
+      "en": "The hidden cost: on a list, tuple or string, in is a linear O(n) scan, whereas on a set or dict it's a near-instant O(1) hash lookup. If you keep testing membership against a large collection, store it as a set, not a list."
     },
     "syntax": "элемент in коллекция -> bool",
     "status": "ready",
@@ -1265,8 +1265,8 @@
       "en": "Arbitrary-precision integer. Accepts a string together with its numeric base: int('ff', 16) → 255."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Деление / всегда возвращает float (5 / 2 → 2.5) — для целого результата бери //. Ещё тонкость: bool — подкласс int, поэтому True == 1, isinstance(True, int) истинно, а True + True даёт 2.",
+      "en": "The / operator always returns a float (5 / 2 → 2.5) — use // when you want an integer result. Also note that bool is a subclass of int, so True == 1, isinstance(True, int) is True, and True + True evaluates to 2."
     },
     "syntax": "int([x]) | int(x, base)",
     "status": "ready",
@@ -1303,8 +1303,8 @@
       "en": "The identity operators. They check whether two variables point at ONE object in memory. Use is/is not to test for None, True and False — not ==."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "CPython заранее кеширует маленькие целые (примерно от -5 до 256) и некоторые строки, поэтому is для них может «случайно» вернуть True — а для больших чисел та же проверка внезапно даст False. Отсюда правило: is только для None и других синглтонов, а обычные значения (числа, строки, списки) сравнивайте через ==.",
+      "en": "CPython pre-caches small integers (roughly -5 to 256) and some strings, so is may return True for them by accident — while the same check on larger numbers suddenly gives False. Hence the rule: use is only for None and other singletons, and compare ordinary values (numbers, strings, lists) with ==."
     },
     "syntax": "a is b | a is not b",
     "status": "ready",
@@ -1341,8 +1341,8 @@
       "en": "Built-in function that checks whether an object belongs to a type or to a tuple of types. Unlike type(), it honors inheritance."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — bool считается int: isinstance(True, int) возвращает True, потому что bool наследуется от int. Если нужен ровно один тип без учёта наследников, сравнивай type(x) is int; но в идиоматичном Python явных проверок типа обычно избегают в пользу утиной типизации.",
+      "en": "The main trap is that bool counts as int: isinstance(True, int) returns True because bool subclasses int. When you need one exact type ignoring subclasses, compare type(x) is int; but idiomatic Python usually avoids explicit type checks in favour of duck typing."
     },
     "syntax": "isinstance(object, classinfo) -> bool",
     "status": "ready",
@@ -1442,8 +1442,8 @@
       "en": "Accepts any number of keyword arguments as a dictionary."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Внутри функции kwargs — обычный словарь, и начиная с Python 3.7 он хранит аргументы в порядке их передачи. В сигнатуре **kwargs идёт последним; двойная звёздочка в вызове f(**d) делает обратное — раскладывает словарь в именованные аргументы.",
+      "en": "Inside the function kwargs is a plain dict, and since Python 3.7 it preserves the order in which arguments were passed. In the signature **kwargs comes last; a double star at the call site, f(**d), does the reverse — spreading a dict into keyword arguments."
     },
     "syntax": "def f(**kwargs): ...",
     "status": "ready",
@@ -1494,8 +1494,8 @@
       "en": "An anonymous function — an expression that produces a function. Its body is a single expression."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — позднее связывание: lambda, созданная в цикле, запоминает саму переменную, а не её текущее значение, поэтому все такие функции потом увидят её последнее значение. PEP 8 не советует присваивать lambda имени (sq = lambda...) — для именованной функции берите def; lambda хороша именно как одноразовый аргумент для key=, map() или filter().",
+      "en": "The main trap is late binding: a lambda created inside a loop captures the variable itself, not its current value, so every such function ends up seeing the loop's final value. PEP 8 discourages binding a lambda to a name (sq = lambda...) — use def for a named function; lambda shines as a throwaway argument to key=, map() or filter()."
     },
     "syntax": "lambda параметры: выражение",
     "status": "ready",
@@ -1542,8 +1542,8 @@
       "en": "Applies a function to every item of an iterable. Returns an iterator."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "map возвращает ленивый итератор: ничего не считается, пока вы по нему не пройдёте, а после первого прохода он пуст — оборачивайте в list(), если результат нужен дважды. Часто списковое включение [f(x) for x in xs] читается яснее; map выигрывает, когда функция уже готова, как в map(int, strs).",
+      "en": "map returns a lazy iterator: nothing is computed until you iterate it, and it's empty after the first pass — wrap it in list() if you need the result twice. A comprehension [f(x) for x in xs] often reads more clearly; map wins when the function already exists, as in map(int, strs)."
     },
     "syntax": "map(func, iterable)",
     "status": "ready",
@@ -1599,8 +1599,8 @@
       "en": "Structural pattern matching (Python 3.10+). It matches a value against patterns: literals, types, structures. case _ is the catch-all pattern (the counterpart of else). A guard (if) adds an extra condition to a case branch."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка: одиночное имя в case — это не сравнение с переменной, а захват: оно всегда совпадает и связывает значение с этим именем. Чтобы сверять с константой, нужен литерал или имя через точку (например, Status.OK), иначе такой case перехватит вообще всё. Работает только с Python 3.10 и новее.",
+      "en": "The main trap: a bare name in a case does not compare against an existing variable — it captures, always matching and binding the value to that name. To match a constant you need a literal or a dotted name (for example Status.OK), otherwise that case swallows everything. Available only in Python 3.10 and later."
     },
     "syntax": "match subject:\n    case pattern1: ...\n    case pattern2 if guard: ...\n    case _: ...",
     "status": "ready",
@@ -1641,8 +1641,8 @@
       "en": "The type of the single object None — the absence of a value. Used as a default value, as the return value of functions without a return, and as a sentinel."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сравнивай только через is / is not, а не ==: None — единственный объект своего типа, а == можно переопределить в чужом классе и получить сюрприз. Идиома name or \"Гость\" тоже подводит — она заменяет любое ложное значение (0, \"\", [], False), а не только None; для «только None» пиши name if name is not None else \"Гость\".",
+      "en": "Compare with is / is not, never ==: None is the sole instance of its type, and == can be overridden by some class and surprise you. The name or \"Guest\" idiom is also a trap — it replaces any falsy value (0, \"\", [], False), not just None; for a None-only check use name if name is not None else \"Guest\"."
     },
     "syntax": "None",
     "status": "ready",
@@ -1937,8 +1937,8 @@
       "en": "An immutable sequence of integers: it does not hold all the numbers in memory but computes them on the fly. Used in for loops and in slices."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "range — не генератор, а полноценная неизменяемая последовательность: её можно индексировать, срезать, спрашивать len() и проходить сколько угодно раз (генератор исчерпался бы после первого прохода). Проверка x in range(...) для целых при этом идёт за O(1) — Python считает по арифметике, а не перебирает числа.",
+      "en": "range is not a generator but a full immutable sequence: you can index it, slice it, call len() on it and iterate over it as many times as you like (a generator would be exhausted after the first pass). And x in range(...) with an integer runs in O(1) — Python does the arithmetic instead of scanning every number."
     },
     "syntax": "range(stop) | range(start, stop) | range(start, stop, step)",
     "status": "ready",
@@ -2100,8 +2100,8 @@
       "en": "Folds an iterable into a single value by applying a function step by step. From the functools module."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В Python 3 reduce вынесли из встроенных в functools намеренно: для суммы, максимума и подобного явные sum(), max(), min() короче и понятнее. Осторожно с пустой последовательностью — без initializer это TypeError, а с ним initializer же и вернётся.",
+      "en": "In Python 3 reduce was deliberately moved out of the builtins into functools: for sums, maxima and the like the explicit sum(), max() and min() are shorter and clearer. Beware the empty sequence — without an initializer it raises TypeError, and with one that initializer is what comes back."
     },
     "syntax": "from functools import reduce\nreduce(func, iterable[, initializer])",
     "status": "ready",
@@ -2147,8 +2147,8 @@
       "en": "Returns a value from a function. Without a return the function returns None. It can return a tuple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Частая ошибка новичка — печатать результат внутри функции вместо return: на экране число видно, но вызывающий код получает None и работать с ним не может. return немедленно завершает функцию, код после него не выполнится; return b, a без скобок отдаёт кортеж.",
+      "en": "A classic beginner mistake is printing the result inside the function instead of returning it: the number shows on screen, but the caller receives None and can't use it. return ends the function immediately, so code after it never runs; return b, a without parentheses hands back a tuple."
     },
     "syntax": "return значение",
     "status": "ready",
@@ -2243,8 +2243,8 @@
       "en": "Returns a new sorted list. key= sets the function that produces the sort key. reverse= gives the reverse order."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сортировка стабильна: элементы с равным ключом сохраняют исходный порядок, поэтому многоуровневую сортировку делают в несколько проходов, начиная с младшего ключа. Функция key вызывается ровно один раз на элемент, а не при каждом сравнении, так что тяжёлый ключ не накладен; в отличие от list.sort() sorted() не меняет исходник и принимает любой итерируемый объект.",
+      "en": "The sort is stable: items with equal keys keep their original order, so multi-level sorts are done in several passes starting from the least significant key. The key function is called exactly once per element, not on every comparison, so an expensive key is cheap; unlike list.sort(), sorted() leaves the original untouched and accepts any iterable."
     },
     "syntax": "sorted(iterable, key=None, reverse=False)",
     "status": "ready",
@@ -2383,8 +2383,8 @@
       "en": "An immutable sequence of Unicode characters. Provides a rich set of formatting, searching and conversion methods."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Строки неизменяемы, поэтому методы вроде upper(), replace(), strip() не меняют строку на месте, а возвращают новую — результат надо присвоить, иначе он потеряется. По той же причине склейка через += в цикле квадратична по времени: собирай куски в список и объединяй одним \"\".join().",
+      "en": "Strings are immutable, so methods like upper(), replace() and strip() don't change the string in place but return a new one — you must assign the result or it's lost. For the same reason, building a string with += in a loop is quadratic; collect the pieces in a list and join them once with \"\".join()."
     },
     "syntax": "str([object]) | \"текст\" | 'текст'",
     "status": "ready",
@@ -2422,8 +2422,8 @@
       "en": "Built-in function that returns the type of an object. With one argument it returns the type; with three it creates a new class dynamically."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Для проверки типа обычно нужен isinstance, а не type(x) == C: type() возвращает ровно класс объекта и игнорирует наследование, поэтому type(True) — это bool, а не int. Форма с тремя аргументами — низкоуровневый конструктор классов (то, что вызывает metaclass), в обычном коде почти не встречается.",
+      "en": "For type checks you usually want isinstance rather than type(x) == C: type() returns the object's exact class and ignores inheritance, so type(True) is bool, not int. The three-argument form is the low-level class constructor (what a metaclass invokes) and rarely appears in ordinary code."
     },
     "syntax": "type(object) -> type\ntype(name, bases, dict) -> type",
     "status": "ready",
@@ -2500,8 +2500,8 @@
       "en": "A loop with a pre-condition. It runs its body while the condition is true. The condition has to be changed explicitly, otherwise the loop never ends."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главное отличие от for: while берут, когда число повторений заранее неизвестно — читать до стоп-значения, крутить до сходимости, ждать события; для перебора готовой последовательности берут for. Малоизвестно, что у while есть ветка else — она срабатывает, когда цикл завершился сам по условию, а не через break.",
+      "en": "Reach for while rather than for when you don't know the iteration count ahead of time — reading until a sentinel, looping until convergence, waiting for an event; use for to walk a ready-made sequence. Little-known: while has an else branch that runs only when the loop ends on its condition, never after a break."
     },
     "syntax": "while условие:\n    блок",
     "status": "ready",
@@ -2625,8 +2625,8 @@
       "en": "Built-in function that joins several iterables into one. It returns tuples of the corresponding items. It stops at the shortest one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В Python 3 zip() возвращает ленивый итератор, а не список, и исчерпывается после первого прохода — чтобы пройти дважды или обратиться по индексу, оберните его в list(). Идиома zip(*pairs) распаковывает список пар обратно в отдельные последовательности, а на строках матрицы работает как транспонирование.",
+      "en": "In Python 3 zip() returns a lazy iterator, not a list, and is used up after one pass — wrap it in list() if you need to iterate twice or index into it. The zip(*pairs) idiom unzips a list of pairs back into separate sequences, and applied to a matrix's rows it transposes it."
     },
     "syntax": "zip(*iterables)",
     "status": "ready",
@@ -2673,8 +2673,8 @@
       "en": "The strict=True parameter (Python 3.10+) makes zip() raise ValueError if the iterables passed have different lengths. Without strict= zip silently stops at the shortest one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ставьте strict=True всякий раз, когда равная длина — это инвариант, на который вы рассчитываете: молчаливая потеря хвоста превращается в громкую ошибку прямо в месте бага. Учтите, что проверка ленивая: ValueError вылетает не при вызове zip(), а по ходу итерации — в момент, когда более короткий объект исчерпался.",
+      "en": "Turn on strict=True whenever equal length is an invariant you rely on: a silently dropped tail becomes a loud error right where the bug is. Note the check is lazy — the ValueError fires not when you call zip() but mid-iteration, the moment the shorter iterable runs out."
     },
     "syntax": "zip(*iterables, strict=False)",
     "status": "ready",
@@ -2709,8 +2709,8 @@
       "en": "Type hints for parameters and return values. They do not affect execution, but they help IDEs and mypy."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аннотации — это просто метаданные: Python хранит их в __annotations__ и сам никогда не проверяет, поэтому передача строки туда, где объявлен int, не вызовет ошибки — её поймает только mypy. На тех же метаданных построены dataclasses и pydantic, которые читают аннотации во время выполнения; а чтобы сослаться на ещё не определённый класс, его имя берут в кавычки.",
+      "en": "Annotations are just metadata: Python stores them in __annotations__ and never checks them itself, so passing a str where an int is declared raises no error — only mypy will flag it. That same metadata powers dataclasses and pydantic, which read annotations at runtime; and to reference a class that isn't defined yet, put its name in quotes."
     },
     "syntax": "def f(x: int) -> str: ...",
     "status": "ready",
@@ -2920,8 +2920,8 @@
       "en": "An if inside another if. It lets you test combinations of conditions. Use it carefully — deep nesting hurts readability."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Чаще всего вложенность — сигнал упростить: два if подряд без else сливаются в один через and, а глубокие ветки разворачиваются ранним return или continue, убирающим лишние уровни. Это тот случай, когда плоский код почти всегда читается лучше вложенного.",
+      "en": "Nesting is often a hint to simplify: two ifs in a row without an else collapse into one via and, and deep branches flatten out with an early return or continue that strips the extra levels. This is a case where flat code almost always reads better than nested."
     },
     "syntax": "if условие1:\n    if условие2:\n        блок",
     "status": "ready",
@@ -2968,8 +2968,8 @@
       "en": "A loop inside another loop. The inner loop runs in full on every iteration of the outer one. break/continue affect only the nearest loop."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Следите за сложностью: вложенность перемножает длины, и два цикла по n элементов — это уже O(n²), которое быстро становится узким местом. В Python нет метки для break, поэтому выйти сразу из всех уровней нельзя — заводят флаг либо выносят циклы в отдельную функцию и делают return.",
+      "en": "Mind the complexity: nesting multiplies the lengths, so two loops over n items are already O(n²), which becomes a bottleneck fast. Python has no labelled break, so you can't jump out of every level at once — use a flag, or move the loops into a function and return."
     },
     "syntax": "for i in ...:\n    for j in ...:\n        блок",
     "status": "ready",
@@ -3016,8 +3016,8 @@
       "en": "An object with a __call__ method can be called like a function. Used for stateful callables and for class-based decorators."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Класс с __call__ — альтернатива замыканию, когда состояние удобнее держать в атрибутах: его видно, можно менять и добавлять вспомогательные методы (reset, __repr__), тогда как в замыкании оно спрятано. Проверить, вызываем ли объект, можно встроенной callable(obj); кстати, обычные функции — тоже объекты с методом __call__.",
+      "en": "A class with __call__ is the alternative to a closure when state is better kept in attributes: it stays visible, mutable, and can carry helper methods (reset, __repr__), whereas a closure hides it. Use the built-in callable(obj) to test whether something can be called — and note that ordinary functions are themselves objects with a __call__."
     },
     "syntax": "class F:\n    def __call__(self, x): ...\nf = F()\nf(10)",
     "status": "ready",
@@ -3196,8 +3196,8 @@
       "en": "A higher-order function that wraps another function to change its behavior. Applied with the @ syntax."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Запись @deco над def f — это ровно f = deco(f), она выполняется один раз в момент определения функции. Главная грабля: без functools.wraps обёртка подменяет собой оригинал, и f.__name__, docstring и сигнатура теряются — help() и трейсбеки начинают врать; поэтому wrapper оборачивают в @wraps(func).",
+      "en": "Writing @deco above def f is exactly f = deco(f), evaluated once when the function is defined. The classic pitfall: without functools.wraps the wrapper stands in for the original, so f.__name__, its docstring and signature are lost — help() and tracebacks start lying; wrap your wrapper in @wraps(func)."
     },
     "syntax": "@decorator\ndef func(): ...",
     "status": "ready",
@@ -3329,8 +3329,8 @@
       "en": "A nested function captures a variable from the enclosing scope. Used for function factories and to encapsulate state."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Классическая ловушка: замыкание захватывает саму переменную, а не её значение в момент создания. Поэтому функции, созданные в цикле (lambda: i), все увидят последнее значение i — зафиксируйте его через аргумент по умолчанию (lambda i=i: i). А чтобы захваченную переменную не читать, а переприсваивать, во вложенной функции нужен nonlocal.",
+      "en": "The classic trap: a closure captures the variable itself, not its value at creation time. So functions built in a loop (lambda: i) all see i's final value — pin it with a default argument (lambda i=i: i). And to rebind, rather than just read, a captured variable, the inner function needs nonlocal."
     },
     "syntax": "def outer():\n    x = 10\n    def inner():\n        return x\n    return inner",
     "status": "ready",
@@ -3449,8 +3449,8 @@
       "en": "The LEGB rule: Local → Enclosing → Global → Built-in. A local variable exists only inside its function."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная грабля: любое присваивание имени внутри функции делает его локальным на всё тело — поэтому прочитать глобальную x, а ниже написать x = ..., нельзя, будет UnboundLocalError уже на чтении. Читать глобальные можно без объявления, но чтобы присвоить именно глобальной, а не создать новую локальную, нужен global; для переменной из объемлющей функции — nonlocal.",
+      "en": "The main trap: assigning to a name anywhere in a function makes it local for the whole body — so you cannot read the global x and then write x = ... below it; that raises UnboundLocalError on the read. Reading globals needs no declaration, but to assign to a global instead of creating a new local you need global; for a variable from an enclosing function, nonlocal."
     },
     "syntax": "x = 10  # глобальная\ndef f():\n    x = 5  # локальная",
     "status": "ready",
@@ -3578,8 +3578,8 @@
       "en": "The pattern for walking the digits of a number: convert it to a string, or divide by 10 repeatedly. Used for digit sum, product, counting and largest-digit problems."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вариант while n > 0 вообще не заходит в тело при n = 0 и даёт пустой результат — ноль приходится обрабатывать отдельно. Для отрицательных чисел нужен abs(): в str(n) минус станет символом '-', на котором int(d) упадёт, а % и // с отрицательными работают не так, как обычно ждут.",
+      "en": "The while n > 0 version never enters the body when n = 0 and yields nothing — zero has to be special-cased. Negative numbers need abs(): str(n) puts a '-' in the string that int(d) chokes on, and % and // behave counterintuitively on negatives."
     },
     "syntax": "for d in str(abs(n)): | while n > 0: d = n % 10; n //= 10",
     "status": "ready",
@@ -3657,8 +3657,8 @@
       "en": "The operators ==, !=, >, <, >= and <= compare two values and return a bool. Python also supports chained comparisons: a < b < c."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная засада — сравнивать дробные числа через ==: из-за двоичного округления 0.1 + 0.2 не равно 0.3, поэтому для float берите math.isclose. В цепочке a < b < c средний операнд вычисляется один раз, а проверка обрывается на первом же ложном звене.",
+      "en": "The main pitfall is comparing floats with ==: because of binary rounding, 0.1 + 0.2 is not equal to 0.3, so reach for math.isclose with floats. In a chain like a < b < c the middle operand is evaluated only once, and the check stops at the first false link."
     },
     "syntax": "a == b | a != b | a > b | a < b | a >= b | a <= b",
     "status": "ready",
@@ -3814,8 +3814,8 @@
       "en": "Parameters are the names in the function definition. Arguments are the values at the call site. Positional ones are passed in order, keyword ones by name."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Позиционные аргументы должны идти строго перед ключевыми: f(a=1, 2) — это SyntaxError, а не ошибка времени выполнения. И наоборот, имена параметров становятся частью контракта функции: вызов по ключу сломается, если позже переименовать параметр.",
+      "en": "Positional arguments must all come before keyword ones: f(a=1, 2) is a SyntaxError, not a runtime error. Conversely, parameter names are part of the function's contract — a keyword call breaks if you later rename the parameter."
     },
     "syntax": "def f(a, b): ...\nf(1, 2)  # позиционные\nf(a=1, b=2)  # ключевые",
     "status": "ready",
@@ -3858,8 +3858,8 @@
       "en": "Parameters may have a default value. A mutable object as a default is a trap! Use the None pattern instead."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Значение по умолчанию вычисляется один раз — в момент определения функции, а не при каждом вызове. Поэтому один и тот же список или словарь живёт между вызовами и копит изменения; паттерн с None (y=None, внутри if y is None: y = []) создаёт свежий объект при каждом вызове.",
+      "en": "A default value is evaluated once, when the function is defined — not on every call. So the same list or dict survives between calls and accumulates changes; the None pattern (y=None, then if y is None: y = [] inside) builds a fresh object each time."
     },
     "syntax": "def f(x, y=10): ...",
     "status": "ready",
@@ -3944,8 +3944,8 @@
       "en": "Explicit conversion of one type into another with the built-in int(), float(), str() and bool(). A conversion that is not possible raises ValueError or TypeError."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "bool() коварнее всего: любая непустая строка истинна, поэтому bool(\"False\") и bool(\"0\") — это True. А int() от float отбрасывает дробь в сторону нуля (int(-3.9) → -3, не округление), тогда как int(\"3.9\") сразу падает с ValueError — строку с точкой сначала надо прогнать через float().",
+      "en": "bool() is the sneakiest: any non-empty string is truthy, so bool(\"False\") and bool(\"0\") are both True. And int() of a float truncates toward zero (int(-3.9) → -3, not rounding), while int(\"3.9\") raises ValueError outright — a decimal string must go through float() first."
     },
     "syntax": "int(x) | float(x) | str(x) | bool(x)",
     "status": "ready",
@@ -4093,8 +4093,8 @@
       "en": "When iterating over a sequence of tuples (or of other iterables) you can unpack the items into several variables right in the for header."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Число переменных в заголовке должно точно совпадать с числом элементов в каждом кортеже — иначе на этой итерации вылетит ValueError (not enough / too many values to unpack), причём уже в рантайме, а не при разборе кода. Если длина «хвоста» плавает, выручает звёздочка: for first, *rest in ... соберёт остаток в список. А вложенная распаковка вроде for i, (x, y) in enumerate(...) требует скобок вокруг внутренней пары — без них Python будет ждать три отдельные переменные.",
+      "en": "The count of target variables must exactly match the number of items in each tuple, or that iteration raises ValueError (not enough / too many values to unpack) — at runtime, not at parse time. When the tail length varies, a star helps: for first, *rest in ... collects the remainder into a list. Nested unpacking like for i, (x, y) in enumerate(...) needs the parentheses around the inner pair, otherwise Python expects three separate variables."
     },
     "syntax": "for x, y in iterable: ...\nfor a, b, c in iterable: ...",
     "status": "ready",
@@ -4131,8 +4131,8 @@
       "en": "A function calls itself. It needs a base case. The default depth is about 1000 (sys.setrecursionlimit)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "У Python нет оптимизации хвостовой рекурсии, поэтому превышение глубины даёт RecursionError, а не тихое зависание — для глубоких случаев надёжнее цикл. Если рекурсия перевычисляет одни и те же подзадачи (как наивный fib), оберни её в functools.lru_cache — сложность падает с экспоненциальной до линейной.",
+      "en": "Python has no tail-call optimization, so exceeding the depth raises RecursionError rather than hanging silently — for deep cases a loop is safer. If the recursion recomputes the same subproblems (like naive fib), wrap it in functools.lru_cache — that cuts the cost from exponential to linear."
     },
     "syntax": "def f(n):\n    if n == 0: return 1\n    return n * f(n-1)",
     "status": "ready",
@@ -4663,8 +4663,8 @@
       "en": "The compact one-line form of if-else. It returns one of two values depending on the condition. Read it as: value_if_true if condition else value_if_false."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от обычного if, это выражение — оно возвращает значение, поэтому его можно вставить прямо туда, где оператор недопустим: в аргумент функции, в f-строку, в тело генератора. Порядок необычный (сначала результат, потом условие), а вложенные тернары ради «elif» лучше не плодить — читаемость падает быстро.",
+      "en": "Unlike a regular if, this is an expression — it returns a value, so you can drop it right where a statement isn't allowed: a function argument, an f-string, a comprehension body. The order is unusual (result first, condition second), and stacking nested ternaries to fake an elif quickly wrecks readability."
     },
     "syntax": "значение_если_истина if условие else значение_если_ложь",
     "status": "ready",

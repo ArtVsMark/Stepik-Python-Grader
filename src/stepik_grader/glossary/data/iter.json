@@ -8,8 +8,8 @@
       "en": "async def declares a coroutine. await suspends execution until another coroutine produces its result."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вызов greet('Alice') без await ничего не выполняет — он возвращает объект-корутину, а при завершении программы вы получите предупреждение \"coroutine was never awaited\". Само по себе await доступно только внутри async def, а верхний уровень программы запускается через asyncio.run(main()). И асинхронность здесь не про параллельность: цикл событий один и однопоточный, поэтому обычный блокирующий вызов вроде time.sleep() или синхронного requests замораживает сразу все задачи.",
+      "en": "Calling greet('Alice') without await runs nothing — it just builds a coroutine object, and at exit you get the warning that a coroutine was never awaited. await itself is only legal inside async def, and the top of the program is started with asyncio.run(main()). Also, async is not parallelism: the event loop is a single thread, so one ordinary blocking call such as time.sleep() or synchronous requests freezes every task at once."
     },
     "syntax": "async def name() -> T:\n    result = await other_coroutine()",
     "status": "ready",
@@ -46,8 +46,8 @@
       "en": "async for iterates over an asynchronous iterator. async with uses an asynchronous context manager."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это не ускорители, а способ дождаться того, что приходит порциями: async for всё равно идёт по одному элементу за раз, просто между шагами отдаёт управление event loop. Обе формы работают только внутри async def и только с объектами, у которых есть __aiter__/__anext__ (или __aenter__/__aexit__) — обычный список или синхронный with-объект дадут TypeError. Если нужна именно параллельность, а не последовательное ожидание, собирайте корутины и отдавайте их gather или TaskGroup.",
+      "en": "Neither form makes anything parallel: async for still walks items one at a time, it just yields control back to the event loop between steps. Both are allowed only inside an async def, and only for objects implementing __aiter__/__anext__ (or __aenter__/__aexit__) — a plain list or a sync context manager raises TypeError. When you actually want things to overlap, collect the coroutines and hand them to gather or a TaskGroup."
     },
     "syntax": "async for item in aiter: ...\nasync with ctx_manager() as obj: ...",
     "status": "ready",
@@ -84,8 +84,8 @@
       "en": "Wraps a coroutine in a Task, running it in the background of the event loop. The task starts immediately, without waiting for an await."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Корутина не стартует прямо в точке вызова: задача лишь ставится в очередь event loop и начинает выполняться, когда текущая корутина сама дойдёт до ближайшего await. Вторая ловушка — ссылка: loop держит на задачу только слабую ссылку, поэтому task, никуда не сохранённый, может быть собран сборщиком мусора посреди работы; храните его в переменной или во множестве до завершения. И исключение внутри задачи молчит, пока её не заawait'или — потерянные задачи легко прячут ошибки.",
+      "en": "Nothing runs at the call site itself: the task is queued on the event loop and only starts once the current coroutine reaches its next await. Also keep a reference — the loop holds only a weak one, so a task assigned nowhere can be garbage-collected mid-flight; park it in a variable or a set until it finishes. An exception raised inside a task stays silent until someone awaits it, which is how fire-and-forget tasks swallow bugs."
     },
     "syntax": "task = asyncio.create_task(coro())",
     "status": "ready",
@@ -123,8 +123,8 @@
       "en": "Runs several coroutines concurrently and waits until all of them finish. Returns the list of results."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Результаты приходят в порядке аргументов, а не в порядке завершения. По умолчанию (return_exceptions=False) первая же ошибка сразу пробрасывается наружу, но остальные корутины при этом не отменяются и продолжают крутиться в фоне — отсюда висящие задачи и жалобы при выходе; с return_exceptions=True исключения просто лягут в список результатов на своих местах. В Python 3.11+ для группы задач с внятной отменой обычно удобнее asyncio.TaskGroup.",
+      "en": "Results come back in argument order, never in completion order. With the default return_exceptions=False the first failure propagates at once, yet the remaining coroutines are not cancelled and keep running in the background — that is where stray tasks and shutdown warnings come from; return_exceptions=True instead places each exception into the result list. On Python 3.11+ asyncio.TaskGroup is usually the better fit when you want the whole group cancelled on failure."
     },
     "syntax": "results = await asyncio.gather(coro1, coro2, ...)",
     "status": "ready",
@@ -160,8 +160,8 @@
       "en": "A queue for passing data between coroutines. put/get are awaited. Not thread-safe: use queue.Queue to pass data between threads."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная боль — как остановить потребителя: await q.get() на пустой очереди ждёт вечно, а проверка q.empty() в цикле — гонка, продюсер мог просто ещё не успеть положить элемент. Штатные способы завершиться — послать сентинел (например, None) или отмечать обработанное через task_done() и ждать q.join(). maxsize больше нуля превращает put в точку ожидания и даёт backpressure: быстрый продюсер не убежит от медленного потребителя.",
+      "en": "The hard part is stopping the consumer: await q.get() on an empty queue waits forever, and looping on q.empty() is a race — the producer may simply not have put the item yet. The usual exits are a sentinel value (say None) or marking work with task_done() and waiting on q.join(). A maxsize above zero makes put itself a suspension point, giving you backpressure so a fast producer cannot outrun a slow consumer."
     },
     "syntax": "q = asyncio.Queue(maxsize=0)\nawait q.put(item)\nitem = await q.get()",
     "status": "ready",
@@ -202,8 +202,8 @@
       "en": "Runs a top-level coroutine in a new event loop. The main entry point of an async program (Python 3.7+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вызвать его изнутри уже работающего цикла нельзя: в Jupyter или внутри другой корутины получите RuntimeError про asyncio.run() cannot be called from a running event loop. Каждый вызов создаёт новый loop и в конце закрывает его, отменяя недоделанные задачи, поэтому привязанные к циклу объекты (Queue, Lock, открытые соединения) нельзя переиспользовать между двумя вызовами. Практическое правило: ровно один вызов на всю программу, в самой верхней точке.",
+      "en": "You cannot call it from inside a loop that is already running — in Jupyter or within another coroutine you get RuntimeError: asyncio.run() cannot be called from a running event loop. Every call builds a fresh loop and closes it on exit, cancelling whatever is still pending, so loop-bound objects such as Queue, Lock or open connections cannot be shared across two calls. Rule of thumb: exactly one call, at the very top of your program."
     },
     "syntax": "asyncio.run(coro)",
     "status": "ready",
@@ -241,8 +241,8 @@
       "en": "Suspends a coroutine for the given time without blocking the event loop. The async counterpart of time.sleep()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ошибка — оставить в корутине time.sleep(): он замораживает весь поток вместе с event loop, и параллельные задачи встают, хотя код внешне выглядит асинхронным. Указанное время — минимум, а не точность: возврат произойдёт не раньше него, но насколько позже — зависит от загруженности цикла. Вызов asyncio.sleep(0) — идиома «уступить управление»: спать не нужно, но другим готовым задачам дают шанс поработать.",
+      "en": "The classic mistake is leaving time.sleep() inside a coroutine: it freezes the whole thread along with the event loop, so every concurrent task stalls even though the code looks asynchronous. The delay is a lower bound, not a guarantee — you never resume earlier, but how much later depends on how busy the loop is. asyncio.sleep(0) is the idiom for yielding control: no real waiting, just a chance for other ready tasks to run."
     },
     "syntax": "await asyncio.sleep(seconds)",
     "status": "ready",
@@ -279,8 +279,8 @@
       "en": "A function with yield is a generator function. It returns a generator. Execution is suspended at each yield."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вызов генераторной функции не выполняет ни одной строки её тела — только создаёт объект-генератор; код стартует при первом next() или на первой итерации цикла. Генератор одноразовый: после того как он исчерпан, повторный for по той же переменной молча даст ноль итераций — это ловушка, когда результат хотят обойти дважды или сначала посчитать len(). Смысл конструкции — считать элементы по одному и не держать в памяти весь список, поэтому она уместна для больших или бесконечных последовательностей.",
+      "en": "Calling a generator function runs none of its body — it only builds a generator object; the code starts at the first next() or the first loop iteration. Generators are single-pass: once exhausted, a second for over the same variable silently yields nothing, which bites people who want to iterate twice or take len() first. The whole point is producing items one at a time instead of materialising a list, which is what makes huge or infinite sequences workable."
     },
     "syntax": "def gen():\n    yield value",
     "status": "ready",
@@ -360,8 +360,8 @@
       "en": "iter() builds an iterator out of an iterable. next() returns the following item. The default value is returned instead of raising StopIteration."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Цикл for делает ровно это под капотом: берёт iter() у объекта и дёргает next(), пока не поймает StopIteration. Отсюда неочевидное следствие — итератор помнит позицию, поэтому после частичного обхода следующий цикл продолжит с того места, где вы остановились, а не с начала. Голый next() без второго аргумента бросает StopIteration, и если это происходит внутри генератора, интерпретатор превращает исключение в RuntimeError (PEP 479) — надёжнее передавать значение по умолчанию.",
+      "en": "A for loop is exactly this under the hood: it calls iter() on the object and keeps calling next() until StopIteration shows up. The non-obvious consequence is that an iterator remembers its position, so after a partial walk the next loop resumes where you stopped rather than from the beginning. A bare next() without a default raises StopIteration, and when that happens inside a generator the interpreter converts it into RuntimeError (PEP 479), so passing a default is the safer habit."
     },
     "syntax": "it = iter(obj)\nnext(it, default)",
     "status": "ready",
@@ -413,8 +413,8 @@
       "en": "The running intermediate results of applying a function. Sums by default."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отличие от functools.reduce: reduce сворачивает всё в одно число, accumulate отдаёт всю историю свёртки — на выходе столько же элементов, сколько на входе. Результат ленивый итератор, а не список: печатать его напрямую бесполезно, нужен list() или обход циклом, и пройти по нему можно один раз. Функция должна принимать два аргумента; параметр initial (с Python 3.8) подставляет стартовое значение и делает выход на один элемент длиннее.",
+      "en": "The difference from functools.reduce: reduce collapses everything into a single value, while accumulate hands you the whole running history — the output has as many items as the input. It returns a lazy iterator, not a list, so printing it directly is useless; wrap it in list() or loop over it, and remember you only get one pass. The function must take two arguments, and the initial parameter (Python 3.8+) seeds the accumulation and makes the output one item longer."
     },
     "syntax": "from itertools import accumulate\naccumulate(iterable, func=operator.add)",
     "status": "ready",
@@ -454,8 +454,8 @@
       "en": "Walks through several iterables one after another as if they were a single one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от a + b, chain ничего не копирует: элементы берутся по одному по мере обхода, память постоянная, и это работает с любыми итерируемыми — множествами, файлами, генераторами, а не только со списками одного типа. Разница между chain(*matrix) и chain.from_iterable(matrix) существенна: звёздочка сразу разворачивает внешнюю последовательность в аргументы, from_iterable берёт её лениво и потому переживает длинные или бесконечные внешние источники. Итог — обычный одноразовый итератор, второго прохода по нему не будет.",
+      "en": "Unlike a + b, chain copies nothing: items are pulled one at a time as you iterate, memory stays constant, and it accepts any iterables — sets, files, generators — not just lists of one type. The gap between chain(*matrix) and chain.from_iterable(matrix) matters: the star expands the outer sequence into arguments immediately, while from_iterable consumes it lazily and therefore survives very long or endless outer sources. What you get back is an ordinary single-pass iterator, so there is no second walk over it."
     },
     "syntax": "from itertools import chain\nchain(a, b, c)",
     "status": "ready",
@@ -500,8 +500,8 @@
       "en": "Groups consecutive equal items. The data must be sorted by the key first!"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка после «забыл отсортировать» — группа живёт только до перехода к следующей. Все группы делят один исходный итератор, поэтому list(groupby(data)) даёт пустые группы: пока вы дойдёте до конца, предыдущие уже съедены. Нужен весь результат сразу — забирайте list(group) внутри цикла, до следующей итерации.",
+      "en": "Beyond the classic \"forgot to sort\" mistake, a group stays valid only until you move on to the next one. All groups share the same underlying iterator, so list(groupby(data)) hands you empty groups: by the time the loop ends, the earlier ones have been consumed. If you need everything at once, call list(group) inside the loop body, before advancing."
     },
     "syntax": "from itertools import groupby\ngroupby(iterable, key=None)",
     "status": "ready",
@@ -550,8 +550,8 @@
       "en": "Slices an iterator without materializing it. The counterpart of a slice for iterables."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "islice не возвращается назад: отрицательные start, stop и step запрещены, шаг только положительный. И он реально расходует итератор — элементы до start прочитаны и выброшены, а после вызова исходный итератор стоит на месте, докуда дошёл срез, так что повторный islice продолжит, а не начнёт заново.",
+      "en": "islice never looks backwards: negative start, stop and step are rejected, and the step must be positive. It also genuinely consumes the source — items before start are read and thrown away, and afterwards the underlying iterator sits wherever the slice stopped, so a second islice continues from there instead of starting over."
     },
     "syntax": "from itertools import islice\nislice(iterable, stop)\nislice(iterable, start, stop[, step])",
     "status": "ready",
@@ -597,8 +597,8 @@
       "en": "Delegates yielding to another generator or iterable. It simplifies nested generators."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это не просто сокращение для цикла с yield: yield from пробрасывает во вложенный генератор send() и throw(), а значение из его return становится результатом самого выражения yield from. Ради обычного перебора экономия невелика, а вот для сопрограмм и рекурсивного обхода (дерево, вложенные списки) — именно то, ради чего конструкцию добавили в Python 3.3.",
+      "en": "It is more than shorthand for a for loop with yield: yield from forwards send() and throw() into the subgenerator, and whatever the subgenerator returns becomes the value of the yield from expression itself. For plain iteration the savings are cosmetic; the real payoff is coroutines and recursive traversal (trees, nested lists), which is why Python 3.3 introduced it."
     },
     "syntax": "yield from iterable",
     "status": "ready",
@@ -655,8 +655,8 @@
       "en": "The lazy counterpart of a list comprehension, written in parentheses. It does not build a list in memory."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Генератор одноразовый: после list(gen) второй проход даст пустоту, а не прежние значения — частая причина «почему сумма ноль». Ещё тонкость: самое левое iterable вычисляется сразу при создании выражения, а всё остальное — лениво, поэтому изменение внешних переменных после создания генератора повлияет на результат.",
+      "en": "A generator expression is single-use: after list(gen) a second pass yields nothing rather than the old values, which is a common cause of a mysterious zero sum. One more subtlety: the leftmost iterable is evaluated immediately when the expression is created, while everything else is deferred, so changing outer variables afterwards still affects the output."
     },
     "syntax": "(expr for x in iterable if condition)",
     "status": "ready",
@@ -702,8 +702,8 @@
       "en": "An iterator is an object with __iter__ and __next__. __next__ returns the next value or raises StopIteration."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Не путайте итерируемое и итератор: список можно обойти сколько угодно раз, а итератор — ровно один, и после исчерпания он обязан продолжать поднимать StopIteration, а не начинать заново. Поэтому класс, у которого __iter__ возвращает self, во втором цикле for молча ничего не выдаст; чтобы объект переиспользовался, __iter__ должен возвращать каждый раз новый объект-итератор.",
+      "en": "Do not confuse an iterable with an iterator: a list can be traversed any number of times, an iterator exactly once, and once exhausted it must keep raising StopIteration rather than restarting. That is why a class whose __iter__ returns self silently produces nothing in a second for loop; to make the object reusable, __iter__ should hand back a fresh iterator object each time."
     },
     "syntax": "class Iter:\n    def __iter__(self): return self\n    def __next__(self): ...",
     "status": "ready",
@@ -792,8 +792,8 @@
       "en": "An infinite counter: start, start+step, …"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Счётчик бесконечен: list(count()) или for без break повесит программу и съест память — ограничивайте его через islice(), zip() или takewhile(). Типичное применение — генератор индексов в паре с zip() (как enumerate), а step может быть и дробным.",
+      "en": "The counter is infinite: list(count()) or a for-loop without a break will hang and exhaust memory — bound it with islice(), zip(), or takewhile(). A common use is as an index generator paired with zip() (enumerate-style), and step may be a float."
     },
     "syntax": "itertools.count(start=0, step=1)",
     "status": "ready",
@@ -824,8 +824,8 @@
       "en": "Repeat the elements of an iterable endlessly, cycling."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На первом проходе cycle сохраняет копию всех элементов, чтобы потом повторять их бесконечно, — поэтому на огромном или бесконечном источнике он незаметно съест память. Сам итератор никогда не заканчивается: list(cycle(...)) зависнет навсегда, всегда ограничивай его через islice или через next() в цикле с собственным условием выхода.",
+      "en": "On its first pass cycle stores a copy of every element so it can repeat them forever, which means it quietly holds the whole input in memory on huge or infinite sources. The iterator itself never ends: list(cycle(...)) hangs forever, so always bound it with islice or a next() loop that has its own exit condition."
     },
     "syntax": "itertools.cycle(iterable)",
     "status": "ready",
@@ -856,8 +856,8 @@
       "en": "Repeat a single value endlessly or exactly `times` times."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Без аргумента times поток бесконечен — не оборачивай его в list(), а комбинируй с zip()/map(), чтобы подать константу к каждому элементу (map(pow, base, repeat(2))). repeat отдаёт один и тот же объект, а не копии, поэтому для изменяемого значения все элементы окажутся ссылками на одну и ту же вещь.",
+      "en": "With no times argument the stream is infinite — never wrap it in list(); pair it with zip()/map() to feed a constant alongside each element (map(pow, base, repeat(2))). repeat yields the same object every time, not copies, so with a mutable value every item is a reference to one shared thing."
     },
     "syntax": "itertools.repeat(obj, times)",
     "status": "ready",
@@ -887,8 +887,8 @@
       "en": "All length-r combinations of the iterable (no repeats, order-independent)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Элементы считаются уникальными по позиции, а не по значению: если во входе есть повторы, в выводе появятся одинаковые кортежи. Число результатов — C(n, r), растёт комбинаторно, поэтому не оборачивайте combinations от большого входа в list() бездумно; сами кортежи идут в лексикографическом порядке входа, а при r больше n результат пуст.",
+      "en": "Elements are treated as unique by position, not by value, so duplicate inputs produce duplicate output tuples. The result count is C(n, r) and grows explosively — don't blindly list() combinations of a large input; tuples come in the input's lexicographic order, and r greater than n yields nothing."
     },
     "syntax": "itertools.combinations(iterable, r)",
     "status": "ready",
@@ -918,8 +918,8 @@
       "en": "Length-r combinations allowing repeated elements."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отличие от combinations — один и тот же элемент можно взять несколько раз (кортежи неубывающие по позиции). От product(it, repeat=r) отличается тем, что не даёт переставленных дубликатов: только сочетания без учёта порядка, поэтому результатов C(n+r-1, r), а не n в степени r.",
+      "en": "Unlike combinations, the same element may be picked more than once (tuples are non-decreasing by position). Unlike product(it, repeat=r) it omits reordered duplicates — only order-independent selections — so you get C(n+r-1, r) results instead of n**r."
     },
     "syntax": "itertools.combinations_with_replacement(iterable, r)",
     "status": "ready",
@@ -949,8 +949,8 @@
       "en": "All length-r permutations of the iterable (order matters)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Число результатов растёт как n!/(n−r)!, поэтому на большом входе перебор взрывается почти мгновенно — не заворачивай его в list() бездумно. Элементы считаются уникальными по позиции, а не по значению: в [1, 1] две единицы дадут внешне «дублирующиеся» кортежи, а если порядок внутри группы не важен, тебе нужен combinations.",
+      "en": "The result count grows as n!/(n−r)!, so it explodes almost instantly on large inputs — don't wrap it in list() carelessly. Elements are treated as unique by position, not by value: two equal items like [1, 1] produce look-alike duplicate tuples, and if order within a group doesn't matter you want combinations instead."
     },
     "syntax": "itertools.permutations(iterable, r=None)",
     "status": "ready",
@@ -980,8 +980,8 @@
       "en": "Cartesian product of iterables (nested loops as a flat iterator)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "product заменяет вложенные for-циклы одним плоским итератором, но перед началом полностью считывает все входы в память — бесконечный или огромный итерируемый передавать нельзя. Крайний правый аргумент меняется быстрее всех; repeat=N даёт произведение набора с самим собой N раз (product(xs, repeat=3) вместо тройного цикла).",
+      "en": "product flattens nested for-loops into one iterator, but it fully materializes every input into memory first — so an infinite or huge iterable will hang or exhaust RAM. The rightmost argument varies fastest, and repeat=N gives the product of a set with itself N times instead of an N-deep loop nest."
     },
     "syntax": "itertools.product(*iterables, repeat=1)",
     "status": "ready",
@@ -1011,8 +1011,8 @@
       "en": "Select elements of data where the corresponding selector is true."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Останавливается на более коротком из двух аргументов, лишний хвост игнорируется. Удобен, когда булева маска уже посчитана заранее (например, другим фильтром) и её хочется переиспользовать — читается чище, чем comprehension с zip; selectors — любые истинные или ложные значения, не обязательно 0 и 1.",
+      "en": "It stops at the shorter of the two arguments and ignores the leftover tail. It shines when you already have a boolean mask computed elsewhere and want to reuse it — cleaner than a comprehension zipping the two — and selectors can be any truthy/falsy values, not just 0 and 1."
     },
     "syntax": "itertools.compress(data, selectors)",
     "status": "ready",
@@ -1042,8 +1042,8 @@
       "en": "Drop elements while the predicate is true, then yield the rest."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Предикат проверяется только до первого False — после этого dropwhile отдаёт весь остаток как есть, даже если дальше снова попадаются элементы, которые предикату подходят. Именно этим он отличается от filter, который проверяет каждый элемент по отдельности.",
+      "en": "The predicate is tested only until it first returns False — after that dropwhile passes the entire remainder through unchanged, even elements that would again satisfy it. That is exactly what separates it from filter, which evaluates every element individually."
     },
     "syntax": "itertools.dropwhile(predicate, iterable)",
     "status": "ready",
@@ -1073,8 +1073,8 @@
       "en": "Yield elements while the predicate is true, then stop."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Останавливается навсегда на первом элементе, где предикат ложь, — в отличие от filter(), который просто пропускает неподходящие и идёт дальше (для противоположного поведения есть dropwhile). Учти: элемент, оборвавший выдачу, уже вытянут из исходного итератора и потерян, если продолжить читать тот же итератор.",
+      "en": "It stops for good at the first element where the predicate is false — unlike filter(), which merely skips non-matching items and keeps going (dropwhile is the mirror image). Note that the element that breaks the run is already pulled from the source iterator and lost if you keep reading that same iterator."
     },
     "syntax": "itertools.takewhile(predicate, iterable)",
     "status": "ready",
@@ -1104,8 +1104,8 @@
       "en": "Yield elements for which the predicate is false (the opposite of filter())."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Как и у filter, значение predicate=None означает «проверять сам элемент на истинность», так что filterfalse(None, it) отдаёт именно ложные элементы — нули, пустые строки, None. В паре с filter на одном источнике (через tee) это стандартный способ разбить данные на две группы по условию.",
+      "en": "As with filter, passing predicate=None means \"test the element's own truthiness\", so filterfalse(None, it) yields exactly the falsy items — zeros, empty strings, None. Paired with filter over one source (via tee) it is the standard way to split data into two groups by a condition."
     },
     "syntax": "itertools.filterfalse(predicate, iterable)",
     "status": "ready",
@@ -1135,8 +1135,8 @@
       "en": "Like map(), but arguments are taken by unpacking each tuple: f(*args)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Бери starmap, когда аргументы уже сгруппированы в кортежи внутри одного итерируемого; обычный map(f, a, b) — когда итерируемые лежат отдельно. По сути starmap(f, seq) — это (f(*args) for args in seq).",
+      "en": "Reach for starmap when the arguments already come grouped as tuples inside one iterable; use plain map(f, a, b) when the iterables are separate. It is essentially (f(*args) for args in seq)."
     },
     "syntax": "itertools.starmap(function, iterable)",
     "status": "ready",
@@ -1166,8 +1166,8 @@
       "en": "Successive overlapping pairs: (s0,s1), (s1,s2), … (3.10+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от старого приёма zip(seq, seq[1:]), pairwise работает с любым итерируемым — включая генераторы и бесконечные потоки, — потому что лениво держит в памяти только предыдущий элемент. Если на входе меньше двух элементов, результат пустой.",
+      "en": "Unlike the old zip(seq, seq[1:]) trick, pairwise works on any iterable — generators and infinite streams included — because it lazily keeps only the previous element around. With fewer than two input items it yields nothing."
     },
     "syntax": "itertools.pairwise(iterable)",
     "status": "ready",
@@ -1197,8 +1197,8 @@
       "en": "Batch an iterable into tuples of length n (the last may be shorter); 3.12+."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возвращает ленивый итератор кортежей, а не список, — оборачивайте в list(), если нужен весь результат сразу. До 3.12 для нарезки писали zip(*[iter(it)]*n), но тот молча выбрасывал неполный последний кусок, а batched его сохраняет; с 3.13 есть strict=True, чтобы потребовать одинаковую длину всех кусков (иначе ValueError), а n меньше 1 всегда ошибка.",
+      "en": "It returns a lazy iterator of tuples, not a list, so wrap it in list() when you need everything at once. The old pre-3.12 chunking idiom zip(*[iter(it)]*n) silently dropped an incomplete final batch, whereas batched keeps it; since 3.13 strict=True demands equal-sized batches (else ValueError), and n below 1 always raises."
     },
     "syntax": "itertools.batched(iterable, n)",
     "status": "ready",
@@ -1228,8 +1228,8 @@
       "en": "Like zip(), but continues to the longest iterable, padding with fillvalue."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ленивая — отдаёт итератор, значения тянутся по требованию. Главная ловушка: fillvalue один на все короткие последовательности, а его дефолт None легко совпадает с настоящим None в данных, и тогда не отличить добитый пропуск от реального значения. Противоположность — zip(..., strict=True) из 3.10, который наоборот падает, если длины не совпали.",
+      "en": "It is lazy — it returns an iterator and produces tuples on demand. The catch: fillvalue is a single shared value for every short iterable, and its default None easily collides with a genuine None in your data, so you cannot tell padding apart from a real value. Its opposite is zip(..., strict=True) from 3.10, which instead raises when the lengths differ."
     },
     "syntax": "itertools.zip_longest(*iterables, fillvalue=None)",
     "status": "ready",
@@ -1259,8 +1259,8 @@
       "en": "Create n independent iterators from a single iterable."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "После tee исходный итератор использовать нельзя — работай только с возвращёнными ветками. Если одну ветку прочитать далеко вперёд другой, tee буферизует все промежуточные элементы в памяти, так что при большом разрыве проще сделать list(); ветки к тому же не потокобезопасны.",
+      "en": "After tee, stop using the original iterator and work only through the returned branches. If one branch races far ahead of another, tee buffers every element in between in memory — so for a large gap a plain list() is cheaper — and the branches are not thread-safe."
     },
     "syntax": "itertools.tee(iterable, n=2)",
     "status": "ready",

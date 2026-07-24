@@ -400,8 +400,8 @@
       "en": "Every member of an enumeration has a .name attribute (a string) and a .value attribute (the value given to it)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Не путайте два способа поиска: Color(1) ищет по значению и совпадает с .value, а Color['RED'] — по имени и совпадает с .name. Сам элемент не равен своему значению: у обычного Enum Color.RED == 1 даёт False, сравнивать нужно либо элементы между собой, либо .value со значением (либо наследоваться от IntEnum/StrEnum). Оба атрибута доступны только на чтение и реализованы так, что поле с именем name или value в перечислении конфликтует с ними.",
+      "en": "Keep the two lookups apart: Color(1) looks up by value and matches .value, while Color['RED'] looks up by name and matches .name. A member is not equal to its value — with a plain Enum, Color.RED == 1 is False, so compare members to members or .value to the raw value (or inherit from IntEnum/StrEnum). Both attributes are read-only and implemented in a way that clashes with a member literally named name or value."
     },
     "syntax": "member.name  # → 'RED'\nmember.value # → 1",
     "status": "ready",
@@ -646,8 +646,8 @@
       "en": "An object representing the result of an operation carried out asynchronously. Returned by submit(). It lets you check the status and collect the result."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Исключение внутри задачи не всплывает само: оно хранится в Future и выбрасывается только тогда, когда вы вызовете result() (или exception()). Если результат никто не спросил — ошибка пропадает бесследно, это классическая причина \"поток ничего не сделал и молчит\". И не вызывайте result() сразу в цикле подачи задач: это блокирует и превращает пул в последовательное выполнение — собирайте futures в список, а потом обходите их через as_completed().",
+      "en": "An exception inside the task does not surface on its own: it is stored in the Future and only re-raised when you call result() (or exception()). If nobody asks for the result, the error vanishes without a trace — the classic reason a worker \"did nothing and said nothing\". Also avoid calling result() inside the submit loop: it blocks and turns the pool back into sequential execution — collect the futures first, then walk them with as_completed()."
     },
     "syntax": "f = executor.submit(fn, *args)\nf.result()   # блокирует до готовности\nf.done()     # True если завершён\nf.cancel()   # отменить, если ещё не запущен",
     "status": "ready",
@@ -680,8 +680,8 @@
       "en": "The Global Interpreter Lock — the CPython mutex that allows only one thread to execute bytecode at a time. It blocks parallelism for CPU-bound work, but does not get in the way of I/O."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "GIL не делает твой код потокобезопасным: составные операции (проверил-потом-изменил, counter += 1) всё равно гонятся между потоками, так что Lock по-прежнему обязателен. Начиная с Python 3.13 есть экспериментальная free-threaded сборка (PEP 703), где GIL можно отключить, но в обычной сборке он на месте.",
+      "en": "The GIL does not make your code thread-safe: compound operations (check-then-act, counter += 1) still race between threads, so you still need a Lock. Since Python 3.13 there is an experimental free-threaded build (PEP 703) where the GIL can be turned off, but in the regular build it is still there."
     },
     "syntax": "# GIL — концепция, не синтаксис",
     "status": "ready",
@@ -754,8 +754,8 @@
       "en": "A pool of processes from concurrent.futures. It gets around the GIL — every process has its own interpreter. Use it for CPU-intensive work."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргументы и возвращаемые значения ездят между процессами через pickle, поэтому лямбды, вложенные функции и незапикливаемые объекты сюда не передать — функция должна быть определена на верхнем уровне модуля. На Windows и macOS процессы стартуют через spawn, то есть дочерний процесс заново импортирует ваш модуль: без охраны if __name__ == '__main__' программа начнёт бесконечно плодить процессы. И запуск процесса плюс сериализация данных стоят дорого, так что на мелких или I/O-задачах ThreadPoolExecutor окажется быстрее.",
+      "en": "Arguments and return values travel between processes through pickle, so lambdas, nested functions and unpicklable objects cannot be passed — the target function must live at module top level. On Windows and macOS processes start via spawn, meaning the child re-imports your module: without an if __name__ == '__main__' guard the program spawns processes forever. Process startup plus serialization is expensive too, so for small or I/O-bound work ThreadPoolExecutor will come out ahead."
     },
     "syntax": "with ProcessPoolExecutor(max_workers=N) as ex:\n    future = ex.submit(fn, *args)\n    results = ex.map(fn, iterable)",
     "status": "ready",
@@ -790,8 +790,8 @@
       "en": "A pool of threads from the concurrent.futures module. It handles creating and reusing the threads. Convenient for parallel I/O work."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Потоки в CPython делят один GIL, поэтому пул ускоряет только ожидание — сеть, диск, время; на чистых вычислениях выигрыша не будет, там нужен ProcessPoolExecutor. Выход из with вызывает shutdown(wait=True) и блокирует программу до конца всех задач, а исключение внутри задачи не всплывает само — оно ждёт в Future и выстрелит только при обращении к result(). Если max_workers не задан, число потоков считается от числа ядер и сверху ограничено 32.",
+      "en": "CPython threads share one GIL, so a thread pool only speeds up waiting — network, disk, sleep; for pure computation it buys nothing and you want ProcessPoolExecutor instead. Leaving the with block calls shutdown(wait=True) and blocks until every task is done, and an exception raised inside a task stays parked in its Future until you touch result(). With max_workers left out, the thread count is derived from the CPU count and capped at 32."
     },
     "syntax": "with ThreadPoolExecutor(max_workers=N) as ex:\n    future = ex.submit(fn, *args)\n    results = ex.map(fn, iterable)",
     "status": "ready",
@@ -827,8 +827,8 @@
       "en": "The methods that customize how copy.copy() and copy.deepcopy() behave for your own classes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Определять их нужно редко: по умолчанию copy восстанавливает объект из его __dict__, и этого хватает почти всегда — руками пишут, когда объект держит несопируемый ресурс (сокет, дескриптор файла, соединение) или кэш, который в копии должен быть пустым. В __deepcopy__ обязательно сначала положите новый объект в memo под ключом id(self), а вложенные поля копируйте как copy.deepcopy(x, memo) — иначе циклические ссылки уйдут в бесконечную рекурсию, а один и тот же общий подобъект скопируется дважды.",
+      "en": "You rarely need these: by default copy rebuilds the object from its __dict__, which is enough almost always — hand-written versions appear when the object holds an uncopyable resource (socket, file handle, connection) or a cache that should start empty in the copy. Inside __deepcopy__, register the new object in memo under id(self) before copying anything, and copy nested fields via copy.deepcopy(x, memo) — otherwise cyclic references recurse forever and a shared sub-object gets duplicated instead of staying shared."
     },
     "syntax": "def __copy__(self): ...\ndef __deepcopy__(self, memo): ...",
     "status": "ready",
@@ -871,8 +871,8 @@
       "en": "The __post_init__ method is called automatically after __init__, for extra validation or processing."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вызывается только тем __init__, который сгенерировал сам dataclass: с init=False или собственноручным __init__ его никто не позовёт. Под frozen=True обычное присваивание self.x = ... там падает с FrozenInstanceError, и приходится писать object.__setattr__(self, \"x\", ...). Сюда же приходят поля-InitVar — они не становятся атрибутами, а передаются в __post_init__ как аргументы, что и есть штатный способ протащить данные, нужные только для инициализации.",
+      "en": "It is called only by the __init__ that the dataclass itself generated: with init=False, or with a hand-written __init__, nothing invokes it. Under frozen=True a plain self.x = ... raises FrozenInstanceError there, so you have to write object.__setattr__(self, \"x\", ...). InitVar fields land here too — they never become attributes, they are passed to __post_init__ as arguments, which is the sanctioned way to feed in data needed only during construction."
     },
     "syntax": "def __post_init__(self): ...",
     "status": "ready",
@@ -911,8 +911,8 @@
       "en": "The _missing_() class method is called when a value is not found in the enumeration (through Enum(value))."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Срабатывает только при поиске по значению — Enum(value); обращение по имени через Enum['NAME'] и доступ к атрибуту его не задействуют. Вернуть нужно элемент этого же перечисления или None (тогда как обычно поднимется ValueError): любой другой объект приведёт к TypeError. Типичное применение — мягкие псевдонимы: подобрать элемент по строке без учёта регистра или отдать значение по умолчанию вместо исключения.",
+      "en": "It fires only on lookup by value — Enum(value); name lookup via Enum['NAME'] and plain attribute access never reach it. Return a member of the same enum or None (in which case the usual ValueError is raised); anything else turns into a TypeError. The typical use is lenient aliasing: match a string case-insensitively, or hand back a default member instead of an exception."
     },
     "syntax": "@classmethod\ndef _missing_(cls, value): ...",
     "status": "ready",
@@ -949,8 +949,8 @@
       "en": "Returns an iterator that yields the Futures as they finish — in the order they become ready, not the order they were created."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Итератор отдаёт сами объекты Future, а не результаты, и порядок теряется — чтобы понять, к какому входу относится ответ, обычно заводят словарь future -> аргумент. Берите as_completed, когда хотите обрабатывать ответы по мере готовности; если нужен порядок исходных данных, проще executor.map(). Необязательный timeout отсчитывается от вызова as_completed, а не от каждой задачи по отдельности.",
+      "en": "The iterator yields Future objects, not results, and the original order is gone — the usual trick is a dict mapping each future back to its input. Reach for as_completed when you want to handle answers the moment they arrive; if you need results in the order of the inputs, executor.map() is simpler. The optional timeout is measured from the as_completed call itself, not per future."
     },
     "syntax": "from concurrent.futures import as_completed\nfor future in as_completed(fs): ...",
     "status": "ready",
@@ -989,8 +989,8 @@
       "en": "Assigns values to the members of an enumeration automatically (consecutive numbers by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Нумерация начинается с 1, а не с 0 — частая причина расхождения с внешним протоколом, где коды идут с нуля. Если смешивать явные значения и auto(), очередное auto() продолжит счёт от последнего числового значения, а во Flag вместо +1 подставляются степени двойки. Правило простое: auto() уместен, когда сами значения никого не волнуют и важны только имена; как только значение уходит в файл, БД или по сети — задавайте его руками.",
+      "en": "Numbering starts at 1, not 0, which quietly breaks compatibility with external protocols that count from zero. Mixed with explicit values, the next auto() continues from the last numeric one, and inside a Flag it yields powers of two instead of +1. Use auto() only when the values themselves are irrelevant and names carry the meaning; once a value is stored or sent over the wire, spell it out."
     },
     "syntax": "from enum import auto\nclass X(Enum):\n    A = auto()",
     "status": "ready",
@@ -1027,8 +1027,8 @@
       "en": "bisect.bisect() is an alias of bisect_right(). It returns the insertion position after any equal items."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Выбор между bisect и bisect_left важен только при дубликатах: bisect_left(a, x) — сколько элементов строго меньше x, bisect(a, x) — сколько меньше или равно, а их разность даёт количество вхождений x. В новом коде обычно пишут явное имя bisect_right — читателю сразу видно, какая из двух границ имеется в виду.",
+      "en": "The choice between bisect and bisect_left only matters when duplicates exist: bisect_left(a, x) counts items strictly less than x, bisect(a, x) counts items less than or equal, and their difference is how many times x occurs. New code usually spells out bisect_right, so the reader can see which of the two boundaries is meant."
     },
     "syntax": "bisect.bisect(a, x)  # то же что bisect_right",
     "status": "ready",
@@ -1062,8 +1062,8 @@
       "en": "Return the index at which to insert x into a sorted list keeping it sorted — before any equal entries. O(log n) search."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Список обязан быть отсортирован — проверки нет, на неотсортированных данных функция молча вернёт бессмысленный индекс. И O(log n) относится только к поиску: сама вставка через insort остаётся O(n), потому что список сдвигает хвост, так что bisect не превращает list в быструю сортированную структуру при массовых вставках.",
+      "en": "The list must already be sorted — nothing checks this, and on unsorted data you silently get a meaningless index. Also, the O(log n) covers the search only: inserting with insort is still O(n) because the tail of the list has to shift, so bisect does not turn a list into a fast sorted container when you insert a lot."
     },
     "syntax": "bisect.bisect_left(a, x, lo=0, hi=len(a))",
     "status": "ready",
@@ -1102,8 +1102,8 @@
       "en": "Return the index at which to insert x into a sorted list keeping it sorted — after any equal entries. Alias of bisect()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Функция ничего не проверяет: если список не отсортирован, она молча вернёт бессмысленный индекс. Отличие от bisect_left заметно только на равных элементах — для ответа «есть ли такой элемент» нужен bisect_left, а bisect_right удобен, когда значение ровно на границе должно уйти в верхний диапазон. С Python 3.10 есть параметр key, но он применяется только к элементам списка: сам x передают уже в виде ключа.",
+      "en": "Nothing here validates the input — on an unsorted list you silently get a meaningless index. The difference from bisect_left shows up only among equal entries: use bisect_left to test membership, and bisect_right when a value sitting exactly on a boundary should fall into the upper range. Since Python 3.10 there is a key parameter, but it is applied to list elements only, so x must already be passed as a key."
     },
     "syntax": "bisect.bisect_right(a, x, lo=0, hi=len(a))",
     "status": "ready",
@@ -1142,8 +1142,8 @@
       "en": "Insert x into a sorted list before any equal entries, keeping it sorted; the search is O(log n) but the insertion itself is O(n) due to shifting."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вставка линейна, поэтому собирать список из n элементов последовательными insort_left — это O(n^2); дешевле накопить всё и один раз вызвать sort(). Отличие от insort_right проявляется только тогда, когда среди равных по сравнению элементов есть различимые объекты: left ставит новый перед ними, ломая порядок поступления, right — после.",
+      "en": "Each insertion is linear, so building an n-element list by repeated insort_left costs O(n^2) — collecting everything and calling sort() once is far cheaper. The choice between left and right matters only when items that compare equal are still distinguishable objects: left puts the newcomer ahead of them, breaking arrival order, while right appends after."
     },
     "syntax": "bisect.insort_left(a, x)",
     "status": "ready",
@@ -1181,8 +1181,8 @@
       "en": "Insert x into a sorted list after any equal entries, keeping it sorted; alias of insort(). The insertion is O(n) due to shifting."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "insort — просто второе имя этой функции, и обычно нужна именно она: новый элемент встаёт после равных, поэтому среди одинаковых по ключу сохраняется порядок добавления. Линейный сдвиг терпим на сотнях и тысячах элементов, но не при миллионах или потоке частых вставок — там уместнее heapq, если нужен только минимум, или специализированная отсортированная структура.",
+      "en": "insort is just another name for this function, and it is the one you normally want: a new item lands after its equals, so items with the same key keep their arrival order. The linear shift is fine for hundreds or thousands of elements, but not for millions or a stream of frequent inserts — reach for heapq if you only need the minimum, or a dedicated sorted container."
     },
     "syntax": "bisect.insort_right(a, x)",
     "status": "ready",
@@ -1222,8 +1222,8 @@
       "en": "Joins several dictionaries into a single view. Lookup goes through them in order. maps is the list of dictionaries, new_child() adds a new child level, parents is everything but the first one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главное отличие от {**defaults, **user}: ChainMap не копирует, а держит ссылки на исходные словари, поэтому позже изменённый defaults сразу виден через цепочку. Запись, обновление и удаление затрагивают только первый словарь — удалить ключ, лежащий глубже, нельзя, будет KeyError. Отсюда типичный приём: new_child() для временного слоя настроек, который потом просто выбрасывается.",
+      "en": "The key difference from {**defaults, **user}: ChainMap does not copy, it holds references to the original dicts, so a later change to defaults shows up through the chain immediately. Writes, updates and deletions touch only the first mapping — you cannot delete a key that lives deeper, you get a KeyError. Hence the usual pattern: new_child() for a temporary layer of settings that you later simply discard."
     },
     "syntax": "collections.ChainMap(*maps)\n.new_child(m=None)\n.parents",
     "status": "ready",
@@ -1260,8 +1260,8 @@
       "en": "A dictionary for counting items. Methods: most_common(n), elements(); it also supports +, -, & and |."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обращение к отсутствующему элементу возвращает 0 и, в отличие от defaultdict, ключ в словарь не добавляет — так что проверять наличие через c[x] безопасно. Осторожно с арифметикой: оператор минус выбрасывает нулевые и отрицательные счётчики, а метод subtract() их сохраняет, включая минусы. most_common() без аргумента сортирует всё целиком, при равных счётчиках порядок — как элементы впервые встретились.",
+      "en": "Looking up a missing element returns 0 and, unlike defaultdict, does not insert the key, so testing with c[x] is harmless. Watch the arithmetic: the minus operator drops zero and negative counts, while the subtract() method keeps them, negatives included. most_common() with no argument sorts the whole thing, and ties are ordered by first encounter."
     },
     "syntax": "collections.Counter(iterable_or_mapping=None)",
     "status": "ready",
@@ -1296,8 +1296,8 @@
       "en": "A dictionary with a factory for default values. When a missing key is accessed, the factory creates the value."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка: простое чтение d[key] тоже вызывает фабрику и вставляет ключ, так что после «проверки» словарь распухает пустыми списками. Хотите просто посмотреть — используйте key in d или d.get(key). Фабрика вызывается без аргументов, то есть значение по умолчанию не может зависеть от ключа; если нужна такая зависимость, переопределяйте __missing__ в наследнике dict.",
+      "en": "The main trap: merely reading d[key] also calls the factory and inserts the key, so after a round of \"checking\" the dict is bloated with empty lists. To just look, use key in d or d.get(key). The factory is called with no arguments, so the default cannot depend on the key; if you need that, subclass dict and override __missing__."
     },
     "syntax": "collections.defaultdict(default_factory, ...)",
     "status": "ready",
@@ -1333,8 +1333,8 @@
       "en": "A double-ended queue. O(1) insertion and removal at both ends. Supports maxlen (a sliding window)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Быстрые концы оплачены медленной серединой: обращение по индексу где-то в центре стоит O(n), а срезы deque вообще не поддерживает — если нужен произвольный доступ, берите list. Когда задан maxlen, очередь при переполнении молча выбрасывает элемент с противоположного конца, и это не ошибка, а весь смысл скользящего окна. Отдельный бонус — append и popleft атомарны, поэтому deque годится как очередь между потоками без блокировок.",
+      "en": "Fast ends come at the cost of a slow middle: indexing somewhere in the center is O(n), and deque supports no slicing at all — if you need random access, use a list. With maxlen set, a full deque silently discards an item from the opposite end; that is not a bug but the whole point of a sliding window. A bonus: append and popleft are atomic, so a deque works as a lock-free queue between threads."
     },
     "syntax": "from collections import deque\ndeque(iterable=(), maxlen=None)\n.appendleft(x) / .popleft() / .rotate(n)",
     "status": "ready",
@@ -1397,8 +1397,8 @@
       "en": "Creates a subclass of tuple with named fields. It supports _replace() (a copy with some fields changed) and _asdict() (conversion to a dictionary)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это настоящий кортеж, поэтому Point(1, 2) == (1, 2) даёт True, а поля можно распаковывать и перебирать в цикле — удобно, но легко нарваться на случайное равенство с обычным кортежем. Значения менять нельзя: _replace() возвращает новый объект, а не правит старый. Служебные методы начинаются с подчёркивания не по стеснительности, а чтобы не конфликтовать с вашими именами полей; если нужны изменяемость, значения по умолчанию и методы — берите dataclass.",
+      "en": "It really is a tuple, so Point(1, 2) == (1, 2) is True and the fields unpack and iterate like tuple items — handy, but it means accidental equality with a plain tuple. The values are frozen: _replace() hands back a new object instead of editing the old one. The leading underscores on the helper methods exist so they cannot collide with your own field names; if you need mutability, defaults or methods, reach for a dataclass instead."
     },
     "syntax": "collections.namedtuple(typename, field_names)",
     "status": "ready",
@@ -1433,8 +1433,8 @@
       "en": "A dictionary that remembers the insertion order. move_to_end() moves a key to the front or to the back."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "С Python 3.7 обычный dict и так гарантирует порядок вставки, поэтому OrderedDict нужен уже не ради порядка, а ради трёх вещей: move_to_end(), popitem(last=False) для снятия элемента с начала и равенства, которое учитывает порядок — два OrderedDict с одинаковыми парами, но в разной последовательности, не равны, тогда как обычные dict равны. Типичный сценарий сегодня — LRU-кеш: обращение к ключу двигаем в конец, вытесняем с начала.",
+      "en": "Since Python 3.7 an ordinary dict already preserves insertion order, so OrderedDict is no longer about ordering as such but about three things: move_to_end(), popitem(last=False) to pop from the front, and order-sensitive equality — two OrderedDicts with the same pairs in a different sequence are unequal, while plain dicts would compare equal. The typical use today is an LRU cache: move a key to the end on access, evict from the front."
     },
     "syntax": "collections.OrderedDict(items=...)\nodict.move_to_end(key, last=True)",
     "status": "ready",
@@ -1469,8 +1469,8 @@
       "en": "Wraps an object so that its close() method is called automatically when the with block is left."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Нужен только тем объектам, у которых есть close(), но нет протокола with. Файлы, сокеты и ответы urlopen в современном Python уже сами контекстные менеджеры, так что оборачивать их в closing бессмысленно — это приём для чужих или старых API. close() будет вызван и при нормальном выходе, и при исключении, но ошибки внутри самого close() не подавляются.",
+      "en": "It exists only for objects that have a close() method but do not implement the with protocol. Files, sockets and urlopen responses are already context managers in modern Python, so wrapping them adds nothing — closing is for third-party or legacy APIs. The close() call happens on both normal exit and exception, and an error raised by close() itself is not swallowed."
     },
     "syntax": "contextlib.closing(thing)",
     "status": "ready",
@@ -1506,8 +1506,8 @@
       "en": "Decorator that turns a generator function with a yield into a context manager."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Если внутри блока with вылетит исключение, оно будет возбуждено прямо в точке yield — и код после yield просто не выполнится. Поэтому уборку почти всегда оборачивают в try/finally вокруг yield, иначе ресурс останется незакрытым. Полученный объект одноразовый: генератор исчерпывается после первого with, для второго блока функцию нужно вызвать заново.",
+      "en": "If the with block raises, the exception is thrown back in at the yield point, so anything after yield is simply skipped. That is why cleanup almost always belongs in a try/finally around the yield — otherwise the resource leaks on errors. The object you get is single-use: the generator is exhausted after one with, so call the function again for a second block."
     },
     "syntax": "@contextlib.contextmanager\ndef my_cm(): ...; yield value; ...",
     "status": "ready",
@@ -1548,8 +1548,8 @@
       "en": "Lets you register any number of context managers and callbacks dynamically."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Берите его, когда число менеджеров известно только в рантайме или часть из них подключается по условию; для фиксированного набора обычный with с перечислением через запятую читается лучше. Выход происходит в обратном порядке регистрации, как у вложенных with. Метод pop_all() снимает всё со стека, не закрывая, — так передают владение ресурсами наружу, когда инициализация прошла успешно.",
+      "en": "Reach for it when the number of managers is known only at runtime, or when some are entered conditionally; for a fixed set, a plain with listing them comma-separated reads better. Unwinding happens in reverse registration order, exactly like nested with blocks. Its pop_all() detaches everything without closing it, which is how you hand ownership of successfully initialised resources to the caller."
     },
     "syntax": "with contextlib.ExitStack() as stack:\n    cm = stack.enter_context(some_cm())",
     "status": "ready",
@@ -1585,8 +1585,8 @@
       "en": "A do-nothing placeholder context manager. Useful when a context manager is only sometimes needed (Python 3.7+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Смысл в том, чтобы не писать один и тот же блок кода дважды в ветках if/else, когда менеджер нужен лишь иногда. Частая ловушка: по умолчанию as-переменная получает None, поэтому если внутри блока ждут объект (например, файл), подставляйте его через enter_result. С Python 3.10 работает и как асинхронный контекстный менеджер.",
+      "en": "The point is to avoid duplicating the same block in both branches of an if/else when the manager is only sometimes needed. Common trap: by default the as-variable is None, so if the body expects a real object (a file, say) pass it via enter_result. Since Python 3.10 it also works as an async context manager."
     },
     "syntax": "contextlib.nullcontext(enter_result=None)",
     "status": "ready",
@@ -1622,8 +1622,8 @@
       "en": "Suppresses the given exceptions. The equivalent of try/except pass, but shorter and easier to read."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка: исключение гасит остаток блока with целиком, а не одну строку — выполнение продолжится уже после with, поэтому не кладите в один блок несколько шагов, если следующие обязаны выполниться. Подавляются и подклассы указанных исключений, так что suppress(Exception) проглотит вообще всё, включая опечатку в имени переменной. Годится только там, где вы точно знаете, что молча продолжить — правильно.",
+      "en": "The main trap: the exception skips the rest of the with block, not just one line — execution resumes after the block, so do not stack several steps inside if the later ones must run. Subclasses of the listed exceptions are suppressed too, so suppress(Exception) will swallow everything, including a typo in a variable name. Use it only where silently continuing is provably the right behaviour."
     },
     "syntax": "contextlib.suppress(*exceptions)\nwith suppress(FileNotFoundError):\n    os.remove('file')",
     "status": "ready",
@@ -1668,8 +1668,8 @@
       "en": "Creates a shallow copy of an object: the object itself is new, but the nested objects stay shared."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Для встроенных контейнеров это ровно то же, что list(a), a[:], dict(a) или a.copy() — отдельная функция нужна, чтобы копировать что угодно, включая экземпляры своих классов, не зная их типа. Для неизменяемых объектов (int, str, кортеж без изменяемых элементов) copy может вернуть тот же самый объект: копировать нечего. И помните, что копия экземпляра класса создаётся без вызова __init__ — просто переносится содержимое __dict__.",
+      "en": "For built-in containers this is exactly list(a), a[:], dict(a) or a.copy() — the function exists so you can copy anything, including instances of your own classes, without knowing the type. For immutables (int, str, a tuple of immutables) copy may hand back the very same object, since there is nothing to copy. Note also that copying a class instance does not call __init__; the contents of __dict__ are transferred directly."
     },
     "syntax": "copy.copy(obj)",
     "status": "ready",
@@ -1707,8 +1707,8 @@
       "en": "Creates a fully independent deep copy of an object: every nested object is copied too. Unlike list.copy() (a shallow copy), changing a nested item does not affect the original."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Внутри ведётся словарь memo, поэтому циклические ссылки не зацикливаются, а объект, на который в структуре два разных пути, останется одним общим объектом и в копии. Копируется не всё: модули, функции, классы, файлы, сокеты и потоки возвращаются как есть — глубокая копия объекта с открытым соединением даст копию, смотрящую в то же соединение. Рекурсивный обход дорог, и если структура состоит из простых данных, собрать её заново (или прогнать через json) часто быстрее.",
+      "en": "A memo dictionary is kept internally, so cycles do not loop forever and an object reachable by two paths stays a single shared object in the copy as well. Not everything is duplicated: modules, functions, classes, files, sockets and threads come back unchanged — deep-copying an object that holds an open connection gives you a copy pointing at the same connection. The recursive walk is expensive, so for plain data structures rebuilding them (or a json round-trip) is often faster."
     },
     "syntax": "import copy\ncopy.deepcopy(obj, memo=None)",
     "status": "ready",
@@ -1750,8 +1750,8 @@
       "en": "@dataclass generates __init__, __repr__ and __eq__ automatically. field() tunes individual fields."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Поля со значением по умолчанию обязаны идти после полей без него — иначе TypeError ещё на этапе создания класса. Изменяемый дефолт вроде x: list = [] отвергается сразу с ValueError: нужен field(default_factory=list), иначе список был бы общим для всех экземпляров. Аннотации типов здесь лишь разметка, во время выполнения их никто не проверяет: Point(\"a\", \"b\") создастся спокойно.",
+      "en": "Fields with defaults must come after fields without them, otherwise the class raises TypeError at definition time. A mutable default like x: list = [] is rejected outright with ValueError — you need field(default_factory=list), or the list would be shared by every instance. The type annotations are only markup: nothing checks them at runtime, so Point(\"a\", \"b\") is built without complaint."
     },
     "syntax": "from dataclasses import dataclass\n@dataclass\nclass Point:\n    x: float\n    y: float",
     "status": "ready",
@@ -1836,8 +1836,8 @@
       "en": "frozen=True makes the instances immutable (like a namedtuple) and hashable."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Заморозка поверхностная: сам атрибут переприсвоить нельзя (FrozenInstanceError), но если внутри лежит список, его по-прежнему можно пополнять — и хэш такого объекта сломается. Хэшируемость появляется именно из-за связки frozen=True и eq=True (значение по умолчанию); при обычном eq=True без заморозки dataclass выставляет __hash__ = None, и объект перестаёт годиться в ключи словаря. Менять значения удобно не присваиванием, а dataclasses.replace(), который возвращает новый экземпляр.",
+      "en": "The freeze is shallow: you cannot rebind an attribute (FrozenInstanceError), but a list stored inside can still be appended to — and the object's hash breaks with it. Hashability comes specifically from frozen=True together with eq=True (the default); with plain eq=True and no freeze, dataclass sets __hash__ = None and the object stops working as a dict key. To change a value, use dataclasses.replace(), which returns a fresh instance, rather than assignment."
     },
     "syntax": "@dataclass(frozen=True)\nclass Pt:\n    x: int; y: int",
     "status": "ready",
@@ -1875,8 +1875,8 @@
       "en": "order=True adds the __lt__, __le__, __gt__ and __ge__ methods, comparing the fields as a tuple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сравнение идёт по всем полям в порядке объявления, как по кортежу, — выбрать ключ на лету нельзя, поэтому порядок полей в классе фактически задаёт порядок сортировки; лишние поля исключаются через field(compare=False). Сочетание order=True с eq=False запрещено и падает с ValueError. Сравнение с объектом другого класса возвращает NotImplemented, то есть на выходе получается TypeError, а не False.",
+      "en": "Comparison walks all fields in declaration order, as if they were a tuple — you cannot pick a key on the fly, so the field order in the class effectively defines the sort order; exclude unwanted fields with field(compare=False). Combining order=True with eq=False is forbidden and raises ValueError. Comparing against a different class returns NotImplemented, which surfaces as a TypeError rather than a quiet False."
     },
     "syntax": "@dataclass(order=True)\nclass X:\n    a: int; b: int",
     "status": "ready",
@@ -1913,8 +1913,8 @@
       "en": "Returns a tuple of Field objects holding the metadata of every field of the dataclass."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это единственный поддерживаемый способ пройтись по полям датакласса — именно на нём строят валидацию, сериализацию и сравнение «по полям» в своём коде. Возвращаются только настоящие поля: псевдополя InitVar и аннотации ClassVar в кортеж не попадают. Два подвоха: f.type — это аннотация как она записана, то есть строка, если в модуле есть from __future__ import annotations; а отсутствие значения по умолчанию обозначается сентинелом dataclasses.MISSING, а не None.",
+      "en": "This is the supported way to iterate over a dataclass's fields, and it is what custom validation, serialization and field-wise comparison are usually built on. Only real fields are returned: InitVar pseudo-fields and ClassVar annotations are left out. Two catches: f.type is the annotation exactly as written, so it is a string when the module uses from __future__ import annotations, and a missing default is reported by the dataclasses.MISSING sentinel rather than None."
     },
     "syntax": "dataclasses.fields(class_or_instance)",
     "status": "ready",
@@ -1950,8 +1950,8 @@
       "en": "Creates a new dataclass instance from an existing one, replacing the fields given."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "replace() заново вызывает __init__ вместе с __post_init__, а не копирует объект побайтно: поля, объявленные с init=False, передать в него нельзя, и их значения не переносятся, а вычисляются заново. Копия поверхностная — вложенные списки и словари остаются общими с исходным объектом. Для frozen-датаклассов это штатный способ «изменить» поле, поэтому такие классы обычно и не нуждаются в сеттерах.",
+      "en": "replace() re-runs __init__ (and __post_init__) rather than copying the object field by field: fields declared with init=False cannot be passed and are recomputed instead of carried over. The copy is shallow, so nested lists and dicts stay shared with the original. For frozen dataclasses this is the sanctioned way to \"change\" a field, which is why such classes rarely need setters."
     },
     "syntax": "dataclasses.replace(obj, **changes)",
     "status": "ready",
@@ -2586,8 +2586,8 @@
       "en": "The base class for named enumerations. Every member is a unique symbolic object."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Члены перечисления сравниваются по идентичности, поэтому Color.RED == 1 даёт False, даже если членом объявлено именно число — чтобы сравнивать со «сырыми» значениями, наследуйтесь от IntEnum или StrEnum. Два члена с одинаковым значением не ошибка: второй становится псевдонимом первого, при итерации не показывается и по имени всё равно доступен. Порядок обхода — порядок объявления в теле класса, а не порядок значений.",
+      "en": "Members compare by identity, so Color.RED == 1 is False even when the member's value is that number; subclass IntEnum or StrEnum if you need comparison with raw values. Two members sharing a value are not an error — the second becomes an alias, hidden from iteration but still reachable by name. Iteration follows definition order, not value order."
     },
     "syntax": "from enum import Enum\nclass Color(Enum):\n    RED = 1",
     "status": "ready",
@@ -2623,8 +2623,8 @@
       "en": "Sends a call to the pool for execution and immediately returns a Future object, without waiting for the result."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Классическая ошибка — написать ex.submit(fn(x)): функция при этом выполняется прямо здесь, в пул уходит уже готовое значение. Аргументы передаются отдельно: ex.submit(fn, x). Второе — submit никогда не бросает исключение задачи: оно сохраняется в Future и поднимется при вызове result(), поэтому пул, у которого результаты не забирают, глотает ошибки молча.",
+      "en": "The classic slip is ex.submit(fn(x)): that calls the function right there and hands the pool a finished value. Arguments go separately: ex.submit(fn, x). Also, submit never raises the task's exception — it is stored in the Future and re-raised by result(), so a pool whose results nobody collects swallows failures silently."
     },
     "syntax": "future = executor.submit(fn, *args, **kwargs)",
     "status": "ready",
@@ -2663,8 +2663,8 @@
       "en": "The field() function sets extra properties of a field: its default value, its factory, and whether it takes part in repr/compare/init."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная причина существования field() — изменяемые значения по умолчанию: одно и то же значение из тела класса разделили бы все экземпляры, поэтому dataclass падает с ValueError на нехешируемом default и требует default_factory. Ловушка в том, что проверка ловит именно нехешируемое: собственный изменяемый класс с обычным __hash__ проскочит через default= и молча станет общим для всех объектов. Флаги compare=False и repr=False удобны для служебных полей вроде кеша или id, которые не должны влиять на сравнение и вывод.",
+      "en": "field() exists mainly because of mutable defaults: a value written in the class body would be shared by every instance, so dataclass raises ValueError on an unhashable default and demands default_factory. The catch is that the check keys on hashability — your own mutable class with a normal __hash__ slips through as default= and is silently shared by all instances. compare=False and repr=False are handy for bookkeeping fields such as caches or ids that should not affect equality or output."
     },
     "syntax": "dataclasses.field(*, default=MISSING, default_factory=MISSING, repr=True, hash=None, compare=True, init=True)",
     "status": "ready",
@@ -2886,8 +2886,8 @@
       "en": "Flag and IntFlag support bitwise operations: members are combined with | and tested with &."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Результат & — это снова флаг, а не bool; пустой флаг ложен, поэтому проверку принадлежности удобнее писать оператором in, чем сравнивать с нулём. IntFlag наследуется от int, и его члены незаметно утекают в арифметику, ключи словарей и сериализацию как обычные числа — если такая совместимость не нужна, берите Flag. Начиная с 3.11 составной флаг можно итерировать: он отдаёт входящие в него одиночные биты.",
+      "en": "An & of two flags yields a flag, not a bool; the empty flag is falsy, so membership reads better with the in operator than with a comparison against zero. IntFlag subclasses int, so its members quietly leak into arithmetic, dict keys and serialization as plain numbers — pick Flag when you do not need that compatibility. Since 3.11 a composite flag is iterable and yields the single-bit members it is made of."
     },
     "syntax": "from enum import Flag, IntFlag\nclass Perm(Flag):\n    R = 1; W = 2; X = 4",
     "status": "ready",
@@ -2927,8 +2927,8 @@
       "en": "Computes the value of a property once and stores it in the instance's __dict__. Later accesses return the cached value without calling the method."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Кеш сам не сбрасывается: если поля объекта изменились, свойство продолжит отдавать старое значение, пока его не удалить через del obj.area. Работает только у классов с обычным __dict__ — с __slots__ не заведётся, потому что значение просто некуда положить. С Python 3.12 общей блокировки больше нет, так что в многопоточном коде значение может посчитаться несколько раз.",
+      "en": "The cache never invalidates itself: if the object's fields change, the property keeps returning the stale value until you delete it with del obj.area. It needs a normal instance __dict__, so a class with __slots__ will not work — there is nowhere to store the value. Since Python 3.12 there is no shared lock, so under threads the computation may run more than once."
     },
     "syntax": "@functools.cached_property",
     "status": "ready",
@@ -2967,8 +2967,8 @@
       "en": "Creates a new function with some of the arguments already filled in (partial application)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргументы фиксируются в момент создания partial, а не в момент вызова — этим он и отличается от lambda с поздним связыванием, из-за которого в цикле все замыкания видят последнее значение переменной. Позиционные аргументы приклеиваются слева, поэтому «пропустить» первый параметр и заполнить только второй можно лишь по имени. В отличие от лямбды, объект partial хранит func, args и keywords, читаемо печатается при отладке и сериализуется через pickle.",
+      "en": "Arguments are frozen when the partial is created, not when it is called — that is the difference from a lambda, whose late binding makes every closure in a loop see the variable's final value. Positional arguments are glued on from the left, so you cannot skip the first parameter and pre-fill only the second except by keyword. Unlike a lambda, a partial object exposes func, args and keywords, prints readably while debugging, and can be pickled."
     },
     "syntax": "from functools import partial\nfunctools.partial(func, /, *args, **kwargs) -> partial",
     "status": "ready",
@@ -3012,8 +3012,8 @@
       "en": "Folds an iterable by applying a function cumulatively from left to right. The optional initializer is the starting value."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Без initializer reduce на пустом итерируемом падает с TypeError, а на одноэлементном возвращает этот элемент, ни разу не вызвав функцию — почти всегда стоит передавать начальное значение явно. В Python 3 reduce намеренно убрали из встроенных: обычный цикл или готовые sum(), math.prod(), str.join() читаются лучше, а накопление списков или строк через reduce ещё и квадратично по времени.",
+      "en": "With no initializer, reduce raises TypeError on an empty iterable and, on a one-element one, returns that element without ever calling the function — pass a starting value explicitly unless you really want that behaviour. Python 3 moved reduce out of the builtins on purpose: a plain loop or sum(), math.prod(), str.join() usually reads better, and folding lists or strings this way is quadratic."
     },
     "syntax": "functools.reduce(function, iterable[, initializer])",
     "status": "ready",
@@ -3047,8 +3047,8 @@
       "en": "Decorator for writing generic functions that dispatch on the type of the first argument. Implementations are registered with @func.register."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Реализация выбирается только по типу первого аргумента и только если он передан позиционно — по имени его передать нельзя, а остальные аргументы на выбор не влияют. Тип ищется по MRO, поэтому подкласс подхватит реализацию, зарегистрированную для базового класса или ABC; с версии 3.7 тип можно не писать в register, а взять из аннотации, с 3.11 понимаются и union-аннотации вида int | float. Для методов класса это не работает — там нужен singledispatchmethod.",
+      "en": "Dispatch looks only at the first argument, and only if it is passed positionally — pass it by keyword and you get a TypeError; the remaining arguments never affect the choice. Lookup follows the MRO, so a subclass picks up the implementation registered for its base class or ABC; since 3.7 register can read the type off the annotation, and since 3.11 union annotations such as int | float work too. It does not cover methods — use singledispatchmethod there."
     },
     "syntax": "@functools.singledispatch\n@func.register(type)",
     "status": "ready",
@@ -3088,8 +3088,8 @@
       "en": "A class decorator. Given __eq__ and at least one ordering method, it fills in the missing comparison operators (<, <=, >, >=)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Как только вы объявили __eq__, класс теряет унаследованный __hash__ и экземпляры перестают быть хешируемыми — total_ordering это не чинит, __hash__ придётся вернуть вручную. Сгенерированные операторы просто дёргают ваши __eq__ и __lt__, поэтому работают медленнее написанных руками и удлиняют трейсбек; на горячем пути дешевле расписать все шесть. И пусть ваш __lt__ возвращает NotImplemented для чужих типов, иначе сравнение с посторонним объектом упадёт с AttributeError вместо внятного TypeError.",
+      "en": "Defining __eq__ wipes out the inherited __hash__, so instances stop being hashable — total_ordering does not restore it, you have to set __hash__ yourself. The generated operators are thin wrappers that call your __eq__ and __lt__, so they run noticeably slower than hand-written ones and clutter tracebacks; on a hot path just write all six. Also make __lt__ return NotImplemented for unrelated types, otherwise comparing against a foreign object blows up with AttributeError instead of a clean TypeError."
     },
     "syntax": "@functools.total_ordering",
     "status": "ready",
@@ -3128,8 +3128,8 @@
       "en": "Copies the metadata of the wrapped function (__name__, __doc__, __annotations__) onto the wrapper. A must when writing decorators."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Забудете — и обёртка начнёт представляться чужим именем: help() и __name__ покажут wrapper, сломаются doctest'ы, автодокументация и любые реестры, где ключом служит имя функции. При этом wraps чинит только интроспекцию: вызываться по-прежнему будет wrapper(*args, **kwargs), просто inspect.signature пройдёт по проставленному __wrapped__ и покажет сигнатуру оригинала.",
+      "en": "Skip it and your decorated function starts lying about itself: help() and __name__ report wrapper, doctests stop being collected, and anything keyed by function name — docs generators, registries — quietly breaks. Note that wraps only repairs introspection: the callable is still wrapper(*args, **kwargs); inspect.signature merely follows the __wrapped__ link it sets to report the original signature."
     },
     "syntax": "@functools.wraps(wrapped)",
     "status": "ready",
@@ -3171,8 +3171,8 @@
       "en": "The idiom from the bisect docs: bisect.bisect() over a list of breakpoints returns the range index used to index a list of labels. An O(log n) table lookup instead of an if/elif chain — grades, price tiers, levels."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Список меток должен быть ровно на один длиннее списка границ, иначе на крайних значениях вы получите IndexError или, что хуже, молча неверную метку. bisect() — это bisect_right, поэтому значение, точно равное границе, попадает в верхний диапазон; если граница должна принадлежать нижнему, берите bisect_left. И сами границы обязаны быть отсортированы по возрастанию — проверки нет.",
+      "en": "The label list must be exactly one longer than the list of breakpoints; otherwise extreme values raise IndexError or, worse, quietly return the wrong label. bisect() is bisect_right, so a value equal to a breakpoint falls into the upper range — switch to bisect_left if boundaries should belong to the lower one. The breakpoints themselves must be in ascending order; nothing checks that for you."
     },
     "syntax": "i = bisect.bisect(breakpoints, x)  # номер диапазона\nlabels[i]                          # метка диапазона",
     "status": "ready",
@@ -3296,8 +3296,8 @@
       "en": "Turns an arbitrary list into a min-heap in O(n). It rearranges the list in place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Собрать кучу разом дешевле, чем набивать поэлементно: heapify — O(n), а n вызовов heappush — O(n log n). Главная ловушка — решить, что после heapify список отсортирован: он упорядочен лишь частично, гарантирован только минимум в x[0], и печать списка даёт на вид случайный порядок. Max-heap в heapq нет — обычный обходной приём: хранить значения с обратным знаком.",
+      "en": "Building the heap in one shot is cheaper than filling it item by item: heapify is O(n), whereas n heappush calls cost O(n log n). The classic misread is assuming the list comes out sorted — it is only partially ordered, the guarantee is x[0] being the minimum, and printing the list looks shuffled. There is no max-heap in heapq; the usual workaround is storing negated values."
     },
     "syntax": "heapq.heapify(x)",
     "status": "ready",
@@ -3332,8 +3332,8 @@
       "en": "Push an item onto the heap, preserving the heap invariant; the heap is a plain list whose smallest item is always heap[0]. O(log n)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Куча — обычный список, поэтому инвариант легко сломать по неосторожности: append(), insert() или присваивание в середину мимо heapq делают все последующие heappop бессмысленными. В очереди с приоритетом кладут кортежи (приоритет, объект), но при равных приоритетах Python начнёт сравнивать вторые элементы и упадёт с TypeError на несравнимых объектах — спасает возрастающий счётчик вторым полем кортежа. Если сразу после вставки нужно извлечение, есть heappushpop: одна перестройка вместо двух.",
+      "en": "Because the heap is an ordinary list, nothing stops you from corrupting it: an append(), insert() or direct assignment that bypasses heapq makes every later heappop meaningless. Priority queues usually push (priority, item) tuples, but on equal priorities Python falls through to comparing the items themselves and blows up with TypeError on non-comparable objects — inserting a monotonically increasing counter as the second field fixes it. When a pop follows immediately, heappushpop does both with a single reordering."
     },
     "syntax": "heapq.heappush(heap, item)",
     "status": "ready",
@@ -3374,8 +3374,8 @@
       "en": "Pop and return the smallest item from the heap, preserving the invariant; raises IndexError on an empty heap. O(log n)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На пустой куче это IndexError, а не None — либо проверяйте if heap:, либо ловите исключение. Чтобы просто подсмотреть минимум, не вынимая его, читайте heap[0]: индексация ничего не перестраивает и стоит O(1). Вычерпать всё через heappop действительно даёт отсортированную последовательность, но для готового списка sorted() проще и быстрее — heapq выигрывает, когда элементы приходят и уходят вперемешку.",
+      "en": "An empty heap raises IndexError rather than returning None, so guard with if heap: or catch it. To peek at the minimum without removing it, just read heap[0] — indexing rebuilds nothing and costs O(1). Draining everything with heappop does yield sorted order, but for a list you already have, sorted() is simpler and faster; heapq pays off when pushes and pops interleave."
     },
     "syntax": "heapq.heappop(heap)",
     "status": "ready",
@@ -3415,8 +3415,8 @@
       "en": "Pop the smallest item and push a new one in a single pass — more efficient than heappop() followed by heappush(). Pops first, then pushes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На пустой куче падает с IndexError: извлекать нечего, а извлечение здесь идёт первым. Вернуться может элемент больше вставленного, поэтому в цикле «топ-k» heapreplace() безопасен только под проверкой item > heap[0]; без неё берите heappushpop(). Размер кучи не меняется никогда — ради этого функцию и держат в буферах фиксированной длины.",
+      "en": "On an empty heap it raises IndexError: the pop comes first and there is nothing to pop. The value returned can be larger than the one you pushed, so in a top-k loop guard it with if item > heap[0]; without that guard use heappushpop() instead. The heap size never changes, which is exactly why this fits fixed-size buffers."
     },
     "syntax": "heapq.heapreplace(heap, item)",
     "status": "ready",
@@ -3455,8 +3455,8 @@
       "en": "Push an item and immediately pop the smallest — the reverse order of heapreplace(); if the new item is the smallest, it is returned and the heap is unchanged."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Один просев дерева вместо двух, поэтому пара heappush() плюс heappop() всегда проигрывает: обе операции O(log n), но здесь работы вдвое меньше. В отличие от heapreplace(), спокойно переживает пустую кучу — просто вернёт то, что вы передали. Отсюда идиома «топ-k»: держите кучу ровно из k элементов и лейте поток через heappushpop().",
+      "en": "One sift through the tree instead of two, so heappush() followed by heappop() always loses: both are O(log n), but this does half the work. Unlike heapreplace(), it tolerates an empty heap — it simply hands the item back to you. That makes it the standard way to keep a running top-k: hold exactly k items and feed the stream through it."
     },
     "syntax": "heapq.heappushpop(heap, item)",
     "status": "ready",
@@ -3495,8 +3495,8 @@
       "en": "Return a list of the n largest items in descending order; accepts key= like sorted(). For n close to len(iterable) a plain sorted() is cheaper."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проходит итерируемое один раз и держит в памяти только n элементов, так что генератор или огромный файл её не смущают; стоимость — порядка m·log n, где m — длина потока. Оба края диапазона дешевле закрывать иначе: n=1 — это max(), а n, сравнимое с длиной данных, — обычный sorted(). Равные по key элементы сохраняют исходный порядок, как у sorted().",
+      "en": "It walks the iterable once and holds only n items in memory, so a generator or a huge file is fine; the cost is on the order of m·log n for a stream of m items. Both ends of the range are better served by something else: n=1 is just max(), and n close to the size of the data is plain sorted(). Items that tie on key keep their original order, matching sorted()."
     },
     "syntax": "heapq.nlargest(n, iterable, key=None)",
     "status": "ready",
@@ -3535,8 +3535,8 @@
       "en": "Return a list of the n smallest items in ascending order; accepts key= like sorted(). For n=1 plain min() is cheaper."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Куча на входе не нужна и не используется: функция принимает любое итерируемое и строит собственную внутреннюю структуру. Поэтому вызывать её на списке, который вы уже поддерживаете кучей, бессмысленно — минимум лежит в heap[0] и достаётся за O(1). key, как и в sorted(), считается по одному разу на элемент, так что дорогая функция ключа не пересчитывается при каждом сравнении.",
+      "en": "The argument need not be a heap and the heap invariant is not used: any iterable works and the function builds its own internal structure. So calling it on a list you already maintain as a heap buys nothing — the minimum is sitting in heap[0] at O(1). As with sorted(), key is applied once per element, so an expensive key function is not recomputed during comparisons."
     },
     "syntax": "heapq.nsmallest(n, iterable, key=None)",
     "status": "ready",
@@ -3574,8 +3574,8 @@
       "en": "IntEnum is an enumeration compatible with int. StrEnum is compatible with str (Python 3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Совместимость работает в обе стороны и без типобезопасности: член IntEnum равен обычному числу, а значит и члену совсем другого IntEnum с тем же значением — это цена за то, чтобы значение принимали старый код, БД и бинарные протоколы. Отличие от обычного Enum заметнее всего при выводе: str() и f-строка дают само число или строку, тогда как обычный Enum напечатает имя вида Color.RED. В StrEnum вызов auto() подставляет имя члена в нижнем регистре, а не порядковый номер.",
+      "en": "The compatibility cuts both ways and costs you type safety: an IntEnum member equals a plain number, and therefore also equals a member of a completely unrelated IntEnum holding the same value — that is the price of being accepted by legacy code, databases and binary protocols. The difference from a plain Enum shows up in output: str() and f-strings give the bare number or string, while a plain Enum prints a name like Color.RED. In StrEnum, auto() fills in the member name lowercased rather than a counter."
     },
     "syntax": "class X(IntEnum): ...\nclass Y(StrEnum): ...",
     "status": "ready",
@@ -7618,8 +7618,8 @@
       "en": "A signalling mechanism between threads. One thread sets the flag (set()), the others wait for it (wait())."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Заменяет busy-wait по булеву флагу: wait() блокирует поток эффективно, без прокрутки цикла и сжигания CPU. Флаг уровневый — после set() он остаётся взведён, и опоздавшие wait() проходят мгновенно, пока кто-нибудь не вызовет clear(). При этом wait(timeout) возвращает текущее значение флага (True/False), так что таймаут отличим от настоящего сигнала.",
+      "en": "It replaces busy-waiting on a boolean flag: wait() blocks the thread efficiently, with no spin loop burning CPU. The flag is level-based — after set() it stays raised, and late wait() calls return instantly until someone calls clear(). And wait(timeout) returns the flag's current value (True/False), so a timeout is distinguishable from an actual signal."
     },
     "syntax": "e = threading.Event()\ne.set() / e.clear() / e.wait() / e.is_set()",
     "status": "ready",
@@ -7659,8 +7659,8 @@
       "en": "The mutual exclusion primitive (a mutex). It guarantees that only one thread at a time runs the protected block of code."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Lock нереентрантный: если тот же поток попытается захватить его второй раз, не отпустив первый (в рекурсии или во вложенном методе под тем же локом), он заблокирует сам себя навсегда — ровно для этого случая существует RLock. Всегда бери его через with lock:, иначе исключение внутри блока оставит лок незакрытым и остальные потоки повиснут.",
+      "en": "Lock is non-reentrant: if the same thread tries to acquire it a second time without releasing the first (in recursion, or a nested method under the same lock), it deadlocks itself forever — that exact case is why RLock exists. Always take it via with lock:, or an exception inside the block leaves the lock held and other threads hang."
     },
     "syntax": "lock = threading.Lock()\nlock.acquire() / lock.release()\nwith lock: ...",
     "status": "ready",
@@ -7699,8 +7699,8 @@
       "en": "A reentrant mutex — one thread can acquire it several times without blocking itself. Use it instead of Lock with recursive calls."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Считает глубину захвата: сколько раз поток вызвал acquire(), столько же должен вызвать release(), и только тогда лок освободится — забытый release оставит его занятым, а освободить может лишь поток-владелец. От взаимной блокировки между разными потоками RLock не спасает: он лечит только повторный захват внутри одного потока и стоит чуть дороже обычного Lock, так что без реальной реентрантности бери Lock.",
+      "en": "It tracks acquisition depth: a thread must call release() as many times as it called acquire() before the lock frees up — a missed release leaves it held, and only the owning thread can release it. RLock does nothing against deadlock between different threads: it only cures re-acquisition within one thread and costs a bit more than a plain Lock, so without real reentrancy use Lock."
     },
     "syntax": "rlock = threading.RLock()\nwith rlock: ...",
     "status": "ready",
@@ -7736,8 +7736,8 @@
       "en": "A semaphore bounds how many threads may run a block of code at the same time. Useful for limiting parallel requests."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обычный Semaphore не следит за балансом: лишний release() тихо поднимает лимит выше стартового n, и баг с утечкой разрешений маскируется — для его отлова берите BoundedSemaphore, он вместо этого бросит ValueError. Semaphore(1) похож на Lock, но освобождать его может любой поток, тогда как Lock рассчитан на парные acquire/release в одном месте.",
+      "en": "A plain Semaphore keeps no upper bound: an extra release() silently raises the limit above the starting n and hides a leaked-permit bug — use BoundedSemaphore, which raises ValueError instead. Semaphore(1) resembles a Lock, but any thread may release it, whereas a Lock expects a matched acquire/release in one place."
     },
     "syntax": "sem = threading.Semaphore(n)\nwith sem: ...",
     "status": "ready",
@@ -7774,8 +7774,8 @@
       "en": "The class for creating and starting a thread. Threads share the memory of the process. Because of the GIL it does not speed up CPU-bound work, but it is good for I/O."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Запускает поток именно start(); прямой вызов t.run() выполнит функцию синхронно в текущем потоке — никакого параллелизма не будет. Повторный start() у того же объекта бросает RuntimeError, а daemon=True-потоки интерпретатор убивает на выходе резко, минуя блоки finally и очистку.",
+      "en": "Start a thread with start(); calling t.run() directly runs the target synchronously in the current thread with no parallelism at all. A second start() on the same object raises RuntimeError, and daemon=True threads are killed abruptly at interpreter exit, skipping finally blocks and cleanup."
     },
     "syntax": "t = threading.Thread(target=func, args=(), kwargs={}, daemon=False)\nt.start()\nt.join()",
     "status": "ready",
@@ -7926,8 +7926,8 @@
       "en": "The @unique decorator forbids duplicate values in an enumeration — it raises ValueError when there are any."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Без этого декоратора повтор значения не ошибка: второе имя молча становится псевдонимом первого члена, оба имени указывают на один и тот же объект, при итерации виден только первый, а в __members__ присутствуют оба. Ставьте @unique там, где дубликат — это почти наверняка опечатка; если псевдонимы задуманы специально (старое и новое название одного состояния), декоратор придётся убрать.",
+      "en": "Without the decorator a repeated value is not an error at all: the second name silently becomes an alias of the first member, both names point at one object, iteration shows only the first, and __members__ holds both. Reach for @unique where a duplicate almost certainly means a typo; if the aliases are deliberate (an old and a new name for the same state), the decorator has to go."
     },
     "syntax": "from enum import unique\n@unique\nclass X(Enum): ...",
     "status": "ready",
@@ -8201,8 +8201,8 @@
       "en": "bisect does not check whether the item is present, but a binary search can be built on it by checking the position it returns."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Порядок условий важен: i < len(a) должно стоять первым, иначе для x больше всех элементов a[i] выбросит IndexError. Брать нужно именно bisect_left — bisect_right вернул бы позицию за найденным элементом, и сравнивать пришлось бы с a[i-1]. Смысл затеи — заменить O(n)-проверку x in a на O(log n), но это работает только на заранее отсортированном списке.",
+      "en": "Order the conditions carefully: i < len(a) must come first, or a[i] raises IndexError when x is larger than everything in the list. Use bisect_left specifically — bisect_right lands past the matching entry, forcing you to compare against a[i-1] instead. The whole point is trading the O(n) scan of x in a for an O(log n) probe, which only pays off on a list that is already sorted."
     },
     "syntax": "i = bisect_left(a, x)\nif i < len(a) and a[i] == x: found",
     "status": "ready",
@@ -8349,8 +8349,8 @@
       "en": "Enumerations support iteration through list(MyEnum) and comparison with is / ==. IntEnum also supports < and >."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обычный Enum не равен своему значению: сравнение члена с числом или строкой даёт False — нужен либо .value, либо IntEnum/StrEnum. Итерация идёт в порядке определения, а не по возрастанию значений, и пропускает псевдонимы; чтобы увидеть их, смотрите __members__. Члены — синглтоны, поэтому для сравнения достаточно is, и это надёжнее ==, если в проект вдруг попадут два одинаковых по значению перечисления.",
+      "en": "A plain Enum member is not equal to its own value: comparing it with a number or a string gives False, so use .value or switch to IntEnum/StrEnum. Iteration follows definition order, not value order, and skips aliases — look at __members__ to see those. Members are singletons, so is is enough for comparison and it stays correct even if two different enums end up sharing values."
     },
     "syntax": "list(MyEnum)  # все элементы\nfor m in MyEnum: ...\nmember is MyEnum.X",
     "status": "ready",
@@ -8423,8 +8423,8 @@
       "en": "The classic pattern: keep (priority, data) tuples in a heap to schedule tasks efficiently."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Кортежи сравниваются поэлементно, и при равных приоритетах Python дойдёт до самих данных — на словарях или своих объектах это TypeError. Лечится третьим полем-счётчиком: (приоритет, номер, задача); заодно получаете FIFO среди равных приоритетов. И помните, что heapq — min-куча: «первым идёт самый важный» при больших числах приоритета делают через -priority.",
+      "en": "Tuples compare element by element, so when two priorities tie Python moves on to the payload — with dicts or custom objects that means TypeError. The fix is a third field, a monotonically increasing counter, as in (priority, count, task), which also gives FIFO order among equal priorities. And heapq is a min-heap: if a bigger number means more important, push -priority."
     },
     "syntax": "heapq.heappush(pq, (priority, task))\npriority, task = heapq.heappop(pq)",
     "status": "ready",
@@ -8461,8 +8461,8 @@
       "en": "The usual mistakes: mutable default arguments, circular references, and shared state left behind by a shallow copy."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная развилка: срез lst[:], dict.copy() и copy.copy() копируют только верхний уровень — вложенные списки и словари остаются общими, так что правка внутри копии видна в оригинале. copy.deepcopy() спускается вглубь и не зацикливается на циклических ссылках (он помнит уже скопированные объекты в memo), но платит за это скоростью и памятью, поэтому в горячем цикле от него лучше отказаться. Отдельная ловушка — значение по умолчанию def f(lst=[]): оно вычисляется один раз при определении функции, а не при каждом вызове; лечится через None и создание списка внутри тела.",
+      "en": "The key split: a slice lst[:], dict.copy() and copy.copy() duplicate only the top level — nested lists and dicts stay shared, so editing inside the copy shows up in the original. copy.deepcopy() recurses all the way down and survives circular references (it remembers already-copied objects in a memo), but pays in speed and memory, so keep it out of hot loops. The mutable default def f(lst=[]) is a separate trap: it is evaluated once when the function is defined, not per call — use None and build the list inside the body."
     },
     "syntax": "# Используй copy/deepcopy для безопасного копирования мутируемых объектов",
     "status": "ready",
@@ -8614,8 +8614,8 @@
       "en": "Decorator caching a function's results by arguments (LRU-bounded by maxsize)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ключом кеша служат сами аргументы, поэтому f(2) и f(n=2) занимают разные ячейки, а список или словарь в аргументах немедленно дают TypeError: unhashable. Кеш один на функцию и живёт до конца программы: навешанный на метод, он удерживает self и мешает сборке мусора — чистить через f.cache_clear(). Для рекурсии дефолтного maxsize=128 часто мало, а maxsize=None (то же самое, что functools.cache) заодно убирает накладные расходы на вытеснение.",
+      "en": "The cache key is built from the arguments themselves, so f(2) and f(n=2) occupy different slots, and passing a list or dict raises TypeError: unhashable straight away. There is one cache per function and it lives for the whole program: applied to a method it pins self and blocks garbage collection — clear it with f.cache_clear(). For recursion the default maxsize=128 is often too small, while maxsize=None (exactly what functools.cache does) also drops the eviction overhead."
     },
     "syntax": "@functools.lru_cache(maxsize=128)",
     "status": "ready",
@@ -8651,8 +8651,8 @@
       "en": "Decorator for a simple unbounded cache (like lru_cache(maxsize=None)); added in 3.9."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "cache ничего не вытесняет: словарь растёт, пока жива функция, поэтому на данных от пользователя он рискованнее lru_cache с ограничением — а на методах кеш ещё и держит ссылку на self, и объект не умирает. Взамен он чуть быстрее lru_cache: не нужно отслеживать порядок обращений и вытеснять старое. Аргументы обязаны быть хешируемыми, список или словарь дадут TypeError.",
+      "en": "cache never evicts anything: the dictionary keeps growing for as long as the function lives, so it is riskier than a bounded lru_cache on user-supplied input — and on methods it also keeps a reference to self alive. In exchange it is slightly faster, since there is no recency bookkeeping or eviction. Arguments must be hashable; a list or dict raises TypeError."
     },
     "syntax": "@functools.cache",
     "status": "ready",
@@ -8687,8 +8687,8 @@
       "en": "Convert an old-style cmp(a, b) comparison function into a key function for sorted()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Нужен только там, где порядок нельзя выразить одним ключом, потому что решение зависит сразу от пары элементов — классика вроде «склеить числа так, чтобы получилось наибольшее». В остальных случаях обычный key= быстрее: ключ считается один раз на элемент, а функция сравнения дёргается порядка n log n раз, да ещё через объект-обёртку. И cmp должна возвращать отрицательное число, ноль или положительное, а не True/False.",
+      "en": "Reach for it only when the ordering cannot be expressed as a single key because the decision depends on a pair of elements at once — the classic case is arranging numbers to form the largest possible number. Otherwise a plain key= wins: the key is computed once per element, while a comparison function is called about n log n times through a wrapper object. Also, cmp must return a negative number, zero or a positive number — not True/False."
     },
     "syntax": "functools.cmp_to_key(cmp_func)",
     "status": "ready",
@@ -8720,8 +8720,8 @@
       "en": "Copy metadata (__name__, __doc__, …) from a wrapped function onto the wrapper."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Напрямую вызывать почти не приходится: @functools.wraps — это тот же update_wrapper, оформленный как декоратор. Прямой вызов нужен, когда обёртка родилась не из def внутри декоратора — например, это объект functools.partial или экземпляр класса с __call__. Функция правит wrapper на месте (и возвращает его же), а заодно кладёт в него ссылку __wrapped__, благодаря которой inspect.signature показывает параметры оригинала, а не (*args, **kwargs).",
+      "en": "You rarely reach for it directly, since @functools.wraps is just this function packaged as a decorator. Call it by hand when the wrapper is not a plain def inside a decorator — a functools.partial object, say, or an instance of a class with __call__. It mutates the wrapper in place (returning it too) and stores a __wrapped__ back-reference, which is what lets inspect.signature report the original parameters instead of (*args, **kwargs)."
     },
     "syntax": "functools.update_wrapper(wrapper, wrapped)",
     "status": "ready",
@@ -9107,8 +9107,8 @@
       "en": "Recursively convert a dataclass instance into a dict."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это не дешёвый снимок __dict__: asdict рекурсивно обходит вложенные датаклассы, списки, кортежи и словари, а всё остальное копирует через copy.deepcopy — на больших структурах это заметно дороже, чем кажется. Результат ещё не готов к json.dumps: datetime, Decimal, set и прочие объекты остаются собой, а поля ClassVar и InitVar в словарь не попадают. Если нужна просто плоская копия атрибутов, дешевле взять vars(obj).",
+      "en": "This is not a cheap view of __dict__: asdict walks nested dataclasses, lists, tuples and dicts recursively and deep-copies everything else, which costs real time on large structures. The result is not automatically JSON-ready either — datetime, Decimal, set and friends come back as themselves, and ClassVar/InitVar fields are excluded. When a flat copy of the attributes is enough, vars(obj) is far cheaper."
     },
     "syntax": "dataclasses.asdict(instance)",
     "status": "ready",
@@ -9142,8 +9142,8 @@
       "en": "Recursively convert a dataclass instance into a tuple of field values."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Кортеж теряет имена, поэтому код, который его распаковывает, ломается молча, стоит переставить или добавить поле в классе — для сериализации и хранения надёжнее asdict. Как и asdict, функция рекурсивная и копирует значения через deepcopy, так что вложенный датакласс станет вложенным кортежем, а не ссылкой на исходный объект. Уместно там, где нужен именно короткий позиционный набор: распаковка, ключ сортировки, передача в функцию через *.",
+      "en": "A tuple drops the field names, so any code unpacking it breaks silently the moment fields are reordered or inserted — for serialization and storage asdict is the safer choice. Like asdict it recurses and deep-copies, so a nested dataclass becomes a nested tuple rather than a reference to the original object. Reach for it when you genuinely want a short positional bundle: unpacking, a sort key, or splatting into a call."
     },
     "syntax": "dataclasses.astuple(instance)",
     "status": "ready",
@@ -9177,8 +9177,8 @@
       "en": "True if the object (class or instance) is a dataclass."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — True возвращается и для класса, и для его экземпляра, поэтому для проверки «передали именно объект» нужно дополнительно убедиться, что это не тип (isinstance(obj, type)). Проверка нужна перед asdict/astuple/fields: на не-датаклассе они бросают TypeError, а не возвращают пустой результат. Наследники датакласса тоже считаются датаклассами, даже если сами декоратором не помечены.",
+      "en": "The main trap: it returns True both for a dataclass and for its instances, so to test \"this is an actual object\" you must additionally check that it is not a type (isinstance(obj, type)). Use it as a guard before asdict/astuple/fields, which raise TypeError on non-dataclasses instead of returning something empty. Subclasses of a dataclass also count as dataclasses even when they carry no decorator of their own."
     },
     "syntax": "dataclasses.is_dataclass(obj)",
     "status": "ready",
@@ -9212,8 +9212,8 @@
       "en": "Create a new dataclass dynamically from a name and a list of fields."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Нужен редко: если поля известны заранее, обычный декоратор @dataclass читается лучше и виден статическим анализаторам, а make_dataclass строит класс во время выполнения, поэтому IDE о его полях ничего не знает. Элементом списка полей может быть не только имя, но и пара (имя, тип) или тройка с field(); у голого имени тип считается typing.Any. Чтобы экземпляры такого класса пиклились, присвойте результат переменной уровня модуля с тем же именем, что передали первым аргументом.",
+      "en": "Rarely the right tool: when the fields are known up front, a plain @dataclass decorator reads better and is visible to type checkers, while make_dataclass builds the class at runtime so your IDE knows nothing about its fields. A field entry can be a bare name, a (name, type) pair, or a triple with field(); a bare name gets typing.Any. For instances to be picklable, bind the result to a module-level variable whose name matches the first argument."
     },
     "syntax": "dataclasses.make_dataclass(name, fields)",
     "status": "ready",
@@ -9244,8 +9244,8 @@
       "en": "A pseudo-type for a field passed to __init__/__post_init__ but not stored as an attribute."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это способ принять в конструктор данные, которые нужны только для вычисления настоящих полей и не должны оставаться в объекте: после __init__ такого атрибута у экземпляра просто нет. Отсюда типичный сюрприз — InitVar-поле не видно ни в repr, ни в сравнении, ни в fields(), ни в asdict(). И если забыть написать __post_init__, значение будет принято и молча выброшено; в __post_init__ такие параметры приходят позиционно, в порядке объявления в классе.",
+      "en": "InitVar exists for input that is only needed to compute the real fields and should not live on the instance: once __init__ finishes, no such attribute exists. Hence the usual surprise — an InitVar never shows up in repr, equality, fields() or asdict(). Forget to define __post_init__ and the value is accepted and silently discarded; inside __post_init__ these parameters arrive positionally, in declaration order."
     },
     "syntax": "field: dataclasses.InitVar[T]",
     "status": "ready",
@@ -9438,8 +9438,8 @@
       "en": "An enumeration whose members are also ints (comparable to and usable as numbers)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Плата за удобство — потеря типовой строгости: член равен обычному числу и любому члену другого IntEnum с тем же значением, поэтому перепутанные перечисления сравниваются молча и без ошибки. С Python 3.11 str() и f-строки печатают у IntEnum голое число, а не Color.RED, — при переезде на новую версию логи и сообщения незаметно меняются. Брать IntEnum стоит ради совместимости с кодом и API, которые ждут int; для внутренней логики обычный Enum безопаснее.",
+      "en": "The convenience costs you type safety: a member equals a plain number and equals any member of a different IntEnum with the same value, so two unrelated enums compare equal without a peep. Since Python 3.11 str() and f-strings render an IntEnum member as the bare number instead of Color.RED, which silently rewrites log lines when old code moves to a newer version. Reach for IntEnum to interoperate with code and APIs that expect ints; for logic of your own, plain Enum is safer."
     },
     "syntax": "class C(enum.IntEnum): ...",
     "status": "ready",
@@ -9473,8 +9473,8 @@
       "en": "An enumeration whose members are also str (3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — при замене привычного class C(str, Enum) на StrEnum меняется вывод: в 3.11+ у обычного миксина str() и f-строка дают 'C.S', а у StrEnum — 'small'. Ещё одна неочевидность: auto() здесь возвращает не число, а имя члена в нижнем регистре, и все значения обязаны быть строками — int в теле класса вызовет ошибку.",
+      "en": "The trap shows up when you swap a hand-rolled class C(str, Enum) for StrEnum: since 3.11 the plain mixin renders as 'C.S' in str() and f-strings, while StrEnum renders as 'small'. Also non-obvious: auto() yields the member name lowercased rather than a number, and every value must be a string — a bare int in the class body raises."
     },
     "syntax": "class C(enum.StrEnum): ...",
     "status": "ready",
@@ -9508,8 +9508,8 @@
       "en": "A bit-flag enumeration whose members combine with | & ^ ~."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Значения членов должны быть отдельными битами: auto() внутри Flag выдаёт 1, 2, 4 и так далее, а написанное руками 3 создаст не новый флаг, а псевдоним комбинации, который не появится при обходе класса. В отличие от IntFlag, член Flag не является числом, и это плюс: случайно сравнить или сложить его с посторонним int не выйдет. Пустая комбинация (значение 0) ложна в булевом контексте, так что обычная проверка на истинность отвечает на вопрос «взведён ли хоть один флаг».",
+      "en": "Member values must be single bits: auto() inside a Flag hands out 1, 2, 4 and so on, while a hand-written 3 creates a composite alias rather than a new flag and won't show up when you iterate the class. Unlike IntFlag, a Flag member is not an int, which is the point: it cannot be silently compared with or added to unrelated numbers. The empty combination (value 0) is falsy, so a plain truth test answers \"is any flag set at all\"."
     },
     "syntax": "class C(enum.Flag): ...",
     "status": "ready",
@@ -9544,8 +9544,8 @@
       "en": "Bit flags that are also ints (combine and compare as numbers)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "У IntFlag по умолчанию boundary=KEEP: значение с битом, которого нет ни в одном члене, не бросит ошибку, а сохранится как есть — испорченную маску придётся ловить самому. Плюс член свободно сравнивается и участвует в арифметике с обычными int, так что смешать его с посторонним числом легко. Разумно брать IntFlag там, где значение уходит наружу — в системный вызов, флаги re, упакованное битовое поле; для внутренней логики чище Flag.",
+      "en": "IntFlag defaults to boundary=KEEP: a value carrying a bit that no member defines is accepted and kept rather than rejected, so a corrupt mask stays silent until it bites. Members also compare and do arithmetic with ordinary ints, which makes accidental mixing with unrelated numbers easy. Use IntFlag where the value crosses out of your program (system calls, re flags, packed bit fields); for logic that stays inside, Flag is cleaner."
     },
     "syntax": "class C(enum.IntFlag): ...",
     "status": "ready",
@@ -9578,8 +9578,8 @@
       "en": "The base for IntEnum/StrEnum: keeps the mixed-in type's repr (3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вопреки названию, ReprEnum трогает не repr, а str() и format(): repr остаётся «энумовским» (<Size.S: 'small'>), зато f-строка и str() дают значение подмешанного типа. Он появился в 3.11 потому, что тогда обычные смешанные перечисления (class Foo(str, Enum)) начали печататься как Foo.A, и IntEnum/StrEnum нужно было спасти от этой ломки. Наследуйтесь от него, если делаете собственный миксин (например с float) и хотите, чтобы член в строке выглядел как его значение.",
+      "en": "Despite the name, ReprEnum leaves repr alone (<Size.S: 'small'>) and instead borrows str() and format() from the mixed-in type. It exists because 3.11 made plain mixins like class Foo(str, Enum) print as Foo.A, and IntEnum/StrEnum had to be shielded from that change. Inherit from it when you build your own mixin enum and want members to render as their values in f-strings."
     },
     "syntax": "class C(int, enum.ReprEnum): ...",
     "status": "ready",
@@ -9609,8 +9609,8 @@
       "en": "A wrapper forcing a value to become an enum member (3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Нужна ровно там, где обычные правила Enum срабатывают против вас: функция, lambda, дескриптор или вложенный класс в теле перечисления членом не становятся — Python считает их методами класса. Обёртка снимает это исключение и заставляет значение стать полноценным членом с .name и .value. Для обычных чисел и строк она избыточна, а до Python 3.11 приходилось хитрить, заворачивая функцию, например, в functools.partial.",
+      "en": "It exists for the cases where the usual Enum rules work against you: a function, lambda, descriptor or nested class written in the enum body is treated as a method, not a member. Wrapping it makes it a real member with .name and .value. For plain numbers and strings the wrapper is pointless, and before Python 3.11 people faked it by hiding the callable inside something like functools.partial."
     },
     "syntax": "X = enum.member(value)",
     "status": "ready",
@@ -9642,8 +9642,8 @@
       "en": "A wrapper preventing a value from becoming an enum member (3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обратная задача: любое обычное значение в теле Enum молча становится членом, попадает в len(), в итерацию и в поиск по значению — nonmember оставляет его простым атрибутом класса. Обратите внимание, что C.HELPER после этого возвращает голое значение: у него нет .name и .value, и C(99) поднимет ValueError. Тот же эффект даёт имя с ведущим подчёркиванием, но nonmember нужен, когда константа должна остаться публичной.",
+      "en": "This is the mirror problem: any ordinary value in an Enum body silently becomes a member, counted by len(), yielded by iteration and reachable by value lookup, while nonmember keeps it an ordinary class attribute. Note that C.HELPER then gives you the raw value, with no .name or .value, and C(99) raises ValueError. A leading underscore in the name achieves the same exclusion, so reach for nonmember when the constant must stay public."
     },
     "syntax": "H = enum.nonmember(value)",
     "status": "ready",
@@ -9677,8 +9677,8 @@
       "en": "A class decorator enforcing enum constraints (UNIQUE/CONTINUOUS/NAMED_FLAGS) at definition (3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка срабатывает один раз, в момент создания класса, — это не валидация значений во время работы программы, и требуется Python 3.11+. Режим UNIQUE дословно повторяет декоратор @unique, поэтому реальный смысл verify в двух других: CONTINUOUS требует, чтобы значения шли подряд без пропусков от наименьшего к наибольшему, а NAMED_FLAGS — чтобы каждый бит составного значения флага был покрыт именованным членом.",
+      "en": "The check runs once, when the class is created — it is not runtime validation of values, and it needs Python 3.11+. The UNIQUE mode is exactly what the @unique decorator already does, so verify earns its place through the other two: CONTINUOUS demands values with no gaps between the lowest and the highest, and NAMED_FLAGS demands that every bit of a composite flag value be covered by a named member."
     },
     "syntax": "@enum.verify(enum.UNIQUE)",
     "status": "ready",
@@ -9712,8 +9712,8 @@
       "en": "An enumeration of checks for verify(): UNIQUE, CONTINUOUS, NAMED_FLAGS (3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сам по себе EnumCheck ничего не делает — его члены передают декоратору verify(), например @verify(UNIQUE, CONTINUOUS) над классом. Проверка выполняется один раз, в момент создания класса, то есть ошибка вылетит при импорте модуля, а не при обращении к члену. UNIQUE запрещает псевдонимы, CONTINUOUS — дыры в числовых значениях, NAMED_FLAGS требует, чтобы составные значения флагов собирались только из уже именованных битов.",
+      "en": "EnumCheck does nothing on its own: its members are arguments to the verify() decorator, as in @verify(UNIQUE, CONTINUOUS). The checks run once, while the class is being built, so a violation blows up at import time rather than at first use. UNIQUE bans aliases, CONTINUOUS bans gaps in numeric values, and NAMED_FLAGS demands that composite flag values be made only of bits that already have names."
     },
     "syntax": "enum.EnumCheck",
     "status": "ready",
@@ -9743,8 +9743,8 @@
       "en": "The strategy for out-of-range flag bits: STRICT/CONFORM/EJECT/KEEP (3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отвечает на вопрос, что делать, если в значении оказался бит, которого нет ни в одном члене. Умолчания разные, и об это чаще всего спотыкаются: у Flag это STRICT, поэтому неизвестный бит даёт ValueError, а у IntFlag это KEEP, и лишний бит молча сохраняется в члене. Стратегия задаётся ключевым словом boundary прямо в заголовке класса.",
+      "en": "It answers what should happen when a value carries a bit that no member defines. The defaults differ, and that is the usual trap: Flag uses STRICT, so an undefined bit raises ValueError, while IntFlag uses KEEP and quietly carries the stray bit along. You choose a strategy with the boundary keyword in the class header."
     },
     "syntax": "enum.FlagBoundary",
     "status": "ready",
@@ -10580,8 +10580,8 @@
       "en": "A context manager that temporarily redirects sys.stdout to a file object."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Подмена глобальная: пока блок with активен, перенаправлен sys.stdout у всей программы, включая другие потоки — поэтому в библиотечном коде и многопоточных приложениях так делать не стоит. На вывод дочерних процессов и кода на C, пишущего прямо в дескриптор 1, это не влияет: перехватывается только то, что идёт через sys.stdout. Для ошибок есть парный redirect_stderr, а типичное применение — тесты и захват вывода чужой функции, которая печатает вместо того, чтобы возвращать значение.",
+      "en": "The swap is global: while the with block is active, sys.stdout is redirected for the whole program, other threads included — which is why this is a poor fit for library code and threaded applications. Output from subprocesses or from C code writing straight to file descriptor 1 is unaffected; only writes going through sys.stdout are captured. There is a matching redirect_stderr, and the usual use case is tests or capturing output from someone else's function that prints instead of returning."
     },
     "syntax": "with contextlib.redirect_stdout(target): ...",
     "status": "ready",
@@ -10614,8 +10614,8 @@
       "en": "A context manager that temporarily redirects sys.stderr to a file object."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Подменяется только sys.stderr на уровне Python, поэтому вывод из C-расширений и из дочерних процессов, пишущих в дескриптор 2 напрямую, вы не поймаете. Изменение глобальное, а значит не потокобезопасное: пока блок активен, перенаправление видят все потоки — для библиотечного кода это плохой выбор.",
+      "en": "Only Python-level sys.stderr is swapped, so output from C extensions or child processes writing straight to file descriptor 2 slips past it. The change is global and therefore not thread-safe: while the block is active every thread sees the redirect, which makes it a poor fit for library code."
     },
     "syntax": "with contextlib.redirect_stderr(target): ...",
     "status": "ready",
@@ -10648,8 +10648,8 @@
       "en": "A context manager that temporarily changes the current working directory (3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Меняется рабочий каталог всего процесса, а не отдельного потока, поэтому в многопоточном или асинхронном коде соседние потоки и задачи внезапно увидят чужой каталог — документация прямо отмечает, что менеджер не потокобезопасен. Вложенность при этом безопасна: он реентерабельный и запоминает предыдущий каталог на каждом входе. В обычном коде надёжнее просто складывать абсолютные пути, а chdir беречь для случаев, когда чужая библиотека умеет работать только с текущим каталогом.",
+      "en": "It changes the working directory of the whole process, not of one thread, so in threaded or async code other threads and tasks suddenly see someone else's directory — the docs call it out as not thread-safe. Nesting is fine, though: it is reentrant and remembers the previous directory on each entry. In everyday code building absolute paths is safer; keep chdir for third-party code that insists on operating relative to the current directory."
     },
     "syntax": "with contextlib.chdir(path): ...",
     "status": "ready",
@@ -10680,8 +10680,8 @@
       "en": "The ABC for context managers (the __enter__/__exit__ protocol)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это не обязанность, а удобство: issubclass проходит для любого класса с __enter__ и __exit__, даже если он ничего не наследовал, — поэтому свой менеджер писать через наследование не нужно. Смысл наследования в том, что базовый класс уже даёт __enter__, возвращающий self, и остаётся описать только __exit__; ещё его удобно указывать в аннотациях типов. Асинхронные менеджеры сюда не попадают — у них отдельный AbstractAsyncContextManager.",
+      "en": "Inheriting is a convenience, not a requirement: issubclass succeeds for any class defining __enter__ and __exit__, so your own manager needs no base class at all. What subclassing buys you is a ready __enter__ that returns self, leaving only __exit__ to write, plus a clean name to use in type hints. Async managers are not covered here — they have their own AbstractAsyncContextManager."
     },
     "syntax": "class C(contextlib.AbstractContextManager): ...",
     "status": "ready",
@@ -10714,8 +10714,8 @@
       "en": "The ABC for async context managers (the __aenter__/__aexit__ protocol)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Наследоваться не обязательно: проверка подкласса идёт по наличию __aenter__ и __aexit__, так что любой подходящий класс уже считается подклассом — сам ABC нужен в основном как готовый базовый класс (даёт __aenter__, возвращающий self) и как аннотация типа. Проверка смотрит только на имена методов, а не на то, что они корутины, и не отличает асинхронный менеджер от синхронного по смыслу. Появился в Python 3.7; с 3.9 класс поддерживает параметризацию квадратными скобками.",
+      "en": "You rarely need to inherit from it: the subclass check is structural, based on __aenter__ and __aexit__ being present, so a suitable class already counts — the ABC mostly serves as a ready base (it supplies an __aenter__ returning self) and as a type annotation. That check only looks at method names, not at whether they are actually coroutines. Added in Python 3.7, and subscriptable for generics since 3.9."
     },
     "syntax": "class C(contextlib.AbstractAsyncContextManager): ...",
     "status": "ready",
@@ -10748,8 +10748,8 @@
       "en": "A base class letting a context manager also be used as a function decorator."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Смысл в том, чтобы не оборачивать всё тело функции в with ради одного и того же менеджера — но у формы @cm нет способа получить значение, которое менеджер отдаёт через as, поэтому она годится только для менеджеров, работающих ради побочного эффекта. Базовый _recreate_cm() возвращает тот же самый объект, так что одноразовый менеджер после первого вызова функции сломается: его нужно переопределить (у @contextmanager это уже сделано — генератор создаётся заново на каждый вызов).",
+      "en": "It exists so you do not have to wrap a whole function body in with for the same manager every time — but the @cm form gives you no way to reach the value the manager yields via as, so it only fits managers used for their side effect. The default _recreate_cm() returns the very same object, so a single-use manager breaks on the second call to the decorated function unless you override it; @contextmanager already does this and rebuilds its generator per call."
     },
     "syntax": "class C(contextlib.ContextDecorator): ...",
     "status": "ready",
@@ -10779,8 +10779,8 @@
       "en": "An async ExitStack: dynamically manage several (async) context managers (3.7+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Нужен там, где число ресурсов известно только в рантайме: открыть N соединений в цикле нельзя одним async with, а стек примет их по одному и закроет в обратном порядке при выходе. Асинхронные менеджеры регистрируются через enter_async_context() и push_async_exit(), обычные синхронные — через те же enter_context()/callback(), что и у ExitStack; перепутать методы — самая частая ошибка. Ещё приём: pop_all() переносит уже накопленные ресурсы в новый стек, чтобы не закрывать их, если инициализация дошла до конца успешно.",
+      "en": "Reach for it when the number of resources is only known at runtime: you cannot write one async with for N connections opened in a loop, but a stack accepts them one by one and unwinds them in reverse order on exit. Async managers go in through enter_async_context() and push_async_exit(), while plain sync ones use the same enter_context()/callback() as ExitStack — mixing the two up is the usual mistake. A handy trick is pop_all(), which hands the collected resources to a fresh stack so they survive once setup has fully succeeded."
     },
     "syntax": "async with contextlib.AsyncExitStack() as stack: ...",
     "status": "ready",
@@ -10810,8 +10810,8 @@
       "en": "A decorator turning an async generator (with one yield) into an async context manager (3.7+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Yield должен сработать ровно один раз: исключение из тела async with пробрасывается внутрь генератора в точку yield, поэтому освобождение ресурса кладут в finally — иначе при ошибке оно просто не выполнится. Полученный менеджер одноразовый: объект, возвращённый вызовом декорированной функции, нельзя использовать в двух async with, нужно вызывать функцию заново. С Python 3.10 результат ещё и сам является ContextDecorator для асинхронных функций, то есть его можно вешать декоратором.",
+      "en": "The yield must happen exactly once: an exception raised inside the async with body is thrown back into the generator at the yield, so release code belongs in a finally block or it silently never runs on failure. The manager it produces is single-use — the object returned by one call cannot serve two async with statements, so call the function again. Since Python 3.10 the result also works as a decorator on async functions."
     },
     "syntax": "@contextlib.asynccontextmanager",
     "status": "ready",
@@ -10844,8 +10844,8 @@
       "en": "An async context manager ensuring aclose() is called on exit (3.10+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главный случай — асинхронные генераторы с try/finally: если выйти из async for через break или исключение, финализация генератора не произойдёт сразу, её отложат до shutdown_asyncgens() у цикла событий, то есть в непредсказуемый момент. aclosing делает закрытие детерминированным ровно в точке выхода из блока. Работает только с объектами, у которых есть aclose(); для синхронного close() — обычный closing().",
+      "en": "The main case is async generators with try/finally: if you leave an async for via break or an exception, the generator is not finalized right there — cleanup is deferred to the event loop's shutdown_asyncgens(), at an unpredictable moment. aclosing makes the teardown happen deterministically where the block ends. It only works with objects exposing aclose(); for a plain sync close() use closing() instead."
     },
     "syntax": "async with contextlib.aclosing(thing): ...",
     "status": "ready",
@@ -10875,8 +10875,8 @@
       "en": "A helper base class using ABCMeta; subclassing it makes a class abstract."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Абстрактность проверяется только в момент создания экземпляра: если наследник забыл переопределить хотя бы один абстрактный метод, TypeError прилетит на вызове конструктора, а не при определении класса. Само наследование от ABC ничего не запрещает — потомок без абстрактных методов создаётся спокойно. Если нужна проверка «подходит ли объект по набору методов» без наследования, смотрите в сторону typing.Protocol со структурной типизацией.",
+      "en": "The abstractness check happens at instantiation time, not at class definition: a subclass that forgets to override an abstract method fails with TypeError only when you call its constructor. Inheriting from ABC by itself forbids nothing — a class with no abstract methods left over instantiates fine. When you want \"does this object have the right methods\" without an inheritance link, reach for typing.Protocol and structural typing instead."
     },
     "syntax": "class Base(abc.ABC): ...",
     "status": "ready",
@@ -10912,8 +10912,8 @@
       "en": "The metaclass for defining abstract base classes; ABC is a convenience wrapper."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Прямо к метаклассу обращаются, когда наследоваться от ABC нельзя: у класса уже есть свой метакласс, и его делают наследником ABCMeta. Вторая причина — метод register(): чужой класс объявляется виртуальным подклассом, после чего isinstance и issubclass отвечают True, но ничего не наследуется и абстрактные методы у него никто не проверяет.",
+      "en": "You touch the metaclass directly when subclassing ABC is not an option — typically the class already has its own metaclass, which you then derive from ABCMeta. The other reason is register(): it declares an unrelated class a virtual subclass, so isinstance and issubclass start saying True, yet nothing is inherited and its abstract methods are never enforced."
     },
     "syntax": "class C(metaclass=abc.ABCMeta): ...",
     "status": "ready",
@@ -10943,8 +10943,8 @@
       "en": "A decorator marking a method abstract; subclasses must override it."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сам декоратор ничего не запрещает — он лишь ставит на функции флаг __isabstractmethod__; отказ создавать экземпляр обеспечивает метакласс ABCMeta. Поэтому в классе без ABC или ABCMeta пометка тихо ни на что не влияет, и «абстрактный» метод спокойно вызывается. В связке с другими декораторами abstractmethod должен быть самым внутренним: @classmethod или @property идут выше него.",
+      "en": "The decorator enforces nothing on its own — it just sets the __isabstractmethod__ flag on the function; refusing instantiation is the job of the ABCMeta metaclass. In a class that uses neither ABC nor ABCMeta the mark is silently ignored and the \"abstract\" method stays perfectly callable. When stacking decorators, abstractmethod must be the innermost one, with @classmethod or @property sitting above it."
     },
     "syntax": "@abc.abstractmethod",
     "status": "ready",
@@ -10977,8 +10977,8 @@
       "en": "Deprecated: an abstract property. Use @property on top of @abstractmethod instead."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "История та же, что у abstractclassmethod: начиная с Python 3.3 property сама сообщает об абстрактности вложенной функции, поэтому отдельная обёртка стала лишней. В современной замене важен порядок — @property внешним, @abstractmethod внутренним, не наоборот.",
+      "en": "Same story as abstractclassmethod: since Python 3.3 property itself reports the abstractness of the function it wraps, which made the dedicated decorator redundant. In the modern replacement the order matters — @property on the outside, @abstractmethod directly above the function, never the other way round."
     },
     "syntax": "@abc.abstractproperty  # deprecated",
     "status": "ready",
@@ -11008,8 +11008,8 @@
       "en": "Deprecated: an abstract classmethod. Use @classmethod on top of @abstractmethod."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обёртка родом из времён, когда classmethod ещё не умел пробрасывать наружу флаг абстрактности; с Python 3.3 обычная пара @classmethod поверх @abstractmethod делает то же самое, и отдельный декоратор объявлен устаревшим. В стандартной библиотеке он оставлен только ради старого кода — в новом брать не нужно.",
+      "en": "This wrapper dates back to a time when classmethod could not propagate the abstractness flag; since Python 3.3 stacking @classmethod on top of @abstractmethod does the same job, and the separate decorator has been deprecated ever since. It survives in the standard library purely for old code — do not reach for it in anything new."
     },
     "syntax": "@abc.abstractclassmethod  # deprecated",
     "status": "ready",
@@ -11039,8 +11039,8 @@
       "en": "Deprecated: an abstract staticmethod. Use @staticmethod on top of @abstractmethod."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Существует по историческим причинам: до Python 3.3 обычный staticmethod «терял» пометку абстрактности, и нужны были отдельные обёртки. Сейчас staticmethod пробрасывает __isabstractmethod__ сам, поэтому пишут связку из двух декораторов — и порядок важен: @staticmethod должен стоять сверху, @abstractmethod — ближе к функции.",
+      "en": "It exists for historical reasons: before Python 3.3 a plain staticmethod dropped the abstractness flag, so separate wrappers were needed. Today staticmethod propagates __isabstractmethod__ itself, so you stack two decorators instead — and the order matters: @staticmethod goes on top, @abstractmethod closest to the function."
     },
     "syntax": "@abc.abstractstaticmethod  # deprecated",
     "status": "ready",
@@ -11070,8 +11070,8 @@
       "en": "Return the current ABC cache token; changes when virtual subclasses are registered."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Нужен потому, что ABC умеет принимать виртуальные подклассы уже во время работы программы через register(): результат isinstance() для одной и той же пары может измениться позже. Если вы кешируете такие проверки у себя, храните рядом токен и сбрасывайте кеш, когда он изменился; сам токен — непрозрачное число, сравнивать его осмысленно только на равенство.",
+      "en": "It exists because ABCs accept virtual subclasses at runtime via register(), so the answer isinstance() gives for the same pair can change later. If you cache such checks yourself, store the token alongside and drop the cache when it differs; the token is an opaque value meaningful only for equality comparison, not for ordering or arithmetic."
     },
     "syntax": "abc.get_cache_token()",
     "status": "ready",
@@ -11101,8 +11101,8 @@
       "en": "Recompute a class's set of abstract methods (3.10+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Набор __abstractmethods__ считается один раз, в момент создания класса, поэтому всё, что дописывает или подменяет методы позже (декоратор класса, миксин, ручное присваивание), оставляет его протухшим: класс либо спокойно создаётся с недореализованными методами, либо отказывается создаваться, хотя всё уже реализовано. Функция возвращает тот же самый класс, так что её удобно вешать декоратором.",
+      "en": "A class's __abstractmethods__ set is computed once, at class creation, so anything that adds or replaces methods afterwards (a class decorator, a mixin, a plain assignment) leaves it stale: the class either instantiates happily with unimplemented methods or refuses to instantiate although everything is implemented. It returns the same class object, which makes it convenient to apply as a decorator."
     },
     "syntax": "abc.update_abstractmethods(cls)",
     "status": "ready",
@@ -11165,8 +11165,8 @@
       "en": "The protocol for objects usable in a for loop (has __iter__)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка isinstance ищет только метод __iter__, поэтому старый класс с одним __getitem__ вернёт False, хотя в for он прекрасно перебирается — честнее просто вызвать iter(obj) внутри try/except TypeError. И помните, что строка тоже Iterable: рекурсивный обход вложенных списков с условием «если Iterable — заходим внутрь» зациклится на отдельных символах.",
+      "en": "The isinstance check looks for __iter__ and nothing else, so a legacy class defining only __getitem__ reports False even though a for loop happily walks it; calling iter(obj) inside try/except TypeError is the more honest test. Also, str is Iterable, so a recursive flattener that descends into anything Iterable will spin forever on single characters."
     },
     "syntax": "isinstance(obj, collections.abc.Iterable)",
     "status": "ready",
@@ -11198,8 +11198,8 @@
       "en": "The iterator protocol: has __next__ and __iter__."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Каждый Iterator — это Iterable, но не наоборот: список перебирать можно, а сам итератором он не является, им становится результат iter(списка). Практический смысл такой проверки — узнать, что объект одноразовый: после полного прохода итератор исчерпан, второй for по нему не даст ничего, поэтому функции, которой нужен повторный проход по входу, стоит сразу материализовать его в list.",
+      "en": "Every Iterator is also Iterable, but not the other way round: a list can be looped over yet is not an iterator; iter(list) is. The practical value of the check is spotting single-use input — once drained, an iterator yields nothing on a second loop, so a function that needs two passes should materialise its argument into a list first."
     },
     "syntax": "isinstance(obj, collections.abc.Iterator)",
     "status": "ready",
@@ -11231,8 +11231,8 @@
       "en": "The protocol for objects supporting reversed() (has __reversed__)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка смотрит только на наличие __reversed__ и __iter__, а функция reversed() довольствуется и парой __len__ плюс __getitem__ — поэтому свой класс с обычным протоколом последовательности прекрасно развернётся, но isinstance на Reversible вернёт False. Если хотите, чтобы совпадало, наследуйтесь от Sequence: она уже объявлена Reversible. Генераторы и обычные итераторы сюда не входят — развернуть поток, у которого не известен конец, невозможно.",
+      "en": "The check looks for __reversed__ (plus __iter__), but the reversed() builtin is happy with just __len__ and __getitem__ — so a plain sequence-protocol class reverses fine yet fails the isinstance test. Inherit from Sequence if you want the two to agree; Sequence is already declared Reversible. Generators and ordinary iterators are excluded, because a stream with no known end cannot be walked backwards."
     },
     "syntax": "isinstance(obj, collections.abc.Reversible)",
     "status": "ready",
@@ -11264,8 +11264,8 @@
       "en": "The generator protocol: an iterator with send/throw/close."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверку проходит только настоящий генератор — функция с yield или генераторное выражение; ваш собственный класс с __iter__ и __next__ опознается как Iterator, но не как Generator, потому что здесь дополнительно требуются send, throw и close. Если вам нужно просто «это ленивый одноразовый перебор», спрашивайте Iterator. И не забывайте про главную ловушку самих генераторов: после одного полного прохода объект исчерпан, второй цикл по нему молча не выдаст ничего.",
+      "en": "Only a real generator passes — a function with yield or a generator expression; your own class with __iter__ and __next__ registers as an Iterator but not as a Generator, since send, throw and close are required too. When you only mean \"lazy one-shot iteration\", check Iterator instead. And remember the trap generators themselves carry: once fully consumed, the object is spent, and a second loop over it silently yields nothing."
     },
     "syntax": "isinstance(obj, collections.abc.Generator)",
     "status": "ready",
@@ -11299,8 +11299,8 @@
       "en": "The protocol for objects with a length (has __len__)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка структурная: isinstance вернёт True для любого класса, где определён __len__, — наследовать или регистрировать ничего не нужно. Sized ничего не говорит об итерируемости и индексации, и наоборот: генератор итерируем, но не Sized, поэтому len() на нём падает — именно этот случай Sized и позволяет отсеять заранее.",
+      "en": "The check is structural: isinstance returns True for any class that defines __len__, with no inheritance or registration needed. Sized says nothing about iteration or indexing, and the reverse also holds — a generator is iterable but not Sized, so len() on it fails, and that is exactly the case Sized lets you screen out beforehand."
     },
     "syntax": "isinstance(obj, collections.abc.Sized)",
     "status": "ready",
@@ -11332,8 +11332,8 @@
       "en": "The protocol for membership testing with `in` (has __contains__)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка isinstance смотрит ровно на одно — есть ли __contains__, — а оператор in работает шире: когда __contains__ нет, Python перебирает объект через __iter__ или через старый __getitem__ с целыми индексами. Поэтому объект вполне может поддерживать in и при этом не быть Container. В обратную сторону тоже осторожно: Container ничего не обещает ни про len(), ни про перебор — за это отвечают Sized и Iterable.",
+      "en": "This check asks a single question: does the object define __contains__? The in operator is more forgiving — without __contains__ it falls back to iterating via __iter__, or even via legacy integer __getitem__ — so plenty of objects work with in yet fail the Container check. Note also that Container promises nothing about len() or iteration; those belong to Sized and Iterable."
     },
     "syntax": "isinstance(obj, collections.abc.Container)",
     "status": "ready",
@@ -11365,8 +11365,8 @@
       "en": "The combination of Sized + Iterable + Container (a typical container)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка структурная: класс с __len__, __iter__ и __contains__ считается Collection без наследования и регистрации. Отсюда две ловушки — str тоже Collection, так что условие «коллекция, но не строка» приходится писать явно, а генератор и любой итератор ей не являются, потому что у них нет len(). Как аннотация Collection хорош, когда нужны длина и обход, но не нужен доступ по индексу; если нужен порядок и индексы — берите Sequence.",
+      "en": "The check is structural: any class defining __len__, __iter__ and __contains__ counts as a Collection, with no inheritance or registration involved. Two traps follow — str is a Collection too, so \"a collection but not a string\" needs an explicit carve-out, and generators or other iterators are not, since they have no len(). Use it as an annotation when you need size and iteration but not indexing; if order and indexing matter, reach for Sequence instead."
     },
     "syntax": "isinstance(obj, collections.abc.Collection)",
     "status": "ready",
@@ -11398,8 +11398,8 @@
       "en": "The protocol for hashable objects (has __hash__)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка означает лишь, что у типа __hash__ не выставлен в None, а вовсе не то, что хеш реально посчитается. Классический пример — кортеж со списком внутри: проверку он пройдёт, а hash() на нём упадёт с TypeError, потому что хеш кортежа считается по его элементам. Если нужна настоящая гарантия, надёжнее один раз позвать hash() в try/except, чем полагаться на isinstance.",
+      "en": "Passing this check only means the type's __hash__ is not None — it does not promise that hashing will succeed. The classic counterexample is a tuple holding a list: it registers as Hashable, yet hash() raises TypeError because a tuple hashes its elements. When you need a real guarantee, calling hash() inside try/except is more honest than the isinstance test."
     },
     "syntax": "isinstance(obj, collections.abc.Hashable)",
     "status": "ready",
@@ -11432,8 +11432,8 @@
       "en": "The immutable sequence protocol (indexing, slicing, len, in)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка: str тоже Sequence, поэтому проверка не отличит список строк от одной строки — функция спокойно переберёт её по символам, строку приходится отсеивать отдельной проверкой. Слово «неизменяемая» здесь условно: list тоже Sequence, ведь MutableSequence наследуется от него, и отдельной проверки «менять нельзя» в стандартной библиотеке нет. Наследнику хватает __getitem__ и __len__ — __contains__, __iter__, __reversed__, index и count дают миксины.",
+      "en": "The classic trap: str is a Sequence, so this check will not separate a list of strings from a single string, and your function will happily iterate it character by character — screen strings out explicitly. Do not read it as \"read-only\" either: list is a Sequence too, because MutableSequence derives from it, and there is no ABC meaning \"cannot be modified\". For your own class only __getitem__ and __len__ are required; __contains__, __iter__, __reversed__, index and count arrive as mixins."
     },
     "syntax": "isinstance(obj, collections.abc.Sequence)",
     "status": "ready",
@@ -11466,8 +11466,8 @@
       "en": "The mutable sequence protocol (list): adds append/insert/__setitem__."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Для собственного класса нужно реализовать __getitem__, __setitem__, __delitem__, __len__ и insert — а append, extend, pop, remove, reverse и += появятся из миксинов сами. Как проверка типа это шире, чем isinstance(x, list): подойдут bytearray и collections.deque, а str и tuple отвалятся, потому что неизменяемы. В аннотации параметра MutableSequence честнее list — он прямо сообщает, что функция будет менять переданное на месте.",
+      "en": "To build one yourself you supply __getitem__, __setitem__, __delitem__, __len__ and insert; append, extend, pop, remove, reverse and += come from the mixins. As a runtime check it is broader than isinstance(x, list) — bytearray and collections.deque qualify, while str and tuple do not, since they cannot be modified. As a parameter annotation it is more honest than list: it signals that the function intends to mutate what you pass in."
     },
     "syntax": "isinstance(obj, collections.abc.MutableSequence)",
     "status": "ready",
@@ -11500,8 +11500,8 @@
       "en": "The immutable mapping protocol (key access, len, in)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "«Неизменяемое» здесь означает, что протокол не требует записи, а вовсе не то, что объект нельзя менять: обычный dict тоже проходит эту проверку, так что она не защитит вас от изменяемого словаря на входе. Если функции нужна запись, проверяйте MutableMapping. А при наследовании от Mapping достаточно написать __getitem__, __len__ и __iter__ — get, keys, items, values, in и сравнение достанутся бесплатно.",
+      "en": "Immutable here describes the protocol, not the object: a plain dict passes this check too, so it does not guarantee that nobody can mutate what you were handed — require MutableMapping when your code needs to write. The upside is inheritance: subclass Mapping and implement just __getitem__, __len__ and __iter__, and you get get, keys, items, values, membership tests and equality for free."
     },
     "syntax": "isinstance(obj, collections.abc.Mapping)",
     "status": "ready",
@@ -11533,8 +11533,8 @@
       "en": "The mutable mapping protocol (dict): adds __setitem__/__delitem__/update."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверяйте isinstance(obj, MutableMapping), когда важно «умеет читать и менять по ключу», а не «это буквально dict»: так проходят и os.environ, и ваши собственные классы-отображения. При наследовании достаточно написать пять методов — __getitem__, __setitem__, __delitem__, __iter__ и __len__ — остальное (get, pop, setdefault, update, items, keys) приедет миксинами. Импортировать только из collections.abc: старые псевдонимы вида collections.MutableMapping удалены в Python 3.10.",
+      "en": "Use it as a type check when you care that something is key-addressable and writable rather than literally a dict — os.environ and hand-written mapping classes pass, dict subclass checks would miss them. Subclassing is the real payoff: implement __getitem__, __setitem__, __delitem__, __iter__ and __len__, and the mixins hand you get, pop, setdefault, update, items and keys for free. Import it from collections.abc — the old collections.MutableMapping alias was dropped in Python 3.10."
     },
     "syntax": "isinstance(obj, collections.abc.MutableMapping)",
     "status": "ready",
@@ -11566,8 +11566,8 @@
       "en": "The mutable set protocol (set): add/discard."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Своя реализация требует пяти методов — __contains__, __iter__, __len__, add и discard — а clear, pop, remove и операции |=, &=, -=, ^= достаются миксинами. Обратите внимание на разницу контрактов: discard молча игнорирует отсутствующий элемент, а remove на нём бросает KeyError, это не синонимы. И frozenset, и представления вроде dict.keys() — это Set, но не MutableSet: добавить в них ничего нельзя.",
+      "en": "Implementing one means writing just __contains__, __iter__, __len__, add and discard; clear, pop, remove and the in-place |=, &=, -=, ^= operators are supplied by the mixins. Note that add's counterpart discard is silent about missing elements while remove raises KeyError — same idea, different contracts. frozenset and view objects such as dict.keys() register as Set but never as MutableSet, since nothing can be inserted into them."
     },
     "syntax": "isinstance(obj, collections.abc.MutableSet)",
     "status": "ready",
@@ -11600,8 +11600,8 @@
       "en": "The type of a dict keys view (d.keys())."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это живое окно в словарь, а не копия: добавленный позже ключ представление сразу увидит, а изменение словаря прямо во время перебора keys() приведёт к RuntimeError. В отличие от values(), представление ключей ведёт себя как множество и поддерживает &, |, -, ^ — общие ключи двух словарей находятся как d1.keys() & d2.keys(), без промежуточных set().",
+      "en": "A keys view is a live window on the dict, not a snapshot: keys added later show up immediately, and mutating the dict while iterating the view raises RuntimeError. Unlike the values view, it is set-like and supports &, |, -, ^, so the shared keys of two dicts come straight from d1.keys() & d2.keys() with no intermediate set()."
     },
     "syntax": "isinstance(obj, collections.abc.KeysView)",
     "status": "ready",
@@ -11633,8 +11633,8 @@
       "en": "The type of a dict values view (d.values())."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это живое представление, а не копия: изменили словарь — изменилось и оно, а попытка добавить или удалить ключ прямо во время итерации по нему даёт RuntimeError. В отличие от представлений ключей и элементов, ValuesView не ведёт себя как множество (нет &, |, -): значения могут повторяться и быть нехешируемыми. Индексации и срезов тоже нет — нужен произвольный доступ, оборачивайте в list().",
+      "en": "It is a live view, not a copy: change the dict and the view changes with it, and adding or removing keys while iterating over it raises RuntimeError. Unlike keys and items views, ValuesView is not set-like (no &, |, -), because values may repeat and may be unhashable. There is no indexing or slicing either — wrap it in list() if you need random access."
     },
     "syntax": "isinstance(obj, collections.abc.ValuesView)",
     "status": "ready",
@@ -11666,8 +11666,8 @@
       "en": "The type of a dict items view (d.items())."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Представление не копирует словарь, а смотрит в него: изменения в d видны сразу, зато добавление или удаление ключей прямо во время цикла по items() обрывает итерацию с RuntimeError. Ещё одна неочевидная деталь — items() ведёт себя как множество и поддерживает операции & | - ^, но только пока все значения хешируемы; у values() таких возможностей нет никогда.",
+      "en": "An items view is a live window on the dict rather than a copy: updates to the dict show up immediately, but inserting or deleting keys while looping over items() aborts the iteration with RuntimeError. Less obvious is that items() is set-like and supports &, |, - and ^ — though only while every value is hashable; values() never offers this."
     },
     "syntax": "isinstance(obj, collections.abc.ItemsView)",
     "status": "ready",
@@ -11699,8 +11699,8 @@
       "en": "The base class of dict views (KeysView/ValuesView/ItemsView)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сам по себе MappingView почти пуст — он даёт только длину и внятный repr; операции множеств и проверку вхождения добавляют уже наследники KeysView, ValuesView и ItemsView, поэтому напрямую его почти не используют. Смысл такой проверки один: понять, что перед вами живой вид на чужой словарь, а не снимок — если нужен снимок, оберните результат в list() или set().",
+      "en": "MappingView itself is nearly empty: it contributes only a length and a readable repr, while set operations and membership tests come from its subclasses KeysView, ValuesView and ItemsView, so you rarely reference it directly. The one thing the check tells you is that you hold a live window onto someone else's dict rather than a copy — wrap it in list() or set() when you need a frozen snapshot."
     },
     "syntax": "isinstance(obj, collections.abc.MappingView)",
     "status": "ready",
@@ -11732,8 +11732,8 @@
       "en": "The buffer protocol: an object exposing its memory (3.12+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Буферный протокол исторически существовал только на уровне C, и до 3.12 проверить его из Python было нечем; PEP 688 добавил метод __buffer__, так что теперь и обычный питоновский класс может считаться Buffer. Неожиданность: str буфером не является, хотя байты из него получить можно — нужен явный encode(). В аннотациях Buffer — корректная замена устаревшему ByteString, когда функция берёт любые сырые байты, включая memoryview и array.",
+      "en": "The buffer protocol used to live only at the C level, so before 3.12 there was no way to test for it from Python; PEP 688 added the __buffer__ method, and a plain Python class can now qualify as a Buffer. A surprise for many: str is not a buffer, even though bytes can be derived from it via an explicit encode(). As an annotation, Buffer is the proper successor to the deprecated ByteString whenever a function accepts any raw-bytes object, memoryview and array included."
     },
     "syntax": "isinstance(obj, collections.abc.Buffer)",
     "status": "ready",
@@ -11765,8 +11765,8 @@
       "en": "Deprecated (removal in 3.17): a common type for bytes/bytearray. Use Buffer instead."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловушка прямо в имени: ByteString покрывает только bytes и bytearray, а memoryview или array под него не подпадают — как аннотация «любые байты» он всегда обманывал. С 3.12 он помечен deprecated и исчезнет в 3.17; в новом коде пишите bytes | bytearray, если нужны именно эти два типа, либо Buffer, если годится любой объект с буфером.",
+      "en": "The name oversells it: ByteString covers only bytes and bytearray, while memoryview and array do not match, so as an \"any bytes\" annotation it was always misleading. It has been deprecated since 3.12 and disappears in 3.17; write bytes | bytearray when you really mean those two types, or Buffer when any buffer-exposing object will do."
     },
     "syntax": "isinstance(obj, collections.abc.ByteString)",
     "status": "ready",
@@ -11798,8 +11798,8 @@
       "en": "The protocol for objects usable with await (has __await__)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вызов async-функции ничего не запускает — он лишь создаёт корутину, и если её не дождаться, интерпретатор предупредит про coroutine was never awaited (потому в примере и стоит close()). Ждать корутину можно ровно один раз: повторный await по тому же объекту даст RuntimeError. Awaitable шире корутины — под него подходят также Task и Future, поэтому в аннотациях он уместнее, когда вам неважно, что именно ждут.",
+      "en": "Calling an async function starts nothing; it just builds a coroutine object, and dropping it unawaited triggers the coroutine was never awaited warning, which is why the example closes it. A coroutine can be awaited only once — a second await on the same object raises RuntimeError. Awaitable is the wider notion: Tasks and Futures qualify too, so it is the better annotation when you accept anything that can be awaited."
     },
     "syntax": "isinstance(obj, collections.abc.Awaitable)",
     "status": "ready",
@@ -11834,8 +11834,8 @@
       "en": "The coroutine protocol: an awaitable with send/throw/close."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вызов async-функции ничего не выполняет — он лишь создаёт объект-корутину, и если его не дождаться через await или не передать в asyncio, тело так и не отработает, а при сборке мусора вы получите RuntimeWarning про «coroutine was never awaited». Coroutine — более узкий тип, чем Awaitable: Task и Future ждать можно, но эту проверку они не проходят, так что для «можно ли сделать await» проверяйте Awaitable.",
+      "en": "Calling an async function runs no code at all: it just builds a coroutine object, and if nobody awaits it or hands it to asyncio, the body never executes and the interpreter emits a \"coroutine was never awaited\" RuntimeWarning when the object is collected. Coroutine is narrower than Awaitable — Tasks and Futures can be awaited but fail this check, so test against Awaitable when the question is merely \"can I await this?\"."
     },
     "syntax": "isinstance(obj, collections.abc.Coroutine)",
     "status": "ready",
@@ -11870,8 +11870,8 @@
       "en": "The protocol for objects usable in async for (has __aiter__)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка смотрит только на наличие __aiter__ и ничего не гарантирует дальше: перебор всё равно может упасть, если то, что вернёт __aiter__, не умеет __anext__ — за это отвечает более узкий AsyncIterator. И помните, что асинхронно перебираемое не является обычным Iterable: for, list() и itertools с ним не работают, нужен async for или списочное включение вида [x async for x in it].",
+      "en": "The check only looks for __aiter__ and promises nothing beyond that: iteration can still blow up if whatever __aiter__ returns lacks __anext__ — that stricter guarantee belongs to AsyncIterator. Also keep in mind an async iterable is not a regular Iterable: for, list() and itertools will not touch it, you need async for or a comprehension like [x async for x in it]."
     },
     "syntax": "isinstance(obj, collections.abc.AsyncIterable)",
     "status": "ready",
@@ -11905,8 +11905,8 @@
       "en": "The async iterator protocol: has __anext__ and __aiter__."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "isinstance здесь работает структурно: любой объект с __anext__ и __aiter__ пройдёт проверку без наследования и регистрации, но проверяется лишь наличие методов, а не то, что они действительно делают. Асинхронный генератор одноразовый — после того как async for дошёл до конца, повторный проход не выдаст ничего. Руками этот протокол пишут редко: async def с yield внутри даёт его бесплатно.",
+      "en": "The isinstance check is structural: anything defining __anext__ and __aiter__ passes, no subclassing or registration needed, but only the presence of the methods is verified, never their behaviour. An async generator is single-pass, so once an async for has drained it, a second loop yields nothing. You rarely implement the protocol by hand — an async def with yield in it gives you one for free."
     },
     "syntax": "isinstance(obj, collections.abc.AsyncIterator)",
     "status": "ready",
@@ -11940,8 +11940,8 @@
       "en": "The async generator protocol: an async iterator with asend/athrow/aclose."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка здесь структурная: наследовать ABC не нужно, достаточно наличия __aiter__, __anext__, asend, athrow и aclose, так что True скажет и любой самописный класс с этим набором. Главная практическая грабля не в проверке, а в самом объекте: вызов ag() ничего не выполняет, тело стартует только при async for внутри запущенного event loop, а если выйти из цикла через break, блоки finally отработают не сразу — закрывайте явно через aclose() или contextlib.aclosing.",
+      "en": "The check is structural: nothing has to inherit from the ABC, having __aiter__, __anext__, asend, athrow and aclose is enough, so a hand-rolled class with those methods passes too. The real gotcha is the object itself — calling ag() runs no code, the body only starts under async for inside a running event loop, and breaking out of that loop leaves finally blocks pending, so close it explicitly with aclose() or contextlib.aclosing."
     },
     "syntax": "isinstance(obj, collections.abc.AsyncGenerator)",
     "status": "ready",
@@ -11975,8 +11975,8 @@
       "en": "A dict wrapper exposing its contents via .data; a base for custom mapping classes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Смысл обёртки — в наследовании: если унаследоваться от dict напрямую, переопределённый __setitem__ тихо обойдут update(), setdefault() и сам конструктор, потому что они реализованы на C и пишут в хранилище мимо ваших методов; UserDict проводит через ваш код каждую запись. Плата — скорость и то, что isinstance(obj, dict) даёт False: код, проверяющий тип, ваш объект не примет, туда отдавайте .data.",
+      "en": "The wrapper exists for subclassing: derive from dict directly and your overridden __setitem__ gets quietly bypassed by update(), setdefault() and the constructor, which are C-level and write straight into the storage; UserDict funnels every write through your method instead. The cost is speed plus the fact that isinstance(obj, dict) is False, so code that type-checks will reject the object — pass .data there."
     },
     "syntax": "class MyDict(collections.UserDict): ...",
     "status": "ready",
@@ -12008,8 +12008,8 @@
       "en": "A list wrapper exposing its contents via .data; a base for custom list classes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отличие от наследования от list: у UserList срез, сложение и копия возвращают экземпляр вашего класса, а не голый список, и всё содержимое лежит в обычном списке .data, который удобно валидировать или подменить. Обратная сторона — объект не является list (isinstance(x, list) → False) и заметно медленнее из-за делегирования; в чужой код, ждущий настоящий список, передавайте .data или list(x).",
+      "en": "Compared with subclassing list: slicing, concatenation and copying on a UserList give back an instance of your class rather than a plain list, and the payload sits in an ordinary list at .data that you can validate or swap out. The trade-off is that the object is not a list (isinstance(x, list) is False) and delegation makes it noticeably slower — hand .data or list(x) to code that expects the real thing."
     },
     "syntax": "class MyList(collections.UserList): ...",
     "status": "ready",
@@ -12041,8 +12041,8 @@
       "en": "A str wrapper exposing its contents via .data; a base for custom string classes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отличие от наследования от str: у подкласса str методы upper(), strip() и срезы возвращают обычную строку, и ваш класс теряется после первой же операции, а UserString каждый раз пересобирает результат как self.__class__ из .data. Цена та же, что у остальных User*-обёрток: isinstance(s, str) даёт False и всё работает через лишний слой, поэтому наружу удобнее отдавать str(s).",
+      "en": "The difference from subclassing str: on a str subclass methods like upper(), strip() and slicing hand back a plain string, so your class evaporates after the first operation, whereas UserString rebuilds each result as self.__class__ from .data. The usual User* price applies — isinstance(s, str) is False and every call goes through an extra layer — so convert with str(s) before handing the value to outside code."
     },
     "syntax": "class MyStr(collections.UserString): ...",
     "status": "ready",
@@ -12897,8 +12897,8 @@
       "en": "The metaclass of all enumerations; turns a class of constants into an Enum (3.11+ name)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Напрямую его называют редко, но именно он объясняет, почему у класса-перечисления работают len(Color), обход в цикле, Color['RED'] и Color(1): эти операции определены на метаклассе, а не на самом Enum. До Python 3.11 он назывался EnumMeta, и старое имя оставлено как псевдоним, так что код с ним не сломался. Наследоваться от него имеет смысл только если пишешь свой вид перечисления с изменённым поиском членов.",
+      "en": "You rarely name it directly, yet it is the reason len(Color), iterating a Color, Color['RED'] and Color(1) all work: those operations live on the metaclass, not on Enum itself. Before Python 3.11 it was called EnumMeta, and the old name still works as an alias, so existing code kept running. Subclassing it only pays off when you build your own flavour of enumeration with custom member lookup."
     },
     "syntax": "class E(enum.Enum): ...  # type(E) is enum.EnumType",
     "status": "ready",
@@ -12930,8 +12930,8 @@
       "en": "The former name of the enum metaclass — an alias of enum.EnumType kept for compatibility."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Практическая польза от этого имени одна: type(Color) — это и есть метакласс, поэтому isinstance(X, EnumType) отвечает на вопрос «X — перечисление целиком?», в отличие от isinstance(X, Enum), проверяющего отдельный член. Переименование произошло в Python 3.11; старое имя работает и удалять его не собираются, но в новом коде пишите EnumType.",
+      "en": "The one practical use: type(Color) is the metaclass, so isinstance(X, EnumType) answers \"is X an enum class?\", whereas isinstance(X, Enum) tests a single member. The rename landed in 3.11; the old name still works and is not slated for removal, but new code should say EnumType."
     },
     "syntax": "enum.EnumMeta is enum.EnumType",
     "status": "ready",
@@ -12961,8 +12961,8 @@
       "en": "The special namespace dict used while creating an enum; tracks order and forbids duplicate members (public in 3.13+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В обычном коде этот класс не нужен ни разу — он существует ради того, чтобы повторное присваивание одного и того же имени в теле перечисления падало с TypeError сразу, а не давало молча переопределённый член. Пригодится он только если вы пишете собственный подкласс EnumType и вручную готовите пространство имён. До Python 3.13 он был тем же самым, но приватным (_EnumDict), поэтому код с оглядкой на старые версии должен проверять наличие атрибута.",
+      "en": "Everyday code never touches this class; it exists so that assigning the same name twice inside an enum body fails with TypeError immediately instead of silently redefining a member. You only reach for it when writing your own EnumType subclass and preparing the namespace by hand. Before 3.13 the same object existed as the private _EnumDict, so version-tolerant code has to check that the public name is there."
     },
     "syntax": "ns = enum.EnumDict()",
     "status": "ready",
@@ -12994,8 +12994,8 @@
       "en": "A class decorator that injects an enum's members into the module globals and adjusts their repr."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Декоратор придуман ради стандартной библиотеки, где константы исторически лежат прямо в модуле (re.IGNORECASE, socket.AF_INET), а перечисление добавили позже — он даёт новый класс, не ломая старый способ обращения. В своём коде применять его почти всегда не стоит: имена появляются в globals() в обход обычного присваивания, поэтому линтеры и автодополнение IDE их не видят, а случайное совпадение имён молча затрёт существующую переменную модуля.",
+      "en": "The decorator exists for the standard library, where constants historically sat at module level (re.IGNORECASE, socket.AF_INET) and the enum class arrived later — it adds the class without breaking the old access path. In your own code it is rarely a good idea: the names land in globals() without an actual assignment, so linters and IDE completion miss them, and a name clash silently overwrites an existing module-level variable."
     },
     "syntax": "@enum.global_enum",
     "status": "ready",
@@ -13025,8 +13025,8 @@
       "en": "The repr function for members of a global_enum-decorated enum (shows module.MEMBER)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Эту функцию почти никогда не вызывают вручную — её ставит как __repr__ декоратор global_enum; напрямую она нужна, только если пишете свой похожий декоратор. Префикс модуля берётся из __module__ самого класса перечисления, так что при реэкспорте члена из другого модуля в repr всё равно окажется имя модуля, где enum объявлен.",
+      "en": "You almost never call this yourself: global_enum installs it as the class's __repr__, and the function is only interesting if you write a similar decorator of your own. The module prefix comes from the enum class's own __module__, so re-exporting a member elsewhere still shows the module where the enum was defined."
     },
     "syntax": "enum.global_enum_repr(member)",
     "status": "ready",
@@ -13056,8 +13056,8 @@
       "en": "The repr function for members of a global_enum-decorated Flag."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отдельная функция для Flag нужна потому, что у комбинации битов нет одного имени: repr выводит каждый флаг с префиксом модуля через вертикальную черту (re.ASCII|re.IGNORECASE), а не одно имя, как у обычного enum. Если значение не раскладывается на именованные флаги, вывод падает обратно к виду module.Class(число).",
+      "en": "Flags need their own function because a combined value has no single name: the repr prints each flag with the module prefix joined by a pipe (re.ASCII|re.IGNORECASE) instead of one name as a plain enum would. When a value has no named flags behind it, the output falls back to the module.Class(number) form."
     },
     "syntax": "enum.global_flag_repr(member)",
     "status": "ready",
@@ -13087,8 +13087,8 @@
       "en": "The __str__ function for members of a globalized enum (bare member name)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Напрямую её почти никогда не вызывают: это деталь механики декоратора @global_enum, который дублирует члены перечисления в глобальном пространстве модуля (как re.IGNORECASE) и подменяет __str__ на эту функцию. Смысл в том, чтобы print(IGNORECASE) и f-строка печатали ровно то имя, под которым константа доступна в модуле, а не RegexFlag.IGNORECASE. Побочный эффект — str() и repr() у такого члена расходятся, и это нормально.",
+      "en": "You essentially never call this yourself: it is plumbing for the @global_enum decorator, which copies members into the module's global namespace (think re.IGNORECASE) and swaps __str__ for this function. The point is that print() and f-strings show the exact name the constant is reachable by in the module, not the ClassName.MEMBER form. As a side effect str() and repr() of such a member no longer agree, which is intended."
     },
     "syntax": "enum.global_str(member)",
     "status": "ready",
@@ -13118,8 +13118,8 @@
       "en": "A pickle reducer that serializes an enum member by (class, member name) instead of by value."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "По умолчанию член перечисления пикуется по значению — в потоке фактически лежит вызов Colour(1). Если значения потом сдвинутся (особенно при auto()), старый pickle не упадёт, а тихо развернётся в другой член; хранение по имени такой ошибки не допускает. Присваивать редьюсер надо в теле класса перечисления: __reduce_ex__ = enum.pickle_by_enum_name.",
+      "en": "By default an enum member is pickled by value, so the stream effectively holds a Colour(1) call. If the values later shift, typically because they came from auto(), an old pickle will not fail loudly but quietly resolve to a different member; storing the name instead removes that trap. Assign the reducer inside the enum class body as __reduce_ex__ = enum.pickle_by_enum_name."
     },
     "syntax": "member.__reduce_ex__ = enum.pickle_by_enum_name",
     "status": "ready",
@@ -13149,8 +13149,8 @@
       "en": "A pickle reducer that serializes a globalized enum member by its module-global name."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Подходит только перечислениям под @global_enum, члены которых продублированы в globals() модуля: pickle тогда хранит обычную ссылку вида module.NAME. Если такое имя из модуля исчезнет или его переименуют, распаковка упадёт на поиске атрибута, поэтому для обычных, не глобализированных перечислений берите pickle_by_enum_name.",
+      "en": "This one only fits enums decorated with @global_enum, whose members also live in the module globals: the pickle then stores a plain module.NAME reference. If that global name is later removed or renamed, unpickling fails during lookup, so for ordinary non-globalized enums use pickle_by_enum_name instead."
     },
     "syntax": "member.__reduce_ex__ = enum.pickle_by_global_name",
     "status": "ready",
@@ -22182,8 +22182,8 @@
       "en": "A descriptor for partial application of a method (like partial, but for methods)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обычный partial в теле класса не сработает: у объекта partial нет __get__, поэтому self не подставится и вызов через экземпляр уйдёт без первого аргумента — ровно ради этого случая и существует partialmethod. Зафиксированные позиционные аргументы встают сразу после self, так что «замораживать» ими удобно только первые параметры; всё остальное передавайте по имени.",
+      "en": "A plain partial does not work inside a class body: partial objects are not descriptors, so self never gets bound and calling through an instance drops the first argument — partialmethod exists precisely to cover that case. The frozen positional arguments land right after self, so they only pin the leading parameters; anything further along has to be fixed by keyword."
     },
     "syntax": "attr = functools.partialmethod(method, *args)",
     "status": "ready",
@@ -22218,8 +22218,8 @@
       "en": "A method decorator with single dispatch on the type of the first argument (after self)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Появился в Python 3.8; диспетчеризация идёт по типу первого аргумента после self, и тип обычно берут из его аннотации. Регистрируемые реализации принято называть _ — имя роли не играет, значение имеет только register; а если складывать декоратор с classmethod или staticmethod, singledispatchmethod должен быть самым внешним, иначе атрибут register до него не доберётся.",
+      "en": "Added in Python 3.8; it dispatches on the type of the first argument after self, normally taken from that argument's annotation. Registered implementations are conventionally named _ because the name is irrelevant — only register matters — and when stacking with classmethod or staticmethod, singledispatchmethod has to be the outermost decorator or its register attribute is unreachable."
     },
     "syntax": "@functools.singledispatchmethod",
     "status": "ready",
