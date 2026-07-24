@@ -35,5 +35,5 @@ API-поверхность) нельзя закапывать в issue/PR — о
 | [0007](0007-sandbox-backends.md) | OS-песочница — opt-in `--sandbox`, три нативных backend'а по ОС, fail-loud без тихого fallback | Accepted |
 | [0008](0008-server-sandbox-backend.md) | Класс sandbox-backend для server mode — OS-контейнер (namespaces+cgroups v2+seccomp), дополняет ADR-0001 | Proposed |
 | [0009](0009-server-data-model.md) | Единая доменная модель + PostgreSQL-надмножество SQLite для server mode (accounts/workspaces/RBAC) | Proposed |
-| [0010](0010-web-core-boundary.md) | Граница web↔core: адаптеры = сервисный слой, фасад `web/grading`, общий ContentProvider не вводим (правило трёх) | Proposed |
-| [0011](0011-local-persistence.md) | Локальная персистентность: общий `core/db.py` (код, не единый файл), миграция только missing-queue на SQLite | Proposed |
+| [0010](0010-web-core-boundary.md) | Граница web↔core: адаптеры = сервисный слой, фасад `web/grading`, общий ContentProvider не вводим (правило трёх) | Accepted |
+| [0011](0011-local-persistence.md) | Локальная персистентность: общий top-level `db.py` (код, не единый файл), миграция только missing-queue на SQLite | Accepted |

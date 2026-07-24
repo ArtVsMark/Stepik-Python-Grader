@@ -73,6 +73,7 @@
 - function-mode: маршрутизация выбирается по тому, печатает ли тест-блок результат сам, а не по «похоже ли на Python-код» — legacy-тесты (`a = 5` и голые значения) больше не дают ложные WA/RE; при несовпадении имён параметров аргументы связываются позиционно (#622)
 
 ### Internal
+- Docs: sweep достоверности документации (пост-аудит #613) — синхронизированы с кодом `architecture.md`/`project-structure.md` (декомпозиция хендлера #647: `api_routes`/`http_guards`/`grading`; `ai_grounding`/`failure_context`), убран удалённый command palette (#658), ADR-0010/0011 → Accepted, submit-ядро/онбординг/меню Stepik и dev-extras в справочниках, `audit-2026-07-20.md` → `docs/archive/`, метрики тестов 1700→2100; глоссарные пункты отложены до конца волны #684 (#700)
 - `pyproject.toml`: `[tool.ruff.format] exclude = ["*.md"]` — ruff 0.16 стал форматировать Python-блоки внутри markdown и ломал намеренно выровненные примеры в `docs/`/`CLAUDE.md`; проза-доки выведены из-под форматтера, `.py` — как прежде (#686)
 - `.gitignore`: каталог `.claude/` (сессионные worktrees, локальные настройки, `launch.json` для preview) — инструментальные артефакты машины; попавший в #708 `launch.json` с Windows-путём к `.venv` убран из репозитория (#685)
 - CONTRIBUTING/CLAUDE: правило проставлять метки `area/*`/`difficulty/*` (+ `good first issue`/`help wanted` где уместно) при заведении issue (#602)

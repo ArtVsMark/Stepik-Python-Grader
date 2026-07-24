@@ -25,8 +25,11 @@ Stepik-Python-Grader/
 │       ├── db.py                  # Utilities: общий SQLite-коннектор connect/user_version/apply_schema (leaf, issue #552/ADR-0011)
 │       ├── web/                   # Локальный веб-интерфейс (--serve), issue #58/#125/#186/#187
 │       │   ├── __init__.py        # Публичный API пакета (реэкспорт для back-compat)
-│       │   ├── server.py          # HTTP-хендлер (http.server), роутинг /api/*
-│       │   ├── viewmodels.py      # grade_path/grade_benchmark/grade_microbench/save_solution → JSON
+│       │   ├── server.py          # Каркас HTTP-сервера (http.server): собирает хендлер из миксинов, статика (#647)
+│       │   ├── api_routes.py      # _ApiRoutesMixin — таблицы маршрутов REST-API + хендлеры (#647)
+│       │   ├── http_guards.py     # _GuardMixin — разбор запроса, конфайн путей, JSON-ответ, лимиты тела (#647)
+│       │   ├── grading.py         # Фасад web→core по исполнению: grade/bench/trace/RunSpec (ADR-0010, #549)
+│       │   ├── viewmodels.py      # grade_path/grade_benchmark/grade_microbench/save_solution → JSON (через web/grading)
 │       │   ├── downloader_adapter.py # download_task — адаптер над downloader.py (issue #186)
 │       │   ├── auth_adapter.py       # auth_status/perform_browser_auth — браузерный OAuth в --serve (issue #402)
 │       │   ├── glossary_adapter.py   # glossary_search/get/missing/code_terms — адаптеры над glossary/
@@ -74,6 +77,8 @@ Stepik-Python-Grader/
 │           ├── lint.py           # Opt-in PEP-проверка через ruff, extra [lint] (issue #346)
 │           ├── insights.py       # Таксономия падений + затухание карточек «Подучить» (issue #347)
 │           ├── history_recording.py # Сборка записей истории из грейдинга для CLI+web (issue #395)
+│           ├── failure_context.py # Единая сборка FailureContext упавшего кейса для CLI+web (issue #542)
+│           ├── ai_grounding.py   # Retrieval-заземление AI-подсказки из офлайн-глоссария по концептам кода (issue #544)
 │           ├── ai_hints.py       # Opt-in AI-подсказки при WA/RE (--ai-hints, BYOK на requests, issue #435/ADR-0003)
 │           ├── progress_export.py # Экспорт прогресса в Markdown/HTML (--export-progress, issue #432)
 │           ├── user_settings.py  # Персистентные настройки CLI (.grader_settings.json, leaf, issue #430)

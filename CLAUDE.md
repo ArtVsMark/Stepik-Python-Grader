@@ -300,6 +300,7 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 | Контракт результата проверки (CLI/Web/API) | [docs/result-contract.md](docs/result-contract.md) |
 | Дизайн server mode (Runner, API, sandbox) | [docs/server-mode.md](docs/server-mode.md) |
 | Диагностика/логирование, редакция секретов | [docs/logging.md](docs/logging.md) |
+| Цепочка поставок: инвентарь рантайма/ассетов, pip-audit | [docs/supply-chain.md](docs/supply-chain.md) |
 | Архитектурные решения (ADR) | [docs/adr/README.md](docs/adr/README.md) |
 | Дерево файлов | [docs/project-structure.md](docs/project-structure.md) |
 | Версии, отличия от оригинала | [docs/versions.md](docs/versions.md) |
@@ -308,7 +309,8 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 | Режим ответов: полный шаблон 13 ролей | [docs/roles.md](docs/roles.md) |
 | WEB MVP: реализовано / замыслы / HTTP API | [docs/web-current.md](docs/web-current.md), [docs/web-design.md](docs/web-design.md), [docs/api.md](docs/api.md) |
 | История спринтов/roadmap (архив) | [docs/history.md](docs/history.md) |
-| Handoff для будущих реализаций Claude | [docs/claude-handoff.md](docs/claude-handoff.md) |
+| Handoff для будущих реализаций Claude (архив постановок) | [docs/claude-handoff.md](docs/claude-handoff.md) |
+| Полный аудит v1.9.0 (архив, программа #613) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |
 | Полный changelog (живой источник) | [CHANGELOG.md](CHANGELOG.md) |
 | Состояние проекта (исторический snapshot) | [CHECKPOINT.md](CHECKPOINT.md) |
 
@@ -316,11 +318,12 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 
 ## 🎯 Открытая работа (указатели)
 
-Реализационные задачи, готовые для будущего Claude — в
-[`docs/claude-handoff.md`](docs/claude-handoff.md): раздел «План работ по
-открытым issue — 2026-07-15» задаёт порядок волн и зависимости по актуальному
-бэклогу (сверен с фактическим кодом), ниже — архив закрытых постановок.
-Актуальные статусы — `gh issue list`.
+Актуальные статусы — всегда `gh issue list`; бэклог сжат до считаных issue.
+[`docs/claude-handoff.md`](docs/claude-handoff.md) — **архив** постановок для
+будущего Claude (план «2026-07-15» и волны аудита исполнены: эпик #613 W0–W7,
+round-2 #691/#692/#693/#648, #601/#602 закрыты). Сводка последнего ревью
+документации — [`docs/archive/audit-2026-07-20.md`](docs/archive/audit-2026-07-20.md)
+(программа #613 завершена).
 
 > **#199 (регистрация модулей glossary coverage в DAG/архитектуре) — закрыт.**
 > `stdlib_inventory.py`/`coverage.py` описаны в
@@ -337,9 +340,11 @@ ADR-0001): Runner-слой **#140** и контракт результата **#
 ([docs/result-contract.md](docs/result-contract.md)) — оба закрыты и уже
 реализованы (`core/runner.py`, `core/result.py`), не переизобретать. API
 удалённого исполнения **#156** и sandbox-требования **#157** закрыты как
-дизайн. Локальный `SandboxRunner` реализован (#266; в web — #396); не
-реализованы именно **server-mode** sandbox с контейнерами/квотами (дизайн
-#157, открытый **#153**) и сам удалённый сервер (**#151**). Диагностическое логирование — эпик **#146** реализован (#341):
+дизайн. Локальный `SandboxRunner` реализован (#266; в web — #396). Весь
+дизайн-эпик server-mode **#151** и его дети **#152–#157** закрыты (2026-07-17):
+спроектированы, но **не построены** именно server-mode sandbox с
+контейнерами/квотами (#153, #157) и сам удалённый сервер (#151) — живого issue
+на билд нет, направление держит лишь roadmap **#59**. Диагностическое логирование — эпик **#146** реализован (#341):
 opt-in `core/diag_log.py` с редакцией секретов, подключён в
 `stepik_client`/`oauth_flow`/`downloader`; докс-часть — **#150**
 ([docs/logging.md](docs/logging.md)). Дочерние **#147**/**#148**/**#149**
@@ -393,7 +398,7 @@ opt-in `core/diag_log.py` с редакцией секретов, подключ
 |---|---|
 | Версия | 1.9.0 (stable) |
 | Python | 3.12 / 3.13 (3.14 — экспериментальная, только ubuntu в CI) |
-| Тестов | 1700+ (растёт; точное число — прогон CI) |
+| Тестов | 2100+ (растёт; точное число — прогон CI) |
 | Покрытие | ~92% single-OS / ~95% cross-OS combined (живые бейджи README, см. заметку) |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
 | Глоссарий | 1300+ `ready`-карточек, 0 черновиков (эпик #363 завершён) |

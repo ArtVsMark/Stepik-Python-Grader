@@ -38,6 +38,9 @@
 - [`POST /api/v1/runs`](#post-apiv1runs)
 - [`GET /api/v1/runs/<id>`](#get-apiv1runsid)
 - [`POST /api/v1/runs/<id>/cancel`](#post-apiv1runsidcancel)
+- [`POST /api/v1/hint`](#post-apiv1hint)
+- [`POST /api/v1/settings`](#post-apiv1settings)
+- [`POST /api/stepik/submit`](#post-apistepiksubmit)
 - [`GET /api/auth/status`](#get-apiauthstatus)
 - [`POST /api/auth/start`](#post-apiauthstart)
 
@@ -327,8 +330,10 @@ curl -X POST http://127.0.0.1:8000/api/code-terms \
 
 ## `GET /api/commands`
 
-Реестр команд Command Palette (Ctrl+K, issue #125), отфильтрованный по
-тегам контекста.
+Реестр команд действий (`copy_input`/`copy_output`/…), отфильтрованный по
+тегам контекста. Питает inline-кнопки действий в панели разбора и сценарные
+кнопки результата (`renderCommandButtons`); command palette снята в #658, но
+сам эндпоинт и реестр `COMMANDS` живы.
 
 | Параметр | Обязателен |
 |---|---|

@@ -109,7 +109,7 @@
 | Карта документации + канонические источники | [`docs/README.md`](docs/README.md) |
 | Установка, OAuth, secrets.json, диагностика | [`docs/installation.md`](docs/installation.md) |
 | Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [`docs/grader-workflow.md`](docs/grader-workflow.md) |
-| WEB MVP — реализовано (UX, error/action cards, command palette) | [`docs/web-current.md`](docs/web-current.md) |
+| WEB MVP — реализовано (UX, error/action cards, «Функции в коде») | [`docs/web-current.md`](docs/web-current.md) |
 | WEB MVP — замыслы/отложенное/отклонённое | [`docs/web-design.md`](docs/web-design.md) |
 | Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [`docs/configuration.md`](docs/configuration.md) |
 | Архитектура модулей (DAG, слои, «что умеет») | [`docs/architecture.md`](docs/architecture.md) |
@@ -187,10 +187,12 @@ pytest tests/ -v
 
 ### E2E-тесты (Playwright, опционально, issue #263)
 
-Смок-тесты реального веб-UI (`--serve`) через headless Chromium — 4 сценария
-(режим 2 «Папка», режим 1 «Один файл» с пикером и редактируемым окном,
-глоссарий, command palette) плюс регрессионный тест на XSS в `app.js`
-(экранирование в `esc()`, issue #214). Живут в `tests/e2e/`, **не входят**
+Смок-тесты реального веб-UI (`--serve`) через headless Chromium — свыше 20
+сценариев по всем разделам workspace (режимы 2/1 грейдинга и a11y-озвучка,
+«Функции в коде», глоссарий с deep-link, песочница с пошаговым плеером и
+memory-диаграммой, «Прогресс», онбординг, локализация RU/EN) плюс регрессионный
+тест на XSS в `app.js` (экранирование в `esc()`, issue #214). Живут в
+`tests/e2e/`, **не входят**
 в `pytest tests/` (см. `norecursedirs` в `pyproject.toml`) — отдельный
 `playwright` нужен только для них, это dev-extra, а не runtime-зависимость:
 

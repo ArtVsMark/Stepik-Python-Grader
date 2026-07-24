@@ -1,6 +1,6 @@
 # ADR-0010 — Граница web↔core: адаптеры как сервисный слой, фасад `web/grading`
 
-- **Статус:** Proposed
+- **Статус:** Accepted (реализовано: фасад `web/grading.py` + активный boundary-guard тест #549/#550)
 - **Дата:** 2026-07-19
 - **Связанные issue:** #529 (эпик E5), #548 (этот ADR), #549 (фасад `web/grading`
   + boundary-guard в `test_import_dag`), #550 (capability на Runner Protocol);

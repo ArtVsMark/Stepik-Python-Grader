@@ -147,7 +147,7 @@ pip install -e ".[dev]"      # + pytest, pytest-cov, ruff, mypy
 **Шаг 5. Проверить установку:**
 
 ```bash
-python -m stepik_grader --version   # напр. 1.8.0
+python -m stepik_grader --version   # напр. 1.9.0
 ```
 
 > Проект использует src-layout (`src/stepik_grader/`, Issue #35) — модули
@@ -171,8 +171,23 @@ Dev-зависимости (`pip install -e ".[dev]"`):
 |-------|------------|
 | `pytest>=8.2` | Тестирование |
 | `pytest-cov>=5.0` | Покрытие тестами (`--cov`) |
+| `pytest-timeout>=2.3` | Тайм-аут зависших тестов (`timeout` в `[tool.pytest]`) |
 | `ruff>=0.15.19` | Линтер и форматтер |
 | `mypy>=1.10` | Проверка типов |
+| `hypothesis>=6.0` | Property-based тесты (парсер тест-блоков, нормализация float, issue #405) |
+
+Отдельные opt-in extra (ставятся явно, не входят в `[dev]`): `[watch]` —
+`watchfiles` для watch-режима прогона; `[lint]` — `ruff` как **runtime**-движок
+блока «Стиль» (issue #346); `[e2e]` — `playwright` для смок-тестов web-UI
+(issue #263, см. [CONTRIBUTING.md § E2E](../CONTRIBUTING.md)). Полный инвентарь
+версий/лицензий рантайма и вендоренных веб-ассетов, плюс `pip-audit` в CI —
+[docs/supply-chain.md](supply-chain.md).
+
+> **Запуск без командной строки (issue #661).** Кроме `python -m stepik_grader`
+> и `stepik-grader`, после установки доступен GUI-лаунчер `stepik-grader-gui`
+> (на Windows — ярлык без консольного окна; или `python -m stepik_grader.launcher`):
+> окно с выбором режима сервера, порта и рабочей папки. Детали —
+> [grader-workflow.md](grader-workflow.md#веб-интерфейс---serve).
 
 ---
 
