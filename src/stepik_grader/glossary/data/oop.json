@@ -8,8 +8,8 @@
       "en": "Operator overloading. __add__ (+), __sub__ (-), __mul__ (*), __eq__ (==), __lt__ (<), __le__ (<=), __hash__, __neg__."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Как только вы определяете __eq__, Python обнуляет __hash__ и объекты становятся нехешируемыми (не лягут в set или dict) — верните __hash__ вручную, если он нужен. Если операция не поддерживает второй операнд, возвращайте NotImplemented, а не бросайте исключение: тогда Python попробует зеркальный метод вроде __radd__ у другого объекта, а functools.total_ordering достроит остальные сравнения из __eq__ и одного __lt__.",
+      "en": "The moment you define __eq__, Python sets __hash__ to None and instances become unhashable (they won't go into a set or dict) — restore __hash__ yourself if you need it. When an operation doesn't support the other operand, return NotImplemented instead of raising, so Python can try the reflected method like __radd__ on the other object; and functools.total_ordering fills in the remaining comparisons from __eq__ plus a single __lt__."
     },
     "syntax": "def __add__(self, other): ...",
     "status": "ready",
@@ -119,8 +119,8 @@
       "en": "A context manager (the with statement). __enter__ runs on entry, __exit__ on exit — including when an exception is raised."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "__exit__ получает информацию об исключении в трёх аргументах, и если вернуть из него True — исключение будет подавлено (при обычном выходе там None). Возвращать True по привычке не стоит: молча проглоченная ошибка — классический источник трудноуловимых багов. Значение, которое вернул __enter__, попадает в переменную после as.",
+      "en": "__exit__ receives the exception details in its three arguments, and returning True from it suppresses that exception (on a normal exit they are all None). Don't return True out of habit — a silently swallowed error is a classic source of hard-to-find bugs. Whatever __enter__ returns is what the as variable binds to."
     },
     "syntax": "class CM:\n    def __enter__(self): return self\n    def __exit__(self, exc_type, exc_val, tb): ...",
     "status": "ready",
@@ -216,8 +216,8 @@
       "en": "The constructor — called when an instance is created. It initializes the object's attributes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "__init__ — не конструктор в полном смысле: к моменту его вызова объект уже создан методом __new__, а __init__ лишь заполняет атрибуты и обязан вернуть None (вернёте что-то другое — TypeError). При наследовании легко забыть super().__init__(), из-за чего часть родительской инициализации не отработает.",
+      "en": "__init__ isn't the constructor in the full sense: by the time it runs the object already exists (created by __new__), and __init__ only fills in its attributes — it must return None, or you get a TypeError. In a subclass it's easy to forget super().__init__(), leaving part of the parent's setup undone."
     },
     "syntax": "def __init__(self, params): ...",
     "status": "ready",
@@ -294,8 +294,8 @@
       "en": "The magic methods of the sequence/container protocol. They make len(), [] and in work on your object."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Один только __getitem__ уже делает объект итерируемым и заставляет работать оператор in — Python перебирает индексы 0, 1, 2... пока не поймает IndexError, даже если __iter__ и __contains__ не заданы. А объект, у которого __len__ вернул 0, считается ложным в булевом контексте (if obj).",
+      "en": "__getitem__ alone already makes the object iterable and makes the in operator work — Python walks indices 0, 1, 2... until it hits IndexError, even without __iter__ or __contains__. And an object whose __len__ returns 0 is treated as falsy in a boolean context (if obj)."
     },
     "syntax": "def __len__(self): ...\ndef __getitem__(self, idx): ...",
     "status": "ready",
@@ -394,8 +394,8 @@
       "en": "__slots__ restricts the instance attributes, removes __dict__ and saves memory. Especially useful for large numbers of objects."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Экономия памяти теряется, как только наследник не объявит собственный __slots__ — он снова получит __dict__. Перечисленные слоты — единственные разрешённые атрибуты: присвоить что-то за их пределами нельзя (AttributeError), и по умолчанию пропадает поддержка weakref, пока не добавишь '__weakref__' в список.",
+      "en": "The memory win vanishes the moment a subclass omits its own __slots__ — it regains a __dict__. The listed slots are the only attributes allowed: assigning anything outside them raises AttributeError, and weakref support disappears unless you add '__weakref__' to the list."
     },
     "syntax": "class C:\n    __slots__ = ('x', 'y')",
     "status": "ready",
@@ -463,8 +463,8 @@
       "en": "__str__ — the readable representation used by print(). __repr__ — the debugging one, meant to be reproducible. repr() calls __repr__."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Если __str__ не задан, print() и str() откатываются к __repr__ — но не наоборот, поэтому минимум, который стоит определять, это __repr__. Вложенные элементы контейнер всегда показывает через __repr__: print([p]) выведет repr, а не str, даже если у p есть __str__.",
+      "en": "If __str__ is missing, print() and str() fall back to __repr__ — but not the other way round, so __repr__ is the one to define if you define only one. A container always shows its elements via __repr__: print([p]) uses repr, not str, even when p has a __str__."
     },
     "syntax": "def __str__(self): return '...'\ndef __repr__(self): return '...'",
     "status": "ready",
@@ -537,8 +537,8 @@
       "en": "A class declaration. A class is the template objects (instances) are created from."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Тело класса выполняется один раз в момент определения, а не при создании каждого объекта. Переменные, объявленные прямо в теле (не через self), становятся атрибутами класса и общими для всех экземпляров — изменяемый список или словарь на этом уровне легко превращается в случайно разделяемое состояние.",
+      "en": "The class body runs once when the class is defined, not each time you create an object. Names bound directly in the body (not via self) become class attributes shared by every instance, so a mutable list or dict placed there easily turns into accidentally shared state."
     },
     "syntax": "class ИмяКласса:\n    тело",
     "status": "ready",
@@ -608,8 +608,8 @@
       "en": "A class method. Its first parameter is cls (a reference to the class). Used for alternative constructors."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "cls — это тот класс, на котором метод фактически вызвали, поэтому в подклассе cls(...) построит объект подкласса, а не родителя; именно за это classmethod ценят в альтернативных конструкторах. Если фабрике сам класс не нужен, берите staticmethod или обычную функцию.",
+      "en": "cls is whichever class the method was actually called on, so in a subclass cls(...) builds an instance of the subclass, not the parent — exactly why alternative constructors rely on classmethod. If the factory doesn't need the class at all, reach for staticmethod or a plain function instead."
     },
     "syntax": "@classmethod\ndef method(cls, ...): ...",
     "status": "ready",
@@ -699,8 +699,8 @@
       "en": "Turns a method into an attribute (the getter). @x.setter is the setter, @x.deleter the deleter. Computed attributes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обращаются к нему без скобок — circle.radius, а не circle.radius(). Внутри геттера читайте резервное поле с другим именем (self._r): иначе self.radius снова вызовет то же свойство и уйдёт в бесконечную рекурсию. А если сеттер не описан, присваивание падает с AttributeError — свойство только для чтения.",
+      "en": "You access it without parentheses — circle.radius, not circle.radius(). Inside the getter read a backing field with a different name (self._r), or self.radius re-triggers the same property and recurses forever. And with no setter defined, assignment raises AttributeError because the property is read-only."
     },
     "syntax": "@property\ndef x(self): return self._x\nproperty(fget=None, fset=None, fdel=None)",
     "status": "ready",
@@ -819,8 +819,8 @@
       "en": "A reference to the current instance of the class. The first parameter of instance methods (the name is a convention)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "self — не ключевое слово, а обычный первый параметр: Python сам подставляет туда объект, когда вы пишете b.double(), поэтому руками его не передают. Забыть self. перед атрибутом — частая ошибка: size = 2 создаёт локальную переменную, которая исчезает после метода, а self.size = 2 действительно меняет объект.",
+      "en": "self isn't a keyword but an ordinary first parameter: Python fills it with the instance automatically when you write b.double(), so you never pass it yourself. Forgetting the self. prefix is a common bug — size = 2 makes a local variable that vanishes when the method ends, while self.size = 2 actually changes the object."
     },
     "syntax": "def method(self): self.x = ...",
     "status": "ready",
@@ -897,8 +897,8 @@
       "en": "A static method. It takes neither self nor cls. Just a function inside the class — a logical grouping."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от classmethod статический метод не получает ни экземпляр, ни класс, поэтому до состояния объекта или класса он не дотянется. Держать его в классе, а не выносить обычной функцией, стоит лишь ради логической принадлежности к пространству имён класса; нужен доступ к классу (например, для фабрики) — берите classmethod.",
+      "en": "Unlike classmethod, a static method receives neither the instance nor the class, so it can't reach object or class state. The only reason to keep it inside the class rather than write a plain function is that it logically belongs to the class namespace; if you need the class (say, for a factory), use classmethod instead."
     },
     "syntax": "@staticmethod\ndef method(...): ...",
     "status": "ready",
@@ -960,8 +960,8 @@
       "en": "Returns a proxy object for the parent class. Used to call the parent's methods without naming it explicitly."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "super() вызывает не «родителя», а следующий класс в MRO (порядке разрешения методов) — при множественном наследовании это может оказаться не тот класс, что указан в скобках class. Если забыть super().__init__(), инициализация родителя молча не выполнится, и часть атрибутов останется несозданной.",
+      "en": "super() doesn't call \"the parent\" literally — it forwards to the next class in the MRO (method resolution order), which under multiple inheritance may not be the base you wrote in the class header. Forget to call super().__init__() and the parent's initialization silently never runs, leaving some attributes unset."
     },
     "syntax": "super().__init__(...)\nsuper().method(...)\nsuper(type, obj_or_type)",
     "status": "ready",
@@ -1054,8 +1054,8 @@
       "en": "abc.ABC and @abstractmethod forbid creating instances of a class until every abstract method is implemented."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "@abstractmethod запрещает создание экземпляров только если класс действительно наследует ABC (или задан metaclass=ABCMeta) — сам по себе декоратор ничего не блокирует. Ошибка возникает в момент вызова конструктора, а не при определении класса.",
+      "en": "@abstractmethod blocks instantiation only when the class truly inherits from ABC (or sets metaclass=ABCMeta) — the decorator alone enforces nothing. The TypeError fires when you try to construct an instance, not when the class is defined."
     },
     "syntax": "from abc import ABC, abstractmethod\nclass Shape(ABC):\n    @abstractmethod\n    def area(self): ...",
     "status": "ready",
@@ -1138,8 +1138,8 @@
       "en": "Class attributes are shared by every instance. Instance attributes belong to one instance each. Mutable class attributes are a trap!"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Чтение атрибута сперва ищет его в экземпляре, потом в классе, а присваивание self.attr = ... всегда создаёт атрибут экземпляра, заслоняя классовый. Настоящая ловушка — не переприсваивание, а мутация общего изменяемого классового атрибута (например через append): она меняет его сразу для всех экземпляров.",
+      "en": "Reading an attribute checks the instance first, then the class, but self.attr = ... always creates an instance attribute that shadows the class one. The real trap isn't reassignment — it's mutating a shared mutable class attribute (say, appending to a class-level list), which changes it for every instance at once."
     },
     "syntax": "class C:\n    class_attr = 0  # классовый\n    def __init__(self):\n        self.inst_attr = 1  # экземплярный",
     "status": "ready",
@@ -1208,8 +1208,8 @@
       "en": "A single _ is a convention (internal use). A double __ triggers name mangling (renaming to _Class__attr). Python has no truly private members."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Name mangling существует, чтобы подкласс случайно не перекрыл атрибут, а не чтобы что-то спрятать — до __attr всё равно можно дотянуться как obj._Class__attr. Оно не трогает dunder-имена вроде __init__ (с завершающим __), а одиночный _ вообще ничего не запрещает — это чистое соглашение.",
+      "en": "Name mangling exists so a subclass won't accidentally clobber an attribute, not to hide anything — you can still reach __attr as obj._Class__attr. It skips dunder names like __init__ (those also end in __), and a single _ enforces nothing at all, being pure convention."
     },
     "syntax": "self._protected\nself.__private",
     "status": "ready",
@@ -1292,8 +1292,8 @@
       "en": "The ordinary methods of a class. Their first parameter is self (a reference to the instance). They can read and change its state."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "self — не ключевое слово, а всего лишь общепринятое имя первого параметра; Python сам подставляет туда экземпляр, так что obj.method(x) — это сахар для Class.method(obj, x). Отсюда и требование указывать self явно в определении, хотя при вызове его не передают.",
+      "en": "self isn't a keyword — it's just the conventional name of the first parameter, and Python passes the instance into it automatically, so obj.method(x) is sugar for Class.method(obj, x). That's why you must spell out self in the definition even though you never pass it at the call site."
     },
     "syntax": "def method(self, ...): ...",
     "status": "ready",
@@ -1393,8 +1393,8 @@
       "en": "Python supports multiple inheritance. The method resolution order (MRO) is the C3 linearization."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "super() ведёт не к «родителю», а к следующему классу в __mro__, поэтому при кооперативном наследовании каждый __init__ обязан звать super().__init__() — иначе часть базовых классов молча не отработает. Если из баз нельзя построить непротиворечивый порядок (конфликт C3), Python бросит TypeError прямо на объявлении класса, а не при вызове метода.",
+      "en": "super() jumps not to \"the parent\" but to the next class in __mro__, so in cooperative inheritance every __init__ must call super().__init__() or some bases silently never run. If a consistent order can't be built from the bases (a C3 conflict), Python raises TypeError right at the class definition, not when a method is called."
     },
     "syntax": "class C(A, B): ...\nC.__mro__",
     "status": "ready",
@@ -1478,8 +1478,8 @@
       "en": "A child class inherits the attributes and methods of its parent. Overriding methods gives polymorphism."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Самая частая ошибка — переопределить __init__ в потомке и забыть вызвать super().__init__(...): код родителя не отработает и его атрибуты просто не появятся. Наследование жёстко связывает классы; если нужна лишь чужая функциональность, композиция (хранить объект как поле) часто гибче, чем «класс-потомок ради переиспользования».",
+      "en": "The classic mistake is overriding __init__ in the child and forgetting super().__init__(...): the parent's setup never runs and its attributes never appear. Inheritance couples classes tightly, so when you only need another class's behavior, composition (holding an object as a field) is often more flexible than subclassing just to reuse code."
     },
     "syntax": "class Child(Parent): ...",
     "status": "ready",
@@ -1578,8 +1578,8 @@
       "en": "One interface — different implementations. In Python it comes from overriding methods and from duck typing."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В Python объектам не обязательно иметь общего предка — хватает совпадающих имён методов (duck typing), поэтому полиморфизм работает и вовсе без наследования. Базовый класс с NotImplementedError — только соглашение; чтобы отсутствие метода ловилось при создании объекта, а не при его вызове, используйте abc.ABC с @abstractmethod.",
+      "en": "In Python objects need no common ancestor — matching method names are enough (duck typing), so polymorphism works with no inheritance at all. A base class raising NotImplementedError is only a convention; to have a missing method caught when the object is created rather than when it's called, use abc.ABC with @abstractmethod."
     },
     "syntax": "for obj in objects:\n    obj.method()  # разные реализации",
     "status": "ready",
