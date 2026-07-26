@@ -621,7 +621,10 @@
       "# → '00042'"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError",
+      "KeyError"
+    ]
   },
   {
     "id": "str.capitalize",
@@ -1293,7 +1296,9 @@
       "print('hello'.index('l', 3))  # → 3"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "str.rindex",
@@ -1325,7 +1330,9 @@
       "print('hello'.rindex('l'))   # → 3"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "str.count",
@@ -1613,7 +1620,9 @@
       "print('-'.join('abc'))            # → a-b-c"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "str.strip",
@@ -1933,7 +1942,10 @@
       "print('a1b2'.translate(str.maketrans('', '', '12')))  # → ab"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError",
+      "TypeError"
+    ]
   },
   {
     "id": "str.removeprefix",
@@ -2061,7 +2073,10 @@
       "print('hi'.encode('ascii'))      # → b'hi'"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "UnicodeEncodeError",
+      "LookupError"
+    ]
   },
   {
     "id": "str.format_map",
@@ -2093,6 +2108,8 @@
       "print('{name}'.format_map({'name': 'Аня'}))    # → Аня"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "KeyError"
+    ]
   }
 ]

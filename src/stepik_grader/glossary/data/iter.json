@@ -112,7 +112,9 @@
       "asyncio.run(main())"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "RuntimeError"
+    ]
   },
   {
     "id": "asyncio.gather",
@@ -230,7 +232,9 @@
       "asyncio.run(hello()) # → start\\nend"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "RuntimeError"
+    ]
   },
   {
     "id": "asyncio.sleep",
@@ -402,7 +406,10 @@
       "print(list(islice(it4, 5)))  # → [1,2,3,4,5]"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "StopIteration",
+      "TypeError"
+    ]
   },
   {
     "id": "itertools.accumulate",
@@ -1217,7 +1224,9 @@
       "print(list(itertools.batched([1, 2, 3, 4, 5], 2)))   # → [(1, 2), (3, 4), (5,)]"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "itertools.zip_longest",

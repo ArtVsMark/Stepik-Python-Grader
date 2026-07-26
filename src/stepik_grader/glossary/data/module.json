@@ -227,7 +227,10 @@
       "len(list(p.iterdir())) >= 0 # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "NotADirectoryError"
+    ]
   },
   {
     "id": "path.mkdir",
@@ -266,7 +269,11 @@
       "path.rename",
       "path.replace"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileExistsError",
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "path.unlink",
@@ -307,7 +314,11 @@
       "path.rename",
       "path.replace"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "IsADirectoryError",
+      "PermissionError"
+    ]
   },
   {
     "id": "path.rename",
@@ -348,7 +359,11 @@
       "path.unlink",
       "path.replace"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "FileExistsError",
+      "PermissionError"
+    ]
   },
   {
     "id": "path.replace",
@@ -389,7 +404,10 @@
       "path.unlink",
       "path.rename"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": ".name-.value",
@@ -470,7 +488,11 @@
       "path.read_bytes",
       "path.write_bytes"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "UnicodeDecodeError",
+      "PermissionError"
+    ]
   },
   {
     "id": "path.write_text",
@@ -511,7 +533,10 @@
       "path.read_bytes",
       "path.write_bytes"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "path.read_bytes",
@@ -551,7 +576,11 @@
       "path.write_text",
       "path.write_bytes"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError",
+      "IsADirectoryError"
+    ]
   },
   {
     "id": "path.write_bytes",
@@ -591,7 +620,11 @@
       "path.write_text",
       "path.read_bytes"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError",
+      "TypeError"
+    ]
   },
   {
     "id": ".stem-.suffix-.suffixes-.name-.parent-.p",
@@ -938,7 +971,9 @@
       "Color(1) # → <Color.RED: 1>"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "as-completed",
@@ -1864,7 +1899,9 @@
       "d[Pt(1, 2)] # → 'origin'"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "AttributeError"
+    ]
   },
   {
     "id": "dataclass-order-true",
@@ -1902,7 +1939,9 @@
       "sorted([Version(2,0), Version(1,5)]) # → [Version(1,5), Version(2,0)]"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "dataclasses.fields",
@@ -1939,7 +1978,9 @@
       "fields(Pt)[1].default # → 0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "dataclasses.replace",
@@ -1977,7 +2018,9 @@
       "replace(p, x=0, y=0) # → Point(x=0, y=0)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "date-арифметика",
@@ -2092,7 +2135,10 @@
     "related": [
       "date.today"
     ],
-    "related_errors": []
+    "related_errors": [
+      "ValueError",
+      "TypeError"
+    ]
   },
   {
     "id": "datetime.now",
@@ -2317,7 +2363,9 @@
       "print(dt)  # 2024-06-17 09:30:00"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "dt-fromtimestamp",
@@ -2353,7 +2401,10 @@
       "print(utc)  # 2024-01-01 00:00:00+00:00"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OverflowError",
+      "OSError"
+    ]
   },
   {
     "id": "dt-isoweekday",
@@ -2425,7 +2476,9 @@
       "next_year = now.replace(year=2025)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "dt-timestamp",
@@ -2537,7 +2590,10 @@
       "dt2 = datetime.fromtimestamp(1704067200, tz=timezone.utc)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OverflowError",
+      "OSError"
+    ]
   },
   {
     "id": "dt-weekday",
@@ -2690,7 +2746,9 @@
       "Bag() == Bag() # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "file-buffering",
@@ -3244,7 +3302,9 @@
       "digest = hashlib.md5(f.read()).hexdigest()"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "hashlib-sha256",
@@ -3285,7 +3345,9 @@
       "print(h.hexdigest())"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "heapq.heapify",
@@ -3321,7 +3383,9 @@
       "data # → [4, 5, 8]"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "heapq.heappush",
@@ -3363,7 +3427,9 @@
       "heapq.heapreplace",
       "heapq.heappushpop"
     ],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "heapq.heappop",
@@ -3404,7 +3470,9 @@
       "heapq.heapreplace",
       "heapq.heappushpop"
     ],
-    "related_errors": []
+    "related_errors": [
+      "IndexError"
+    ]
   },
   {
     "id": "heapq.heapreplace",
@@ -3444,7 +3512,10 @@
       "heapq.heappush",
       "heapq.heappop"
     ],
-    "related_errors": []
+    "related_errors": [
+      "IndexError",
+      "TypeError"
+    ]
   },
   {
     "id": "heapq.heappushpop",
@@ -3484,7 +3555,9 @@
       "heapq.heappush",
       "heapq.heappop"
     ],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "heapq.nlargest",
@@ -3524,7 +3597,9 @@
     "related": [
       "heapq.nsmallest"
     ],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "heapq.nsmallest",
@@ -3563,7 +3638,9 @@
     "related": [
       "heapq.nlargest"
     ],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "intenum-strenum",
@@ -5449,7 +5526,11 @@
       "print(entry.name + '/')"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "NotADirectoryError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.environ",
@@ -5555,7 +5636,11 @@
       "sorted_files = sorted(os.listdir('.'))  # → отсортированный список"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "NotADirectoryError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.path.join",
@@ -5591,7 +5676,9 @@
       "print(os.path.join('a', '/abs'))  # → /abs  (абсолютный сбрасывает)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "os.path.splitext",
@@ -5671,7 +5758,11 @@
       "os.rename",
       "os.rmdir"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError",
+      "IsADirectoryError"
+    ]
   },
   {
     "id": "os.sep-os.linesep-os.pathsep",
@@ -5896,7 +5987,10 @@
       "f.unlink()"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "random.choice",
@@ -6353,7 +6447,10 @@
       "print(m.groupdict())     # {'year': '2024', 'month': '06', 'day': '17'}"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "AttributeError",
+      "IndexError"
+    ]
   },
   {
     "id": "re.compile",
@@ -6577,7 +6674,10 @@
       "re.groups",
       "re.groupdict"
     ],
-    "related_errors": []
+    "related_errors": [
+      "AttributeError",
+      "IndexError"
+    ]
   },
   {
     "id": "re.groups",
@@ -6618,7 +6718,9 @@
       "re.group",
       "re.groupdict"
     ],
-    "related_errors": []
+    "related_errors": [
+      "AttributeError"
+    ]
   },
   {
     "id": "re.groupdict",
@@ -6657,7 +6759,9 @@
       "re.group",
       "re.groups"
     ],
-    "related_errors": []
+    "related_errors": [
+      "AttributeError"
+    ]
   },
   {
     "id": "re.match",
@@ -7156,7 +7260,10 @@
       "print(proc.returncode)  # 0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "subprocess-check_output",
@@ -7194,7 +7301,10 @@
       "print('код возврата:', e.returncode)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "subprocess-run",
@@ -7231,7 +7341,10 @@
       "subprocess.run(['python', '--version'], check=True)  # CalledProcessError при ошибке"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "sys.argv",
@@ -7311,7 +7424,9 @@
       "print(isinstance(SystemExit(), BaseException))  # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "SystemExit"
+    ]
   },
   {
     "id": "sys.getrecursionlimit",
@@ -8030,7 +8145,9 @@
       "unittest.assertRaises",
       "unittest.setUp"
     ],
-    "related_errors": []
+    "related_errors": [
+      "AssertionError"
+    ]
   },
   {
     "id": "unittest.assertRaises",
@@ -8071,7 +8188,9 @@
     "related": [
       "unittest.assertEqual"
     ],
-    "related_errors": []
+    "related_errors": [
+      "AssertionError"
+    ]
   },
   {
     "id": "unittest-mock-patch",
@@ -8109,7 +8228,10 @@
       "mock_input.assert_called_once()"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "AttributeError",
+      "ModuleNotFoundError"
+    ]
   },
   {
     "id": "unittest.setUp",
@@ -8640,7 +8762,9 @@
     "related": [
       "functools.cache"
     ],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "functools.cache",
@@ -8676,7 +8800,9 @@
     "related": [
       "functools.lru_cache"
     ],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "functools.cmp_to_key",
@@ -9131,7 +9257,9 @@
       "print(dataclasses.asdict(P(1, 2)))   # → {'x': 1, 'y': 2}"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "dataclasses.astuple",
@@ -9166,7 +9294,9 @@
       "print(dataclasses.astuple(P(1, 2)))   # → (1, 2)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "dataclasses.is_dataclass",
@@ -9233,7 +9363,9 @@
       "print(dataclasses.asdict(Pt(1, 2)))   # → {'x': 1, 'y': 2}"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "dataclasses.InitVar",
@@ -9794,7 +9926,10 @@
       "print(math.isqrt(17))   # → 4"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError",
+      "TypeError"
+    ]
   },
   {
     "id": "math.cbrt",
@@ -9918,7 +10053,9 @@
       "print(math.log1p(0))   # → 0.0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "math.sinh",
@@ -10073,7 +10210,9 @@
       "print(math.acosh(1))   # → 0.0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "math.atanh",
@@ -10104,7 +10243,9 @@
       "print(math.atanh(0))   # → 0.0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "math.erf",
@@ -10197,7 +10338,9 @@
       "print(math.gamma(5))   # → 24.0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "math.lgamma",
@@ -10228,7 +10371,9 @@
       "print(math.lgamma(1))   # → 0.0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "math.fmod",
@@ -10259,7 +10404,9 @@
       "print(math.fmod(10, 3))   # → 1.0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "math.remainder",
@@ -10290,7 +10437,9 @@
       "print(math.remainder(10, 3))   # → 1.0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "math.copysign",
@@ -10507,7 +10656,9 @@
       "print(math.dist((0, 0), (3, 4)))   # → 5.0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "math.sumprod",
@@ -10538,7 +10689,9 @@
       "print(math.sumprod((1, 2, 3), (4, 5, 6)))   # → 32"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "math.fma",
@@ -10966,7 +11119,9 @@
       "print('f' in B.__abstractmethods__)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "abc.abstractproperty",
@@ -12443,7 +12598,11 @@
       "print(callable(io.open_code))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError",
+      "IsADirectoryError"
+    ]
   },
   {
     "id": "random.betavariate",
@@ -12474,7 +12633,9 @@
       "print(0.0 <= random.betavariate(2.0, 3.0) <= 1.0)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "random.binomialvariate",
@@ -12505,7 +12666,9 @@
       "print(0 <= random.binomialvariate(10, 0.5) <= 10)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "random.expovariate",
@@ -12536,7 +12699,9 @@
       "print(random.expovariate(1.0) >= 0.0)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ZeroDivisionError"
+    ]
   },
   {
     "id": "random.gammavariate",
@@ -12567,7 +12732,9 @@
       "print(random.gammavariate(2.0, 3.0) > 0.0)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "random.lognormvariate",
@@ -13200,7 +13367,9 @@
       "print(operator.add(1, 2))   # → 3"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.sub",
@@ -13231,7 +13400,9 @@
       "print(operator.sub(5, 2))   # → 3"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.mul",
@@ -13293,7 +13464,10 @@
       "print(operator.truediv(7, 2))   # → 3.5"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ZeroDivisionError",
+      "TypeError"
+    ]
   },
   {
     "id": "operator.floordiv",
@@ -13324,7 +13498,10 @@
       "print(operator.floordiv(7, 2))   # → 3"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ZeroDivisionError",
+      "TypeError"
+    ]
   },
   {
     "id": "operator.mod",
@@ -13355,7 +13532,9 @@
       "print(operator.mod(7, 3))   # → 1"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ZeroDivisionError"
+    ]
   },
   {
     "id": "operator.neg",
@@ -13386,7 +13565,9 @@
       "print(operator.neg(3))   # → -3"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.pos",
@@ -13417,7 +13598,9 @@
       "print(operator.pos(-3))   # → -3"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.and_",
@@ -13448,7 +13631,9 @@
       "print(operator.and_(5, 3))   # → 1"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.or_",
@@ -13479,7 +13664,9 @@
       "print(operator.or_(5, 2))   # → 7"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.xor",
@@ -13510,7 +13697,9 @@
       "print(operator.xor(5, 3))   # → 6"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.invert",
@@ -13634,7 +13823,10 @@
       "print(operator.rshift(16, 2))   # → 4"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError",
+      "ValueError"
+    ]
   },
   {
     "id": "operator.eq",
@@ -13789,7 +13981,9 @@
       "print(operator.gt(3, 2))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.ge",
@@ -13820,7 +14014,9 @@
       "print(operator.ge(2, 2))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.is_",
@@ -13976,7 +14172,9 @@
       "print(operator.concat([1], [2]))   # → [1, 2]"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.contains",
@@ -14007,7 +14205,9 @@
       "print(operator.contains([1, 2, 3], 2))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.countOf",
@@ -14038,7 +14238,9 @@
       "print(operator.countOf([1, 2, 2, 3], 2))   # → 2"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.indexOf",
@@ -14069,7 +14271,9 @@
       "print(operator.indexOf([1, 2, 3], 3))   # → 2"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "operator.getitem",
@@ -14100,7 +14304,11 @@
       "print(operator.getitem([10, 20, 30], 1))   # → 20"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "IndexError",
+      "KeyError",
+      "TypeError"
+    ]
   },
   {
     "id": "operator.setitem",
@@ -14133,7 +14341,10 @@
       "print(l)   # → [9, 0]"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "IndexError",
+      "TypeError"
+    ]
   },
   {
     "id": "operator.delitem",
@@ -14166,7 +14377,11 @@
       "print(l)   # → [1, 3]"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "IndexError",
+      "KeyError",
+      "TypeError"
+    ]
   },
   {
     "id": "operator.length_hint",
@@ -14261,7 +14476,9 @@
       "print(operator.call(abs, -5))   # → 5"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.itemgetter",
@@ -14293,7 +14510,10 @@
       "print(g([10, 20, 30]))   # → 20"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "IndexError",
+      "KeyError"
+    ]
   },
   {
     "id": "operator.attrgetter",
@@ -14325,7 +14545,9 @@
       "print(g(3 + 4j))   # → 3.0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "AttributeError"
+    ]
   },
   {
     "id": "operator.methodcaller",
@@ -14357,7 +14579,9 @@
       "print(g('abc'))   # → ABC"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "AttributeError"
+    ]
   },
   {
     "id": "operator.iadd",
@@ -14388,7 +14612,9 @@
       "print(operator.iadd(1, 2))   # → 3"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.isub",
@@ -14481,7 +14707,9 @@
       "print(operator.itruediv(7, 2))   # → 3.5"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ZeroDivisionError"
+    ]
   },
   {
     "id": "operator.ifloordiv",
@@ -14512,7 +14740,9 @@
       "print(operator.ifloordiv(7, 2))   # → 3"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ZeroDivisionError"
+    ]
   },
   {
     "id": "operator.imod",
@@ -14543,7 +14773,9 @@
       "print(operator.imod(7, 3))   # → 1"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ZeroDivisionError"
+    ]
   },
   {
     "id": "operator.ipow",
@@ -14605,7 +14837,9 @@
       "print(operator.iand(5, 3))   # → 1"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.ior",
@@ -14760,7 +14994,9 @@
       "print(operator.iconcat([1], [2]))   # → [1, 2]"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "operator.imatmul",
@@ -15089,7 +15325,9 @@
       "print(os.path.commonpath(['/usr/a', '/usr/b']).endswith('usr'))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "os.path.relpath",
@@ -15572,7 +15810,9 @@
       "print(os.path.getsize(os.__file__) > 0)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.path.getmtime",
@@ -15603,7 +15843,9 @@
       "print(os.path.getmtime(os.__file__) > 0)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.path.getatime",
@@ -15634,7 +15876,9 @@
       "print(os.path.getatime(os.__file__) > 0)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.path.getctime",
@@ -15665,7 +15909,9 @@
       "print(os.path.getctime(os.__file__) > 0)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.path.samefile",
@@ -15696,7 +15942,9 @@
       "print(os.path.samefile(os.__file__, os.__file__))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.path.samestat",
@@ -15854,7 +16102,9 @@
       "print(os.fspath('a/b'))   # → a/b"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "os.getenv",
@@ -16138,7 +16388,9 @@
       "print(os.waitstatus_to_exitcode(0))   # → 0"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "os.cpu_count",
@@ -16294,7 +16546,9 @@
       "print(callable(os.get_terminal_size))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.isatty",
@@ -16553,7 +16807,9 @@
       "os.close(w)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.closerange",
@@ -16619,7 +16875,9 @@
       "os.close(fd2)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.dup2",
@@ -16654,7 +16912,9 @@
       "os.close(fd2)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.read",
@@ -16689,7 +16949,9 @@
       "os.close(w)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.write",
@@ -16723,7 +16985,10 @@
       "os.close(w)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError",
+      "TypeError"
+    ]
   },
   {
     "id": "os.lseek",
@@ -16757,7 +17022,9 @@
       "os.close(fd)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.fstat",
@@ -16790,7 +17057,9 @@
       "os.close(fd)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.ftruncate",
@@ -16827,7 +17096,9 @@
       "os.remove(p)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.fdopen",
@@ -16861,7 +17132,9 @@
       "f.close()"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.pipe",
@@ -16929,7 +17202,9 @@
       "os.close(w)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.set_inheritable",
@@ -17001,7 +17276,10 @@
       "os.remove(p)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.access",
@@ -17063,7 +17341,10 @@
       "print(os.stat(os.__file__).st_size > 0)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.lstat",
@@ -17094,7 +17375,9 @@
       "print(os.lstat(os.__file__).st_size > 0)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.scandir",
@@ -17127,7 +17410,11 @@
       "    print(any(e.is_file() for e in it))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "NotADirectoryError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.stat_result",
@@ -17471,7 +17758,9 @@
       "print(not hasattr(os, 'fork') or callable(os.fork))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.forkpty",
@@ -17502,7 +17791,9 @@
       "print(not hasattr(os, 'forkpty') or callable(os.forkpty))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.register_at_fork",
@@ -17533,7 +17824,9 @@
       "print(not hasattr(os, 'register_at_fork') or callable(os.register_at_fork))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "os.execv",
@@ -17564,7 +17857,10 @@
       "print(not hasattr(os, 'execv') or callable(os.execv))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.execve",
@@ -17595,7 +17891,10 @@
       "print(not hasattr(os, 'execve') or callable(os.execve))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.execl",
@@ -17626,7 +17925,10 @@
       "print(not hasattr(os, 'execl') or callable(os.execl))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.execle",
@@ -17657,7 +17959,10 @@
       "print(not hasattr(os, 'execle') or callable(os.execle))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.execlp",
@@ -17688,7 +17993,10 @@
       "print(not hasattr(os, 'execlp') or callable(os.execlp))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.execlpe",
@@ -17719,7 +18027,10 @@
       "print(not hasattr(os, 'execlpe') or callable(os.execlpe))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.execvp",
@@ -17750,7 +18061,10 @@
       "print(not hasattr(os, 'execvp') or callable(os.execvp))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.execvpe",
@@ -17781,7 +18095,10 @@
       "print(not hasattr(os, 'execvpe') or callable(os.execvpe))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.spawnv",
@@ -17812,7 +18129,10 @@
       "print(not hasattr(os, 'spawnv') or callable(os.spawnv))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.spawnve",
@@ -17843,7 +18163,10 @@
       "print(not hasattr(os, 'spawnve') or callable(os.spawnve))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.spawnl",
@@ -17874,7 +18197,10 @@
       "print(not hasattr(os, 'spawnl') or callable(os.spawnl))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.spawnle",
@@ -17905,7 +18231,10 @@
       "print(not hasattr(os, 'spawnle') or callable(os.spawnle))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.spawnlp",
@@ -17936,7 +18265,10 @@
       "print(not hasattr(os, 'spawnlp') or callable(os.spawnlp))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.spawnlpe",
@@ -17967,7 +18299,10 @@
       "print(not hasattr(os, 'spawnlpe') or callable(os.spawnlpe))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.spawnvp",
@@ -17998,7 +18333,10 @@
       "print(not hasattr(os, 'spawnvp') or callable(os.spawnvp))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.spawnvpe",
@@ -18029,7 +18367,10 @@
       "print(not hasattr(os, 'spawnvpe') or callable(os.spawnvpe))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.posix_spawn",
@@ -18060,7 +18401,10 @@
       "print(not hasattr(os, 'posix_spawn') or callable(os.posix_spawn))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "OSError"
+    ]
   },
   {
     "id": "os.posix_spawnp",
@@ -18091,7 +18435,10 @@
       "print(not hasattr(os, 'posix_spawnp') or callable(os.posix_spawnp))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "OSError"
+    ]
   },
   {
     "id": "os.wait",
@@ -18122,7 +18469,9 @@
       "print(not hasattr(os, 'wait') or callable(os.wait))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ChildProcessError"
+    ]
   },
   {
     "id": "os.waitpid",
@@ -18153,7 +18502,9 @@
       "print(not hasattr(os, 'waitpid') or callable(os.waitpid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ChildProcessError"
+    ]
   },
   {
     "id": "os.wait3",
@@ -18184,7 +18535,9 @@
       "print(not hasattr(os, 'wait3') or callable(os.wait3))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ChildProcessError"
+    ]
   },
   {
     "id": "os.wait4",
@@ -18215,7 +18568,9 @@
       "print(not hasattr(os, 'wait4') or callable(os.wait4))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ChildProcessError"
+    ]
   },
   {
     "id": "os.waitid",
@@ -18246,7 +18601,9 @@
       "print(not hasattr(os, 'waitid') or callable(os.waitid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ChildProcessError"
+    ]
   },
   {
     "id": "os.waitid_result",
@@ -18308,7 +18665,10 @@
       "print(not hasattr(os, 'kill') or callable(os.kill))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ProcessLookupError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.killpg",
@@ -18339,7 +18699,10 @@
       "print(not hasattr(os, 'killpg') or callable(os.killpg))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ProcessLookupError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.nice",
@@ -18401,7 +18764,9 @@
       "print(not hasattr(os, 'getpriority') or callable(os.getpriority))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ProcessLookupError"
+    ]
   },
   {
     "id": "os.setpriority",
@@ -18432,7 +18797,9 @@
       "print(not hasattr(os, 'setpriority') or callable(os.setpriority))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.sched_yield",
@@ -18494,7 +18861,9 @@
       "print(not hasattr(os, 'sched_getaffinity') or callable(os.sched_getaffinity))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.sched_setaffinity",
@@ -18525,7 +18894,10 @@
       "print(not hasattr(os, 'sched_setaffinity') or callable(os.sched_setaffinity))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.sched_getscheduler",
@@ -18587,7 +18959,9 @@
       "print(not hasattr(os, 'sched_setscheduler') or callable(os.sched_setscheduler))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.sched_getparam",
@@ -18649,7 +19023,9 @@
       "print(not hasattr(os, 'sched_setparam') or callable(os.sched_setparam))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.sched_get_priority_max",
@@ -18680,7 +19056,9 @@
       "print(not hasattr(os, 'sched_get_priority_max') or callable(os.sched_get_priority_max))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.sched_get_priority_min",
@@ -18711,7 +19089,9 @@
       "print(not hasattr(os, 'sched_get_priority_min') or callable(os.sched_get_priority_min))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.sched_rr_get_interval",
@@ -19052,7 +19432,9 @@
       "print(not hasattr(os, 'getlogin') or callable(os.getlogin))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.setuid",
@@ -19083,7 +19465,9 @@
       "print(not hasattr(os, 'setuid') or callable(os.setuid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.seteuid",
@@ -19114,7 +19498,9 @@
       "print(not hasattr(os, 'seteuid') or callable(os.seteuid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.setgid",
@@ -19145,7 +19531,9 @@
       "print(not hasattr(os, 'setgid') or callable(os.setgid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.setegid",
@@ -19176,7 +19564,9 @@
       "print(not hasattr(os, 'setegid') or callable(os.setegid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.setreuid",
@@ -19207,7 +19597,9 @@
       "print(not hasattr(os, 'setreuid') or callable(os.setreuid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.setregid",
@@ -19238,7 +19630,9 @@
       "print(not hasattr(os, 'setregid') or callable(os.setregid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.setresuid",
@@ -19269,7 +19663,9 @@
       "print(not hasattr(os, 'setresuid') or callable(os.setresuid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.setresgid",
@@ -19300,7 +19696,9 @@
       "print(not hasattr(os, 'setresgid') or callable(os.setresgid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.setgroups",
@@ -19331,7 +19729,9 @@
       "print(not hasattr(os, 'setgroups') or callable(os.setgroups))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.initgroups",
@@ -19362,7 +19762,9 @@
       "print(not hasattr(os, 'initgroups') or callable(os.initgroups))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.getpgid",
@@ -19393,7 +19795,9 @@
       "print(not hasattr(os, 'getpgid') or callable(os.getpgid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ProcessLookupError"
+    ]
   },
   {
     "id": "os.getpgrp",
@@ -19455,7 +19859,9 @@
       "print(not hasattr(os, 'getsid') or callable(os.getsid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ProcessLookupError"
+    ]
   },
   {
     "id": "os.setpgid",
@@ -19548,7 +19954,9 @@
       "print(not hasattr(os, 'setsid') or callable(os.setsid))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError"
+    ]
   },
   {
     "id": "os.tcgetpgrp",
@@ -19579,7 +19987,9 @@
       "print(not hasattr(os, 'tcgetpgrp') or callable(os.tcgetpgrp))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.tcsetpgrp",
@@ -19610,7 +20020,9 @@
       "print(not hasattr(os, 'tcsetpgrp') or callable(os.tcsetpgrp))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.ctermid",
@@ -19703,7 +20115,9 @@
       "print(not hasattr(os, 'posix_openpt') or callable(os.posix_openpt))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.grantpt",
@@ -19765,7 +20179,9 @@
       "print(not hasattr(os, 'unlockpt') or callable(os.unlockpt))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.ptsname",
@@ -19796,7 +20212,9 @@
       "print(not hasattr(os, 'ptsname') or callable(os.ptsname))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.ttyname",
@@ -19827,7 +20245,9 @@
       "print(not hasattr(os, 'ttyname') or callable(os.ttyname))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.login_tty",
@@ -19858,7 +20278,9 @@
       "print(not hasattr(os, 'login_tty') or callable(os.login_tty))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.chdir",
@@ -19897,7 +20319,11 @@
     "related": [
       "os.getcwd"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "NotADirectoryError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.mkdir",
@@ -19934,7 +20360,11 @@
       "os.rmdir(base)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileExistsError",
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.makedirs",
@@ -19976,7 +20406,10 @@
       "os.removedirs",
       "path.mkdir"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileExistsError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.rmdir",
@@ -20016,7 +20449,11 @@
       "os.makedirs",
       "os.removedirs"
     ],
-    "related_errors": []
+    "related_errors": [
+      "OSError",
+      "FileNotFoundError",
+      "NotADirectoryError"
+    ]
   },
   {
     "id": "os.removedirs",
@@ -20052,7 +20489,10 @@
       "print(os.path.exists(base))   # → False"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError",
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.rename",
@@ -20095,7 +20535,11 @@
       "os.remove",
       "path.rename"
     ],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "OSError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.renames",
@@ -20135,7 +20579,11 @@
       "os.rmdir(base)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "OSError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.link",
@@ -20173,7 +20621,11 @@
       "os.remove(p)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "FileExistsError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.symlink",
@@ -20204,7 +20656,10 @@
       "print(not hasattr(os, 'symlink') or callable(os.symlink))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileExistsError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.readlink",
@@ -20235,7 +20690,10 @@
       "print(not hasattr(os, 'readlink') or callable(os.readlink))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "OSError"
+    ]
   },
   {
     "id": "os.unlink",
@@ -20270,7 +20728,11 @@
       "print(os.path.exists(p))   # → False"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError",
+      "IsADirectoryError"
+    ]
   },
   {
     "id": "os.utime",
@@ -20306,7 +20768,10 @@
       "os.remove(p)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.chmod",
@@ -20337,7 +20802,10 @@
       "print(not hasattr(os, 'chmod') or callable(os.chmod))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.chown",
@@ -20368,7 +20836,10 @@
       "print(not hasattr(os, 'chown') or callable(os.chown))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError",
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.lchown",
@@ -20399,7 +20870,10 @@
       "print(not hasattr(os, 'lchown') or callable(os.lchown))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.chroot",
@@ -20430,7 +20904,10 @@
       "print(not hasattr(os, 'chroot') or callable(os.chroot))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError",
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.mkfifo",
@@ -20461,7 +20938,10 @@
       "print(not hasattr(os, 'mkfifo') or callable(os.mkfifo))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileExistsError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.mknod",
@@ -20492,7 +20972,10 @@
       "print(not hasattr(os, 'mknod') or callable(os.mknod))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError",
+      "FileExistsError"
+    ]
   },
   {
     "id": "os.fsync",
@@ -20528,7 +21011,9 @@
       "os.remove(p)"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.fdatasync",
@@ -20559,7 +21044,9 @@
       "print(not hasattr(os, 'fdatasync') or callable(os.fdatasync))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.sync",
@@ -20621,7 +21108,9 @@
       "print(not hasattr(os, 'fchdir') or callable(os.fchdir))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.fchmod",
@@ -20652,7 +21141,10 @@
       "print(not hasattr(os, 'fchmod') or callable(os.fchmod))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError",
+      "OSError"
+    ]
   },
   {
     "id": "os.fchown",
@@ -20683,7 +21175,10 @@
       "print(not hasattr(os, 'fchown') or callable(os.fchown))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.lockf",
@@ -20807,7 +21302,10 @@
       "print(not hasattr(os, 'statvfs') or callable(os.statvfs))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.fstatvfs",
@@ -20838,7 +21336,9 @@
       "print(not hasattr(os, 'fstatvfs') or callable(os.fstatvfs))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.statvfs_result",
@@ -20931,7 +21431,10 @@
       "print(not hasattr(os, 'fpathconf') or callable(os.fpathconf))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError",
+      "ValueError"
+    ]
   },
   {
     "id": "os.confstr",
@@ -20962,7 +21465,9 @@
       "print(not hasattr(os, 'confstr') or callable(os.confstr))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "os.sysconf",
@@ -20993,7 +21498,9 @@
       "print(not hasattr(os, 'sysconf') or callable(os.sysconf))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "ValueError"
+    ]
   },
   {
     "id": "os.getloadavg",
@@ -21148,7 +21655,9 @@
       "print(not hasattr(os, 'pread') or callable(os.pread))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.pwrite",
@@ -21179,7 +21688,9 @@
       "print(not hasattr(os, 'pwrite') or callable(os.pwrite))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.preadv",
@@ -21210,7 +21721,9 @@
       "print(not hasattr(os, 'preadv') or callable(os.preadv))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.pwritev",
@@ -21241,7 +21754,9 @@
       "print(not hasattr(os, 'pwritev') or callable(os.pwritev))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.readv",
@@ -21272,7 +21787,9 @@
       "print(not hasattr(os, 'readv') or callable(os.readv))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.writev",
@@ -21303,7 +21820,9 @@
       "print(not hasattr(os, 'writev') or callable(os.writev))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.sendfile",
@@ -21365,7 +21884,9 @@
       "print(not hasattr(os, 'copy_file_range') or callable(os.copy_file_range))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.splice",
@@ -21396,7 +21917,9 @@
       "print(not hasattr(os, 'splice') or callable(os.splice))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.getxattr",
@@ -21427,7 +21950,10 @@
       "print(not hasattr(os, 'getxattr') or callable(os.getxattr))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "OSError"
+    ]
   },
   {
     "id": "os.setxattr",
@@ -21458,7 +21984,10 @@
       "print(not hasattr(os, 'setxattr') or callable(os.setxattr))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "PermissionError"
+    ]
   },
   {
     "id": "os.listxattr",
@@ -21489,7 +22018,10 @@
       "print(not hasattr(os, 'listxattr') or callable(os.listxattr))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "FileNotFoundError",
+      "OSError"
+    ]
   },
   {
     "id": "os.removexattr",
@@ -21520,7 +22052,10 @@
       "print(not hasattr(os, 'removexattr') or callable(os.removexattr))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError",
+      "FileNotFoundError"
+    ]
   },
   {
     "id": "os.eventfd",
@@ -21644,7 +22179,9 @@
       "print(not hasattr(os, 'timerfd_create') or callable(os.timerfd_create))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.timerfd_settime",
@@ -21675,7 +22212,9 @@
       "print(not hasattr(os, 'timerfd_settime') or callable(os.timerfd_settime))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.timerfd_settime_ns",
@@ -21706,7 +22245,9 @@
       "print(not hasattr(os, 'timerfd_settime_ns') or callable(os.timerfd_settime_ns))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.timerfd_gettime",
@@ -21737,7 +22278,9 @@
       "print(not hasattr(os, 'timerfd_gettime') or callable(os.timerfd_gettime))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.timerfd_gettime_ns",
@@ -21768,7 +22311,9 @@
       "print(not hasattr(os, 'timerfd_gettime_ns') or callable(os.timerfd_gettime_ns))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.memfd_create",
@@ -21892,7 +22437,10 @@
       "print(not hasattr(os, 'setns') or callable(os.setns))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "PermissionError",
+      "OSError"
+    ]
   },
   {
     "id": "os.unshare",
@@ -21923,7 +22471,9 @@
       "print(not hasattr(os, 'unshare') or callable(os.unshare))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.posix_fadvise",
@@ -21954,7 +22504,9 @@
       "print(not hasattr(os, 'posix_fadvise') or callable(os.posix_fadvise))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.posix_fallocate",
@@ -21985,7 +22537,9 @@
       "print(not hasattr(os, 'posix_fallocate') or callable(os.posix_fallocate))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.get_blocking",
@@ -22016,7 +22570,9 @@
       "print(not hasattr(os, 'get_blocking') or callable(os.get_blocking))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "OSError"
+    ]
   },
   {
     "id": "os.set_blocking",

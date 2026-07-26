@@ -650,7 +650,9 @@
       "print(get_type_hints(f)['x'] is int)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "NameError"
+    ]
   },
   {
     "id": "typing.get_overloads",
@@ -716,7 +718,9 @@
       "print('foo' in fn(P) if fn else True)   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "typing.is_protocol",
@@ -911,7 +915,9 @@
       "    print('unreachable')   # → unreachable"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "AssertionError"
+    ]
   },
   {
     "id": "typing.Generic",
@@ -1542,7 +1548,9 @@
       "print(callable(overload))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "NotImplementedError"
+    ]
   },
   {
     "id": "typing.override",
@@ -1676,7 +1684,9 @@
       "print(isinstance([1, 2], Sized))   # → True"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "typing.dataclass_transform",
