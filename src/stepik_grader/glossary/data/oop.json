@@ -1043,7 +1043,9 @@
       "print(Square(5).area())  # → 25"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "абстрактные-классы",

@@ -96,6 +96,25 @@
 
 Запуск отчёта: `python scripts/audit_glossary_cards.py --report`.
 
+### Связь вызов → исключение (`related_errors`)
+
+Карточка-вызов (`kind="function"`/`"construct"`) перечисляет в `related_errors`
+исключения, которые она бросает **канонически и часто** — то, обо что реально
+спотыкается студент: `open()` → `FileNotFoundError`, `PermissionError`;
+`d[key]` → `KeyError`; `list.remove()` → `ValueError`; `next()` →
+`StopIteration`. Самое частое — первым, обычно 1–3 имени.
+
+Два правила, которые делают поле пригодным для навигации:
+
+- **Только имена, у которых есть своя карточка** (`kind="exception"`). Иначе
+  ссылка ведёт в никуда: `re.error`, `statistics.StatisticsError`,
+  `io.UnsupportedOperation` карточек не имеют — такие связи не ставятся, даже
+  если исключение каноническое.
+- **Не «теоретически возможное», а типовое.** `MemoryError`/`KeyboardInterrupt`
+  и `TypeError` от заведомо неверного типа аргумента — шум. Функции, которые на
+  нормальном вводе не бросают (`len()`, `str.lower()`, `dict.get()`,
+  предикаты `str.is*`), поле оставляют пустым — это норма, а не пробел.
+
 ### Одна концепция — одна карточка
 
 Бандлы module-методов (`title` вида `.exists() / .is_file() / .is_dir()`)

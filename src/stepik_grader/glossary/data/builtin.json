@@ -899,7 +899,9 @@
       "sys.stdin = sys.__stdin__"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "EOFError"
+    ]
   },
   {
     "id": "issubclass",
@@ -1880,7 +1882,9 @@
       "asyncio.run(main())"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "TypeError"
+    ]
   },
   {
     "id": "anext",
@@ -1917,6 +1921,9 @@
       "asyncio.run(main())"
     ],
     "related": [],
-    "related_errors": []
+    "related_errors": [
+      "StopAsyncIteration",
+      "TypeError"
+    ]
   }
 ]
