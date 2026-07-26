@@ -34,7 +34,11 @@
       "cm2 = cm.new_child({\"size\": 20})",
       "print(cm2[\"size\"])   # → 20"
     ],
-    "related": [],
+    "related": [
+      "объединение-словарей",
+      "dict-merge",
+      "dict.update"
+    ],
     "related_errors": []
   },
   {
@@ -76,7 +80,12 @@
       "print(d is d2)  # → False",
       "d2[\"y\"] = 2; print(d)  # → {'x': 1}  (d не изменился)"
     ],
-    "related": [],
+    "related": [
+      "dict.copy",
+      "copy.deepcopy",
+      "copy.copy",
+      "вложенные-словари"
+    ],
     "related_errors": []
   },
   {
@@ -128,7 +137,11 @@
       "print(wc.most_common(3))",
       "# → [('the', 2), ('cat', 1), ('sat', 1)]"
     ],
-    "related": [],
+    "related": [
+      "defaultdict",
+      "dict.get",
+      "сортировка-словаря"
+    ],
     "related_errors": []
   },
   {
@@ -194,7 +207,11 @@
       "print(nested_dd['row1']['col1'])",
       "# → 1"
     ],
-    "related": [],
+    "related": [
+      "dict.setdefault",
+      "dict.get",
+      "counter"
+    ],
     "related_errors": []
   },
   {
@@ -229,7 +246,12 @@
       "# аналог без оператора (до 3.9):",
       "result = {**a, **b}"
     ],
-    "related": [],
+    "related": [
+      "dict-merge-update",
+      "dict.update",
+      "объединение-словарей",
+      "слияние-и-распаковка-словарей"
+    ],
     "related_errors": []
   },
   {
@@ -263,7 +285,11 @@
       "print(config)",
       "# {'debug': True, 'host': 'localhost', 'port': 8080}"
     ],
-    "related": [],
+    "related": [
+      "dict-merge",
+      "dict.update",
+      "объединение-словарей"
+    ],
     "related_errors": []
   },
   {
@@ -298,7 +324,11 @@
       "print(d)   # → {'name': 'N/A', 'age': 'N/A', 'city': 'N/A'}",
       "print(dict.fromkeys([1,2,1,3]))          # → {1: None, 2: None, 3: None}"
     ],
-    "related": [],
+    "related": [
+      "создание-словаря",
+      "словарные-выражения-dict-comprehension",
+      "defaultdict"
+    ],
     "related_errors": []
   },
   {
@@ -345,7 +375,11 @@
       "print(fs2 & fs3)",
       "# → frozenset({2, 3})"
     ],
-    "related": [],
+    "related": [
+      "frozenset",
+      "set",
+      "кортеж-как-ключ-словаря"
+    ],
     "related_errors": []
   },
   {
@@ -388,7 +422,12 @@
       "print(any(w in banned for w in msg.split()))",
       "# → True"
     ],
-    "related": [],
+    "related": [
+      "in-not-in-для-списков",
+      "in-not-in-для-словаря",
+      "хеш-таблица-dict",
+      "создание-множества"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -430,7 +469,12 @@
       "print(1 in d.values())",
       "# → True (проверка значений)"
     ],
-    "related": [],
+    "related": [
+      "dict.get",
+      "доступ-d-key",
+      "dict.values",
+      "in-not-in-для-списков"
+    ],
     "related_errors": []
   },
   {
@@ -473,7 +517,11 @@
       "print(od.popitem(last=False))",
       "# → ('b', 2) (первый)"
     ],
-    "related": [],
+    "related": [
+      "создание-словаря",
+      "dict.popitem",
+      "сортировка-словаря"
+    ],
     "related_errors": []
   },
   {
@@ -526,7 +574,12 @@
       "print(config['db'])",
       "# → {'host': '192.168.1.1', 'port': 5432}"
     ],
-    "related": [],
+    "related": [
+      "dict.get",
+      "dict.setdefault",
+      "copy-deepcopy-словаря",
+      "json"
+    ],
     "related_errors": []
   },
   {
@@ -571,7 +624,12 @@
       "print(no_vowels)",
       "# → {'h', 'l'}"
     ],
-    "related": [],
+    "related": [
+      "списочные-выражения-list-comprehension",
+      "словарные-выражения-dict-comprehension",
+      "генераторное-выражение",
+      "создание-множества"
+    ],
     "related_errors": []
   },
   {
@@ -622,7 +680,12 @@
       "print(d5)",
       "# → {'a': 99, 'b': 2}"
     ],
-    "related": [],
+    "related": [
+      "dict.update",
+      "dict-merge",
+      "слияние-и-распаковка-словарей",
+      "оператор-слияния-словарей"
+    ],
     "related_errors": []
   },
   {
@@ -657,7 +720,11 @@
       "print({} | {\"k\": 1})  # → {'k': 1}",
       "c = {\"p\": 5}; c |= {\"q\": 6}; print(c)  # → {'p': 5, 'q': 6}"
     ],
-    "related": [],
+    "related": [
+      "dict-merge",
+      "dict-merge-update",
+      "объединение-словарей"
+    ],
     "related_errors": []
   },
   {
@@ -708,7 +775,12 @@
       "print({1, 2} ^ {2, 3})",
       "# → {1, 3}"
     ],
-    "related": [],
+    "related": [
+      "set.union",
+      "set.intersection",
+      "set.difference",
+      "set.symmetric_difference"
+    ],
     "related_errors": []
   },
   {
@@ -758,7 +830,12 @@
       "print(tags1.symmetric_difference(tags2))",
       "# → {'python', 'ml', 'java', 'web'}"
     ],
-    "related": [],
+    "related": [
+      "создание-множества",
+      "операции-над-множествами",
+      "in-not-in-для-множеств-o-1",
+      "генераторы-множеств-set-comprehension"
+    ],
     "related_errors": []
   },
   {
@@ -808,7 +885,12 @@
       "print({**{'x': 1}, 'y': 2, **{'z': 3}})",
       "# → {'x': 1, 'y': 2, 'z': 3}"
     ],
-    "related": [],
+    "related": [
+      "kwargs",
+      "объединение-словарей",
+      "dict-merge",
+      "распаковка-списка"
+    ],
     "related_errors": []
   },
   {
@@ -866,7 +948,12 @@
       "print(last)",
       "# → {'a': 3, 'b': 2} (последнее значение для дублей)"
     ],
-    "related": [],
+    "related": [
+      "списочные-выражения-list-comprehension",
+      "генераторы-множеств-set-comprehension",
+      "создание-словаря",
+      "dict.fromkeys"
+    ],
     "related_errors": []
   },
   {
@@ -916,7 +1003,12 @@
       "print(sorted(s4))",
       "# → [0, 1, 4, 9, 16]"
     ],
-    "related": [],
+    "related": [
+      "set",
+      "генераторы-множеств-set-comprehension",
+      "frozenset-неизменяемое-множество",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -962,7 +1054,12 @@
       "print(d7)",
       "# → {0: 0, 1: 1, 2: 4, 3: 9}"
     ],
-    "related": [],
+    "related": [
+      "dict.fromkeys",
+      "словарные-выражения-dict-comprehension",
+      "dict",
+      "создание-множества"
+    ],
     "related_errors": []
   },
   {
@@ -1004,7 +1101,12 @@
       "print(sorted(d, key=d.get))",
       "# → ['apple', 'cherry', 'banana']"
     ],
-    "related": [],
+    "related": [
+      "dict.items",
+      "sorted",
+      "sorted-с-key",
+      "operator.itemgetter"
+    ],
     "related_errors": []
   },
   {
@@ -1037,7 +1139,11 @@
       "print(d)        # → {}",
       "print(len(d))   # → 0"
     ],
-    "related": [],
+    "related": [
+      "del-для-словаря",
+      "dict.pop",
+      "list.clear"
+    ],
     "related_errors": []
   },
   {
@@ -1071,7 +1177,11 @@
       "print(a)   # → {'x': 1}",
       "print(b)   # → {'x': 1, 'y': 2}"
     ],
-    "related": [],
+    "related": [
+      "copy-deepcopy-словаря",
+      "copy.deepcopy",
+      "list.copy"
+    ],
     "related_errors": []
   },
   {
@@ -1104,7 +1214,12 @@
       "print(d.get('z'))      # → None",
       "print(d.get('z', 0))   # → 0"
     ],
-    "related": [],
+    "related": [
+      "доступ-d-key",
+      "dict.setdefault",
+      "in-not-in-для-словаря",
+      "keyerror"
+    ],
     "related_errors": []
   },
   {
@@ -1136,7 +1251,12 @@
       "print(list(d.items()))   # → [('a', 1), ('b', 2)]",
       "print(dict(d.items()))   # → {'a': 1, 'b': 2}"
     ],
-    "related": [],
+    "related": [
+      "dict.keys",
+      "dict.values",
+      "распаковка-в-for",
+      "сортировка-словаря"
+    ],
     "related_errors": []
   },
   {
@@ -1170,7 +1290,11 @@
       "d['c'] = 3",
       "print(list(view))       # → ['a', 'b', 'c'] (view динамичен)"
     ],
-    "related": [],
+    "related": [
+      "dict.values",
+      "dict.items",
+      "in-not-in-для-словаря"
+    ],
     "related_errors": []
   },
   {
@@ -1203,7 +1327,12 @@
       "print(d.pop('z', -1))   # → -1",
       "print(d)                # → {'b': 2}"
     ],
-    "related": [],
+    "related": [
+      "dict.popitem",
+      "del-для-словаря",
+      "dict.get",
+      "list.pop"
+    ],
     "related_errors": [
       "KeyError"
     ]
@@ -1237,7 +1366,11 @@
       "print(d.popitem())   # → ('b', 2)",
       "print(d)             # → {'a': 1}"
     ],
-    "related": [],
+    "related": [
+      "dict.pop",
+      "del-для-словаря",
+      "ordereddict"
+    ],
     "related_errors": [
       "KeyError"
     ]
@@ -1272,7 +1405,11 @@
       "print(d.setdefault('b', 2))   # → 2",
       "print(d)                      # → {'a': 1, 'b': 2}"
     ],
-    "related": [],
+    "related": [
+      "dict.get",
+      "defaultdict",
+      "добавление-изменение-d-key-val"
+    ],
     "related_errors": []
   },
   {
@@ -1307,7 +1444,11 @@
       "d.update(a=10)",
       "print(d['a'])   # → 10 (перезапись)"
     ],
-    "related": [],
+    "related": [
+      "dict-merge-update",
+      "объединение-словарей",
+      "добавление-изменение-d-key-val"
+    ],
     "related_errors": []
   },
   {
@@ -1339,7 +1480,11 @@
       "print(list(d.values()))   # → [1, 2]",
       "print(sum(d.values()))    # → 3"
     ],
-    "related": [],
+    "related": [
+      "dict.keys",
+      "dict.items",
+      "in-not-in-для-словаря"
+    ],
     "related_errors": []
   },
   {
@@ -1372,7 +1517,12 @@
       "print(d)          # → {'b': 2}",
       "print('a' in d)   # → False"
     ],
-    "related": [],
+    "related": [
+      "dict.pop",
+      "dict.popitem",
+      "dict.clear",
+      "keyerror"
+    ],
     "related_errors": [
       "KeyError"
     ]
@@ -1406,7 +1556,12 @@
       "print(d['a'])         # → 1",
       "print('z' in d)       # → False (проверка перед d[key])"
     ],
-    "related": [],
+    "related": [
+      "dict.get",
+      "keyerror",
+      "in-not-in-для-словаря",
+      "добавление-изменение-d-key-val"
+    ],
     "related_errors": [
       "KeyError",
       "TypeError"
@@ -1443,7 +1598,12 @@
       "d['a'] = 99",
       "print(d)   # → {'a': 99, 'b': 2}"
     ],
-    "related": [],
+    "related": [
+      "доступ-d-key",
+      "dict.update",
+      "dict.setdefault",
+      "del-для-словаря"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1479,7 +1639,12 @@
       "s.add(2)",
       "print(sorted(s))   # → [1, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "set.update",
+      "set.discard",
+      "set.remove",
+      "list.append"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1513,7 +1678,12 @@
       "s.update({3, 4}, {5})",
       "print(sorted(s))   # → [1, 2, 3, 4, 5]"
     ],
-    "related": [],
+    "related": [
+      "set.add",
+      "set.union",
+      "list.extend",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -1545,7 +1715,12 @@
       "s.remove(2)",
       "print(sorted(s))   # → [1, 3]"
     ],
-    "related": [],
+    "related": [
+      "set.discard",
+      "set.pop",
+      "list.remove",
+      "keyerror"
+    ],
     "related_errors": [
       "KeyError"
     ]
@@ -1580,7 +1755,11 @@
       "s.discard(9)",
       "print(sorted(s))   # → [1, 3]"
     ],
-    "related": [],
+    "related": [
+      "set.remove",
+      "set.pop",
+      "set.add"
+    ],
     "related_errors": []
   },
   {
@@ -1613,7 +1792,12 @@
       "print(x in {1, 2, 3})   # → True",
       "print(len(s))           # → 2"
     ],
-    "related": [],
+    "related": [
+      "set.remove",
+      "set.discard",
+      "list.pop",
+      "set.clear"
+    ],
     "related_errors": [
       "KeyError"
     ]
@@ -1647,7 +1831,12 @@
       "s.clear()",
       "print(s)   # → set()"
     ],
-    "related": [],
+    "related": [
+      "list.clear",
+      "dict.clear",
+      "set.discard",
+      "set.pop"
+    ],
     "related_errors": []
   },
   {
@@ -1681,7 +1870,12 @@
       "print(sorted(a))   # → [1, 2]",
       "print(sorted(b))   # → [1, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "frozenset.copy",
+      "list.copy",
+      "dict.copy",
+      "copy.deepcopy"
+    ],
     "related_errors": []
   },
   {
@@ -1712,7 +1906,12 @@
       "print(sorted({1, 2}.union({2, 3})))   # → [1, 2, 3]",
       "print(sorted({1}.union({2}, {3})))    # → [1, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "set.update",
+      "set.intersection",
+      "set.difference",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -1742,7 +1941,12 @@
     "examples": [
       "print(sorted({1, 2, 3}.intersection({2, 3, 4})))   # → [2, 3]"
     ],
-    "related": [],
+    "related": [
+      "set.intersection_update",
+      "set.union",
+      "set.difference",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -1772,7 +1976,12 @@
     "examples": [
       "print(sorted({1, 2, 3}.difference({2, 3})))   # → [1]"
     ],
-    "related": [],
+    "related": [
+      "set.difference_update",
+      "set.intersection",
+      "set.union",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -1802,7 +2011,12 @@
     "examples": [
       "print(sorted({1, 2, 3}.symmetric_difference({2, 3, 4})))   # → [1, 4]"
     ],
-    "related": [],
+    "related": [
+      "set.symmetric_difference_update",
+      "set.difference",
+      "set.union",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -1834,7 +2048,12 @@
       "s.difference_update({2, 4})",
       "print(sorted(s))   # → [1, 3]"
     ],
-    "related": [],
+    "related": [
+      "set.difference",
+      "set.intersection_update",
+      "set.symmetric_difference_update",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -1866,7 +2085,11 @@
       "s.intersection_update({2, 3, 5})",
       "print(sorted(s))   # → [2, 3]"
     ],
-    "related": [],
+    "related": [
+      "set.intersection",
+      "set.difference_update",
+      "set.symmetric_difference_update"
+    ],
     "related_errors": []
   },
   {
@@ -1898,7 +2121,11 @@
       "s.symmetric_difference_update({3, 4})",
       "print(sorted(s))   # → [1, 2, 4]"
     ],
-    "related": [],
+    "related": [
+      "set.symmetric_difference",
+      "set.difference_update",
+      "set.intersection_update"
+    ],
     "related_errors": []
   },
   {
@@ -1929,7 +2156,11 @@
       "print({1, 2}.issubset({1, 2, 3}))   # → True",
       "print({1, 4}.issubset({1, 2, 3}))   # → False"
     ],
-    "related": [],
+    "related": [
+      "set.issuperset",
+      "set.isdisjoint",
+      "frozenset.issubset"
+    ],
     "related_errors": []
   },
   {
@@ -1960,7 +2191,11 @@
       "print({1, 2, 3}.issuperset({1, 2}))   # → True",
       "print({1, 2}.issuperset({1, 3}))      # → False"
     ],
-    "related": [],
+    "related": [
+      "set.issubset",
+      "set.isdisjoint",
+      "frozenset.issuperset"
+    ],
     "related_errors": []
   },
   {
@@ -1991,7 +2226,11 @@
       "print({1, 2}.isdisjoint({3, 4}))   # → True",
       "print({1, 2}.isdisjoint({2, 3}))   # → False"
     ],
-    "related": [],
+    "related": [
+      "set.intersection",
+      "set.issubset",
+      "frozenset.isdisjoint"
+    ],
     "related_errors": []
   },
   {
@@ -2022,7 +2261,11 @@
       "f = frozenset({1, 2})",
       "print(f.copy() is f)   # → True"
     ],
-    "related": [],
+    "related": [
+      "set.copy",
+      "frozenset-неизменяемое-множество",
+      "copy.copy"
+    ],
     "related_errors": []
   },
   {
@@ -2052,7 +2295,12 @@
     "examples": [
       "print(frozenset({1, 2}).union({3}))   # → frozenset({1, 2, 3})"
     ],
-    "related": [],
+    "related": [
+      "set.union",
+      "frozenset.intersection",
+      "frozenset.difference",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -2082,7 +2330,12 @@
     "examples": [
       "print(frozenset({1, 2, 3}).intersection({2, 3}))   # → frozenset({2, 3})"
     ],
-    "related": [],
+    "related": [
+      "set.intersection",
+      "frozenset.union",
+      "frozenset.difference",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -2112,7 +2365,11 @@
     "examples": [
       "print(frozenset({1, 2, 3}).difference({2}))   # → frozenset({1, 3})"
     ],
-    "related": [],
+    "related": [
+      "set.difference",
+      "frozenset.intersection",
+      "frozenset.union"
+    ],
     "related_errors": []
   },
   {
@@ -2142,7 +2399,12 @@
     "examples": [
       "print(frozenset({1, 2}).symmetric_difference({2, 3}))   # → frozenset({1, 3})"
     ],
-    "related": [],
+    "related": [
+      "set.symmetric_difference",
+      "frozenset.difference",
+      "frozenset.union",
+      "операции-над-множествами"
+    ],
     "related_errors": []
   },
   {
@@ -2172,7 +2434,11 @@
     "examples": [
       "print(frozenset({1, 2}).isdisjoint({3, 4}))   # → True"
     ],
-    "related": [],
+    "related": [
+      "set.isdisjoint",
+      "frozenset.intersection",
+      "frozenset.issubset"
+    ],
     "related_errors": []
   },
   {
@@ -2202,7 +2468,11 @@
     "examples": [
       "print(frozenset({1, 2}).issubset({1, 2, 3}))   # → True"
     ],
-    "related": [],
+    "related": [
+      "frozenset.issuperset",
+      "set.issubset",
+      "frozenset.isdisjoint"
+    ],
     "related_errors": []
   },
   {
@@ -2232,7 +2502,11 @@
     "examples": [
       "print(frozenset({1, 2, 3}).issuperset({1, 2}))   # → True"
     ],
-    "related": [],
+    "related": [
+      "frozenset.issubset",
+      "set.issuperset",
+      "frozenset.isdisjoint"
+    ],
     "related_errors": []
   }
 ]

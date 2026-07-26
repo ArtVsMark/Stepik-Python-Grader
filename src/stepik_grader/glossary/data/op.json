@@ -32,7 +32,11 @@
       "nums = [-3, 1, -5, 2]",
       "print(max(nums, key=abs))  # → -5 (наибольший по модулю)"
     ],
-    "related": [],
+    "related": [
+      "math.fabs",
+      "round",
+      "math.copysign"
+    ],
     "related_errors": []
   },
   {
@@ -73,7 +77,12 @@
       "val = None",
       "safe = val and val.strip()  # → None (не вызывает ошибку из-за and)"
     ],
-    "related": [],
+    "related": [
+      "операторы-сравнения",
+      "bool",
+      "побитовые-операторы",
+      "if"
+    ],
     "related_errors": []
   },
   {
@@ -121,7 +130,11 @@
       "return a, b, args",
       "print(mixed(1,2,3,4))  # → (1, 2, (3, 4))"
     ],
-    "related": [],
+    "related": [
+      "kwargs",
+      "параметры-и-аргументы",
+      "распаковка-списка"
+    ],
     "related_errors": []
   },
   {
@@ -158,7 +171,11 @@
       "print(True + True)  # → 2 (bool является подтипом int)",
       "print(not True)  # → False"
     ],
-    "related": [],
+    "related": [
+      "преобразование-типов",
+      "and-or-not",
+      "int"
+    ],
     "related_errors": []
   },
   {
@@ -209,7 +226,11 @@
       "break",
       "print(i)  # → 3"
     ],
-    "related": [],
+    "related": [
+      "continue",
+      "else-в-циклах",
+      "while"
+    ],
     "related_errors": []
   },
   {
@@ -246,7 +267,11 @@
       "ba2 = bytearray(b\"abc\")",
       "ba2.extend(b\"def\"); print(ba2)   # → bytearray(b'abcdef')"
     ],
-    "related": [],
+    "related": [
+      "bytes",
+      "memoryview",
+      "b-...-байт-строки"
+    ],
     "related_errors": []
   },
   {
@@ -283,7 +308,12 @@
       "print(b\"hello\".hex())         # → 68656c6c6f",
       "print(bytes(\"hello\", \"utf-8\"))  # → b'hello' (из строки с кодировкой)"
     ],
-    "related": [],
+    "related": [
+      "bytearray",
+      "b-...-байт-строки",
+      "bytes.decode",
+      "str.encode"
+    ],
     "related_errors": []
   },
   {
@@ -318,7 +348,11 @@
       "cmath.polar(1+1j) # → (1.414..., 0.785...)",
       "cmath.exp(1j * cmath.pi) # → (-1+0j)  формула Эйлера"
     ],
-    "related": [],
+    "related": [
+      "complex",
+      "math.sqrt",
+      "complex.conjugate"
+    ],
     "related_errors": []
   },
   {
@@ -355,7 +389,11 @@
       "print(z.conjugate())            # → (3-4j)",
       "print(complex(\"3+4j\"))          # → (3+4j) (разбор строки)"
     ],
-    "related": [],
+    "related": [
+      "float",
+      "complex.conjugate",
+      "cmath"
+    ],
     "related_errors": []
   },
   {
@@ -402,7 +440,11 @@
       "total += n",
       "print(total)  # → 37 (сумма 1..10 без кратных 3)"
     ],
-    "related": [],
+    "related": [
+      "break",
+      "for",
+      "else-в-циклах"
+    ],
     "related_errors": []
   },
   {
@@ -468,7 +510,11 @@
       "w2.writerow(['hello world', '42', 'a,b'])",
       "print(output3.getvalue())"
     ],
-    "related": [],
+    "related": [
+      "json",
+      "open",
+      "итерация-по-файлу"
+    ],
     "related_errors": []
   },
   {
@@ -503,7 +549,12 @@
       "Decimal('0.1') * 3 == Decimal('0.3') # → True",
       "Decimal(1) / Decimal(7) # → Decimal('0.1428...')  (28 цифр)"
     ],
-    "related": [],
+    "related": [
+      "fractions.fraction",
+      "decimal.getcontext",
+      "float",
+      "math.isclose"
+    ],
     "related_errors": []
   },
   {
@@ -628,7 +679,12 @@
       "result = add(3, 4)",
       "print(result)  # → 7"
     ],
-    "related": [],
+    "related": [
+      "return",
+      "параметры-и-аргументы",
+      "lambda",
+      "аннотации-типов-type-hints"
+    ],
     "related_errors": []
   },
   {
@@ -667,7 +723,11 @@
       "print(divmod(-7, 2))  # → (-4, 1) (знак остатка — как у делителя)",
       "print(divmod(3.5, 1.5))  # → (2.0, 0.5) (работает и с float)"
     ],
-    "related": [],
+    "related": [
+      "целочисленное-деление",
+      "остаток",
+      "обработка-цифр-числа"
+    ],
     "related_errors": [
       "ZeroDivisionError"
     ]
@@ -704,7 +764,11 @@
       "x = ...; print(x == Ellipsis)  # → True",
       "print(bool(...))          # → True"
     ],
-    "related": [],
+    "related": [
+      "nonetype",
+      "callable-arg-ret",
+      "protocol"
+    ],
     "related_errors": []
   },
   {
@@ -750,7 +814,11 @@
       "else:",
       "print(\"while завершён штатно\")  # → while завершён штатно"
     ],
-    "related": [],
+    "related": [
+      "break",
+      "else-в-try-except",
+      "for"
+    ],
     "related_errors": []
   },
   {
@@ -893,7 +961,12 @@
       "print(0.1 + 0.2 == 0.3)  # → False (проблема точности float)",
       "print(float(42))  # → 42.0 (int → float)"
     ],
-    "related": [],
+    "related": [
+      "int",
+      "decimal.decimal",
+      "math.isclose",
+      "float.is_integer"
+    ],
     "related_errors": []
   },
   {
@@ -935,7 +1008,12 @@
       "for a, b in zip([1, 2], [10, 20]):",
       "print(a + b, end=\" \")  # → 11 22"
     ],
-    "related": [],
+    "related": [
+      "while",
+      "range",
+      "enumerate",
+      "break"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -972,7 +1050,12 @@
       "for v in reversed(t): print(v, end=\" \")  # → 30 20 10",
       "print(list(reversed([\"a\",\"b\",\"c\"])))  # → ['c', 'b', 'a']"
     ],
-    "related": [],
+    "related": [
+      "reversed",
+      "срезы-с-шагом-2-1",
+      "list.reverse",
+      "range"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1009,7 +1092,11 @@
       "Fraction(22, 7) # → Fraction(22, 7)",
       "float(Fraction(1, 3)) # → 0.3333333333333333"
     ],
-    "related": [],
+    "related": [
+      "decimal.decimal",
+      "float.as_integer_ratio",
+      "math.gcd"
+    ],
     "related_errors": []
   },
   {
@@ -1087,7 +1174,12 @@
       "f = acc()",
       "print(f(3), f(4))  # → 3 7"
     ],
-    "related": [],
+    "related": [
+      "локальные-и-глобальные-переменные",
+      "замыкания",
+      "unboundlocalerror",
+      "globals"
+    ],
     "related_errors": []
   },
   {
@@ -1133,7 +1225,12 @@
       "if x < 10:",
       "print(\"однозначное\")  # → однозначное"
     ],
-    "related": [],
+    "related": [
+      "if-else",
+      "if-elif-else",
+      "операторы-сравнения",
+      "тернарный-оператор"
+    ],
     "related_errors": []
   },
   {
@@ -1179,7 +1276,12 @@
       "else:",
       "print(\"вечер\")"
     ],
-    "related": [],
+    "related": [
+      "if-else",
+      "match-case",
+      "вложенные-условия",
+      "if"
+    ],
     "related_errors": []
   },
   {
@@ -1226,7 +1328,12 @@
       "result = val if val is not None else 0",
       "print(result)  # → 0"
     ],
-    "related": [],
+    "related": [
+      "if",
+      "if-elif-else",
+      "тернарный-оператор",
+      "and-or-not"
+    ],
     "related_errors": []
   },
   {
@@ -1263,7 +1370,12 @@
       "print(\"py\" in \"python\")  # → True (подстрока)",
       "print(7 in {1, 3, 7, 9})  # → True (множество)"
     ],
-    "related": [],
+    "related": [
+      "in-not-in-для-строк",
+      "in-not-in-для-списков",
+      "in-not-in-для-словаря",
+      "in-not-in-для-множеств-o-1"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1303,7 +1415,11 @@
       "print(int(\"FF\", 16))  # → 255 (из строки с основанием)",
       "print(int(3.99))  # → 3 (усечение, а не округление)"
     ],
-    "related": [],
+    "related": [
+      "float",
+      "преобразование-типов",
+      "системы-счисления"
+    ],
     "related_errors": []
   },
   {
@@ -1341,7 +1457,11 @@
       "print(a is c)  # → False (разные объекты с одинаковым значением)",
       "print(a == c)  # → True (равные по значению)"
     ],
-    "related": [],
+    "related": [
+      "операторы-сравнения",
+      "nonetype",
+      "id"
+    ],
     "related_errors": []
   },
   {
@@ -1381,7 +1501,11 @@
       "return a + b",
       "print(add(2, 3))  # → 5"
     ],
-    "related": [],
+    "related": [
+      "type",
+      "issubclass",
+      "hasattr"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1444,7 +1568,12 @@
       "# sort_keys",
       "print(json.dumps({'b':2,'a':1}, sort_keys=True))  # → {\"a\": 1, \"b\": 2}"
     ],
-    "related": [],
+    "related": [
+      "json.dumps",
+      "json.loads",
+      "pickle",
+      "csv"
+    ],
     "related_errors": []
   },
   {
@@ -1496,7 +1625,11 @@
       "return a, args, kwargs",
       "print(all_args(1,2,3,x=4))  # → (1,(2,3),{'x':4})"
     ],
-    "related": [],
+    "related": [
+      "args",
+      "параметры-и-аргументы",
+      "слияние-и-распаковка-словарей"
+    ],
     "related_errors": []
   },
   {
@@ -1544,7 +1677,12 @@
       "double = mul(2)",
       "print(double(5))  # → 10"
     ],
-    "related": [],
+    "related": [
+      "def",
+      "sorted-с-key",
+      "map",
+      "filter"
+    ],
     "related_errors": []
   },
   {
@@ -1646,7 +1784,11 @@
       "case int(n) if n > 10: print(f\"большое {n}\")  # → большое 42",
       "case _: print(\"другое\")"
     ],
-    "related": [],
+    "related": [
+      "if-elif-else",
+      "распаковка-кортежа",
+      "isinstance"
+    ],
     "related_errors": []
   },
   {
@@ -1683,7 +1825,12 @@
       "return f\"Привет, {name}\"",
       "print(greet())  # → Привет, Гость"
     ],
-    "related": [],
+    "related": [
+      "is-is-not",
+      "optional-x-x-none",
+      "параметры-по-умолчанию",
+      "return"
+    ],
     "related_errors": []
   },
   {
@@ -1744,7 +1891,12 @@
       "for line in f:",
       "print(line.strip())"
     ],
-    "related": [],
+    "related": [
+      "file.read",
+      "file.write",
+      "итерация-по-файлу",
+      "path.read_text"
+    ],
     "related_errors": [
       "FileNotFoundError",
       "PermissionError",
@@ -1797,7 +1949,12 @@
       "for root, dirs, files in os.walk('/tmp/test_os'):",
       "print(root, dirs, files)"
     ],
-    "related": [],
+    "related": [
+      "pathlib.path",
+      "os.listdir",
+      "os.path.join",
+      "os.getcwd"
+    ],
     "related_errors": []
   },
   {
@@ -1857,7 +2014,12 @@
       "f2 = Path('/tmp/pathlib_test.txt')",
       "print(f2.stat().st_size)  # → размер в байтах"
     ],
-    "related": [],
+    "related": [
+      "path",
+      "os",
+      "path.exists",
+      ".stem-.suffix-.suffixes-.name-.parent-.p"
+    ],
     "related_errors": []
   },
   {
@@ -1910,7 +2072,11 @@
       "# ВНИМАНИЕ: pickle небезопасен для чужих данных!",
       "# Никогда не делай pickle.load() из ненадёжного источника!"
     ],
-    "related": [],
+    "related": [
+      "json",
+      "open",
+      "csv"
+    ],
     "related_errors": []
   },
   {
@@ -1946,7 +2112,11 @@
       "print(pow(3, 100, 7))  # → 4 (быстрое вычисление по модулю)",
       "print(pow(4, 0.5))  # → 2.0 (дробная степень — корень)"
     ],
-    "related": [],
+    "related": [
+      "степень",
+      "math.pow",
+      "math.sqrt"
+    ],
     "related_errors": [
       "ZeroDivisionError"
     ]
@@ -1987,7 +2157,12 @@
       "for i in range(3, 0, -1):",
       "print(i, end=\" \")  # → 3 2 1"
     ],
-    "related": [],
+    "related": [
+      "for",
+      "len",
+      "enumerate",
+      "for-...-in-reversed"
+    ],
     "related_errors": []
   },
   {
@@ -2158,7 +2333,12 @@
       "result2 = reduce(lambda acc, x: acc + (1 if x==1 else 0), nums, 0)",
       "print(result2)  # → 3"
     ],
-    "related": [],
+    "related": [
+      "functools.reduce",
+      "map",
+      "filter",
+      "sum"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -2220,7 +2400,12 @@
       "return None",
       "print(first_even([1,3,4,6]))  # → 4"
     ],
-    "related": [],
+    "related": [
+      "def",
+      "кортеж-в-return-функции",
+      "generator-function-yield",
+      "nonetype"
+    ],
     "related_errors": []
   },
   {
@@ -2256,7 +2441,12 @@
       "print(round(12345, -2))  # → 12300 (до сотен)",
       "print(round(0.1 + 0.2, 10))  # → 0.3 (компенсация float погрешности)"
     ],
-    "related": [],
+    "related": [
+      "math.floor",
+      "math.ceil",
+      "math.trunc",
+      "f-строки"
+    ],
     "related_errors": []
   },
   {
@@ -2304,7 +2494,12 @@
       "nums = [3,-1,4,-1,5,-9]",
       "print(sorted(nums, key=abs))  # → [-1,-1,3,4,5,-9]"
     ],
-    "related": [],
+    "related": [
+      "sorted",
+      "list.sort",
+      "сортировка-ключом-key-lambda",
+      "operator.itemgetter"
+    ],
     "related_errors": []
   },
   {
@@ -2339,7 +2534,11 @@
       "statistics.quantiles([1,2,3,4,5,6,7,8,9,10], n=10)",
       "# → [1.9, 2.8, 3.7, 4.6, 5.5, 6.4, 7.3, 8.2, 9.1]"
     ],
-    "related": [],
+    "related": [
+      "statistics.median",
+      "statistics.stdev",
+      "statistics.NormalDist"
+    ],
     "related_errors": []
   },
   {
@@ -2396,7 +2595,11 @@
       "for line in fake_stdin:",
       "print(line.strip())"
     ],
-    "related": [],
+    "related": [
+      "sys.stdin-sys.stdout-sys.stderr",
+      "input",
+      "print"
+    ],
     "related_errors": []
   },
   {
@@ -2435,7 +2638,12 @@
       "print(str(42), str(3.14), str(None))  # → 42 3.14 None (приведение к строке)",
       "print(repr(str(42)))  # → '42' (результат — строка, а не число)"
     ],
-    "related": [],
+    "related": [
+      "создание-строк",
+      "срезы-строк",
+      "f-строки",
+      "bytes"
+    ],
     "related_errors": []
   },
   {
@@ -2475,7 +2683,11 @@
       "A = type(\"A\", (), {\"x\": 42})  # три аргумента — динамическое создание класса",
       "print(A.x)  # → 42"
     ],
-    "related": [],
+    "related": [
+      "isinstance",
+      "issubclass",
+      "class"
+    ],
     "related_errors": []
   },
   {
@@ -2513,7 +2725,11 @@
       "s = \"abcdef\"",
       "if m := len(s) > 3: print(\"длинная\")  # → длинная"
     ],
-    "related": [],
+    "related": [
+      "while",
+      "условный-list-comprehension",
+      "переменные"
+    ],
     "related_errors": []
   },
   {
@@ -2560,7 +2776,12 @@
       "break",
       "print(count)  # → 5"
     ],
-    "related": [],
+    "related": [
+      "for",
+      "break",
+      "continue",
+      "else-в-циклах"
+    ],
     "related_errors": []
   },
   {
@@ -2724,7 +2945,11 @@
       "print(\"ValueError:\", e)  # → ValueError: zip() has arguments...",
       "print(list(zip([1,2],[\"a\",\"b\"], strict=True)))  # → [(1, 'a'), (2, 'b')]"
     ],
-    "related": [],
+    "related": [
+      "zip",
+      "itertools.zip_longest",
+      "valueerror"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -2785,7 +3010,12 @@
       "def get_items() -> list[int]:",
       "return [1, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "int-str-list-dict-аннотации",
+      "optional-x-x-none",
+      "union-x-y-x-y",
+      "callable-arg-ret"
+    ],
     "related_errors": []
   },
   {
@@ -2872,7 +3102,11 @@
       "bisect.insort(arr2, 6)",
       "print(arr2)  # → [1,3,5,6,9]"
     ],
-    "related": [],
+    "related": [
+      "бинарный-поиск-через-bisect",
+      "bisect.bisect_left",
+      "два-указателя-two-pointers"
+    ],
     "related_errors": []
   },
   {
@@ -2937,7 +3171,12 @@
       "return result",
       "print(find_unique([2,3,2,4,3]))  # → 4"
     ],
-    "related": [],
+    "related": [
+      "побитовые-операторы",
+      "системы-счисления",
+      "int.bit_length",
+      "int.bit_count"
+    ],
     "related_errors": []
   },
   {
@@ -2985,7 +3224,11 @@
       "if a + b > 12:",
       "print(\"сумма > 12\")  # → сумма > 12"
     ],
-    "related": [],
+    "related": [
+      "if-elif-else",
+      "and-or-not",
+      "if"
+    ],
     "related_errors": []
   },
   {
@@ -3033,7 +3276,12 @@
       "pairs = [(i, j) for i in range(3) for j in range(3) if i != j]",
       "print(len(pairs))  # → 6"
     ],
-    "related": [],
+    "related": [
+      "for",
+      "вложенные-списки-матрицы",
+      "break",
+      "itertools.product"
+    ],
     "related_errors": [
       "TypeError",
       "IndexError"
@@ -3100,7 +3348,11 @@
       "print(logged_add(1,2))  # → 3",
       "print(logged_add.calls)  # → 1"
     ],
-    "related": [],
+    "related": [
+      "callable",
+      "декораторы",
+      "lambda"
+    ],
     "related_errors": []
   },
   {
@@ -3136,7 +3388,11 @@
       "delta = date(2025, 12, 31) - date(2025, 1, 1)",
       "print(delta.days)  # → 364 (разница дат)"
     ],
-    "related": [],
+    "related": [
+      "сложение",
+      "операторы-присваивания",
+      "приоритет-операций"
+    ],
     "related_errors": []
   },
   {
@@ -3216,7 +3472,11 @@
       "return best",
       "print(max_area([1,8,6,2,5,4,8,3,7]))  # → 49"
     ],
-    "related": [],
+    "related": [
+      "бинарный-поиск",
+      "префиксные-суммы",
+      "while"
+    ],
     "related_errors": [
       "IndexError"
     ]
@@ -3313,7 +3573,12 @@
       "def my_func(): pass",
       "print(my_func.__name__)  # → my_func"
     ],
-    "related": [],
+    "related": [
+      "замыкания",
+      "functools.wraps",
+      "functools.lru_cache",
+      "property"
+    ],
     "related_errors": []
   },
   {
@@ -3351,7 +3616,12 @@
       "print(\"Деление на ноль!\")  # → Деление на ноль!",
       "print(9 / 3)  # → 3.0"
     ],
-    "related": [],
+    "related": [
+      "целочисленное-деление",
+      "остаток",
+      "divmod",
+      "zerodivisionerror"
+    ],
     "related_errors": []
   },
   {
@@ -3423,7 +3693,12 @@
       "print(p(2))  # → 8",
       "print(p.__closure__[0].cell_contents)  # → 3"
     ],
-    "related": [],
+    "related": [
+      "декораторы",
+      "global-nonlocal",
+      "локальные-и-глобальные-переменные",
+      "functools.partial"
+    ],
     "related_errors": []
   },
   {
@@ -3471,7 +3746,12 @@
       "for i, line in enumerate(f, 1):",
       "print(i, line.strip())"
     ],
-    "related": [],
+    "related": [
+      "file.readlines",
+      "file.readline",
+      "open",
+      "file.read"
+    ],
     "related_errors": []
   },
   {
@@ -3536,7 +3816,12 @@
       "inner2()",
       "outer2()"
     ],
-    "related": [],
+    "related": [
+      "global-nonlocal",
+      "замыкания",
+      "unboundlocalerror",
+      "globals"
+    ],
     "related_errors": []
   },
   {
@@ -3600,7 +3885,12 @@
       "print(reduce(math.gcd, nums))  # → 6",
       "print(reduce(math.lcm, nums))  # → 36"
     ],
-    "related": [],
+    "related": [
+      "math.gcd",
+      "math.lcm",
+      "остаток",
+      "рекурсия"
+    ],
     "related_errors": []
   },
   {
@@ -3643,7 +3933,12 @@
       "reversed_n = int(str(n2)[::-1])",
       "print(reversed_n)  # → 1234 (перевёрнутое число)"
     ],
-    "related": [],
+    "related": [
+      "остаток",
+      "целочисленное-деление",
+      "divmod",
+      "системы-счисления"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -3681,7 +3976,11 @@
       "x = 10; x %= 3; print(x)  # → 1",
       "x = 2; x **= 8; print(x)  # → 256"
     ],
-    "related": [],
+    "related": [
+      "переменные",
+      "сложение",
+      "walrus-operator"
+    ],
     "related_errors": []
   },
   {
@@ -3719,7 +4018,12 @@
       "print(1 < x < 10)  # → True (цепочка сравнений)",
       "print(1 < x < 4)  # → False"
     ],
-    "related": [],
+    "related": [
+      "is-is-not",
+      "цепочка-сравнений",
+      "and-or-not",
+      "bool"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -3760,7 +4064,12 @@
       "except ZeroDivisionError:",
       "print(\"Деление на ноль\")  # → Деление на ноль"
     ],
-    "related": [],
+    "related": [
+      "целочисленное-деление",
+      "divmod",
+      "деление",
+      "math.fmod"
+    ],
     "related_errors": []
   },
   {
@@ -3840,7 +4149,11 @@
       "return queue[0]",
       "print(josephus(7, 3))  # → 4"
     ],
-    "related": [],
+    "related": [
+      "collections.deque",
+      "стек-stack",
+      "куча-как-приоритетная-очередь"
+    ],
     "related_errors": [
       "IndexError"
     ]
@@ -3886,7 +4199,12 @@
       "return 'Hello, ' + name + punct",
       "print(greet('Bob'))  # → Hello, Bob!"
     ],
-    "related": [],
+    "related": [
+      "параметры-по-умолчанию",
+      "args",
+      "kwargs",
+      "def"
+    ],
     "related_errors": []
   },
   {
@@ -3937,7 +4255,11 @@
       "print(connect())  # → localhost:5432",
       "print(connect(port=3306))  # → localhost:3306"
     ],
-    "related": [],
+    "related": [
+      "параметры-и-аргументы",
+      "nonetype",
+      "kwargs"
+    ],
     "related_errors": []
   },
   {
@@ -3972,7 +4294,12 @@
       "print(1 << 3)           # → 8",
       "print(16 >> 2)          # → 4"
     ],
-    "related": [],
+    "related": [
+      "битовые-операции",
+      "bin",
+      "int.bit_length",
+      "int.bit_count"
+    ],
     "related_errors": []
   },
   {
@@ -4012,7 +4339,12 @@
       "    print(type(e).__name__)  # → ValueError (нельзя напрямую)",
       "print(int(float(\"3.14\")))  # → 3 (через float)"
     ],
-    "related": [],
+    "related": [
+      "int",
+      "float",
+      "str",
+      "bool"
+    ],
     "related_errors": []
   },
   {
@@ -4086,7 +4418,11 @@
       "# Среднее на подмассиве",
       "print(range_sum(p, 0, 4) / 5)  # → 3.0"
     ],
-    "related": [],
+    "related": [
+      "itertools.accumulate",
+      "sum",
+      "два-указателя-two-pointers"
+    ],
     "related_errors": []
   },
   {
@@ -4121,7 +4457,12 @@
       "print(10 - 3 + 2)  # → 9 (слева направо)",
       "print(10 % 3 + 1)  # → 2 (% раньше +)"
     ],
-    "related": [],
+    "related": [
+      "степень",
+      "and-or-not",
+      "операторы-сравнения",
+      "цепочка-сравнений"
+    ],
     "related_errors": []
   },
   {
@@ -4159,7 +4500,12 @@
       "for a, *rest in [(1,2,3),(4,5,6)]:",
       "print(a, rest)  # → 1 [2, 3]  затем  4 [5, 6]"
     ],
-    "related": [],
+    "related": [
+      "enumerate",
+      "zip",
+      "распаковка-кортежа",
+      "dict.items"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -4229,7 +4575,12 @@
       "return result",
       "print(flatten([1,[2,[3]],4]))  # → [1,2,3,4]"
     ],
-    "related": [],
+    "related": [
+      "recursionerror",
+      "sys.setrecursionlimit",
+      "числа-фибоначчи",
+      "functools.lru_cache"
+    ],
     "related_errors": []
   },
   {
@@ -4294,7 +4645,12 @@
       "print(ord('A'))  # → 65 = 0x41",
       "print(hex(ord('A')))  # → 0x41"
     ],
-    "related": [],
+    "related": [
+      "bin",
+      "hex",
+      "oct",
+      "int"
+    ],
     "related_errors": []
   },
   {
@@ -4329,7 +4685,12 @@
       "print(10 ** 18 + 10 ** 18)  # → 2000000000000000000 (big int)",
       "x = 5; print(+x)  # → 5 (унарный плюс)"
     ],
-    "related": [],
+    "related": [
+      "вычитание",
+      "конкатенация-строк",
+      "объединение-повторение-списков",
+      "операторы-присваивания"
+    ],
     "related_errors": []
   },
   {
@@ -4406,7 +4767,11 @@
       "arr[50] = -1  # один элемент не на месте",
       "print(insertion_sort(arr[:])[:5])  # → [−1,0,1,2,3]"
     ],
-    "related": [],
+    "related": [
+      "сортировка-выбором",
+      "сортировка-пузырьком",
+      "sorted"
+    ],
     "related_errors": []
   },
   {
@@ -4483,7 +4848,11 @@
       "# Selection sort всегда O(n²) независимо от входных данных",
       "print(selection_sort([1,2,3,4,5]))  # → [1,2,3,4,5] (уже отсортирован)"
     ],
-    "related": [],
+    "related": [
+      "сортировка-вставками",
+      "сортировка-пузырьком",
+      "min"
+    ],
     "related_errors": []
   },
   {
@@ -4562,7 +4931,11 @@
       "bubble_sort(arr[:])",
       "print(f'Bubble sort 1000 elements: {time.time()-t:.3f}s')"
     ],
-    "related": [],
+    "related": [
+      "сортировка-вставками",
+      "сортировка-выбором",
+      "list.sort"
+    ],
     "related_errors": []
   },
   {
@@ -4659,7 +5032,12 @@
       "for v in [3,1,4,1,5]: ms.push(v)",
       "print(ms.get_min())  # → 1"
     ],
-    "related": [],
+    "related": [
+      "очередь-queue",
+      "list.append",
+      "list.pop",
+      "collections.deque"
+    ],
     "related_errors": [
       "IndexError"
     ]
@@ -4696,7 +5074,12 @@
       "print(2 ** -1)  # → 0.5 (отрицательная степень)",
       "print(2 ** 100)  # → большое число (Python big int)"
     ],
-    "related": [],
+    "related": [
+      "pow",
+      "math.pow",
+      "math.sqrt",
+      "приоритет-операций"
+    ],
     "related_errors": []
   },
   {
@@ -4741,7 +5124,11 @@
       "name = None",
       "print(name if name else \"Гость\")  # → Гость"
     ],
-    "related": [],
+    "related": [
+      "if-else",
+      "условный-list-comprehension",
+      "if"
+    ],
     "related_errors": []
   },
   {
@@ -4777,7 +5164,11 @@
       "matrix = [[0] * 3 for _ in range(3)]  # 3x3 нулевая матрица",
       "print(matrix[0])  # → [0, 0, 0]"
     ],
-    "related": [],
+    "related": [
+      "деление",
+      "повторение-строки",
+      "объединение-повторение-списков"
+    ],
     "related_errors": []
   },
   {
@@ -4842,7 +5233,12 @@
       "graph[2].append(4)",
       "print(dict(graph))  # → {1:[2,3], 2:[4]}"
     ],
-    "related": [],
+    "related": [
+      "dict",
+      "dict.get",
+      "hash",
+      "collections.counter"
+    ],
     "related_errors": [
       "KeyError"
     ]
@@ -4880,7 +5276,12 @@
       "print(seconds // 3600)  # → 1 (полные часы)",
       "print(seconds % 3600 // 60)  # → 1 (минуты)"
     ],
-    "related": [],
+    "related": [
+      "деление",
+      "остаток",
+      "divmod",
+      "math.floor"
+    ],
     "related_errors": []
   },
   {
@@ -4916,7 +5317,11 @@
       "print(0 <= x <= 100)   # → True",
       "print(10 > x > 0)      # → True"
     ],
-    "related": [],
+    "related": [
+      "операторы-сравнения",
+      "and-or-not",
+      "приоритет-операций"
+    ],
     "related_errors": []
   },
   {
@@ -5000,7 +5405,11 @@
       "return result",
       "print(fib_until(100))  # → [0,1,1,2,3,5,8,13,21,34,55,89]"
     ],
-    "related": [],
+    "related": [
+      "рекурсия",
+      "functools.lru_cache",
+      "functools.cache"
+    ],
     "related_errors": []
   },
   {
@@ -5032,7 +5441,11 @@
       "print((1024).bit_length())  # → 11",
       "print((0).bit_length())     # → 0"
     ],
-    "related": [],
+    "related": [
+      "int.bit_count",
+      "bin",
+      "системы-счисления"
+    ],
     "related_errors": []
   },
   {
@@ -5064,7 +5477,11 @@
       "print((255).bit_count())  # → 8",
       "print((0).bit_count())    # → 0"
     ],
-    "related": [],
+    "related": [
+      "int.bit_length",
+      "битовые-операции",
+      "bin"
+    ],
     "related_errors": []
   },
   {
@@ -5096,7 +5513,11 @@
       "print((255).to_bytes(1, 'little'))  # → b'\\xff'",
       "print((1).to_bytes(2, 'little'))    # → b'\\x01\\x00'"
     ],
-    "related": [],
+    "related": [
+      "int.from_bytes",
+      "bytes",
+      "int.bit_length"
+    ],
     "related_errors": [
       "OverflowError",
       "ValueError"
@@ -5131,7 +5552,11 @@
       "print(int.from_bytes(b'\\xff', 'little'))    # → 255",
       "print(int.from_bytes(b'\\x01\\x00', 'little'))  # → 1"
     ],
-    "related": [],
+    "related": [
+      "int.to_bytes",
+      "bytes",
+      "bytes.fromhex"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -5165,7 +5590,11 @@
       "print((5).as_integer_ratio())   # → (5, 1)",
       "print((-8).as_integer_ratio())  # → (-8, 1)"
     ],
-    "related": [],
+    "related": [
+      "float.as_integer_ratio",
+      "fractions.fraction",
+      "int.is_integer"
+    ],
     "related_errors": []
   },
   {
@@ -5196,7 +5625,11 @@
       "print((5).conjugate())   # → 5",
       "print((-3).conjugate())  # → -3"
     ],
-    "related": [],
+    "related": [
+      "complex.conjugate",
+      "float.conjugate",
+      "complex"
+    ],
     "related_errors": []
   },
   {
@@ -5227,7 +5660,11 @@
       "print((5).is_integer())   # → True",
       "print((-3).is_integer())  # → True"
     ],
-    "related": [],
+    "related": [
+      "float.is_integer",
+      "int.as_integer_ratio",
+      "int"
+    ],
     "related_errors": []
   },
   {
@@ -5259,7 +5696,11 @@
       "print((4.5).is_integer())  # → False",
       "print((-2.0).is_integer())  # → True"
     ],
-    "related": [],
+    "related": [
+      "int.is_integer",
+      "float.as_integer_ratio",
+      "преобразование-типов"
+    ],
     "related_errors": []
   },
   {
@@ -5291,7 +5732,11 @@
       "print((0.25).as_integer_ratio())  # → (1, 4)",
       "print((2.0).as_integer_ratio())  # → (2, 1)"
     ],
-    "related": [],
+    "related": [
+      "fractions.fraction",
+      "int.as_integer_ratio",
+      "float.hex"
+    ],
     "related_errors": []
   },
   {
@@ -5322,7 +5767,11 @@
       "print((3.5).hex())   # → 0x1.c000000000000p+1",
       "print((1.0).hex())   # → 0x1.0000000000000p+0"
     ],
-    "related": [],
+    "related": [
+      "float.fromhex",
+      "float.as_integer_ratio",
+      "hex"
+    ],
     "related_errors": []
   },
   {
@@ -5353,7 +5802,11 @@
       "print(float.fromhex('0x1.8p+1'))  # → 3.0",
       "print(float.fromhex('0x1.0p+0'))  # → 1.0"
     ],
-    "related": [],
+    "related": [
+      "float.hex",
+      "float",
+      "bytes.fromhex"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -5386,7 +5839,11 @@
       "print((3.5).conjugate())   # → 3.5",
       "print((-1.0).conjugate())  # → -1.0"
     ],
-    "related": [],
+    "related": [
+      "complex.conjugate",
+      "int.conjugate",
+      "complex"
+    ],
     "related_errors": []
   },
   {
@@ -5417,7 +5874,11 @@
       "print((3 + 4j).conjugate())        # → (3-4j)",
       "print(complex(2, -5).conjugate())  # → (2+5j)"
     ],
-    "related": [],
+    "related": [
+      "complex",
+      "cmath",
+      "float.conjugate"
+    ],
     "related_errors": []
   },
   {
@@ -5449,7 +5910,11 @@
       "print(json.dumps({'a': 1, 'b': [2, 3]}))   # → {\"a\": 1, \"b\": [2, 3]}",
       "print(json.dumps([1, 2, 3]))                 # → [1, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "json.loads",
+      "json.dump",
+      "json.JSONEncoder"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -5483,7 +5948,11 @@
       "print(json.loads('{\"x\": 5, \"y\": true}'))   # → {'x': 5, 'y': True}",
       "print(json.loads('[1, 2, 3]'))              # → [1, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "json.load",
+      "json.dumps",
+      "json.decoder.jsondecodeerror"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -5519,7 +5988,11 @@
       "json.dump({'a': 1}, buf)",
       "print(buf.getvalue())   # → {\"a\": 1}"
     ],
-    "related": [],
+    "related": [
+      "json.dumps",
+      "json.load",
+      "open"
+    ],
     "related_errors": [
       "TypeError",
       "ValueError"
@@ -5553,7 +6026,11 @@
       "import json, io",
       "print(json.load(io.StringIO('[1, 2, 3]')))   # → [1, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "json.loads",
+      "json.dump",
+      "json.decoder.jsondecodeerror"
+    ],
     "related_errors": [
       "ValueError",
       "AttributeError"
@@ -5587,7 +6064,12 @@
       "import statistics",
       "print(statistics.mean([1, 2, 3, 4]))   # → 2.5"
     ],
-    "related": [],
+    "related": [
+      "statistics.median",
+      "statistics.fmean",
+      "statistics.mode",
+      "statistics.stdev"
+    ],
     "related_errors": []
   },
   {
@@ -5618,7 +6100,11 @@
       "import statistics",
       "print(statistics.fmean([1, 2, 3, 4]))   # → 2.5"
     ],
-    "related": [],
+    "related": [
+      "statistics.mean",
+      "statistics.geometric_mean",
+      "statistics.median"
+    ],
     "related_errors": []
   },
   {
@@ -5649,7 +6135,11 @@
       "import statistics",
       "print(round(statistics.geometric_mean([1, 4, 16]), 1))   # → 4.0"
     ],
-    "related": [],
+    "related": [
+      "statistics.harmonic_mean",
+      "statistics.mean",
+      "statistics.fmean"
+    ],
     "related_errors": []
   },
   {
@@ -5680,7 +6170,11 @@
       "import statistics",
       "print(statistics.harmonic_mean([1, 2, 4]))   # → 1.7142857142857142"
     ],
-    "related": [],
+    "related": [
+      "statistics.geometric_mean",
+      "statistics.mean",
+      "statistics.fmean"
+    ],
     "related_errors": []
   },
   {
@@ -5712,7 +6206,12 @@
       "print(statistics.median([1, 2, 3, 4]))   # → 2.5",
       "print(statistics.median([1, 3, 5]))      # → 3"
     ],
-    "related": [],
+    "related": [
+      "statistics.median_low",
+      "statistics.median_high",
+      "statistics.median_grouped",
+      "statistics.mean"
+    ],
     "related_errors": []
   },
   {
@@ -5743,7 +6242,10 @@
       "import statistics",
       "print(statistics.median_low([1, 2, 3, 4]))   # → 2"
     ],
-    "related": [],
+    "related": [
+      "statistics.median_high",
+      "statistics.median"
+    ],
     "related_errors": []
   },
   {
@@ -5774,7 +6276,10 @@
       "import statistics",
       "print(statistics.median_high([1, 2, 3, 4]))   # → 3"
     ],
-    "related": [],
+    "related": [
+      "statistics.median_low",
+      "statistics.median"
+    ],
     "related_errors": []
   },
   {
@@ -5805,7 +6310,11 @@
       "import statistics",
       "print(statistics.median_grouped([1, 2, 2, 3, 4, 4, 4]))   # → 3.0"
     ],
-    "related": [],
+    "related": [
+      "statistics.median",
+      "statistics.median_low",
+      "statistics.median_high"
+    ],
     "related_errors": []
   },
   {
@@ -5837,7 +6346,11 @@
       "print(statistics.mode([1, 1, 2, 3]))       # → 1",
       "print(statistics.mode(['a', 'b', 'a']))   # → a"
     ],
-    "related": [],
+    "related": [
+      "statistics.multimode",
+      "collections.counter",
+      "statistics.median"
+    ],
     "related_errors": []
   },
   {
@@ -5868,7 +6381,10 @@
       "import statistics",
       "print(statistics.multimode([1, 1, 2, 2, 3]))   # → [1, 2]"
     ],
-    "related": [],
+    "related": [
+      "statistics.mode",
+      "collections.counter"
+    ],
     "related_errors": []
   },
   {
@@ -5899,7 +6415,11 @@
       "import statistics",
       "print(statistics.stdev([2, 4, 4, 4, 5, 5, 7, 9]))   # → 2.138089935299395"
     ],
-    "related": [],
+    "related": [
+      "statistics.variance",
+      "statistics.pstdev",
+      "statistics.mean"
+    ],
     "related_errors": []
   },
   {
@@ -5930,7 +6450,10 @@
       "import statistics",
       "print(statistics.pstdev([2, 4, 4, 4, 5, 5, 7, 9]))   # → 2.0"
     ],
-    "related": [],
+    "related": [
+      "statistics.stdev",
+      "statistics.pvariance"
+    ],
     "related_errors": []
   },
   {
@@ -5961,7 +6484,11 @@
       "import statistics",
       "print(statistics.variance([1, 2, 3, 4, 5]))   # → 2.5"
     ],
-    "related": [],
+    "related": [
+      "statistics.stdev",
+      "statistics.pvariance",
+      "statistics.mean"
+    ],
     "related_errors": []
   },
   {
@@ -5992,7 +6519,10 @@
       "import statistics",
       "print(statistics.pvariance([1, 2, 3, 4, 5]))   # → 2"
     ],
-    "related": [],
+    "related": [
+      "statistics.variance",
+      "statistics.pstdev"
+    ],
     "related_errors": []
   },
   {
@@ -6023,7 +6553,10 @@
       "import statistics",
       "print(statistics.correlation([1, 2, 3], [2, 4, 6]))   # → 1.0"
     ],
-    "related": [],
+    "related": [
+      "statistics.covariance",
+      "statistics.linear_regression"
+    ],
     "related_errors": []
   },
   {
@@ -6054,7 +6587,11 @@
       "import statistics",
       "print(statistics.covariance([1, 2, 3], [2, 4, 6]))   # → 2.0"
     ],
-    "related": [],
+    "related": [
+      "statistics.correlation",
+      "statistics.linear_regression",
+      "statistics.variance"
+    ],
     "related_errors": []
   },
   {
@@ -6086,7 +6623,10 @@
       "r = statistics.linear_regression([1, 2, 3], [2, 4, 6])",
       "print(round(r.slope, 1), round(r.intercept, 1))   # → 2.0 0.0"
     ],
-    "related": [],
+    "related": [
+      "statistics.correlation",
+      "statistics.covariance"
+    ],
     "related_errors": []
   },
   {
@@ -6119,7 +6659,11 @@
       "print(nd.mean, nd.stdev)   # → 0.0 1.0",
       "print(round(nd.cdf(0), 2))   # → 0.5"
     ],
-    "related": [],
+    "related": [
+      "statistics.stdev",
+      "statistics.mean",
+      "random.gauss"
+    ],
     "related_errors": []
   },
   {
@@ -6152,7 +6696,11 @@
       "print(p.name, p.suffix)   # → c.txt .txt",
       "print(p.parts)            # → ('a', 'b', 'c.txt')"
     ],
-    "related": [],
+    "related": [
+      "pathlib.PurePosixPath",
+      "pathlib.PureWindowsPath",
+      "path"
+    ],
     "related_errors": []
   },
   {
@@ -6183,7 +6731,11 @@
       "import pathlib",
       "print(pathlib.PurePosixPath('/a/b').parts)   # → ('/', 'a', 'b')"
     ],
-    "related": [],
+    "related": [
+      "pathlib.PureWindowsPath",
+      "pathlib.PurePath",
+      "pathlib.PosixPath"
+    ],
     "related_errors": []
   },
   {
@@ -6214,7 +6766,12 @@
       "import pathlib",
       "print(str(pathlib.PureWindowsPath('a', 'b')))   # → a\\b"
     ],
-    "related": [],
+    "related": [
+      "pathlib.PurePosixPath",
+      "pathlib.PurePath",
+      "pathlib.WindowsPath",
+      "os.path.splitdrive"
+    ],
     "related_errors": []
   },
   {
@@ -6245,7 +6802,11 @@
       "import pathlib",
       "print(issubclass(pathlib.PosixPath, pathlib.PurePosixPath))   # → True"
     ],
-    "related": [],
+    "related": [
+      "pathlib.WindowsPath",
+      "path",
+      "pathlib.PurePosixPath"
+    ],
     "related_errors": []
   },
   {
@@ -6276,7 +6837,11 @@
       "import pathlib",
       "print(issubclass(pathlib.WindowsPath, pathlib.PureWindowsPath))   # → True"
     ],
-    "related": [],
+    "related": [
+      "pathlib.PosixPath",
+      "path",
+      "pathlib.PureWindowsPath"
+    ],
     "related_errors": []
   }
 ]
