@@ -31,7 +31,12 @@
       "print(b\"hello\".decode(\"utf-8\"))  # → hello",
       "print(\"hello\".encode(\"utf-8\"))   # → b'hello'"
     ],
-    "related": [],
+    "related": [
+      "bytes",
+      "str.encode",
+      "bytes.decode",
+      "bytearray"
+    ],
     "related_errors": []
   },
   {
@@ -82,7 +87,11 @@
       "print(f'{val:,.2f}')",
       "# → '1,234,567.89'"
     ],
-    "related": [],
+    "related": [
+      "format-метод-форматирования",
+      "форматирование-старый-стиль",
+      "format"
+    ],
     "related_errors": []
   },
   {
@@ -125,7 +134,12 @@
       "print('{:,}'.format(1000000))",
       "# → '1,000,000'"
     ],
-    "related": [],
+    "related": [
+      "f-строки",
+      "форматирование-старый-стиль",
+      "str.format_map",
+      "format"
+    ],
     "related_errors": []
   },
   {
@@ -164,7 +178,11 @@
       "print('P' in 'python')",
       "# → False (регистрозависимо)"
     ],
-    "related": [],
+    "related": [
+      "str.find",
+      "str.count",
+      "in-not-in-для-списков"
+    ],
     "related_errors": []
   },
   {
@@ -205,7 +223,11 @@
       "print('длинная')",
       "# → 'длинная'"
     ],
-    "related": [],
+    "related": [
+      "len",
+      "индексирование-строк",
+      "срезы-строк"
+    ],
     "related_errors": []
   },
   {
@@ -241,7 +263,11 @@
       "print(m.group())        # → 123",
       "print(r\"abc\" == \"abc\")  # → True"
     ],
-    "related": [],
+    "related": [
+      "создание-строк",
+      "спецсимволы-паттернов",
+      "тройные-кавычки"
+    ],
     "related_errors": []
   },
   {
@@ -284,7 +310,12 @@
       "print(s2[0], s2[1], s2[-1])",
       "# → 'A' 'B' 'B'"
     ],
-    "related": [],
+    "related": [
+      "срезы-строк",
+      "len-для-строк",
+      "индексирование-списка",
+      "indexerror"
+    ],
     "related_errors": []
   },
   {
@@ -326,7 +357,11 @@
       "print('' + 'empty left')",
       "# → 'empty left'"
     ],
-    "related": [],
+    "related": [
+      "str.join",
+      "f-строки",
+      "повторение-строки"
+    ],
     "related_errors": []
   },
   {
@@ -366,7 +401,11 @@
       "print(3 * 'go!')",
       "# → 'go!go!go!'"
     ],
-    "related": [],
+    "related": [
+      "конкатенация-строк",
+      "объединение-повторение-списков",
+      "умножение"
+    ],
     "related_errors": []
   },
   {
@@ -411,7 +450,12 @@
       "s7 = '\\u041f\\u0440\\u0438\\u0432\\u0435\\u0442'",
       "# → 'Привет'"
     ],
-    "related": [],
+    "related": [
+      "str",
+      "тройные-кавычки",
+      "raw-строки-r-...",
+      "f-строки"
+    ],
     "related_errors": []
   },
   {
@@ -450,7 +494,12 @@
       "print('abc' == 'ABC')",
       "# → False (регистрозависимо)"
     ],
-    "related": [],
+    "related": [
+      "операторы-сравнения",
+      "str.casefold",
+      "is-is-not",
+      "строки-в-памяти-интернирование-неизменяе"
+    ],
     "related_errors": []
   },
   {
@@ -494,7 +543,12 @@
       "print(s[1:7:2])",
       "# → 'bdf'"
     ],
-    "related": [],
+    "related": [
+      "индексирование-строк",
+      "срезы-с-шагом-2-1",
+      "срезы-списка",
+      "slice"
+    ],
     "related_errors": []
   },
   {
@@ -543,7 +597,12 @@
       "print(s, s2)",
       "# → 'hello' 'Hello' (оригинал не изменился)"
     ],
-    "related": [],
+    "related": [
+      "is-is-not",
+      "sys.intern",
+      "id",
+      "неизменяемость-кортежа"
+    ],
     "related_errors": []
   },
   {
@@ -581,7 +640,11 @@
       "print(\"кавычки\" in s2)  # → True",
       "print(type(s2))      # → <class 'str'>"
     ],
-    "related": [],
+    "related": [
+      "создание-строк",
+      "raw-строки-r-...",
+      "textwrap.dedent"
+    ],
     "related_errors": []
   },
   {
@@ -620,7 +683,11 @@
       "print('%05d' % 42)",
       "# → '00042'"
     ],
-    "related": [],
+    "related": [
+      "f-строки",
+      "format-метод-форматирования",
+      "string.template"
+    ],
     "related_errors": [
       "TypeError",
       "KeyError"
@@ -655,7 +722,11 @@
       "print('123abc'.capitalize())       # → 123abc",
       "print('ALREADY Done'.capitalize())  # → Already done"
     ],
-    "related": [],
+    "related": [
+      "str.title",
+      "str.upper",
+      "str.lower"
+    ],
     "related_errors": []
   },
   {
@@ -687,7 +758,12 @@
       "print('пример строки'.title())  # → Пример Строки",
       "print(\"don't stop\".title())    # → Don'T Stop"
     ],
-    "related": [],
+    "related": [
+      "str.capitalize",
+      "str.istitle",
+      "string.capwords",
+      "str.upper"
+    ],
     "related_errors": []
   },
   {
@@ -719,7 +795,11 @@
       "print('Привет'.swapcase())       # → пРИВЕТ",
       "print('abcABC123'.swapcase())    # → ABCabc123"
     ],
-    "related": [],
+    "related": [
+      "str.upper",
+      "str.lower",
+      "str.title"
+    ],
     "related_errors": []
   },
   {
@@ -751,7 +831,11 @@
       "print('привет'.upper())    # → ПРИВЕТ",
       "print('straße'.upper())    # → STRASSE"
     ],
-    "related": [],
+    "related": [
+      "str.lower",
+      "str.isupper",
+      "str.swapcase"
+    ],
     "related_errors": []
   },
   {
@@ -783,7 +867,11 @@
       "print('ПРИВЕТ'.lower())    # → привет",
       "print('Hello World'.lower())  # → hello world"
     ],
-    "related": [],
+    "related": [
+      "str.upper",
+      "str.casefold",
+      "str.islower"
+    ],
     "related_errors": []
   },
   {
@@ -815,7 +903,11 @@
       "print('ß'.casefold() == 'ss')  # → True",
       "print('HeLLo'.casefold())   # → hello"
     ],
-    "related": [],
+    "related": [
+      "str.lower",
+      "сравнение-строк",
+      "str.upper"
+    ],
     "related_errors": []
   },
   {
@@ -847,7 +939,11 @@
       "print('a b'.isalnum())     # → False",
       "print(''.isalnum())        # → False"
     ],
-    "related": [],
+    "related": [
+      "str.isalpha",
+      "str.isdigit",
+      "str.isascii"
+    ],
     "related_errors": []
   },
   {
@@ -879,7 +975,11 @@
       "print('Привет'.isalpha())  # → True",
       "print('abc1'.isalpha())   # → False"
     ],
-    "related": [],
+    "related": [
+      "str.isalnum",
+      "str.isdigit",
+      "string.ascii_letters"
+    ],
     "related_errors": []
   },
   {
@@ -911,7 +1011,11 @@
       "print('²'.isdigit())     # → True",
       "print('12.3'.isdigit())  # → False"
     ],
-    "related": [],
+    "related": [
+      "str.isdecimal",
+      "str.isnumeric",
+      "int"
+    ],
     "related_errors": []
   },
   {
@@ -943,7 +1047,11 @@
       "print('²'.isdecimal())    # → False",
       "print(''.isdecimal())     # → False"
     ],
-    "related": [],
+    "related": [
+      "str.isdigit",
+      "str.isnumeric",
+      "int"
+    ],
     "related_errors": []
   },
   {
@@ -975,7 +1083,11 @@
       "print('½'.isnumeric())    # → True",
       "print('1.2'.isnumeric())  # → False"
     ],
-    "related": [],
+    "related": [
+      "str.isdigit",
+      "str.isdecimal",
+      "int"
+    ],
     "related_errors": []
   },
   {
@@ -1007,7 +1119,11 @@
       "print(' \\t\\n'.isspace())  # → True",
       "print(''.isspace())       # → False"
     ],
-    "related": [],
+    "related": [
+      "str.strip",
+      "string.whitespace",
+      "str.isprintable"
+    ],
     "related_errors": []
   },
   {
@@ -1039,7 +1155,11 @@
       "print('Abc'.islower())    # → False",
       "print('abc123'.islower())  # → True"
     ],
-    "related": [],
+    "related": [
+      "str.isupper",
+      "str.lower",
+      "str.istitle"
+    ],
     "related_errors": []
   },
   {
@@ -1071,7 +1191,11 @@
       "print('Abc'.isupper())   # → False",
       "print('ABC!'.isupper())  # → True"
     ],
-    "related": [],
+    "related": [
+      "str.islower",
+      "str.upper",
+      "str.istitle"
+    ],
     "related_errors": []
   },
   {
@@ -1103,7 +1227,11 @@
       "print('hello world'.istitle())  # → False",
       "print('HELLO'.istitle())        # → False"
     ],
-    "related": [],
+    "related": [
+      "str.title",
+      "str.islower",
+      "str.isupper"
+    ],
     "related_errors": []
   },
   {
@@ -1135,7 +1263,10 @@
       "print('1x'.isidentifier())    # → False",
       "print('for'.isidentifier())   # → True"
     ],
-    "related": [],
+    "related": [
+      "переменные",
+      "str.isalnum"
+    ],
     "related_errors": []
   },
   {
@@ -1167,7 +1298,11 @@
       "print('café'.isascii())    # → False",
       "print(''.isascii())        # → True"
     ],
-    "related": [],
+    "related": [
+      "str.isprintable",
+      "str.encode",
+      "str.isalnum"
+    ],
     "related_errors": []
   },
   {
@@ -1199,7 +1334,11 @@
       "print('a\\tb'.isprintable())     # → False",
       "print(''.isprintable())         # → True"
     ],
-    "related": [],
+    "related": [
+      "str.isascii",
+      "str.isspace",
+      "string.printable"
+    ],
     "related_errors": []
   },
   {
@@ -1231,7 +1370,12 @@
       "print('hello'.find('z'))     # → -1",
       "print('hello'.find('l', 3))  # → 3"
     ],
-    "related": [],
+    "related": [
+      "str.index",
+      "str.rfind",
+      "in-not-in-для-строк",
+      "str.count"
+    ],
     "related_errors": []
   },
   {
@@ -1263,7 +1407,11 @@
       "print('hello'.rfind('z'))  # → -1",
       "print('abcabc'.rfind('a'))  # → 3"
     ],
-    "related": [],
+    "related": [
+      "str.find",
+      "str.rindex",
+      "str.rpartition"
+    ],
     "related_errors": []
   },
   {
@@ -1295,7 +1443,12 @@
       "print('abcabc'.index('c'))   # → 2",
       "print('hello'.index('l', 3))  # → 3"
     ],
-    "related": [],
+    "related": [
+      "str.find",
+      "str.rindex",
+      "valueerror",
+      "list.index"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -1329,7 +1482,11 @@
       "print('abcabc'.rindex('b'))  # → 4",
       "print('hello'.rindex('l'))   # → 3"
     ],
-    "related": [],
+    "related": [
+      "str.rfind",
+      "str.index",
+      "valueerror"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -1363,7 +1520,12 @@
       "print('banana'.count('na'))  # → 2",
       "print('aaa'.count('aa'))     # → 1"
     ],
-    "related": [],
+    "related": [
+      "str.find",
+      "in-not-in-для-строк",
+      "collections.counter",
+      "list.count"
+    ],
     "related_errors": []
   },
   {
@@ -1395,7 +1557,11 @@
       "print('hello'.startswith('lo'))          # → False",
       "print('hello'.startswith(('hi', 'he')))  # → True"
     ],
-    "related": [],
+    "related": [
+      "str.endswith",
+      "str.removeprefix",
+      "str.find"
+    ],
     "related_errors": []
   },
   {
@@ -1427,7 +1593,11 @@
       "print('file.py'.endswith('.txt'))           # → False",
       "print('file.py'.endswith(('.py', '.txt')))  # → True"
     ],
-    "related": [],
+    "related": [
+      "str.startswith",
+      "str.removesuffix",
+      "in-not-in-для-строк"
+    ],
     "related_errors": []
   },
   {
@@ -1459,7 +1629,12 @@
       "print('a  b   c'.split())   # → ['a', 'b', 'c']",
       "print('a,b,c'.split(',', 1))  # → ['a', 'b,c']"
     ],
-    "related": [],
+    "related": [
+      "str.rsplit",
+      "str.join",
+      "str.splitlines",
+      "str.partition"
+    ],
     "related_errors": []
   },
   {
@@ -1491,7 +1666,11 @@
       "print('a,b,c'.rsplit(','))     # → ['a', 'b', 'c']",
       "print('a b c'.rsplit(None, 1))  # → ['a b', 'c']"
     ],
-    "related": [],
+    "related": [
+      "str.split",
+      "str.rpartition",
+      "str.join"
+    ],
     "related_errors": []
   },
   {
@@ -1523,7 +1702,11 @@
       "print('a\\nb\\n'.splitlines())   # → ['a', 'b']",
       "print('one line'.splitlines())  # → ['one line']"
     ],
-    "related": [],
+    "related": [
+      "str.split",
+      "file.readlines",
+      "итерация-по-файлу"
+    ],
     "related_errors": []
   },
   {
@@ -1555,7 +1738,11 @@
       "print('abc'.partition('='))    # → ('abc', '', '')",
       "print('k: v'.partition(': '))  # → ('k', ': ', 'v')"
     ],
-    "related": [],
+    "related": [
+      "str.rpartition",
+      "str.split",
+      "str.find"
+    ],
     "related_errors": []
   },
   {
@@ -1587,7 +1774,11 @@
       "print('abc'.rpartition('='))    # → ('', '', 'abc')",
       "print('a/b/c'.rpartition('/'))  # → ('a/b', '/', 'c')"
     ],
-    "related": [],
+    "related": [
+      "str.partition",
+      "str.rsplit",
+      "str.rfind"
+    ],
     "related_errors": []
   },
   {
@@ -1619,7 +1810,11 @@
       "print(''.join(['1', '2', '3']))   # → 123",
       "print('-'.join('abc'))            # → a-b-c"
     ],
-    "related": [],
+    "related": [
+      "str.split",
+      "конкатенация-строк",
+      "sep"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1653,7 +1848,11 @@
       "print('xxhixx'.strip('x'))  # → hi",
       "print('...a.'.strip('.'))   # → a"
     ],
-    "related": [],
+    "related": [
+      "str.lstrip",
+      "str.rstrip",
+      "str.split"
+    ],
     "related_errors": []
   },
   {
@@ -1685,7 +1884,11 @@
       "print('xxhi'.lstrip('x'))  # → hi",
       "print('--a--'.lstrip('-'))  # → a--"
     ],
-    "related": [],
+    "related": [
+      "str.strip",
+      "str.rstrip",
+      "str.removeprefix"
+    ],
     "related_errors": []
   },
   {
@@ -1717,7 +1920,11 @@
       "print('hixx'.rstrip('x'))  # → hi",
       "print('--a--'.rstrip('-'))  # → --a"
     ],
-    "related": [],
+    "related": [
+      "str.strip",
+      "str.lstrip",
+      "str.removesuffix"
+    ],
     "related_errors": []
   },
   {
@@ -1749,7 +1956,11 @@
       "print('hi'.center(5))       # →   hi ",
       "print('hi'.center(1))       # → hi"
     ],
-    "related": [],
+    "related": [
+      "str.ljust",
+      "str.rjust",
+      "str.zfill"
+    ],
     "related_errors": []
   },
   {
@@ -1781,7 +1992,11 @@
       "print('hi'.ljust(5) + '|')  # → hi   |",
       "print('hello'.ljust(3))    # → hello"
     ],
-    "related": [],
+    "related": [
+      "str.rjust",
+      "str.center",
+      "str.zfill"
+    ],
     "related_errors": []
   },
   {
@@ -1813,7 +2028,11 @@
       "print('42'.rjust(5, '0'))  # → 00042",
       "print('hello'.rjust(3))    # → hello"
     ],
-    "related": [],
+    "related": [
+      "str.ljust",
+      "str.center",
+      "str.zfill"
+    ],
     "related_errors": []
   },
   {
@@ -1845,7 +2064,11 @@
       "print('-42'.zfill(5))   # → -0042",
       "print('3.14'.zfill(6))  # → 003.14"
     ],
-    "related": [],
+    "related": [
+      "str.rjust",
+      "str.center",
+      "f-строки"
+    ],
     "related_errors": []
   },
   {
@@ -1877,7 +2100,12 @@
       "print('aaa'.replace('a', 'b', 2))   # → bba",
       "print('hello'.replace('l', ''))     # → heo"
     ],
-    "related": [],
+    "related": [
+      "str.translate",
+      "re.sub",
+      "str.removeprefix",
+      "str.count"
+    ],
     "related_errors": []
   },
   {
@@ -1909,7 +2137,11 @@
       "print('a-b-c'.translate(str.maketrans('', '', '-')))  # → abc",
       "print('cat'.translate({ord('a'): 'A'}))  # → cAt"
     ],
-    "related": [],
+    "related": [
+      "str.maketrans",
+      "str.replace",
+      "re.sub"
+    ],
     "related_errors": []
   },
   {
@@ -1941,7 +2173,11 @@
       "t = str.maketrans({'x': 'y'}); print('xox'.translate(t))  # → yoy",
       "print('a1b2'.translate(str.maketrans('', '', '12')))  # → ab"
     ],
-    "related": [],
+    "related": [
+      "str.translate",
+      "str.replace",
+      "bytes.maketrans"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -1976,7 +2212,11 @@
       "print('foo'.removeprefix('test_'))       # → foo",
       "print('__x'.removeprefix('_'))           # → _x"
     ],
-    "related": [],
+    "related": [
+      "str.removesuffix",
+      "str.startswith",
+      "str.lstrip"
+    ],
     "related_errors": []
   },
   {
@@ -2008,7 +2248,11 @@
       "print('file'.removesuffix('.py'))      # → file",
       "print('x__'.removesuffix('_'))         # → x_"
     ],
-    "related": [],
+    "related": [
+      "str.removeprefix",
+      "str.endswith",
+      "str.rstrip"
+    ],
     "related_errors": []
   },
   {
@@ -2040,7 +2284,11 @@
       "print('ab\\tc'.expandtabs(4))  # → ab  c",
       "print('a\\tb'.expandtabs(1))   # → a b"
     ],
-    "related": [],
+    "related": [
+      "str.replace",
+      "textwrap.dedent",
+      "bytes.expandtabs"
+    ],
     "related_errors": []
   },
   {
@@ -2072,7 +2320,11 @@
       "print('café'.encode('utf-8'))    # → b'caf\\xc3\\xa9'",
       "print('hi'.encode('ascii'))      # → b'hi'"
     ],
-    "related": [],
+    "related": [
+      "bytes.decode",
+      "b-...-байт-строки",
+      "unicodeencodeerror"
+    ],
     "related_errors": [
       "UnicodeEncodeError",
       "LookupError"
@@ -2107,7 +2359,11 @@
       "print('{a}-{b}'.format_map({'a': 1, 'b': 2}))  # → 1-2",
       "print('{name}'.format_map({'name': 'Аня'}))    # → Аня"
     ],
-    "related": [],
+    "related": [
+      "format-метод-форматирования",
+      "f-строки",
+      "string.template"
+    ],
     "related_errors": [
       "KeyError"
     ]

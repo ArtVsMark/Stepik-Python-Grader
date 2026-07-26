@@ -34,7 +34,11 @@
       "re = importlib.import_module('re')",
       "print(re.match(r'\\d+','123').group())  # → 123"
     ],
-    "related": [],
+    "related": [
+      "sys.modules",
+      "modulenotfounderror",
+      "importerror"
+    ],
     "related_errors": []
   },
   {
@@ -142,7 +146,11 @@
       "print(ascii('café'))  # → 'caf\\xe9'",
       "print(ascii(None))  # → None"
     ],
-    "related": [],
+    "related": [
+      "repr",
+      "repr-vs-str",
+      "str.isascii"
+    ],
     "related_errors": []
   },
   {
@@ -176,7 +184,12 @@
       "print(bin(0))    # → 0b0",
       "print(int(bin(42),2))  # → 42"
     ],
-    "related": [],
+    "related": [
+      "hex",
+      "oct",
+      "системы-счисления",
+      "int.bit_length"
+    ],
     "related_errors": []
   },
   {
@@ -211,7 +224,11 @@
       "# breakpoint()  # → войти в pdb",
       "print('Debugging would start here')  # → debug point"
     ],
-    "related": [],
+    "related": [
+      "print",
+      "logging-debug",
+      "assert"
+    ],
     "related_errors": []
   },
   {
@@ -247,7 +264,11 @@
       "def __call__(self): pass",
       "print(callable(A()))  # → True"
     ],
-    "related": [],
+    "related": [
+      "вызываемые-объекты-__call__",
+      "isinstance",
+      "callable-arg-ret"
+    ],
     "related_errors": []
   },
   {
@@ -281,7 +302,11 @@
       "print(chr(9829)) # → ♥",
       "print(''.join(chr(i) for i in range(65,70)))  # → ABCDE"
     ],
-    "related": [],
+    "related": [
+      "ord",
+      "ascii",
+      "str.isascii"
+    ],
     "related_errors": []
   },
   {
@@ -317,7 +342,11 @@
       "print(eval(code2))  # → [0,1,4,9,16]",
       "print(type(code))  # → <class 'code'>"
     ],
-    "related": [],
+    "related": [
+      "eval",
+      "exec",
+      "syntaxerror"
+    ],
     "related_errors": []
   },
   {
@@ -357,7 +386,11 @@
       "delattr(a,'z')",
       "except AttributeError as e: print(e)"
     ],
-    "related": [],
+    "related": [
+      "setattr",
+      "getattr",
+      "hasattr"
+    ],
     "related_errors": []
   },
   {
@@ -392,7 +425,12 @@
       "print(d)  # → {'a':1,'b':2,'c':3}",
       "print(dict({'a':1},b=2))  # → {'a':1,'b':2}"
     ],
-    "related": [],
+    "related": [
+      "создание-словаря",
+      "доступ-d-key",
+      "dict.get",
+      "collections.defaultdict"
+    ],
     "related_errors": []
   },
   {
@@ -429,7 +467,11 @@
       "print('f' in dir(A))  # → True",
       "print(type(dir([])))  # → list"
     ],
-    "related": [],
+    "related": [
+      "vars",
+      "getattr",
+      "help"
+    ],
     "related_errors": []
   },
   {
@@ -463,7 +505,11 @@
       "print(\"раз\", end=\"\\t\"); print(\"два\")  # → раз\tдва",
       "print(\"конец\", end=\"!\\n\")  # → конец!"
     ],
-    "related": [],
+    "related": [
+      "sep",
+      "print",
+      "print-file-flush"
+    ],
     "related_errors": []
   },
   {
@@ -498,7 +544,11 @@
       "print(eval('1+2', {}))  # → 3 (пустой globals)",
       "print(eval('abs(-5)', {'abs':abs}))  # → 5"
     ],
-    "related": [],
+    "related": [
+      "exec",
+      "compile",
+      "input"
+    ],
     "related_errors": []
   },
   {
@@ -537,7 +587,12 @@
       "make_func('hello')",
       "print(hello())  # → hello"
     ],
-    "related": [],
+    "related": [
+      "eval",
+      "compile",
+      "globals",
+      "locals"
+    ],
     "related_errors": []
   },
   {
@@ -571,7 +626,12 @@
       "print(format('hello', '^10'))  # →   hello",
       "print(format(0.25, '%'))  # → 25.000000%"
     ],
-    "related": [],
+    "related": [
+      "format-метод-форматирования",
+      "f-строки",
+      "форматирование-старый-стиль",
+      "str.format_map"
+    ],
     "related_errors": []
   },
   {
@@ -607,7 +667,11 @@
       "print(1 in fs)  # → True",
       "print(fs & frozenset([2,3,4]))  # → frozenset({2,3})"
     ],
-    "related": [],
+    "related": [
+      "frozenset-неизменяемое-множество",
+      "set",
+      "hash"
+    ],
     "related_errors": []
   },
   {
@@ -644,7 +708,12 @@
       "print(getattr('hello','upper')())  # → HELLO",
       "name = 'x'; print(getattr(a, name))  # → 42"
     ],
-    "related": [],
+    "related": [
+      "setattr",
+      "hasattr",
+      "delattr",
+      "attributeerror"
+    ],
     "related_errors": []
   },
   {
@@ -680,7 +749,12 @@
       "print(type(globals()))  # → dict",
       "print('print' in dir(__builtins__))  # → True"
     ],
-    "related": [],
+    "related": [
+      "locals",
+      "локальные-и-глобальные-переменные",
+      "global-nonlocal",
+      "vars"
+    ],
     "related_errors": []
   },
   {
@@ -717,7 +791,11 @@
       "print(hasattr([],'nonexistent'))  # → False",
       "print(hasattr('str','upper'))  # → True"
     ],
-    "related": [],
+    "related": [
+      "getattr",
+      "setattr",
+      "attributeerror"
+    ],
     "related_errors": []
   },
   {
@@ -753,7 +831,12 @@
       "except TypeError as e: print(e)",
       "print(hash(42) == hash(42.0))  # → True (равные объекты)"
     ],
-    "related": [],
+    "related": [
+      "collections.abc.Hashable",
+      "хеш-таблица-dict",
+      "кортеж-как-ключ-словаря",
+      "frozenset"
+    ],
     "related_errors": []
   },
   {
@@ -787,7 +870,10 @@
       "print(len.__doc__[:30])  # → Return the number of items...",
       "import math; help(math.sqrt)  # → sqrt справка"
     ],
-    "related": [],
+    "related": [
+      "dir",
+      "type"
+    ],
     "related_errors": []
   },
   {
@@ -821,7 +907,12 @@
       "print(hex(0))    # → 0x0",
       "print(int(hex(255), 16))  # → 255"
     ],
-    "related": [],
+    "related": [
+      "bin",
+      "oct",
+      "системы-счисления",
+      "int"
+    ],
     "related_errors": []
   },
   {
@@ -858,7 +949,11 @@
       "a = 'hello'; b = 'hello'",
       "print(id(a) == id(b))  # → True (интернирование строк)"
     ],
-    "related": [],
+    "related": [
+      "is-is-not",
+      "hash",
+      "строки-в-памяти-интернирование-неизменяе"
+    ],
     "related_errors": []
   },
   {
@@ -898,7 +993,12 @@
       "print(input())  # → Alice",
       "sys.stdin = sys.__stdin__"
     ],
-    "related": [],
+    "related": [
+      "print",
+      "int",
+      "преобразование-типов",
+      "str.split"
+    ],
     "related_errors": [
       "EOFError"
     ]
@@ -936,7 +1036,12 @@
       "print(issubclass(B, A))  # → True",
       "print(issubclass(A, B))  # → False"
     ],
-    "related": [],
+    "related": [
+      "isinstance",
+      "наследование",
+      "type",
+      "abc.ABC"
+    ],
     "related_errors": []
   },
   {
@@ -975,7 +1080,12 @@
       "print(line.strip())",
       "print(list(iter(range(5))))  # → [0,1,2,3,4]"
     ],
-    "related": [],
+    "related": [
+      "next",
+      "итератор-__iter__-__next__",
+      "stopiteration",
+      "iter-next"
+    ],
     "related_errors": []
   },
   {
@@ -1009,7 +1119,12 @@
       "print(list({'a':1,'b':2}))  # → ['a','b']",
       "print(list(zip([1,2],[3,4])))  # → [(1,3),(2,4)]"
     ],
-    "related": [],
+    "related": [
+      "создание-списка",
+      "tuple",
+      "list.append",
+      "списочные-выражения-list-comprehension"
+    ],
     "related_errors": []
   },
   {
@@ -1048,7 +1163,12 @@
       "print(g(1,2))  # → {'a':1,'b':2,'c':3}",
       "print(type(locals()))  # → dict"
     ],
-    "related": [],
+    "related": [
+      "globals",
+      "vars",
+      "локальные-и-глобальные-переменные",
+      "global-nonlocal"
+    ],
     "related_errors": []
   },
   {
@@ -1123,7 +1243,12 @@
       "print(mv.itemsize)  # → 1",
       "print(len(mv))  # → 11"
     ],
-    "related": [],
+    "related": [
+      "bytearray",
+      "bytes",
+      "buffererror",
+      "collections.abc.Buffer"
+    ],
     "related_errors": []
   },
   {
@@ -1197,7 +1322,11 @@
       "g = (x**2 for x in range(5))",
       "print(next(g), next(g))  # → 0 1"
     ],
-    "related": [],
+    "related": [
+      "iter",
+      "stopiteration",
+      "anext"
+    ],
     "related_errors": []
   },
   {
@@ -1233,7 +1362,12 @@
       "print(A.__bases__)  # → (<class 'object'>,)",
       "print(dir(object())[:2])  # → ['__class__', '__delattr__']"
     ],
-    "related": [],
+    "related": [
+      "class",
+      "наследование",
+      "type",
+      "__str__-__repr__"
+    ],
     "related_errors": []
   },
   {
@@ -1267,7 +1401,12 @@
       "print(oct(-8))   # → -0o10",
       "print(int(oct(8),8))  # → 8"
     ],
-    "related": [],
+    "related": [
+      "bin",
+      "hex",
+      "системы-счисления",
+      "int"
+    ],
     "related_errors": []
   },
   {
@@ -1301,7 +1440,11 @@
       "print(ord('0'))   # → 48",
       "print([ord(c) for c in 'ABC'])  # → [65,66,67]"
     ],
-    "related": [],
+    "related": [
+      "chr",
+      "ascii",
+      "str.isascii"
+    ],
     "related_errors": []
   },
   {
@@ -1341,7 +1484,12 @@
       "import sys; print(\"!\", flush=True, end=\"\", file=sys.stdout)  # → !",
       "import sys; print(\"ошибка\", file=sys.stderr)  # → в поток ошибок"
     ],
-    "related": [],
+    "related": [
+      "input",
+      "sep",
+      "end",
+      "f-строки"
+    ],
     "related_errors": []
   },
   {
@@ -1378,7 +1526,12 @@
       "print(\"в буфер\", file=buf); print(buf.getvalue())  # → в буфер",
       "print(1, 2, 3, sep=\"-\", file=sys.stdout, flush=True)  # → 1-2-3"
     ],
-    "related": [],
+    "related": [
+      "print",
+      "sys.stdin-sys.stdout-sys.stderr",
+      "file-flush",
+      "буферизация"
+    ],
     "related_errors": []
   },
   {
@@ -1412,7 +1565,12 @@
       "print(repr(3.14))     # → '3.14'",
       "print(repr({'a':1}))  # → \"{'a': 1}\""
     ],
-    "related": [],
+    "related": [
+      "repr-vs-str",
+      "__str__-__repr__",
+      "str",
+      "ascii"
+    ],
     "related_errors": []
   },
   {
@@ -1447,7 +1605,12 @@
       "print(str([1, 2]))      # → [1, 2]",
       "print(repr([1, 2]))     # → [1, 2]"
     ],
-    "related": [],
+    "related": [
+      "repr",
+      "__str__-__repr__",
+      "str",
+      "print"
+    ],
     "related_errors": []
   },
   {
@@ -1519,7 +1682,11 @@
       "print(10, 20, 30, sep=\"\\n\")  # каждое число на новой строке",
       "print(*[1, 2, 3, 4], sep=\" | \")  # → 1 | 2 | 3 | 4"
     ],
-    "related": [],
+    "related": [
+      "end",
+      "print",
+      "str.join"
+    ],
     "related_errors": []
   },
   {
@@ -1554,7 +1721,12 @@
       "print(s1-s2)  # → {1} разность",
       "print(s1^s2)  # → {1,4} симм.разность"
     ],
-    "related": [],
+    "related": [
+      "создание-множества",
+      "операции-над-множествами",
+      "frozenset",
+      "set.add"
+    ],
     "related_errors": []
   },
   {
@@ -1593,7 +1765,12 @@
       "a.lst.append(1)",
       "print(a.lst)  # → [1]"
     ],
-    "related": [],
+    "related": [
+      "getattr",
+      "delattr",
+      "hasattr",
+      "vars"
+    ],
     "related_errors": []
   },
   {
@@ -1627,7 +1804,12 @@
       "print(sorted(['b','aaa','cc'],key=len))  # → ['b','cc','aaa']",
       "print(sorted({'c':3,'a':1,'b':2}))  # → ['a','b','c']"
     ],
-    "related": [],
+    "related": [
+      "list.sort",
+      "sorted-с-key",
+      "сортировка-ключом-key-lambda",
+      "reversed"
+    ],
     "related_errors": []
   },
   {
@@ -1700,7 +1882,12 @@
       "print(a,b,c)  # → 1 2 3",
       "print(tuple(zip([1,2],[3,4])))  # → ((1,3),(2,4))"
     ],
-    "related": [],
+    "related": [
+      "создание-кортежа",
+      "list",
+      "неизменяемость-кортежа",
+      "namedtuple"
+    ],
     "related_errors": []
   },
   {
@@ -1737,7 +1924,11 @@
       "print(type(vars()))  # → dict",
       "print('print' in vars(__builtins__) if isinstance(vars(__builtins__),dict) else True)"
     ],
-    "related": [],
+    "related": [
+      "dir",
+      "locals",
+      "getattr"
+    ],
     "related_errors": []
   },
   {
@@ -1773,7 +1964,12 @@
       "x += 5  # x = x + 5 → 15 (составное присваивание)",
       "del x  # удаление переменной"
     ],
-    "related": [],
+    "related": [
+      "операторы-присваивания",
+      "преобразование-типов",
+      "локальные-и-глобальные-переменные",
+      "type"
+    ],
     "related_errors": []
   },
   {
@@ -1808,7 +2004,12 @@
       "print(1.5e3)       # → 1500.0",
       "print(0b1111 == 15 == 0xF)  # → True"
     ],
-    "related": [],
+    "related": [
+      "системы-счисления",
+      "bin",
+      "hex",
+      "int"
+    ],
     "related_errors": []
   },
   {
@@ -1881,7 +2082,12 @@
       "    print(await anext(it))   # → 1",
       "asyncio.run(main())"
     ],
-    "related": [],
+    "related": [
+      "anext",
+      "iter",
+      "async-for-async-with",
+      "collections.abc.AsyncIterator"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1920,7 +2126,12 @@
       "    print(await anext(it, 'конец'))  # → конец",
       "asyncio.run(main())"
     ],
-    "related": [],
+    "related": [
+      "aiter",
+      "next",
+      "stopasynciteration",
+      "async-for-async-with"
+    ],
     "related_errors": [
       "StopAsyncIteration",
       "TypeError"

@@ -43,7 +43,12 @@
       "del lst4",
       "# NameError при обращении к lst4 после del"
     ],
-    "related": [],
+    "related": [
+      "list.pop",
+      "list.remove",
+      "list.clear",
+      "del-для-словаря"
+    ],
     "related_errors": []
   },
   {
@@ -90,7 +95,11 @@
       "print(max_i)",
       "# → (2, 30)"
     ],
-    "related": [],
+    "related": [
+      "enumerate",
+      "zip-со-списками",
+      "range"
+    ],
     "related_errors": []
   },
   {
@@ -130,7 +139,12 @@
       "print(None in [1, None, 3])",
       "# → True"
     ],
-    "related": [],
+    "related": [
+      "in-not-in-для-множеств-o-1",
+      "list.index",
+      "list.count",
+      "in"
+    ],
     "related_errors": []
   },
   {
@@ -168,7 +182,12 @@
       "print(sum(t))",
       "# → 31"
     ],
-    "related": [],
+    "related": [
+      "len",
+      "sum",
+      "min",
+      "max"
+    ],
     "related_errors": []
   },
   {
@@ -210,7 +229,11 @@
       "print(dict(zip(keys, vals)))",
       "# → {'a': 1, 'b': 2, 'c': 3}"
     ],
-    "related": [],
+    "related": [
+      "zip",
+      "zip-со-списками",
+      "распаковка-кортежа"
+    ],
     "related_errors": []
   },
   {
@@ -257,7 +280,12 @@
       "print(transposed)",
       "# → [(1, 4), (2, 5), (3, 6)]"
     ],
-    "related": [],
+    "related": [
+      "zip",
+      "enumerate-со-списком",
+      "zip-strict-true",
+      "itertools.zip_longest"
+    ],
     "related_errors": []
   },
   {
@@ -308,7 +336,12 @@
       "print(diag)",
       "# → [1, 5, 9]"
     ],
-    "related": [],
+    "related": [
+      "вложенный-list-comprehension",
+      "объединение-повторение-списков",
+      "zip-со-списками",
+      "вложенные-циклы"
+    ],
     "related_errors": []
   },
   {
@@ -346,7 +379,12 @@
       "sq = [[i*j for j in range(1,4)] for i in range(1,4)]",
       "print(sq[0])  # → [1, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "списочные-выражения-list-comprehension",
+      "вложенные-списки-матрицы",
+      "вложенные-циклы",
+      "условный-list-comprehension"
+    ],
     "related_errors": []
   },
   {
@@ -388,7 +426,11 @@
       "print(t[2:4])",
       "# → (30, 40)"
     ],
-    "related": [],
+    "related": [
+      "индексирование-списка",
+      "срезы-списка",
+      "неизменяемость-кортежа"
+    ],
     "related_errors": []
   },
   {
@@ -432,7 +474,12 @@
       "print(lst)",
       "# → [10, 99, 30, 40, 0]"
     ],
-    "related": [],
+    "related": [
+      "срезы-списка",
+      "indexerror",
+      "list.index",
+      "индексирование-строк"
+    ],
     "related_errors": []
   },
   {
@@ -484,7 +531,11 @@
       "print(a, b, c)",
       "# → 5 10 15"
     ],
-    "related": [],
+    "related": [
+      "распаковка-кортежа",
+      "return",
+      "создание-кортежа"
+    ],
     "related_errors": []
   },
   {
@@ -535,7 +586,11 @@
       "print(hash((1, 2, 3)))",
       "# → число (хэш кортежа)"
     ],
-    "related": [],
+    "related": [
+      "неизменяемость-кортежа",
+      "hash",
+      "frozenset-неизменяемое-множество"
+    ],
     "related_errors": []
   },
   {
@@ -584,7 +639,11 @@
       "print(f'{c.rank} of {c.suit}')",
       "# → 'A of spades'"
     ],
-    "related": [],
+    "related": [
+      "collections.namedtuple",
+      "dataclass",
+      "typeddict"
+    ],
     "related_errors": []
   },
   {
@@ -636,7 +695,11 @@
       "print(e)",
       "# → 'tuple' object doesn't support item deletion"
     ],
-    "related": [],
+    "related": [
+      "кортеж-как-ключ-словаря",
+      "typeerror",
+      "frozenset-неизменяемое-множество"
+    ],
     "related_errors": []
   },
   {
@@ -677,7 +740,11 @@
       "print(trap)",
       "# → [[1], [1], [1]] (одна ссылка!)"
     ],
-    "related": [],
+    "related": [
+      "list.extend",
+      "вложенные-списки-матрицы",
+      "конкатенация-строк"
+    ],
     "related_errors": []
   },
   {
@@ -733,7 +800,11 @@
       "print(a + b)",
       "# → 3 / 7"
     ],
-    "related": [],
+    "related": [
+      "распаковка-в-for",
+      "распаковка-списка",
+      "кортеж-в-return-функции"
+    ],
     "related_errors": []
   },
   {
@@ -782,7 +853,11 @@
       "print(func(*nums))",
       "# → 6"
     ],
-    "related": [],
+    "related": [
+      "распаковка-кортежа",
+      "распаковка-в-for",
+      "args"
+    ],
     "related_errors": []
   },
   {
@@ -825,7 +900,11 @@
       "print(type((1)))",
       "# → <class 'int'> (без запятой — не кортеж!)"
     ],
-    "related": [],
+    "related": [
+      "tuple",
+      "неизменяемость-кортежа",
+      "создание-списка"
+    ],
     "related_errors": []
   },
   {
@@ -868,7 +947,12 @@
       "g = [0] * 5",
       "# → [0, 0, 0, 0, 0]"
     ],
-    "related": [],
+    "related": [
+      "list",
+      "списочные-выражения-list-comprehension",
+      "создание-кортежа",
+      "создание-множества"
+    ],
     "related_errors": []
   },
   {
@@ -918,7 +1002,12 @@
       "print(sorted(data, key=itemgetter('name')))",
       "# → [{'name': 'a', 'val': 3}, {'name': 'b', 'val': 2}]"
     ],
-    "related": [],
+    "related": [
+      "sorted-с-key",
+      "list.sort",
+      "lambda",
+      "operator.itemgetter"
+    ],
     "related_errors": []
   },
   {
@@ -972,7 +1061,12 @@
       "print(nested)",
       "# → [[1, 2, 3], [2, 4, 6], [3, 6, 9]]"
     ],
-    "related": [],
+    "related": [
+      "условный-list-comprehension",
+      "вложенный-list-comprehension",
+      "генераторное-выражение",
+      "словарные-выражения-dict-comprehension"
+    ],
     "related_errors": []
   },
   {
@@ -1007,7 +1101,12 @@
       "print(lst[6:0:-2])  # → [6, 4, 2]",
       "print(lst[:4:1])    # → [0, 1, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "срезы-списка",
+      "reversed",
+      "list.reverse",
+      "срезы-строк"
+    ],
     "related_errors": []
   },
   {
@@ -1053,7 +1152,12 @@
       "print(lst)",
       "# → [0, 10, 20, 30, 4, 5]"
     ],
-    "related": [],
+    "related": [
+      "срезы-с-шагом-2-1",
+      "индексирование-списка",
+      "list.copy",
+      "срезы-строк"
+    ],
     "related_errors": []
   },
   {
@@ -1088,7 +1192,11 @@
       "print([w for w in words if len(w) > 3])     # → ['apple', 'banana']",
       "print([x if x > 0 else 0 for x in lst])    # → [1, 0, 3, 0, 5]  (тернарный)"
     ],
-    "related": [],
+    "related": [
+      "списочные-выражения-list-comprehension",
+      "тернарный-оператор",
+      "filter"
+    ],
     "related_errors": []
   },
   {
@@ -1122,7 +1230,11 @@
       "lst.append([4, 5])",
       "print(lst)          # → [1, 2, 3, [4, 5]]"
     ],
-    "related": [],
+    "related": [
+      "list.extend",
+      "list.insert",
+      "list.pop"
+    ],
     "related_errors": []
   },
   {
@@ -1155,7 +1267,11 @@
       "print(lst)        # → []",
       "print(len(lst))   # → 0"
     ],
-    "related": [],
+    "related": [
+      "del-для-списка",
+      "dict.clear",
+      "set.clear"
+    ],
     "related_errors": []
   },
   {
@@ -1187,7 +1303,12 @@
       "print(nums.count(2))   # → 3",
       "print(nums.count(9))   # → 0"
     ],
-    "related": [],
+    "related": [
+      "list.index",
+      "in-not-in-для-списков",
+      "counter",
+      "str.count"
+    ],
     "related_errors": []
   },
   {
@@ -1221,7 +1342,12 @@
       "print(a)   # → [1, 2, 3]",
       "print(b)   # → [1, 2, 3, 4]"
     ],
-    "related": [],
+    "related": [
+      "copy.deepcopy",
+      "copy.copy",
+      "срезы-списка",
+      "ловушки-копирования"
+    ],
     "related_errors": []
   },
   {
@@ -1255,7 +1381,11 @@
       "lst.extend('ab')",
       "print(lst)          # → [1, 2, 3, 4, 'a', 'b']"
     ],
-    "related": [],
+    "related": [
+      "list.append",
+      "объединение-повторение-списков",
+      "list.insert"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1289,7 +1419,12 @@
       "print(letters.index('b'))      # → 1",
       "print(letters.index('b', 2))   # → 3"
     ],
-    "related": [],
+    "related": [
+      "list.count",
+      "valueerror",
+      "in-not-in-для-списков",
+      "str.index"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -1325,7 +1460,11 @@
       "lst.insert(0, 'start')",
       "print(lst)   # → ['start', 1, 99, 2, 3]"
     ],
-    "related": [],
+    "related": [
+      "list.append",
+      "list.pop",
+      "list.extend"
+    ],
     "related_errors": []
   },
   {
@@ -1358,7 +1497,12 @@
       "print(lst.pop(0))   # → 1",
       "print(lst)          # → [2]"
     ],
-    "related": [],
+    "related": [
+      "list.remove",
+      "del-для-списка",
+      "indexerror",
+      "list.append"
+    ],
     "related_errors": [
       "IndexError"
     ]
@@ -1394,7 +1538,12 @@
       "lst.remove(2)",
       "print(lst)   # → [1, 3]"
     ],
-    "related": [],
+    "related": [
+      "list.pop",
+      "del-для-списка",
+      "list.index",
+      "valueerror"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -1431,7 +1580,12 @@
       "chars.reverse()",
       "print(chars)   # → ['c', 'b', 'a']"
     ],
-    "related": [],
+    "related": [
+      "reversed",
+      "срезы-с-шагом-2-1",
+      "list.sort",
+      "for-...-in-reversed"
+    ],
     "related_errors": []
   },
   {
@@ -1468,7 +1622,11 @@
       "words.sort(key=len)",
       "print(words)            # → ['a', 'bb', 'ccc']"
     ],
-    "related": [],
+    "related": [
+      "sorted",
+      "сортировка-ключом-key-lambda",
+      "list.reverse"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1502,7 +1660,11 @@
       "print(t.count(2))   # → 3",
       "print(t.count(9))   # → 0"
     ],
-    "related": [],
+    "related": [
+      "tuple.index",
+      "list.count",
+      "in"
+    ],
     "related_errors": []
   },
   {
@@ -1534,7 +1696,11 @@
       "print(t.index(20))      # → 1",
       "print(t.index(20, 2))   # → 3"
     ],
-    "related": [],
+    "related": [
+      "tuple.count",
+      "list.index",
+      "valueerror"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -1566,7 +1732,11 @@
     "examples": [
       "print(b'hello'.capitalize())   # → b'Hello'"
     ],
-    "related": [],
+    "related": [
+      "bytes.title",
+      "bytes.lower",
+      "str.capitalize"
+    ],
     "related_errors": []
   },
   {
@@ -1596,7 +1766,11 @@
     "examples": [
       "print(b'ABC'.lower())   # → b'abc'"
     ],
-    "related": [],
+    "related": [
+      "bytes.upper",
+      "bytes.islower",
+      "str.lower"
+    ],
     "related_errors": []
   },
   {
@@ -1626,7 +1800,11 @@
     "examples": [
       "print(b'abc'.upper())   # → b'ABC'"
     ],
-    "related": [],
+    "related": [
+      "bytes.lower",
+      "bytes.isupper",
+      "str.upper"
+    ],
     "related_errors": []
   },
   {
@@ -1656,7 +1834,11 @@
     "examples": [
       "print(b'hello world'.title())   # → b'Hello World'"
     ],
-    "related": [],
+    "related": [
+      "bytes.istitle",
+      "bytes.capitalize",
+      "str.title"
+    ],
     "related_errors": []
   },
   {
@@ -1686,7 +1868,11 @@
     "examples": [
       "print(b'AbC'.swapcase())   # → b'aBc'"
     ],
-    "related": [],
+    "related": [
+      "bytes.upper",
+      "bytes.lower",
+      "str.swapcase"
+    ],
     "related_errors": []
   },
   {
@@ -1716,7 +1902,12 @@
     "examples": [
       "print(b'hi'.center(6, b'*'))   # → b'**hi**'"
     ],
-    "related": [],
+    "related": [
+      "bytes.ljust",
+      "bytes.rjust",
+      "bytes.zfill",
+      "str.center"
+    ],
     "related_errors": []
   },
   {
@@ -1746,7 +1937,12 @@
     "examples": [
       "print(b'hi'.ljust(5, b'.'))   # → b'hi...'"
     ],
-    "related": [],
+    "related": [
+      "bytes.rjust",
+      "bytes.center",
+      "bytes.zfill",
+      "str.ljust"
+    ],
     "related_errors": []
   },
   {
@@ -1776,7 +1972,12 @@
     "examples": [
       "print(b'hi'.rjust(5, b'.'))   # → b'...hi'"
     ],
-    "related": [],
+    "related": [
+      "bytes.ljust",
+      "bytes.zfill",
+      "bytes.center",
+      "str.rjust"
+    ],
     "related_errors": []
   },
   {
@@ -1806,7 +2007,11 @@
     "examples": [
       "print(b'42'.zfill(5))   # → b'00042'"
     ],
-    "related": [],
+    "related": [
+      "bytes.rjust",
+      "bytes.center",
+      "str.zfill"
+    ],
     "related_errors": []
   },
   {
@@ -1836,7 +2041,11 @@
     "examples": [
       "print(b'a\\tb'.expandtabs(4))   # → b'a   b'"
     ],
-    "related": [],
+    "related": [
+      "str.expandtabs",
+      "bytes.replace",
+      "bytes.ljust"
+    ],
     "related_errors": []
   },
   {
@@ -1866,7 +2075,11 @@
     "examples": [
       "print(b'banana'.count(b'a'))   # → 3"
     ],
-    "related": [],
+    "related": [
+      "bytes.find",
+      "str.count",
+      "bytes.replace"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1898,7 +2111,12 @@
     "examples": [
       "print(b'banana'.find(b'na'))   # → 2"
     ],
-    "related": [],
+    "related": [
+      "bytes.index",
+      "bytes.rfind",
+      "bytes.startswith",
+      "str.find"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1930,7 +2148,11 @@
     "examples": [
       "print(b'banana'.rfind(b'na'))   # → 4"
     ],
-    "related": [],
+    "related": [
+      "bytes.find",
+      "bytes.rindex",
+      "str.rfind"
+    ],
     "related_errors": []
   },
   {
@@ -1960,7 +2182,11 @@
     "examples": [
       "print(b'banana'.index(b'na'))   # → 2"
     ],
-    "related": [],
+    "related": [
+      "bytes.find",
+      "bytes.rindex",
+      "str.index"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -1992,7 +2218,11 @@
     "examples": [
       "print(b'banana'.rindex(b'na'))   # → 4"
     ],
-    "related": [],
+    "related": [
+      "bytes.rfind",
+      "bytes.index",
+      "str.rindex"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -2024,7 +2254,12 @@
     "examples": [
       "print(b'hello'.startswith(b'he'))   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes.endswith",
+      "bytes.removeprefix",
+      "bytes.find",
+      "str.startswith"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -2056,7 +2291,12 @@
     "examples": [
       "print(b'hello'.endswith(b'lo'))   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes.startswith",
+      "bytes.removesuffix",
+      "bytes.rfind",
+      "str.endswith"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -2088,7 +2328,11 @@
     "examples": [
       "print(b'-'.join([b'a', b'b', b'c']))   # → b'a-b-c'"
     ],
-    "related": [],
+    "related": [
+      "bytes.split",
+      "str.join",
+      "bytearray.join"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -2120,7 +2364,12 @@
     "examples": [
       "print(b'a b c'.split())   # → [b'a', b'b', b'c']"
     ],
-    "related": [],
+    "related": [
+      "bytes.rsplit",
+      "bytes.join",
+      "bytes.splitlines",
+      "str.split"
+    ],
     "related_errors": [
       "TypeError",
       "ValueError"
@@ -2153,7 +2402,11 @@
     "examples": [
       "print(b'a b c'.rsplit(None, 1))   # → [b'a b', b'c']"
     ],
-    "related": [],
+    "related": [
+      "bytes.split",
+      "bytes.rpartition",
+      "str.rsplit"
+    ],
     "related_errors": []
   },
   {
@@ -2183,7 +2436,11 @@
     "examples": [
       "print(b'a=b=c'.partition(b'='))   # → (b'a', b'=', b'b=c')"
     ],
-    "related": [],
+    "related": [
+      "bytes.rpartition",
+      "bytes.split",
+      "str.partition"
+    ],
     "related_errors": []
   },
   {
@@ -2213,7 +2470,11 @@
     "examples": [
       "print(b'a=b=c'.rpartition(b'='))   # → (b'a=b', b'=', b'c')"
     ],
-    "related": [],
+    "related": [
+      "bytes.partition",
+      "bytes.rsplit",
+      "str.rpartition"
+    ],
     "related_errors": []
   },
   {
@@ -2243,7 +2504,11 @@
     "examples": [
       "print(b'a\\nb'.splitlines())   # → [b'a', b'b']"
     ],
-    "related": [],
+    "related": [
+      "bytes.split",
+      "str.splitlines",
+      "bytes.join"
+    ],
     "related_errors": []
   },
   {
@@ -2273,7 +2538,11 @@
     "examples": [
       "print(b'  hi  '.strip())   # → b'hi'"
     ],
-    "related": [],
+    "related": [
+      "bytes.lstrip",
+      "bytes.rstrip",
+      "str.strip"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -2305,7 +2574,12 @@
     "examples": [
       "print(b'  hi'.lstrip())   # → b'hi'"
     ],
-    "related": [],
+    "related": [
+      "bytes.rstrip",
+      "bytes.strip",
+      "bytes.removeprefix",
+      "str.lstrip"
+    ],
     "related_errors": []
   },
   {
@@ -2335,7 +2609,12 @@
     "examples": [
       "print(b'hi  '.rstrip())   # → b'hi'"
     ],
-    "related": [],
+    "related": [
+      "bytes.lstrip",
+      "bytes.strip",
+      "bytes.removesuffix",
+      "str.rstrip"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -2367,7 +2646,12 @@
     "examples": [
       "print(b'foobar'.removeprefix(b'foo'))   # → b'bar'"
     ],
-    "related": [],
+    "related": [
+      "bytes.removesuffix",
+      "bytes.lstrip",
+      "bytes.startswith",
+      "str.removeprefix"
+    ],
     "related_errors": []
   },
   {
@@ -2397,7 +2681,12 @@
     "examples": [
       "print(b'foobar'.removesuffix(b'bar'))   # → b'foo'"
     ],
-    "related": [],
+    "related": [
+      "bytes.removeprefix",
+      "bytes.rstrip",
+      "bytes.endswith",
+      "str.removesuffix"
+    ],
     "related_errors": []
   },
   {
@@ -2427,7 +2716,11 @@
     "examples": [
       "print(b'aaa'.replace(b'a', b'b'))   # → b'bbb'"
     ],
-    "related": [],
+    "related": [
+      "bytes.translate",
+      "str.replace",
+      "bytes.removeprefix"
+    ],
     "related_errors": []
   },
   {
@@ -2457,7 +2750,11 @@
     "examples": [
       "print(b'abc'.translate(bytes.maketrans(b'a', b'X')))   # → b'Xbc'"
     ],
-    "related": [],
+    "related": [
+      "bytes.maketrans",
+      "bytes.replace",
+      "str.translate"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -2490,7 +2787,11 @@
     "examples": [
       "print(len(bytes.maketrans(b'ab', b'AB')))   # → 256"
     ],
-    "related": [],
+    "related": [
+      "bytes.translate",
+      "str.maketrans",
+      "bytes.replace"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -2522,7 +2823,12 @@
     "examples": [
       "print(b'hi'.decode())   # → hi"
     ],
-    "related": [],
+    "related": [
+      "str.encode",
+      "unicodedecodeerror",
+      "bytes",
+      "b-...-байт-строки"
+    ],
     "related_errors": [
       "UnicodeDecodeError"
     ]
@@ -2554,7 +2860,11 @@
     "examples": [
       "print(b'abc'.hex())   # → 616263"
     ],
-    "related": [],
+    "related": [
+      "bytes.fromhex",
+      "hex",
+      "bytes.decode"
+    ],
     "related_errors": []
   },
   {
@@ -2584,7 +2894,11 @@
     "examples": [
       "print(bytes.fromhex('48656c6c6f'))   # → b'Hello'"
     ],
-    "related": [],
+    "related": [
+      "bytes.hex",
+      "bytes",
+      "int.from_bytes"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -2616,7 +2930,12 @@
     "examples": [
       "print(b'abc123'.isalnum())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes.isalpha",
+      "bytes.isdigit",
+      "bytes.isascii",
+      "str.isalnum"
+    ],
     "related_errors": []
   },
   {
@@ -2646,7 +2965,12 @@
     "examples": [
       "print(b'abc'.isalpha())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes.isalnum",
+      "bytes.isdigit",
+      "bytes.isascii",
+      "str.isalpha"
+    ],
     "related_errors": []
   },
   {
@@ -2676,7 +3000,11 @@
     "examples": [
       "print(b'abc'.isascii())   # → True"
     ],
-    "related": [],
+    "related": [
+      "str.isascii",
+      "bytearray.isascii",
+      "bytes.decode"
+    ],
     "related_errors": []
   },
   {
@@ -2706,7 +3034,11 @@
     "examples": [
       "print(b'123'.isdigit())   # → True"
     ],
-    "related": [],
+    "related": [
+      "str.isdigit",
+      "bytes.isalnum",
+      "bytearray.isdigit"
+    ],
     "related_errors": []
   },
   {
@@ -2736,7 +3068,11 @@
     "examples": [
       "print(b'abc'.islower())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes.isupper",
+      "bytes.lower",
+      "str.islower"
+    ],
     "related_errors": []
   },
   {
@@ -2766,7 +3102,11 @@
     "examples": [
       "print(b'   '.isspace())   # → True"
     ],
-    "related": [],
+    "related": [
+      "str.isspace",
+      "bytes.strip",
+      "bytes.split"
+    ],
     "related_errors": []
   },
   {
@@ -2796,7 +3136,11 @@
     "examples": [
       "print(b'Hello World'.istitle())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes.title",
+      "str.istitle",
+      "bytes.isupper"
+    ],
     "related_errors": []
   },
   {
@@ -2826,7 +3170,11 @@
     "examples": [
       "print(b'ABC'.isupper())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes.islower",
+      "bytes.upper",
+      "str.isupper"
+    ],
     "related_errors": []
   },
   {
@@ -2856,7 +3204,11 @@
     "examples": [
       "print(bytearray(b'hello').capitalize())   # → bytearray(b'Hello')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.title",
+      "bytearray.lower",
+      "bytes.capitalize"
+    ],
     "related_errors": []
   },
   {
@@ -2886,7 +3238,11 @@
     "examples": [
       "print(bytearray(b'ABC').lower())   # → bytearray(b'abc')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.upper",
+      "bytearray.islower",
+      "bytes.lower"
+    ],
     "related_errors": []
   },
   {
@@ -2916,7 +3272,11 @@
     "examples": [
       "print(bytearray(b'abc').upper())   # → bytearray(b'ABC')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.lower",
+      "bytearray.isupper",
+      "bytes.upper"
+    ],
     "related_errors": []
   },
   {
@@ -2946,7 +3306,11 @@
     "examples": [
       "print(bytearray(b'hi there').title())   # → bytearray(b'Hi There')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.istitle",
+      "bytearray.capitalize",
+      "bytes.title"
+    ],
     "related_errors": []
   },
   {
@@ -2976,7 +3340,11 @@
     "examples": [
       "print(bytearray(b'AbC').swapcase())   # → bytearray(b'aBc')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.upper",
+      "bytearray.lower",
+      "bytes.swapcase"
+    ],
     "related_errors": []
   },
   {
@@ -3006,7 +3374,11 @@
     "examples": [
       "print(bytearray(b'hi').center(6, b'*'))   # → bytearray(b'**hi**')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.ljust",
+      "bytearray.rjust",
+      "bytes.center"
+    ],
     "related_errors": []
   },
   {
@@ -3036,7 +3408,12 @@
     "examples": [
       "print(bytearray(b'hi').ljust(5, b'.'))   # → bytearray(b'hi...')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.rjust",
+      "bytearray.center",
+      "bytes.ljust",
+      "bytearray.zfill"
+    ],
     "related_errors": []
   },
   {
@@ -3066,7 +3443,12 @@
     "examples": [
       "print(bytearray(b'hi').rjust(5, b'.'))   # → bytearray(b'...hi')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.ljust",
+      "bytearray.zfill",
+      "bytearray.center",
+      "bytes.rjust"
+    ],
     "related_errors": []
   },
   {
@@ -3096,7 +3478,11 @@
     "examples": [
       "print(bytearray(b'42').zfill(5))   # → bytearray(b'00042')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.rjust",
+      "bytes.zfill",
+      "bytearray.center"
+    ],
     "related_errors": []
   },
   {
@@ -3126,7 +3512,11 @@
     "examples": [
       "print(bytearray(b'a\\tb').expandtabs(4))   # → bytearray(b'a   b')"
     ],
-    "related": [],
+    "related": [
+      "bytes.expandtabs",
+      "str.expandtabs",
+      "bytearray.replace"
+    ],
     "related_errors": []
   },
   {
@@ -3156,7 +3546,11 @@
     "examples": [
       "print(bytearray(b'banana').count(b'a'))   # → 3"
     ],
-    "related": [],
+    "related": [
+      "bytearray.find",
+      "bytes.count",
+      "bytearray.index"
+    ],
     "related_errors": []
   },
   {
@@ -3186,7 +3580,11 @@
     "examples": [
       "print(bytearray(b'banana').find(b'na'))   # → 2"
     ],
-    "related": [],
+    "related": [
+      "bytearray.index",
+      "bytearray.rfind",
+      "bytes.find"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -3218,7 +3616,11 @@
     "examples": [
       "print(bytearray(b'banana').rfind(b'na'))   # → 4"
     ],
-    "related": [],
+    "related": [
+      "bytearray.find",
+      "bytearray.rindex",
+      "bytes.rfind"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -3250,7 +3652,11 @@
     "examples": [
       "print(bytearray(b'banana').index(b'na'))   # → 2"
     ],
-    "related": [],
+    "related": [
+      "bytearray.find",
+      "bytearray.rindex",
+      "bytes.index"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -3283,7 +3689,11 @@
     "examples": [
       "print(bytearray(b'banana').rindex(b'na'))   # → 4"
     ],
-    "related": [],
+    "related": [
+      "bytearray.rfind",
+      "bytearray.index",
+      "bytes.rindex"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -3316,7 +3726,11 @@
     "examples": [
       "print(bytearray(b'hello').startswith(b'he'))   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytearray.endswith",
+      "bytearray.removeprefix",
+      "bytes.startswith"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -3348,7 +3762,11 @@
     "examples": [
       "print(bytearray(b'hello').endswith(b'lo'))   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytearray.startswith",
+      "bytearray.removesuffix",
+      "bytes.endswith"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -3380,7 +3798,11 @@
     "examples": [
       "print(bytearray(b'-').join([b'a', b'b']))   # → bytearray(b'a-b')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.split",
+      "bytes.join",
+      "str.join"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -3412,7 +3834,12 @@
     "examples": [
       "print(bytearray(b'a b').split())   # → [bytearray(b'a'), bytearray(b'b')]"
     ],
-    "related": [],
+    "related": [
+      "bytearray.rsplit",
+      "bytearray.join",
+      "bytearray.splitlines",
+      "bytes.split"
+    ],
     "related_errors": []
   },
   {
@@ -3442,7 +3869,11 @@
     "examples": [
       "print(bytearray(b'a b c').rsplit(None, 1))   # → [bytearray(b'a b'), bytearray(b'c')]"
     ],
-    "related": [],
+    "related": [
+      "bytearray.split",
+      "bytearray.rpartition",
+      "bytes.rsplit"
+    ],
     "related_errors": []
   },
   {
@@ -3472,7 +3903,11 @@
     "examples": [
       "print(bytearray(b'a=b').partition(b'='))   # → (bytearray(b'a'), bytearray(b'='), bytearray(b'b'))"
     ],
-    "related": [],
+    "related": [
+      "bytearray.rpartition",
+      "bytearray.split",
+      "bytes.partition"
+    ],
     "related_errors": [
       "TypeError",
       "ValueError"
@@ -3505,7 +3940,11 @@
     "examples": [
       "print(bytearray(b'a=b=c').rpartition(b'='))   # → (bytearray(b'a=b'), bytearray(b'='), bytearray(b'c'))"
     ],
-    "related": [],
+    "related": [
+      "bytearray.partition",
+      "bytearray.rsplit",
+      "bytes.rpartition"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -3537,7 +3976,11 @@
     "examples": [
       "print(bytearray(b'a\\nb').splitlines())   # → [bytearray(b'a'), bytearray(b'b')]"
     ],
-    "related": [],
+    "related": [
+      "bytearray.split",
+      "bytes.splitlines",
+      "bytearray.join"
+    ],
     "related_errors": []
   },
   {
@@ -3567,7 +4010,11 @@
     "examples": [
       "print(bytearray(b'  hi  ').strip())   # → bytearray(b'hi')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.lstrip",
+      "bytearray.rstrip",
+      "bytes.strip"
+    ],
     "related_errors": []
   },
   {
@@ -3597,7 +4044,12 @@
     "examples": [
       "print(bytearray(b'  hi').lstrip())   # → bytearray(b'hi')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.rstrip",
+      "bytearray.strip",
+      "bytearray.removeprefix",
+      "bytes.lstrip"
+    ],
     "related_errors": []
   },
   {
@@ -3627,7 +4079,12 @@
     "examples": [
       "print(bytearray(b'hi  ').rstrip())   # → bytearray(b'hi')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.lstrip",
+      "bytearray.strip",
+      "bytearray.removesuffix",
+      "bytes.rstrip"
+    ],
     "related_errors": []
   },
   {
@@ -3657,7 +4114,12 @@
     "examples": [
       "print(bytearray(b'foobar').removeprefix(b'foo'))   # → bytearray(b'bar')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.removesuffix",
+      "bytearray.lstrip",
+      "bytes.removeprefix",
+      "bytearray.startswith"
+    ],
     "related_errors": []
   },
   {
@@ -3687,7 +4149,12 @@
     "examples": [
       "print(bytearray(b'foobar').removesuffix(b'bar'))   # → bytearray(b'foo')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.removeprefix",
+      "bytearray.rstrip",
+      "bytes.removesuffix",
+      "bytearray.endswith"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -3719,7 +4186,11 @@
     "examples": [
       "print(bytearray(b'aaa').replace(b'a', b'b'))   # → bytearray(b'bbb')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.translate",
+      "bytes.replace",
+      "str.replace"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -3751,7 +4222,11 @@
     "examples": [
       "print(bytearray(b'abc').translate(bytes.maketrans(b'a', b'X')))   # → bytearray(b'Xbc')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.maketrans",
+      "bytearray.replace",
+      "bytes.translate"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -3783,7 +4258,11 @@
     "examples": [
       "print(len(bytearray.maketrans(b'ab', b'AB')))   # → 256"
     ],
-    "related": [],
+    "related": [
+      "bytearray.translate",
+      "bytes.maketrans",
+      "str.maketrans"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -3816,7 +4295,12 @@
     "examples": [
       "print(bytearray(b'hi').decode())   # → hi"
     ],
-    "related": [],
+    "related": [
+      "str.encode",
+      "bytes.decode",
+      "bytearray.hex",
+      "unicodedecodeerror"
+    ],
     "related_errors": [
       "UnicodeDecodeError"
     ]
@@ -3848,7 +4332,11 @@
     "examples": [
       "print(bytearray(b'abc').hex())   # → 616263"
     ],
-    "related": [],
+    "related": [
+      "bytearray.fromhex",
+      "bytes.hex",
+      "bytearray.decode"
+    ],
     "related_errors": []
   },
   {
@@ -3878,7 +4366,11 @@
     "examples": [
       "print(bytearray.fromhex('616263'))   # → bytearray(b'abc')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.hex",
+      "bytes.fromhex",
+      "int.from_bytes"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -3910,7 +4402,11 @@
     "examples": [
       "print(bytearray(b'abc123').isalnum())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytearray.isalpha",
+      "bytearray.isdigit",
+      "bytes.isalnum"
+    ],
     "related_errors": []
   },
   {
@@ -3940,7 +4436,11 @@
     "examples": [
       "print(bytearray(b'abc').isalpha())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytearray.isalnum",
+      "bytearray.isdigit",
+      "bytes.isalpha"
+    ],
     "related_errors": []
   },
   {
@@ -3970,7 +4470,11 @@
     "examples": [
       "print(bytearray(b'abc').isascii())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes.isascii",
+      "bytearray.decode",
+      "bytearray.isalnum"
+    ],
     "related_errors": []
   },
   {
@@ -4000,7 +4504,11 @@
     "examples": [
       "print(bytearray(b'123').isdigit())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytearray.isalnum",
+      "bytearray.isalpha",
+      "bytes.isdigit"
+    ],
     "related_errors": []
   },
   {
@@ -4030,7 +4538,11 @@
     "examples": [
       "print(bytearray(b'abc').islower())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytearray.isupper",
+      "bytearray.lower",
+      "bytes.islower"
+    ],
     "related_errors": []
   },
   {
@@ -4060,7 +4572,11 @@
     "examples": [
       "print(bytearray(b'   ').isspace())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes.isspace",
+      "bytearray.strip",
+      "bytearray.isalnum"
+    ],
     "related_errors": []
   },
   {
@@ -4090,7 +4606,11 @@
     "examples": [
       "print(bytearray(b'Hi There').istitle())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytearray.title",
+      "bytearray.isupper",
+      "bytes.istitle"
+    ],
     "related_errors": []
   },
   {
@@ -4120,7 +4640,11 @@
     "examples": [
       "print(bytearray(b'ABC').isupper())   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytearray.islower",
+      "bytearray.upper",
+      "bytes.isupper"
+    ],
     "related_errors": []
   },
   {
@@ -4152,7 +4676,11 @@
       "ba.append(99)",
       "print(ba)   # → bytearray(b'abc')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.extend",
+      "bytearray.insert",
+      "list.append"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -4187,7 +4715,11 @@
       "ba.extend(b'cd')",
       "print(ba)   # → bytearray(b'abcd')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.append",
+      "list.extend",
+      "bytearray.insert"
+    ],
     "related_errors": [
       "TypeError",
       "ValueError"
@@ -4222,7 +4754,11 @@
       "ba.insert(1, 98)",
       "print(ba)   # → bytearray(b'abc')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.append",
+      "list.insert",
+      "bytearray.pop"
+    ],
     "related_errors": [
       "ValueError",
       "TypeError"
@@ -4256,7 +4792,11 @@
       "ba = bytearray(b'abc')",
       "print(ba.pop())   # → 99"
     ],
-    "related": [],
+    "related": [
+      "bytearray.remove",
+      "list.pop",
+      "bytearray.append"
+    ],
     "related_errors": [
       "IndexError"
     ]
@@ -4290,7 +4830,12 @@
       "ba.remove(98)",
       "print(ba)   # → bytearray(b'ac')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.pop",
+      "list.remove",
+      "bytearray.index",
+      "valueerror"
+    ],
     "related_errors": [
       "ValueError"
     ]
@@ -4324,7 +4869,11 @@
       "ba.reverse()",
       "print(ba)   # → bytearray(b'cba')"
     ],
-    "related": [],
+    "related": [
+      "list.reverse",
+      "reversed",
+      "срезы-с-шагом-2-1"
+    ],
     "related_errors": []
   },
   {
@@ -4356,7 +4905,11 @@
       "ba.clear()",
       "print(ba)   # → bytearray(b'')"
     ],
-    "related": [],
+    "related": [
+      "bytearray.pop",
+      "bytearray.remove",
+      "list.clear"
+    ],
     "related_errors": []
   },
   {
@@ -4386,7 +4939,11 @@
     "examples": [
       "print(bytearray(b'abc').copy())   # → bytearray(b'abc')"
     ],
-    "related": [],
+    "related": [
+      "list.copy",
+      "bytearray",
+      "copy.copy"
+    ],
     "related_errors": []
   }
 ]

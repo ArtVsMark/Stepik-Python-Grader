@@ -107,7 +107,12 @@
       "c += 3",
       "print(c)  # → Counter(8)"
     ],
-    "related": [],
+    "related": [
+      "functools.total_ordering",
+      "dataclass-order-true",
+      "операторы-сравнения",
+      "__str__-__repr__"
+    ],
     "related_errors": []
   },
   {
@@ -204,7 +209,11 @@
       "with A() as a, B() as b:",
       "print('inside')  # → A enter / B enter / inside / B exit / A exit"
     ],
-    "related": [],
+    "related": [
+      "contextlib.contextmanager",
+      "open",
+      "contextlib.exitstack"
+    ],
     "related_errors": []
   },
   {
@@ -282,7 +291,12 @@
       "cfg = Config(debug=True, level=2)",
       "print(cfg.debug, cfg.level)  # → True 2"
     ],
-    "related": [],
+    "related": [
+      "self",
+      "super",
+      "class",
+      "dataclass"
+    ],
     "related_errors": []
   },
   {
@@ -382,7 +396,12 @@
       "return i",
       "print(list(Range(5)))  # → [0,1,2,3,4]"
     ],
-    "related": [],
+    "related": [
+      "len",
+      "итератор-__iter__-__next__",
+      "collections.abc.Sequence",
+      "slice"
+    ],
     "related_errors": []
   },
   {
@@ -451,7 +470,11 @@
       "# self.y = y  # → AttributeError",
       "print(Mixed(1,2).x)  # → 1"
     ],
-    "related": [],
+    "related": [
+      "атрибуты-экземпляра-и-класса",
+      "dataclass",
+      "sys.getsizeof"
+    ],
     "related_errors": []
   },
   {
@@ -525,7 +548,11 @@
       "print(f'{Point(1,2)}')  # → (1, 2)",
       "print(f'{Point(1,2)!r}')  # → Point(1, 2)"
     ],
-    "related": [],
+    "related": [
+      "repr-vs-str",
+      "repr",
+      "format"
+    ],
     "related_errors": []
   },
   {
@@ -596,7 +623,12 @@
       "v = Vehicle('BMW', 200)",
       "print(v.describe())  # → BMW @ 200km/h"
     ],
-    "related": [],
+    "related": [
+      "__init__",
+      "self",
+      "методы-экземпляра",
+      "наследование"
+    ],
     "related_errors": []
   },
   {
@@ -687,7 +719,11 @@
       "cat = Cat.make('Whiskers')",
       "print(type(cat).__name__, cat.name)  # → Cat Whiskers"
     ],
-    "related": [],
+    "related": [
+      "staticmethod",
+      "методы-экземпляра",
+      "__init__"
+    ],
     "related_errors": []
   },
   {
@@ -807,7 +843,11 @@
       "t = Temperature(25)",
       "print(t.temperature)  # → 25"
     ],
-    "related": [],
+    "related": [
+      "functools.cached_property",
+      "инкапсуляция-_private-__mangled",
+      "методы-экземпляра"
+    ],
     "related_errors": []
   },
   {
@@ -885,7 +925,11 @@
       "l.prefix = '[INFO]'",
       "l.log('test')  # → [INFO] test"
     ],
-    "related": [],
+    "related": [
+      "методы-экземпляра",
+      "__init__",
+      "classmethod"
+    ],
     "related_errors": []
   },
   {
@@ -948,7 +992,11 @@
       "print(StringUtils.is_palindrome('racecar'))  # → True",
       "print(StringUtils.is_palindrome('hello'))    # → False"
     ],
-    "related": [],
+    "related": [
+      "classmethod",
+      "методы-экземпляра",
+      "self"
+    ],
     "related_errors": []
   },
   {
@@ -1042,7 +1090,11 @@
       "super().__init__(side, side)",
       "print(Square(5).area())  # → 25"
     ],
-    "related": [],
+    "related": [
+      "наследование",
+      "множественное-наследование-mro",
+      "__init__"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1128,7 +1180,12 @@
       "print(isinstance(Dog(), Animal))  # → True",
       "print(issubclass(Dog, Animal))    # → True"
     ],
-    "related": [],
+    "related": [
+      "abc.ABC",
+      "abc.abstractmethod",
+      "наследование",
+      "protocol"
+    ],
     "related_errors": []
   },
   {
@@ -1198,7 +1255,12 @@
       "a = A()",
       "print(vars(a))  # → {'y': 2} (только экземплярные)"
     ],
-    "related": [],
+    "related": [
+      "__init__",
+      "self",
+      "__slots__",
+      "параметры-по-умолчанию"
+    ],
     "related_errors": []
   },
   {
@@ -1282,7 +1344,11 @@
       "t = Transformer()",
       "print(t.transform(['  hello ', ' world ']))  # → ['HELLO','WORLD']"
     ],
-    "related": [],
+    "related": [
+      "property",
+      "атрибуты-экземпляра-и-класса",
+      "методы-экземпляра"
+    ],
     "related_errors": []
   },
   {
@@ -1383,7 +1449,11 @@
       "wc.add('the cat sat on the mat')",
       "print(wc.count())  # → 6"
     ],
-    "related": [],
+    "related": [
+      "self",
+      "classmethod",
+      "staticmethod"
+    ],
     "related_errors": []
   },
   {
@@ -1468,7 +1538,11 @@
       "def f(self): return ['D'] + super().f()",
       "print(D().f())  # → ['D','B','C','A']"
     ],
-    "related": [],
+    "related": [
+      "наследование",
+      "super",
+      "абстрактные-классы"
+    ],
     "related_errors": []
   },
   {
@@ -1568,7 +1642,12 @@
       "m = Manager('Alice', 80000, 'IT')",
       "print(m.describe())  # → Alice: 80000 [IT]"
     ],
-    "related": [],
+    "related": [
+      "super",
+      "полиморфизм",
+      "множественное-наследование-mro",
+      "class"
+    ],
     "related_errors": []
   },
   {
@@ -1654,7 +1733,12 @@
       "print(describe([1,2,3]))  # → list of 3",
       "print(describe('hi'))     # → string: 'hi'"
     ],
-    "related": [],
+    "related": [
+      "наследование",
+      "абстрактные-классы",
+      "protocol",
+      "isinstance"
+    ],
     "related_errors": []
   }
 ]

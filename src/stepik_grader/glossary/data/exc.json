@@ -51,7 +51,11 @@
       "x = 10",
       "assert x > 0  # только для разработки"
     ],
-    "related": [],
+    "related": [
+      "assertionerror",
+      "raise",
+      "unittest.assertRaises"
+    ],
     "related_errors": []
   },
   {
@@ -84,7 +88,12 @@
       "class A: pass",
       "A().run()            # AttributeError"
     ],
-    "related": [],
+    "related": [
+      "getattr",
+      "hasattr",
+      "setattr",
+      "nameerror"
+    ],
     "related_errors": []
   },
   {
@@ -154,7 +163,11 @@
       "else:",
       "print(n * 2)  # → 10"
     ],
-    "related": [],
+    "related": [
+      "try-except",
+      "finally",
+      "else-в-циклах"
+    ],
     "related_errors": []
   },
   {
@@ -189,7 +202,12 @@
       "except FileNotFoundError:",
       "print('файл не найден')"
     ],
-    "related": [],
+    "related": [
+      "oserror",
+      "permissionerror",
+      "fileexistserror",
+      "open"
+    ],
     "related_errors": []
   },
   {
@@ -263,7 +281,11 @@
       "conn.close()",
       "print('Connection closed')  # → Connection closed"
     ],
-    "related": [],
+    "related": [
+      "try-except",
+      "else-в-try-except",
+      "__enter__-__exit__"
+    ],
     "related_errors": []
   },
   {
@@ -297,7 +319,11 @@
       "except ImportError:",
       "print('модуль недоступен')"
     ],
-    "related": [],
+    "related": [
+      "modulenotfounderror",
+      "sys.path",
+      "sys.modules"
+    ],
     "related_errors": []
   },
   {
@@ -333,7 +359,11 @@
       "except IndexError:",
       "print('нет такого индекса')"
     ],
-    "related": [],
+    "related": [
+      "lookuperror",
+      "keyerror",
+      "индексирование-списка"
+    ],
     "related_errors": []
   },
   {
@@ -369,7 +399,12 @@
       "except KeyError:",
       "v = None"
     ],
-    "related": [],
+    "related": [
+      "dict.get",
+      "доступ-d-key",
+      "lookuperror",
+      "indexerror"
+    ],
     "related_errors": []
   },
   {
@@ -403,7 +438,11 @@
       "except ModuleNotFoundError:",
       "print('установи: pip install pandas')"
     ],
-    "related": [],
+    "related": [
+      "importerror",
+      "sys.path",
+      "sys.modules"
+    ],
     "related_errors": []
   },
   {
@@ -435,7 +474,11 @@
       "def f():",
       "return undefined_var  # NameError"
     ],
-    "related": [],
+    "related": [
+      "unboundlocalerror",
+      "attributeerror",
+      "локальные-и-глобальные-переменные"
+    ],
     "related_errors": []
   },
   {
@@ -470,7 +513,11 @@
       "def area(self):",
       "return 3.14 * self.r ** 2"
     ],
-    "related": [],
+    "related": [
+      "abc.abstractmethod",
+      "абстрактные-классы",
+      "runtimeerror"
+    ],
     "related_errors": []
   },
   {
@@ -505,7 +552,12 @@
       "except OSError as e:",
       "print(e.strerror)"
     ],
-    "related": [],
+    "related": [
+      "filenotfounderror",
+      "permissionerror",
+      "иерархия-исключений",
+      "exception"
+    ],
     "related_errors": []
   },
   {
@@ -539,7 +591,11 @@
       "except PermissionError:",
       "print('нет прав на чтение')"
     ],
-    "related": [],
+    "related": [
+      "oserror",
+      "filenotfounderror",
+      "os.access"
+    ],
     "related_errors": []
   },
   {
@@ -615,7 +671,12 @@
       "except ValueError as e:",
       "print(type(e.__cause__).__name__)  # → TypeError"
     ],
-    "related": [],
+    "related": [
+      "try-except",
+      "пользовательские-исключения",
+      "exception",
+      "assert"
+    ],
     "related_errors": []
   },
   {
@@ -652,7 +713,11 @@
       "import sys",
       "sys.setrecursionlimit(2000)  # изменить лимит"
     ],
-    "related": [],
+    "related": [
+      "рекурсия",
+      "sys.setrecursionlimit",
+      "runtimeerror"
+    ],
     "related_errors": []
   },
   {
@@ -689,7 +754,12 @@
       "yield 1",
       "return  # автоматически поднимает StopIteration"
     ],
-    "related": [],
+    "related": [
+      "next",
+      "итератор-__iter__-__next__",
+      "generator-function-yield",
+      "stopasynciteration"
+    ],
     "related_errors": []
   },
   {
@@ -758,7 +828,12 @@
       "except Exception as e:",
       "print(type(e).__name__, e)  # → RuntimeError oops"
     ],
-    "related": [],
+    "related": [
+      "raise",
+      "finally",
+      "else-в-try-except",
+      "иерархия-исключений"
+    ],
     "related_errors": []
   },
   {
@@ -792,7 +867,11 @@
       "return a + b",
       "add(1, '2')          # TypeError"
     ],
-    "related": [],
+    "related": [
+      "valueerror",
+      "attributeerror",
+      "преобразование-типов"
+    ],
     "related_errors": []
   },
   {
@@ -828,7 +907,12 @@
       "except ValueError as e:",
       "print('Ошибка:', e)"
     ],
-    "related": [],
+    "related": [
+      "typeerror",
+      "exception",
+      "try-except",
+      "raise"
+    ],
     "related_errors": []
   },
   {
@@ -886,7 +970,12 @@
       "except AttributeError as e:",
       "print(f'AttributeError: {e}')  # → 'NoneType' object has no attribute..."
     ],
-    "related": [],
+    "related": [
+      "baseexception",
+      "exception",
+      "try-except",
+      "пользовательские-исключения"
+    ],
     "related_errors": []
   },
   {
@@ -970,7 +1059,12 @@
       "print(str(e))   # → something went wrong",
       "print(repr(e))  # → SimpleError('something went wrong')"
     ],
-    "related": [],
+    "related": [
+      "exception",
+      "иерархия-исключений",
+      "raise",
+      "try-except"
+    ],
     "related_errors": []
   },
   {
@@ -1003,7 +1097,12 @@
       "except BaseException as e:",
       "    print(type(e).__name__)   # → BaseException"
     ],
-    "related": [],
+    "related": [
+      "exception",
+      "иерархия-исключений",
+      "keyboardinterrupt",
+      "systemexit"
+    ],
     "related_errors": []
   },
   {
@@ -1036,7 +1135,12 @@
       "except Exception as e:",
       "    print(type(e).__name__)   # → Exception"
     ],
-    "related": [],
+    "related": [
+      "baseexception",
+      "иерархия-исключений",
+      "try-except",
+      "пользовательские-исключения"
+    ],
     "related_errors": []
   },
   {
@@ -1069,7 +1173,12 @@
       "except ArithmeticError as e:",
       "    print(type(e).__name__)   # → ArithmeticError"
     ],
-    "related": [],
+    "related": [
+      "zerodivisionerror",
+      "overflowerror",
+      "floatingpointerror",
+      "иерархия-исключений"
+    ],
     "related_errors": []
   },
   {
@@ -1102,7 +1211,11 @@
       "except ZeroDivisionError as e:",
       "    print(type(e).__name__)   # → ZeroDivisionError"
     ],
-    "related": [],
+    "related": [
+      "arithmeticerror",
+      "decimal.divisionbyzero",
+      "overflowerror"
+    ],
     "related_errors": []
   },
   {
@@ -1135,7 +1248,11 @@
       "except OverflowError as e:",
       "    print(type(e).__name__)   # → OverflowError"
     ],
-    "related": [],
+    "related": [
+      "arithmeticerror",
+      "floatingpointerror",
+      "zerodivisionerror"
+    ],
     "related_errors": []
   },
   {
@@ -1168,7 +1285,11 @@
       "except FloatingPointError as e:",
       "    print(type(e).__name__)   # → FloatingPointError"
     ],
-    "related": [],
+    "related": [
+      "arithmeticerror",
+      "zerodivisionerror",
+      "overflowerror"
+    ],
     "related_errors": []
   },
   {
@@ -1201,7 +1322,11 @@
       "except AssertionError as e:",
       "    print(type(e).__name__)   # → AssertionError"
     ],
-    "related": [],
+    "related": [
+      "assert",
+      "unittest.assertEqual",
+      "raise"
+    ],
     "related_errors": []
   },
   {
@@ -1234,7 +1359,11 @@
       "except LookupError as e:",
       "    print(type(e).__name__)   # → LookupError"
     ],
-    "related": [],
+    "related": [
+      "indexerror",
+      "keyerror",
+      "иерархия-исключений"
+    ],
     "related_errors": []
   },
   {
@@ -1267,7 +1396,12 @@
       "except RuntimeError as e:",
       "    print(type(e).__name__)   # → RuntimeError"
     ],
-    "related": [],
+    "related": [
+      "recursionerror",
+      "notimplementederror",
+      "exception",
+      "иерархия-исключений"
+    ],
     "related_errors": []
   },
   {
@@ -1300,7 +1434,11 @@
       "except EOFError as e:",
       "    print(type(e).__name__)   # → EOFError"
     ],
-    "related": [],
+    "related": [
+      "input",
+      "stdin-stdout",
+      "keyboardinterrupt"
+    ],
     "related_errors": []
   },
   {
@@ -1333,7 +1471,11 @@
       "except KeyboardInterrupt as e:",
       "    print(type(e).__name__)   # → KeyboardInterrupt"
     ],
-    "related": [],
+    "related": [
+      "baseexception",
+      "systemexit",
+      "exception"
+    ],
     "related_errors": []
   },
   {
@@ -1366,7 +1508,12 @@
       "except SystemExit as e:",
       "    print(type(e).__name__)   # → SystemExit"
     ],
-    "related": [],
+    "related": [
+      "sys.exit",
+      "baseexception",
+      "keyboardinterrupt",
+      "os._exit"
+    ],
     "related_errors": []
   },
   {
@@ -1399,7 +1546,11 @@
       "except GeneratorExit as e:",
       "    print(type(e).__name__)   # → GeneratorExit"
     ],
-    "related": [],
+    "related": [
+      "generator-function-yield",
+      "stopiteration",
+      "baseexception"
+    ],
     "related_errors": []
   },
   {
@@ -1432,7 +1583,11 @@
       "except StopAsyncIteration as e:",
       "    print(type(e).__name__)   # → StopAsyncIteration"
     ],
-    "related": [],
+    "related": [
+      "stopiteration",
+      "async-for-async-with",
+      "anext"
+    ],
     "related_errors": []
   },
   {
@@ -1465,7 +1620,10 @@
       "except MemoryError as e:",
       "    print(type(e).__name__)   # → MemoryError"
     ],
-    "related": [],
+    "related": [
+      "sys.getsizeof",
+      "recursionerror"
+    ],
     "related_errors": []
   },
   {
@@ -1531,7 +1689,10 @@
       "except SystemError as e:",
       "    print(type(e).__name__)   # → SystemError"
     ],
-    "related": [],
+    "related": [
+      "runtimeerror",
+      "exception"
+    ],
     "related_errors": []
   },
   {
@@ -1564,7 +1725,11 @@
       "except BufferError as e:",
       "    print(type(e).__name__)   # → BufferError"
     ],
-    "related": [],
+    "related": [
+      "memoryview",
+      "bytearray",
+      "collections.abc.Buffer"
+    ],
     "related_errors": []
   },
   {
@@ -1597,7 +1762,11 @@
       "except UnboundLocalError as e:",
       "    print(type(e).__name__)   # → UnboundLocalError"
     ],
-    "related": [],
+    "related": [
+      "nameerror",
+      "локальные-и-глобальные-переменные",
+      "global-nonlocal"
+    ],
     "related_errors": []
   },
   {
@@ -1630,7 +1799,11 @@
       "except SyntaxError as e:",
       "    print(type(e).__name__)   # → SyntaxError"
     ],
-    "related": [],
+    "related": [
+      "indentationerror",
+      "taberror",
+      "syntaxwarning"
+    ],
     "related_errors": []
   },
   {
@@ -1663,7 +1836,10 @@
       "except IndentationError as e:",
       "    print(type(e).__name__)   # → IndentationError"
     ],
-    "related": [],
+    "related": [
+      "syntaxerror",
+      "taberror"
+    ],
     "related_errors": []
   },
   {
@@ -1696,7 +1872,10 @@
       "except TabError as e:",
       "    print(type(e).__name__)   # → TabError"
     ],
-    "related": [],
+    "related": [
+      "indentationerror",
+      "syntaxerror"
+    ],
     "related_errors": []
   },
   {
@@ -1729,7 +1908,12 @@
       "except UnicodeError as e:",
       "    print(type(e).__name__)   # → UnicodeError"
     ],
-    "related": [],
+    "related": [
+      "unicodeencodeerror",
+      "unicodedecodeerror",
+      "unicodetranslateerror",
+      "valueerror"
+    ],
     "related_errors": []
   },
   {
@@ -1762,7 +1946,12 @@
       "except UnicodeDecodeError as e:",
       "    print(type(e).__name__)   # → UnicodeDecodeError"
     ],
-    "related": [],
+    "related": [
+      "unicodeencodeerror",
+      "unicodeerror",
+      "bytes.decode",
+      "file-errors"
+    ],
     "related_errors": []
   },
   {
@@ -1795,7 +1984,12 @@
       "except UnicodeEncodeError as e:",
       "    print(type(e).__name__)   # → UnicodeEncodeError"
     ],
-    "related": [],
+    "related": [
+      "unicodedecodeerror",
+      "unicodeerror",
+      "str.encode",
+      "file-errors"
+    ],
     "related_errors": []
   },
   {
@@ -1828,7 +2022,11 @@
       "except UnicodeTranslateError as e:",
       "    print(type(e).__name__)   # → UnicodeTranslateError"
     ],
-    "related": [],
+    "related": [
+      "unicodeerror",
+      "str.translate",
+      "unicodeencodeerror"
+    ],
     "related_errors": []
   },
   {
@@ -1861,7 +2059,11 @@
       "except FileExistsError as e:",
       "    print(type(e).__name__)   # → FileExistsError"
     ],
-    "related": [],
+    "related": [
+      "filenotfounderror",
+      "oserror",
+      "path.mkdir"
+    ],
     "related_errors": []
   },
   {
@@ -1894,7 +2096,11 @@
       "except IsADirectoryError as e:",
       "    print(type(e).__name__)   # → IsADirectoryError"
     ],
-    "related": [],
+    "related": [
+      "notadirectoryerror",
+      "oserror",
+      "filenotfounderror"
+    ],
     "related_errors": []
   },
   {
@@ -1927,7 +2133,12 @@
       "except NotADirectoryError as e:",
       "    print(type(e).__name__)   # → NotADirectoryError"
     ],
-    "related": [],
+    "related": [
+      "isadirectoryerror",
+      "oserror",
+      "filenotfounderror",
+      "os.path.isdir"
+    ],
     "related_errors": []
   },
   {
@@ -1960,7 +2171,10 @@
       "except InterruptedError as e:",
       "    print(type(e).__name__)   # → InterruptedError"
     ],
-    "related": [],
+    "related": [
+      "oserror",
+      "keyboardinterrupt"
+    ],
     "related_errors": []
   },
   {
@@ -1993,7 +2207,11 @@
       "except ChildProcessError as e:",
       "    print(type(e).__name__)   # → ChildProcessError"
     ],
-    "related": [],
+    "related": [
+      "oserror",
+      "os.waitpid",
+      "subprocess-Popen"
+    ],
     "related_errors": []
   },
   {
@@ -2026,7 +2244,11 @@
       "except ProcessLookupError as e:",
       "    print(type(e).__name__)   # → ProcessLookupError"
     ],
-    "related": [],
+    "related": [
+      "os.kill",
+      "oserror",
+      "childprocesserror"
+    ],
     "related_errors": []
   },
   {
@@ -2059,7 +2281,11 @@
       "except TimeoutError as e:",
       "    print(type(e).__name__)   # → TimeoutError"
     ],
-    "related": [],
+    "related": [
+      "oserror",
+      "connectionerror",
+      "blockingioerror"
+    ],
     "related_errors": []
   },
   {
@@ -2092,7 +2318,11 @@
       "except BlockingIOError as e:",
       "    print(type(e).__name__)   # → BlockingIOError"
     ],
-    "related": [],
+    "related": [
+      "oserror",
+      "interruptederror",
+      "os.set_blocking"
+    ],
     "related_errors": []
   },
   {
@@ -2125,7 +2355,12 @@
       "except ConnectionError as e:",
       "    print(type(e).__name__)   # → ConnectionError"
     ],
-    "related": [],
+    "related": [
+      "oserror",
+      "connectionrefusederror",
+      "connectionreseterror",
+      "connectionabortederror"
+    ],
     "related_errors": []
   },
   {
@@ -2158,7 +2393,11 @@
       "except ConnectionResetError as e:",
       "    print(type(e).__name__)   # → ConnectionResetError"
     ],
-    "related": [],
+    "related": [
+      "connectionerror",
+      "connectionabortederror",
+      "brokenpipeerror"
+    ],
     "related_errors": []
   },
   {
@@ -2191,7 +2430,11 @@
       "except ConnectionRefusedError as e:",
       "    print(type(e).__name__)   # → ConnectionRefusedError"
     ],
-    "related": [],
+    "related": [
+      "connectionerror",
+      "connectionreseterror",
+      "timeouterror"
+    ],
     "related_errors": []
   },
   {
@@ -2224,7 +2467,11 @@
       "except ConnectionAbortedError as e:",
       "    print(type(e).__name__)   # → ConnectionAbortedError"
     ],
-    "related": [],
+    "related": [
+      "connectionerror",
+      "connectionreseterror",
+      "connectionrefusederror"
+    ],
     "related_errors": []
   },
   {
@@ -2257,7 +2504,11 @@
       "except BrokenPipeError as e:",
       "    print(type(e).__name__)   # → BrokenPipeError"
     ],
-    "related": [],
+    "related": [
+      "connectionerror",
+      "connectionreseterror",
+      "oserror"
+    ],
     "related_errors": []
   },
   {
@@ -2290,7 +2541,11 @@
       "except ExceptionGroup as e:",
       "    print(type(e).__name__)   # → ExceptionGroup"
     ],
-    "related": [],
+    "related": [
+      "baseexceptiongroup",
+      "exception",
+      "try-except"
+    ],
     "related_errors": []
   },
   {
@@ -2323,7 +2578,11 @@
       "except BaseExceptionGroup as e:",
       "    print(type(e).__name__)   # → BaseExceptionGroup"
     ],
-    "related": [],
+    "related": [
+      "exceptiongroup",
+      "baseexception",
+      "иерархия-исключений"
+    ],
     "related_errors": []
   },
   {
@@ -2356,7 +2615,11 @@
       "except PythonFinalizationError as e:",
       "    print(type(e).__name__)   # → PythonFinalizationError"
     ],
-    "related": [],
+    "related": [
+      "runtimeerror",
+      "systemexit",
+      "threading-thread"
+    ],
     "related_errors": []
   },
   {
@@ -2389,7 +2652,12 @@
       "except Warning as e:",
       "    print(type(e).__name__)   # → Warning"
     ],
-    "related": [],
+    "related": [
+      "userwarning",
+      "deprecationwarning",
+      "exception",
+      "иерархия-исключений"
+    ],
     "related_errors": []
   },
   {
@@ -2422,7 +2690,11 @@
       "except DeprecationWarning as e:",
       "    print(type(e).__name__)   # → DeprecationWarning"
     ],
-    "related": [],
+    "related": [
+      "pendingdeprecationwarning",
+      "futurewarning",
+      "warning"
+    ],
     "related_errors": []
   },
   {
@@ -2455,7 +2727,11 @@
       "except PendingDeprecationWarning as e:",
       "    print(type(e).__name__)   # → PendingDeprecationWarning"
     ],
-    "related": [],
+    "related": [
+      "deprecationwarning",
+      "futurewarning",
+      "warning"
+    ],
     "related_errors": []
   },
   {
@@ -2488,7 +2764,11 @@
       "except RuntimeWarning as e:",
       "    print(type(e).__name__)   # → RuntimeWarning"
     ],
-    "related": [],
+    "related": [
+      "warning",
+      "userwarning",
+      "deprecationwarning"
+    ],
     "related_errors": []
   },
   {
@@ -2521,7 +2801,11 @@
       "except SyntaxWarning as e:",
       "    print(type(e).__name__)   # → SyntaxWarning"
     ],
-    "related": [],
+    "related": [
+      "syntaxerror",
+      "warning",
+      "runtimewarning"
+    ],
     "related_errors": []
   },
   {
@@ -2554,7 +2838,11 @@
       "except UserWarning as e:",
       "    print(type(e).__name__)   # → UserWarning"
     ],
-    "related": [],
+    "related": [
+      "warning",
+      "deprecationwarning",
+      "runtimewarning"
+    ],
     "related_errors": []
   },
   {
@@ -2587,7 +2875,11 @@
       "except FutureWarning as e:",
       "    print(type(e).__name__)   # → FutureWarning"
     ],
-    "related": [],
+    "related": [
+      "deprecationwarning",
+      "pendingdeprecationwarning",
+      "warning"
+    ],
     "related_errors": []
   },
   {
@@ -2620,7 +2912,11 @@
       "except ImportWarning as e:",
       "    print(type(e).__name__)   # → ImportWarning"
     ],
-    "related": [],
+    "related": [
+      "importerror",
+      "modulenotfounderror",
+      "warning"
+    ],
     "related_errors": []
   },
   {
@@ -2653,7 +2949,11 @@
       "except UnicodeWarning as e:",
       "    print(type(e).__name__)   # → UnicodeWarning"
     ],
-    "related": [],
+    "related": [
+      "warning",
+      "unicodeerror",
+      "encodingwarning"
+    ],
     "related_errors": []
   },
   {
@@ -2686,7 +2986,11 @@
       "except BytesWarning as e:",
       "    print(type(e).__name__)   # → BytesWarning"
     ],
-    "related": [],
+    "related": [
+      "warning",
+      "bytes",
+      "bytearray"
+    ],
     "related_errors": []
   },
   {
@@ -2719,7 +3023,11 @@
       "except ResourceWarning as e:",
       "    print(type(e).__name__)   # → ResourceWarning"
     ],
-    "related": [],
+    "related": [
+      "open",
+      "__enter__-__exit__",
+      "warning"
+    ],
     "related_errors": []
   },
   {
@@ -2752,7 +3060,11 @@
       "except EncodingWarning as e:",
       "    print(type(e).__name__)   # → EncodingWarning"
     ],
-    "related": [],
+    "related": [
+      "open",
+      "io.text_encoding",
+      "warning"
+    ],
     "related_errors": []
   },
   {
@@ -2785,7 +3097,11 @@
       "except _IncompleteInputError as e:",
       "    print(type(e).__name__)   # → _IncompleteInputError"
     ],
-    "related": [],
+    "related": [
+      "syntaxerror",
+      "compile",
+      "eoferror"
+    ],
     "related_errors": []
   },
   {
@@ -2819,7 +3135,12 @@
       "except json.JSONDecodeError as e:",
       "    print(type(e).__name__)   # → JSONDecodeError"
     ],
-    "related": [],
+    "related": [
+      "json.loads",
+      "json.load",
+      "valueerror",
+      "json.JSONDecoder"
+    ],
     "related_errors": []
   },
   {
@@ -2853,7 +3174,12 @@
       "except re.PatternError as e:",
       "    print(type(e).__name__)   # → PatternError"
     ],
-    "related": [],
+    "related": [
+      "re.compile",
+      "спецсимволы-паттернов",
+      "re.escape",
+      "re.Pattern"
+    ],
     "related_errors": []
   },
   {
@@ -2887,7 +3213,11 @@
       "except statistics.StatisticsError as e:",
       "    print(type(e).__name__)   # → StatisticsError"
     ],
-    "related": [],
+    "related": [
+      "statistics.mean",
+      "statistics.stdev",
+      "valueerror"
+    ],
     "related_errors": []
   },
   {
@@ -2921,7 +3251,11 @@
       "except dataclasses.FrozenInstanceError as e:",
       "    print(type(e).__name__)   # → FrozenInstanceError"
     ],
-    "related": [],
+    "related": [
+      "dataclass-frozen-true",
+      "dataclasses.replace",
+      "attributeerror"
+    ],
     "related_errors": []
   },
   {
@@ -2955,7 +3289,11 @@
       "except io.UnsupportedOperation as e:",
       "    print(type(e).__name__)   # → UnsupportedOperation"
     ],
-    "related": [],
+    "related": [
+      "oserror",
+      "valueerror",
+      "open"
+    ],
     "related_errors": []
   },
   {
@@ -2989,7 +3327,10 @@
       "except struct.error as e:",
       "    print(type(e).__name__)   # → error"
     ],
-    "related": [],
+    "related": [
+      "int.to_bytes",
+      "int.from_bytes"
+    ],
     "related_errors": []
   },
   {
@@ -3023,7 +3364,10 @@
       "except zlib.error as e:",
       "    print(type(e).__name__)   # → error"
     ],
-    "related": [],
+    "related": [
+      "shutil.readerror",
+      "struct.error"
+    ],
     "related_errors": []
   },
   {
@@ -3057,7 +3401,11 @@
       "except copy.Error as e:",
       "    print(type(e).__name__)   # → Error"
     ],
-    "related": [],
+    "related": [
+      "copy.copy",
+      "copy.deepcopy",
+      "ловушки-копирования"
+    ],
     "related_errors": []
   },
   {
@@ -3125,7 +3473,11 @@
       "except argparse.ArgumentError as e:",
       "    print(type(e).__name__)   # → ArgumentError"
     ],
-    "related": [],
+    "related": [
+      "argparse.argumenttypeerror",
+      "valueerror",
+      "sys.argv"
+    ],
     "related_errors": []
   },
   {
@@ -3159,7 +3511,11 @@
       "except argparse.ArgumentTypeError as e:",
       "    print(type(e).__name__)   # → ArgumentTypeError"
     ],
-    "related": [],
+    "related": [
+      "argparse.argumenterror",
+      "valueerror",
+      "sys.argv"
+    ],
     "related_errors": []
   },
   {
@@ -3193,7 +3549,12 @@
       "except shutil.Error as e:",
       "    print(type(e).__name__)   # → Error"
     ],
-    "related": [],
+    "related": [
+      "shutil.samefileerror",
+      "shutil.specialfileerror",
+      "shutil.readerror",
+      "oserror"
+    ],
     "related_errors": []
   },
   {
@@ -3227,7 +3588,11 @@
       "except shutil.SameFileError as e:",
       "    print(type(e).__name__)   # → SameFileError"
     ],
-    "related": [],
+    "related": [
+      "shutil.error",
+      "os.path.samefile",
+      "shutil.specialfileerror"
+    ],
     "related_errors": []
   },
   {
@@ -3261,7 +3626,11 @@
       "except shutil.SpecialFileError as e:",
       "    print(type(e).__name__)   # → SpecialFileError"
     ],
-    "related": [],
+    "related": [
+      "shutil.error",
+      "shutil.samefileerror",
+      "os.stat"
+    ],
     "related_errors": []
   },
   {
@@ -3295,7 +3664,11 @@
       "except shutil.ExecError as e:",
       "    print(type(e).__name__)   # → ExecError"
     ],
-    "related": [],
+    "related": [
+      "shutil.error",
+      "shutil.readerror",
+      "shutil.registryerror"
+    ],
     "related_errors": []
   },
   {
@@ -3329,7 +3702,11 @@
       "except shutil.ReadError as e:",
       "    print(type(e).__name__)   # → ReadError"
     ],
-    "related": [],
+    "related": [
+      "shutil.registryerror",
+      "shutil.error",
+      "shutil.execerror"
+    ],
     "related_errors": []
   },
   {
@@ -3363,7 +3740,11 @@
       "except shutil.RegistryError as e:",
       "    print(type(e).__name__)   # → RegistryError"
     ],
-    "related": [],
+    "related": [
+      "shutil.readerror",
+      "shutil.error",
+      "shutil.execerror"
+    ],
     "related_errors": []
   },
   {
@@ -3397,7 +3778,11 @@
       "except threading.BrokenBarrierError as e:",
       "    print(type(e).__name__)   # → BrokenBarrierError"
     ],
-    "related": [],
+    "related": [
+      "threading-event",
+      "threading-semaphore",
+      "threading-thread"
+    ],
     "related_errors": []
   },
   {
@@ -3431,7 +3816,11 @@
       "except tokenize.TokenError as e:",
       "    print(type(e).__name__)   # → TokenError"
     ],
-    "related": [],
+    "related": [
+      "syntaxerror",
+      "_incompleteinputerror",
+      "compile"
+    ],
     "related_errors": []
   },
   {
@@ -3465,7 +3854,11 @@
       "except zipimport.ZipImportError as e:",
       "    print(type(e).__name__)   # → ZipImportError"
     ],
-    "related": [],
+    "related": [
+      "importerror",
+      "modulenotfounderror",
+      "sys.path"
+    ],
     "related_errors": []
   },
   {
@@ -3499,7 +3892,11 @@
       "except signal.ItimerError as e:",
       "    print(type(e).__name__)   # → ItimerError"
     ],
-    "related": [],
+    "related": [
+      "oserror",
+      "interruptederror",
+      "keyboardinterrupt"
+    ],
     "related_errors": []
   },
   {
@@ -3533,7 +3930,12 @@
       "except decimal.DecimalException as e:",
       "    print(type(e).__name__)   # → DecimalException"
     ],
-    "related": [],
+    "related": [
+      "arithmeticerror",
+      "decimal.invalidoperation",
+      "decimal.divisionbyzero",
+      "decimal.getcontext"
+    ],
     "related_errors": []
   },
   {
@@ -3567,7 +3969,11 @@
       "except decimal.InvalidOperation as e:",
       "    print(type(e).__name__)   # → InvalidOperation"
     ],
-    "related": [],
+    "related": [
+      "decimal.decimalexception",
+      "decimal.conversionsyntax",
+      "decimal.divisionundefined"
+    ],
     "related_errors": []
   },
   {
@@ -3601,7 +4007,11 @@
       "except decimal.DivisionByZero as e:",
       "    print(type(e).__name__)   # → DivisionByZero"
     ],
-    "related": [],
+    "related": [
+      "zerodivisionerror",
+      "decimal.divisionundefined",
+      "decimal.decimalexception"
+    ],
     "related_errors": []
   },
   {
@@ -3635,7 +4045,11 @@
       "except decimal.DivisionImpossible as e:",
       "    print(type(e).__name__)   # → DivisionImpossible"
     ],
-    "related": [],
+    "related": [
+      "decimal.invalidoperation",
+      "decimal.divisionundefined",
+      "decimal.divisionbyzero"
+    ],
     "related_errors": []
   },
   {
@@ -3669,7 +4083,11 @@
       "except decimal.DivisionUndefined as e:",
       "    print(type(e).__name__)   # → DivisionUndefined"
     ],
-    "related": [],
+    "related": [
+      "decimal.divisionbyzero",
+      "decimal.divisionimpossible",
+      "decimal.invalidoperation"
+    ],
     "related_errors": []
   },
   {
@@ -3703,7 +4121,12 @@
       "except decimal.Overflow as e:",
       "    print(type(e).__name__)   # → Overflow"
     ],
-    "related": [],
+    "related": [
+      "decimal.underflow",
+      "decimal.decimalexception",
+      "overflowerror",
+      "decimal.inexact"
+    ],
     "related_errors": []
   },
   {
@@ -3737,7 +4160,12 @@
       "except decimal.Underflow as e:",
       "    print(type(e).__name__)   # → Underflow"
     ],
-    "related": [],
+    "related": [
+      "decimal.overflow",
+      "decimal.subnormal",
+      "decimal.decimalexception",
+      "decimal.inexact"
+    ],
     "related_errors": []
   },
   {
@@ -3771,7 +4199,11 @@
       "except decimal.Inexact as e:",
       "    print(type(e).__name__)   # → Inexact"
     ],
-    "related": [],
+    "related": [
+      "decimal.rounded",
+      "decimal.decimalexception",
+      "decimal.getcontext"
+    ],
     "related_errors": []
   },
   {
@@ -3805,7 +4237,11 @@
       "except decimal.Rounded as e:",
       "    print(type(e).__name__)   # → Rounded"
     ],
-    "related": [],
+    "related": [
+      "decimal.inexact",
+      "decimal.decimalexception",
+      "decimal.getcontext"
+    ],
     "related_errors": []
   },
   {
@@ -3839,7 +4275,11 @@
       "except decimal.Subnormal as e:",
       "    print(type(e).__name__)   # → Subnormal"
     ],
-    "related": [],
+    "related": [
+      "decimal.underflow",
+      "decimal.clamped",
+      "decimal.decimalexception"
+    ],
     "related_errors": []
   },
   {
@@ -3873,7 +4313,11 @@
       "except decimal.Clamped as e:",
       "    print(type(e).__name__)   # → Clamped"
     ],
-    "related": [],
+    "related": [
+      "decimal.decimalexception",
+      "decimal.subnormal",
+      "decimal.rounded"
+    ],
     "related_errors": []
   },
   {
@@ -3907,7 +4351,11 @@
       "except decimal.ConversionSyntax as e:",
       "    print(type(e).__name__)   # → ConversionSyntax"
     ],
-    "related": [],
+    "related": [
+      "decimal.invalidoperation",
+      "decimal.decimal",
+      "decimal.decimalexception"
+    ],
     "related_errors": []
   },
   {
@@ -3941,7 +4389,11 @@
       "except decimal.FloatOperation as e:",
       "    print(type(e).__name__)   # → FloatOperation"
     ],
-    "related": [],
+    "related": [
+      "decimal.decimal",
+      "decimal.getcontext",
+      "float"
+    ],
     "related_errors": []
   },
   {
@@ -3975,7 +4427,11 @@
       "except decimal.InvalidContext as e:",
       "    print(type(e).__name__)   # → InvalidContext"
     ],
-    "related": [],
+    "related": [
+      "decimal.getcontext",
+      "decimal.setcontext",
+      "decimal.invalidoperation"
+    ],
     "related_errors": []
   },
   {
@@ -4006,7 +4462,11 @@
       "import encodings",
       "print(issubclass(encodings.CodecRegistryError, Exception))   # → True"
     ],
-    "related": [],
+    "related": [
+      "lookuperror",
+      "systemerror",
+      "unicodeerror"
+    ],
     "related_errors": []
   }
 ]

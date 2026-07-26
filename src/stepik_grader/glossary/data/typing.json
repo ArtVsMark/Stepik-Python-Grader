@@ -38,7 +38,11 @@
       "print(type(data[0]))  # → <class 'int'>",
       "print(Any)  # → typing.Any"
     ],
-    "related": [],
+    "related": [
+      "аннотации-типов-type-hints",
+      "object",
+      "typing.cast"
+    ],
     "related_errors": []
   },
   {
@@ -78,7 +82,11 @@
       "print(transform([1, 2, 3], lambda x: x ** 2))  # → [1, 4, 9]",
       "print(callable(print))  # → True"
     ],
-    "related": [],
+    "related": [
+      "callable",
+      "вызываемые-объекты-__call__",
+      "typing.ParamSpec"
+    ],
     "related_errors": []
   },
   {
@@ -121,7 +129,11 @@
       "Config.debug = True",
       "print(Config.debug)  # → True"
     ],
-    "related": [],
+    "related": [
+      "атрибуты-экземпляра-и-класса",
+      "dataclass",
+      "final"
+    ],
     "related_errors": []
   },
   {
@@ -160,7 +172,11 @@
       "print(Config.HOST)  # → localhost",
       "print(Config.PORT)  # → 8080"
     ],
-    "related": [],
+    "related": [
+      "classvar",
+      "typing.override",
+      "аннотации-типов-type-hints"
+    ],
     "related_errors": []
   },
   {
@@ -203,7 +219,11 @@
       "print(s.pop())  # → 10",
       "print(len(s._items))  # → 1"
     ],
-    "related": [],
+    "related": [
+      "typevar",
+      "typing.Generic",
+      "protocol"
+    ],
     "related_errors": []
   },
   {
@@ -240,7 +260,11 @@
       "coords: tuple[float, float] = (1.0, 2.0)  # → аннотация кортежа",
       "matrix: list[list[int]] = [[1, 2], [3, 4]]  # → вложенные типы"
     ],
-    "related": [],
+    "related": [
+      "аннотации-типов-type-hints",
+      "union-x-y-x-y",
+      "generic-t"
+    ],
     "related_errors": []
   },
   {
@@ -280,7 +304,11 @@
       "print(move('N'))  # → Moving N",
       "print(move('S'))  # → Moving S"
     ],
-    "related": [],
+    "related": [
+      "union-x-y-x-y",
+      "enum",
+      "final"
+    ],
     "related_errors": []
   },
   {
@@ -319,7 +347,12 @@
       "print(p._asdict())  # → {'x': 1.0, 'y': 2.0, 'label': 'A'}",
       "print(p._replace(x=5.0))  # → Point(x=5.0, y=2.0, label='A')"
     ],
-    "related": [],
+    "related": [
+      "collections.namedtuple",
+      "dataclass",
+      "typeddict",
+      "наименованный-кортеж-namedtuple"
+    ],
     "related_errors": []
   },
   {
@@ -357,7 +390,12 @@
       "return f'Hi, {name or \"stranger\"}'",
       "print(greet())  # → Hi, stranger"
     ],
-    "related": [],
+    "related": [
+      "union-x-y-x-y",
+      "nonetype",
+      "аннотации-типов-type-hints",
+      "int-str-list-dict-аннотации"
+    ],
     "related_errors": []
   },
   {
@@ -399,7 +437,11 @@
       "print(isinstance(Circle(), object))  # → True",
       "print(hasattr(Circle(), 'draw'))  # → True"
     ],
-    "related": [],
+    "related": [
+      "abc.ABC",
+      "typing.runtime_checkable",
+      "абстрактные-классы"
+    ],
     "related_errors": []
   },
   {
@@ -436,7 +478,11 @@
       "process('test')  # → test",
       "print(bool(TYPE_CHECKING))  # → False"
     ],
-    "related": [],
+    "related": [
+      "аннотации-типов-type-hints",
+      "typing.ForwardRef",
+      "typing.get_type_hints"
+    ],
     "related_errors": []
   },
   {
@@ -477,7 +523,11 @@
       "u: User = {'name': 'Alice'}  # → age необязателен",
       "print(u)  # → {'name': 'Alice'}"
     ],
-    "related": [],
+    "related": [
+      "namedtuple",
+      "dataclass",
+      "typing.is_typeddict"
+    ],
     "related_errors": []
   },
   {
@@ -517,7 +567,11 @@
       "print(double(3))  # → 6",
       "print(double(1.5))  # → 3.0"
     ],
-    "related": [],
+    "related": [
+      "generic-t",
+      "typing.TypeVarTuple",
+      "typing.ParamSpec"
+    ],
     "related_errors": []
   },
   {
@@ -555,7 +609,11 @@
       "print(parse(42))  # → '42'",
       "print(parse('hi'))  # → 'hi'"
     ],
-    "related": [],
+    "related": [
+      "optional-x-x-none",
+      "literal-v1-v2",
+      "typing.get_args"
+    ],
     "related_errors": []
   },
   {
@@ -586,7 +644,11 @@
       "from typing import get_args",
       "print(get_args(list[int]) == (int,))   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.get_origin",
+      "typing.get_type_hints",
+      "union-x-y-x-y"
+    ],
     "related_errors": []
   },
   {
@@ -617,7 +679,11 @@
       "from typing import get_origin",
       "print(get_origin(list[int]) is list)   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.get_args",
+      "typing.get_type_hints",
+      "generic-t"
+    ],
     "related_errors": []
   },
   {
@@ -649,7 +715,12 @@
       "def f(x: int) -> bool: ...",
       "print(get_type_hints(f)['x'] is int)   # → True"
     ],
-    "related": [],
+    "related": [
+      "аннотации-типов-type-hints",
+      "typing.get_origin",
+      "typing.get_args",
+      "type_checking"
+    ],
     "related_errors": [
       "NameError"
     ]
@@ -682,7 +753,10 @@
       "from typing import get_overloads",
       "print(get_overloads(len) == [])   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.overload",
+      "typing.clear_overloads"
+    ],
     "related_errors": []
   },
   {
@@ -717,7 +791,11 @@
       "fn = getattr(typing, 'get_protocol_members', None)",
       "print('foo' in fn(P) if fn else True)   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.is_protocol",
+      "protocol",
+      "typing.runtime_checkable"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -754,7 +832,11 @@
       "check = getattr(typing, 'is_protocol', lambda c: getattr(c, '_is_protocol', False))",
       "print(check(P))   # → True"
     ],
-    "related": [],
+    "related": [
+      "protocol",
+      "typing.get_protocol_members",
+      "typing.runtime_checkable"
+    ],
     "related_errors": []
   },
   {
@@ -787,7 +869,11 @@
       "    x: int",
       "print(is_typeddict(TD))   # → True"
     ],
-    "related": [],
+    "related": [
+      "typeddict",
+      "typing.is_protocol",
+      "dataclasses.is_dataclass"
+    ],
     "related_errors": []
   },
   {
@@ -818,7 +904,11 @@
       "from typing import cast",
       "print(cast(int, 42))   # → 42"
     ],
-    "related": [],
+    "related": [
+      "typing.assert_type",
+      "typing.reveal_type",
+      "typing.Any"
+    ],
     "related_errors": []
   },
   {
@@ -849,7 +939,11 @@
       "from typing import reveal_type",
       "print(callable(reveal_type))   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.assert_type",
+      "typing.cast",
+      "typing.get_type_hints"
+    ],
     "related_errors": []
   },
   {
@@ -880,7 +974,11 @@
       "from typing import assert_type",
       "print(assert_type(5, int))   # → 5"
     ],
-    "related": [],
+    "related": [
+      "typing.reveal_type",
+      "typing.assert_never",
+      "typing.cast"
+    ],
     "related_errors": []
   },
   {
@@ -914,7 +1012,11 @@
       "except AssertionError:",
       "    print('unreachable')   # → unreachable"
     ],
-    "related": [],
+    "related": [
+      "typing.assert_type",
+      "match-case",
+      "assertionerror"
+    ],
     "related_errors": [
       "AssertionError"
     ]
@@ -950,7 +1052,12 @@
       "    pass",
       "print(issubclass(Box, Generic))   # → True"
     ],
-    "related": [],
+    "related": [
+      "generic-t",
+      "typevar",
+      "typing.TypeVarTuple",
+      "typing.ParamSpec"
+    ],
     "related_errors": []
   },
   {
@@ -982,7 +1089,11 @@
       "UserId = NewType('UserId', int)",
       "print(UserId(5))   # → 5"
     ],
-    "related": [],
+    "related": [
+      "typing.TypeAliasType",
+      "typevar",
+      "аннотации-типов-type-hints"
+    ],
     "related_errors": []
   },
   {
@@ -1014,7 +1125,12 @@
       "P = ParamSpec('P')",
       "print(P.__name__)   # → P"
     ],
-    "related": [],
+    "related": [
+      "typing.ParamSpecArgs",
+      "typing.ParamSpecKwargs",
+      "декораторы",
+      "typevar"
+    ],
     "related_errors": []
   },
   {
@@ -1046,7 +1162,11 @@
       "P = ParamSpec('P')",
       "print(isinstance(P.args, ParamSpecArgs))   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.ParamSpec",
+      "typing.ParamSpecKwargs",
+      "args"
+    ],
     "related_errors": []
   },
   {
@@ -1078,7 +1198,11 @@
       "P = ParamSpec('P')",
       "print(isinstance(P.kwargs, ParamSpecKwargs))   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.ParamSpec",
+      "typing.ParamSpecArgs",
+      "kwargs"
+    ],
     "related_errors": []
   },
   {
@@ -1110,7 +1234,11 @@
       "Ts = TypeVarTuple('Ts')",
       "print(Ts.__name__)   # → Ts"
     ],
-    "related": [],
+    "related": [
+      "typevar",
+      "typing.Generic",
+      "typing.ParamSpec"
+    ],
     "related_errors": []
   },
   {
@@ -1142,7 +1270,11 @@
       "from typing import TypeAliasType",
       "print(isinstance(MyInt, TypeAliasType))   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.NewType",
+      "typevar",
+      "аннотации-типов-type-hints"
+    ],
     "related_errors": []
   },
   {
@@ -1173,7 +1305,11 @@
       "from typing import ForwardRef",
       "print(ForwardRef('int').__forward_arg__)   # → int"
     ],
-    "related": [],
+    "related": [
+      "typing.get_type_hints",
+      "type_checking",
+      "аннотации-типов-type-hints"
+    ],
     "related_errors": []
   },
   {
@@ -1204,7 +1340,12 @@
       "from typing import IO",
       "print(IO.__name__)   # → IO"
     ],
-    "related": [],
+    "related": [
+      "typing.TextIO",
+      "typing.BinaryIO",
+      "open",
+      "io.IOBase"
+    ],
     "related_errors": []
   },
   {
@@ -1235,7 +1376,11 @@
       "from typing import BinaryIO",
       "print(BinaryIO.__name__)   # → BinaryIO"
     ],
-    "related": [],
+    "related": [
+      "typing.TextIO",
+      "typing.IO",
+      "open"
+    ],
     "related_errors": []
   },
   {
@@ -1266,7 +1411,12 @@
       "from typing import TextIO",
       "print(TextIO.__name__)   # → TextIO"
     ],
-    "related": [],
+    "related": [
+      "typing.BinaryIO",
+      "typing.IO",
+      "open",
+      "io.textiowrapper"
+    ],
     "related_errors": []
   },
   {
@@ -1297,7 +1447,11 @@
       "from typing import Text",
       "print(Text is str)   # → True"
     ],
-    "related": [],
+    "related": [
+      "str",
+      "int-str-list-dict-аннотации",
+      "typing.TextIO"
+    ],
     "related_errors": []
   },
   {
@@ -1328,7 +1482,11 @@
       "from typing import SupportsInt",
       "print(isinstance(5, SupportsInt))   # → True"
     ],
-    "related": [],
+    "related": [
+      "int",
+      "typing.SupportsIndex",
+      "typing.SupportsFloat"
+    ],
     "related_errors": []
   },
   {
@@ -1359,7 +1517,11 @@
       "from typing import SupportsFloat",
       "print(isinstance(5, SupportsFloat))   # → True"
     ],
-    "related": [],
+    "related": [
+      "float",
+      "typing.SupportsInt",
+      "typing.SupportsComplex"
+    ],
     "related_errors": []
   },
   {
@@ -1390,7 +1552,11 @@
       "from typing import SupportsComplex",
       "print(isinstance(3j, SupportsComplex))   # → True"
     ],
-    "related": [],
+    "related": [
+      "complex",
+      "typing.SupportsFloat",
+      "typing.SupportsInt"
+    ],
     "related_errors": []
   },
   {
@@ -1423,7 +1589,11 @@
       "    def __bytes__(self): return b''",
       "print(isinstance(B(), SupportsBytes))   # → True"
     ],
-    "related": [],
+    "related": [
+      "bytes",
+      "typing.SupportsInt",
+      "typing.runtime_checkable"
+    ],
     "related_errors": []
   },
   {
@@ -1454,7 +1624,11 @@
       "from typing import SupportsAbs",
       "print(isinstance(5, SupportsAbs))   # → True"
     ],
-    "related": [],
+    "related": [
+      "abs",
+      "typing.SupportsRound",
+      "typing.runtime_checkable"
+    ],
     "related_errors": []
   },
   {
@@ -1485,7 +1659,11 @@
       "from typing import SupportsRound",
       "print(isinstance(5, SupportsRound))   # → True"
     ],
-    "related": [],
+    "related": [
+      "round",
+      "typing.SupportsAbs",
+      "typing.runtime_checkable"
+    ],
     "related_errors": []
   },
   {
@@ -1516,7 +1694,11 @@
       "from typing import SupportsIndex",
       "print(isinstance(5, SupportsIndex))   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.SupportsInt",
+      "int",
+      "typing.runtime_checkable"
+    ],
     "related_errors": []
   },
   {
@@ -1547,7 +1729,11 @@
       "from typing import overload",
       "print(callable(overload))   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.get_overloads",
+      "functools.singledispatch",
+      "typing.clear_overloads"
+    ],
     "related_errors": [
       "NotImplementedError"
     ]
@@ -1585,7 +1771,11 @@
       "    def f(self): return 42",
       "print(Sub().f())   # → 42"
     ],
-    "related": [],
+    "related": [
+      "наследование",
+      "super",
+      "abc.abstractmethod"
+    ],
     "related_errors": []
   },
   {
@@ -1618,7 +1808,11 @@
       "def f(x): return x",
       "print(f(3))   # → 3"
     ],
-    "related": [],
+    "related": [
+      "typing.no_type_check_decorator",
+      "typing.Any",
+      "аннотации-типов-type-hints"
+    ],
     "related_errors": []
   },
   {
@@ -1649,7 +1843,10 @@
       "from typing import no_type_check_decorator",
       "print(callable(no_type_check_decorator))   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.no_type_check",
+      "декораторы"
+    ],
     "related_errors": []
   },
   {
@@ -1683,7 +1880,11 @@
       "    def __len__(self) -> int: ...",
       "print(isinstance([1, 2], Sized))   # → True"
     ],
-    "related": [],
+    "related": [
+      "protocol",
+      "isinstance",
+      "typing.is_protocol"
+    ],
     "related_errors": [
       "TypeError"
     ]
@@ -1716,7 +1917,11 @@
       "from typing import dataclass_transform",
       "print(callable(dataclass_transform))   # → True"
     ],
-    "related": [],
+    "related": [
+      "dataclass",
+      "field",
+      "dataclasses.make_dataclass"
+    ],
     "related_errors": []
   },
   {
@@ -1747,7 +1952,10 @@
       "from typing import clear_overloads",
       "print(clear_overloads() is None)   # → True"
     ],
-    "related": [],
+    "related": [
+      "typing.get_overloads",
+      "typing.overload"
+    ],
     "related_errors": []
   }
 ]
