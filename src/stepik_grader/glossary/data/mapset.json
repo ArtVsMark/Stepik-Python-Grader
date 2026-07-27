@@ -109,7 +109,7 @@
     "syntax": "from collections import Counter\nc = Counter(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/collections.html#collections.Counter",
-    "version": "",
+    "version": "3.1",
     "section": "Словари (dict)",
     "subcat": "collections",
     "aliases": [
@@ -521,7 +521,7 @@
     "syntax": "from collections import OrderedDict\nod = OrderedDict()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/collections.html#collections.OrderedDict",
-    "version": "",
+    "version": "3.1",
     "section": "Словари (dict)",
     "subcat": "collections",
     "aliases": [
@@ -632,7 +632,7 @@
     "syntax": "{expr for var in iterable [if cond]}",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#set-displays",
-    "version": "",
+    "version": "3.5",
     "section": "Множества (set)",
     "subcat": "comprehension",
     "aliases": [
@@ -685,7 +685,7 @@
     "syntax": "d1.update(d2)  |  {**d1, **d2}  |  d1 | d2",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.update",
-    "version": "3.9+",
+    "version": "3.9",
     "section": "Словари (dict)",
     "subcat": "операторы",
     "aliases": [
@@ -743,7 +743,7 @@
     "syntax": "d1 | d2  d1 |= d2",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict",
-    "version": "3.9+",
+    "version": "3.9",
     "section": "Словари (dict)",
     "subcat": "операторы",
     "aliases": [
@@ -902,7 +902,7 @@
     "syntax": "func(**d)  |  {**d1, **d2}  |  d1 | d2 (Python 3.9+)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#dictionary-displays",
-    "version": "3.9+",
+    "version": "3.5",
     "section": "Словари (dict)",
     "subcat": "распаковка",
     "aliases": [
@@ -959,7 +959,7 @@
     "syntax": "{k: v for ... in ...}  |  {k: v for ... in ... if cond}",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#dictionary-displays",
-    "version": "",
+    "version": "3.5",
     "section": "Словари (dict)",
     "subcat": "comprehension",
     "aliases": [

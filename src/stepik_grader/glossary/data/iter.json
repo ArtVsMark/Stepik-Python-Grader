@@ -104,7 +104,7 @@
     "syntax": "task = asyncio.create_task(coro())",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task",
-    "version": "",
+    "version": "3.7",
     "section": "Асинхронное программирование",
     "subcat": "задачи",
     "aliases": [
@@ -242,7 +242,7 @@
     "syntax": "asyncio.run(coro)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/asyncio-runner.html#asyncio.run",
-    "version": "",
+    "version": "3.7",
     "section": "Асинхронное программирование",
     "subcat": "event loop",
     "aliases": [
@@ -1063,7 +1063,7 @@
     "syntax": "itertools.combinations_with_replacement(iterable, r)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.combinations_with_replacement",
-    "version": "",
+    "version": "3.1",
     "section": "Модуль itertools",
     "subcat": "itertools",
     "aliases": [
@@ -1176,7 +1176,7 @@
     "syntax": "itertools.compress(data, selectors)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.compress",
-    "version": "",
+    "version": "3.1",
     "section": "Модуль itertools",
     "subcat": "itertools",
     "aliases": [
@@ -1362,7 +1362,7 @@
     "syntax": "itertools.pairwise(iterable)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.pairwise",
-    "version": "",
+    "version": "3.10",
     "section": "Модуль itertools",
     "subcat": "itertools",
     "aliases": [
@@ -1400,7 +1400,7 @@
     "syntax": "itertools.batched(iterable, n)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.batched",
-    "version": "",
+    "version": "3.12",
     "section": "Модуль itertools",
     "subcat": "itertools",
     "aliases": [

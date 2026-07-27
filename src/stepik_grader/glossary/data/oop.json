@@ -1149,7 +1149,7 @@
     "syntax": "from abc import ABC, abstractmethod\nclass Shape(ABC):\n    @abstractmethod\n    def area(self): ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/abc.html#abc.ABC",
-    "version": "",
+    "version": "3.4",
     "section": "ООП",
     "subcat": "ABC",
     "aliases": [

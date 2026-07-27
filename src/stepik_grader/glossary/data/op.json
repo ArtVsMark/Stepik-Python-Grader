@@ -1429,7 +1429,7 @@
     "syntax": "элемент in коллекция -> bool",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#in",
-    "version": "",
+    "version": "3.8",
     "section": "Условный оператор",
     "subcat": "принадлежность",
     "aliases": [
@@ -1520,7 +1520,7 @@
     "syntax": "a is b | a is not b",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#identity-comparisons",
-    "version": "",
+    "version": "3.8",
     "section": "Условный оператор",
     "subcat": "тождество",
     "aliases": [
@@ -1741,7 +1741,7 @@
     "syntax": "lambda параметры: выражение",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#lambda",
-    "version": "",
+    "version": "3.5",
     "section": "Функции",
     "subcat": "lambda",
     "aliases": [
@@ -1860,7 +1860,7 @@
     "syntax": "match subject:\n    case pattern1: ...\n    case pattern2 if guard: ...\n    case _: ...",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/compound_stmts.html#the-match-statement",
-    "version": "3.10+",
+    "version": "3.10",
     "section": "Условный оператор",
     "subcat": "pattern matching",
     "aliases": [
@@ -2657,7 +2657,7 @@
     "syntax": "statistics.quantiles(data, n=4, method='exclusive')",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.quantiles",
-    "version": "",
+    "version": "3.8",
     "section": "Числа и математика",
     "subcat": "statistics",
     "aliases": [
@@ -2857,7 +2857,7 @@
     "syntax": "variable := expression",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#assignment-expressions",
-    "version": "3.8+",
+    "version": "3.8",
     "section": "Арифметика и операторы",
     "subcat": "операторы",
     "aliases": [
@@ -3093,7 +3093,7 @@
     "syntax": "zip(*iterables, strict=False)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/functions.html#zip",
-    "version": "3.10+",
+    "version": "3.10",
     "section": "Циклы",
     "subcat": "итерация",
     "aliases": [
@@ -3556,7 +3556,7 @@
     "syntax": "a - b | -a",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -3791,7 +3791,7 @@
     "syntax": "a / b -> float",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -3973,7 +3973,7 @@
     "syntax": "x = 10  # глобальная\ndef f():\n    x = 5  # локальная",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/executionmodel.html#resolution-of-names",
-    "version": "",
+    "version": "3.12",
     "section": "Функции",
     "subcat": "область видимости",
     "aliases": [
@@ -4046,7 +4046,7 @@
     "syntax": "def gcd(a, b):\n    while b: a, b = b, a%b\n    return a",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/math.html#math.gcd",
-    "version": "",
+    "version": "3.5",
     "section": "Алгоритмы и структуры данных",
     "subcat": "математика",
     "aliases": [
@@ -4214,7 +4214,7 @@
     "syntax": "a == b | a != b | a > b | a < b | a >= b | a <= b",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#comparisons",
-    "version": "",
+    "version": "3.8",
     "section": "Условный оператор",
     "subcat": "операторы",
     "aliases": [
@@ -4262,7 +4262,7 @@
     "syntax": "a % b",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -4599,7 +4599,7 @@
     "syntax": "prefix[i] = prefix[i-1] + arr[i]\nsum(l, r) = prefix[r] - prefix[l-1]",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.accumulate",
-    "version": "",
+    "version": "3.2",
     "section": "Алгоритмы и структуры данных",
     "subcat": "техники",
     "aliases": [
@@ -4919,7 +4919,7 @@
     "syntax": "a + b",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -5319,7 +5319,7 @@
     "syntax": "a ** b",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#the-power-operator",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -5362,7 +5362,7 @@
     "syntax": "значение_если_истина if условие else значение_если_ложь",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#conditional-expressions",
-    "version": "",
+    "version": "3.5",
     "section": "Условный оператор",
     "subcat": "ветвление",
     "aliases": [
@@ -5414,7 +5414,7 @@
     "syntax": "a * b",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -5531,7 +5531,7 @@
     "syntax": "a // b",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -5575,7 +5575,7 @@
     "syntax": "a < b < c  a == b == c  a <= b >= c",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#comparisons",
-    "version": "",
+    "version": "3.8",
     "section": "Арифметика и операторы",
     "subcat": "сравнение",
     "aliases": [
@@ -5708,7 +5708,7 @@
     "syntax": "n.bit_length()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#int.bit_length",
-    "version": "",
+    "version": "3.1",
     "section": "Числа и математика",
     "subcat": "биты",
     "aliases": [
@@ -5785,7 +5785,7 @@
     "syntax": "n.to_bytes(length=1, byteorder='big', *, signed=False)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#int.to_bytes",
-    "version": "",
+    "version": "3.2",
     "section": "Числа и математика",
     "subcat": "байты",
     "aliases": [
@@ -5827,7 +5827,7 @@
     "syntax": "int.from_bytes(bytes, byteorder='big', *, signed=False)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#int.from_bytes",
-    "version": "",
+    "version": "3.2",
     "section": "Числа и математика",
     "subcat": "байты",
     "aliases": [
@@ -5868,7 +5868,7 @@
     "syntax": "n.as_integer_ratio()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#int.as_integer_ratio",
-    "version": "",
+    "version": "3.8",
     "section": "Числа и математика",
     "subcat": "как дробь",
     "aliases": [
@@ -6392,7 +6392,7 @@
     "syntax": "statistics.fmean(data)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.fmean",
-    "version": "",
+    "version": "3.8",
     "section": "Модуль statistics",
     "subcat": "среднее",
     "aliases": [],
@@ -6426,7 +6426,7 @@
     "syntax": "statistics.geometric_mean(data)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.geometric_mean",
-    "version": "",
+    "version": "3.8",
     "section": "Модуль statistics",
     "subcat": "среднее",
     "aliases": [],
@@ -6460,7 +6460,7 @@
     "syntax": "statistics.harmonic_mean(data)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.harmonic_mean",
-    "version": "",
+    "version": "3.6",
     "section": "Модуль statistics",
     "subcat": "среднее",
     "aliases": [],
@@ -6665,7 +6665,7 @@
     "syntax": "statistics.multimode(data)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.multimode",
-    "version": "",
+    "version": "3.8",
     "section": "Модуль statistics",
     "subcat": "мода",
     "aliases": [],
@@ -6832,7 +6832,7 @@
     "syntax": "statistics.correlation(x, y)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.correlation",
-    "version": "",
+    "version": "3.10",
     "section": "Модуль statistics",
     "subcat": "связь",
     "aliases": [],
@@ -6865,7 +6865,7 @@
     "syntax": "statistics.covariance(x, y)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.covariance",
-    "version": "",
+    "version": "3.10",
     "section": "Модуль statistics",
     "subcat": "связь",
     "aliases": [],
@@ -6899,7 +6899,7 @@
     "syntax": "statistics.linear_regression(x, y)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.linear_regression",
-    "version": "",
+    "version": "3.10",
     "section": "Модуль statistics",
     "subcat": "связь",
     "aliases": [],

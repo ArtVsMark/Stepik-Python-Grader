@@ -57,7 +57,7 @@
     "syntax": "f'{expr}'  |  f'{val:.2f}'  |  f'{val!r}'",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/lexical_analysis.html#f-strings",
-    "version": "",
+    "version": "3.6",
     "section": "Строки (str)",
     "subcat": "форматирование",
     "aliases": [
@@ -166,7 +166,7 @@
     "syntax": "'sub' in s  |  'sub' not in s",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#membership-test-operations",
-    "version": "",
+    "version": "3.8",
     "section": "Строки (str)",
     "subcat": "поиск",
     "aliases": [
@@ -260,7 +260,7 @@
     "syntax": "r\"строка\"  r'строка'",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/lexical_analysis.html#raw-string-literals",
-    "version": "",
+    "version": "3.6",
     "section": "Строки (str)",
     "subcat": "создание",
     "aliases": [
@@ -451,7 +451,7 @@
     "syntax": "s = 'text' | s = \"text\" | s = '''multi''' | s = r'raw' | s = b'bytes'",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/lexical_analysis.html#strings",
-    "version": "",
+    "version": "3.3",
     "section": "Строки (str)",
     "subcat": "создание",
     "aliases": [
@@ -504,7 +504,7 @@
     "syntax": "s1 == s2  |  s1 < s2  |  s1 > s2",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#value-comparisons",
-    "version": "",
+    "version": "3.8",
     "section": "Строки (str)",
     "subcat": "сравнение",
     "aliases": [
@@ -659,7 +659,7 @@
     "syntax": "\"\"\"текст\"\"\"\n'''текст'''",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals",
-    "version": "",
+    "version": "3.3",
     "section": "Строки (str)",
     "subcat": "создание",
     "aliases": [
@@ -943,7 +943,7 @@
     "syntax": "s.casefold()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.casefold",
-    "version": "",
+    "version": "3.3",
     "section": "Строки (str)",
     "subcat": "регистр",
     "aliases": [
@@ -1361,7 +1361,7 @@
     "syntax": "s.isascii()",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isascii",
-    "version": "",
+    "version": "3.7",
     "section": "Строки (str)",
     "subcat": "проверка символов",
     "aliases": [
@@ -2341,7 +2341,7 @@
     "syntax": "s.removeprefix(prefix)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removeprefix",
-    "version": "",
+    "version": "3.9",
     "section": "Строки (str)",
     "subcat": "замена",
     "aliases": [
@@ -2379,7 +2379,7 @@
     "syntax": "s.removesuffix(suffix)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removesuffix",
-    "version": "",
+    "version": "3.9",
     "section": "Строки (str)",
     "subcat": "замена",
     "aliases": [
@@ -2498,7 +2498,7 @@
     "syntax": "s.format_map(mapping)",
     "status": "ready",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.format_map",
-    "version": "",
+    "version": "3.2",
     "section": "Строки (str)",
     "subcat": "форматирование",
     "aliases": [
