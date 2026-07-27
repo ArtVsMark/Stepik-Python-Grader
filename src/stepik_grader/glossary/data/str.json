@@ -59,7 +59,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-f-строки",
     "docs_url": "https://docs.python.org/3/reference/lexical_analysis.html#f-strings",
-    "version": "",
+    "version": "3.6",
     "section": "Строки (str)",
     "subcat": "форматирование",
     "aliases": [
@@ -170,7 +170,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-in-not-in-для-строк",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#membership-test-operations",
-    "version": "",
+    "version": "3.8",
     "section": "Строки (str)",
     "subcat": "поиск",
     "aliases": [
@@ -266,7 +266,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-raw-строки-r-...",
     "docs_url": "https://docs.python.org/3/reference/lexical_analysis.html#raw-string-literals",
-    "version": "",
+    "version": "3.6",
     "section": "Строки (str)",
     "subcat": "создание",
     "aliases": [
@@ -461,7 +461,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-создание-строк",
     "docs_url": "https://docs.python.org/3/reference/lexical_analysis.html#strings",
-    "version": "",
+    "version": "3.3",
     "section": "Строки (str)",
     "subcat": "создание",
     "aliases": [
@@ -515,7 +515,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сравнение-строк",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#value-comparisons",
-    "version": "",
+    "version": "3.8",
     "section": "Строки (str)",
     "subcat": "сравнение",
     "aliases": [
@@ -673,7 +673,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-тройные-кавычки",
     "docs_url": "https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals",
-    "version": "",
+    "version": "3.3",
     "section": "Строки (str)",
     "subcat": "создание",
     "aliases": [
@@ -964,7 +964,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.casefold",
-    "version": "",
+    "version": "3.3",
     "section": "Строки (str)",
     "subcat": "регистр",
     "aliases": [
@@ -1393,7 +1393,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.isascii",
-    "version": "",
+    "version": "3.7",
     "section": "Строки (str)",
     "subcat": "проверка символов",
     "aliases": [
@@ -2398,7 +2398,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removeprefix",
-    "version": "",
+    "version": "3.9",
     "section": "Строки (str)",
     "subcat": "замена",
     "aliases": [
@@ -2437,7 +2437,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removesuffix",
-    "version": "",
+    "version": "3.9",
     "section": "Строки (str)",
     "subcat": "замена",
     "aliases": [
@@ -2559,7 +2559,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.format_map",
-    "version": "",
+    "version": "3.2",
     "section": "Строки (str)",
     "subcat": "форматирование",
     "aliases": [

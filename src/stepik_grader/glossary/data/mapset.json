@@ -112,7 +112,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-counter",
     "docs_url": "https://docs.python.org/3/library/collections.html#collections.Counter",
-    "version": "",
+    "version": "3.1",
     "section": "Словари (dict)",
     "subcat": "collections",
     "aliases": [
@@ -532,7 +532,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-ordereddict",
     "docs_url": "https://docs.python.org/3/library/collections.html#collections.OrderedDict",
-    "version": "",
+    "version": "3.1",
     "section": "Словари (dict)",
     "subcat": "collections",
     "aliases": [
@@ -645,7 +645,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-генераторы-множеств-set-comprehension",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#set-displays",
-    "version": "",
+    "version": "3.5",
     "section": "Множества (set)",
     "subcat": "comprehension",
     "aliases": [
@@ -699,7 +699,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-объединение-словарей",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict.update",
-    "version": "3.9+",
+    "version": "3.9",
     "section": "Словари (dict)",
     "subcat": "операторы",
     "aliases": [
@@ -758,7 +758,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-оператор-слияния-словарей",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#dict",
-    "version": "3.9+",
+    "version": "3.9",
     "section": "Словари (dict)",
     "subcat": "операторы",
     "aliases": [
@@ -920,7 +920,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-слияние-и-распаковка-словарей",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#dictionary-displays",
-    "version": "3.9+",
+    "version": "3.5",
     "section": "Словари (dict)",
     "subcat": "распаковка",
     "aliases": [
@@ -978,7 +978,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-словарные-выражения-dict-comprehension",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#dictionary-displays",
-    "version": "",
+    "version": "3.5",
     "section": "Словари (dict)",
     "subcat": "comprehension",
     "aliases": [
