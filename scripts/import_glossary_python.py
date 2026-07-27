@@ -33,7 +33,6 @@ _SRC = Path(__file__).resolve().parent.parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from stepik_grader.core.glossary import GLOSSARY_BASE_URL  # noqa: E402
 from stepik_grader.glossary.models import GlossaryCard  # noqa: E402
 
 __all__ = [
@@ -98,7 +97,8 @@ def external_to_card(ext: dict[str, Any]) -> GlossaryCard:
     только для kind-эвристики (сохраняется тегом для фильтров/поиска). ``id``
     исключений приводится к нижнему регистру: это конвенция анкоров
     ``core/glossary.py`` (сохраняет связь ошибка→карточка при deep-link).
-    ``url`` — реальный DOM-анкор витрины (``el.id = "e-" + <id>``).
+    Обратной ссылки на витрину карточка не несёт (issue #684): поток
+    односторонний, а DOM-анкор витрины устаревает вместе с её копией контента.
     """
     ext_id = str(ext.get("id", "")).strip()
     kind = _infer_kind(ext)
@@ -112,7 +112,6 @@ def external_to_card(ext: dict[str, Any]) -> GlossaryCard:
             "summary": str(ext.get("description", "")),
             "syntax": str(ext.get("syntax", "")),
             "status": "ready",
-            "url": f"{GLOSSARY_BASE_URL}#e-{ext_id}" if ext_id else "",
             "docs_url": str(ext.get("docs", "")),
             "version": _norm_version(ext.get("version")),
             "section": str(ext.get("group", "")),

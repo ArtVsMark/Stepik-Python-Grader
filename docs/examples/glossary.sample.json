@@ -6,7 +6,6 @@
     "summary": "Слишком глубокая рекурсия — нет условия выхода?",
     "body": "Возникает, когда глубина вложенных вызовов превышает лимит интерпретатора (`sys.getrecursionlimit()`). Обычно причина — отсутствие или недостижимость базового случая рекурсии.",
     "status": "ready",
-    "url": "https://artvsmark.github.io/Glossary-Python/#recursionerror",
     "docs_url": "https://docs.python.org/3/library/exceptions.html#RecursionError",
     "section": "Исключения",
     "subcat": "во время выполнения",

@@ -7,7 +7,8 @@
 
 - ``GlossaryCard`` — карточка термина/исключения/функции/конструкции в
   локальной базе (истина хранится локально, экспорт во внешний
-  Glossary-Python — односторонний).
+  Glossary-Python — односторонний; обратной ссылки в него у карточки нет,
+  issue #684).
 - ``GlossaryMissingEntry`` — элемент очереди пополнения: обнаруженный
   ``MissingConceptDetector``'ом пробел (нет карточки под конструкцию/функцию).
 
@@ -99,7 +100,10 @@ class GlossaryCard:
     body: str = ""  # расширенное описание (Markdown, RU), опционально
     syntax: str = ""  # сигнатура/шаблон использования, напр. "sorted(iterable, *, key=None)" (#325)
     status: CardStatus = "draft"
-    url: str = ""  # ссылка во внешний Glossary-Python (куда карточка экспортируется)
+    # Поля ``url`` (ссылка во внешний Glossary-Python) у карточки нет и не будет:
+    # внешний глоссарий — копия этой базы, ссылка из оригинала в копию уводит на
+    # устаревшие данные (issue #684). Единственный адрес карточки — её ``id``
+    # как якорь своего раздела «Глоссарий».
     docs_url: str = ""  # ссылка на официальную документацию docs.python.org (issue #325)
     version: str = ""  # мин. версия Python, если релевантно (issue #325), напр. "3.10"
     section: str = ""  # раздел глоссария (напр. «Исключения»)
@@ -239,7 +243,8 @@ class GlossaryCard:
             body=body_ru,
             syntax=str(data.get("syntax", "")),
             status=status,  # type: ignore[arg-type]
-            url=str(data.get("url", "")),
+            # ``url`` старого импорта (ссылка в витрину Glossary-Python) молча
+            # отбрасывается — поля больше нет (issue #684).
             # ``docs`` — алиас ``docs_url`` для совместимости со схемой
             # Glossary-Python (как ``hint`` → ``summary``); ``version`` там
             # бывает null → нормализуем в "".
@@ -282,7 +287,6 @@ class GlossaryCard:
             "body": {"ru": self.body, "en": self.body_en},
             "syntax": self.syntax,
             "status": self.status,
-            "url": self.url,
             "docs_url": self.docs_url,
             "version": self.version,
             "section": self.section,

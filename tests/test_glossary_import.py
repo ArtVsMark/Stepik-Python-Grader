@@ -95,8 +95,9 @@ def test_exception_id_lowercased_title_preserved() -> None:
     assert card.kind == "exception"
     assert card.version == ""  # null → ""
     assert card.docs_url.endswith("#RecursionError")
-    # url — реальный DOM-анкор витрины (e-<оригинальный id>)
-    assert card.url.endswith("#e-RecursionError")
+    # issue #684: обратной ссылки на витрину у карточки нет — поток
+    # односторонний, адрес карточки это её id как якорь своего глоссария.
+    assert not hasattr(card, "url")
 
 
 def test_builtin_call_is_function_with_split_examples() -> None:

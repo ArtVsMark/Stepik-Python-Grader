@@ -6,9 +6,11 @@ function openGlossaryForSelectedCase() {
   let id = null;
   if (c && c.glossary_ids && c.glossary_ids.length) {
     id = c.glossary_ids[0];
-  } else if (c && c.glossary && c.glossary.url) {
-    const m = c.glossary.url.match(/#(.+)$/);
-    if (m) id = m[1];
+  } else if (c && c.glossary && c.glossary.anchor) {
+    // Fallback: glossary_ids сервер отдаёт только при RE (viewmodels), а якорь
+    // карточки есть у любой подсказки. Раньше id выковыривался regex'ом из
+    // внешнего URL витрины — того поля больше нет (issue #684).
+    id = c.glossary.anchor;
   }
   setSection("glossary");
   if (id) selectGlossaryCard(id);
@@ -377,12 +379,12 @@ function renderGlossaryDetail(card) {
     ? '<div class="form-label">' + esc(t("glossary.examples")) + "</div>" +
       card.examples.map(ex => '<pre class="code-block">' + esc(ex) + "</pre>").join("")
     : "";
+  // Единственная внешняя ссылка карточки — официальная docs.python.org.
+  // Ссылки на внешний Glossary-Python здесь нет (issue #684): он копия этой
+  // базы, и переход туда уводил бы студента на устаревшую версию карточки.
   const links = [
     card.docs_url
       ? '<a href="' + esc(card.docs_url) + '" target="_blank" rel="noopener">' + esc(t("glossary.docs_python")) + "</a>"
-      : "",
-    card.url
-      ? '<a href="' + esc(card.url) + '" target="_blank" rel="noopener">' + esc(t("glossary.external_link")) + "</a>"
       : "",
   ].filter(Boolean).map(a => "<p>" + a + "</p>").join("");
   el.innerHTML =

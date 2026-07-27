@@ -55,7 +55,7 @@ __all__ = [
 
 # Минимально обязательный набор полей для status=ready (issue #684). Это de-facto
 # набор, который уже на 100% держат все карточки базы; список фиксирует его как
-# инвариант. ``body``/``aliases``/``keywords``/``version``/``related``/``url`` —
+# инвариант. ``body``/``aliases``/``keywords``/``version``/``related`` —
 # осознанно опциональны (заполнены у меньшинства), поэтому не входят.
 REQUIRED_READY_FIELDS: tuple[str, ...] = (
     "summary",  # summary.ru
@@ -219,7 +219,6 @@ def _print_report(cards: list[GlossaryCard]) -> None:
         "body",
         "syntax",
         "docs_url",
-        "url",
         "version",
         "section",
         "subcat",

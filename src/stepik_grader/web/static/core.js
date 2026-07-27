@@ -18,8 +18,9 @@ function registerSectionHook(name, fn) {
 
 const $ = s => document.querySelector(s);
 // issue #214: экранируем и кавычки — esc() используется не только в текстовом
-// контексте (innerHTML), но и внутри HTML-атрибутов (errorCard() вставляет
-// esc(g.url) в href="..."); без \"/' значение могло бы разорвать атрибут.
+// контексте (innerHTML), но и внутри HTML-атрибутов (карточка глоссария
+// вставляет esc(card.docs_url) в href="..."); без \"/' значение могло бы
+// разорвать атрибут.
 const HT = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => HT[c]);
 

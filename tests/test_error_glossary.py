@@ -8,37 +8,35 @@ CLI (reporter) и web (viewmodels) показывают одну и ту же к
 
 from __future__ import annotations
 
+from dataclasses import fields
+
 from stepik_grader.core import error_glossary
-from stepik_grader.core.error_glossary import card_url, resolve_error_hint
-from stepik_grader.core.glossary import GLOSSARY_BASE_URL
+from stepik_grader.core.error_glossary import ErrorHint, resolve_error_hint
 
 
-def test_card_url_prefers_static_url() -> None:
-    assert card_url("https://x/#e-IndexError", "indexerror") == "https://x/#e-IndexError"
-
-
-def test_card_url_computes_anchor_when_empty() -> None:
-    assert card_url("", "indexerror") == f"{GLOSSARY_BASE_URL}#indexerror"
+def test_hint_carries_no_outbound_url() -> None:
+    # issue #684: подсказка адресует карточку только якорем своего глоссария;
+    # поля со ссылкой во внешний Glossary-Python в контракте больше нет.
+    assert {f.name for f in fields(ErrorHint)} == {"exception", "hint", "anchor"}
 
 
 def test_resolve_covered_exception_uses_bundled_rich_card() -> None:
-    # IndexError покрыт bundled-базой: богатый summary и DOM-анкор витрины.
+    # IndexError покрыт bundled-базой: богатый summary и якорь своей карточки.
     hint = resolve_error_hint("Traceback (most recent call last):\nIndexError: list index")
     assert hint is not None
     assert hint.exception == "IndexError"
     assert hint.anchor == "indexerror"
-    assert hint.url.endswith("#e-IndexError")
     assert hint.hint  # непустое пояснение
 
 
 def test_resolve_fills_empty_bundled_fields_from_compact() -> None:
-    # У bundled-карточки ZeroDivisionError summary/url пустые — добираем из
+    # У bundled-карточки ZeroDivisionError summary пустой — добираем из
     # компактной карты, чтобы подсказка не деградировала до пустой.
     hint = resolve_error_hint("ZeroDivisionError: division by zero")
     assert hint is not None
     assert hint.exception == "ZeroDivisionError"
     assert hint.hint  # непустой (из компактной карты)
-    assert hint.url  # непустой
+    assert hint.anchor == "zerodivisionerror"
 
 
 def test_resolve_unknown_and_empty_return_none() -> None:
@@ -58,14 +56,14 @@ def test_cli_and_web_show_same_card_for_covered_exception() -> None:
     view = web._case_view(1, {"passed": False, "error": error, "verdict": "RE"})
     assert view["glossary"]["exception"] == hint.exception
     assert view["glossary"]["hint"] == hint.hint
-    assert view["glossary"]["url"] == hint.url
+    assert view["glossary"]["anchor"] == hint.anchor
 
 
 def test_resolve_graceful_when_bundled_unavailable(monkeypatch) -> None:
     # Битая/отсутствующая bundled-база → тихий откат на компактную карту
-    # (её вычисляемый анкор #indexerror вместо DOM-анкора витрины).
+    # (её якорь — имя класса в нижнем регистре).
     monkeypatch.setattr(error_glossary, "_bundled_index", dict)
     hint = resolve_error_hint("IndexError: x")
     assert hint is not None
     assert hint.exception == "IndexError"
-    assert hint.url.endswith("#indexerror")
+    assert hint.anchor == "indexerror"

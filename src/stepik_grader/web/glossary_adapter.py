@@ -206,7 +206,6 @@ def _fallback_cards() -> list[GlossaryCard]:
             kind="exception",
             summary=entry.hint,
             status="ready",
-            url=entry.url,
         )
         for entry in all_entries()
     ]
@@ -516,7 +515,7 @@ def code_terms(
     конструкции, исключения из ``raise``/``except`` и атрибуты модулей) и
     сопоставляет с карточками базы. Возвращает **все**
     распознанные концепции (а не только покрытые) в виде
-    ``{id, title, summary, kind, has_card, url, confidence, snippet}``:
+    ``{id, title, summary, kind, has_card, confidence, snippet}``:
     покрытые несут данные карточки (``has_card=True``), непокрытые —
     сам концепт (``has_card=False``, панель рисует их приглушённо). Методы —
     ``confidence="low"`` (тип получателя статически неизвестен). Порядок:
@@ -557,7 +556,6 @@ def code_terms(
                     "summary": card.localized("summary", lang),
                     "kind": card.kind,
                     "has_card": True,
-                    "url": card.url,
                     "confidence": confidence,
                     "snippet": snippet,
                 }
@@ -571,7 +569,6 @@ def code_terms(
                     "summary": "",
                     "kind": kind,
                     "has_card": False,
-                    "url": "",
                     "confidence": confidence,
                     "snippet": snippet,
                 }

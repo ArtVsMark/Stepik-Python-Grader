@@ -1,4 +1,4 @@
-"""Tests for core/glossary.py — карта исключений → подсказка + ссылка (issue #72).
+"""Tests for core/glossary.py — карта исключений → подсказка + якорь (issue #72).
 
 Плюс интеграция: CLI-подсказка (reporter.print_case_verbose) и веб-карточка
 (web._case_view) при вердикте RE.
@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from stepik_grader.core.glossary import (
-    GLOSSARY_BASE_URL,
     GlossaryEntry,
     all_entries,
     lookup,
@@ -22,13 +21,17 @@ from stepik_grader.core.glossary import (
 def test_entry_default_anchor_is_lowercased_class() -> None:
     e = GlossaryEntry(exception="RecursionError", hint="…")
     assert e.anchor == "recursionerror"
-    assert e.url == f"{GLOSSARY_BASE_URL}#recursionerror"
 
 
 def test_entry_custom_slug_overrides_anchor() -> None:
     e = GlossaryEntry(exception="ZeroDivisionError", hint="…", slug="division")
     assert e.anchor == "division"
-    assert e.url.endswith("#division")
+
+
+def test_entry_has_no_outbound_url() -> None:
+    # issue #684: запись адресует только свою карточку (anchor); ссылки во
+    # внешний Glossary-Python у неё нет — он копия этой базы, не эталон.
+    assert not hasattr(GlossaryEntry(exception="KeyError", hint="…"), "url")
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +132,9 @@ def test_reporter_verbose_prints_glossary_hint(capsys) -> None:
     reporter.print_case_verbose(case, result)
     out = capsys.readouterr().out
     assert "RecursionError" in out
-    assert "artvsmark.github.io/Glossary-Python" in out
+    assert "💡" in out  # сама подсказка напечатана
+    # issue #684: ссылки во внешний глоссарий-копию в выводе больше нет.
+    assert "artvsmark.github.io" not in out
 
 
 def test_reporter_verbose_no_hint_for_unknown_error(capsys) -> None:
@@ -147,7 +152,7 @@ def test_reporter_verbose_no_hint_for_unknown_error(capsys) -> None:
     }
     reporter.print_case_verbose(case, result)
     out = capsys.readouterr().out
-    assert "Glossary-Python" not in out
+    assert "💡" not in out  # неизвестное исключение — подсказки нет
 
 
 def test_web_case_view_includes_glossary_on_error() -> None:
@@ -156,9 +161,10 @@ def test_web_case_view_includes_glossary_on_error() -> None:
     view = web._case_view(1, {"passed": False, "error": "KeyError: 'x'", "verdict": "RE"})
     assert "glossary" in view
     assert view["glossary"]["exception"] == "KeyError"
-    # issue #356: подсказка теперь из общей bundled-базы — её url это DOM-анкор
-    # витрины (#e-KeyError), а не вычисляемый #keyerror компактной карты.
-    assert view["glossary"]["url"].endswith("#e-KeyError")
+    # issue #684: карточка адресуется якорем СВОЕЙ базы (deep-link
+    # #/glossary/keyerror), поля url со ссылкой на внешнюю витрину больше нет.
+    assert view["glossary"]["anchor"] == "keyerror"
+    assert "url" not in view["glossary"]
 
 
 def test_web_case_view_no_glossary_when_passed() -> None:
@@ -166,3 +172,31 @@ def test_web_case_view_no_glossary_when_passed() -> None:
 
     view = web._case_view(1, {"passed": True, "error": "", "verdict": "AC"})
     assert "glossary" not in view
+
+
+# ---------------------------------------------------------------------------
+# Ratchet: никаких ссылок на витрину-копию (issue #684)
+# ---------------------------------------------------------------------------
+
+
+def test_package_never_links_to_external_glossary_showcase() -> None:
+    """Ни один рантайм-артефакт пакета не ссылается на витрину Glossary-Python.
+
+    Инвариант «Истина глоссария» (CLAUDE.md): база этого проекта — источник,
+    внешний глоссарий — односторонняя копия. Ссылка из оригинала в копию уводит
+    студента на устаревшую карточку, поэтому её нет ни в данных (`glossary/data`),
+    ни в коде, ни в статике/локалях web-оболочки.
+    """
+    import pathlib
+
+    import stepik_grader
+
+    root = pathlib.Path(stepik_grader.__file__).parent
+    offenders = [
+        str(p.relative_to(root))
+        for p in root.rglob("*")
+        if p.is_file()
+        and p.suffix in {".py", ".js", ".json", ".html", ".css"}
+        and "artvsmark.github.io" in p.read_text(encoding="utf-8", errors="replace")
+    ]
+    assert offenders == []

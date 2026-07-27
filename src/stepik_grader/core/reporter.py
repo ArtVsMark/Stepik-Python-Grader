@@ -487,12 +487,13 @@ def print_case_verbose(case: TestCase, r: CaseResult) -> None:
 
     if result.error:
         _cprint(f"    [ERROR] {result.error}", style="red")
-        # issue #72/#356: подсказка по типу исключения + ссылка на глоссарий,
-        # из общей базы карточек (bundled JSON → компактная карта fallback).
+        # issue #72/#356: подсказка по типу исключения из общей базы карточек
+        # (bundled JSON → компактная карта fallback). Ссылки наружу нет
+        # (issue #684) — полная карточка живёт в своём разделе «Глоссарий»
+        # веб-оболочки (deep-link «#/glossary/<anchor>»).
         entry = resolve_error_hint(result.error)
         if entry is not None:
             _cprint(f"    💡 {entry.exception}: {entry.hint}", style="yellow")
-            _cprint(f"       {entry.url}", style="blue")
         return
     if result.passed:
         return
