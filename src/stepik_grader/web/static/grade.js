@@ -1251,12 +1251,18 @@ function renderMicrobench(data) {
   $("#out").innerHTML = h;
 }
 
+// issue #684: ссылка ведёт в СВОЙ раздел «Глоссарий» (deep-link #/glossary/<id>,
+// как в sandbox/trace), а не во внешний Glossary-Python — тот лишь копия этой
+// базы и отстаёт от неё.
 function errorCard(g) {
+  const link = g.anchor
+    ? ' <a href="#/glossary/' + encodeURIComponent(g.anchor) + '">' +
+      esc(t("grade.open_glossary_card")) + "</a>"
+    : "";
   return (
     '<div class="errcard"><span class="errcard-ex">💡 ' + esc(g.exception) + "</span> " +
     esc(g.hint) +
-    ' <a href="' + esc(g.url) + '" target="_blank" rel="noopener">' +
-    esc(t("grade.open_glossary_card")) + "</a></div>"
+    link + "</div>"
   );
 }
 

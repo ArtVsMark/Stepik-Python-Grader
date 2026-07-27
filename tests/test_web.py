@@ -2097,8 +2097,8 @@ class TestRunsApiMode1Tests:
 # ---------------------------------------------------------------------------
 #
 # esc() is embedded JS (no JS runtime in this Python test suite), so these are
-# source-level regression checks: they pin down the escape table/regex that
-# errorCard() relies on when inserting glossary.url into href="...". A quote
+# source-level regression checks: they pin down the escape table/regex that the
+# glossary card relies on when inserting card.docs_url into href="...". A quote
 # character reaching that attribute unescaped would let it be broken out of.
 #
 # issue #125: the JS moved from an inline <script> in _INDEX_HTML to its own
@@ -2508,10 +2508,13 @@ def test_result_announce_live_region_present() -> None:
     assert 'aria-live="polite"' in web._INDEX_HTML
 
 
-def test_error_card_url_field_is_passed_through_esc() -> None:
-    # errorCard() must run g.url through esc() before inserting it into
-    # href="..." -- if a future edit inlines g.url directly, this fails.
-    assert r'href="' + "'" + " + esc(g.url) + " + "'" + '"' in web._STATIC_JS_SOURCES
+def test_error_card_link_is_internal_deep_link() -> None:
+    # issue #684: карточка ошибки ведёт в СВОЙ раздел «Глоссарий»
+    # (#/glossary/<anchor>), а не во внешнюю витрину-копию.
+    # issue #214: якорь проходит через encodeURIComponent, поэтому не может
+    # разорвать href="..." -- если правка вставит g.anchor напрямую, тест упадёт.
+    assert "#/glossary/' + encodeURIComponent(g.anchor)" in web._STATIC_JS_SOURCES
+    assert "artvsmark.github.io" not in web._STATIC_JS_SOURCES
 
 
 # ---------------------------------------------------------------------------

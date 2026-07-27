@@ -253,9 +253,10 @@ def _case_view(
     passed = bool(case.get("passed"))
     actual = "\n".join(case.get("output") or [])
 
-    # issue #72/#356: карточка ошибки — тип исключения, пояснение, ссылка на
-    # глоссарий; из общей базы (bundled JSON → компактная карта fallback), тот
-    # же резолвер, что у CLI-репортера.
+    # issue #72/#356: карточка ошибки — тип исключения, пояснение и якорь
+    # карточки СВОЕГО глоссария (issue #684 — наружу не ссылаемся); из общей
+    # базы (bundled JSON → компактная карта fallback), тот же резолвер, что у
+    # CLI-репортера.
     entry = resolve_error_hint(error) if error else None
     glossary_ids = [entry.anchor] if entry is not None and verdict == "RE" else []
 
@@ -277,7 +278,7 @@ def _case_view(
         view["glossary"] = {
             "exception": entry.exception,
             "hint": entry.hint,
-            "url": entry.url,
+            "anchor": entry.anchor,
         }
 
     if verdict in _FAILURE_VERDICTS:

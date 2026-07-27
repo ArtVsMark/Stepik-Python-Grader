@@ -1,23 +1,22 @@
-"""glossary.py — карта встроенных исключений Python → подсказка + ссылка на глоссарий.
+"""glossary.py — карта встроенных исключений Python → подсказка + якорь карточки.
 
 Архитектурный слой: Utilities (leaf — только stdlib, не импортирует project-код).
 
 Единый источник истины для issue #72 / эпика #96: когда решение падает с
 RuntimeError'ом (вердикт RE), и CLI (`core/reporter.py`), и веб-оболочка
-(пакет `web/`) показывают короткую подсказку по типу исключения и ссылку на
-подробную карточку в отдельном проекте-глоссарии Glossary-Python.
+(пакет `web/`) показывают короткую подсказку по типу исключения и якорь
+карточки для перехода в СВОЙ раздел «Глоссарий» (`#/glossary/<anchor>`).
 
 Проектное решение (эпик #96, вариант «вендорить малый слой»): здесь живёт
 ТОЛЬКО компактный курированный набор ~30 встроенных исключений с однострочными
 пояснениями — не копия полного глоссария (полная база — пакет `glossary/`,
-число ready-карточек считает `scripts/generate_glossary_badge.py`). Полный
-контент развивается отдельным проектом; отсюда лишь ссылка на него для глубины. Так
-подсказки работают офлайн (только stdlib, без сети), а глоссарий остаётся
-независимым.
+число ready-карточек считает `scripts/generate_glossary_badge.py`). Так
+подсказки работают офлайн (только stdlib, без сети).
 
-Базовый URL и схема якорей (`<base>#<slug>`, slug = имя класса в lower-case)
-вынесены в константы — если якоря глоссария поменяются, правка тривиальна
-(одна константа + при нужде поле ``slug`` конкретной записи).
+Ссылок наружу здесь нет и быть не должно (issue #684): база этого проекта —
+источник истины, внешний Glossary-Python — только витрина-копия, и ссылка из
+оригинала в его копию уводила бы студента на устаревшие данные (CLAUDE.md
+§ Истина глоссария). Навигация — по ``anchor`` внутри своего глоссария.
 """
 
 from __future__ import annotations
@@ -25,19 +24,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 __all__ = [
-    "GLOSSARY_BASE_URL",
     "GlossaryEntry",
     "all_entries",
     "exception_name_from_error",
     "lookup",
     "lookup_from_error",
 ]
-
-# Базовый URL полного глоссария (GitHub Pages отдельного проекта Glossary-Python).
-# Якорь карточки — "#<slug>", где slug по умолчанию = имя класса исключения в
-# нижнем регистре (напр. RecursionError → #recursionerror). Проверить/поправить
-# схему якорей — здесь, в одном месте (эпик #96).
-GLOSSARY_BASE_URL = "https://artvsmark.github.io/Glossary-Python/"
 
 
 @dataclass(frozen=True)
@@ -52,11 +44,6 @@ class GlossaryEntry:
     def anchor(self) -> str:
         """Slug якоря (по умолчанию — имя класса в нижнем регистре)."""
         return self.slug or self.exception.lower()
-
-    @property
-    def url(self) -> str:
-        """Полный URL карточки в глоссарии."""
-        return f"{GLOSSARY_BASE_URL}#{self.anchor}"
 
 
 def _entry(exception: str, hint: str, slug: str = "") -> GlossaryEntry:

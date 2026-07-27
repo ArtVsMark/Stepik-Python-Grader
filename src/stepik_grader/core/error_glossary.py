@@ -26,7 +26,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from stepik_grader.core.glossary import (
-    GLOSSARY_BASE_URL,
     exception_name_from_error,
     lookup,
 )
@@ -34,27 +33,20 @@ from stepik_grader.core.glossary import (
 if TYPE_CHECKING:
     from stepik_grader.glossary.models import GlossaryCard
 
-__all__ = ["ErrorHint", "card_url", "resolve_error_hint"]
+__all__ = ["ErrorHint", "resolve_error_hint"]
 
 
 @dataclass(frozen=True)
 class ErrorHint:
-    """Унифицированная RE-подсказка независимо от источника карточки."""
+    """Унифицированная RE-подсказка независимо от источника карточки.
+
+    Ссылки наружу подсказка не несёт (issue #684): единственный адрес карточки —
+    ``anchor`` своего глоссария (deep-link ``#/glossary/<anchor>``).
+    """
 
     exception: str  # имя класса / заголовок карточки
     hint: str  # однострочное пояснение (summary/hint)
-    url: str  # ссылка на карточку (единая стратегия card_url)
     anchor: str  # id/anchor для deep-link «#/glossary/<anchor>»
-
-
-def card_url(url: str, anchor: str) -> str:
-    """Единая стратегия URL карточки (issue #356): статический ``url`` карточки,
-    иначе вычисляемый анкор ``<BASE>#<anchor>``.
-
-    Раньше существовало три несовместимых стратегии (compact-anchor, bundled
-    DOM-анкор ``#e-<Name>``, пустой url); эта функция даёт одну точку решения.
-    """
-    return url or f"{GLOSSARY_BASE_URL}#{anchor}"
 
 
 # Ленивый кеш индекса bundled-карточек {id -> GlossaryCard} по каталогу,
@@ -100,8 +92,8 @@ def resolve_error_hint(error_text: str) -> ErrorHint | None:
     """RE-подсказка по тексту ошибки из общей базы, или ``None``.
 
     Приоритет — богатая карточка комплектной базы (по ``id == имя исключения в
-    нижнем регистре``); пустые её поля (некоторые bundled-карточки исключений —
-    заглушки без summary/url) добираются из компактной карты, чтобы подсказка не
+    нижнем регистре``); пустой её ``summary`` (некоторые bundled-карточки
+    исключений — заглушки) добирается из компактной карты, чтобы подсказка не
     деградировала. ``None``, если исключение не выделилось из трейсбека или его
     нет ни в одном источнике.
     """
@@ -115,10 +107,7 @@ def resolve_error_hint(error_text: str) -> ErrorHint | None:
     if card is not None:
         exception = card.title or name
         hint = card.summary or (entry.hint if entry is not None else "")
-        anchor = card.id
-        # url карточки, иначе — url компактной записи, иначе вычисляемый анкор.
-        url = card.url or (entry.url if entry is not None else "") or card_url("", anchor)
-        return ErrorHint(exception=exception, hint=hint, url=url, anchor=anchor)
+        return ErrorHint(exception=exception, hint=hint, anchor=card.id)
     # Только компактная карта.
     assert entry is not None
-    return ErrorHint(exception=entry.exception, hint=entry.hint, url=entry.url, anchor=entry.anchor)
+    return ErrorHint(exception=entry.exception, hint=entry.hint, anchor=entry.anchor)

@@ -103,9 +103,8 @@ WEB MVP — это **локальная оболочка поверх сущес
    же самое в браузере: указал путь → увидел вердикты AC/WA/TLE/RE, diff,
    бенчмарк.
 2. **Связать проверку с обучением.** Когда решение падает, рядом открывается
-   карточка глоссария по типу ошибки
-   ([Glossary-Python](https://github.com/ArtVsMark/Glossary-Python), issue
-   #72 / эпик #96).
+   карточка глоссария по типу ошибки — из **своей** базы, deep-link
+   `#/glossary/<id>` (issue #72 / эпик #96; наружу не ссылаемся — issue #684).
 3. **Не ломать `--serve`.** Эндпоинт `/api/grade` остаётся обратно
    совместимым — см. [api.md](api.md) для полного справочника.
 
@@ -319,6 +318,11 @@ Python-атрибуты `card.summary`/`card.body` остаются RU-стро�
 Внешний проект **не** заменяет локальный модуль и **не** редактируется из
 грейдера напрямую (см. запрет в [`../CLAUDE.md`](../CLAUDE.md) § «Связанный
 проект») — только через экспорт/PR в самом Glossary-Python.
+
+Односторонность распространяется и на ссылки (issue #684): ни карточка, ни
+подсказка при RE, ни UI не ведут на витрину — она копия этой базы и отстаёт от
+неё, так что переход туда показал бы студенту устаревшую версию той же
+карточки. Навигация всегда внутренняя (`#/glossary/<id>`).
 
 **Истина контента vs истина полноты.** Важно не смешивать два разных вопроса:
 
@@ -731,7 +735,7 @@ curl-примеры) — [api.md](api.md), не здесь.
   "time": 0.42,
   "error": "…",                  // stderr, если есть
   "diff": "…",                   // при WA
-  "glossary": { "exception": "…", "hint": "…", "url": "…" } // issue #72
+  "glossary": { "exception": "…", "hint": "…", "anchor": "…" } // issue #72/#684
 }
 ```
 
@@ -800,9 +804,11 @@ adapters-слоем над `downloader.py`.
 [§ knowledge-модуль](#глоссарий-как-локальный-knowledge-модуль)). Компактный
 источник — `core/glossary.py` (`GlossaryEntry`) для встроенных исключений;
 расширенный контент и хранение — через `GlossaryProvider`/store (#126) в
-локальной JSON/SQLite-базе проекта. `url` ведёт во внешний
-[Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) (куда карточка
-экспортируется — экспорт design-only), но **истина хранится локально**.
+локальной JSON/SQLite-базе проекта. Обратной ссылки во внешний
+[Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) у карточки нет
+(issue #684): экспорт туда односторонний, витрина — копия, а **истина хранится
+локально**. Адрес карточки — её `id` как якорь своего раздела
+(`#/glossary/<id>`).
 
 ```jsonc
 // GlossaryRef — аргумент команды open_glossary
@@ -816,16 +822,17 @@ adapters-слоем над `downloader.py`.
   "hint": "однострочное пояснение (RU)",   // из core/glossary.py
   "body": "расширенное описание",           // из локального store (#126), опц.
   "status": "draft" | "ready" | "exported", // жизненный цикл карточки
-  "url": "https://artvsmark.github.io/Glossary-Python/#recursionerror",
+  "docs_url": "https://docs.python.org/3/library/exceptions.html#RecursionError",
   "section": "Исключения",
   "related": ["stackoverflow", "maximum-recursion-depth"]
 }
 ```
 
-> `id`/`url` уже выводимы из `core/glossary.py` (`GlossaryEntry.anchor` /
-> `.url`, `GLOSSARY_BASE_URL`). `kind`/`body`/`section`/`related`/`status` —
-> расширение локального store (#126). `status` связывает карточку с очередью
-> пополнения (`GlossaryMissingEntry`) и экспортом.
+> `id` уже выводим из `core/glossary.py` (`GlossaryEntry.anchor`).
+> `kind`/`body`/`section`/`related`/`status` — расширение локального store
+> (#126). `status` связывает карточку с очередью пополнения
+> (`GlossaryMissingEntry`) и экспортом. Единственная внешняя ссылка карточки —
+> `docs_url` на официальный `docs.python.org` (issue #684).
 
 ---
 
