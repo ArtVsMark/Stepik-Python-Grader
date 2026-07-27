@@ -64,7 +64,10 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "callable",
-    "aliases": [],
+    "aliases": [
+      "тип вызываемого объекта",
+      "аннотация функции как параметра"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -108,7 +111,10 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "атрибуты",
-    "aliases": [],
+    "aliases": [
+      "переменная класса в аннотации",
+      "поле класса, а не экземпляра"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -155,7 +161,10 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "константы",
-    "aliases": [],
+    "aliases": [
+      "константа в аннотации",
+      "запрет переназначения переменной"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -198,7 +207,11 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "generics",
-    "aliases": [],
+    "aliases": [
+      "обобщённый класс",
+      "дженерики",
+      "параметризация типа"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -245,7 +258,10 @@
     "version": "3.9+",
     "section": "Аннотации и typing",
     "subcat": "встроенные",
-    "aliases": [],
+    "aliases": [
+      "встроенные типы в аннотациях",
+      "аннотация списка и словаря"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -286,7 +302,10 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "литерал",
-    "aliases": [],
+    "aliases": [
+      "тип из конкретных значений",
+      "ограничить допустимые значения аргумента"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -330,7 +349,10 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "namedtuple",
-    "aliases": [],
+    "aliases": [
+      "типизированный именованный кортеж",
+      "кортеж с полями и типами"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -374,7 +396,10 @@
     "version": "3.10+",
     "section": "Аннотации и typing",
     "subcat": "опциональный",
-    "aliases": [],
+    "aliases": [
+      "необязательное значение в аннотации",
+      "тип, допускающий отсутствие значения"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -417,7 +442,11 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "протокол",
-    "aliases": [],
+    "aliases": [
+      "утиная типизация",
+      "структурная типизация",
+      "интерфейс без наследования"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -463,7 +492,10 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "импорт",
-    "aliases": [],
+    "aliases": [
+      "импорт только для аннотаций",
+      "циклический импорт при типизации"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -504,7 +536,10 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "typeddict",
-    "aliases": [],
+    "aliases": [
+      "типизированный словарь",
+      "словарь с фиксированными ключами"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -549,7 +584,10 @@
     "version": "",
     "section": "Аннотации и typing",
     "subcat": "generics",
-    "aliases": [],
+    "aliases": [
+      "переменная типа",
+      "параметр типа"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -593,7 +631,10 @@
     "version": "3.10+",
     "section": "Аннотации и typing",
     "subcat": "объединение",
-    "aliases": [],
+    "aliases": [
+      "объединение типов",
+      "несколько допустимых типов аргумента"
+    ],
     "keywords": [],
     "tags": [
       "typing"
