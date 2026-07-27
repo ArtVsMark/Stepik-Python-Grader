@@ -2786,7 +2786,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/exceptions.html#PythonFinalizationError",
-    "version": "",
+    "version": "3.13",
     "section": "Исключения",
     "subcat": "встроенные исключения",
     "aliases": [],
@@ -3255,7 +3255,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/exceptions.html#EncodingWarning",
-    "version": "",
+    "version": "3.10",
     "section": "Исключения",
     "subcat": "встроенные исключения",
     "aliases": [

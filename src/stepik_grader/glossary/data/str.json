@@ -170,7 +170,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-in-not-in-для-строк",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#membership-test-operations",
-    "version": "",
+    "version": "3.8",
     "section": "Строки (str)",
     "subcat": "поиск",
     "aliases": [
@@ -515,7 +515,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сравнение-строк",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#value-comparisons",
-    "version": "",
+    "version": "3.8",
     "section": "Строки (str)",
     "subcat": "сравнение",
     "aliases": [
@@ -2398,7 +2398,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removeprefix",
-    "version": "",
+    "version": "3.9",
     "section": "Строки (str)",
     "subcat": "замена",
     "aliases": [
@@ -2437,7 +2437,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#str.removesuffix",
-    "version": "",
+    "version": "3.9",
     "section": "Строки (str)",
     "subcat": "замена",
     "aliases": [

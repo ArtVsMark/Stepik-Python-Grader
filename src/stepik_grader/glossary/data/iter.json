@@ -1391,7 +1391,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.pairwise",
-    "version": "",
+    "version": "3.10",
     "section": "Модуль itertools",
     "subcat": "itertools",
     "aliases": [
@@ -1430,7 +1430,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.batched",
-    "version": "",
+    "version": "3.12",
     "section": "Модуль itertools",
     "subcat": "itertools",
     "aliases": [
