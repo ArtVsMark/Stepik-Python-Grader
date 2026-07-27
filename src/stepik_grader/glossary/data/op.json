@@ -1776,7 +1776,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-lambda",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#lambda",
-    "version": "",
+    "version": "3.5",
     "section": "Функции",
     "subcat": "lambda",
     "aliases": [
@@ -3624,7 +3624,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-вычитание",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -3862,7 +3862,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-деление",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -4121,7 +4121,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-нод-нок-алгоритм-евклида",
     "docs_url": "https://docs.python.org/3/library/math.html#math.gcd",
-    "version": "",
+    "version": "3.5",
     "section": "Алгоритмы и структуры данных",
     "subcat": "математика",
     "aliases": [
@@ -4341,7 +4341,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-остаток",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -4684,7 +4684,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-префиксные-суммы",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.accumulate",
-    "version": "",
+    "version": "3.2",
     "section": "Алгоритмы и структуры данных",
     "subcat": "техники",
     "aliases": [
@@ -5009,7 +5009,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-сложение",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -5414,7 +5414,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-степень",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#the-power-operator",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -5458,7 +5458,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-тернарный-оператор",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#conditional-expressions",
-    "version": "",
+    "version": "3.5",
     "section": "Условный оператор",
     "subcat": "ветвление",
     "aliases": [
@@ -5511,7 +5511,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-умножение",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -5630,7 +5630,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-целочисленное-деление",
     "docs_url": "https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations",
-    "version": "",
+    "version": "3.5",
     "section": "Арифметика и операторы",
     "subcat": "арифметика",
     "aliases": [
@@ -5810,7 +5810,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#int.bit_length",
-    "version": "",
+    "version": "3.1",
     "section": "Числа и математика",
     "subcat": "биты",
     "aliases": [
@@ -5889,7 +5889,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#int.to_bytes",
-    "version": "",
+    "version": "3.2",
     "section": "Числа и математика",
     "subcat": "байты",
     "aliases": [
@@ -5932,7 +5932,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/stdtypes.html#int.from_bytes",
-    "version": "",
+    "version": "3.2",
     "section": "Числа и математика",
     "subcat": "байты",
     "aliases": [
@@ -6582,7 +6582,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/statistics.html#statistics.harmonic_mean",
-    "version": "",
+    "version": "3.6",
     "section": "Модуль statistics",
     "subcat": "среднее",
     "aliases": [],

@@ -107,7 +107,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-asyncio.create_task",
     "docs_url": "https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task",
-    "version": "",
+    "version": "3.7",
     "section": "Асинхронное программирование",
     "subcat": "задачи",
     "aliases": [
@@ -248,7 +248,7 @@
     "status": "ready",
     "url": "https://artvsmark.github.io/Glossary-Python/#e-asyncio.run",
     "docs_url": "https://docs.python.org/3/library/asyncio-runner.html#asyncio.run",
-    "version": "",
+    "version": "3.7",
     "section": "Асинхронное программирование",
     "subcat": "event loop",
     "aliases": [
@@ -1084,7 +1084,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.combinations_with_replacement",
-    "version": "",
+    "version": "3.1",
     "section": "Модуль itertools",
     "subcat": "itertools",
     "aliases": [
@@ -1200,7 +1200,7 @@
     "status": "ready",
     "url": "",
     "docs_url": "https://docs.python.org/3/library/itertools.html#itertools.compress",
-    "version": "",
+    "version": "3.1",
     "section": "Модуль itertools",
     "subcat": "itertools",
     "aliases": [
