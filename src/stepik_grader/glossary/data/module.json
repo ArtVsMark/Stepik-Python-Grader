@@ -32,7 +32,10 @@
     "examples": [
       "from pathlib import Path",
       "Path('/tmp').exists() # → True",
-      "Path('/nonexistent').exists() # → False"
+      "Path('/nonexistent').exists() # → False",
+      "Path.cwd().exists()  # → True (текущий каталог существует всегда)",
+      "Path('~/notes.txt').exists()  # → False: тильда не раскрывается, нужен .expanduser()",
+      "Path.cwd().exists(), Path.cwd().is_file()  # → (True, False)"
     ],
     "related": [
       "path.is_file",
@@ -71,8 +74,12 @@
     ],
     "examples": [
       "from pathlib import Path",
+      "import sys",
       "Path('/etc/hosts').is_file() # → True",
-      "Path('/tmp').is_file() # → False (это каталог)"
+      "Path('/tmp').is_file() # → False (это каталог)",
+      "print(Path(sys.executable).is_file())   # → True (сам интерпретатор — обычный файл)",
+      "print(Path(sys.executable).parent.is_file())   # → False (каталог, хотя exists() → True)",
+      "print(Path('no_such_file_42.txt').is_file())   # → False (несуществующий путь, а не исключение)"
     ],
     "related": [
       "path.exists",
@@ -112,7 +119,10 @@
     "examples": [
       "from pathlib import Path",
       "Path('/tmp').is_dir() # → True",
-      "Path('/etc/hosts').is_dir() # → False (это файл)"
+      "Path('/etc/hosts').is_dir() # → False (это файл)",
+      "Path.cwd().is_dir()  # → True",
+      "Path('no_such_dir_12345').is_dir()  # → False: несуществующий путь тоже даёт False, без исключения",
+      "[p.name for p in Path.cwd().iterdir() if p.is_dir()]  # → список имён подкаталогов текущего каталога"
     ],
     "related": [
       "path.exists",
@@ -284,8 +294,14 @@
     ],
     "examples": [
       "from pathlib import Path",
+      "import tempfile",
       "Path('/tmp/new_dir').mkdir(exist_ok=True)",
-      "Path('/tmp/a/b/c').mkdir(parents=True, exist_ok=True)"
+      "Path('/tmp/a/b/c').mkdir(parents=True, exist_ok=True)",
+      "base = Path(tempfile.mkdtemp())",
+      "(base / 'logs').mkdir()   # → каталог logs создан внутри base",
+      "print((base / 'logs').is_dir())   # → True",
+      "print((base / 'logs').mkdir())   # → FileExistsError (без exist_ok=True)",
+      "print((base / 'x/y/z').mkdir())   # → FileNotFoundError (без parents=True)"
     ],
     "related": [
       "path.unlink",
@@ -4541,7 +4557,10 @@
     "examples": [
       "import logging",
       "logging.warning('Диск заполнен на %d%%', 90)",
-      "logging.warning('Устаревший API вызван: %s', 'old_func')"
+      "logging.warning('Устаревший API вызван: %s', 'old_func')",
+      "logging.warning('Не удалось разобрать %r, беру 0', 'abc')  # → в stderr: WARNING:root:Не удалось разобрать 'abc', беру 0",
+      "logging.info('Это сообщение не появится')  # → ничего: уровень root по умолчанию WARNING",
+      "print(logging.WARNING)  # → 30"
     ],
     "related": [
       "logging-error",
@@ -6572,7 +6591,10 @@
     "examples": [
       "from pathlib import Path",
       "Path.home() # → PosixPath('/home/username')",
-      "Path.home() / 'Downloads' # → PosixPath('/home/username/Downloads')"
+      "Path.home() / 'Downloads' # → PosixPath('/home/username/Downloads')",
+      "Path.home().is_absolute()  # → True",
+      "Path.home().is_dir()  # → True",
+      "Path('~/notes.txt').expanduser() == Path.home() / 'notes.txt'  # → True"
     ],
     "related": [
       "path.cwd"
@@ -6612,7 +6634,10 @@
     "examples": [
       "from pathlib import Path",
       "Path.cwd() # → PosixPath('/current/dir')",
-      "Path.cwd().name # → имя текущего каталога"
+      "Path.cwd().name # → имя текущего каталога",
+      "Path.cwd().is_absolute()  # → True",
+      "len(list(Path.cwd().glob('*.py')))  # → число .py-файлов в текущем каталоге",
+      "Path('data.txt').absolute() == Path.cwd() / 'data.txt'  # → True"
     ],
     "related": [
       "path.home"
@@ -8323,7 +8348,13 @@
     ],
     "examples": [
       "import sys",
-      "print(sys.getrecursionlimit())  # → 1000"
+      "print(sys.getrecursionlimit())  # → 1000",
+      "print(isinstance(sys.getrecursionlimit(), int))  # → True",
+      "sys.setrecursionlimit(2000)",
+      "print(sys.getrecursionlimit())  # → 2000",
+      "sys.setrecursionlimit(1000)  # вернули значение по умолчанию",
+      "def deep(n): return deep(n + 1)",
+      "print(deep(0))  # → RecursionError"
     ],
     "related": [
       "sys.setrecursionlimit"
@@ -10069,7 +10100,13 @@
     ],
     "examples": [
       "import datetime",
-      "print(issubclass(datetime.timezone, datetime.tzinfo))   # → True"
+      "print(issubclass(datetime.timezone, datetime.tzinfo))   # → True",
+      "print(datetime.timezone.utc.tzname(None))   # → UTC",
+      "print(datetime.timezone(datetime.timedelta(hours=3)).utcoffset(None))   # → 3:00:00",
+      "d = datetime.datetime(2024, 5, 1, 12, 0, tzinfo=datetime.timezone.utc)",
+      "print(d.astimezone(datetime.timezone(datetime.timedelta(hours=3))).hour)   # → 15",
+      "print(datetime.datetime(2024, 5, 1).tzinfo)   # → None",
+      "print(datetime.tzinfo().utcoffset(None))   # → NotImplementedError"
     ],
     "related": [
       "datetime.timezone",
@@ -10103,7 +10140,11 @@
     ],
     "examples": [
       "import textwrap",
-      "print(textwrap.dedent('    hello'))   # → hello"
+      "print(textwrap.dedent('    hello'))   # → hello",
+      "print(textwrap.dedent('    a\\n      b').splitlines())  # → ['a', '  b']",
+      "print(textwrap.dedent('  a\\n   \\n  b').splitlines())  # → ['a', '', 'b']",
+      "print(textwrap.dedent('a\\n  b').splitlines())  # → ['a', '  b']",
+      "print(textwrap.dedent('   ').splitlines())  # → []"
     ],
     "related": [
       "textwrap.indent",
@@ -10137,7 +10178,11 @@
     ],
     "examples": [
       "import textwrap",
-      "print(textwrap.indent('hi', '>> '))   # → >> hi"
+      "print(textwrap.indent('hi', '>> '))   # → >> hi",
+      "print(repr(textwrap.indent('a\\nb', '    ')))   # → '    a\\n    b'",
+      "print(repr(textwrap.indent('a\\n\\nb', '# ')))   # → '# a\\n\\n# b'",
+      "print(repr(textwrap.indent('a\\n\\nb', '# ', lambda line: True)))   # → '# a\\n# \\n# b'",
+      "print(repr(textwrap.indent('', '> ')))   # → ''"
     ],
     "related": [
       "textwrap.dedent",
@@ -10171,7 +10216,11 @@
     ],
     "examples": [
       "import textwrap",
-      "print(textwrap.wrap('a b c d', width=3))   # → ['a b', 'c d']"
+      "print(textwrap.wrap('a b c d', width=3))   # → ['a b', 'c d']",
+      "print(textwrap.wrap('one two three four', width=9))   # → ['one two', 'three', 'four']",
+      "print(textwrap.wrap('abcdefghij', width=4))   # → ['abcd', 'efgh', 'ij']",
+      "print(textwrap.wrap('abcdefghij', width=4, break_long_words=False))   # → ['abcdefghij']",
+      "print(textwrap.wrap('', width=10))   # → []"
     ],
     "related": [
       "textwrap.fill",
@@ -10205,7 +10254,11 @@
     ],
     "examples": [
       "import textwrap",
-      "print(textwrap.fill('a b c', width=10))   # → a b c"
+      "print(textwrap.fill('a b c', width=10))   # → a b c",
+      "print(repr(textwrap.fill('one two three four', width=10)))  # → 'one two\\nthree four'",
+      "print(repr(textwrap.fill('one two three', width=12, initial_indent='* ')))  # → '* one two\\nthree'",
+      "print(textwrap.fill('a b c d', width=10) == '\\n'.join(textwrap.wrap('a b c d', width=10)))  # → True",
+      "print(repr(textwrap.fill('', width=10)))  # → ''"
     ],
     "related": [
       "textwrap.wrap",
@@ -10239,7 +10292,11 @@
     ],
     "examples": [
       "import textwrap",
-      "print(textwrap.shorten('Hello world foo', 12, placeholder='...'))   # → Hello..."
+      "print(textwrap.shorten('Hello world foo', 12, placeholder='...'))   # → Hello...",
+      "print(textwrap.shorten('Python is a great language', 20))   # → Python is a [...]",
+      "print(textwrap.shorten('  a   b  ', 10))   # → a b",
+      "print(textwrap.shorten('Hello world!', 10))   # → [...]",
+      "print('Hello world foo'[:8])   # → Hello wo"
     ],
     "related": [
       "textwrap.wrap",
@@ -10274,7 +10331,11 @@
     "examples": [
       "import textwrap",
       "w = textwrap.TextWrapper(width=10)",
-      "print(w.wrap('a b c d'))   # → ['a b c d']"
+      "print(w.wrap('a b c d'))   # → ['a b c d']",
+      "print(w.wrap('one two three four'))  # → ['one two', 'three four']",
+      "print(textwrap.TextWrapper(width=12, initial_indent='> ').wrap('one two three'))  # → ['> one two', 'three']",
+      "print(textwrap.TextWrapper(width=5).wrap('abcdefgh'))  # → ['abcde', 'fgh']",
+      "print(w.wrap(''))  # → []"
     ],
     "related": [
       "textwrap.wrap",
@@ -10428,7 +10489,14 @@
     "examples": [
       "import dataclasses",
       "Pt = dataclasses.make_dataclass('Pt', ['x', 'y'])",
-      "print(dataclasses.asdict(Pt(1, 2)))   # → {'x': 1, 'y': 2}"
+      "print(dataclasses.asdict(Pt(1, 2)))   # → {'x': 1, 'y': 2}",
+      "print(Pt(1, 2))   # → Pt(x=1, y=2)",
+      "print(Pt(1, 2) == Pt(1, 2))   # → True",
+      "P2 = dataclasses.make_dataclass('P2', [('x', int), ('y', int, dataclasses.field(default=0))])",
+      "print(P2(5))   # → P2(x=5, y=0)",
+      "print([f.name for f in dataclasses.fields(P2)])   # → ['x', 'y']",
+      "Fz = dataclasses.make_dataclass('Fz', ['v'], frozen=True)",
+      "Fz(1).v = 2   # → FrozenInstanceError"
     ],
     "related": [
       "dataclass",
@@ -10508,7 +10576,11 @@
     ],
     "examples": [
       "import re",
-      "print(re.sub(r'\\d+', '#', 'a1b22c'))   # → a#b#c"
+      "print(re.sub(r'\\d+', '#', 'a1b22c'))   # → a#b#c",
+      "print(re.sub(r'\\d', '#', 'a1b2c3', count=2))   # → a#b#c3",
+      "print(re.sub(r'(\\w+)@(\\w+)', r'\\2:\\1', 'user@host'))   # → host:user",
+      "print(re.sub(r'\\d+', lambda m: str(int(m.group()) * 2), 'a2 b10'))   # → a4 b20",
+      "print(re.sub(r'z+', '-', 'abc'))   # → abc"
     ],
     "related": [
       "re.subn",
@@ -10546,7 +10618,11 @@
     ],
     "examples": [
       "import re",
-      "print(re.subn(r'\\d', '#', 'a1b2'))   # → ('a#b#', 2)"
+      "print(re.subn(r'\\d', '#', 'a1b2'))   # → ('a#b#', 2)",
+      "print(re.subn(r'\\d', '#', 'abc'))   # → ('abc', 0)",
+      "print(re.subn(r'\\d', '#', 'a1b2c3', count=2))   # → ('a#b#c3', 2)",
+      "text, n = re.subn(r'\\s+', ' ', 'a  b   c')",
+      "print(n)   # → 2"
     ],
     "related": [
       "re.sub",
@@ -10580,7 +10656,11 @@
     ],
     "examples": [
       "import re",
-      "print(re.purge())   # → None"
+      "print(re.purge())   # → None",
+      "pat = re.compile(r'\\d+')",
+      "print(pat.findall('a1b22c'))   # → ['1', '22']",
+      "print(re.purge())   # → None",
+      "print(pat.findall('a1b22c'))   # → ['1', '22']"
     ],
     "related": [
       "re.compile",
@@ -10617,7 +10697,11 @@
     "examples": [
       "import re",
       "p = re.compile(r'\\d+')",
-      "print(p.findall('a12b3'))   # → ['12', '3']"
+      "print(p.findall('a12b3'))   # → ['12', '3']",
+      "print(p.search('year 2024').group())   # → 2024",
+      "print(p.match('year 2024'))   # → None",
+      "print(p.sub('#', 'a12b3'))   # → a#b#",
+      "print(isinstance(p, re.Pattern))   # → True"
     ],
     "related": [
       "re.compile",
@@ -10652,7 +10736,10 @@
     "examples": [
       "import re",
       "print(re.IGNORECASE.name)   # → IGNORECASE",
-      "print(bool(re.match('abc', 'ABC', re.IGNORECASE)))   # → True"
+      "print(bool(re.match('abc', 'ABC', re.IGNORECASE)))   # → True",
+      "print(re.IGNORECASE.value)   # → 2",
+      "flags = re.IGNORECASE | re.MULTILINE",
+      "print(re.findall('^b', 'a\\nB', flags))   # → ['B']"
     ],
     "related": [
       "флаги-re",
@@ -10841,7 +10928,12 @@
     ],
     "examples": [
       "import enum",
-      "print(issubclass(enum.IntEnum, enum.ReprEnum))   # → True"
+      "print(issubclass(enum.IntEnum, enum.ReprEnum))   # → True",
+      "class Size(int, enum.ReprEnum): BIG = 10",
+      "print(Size.BIG)   # → 10",
+      "print(repr(Size.BIG))   # → <Size.BIG: 10>",
+      "class Plain(enum.Enum): BIG = 10",
+      "print(Plain.BIG)   # → Plain.BIG"
     ],
     "related": [
       "enum.IntEnum",
@@ -10987,7 +11079,13 @@
     ],
     "examples": [
       "import enum",
-      "print(enum.EnumCheck.UNIQUE.name)   # → UNIQUE"
+      "print(enum.EnumCheck.UNIQUE.name)   # → UNIQUE",
+      "print(sorted(m.name for m in enum.EnumCheck))   # → ['CONTINUOUS', 'NAMED_FLAGS', 'UNIQUE']",
+      "print(isinstance(enum.EnumCheck.UNIQUE, str))   # → True",
+      "Nums = enum.Enum('Nums', {'A': 1, 'B': 2})",
+      "print(enum.verify(enum.EnumCheck.CONTINUOUS)(Nums) is Nums)   # → True",
+      "Gap = enum.Enum('Gap', {'A': 1, 'B': 3})",
+      "enum.verify(enum.EnumCheck.CONTINUOUS)(Gap)   # → ValueError"
     ],
     "related": [
       "enum.verify",
@@ -11021,7 +11119,12 @@
     ],
     "examples": [
       "import enum",
-      "print(enum.FlagBoundary.STRICT.name)   # → STRICT"
+      "print(enum.FlagBoundary.STRICT.name)   # → STRICT",
+      "print(list(enum.FlagBoundary.__members__))   # → ['STRICT', 'CONFORM', 'EJECT', 'KEEP']",
+      "class Perm(enum.Flag): R = 1; W = 2",
+      "print(Perm(5))   # → ValueError",
+      "class Soft(enum.Flag, boundary=enum.CONFORM): R = 1; W = 2",
+      "print(Soft(5).value)   # → 1"
     ],
     "related": [
       "enum.Flag",
@@ -11060,7 +11163,12 @@
     ],
     "examples": [
       "import math",
-      "print(math.isqrt(17))   # → 4"
+      "print(math.isqrt(17))   # → 4",
+      "print(math.isqrt(16))   # → 4",
+      "n = 49; print(math.isqrt(n) ** 2 == n)   # → True",
+      "n = 10 ** 18 - 1; print(math.isqrt(n))   # → 999999999",
+      "print(int(math.sqrt(n)))   # → 1000000000",
+      "print(math.isqrt(-1))   # → ValueError"
     ],
     "related": [
       "math.sqrt",
@@ -11100,7 +11208,11 @@
     ],
     "examples": [
       "import math",
-      "print(round(math.cbrt(27), 4))   # → 3.0"
+      "print(round(math.cbrt(27), 4))   # → 3.0",
+      "print(round(math.cbrt(-8), 4))   # → -2.0",
+      "print(round(math.cbrt(0.001), 4))   # → 0.1",
+      "print(math.cbrt(0))   # → 0.0",
+      "print(math.pow(-8, 1 / 3))   # → ValueError"
     ],
     "related": [
       "math.sqrt",
@@ -11137,7 +11249,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.exp2(3))   # → 8.0"
+      "print(math.exp2(3))   # → 8.0",
+      "print(math.exp2(-1))   # → 0.5",
+      "print(round(math.exp2(0.5), 6))   # → 1.414214",
+      "print(math.exp2(8))   # → 256.0",
+      "print(2 ** 10, math.exp2(10))   # → 1024 1024.0"
     ],
     "related": [
       "math.exp",
@@ -11171,7 +11287,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.expm1(0))   # → 0.0"
+      "print(math.expm1(0))   # → 0.0",
+      "print(round(math.expm1(1), 6))   # → 1.718282",
+      "print(round(math.expm1(0.005), 6))   # → 0.005013",
+      "print(math.exp(1e-16) - 1)   # → 0.0",
+      "print(math.expm1(1e-16))   # → 1e-16"
     ],
     "related": [
       "math.exp",
@@ -11205,7 +11325,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.log1p(0))   # → 0.0"
+      "print(math.log1p(0))   # → 0.0",
+      "print(math.log1p(1))   # → 0.6931471805599453",
+      "print(math.log(1 + 1e-16))   # → 0.0",
+      "print(math.log1p(1e-16))   # → 1e-16",
+      "print(math.log1p(-1))   # → ValueError"
     ],
     "related": [
       "math.log",
@@ -11244,7 +11368,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.sinh(0))   # → 0.0"
+      "print(math.sinh(0))   # → 0.0",
+      "print(math.sinh(1))   # → 1.1752011936438014",
+      "print(round(math.sinh(-1), 4))   # → -1.1752",
+      "print(math.isclose(math.sinh(1), (math.e - 1 / math.e) / 2))   # → True",
+      "print(math.sinh(1000))   # → OverflowError"
     ],
     "related": [
       "math.asinh",
@@ -11281,7 +11409,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.cosh(0))   # → 1.0"
+      "print(math.cosh(0))   # → 1.0",
+      "print(round(math.cosh(1), 4))   # → 1.5431",
+      "print(round(math.cosh(-1), 4))   # → 1.5431",
+      "print(round(math.cosh(2) ** 2 - math.sinh(2) ** 2, 4))   # → 1.0",
+      "print(math.cosh(1000))   # → OverflowError"
     ],
     "related": [
       "math.acosh",
@@ -11318,7 +11450,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.tanh(0))   # → 0.0"
+      "print(math.tanh(0))   # → 0.0",
+      "print(math.tanh(1))   # → 0.7615941559557649",
+      "print(round(math.tanh(-1), 4))   # → -0.7616",
+      "print(math.isclose(math.tanh(1), math.sinh(1) / math.cosh(1)))   # → True",
+      "print(math.tanh(1000))   # → 1.0"
     ],
     "related": [
       "math.atanh",
@@ -11355,7 +11491,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.asinh(0))   # → 0.0"
+      "print(math.asinh(0))   # → 0.0",
+      "print(round(math.asinh(1), 3))   # → 0.881",
+      "print(round(math.asinh(-2), 3))  # → -1.444",
+      "print(round(math.asinh(math.sinh(2)), 6))  # → 2.0",
+      "print(round(math.asinh(1000), 3))  # → 7.601"
     ],
     "related": [
       "math.sinh",
@@ -11392,7 +11532,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.acosh(1))   # → 0.0"
+      "print(math.acosh(1))   # → 0.0",
+      "print(round(math.acosh(2), 3))   # → 1.317",
+      "print(round(math.acosh(10), 3))  # → 2.993",
+      "print(round(math.acosh(math.cosh(1.5)), 6))  # → 1.5",
+      "print(math.acosh(0.5))  # → ValueError"
     ],
     "related": [
       "math.cosh",
@@ -11431,7 +11575,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.atanh(0))   # → 0.0"
+      "print(math.atanh(0))   # → 0.0",
+      "print(round(math.atanh(0.5), 4))   # → 0.5493",
+      "print(round(math.atanh(-0.5), 4))   # → -0.5493",
+      "print(round(math.atanh(math.tanh(2)), 4))   # → 2.0",
+      "print(math.atanh(1))   # → ValueError"
     ],
     "related": [
       "math.tanh",
@@ -11470,7 +11618,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.erf(0))   # → 0.0"
+      "print(math.erf(0))   # → 0.0",
+      "print(round(math.erf(1), 4))   # → 0.8427",
+      "print(round(math.erf(-1), 4))   # → -0.8427",
+      "print(round(math.erf(1 / math.sqrt(2)), 4))   # → 0.6827",
+      "print(math.erf(float('inf')))   # → 1.0"
     ],
     "related": [
       "math.erfc",
@@ -11504,7 +11656,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.erfc(0))   # → 1.0"
+      "print(math.erfc(0))   # → 1.0",
+      "print(round(math.erfc(1), 4))   # → 0.1573",
+      "print(round(math.erf(1) + math.erfc(1), 10))   # → 1.0",
+      "print(1 - math.erf(6))   # → 0.0",
+      "print(math.erfc(6) > 0)   # → True"
     ],
     "related": [
       "math.erf",
@@ -11541,7 +11697,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.gamma(5))   # → 24.0"
+      "print(math.gamma(5))   # → 24.0",
+      "print(math.gamma(1))   # → 1.0",
+      "print(round(math.gamma(0.5), 6))   # → 1.772454",
+      "print(math.gamma(6) == math.factorial(5))   # → True",
+      "print(math.gamma(0))   # → ValueError"
     ],
     "related": [
       "math.lgamma",
@@ -11577,7 +11737,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.lgamma(1))   # → 0.0"
+      "print(math.lgamma(1))   # → 0.0",
+      "print(round(math.lgamma(5), 4))   # → 3.1781",
+      "print(round(math.exp(math.lgamma(6))))   # → 120",
+      "print(round(math.lgamma(1000), 2))   # → 5905.22",
+      "print(math.lgamma(0))   # → ValueError"
     ],
     "related": [
       "math.gamma",
@@ -11616,7 +11780,12 @@
     ],
     "examples": [
       "import math",
-      "print(math.fmod(10, 3))   # → 1.0"
+      "print(math.fmod(10, 3))   # → 1.0",
+      "print(math.fmod(-10, 3))   # → -1.0",
+      "print(-10 % 3)   # → 2",
+      "print(math.fmod(10, -3))   # → 1.0",
+      "print(math.fmod(7.5, 2))   # → 1.5",
+      "print(math.fmod(10, 0))   # → ValueError"
     ],
     "related": [
       "остаток",
@@ -11652,7 +11821,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.remainder(10, 3))   # → 1.0"
+      "print(math.remainder(10, 3))   # → 1.0",
+      "print(math.remainder(11, 3))   # → -1.0",
+      "print(11 % 3)   # → 2",
+      "print(math.remainder(7, 2))   # → -1.0",
+      "print(math.remainder(1, 0))   # → ValueError"
     ],
     "related": [
       "math.fmod",
@@ -11691,7 +11864,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.copysign(3, -1))   # → -3.0"
+      "print(math.copysign(3, -1))   # → -3.0",
+      "print(math.copysign(-3, 1))   # → 3.0",
+      "x = -12.5",
+      "print(math.copysign(1, x))   # → -1.0",
+      "print(math.copysign(2, -0.0))   # → -2.0"
     ],
     "related": [
       "math.fabs",
@@ -11728,7 +11905,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.frexp(8))   # → (0.5, 4)"
+      "print(math.frexp(8))   # → (0.5, 4)",
+      "print(math.frexp(0.5))   # → (0.5, 0)",
+      "print(math.frexp(-12))   # → (-0.75, 4)",
+      "print(math.frexp(0))   # → (0.0, 0)",
+      "m, e = math.frexp(10); print(m * 2 ** e)   # → 10.0"
     ],
     "related": [
       "math.ldexp",
@@ -11765,7 +11946,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.modf(3.5))   # → (0.5, 3.0)"
+      "print(math.modf(3.5))   # → (0.5, 3.0)",
+      "print(math.modf(-3.5))   # → (-0.5, -3.0)",
+      "print(math.modf(5.0))   # → (0.0, 5.0)",
+      "print(math.modf(2.7))   # → (0.7000000000000002, 2.0)",
+      "print(round(math.modf(19.99)[0] * 100))   # → 99"
     ],
     "related": [
       "math.trunc",
@@ -11802,7 +11987,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.ldexp(0.5, 3))   # → 4.0"
+      "print(math.ldexp(0.5, 3))   # → 4.0",
+      "print(math.ldexp(1, 10))   # → 1024.0",
+      "print(math.ldexp(3, -2))   # → 0.75",
+      "m, e = math.frexp(10); print(math.ldexp(m, e))   # → 10.0",
+      "print(math.ldexp(1, 5000))   # → OverflowError"
     ],
     "related": [
       "math.frexp",
@@ -11836,7 +12025,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.ulp(1.0))   # → 2.220446049250313e-16"
+      "print(math.ulp(1.0))   # → 2.220446049250313e-16",
+      "print(math.ulp(0.0))   # → 5e-324",
+      "print(math.ulp(1e16))   # → 2.0",
+      "print(1.0 + math.ulp(1.0))   # → 1.0000000000000002",
+      "print(1.0 + math.ulp(1.0) / 2 == 1.0)   # → True"
     ],
     "related": [
       "math.nextafter",
@@ -11870,7 +12063,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.nextafter(1.0, 2.0))   # → 1.0000000000000002"
+      "print(math.nextafter(1.0, 2.0))   # → 1.0000000000000002",
+      "print(math.nextafter(1.0, 0.0))   # → 0.9999999999999999",
+      "print(math.nextafter(1.0, 2.0, steps=2))   # → 1.0000000000000004",
+      "print(math.nextafter(0.0, 1.0))   # → 5e-324",
+      "print(math.nextafter(2.0, 2.0))   # → 2.0"
     ],
     "related": [
       "math.ulp",
@@ -11908,7 +12105,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.dist((0, 0), (3, 4)))   # → 5.0"
+      "print(math.dist((0, 0), (3, 4)))   # → 5.0",
+      "print(math.dist([1, 2, 3], [4, 6, 3]))   # → 5.0",
+      "points = [(1, 1), (5, 5), (2, 3)]",
+      "print(min(points, key=lambda p: math.dist((0, 0), p)))   # → (1, 1)",
+      "print(math.dist((0, 0), (1, 1, 1)))   # → ValueError"
     ],
     "related": [
       "math.hypot",
@@ -11947,7 +12148,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.sumprod((1, 2, 3), (4, 5, 6)))   # → 32"
+      "print(math.sumprod((1, 2, 3), (4, 5, 6)))   # → 32",
+      "print(math.sumprod([100, 250, 30], [2, 1, 5]))   # → 600",
+      "print(math.sumprod([], []))   # → 0",
+      "print(math.sumprod([1, 2, 3], [4, 5, 6]) == sum(x * y for x, y in zip([1, 2, 3], [4, 5, 6])))   # → True",
+      "print(math.sumprod([1, 2, 3], [4, 5]))   # → ValueError"
     ],
     "related": [
       "math.fma",
@@ -11984,7 +12189,11 @@
     ],
     "examples": [
       "import math",
-      "print(math.fma(2, 3, 4))   # → 10.0"
+      "print(math.fma(2, 3, 4))   # → 10.0",
+      "print(math.fma(2.5, 4, -1))   # → 9.0",
+      "print(math.fma(0.5, 10, 3))   # → 8.0",
+      "print(math.fma(0.1, 0.1, -0.01) < 0.1 * 0.1 - 0.01)   # → True",
+      "print(type(math.fma(2, 3, 4)))   # → <class 'float'>"
     ],
     "related": [
       "math.sumprod",
@@ -12093,8 +12302,14 @@
     ],
     "examples": [
       "import contextlib",
+      "import os",
       "cm = contextlib.chdir('.')",
-      "print(hasattr(cm, '__enter__') and hasattr(cm, '__exit__'))   # → True"
+      "print(hasattr(cm, '__enter__') and hasattr(cm, '__exit__'))   # → True",
+      "with contextlib.chdir('.') as v: print(v)   # → None",
+      "before = os.getcwd()",
+      "with contextlib.chdir('..'): print(os.getcwd() == os.path.dirname(before))   # → True",
+      "print(os.getcwd() == before)   # → True",
+      "with contextlib.chdir('no_such_dir'): pass   # → FileNotFoundError"
     ],
     "related": [
       "os.chdir",
@@ -12204,7 +12419,12 @@
     ],
     "examples": [
       "import contextlib",
-      "print(hasattr(contextlib.ContextDecorator, '_recreate_cm'))   # → True"
+      "print(hasattr(contextlib.ContextDecorator, '_recreate_cm'))   # → True",
+      "print('__call__' in vars(contextlib.ContextDecorator))   # → True",
+      "print(callable(contextlib.ContextDecorator()))   # → True",
+      "print(hasattr(contextlib.ContextDecorator, '__enter__'), hasattr(contextlib.ContextDecorator, '__exit__'))   # → False False",
+      "gen_cm = contextlib.contextmanager(lambda: iter([None]))",
+      "print(isinstance(gen_cm(), contextlib.ContextDecorator))   # → True"
     ],
     "related": [
       "contextlib.contextmanager",
@@ -12237,8 +12457,16 @@
       "contextlib"
     ],
     "examples": [
+      "import asyncio",
       "import contextlib",
-      "print(issubclass(contextlib.AsyncExitStack, contextlib.AbstractAsyncContextManager))   # → True"
+      "print(issubclass(contextlib.AsyncExitStack, contextlib.AbstractAsyncContextManager))   # → True",
+      "stack = contextlib.AsyncExitStack()",
+      "print(hasattr(stack, 'enter_async_context'), hasattr(stack, 'push_async_callback'))   # → True True",
+      "print(hasattr(stack, 'enter_context'), hasattr(stack, 'callback'))   # → True True",
+      "print(hasattr(stack, '__aenter__'), hasattr(stack, '__enter__'))   # → True False",
+      "print(issubclass(contextlib.AsyncExitStack, contextlib.ExitStack))   # → False",
+      "stack.callback(print, 'закрыто')",
+      "asyncio.run(stack.aclose())   # → закрыто"
     ],
     "related": [
       "contextlib.exitstack",
@@ -12309,7 +12537,13 @@
     ],
     "examples": [
       "import contextlib",
-      "print(hasattr(contextlib.aclosing, '__call__'))   # → True"
+      "import asyncio",
+      "print(hasattr(contextlib.aclosing, '__call__'))   # → True",
+      "print(issubclass(contextlib.aclosing, contextlib.AbstractAsyncContextManager))   # → True",
+      "cm = contextlib.aclosing('resource')",
+      "print(hasattr(cm, '__aenter__') and hasattr(cm, '__aexit__'))   # → True",
+      "print(asyncio.run(cm.__aenter__()))   # → resource",
+      "with contextlib.aclosing(None): pass   # → TypeError"
     ],
     "related": [
       "contextlib.closing",
@@ -12384,7 +12618,15 @@
     ],
     "examples": [
       "import abc",
-      "print(type(abc.ABC) is abc.ABCMeta)   # → True"
+      "print(type(abc.ABC) is abc.ABCMeta)   # → True",
+      "class Shape(metaclass=abc.ABCMeta):",
+      "    @abc.abstractmethod",
+      "    def area(self): return 0",
+      "print(type(Shape) is abc.ABCMeta)     # → True",
+      "print(Shape.__abstractmethods__)      # → frozenset({'area'})",
+      "class Circle(Shape): area = lambda self: 3.14",
+      "print(Circle().area())                # → 3.14",
+      "print(Shape())                        # → TypeError"
     ],
     "related": [
       "abc.ABC",
@@ -12458,7 +12700,11 @@
     ],
     "examples": [
       "import abc",
-      "print(callable(abc.abstractproperty))   # → True"
+      "print(callable(abc.abstractproperty))   # → True",
+      "print(issubclass(abc.abstractproperty, property))   # → True",
+      "class Shape(abc.ABC): area = abc.abstractproperty(lambda self: 0)",
+      "print(Shape.__abstractmethods__)   # → frozenset({'area'})",
+      "print(Shape())   # → TypeError (класс абстрактный)"
     ],
     "related": [
       "abc.abstractmethod",
@@ -12492,7 +12738,18 @@
     ],
     "examples": [
       "import abc",
-      "print(callable(abc.abstractclassmethod))   # → True"
+      "print(callable(abc.abstractclassmethod))            # → True",
+      "print(issubclass(abc.abstractclassmethod, classmethod))   # → True",
+      "class Base(abc.ABC):",
+      "    @abc.abstractclassmethod",
+      "    def create(cls): ...",
+      "print(Base.__abstractmethods__)                     # → frozenset({'create'})",
+      "class Modern(abc.ABC):",
+      "    @classmethod",
+      "    @abc.abstractmethod",
+      "    def create(cls): ...",
+      "print(Modern.__abstractmethods__)                   # → frozenset({'create'})",
+      "print(Base())                                       # → TypeError"
     ],
     "related": [
       "abc.abstractmethod",
@@ -12526,7 +12783,11 @@
     ],
     "examples": [
       "import abc",
-      "print(callable(abc.abstractstaticmethod))   # → True"
+      "print(callable(abc.abstractstaticmethod))   # → True",
+      "print(issubclass(abc.abstractstaticmethod, staticmethod))   # → True",
+      "class Base(abc.ABC): make = abc.abstractstaticmethod(lambda: 1)",
+      "print(Base.__abstractmethods__)   # → frozenset({'make'})",
+      "print(Base())   # → TypeError (не реализован make)"
     ],
     "related": [
       "abc.abstractmethod",
@@ -12560,7 +12821,11 @@
     ],
     "examples": [
       "import abc",
-      "print(isinstance(abc.get_cache_token(), int))   # → True"
+      "print(isinstance(abc.get_cache_token(), int))   # → True",
+      "t = abc.get_cache_token()",
+      "class Virtual(abc.ABC): pass",
+      "print(Virtual.register(list) is list)   # → True",
+      "print(abc.get_cache_token() != t)   # → True"
     ],
     "related": [
       "abc.ABCMeta",
@@ -12594,7 +12859,10 @@
     "examples": [
       "import abc",
       "class C: pass",
-      "print(abc.update_abstractmethods(C) is C)   # → True"
+      "print(abc.update_abstractmethods(C) is C)   # → True",
+      "class Base(abc.ABC): pass",
+      "Base.run = abc.abstractmethod(lambda self: None)",
+      "print(abc.update_abstractmethods(Base).__abstractmethods__)   # → frozenset({'run'})"
     ],
     "related": [
       "abc.abstractmethod",
@@ -12629,7 +12897,11 @@
     "examples": [
       "import string",
       "f = string.Formatter()",
-      "print(f.format('{0}-{1}', 'a', 'b'))   # → a-b"
+      "print(f.format('{0}-{1}', 'a', 'b'))   # → a-b",
+      "print(f.format('{name}: {age}', name='Ann', age=7))  # → Ann: 7",
+      "print(f.vformat('{0}+{1}', ('x', 'y'), {}))  # → x+y",
+      "print(list(f.parse('{a}')))  # → [('', 'a', '', None)]",
+      "print(f.format('{0:>5}', 'ab') == '{0:>5}'.format('ab'))  # → True"
     ],
     "related": [
       "format-метод-форматирования",
@@ -12669,7 +12941,11 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance([1, 2], abc.Iterable))   # → True"
+      "print(isinstance([1, 2], abc.Iterable))   # → True",
+      "print(isinstance('hi', abc.Iterable))  # → True",
+      "print(isinstance(42, abc.Iterable))  # → False",
+      "print(issubclass(range, abc.Iterable))  # → True",
+      "print([x for x in [1, [2, 3], 'ab'] if isinstance(x, abc.Iterable)])  # → [[2, 3], 'ab']"
     ],
     "related": [
       "collections.abc.Iterator",
@@ -12708,7 +12984,12 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance(iter([1]), abc.Iterator))   # → True"
+      "print(isinstance(iter([1]), abc.Iterator))   # → True",
+      "print(isinstance([1, 2], abc.Iterator))  # → False",
+      "print(isinstance([1, 2], abc.Iterable))  # → True",
+      "print(isinstance(map(str, [1, 2]), abc.Iterator))  # → True",
+      "it = iter([1])",
+      "print(next(it, 'stop'), next(it, 'stop'))  # → 1 stop"
     ],
     "related": [
       "collections.abc.Iterable",
@@ -12748,7 +13029,12 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance([1], abc.Reversible))   # → True"
+      "print(isinstance([1], abc.Reversible))   # → True",
+      "print(isinstance(range(3), abc.Reversible))   # → True",
+      "print(isinstance({'a': 1, 'b': 2}, abc.Reversible))   # → True",
+      "print(list(reversed({'a': 1, 'b': 2})))   # → ['b', 'a']",
+      "print(isinstance({1, 2}, abc.Reversible))   # → False",
+      "print(isinstance((x for x in [1, 2]), abc.Reversible))   # → False"
     ],
     "related": [
       "collections.abc.Iterable",
@@ -12825,7 +13111,11 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance([1, 2], abc.Sized))   # → True"
+      "print(isinstance([1, 2], abc.Sized))   # → True",
+      "print(isinstance('hello', abc.Sized), isinstance({'a': 1}, abc.Sized))   # → True True",
+      "print(isinstance(42, abc.Sized))   # → False",
+      "print(isinstance((i for i in range(3)), abc.Sized))   # → False",
+      "print(issubclass(abc.Sequence, abc.Sized), issubclass(abc.Iterator, abc.Sized))   # → True False"
     ],
     "related": [
       "len",
@@ -12864,7 +13154,11 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance([1], abc.Container))   # → True"
+      "print(isinstance([1], abc.Container))   # → True",
+      "print(isinstance('abc', abc.Container))   # → True",
+      "print(isinstance({'a': 1}, abc.Container))   # → True",
+      "print(isinstance(iter([1]), abc.Container))   # → False",
+      "print(1 in iter([1, 2]))   # → True"
     ],
     "related": [
       "collections.abc.Collection",
@@ -12903,7 +13197,11 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance([1], abc.Collection))   # → True"
+      "print(isinstance([1], abc.Collection))   # → True",
+      "print(isinstance({'a': 1}, abc.Collection))   # → True",
+      "print(isinstance('abc', abc.Collection))   # → True",
+      "print(isinstance((x for x in [1]), abc.Collection))   # → False",
+      "print(issubclass(abc.Collection, abc.Sized))   # → True"
     ],
     "related": [
       "collections.abc.Container",
@@ -12945,7 +13243,11 @@
     "examples": [
       "import collections.abc as abc",
       "print(isinstance(1, abc.Hashable))    # → True",
-      "print(isinstance([], abc.Hashable))   # → False"
+      "print(isinstance([], abc.Hashable))   # → False",
+      "print(isinstance('abc', abc.Hashable))   # → True",
+      "print(isinstance({1: 2}, abc.Hashable))   # → False",
+      "print(isinstance(([1], 2), abc.Hashable))   # → True",
+      "print(hash(([1], 2)))   # → TypeError"
     ],
     "related": [
       "hash",
@@ -12985,7 +13287,11 @@
     "examples": [
       "import collections.abc as abc",
       "print(isinstance([1], abc.Sequence))   # → True",
-      "print(isinstance((1,), abc.Sequence))   # → True"
+      "print(isinstance((1,), abc.Sequence))   # → True",
+      "print(isinstance('hello', abc.Sequence), isinstance(range(3), abc.Sequence))   # → True True",
+      "print(isinstance({1, 2}, abc.Sequence), isinstance({'a': 1}, abc.Sequence))   # → False False",
+      "print(isinstance(iter([1, 2]), abc.Sequence))   # → False",
+      "print(issubclass(list, abc.MutableSequence), issubclass(tuple, abc.MutableSequence))   # → True False"
     ],
     "related": [
       "collections.abc.MutableSequence",
@@ -13025,7 +13331,11 @@
     "examples": [
       "import collections.abc as abc",
       "print(isinstance([], abc.MutableSequence))   # → True",
-      "print(isinstance((), abc.MutableSequence))   # → False"
+      "print(isinstance((), abc.MutableSequence))   # → False",
+      "print(isinstance((), abc.Sequence))   # → True",
+      "print(isinstance('abc', abc.MutableSequence))   # → False",
+      "print(isinstance(bytearray(b'ab'), abc.MutableSequence))   # → True",
+      "lst = [1, 2]; lst.insert(0, 0); print(lst)   # → [0, 1, 2]"
     ],
     "related": [
       "collections.abc.Sequence",
@@ -13064,7 +13374,12 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance({}, abc.Mapping))   # → True"
+      "import types",
+      "print(isinstance({}, abc.Mapping))   # → True",
+      "print(isinstance([1, 2], abc.Mapping))  # → False",
+      "print(isinstance({}, abc.MutableMapping))  # → True",
+      "print(isinstance(types.MappingProxyType({'a': 1}), abc.Mapping))  # → True",
+      "print(isinstance(types.MappingProxyType({'a': 1}), abc.MutableMapping))  # → False"
     ],
     "related": [
       "collections.abc.MutableMapping",
@@ -13103,7 +13418,12 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance({}, abc.MutableMapping))   # → True"
+      "from types import MappingProxyType",
+      "print(isinstance({}, abc.MutableMapping))   # → True",
+      "d = {'a': 1}; d.update(b=2); print(d)   # → {'a': 1, 'b': 2}",
+      "print(isinstance(MappingProxyType({'a': 1}), abc.Mapping))   # → True",
+      "print(isinstance(MappingProxyType({'a': 1}), abc.MutableMapping))   # → False",
+      "print(sorted(abc.MutableMapping.__abstractmethods__))   # → ['__delitem__', '__getitem__', '__iter__', '__len__', '__setitem__']"
     ],
     "related": [
       "collections.abc.Mapping",
@@ -13143,7 +13463,11 @@
     "examples": [
       "import collections.abc as abc",
       "print(isinstance(set(), abc.MutableSet))         # → True",
-      "print(isinstance(frozenset(), abc.MutableSet))   # → False"
+      "print(isinstance(frozenset(), abc.MutableSet))   # → False",
+      "print(isinstance(frozenset(), abc.Set))   # → True",
+      "print(isinstance({}.keys(), abc.Set))   # → True",
+      "s = {1, 2}; s.discard(3); print(s)   # → {1, 2}",
+      "print(sorted(abc.MutableSet.__abstractmethods__))   # → ['__contains__', '__iter__', '__len__', 'add', 'discard']"
     ],
     "related": [
       "frozenset-неизменяемое-множество",
@@ -13182,7 +13506,11 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance({}.keys(), abc.KeysView))   # → True"
+      "print(isinstance({}.keys(), abc.KeysView))   # → True",
+      "print(isinstance({}.values(), abc.KeysView))  # → False",
+      "print(list({'a': 1, 'b': 2}.keys()))  # → ['a', 'b']",
+      "print({'a': 1, 'b': 2}.keys() & {'b', 'c'})  # → {'b'}",
+      "print(isinstance({}.keys(), abc.Set))  # → True"
     ],
     "related": [
       "collections.abc.ValuesView",
@@ -13222,7 +13550,15 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance({}.values(), abc.ValuesView))   # → True"
+      "print(isinstance({}.values(), abc.ValuesView))   # → True",
+      "d = {'a': 1, 'b': 2}",
+      "print(list(d.values()))   # → [1, 2]",
+      "print(len(d.values()), sum(d.values()))   # → 2 3",
+      "print(isinstance(d.keys(), abc.ValuesView), isinstance(d.keys(), abc.KeysView))   # → False True",
+      "v = d.values()",
+      "d['c'] = 10",
+      "print(list(v))   # → [1, 2, 10]",
+      "print(d.values()[0])   # → TypeError"
     ],
     "related": [
       "collections.abc.KeysView",
@@ -13262,7 +13598,11 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance({}.items(), abc.ItemsView))   # → True"
+      "print(isinstance({}.items(), abc.ItemsView))   # → True",
+      "print(isinstance({}.keys(), abc.ItemsView))  # → False",
+      "print(list({'a': 1, 'b': 2}.items()))  # → [('a', 1), ('b', 2)]",
+      "print(('a', 1) in {'a': 1, 'b': 2}.items())  # → True",
+      "print(isinstance({}.items(), abc.Set))  # → True"
     ],
     "related": [
       "dict.items",
@@ -13299,7 +13639,12 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance({}.keys(), abc.MappingView))   # → True"
+      "print(isinstance({}.keys(), abc.MappingView))   # → True",
+      "print(isinstance({}.values(), abc.MappingView))   # → True",
+      "print(isinstance({}.items(), abc.MappingView))   # → True",
+      "d = {'a': 1, 'b': 2}; print(len(d.keys()))   # → 2",
+      "print(isinstance([], abc.MappingView))   # → False",
+      "print(issubclass(abc.ItemsView, abc.MappingView))   # → True"
     ],
     "related": [
       "collections.abc.KeysView",
@@ -13338,7 +13683,11 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance(b'x', abc.Buffer))   # → True"
+      "print(isinstance(b'x', abc.Buffer))   # → True",
+      "print(isinstance(bytearray(b'x'), abc.Buffer))   # → True",
+      "print(isinstance(memoryview(b'abc'), abc.Buffer))   # → True",
+      "print(issubclass(bytes, abc.Buffer))   # → True",
+      "print(isinstance('hello', abc.Buffer))   # → False"
     ],
     "related": [
       "collections.abc.ByteString",
@@ -13374,7 +13723,11 @@
     ],
     "examples": [
       "import collections.abc as abc",
-      "print(isinstance(b'x', abc.ByteString))   # → True"
+      "print(isinstance(b'x', abc.ByteString))   # → True",
+      "print(isinstance(bytearray(b'x'), abc.ByteString))   # → True",
+      "print(isinstance(memoryview(b'x'), abc.ByteString))   # → False",
+      "print(isinstance('x', abc.ByteString))   # → False",
+      "print(isinstance(b'x', (bytes, bytearray, memoryview)))   # → True"
     ],
     "related": [
       "collections.abc.Buffer",
@@ -13694,7 +14047,10 @@
     "examples": [
       "from collections import UserString",
       "s = UserString('ab')",
-      "print(s.upper(), len(s))   # → AB 2"
+      "print(s.upper(), len(s))   # → AB 2",
+      "print(s.data, type(s.data).__name__)   # → ab str",
+      "print(s == 'ab', isinstance(s, str))   # → True False",
+      "print(s + 'c', type(s + 'c').__name__)   # → abc UserString"
     ],
     "related": [
       "collections.UserDict",
@@ -13729,7 +14085,13 @@
     "examples": [
       "import io",
       "print(issubclass(io.RawIOBase, io.IOBase))   # → True",
-      "print(isinstance(io.StringIO(), io.IOBase))   # → True"
+      "print(isinstance(io.StringIO(), io.IOBase))   # → True",
+      "print(issubclass(io.TextIOBase, io.IOBase))   # → True",
+      "s = io.StringIO('abc')",
+      "print(s.readable(), s.writable(), s.seekable())   # → True True True",
+      "s.close()",
+      "print(s.closed)   # → True",
+      "print(s.read())   # → ValueError"
     ],
     "related": [
       "io.RawIOBase",
@@ -13763,7 +14125,11 @@
     ],
     "examples": [
       "import io",
-      "print(issubclass(io.FileIO, io.RawIOBase))   # → True"
+      "print(issubclass(io.FileIO, io.RawIOBase))   # → True",
+      "print(issubclass(io.RawIOBase, io.IOBase))   # → True",
+      "print(issubclass(io.BufferedReader, io.RawIOBase))   # → False",
+      "print(isinstance(io.BytesIO(), io.RawIOBase))   # → False",
+      "print(hasattr(io.RawIOBase, 'readinto'))   # → True"
     ],
     "related": [
       "io.FileIO",
@@ -13798,7 +14164,13 @@
     ],
     "examples": [
       "import io",
-      "print(issubclass(io.BytesIO, io.BufferedIOBase))   # → True"
+      "print(issubclass(io.BytesIO, io.BufferedIOBase))   # → True",
+      "print(issubclass(io.BufferedReader, io.BufferedIOBase))   # → True",
+      "print(issubclass(io.StringIO, io.BufferedIOBase))   # → False",
+      "print(issubclass(io.BufferedIOBase, io.IOBase))   # → True",
+      "buf = io.BytesIO(b'hello')",
+      "print(isinstance(buf, io.BufferedIOBase))   # → True",
+      "print(io.BufferedIOBase().read())   # → io.UnsupportedOperation"
     ],
     "related": [
       "io.IOBase",
@@ -13833,7 +14205,11 @@
     ],
     "examples": [
       "import io",
-      "print(issubclass(io.StringIO, io.TextIOBase))   # → True"
+      "print(issubclass(io.StringIO, io.TextIOBase))   # → True",
+      "print(issubclass(io.TextIOWrapper, io.TextIOBase), issubclass(io.BytesIO, io.TextIOBase))   # → True False",
+      "s = io.StringIO('hello')",
+      "print(isinstance(s, io.TextIOBase), s.read())   # → True hello",
+      "print(io.StringIO().write(b'x'))   # → TypeError"
     ],
     "related": [
       "io.stringio",
@@ -13868,7 +14244,17 @@
     ],
     "examples": [
       "import io",
-      "print(issubclass(io.FileIO, io.RawIOBase))   # → True"
+      "import os",
+      "print(issubclass(io.FileIO, io.RawIOBase))   # → True",
+      "f = io.FileIO(os.devnull, 'r')",
+      "print(f.mode)   # → rb",
+      "print(f.readable(), f.writable())   # → True False",
+      "print(f.read())   # → b''",
+      "f.close()",
+      "print(f.closed)   # → True",
+      "b = open(os.devnull, 'rb')",
+      "print(type(b.raw).__name__)   # → FileIO",
+      "b.close()"
     ],
     "related": [
       "io.RawIOBase",
@@ -13904,7 +14290,14 @@
     "examples": [
       "import io",
       "b = io.BufferedReader(io.BytesIO(b'hello'))",
-      "print(b.read())   # → b'hello'"
+      "print(b.read())   # → b'hello'",
+      "r = io.BufferedReader(io.BytesIO(b'line1\\nline2\\n'))",
+      "print(r.readline())   # → b'line1\\n'",
+      "print(r.readlines())   # → [b'line2\\n']",
+      "p = io.BufferedReader(io.BytesIO(b'abcdef'))",
+      "print(p.peek())   # → b'abcdef'",
+      "print(p.read(2))   # → b'ab'",
+      "print(p.write(b'x'))   # → io.UnsupportedOperation"
     ],
     "related": [
       "io.BufferedWriter",
@@ -13978,7 +14371,15 @@
     ],
     "examples": [
       "import io",
-      "print(issubclass(io.BufferedRandom, io.BufferedIOBase))   # → True"
+      "print(issubclass(io.BufferedRandom, io.BufferedIOBase))   # → True",
+      "b = io.BufferedRandom(io.BytesIO(b'abcdef'))",
+      "print(b.read(3))   # → b'abc'",
+      "print(b.tell())   # → 3",
+      "print(b.seek(0))   # → 0",
+      "print(b.write(b'XY'))   # → 2",
+      "b.seek(0)",
+      "print(b.read())   # → b'XYcdef'",
+      "print(b.readable(), b.writable(), b.seekable())   # → True True True"
     ],
     "related": [
       "io.BufferedReader",
@@ -14014,7 +14415,15 @@
     "examples": [
       "import io",
       "p = io.BufferedRWPair(io.BytesIO(b'ab'), io.BytesIO())",
-      "print(p.read())   # → b'ab'"
+      "print(p.read())   # → b'ab'",
+      "print(p.readable(), p.writable())   # → True True",
+      "print(p.seekable())   # → False",
+      "w = io.BytesIO()",
+      "q = io.BufferedRWPair(io.BytesIO(b'in'), w)",
+      "print(q.write(b'out'))   # → 3",
+      "q.flush()",
+      "print(w.getvalue())   # → b'out'",
+      "print(q.read())   # → b'in'"
     ],
     "related": [
       "io.BufferedReader",
@@ -14085,7 +14494,11 @@
     ],
     "examples": [
       "import io",
-      "print(io.text_encoding('utf-8'))   # → utf-8"
+      "print(io.text_encoding('utf-8'))   # → utf-8",
+      "print(io.text_encoding('cp1251'))   # → cp1251",
+      "print(io.text_encoding('no-such-codec'))   # → no-such-codec",
+      "print(io.text_encoding('utf-8', 3))   # → utf-8",
+      "print(io.text_encoding(None) in ('locale', 'utf-8'))   # → True"
     ],
     "related": [
       "open",
@@ -14120,7 +14533,11 @@
     ],
     "examples": [
       "import io",
-      "print(callable(io.open_code))   # → True"
+      "import json",
+      "print(callable(io.open_code))   # → True",
+      "with io.open_code(json.__file__) as f: print(f.mode, type(f).__name__)   # → rb BufferedReader",
+      "print(io.open_code('no_such_file.py'))   # → FileNotFoundError",
+      "print(io.open_code('script.py', 'w'))   # → TypeError"
     ],
     "related": [
       "open",
@@ -14161,7 +14578,11 @@
     ],
     "examples": [
       "import random",
-      "print(0.0 <= random.betavariate(2.0, 3.0) <= 1.0)   # → True"
+      "print(0.0 <= random.betavariate(2.0, 3.0) <= 1.0)   # → True",
+      "print(type(random.betavariate(2.0, 3.0)).__name__)   # → float",
+      "print(round(sum(random.betavariate(2.0, 2.0) for _ in range(10000)) / 10000, 1))   # → 0.5",
+      "print(sum(random.betavariate(8.0, 2.0) for _ in range(10000)) / 10000 > 0.5)   # → True",
+      "print(random.betavariate(0.0, 3.0))   # → ValueError"
     ],
     "related": [
       "random.gammavariate",
@@ -14201,7 +14622,11 @@
     ],
     "examples": [
       "import random",
-      "print(0 <= random.binomialvariate(10, 0.5) <= 10)   # → True"
+      "print(0 <= random.binomialvariate(10, 0.5) <= 10)   # → True",
+      "print(random.binomialvariate() in (0, 1))   # → True",
+      "print(random.binomialvariate(10, 0.0), random.binomialvariate(10, 1.0))   # → 0 10",
+      "print(round(sum(random.binomialvariate(10, 0.5) for _ in range(10000)) / 10000))   # → 5",
+      "print(random.binomialvariate(10, 1.5))   # → ValueError"
     ],
     "related": [
       "random.random",
@@ -14240,7 +14665,11 @@
     ],
     "examples": [
       "import random",
-      "print(random.expovariate(1.0) >= 0.0)   # → True"
+      "print(random.expovariate(1.0) >= 0.0)   # → True",
+      "print(type(random.expovariate()).__name__)   # → float",
+      "print(round(sum(random.expovariate(2.0) for _ in range(10000)) / 10000, 1))   # → 0.5",
+      "print(random.expovariate(1000.0) < 1.0)   # → True",
+      "print(random.expovariate(0.0))   # → ZeroDivisionError"
     ],
     "related": [
       "random.gammavariate",
@@ -14279,7 +14708,11 @@
     ],
     "examples": [
       "import random",
-      "print(random.gammavariate(2.0, 3.0) > 0.0)   # → True"
+      "print(random.gammavariate(2.0, 3.0) > 0.0)   # → True",
+      "print(type(random.gammavariate(2.0, 3.0)).__name__)   # → float",
+      "print(round(sum(random.gammavariate(2.0, 3.0) for _ in range(10000)) / 10000))   # → 6",
+      "print(random.gammavariate(1.0, 2.0) > 0.0)   # → True",
+      "print(random.gammavariate(0.0, 3.0))   # → ValueError"
     ],
     "related": [
       "random.expovariate",
@@ -14318,7 +14751,11 @@
     ],
     "examples": [
       "import random",
-      "print(random.lognormvariate(0.0, 1.0) > 0.0)   # → True"
+      "print(random.lognormvariate(0.0, 1.0))   # → случайное положительное число (медиана ≈ 1.0)",
+      "print(random.lognormvariate(0.0, 1.0) > 0.0)   # → True",
+      "print(random.lognormvariate(0.0, 0.0))   # → 1.0",
+      "sample = [random.lognormvariate(0.0, 1.0) for _ in range(1000)]",
+      "print(all(x > 0.0 for x in sample))   # → True"
     ],
     "related": [
       "random.normalvariate",
@@ -14355,7 +14792,12 @@
     ],
     "examples": [
       "import random",
-      "print(isinstance(random.normalvariate(0.0, 1.0), float))   # → True"
+      "print(isinstance(random.normalvariate(0.0, 1.0), float))   # → True",
+      "print(isinstance(random.normalvariate(), float))   # → True",
+      "print(random.normalvariate(5.0, 0.0))   # → 5.0",
+      "sample = [random.normalvariate(100.0, 15.0) for _ in range(10000)]",
+      "print(90.0 < sum(sample) / len(sample) < 110.0)   # → True",
+      "print(isinstance(random.gauss(0.0, 1.0), float))   # → True"
     ],
     "related": [
       "random.gauss",
@@ -14392,7 +14834,11 @@
     ],
     "examples": [
       "import random",
-      "print(random.paretovariate(1.0) >= 1.0)   # → True"
+      "print(random.paretovariate(1.0) >= 1.0)   # → True",
+      "print(random.paretovariate(1000.0) < 1.1)   # → True",
+      "sample = [random.paretovariate(2.0) for _ in range(1000)]",
+      "print(min(sample) >= 1.0)   # → True",
+      "print(random.paretovariate(0.0))   # → ZeroDivisionError"
     ],
     "related": [
       "random.weibullvariate",
@@ -14429,7 +14875,11 @@
     ],
     "examples": [
       "import random",
-      "print(0.0 <= random.triangular(0.0, 10.0, 5.0) <= 10.0)   # → True"
+      "print(0.0 <= random.triangular(0.0, 10.0, 5.0) <= 10.0)   # → True",
+      "print(0.0 <= random.triangular() <= 1.0)   # → True",
+      "print(random.triangular(5.0, 5.0, 5.0))   # → 5.0",
+      "print(all(1 <= random.triangular(1, 10, 2) <= 10 for _ in range(1000)))   # → True",
+      "print(round(sum(random.triangular(0, 9, 0) for _ in range(20000)) / 20000))   # → 3"
     ],
     "related": [
       "random.uniform",
@@ -14467,7 +14917,11 @@
     ],
     "examples": [
       "import random, math",
-      "print(0.0 <= random.vonmisesvariate(0.0, 1.0) <= 2 * math.pi)   # → True"
+      "print(0.0 <= random.vonmisesvariate(0.0, 1.0) <= 2 * math.pi)   # → True",
+      "print(0.0 <= random.vonmisesvariate(0.0, 0.0) <= 2 * math.pi)   # → True",
+      "print(abs(random.vonmisesvariate(math.pi, 500.0) - math.pi) < 0.5)   # → True",
+      "print(0.0 <= math.degrees(random.vonmisesvariate(0.0, 4.0)) <= 360.0)   # → True",
+      "print(all(0.0 <= random.vonmisesvariate(math.pi, 2.0) <= 2 * math.pi for _ in range(1000)))   # → True"
     ],
     "related": [
       "random.uniform",
@@ -14504,7 +14958,11 @@
     ],
     "examples": [
       "import random",
-      "print(random.weibullvariate(1.0, 1.0) >= 0.0)   # → True"
+      "print(random.weibullvariate(1.0, 1.0) >= 0.0)   # → True",
+      "print(round(sum(random.weibullvariate(2.0, 1.0) for _ in range(50000)) / 50000))   # → 2",
+      "print(abs(random.weibullvariate(10.0, 200.0) - 10.0) < 2.0)   # → True",
+      "print(round(sum(random.weibullvariate(1.0, 1.0) > 1.0 for _ in range(50000)) / 50000, 1))   # → 0.4",
+      "print(random.weibullvariate(1.0, 0.0))   # → ZeroDivisionError"
     ],
     "related": [
       "random.expovariate",
@@ -14542,7 +15000,11 @@
     "examples": [
       "import random",
       "random.seed(0)",
-      "print(random.getrandbits(8))   # → 216"
+      "print(random.getrandbits(8))   # → 216",
+      "print(0 <= random.getrandbits(4) < 16)   # → True",
+      "print(len(f'{random.getrandbits(128):032x}'))   # → 32",
+      "print(random.getrandbits(0))   # → 0",
+      "print(random.getrandbits(-1))   # → ValueError"
     ],
     "related": [
       "random.randbytes",
@@ -14579,7 +15041,11 @@
     ],
     "examples": [
       "import random",
-      "print(len(random.randbytes(4)))   # → 4"
+      "print(len(random.randbytes(4)))   # → 4",
+      "print(type(random.randbytes(2)))   # → <class 'bytes'>",
+      "print(random.randbytes(0))   # → b''",
+      "print(len(random.randbytes(16).hex()))   # → 32",
+      "print(random.randbytes(-1))   # → ValueError"
     ],
     "related": [
       "random.getrandbits",
@@ -14730,7 +15196,12 @@
     ],
     "examples": [
       "import enum",
-      "print(enum.EnumMeta is enum.EnumType)   # → True"
+      "print(enum.EnumMeta is enum.EnumType)   # → True",
+      "print(enum.EnumMeta.__name__)   # → EnumType",
+      "class Color(enum.Enum): RED = 1; GREEN = 2",
+      "print(type(Color) is enum.EnumMeta)   # → True",
+      "print(len(Color))   # → 2",
+      "print(list(Color))   # → [<Color.RED: 1>, <Color.GREEN: 2>]"
     ],
     "related": [
       "enum.EnumType",
@@ -14799,8 +15270,13 @@
       "enum"
     ],
     "examples": [
-      "import enum",
-      "print(callable(enum.global_enum))   # → True"
+      "import enum, re",
+      "print(callable(enum.global_enum))   # → True",
+      "print(repr(re.IGNORECASE))   # → re.IGNORECASE",
+      "@enum.global_enum",
+      "class Color(enum.Enum): RED = 1; GREEN = 2",
+      "print(RED is Color.RED)   # → True",
+      "print(RED)   # → RED"
     ],
     "related": [
       "enum.global_enum_repr",
@@ -14834,8 +15310,13 @@
       "enum"
     ],
     "examples": [
-      "import enum",
-      "print(callable(enum.global_enum_repr))   # → True"
+      "import enum, re",
+      "print(callable(enum.global_enum_repr))   # → True",
+      "print(enum.global_enum_repr(enum.FlagBoundary.STRICT))   # → enum.STRICT",
+      "print(enum.global_enum_repr(re.RegexFlag.IGNORECASE))   # → re.IGNORECASE",
+      "print(repr(re.IGNORECASE))   # → re.IGNORECASE",
+      "class Color(enum.Enum): RED = 1",
+      "print(repr(Color.RED))   # → <Color.RED: 1>"
     ],
     "related": [
       "enum.global_enum",
@@ -14869,7 +15350,12 @@
     ],
     "examples": [
       "import enum",
-      "print(callable(enum.global_flag_repr))   # → True"
+      "import re",
+      "print(callable(enum.global_flag_repr))   # → True",
+      "print(repr(re.IGNORECASE))   # → re.IGNORECASE",
+      "print(repr(re.IGNORECASE | re.MULTILINE))   # → re.IGNORECASE|re.MULTILINE",
+      "print(repr(re.RegexFlag.DOTALL))   # → re.DOTALL",
+      "print(re.RegexFlag.__repr__ is enum.global_flag_repr)   # → True"
     ],
     "related": [
       "enum.global_enum_repr",
@@ -14903,7 +15389,13 @@
     ],
     "examples": [
       "import enum",
-      "print(callable(enum.global_str))   # → True"
+      "print(callable(enum.global_str))   # → True",
+      "Color = enum.Enum('Color', 'RED GREEN')",
+      "print(str(Color.RED))   # → Color.RED",
+      "print(enum.global_str(Color.RED))   # → RED",
+      "Color.__str__ = enum.global_str",
+      "print(str(Color.GREEN))   # → GREEN",
+      "print(repr(Color.GREEN))   # → <Color.GREEN: 2>"
     ],
     "related": [
       "enum.global_enum",
@@ -14937,7 +15429,13 @@
     ],
     "examples": [
       "import enum",
-      "print(callable(enum.pickle_by_enum_name))   # → True"
+      "print(callable(enum.pickle_by_enum_name))   # → True",
+      "Color = enum.Enum('Color', 'RED GREEN')",
+      "print(Color.RED.__reduce_ex__(2)[1])   # → (1,)",
+      "func, args = enum.pickle_by_enum_name(Color.RED, 2)",
+      "print(func is getattr)   # → True",
+      "print(args[1])   # → RED",
+      "print(func(*args) is Color.RED)   # → True"
     ],
     "related": [
       "enum.pickle_by_global_name",
@@ -14971,7 +15469,12 @@
     ],
     "examples": [
       "import enum",
-      "print(callable(enum.pickle_by_global_name))   # → True"
+      "print(callable(enum.pickle_by_global_name))   # → True",
+      "Color = enum.Enum('Color', 'RED GREEN')",
+      "print(enum.pickle_by_global_name(Color.GREEN, 2))   # → GREEN",
+      "print(isinstance(enum.pickle_by_global_name(Color.GREEN, 2), str))   # → True",
+      "print(Color.GREEN.__reduce_ex__(2)[1])   # → (2,)",
+      "print(enum.pickle_by_enum_name(Color.GREEN, 2)[0] is getattr)   # → True"
     ],
     "related": [
       "enum.pickle_by_enum_name",
@@ -25332,7 +25835,11 @@
     ],
     "examples": [
       "import json",
-      "print(json.JSONDecoder().decode('[1, 2]'))   # → [1, 2]"
+      "print(json.JSONDecoder().decode('[1, 2]'))   # → [1, 2]",
+      "print(json.JSONDecoder().decode('{\"a\": 1, \"b\": null}'))   # → {'a': 1, 'b': None}",
+      "print(json.JSONDecoder(object_hook=lambda d: sum(d.values())).decode('{\"a\": 1, \"b\": 2}'))   # → 3",
+      "print(json.JSONDecoder().raw_decode('[1, 2] tail'))   # → ([1, 2], 6)",
+      "print(json.JSONDecoder().decode('{oops}'))   # → JSONDecodeError"
     ],
     "related": [
       "json.loads",
@@ -25369,7 +25876,11 @@
     ],
     "examples": [
       "import json",
-      "print(json.JSONEncoder().encode([1, 2]))   # → [1, 2]"
+      "print(json.JSONEncoder().encode([1, 2]))   # → [1, 2]",
+      "print(json.JSONEncoder().encode({'a': 1, 'b': None}))   # → {\"a\": 1, \"b\": null}",
+      "print(json.JSONEncoder(sort_keys=True).encode({'b': 2, 'a': 1}))   # → {\"a\": 1, \"b\": 2}",
+      "print(json.JSONEncoder().encode(range(3)))   # → TypeError",
+      "print(json.JSONEncoder(default=str).encode(range(3)))   # → \"range(0, 3)\""
     ],
     "related": [
       "json.dumps",
@@ -25406,7 +25917,11 @@
     ],
     "examples": [
       "s = slice(1, 5, 2)",
-      "print((s.start, s.stop, s.step))   # → (1, 5, 2)"
+      "print((s.start, s.stop, s.step))   # → (1, 5, 2)",
+      "print('abcdefgh'[s])   # → bd",
+      "print([0, 1, 2, 3, 4][slice(2, 4)])   # → [2, 3]",
+      "print('abcdef'[slice(None, None, -1)])   # → fedcba",
+      "print(slice(5).indices(3))   # → (0, 3, 1)"
     ],
     "related": [
       "срезы-списка",
@@ -25444,7 +25959,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(not hasattr(statistics, 'kde') or callable(statistics.kde))   # → True"
+      "print(not hasattr(statistics, 'kde') or callable(statistics.kde))   # → True",
+      "f = statistics.kde([1.0, 2.0, 3.0], h=1.0)",
+      "print(round(f(2.0), 4))   # → 0.2943",
+      "print(statistics.kde([0.0], h=1.0, kernel='uniform')(0.0))   # → 0.5",
+      "print(statistics.kde([], h=1.0))   # → StatisticsError"
     ],
     "related": [
       "statistics.kde_random",
@@ -25478,7 +25997,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(not hasattr(statistics, 'kde_random') or callable(statistics.kde_random))   # → True"
+      "print(not hasattr(statistics, 'kde_random') or callable(statistics.kde_random))   # → True",
+      "rand = statistics.kde_random([0, 10], h=2, kernel='uniform', seed=1)   # прямоугольное ядро, seed делает выборку воспроизводимой",
+      "print(type(rand()))   # → <class 'float'>",
+      "print(all(-2 <= rand() <= 12 for _ in range(100)))   # → True",
+      "print(statistics.kde_random([1, 2, 3], h=0))   # → StatisticsError"
     ],
     "related": [
       "statistics.kde",

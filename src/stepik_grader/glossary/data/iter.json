@@ -925,7 +925,10 @@
     "examples": [
       "import itertools",
       "c = itertools.count(10)",
-      "print(next(c), next(c), next(c))   # → 10 11 12"
+      "print(next(c), next(c), next(c))   # → 10 11 12",
+      "print(list(itertools.islice(itertools.count(0, 5), 4)))   # → [0, 5, 10, 15]",
+      "print(list(zip(itertools.count(1), 'abc')))   # → [(1, 'a'), (2, 'b'), (3, 'c')]",
+      "print(list(itertools.islice(itertools.count(3, -1), 5)))   # → [3, 2, 1, 0, -1]"
     ],
     "related": [
       "itertools.cycle",
@@ -964,7 +967,10 @@
     "examples": [
       "import itertools",
       "c = itertools.cycle([1, 2, 3])",
-      "print([next(c) for _ in range(5)])   # → [1, 2, 3, 1, 2]"
+      "print([next(c) for _ in range(5)])   # → [1, 2, 3, 1, 2]",
+      "print(list(itertools.islice(itertools.cycle('ab'), 5)))   # → ['a', 'b', 'a', 'b', 'a']",
+      "print(list(zip('abcd', itertools.cycle([0, 1]))))   # → [('a', 0), ('b', 1), ('c', 0), ('d', 1)]",
+      "print(list(itertools.islice(itertools.cycle([]), 3)))   # → []"
     ],
     "related": [
       "itertools.repeat",
@@ -1001,7 +1007,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.repeat('x', 3)))   # → ['x', 'x', 'x']"
+      "print(list(itertools.repeat('x', 3)))   # → ['x', 'x', 'x']",
+      "print(sum(itertools.repeat(5, 4)))   # → 20",
+      "print(list(map(pow, [1, 2, 3], itertools.repeat(2))))   # → [1, 4, 9]",
+      "print(list(itertools.islice(itertools.repeat(7), 3)))   # → [7, 7, 7]",
+      "print(list(itertools.repeat('x', -1)))   # → []"
     ],
     "related": [
       "itertools.cycle",
@@ -1039,7 +1049,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.combinations([1, 2, 3], 2)))   # → [(1, 2), (1, 3), (2, 3)]"
+      "print(list(itertools.combinations([1, 2, 3], 2)))   # → [(1, 2), (1, 3), (2, 3)]",
+      "print([''.join(p) for p in itertools.combinations('abc', 2)])   # → ['ab', 'ac', 'bc']",
+      "print(len(list(itertools.combinations(range(5), 3))))   # → 10",
+      "print(list(itertools.combinations([3, 1, 2], 2)))   # → [(3, 1), (3, 2), (1, 2)]",
+      "print(list(itertools.combinations([1, 2], 3)))   # → []"
     ],
     "related": [
       "itertools.combinations_with_replacement",
@@ -1076,7 +1090,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.combinations_with_replacement([1, 2], 2)))   # → [(1, 1), (1, 2), (2, 2)]"
+      "print(list(itertools.combinations_with_replacement([1, 2], 2)))   # → [(1, 1), (1, 2), (2, 2)]",
+      "print(list(itertools.combinations_with_replacement('ab', 3)))   # → [('a', 'a', 'a'), ('a', 'a', 'b'), ('a', 'b', 'b'), ('b', 'b', 'b')]",
+      "print(len(list(itertools.combinations_with_replacement(range(6), 2))))   # → 21",
+      "print(list(itertools.combinations([1, 2], 2)))   # → [(1, 2)]",
+      "print(list(itertools.combinations_with_replacement([], 2)))   # → []"
     ],
     "related": [
       "itertools.combinations",
@@ -1114,7 +1132,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.permutations([1, 2, 3], 2)))   # → [(1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2)]"
+      "print(list(itertools.permutations([1, 2, 3], 2)))   # → [(1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2)]",
+      "print([''.join(p) for p in itertools.permutations('abc')])  # → ['abc', 'acb', 'bac', 'bca', 'cab', 'cba']",
+      "print(len(list(itertools.permutations(range(4)))))  # → 24",
+      "print(list(itertools.permutations('aab', 2)))  # → [('a', 'a'), ('a', 'b'), ('a', 'a'), ('a', 'b'), ('b', 'a'), ('b', 'a')]",
+      "print(list(itertools.permutations([1, 2], 3)))  # → []"
     ],
     "related": [
       "itertools.combinations",
@@ -1152,7 +1174,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.product([1, 2], ['a', 'b'])))   # → [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]"
+      "print(list(itertools.product([1, 2], ['a', 'b'])))   # → [(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')]",
+      "print(list(itertools.product('ab', repeat=2)))  # → [('a', 'a'), ('a', 'b'), ('b', 'a'), ('b', 'b')]",
+      "print([''.join(p) for p in itertools.product('01', repeat=3)])  # → ['000', '001', '010', '011', '100', '101', '110', '111']",
+      "print(len(list(itertools.product(range(3), range(4)))))  # → 12",
+      "print(list(itertools.product([1, 2], [])))  # → []"
     ],
     "related": [
       "itertools.permutations",
@@ -1189,7 +1215,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.compress(['a', 'b', 'c', 'd'], [1, 0, 1, 0])))   # → ['a', 'c']"
+      "print(list(itertools.compress(['a', 'b', 'c', 'd'], [1, 0, 1, 0])))   # → ['a', 'c']",
+      "nums = [5, 12, 7, 20]",
+      "print(list(itertools.compress(nums, [n > 10 for n in nums])))   # → [12, 20]",
+      "print(list(itertools.compress([1, 2, 3], [1, 1])))   # → [1, 2]",
+      "print(list(itertools.compress(['a', 'b', 'c'], ['', 'x', None])))   # → ['b']"
     ],
     "related": [
       "itertools.filterfalse",
@@ -1226,7 +1256,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.dropwhile(lambda x: x < 3, [1, 2, 3, 1, 2])))   # → [3, 1, 2]"
+      "print(list(itertools.dropwhile(lambda x: x < 3, [1, 2, 3, 1, 2])))   # → [3, 1, 2]",
+      "print(list(itertools.dropwhile(lambda x: x == 0, [0, 0, 5, 0, 7])))  # → [5, 0, 7]",
+      "print(''.join(itertools.dropwhile(str.isspace, '   код')))  # → код",
+      "print(list(itertools.dropwhile(lambda x: x > 0, [1, 2, 3])))  # → []",
+      "print(list(filter(lambda x: x >= 3, [1, 2, 3, 1, 2])))  # → [3]"
     ],
     "related": [
       "itertools.takewhile",
@@ -1264,7 +1298,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.takewhile(lambda x: x < 3, [1, 2, 3, 1])))   # → [1, 2]"
+      "print(list(itertools.takewhile(lambda x: x < 3, [1, 2, 3, 1])))   # → [1, 2]",
+      "print(''.join(itertools.takewhile(str.isdigit, '2026год')))   # → 2026",
+      "print(list(itertools.takewhile(lambda x: x > 0, [-1, 5, 7])))   # → []",
+      "print(list(filter(lambda x: x < 3, [1, 2, 3, 1])))   # → [1, 2, 1]",
+      "print(list(itertools.dropwhile(lambda x: x < 3, [1, 2, 3, 1])))   # → [3, 1]"
     ],
     "related": [
       "itertools.dropwhile",
@@ -1301,7 +1339,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.filterfalse(lambda x: x % 2, [1, 2, 3, 4])))   # → [2, 4]"
+      "print(list(itertools.filterfalse(lambda x: x % 2, [1, 2, 3, 4])))   # → [2, 4]",
+      "print(list(itertools.filterfalse(None, [0, 1, '', 'a', [], [2]])))  # → [0, '', []]",
+      "print(list(itertools.filterfalse(lambda w: len(w) > 3, ['кот', 'дом', 'программа', 'и'])))  # → ['кот', 'дом', 'и']",
+      "print(list(itertools.filterfalse(lambda x: True, [1, 2, 3])))  # → []",
+      "print(list(filter(lambda x: x % 2, [1, 2, 3, 4])))  # → [1, 3]"
     ],
     "related": [
       "filter",
@@ -1338,7 +1380,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.starmap(pow, [(2, 3), (3, 2)])))   # → [8, 9]"
+      "print(list(itertools.starmap(pow, [(2, 3), (3, 2)])))   # → [8, 9]",
+      "print(list(itertools.starmap(max, [(1, 5), (9, 2), (4, 4)])))   # → [5, 9, 4]",
+      "print(list(itertools.starmap(lambda n, s: f'{n}: {s}', [('Ann', 90), ('Bob', 75)])))   # → ['Ann: 90', 'Bob: 75']",
+      "print(list(map(pow, [2, 3], [3, 2])))   # → [8, 9]",
+      "print(list(itertools.starmap(pow, [(2,)])))   # → TypeError"
     ],
     "related": [
       "map",
@@ -1376,7 +1422,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.pairwise([1, 2, 3, 4])))   # → [(1, 2), (2, 3), (3, 4)]"
+      "print(list(itertools.pairwise([1, 2, 3, 4])))   # → [(1, 2), (2, 3), (3, 4)]",
+      "print(list(itertools.pairwise('abc')))  # → [('a', 'b'), ('b', 'c')]",
+      "print([b - a for a, b in itertools.pairwise([10, 13, 12, 20])])  # → [3, -1, 8]",
+      "print(all(a <= b for a, b in itertools.pairwise([1, 2, 2, 5])))  # → True",
+      "print(list(itertools.pairwise([7])))  # → []"
     ],
     "related": [
       "zip",
@@ -1414,7 +1464,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.batched([1, 2, 3, 4, 5], 2)))   # → [(1, 2), (3, 4), (5,)]"
+      "print(list(itertools.batched([1, 2, 3, 4, 5], 2)))   # → [(1, 2), (3, 4), (5,)]",
+      "print(list(itertools.batched('abcdef', 3)))   # → [('a', 'b', 'c'), ('d', 'e', 'f')]",
+      "print([sum(b) for b in itertools.batched(range(1, 7), 3)])   # → [6, 15]",
+      "print(list(itertools.batched([], 3)))   # → []",
+      "print(list(itertools.batched([1, 2, 3], 0)))   # → ValueError"
     ],
     "related": [
       "itertools.islice",
@@ -1453,7 +1507,11 @@
     ],
     "examples": [
       "import itertools",
-      "print(list(itertools.zip_longest([1, 2], ['a'], fillvalue='?')))   # → [(1, 'a'), (2, '?')]"
+      "print(list(itertools.zip_longest([1, 2], ['a'], fillvalue='?')))   # → [(1, 'a'), (2, '?')]",
+      "print(list(itertools.zip_longest([1, 2], ['a'])))   # → [(1, 'a'), (2, None)]",
+      "print(list(zip([1, 2], ['a'])))   # → [(1, 'a')]",
+      "print([sum(p) for p in itertools.zip_longest([1, 2, 3], [10, 20], fillvalue=0)])   # → [11, 22, 3]",
+      "print(list(itertools.zip_longest('ab', '1', '', fillvalue='-')))   # → [('a', '1', '-'), ('b', '-', '-')]"
     ],
     "related": [
       "zip",
@@ -1492,7 +1550,10 @@
     "examples": [
       "import itertools",
       "a, b = itertools.tee([1, 2, 3])",
-      "print(list(a), list(b))   # → [1, 2, 3] [1, 2, 3]"
+      "print(list(a), list(b))   # → [1, 2, 3] [1, 2, 3]",
+      "print(list(a))   # → []",
+      "c, d, e = itertools.tee([1, 2, 3], 3)",
+      "print(next(c), next(c), next(d), list(e))   # → 1 2 1 [1, 2, 3]"
     ],
     "related": [
       "iter-next",

@@ -1831,7 +1831,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'hello'.capitalize())   # → b'Hello'"
+      "print(b'hello'.capitalize())   # → b'Hello'",
+      "print(b'hELLO wORLD'.capitalize())   # → b'Hello world'",
+      "print(b'123ABC'.capitalize())   # → b'123abc'",
+      "print(b''.capitalize())   # → b''",
+      "print(b'hello world'.capitalize(), b'hello world'.title())   # → b'Hello world' b'Hello World'"
     ],
     "related": [
       "bytes.title",
@@ -1864,7 +1868,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'ABC'.lower())   # → b'abc'"
+      "print(b'ABC'.lower())   # → b'abc'",
+      "print(b'Hello, World!'.lower())   # → b'hello, world!'",
+      "print(b'ABC123'.lower())   # → b'abc123'",
+      "print('ÄÖ'.encode('utf-8').lower() == 'ÄÖ'.encode('utf-8'))   # → True",
+      "print(b'Yes'.lower() in (b'yes', b'y'))   # → True",
+      "print(b'abc'.upper())   # → b'ABC'"
     ],
     "related": [
       "bytes.upper",
@@ -1897,7 +1906,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'abc'.upper())   # → b'ABC'"
+      "print(b'abc'.upper())   # → b'ABC'",
+      "print(b'py 3.12 rocks'.upper())   # → b'PY 3.12 ROCKS'",
+      "print(b'MiXeD'.lower())   # → b'mixed'",
+      "print(b'Yes'.upper() == b'YES')   # → True",
+      "print('привет'.encode().upper() == 'привет'.encode())   # → True"
     ],
     "related": [
       "bytes.lower",
@@ -1930,7 +1943,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'hello world'.title())   # → b'Hello World'"
+      "print(b'hello world'.title())   # → b'Hello World'",
+      "print(b'HELLO WORLD'.title())   # → b'Hello World'",
+      "print(b\"they're ok\".title())   # → b\"They'Re Ok\"",
+      "print(b'x2y'.title())   # → b'X2Y'",
+      "print(b'hello world'.capitalize())   # → b'Hello world'"
     ],
     "related": [
       "bytes.istitle",
@@ -1963,7 +1980,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'AbC'.swapcase())   # → b'aBc'"
+      "print(b'AbC'.swapcase())   # → b'aBc'",
+      "print(b'Hello World'.swapcase())   # → b'hELLO wORLD'",
+      "print(b'Py3.12!'.swapcase())   # → b'pY3.12!'",
+      "print(b'AbC'.swapcase().swapcase())   # → b'AbC'",
+      "print('привет'.encode().swapcase() == 'привет'.encode())   # → True"
     ],
     "related": [
       "bytes.upper",
@@ -1996,7 +2017,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'hi'.center(6, b'*'))   # → b'**hi**'"
+      "print(b'hi'.center(6, b'*'))   # → b'**hi**'",
+      "print(b'hi'.center(6))   # → b'  hi  '",
+      "print(b'ab'.center(5, b'-'))   # → b'--ab-'",
+      "print(b'hello'.center(3, b'*'))   # → b'hello'",
+      "print(b'hi'.rjust(6, b'.'))   # → b'....hi'"
     ],
     "related": [
       "bytes.ljust",
@@ -2030,7 +2055,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'hi'.ljust(5, b'.'))   # → b'hi...'"
+      "print(b'hi'.ljust(5, b'.'))   # → b'hi...'",
+      "print(b'hi'.ljust(5))   # → b'hi   '",
+      "print(b'7'.ljust(4, b'0'))   # → b'7000'",
+      "print(b'hello'.ljust(3))   # → b'hello'",
+      "print(b'hi'.rjust(5, b'.'))   # → b'...hi'",
+      "print(b'hi'.ljust(5, b'..'))   # → TypeError"
     ],
     "related": [
       "bytes.rjust",
@@ -2064,7 +2094,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'hi'.rjust(5, b'.'))   # → b'...hi'"
+      "print(b'hi'.rjust(5, b'.'))   # → b'...hi'",
+      "print(b'7'.rjust(3))   # → b'  7'",
+      "print(b'42'.rjust(5, b'0'))   # → b'00042'",
+      "print(b'hello'.rjust(3, b'.'))   # → b'hello'",
+      "print(b'hi'.ljust(5, b'.'))   # → b'hi...'",
+      "print(b'hi'.rjust(5, b'..'))   # → TypeError"
     ],
     "related": [
       "bytes.ljust",
@@ -2098,7 +2133,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'42'.zfill(5))   # → b'00042'"
+      "print(b'42'.zfill(5))   # → b'00042'",
+      "print(b'-42'.zfill(5))   # → b'-0042'",
+      "print(b'+7'.zfill(6))   # → b'+00007'",
+      "print(b'12345'.zfill(3))   # → b'12345'",
+      "print(b'7'.zfill(3) + b'.jpg')   # → b'007.jpg'",
+      "print(b''.zfill(2))   # → b'00'"
     ],
     "related": [
       "bytes.rjust",
@@ -2131,7 +2171,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'a\\tb'.expandtabs(4))   # → b'a   b'"
+      "print(b'a\\tb'.expandtabs(4))   # → b'a   b'",
+      "print(b'a\\tb'.expandtabs())   # → b'a       b'",
+      "print(b'ab\\tc'.expandtabs(4))   # → b'ab  c'",
+      "print(b'abcd\\te'.expandtabs(4))   # → b'abcd    e'",
+      "print(b'a\\tb\\ncd\\te'.expandtabs(4))   # → b'a   b\\ncd  e'",
+      "print(b'a\\tb'.expandtabs(0))   # → b'ab'"
     ],
     "related": [
       "str.expandtabs",
@@ -2164,7 +2209,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'banana'.count(b'a'))   # → 3"
+      "print(b'banana'.count(b'a'))   # → 3",
+      "print(b'banana'.count(b'an'))   # → 2",
+      "print(b'aaaa'.count(b'aa'))   # → 2",
+      "print(b'banana'.count(b'a', 2))   # → 2",
+      "print(b'banana'.count(97))   # → 3",
+      "print(b'abc'.count(b''))   # → 4"
     ],
     "related": [
       "bytes.find",
@@ -2199,7 +2249,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'banana'.find(b'na'))   # → 2"
+      "print(b'banana'.find(b'na'))   # → 2",
+      "print(b'banana'.find(b'na', 3))   # → 4",
+      "print(b'name=Ann'.find(b'='))   # → 4",
+      "code = ord('n')",
+      "print(b'banana'.find(code))   # → 2",
+      "print(b'banana'.find(b'z'))   # → -1"
     ],
     "related": [
       "bytes.index",
@@ -2235,7 +2290,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'banana'.rfind(b'na'))   # → 4"
+      "print(b'banana'.rfind(b'na'))   # → 4",
+      "print(b'banana'.find(b'na'))   # → 2",
+      "print(b'banana'.rfind(b'na', 0, 4))   # → 2",
+      "name = b'archive.tar.gz'",
+      "print(name[name.rfind(b'.') + 1:])   # → b'gz'",
+      "print(b'banana'.rfind(b'z'))   # → -1"
     ],
     "related": [
       "bytes.find",
@@ -2268,7 +2328,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'banana'.index(b'na'))   # → 2"
+      "print(b'banana'.index(b'na'))   # → 2",
+      "print(b'banana'.index(b'na', 3))   # → 4",
+      "print(b'banana'.index(ord('n')))   # → 2",
+      "print(b'banana'.index(b'z'))   # → ValueError",
+      "print(b'banana'.find(b'z'))   # → -1"
     ],
     "related": [
       "bytes.find",
@@ -2303,7 +2367,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'banana'.rindex(b'na'))   # → 4"
+      "print(b'banana'.rindex(b'na'))   # → 4",
+      "print(b'banana'.rindex(b'a'))   # → 5",
+      "path = b'/usr/local/bin'",
+      "print(path[path.rindex(b'/') + 1:])   # → b'bin'",
+      "print(b'banana'.rindex(b'z'))   # → ValueError",
+      "print(b'banana'.rfind(b'z'))   # → -1"
     ],
     "related": [
       "bytes.rfind",
@@ -2338,7 +2407,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'hello'.startswith(b'he'))   # → True"
+      "print(b'hello'.startswith(b'he'))   # → True",
+      "print(b'hello'.startswith((b'hi', b'he')))   # → True",
+      "print(b'hello'.startswith(b'llo', 2))   # → True",
+      "print(b'GET /index.html'.startswith(b'GET '))   # → True",
+      "print(b'hello'.startswith(b''))   # → True",
+      "print(b'hello'.startswith('he'))   # → TypeError"
     ],
     "related": [
       "bytes.endswith",
@@ -2374,7 +2448,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'hello'.endswith(b'lo'))   # → True"
+      "print(b'hello'.endswith(b'lo'))   # → True",
+      "print(b'report.txt'.endswith((b'.txt', b'.md')))   # → True",
+      "print(b'hello'.endswith(b'hell', 0, 4))   # → True",
+      "print(b'hello'.endswith(b''))   # → True",
+      "print(b'hello'.endswith('lo'))   # → TypeError",
+      "print(b'hello'.startswith(b'he'))   # → True"
     ],
     "related": [
       "bytes.startswith",
@@ -2410,7 +2489,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'-'.join([b'a', b'b', b'c']))   # → b'a-b-c'"
+      "print(b'-'.join([b'a', b'b', b'c']))   # → b'a-b-c'",
+      "print(b''.join([b'ab', b'cd']))   # → b'abcd'",
+      "print(b'+'.join(b'a-b-c'.split(b'-')))   # → b'a+b+c'",
+      "print(b'-'.join([bytearray(b'x'), b'y']))   # → b'x-y'",
+      "print(b', '.join([]))   # → b''",
+      "print(b'-'.join([b'a', 'b']))   # → TypeError"
     ],
     "related": [
       "bytes.split",
@@ -2445,7 +2529,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'a b c'.split())   # → [b'a', b'b', b'c']"
+      "print(b'a b c'.split())   # → [b'a', b'b', b'c']",
+      "print(b'a,b,c'.split(b','))   # → [b'a', b'b', b'c']",
+      "print(b'a,b,c'.split(b',', 1))   # → [b'a', b'b,c']",
+      "print(b'key=value'.split(b'=', 1))   # → [b'key', b'value']",
+      "print(b'a,,b'.split(b','))   # → [b'a', b'', b'b']",
+      "print(b'  a  b  '.split(b' '))   # → [b'', b'', b'a', b'', b'b', b'', b'']"
     ],
     "related": [
       "bytes.rsplit",
@@ -2482,7 +2571,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'a b c'.rsplit(None, 1))   # → [b'a b', b'c']"
+      "print(b'a b c'.rsplit(None, 1))   # → [b'a b', b'c']",
+      "print(b'a,b,c'.rsplit(b','))   # → [b'a', b'b', b'c']",
+      "print(b'a,b,c'.rsplit(b',', 1))   # → [b'a,b', b'c']",
+      "print(b'archive.tar.gz'.rsplit(b'.', 1))   # → [b'archive.tar', b'gz']",
+      "print(b''.rsplit(b','))   # → [b'']",
+      "print(b'a,b'.rsplit(','))   # → TypeError"
     ],
     "related": [
       "bytes.split",
@@ -2515,7 +2609,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'a=b=c'.partition(b'='))   # → (b'a', b'=', b'b=c')"
+      "print(b'a=b=c'.partition(b'='))   # → (b'a', b'=', b'b=c')",
+      "print(b'name=Ann'.partition(b'=')[2])  # → b'Ann'",
+      "print(b'abc'.partition(b'='))  # → (b'abc', b'', b'')",
+      "print(b'=abc'.partition(b'='))  # → (b'', b'=', b'abc')",
+      "print(b'a=b=c'.rpartition(b'='))  # → (b'a=b', b'=', b'c')"
     ],
     "related": [
       "bytes.rpartition",
@@ -2548,7 +2646,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'a=b=c'.rpartition(b'='))   # → (b'a=b', b'=', b'c')"
+      "print(b'a=b=c'.rpartition(b'='))   # → (b'a=b', b'=', b'c')",
+      "print(b'a=b=c'.partition(b'='))   # → (b'a', b'=', b'b=c')",
+      "name, _, ext = b'archive.tar.gz'.rpartition(b'.')",
+      "print(ext)   # → b'gz'",
+      "print(b'abc'.rpartition(b'='))   # → (b'', b'', b'abc')",
+      "print(b'abc'.rpartition(b''))   # → ValueError"
     ],
     "related": [
       "bytes.partition",
@@ -2581,7 +2684,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'a\\nb'.splitlines())   # → [b'a', b'b']"
+      "print(b'a\\nb'.splitlines())   # → [b'a', b'b']",
+      "print(b'a\\nb'.splitlines(keepends=True))   # → [b'a\\n', b'b']",
+      "print(b'a\\r\\nb'.splitlines())   # → [b'a', b'b']",
+      "print(b'a\\nb\\n'.splitlines())   # → [b'a', b'b']",
+      "print(b'a\\nb\\n'.split(b'\\n'))   # → [b'a', b'b', b'']",
+      "print(b''.splitlines())   # → []"
     ],
     "related": [
       "bytes.split",
@@ -2614,7 +2722,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'  hi  '.strip())   # → b'hi'"
+      "print(b'  hi  '.strip())   # → b'hi'",
+      "print(b'xxhixx'.strip(b'x'))   # → b'hi'",
+      "print(b'\\t hi \\n'.strip())   # → b'hi'",
+      "print(b'banana'.strip(b'ba'))   # → b'nan'",
+      "print(b'  hi  '.rstrip())   # → b'  hi'",
+      "print(b'   '.strip())   # → b''"
     ],
     "related": [
       "bytes.lstrip",
@@ -2649,7 +2762,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'  hi'.lstrip())   # → b'hi'"
+      "print(b'  hi'.lstrip())   # → b'hi'",
+      "print(b'xxxdata'.lstrip(b'x'))  # → b'data'",
+      "print(b'0042'.lstrip(b'0'))  # → b'42'",
+      "print(b'abcabd'.lstrip(b'ab'))  # → b'cabd'",
+      "print(b'  hi  '.lstrip())  # → b'hi  '"
     ],
     "related": [
       "bytes.rstrip",
@@ -2683,7 +2800,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'hi  '.rstrip())   # → b'hi'"
+      "print(b'hi  '.rstrip())   # → b'hi'",
+      "print(b'  hi  '.rstrip())   # → b'  hi'",
+      "print(b'42\\r\\n'.rstrip())   # → b'42'",
+      "print(b'xxhixx'.rstrip(b'x'))   # → b'xxhi'",
+      "print(b'text.txt'.rstrip(b'.txt'))   # → b'te'"
     ],
     "related": [
       "bytes.lstrip",
@@ -2719,7 +2840,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'foobar'.removeprefix(b'foo'))   # → b'bar'"
+      "print(b'foobar'.removeprefix(b'foo'))   # → b'bar'",
+      "print(b'foobar'.removeprefix(b'baz'))  # → b'foobar'",
+      "print(b'GET /index'.removeprefix(b'GET '))  # → b'/index'",
+      "print(b'foofoobar'.removeprefix(b'foo'))  # → b'foobar'",
+      "print(b'xxfoo'.lstrip(b'xf'))  # → b'oo'"
     ],
     "related": [
       "bytes.removesuffix",
@@ -2753,7 +2878,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'foobar'.removesuffix(b'bar'))   # → b'foo'"
+      "print(b'foobar'.removesuffix(b'bar'))   # → b'foo'",
+      "print(b'report.txt'.removesuffix(b'.txt'))  # → b'report'",
+      "print(b'report.txt'.removesuffix(b'.csv'))  # → b'report.txt'",
+      "print(b'line\\n'.removesuffix(b'\\n'))  # → b'line'",
+      "print(b'banana'.removesuffix(b'na'))  # → b'bana'",
+      "print(b'banana'.rstrip(b'na'))  # → b'b'"
     ],
     "related": [
       "bytes.removeprefix",
@@ -2787,7 +2917,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'aaa'.replace(b'a', b'b'))   # → b'bbb'"
+      "print(b'aaa'.replace(b'a', b'b'))   # → b'bbb'",
+      "print(b'aaa'.replace(b'a', b'b', 2))   # → b'bba'",
+      "print(b'2026-07-27'.replace(b'-', b''))   # → b'20260727'",
+      "print(b'abc'.replace(b'z', b'!'))   # → b'abc'",
+      "print(b'ab'.replace(b'', b'-'))   # → b'-a-b-'",
+      "print(b'abc'.replace('a', 'x'))   # → TypeError"
     ],
     "related": [
       "bytes.translate",
@@ -2820,7 +2955,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'abc'.translate(bytes.maketrans(b'a', b'X')))   # → b'Xbc'"
+      "print(b'abc'.translate(bytes.maketrans(b'a', b'X')))   # → b'Xbc'",
+      "print(b'hello'.translate(bytes.maketrans(b'el', b'ip')))   # → b'hippo'",
+      "print(b'a-b-c'.translate(None, b'-'))   # → b'abc'",
+      "print(b'a1b2'.translate(bytes.maketrans(b'ab', b'AB'), b'12'))   # → b'AB'",
+      "print(b'abc'.translate(None))   # → b'abc'",
+      "print(b'abc'.translate(b'xy'))   # → ValueError"
     ],
     "related": [
       "bytes.maketrans",
@@ -2856,7 +2996,11 @@
       "bytes"
     ],
     "examples": [
-      "print(len(bytes.maketrans(b'ab', b'AB')))   # → 256"
+      "print(len(bytes.maketrans(b'ab', b'AB')))   # → 256",
+      "print(b'hello'.translate(bytes.maketrans(b'el', b'ip')))  # → b'hippo'",
+      "print(b'AATTGC'.translate(bytes.maketrans(b'ATGC', b'TACG')))  # → b'TTAACG'",
+      "print(bytes.maketrans(b'a', b'A')[97])  # → 65",
+      "print(bytes.maketrans(b'ab', b'A'))  # → ValueError"
     ],
     "related": [
       "bytes.translate",
@@ -2891,7 +3035,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'hi'.decode())   # → hi"
+      "print(b'hi'.decode())   # → hi",
+      "print(b'\\xd0\\xbf\\xd1\\x80\\xd0\\xb8\\xd0\\xb2\\xd0\\xb5\\xd1\\x82'.decode('utf-8'))   # → привет",
+      "print(b'caf\\xe9'.decode('latin-1'))   # → café",
+      "print(b'\\xff'.decode('utf-8'))   # → UnicodeDecodeError",
+      "print(b'a\\xffb'.decode('utf-8', errors='ignore'))   # → ab",
+      "print('hi'.encode())   # → b'hi'"
     ],
     "related": [
       "str.encode",
@@ -2927,7 +3076,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'abc'.hex())   # → 616263"
+      "print(b'abc'.hex())   # → 616263",
+      "print(b'abc'.hex('-'))   # → 61-62-63",
+      "print(b'\\xde\\xad\\xbe\\xef'.hex(' ', 2))   # → dead beef",
+      "print(bytes.fromhex(b'abc'.hex()))   # → b'abc'",
+      "print(repr(b''.hex()))   # → ''"
     ],
     "related": [
       "bytes.fromhex",
@@ -2960,7 +3113,11 @@
       "bytes"
     ],
     "examples": [
-      "print(bytes.fromhex('48656c6c6f'))   # → b'Hello'"
+      "print(bytes.fromhex('48656c6c6f'))   # → b'Hello'",
+      "print(bytes.fromhex('48 65 6c'))   # → b'Hel'",
+      "print(bytes.fromhex('ff00'))   # → b'\\xff\\x00'",
+      "print(bytes.fromhex('4a2b').hex())   # → 4a2b",
+      "print(bytes.fromhex('abc'))   # → ValueError"
     ],
     "related": [
       "bytes.hex",
@@ -2995,7 +3152,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'abc123'.isalnum())   # → True"
+      "print(b'abc123'.isalnum())   # → True",
+      "print('42'.encode().isalnum())   # → True",
+      "print(b'abc 123'.isalnum())   # → False",
+      "print(b'user_42'.isalnum())   # → False",
+      "print(b''.isalnum())   # → False"
     ],
     "related": [
       "bytes.isalpha",
@@ -3029,7 +3190,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'abc'.isalpha())   # → True"
+      "print(b'abc'.isalpha())   # → True",
+      "print(b'Hello'.isalpha())   # → True",
+      "print(b'abc1'.isalpha())   # → False",
+      "print(b'hi there'.isalpha())   # → False",
+      "print(b''.isalpha())   # → False",
+      "print('привет'.encode().isalpha())   # → False"
     ],
     "related": [
       "bytes.isalnum",
@@ -3063,7 +3229,11 @@
       "bytes"
     ],
     "examples": [
-      "print(b'abc'.isascii())   # → True"
+      "print(b'abc'.isascii())   # → True",
+      "print(b'Hi 123!\\n'.isascii())   # → True",
+      "print(b''.isascii())   # → True",
+      "print(b'\\x80'.isascii())   # → False",
+      "print('привет'.encode().isascii())   # → False"
     ],
     "related": [
       "str.isascii",
@@ -3096,7 +3266,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'123'.isdigit())   # → True"
+      "print(b'123'.isdigit())   # → True",
+      "print(b'12.5'.isdigit())   # → False",
+      "print(b'-7'.isdigit())   # → False",
+      "raw = b'42'",
+      "print(int(raw) if raw.isdigit() else 0)   # → 42",
+      "print('²'.isdigit(), b'\\xb2'.isdigit())   # → True False"
     ],
     "related": [
       "str.isdigit",
@@ -3129,7 +3304,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'abc'.islower())   # → True"
+      "print(b'abc'.islower())   # → True",
+      "print(b'abc1!'.islower())   # → True",
+      "print(b'Hello'.lower().islower())   # → True",
+      "print(b'Abc'.islower())   # → False",
+      "print(b'123'.islower())   # → False",
+      "print(b''.islower())   # → False"
     ],
     "related": [
       "bytes.isupper",
@@ -3162,7 +3342,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'   '.isspace())   # → True"
+      "print(b'   '.isspace())   # → True",
+      "print(b' \\t\\n'.isspace())   # → True",
+      "print(b'\\x0b\\x0c\\r'.isspace())   # → True",
+      "line = b'  \\n'",
+      "print('пустая' if line.isspace() else 'данные')   # → пустая",
+      "print(b''.isspace())   # → False"
     ],
     "related": [
       "str.isspace",
@@ -3195,7 +3380,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'Hello World'.istitle())   # → True"
+      "print(b'Hello World'.istitle())   # → True",
+      "print(b'hello world'.istitle())   # → False",
+      "print(b'HELLO WORLD'.istitle())   # → False",
+      "print(b'Hello2World'.istitle())   # → True",
+      "print(b''.istitle())   # → False",
+      "print(b'hello world'.title())   # → b'Hello World'"
     ],
     "related": [
       "bytes.title",
@@ -3228,7 +3418,12 @@
       "bytes"
     ],
     "examples": [
-      "print(b'ABC'.isupper())   # → True"
+      "print(b'ABC'.isupper())   # → True",
+      "print(b'ABC1!'.isupper())   # → True",
+      "print(b'Abc'.isupper())   # → False",
+      "print(b'123'.isupper())   # → False",
+      "print(b''.isupper())   # → False",
+      "print(b'abc'.upper())   # → b'ABC'"
     ],
     "related": [
       "bytes.islower",
@@ -3261,7 +3456,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'hello').capitalize())   # → bytearray(b'Hello')"
+      "print(bytearray(b'hello').capitalize())   # → bytearray(b'Hello')",
+      "print(bytearray(b'HELLO WORLD').capitalize())   # → bytearray(b'Hello world')",
+      "names = [bytearray(b'ANNA'), bytearray(b'bob')]; print([n.capitalize().decode() for n in names])   # → ['Anna', 'Bob']",
+      "ba = bytearray(b'python'); print(ba.capitalize(), ba)   # → bytearray(b'Python') bytearray(b'python')",
+      "print(bytearray(b'123abc').capitalize())   # → bytearray(b'123abc')",
+      "print(bytearray(b'').capitalize())   # → bytearray(b'')"
     ],
     "related": [
       "bytearray.title",
@@ -3294,7 +3494,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'ABC').lower())   # → bytearray(b'abc')"
+      "print(bytearray(b'ABC').lower())   # → bytearray(b'abc')",
+      "print(bytearray(b'Hello, World!').lower())   # → bytearray(b'hello, world!')",
+      "print(bytearray(b'YES').lower() == b'yes')   # → True",
+      "ba = bytearray(b'ABC')",
+      "print(ba.lower(), ba)   # → bytearray(b'abc') bytearray(b'ABC')",
+      "print(bytearray(b'\\xc0Z').lower())   # → bytearray(b'\\xc0z')"
     ],
     "related": [
       "bytearray.upper",
@@ -3327,7 +3532,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'abc').upper())   # → bytearray(b'ABC')"
+      "print(bytearray(b'abc').upper())   # → bytearray(b'ABC')",
+      "print(bytearray(b'Hello, World! 42').upper())   # → bytearray(b'HELLO, WORLD! 42')",
+      "print(bytearray(b'caf\\xc3\\xa9').upper())   # → bytearray(b'CAF\\xc3\\xa9')",
+      "print(bytearray(b'Yes').upper() == b'YES')   # → True",
+      "ba = bytearray(b'abc')",
+      "print(ba.upper(), ba)   # → bytearray(b'ABC') bytearray(b'abc')"
     ],
     "related": [
       "bytearray.lower",
@@ -3360,7 +3570,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'hi there').title())   # → bytearray(b'Hi There')"
+      "print(bytearray(b'hi there').title())   # → bytearray(b'Hi There')",
+      "print(bytearray(b'HELLO WORLD').title())   # → bytearray(b'Hello World')",
+      "print(bytearray(b'a1b2 c3').title())   # → bytearray(b'A1B2 C3')",
+      "print(bytearray(b\"they're here\").title())   # → bytearray(b\"They\\'Re Here\")",
+      "ba = bytearray(b'abc')",
+      "print(ba.title(), ba)   # → bytearray(b'Abc') bytearray(b'abc')"
     ],
     "related": [
       "bytearray.istitle",
@@ -3393,7 +3608,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'AbC').swapcase())   # → bytearray(b'aBc')"
+      "print(bytearray(b'AbC').swapcase())   # → bytearray(b'aBc')",
+      "print(bytearray(b'Hello World').swapcase())   # → bytearray(b'hELLO wORLD')",
+      "print(bytearray(b'abc123!').swapcase())   # → bytearray(b'ABC123!')",
+      "ba = bytearray(b'Xy')",
+      "print(ba.swapcase())   # → bytearray(b'xY')",
+      "print(ba)   # → bytearray(b'Xy')"
     ],
     "related": [
       "bytearray.upper",
@@ -3426,7 +3646,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'hi').center(6, b'*'))   # → bytearray(b'**hi**')"
+      "print(bytearray(b'hi').center(6, b'*'))   # → bytearray(b'**hi**')",
+      "print(bytearray(b'hi').center(6))   # → bytearray(b'  hi  ')",
+      "print(bytearray(b'ok').center(10, b'.').decode())   # → ....ok....",
+      "print(bytearray(b'hi').center(5, b'-'))   # → bytearray(b'--hi-')",
+      "print(bytearray(b'hello').center(3, b'*'))   # → bytearray(b'hello')",
+      "print(bytearray(b'hi').center(6, b'**'))   # → TypeError"
     ],
     "related": [
       "bytearray.ljust",
@@ -3459,7 +3684,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'hi').ljust(5, b'.'))   # → bytearray(b'hi...')"
+      "print(bytearray(b'hi').ljust(5, b'.'))   # → bytearray(b'hi...')",
+      "print(bytearray(b'hi').ljust(5))   # → bytearray(b'hi   ')",
+      "print(bytearray(b'7').ljust(4, b'0'))   # → bytearray(b'7000')",
+      "print(bytearray(b'id').ljust(6, b'.') + bytearray(b'42'))   # → bytearray(b'id....42')",
+      "print(bytearray(b'hello').ljust(3))   # → bytearray(b'hello')",
+      "print(bytearray(b'hi').rjust(5, b'.'))   # → bytearray(b'...hi')"
     ],
     "related": [
       "bytearray.rjust",
@@ -3493,7 +3723,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'hi').rjust(5, b'.'))   # → bytearray(b'...hi')"
+      "print(bytearray(b'hi').rjust(5, b'.'))   # → bytearray(b'...hi')",
+      "print(bytearray(b'42').rjust(6))   # → bytearray(b'    42')",
+      "print(bytearray(b'7').rjust(3, b'0'))   # → bytearray(b'007')",
+      "print(bytearray(b'hello').rjust(3, b'.'))   # → bytearray(b'hello')",
+      "print(bytearray(b'hi').ljust(5, b'.'))   # → bytearray(b'hi...')"
     ],
     "related": [
       "bytearray.ljust",
@@ -3527,7 +3761,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'42').zfill(5))   # → bytearray(b'00042')"
+      "print(bytearray(b'42').zfill(5))   # → bytearray(b'00042')",
+      "print(bytearray(b'-42').zfill(5))   # → bytearray(b'-0042')",
+      "print(bytearray(b'12345').zfill(3))   # → bytearray(b'12345')",
+      "print(bytearray(b'7').zfill(2) + b':' + bytearray(b'5').zfill(2))   # → bytearray(b'07:05')",
+      "print(bytearray(b'').zfill(3))   # → bytearray(b'000')"
     ],
     "related": [
       "bytearray.rjust",
@@ -3560,7 +3798,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'a\\tb').expandtabs(4))   # → bytearray(b'a   b')"
+      "print(bytearray(b'a\\tb').expandtabs(4))   # → bytearray(b'a   b')",
+      "print(bytearray(b'a\\tb').expandtabs())   # → bytearray(b'a       b')",
+      "print(bytearray(b'1\\t22\\t333').expandtabs(4).decode())   # → 1   22  333",
+      "print(bytearray(b'ab\\tc').expandtabs(4))   # → bytearray(b'ab  c')",
+      "print(bytearray(b'abc').expandtabs(4))   # → bytearray(b'abc')"
     ],
     "related": [
       "bytes.expandtabs",
@@ -3593,7 +3835,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'banana').count(b'a'))   # → 3"
+      "print(bytearray(b'banana').count(b'a'))   # → 3",
+      "print(bytearray(b'aaaa').count(b'aa'))   # → 2",
+      "print(bytearray(b'banana').count(b'a', 2))   # → 2",
+      "print(bytearray(b'banana').count(97))   # → 3",
+      "print(bytearray(b'banana').count(b'z'))   # → 0"
     ],
     "related": [
       "bytearray.find",
@@ -3626,7 +3872,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'banana').find(b'na'))   # → 2"
+      "print(bytearray(b'banana').find(b'na'))   # → 2",
+      "print(bytearray(b'banana').find(b'na', 3))   # → 4",
+      "ba = bytearray(b'key: value'); print(ba[ba.find(b':') + 2:].decode())   # → value",
+      "print(bytearray(b'banana').find(b'z'))   # → -1",
+      "print(bytearray(b'banana').index(b'z'))   # → ValueError"
     ],
     "related": [
       "bytearray.index",
@@ -3661,7 +3911,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'banana').rfind(b'na'))   # → 4"
+      "print(bytearray(b'banana').rfind(b'na'))   # → 4",
+      "print(bytearray(b'banana').find(b'na'))   # → 2",
+      "print(bytearray(b'banana').rfind(b'na', 0, 4))   # → 2",
+      "print(bytearray(b'banana').rfind(b'z'))   # → -1",
+      "print(bytearray(b'banana').rfind(97))   # → 5",
+      "print(bytearray(b'banana').rindex(b'z'))   # → ValueError"
     ],
     "related": [
       "bytearray.find",
@@ -3696,7 +3951,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'banana').index(b'na'))   # → 2"
+      "print(bytearray(b'banana').index(b'na'))   # → 2",
+      "print(bytearray(b'banana').index(ord('n')))   # → 2",
+      "print(bytearray(b'banana').index(b'na', 3))   # → 4",
+      "print(bytearray(b'banana').find(b'x'))   # → -1",
+      "print(bytearray(b'banana').index(b'x'))   # → ValueError"
     ],
     "related": [
       "bytearray.find",
@@ -3732,7 +3991,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'banana').rindex(b'na'))   # → 4"
+      "print(bytearray(b'banana').rindex(b'na'))   # → 4",
+      "print(bytearray(b'banana').rindex(b'a'))   # → 5",
+      "print(bytearray(b'banana').rindex(b'na', 0, 4))   # → 2",
+      "print(bytearray(b'banana').rindex(b'z'))   # → ValueError",
+      "print(bytearray(b'banana').rfind(b'z'))   # → -1"
     ],
     "related": [
       "bytearray.rfind",
@@ -3768,7 +4031,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'hello').startswith(b'he'))   # → True"
+      "print(bytearray(b'hello').startswith(b'he'))   # → True",
+      "print(bytearray(b'hello').startswith(b'lo'))   # → False",
+      "print(bytearray(b'hello').startswith((b'ha', b'he')))   # → True",
+      "print(bytearray(b'hello').startswith(b'll', 2))   # → True",
+      "print(bytearray(b'hello').startswith(b''))   # → True",
+      "print(bytearray(b'hello').startswith('he'))   # → TypeError"
     ],
     "related": [
       "bytearray.endswith",
@@ -3803,7 +4071,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'hello').endswith(b'lo'))   # → True"
+      "print(bytearray(b'hello').endswith(b'lo'))   # → True",
+      "print(bytearray(b'file.txt').endswith((b'.txt', b'.md')))   # → True",
+      "print(bytearray(b'hello').endswith(b'll', 0, 4))   # → True",
+      "print(bytearray(b'log.txt').endswith(b'.TXT'))   # → False",
+      "print(bytearray(b'hello').endswith('lo'))   # → TypeError"
     ],
     "related": [
       "bytearray.startswith",
@@ -3838,7 +4110,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'-').join([b'a', b'b']))   # → bytearray(b'a-b')"
+      "print(bytearray(b'-').join([b'a', b'b']))   # → bytearray(b'a-b')",
+      "print(bytearray(b'').join([b'ab', b'cd']))   # → bytearray(b'abcd')",
+      "print(bytearray(b', ').join([bytearray(b'x'), bytearray(b'y'), bytearray(b'z')]))   # → bytearray(b'x, y, z')",
+      "print(bytearray(b'-').join([b'solo']))   # → bytearray(b'solo')",
+      "print(bytearray(b'-').join([]))   # → bytearray(b'')",
+      "print(bytearray(b'-').join(['a', 'b']))   # → TypeError"
     ],
     "related": [
       "bytearray.split",
@@ -3873,7 +4150,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'a b').split())   # → [bytearray(b'a'), bytearray(b'b')]"
+      "print(bytearray(b'a b').split())   # → [bytearray(b'a'), bytearray(b'b')]",
+      "print(bytearray(b'a,b,c').split(b','))   # → [bytearray(b'a'), bytearray(b'b'), bytearray(b'c')]",
+      "print(bytearray(b'a,b,c').split(b',', 1))   # → [bytearray(b'a'), bytearray(b'b,c')]",
+      "print(len(bytearray(b'  one  two  ').split()))   # → 2",
+      "print(bytearray(b'a,,b').split(b','))   # → [bytearray(b'a'), bytearray(b''), bytearray(b'b')]",
+      "print(bytearray(b'   ').split())   # → []"
     ],
     "related": [
       "bytearray.rsplit",
@@ -3907,7 +4189,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'a b c').rsplit(None, 1))   # → [bytearray(b'a b'), bytearray(b'c')]"
+      "print(bytearray(b'a b c').rsplit(None, 1))   # → [bytearray(b'a b'), bytearray(b'c')]",
+      "print(bytearray(b'a b c').rsplit())   # → [bytearray(b'a'), bytearray(b'b'), bytearray(b'c')]",
+      "print(bytearray(b'a,b,c').rsplit(b',', 1))   # → [bytearray(b'a,b'), bytearray(b'c')]",
+      "print(bytearray(b'a,b,c').split(b',', 1))   # → [bytearray(b'a'), bytearray(b'b,c')]",
+      "print(bytearray(b'name.tar.gz').rsplit(b'.', 1)[-1])   # → bytearray(b'gz')",
+      "print(bytearray(b'').rsplit(b','))   # → [bytearray(b'')]"
     ],
     "related": [
       "bytearray.split",
@@ -3940,7 +4227,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'a=b').partition(b'='))   # → (bytearray(b'a'), bytearray(b'='), bytearray(b'b'))"
+      "print(bytearray(b'a=b').partition(b'='))   # → (bytearray(b'a'), bytearray(b'='), bytearray(b'b'))",
+      "print(bytearray(b'key=1=2').partition(b'='))   # → (bytearray(b'key'), bytearray(b'='), bytearray(b'1=2'))",
+      "print(bytearray(b'name=Alice').partition(b'=')[2])   # → bytearray(b'Alice')",
+      "print(bytearray(b'noeq').partition(b'='))   # → (bytearray(b'noeq'), bytearray(b''), bytearray(b''))",
+      "print(bytearray(b'a=b=c').rpartition(b'='))   # → (bytearray(b'a=b'), bytearray(b'='), bytearray(b'c'))",
+      "print(bytearray(b'ab').partition(b''))   # → ValueError"
     ],
     "related": [
       "bytearray.rpartition",
@@ -3976,7 +4268,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'a=b=c').rpartition(b'='))   # → (bytearray(b'a=b'), bytearray(b'='), bytearray(b'c'))"
+      "print(bytearray(b'a=b=c').rpartition(b'='))   # → (bytearray(b'a=b'), bytearray(b'='), bytearray(b'c'))",
+      "print(bytearray(b'a=b=c').partition(b'='))   # → (bytearray(b'a'), bytearray(b'='), bytearray(b'b=c'))",
+      "print(bytearray(b'key: value').rpartition(b': ')[2])   # → bytearray(b'value')",
+      "print(bytearray(b'/usr/local/bin').rpartition(b'/')[2])   # → bytearray(b'bin')",
+      "print(bytearray(b'abc').rpartition(b'='))   # → (bytearray(b''), bytearray(b''), bytearray(b'abc'))"
     ],
     "related": [
       "bytearray.partition",
@@ -4011,7 +4307,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'a\\nb').splitlines())   # → [bytearray(b'a'), bytearray(b'b')]"
+      "print(bytearray(b'a\\nb').splitlines())   # → [bytearray(b'a'), bytearray(b'b')]",
+      "print(bytearray(b'a\\nb').splitlines(True))   # → [bytearray(b'a\\n'), bytearray(b'b')]",
+      "print(bytearray(b'a\\r\\nb\\rc').splitlines())   # → [bytearray(b'a'), bytearray(b'b'), bytearray(b'c')]",
+      "print(len(bytearray(b'line1\\nline2\\nline3').splitlines()))   # → 3",
+      "print(bytearray(b'a\\nb\\n').splitlines())   # → [bytearray(b'a'), bytearray(b'b')]",
+      "print(bytearray(b'a\\nb\\n').split(b'\\n'))   # → [bytearray(b'a'), bytearray(b'b'), bytearray(b'')]"
     ],
     "related": [
       "bytearray.split",
@@ -4044,7 +4345,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'  hi  ').strip())   # → bytearray(b'hi')"
+      "print(bytearray(b'  hi  ').strip())   # → bytearray(b'hi')",
+      "print(bytearray(b'xxhixx').strip(b'x'))   # → bytearray(b'hi')",
+      "print(bytearray(b'\\n data \\t').strip())   # → bytearray(b'data')",
+      "print(bytearray(b'ababhiba').strip(b'ab'))   # → bytearray(b'hi')",
+      "print(bytearray(b'hello').strip(b'lo'))   # → bytearray(b'he')",
+      "print(bytearray(b'  hi  ').lstrip())   # → bytearray(b'hi  ')"
     ],
     "related": [
       "bytearray.lstrip",
@@ -4077,7 +4383,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'  hi').lstrip())   # → bytearray(b'hi')"
+      "print(bytearray(b'  hi').lstrip())   # → bytearray(b'hi')",
+      "print(bytearray(b'\\t\\n hi').lstrip())   # → bytearray(b'hi')",
+      "print(bytearray(b'000123').lstrip(b'0'))   # → bytearray(b'123')",
+      "print(bytearray(b'xyxdata').lstrip(b'xy'))   # → bytearray(b'data')",
+      "print(bytearray(b'  hi  ').lstrip())   # → bytearray(b'hi  ')",
+      "print(bytearray(b'0000').lstrip(b'0'))   # → bytearray(b'')"
     ],
     "related": [
       "bytearray.rstrip",
@@ -4111,7 +4422,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'hi  ').rstrip())   # → bytearray(b'hi')"
+      "print(bytearray(b'hi  ').rstrip())   # → bytearray(b'hi')",
+      "print(bytearray(b'file.txt...').rstrip(b'.'))   # → bytearray(b'file.txt')",
+      "print(bytearray(b'xxhixx').rstrip(b'x'))   # → bytearray(b'xxhi')",
+      "print(bytearray(b'banana').rstrip(b'an'))   # → bytearray(b'b')",
+      "print(bytearray(b'  hi  ').strip())   # → bytearray(b'hi')"
     ],
     "related": [
       "bytearray.lstrip",
@@ -4145,7 +4460,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'foobar').removeprefix(b'foo'))   # → bytearray(b'bar')"
+      "print(bytearray(b'foobar').removeprefix(b'foo'))   # → bytearray(b'bar')",
+      "print(bytearray(b'foobar').removeprefix(b'bar'))   # → bytearray(b'foobar')",
+      "print(bytearray(b'foofoobar').removeprefix(b'foo'))   # → bytearray(b'foobar')",
+      "ba = bytearray(b'log:42'); print(ba.removeprefix(b'log:'), ba)   # → bytearray(b'42') bytearray(b'log:42')",
+      "print(bytearray(b'abc').removeprefix('a'))   # → TypeError"
     ],
     "related": [
       "bytearray.removesuffix",
@@ -4179,7 +4498,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'foobar').removesuffix(b'bar'))   # → bytearray(b'foo')"
+      "print(bytearray(b'foobar').removesuffix(b'bar'))   # → bytearray(b'foo')",
+      "print(bytearray(b'foobar').removesuffix(b'foo'))   # → bytearray(b'foobar')",
+      "print(bytearray(b'report.txt.txt').removesuffix(b'.txt'))   # → bytearray(b'report.txt')",
+      "ba = bytearray(b'file.csv'); print(ba.removesuffix(b'.csv'), ba)   # → bytearray(b'file') bytearray(b'file.csv')",
+      "print(bytearray(b'abc').removesuffix(b''))   # → bytearray(b'abc')"
     ],
     "related": [
       "bytearray.removeprefix",
@@ -4215,7 +4538,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'aaa').replace(b'a', b'b'))   # → bytearray(b'bbb')"
+      "print(bytearray(b'aaa').replace(b'a', b'b'))   # → bytearray(b'bbb')",
+      "print(bytearray(b'aaa').replace(b'a', b'b', 2))   # → bytearray(b'bba')",
+      "print(bytearray(b'a-b-c').replace(b'-', b''))   # → bytearray(b'abc')",
+      "print(bytearray(b'abc').replace(b'z', b'y'))   # → bytearray(b'abc')",
+      "ba = bytearray(b'aaa'); ba.replace(b'a', b'b'); print(ba)   # → bytearray(b'aaa')"
     ],
     "related": [
       "bytearray.translate",
@@ -4250,7 +4577,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'abc').translate(bytes.maketrans(b'a', b'X')))   # → bytearray(b'Xbc')"
+      "print(bytearray(b'abc').translate(bytes.maketrans(b'a', b'X')))   # → bytearray(b'Xbc')",
+      "table = bytes.maketrans(b'abc', b'xyz')",
+      "print(bytearray(b'cabbage').translate(table))   # → bytearray(b'zxyyxge')",
+      "print(bytearray(b'a-b-c').translate(None, delete=b'-'))   # → bytearray(b'abc')",
+      "print(bytearray(b'1-800-555').translate(bytes.maketrans(b'0', b'O'), delete=b'-'))   # → bytearray(b'18OO555')",
+      "print(bytearray(b'abc').translate(None))   # → bytearray(b'abc')"
     ],
     "related": [
       "bytearray.maketrans",
@@ -4285,7 +4617,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(len(bytearray.maketrans(b'ab', b'AB')))   # → 256"
+      "print(len(bytearray.maketrans(b'ab', b'AB')))   # → 256",
+      "table = bytearray.maketrans(b'ab', b'AB')",
+      "print(bytearray(b'cabbage').translate(table))   # → bytearray(b'cABBAge')",
+      "print(bytearray(b'ATGCA').translate(bytearray.maketrans(b'ATGC', b'TACG')))   # → bytearray(b'TACGT')",
+      "print(type(bytearray.maketrans(b'ab', b'AB')))   # → <class 'bytes'>",
+      "print(bytearray.maketrans(b'ab', b'A'))   # → ValueError"
     ],
     "related": [
       "bytearray.translate",
@@ -4321,7 +4658,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'hi').decode())   # → hi"
+      "print(bytearray(b'hi').decode())   # → hi",
+      "print(bytearray(b'\\xd0\\xbf\\xd1\\x80\\xd0\\xb8\\xd0\\xb2\\xd0\\xb5\\xd1\\x82').decode('utf-8'))   # → привет",
+      "ba = bytearray(b'name=Ann'); print(ba.decode().split('='))   # → ['name', 'Ann']",
+      "print(bytearray(b'ab\\xff').decode('utf-8'))   # → UnicodeDecodeError",
+      "print(bytearray(b'ab\\xff').decode('utf-8', 'ignore'))   # → ab",
+      "print(type(bytearray(b'hi').decode()))   # → <class 'str'>"
     ],
     "related": [
       "str.encode",
@@ -4357,7 +4699,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'abc').hex())   # → 616263"
+      "print(bytearray(b'abc').hex())   # → 616263",
+      "print(bytearray(b'abc').hex(' '))   # → 61 62 63",
+      "print(bytearray(b'abcd').hex('-', 2))   # → 6162-6364",
+      "print(bytearray(b'\\xff\\x10').hex())   # → ff10",
+      "print(bytearray.fromhex(bytearray(b'abc').hex()))   # → bytearray(b'abc')",
+      "print(repr(bytearray().hex()))   # → ''"
     ],
     "related": [
       "bytearray.fromhex",
@@ -4390,7 +4737,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray.fromhex('616263'))   # → bytearray(b'abc')"
+      "print(bytearray.fromhex('616263'))   # → bytearray(b'abc')",
+      "print(bytearray.fromhex('61 62 63'))   # → bytearray(b'abc')",
+      "print(bytearray.fromhex('48656c6c6f').decode())   # → Hello",
+      "print(list(bytearray.fromhex('ff00')))   # → [255, 0]",
+      "print(bytearray.fromhex('6'))   # → ValueError"
     ],
     "related": [
       "bytearray.hex",
@@ -4425,7 +4776,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'abc123').isalnum())   # → True"
+      "print(bytearray(b'abc123').isalnum())   # → True",
+      "print(bytearray(b'abc 123').isalnum())   # → False",
+      "print(bytearray(b'user_42').isalnum())   # → False",
+      "print(bytearray(b'').isalnum())   # → False",
+      "print(bytearray('привет'.encode()).isalnum())   # → False"
     ],
     "related": [
       "bytearray.isalpha",
@@ -4458,7 +4813,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'abc').isalpha())   # → True"
+      "print(bytearray(b'abc').isalpha())   # → True",
+      "print(bytearray(b'abc1').isalpha())   # → False",
+      "print(bytearray(b'Hello World').isalpha())   # → False",
+      "print(bytearray(b'').isalpha())   # → False",
+      "print(bytearray(b'abc1').isalnum())   # → True"
     ],
     "related": [
       "bytearray.isalnum",
@@ -4491,7 +4850,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'abc').isascii())   # → True"
+      "print(bytearray(b'abc').isascii())   # → True",
+      "print(bytearray(b'abc\\xff').isascii())   # → False",
+      "print(bytearray(b'\\x7f').isascii())   # → True",
+      "print(bytearray(b'').isascii())   # → True",
+      "print(bytearray('привет'.encode('utf-8')).isascii())   # → False"
     ],
     "related": [
       "bytes.isascii",
@@ -4524,7 +4887,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'123').isdigit())   # → True"
+      "print(bytearray(b'123').isdigit())   # → True",
+      "print(bytearray(b'12.3').isdigit())   # → False",
+      "print(bytearray(b'-5').isdigit())   # → False",
+      "print(bytearray(b'').isdigit())   # → False",
+      "raw = bytearray(b'2026')",
+      "print(int(raw) if raw.isdigit() else None)   # → 2026"
     ],
     "related": [
       "bytearray.isalnum",
@@ -4557,7 +4925,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'abc').islower())   # → True"
+      "print(bytearray(b'abc').islower())   # → True",
+      "print(bytearray(b'abc1!').islower())   # → True",
+      "print(bytearray(b'Abc').islower())   # → False",
+      "print(bytearray(b'123').islower())   # → False",
+      "print(bytearray(b'').islower())   # → False"
     ],
     "related": [
       "bytearray.isupper",
@@ -4590,7 +4962,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'   ').isspace())   # → True"
+      "print(bytearray(b'   ').isspace())   # → True",
+      "print(bytearray(b' \\t\\n').isspace())   # → True",
+      "print(bytearray(b' a ').isspace())   # → False",
+      "print(bytearray(b'').isspace())   # → False",
+      "print(bytearray(b' \\t ').strip())   # → bytearray(b'')"
     ],
     "related": [
       "bytes.isspace",
@@ -4623,7 +4999,12 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'Hi There').istitle())   # → True"
+      "print(bytearray(b'Hi There').istitle())   # → True",
+      "print(bytearray(b'hi there').istitle())   # → False",
+      "print(bytearray(b'HI There').istitle())   # → False",
+      "print(bytearray(b'Hello2World').istitle())   # → True",
+      "print(bytearray(b'').istitle())   # → False",
+      "print(bytearray(b'hi there').title())   # → bytearray(b'Hi There')"
     ],
     "related": [
       "bytearray.title",
@@ -4656,7 +5037,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'ABC').isupper())   # → True"
+      "print(bytearray(b'ABC').isupper())   # → True",
+      "print(bytearray(b'ABC1!').isupper())   # → True",
+      "print(bytearray(b'Abc').isupper())   # → False",
+      "print(bytearray(b'123').isupper())   # → False",
+      "print(bytearray(b'').isupper())   # → False"
     ],
     "related": [
       "bytearray.islower",
@@ -4804,7 +5189,11 @@
     ],
     "examples": [
       "ba = bytearray(b'abc')",
-      "print(ba.pop())   # → 99"
+      "print(ba.pop())   # → 99",
+      "print(bytearray(b'abc').pop(0))   # → 97",
+      "print(bytearray(b'abc').pop(-2))   # → 98",
+      "ba2 = bytearray(b'abc'); ba2.pop(); print(ba2)   # → bytearray(b'ab')",
+      "print(bytearray().pop())   # → IndexError"
     ],
     "related": [
       "bytearray.remove",
@@ -4947,7 +5336,11 @@
       "bytearray"
     ],
     "examples": [
-      "print(bytearray(b'abc').copy())   # → bytearray(b'abc')"
+      "print(bytearray(b'abc').copy())   # → bytearray(b'abc')",
+      "ba = bytearray(b'abc'); c = ba.copy(); c.append(100); print(ba, c)   # → bytearray(b'abc') bytearray(b'abcd')",
+      "ba = bytearray(b'abc'); alias = ba; alias.append(122); print(ba)   # → bytearray(b'abcz')",
+      "ba = bytearray(b'abc'); print(ba.copy() == ba, ba.copy() is ba)   # → True False",
+      "print(bytearray().copy())   # → bytearray(b'')"
     ],
     "related": [
       "list.copy",
