@@ -261,3 +261,55 @@ def test_apply_reference_ranking_zero_reference_median_defaults_to_one() -> None
     apply_reference_ranking(results, "ref.py", similar_threshold=1.15, much_slower_threshold=1.5)
     assert results["ref.py"]["verdict"] == "REFERENCE"
     assert all(v["relative"] == 1.0 for v in results.values())
+
+
+# ---------------------------------------------------------------------------
+# strip_harness_frames — traceback без кадров timeit-обёртки (issue #726)
+# ---------------------------------------------------------------------------
+
+
+_TIMEIT_TRACEBACK = """Traceback (most recent call last):
+  File "/tmp/tmp7l_62ha6.py", line 16, in <module>
+    _timeit.timeit(stmt=_stmt, setup='pass', number=_warmup)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/timeit.py", line 234, in timeit
+    return Timer(stmt, setup, timer, globals).timeit(number)
+  File "<timeit-src>", line 9, in inner
+NameError: name 'data' is not defined"""
+
+
+def test_strip_harness_frames_keeps_only_the_exception_line() -> None:
+    """Все кадры принадлежат обёртке — остаётся только сама ошибка."""
+    stripped = microbench_runner.strip_harness_frames(
+        _TIMEIT_TRACEBACK, harness_path="/tmp/tmp7l_62ha6.py"
+    )
+
+    assert stripped == "NameError: name 'data' is not defined"
+
+
+def test_strip_harness_frames_keeps_user_frames() -> None:
+    """Кадры пользовательского кода сохраняются вместе с заголовком traceback."""
+    text = """Traceback (most recent call last):
+  File "<timeit-src>", line 9, in inner
+  File "/work/solution.py", line 3, in solve
+    return 1 / 0
+ZeroDivisionError: division by zero"""
+
+    stripped = microbench_runner.strip_harness_frames(text)
+
+    assert "timeit-src" not in stripped
+    assert stripped.startswith("Traceback (most recent call last):")
+    assert '  File "/work/solution.py", line 3, in solve' in stripped
+    assert "    return 1 / 0" in stripped
+    assert stripped.endswith("ZeroDivisionError: division by zero")
+
+
+def test_strip_harness_frames_passes_through_plain_text() -> None:
+    """Не-traceback (например, сообщение о таймауте) не трогаем."""
+    text = "microbench timeout: exceeded 60s running number=1000"
+
+    assert microbench_runner.strip_harness_frames(text) == text
+
+
+def test_strip_harness_frames_handles_empty_input() -> None:
+    assert microbench_runner.strip_harness_frames("") == ""

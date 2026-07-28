@@ -104,6 +104,9 @@ def build_minimal_env() -> dict[str, str]:
         "PATH": str(Path(sys.executable).resolve().parent),
         "PYTHONIOENCODING": "utf-8",
         "PYTHONUTF8": "1",
+        # issue #726: тот же детерминированный stderr, что у LocalRunner —
+        # без ANSI-раскраски traceback'а (Python 3.13+).
+        "PYTHON_COLORS": "0",
     }
 
 

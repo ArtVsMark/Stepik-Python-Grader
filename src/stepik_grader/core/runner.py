@@ -490,6 +490,13 @@ class LocalRunner:
         _scrub_secret_env(child_env)  # issue #632: не наследовать секреты грейдера
         child_env["PYTHONIOENCODING"] = "utf-8"
         child_env["PYTHONUTF8"] = "1"
+        # issue #726: детерминированный stderr решения. Python 3.13+ красит
+        # traceback, если у родителя выставлен FORCE_COLOR/PYTHON_COLORS=1 —
+        # даже когда stderr это pipe. Унаследованный цвет доезжал до UI сырыми
+        # ANSI-последовательностями («\x1b[35m» в ячейке таблицы), а под какой
+        # оболочкой запущен грейдер (IDE, CI, dev-обёртка) — не наше дело.
+        child_env["PYTHON_COLORS"] = "0"
+        child_env["NO_COLOR"] = "1"
 
         # issue #638: spec может нести содержимое решения (``code``) вместо/помимо
         # локального ``path``. Есть ``code`` → материализуем во временный .py и

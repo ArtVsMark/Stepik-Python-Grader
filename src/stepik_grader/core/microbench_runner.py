@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import contextlib
 import pathlib
+import re
 import statistics
 import tempfile
 from dataclasses import dataclass, field
@@ -59,6 +60,7 @@ __all__ = [
     "apply_relative_micro",
     "apply_relative_ranking",
     "run_microbench",
+    "strip_harness_frames",
 ]
 
 ENCODING: str = "utf-8"
@@ -67,6 +69,57 @@ SIMILAR_THRESHOLD_PERCENT = 5.0
 # чтобы cold-start не завышал min/median. Вшивается в bench-скрипт
 # (_build_bench_script) как `_warmup`; вне tracemalloc/timeit.repeat.
 WARMUP_RUNS = 3
+
+# issue #726: кадры timeit-обёртки в traceback'е упавшего решения. Замер идёт
+# внутри `timeit`, поэтому падение пользовательского кода приходит с хвостом из
+# кадров `Lib/timeit.py`, `<timeit-src>` и самого bench-скрипта — для ученика это
+# шум: его код инлайнится в bench-скрипт, так что содержательная часть — только
+# последняя строка (тип исключения и сообщение).
+_FRAME_START = re.compile(r'^\s+File "(?P<file>.*?)", line \d+')
+_HARNESS_FILES = ("<timeit-src>",)
+_HARNESS_SUFFIXES = ("timeit.py",)
+
+
+def strip_harness_frames(text: str, *, harness_path: str | None = None) -> str:
+    """Убрать из traceback'а кадры timeit-обёртки (issue #726).
+
+    Выбрасываются кадры, чей файл — ``<timeit-src>``, стандартный
+    ``timeit.py`` или сам сгенерированный bench-скрипт (``harness_path``).
+    Кадры пользовательского кода, вводная строка ``Traceback (most recent call
+    last):`` и финальная строка исключения сохраняются; если после фильтрации
+    кадров не осталось вовсе, вводная строка тоже убирается — иначе остаётся
+    заголовок без содержимого.
+
+    Текст, не похожий на traceback, возвращается без изменений.
+    """
+    lines = text.splitlines()
+    kept: list[str] = []
+    kept_frames = 0
+    drop_frame = False
+    for line in lines:
+        match = _FRAME_START.match(line)
+        if match is not None:
+            file_name = match.group("file")
+            drop_frame = (
+                file_name in _HARNESS_FILES
+                or file_name.endswith(_HARNESS_SUFFIXES)
+                or (harness_path is not None and file_name == harness_path)
+            )
+            if not drop_frame:
+                kept_frames += 1
+                kept.append(line)
+            continue
+        # Продолжение кадра — строка исходника или маркеры «~~~^^^» под ней.
+        if line.startswith(" ") and (kept_frames or drop_frame):
+            if not drop_frame:
+                kept.append(line)
+            continue
+        drop_frame = False
+        kept.append(line)
+
+    if not kept_frames and kept and kept[0].startswith("Traceback"):
+        kept = kept[1:]
+    return "\n".join(kept).strip()
 
 
 @dataclass
@@ -232,7 +285,13 @@ def run_microbench(
     stdout = outcome.stdout.decode(ENCODING, errors="replace")
     stderr = outcome.stderr.decode(ENCODING, errors="replace")
     if outcome.returncode != 0:
-        return {"times": [], "error": stderr.strip(), "peak_memory_mb": 0.0}
+        # issue #726: без кадров timeit-обёртки — они относятся к механике
+        # замера, а не к решению (bench-скрипт уже удалён, путь берём из tmp).
+        return {
+            "times": [],
+            "error": strip_harness_frames(stderr.strip(), harness_path=tmp.name),
+            "peak_memory_mb": 0.0,
+        }
     try:
         result_lines = stdout.strip().splitlines()
         mem_lines = [line for line in result_lines if line.startswith("MEM:")]

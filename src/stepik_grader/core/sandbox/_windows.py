@@ -235,6 +235,9 @@ class WindowsSandboxRunner:
                 "PATH": interpreter_dir,
                 "PYTHONIOENCODING": "utf-8",
                 "PYTHONUTF8": "1",
+                # issue #726: без ANSI-раскраски traceback'а (Python 3.13+),
+                # как в LocalRunner и POSIX-backend'ах.
+                "PYTHON_COLORS": "0",
             }
             max_memory_mb = float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024)
             cpu_seconds = max(1, math.ceil(CONFIG.sandbox_max_cpu_seconds))
