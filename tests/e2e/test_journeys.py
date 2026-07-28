@@ -256,6 +256,35 @@ def test_glossary_search_and_open_card(page: Any, e2e_server: str, tmp_path: Pat
     assert page.locator("#glossary-empty").is_hidden()
 
 
+def test_glossary_related_links_navigate(page: Any, e2e_server: str, tmp_path: Path) -> None:
+    """J: глоссарий (issue #684) -- связи карточки кликабельны и ведут на соседа.
+
+    `related`/`related_errors` наполнены у 99%/25% карточек, но до этого теста
+    ни одна связь не была видна студенту — поля отдавались API и молча терялись
+    в рендере.
+    """
+    page.goto(e2e_server + "/#/glossary/keyerror")
+    detail = page.locator("#glossary-detail-content")
+    heading = detail.locator("h2")
+    expect(heading).to_contain_text("KeyError", timeout=_TIMEOUT_MS)
+
+    # Блок «Смотрите также» с ссылкой на dict.get (связь из данных карточки).
+    link = detail.locator('a[href="#/glossary/dict.get"]')
+    expect(link).to_be_visible(timeout=_TIMEOUT_MS)
+    link.click()
+
+    # Ждём именно заголовок, а не location.hash: хэш меняется синхронно по клику,
+    # а сосед вне текущей выборки дорисовывается после fetch /api/glossary/<id>
+    # (см. selectGlossaryCard в content.js) — проверка хэша прошла бы до рендера.
+    expect(heading).to_have_text("dict.get", timeout=_TIMEOUT_MS)
+
+    # `related_errors` хранит имя исключения (FileNotFoundError), а ссылка ведёт
+    # на id карточки в нижнем регистре — проверяем именно это преобразование.
+    page.goto(e2e_server + "/#/glossary/open")
+    err = detail.locator('a[href="#/glossary/filenotfounderror"]')
+    expect(err).to_have_text("FileNotFoundError", timeout=_TIMEOUT_MS)
+
+
 def test_glossary_group_filter_and_deeplink(page: Any, e2e_server: str, tmp_path: Path) -> None:
     """J: глоссарий (issue #329/#685) -- семейство → раздел + deep-link #/glossary/<id>."""
     page.goto(e2e_server + "/")
