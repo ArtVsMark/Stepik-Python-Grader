@@ -662,3 +662,37 @@ def test_local_runner_forces_utf8_for_cyrillic_output(tmp_path: pathlib.Path) ->
 
     assert outcome.returncode == 0
     assert outcome.stdout.decode("utf-8").strip() == "Привет, мир"
+
+
+def test_local_runner_disables_ansi_traceback_colors(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """issue #726: цветной traceback родителя не протекает в stderr решения.
+
+    Python 3.13+ красит traceback при FORCE_COLOR/PYTHON_COLORS=1 в окружении —
+    даже когда stderr это pipe. Унаследованный цвет доезжал сырыми ANSI-кодами
+    до web-таблицы, поэтому LocalRunner гасит его явным PYTHON_COLORS=0.
+    """
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    path = _write_script(tmp_path, "raise ValueError('boom')\n")
+    spec = RunSpec(path=path, stdin=None, timeout=5.0, measure_memory=False)
+
+    outcome = LocalRunner().run(spec)
+
+    stderr = outcome.stderr.decode("utf-8")
+    assert outcome.returncode != 0
+    assert "ValueError: boom" in stderr
+    assert "\x1b[" not in stderr
+
+
+def test_local_runner_sets_python_colors_off_in_child_env(tmp_path: pathlib.Path) -> None:
+    """Переменные гашения цвета реально доходят до дочернего процесса (#726)."""
+    path = _write_script(
+        tmp_path,
+        "import os\nprint(os.environ.get('PYTHON_COLORS'), os.environ.get('NO_COLOR'))\n",
+    )
+    spec = RunSpec(path=path, stdin=None, timeout=5.0, measure_memory=False)
+
+    outcome = LocalRunner().run(spec)
+
+    assert outcome.stdout.decode("utf-8").strip() == "0 1"

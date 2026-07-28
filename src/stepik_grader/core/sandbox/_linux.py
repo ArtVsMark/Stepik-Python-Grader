@@ -137,6 +137,11 @@ def _build_bwrap_argv(bwrap: Path, spec: RunSpec, run_dir: Path, script_path: Pa
         "--setenv",
         "PYTHONUTF8",
         "1",
+        # issue #726: без ANSI-раскраски traceback'а (Python 3.13+), как в
+        # LocalRunner и остальных backend'ах.
+        "--setenv",
+        "PYTHON_COLORS",
+        "0",
         "--setenv",
         "PATH",
         str(Path(sys.executable).resolve().parent),

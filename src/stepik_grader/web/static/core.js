@@ -108,6 +108,31 @@ function codeBlock(code) {
   return '<div class="code-block">' + esc(code) + "</div>";
 }
 
+// issue #726: ANSI-escape в выводе решения. Причину лечит рантайм
+// (PYTHON_COLORS=0 в core/runner.py), но stderr может прийти и из другой среды
+// (чужой раннер, сохранённая история) — в DOM цветовые коды выглядят мусором
+// «▮[35m», поэтому вырезаем их на входе в разметку.
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;?]*[ -/]*[@-~]/g;
+const stripAnsi = s => (s ?? "").toString().replace(ANSI_RE, "");
+
+/**
+ * Короткая суть многострочной ошибки — для узкой ячейки таблицы (issue #726).
+ *
+ * У traceback'а содержательная строка последняя («NameError: name 'data' is
+ * not defined»); строки кадров начинаются с отступа. Полный текст показывается
+ * рядом отдельным блоком, здесь нужна именно одна строка.
+ */
+function errorSummary(text) {
+  const lines = stripAnsi(text)
+    .split("\n")
+    .map(l => l.trimEnd())
+    .filter(l => l.trim() !== "");
+  if (!lines.length) return "";
+  const meaningful = lines.filter(l => !/^\s/.test(l) && !/^Traceback/.test(l));
+  return (meaningful.length ? meaningful[meaningful.length - 1] : lines[lines.length - 1]).trim();
+}
+
 function skeletonBlock() {
   return (
     '<div class="pad-4">' +
@@ -656,6 +681,7 @@ export {
   applyUiLocale,
   codeBlock,
   cycleTheme,
+  errorSummary,
   esc,
   explainFailureWithAi,
   fetchCodeTerms,
@@ -670,6 +696,7 @@ export {
   skeletonListItems,
   skeletonWithLabel,
   state,
+  stripAnsi,
   syncLangButtons,
   t,
   toast,

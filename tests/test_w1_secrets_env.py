@@ -36,7 +36,9 @@ def test_build_minimal_env_excludes_parent_secrets(monkeypatch: pytest.MonkeyPat
 
     assert "STEPIK_GRADER_AI_KEY" not in env
     assert "AWS_SECRET_ACCESS_KEY" not in env
-    assert set(env) == {"PATH", "PYTHONIOENCODING", "PYTHONUTF8"}
+    # issue #726: PYTHON_COLORS=0 — гашение ANSI-раскраски traceback'а; набор
+    # по-прежнему закрыт (ничего из окружения родителя сюда не просачивается).
+    assert set(env) == {"PATH", "PYTHONIOENCODING", "PYTHONUTF8", "PYTHON_COLORS"}
 
 
 def test_build_minimal_env_path_points_at_interpreter() -> None:

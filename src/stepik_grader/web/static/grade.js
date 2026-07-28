@@ -1,6 +1,6 @@
 // grade.js — проверка (режимы 1–4), рендер результата, карточки действий (#426).
 import { openGlossaryForSelectedCase } from "./content.js";
-import { $, SECTIONS, codeBlock, cycleTheme, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, skeletonListItems, state, t, toast, tp } from "./core.js";
+import { $, SECTIONS, codeBlock, cycleTheme, errorSummary, esc, explainFailureWithAi, fetchCodeTerms, getSelectedCase, kpiGrid, makeEditor, renderTermsInto, revealWithMotion, setSection, skeletonBlock, skeletonListItems, state, stripAnsi, t, toast, tp } from "./core.js";
 
 // issue #546 — заголовок команды на языке интерфейса. Команды приходят с сервера
 // как {ru, en}; раньше рендер жёстко брал .ru — теперь выбираем по state.lang
@@ -1202,10 +1202,16 @@ function benchTable(rows, { fields, memLabel, memTitle }) {
     '<th scope="col">' + esc(t("grade.col_stdev")) + '</th>' +
     memTh +
     '<th scope="col">%</th><th scope="col">' + esc(t("grade.col_verdict")) + '</th></tr></thead><tbody>';
+  const failed = [];
   rows.forEach(row => {
     if (row.error) {
+      // issue #726: в ячейку — только суть («NameError: …»). Многострочный
+      // traceback раньше вставлялся сюда целиком и разносил вёрстку таблицы;
+      // полный текст теперь под таблицей, блоком на каждое упавшее решение.
+      failed.push(row);
       h +=
-        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="8">' + esc(row.error) +
+        '<tr><td class="mono">' + esc(row.file) + '</td><td colspan="8" class="bench-error-cell">' +
+        esc(errorSummary(row.error)) +
         "</td><td>" + renderVerdict(row.verdict) + "</td></tr>";
       return;
     }
@@ -1220,7 +1226,35 @@ function benchTable(rows, { fields, memLabel, memTitle }) {
       '<td class="mono">' + row.relative + "%</td>" +
       "<td>" + renderVerdict(row.verdict) + "</td></tr>";
   });
-  return h + "</tbody></table></div>";
+  return h + "</tbody></table></div>" + benchErrorDetails(failed);
+}
+
+/**
+ * Полные тексты ошибок упавших решений — под таблицей (issue #726).
+ *
+ * Каждое решение — свой <details>, свёрнутый по умолчанию: таблица остаётся
+ * читаемой, а traceback доступен в один клик и не уезжает в другую вкладку.
+ * Если сказать больше, чем уже стоит в ячейке, не о чем (микробенч отдаёт
+ * ошибку одной строкой — кадры timeit-обёртки режет ядро), блок не рисуется:
+ * дублировать таблицу ради дубля нечестно.
+ */
+function benchErrorDetails(failed) {
+  const rows = failed.map(row => ({ file: row.file, full: stripAnsi(row.error).trim(), summary: errorSummary(row.error) }));
+  if (!rows.some(r => r.full !== r.summary)) return "";
+  const items = rows
+    .map(r =>
+      r.full === r.summary
+        ? '<div class="bench-error bench-error-plain"><span class="mono">' + esc(r.file) + "</span> — " + esc(r.summary) + "</div>"
+        : '<details class="bench-error"><summary><span class="mono">' + esc(r.file) + "</span> — " +
+          esc(r.summary) + "</summary>" + codeBlock(r.full) + "</details>"
+    )
+    .join("");
+  return (
+    '<div class="bench-errors">' +
+    '<div class="section-heading">' + esc(tp(rows.length, "grade.bench_errors_heading")) + "</div>" +
+    items +
+    "</div>"
+  );
 }
 
 function renderMicrobench(data) {
