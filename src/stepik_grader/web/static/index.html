@@ -218,38 +218,45 @@
     </section>
 
     <!-- ══ РАЗДЕЛ «ЗАГРУЗЧИК ЗАДАЧ» ══ -->
+    <!-- issue #724: раздел — одна колонка из трёх самостоятельных панелей:
+         «Доступ к Stepik» (состояние авторизации + куда скачивать), «Скачать
+         задачу» (главное действие) и результат, который появляется только после
+         скачивания. Порядок — по ходу дела: без доступа скачивать нечем.
+         Раньше URL и «Скачать» жили в левой колонке под мастером OAuth и
+         уезжали под сгиб, а правую половину экрана занимала пустая панель
+         «Результат». -->
     <section id="view-downloader" class="main-view" hidden>
       <div class="page-header">
         <h1 class="page-title" data-i18n="downloader.title">Загрузчик задач</h1>
       </div>
-      <div class="split-pane">
+      <div class="single-pane">
         <div class="split-pane-panel">
-          <div class="panel-header"><span class="panel-title" data-i18n="downloader.panel_load">Загрузка</span></div>
+          <div class="panel-header"><span class="panel-title" data-i18n="downloader.panel_load">Доступ к Stepik</span></div>
           <div class="panel-body">
-            <!-- issue #402: мастер авторизации Stepik (заполняется renderAuthPanel) -->
-            <div id="auth-panel" class="auth-panel" hidden></div>
-            <div class="form-group">
-              <label class="form-label" for="downloader-url" data-i18n="downloader.url_label">URL шага Stepik</label>
-              <input class="form-input" id="downloader-url" type="text"
-                     placeholder="https://stepik.org/lesson/569749/step/4?unit=564263">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="downloader-root" data-i18n="downloader.root_label">Корневая папка (опционально)</label>
-              <input class="form-input" id="downloader-root" type="text" placeholder="StepikTasks">
-            </div>
-            <button id="downloader-run" class="btn btn-primary" data-i18n="downloader.run">▶ Скачать</button>
-            <div class="hint"><span data-i18n="downloader.hint_pre">Требуется настроенный</span> <code>secrets.json</code> <span data-i18n="downloader.hint_see">— см.</span>
-              <code>docs/installation.md</code> <span data-i18n="downloader.hint_section">§ Работа с API Stepik (OAuth).</span></div>
+            <!-- issue #402/#723: панель доступа. Первый запуск — развилка
+                 «настроить впервые / указать готовый secrets.json»; дальше —
+                 компактная строка состояния. Рисует renderAuthPanel. -->
+            <div id="auth-panel" class="auth-panel"></div>
+            <!-- issue #725: корневая папка — значением из stepik_config.json с
+                 кнопкой «Изменить», а не всегда пустым полем-плейсхолдером. -->
+            <div id="downloader-root-row" class="config-row"></div>
           </div>
         </div>
         <div class="split-pane-panel">
+          <div class="panel-header"><span class="panel-title" data-i18n="downloader.panel_download">Скачать задачу</span></div>
+          <div class="panel-body">
+            <div class="downloader-actions">
+              <input class="form-input" id="downloader-url" type="text"
+                     aria-label="URL шага Stepik" data-i18n-aria-label="downloader.url_label"
+                     placeholder="https://stepik.org/lesson/569749/step/4?unit=564263">
+              <button id="downloader-run" class="btn btn-primary" data-i18n="downloader.run">▶ Скачать</button>
+            </div>
+          </div>
+        </div>
+        <div class="split-pane-panel" id="downloader-result-panel" hidden>
           <div class="panel-header"><span class="panel-title" data-i18n="downloader.panel_result">Результат</span></div>
           <div class="panel-body" id="downloader-result">
-            <div id="downloader-empty" class="empty-state">
-              <h3 data-i18n="downloader.empty_title">Ничего не скачано</h3>
-              <p data-i18n="downloader.empty_text">Введите URL шага и нажмите «Скачать».</p>
-            </div>
-            <div id="downloader-content" hidden></div>
+            <div id="downloader-content"></div>
           </div>
         </div>
       </div>

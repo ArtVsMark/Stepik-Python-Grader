@@ -613,6 +613,21 @@ select.form-input { cursor: pointer; }
 .auth-panel .msg { color: var(--color-text); }
 .auth-ok { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; color: var(--color-text); }
 .btn-sm { padding: var(--space-1, 4px) var(--space-3); font-size: var(--text-sm); }
+
+/* issue #723/#724/#725: раздел «Загрузчик задач» — одна колонка, главное
+   действие в шапке, состояние доступа и корневая папка строками. */
+.downloader-actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.downloader-actions .form-input { flex: 1 1 320px; min-width: 0; }
+.single-pane { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); min-height: 0; overflow-y: auto; }
+.single-pane > .split-pane-panel { border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.auth-state { font-weight: 500; }
+.auth-state-warn { color: var(--color-warning); }
+.auth-choice .row { gap: var(--space-3); }
+.config-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-4); font-size: var(--text-sm); color: var(--color-text); }
+.config-label { color: var(--color-text-muted); }
+.config-value { font-family: var(--font-mono); font-size: var(--text-xs); background: var(--color-surface-offset); padding: 2px var(--space-2); border-radius: var(--radius-sm); }
+.config-input { flex: 0 1 320px; min-width: 0; }
+.hint-inline { font-size: var(--text-xs); color: var(--color-text-faint); }
 /* issue #298 (a11y): visually hidden but exposed to assistive tech — used for
    the aria-live result-summary announcer (#result-announce). */
 .sr-only {

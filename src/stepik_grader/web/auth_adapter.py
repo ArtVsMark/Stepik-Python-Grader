@@ -25,6 +25,7 @@ __all__ = [
     "STEPIK_OAUTH_APPS_URL",
     "auth_status",
     "perform_browser_auth",
+    "stored_credentials",
 ]
 
 # Дублируется с downloader_config (issue #433) намеренно — web-слой не должен
@@ -60,6 +61,29 @@ def auth_status(secrets_path: pathlib.Path) -> dict[str, Any]:
         return {"authorized": True, "reason": "ok"}
     has_creds = all(str(secrets.get(field, "")).strip() for field in _CRED_FIELDS)
     return {"authorized": False, "reason": "no_token" if has_creds else "no_secrets"}
+
+
+def stored_credentials(secrets_path: pathlib.Path) -> dict[str, str]:
+    """OAuth-креды из существующего ``secrets.json`` (issue #723).
+
+    Нужны, чтобы повторная авторизация (истёк токен) не требовала снова вводить
+    ``client_id``/``client_secret``: они уже лежат в файле, а мастер первого
+    запуска — не тот экран, который человек хочет видеть на второй раз.
+    Возвращает только непустые строковые поля; отсутствие/битый файл — ``{}``
+    (best-effort, как ``auth_status``). Секреты **не логируются** и наружу через
+    API не отдаются — используются только для запуска flow на сервере.
+    """
+    if not secrets_path.exists() or not secrets_path.is_file():
+        return {}
+    try:
+        secrets = load_json_file(secrets_path)
+    except (OSError, ValueError):
+        return {}
+    return {
+        field: str(secrets.get(field, "")).strip()
+        for field in _CRED_FIELDS
+        if str(secrets.get(field, "")).strip()
+    }
 
 
 def perform_browser_auth(

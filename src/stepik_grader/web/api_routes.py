@@ -19,7 +19,12 @@ from stepik_grader.core import user_settings
 from stepik_grader.core.stepik_reference import DEFAULT_MAX_TOP
 from stepik_grader.web import auth_adapter, runs
 from stepik_grader.web.commands import filter_commands
-from stepik_grader.web.downloader_adapter import download_task
+from stepik_grader.web.downloader_adapter import (
+    download_task,
+    read_config,
+    secrets_path_for,
+    write_config,
+)
 from stepik_grader.web.glossary_adapter import (
     code_terms,
     glossary_get,
@@ -128,6 +133,7 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/solutions": "_get_solutions",
         "/api/source": "_get_source",
         "/api/auth/status": "_get_auth_status",
+        "/api/downloader/config": "_get_downloader_config",
     }
     _API_GET_PREFIX = (
         ("/api/v1/runs/", "_get_run_status"),
@@ -142,6 +148,7 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/auth/start": "_handle_auth_start",
         "/api/code-terms": "_post_code_terms",
         "/api/download": "_post_download",
+        "/api/downloader/config": "_post_downloader_config",
         "/api/import-reference": "_post_import_reference",
         "/api/save-solution": "_post_save_solution",
     }
@@ -333,12 +340,64 @@ class _ApiRoutesMixin(_GuardMixin):
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _get_auth_status(self, parsed: Any, lang: str) -> None:
-        # issue #402: валиден ли токен Stepik по secrets.json в workspace.
-        secrets_path = self.server.workspace / "secrets.json"
+        # issue #402: валиден ли токен Stepik. issue #723: путь к secrets.json —
+        # из stepik_config.json, тот же, что использует скачивание; раньше здесь
+        # был жёсткий workspace/secrets.json, и статус мог расходиться с делом.
+        secrets_path = secrets_path_for(self.server.workspace)
+        status = auth_adapter.auth_status(secrets_path)
+        config = read_config(self.server.workspace)
         self._send(
             200,
             "application/json; charset=utf-8",
-            _json(auth_adapter.auth_status(secrets_path)),
+            _json({**status, "secrets_path": config["secrets_path"]}),
+        )
+
+    def _get_downloader_config(self, parsed: Any, lang: str) -> None:
+        """GET /api/downloader/config (issue #723/#725) — куда скачивать и чем.
+
+        Отдаёт ``{root_dir, secrets_path, root_dir_default, secrets_exists,
+        configured}`` из ``stepik_config.json`` рабочей директории. Нужен UI,
+        чтобы показать текущую корневую папку значением (а не пустым полем с
+        плейсхолдером) и отличить первый запуск от повторного.
+        """
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json(read_config(self.server.workspace)),
+        )
+
+    def _post_downloader_config(self, parsed: Any) -> None:
+        """POST /api/downloader/config (issue #723/#725) — сохранить конфиг загрузчика.
+
+        Тело: ``{"root_dir"?: str, "secrets_path"?: str}`` — пишутся только
+        переданные поля. Оба пути конфайнятся в workspace (как ``root`` у
+        ``/api/download``, issue #401): иначе через этот эндпоинт можно было бы
+        назначить чтение произвольного файла с диска или создать каталог вне
+        рабочей директории. Ответ — новый конфиг плюс статус авторизации по
+        нему, чтобы UI сразу сказал «файл рабочий» или «токена нет».
+        """
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        raw_root = str(body.get("root_dir") or "").strip()
+        raw_secrets = str(body.get("secrets_path") or "").strip()
+        root_dir = None
+        secrets_path = None
+        if raw_root:
+            root_dir = self._confined_path(raw_root, lang)
+            if root_dir is None:
+                return  # 403 уже отправлен
+        if raw_secrets:
+            secrets_path = self._confined_path(raw_secrets, lang)
+            if secrets_path is None:
+                return
+        config = write_config(self.server.workspace, root_dir=root_dir, secrets_path=secrets_path)
+        status = auth_adapter.auth_status(secrets_path_for(self.server.workspace))
+        self._send(
+            200,
+            "application/json; charset=utf-8",
+            _json({"ok": True, **config, "auth": status}),
         )
 
     def _post_code_terms(self, parsed: Any) -> None:
@@ -395,7 +454,7 @@ class _ApiRoutesMixin(_GuardMixin):
             root: str | None = str(confined)
         else:
             root = None
-        data = download_task(url, root=root)
+        data = download_task(url, root=root, workspace=self.server.workspace)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _post_import_reference(self, parsed: Any) -> None:
@@ -418,7 +477,7 @@ class _ApiRoutesMixin(_GuardMixin):
             return  # _confined_path уже отправил 403
         raw_top = body.get("top")
         top = raw_top if isinstance(raw_top, int) and raw_top > 0 else DEFAULT_MAX_TOP
-        data = import_reference(str(confined_dir), top=top)
+        data = import_reference(str(confined_dir), top=top, workspace=self.server.workspace)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _post_save_solution(self, parsed: Any) -> None:
@@ -745,8 +804,13 @@ class _ApiRoutesMixin(_GuardMixin):
     def _handle_auth_start(self, parsed: Any) -> None:
         """POST /api/auth/start (issue #402) — тело ``{client_id, client_secret,
         redirect_uri?}`` → ``202`` + ``{run_id, status}``. Записывает креды в
-        ``secrets.json`` (workspace) и запускает браузерный OAuth-flow как
-        async-job (``kind="auth"``); опрос — через ``GET /api/v1/runs/{id}``.
+        ``secrets.json`` (путь — из ``stepik_config.json``, issue #723) и
+        запускает браузерный OAuth-flow как async-job (``kind="auth"``); опрос —
+        через ``GET /api/v1/runs/{id}``.
+
+        Пустое тело допустимо, если креды уже лежат в ``secrets.json``
+        (issue #723): истёкший токен обновляется одной кнопкой, без повторного
+        ввода client_id/secret — это и есть «второй запуск» из постановки.
 
         ``webbrowser.open`` открывается на МАШИНЕ СЕРВЕРА — корректно только для
         локального ``--serve`` (localhost, single-user). Под ``_guard_request``
@@ -759,10 +823,16 @@ class _ApiRoutesMixin(_GuardMixin):
         body = self._read_json_body(lang)
         if body is None:
             return
-        client_id = str(body.get("client_id") or "").strip()
-        client_secret = str(body.get("client_secret") or "").strip()
+        secrets_path = secrets_path_for(self.server.workspace)
+        stored = auth_adapter.stored_credentials(secrets_path)
+        client_id = str(body.get("client_id") or "").strip() or stored.get("client_id", "")
+        client_secret = str(body.get("client_secret") or "").strip() or stored.get(
+            "client_secret", ""
+        )
         redirect_uri = (
-            str(body.get("redirect_uri") or "").strip() or auth_adapter.DEFAULT_REDIRECT_URI
+            str(body.get("redirect_uri") or "").strip()
+            or stored.get("redirect_uri", "")
+            or auth_adapter.DEFAULT_REDIRECT_URI
         )
         if not client_id or not client_secret:
             self._send(
@@ -782,7 +852,6 @@ class _ApiRoutesMixin(_GuardMixin):
                 _json({"kind": "error", **message_fields("invalid_redirect_uri", lang)}),
             )
             return
-        secrets_path = self.server.workspace / "secrets.json"
         params: dict[str, Any] = {
             "lang": lang,
             "client_id": client_id,

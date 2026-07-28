@@ -340,3 +340,73 @@ class TestApiDownloadHttpEndpoint:
             )
         assert status == 200
         assert json.loads(body)["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# Конфиг загрузчика: единый источник для скачивания и статуса (issue #723/#725)
+# ---------------------------------------------------------------------------
+
+
+class TestDownloaderConfigAdapter:
+    def test_read_config_defaults_without_file(self, tmp_path: pathlib.Path) -> None:
+        config = downloader_adapter.read_config(tmp_path)
+
+        assert config == {
+            "root_dir": "StepikTasks",
+            "secrets_path": "secrets.json",
+            "root_dir_default": "StepikTasks",
+            "secrets_exists": False,
+            "configured": False,
+        }
+
+    def test_read_config_reports_existing_secrets(self, tmp_path: pathlib.Path) -> None:
+        _write_secrets(tmp_path / "secrets.json")
+
+        assert downloader_adapter.read_config(tmp_path)["secrets_exists"] is True
+
+    def test_read_config_survives_broken_json(self, tmp_path: pathlib.Path) -> None:
+        """Битый конфиг — дефолты, а не исключение (best-effort, как auth_status)."""
+        (tmp_path / "stepik_config.json").write_text("{not json", encoding="utf-8")
+
+        config = downloader_adapter.read_config(tmp_path)
+
+        assert config["root_dir"] == "StepikTasks"
+        assert config["configured"] is True
+
+    def test_write_config_roundtrip(self, tmp_path: pathlib.Path) -> None:
+        downloader_adapter.write_config(tmp_path, root_dir=tmp_path / "Tasks")
+
+        config = downloader_adapter.read_config(tmp_path)
+        assert config["root_dir"] == "Tasks"
+        assert config["configured"] is True
+
+    def test_write_config_preserves_other_field(self, tmp_path: pathlib.Path) -> None:
+        downloader_adapter.write_config(tmp_path, secrets_path=tmp_path / "creds.json")
+        downloader_adapter.write_config(tmp_path, root_dir=tmp_path / "Tasks")
+
+        config = downloader_adapter.read_config(tmp_path)
+        assert config["secrets_path"] == "creds.json"
+        assert config["root_dir"] == "Tasks"
+
+    def test_paths_outside_workspace_stay_absolute(self, tmp_path: pathlib.Path) -> None:
+        """Путь вне рабочей директории показывается абсолютным, а не '..'-цепочкой."""
+        outside = tmp_path.parent / "elsewhere"
+        downloader_adapter.write_config(tmp_path, root_dir=outside)
+
+        assert downloader_adapter.read_config(tmp_path)["root_dir"] == str(outside)
+
+    def test_secrets_path_for_follows_config(self, tmp_path: pathlib.Path) -> None:
+        downloader_adapter.write_config(tmp_path, secrets_path=tmp_path / "creds.json")
+
+        assert downloader_adapter.secrets_path_for(tmp_path) == tmp_path / "creds.json"
+
+    def test_download_task_uses_workspace_config(self, tmp_path: pathlib.Path) -> None:
+        """download_task ищет secrets по конфигу workspace, а не по cwd (#723)."""
+        downloader_adapter.write_config(tmp_path, secrets_path=tmp_path / "creds.json")
+
+        result = downloader_adapter.download_task(
+            "https://stepik.org/lesson/1/step/1", workspace=tmp_path
+        )
+
+        assert result["ok"] is False
+        assert "creds.json" in result["message"] or "secrets" in result["message"].lower()
