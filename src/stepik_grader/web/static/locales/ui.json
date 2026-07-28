@@ -211,9 +211,9 @@
     "grade.col_memory": "Память, МБ",
     "grade.col_pyheap": "Py-heap, МБ",
     "grade.col_verdict": "Вердикт",
-    "grade.bench_errors_heading.one": "Не запустилось: {n} решение",
-    "grade.bench_errors_heading.few": "Не запустилось: {n} решения",
-    "grade.bench_errors_heading.many": "Не запустилось: {n} решений",
+    "grade.bench_errors_heading.one": "Не участвует в сравнении: {n} решение",
+    "grade.bench_errors_heading.few": "Не участвуют в сравнении: {n} решения",
+    "grade.bench_errors_heading.many": "Не участвуют в сравнении: {n} решений",
     "grade.no_cases": "нет тест-кейсов",
     "grade.field_stdin": "Вход (stdin)",
     "grade.field_expected": "Ожидалось",
@@ -372,9 +372,9 @@
     "grade.compare_legend": "Полоса — медиана, тонкая линия — разброс от минимума до максимума; «×N» — во столько раз медленнее лучшего.",
     "grade.compare_best": "лучшее",
     "grade.compare_empty": "Сравнивать нечего: ни одно решение не отработало.",
-    "grade.compare_excluded.one": "{n} решение не участвует — ошибка выполнения",
-    "grade.compare_excluded.few": "{n} решения не участвуют — ошибка выполнения",
-    "grade.compare_excluded.many": "{n} решений не участвуют — ошибка выполнения"
+    "grade.compare_excluded.one": "{n} решение не участвует: не прошло тесты или упало",
+    "grade.compare_excluded.few": "{n} решения не участвуют: не прошли тесты или упали",
+    "grade.compare_excluded.many": "{n} решений не участвуют: не прошли тесты или упали"
   },
   "en": {
     "a11y.skip_to_content": "Skip to content",
@@ -588,9 +588,9 @@
     "grade.col_memory": "Memory, MB",
     "grade.col_pyheap": "Py-heap, MB",
     "grade.col_verdict": "Verdict",
-    "grade.bench_errors_heading.one": "Failed to run: {n} solution",
-    "grade.bench_errors_heading.few": "Failed to run: {n} solutions",
-    "grade.bench_errors_heading.many": "Failed to run: {n} solutions",
+    "grade.bench_errors_heading.one": "Excluded from comparison: {n} solution",
+    "grade.bench_errors_heading.few": "Excluded from comparison: {n} solutions",
+    "grade.bench_errors_heading.many": "Excluded from comparison: {n} solutions",
     "grade.no_cases": "no test cases",
     "grade.field_stdin": "Input (stdin)",
     "grade.field_expected": "Expected",
@@ -749,8 +749,8 @@
     "grade.compare_legend": "Bar — median, thin line — spread from min to max; «×N» — how many times slower than the best one.",
     "grade.compare_best": "best",
     "grade.compare_empty": "Nothing to compare: no solution completed a run.",
-    "grade.compare_excluded.one": "{n} solution excluded — runtime error",
-    "grade.compare_excluded.few": "{n} solutions excluded — runtime error",
-    "grade.compare_excluded.many": "{n} solutions excluded — runtime error"
+    "grade.compare_excluded.one": "{n} solution excluded: failed the tests or crashed",
+    "grade.compare_excluded.few": "{n} solutions excluded: failed the tests or crashed",
+    "grade.compare_excluded.many": "{n} solutions excluded: failed the tests or crashed"
   }
 }

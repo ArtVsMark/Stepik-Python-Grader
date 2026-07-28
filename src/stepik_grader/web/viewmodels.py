@@ -41,6 +41,7 @@ from stepik_grader.web.grading import (
     hash_solution,
     is_solution_file,
     load_test_cases,
+    preflight_solution,
     resolve_test_dir,
     run_benchmark,
     run_microbench_mode,
@@ -151,7 +152,12 @@ def estimate_run_count(solutions: list[pathlib.Path], *, kind: str, repeats: int
         test_dir = resolve_test_dir(sol)
         if test_dir is None or not test_dir.is_dir():
             continue
-        total += len(load_test_cases(test_dir)) * max(1, repeats)
+        cases = len(load_test_cases(test_dir))
+        # issue #729: перед замером режима 3 идёт пре-флайт — один прогон всех
+        # кейсов. Он тикает тем же progress_callback, поэтому входит в total,
+        # иначе прогресс-бар упирался бы в 100% раньше конца работы.
+        preflight = cases if kind == "bench" else 0
+        total += cases * max(1, repeats) + preflight
     return total
 
 
@@ -579,12 +585,92 @@ def _ranked_bench_rows(
     """
     ok = {s: d for s, d in results.items() if not d.get("error")}
     rows = [row_of(sol, ok[sol], base) for sol in sorted(ok, key=lambda s: ok[s]["median"])]
+    # issue #729: у не прошедшего пре-флайт решения свой вердикт SKIPPED —
+    # это не сбой замера, а «нечего мерить», и UI показывает его иначе.
     rows += [
-        {"file": _rel(sol, base), "verdict": "ERR", "error": d["error"]}
+        {
+            "file": _rel(sol, base),
+            "verdict": str(d.get("verdict") or "ERR"),
+            "error": d["error"],
+        }
         for sol, d in results.items()
         if d.get("error")
     ]
     return rows
+
+
+def _split_by_preflight(
+    solutions: list[pathlib.Path],
+    test_dir: pathlib.Path,
+    *,
+    lang: str,
+    cancel_event: threading.Event | None,
+) -> tuple[list[pathlib.Path], dict[pathlib.Path, dict[str, Any]]]:
+    """Разделить решения на «годные к замеру» и «не прошли проверку» (issue #729).
+
+    Версия для режима 4: там все решения группы гоняются одним вызовом
+    ``run_microbench_mode`` по общему ``test_dir``, поэтому отсев нужен списком,
+    а не по одному. ``progress_callback`` сюда не передаётся — микробенч тикает
+    раз на решение целиком, и пре-флайт в его шкалу не заложен.
+    """
+    eligible: list[pathlib.Path] = []
+    skipped: dict[pathlib.Path, dict[str, Any]] = {}
+    for sol in solutions:
+        skip = _preflight_skip(
+            sol,
+            test_dir,
+            lang=lang,
+            timeout=None,
+            max_memory_mb=None,
+            progress_callback=None,
+            cancel_event=cancel_event,
+        )
+        if skip is None:
+            eligible.append(sol)
+        else:
+            skipped[sol] = skip
+    return eligible, skipped
+
+
+def _preflight_skip(
+    solution: pathlib.Path,
+    test_dir: pathlib.Path,
+    *,
+    lang: str,
+    timeout: float | None,
+    max_memory_mb: int | None,
+    progress_callback: Callable[[int], None] | None,
+    cancel_event: threading.Event | None,
+) -> dict[str, Any] | None:
+    """Отсеять решение, не прошедшее тесты, до замера скорости (issue #729).
+
+    ``None`` — решение годится, меряем. Иначе — готовая «ошибочная» запись с
+    ``verdict="SKIPPED"`` и причиной на языке запроса. Сравнивать по времени
+    решение с неверным выводом бессмысленно: раньше WA спокойно получал медиану
+    и место в рейтинге, потому что ``run_benchmark`` время меряет, а результат
+    не сверяет.
+    """
+    report = preflight_solution(
+        solution,
+        test_dir,
+        timeout=CONFIG.timeout_seconds if timeout is None else timeout,
+        max_memory_mb=max_memory_mb,
+        progress_callback=progress_callback,
+        cancel_event=cancel_event,
+    )
+    if report["ok"] or report["cancelled"]:
+        return None
+    return {
+        "error": render_message(
+            "bench_skipped_not_ac",
+            lang,
+            passed=report["passed"],
+            total=report["total"],
+            verdict=report["verdict"] or "—",
+        ),
+        "runs": 0,
+        "verdict": "SKIPPED",
+    }
 
 
 def _record_bench_history(
@@ -773,16 +859,28 @@ def grade_benchmark(
         test_dir = resolve_test_dir(sol)
         if test_dir is None or not test_dir.is_dir():
             results[sol] = {"error": render_message("tests_not_found_short", lang), "runs": 0}
-        else:
-            results[sol] = run_benchmark(
-                sol,
-                test_dir,
-                repeats=max(1, repeats),
-                timeout=CONFIG.timeout_seconds if timeout is None else timeout,
-                max_memory_mb=max_memory_mb,
-                progress_callback=progress_callback,
-                cancel_event=cancel_event,
-            )
+            continue
+        skip = _preflight_skip(
+            sol,
+            test_dir,
+            lang=lang,
+            timeout=timeout,
+            max_memory_mb=max_memory_mb,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if skip is not None:
+            results[sol] = skip
+            continue
+        results[sol] = run_benchmark(
+            sol,
+            test_dir,
+            repeats=max(1, repeats),
+            timeout=CONFIG.timeout_seconds if timeout is None else timeout,
+            max_memory_mb=max_memory_mb,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
 
     ref_path = None
     if reference:
@@ -868,13 +966,19 @@ def grade_microbench(
                 "rows": [],
             }
         other_groups: list[str] = []
+        # issue #729: то же предусловие, что в режиме 3 — мерить скорость имеет
+        # смысл только у решения, прошедшего тесты.
+        eligible, skipped = _split_by_preflight(
+            [sol], test_dir, lang=lang, cancel_event=cancel_event
+        )
         results = run_microbench_mode(
-            [sol],
+            eligible,
             test_dir,
             number=number,
             progress_callback=progress_callback,
             cancel_event=cancel_event,
         )
+        results.update(skipped)
     else:
         grouped = collect_grouped_files(base)
         group_names = sorted(grouped)
@@ -889,13 +993,17 @@ def grade_microbench(
                 "rows": [],
             }
         group_label = folder if folder != "." else base.name
+        eligible, skipped = _split_by_preflight(
+            sorted(grouped[folder]), test_dir, lang=lang, cancel_event=cancel_event
+        )
         results = run_microbench_mode(
-            sorted(grouped[folder]),
+            eligible,
             test_dir,
             number=number,
             progress_callback=progress_callback,
             cancel_event=cancel_event,
         )
+        results.update(skipped)
 
     if not results:
         return {

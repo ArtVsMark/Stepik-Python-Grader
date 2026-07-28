@@ -39,6 +39,9 @@ class CliContext:
     t: Callable[..., str]
     run_tests: Callable[..., dict[str, Any]]
     run_benchmark: Callable[..., dict[str, Any]]
+    # issue #729: пре-флайт перед замером скорости (режимы 3/4) — отдельной
+    # зависимостью, чтобы тесты подменяли его так же, как остальные прогоны.
+    preflight_solution: Callable[..., dict[str, Any]]
     run_microbench_mode: Callable[..., dict[Path, dict[str, Any]]]
     resolve_test_dir_from_input: Callable[..., Path | None]
     print_tabular: Callable[..., None]

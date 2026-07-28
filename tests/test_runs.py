@@ -215,7 +215,9 @@ class TestConcurrentJobsDoNotMix:
         assert data_a["status"] == "done"
         assert data_a["result"]["rows"][0]["verdict"] != "ERR"
         assert data_b["status"] == "done"
-        assert data_b["result"]["rows"][0]["verdict"] == "ERR"
+        # issue #729: падающее решение отсеивает пре-флайт до замера — SKIPPED,
+        # а не ERR по факту первого запуска внутри бенчмарка.
+        assert data_b["result"]["rows"][0]["verdict"] == "SKIPPED"
 
 
 class TestInlineCode:
