@@ -2522,5 +2522,54 @@
     "related_errors": [
       "KeyError"
     ]
+  },
+  {
+    "id": "bytearray.resize",
+    "title": "bytearray.resize()",
+    "kind": "function",
+    "summary": {
+      "ru": "Меняет длину bytearray на месте: лишние байты отбрасываются, недостающие добавляются нулевыми (b'\\x00'). Возвращает None. Python 3.14+.",
+      "en": "Resizes a bytearray in place: extra bytes are truncated, new bytes are filled with null bytes. Returns None. Python 3.14+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "bytearray.resize(size, /)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#bytearray.resize",
+    "version": "3.14",
+    "section": "Байтовые последовательности",
+    "subcat": "изменение размера",
+    "aliases": [
+      "изменить размер байтового массива",
+      "обрезать байтовый массив",
+      "дополнить байтовый массив нулями"
+    ],
+    "keywords": [
+      "bytearray.resize",
+      "resize"
+    ],
+    "tags": [
+      "bytearray"
+    ],
+    "examples": [
+      "b = bytearray(b'abc')",
+      "print(b.resize(5))   # → None",
+      "print(b)             # → bytearray(b'abc\\x00\\x00')",
+      "print(len(b))        # → 5",
+      "b.resize(2)",
+      "print(b)             # → bytearray(b'ab')"
+    ],
+    "related": [
+      "bytearray",
+      "bytearray.extend",
+      "bytearray.clear",
+      "bytearray.append"
+    ],
+    "related_errors": [
+      "ValueError",
+      "BufferError"
+    ]
   }
 ]
