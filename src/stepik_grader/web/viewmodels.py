@@ -521,6 +521,12 @@ def _bench_row(sol: pathlib.Path, d: dict[str, Any], base: pathlib.Path) -> dict
 
     Полный набор колонок как в CLI-репортере (mean/max/std dev) — бэкенд уже
     считает их в ``run_benchmark`` (issue #370).
+
+    ``min``/``median``/``max`` идут и строками с единицами (для таблицы, где
+    величины разного масштаба должны читаться глазом), и числами ``*_s`` —
+    диаграмме сравнения (issue #731) нужны сырые значения, а парсить обратно
+    «144.812 ms» было бы восстановлением того, что мы сами только что потеряли.
+    Режим 4 отдаёт числа с самого начала (``*_us``).
     """
     return {
         "file": _rel(sol, base),
@@ -530,6 +536,9 @@ def _bench_row(sol: pathlib.Path, d: dict[str, Any], base: pathlib.Path) -> dict
         "mean": fmt_time(d["mean"]),
         "max": fmt_time(d["max"]),
         "stdev": fmt_time(d["stdev"]),
+        "min_s": d["min"],
+        "median_s": d["median"],
+        "max_s": d["max"],
         "relative": round(d.get("relative", 1.0) * 100, 1),
         "verdict": d.get("verdict", "SIMILAR"),
         "memory_mb": round(d["peak_memory_mb"], 2),
