@@ -337,6 +337,25 @@ a, button, [role="button"] {
 .split-pane--stacked > .split-pane-panel:first-child .panel-body { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); }
 .split-pane--stacked > .split-pane-panel:first-child .form-group { margin: 0; }
 .split-pane--stacked > .split-pane-panel:first-child .form-group:first-child { flex: 1 1 320px; }
+/* issue #727: профиль-селекторы режимов 3 и 4 — одинаковая геометрия, чтобы
+   переключение режима не двигало контрол и не меняло его размер (ширина по
+   содержимому давала разбег 277 px против 250 px). Поле «своё число» встаёт
+   СПРАВА от селекта, а не под ним: колонкой оно удваивало высоту строки и
+   отрывало поле пути от подписи. */
+#bench-config, #microbench-config { display: flex; flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3) var(--space-4); }
+/* 290px — самая длинная из двух подписей («Профиль нагрузки (повторов на
+   тест-кейс)», 277 px) укладывается в строку: иначе перенос сдвигал бы селект
+   режима 3 на 16 px ниже селекта режима 4. */
+/* shrink=1: на широком экране ширина ровно по basis (сжимать нечего), на узком
+   группы сжимаются и переносятся, а не выталкивают панель в горизонтальную
+   прокрутку. */
+#bench-config > .form-group:first-child, #microbench-config > .form-group:first-child { flex: 0 1 290px; }
+/* 270px — по самой длинной подписи поля «своё число» среди обоих языков
+   («Custom number of calls (100–500 000)», 261 px): при переносе строка
+   настроек становилась выше, и переключение 3↔4 с открытым «свой…» дёргало
+   контролы по вертикали. */
+#bench-config > .form-group + .form-group, #microbench-config > .form-group + .form-group { flex: 0 1 270px; }
+#bench-config .form-input, #microbench-config .form-input { width: 100%; }
 .panel-header {
   display: flex; align-items: center; gap: var(--space-3);
   padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-divider);

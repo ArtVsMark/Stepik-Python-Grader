@@ -2,7 +2,7 @@
 import { loadGlossary, loadRules, parseGlossaryHash, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
 import { $, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
 import { downloadTask, loadAuthStatus, startBrowserAuth } from "./downloader.js";
-import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, runCommand, saveSolution, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility } from "./grade.js";
+import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, restoreProfiles, runCommand, saveSolution, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility, updateRepeatsCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
 import { drawMemArrows, renderTraceStep } from "./trace-player.js";
 
@@ -278,6 +278,7 @@ $("#path").addEventListener("input", () => {
   checkTermsTimer = setTimeout(loadCheckTerms, 400);
 });
 $("#micro-profile").addEventListener("change", updateMicroCustomVisibility);
+$("#repeats").addEventListener("change", updateRepeatsCustomVisibility); // issue #727
 $("#downloader-run").addEventListener("click", downloadTask);
 $("#downloader-url").addEventListener("keydown", e => {
   if (e.key === "Enter") downloadTask();
@@ -342,6 +343,7 @@ syncLangButtons(); // issue #659 — язык из localStorage отражаем
 applyUiLocale(state.lang); // issue #545 — восстановленный из localStorage язык применяем к разметке при загрузке
 mountEditor();
 setSection(state.section);
+restoreProfiles(); // issue #727 — профили режимов 3/4 из localStorage до setMode()
 setMode(state.mode);
 setResultTab(state.resultTab);
 renderRecentPaths();
