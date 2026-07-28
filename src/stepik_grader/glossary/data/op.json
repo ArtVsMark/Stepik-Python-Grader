@@ -7263,5 +7263,102 @@
       "pathlib.PureWindowsPath"
     ],
     "related_errors": []
+  },
+  {
+    "id": "complex.from_number",
+    "title": "complex.from_number()",
+    "kind": "function",
+    "summary": {
+      "ru": "Классметод: строит комплексное число из числового аргумента (делегирует __complex__, затем __float__, затем __index__). В отличие от complex(), строку не принимает. Python 3.14+.",
+      "en": "Class method that builds a complex number from a single numeric argument (delegates to __complex__, then __float__, then __index__). Unlike complex(), it does not accept strings. Python 3.14+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "classmethod complex.from_number(x)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#complex.from_number",
+    "version": "3.14",
+    "section": "Числа и математика",
+    "subcat": "комплексные числа",
+    "aliases": [
+      "создать комплексное число из числа",
+      "преобразовать число в комплексное",
+      "комплексное число из числа"
+    ],
+    "keywords": [
+      "complex.from_number",
+      "from_number"
+    ],
+    "tags": [
+      "complex"
+    ],
+    "examples": [
+      "print(complex.from_number(3))  # → (3+0j)",
+      "print(complex.from_number(2.5))  # → (2.5+0j)",
+      "print(complex.from_number(1+2j))  # → (1+2j)",
+      "print(complex.from_number(True))  # → (1+0j)",
+      "try: complex.from_number('1+2j')  # строка не число",
+      "except TypeError as e: print(type(e).__name__)  # → TypeError"
+    ],
+    "related": [
+      "complex",
+      "complex.conjugate",
+      "cmath",
+      "classmethod"
+    ],
+    "related_errors": [
+      "TypeError"
+    ]
+  },
+  {
+    "id": "float.from_number",
+    "title": "float.from_number()",
+    "kind": "function",
+    "summary": {
+      "ru": "Классовый метод: строит float из числового объекта (int, float или объекта с __float__). Строки не принимает — в отличие от float(). Python 3.14+.",
+      "en": "Class method building a float from a number (int, float or an object with __float__). Unlike float(), it rejects strings. Python 3.14+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "float.from_number(x)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/stdtypes.html#float.from_number",
+    "version": "3.14",
+    "section": "Числа и математика",
+    "subcat": "преобразование типов",
+    "aliases": [
+      "создать вещественное из числа",
+      "преобразование числа в вещественное",
+      "строгое приведение к вещественному"
+    ],
+    "keywords": [
+      "float.from_number",
+      "from_number"
+    ],
+    "tags": [
+      "float"
+    ],
+    "examples": [
+      "print(float.from_number(7))                 # → 7.0",
+      "print(float.from_number(-2.5))              # → -2.5",
+      "from decimal import Decimal",
+      "print(float.from_number(Decimal('1.25')))   # → 1.25",
+      "from fractions import Fraction",
+      "print(float.from_number(Fraction(1, 4)))    # → 0.25"
+    ],
+    "related": [
+      "float",
+      "float.fromhex",
+      "float.is_integer",
+      "int"
+    ],
+    "related_errors": [
+      "TypeError",
+      "OverflowError"
+    ]
   }
 ]

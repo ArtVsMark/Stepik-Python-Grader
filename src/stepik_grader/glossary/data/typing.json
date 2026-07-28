@@ -621,7 +621,9 @@
       "объединение типов",
       "несколько допустимых типов аргумента"
     ],
-    "keywords": [],
+    "keywords": [
+      "typing.Union"
+    ],
     "tags": [
       "typing"
     ],
@@ -2099,5 +2101,53 @@
       "typing.overload"
     ],
     "related_errors": []
+  },
+  {
+    "id": "typing.evaluate_forward_ref",
+    "title": "typing.evaluate_forward_ref()",
+    "kind": "function",
+    "summary": {
+      "ru": "Вычисляет ForwardRef (отложенную строковую аннотацию) в реальный тип, рекурсивно раскрывая вложенные ссылки. Python 3.14+.",
+      "en": "Evaluates a ForwardRef (a deferred string annotation) into a real type, resolving nested forward references recursively. Python 3.14+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "typing.evaluate_forward_ref(forward_ref, *, owner=None, globals=None, locals=None, type_params=None, format=annotationlib.Format.VALUE)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/typing.html#typing.evaluate_forward_ref",
+    "version": "3.14",
+    "section": "Модуль typing",
+    "subcat": "интроспекция аннотаций",
+    "aliases": [
+      "вычислить отложенную аннотацию",
+      "разрешить строковую аннотацию",
+      "раскрыть опережающую ссылку"
+    ],
+    "keywords": [
+      "typing.evaluate_forward_ref",
+      "evaluate_forward_ref"
+    ],
+    "tags": [
+      "typing"
+    ],
+    "examples": [
+      "import typing",
+      "ref = typing.ForwardRef('int')",
+      "print(typing.evaluate_forward_ref(ref))    # → <class 'int'>",
+      "print(typing.evaluate_forward_ref(typing.ForwardRef('list[int]')))   # → list[int]",
+      "print(typing.evaluate_forward_ref(typing.ForwardRef('T'), globals={'T': str}))   # → <class 'str'>",
+      "print(typing.evaluate_forward_ref(ref) is int)   # → True"
+    ],
+    "related": [
+      "typing.ForwardRef",
+      "typing.get_type_hints",
+      "typing.get_args",
+      "typing.Any"
+    ],
+    "related_errors": [
+      "NameError"
+    ]
   }
 ]

@@ -26010,5 +26010,1382 @@
       "random.choices"
     ],
     "related_errors": []
+  },
+  {
+    "id": "concurrent.interpreters.InterpreterError",
+    "title": "concurrent.interpreters.InterpreterError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовое исключение модуля concurrent.interpreters (Python 3.14+): любая ошибка при работе с субинтерпретатором; подкласс Exception, предок InterpreterNotFoundError и ExecutionFailed.",
+      "en": "Base exception of the concurrent.interpreters module (Python 3.14+), raised when an interpreter-related error happens; a subclass of Exception."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise concurrent.interpreters.InterpreterError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/concurrent.interpreters.html#concurrent.interpreters.InterpreterError",
+    "version": "3.14",
+    "section": "Модуль concurrent.interpreters",
+    "subcat": "исключения",
+    "aliases": [
+      "ошибка субинтерпретатора",
+      "ошибка при работе с интерпретатором",
+      "параллельные интерпретаторы"
+    ],
+    "keywords": [
+      "concurrent.interpreters.InterpreterError",
+      "InterpreterError"
+    ],
+    "tags": [
+      "concurrent"
+    ],
+    "examples": [
+      "from concurrent import interpreters  # Python 3.14+",
+      "print(interpreters.InterpreterError.__name__)  # → InterpreterError",
+      "print(issubclass(interpreters.InterpreterError, Exception))  # → True",
+      "print(issubclass(interpreters.InterpreterNotFoundError, interpreters.InterpreterError))  # → True",
+      "print(issubclass(interpreters.ExecutionFailed, interpreters.InterpreterError))  # → True",
+      "try:",
+      "    raise interpreters.InterpreterError('интерпретатор недоступен')",
+      "except interpreters.InterpreterError as e:",
+      "    print(type(e).__name__, '|', e)  # → InterpreterError | интерпретатор недоступен"
+    ],
+    "related": [
+      "exception",
+      "GIL",
+      "threading-thread",
+      "ThreadPoolExecutor"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "concurrent.interpreters.InterpreterNotFoundError",
+    "title": "concurrent.interpreters.InterpreterNotFoundError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Целевой субинтерпретатор больше не существует — закрыт через close() или указан неизвестный id (Python 3.14+); подкласс InterpreterError.",
+      "en": "The targeted interpreter no longer exists — closed or an unknown id (Python 3.14+); a subclass of InterpreterError."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise concurrent.interpreters.InterpreterNotFoundError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/concurrent.interpreters.html#concurrent.interpreters.InterpreterNotFoundError",
+    "version": "3.14",
+    "section": "Модуль concurrent.interpreters",
+    "subcat": "исключения",
+    "aliases": [
+      "интерпретатор не найден",
+      "субинтерпретатор уничтожен"
+    ],
+    "keywords": [
+      "concurrent.interpreters.InterpreterNotFoundError",
+      "InterpreterNotFoundError"
+    ],
+    "tags": [
+      "concurrent"
+    ],
+    "examples": [
+      "from concurrent import interpreters  # Python 3.14+",
+      "print(issubclass(interpreters.InterpreterNotFoundError, interpreters.InterpreterError))  # → True",
+      "interp = interpreters.create()",
+      "interp.exec('x = 1')",
+      "interp.close()",
+      "try:",
+      "    interp.exec('x = 2')  # интерпретатор уже уничтожен",
+      "except interpreters.InterpreterNotFoundError as e:",
+      "    print(type(e).__name__)  # → InterpreterNotFoundError",
+      "try:",
+      "    interpreters.Interpreter(999999)  # такого id не существует",
+      "except interpreters.InterpreterNotFoundError:",
+      "    print('нет такого интерпретатора')  # → нет такого интерпретатора"
+    ],
+    "related": [
+      "exception",
+      "иерархия-исключений",
+      "GIL",
+      "threading-thread"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "concurrent.interpreters.NotShareableError",
+    "title": "concurrent.interpreters.NotShareableError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Объект нельзя отправить в другой интерпретатор: он не поддерживает cross-interpreter data (Python 3.14+); подкласс TypeError.",
+      "en": "The object cannot be sent to another interpreter (Python 3.14+); a subclass of TypeError."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise concurrent.interpreters.NotShareableError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/concurrent.interpreters.html#concurrent.interpreters.NotShareableError",
+    "version": "3.14",
+    "section": "Модуль concurrent.interpreters",
+    "subcat": "исключения",
+    "aliases": [
+      "объект нельзя передать между интерпретаторами",
+      "объект не разделяемый",
+      "несовместимый объект для интерпретаторов"
+    ],
+    "keywords": [
+      "concurrent.interpreters.NotShareableError",
+      "NotShareableError"
+    ],
+    "tags": [
+      "concurrent"
+    ],
+    "examples": [
+      "from concurrent import interpreters  # Python 3.14+",
+      "print(issubclass(interpreters.NotShareableError, TypeError))  # → True",
+      "print(interpreters.is_shareable(42))  # → True",
+      "print(interpreters.is_shareable([1, 2, 3]))  # → False",
+      "interp = interpreters.create()",
+      "try:",
+      "    interp.prepare_main(data=object())  # object() не переносится между интерпретаторами",
+      "except interpreters.NotShareableError as e:",
+      "    print(type(e).__name__)  # → NotShareableError",
+      "interp.prepare_main(n=42)  # число — переносится",
+      "interp.close()"
+    ],
+    "related": [
+      "typeerror",
+      "pickle",
+      "GIL",
+      "ThreadPoolExecutor"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "ctypes.ArgumentError",
+    "title": "ctypes.ArgumentError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Исключение ctypes: вызов внешней функции не смог преобразовать один из переданных аргументов; наследуется прямо от Exception, а не от TypeError.",
+      "en": "A ctypes exception raised when a foreign function call cannot convert one of the passed arguments; it inherits directly from Exception, not from TypeError."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "ctypes.ArgumentError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/ctypes.html#ctypes.ArgumentError",
+    "version": "",
+    "section": "Модуль ctypes",
+    "subcat": "исключения",
+    "aliases": [
+      "ошибка преобразования аргумента",
+      "ошибка аргумента внешней функции"
+    ],
+    "keywords": [
+      "ctypes.ArgumentError",
+      "ArgumentError"
+    ],
+    "tags": [
+      "ctypes"
+    ],
+    "examples": [
+      "import ctypes",
+      "print(issubclass(ctypes.ArgumentError, Exception))  # → True",
+      "try:",
+      "    raise ctypes.ArgumentError('argument 1: TypeError')",
+      "except ctypes.ArgumentError as e:",
+      "    print(e)  # → argument 1: TypeError"
+    ],
+    "related": [
+      "typeerror",
+      "valueerror",
+      "exception",
+      "struct.error"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "io.Reader",
+    "title": "io.Reader",
+    "kind": "function",
+    "summary": {
+      "ru": "Протокол io.Reader[T] — абстрактный класс с методом read(), для аннотаций и структурных проверок isinstance/issubclass. Python 3.14+.",
+      "en": "The io.Reader[T] protocol: an abstract class with a read() method, used for annotations and structural isinstance/issubclass checks. Python 3.14+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.Reader[T]",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.Reader",
+    "version": "3.14",
+    "section": "Модуль io",
+    "subcat": "протоколы",
+    "aliases": [
+      "протокол чтения потока",
+      "объект умеющий читать"
+    ],
+    "keywords": [
+      "io.Reader"
+    ],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "r = io.StringIO('hello world')",
+      "print(isinstance(r, io.Reader))    # → True",
+      "print(r.read(5))                   # → hello",
+      "print(isinstance(42, io.Reader))   # → False",
+      "print(io.Reader[str])              # → io.Reader[str]"
+    ],
+    "related": [
+      "io.IOBase",
+      "io.stringio",
+      "protocol",
+      "typing.runtime_checkable"
+    ],
+    "related_errors": [
+      "ValueError",
+      "AttributeError"
+    ]
+  },
+  {
+    "id": "io.Writer",
+    "title": "io.Writer",
+    "kind": "function",
+    "summary": {
+      "ru": "Протокол io.Writer[T] — абстрактный класс с методом write(), для аннотаций и структурных проверок isinstance/issubclass. Python 3.14+.",
+      "en": "The io.Writer[T] protocol: an abstract class with a write() method, used for annotations and structural isinstance/issubclass checks. Python 3.14+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "io.Writer[T]",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/io.html#io.Writer",
+    "version": "3.14",
+    "section": "Модуль io",
+    "subcat": "протоколы",
+    "aliases": [
+      "протокол записи в поток",
+      "объект умеющий писать"
+    ],
+    "keywords": [
+      "io.Writer"
+    ],
+    "tags": [
+      "io"
+    ],
+    "examples": [
+      "import io",
+      "w = io.StringIO()",
+      "print(isinstance(w, io.Writer))        # → True",
+      "print(w.write('hi'))                   # → 2",
+      "print(w.getvalue())                    # → hi",
+      "print(isinstance('text', io.Writer))   # → False"
+    ],
+    "related": [
+      "io.IOBase",
+      "io.BufferedWriter",
+      "protocol",
+      "typing.runtime_checkable"
+    ],
+    "related_errors": [
+      "ValueError",
+      "AttributeError"
+    ]
+  },
+  {
+    "id": "operator.index",
+    "title": "operator.index",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает объект, приведённый к целому через протокол __index__() — эквивалент a.__index__(); с версии 3.10 результат всегда точного типа int.",
+      "en": "Returns a converted to an integer via the __index__() protocol — equivalent to a.__index__(); since 3.10 the result always has exact type int."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.index(a)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.index",
+    "version": "",
+    "section": "Модуль operator",
+    "subcat": "арифметика",
+    "aliases": [
+      "привести объект к индексу",
+      "преобразовать в целое для индексации"
+    ],
+    "keywords": [
+      "operator.index",
+      "operator.__index__"
+    ],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "print(operator.index(5))                   # → 5",
+      "print(operator.index(True))                # → 1",
+      "print(type(operator.index(True)))          # → <class 'int'>",
+      "print(operator.__index__(-3))              # → -3",
+      "print([10, 20, 30][operator.index(True)])  # → 20"
+    ],
+    "related": [
+      "int",
+      "bin",
+      "hex",
+      "slice"
+    ],
+    "related_errors": [
+      "TypeError"
+    ]
+  },
+  {
+    "id": "operator.is_none",
+    "title": "operator.is_none",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a is None — проверка тождества с None в функциональной форме. Появилась в Python 3.14.",
+      "en": "Returns a is None — the identity test against None in functional form. Added in Python 3.14."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.is_none(a)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.is_none",
+    "version": "3.14",
+    "section": "Модуль operator",
+    "subcat": "тождество и логика",
+    "aliases": [
+      "проверка тождества с пустым значением",
+      "предикат проверки на пустое значение"
+    ],
+    "keywords": [
+      "operator.is_none",
+      "is_none"
+    ],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "is_none = getattr(operator, 'is_none', lambda a: a is None)  # 3.14+ или аналог",
+      "print(is_none(None))                              # → True",
+      "print(is_none(0))                                 # → False",
+      "print([is_none(x) for x in (1, None, '')])        # → [False, True, False]",
+      "print(list(filter(is_none, [1, None, 2, None])))  # → [None, None]"
+    ],
+    "related": [
+      "operator.is_",
+      "operator.is_not",
+      "nonetype",
+      "is-is-not"
+    ],
+    "related_errors": [
+      "AttributeError"
+    ]
+  },
+  {
+    "id": "operator.is_not_none",
+    "title": "operator.is_not_none",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает a is not None — функциональная форма проверки «значение задано»; удобен как предикат для filter(). Появилась в Python 3.14.",
+      "en": "Returns a is not None — functional form of the \"value is set\" check; handy as a predicate for filter(). Added in Python 3.14."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "operator.is_not_none(a)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/operator.html#operator.is_not_none",
+    "version": "3.14",
+    "section": "Модуль operator",
+    "subcat": "тождество и логика",
+    "aliases": [
+      "проверка что значение не пустое",
+      "отфильтровать пустые значения из списка"
+    ],
+    "keywords": [
+      "operator.is_not_none",
+      "is_not_none"
+    ],
+    "tags": [
+      "operator"
+    ],
+    "examples": [
+      "import operator",
+      "f = getattr(operator, 'is_not_none', lambda a: a is not None)  # 3.14+ или аналог",
+      "print(f(None))                              # → False",
+      "print(f(0))                                 # → True",
+      "print(list(filter(f, [1, None, 2, None])))  # → [1, 2]",
+      "print([f(x) for x in ('', None, 0)])        # → [True, False, True]"
+    ],
+    "related": [
+      "operator.is_not",
+      "operator.is_",
+      "nonetype",
+      "filter"
+    ],
+    "related_errors": [
+      "AttributeError"
+    ]
+  },
+  {
+    "id": "os.get_handle_inheritable",
+    "title": "os.get_handle_inheritable()",
+    "kind": "function",
+    "summary": {
+      "ru": "Только Windows: возвращает флаг наследуемости (bool) для Windows-хендла; кросс-платформенный аналог для файловых дескрипторов — os.get_inheritable(). Python 3.4+.",
+      "en": "Windows only: returns the \"inheritable\" flag (a bool) of the specified Windows handle; the cross-platform counterpart for file descriptors is os.get_inheritable(). Python 3.4+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.get_handle_inheritable(handle, /)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.get_handle_inheritable",
+    "version": "3.4",
+    "section": "Модуль os",
+    "subcat": "дескрипторы",
+    "aliases": [
+      "наследуется ли хендл",
+      "флаг наследования хендла",
+      "наследование дескриптора виндовс"
+    ],
+    "keywords": [
+      "os.get_handle_inheritable",
+      "get_handle_inheritable"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(hasattr(os, 'get_handle_inheritable') == (os.name == 'nt'))  # → True (функция есть только на Windows)",
+      "r, w = os.pipe()",
+      "print(os.get_inheritable(r))  # → False (PEP 446: новые дескрипторы не наследуются)",
+      "handle = __import__('msvcrt').get_osfhandle(r) if os.name == 'nt' else None",
+      "print(os.get_handle_inheritable(handle) == os.get_inheritable(r) if handle is not None else True)  # → True"
+    ],
+    "related": [
+      "os.get_inheritable",
+      "os.set_inheritable",
+      "os.pipe",
+      "os.dup"
+    ],
+    "related_errors": [
+      "OSError",
+      "AttributeError"
+    ]
+  },
+  {
+    "id": "os.lchmod",
+    "title": "os.lchmod()",
+    "kind": "function",
+    "summary": {
+      "ru": "Меняет права самой символической ссылки, не разыменовывая её; эквивалент os.chmod(path, mode, follow_symlinks=False). Есть на macOS/BSD и на Windows (3.13+), на Linux отсутствует.",
+      "en": "Changes the mode of the symlink itself rather than its target; equivalent to os.chmod(path, mode, follow_symlinks=False). Available on macOS/BSD and on Windows (3.13+), not on Linux."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.lchmod(path, mode)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.lchmod",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "права доступа",
+    "aliases": [
+      "права символьной ссылки",
+      "сменить права ссылки",
+      "не менять права цели ссылки"
+    ],
+    "keywords": [
+      "os.lchmod",
+      "lchmod"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os, stat",
+      "print(hasattr(os, 'chmod'))  # → True (os.chmod есть везде, os.lchmod — не везде)",
+      "print(callable(getattr(os, 'lchmod', os.chmod)))  # → True (на Linux берём запасной os.chmod)",
+      "print(oct(stat.S_IMODE(0o100644)))  # → 0o644 (mode задаётся восьмеричным числом)",
+      "print(stat.S_IMODE(0o100755) == 0o755)  # → True",
+      "# os.lchmod(path, 0o644) ≡ os.chmod(path, 0o644, follow_symlinks=False)"
+    ],
+    "related": [
+      "os.chmod",
+      "os.lchown",
+      "os.symlink",
+      "os.lstat"
+    ],
+    "related_errors": [
+      "OSError",
+      "PermissionError",
+      "NotImplementedError",
+      "AttributeError"
+    ]
+  },
+  {
+    "id": "os.listdrives",
+    "title": "os.listdrives()",
+    "kind": "function",
+    "summary": {
+      "ru": "Только Windows: возвращает список имён дисков системы (вида C:\\ , D:\\ ); доступность диска не проверяется. Python 3.12+.",
+      "en": "Windows only: returns a list of drive names on the system (like C:\\ or D:\\ ); the function does not test drives for accessibility. Python 3.12+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.listdrives()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.listdrives",
+    "version": "3.12",
+    "section": "Модуль os",
+    "subcat": "файловая система",
+    "aliases": [
+      "список дисков",
+      "перечислить диски системы",
+      "какие диски есть в системе"
+    ],
+    "keywords": [
+      "os.listdrives",
+      "listdrives"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os, sys",
+      "print(hasattr(os, 'listdrives') == (os.name == 'nt' and sys.version_info >= (3, 12)))  # → True (только Windows, 3.12+)",
+      "drives = os.listdrives() if hasattr(os, 'listdrives') else []",
+      "print(type(drives).__name__)  # → list",
+      "print(all(isinstance(d, str) for d in drives))  # → True",
+      "print(len(drives) > 0 or os.name != 'nt')  # → True (на Windows всегда есть хотя бы системный диск)"
+    ],
+    "related": [
+      "os.listdir",
+      "os.path.splitdrive",
+      "os.path.ismount",
+      "os.walk"
+    ],
+    "related_errors": [
+      "OSError",
+      "AttributeError"
+    ]
+  },
+  {
+    "id": "os.listmounts",
+    "title": "os.listmounts()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список точек монтирования тома; том задаётся GUID-путём из os.listvolumes(). Только Windows, Python 3.12+.",
+      "en": "Returns the list of mount points for a volume; the volume is given as a GUID path from os.listvolumes(). Windows only, Python 3.12+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.listmounts(volume)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.listmounts",
+    "version": "3.12",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [
+      "точки монтирования тома",
+      "список точек монтирования",
+      "куда примонтирован том"
+    ],
+    "keywords": [
+      "os.listmounts",
+      "listmounts"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'listmounts') or callable(os.listmounts))   # → True",
+      "print(hasattr(os, 'listmounts') == hasattr(os, 'listvolumes'))   # → True",
+      "vols = os.listvolumes() if hasattr(os, 'listvolumes') else []",
+      "mounts = [m for v in vols for m in os.listmounts(v)]",
+      "print(all(isinstance(m, str) for m in mounts))   # → True"
+    ],
+    "related": [
+      "os.path.ismount",
+      "os.path.splitdrive",
+      "os.listdir",
+      "os.path.isdevdrive"
+    ],
+    "related_errors": [
+      "OSError"
+    ]
+  },
+  {
+    "id": "os.listvolumes",
+    "title": "os.listvolumes()",
+    "kind": "function",
+    "summary": {
+      "ru": "Возвращает список томов системы в виде GUID-путей; человекопонятные пути к ним даёт os.listmounts(). Только Windows, Python 3.12+.",
+      "en": "Returns the list of volumes in the system as GUID paths; use os.listmounts() to get their mount points. Windows only, Python 3.12+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.listvolumes()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.listvolumes",
+    "version": "3.12",
+    "section": "Модуль os",
+    "subcat": "os — файловая система",
+    "aliases": [
+      "список томов системы",
+      "перечислить тома в системе",
+      "идентификаторы томов"
+    ],
+    "keywords": [
+      "os.listvolumes",
+      "listvolumes"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(not hasattr(os, 'listvolumes') or callable(os.listvolumes))   # → True",
+      "print('listvolumes' in dir(os) or os.name != 'nt')   # → True",
+      "vols = os.listvolumes() if hasattr(os, 'listvolumes') else []",
+      "print(isinstance(vols, list))   # → True",
+      "print(all(isinstance(v, str) for v in vols))   # → True"
+    ],
+    "related": [
+      "os.path.splitdrive",
+      "os.path.ismount",
+      "os.listdir",
+      "os.path.isdevdrive"
+    ],
+    "related_errors": [
+      "OSError"
+    ]
+  },
+  {
+    "id": "os.path.isreserved",
+    "title": "os.path.isreserved()",
+    "kind": "function",
+    "summary": {
+      "ru": "Проверяет, зарезервировано ли имя пути в системе: на Windows это NUL, CON, COM1, имена с двоеточием, подстановочными символами или точкой/пробелом в конце. Только Windows, Python 3.13+.",
+      "en": "Checks whether a pathname is reserved on the current system: on Windows these are NUL, CON, COM1, names with colons, wildcards, or a trailing dot/space. Windows only, Python 3.13+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.path.isreserved(path)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.path.html#os.path.isreserved",
+    "version": "3.13",
+    "section": "Модуль os",
+    "subcat": "os.path — проверки существования и типа",
+    "aliases": [
+      "зарезервированное имя файла",
+      "запрещённые имена файлов",
+      "недопустимое имя файла"
+    ],
+    "keywords": [
+      "os.path.isreserved",
+      "isreserved"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os, ntpath",
+      "print(not hasattr(os.path, 'isreserved') or callable(os.path.isreserved))   # → True",
+      "print(ntpath.isreserved('NUL'))   # → True",
+      "print(ntpath.isreserved('COM1'))   # → True",
+      "print(ntpath.isreserved('report.'))   # → True",
+      "print(ntpath.isreserved('report.txt'))   # → False"
+    ],
+    "related": [
+      "os.path.isdevdrive",
+      "os.path.normpath",
+      "os.path.splitdrive",
+      "os.path.join"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "os.readinto",
+    "title": "os.readinto()",
+    "kind": "function",
+    "summary": {
+      "ru": "Читает данные из файлового дескриптора в уже готовый изменяемый буфер (bytearray/memoryview) и возвращает число прочитанных байт, не создавая новый bytes. Python 3.14+.",
+      "en": "Reads from a file descriptor into a pre-allocated mutable buffer (bytearray/memoryview) and returns the number of bytes read, without creating a new bytes object. Python 3.14+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.readinto(fd, buffer, /)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.readinto",
+    "version": "3.14",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [
+      "чтение в готовый буфер",
+      "читать из дескриптора в буфер",
+      "прочитать байты в изменяемый буфер"
+    ],
+    "keywords": [
+      "os.readinto",
+      "readinto"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "r, w = os.pipe()",
+      "os.write(w, b'hello world')",
+      "buf = bytearray(5)",
+      "print(os.readinto(r, buf))   # → 5 (сколько байт реально прочитано)",
+      "print(bytes(buf))            # → b'hello'",
+      "print(os.readinto(r, bytearray(0)))   # → 0 (буфер нулевой длины)",
+      "os.close(r); os.close(w)"
+    ],
+    "related": [
+      "os.read",
+      "os.readv",
+      "os.pread",
+      "os.write"
+    ],
+    "related_errors": [
+      "OSError",
+      "TypeError"
+    ]
+  },
+  {
+    "id": "os.reload_environ",
+    "title": "os.reload_environ()",
+    "kind": "function",
+    "summary": {
+      "ru": "Перечитывает окружение процесса и обновляет os.environ/os.environb — например после os.putenv() или изменений извне. Python 3.14+, не потокобезопасна.",
+      "en": "Reloads the process environment into os.environ/os.environb — e.g. after os.putenv() or changes made outside Python. Python 3.14+, not thread-safe."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.reload_environ()",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.reload_environ",
+    "version": "3.14",
+    "section": "Модуль os",
+    "subcat": "os — окружение",
+    "aliases": [
+      "обновить переменные окружения",
+      "перечитать окружение процесса",
+      "сбросить кеш переменных окружения"
+    ],
+    "keywords": [
+      "os.reload_environ",
+      "reload_environ"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "os.putenv('DEMO_VAR', '42')      # меняет окружение процесса мимо os.environ",
+      "print('DEMO_VAR' in os.environ)   # → False",
+      "os.reload_environ()               # перечитать окружение процесса",
+      "print(os.environ['DEMO_VAR'])     # → 42",
+      "print(os.getenv('DEMO_VAR'))      # → 42",
+      "print(os.reload_environ() is None)   # → True (функция ничего не возвращает)"
+    ],
+    "related": [
+      "os.environ",
+      "os.putenv",
+      "os.unsetenv",
+      "os.getenv"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "os.set_handle_inheritable",
+    "title": "os.set_handle_inheritable()",
+    "kind": "function",
+    "summary": {
+      "ru": "Задаёт флаг наследуемости дескриптора Windows (HANDLE) дочерними процессами; доступна только на Windows, для обычных fd используйте os.set_inheritable().",
+      "en": "Sets the inheritable flag of a Windows handle for child processes; Windows only — use os.set_inheritable() for regular file descriptors."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.set_handle_inheritable(handle, inheritable, /)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.set_handle_inheritable",
+    "version": "3.4",
+    "section": "Модуль os",
+    "subcat": "os — файловые дескрипторы",
+    "aliases": [
+      "флаг наследования хендла",
+      "наследование дескриптора дочерним процессом",
+      "разрешить наследование хендла"
+    ],
+    "keywords": [
+      "os.set_handle_inheritable",
+      "set_handle_inheritable"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os",
+      "print(hasattr(os, 'set_handle_inheritable') == (os.name == 'nt'))   # → True (функция есть только на Windows)",
+      "if os.name == 'nt':",
+      "    import msvcrt",
+      "    fd = os.open(os.devnull, os.O_RDONLY)",
+      "    os.set_handle_inheritable(msvcrt.get_osfhandle(fd), True)   # разрешить наследование хендла",
+      "    os.close(fd)",
+      "r, w = os.pipe()",
+      "os.set_inheritable(r, True)    # кроссплатформенный аналог для обычных fd",
+      "print(os.get_inheritable(r))   # → True",
+      "os.close(r); os.close(w)"
+    ],
+    "related": [
+      "os.set_inheritable",
+      "os.get_inheritable",
+      "os.pipe",
+      "os.dup"
+    ],
+    "related_errors": [
+      "OSError",
+      "AttributeError"
+    ]
+  },
+  {
+    "id": "os.startfile",
+    "title": "os.startfile()",
+    "kind": "function",
+    "summary": {
+      "ru": "Открывает файл или папку в ассоциированном приложении — как двойной клик в Проводнике; возвращается сразу после запуска, дождаться завершения нельзя. Только Windows; параметры arguments/cwd/show_cmd — с Python 3.10.",
+      "en": "Start a file or folder with its associated application, like double-clicking it in Explorer; returns as soon as the application is launched, with no way to wait for it. Availability: Windows; the arguments/cwd/show_cmd parameters were added in Python 3.10."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "os.startfile(path, operation, arguments, cwd, show_cmd)",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/os.html#os.startfile",
+    "version": "",
+    "section": "Модуль os",
+    "subcat": "os — запуск программ",
+    "aliases": [
+      "открыть файл в программе по умолчанию",
+      "открыть папку в проводнике",
+      "запустить файл ассоциированным приложением"
+    ],
+    "keywords": [
+      "os.startfile",
+      "startfile"
+    ],
+    "tags": [
+      "os"
+    ],
+    "examples": [
+      "import os, sys",
+      "print(hasattr(os, 'startfile') == (sys.platform == 'win32'))   # → True",
+      "print(not hasattr(os, 'startfile') or callable(os.startfile))   # → True",
+      "opener = getattr(os, 'startfile', None)   # None на Linux/macOS",
+      "print(opener is None or 'startfile' in repr(opener))   # → True",
+      "# os.startfile('report.pdf')   # Windows: открыть файл в ассоциированном приложении"
+    ],
+    "related": [
+      "os.system",
+      "os.popen",
+      "subprocess-run",
+      "os.spawnl"
+    ],
+    "related_errors": [
+      "FileNotFoundError",
+      "OSError",
+      "AttributeError"
+    ]
+  },
+  {
+    "id": "pathlib.UnsupportedOperation",
+    "title": "pathlib.UnsupportedOperation",
+    "kind": "exception",
+    "summary": {
+      "ru": "Подкласс NotImplementedError: бросается, когда операция pathlib недоступна на этой платформе — например symlink_to()/readlink() без os.symlink или PosixPath на Windows. Python 3.13+.",
+      "en": "A subclass of NotImplementedError raised when a pathlib operation is unsupported on the current platform — e.g. symlink_to()/readlink() without os.symlink, or PosixPath on Windows. Python 3.13+."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "pathlib.UnsupportedOperation",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/pathlib.html#pathlib.UnsupportedOperation",
+    "version": "3.13",
+    "section": "Модуль pathlib",
+    "subcat": "исключения",
+    "aliases": [
+      "операция не поддерживается платформой",
+      "неподдерживаемая операция пути",
+      "нет поддержки символических ссылок"
+    ],
+    "keywords": [
+      "pathlib.UnsupportedOperation",
+      "UnsupportedOperation"
+    ],
+    "tags": [
+      "pathlib"
+    ],
+    "examples": [
+      "import pathlib",
+      "Unsupported = getattr(pathlib, 'UnsupportedOperation', NotImplementedError)",
+      "print(issubclass(Unsupported, NotImplementedError))   # → True",
+      "print(issubclass(Unsupported, RuntimeError))   # → True",
+      "print(isinstance(Unsupported('symlink недоступен'), NotImplementedError))   # → True",
+      "print(hasattr(pathlib.Path, 'symlink_to'))   # → True"
+    ],
+    "related": [
+      "pathlib.PosixPath",
+      "pathlib.WindowsPath",
+      "notimplementederror",
+      "os.symlink"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sqlite3.DataError",
+    "title": "sqlite3.DataError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Подкласс sqlite3.DatabaseError: ошибка из-за самих обрабатываемых данных — числовое значение вне диапазона, слишком длинная строка.",
+      "en": "A subclass of sqlite3.DatabaseError raised for errors caused by the processed data itself — numeric values out of range, strings that are too long."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sqlite3.DataError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/sqlite3.html#sqlite3.DataError",
+    "version": "",
+    "section": "Модуль sqlite3",
+    "subcat": "исключения",
+    "aliases": [
+      "ошибка данных базы",
+      "некорректные данные в базе",
+      "значение вне диапазона в базе"
+    ],
+    "keywords": [
+      "sqlite3.DataError",
+      "DataError"
+    ],
+    "tags": [
+      "sqlite3"
+    ],
+    "examples": [
+      "import sqlite3",
+      "print(issubclass(sqlite3.DataError, sqlite3.DatabaseError))   # → True",
+      "print(issubclass(sqlite3.DataError, sqlite3.Error))   # → True",
+      "print(sqlite3.DataError.__name__)   # → DataError",
+      "print(isinstance(sqlite3.DataError('слишком длинная строка'), sqlite3.DatabaseError))   # → True",
+      "print(sqlite3.DataError.__mro__[1].__name__)   # → DatabaseError"
+    ],
+    "related": [
+      "valueerror",
+      "overflowerror",
+      "shutil.error",
+      "иерархия-исключений"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sqlite3.DatabaseError",
+    "title": "sqlite3.DatabaseError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибки, связанные с самой базой данных; базовый класс специализированных исключений sqlite3 (OperationalError, IntegrityError и др.), подкласс sqlite3.Error.",
+      "en": "Raised for errors related to the database; base class for the specialised sqlite3 errors (OperationalError, IntegrityError, ...), subclass of sqlite3.Error."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise sqlite3.DatabaseError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/sqlite3.html#sqlite3.DatabaseError",
+    "version": "",
+    "section": "Модуль sqlite3",
+    "subcat": "исключения",
+    "aliases": [
+      "ошибка базы данных",
+      "проблема с базой данных"
+    ],
+    "keywords": [
+      "sqlite3.DatabaseError",
+      "DatabaseError"
+    ],
+    "tags": [
+      "sqlite3"
+    ],
+    "examples": [
+      "import sqlite3",
+      "print(issubclass(sqlite3.IntegrityError, sqlite3.DatabaseError))  # → True",
+      "try:",
+      "    sqlite3.connect(':memory:').execute('SELECT bad syntax here')",
+      "except sqlite3.DatabaseError as e:",
+      "    print(type(e).__name__)   # → OperationalError"
+    ],
+    "related": [
+      "exception",
+      "try-except"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sqlite3.Error",
+    "title": "sqlite3.Error",
+    "kind": "exception",
+    "summary": {
+      "ru": "Базовый класс всех исключений модуля sqlite3 (подкласс Exception): один except sqlite3.Error перехватывает любую ошибку работы с БД.",
+      "en": "Base class of the other exceptions in the sqlite3 module (subclass of Exception); catch all database errors with a single except."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise sqlite3.Error",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/sqlite3.html#sqlite3.Error",
+    "version": "",
+    "section": "Модуль sqlite3",
+    "subcat": "исключения",
+    "aliases": [
+      "ошибка при работе с базой данных",
+      "поймать любую ошибку субд",
+      "базовое исключение бд"
+    ],
+    "keywords": [
+      "sqlite3.Error"
+    ],
+    "tags": [
+      "sqlite3"
+    ],
+    "examples": [
+      "import sqlite3",
+      "print(issubclass(sqlite3.DatabaseError, sqlite3.Error))  # → True",
+      "try:",
+      "    sqlite3.connect(':memory:').execute('SELECT * FROM nope')",
+      "except sqlite3.Error as e:",
+      "    print(type(e).__name__)   # → OperationalError"
+    ],
+    "related": [
+      "exception",
+      "try-except",
+      "raise"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sqlite3.IntegrityError",
+    "title": "sqlite3.IntegrityError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Нарушена целостность данных в БД: UNIQUE, NOT NULL, проверка внешнего ключа (подкласс sqlite3.DatabaseError).",
+      "en": "Raised when the relational integrity of the database is affected, e.g. a foreign key check fails (subclass of sqlite3.DatabaseError)."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "raise sqlite3.IntegrityError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/sqlite3.html#sqlite3.IntegrityError",
+    "version": "",
+    "section": "Модуль sqlite3",
+    "subcat": "исключения",
+    "aliases": [
+      "нарушение целостности данных",
+      "нарушение ограничения уникальности",
+      "дубликат уникального ключа"
+    ],
+    "keywords": [
+      "sqlite3.IntegrityError",
+      "IntegrityError"
+    ],
+    "tags": [
+      "sqlite3"
+    ],
+    "examples": [
+      "import sqlite3",
+      "con = sqlite3.connect(':memory:')",
+      "con.executescript('CREATE TABLE t(id INTEGER PRIMARY KEY); INSERT INTO t VALUES (1);')",
+      "try:",
+      "    con.execute('INSERT INTO t VALUES (1)')",
+      "except sqlite3.IntegrityError as e:",
+      "    print(type(e).__name__)   # → IntegrityError"
+    ],
+    "related": [
+      "exception",
+      "try-except"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sqlite3.InterfaceError",
+    "title": "sqlite3.InterfaceError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Ошибка неправильного использования низкоуровневого C API SQLite; подкласс sqlite3.Error, обычно указывает на баг в самом модуле sqlite3, а не в базе данных.",
+      "en": "Raised for misuse of the low-level SQLite C API; a subclass of sqlite3.Error, it usually indicates a bug in the sqlite3 module rather than in the database."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sqlite3.InterfaceError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/sqlite3.html#sqlite3.InterfaceError",
+    "version": "",
+    "section": "Модуль sqlite3",
+    "subcat": "исключения",
+    "aliases": [
+      "ошибка интерфейса базы данных",
+      "неправильное использование драйвера бд",
+      "ошибка низкоуровневого интерфейса субд"
+    ],
+    "keywords": [
+      "sqlite3.InterfaceError",
+      "InterfaceError"
+    ],
+    "tags": [
+      "sqlite3"
+    ],
+    "examples": [
+      "import sqlite3",
+      "print(issubclass(sqlite3.InterfaceError, sqlite3.Error))          # → True",
+      "print(issubclass(sqlite3.InterfaceError, sqlite3.DatabaseError))  # → False",
+      "print(sqlite3.InterfaceError.__name__)                            # → InterfaceError",
+      "try: raise sqlite3.InterfaceError('мисюз C API')",
+      "except sqlite3.Error as e: print(type(e).__name__)                # → InterfaceError"
+    ],
+    "related": [
+      "exception",
+      "try-except",
+      "argparse.argumenterror",
+      "json.decoder.jsondecodeerror"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sqlite3.InternalError",
+    "title": "sqlite3.InternalError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Внутренняя ошибка самого движка SQLite; подкласс sqlite3.DatabaseError, может указывать на проблему в используемой библиотеке SQLite.",
+      "en": "Raised when SQLite encounters an internal error; a subclass of sqlite3.DatabaseError, it may indicate a problem with the runtime SQLite library."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sqlite3.InternalError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/sqlite3.html#sqlite3.InternalError",
+    "version": "",
+    "section": "Модуль sqlite3",
+    "subcat": "исключения",
+    "aliases": [
+      "внутренняя ошибка движка базы данных",
+      "внутренний сбой субд",
+      "внутренняя ошибка библиотеки бд"
+    ],
+    "keywords": [
+      "sqlite3.InternalError",
+      "InternalError"
+    ],
+    "tags": [
+      "sqlite3"
+    ],
+    "examples": [
+      "import sqlite3",
+      "print(issubclass(sqlite3.InternalError, sqlite3.DatabaseError))   # → True",
+      "print(issubclass(sqlite3.InternalError, sqlite3.Error))           # → True",
+      "print(sqlite3.InternalError.__mro__[1].__name__)                  # → DatabaseError",
+      "try: raise sqlite3.InternalError('сбой внутри SQLite')",
+      "except sqlite3.DatabaseError as e: print(type(e).__name__)        # → InternalError"
+    ],
+    "related": [
+      "exception",
+      "try-except",
+      "runtimeerror",
+      "decimal.decimalexception"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sqlite3.NotSupportedError",
+    "title": "sqlite3.NotSupportedError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Метод или возможность API не поддерживается используемой библиотекой SQLite (например, deterministic=True в create_function); подкласс sqlite3.DatabaseError.",
+      "en": "Raised when a method or database API is not supported by the underlying SQLite library (e.g. deterministic=True in create_function); a subclass of sqlite3.DatabaseError."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sqlite3.NotSupportedError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/sqlite3.html#sqlite3.NotSupportedError",
+    "version": "",
+    "section": "Модуль sqlite3",
+    "subcat": "исключения",
+    "aliases": [
+      "операция не поддерживается базой данных",
+      "неподдерживаемая возможность субд",
+      "метод не поддерживается драйвером бд"
+    ],
+    "keywords": [
+      "sqlite3.NotSupportedError",
+      "NotSupportedError"
+    ],
+    "tags": [
+      "sqlite3"
+    ],
+    "examples": [
+      "import sqlite3",
+      "print(issubclass(sqlite3.NotSupportedError, sqlite3.DatabaseError))  # → True",
+      "print(sqlite3.NotSupportedError.__name__)                            # → NotSupportedError",
+      "print(sqlite3.NotSupportedError.__mro__[2].__name__)                 # → Error",
+      "try: raise sqlite3.NotSupportedError('deterministic=True не поддержан')",
+      "except sqlite3.Error as e: print(type(e).__name__)                   # → NotSupportedError"
+    ],
+    "related": [
+      "exception",
+      "try-except",
+      "notimplementederror",
+      "json.decoder.jsondecodeerror"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sqlite3.OperationalError",
+    "title": "sqlite3.OperationalError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Исключение sqlite3 для ошибок самой базы данных, не зависящих от программиста: файл БД не найден, нет такой таблицы, база заблокирована. Подкласс sqlite3.DatabaseError.",
+      "en": "sqlite3 exception raised for errors related to the database's operation and not necessarily under the control of the programmer: database path not found, no such table, locked database. Subclass of sqlite3.DatabaseError."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sqlite3.OperationalError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/sqlite3.html#sqlite3.OperationalError",
+    "version": "",
+    "section": "Модуль sqlite3",
+    "subcat": "исключения",
+    "aliases": [
+      "ошибка работы с базой данных",
+      "нет такой таблицы",
+      "база данных заблокирована"
+    ],
+    "keywords": [
+      "sqlite3.OperationalError",
+      "OperationalError"
+    ],
+    "tags": [
+      "sqlite3"
+    ],
+    "examples": [
+      "import sqlite3",
+      "print(issubclass(sqlite3.OperationalError, sqlite3.DatabaseError))  # → True",
+      "print(issubclass(sqlite3.OperationalError, sqlite3.Error))  # → True",
+      "con = sqlite3.connect(':memory:')",
+      "try: con.execute('SELECT * FROM missing')",
+      "except sqlite3.OperationalError as e: print(e)  # → no such table: missing"
+    ],
+    "related": [
+      "exception",
+      "try-except",
+      "raise"
+    ],
+    "related_errors": []
+  },
+  {
+    "id": "sqlite3.ProgrammingError",
+    "title": "sqlite3.ProgrammingError",
+    "kind": "exception",
+    "summary": {
+      "ru": "Исключение sqlite3 для ошибок программиста в работе с API: неверное число параметров запроса, обращение к уже закрытому Connection. Подкласс sqlite3.DatabaseError.",
+      "en": "sqlite3 exception raised for sqlite3 API programming errors: wrong number of bindings supplied to a query, or operating on a closed Connection. Subclass of sqlite3.DatabaseError."
+    },
+    "body": {
+      "ru": "",
+      "en": ""
+    },
+    "syntax": "sqlite3.ProgrammingError",
+    "status": "ready",
+    "docs_url": "https://docs.python.org/3/library/sqlite3.html#sqlite3.ProgrammingError",
+    "version": "",
+    "section": "Модуль sqlite3",
+    "subcat": "исключения",
+    "aliases": [
+      "неверное число параметров запроса",
+      "обращение к закрытой базе данных",
+      "ошибка в коде работы с базой"
+    ],
+    "keywords": [
+      "sqlite3.ProgrammingError",
+      "ProgrammingError"
+    ],
+    "tags": [
+      "sqlite3"
+    ],
+    "examples": [
+      "import sqlite3",
+      "print(issubclass(sqlite3.ProgrammingError, sqlite3.DatabaseError))  # → True",
+      "print(issubclass(sqlite3.ProgrammingError, sqlite3.OperationalError))  # → False",
+      "con = sqlite3.connect(':memory:'); con.execute('CREATE TABLE t(a, b)')",
+      "try: con.execute('INSERT INTO t VALUES (?, ?)', (1,))",
+      "except sqlite3.ProgrammingError as e: print(type(e).__name__)  # → ProgrammingError"
+    ],
+    "related": [
+      "exception",
+      "try-except",
+      "typeerror"
+    ],
+    "related_errors": []
   }
 ]
