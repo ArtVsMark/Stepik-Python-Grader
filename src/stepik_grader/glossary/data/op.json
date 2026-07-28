@@ -5881,7 +5881,11 @@
     ],
     "examples": [
       "print((5).as_integer_ratio())   # → (5, 1)",
-      "print((-8).as_integer_ratio())  # → (-8, 1)"
+      "print((-8).as_integer_ratio())  # → (-8, 1)",
+      "print((0).as_integer_ratio())   # → (0, 1)",
+      "print(True.as_integer_ratio())  # → (1, 1)",
+      "a, b = (3).as_integer_ratio(), (0.75).as_integer_ratio()",
+      "print(a, b)  # → (3, 1) (3, 4)"
     ],
     "related": [
       "float.as_integer_ratio",
@@ -5915,7 +5919,11 @@
     ],
     "examples": [
       "print((5).conjugate())   # → 5",
-      "print((-3).conjugate())  # → -3"
+      "print((-3).conjugate())  # → -3",
+      "print((0).conjugate())   # → 0",
+      "print((5).real, (5).imag)  # → 5 0",
+      "print((2 + 3j).conjugate())  # → (2-3j)",
+      "print([n.conjugate() for n in [1, -2, 2j]])  # → [1, -2, -2j]"
     ],
     "related": [
       "complex.conjugate",
@@ -5949,7 +5957,11 @@
     ],
     "examples": [
       "print((5).is_integer())   # → True",
-      "print((-3).is_integer())  # → True"
+      "print((-3).is_integer())  # → True",
+      "print((0).is_integer())   # → True",
+      "print((5.0).is_integer())  # → True",
+      "print((2.5).is_integer())  # → False",
+      "print([v.is_integer() for v in (7, 7.0, 7.5)])  # → [True, True, False]"
     ],
     "related": [
       "float.is_integer",
@@ -6058,8 +6070,12 @@
       "float"
     ],
     "examples": [
-      "print((3.5).hex())   # → 0x1.c000000000000p+1",
-      "print((1.0).hex())   # → 0x1.0000000000000p+0"
+      "print((3.5).hex())                          # → 0x1.c000000000000p+1",
+      "print((1.0).hex())                          # → 0x1.0000000000000p+0",
+      "print((0.1).hex())                          # → 0x1.999999999999ap-4",
+      "print((-2.0).hex())                         # → -0x1.0000000000000p+1",
+      "print((0.0).hex())                          # → 0x0.0p+0",
+      "print(float.fromhex((0.1).hex()) == 0.1)    # → True"
     ],
     "related": [
       "float.fromhex",
@@ -6092,8 +6108,12 @@
       "float"
     ],
     "examples": [
-      "print(float.fromhex('0x1.8p+1'))  # → 3.0",
-      "print(float.fromhex('0x1.0p+0'))  # → 1.0"
+      "print(float.fromhex('0x1.8p+1'))            # → 3.0",
+      "print(float.fromhex('0x1.0p+0'))            # → 1.0",
+      "print(float.fromhex('-0x1p-1'))             # → -0.5",
+      "print(float.fromhex('3.5'))                 # → 3.3125",
+      "print(float.fromhex((0.1).hex()) == 0.1)    # → True",
+      "print(float.fromhex('hello'))               # → ValueError"
     ],
     "related": [
       "float.hex",
@@ -6128,8 +6148,12 @@
       "float"
     ],
     "examples": [
-      "print((3.5).conjugate())   # → 3.5",
-      "print((-1.0).conjugate())  # → -1.0"
+      "print((3.5).conjugate())            # → 3.5",
+      "print((-1.0).conjugate())           # → -1.0",
+      "print(type((3.5).conjugate()))      # → <class 'float'>",
+      "print((2.5).conjugate() == 2.5)     # → True",
+      "print((3.5).imag)                   # → 0.0",
+      "print(complex(3.5).conjugate())     # → (3.5-0j)"
     ],
     "related": [
       "complex.conjugate",
@@ -6166,8 +6190,12 @@
       "complex"
     ],
     "examples": [
-      "print((3 + 4j).conjugate())        # → (3-4j)",
-      "print(complex(2, -5).conjugate())  # → (2+5j)"
+      "print((3 + 4j).conjugate())                 # → (3-4j)",
+      "print(complex(2, -5).conjugate())           # → (2+5j)",
+      "print((3 + 4j) * (3 + 4j).conjugate())      # → (25+0j)",
+      "print((3 + 4j).conjugate().imag)            # → -4.0",
+      "print((2 - 3j).conjugate().conjugate())     # → (2-3j)",
+      "print((7 + 0j).conjugate())                 # → (7-0j)"
     ],
     "related": [
       "complex",
@@ -6206,7 +6234,10 @@
     "examples": [
       "import json",
       "print(json.dumps({'a': 1, 'b': [2, 3]}))   # → {\"a\": 1, \"b\": [2, 3]}",
-      "print(json.dumps([1, 2, 3]))                 # → [1, 2, 3]"
+      "print(json.dumps([1, 2, 3]))                 # → [1, 2, 3]",
+      "print(json.dumps('привет', ensure_ascii=False))   # → \"привет\"",
+      "print(json.dumps({'b': 1, 'a': 2}, sort_keys=True))   # → {\"a\": 2, \"b\": 1}",
+      "print(json.dumps({1, 2}))   # → TypeError"
     ],
     "related": [
       "json.loads",
@@ -6247,7 +6278,10 @@
     "examples": [
       "import json",
       "print(json.loads('{\"x\": 5, \"y\": true}'))   # → {'x': 5, 'y': True}",
-      "print(json.loads('[1, 2, 3]'))              # → [1, 2, 3]"
+      "print(json.loads('[1, 2, 3]'))              # → [1, 2, 3]",
+      "data = json.loads('{\"user\": {\"name\": \"Bob\", \"scores\": [4, 5]}}')",
+      "print(data['user']['scores'][1])   # → 5",
+      "print(json.loads(\"{'x': 1}\"))   # → JSONDecodeError (нужны двойные кавычки)"
     ],
     "related": [
       "json.load",
@@ -6330,7 +6364,11 @@
     ],
     "examples": [
       "import json, io",
-      "print(json.load(io.StringIO('[1, 2, 3]')))   # → [1, 2, 3]"
+      "print(json.load(io.StringIO('[1, 2, 3]')))   # → [1, 2, 3]",
+      "print(json.load(io.StringIO('{\"name\": \"Bob\", \"age\": 30}')))   # → {'name': 'Bob', 'age': 30}",
+      "data = json.load(io.StringIO('{\"items\": [1, 2, 3]}'))",
+      "print(sum(data['items']))   # → 6",
+      "print(json.load(io.StringIO('')))   # → JSONDecodeError (пустой ввод)"
     ],
     "related": [
       "json.loads",
@@ -6367,7 +6405,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.mean([1, 2, 3, 4]))   # → 2.5"
+      "print(statistics.mean([1, 2, 3, 4]))   # → 2.5",
+      "print(statistics.mean([1, 2, 3]))   # → 2",
+      "print(round(statistics.mean([4, 5, 3, 5, 4]), 2))   # → 4.2",
+      "print(statistics.mean([1, 2, 3, 100]), statistics.median([1, 2, 3, 100]))   # → 26.5 2.5",
+      "print(statistics.mean([])) # → StatisticsError"
     ],
     "related": [
       "statistics.median",
@@ -6402,7 +6444,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.fmean([1, 2, 3, 4]))   # → 2.5"
+      "print(statistics.fmean([1, 2, 3, 4]))   # → 2.5",
+      "print(statistics.fmean([4, 5, 3, 5]))   # → 4.25",
+      "print(statistics.fmean([80, 90], weights=[1, 3]))   # → 87.5",
+      "print(statistics.mean([1, 2, 3]), statistics.fmean([1, 2, 3]))   # → 2 2.0",
+      "print(statistics.fmean([]))   # → StatisticsError"
     ],
     "related": [
       "statistics.mean",
@@ -6436,7 +6482,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(round(statistics.geometric_mean([1, 4, 16]), 1))   # → 4.0"
+      "print(round(statistics.geometric_mean([1, 4, 16]), 1))   # → 4.0",
+      "print(round(statistics.geometric_mean([3, 12]), 1))   # → 6.0",
+      "print(round(statistics.geometric_mean([1.10, 1.21, 1.331]), 2))   # → 1.21",
+      "print(statistics.mean([1, 100]), round(statistics.geometric_mean([1, 100]), 1))   # → 50.5 10.0",
+      "print(statistics.geometric_mean([-1, 4]))   # → StatisticsError"
     ],
     "related": [
       "statistics.harmonic_mean",
@@ -6470,7 +6520,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.harmonic_mean([1, 2, 4]))   # → 1.7142857142857142"
+      "print(statistics.harmonic_mean([1, 2, 4]))   # → 1.7142857142857142",
+      "print(statistics.harmonic_mean([10, 40]))   # → 16.0",
+      "print(statistics.mean([60, 30]), statistics.harmonic_mean([60, 30]))   # → 45 40.0",
+      "print(statistics.harmonic_mean([40, 60], weights=[5, 30]))   # → 56.0",
+      "print(statistics.harmonic_mean([1, -2]))   # → StatisticsError"
     ],
     "related": [
       "statistics.geometric_mean",
@@ -6505,7 +6559,10 @@
     "examples": [
       "import statistics",
       "print(statistics.median([1, 2, 3, 4]))   # → 2.5",
-      "print(statistics.median([1, 3, 5]))      # → 3"
+      "print(statistics.median([1, 3, 5]))      # → 3",
+      "print(statistics.median([5, 1, 4, 2]))        # → 3.0",
+      "print(statistics.median([1, 2, 3, 4, 100]))   # → 3",
+      "print(statistics.median([]))                  # → StatisticsError"
     ],
     "related": [
       "statistics.median_low",
@@ -6540,7 +6597,12 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.median_low([1, 2, 3, 4]))   # → 2"
+      "print(statistics.median_low([1, 2, 3, 4]))   # → 2",
+      "print(statistics.median_low([1, 3, 5]))      # → 3",
+      "print(statistics.median_low([5, 1, 4, 2]))   # → 2",
+      "print(statistics.median_low(['a', 'b', 'c', 'd']))   # → b",
+      "print(statistics.median([1, 2, 3, 4]), statistics.median_low([1, 2, 3, 4]))   # → 2.5 2",
+      "print(statistics.median_low([]))             # → StatisticsError"
     ],
     "related": [
       "statistics.median_high",
@@ -6573,7 +6635,12 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.median_high([1, 2, 3, 4]))   # → 3"
+      "print(statistics.median_high([1, 2, 3, 4]))   # → 3",
+      "print(statistics.median_high([1, 3, 5]))      # → 3",
+      "print(statistics.median_high([5, 1, 4, 2]))   # → 4",
+      "print(statistics.median_high(['a', 'b', 'c', 'd']))   # → c",
+      "print(statistics.median_low([1, 2, 3, 4]), statistics.median_high([1, 2, 3, 4]))   # → 2 3",
+      "print(statistics.median_high([]))             # → StatisticsError"
     ],
     "related": [
       "statistics.median_low",
@@ -6606,7 +6673,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.median_grouped([1, 2, 2, 3, 4, 4, 4]))   # → 3.0"
+      "print(statistics.median_grouped([1, 2, 2, 3, 4, 4, 4]))   # → 3.0",
+      "print(statistics.median_grouped([1, 1, 2, 2, 2, 2]))      # → 1.75",
+      "print(statistics.median([1, 1, 2, 2, 2, 2]))              # → 2.0",
+      "print(statistics.median_grouped([10, 20, 30, 40], interval=10))   # → 25.0",
+      "print(statistics.median_grouped([]))                      # → StatisticsError"
     ],
     "related": [
       "statistics.median",
@@ -6641,7 +6712,11 @@
     "examples": [
       "import statistics",
       "print(statistics.mode([1, 1, 2, 3]))       # → 1",
-      "print(statistics.mode(['a', 'b', 'a']))   # → a"
+      "print(statistics.mode(['a', 'b', 'a']))   # → a",
+      "print(statistics.mode('banana'))           # → a",
+      "print(statistics.mode([1, 1, 2, 2]))       # → 1",
+      "print(statistics.multimode([1, 1, 2, 2]))  # → [1, 2]",
+      "print(statistics.mode([]))                 # → StatisticsError"
     ],
     "related": [
       "statistics.multimode",
@@ -6675,7 +6750,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.multimode([1, 1, 2, 2, 3]))   # → [1, 2]"
+      "print(statistics.multimode([1, 1, 2, 2, 3]))   # → [1, 2]",
+      "print(statistics.multimode('aabbbcc'))  # → ['b']",
+      "print(statistics.multimode([1, 2, 3]))  # → [1, 2, 3]",
+      "print(statistics.multimode([]))  # → []",
+      "print(statistics.mode([1, 1, 2, 2, 3]))  # → 1"
     ],
     "related": [
       "statistics.mode",
@@ -6708,7 +6787,12 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.stdev([2, 4, 4, 4, 5, 5, 7, 9]))   # → 2.138089935299395"
+      "print(statistics.stdev([2, 4, 4, 4, 5, 5, 7, 9]))   # → 2.138089935299395",
+      "print(statistics.stdev([1, 2, 3, 4, 5]))  # → 1.5811388300841898",
+      "print(statistics.stdev([1, 2, 3, 4, 5], xbar=3))  # → 1.5811388300841898",
+      "print(statistics.stdev([7, 7, 7, 7]))  # → 0.0",
+      "print(statistics.stdev([5]))  # → StatisticsError",
+      "print(statistics.pstdev([1, 2, 3, 4, 5]))  # → 1.4142135623730951"
     ],
     "related": [
       "statistics.variance",
@@ -6742,7 +6826,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.pstdev([2, 4, 4, 4, 5, 5, 7, 9]))   # → 2.0"
+      "print(statistics.pstdev([2, 4, 4, 4, 5, 5, 7, 9]))   # → 2.0",
+      "print(statistics.pstdev([2, 4, 4, 4, 5, 5, 7, 9], mu=5))  # → 2.0",
+      "print(statistics.pstdev([1, 2, 3, 4, 5]))  # → 1.4142135623730951",
+      "print(statistics.pstdev([5]))  # → 0.0",
+      "print(statistics.stdev([2, 4, 4, 4, 5, 5, 7, 9]))  # → 2.138089935299395"
     ],
     "related": [
       "statistics.stdev",
@@ -6775,7 +6863,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.variance([1, 2, 3, 4, 5]))   # → 2.5"
+      "print(statistics.variance([1, 2, 3, 4, 5]))   # → 2.5",
+      "print(statistics.variance([1, 2, 3, 4, 5], xbar=3))  # → 2.5",
+      "print(statistics.variance([2, 4, 4, 4, 5, 5, 7, 9]))  # → 4.571428571428571",
+      "print(statistics.variance([5]))  # → StatisticsError",
+      "print(statistics.pvariance([1, 2, 3, 4, 5]))  # → 2"
     ],
     "related": [
       "statistics.stdev",
@@ -6809,7 +6901,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.pvariance([1, 2, 3, 4, 5]))   # → 2"
+      "print(statistics.pvariance([1, 2, 3, 4, 5]))   # → 2",
+      "print(statistics.pvariance([1, 2, 3, 4, 5], mu=0))  # → 11",
+      "print(statistics.pvariance([2, 4, 4, 4, 5, 5, 7, 9]))  # → 4",
+      "print(statistics.pvariance([5]))  # → 0",
+      "print(statistics.variance([1, 2, 3, 4, 5]))  # → 2.5"
     ],
     "related": [
       "statistics.variance",
@@ -6842,7 +6938,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.correlation([1, 2, 3], [2, 4, 6]))   # → 1.0"
+      "print(statistics.correlation([1, 2, 3], [2, 4, 6]))   # → 1.0",
+      "print(statistics.correlation([1, 2, 3], [6, 4, 2]))   # → -1.0",
+      "print(statistics.correlation([1, 2, 3, 4], [1, 3, 2, 4]))   # → 0.8",
+      "print(statistics.correlation([1, 2, 3], [10, 30, 20], method='ranked'))   # → 0.5",
+      "print(statistics.correlation([1, 1, 1], [1, 2, 3]))   # → StatisticsError"
     ],
     "related": [
       "statistics.covariance",
@@ -6875,7 +6975,11 @@
     ],
     "examples": [
       "import statistics",
-      "print(statistics.covariance([1, 2, 3], [2, 4, 6]))   # → 2.0"
+      "print(statistics.covariance([1, 2, 3], [2, 4, 6]))   # → 2.0",
+      "print(statistics.covariance([1, 2, 3], [6, 4, 2]))   # → -2.0",
+      "print(statistics.covariance([1, 2, 3, 4], [1, 2, 2, 1]))   # → 0.0",
+      "print(statistics.covariance([1, 2, 3], [1, 2, 3]) == statistics.variance([1, 2, 3]))   # → True",
+      "print(statistics.covariance([1, 2, 3], [1, 2]))   # → StatisticsError"
     ],
     "related": [
       "statistics.correlation",
@@ -6910,7 +7014,12 @@
     "examples": [
       "import statistics",
       "r = statistics.linear_regression([1, 2, 3], [2, 4, 6])",
-      "print(round(r.slope, 1), round(r.intercept, 1))   # → 2.0 0.0"
+      "print(round(r.slope, 1), round(r.intercept, 1))   # → 2.0 0.0",
+      "slope, intercept = statistics.linear_regression([1, 2, 3, 4], [3, 5, 6, 9])",
+      "print(round(slope, 2), round(intercept, 2))   # → 1.9 1.0",
+      "print(round(slope * 5 + intercept, 2))   # → 10.5",
+      "print(round(statistics.linear_regression([1, 2], [3, 5], proportional=True).slope, 2))   # → 2.6",
+      "print(statistics.linear_regression([1, 1, 1], [2, 4, 6]))   # → StatisticsError"
     ],
     "related": [
       "statistics.correlation",
@@ -7021,7 +7130,12 @@
     ],
     "examples": [
       "import pathlib",
-      "print(pathlib.PurePosixPath('/a/b').parts)   # → ('/', 'a', 'b')"
+      "print(pathlib.PurePosixPath('/a/b').parts)   # → ('/', 'a', 'b')",
+      "p = pathlib.PurePosixPath('/home/user/report.txt')",
+      "print(p.parent, p.name, p.suffix)   # → /home/user report.txt .txt",
+      "print(pathlib.PurePosixPath('/a') / 'b' / 'c.txt')   # → /a/b/c.txt",
+      "print(pathlib.PurePosixPath('a/b').is_absolute(), pathlib.PurePosixPath('/a/b').is_absolute())   # → False True",
+      "print(hasattr(pathlib.PurePosixPath('/a'), 'exists'))   # → False (у чистого пути нет ввода-вывода)"
     ],
     "related": [
       "pathlib.PureWindowsPath",
@@ -7059,7 +7173,12 @@
     ],
     "examples": [
       "import pathlib",
-      "print(str(pathlib.PureWindowsPath('a', 'b')))   # → a\\b"
+      "print(str(pathlib.PureWindowsPath('a', 'b')))   # → a\\b",
+      "w = pathlib.PureWindowsPath('C:/Users/anna/doc.txt')",
+      "print(w.drive, w.name, w.suffix)   # → C: doc.txt .txt",
+      "print(w.as_posix())   # → C:/Users/anna/doc.txt",
+      "print(pathlib.PureWindowsPath('A/B') == pathlib.PureWindowsPath('a/b'))   # → True (регистр не важен)",
+      "print(pathlib.PureWindowsPath('C:/a').is_absolute(), pathlib.PureWindowsPath('/a').is_absolute())   # → True False"
     ],
     "related": [
       "pathlib.PurePosixPath",
@@ -7094,7 +7213,11 @@
     ],
     "examples": [
       "import pathlib",
-      "print(issubclass(pathlib.PosixPath, pathlib.PurePosixPath))   # → True"
+      "print(issubclass(pathlib.PosixPath, pathlib.PurePosixPath))   # → True",
+      "print(issubclass(pathlib.PosixPath, pathlib.Path))   # → True",
+      "print(issubclass(pathlib.PosixPath, pathlib.WindowsPath))   # → False",
+      "print(hasattr(pathlib.PosixPath, 'read_text'), hasattr(pathlib.PurePosixPath, 'read_text'))   # → True False",
+      "print(type(pathlib.Path()).__name__)   # → PosixPath на Linux/macOS, WindowsPath на Windows"
     ],
     "related": [
       "pathlib.WindowsPath",
@@ -7128,7 +7251,11 @@
     ],
     "examples": [
       "import pathlib",
-      "print(issubclass(pathlib.WindowsPath, pathlib.PureWindowsPath))   # → True"
+      "print(issubclass(pathlib.WindowsPath, pathlib.PureWindowsPath))   # → True",
+      "print(hasattr(pathlib.WindowsPath, 'exists'), hasattr(pathlib.PureWindowsPath, 'exists'))   # → True False",
+      "print(pathlib.PureWindowsPath('C:/Users/ivan/note.txt').name)   # → note.txt",
+      "print(pathlib.PureWindowsPath('C:/Users/ivan/note.txt').parent)   # → C:\\Users\\ivan",
+      "print(type(pathlib.Path('.')).__name__)   # → WindowsPath на Windows, PosixPath на Linux/macOS"
     ],
     "related": [
       "pathlib.PosixPath",

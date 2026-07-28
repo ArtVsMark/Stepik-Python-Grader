@@ -2016,8 +2016,12 @@
       "set"
     ],
     "examples": [
-      "print(sorted({1, 2}.union({2, 3})))   # → [1, 2, 3]",
-      "print(sorted({1}.union({2}, {3})))    # → [1, 2, 3]"
+      "print(sorted({1, 2}.union({2, 3})))                # → [1, 2, 3]",
+      "print(sorted({1}.union({2}, {3})))                 # → [1, 2, 3]",
+      "print(sorted({1, 2} | {2, 3}))                     # → [1, 2, 3]",
+      "print(sorted({1, 2}.union([2, 3], (4,))))          # → [1, 2, 3, 4]",
+      "print(sorted(set('abc').union('bcd')))             # → ['a', 'b', 'c', 'd']",
+      "print({1, 2} | [3])                                # → TypeError"
     ],
     "related": [
       "set.update",
@@ -2054,7 +2058,12 @@
       "set"
     ],
     "examples": [
-      "print(sorted({1, 2, 3}.intersection({2, 3, 4})))   # → [2, 3]"
+      "print(sorted({1, 2, 3}.intersection({2, 3, 4})))   # → [2, 3]",
+      "print(sorted({1, 2, 3}.intersection({2, 3}, [3, 9])))   # → [3]",
+      "print(sorted({1, 2, 3} & {3, 4}))   # → [3]",
+      "print(sorted(set('python').intersection('typo')))   # → ['o', 'p', 't', 'y']",
+      "print({1, 2}.intersection({3}))   # → set()",
+      "print({1, 2} & [2])   # → TypeError"
     ],
     "related": [
       "set.intersection_update",
@@ -2092,7 +2101,12 @@
       "set"
     ],
     "examples": [
-      "print(sorted({1, 2, 3}.difference({2, 3})))   # → [1]"
+      "print(sorted({1, 2, 3}.difference({2, 3})))   # → [1]",
+      "print(sorted({1, 2, 3, 4}.difference({2}, [3])))   # → [1, 4]",
+      "print(sorted({1, 2, 3} - {3}))   # → [1, 2]",
+      "print(sorted({1, 2, 3}.difference({3, 4})), sorted({3, 4}.difference({1, 2, 3})))   # → [1, 2] [4]",
+      "print(sorted({1, 2}.difference({1, 2, 3})))   # → []",
+      "print({1, 2, 3} - [3])   # → TypeError"
     ],
     "related": [
       "set.difference_update",
@@ -2130,7 +2144,12 @@
       "set"
     ],
     "examples": [
-      "print(sorted({1, 2, 3}.symmetric_difference({2, 3, 4})))   # → [1, 4]"
+      "print(sorted({1, 2, 3}.symmetric_difference({2, 3, 4})))   # → [1, 4]",
+      "print(sorted({1, 2, 3} ^ {2, 3, 4}))                       # → [1, 4]",
+      "print(sorted({1, 2}.symmetric_difference([2, 3])))         # → [1, 3]",
+      "print({1, 2}.symmetric_difference({1, 2}))                 # → set()",
+      "print(sorted({1, 2, 3}.difference({2, 3, 4})))             # → [1]",
+      "print({1, 2} ^ [2, 3])                                     # → TypeError"
     ],
     "related": [
       "set.symmetric_difference_update",
@@ -2284,7 +2303,11 @@
     ],
     "examples": [
       "print({1, 2}.issubset({1, 2, 3}))   # → True",
-      "print({1, 4}.issubset({1, 2, 3}))   # → False"
+      "print({1, 4}.issubset({1, 2, 3}))   # → False",
+      "print({1, 2}.issubset([1, 2, 3]))   # → True",
+      "print(set().issubset({1, 2}))   # → True",
+      "print({1, 2} <= {1, 2}, {1, 2} < {1, 2})   # → True False",
+      "print({1, 2} <= [1, 2, 3])   # → TypeError"
     ],
     "related": [
       "set.issuperset",
@@ -2322,7 +2345,11 @@
     ],
     "examples": [
       "print({1, 2, 3}.issuperset({1, 2}))   # → True",
-      "print({1, 2}.issuperset({1, 3}))      # → False"
+      "print({1, 2}.issuperset({1, 3}))      # → False",
+      "print({1, 2, 3} >= {1, 2})            # → True",
+      "print({1, 2, 3}.issuperset([1, 3]))   # → True",
+      "print({1, 2}.issuperset(set()))       # → True",
+      "print({1, 2} >= [1])                  # → TypeError"
     ],
     "related": [
       "set.issubset",
@@ -2360,7 +2387,11 @@
     ],
     "examples": [
       "print({1, 2}.isdisjoint({3, 4}))   # → True",
-      "print({1, 2}.isdisjoint({2, 3}))   # → False"
+      "print({1, 2}.isdisjoint({2, 3}))   # → False",
+      "print({1, 2}.isdisjoint([3, 4, 5]))   # → True",
+      "print({1, 2}.isdisjoint(set()))   # → True",
+      "print({'spam', 'ads'}.isdisjoint('hello world spam'.split()))   # → False",
+      "print(not ({1, 2} & {2, 3}))   # → False"
     ],
     "related": [
       "set.intersection",
@@ -2394,7 +2425,11 @@
     ],
     "examples": [
       "f = frozenset({1, 2})",
-      "print(f.copy() is f)   # → True"
+      "print(f.copy() is f)   # → True",
+      "print(f.copy())   # → frozenset({1, 2})",
+      "print(frozenset().copy())   # → frozenset()",
+      "s = {1, 2}",
+      "print(s.copy() is s)   # → False"
     ],
     "related": [
       "set.copy",
@@ -2427,7 +2462,12 @@
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2}).union({3}))   # → frozenset({1, 2, 3})"
+      "print(frozenset({1, 2}).union({3}))   # → frozenset({1, 2, 3})",
+      "print(sorted(frozenset({1, 2}).union([2, 3], (4,))))   # → [1, 2, 3, 4]",
+      "print(sorted(frozenset('ab').union('bc')))   # → ['a', 'b', 'c']",
+      "print(frozenset().union())   # → frozenset()",
+      "print(type(frozenset({1}).union({2, 3})).__name__)   # → frozenset",
+      "print(frozenset({1, 2}) | [3])   # → TypeError"
     ],
     "related": [
       "set.union",
@@ -2461,7 +2501,12 @@
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2, 3}).intersection({2, 3}))   # → frozenset({2, 3})"
+      "print(frozenset({1, 2, 3}).intersection({2, 3}))   # → frozenset({2, 3})",
+      "print(frozenset({1, 2, 3, 4}).intersection({2, 3, 4}, {3, 4, 5}))   # → frozenset({3, 4})",
+      "print(frozenset({1, 2, 3}).intersection([3, 4, 5]))   # → frozenset({3})",
+      "print(sorted(frozenset('hello').intersection('world')))   # → ['l', 'o']",
+      "print(frozenset({1, 2}).intersection({3, 4}))   # → frozenset()",
+      "print(frozenset({1, 2, 3}) & [2, 3])   # → TypeError"
     ],
     "related": [
       "set.intersection",
@@ -2495,7 +2540,12 @@
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2, 3}).difference({2}))   # → frozenset({1, 3})"
+      "print(frozenset({1, 2, 3}).difference({2}))   # → frozenset({1, 3})",
+      "print(frozenset({1, 2, 3, 4}).difference({2}, {4}))   # → frozenset({1, 3})",
+      "print(frozenset({1, 2, 3}).difference([1, 2]))   # → frozenset({3})",
+      "print(sorted(frozenset('hello').difference('aeiou')))   # → ['h', 'l']",
+      "print(frozenset({1, 2}).difference({1, 2}))   # → frozenset()",
+      "print(frozenset({1, 2, 3}) - [1])   # → TypeError"
     ],
     "related": [
       "set.difference",
@@ -2528,7 +2578,12 @@
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2}).symmetric_difference({2, 3}))   # → frozenset({1, 3})"
+      "print(frozenset({1, 2}).symmetric_difference({2, 3}))   # → frozenset({1, 3})",
+      "print(frozenset({1, 2}).symmetric_difference({3, 4}))   # → frozenset({1, 2, 3, 4})",
+      "print(frozenset({1, 2, 3}).symmetric_difference([3, 4]))   # → frozenset({1, 2, 4})",
+      "print(sorted(frozenset('abc').symmetric_difference('bcd')))   # → ['a', 'd']",
+      "print(frozenset({1, 2}).symmetric_difference({1, 2}))   # → frozenset()",
+      "print(frozenset({1, 2}) ^ {2, 3})   # → frozenset({1, 3})"
     ],
     "related": [
       "set.symmetric_difference",
@@ -2562,7 +2617,12 @@
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2}).isdisjoint({3, 4}))   # → True"
+      "print(frozenset({1, 2}).isdisjoint({3, 4}))   # → True",
+      "print(frozenset({1, 2}).isdisjoint({2, 3}))   # → False",
+      "print(frozenset({1, 2}).isdisjoint([3, 4, 5]))   # → True",
+      "print(frozenset('rhythm').isdisjoint('aeiou'))   # → True",
+      "print(frozenset({1, 2, 3}).isdisjoint(range(3, 6)))   # → False",
+      "print(frozenset().isdisjoint({1, 2}))   # → True"
     ],
     "related": [
       "set.isdisjoint",
@@ -2595,7 +2655,12 @@
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2}).issubset({1, 2, 3}))   # → True"
+      "print(frozenset({1, 2}).issubset({1, 2, 3}))   # → True",
+      "print(frozenset({1, 4}).issubset({1, 2, 3}))   # → False",
+      "print(frozenset({1, 2}).issubset([1, 2, 3]))   # → True",
+      "print(frozenset('cat').issubset('character'))   # → True",
+      "print(frozenset({1, 2}).issubset({1, 2}))   # → True",
+      "print(frozenset({1, 2}) < {1, 2})   # → False"
     ],
     "related": [
       "frozenset.issuperset",
@@ -2628,7 +2693,12 @@
       "frozenset"
     ],
     "examples": [
-      "print(frozenset({1, 2, 3}).issuperset({1, 2}))   # → True"
+      "print(frozenset({1, 2, 3}).issuperset({1, 2}))   # → True",
+      "print(frozenset({1, 2, 3}).issuperset({1, 5}))   # → False",
+      "print(frozenset({1, 2, 3}).issuperset([2, 3]))   # → True",
+      "print(frozenset('0123456789').issuperset('2026'))   # → True",
+      "print(frozenset({1, 2}).issuperset([]))   # → True",
+      "print(frozenset({1, 2}) > {1, 2})   # → False"
     ],
     "related": [
       "frozenset.issubset",
