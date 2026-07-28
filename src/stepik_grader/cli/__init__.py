@@ -83,6 +83,7 @@ from stepik_grader.core import stats
 from stepik_grader.core.cache import GraderCache
 from stepik_grader.core.diag_log import configure_diagnostics
 from stepik_grader.core.grader_core import (
+    preflight_solution,
     resolve_test_dir,
     run_benchmark,
     run_microbench_mode,
@@ -223,6 +224,7 @@ def _build_cli_context() -> CliContext:
         t=_t,
         run_tests=run_tests,
         run_benchmark=run_benchmark,
+        preflight_solution=preflight_solution,
         run_microbench_mode=run_microbench_mode,
         resolve_test_dir_from_input=_resolve_test_dir_from_input,
         print_tabular=_print_tabular,

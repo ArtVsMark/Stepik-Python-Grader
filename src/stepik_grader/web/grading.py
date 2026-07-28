@@ -20,6 +20,7 @@ from stepik_grader.core.cache import hash_solution
 from stepik_grader.core.grader_core import (
     MUCH_SLOWER_THRESHOLD,
     SIMILAR_THRESHOLD,
+    preflight_solution,
     run_benchmark,
     run_microbench_mode,
     run_spec,
@@ -53,6 +54,7 @@ __all__ = [
     "hash_solution",
     "is_solution_file",
     "load_test_cases",
+    "preflight_solution",
     "resolve_test_dir",
     "run_benchmark",
     "run_microbench_mode",

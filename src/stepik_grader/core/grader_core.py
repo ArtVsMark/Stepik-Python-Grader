@@ -44,6 +44,7 @@ __all__ = [
     "is_solution_file",
     "load_test_cases",
     "load_text_lines",
+    "preflight_solution",
     "resolve_test_dir",
     "run_benchmark",
     "run_microbench_mode",
@@ -634,6 +635,57 @@ def run_tests(
         "peak_memory_mb": peak_mb,
         "first_fail": first_fail,
         "cases": results,
+    }
+
+
+def preflight_solution(
+    solution_path: pathlib.Path,
+    test_dir: pathlib.Path,
+    *,
+    timeout: float = TIMEOUT_SECONDS,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: threading.Event | None = None,
+    max_memory_mb: int | None = None,
+) -> dict[str, Any]:
+    """Проверить решение ОДИН раз перед замером скорости (issue #729).
+
+    Режимы 3/4 сравнивают решения по времени, и это осмысленно только для кода,
+    который проходит тесты. Без такой проверки в сравнение попадало решение с
+    неверным выводом: `run_benchmark` меряет время, не сверяя результат, — WA
+    честно получал медиану и место в рейтинге. Падающее с ошибкой отсеивалось
+    самим замером, но лишь по факту первого запуска и с сырым traceback вместо
+    внятной причины.
+
+    Возвращает ``{"ok", "passed", "total", "verdict", "cancelled"}``:
+    ``ok=True`` — решение допускается к замеру;
+    ``verdict`` — первый непрошедший вердикт (``WA``/``RE``/``TLE``) или ``""``;
+    ``cancelled`` — прогон прерван (``cancel_event``), решение не оценено.
+    Текст для пользователя формирует UI-слой: тут только факты, без локали.
+
+    Отсутствие тест-кейсов (``total == 0``) — НЕ провал пре-флайта: сказать
+    «не прошло тесты» про решение, которое не с чем сверить, было бы неправдой.
+    Такой случай пропускается дальше, и о нём сообщает сам замер своим обычным
+    «нет тест-кейсов» — там это уже описанное поведение.
+    """
+    result = run_tests(
+        solution_path,
+        test_dir,
+        timeout=timeout,
+        progress_callback=progress_callback,
+        cancel_event=cancel_event,
+        max_memory_mb=max_memory_mb,
+    )
+    cases = result.get("cases", [])
+    cancelled = any(case.get("verdict") == "CANCELLED" for case in cases)
+    bad = next((case for case in cases if case.get("verdict") not in ("AC", "CANCELLED")), None)
+    total = int(result.get("total", 0))
+    passed = int(result.get("passed", 0))
+    return {
+        "ok": not cancelled and (total == 0 or passed == total),
+        "passed": passed,
+        "total": total,
+        "verdict": str(bad.get("verdict", "")) if bad else "",
+        "cancelled": cancelled,
     }
 
 

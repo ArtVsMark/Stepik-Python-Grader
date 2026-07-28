@@ -15,7 +15,7 @@ import urllib.request
 import pytest
 
 from stepik_grader import web
-from stepik_grader.web import runs
+from stepik_grader.web import runs, viewmodels
 from tests._wait import wait_until
 
 
@@ -394,7 +394,8 @@ class TestGradeBenchmarkProgressAndCancel:
         ticks: list[int] = []
         web.grade_benchmark(tmp_path, repeats=2, progress_callback=ticks.append)
 
-        assert ticks == [1] * 4  # 2 solutions * 1 case * 2 repeats
+        # 2 решения × (1 кейс × 2 повтора + 1 кейс пре-флайта, issue #729)
+        assert ticks == [1] * 6
 
     def test_cancel_event_stops_before_all_solutions_processed(
         self, tmp_path: pathlib.Path
@@ -426,7 +427,8 @@ class TestEstimateRunCount:
 
         total = web.estimate_run_count([sol_a, sol_b], kind="bench", repeats=5)
 
-        assert total == 2 * 3 * 5  # 2 solutions * 3 cases * 5 repeats
+        # 2 решения × (3 кейса × 5 повторов + 3 кейса пре-флайта, issue #729)
+        assert total == 2 * (3 * 5 + 3)
 
     def test_microbench_counts_solutions_not_cases(self, tmp_path: pathlib.Path) -> None:
         tests = tmp_path / "tests"
@@ -569,15 +571,22 @@ class TestGradeMicrobench:
         assert data["kind"] == "error"
 
     def test_microbench_partial_error_produces_err_row(self, tmp_path: pathlib.Path) -> None:
+        """Падающее решение не попадает в сравнение — с issue #729 это SKIPPED.
+
+        До пре-флайта оно доходило до замера и отсеивалось там же по факту
+        первого запуска (ERR с сырым traceback). Теперь причина известна раньше
+        и называется прямо: решение не прошло тесты.
+        """
         (tmp_path / "tests").mkdir()
         (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
         (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
         (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
         (tmp_path / "task1_2.py").write_text("raise ValueError('boom')\n", encoding="utf-8")
         data = web.grade_microbench(tmp_path, number=10)
-        verdicts_by_file = {r["file"]: r["verdict"] for r in data["rows"]}
-        assert verdicts_by_file["task1_2.py"] == "ERR"
-        assert verdicts_by_file["task1_1.py"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
+        rows_by_file = {r["file"]: r for r in data["rows"]}
+        assert rows_by_file["task1_2.py"]["verdict"] == "SKIPPED"
+        assert "RE" in rows_by_file["task1_2.py"]["error"]
+        assert rows_by_file["task1_1.py"]["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER"}
 
     def test_microbench_custom_number(self, tmp_path: pathlib.Path) -> None:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
@@ -1936,7 +1945,9 @@ class TestRunsApiConcurrency:
         assert data_a["status"] == "done"
         assert data_a["result"]["rows"][0]["verdict"] != "ERR"
         assert data_b["status"] == "done"
-        assert data_b["result"]["rows"][0]["verdict"] == "ERR"
+        # issue #729: падающее решение отсеивает пре-флайт до замера — SKIPPED,
+        # а не ERR по факту первого запуска.
+        assert data_b["result"]["rows"][0]["verdict"] == "SKIPPED"
 
 
 class TestRunsApiPathConfinement:
@@ -2003,8 +2014,9 @@ class TestRunsApiValidation:
             return total if total > 0 else None
 
         total = wait_until(_total_known, timeout=10.0)
-        # 1 case * clamped repeats (max 1000) -- not 1 * 999_999.
-        assert total == 1000
+        # 1 case * clamped repeats (max 1000) + 1 case пре-флайта (issue #729)
+        # -- not 1 * 999_999.
+        assert total == 1001
 
         _post(server + f"/api/v1/runs/{run_id}/cancel", b"")
 
@@ -3112,3 +3124,105 @@ class TestDownloaderConfigApi:
             "reason": "ok",
             "secrets_path": "creds.json",
         }
+
+
+# ---------------------------------------------------------------------------
+# Пре-флайт перед замером скорости — режимы 3/4 (issue #729)
+# ---------------------------------------------------------------------------
+
+
+class TestBenchPreflight:
+    """В сравнение по времени попадают только решения, прошедшие тесты."""
+
+    @staticmethod
+    def _task(tmp_path: pathlib.Path, *, correct: str, wrong: str) -> None:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        (tmp_path / "task1_1.py").write_text(correct, encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text(wrong, encoding="utf-8")
+
+    def test_wrong_answer_is_not_ranked(self, tmp_path: pathlib.Path) -> None:
+        """Ключевой случай: WA раньше получал медиану и место в рейтинге.
+
+        `run_benchmark` меряет время, но не сверяет вывод, поэтому решение с
+        неверным ответом честно соревновалось с корректными.
+        """
+        self._task(
+            tmp_path,
+            correct="print(int(input()) + 1)\n",
+            wrong="print(int(input()) + 2)\n",  # даёт 6 вместо 5
+        )
+
+        rows = {r["file"]: r for r in web.grade_benchmark(tmp_path, repeats=2)["rows"]}
+
+        assert rows["task1_2.py"]["verdict"] == "SKIPPED"
+        assert "median" not in rows["task1_2.py"]
+        assert rows["task1_1.py"]["verdict"] in {"SIMILAR", "SLOWER", "MUCH_SLOWER", "FASTER"}
+
+    def test_skip_message_reports_counts(self, tmp_path: pathlib.Path) -> None:
+        self._task(
+            tmp_path,
+            correct="print(int(input()) + 1)\n",
+            wrong="print(int(input()) + 2)\n",
+        )
+
+        row = next(
+            r for r in web.grade_benchmark(tmp_path, repeats=2)["rows"] if r["file"] == "task1_2.py"
+        )
+
+        assert "0" in row["error"] and "1" in row["error"]
+        assert "WA" in row["error"]
+
+    def test_crashing_solution_is_skipped_before_measurement(self, tmp_path: pathlib.Path) -> None:
+        self._task(
+            tmp_path,
+            correct="print(int(input()) + 1)\n",
+            wrong="raise ValueError('boom')\n",
+        )
+
+        row = next(
+            r for r in web.grade_benchmark(tmp_path, repeats=2)["rows"] if r["file"] == "task1_2.py"
+        )
+
+        assert row["verdict"] == "SKIPPED"
+        assert "RE" in row["error"]
+
+    def test_microbench_skips_wrong_answer_too(self, tmp_path: pathlib.Path) -> None:
+        """Режим 4 держит то же предусловие, что режим 3."""
+        self._task(
+            tmp_path,
+            correct="print(int(input()) + 1)\n",
+            wrong="print(int(input()) + 2)\n",
+        )
+
+        rows = {r["file"]: r for r in web.grade_microbench(tmp_path, number=50)["rows"]}
+
+        assert rows["task1_2.py"]["verdict"] == "SKIPPED"
+        assert "median_us" in rows["task1_1.py"]
+
+    def test_all_correct_solutions_are_measured(self, tmp_path: pathlib.Path) -> None:
+        """Пре-флайт не мешает нормальному случаю: обе строки с метриками."""
+        self._task(
+            tmp_path,
+            correct="print(int(input()) + 1)\n",
+            wrong="print(int(input()) + 1)\n",
+        )
+
+        rows = web.grade_benchmark(tmp_path, repeats=2)["rows"]
+
+        assert len(rows) == 2
+        assert all("median" in r for r in rows)
+
+    def test_progress_total_accounts_for_preflight(self, tmp_path: pathlib.Path) -> None:
+        """Прогресс-бар знает про лишний прогон — иначе упирался бы в 100% раньше."""
+        self._task(
+            tmp_path,
+            correct="print(int(input()) + 1)\n",
+            wrong="print(int(input()) + 1)\n",
+        )
+        solutions = sorted(tmp_path.glob("task1_*.py"))
+
+        total = viewmodels.estimate_run_count(solutions, kind="bench", repeats=5)
+
+        assert total == 2 * (1 * 5 + 1)  # два решения × (5 повторов + 1 пре-флайт)

@@ -1076,3 +1076,103 @@ def test_export_progress_empty_history_writes_nothing(tmp_path, monkeypatch) -> 
     monkeypatch.chdir(tmp_path)
     cli.main(["--export-progress", "html"])  # пустая история → дружелюбно, без файла
     assert not (tmp_path / "grader-progress.html").exists()
+
+
+# ---------------------------------------------------------------------------
+# Пре-флайт перед замером скорости в CLI — режимы 3/4 (issue #729)
+# ---------------------------------------------------------------------------
+
+
+class TestCliBenchPreflight:
+    """CLI держит то же предусловие, что web: меряем только прошедшее тесты."""
+
+    @staticmethod
+    def _task_dir(tmp_path: pathlib.Path) -> pathlib.Path:
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text("print(int(input()) + 2)\n", encoding="utf-8")
+        return tmp_path
+
+    def test_mode_3_skips_wrong_answer(self, tmp_path: pathlib.Path, capsys, monkeypatch) -> None:
+        directory = self._task_dir(tmp_path)
+        measured: list[str] = []
+
+        def fake_run_benchmark(path, test_dir, *, repeats=15):
+            measured.append(path.name)
+            return {
+                "runs": repeats,
+                "min": 0.001,
+                "median": 0.002,
+                "mean": 0.002,
+                "max": 0.003,
+                "stdev": 0.0,
+                "peak_memory_mb": 0.0,
+            }
+
+        monkeypatch.setattr(cli, "run_benchmark", fake_run_benchmark)
+        cli._run_mode_3(directory, repeats=5)
+
+        # Решение с неверным ответом до замера не доходит вовсе.
+        assert measured == ["task1_1.py"]
+        out = capsys.readouterr().out
+        assert "task1_2.py" in out
+        assert "WA" in out
+
+    def test_mode_4_skips_wrong_answer(self, tmp_path: pathlib.Path, capsys, monkeypatch) -> None:
+        directory = self._task_dir(tmp_path)
+        measured: list[list[str]] = []
+
+        def fake_microbench(paths, test_dir, *, number=1000):
+            measured.append([p.name for p in paths])
+            # Реальный run_microbench_mode ранжирует результат сам, поэтому
+            # verdict/relative проставлены — reporter на них рассчитывает.
+            return {
+                p: {
+                    "runs": 5,
+                    "min": 1e-6,
+                    "median": 2e-6,
+                    "mean": 2e-6,
+                    "max": 3e-6,
+                    "stdev": 0.0,
+                    "peak_memory_mb": 0.0,
+                    "relative": 1.0,
+                    "verdict": "SIMILAR",
+                }
+                for p in paths
+            }
+
+        monkeypatch.setattr(cli, "run_microbench_mode", fake_microbench)
+        cli._run_mode_4(directory, number=100)
+
+        assert measured == [["task1_1.py"]]
+        assert "task1_2.py" in capsys.readouterr().out
+
+    def test_all_correct_go_to_measurement(
+        self, tmp_path: pathlib.Path, capsys, monkeypatch
+    ) -> None:
+        """Пре-флайт не мешает нормальному случаю."""
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        measured: list[str] = []
+
+        def fake_run_benchmark(path, test_dir, *, repeats=15):
+            measured.append(path.name)
+            return {
+                "runs": repeats,
+                "min": 0.001,
+                "median": 0.002,
+                "mean": 0.002,
+                "max": 0.003,
+                "stdev": 0.0,
+                "peak_memory_mb": 0.0,
+            }
+
+        monkeypatch.setattr(cli, "run_benchmark", fake_run_benchmark)
+        cli._run_mode_3(tmp_path, repeats=5)
+
+        assert measured == ["task1_1.py", "task1_2.py"]

@@ -89,6 +89,31 @@ def _has_failures(cases: list[dict[str, Any]]) -> bool:
     return any(not c.get("passed") for c in cases)
 
 
+def _preflight_skip(
+    ctx: CliContext, solution: pathlib.Path, test_dir: pathlib.Path
+) -> dict[str, Any] | None:
+    """Отсеять решение, не прошедшее тесты, до замера скорости (issue #729).
+
+    ``None`` — решение годится. Иначе — запись с ``verdict="SKIPPED"``: сравнение
+    по времени осмысленно только между решениями, которые дают верный ответ, а
+    ``run_benchmark`` результат не сверяет — WA получал медиану и место в
+    рейтинге наравне с корректными.
+    """
+    report = ctx.preflight_solution(solution, test_dir)
+    if report["ok"] or report["cancelled"]:
+        return None
+    return {
+        "error": ctx.t(
+            "bench_skipped_not_ac",
+            passed=report["passed"],
+            total=report["total"],
+            verdict=report["verdict"] or "—",
+        ),
+        "runs": 0,
+        "verdict": "SKIPPED",
+    }
+
+
 def _verdict_counts_from_bench(results: dict[pathlib.Path, dict[str, Any]]) -> dict[str, int]:
     """Тальи вердиктов решений для режимов 3/4 (issue #268 — статистика).
 
@@ -573,6 +598,10 @@ def _run_mode_3(
     track = scripts if machine_output else rich_track(scripts, description="Бенчмарк решений...")
     for path in track:
         individual_test_dir = _resolve_individual_test_dir(ctx, path, directory)
+        skip = _preflight_skip(ctx, path, individual_test_dir)
+        if skip is not None:
+            results[path] = skip
+            continue
         results[path] = ctx.run_benchmark(path, individual_test_dir, repeats=repeats)
 
     apply_relative_ranking(
@@ -699,7 +728,18 @@ def _run_mode_4(
                 print(ctx.t("expected_tests_subfolder"))
             continue
 
-        bench = ctx.run_microbench_mode(sorted(paths), test_dir, number=number)
+        # issue #729: то же предусловие, что в режиме 3 — в замер идут только
+        # решения, прошедшие тесты; остальные попадают в результат как SKIPPED.
+        eligible: list[pathlib.Path] = []
+        skipped: dict[pathlib.Path, dict[str, Any]] = {}
+        for sol in sorted(paths):
+            skip = _preflight_skip(ctx, sol, test_dir)
+            if skip is None:
+                eligible.append(sol)
+            else:
+                skipped[sol] = skip
+        bench = ctx.run_microbench_mode(eligible, test_dir, number=number)
+        bench.update(skipped)
         all_bench_results.update(bench)
 
         if not bench:

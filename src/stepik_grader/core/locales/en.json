@@ -107,5 +107,6 @@
   "dialog_pick_file": "Select solution file (.py)",
   "dialog_pick_dir": "Select folder with solutions",
   "vscode_written": "✅ VS Code tasks created: {path}\n   Run: Terminal → Run Task → “Stepik: …”,\n   or Ctrl+Shift+B for “check current file”.",
-  "vscode_exists": "⚠️ File already exists: {path}\n   Delete/rename it to regenerate, or add the tasks manually (see README)."
+  "vscode_exists": "⚠️ File already exists: {path}\n   Delete/rename it to regenerate, or add the tasks manually (see README).",
+  "bench_skipped_not_ac": "did not pass the tests: {passed} of {total} (first failure: {verdict})"
 }

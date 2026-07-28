@@ -20,6 +20,9 @@ const VERDICT_BADGE = {
   // изоляции (#266, только --sandbox), красный. В web SANDBOX_VIOLATION пока
   // не пробрасывается (сервер не запускает --sandbox), запись — на будущее.
   CANCELLED: "badge badge-neutral",
+  // issue #729: решение не допущено к замеру (не прошло тесты) — это не сбой
+  // замера, а «нечего мерить», поэтому нейтральный бейдж, а не красный ERR.
+  SKIPPED: "badge badge-neutral",
   SANDBOX_VIOLATION: "badge badge-error",
   "NO TESTS": "badge badge-neutral",
   SIMILAR: "verdict-similar",
