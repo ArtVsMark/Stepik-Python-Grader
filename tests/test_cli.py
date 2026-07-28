@@ -1047,7 +1047,8 @@ def test_collect_lint_runs_ruff_when_available(monkeypatch, tmp_path) -> None:
 
     monkeypatch.setattr(lint, "ruff_available", lambda: True)
     sentinel = [lint.Violation(rule_code="F401", line_no=1, message="x")]
-    monkeypatch.setattr(lint, "run_lint", lambda sol: sentinel)
+    # issue #728: набор правил и preview передаются явно (ровно карточки базы).
+    monkeypatch.setattr(lint, "run_lint", lambda sol, *, select, preview=False: sentinel)
     sol = tmp_path / "s.py"
     sol.write_text("import os\n", encoding="utf-8")
     collected = commands._collect_lint([sol])

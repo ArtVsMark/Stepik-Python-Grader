@@ -93,3 +93,90 @@ def test_run_lint_skips_null_code(tmp_path) -> None:
     fake = subprocess.CompletedProcess([], 1, stdout=payload, stderr="")
     with patch("subprocess.run", return_value=fake):
         assert run_lint(f) == []
+
+
+# ---------------------------------------------------------------------------
+# select ровно по карточкам базы + preview (issue #728)
+# ---------------------------------------------------------------------------
+
+
+def test_lint_select_covers_exactly_bundled_cards() -> None:
+    """Набор для ruff строится из базы — разойтись они не могут по построению."""
+    from stepik_grader import rules
+
+    select = rules.lint_select()
+
+    assert select
+    assert select.split(",") == sorted(card.id for card in rules.bundled_rules().all())
+
+
+def test_empty_select_does_not_call_ruff(tmp_path) -> None:
+    """Пустая база → ruff не запускается вовсе (нечего проверять)."""
+    f = tmp_path / "x.py"
+    f.write_text("x=1\n", encoding="utf-8")
+
+    with patch("subprocess.run") as run:
+        assert run_lint(f, select="") == []
+
+    run.assert_not_called()
+
+
+@pytest.mark.skipif(not _HAS_RUFF, reason="ruff не установлен (extra [lint])")
+def test_every_bundled_code_is_known_to_ruff() -> None:
+    """Guard issue #728: карточка без живого правила ruff — мёртвая.
+
+    Ловит и опечатку в ``id`` карточки, и правило, удалённое/переименованное в
+    новой версии ruff. Именно отсутствие такой сверки позволило расхождению
+    накопиться незаметно.
+    """
+    import json
+    import sys
+
+    from stepik_grader import rules
+
+    proc = subprocess.run(
+        [sys.executable, "-m", "ruff", "rule", "--all", "--output-format", "json"],
+        capture_output=True,
+        check=True,
+    )
+    known = {rule["code"] for rule in json.loads(proc.stdout.decode("utf-8"))}
+
+    assert set(rules.bundled_rule_codes()) <= known
+
+
+@pytest.mark.skipif(not _HAS_RUFF, reason="ruff не установлен (extra [lint])")
+def test_preview_enables_whitespace_rules(tmp_path) -> None:
+    """issue #728: без --preview «школьные» E2xx/E3xx не срабатывали вовсе.
+
+    Именно они нужнее всего ученику: пробелы вокруг оператора, пробел после
+    запятой, пробелы в скобках, пустые строки между определениями.
+    """
+    from stepik_grader import rules
+
+    f = tmp_path / "bad_style.py"
+    f.write_text("x=1\ny = [ 1,2 ]\ndef f(a,b):\n    return a+b\n", encoding="utf-8")
+    select = rules.lint_select()
+
+    without_preview = {v.rule_code for v in run_lint(f, select=select)}
+    with_preview = {v.rule_code for v in run_lint(f, select=select, preview=True)}
+
+    assert {"E225", "E231", "E201", "E202"} <= with_preview
+    assert not {"E225", "E231", "E201", "E202"} & without_preview
+
+
+@pytest.mark.skipif(not _HAS_RUFF, reason="ruff не установлен (extra [lint])")
+def test_reported_codes_always_have_a_card(tmp_path) -> None:
+    """Ни один показанный код не остаётся без объяснения в разделе «Правила»."""
+    from stepik_grader import rules
+
+    f = tmp_path / "messy.py"
+    f.write_text(
+        "import os\nx=1\ny = [ 1,2 ]\nif x == None :\n    pass\n"
+        "try:\n    pass\nexcept:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    codes = {v.rule_code for v in run_lint(f, select=rules.lint_select(), preview=True)}
+
+    assert codes
+    assert codes <= set(rules.bundled_rule_codes())

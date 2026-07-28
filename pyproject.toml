@@ -44,8 +44,12 @@ e2e = [
 # issue #346: opt-in extra для PEP-проверки решения через ruff (core/lint.py,
 # раздел «Стиль»). ruff НЕ runtime-зависимость — тянется только при явной
 # установке этого extra; без него блок «Стиль» скрыт (LintUnavailable).
+# issue #728: часть нужных нам pycodestyle-правил у ruff в preview, а preview —
+# зона нестабильного API. Верхняя граница major-серии не даёт молча приехать
+# версии, где эти коды переименованы; guard-тест (tests/test_lint.py) поймает
+# расхождение раньше пользователя.
 lint = [
-    "ruff>=0.15",
+    "ruff>=0.15,<2.0",
 ]
 
 [project.scripts]

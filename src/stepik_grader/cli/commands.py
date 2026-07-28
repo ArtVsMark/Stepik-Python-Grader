@@ -117,7 +117,11 @@ def _collect_lint(
         return {}
     if not lint.ruff_available():
         return None
-    return {sol: lint.run_lint(sol) for sol in solutions}
+    # issue #728: набор правил — ровно карточки базы (rules/data/pep8_ru.json),
+    # с --preview: иначе половина карточек недостижима, а часть найденных кодов
+    # нечем объяснить. Строится в rules/ (Domain карточек), а не в core/lint.
+    select = rules.lint_select()
+    return {sol: lint.run_lint(sol, select=select, preview=True) for sol in solutions}
 
 
 def _print_lint_blocks(

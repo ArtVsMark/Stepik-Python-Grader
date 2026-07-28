@@ -155,3 +155,52 @@ def test_bundled_rules_missing_dir_returns_empty(monkeypatch: pytest.MonkeyPatch
     assert isinstance(provider, JsonRulesProvider)
     assert provider.all() == []
     json_provider._BUNDLED_CACHE.clear()  # не оставлять монки-состояние соседям
+
+
+# ---------------------------------------------------------------------------
+# Прикладной слой зовёт ruff набором из базы (issue #728)
+# ---------------------------------------------------------------------------
+
+
+def test_cli_collect_lint_uses_bundled_select_and_preview(tmp_path, monkeypatch) -> None:
+    """CLI: `--lint` гоняет ruff ровно по карточкам базы, с preview."""
+    from stepik_grader import rules
+    from stepik_grader.cli import commands
+
+    sol = tmp_path / "task1_1.py"
+    sol.write_text("x = 1\n", encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    monkeypatch.setattr(commands.lint, "ruff_available", lambda: True)
+    monkeypatch.setattr(
+        commands.lint,
+        "run_lint",
+        lambda path, *, select, preview=False: seen.update(select=select, preview=preview) or [],
+    )
+
+    commands._collect_lint([sol])
+
+    assert seen["select"] == rules.lint_select()
+    assert seen["preview"] is True
+
+
+def test_web_lint_records_use_bundled_select_and_preview(tmp_path, monkeypatch) -> None:
+    """Web пишет в историю тот же набор нарушений, что печатает CLI."""
+    from stepik_grader import rules
+    from stepik_grader.web import viewmodels
+
+    sol = tmp_path / "task1_1.py"
+    sol.write_text("x = 1\n", encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    monkeypatch.setattr(viewmodels, "_ruff_available_cached", lambda: True)
+    monkeypatch.setattr(
+        viewmodels.lint,
+        "run_lint",
+        lambda path, *, select, preview=False: seen.update(select=select, preview=preview) or [],
+    )
+
+    viewmodels._web_lint_records([sol])
+
+    assert seen["select"] == rules.lint_select()
+    assert seen["preview"] is True

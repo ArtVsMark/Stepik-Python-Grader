@@ -27,8 +27,16 @@ from pathlib import Path
 
 __all__ = ["DEFAULT_SELECT", "LintUnavailable", "Violation", "ruff_available", "run_lint"]
 
-# Наборы правил ruff по умолчанию: pycodestyle errors/warnings (E/W) +
-# pyflakes (F). Совпадает с карточками rules/data/pep8_ru.json (#345).
+# Широкие наборы ruff: pycodestyle errors/warnings (E/W) + pyflakes (F).
+#
+# issue #728: это НЕ то же, что карточки rules/data/pep8_ru.json, хотя прежний
+# комментарий так утверждал. Расхождение было двусторонним: ruff в этих наборах
+# знает ~110 правил (74 из них без карточки — объяснить нечем), а 17 карточек,
+# наоборот, недостижимы, потому что их правила у ruff в preview и без
+# ``--preview`` не срабатывают — молчали ровно «школьные» E2xx/E3xx про пробелы
+# и пустые строки. Прикладной слой зовёт ``run_lint`` с точным набором из самой
+# базы (``rules.lint_select()``, preview=True); этот константный набор остаётся
+# для прямых вызовов и обратной совместимости.
 DEFAULT_SELECT = "E,W,F"
 
 _RUFF_TIMEOUT_S = 30.0
@@ -67,8 +75,18 @@ def ruff_available() -> bool:
     return True
 
 
-def run_lint(file_path: Path, *, select: str = DEFAULT_SELECT) -> list[Violation]:
+def run_lint(
+    file_path: Path, *, select: str = DEFAULT_SELECT, preview: bool = False
+) -> list[Violation]:
     """Прогнать ruff по файлу решения → список нарушений (issue #346).
+
+    Args:
+        select: набор правил для ``ruff --select``. Пустая строка → ruff не
+            запускается вовсе (пустой список): нечего проверять.
+        preview: включить ``--preview`` (issue #728). Большинство
+            pycodestyle-правил про пробелы, отступы и пустые строки (E1xx/E2xx/
+            E3xx, W391) у ruff в preview — без флага они не срабатывают, и
+            ученик не видит ровно тех замечаний, которые ему нужнее всего.
 
     Raises:
         LintUnavailable: ruff не установлен (opt-in extra ``[lint]``).
@@ -77,6 +95,8 @@ def run_lint(file_path: Path, *, select: str = DEFAULT_SELECT) -> list[Violation
     нечитаемый файл — дают **пустой список** (best-effort): линт информационный
     и не должен ронять/менять проверку.
     """
+    if not select.strip():
+        return []
     cmd = [
         sys.executable,
         "-m",
@@ -86,6 +106,7 @@ def run_lint(file_path: Path, *, select: str = DEFAULT_SELECT) -> list[Violation
         "json",
         "--select",
         select,
+        *(["--preview"] if preview else []),
         str(file_path),
     ]
     try:

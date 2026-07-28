@@ -25,7 +25,9 @@ __all__ = [
     "JsonRulesProvider",
     "RulesError",
     "RulesProvider",
+    "bundled_rule_codes",
     "bundled_rules",
+    "lint_select",
 ]
 
 # Комплектная база карточек правил (каталог ``rules/data/*.json``, попадает в
@@ -162,3 +164,23 @@ def bundled_rules() -> JsonRulesProvider:
         on_error=RulesError,
     )
     return provider if provider is not None else JsonRulesProvider([])
+
+
+def bundled_rule_codes() -> tuple[str, ...]:
+    """Коды правил комплектной базы, отсортированные (``("E101", "E111", …)``)."""
+    return tuple(sorted(card.id for card in bundled_rules().all()))
+
+
+def lint_select() -> str:
+    """Значение ``--select`` для ruff, покрывающее ровно карточки базы (issue #728).
+
+    Линтер и витрина «Правила (PEP)» обязаны совпадать: код без карточки нечем
+    объяснить, а карточка без кода — мёртвая. Раньше `core/lint.py` звал ruff с
+    широким ``"E,W,F"``, и обе беды случились разом — 74 кода без карточек и 17
+    карточек, которые ruff вообще не выдавал (эти правила у него в preview).
+    Теперь набор строится из самой базы, поэтому разойтись он не может.
+
+    Пустая база (битый/отсутствующий источник) → ``""``: вызывающая сторона
+    трактует это как «линт недоступен» и не зовёт ruff вовсе.
+    """
+    return ",".join(bundled_rule_codes())
