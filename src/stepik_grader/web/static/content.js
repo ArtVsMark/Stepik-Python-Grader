@@ -379,6 +379,17 @@ function renderGlossaryDetail(card) {
     ? '<div class="form-label">' + esc(t("glossary.examples")) + "</div>" +
       card.examples.map(ex => '<pre class="code-block">' + esc(ex) + "</pre>").join("")
     : "";
+  // issue #684: связи карточки. Ссылки — обычные #/glossary/<id>: hash-роутер
+  // (app.js) их уже открывает, поэтому обработчики не нужны, а «открыть в новой
+  // вкладке» работает само. Подпись берём из загруженного списка (там человеческий
+  // title), с откатом на id, если карточка вне текущей выборки.
+  const related = glossaryLinkList(t("glossary.related"), card.related, id => id);
+  // related_errors хранит ИМЕНА исключений ("ValueError"), а id карточки — в
+  // нижнем регистре ("valueerror"); у модульных (sqlite3.DataError) id совпадает
+  // с именем, поэтому пробуем имя как есть, затем lower-case.
+  const relatedErrors = glossaryLinkList(
+    t("glossary.related_errors"), card.related_errors, name => name.toLowerCase()
+  );
   // Единственная внешняя ссылка карточки — официальная docs.python.org.
   // Ссылки на внешний Glossary-Python здесь нет (issue #684): он копия этой
   // базы, и переход туда уводил бы студента на устаревшую версию карточки.
@@ -394,7 +405,25 @@ function renderGlossaryDetail(card) {
     (card.body ? "<div>" + esc(card.body) + "</div>" : "") +
     syntax +
     examples +
+    related +
+    relatedErrors +
     links;
+}
+
+// Блок связей карточки: подпись + ссылки на другие карточки через "·".
+// toId переводит элемент списка в id карточки (для related — он и есть id,
+// для related_errors — имя исключения приводится к нижнему регистру).
+function glossaryLinkList(label, items, toId) {
+  if (!items || !items.length) return "";
+  const known = new Map((state.glossary.cards || []).map(c => [c.id, c.title]));
+  const links = items
+    .map(item => {
+      const id = toId(item);
+      const text = known.get(id) || item;
+      return '<a href="#/glossary/' + encodeURIComponent(id) + '">' + esc(text) + "</a>";
+    })
+    .join(" · ");
+  return '<div class="form-label">' + esc(label) + "</div><p>" + links + "</p>";
 }
 
 function setGlossaryView(view) {
