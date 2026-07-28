@@ -2637,9 +2637,20 @@ class TestAuthApi:
     ) -> None:
         """issue #723: истёкший токен обновляется без повторного ввода кредов.
 
-        Креды уже лежат в secrets.json — пустое тело не 400, а запуск job'а
-        (сам браузерный flow здесь не выполняется: job ставится в очередь).
+        Флоу мокается и job дожидается терминального состояния — 202 сам по себе
+        не значит «ничего не произошло»: воркер подхватывает job немедленно и
+        уходит в настоящий OAuth (браузер + ожидание кода до 120 с), занимая
+        единственный слот пула. Именно этого не хватало в первой версии теста.
         """
+        from stepik_grader.web import auth_adapter
+
+        captured: dict[str, object] = {}
+
+        def _fake_authorize(client_id, client_secret, redirect_uri, secrets_path):
+            captured["args"] = (client_id, client_secret, redirect_uri)
+            return {"access_token": "t"}
+
+        monkeypatch.setattr(auth_adapter, "authorize_and_get_token", _fake_authorize)
         (tmp_path / "secrets.json").write_text(
             json.dumps(
                 {
@@ -2654,7 +2665,10 @@ class TestAuthApi:
         status, body = _post(server + "/api/auth/start", b"{}")
 
         assert status == 202
-        assert json.loads(body)["run_id"]
+        run_id = json.loads(body)["run_id"]
+        assert _poll_run(server, run_id)["status"] == "done"
+        # Креды взяты из файла, а не из тела запроса — это и есть суть #723.
+        assert captured["args"] == ("a", "b", "http://localhost:8080/callback")
 
     def test_start_still_400_without_creds_anywhere(self, server: str) -> None:
         """Пустое тело и пустой secrets.json — по-прежнему 400 (#723)."""

@@ -29,3 +29,19 @@ def pytest_configure(config: pytest.Config) -> None:
         ),
         stacklevel=2,
     )
+
+
+@pytest.fixture(autouse=True)
+def _never_open_a_real_browser(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ни один тест не открывает окно браузера на машине разработчика.
+
+    Прецедент: тест `/api/auth/start` проверял только код ответа 202, полагая,
+    что job «просто встанет в очередь». Воркер подхватывает его сразу, поэтому
+    прогон открывал настоящую страницу авторизации Stepik и вставал на 120 с в
+    ожидании OAuth-кода — заодно занимая единственный слот пула, отчего сыпались
+    таймаутами все последующие job-тесты.
+
+    Тесты, которым нужен сам факт вызова, патчат `webbrowser.open` сами — их
+    патч ставится позже и перекрывает эту заглушку.
+    """
+    monkeypatch.setattr("webbrowser.open", lambda *_a, **_k: False)
