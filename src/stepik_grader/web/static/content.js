@@ -423,7 +423,13 @@ function glossaryLinkList(label, items, toId) {
       return '<a href="#/glossary/' + encodeURIComponent(id) + '">' + esc(text) + "</a>";
     })
     .join(" · ");
-  return '<div class="form-label">' + esc(label) + "</div><p>" + links + "</p>";
+  return (
+    '<div class="glossary-links"><div class="form-label">' +
+    esc(label) +
+    "</div><p>" +
+    links +
+    "</p></div>"
+  );
 }
 
 function setGlossaryView(view) {

@@ -705,6 +705,16 @@ a.term-card-link:hover { background: var(--color-surface-offset); }
 .term-card-kind { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; }
 /* метод-эвристика (тип получателя неизвестен) — точка-маркер неуверенности */
 .term-card-uncertain .term-card-title::after { content: " ~"; color: var(--color-text-faint); }
+/* issue #684: ссылки внутри карточки глоссария — связи («Смотрите также»,
+   «Возможные ошибки») и ссылка на документацию. Без этого правила они рисуются
+   браузерным #0000ee: на тёмной теме это нечитаемо. */
+#glossary-detail-content a { color: var(--color-primary); text-decoration: none; }
+#glossary-detail-content a:hover { text-decoration: underline; }
+/* Блоки связей идут подряд («Смотрите также» + «Возможные ошибки»), и без
+   отступа сливаются в одну простыню: у соседних блоков воздух дают рамки
+   .code-block, а у списка ссылок их нет. */
+.glossary-links { margin-top: var(--space-3); }
+.glossary-links p { line-height: 1.8; }
 .sandbox-errcard {
   display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
   padding: var(--space-2) var(--space-3); margin-bottom: var(--space-3);
