@@ -23,20 +23,27 @@ from stepik_grader.core.stepik_reference import (
     DEFAULT_MAX_TOP,
     import_references_from_task_dir,
 )
-from stepik_grader.web.downloader_adapter import _resolve_config
+from stepik_grader.web.downloader_adapter import secrets_path_for
 
 __all__ = ["import_reference"]
 
 
-def import_reference(path: str, *, top: int = DEFAULT_MAX_TOP) -> dict[str, Any]:
+def import_reference(
+    path: str, *, top: int = DEFAULT_MAX_TOP, workspace: pathlib.Path | None = None
+) -> dict[str, Any]:
     """Импортировать закреплённое решение Stepik в папку задачи — web (issue #55).
 
     Возвращает ``{"ok", "files", "message"}``. ``ok=False`` — понятная ошибка
     (нет secrets/OAuth/сеть/нет ветки/нет решений); никогда не бросает и не
     роняет сервер в 500 (паттерн ``downloader_adapter.download_task``).
     ``files`` — имена сохранённых ``task{N}_{100+}.py`` при успехе.
+
+    ``workspace`` — рабочая директория сервера, относительно неё ищется
+    ``stepik_config.json`` с путём к ``secrets.json`` (issue #723); ``None`` —
+    текущая директория процесса.
     """
-    _root_dir, secrets_path = _resolve_config(None)
+    base = workspace if workspace is not None else pathlib.Path.cwd()
+    secrets_path = secrets_path_for(base)
 
     try:
         secrets = load_secrets_dict(secrets_path)

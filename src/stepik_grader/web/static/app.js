@@ -1,7 +1,7 @@
 // app.js — entry: связывание слушателей и bootstrap; импортирует модули (#426).
 import { loadGlossary, loadRules, parseGlossaryHash, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
 import { $, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
-import { downloadTask, loadAuthStatus, startBrowserAuth } from "./downloader.js";
+import { downloadTask, handleDownloaderClick, loadAuthStatus, loadDownloaderConfig } from "./downloader.js";
 import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, restoreProfiles, runCommand, saveSolution, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility, updateRepeatsCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
 import { drawMemArrows, renderTraceStep } from "./trace-player.js";
@@ -23,6 +23,12 @@ function setLang(value) {
   // тултип бейджа OS-изоляции и (если открыты «Настройки») статус истории.
   initExecModeBadge();
   if (state.section === "settings") setSection("settings"); // хук → syncSettingsControls
+  // issue #723: панель доступа и строка «Куда скачивать» рисуются один раз при
+  // входе в раздел — сами язык не догонят, перерисовываем их явно.
+  if (state.section === "downloader") {
+    loadAuthStatus();
+    loadDownloaderConfig();
+  }
   // issue #363: контент глоссария локализуется сервером по ?lang=. Сбрасываем
   // кеш карточек и, если раздел открыт, перезагружаем — summary/body сменят
   // язык без перезагрузки страницы; ранее открытая карточка переоткрывается.
@@ -283,13 +289,9 @@ $("#downloader-run").addEventListener("click", downloadTask);
 $("#downloader-url").addEventListener("keydown", e => {
   if (e.key === "Enter") downloadTask();
 });
-// issue #402: кнопки мастера авторизации рендерятся динамически — делегирование.
-$("#auth-panel").addEventListener("click", e => {
-  const t = e.target;
-  if (!t) return;
-  if (t.id === "auth-start") startBrowserAuth();
-  else if (t.id === "auth-recheck") loadAuthStatus();
-});
+// issue #402/#723: кнопки панели доступа и строки «Куда скачивать» рисуются
+// динамически — делегирование на секцию, вся ветвистость внутри downloader.js.
+$("#view-downloader").addEventListener("click", handleDownloaderClick);
 $("#theme-toggle").addEventListener("click", cycleTheme);
 // issue #659: язык переключается в topbar. Селекты «Настроек» убраны — они
 // дублировали тумблеры; тема живёт на #theme-toggle (cycleTheme выше).

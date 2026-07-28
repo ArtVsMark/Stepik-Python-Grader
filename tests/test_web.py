@@ -2580,7 +2580,11 @@ class TestAuthApi:
     def test_status_no_secrets(self, server: str) -> None:
         status, body = _get(server + "/api/auth/status")
         assert status == 200
-        assert json.loads(body) == {"authorized": False, "reason": "no_secrets"}
+        assert json.loads(body) == {
+            "authorized": False,
+            "reason": "no_secrets",
+            "secrets_path": "secrets.json",
+        }
 
     def test_status_ok_with_valid_token(self, server: str, tmp_path: pathlib.Path) -> None:
         import time
@@ -2599,13 +2603,48 @@ class TestAuthApi:
         )
         status, body = _get(server + "/api/auth/status")
         assert status == 200
-        assert json.loads(body) == {"authorized": True, "reason": "ok"}
+        assert json.loads(body) == {
+            "authorized": True,
+            "reason": "ok",
+            "secrets_path": "secrets.json",
+        }
 
     def test_start_requires_creds(self, server: str) -> None:
         status, body = _post(
             server + "/api/auth/start",
             json.dumps({"client_id": "only-id"}).encode("utf-8"),
         )
+        assert status == 400
+        assert json.loads(body)["message_id"] == "specify_oauth_creds"
+
+    def test_start_reuses_stored_creds_on_empty_body(
+        self, server: str, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """issue #723: истёкший токен обновляется без повторного ввода кредов.
+
+        Креды уже лежат в secrets.json — пустое тело не 400, а запуск job'а
+        (сам браузерный flow здесь не выполняется: job ставится в очередь).
+        """
+        (tmp_path / "secrets.json").write_text(
+            json.dumps(
+                {
+                    "client_id": "a",
+                    "client_secret": "b",
+                    "redirect_uri": "http://localhost:8080/callback",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        status, body = _post(server + "/api/auth/start", b"{}")
+
+        assert status == 202
+        assert json.loads(body)["run_id"]
+
+    def test_start_still_400_without_creds_anywhere(self, server: str) -> None:
+        """Пустое тело и пустой secrets.json — по-прежнему 400 (#723)."""
+        status, body = _post(server + "/api/auth/start", b"{}")
+
         assert status == 400
         assert json.loads(body)["message_id"] == "specify_oauth_creds"
 
@@ -2670,7 +2709,11 @@ class TestAuthApi:
         )
         status, body = _get(server + "/api/auth/status")
         assert status == 200
-        assert json.loads(body) == {"authorized": False, "reason": "no_token"}
+        assert json.loads(body) == {
+            "authorized": False,
+            "reason": "no_token",
+            "secrets_path": "secrets.json",
+        }
 
     def test_start_flow_error_becomes_error_status(
         self, server: str, monkeypatch: pytest.MonkeyPatch
@@ -2706,7 +2749,11 @@ class TestApiImportReference:
     ) -> None:
         monkeypatch.setattr(
             self._TARGET,
-            lambda path, *, top=5: {"ok": True, "files": ["task3_100.py"], "message": "ok"},
+            lambda path, *, top=5, workspace=None: {
+                "ok": True,
+                "files": ["task3_100.py"],
+                "message": "ok",
+            },
         )
         task_dir = tmp_path / "task"
         task_dir.mkdir()
@@ -2734,7 +2781,9 @@ class TestApiImportReference:
         called: list[int] = []
         monkeypatch.setattr(
             self._TARGET,
-            lambda path, *, top=5: called.append(1) or {"ok": True, "files": [], "message": ""},
+            lambda path, *, top=5, workspace=None: (
+                called.append(1) or {"ok": True, "files": [], "message": ""}
+            ),
         )
         outside = tmp_path_factory.mktemp("outside")
         status, _ = _post(
@@ -2749,7 +2798,10 @@ class TestApiImportReference:
         # ошибка цепочки (нет ветки/решений) — HTTP 200, ok=False (паттерн download)
         monkeypatch.setattr(
             self._TARGET,
-            lambda path, *, top=5: {"ok": False, "message": "У задачи нет ветки решений"},
+            lambda path, *, top=5, workspace=None: {
+                "ok": False,
+                "message": "У задачи нет ветки решений",
+            },
         )
         task_dir = tmp_path / "t"
         task_dir.mkdir()
@@ -2765,7 +2817,9 @@ class TestApiImportReference:
         seen: dict[str, int] = {}
         monkeypatch.setattr(
             self._TARGET,
-            lambda path, *, top=5: seen.update(top=top) or {"ok": True, "files": [], "message": ""},
+            lambda path, *, top=5, workspace=None: (
+                seen.update(top=top) or {"ok": True, "files": [], "message": ""}
+            ),
         )
         task_dir = tmp_path / "t"
         task_dir.mkdir()
@@ -2780,9 +2834,9 @@ class TestReferenceAdapterUnit:
     _MOD = "stepik_grader.web.reference_adapter"
 
     def _patch_config(self, monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
-        monkeypatch.setattr(
-            self._MOD + "._resolve_config", lambda _root: (tmp_path, tmp_path / "secrets.json")
-        )
+        # issue #723: адаптер спрашивает путь к secrets.json у общей
+        # `secrets_path_for(workspace)`, а не у приватного `_resolve_config`.
+        monkeypatch.setattr(self._MOD + ".secrets_path_for", lambda _ws: tmp_path / "secrets.json")
 
     def test_no_secrets_returns_ok_false(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
@@ -2932,3 +2986,100 @@ class TestAiHintApi:
         status, resp = _post(server + "/api/v1/hint", body)
         assert status == 403
         assert json.loads(resp)["message_id"] == "path_outside_workspace"
+
+
+# ---------------------------------------------------------------------------
+# Конфиг загрузчика — /api/downloader/config (issue #723/#725)
+# ---------------------------------------------------------------------------
+
+
+class TestDownloaderConfigApi:
+    def test_get_returns_defaults_when_not_configured(self, server: str) -> None:
+        """Нет stepik_config.json — не ошибка: дефолты и configured=False."""
+        status, body = _get(server + "/api/downloader/config")
+        data = json.loads(body)
+
+        assert status == 200
+        assert data["root_dir"] == "StepikTasks"
+        assert data["secrets_path"] == "secrets.json"
+        assert data["configured"] is False
+        assert data["secrets_exists"] is False
+
+    def test_post_writes_config_and_get_reads_it_back(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        status, body = _post(
+            server + "/api/downloader/config",
+            json.dumps({"root_dir": "Tasks"}).encode("utf-8"),
+        )
+        data = json.loads(body)
+
+        assert status == 200
+        assert data["ok"] is True
+        assert data["root_dir"] == "Tasks"
+        assert (tmp_path / "stepik_config.json").is_file()
+        _status, body2 = _get(server + "/api/downloader/config")
+        assert json.loads(body2)["root_dir"] == "Tasks"
+        assert json.loads(body2)["configured"] is True
+
+    def test_post_keeps_untouched_field(self, server: str) -> None:
+        """Правка корневой папки не стирает secrets_path (и наоборот)."""
+        _post(
+            server + "/api/downloader/config",
+            json.dumps({"secrets_path": "creds.json"}).encode("utf-8"),
+        )
+        _status, body = _post(
+            server + "/api/downloader/config",
+            json.dumps({"root_dir": "Tasks"}).encode("utf-8"),
+        )
+
+        assert json.loads(body)["secrets_path"] == "creds.json"
+
+    def test_post_reports_auth_state_for_new_path(self, server: str) -> None:
+        """Ответ несёт статус авторизации по НОВОМУ пути — UI сразу знает вердикт."""
+        _status, body = _post(
+            server + "/api/downloader/config",
+            json.dumps({"secrets_path": "nope.json"}).encode("utf-8"),
+        )
+
+        assert json.loads(body)["auth"] == {"authorized": False, "reason": "no_secrets"}
+
+    def test_post_rejects_path_outside_workspace(self, server: str) -> None:
+        """Путь вне рабочей директории — 403, как у root в /api/download (#401)."""
+        status, _body = _post(
+            server + "/api/downloader/config",
+            json.dumps({"secrets_path": "../outside.json"}).encode("utf-8"),
+        )
+
+        assert status == 403
+
+    def test_auth_status_follows_configured_secrets_path(
+        self, server: str, tmp_path: pathlib.Path
+    ) -> None:
+        """issue #723: статус смотрит туда же, куда ходит скачивание."""
+        import time
+
+        (tmp_path / "creds.json").write_text(
+            json.dumps(
+                {
+                    "client_id": "a",
+                    "client_secret": "b",
+                    "redirect_uri": "c",
+                    "access_token": "tok",
+                    "expires_at": time.time() + 3600,
+                }
+            ),
+            encoding="utf-8",
+        )
+        _post(
+            server + "/api/downloader/config",
+            json.dumps({"secrets_path": "creds.json"}).encode("utf-8"),
+        )
+
+        _status, body = _get(server + "/api/auth/status")
+
+        assert json.loads(body) == {
+            "authorized": True,
+            "reason": "ok",
+            "secrets_path": "creds.json",
+        }

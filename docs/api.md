@@ -42,6 +42,8 @@
 - [`POST /api/v1/settings`](#post-apiv1settings)
 - [`POST /api/stepik/submit`](#post-apistepiksubmit)
 - [`GET /api/auth/status`](#get-apiauthstatus)
+- [`GET /api/downloader/config`](#get-apidownloaderconfig)
+- [`POST /api/downloader/config`](#post-apidownloaderconfig)
 - [`POST /api/auth/start`](#post-apiauthstart)
 
 ---
@@ -599,30 +601,71 @@ curl -X POST http://127.0.0.1:8000/api/stepik/submit \
 
 ## `GET /api/auth/status`
 
-Статус OAuth-авторизации Stepik по `secrets.json` в рабочей директории сервера
-(issue #402). Читает только локальный файл, сети не касается.
+Статус OAuth-авторизации Stepik по `secrets.json` (issue #402). Путь к файлу —
+из `stepik_config.json` рабочей директории, тот же, что использует скачивание
+(issue #723). Читает только локальный файл, сети не касается.
 
-**200** `{"authorized": bool, "reason": "ok"|"no_token"|"no_secrets"}`:
-`ok` — валидный токен; `no_token` — креды есть, но токена нет/истёк (нужен
-браузерный flow); `no_secrets` — файла нет или креды неполные (нужна форма).
-Битый/нечитаемый файл трактуется как `no_secrets` (best-effort, не 500).
+**200** `{"authorized": bool, "reason": "ok"|"no_token"|"no_secrets",
+"secrets_path": "secrets.json"}`: `ok` — валидный токен; `no_token` — креды
+есть, но токена нет/истёк (нужен браузерный flow); `no_secrets` — файла нет или
+креды неполные (нужна форма). `secrets_path` — путь, по которому смотрели
+(относительный, если внутри рабочей директории). Битый/нечитаемый файл
+трактуется как `no_secrets` (best-effort, не 500).
 
 ```
 curl http://127.0.0.1:8000/api/auth/status
 ```
 
+## `GET /api/downloader/config`
+
+Конфиг загрузчика из `stepik_config.json` рабочей директории (issue #723/#725) —
+единый источник и для скачивания, и для статуса авторизации.
+
+**200** `{"root_dir": "StepikTasks", "secrets_path": "secrets.json",
+"root_dir_default": "StepikTasks", "secrets_exists": bool, "configured": bool}`.
+Пути — относительные, если лежат внутри рабочей директории. `configured` —
+существует ли сам `stepik_config.json` (то есть отличает первый запуск от
+повторного); отсутствие файла не ошибка, отдаются дефолты.
+
+```
+curl http://127.0.0.1:8000/api/downloader/config
+```
+
+## `POST /api/downloader/config`
+
+Сохранить конфиг загрузчика (issue #723/#725). Тело —
+`{"root_dir"?: "...", "secrets_path"?: "..."}`; пишутся только переданные поля,
+остальные сохраняют текущее значение (правка корневой папки из web не стирает
+`secrets_path`, выставленный из CLI).
+
+- Успех → **200** `{"ok": true, <поля GET /api/downloader/config>, "auth":
+  {"authorized": bool, "reason": "..."}}` — статус считается уже по новому пути,
+  поэтому UI сразу говорит «файл рабочий» или «токена нет».
+- Путь вне рабочей директории → **403** `path_outside_workspace` (как `root` у
+  `POST /api/download`, issue #401).
+
+```
+curl -X POST http://127.0.0.1:8000/api/downloader/config \
+  -H 'Content-Type: application/json' \
+  -d '{"root_dir":"StepikTasks"}'
+```
+
 ## `POST /api/auth/start`
 
 Запустить браузерный OAuth-flow первого запуска (issue #402). Тело —
-`{"client_id": "...", "client_secret": "...", "redirect_uri"?: "..."}`
+`{"client_id"?: "...", "client_secret"?: "...", "redirect_uri"?: "..."}`
 (`redirect_uri` по умолчанию `http://localhost:8080/callback`). Пишет креды в
-`secrets.json` (0600) и стартует loopback-OAuth как async-job (`kind="auth"`);
-опрос прогресса/итога — через `GET /api/v1/runs/<id>` (как у bench/microbench).
+`secrets.json` (0600, путь — из `stepik_config.json`) и стартует loopback-OAuth
+как async-job (`kind="auth"`); опрос прогресса/итога — через
+`GET /api/v1/runs/<id>` (как у bench/microbench).
 
 - Успех → **202** `{"run_id": "...", "status": "queued"}`; job по завершении —
   `{"status": "done", "result": {"authorized": true, "reason": "ok"}}`.
-- Нет `client_id`/`client_secret` → **400** `{"kind": "error", message_id:
-  specify_oauth_creds}`.
+- Тело может быть пустым, если креды уже лежат в `secrets.json` (issue #723):
+  истёкший токен обновляется одной кнопкой, без повторного ввода
+  `client_id`/`client_secret`.
+- Нет `client_id`/`client_secret` ни в теле, ни в файле → **400**
+  `{"kind": "error", message_id: specify_oauth_creds}`.
 - Общие POST-гарды (`Content-Length`, Host/Origin/Fetch-Metadata) — как у всех
   POST `/api/*`.
 
