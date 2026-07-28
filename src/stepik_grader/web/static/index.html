@@ -72,12 +72,6 @@
           </div>
           <button id="run" class="btn btn-primary" data-i18n="check.run">▶ Запустить</button>
           <button id="cancel-run" class="btn btn-secondary" hidden data-i18n="check.cancel">Отменить</button>
-          <!-- issue #683: отправка решения режима 1 на Stepik. Видна только в режиме
-               «Один файл» (setMode), активна лишь после полного AC; клик требует
-               подтверждения (необратимое действие на платформе). -->
-          <button id="stepik-submit" class="btn btn-secondary" hidden disabled
-                  data-i18n="stepik.submit" data-i18n-title="stepik.submit_title"
-                  title="Отправить решение на Stepik — доступно после прохождения всех тестов">↑ Отправить в Stepik</button>
         </div>
       </div>
 
@@ -143,6 +137,14 @@
             <div id="file-picker-group" hidden>
               <div class="row mb-3">
                 <button id="find-solutions-btn" class="btn btn-secondary" type="button" data-i18n="check.find_solutions">Найти решения</button>
+                <!-- issue #683: отправка решения режима 1 на Stepik. Активна лишь
+                     после полного AC; клик требует подтверждения (необратимое
+                     действие на платформе). Живёт здесь, а не в шапке: блок
+                     виден только в режиме 1, и её появление там сдвигало
+                     переключатель режимов при каждом переключении. -->
+                <button id="stepik-submit" class="btn btn-secondary" type="button" disabled
+                        data-i18n="stepik.submit" data-i18n-title="stepik.submit_title"
+                        title="Отправить решение на Stepik — доступно после прохождения всех тестов">↑ Отправить в Stepik</button>
                 <button id="find-reference-btn" class="btn btn-secondary" type="button"
                         title="Импортировать закреплённое решение Stepik (+топовые) из ветки решений как эталон для сравнения"
                         data-i18n="check.find_reference" data-i18n-title="check.find_reference_title">Найти эталонное решение</button>

@@ -523,7 +523,10 @@ select.form-input { cursor: pointer; }
   color: var(--color-text-muted); background: var(--color-surface); text-align: center; cursor: pointer;
 }
 .mode-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.mode-btn.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
+/* Без смены font-weight у активной кнопки: жирное начертание расширяло свою
+   колонку грида, и весь переключатель ездил на 6 px при выборе режима с длинной
+   подписью («Микробенчмарк»). Акцент и так несут фон, рамка и цвет. */
+.mode-btn.active { background: var(--color-primary-highlight); border-color: var(--color-primary); color: var(--color-primary); }
 .mode-btn.disabled { opacity: .5; pointer-events: none; cursor: default; }
 .mode-btn-sub { font-weight: 400; opacity: .7; }
 
