@@ -1127,6 +1127,18 @@ function renderDetailPanel() {
   const c = getSelectedCase();
   const empty = $("#detail-empty");
   const content = $("#detail-content");
+  // issue #731: в режимах 3/4 выбирать нечего — строка таблицы там агрегат по
+  // решению, а не тест-кейс, поэтому вкладка всегда показывала «Кейс не
+  // выбран» с невыполнимым советом. Вместо этого — сравнение решений по
+  // скорости: ради него режимы и существуют.
+  const compare = renderCompareChart();
+  if (compare !== null) {
+    empty.hidden = true;
+    content.hidden = false;
+    content.innerHTML = compare;
+    applyCompareGeometry();
+    return;
+  }
   if (!c) {
     empty.hidden = false;
     content.hidden = true;
@@ -1200,6 +1212,83 @@ function renderDetailPanel() {
     );
   }
   renderActionCards();
+}
+
+// -- Диаграмма сравнения решений (вкладка «Разбор» режимов 3/4, issue #731) --
+
+/**
+ * HTML диаграммы сравнения или null, если она неуместна (режимы 1/2, нет
+ * результата). null означает «рисуй обычный разбор тест-кейса».
+ *
+ * Бар — медиана, усы — разброс min–max, масштаб общий для всех решений (по
+ * самому большому max), поэтому строки сравнимы глазом. Кратность «×N.N»
+ * считается по `relative`, который уже посчитал бэкенд.
+ */
+function renderCompareChart() {
+  const res = state.lastResult;
+  if (!res || (res.mode !== "bench" && res.mode !== "microbench")) return null;
+  const micro = res.mode === "microbench";
+  const all = res.rows || [];
+  const rows = all.filter(r => !r.error);
+  const failed = all.length - rows.length;
+  if (!rows.length) return '<p class="msg-neutral">' + esc(t("grade.compare_empty")) + "</p>";
+
+  const median = r => (micro ? r.median_us : r.median_s) || 0;
+  const low = r => (micro ? r.min_us : r.min_s) || 0;
+  const high = r => (micro ? r.max_us : r.max_s) || 0;
+  const label = r => (micro ? r.median_us + " µs" : r.median);
+  const scale = Math.max(...rows.map(high), ...rows.map(median)) || 1;
+  const pct = v => Math.max(0, Math.min(100, (v / scale) * 100));
+
+  const items = rows
+    .map(r => {
+      const times = Math.max(1, (r.relative || 100) / 100);
+      const factor = times < 1.05 ? t("grade.compare_best") : "×" + times.toFixed(1);
+      const whiskerLeft = pct(low(r));
+      const whiskerWidth = Math.max(0.5, pct(high(r)) - whiskerLeft);
+      return (
+        '<div class="cmp-row">' +
+        '<div class="cmp-name mono">' + esc(r.file) + "</div>" +
+        '<div class="cmp-track" aria-hidden="true">' +
+        '<div class="cmp-bar' + (r.verdict === "REFERENCE" ? " cmp-bar-ref" : "") +
+        '" data-w="' + pct(median(r)).toFixed(2) + '"></div>' +
+        '<div class="cmp-whisker" data-l="' + whiskerLeft.toFixed(2) +
+        '" data-w="' + whiskerWidth.toFixed(2) + '"></div>' +
+        "</div>" +
+        '<div class="cmp-value mono">' + esc(label(r)) + "</div>" +
+        '<div class="cmp-factor">' + esc(factor) + "</div>" +
+        "</div>"
+      );
+    })
+    .join("");
+
+  const excluded = failed
+    ? '<p class="hint">' + esc(tp(failed, "grade.compare_excluded")) + "</p>"
+    : "";
+  return (
+    '<div class="cmp-chart">' +
+    '<div class="section-heading">' + esc(t("grade.compare_title")) + "</div>" +
+    items +
+    '<p class="hint">' + esc(t("grade.compare_legend")) + "</p>" +
+    excluded +
+    "</div>"
+  );
+}
+
+/**
+ * Проставить геометрию баров после вставки в DOM (issue #563/#731).
+ *
+ * Ширины идут через CSSOM, а не инлайновым style= в HTML-строке: строгий CSP
+ * (`style-src 'self'`) инлайновые стили блокирует.
+ */
+function applyCompareGeometry() {
+  document.querySelectorAll("#detail-content .cmp-bar").forEach(el => {
+    el.style.width = el.dataset.w + "%";
+  });
+  document.querySelectorAll("#detail-content .cmp-whisker").forEach(el => {
+    el.style.left = el.dataset.l + "%";
+    el.style.width = el.dataset.w + "%";
+  });
 }
 
 function renderBench(rows) {

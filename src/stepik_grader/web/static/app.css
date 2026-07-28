@@ -435,6 +435,18 @@ a, button, [role="button"] {
 .data-table .bench-error-cell {
   color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 0;
 }
+/* issue #731: диаграмма сравнения решений во вкладке «Разбор» режимов 3/4.
+   Ширины баров ставит JS через CSSOM (строгий CSP запрещает инлайн-стили). */
+.cmp-chart { display: flex; flex-direction: column; gap: var(--space-2); }
+.cmp-row { display: grid; grid-template-columns: minmax(80px, 1.4fr) minmax(120px, 4fr) auto auto; align-items: center; gap: var(--space-3); font-size: var(--text-xs); }
+.cmp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text); }
+.cmp-track { position: relative; height: 18px; background: var(--color-surface-offset); border-radius: var(--radius-sm); overflow: hidden; }
+.cmp-bar { position: absolute; inset-block: 0; left: 0; background: var(--color-primary); border-radius: var(--radius-sm); opacity: 0.75; }
+.cmp-bar-ref { background: var(--color-success); }
+.cmp-whisker { position: absolute; top: 50%; height: 2px; background: var(--color-text-muted); transform: translateY(-50%); }
+.cmp-value { color: var(--color-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cmp-factor { color: var(--color-text-faint); white-space: nowrap; min-width: 3.5em; text-align: right; }
+
 .bench-errors { padding: 0 var(--space-4) var(--space-4); }
 .bench-error { border: 1px solid var(--color-divider); border-radius: var(--radius-md); margin-bottom: var(--space-2); }
 .bench-error > summary {

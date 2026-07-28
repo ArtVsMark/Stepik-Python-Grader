@@ -367,7 +367,14 @@
     "auth.reconfigure": "Настроить заново",
     "auth.token_expired": "Токен истёк",
     "auth.reauth_btn": "Авторизоваться заново",
-    "downloader.panel_download": "Скачать задачу"
+    "downloader.panel_download": "Скачать задачу",
+    "grade.compare_title": "Сравнение решений",
+    "grade.compare_legend": "Полоса — медиана, тонкая линия — разброс от минимума до максимума; «×N» — во столько раз медленнее лучшего.",
+    "grade.compare_best": "лучшее",
+    "grade.compare_empty": "Сравнивать нечего: ни одно решение не отработало.",
+    "grade.compare_excluded.one": "{n} решение не участвует — ошибка выполнения",
+    "grade.compare_excluded.few": "{n} решения не участвуют — ошибка выполнения",
+    "grade.compare_excluded.many": "{n} решений не участвуют — ошибка выполнения"
   },
   "en": {
     "a11y.skip_to_content": "Skip to content",
@@ -737,6 +744,13 @@
     "auth.reconfigure": "Set up again",
     "auth.token_expired": "Token expired",
     "auth.reauth_btn": "Authorize again",
-    "downloader.panel_download": "Download a task"
+    "downloader.panel_download": "Download a task",
+    "grade.compare_title": "Solution comparison",
+    "grade.compare_legend": "Bar — median, thin line — spread from min to max; «×N» — how many times slower than the best one.",
+    "grade.compare_best": "best",
+    "grade.compare_empty": "Nothing to compare: no solution completed a run.",
+    "grade.compare_excluded.one": "{n} solution excluded — runtime error",
+    "grade.compare_excluded.few": "{n} solutions excluded — runtime error",
+    "grade.compare_excluded.many": "{n} solutions excluded — runtime error"
   }
 }

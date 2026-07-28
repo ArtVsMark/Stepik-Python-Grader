@@ -338,6 +338,21 @@ class TestGradeBenchmark:
         assert row["runs"] >= 1
         assert isinstance(row["median"], str)  # отформатировано fmt_time
 
+    def test_benchmark_row_carries_raw_seconds(self, tmp_path: pathlib.Path) -> None:
+        """issue #731: диаграмме сравнения нужны числа, а не «144.812 ms».
+
+        Строковые колонки остаются — таблица показывает величины с единицами;
+        числа идут рядом, чтобы фронт не парсил обратно то, что мы отформатировали.
+        """
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+
+        row = web.grade_benchmark(sol, repeats=3)["rows"][0]
+
+        for key in ("min_s", "median_s", "max_s"):
+            assert isinstance(row[key], float)
+        assert row["min_s"] <= row["median_s"] <= row["max_s"]
+        assert isinstance(row["median"], str)
+
     def test_benchmark_dir_ranks_all_solutions(self, tmp_path: pathlib.Path) -> None:
         (tmp_path / "tests").mkdir()
         (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
