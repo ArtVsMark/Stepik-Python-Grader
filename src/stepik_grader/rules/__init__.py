@@ -13,7 +13,9 @@ from .json_provider import (
     JsonRulesProvider,
     RulesError,
     RulesProvider,
+    bundled_rule_codes,
     bundled_rules,
+    lint_select,
 )
 from .models import RuleCard, RuleSeverity, RuleStatus
 
@@ -25,5 +27,7 @@ __all__ = [
     "RuleStatus",
     "RulesError",
     "RulesProvider",
+    "bundled_rule_codes",
     "bundled_rules",
+    "lint_select",
 ]

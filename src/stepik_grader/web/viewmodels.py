@@ -19,6 +19,7 @@ from collections import Counter
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from stepik_grader import rules
 from stepik_grader.config import CONFIG
 from stepik_grader.core import history, history_recording, lint
 from stepik_grader.core.error_glossary import resolve_error_hint
@@ -477,8 +478,12 @@ def _web_lint_records(solutions: list[pathlib.Path]) -> list[history.LintRecord]
     """
     if not _ruff_available_cached():
         return []
+    # issue #728: тот же набор, что в CLI — ровно карточки базы, с --preview.
+    select = rules.lint_select()
     try:
-        violations = [v for sol in solutions for v in lint.run_lint(sol)]
+        violations = [
+            v for sol in solutions for v in lint.run_lint(sol, select=select, preview=True)
+        ]
     except (lint.LintUnavailable, OSError):
         return []
     return history_recording.lint_records_from_violations(violations)
