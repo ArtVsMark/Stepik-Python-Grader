@@ -102,18 +102,29 @@
 
             <!-- issue #366: параметры режимов 3/4 — инлайн под полем пути (вкладок
                  конфиг-панели больше нет); setMode() показывает нужный блок по
-                 режиму: repeats → bench (3), микро-профиль → microbench (4). -->
-            <div class="form-group" id="repeats-group" hidden>
-              <label class="form-label" for="repeats" data-i18n="check.repeats_label">Повторов на тест-кейс</label>
-              <select class="form-input" id="repeats">
-                <option value="5" data-i18n="check.repeats_low">низкий · 5</option>
-                <option value="15" selected data-i18n="check.repeats_medium">средний · 15</option>
-                <option value="50" data-i18n="check.repeats_high">высокий · 50</option>
-              </select>
+                 режиму: bench-профиль → bench (3), микро-профиль → microbench (4).
+                 issue #727: оба блока — одной структуры (профиль + «свой…» с
+                 полем числа) и с подписью одного вида: раньше режим 3 был
+                 обрезанным вариантом того же контрола, без своего значения,
+                 хотя CLI (_BENCH_PROFILES, cli/interactive.py) его давно умеет. -->
+            <div id="bench-config" hidden>
+              <div class="form-group">
+                <label class="form-label" for="repeats" data-i18n="check.repeats_label">Профиль нагрузки (повторов на тест-кейс)</label>
+                <select class="form-input" id="repeats">
+                  <option value="5" data-i18n="check.repeats_low">низкий · 5</option>
+                  <option value="15" selected data-i18n="check.repeats_medium">средний · 15</option>
+                  <option value="50" data-i18n="check.repeats_high">высокий · 50</option>
+                  <option value="custom" data-i18n="check.repeats_custom">свой…</option>
+                </select>
+              </div>
+              <div class="form-group" id="repeats-custom-group" hidden>
+                <label class="form-label" for="repeats-custom" data-i18n="check.repeats_custom_label">Своё число повторов (5–100)</label>
+                <input class="form-input" id="repeats-custom" type="number" min="5" max="100" value="15">
+              </div>
             </div>
             <div id="microbench-config" hidden>
               <div class="form-group">
-                <label class="form-label" for="micro-profile" data-i18n="check.micro_profile_label">Профиль нагрузки (calls/run)</label>
+                <label class="form-label" for="micro-profile" data-i18n="check.micro_profile_label">Профиль нагрузки (вызовов на замер)</label>
                 <select class="form-input" id="micro-profile">
                   <option value="500" data-i18n="check.micro_fast">fast · 500</option>
                   <option value="1000" selected data-i18n="check.micro_normal">normal · 1 000</option>

@@ -156,10 +156,11 @@ function setMode(m) {
   });
   $("#file-picker-group").hidden = m !== "file";
   // issue #366: параметры режимов 3/4 — инлайн под полем пути (вкладок больше нет).
-  $("#repeats-group").hidden = m !== "bench";
+  $("#bench-config").hidden = m !== "bench";
   $("#microbench-config").hidden = m !== "microbench";
   resetFilePicker();
   localStorage.setItem("grader_mode", m);
+  if (m === "bench") updateRepeatsCustomVisibility();
   if (m === "microbench") updateMicroCustomVisibility();
   // issue #324/#366 (2.з): «Функции в коде» — только режим 1. В режиме 2 путь —
   // папка, панель почти всегда пустует и мешает; в 3/4 неуместна.
@@ -174,11 +175,31 @@ function setMode(m) {
   loadCheckTerms();
 }
 
-// -- Режим 4 «Microbench» — профиль-селектор (_MICRO_PROFILES из cli/interactive.py) --
+// -- Режимы 3/4 — профиль-селекторы (_BENCH_PROFILES/_MICRO_PROFILES из
+// cli/interactive.py). Оба устроены одинаково: пресеты + «свой…» с полем числа,
+// клампы те же, что у CLI (5–100 повторов, 100–500 000 вызовов), выбор
+// запоминается между сессиями — как режим (issue #727). --------------------
+
+const BENCH_PROFILE_KEY = "grader_repeats";
+const MICRO_PROFILE_KEY = "grader_micro_profile";
+
+function updateRepeatsCustomVisibility() {
+  const group = $("#repeats-custom-group");
+  if (group) group.hidden = $("#repeats").value !== "custom";
+  localStorage.setItem(BENCH_PROFILE_KEY, $("#repeats").value);
+}
+
+function getRepeats() {
+  const profile = $("#repeats").value;
+  if (profile !== "custom") return Number(profile);
+  const custom = Number($("#repeats-custom").value) || 15;
+  return Math.min(100, Math.max(5, custom));
+}
 
 function updateMicroCustomVisibility() {
   const group = $("#micro-custom-group");
   if (group) group.hidden = $("#micro-profile").value !== "custom";
+  localStorage.setItem(MICRO_PROFILE_KEY, $("#micro-profile").value);
 }
 
 function getMicroNumber() {
@@ -186,6 +207,18 @@ function getMicroNumber() {
   if (profile !== "custom") return Number(profile);
   const custom = Number($("#micro-custom").value) || 1000;
   return Math.min(500000, Math.max(100, custom));
+}
+
+/** Восстановить выбранные профили режимов 3/4 из localStorage (issue #727). */
+function restoreProfiles() {
+  const restore = (sel, key) => {
+    const saved = localStorage.getItem(key);
+    const el = $(sel);
+    if (!el || saved == null) return;
+    if ([...el.options].some(o => o.value === saved)) el.value = saved;
+  };
+  restore("#repeats", BENCH_PROFILE_KEY);
+  restore("#micro-profile", MICRO_PROFILE_KEY);
 }
 
 // ---------------------------------------------------------------------------
@@ -725,7 +758,7 @@ function summaryFromResult(data) {
 // Режим 2 (папка, tests) остаётся на синхронном /api/grade.
 async function gradeAsync(path, backendMode, code = null) {
   const params = {};
-  if (backendMode === "bench") params.repeats = Number($("#repeats").value);
+  if (backendMode === "bench") params.repeats = getRepeats();
   if (backendMode === "microbench") params.number = getMicroNumber();
 
   const reqBody = { path, mode: backendMode, params };
@@ -1334,6 +1367,7 @@ export {
   loadCommands,
   mountEditor,
   renderRecentPaths,
+  restoreProfiles,
   runCommand,
   saveSolution,
   setMode,
@@ -1341,4 +1375,5 @@ export {
   submitToStepik,
   updateDirtyIndicator,
   updateMicroCustomVisibility,
+  updateRepeatsCustomVisibility,
 };
