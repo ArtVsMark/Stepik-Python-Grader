@@ -39,6 +39,9 @@ t.py
 .stepik_cache/
 .grader_cache/
 .grader_glossary_missing.json
+.grader_glossary_missing.db
+.grader_glossary_missing.db-wal
+.grader_glossary_missing.db-shm
 .grader_stats.jsonl
 .grader_history.db
 .grader_history.db-wal
