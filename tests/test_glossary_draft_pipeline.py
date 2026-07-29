@@ -205,12 +205,51 @@ def test_run_propose_unknown_qualname(tmp_path: Path) -> None:
     assert mod.run_propose("nope.nope.nope", base_dir=base) == 2
 
 
+# -- check: параллельный обход эквивалентен последовательному -------------------
+
+
+# По одному набору примеров на каждый исход validate_examples; все детерминированы
+# (без времени/порядка множеств), поэтому вывод сравним побайтово.
+_CHECK_CASES = {
+    "case-error": ["print(int('nope'))  # → 0"],
+    "case-mismatch": ["print(2 + 2)  # → 5"],
+    "case-ok": ["print(2 + 2)  # → 4"],
+    "case-unverifiable": ["x = 1"],
+}
+
+
+def test_run_check_parallel_matches_sequential(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    base = tmp_path / "data"
+    base.mkdir()
+    # Каждый исход дублируем — чтобы воркерам было что распараллеливать.
+    cards = [
+        {"id": f"{card_id}-{n}", "title": card_id, "status": "ready", "examples": examples}
+        for card_id, examples in _CHECK_CASES.items()
+        for n in (1, 2)
+    ]
+    (base / "cards.json").write_text(json.dumps(cards, ensure_ascii=False), encoding="utf-8")
+
+    seq_flagged = mod.run_check(base, jobs=1)
+    seq_out = capsys.readouterr().out
+    par_flagged = mod.run_check(base, jobs=4)
+    par_out = capsys.readouterr().out
+
+    assert seq_flagged == par_flagged == 4  # mismatch×2 + error×2
+    # Параллельный обход не смещает счётчики и не меняет порядок строк отчёта.
+    assert par_out == seq_out
+
+
 # -- check over реальная база (smoke: движок отрабатывает без падений) ----------
 
 
 def test_run_check_bundled_smoke(capsys) -> None:  # type: ignore[no-untyped-def]
     from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR
 
+    # Единственное место, где движок валидации встречается со всем разнообразием
+    # реальной базы (1300+ карточек, ~1100 из них реально уходят в subprocess).
+    # Стоимость растёт вместе с базой, поэтому run_check обходит карточки
+    # параллельно — последовательный обход упирался в общий 120-секундный
+    # дедлайн pytest-timeout на Windows, где процессы дороже (issue #444).
     # Возвращает число «требующих внимания» (mismatch+error) — не падает, печатает сводку.
     flagged = mod.run_check(BUNDLED_GLOSSARY_DIR)
     out = capsys.readouterr().out

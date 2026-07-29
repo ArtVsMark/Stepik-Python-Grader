@@ -32,10 +32,12 @@ from __future__ import annotations
 import argparse
 import difflib
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -312,22 +314,51 @@ def _item_for_qualname(qualname: str) -> StdlibItem | None:
     return None
 
 
-def run_check(base_dir: Path, *, only_ready: bool = True, timeout: float = _DEFAULT_TIMEOUT) -> int:
+def _worker_count(jobs: int | None) -> int:
+    """Сколько примеров валидировать одновременно (явное ``--jobs`` или по CPU).
+
+    Воркер почти всё время ждёт дочерний интерпретатор (старт процесса — это
+    I/O, а не счёт), поэтому потоков берём чуть больше числа ядер; верхняя
+    граница — чтобы на многоядерной машине не плодить сотню процессов разом.
+    """
+    if jobs is not None:
+        return max(1, jobs)
+    return min(32, (os.cpu_count() or 1) + 4)
+
+
+def run_check(
+    base_dir: Path,
+    *,
+    only_ready: bool = True,
+    timeout: float = _DEFAULT_TIMEOUT,
+    jobs: int | None = None,
+) -> int:
     """Аудит примеров карточек базы: прогон + сверка ``# → …``. Печать сводки.
 
     Возвращает число карточек со статусом ``mismatch``/``error`` (для CI/exit
     можно трактовать как «требуют внимания»). ``unverifiable`` и ``ok`` —
     не проблема (первое — нечего/нельзя сверить, второе — сошлось).
+
+    Карточки валидируются параллельно (``jobs`` воркеров): на каждую уходит
+    отдельный subprocess, и последовательный обход рос линейно с базой —
+    к 1300+ карточкам это минуты на Windows, где процессы дороже. Прогоны
+    независимы (свой subprocess, свой cwd), а вывод остаётся детерминированным:
+    отчёты собираются в порядке отсортированного списка карточек, не в порядке
+    завершения.
     """
     provider = JsonGlossaryProvider.from_directory(base_dir)
-    cards = [c for c in provider.all() if c.examples and (not only_ready or c.status == "ready")]
+    cards = sorted(
+        (c for c in provider.all() if c.examples and (not only_ready or c.status == "ready")),
+        key=lambda c: c.id,
+    )
     counts = {"ok": 0, "mismatch": 0, "error": 0, "unverifiable": 0}
     flagged: list[tuple[str, ExampleReport]] = []
-    for card in sorted(cards, key=lambda c: c.id):
-        report = validate_examples(card.examples, timeout=timeout)
-        counts[report.status] += 1
-        if report.status in ("mismatch", "error"):
-            flagged.append((card.id, report))
+    with ThreadPoolExecutor(max_workers=_worker_count(jobs)) as pool:
+        reports = pool.map(lambda c: validate_examples(c.examples, timeout=timeout), cards)
+        for card, report in zip(cards, reports, strict=True):
+            counts[report.status] += 1
+            if report.status in ("mismatch", "error"):
+                flagged.append((card.id, report))
 
     print(f"Проверено карточек с примерами: {len(cards)}")
     print(
@@ -419,6 +450,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Проверять карточки любого статуса (по умолчанию — только ready)",
     )
     p_check.add_argument("--timeout", type=float, default=_DEFAULT_TIMEOUT, help="Секунд на пример")
+    p_check.add_argument(
+        "--jobs",
+        type=int,
+        default=None,
+        help="Параллельных прогонов (по умолчанию — по числу ядер; 1 = последовательно)",
+    )
 
     p_prop = sub.add_parser("propose", help="Предложить B1-черновик qualname")
     p_prop.add_argument("--qualname", required=True, help="Полный qualname, напр. str.rjust")
@@ -435,7 +472,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "check":
         if not args.base.is_dir():
             parser.error(f"База не найдена: {args.base}")
-        run_check(args.base, only_ready=not args.all_statuses, timeout=args.timeout)
+        run_check(
+            args.base,
+            only_ready=not args.all_statuses,
+            timeout=args.timeout,
+            jobs=args.jobs,
+        )
         return 0
     if not args.base.is_dir():
         parser.error(f"База не найдена: {args.base}")
