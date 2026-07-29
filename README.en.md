@@ -52,16 +52,26 @@ Grade a plain "add 1 to a number" solution against your own tests.
    5
    ```
 
-3. Run:
+3. Run — three entry points, one grading core:
 
    ```bash
-   stepik-grader --mode 1 --file task.py
+   stepik-grader --mode 1 --file task.py   # one-shot check in the terminal
+   stepik-grader --serve                   # web UI at http://127.0.0.1:8000
+   stepik-grader-gui                       # launcher window, no command line
    ```
 
 You get a per-case verdict (AC / WA / TLE / RE) with a diff on mismatch. Modes,
 CLI flags and task downloading are covered in
 [docs/grader-workflow.md](docs/grader-workflow.md) (see the step-by-step
 [first example](docs/grader-workflow.md#первый-пример-за-2-минуты)).
+
+`stepik-grader-gui` is the lowest-barrier entry point: a small window where you
+pick plain or isolated (`--sandbox`) startup, the port and the working folder,
+then press Start — it runs `--serve` as a separate process and opens the
+browser. On Windows it is a shortcut **without a console window**. The launcher
+window itself is Russian-only; the web UI it opens is bilingual. On a Python
+build without `tkinter` it prints the equivalent `--serve` command instead of
+failing.
 
 ---
 
@@ -91,6 +101,18 @@ Open `http://127.0.0.1:8000/?lang=en` — the web interface and the local Python
 glossary render in English (`?lang=en`). The glossary ships ready cards
 (functions, exceptions, constructs — live count in the Glossary badge above) with deep links from error cards.
 
+Some parts of the grader live **only** here — there are no CLI flags for them:
+
+- **Sandbox** — run arbitrary code against your own stdin, plus a
+  **step-by-step execution trace** (variables per step, table or diagram view;
+  the trace is unavailable under `--sandbox`).
+- **Code editor with Save** — edit the solution in the browser and write it back
+  to disk.
+- **Submit to Stepik** — send the current solution and poll the verdict without
+  leaving the browser (mode 1; needs Stepik OAuth and the task's `step_id`).
+- **Browsable sections** — Glossary, Rules (PEP), Practice and Progress. The CLI
+  only prints one-shot reports (`--insights`, `--lint`, `--export-progress`).
+
 ---
 
 ## Why this fork
@@ -100,13 +122,13 @@ glossary render in English (`?lang=en`). The glossary ships ready cards
 | Single-file correctness check | ✅ | ✅ |
 | Solution comparison & benchmarks (modes 3/4, median-based, SIMILAR/SLOWER verdicts) | ❌ | ✅ |
 | Stepik integration — OAuth2, auto-download of task & test cases, API diagnostics | ❌ | ✅ |
-| Local web UI (`--serve`) + VS Code / PyCharm integration | ❌ | ✅ |
+| Local web UI (`--serve`) + GUI launcher (`stepik-grader-gui`) + VS Code / PyCharm integration | ❌ | ✅ |
 | Local Python glossary — cards + missing-term detector + deep links from error cards | ❌ | ✅ |
 | PEP 8 rules + «Practice» section (frequent mistakes from run history) | ❌ | ✅ |
 | Optional OS sandbox (`--sandbox`) with network/FS isolation | ❌ | ✅ |
 | Bilingual RU/EN interface — CLI, web shell, glossary | ❌ | ✅ |
 | Local run history (SQLite) + stats — offline | ❌ | ✅ |
-| Engineering base — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) on 3 OSes, 1700+ tests | ❌ | ✅ |
+| Engineering base — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) on 3 OSes, 2100+ tests | ❌ | ✅ |
 
 Per-release evolution — [docs/versions.md](docs/versions.md).
 
@@ -114,7 +136,7 @@ Per-release evolution — [docs/versions.md](docs/versions.md).
 
 ## Transparency & trust
 
-- ✅ **1700+ automated tests** (pytest), CI matrix over 3 OSes × Python 3.12/3.13 (+3.14 experimental) — live coverage badges (single-OS + cross-OS) in the header.
+- ✅ **2100+ automated tests** (pytest), CI matrix over 3 OSes × Python 3.12/3.13 (+3.14 experimental) — live coverage badges (single-OS + cross-OS) in the header.
 - 🧠 **Strict mypy** + `ruff` (lint + format) in pre-commit and CI on every PR.
 - 🔐 **Private vulnerability reporting** + a documented threat model — [SECURITY.md](SECURITY.md).
 - 📦 **PyPI publishing via OIDC trusted publishing** — no stored token.

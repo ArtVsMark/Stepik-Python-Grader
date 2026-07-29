@@ -9,6 +9,7 @@
 |---|---|
 | Установить (pipx / из исходников), настроить OAuth, диагностика | [installation.md](installation.md) |
 | Запустить грейдер, режимы 1–4, CLI-флаги, web/IDE, скачать задачу | [grader-workflow.md](grader-workflow.md) |
+| Начать работать в вебе: `stepik-grader --serve` или GUI-лаунчер `stepik-grader-gui` (issue #661), адрес `http://127.0.0.1:8000`, разделы «Проверка решений» / «Песочница» / «Глоссарий» | [grader-workflow.md § Веб-интерфейс](grader-workflow.md#веб-интерфейс---serve) |
 | WEB MVP: три блока (Проверка решений, Downloader, Глоссарий-модуль), микро-бенчмарк, error/action cards — что реализовано | [web-current.md](web-current.md) |
 | WEB MVP: замыслы, отложенное, отклонённое | [web-design.md](web-design.md) |
 | Справочник HTTP API `--serve`: эндпоинты, лимиты, коды ответов, curl-примеры | [api.md](api.md) |
@@ -34,7 +35,7 @@
 | Архив постановок для Claude Code (все закрыты: #125/#186/#187/#129, #161/#163, #126/#190/#191) | [claude-handoff.md](claude-handoff.md) |
 | История спринтов и roadmap (архив) | [history.md](history.md) |
 | **(архив)** Разовые аудиты 2026-07 (глубокие 8-ролевые 2026-07/07-14/07-15 + `role-*.md`-приложения + полный issue-аудит всех 253 issue) + мультиролевой аудит 2026-07-18 (13 ролей) и дорожная карта E1–E10 — источник программы #524 (аудит-цикл завершён, эпик закрыт) — вынесены в подкаталог с собственным индексом (issue #562) | [archive/README.md](archive/README.md) |
-| **(архив)** План 2026-07: наполнение глоссария (эпик #363/#371, трекается в issue) + UX web-«Проверки» (эпик #362, закрыт) | [web-glossary-optimization-2026-07.md](web-glossary-optimization-2026-07.md) |
+| **(архив)** План 2026-07: наполнение глоссария (эпики #363/#371 закрыты — черновиков не осталось) + UX web-«Проверки» (эпик #362, закрыт) — перенесён в подкаталог архива (issue #700) | [archive/web-glossary-optimization-2026-07.md](archive/web-glossary-optimization-2026-07.md) |
 | Правила PEP 8 и учебные инсайты: разделы «Правила»/«Подучить», формат `RuleCard`, `core/lint.py` (эпик #342) | [rules-insights.md](rules-insights.md) |
 
 ## Канонические источники (правило против дублей)
