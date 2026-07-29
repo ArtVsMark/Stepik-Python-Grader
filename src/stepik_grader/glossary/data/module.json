@@ -15508,7 +15508,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.add(1, 2))   # → 3"
+      "import functools",
+      "print(operator.add(1, 2))   # → 3",
+      "print(operator.add(1, 2) == 1 + 2)   # → True",
+      "print(operator.add('py', 'thon'))   # → python",
+      "print(functools.reduce(operator.add, [1, 2, 3, 4]))   # → 10",
+      "print(list(map(operator.add, [1, 2, 3], [10, 20, 30])))   # → [11, 22, 33]"
     ],
     "related": [
       "operator.sub",
@@ -15545,7 +15550,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.sub(5, 2))   # → 3"
+      "import functools",
+      "print(operator.sub(5, 2))   # → 3",
+      "print(operator.sub(5, 2) == 5 - 2)   # → True",
+      "print(list(map(operator.sub, [10, 20, 30], [1, 2, 3])))   # → [9, 18, 27]",
+      "print(functools.reduce(operator.sub, [100, 20, 3]))   # → 77",
+      "print(operator.sub(\"ab\", \"a\"))   # → TypeError"
     ],
     "related": [
       "operator.add",
@@ -15582,7 +15592,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.mul(3, 4))   # → 12"
+      "import functools",
+      "print(operator.mul(3, 4))   # → 12",
+      "print(operator.mul(3, 4) == 3 * 4)   # → True",
+      "print(functools.reduce(operator.mul, range(1, 6)))   # → 120",
+      "print(operator.mul('ab', 3))   # → ababab",
+      "print(list(map(operator.mul, [1, 2, 3], [10, 10, 10])))   # → [10, 20, 30]"
     ],
     "related": [
       "operator.add",
@@ -15617,7 +15632,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.truediv(7, 2))   # → 3.5"
+      "print(operator.truediv(7, 2))   # → 3.5",
+      "print(operator.truediv(7, 2) == 7 / 2)   # → True",
+      "print(operator.truediv(6, 3))   # → 2.0",
+      "print(list(map(operator.truediv, [10, 9], [4, 3])))   # → [2.5, 3.0]",
+      "print(operator.truediv(1, 0))   # → ZeroDivisionError"
     ],
     "related": [
       "operator.floordiv",
@@ -15655,7 +15674,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.floordiv(7, 2))   # → 3"
+      "print(operator.floordiv(7, 2))   # → 3",
+      "print(operator.floordiv(7, 2) == 7 // 2)   # → True",
+      "print(operator.floordiv(-7, 2))   # → -4",
+      "print(list(map(operator.floordiv, [10, 20, 30], [3, 3, 4])))   # → [3, 6, 7]",
+      "print(operator.floordiv(1, 0))   # → ZeroDivisionError"
     ],
     "related": [
       "operator.truediv",
@@ -15693,7 +15716,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.mod(7, 3))   # → 1"
+      "print(operator.mod(7, 3))   # → 1",
+      "print(operator.mod(7, 3) == 7 % 3)   # → True",
+      "print(operator.mod(-7, 3))   # → 2",
+      "print(list(map(operator.mod, [10, 11, 12], [3, 3, 3])))   # → [1, 2, 0]",
+      "print(operator.mod('%s-%s', ('a', 'b')))   # → a-b"
     ],
     "related": [
       "operator.floordiv",
@@ -15730,7 +15757,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.neg(3))   # → -3"
+      "print(operator.neg(3))   # → -3",
+      "print(operator.neg(3) == -3)   # → True",
+      "print(list(map(operator.neg, [1, -2, 3])))   # → [-1, 2, -3]",
+      "print(sorted([3, 1, 2], key=operator.neg))   # → [3, 2, 1]",
+      "print(operator.neg(True))   # → -1"
     ],
     "related": [
       "operator.pos",
@@ -15766,7 +15797,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.pos(-3))   # → -3"
+      "print(operator.pos(-3))   # → -3",
+      "print(operator.pos(-3) == +(-3))   # → True",
+      "print(operator.pos(True))   # → 1",
+      "print(list(map(operator.pos, [1, -2, 3])))   # → [1, -2, 3]",
+      "print(operator.pos(\"a\"))   # → TypeError"
     ],
     "related": [
       "operator.neg",
@@ -15802,7 +15837,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.and_(5, 3))   # → 1"
+      "import functools",
+      "print(operator.and_(5, 3))   # → 1",
+      "print(operator.and_(5, 3) == 5 & 3)   # → True",
+      "print(operator.and_(2, 3) == (2 and 3))   # → False",
+      "print(functools.reduce(operator.and_, [0b1110, 0b1011, 0b0111]))   # → 2",
+      "print(operator.and_(True, False))   # → False"
     ],
     "related": [
       "operator.or_",
@@ -15838,8 +15878,13 @@
       "operator"
     ],
     "examples": [
+      "import functools",
       "import operator",
-      "print(operator.or_(5, 2))   # → 7"
+      "print(operator.or_(5, 2))   # → 7",
+      "print(operator.or_(5, 2) == 5 | 2)   # → True",
+      "print(functools.reduce(operator.or_, [1, 2, 4, 8]))   # → 15",
+      "print(operator.or_({1, 2}, {2, 3}) == {1, 2, 3})   # → True",
+      "print(operator.or_(2, 4) == (2 or 4))   # → False"
     ],
     "related": [
       "operator.and_",
@@ -15875,8 +15920,13 @@
       "operator"
     ],
     "examples": [
+      "import functools",
       "import operator",
-      "print(operator.xor(5, 3))   # → 6"
+      "print(operator.xor(5, 3))   # → 6",
+      "print(operator.xor(5, 3) == 5 ^ 3)   # → True",
+      "print(operator.xor(operator.xor(5, 3), 3))   # → 5",
+      "print(functools.reduce(operator.xor, [4, 7, 4, 9, 7]))   # → 9",
+      "print(operator.xor({1, 2}, {2, 3}) == {1, 3})   # → True"
     ],
     "related": [
       "operator.or_",
@@ -15913,7 +15963,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.invert(0))   # → -1"
+      "print(operator.invert(0))   # → -1",
+      "print(operator.invert(5) == ~5)   # → True",
+      "print(operator.invert(5) == -5 - 1)   # → True",
+      "print(list(map(operator.invert, [1, 2, 3])))   # → [-2, -3, -4]",
+      "print(operator.invert(True))   # → -2"
     ],
     "related": [
       "operator.inv",
@@ -15948,7 +16002,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.inv(5))   # → -6"
+      "print(operator.inv(5))   # → -6",
+      "print(operator.inv(5) == ~5)   # → True",
+      "print(operator.inv(5) == operator.invert(5))   # → True",
+      "print(list(map(operator.inv, [0, 1, -1])))   # → [-1, -2, 0]",
+      "print(operator.inv(2.0))   # → TypeError"
     ],
     "related": [
       "operator.invert",
@@ -15982,7 +16040,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.lshift(1, 3))   # → 8"
+      "print(operator.lshift(1, 3))   # → 8",
+      "print(operator.lshift(3, 2) == 3 << 2)   # → True",
+      "print(operator.lshift(5, 1) == 5 * 2)   # → True",
+      "print(list(map(operator.lshift, [1, 2, 3], [4, 1, 0])))   # → [16, 4, 3]",
+      "print(operator.lshift(1, -1))   # → ValueError"
     ],
     "related": [
       "operator.rshift",
@@ -16016,7 +16078,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.rshift(16, 2))   # → 4"
+      "print(operator.rshift(16, 2))   # → 4",
+      "print(operator.rshift(16, 2) == 16 >> 2)   # → True",
+      "print(list(map(operator.rshift, [8, 16, 32], [1, 2, 3])))   # → [4, 4, 4]",
+      "print(operator.rshift(-9, 1) == -9 // 2)   # → True",
+      "print(operator.rshift(1, -1))   # → ValueError"
     ],
     "related": [
       "operator.lshift",
@@ -16053,7 +16119,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.eq(1, 1))   # → True"
+      "print(operator.eq(1, 1))   # → True",
+      "print(operator.eq(1, 1.0))  # → True",
+      "print(operator.eq([1, 2], (1, 2)))  # → False",
+      "print(list(map(operator.eq, [1, 2, 3], [1, 5, 3])))  # → [True, False, True]",
+      "print(operator.eq(float('nan'), float('nan')))  # → False"
     ],
     "related": [
       "operator.ne",
@@ -16087,7 +16157,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.ne(1, 2))   # → True"
+      "print(operator.ne(1, 2))   # → True",
+      "print(operator.ne('a', 'a'))   # → False",
+      "print(operator.ne(1, 1.0))   # → False",
+      "values = [3, 0, 3, 7]",
+      "print([v for v in values if operator.ne(v, 3)])   # → [0, 7]",
+      "print(operator.ne(float('nan'), float('nan')))   # → True"
     ],
     "related": [
       "operator.eq",
@@ -16121,7 +16196,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.lt(1, 2))   # → True"
+      "print(operator.lt(1, 2))   # → True",
+      "print(operator.lt(2, 2))   # → False",
+      "print(operator.lt((1, 2), (1, 3)))   # → True",
+      "nums = [4, 1, 7]",
+      "print([n for n in nums if operator.lt(n, 5)])   # → [4, 1]",
+      "print(operator.lt(None, 1))   # → TypeError"
     ],
     "related": [
       "operator.gt",
@@ -16155,7 +16235,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.le(2, 2))   # → True"
+      "print(operator.le(2, 2))   # → True",
+      "print(operator.le(3, 2))   # → False",
+      "scores = [5, 10, 3]",
+      "print([s for s in scores if operator.le(s, 5)])   # → [5, 3]",
+      "print(operator.le({1}, {1, 2}))   # → True",
+      "print(operator.le({1, 2}, {2, 3}))   # → False"
     ],
     "related": [
       "operator.ge",
@@ -16189,7 +16274,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.gt(3, 2))   # → True"
+      "print(operator.gt(3, 2))   # → True",
+      "print(operator.gt(2, 2))   # → False",
+      "print(operator.gt('b', 'a'))   # → True",
+      "pairs = [(3, 2), (1, 4), (5, 5)]",
+      "print([operator.gt(a, b) for a, b in pairs])   # → [True, False, False]",
+      "print(operator.gt(1, 'a'))   # → TypeError"
     ],
     "related": [
       "operator.lt",
@@ -16225,7 +16315,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.ge(2, 2))   # → True"
+      "print(operator.ge(2, 2))   # → True",
+      "print(operator.ge('b', 'a'))  # → True",
+      "scores = [70, 55, 90]",
+      "print([operator.ge(s, 60) for s in scores])  # → [True, False, True]",
+      "print(operator.ge({1, 2, 3}, {1, 2}))  # → True",
+      "print(operator.ge({1, 2}, {2, 3}))  # → False"
     ],
     "related": [
       "operator.le",
@@ -16262,7 +16357,13 @@
     "examples": [
       "import operator",
       "x = []",
-      "print(operator.is_(x, x))   # → True"
+      "print(operator.is_(x, x))   # → True",
+      "y = []",
+      "print(operator.is_(x, y))   # → False",
+      "print(operator.eq(x, y))   # → True",
+      "values = [None, 0, None]",
+      "print([operator.is_(v, None) for v in values])   # → [True, False, True]",
+      "print(operator.is_(True, 1))   # → False"
     ],
     "related": [
       "operator.is_not",
@@ -16296,7 +16397,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.is_not([], []))   # → True"
+      "print(operator.is_not([], []))   # → True",
+      "a = [1, 2]",
+      "print(operator.is_not(a, a))   # → False",
+      "print(operator.is_not(a, a[:]))   # → True",
+      "print(operator.is_not(None, None))   # → False",
+      "print(operator.is_not(a, [1, 2]), a != [1, 2])   # → True False"
     ],
     "related": [
       "operator.is_",
@@ -16330,7 +16436,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.not_(False))   # → True"
+      "print(operator.not_(False))   # → True",
+      "print(operator.not_([]))   # → True",
+      "print(operator.not_('текст'))   # → False",
+      "print(list(map(operator.not_, [0, 1, '', 'ok'])))   # → [True, False, True, False]",
+      "print(operator.not_(5), operator.inv(5))   # → False -6"
     ],
     "related": [
       "operator.truth",
@@ -16364,7 +16474,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.truth([1]))   # → True"
+      "print(operator.truth([1]))   # → True",
+      "print(operator.truth(0), operator.truth(''))   # → False False",
+      "print(operator.truth([0]))   # → True",
+      "print(list(filter(operator.truth, [0, 1, '', 'ok', None, []])))   # → [1, 'ok']",
+      "print(operator.truth(5) == bool(5), operator.truth is bool)   # → True False"
     ],
     "related": [
       "operator.not_",
@@ -16398,7 +16512,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.concat([1], [2]))   # → [1, 2]"
+      "from functools import reduce",
+      "print(operator.concat([1], [2]))   # → [1, 2]",
+      "print(operator.concat('py', 'thon'))   # → python",
+      "print(operator.concat((1, 2), (3,)))   # → (1, 2, 3)",
+      "print(reduce(operator.concat, [[1], [2], [3]]))   # → [1, 2, 3]",
+      "print(operator.concat(1, 2))   # → TypeError"
     ],
     "related": [
       "operator.iconcat",
@@ -16434,7 +16553,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.contains([1, 2, 3], 2))   # → True"
+      "print(operator.contains([1, 2, 3], 2))   # → True",
+      "print(operator.contains('python', 'th'))   # → True",
+      "print(operator.contains({'a': 1}, 'a'))   # → True",
+      "print(operator.contains({'a': 1}, 1))   # → False",
+      "print(operator.contains(2, [1, 2, 3]))   # → TypeError"
     ],
     "related": [
       "in",
@@ -16470,7 +16593,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.countOf([1, 2, 2, 3], 2))   # → 2"
+      "print(operator.countOf([1, 2, 2, 3], 2))   # → 2",
+      "print(operator.countOf('abracadabra', 'a'))   # → 5",
+      "print(operator.countOf([1, 2, 3], 9))   # → 0",
+      "print(operator.countOf({'x': 1, 'y': 1}.values(), 1))   # → 2",
+      "print(operator.countOf('abracadabra', 'ab'))   # → 0"
     ],
     "related": [
       "list.count",
@@ -16506,7 +16633,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.indexOf([1, 2, 3], 3))   # → 2"
+      "print(operator.indexOf([1, 2, 3], 3))   # → 2",
+      "print(operator.indexOf('hello', 'l'))  # → 2",
+      "print(operator.indexOf((10, 20, 30), 20))  # → 1",
+      "print(operator.indexOf(iter([5, 6, 7]), 7))  # → 2",
+      "print(operator.indexOf([1, 2, 3], 9))  # → ValueError"
     ],
     "related": [
       "list.index",
@@ -16542,7 +16673,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.getitem([10, 20, 30], 1))   # → 20"
+      "print(operator.getitem([10, 20, 30], 1))   # → 20",
+      "print(operator.getitem({'a': 1, 'b': 2}, 'b'))  # → 2",
+      "print(operator.getitem([10, 20, 30], slice(0, 2)))  # → [10, 20]",
+      "rows = [(1, 'anna'), (2, 'boris')]",
+      "print([operator.getitem(r, 1) for r in rows])  # → ['anna', 'boris']",
+      "print(operator.getitem([10, 20, 30], 5))  # → IndexError"
     ],
     "related": [
       "operator.setitem",
@@ -16660,7 +16796,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.length_hint([1, 2, 3]))   # → 3"
+      "print(operator.length_hint([1, 2, 3]))   # → 3",
+      "it = iter([1, 2, 3])",
+      "print(operator.length_hint(it))  # → 3",
+      "print(next(it))  # → 1",
+      "print(operator.length_hint(it))  # → 2",
+      "print(operator.length_hint((x for x in range(5)), 10))  # → 10"
     ],
     "related": [
       "len",
@@ -16730,7 +16871,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.call(abs, -5))   # → 5"
+      "print(operator.call(abs, -5))   # → 5",
+      "print(operator.call(abs, -5) == abs(-5))   # → True",
+      "print(operator.call(round, 3.14159, ndigits=2))   # → 3.14",
+      "print([operator.call(f) for f in (list, dict, tuple)])   # → [[], {}, ()]",
+      "print(operator.call(5))   # → TypeError"
     ],
     "related": [
       "operator.methodcaller",
@@ -16767,7 +16912,12 @@
     "examples": [
       "import operator",
       "g = operator.itemgetter(1)",
-      "print(g([10, 20, 30]))   # → 20"
+      "print(g([10, 20, 30]))   # → 20",
+      "print(operator.itemgetter(1)([10, 20, 30]) == [10, 20, 30][1])   # → True",
+      "print(operator.itemgetter(0, 2)('abcd'))   # → ('a', 'c')",
+      "print(operator.itemgetter('b')({'a': 1, 'b': 2}))   # → 2",
+      "pairs = [('a', 3), ('b', 1)]",
+      "print(sorted(pairs, key=operator.itemgetter(1)))   # → [('b', 1), ('a', 3)]"
     ],
     "related": [
       "operator.attrgetter",
@@ -16806,7 +16956,11 @@
     "examples": [
       "import operator",
       "g = operator.attrgetter('real')",
-      "print(g(3 + 4j))   # → 3.0"
+      "print(g(3 + 4j))   # → 3.0",
+      "print(operator.attrgetter('real')(3 + 4j) == (3 + 4j).real)   # → True",
+      "print(operator.attrgetter('real', 'imag')(3 + 4j))   # → (3.0, 4.0)",
+      "print(operator.attrgetter('imag.real')(3 + 4j))   # → 4.0",
+      "print(sorted([3 + 9j, 1 + 2j], key=operator.attrgetter('imag')))   # → [(1+2j), (3+9j)]"
     ],
     "related": [
       "operator.itemgetter",
@@ -16844,7 +16998,11 @@
     "examples": [
       "import operator",
       "g = operator.methodcaller('upper')",
-      "print(g('abc'))   # → ABC"
+      "print(g('abc'))   # → ABC",
+      "print(operator.methodcaller('upper')('abc') == 'abc'.upper())   # → True",
+      "print(operator.methodcaller('replace', 'a', 'z')('banana'))   # → bznznz",
+      "print(list(map(operator.methodcaller('strip'), [' a ', ' b'])))   # → ['a', 'b']",
+      "print(operator.methodcaller('upper')(5))   # → AttributeError"
     ],
     "related": [
       "operator.attrgetter",
@@ -16881,7 +17039,14 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.iadd(1, 2))   # → 3"
+      "print(operator.iadd(1, 2))   # → 3",
+      "print(operator.iadd(1, 2) == 1 + 2)   # → True",
+      "nums = [1, 2]",
+      "print(operator.iadd(nums, [3]))   # → [1, 2, 3]",
+      "print(nums)   # → [1, 2, 3]",
+      "t = (1, 2)",
+      "print(operator.iadd(t, (3,)))   # → (1, 2, 3)",
+      "print(t)   # → (1, 2)"
     ],
     "related": [
       "operator.add",
@@ -16918,7 +17083,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.isub(5, 2))   # → 3"
+      "print(operator.isub(5, 2))   # → 3",
+      "print(operator.isub(0.3, 0.1))   # → 0.19999999999999998",
+      "tags = {'a', 'b', 'c'}",
+      "print(operator.isub(tags, {'b'}) is tags)   # → True",
+      "print(sorted(tags))   # → ['a', 'c']",
+      "print(operator.isub([1, 2, 3], [2]))   # → TypeError"
     ],
     "related": [
       "operator.sub",
@@ -16952,7 +17122,13 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.imul(3, 4))   # → 12"
+      "print(operator.imul(3, 4))   # → 12",
+      "print(operator.imul('ab', 3))   # → ababab",
+      "nums = [1, 2]",
+      "print(operator.imul(nums, 2) is nums)   # → True",
+      "print(nums)   # → [1, 2, 1, 2]",
+      "n = 3   # int неизменяем: результат надо присвоить обратно",
+      "print(operator.imul(n, 4), n)   # → 12 3"
     ],
     "related": [
       "operator.mul",
@@ -16986,7 +17162,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.itruediv(7, 2))   # → 3.5"
+      "from functools import reduce",
+      "print(operator.itruediv(7, 2))   # → 3.5",
+      "print(operator.itruediv(9, 3))   # → 3.0",
+      "print(reduce(operator.itruediv, [100, 2, 5]))   # → 10.0",
+      "print(operator.ifloordiv(7, 2))   # → 3",
+      "print(operator.itruediv(1, 0))   # → ZeroDivisionError"
     ],
     "related": [
       "operator.truediv",
@@ -17022,7 +17203,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.ifloordiv(7, 2))   # → 3"
+      "print(operator.ifloordiv(7, 2))   # → 3",
+      "print(operator.ifloordiv(7, 2) == 7 // 2)   # → True",
+      "print(operator.ifloordiv(-7, 2))   # → -4",
+      "print(list(map(operator.ifloordiv, [10, 20, 30], [3, 6, 7])))   # → [3, 3, 4]",
+      "print(operator.ifloordiv(7, 0))   # → ZeroDivisionError"
     ],
     "related": [
       "operator.floordiv",
@@ -17058,7 +17243,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.imod(7, 3))   # → 1"
+      "print(operator.imod(7, 3))   # → 1",
+      "print(operator.imod(7, 3) == 7 % 3)   # → True",
+      "print(operator.imod(-7, 3))   # → 2",
+      "print(list(map(operator.imod, [10, 11, 12], [3, 3, 5])))   # → [1, 2, 2]",
+      "print(operator.imod('%s!', 'hi'))   # → hi!"
     ],
     "related": [
       "operator.mod",
@@ -17094,7 +17283,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.ipow(2, 3))   # → 8"
+      "print(operator.ipow(2, 3))   # → 8",
+      "print(operator.ipow(2, -1))   # → 0.5",
+      "print(operator.ipow(9, 0.5))   # → 3.0",
+      "base = 3   # ни один встроенный тип не меняется по **= — присваивайте результат",
+      "print(operator.ipow(base, 4), base)   # → 81 3",
+      "print(operator.ipow(2, 10, 1000))   # → TypeError"
     ],
     "related": [
       "pow",
@@ -17128,7 +17322,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.iand(5, 3))   # → 1"
+      "print(operator.iand(5, 3))   # → 1",
+      "print(operator.iand(5, 3) == (5 & 3))   # → True",
+      "x = 5",
+      "print(operator.iand(x, 3), x)   # → 1 5",
+      "print(sorted(operator.iand({1, 2, 3}, {2, 3, 4})))   # → [2, 3]",
+      "print(list(map(operator.iand, [6, 12], [3, 10])))   # → [2, 8]"
     ],
     "related": [
       "operator.and_",
@@ -17164,7 +17363,14 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.ior(5, 2))   # → 7"
+      "print(operator.ior(5, 2))   # → 7",
+      "read, write = 4, 2   # типовой сценарий: объединение битовых флагов",
+      "print(operator.ior(read, write))   # → 6",
+      "flags = {'r', 'w'}",
+      "print(operator.ior(flags, {'x'}) is flags)   # → True",
+      "print(sorted(flags))   # → ['r', 'w', 'x']",
+      "conf = {'debug': False}",
+      "print(operator.ior(conf, {'level': 3}))   # → {'debug': False, 'level': 3}"
     ],
     "related": [
       "operator.or_",
@@ -17198,7 +17404,14 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.ixor(5, 3))   # → 6"
+      "from functools import reduce",
+      "print(operator.ixor(5, 3))   # → 6",
+      "print(reduce(operator.ixor, [4, 7, 4, 7, 9]))   # → 9",
+      "flags = 0b1010",
+      "print(bin(operator.ixor(flags, 0b0010)))   # → 0b1000",
+      "s = {1, 2, 3}",
+      "print(sorted(operator.ixor(s, {3, 4})))   # → [1, 2, 4]",
+      "print(sorted(s))   # → [1, 2, 4]"
     ],
     "related": [
       "operator.xor",
@@ -17232,7 +17445,11 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.ilshift(1, 3))   # → 8"
+      "print(operator.ilshift(1, 3))   # → 8",
+      "print(operator.ilshift(1, 3) == 1 << 3)   # → True",
+      "print(operator.ilshift(5, 3), 5 * 2 ** 3)   # → 40 40",
+      "print(list(map(operator.ilshift, [1, 2, 3], [4, 3, 2])))   # → [16, 16, 12]",
+      "print(operator.ilshift(1, -1))   # → ValueError"
     ],
     "related": [
       "operator.lshift",
@@ -17266,7 +17483,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.irshift(16, 2))   # → 4"
+      "print(operator.irshift(16, 2))   # → 4",
+      "print(operator.irshift(5, 10))   # → 0",
+      "color = 0xFF8800   # достать старший байт цвета",
+      "print(operator.irshift(color, 16))   # → 255",
+      "print(operator.irshift(-17, 2))   # → -5",
+      "print(operator.irshift(1, -1))   # → ValueError"
     ],
     "related": [
       "operator.rshift",
@@ -17300,7 +17522,12 @@
     ],
     "examples": [
       "import operator",
-      "print(operator.iconcat([1], [2]))   # → [1, 2]"
+      "print(operator.iconcat([1], [2]))   # → [1, 2]",
+      "nums = [1, 2]",
+      "print(operator.iconcat(nums, [3, 4]) is nums)   # → True",
+      "print(nums)   # → [1, 2, 3, 4]",
+      "print(operator.iconcat('ab', 'cd'))   # → abcd",
+      "print(operator.iconcat([1], 2))   # → TypeError"
     ],
     "related": [
       "operator.concat",
@@ -18427,7 +18654,12 @@
     ],
     "examples": [
       "import os",
-      "print(os.fsencode('abc'))   # → b'abc'"
+      "import pathlib",
+      "print(os.fsencode('abc'))   # → b'abc'",
+      "print(os.fsencode(b'abc'))   # → b'abc'",
+      "print(os.fsencode('данные.txt'))   # → b'\\xd0\\xb4\\xd0\\xb0\\xd0\\xbd\\xd0\\xbd\\xd1\\x8b\\xd0\\xb5.txt'",
+      "print(os.fsencode(pathlib.PurePosixPath('/tmp/data.txt')))   # → b'/tmp/data.txt'",
+      "print(os.fsdecode(os.fsencode('данные.txt')))   # → данные.txt"
     ],
     "related": [
       "os.fsdecode",
@@ -18461,7 +18693,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.fsdecode(b'abc'))   # → abc"
+      "print(os.fsdecode(b'abc'))   # → abc",
+      "print(os.fsdecode('abc'))   # → abc",
+      "print(os.fsdecode(b'\\xd0\\xb4\\xd0\\xb0\\xd0\\xbd\\xd0\\xbd\\xd1\\x8b\\xd0\\xb5.txt'))   # → данные.txt",
+      "print(sorted(os.fsdecode(n) for n in os.listdir(b'.')))   # → имена файлов текущего каталога как str, например ['data.txt', 'main.py']",
+      "print(os.fsdecode(5))   # → TypeError: expected str, bytes or os.PathLike object, not int"
     ],
     "related": [
       "os.fsencode",
@@ -18495,7 +18731,13 @@
     ],
     "examples": [
       "import os",
-      "print(os.fspath('a/b'))   # → a/b"
+      "import pathlib",
+      "print(os.fspath('a/b'))   # → a/b",
+      "print(os.fspath(b'a/b'))   # → b'a/b'",
+      "p = pathlib.PurePosixPath('/tmp/data.txt')",
+      "print(os.fspath(p))   # → /tmp/data.txt",
+      "print(os.path.basename(os.fspath(p)))   # → data.txt",
+      "print(os.fspath(5))   # → TypeError: expected str, bytes or os.PathLike object, not int"
     ],
     "related": [
       "os.fsencode",
@@ -19090,7 +19332,10 @@
     ],
     "examples": [
       "import os",
-      "print(callable(os.abort))   # → True"
+      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, pid ребёнка в родительском",
+      "if pid == 0: os.abort()   # → дочерний процесс мгновенно убит сигналом SIGABRT: finally и atexit не выполняются",
+      "print(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]))   # → только Unix: -6, процесс завершён сигналом SIGABRT",
+      "print(os.abort(0))   # → TypeError"
     ],
     "related": [
       "os._exit",
@@ -19124,7 +19369,10 @@
     ],
     "examples": [
       "import os",
-      "print(callable(os._exit))   # → True"
+      "print(os.getpid())   # → идентификатор текущего процесса, например 12345",
+      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, pid ребёнка в родительском",
+      "if pid == 0: os._exit(3)   # → дочерний процесс завершается сразу с кодом 3, минуя atexit, finally и сброс буферов",
+      "print(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]))   # → только Unix: 3 — родитель забирает код выхода ребёнка"
     ],
     "related": [
       "sys.exit",
@@ -19158,7 +19406,11 @@
     ],
     "examples": [
       "import os",
-      "print(callable(os.system))   # → True"
+      "print(os.system('echo привет'))   # → сначала оболочка печатает «привет», потом 0 — код успешного завершения",
+      "code = os.system('exit 3')",
+      "print(code)   # → зависит от ОС: 3 в Windows, 768 (то есть 3 << 8) в Unix",
+      "print(os.waitstatus_to_exitcode(code))   # → только Unix: 3 — статус ожидания распакован в настоящий код возврата",
+      "print(os.system('такой-команды-нет'))   # → оболочка печатает своё сообщение об ошибке, код ≠ 0; исключение НЕ бросается"
     ],
     "related": [
       "subprocess-run",
@@ -20412,7 +20664,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'execv') or callable(os.execv))   # → True"
+      "args = ['ls', '-l', '/tmp']   # args[0] — имя программы, каким её увидит сама программа",
+      "print(args[0], len(args))   # → ls 3",
+      "print(os.execv('ls', args))   # → FileNotFoundError: execv не ищет в PATH, нужен полный путь",
+      "# os.execv('/bin/ls', args)   # только Unix: текущий процесс заменяется на ls, строки ниже уже не выполнятся"
     ],
     "related": [
       "os.execl",
@@ -20450,7 +20705,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'execve') or callable(os.execve))   # → True"
+      "env = {'PATH': '/usr/bin:/bin', 'LANG': 'C'}   # новая программа получит РОВНО эти переменные, os.environ не наследуется",
+      "print(sorted(env))   # → ['LANG', 'PATH']",
+      "print(os.execve('/нет/такой/программы', ['prog'], env))   # → FileNotFoundError",
+      "# os.execve('/usr/bin/env', ['env'], env)   # только Unix: env напечатает LANG и PATH; с env={} программа стартует вообще без PATH и HOME"
     ],
     "related": [
       "os.execv",
@@ -20488,7 +20746,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'execl') or callable(os.execl))   # → True"
+      "os.execl('echo', 'echo', 'привет')   # → FileNotFoundError: execl не ищет программу в PATH, нужен полный путь (по PATH ищет execlp)",
+      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, pid ребёнка — в родительском",
+      "if pid == 0: os.execl('/bin/echo', 'echo', 'привет')   # → только Unix: ребёнок замещается программой echo и печатает «привет», возврата из execl не бывает",
+      "os.execl('/bin/ls', 'МОЁ-ИМЯ', '-l')   # → только Unix: arg0 задаёт лишь имя процесса в ps, запускается /bin/ls -l и замещает текущий процесс"
     ],
     "related": [
       "os.execv",
@@ -20525,7 +20786,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'execle') or callable(os.execle))   # → True"
+      "env = {'GREETING': 'привет', 'PATH': '/usr/bin:/bin'}",
+      "os.execle('/bin/sh', 'sh', '-c', 'echo $GREETING', env)   # → только Unix: процесс замещается на sh и печатает «привет» — переменная взята из переданного env",
+      "os.execle('/usr/bin/env', 'env', {})   # → только Unix: новый процесс стартует с пустым окружением, env не печатает ни строки",
+      "os.execle('/bin/sh', 'sh', '-c', 'echo $GREETING')   # → TypeError: последний аргумент execle обязан быть словарём окружения, а не аргументом команды",
+      "os.execl('/bin/sh', 'sh', '-c', 'echo $GREETING')   # → только Unix: у execl своего env нет — программа наследует окружение текущего процесса"
     ],
     "related": [
       "os.execl",
@@ -20562,7 +20827,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'execlp') or callable(os.execlp))   # → True"
+      "os.execlp('echo', 'echo', 'привет')   # → только Unix: программа найдена в каталогах PATH, процесс замещён, печатается «привет»",
+      "os.execl('echo', 'echo', 'привет')   # → FileNotFoundError: версия без «p» по PATH не ищет, ей нужен полный путь /bin/echo",
+      "os.execlp('такой-программы-нет', 'такой-программы-нет')   # → FileNotFoundError: ни в одном каталоге PATH исполняемый файл не найден",
+      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, pid ребёнка — в родительском",
+      "if pid == 0: os.execlp('ls', 'ls', '-l')   # → только Unix: ребёнок превращается в `ls -l`, родитель продолжает работу и ждёт его через os.wait()"
     ],
     "related": [
       "os.execl",
@@ -20599,7 +20868,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'execlpe') or callable(os.execlpe))   # → True"
+      "env = {'PATH': '/usr/bin:/bin', 'LANG': 'C'}   # словарь окружения — ПОСЛЕДНИЙ аргумент, после всех argv",
+      "print(sorted(env))   # → ['LANG', 'PATH']",
+      "print(os.execlpe('нет-такой-программы', 'нет-такой-программы', env))   # → FileNotFoundError: ни в одном каталоге PATH ничего не нашлось",
+      "# os.execlpe('env', 'env', env)   # только Unix: аргументы перечислены подряд (l), программа ищется в PATH (p), окружение задано явно (e) — env напечатает только LANG и PATH"
     ],
     "related": [
       "os.execlp",
@@ -20636,7 +20908,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'execvp') or callable(os.execvp))   # → True"
+      "args = ['ls', '-l']   # аргументы списком (v), имя программы — без пути",
+      "print(len(os.get_exec_path()) > 0)   # → True — именно в этих каталогах (PATH) execvp ищет программу",
+      "print(os.execvp('нет-такой-программы', ['нет-такой-программы']))   # → FileNotFoundError: ни в одном каталоге PATH не нашлось",
+      "# os.execvp('ls', args)   # только Unix: найдёт /bin/ls в PATH и заменит текущий процесс — строки ниже не выполнятся"
     ],
     "related": [
       "os.execv",
@@ -20673,7 +20948,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'execvpe') or callable(os.execvpe))   # → True"
+      "env = {'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'}   # PATH для поиска берётся из ЭТОГО словаря, а не из os.environ",
+      "print(sorted(env))   # → ['LC_ALL', 'PATH']",
+      "print(os.execvpe('нет-такой-программы', ['нет-такой-программы'], env))   # → FileNotFoundError: в PATH из env ничего не нашлось",
+      "# os.execvpe('env', ['env'], env)   # только Unix: env найдётся в /usr/bin и напечатает LC_ALL и PATH; если в словаре нет PATH, поиск идёт по os.defpath"
     ],
     "related": [
       "os.execvp",
@@ -20710,7 +20988,12 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'spawnv') or callable(os.spawnv))   # → True"
+      "import sys",
+      "args = ['python', '-c', 'pass']   # argv[0] — имя программы, дальше её аргументы",
+      "print(os.spawnv(os.P_WAIT, sys.executable, args))   # → 0",
+      "pid = os.spawnv(os.P_NOWAIT, sys.executable, args)",
+      "print(pid > 0)   # → True (P_NOWAIT не ждёт: сразу отдаёт идентификатор запущенного процесса)",
+      "print(os.spawnv(os.P_WAIT, sys.executable, []))   # → ValueError"
     ],
     "related": [
       "os.spawnl",
@@ -20748,7 +21031,12 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'spawnve') or callable(os.spawnve))   # → True"
+      "import sys",
+      "env = {**os.environ, 'GREETING': 'hello'}   # env заменяет окружение целиком, поэтому его копируют из os.environ",
+      "print(env['GREETING'])   # → hello",
+      "print(os.spawnve(os.P_WAIT, sys.executable, ['python', '-c', 'pass'], env))   # → 0",
+      "print('PATH' in os.environ)   # → True",
+      "print('PATH' in {'GREETING': 'hello'})   # → False (с таким «голым» env дочерний процесс останется без PATH)"
     ],
     "related": [
       "os.spawnv",
@@ -20785,7 +21073,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'spawnl') or callable(os.spawnl))   # → True"
+      "print(os.P_WAIT, os.P_NOWAIT)  # → 0 1 — режимы: дождаться потомка или сразу вернуть PID",
+      "code = os.spawnl(os.P_WAIT, '/bin/echo', 'echo', 'привет')  # → на Unix печатает «привет», в code — код выхода потомка (0)",
+      "pid = os.spawnl(os.P_NOWAIT, '/bin/sleep', 'sleep', '1')  # → на Unix не ждёт завершения и возвращает PID потомка, например 12345",
+      "os.spawnl(os.P_WAIT, '/bin/echo', 'привет')  # → печатает пустую строку: первый аргумент после пути — это argv[0] (имя программы), а не данные"
     ],
     "related": [
       "os.spawnv",
@@ -20822,7 +21113,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'spawnle') or callable(os.spawnle))   # → True"
+      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'echo $GREETING', {'GREETING': 'привет'})  # → на Unix печатает «привет», в code — 0",
+      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'exit 3', {'PATH': '/bin:/usr/bin'})  # → на Unix в code — 3, код выхода потомка",
+      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'echo $LANG', dict(os.environ, LANG='C'))  # → на Unix печатает C: копия os.environ с подменённой переменной",
+      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'echo [$HOME]', {})  # → на Unix печатает [] — env заменяет окружение целиком, а не дополняет его"
     ],
     "related": [
       "os.spawnl",
@@ -20859,7 +21153,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'spawnlp') or callable(os.spawnlp))   # → True"
+      "code = os.spawnlp(os.P_WAIT, 'echo', 'echo', 'привет')  # → только Unix: «p» ищет echo в PATH, полный путь не нужен; в code — 0",
+      "pid = os.spawnlp(os.P_NOWAIT, 'sleep', 'sleep', '1')  # → только Unix: с P_NOWAIT сразу возвращается PID потомка, например 12345",
+      "print(os.waitpid(pid, 0)[1])  # → только Unix: 0 — дождались потомка, запущенного с P_NOWAIT",
+      "code = os.spawnlp(os.P_WAIT, 'нет-такой-программы', 'нет-такой-программы')  # → только Unix: в code — 127, исключения не будет: потомок не смог запустить программу"
     ],
     "related": [
       "os.spawnl",
@@ -20896,7 +21193,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'spawnlpe') or callable(os.spawnlpe))   # → True"
+      "env = {**os.environ, 'LANG': 'C'}   # у e-форм окружение задаётся явно и передаётся последним позиционным аргументом",
+      "print(env['LANG'])   # → C",
+      "code = os.spawnlpe(os.P_WAIT, 'echo', 'echo', 'hi', env)   # → только Unix: печатает hi, P_WAIT ждёт конца, code == 0",
+      "pid = os.spawnlpe(os.P_NOWAIT, 'sleep', 'sleep', '5', env)   # → только Unix: не ждёт, возвращает идентификатор процесса, например 12345",
+      "print(('echo', 'hi')[0])   # → echo: в l-форме имя программы пишется дважды — как file и как argv[0]"
     ],
     "related": [
       "os.spawnlp",
@@ -20933,7 +21234,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'spawnvp') or callable(os.spawnvp))   # → True"
+      "print('PATH' in os.environ)   # → True: именно в PATH spawnvp ищет программу по имени",
+      "code = os.spawnvp(os.P_WAIT, 'echo', ['echo', 'hi'])   # → только Unix: печатает hi, code == 0",
+      "pid = os.spawnvp(os.P_NOWAIT, 'sleep', ['sleep', '5'])   # → только Unix: не ждёт, возвращает идентификатор процесса, например 12345",
+      "print(os.path.basename('/bin/echo'))   # → echo: spawnvp хватит имени, а spawnv потребовал бы полный путь"
     ],
     "related": [
       "os.spawnv",
@@ -20970,7 +21274,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'spawnvpe') or callable(os.spawnvpe))   # → True"
+      "env = {**os.environ, 'LANG': 'C'}   # p-форма ищет программу в PATH, e-форма берёт окружение из env",
+      "print(env['LANG'])   # → C",
+      "code = os.spawnvpe(os.P_WAIT, 'env', ['env'], env)   # → только Unix: печатает переменные окружения, code == 0",
+      "pid = os.spawnvpe(os.P_NOWAIT, 'sleep', ['sleep', '5'], env)   # → только Unix: сразу возвращает идентификатор процесса, например 12345",
+      "print('PATH' in {'LANG': 'C'})   # → False: с таким env поиск пойдёт по os.defpath, а не по вашему PATH"
     ],
     "related": [
       "os.spawnvp",
@@ -21008,7 +21316,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'posix_spawn') or callable(os.posix_spawn))   # → True"
+      "pid = os.posix_spawn('/bin/echo', ['echo', 'привет'], os.environ)  # → только Unix: запускает /bin/echo, печатает «привет» и возвращает PID потомка, например 12345",
+      "print(os.waitpid(pid, 0)[1])  # → только Unix: 0 — потомок завершился успешно",
+      "pid = os.posix_spawn('/bin/sh', ['sh', '-c', 'exit 3'], {'PATH': '/bin:/usr/bin'})  # → только Unix: своё окружение вместо os.environ, потомок выйдет с кодом 3",
+      "os.posix_spawn('echo', ['echo', 'привет'], os.environ)  # → FileNotFoundError: нужен полный путь, PATH не просматривается (для поиска в PATH — os.posix_spawnp)"
     ],
     "related": [
       "os.posix_spawnp",
@@ -21045,7 +21356,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'posix_spawnp') or callable(os.posix_spawnp))   # → True"
+      "pid = os.posix_spawnp('echo', ['echo', 'привет'], os.environ)  # → только Unix: находит echo в PATH, возвращает PID потомка, например 12345",
+      "print(os.waitpid(pid, 0)[1])  # → только Unix: 0 — потомок напечатал «привет» и завершился успешно",
+      "pid = os.posix_spawnp('sh', ['sh', '-c', 'exit 3'], {'PATH': '/bin:/usr/bin'})  # → только Unix: PATH берётся из переданного env, потомок выйдет с кодом 3",
+      "os.posix_spawnp('нет-такой-программы', ['нет-такой-программы'], os.environ)  # → FileNotFoundError: в PATH ничего не найдено"
     ],
     "related": [
       "os.posix_spawn",
@@ -21866,7 +22180,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'getuid') or callable(os.getuid))   # → True"
+      "print(os.getuid())  # → только Unix: реальный UID текущего процесса, например 1000",
+      "print(os.getuid() == 0)  # → True, если скрипт запущен от root (например, через sudo), иначе False",
+      "print(os.getuid() == os.geteuid())  # → True у обычной программы; у setuid-программы реальный и эффективный UID различаются",
+      "home = os.path.expanduser('~')",
+      "print(os.stat(home).st_uid == os.getuid())  # → True: домашний каталог принадлежит текущему пользователю"
     ],
     "related": [
       "os.geteuid",
@@ -21900,7 +22218,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'geteuid') or callable(os.geteuid))   # → True"
+      "print(os.geteuid())  # → только Unix: эффективный UID процесса, например 1000",
+      "print(os.geteuid() == 0)  # → только Unix: True, если скрипт выполняется с правами root",
+      "print(os.geteuid() == os.getuid())  # → только Unix: True; False только в setuid-программах вроде sudo",
+      "print(str(os.geteuid()).isdigit())  # → только Unix: True — возвращается число, а не имя; имя даёт pwd.getpwuid(os.geteuid()).pw_name"
     ],
     "related": [
       "os.getuid",
@@ -21934,7 +22255,9 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'getgid') or callable(os.getgid))   # → True"
+      "print(os.getgid())  # → только Unix: реальный GID процесса, например 1000",
+      "print(os.getgid() == os.getegid())  # → только Unix: True — реальный и эффективный GID обычно совпадают",
+      "print(os.getgid() in os.getgroups())  # → только Unix: обычно True — основная группа входит в набор групп процесса"
     ],
     "related": [
       "os.getegid",
@@ -21968,7 +22291,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'getegid') or callable(os.getegid))   # → True"
+      "print(os.getegid())  # → только Unix: эффективный GID процесса, например 1000",
+      "print(type(os.getegid()))  # → только Unix: <class 'int'>",
+      "print(os.getegid() == os.getgid())  # → только Unix: True, пока setgid-бит не сменил группу процесса",
+      "print(os.getegid() == 0)  # → только Unix: True, если права процесса выданы по группе root"
     ],
     "related": [
       "os.getgid",
@@ -22002,7 +22328,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'getresuid') or callable(os.getresuid))   # → True"
+      "print(os.getresuid())  # → только Unix: тройка (реальный, эффективный, сохранённый) UID, например (1000, 1000, 1000)",
+      "ruid, euid, suid = os.getresuid()",
+      "print(ruid == os.getuid())  # → True: первый элемент тройки — тот же реальный UID, что возвращает os.getuid()",
+      "print(euid == 0)  # → True, если процесс работает с правами root (например, запущен через sudo), иначе False",
+      "os.setresuid(ruid, ruid, ruid)  # → None: необратимый сброс всех трёх UID к реальному — после того как сохранённый UID перестал быть root, вернуть права уже нельзя"
     ],
     "related": [
       "os.setresuid",
@@ -22036,7 +22366,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'getresgid') or callable(os.getresgid))   # → True"
+      "print(os.getresgid())  # → только Unix: тройка (реальный, эффективный, сохранённый) GID, например (1000, 1000, 1000)",
+      "rgid, egid, sgid = os.getresgid()",
+      "print(egid == os.getegid())  # → True: средний элемент тройки — тот же эффективный GID, что возвращает os.getegid()",
+      "print(rgid == egid)  # → True у обычного процесса; у программы с setgid-битом эффективный GID берётся у группы-владельца файла и отличается от реального",
+      "print(sgid)  # → сохранённый GID: значение, к которому процесс может вернуться через os.setresgid() после временного понижения прав"
     ],
     "related": [
       "os.setresgid",
@@ -22070,7 +22404,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'getgroups') or callable(os.getgroups))   # → True"
+      "print(os.getgroups())  # → только Unix: список GID групп процесса, например [4, 24, 27, 1000]",
+      "print(type(os.getgroups()))  # → только Unix: <class 'list'>",
+      "print(27 in os.getgroups())  # → только Unix: True, если процесс входит в группу с GID 27 (sudo в Ubuntu)",
+      "print(len(os.getgroups()))  # → только Unix: число групп; на macOS список обрезан (не более 16) и может расходиться с os.getgrouplist()"
     ],
     "related": [
       "os.setgroups",
@@ -22104,7 +22441,10 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'getgrouplist') or callable(os.getgrouplist))   # → True"
+      "print(os.getgrouplist('root', 0))  # → только Unix: список GID групп пользователя root, например [0]",
+      "print(27 in os.getgrouplist('root', 0))  # → только Unix: True, если root состоит в группе с GID 27 (sudo в Ubuntu)",
+      "print(len(os.getgrouplist('root', 0)) >= 1)  # → только Unix: True — в отличие от os.getgroups(), спросить можно про любого пользователя, не только текущего",
+      "print(os.getgrouplist('нет-такого-пользователя', 100))  # → только Unix: обычно [100] — неизвестное имя не ошибка, вернётся только базовый GID"
     ],
     "related": [
       "os.getgroups",
@@ -22138,7 +22478,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'getlogin') or callable(os.getlogin))   # → True"
+      "print(os.getlogin())  # → имя пользователя управляющего терминала, например alex",
+      "user = os.getlogin()",
+      "print(os.path.join('/home', user))  # → путь к домашнему каталогу по имени входа, например /home/alex",
+      "print(os.environ.get('USER') or os.getlogin())  # → то же имя; в cron или в демоне без терминала os.getlogin() бросает OSError, поэтому сначала смотрят переменную окружения",
+      "print(os.getlogin() == os.environ.get('LOGNAME'))  # → на Unix обычно True, но getlogin() читает владельца терминала, а LOGNAME — переменную окружения, которую можно подменить"
     ],
     "related": [
       "os.getuid",
@@ -22174,7 +22518,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'setuid') or callable(os.setuid))   # → True"
+      "print(os.getuid(), os.geteuid())  # → только Unix: реальный и эффективный UID, например 0 0 под root",
+      "os.setgid(1000)  # → только Unix: при сбросе привилегий группу меняют ПЕРВОЙ — после setuid прав на setgid уже не будет",
+      "os.setuid(1000)  # → только Unix: у root меняет разом реальный, эффективный и сохранённый UID на 1000",
+      "print(os.getuid(), os.geteuid())  # → только Unix: теперь 1000 1000 — типовой сброс привилегий демона завершён",
+      "os.setuid(0)  # → только Unix: PermissionError — в отличие от os.seteuid, вернуть root после setuid уже нельзя"
     ],
     "related": [
       "os.getuid",
@@ -22210,7 +22558,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'seteuid') or callable(os.seteuid))   # → True"
+      "saved_uid = os.geteuid()  # → только Unix: текущий эффективный UID, например 1000 (у root — 0)",
+      "os.seteuid(os.getuid())  # → только Unix: сбрасывает эффективный UID до реального",
+      "print(os.geteuid() == os.getuid())  # → True: процесс работает с правами реального пользователя",
+      "os.seteuid(saved_uid)  # → только Unix: возврат прежнего эффективного UID (не-root может вернуться лишь к реальному или сохранённому)",
+      "os.seteuid(0)  # → только Unix: PermissionError без прав root; в отличие от os.setuid() меняется только эффективный UID"
     ],
     "related": [
       "os.geteuid",
@@ -22246,7 +22598,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'setgid') or callable(os.setgid))   # → True"
+      "print(os.getgid())  # → только Unix: реальный GID процесса, например 1000",
+      "os.setgid(os.getgid())  # → только Unix: установка того же GID проходит без ошибки",
+      "os.setgid(65534)  # → только Unix: root навсегда переходит в группу nogroup — вернуться уже нельзя",
+      "print(os.getgid(), os.getegid())  # → 65534 65534: у root setgid меняет и реальный, и эффективный GID",
+      "os.setgid(0)  # → только Unix: PermissionError, если процесс запущен не от root"
     ],
     "related": [
       "os.getgid",
@@ -22282,7 +22638,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'setegid') or callable(os.setegid))   # → True"
+      "saved_gid = os.getegid()  # → только Unix: текущий эффективный GID, например 1000",
+      "os.setegid(os.getgid())  # → только Unix: временно понижает права до реальной группы пользователя",
+      "print(os.getegid() == os.getgid())  # → True: эффективный GID совпал с реальным",
+      "os.setegid(saved_gid)  # → только Unix: возврат к прежнему эффективному GID",
+      "os.setegid(0)  # → только Unix: PermissionError, если процесс запущен не от root"
     ],
     "related": [
       "os.getegid",
@@ -22318,7 +22678,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'setreuid') or callable(os.setreuid))   # → True"
+      "print(os.getuid(), os.geteuid())  # → только Unix: реальный и эффективный UID, например 0 0 под root",
+      "os.setreuid(-1, 1000)  # → только Unix: -1 оставляет реальный UID прежним, понижается только эффективный",
+      "os.seteuid(0)  # → только Unix: root возвращается, потому что реальный UID остался равен 0",
+      "os.setreuid(1000, 1000)  # → только Unix: оба UID становятся 1000, сохранённый тоже сбрасывается — вернуться в root нельзя",
+      "os.setreuid(0, 0)  # → только Unix: PermissionError после безвозвратного сброса привилегий"
     ],
     "related": [
       "os.setuid",
@@ -22354,7 +22718,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'setregid') or callable(os.setregid))   # → True"
+      "print(os.getgid(), os.getegid())  # → только Unix: реальный и эффективный GID, например 1000 1000",
+      "os.setregid(-1, os.getgid())  # → только Unix: -1 оставляет реальный GID прежним, меняется только эффективный",
+      "os.setregid(65534, 65534)  # → только Unix: root одним вызовом переводит процесс в группу nogroup",
+      "print(os.getgid(), os.getegid())  # → 65534 65534: оба GID сменились за один вызов",
+      "os.setregid(0, 0)  # → только Unix: PermissionError, если процесс запущен не от root"
     ],
     "related": [
       "os.setgid",
@@ -22390,7 +22758,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'setresuid') or callable(os.setresuid))   # → True"
+      "print(os.getresuid())  # → только Unix: тройка (реальный, эффективный, сохранённый) UID, например (0, 0, 0) под root",
+      "os.setresuid(1000, 1000, 0)  # → только Unix: реальный и эффективный UID становятся 1000, сохранённый остаётся 0",
+      "os.setresuid(-1, 0, -1)  # → только Unix: -1 оставляет поле нетронутым; вернуть euid=0 удаётся благодаря сохранённому 0",
+      "os.setresuid(1000, 1000, 1000)  # → только Unix: все три UID равны 1000 — привилегии сброшены окончательно",
+      "os.setresuid(0, 0, 0)  # → только Unix: PermissionError, после полного сброса root уже не вернуть"
     ],
     "related": [
       "os.getresuid",
@@ -22426,7 +22798,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'setresgid') or callable(os.setresgid))   # → True"
+      "print(os.getresgid())  # → только Unix: тройка (реальный, эффективный, сохранённый) GID, например (0, 0, 0) под root",
+      "os.setresgid(1000, 1000, 0)  # → только Unix: реальный и эффективный GID становятся 1000, сохранённый остаётся 0",
+      "os.setresgid(-1, 0, -1)  # → только Unix: -1 не трогает поле; вернуть egid=0 позволяет именно сохранённый 0",
+      "os.setresgid(1000, 1000, 1000)  # → только Unix: группу сбрасывают ДО os.setresuid — после смены UID прав на это уже не останется",
+      "os.setresgid(0, 0, 0)  # → только Unix: PermissionError, после полного сброса группу root уже не вернуть"
     ],
     "related": [
       "os.getresgid",
@@ -22462,7 +22838,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'setgroups') or callable(os.setgroups))   # → True"
+      "print(os.getgroups())  # → только Unix: список дополнительных GID, например [4, 27, 1000]",
+      "os.setgroups([])  # → только Unix: root отбирает у процесса все дополнительные группы",
+      "print(os.getgroups())  # → []: дополнительных групп не осталось",
+      "os.setgroups([1000, 1001])  # → только Unix: PermissionError, если процесс запущен не от root",
+      "os.setgroups(1000)  # → TypeError: нужна последовательность GID, а не одно число"
     ],
     "related": [
       "os.getgroups",
@@ -22498,7 +22878,13 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'initgroups') or callable(os.initgroups))   # → True"
+      "import pwd",
+      "os.initgroups('www-data', 33)  # → только Unix: None; процесс получает все дополнительные группы пользователя www-data плюс группу с GID 33",
+      "print(os.getgroups())  # → список GID процесса после вызова, например [33, 4, 27]",
+      "entry = pwd.getpwnam('www-data')",
+      "os.initgroups(entry.pw_name, entry.pw_gid)  # → None: базовый GID берут из записи пользователя, а не подставляют числом вручную",
+      "os.setuid(entry.pw_uid)  # → None: штатный порядок сброса привилегий демона — initgroups(), затем setgid(), и только в конце setuid(); после него вернуть права root уже нельзя",
+      "os.initgroups('www-data', 33)  # → PermissionError, если скрипт запущен не от root: менять список групп процесса может только суперпользователь"
     ],
     "related": [
       "os.setgroups",
@@ -23726,7 +24112,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'chroot') or callable(os.chroot))   # → True"
+      "os.chroot('/srv/jail')  # → только Unix: корнем процесса становится /srv/jail, функция ничего не возвращает",
+      "os.chdir('/')  # → только Unix: обязательный шаг после chroot — иначе рабочий каталог остаётся вне «клетки»",
+      "print(os.listdir('/'))  # → только Unix: видно уже содержимое /srv/jail, например ['bin', 'etc', 'lib']",
+      "os.chroot('/srv/нет-такого')  # → FileNotFoundError: каталог нового корня должен существовать",
+      "os.chroot('/srv/jail')  # → только Unix: PermissionError, если процесс запущен не от root"
     ],
     "related": [
       "os.chdir",
@@ -23947,7 +24337,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'fchdir') or callable(os.fchdir))   # → True"
+      "back = os.open('.', os.O_RDONLY)   # → только Unix: дескриптор текущего каталога — «закладка», чтобы вернуться",
+      "os.chdir('/tmp')   # → текущий каталог сменён на /tmp (обычный переход по пути)",
+      "os.fchdir(back)   # → только Unix: возврат в исходный каталог по дескриптору, а не по строке пути",
+      "os.close(back)   # → дескриптор освобождён; следующий os.fchdir(back) даст OSError: Bad file descriptor",
+      "os.fchdir(os.open('/etc/hosts', os.O_RDONLY))   # → NotADirectoryError: нужен дескриптор каталога, а не файла"
     ],
     "related": [
       "os.chdir",
@@ -24057,7 +24451,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'lockf') or callable(os.lockf))   # → True"
+      "fd = os.open('/tmp/counter.dat', os.O_RDWR | os.O_CREAT)   # → только Unix: дескриптор файла, который будем блокировать",
+      "os.lockf(fd, os.F_LOCK, 0)   # → только Unix: захватывает файл целиком (len=0), ждёт, пока его освободит другой процесс",
+      "os.lockf(fd, os.F_ULOCK, 0)   # → только Unix: снимает блокировку, ничего не возвращает",
+      "os.lockf(fd, os.F_TLOCK, 100)   # → только Unix: пробует занять 100 байт от текущей позиции без ожидания; занято другим процессом — BlockingIOError",
+      "os.close(fd)   # → только Unix: закрытие дескриптора тоже снимает все блокировки процесса на этом файле"
     ],
     "related": [],
     "related_errors": []
@@ -24261,7 +24659,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'pathconf') or callable(os.pathconf))   # → True"
+      "print(os.pathconf('/tmp', 'PC_NAME_MAX'))  # → только Unix: предел длины имени файла в /tmp, обычно 255",
+      "print(os.pathconf('/tmp', os.pathconf_names['PC_PATH_MAX']))  # → только Unix: предел длины всего пути, например 4096 (имя ограничения можно заменить его кодом)",
+      "name = 'отчёт_за_2026_год.txt'",
+      "print(len(name.encode()) <= os.pathconf('/tmp', 'PC_NAME_MAX'))  # → только Unix: True — проверяем длину имени в байтах до создания файла",
+      "print(os.pathconf('/нет-такого-каталога', 'PC_NAME_MAX'))  # → FileNotFoundError"
     ],
     "related": [
       "os.fpathconf",
@@ -24295,7 +24697,12 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'fpathconf') or callable(os.fpathconf))   # → True"
+      "f = open('/tmp/demo_conf.txt', 'w')  # учебный файл — нужен только ради открытого дескриптора",
+      "print(os.fpathconf(f.fileno(), 'PC_NAME_MAX'))  # → только Unix: предел длины имени файла на этой ФС, обычно 255",
+      "print(os.fpathconf(f.fileno(), os.pathconf_names['PC_PATH_MAX']))  # → только Unix: то же можно спросить числовым кодом из os.pathconf_names, например 4096",
+      "r, w = os.pipe()",
+      "print(os.fpathconf(w, 'PC_PIPE_BUF'))  # → только Unix: сколько байт пишется в канал атомарно, обычно 4096 — у канала нет пути, поэтому os.pathconf тут неприменим",
+      "print(os.fpathconf(f.fileno(), 'PC_UNKNOWN'))  # → ValueError: имя ограничения не распознано"
     ],
     "related": [
       "os.pathconf",
@@ -24332,7 +24739,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'confstr') or callable(os.confstr))   # → True"
+      "print(os.confstr('CS_PATH'))   # → только Unix: пути поиска стандартных утилит, например /bin:/usr/bin",
+      "print(os.confstr('CS_GNU_LIBC_VERSION'))   # → только Unix с glibc: версия libc, например glibc 2.36",
+      "print(os.confstr(os.confstr_names['CS_PATH']))   # → то же значение, что и по имени: принимается и числовой код из os.confstr_names",
+      "print(os.confstr('CS_XBS5_ILP32_OFF32_CFLAGS'))   # → None: имя известно, но значение в системе не определено",
+      "print(os.confstr('CS_НЕТ_ТАКОГО'))   # → ValueError: unrecognized configuration name"
     ],
     "related": [
       "os.sysconf",
@@ -24368,7 +24779,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'sysconf') or callable(os.sysconf))   # → True"
+      "print(os.sysconf('SC_NPROCESSORS_ONLN'))  # → только Unix: число доступных ядер, например 8 (переносимый аналог — os.cpu_count())",
+      "print(os.sysconf('SC_PAGESIZE'))  # → только Unix: размер страницы памяти в байтах, обычно 4096",
+      "total = os.sysconf('SC_PHYS_PAGES') * os.sysconf('SC_PAGESIZE')",
+      "print(total // 1024 ** 3)  # → только Unix: объём ОЗУ в гигабайтах, например 16",
+      "print(os.sysconf('SC_NO_SUCH_LIMIT'))  # → ValueError: имя параметра не распознано"
     ],
     "related": [
       "os.confstr",
@@ -25646,7 +26061,11 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'major') or callable(os.major))   # → True"
+      "st = os.stat('/dev/null')",
+      "print(os.major(st.st_rdev))  # → только Unix: старший номер устройства /dev/null, в Linux 1",
+      "print(f'{os.major(st.st_rdev)}:{os.minor(st.st_rdev)}')  # → только Unix: пара номеров, как в колонке ls -l /dev/null, в Linux 1:3",
+      "print(os.major(os.makedev(8, 1)))  # → 8 — major достаёт обратно то, что упаковала makedev",
+      "print(os.major(os.stat('/tmp').st_rdev))  # → 0 — у обычного файла или каталога st_rdev нулевой: это не устройство"
     ],
     "related": [
       "os.minor",
@@ -25714,7 +26133,12 @@
     ],
     "examples": [
       "import os",
-      "print(not hasattr(os, 'makedev') or callable(os.makedev))   # → True"
+      "dev = os.makedev(8, 1)  # 8:1 — первый раздел первого SATA/SCSI-диска",
+      "print(dev)  # → только Unix: упакованный идентификатор устройства; кодировка зависит от ядра (в Linux — 2049)",
+      "print(os.major(dev), os.minor(dev))  # → 8 1 — makedev и major/minor строго обратны друг другу",
+      "st = os.stat('/dev/null')",
+      "print(os.makedev(os.major(st.st_rdev), os.minor(st.st_rdev)) == st.st_rdev)  # → True — разобрали и собрали настоящий st_rdev без потерь",
+      "print(os.makedev(0, 0))  # → 0 — нулевой идентификатор: ровно такой st_rdev у обычных файлов, у которых устройства нет"
     ],
     "related": [
       "os.major",
