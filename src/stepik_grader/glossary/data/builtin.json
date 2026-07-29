@@ -2203,8 +2203,8 @@
       "en": "Async analog of iter(): return an async iterator for the object (calls __aiter__)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Появилась в Python 3.10. Возвращает сам асинхронный итератор, а не awaitable — писать await aiter(obj) не нужно, await ставится уже перед anext(). Работает только с объектами, у которых есть __aiter__ (асинхронные генераторы, асинхронные потоки); для обычного списка это TypeError — там iter(). Явный вызов нужен редко: async for делает его за вас.",
+      "en": "Added in Python 3.10. It hands back the async iterator itself, not an awaitable — await aiter(obj) is wrong; the await belongs in front of anext(). It only accepts objects that define __aiter__ (async generators, async streams); a plain list raises TypeError and needs iter(). You rarely call it by hand, since async for does it for you."
     },
     "syntax": "aiter(async_iterable)",
     "status": "ready",
@@ -2249,8 +2249,8 @@
       "en": "Async analog of next(): return an awaitable for the next item of an async iterator."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Появилась в Python 3.10. Возвращает не элемент, а awaitable: без await получите объект корутины и предупреждение 'coroutine was never awaited', а элемент так и не прочитается. Второй аргумент работает как у next(): вместо StopAsyncIteration отдаёт значение по умолчанию — короче, чем оборачивать вызов в try/except.",
+      "en": "Added in Python 3.10. It returns an awaitable, not the item: forget the await and you get a coroutine object plus a 'coroutine was never awaited' warning, while nothing is actually consumed. The second argument behaves like the one in next() — it yields a default instead of raising StopAsyncIteration, which is tidier than wrapping the call in try/except."
     },
     "syntax": "anext(async_iterator, default)",
     "status": "ready",

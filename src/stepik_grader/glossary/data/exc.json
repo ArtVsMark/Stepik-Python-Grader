@@ -8,8 +8,8 @@
       "en": "An assertion — checks a condition and raises AssertionError when it is False. Used for debugging and tests. Disabled with -O."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — лишние скобки: assert (x > 0, 'сообщение') проверяет непустой кортеж, а он всегда истинен, так что такая проверка не сработает никогда (интерпретатор лишь предупредит). И раз под python -O все assert вырезаются, ими нельзя проверять пользовательский ввод, права или данные извне — там нужен обычный if с raise; assert описывает инварианты, которые не могут нарушиться, если код верен.",
+      "en": "The classic trap is an extra pair of parentheses: assert (x > 0, 'message') tests a non-empty tuple, which is always truthy, so the check silently never fires (you only get a syntax warning). And because python -O strips assertions entirely, they must not guard user input, permissions or anything coming from outside — use a plain if with raise for that; assert is for invariants that cannot break unless the code itself is wrong."
     },
     "syntax": "assert condition, 'message'",
     "status": "ready",
@@ -70,8 +70,8 @@
       "en": "Raised when an attribute or method that the object does not have is accessed."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Большая часть студенческих AttributeError — это на самом деле None: методы, меняющие объект на месте (list.sort(), list.append(), random.shuffle()), возвращают None, и после строки lst = lst.sort() следующее же обращение падает с «'NoneType' object has no attribute ...». Сообщение стоит дочитывать до конца: в нём назван и тип объекта, и имя атрибута, а начиная с 3.10 интерпретатор ещё и подсказывает похожее имя, если это была опечатка.",
+      "en": "Most student AttributeErrors are really None in disguise: in-place methods such as list.sort(), list.append() and random.shuffle() return None, so after lst = lst.sort() the very next call dies with \"'NoneType' object has no attribute ...\". Read the message to the end — it names both the object's type and the attribute, and since 3.10 the interpreter also suggests a close match when you merely mistyped."
     },
     "syntax": "raise AttributeError('сообщение')",
     "status": "ready",
@@ -111,8 +111,8 @@
       "en": "The else block runs only if no exception was raised inside try. It separates the happy path from error handling."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Смысл else не в красоте, а в сужении зоны риска: строки, переехавшие из try в else, этим except уже не перехватываются, иначе ValueError из «продолжения работы» тихо уйдёт в ветку, написанную про разбор числа. else без хотя бы одного except — синтаксическая ошибка, а порядок такой: try, затем else и только потом finally. Если из try вышли через return, break или continue, else не выполнится вовсе.",
+      "en": "The point of else isn't tidiness but narrowing the risk zone: lines moved out of try are no longer covered by that except, so a ValueError raised while carrying on can't be silently swallowed by a handler written for parsing. An else clause needs at least one except (else on its own is a syntax error), and the order is try, then else, then finally. Leaving try via return, break or continue skips else entirely."
     },
     "syntax": "try:\n    ...\nexcept Error:\n    ...\nelse:\n    # только при успехе",
     "status": "ready",
@@ -187,8 +187,8 @@
       "en": "Raised on an attempt to open or use a file that does not exist. A subclass of OSError."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Чаще всего виноват не отсутствующий файл, а относительный путь: он считается от текущей рабочей директории, а не от папки со скриптом, поэтому из другой директории тот же код падает. При записи ошибка означает другое — самого файла может не быть, но обязана существовать папка, в которую вы пишете. Ловите этот класс, а не голый OSError, иначе в ту же ветку попадут отказ в доступе и десяток других причин.",
+      "en": "Usually the culprit is not a missing file but a relative path: it resolves against the current working directory, not the script's folder, so the same code breaks when run from elsewhere. In write mode the meaning shifts — the file itself may be absent, but the directory you write into must already exist. Catch this specific class rather than bare OSError, or permission denials and unrelated failures land in the same branch."
     },
     "syntax": "raise FileNotFoundError('файл не найден')",
     "status": "ready",
@@ -230,8 +230,8 @@
       "en": "The finally block always runs — whether or not an exception was raised. Used to release resources."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — return, break или continue внутри самого finally: они гасят летящее исключение и подменяют результат try, из-за чего ошибка исчезает бесследно; в Python 3.14 такой код уже даёт SyntaxWarning. finally срабатывает и при выходе через return: значение сначала вычисляется, потом идёт finally, и только затем функция действительно возвращает. Для файлов, сокетов и блокировок обычно лучше with — менеджер контекста делает то же самое короче и без шанса забыть закрытие.",
+      "en": "The main trap is a return, break or continue inside finally itself: it swallows the exception in flight and overrides the value from try, so a failure disappears without a trace — Python 3.14 flags this with a SyntaxWarning. finally also runs when you leave via return: the value is computed first, then finally runs, and only then does the function actually return. For files, sockets and locks prefer with — a context manager does the same job with less room to forget the cleanup."
     },
     "syntax": "try:\n    ...\nfinally:\n    cleanup()",
     "status": "ready",
@@ -311,8 +311,8 @@
       "en": "Raised when a module import fails — the module was found, but something went wrong while loading it."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная путаница — с ModuleNotFoundError: он подкласс ImportError, поэтому except ImportError ловит сразу и «модуля вообще нет», и «модуль нашёлся, но при загрузке что-то упало». Отсюда грабли: try/except ImportError вокруг импорта необязательной зависимости молча проглотит настоящую поломку внутри самого модуля — его собственный битый импорт или опечатку в коде. У пойманного объекта есть атрибуты name и path, по ним видно, о каком именно модуле и файле речь.",
+      "en": "The usual confusion is with ModuleNotFoundError: it is a subclass of ImportError, so except ImportError catches both \"no such module\" and \"module found, but it blew up while loading\". That is the trap — wrapping an optional dependency in try/except ImportError silently swallows a real failure inside that module, such as its own broken import or a typo in its code. The caught object carries name and path attributes telling you which module and file actually failed."
     },
     "syntax": "raise ImportError('сообщение')",
     "status": "ready",
@@ -352,8 +352,8 @@
       "en": "Raised when a sequence is indexed with an index that does not exist."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отрицательные индексы считаются с конца, но границу имеют такую же: у списка из трёх элементов lst[-4] — тот же IndexError. А срезы, в отличие от индексации, не падают никогда: lst[5:10] на коротком списке просто вернёт пустой список — это частый источник тихих багов вместо честной ошибки. У словаря аналогичный промах — это KeyError; общий предок обоих LookupError, если нужно поймать разом.",
+      "en": "Negative indices count from the end but hit the same wall: on a three-element list, lst[-4] raises IndexError just like lst[5]. Slicing, unlike indexing, never raises — lst[5:10] on a short list quietly returns an empty list, which hides bugs that an exception would have exposed. The dictionary counterpart is KeyError; both inherit from LookupError if you want to catch them together."
     },
     "syntax": "raise IndexError('сообщение')",
     "status": "ready",
@@ -395,8 +395,8 @@
       "en": "Raised when a dictionary key that does not exist is accessed. Use .get() to avoid it."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Единственный аргумент исключения — сам ключ, поэтому print(e) покажет 'b' в кавычках и больше ничего: понятное сообщение придётся писать самому. И .get() не всегда правильный ответ — если ключ обязан присутствовать, значение по умолчанию лишь замаскирует опечатку и уронит программу позже и не в том месте; кстати, тот же KeyError бросает set.remove().",
+      "en": "The exception carries only the key itself, so print(e) shows 'b' in quotes and nothing more — a human-readable message is on you. And .get() is not always the fix: when the key is supposed to be there, a silent default just hides a typo and blows up later somewhere else. The same KeyError is also raised by set.remove()."
     },
     "syntax": "raise KeyError(key)",
     "status": "ready",
@@ -439,8 +439,8 @@
       "en": "A subclass of ImportError. Raised when the module is not found in sys.path at all. Python 3.6+."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Чаще всего проблема не в том, что библиотеки нет, а в том, что она установлена не в тот интерпретатор, которым вы запускаете код: другой venv, другой pip, запуск из PyCharm против запуска из терминала. Отдельный except ModuleNotFoundError нужен редко — он подкласс ImportError, поэтому except ImportError его уже перехватывает. Разделять их имеет смысл, когда важно отличить «пакета нет вовсе» от «пакет есть, но внутри него нет нужного имени» — второе даёт чистый ImportError.",
+      "en": "Usually the library is not missing at all — it is just installed for a different interpreter than the one running your code: another venv, another pip, IDE versus terminal. You rarely need to catch ModuleNotFoundError by name, since it is a subclass of ImportError and except ImportError already covers it. Separate them only when it matters whether the package is absent entirely or present but missing the name you asked for — the latter is a plain ImportError."
     },
     "syntax": "raise ModuleNotFoundError('No module named ...')",
     "status": "ready",
@@ -480,8 +480,8 @@
       "en": "Raised when a variable or function name that is not defined in the current scope is used."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обычно за ним стоит опечатка либо обращение к переменной раньше её присваивания. Отдельно стоит знать подкласс UnboundLocalError: если имя где-то присваивается внутри функции, оно считается локальным во всём теле, и чтение до присваивания не подхватит глобальную переменную, а упадёт. Начиная с Python 3.10 интерпретатор подсказывает похожие имена («Did you mean ...»), что почти всегда мгновенно вскрывает опечатку.",
+      "en": "Most of the time this is a typo or a read that happens before the assignment. Worth knowing its subclass UnboundLocalError: if a name is assigned anywhere inside a function, it is local throughout the whole body, so reading it earlier fails instead of falling back to the global. Since Python 3.10 the interpreter suggests close matches (\"Did you mean ...\"), which usually exposes a typo immediately."
     },
     "syntax": "raise NameError('сообщение')",
     "status": "ready",
@@ -519,8 +519,8 @@
       "en": "Raised in abstract methods that subclasses are required to override. It shows that the method is deliberately left unimplemented."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Не путайте с NotImplemented — это отдельный синглтон, который методы вроде __eq__ и __add__ возвращают (а не бросают), чтобы Python попробовал зеркальную операцию у второго операнда. И это не полноценный способ объявить абстракцию: заглушка сработает только в момент вызова метода, тогда как abc.ABC с @abstractmethod не даст даже создать экземпляр недописанного подкласса. Формально NotImplementedError — подкласс RuntimeError.",
+      "en": "Do not confuse it with NotImplemented: that is a separate singleton which methods like __eq__ and __add__ return (never raise) so Python can try the reflected operation on the other operand. It is also a weak way to declare an abstraction — the stub only fires when the method is actually called, while abc.ABC with @abstractmethod refuses to instantiate an incomplete subclass at all. In the hierarchy NotImplementedError sits under RuntimeError."
     },
     "syntax": "raise NotImplementedError('переопредели метод')",
     "status": "ready",
@@ -561,8 +561,8 @@
       "en": "The base class for operating system errors: files, network, processes. FileNotFoundError and PermissionError are its subclasses."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловить сам OSError стоит скорее как последнюю сетку: он объединяет десятки разных ситуаций, и в except почти всегда точнее назвать конкретный подкласс — FileNotFoundError, PermissionError, IsADirectoryError. Если разбирать нужно именно код ошибки, у объекта есть атрибуты errno, strerror и filename; сравнивайте errno с константами модуля errno, а не с текстом сообщения — он зависит от ОС и локали. Старые имена IOError и EnvironmentError начиная с Python 3.3 — просто синонимы OSError, отдельных классов за ними нет.",
+      "en": "Catch OSError itself only as a safety net: it covers dozens of unrelated failures, and an except clause is almost always sharper when it names the concrete subclass — FileNotFoundError, PermissionError, IsADirectoryError. When you really need to branch on the cause, use the errno, strerror and filename attributes, and compare errno against constants from the errno module rather than parsing the message, which varies by OS and locale. The old names IOError and EnvironmentError have been plain aliases of OSError since Python 3.3, not separate classes."
     },
     "syntax": "raise OSError(errno, strerror)",
     "status": "ready",
@@ -603,8 +603,8 @@
       "en": "Raised on an attempt to perform an operation without the access rights the file or resource requires."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Подкласс OSError, который прилетает в момент самой операции (open, os.remove, запись), а не заранее — поэтому проверять права через os.access до открытия и бесполезно, и опасно: между проверкой и открытием всё может измениться, надёжнее обернуть в try сам вызов. На Windows тот же PermissionError встречается в неожиданных местах: при open() каталога и при попытке удалить или переименовать файл, который держит открытым другая программа.",
+      "en": "A subclass of OSError, raised by the operation itself (open, os.remove, a write) and never in advance — which makes an os.access pre-check both useless and racy; wrap the real call in try instead. On Windows it also shows up in surprising places: opening a directory with open(), or deleting or renaming a file that another program still holds open."
     },
     "syntax": "raise PermissionError('нет доступа')",
     "status": "ready",
@@ -644,8 +644,8 @@
       "en": "Raises an exception by hand. raise ... from chains exceptions together. A bare raise re-raises the current one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Голый raise допустим только внутри обработчика (иначе RuntimeError: No active exception to re-raise) и сохраняет исходный traceback — привычка писать raise e вместо него лишь добавляет лишний кадр стека. Внутри except Python и так сцепляет исключения сам («During handling of the above exception, another exception occurred»); from нужен, чтобы назвать причину явно, а from None — чтобы спрятать предыдущее исключение из вывода. Бросать можно и класс, и экземпляр: raise ValueError и raise ValueError() равнозначны, класс инстанцируется автоматически.",
+      "en": "A bare raise is legal only inside an exception handler (otherwise RuntimeError: No active exception to re-raise) and it preserves the original traceback — writing raise e instead just adds an extra stack frame. Inside except, Python already chains exceptions on its own (\"During handling of the above exception, another exception occurred\"); from states the cause explicitly, and from None hides the earlier exception from the report. You may raise either a class or an instance: raise ValueError and raise ValueError() are equivalent, the class gets instantiated for you."
     },
     "syntax": "raise ValueError('msg')\nraise RuntimeError('msg') from original",
     "status": "ready",
@@ -728,8 +728,8 @@
       "en": "Raised when the maximum recursion depth (1000 by default) is exceeded. A subclass of RuntimeError."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Почти всегда причина не в маленьком лимите, а в пропущенном или недостижимом базовом случае; поднимать sys.setrecursionlimit() безопасно только если рекурсия точно конечная — иначе процесс упадёт уже по-настоящему, без шанса перехватить. Лимит один на весь стек интерпретатора, поэтому кадры библиотечных вызовов расходуют его наравне с вашими. И раз это подкласс RuntimeError, except RuntimeError поймает его заодно — иногда неожиданно.",
+      "en": "Nine times out of ten the cause is a missing or unreachable base case, not a limit that is too low; raising sys.setrecursionlimit() is safe only when the recursion is genuinely finite, otherwise the process crashes for real, past the point where except can help. The limit covers the whole interpreter stack, so frames from library calls eat into the same budget as yours. Being a RuntimeError subclass, it is also swallowed by a broad except RuntimeError."
     },
     "syntax": "raise RecursionError('...')",
     "status": "ready",
@@ -772,8 +772,8 @@
       "en": "Signals that an iterator is exhausted. for loops and generators catch it automatically — you rarely need to raise it by hand."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — PEP 479: если StopIteration вылетит наружу из тела генератора (скажем, из необработанного внутреннего next()), Python подменит его на RuntimeError, а не тихо оборвёт генератор — завершать генератор нужно обычным return. Вторая: StopIteration наследуется от Exception, поэтому широкий except Exception проглотит сигнал конца итерации вместе с настоящими ошибками. Когда исчерпание итератора — штатная ситуация, вместо try/except берите next(it, default).",
+      "en": "The big trap is PEP 479: if StopIteration escapes the body of a generator (for example from an unguarded inner next() call), Python turns it into RuntimeError instead of quietly ending the generator — finish a generator with a plain return. It also inherits from Exception, so a broad except Exception silently eats the end-of-iteration signal along with real errors. When running out of items is expected, prefer next(it, default) over try/except."
     },
     "syntax": "raise StopIteration",
     "status": "ready",
@@ -817,8 +817,8 @@
       "en": "The try block holds code that may raise an exception. except catches it. else runs if there was none. finally runs always."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловите конкретный класс: except Exception, а тем более голый except:, заодно проглатывает опечатки вроде NameError и превращает баг в тихо работающую программу; голый except: захватывает ещё и BaseException, то есть KeyboardInterrupt с SystemExit. Порядок веток важен — срабатывает первая подходящая, поэтому except Exception перед except ValueError делает вторую ветку недостижимой. И держите тело try минимальным: чем больше строк под защитой, тем выше шанс перехватить не ту ошибку.",
+      "en": "Catch the specific class: except Exception — and a bare except: even more so — also swallows typos like NameError and turns a bug into a program that quietly does the wrong thing, while a bare except: additionally grabs BaseException, KeyboardInterrupt and SystemExit included. Branch order matters, since the first matching handler wins: except Exception placed before except ValueError makes the later branch unreachable. Keep the try body as small as possible — the more lines it covers, the easier it is to catch an error you never meant to handle."
     },
     "syntax": "try:\n    ...\nexcept ErrorType:\n    ...",
     "status": "ready",
@@ -894,8 +894,8 @@
       "en": "Raised by an operation or a function applied to an object of an unsuitable type. A common case: adding a str to an int."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Держите в голове границу с ValueError: TypeError — тип не тот (len(42)), ValueError — тип верный, а значение не годится (int('abc')). Самый частый источник у студентов — незаметно просочившийся None: функция забыла return, или переменной присвоили результат list.sort()/append(), а потом обратились к ней по индексу. Неверное число аргументов при вызове функции — тоже TypeError, а не какое-то отдельное исключение.",
+      "en": "Keep the line between this and ValueError clear: TypeError means the type is wrong (len(42)), ValueError means the type is right but the value is not usable (int('abc')). The most common source in student code is a None that sneaked in: a function that forgot to return, or a variable holding the result of list.sort()/append() that is later indexed. Calling a function with the wrong number of arguments raises TypeError too, not some separate exception."
     },
     "syntax": "raise TypeError('сообщение')",
     "status": "ready",
@@ -935,8 +935,8 @@
       "en": "Raised when a function gets an argument of the right type but with an unacceptable value. For example, int('abc') or math.sqrt(-1)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Граница с TypeError простая: тип подошёл, а значение — нет. int('abc') это ValueError, а int([]) уже TypeError. int('12.5') тоже падает: int() не разбирает дробную часть, нужно сначала float(). Оборачивайте в except ValueError именно узкое место (int(input())), а не весь блок через except Exception — иначе спрячете собственные опечатки в коде.",
+      "en": "The line against TypeError is simple: the type fits, the value does not — int('abc') is a ValueError, while int([]) is a TypeError. int('12.5') fails too, because int() does not parse a fractional part; go through float() first. Put except ValueError around the narrow spot (int(input())) instead of wrapping a whole block in except Exception, or you will bury your own typos."
     },
     "syntax": "raise ValueError('сообщение')",
     "status": "ready",
@@ -979,8 +979,8 @@
       "en": "The built-in exceptions form a hierarchy. BaseException → Exception → the standard exceptions."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловите конкретный класс, а не Exception: широкий обработчик молча проглатывает опечатки в вашем же коде. SystemExit, KeyboardInterrupt и GeneratorExit наследуются прямо от BaseException намеренно — под except Exception они не попадают, зато голый except: их перехватит и сломает выход по Ctrl+C. Блоки except проверяются сверху вниз, поэтому потомка (IndexError) пишут раньше предка (LookupError), иначе он не сработает никогда.",
+      "en": "Catch the specific class rather than Exception: a broad handler quietly swallows typos in your own code. SystemExit, KeyboardInterrupt and GeneratorExit inherit straight from BaseException on purpose, so except Exception leaves them alone, while a bare except: grabs them and breaks Ctrl+C. except clauses are tested top to bottom, so a subclass like IndexError must come before its ancestor LookupError or it will never run."
     },
     "syntax": "BaseException\n  SystemExit, KeyboardInterrupt\n  Exception\n    ValueError, TypeError, IndexError...",
     "status": "ready",
@@ -1045,8 +1045,8 @@
       "en": "Write your own exception classes by inheriting from Exception. You can give them attributes and a hierarchy of their own."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Наследуйся от Exception, а не от BaseException: от BaseException идут KeyboardInterrupt и SystemExit, и случайно попасть в их семейство — значит сломать Ctrl+C и штатный выход. Полезно завести один базовый класс на модуль или приложение, а от него уже частные ошибки: тогда вызывающий код одним except ловит всё семейство, но при желании может отреагировать и на конкретный подкласс. Аргументы конструктора сами попадают в args и в текст str(e), поэтому ради одного сообщения свой __init__ писать не нужно.",
+      "en": "Inherit from Exception, never from BaseException — the latter is home to KeyboardInterrupt and SystemExit, and joining that family means broad handlers start swallowing Ctrl+C and clean shutdown. It pays to define one base error per module or application and derive the specific ones from it: callers can then catch the whole family with a single except, or narrow down to one subclass when they care. Whatever you pass to the constructor lands in args and in str(e) automatically, so a custom __init__ is unnecessary just to carry a message."
     },
     "syntax": "class MyError(Exception):\n    pass",
     "status": "ready",
@@ -1136,8 +1136,8 @@
       "en": "The root of the exception hierarchy; catches everything, including SystemExit/KeyboardInterrupt."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "От Exception её отделяют ровно те исключения, которые говорят не «данные плохие», а «программу пора останавливать»: SystemExit, KeyboardInterrupt и GeneratorExit наследуются напрямую от BaseException. Поэтому except BaseException (и его близнец — голый except:) съедает Ctrl+C и sys.exit(), и процесс перестаёт завершаться. Если всё же ловишь его ради уборки — заверши обработчик голым raise.",
+      "en": "What separates it from Exception is exactly the set of \"stop the program\" signals: SystemExit, KeyboardInterrupt and GeneratorExit inherit from BaseException directly. That is why except BaseException — and its twin, a bare except: — swallows Ctrl+C and sys.exit(), leaving the process unable to quit. If you do catch it for cleanup, end the handler with a bare raise."
     },
     "syntax": "raise BaseException",
     "status": "ready",
@@ -1177,8 +1177,8 @@
       "en": "The base class of all ordinary (non-system-exit) exceptions; `except Exception` is the usual broad catch."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "except Exception ловит и настоящую ошибку данных, и вашу опечатку: NameError, AttributeError, TypeError — тоже его потомки, поэтому широкий перехват превращает баг в тихо проглоченное сообщение. Пишите конкретный класс (ValueError, KeyError, ZeroDivisionError), а Exception оставляйте на самый верхний уровень программы, где вы логируете и завершаетесь. От голого except: он отличается тем, что не трогает SystemExit, KeyboardInterrupt и GeneratorExit — они наследуются от BaseException, и Ctrl+C по-прежнему прерывает программу.",
+      "en": "except Exception swallows genuine data errors and your own typos alike: NameError, AttributeError and TypeError are all subclasses, so a broad catch turns a bug into a quietly printed message. Name the concrete class instead (ValueError, KeyError, ZeroDivisionError) and reserve Exception for the outermost layer where you log and exit. Unlike a bare except:, it leaves SystemExit, KeyboardInterrupt and GeneratorExit alone — they descend from BaseException, so Ctrl+C still stops the program."
     },
     "syntax": "raise Exception",
     "status": "ready",
@@ -1217,8 +1217,8 @@
       "en": "Base class for arithmetic errors: ZeroDivisionError, OverflowError, FloatingPointError."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловить базовый класс целиком почти никогда не нужно: на практике из этой ветки прилетает только ZeroDivisionError, его и указывай в except. Соседи обманчивы: переполнение в обычной арифметике float даёт не ошибку, а inf (1e308 * 10), OverflowError выпадает лишь в узких местах вроде возведения float в большую степень и функций math, а FloatingPointError сам CPython не возбуждает вовсе.",
+      "en": "Catching the base class is rarely what you want — in practice only ZeroDivisionError ever surfaces here, so name it directly in your except. Its siblings are misleading: ordinary float arithmetic that goes too far yields inf rather than an error (1e308 * 10), OverflowError shows up only in narrow spots such as float exponentiation and math functions, and FloatingPointError is never raised by CPython itself."
     },
     "syntax": "raise ArithmeticError",
     "status": "ready",
@@ -1257,8 +1257,8 @@
       "en": "Division or modulo by zero, e.g. 1/0 or 5 % 0."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от IEEE-754 и numpy, где деление на ноль даёт inf, встроенные типы Python всегда бросают исключение — 1.0 / 0.0 падает так же, как 1 / 0. Сюда же относятся 5 % 0, divmod(5, 0) и 0 ** -1. Обычно чище проверить делитель заранее, чем оборачивать в try большой кусок кода: широкий except легко спрячет ноль, пришедший из другого места.",
+      "en": "Unlike IEEE-754 or numpy, where dividing by zero yields inf, Python's built-in numeric types always raise — 1.0 / 0.0 fails exactly like 1 / 0. The same goes for 5 % 0, divmod(5, 0) and 0 ** -1. Checking the divisor up front is usually cleaner than wrapping a large block in try, since a wide except can hide a zero that leaked in from somewhere else."
     },
     "syntax": "raise ZeroDivisionError",
     "status": "ready",
@@ -1296,8 +1296,8 @@
       "en": "The result of an arithmetic operation is too large to represent (typically for float)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Целые в Python неограниченной точности, поэтому обычная int-арифметика такого исключения не даёт — оно про float и си-шные типы под капотом. Причём переполнение самого float молчаливое: 1e308 * 10 просто вернёт inf, зато функции math и попытка перевести гигантский int во float честно бросают OverflowError. Оборачивать в try имеет смысл конкретное вычисление, а не всю программу.",
+      "en": "Python integers are unbounded, so plain int arithmetic never overflows; this exception belongs to floats and to the C-level types underneath. Note the asymmetry: float arithmetic overflows silently to inf (1e308 * 10 raises nothing), while math functions and float() on a huge int do raise OverflowError. Wrap the specific computation, not the whole program."
     },
     "syntax": "raise OverflowError",
     "status": "ready",
@@ -1336,8 +1336,8 @@
       "en": "A floating-point operation failed; not raised by default in CPython but part of the hierarchy."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В современном CPython это исключение практически мёртвое: модуль fpectl, который его включал, удалён в 3.7, и обычная арифметика его не порождает. Реальные беды с плавающей точкой приходят под другими именами — деление на ноль даёт ZeroDivisionError, слишком большой результат OverflowError, math.sqrt(-1) — ValueError, а 0.0/0.0 через numpy или float('nan') вообще молча даёт nan. Так что except FloatingPointError в учебном коде просто никогда не сработает; проверяйте результат через math.isnan() и math.isinf().",
+      "en": "In modern CPython this exception is essentially dead: the fpectl module that enabled it was removed in 3.7, and ordinary arithmetic never raises it. Real floating-point trouble arrives under other names — ZeroDivisionError for division by zero, OverflowError for a result too large, ValueError from math.sqrt(-1), while a NaN simply propagates silently. An except FloatingPointError branch in student code will never fire; test results with math.isnan() and math.isinf() instead."
     },
     "syntax": "raise FloatingPointError",
     "status": "ready",
@@ -1375,8 +1375,8 @@
       "en": "An assert statement's condition was false."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "assert — проверка собственных допущений, а не валидация пользовательского ввода: при запуске интерпретатора с флагом -O все assert выбрасываются из байткода, и проверка бесследно исчезает. Классическая ловушка — assert (x > 0, 'сообщение'): скобки превращают аргументы в непустой кортеж, который всегда истинен, поэтому такой assert не сработает никогда. Правильно писать без скобок: assert x > 0, 'сообщение'.",
+      "en": "assert is for checking your own assumptions, not for validating user input: running Python with -O strips every assert out of the bytecode and the check silently vanishes. The classic trap is assert (x > 0, 'message') — the parentheses build a non-empty tuple, which is always truthy, so the assertion can never fail. Drop them: assert x > 0, 'message'."
     },
     "syntax": "raise AssertionError",
     "status": "ready",
@@ -1415,8 +1415,8 @@
       "en": "Base class for lookup errors: IndexError and KeyError."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловить его напрямую стоит только там, где код одинаково работает и с последовательностями, и со словарями; в остальных случаях конкретные IndexError или KeyError точнее и не прячут третий, неожиданный случай. Неочевидное: под LookupError попадает и неизвестное имя кодировки — 'abc'.encode('nosuch') падает именно им, а не ValueError.",
+      "en": "Catch it directly only where the code works over sequences and mappings alike; elsewhere the specific IndexError or KeyError is sharper and won't hide a third, unexpected case. Less obvious: an unknown codec name also lands here — 'abc'.encode('nosuch') raises LookupError, not ValueError."
     },
     "syntax": "raise LookupError",
     "status": "ready",
@@ -1454,8 +1454,8 @@
       "en": "A generic runtime error that doesn't fit other categories."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловить его как «что-то сломалось» — плохая идея: RecursionError и NotImplementedError его подклассы, и except RuntimeError проглотит их заодно. Прилетает он и из вполне конкретных ситуаций: dictionary changed size during iteration (словарь изменили прямо в цикле по нему) или generator raised StopIteration. Поднимать свой RuntimeError стоит только когда ни один специализированный класс не подходит.",
+      "en": "Using it as a catch-all is a trap: RecursionError and NotImplementedError are subclasses, so except RuntimeError swallows them too. It also arrives from very concrete situations — dictionary changed size during iteration when you mutate a dict inside a loop over it, or generator raised StopIteration. Raise your own only when no more specific exception class fits."
     },
     "syntax": "raise RuntimeError",
     "status": "ready",
@@ -1494,8 +1494,8 @@
       "en": "input() hit end-of-file (EOF) without reading any data."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На Stepik это штатный сигнал «строки кончились», когда ввод подаётся файлом или пайпом, а не с клавиатуры: цикл вроде while True: s = input() рано или поздно упирается в конец потока. Важно, что EOFError поднимает именно input(); низкоуровневое чтение ведёт себя иначе — sys.stdin.readline() и file.read() на конце просто возвращают пустую строку, без исключения. Поэтому либо ловите EOFError и выходите из цикла, либо читайте через for line in sys.stdin, где конец обрабатывается сам.",
+      "en": "On judge systems this is the normal \"input ran out\" signal when stdin comes from a file or a pipe rather than a keyboard: a while True: s = input() loop eventually hits the end of the stream. Note that only input() raises it — lower-level reads behave differently, since sys.stdin.readline() and file.read() simply return an empty string at EOF. So either catch EOFError to break the loop, or iterate with for line in sys.stdin, where the end of input is handled for you."
     },
     "syntax": "raise EOFError",
     "status": "ready",
@@ -1534,8 +1534,8 @@
       "en": "The user interrupted execution (Ctrl+C). Inherits BaseException, so `except Exception` won't catch it."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — голый except: или except BaseException внутри цикла: он проглатывает Ctrl+C, и программа перестаёт останавливаться. Если перехват всё-таки нужен (закрыть файл, сохранить прогресс), сделай очистку и пробрось исключение дальше через raise. Прерывание приходит в главный поток и может возникнуть между любыми двумя инструкциями, так что состояние на момент перехвата бывает半 недоделанным.",
+      "en": "The classic trap is a bare except: or except BaseException inside a loop — it swallows Ctrl+C and the program stops being interruptible. If you do need to catch it (close a file, save progress), clean up and re-raise. The interrupt lands in the main thread and can arrive between any two instructions, so whatever you were doing may be half-finished."
     },
     "syntax": "raise KeyboardInterrupt",
     "status": "ready",
@@ -1574,8 +1574,8 @@
       "en": "Raised by sys.exit() to terminate the program. Inherits BaseException."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Наследует BaseException, а не Exception — именно поэтому обычный except Exception его не ловит и sys.exit() спокойно доходит до интерпретатора. Зато голый except: или except BaseException его проглотит, и программа не завершится: это самая частая причина жалобы «мой sys.exit() не срабатывает». Аргумент sys.exit() оседает в атрибуте code: число становится кодом возврата, строка печатается в stderr, а код возврата будет 1.",
+      "en": "It inherits from BaseException rather than Exception, which is exactly why a normal except Exception lets it pass and sys.exit() actually reaches the interpreter. A bare except: or except BaseException, on the other hand, swallows it and the program keeps running — the usual reason people complain that sys.exit() does nothing. Whatever you pass to sys.exit() ends up in the code attribute: an integer becomes the exit status, a string is printed to stderr and the status becomes 1."
     },
     "syntax": "raise SystemExit",
     "status": "ready",
@@ -1614,8 +1614,8 @@
       "en": "Raised inside a generator when it is closed (.close()). Inherits BaseException."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Оно наследуется от BaseException, а не от Exception, и это сделано намеренно: обычный except Exception внутри генератора его не перехватит и не помешает закрытию. Возникает в точке, где генератор остановился на yield, когда вызывают .close() или когда объект собирает сборщик мусора. Ловить его вручную почти никогда не нужно — для освобождения ресурсов хватает try/finally; а если после перехвата генератор снова сделает yield, интерпретатор поднимет RuntimeError о проигнорированном GeneratorExit.",
+      "en": "It inherits from BaseException rather than Exception on purpose: a plain except Exception inside the generator will not swallow it and cannot block the shutdown. It surfaces at the yield where the generator is suspended, triggered by .close() or by garbage collection of the generator object. You rarely need to catch it — try/finally is enough for cleanup — and if the generator yields again after catching it, the interpreter raises RuntimeError about an ignored GeneratorExit."
     },
     "syntax": "raise GeneratorExit",
     "status": "ready",
@@ -1653,8 +1653,8 @@
       "en": "Signals that an async iterator is exhausted (async analog of StopIteration)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Руками это исключение почти не пишут: его поднимает метод __anext__ асинхронного итератора, а async for ловит его молча и просто завершает цикл. Внутри async-генератора выходить через raise StopAsyncIteration нельзя — интерпретатор подменит его на RuntimeError, для завершения достаточно обычного return. Синхронный for и next() про этот сигнал не знают: он работает только в async-контексте.",
+      "en": "You almost never raise this yourself — an async iterator's __anext__ raises it, and async for swallows it and ends the loop. Inside an async generator, raising StopAsyncIteration to finish is wrong: the interpreter replaces it with RuntimeError, so use a plain return. A synchronous for or next() will not recognise the signal at all; it only means anything in async code."
     },
     "syntax": "raise StopAsyncIteration",
     "status": "ready",
@@ -1692,8 +1692,8 @@
       "en": "An operation ran out of memory."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обычно это не «в системе кончилась память», а одна слишком жадная операция: список на миллиард элементов, конкатенация гигантских строк, чтение большого файла целиком. Лечится переходом на генераторы и построчную обработку, а не блоком except. Рассчитывать на перехват вообще не стоит: на Linux с overcommit ядро чаще просто убивает процесс OOM-killer'ом, и до исключения дело не доходит.",
+      "en": "It rarely means the machine is out of RAM — usually one greedy operation is to blame: a billion-element list, giant string concatenation, reading a huge file in one gulp. The fix is generators and streaming, not an except block. Don't count on catching it either: on Linux with overcommit the kernel tends to kill the process via the OOM killer before Python ever raises anything."
     },
     "syntax": "raise MemoryError",
     "status": "ready",
@@ -1730,8 +1730,8 @@
       "en": "Accessing a weak-reference proxy to an object that has been garbage-collected."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Порождает его только weakref.proxy — обращение к прокси после того, как исходный объект уже собран сборщиком мусора. Обычный weakref.ref ведёт себя иначе: вызов ref() просто вернёт None, поэтому его результат проверяют на None, а не оборачивают в try. И это не аналог ReferenceError из JavaScript: за обращение к несуществующему имени в Python отвечает NameError.",
+      "en": "Only weakref.proxy produces it: touching the proxy after its referent has been garbage-collected. A plain weakref.ref behaves differently — calling it simply returns None, so you check the result instead of wrapping the access in try. It is also unrelated to JavaScript's ReferenceError; an undefined name in Python raises NameError."
     },
     "syntax": "raise ReferenceError",
     "status": "ready",
@@ -1765,8 +1765,8 @@
       "en": "An internal interpreter error (non-fatal); usually worth reporting as a bug."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловить и «чинить» его в своём коде смысла нет: он означает, что сам интерпретатор или C-расширение обнаружили у себя противоречивое состояние. Правильная реакция — свести к минимальному воспроизводимому примеру и завести баг с версией Python и трассировкой. Не путать с SystemExit: тот наследуется от BaseException и штатно завершает программу, а SystemError — обычное Exception и попадёт в широкий except Exception.",
+      "en": "There is nothing to fix on your side when it appears: it means the interpreter itself, or a C extension, found its own state inconsistent. The right response is to reduce it to a minimal reproducer and file a bug with the Python version and traceback. Do not confuse it with SystemExit, which derives from BaseException and ends the program normally — SystemError is an ordinary Exception and will be caught by a broad except Exception."
     },
     "syntax": "raise SystemError",
     "status": "ready",
@@ -1803,8 +1803,8 @@
       "en": "A buffer-related operation could not be performed."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На практике почти всегда один и тот же сценарий: пока на bytearray жив memoryview, менять размер нельзя — append, extend, del и resize упадут. Лечится это не обёрткой в try/except, а освобождением представления: mv.release() или удаление последней ссылки на него, после чего буфер снова можно изменять.",
+      "en": "In practice it almost always means one thing: while a memoryview onto a bytearray is still alive, the buffer cannot be resized — append, extend, del and resize all fail. Wrapping the call in try/except is the wrong fix; release the view first with mv.release() or by dropping the last reference to it, and the buffer becomes resizable again."
     },
     "syntax": "raise BufferError",
     "status": "ready",
@@ -1839,8 +1839,8 @@
       "en": "Reading a local variable before it was assigned (a subclass of NameError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Python решает вопрос «локальная или нет» сразу по всему телу функции: если имя где-нибудь внутри присваивается, оно локально везде — и чтение до этой строки падает, даже когда снаружи есть глобальная переменная с тем же именем. Особенно коварны count += 1 и total = total + 1: справа читается ещё не созданная локальная переменная. Если внешнюю переменную действительно нужно менять — объявите global (или nonlocal для вложенной функции), но обычно чище передать значение аргументом и вернуть результат.",
+      "en": "Python decides local-or-not for the whole function body at once: if a name is assigned anywhere inside, it is local everywhere, so reading it before that line fails even when a global of the same name exists. count += 1 and total = total + 1 are the classic traps — the right-hand side reads a local that has not been created yet. If you really must modify the outer variable, declare global (or nonlocal inside a nested function), though passing it in as an argument and returning the result is usually cleaner."
     },
     "syntax": "raise UnboundLocalError",
     "status": "ready",
@@ -1878,8 +1878,8 @@
       "en": "Syntactically invalid code, detected at compile time."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обернуть собственный сломанный код в try/except невозможно: файл разбирается целиком до запуска, и ошибка возникает раньше, чем выполнится первая строка. Перехват осмыслен только для кода, компилируемого на лету — eval(), exec(), compile(), импорт стороннего модуля. У объекта есть msg, filename, lineno, offset и text, по ним показывают точное место; IndentationError и TabError — его подклассы.",
+      "en": "You cannot wrap your own broken source in try/except: the whole file is parsed before anything runs, so the error fires before the first statement executes. Catching it makes sense only for code compiled at runtime — eval(), exec(), compile(), or importing third-party code. The exception carries msg, filename, lineno, offset and text for pinpointing the spot, and IndentationError and TabError are its subclasses."
     },
     "syntax": "raise SyntaxError",
     "status": "ready",
@@ -1918,8 +1918,8 @@
       "en": "Incorrect indentation (a subclass of SyntaxError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Раз это подкласс SyntaxError, ошибка возникает ещё до запуска — на этапе компиляции файла. Поэтому обернуть собственный кривой отступ в try/except невозможно: перехват сработает только там, где код компилируется по ходу выполнения (exec, compile, импорт чужого модуля). Отдельный частый случай — TabError, подкласс IndentationError про смешанные табы и пробелы; лечится настройкой редактора на 4 пробела.",
+      "en": "Because it subclasses SyntaxError, this is raised while the file is being compiled, before a single line runs. So you cannot wrap your own badly indented code in try/except — the handler only fires where code is compiled at runtime (exec, compile, importing another module). A common special case is TabError, a subclass of IndentationError for mixed tabs and spaces; setting your editor to four spaces makes it go away."
     },
     "syntax": "raise IndentationError",
     "status": "ready",
@@ -1956,8 +1956,8 @@
       "en": "Inconsistent mixing of tabs and spaces in indentation (a subclass of IndentationError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это ошибка разбора, а не выполнения: интерпретатор спотыкается ещё до того, как выполнит первую строку файла, поэтому обернуть проблемное место в try/except внутри того же файла невозможно. Чинится не кодом, а редактором: включите показ невидимых символов и держите во всём файле один стиль отступа — четыре пробела на уровень, как советует PEP 8.",
+      "en": "This is a parse-time error, not a runtime one: the interpreter chokes before a single line of the file executes, so wrapping the offending spot in try/except inside that same file cannot help. The fix lives in your editor, not in your code: turn on visible whitespace and keep one indentation style throughout the file — four spaces per level, as PEP 8 recommends."
     },
     "syntax": "raise TabError",
     "status": "ready",
@@ -1994,8 +1994,8 @@
       "en": "Base class for Unicode encoding/decoding errors (a subclass of ValueError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Общий предок UnicodeDecodeError и UnicodeEncodeError, поэтому один except UnicodeError ловит обе стороны сразу — но не говорит, где именно сломалось; если реакция должна отличаться, ловите конкретный класс. Он же наследник ValueError, так что стоящий выше except ValueError перехватит его первым, и это легко проглядеть. Изредка UnicodeError возбуждается и сам по себе — например, кодек idna так жалуется на пустую или слишком длинную метку домена.",
+      "en": "It is the common ancestor of UnicodeDecodeError and UnicodeEncodeError, so a single except UnicodeError covers both directions — at the cost of not telling you which one failed; catch the specific class when the handling differs. It also inherits from ValueError, so an earlier except ValueError will swallow it, which is easy to miss when reading a chain of handlers. Occasionally UnicodeError is raised on its own — the idna codec, for instance, uses it to complain about an empty or over-long domain label."
     },
     "syntax": "raise UnicodeError",
     "status": "ready",
@@ -2034,8 +2034,8 @@
       "en": "Failed to decode bytes into a string."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Почти всегда виноваты не данные, а неверно угаданная кодировка: open() без encoding= берёт кодировку системы, поэтому файл в UTF-8 спокойно читается на Linux и падает на Windows с cp1251. Ловить это исключение обычно бессмысленно — правильнее явно передать encoding='utf-8', а если битые байты действительно ожидаемы, добавить errors='replace' или 'ignore'. У объекта есть поля encoding, object, start, end и reason: они показывают точную позицию байта, на котором декодер сдался.",
+      "en": "The bytes are rarely the real problem — the guessed encoding usually is: open() without encoding= falls back to the platform default, so a UTF-8 file that reads fine on Linux blows up on a Windows box using cp1251. Catching the exception seldom helps; pass encoding='utf-8' explicitly, or errors='replace'/'ignore' when broken bytes are genuinely expected. The instance carries encoding, object, start, end and reason, which pinpoint the exact byte where the decoder gave up."
     },
     "syntax": "raise UnicodeDecodeError",
     "status": "ready",
@@ -2074,8 +2074,8 @@
       "en": "Failed to encode a string into bytes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обратная сторона декодирования: символ в строке есть, но целевая кодировка его не выражает — ascii не знает ни снеговика, ни кириллицы. У студентов это чаще всего не явный encode() в коде, а обычный print() в консоль со старой кодовой страницей: сама строка цела, ломается только вывод. Если данные надо сохранить восстановимыми, errors='backslashreplace' или 'xmlcharrefreplace' лучше 'ignore' — последний молча выкидывает символы навсегда.",
+      "en": "This is the mirror image of decoding: the character exists in your string, but the target encoding has no way to express it — ascii knows neither a snowman nor Cyrillic. For students it usually isn't an explicit encode() call but a plain print() into a console stuck on a legacy code page: the string itself is fine, only the output path breaks. When the data must stay recoverable, prefer errors='backslashreplace' or 'xmlcharrefreplace' over 'ignore', which silently throws characters away for good."
     },
     "syntax": "raise UnicodeEncodeError",
     "status": "ready",
@@ -2115,8 +2115,8 @@
       "en": "An error while translating Unicode characters (rare)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В обычном коде вы его практически не встретите: объект создаётся внутренней машинерией перевода, чтобы обработчики ошибок, зарегистрированные через codecs.register_error, могли отличить перевод от кодирования и декодирования. В отличие от соседей, конструктор принимает четыре аргумента без encoding — только object, start, end и reason. Отдельный except на него в учебной задаче ставить незачем.",
+      "en": "You will almost never meet it in ordinary code: the object exists so that error handlers registered through codecs.register_error can tell the translation case apart from encoding and decoding. Unlike its siblings, the constructor takes four arguments and no encoding — just object, start, end and reason. There is no reason to write a dedicated except clause for it in coursework."
     },
     "syntax": "raise UnicodeTranslateError",
     "status": "ready",
@@ -2151,8 +2151,8 @@
       "en": "Trying to create a file or directory that already exists (a subclass of OSError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Прилетает от os.mkdir(), Path.mkdir() и от open() в режиме 'x' — то есть там, где вы просите создать объект и он обязан быть новым. Обычная реакция студента — сначала проверить существование через os.path.exists(), но между проверкой и созданием файл может появиться; надёжнее либо ловить это исключение, либо сразу передать exist_ok=True в mkdir()/makedirs().",
+      "en": "You get this from os.mkdir(), Path.mkdir(), or open() in 'x' mode — places where you demand that the target be brand new. The instinct to guard with os.path.exists() first is fragile: the file can appear between the check and the call, so either catch the exception or pass exist_ok=True to mkdir()/makedirs()."
     },
     "syntax": "raise FileExistsError",
     "status": "ready",
@@ -2190,8 +2190,8 @@
       "en": "A file operation expected a file but got a directory (a subclass of OSError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обычный источник — open() или os.remove(), которым вместо файла передали путь к каталогу: для каталогов нужны os.listdir(), os.rmdir() или shutil.rmtree(). Ошибка платформозависима: на Windows та же попытка чаще приходит как PermissionError, поэтому переносимый код ловит родительский OSError или заранее проверяет Path.is_file().",
+      "en": "It usually comes from open() or os.remove() handed a directory path instead of a file: directories need os.listdir(), os.rmdir() or shutil.rmtree(). The class is platform-dependent — on Windows the same attempt typically surfaces as PermissionError, so portable code catches the parent OSError or checks Path.is_file() up front."
     },
     "syntax": "raise IsADirectoryError",
     "status": "ready",
@@ -2229,8 +2229,8 @@
       "en": "An operation expected a directory but got a non-directory (a subclass of OSError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возникает не на пустом месте, а когда путь, обязанный быть каталогом, на деле оказывается файлом: os.listdir('data.txt'), os.scandir по файлу, открытие 'data.txt/inner.txt', где промежуточный компонент — обычный файл. Разумная реакция — проверить Path.is_dir() до операции, а в except ловить более общий OSError: на разных ОС одна и та же ситуация может прилететь другим подклассом (например, FileNotFoundError).",
+      "en": "It shows up when a path that has to be a directory turns out to be a file: os.listdir('data.txt'), os.scandir on a file, or opening 'data.txt/inner.txt' where an intermediate component is a regular file. Check Path.is_dir() before the operation, and prefer catching the broader OSError, because the same situation can surface as a different subclass on another OS (FileNotFoundError, for instance)."
     },
     "syntax": "raise NotADirectoryError",
     "status": "ready",
@@ -2269,8 +2269,8 @@
       "en": "A system call was interrupted by a signal (a subclass of OSError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "После PEP 475 (Python 3.5) прерванные сигналом системные вызовы Python повторяет сам, поэтому вручную писать цикл «поймал — повторил вызов» больше не нужно, и в обычном коде это исключение практически не всплывает. Не путай с Ctrl+C: там прилетит KeyboardInterrupt, а не InterruptedError. Как подкласс OSError оно спокойно ловится общим except OSError вместе с остальными ошибками ввода-вывода.",
+      "en": "Since PEP 475 (Python 3.5) the interpreter retries system calls interrupted by a signal on its own, so the old catch-and-retry loop is obsolete and you will rarely see this exception in ordinary code. Do not confuse it with Ctrl+C, which produces KeyboardInterrupt instead. Being a subclass of OSError, it is picked up by a plain except OSError along with other I/O failures."
     },
     "syntax": "raise InterruptedError",
     "status": "ready",
@@ -2304,8 +2304,8 @@
       "en": "An operation on a child process failed (a subclass of OSError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Приходит из системного errno ECHILD: os.wait() или os.waitpid() позвали, когда дочерних процессов не осталось или статус уже забрали раньше. В коде на subprocess вы её почти не встретите — Popen сам отслеживает завершение ребёнка, так что если ошибка всё-таки вылезла, обычно одного и того же потомка ждут дважды или из разных мест программы.",
+      "en": "It surfaces from the ECHILD errno: os.wait() or os.waitpid() was called when no child process was left, or its status had already been collected. Code built on subprocess rarely sees it, because Popen tracks the child's exit status itself — so when it does appear, something is usually waiting on the same child twice or from two different places."
     },
     "syntax": "raise ChildProcessError",
     "status": "ready",
@@ -2340,8 +2340,8 @@
       "en": "The given process does not exist (a subclass of OSError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Соответствует POSIX-ошибке ESRCH и прилетает из os.kill или os.waitpid, когда процесса с таким pid уже нет — как правило, он успел завершиться между вашей проверкой и сигналом. Именно из-за этой гонки правильный приём — послать сигнал и спокойно поймать ProcessLookupError, а не «сначала убедиться, что процесс жив». И помните про переиспользование pid: отсутствие ошибки не доказывает, что вы попали именно в нужный процесс.",
+      "en": "Maps to the POSIX ESRCH error and comes out of os.kill or os.waitpid when no process with that pid exists any more — usually because it exited between your check and your signal. Because of that race, the right pattern is to send the signal and catch ProcessLookupError rather than to test \"is it alive?\" first. Keep pid reuse in mind too: no error does not prove you hit the process you meant."
     },
     "syntax": "raise ProcessLookupError",
     "status": "ready",
@@ -2379,8 +2379,8 @@
       "en": "A system function timed out (a subclass of OSError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возникает только там, где тайм-аут кто-то явно задал — у сокета через settimeout(), у сетевого клиента через параметр timeout; собственный медленный цикл сам по себе TimeoutError не поднимет никогда. Начиная с Python 3.10 socket.timeout, а с 3.11 и asyncio.TimeoutError — просто другие имена этого же встроенного класса, так что одного except TimeoutError хватает на все три случая. У subprocess исключение своё, TimeoutExpired, и под этот except оно не попадёт.",
+      "en": "It only shows up where a timeout was actually set — socket.settimeout(), a timeout= argument to a network client; your own slow loop will never raise it on its own. Since Python 3.10 socket.timeout, and since 3.11 asyncio.TimeoutError as well, are just other names for this same built-in class, so a single except TimeoutError covers all three. Note that subprocess has its own TimeoutExpired, which this except will not catch."
     },
     "syntax": "raise TimeoutError",
     "status": "ready",
@@ -2418,8 +2418,8 @@
       "en": "A non-blocking I/O operation would have blocked (a subclass of OSError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возникает не сама по себе, а только если файл или сокет переведён в неблокирующий режим (socket.setblocking(False), флаг O_NONBLOCK): данных ещё нет или буфер отправки заполнен, системный errno — EAGAIN/EWOULDBLOCK. Это не поломка, а сигнал «попробуй позже»: правильная реакция — дождаться готовности дескриптора через selectors или asyncio, а не крутить повтор в пустом цикле. При частичной записи смотрите атрибут characters_written — сколько байт всё-таки ушло.",
+      "en": "It never appears on its own: you only see it after putting a socket or file into non-blocking mode (socket.setblocking(False), the O_NONBLOCK flag), when no data has arrived yet or the send buffer is full — the underlying errno is EAGAIN/EWOULDBLOCK. Treat it as \"try again later\", not as breakage: wait for readiness with selectors or asyncio instead of spinning in a tight retry loop. After a partial write, characters_written tells you how many bytes did get through."
     },
     "syntax": "raise BlockingIOError",
     "status": "ready",
@@ -2454,8 +2454,8 @@
       "en": "Base class for connection-related errors (a subclass of OSError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловите его, когда подробности не важны: он накрывает BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError и ConnectionResetError сразу. Но не всякая сетевая беда — его потомок: таймаут это TimeoutError, а неразрешившееся имя хоста — socket.gaierror, оба наследуются от OSError в обход ConnectionError. Отдельная ловушка для тех, кто работает с requests: requests.exceptions.ConnectionError — совсем другой класс, встроенным except ConnectionError он не поймается.",
+      "en": "Catch this one when the specific cause does not matter: it covers BrokenPipeError, ConnectionAbortedError, ConnectionRefusedError and ConnectionResetError in a single clause. Not every networking failure is underneath it, though — a timeout is TimeoutError and an unresolvable host name is socket.gaierror, both descending from OSError while bypassing ConnectionError. One more trap for requests users: requests.exceptions.ConnectionError is a different class entirely and the builtin except ConnectionError will not catch it."
     },
     "syntax": "raise ConnectionError",
     "status": "ready",
@@ -2495,8 +2495,8 @@
       "en": "The connection was reset by the peer (a subclass of ConnectionError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "errno ECONNRESET: удалённая сторона оборвала уже установленное соединение (послала RST) — процесс упал, перезапустился или прокси закрыл простаивающий keep-alive. Типичная ошибка — считать, что запрос вообще не дошёл: часть данных вы могли и отправить, и прочитать, поэтому перед повтором думайте об идемпотентности операции. При попытке писать в такой сокет вместо неё нередко прилетает BrokenPipeError.",
+      "en": "This is the ECONNRESET errno: the peer tore down an already-established connection with an RST — it crashed, restarted, or a proxy dropped an idle keep-alive. The common mistake is assuming the request never went through: bytes may already have been sent and received, so think about whether the operation is idempotent before retrying. Writing into such a socket often raises BrokenPipeError instead."
     },
     "syntax": "raise ConnectionResetError",
     "status": "ready",
@@ -2534,8 +2534,8 @@
       "en": "The remote end refused the connection (a subclass of ConnectionError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "errno ECONNREFUSED: пакет дошёл до хоста, но на этом порту никто не слушает — сервис не запущен, упал или порт перепутан. От таймаута отличается определённостью и скоростью: там пакеты молча теряются и вы получите TimeoutError, а тут вам сразу явно отказали. Повторять попытки осмысленно лишь тогда, когда вы намеренно ждёте старта сервиса, — сама по себе retry-петля отказ не лечит.",
+      "en": "This is the ECONNREFUSED errno: the packet reached the host, but nothing is listening on that port — the service is not running, has crashed, or you typed the wrong port. It differs from a timeout by being fast and definite: a dropped-packet situation gives you TimeoutError instead, whereas here you got an explicit refusal. Retrying only makes sense if you are deliberately waiting for a service to come up; a retry loop by itself cures nothing."
     },
     "syntax": "raise ConnectionRefusedError",
     "status": "ready",
@@ -2573,8 +2573,8 @@
       "en": "The connection was aborted by the host (a subclass of ConnectionError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Соответствует errno ECONNABORTED: соединение развалилось ещё на этапе установки, и чаще всего оно вылетает из accept() на стороне сервера — на Windows заметно чаще, чем на Linux. Правильная реакция не «упасть», а поймать ошибку прямо внутри accept-цикла, выбросить неудавшееся соединение и продолжить принимать следующие.",
+      "en": "This maps to the ECONNABORTED errno: the connection fell apart while it was still being established, and it typically pops out of a server's accept() call — noticeably more often on Windows than on Linux. The right response is not to let the server die but to catch it inside the accept loop, drop that one half-open connection and keep serving the rest."
     },
     "syntax": "raise ConnectionAbortedError",
     "status": "ready",
@@ -2612,8 +2612,8 @@
       "en": "Writing to a pipe/socket closed on the other end (a subclass of ConnectionError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Классический случай — скрипт печатает много строк, а его вывод передан по конвейеру в head: потребитель закрылся, и очередная запись падает. Ошибка говорит о собеседнике, а не о ваших данных, поэтому повторять запись бессмысленно — соединение нужно закрыть или установить заново. Иногда она всплывает уже на выходе из интерпретатора, когда сбрасывается буфер stdout, и выглядит как «ошибка на пустом месте».",
+      "en": "The classic case: your script prints a lot of lines and the output is piped into head — the reader goes away, and the next write blows up. The error is about the peer, not about your data, so retrying the write is pointless; close the connection or open a new one. It sometimes surfaces only at interpreter shutdown, when the stdout buffer is flushed, which makes it look like an error out of nowhere."
     },
     "syntax": "raise BrokenPipeError",
     "status": "ready",
@@ -2651,8 +2651,8 @@
       "en": "A group of several exceptions at once (3.11+); handled with except*."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Членство в группе не работает «прозрачно»: except ValueError не поймает группу, внутри которой лежит ValueError, а except ExceptionGroup не сработает на одиночный ValueError, брошенный обычным raise. Ради этого и придумали except* — он разбирает группу по типам, выполняет ветку для подходящего подмножества, а остальные исключения пробрасывает дальше; при обычном except вы получаете объект целиком и разбираете список e.exceptions руками. Конструктор требует непустой список, а все элементы — наследники Exception; для BaseException-потомков есть BaseExceptionGroup. Чаще всего группу вы встретите не в своём raise, а на выходе из asyncio.TaskGroup.",
+      "en": "Group membership is not transparent: except ValueError will not catch a group that contains a ValueError, and except ExceptionGroup will not catch a plain ValueError raised on its own. That is what except* is for — it splits the group by type, runs the branch for the matching subset and re-raises the rest; with an ordinary except you get the whole object and must walk e.exceptions yourself. The constructor demands a non-empty sequence whose items all derive from Exception; use BaseExceptionGroup for anything below that. In practice you meet groups on the way out of asyncio.TaskGroup far more often than in your own raise."
     },
     "syntax": "raise ExceptionGroup",
     "status": "ready",
@@ -2690,8 +2690,8 @@
       "en": "A group that may include system-exiting exceptions; parent of ExceptionGroup (3.11+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка: это потомок BaseException, а не Exception, поэтому обычный except Exception группу не поймает — даже если внутри лежат самые обычные ValueError. Конструктор к тому же хитрый: если все вложенные исключения — подклассы Exception, BaseExceptionGroup(...) вернёт вам ExceptionGroup. Разбирать группу по частям нужно через except*, обычный except срабатывает на всю группу целиком.",
+      "en": "The main trap: it derives from BaseException, not Exception, so a plain except Exception will not catch the group even when every exception inside it is an ordinary ValueError. The constructor is also sneaky — if all nested exceptions are Exception subclasses, BaseExceptionGroup(...) hands back an ExceptionGroup instead. To handle individual members use except*; a regular except clause matches the whole group at once."
     },
     "syntax": "raise BaseExceptionGroup",
     "status": "ready",
@@ -2729,8 +2729,8 @@
       "en": "An operation is blocked during interpreter finalization (3.13+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Появился в 3.13 и наследует RuntimeError; возникает, когда во время выключения интерпретатора код пытается сделать запрещённое — запустить новый поток, форкнуться, создать подпроцесс. Обычно виноват код, доделывающий работу слишком поздно: __del__, обработчик atexit или недожитый daemon-поток. Лечится не try/except, а тем, чтобы завершить и присоединить фоновые задачи до выхода; на версиях до 3.13 та же ситуация выглядит как обычный RuntimeError.",
+      "en": "New in 3.13 and a subclass of RuntimeError; it fires when code attempts something forbidden while the interpreter is shutting down — starting a thread, forking, spawning a subprocess. The usual culprit is work scheduled too late: a __del__, an atexit hook, or a daemon thread still trying to finish. The cure is finishing and joining background work before exit rather than catching the error; before 3.13 the same situation surfaces as a plain RuntimeError."
     },
     "syntax": "raise PythonFinalizationError",
     "status": "ready",
@@ -2768,8 +2768,8 @@
       "en": "Base class for all warning categories (usually shown, not raised)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Warning наследуется от Exception, поэтому фильтр с category=Warning в warnings.filterwarnings ловит все категории сразу, а except Exception проглотит предупреждение, превращённое в ошибку. Напрямую этот класс почти не используют: для сообщения пользователю кода берут UserWarning, для устаревшего API — DeprecationWarning (она по умолчанию скрыта везде, кроме кода, запущенного как __main__).",
+      "en": "Warning inherits from Exception, so category=Warning in warnings.filterwarnings matches every warning category at once, and a broad except Exception will swallow a warning that a filter turned into an error. The class itself is rarely used directly: pick UserWarning for messages aimed at the caller and DeprecationWarning for obsolete API — the latter is hidden by default everywhere except code running as __main__."
     },
     "syntax": "raise Warning",
     "status": "ready",
@@ -2808,8 +2808,8 @@
       "en": "Use of a deprecated feature, aimed at developers."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это подкласс Warning, а не ошибки: его почти никогда не поднимают через raise и не ловят — его выдаёт warnings.warn() внутри библиотеки, и программа продолжает работать. По умолчанию Python показывает DeprecationWarning только для кода, запущенного в __main__, поэтому предупреждение из глубины сторонней библиотеки вы просто не увидите, пока не запустите с -W default или python -X dev. Реакция правильная одна: не глушить, а переписать вызов на актуальный аналог, пока он ещё работает.",
+      "en": "It is a Warning subclass, not an error: you almost never raise or catch it — a library emits it through warnings.warn() and execution continues. By default CPython shows DeprecationWarning only for code triggered in __main__, so warnings coming from deep inside a third-party package stay invisible until you run with -W default or python -X dev. The right response is not to silence it but to migrate the call while the old API still works."
     },
     "syntax": "raise DeprecationWarning",
     "status": "ready",
@@ -2847,8 +2847,8 @@
       "en": "A feature that will be deprecated in the future."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это предупреждение, а не ошибка: программа не падает, и по умолчанию сообщение вообще не печатается — увидеть его можно, запустив интерпретатор с -W always или настроив фильтр в warnings. На практике встречается редко: для уже устаревшего API берут DeprecationWarning, а PendingDeprecationWarning остаётся для «пока работает, но когда-нибудь объявим устаревшим».",
+      "en": "This is a warning, not an error: nothing crashes, and by default the message is not even printed — run Python with -W always or set a filter via warnings to see it. It is rarely used today; already-deprecated APIs emit DeprecationWarning, and PendingDeprecationWarning is reserved for \"still fine, but we may deprecate it later\"."
     },
     "syntax": "raise PendingDeprecationWarning",
     "status": "ready",
@@ -2886,8 +2886,8 @@
       "en": "Dubious runtime behavior."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от ResourceWarning показывается по умолчанию, но лишь один раз для каждого места в коде, поэтому внутри цикла легко решить, что проблема исчезла. Самый частый случай в учебном коде — coroutine ... was never awaited: корутину вызвали, но не дождались через await или asyncio.run, и её тело просто не выполнилось. Перехватывать предупреждение бессмысленно, чинить надо причину.",
+      "en": "Unlike ResourceWarning it is shown by default, but only once per source location, so inside a loop it can look as if the problem went away. The classic case in student code is coroutine ... was never awaited: the coroutine was called but never driven by await or asyncio.run, so its body never ran. Catching the warning achieves nothing; fix what triggered it."
     },
     "syntax": "raise RuntimeWarning",
     "status": "ready",
@@ -2925,8 +2925,8 @@
       "en": "Dubious syntax."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это предупреждение, а не ошибка: компилятор печатает его один раз и продолжает работу, так что до except дело обычно не доходит. Чаще всего студент ловит его на сравнении is с литералом (нужно ==) и на нераспознанной escape-последовательности в обычной строке — с Python 3.12 такая строка даёт именно SyntaxWarning, лечится r-префиксом. Чтобы такие места падали, а не проскакивали, запускайте с ключом -W error::SyntaxWarning.",
+      "en": "It is a warning, not an error: the compiler prints it once and keeps going, so an except block normally never sees it. The two classic triggers are comparing to a literal with is instead of ==, and an unrecognised escape sequence in a plain string — since Python 3.12 that emits SyntaxWarning, and an r-prefix fixes it. Run with -W error::SyntaxWarning if you want these spots to fail loudly instead of scrolling past."
     },
     "syntax": "raise SyntaxWarning",
     "status": "ready",
@@ -2964,8 +2964,8 @@
       "en": "The default category for warnings.warn()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Частая ловушка: warnings.warn('...') ничего не бросает — текст уходит в stderr, а выполнение спокойно идёт дальше, поэтому except UserWarning вокруг такого вызова ничего не поймает. Чтобы предупреждения действительно превращались в исключения, нужен фильтр: warnings.simplefilter('error') или запуск python -W error. И по умолчанию предупреждение из одной и той же строки печатается только при первом срабатывании, так что в цикле его легко проглядеть.",
+      "en": "A common trap: warnings.warn('...') raises nothing — the text goes to stderr and execution continues, so an except UserWarning around the call catches nothing. To make warnings behave like real exceptions you need a filter: warnings.simplefilter('error') or running python -W error. Also, by default a warning from a given source line is printed only the first time it fires, so inside a loop it is easy to miss."
     },
     "syntax": "raise UserWarning",
     "status": "ready",
@@ -3003,8 +3003,8 @@
       "en": "A coming behavior change aimed at end users."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это предупреждение, а не ошибка: его не поднимают через raise, а выдают через warnings.warn(..., FutureWarning), после чего программа спокойно продолжает работать. Отличие от DeprecationWarning — в адресате: FutureWarning виден по умолчанию и обращён к тем, кто просто пользуется библиотекой, а DeprecationWarning по умолчанию показывается только в __main__ и адресован разработчикам. Если хотите, чтобы такое предупреждение роняло прогон (например, в тестах), запускайте с -W error::FutureWarning.",
+      "en": "This is a warning, not an error: you emit it with warnings.warn(..., FutureWarning) rather than raise, and execution continues afterwards. The split from DeprecationWarning is about audience — FutureWarning is shown by default and speaks to people merely using a library, while DeprecationWarning is hidden outside __main__ by default and speaks to developers. To make such a warning fail a run, say in tests, start Python with -W error::FutureWarning."
     },
     "syntax": "raise FutureWarning",
     "status": "ready",
@@ -3042,8 +3042,8 @@
       "en": "A possible mistake in module import (hidden by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это предупреждение, а не сбой: выполнение не прерывается, и по умолчанию сообщение вообще не показывается — стандартные фильтры warnings его отбрасывают. Увидеть его можно запуском python -W default или python -X dev. В прикладном коде его почти никогда не поднимают руками: ImportWarning выдаёт сама машинерия импорта, и говорит он о странностях с путями и пакетами, а не об ошибке в твоей строке import.",
+      "en": "This is a warning, not a failure: execution continues, and by default you never see the message at all, because the standard warnings filters drop ImportWarning. Run python -W default or python -X dev to make it visible. You almost never raise it yourself — it comes from the import machinery and points at odd package or path setups rather than at a mistake in your own import statement."
     },
     "syntax": "raise ImportWarning",
     "status": "ready",
@@ -3081,8 +3081,8 @@
       "en": "A Unicode-related warning."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это предупреждение, а не ошибка: по умолчанию текст один раз печатается в stderr, программа спокойно идёт дальше, и никакой except его не поймает. Чтобы оно стало настоящим исключением, нужен фильтр — warnings.simplefilter('error', UnicodeWarning) или запуск с -W error. Наследуется оно прямо от Warning, а не от UnicodeError, так что except UnicodeError мимо него проходит.",
+      "en": "This is a warning, not an error: by default the message is printed to stderr once and execution simply continues, so no except clause will ever see it. Turn it into a real exception with a filter — warnings.simplefilter('error', UnicodeWarning) or running with -W error. It descends directly from Warning rather than from UnicodeError, so except UnicodeError will not catch it."
     },
     "syntax": "raise UnicodeWarning",
     "status": "ready",
@@ -3120,8 +3120,8 @@
       "en": "A warning about dubious bytes/bytearray operations."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "По умолчанию оно молчит: сравнение bytes со str просто даёт False, а str(b'abc') тихо возвращает текст с буквой b внутри — никто вас не остановит. Предупреждение включается только флагом интерпретатора -b, а -bb превращает его в настоящую ошибку; именно так и ищут места, где перепутаны байты и текст.",
+      "en": "By default it stays silent: comparing bytes with str simply evaluates to False, and str(b'abc') quietly yields text with a stray b in it — nothing stops you. The warning is emitted only when the interpreter runs with -b, and -bb turns it into a hard error; that flag pair is how you hunt down places where bytes and text got mixed up."
     },
     "syntax": "raise BytesWarning",
     "status": "ready",
@@ -3156,8 +3156,8 @@
       "en": "A resource was not released (e.g. an unclosed file; hidden by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Стандартные фильтры предупреждений его глушат, так что незакрытый файл вы, скорее всего, просто не увидите — запускайте python -X dev или -W default, когда подозреваете утечку дескрипторов. Сообщение приходит в момент, когда сборщик мусора добирается до объекта, поэтому указанное место часто не совпадает с тем, где файл открывали. Лечится это не перехватом, а with.",
+      "en": "The default warning filters silence it, so an unclosed file usually leaves no trace — run with python -X dev or -W default when you suspect leaking descriptors. It fires whenever the garbage collector finally reaches the object, so the reported location rarely matches where the file was opened. The fix is a with block, never an except."
     },
     "syntax": "raise ResourceWarning",
     "status": "ready",
@@ -3195,8 +3195,8 @@
       "en": "Opening a text file without an explicit encoding (relying on the locale)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Появилось в Python 3.10 (PEP 597) и по умолчанию молчит: чтобы увидеть его, нужен запуск с -X warn_default_encoding или переменная PYTHONWARNDEFAULTENCODING=1. Смысл предупреждения не в самом факте, а в скрытой переносимости: open(path) без encoding берёт кодировку локали, поэтому файл, прочитанный на Linux как UTF-8, на Windows может уехать в cp1251 и упасть с UnicodeDecodeError. Лечится не перехватом, а явным encoding='utf-8' в каждом открытии текстового файла.",
+      "en": "Added in Python 3.10 (PEP 597) and silent by default: you only see it when running with -X warn_default_encoding or with PYTHONWARNDEFAULTENCODING=1 set. The real issue it flags is portability — open(path) without encoding falls back to the locale encoding, so a file read as UTF-8 on Linux may be decoded as cp1251 on Windows and blow up with UnicodeDecodeError. The fix is never to catch it, but to pass encoding='utf-8' explicitly wherever you open text."
     },
     "syntax": "raise EncodingWarning",
     "status": "ready",
@@ -3234,8 +3234,8 @@
       "en": "Internal: source is syntactically incomplete (used by the REPL for multi-line input)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Подчёркивание в начале имени — знак, что это внутренняя кухня CPython: класс нужен интерпретатору, чтобы отличить «код просто оборвался на середине» от настоящей синтаксической ошибки и дорисовать приглашение продолжения вместо сообщения об ошибке. Это подкласс SyntaxError, так что обычный except SyntaxError его и так поймает. В своём коде на это имя опираться не стоит: приватные имена появляются и исчезают между версиями без предупреждения.",
+      "en": "The leading underscore marks it as CPython plumbing: the interpreter uses it to tell \"the source simply ran out mid-construct\" apart from a real syntax error, so the interactive prompt asks for a continuation line instead of reporting a failure. It is a subclass of SyntaxError, so a plain except SyntaxError already covers it. Do not reference the name in your own code — private names come and go between versions without notice."
     },
     "syntax": "raise _IncompleteInputError",
     "status": "ready",
@@ -3270,8 +3270,8 @@
       "en": "Subclass of ValueError with the following additional properties:"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Чаще всего разбираемая строка вообще не JSON: пустой ответ сервера, HTML-страница ошибки или питоновский repr словаря с одинарными кавычками — JSON требует двойные и запрещает висячую запятую. В обработчике полезны атрибуты pos, lineno, colno и doc: они показывают точное место обрыва, а не просто факт неудачи. Это подкласс ValueError, так что except ValueError ловит его заодно; ловить нужно только этот класс, если хотите отличить битый JSON от прочих ошибок.",
+      "en": "Usually the text being parsed is not JSON at all: an empty response body, an HTML error page, or a Python dict repr with single quotes, while JSON demands double quotes and forbids trailing commas. In the handler, the pos, lineno, colno and doc attributes pinpoint where parsing broke instead of merely saying that it did. It is a ValueError subclass, so a broad except ValueError catches it too; catch this class specifically when you need to tell malformed JSON apart from other failures."
     },
     "syntax": "raise json.JSONDecodeError",
     "status": "ready",
@@ -3312,8 +3312,8 @@
       "en": "Exception raised for invalid regular expressions"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ошибка возникает на этапе компиляции шаблона, а не при сопоставлении, поэтому проявляется при первом же re.compile/re.search — типично из-за незакрытой скобки, повисшего квантификатора или пользовательского текста, вставленного в шаблон без re.escape(). Атрибуты msg, pattern и pos покажут, на каком именно символе шаблона всё сломалось. Имя re.PatternError появилось только в Python 3.13; в более ранних версиях есть лишь re.error, который остаётся рабочим синонимом и сейчас.",
+      "en": "It fires while the pattern is being compiled, not while matching, so it shows up on the very first re.compile or re.search — typically from an unclosed bracket, a dangling quantifier, or user text spliced into a pattern without re.escape(). The msg, pattern and pos attributes tell you exactly which character of the pattern broke. The name re.PatternError only exists from Python 3.13 onward; earlier versions have re.error, which is still a valid alias today."
     },
     "syntax": "raise re.PatternError",
     "status": "ready",
@@ -3354,8 +3354,8 @@
       "en": "Inappropriate argument value (of correct type)"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Почти всегда за ним стоит пустая или слишком короткая выборка: mean и median требуют хотя бы одно значение, variance и stdev — минимум два. Проверить длину данных до вызова обычно честнее, чем ловить исключение постфактум. Класс наследует ValueError, так что привычный except ValueError сработает — но заодно проглотит и другие ошибки значений.",
+      "en": "Behind it there is nearly always empty or too short data: mean and median need at least one value, variance and stdev need at least two. Checking the length before the call is usually cleaner than catching the error afterwards. It subclasses ValueError, so a plain except ValueError will catch it — along with every other value error you did not mean to hide."
     },
     "syntax": "raise statistics.StatisticsError",
     "status": "ready",
@@ -3394,8 +3394,8 @@
       "en": "Attribute not found"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это подкласс AttributeError, поэтому широкий except AttributeError проглотит его незаметно — ловите именно FrozenInstanceError, если хотите отличить попытку записи в frozen-объект от опечатки в имени атрибута. И помните, что frozen=True запрещает только присваивание и удаление атрибутов самого объекта: список или словарь, лежащий в поле, по-прежнему меняется на месте, так что неизменяемость тут поверхностная. Чтобы получить объект с другим значением поля, делают изменённую копию через dataclasses.replace().",
+      "en": "It subclasses AttributeError, so a broad except AttributeError swallows it silently — catch FrozenInstanceError by name if you want to tell a write to a frozen object apart from a misspelled attribute. Also, frozen=True only blocks setting and deleting attributes on the instance itself: a list or dict stored in a field can still be mutated in place, so the immutability is shallow. To get a different value in a field, build a modified copy with dataclasses.replace()."
     },
     "syntax": "raise dataclasses.FrozenInstanceError",
     "status": "ready",
@@ -3435,8 +3435,8 @@
       "en": "Base class for I/O related errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возникает не из-за плохих данных, а из-за режима открытия: запись в файл, открытый на 'r', чтение из 'w', seek() по непозиционируемому потоку вроде stdin или пайпа. Вместо ловли исключения обычно правильнее спросить сам поток: writable(), readable(), seekable(). Учтите двойное наследование от OSError и ValueError — блок except ValueError перехватит его тоже, и это часто оказывается сюрпризом.",
+      "en": "This is not about bad data but about the mode a stream was opened in: writing to a file opened for reading, reading from a write-only file, or seeking on a non-seekable stream such as stdin or a pipe. Rather than catching it, ask the stream first via writable(), readable() or seekable(). Note that it inherits from both OSError and ValueError, so an except ValueError block will swallow it, which surprises people."
     },
     "syntax": "raise io.UnsupportedOperation",
     "status": "ready",
@@ -3476,8 +3476,8 @@
       "en": "Common base class for all non-exit exceptions"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Две основные причины: при unpack длина буфера не совпадает со struct.calcsize(формат) — для чтения только начала есть unpack_from — либо значение не влезает в код формата, как 300 в 'B'. Учтите и то, что по умолчанию размеры считаются нативными, с выравниванием; предсказуемую раскладку дают префиксы '<', '>' или '='. Наследуется напрямую от Exception, а не от ValueError, поэтому привычный except ValueError его пропустит.",
+      "en": "Two causes dominate: unpack got a buffer whose length differs from struct.calcsize(fmt) — use unpack_from to read just a prefix — or a value that does not fit its format code, like 300 into 'B'. Note also that the default layout is native with padding; the '<', '>' and '=' prefixes give you fixed, predictable sizes. It inherits straight from Exception, not from ValueError, so a habitual except ValueError misses it."
     },
     "syntax": "raise struct.error",
     "status": "ready",
@@ -3516,8 +3516,8 @@
       "en": "Common base class for all non-exit exceptions"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Наследуется прямо от Exception, а не от ValueError или OSError, поэтому привычные except ValueError и except OSError его не поймают. Самая частая причина — скормить zlib.decompress данные не того формата: у gzip другой заголовок (нужен wbits=16+zlib.MAX_WBITS или модуль gzip), а обрезанный поток падает как неполный, а не возвращает то, что успело распаковаться. Если данные приходят кусками, распаковывайте через zlib.decompressobj.",
+      "en": "It derives straight from Exception, not from ValueError or OSError, so the usual except ValueError or except OSError won't catch it. The classic cause is feeding zlib.decompress the wrong format: gzip data has a different header (pass wbits=16+zlib.MAX_WBITS, or use the gzip module), and a truncated stream fails as incomplete instead of returning whatever decoded so far. When data arrives in chunks, decompress it through zlib.decompressobj."
     },
     "syntax": "raise zlib.error",
     "status": "ready",
@@ -3555,8 +3555,8 @@
       "en": "Common base class for all non-exit exceptions"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Одной этой ловушки мало: большинство некопируемых объектов (сокеты, блокировки, открытые файлы) падают с TypeError из pickle-механизма, а copy.Error достаётся лишь тем, у кого нет ни __copy__/__deepcopy__, ни __reduce_ex__. Поэтому при копировании чужих объектов ловите copy.Error и TypeError вместе — либо вообще не копируйте то, что держит внешний ресурс.",
+      "en": "Catching this alone is not enough: most uncopyable objects (sockets, locks, open files) fail with TypeError from the pickle machinery, and copy.Error is left for objects that define neither __copy__/__deepcopy__ nor __reduce_ex__. So when copying objects you did not write, catch copy.Error and TypeError together — or simply do not copy anything that holds an external resource."
     },
     "syntax": "raise copy.Error",
     "status": "ready",
@@ -3595,8 +3595,8 @@
       "en": "Common base class for all non-exit exceptions"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная причина — имя локали, которого нет в системе: строка вроде 'ru_RU.UTF-8' работает на Linux и macOS, а на Windows нужна 'Russian_Russia.1251', так что зашитое в код имя ломает переносимость. Разумная реакция — не падать, а поймать ошибку и остаться на локали по умолчанию (пустая строка '' берёт системную). Помните, что setlocale меняет состояние всего процесса и не потокобезопасен, поэтому дёргать его посреди работы программы — плохая идея.",
+      "en": "The usual cause is a locale name the operating system does not know: 'ru_RU.UTF-8' works on Linux and macOS, while Windows expects something like 'Russian_Russia.1251', so a hardcoded name breaks portability. The sane reaction is to catch it and fall back to the default locale rather than crash (an empty string picks up the system setting). Keep in mind that setlocale mutates process-wide state and is not thread-safe, so calling it in the middle of a running program is asking for trouble."
     },
     "syntax": "raise locale.Error",
     "status": "ready",
@@ -3631,8 +3631,8 @@
       "en": "An error from creating or using an argument (optional or positional)"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Своими руками её поднимают редко — её кидает сам argparse, например когда две опции претендуют на один флаг или add_argument получил несовместимые параметры. Внутри parse_args она перехватывается и превращается в сообщение об ошибке плюс выход с кодом 2, так что до вашего try обычно не долетает; чтобы вмешаться, наследуйте ArgumentParser и переопределите метод error(). Конструктор ждёт два аргумента: объект действия (или None) и текст сообщения.",
+      "en": "You rarely raise it yourself — argparse raises it, for example when two options claim the same flag or add_argument gets contradictory parameters. Inside parse_args it is caught and turned into an error message plus exit code 2, so your try block usually never sees it; to intercept it, subclass ArgumentParser and override error(). The constructor expects two arguments: the offending action (or None) and the message."
     },
     "syntax": "raise argparse.ArgumentError",
     "status": "ready",
@@ -3671,8 +3671,8 @@
       "en": "An error from trying to convert a command line string to a type"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Поднимайте её внутри своей функции type=, чтобы argparse напечатал ваш текст как обычную ошибку разбора и вышел с кодом 2, а не вывалил трейсбек. ValueError и TypeError из type-функции argparse тоже перехватывает, но подменяет сообщение шаблонным «invalid ... value»; любое другое исключение проходит насквозь и роняет программу.",
+      "en": "Raise it from your own type= callable so argparse prints your wording as an ordinary parse error and exits with code 2 instead of dumping a traceback. ValueError and TypeError from a type callable are caught as well, but argparse replaces your text with the generic \"invalid ... value\" message; anything else propagates and crashes the program."
     },
     "syntax": "raise argparse.ArgumentTypeError",
     "status": "ready",
@@ -3711,8 +3711,8 @@
       "en": "Base class for I/O related errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это про многофайловые операции: copytree не останавливается на первом сбое, а копирует что может и в конце бросает одну Error, у которой args[0] — список кортежей (источник, назначение, причина). Значит, разбирать надо именно этот список, а не одно сообщение, иначе потеряете часть отказов. Класс наследует OSError, поэтому общий except OSError его тоже перехватит.",
+      "en": "This is about multi-file operations: copytree does not stop at the first failure but copies what it can and finally raises a single Error whose args[0] is a list of (source, destination, reason) tuples. So inspect that list instead of a single message, otherwise you silently lose some of the failures. The class derives from OSError, so a broad except OSError will catch it as well."
     },
     "syntax": "raise shutil.Error",
     "status": "ready",
@@ -3752,8 +3752,8 @@
       "en": "Raised when source and destination are the same file"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Совпадение проверяется по устройству и inode, а не по строке пути: симлинк, жёсткая ссылка или './data.txt' против абсолютного пути — это один и тот же файл. Ошибка спасает данные: без неё copyfile открыл бы приёмник на запись и обнулил исходник. Частый способ на неё наткнуться — copy(файл, каталог), когда файл уже лежит в этом каталоге: приёмник достраивается до каталог/имя и совпадает с источником.",
+      "en": "Sameness is decided by device and inode, not by comparing path strings, so a symlink, a hard link or './data.txt' versus its absolute form all count as one file. The check is there to protect your data: without it copyfile would open the destination for writing and truncate the original to zero. A common way to hit it is copy(file, directory) when the file already lives in that directory — the destination expands to directory/name and lands on the source."
     },
     "syntax": "raise shutil.SameFileError",
     "status": "ready",
@@ -3792,8 +3792,8 @@
       "en": "Raised when trying to do a kind of operation (e.g"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "copyfile отсеивает только именованные каналы (FIFO) — сокеты и файлы-устройства не проверяются, так что копирование чего-нибудь вроде /dev/zero просто будет читать бесконечно. Класс наследуется от OSError, а не от shutil.Error, поэтому except shutil.Error его пропустит. На Windows встретить его практически негде: FIFO там не объекты файловой системы.",
+      "en": "copyfile only screens for named pipes (FIFOs); sockets and device files are not checked, so copying something like /dev/zero will happily read forever. The class derives from OSError rather than shutil.Error, which means an except shutil.Error clause misses it. On Windows you will essentially never see it, since FIFOs are not filesystem objects there."
     },
     "syntax": "raise shutil.SpecialFileError",
     "status": "ready",
@@ -3829,8 +3829,8 @@
       "en": "Raised when a command could not be executed"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Реликт тех времён, когда make_archive паковал архивы внешними tar и zip: в актуальном CPython ни одна функция shutil его не возбуждает. В Python 3.14 само обращение к shutil.ExecError даёт DeprecationWarning и возвращает обычный RuntimeError (до 3.13 это был отдельный подкласс OSError), а в 3.16 имя уберут совсем. Писать под него except в новом коде смысла нет.",
+      "en": "A leftover from the days when make_archive shelled out to external tar and zip commands: no function in today's shutil raises it. In Python 3.14 merely touching shutil.ExecError emits a DeprecationWarning and hands back plain RuntimeError (through 3.13 it was its own OSError subclass), and the name is scheduled for removal in 3.16. There is nothing worth catching here in new code."
     },
     "syntax": "raise shutil.ExecError",
     "status": "ready",
@@ -3866,8 +3866,8 @@
       "en": "Raised when an archive cannot be read"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "unpack_archive выбирает распаковщик по расширению имени файла, а не по содержимому: валидный zip, переименованный в data.bin, упадёт с ReadError и текстом про неизвестный формат. Если расширение нестандартное, укажите format явно ('zip', 'gztar' и т.д.) — тогда угадывание пропускается. Второй источник той же ошибки — расширение подошло, но внутри не архив: её поднимает уже сам zip- или tar-распаковщик.",
+      "en": "unpack_archive picks an unpacker by the file name extension, never by content, so a perfectly valid zip renamed to data.bin fails with ReadError about an unknown format. When the extension is non-standard, pass format explicitly ('zip', 'gztar' and so on) to skip the guessing step. The same error also comes from the zip and tar unpackers themselves when the extension matched but the bytes are not an archive."
     },
     "syntax": "raise shutil.ReadError",
     "status": "ready",
@@ -3906,8 +3906,8 @@
       "en": "Raised when a registry operation with the archiving\nand unpacking registries fails"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На практике единственный источник — register_unpack_format с расширением, которое уже занято другим распаковщиком (.zip, .tar, .tar.gz и прочие заняты из коробки). В отличие от остальных ошибок shutil он наследуется прямо от Exception, а не от OSError, поэтому except OSError его не поймает. Опечатка в имени формата у make_archive или unpack_archive даёт не его, а ValueError.",
+      "en": "In practice the only source is register_unpack_format with an extension another unpacker has already claimed (.zip, .tar, .tar.gz and friends are taken out of the box). Unlike the rest of shutil's errors it inherits straight from Exception rather than OSError, so an except OSError clause will let it through. A misspelled format name passed to make_archive or unpack_archive raises ValueError instead."
     },
     "syntax": "raise shutil.RegistryError",
     "status": "ready",
@@ -3943,8 +3943,8 @@
       "en": "Unspecified run-time error"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная деталь: если хотя бы один поток вышел из wait() по таймауту, барьер ломается для всех — исключение получат и остальные участники, а не только опоздавший. Тот же эффект даёт явный abort(), которым намеренно разблокируют застрявшие потоки. Вернуть барьер в строй можно только через reset(), причём в момент, когда на нём никто не ждёт.",
+      "en": "The key detail: if a single thread leaves wait() on timeout, the barrier breaks for everyone — the other parties get this exception too, not just the late one. An explicit abort() does the same thing on purpose, to unblock threads stuck waiting. The only way back to a usable barrier is reset(), called at a moment when nobody is waiting on it."
     },
     "syntax": "raise threading.BrokenBarrierError",
     "status": "ready",
@@ -3980,8 +3980,8 @@
       "en": "Common base class for all non-exit exceptions"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это сигнал «исходник оборвался на полуслове»: не закрыта скобка или тройная кавычка, и токенизатор дошёл до конца ввода внутри конструкции. Про синтаксис вообще речи нет — tokenize не разбирает грамматику, так что бессмысленный, но корректно разбитый на токены код пройдёт без жалоб. В интерактивных инструментах эта ошибка обычно значит не «отвергнуть ввод», а «попросить ещё одну строку».",
+      "en": "It means the source ran out mid-construct: an unclosed bracket or triple-quoted string, with the tokenizer hitting end of input inside it. It is not a syntax check — tokenize never parses grammar, so nonsense that still splits into valid tokens passes without complaint. In interactive tools this error usually means \"ask for another line\", not \"reject the input\"."
     },
     "syntax": "raise tokenize.TokenError",
     "status": "ready",
@@ -4017,8 +4017,8 @@
       "en": "Import can't find module, or can't find name in module"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Наследуется от ImportError, так что обычный except ImportError его уже перехватывает — отдельная ветка нужна, только когда важно отличить проблему с самим архивом от просто отсутствующего модуля. Порождает его модуль zipimport: конструктор zipimporter(path) бросает эту ошибку, если путь не указывает на читаемый ZIP-архив. Вручную такое исключение почти никто не поднимает — оно всплывает само, когда в sys.path оказывается .zip.",
+      "en": "It subclasses ImportError, so a plain except ImportError already catches it; a dedicated branch pays off only when you need to tell a broken archive apart from a module that simply isn't there. It comes from the zipimport machinery: zipimporter(path) raises it when the path doesn't point to a readable ZIP archive. You almost never raise it yourself — it shows up on its own once a .zip entry lands on sys.path."
     },
     "syntax": "raise zipimport.ZipImportError",
     "status": "ready",
@@ -4054,8 +4054,8 @@
       "en": "Base class for I/O related errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Появляется только вокруг signal.setitimer() и getitimer() — например, при отрицательном интервале или неизвестном типе таймера. Обе функции существуют лишь на Unix: на Windows их просто нет, и обращение даст AttributeError, а не это исключение. Наследуется от OSError, поэтому широкий except OSError его тоже перехватит.",
+      "en": "It surfaces only around signal.setitimer() and getitimer() — a negative interval or an unknown timer type, say. Both functions are Unix-only; on Windows the attribute is missing entirely, so you get AttributeError instead of this error. Since it subclasses OSError, a broader except OSError catches it as well."
     },
     "syntax": "raise signal.ItimerError",
     "status": "ready",
@@ -4091,8 +4091,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Общий предок всех сигналов decimal и одновременно подкласс ArithmeticError, так что except ArithmeticError перехватит и его — удобно, но слишком широко, если рядом возможны обычные деления и переполнения. Главное, чего не видно из имени: большинство сигналов по умолчанию вообще не поднимаются. В стандартном контексте включены ловушки только для InvalidOperation, DivisionByZero и Overflow, остальные условия просто ставят флаг в контексте, и обнаружить их можно лишь по этому флагу.",
+      "en": "It is the common ancestor of every decimal signal and at the same time a subclass of ArithmeticError, so except ArithmeticError catches it too — convenient, but too wide if plain divisions or overflows can happen nearby. The non-obvious part: most signals are not raised at all by default. The standard context traps only InvalidOperation, DivisionByZero and Overflow; the rest merely set a flag on the context, and that flag is the only way to notice them."
     },
     "syntax": "raise decimal.DecimalException",
     "status": "ready",
@@ -4132,8 +4132,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Частая ловушка на разборе ввода: Decimal(\"abc\") кидает именно InvalidOperation, а не ValueError, как int(\"abc\"), поэтому привычный except ValueError вокруг чтения числа её не поймает (общий except ArithmeticError — поймает). Ловушка на этот сигнал включена в контексте по умолчанию; если снять её через getcontext().traps, операция молча вернёт NaN, и дальше этот NaN протечёт через все вычисления, не выдав себя ничем, кроме липкого флага в getcontext().flags.",
+      "en": "Watch out when parsing input: Decimal(\"abc\") raises InvalidOperation, not the ValueError you get from int(\"abc\"), so a habitual except ValueError around user input will miss it (except ArithmeticError does catch it). The trap for this signal is on in the default context; turn it off via getcontext().traps and the operation quietly yields NaN instead, which then spreads through every later computation with nothing to show for it but a sticky entry in getcontext().flags."
     },
     "syntax": "raise decimal.InvalidOperation",
     "status": "ready",
@@ -4172,8 +4172,8 @@
       "en": "Second argument to a division or modulo operation was zero"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Класс наследуется и от DecimalException, и от встроенного ZeroDivisionError, поэтому привычный except ZeroDivisionError сработает и на Decimal — отдельная ветка нужна, только если вы различаете источники ошибки. Деление нуля на ноль сюда не относится: это неопределённость, и она сигнализируется как InvalidOperation. И если выключить ловушку в контексте, исключения не будет — операция вернёт бесконечность соответствующего знака.",
+      "en": "The class inherits from both DecimalException and the built-in ZeroDivisionError, so an ordinary except ZeroDivisionError already covers Decimal division too; a separate branch is only worth it when you need to tell the two sources apart. Zero divided by zero does not land here — that is undefined and signals InvalidOperation instead. And with the trap disabled in the context nothing is raised: the operation simply yields a signed infinity."
     },
     "syntax": "raise decimal.DivisionByZero",
     "status": "ready",
@@ -4212,8 +4212,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Речь не про обычное деление, а про целочисленное: сигнал возникает, когда целая часть результата // или divmod требует больше цифр, чем precision текущего контекста. Это подкласс InvalidOperation, а его ловушка в контексте по умолчанию включена, поэтому исключение действительно вылетает; со снятой ловушкой вместо него вернётся NaN. Чинится увеличением precision, а не перехватом.",
+      "en": "This is about integer division rather than the plain / operator: it fires when the integer part produced by // or divmod would need more digits than the context precision allows. It subclasses InvalidOperation, whose trap is enabled in the default context, so you genuinely get an exception; untrap it and the operation returns NaN instead. The cure is a larger precision, not a try/except."
     },
     "syntax": "raise decimal.DivisionImpossible",
     "status": "ready",
@@ -4249,8 +4249,8 @@
       "en": "Second argument to a division or modulo operation was zero"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Срабатывает именно на 0/0 — деление ненулевого числа на ноль даёт другой сигнал, DivisionByZero. Класс наследует сразу и InvalidOperation, и ZeroDivisionError, так что обычный except ZeroDivisionError его тоже поймает. Ловушка InvalidOperation включена по умолчанию; если её снять, операция молча вернёт NaN.",
+      "en": "It is specifically the 0/0 case: dividing a non-zero value by zero raises DivisionByZero instead. The class inherits from both InvalidOperation and ZeroDivisionError, so an ordinary except ZeroDivisionError catches it as well. The InvalidOperation trap is on by default; remove it and the operation quietly yields NaN."
     },
     "syntax": "raise decimal.DivisionUndefined",
     "status": "ready",
@@ -4286,8 +4286,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это не встроенный OverflowError — перехватывать нужно именно decimal.Overflow (или общий ArithmeticError). Порог задаёт Emax текущего контекста, а он по умолчанию равен 999999, так что на практике сигнал видят только после сужения контекста вручную. Ловушка включена по умолчанию; если её снять, результатом станет либо Infinity, либо наибольшее конечное число — что именно, решает режим округления.",
+      "en": "This is not the built-in OverflowError: catch decimal.Overflow itself (or the shared ArithmeticError base). The threshold is the current context's Emax, which defaults to 999999, so you normally only meet this signal after deliberately narrowing the context. Its trap is enabled by default; with the trap off the result is either Infinity or the largest finite number, depending on the rounding mode in effect."
     },
     "syntax": "raise decimal.Overflow",
     "status": "ready",
@@ -4327,8 +4327,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Underflow наследуется сразу от Subnormal, Inexact и Rounded, поэтому широкий except decimal.Subnormal перехватит и его — более конкретные классы ставьте раньше в цепочке except. Ловушка по умолчанию выключена: без неё результат просто становится нулём нужного знака, и такое молчаливое обнуление легко принять за ошибку в собственной формуле, хотя это переполнение вниз по Emin.",
+      "en": "Underflow inherits from Subnormal, Inexact and Rounded all at once, so a broad except decimal.Subnormal will swallow it too — put the more specific classes earlier in the except chain. Its trap is off by default, so without it the result simply collapses to a signed zero, and that silent zero is easy to misread as a bug in your own formula rather than a value pushed past Emin."
     },
     "syntax": "raise decimal.Underflow",
     "status": "ready",
@@ -4368,8 +4368,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловушка по умолчанию выключена — сигнал просто взводит флаг в context.flags, а округлённый результат возвращается как ни в чём не бывало. Её включают, когда важно узнать, что цифры реально потерялись: например, что сумма не разделилась нацело. Не путать с Rounded: тот взводится при любом отбрасывании разрядов, даже нулевых, а Inexact — только когда отброшено что-то значащее.",
+      "en": "The trap is disabled by default: the signal just sets a flag in context.flags while the rounded result is returned as usual. You turn it on when you need to know that digits were actually lost, say that an amount did not divide evenly. Do not confuse it with Rounded, which fires whenever digits are dropped at all, even zeros; Inexact fires only when the discarded digits were non-zero."
     },
     "syntax": "raise decimal.Inexact",
     "status": "ready",
@@ -4408,8 +4408,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это сигнал, а не обычная ошибка: ловушка на него по умолчанию выключена, и узнать о срабатывании можно через getcontext().flags[decimal.Rounded] — флаг липкий, сам не сбрасывается, чистить его надо руками (clear_flags). Не путать с Inexact: Rounded срабатывает при любом отбрасывании цифр, даже если отброшены нули и значение не изменилось, а Inexact — только когда действительно потеряна ненулевая часть.",
+      "en": "Treat this as a signal rather than an error: its trap is off by default, and you detect it by reading getcontext().flags[decimal.Rounded] — the flag is sticky and stays set until you call clear_flags. Do not confuse it with Inexact: Rounded fires whenever digits are discarded at all, even discarded zeros that leave the value unchanged, while Inexact fires only when something non-zero was actually lost."
     },
     "syntax": "raise decimal.Rounded",
     "status": "ready",
@@ -4448,8 +4448,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловушка на этот сигнал по умолчанию выключена, а при дефолтном Emin, равном -999999, он практически недостижим — вы его увидите, только если сузите контекст вручную. Сам по себе Subnormal не значит, что результат испорчен: он лишь предупреждает, что число ушло ниже Emin и представлено меньшим числом значащих цифр. Реальная потеря — это уже Underflow, то есть субнормальный и одновременно неточный результат.",
+      "en": "The trap for this signal is off by default, and with the default Emin of -999999 it is practically unreachable — you meet it only after narrowing the context yourself. Subnormal on its own does not mean the result is wrong; it warns that the value dropped below Emin and is now carried with fewer significant digits. Actual loss of value is Underflow: a result that is subnormal and inexact at the same time."
     },
     "syntax": "raise decimal.Subnormal",
     "status": "ready",
@@ -4485,8 +4485,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Clamped — сигнал, а не обычная ошибка: в стандартном контексте ловушка для него выключена, вычисление продолжается молча, и факт срабатывания виден только по флагу в контексте. Чтобы он действительно поднялся как исключение, ловушку включают в контексте вручную. Само число при этом не портится — подгоняются экспонента и число нулей в записи, поэтому сигнал важен, когда вам принципиально точное представление (например, количество знаков после запятой), а не значение.",
+      "en": "Clamped is a signal, not an everyday error: its trap is off in the default context, so the computation goes on quietly and the only trace is a flag on the context. You have to enable the trap yourself to turn it into a real exception. The numeric value is not corrupted — only the exponent and the number of trailing zeros are adjusted to fit the representation limits, so this matters when you care about the exact scale of the result rather than its value."
     },
     "syntax": "raise decimal.Clamped",
     "status": "ready",
@@ -4522,8 +4522,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловить этот класс напрямую бесполезно: на некорректной строке decimal поднимает InvalidOperation, а ConversionSyntax — лишь имя уточняющего условия, а не то, что реально прилетит в except. Пишите except decimal.InvalidOperation. А если ловушку InvalidOperation в контексте выключить, исключения не будет вовсе — вместо него вернётся Decimal NaN, и ошибку придётся замечать по флагу контекста или проверкой is_nan().",
+      "en": "Catching this class directly gets you nowhere: a malformed string makes decimal raise InvalidOperation, and ConversionSyntax is just the name of the underlying condition, not the object that reaches your except clause. Write except decimal.InvalidOperation instead. And if the InvalidOperation trap is disabled in the context, nothing is raised at all — you get a Decimal NaN back, and the failure has to be spotted via the context flags or an is_nan() check."
     },
     "syntax": "raise decimal.ConversionSyntax",
     "status": "ready",
@@ -4562,8 +4562,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "По умолчанию ловушка выключена: смешивать Decimal и float в конструкторе и в сравнениях можно, факт смешения лишь молча взводит флаг в контексте. Включают её осознанно — чтобы отловить случайно затесавшийся float в денежных расчётах. Даже с включённой ловушкой тихими остаются сравнения на равенство и явные преобразования вроде Decimal.from_float(), а сам класс наследуется ещё и от TypeError.",
+      "en": "The trap is off by default: mixing Decimal and float in the constructor or in comparisons is permitted and merely records a flag in the context. You enable it deliberately, to catch a stray float that sneaked into money arithmetic. Even when trapped, equality comparisons and explicit conversions such as Decimal.from_float() stay silent, and the class also inherits from TypeError."
     },
     "syntax": "raise decimal.FloatOperation",
     "status": "ready",
@@ -4599,8 +4599,8 @@
       "en": "Base class for arithmetic errors"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Говорит не о плохих данных, а об испорченном контексте: неизвестный или неподдерживаемый режим округления либо precision за пределами возможностей реализации. Подкласс InvalidOperation, ловушка которого включена по умолчанию; без ловушки операция вернёт NaN. Причину искать там, где Context собирали руками, а не в самой арифметике.",
+      "en": "It points at a malformed context rather than bad data: an unknown or unsupported rounding mode, or a precision beyond what the implementation can handle. It subclasses InvalidOperation, whose trap is on by default; untrapped, the operation returns NaN. Look for the bug where the Context was built by hand, not in the arithmetic itself."
     },
     "syntax": "raise decimal.InvalidContext",
     "status": "ready",
@@ -4636,8 +4636,8 @@
       "en": "A codec registry error, raised on failures looking up or registering a codec."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это не про «неправильную кодировку»: неизвестное имя кодировки даёт обычный LookupError, а битые байты — UnicodeDecodeError. CodecRegistryError означает поломку самого механизма кодеков — модуль из пакета encodings зарегистрировал что-то, не годное как CodecInfo. В учебном коде почти не встречается; из-за наследования сразу от LookupError и SystemError его перехватит и except LookupError.",
+      "en": "This is not about a wrong text encoding: an unknown encoding name gives a plain LookupError, and broken bytes give UnicodeDecodeError. CodecRegistryError means the codec machinery itself is broken — a module in the encodings package registered something unusable as CodecInfo. You will practically never meet it in course work, and since it inherits from both LookupError and SystemError, an except LookupError handler already catches it."
     },
     "syntax": "raise encodings.CodecRegistryError(...)",
     "status": "ready",
