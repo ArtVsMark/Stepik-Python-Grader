@@ -656,11 +656,11 @@
       "print(unique_len)",
       "# → {5, 6} (уникальные длины)",
       "unique_first = {w[0] for w in words}",
-      "print(unique_first)",
-      "# → {'h', 'w', 'p'}",
+      "print(sorted(unique_first))",
+      "# → ['h', 'p', 'w'] (у множества строк порядок не определён, поэтому сортируем)",
       "no_vowels = {c for c in 'hello' if c not in 'aeiou'}",
-      "print(no_vowels)",
-      "# → {'h', 'l'}"
+      "print(sorted(no_vowels))",
+      "# → ['h', 'l']"
     ],
     "related": [
       "списочные-выражения-list-comprehension",
@@ -876,8 +876,8 @@
       "# → True (есть дубликаты)",
       "tags1 = {'python', 'data', 'ml'}",
       "tags2 = {'java', 'data', 'web'}",
-      "print(tags1.symmetric_difference(tags2))",
-      "# → {'python', 'ml', 'java', 'web'}"
+      "print(sorted(tags1.symmetric_difference(tags2)))",
+      "# → ['java', 'ml', 'python', 'web'] (у множества строк порядок не определён, поэтому сортируем)"
     ],
     "related": [
       "создание-множества",

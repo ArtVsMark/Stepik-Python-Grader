@@ -294,14 +294,18 @@
     ],
     "examples": [
       "from pathlib import Path",
-      "import tempfile",
-      "Path('/tmp/new_dir').mkdir(exist_ok=True)",
-      "Path('/tmp/a/b/c').mkdir(parents=True, exist_ok=True)",
-      "base = Path(tempfile.mkdtemp())",
-      "(base / 'logs').mkdir()   # → каталог logs создан внутри base",
-      "print((base / 'logs').is_dir())   # → True",
-      "print((base / 'logs').mkdir())   # → FileExistsError (без exist_ok=True)",
-      "print((base / 'x/y/z').mkdir())   # → FileNotFoundError (без parents=True)"
+      "Path('new_dir').mkdir(exist_ok=True)",
+      "print(Path('new_dir').is_dir())   # → True",
+      "Path('a/b/c').mkdir(parents=True, exist_ok=True)",
+      "print(Path('a/b/c').is_dir())   # → True (parents=True создаёт всю цепочку)",
+      "try:",
+      "    Path('new_dir').mkdir()",
+      "except FileExistsError as e:",
+      "    print(type(e).__name__)   # → FileExistsError (без exist_ok=True)",
+      "try:",
+      "    Path('x/y/z').mkdir()",
+      "except FileNotFoundError as e:",
+      "    print(type(e).__name__)   # → FileNotFoundError (без parents=True)"
     ],
     "related": [
       "path.unlink",
@@ -394,9 +398,9 @@
     ],
     "examples": [
       "from pathlib import Path",
-      "f = Path('/tmp/old_path.txt')",
+      "f = Path('old_path.txt')",
       "f.write_text('data')",
-      "new = f.rename('/tmp/new_path.txt')",
+      "new = f.rename('new_path.txt')",
       "new.name # → 'new_path.txt'"
     ],
     "related": [
@@ -442,8 +446,8 @@
     ],
     "examples": [
       "from pathlib import Path",
-      "src = Path('/tmp/src.txt'); src.write_text('new')",
-      "dst = Path('/tmp/dst.txt'); dst.write_text('old')",
+      "src = Path('src.txt'); src.write_text('new')",
+      "dst = Path('dst.txt'); dst.write_text('old')",
       "src.replace(dst) # → dst перезаписан",
       "dst.read_text() # → 'new'"
     ],
@@ -9261,13 +9265,15 @@
     "examples": [
       "from datetime import datetime, timezone, timedelta",
       "utc_now = datetime.now(timezone.utc)",
-      "print(utc_now)  # → 2024-xx-xx xx:xx:xx+00:00",
+      "print(utc_now.tzinfo)  # → UTC",
+      "print(utc_now.utcoffset())  # → 0:00:00",
       "moscow_tz = timezone(timedelta(hours=3))",
       "moscow_now = datetime.now(moscow_tz)",
-      "print(moscow_now)  # → 2024-xx-xx xx:xx:xx+03:00",
-      "print(utc_now.tzinfo)  # → UTC",
-      "print(utc_now.strftime('%Z'))  # → UTC",
-      "print(moscow_now.utcoffset())  # → 3:00:00"
+      "print(moscow_now.utcoffset())  # → 3:00:00",
+      "print(moscow_now.strftime('%z'))  # → +0300",
+      "fixed = datetime(2024, 5, 17, 12, 30, tzinfo=timezone.utc)",
+      "print(fixed)  # → 2024-05-17 12:30:00+00:00",
+      "print(fixed.astimezone(moscow_tz))  # → 2024-05-17 15:30:00+03:00"
     ],
     "related": [
       "datetime.timezone",
@@ -9667,11 +9673,11 @@
       "buf = io.StringIO()",
       "buf.write('text')",
       "buf.getvalue() # → 'text'  StringIO не нуждается в flush",
-      "f = open('/tmp/test_io.txt', 'w', buffering=1)",
+      "f = open('test_io.txt', 'w', buffering=1)",
       "f.write('line\\n')",
       "f.flush()  # строки сразу сбрасываются",
       "f.close()",
-      "open('/tmp/test_io.txt').read() # → 'line\\n'"
+      "open('test_io.txt').read() # → 'line\\n'"
     ],
     "related": [
       "file-buffering",
@@ -15256,7 +15262,7 @@
     ],
     "examples": [
       "import random",
-      "print(random.lognormvariate(0.0, 1.0))   # → случайное положительное число (медиана ≈ 1.0)",
+      "print(type(random.lognormvariate(0.0, 1.0)).__name__)   # → float (значение случайное, медиана ≈ 1.0)",
       "print(random.lognormvariate(0.0, 1.0) > 0.0)   # → True",
       "print(random.lognormvariate(0.0, 0.0))   # → 1.0",
       "sample = [random.lognormvariate(0.0, 1.0) for _ in range(1000)]",
@@ -18648,7 +18654,7 @@
     "examples": [
       "import os",
       "print(os.path.isabs(os.path.abspath('x')))   # → True",
-      "print(os.path.abspath('data/notes.txt'))   # → абсолютный путь от текущего каталога, например /home/user/proj/data/notes.txt",
+      "print(os.path.abspath('data/notes.txt').endswith(os.path.join('data', 'notes.txt')))   # → True (путь достроен от текущего каталога)",
       "print(os.path.abspath('.') == os.getcwd())   # → True",
       "print(os.path.abspath('a/b/../c') == os.path.join(os.getcwd(), 'a', 'c'))   # → True (abspath заодно нормализует '..')",
       "print(os.path.exists(os.path.abspath('нет-такого-файла')))   # → False (abspath строит строку и не проверяет, существует ли путь)"
@@ -18688,9 +18694,12 @@
       "import os",
       "print(os.path.isabs(os.path.realpath('.')))   # → True",
       "lib = os.path.dirname(os.__file__)",
-      "print(os.path.realpath(os.path.join(lib, 'json', '..', 'os.py')) == os.path.realpath(os.__file__))   # → True: лишние шаги и '..' схлопываются",
-      "print(os.path.abspath('.') == os.path.realpath('.'))   # → True в обычном каталоге; False, если путь ведёт через символическую ссылку — abspath ссылки не разрешает",
-      "print(os.path.realpath('нет-такого-файла', strict=True))   # → FileNotFoundError: при strict=True путь обязан существовать"
+      "print(os.path.realpath(os.path.join(lib, 'json', '..', 'os.py')) == os.path.realpath(os.__file__))   # → True (лишние шаги и '..' схлопываются)",
+      "print(os.path.abspath('.') == os.path.realpath('.'))   # → True (в обычном каталоге; False, если путь ведёт через символическую ссылку — abspath ссылки не разрешает)",
+      "try:",
+      "    os.path.realpath('нет-такого-файла', strict=True)",
+      "except FileNotFoundError as e:",
+      "    print(type(e).__name__)   # → FileNotFoundError (при strict=True путь обязан существовать)"
     ],
     "related": [
       "os.path.abspath",
@@ -20008,12 +20017,11 @@
     "examples": [
       "import os",
       "enc = os.device_encoding(0)",
-      "print(enc)   # → кодировка терминала, например 'UTF-8' (в консоли Windows — 'cp866'); None, если stdin перенаправлен из файла или пайпа",
-      "fd = os.open('/tmp/demo.txt', os.O_CREAT | os.O_WRONLY)",
-      "print(os.device_encoding(fd))   # → None — обычный файл не терминал",
+      "print(enc is None or isinstance(enc, str))   # → True (в терминале это кодировка вроде 'UTF-8', в консоли Windows 'cp866'; None, если stdin перенаправлен из файла или пайпа)",
+      "fd = os.open('demo.txt', os.O_CREAT | os.O_WRONLY)",
+      "print(os.device_encoding(fd))   # → None (обычный файл не терминал)",
       "os.close(fd)",
-      "print(os.device_encoding(999))   # → None — для неверного дескриптора исключения не будет",
-      "print(os.device_encoding(1) is None)   # → False в интерактивном терминале, True при запуске из пайпа или CI"
+      "print(os.device_encoding(999))   # → None (для неверного дескриптора исключения не будет)"
     ],
     "related": [
       "os.isatty",
@@ -20313,10 +20321,10 @@
     "examples": [
       "import os",
       "print(isinstance(os.getcwdb(), bytes))   # → True",
-      "print(os.getcwdb())  # → текущий каталог в байтах, например b'/home/user/project'",
-      "print(os.getcwdb().decode() == os.getcwd())  # → True — то же значение, только в str",
-      "print(os.listdir(os.getcwdb())[:1])  # → байтовый путь даёт байтовые имена, например [b'grader.py']",
-      "print(os.getcwdb() == os.getcwd())  # → False — bytes и str не равны никогда"
+      "print(os.path.isabs(os.getcwdb().decode()))   # → True (это абсолютный путь текущего каталога)",
+      "print(os.getcwdb().decode() == os.getcwd())  # → True (то же значение, только в str)",
+      "print([n.decode() for n in os.listdir(os.getcwdb())] == os.listdir(os.getcwd()))  # → True (байтовый путь даёт байтовые имена)",
+      "print(os.getcwdb() == os.getcwd())  # → False (bytes и str не равны никогда)"
     ],
     "related": [
       "os.getcwd",
@@ -21946,7 +21954,7 @@
       "import sys",
       "env = {**os.environ, 'GREETING': 'hello'}   # env заменяет окружение целиком, поэтому его копируют из os.environ",
       "print(env['GREETING'])   # → hello",
-      "print(os.spawnve(os.P_WAIT, sys.executable, ['python', '-c', 'pass'], env))   # → 0",
+      "print(os.spawnv(os.P_WAIT, sys.executable, ['python', '-c', 'pass']))   # → 0 (spawnve отличается только тем, что берёт env последним аргументом)",
       "print('PATH' in os.environ)   # → True",
       "print('PATH' in {'GREETING': 'hello'})   # → False (с таким «голым» env дочерний процесс останется без PATH)"
     ],
@@ -24784,9 +24792,12 @@
       "os.rename(p, p2)",
       "print(os.path.exists(p2) and not os.path.exists(p))   # → True",
       "os.remove(p2)",
-      "os.rename('old.txt', 'new.txt')  # → переименование",
-      "os.rename('file.txt', '/tmp/file.txt')  # → перемещение",
-      "os.rename('folder_a', 'folder_b')  # → переименование папки"
+      "open('old.txt', 'w').close()",
+      "os.rename('old.txt', 'new.txt')   # переименование в том же каталоге",
+      "print(os.path.exists('new.txt'))   # → True",
+      "os.mkdir('folder_a')",
+      "os.rename('folder_a', 'folder_b')   # каталоги переименовываются тем же вызовом",
+      "print(os.path.isdir('folder_b'))   # → True"
     ],
     "related": [
       "os.remove",
@@ -24915,12 +24926,12 @@
     ],
     "examples": [
       "import os",
-      "os.symlink('/tmp/data.txt', '/tmp/data-link.txt')   # → только Unix (на Windows нужны права разработчика): создаёт символическую ссылку",
-      "print(os.path.islink('/tmp/data-link.txt'))   # → True",
-      "print(os.readlink('/tmp/data-link.txt'))   # → /tmp/data.txt",
-      "os.symlink('/tmp/logs', '/tmp/logs-link', target_is_directory=True)   # → ссылка на каталог; флаг учитывается только на Windows",
-      "os.symlink('/tmp/data.txt', '/tmp/data-link.txt')   # → FileExistsError — существующий dst молча не перезаписывается",
-      "os.remove('/tmp/data-link.txt')   # → удаляет саму ссылку, файл /tmp/data.txt остаётся на месте"
+      "os.symlink('data.txt', 'data-link.txt')   # → только Unix (на Windows нужны права разработчика): создаёт символическую ссылку",
+      "print(os.path.islink('data-link.txt'))   # → True",
+      "print(os.readlink('data-link.txt'))   # → data.txt",
+      "os.symlink('logs', 'logs-link', target_is_directory=True)   # → ссылка на каталог; флаг учитывается только на Windows",
+      "os.symlink('data.txt', 'data-link.txt')   # → FileExistsError — существующий dst молча не перезаписывается",
+      "os.remove('data-link.txt')   # → удаляет саму ссылку, файл data.txt остаётся на месте"
     ],
     "related": [
       "os.readlink",
@@ -24957,12 +24968,12 @@
     ],
     "examples": [
       "import os",
-      "os.symlink('data.txt', '/tmp/link.txt')   # → только Unix: создаёт ссылку /tmp/link.txt на data.txt",
-      "print(os.readlink('/tmp/link.txt'))   # → data.txt — «сырая» цель ссылки, ровно как она записана",
-      "print(os.path.realpath('/tmp/link.txt'))   # → /tmp/data.txt — realpath разворачивает цель в абсолютный путь",
-      "print(os.path.islink('/tmp/link.txt'))   # → True — проверка перед вызовом readlink",
-      "print(os.readlink('/tmp/data.txt'))   # → OSError (EINVAL) — обычный файл не является символической ссылкой",
-      "print(os.readlink('/tmp/нет-такой-ссылки'))   # → FileNotFoundError"
+      "os.symlink('data.txt', 'link.txt')   # → только Unix: создаёт ссылку link.txt на data.txt",
+      "print(os.readlink('link.txt'))   # → data.txt — «сырая» цель ссылки, ровно как она записана",
+      "print(os.path.realpath('link.txt'))   # → data.txt — realpath разворачивает цель в абсолютный путь",
+      "print(os.path.islink('link.txt'))   # → True — проверка перед вызовом readlink",
+      "print(os.readlink('data.txt'))   # → OSError (EINVAL) — обычный файл не является символической ссылкой",
+      "print(os.readlink('нет-такой-ссылки'))   # → FileNotFoundError"
     ],
     "related": [
       "os.symlink",
@@ -25252,11 +25263,11 @@
     ],
     "examples": [
       "import os, stat",
-      "os.mkfifo('/tmp/demo.fifo')   # → только Unix: в файловой системе появился именованный канал /tmp/demo.fifo",
-      "print(stat.S_ISFIFO(os.stat('/tmp/demo.fifo').st_mode))   # → только Unix: True — это FIFO, а не обычный файл",
-      "os.mkfifo('/tmp/private.fifo', 0o600)   # → только Unix: канал, доступный на чтение и запись только владельцу",
-      "fd = os.open('/tmp/demo.fifo', os.O_RDONLY | os.O_NONBLOCK)   # → только Unix: обычный open() на чтение ждал бы, пока другой процесс не откроет канал на запись",
-      "os.mkfifo('/tmp/demo.fifo')   # → FileExistsError: [Errno 17] File exists: '/tmp/demo.fifo'"
+      "os.mkfifo('demo.fifo')   # → только Unix: в файловой системе появился именованный канал demo.fifo",
+      "print(stat.S_ISFIFO(os.stat('demo.fifo').st_mode))   # → только Unix: True — это FIFO, а не обычный файл",
+      "os.mkfifo('private.fifo', 0o600)   # → только Unix: канал, доступный на чтение и запись только владельцу",
+      "fd = os.open('demo.fifo', os.O_RDONLY | os.O_NONBLOCK)   # → только Unix: обычный open() на чтение ждал бы, пока другой процесс не откроет канал на запись",
+      "os.mkfifo('demo.fifo')   # → FileExistsError: [Errno 17] File exists: 'demo.fifo'"
     ],
     "related": [
       "os.mknod",
@@ -25293,11 +25304,11 @@
     ],
     "examples": [
       "import os, stat",
-      "os.mknod('/tmp/plain.txt')   # → только Unix: создан пустой обычный файл с режимом по умолчанию 0o600",
-      "os.mknod('/tmp/node.fifo', stat.S_IFIFO | 0o600)   # → только Unix: тип узла задаётся битами режима — здесь получился FIFO, как от os.mkfifo",
-      "print(stat.S_ISFIFO(os.stat('/tmp/node.fifo').st_mode))   # → только Unix: True",
-      "os.mknod('/tmp/blockdev', stat.S_IFBLK | 0o600, os.makedev(8, 0))   # → только Unix и только под root: узел блочного устройства major=8, minor=0; без прав — PermissionError",
-      "os.mknod('/tmp/node.fifo', stat.S_IFIFO | 0o600)   # → FileExistsError: [Errno 17] File exists: '/tmp/node.fifo'"
+      "os.mknod('plain.txt')   # → только Unix: создан пустой обычный файл с режимом по умолчанию 0o600",
+      "os.mknod('node.fifo', stat.S_IFIFO | 0o600)   # → только Unix: тип узла задаётся битами режима — здесь получился FIFO, как от os.mkfifo",
+      "print(stat.S_ISFIFO(os.stat('node.fifo').st_mode))   # → только Unix: True",
+      "os.mknod('blockdev', stat.S_IFBLK | 0o600, os.makedev(8, 0))   # → только Unix и только под root: узел блочного устройства major=8, minor=0; без прав — PermissionError",
+      "os.mknod('node.fifo', stat.S_IFIFO | 0o600)   # → FileExistsError: [Errno 17] File exists: 'node.fifo'"
     ],
     "related": [
       "os.mkfifo",
@@ -25843,7 +25854,7 @@
     ],
     "examples": [
       "import os",
-      "f = open('/tmp/demo_conf.txt', 'w')  # учебный файл — нужен только ради открытого дескриптора",
+      "f = open('demo_conf.txt', 'w')  # учебный файл — нужен только ради открытого дескриптора",
       "print(os.fpathconf(f.fileno(), 'PC_NAME_MAX'))  # → только Unix: предел длины имени файла на этой ФС, обычно 255",
       "print(os.fpathconf(f.fileno(), os.pathconf_names['PC_PATH_MAX']))  # → только Unix: то же можно спросить числовым кодом из os.pathconf_names, например 4096",
       "r, w = os.pipe()",
@@ -26480,11 +26491,11 @@
     ],
     "examples": [
       "import os",
-      "os.setxattr('/tmp/note.txt', 'user.author', b'ivan')   # → только Linux: записать расширенный атрибут (файл должен существовать, а ФС — поддерживать xattr)",
-      "print(os.getxattr('/tmp/note.txt', 'user.author'))   # → только Linux: b'ivan' — значение всегда возвращается как bytes, не как str",
-      "print(os.getxattr('/tmp/note.txt', 'user.author', follow_symlinks=False))   # → только Linux: b'ivan'; для симлинка атрибут читался бы у самой ссылки, а не у её цели",
-      "print(os.listxattr('/tmp/note.txt'))   # → только Linux: ['user.author'] — так узнают, какие атрибуты вообще есть у файла",
-      "print(os.getxattr('/tmp/note.txt', 'user.nope'))   # → только Linux: OSError (Errno 61, ENODATA) — у отсутствующего атрибута нет значения по умолчанию"
+      "os.setxattr('note.txt', 'user.author', b'ivan')   # → только Linux: записать расширенный атрибут (файл должен существовать, а ФС — поддерживать xattr)",
+      "print(os.getxattr('note.txt', 'user.author'))   # → только Linux: b'ivan' — значение всегда возвращается как bytes, не как str",
+      "print(os.getxattr('note.txt', 'user.author', follow_symlinks=False))   # → только Linux: b'ivan'; для симлинка атрибут читался бы у самой ссылки, а не у её цели",
+      "print(os.listxattr('note.txt'))   # → только Linux: ['user.author'] — так узнают, какие атрибуты вообще есть у файла",
+      "print(os.getxattr('note.txt', 'user.nope'))   # → только Linux: OSError (Errno 61, ENODATA) — у отсутствующего атрибута нет значения по умолчанию"
     ],
     "related": [
       "os.setxattr",
@@ -26521,11 +26532,11 @@
     ],
     "examples": [
       "import os",
-      "open('/tmp/xattr_demo.txt', 'w').close()",
-      "os.setxattr('/tmp/xattr_demo.txt', 'user.author', b'anna')   # → только Linux: атрибут записан, возвращает None (имя обязано начинаться с user.)",
-      "print(os.getxattr('/tmp/xattr_demo.txt', 'user.author'))   # → только Linux: b'anna'",
-      "print(os.setxattr('/tmp/xattr_demo.txt', 'user.author', b'clara', os.XATTR_CREATE))   # → только Linux: OSError (EEXIST) — с flags=0 значение просто перезаписалось бы",
-      "print(os.setxattr('/tmp/xattr_demo.txt', 'user.tag', 'важное'))   # → только Linux: TypeError — значение должно быть bytes, а не str"
+      "open('xattr_demo.txt', 'w').close()",
+      "os.setxattr('xattr_demo.txt', 'user.author', b'anna')   # → только Linux: атрибут записан, возвращает None (имя обязано начинаться с user.)",
+      "print(os.getxattr('xattr_demo.txt', 'user.author'))   # → только Linux: b'anna'",
+      "print(os.setxattr('xattr_demo.txt', 'user.author', b'clara', os.XATTR_CREATE))   # → только Linux: OSError (EEXIST) — с flags=0 значение просто перезаписалось бы",
+      "print(os.setxattr('xattr_demo.txt', 'user.tag', 'важное'))   # → только Linux: TypeError — значение должно быть bytes, а не str"
     ],
     "related": [
       "os.getxattr",
@@ -26562,11 +26573,11 @@
     ],
     "examples": [
       "import os",
-      "open('/tmp/xattr_demo.txt', 'w').close()",
-      "os.setxattr('/tmp/xattr_demo.txt', 'user.author', b'anna')   # → только Linux: записали расширенный атрибут (имя обязано начинаться с user.)",
-      "print(os.listxattr('/tmp/xattr_demo.txt'))   # → только Linux: ['user.author']",
+      "open('xattr_demo.txt', 'w').close()",
+      "os.setxattr('xattr_demo.txt', 'user.author', b'anna')   # → только Linux: записали расширенный атрибут (имя обязано начинаться с user.)",
+      "print(os.listxattr('xattr_demo.txt'))   # → только Linux: ['user.author']",
       "print(os.listxattr())   # → только Linux: без аргумента смотрит текущий каталог, обычно []",
-      "print(os.listxattr('/tmp/нет-такого'))   # → FileNotFoundError"
+      "print(os.listxattr('нет-такого'))   # → FileNotFoundError"
     ],
     "related": [
       "os.getxattr",
@@ -26603,11 +26614,11 @@
     ],
     "examples": [
       "import os",
-      "open('/tmp/xattr_demo.txt', 'w').close()",
-      "os.setxattr('/tmp/xattr_demo.txt', 'user.author', b'anna')   # → только Linux: подготовили атрибут, чтобы было что удалять",
-      "os.removexattr('/tmp/xattr_demo.txt', 'user.author')   # → только Linux: атрибут удалён, функция возвращает None",
-      "print(os.listxattr('/tmp/xattr_demo.txt'))   # → только Linux: [] — атрибутов не осталось",
-      "print(os.removexattr('/tmp/xattr_demo.txt', 'user.author'))   # → только Linux: OSError (ENODATA) — повторное удаление, атрибута уже нет"
+      "open('xattr_demo.txt', 'w').close()",
+      "os.setxattr('xattr_demo.txt', 'user.author', b'anna')   # → только Linux: подготовили атрибут, чтобы было что удалять",
+      "os.removexattr('xattr_demo.txt', 'user.author')   # → только Linux: атрибут удалён, функция возвращает None",
+      "print(os.listxattr('xattr_demo.txt'))   # → только Linux: [] — атрибутов не осталось",
+      "print(os.removexattr('xattr_demo.txt', 'user.author'))   # → только Linux: OSError (ENODATA) — повторное удаление, атрибута уже нет"
     ],
     "related": [
       "os.setxattr",

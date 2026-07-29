@@ -708,12 +708,12 @@
     ],
     "examples": [
       "fs = frozenset([1,2,3,2,1])",
-      "print(fs)  # → frozenset({1,2,3})",
-      "print(frozenset('hello'))  # → frozenset({'h','e','l','o'})",
+      "print(fs)  # → frozenset({1, 2, 3})",
+      "print(sorted(frozenset('hello')))  # → ['e', 'h', 'l', 'o'] (порядок множества не определён, поэтому сортируем)",
       "d = {frozenset([1,2]): 'value'}",
-      "print(d)  # → {frozenset({1,2}): 'value'}",
+      "print(d)  # → {frozenset({1, 2}): 'value'}",
       "print(1 in fs)  # → True",
-      "print(fs & frozenset([2,3,4]))  # → frozenset({2,3})"
+      "print(fs & frozenset([2,3,4]))  # → frozenset({2, 3})"
     ],
     "related": [
       "frozenset-неизменяемое-множество",
@@ -1585,7 +1585,7 @@
       "name = \"Анна\"; age = 25",
       "print(f\"{name} — {age} лет\")  # → Анна — 25 лет",
       "print(f\"{3.14159:.2f}\")  # → 3.14",
-      "with open(\"/tmp/_test.txt\", \"w\") as f:",
+      "with open(\"_test.txt\", \"w\") as f:",
       "print(\"в файл\", file=f)  # записывает строку в файл",
       "import sys; print(\"!\", flush=True, end=\"\", file=sys.stdout)  # → !",
       "import sys; print(\"ошибка\", file=sys.stderr)  # → в поток ошибок"
@@ -1629,7 +1629,7 @@
       "import sys",
       "print(\"ошибка!\", file=sys.stderr)  # → выводит в stderr",
       "print(\".\", end=\"\", flush=True)  # → без буфера, без переноса строки",
-      "with open(\"/tmp/_gloss_test.txt\", \"w\") as f:",
+      "with open(\"_gloss_test.txt\", \"w\") as f:",
       "print(\"запись\", file=f)  # → пишет строку в файл",
       "import io; buf = io.StringIO()",
       "print(\"в буфер\", file=buf); print(buf.getvalue())  # → в буфер",
