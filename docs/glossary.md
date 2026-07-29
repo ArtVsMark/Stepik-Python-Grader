@@ -277,8 +277,11 @@ python scripts/glossary_draft_pipeline.py propose --qualname str.rjust \
 
 ## Очередь пополнения (`GlossaryMissingEntry`)
 
-Обнаруженные пробелы складываются в отдельный JSON-файл (список объектов) —
-это «TODO-лист глоссария», растущий из практики проверки решений (журнал J7).
+Обнаруженные пробелы складываются в отдельную базу — это «TODO-лист глоссария»,
+растущий из практики проверки решений (журнал J7). С issue #552 хранилище —
+SQLite/WAL (`.grader_glossary_missing.db`) поверх общего коннектора `db.py`;
+до этого был JSON-файл со списком объектов, и его формат по-прежнему описывает
+таблицу полей ниже: она задаёт и схему записи, и структуру legacy-файла.
 
 | Поле | Тип | Обяз. | Описание |
 |---|---|:--:|---|
@@ -304,6 +307,17 @@ python scripts/glossary_draft_pipeline.py propose --qualname str.rjust \
 `origin` первой записи не перезаписывается, но пустые `module`/`qualname`
 дополняются из новой записи (обогащение practice-пробела source-driven данными).
 
+**Legacy `.json` читается и мигрирует сам (issue #552).** Переход на SQLite не
+требует ручных действий: на первой же записи `_ensure_queue_db()` разбирает два
+случая. Если по указанному пути лежит JSON — он читается best-effort, файл
+удаляется (`sqlite3` не откроет не-SQLite файл) и пересоздаётся как база с теми
+же записями. Если файла нет, но рядом лежит `<stem>.json` — так бывает после
+смены дефолта с `.json` на `.db` — соседняя очередь импортируется один раз.
+Битый или нечитаемый legacy-файл не роняет запись: старое содержимое теряется,
+но очередь создаётся и пробелы копятся дальше. Чтение (`load_missing_queue()`)
+понимает оба формата, поэтому старый файл пригоден и до первой записи — но там
+битые данные уже поднимают `GlossaryError`, а не проглатываются молча.
+
 ## Python-API
 
 ```python
@@ -321,7 +335,7 @@ provider.list_by_tag("function")        # list[GlossaryCard]
 # Детектор пробелов (без исполнения кода — только AST)
 detector = MissingConceptDetector()
 missing = detector.detect_from_code(code, known=provider.known_terms(), source="sol.py")
-append_missing_entries(".grader_glossary_missing.json", missing)
+append_missing_entries(".grader_glossary_missing.db", missing)
 ```
 
 Ошибки чтения (нет файла / битый JSON / нет обязательного поля) поднимаются как
@@ -333,9 +347,9 @@ append_missing_entries(".grader_glossary_missing.json", missing)
 путь к store и очереди через `GraderConfig` (`config.py`):
 `glossary_store` (`str | None`, по умолчанию `None` — тогда `/api/glossary*`
 отдаёт fallback-контент из компактного `core/glossary.py`) и
-`glossary_missing_queue` (по умолчанию `.grader_glossary_missing.json`,
-относительно корня проекта, в `.gitignore` — тот же паттерн, что выше в этом
-примере). Оба переопределяются через `[tool.stepik-grader]` в `pyproject.toml`.
+`glossary_missing_queue` (по умолчанию `.grader_glossary_missing.db` — SQLite/WAL
+после issue #552, относительно корня проекта, в `.gitignore` — тот же паттерн,
+что выше в этом примере). Оба переопределяются через `[tool.stepik-grader]` в `pyproject.toml`.
 
 ## Инвентарь официального Python/stdlib (`stdlib_inventory`, issue #196)
 
@@ -409,7 +423,7 @@ report.categories["exceptions"].ratio       # 0.0..1.0
 report.categories["stdlib"].missing         # tuple[str, ...] непокрытых qualname
 
 missing = missing_entries_from_inventory(inventory, known=known)
-append_missing_entries(".grader_glossary_missing.json", missing)  # идемпотентно
+append_missing_entries(".grader_glossary_missing.db", missing)  # идемпотентно
 ```
 
 Повторный запуск идемпотентен: `append_missing_entries()` дедуплицирует по
@@ -421,7 +435,7 @@ append_missing_entries(".grader_glossary_missing.json", missing)  # идемпо
 ```bash
 python -m stepik_grader.glossary.coverage \
     --cards docs/examples/glossary.sample.json \
-    --missing-out .grader_glossary_missing.json \
+    --missing-out .grader_glossary_missing.db \
     --modules functools,itertools   # опционально — подмножество модулей
 ```
 

@@ -35,8 +35,8 @@
 | `web/insights_adapter.py` | Application / Web | `insights_cards`/`active_count` — адаптер над `core/insights`+`core/history` для раздела «Подучить» (issue #379) |
 | `web/reference_adapter.py` | Application / Web | `import_reference` — тонкий адаптер над `core/stepik_reference` для кнопки «Найти эталонное решение» (импорт закреплённого решения Stepik в задачу, issue #55); web-аутентификация без браузера, как `downloader_adapter` |
 | `web/commands.py` | Application / Web (leaf) | Реестр команд (`COMMANDS`, `filter_commands`) для action cards разбора (палитра снята в #658); не импортирует ничего из проекта |
-| `web/runs.py` | Application / Web | Async job-модель для bench/microbench/playground/trace/auth (`submit_job`/`get_job`/`cancel_job`, issue #262; `kind="auth"` — браузерный OAuth #402) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
-| `web/playground.py` | Application / Web | `run_playground` — запуск кода со stdin через `core/runner.LocalRunner` (issue #317, раздел «Песочница»); потребитель — `web/runs.py` |
+| `web/runs.py` | Application / Web | Async job-модель для tests/bench/microbench/playground/trace/auth/hint/stepik_submit (`submit_job`/`get_job`/`cancel_job`, issue #262; `kind="tests"` — грейд режима 1 #297, `kind="auth"` — браузерный OAuth #402, `kind="hint"` — AI-объяснение кейса #543, `kind="stepik_submit"` — отправка решения на Stepik #683) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
+| `web/playground.py` | Application / Web | `run_playground` — запуск кода со stdin через `web/grading.run_spec` (активный `Runner`, а не `core/runner.LocalRunner` напрямую — ADR-0010; под `--serve --sandbox` это `SandboxRunner`, issue #396); issue #317, раздел «Песочница»; потребитель — `web/runs.py` |
 | `web/i18n.py` | Application / Web | `message_id`-каталог веб-API (issue #264): `resolve_lang`/`message_fields`/`render_message`; рендер поверх `core/i18n.load_locale_messages` (локали в `core/locales/<lang>.json`, **не** `web/locales/`); импортирует `core/i18n.py` — не leaf |
 | `ide.py` | Application / IDE | IDE-интеграция `--init-vscode`: генерация конфигов VS Code (tasks/launch) |
 | `launcher.py` | Application / GUI | GUI-лаунчер веб-интерфейса без командной строки (issue #661): tkinter-окно (выбор запуска простой/с изоляцией `--sandbox`, порт, папка, Запустить/Остановить, статус) поднимает `--serve` **отдельным процессом**; gui-script `stepik-grader-gui`. Только stdlib — project-импортов нет (leaf) |
@@ -118,7 +118,7 @@ cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/repor
 cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)
 cli/interactive.py     ──→  core/grader_core.py  (find_all_solution_files/collect_grouped_files), cli/context.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
-web/server.py          ──→  web/api_routes.py, web/http_guards.py, web/viewmodels.py, web/i18n.py  (каркас: собирает хендлер из миксинов, отдаёт статику; grading.set_runner — ленивый импорт в теле, #647)
+web/server.py          ──→  web/api_routes.py, web/http_guards.py, web/viewmodels.py, web/i18n.py, core/user_settings.py  (каркас: собирает хендлер из миксинов, отдаёт статику, инжектит onboarding_seen в index.html — issue #660; core/sandbox + grading.set_runner — ленивые импорты в теле под --serve --sandbox, #396/#647)
 web/api_routes.py      ──→  web/http_guards.py, web/commands.py, web/downloader_adapter.py, web/auth_adapter.py, web/glossary_adapter.py, web/rules_adapter.py, web/insights_adapter.py, web/reference_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (маршруты REST-API поверх адаптеров, #647)
 web/grading.py         ──→  core/grader_core.py, core/microbench_runner.py, core/runner.py (RunSpec), core/tracer.py, core/reporter.py, core/test_loader.py, core/cache.py  (фасад web→core по исполнению — единственная точка, ADR-0010; allowlist публичной поверхности core под guard #549/#550)
 web/viewmodels.py      ──→  web/grading.py  (grade/bench/microbench/RunSpec/загрузка тестов через фасад, а не из core/* напрямую — ADR-0010)
@@ -131,8 +131,8 @@ web/glossary_adapter.py   ──→  core/glossary.py, core/mtime_cache.py, glos
 web/rules_adapter.py       ──→  rules/  (bundled_rules)
 web/insights_adapter.py    ──→  core/history.py, core/insights.py, config.py
 web/commands.py            (только stdlib — реестр команд, project-импортов нет)
-web/runs.py            ──→  web/viewmodels.py, web/i18n.py, web/playground.py, web/auth_adapter.py (ленивый, kind="auth"), core/test_loader.py, core/tracer.py  (async job-модель + песочница/трейс/OAuth, issue #262/#317/#318/#402)
-web/playground.py      ──→  core/runner.py  (LocalRunner/RunSpec), config.py
+web/runs.py            ──→  web/grading.py  (find_all_solution_files/trace_code через фасад, а не core/test_loader.py и core/tracer.py напрямую — ADR-0010), web/viewmodels.py, web/i18n.py, web/playground.py, core/ai_hints.py, core/failure_context.py  (kind="hint", issue #543/#542), web/auth_adapter.py (ленивый, kind="auth"), core/stepik_client.py + core/oauth_flow.py (ленивые, kind="stepik_submit", issue #683), config.py  (async job-модель: песочница/трейс/OAuth/AI-подсказка/submit, issue #262/#317/#318/#402)
+web/playground.py      ──→  web/grading.py  (RunSpec/run_spec — исполнение активным Runner'ом фасада, а не core/runner.py напрямую — ADR-0010; под --serve --sandbox это SandboxRunner, issue #396), config.py
 web/i18n.py            ──→  core/i18n.py  (load_locale_messages — рендер поверх core-локалей core/locales/<lang>.json, issue #264)
 core/sandbox/          ──→  core/runner.py  (реализует Runner-протокол: RunSpec/RunOutcome)
 cli/__init__.py        ──→  core/sandbox/  (--sandbox: импорт SandboxRunner/SandboxUnavailableError + grader_core.set_runner() — точка инъекции Runner; сам grader_core НЕ зависит от sandbox, issue #266)

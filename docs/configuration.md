@@ -85,7 +85,7 @@ microbench_max_cases = 5
 | `max_memory_mb` | `int \| None` | `1024` | Best-effort лимит памяти дочернего процесса (POSIX-only, `RLIMIT_AS`); `None` — без лимита. См. [Ограничения и безопасность](#ограничения-и-безопасность). |
 | `use_cache` | `bool` | `false` | Включить кэш результатов по умолчанию (эквивалент `--cache`, issue #56). Отдельный запуск форсируется `--no-cache`. |
 | `glossary_store` | `str \| None` | `None` | Путь к локальной JSON-базе карточек глоссария (issue #126); `None` — веб-слой откатывается на компактный `core/glossary.py`. См. [glossary.md](glossary.md). |
-| `glossary_missing_queue` | `str` | `".grader_glossary_missing.json"` | Путь к очереди пополнения глоссария (J7 — недостающие карточки). См. [glossary.md](glossary.md). |
+| `glossary_missing_queue` | `str` | `".grader_glossary_missing.db"` | Путь к очереди пополнения глоссария (J7 — недостающие карточки): SQLite/WAL с issue #552; legacy `.json`-очередь читается и разово импортируется при первой записи. См. [glossary.md](glossary.md). |
 | `job_workers` | `int` | `2` | Размер пула воркеров async job-модели `--serve` (`POST /api/v1/runs`, issue #262) — сколько bench/microbench-задач исполняются параллельно. Не CLI-флаг. |
 | `record_stats` | `bool` | `false` | Включить локальную статистику запусков по умолчанию (эквивалент `--stats`, issue #268). Отдельный запуск форсируется `--no-stats`. |
 | `record_history` | `bool` | `false` | Писать историю прогонов в SQLite-базу `.grader_history.db` по умолчанию (эквивалент `--history`, issue #344). Отдельный запуск форсируется `--no-history`. Основа разделов «Правила»/«Подучить» (эпик #342). |
