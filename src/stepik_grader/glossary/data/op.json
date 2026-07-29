@@ -6064,7 +6064,10 @@
     "version": "",
     "section": "Числа и математика",
     "subcat": "hex",
-    "aliases": [],
+    "aliases": [
+      "вещественное число в шестнадцатеричную строку",
+      "точное представление дробного числа"
+    ],
     "keywords": [],
     "tags": [
       "float"
@@ -6102,7 +6105,10 @@
     "version": "",
     "section": "Числа и математика",
     "subcat": "hex",
-    "aliases": [],
+    "aliases": [
+      "шестнадцатеричная строка в вещественное число",
+      "разобрать шестнадцатеричную запись числа"
+    ],
     "keywords": [],
     "tags": [
       "float"
@@ -6398,7 +6404,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "среднее",
-    "aliases": [],
+    "aliases": [
+      "среднее арифметическое",
+      "среднее значение списка",
+      "посчитать среднее"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6437,7 +6447,10 @@
     "version": "3.8",
     "section": "Модуль statistics",
     "subcat": "среднее",
-    "aliases": [],
+    "aliases": [
+      "быстрое среднее",
+      "среднее с плавающей точкой"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6475,7 +6488,11 @@
     "version": "3.8",
     "section": "Модуль statistics",
     "subcat": "среднее",
-    "aliases": [],
+    "aliases": [
+      "среднее геометрическое",
+      "корень n-й степени из произведения",
+      "средний темп роста"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6513,7 +6530,10 @@
     "version": "3.6",
     "section": "Модуль statistics",
     "subcat": "среднее",
-    "aliases": [],
+    "aliases": [
+      "среднее гармоническое",
+      "средняя скорость по участкам"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6551,7 +6571,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "медиана",
-    "aliases": [],
+    "aliases": [
+      "медиана",
+      "серединное значение",
+      "центральное значение выборки"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6590,7 +6614,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "медиана",
-    "aliases": [],
+    "aliases": [
+      "нижняя медиана",
+      "меньшее из двух центральных значений"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6628,7 +6655,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "медиана",
-    "aliases": [],
+    "aliases": [
+      "верхняя медиана",
+      "большее из двух центральных значений"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6666,7 +6696,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "медиана",
-    "aliases": [],
+    "aliases": [
+      "медиана сгруппированных данных",
+      "медиана интервального ряда",
+      "медиана с интерполяцией"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6704,7 +6738,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "мода",
-    "aliases": [],
+    "aliases": [
+      "самое частое значение",
+      "наиболее часто встречающийся элемент",
+      "мода выборки"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6743,7 +6781,11 @@
     "version": "3.8",
     "section": "Модуль statistics",
     "subcat": "мода",
-    "aliases": [],
+    "aliases": [
+      "все самые частые значения",
+      "несколько мод",
+      "список наиболее частых элементов"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6780,7 +6822,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "разброс",
-    "aliases": [],
+    "aliases": [
+      "выборочное стандартное отклонение",
+      "среднеквадратичное отклонение выборки",
+      "разброс значений вокруг среднего"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6819,7 +6865,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "разброс",
-    "aliases": [],
+    "aliases": [
+      "стандартное отклонение генеральной совокупности",
+      "отклонение по всем данным"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6856,7 +6905,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "разброс",
-    "aliases": [],
+    "aliases": [
+      "выборочная дисперсия",
+      "квадрат стандартного отклонения"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6894,7 +6946,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "разброс",
-    "aliases": [],
+    "aliases": [
+      "дисперсия генеральной совокупности",
+      "дисперсия по всем данным"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6931,7 +6986,11 @@
     "version": "3.10",
     "section": "Модуль statistics",
     "subcat": "связь",
-    "aliases": [],
+    "aliases": [
+      "коэффициент корреляции",
+      "корреляция Пирсона",
+      "связь двух наборов данных"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6968,7 +7027,11 @@
     "version": "3.10",
     "section": "Модуль statistics",
     "subcat": "связь",
-    "aliases": [],
+    "aliases": [
+      "ковариация",
+      "выборочная ковариация",
+      "совместная изменчивость двух наборов"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -7006,7 +7069,11 @@
     "version": "3.10",
     "section": "Модуль statistics",
     "subcat": "связь",
-    "aliases": [],
+    "aliases": [
+      "линейная регрессия",
+      "метод наименьших квадратов",
+      "подобрать прямую по точкам"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -7045,7 +7112,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "распределение",
-    "aliases": [],
+    "aliases": [
+      "нормальное распределение",
+      "гауссово распределение",
+      "плотность вероятности"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -7206,7 +7277,11 @@
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "конкретные пути",
-    "aliases": [],
+    "aliases": [
+      "путь в юникс-системах",
+      "путь с прямыми слешами",
+      "путь на линуксе"
+    ],
     "keywords": [],
     "tags": [
       "pathlib"
@@ -7244,7 +7319,11 @@
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "конкретные пути",
-    "aliases": [],
+    "aliases": [
+      "путь в винде",
+      "путь с обратными слешами",
+      "путь с буквой диска"
+    ],
     "keywords": [],
     "tags": [
       "pathlib"
