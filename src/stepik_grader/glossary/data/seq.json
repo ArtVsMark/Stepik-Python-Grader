@@ -8,8 +8,8 @@
       "en": "The del statement removes an item by index, a slice, or the whole list from memory. It modifies the object in place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "del lst[i] и lst.pop(i) удаляют одно и то же, но del ничего не возвращает — берите pop, когда значение ещё нужно. del lst[a:b] режет список на месте, поэтому все другие имена, ссылающиеся на этот же список, увидят изменение, а lst = lst[:a] + lst[b:] лишь создаёт новый объект и перепривязывает имя. Отдельно del lst убирает только имя: сам объект живёт, пока на него есть другие ссылки.",
+      "en": "del lst[i] and lst.pop(i) remove the same item, but del returns nothing — use pop when you still need the value. del lst[a:b] cuts the list in place, so every other name bound to that same list sees the change, whereas lst = lst[:a] + lst[b:] just builds a new object and rebinds the name. A bare del lst only removes the name: the object survives as long as other references point to it."
     },
     "syntax": "del lst[i]  |  del lst[a:b]  |  del lst",
     "status": "ready",
@@ -63,8 +63,8 @@
       "en": "enumerate() yields (index, item) pairs. start= sets the initial index."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "enumerate() ленив: это итератор, а не список, поэтому печать самого объекта покажет <enumerate object ...>, а второй проход по нему уже ничего не даст — оборачивайте в list(), если пары нужны целиком. Аргумент start= сдвигает только счётчик, элементы остаются на местах: после enumerate(lst, 1) число i больше не годится как индекс для lst[i].",
+      "en": "enumerate() is lazy: it returns an iterator, not a list, so printing the object shows <enumerate object ...> and a second pass over it yields nothing — wrap it in list() if you need all the pairs at once. The start= argument shifts the counter only, not the items: after enumerate(lst, 1) the value of i is no longer a valid index into lst."
     },
     "syntax": "enumerate(lst[, start=0])",
     "status": "ready",
@@ -117,8 +117,8 @@
       "en": "Checks whether an item is present in the list, in O(n). Returns a bool."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка линейная, так что многократный поиск внутри цикла легко даёт O(n²) — если один и тот же набор проверяется часто, переложите его в set, где проверка почти мгновенная (ценой хешируемости элементов и потери порядка). Сравнение идёт по ==, а не по типу, поэтому True и 1 считаются одним и тем же элементом. И в отличие от строк, где in ищет подстроку, у списка in ищет элемент целиком, а не подпоследовательность.",
+      "en": "The scan is linear, so repeating it inside a loop quietly turns into O(n squared) — if you probe the same collection often, put it in a set, where the test is near-instant (at the price of hashable elements and lost order). Membership compares with ==, not by type, so True and 1 count as the same element. And unlike strings, where in means substring, a list checks for one whole element, never a sub-sequence."
     },
     "syntax": "item in lst  |  item not in lst",
     "status": "ready",
@@ -165,8 +165,8 @@
       "en": "The built-in functions work with tuples exactly as they do with lists."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "len у кортежа отдаётся за O(1) — длина хранится готовой, а вот min, max и sum каждый раз обходят все элементы, так что четыре вызова подряд означают четыре прохода. На пустом кортеже sum спокойно вернёт 0, а min и max упадут с ValueError.",
+      "en": "len on a tuple is O(1) because the length is stored, whereas min, max and sum each walk every element, so calling them one after another means several passes over the same data. On an empty tuple sum quietly returns 0, but min and max raise ValueError."
     },
     "syntax": "len(t)  |  min(t)  |  max(t)  |  sum(t)",
     "status": "ready",
@@ -211,8 +211,8 @@
       "en": "zip() works with tuples exactly as it does with lists. It returns an iterator of tuples."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "zip молча останавливается на самой короткой последовательности: если кортежи разной длины, хвост потеряется без всякого предупреждения — с Python 3.10 на этот случай есть zip(t1, t2, strict=True), который бросит ValueError. Результат ленивый и одноразовый: после list(zip(...)) или первого прохода в цикле повторно пройтись по тому же объекту уже не получится, он пуст.",
+      "en": "zip stops at the shortest argument without a word, so mismatched tuple lengths silently drop the tail; since Python 3.10 you can pass strict=True to turn that into a ValueError instead. The result is lazy and single-use: once you have consumed it with list() or a for loop, iterating the same zip object again yields nothing."
     },
     "syntax": "zip(t1, t2, ...)",
     "status": "ready",
@@ -259,8 +259,8 @@
       "en": "zip() joins the items of several iterables into tuples. It stops at the shortest one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обрезка по самой короткой последовательности происходит молча — если длины обязаны совпадать, с Python 3.10 передавайте strict=True, тогда расхождение даст ValueError вместо тихо потерянных элементов. Результат одноразовый и ленивый: после одного list(zip(...)) или одного цикла итератор пуст, повторно пройти по нему не выйдет. Если нужно дополнить до самой длинной, а не обрезать — itertools.zip_longest().",
+      "en": "Truncation to the shortest input happens silently — when the lengths must match, pass strict=True (Python 3.10+) so a mismatch raises ValueError instead of quietly dropping items. The result is a lazy, single-use iterator: after one list(zip(...)) or one loop it is exhausted and cannot be traversed again. If you need padding to the longest input rather than truncation, reach for itertools.zip_longest()."
     },
     "syntax": "zip(lst1, lst2, ...)  |  zip(*matrix)",
     "status": "ready",
@@ -314,8 +314,8 @@
       "en": "A list of lists is used as a two-dimensional matrix. Items are reached through a double index, matrix[row][col]."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — [[0] * cols] * rows: внешнее умножение копирует ссылку, все строки оказываются одним и тем же списком, и запись в одну ячейку меняет весь столбец. Надёжный способ — генератор списков, где новая строка создаётся на каждой итерации. Индексы идут в порядке matrix[строка][столбец], а прямоугольность никто не проверяет: строки могут быть разной длины, и заметите вы это только по IndexError.",
+      "en": "The classic trap is [[0] * cols] * rows: the outer multiplication copies a reference, so every row is the same list and writing one cell changes a whole column. Build rows with a list comprehension instead, so each iteration creates a fresh row. Indexing goes matrix[row][col], and nothing enforces a rectangle — rows may differ in length, and you usually find out via IndexError."
     },
     "syntax": "matrix[i][j]  |  [[val]*cols for _ in range(rows)]",
     "status": "ready",
@@ -373,8 +373,8 @@
       "en": "A list comprehension may contain several nested for clauses, which lets you build nested lists or flatten a matrix into a single list."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Порядок for-ов читается слева направо ровно как вложенные циклы сверху вниз: сначала внешний for row in matrix, потом внутренний for x in row. Написать [x for x in row for row in matrix] — самая частая ошибка: имя row там ещё не определено, и вы получите NameError. Для транспонирования проще zip(*matrix), а глубже двух уровней вложенности обычный цикл читается лучше выражения.",
+      "en": "Read the for clauses left to right exactly as nested loops top to bottom: the outer for row in matrix comes first, the inner for x in row second. Writing [x for x in row for row in matrix] is the classic mistake — row is not defined at that point, so you get a NameError. For transposing, zip(*matrix) is simpler, and past two levels of nesting a plain loop reads better than the comprehension."
     },
     "syntax": "[[выражение for j in inner] for i in outer]",
     "status": "ready",
@@ -419,8 +419,8 @@
       "en": "Indexing and slicing work just as they do for strings and lists, but the result is a tuple or an item (immutable)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Срез всегда возвращает кортеж, даже когда в него попал ровно один элемент: t[0] — это само число, а t[0:1] — кортеж из одного числа. Срез не ругается на выход за границы и молча обрезается до реальной длины, тогда как t[i] с несуществующим индексом сразу даёт IndexError. Копировать кортеж срезом бессмысленно: в CPython t[:] возвращает тот же самый объект, а не копию.",
+      "en": "A slice always yields a tuple, even a one-element one: t[0] is the item itself, while t[0:1] is a tuple holding that item. Slices clamp silently to the real length instead of complaining about out-of-range bounds, whereas t[i] with a bad index raises IndexError immediately. Copying a tuple by slicing is pointless — in CPython t[:] hands back the very same object, not a copy."
     },
     "syntax": "t[i]  |  t[a:b:c]",
     "status": "ready",
@@ -468,8 +468,8 @@
       "en": "Access to an item by index. Negative indices count from the end. Assignment is supported."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Выход за границы — сразу IndexError, аналога dict.get() с запасным значением у списка нет: либо проверяйте len() заранее, либо ловите исключение. Присваивание lst[i] = val только заменяет уже существующий элемент, расширить список так нельзя — для этого append() или insert(). Само обращение по индексу — O(1), не важно, первый элемент или миллионный.",
+      "en": "An out-of-range index raises IndexError right away — a list has no dict.get()-style fallback, so check len() first or catch the exception. lst[i] = val replaces an existing item only; it cannot grow the list, that is what append() and insert() are for. Indexing itself is O(1), whether you ask for the first item or the millionth."
     },
     "syntax": "lst[i]  |  lst[i] = val",
     "status": "ready",
@@ -520,8 +520,8 @@
       "en": "A function can return several values — Python packs them into a tuple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Никаких «нескольких значений» на самом деле не возвращается — уходит один кортеж, а разбирает его распаковка на стороне вызова. Отсюда классическая поломка: добавили в return четвёртое значение — и все прежние вызовы вида a, b, c = f() падают с ValueError. Когда значений больше трёх или их порядок легко перепутать, надёжнее NamedTuple или dataclass: там поля читают по имени, а не по позиции.",
+      "en": "Nothing genuinely multi-valued happens here: one tuple goes back, and the unpacking at the call site takes it apart. That is where the classic break comes from — add a fourth value to the return and every existing a, b, c = f() raises ValueError. Past three values, or when the order is easy to mix up, a NamedTuple or dataclass is safer, because callers read fields by name instead of by position."
     },
     "syntax": "return a, b, c  # ≡ return (a, b, c)",
     "status": "ready",
@@ -579,8 +579,8 @@
       "en": "Tuples are hashable (if all their items are), so they can serve as dictionary keys. Lists cannot."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Неизменяемости самой по себе мало: (1, [2]) — кортеж, но список внутри делает его нехэшируемым, и словарь ответит TypeError: unhashable type: 'list'. В индексе скобки можно опустить — d[1, 2] и d[(1, 2)] это один и тот же ключ, а вот порядок значим: (1, 2) и (2, 1) — два разных ключа.",
+      "en": "Immutability alone is not enough: (1, [2]) is a tuple, but the list inside makes it unhashable and the dict answers TypeError: unhashable type: 'list'. Inside a subscript the parentheses are optional — d[1, 2] and d[(1, 2)] are the same lookup — while order does matter, so (1, 2) and (2, 1) are two distinct keys."
     },
     "syntax": "d[tuple_key] = val",
     "status": "ready",
@@ -637,8 +637,8 @@
       "en": "namedtuple creates a tuple class with named fields. The fields are reachable both by name and by index."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это по-прежнему кортеж: полю нельзя присвоить новое значение, изменённую копию делают через _replace(). Подчёркивание в _replace, _asdict и _fields не означает «приватный метод» — так сделано, чтобы имена методов не столкнулись с именами ваших полей. При сравнении namedtuple равен обычному кортежу с теми же значениями, поэтому == не отличит Point(1, 2) от (1, 2).",
+      "en": "It is still a tuple: you cannot assign to a field, and you build a modified copy with _replace(). The underscore in _replace, _asdict and _fields does not mean private — it keeps the method names from clashing with your own field names. A namedtuple compares equal to a plain tuple holding the same values, so == will not tell Point(1, 2) apart from (1, 2)."
     },
     "syntax": "from collections import namedtuple\nNT = namedtuple('NT', ['field1', 'field2'])",
     "status": "ready",
@@ -692,8 +692,8 @@
       "en": "Tuples are immutable: an item cannot be changed, added or removed. Ways around it: build a new tuple, or convert it to a list."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Неизменяемость тут поверхностная: кортеж запрещает подменять свои ссылки, но если внутри лежит список, менять его никто не мешает — t[0].append(4) отработает штатно. Отсюда и хешируемость: положить кортеж в множество или в ключ словаря можно, только когда хешируемы все его элементы. Классическая ловушка — t[0] += [4] для списка внутри кортежа: список реально расширится, и лишь потом прилетит TypeError на попытке присваивания.",
+      "en": "The immutability is shallow: a tuple freezes its references, not the objects behind them, so if it holds a list, t[0].append(4) works fine. That is also why hashability depends on the contents — a tuple can be a dict key or a set member only if every element inside is hashable. The classic trap is t[0] += [4] on a nested list: the list really does grow, and only then does the assignment step raise TypeError."
     },
     "syntax": "t[i] = val  # TypeError",
     "status": "ready",
@@ -751,8 +751,8 @@
       "en": "The + operator returns a new list — the concatenation of the two. * repeats a list n times. For mutable objects * produces shallow copies."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Оба оператора строят новый список целиком, поэтому накопление в цикле вида res = res + [x] квадратично по времени — используйте append() или extend(). Различайте lst += other и lst = lst + other: += меняет список на месте, как extend, и это видят все, кто держит ссылку на тот же объект, к тому же справа допустим любой итерируемый объект; обычный + требует, чтобы справа тоже был список, иначе TypeError.",
+      "en": "Both operators build a whole new list, so accumulating with res = res + [x] inside a loop is quadratic — use append() or extend(). Also keep lst += other apart from lst = lst + other: += mutates in place like extend, so everyone holding a reference to that list sees the change, and it accepts any iterable on the right; plain + insists on another list and raises TypeError otherwise."
     },
     "syntax": "lst1 + lst2  |  lst * n",
     "status": "ready",
@@ -799,8 +799,8 @@
       "en": "Unpacking assigns the items to variables. * captures the rest. _ is the convention for values that are ignored."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ошибка почти всегда одна: слева не столько имён, сколько элементов справа — ValueError: not enough values to unpack. Звёздочка от этого спасает, но *rest всегда становится списком, даже если распаковывали кортеж, и звёздочка в присваивании допустима только одна. Само _ — обычная переменная: значение в неё реально кладётся, просто по соглашению его потом не читают.",
+      "en": "The usual failure is a count mismatch — ValueError: not enough values to unpack when the names on the left don't match the items on the right. A starred name absorbs the rest, but it always produces a list even when the source was a tuple, and only one star is allowed per assignment. And _ is an ordinary variable: the value really is stored in it, it is just a convention that nobody reads it afterwards."
     },
     "syntax": "a, b = t  |  a, *rest = t  |  a, _, b = t",
     "status": "ready",
@@ -862,8 +862,8 @@
       "en": "Unpacking assigns the items to variables. * captures the rest as a list."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Без звёздочки число переменных слева должно совпадать с числом элементов точь-в-точь, иначе ValueError с текстом вроде not enough values to unpack; звёздочка снимает это ограничение, но в одной цели она может быть только одна. Переменная со звёздочкой всегда получает список — даже если справа кортеж или строка и даже если захватывать нечего (тогда пустой список).",
+      "en": "Without a star the number of names on the left must match the number of items exactly, otherwise you get a ValueError such as \"not enough values to unpack\"; the star lifts that restriction, but only one star is allowed per target. The starred name always ends up holding a list, even when the right side is a tuple or a string, and even when there is nothing left to capture (then it is empty)."
     },
     "syntax": "a, b, *rest = lst  |  *head, last = lst  |  a, *_, b = lst",
     "status": "ready",
@@ -918,8 +918,8 @@
       "en": "A tuple is written with parentheses (), with the tuple() constructor, or as a plain comma-separated list. A single item needs a trailing comma: (x,)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Кортеж делает запятая, а не скобки: (1) — это просто число, зато случайно оставленная запятая в конце строки, x = 5, молча превращает 5 в (5,), и позже это вылезает лишними скобками при печати. Конструктор tuple() разбирает итерируемое поэлементно — tuple('abc') даст ('a', 'b', 'c'), а tuple(5) поднимет TypeError, потому что число не итерируемо.",
+      "en": "The comma makes the tuple, not the parentheses: (1) is just a number, while a stray trailing comma in x = 5, silently turns 5 into (5,) and later shows up as unexpected parentheses in the output. The tuple() constructor consumes an iterable item by item, so tuple('abc') gives ('a', 'b', 'c') while tuple(5) raises TypeError, because a number is not iterable."
     },
     "syntax": "()  |  (x,)  |  (a, b)  |  tuple(iterable)",
     "status": "ready",
@@ -968,8 +968,8 @@
       "en": "A list is written as the [] literal, with the list() constructor, or as a list comprehension. It may hold items of any type."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "list() от строки разбирает её посимвольно: list('abc') даёт ['a', 'b', 'c'], а не список из одной строки — для этого нужен литерал. И помните, что умножение копирует ссылки, а не объекты: в [[]] * 3 лежит один и тот же вложенный список, добавление в «первую» строку будет видно во всех трёх; для матриц используйте списочное выражение.",
+      "en": "list() applied to a string splits it into characters: list('abc') gives ['a', 'b', 'c'], not a one-item list — use the literal for that. Also note that multiplication copies references, not objects: [[]] * 3 holds the same inner list three times, so appending to the \"first\" row shows up in all of them; build matrices with a comprehension instead."
     },
     "syntax": "[]  |  list()  |  list(iterable)  |  [expr for x in iter]",
     "status": "ready",
@@ -1019,8 +1019,8 @@
       "en": "key= takes a function that returns the value to compare by. A lambda is handy for one-line keys."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Функция из key= вызывается ровно один раз для каждого элемента, а не на каждое сравнение, поэтому даже не самый дешёвый ключ обходится терпимо. Сортировка стабильна: элементы с одинаковым ключом сохраняют исходный порядок — на этом строится сортировка по нескольким полям несколькими проходами, от менее значимого поля к более значимому (reverse=True стабильность не ломает). Классическая ошибка — написать key=len() вместо key=len: передавать надо саму функцию, а не результат её вызова.",
+      "en": "The key function is called exactly once per element, not on every comparison, so a moderately expensive key is cheaper than it looks. Sorting is stable: items with equal keys keep their original order, which is what makes multi-field sorting work as several passes from the least significant field to the most significant one (reverse=True preserves stability too). The classic slip is writing key=len() instead of key=len — you pass the function itself, not the result of calling it."
     },
     "syntax": "sorted(lst, key=func)  |  lst.sort(key=lambda x: ...)",
     "status": "ready",
@@ -1077,8 +1077,8 @@
       "en": "Compact syntax for building a list, with optional filtering. Faster than the equivalent for+append loop."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Переменная цикла живёт только внутри выражения и наружу не утекает — одноимённая переменная снаружи останется нетронутой. При вложенности for-части читаются слева направо, как во вложенном цикле, а список строится в памяти целиком: для больших или бесконечных потоков берите генераторное выражение в круглых скобках.",
+      "en": "The loop variable is local to the comprehension and never leaks out, so a same-named name outside keeps its value. Nested for clauses read left to right exactly like nested loops, and the whole list is materialised at once — for large or endless streams use a generator expression in parentheses instead."
     },
     "syntax": "[expr for var in iterable [if cond]]",
     "status": "ready",
@@ -1139,8 +1139,8 @@
       "en": "The third slice parameter is the step: [start:stop:step]. Step 2 takes every second item. Step -1 gives the reverse order. start/stop can be combined with a step."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "При отрицательном шаге умолчания переворачиваются — срез идёт от конца к началу, но stop по-прежнему не включается, поэтому lst[3:0:-1] вернёт элементы с индексами 3, 2, 1 и потеряет нулевой. Нулевой шаг запрещён: lst[::0] даёт ValueError. И не путайте lst[::-1] с list.reverse(): первый строит новую копию, второй переворачивает список на месте и возвращает None.",
+      "en": "With a negative step the defaults flip — the slice runs from the end backwards, yet stop is still excluded, so lst[3:0:-1] gives items 3, 2, 1 and drops index 0. A zero step is forbidden: lst[::0] raises ValueError. Do not confuse lst[::-1] with list.reverse(): the slice builds a new copy, while reverse() flips the list in place and returns None."
     },
     "syntax": "lst[start:stop:step]",
     "status": "ready",
@@ -1182,8 +1182,8 @@
       "en": "Slices return a new list. s[a:b:c] takes step c. [::-1] reverses it. A slice with no arguments is a shallow copy."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Срез никогда не падает по границам: у короткого списка lst[5:100] просто вернёт пустой список — этим он и отличается от lst[5], который бросит IndexError. Копия поверхностная: вложенные списки в копии — те же самые объекты, и правка через один список видна во втором; для независимой копии нужен copy.deepcopy(). Присваивание в срез (lst[1:3] = [...]) меняет исходный список и может изменить его длину.",
+      "en": "Slicing never fails on bounds: for a short list lst[5:100] simply returns an empty list — unlike lst[5], which raises IndexError. The copy is shallow: nested lists are shared objects, so mutating one is visible through the other; use copy.deepcopy() for an independent copy. Assigning to a slice (lst[1:3] = [...]) mutates the original list and can change its length."
     },
     "syntax": "lst[a:b]  |  lst[a:b:c]  |  lst[::-1]",
     "status": "ready",
@@ -1236,8 +1236,8 @@
       "en": "A filtering if at the end of a list comprehension selects items by a condition. Not to be confused with the ternary operator (if ... else ...) at the start of the expression — that one transforms rather than filters."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Фильтрующий if ставится после for и идёт без else: [x if x > 0 for x in lst] — SyntaxError, а [x if x > 0 else 0 for x in lst] уже не отбор, а замена значений. Обе конструкции можно совместить в одном выражении — тернарник впереди преобразует, if в конце отбирает.",
+      "en": "The filtering if goes after the for and takes no else: [x if x > 0 for x in lst] is a SyntaxError, while [x if x > 0 else 0 for x in lst] replaces values instead of dropping them. Both forms can coexist in one comprehension — the leading ternary transforms, the trailing if selects."
     },
     "syntax": "[выражение for x in iterable if условие]",
     "status": "ready",
@@ -1277,8 +1277,8 @@
       "en": "Append a single item to the end of the list in place; returns None."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод меняет список на месте и возвращает None, поэтому lst = lst.append(x) — классический способ потерять список. Аргумент кладётся целиком одним элементом, даже если это список или строка; чтобы разложить содержимое по элементам, нужен extend. Добавление в конец стоит амортизированное O(1).",
+      "en": "It mutates the list in place and returns None, so lst = lst.append(x) is the classic way to lose your list. The argument is stored as one single element even when it is itself a list or a string — use extend to spread the contents out. Appending costs amortised O(1)."
     },
     "syntax": "lst.append(item)",
     "status": "ready",
@@ -1317,8 +1317,8 @@
       "en": "Remove all items, leaving an empty list (in place)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Разница с lst = [] принципиальна: clear() опустошает сам объект, и все другие имена, указывающие на этот список, тоже увидят пустоту, а присваивание просто перепривязывает одно имя к новому списку, оставляя старый нетронутым. Это же делает и del lst[:] — clear() лишь читаемее. Метод появился в Python 3.3.",
+      "en": "The difference from lst = [] matters: clear() empties the object itself, so every other name bound to that list sees it become empty, while assignment merely rebinds one name to a fresh list and leaves the old one untouched. del lst[:] does exactly the same thing — clear() is just more readable. The method exists since Python 3.3."
     },
     "syntax": "lst.clear()",
     "status": "ready",
@@ -1356,8 +1356,8 @@
       "en": "Return the number of occurrences of a value in the list (compared with ==)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Каждый вызов проходит весь список заново, поэтому подсчёт частот циклом по элементам выходит квадратичным — для этого есть collections.Counter, который считает всё за один проход. Сравнение по ==, а не по типу: True неотличим от 1, а False от 0, так что в смешанном списке результат может удивить. Позицию count() не даёт — за ней к index().",
+      "en": "Every call rescans the whole list, so counting frequencies by looping over the elements and calling count() each time is quadratic — collections.Counter does the same work in a single pass. Matching uses ==, not the type, so True is indistinguishable from 1 and False from 0, which can surprise you in a mixed list. It tells you how many, never where — that is index()'s job."
     },
     "syntax": "lst.count(value)",
     "status": "ready",
@@ -1396,8 +1396,8 @@
       "en": "Return a shallow copy: a new list with the same element references; nested objects are not copied."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Копия поверхностная: сам список новый, а элементы в нём — те же самые объекты. Если внутри лежат вложенные списки или словари, изменение через копию будет видно и в оригинале; для независимой копии нужен copy.deepcopy(). Ровно то же самое делают срез lst[:] и list(lst), а вот b = a копией не является — это второе имя одного и того же списка.",
+      "en": "The copy is shallow: the outer list is new, but the elements inside are the very same objects. Mutate a nested list or dict through the copy and the original changes too — reach for copy.deepcopy() when you need real independence. lst[:] and list(lst) do exactly the same job, while b = a copies nothing at all: it is just a second name for one list."
     },
     "syntax": "lst.copy()",
     "status": "ready",
@@ -1438,8 +1438,8 @@
       "en": "Append all items from an iterable to the end of the list (in place)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "extend перебирает аргумент, поэтому строка разложится на отдельные символы — чтобы положить её целиком, нужен append. Работает на месте и возвращает None; lst += iterable делает ровно то же самое, а вот lst = lst + other требует именно список и создаёт новый объект.",
+      "en": "extend iterates over its argument, so a string is split into individual characters — use append if you want the whole string as one element. It works in place and returns None; lst += iterable does exactly the same, whereas lst = lst + other demands a list and builds a new object."
     },
     "syntax": "lst.extend(iterable)",
     "status": "ready",
@@ -1480,8 +1480,8 @@
       "en": "Return the index of the first matching value; optional start/end narrow the search; raises ValueError if absent."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от str.find, «промаха» тут нет: если значения в списке нет, метод бросает ValueError, поэтому либо оборачивайте вызов в try, либо сначала проверяйте наличие через in. Поиск линейный, слева направо, и при заданных start/end возвращается всё равно индекс в исходном списке, а не смещение от start.",
+      "en": "Unlike str.find there is no \"not found\" return value: a missing item raises ValueError, so either wrap the call in try or check with in first. The scan is linear and left to right, and with start/end the number you get back is still an index into the whole list, not an offset from start."
     },
     "syntax": "lst.index(value, start=0, stop=len)",
     "status": "ready",
@@ -1522,8 +1522,8 @@
       "en": "Insert an item before the given index; index ≥ len appends, negative counts from the end."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вставка сдвигает все элементы правее, то есть стоит O(n): сборка списка через insert(0, x) в цикле вырождается в O(n²) — для дешёвого добавления с обоих концов есть collections.deque. Индекс за границами не вызывает IndexError: слишком большой просто добавит в конец, слишком отрицательный — в начало.",
+      "en": "Inserting shifts every element to the right, so it costs O(n): building a list with insert(0, x) in a loop degrades to O(n²) — use collections.deque when you need cheap inserts at the front. Out-of-range indices never raise IndexError: too large appends at the end, too negative inserts at position 0."
     },
     "syntax": "lst.insert(index, item)",
     "status": "ready",
@@ -1562,8 +1562,8 @@
       "en": "Remove and return the item at the index (last by default); raises IndexError if empty or out of range."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "pop() с конца работает за O(1), а pop(0) и любой другой ранний индекс — за O(n): все хвостовые элементы сдвигаются влево. Если нужна очередь FIFO, берите collections.deque с popleft() вместо списка, иначе на больших данных получите квадратичное время. Тем pop и отличается от del и remove, что возвращает удалённое значение — на этом удобно строить обработку «взял и обработал».",
+      "en": "Popping from the end is O(1), but pop(0) — or any early index — is O(n) because every later element shifts left. For a FIFO queue use collections.deque with popleft() instead of a list, otherwise large inputs turn quadratic. Unlike del and remove, pop hands the removed value back, which is what makes the take-and-process pattern convenient."
     },
     "syntax": "lst.pop(index=-1)",
     "status": "ready",
@@ -1605,8 +1605,8 @@
       "en": "Remove the first matching value; raises ValueError if not found."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Совпадение ищется через ==, а не по тождеству, поэтому lst.remove(1) спокойно выбросит True, а lst.remove(1.0) — целую единицу. Удаляется только первое вхождение и поиск линейный, так что вычищать все копии циклом while в remove — и медленно, и легко ошибиться; надёжнее собрать новый список включением с условием. Удалять элементы из списка прямо во время for-цикла по нему не стоит: индексы сдвигаются и часть элементов проскакивает непроверенной.",
+      "en": "Matching uses ==, not identity, so lst.remove(1) will happily drop a True, and lst.remove(1.0) will drop an integer 1. Only the first match goes, and the scan is linear, so stripping every copy with a while loop around remove is both slow and error-prone — build a filtered list with a comprehension instead. Never remove items while iterating the same list with for: indices shift and some elements get skipped entirely."
     },
     "syntax": "lst.remove(value)",
     "status": "ready",
@@ -1649,8 +1649,8 @@
       "en": "Reverse the list in place. For a new reversed iterator without mutating, use the built-in reversed()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Как и все методы, меняющие список на месте, reverse() возвращает None — присваивание вида lst = lst.reverse() затрёт список этим None. reversed() ничего не копирует: это ленивый проход с конца, который видит изменения, внесённые в список во время обхода, зато применим к любой последовательности, а reverse() есть только у списка.",
+      "en": "Like every method that mutates a list in place, reverse() returns None, so lst = lst.reverse() throws the list away and leaves you with None. reversed() copies nothing: it walks the list lazily from the end and therefore reflects changes made while you iterate, but it works on any sequence, whereas reverse() exists only on lists."
     },
     "syntax": "lst.reverse()",
     "status": "ready",
@@ -1692,8 +1692,8 @@
       "en": "Sort the list in place; key= sets a key function, reverse=True descending. For a new sorted list without mutating, use the built-in sorted()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод меняет список на месте и возвращает None, поэтому lst = lst.sort() — типичная ошибка, дающая None вместо списка. Сортировка стабильна: элементы с равными ключами сохраняют исходный взаимный порядок, а функция key вызывается ровно один раз на элемент, и сравниваются уже её результаты — смесь несравнимых типов (числа и строки) даст TypeError, приводите их к общему виду прямо в key.",
+      "en": "The method sorts in place and returns None, so lst = lst.sort() is the classic mistake that leaves you holding None instead of a list. The sort is stable — items with equal keys keep their original relative order — and the key function is called exactly once per item, with only its results compared, so mixing incomparable types such as numbers and strings raises TypeError; normalise them inside key if you need that."
     },
     "syntax": "lst.sort(*, key=None, reverse=False)",
     "status": "ready",
@@ -1738,8 +1738,8 @@
       "en": "Return the number of occurrences of a value in the tuple (compared with ==)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Каждый вызов — линейный проход по кортежу, O(n). Считать так десяток разных значений подряд расточительно: дешевле один раз построить collections.Counter(t). Сравнение идёт через ==, поэтому t.count(1) заодно посчитает все True, а t.count(0) — все False.",
+      "en": "Every call walks the whole tuple, O(n), so counting a dozen different values one by one is wasteful — build collections.Counter(t) once instead. Matching uses ==, which means t.count(1) also counts every True in the tuple, and t.count(0) counts every False."
     },
     "syntax": "t.count(value)",
     "status": "ready",
@@ -1776,8 +1776,8 @@
       "en": "Return the index of the first matching value; optional start/end narrow the search; raises ValueError if absent."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Если значения нет, index бросает ValueError — мягкого аналога str.find(), возвращающего -1, у кортежей не существует, так что либо оборачивайте вызов в try, либо сначала проверяйте value in t. Аргумент start только сдвигает точку начала поиска: возвращаемый индекс всё равно отсчитывается от начала кортежа, а не от start.",
+      "en": "A missing value raises ValueError — tuples have no forgiving counterpart to str.find() that returns -1, so either wrap the call in try or test value in t first. The start argument only moves where the scan begins; the index you get back is still counted from the beginning of the tuple, not from start."
     },
     "syntax": "t.index(value, start=0, stop=len)",
     "status": "ready",
@@ -1816,8 +1816,8 @@
       "en": "Return a copy with the first byte upper-cased and the rest lower-cased."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Регистр меняется только у ASCII-букв: закодированный в UTF-8 текст с кириллицей или умлаутами вернётся неизменным, поэтому меняйте регистр у str и кодируйте уже результат. Второй нюанс — хвост принудительно опускается в нижний регистр, так что внутренние заглавные (аббревиатуры, CamelCase) теряются безвозвратно.",
+      "en": "Only ASCII letters are touched: UTF-8-encoded Cyrillic or accented text comes back unchanged, so change case on the str and encode afterwards. Also note the tail is forced to lower case, which silently destroys internal capitals such as acronyms or CamelCase names."
     },
     "syntax": "b.capitalize(...)",
     "status": "ready",
@@ -1897,8 +1897,8 @@
       "en": "Return a copy with ASCII letters upper-cased."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Меняются только ASCII-буквы A-Z/a-z, потому что объект bytes не знает своей кодировки: у 'привет'.encode('utf-8') вызов upper() не тронет ни одного байта, и результат будет выглядеть неизменным. Если нужен настоящий верхний регистр для не-ASCII текста, сначала decode() в str, потом str.upper(), потом обратно encode().",
+      "en": "Only ASCII A-Z/a-z change, because a bytes object carries no information about its encoding: calling upper() on UTF-8 encoded Cyrillic or accented text leaves every byte exactly as it was. For real Unicode case conversion, decode to str first, call str.upper() there, and encode the result back."
     },
     "syntax": "b.upper(...)",
     "status": "ready",
@@ -1937,8 +1937,8 @@
       "en": "Return a title-cased copy (each word capitalized)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Словом здесь считается максимальная цепочка ASCII-букв, а любой другой байт — разделитель, поэтому апостроф или цифра разрывают слово и следующая за ними буква снова становится заглавной. Для настоящих заголовков метод не годится: он калечит сокращения и слова с апострофом — там нужен свой проход по словам или регулярное выражение.",
+      "en": "A word here is just a maximal run of ASCII letters, and any other byte counts as a separator, so an apostrophe or a digit ends the word and the next letter gets capitalized again. That makes it unfit for real headings — contractions and abbreviations come out mangled, so use a regex or your own word-by-word pass instead."
     },
     "syntax": "b.title(...)",
     "status": "ready",
@@ -1977,8 +1977,8 @@
       "en": "Swap the case of ASCII letters."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Затрагиваются только ASCII-буквы; любые прочие байты, в том числе байты UTF-8-кодировки нелатинских букв, проходят насквозь без изменений. В отличие от str.swapcase, для байтов двойной вызов всегда возвращает исходное значение: у строк это не гарантировано, потому что у некоторых символов верхний регистр длиннее нижнего.",
+      "en": "Only ASCII letters flip; every other byte, including the bytes of UTF-8-encoded non-Latin letters, passes through untouched. Unlike str.swapcase, applying it twice to bytes always restores the original — for strings that is not guaranteed, since some characters expand when upper-cased."
     },
     "syntax": "b.swapcase(...)",
     "status": "ready",
@@ -2017,8 +2017,8 @@
       "en": "Center the bytes in a field of the given width using a fill byte."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Заполнитель — ровно один байт: b'ab' или пустое значение дадут TypeError, а обычная строка '*' не подойдёт вовсе, нужны именно байты. Метод никогда не обрезает — если width меньше длины данных, вернётся исходный объект без изменений. Когда добивка не делится пополам, лишний байт ложится несимметрично и сторона зависит от чётности ширины, так что для точной вёрстки надёжнее ljust() или rjust().",
+      "en": "The fill has to be exactly one byte: b'ab' or an empty value raise TypeError, and a plain str like '*' is rejected outright — it must be bytes. The method never truncates; if width is smaller than the data, the original object comes back unchanged. When the padding does not split evenly the extra byte lands asymmetrically and which side gets it depends on the parity of width, so reach for ljust() or rjust() when the exact layout matters."
     },
     "syntax": "b.center(...)",
     "status": "ready",
@@ -2058,8 +2058,8 @@
       "en": "Left-justify in a field of the given width."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Если ширина не больше текущей длины, метод молча возвращает исходные байты — обрезки нет, и колонка в самодельной таблице разъедется на длинном значении. Заполнитель должен быть ровно одним байтом, иначе TypeError. Исходный объект не меняется: возвращается новая копия.",
+      "en": "When width is not greater than the current length, the original bytes come back untouched — there is no truncation, so one long value will break the alignment of a hand-made table. The fill argument must be exactly one byte, otherwise you get a TypeError. Nothing is modified in place: a new copy is returned."
     },
     "syntax": "b.ljust(...)",
     "status": "ready",
@@ -2100,8 +2100,8 @@
       "en": "Right-justify in a field of the given width."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Для чисел со знаком результат отличается от zfill: rjust с заполнителем-нулём поставит нули перед минусом, а zfill вставит их после знака. Как и ljust, метод ничего не обрезает — если байтов уже не меньше ширины, вернётся исходное значение, а заполнитель обязан быть ровно одним байтом.",
+      "en": "For signed numbers the result differs from zfill: rjust with a zero fill puts the zeros before the minus, while zfill inserts them after the sign. Like ljust it never truncates — if the value is already at least as long as width it is returned unchanged — and the fill must be exactly one byte."
     },
     "syntax": "b.rjust(...)",
     "status": "ready",
@@ -2142,8 +2142,8 @@
       "en": "Pad on the left with zeros to a given length."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ведущий плюс или минус остаётся на первой позиции, а нули вставляются после него — именно этим zfill отличается от выравнивания нулями через rjust. Знаком считается только один такой байт в самом начале; всё прочее, включая пробел или префикс 0x, воспринимается как обычное содержимое. Короче ширины строка не станет, но и длиннее не обрежется.",
+      "en": "A leading plus or minus stays in first position and the zeros are inserted after it — that is exactly what separates zfill from padding with zeros via rjust. Only one such sign byte at the very start is recognised; anything else, including a space or a 0x prefix, counts as ordinary content. A value already at least width bytes long is returned as is, never truncated."
     },
     "syntax": "b.zfill(...)",
     "status": "ready",
@@ -2183,8 +2183,8 @@
       "en": "Replace tab characters with spaces up to the next tab stop."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод не подменяет каждый таб фиксированным числом пробелов: он добивает до ближайшей позиции, кратной tabsize, поэтому ширина вставки зависит от того, сколько байтов уже стоит слева от табуляции. Счётчик колонки обнуляется на каждом переводе строки и возврате каретки, так что многострочный блок обрабатывается построчно. По умолчанию tabsize равен 8 — отсюда и берутся неожиданно широкие провалы в выводе.",
+      "en": "It does not swap each tab for a fixed number of spaces: it pads out to the next multiple of tabsize, so how much is inserted depends on how many bytes already sit to the left of the tab. The column counter resets at every newline and carriage return, so a multi-line block is processed line by line. The default tabsize is 8, which is where surprisingly wide gaps in output usually come from."
     },
     "syntax": "b.expandtabs(...)",
     "status": "ready",
@@ -2224,8 +2224,8 @@
       "en": "Count non-overlapping occurrences of a subsequence."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вхождения считаются без наложений: найдя кусок, поиск продолжается сразу за ним, поэтому у самоперекрывающихся образцов результат меньше, чем кажется на глаз. Искать можно любой bytes-подобный объект или целое 0-255 (один байт), а вот str методу передавать нельзя — будет TypeError. Пустая подпоследовательность считается в каждом промежутке и даёт len(b) + 1.",
+      "en": "Matches are counted without overlap: after a hit the scan resumes right past it, so self-overlapping patterns yield fewer counts than a naive reading suggests. The argument may be any bytes-like object or an integer in range 0-255 (a single byte), but never a str — that raises TypeError. An empty subsequence matches in every gap and returns len(b) + 1."
     },
     "syntax": "b.count(...)",
     "status": "ready",
@@ -2267,8 +2267,8 @@
       "en": "Return the index of the first occurrence, or -1."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отсутствие подпоследовательности возвращается как -1, а не как исключение, и это ловушка в условиях: -1 истинно, а совершенно нормальный индекс 0 ложен, поэтому сравнивайте результат явно с -1. Если нужен только факт наличия, читабельнее оператор in; find берут тогда, когда по индексу дальше режут срез.",
+      "en": "A miss comes back as -1 rather than an exception, which trips people up in conditions: -1 is truthy while a perfectly valid index of 0 is falsy, so always compare the result to -1 explicitly. If you only need to know whether the subsequence is there, the in operator reads better; reach for find when you will slice at the returned position."
     },
     "syntax": "b.find(...)",
     "status": "ready",
@@ -2311,8 +2311,8 @@
       "en": "Return the index of the last occurrence, or -1."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Поиск идёт справа налево, но возвращается обычный индекс от начала объекта, так что результат сразу годится для среза. Аргументы start и end по-прежнему задают окно слева направо, и найдётся самое правое вхождение, целиком помещающееся в это окно. Для типовой задачи «отрезать по последнему разделителю» обычно чище rpartition или rsplit, чем ручная арифметика с индексом.",
+      "en": "The scan runs right to left, but the returned index is still counted from the start of the object, so it plugs straight into a slice. The start and end arguments still define a left-to-right window, and you get the rightmost match that fits entirely inside it. For the usual job of cutting at the last separator, rpartition or rsplit is cleaner than doing index arithmetic by hand."
     },
     "syntax": "b.rfind(...)",
     "status": "ready",
@@ -2352,8 +2352,8 @@
       "en": "Like find, but raises ValueError if not found."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Выбор между index и find — это выбор политики: index, когда отсутствие подпоследовательности означает битые данные и падение уместно, find — когда отсутствие штатно и обрабатывается веткой. Если оборачиваете в try, ловите именно ValueError, а не Exception: иначе заодно проглотите TypeError от случайно переданного str.",
+      "en": "Choosing between index and find is a policy decision: index when a missing subsequence means broken data and failing loudly is right, find when absence is a normal case you branch on. If you wrap it in try, catch ValueError specifically, not Exception — a blanket catch would also swallow the TypeError from accidentally passing a str."
     },
     "syntax": "b.index(...)",
     "status": "ready",
@@ -2394,8 +2394,8 @@
       "en": "Like rfind, but raises ValueError if not found."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Берите rindex, когда отсутствие подстроки означает поломку данных: rfind в этом случае вернёт -1, а -1 молча сработает как валидный отрицательный индекс в срезе и даст правдоподобный, но неверный результат. Возвращается позиция от начала последовательности — справа налево идёт только сам поиск. Искать можно bytes-подобный объект или целое 0-255; str на входе даст TypeError.",
+      "en": "Reach for rindex when a missing separator means the data is broken: rfind returns -1 instead, and -1 quietly works as a valid negative index in a slice, producing a plausible but wrong result. The number it returns is counted from the left — only the search direction is right-to-left. The argument must be a bytes-like object or an int in range 0-255; a str raises TypeError."
     },
     "syntax": "b.rindex(...)",
     "status": "ready",
@@ -2437,8 +2437,8 @@
       "en": "Check whether the bytes start with a prefix."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Префикс обязан быть bytes-подобным объектом или кортежем таких: b'GET /'.startswith('GET') с обычной строкой падает с TypeError — классическая ошибка при разборе сетевых данных. Кортеж означает «любой из перечисленных», а необязательные start и end сужают зону проверки, не создавая срез-копию, так что на длинных данных это дешевле, чем b[2:5] == prefix. Убрать найденный префикс метод не умеет — для этого есть removeprefix (Python 3.9+).",
+      "en": "The prefix must be a bytes-like object, or a tuple of them: calling b'GET /'.startswith('GET') with a text string raises TypeError, a classic slip when parsing network data. A tuple means 'any of these', and the optional start and end narrow the region without building a sliced copy, which beats b[2:5] == prefix on large buffers. It only tests; to strip the prefix use removeprefix (Python 3.9+)."
     },
     "syntax": "b.startswith(...)",
     "status": "ready",
@@ -2481,8 +2481,8 @@
       "en": "Check whether the bytes end with a suffix."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Суффикс должен быть bytes или кортежем bytes: ни str, ни код байта здесь не примут (в отличие от count/find, которые целое число понимают) — получите TypeError. Аргументы start и end сначала мысленно вырезают срез, и суффикс сверяется с концом этого среза, а не всего объекта.",
+      "en": "The suffix must be bytes or a tuple of bytes: a str or a raw byte code is rejected with TypeError, unlike count/find, which do accept an integer. The start and end arguments carve out a slice first, and the suffix is matched against the end of that slice rather than of the whole object."
     },
     "syntax": "b.endswith(...)",
     "status": "ready",
@@ -2525,8 +2525,8 @@
       "en": "Join a sequence of bytes with this separator."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Элементы должны быть bytes-подобными: передать список чисел или строк str нельзя, будет TypeError. Отсюда частая ловушка — итерация по bytes даёт целые числа, поэтому b'-'.join(b'abc') падает, а не собирает b'a-b-c'. Тип результата определяет разделитель: у bytes получится bytes, даже если внутри были bytearray; накапливать длинную последовательность через join дешевле, чем повторным +=.",
+      "en": "Every item must be bytes-like — a list of ints or of str raises TypeError. That is the usual trap: iterating over bytes yields ints, so b'-'.join(b'abc') fails instead of producing b'a-b-c'. The separator decides the result type (bytes.join returns bytes even for bytearray items), and joining once is far cheaper than repeated += in a loop."
     },
     "syntax": "b.join(...)",
     "status": "ready",
@@ -2568,8 +2568,8 @@
       "en": "Split the bytes on a separator (whitespace by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Разделитель обязан быть bytes-подобным: split(',') со строкой или split(44) с кодом символа не сработает. Вызов без аргументов и вызов с b' ' — разное поведение: без аргументов подряд идущие пробелы схлопываются и крайние отбрасываются, а с явным разделителем каждое вхождение даёт отдельный кусок, в том числе пустой. На пустых данных b''.split(b',') вернёт список из одного пустого элемента, а b''.split() — пустой список.",
+      "en": "The separator must be bytes-like: split(',') with a str, or split(44) with a byte value, will not work. Calling it with no argument differs from passing b' ': the no-argument form collapses runs of whitespace and drops leading and trailing ones, while an explicit separator cuts at every occurrence and can yield empty pieces. On empty input b''.split(b',') returns a list with one empty item, whereas b''.split() returns an empty list."
     },
     "syntax": "b.split(...)",
     "status": "ready",
@@ -2613,8 +2613,8 @@
       "en": "Like split, but splits from the right with a max count."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Без maxsplit результат в точности совпадает с split — направление начинает играть роль только когда число разбиений ограничено. Поэтому rsplit берут ровно тогда, когда интересен хвост: расширение файла, последнее поле строки. С разделителем None пробельные последовательности схлопываются и крайние пробелы игнорируются, а с явным разделителем каждое вхождение режет отдельно.",
+      "en": "Without maxsplit the result is identical to split — the direction only matters once you cap the number of splits. That is exactly when to reach for it: when you care about the tail, such as a file extension or the last field of a line. With None as separator runs of whitespace collapse and leading/trailing whitespace is ignored; with an explicit separator every occurrence cuts on its own."
     },
     "syntax": "b.rsplit(...)",
     "status": "ready",
@@ -2654,8 +2654,8 @@
       "en": "Split at the first separator into (head, sep, tail)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Всегда возвращается тройка, поэтому распаковка в три имени безопасна — проверять «нашёлся ли разделитель» надо по среднему элементу, а не по длине результата. В отличие от split, разделитель сохраняется и делит ровно один раз, так что это правильный инструмент для разбора вида ключ=значение, где в значении тоже могут быть знаки равенства. Пустой разделитель запрещён — ValueError.",
+      "en": "The result is always a 3-tuple, so unpacking into three names is safe; to tell whether the separator was found, test the middle element, not the length. Unlike split it keeps the separator and cuts exactly once, which makes it the right tool for key=value parsing where the value may itself contain the separator. An empty separator raises ValueError."
     },
     "syntax": "b.partition(...)",
     "status": "ready",
@@ -2694,8 +2694,8 @@
       "en": "Split at the last separator into (head, sep, tail)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Когда разделитель не найден, пустыми оказываются первые два элемента, а исходные данные попадают в третий — зеркально к partition, где целое остаётся в первом. Из-за этого распаковка вида name, _, ext = ... на строке без точки даст пустое имя и всё содержимое в ext; если это не то, что нужно, проверяйте средний элемент перед использованием.",
+      "en": "When the separator is missing, the two empty pieces come first and the original data lands in the third element — mirroring partition, where the whole value stays in the first. So name, _, ext = ... on input without a dot leaves name empty and puts everything into ext; check the middle element before trusting the split."
     },
     "syntax": "b.rpartition(...)",
     "status": "ready",
@@ -2735,8 +2735,8 @@
       "en": "Split the bytes at line boundaries."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главное отличие от b.split(b'\\n') — разделителем считается любая ASCII-граница строки, включая пару \\r\\n целиком, и завершающий перевод строки не порождает лишний пустой элемент в конце. У пустых байтов результат — пустой список, а не список из одного пустого элемента, так что счётчик строк по файлу с ним не соврёт. Границы тут только ASCII-овские, в отличие от str.splitlines, который делит текст ещё и по редким юникодным разделителям.",
+      "en": "Unlike b.split(b'\\n'), this treats any ASCII line boundary as a separator, handles \\r\\n as one break, and a trailing newline does not add a spurious empty last item. Empty bytes give an empty list rather than a one-element list, so counting lines this way stays honest. The boundary set is ASCII-only here, narrower than str.splitlines, which also breaks on rarer Unicode separators."
     },
     "syntax": "b.splitlines(...)",
     "status": "ready",
@@ -2776,8 +2776,8 @@
       "en": "Strip given bytes (whitespace by default) from both ends."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент — набор байтов, а не подстрока: с каждого конца отбрасываются байты, пока они входят в набор, поэтому b'banana'.strip(b'ba') превращается в b'nan'. Снять фиксированное начало или конец — это removeprefix()/removesuffix(). Метод ничего не меняет на месте: и bytes, и bytearray возвращают новый объект.",
+      "en": "The argument is a set of byte values, not a substring: bytes are dropped from each end as long as they belong to that set, which is why b'banana'.strip(b'ba') gives b'nan'. To remove a fixed head or tail, reach for removeprefix()/removesuffix(). Nothing is modified in place — both bytes and bytearray return a new object."
     },
     "syntax": "b.strip(...)",
     "status": "ready",
@@ -2819,8 +2819,8 @@
       "en": "Strip given bytes from the left."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент — набор байтов, а не префикс: обрезка идёт слева побайтно, пока очередной байт входит в набор, поэтому b'abcabd'.lstrip(b'ab') оставляет b'cabd'. При чистке ведущих нулей это выстреливает: b'0000'.lstrip(b'0') даст пустое b'', а не b'0'. Нужно снять ровно известное начало — removeprefix().",
+      "en": "The argument is a set of byte values, not a prefix: stripping proceeds byte by byte from the left while each byte belongs to that set, so b'abcabd'.lstrip(b'ab') leaves b'cabd'. Trimming leading zeros bites here — b'0000'.lstrip(b'0') yields an empty b'', not b'0'. To drop one known leading chunk, use removeprefix()."
     },
     "syntax": "b.lstrip(...)",
     "status": "ready",
@@ -2860,8 +2860,8 @@
       "en": "Strip given bytes from the right."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Типовое применение — снять b'\\r\\n' у строки, прочитанной из файла или сокета. Но голый rstrip() заодно съест значимые хвостовые пробелы и табы, а rstrip(b'\\r\\n') снимет все повторы этих байтов, а не один перевод строки. Когда важно убрать ровно один известный хвост, берите removesuffix().",
+      "en": "The usual use is dropping b'\\r\\n' from a line read out of a file or socket. But bare rstrip() also eats meaningful trailing spaces and tabs, and rstrip(b'\\r\\n') removes every repetition of those bytes, not a single line ending. When exactly one known tail must go, use removesuffix()."
     },
     "syntax": "b.rstrip(...)",
     "status": "ready",
@@ -2903,8 +2903,8 @@
       "en": "Remove a given prefix if present (3.9+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от lstrip() сравнивается вся последовательность целиком и снимается ровно одно вхождение: b'foofoobar' станет b'foobar', а не b'bar'. Если префикса нет, исключения не будет — вернётся исходное значение, так что предварительный endswith()/startswith() не нужен. Аргумент обязан быть bytes-подобным: str на входе даёт TypeError.",
+      "en": "Unlike lstrip() this matches the whole sequence and removes exactly one occurrence: b'foofoobar' becomes b'foobar', not b'bar'. A missing prefix is not an error — the value comes back unchanged, so guarding with startswith() first is pointless. The argument must be bytes-like; passing a str raises TypeError."
     },
     "syntax": "b.removeprefix(...)",
     "status": "ready",
@@ -2944,8 +2944,8 @@
       "en": "Remove a given suffix if present (3.9+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Хвост сравнивается целиком и снимается ровно один раз, а при несовпадении значение возвращается как было, без исключения. Для отрезания расширения или перевода строки это безопаснее rstrip(): тот трактует аргумент как набор байтов и на b'report.tttt' или на несколько подряд идущих b'\\n' отгрызёт лишнее.",
+      "en": "The suffix is compared as a whole and removed exactly once; if it does not match, the value is returned unchanged rather than raising. For cutting an extension or a line ending this is safer than rstrip(), which treats its argument as a set of bytes and will happily eat more than one trailing byte."
     },
     "syntax": "b.removesuffix(...)",
     "status": "ready",
@@ -2986,8 +2986,8 @@
       "en": "Return a copy with occurrences of a subsequence replaced."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Оба аргумента обязаны быть байтовыми: b'aaa'.replace('a', 'b') не сработает молча, а упадёт с TypeError — типичный сюрприз после чтения файла в бинарном режиме. Поиск идёт слева направо, вхождения не пересекаются, а исходный объект не меняется: даже у bytearray этот метод возвращает новый объект, а не правит на месте.",
+      "en": "Both arguments must be bytes-like; handing in a str raises TypeError rather than quietly working, which is the usual stumble right after opening a file in binary mode. Matching runs left to right with no overlaps, and nothing is modified in place — even on a bytearray the method hands back a fresh object."
     },
     "syntax": "b.replace(...)",
     "status": "ready",
@@ -3027,8 +3027,8 @@
       "en": "Map bytes through a 256-byte translation table."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Таблица должна быть длиной ровно 256 байт (её удобно собрать через bytes.maketrans) либо None, если нужен только второй аргумент — удаление байтов. Перевод идёт побайтово, поэтому на UTF-8 тексте с кириллицей translate калечит многобайтовые символы: там сначала decode, потом str.translate. Зато один проход переписывает сразу много разных байтов там, где иначе понадобилась бы цепочка replace.",
+      "en": "The table has to be exactly 256 bytes long (bytes.maketrans builds it for you), or None when all you want is the delete argument. Translation happens byte by byte, so running it over UTF-8 text with non-ASCII characters mangles multi-byte sequences — decode first and use str.translate there. The payoff is that a single pass rewrites many byte values at once, where you would otherwise chain several replace calls."
     },
     "syntax": "b.translate(...)",
     "status": "ready",
@@ -3071,8 +3071,8 @@
       "en": "A static method building a translation table for translate()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обе последовательности должны быть одной длины, иначе ValueError; на выходе — таблица ровно из 256 байт, где неупомянутые байты отображаются сами в себя. Перевод идёт побайтово, а не посимвольно, поэтому на UTF-8-тексте такая таблица разрушит многобайтовые символы — для строк есть str.maketrans со словарём кодпоинтов. Удалять байты через таблицу нельзя: для этого у translate есть отдельный параметр delete.",
+      "en": "Both arguments must have the same length or you get a ValueError; the result is a table of exactly 256 bytes in which every byte you did not mention maps to itself. Translation happens byte by byte, not character by character, so applying such a table to UTF-8 text will wreck multi-byte characters — for text use str.maketrans, which builds a mapping of code points. The table cannot delete anything: translate takes a separate delete argument for that."
     },
     "syntax": "b.maketrans(...)",
     "status": "ready",
@@ -3113,8 +3113,8 @@
       "en": "Decode the bytes to a str using an encoding (UTF-8 by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "По умолчанию errors='strict', и любой байт, не укладывающийся в кодировку, даёт UnicodeDecodeError; режимы 'replace' и 'ignore' гасят исключение ценой порчи текста. Кодировка latin-1 не падает никогда, потому что покрывает все 256 значений байта, — так что кодировка, при которой ошибка «наконец исчезла», чаще всего просто выдаёт мусор. Если байты приходят кусками из сети или файла, разрез посреди многобайтового символа тоже уронит decode — для потока нужен инкрементальный декодер.",
+      "en": "The default errors='strict' turns any byte that does not fit the encoding into UnicodeDecodeError; 'replace' and 'ignore' silence it but corrupt the text in the process. latin-1 never fails because it maps all 256 byte values, so an encoding that \"finally stopped erroring\" is usually producing garbage rather than the right characters. Data arriving in chunks breaks as well when a split lands mid-character — that case calls for an incremental decoder instead."
     },
     "syntax": "b.decode(...)",
     "status": "ready",
@@ -3158,8 +3158,8 @@
       "en": "Return a hexadecimal string of the bytes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Цифры всегда в нижнем регистре — верхний придётся делать .upper() самому. Параметры sep и bytes_per_sep появились в 3.8, причём положительный bytes_per_sep группирует байты с конца, а отрицательный — от начала. Не путать со встроенной hex() для чисел: та даёт одно число с префиксом 0x, а не побайтовую строку.",
+      "en": "The digits always come out lowercase, so uppercase takes an explicit .upper(). The sep and bytes_per_sep parameters arrived in 3.8, and a positive bytes_per_sep groups counting from the right end while a negative one counts from the left. Do not mix it up with the built-in hex() for integers, which yields a single 0x-prefixed number rather than a per-byte string."
     },
     "syntax": "b.hex(...)",
     "status": "ready",
@@ -3199,8 +3199,8 @@
       "en": "A static method creating bytes from a hex string."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Строка должна содержать чётное число шестнадцатеричных цифр, иначе ValueError; регистр не важен, пробельные символы между парами цифр пропускаются, а вот внутри пары — нет. Это точная обратная операция к b.hex(); такой же метод есть у bytearray и возвращает изменяемый объект.",
+      "en": "The string needs an even number of hex digits or you get ValueError; case is irrelevant and ASCII whitespace between digit pairs is skipped, though whitespace inside a pair is not. It is the exact inverse of b.hex(), and bytearray.fromhex() gives you the mutable counterpart."
     },
     "syntax": "b.fromhex(...)",
     "status": "ready",
@@ -3241,8 +3241,8 @@
       "en": "Check that all bytes are ASCII letters/digits and non-empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка строго ASCII-байтовая, в отличие от str.isalnum, который принимает любую Unicode-букву или цифру: слово кириллицей как str даёт True, а те же байты после .encode() — False. Валидатором имён метод тоже не служит: подчёркивание, дефис и точка не проходят, так что для «только буквы и цифры» он годится, а для «допустимое имя файла» — нет.",
+      "en": "The test is strictly ASCII, unlike str.isalnum, which accepts any Unicode letter or digit: a non-Latin word is True as a str and False once encoded to bytes. It is also not a name validator — underscore, hyphen and dot all fail, so it fits 'letters and digits only' but not 'valid filename' or 'valid identifier'."
     },
     "syntax": "b.isalnum(...)",
     "status": "ready",
@@ -3282,8 +3282,8 @@
       "en": "Check that all bytes are ASCII letters and non-empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Байты сверяются поштучно с диапазонами A-Z и a-z, поэтому любой нелатинский текст после .encode() даёт False: его UTF-8 байты выходят за 127. Если вам нужны буквы вообще, а не ASCII-буквы, это сигнал сначала декодировать в str и звать str.isalpha.",
+      "en": "Each byte is checked against A-Z and a-z only, so any non-Latin text run through .encode() comes back False — its UTF-8 bytes are above 127. If you mean letters in general rather than ASCII letters, decode to str first and call str.isalpha."
     },
     "syntax": "b.isalpha(...)",
     "status": "ready",
@@ -3324,8 +3324,8 @@
       "en": "Check that all bytes are ASCII (0–127)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "ASCII здесь означает только диапазон 0-127, а не «печатаемый текст»: нулевой байт, перевод строки и прочие управляющие символы проверку проходят. Практическая польза — гарантия: если вернулось True, то decode('ascii') точно не упадёт, и любая ASCII-совместимая кодировка даст тот же результат. Метод появился в Python 3.7.",
+      "en": "ASCII here means only the 0-127 range, not 'printable text': a null byte, a newline and other control codes all pass. The practical value is the guarantee — a True result means decode('ascii') cannot fail, and any ASCII-compatible encoding yields the same characters. Added in Python 3.7."
     },
     "syntax": "b.isascii(...)",
     "status": "ready",
@@ -3364,8 +3364,8 @@
       "en": "Check that all bytes are ASCII digits and non-empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "У bytes нет ни isdecimal(), ни isnumeric() — есть только isdigit(), и он признаёт ровно байты от b'0' до b'9', без надстрочных индексов и прочих юникодных цифр, которые пропустил бы str.isdigit(). Это проверка на «чистое поле из цифр», а не на «похоже на число»: знак, точка, пробелы по краям дают False, хотя int() такую строку байтов разберёт спокойно (int(b' -7 ') работает).",
+      "en": "The bytes type has no isdecimal() or isnumeric() — only isdigit(), and it accepts exactly the bytes b'0' through b'9', with none of the superscripts or other Unicode digits that str.isdigit() would let through. Treat it as a check for a field of pure digits, not for \"looks like a number\": a sign, a dot or surrounding spaces all give False, even though int() would happily parse such bytes (int(b' -7 ') works)."
     },
     "syntax": "b.isdigit(...)",
     "status": "ready",
@@ -3405,8 +3405,8 @@
       "en": "Check that all cased bytes are lower-case."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловушка: islower() — не отрицание isupper(). Если буквенных байтов нет вовсе (b'123', b'!!!', b''), оба вернут False, поэтому «если не islower(), значит верхний регистр» — неверный вывод. Регистровыми здесь считаются только ASCII-буквы: байты вроде b'\\xe9' (é в latin-1) для этой проверки вообще не буквы, так что для текста с не-ASCII символами сначала декодируйте в str.",
+      "en": "A common trap: islower() is not the negation of isupper(). When there are no cased bytes at all (b'123', b'!!!', b''), both return False, so \"not lower-case therefore upper-case\" is a wrong inference. Only ASCII letters count as cased here: a byte like b'\\xe9' (é in latin-1) is not a letter for this check, so decode to str first when the data is not ASCII."
     },
     "syntax": "b.islower(...)",
     "status": "ready",
@@ -3446,8 +3446,8 @@
       "en": "Check that all bytes are whitespace and non-empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пробельными считаются только ASCII-байты: пробел, \\t, \\n, \\r, \\x0b и \\x0c. Юникодных пробелов тут нет — b'\\xa0'.isspace() даёт False, хотя у str одноимённый метод на неразрывном пробеле возвращает True. И помните про пустоту: b''.isspace() — False, поэтому «строка пустая или из пробелов» надёжнее проверять как not line.strip().",
+      "en": "Only ASCII bytes count as whitespace here: space, \\t, \\n, \\r, \\x0b and \\x0c. Unicode spaces are not included — b'\\xa0'.isspace() is False, while the same method on a str non-breaking space returns True. Watch the empty case too: b''.isspace() is False, so \"blank or whitespace-only line\" is better tested as not line.strip()."
     },
     "syntax": "b.isspace(...)",
     "status": "ready",
@@ -3487,8 +3487,8 @@
       "en": "Check that the bytes are title-cased."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Правило простое: каждая регистровая буква должна быть заглавной, если перед ней не-буква, и строчной, если перед ней буква. Отсюда неожиданности с разделителями: b'Hello2World' — титульный (цифра начинает новое «слово»), а b\"Don't\" — нет, потому что апостроф обрывает слово и istitle() ждёт b\"Don'T\" (именно так и сработает .title()). Проверять этим методом человеческие имена и заголовки — плохая идея.",
+      "en": "The rule is: every cased letter must be upper-case when preceded by a non-letter and lower-case when preceded by a letter. That produces surprises around separators: b'Hello2World' is title-cased (the digit starts a new \"word\"), while b\"Don't\" is not, because the apostrophe breaks the word and istitle() expects b\"Don'T\" — which is exactly what .title() produces. Using it to validate human names or headlines is a bad idea."
     },
     "syntax": "b.istitle(...)",
     "status": "ready",
@@ -3528,8 +3528,8 @@
       "en": "Check that all cased bytes are upper-case."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод отвечает не на вопрос «нет ли строчных букв», а «есть ли хотя бы одна регистровая буква и все ли они заглавные» — поэтому b'123' и b'' дают False, и пара isupper()/islower() не покрывает все случаи. Регистр здесь чисто ASCII-шный: не-ASCII байты (например, кириллица в UTF-8) не считаются буквами, так что проверять регистр такого текста нужно после decode().",
+      "en": "The method does not ask \"are there no lower-case letters\" but \"is there at least one cased letter and are they all upper-case\" — which is why b'123' and b'' both give False, and the isupper()/islower() pair does not cover every input. Casing is strictly ASCII here: non-ASCII bytes (Cyrillic in UTF-8, say) are not letters at all, so check the case of such text only after decode()."
     },
     "syntax": "b.isupper(...)",
     "status": "ready",
@@ -3569,8 +3569,8 @@
       "en": "Return a copy with the first byte upper-cased and the rest lower-cased."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Регистр меняется только у ASCII-букв: байты 0x80-0xFF, например кириллица в UTF-8, остаются как есть — bytearray ничего не знает о кодировке. Второй сюрприз в том, что весь хвост принудительно опускается в нижний регистр, так что b'iPhone' станет b'Iphone'; если аббревиатуры надо сохранить, склеивайте поднятый первый байт с нетронутым остатком.",
+      "en": "Only ASCII letters change case: bytes 0x80-0xFF, such as UTF-8 encoded Cyrillic, pass through unchanged because a bytearray knows nothing about encodings. The other surprise is that everything after the first byte is forced to lower case, so b'iPhone' becomes b'Iphone'; to preserve internal capitals, upper-case the first byte yourself and concatenate it with the untouched remainder."
     },
     "syntax": "ba.capitalize(...)",
     "status": "ready",
@@ -3610,8 +3610,8 @@
       "en": "Return a copy with ASCII letters lower-cased."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Хотя bytearray изменяемый, метод ничего не правит на месте — он возвращает новый объект, и результат нужно куда-то присвоить, иначе изменения потеряются. Переводятся только ASCII-буквы A-Z, независимо от локали системы; байты UTF-8 текста (кириллица, é) остаются как есть, поэтому для настоящего текста сначала decode(), а уже потом str.lower().",
+      "en": "Even though bytearray is mutable, this method changes nothing in place: it hands back a new object, so the result has to be assigned somewhere or it is lost. Only ASCII A-Z is folded, regardless of system locale — bytes of UTF-8 text (Cyrillic, é) pass through untouched, so decode() first and use str.lower() when you are dealing with real text."
     },
     "syntax": "ba.lower(...)",
     "status": "ready",
@@ -3651,8 +3651,8 @@
       "en": "Return a copy with ASCII letters upper-cased."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это чистая ASCII-таблица: байт вне диапазона a-z остаётся собой, а от локали системы результат не зависит — в отличие от toupper() в C. Возвращается новый bytearray, исходный не меняется, и сравнивать его с литералом bytes можно напрямую: bytearray и bytes сопоставляются по содержимому, а не по типу.",
+      "en": "This is a pure ASCII table: any byte outside a-z stays as it is, and unlike C's toupper() the result never depends on the system locale. A fresh bytearray comes back and the original is untouched; comparing it to a bytes literal works fine, because bytearray and bytes compare by content rather than by type."
     },
     "syntax": "ba.upper(...)",
     "status": "ready",
@@ -3692,8 +3692,8 @@
       "en": "Return a title-cased copy."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Словом здесь считается любая цепочка ASCII-букв, а любой другой байт — граница: цифры, дефисы и апострофы начинают новое «слово», поэтому сокращения и формы с апострофом разваливаются. Для человекочитаемых заголовков это почти всегда не то, что нужно, тем более что не-ASCII байты метод не трогает вовсе — разбирайте текст после decode() по словам вручную.",
+      "en": "A word here is just a run of ASCII letters, and every other byte is a boundary — digits, hyphens and apostrophes all start a new \"word\", which mangles contractions and hyphenated forms. For human-readable headings this is rarely what you want, especially since non-ASCII bytes are left alone entirely; decode() first and capitalise word by word yourself."
     },
     "syntax": "ba.title(...)",
     "status": "ready",
@@ -3733,8 +3733,8 @@
       "en": "Swap the case of ASCII letters."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На байтах операция строго обратима: применив её дважды, вы получите исходные данные, потому что затрагиваются только пары A-Z и a-z. У строк такой гарантии нет — 'ß'.swapcase() даёт 'SS', и обратно уже не собрать; не переносите привычки str на bytearray вслепую. Как и остальные регистровые методы, он возвращает копию, а не меняет объект на месте.",
+      "en": "On bytes the operation is exactly reversible: apply it twice and you get the original data back, since only the A-Z/a-z pairs are touched. Strings give no such guarantee — 'ß'.swapcase() yields 'SS', which cannot be swapped back — so do not carry str habits over to bytearray unchecked. Like the other case methods, it returns a copy instead of mutating in place."
     },
     "syntax": "ba.swapcase(...)",
     "status": "ready",
@@ -3774,8 +3774,8 @@
       "en": "Center in a field of the given width using a fill byte."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Заполнитель — обязательно bytes длиной ровно один байт (b'*'); обычная строка '*' даёт TypeError, это самая частая ошибка при переходе со строк. Несмотря на изменяемость bytearray, метод ничего не правит на месте: он возвращает новый объект, а если width не больше текущей длины — просто копию без выравнивания.",
+      "en": "The fill must be a bytes object exactly one byte long (b'*'); passing the str '*' raises TypeError, which is the usual stumble when moving over from strings. And although bytearray is mutable, this method changes nothing in place: it returns a new object, and when width is not greater than the current length you simply get an unpadded copy."
     },
     "syntax": "ba.center(...)",
     "status": "ready",
@@ -3815,8 +3815,8 @@
       "en": "Left-justify in a field of the given width."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Хотя bytearray изменяемый, метод ничего не правит на месте — он возвращает новый объект, и результат нужно присвоить. Заполнитель обязан быть байтовым объектом длиной ровно один байт (b'.', а не '.' и не b'..'), иначе TypeError. Аргумент — итоговая ширина поля, а не количество добавляемых байтов; если строка уже длиннее, она возвращается как есть, без обрезки.",
+      "en": "Even though bytearray is mutable, this method changes nothing in place — it returns a new object that you have to assign. The fill must be a bytes-like object exactly one byte long (b'.', not '.' and not b'..'), otherwise you get a TypeError. The argument is the total field width, not the number of bytes added, and longer input is returned unchanged rather than truncated."
     },
     "syntax": "ba.ljust(...)",
     "status": "ready",
@@ -3857,8 +3857,8 @@
       "en": "Right-justify in a field of the given width."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Число — это итоговая ширина поля, а не количество добавляемых байтов, и слишком длинные данные не обрезаются: для гарантированной ширины режьте срезом отдельно. Заполнитель нулями через rjust(n, b'0') отличается от zfill: rjust не знает про знак и превратит b'-42' в b'00-42', тогда как zfill поставит нули после минуса.",
+      "en": "The number is the total field width, not the count of padding bytes, and oversized data is never truncated — slice it yourself if you need a hard width. Padding with rjust(n, b'0') is not the same as zfill: rjust knows nothing about signs and turns b'-42' into b'00-42', while zfill keeps the minus in front and inserts the zeros after it."
     },
     "syntax": "ba.rjust(...)",
     "status": "ready",
@@ -3898,8 +3898,8 @@
       "en": "Pad on the left with zeros to a given length."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Единственное, чем zfill отличается от rjust с нулём: ведущий ASCII-байт + или - остаётся на месте, а нули вставляются после него. Это чисто текстовое дополнение байтов, а не форматирование числа — на b'3.5' или на любой не-цифровой мусор оно сработает точно так же, и слишком длинное значение не обрезается.",
+      "en": "The one thing zfill adds over rjust with a zero fill: a leading ASCII + or - stays in front and the zeros go after it. It is plain byte padding, not number formatting — b'3.5' or any non-digit content is padded just the same, and values longer than the requested width are returned unchanged."
     },
     "syntax": "ba.zfill(...)",
     "status": "ready",
@@ -3938,8 +3938,8 @@
       "en": "Replace tabs with spaces up to the next tab stop."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод не подставляет фиксированное число пробелов вместо табуляции: он считает текущую колонку и добирает пробелы до ближайшей позиции, кратной tabsize (по умолчанию 8). Поэтому одинаковые \\t дают разное число пробелов в зависимости от того, сколько байтов уже накопилось в текущей строке; байты \\n и \\r сбрасывают счётчик колонки. Возвращается новый bytearray, исходный не меняется.",
+      "en": "This does not insert a fixed number of spaces per tab: it tracks the current column and pads up to the next multiple of tabsize (8 by default). The same \\t therefore expands to a different number of spaces depending on how many bytes precede it on the line, and \\n or \\r reset the column counter. A new bytearray is returned; the original is untouched."
     },
     "syntax": "ba.expandtabs(...)",
     "status": "ready",
@@ -3975,8 +3975,8 @@
       "en": "Count non-overlapping occurrences of a subsequence."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Счёт идёт слева направо и без перекрытий, поэтому в b'aaaa' подпоследовательность b'aa' находится 2 раза, а не 3. Вместо байтовой строки можно передать целое 0-255 — это тот же одиночный байт, что и b'a'; у str такого приёма нет. Пустая подпоследовательность даёт число позиций между байтами, то есть длину плюс один.",
+      "en": "Counting goes left to right and never overlaps, so b'aa' occurs twice in b'aaaa', not three times. Instead of a bytes literal you may pass an integer in 0-255, which means that single byte — a trick str.count() does not have. An empty subsequence returns the number of gaps between bytes, i.e. the length plus one."
     },
     "syntax": "ba.count(...)",
     "status": "ready",
@@ -4015,8 +4015,8 @@
       "en": "Index of the first occurrence, or -1."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возвращает -1, а не исключение, и -1 — совершенно валидный индекс: ba[ba.find(b'x')] молча отдаст последний байт, если ничего не найдено. Когда нужен только ответ «есть или нет», пиши b'na' in ba; find бери, когда важна именно позиция. Аргументы start и end лишь сужают окно поиска — индекс всё равно отсчитывается от начала bytearray.",
+      "en": "A miss gives -1 rather than an exception, and -1 is a legal index, so ba[ba.find(b'x')] quietly hands you the last byte instead of failing. Use b'na' in ba when you only need presence; reach for find when the position itself matters. The start and end arguments merely narrow the search window — the returned index is still counted from the beginning of the bytearray."
     },
     "syntax": "ba.find(...)",
     "status": "ready",
@@ -4057,8 +4057,8 @@
       "en": "Index of the last occurrence, or -1."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Поиск идёт справа налево, но найденный индекс всё равно считается от начала, поэтому для одной и той же подпоследовательности rfind и find дают разные числа. start и end задают обычное окно [start, end), нумерация внутри него не переворачивается — «справа» влияет лишь на то, какое из совпадений выбрано.",
+      "en": "The scan runs right to left, yet the index it returns is still measured from the start, so rfind and find report different numbers for the very same needle. start and end define the ordinary [start, end) window; nothing is reversed there — the direction only decides which match inside that window wins."
     },
     "syntax": "ba.rfind(...)",
     "status": "ready",
@@ -4100,8 +4100,8 @@
       "en": "Like find, but raises ValueError if not found."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Бери index там, где отсутствие подпоследовательности — это ошибка в данных: ValueError упадёт сразу, а -1 от find легко утечёт дальше и испортит срез. Искать можно и целым числом 0-255 — тогда ищется один байт; это удобно, потому что ba[i] и сам возвращает int, а не bytes.",
+      "en": "Prefer index when a missing needle means the data is broken: it raises ValueError on the spot, whereas find's -1 tends to slip downstream and corrupt a slice. The argument may also be a plain int in range 0-255, which searches for that single byte — handy, since ba[i] already yields an int rather than bytes."
     },
     "syntax": "ba.index(...)",
     "status": "ready",
@@ -4143,8 +4143,8 @@
       "en": "Like rfind, but raises ValueError if not found."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Нужен там, где последнее вхождение обязано существовать: разделитель в пути, точка перед расширением. Пропавший разделитель тогда упадёт исключением, а не тихо съедет на -1 и не даст бессмысленный срез. Для типичного «взять всё после последнего разделителя» обычно проще rpartition() — он сам разруливает случай «не найдено» без try/except.",
+      "en": "Use it where the last occurrence is required by contract: a separator in a path, the dot before an extension. A vanished separator then raises instead of silently sliding to -1 and producing a nonsense slice. For the common \"everything after the last separator\" job, rpartition() is usually cleaner — it handles the not-found case for you, no try/except needed."
     },
     "syntax": "ba.rindex(...)",
     "status": "ready",
@@ -4186,8 +4186,8 @@
       "en": "Check for a given prefix."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргументом можно передать кортеж префиксов — это заменяет цепочку проверок через or. В отличие от find, целое число здесь не примут, а str даст TypeError: байты со строкой Python сравнивать не станет. Если префикс надо не проверить, а отрезать, есть removeprefix() (Python 3.9+).",
+      "en": "Pass a tuple of prefixes and one call replaces a chain of or-ed checks. Unlike find, this method rejects a bare int, and handing it a str raises TypeError — Python will not compare bytes against text. When you want to strip the prefix rather than test for it, removeprefix() (Python 3.9+) does that directly."
     },
     "syntax": "ba.startswith(...)",
     "status": "ready",
@@ -4229,8 +4229,8 @@
       "en": "Check for a given suffix."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сравнение побайтовое и регистрозависимое: b'.TXT' не совпадёт с b'.txt', так что перед проверкой приводите к одному регистру через lower(). Аргумент — bytes-подобный объект или кортеж таких; str здесь вызывает TypeError, а одиночное целое, в отличие от count() и find(), не принимается вовсе.",
+      "en": "The comparison is byte-for-byte and case-sensitive, so b'.TXT' will not match b'.txt' — normalise with lower() first. The argument must be a bytes-like object or a tuple of them: a str raises TypeError, and unlike count() or find(), a bare integer is not accepted at all."
     },
     "syntax": "ba.endswith(...)",
     "status": "ready",
@@ -4271,8 +4271,8 @@
       "en": "Join a sequence of bytes with this separator."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Элементы должны быть байтоподобными (bytes, bytearray, memoryview): обычная строка в списке даёт TypeError, неявного кодирования не будет — кодируйте через .encode() сами. Склейка через join проходит по всем кускам один раз, а накопление результата в цикле через += квадратично по числу фрагментов, поэтому собирать длинные последовательности стоит именно join.",
+      "en": "Every element must be a bytes-like object (bytes, bytearray, memoryview): a plain str in the list raises TypeError, since there is no implicit encoding — call .encode() yourself. join walks the pieces once, whereas building the result with += in a loop is quadratic in the number of fragments, so use join for anything long."
     },
     "syntax": "ba.join(...)",
     "status": "ready",
@@ -4314,8 +4314,8 @@
       "en": "Split on a separator (whitespace by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Разбить «побайтово», передав пустой разделитель, нельзя: split(b'') бросает ValueError, а для отдельных байтов берут срезы или list(ba), который вернёт целые числа, а не куски. Куски из списка — самостоятельные копии bytearray: их можно менять, исходный объект от этого не изменится.",
+      "en": "You cannot split into individual bytes by passing an empty separator: split(b'') raises ValueError. For per-byte access use slices, or list(ba), which yields integers rather than byte chunks. The pieces in the returned list are independent bytearray copies — mutating them leaves the original object untouched."
     },
     "syntax": "ba.split(...)",
     "status": "ready",
@@ -4356,8 +4356,8 @@
       "en": "Like split, but from the right with a max count."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Без maxsplit rsplit возвращает ровно то же, что split, — смысл появляется только когда надо отрезать хвост: последний сегмент пути, расширение файла, последнее поле строки. Разделитель тоже ведёт себя по-разному: с None пробельные схлопываются и краевые пустые куски не появляются, а с явным b' ' два пробела подряд дадут между собой пустой bytearray.",
+      "en": "With no maxsplit, rsplit gives exactly what split gives — it earns its keep only when you need to peel something off the end: the last path segment, a file extension, the trailing field of a record. The separator matters too: with None runs of whitespace collapse and no empty edge pieces appear, while an explicit b' ' turns two adjacent spaces into an empty bytearray between them."
     },
     "syntax": "ba.rsplit(...)",
     "status": "ready",
@@ -4397,8 +4397,8 @@
       "en": "Split at the first separator into a triple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Тройка возвращается всегда, поэтому распаковка head, sep, tail не падает никогда — узнать, нашёлся ли разделитель, можно по среднему элементу, а не по длине результата. Ищется первое вхождение слева; для последнего есть rpartition. Пустой разделитель — не «разбить по каждому байту», а ValueError.",
+      "en": "You always get exactly three parts, so unpacking head, sep, tail can never fail — check the middle item to learn whether the separator was actually found, rather than inspecting a length. The search takes the leftmost occurrence; use rpartition for the rightmost. An empty separator is not \"split everywhere\" — it raises ValueError."
     },
     "syntax": "ba.partition(...)",
     "status": "ready",
@@ -4441,8 +4441,8 @@
       "en": "Split at the last separator into a triple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Кортеж всегда ровно из трёх элементов, так что распаковка head, sep, tail = ba.rpartition(b'=') не упадёт никогда. Но когда разделителя в данных нет, пустыми оказываются первые два элемента, а исходное содержимое уезжает в третий — у partition ровно наоборот. Поэтому факт находки проверяют по среднему элементу, а не по длине кортежа и не по тому, что head непустой.",
+      "en": "The result is always a 3-tuple, so head, sep, tail = ba.rpartition(b'=') can never fail to unpack. When the separator is absent, though, it is the first two parts that come back empty and the original content that lands in the third — the mirror image of partition. Test the middle element to decide whether a match happened; never rely on tuple length or on head being non-empty."
     },
     "syntax": "ba.rpartition(...)",
     "status": "ready",
@@ -4483,8 +4483,8 @@
       "en": "Split at line boundaries."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от split(b'\\n'), завершающий перевод строки не порождает лишний пустой элемент в конце, а пустой bytearray даёт пустой список — поэтому для построчного разбора данных берут именно splitlines. Для байтов границами считаются только \\n, \\r и \\r\\n (у str их заметно больше), а keepends=True оставляет сам разделитель приклеенным к концу строки.",
+      "en": "Unlike split(b'\\n'), a trailing newline does not produce a spurious empty last element, and an empty bytearray yields an empty list — which is why line-by-line parsing uses splitlines. For byte data only \\n, \\r and \\r\\n count as boundaries (str recognises considerably more), and keepends=True keeps the terminator attached to each line."
     },
     "syntax": "ba.splitlines(...)",
     "status": "ready",
@@ -4524,8 +4524,8 @@
       "en": "Strip bytes (whitespace by default) from both ends."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Без аргумента убираются только ASCII-пробельные байты (пробел, \\t, \\n, \\r, \\v, \\f): у байтов нет понятия юникодных пробелов, так что неразрывный пробел из UTF-8 уцелеет. И хотя bytearray изменяемый, strip() не правит его на месте — он возвращает новый объект, результат нужно присвоить.",
+      "en": "With no argument only ASCII whitespace bytes are removed (space, \\t, \\n, \\r, \\v, \\f); bytes have no notion of Unicode spaces, so a UTF-8 non-breaking space survives. And although bytearray is mutable, strip() is not in-place: it hands back a new object that you have to assign somewhere."
     },
     "syntax": "ba.strip(...)",
     "status": "ready",
@@ -4565,8 +4565,8 @@
       "en": "Strip bytes from the left."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент — набор байтов, которые срезаются по одному, пока встречаются, а не префикс целиком: lstrip(b'xy') снимет слева любое количество 'x' и 'y' в любом порядке. Если нужно убрать ровно одну заданную последовательность, это работа для removeprefix. Сам bytearray не меняется — возвращается новый объект.",
+      "en": "The argument is a set of byte values peeled off one at a time while they keep matching, not a prefix taken as a whole: lstrip(b'xy') eats any run of 'x' and 'y' in any order. To drop exactly one given sequence, reach for removeprefix. The bytearray itself is untouched — you get a new object back."
     },
     "syntax": "ba.lstrip(...)",
     "status": "ready",
@@ -4607,8 +4607,8 @@
       "en": "Strip bytes from the right."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент — набор байтов, а не суффикс: rstrip(b'an') срезает с конца подряд идущие 'a' и 'n', поэтому b'banana' сжимается до b'b'. Когда нужно убрать именно окончание целиком, берите removesuffix() (3.9+). Результат — новый bytearray, исходный не меняется.",
+      "en": "The argument is a set of bytes, not a suffix: rstrip(b'an') keeps removing trailing 'a' and 'n' bytes, so b'banana' collapses to b'b'. If you mean \"drop this exact ending\", use removesuffix() (3.9+). The call returns a new bytearray and leaves the original as it was."
     },
     "syntax": "ba.rstrip(...)",
     "status": "ready",
@@ -4648,8 +4648,8 @@
       "en": "Remove a given prefix if present (3.9+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возвращается новый bytearray, а исходный не меняется, так что вызов ради побочного эффекта ничего не сделает — результат нужно присвоить. Снимается ровно одна копия префикса, повторы остаются на месте, а если префикса нет — данные возвращаются как есть, без ошибки.",
+      "en": "You get a fresh bytearray back and the original stays as it was, so calling it for its side effect does nothing — assign the result. Exactly one copy of the prefix is removed, repeats stay put, and a missing prefix simply returns the data unchanged instead of raising."
     },
     "syntax": "ba.removeprefix(...)",
     "status": "ready",
@@ -4689,8 +4689,8 @@
       "en": "Remove a given suffix if present (3.9+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Снимает ровно одно вхождение указанной последовательности целиком — в отличие от rstrip(b'.txt'), который грызёт с конца любые байты из набора '.', 't', 'x'. Если суффикса нет, возвращается копия исходного значения без изменений; метод не работает на месте, сам bytearray остаётся прежним.",
+      "en": "It strips exactly one occurrence of the whole given sequence, unlike rstrip(b'.txt'), which keeps chewing off any of the bytes '.', 't' and 'x'. When the suffix is absent you simply get an unchanged copy — and either way the original bytearray is untouched, since this is not an in-place operation."
     },
     "syntax": "ba.removesuffix(...)",
     "status": "ready",
@@ -4732,8 +4732,8 @@
       "en": "Return a copy with occurrences replaced."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Хотя bytearray изменяемый, replace ничего не правит на месте — возвращается новая копия, и без присваивания результат просто потеряется. Оба аргумента обязаны быть bytes-подобными: str или голое число вместо b'a' дадут TypeError.",
+      "en": "bytearray is mutable, yet replace never edits in place — it hands back a fresh copy, so the result is lost unless you assign it. Both arguments must be bytes-like; a str, or a bare int for a single byte, raises TypeError."
     },
     "syntax": "ba.replace(...)",
     "status": "ready",
@@ -4774,8 +4774,8 @@
       "en": "Map bytes through a 256-byte translation table."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Таблица — ровно 256 байт (проще всего получить из bytes.maketrans()), иначе ValueError; None означает «ничего не отображать», только удалить перечисленное в delete. Удаление выполняется до перевода, и всё идёт побайтово — для кириллицы в UTF-8 это не работает, там один символ занимает несколько байт.",
+      "en": "The table must be exactly 256 bytes long (bytes.maketrans() builds one), otherwise you get a ValueError; None means \"map nothing\" and only applies delete. Deletion happens before mapping, and the whole operation is byte-by-byte, so it cannot rewrite multi-byte UTF-8 characters — but for plain byte swaps one pass beats a chain of replace calls."
     },
     "syntax": "ba.translate(...)",
     "status": "ready",
@@ -4817,8 +4817,8 @@
       "en": "A static method building a translation table."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это статический метод: вызывать его удобнее от типа (bytearray.maketrans), а не от конкретного объекта, и результат — обычный bytes длиной 256, где i-й байт задаёт замену для байта со значением i. Оба аргумента должны быть одинаковой длины, иначе ValueError; замена идёт байт в байт, поэтому превратить один байт в два символа так нельзя. Удалять байты maketrans не умеет — для этого есть второй аргумент translate.",
+      "en": "It is a static method, so call it on the type (bytearray.maketrans) rather than on an instance; the result is a plain bytes object of length 256 whose i-th byte is the replacement for byte value i. Both arguments must have the same length or you get a ValueError, and mapping is strictly one byte to one byte — you cannot expand a byte into two. Deletion is not part of the table: pass the bytes to drop as translate's second argument."
     },
     "syntax": "ba.maketrans(...)",
     "status": "ready",
@@ -4861,8 +4861,8 @@
       "en": "Decode to a str using an encoding (UTF-8 by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Чаще всего UnicodeDecodeError тут вызван не неверной кодировкой, а границей куска: режете поток по произвольному числу байт — и многобайтовый символ рвётся пополам на совершенно валидных данных. Глушить это через errors='ignore' значит молча терять символы; лучше дочитать недостающие байты или взять инкрементальный декодер из codecs.",
+      "en": "A UnicodeDecodeError here usually means a bad chunk boundary rather than a wrong encoding: cut a stream at an arbitrary byte offset and a multi-byte character gets sliced in half, even though the data is perfectly valid. Silencing it with errors='ignore' quietly drops characters — read the missing bytes first, or use an incremental decoder from codecs."
     },
     "syntax": "ba.decode(...)",
     "status": "ready",
@@ -4905,8 +4905,8 @@
       "en": "Return a hexadecimal string of the bytes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Разделитель sep и группировка bytes_per_sep появились в 3.8: при положительном bytes_per_sep группы отсчитываются справа, при отрицательном — слева, и разница видна, когда длина не кратна размеру группы. Цифры всегда в нижнем регистре, для верхнего нужен .upper().",
+      "en": "The sep and bytes_per_sep arguments arrived in 3.8: a positive bytes_per_sep groups from the right end, a negative one groups from the left, and the difference shows up whenever the length is not a multiple of the group size. Digits always come out lowercase, so call .upper() if you need capitals."
     },
     "syntax": "ba.hex(...)",
     "status": "ready",
@@ -4946,8 +4946,8 @@
       "en": "A static method creating a bytearray from a hex string."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это метод самого типа, а не экземпляра: пишут bytearray.fromhex(...), никакого объекта заранее создавать не нужно. Пробелы и переводы строк внутри строки игнорируются, а вот нечётное число цифр или посторонний символ дают ValueError — операция обратная к .hex().",
+      "en": "It is called on the type itself — bytearray.fromhex(...) — no existing object needed. ASCII whitespace inside the string is skipped, but an odd number of digits or any non-hex character raises ValueError; it is the exact inverse of .hex()."
     },
     "syntax": "ba.fromhex(...)",
     "status": "ready",
@@ -4988,8 +4988,8 @@
       "en": "All bytes are ASCII letters/digits and non-empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка чисто ASCII: буквой считается только A-Z и a-z, цифрой — только 0-9, поэтому любой байт со значением 128 и выше (например, кириллица в UTF-8) сразу даёт False. Подчёркивание, дефис, точка и пробел тоже не проходят, так что как проверка «это безопасное имя файла или идентификатор» метод не годится — там нужен свой список разрешённых символов.",
+      "en": "The check is strictly ASCII: only A-Z, a-z count as letters and only 0-9 as digits, so any byte at 128 or above (Cyrillic in UTF-8, for instance) makes it False. Underscore, hyphen, dot and space fail too, so this is not a usable \"safe filename or identifier\" test — for that, spell out your own allowed set."
     },
     "syntax": "ba.isalnum(...)",
     "status": "ready",
@@ -5028,8 +5028,8 @@
       "en": "All bytes are ASCII letters and non-empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от str.isalpha(), здесь никакого Unicode нет: буквами считаются только ASCII A-Z и a-z. Русское слово, закодированное в UTF-8, даст False — его байты лежат выше 127. Если задача про текст, а не про сырые байты, сначала декодируй в строку и проверяй уже её.",
+      "en": "Unlike str.isalpha(), there is no Unicode here: only ASCII A-Z and a-z count as letters. A word encoded in UTF-8 from any non-Latin alphabet returns False, since its bytes sit above 127. If the task is about text rather than raw bytes, decode to a string first and test that."
     },
     "syntax": "ba.isalpha(...)",
     "status": "ready",
@@ -5068,8 +5068,8 @@
       "en": "All bytes are ASCII (0–127)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Единственный метод этого семейства, который на пустой последовательности возвращает True: условие «все байты в диапазоне 0-127» на пустом наборе выполняется тривиально. Проверяется только диапазон значений, а не читаемость — управляющие байты вроде нулевого или символа escape тоже ASCII. Метод появился в Python 3.7.",
+      "en": "This is the one member of the is* family that returns True for an empty sequence: \"every byte is within 0-127\" holds vacuously when there are no bytes. It tests the value range only, not readability — control bytes such as NUL or ESC are ASCII as well. Available since Python 3.7."
     },
     "syntax": "ba.isascii(...)",
     "status": "ready",
@@ -5108,8 +5108,8 @@
       "en": "All bytes are ASCII digits and non-empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод отвечает ровно на вопрос «все байты — цифры 0-9»: знак минуса, десятичная точка, пробел или разделитель разрядов сразу дают False, поэтому как проверка «это число» он не работает. Аналогов isdecimal() и isnumeric(), которые есть у str, у байтов нет — надёжнее попробовать преобразовать значение и поймать ValueError.",
+      "en": "It answers exactly one question: are all bytes digits 0-9. A minus sign, decimal point, space or thousands separator makes it False, so it is not an \"is this a number\" test. Bytes have no isdecimal() or isnumeric() counterparts the way str does — attempting the conversion and catching ValueError is the more reliable route."
     },
     "syntax": "ba.isdigit(...)",
     "status": "ready",
@@ -5149,8 +5149,8 @@
       "en": "All cased bytes are lower-case."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Регистр здесь есть только у ASCII-букв, а последовательность вообще без букв (одни цифры, пунктуация или пустая) даёт False. Отсюда важное следствие: islower() не является отрицанием isupper() — на строке из одних цифр обе проверки False, так что рассуждать «раз не верхний регистр, значит нижний» нельзя.",
+      "en": "Only ASCII letters carry case here, and a sequence with no letters at all — digits, punctuation, or empty — returns False. The consequence matters: islower() is not the negation of isupper(), since a digits-only sequence makes both False, so \"not upper, therefore lower\" is a broken inference."
     },
     "syntax": "ba.islower(...)",
     "status": "ready",
@@ -5189,8 +5189,8 @@
       "en": "All bytes are whitespace and non-empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пробельными здесь считаются только ASCII-байты: пробел, \\t, \\n, \\r, \\v, \\f. Байт 0xa0 (неразрывный пробел в latin-1) в набор не входит, хотя str.isspace() для символа '\\xa0' вернёт True — если байты пришли из текста, надёжнее сначала декодировать их в строку и проверять уже её.",
+      "en": "Only ASCII whitespace counts here: space, \\t, \\n, \\r, \\v, \\f. Byte 0xa0 (a non-breaking space in latin-1) is not in that set, even though str.isspace() answers True for the character '\\xa0' — if the bytes came from text, decode first and test the resulting string."
     },
     "syntax": "ba.isspace(...)",
     "status": "ready",
@@ -5229,8 +5229,8 @@
       "en": "The bytes are title-cased."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка чисто механическая: каждая цепочка букв должна начинаться с заглавной, а дальше идти только строчные — к правилам оформления заголовков в живом языке это отношения не имеет. Любой небуквенный байт (цифра, дефис, пунктуация) считается границей слова, поэтому b'Hello2World' проходит проверку, а b'HI There' — нет из-за второй заглавной подряд.",
+      "en": "The test is purely mechanical: every run of letters must start with an upper-case byte and continue in lower case — it has nothing to do with real headline capitalization rules. Any non-letter byte (digit, hyphen, punctuation) acts as a word boundary, so b'Hello2World' passes while b'HI There' fails on the second consecutive capital."
     },
     "syntax": "ba.istitle(...)",
     "status": "ready",
@@ -5267,8 +5267,8 @@
       "en": "All cased bytes are upper-case."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Нужен хотя бы один буквенный байт: у b'123' и у пустого bytearray результат False, хотя строчных букв там нет вовсе. И из isupper() == False не следует islower() == True — у b'Ab1' обе проверки дают False, так что «не верхний регистр» и «нижний регистр» — разные вопросы.",
+      "en": "At least one cased byte is required: b'123' and an empty bytearray both give False even though they contain no lower-case letters. Also, isupper() being False does not make islower() True — b'Ab1' fails both, so \"not upper-case\" and \"lower-case\" are different questions."
     },
     "syntax": "ba.isupper(...)",
     "status": "ready",
@@ -5307,8 +5307,8 @@
       "en": "Append a single byte (int 0–255) in place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент — целое от 0 до 255, а не байтовая строка: ba.append(b'c') падает с TypeError, нужно либо ba.append(99), либо ba += b'c'. Это та же логика, по которой индексация bytearray отдаёт int, а не односимвольный объект; выход за 0–255 даёт ValueError, а само добавление в конец стоит амортизированно O(1).",
+      "en": "The argument is an int in range 0–255, not a bytes object: ba.append(b'c') raises TypeError, so use ba.append(99) or ba += b'c'. This mirrors the fact that indexing a bytearray yields an int; a value outside 0–255 raises ValueError, and appending itself is amortised O(1)."
     },
     "syntax": "ba.append(...)",
     "status": "ready",
@@ -5348,8 +5348,8 @@
       "en": "Extend with bytes from an iterable in place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ждёт итерируемое из целых 0–255: bytes и bytearray подходят, а строка нет — ba.extend('ab') падает, текст сначала надо закодировать в байты. Одиночное число extend тоже не примет, оно не итерируемо: для него есть append.",
+      "en": "It expects an iterable of ints in 0–255: bytes and bytearray work, a str does not — ba.extend('ab') fails, encode the text first. A single number is rejected too, since it is not iterable; use append for that."
     },
     "syntax": "ba.extend(...)",
     "status": "ready",
@@ -5389,8 +5389,8 @@
       "en": "Insert a byte at an index in place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Индекс ведёт себя как у list.insert: слишком большой обрезается до конца буфера, отрицательный отсчитывается с конца, IndexError вы не получите — молча вставится не туда, куда ждали. Вставка не в конец сдвигает весь хвост, то есть стоит O(n); в цикле по большому буферу это заметно, лучше собрать куски и склеить.",
+      "en": "The index behaves like list.insert: an oversized one is clamped to the end, a negative one counts from the end, and you never get an IndexError — the byte just lands somewhere you did not expect. Inserting anywhere but the end shifts the whole tail, so it costs O(n); doing that in a loop over a large buffer is slow, better to collect pieces and join them."
     },
     "syntax": "ba.insert(...)",
     "status": "ready",
@@ -5430,8 +5430,8 @@
       "en": "Remove and return a byte at an index (last by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возвращается целое число 0-255, а не однобайтовая последовательность, так что сравнивать результат с b'a' бессмысленно — сравнивайте с 97 или с ord('a'). Снятие с конца дешёвое, а pop(0) и pop из середины сдвигают весь хвост, то есть работают за O(n); на пустом bytearray и при индексе за границей будет IndexError.",
+      "en": "The value comes back as an int in 0-255, not as a one-byte sequence, so comparing it to b'a' never matches — compare with 97 or ord('a') instead. Popping from the end is cheap, while pop(0) or a pop from the middle shifts the whole tail and costs O(n); an empty bytearray or an out-of-range index raises IndexError."
     },
     "syntax": "ba.pop(...)",
     "status": "ready",
@@ -5473,8 +5473,8 @@
       "en": "Remove the first occurrence of a byte value."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент — целое число 0-255, а не байтовая строка: ba.remove(b'b') падает с TypeError, писать надо ba.remove(98) или ba.remove(ord('b')). Убирается только первое вхождение слева, а если такого байта в буфере нет вовсе — ValueError, поэтому либо проверяйте наличие через in, либо оборачивайте вызов в try.",
+      "en": "The argument is an int in 0-255, not a bytes literal: ba.remove(b'b') fails with TypeError, so write ba.remove(98) or ba.remove(ord('b')). Only the leftmost occurrence goes away, and if the byte is absent you get a ValueError — check with in first or wrap the call in try."
     },
     "syntax": "ba.remove(...)",
     "status": "ready",
@@ -5514,8 +5514,8 @@
       "en": "Reverse the bytes in place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод меняет объект на месте и возвращает None, поэтому ba = ba.reverse() затрёт ваши данные значением None — вызывайте его отдельной строкой. Если нужна перевёрнутая копия, а оригинал должен уцелеть, берите срез ba[::-1].",
+      "en": "It reverses in place and returns None, so ba = ba.reverse() silently replaces your data with None — call it as a standalone statement. When you need a reversed copy and want the original intact, use the slice ba[::-1] instead."
     },
     "syntax": "ba.reverse(...)",
     "status": "ready",
@@ -5552,8 +5552,8 @@
       "en": "Remove all bytes (make it empty)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод правит сам объект, поэтому опустевший буфер увидят все имена, которые на него ссылаются; если другие ссылки должны сохранить старое содержимое, присваивайте новый ba = bytearray(), а не чистите текущий. Полный аналог — del ba[:]; у неизменяемого bytes такого метода нет вообще.",
+      "en": "It mutates the object itself, so every name bound to that buffer sees it become empty; if other references must keep the old content, rebind with ba = bytearray() instead of clearing. It is exactly equivalent to del ba[:], and immutable bytes has no such method at all."
     },
     "syntax": "ba.clear(...)",
     "status": "ready",
@@ -5590,8 +5590,8 @@
       "en": "Return a shallow copy (a new bytearray)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Слово «поверхностная» здесь ничего не отнимает: элементы — обычные int, так что копия полностью независима от оригинала, в отличие от списка со вложенными списками. Тот же результат дают bytearray(ba) и ba[:], а bytes(ba) вернёт неизменяемый снимок содержимого.",
+      "en": "\"Shallow\" costs you nothing here: the elements are plain ints, so the copy is fully independent, unlike a list holding nested lists. bytearray(ba) and ba[:] give the same result, while bytes(ba) yields an immutable snapshot of the same content."
     },
     "syntax": "ba.copy(...)",
     "status": "ready",

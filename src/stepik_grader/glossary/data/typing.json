@@ -2219,8 +2219,8 @@
       "en": "Evaluates a ForwardRef (a deferred string annotation) into a real type, resolving nested forward references recursively. Python 3.14+."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Напрямую её вызывать приходится редко: аннотации целой функции или класса разворачивает typing.get_type_hints(), а эта функция нужна, когда на руках отдельный ForwardRef, вынутый из чужой аннотации. Имя ищется в переданных owner/globals/locals — если оно там не видно, будет NameError; с format=annotationlib.Format.FORWARDREF ссылка вместо ошибки останется нераскрытой.",
+      "en": "You rarely need it directly: typing.get_type_hints() resolves every annotation of a function or class at once, while this call is for a single ForwardRef you pulled out of someone else's annotation. The name is looked up in the owner/globals/locals you pass, so a name that is not visible there raises NameError; with format=annotationlib.Format.FORWARDREF the reference is left unresolved instead."
     },
     "syntax": "typing.evaluate_forward_ref(forward_ref, *, owner=None, globals=None, locals=None, type_params=None, format=annotationlib.Format.VALUE)",
     "status": "ready",

@@ -8,8 +8,8 @@
       "en": "Low-level module import. Normally use importlib.import_module instead."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В обычном коде эта функция не нужна: она существует для внутренностей оператора import, а имя модуля из строки правильно превращать в модуль через importlib.import_module. Отдельная ловушка — точечное имя: без непустого fromlist возвращается верхний пакет, а не вложенный модуль, тогда как import_module отдаёт ровно то, что попросили.",
+      "en": "Application code almost never needs this — the function exists to back the import statement, and turning a module name held in a string into a module is importlib.import_module's job. There is also a dotted-name trap: with an empty fromlist you get the top-level package back, not the submodule, whereas import_module returns exactly what you asked for."
     },
     "syntax": "__import__(name, ...)",
     "status": "ready",
@@ -52,8 +52,8 @@
       "en": "Returns True if all elements of the iterable are true, or if the iterable is empty. Evaluates lazily."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Истинность считается через bool(), а не «элемент есть»: ноль среди чисел или пустая строка среди строк уронят проверку в False, хотя значения на месте — если вы имели в виду именно наличие, пишите условие явно, через is not None. И осторожнее с отрицанием: not all(...) означает «хотя бы один ложный», а вовсе не «все ложные» — для второго нужен any по отрицанию условия.",
+      "en": "Truthiness goes through bool(), which is not the same as «the value is present»: a zero among numbers or an empty string among strings turns the check into False even though nothing is missing, so spell the condition out with is not None when presence is what you mean. Mind the negation too: not all(...) says «at least one is false», not «all are false» — the latter needs any() over the negated condition."
     },
     "syntax": "all(iterable)",
     "status": "ready",
@@ -91,8 +91,8 @@
       "en": "Returns True if at least one element of the iterable is true. Evaluates lazily."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "any отвечает только «да или нет» и не отдаёт сам подошедший элемент — за элементом идут к next() с генератором и значением по умолчанию. И передавайте именно генераторное выражение: со списковым включением внутри скобок Python сначала честно посчитает все элементы, и ленивая остановка на первом истинном пропадёт.",
+      "en": "any() gives you a yes-or-no answer and never the element that matched; when you need the element itself, reach for next() over a generator with a default value. Pass a generator expression rather than a list comprehension inside the parentheses — the comprehension builds every result first, so the early exit on the first true item is lost."
     },
     "syntax": "any(iterable)",
     "status": "ready",
@@ -132,8 +132,8 @@
       "en": "Returns repr() of the object but replaces every non-ASCII character with a \\xNN, \\uNNNN or \\UNNNNNNNN escape sequence."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возвращается именно repr, то есть строка вместе с кавычками — для сравнения или подсчёта символов это не годится, только для показа. Берите её, когда вывод обязан быть чисто ASCII (лог, консоль без юникода) или когда надо разглядеть невидимые символы и подмену похожих букв; в f-строках то же самое даёт конверсия !a.",
+      "en": "What you get back is a repr, quotes included — fine for display, useless for comparing or counting characters. Reach for it when the output must be pure ASCII (a log file, a console that mangles Unicode) or when you need to spot invisible characters and look-alike letters; the !a conversion inside an f-string does exactly the same thing."
     },
     "syntax": "ascii(object)",
     "status": "ready",
@@ -172,8 +172,8 @@
       "en": "Converts an integer to its binary string representation with the '0b' prefix. Negative numbers: bin(-5) → '-0b101'."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возвращается строка, а не число: складывать и сравнивать её с числами бессмысленно, обратное преобразование — int(s, 2). Отрицательные значения записываются знаком минус перед модулем, никакого дополнительного кода «как в памяти» здесь нет. Аргумент обязан быть целым (или иметь __index__), float даёт TypeError; если нужна фиксированная ширина без префикса 0b, берите форматирование по коду b.",
+      "en": "The result is a string, not a number — arithmetic on it makes no sense, and int(s, 2) converts back. Negative values get a leading minus sign in front of the magnitude; this is not two's-complement machine representation. The argument must be an integer (or expose __index__), a float raises TypeError, and for a fixed-width value without the 0b prefix use the b format code instead."
     },
     "syntax": "bin(x)",
     "status": "ready",
@@ -214,8 +214,8 @@
       "en": "Drops into the built-in pdb debugger at the point of the call. Python 3.7+. The behavior can be overridden through PYTHONBREAKPOINT."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Самая частая беда на курсе — забытый breakpoint() в отправленном решении: программа уходит в отладчик и начинает читать строки тестового ввода как команды pdb, после чего падает или зависает по таймауту. Обезвредить сразу все точки останова, ничего не вырезая из кода, помогает переменная окружения PYTHONBREAKPOINT=0; ею же можно подставить свой отладчик вместо pdb.",
+      "en": "The classic accident is a forgotten breakpoint() in a submitted solution: the program drops into the debugger and starts consuming the test input as pdb commands, then dies or hangs until the timeout. Setting PYTHONBREAKPOINT=0 disables every breakpoint call without editing a single line, and the same variable can point at a different debugger instead of pdb."
     },
     "syntax": "breakpoint()",
     "status": "ready",
@@ -256,8 +256,8 @@
       "en": "Returns True if the object can be called: a function, a class, a lambda or an object with a __call__ method."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка идёт по типу объекта, а не по самому объекту: приписать экземпляру атрибут obj.__call__ = f недостаточно — Python ищет __call__ у класса, и callable(obj) останется False, как и сам вызов. True тоже ничего не обещает: объект вызываемый, но с другим числом аргументов вызов упадёт TypeError. В обычном коде проверка почти не нужна — прямее просто вызвать и поймать TypeError либо разделять ветки по isinstance; callable полезен на границе, где приходит то ли значение, то ли фабрика.",
+      "en": "The check looks at the object's type, not the object: assigning obj.__call__ = f to an instance is not enough, because Python looks up __call__ on the class, so callable(obj) stays False and the call fails too. A True answer promises little either — the object is callable, but calling it with the wrong arguments still raises TypeError. In everyday code you rarely need the check: calling and handling TypeError, or branching on isinstance, is more direct; callable earns its keep at an API boundary where a value or a factory may arrive."
     },
     "syntax": "callable(object)",
     "status": "ready",
@@ -298,8 +298,8 @@
       "en": "Returns a one-character string for the given Unicode code point (an integer). The inverse of ord()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент — номер символа в Unicode, а не байт: chr(200) даёт 'È', а байт со значением 200 получают через bytes([200]). Допустим диапазон 0..0x10FFFF, за его пределами ValueError; коды суррогатов 0xD800-0xDFFF формально принимаются, но такую строку потом не удастся закодировать в UTF-8.",
+      "en": "The argument is a Unicode code point, not a byte: chr(200) gives 'È', while a byte with value 200 comes from bytes([200]). Valid values are 0 through 0x10FFFF and anything else raises ValueError; surrogate codes 0xD800-0xDFFF are accepted but the resulting string cannot be encoded to UTF-8 afterwards."
     },
     "syntax": "chr(i)",
     "status": "ready",
@@ -339,8 +339,8 @@
       "en": "Compiles a string or an AST into a code object. Used with exec() or eval() to run code built at runtime."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент mode обязан совпадать с тем, что внутри: 'eval' принимает ровно одно выражение (строка с присваиванием сразу даст SyntaxError), 'exec' — любой набор инструкций, 'single' — одну инструкцию с печатью результата, как в интерактивной оболочке. Второй аргумент filename нигде не открывается — это просто подпись, которая всплывёт в трейсбеке и в отладчике, поэтому осмысленное имя вроде '<user-formula>' помогает потом читать ошибки. Смысл отдельного compile — разобрать исходник один раз и потом гонять готовый code object в цикле; на безопасность это не влияет никак, опасен по-прежнему момент exec/eval.",
+      "en": "The mode argument must match what you actually pass: 'eval' takes exactly one expression (a string containing an assignment raises SyntaxError right away), 'exec' takes any sequence of statements, 'single' takes one statement and echoes its result like the interactive shell. The filename argument is never opened — it is only a label that shows up in tracebacks and debuggers, so something descriptive like '<user-formula>' pays off when errors appear. The point of compiling separately is to parse the source once and reuse the code object in a loop; it adds no safety whatsoever, since the dangerous step is still the exec/eval call."
     },
     "syntax": "compile(source, filename, mode)",
     "status": "ready",
@@ -381,8 +381,8 @@
       "en": "Deletes the named attribute of an object. Equivalent to del obj.attr, but lets you pass the attribute name dynamically as a string."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Смысл в delattr есть только тогда, когда имя атрибута вычисляется в рантайме; если имя известно заранее, пишите del obj.attr. Удаляется именно атрибут экземпляра: если x объявлен в теле класса, а не присвоен через self, то delattr(экземпляр, 'x') упадёт с AttributeError, хотя чтение obj.x до этого работало. Отсутствующий атрибут — тоже AttributeError, так что подстраховывайтесь hasattr или try/except.",
+      "en": "delattr earns its keep only when the attribute name is computed at run time; if you know the name in advance, write del obj.attr. It removes an instance attribute: if x lives in the class body rather than being assigned through self, delattr(instance, 'x') raises AttributeError even though reading obj.x worked fine. A missing attribute raises AttributeError too, so guard the call with hasattr or try/except."
     },
     "syntax": "delattr(object, name)",
     "status": "ready",
@@ -427,8 +427,8 @@
       "en": "A mutable mapping: stores key–value pairs. Keys are unique and hashable. Since Python 3.7 it preserves insertion order."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обращение d[k] к отсутствующему ключу — это KeyError; если ключа может не быть, берите d.get(k) или d.get(k, значение_по_умолчанию). Ключ обязан быть хешируемым, поэтому кортеж ключом быть может, а список — нет. Поиск и вставка в среднем O(1), а вот сравнение словарей порядок вставки игнорирует: {'a':1,'b':2} == {'b':2,'a':1} истинно, хотя порядок при переборе разный.",
+      "en": "Indexing a missing key with d[k] raises KeyError; when the key may be absent, use d.get(k) or d.get(k, default) instead. Keys must be hashable, so a tuple can be a key but a list cannot. Lookup and insertion are O(1) on average, and equality ignores insertion order — {'a':1,'b':2} == {'b':2,'a':1} is True even though iteration order differs."
     },
     "syntax": "dict(**kwargs)\ndict(mapping)\ndict(iterable)",
     "status": "ready",
@@ -470,8 +470,8 @@
       "en": "Lists the attributes of an object (or the names of the current local namespace)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "dir() возвращает имена (строки), а не сами атрибуты — чтобы добраться до значения, нужен getattr(obj, name). Список отсортирован по алфавиту и намеренно неполон: он собирается через __dir__ и не видит атрибуты, которые класс создаёт на лету в __getattr__. Это инструмент для разглядывания объекта в REPL, а не опора для логики программы.",
+      "en": "dir() hands back names as strings, not the attributes themselves — reach the value with getattr(obj, name). The list is alphabetised and deliberately approximate: it is built from __dir__ and misses anything a class conjures dynamically in __getattr__. Treat it as a REPL exploration tool, not something program logic should depend on."
     },
     "syntax": "dir([object])",
     "status": "ready",
@@ -514,8 +514,8 @@
       "en": "Parameter of print() that sets the string appended after the output. Defaults to the newline character '\\n'. Lets you print on a single line."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "sep вставляется между аргументами, а end добавляется один раз в самом конце — эти два параметра постоянно путают. При end=\"\" текст остаётся в буфере stdout, пока не встретится перенос строки, поэтому индикаторы прогресса в консоли дополняют вызовом flush=True; сам end принимает любую строку, включая \"\\r\" и несколько символов сразу.",
+      "en": "sep goes between the arguments, while end is appended once after all of them — a pair that gets mixed up constantly. With end=\"\" the text sits in the stdout buffer until a newline appears, so console progress indicators add flush=True; end itself accepts any string, including \"\\r\" or several characters at once."
     },
     "syntax": "print(*objects, end='строка')",
     "status": "ready",
@@ -555,8 +555,8 @@
       "en": "Evaluates an expression given as a string. WARNING: unsafe for untrusted input!"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "eval считает ровно одно выражение и возвращает его значение — присваивания, if и циклы туда не пролезут, для них нужен exec. Ограничить вред подменой globals не выйдет: даже из урезанного словаря добираются до встроенных функций и __import__, поэтому единственная защита — не пускать в eval чужие строки. Когда надо разобрать введённое число или литерал, берите int(), float() или ast.literal_eval(), который понимает только константы и не исполняет код.",
+      "en": "eval evaluates exactly one expression and returns its value — assignments, if statements and loops will not go through it; those need exec. Handing it a stripped-down globals dict is not a sandbox: builtins and __import__ remain reachable from almost any expression, so the only real defence is never feeding eval a string you did not write. To turn user input into a number or a literal, use int(), float() or ast.literal_eval(), which understands constants only and executes nothing."
     },
     "syntax": "eval(expression[, globals[, locals]])",
     "status": "ready",
@@ -597,8 +597,8 @@
       "en": "Executes dynamically created Python code: a string or a code object. Modifies the namespace it is given."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — вызвать exec('x = 1') внутри функции и ждать, что появится локальная переменная x: компилятор распределяет локальные ещё до запуска, и созданное exec'ом имя коду функции не видно (на уровне модуля, где пространство имён и есть словарь, всё работает). Надёжный приём — отдать exec отдельный словарь и потом достать результат из него: exec(src, g), затем g['x']. Возвращает exec всегда None — значение выражения так не получить, для этого eval.",
+      "en": "The classic trap is calling exec('x = 1') inside a function and expecting a local x to appear: locals are laid out at compile time, so a name created by exec is invisible to the function's own code (at module level, where the namespace is a real dict, it does work). The reliable pattern is to give exec its own dict and read the result out of it: exec(src, g), then g['x']. exec always returns None — it cannot hand you the value of an expression; that is what eval is for."
     },
     "syntax": "exec(object[, globals[, locals]])",
     "status": "ready",
@@ -644,8 +644,8 @@
       "en": "Formats a value according to a format specification string (format spec). Calls the object's __format__ method."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это ровно то, что происходит внутри фигурных скобок f-строки, поэтому отдельный вызов оправдан лишь тогда, когда сама спецификация считается в рантайме (например, число знаков после точки берётся из переменной). Не путайте с методом str.format(): здесь первый аргумент — форматируемое значение, а не шаблон. Округление у '.2f' идёт от двоичного представления float, так что format(2.675, '.2f') честно выдаёт 2.67.",
+      "en": "This is precisely what happens inside the braces of an f-string, so a separate call earns its keep only when the spec itself is computed at runtime — say, the number of decimals comes from a variable. Do not mix it up with the str.format() method: here the first argument is the value being formatted, not a template. Rounding for '.2f' follows the binary float value, which is why format(2.675, '.2f') honestly yields 2.67."
     },
     "syntax": "format(value, format_spec='')",
     "status": "ready",
@@ -688,8 +688,8 @@
       "en": "An immutable set. Supports every set operation (union, intersection and so on) but has no add() or remove(). Hashable — it can be used as a dictionary key."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "frozenset берут тогда, когда множество нужно положить ключом в словарь или элементом другого множества — обычный set туда не пустят, он нехешируемый. Литерала у frozenset нет, только вызов конструктора: фигурные скобки всегда дают set (а пустые — вообще пустой словарь). Ловушка: frozenset({1,2}) == {1,2} истинно, но достать значение по обычному set из такого словаря нельзя — d[{1,2}] упадёт с TypeError, ведь ключ сначала надо захешировать.",
+      "en": "Use frozenset when a set has to become a dictionary key or an element of another set — a plain set is rejected there because it is unhashable. There is no literal syntax for it, only the constructor call: braces always build a set, and empty braces build a dict. A trap: frozenset({1,2}) == {1,2} is True, yet you still cannot look the entry up with a plain set — d[{1,2}] raises TypeError, because the key has to be hashed first."
     },
     "syntax": "frozenset(iterable)",
     "status": "ready",
@@ -731,8 +731,8 @@
       "en": "Gets an attribute of an object by its name given as a string. The third argument is the default value used when the attribute does not exist (otherwise AttributeError)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Значение по умолчанию вычисляется всегда, ещё до самого поиска атрибута, — если оно дорогое или имеет побочный эффект, лучше сначала спросить hasattr. Вторая ловушка: default подставляется на любой AttributeError, включая тот, который бросил код внутри property, поэтому настоящая ошибка в свойстве тихо превращается в «атрибута нет».",
+      "en": "The default is evaluated eagerly, before the lookup even happens — if computing it is expensive or has side effects, check with hasattr instead. The subtler trap: the default kicks in on any AttributeError, including one raised inside a property's own code, so a real bug in that property silently turns into \"attribute missing\"."
     },
     "syntax": "getattr(object, name[, default])",
     "status": "ready",
@@ -776,8 +776,8 @@
       "en": "Returns the dictionary of the global namespace of the current module."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это не копия, а живой словарь модуля: присваивание в него действительно создаёт глобальную переменную — в отличие от locals() внутри функции, где правки в общем случае никуда не доедут. Отсюда соблазн лепить имена переменных на лету, но почти всегда вместо этого нужен обычный словарь: сгенерированные имена не видит ни читатель, ни линтер. Внутри функции globals() отдаёт пространство имён модуля, где функция определена, а не того, кто её вызвал.",
+      "en": "What you get is the module's live namespace dictionary, not a snapshot, so assigning into it really does create a global — unlike writing into locals() inside a function, which generally has no effect. That tempts people into manufacturing variable names at runtime; a plain dictionary is nearly always the better answer, since generated names are invisible to readers and linters alike. Called inside a function, globals() still points at the module where that function was defined, not at the caller's module."
     },
     "syntax": "globals()",
     "status": "ready",
@@ -820,8 +820,8 @@
       "en": "Returns True if the object has an attribute with the given name. Implemented as a getattr() attempt — checks presence without raising."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "hasattr не заглядывает в устройство объекта, а действительно запрашивает атрибут: у property это выполнит её тело со всеми побочными эффектами и затратами. False возвращается только когда пойман AttributeError — исключение любого другого типа улетит наружу. Если значение атрибута всё равно понадобится дальше, дешевле один getattr(obj, name, default), чем hasattr плюс повторное обращение.",
+      "en": "hasattr does not inspect the object's structure — it actually fetches the attribute, so for a property it runs that property's body, side effects and cost included. It returns False only when an AttributeError was caught; any other exception propagates. And if you need the value afterwards anyway, a single getattr(obj, name, default) is cheaper than hasattr plus a second lookup."
     },
     "syntax": "hasattr(object, name)",
     "status": "ready",
@@ -864,8 +864,8 @@
       "en": "Returns the integer hash of an object. The object must be hashable (immutable). Used by dictionaries and sets."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "У str и bytes хеш заново рандомизируется при каждом запуске интерпретатора (PYTHONHASHSEED) — это защита от атак на коллизии, а не контрольная сумма, поэтому сохранять его в файл или сравнивать между процессами нельзя; для стабильного отпечатка берите hashlib. И действует правило «равные объекты — равные хеши»: hash(1) == hash(1.0) == hash(True), а свой класс становится нехешируемым, как только вы определили __eq__ и не определили __hash__.",
+      "en": "For str and bytes the hash is randomised on every interpreter start (PYTHONHASHSEED) — it is a collision-attack defence, not a checksum, so never persist it or compare it across processes; use hashlib for a stable fingerprint. The contract also says equal objects must hash equally: hash(1) == hash(1.0) == hash(True), and your own class turns unhashable the moment you define __eq__ without __hash__."
     },
     "syntax": "hash(object)",
     "status": "ready",
@@ -908,8 +908,8 @@
       "en": "Prints the built-in help for an object, function or module. With no argument in interactive mode it starts the interactive help."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "help ничего не возвращает, а печатает, поэтому print(help(len)) покажет справку и следом None. Текст берётся из docstring — у ваших собственных функций справка будет пустой, пока docstring не написан. И не оставляйте голый help() в сдаваемом решении: без аргумента он запускает интерактивную справку и повиснет, читая stdin.",
+      "en": "help prints and returns None, so print(help(len)) shows the page and then None underneath. What it prints is the docstring, which is why your own functions look empty until you write one. And never leave a bare help() in a submitted solution — with no argument it starts the interactive helper and blocks reading stdin."
     },
     "syntax": "help([object])",
     "status": "ready",
@@ -948,8 +948,8 @@
       "en": "Converts an integer to its hexadecimal string representation with the '0x' prefix. The letters are lower-case."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Буквы всегда в нижнем регистре и префикс 0x приклеен намертво — если нужен верхний регистр или строка без префикса, используйте форматирование по кодам x и X. Функция работает только с целыми: у float есть собственный метод float.hex(), а байты переводит в hex-строку bytes.hex(). Обратно разбирает int(s, 16), причём он принимает строку и с префиксом 0x, и без него.",
+      "en": "The digits are always lower-case and the 0x prefix is always there — for upper-case or prefix-free output use the x and X format codes. The function accepts integers only: floats have their own float.hex() method, and byte data is converted by bytes.hex(). To parse it back use int(s, 16), which accepts the string with or without the 0x prefix."
     },
     "syntax": "hex(x)",
     "status": "ready",
@@ -989,8 +989,8 @@
       "en": "Returns the unique identifier of an object (its address in memory)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Идентификатор уникален только пока объект жив: после сборки мусора то же число может достаться новому объекту, так что запомнить id и сравнить его позже — ненадёжно. Практический смысл один — понять, один это объект или два, и для этого читабельнее a is b, тогда как равенство значений проверяют через ==. Осторожно с интернированием: CPython кеширует маленькие целые (от -5 до 256) и короткие строки, поэтому у одинаковых литералов id часто совпадает — строить на этом логику нельзя.",
+      "en": "An id is unique only while the object is alive; once it is collected the same number can be handed to a new object, so storing an id and comparing it later is unreliable. Its one real use is asking whether two names point to the same object — which a is b expresses more readably — while == compares values. Watch out for interning as well: CPython caches small ints (-5 to 256) and short strings, so identical literals often share an id, and no logic should rest on that."
     },
     "syntax": "id(object)",
     "status": "ready",
@@ -1033,8 +1033,8 @@
       "en": "Built-in function that reads a line from the keyboard. It prints an optional prompt and returns the line entered, without the trailing newline."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "input() всегда отдаёт строку: даже \"42\" остаётся строкой, а int() на пустом или нечисловом вводе бросит ValueError. Когда поток ввода кончился (файл или пайп в тестирующей системе), input() бросает EOFError, а не возвращает пустую строку — поэтому цикл чтения ограничивают известным числом строк или ловят EOFError. Приглашающий текст уходит в тот же stdout, что и ответ, так что в задачах с автопроверкой input() вызывают без аргумента.",
+      "en": "input() always hands back a string — \"42\" is still text, and int() on empty or non-numeric input raises ValueError. When the stream runs out (a file or pipe in an autograder) it raises EOFError rather than returning an empty string, so bound the read loop by a known count or catch EOFError. The prompt goes to the very same stdout as your answer, which is why graded solutions call input() with no argument."
     },
     "syntax": "input([prompt]) -> str",
     "status": "ready",
@@ -1083,8 +1083,8 @@
       "en": "Returns True if the class is a subclass of the given class or of one of the classes in the tuple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Первый аргумент — именно класс, а не экземпляр: передадите объект — получите TypeError, для объектов есть isinstance. Вторым можно дать кортеж классов, тогда True вернётся при наследовании хотя бы от одного из них. И помните про bool: он подкласс int, поэтому проверка на int пропустит True и False там, где ждали только числа.",
+      "en": "The first argument must be a class, not an instance — passing an object raises TypeError, and objects are checked with isinstance instead. The second argument may be a tuple of classes, in which case inheriting from any one of them is enough. Watch out for bool: it is a subclass of int, so a check against int also accepts True and False."
     },
     "syntax": "issubclass(class, classinfo)",
     "status": "ready",
@@ -1127,8 +1127,8 @@
       "en": "Returns an iterator. With two arguments it calls the function until it returns the sentinel value."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Итератор одноразовый, и iter от уже полученного итератора вернёт его же — второй проход по тому же объекту даст пустоту, нужен новый iter от исходной коллекции. Форма с двумя аргументами вызывает функцию без аргументов снова и снова, пока та не вернёт значение sentinel; сам sentinel в выдачу не попадает. Это удобный способ читать поток до маркера конца, не городя while True с проверкой и break.",
+      "en": "An iterator is single-use, and calling iter on an existing iterator gives back the same object — a second pass yields nothing, so build a fresh iterator from the original collection. The two-argument form calls the zero-argument callable over and over until it returns the sentinel, and the sentinel itself is not yielded. That turns a read-until-marker loop into a plain for loop instead of while True with a manual break."
     },
     "syntax": "iter(object)\niter(callable, sentinel)",
     "status": "ready",
@@ -1174,8 +1174,8 @@
       "en": "Creates a mutable list from an iterable, or an empty list. list() with no arguments is equivalent to []."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "list(другой_список) делает поверхностную копию: внешний список новый, а вложенные списки и объекты те же самые, поэтому правка copy[0][0] отзовётся в оригинале. От генератора, map или filter list() забирает все элементы разом, и повторный вызов вернёт уже пустой список — итератор исчерпан. От строки получаются отдельные символы, а не ['hello']: если нужен список из одного элемента, пишите ['hello'].",
+      "en": "list(other_list) makes a shallow copy: the outer list is new, but nested lists and objects are the same ones, so editing copy[0][0] shows up in the original. Applied to a generator, map or filter, list() drains it in one go, and a second call returns an empty list because the iterator is exhausted. Applied to a string it yields individual characters, not ['hello'] — for a one-element list write the brackets yourself."
     },
     "syntax": "list(iterable)",
     "status": "ready",
@@ -1216,8 +1216,8 @@
       "en": "Returns a dictionary of the current local namespace. At module level it matches globals(). A copy, not a reference."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Внутри функции это снимок: записать что-то в полученный словарь и ждать появления новой локальной переменной бесполезно — обратной связи с кадром нет (в Python 3.13 это закреплено PEP 667, раньше поведение зависело от реализации). На уровне модуля и в теле класса locals() отдаёт настоящий словарь пространства имён, и правки в нём как раз видны — отсюда путаница. В функции попадают только те имена, которым уже что-то присвоено к моменту вызова.",
+      "en": "Inside a function the result is a snapshot: writing into that dict will not create or change a local variable, because there is no link back to the frame (Python 3.13 guarantees this via PEP 667; before that it was implementation-defined). At module level and in a class body locals() hands you the real namespace mapping, where writes do take effect — which is the usual source of confusion. Only names already assigned at the moment of the call show up inside a function."
     },
     "syntax": "locals()",
     "status": "ready",
@@ -1263,8 +1263,8 @@
       "en": "Returns the largest item of an iterable, or the largest of the arguments given. Supports a key function."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На пустом итерируемом max падает с ValueError — если пустота возможна, передайте default. Аргумент key меняет только критерий сравнения, а возвращается сам элемент, а не значение key: именно так по словарю получают ключ с наибольшим значением, а не само значение. Если максимум достигается на нескольких элементах, вернётся первый встреченный.",
+      "en": "max raises ValueError on an empty iterable, so pass default whenever the input may be empty. key only changes what is compared — you still get the element back, not the key value, which is how you obtain the dict key with the largest value rather than the value itself. When several items tie for largest, the first one encountered wins."
     },
     "syntax": "max(iterable, *, key=None)\nmax(a, b, ...)",
     "status": "ready",
@@ -1304,8 +1304,8 @@
       "en": "Creates a view into an object's buffer without copying the data. Lets you work with slices of binary data efficiently."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "memoryview работает только с объектами, поддерживающими буферный протокол — bytes, bytearray, array.array; на str или список будет TypeError. Писать через представление можно лишь тогда, когда исходный объект изменяемый: у memoryview(b'...') присваивание запрещено, потому что bytes только для чтения. Срез представления — снова memoryview, а не bytes (отсюда обёртка bytes(...)), и пока представление живо, bytearray нельзя менять в размере: append или расширение упадут с BufferError.",
+      "en": "memoryview only accepts objects that support the buffer protocol — bytes, bytearray, array.array; a str or a list raises TypeError. Writing through the view works only if the underlying object is mutable: assigning into memoryview(b'...') fails because bytes is read-only. Slicing a view gives another memoryview rather than bytes (hence the bytes(...) wrapper), and while a view is alive the bytearray cannot be resized — append or extend raise BufferError."
     },
     "syntax": "memoryview(object)",
     "status": "ready",
@@ -1349,8 +1349,8 @@
       "en": "Returns the smallest item of an iterable, or the smallest of the arguments given. Supports a key function."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "min проходит последовательность ровно один раз за O(n), поэтому для одного крайнего элемента он дешевле, чем sorted(...)[0]. Разнотипные значения не сравниваются «как-нибудь»: число со строкой даст TypeError, а строки сравниваются посимвольно по кодовым точкам, из-за чего '10' оказывается меньше '9'.",
+      "en": "min makes a single O(n) pass, so it beats sorted(...)[0] when you only need one extreme element. Mixed types are not silently ordered: comparing a number with a string raises TypeError, and strings are compared code point by code point, which is why '10' comes out smaller than '9'."
     },
     "syntax": "min(iterable, *, key=None)\nmin(a, b, ...)",
     "status": "ready",
@@ -1390,8 +1390,8 @@
       "en": "Returns the next item of an iterator. default is returned if the iterator is exhausted."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "next принимает итератор, а не коллекцию: next([1, 2, 3]) — это TypeError, сначала нужен iter(). Без второго аргумента исчерпанный итератор поднимает StopIteration, поэтому либо ловите её, либо передавайте default. Внутри генератора это особенно важно: незамеченная StopIteration там не всплывает наружу, а превращается в RuntimeError (PEP 479), и источник ошибки становится неочевидным.",
+      "en": "next takes an iterator, not a container: next([1, 2, 3]) is a TypeError — wrap the list in iter() first. Without the second argument an exhausted iterator raises StopIteration, so either catch it or pass a default. Inside a generator this matters even more: an unhandled StopIteration is converted into RuntimeError (PEP 479), which hides where the problem actually came from."
     },
     "syntax": "next(iterator[, default])",
     "status": "ready",
@@ -1433,8 +1433,8 @@
       "en": "The base class of every Python class. Provides the default __str__, __repr__, __eq__, __hash__ and other magic methods."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Голый object() — не универсальный контейнер для полей: у него нет __dict__, поэтому o.foo = 1 сразу падает с AttributeError; зато он идеален как уникальный маркер-заглушка, когда None — допустимое значение. Унаследованные по умолчанию __eq__ и __hash__ смотрят на тождество объекта: два одинаковых по смыслу экземпляра не равны, пока вы не определите __eq__ — а как только определите, класс перестаёт быть хешируемым, если не задать и __hash__.",
+      "en": "A bare object() is not a general-purpose bag of fields: it has no __dict__, so o.foo = 1 fails with AttributeError; it is, however, the perfect unique sentinel when None is a legitimate value. The inherited __eq__ and __hash__ compare identity, so two semantically equal instances are unequal until you define __eq__ — and the moment you do, the class stops being hashable unless you define __hash__ as well."
     },
     "syntax": "object()",
     "status": "ready",
@@ -1477,8 +1477,8 @@
       "en": "Converts an integer to its octal string representation with the '0o' prefix."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В Python 3 восьмеричный литерал пишется только с префиксом 0o — привычная по старым примерам запись 0777 это SyntaxError. Типичная ошибка с правами доступа: os.chmod ждёт целое число 0o755, а не строку, которую вернул oct(); чтобы получить число из строки, нужен int(s, 8).",
+      "en": "In Python 3 an octal literal must carry the 0o prefix — the old 0777 form seen in legacy examples is a SyntaxError. A common slip with file permissions: os.chmod expects the integer 0o755, not the string that oct() produced; use int(s, 8) to turn such a string back into a number."
     },
     "syntax": "oct(x)",
     "status": "ready",
@@ -1518,8 +1518,8 @@
       "en": "Returns the Unicode code point (an integer) of a character. Takes a string of length 1. The inverse of chr()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Строки сравниваются и сортируются как раз по этим кодам, поэтому 'Z' < 'a' (все заглавные латинские идут раньше строчных), а кириллица больше любой латиницы — вот откуда «странный» порядок в sorted(). Аргумент — ровно один символ: ord('ab') и ord('') дают TypeError, так что перебирать строку надо посимвольно.",
+      "en": "String comparison and sorting run on exactly these numbers, which is why 'Z' < 'a' (every uppercase Latin letter precedes every lowercase one) and why Cyrillic sorts after all Latin — the source of most \"weird\" sorted() results. The argument must be exactly one character: ord('ab') and ord('') both raise TypeError, so iterate over the string character by character."
     },
     "syntax": "ord(c)",
     "status": "ready",
@@ -1559,8 +1559,8 @@
       "en": "Built-in function that writes data to standard output (the screen). It takes any number of arguments, joins them with the sep parameter and ends the line with the end parameter."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "print сам прогоняет каждый аргумент через str(), поэтому print(\"x =\", 42) работает без ручного преобразования — в отличие от \"x =\" + 42, где будет TypeError. Возвращает None: строка x = print(a) кладёт в x не текст, а None; если результат нужен как значение, собирайте его f-строкой или \" \".join(...).",
+      "en": "print runs str() over every argument for you, so print(\"x =\", 42) needs no manual conversion, unlike \"x =\" + 42 which raises TypeError. It returns None, so x = print(a) stores None rather than the text — build the string with an f-string or \" \".join(...) when you need it as a value."
     },
     "syntax": "print(*objects, sep=' ', end='\\n', file=sys.stdout, flush=False)",
     "status": "ready",
@@ -1607,8 +1607,8 @@
       "en": "The file= parameter redirects the output to any file object (sys.stdout by default). flush=True flushes the stream's internal buffer immediately instead of waiting for it to fill up."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Буферизация зависит от того, куда идёт вывод: в терминале stdout сбрасывается построчно, а при перенаправлении в файл или пайп копится блоками по несколько килобайт, поэтому вперемешку со stderr (он всегда построчный) строки в логе могут встать в неожиданном порядке. flush=True это чинит, но заметно замедляет вывод, если звать его в цикле на миллион строк. file= ничего не открывает и не закрывает — объект вы открываете сами, лучше через with.",
+      "en": "Buffering depends on where the output goes: stdout flushes line by line on a terminal, but piles up in multi-kilobyte blocks once redirected to a file or a pipe, so lines interleaved with stderr (always line-buffered) can land in a surprising order. flush=True fixes that ordering but costs real time in a million-iteration loop. file= neither opens nor closes anything — you supply an already-open object, ideally from a with block."
     },
     "syntax": "print(*objects, sep=\" \", end=\"\\n\", file=sys.stdout, flush=False)",
     "status": "ready",
@@ -1652,8 +1652,8 @@
       "en": "Returns the official string representation of an object — one the object can be recreated from where possible."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "repr пригождается, когда print врёт: он показывает кавычки и экранированные символы, поэтому сразу видно, где '1' — строка, а где число, и есть ли на конце лишний пробел или перевод строки. Внутри контейнеров Python всегда зовёт repr элементов — вот почему print(['a']) печатает с кавычками, а print('a') нет. У собственных классов repr по умолчанию выдаёт бесполезное <Foo object at 0x...>, пока не определён метод __repr__.",
+      "en": "Reach for repr when print is hiding something: it shows quotes and escape sequences, so you can tell the string '1' from the number 1 and spot a stray trailing space or newline. Inside containers Python always calls repr on the elements — that is why print(['a']) shows quotes while print('a') does not. For your own classes repr falls back to the useless <Foo object at 0x...> until you define __repr__."
     },
     "syntax": "repr(object)",
     "status": "ready",
@@ -1694,8 +1694,8 @@
       "en": "str() returns the 'readable' representation of an object, meant for the user. repr() returns the 'unambiguous' representation, suitable for recreating the object in code; it is what the interactive console and debugging show."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Внутри контейнеров элементы всегда показываются через repr — поэтому print(\"привет\") даёт голый текст, а print([\"привет\"]) выводит строку в кавычках, и это не баг. В своих классах достаточно определить __repr__: если __str__ нет, str() и print() падают обратно на него, а вот обратной подстановки не бывает. В f-строках отладочное представление включается суффиксом !r.",
+      "en": "Inside containers elements are always shown via repr — that is why print(\"hi\") gives bare text while print([\"hi\"]) shows the string in quotes; not a bug. In your own classes defining __repr__ is enough: when __str__ is missing, str() and print() fall back to it, but there is no fallback the other way round. In f-strings the debug form is requested with the !r suffix."
     },
     "syntax": "str(object)  repr(object)",
     "status": "ready",
@@ -1737,8 +1737,8 @@
       "en": "Returns a reverse iterator over a sequence. Does not copy the data — evaluated lazily."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Подходит не любому итерируемому: нужна последовательность — с методом __reversed__ либо с парой __len__ и __getitem__. Множества и генераторы дадут TypeError, а словарь (начиная с 3.8) обходится по ключам в обратном порядке вставки. От среза [::-1] отличается тем, что не создаёт копию: правки исходного списка по ходу обхода итератор увидит.",
+      "en": "Not every iterable qualifies: reversed needs a sequence — one that defines __reversed__, or both __len__ and __getitem__. Sets and generators raise TypeError, while dicts (since 3.8) walk their keys in reverse insertion order. Unlike the [::-1] slice it makes no copy, so mutating the underlying list during iteration is visible to the iterator."
     },
     "syntax": "reversed(sequence)",
     "status": "ready",
@@ -1778,8 +1778,8 @@
       "en": "Parameter of print() that sets the separator between arguments. Defaults to a space. Can be any string, including an empty one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Разделитель вставляется только МЕЖДУ аргументами, поэтому при единственном аргументе sep не делает ничего: print(nums, sep=\", \") напечатает список целиком со скобками, а не через запятую — нужно распаковать его звёздочкой или собрать строку через str.join(). Для хвоста строки sep не отвечает, там работает end. Значением может быть только строка или None: sep=0 даёт TypeError.",
+      "en": "The separator goes only BETWEEN arguments, so with a single argument sep does nothing: print(nums, sep=\", \") prints the list with its brackets — unpack it with a star or build the string with str.join() instead. What comes after the last item is end's job, not sep's. The value must be a string or None: sep=0 raises TypeError."
     },
     "syntax": "print(*objects, sep='разделитель')",
     "status": "ready",
@@ -1819,8 +1819,8 @@
       "en": "A mutable set of unique hashable items with no defined order. Supports union, intersection and difference operations."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пустое множество создаётся только через set() — фигурные скобки без содержимого дают пустой словарь. Внутрь кладутся лишь хешируемые объекты: список вызовет TypeError, его надо превратить в кортеж или frozenset. Порядок обхода не определён и не связан с порядком добавления, поэтому для стабильного вывода печатайте sorted(s), а не само множество.",
+      "en": "An empty set can only be built with set(); empty curly braces give you a dict instead. Only hashable objects fit inside — a list raises TypeError, so convert it to a tuple or frozenset first. Iteration order is arbitrary and unrelated to insertion order, so print sorted(s) when the output has to be reproducible."
     },
     "syntax": "set(iterable)",
     "status": "ready",
@@ -1862,8 +1862,8 @@
       "en": "Sets an attribute of an object by name. Equivalent to obj.name = value, but lets you give the attribute name dynamically as a string."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Брать setattr стоит только когда имя атрибута реально вычисляется в рантайме (пришло из конфига, цикла, пользовательского ввода); если имя известно заранее, обычное obj.x = value читается лучше и опечатку в нём заметит IDE, а в строке — никто. Имя не проверяется на то, что оно валидный идентификатор: setattr(obj, 'my attr', 1) спокойно создаст запись в __dict__, до которой потом не добраться иначе как через getattr. На объектах без __dict__ — со __slots__ или встроенных типах вроде int и str — попытка упирается в AttributeError.",
+      "en": "Reach for setattr only when the attribute name is genuinely computed at runtime (from a config, a loop, user input); when you know the name up front, plain obj.x = value reads better and a typo in it gets flagged, while a typo inside a string does not. The name is not checked for being a valid identifier: setattr(obj, 'my attr', 1) happily lands in __dict__ and can then only be read back through getattr. Objects without a __dict__ — those with __slots__, or built-in types like int and str — raise AttributeError instead."
     },
     "syntax": "setattr(object, name, value)",
     "status": "ready",
@@ -1908,8 +1908,8 @@
       "en": "Returns a new sorted list. Accepts key and reverse. Does not modify the original sequence."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сортировка устойчивая: элементы с одинаковым ключом сохраняют исходный взаимный порядок — на этом строят сортировку по нескольким критериям, делая проходы от менее важного к более важному. key вычисляется ровно один раз на элемент, так что даже дорогая функция там не страшна. В отличие от list.sort(), который меняет список на месте и возвращает None, sorted берёт любой итерируемый объект и всегда отдаёт новый список.",
+      "en": "The sort is stable: items with equal keys keep their relative order, which is what makes multi-key sorting work when you sort by the least significant key first. The key function is evaluated exactly once per element, so an expensive key is not a performance trap. Unlike list.sort(), which reorders in place and returns None, sorted accepts any iterable and always hands back a new list."
     },
     "syntax": "sorted(iterable, key=None, reverse=False)",
     "status": "ready",
@@ -1950,8 +1950,8 @@
       "en": "Sums the items of an iterable. start is the initial value."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Строки sum складывать отказывается — будет TypeError с подсказкой использовать ''.join(). Склейка списков через sum(списки, []) формально работает, но на каждом шаге создаёт новый список и растёт квадратично; для длинных данных берите itertools.chain.",
+      "en": "sum refuses to concatenate strings — it raises TypeError and points you at ''.join() instead. Flattening lists with sum(lists, []) does work, but it builds a fresh list at every step and scales quadratically, so reach for itertools.chain on anything long."
     },
     "syntax": "sum(iterable, start=0)",
     "status": "ready",
@@ -1991,8 +1991,8 @@
       "en": "An immutable ordered sequence of items. Hashable (if its items are) — it can be used as a dictionary key."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Кортеж делает запятая, а не скобки: (1) — обычное число, кортеж из одного элемента пишется (1,). Неизменяемость поверхностная — если внутри лежит список, его содержимое менять можно, и такой кортеж перестаёт быть хешируемым: попытка использовать его ключом словаря даст TypeError.",
+      "en": "It is the comma, not the parentheses, that makes a tuple: (1) is just a number, while a one-element tuple is written (1,). Immutability is shallow — a list stored inside can still be mutated, and such a tuple is no longer hashable, so using it as a dict key raises TypeError."
     },
     "syntax": "tuple(iterable)",
     "status": "ready",
@@ -2034,8 +2034,8 @@
       "en": "Returns the __dict__ of an object, or a dictionary of the current local namespace (with no argument — the same as locals())."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "vars(экземпляра) показывает только его собственные атрибуты — атрибуты и методы класса туда не попадут, они лежат в vars(типа). Возвращается не копия, а живой __dict__: правка этого словаря действительно меняет объект. А если у класса объявлены __slots__ (или это встроенный тип вроде int), никакого __dict__ нет и vars бросит TypeError.",
+      "en": "vars(instance) shows only the instance's own attributes — class attributes and methods are not there, they live in vars(type). What you get is the live __dict__ rather than a copy, so mutating it genuinely changes the object. And a class declaring __slots__ (or a built-in type such as int) has no __dict__ at all, so vars raises TypeError."
     },
     "syntax": "vars([object])",
     "status": "ready",
@@ -2077,8 +2077,8 @@
       "en": "Named places in memory that hold values. Python variables are dynamically typed — the type comes from the value, not from a declaration."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Имя в Python — это ярлык на объект, а не коробка со значением: b = a ничего не копирует, и если объект изменяемый (список, словарь), правка через одно имя видна через второе. Обращение к имени, которому ещё ничего не присвоили, даёт NameError, а не None или ноль. При множественном присваивании количество имён слева и значений справа должно совпадать, иначе ValueError.",
+      "en": "A name is a label attached to an object, not a box holding a value: b = a copies nothing, and if the object is mutable (a list, a dict), a change made through one name is visible through the other. Reading a name that was never assigned raises NameError — not None, not zero. In multiple assignment the number of names on the left must match the number of values on the right, otherwise you get ValueError."
     },
     "syntax": "имя_переменной = значение",
     "status": "ready",
@@ -2121,8 +2121,8 @@
       "en": "Python can write numbers in binary (0b), octal (0o) and hexadecimal (0x), allows the _ separator for readability, and supports exponential notation."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Все эти записи дают обычный int — «двоичного числа» как отдельного типа нет, и печатается оно всегда в десятичном виде; обратный перевод в запись с префиксом делают bin(), oct(), hex(), и они возвращают строку. Экспоненциальная форма — исключение: 1e3 это float 1000.0, а не int. Ведущий ноль в десятичном литерале запрещён (010 — SyntaxError), для восьмеричной нужен явный 0o.",
+      "en": "All these forms produce a plain int — there is no separate \"binary number\" type, and it always prints in decimal; to get the prefixed form back use bin(), oct() or hex(), which return strings. Exponential notation is the exception: 1e3 is the float 1000.0, not an int. A leading zero in a decimal literal is a SyntaxError (010); octal needs the explicit 0o prefix."
     },
     "syntax": "0b<биты>  0o<цифры>  0x<цифры>  <цифры>_<цифры>  <число>e<порядок>",
     "status": "ready",
@@ -2164,8 +2164,8 @@
       "en": "Return the number of items in a container (its length)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "len() ничего не пересчитывает: контейнеры хранят свою длину, поэтому вызов работает за O(1) хоть на миллионе элементов. Но он требует наличия __len__ — у генератора и вообще у любого итератора длины нет, и вы получите TypeError; длину потока считают через sum(1 for _ in it) или сначала материализуют его в список.",
+      "en": "len() does not count anything: containers keep their size, so the call is O(1) even for a million items. It does require __len__, though — a generator or any other iterator has no length and raises TypeError, so count a stream with sum(1 for _ in it) or materialise it into a list first."
     },
     "syntax": "len(obj)",
     "status": "ready",

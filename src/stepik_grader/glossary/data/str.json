@@ -51,8 +51,8 @@
       "en": "f-strings (f'...') are formatted string literals. The expressions inside {} are evaluated at run time."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Литеральная фигурная скобка пишется удвоением: f'{{{x}}}' выведет значение x в скобках. До Python 3.12 внутри выражения нельзя было использовать те же кавычки, что у самой строки, и обратный слэш — теперь (PEP 701) можно, так что чужой код с промежуточными переменными часто написан именно из-за старого ограничения. Помните, что f-строка подставляет значения сразу при вычислении литерала: заготовить её как шаблон на будущее нельзя, для этого есть str.format().",
+      "en": "A literal brace is written by doubling it: f'{{{x}}}' prints the value of x wrapped in braces. Before Python 3.12 an expression could not reuse the outer quote character or contain a backslash; PEP 701 lifted that, so older code full of helper variables was often shaped by the old restriction. Remember that an f-string interpolates the moment the literal is evaluated — it cannot be stored as a reusable template, that is what str.format() is for."
     },
     "syntax": "f'{expr}'  |  f'{val:.2f}'  |  f'{val!r}'",
     "status": "ready",
@@ -254,8 +254,8 @@
       "en": "Raw strings (r\"...\") do not process escape sequences: a backslash is an ordinary character. Indispensable for regular expressions and Windows paths."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Префикс r влияет только на разбор литерала, а не на то, что потом делают с текстом: r\"\\d\" — это те же два символа, слэш и d, и модуль re по-прежнему видит в них шаблон «цифра», просто вам не нужно удваивать слэши. Главная ловушка — raw-строка не может заканчиваться нечётным числом обратных слэшей: r\"C:\\\" даёт SyntaxError, потому что слэш всё равно экранирует закрывающую кавычку (хотя в строку и попадает). Для путей в Windows надёжнее pathlib, чем ручная сборка строк.",
+      "en": "The r prefix changes only how the literal is parsed, not what later code does with the text: r\"\\d\" is just backslash plus d, and the re module still reads it as the digit pattern — you simply avoid doubling backslashes. The classic trap is that a raw string cannot end in an odd number of backslashes: r\"C:\\\" is a SyntaxError, since the backslash still escapes the closing quote even though it stays in the string. For Windows paths, pathlib beats hand-built string literals."
     },
     "syntax": "r\"строка\"  r'строка'",
     "status": "ready",
@@ -445,8 +445,8 @@
       "en": "Strings are written with single or double quotes, triple quotes for multi-line text, raw strings (r''), bytes (b'') and escape sequences."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Соседние строковые литералы склеиваются ещё на этапе компиляции: 'abc' 'def' — это одна строка 'abcdef'. Из-за этого забытая запятая в списке ['a', 'b' 'c'] не вызывает ошибки, а молча даёт два элемента вместо трёх. И b'...' — это не строка, а объект bytes: сложение или сравнение bytes со str кончается TypeError или False, нужен явный decode()/encode().",
+      "en": "Adjacent string literals are joined at compile time: 'abc' 'def' is the single string 'abcdef'. That is why a missing comma in ['a', 'b' 'c'] raises nothing and silently yields two items instead of three. Also, b'...' is not a string but a bytes object: mixing bytes with str gives a TypeError or a silent False, so convert explicitly with decode()/encode()."
     },
     "syntax": "s = 'text' | s = \"text\" | s = '''multi''' | s = r'raw' | s = b'bytes'",
     "status": "ready",
@@ -498,8 +498,8 @@
       "en": "Strings are compared lexicographically by the Unicode code points of their characters."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Порядок по code point — не алфавитный: все заглавные латинские буквы идут раньше строчных, поэтому 'Zoo' < 'apple' даёт True, а кириллица и символы с диакритикой стоят вообще отдельным блоком. Для человеческой сортировки задавайте ключ, например key=str.lower или key=str.casefold. Второй típичный промах — сравнивать числа как строки: '10' < '9' истинно, потому что сопоставляется первый символ.",
+      "en": "Code point order is not alphabetical order: every uppercase ASCII letter sorts before every lowercase one, so 'Zoo' < 'apple' is True, and Cyrillic or accented letters form their own separate block. For human-friendly sorting pass a key such as key=str.lower or key=str.casefold. The other common slip is comparing numbers as text: '10' < '9' is True because only the first characters decide."
     },
     "syntax": "s1 == s2  |  s1 < s2  |  s1 > s2",
     "status": "ready",
@@ -653,8 +653,8 @@
       "en": "Triple-quoted strings (\"\"\"...\"\"\" or '''...''') may contain line breaks and quotes with no escaping. Used for multi-line text and for docstrings."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В строку попадает всё буквально, включая перевод строки сразу после открывающих кавычек и отступы внутри блока кода — поэтому многострочный текст в теле функции часто оказывается с лишними пробелами в начале каждой строки. Лечится обратным слэшем в конце первой строки (он съедает перенос) и textwrap.dedent() для отступов. Докстрингом строка становится только тогда, когда она первый оператор в теле модуля, класса или функции; в любом другом месте это просто литерал, который вычислили и выбросили.",
+      "en": "Everything inside is taken literally — including the newline right after the opening quotes and the indentation of the surrounding code — so multi-line text written inside a function usually carries leading spaces on every line. A trailing backslash on the first line swallows the initial newline, and textwrap.dedent() strips the indentation. A triple-quoted string becomes a docstring only when it is the first statement of a module, class or function; anywhere else it is just a value that is computed and thrown away."
     },
     "syntax": "\"\"\"текст\"\"\"\n'''текст'''",
     "status": "ready",
@@ -746,8 +746,8 @@
       "en": "Return a copy with the first character capitalized and the rest lowercased."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Остаток строки принудительно опускается в нижний регистр, поэтому аббревиатуры и внутренние заглавные портятся: 'HTML файл' превратится в 'Html файл'. Если нужно поднять только первую букву, не трогая остальное, берут срез первого символа с upper() и приклеивают хвост как есть. С Python 3.8 первый символ приводится к титульному регистру, а не к верхнему — для обычных букв это неразличимо, для редких лигатур результат отличается.",
+      "en": "Everything after the first character is force-lowercased, so acronyms and internal capitals get mangled: 'HTML file' becomes 'Html file'. To raise just the first letter and leave the rest untouched, uppercase a one-character slice and concatenate the remainder unchanged. Since Python 3.8 the first character is converted to title case rather than upper case — indistinguishable for ordinary letters, different for rare ligatures."
     },
     "syntax": "s.capitalize()",
     "status": "ready",
@@ -784,8 +784,8 @@
       "en": "Return a titlecased version: each word starts with an uppercase letter."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Началом слова title() считает любой символ после не-буквы, поэтому апостроф ломает результат (don't превращается в Don'T), а внутренние заглавные затираются: McDonald становится Mcdonald. Для человеческих заголовков берите string.capwords() или собственную обработку по словам — title() годится лишь для простого текста без апострофов и составных имён.",
+      "en": "title() treats any character following a non-letter as a word start, so apostrophes break it (don't becomes Don'T) and inner capitals are lost: McDonald turns into Mcdonald. For real-world headings use string.capwords() or your own word-by-word logic; title() only suits plain text without apostrophes or compound names."
     },
     "syntax": "s.title()",
     "status": "ready",
@@ -823,8 +823,8 @@
       "en": "Return a copy with uppercase characters converted to lowercase and vice versa."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Два swapcase() подряд не обязаны вернуть исходную строку: ß становится SS, а обратно уже ss. Символы без регистра — цифры, пробелы, знаки препинания — остаются как есть; в реальных задачах метод почти не нужен и встречается в основном в учебных упражнениях.",
+      "en": "Applying swapcase() twice does not necessarily restore the original: ß turns into SS, and back again it becomes ss. Characters without case — digits, spaces, punctuation — are left alone, and outside of exercises this method is rarely what a real task needs."
     },
     "syntax": "s.swapcase()",
     "status": "ready",
@@ -861,8 +861,8 @@
       "en": "Return a copy with all cased characters converted to uppercase."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Длина результата не обязана совпадать с длиной исходной строки: ß разворачивается в две буквы SS, так что позиции символов после upper() смещаются и по ним нельзя резать исходный текст. upper() и lower() не обратны друг другу — s.upper().lower() не всегда даёт s, поэтому для регистронезависимого сравнения лучше casefold().",
+      "en": "The result is not guaranteed to have the same length as the input: ß expands to two characters, SS, so indices computed on the uppercased text no longer line up with the original. upper() and lower() are not inverses either — s.upper().lower() can differ from s — so use casefold() when you need a caseless comparison."
     },
     "syntax": "s.upper()",
     "status": "ready",
@@ -899,8 +899,8 @@
       "en": "Return a copy with all cased characters converted to lowercase."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Строки неизменяемы: lower() возвращает новую строку, исходная остаётся прежней — результат обязательно нужно присвоить или сразу использовать, иначе вызов просто пропадёт впустую. Для сравнения без учёта регистра латиницы и кириллицы lower() хватает, но на текстах с ß и подобными буквами надёжнее casefold().",
+      "en": "Strings are immutable: lower() returns a new string and leaves the original untouched, so the result has to be assigned or used right away or the call is wasted. For caseless comparison of Latin and Cyrillic text lower() is enough, but with letters like German ß casefold() is the safer choice."
     },
     "syntax": "s.lower()",
     "status": "ready",
@@ -937,8 +937,8 @@
       "en": "Aggressive lowercasing for caseless matching (e.g. ß → ss)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На ASCII и кириллице casefold() и lower() дают одинаковый результат — разница вылезает там, где одна и та же буква пишется по-разному: немецкое ß, греческая конечная сигма ς и подобное. Отсюда правило: сравнивать строки без учёта регистра — через casefold(), показывать пользователю — через lower(), потому что casefold может поменять и буквы, и длину строки, и обратно это не разворачивается.",
+      "en": "For ASCII and Cyrillic text casefold() and lower() return the same thing; the difference shows up only where one letter has several written forms, like German ß or Greek final sigma ς. Hence the rule: compare caselessly with casefold(), display with lower() — casefold may change the letters and the length of the string, and that transformation cannot be undone."
     },
     "syntax": "s.casefold()",
     "status": "ready",
@@ -1708,8 +1708,8 @@
       "en": "Split the string by a separator into a list; with no argument, split on any whitespace."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Два режима расходятся именно на краях и повторах: split() без аргумента схлопывает любые серии пробелов и игнорирует их по краям, а split(' ') честно отдаёт пустую строку за каждый лишний пробел. Отсюда классическая ловушка на пустом вводе — ''.split() даёт пустой список, а ''.split(',') даёт список с одной пустой строкой, и проверка на длину ломается. Пустая строка как разделитель запрещена: будет ValueError, а не разбивка посимвольно.",
+      "en": "The two modes differ exactly at the edges and on repeats: split() with no argument collapses runs of whitespace and ignores leading/trailing ones, while split(' ') faithfully returns an empty string for every extra space. Hence the classic empty-input trap — ''.split() gives an empty list, but ''.split(',') gives a list holding one empty string, and a length check breaks. An empty separator is rejected with ValueError, not treated as per-character splitting."
     },
     "syntax": "s.split(sep=None, maxsplit=-1)",
     "status": "ready",
@@ -1748,8 +1748,8 @@
       "en": "Like split, but split from the right when maxsplit is given."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пока maxsplit не задан, rsplit и split возвращают один и тот же список — разница проявляется только когда число разбиений ограничено и нужен именно хвост: последнее поле строки лога, расширение имени файла, домен адреса. Учтите разные режимы разделителя: без sep (или с sep=None) серии пробелов схлопываются и пустых кусков не бывает, а с явным разделителем каждый его повтор даёт пустую строку.",
+      "en": "Without maxsplit, rsplit and split produce identical lists — the difference shows up only when you cap the number of splits and specifically want the tail: the last field of a log line, a file extension, the domain of an address. Note the two separator modes: with no sep (or sep=None) runs of whitespace collapse and no empty pieces appear, while an explicit separator yields an empty string for every repeat of it."
     },
     "syntax": "s.rsplit(sep=None, maxsplit=-1)",
     "status": "ready",
@@ -1786,8 +1786,8 @@
       "en": "Split the string at line boundaries into a list, without the line breaks."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "От split('\\n') отличается двумя важными вещами: завершающий перевод строки не порождает лишний пустой элемент в конце, и границей считается не только \\n, но и \\r, \\r\\n, а также \\v, \\f, \\x1c-\\x1e, \\x85, \\u2028, \\u2029 — текст с такими символами может разрезаться там, где вы не ждали. Пустая строка даёт пустой список, а не список с одной пустой строкой.",
+      "en": "It differs from split('\\n') in two ways that matter: a trailing newline does not add a stray empty item at the end, and line boundaries include not just \\n but \\r, \\r\\n, plus \\v, \\f, \\x1c-\\x1e, \\x85, \\u2028 and \\u2029 — text containing those can be cut where you did not expect it. An empty string yields an empty list, not a list with one empty string."
     },
     "syntax": "s.splitlines(keepends=False)",
     "status": "ready",
@@ -1862,8 +1862,8 @@
       "en": "Split at the last occurrence of the separator into a (head, sep, tail) tuple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Кортеж всегда ровно из трёх элементов, поэтому распаковка на три имени не упадёт ни на каких данных — в отличие от rsplit, где длина списка зависит от того, нашёлся ли разделитель. Когда разделителя нет, пустыми оказываются первые два элемента, а вся строка попадает в третий (у partition наоборот — строка идёт первой). Пустая строка в роли разделителя не «режет по символам», а вызывает ValueError.",
+      "en": "The result is always a three-item tuple, so unpacking into three names never blows up on unexpected input — unlike rsplit, whose list length depends on whether the separator was found. If the separator is missing, the first two items come back empty and the whole string lands in the third (partition puts the string first instead). An empty separator raises ValueError rather than splitting per character."
     },
     "syntax": "s.rpartition(sep)",
     "status": "ready",
@@ -2532,8 +2532,8 @@
       "en": "Resizes a bytearray in place: extra bytes are truncated, new bytes are filled with null bytes. Returns None. Python 3.14+."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод добавлен только в 3.14 — на 3.12/3.13 будет AttributeError, а переносимые аналоги те же: b += b'\\x00' * n для роста и del b[n:] для обрезки. Изменение размера может переселить буфер в памяти, поэтому пока на bytearray жив memoryview, вызов не пройдёт и упадёт с BufferError.",
+      "en": "The method only exists in 3.14 and later — on 3.12/3.13 you get an AttributeError, and the portable equivalents are b += b'\\x00' * n to grow and del b[n:] to shrink. Resizing may move the underlying buffer, so while a memoryview is exported on the bytearray the call fails with BufferError."
     },
     "syntax": "bytearray.resize(size, /)",
     "status": "ready",
