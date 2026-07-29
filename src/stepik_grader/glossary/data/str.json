@@ -8,8 +8,8 @@
       "en": "Byte strings (b\"...\") hold a sequence of bytes rather than Unicode characters. Each item is an integer 0–255. Used when working with binary data."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Индексация и срез ведут себя по-разному: b[0] даёт целое число 104, а b[0:1] — снова объект bytes b'h'. Смешивать с обычными строками нельзя, b'a' + 'b' — это TypeError; переход туда-обратно только через .encode() и .decode() с явно понятной кодировкой. Сами bytes неизменяемы, как str: если нужно править байты на месте, берут bytearray.",
+      "en": "Indexing and slicing disagree on purpose: b[0] gives the integer 104, while b[0:1] gives back a bytes object, b'h'. Bytes never mix with str — b'a' + 'b' raises TypeError, and crossing between them goes through .encode() and .decode() with an encoding you have consciously chosen. Like str, bytes is immutable; when you need to patch bytes in place, reach for bytearray."
     },
     "syntax": "b\"строка\"  b'строка'",
     "status": "ready",
@@ -51,8 +51,8 @@
       "en": "f-strings (f'...') are formatted string literals. The expressions inside {} are evaluated at run time."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Литеральная фигурная скобка пишется удвоением: f'{{{x}}}' выведет значение x в скобках. До Python 3.12 внутри выражения нельзя было использовать те же кавычки, что у самой строки, и обратный слэш — теперь (PEP 701) можно, так что чужой код с промежуточными переменными часто написан именно из-за старого ограничения. Помните, что f-строка подставляет значения сразу при вычислении литерала: заготовить её как шаблон на будущее нельзя, для этого есть str.format().",
+      "en": "A literal brace is written by doubling it: f'{{{x}}}' prints the value of x wrapped in braces. Before Python 3.12 an expression could not reuse the outer quote character or contain a backslash; PEP 701 lifted that, so older code full of helper variables was often shaped by the old restriction. Remember that an f-string interpolates the moment the literal is evaluated — it cannot be stored as a reusable template, that is what str.format() is for."
     },
     "syntax": "f'{expr}'  |  f'{val:.2f}'  |  f'{val!r}'",
     "status": "ready",
@@ -109,8 +109,8 @@
       "en": "The str.format() method substitutes arguments by position or by name. It supports format specifiers."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Литеральные фигурные скобки в шаблоне экранируются удвоением: {{ и }}. Смешивать в одной строке автоматическую нумерацию {} и ручную {0} нельзя — будет ValueError. В новом коде обычно берут f-строки; format() остаётся полезен там, где шаблон приходит извне (конфиг, файл переводов) — но именно поэтому не форматируйте пользовательские шаблоны: через {0.__class__} из них можно вытащить внутренности объекта.",
+      "en": "Literal braces are escaped by doubling them: {{ and }}. You cannot mix automatic numbering {} with explicit indexes {0} in one template — that raises ValueError. F-strings are the default for new code; format() earns its place when the template comes from outside the source (config, translation file) — and for that same reason never format a template supplied by a user: constructs like {0.__class__} can walk into the object's internals."
     },
     "syntax": "'{}'.format(val)  |  '{name}'.format(name=val)  |  '{:.2f}'.format(num)",
     "status": "ready",
@@ -160,8 +160,8 @@
       "en": "Checks whether one string is a substring of another. Returns a bool."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Для строк проверка идёт по подстроке, а не по отдельному элементу: 'py' in 'python' — True, а вот в списке ['python'] тот же 'py' даст False, потому что там сравниваются целые элементы. Пустая строка входит в любую строку, включая пустую, а поиск регистрозависимый — для сравнения без учёта регистра приводите обе стороны к .lower().",
+      "en": "On strings the test is substring-based, not element-based: 'py' in 'python' is True, while 'py' in ['python'] is False because a list compares whole items. The empty string is contained in every string, even an empty one, and the check is case-sensitive — lowercase both sides when case should not matter."
     },
     "syntax": "'sub' in s  |  'sub' not in s",
     "status": "ready",
@@ -206,8 +206,8 @@
       "en": "Returns the number of characters in a string. Every Unicode character counts as one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "len считает кодовые точки, а не то, что глаз воспринимает как один знак: эмодзи с модификатором или буква с отдельным комбинирующим ударением дадут 2 и больше. У той же строки, закодированной в UTF-8, длина уже другая — кириллица занимает там по два байта на букву, так что длину строки и длину её байтов путать нельзя. Сама операция O(1): длина хранится в объекте.",
+      "en": "len counts code points, not what the eye reads as one character: an emoji with a skin-tone modifier or a letter written with a separate combining accent comes out as 2 or more. Encode the same text to UTF-8 and the length changes — Cyrillic takes two bytes per letter there — so never mix up the length of a string with the length of its bytes. The call itself is O(1); the length is stored on the object."
     },
     "syntax": "len(s)",
     "status": "ready",
@@ -254,8 +254,8 @@
       "en": "Raw strings (r\"...\") do not process escape sequences: a backslash is an ordinary character. Indispensable for regular expressions and Windows paths."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Префикс r влияет только на разбор литерала, а не на то, что потом делают с текстом: r\"\\d\" — это те же два символа, слэш и d, и модуль re по-прежнему видит в них шаблон «цифра», просто вам не нужно удваивать слэши. Главная ловушка — raw-строка не может заканчиваться нечётным числом обратных слэшей: r\"C:\\\" даёт SyntaxError, потому что слэш всё равно экранирует закрывающую кавычку (хотя в строку и попадает). Для путей в Windows надёжнее pathlib, чем ручная сборка строк.",
+      "en": "The r prefix changes only how the literal is parsed, not what later code does with the text: r\"\\d\" is just backslash plus d, and the re module still reads it as the digit pattern — you simply avoid doubling backslashes. The classic trap is that a raw string cannot end in an odd number of backslashes: r\"C:\\\" is a SyntaxError, since the backslash still escapes the closing quote even though it stays in the string. For Windows paths, pathlib beats hand-built string literals."
     },
     "syntax": "r\"строка\"  r'строка'",
     "status": "ready",
@@ -297,8 +297,8 @@
       "en": "Access to a character of a string by index. Positive indices count from the start (0), negative ones from the end (-1)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Выход за границу — это IndexError, тогда как срез молча возвращает то, что попало в диапазон: на пустой строке s[0] падает, а s[0:1] даёт пустую строку. Отдельного типа символа в Python нет — s[i] это строка длиной 1, и присвоить в неё нельзя: строки неизменяемы, попытка даёт TypeError. Индекс считается в символах Unicode, а не в байтах.",
+      "en": "An out-of-range index raises IndexError, while a slice quietly returns whatever fits: on an empty string s[0] blows up but s[0:1] just gives an empty string. Python has no separate character type — s[i] is a one-character string, and you cannot assign to it, since strings are immutable and the attempt raises TypeError. Indices count Unicode characters, not bytes."
     },
     "syntax": "s[i]  # i — целое число",
     "status": "ready",
@@ -349,8 +349,8 @@
       "en": "The + operator joins two strings into a new one. Both operands must be strings."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Оба операнда обязаны быть строками: 'год ' + 2026 бросает TypeError, число надо завернуть в str() или собрать всё f-строкой. Каждое + создаёт новый объект, то есть склейка в цикле копирует накопленную строку снова и снова — когда кусков много, собирайте список и отдавайте его в ''.join().",
+      "en": "Both operands must be strings: 'year ' + 2026 raises TypeError, so wrap the number in str() or use an f-string instead. Every + builds a brand-new object, so concatenating inside a loop recopies the whole accumulated string each time — collect the pieces in a list and hand them to ''.join() when there are many."
     },
     "syntax": "s1 + s2",
     "status": "ready",
@@ -398,8 +398,8 @@
       "en": "The * operator repeats a string n times. For n <= 0 it returns an empty string."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Множитель обязан быть целым числом: 'ab' * 2.0 даёт TypeError, дробное значение сначала приведите к int. В отличие от списков, где [[0]] * 3 создаёт три ссылки на один и тот же вложенный список, со строками этой ловушки нет — они неизменяемы, менять «одну из копий» просто невозможно.",
+      "en": "The multiplier has to be an int: 'ab' * 2.0 raises TypeError, so convert a float first. Unlike lists, where [[0]] * 3 gives three references to the same inner list, strings carry no such trap — being immutable, there is nothing to mutate through a shared reference."
     },
     "syntax": "s * n  |  n * s",
     "status": "ready",
@@ -445,8 +445,8 @@
       "en": "Strings are written with single or double quotes, triple quotes for multi-line text, raw strings (r''), bytes (b'') and escape sequences."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Соседние строковые литералы склеиваются ещё на этапе компиляции: 'abc' 'def' — это одна строка 'abcdef'. Из-за этого забытая запятая в списке ['a', 'b' 'c'] не вызывает ошибки, а молча даёт два элемента вместо трёх. И b'...' — это не строка, а объект bytes: сложение или сравнение bytes со str кончается TypeError или False, нужен явный decode()/encode().",
+      "en": "Adjacent string literals are joined at compile time: 'abc' 'def' is the single string 'abcdef'. That is why a missing comma in ['a', 'b' 'c'] raises nothing and silently yields two items instead of three. Also, b'...' is not a string but a bytes object: mixing bytes with str gives a TypeError or a silent False, so convert explicitly with decode()/encode()."
     },
     "syntax": "s = 'text' | s = \"text\" | s = '''multi''' | s = r'raw' | s = b'bytes'",
     "status": "ready",
@@ -498,8 +498,8 @@
       "en": "Strings are compared lexicographically by the Unicode code points of their characters."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Порядок по code point — не алфавитный: все заглавные латинские буквы идут раньше строчных, поэтому 'Zoo' < 'apple' даёт True, а кириллица и символы с диакритикой стоят вообще отдельным блоком. Для человеческой сортировки задавайте ключ, например key=str.lower или key=str.casefold. Второй típичный промах — сравнивать числа как строки: '10' < '9' истинно, потому что сопоставляется первый символ.",
+      "en": "Code point order is not alphabetical order: every uppercase ASCII letter sorts before every lowercase one, so 'Zoo' < 'apple' is True, and Cyrillic or accented letters form their own separate block. For human-friendly sorting pass a key such as key=str.lower or key=str.casefold. The other common slip is comparing numbers as text: '10' < '9' is True because only the first characters decide."
     },
     "syntax": "s1 == s2  |  s1 < s2  |  s1 > s2",
     "status": "ready",
@@ -544,8 +544,8 @@
       "en": "Taking a substring by a range of indices. s[a:b] runs from a to b (b excluded), s[a:b:c] takes step c. s[::-1] reverses the string."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Срез не умеет вылетать за границы: s[10:20] на короткой строке вернёт пустую строку, тогда как s[10] бросит IndexError — этим удобно пользоваться, но так же легко проглядеть опечатку. Каждый срез — новая строка длиной b-a, поэтому резать строку в цикле по кусочку дороже, чем просто идти по ней. При отрицательном шаге границы читаются справа налево: нужно s[5:1:-1], а не s[1:5:-1].",
+      "en": "A slice never goes out of range: s[10:20] on a short string just yields an empty string, while s[10] raises IndexError — handy, but it also hides typos. Every slice allocates a fresh string of length b-a, so chopping a string piece by piece in a loop costs more than iterating over it directly. With a negative step the bounds read right to left: you want s[5:1:-1], not s[1:5:-1]."
     },
     "syntax": "s[a:b]  |  s[a:b:c]  |  s[::-1]",
     "status": "ready",
@@ -596,8 +596,8 @@
       "en": "Strings in Python are immutable. Interning caches short identifier-like strings. is checks object identity, == checks equality."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Из неизменяемости следует практическое: upper(), replace(), strip() и срезы ничего не правят на месте, а возвращают новую строку — забыть присвоить результат обратно самая частая ошибка новичка. Сравнивать строки нужно только через ==: is иногда «срабатывает» на литералах благодаря интернированию, но на строке, собранной в рантайме (из ввода или конкатенации), внезапно даёт False; с Python 3.8 сравнение через is с литералом ещё и вызывает SyntaxWarning.",
+      "en": "Immutability has a very practical consequence: upper(), replace(), strip() and slices never edit in place, they hand back a new string, and forgetting to assign that result is the classic beginner bug. Compare strings with == only — is may appear to work on literals thanks to interning, yet fails on a string built at runtime from input or concatenation; since Python 3.8 using is against a literal also emits a SyntaxWarning."
     },
     "syntax": "s[i] = x  # TypeError  |  id(s)  |  sys.intern(s)",
     "status": "ready",
@@ -653,8 +653,8 @@
       "en": "Triple-quoted strings (\"\"\"...\"\"\" or '''...''') may contain line breaks and quotes with no escaping. Used for multi-line text and for docstrings."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В строку попадает всё буквально, включая перевод строки сразу после открывающих кавычек и отступы внутри блока кода — поэтому многострочный текст в теле функции часто оказывается с лишними пробелами в начале каждой строки. Лечится обратным слэшем в конце первой строки (он съедает перенос) и textwrap.dedent() для отступов. Докстрингом строка становится только тогда, когда она первый оператор в теле модуля, класса или функции; в любом другом месте это просто литерал, который вычислили и выбросили.",
+      "en": "Everything inside is taken literally — including the newline right after the opening quotes and the indentation of the surrounding code — so multi-line text written inside a function usually carries leading spaces on every line. A trailing backslash on the first line swallows the initial newline, and textwrap.dedent() strips the indentation. A triple-quoted string becomes a docstring only when it is the first statement of a module, class or function; anywhere else it is just a value that is computed and thrown away."
     },
     "syntax": "\"\"\"текст\"\"\"\n'''текст'''",
     "status": "ready",
@@ -698,8 +698,8 @@
       "en": "The old formatting style, through the % operator. %s — string, %d — integer, %f — float, %r — repr."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Правый операнд % — это кортеж аргументов, поэтому если подставить надо сам кортеж, его заворачивают ещё в один: '%s' % (t,), иначе Python разложит его по спецификаторам и упадёт с TypeError. %d к вещественному числу молча отбрасывает дробную часть. В новом коде пишут f-строки, но %-стиль жив в логировании: logging.info('x=%s', x) откладывает подстановку до момента, когда запись действительно пишется.",
+      "en": "The right-hand operand of % is a tuple of arguments, so a tuple you want to insert as a value must be wrapped in another one — '%s' % (t,) — otherwise Python spreads it across the specifiers and fails with TypeError. %d applied to a float silently drops the fractional part. New code uses f-strings, yet %-style survives in logging: logging.info('x=%s', x) defers the substitution until the record is actually emitted."
     },
     "syntax": "'format %s' % value  |  'format %(key)s' % dict",
     "status": "ready",
@@ -746,8 +746,8 @@
       "en": "Return a copy with the first character capitalized and the rest lowercased."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Остаток строки принудительно опускается в нижний регистр, поэтому аббревиатуры и внутренние заглавные портятся: 'HTML файл' превратится в 'Html файл'. Если нужно поднять только первую букву, не трогая остальное, берут срез первого символа с upper() и приклеивают хвост как есть. С Python 3.8 первый символ приводится к титульному регистру, а не к верхнему — для обычных букв это неразличимо, для редких лигатур результат отличается.",
+      "en": "Everything after the first character is force-lowercased, so acronyms and internal capitals get mangled: 'HTML file' becomes 'Html file'. To raise just the first letter and leave the rest untouched, uppercase a one-character slice and concatenate the remainder unchanged. Since Python 3.8 the first character is converted to title case rather than upper case — indistinguishable for ordinary letters, different for rare ligatures."
     },
     "syntax": "s.capitalize()",
     "status": "ready",
@@ -784,8 +784,8 @@
       "en": "Return a titlecased version: each word starts with an uppercase letter."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Началом слова title() считает любой символ после не-буквы, поэтому апостроф ломает результат (don't превращается в Don'T), а внутренние заглавные затираются: McDonald становится Mcdonald. Для человеческих заголовков берите string.capwords() или собственную обработку по словам — title() годится лишь для простого текста без апострофов и составных имён.",
+      "en": "title() treats any character following a non-letter as a word start, so apostrophes break it (don't becomes Don'T) and inner capitals are lost: McDonald turns into Mcdonald. For real-world headings use string.capwords() or your own word-by-word logic; title() only suits plain text without apostrophes or compound names."
     },
     "syntax": "s.title()",
     "status": "ready",
@@ -823,8 +823,8 @@
       "en": "Return a copy with uppercase characters converted to lowercase and vice versa."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Два swapcase() подряд не обязаны вернуть исходную строку: ß становится SS, а обратно уже ss. Символы без регистра — цифры, пробелы, знаки препинания — остаются как есть; в реальных задачах метод почти не нужен и встречается в основном в учебных упражнениях.",
+      "en": "Applying swapcase() twice does not necessarily restore the original: ß turns into SS, and back again it becomes ss. Characters without case — digits, spaces, punctuation — are left alone, and outside of exercises this method is rarely what a real task needs."
     },
     "syntax": "s.swapcase()",
     "status": "ready",
@@ -861,8 +861,8 @@
       "en": "Return a copy with all cased characters converted to uppercase."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Длина результата не обязана совпадать с длиной исходной строки: ß разворачивается в две буквы SS, так что позиции символов после upper() смещаются и по ним нельзя резать исходный текст. upper() и lower() не обратны друг другу — s.upper().lower() не всегда даёт s, поэтому для регистронезависимого сравнения лучше casefold().",
+      "en": "The result is not guaranteed to have the same length as the input: ß expands to two characters, SS, so indices computed on the uppercased text no longer line up with the original. upper() and lower() are not inverses either — s.upper().lower() can differ from s — so use casefold() when you need a caseless comparison."
     },
     "syntax": "s.upper()",
     "status": "ready",
@@ -899,8 +899,8 @@
       "en": "Return a copy with all cased characters converted to lowercase."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Строки неизменяемы: lower() возвращает новую строку, исходная остаётся прежней — результат обязательно нужно присвоить или сразу использовать, иначе вызов просто пропадёт впустую. Для сравнения без учёта регистра латиницы и кириллицы lower() хватает, но на текстах с ß и подобными буквами надёжнее casefold().",
+      "en": "Strings are immutable: lower() returns a new string and leaves the original untouched, so the result has to be assigned or used right away or the call is wasted. For caseless comparison of Latin and Cyrillic text lower() is enough, but with letters like German ß casefold() is the safer choice."
     },
     "syntax": "s.lower()",
     "status": "ready",
@@ -937,8 +937,8 @@
       "en": "Aggressive lowercasing for caseless matching (e.g. ß → ss)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На ASCII и кириллице casefold() и lower() дают одинаковый результат — разница вылезает там, где одна и та же буква пишется по-разному: немецкое ß, греческая конечная сигма ς и подобное. Отсюда правило: сравнивать строки без учёта регистра — через casefold(), показывать пользователю — через lower(), потому что casefold может поменять и буквы, и длину строки, и обратно это не разворачивается.",
+      "en": "For ASCII and Cyrillic text casefold() and lower() return the same thing; the difference shows up only where one letter has several written forms, like German ß or Greek final sigma ς. Hence the rule: compare caselessly with casefold(), display with lower() — casefold may change the letters and the length of the string, and that transformation cannot be undone."
     },
     "syntax": "s.casefold()",
     "status": "ready",
@@ -975,8 +975,8 @@
       "en": "True if the string is non-empty and all characters are alphanumeric."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Проверка идёт по Unicode, а не по набору [A-Za-z0-9]: кириллица проходит, и вместе с ней экзотика вроде римской цифры Ⅻ или дроби ½, хотя int() их не примет. Если нужны именно латинские буквы и цифры, добавьте isascii() или регулярку. Подчёркивание алфавитно-цифровым не считается, поэтому для проверки имени переменной берут isidentifier().",
+      "en": "The test is Unicode-wide, not [A-Za-z0-9]: Cyrillic passes, and so do oddities like the Roman numeral Ⅻ or the fraction ½, even though int() would reject them. Pair it with isascii(), or use a regex, when you really mean plain letters and digits. Underscore is not alphanumeric, so for a variable-name check use isidentifier() instead."
     },
     "syntax": "s.isalnum()",
     "status": "ready",
@@ -1013,8 +1013,8 @@
       "en": "True if the string is non-empty and all characters are letters."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Буква здесь — любая буква Unicode, поэтому кириллица, умлауты и иероглифы проходят, а пробел, дефис и апостроф — нет: 'Анна Мария' и 'Jean-Luc' дадут False, хотя это нормальные имена. Пустая строка тоже False, так что отдельная проверка на непустоту не нужна. Надстрочные цифры вроде '²' не alpha, но numeric.",
+      "en": "Letter means any Unicode letter, so Cyrillic, umlauts and CJK all pass, while a space, hyphen or apostrophe does not — 'Anna Maria' and 'Jean-Luc' come back False even though they are perfectly good names. The empty string is False as well, so a separate emptiness check is redundant. Superscripts like '²' count as numeric rather than alpha."
     },
     "syntax": "s.isalpha()",
     "status": "ready",
@@ -1051,8 +1051,8 @@
       "en": "True if all characters are digits (including superscripts like ²)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Набор символов здесь шире, чем у isdecimal: проходят надстрочные и обведённые цифры, на которых int() падает с ValueError. Поэтому isdigit — плохой сторож перед преобразованием в число; если вопрос именно «получится ли int(s)», берите isdecimal или сразу try/except.",
+      "en": "The accepted set is wider than isdecimal's: superscripts and circled digits pass, yet int() raises ValueError on them. That makes isdigit a poor guard before converting to a number — when the real question is whether int(s) will work, use isdecimal or just try/except."
     },
     "syntax": "s.isdigit()",
     "status": "ready",
@@ -1090,8 +1090,8 @@
       "en": "True if all characters are decimal digits (0–9); stricter than isdigit."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Из тройки isdecimal → isdigit → isnumeric эта проверка самая узкая, и только на неё можно опираться перед int(): True означает, что все символы — десятичные цифры (категория Unicode Nd), которые int() разберёт. Знак минуса, точка и пробелы в набор не входят, поэтому '-5' и ' 12' дадут False — для знака и дробей остаётся try/except ValueError.",
+      "en": "Of the trio isdecimal → isdigit → isnumeric this is the narrowest check, and the only one worth trusting before int(): True means every character is a decimal digit (Unicode category Nd) that int() can parse. Signs, dots and spaces are not in that set, so '-5' and ' 12' come back False — for signed or fractional input fall back to try/except ValueError."
     },
     "syntax": "s.isdecimal()",
     "status": "ready",
@@ -1128,8 +1128,8 @@
       "en": "True if all characters are numeric, including fractions and numerals (½, Ⅴ)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Самая широкая из трёх проверок: True возвращается и для дробей, и для римских цифр, которые ни int(), ни float() разобрать не смогут. Числовое значение такого символа достаёт unicodedata.numeric(), а для валидации ввода перед int() нужен isdecimal.",
+      "en": "The widest of the three checks: fractions and Roman numerals return True even though neither int() nor float() can parse them. To get the value of such a character use unicodedata.numeric(); to validate input before int() use isdecimal instead."
     },
     "syntax": "s.isnumeric()",
     "status": "ready",
@@ -1166,8 +1166,8 @@
       "en": "True if the string is non-empty and all characters are whitespace."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пробельными считаются не только пробел, \\t и \\n, но и юникодные вроде неразрывного \\xa0 — данные, склеенные из веба, часто «не пустые» именно из-за них. Если нужно просто понять, что во вводе нет ничего значащего, короче и надёжнее проверка not s.strip(): она заодно покрывает и пустую строку, на которой isspace() даёт False.",
+      "en": "Whitespace here is not just space, \\t and \\n but Unicode ones too, such as the non-breaking \\xa0 — text scraped from the web often looks blank because of those. When you only need to know that the input carries nothing meaningful, not s.strip() is shorter and safer: it also covers the empty string, where isspace() returns False."
     },
     "syntax": "s.isspace()",
     "status": "ready",
@@ -1204,8 +1204,8 @@
       "en": "True if all cased characters are lowercase and there is at least one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Символы без регистра — цифры, пробелы, знаки препинания — просто игнорируются, поэтому 'abc123' даёт True, а '123' и пустая строка — False: нужна хотя бы одна буква. Отсюда частая ошибка: not s.islower() не значит «в строке есть заглавные», на строке из одних цифр это выражение тоже истинно.",
+      "en": "Caseless characters — digits, spaces, punctuation — are simply ignored, so 'abc123' is True while '123' and '' are False: at least one cased letter is required. Hence a common bug: not s.islower() does not mean \"contains uppercase\", it is also true for a string of digits alone."
     },
     "syntax": "s.islower()",
     "status": "ready",
@@ -1242,8 +1242,8 @@
       "en": "True if all cased characters are uppercase and there is at least one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод смотрит только на буквы: цифры и знаки препинания он игнорирует, но если букв нет вовсе, ответ False — поэтому '123' и пустая строка не считаются заглавными. Из-за этого isupper() не эквивалентен сравнению s == s.upper(): для '123' сравнение истинно, а метод даёт False.",
+      "en": "Only cased characters are examined: digits and punctuation are ignored, yet a string with no letters at all returns False, so '123' and the empty string are not uppercase. That is why isupper() is not the same as s == s.upper(): for '123' the comparison holds while the method returns False."
     },
     "syntax": "s.isupper()",
     "status": "ready",
@@ -1280,8 +1280,8 @@
       "en": "True if the string is titlecased: each word starts with an uppercase letter."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Границей слова считается любой не-буквенный символ, поэтому апостроф ломает интуицию: \"They're\" даёт False, а титульным по мнению Python будет \"They'Re\". Та же логика и у str.title(), из-за чего он портит имена вроде O'Brien. Для человеческих заголовков метод почти бесполезен — он про механическое правило регистра, а не про язык.",
+      "en": "Any non-letter counts as a word boundary, so apostrophes defeat intuition: \"They're\" is False, while Python considers \"They'Re\" properly titlecased. str.title() follows the same rule, which is why it mangles names like O'Brien. For real-world headings the method is close to useless — it encodes a mechanical casing rule, not language."
     },
     "syntax": "s.istitle()",
     "status": "ready",
@@ -1318,8 +1318,8 @@
       "en": "True if the string is a valid Python identifier (keywords included)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод судит только о грамматике имени, но не о том, что имя свободно: ключевые слова вроде for и class проверку проходят, хотя присвоить им ничего нельзя. Если проверяете имя, сгенерированное программой или введённое пользователем, добавляйте вторую проверку — keyword.iskeyword().",
+      "en": "The method judges the shape of the name, not whether the name is usable: keywords like for and class pass, even though you can never assign to them. When validating a generated or user-supplied name, pair it with a second check, keyword.iskeyword()."
     },
     "syntax": "s.isidentifier()",
     "status": "ready",
@@ -1355,8 +1355,8 @@
       "en": "True if the string is empty or all characters are ASCII."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод появился в Python 3.7 и, в отличие от остальных is-проверок, на пустой строке даёт True. ASCII тут — про кодовые точки меньше 128, а не про печатаемость: перевод строки, табуляция и нулевой байт проверку проходят. Удобно как дешёвый тест перед encode('ascii') или чтобы поймать кириллическую букву-двойника, затесавшуюся в идентификатор.",
+      "en": "Added in Python 3.7, and unlike the other is-methods it returns True for the empty string. ASCII here means code points below 128, not printable: newline, tab and the null byte all pass. Handy as a cheap pre-check before encode('ascii'), or to catch a Cyrillic look-alike letter smuggled into an identifier."
     },
     "syntax": "s.isascii()",
     "status": "ready",
@@ -1393,8 +1393,8 @@
       "en": "True if the string is empty or all characters are printable (no \\t, \\n, …)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Печатаемость тут определяет Unicode: непечатаемым считается всё из категорий Other и Separator, кроме обычного ASCII-пробела. Поэтому 'a b' даёт True, а строка с неразрывным пробелом \\xa0 — False. И ещё особенность: на пустой строке метод возвращает True, тогда как почти все остальные проверки is* дают False.",
+      "en": "Printability here follows Unicode: everything in the Other and Separator categories is non-printable, with the plain ASCII space as the single exception. So 'a b' is True, while a string holding a non-breaking space \\xa0 is False. Note also that the empty string returns True, unlike nearly every other is* check."
     },
     "syntax": "s.isprintable()",
     "status": "ready",
@@ -1431,8 +1431,8 @@
       "en": "Return the lowest index of the substring, or -1 if not found. Optional start/end."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Признак «не найдено» — это -1, а не None, поэтому проверка вида «если s.find(sub)» ломается сразу с двух сторон: совпадение в самом начале даёт 0 и считается ложью, а отсутствие даёт -1 и считается истиной. Сравнивайте результат с -1 явно. Когда нужен только факт наличия, читабельнее оператор in; find берут, когда нужна сама позиция.",
+      "en": "Failure is signalled by -1, not None, so a truthiness test on the result is wrong twice over: a match at position 0 reads as false, while a miss at -1 reads as true. Always compare against -1 explicitly. If you only need to know whether the substring is there, the in operator is clearer; reach for find when you actually need the position."
     },
     "syntax": "s.find(sub[, start[, end]])",
     "status": "ready",
@@ -1471,8 +1471,8 @@
       "en": "Return the highest index of the substring, or -1 if not found (search from the right)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Направление поиска обратное, но индекс возвращается обычный, от начала строки, а не отрицательный; аргументы start и end по-прежнему задают срез в прямом порядке. Для разбора по последнему разделителю обычно удобнее rpartition или rsplit с maxsplit=1 — они сразу отдают части, без ручной арифметики с индексом. Строгий двойник, бросающий ValueError вместо -1, называется rindex.",
+      "en": "Only the scan direction is reversed: the returned index is still counted from the start of the string, never negative, and start/end still delimit a slice in the usual order. To split on the last separator, rpartition or rsplit with maxsplit=1 is usually cleaner, since they hand you the pieces without index arithmetic. The strict twin that raises ValueError instead of returning -1 is rindex."
     },
     "syntax": "s.rfind(sub[, start[, end]])",
     "status": "ready",
@@ -1509,8 +1509,8 @@
       "en": "Like find, but raise ValueError when the substring is not found."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Берите index, когда отсутствие подстроки означает баг: он падает громко и сразу, тогда как -1 от find спокойно уйдёт дальше в срез или арифметику и молча даст отсчёт от конца строки вместо ошибки. Если отсутствие — штатная ситуация, тогда либо find с явной проверкой, либо try/except ValueError — именно ValueError, а не общий Exception.",
+      "en": "Use index when a missing substring means the program is wrong: it fails loudly at the point of the mistake, whereas find's -1 quietly flows into a slice or into arithmetic and silently counts from the end of the string instead. When absence is a normal case, either check find's result explicitly or catch ValueError specifically, not a bare Exception."
     },
     "syntax": "s.index(sub[, start[, end]])",
     "status": "ready",
@@ -1550,8 +1550,8 @@
       "en": "Like rfind, but raise ValueError when the substring is not found."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отличие от rfind ровно одно — реакция на отсутствие: rfind вернёт -1, rindex бросит ValueError. Берите rindex, когда пропажа подстроки означает битые данные и падать надо сразу; если результат всё равно предстоит проверять, rfind читается лучше, чем try/except. Аргументы start и end сужают зону поиска, но индекс возвращается от начала всей строки, а не от start.",
+      "en": "The only difference from rfind is the failure mode: rfind returns -1, rindex raises ValueError. Reach for rindex when a missing substring means broken data and you want the crash; if you are going to inspect the result anyway, rfind reads better than a try/except. The start and end arguments narrow the search window, but the index you get back is still counted from the beginning of the whole string."
     },
     "syntax": "s.rindex(sub[, start[, end]])",
     "status": "ready",
@@ -1590,8 +1590,8 @@
       "en": "Return the number of non-overlapping occurrences of the substring."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Вхождения считаются непересекающимися и слева направо: в строке из четырёх букв 'a' подстрока 'aa' найдётся дважды, а не трижды. Пустая подстрока даёт len(s)+1 — по позиции между каждой парой символов плюс два края. Каждый вызов проходит строку целиком, поэтому считать частоты десятка разных символов десятью вызовами count дорого: collections.Counter соберёт всё за один проход.",
+      "en": "Matches are counted left to right and never overlap, so 'aa' occurs twice in a run of four 'a' characters, not three times. An empty substring returns len(s)+1, one position between every pair of characters plus both ends. Each call rescans the whole string, so tallying many different characters with many count calls is wasteful — collections.Counter does it in a single pass."
     },
     "syntax": "s.count(sub[, start[, end]])",
     "status": "ready",
@@ -1630,8 +1630,8 @@
       "en": "True if the string starts with the prefix (or one of a tuple of prefixes)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Префиксом может быть строка или кортеж строк — список или множество дают TypeError, это самая частая осечка. Пустой префикс всегда даёт True. С аргументом start проверка сдвигается на указанную позицию: s.startswith(p, 5) равносильно s[5:].startswith(p), только без копирования строки.",
+      "en": "The prefix must be a str or a tuple of str — a list or a set raises TypeError, which is the usual stumble. An empty prefix always matches. Passing start shifts the check to that position: s.startswith(p, 5) means the same as s[5:].startswith(p), but without copying the string."
     },
     "syntax": "s.startswith(prefix[, start[, end]])",
     "status": "ready",
@@ -1669,8 +1669,8 @@
       "en": "True if the string ends with the suffix (or one of a tuple of suffixes)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Второй аргумент — строка или именно кортеж строк: список вызовет TypeError, что регулярно ловят те, кто собрал расширения динамически (оберните в tuple()). Сравнение чувствительно к регистру, поэтому файл с расширением в верхнем регистре проверку на '.py' не пройдёт — приводите имя к нижнему регистру заранее.",
+      "en": "The argument must be a string or a tuple of strings — a list raises TypeError, which bites people who build their extension list dynamically (wrap it in tuple()). Matching is case-sensitive, so an uppercase extension will not match '.py'; lowercase the name first, or compare Path(...).suffix instead."
     },
     "syntax": "s.endswith(suffix[, start[, end]])",
     "status": "ready",
@@ -1708,8 +1708,8 @@
       "en": "Split the string by a separator into a list; with no argument, split on any whitespace."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Два режима расходятся именно на краях и повторах: split() без аргумента схлопывает любые серии пробелов и игнорирует их по краям, а split(' ') честно отдаёт пустую строку за каждый лишний пробел. Отсюда классическая ловушка на пустом вводе — ''.split() даёт пустой список, а ''.split(',') даёт список с одной пустой строкой, и проверка на длину ломается. Пустая строка как разделитель запрещена: будет ValueError, а не разбивка посимвольно.",
+      "en": "The two modes differ exactly at the edges and on repeats: split() with no argument collapses runs of whitespace and ignores leading/trailing ones, while split(' ') faithfully returns an empty string for every extra space. Hence the classic empty-input trap — ''.split() gives an empty list, but ''.split(',') gives a list holding one empty string, and a length check breaks. An empty separator is rejected with ValueError, not treated as per-character splitting."
     },
     "syntax": "s.split(sep=None, maxsplit=-1)",
     "status": "ready",
@@ -1748,8 +1748,8 @@
       "en": "Like split, but split from the right when maxsplit is given."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пока maxsplit не задан, rsplit и split возвращают один и тот же список — разница проявляется только когда число разбиений ограничено и нужен именно хвост: последнее поле строки лога, расширение имени файла, домен адреса. Учтите разные режимы разделителя: без sep (или с sep=None) серии пробелов схлопываются и пустых кусков не бывает, а с явным разделителем каждый его повтор даёт пустую строку.",
+      "en": "Without maxsplit, rsplit and split produce identical lists — the difference shows up only when you cap the number of splits and specifically want the tail: the last field of a log line, a file extension, the domain of an address. Note the two separator modes: with no sep (or sep=None) runs of whitespace collapse and no empty pieces appear, while an explicit separator yields an empty string for every repeat of it."
     },
     "syntax": "s.rsplit(sep=None, maxsplit=-1)",
     "status": "ready",
@@ -1786,8 +1786,8 @@
       "en": "Split the string at line boundaries into a list, without the line breaks."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "От split('\\n') отличается двумя важными вещами: завершающий перевод строки не порождает лишний пустой элемент в конце, и границей считается не только \\n, но и \\r, \\r\\n, а также \\v, \\f, \\x1c-\\x1e, \\x85, \\u2028, \\u2029 — текст с такими символами может разрезаться там, где вы не ждали. Пустая строка даёт пустой список, а не список с одной пустой строкой.",
+      "en": "It differs from split('\\n') in two ways that matter: a trailing newline does not add a stray empty item at the end, and line boundaries include not just \\n but \\r, \\r\\n, plus \\v, \\f, \\x1c-\\x1e, \\x85, \\u2028 and \\u2029 — text containing those can be cut where you did not expect it. An empty string yields an empty list, not a list with one empty string."
     },
     "syntax": "s.splitlines(keepends=False)",
     "status": "ready",
@@ -1824,8 +1824,8 @@
       "en": "Split at the first occurrence of the separator into a (head, sep, tail) tuple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главное преимущество перед split() — результат всегда ровно из трёх элементов, поэтому распаковка head, sep, tail = s.partition('=') не падает с ValueError ни на какой строке. Признак «разделителя не нашлось» — пустой средний элемент, а не пустой хвост: вся строка при этом уезжает в голову. Нужен последний разделитель, а не первый — берите rpartition().",
+      "en": "The win over split() is that the result always has exactly three items, so head, sep, tail = s.partition('=') never raises ValueError, whatever the input. Detect a missing separator by the empty middle item rather than by an empty tail — when nothing matches, the whole string lands in the head. If you need the last separator instead of the first, use rpartition()."
     },
     "syntax": "s.partition(sep)",
     "status": "ready",
@@ -1862,8 +1862,8 @@
       "en": "Split at the last occurrence of the separator into a (head, sep, tail) tuple."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Кортеж всегда ровно из трёх элементов, поэтому распаковка на три имени не упадёт ни на каких данных — в отличие от rsplit, где длина списка зависит от того, нашёлся ли разделитель. Когда разделителя нет, пустыми оказываются первые два элемента, а вся строка попадает в третий (у partition наоборот — строка идёт первой). Пустая строка в роли разделителя не «режет по символам», а вызывает ValueError.",
+      "en": "The result is always a three-item tuple, so unpacking into three names never blows up on unexpected input — unlike rsplit, whose list length depends on whether the separator was found. If the separator is missing, the first two items come back empty and the whole string lands in the third (partition puts the string first instead). An empty separator raises ValueError rather than splitting per character."
     },
     "syntax": "s.rpartition(sep)",
     "status": "ready",
@@ -1900,8 +1900,8 @@
       "en": "Concatenate an iterable of strings using the string as the separator."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Разделитель — это та строка, у которой вызывается метод: правильно ','.join(items), а не items.join(','), и порядок здесь путают почти все. Элементы join к строке не приводит — список чисел сразу даёт TypeError, числа нужно пропустить через map(str, ...). Склейка в цикле через += переписывает результат заново на каждом шаге, а join проходит последовательность и выделяет память один раз.",
+      "en": "The separator is the string you call the method on: it is ','.join(items), never items.join(','), and that inversion trips up most beginners. join does no conversion — an iterable of ints raises TypeError, so wrap it in map(str, ...) first. Building a string with += in a loop rebuilds it on every step, while join walks the sequence and allocates the result once."
     },
     "syntax": "sep.join(iterable)",
     "status": "ready",
@@ -1941,8 +1941,8 @@
       "en": "Return a copy with leading and trailing characters removed (whitespace by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "strip убирает не подстроку, а любые символы из переданного набора с обоих концов; порядок и повторы внутри набора не важны, а середина строки не трогается вообще. Голый strip() снимает все пробельные символы, включая перевод строки и табуляцию, — поэтому его и вешают на результат input() и на строки из файла. Строки неизменяемы: s.strip() отдельной строкой ничего не делает, результат нужно присвоить.",
+      "en": "strip removes any characters from the given set at both ends — not a substring; order and duplicates inside the set are irrelevant, and the middle of the string is never touched. Bare strip() clears all whitespace, newlines and tabs included, which is why it is routinely applied to input() and to lines read from a file. Strings are immutable, so s.strip() on a line of its own does nothing; you have to assign the result."
     },
     "syntax": "s.strip([chars])",
     "status": "ready",
@@ -1980,8 +1980,8 @@
       "en": "Return a copy with leading characters removed (whitespace by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент — это набор символов, а не префикс: lstrip срезает слева всё подряд, пока очередной символ входит в набор. Поэтому 'template.py'.lstrip('temp') даёт 'late.py', а вовсе не '.py'. Если нужно убрать префикс именно целиком, есть str.removeprefix() (с Python 3.9).",
+      "en": "The argument is a set of characters, not a prefix: lstrip keeps eating characters from the left as long as each one belongs to that set. That is why 'template.py'.lstrip('temp') gives 'late.py' and not '.py'. When you mean a whole prefix, use str.removeprefix() (Python 3.9+)."
     },
     "syntax": "s.lstrip([chars])",
     "status": "ready",
@@ -2019,8 +2019,8 @@
       "en": "Return a copy with trailing characters removed (whitespace by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Тот же капкан, что у lstrip, только с правого конца: аргумент — набор символов, поэтому 'test.txt'.rstrip('.txt') вернёт 'tes'. Отрезать суффикс как целое умеет str.removesuffix() (с Python 3.9). Голый rstrip() удобен для снятия перевода строки при построчном чтении, но заодно съест и значимые пробелы в конце, если они часть данных.",
+      "en": "Same trap as lstrip, mirrored: the argument is a character set, so 'test.txt'.rstrip('.txt') returns 'tes'. Use str.removesuffix() (Python 3.9+) when you mean a suffix as a whole. Bare rstrip() is convenient for dropping the newline off a line read from a file, but it also eats meaningful trailing spaces if your data carries any."
     },
     "syntax": "s.rstrip([chars])",
     "status": "ready",
@@ -2058,8 +2058,8 @@
       "en": "Center the string in a field of the given width, padded with fillchar (space by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Width — это дополнение, а не обрезка: если width не больше длины строки, вернётся исходная строка целиком, так что ровные колонки один center не гарантирует. При нечётном остатке дополнения center отдаёт лишний символ влево (когда width нечётный), а спецификатор формата f'{s:^6}' в такой же ситуации всегда отдаёт его вправо — из-за этой мелочи два способа центрирования дают разный результат.",
+      "en": "Width only pads, it never trims: if width is not greater than the string length you simply get the string back, so center alone does not guarantee aligned columns. When the padding does not split evenly, center puts the extra character on the left (for an odd width), whereas the format spec f'{s:^6}' always puts it on the right — so the two ways of centering can produce different strings."
     },
     "syntax": "s.center(width[, fillchar])",
     "status": "ready",
@@ -2097,8 +2097,8 @@
       "en": "Left-justify the string in a field of the given width, padded on the right."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "ljust только дополняет и никогда не обрезает: строка длиннее width вылезет за колонку целиком, для жёсткой ширины нужен ещё срез s[:width]. Ширина считается в символах, а не в ширине глифов на экране — эмодзи и иероглифы занимают в терминале две клетки, и таблица всё равно поедет. В шаблоне вывода то же самое обычно короче записать как f'{s:<10}'.",
+      "en": "ljust pads and never truncates: a string longer than width spills past the column in full, so a hard width needs a slice s[:width] as well. The width is counted in characters, not in the space a glyph occupies — emoji and CJK characters take two terminal cells, and the table drifts anyway. Inside a formatted string the same padding usually reads better as f'{s:<10}'."
     },
     "syntax": "s.ljust(width[, fillchar])",
     "status": "ready",
@@ -2136,8 +2136,8 @@
       "en": "Right-justify the string in a field of the given width, padded on the left."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Если width не больше длины строки, ничего не обрезается — вернётся исходная строка целиком, так что для «уместить в N колонок» rjust не годится. Аргумент fillchar должен быть ровно одним символом, иначе TypeError. Для чисел со знаком берите zfill: rjust с нулём поставит нули перед минусом, а не после него.",
+      "en": "When width is not greater than the current length nothing gets truncated — the original string comes back untouched, so rjust cannot squeeze text into N columns. The fillchar argument must be exactly one character, otherwise you get a TypeError. For signed numbers use zfill instead: rjust with '0' puts the zeros in front of the minus, not after it."
     },
     "syntax": "s.rjust(width[, fillchar])",
     "status": "ready",
@@ -2175,8 +2175,8 @@
       "en": "Pad the string on the left with zeros to the given width; a leading sign is kept."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В этом и отличие от rjust с нулём: zfill пропускает вперёд ведущий плюс или минус и дополняет уже после знака, поэтому знак не тонет в нулях. Знак учитывается только в самой первой позиции строки, а строка, уже не короче width, возвращается без изменений — обрезки не будет.",
+      "en": "That sign handling is exactly what separates zfill from rjust with '0': zfill steps over a leading + or - and pads after it, so the sign never ends up buried in zeros. Only a sign in the very first position counts, and a string already at least width long is returned unchanged — nothing is ever truncated."
     },
     "syntax": "s.zfill(width)",
     "status": "ready",
@@ -2214,8 +2214,8 @@
       "en": "Return a copy with all occurrences of old replaced by new (optional count limit)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Строки неизменяемы: замена возвращает новую строку и ничего не правит на месте — забытое присваивание результата одна из самых частых ошибок новичков. Проход идёт слева направо, вставленный текст повторно не просматривается, но вторая replace в цепочке спокойно наткнётся на то, что подставила первая, поэтому для взаимной замены символов берут translate. Пустой old — особый случай: new вставляется между каждой парой символов и по краям.",
+      "en": "Strings are immutable, so replace hands back a new string and changes nothing in place — forgetting to assign the result is the single most common beginner slip. Scanning goes left to right and inserted text is not re-scanned, but a second replace in a chain will happily hit what the first one produced, which is why swapping two characters calls for translate instead. An empty old is a special case: new gets inserted between every pair of characters and at both ends."
     },
     "syntax": "s.replace(old, new[, count])",
     "status": "ready",
@@ -2254,8 +2254,8 @@
       "en": "Map characters through a translation table (usually from str.maketrans)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ключи таблицы — коды символов из ord, а не сами символы: словарь вида {'a': 'A'} не вызовет ошибку, он просто молча ничего не заменит, поэтому таблицу почти всегда строят через str.maketrans. Значение None (или третий аргумент maketrans) удаляет символ, а замена может быть длиннее одного символа. В отличие от цепочки replace, строка проходится ровно один раз и подставленное дальше не переписывается — так и делают взаимные замены.",
+      "en": "Table keys are character codes from ord, not characters: a dict like {'a': 'A'} raises nothing and silently replaces nothing, which is why the table is nearly always built with str.maketrans. A value of None (or maketrans's third argument) deletes the character, and a replacement may be longer than one character. Unlike a chain of replace calls, the string is walked exactly once and inserted text is never rewritten — that is how you swap two characters safely."
     },
     "syntax": "s.translate(table)",
     "status": "ready",
@@ -2293,8 +2293,8 @@
       "en": "Static method: build a translation table for translate from two strings (plus optional deletes)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Таблица работает посимвольно: заменить подстроку из нескольких символов через translate не выйдет — для этого str.replace. Две строки-аргумента обязаны быть равной длины, иначе ValueError, а третий аргумент перечисляет символы на удаление. Со словарём гибче: ключом может быть символ или его код, значением — строка любой длины или None, что означает «выбросить».",
+      "en": "The table maps character by character: translate cannot swap a multi-character substring — that is str.replace's job. The two-string form requires both strings to be the same length, otherwise ValueError, and the optional third argument lists characters to drop. The dict form is more flexible: keys are single characters or their code points, values may be strings of any length or None, which means delete."
     },
     "syntax": "str.maketrans(x[, y[, z]])",
     "status": "ready",
@@ -2335,8 +2335,8 @@
       "en": "Return a copy with the given prefix removed if present, otherwise unchanged (Python 3.9+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — спутать с lstrip: lstrip('test_') снимает с начала любые символы из набора t, e, s, _ в любом порядке, а removeprefix ищет ровно эту подстроку. Убирается максимум одна копия префикса, повторов не будет. Метод появился в 3.9, на более старом Python его нет.",
+      "en": "The classic mix-up is with lstrip: lstrip('test_') peels off any leading characters from the set t, e, s, _ in any order, while removeprefix matches that exact substring. At most one copy of the prefix is removed, never repeated occurrences. It only exists from Python 3.9 on."
     },
     "syntax": "s.removeprefix(prefix)",
     "status": "ready",
@@ -2373,8 +2373,8 @@
       "en": "Return a copy with the given suffix removed if present, otherwise unchanged (Python 3.9+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Типичная задача — срезать расширение, и именно здесь rstrip('.py') портит данные: он снимает с конца любые точки, p и y, так что 'happy.py' превратится в 'ha'. Ручной срез по длине суффикса тоже небезопасен: если суффикса нет, он всё равно отрежет хвост, а на пустом суффиксе вернёт пустую строку. Для имён файлов чаще удобнее pathlib с его stem и with_suffix.",
+      "en": "The usual job is stripping an extension, and that is exactly where rstrip('.py') corrupts data: it removes any trailing dots, p's and y's, turning 'happy.py' into 'ha'. Slicing by the suffix length by hand is no safer — it cuts the tail even when the suffix is absent, and an empty suffix leaves you with an empty string. For filenames, pathlib with stem and with_suffix is usually the better tool."
     },
     "syntax": "s.removesuffix(suffix)",
     "status": "ready",
@@ -2412,8 +2412,8 @@
       "en": "Replace tabs with spaces, aligning to columns that are multiples of tabsize (default 8)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ширина таба зависит от текущей колонки, а не фиксирована: таб дотягивает текст до ближайшей позиции, кратной tabsize, поэтому один и тот же символ раскрывается то в один пробел, то в семь — наивная замена таба на tabsize пробелов даёт другой результат. Счётчик колонок сбрасывается на каждом переводе строки и возврате каретки, так что многострочный текст считается построчно.",
+      "en": "A tab's width depends on the current column rather than being fixed: it stretches the text to the next multiple of tabsize, so the same character may expand to one space or to seven — replacing each tab with tabsize spaces gives a different result. The column counter resets at every newline and carriage return, so multi-line text is measured line by line."
     },
     "syntax": "s.expandtabs(tabsize=8)",
     "status": "ready",
@@ -2450,8 +2450,8 @@
       "en": "Encode the string to bytes using the given codec (UTF-8 by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "encode() отдаёт bytes — это другой тип: сложить его со строкой нельзя, а len считает байты, а не символы (в UTF-8 'café' — пять байт). Всё, что не помещается в выбранную кодировку, при errors='strict' даёт UnicodeEncodeError; 'ignore' и 'replace' глушат ошибку ценой безвозвратно потерянных символов. Обратно разворачивается через bytes.decode() с той же самой кодировкой — угадать её по содержимому нельзя.",
+      "en": "encode() hands back bytes, a different type: it won't concatenate with str, and its len counts bytes rather than characters ('café' is five bytes in UTF-8). Anything outside the chosen codec raises UnicodeEncodeError under errors='strict'; 'ignore' and 'replace' silence it by throwing characters away for good. Going back needs bytes.decode() with the very same codec — the codec cannot be inferred from the data."
     },
     "syntax": "s.encode(encoding='utf-8', errors='strict')",
     "status": "ready",
@@ -2492,8 +2492,8 @@
       "en": "Like format, but take substitutions directly from a mapping (no copy)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Отличие от format(**d) не только в отсутствии копирования словаря: format_map принимает любой mapping, поэтому можно подсунуть collections.defaultdict или свой класс с __missing__ — и отсутствующий ключ не уронит форматирование, а подставит заглушку. С обычным dict пропущенный ключ по-прежнему даёт KeyError.",
+      "en": "The point is not just that the mapping is not copied: format_map accepts any mapping, so you can pass a collections.defaultdict or your own class with __missing__ and have absent keys fall back to a placeholder instead of blowing up. With a plain dict a missing key still raises KeyError."
     },
     "syntax": "s.format_map(mapping)",
     "status": "ready",
@@ -2532,8 +2532,8 @@
       "en": "Resizes a bytearray in place: extra bytes are truncated, new bytes are filled with null bytes. Returns None. Python 3.14+."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод добавлен только в 3.14 — на 3.12/3.13 будет AttributeError, а переносимые аналоги те же: b += b'\\x00' * n для роста и del b[n:] для обрезки. Изменение размера может переселить буфер в памяти, поэтому пока на bytearray жив memoryview, вызов не пройдёт и упадёт с BufferError.",
+      "en": "The method only exists in 3.14 and later — on 3.12/3.13 you get an AttributeError, and the portable equivalents are b += b'\\x00' * n to grow and del b[n:] to shrink. Resizing may move the underlying buffer, so while a memoryview is exported on the bytearray the call fails with BufferError."
     },
     "syntax": "bytearray.resize(size, /)",
     "status": "ready",

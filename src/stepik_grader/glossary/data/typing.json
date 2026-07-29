@@ -663,7 +663,11 @@
     "version": "3.8",
     "section": "Модуль typing",
     "subcat": "интроспекция",
-    "aliases": [],
+    "aliases": [
+      "аргументы обобщённого типа",
+      "узнать тип элементов из аннотации",
+      "разобрать аннотацию на составные типы"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -701,7 +705,11 @@
     "version": "3.8",
     "section": "Модуль typing",
     "subcat": "интроспекция",
-    "aliases": [],
+    "aliases": [
+      "базовый тип аннотации",
+      "какой контейнер указан в аннотации",
+      "убрать параметры у обобщённого типа"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -740,7 +748,11 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "интроспекция",
-    "aliases": [],
+    "aliases": [
+      "получить аннотации функции",
+      "прочитать типы параметров во время выполнения",
+      "разрешить строковые аннотации"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -786,7 +798,10 @@
     "version": "3.11",
     "section": "Модуль typing",
     "subcat": "интроспекция",
-    "aliases": [],
+    "aliases": [
+      "список перегрузок функции",
+      "все зарегистрированные варианты перегруженной функции"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -829,7 +844,10 @@
     "version": "3.13",
     "section": "Модуль typing",
     "subcat": "интроспекция",
-    "aliases": [],
+    "aliases": [
+      "какие методы требует протокол",
+      "имена членов протокола"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -869,7 +887,10 @@
     "version": "3.13",
     "section": "Модуль typing",
     "subcat": "интроспекция",
-    "aliases": [],
+    "aliases": [
+      "проверить, является ли класс протоколом",
+      "это протокол или обычный класс"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -907,7 +928,10 @@
     "version": "3.10",
     "section": "Модуль typing",
     "subcat": "интроспекция",
-    "aliases": [],
+    "aliases": [
+      "проверить, типизированный ли это словарь",
+      "создан ли класс словарём с аннотациями"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -943,7 +967,11 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "приведение и отладка",
-    "aliases": [],
+    "aliases": [
+      "указать тип вручную",
+      "подсказать тип анализатору",
+      "обмануть проверку типов"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -981,7 +1009,11 @@
     "version": "3.11",
     "section": "Модуль typing",
     "subcat": "приведение и отладка",
-    "aliases": [],
+    "aliases": [
+      "показать выведенный тип",
+      "узнать тип переменной",
+      "отладка аннотаций"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1019,7 +1051,11 @@
     "version": "3.11",
     "section": "Модуль typing",
     "subcat": "приведение и отладка",
-    "aliases": [],
+    "aliases": [
+      "утверждение о типе",
+      "сверить тип с ожидаемым",
+      "проверка типа при статическом анализе"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1057,7 +1093,11 @@
     "version": "3.11",
     "section": "Модуль typing",
     "subcat": "приведение и отладка",
-    "aliases": [],
+    "aliases": [
+      "недостижимая ветка",
+      "недостижимый код",
+      "исчерпывающая проверка вариантов"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1096,7 +1136,11 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "обобщения и параметры",
-    "aliases": [],
+    "aliases": [
+      "обобщённый класс",
+      "свой класс с параметром типа",
+      "дженерики"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1134,7 +1178,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "обобщения и параметры",
-    "aliases": [],
+    "aliases": [
+      "новый тип поверх существующего",
+      "тип-обёртка для проверки типов"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1173,7 +1220,11 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "обобщения и параметры",
-    "aliases": [],
+    "aliases": [
+      "типизация декоратора",
+      "сохранить сигнатуру функции",
+      "параметры вызова в аннотации"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1291,7 +1342,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "обобщения и параметры",
-    "aliases": [],
+    "aliases": [
+      "переменное число типов",
+      "обобщение с любым числом параметров"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1331,7 +1385,11 @@
     "version": "3.12",
     "section": "Модуль typing",
     "subcat": "обобщения и параметры",
-    "aliases": [],
+    "aliases": [
+      "псевдоним типа",
+      "синоним типа",
+      "своё имя для типа"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1371,7 +1429,11 @@
     "version": "3.7",
     "section": "Модуль typing",
     "subcat": "обобщения и параметры",
-    "aliases": [],
+    "aliases": [
+      "аннотация типа строкой",
+      "отложенная ссылка на тип",
+      "тип объявлен ниже по коду"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1410,7 +1472,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "потоки ввода-вывода",
-    "aliases": [],
+    "aliases": [
+      "аннотация типа файла",
+      "тип файлового объекта"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1450,7 +1515,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "потоки ввода-вывода",
-    "aliases": [],
+    "aliases": [
+      "тип бинарного потока",
+      "аннотация двоичного файла"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1490,7 +1558,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "потоки ввода-вывода",
-    "aliases": [],
+    "aliases": [
+      "тип текстового потока",
+      "аннотация текстового файла"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1532,7 +1603,10 @@
     "version": "3.5",
     "section": "Модуль typing",
     "subcat": "потоки ввода-вывода",
-    "aliases": [],
+    "aliases": [
+      "устаревший синоним строки",
+      "строковый тип ради совместимости"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1571,7 +1645,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "протоколы Supports*",
-    "aliases": [],
+    "aliases": [
+      "протокол целого числа",
+      "объект приводится к целому"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1610,7 +1687,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "протоколы Supports*",
-    "aliases": [],
+    "aliases": [
+      "протокол вещественного числа",
+      "объект приводится к дробному числу"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1649,7 +1729,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "протоколы Supports*",
-    "aliases": [],
+    "aliases": [
+      "протокол комплексного числа",
+      "объект приводится к комплексному"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1688,7 +1771,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "протоколы Supports*",
-    "aliases": [],
+    "aliases": [
+      "протокол преобразования в байты",
+      "объект умеет превращаться в байты"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1724,7 +1810,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "протоколы Supports*",
-    "aliases": [],
+    "aliases": [
+      "поддерживает взятие модуля",
+      "протокол абсолютного значения"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1763,7 +1852,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "протоколы Supports*",
-    "aliases": [],
+    "aliases": [
+      "протокол округления",
+      "объект поддерживает округление"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1802,7 +1894,10 @@
     "version": "3.8",
     "section": "Модуль typing",
     "subcat": "протоколы Supports*",
-    "aliases": [],
+    "aliases": [
+      "объект можно использовать как индекс",
+      "протокол индексации"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1841,7 +1936,11 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "декораторы и маркеры",
-    "aliases": [],
+    "aliases": [
+      "перегрузка функции",
+      "несколько сигнатур одной функции",
+      "разные варианты вызова функции"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1888,7 +1987,10 @@
     "version": "3.12",
     "section": "Модуль typing",
     "subcat": "декораторы и маркеры",
-    "aliases": [],
+    "aliases": [
+      "пометить переопределение метода",
+      "проверка что метод есть у родителя"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -1927,7 +2029,10 @@
     "version": "",
     "section": "Модуль typing",
     "subcat": "декораторы и маркеры",
-    "aliases": [],
+    "aliases": [
+      "отключить проверку типов",
+      "игнорировать аннотации типов"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -2006,7 +2111,10 @@
     "version": "3.8",
     "section": "Модуль typing",
     "subcat": "декораторы и маркеры",
-    "aliases": [],
+    "aliases": [
+      "протокол с проверкой во время выполнения",
+      "утиная типизация с проверкой"
+    ],
     "keywords": [],
     "tags": [
       "typing"
@@ -2111,8 +2219,8 @@
       "en": "Evaluates a ForwardRef (a deferred string annotation) into a real type, resolving nested forward references recursively. Python 3.14+."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Напрямую её вызывать приходится редко: аннотации целой функции или класса разворачивает typing.get_type_hints(), а эта функция нужна, когда на руках отдельный ForwardRef, вынутый из чужой аннотации. Имя ищется в переданных owner/globals/locals — если оно там не видно, будет NameError; с format=annotationlib.Format.FORWARDREF ссылка вместо ошибки останется нераскрытой.",
+      "en": "You rarely need it directly: typing.get_type_hints() resolves every annotation of a function or class at once, while this call is for a single ForwardRef you pulled out of someone else's annotation. The name is looked up in the owner/globals/locals you pass, so a name that is not visible there raises NameError; with format=annotationlib.Format.FORWARDREF the reference is left unresolved instead."
     },
     "syntax": "typing.evaluate_forward_ref(forward_ref, *, owner=None, globals=None, locals=None, type_params=None, format=annotationlib.Format.VALUE)",
     "status": "ready",

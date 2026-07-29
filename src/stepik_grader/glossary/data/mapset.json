@@ -8,8 +8,8 @@
       "en": "collections.ChainMap joins several dictionaries into a single view without copying them. A key is looked up in the dictionaries from left to right. Writes and deletions affect only the first one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "ChainMap не копирует словари, а держит ссылки на них: изменение исходного словаря сразу видно через цепочку — это принципиальное отличие от снимка {**defaults, **overrides}. Главная ловушка — асимметрия чтения и записи: ключ ищется по всем словарям, но присваивание, pop и del работают только с первым, поэтому удаление ключа, который виден при чтении, но лежит в defaults, падает с KeyError.",
+      "en": "ChainMap stores references rather than copies, so a later change in an underlying dict is visible through the chain right away — unlike the snapshot you get from {**defaults, **overrides}. The trap is the asymmetry between reads and writes: lookups scan every mapping, but assignment, pop and del touch only the first one, so deleting a key that is visible on read but actually lives in defaults raises KeyError."
     },
     "syntax": "from collections import ChainMap; ChainMap(*maps)",
     "status": "ready",
@@ -53,8 +53,8 @@
       "en": "dict.copy() makes a shallow copy: nested objects are not copied but shared between the original and the copy. copy.deepcopy() copies everything recursively."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Чаще всего проблема не в выборе copy против deepcopy, а в том, что копии нет вовсе: b = a — это просто второе имя того же словаря, и правка через любое из имён видна обоим. copy() лечит именно это, но вложенные списки и словари остаются общими, поэтому мутация внутри копии по-прежнему меняет оригинал. deepcopy() обходит структуру рекурсивно и корректно справляется с циклическими ссылками, но платить приходится временем и памятью, а файлы, сокеты и подобные объекты он не копирует, а возвращает как есть.",
+      "en": "The usual bug is not choosing copy over deepcopy but making no copy at all: b = a is just a second name for the same dict, and a change through either name shows up in both. copy() fixes exactly that, yet nested lists and dicts stay shared, so mutating them through the copy still alters the original. deepcopy() walks the structure recursively and handles cyclic references correctly, but it costs time and memory, and objects like files and sockets are not copied at all — they come back unchanged."
     },
     "syntax": "d.copy()  import copy; copy.deepcopy(d)",
     "status": "ready",
@@ -103,8 +103,8 @@
       "en": "Counter from collections is a dictionary for counting. It supports arithmetic, most_common and subtraction."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обращение к отсутствующему ключу возвращает 0 и, в отличие от defaultdict, не создаёт запись — удобно, но опечатка в ключе так и останется незамеченной вместо KeyError. Ещё одна тонкость: оператор вычитания c1 - c2 выбрасывает нулевые и отрицательные счётчики, а метод subtract() их сохраняет, так что отрицательные значения возможны только через второй вариант. most_common() сортирует по убыванию, а элементы с одинаковым счётчиком идут в порядке первого появления.",
+      "en": "Looking up a missing key returns 0 and, unlike defaultdict, does not insert anything — convenient, but a typo in a key silently yields 0 instead of a KeyError. Note also that the subtraction operator c1 - c2 drops zero and negative counts, while the subtract() method keeps them, so negative counts can only appear via the latter. most_common() sorts by descending count and breaks ties by first-encountered order."
     },
     "syntax": "from collections import Counter\nc = Counter(iterable)",
     "status": "ready",
@@ -162,8 +162,8 @@
       "en": "defaultdict from collections creates a default value automatically when a missing key is accessed."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Фабрика срабатывает на чтении d[key], а значит простое обращение к несуществующему ключу молча создаёт запись и раздувает словарь; если проверяешь наличие ключа, используй in или .get(), они __missing__ не вызывают. Второе — default_factory это вызываемый объект без аргументов, а не готовое значение: нужно defaultdict(list) и defaultdict(int), а не defaultdict([]) или defaultdict(0).",
+      "en": "The factory fires on a read of d[key], so merely touching a missing key silently inserts an entry and grows the dict; use in or .get() when you just want to check, since neither triggers __missing__. Also, default_factory must be a zero-argument callable, not a ready value: write defaultdict(list) or defaultdict(int), never defaultdict([]) or defaultdict(0)."
     },
     "syntax": "from collections import defaultdict\nd = defaultdict(default_factory)",
     "status": "ready",
@@ -235,8 +235,8 @@
       "en": "The dictionary merge operator (Python 3.9+). It builds a new dictionary out of d1 and d2. On a key conflict the right operand wins."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Оба операнда обязаны быть словарями: a | [('x', 1)] упадёт с TypeError, тогда как a |= [('x', 1)] и a.update([...]) такой список пар примут. Оператор строит новый словарь, копируя обе стороны целиком, поэтому в цикле по многим словарям он квадратичен — там уместнее update() или |=. До версии 3.9 тот же эффект даёт {**a, **b}.",
+      "en": "Both operands must be actual dicts: a | [('x', 1)] raises TypeError, while a |= [('x', 1)] and a.update([...]) accept such a list of pairs. The operator builds a brand-new dict by copying both sides in full, so merging many dicts in a loop turns quadratic — reach for update() or |= there. Before 3.9 the same effect came from {**a, **b}."
     },
     "syntax": "merged = d1 | d2",
     "status": "ready",
@@ -278,8 +278,8 @@
       "en": "The in-place dictionary update operator (Python 3.9+). It adds or overwrites every pair of d2 in d1 without creating a new object."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обновление идёт на месте, поэтому изменение видят все, кто ссылается на этот словарь — включая вызывающий код, если словарь пришёл аргументом в функцию. У |= есть послабление по сравнению с |: справа может стоять не только словарь, но и любой итерируемый набор пар ключ-значение, как у update(). До Python 3.9 оператора нет — там пишут update().",
+      "en": "The update happens in place, so every name referring to that dict sees the change — including the caller, if the dict was passed into a function. Compared with |, the |= form is more permissive: the right operand may be any iterable of key-value pairs, not just a dict, exactly like update(). Before Python 3.9 the operator does not exist; use update() there."
     },
     "syntax": "d1 |= d2",
     "status": "ready",
@@ -318,8 +318,8 @@
       "en": "Creates a new dictionary from an iterable of keys. The second argument sets the same default value for every key (None by default)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Значение вычисляется один раз и становится общим для всех ключей, а не копируется под каждый: дайте вторым аргументом пустой список — и добавление в него по одному ключу изменит его сразу у всех. Для изменяемых значений берите словарное включение или defaultdict. Побочный, но очень ходовой приём: вызов с одним аргументом убирает дубликаты из последовательности, сохраняя порядок первого появления.",
+      "en": "The value is evaluated once and shared by every key rather than copied per key: pass an empty list as the second argument and appending through one key changes it for all of them. For mutable values use a dict comprehension or defaultdict instead. A side use that comes up constantly: calling it with a single argument drops duplicates from a sequence while preserving first-occurrence order."
     },
     "syntax": "dict.fromkeys(iterable, value=None)",
     "status": "ready",
@@ -360,8 +360,8 @@
       "en": "frozenset is the immutable version of set. It is hashable, so it can be a dictionary key or an item of another set."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Именно ради неизменяемости frozenset и берут: множество множеств или набор-ключ в словаре иначе не собрать — обычный set нехэшируем и падает с TypeError: unhashable type: 'set'. Методов, меняющих объект на месте (add, discard, pop, update), здесь нет, а вот сравнение работает через границу типов: frozenset({1, 2}) == {1, 2} даёт True. В смешанных операциях тип результата задаёт левый операнд: frozenset | set вернёт frozenset, а set | frozenset — обычный set.",
+      "en": "The point of frozenset is hashability: a set of sets or a set-shaped dict key is impossible with plain set, which raises TypeError: unhashable type: 'set'. There are no in-place mutators (no add, discard, pop, update), but comparison crosses the type boundary — frozenset({1, 2}) == {1, 2} is True. In mixed operations the left operand decides the result type: frozenset | set gives a frozenset, set | frozenset gives a set."
     },
     "syntax": "frozenset(iterable)",
     "status": "ready",
@@ -414,8 +414,8 @@
       "en": "A membership test on a set takes O(1) (a hash table), unlike O(n) for lists."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "O(1) — усреднённая оценка работы хеш-таблицы, а не гарантия, и она требует, чтобы искомое значение было хешируемым: поиск списка внутри множества упадёт с TypeError. Перегонять список в множество ради единственной проверки смысла нет — само построение стоит O(n) и окупается, только если проверок много.",
+      "en": "The O(1) is an average over the hash table rather than a guarantee, and it requires the value to be hashable — looking up a list raises TypeError. Converting a list to a set for one membership test gains nothing, because building the set is O(n); it only pays off when you test many times."
     },
     "syntax": "item in s  |  item not in s",
     "status": "ready",
@@ -467,8 +467,8 @@
       "en": "in checks for a KEY in the dictionary, in O(1). To test the values, use in d.values()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ключ проверяется через хеш, поэтому нехешируемый объект даёт не False, а TypeError: unhashable type — например, [] in d. Пары in так не проверить: нужно ('a', 1) in d.items(). А связка if k in d: d[k] делает два поиска подряд — обычно чище d.get(k, default) или try/except KeyError.",
+      "en": "Membership hashes the key, so an unhashable object raises TypeError: unhashable type rather than returning False — [] in d is the classic case. It never tests pairs; for that you need ('a', 1) in d.items(). And if k in d: d[k] does two lookups in a row — d.get(k, default) or try/except KeyError is usually cleaner."
     },
     "syntax": "key in d  |  key not in d",
     "status": "ready",
@@ -515,8 +515,8 @@
       "en": "OrderedDict from collections guarantees insertion order (since Python 3.7 a plain dict keeps it too). It also has move_to_end() and popitem(last=)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Заметное отличие от обычного словаря — сравнение: два OrderedDict равны только при совпадающем порядке ключей, а вот OrderedDict и обычный dict сравниваются как обычные словари, без учёта порядка. Брать OrderedDict сегодня стоит только ради move_to_end() и popitem(last=False) — например, для LRU-кеша; для простого «сохранить порядок вставки» хватает dict, он легче и быстрее.",
+      "en": "The visible difference from a plain dict is equality: two OrderedDicts compare equal only if the key order matches, while an OrderedDict compared against a plain dict is order-insensitive. These days reach for it only when you need move_to_end() or popitem(last=False) — an LRU cache, say; if you just want insertion order preserved, a plain dict is lighter and faster."
     },
     "syntax": "from collections import OrderedDict\nod = OrderedDict()",
     "status": "ready",
@@ -565,8 +565,8 @@
       "en": "Dictionary values may be of any type, including other dictionaries. They are reached through a chain of keys."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Присваивание не создаёт промежуточные уровни: d['a']['b'] = 1 упадёт с KeyError, если ключа 'a' ещё нет, — сначала d.setdefault('a', {}) или collections.defaultdict. Цепочка d.get(k1, {}).get(k2) безопасна для чтения, но каждый вызов создаёт пустой словарь-заглушку. И помните, что d.copy() копирует только верхний уровень: вложенные словари останутся общими с оригиналом, для независимой копии нужен copy.deepcopy().",
+      "en": "Assignment does not create intermediate levels: d['a']['b'] = 1 raises KeyError when 'a' is missing — use d.setdefault('a', {}) or collections.defaultdict first. The d.get(k1, {}).get(k2) chain is safe for reading, though each call builds a throwaway empty dict. Also note that d.copy() is shallow: nested dictionaries stay shared with the original, so use copy.deepcopy() for a truly independent copy."
     },
     "syntax": "d[key1][key2]  |  d.get(k1, {}).get(k2)",
     "status": "ready",
@@ -626,8 +626,8 @@
       "en": "A set comprehension builds a set the same way a list comprehension builds a list, but with curly braces. Duplicates are removed automatically."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Фигурные скобки делятся со словарями: двоеточие внутри превращает выражение в dict comprehension, а пустое множество литералом не записать — {} это словарь, нужен set(). Порядок элементов в результате не определён, так что для стабильного вывода оборачивайте в sorted(); и каждый вычисленный элемент обязан быть хэшируемым — множество из списков не соберётся.",
+      "en": "Curly braces are shared with dicts: a colon inside turns the expression into a dict comprehension, and there is no literal for an empty set — {} is a dict, so use set(). The result has no defined order, so wrap it in sorted() when the output must be stable, and every produced item has to be hashable — a set of lists will not build."
     },
     "syntax": "{expr for var in iterable [if cond]}",
     "status": "ready",
@@ -679,8 +679,8 @@
       "en": "update() modifies the dictionary in place. ** unpacking builds a new one. | (Python 3.9+) is the merge operator."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "update() ничего не возвращает, и попытка написать d = d1.update(d2) кладёт в d значение None — самая частая ошибка на этом месте. Выбор способа сводится к одному вопросу: нужен ли исходный словарь дальше в неизменном виде. Во всех трёх вариантах значения переносятся по ссылке: вложенные списки и словари остаются общими с исходниками.",
+      "en": "update() returns None, so writing d = d1.update(d2) silently leaves you with None — the classic mistake here. Picking a method comes down to one question: do you still need the original dict untouched. All three variants copy values by reference, so nested lists and dicts stay shared with the originals."
     },
     "syntax": "d1.update(d2)  |  {**d1, **d2}  |  d1 | d2",
     "status": "ready",
@@ -737,8 +737,8 @@
       "en": "The | operator (Python 3.9+) merges two dictionaries into a new one. For a key present in both, the value comes from the right one. |= updates the dictionary in place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Копия получается поверхностной: вложенные списки и словари в результате — те же самые объекты, и правка через один словарь видна через другой. Порядок ключей задаёт левый операнд: общий ключ остаётся на своём прежнем месте, но уже с новым значением, а ключи, которые есть только справа, дописываются в конец.",
+      "en": "The merge is shallow: nested lists and dicts in the result are the very same objects, so a change made through one dict shows up in the other. Key order follows the left operand — a shared key keeps its original position but takes the new value, while keys unique to the right operand are appended at the end."
     },
     "syntax": "d1 | d2  d1 |= d2",
     "status": "ready",
@@ -778,8 +778,8 @@
       "en": "| — union, & — intersection, - — difference, ^ — symmetric difference. |=, &=, -= and ^= change the set in place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Операторы требуют множество (или frozenset) с обеих сторон: список или строка справа дадут TypeError, а именованные аналоги union(), intersection(), difference() примут любой итерируемый объект. Разность несимметрична — поменяв операнды местами, получите другой результат, тогда как ^ оставляет то, что лежит ровно в одном из множеств.",
+      "en": "The operators demand a set (or frozenset) on both sides — a list or a string on the right raises TypeError, whereas the named forms union(), intersection() and difference() accept any iterable. Difference is not symmetric, so swapping the operands changes the answer, while ^ keeps exactly those elements that belong to one set only."
     },
     "syntax": "a | b  |  a & b  |  a - b  |  a ^ b",
     "status": "ready",
@@ -838,8 +838,8 @@
       "en": "Typical uses: unique items, intersections, differences and fast membership tests."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Множество выбрасывает порядок вместе с дубликатами: если нужны уникальные значения в исходном порядке, берите list(dict.fromkeys(lst)), а не set(). Главная выгода — проверка x in s за константное время против линейного перебора списка, поэтому перед серией проверок принадлежности список стоит один раз превратить в множество. И учтите: внутрь попадут только хешируемые объекты, список или словарь туда не положить.",
+      "en": "Turning a list into a set drops the order along with the duplicates; when you need the unique values in their original order, use list(dict.fromkeys(lst)) instead. The real win is that x in s costs constant time while scanning a list is linear, so convert once before running many membership tests. Only hashable objects fit inside, which rules out lists and dicts as elements."
     },
     "syntax": "set(lst)  |  a & b  |  a - b  |  a ^ b",
     "status": "ready",
@@ -896,8 +896,8 @@
       "en": "** unpacks a dictionary into keyword arguments or builds a merged one. On duplicate keys the last one wins."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "И {**d1, **d2}, и d1 | d2 делают поверхностную копию: вложенные списки и словари остаются общими с исходниками, и правка через одну ссылку видна в другой. Оператор | (3.9+) требует, чтобы обе стороны были именно dict, тогда как {**a, **b} примет любое отображение; при вызове f(**d) все ключи обязаны быть строками, иначе TypeError. Для изменения на месте есть d1 |= d2 — аналог update().",
+      "en": "Both {**d1, **d2} and d1 | d2 copy shallowly: nested lists and dicts stay shared with the originals, so a change through one reference shows up in the other. The | operator (3.9+) demands real dicts on both sides, while {**a, **b} accepts any mapping; and in a call f(**d) every key must be a string or you get TypeError. For an in-place merge use d1 |= d2, the equivalent of update()."
     },
     "syntax": "func(**d)  |  {**d1, **d2}  |  d1 | d2 (Python 3.9+)",
     "status": "ready",
@@ -953,8 +953,8 @@
       "en": "A dict comprehension builds a dictionary out of an iterable. Filtering is supported."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Если выражение для ключа даёт повторы, исключения не будет — победит последнее вычисленное значение, и часть элементов молча исчезнет, поэтому длина результата может оказаться меньше длины исходной последовательности. Двоеточие — единственное, что отличает dict comprehension от set comprehension: {f(x) for x in xs} собирает множество, а не словарь. Переменная цикла живёт только внутри выражения и наружу не утекает.",
+      "en": "If the key expression produces duplicates nothing is raised — the last computed value wins and the earlier entries vanish silently, so the result can be shorter than the source sequence. The colon is the only thing separating a dict comprehension from a set comprehension: {f(x) for x in xs} builds a set, not a mapping. The loop variable is scoped to the comprehension and does not leak into the surrounding code."
     },
     "syntax": "{k: v for ... in ...}  |  {k: v for ... in ... if cond}",
     "status": "ready",
@@ -1019,8 +1019,8 @@
       "en": "A set is written as a {} literal or built with set() or frozenset(). Duplicates are removed automatically. The order is not guaranteed."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пустое множество создаётся только вызовом set(): фигурные скобки {} дают пустой словарь. Элементы обязаны быть хешируемыми — список внутрь не положить (кортеж можно), и обычное множество не может быть элементом другого множества, для этого есть неизменяемый frozenset. Ещё ловушка: set('abc') разбирает строку на отдельные символы, а не кладёт её целиком.",
+      "en": "An empty set can only be made with set(); bare {} gives an empty dict. Elements must be hashable, so a list cannot go in (a tuple can), and a plain set cannot be an element of another set — that is what the immutable frozenset is for. Watch out for set('abc') too: it splits the string into individual characters rather than storing it whole."
     },
     "syntax": "{a, b}  |  set(iterable)  |  frozenset(iterable)",
     "status": "ready",
@@ -1077,8 +1077,8 @@
       "en": "A dictionary is written as a {k: v} literal, or built with dict(), dict.fromkeys() or a dict comprehension."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "{} — это пустой словарь, а не множество: пустое множество создаётся только через set(). У dict.fromkeys(keys, []) значение вычисляется один раз, и все ключи получают один и тот же список — добавили элемент по одному ключу, он «появился» у всех; для независимых изменяемых значений берите словарное выражение. Форма dict(a=1) работает лишь с ключами-идентификаторами, произвольные строки так не задать.",
+      "en": "{} is an empty dict, never an empty set — that one is only set(). In dict.fromkeys(keys, []) the value is evaluated once, so every key ends up bound to the very same list and an append through one key appears under all of them; use a dict comprehension when each value must be its own mutable object. The dict(a=1) form only accepts keys that are valid identifiers, so arbitrary strings need the literal."
     },
     "syntax": "{}  |  dict()  |  {k: v}  |  dict.fromkeys(keys[, val])",
     "status": "ready",
@@ -1131,8 +1131,8 @@
       "en": "sorted(d.items()) sorts the pairs. key= sets the sorting criterion. The result is a list of tuples, or a new dictionary."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "sorted() возвращает список кортежей, а не словарь: чтобы снова получить dict, оберните результат в dict() — порядок сохранится, словарь помнит порядок вставки с версии 3.7. Сортировки «на месте» у dict нет вообще, есть только построение нового объекта. По умолчанию сравнение начинается с ключей, поэтому смешанные типы ключей (int рядом с str) дадут TypeError, а чтобы отсортировать по убыванию значения и разрешить ничьи по алфавиту, берут составной ключ вида (-значение, ключ).",
+      "en": "sorted() hands back a list of tuples, not a dict; wrap it in dict() to get a dictionary again — insertion order is preserved since 3.7. There is no in-place sort for a dict at all, only building a new object. The default comparison starts with the keys, so mixed key types (int next to str) raise TypeError; to sort by descending value and break ties alphabetically, use a compound key like (-value, key)."
     },
     "syntax": "sorted(d.items())  |  sorted(d.items(), key=lambda x: x[1])",
     "status": "ready",
@@ -1180,8 +1180,8 @@
       "en": "Remove all items, leaving an empty dict (in place)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "clear() чистит сам объект, поэтому пустоту увидят все, кто держит ссылку на этот словарь; присваивание d = {} лишь перевешивает имя на новый словарь, а старый остаётся прежним для остальных ссылок. Именно из-за этой разницы clear() выбирают для общих кешей и для словаря, переданного в функцию, когда очистку должен заметить вызывающий код.",
+      "en": "clear() empties the object itself, so every reference to that dict sees the change; d = {} merely rebinds the name and leaves the old dict intact for anyone else holding it. That difference is why clear() is the right call for shared caches and for a dict passed into a function whose caller must see the result."
     },
     "syntax": "d.clear()",
     "status": "ready",
@@ -1219,8 +1219,8 @@
       "en": "Return a shallow copy of the dict; nested objects are shared with the original."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Тот же результат дают dict(d) и {**d} — все три копируют ровно один уровень и сохраняют порядок вставки. Тонкость с наследованием: если класс унаследован от dict, его copy() вернёт обычный dict, а не ваш подкласс; чтобы сохранить тип, нужен copy.copy() или собственный __copy__.",
+      "en": "dict(d) and {**d} give the same result — all three copy exactly one level and preserve insertion order. One subtlety with inheritance: on a dict subclass, copy() returns a plain dict rather than an instance of your class; use copy.copy() or define __copy__ if the type must survive."
     },
     "syntax": "d.copy()",
     "status": "ready",
@@ -1259,8 +1259,8 @@
       "en": "Return the value for a key, or default (None by default), without raising KeyError."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "get не отличает «ключа нет» от «ключ есть, но значение None» — обе ситуации дадут None; когда разница важна, проверяйте key in d. Второй аргумент вычисляется всегда, ещё до вызова метода: d.get(k, expensive()) запустит expensive() даже при найденном ключе. И в отличие от setdefault, get никогда не меняет словарь.",
+      "en": "get cannot tell \"key missing\" from \"key present with value None\" — both give None, so use key in d when the difference matters. The default argument is evaluated eagerly, before the call happens: d.get(k, expensive()) runs expensive() even when the key is there. Unlike setdefault, get never modifies the dictionary."
     },
     "syntax": "d.get(key, default=None)",
     "status": "ready",
@@ -1300,8 +1300,8 @@
       "en": "Return a dynamic view of (key, value) pairs; reflects later changes to the dict."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Это окно в словарь, а не список: пока идёт цикл по нему, добавлять и удалять ключи нельзя — интерпретатор бросит RuntimeError, так что для изменений сначала скопируйте пары в список. Само представление ведёт себя как множество: пересечение и разность двух таких представлений дают общие и различающиеся пары, если значения хешируемые.",
+      "en": "It is a live window into the dict, not a list: adding or removing keys while looping over it raises RuntimeError, so snapshot the pairs into a list first if you intend to modify. The view is also set-like — intersecting or subtracting two item views gives the shared and differing pairs, as long as the values are hashable."
     },
     "syntax": "d.items()",
     "status": "ready",
@@ -1340,8 +1340,8 @@
       "en": "Return a dynamic view of the dict's keys."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Представление живое, а не снимок: добавили или удалили ключ после view = d.keys() — view и его len() сразу это отражают. Отсюда типичная ошибка: менять словарь прямо внутри for k in d.keys() — Python бросит RuntimeError, сначала сделайте копию list(d.keys()). И само .keys() в цикле избыточно: for k in d перебирает ключи и так.",
+      "en": "The view is live, not a snapshot: add or drop a key after view = d.keys() and both the view and its len() follow the dict. So mutating the dict inside for k in d.keys() raises RuntimeError — iterate over a list(d.keys()) copy instead. Also, plain for k in d already walks the keys, so spelling out .keys() buys nothing."
     },
     "syntax": "d.keys()",
     "status": "ready",
@@ -1381,8 +1381,8 @@
       "en": "Remove a key and return its value; default or KeyError if the key is absent."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Не путайте с list.pop(): у списка аргумент — индекс и второго параметра-заглушки нет, здесь же первый аргумент — ключ. d.pop(key, None) — стандартный способ снести ключ, которого может не быть: del d[key] в такой ситуации упадёт с KeyError. Возврат значения делает pop удобным, когда нужно «забрать и удалить» за одно действие, например вынуть служебный ключ из словаря параметров.",
+      "en": "Do not confuse it with list.pop(), whose argument is an index and which has no default parameter; here the first argument is a key. d.pop(key, None) is the usual way to drop a key that may not be there — del d[key] would raise KeyError instead. Because it returns the value, pop is handy when you need to take and remove in one step, such as pulling a service key out of a dict of options."
     },
     "syntax": "d.pop(key, default)",
     "status": "ready",
@@ -1423,8 +1423,8 @@
       "en": "Remove and return the last inserted (key, value) pair (LIFO since 3.7); KeyError if empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "LIFO здесь означает именно стек: popitem() отдаёт последнюю вставленную пару, а не самую старую; за FIFO идите в collections.OrderedDict с popitem(last=False) или в deque. Зато это безопасный способ вычерпать словарь в цикле while d — удалять ключи прямо по ходу итерации по самому словарю нельзя, будет RuntimeError о смене размера.",
+      "en": "LIFO here means a stack: popitem() hands back the most recently inserted pair, not the oldest one; for FIFO reach for collections.OrderedDict with popitem(last=False), or a deque. It is also the safe way to drain a dict in a while d loop, since deleting keys while iterating over the dict itself raises RuntimeError about the size changing."
     },
     "syntax": "d.popitem()",
     "status": "ready",
@@ -1463,8 +1463,8 @@
       "en": "Return the value for a key; if absent, insert it with default and return default."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная идиома — группировка: d.setdefault(k, []).append(x), потому что метод возвращает именно тот объект, что лежит (или только что лёг) в словаре. Но default вычисляется при каждом вызове, даже когда ключ уже есть, — новый пустой список создаётся и тут же выбрасывается; если группировок много, чище и быстрее collections.defaultdict(list).",
+      "en": "The classic idiom is grouping: d.setdefault(k, []).append(x), since the method returns the very object stored in (or just placed into) the dictionary. The default is built on every call even when the key already exists — a fresh empty list is created and immediately discarded — so for heavy grouping collections.defaultdict(list) is cleaner and faster."
     },
     "syntax": "d.setdefault(key, default=None)",
     "status": "ready",
@@ -1502,8 +1502,8 @@
       "en": "Add or replace pairs from another dict, an iterable of pairs, or keyword arguments (in place)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод меняет словарь на месте и возвращает None, так что строка d = d.update(other) молча превратит d в None — классическая студенческая опечатка. Совпадающие ключи перезаписываются без предупреждения, прежние значения теряются; если нужен новый словарь, а не мутация исходного, берите d1 | d2 (Python 3.9+). Аргументом может быть не только словарь, но и любой итерируемый объект пар — например, список кортежей или zip.",
+      "en": "update() mutates the dict in place and returns None, so d = d.update(other) silently turns d into None — a classic beginner typo. Colliding keys are overwritten without warning and the old values are gone; if you want a new dict rather than a mutated original, use d1 | d2 (Python 3.9+). The argument need not be a dict either: any iterable of key/value pairs works, such as a list of tuples or a zip object."
     },
     "syntax": "d.update(other, **kwargs)",
     "status": "ready",
@@ -1543,8 +1543,8 @@
       "en": "Return a dynamic view of the dict's values."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от keys(), это представление не ведёт себя как множество: значения могут повторяться и не обязаны быть хешируемыми, поэтому операций & , | и - у values() нет. Проверка x in d.values() линейна — она перебирает все значения, тогда как поиск по ключу стоит O(1); если ищете по значению часто, стройте обратный словарь.",
+      "en": "Unlike keys(), this view is not set-like: values may repeat and need not be hashable, so &, | and - are unavailable. Membership x in d.values() is a linear scan, while a key lookup is O(1) — if you search by value often, build a reversed mapping instead."
     },
     "syntax": "d.values()",
     "status": "ready",
@@ -1582,8 +1582,8 @@
       "en": "The del operator removes a pair by key (KeyError if absent). To delete and return a value, use dict.pop()/dict.popitem()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "del ничего не возвращает — если удалённое значение ещё нужно, берите d.pop(key), а чтобы не ловить KeyError на отсутствующем ключе, d.pop(key, None). Удалять ключи прямо в цикле for k in d нельзя: изменение размера словаря во время итерации даёт RuntimeError, поэтому сначала соберите список ключей на удаление (list(d) или списковое включение), а потом удаляйте.",
+      "en": "del returns nothing — if you still need the removed value use d.pop(key), and d.pop(key, None) to avoid KeyError on a missing key. Never delete keys inside for k in d: changing the dictionary's size during iteration raises RuntimeError, so collect the keys to drop first (list(d) or a comprehension) and delete afterwards."
     },
     "syntax": "del d[key]",
     "status": "ready",
@@ -1624,8 +1624,8 @@
       "en": "d[key] returns the value for a key or raises KeyError if absent. To avoid the error on a missing key, use dict.get() with a default."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Чтение и запись через квадратные скобки несимметричны: d[key] = 1 спокойно создаст отсутствующий ключ, а чтение того же ключа упадёт с KeyError. Поиск по ключу в среднем O(1), поэтому проверка in перед доступом почти ничего не стоит; но если ключ обычно на месте, дешевле сразу читать и перехватывать KeyError. И учтите: d.get(key) вернёт None и для пропущенного ключа, и для ключа со значением None — различить эти случаи можно только через in или собственный объект-заглушку в качестве default.",
+      "en": "Reading and writing through square brackets are not symmetric: d[key] = 1 happily creates a missing key, while reading that same key raises KeyError. Key lookup is O(1) on average, so an in check before access costs almost nothing; but when the key is normally present, it is cheaper to read and catch KeyError instead. Note too that d.get(key) returns None both for a missing key and for a key whose value is None — only in, or your own sentinel as the default, tells those apart."
     },
     "syntax": "d[key]",
     "status": "ready",
@@ -1667,8 +1667,8 @@
       "en": "Assigning d[key] = value adds a new key or replaces an existing value. For several pairs at once, use dict.update()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ключ обязан быть хешируемым: строка, число, кортеж из неизменяемых элементов подойдут, а список или множество дадут TypeError: unhashable type. Начиная с Python 3.7 порядок вставки гарантирован, и перезапись существующего ключа не двигает его в конец — позиция сохраняется; чтобы ключ переехал в хвост, его нужно сначала удалить и вставить заново.",
+      "en": "The key must be hashable: strings, numbers and tuples of immutable items work, while a list or a set raises TypeError: unhashable type. Since Python 3.7 insertion order is guaranteed, and overwriting an existing key keeps its original position rather than moving it to the end — to push a key to the back you have to delete it and insert it again."
     },
     "syntax": "d[key] = value",
     "status": "ready",
@@ -1711,8 +1711,8 @@
       "en": "Add an element to the set in place; duplicates are ignored."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод возвращает None, поэтому s = s.add(3) молча превратит множество в None — классическая ошибка. Элемент обязан быть хешируемым: список добавить нельзя (TypeError: unhashable type), понадобится кортеж или frozenset. Совпадение ищется по хешу и ==, так что 1, 1.0 и True для множества один элемент, и повторный add не заменит уже лежащий там объект.",
+      "en": "It returns None, so s = s.add(3) quietly turns your set into None — a classic slip. The element must be hashable: a list raises TypeError (unhashable type), so pass a tuple or a frozenset. Membership is decided by hash and ==, which makes 1, 1.0 and True the same element, and adding a duplicate leaves the stored object untouched."
     },
     "syntax": "s.add(elem)",
     "status": "ready",
@@ -1754,8 +1754,8 @@
       "en": "Add elements from one or more iterables in place (in-place union)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргументом может быть любой итерируемый объект, и здесь легко промахнуться: строка разложится на отдельные символы, а не добавится целиком — для одного элемента нужен add(). Оператор |= делает то же самое, но требует справа именно множество, тогда как update() примет список, кортеж или генератор, причём несколько сразу за один вызов.",
+      "en": "The argument may be any iterable, which is exactly where students trip: a string is split into its characters instead of being added whole — use add() for a single element. The |= operator does the same job but insists on a set on the right, while update() happily swallows lists, tuples or generators, several of them in one call."
     },
     "syntax": "s.update(*iterables)",
     "status": "ready",
@@ -1794,8 +1794,8 @@
       "en": "Remove an element; raises KeyError if it is absent (unlike discard)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "KeyError здесь говорит, что элемента в множестве уже не было, а это почти всегда ошибка в логике, а не рядовой случай, так что глушить исключение через try/except — плохой знак: если отсутствие нормально, нужен discard. Отдельная ловушка — удалять элементы прямо во время перебора того же множества: цикл упадёт с RuntimeError про изменение размера, перебирать надо копию.",
+      "en": "A KeyError here means the element was already gone, which is normally a bug in your logic rather than an everyday case — wrapping the call in try/except is a smell, and if absence is expected you want discard. A separate trap is removing items while iterating over the same set: the loop dies with a RuntimeError about the size changing, so iterate over a copy."
     },
     "syntax": "s.remove(elem)",
     "status": "ready",
@@ -1835,8 +1835,8 @@
       "en": "Remove an element if present; a missing element is not an error (unlike remove)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Именно за молчаливость discard чаще всего и попадаются: опечатка в элементе или не тот тип (строка '2' вместо числа 2) ничего не удалят и никак себя не проявят. Берите discard, когда отсутствие элемента — нормальный ход событий; если элемент обязан там быть, remove сразу покажет ошибку в логике.",
+      "en": "The silence of discard is exactly what trips people up: a typo or a mismatched type (the string '2' instead of the number 2) removes nothing and reports nothing. Reach for discard when a missing element is a normal outcome; if the element is supposed to be there, remove will surface the logic error immediately."
     },
     "syntax": "s.discard(elem)",
     "status": "ready",
@@ -1874,8 +1874,8 @@
       "en": "Remove and return an arbitrary element; raises KeyError if the set is empty."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Произвольный не значит случайный: какой элемент уйдёт, определяет внутренний порядок хеш-таблицы, и для маленьких множеств целых чисел это обычно выглядит как «самый маленький». Для честного случайного выбора сначала преобразуйте множество в список — random.choice(list(s)); random.sample с множеством перестал работать в Python 3.11. Сам pop хорош, чтобы разгребать множество в цикле while s.",
+      "en": "Arbitrary does not mean random: which element leaves is decided by the hash-table layout, and for small sets of integers it usually looks like the smallest one. For a genuinely random pick convert first — random.choice(list(s)); random.sample stopped accepting sets in Python 3.11. pop itself shines when draining a set in a while s loop."
     },
     "syntax": "s.pop()",
     "status": "ready",
@@ -1917,8 +1917,8 @@
       "en": "Remove all elements, leaving an empty set (in place)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод очищает сам объект, поэтому все имена, ссылающиеся на это множество, увидят его пустым. Присваивание нового пустого множества, наоборот, перевешивает только одно имя — остальные ссылки продолжат смотреть на старые данные. На уже пустом множестве вызов не ошибка.",
+      "en": "clear() empties the object itself, so every name bound to that set sees it become empty. Rebinding a name to a fresh empty set instead changes only that one name and leaves other references pointing at the old data. Calling it on an already empty set is harmless."
     },
     "syntax": "s.clear()",
     "status": "ready",
@@ -1956,8 +1956,8 @@
       "en": "Return a shallow copy of the set (a new independent set)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Простое присваивание копии не делает: оба имени указывают на одно множество, и добавление через любое из них видно через другое — независимый объект даёт именно copy(). Поверхностность тут почти не мешает, потому что элементы множества обязаны быть хешируемыми, то есть на практике это числа, строки и кортежи; разделяться между копиями могут разве что свои классы с собственным хешем.",
+      "en": "Plain assignment is not a copy: both names refer to the same set, so adding through one is visible through the other, and only copy() gives an independent object. The shallowness rarely bites here, since set elements must be hashable — in practice numbers, strings and tuples; the only objects still shared between the copies are custom classes with their own hash."
     },
     "syntax": "s.copy()",
     "status": "ready",
@@ -1997,8 +1997,8 @@
       "en": "Return a new set with all elements from this set and the others (union). Operator: |."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "union принимает любые итерируемые аргументы — список, кортеж, строку, генератор, а оператор | работает только между множествами, поэтому {1, 2} | [3] падает с TypeError. Метод строит новое множество и исходное не трогает: чтобы добавить элементы в уже существующее, нужен update.",
+      "en": "union accepts any iterables — lists, tuples, strings, generators — while the | operator only works between sets, which is why {1, 2} | [3] raises TypeError. The method builds a new set and leaves the original untouched; to grow an existing set in place, use update instead."
     },
     "syntax": "s.union(*others)",
     "status": "ready",
@@ -2040,8 +2040,8 @@
       "en": "Return a new set of elements common to all (intersection). Operator: &."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод принимает любые итерируемые объекты, а оператор & — только множества. Если нужен лишь ответ «пересекаются ли вообще», берите isdisjoint(): он даёт его, не собирая целое новое множество.",
+      "en": "The method takes any iterables; the & operator takes sets only. When all you need is whether two collections overlap at all, isdisjoint() answers that without building a whole new set."
     },
     "syntax": "s.intersection(*others)",
     "status": "ready",
@@ -2082,8 +2082,8 @@
       "en": "Return a new set of elements not in the others (difference). Operator: -."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод принимает любые итерируемые объекты — список, строку, генератор, а оператор - работает только между двумя множествами и на списке справа падает с TypeError. Разность несимметрична: поменяв операнды местами, получите другой ответ; исходное множество при этом не меняется — для изменения на месте есть difference_update().",
+      "en": "The method accepts any iterables — a list, a string, a generator — while the - operator only works between two sets and raises TypeError on anything else. Difference is not symmetric: swap the operands and you get a different answer. The original set is left untouched; use difference_update() when you want to shrink it in place."
     },
     "syntax": "s.difference(*others)",
     "status": "ready",
@@ -2125,8 +2125,8 @@
       "en": "Return elements in exactly one of the two sets (symmetric difference). Operator: ^."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от difference() и intersection(), принимает ровно один аргумент — несколько наборов за раз сюда не передать. Результат не зависит от порядка операндов, поэтому это самый прямой способ спросить «чем два набора вообще различаются», не решая заранее, у кого что лишнее; оператору ^, как обычно, нужны множества с обеих сторон.",
+      "en": "Unlike difference() and intersection(), this one takes exactly one argument — you cannot pass several collections at once. The result does not depend on operand order, which makes it the direct way to ask how two collections differ at all, without deciding in advance which side has the extras; the ^ operator, as usual, needs sets on both sides."
     },
     "syntax": "s.symmetric_difference(other)",
     "status": "ready",
@@ -2168,8 +2168,8 @@
       "en": "Remove from the set the elements found in the others (in-place difference)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод меняет множество на месте и возвращает None — если присвоить результат обратно в переменную, множество затрётся значением None. Элементы, которых в множестве не было, просто игнорируются: никакого KeyError, в отличие от remove().",
+      "en": "It mutates the set in place and returns None, so assigning the result back to your variable silently replaces the set with None. Elements that were not there in the first place are ignored — no KeyError, unlike remove()."
     },
     "syntax": "s.difference_update(*others)",
     "status": "ready",
@@ -2207,8 +2207,8 @@
       "en": "Keep only elements found in all the others (in-place intersection)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Меняет множество на месте и возвращает None, так что вызывать его в цепочке или присваивать результат бессмысленно. Все имена, указывающие на это же множество, увидят усечённый вариант — если исходный набор ещё понадобится, используйте intersection() и новую переменную.",
+      "en": "It shrinks the set in place and returns None, so chaining the call or assigning its result is a mistake. Every name bound to that same set sees the trimmed version; if you still need the original contents, use intersection() and store the result in a new variable."
     },
     "syntax": "s.intersection_update(*others)",
     "status": "ready",
@@ -2245,8 +2245,8 @@
       "en": "Update the set to elements in exactly one of the sets (in-place symmetric difference)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "У метода есть операторная форма ^=, но она требует множество справа, а сам метод принимает любой итерируемый объект — список, кортеж, генератор. Изменение идёт на месте, возвращается None, поэтому запись s = s.symmetric_difference_update(other) вместо результата положит в переменную None; когда нужен новый объект, берите symmetric_difference.",
+      "en": "The operator form is ^=, but it insists on a set on the right-hand side, whereas the method happily takes any iterable — a list, a tuple, a generator. It mutates in place and returns None, so s = s.symmetric_difference_update(other) leaves None in the variable instead of the result; use symmetric_difference when you want a fresh set."
     },
     "syntax": "s.symmetric_difference_update(other)",
     "status": "ready",
@@ -2283,8 +2283,8 @@
       "en": "True if every element is contained in the other set (subset). Operator: <=."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод глотает любой итерируемый объект, а оператор <= требует множества с обеих сторон: {1, 2} <= [1, 2, 3] падает с TypeError. Пустое множество — подмножество любого, включая само себя; строгое подмножество (без равенства) проверяется оператором <.",
+      "en": "The method accepts any iterable, while the <= operator demands sets on both sides: {1, 2} <= [1, 2, 3] raises TypeError. The empty set is a subset of everything, and every set is a subset of itself — for a proper subset, one that excludes equality, use <."
     },
     "syntax": "s.issubset(other)",
     "status": "ready",
@@ -2325,8 +2325,8 @@
       "en": "True if the set contains every element of the other (superset). Operator: >=."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сравнение множеств задаёт лишь частичный порядок: у {1, 2} и {2, 3} ни одно не содержит другое, так что False вернут сразу оба сравнения. Поэтому из not a.issuperset(b) не следует, что b надмножество a, а sorted() или max() по списку множеств дают результат, зависящий от исходного расположения, и смысла не несут.",
+      "en": "Set comparison is only a partial order: neither {1, 2} nor {2, 3} contains the other, so both directions come back False. That means not a.issuperset(b) does not imply the reverse relation, and calling sorted() or max() on a list of sets yields an arbitrary answer that depends on the starting arrangement."
     },
     "syntax": "s.issuperset(other)",
     "status": "ready",
@@ -2367,8 +2367,8 @@
       "en": "True if the two sets have no elements in common (empty intersection)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Дешевле, чем not (a & b): промежуточное множество не строится, а перебор прекращается на первом же общем элементе. Аргументом может быть любой итерируемый объект, а не только множество — оператор & такой вольности не допускает. Пустое множество не пересекается ни с чем, поэтому для него ответ всегда True.",
+      "en": "Cheaper than not (a & b): no intermediate set is built and the scan stops at the first shared element it finds. The argument may be any iterable, not just a set — the & operator refuses anything but a set. An empty set shares nothing with anything, so it is always disjoint."
     },
     "syntax": "s.isdisjoint(other)",
     "status": "ready",
@@ -2409,8 +2409,8 @@
       "en": "For an immutable frozenset, copy() returns the same object (nothing to copy)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод оставлен ради единого интерфейса: код, работающий с любым множеством, может звать copy(), не разбираясь, set ему передали или frozenset. Защищать от правок неизменяемый объект не от чего, поэтому копия не создаётся — возвращается он сам. Если нужна копия, которую потом можно менять, берите set(f): copy() мутабельного набора не даст.",
+      "en": "The method exists for interface parity: code that accepts any set can call copy() without checking whether it got a set or a frozenset. There is nothing to protect from mutation, so no new object is built — you get the original back. When you need a copy you can actually modify, use set(f); copy() will never hand you a mutable one."
     },
     "syntax": "f.copy()",
     "status": "ready",
@@ -2418,7 +2418,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "копия неизменяемого множества",
+      "копирование замороженного множества"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2447,8 +2450,8 @@
       "en": "Return a new frozenset — the union with the given iterables."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Оператор | требует множеств с обеих сторон, а union() принимает любые итерируемые и сразу несколько за один вызов. Тип результата задаёт объект слева: frozenset.union(обычное_множество) вернёт именно frozenset. Изменить frozenset на месте нельзя — метода update() у него нет, только новый объект.",
+      "en": "The | operator wants sets on both sides; union() swallows any iterables, and several of them in one call. The result type comes from the object the method is called on, so frozenset.union(a_set) still yields a frozenset. A frozenset is never updated in place — it has no update(), only a freshly built object."
     },
     "syntax": "f.union(*others)",
     "status": "ready",
@@ -2456,7 +2459,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "объединение неизменяемых множеств",
+      "слить замороженные множества"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2486,8 +2492,8 @@
       "en": "Return a new frozenset — the intersection with the others."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Когда с обеих сторон множества, CPython обходит меньшее и проверяет принадлежность в большем, так что цена — порядка размера меньшего набора, а не суммы. Аргументом метода (в отличие от оператора &) может быть любой итерируемый объект, и не один: f.intersection(a, b) пересекает сразу с обоими. Если сам результат не нужен, а важен лишь факт наличия общих элементов, дешевле isdisjoint — он обрывается на первом совпадении и не строит новый набор.",
+      "en": "When both sides are sets, CPython walks the smaller one and tests membership in the larger, so the cost scales with the smaller set, not with the total. Unlike the & operator, the method takes any iterable, and several at once: f.intersection(a, b) intersects with both. If you only need to know whether anything overlaps, isdisjoint is cheaper — it stops at the first common element instead of building a whole new set."
     },
     "syntax": "f.intersection(*others)",
     "status": "ready",
@@ -2495,7 +2501,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "пересечение неизменяемых множеств",
+      "общие элементы замороженных множеств"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2525,8 +2534,8 @@
       "en": "Return a new frozenset — the difference (elements not in the others)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "От оператора минус метод отличается тем, что принимает: f - [1, 2] упадёт с TypeError, а f.difference([1, 2]) съест любой итерируемый объект и сколько угодно аргументов за раз. Операция несимметрична — f.difference(g) и g.difference(f) дают разное; если нужно «что есть только у одного из двух», это symmetric_difference. Парного difference_update у frozenset нет: менять на месте нечего, результат всегда новый объект.",
+      "en": "The difference from the minus operator is what it accepts: f - [1, 2] raises TypeError, while f.difference([1, 2]) takes any iterable, and as many of them as you like. The operation is not symmetric — f.difference(g) and g.difference(f) differ; for \"in one or the other but not both\" use symmetric_difference. There is no difference_update on frozenset: nothing can be changed in place, so you always get a new object."
     },
     "syntax": "f.difference(*others)",
     "status": "ready",
@@ -2534,7 +2543,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "разность неизменяемых множеств",
+      "вычитание замороженных множеств"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2563,8 +2575,8 @@
       "en": "Return a new frozenset — the symmetric difference of the two sets."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Симметрическая разность — элементы, попавшие ровно в одно из множеств: объединение минус пересечение. В отличие от union() и difference(), метод принимает ровно один аргумент, свернуть три множества за вызов не выйдет. Оператор ^ считает то же самое, но требует множества с обеих сторон.",
+      "en": "The symmetric difference keeps items that occur in exactly one of the sets — the union minus the intersection. Unlike union() or difference(), this method takes exactly one argument, so three sets cannot be folded in a single call. The ^ operator computes the same result but requires sets on both sides."
     },
     "syntax": "f.symmetric_difference(other)",
     "status": "ready",
@@ -2572,7 +2584,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "симметрическая разность неизменяемых множеств",
+      "элементы только в одном из замороженных множеств"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2602,8 +2617,8 @@
       "en": "True if the frozenset has no elements in common with the other set."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от not (f & other), isdisjoint не строит промежуточное множество и обрывается на первом же общем элементе — на длинных данных разница заметна. Аргументом годится любой итерируемый объект, но итератор при этом вычерпывается частично или целиком, и второй раз его уже не проверить. Пустое множество не пересекается ни с чем, включая само себя: frozenset().isdisjoint(frozenset()) — True.",
+      "en": "Unlike not (f & other), isdisjoint builds no intermediate set and bails out at the first shared element, which matters on large inputs. Any iterable works as the argument, but a plain iterator gets consumed partially or fully in the process, so you cannot test it again. The empty set is disjoint from everything, itself included: frozenset().isdisjoint(frozenset()) is True."
     },
     "syntax": "f.isdisjoint(other)",
     "status": "ready",
@@ -2611,7 +2626,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "непересекающиеся замороженные множества",
+      "нет общих элементов у неизменяемого множества"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2640,8 +2658,8 @@
       "en": "True if every element of the frozenset is in the other set (subset)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод принимает любой итерируемый объект, а оператор <= — только множество: f <= [1, 2, 3] упадёт с TypeError, а f.issubset([1, 2, 3]) сработает. Множество считается подмножеством самого себя, поэтому равные множества дают True; для строгого подмножества нужен оператор <. Строка разбирается посимвольно, так что frozenset('cat').issubset('character') — про буквы, а не про подстроку.",
+      "en": "The method accepts any iterable, while the <= operator insists on a real set: f <= [1, 2, 3] raises TypeError, but f.issubset([1, 2, 3]) works. A set is a subset of itself, so equal sets give True; for a strict subset use <. Strings are consumed character by character, so frozenset('cat').issubset('character') is about letters, not substrings."
     },
     "syntax": "f.issubset(other)",
     "status": "ready",
@@ -2649,7 +2667,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "подмножество неизменяемого множества",
+      "проверка вложенности замороженных множеств"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2678,8 +2699,8 @@
       "en": "True if the frozenset contains every element of the other set (superset)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Эти две проверки не противоположны: у {1, 2} и {2, 3} ни одно не содержит другого, и issubset, и issuperset вернут False. Оператор >= требует множества с обеих сторон, тогда как методу сгодится любой итерируемый — список, кортеж, строка.",
+      "en": "Subset and superset are not opposites: for {1, 2} and {2, 3} neither contains the other, so both issubset and issuperset return False. The >= operator demands sets on both sides, whereas the method happily takes any iterable — a list, tuple or string."
     },
     "syntax": "f.issuperset(other)",
     "status": "ready",
@@ -2687,7 +2708,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "надмножество неизменяемого множества",
+      "замороженное множество содержит другое"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"

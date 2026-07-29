@@ -8,8 +8,8 @@
       "en": "Built-in function that returns the absolute value (magnitude) of a number. Works with int, float and complex."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Тип результата следует за аргументом: int даёт int, float — float, а complex — float, потому что это длина вектора, а не «число без знака». Привычная конструкция abs(a - b) < 1e-9 для сравнения дробных чисел надёжна только около единицы: на больших значениях такой абсолютный допуск всегда провалится, поэтому в общем случае берите math.isclose() с относительным допуском.",
+      "en": "The result type follows the argument: int gives int, float gives float, and complex gives float, since that is a vector length rather than a sign-stripped number. The familiar abs(a - b) < 1e-9 idiom for comparing floats only holds near 1: at large magnitudes such a fixed absolute tolerance always fails, so reach for math.isclose() with its relative tolerance instead."
     },
     "syntax": "abs(x)",
     "status": "ready",
@@ -345,8 +345,8 @@
       "en": "The cmath module provides mathematical functions for complex numbers."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "cmath всегда возвращает complex, даже когда результат по сути вещественный: cmath.sqrt(4) даст (2+0j), и передать это туда, где ждут float, уже не получится. Берите его ровно там, где math падает с ValueError — корень или логарифм отрицательного числа; сравнивать комплексные через < или > нельзя, будет TypeError, упорядочены только их модули через abs().",
+      "en": "cmath always hands back a complex, even when the answer is really a real number: cmath.sqrt(4) is (2+0j), which will not slot into code expecting a float. Reach for it exactly where math raises ValueError — roots and logs of negative numbers; and complex values cannot be ordered, so < or > raises TypeError and you have to compare abs() instead."
     },
     "syntax": "import cmath\ncmath.sqrt(-1)  # → 1j",
     "status": "ready",
@@ -484,8 +484,8 @@
       "en": "The csv module reads and writes CSV files. reader/writer work with rows, DictReader/DictWriter with dictionaries."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Файл под csv открывают с newline='' — модуль сам управляет переводами строк, и без этого на Windows между записями появятся пустые строки. reader отдаёт все поля строками: '30' останется текстом, приводить к int или float нужно вручную. DictReader берёт имена полей из первой строки файла — если заголовка нет, передайте fieldnames явно, иначе первая запись данных молча станет заголовком.",
+      "en": "Open the file with newline='' — the module handles line endings itself, and without it Windows gives you a blank line between every record. reader hands back every field as a string: '30' stays text until you convert it yourself. DictReader takes the field names from the first line, so if the file has no header row, pass fieldnames explicitly or your first data record silently becomes the header."
     },
     "syntax": "import csv\ncsv.reader(f)\ncsv.writer(f)",
     "status": "ready",
@@ -556,8 +556,8 @@
       "en": "Exact decimal arithmetic, free of float error. Indispensable in financial calculations."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Создавайте Decimal из строки: Decimal(0.1) берёт уже испорченное двоичное значение float и честно печатает его во всех подробностях, а Decimal('0.1') — ровно одну десятую. Смешивать Decimal с float в арифметике Python откажется (TypeError), с int — пожалуйста; и точность по умолчанию — 28 значащих цифр контекста, поэтому деление вроде 10/3 всё же округляется, просто предсказуемо и в десятичной системе.",
+      "en": "Build a Decimal from a string: Decimal(0.1) swallows the already-inexact binary float and prints it in full gory detail, while Decimal('0.1') is exactly one tenth. Arithmetic between Decimal and float is a TypeError (with int it is fine), and the default context keeps 28 significant digits, so a division like 10/3 still gets rounded — just predictably, in decimal."
     },
     "syntax": "from decimal import Decimal\nDecimal('1.1') + Decimal('2.2')",
     "status": "ready",
@@ -599,8 +599,8 @@
       "en": "Return the current thread's Decimal context; its prec and rounding fields can be mutated in place and affect every subsequent operation."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "prec — это общее число значащих цифр результата, а не знаков после запятой, и на сам конструктор контекст не действует: Decimal('1.23456789') сохранит все цифры, округление случится только при арифметике. Контекст потоко-локальный, так что в новом потоке снова увидите умолчания; а когда точность нужна лишь на пару операций, чище блок with decimal.localcontext(), чем правка полей глобального контекста, которую потом легко забыть откатить.",
+      "en": "prec counts significant digits of a result, not digits after the point, and the context does not touch the constructor: Decimal('1.23456789') keeps every digit, and rounding only happens once you do arithmetic. The context is per-thread, so a freshly started thread sees the defaults again; and when you need a different precision for just a few operations, a with decimal.localcontext() block beats poking the global context and forgetting to restore it."
     },
     "syntax": "decimal.getcontext()\ndecimal.getcontext().prec = 50",
     "status": "ready",
@@ -642,8 +642,8 @@
       "en": "Replace the current Decimal context wholesale with the given one — useful when you have a prebuilt Context rather than tweaking fields one by one."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Меняется контекст только активного потока — остальные продолжают жить со своим, и восстанавливать прежний после setcontext придётся вручную. Если точность нужна временно, надёжнее with decimal.localcontext(...): он вернёт старый контекст сам; и учтите, что переданный вами объект Context хранится как есть, так что дальнейшая правка его полей сразу подействует на все вычисления.",
+      "en": "Only the calling thread's context changes — other threads keep their own, and restoring the previous one after setcontext is your job. For a temporary setting, with decimal.localcontext(...) is safer because it puts the old context back for you; also note that the Context object you pass is kept as is, so mutating its fields later immediately affects every subsequent operation."
     },
     "syntax": "decimal.setcontext(ctx)",
     "status": "ready",
@@ -737,8 +737,8 @@
       "en": "Built-in function that returns the tuple (quotient, remainder) — the results of floor division and of the modulo. More efficient than two separate operations."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главный сюрприз — отрицательные числа: деление округляется вниз, к минус бесконечности, поэтому divmod(-7, 2) даёт (-4, 1), а не (-3, -1), как привыкли в C или Java; знак остатка всегда совпадает со знаком делителя. Брать divmod стоит там, где обе части нужны сразу — перевод секунд в часы и минуты, разбивка на страницы; ради одного значения короче и понятнее просто // или %.",
+      "en": "The surprise is negative operands: division floors toward minus infinity, so divmod(-7, 2) is (-4, 1), not (-3, -1) as in C or Java, and the remainder always carries the sign of the divisor. Reach for divmod when you genuinely need both parts at once (seconds to hours and minutes, paging); for a single value plain // or % reads better."
     },
     "syntax": "divmod(a, b) -> (a // b, a % b)",
     "status": "ready",
@@ -1133,8 +1133,8 @@
       "en": "Represents rational numbers exactly, as a pair of integers (numerator and denominator). Without float error."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Fraction(0.1) добросовестно берёт двоичное приближение float и превращается в монстра 3602879701896397/36028797018963968 — из десятичной записи стройте через строку Fraction('0.1') или пару целых. Дробь неизменяема и сокращается сразу при создании, а вот в арифметике с float результат становится float, и вся точность теряется; после длинных цепочек сложений знаменатели разрастаются, и привести дробь к обозримому виду помогает limit_denominator().",
+      "en": "Fraction(0.1) faithfully takes the binary approximation of the float and turns into the monster 3602879701896397/36028797018963968 — from decimal text, build it as Fraction('0.1') or from a pair of integers. A Fraction is immutable and is reduced to lowest terms at construction, but mixing it with a float in arithmetic yields a float and throws the exactness away; after long chains of additions the denominators blow up, and limit_denominator() is what brings the value back to a readable approximation."
     },
     "syntax": "from fractions import Fraction\nFraction(1, 3)",
     "status": "ready",
@@ -1608,8 +1608,8 @@
       "en": "JSON serialization and deserialization. dumps/loads work with strings, dump/load with files. Supports dict, list, str, int, float, bool and None."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Обратная дорога не тождественна: кортеж после dumps/loads вернётся списком, а нестроковые ключи словаря станут строками — 1 превратится в '1'. По умолчанию ensure_ascii=True, и кириллица уезжает в \\uXXXX-экранирование; для читаемого файла передавайте ensure_ascii=False. Множества, datetime и Decimal модуль не умеет и бросает TypeError — приводите их к поддерживаемым типам сами или через параметр default.",
+      "en": "A round trip is not an identity: a tuple comes back as a list, and non-string dict keys come back as strings, so 1 turns into '1'. ensure_ascii is True by default, which escapes anything non-Latin into \\uXXXX — pass ensure_ascii=False when you want a human-readable file. Sets, datetime and Decimal are unsupported and raise TypeError; convert them yourself or hook the default parameter."
     },
     "syntax": "import json\njson.dumps(obj)\njson.loads(s)",
     "status": "ready",
@@ -1948,8 +1948,8 @@
       "en": "Opens a file. Modes: r (read), w (write, truncating), a (append), x (create), b (binary). Use it with with."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Всегда указывай encoding='utf-8' явно: без него текстовый режим берёт кодировку из локали системы, и файл, который спокойно читается на Linux, роняет UnicodeDecodeError на Windows с cp1251. Режим 'w' обрезает файл до нуля уже в момент открытия, до первой записи, — если нужно создать файл, но не затереть существующий, бери 'x': он бросит FileExistsError вместо потери данных.",
+      "en": "Always pass encoding='utf-8' explicitly: without it text mode falls back to the system locale, so a file that reads fine on Linux blows up with UnicodeDecodeError on a Windows machine using cp1251. Mode 'w' empties the file the moment it is opened, before any write happens — if you want to create a file without clobbering an existing one, use 'x', which raises FileExistsError instead of destroying data."
     },
     "syntax": "open(path, mode='r', encoding=None)",
     "status": "ready",
@@ -2021,8 +2021,8 @@
       "en": "The os module is the interface to the operating system: files, directories and environment variables."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "os.listdir() отдаёт голые имена файлов без директории, поэтому открыть их напрямую нельзя — имя надо склеить с путём через os.path.join(); порядок имён произвольный (как отдала файловая система), сортировку делайте сами. Для самих путей в новом коде обычно берут pathlib, а за os остаются процессы, переменные окружения (os.environ) и операции вроде os.remove/os.rename.",
+      "en": "os.listdir() returns bare file names without the directory, so you cannot open them as-is — join them with the directory via os.path.join(); the order is whatever the filesystem gives, so sort it yourself if you need it. New code usually reaches for pathlib for path manipulation and keeps os for processes, environment variables (os.environ) and operations like os.remove/os.rename."
     },
     "syntax": "import os\nos.getcwd()\nos.listdir()\nos.path.join()",
     "status": "ready",
@@ -2077,8 +2077,8 @@
       "en": "An object-oriented API for filesystem paths. Cross-platform."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пути склеиваются оператором /, но если справа стоит абсолютный путь, левая часть просто отбрасывается: Path('/tmp') / '/etc' даёт Path('/etc') — частая причина «файл сохранился не туда». Объекты Path неизменяемы: with_suffix(), parent и прочее возвращают новый путь, а не меняют старый; заворачивать Path в str() перед open() и функциями stdlib не нужно, они принимают Path напрямую.",
+      "en": "Paths are joined with the / operator, but an absolute path on the right discards everything on the left: Path('/tmp') / '/etc' is Path('/etc') — a common reason a file ends up somewhere unexpected. Path objects are immutable, so with_suffix(), parent and friends return a new path instead of mutating the old one, and you do not need str() around a Path: open() and the standard library accept Path directly."
     },
     "syntax": "from pathlib import Path\np = Path('/some/path')",
     "status": "ready",
@@ -2145,8 +2145,8 @@
       "en": "Serialization of Python objects into a binary format. It stores arbitrary objects. Not safe for untrusted data!"
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Файл обязательно открывается в бинарном режиме ('wb' для dump, 'rb' для load) — с обычным 'w' будет TypeError. Формат чисто питоновский и завязан на код: при загрузке классы объектов должны импортироваться по тому же пути, что и при сохранении, поэтому после переименования модуля или класса старые .pkl перестают читаться — для обмена данными с другими программами берите JSON.",
+      "en": "The file must be opened in binary mode ('wb' for dump, 'rb' for load); plain 'w' raises TypeError. The format is Python-only and tied to your code: on load the classes must be importable under exactly the same module path as when they were saved, so renaming a module or class breaks old .pkl files — use JSON when the data has to travel to other programs."
     },
     "syntax": "import pickle\npickle.dump(obj, f)\npickle.load(f)",
     "status": "ready",
@@ -2205,8 +2205,8 @@
       "en": "Built-in exponentiation function. With two arguments it is the same as **; with three (base, exp, mod) it does modular exponentiation, which is efficient for large numbers."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Три аргумента — это не просто сокращение записи: pow(a, b, m) берёт остаток на каждом шаге и никогда не строит гигантское промежуточное число, тогда как (a ** b) % m сначала честно возведёт в степень и на большом b подвесит программу. Трёхаргументная форма работает только с целыми, а отрицательный показатель в ней разрешён лишь с Python 3.8 (тогда это обратный элемент по модулю). С двумя аргументами pow(2, -1) вернёт float 0.5, а не целое.",
+      "en": "The three-argument form is not just shorthand: pow(a, b, m) reduces modulo m at every step and never materialises the huge intermediate value, while (a ** b) % m computes the full power first and will hang on a large exponent. It works with ints only, and a negative exponent there is allowed only since Python 3.8, where it yields a modular inverse. With two arguments, pow(2, -1) gives the float 0.5, not an int."
     },
     "syntax": "pow(base, exp[, mod])",
     "status": "ready",
@@ -2296,8 +2296,8 @@
       "en": "Read the whole file into a single string, or exactly size characters if given; on a large file this loads everything into memory — iterate by lines instead."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Курсор назад не отматывается: после f.read() файл прочитан до конца, и второй вызов внутри того же with вернёт пустую строку — самая частая причина «почему-то ничего не прочиталось». Чтобы прочитать заново, нужен f.seek(0). Аргумент size в текстовом режиме считает символы, а в бинарном — байты, и для не-ASCII это разные величины.",
+      "en": "The cursor does not rewind: after f.read() the file is exhausted, so a second call inside the same with block returns an empty string — the usual cause of \"my file suddenly reads as empty\". Call f.seek(0) to read it again. The size argument counts characters in text mode but bytes in binary mode, and for non-ASCII data those are not the same thing."
     },
     "syntax": "f.read(size=-1)",
     "status": "ready",
@@ -2340,8 +2340,8 @@
       "en": "Read a single line including its trailing '\\n'; at end of file it returns an empty string, which is how EOF is detected."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пустая строка в середине файла возвращается как '\\n' и остаётся истинной, а '' приходит только на настоящем конце файла — поэтому цикл вида while line := f.readline() не обрывается досрочно на пустой строке. Если файл не заканчивается переводом строки, последняя строка придёт без '\\n', так что rstrip('\\n') надёжнее среза [:-1]. Для прохода по всему файлу проще for line in f — то же самое, но лениво и без ручного условия выхода.",
+      "en": "A blank line in the middle of a file comes back as '\\n', which is truthy; only real end of file yields '', so a while line := f.readline() loop will not stop early on an empty line. If the file does not end with a newline, the last line arrives without '\\n', which is why rstrip('\\n') is safer than slicing off [:-1]. To walk the whole file, for line in f does the same job lazily and without a manual exit condition."
     },
     "syntax": "f.readline(size=-1)",
     "status": "ready",
@@ -2383,8 +2383,8 @@
       "en": "Read the whole file into a list of lines, keeping the trailing '\\n'; strip them with .rstrip() or use .splitlines() on the result of .read()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Для обычного прохода по строкам readlines() не нужен: for line in f делает то же самое лениво, не поднимая весь файл в память и не строя список. Аргумент hint не режет ровно по заданному размеру — чтение идёт целыми строками, пока суммарный объём не превысит hint, поэтому вернуться может чуть больше запрошенного.",
+      "en": "For a plain pass over the lines you do not need readlines(): for line in f does the same thing lazily, without pulling the whole file into memory or building a list. The hint argument is not a hard cut — whole lines are read until their combined size exceeds hint, so you can get back somewhat more than you asked for."
     },
     "syntax": "f.readlines(hint=-1)",
     "status": "ready",
@@ -2551,8 +2551,8 @@
       "en": "Built-in rounding function. With one argument it returns an int; with ndigits it rounds to that many decimal places. It uses banker's rounding (to the nearest even)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "round(2.675, 2) вернёт 2.67, и виновато тут не банковское округление, а двоичный float: сохранённое значение чуть меньше десятичной записи 2.675. Для денег и отчётов берите decimal.Decimal и quantize(). Ещё тонкость: round(x) без ndigits даёт int, а round(x, 0) — float (2.0), так что «до целого» и «до нуля знаков» — не одно и то же.",
+      "en": "round(2.675, 2) yields 2.67, and banker's rounding is not the culprit — the binary float actually stored is slightly below the decimal 2.675. For money use decimal.Decimal with quantize(). Also note that round(x) without ndigits returns an int while round(x, 0) returns a float (2.0), so \"round to an integer\" and \"round to zero digits\" are different requests."
     },
     "syntax": "round(number[, ndigits])",
     "status": "ready",
@@ -2651,8 +2651,8 @@
       "en": "Computes the quantiles of a data set. n=4 → quartiles, n=100 → percentiles."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Возвращается n-1 точек разреза, а не n: при n=4 это три квартиля, а не четыре числа. По умолчанию method='exclusive' считает данные выборкой из большей популяции, поэтому цифры не совпадут с numpy.percentile, чьё поведение по умолчанию ближе к method='inclusive' — его и передавайте, если ваш набор и есть вся совокупность. Меньше двух значений на входе — StatisticsError.",
+      "en": "You get n-1 cut points, not n: with n=4 that is three quartiles, not four numbers. The default method='exclusive' treats the data as a sample drawn from a larger population, so results will not match numpy.percentile, whose default behaves closer to method='inclusive' — pass that when your data is the whole population. Fewer than two data points raises StatisticsError."
     },
     "syntax": "statistics.quantiles(data, n=4, method='exclusive')",
     "status": "ready",
@@ -2693,8 +2693,8 @@
       "en": "sys.stdin is the standard input, sys.stdout the standard output. They are used for streaming input and output."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Строки из sys.stdin приходят вместе с '\\n' на конце — почти всегда нужен .strip(), иначе сравнение с ожидаемым ответом развалится на невидимом символе. Цикл for line in sys.stdin завершается только на конце ввода (в терминале это Ctrl+D, на Windows Ctrl+Z и Enter), поэтому задачи с неизвестным числом строк читают именно так, а не через фиксированный range. Когда вывод уходит в файл или в конвейер, sys.stdout буферизуется и строки могут появиться позже, чем ожидаешь, — помогает print(..., flush=True).",
+      "en": "Lines read from sys.stdin still carry their trailing '\\n', so a .strip() is almost always needed — otherwise a comparison with the expected answer fails on an invisible character. Iterating with for line in sys.stdin stops only at end of input (Ctrl+D in a terminal, Ctrl+Z then Enter on Windows), which is why problems with an unknown number of lines are read this way rather than with a fixed range. When output is redirected to a file or a pipe, sys.stdout becomes block-buffered and lines may surface later than expected; print(..., flush=True) fixes that."
     },
     "syntax": "import sys\nfor line in sys.stdin: ...\nprint(..., file=sys.stdout)",
     "status": "ready",
@@ -2851,8 +2851,8 @@
       "en": "The walrus operator (:=) assigns a value to a variable inside an expression (Python 3.8+). Handy in while conditions, in comprehensions and in if."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Приоритет у := ниже почти всех операторов, поэтому в условиях его почти всегда оборачивают в скобки: if (n := len(s)) > 10. Отдельной строкой вместо обычного = он не работает — n := 10 на верхнем уровне это SyntaxError. Главная выгода не в краткости, а в том, что значение вычисляется один раз и не приходится звать одну и ту же функцию дважды: в условии и в теле.",
+      "en": "The := operator binds more loosely than nearly everything else, so inside a condition it is almost always wrapped in parentheses: if (n := len(s)) > 10. It cannot replace a plain assignment statement — a bare line n := 10 is a SyntaxError. The real win is not brevity but computing a value once instead of calling the same function twice, in the test and again in the body."
     },
     "syntax": "variable := expression",
     "status": "ready",
@@ -2951,8 +2951,8 @@
       "en": "Write a string to the file and return the number of characters written; it adds no line breaks, so '\\n' must be written explicitly."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В текстовом режиме write() принимает только строку: число или список сначала приводите к str() или подставляйте в f-строку, иначе TypeError; в режиме 'wb' наоборот, нужны bytes. Помните и про режим открытия — 'w' обрезает файл до нуля прямо в момент open(), даже если вы потом ничего не записали; дописывать в конец можно только с 'a'.",
+      "en": "In text mode write() accepts a string and nothing else: convert numbers or lists with str() or an f-string first, otherwise you get a TypeError; in 'wb' mode it is the opposite and only bytes are allowed. Watch the file mode too — 'w' truncates the file to zero at the moment of open(), even if you never write anything afterwards; to add to the end you need 'a'."
     },
     "syntax": "f.write(s)",
     "status": "ready",
@@ -2994,8 +2994,8 @@
       "en": "Write every string from an iterable in sequence; it adds no separators, so '\\n' must already be in the strings or everything runs together."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Имя обманывает: метод ничего не знает про «строки» и просто вызывает write() для каждого элемента подряд. Он парный к readlines(), который сохраняет '\\n' внутри элементов, поэтому f_out.writelines(f_in.readlines()) копирует файл точь-в-точь; а вот после splitlines() или strip() переводы строк придётся дописывать самому. На вход годится любой итерируемый объект — генератор, другой файл — а в бинарном режиме элементы должны быть bytes, иначе TypeError.",
+      "en": "The name misleads: the method knows nothing about \"lines\", it just calls write() on each item in turn. It pairs with readlines(), which keeps the '\\n' inside each item, so f_out.writelines(f_in.readlines()) reproduces a file exactly — but after splitlines() or strip() you have to put the newlines back yourself. Any iterable works as input, including a generator or another file object; in binary mode the items must be bytes or you get a TypeError."
     },
     "syntax": "f.writelines(lines)",
     "status": "ready",
@@ -3198,8 +3198,8 @@
       "en": "A search in a sorted array in O(log n). Every step halves the range being searched."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — данные обязаны быть отсортированы: на неотсортированном списке поиск не падает, а тихо возвращает неверный ответ. Ради одной проверки сортировать невыгодно: O(n log n) на сортировку дороже обычного оператора in за O(n), выигрыш появляется, когда по одному и тому же массиву ищут многократно. Писать его руками обычно незачем — bisect_left вернёт позицию вставки, останется сравнить элемент на этой позиции с искомым; переполнения (lo + hi), из-за которого этот алгоритм годами ломался в C и Java, в Python не бывает.",
+      "en": "The core trap is that the data must already be sorted: on an unsorted list the search does not raise anything, it just quietly returns a wrong answer. Sorting for the sake of one lookup does not pay off — O(n log n) costs more than a plain in check at O(n); the win appears when the same array is searched many times. You rarely need to hand-roll it: bisect_left gives the insertion point and you only compare the item sitting there with the target, and the (lo + hi) overflow that broke this algorithm for years in C and Java cannot happen in Python."
     },
     "syntax": "def binary_search(arr, target):",
     "status": "ready",
@@ -3292,8 +3292,8 @@
       "en": "& (AND), | (OR), ^ (XOR), ~ (NOT), << (left shift), >> (right shift). Used for masks, optimization and cryptography."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Целые в Python не ограничены по разрядности: << никогда не переполняется, >> сохраняет знак, а ~x — это ровно -x-1 (~5 == -6), потому что отрицательные ведут себя как бесконечное дополнение до двух. Битовые операторы связывают сильнее сравнений, но слабее арифметики, поэтому x > 0 & mask читается как x > (0 & mask) — в смешанных выражениях скобки обязательны. И & — не and: короткого замыкания нет, оба операнда вычисляются всегда.",
+      "en": "Python ints are unbounded, so << never overflows, >> keeps the sign, and ~x is exactly -x-1 (~5 == -6) because negatives behave as an infinite two's-complement pattern. Bitwise operators bind tighter than comparisons but looser than arithmetic, so x > 0 & mask parses as x > (0 & mask) — parenthesise anything mixed. And & is not and: there is no short-circuiting, both operands are always evaluated."
     },
     "syntax": "a & b  # AND\na | b  # OR\na ^ b  # XOR\n~a     # NOT\na << n # left shift\na >> n # right shift",
     "status": "ready",
@@ -3550,8 +3550,8 @@
       "en": "The binary subtraction operator. The unary minus changes the sign of a number."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Унарный минус слабее возведения в степень: -2 ** 2 читается как -(2 ** 2) и даёт -4, а не 4 — если хочется квадрат отрицательного числа, скобки обязательны. С float разность почти никогда не точна: 0.3 - 0.1 не равно ровно 0.2, поэтому сравнивать результат вычитания через == нельзя, для этого есть math.isclose().",
+      "en": "Unary minus binds more loosely than exponentiation: -2 ** 2 parses as -(2 ** 2) and gives -4, not 4, so wrap the base in parentheses if you meant the square of a negative number. With floats a difference is almost never exact — 0.3 - 0.1 is not exactly 0.2 — so never compare the result of a subtraction with ==; use math.isclose() instead."
     },
     "syntax": "a - b | -a",
     "status": "ready",
@@ -3593,8 +3593,8 @@
       "en": "Two indices move towards each other or in the same direction. O(n) for problems on sorted arrays."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сходящаяся пара указателей корректна только на отсортированных данных — на произвольном списке она молча вернёт неверный ответ. Сортировать самому значит заплатить O(n log n) и потерять исходные позиции, поэтому в задачах, где нужны именно индексы, обычно выигрывает словарь за один проход. И следите за границей цикла: while lo < hi не даёт сложить элемент сам с собой, а lo <= hi это разрешает.",
+      "en": "The converging variant is correct only on sorted data; hand it an unsorted list and it quietly returns a wrong answer. Sorting it yourself costs O(n log n) and destroys the original positions, so when the task asks for indices a one-pass dict usually wins. Watch the loop boundary too: while lo < hi keeps an element from being paired with itself, while lo <= hi allows it."
     },
     "syntax": "lo, hi = 0, len(arr)-1\nwhile lo < hi: ...",
     "status": "ready",
@@ -3785,8 +3785,8 @@
       "en": "The division operator. It always returns a float, even when both operands are integers. Division by zero raises ZeroDivisionError."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Результат всегда float, а у float всего 53 бита мантиссы: на больших целых младшие разряды тихо теряются, а совсем крупные числа вроде 10**400 / 2 падают с OverflowError — там, где нужен точный целый ответ, бери // и не превращай float обратно в int. Деление на 0.0 тоже даёт ZeroDivisionError, а не inf, как в C или NumPy.",
+      "en": "The result is always a float, and a float has only 53 bits of mantissa: with large integers the low digits are silently lost, and truly huge values such as 10**400 / 2 raise OverflowError — when you need an exact integer answer use // instead of dividing and converting back. Dividing by 0.0 also raises ZeroDivisionError rather than producing inf as C or NumPy would."
     },
     "syntax": "a / b -> float",
     "status": "ready",
@@ -3911,8 +3911,8 @@
       "en": "A file object is iterable. Every iteration yields one line. Efficient for large files."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Каждая строка приходит вместе с завершающим переводом строки, поэтому её почти всегда чистят через strip() или rstrip('\\n') — у последней строки файла '\\n' может и не быть. Итератор одноразовый и ленивый: после цикла файл исчерпан, и второй for по тому же объекту не даст ничего, пока не сделать f.seek(0). Именно ленивость и отличает такой обход от f.readlines() и f.read().split('\\n'), которые затягивают весь файл в память.",
+      "en": "Each line arrives with its trailing newline attached, which is why it is almost always cleaned up with strip() or rstrip('\\n') — though the final line of a file may have no '\\n' at all. The iterator is lazy and single-pass: once the loop ends the file is exhausted, and a second for over the same object yields nothing until you call f.seek(0). That laziness is exactly what separates this from f.readlines() or f.read().split('\\n'), which pull the whole file into memory."
     },
     "syntax": "for line in f:\n    ...",
     "status": "ready",
@@ -4040,8 +4040,8 @@
       "en": "GCD is the greatest common divisor. LCM = a*b/GCD(a, b). Euclid's algorithm takes O(log min(a, b))."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Свою реализацию писать обычно незачем: math.gcd есть с Python 3.5 (с 3.9 принимает любое количество аргументов), math.lcm — с 3.9. НОК считайте как a // gcd(a, b) * b: деление через / даст float и на больших числах молча потеряет точность. Краевой случай — ноль: math.gcd(0, 0) равен 0, и самодельная формула НОК через деление на нём падает с ZeroDivisionError, тогда как math.lcm просто вернёт 0.",
+      "en": "You rarely need your own version: math.gcd has been there since Python 3.5 (variadic since 3.9), and math.lcm was added in 3.9. Compute the LCM as a // gcd(a, b) * b — using / turns it into a float and silently loses precision on big integers. Watch the zero case: math.gcd(0, 0) is 0, so a hand-rolled LCM that divides by it raises ZeroDivisionError, while math.lcm simply returns 0."
     },
     "syntax": "def gcd(a, b):\n    while b: a, b = b, a%b\n    return a",
     "status": "ready",
@@ -4165,8 +4165,8 @@
       "en": "The augmented assignment operators: +=, -=, *=, /=, //=, %=, **=. They combine an operation with an assignment, updating the variable in place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Для изменяемых объектов += правит объект на месте: lst += [1] это фактически extend, и любое другое имя, ссылающееся на тот же список, увидит изменение, тогда как lst = lst + [1] создаёт новый список. У int, str и кортежей менять на месте нечего, поэтому там всегда получается новый объект, а старый просто теряет ссылку. Операторов ++ и -- в Python нет: ++x — это два унарных плюса и молчаливое ничего, а x++ вообще синтаксическая ошибка.",
+      "en": "For mutable objects += edits the object in place: lst += [1] is effectively extend, so every other name bound to that same list sees the change, while lst = lst + [1] builds a new list. With int, str and tuples there is nothing to mutate, so you always get a fresh object and the old one simply loses a reference. Python has no ++ or -- : ++x is just two unary pluses that do nothing, and x++ is a syntax error."
     },
     "syntax": "x op= value  # эквивалент x = x op value",
     "status": "ready",
@@ -4256,8 +4256,8 @@
       "en": "The remainder (modulo) operator. The sign of the result follows the sign of the divisor. Widely used to test parity and periodicity."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Из правила знака следует неочевидное: -123 % 10 равно 7, а не 3, поэтому привычный приём «последняя цифра через % 10» на отрицательных числах ломается — считайте от abs(n). Если нужны и частное, и остаток, divmod(a, b) отдаёт оба за один проход, а b, равное нулю, даёт ZeroDivisionError так же, как обычное деление.",
+      "en": "The sign rule has a surprising consequence: -123 % 10 is 7, not 3, so the familiar \"last digit via % 10\" trick breaks on negative numbers — take abs(n) first. When you need both the quotient and the remainder, divmod(a, b) returns them in one step, and a zero divisor raises ZeroDivisionError just like ordinary division."
     },
     "syntax": "a % b",
     "status": "ready",
@@ -4303,8 +4303,8 @@
       "en": "FIFO — first in, first out. Implemented with a deque. Uses: BFS and scheduling problems."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Причина брать deque, а не список, одна: list.pop(0) сдвигает все оставшиеся элементы и стоит O(n), превращая линейный BFS в квадратичный, тогда как deque.popleft() — O(1). Расплата — случайный доступ: обращение к середине deque по индексу тоже O(n), так что для произвольных позиций он не годится. А для передачи данных между потоками нужен не deque, а queue.Queue — с блокировкой и ожиданием.",
+      "en": "The one reason to reach for deque instead of a list is list.pop(0): it shifts every remaining element, costs O(n) and turns a linear BFS into a quadratic one, while deque.popleft() is O(1). The trade-off is random access — indexing into the middle of a deque is also O(n), so it is a poor fit when you need arbitrary positions. For handing items between threads use queue.Queue, which adds blocking and waiting; deque has neither."
     },
     "syntax": "from collections import deque\nqueue = deque()\nqueue.append(x)   # enqueue\nqueue.popleft()   # dequeue",
     "status": "ready",
@@ -4502,8 +4502,8 @@
       "en": "Operators that work on numbers bit by bit: & (AND), | (OR), ^ (XOR), ~ (NOT/inversion), << (left shift), >> (right shift)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Первым кусается приоритет: x & 1 == 0 разбирается как x & (1 == 0), потому что сравнение связывает сильнее битовых операторов — нужны скобки. Целые в Python неограниченной длины и ведут себя как дополнительный код, поэтому ~x всегда равно -x - 1, сдвиг влево не переполняется (растёт число, а не обрезается), а >> у отрицательных сохраняет знак. Отрицательное число разрядов в сдвиге — ValueError.",
+      "en": "Precedence bites first: x & 1 == 0 parses as x & (1 == 0), because comparisons bind tighter than bitwise operators — add parentheses. Python ints are arbitrary precision and behave as two's complement, so ~x is always -x - 1, a left shift never overflows (the number just grows), and >> keeps the sign of a negative value. A negative shift count raises ValueError."
     },
     "syntax": "a & b  a | b  a ^ b  ~a  a << n  a >> n",
     "status": "ready",
@@ -4593,8 +4593,8 @@
       "en": "The array prefix[i] = sum(arr[0..i]). It gives the sum over a range [l, r] in O(1)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — сдвиг индексов: если prefix длиной n+1 и начинается с нуля, то сумма отрезка [l, r] включительно равна prefix[r+1] - prefix[l]; без ведущего нуля случай l == 0 приходится обрабатывать отдельно. Техника окупается только на неизменном массиве: правка одного элемента заставляет пересчитывать весь хвост за O(n), и там уже нужно дерево Фенвика или отрезков. itertools.accumulate строит ту же таблицу лениво, но без initial=0 (появился в 3.8) начинает не с нуля, а с arr[0].",
+      "en": "The classic bug is the index shift: with a prefix array of length n+1 starting at zero, the inclusive range [l, r] is prefix[r+1] - prefix[l]; drop that leading zero and l == 0 turns into a special case. The trick only pays off on a static array — changing one element forces an O(n) rebuild of the tail, which is where a Fenwick or segment tree takes over. itertools.accumulate builds the same table lazily, but without initial=0 (added in 3.8) it starts at arr[0] instead of 0."
     },
     "syntax": "prefix[i] = prefix[i-1] + arr[i]\nsum(l, r) = prefix[r] - prefix[l-1]",
     "status": "ready",
@@ -4674,8 +4674,8 @@
       "en": "The order in which an expression is evaluated: ** > unary minus > * / // % > + -. Parentheses raise the precedence. Remember PEMDAS / BODMAS."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Таблица не заканчивается на арифметике: сравнения стоят ниже неё, а not, and и or — ещё ниже, поэтому a + b > c and d читается как ((a + b) > c) and d. Возведение в степень связывает крепче унарного минуса слева, но не справа — запись 2 ** -1 законна и даёт 0.5. Учить всю таблицу наизусть незачем: в смешанном выражении скобки обходятся дешевле отладки.",
+      "en": "The table does not stop at arithmetic: comparisons sit below it and not/and/or sit lower still, so a + b > c and d parses as ((a + b) > c) and d. Exponentiation binds tighter than a unary minus on its left but not on its right, which is why 2 ** -1 is legal and yields 0.5. There is no need to memorise the whole table — in a mixed expression parentheses are cheaper than debugging."
     },
     "syntax": "( ) → ** → -x → * / // % → + -",
     "status": "ready",
@@ -4840,8 +4840,8 @@
       "en": "Conversion between the binary, octal, decimal and hexadecimal systems."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "bin(), oct() и hex() возвращают не число, а строку с префиксом 0b/0o/0x — складывать их как числа нельзя, и len(bin(n)) на два больше количества разрядов; голые цифры даёт format(n, 'b'). Обратно строку разбирает int(s, base), причём префикс он допускает, а int(s, 0) сам определяет систему по этому префиксу. У отрицательных bin(-5) даёт '-0b101' — знак минус перед модулем, а не дополнительный код, как в C.",
+      "en": "bin(), oct() and hex() hand back a string with a 0b/0o/0x prefix, not a number: you cannot add them arithmetically, and len(bin(n)) is two more than the digit count — use format(n, 'b') for bare digits. Parsing back is int(s, base), which tolerates the prefix, while int(s, 0) infers the base from that prefix. For negatives bin(-5) is '-0b101', a minus sign in front of the magnitude rather than a two's-complement pattern as in C."
     },
     "syntax": "bin(n), oct(n), hex(n)\nint(s, base)",
     "status": "ready",
@@ -4913,8 +4913,8 @@
       "en": "The binary addition operator. For numbers it is arithmetic addition; for strings and lists, concatenation; for sets, union."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Неявных преобразований нет: \"5\" + 1 сразу даёт TypeError, а список нельзя сложить с кортежем — типы приводят вручную. Для последовательностей + всегда создаёт новый объект и копирует оба операнда, поэтому склейка в цикле выходит квадратичной по времени: строки собирайте через \"\".join(), к спискам добавляйте append() или extend().",
+      "en": "There is no implicit conversion: \"5\" + 1 raises TypeError immediately, and a list cannot be added to a tuple — convert explicitly. For sequences + always builds a new object and copies both operands, so gluing in a loop is quadratic: build strings with \"\".join() and grow lists with append() or extend()."
     },
     "syntax": "a + b",
     "status": "ready",
@@ -4956,8 +4956,8 @@
       "en": "O(n²) in the worst case, O(n) for nearly sorted data. It inserts every item into its proper place."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Алгоритм учебный, но не бесполезный: Timsort внутри list.sort() досортировывает вставками короткие участки, потому что на почти упорядоченных данных они действительно близки к O(n). Сортировка устойчива — равные элементы сохраняют взаимный порядок, что важно, когда сортируют по одному ключу после другого. Питон-специфичная ловушка: если в условии внутреннего цикла забыть проверку j >= 0, отрицательный индекс не даст IndexError, а начнёт читать элементы с конца списка, и ошибка проявится молча — неверным результатом.",
+      "en": "It is a teaching algorithm that still earns its keep: Timsort inside list.sort() finishes short runs with insertion sort precisely because on nearly ordered data it approaches O(n). The sort is stable — equal items keep their relative order, which matters when you sort by one key after another. A Python-specific trap: drop the j >= 0 guard from the inner loop and a negative index will not raise IndexError but silently start reading from the end of the list, so the bug shows up only as a wrong result."
     },
     "syntax": "def insertion_sort(arr):",
     "status": "ready",
@@ -5039,8 +5039,8 @@
       "en": "O(n²). It finds the smallest item and puts it where it belongs. The number of swaps is minimal (O(n))."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от вставок и пузырька, здесь нет быстрого случая: полный проход по остатку делается всегда, поэтому даже на уже отсортированном списке те же O(n²) сравнений. Зато обменов ровно O(n) — по одному на позицию, и это единственная практическая причина о ней помнить: когда запись дороже чтения. Классическая реализация через обмен с минимумом неустойчива — равные элементы могут поменяться местами, так что для сортировки по нескольким ключам подряд она не подходит.",
+      "en": "Unlike insertion or bubble sort it has no fast case: the full scan of the remaining tail happens every time, so an already sorted list still costs O(n²) comparisons. What it does buy is exactly O(n) swaps, one per position, and that is the only practical reason to remember it — situations where writing is more expensive than reading. The classic swap-with-the-minimum implementation is not stable: equal items can trade places, which rules it out for sorting by several keys in succession."
     },
     "syntax": "def selection_sort(arr):",
     "status": "ready",
@@ -5122,8 +5122,8 @@
       "en": "O(n²). It compares neighboring items and swaps them. Easy to follow, but slow. It can be optimized with a swap flag."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В рабочем коде пузырёк не пишут: sorted() и list.sort() используют Timsort на C с O(n log n), и уже на нескольких тысячах элементов разрыв становится неприличным — пузырёк живёт только как учебный разбор. Две ошибки повторяются постоянно: во внутреннем цикле забывают -i-1 (лишние проходы по уже отсортированному хвосту либо выход за границу при обращении к j+1) и не замечают, что обмен идёт на месте — список вызывающего меняется, даже если функция ничего не вернула.",
+      "en": "Nobody writes bubble sort in real code: sorted() and list.sort() run Timsort in C at O(n log n), and past a few thousand items the gap is embarrassing — bubble sort survives only as a teaching exercise. Two mistakes repeat endlessly: dropping the -i-1 in the inner loop, which either wastes passes over the already-sorted tail or walks j+1 off the end, and missing that the swap happens in place, so the caller's list changes even when the function returns nothing."
     },
     "syntax": "def bubble_sort(arr):",
     "status": "ready",
@@ -5207,8 +5207,8 @@
       "en": "LIFO — last in, first out. Implemented with a list. Uses: bracket matching, history, DFS."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Для стека список — правильный контейнер: append() и pop() с конца стоят амортизированные O(1), и deque здесь ничего не выигрывает. Ловушка одна и постоянная: pop() на пустом стеке бросает IndexError, поэтому перед снятием проверяют, что стек непуст (сам список в булевом контексте это и показывает). Явный стек ещё и спасает там, где рекурсивный обход уходит слишком глубоко и упирается в RecursionError.",
+      "en": "A list is the right container here: append() and pop() at the end are amortized O(1), and a deque buys you nothing. The recurring trap is popping an empty stack — that raises IndexError, so test the stack in a boolean context before you pop. An explicit stack also rescues traversals that go too deep for recursion and would otherwise hit RecursionError."
     },
     "syntax": "stack = []\nstack.append(x)  # push\nstack.pop()      # pop",
     "status": "ready",
@@ -5313,8 +5313,8 @@
       "en": "The exponentiation operator. It is evaluated right to left (right-associative). It supports fractional exponents (roots) and negative ones."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Правоассоциативность важнее, чем кажется: 2 ** 3 ** 2 — это 2 ** 9, то есть 512, а не 64. Целое на выходе получается только при неотрицательном целом показателе: 2 ** -1 даёт float 0.5, а дробная степень отрицательного числа уходит в комплексные. Для остатка по модулю берите pow(a, b, m) — это несравнимо быстрее, чем (a ** b) % m с гигантским промежуточным числом.",
+      "en": "Right-associativity matters more than it looks: 2 ** 3 ** 2 is 2 ** 9, that is 512, not 64. You get an int back only for a non-negative integer exponent — 2 ** -1 is the float 0.5, and a fractional power of a negative number lands in complex numbers. For modular arithmetic use pow(a, b, m); it is far faster than (a ** b) % m, which first builds a giant intermediate value."
     },
     "syntax": "a ** b",
     "status": "ready",
@@ -5408,8 +5408,8 @@
       "en": "The binary multiplication operator. For strings and lists it means repetition."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главная ловушка — вложенные списки: [[0] * 3] * 3 не копирует внутренний список, а трижды кладёт ссылку на один и тот же, поэтому запись в одну «строку» меняет сразу все. Матрицу собирают генератором списка. Ноль и отрицательный множитель дают пустую последовательность, а не ошибку.",
+      "en": "The classic trap is nesting: [[0] * 3] * 3 does not copy the inner list, it stores the very same one three times, so writing into one row changes every row. Build matrices with a list comprehension instead. A zero or negative factor yields an empty sequence rather than an error."
     },
     "syntax": "a * b",
     "status": "ready",
@@ -5450,8 +5450,8 @@
       "en": "A Python dict is a hash table. get/set/del take O(1) on average. Uses: counting, caches, indexes."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ключом может быть только хешируемый объект — строка, число, кортеж из неизменяемого; список или множество дадут TypeError: unhashable type. Обращение d[key] к отсутствующему ключу — это KeyError, поэтому там, где ключа может не быть, берут get() с дефолтом или defaultdict. Порядок вставки гарантирован языком с версии 3.7, но это именно порядок добавления, а не отсортированность ключей.",
+      "en": "Keys must be hashable — strings, numbers, tuples of immutables; a list or a set gives TypeError: unhashable type. Reading a missing key with d[key] raises KeyError, so when the key may be absent use get() with a default, or a defaultdict. Insertion order has been guaranteed by the language since 3.7, but that is the order you added things in, not sorted order."
     },
     "syntax": "d = {}\nd[key] = value\nd.get(key, default)",
     "status": "ready",
@@ -5525,8 +5525,8 @@
       "en": "The floor division operator. It returns the largest integer not greater than the quotient. With float operands it returns a float."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Округление идёт к минус бесконечности, а не к нулю, как в C или Java: -7 // 2 даёт -4, тогда как int(-7 / 2) даёт -3. Пара // и % согласована — a == (a // b) * b + a % b, поэтому знак остатка совпадает со знаком делителя. Деление на ноль — ZeroDivisionError; на очень больших целых // остаётся точным, а math.floor(a / b) сначала гоняет числа через float и теряет точность.",
+      "en": "Rounding goes toward minus infinity, not toward zero as in C or Java: -7 // 2 is -4, while int(-7 / 2) is -3. // and % stay consistent — a == (a // b) * b + a % b — which is why the remainder takes the sign of the divisor. A zero divisor raises ZeroDivisionError, and on very large integers // stays exact whereas math.floor(a / b) pushes the numbers through float and loses precision."
     },
     "syntax": "a // b",
     "status": "ready",
@@ -5569,8 +5569,8 @@
       "en": "Python lets you write several comparisons in a row in one expression. 1 < x < 10 is equivalent to (1 < x) and (x < 10) and is evaluated left to right."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Средний операнд вычисляется ровно один раз, и цепочка коротко замыкается — если первое сравнение ложно, второе даже не выполнится. Отсюда ловушка: x != y != z не означает, что все три различны, это лишь два соседних неравенства, и x с z спокойно могут совпадать.",
+      "en": "The middle operand is evaluated exactly once, and the chain short-circuits: if the first comparison is false, the second is never run. Hence the classic trap — x != y != z does not mean all three differ, it only checks neighbouring pairs, so x and z may well be equal."
     },
     "syntax": "a < b < c  a == b == c  a <= b >= c",
     "status": "ready",
@@ -5612,8 +5612,8 @@
       "en": "F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2). Iteratively O(n), recursively O(2^n), with lru_cache O(n)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Наивная рекурсия пересчитывает одни и те же значения заново: fib(35) считается секунды, а fib(50) можно не дожидаться — одна строка @lru_cache(maxsize=None) над функцией снимает проблему. У рекурсии есть и второй потолок: около тысячи вложенных вызовов, дальше RecursionError, поэтому для больших n берут цикл, а не память. Формула Бине через float начинает врать примерно с n=71, тогда как целочисленный цикл точен при любом n — у Python длинная арифметика без переполнения.",
+      "en": "Naive recursion recomputes the same values again and again: fib(35) takes seconds and fib(50) is hopeless, while a single @lru_cache(maxsize=None) on the function removes the problem. Recursion has a second ceiling as well — roughly a thousand nested calls before RecursionError — so large n calls for a loop rather than memoisation. Binet's float formula starts producing wrong digits around n=71, whereas an integer loop stays exact for any n because Python integers never overflow."
     },
     "syntax": "def fib(n): ...",
     "status": "ready",
@@ -5702,8 +5702,8 @@
       "en": "Return the number of bits needed to represent the absolute value in binary (0 for 0)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "У отрицательных берётся модуль, так что знак на результат не влияет. Для n > 0 это ровно floor(log2(n)) + 1, но, в отличие от math.log2, считается точно: log2 сначала переводит число во float, и для 2**64 - 1 получается ровно 64.0 — формула ошибётся на единицу, а bit_length вернёт верные 64.",
+      "en": "Negatives are taken by absolute value, so the sign never affects the result. For n > 0 this equals floor(log2(n)) + 1, but unlike math.log2 it is exact: log2 converts the int to a float first, and 2**64 - 1 rounds to exactly 64.0, so the formula is off by one while bit_length still returns 64."
     },
     "syntax": "n.bit_length()",
     "status": "ready",
@@ -5741,8 +5741,8 @@
       "en": "Return the number of ones in the binary representation of the absolute value (population count). Added in 3.10."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод появился только в 3.10 — на более старом интерпретаторе будет AttributeError, и тогда единицы считают по строке из bin(). Знак не учитывается: у отрицательных берётся модуль, никакого дополнительного кода тут нет. Классическое применение — расстояние Хэмминга: сделать XOR двух чисел и посчитать единицы в результате.",
+      "en": "The method exists only from 3.10 on; on an older interpreter you get AttributeError and fall back to counting ones in the bin() string. The sign is ignored — negatives are counted by absolute value, not by a two's-complement pattern. A classic use is Hamming distance: XOR the two numbers and count the ones."
     },
     "syntax": "n.bit_count()",
     "status": "ready",
@@ -5779,8 +5779,8 @@
       "en": "Serialize the integer to a bytes object of the given length and byte order."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Длину считаете вы: число, не влезающее в length байт, даёт OverflowError, а не обрезается молча; минимально нужное количество — (n.bit_length() + 7) // 8. Отрицательные значения требуют signed=True, иначе тот же OverflowError о переводе отрицательного в беззнаковое. Значения по умолчанию (length=1, byteorder='big') появились только в Python 3.11 — раньше оба аргумента были обязательными.",
+      "en": "Sizing is on you: a value that does not fit in length bytes raises OverflowError instead of being truncated, and the minimum needed is (n.bit_length() + 7) // 8. Negative numbers require signed=True, otherwise you get the same OverflowError about converting a negative int to unsigned. The defaults length=1 and byteorder='big' only appeared in Python 3.11; before that both arguments were mandatory."
     },
     "syntax": "n.to_bytes(length=1, byteorder='big', *, signed=False)",
     "status": "ready",
@@ -5821,8 +5821,8 @@
       "en": "Class method: reconstruct an integer from a bytes object using the given byte order."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Порядок байт нигде не записан — его надо знать заранее: одни и те же два байта дадут 7 при 'big' и 1792 при 'little', и никакой ошибки при неверном выборе не будет. При signed=False по умолчанию старший байт 0xFF читается как большое положительное число, а не как -1, поэтому для данных, записанных со знаком, обязателен signed=True. Аргумент byteorder стал необязательным (со значением 'big') только с Python 3.11 — в старых версиях его указывают явно.",
+      "en": "The byte order is not stored anywhere, you must know how the data was written: the same two bytes decode to 7 with 'big' and to 1792 with 'little', and a wrong guess raises nothing. With the default signed=False a leading 0xFF reads as a large positive number instead of -1, so pass signed=True whenever the producer used a signed encoding. byteorder only became optional (defaulting to 'big') in Python 3.11."
     },
     "syntax": "int.from_bytes(bytes, byteorder='big', *, signed=False)",
     "status": "ready",
@@ -5862,8 +5862,8 @@
       "en": "Return a pair (numerator, denominator) with denominator 1 — the integer as a ratio."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сам по себе метод ничего не вычисляет — знаменатель всегда 1; он нужен, чтобы обрабатывать int, float, Decimal и Fraction единообразно, без разветвления по типу. Появился в Python 3.8, на более старых версиях у int его нет. И не ждите «человеческой» дроби от float.as_integer_ratio(): он возвращает точное двоичное представление, поэтому у 0.1 знаменателем окажется огромная степень двойки, а не 10.",
+      "en": "The method computes nothing on its own — the denominator is always 1; it exists so that int, float, Decimal and Fraction can be handled through one interface without branching on type. It was added in Python 3.8, so older versions lack it on int. Do not expect a human-looking fraction from float.as_integer_ratio() either: it gives the exact binary value, so 0.1 comes back with a huge power of two as the denominator, not 10."
     },
     "syntax": "n.as_integer_ratio()",
     "status": "ready",
@@ -5941,8 +5941,8 @@
       "en": "Always returns True — an integer has no fractional part. Added in 3.12 for parity with float.is_integer()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Смысл метода — единый интерфейс: функция, принимающая и int, и float, может звать is_integer() без проверки типа аргумента. Но на Python 3.11 и ниже у int его нет, и вызов упадёт с AttributeError, поэтому в коде, который должен работать на старых версиях, надёжнее isinstance(x, int) или сравнение значения с его целой частью.",
+      "en": "The point is uniformity: code that accepts both int and float can call is_integer() without first checking the type. On Python 3.11 and earlier, though, int has no such method and the call raises AttributeError, so for code that must run on older versions prefer isinstance(x, int) or comparing the value with its truncated form."
     },
     "syntax": "n.is_integer()",
     "status": "ready",
@@ -5979,8 +5979,8 @@
       "en": "Return True if the float has an integral value (no fractional part), else False."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод говорит о значении, а не о типе: 4.0 остаётся float, и is_integer() ничего не преобразует — для этого нужен int(). Главная ловушка — округление: результат вещественных вычислений, целый «по математике», часто отличается от целого в последних битах и даёт False, а inf и nan дают False всегда. Наоборот, у очень больших float (по модулю от 2**52) соседние представимые значения отличаются уже не меньше чем на единицу, поэтому там ответ всегда True.",
+      "en": "This is a statement about the value, not the type: 4.0 is still a float, and is_integer() converts nothing — use int() for that. The usual trap is rounding: a computed result that is mathematically whole often differs in the last bits and returns False, while inf and nan always return False. At the other end, floats with magnitude 2**52 or larger are spaced at least one apart, so every one of them reports True."
     },
     "syntax": "x.is_integer()",
     "status": "ready",
@@ -6017,8 +6017,8 @@
       "en": "Return a pair (numerator, denominator) exactly representing the float as a ratio of integers."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Дробь описывает то число, которое реально лежит в памяти, а не то, что ты набрал в коде: у 0.1 получатся не 1 и 10, а пара огромных целых, ведь знаменатель всегда степень двойки. Нужна «человеческая» дробь — стройте fractions.Fraction от строки, а не от float. На бесконечности метод бросает OverflowError, на nan — ValueError.",
+      "en": "The ratio describes the number actually stored in memory, not the literal you typed: 0.1 comes back as a pair of huge integers rather than 1 and 10, since the denominator is always a power of two. If you want the fraction a human would write, build fractions.Fraction from a string instead of from the float. On infinities the method raises OverflowError, on nan a ValueError."
     },
     "syntax": "x.as_integer_ratio()",
     "status": "ready",
@@ -6055,8 +6055,8 @@
       "en": "Return a hexadecimal string — a lossless representation of the float; inverse of float.fromhex()."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод есть только у float: для целых существует встроенная hex(), а bytes.hex() делает совсем другое. Обычный repr числа в CPython и так восстанавливается без потерь, поэтому .hex() берут не ради сохранности значения, а чтобы увидеть мантиссу и порядок явно — например, разглядеть, что 0.1 хранится чуть больше десятой доли. Формат всегда нормализован: одна цифра до точки и показатель степени двойки после p.",
+      "en": "Only floats have this method — integers use the built-in hex(), and bytes.hex() is an unrelated thing. Since repr of a float already round-trips in CPython, .hex() is not about preserving the value but about seeing the significand and the exponent explicitly: it is how you notice that 0.1 is stored slightly above one tenth. The output is always normalised — one digit before the point, a power of two after p."
     },
     "syntax": "x.hex()",
     "status": "ready",
@@ -6064,7 +6064,10 @@
     "version": "",
     "section": "Числа и математика",
     "subcat": "hex",
-    "aliases": [],
+    "aliases": [
+      "вещественное число в шестнадцатеричную строку",
+      "точное представление дробного числа"
+    ],
     "keywords": [],
     "tags": [
       "float"
@@ -6093,8 +6096,8 @@
       "en": "Class method: parse a hexadecimal string (as produced by float.hex()) back into a float."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Все цифры после точки читаются как шестнадцатеричные, а префикс 0x необязателен — поэтому '3.5' здесь не три с половиной, а 3 + 5/16 = 3.3125. Метод нужен ровно для одного: перегнать float между программами бит в бит; для обычного разбора введённого пользователем текста берут float(s). Строка не того формата даёт ValueError, а не молчаливый ноль.",
+      "en": "Every digit after the point is hexadecimal and the 0x prefix is optional, so '3.5' here is not three and a half but 3 + 5/16 = 3.3125. The method exists for one job: moving a float between programs bit for bit; for parsing ordinary user text you want float(s). A malformed string raises ValueError rather than quietly returning zero."
     },
     "syntax": "float.fromhex(s)",
     "status": "ready",
@@ -6102,7 +6105,10 @@
     "version": "",
     "section": "Числа и математика",
     "subcat": "hex",
-    "aliases": [],
+    "aliases": [
+      "шестнадцатеричная строка в вещественное число",
+      "разобрать шестнадцатеричную запись числа"
+    ],
     "keywords": [],
     "tags": [
       "float"
@@ -6133,8 +6139,8 @@
       "en": "Return the complex conjugate; for a float (a real number) it is the number itself."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "У действительного числа сопряжение ничего не меняет, так что в обычном коде этот вызов не нужен: он существует ради общего числового протокола вместе с .real и .imag, чтобы формула, написанная для complex, работала и для float без проверок типа. Результат остаётся float — сделать из числа комплексное метод не может, для этого есть complex().",
+      "en": "Conjugating a real number changes nothing, so you would not write this call in ordinary code: it exists for the shared numeric protocol alongside .real and .imag, letting a formula written for complex run on floats without type checks. The result stays a float — the method never promotes a number to complex; complex() does that."
     },
     "syntax": "x.conjugate()",
     "status": "ready",
@@ -6171,8 +6177,8 @@
       "en": "Return the complex conjugate: flip the sign of the imaginary part (a+bj → a−bj)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Следите за скобками: real и imag — атрибуты, а conjugate — метод, и без () вы получите не число, а объект связанного метода. Тот же метод есть у int и float (возвращает само значение), поэтому числовой код может звать его, не выясняя предварительно тип. Произведение z * z.conjugate() даёт квадрат модуля, но остаётся complex с нулевой мнимой частью — если нужен обычный float, берите abs(z) ** 2 или .real.",
+      "en": "Watch the parentheses: real and imag are attributes, but conjugate is a method, so dropping the () hands you a bound method object instead of a number. int and float carry the same method (it returns the value unchanged), so numeric code can call it without checking the type first. z * z.conjugate() is the squared modulus, yet it stays a complex with a zero imaginary part — use abs(z) ** 2 or .real when you want a plain float."
     },
     "syntax": "z.conjugate()",
     "status": "ready",
@@ -6213,8 +6219,8 @@
       "en": "Serialize a Python object to a JSON string."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В JSON ключи бывают только строковыми: dumps({1: 'a'}) даст {\"1\": \"a\"}, и после обратного разбора ключ останется строкой — тип не восстановится. Всё, что вне dict/list/tuple/str/int/float/bool/None (set, datetime, Decimal, свои классы), роняет TypeError; такие объекты переводят через параметр default. Ещё nan и inf сериализуются как NaN/Infinity — Python их прочитает, а строгий чужой парсер откажется.",
+      "en": "JSON keys are always strings: dumps({1: 'a'}) gives {\"1\": \"a\"}, and parsing it back leaves the key as a string — the original type is gone. Anything outside dict/list/tuple/str/int/float/bool/None (sets, datetime, Decimal, your own classes) raises TypeError; convert them via the default= hook. Note also that nan and inf come out as NaN/Infinity, which Python reads back but strict third-party parsers reject."
     },
     "syntax": "json.dumps(obj, *, indent=None)",
     "status": "ready",
@@ -6257,8 +6263,8 @@
       "en": "Parse a JSON string into a Python object."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "JSON — не Python-литерал: true/false/null вместо True/False/None, только двойные кавычки, никаких висячих запятых. Именно на этом обычно и падает json.JSONDecodeError (наследник ValueError) — ловите его по имени, а у объекта исключения есть .pos, .lineno и .colno, которые показывают место поломки. Разбирать JSON через eval нельзя: это дыра в безопасности, да и на true/null такой разбор всё равно упадёт.",
+      "en": "JSON is not a Python literal: true/false/null instead of True/False/None, double quotes only, no trailing commas — this is what usually triggers json.JSONDecodeError (a ValueError subclass). Catch it by that name and read its .pos, .lineno and .colno to point at the exact spot that broke. Never parse JSON with eval: it is a security hole and it chokes on true/null anyway."
     },
     "syntax": "json.loads(s)",
     "status": "ready",
@@ -6302,8 +6308,8 @@
       "en": "Serialize an object as JSON and write it to a file object."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "dump отдаёт текст, поэтому файл должен быть открыт в текстовом режиме ('w'), а не 'wb' — с бинарным получите TypeError. По умолчанию ensure_ascii=True, и кириллица уедет в файл escape-последовательностями ру…; чтобы буквы остались читаемыми, нужны ensure_ascii=False и open(..., encoding='utf-8'). Перевод строки в конец не дописывается — при записи нескольких документов подряд его добавляют вручную.",
+      "en": "dump emits text, so the file must be opened in text mode ('w'); a binary handle raises TypeError. With the default ensure_ascii=True every non-ASCII character is written as a \\uXXXX escape — pass ensure_ascii=False and open the file with encoding='utf-8' to keep it readable. No trailing newline is written, which matters if you append several documents to one file."
     },
     "syntax": "json.dump(obj, fp)",
     "status": "ready",
@@ -6345,8 +6351,8 @@
       "en": "Read JSON from a file object and return a Python object."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Несмотря на «файловый» вид, потоковости здесь нет: load по сути делает loads(fp.read()) и держит весь документ в памяти, так что для огромных файлов берут формат JSON Lines (разбирать построчно) или сторонний ijson. В файле должен лежать ровно один JSON-документ: два объекта подряд или любой лишний текст после него дают JSONDecodeError с сообщением про Extra data.",
+      "en": "Despite taking a file object, this is not streaming: load is essentially loads(fp.read()) and holds the whole document in memory, so huge files call for JSON Lines (parsed line by line) or a third-party parser like ijson. The file must hold exactly one JSON document — two objects back to back, or any leftover text after the first one, raise JSONDecodeError with an Extra data message."
     },
     "syntax": "json.load(fp)",
     "status": "ready",
@@ -6389,8 +6395,8 @@
       "en": "Arithmetic mean (average) of the data."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "mean считает точно (внутри — дроби) и сохраняет тип данных: список целых может вернуть int, Fraction останется Fraction, Decimal — Decimal; если нужен просто float и скорость, берите fmean. Среднее тянут выбросы — одно аномальное значение сдвигает его заметно, тогда как median почти не шелохнётся. На пустых данных — StatisticsError, а не 0.",
+      "en": "mean is exact (fractions under the hood) and preserves the input type: a list of ints can come back as an int, Fractions stay Fractions, Decimals stay Decimals; when you just want a float and speed, use fmean. It is also dragged by outliers — a single freak value shifts it noticeably while median barely moves. Empty data raises StatisticsError rather than returning 0."
     },
     "syntax": "statistics.mean(data)",
     "status": "ready",
@@ -6398,7 +6404,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "среднее",
-    "aliases": [],
+    "aliases": [
+      "среднее арифметическое",
+      "среднее значение списка",
+      "посчитать среднее"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6428,8 +6438,8 @@
       "en": "Fast floating-point arithmetic mean (faster than mean; 3.8+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "За скорость платят точностью: fmean сразу приводит все значения к float, поэтому Decimal и Fraction на входе теряют свою точную арифметику, тогда как mean считает без потерь и сохраняет тип. Сама функция есть с 3.8, а вот именованный weights для взвешенного среднего добавили только в 3.11 — на более ранних версиях его нет.",
+      "en": "Speed is paid for in precision: fmean converts everything to float, so Decimal and Fraction inputs lose their exact arithmetic, while mean stays exact and keeps the type. The function itself dates to 3.8, but the weights argument only appeared in 3.11 — earlier versions do not accept it."
     },
     "syntax": "statistics.fmean(data)",
     "status": "ready",
@@ -6437,7 +6447,10 @@
     "version": "3.8",
     "section": "Модуль statistics",
     "subcat": "среднее",
-    "aliases": [],
+    "aliases": [
+      "быстрое среднее",
+      "среднее с плавающей точкой"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6466,8 +6479,8 @@
       "en": "Geometric mean (the n-th root of the product)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Берут его там, где величины перемножаются, а не складываются: средний коэффициент роста за несколько периодов — это геометрическое среднее, арифметическое его завышает. Ноль или отрицательное значение в данных дают не ноль в ответе, а StatisticsError. Результат — float, посчитанный без гарантий точности до последнего разряда, так что сравнивать его через == не стоит.",
+      "en": "Reach for it when values multiply rather than add: an average growth factor over several periods is a geometric mean, and the arithmetic mean overstates it. A zero or a negative value raises StatisticsError instead of returning zero. The result is a float computed with no exactness guarantees, so don't compare it with ==."
     },
     "syntax": "statistics.geometric_mean(data)",
     "status": "ready",
@@ -6475,7 +6488,11 @@
     "version": "3.8",
     "section": "Модуль statistics",
     "subcat": "среднее",
-    "aliases": [],
+    "aliases": [
+      "среднее геометрическое",
+      "корень n-й степени из произведения",
+      "средний темп роста"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6504,8 +6521,8 @@
       "en": "Harmonic mean (reciprocal of the mean of reciprocals)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Уместно, когда усредняются скорости или темпы при одинаковом объёме работы: половину пути на 60 и половину на 30 — это в среднем 40, а не 45. Один ноль среди данных обнуляет весь ответ, причём алгоритм на нём выходит досрочно и остальные значения даже не проверяет; отрицательное значение — StatisticsError. Параметр weights появился в 3.10.",
+      "en": "It fits averaging rates over equal amounts of work: half the distance at 60 and half at 30 averages 40, not 45. A single zero makes the whole result zero — the algorithm short-circuits there and never validates the remaining values — while a negative value raises StatisticsError. The weights argument arrived in 3.10."
     },
     "syntax": "statistics.harmonic_mean(data)",
     "status": "ready",
@@ -6513,7 +6530,10 @@
     "version": "3.6",
     "section": "Модуль statistics",
     "subcat": "среднее",
-    "aliases": [],
+    "aliases": [
+      "среднее гармоническое",
+      "средняя скорость по участкам"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6542,8 +6562,8 @@
       "en": "Median — the middle value of sorted data."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Предварительно сортировать данные не нужно — median() сортирует сама, отсюда и цена O(n log n). При чётной длине она усредняет два центральных значения, поэтому результат бывает дробным и может вообще отсутствовать в исходных данных; если нужен реальный элемент выборки, берите median_low() или median_high(). Пустая последовательность даёт StatisticsError, а не ноль и не None.",
+      "en": "You do not need to sort the data first — median() sorts internally, which is where its O(n log n) cost comes from. On an even-length sample it averages the two middle values, so the answer can be fractional and need not occur in the data at all; when you need a value that genuinely exists in the sample, reach for median_low() or median_high(). Empty input raises StatisticsError rather than returning zero or None."
     },
     "syntax": "statistics.median(data)",
     "status": "ready",
@@ -6551,7 +6571,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "медиана",
-    "aliases": [],
+    "aliases": [
+      "медиана",
+      "серединное значение",
+      "центральное значение выборки"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6581,8 +6605,8 @@
       "en": "Low median: for even-length data returns the smaller of the two middle values."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Главное отличие от median: обычная медиана при чётной длине усредняет два центральных значения и может выдать число, которого в данных нет (для [1, 2, 3, 4] это 2.5), а median_low всегда возвращает реальный элемент — это то, что нужно для порядковых данных, которые нельзя складывать и делить. Сортировать вход заранее не требуется, функция делает это сама, а на пустой последовательности бросает StatisticsError, а не возвращает None.",
+      "en": "The point of median_low is that it never invents a value: plain median averages the two middle items on even-length data and can return something absent from the sample (2.5 for [1, 2, 3, 4]), while median_low hands back an actual data point — exactly what ordinal data that cannot be averaged needs. You do not have to pre-sort the input, it sorts internally, and empty data raises StatisticsError rather than returning None."
     },
     "syntax": "statistics.median_low(data)",
     "status": "ready",
@@ -6590,7 +6614,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "медиана",
-    "aliases": [],
+    "aliases": [
+      "нижняя медиана",
+      "меньшее из двух центральных значений"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6619,8 +6646,8 @@
       "en": "High median: for even-length data returns the larger of the two middle values."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "В отличие от median(), она ничего не усредняет и всегда возвращает элемент, реально присутствующий в данных, с исходным типом — поэтому работает и там, где среднее не имеет смысла: строки, даты, любые сравнимые объекты. На нечётной длине median(), median_low() и median_high() дают одно и то же, разница проявляется только на чётной.",
+      "en": "Unlike median() it never averages anything: it returns an element that actually occurs in the data, with its original type, so it also works where averaging makes no sense — strings, dates, any comparable objects. For odd-length data median(), median_low() and median_high() all agree; the difference only appears when the sample size is even."
     },
     "syntax": "statistics.median_high(data)",
     "status": "ready",
@@ -6628,7 +6655,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "медиана",
-    "aliases": [],
+    "aliases": [
+      "верхняя медиана",
+      "большее из двух центральных значений"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6657,8 +6687,8 @@
       "en": "Median of grouped continuous data, interpolated within the interval."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Считает не медиану ваших чисел, а оценку медианы непрерывной величины: каждое значение трактуется как середина интервала шириной interval, внутри которого делается линейная интерполяция. Поэтому она уместна только для данных, округлённых до сетки (баллы, возраст в целых годах, показания прибора с фиксированным шагом), и interval обязан совпадать с реальным шагом — иначе число выйдет правдоподобным, но бессмысленным. Для сырых измерений нужна обычная median().",
+      "en": "It does not return the median of your numbers but an estimate of the median of an underlying continuous variable: every value is treated as the midpoint of a class of width interval, and the answer is interpolated inside that class. So use it only for data already rounded onto a grid (scores, age in whole years, instrument readings with a fixed step), and make interval match that step — a wrong interval yields a plausible-looking but meaningless number. For raw measurements plain median() is the right call."
     },
     "syntax": "statistics.median_grouped(data, interval=1)",
     "status": "ready",
@@ -6666,7 +6696,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "медиана",
-    "aliases": [],
+    "aliases": [
+      "медиана сгруппированных данных",
+      "медиана интервального ряда",
+      "медиана с интерполяцией"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6695,8 +6729,8 @@
       "en": "Mode — the most common value (the first one on a tie)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "С Python 3.8 mode на данных с несколькими одинаково частыми значениями больше не падает с StatisticsError, а молча берёт первое из них по порядку появления — так что ничью вы никак не заметите; если она для вас значима, используйте multimode. Пустая последовательность по-прежнему даёт StatisticsError, а элементы должны быть хешируемыми: внутри считает Counter.",
+      "en": "Since Python 3.8 mode no longer raises StatisticsError when several values tie for most frequent — it quietly returns the first one in order of appearance, so a tie passes unnoticed; reach for multimode when the tie matters. Empty data still raises StatisticsError, and elements must be hashable because counting goes through Counter."
     },
     "syntax": "statistics.mode(data)",
     "status": "ready",
@@ -6704,7 +6738,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "мода",
-    "aliases": [],
+    "aliases": [
+      "самое частое значение",
+      "наиболее часто встречающийся элемент",
+      "мода выборки"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6734,8 +6772,8 @@
       "en": "A list of all modes (values with the highest frequency)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Появилась в 3.8 как безопасный вариант mode: не спорит с ничьими и на пустом входе отдаёт [], тогда как mode в этом случае бросает StatisticsError. Учтите обратную сторону: если все значения встречаются одинаково часто, в списке окажутся все до единого — это сигнал «моды нет», а не набор осмысленных мод; порядок в списке — по первому появлению значения.",
+      "en": "Added in 3.8 as the tie-safe counterpart of mode: ties are fine and empty input yields [] instead of the StatisticsError that mode raises. Watch the flip side — when every value occurs equally often you get all of them back, which means \"no mode at all\" rather than a list of meaningful ones; the order follows first appearance."
     },
     "syntax": "statistics.multimode(data)",
     "status": "ready",
@@ -6743,7 +6781,11 @@
     "version": "3.8",
     "section": "Модуль statistics",
     "subcat": "мода",
-    "aliases": [],
+    "aliases": [
+      "все самые частые значения",
+      "несколько мод",
+      "список наиболее частых элементов"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6771,8 +6813,8 @@
       "en": "Sample standard deviation (with n−1 degrees of freedom)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Деление на n−1 делает это оценкой по выборке: если данные и есть вся совокупность, нужен pstdev, иначе разброс окажется завышен. Меньше двух значений — StatisticsError, а необязательный xbar лишь избавляет от повторного счёта уже известного среднего: подставите не то число — получите бессмыслицу молча, без всякой ошибки.",
+      "en": "Dividing by n−1 makes this a sample estimate; if your data is the entire population, use pstdev or you will overstate the spread. Fewer than two values raises StatisticsError, and the optional xbar only saves recomputing a mean you already know — pass anything else and the result is silently meaningless."
     },
     "syntax": "statistics.stdev(data)",
     "status": "ready",
@@ -6780,7 +6822,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "разброс",
-    "aliases": [],
+    "aliases": [
+      "выборочное стандартное отклонение",
+      "среднеквадратичное отклонение выборки",
+      "разброс значений вокруг среднего"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6810,8 +6856,8 @@
       "en": "Population standard deviation (with n degrees of freedom)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Буква p значит population — делитель n. Если ваши числа лишь выборка из большей совокупности, брать надо stdev с делителем n-1, иначе разброс систематически занижается; pstdev честен только когда данные и есть вся совокупность. Аргумент mu — не произвольная точка отсчёта, а заранее известное истинное среднее: подставив что попало, вы получите корень из среднего квадрата отклонения от этой точки, а вовсе не стандартное отклонение.",
+      "en": "The p stands for population: the divisor is n. If your numbers are only a sample drawn from something larger, you want stdev with its n-1 correction, otherwise the spread comes out systematically too small; pstdev is honest only when the data is the whole population. The mu argument is not an arbitrary reference point but a mean you already know to be true — feed it anything else and you get the root mean square deviation about that point, not a standard deviation."
     },
     "syntax": "statistics.pstdev(data)",
     "status": "ready",
@@ -6819,7 +6865,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "разброс",
-    "aliases": [],
+    "aliases": [
+      "стандартное отклонение генеральной совокупности",
+      "отклонение по всем данным"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6847,8 +6896,8 @@
       "en": "Sample variance (the square of stdev, with n−1)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Аргумент xbar принимается на веру: передадите не настоящее среднее — получите число, которое дисперсией уже не является, и никакого исключения не будет. Для полной совокупности берут pvariance с делением на n; а если разбросы нужно просто сравнить между собой, корень не нужен вовсе — variance и stdev упорядочивают наборы одинаково.",
+      "en": "The xbar argument is taken on trust: hand it a value that is not the actual mean and you get a number that is no longer a variance, with no error raised. Use pvariance when the data is a whole population rather than a sample, and note that if you only need to compare spreads the square root is redundant — variance and stdev rank datasets identically."
     },
     "syntax": "statistics.variance(data)",
     "status": "ready",
@@ -6856,7 +6905,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "разброс",
-    "aliases": [],
+    "aliases": [
+      "выборочная дисперсия",
+      "квадрат стандартного отклонения"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6885,8 +6937,8 @@
       "en": "Population variance (with n)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Тип результата следует типу данных: Decimal и Fraction сохраняются точно, а на целых числах ответ может оказаться int, а не float — не стройте код на предположении, что тут всегда float. По смыслу это дисперсия всей совокупности (делитель n): для выборки нужна variance с n-1, а mu передавайте только когда истинное среднее действительно известно, иначе получится второй момент вокруг чужой точки.",
+      "en": "The return type follows the input type: Decimal and Fraction stay exact, and integer data can give you an int rather than a float — do not assume a float comes back. And this is the population variance (divisor n): for a sample use variance with its n-1, and pass mu only when the true mean is genuinely known, otherwise you get the second moment about some unrelated point."
     },
     "syntax": "statistics.pvariance(data)",
     "status": "ready",
@@ -6894,7 +6946,10 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "разброс",
-    "aliases": [],
+    "aliases": [
+      "дисперсия генеральной совокупности",
+      "дисперсия по всем данным"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6922,8 +6977,8 @@
       "en": "Pearson's (or Spearman's) correlation coefficient of two datasets, −1..1 (3.10+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Ловится только линейная связь: y = x² на симметричном наборе даёт корреляцию около нуля при полной зависимости, а высокое значение само по себе ничего не говорит о причине. Наборы обязаны быть одной длины и не короче двух значений, а постоянная последовательность (нулевой разброс) приводит к StatisticsError. Коэффициент Спирмена включается через method='ranked' — этот параметр есть только с 3.12.",
+      "en": "It detects straight-line relationships only: y = x² on a symmetric dataset scores near zero despite being perfectly determined, and a high score says nothing about cause. Both inputs must have the same length and at least two values, and a constant sequence (zero spread) raises StatisticsError. Spearman's version requires method='ranked', which exists only from 3.12."
     },
     "syntax": "statistics.correlation(x, y)",
     "status": "ready",
@@ -6931,7 +6986,11 @@
     "version": "3.10",
     "section": "Модуль statistics",
     "subcat": "связь",
-    "aliases": [],
+    "aliases": [
+      "коэффициент корреляции",
+      "корреляция Пирсона",
+      "связь двух наборов данных"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6959,8 +7018,8 @@
       "en": "Sample covariance of two datasets (3.10+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Значение несёт единицы обоих наборов: переведёте метры в сантиметры — ковариация вырастет в сто раз, поэтому силу связи по ней не сравнивают (для этого correlation), а полезен в основном знак. Ноль означает лишь отсутствие линейной связи, а не независимость; входы должны быть равной длины и не короче двух значений.",
+      "en": "The value carries the units of both inputs — switch metres to centimetres and it grows a hundredfold — so it is useless for comparing the strength of relationships; correlation is the tool for that, while covariance is mostly read for its sign. Zero means no linear relationship rather than independence, and both inputs must be the same length with at least two values."
     },
     "syntax": "statistics.covariance(x, y)",
     "status": "ready",
@@ -6968,7 +7027,11 @@
     "version": "3.10",
     "section": "Модуль statistics",
     "subcat": "связь",
-    "aliases": [],
+    "aliases": [
+      "ковариация",
+      "выборочная ковариация",
+      "совместная изменчивость двух наборов"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -6997,8 +7060,8 @@
       "en": "Linear regression: slope and intercept by least squares (3.10+)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Подгонка несимметрична: x считается независимой переменной, y — зависимой, и от перестановки аргументов прямая получается другая. О том, насколько хорошо линия описывает данные, функция не говорит ничего — силу связи оценивает statistics.correlation. Точек нужно минимум две, и значения x не должны быть все одинаковыми, иначе StatisticsError.",
+      "en": "The fit is not symmetric: x is the independent variable and y the dependent one, so swapping the arguments yields a different line. The result says nothing about how well the line describes the data — use statistics.correlation for the strength of the relationship. You need at least two points and non-constant x, otherwise StatisticsError."
     },
     "syntax": "statistics.linear_regression(x, y)",
     "status": "ready",
@@ -7006,7 +7069,11 @@
     "version": "3.10",
     "section": "Модуль statistics",
     "subcat": "связь",
-    "aliases": [],
+    "aliases": [
+      "линейная регрессия",
+      "метод наименьших квадратов",
+      "подобрать прямую по точкам"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -7036,8 +7103,8 @@
       "en": "A normal distribution (μ, σ) with pdf/cdf/samples and arithmetic."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Объект неизменяемый, а арифметика вроде nd * 2 или nd + 5 возвращает новое распределение; сложение двух NormalDist предполагает независимость слагаемых — для связанных величин результат будет неверен. cdf(x) отвечает, какая доля значений не больше x, обратную задачу (найти границу по заданной вероятности) решает inv_cdf, а построить распределение прямо по данным умеет from_samples. Класс появился в Python 3.8.",
+      "en": "Instances are immutable, and arithmetic such as nd * 2 or nd + 5 returns a new distribution; adding two NormalDist objects assumes the variables are independent, so the result is wrong for correlated ones. cdf(x) gives the share of values at or below x, the reverse question — the cutoff for a given probability — is inv_cdf, and from_samples builds a distribution straight from data. Added in Python 3.8."
     },
     "syntax": "statistics.NormalDist(mu=0.0, sigma=1.0)",
     "status": "ready",
@@ -7045,7 +7112,11 @@
     "version": "",
     "section": "Модуль statistics",
     "subcat": "распределение",
-    "aliases": [],
+    "aliases": [
+      "нормальное распределение",
+      "гауссово распределение",
+      "плотность вероятности"
+    ],
     "keywords": [],
     "tags": [
       "statistics"
@@ -7072,8 +7143,8 @@
       "en": "A filesystem path for pure computation, with no I/O (name/suffix/parts/parent)."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "PurePath() — фабрика: на Windows вы получите PureWindowsPath, на остальных ОС — PurePosixPath, поэтому для предсказуемого поведения в тестах называйте нужный класс явно. У чистого пути нет ни .exists(), ни .open(), ни .iterdir() — всё, что трогает диск, живёт только в Path. И пути разных флейворов никогда не равны между собой, даже если строки совпадают.",
+      "en": "PurePath() is a factory: it gives you PureWindowsPath on Windows and PurePosixPath elsewhere, so name the flavour explicitly when you want deterministic behaviour in tests. A pure path has no .exists(), .open() or .iterdir() — everything that touches the disk lives on Path only. Paths of different flavours never compare equal, even when their strings are identical."
     },
     "syntax": "pathlib.PurePath(*segments)",
     "status": "ready",
@@ -7111,8 +7182,8 @@
       "en": "A pure path with POSIX semantics (/ separator), regardless of the host OS."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Пригодится, когда на Windows нужно разобрать чужой POSIX-путь — из конфига, архива, URL — не превращая его в путь с обратными слэшами. Сравнение здесь чувствительно к регистру: 'A.txt' и 'a.txt' — разные пути, в отличие от PureWindowsPath. Букв дисков этот флейвор не знает: у 'C:/x' атрибут drive пустой, а 'C:' становится обычным первым компонентом.",
+      "en": "Reach for it when you need to parse a POSIX path that came from somewhere else — a config file, a tar archive, a URL — without Windows turning it into backslashes. Comparison is case-sensitive here, so 'A.txt' and 'a.txt' are distinct paths, unlike with PureWindowsPath. It knows nothing about drive letters: for 'C:/x' the drive attribute is empty and 'C:' is just the first component."
     },
     "syntax": "pathlib.PurePosixPath(*segments)",
     "status": "ready",
@@ -7153,8 +7224,8 @@
       "en": "A pure path with Windows semantics (\\ separator, drive letters), regardless of the host OS."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Сравнение и хеширование здесь не учитывают регистр: PureWindowsPath('A/B') равен PureWindowsPath('a/b'), а вот с PurePosixPath той же строки — никогда. Обратите внимание на разницу 'C:/data' и 'C:data': первый привязан к корню диска, второй относителен текущему каталогу диска C, и .parts у них разные. Класс работает на любой ОС, но открыть через него файл нельзя — для этого нужен Path.",
+      "en": "Comparison and hashing ignore case here, so PureWindowsPath('A/B') equals PureWindowsPath('a/b') — while a PurePosixPath built from the same text never does. Watch the difference between 'C:/data' and 'C:data': the first is anchored at the drive root, the second is relative to the current directory of drive C, and their .parts differ. It runs anywhere, but it cannot open anything — that is what Path is for."
     },
     "syntax": "pathlib.PureWindowsPath(*segments)",
     "status": "ready",
@@ -7197,8 +7268,8 @@
       "en": "A concrete path with I/O on POSIX systems (Linux/macOS); what Path() returns there."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Писать PosixPath в коде почти никогда не нужно: Path() сам подставляет нужный класс на каждой ОС, а на Windows создать PosixPath просто не выйдет — будет UnsupportedOperation (до 3.13 — NotImplementedError). Если надо разобрать POSIX-путь на чужой платформе, без обращения к диску, бери PurePosixPath: он работает везде. Ещё частая путаница при отладке — print(список_путей) печатает repr и показывает PosixPath('a/b'); саму строку пути даёт str(p).",
+      "en": "You almost never need to name PosixPath yourself: Path() picks the right class per OS, and on Windows constructing PosixPath fails outright with UnsupportedOperation (NotImplementedError before 3.13). To parse a POSIX-style path on any platform without touching the disk, use PurePosixPath instead. A common debugging surprise: printing a list of paths shows their repr, PosixPath('a/b'), while the bare path string comes from str(p)."
     },
     "syntax": "pathlib.PosixPath(*segments)",
     "status": "ready",
@@ -7206,7 +7277,11 @@
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "конкретные пути",
-    "aliases": [],
+    "aliases": [
+      "путь в юникс-системах",
+      "путь с прямыми слешами",
+      "путь на линуксе"
+    ],
     "keywords": [],
     "tags": [
       "pathlib"
@@ -7235,8 +7310,8 @@
       "en": "A concrete path with I/O on Windows; what Path() returns there."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "На Linux и macOS создать WindowsPath нельзя — будет UnsupportedOperation (до 3.13 — NotImplementedError); чтобы разбирать windows-пути на любой ОС, используй PureWindowsPath, он не ходит на диск. Сравнение и хеширование здесь регистронезависимы: PureWindowsPath('A.TXT') == PureWindowsPath('a.txt') даёт True, тогда как у POSIX-путей это два разных пути. Прямые слэши в аргументе принимаются, но наружу путь выходит с обратными.",
+      "en": "WindowsPath cannot be instantiated on Linux or macOS — you get UnsupportedOperation (NotImplementedError before 3.13); to parse Windows-style paths anywhere, use PureWindowsPath, which never touches the disk. Comparison and hashing are case-insensitive here: PureWindowsPath('A.TXT') == PureWindowsPath('a.txt') is True, whereas POSIX paths treat those as two different files. Forward slashes are accepted on input, but the path prints back with backslashes."
     },
     "syntax": "pathlib.WindowsPath(*segments)",
     "status": "ready",
@@ -7244,7 +7319,11 @@
     "version": "",
     "section": "Модуль pathlib",
     "subcat": "конкретные пути",
-    "aliases": [],
+    "aliases": [
+      "путь в винде",
+      "путь с обратными слешами",
+      "путь с буквой диска"
+    ],
     "keywords": [],
     "tags": [
       "pathlib"
@@ -7273,8 +7352,8 @@
       "en": "Class method that builds a complex number from a single numeric argument (delegates to __complex__, then __float__, then __index__). Unlike complex(), it does not accept strings. Python 3.14+."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод появился только в 3.14 — на более старых интерпретаторах, включая многие проверяющие системы, обращение к нему упадёт с AttributeError, так что для переносимости остаётся обычный complex(x). Смысл from_number — строгость: ровно один числовой аргумент, а на строку он отвечает TypeError, тогда как complex('1+2j') молча разберёт текст, что удобно при вводе и опасно, когда вы ждали именно число.",
+      "en": "The method landed in 3.14, so on older interpreters — graders included — touching it raises AttributeError; plain complex(x) stays the portable choice. Its whole point is strictness: exactly one numeric argument, and a string gets a TypeError, whereas complex('1+2j') happily parses text — handy for user input, dangerous when you expected a number."
     },
     "syntax": "classmethod complex.from_number(x)",
     "status": "ready",
@@ -7321,8 +7400,8 @@
       "en": "Class method building a float from a number (int, float or an object with __float__). Unlike float(), it rejects strings. Python 3.14+."
     },
     "body": {
-      "ru": "",
-      "en": ""
+      "ru": "Метод появился, чтобы отделить «преобразовать число» от «разобрать строку»: float() делает и то и другое, поэтому случайно проглатывает строку, пришедшую из input(). from_number на str и bytes отвечает TypeError, но от потери точности не спасает — Decimal с длинной мантиссой молча округлится, а слишком большое int даст OverflowError.",
+      "en": "The method exists to separate \"convert a number\" from \"parse a string\": float() does both, so a string that sneaks in from input() is silently accepted. from_number raises TypeError on str and bytes, yet it does not shield you from precision loss — a Decimal with a long mantissa is rounded, and an int too large for a float raises OverflowError."
     },
     "syntax": "float.from_number(x)",
     "status": "ready",
