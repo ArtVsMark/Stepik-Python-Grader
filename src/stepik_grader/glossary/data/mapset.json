@@ -2418,7 +2418,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "копия неизменяемого множества",
+      "копирование замороженного множества"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2456,7 +2459,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "объединение неизменяемых множеств",
+      "слить замороженные множества"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2495,7 +2501,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "пересечение неизменяемых множеств",
+      "общие элементы замороженных множеств"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2534,7 +2543,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "разность неизменяемых множеств",
+      "вычитание замороженных множеств"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2572,7 +2584,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "симметрическая разность неизменяемых множеств",
+      "элементы только в одном из замороженных множеств"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2611,7 +2626,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "непересекающиеся замороженные множества",
+      "нет общих элементов у неизменяемого множества"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2649,7 +2667,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "подмножество неизменяемого множества",
+      "проверка вложенности замороженных множеств"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
@@ -2687,7 +2708,10 @@
     "version": "",
     "section": "Множества (set)",
     "subcat": "frozenset",
-    "aliases": [],
+    "aliases": [
+      "надмножество неизменяемого множества",
+      "замороженное множество содержит другое"
+    ],
     "keywords": [],
     "tags": [
       "frozenset"
