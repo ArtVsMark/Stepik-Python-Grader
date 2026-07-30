@@ -16,8 +16,9 @@
 3. **Docs directions.** В корне ``docs/`` лежит только ``README.md``-развилка;
    документы живут в направлениях по читателю — ``use/`` (как пользоваться),
    ``dev/`` (как устроено, с ``dev/design/`` для спроектированного без кода),
-   ``agent/`` (служебное для Claude Code), ``archive/`` (история). Новый ``.md``
-   в корне ``docs/`` — ошибка: он не попадает ни в одно направление.
+   ``agent/`` (служебное для Claude Code), ``audit/`` (находки незакрытых
+   аудитов), ``archive/`` (история). Новый ``.md`` в корне ``docs/`` — ошибка:
+   он не попадает ни в одно направление.
 4. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
    (кроме самого ``<dir>/README.md``) должен быть упомянут в ``<dir>/README.md``
    — иначе индекс расходится с фактическим составом каталога (как произошло с
@@ -70,7 +71,7 @@ CHANGELOG_MAX_VERSIONS = 3
 # Направления документации: docs/ разложена по читателю, и в корне docs/ лежит
 # только README.md-развилка. Синхронизировать с docs/README.md и CONTRIBUTING.md
 # §«Документация: README как витрина».
-_DOCS_DIRECTIONS = ("use", "dev", "agent", "archive")
+_DOCS_DIRECTIONS = ("use", "dev", "agent", "audit", "archive")
 
 # [текст](target) — не изображение (нет ведущего "!"), target без пробелов/скобок.
 _LINK_RE = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)\)")
@@ -254,8 +255,9 @@ def check_docs_directions(errors: list[str]) -> None:
         errors.append(
             f"docs/: {', '.join(stray)} lie in the docs/ root. Documentation is "
             "split by reader - put the file into docs/use/ (how to use), "
-            "docs/dev/ (how it works), docs/agent/ (Claude-only) or "
-            "docs/archive/ (history), and index it in that direction's README.md."
+            "docs/dev/ (how it works), docs/agent/ (Claude-only), docs/audit/ "
+            "(open audit findings) or docs/archive/ (history), and index it in "
+            "that direction's README.md."
         )
         return
 

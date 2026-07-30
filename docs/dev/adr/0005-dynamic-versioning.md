@@ -10,7 +10,7 @@
   (`[build-system]`, `dynamic = ["version"]`, `[tool.setuptools_scm]`),
   [scripts/version.py](../../../scripts/version.py),
   [scripts/check_version_consistency.py](../../../scripts/check_version_consistency.py),
-  [CONTRIBUTING.md § Версионирование](../../../CONTRIBUTING.md#версионирование-issue-68)
+  [docs/dev/versioning.md](../versioning.md)
 
 ## Контекст
 
@@ -75,7 +75,7 @@ git-тег, README-бейдж и `CHECKPOINT.md` регулярно расход
   tarball-архиве без `.git` версия деградирует (setuptools-scm fallback) — это
   известное ограничение подхода.
 - Сосуществование двух форм номера (PEP 440 vs логический `X.Y.N`) требует
-  объяснения — оно вынесено в [CONTRIBUTING.md § Версионирование](../../../CONTRIBUTING.md#версионирование-issue-68).
+  объяснения — оно вынесено в [docs/dev/versioning.md](../versioning.md).
 
 **Нейтральные:**
 
