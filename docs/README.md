@@ -27,16 +27,13 @@
 | Посмотреть дерево файлов проекта | [project-structure.md](project-structure.md) |
 | Сравнить версии и отличия от оригинала | [versions.md](versions.md) |
 | Полный список изменений | [../CHANGELOG.md](../CHANGELOG.md) |
-| Архив CHANGELOG: ротированные релизы 1.1.0–1.5.0 (issue #373) + до-тегового периода (до #162/#183), построчный английский лог | [changelog-archive.md](changelog-archive.md) |
 | Внести вклад: код-стайл, форматы тестов, версионирование | [../CONTRIBUTING.md](../CONTRIBUTING.md) |
 | Инварианты ядра и правила для агентов | [../CLAUDE.md](../CLAUDE.md) |
 | Режим ответов Claude: полный шаблон 13 ролей + матрица подключения | [roles.md](roles.md) |
+| Очередь работ для Claude Code после крупного аудита (сейчас пусто) | [claude-handoff.md](claude-handoff.md) |
 | Политика безопасности, ответственное раскрытие уязвимостей | [../SECURITY.md](../SECURITY.md) |
-| Архив постановок для Claude Code (все закрыты: #125/#186/#187/#129, #161/#163, #126/#190/#191) | [claude-handoff.md](claude-handoff.md) |
-| История спринтов и roadmap (архив) | [history.md](history.md) |
-| **(архив)** Разовые аудиты 2026-07 (глубокие 8-ролевые 2026-07/07-14/07-15 + `role-*.md`-приложения + полный issue-аудит всех 253 issue) + мультиролевой аудит 2026-07-18 (13 ролей) и дорожная карта E1–E10 — источник программы #524 (аудит-цикл завершён, эпик закрыт) — вынесены в подкаталог с собственным индексом (issue #562) | [archive/README.md](archive/README.md) |
-| **(архив)** План 2026-07: наполнение глоссария (эпики #363/#371 закрыты — черновиков не осталось) + UX web-«Проверки» (эпик #362, закрыт) — перенесён в подкаталог архива (issue #700) | [archive/web-glossary-optimization-2026-07.md](archive/web-glossary-optimization-2026-07.md) |
 | Правила PEP 8 и учебные инсайты: разделы «Правила»/«Подучить», формат `RuleCard`, `core/lint.py` (эпик #342) | [rules-insights.md](rules-insights.md) |
+| **Всё историческое — в одном месте:** история спринтов и релизов, архив CHANGELOG, разовые аудиты, завершённые планы, прошлые постановки для Claude | [archive/README.md](archive/README.md) |
 
 ## Канонические источники (правило против дублей)
 
@@ -65,12 +62,11 @@
 | Дерево файлов проекта | [project-structure.md](project-structure.md) | README |
 | Сравнение версий, отличия от оригинала | [versions.md](versions.md) | README |
 | История релизов (детальный changelog) | [../CHANGELOG.md](../CHANGELOG.md) | versions.md (там — только качественные скачки) |
-| Архив CHANGELOG: ротированные релизы (1.1.0–1.5.0, issue #373) + до-тегового периода (до #162/#183) | [changelog-archive.md](changelog-archive.md) | ../CHANGELOG.md (там — только живая часть: актуальный Unreleased + три последних MINOR) |
-| Политика версионирования (схема тег=MINOR+1, release vs dev) | [../CONTRIBUTING.md](../CONTRIBUTING.md) § Версионирование | README, CLAUDE.md, versions.md, history.md |
+| Политика версионирования (схема тег=MINOR+1, release vs dev) | [../CONTRIBUTING.md](../CONTRIBUTING.md) § Версионирование | README, CLAUDE.md, versions.md |
 | Инварианты ядра, правила для агентов | [../CLAUDE.md](../CLAUDE.md) | docs/* |
 | Полный шаблон 13 ролей для ответов Claude (профили, правила, матрица) | [roles.md](roles.md) | CLAUDE.md (там — только компактный триггер-блок § Режим ответов) |
-| История спринтов/roadmap, подробные примечания к issue (архив) | [history.md](history.md) | CLAUDE.md (там — только действующие инварианты) |
-| Архив постановок для Claude (scope/non-goals; все закрыты) | [claude-handoff.md](claude-handoff.md) | CLAUDE.md (там — короткие указатели); канон продукта — web-current.md/web-design.md |
+| Очередь работ после аудита (порядок, блокеры); пустая, когда пласт разобран | [claude-handoff.md](claude-handoff.md) | ../CHANGELOG.md — там «что сделано»; GitHub Issues — там открытые задачи |
+| Всё историческое: история спринтов/релизов, архив CHANGELOG, разовые аудиты, завершённые планы | [archive/README.md](archive/README.md) | активные `docs/*` — в них не остаётся ни истории, ни статусов закрытых issue |
 
 > **Версия проекта — без ручного source of truth в доках.** Актуальный номер
 > берётся из git-тега / `importlib.metadata` (бейдж релиза в README тянет

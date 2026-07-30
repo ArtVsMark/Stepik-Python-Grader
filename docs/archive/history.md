@@ -5,11 +5,11 @@
 > (вынесено по issue #176 / эпик #174). Это справочная память «как мы сюда
 > пришли», а не действующие инструкции.
 >
-> Действующий агентский контракт — в [`../CLAUDE.md`](../CLAUDE.md).
-> Актуальная архитектура — в [architecture.md](architecture.md) и
-> [project-structure.md](project-structure.md). Полный список изменений — в
-> [`../CHANGELOG.md`](../CHANGELOG.md). Политика версионирования — в
-> [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
+> Действующий агентский контракт — в [`../CLAUDE.md`](../../CLAUDE.md).
+> Актуальная архитектура — в [architecture.md](../architecture.md) и
+> [project-structure.md](../project-structure.md). Полный список изменений — в
+> [`../CHANGELOG.md`](../../CHANGELOG.md). Политика версионирования — в
+> [`../CONTRIBUTING.md`](../../CONTRIBUTING.md).
 >
 > Ссылки на конкретные строки/размеры файлов и «текущие» метрики в тексте
 > ниже отражают состояние на момент соответствующего спринта и намеренно **не
@@ -292,7 +292,7 @@
   изоляция исполнения решений — bubblewrap на Linux, `sandbox-exec` на
   macOS, Job Objects на Windows (`core/sandbox/`). Гарантии асимметричны по
   ОС (документировано, не баг) — таблица и именованные пробелы в
-  [`../SECURITY.md`](../SECURITY.md). Новый вердикт `SANDBOX_VIOLATION`.
+  [`../SECURITY.md`](../../SECURITY.md). Новый вердикт `SANDBOX_VIOLATION`.
   Backend выбирается по ОС при старте; недоступность — явная ошибка, без
   тихого отката на `LocalRunner`.
 - **Async job-модель для веб-бенчмарка (issue #262):** `POST /api/v1/runs` +
@@ -308,7 +308,7 @@
   stdlib-модуля), молчаливое усечение Format-3 тест-кейсов при несовпадении
   блоков. Добавлены path-confinement (`--root`/`--no-root-confinement`) и
   Host/Origin guard для `/api/*` — оба задокументированы в новом
-  [`api.md`](api.md).
+  [`api.md`](../api.md).
 - **Локальная статистика запусков (issue #268):** opt-in `--stats`/
   `--stats-summary` — `.grader_stats.jsonl`, без сети, только на диске.
 - **Path вместо str в публичных контрактах (issue #73, breaking):** все
@@ -316,9 +316,9 @@
   `pathlib.Path`, а не `str` — закрывает половинчатую типизацию, где внутри
   уже был `Path`, а на границе функции — `str`.
 - **Документация — справочник HTTP API + разделение web-mvp.md (issue
-  #267):** новый [`api.md`](api.md) — канонический справочник эндпоинтов
-  `--serve`. `web-mvp.md` разделён на [`web-current.md`](web-current.md)
-  (реализовано) и [`web-design.md`](web-design.md) (замыслы/отложенное/
+  #267):** новый [`api.md`](../api.md) — канонический справочник эндпоинтов
+  `--serve`. `web-mvp.md` разделён на [`web-current.md`](../web-current.md)
+  (реализовано) и [`web-design.md`](../web-design.md) (замыслы/отложенное/
   отклонённое). Исторические до-версионные записи `CHANGELOG.md` вынесены в
   [`changelog-archive.md`](changelog-archive.md). Плюс отдельный аудит
   точности документации (architecture.md/project-structure.md не знали про
@@ -341,7 +341,7 @@
   модель (эпики #112–115), `cli.py`/`web.py` разложены на пакеты (эпики
   #117–122).
 
-Полное содержание релиза — в [`../CHANGELOG.md`](../CHANGELOG.md#170---2026-07-12).
+Полное содержание релиза — в [`../CHANGELOG.md`](../../CHANGELOG.md#170---2026-07-12).
 
 ---
 
@@ -360,7 +360,7 @@
   «текущей версии» в `CHECKPOINT.md`/`CHANGELOG.md`/`CLAUDE.md`.
 
 Действующая политика версионирования — в
-[`../CONTRIBUTING.md` § Версионирование](../CONTRIBUTING.md#версионирование-issue-68).
+[`../CONTRIBUTING.md` § Версионирование](../../CONTRIBUTING.md#версионирование-issue-68).
 
 ---
 
@@ -433,7 +433,7 @@
 ## Эволюция метрик проекта
 
 > Архивный снимок. Канонический (живой) источник этой таблицы —
-> [versions.md](versions.md); при расхождении верна она.
+> [versions.md](../versions.md); при расхождении верна она.
 
 | Релиз | Тестов | Покрытие | Ключевое |
 |---|---|---|---|
@@ -449,4 +449,4 @@
 | v1.9.0 | 1600+ | ~93% (кросс-OS combined) | Наполнение оболочек: AI-подсказки (E3), i18n web-UI (E4), разделы обучения Прогресс/Правила/Подучить (#342/#348), границы web↔core (ADR-0010/0011), глоссарий #363 завершён (0 черновиков) |
 
 > Подробное сравнение релизов и отличия от оригинала — в
-> [versions.md](versions.md).
+> [versions.md](../versions.md).

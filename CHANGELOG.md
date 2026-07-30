@@ -110,6 +110,8 @@
 - function-mode: маршрутизация выбирается по тому, печатает ли тест-блок результат сам, а не по «похоже ли на Python-код» — legacy-тесты (`a = 5` и голые значения) больше не дают ложные WA/RE; при несовпадении имён параметров аргументы связываются позиционно (#622)
 
 ### Internal
+- Docs: историческое собрано в `docs/archive/` — туда переехали `history.md`, `changelog-archive.md` и 336-строчная простыня прошлых постановок (`claude-handoff-2026-07-15.md`); в активной `docs/` остаётся только «как это работает сейчас». Индекс потерял три архивные строки, `docs/archive/README.md` получил раздел «История проекта»
+- Docs: `claude-handoff.md` переписан как живая очередь работ вместо журнала — назначение, правила заполнения после аудита, правило «волна разобрана → запись удаляется, а не помечается ✅», текущее состояние «пусто». Порядок обращения за работой (`gh issue list` → очередь → CHANGELOG) и правила ведения сведены в `CLAUDE.md` § Открытая работа, откуда убран перечень закрытых issue
 - Docs: убраны расхождения, найденные аудитом документации — числа тестов/покрытия/карточек больше не хардкодятся в тексте (README, `versions.md`, `CHECKPOINT.md`, `CLAUDE.md` § Метрики ссылаются на живые бейджи; прежде «1700+» в `versions.md` спорило с «2100+» в README), `CHECKPOINT.md` перестал числить открытыми закрытые #151/#97, из `claude-handoff.md` убран устаревший список «открыто 8 issue» (семь из них закрыты), снятая палитра `Ctrl+K` (#658) вычищена из handoff и docstring `web/commands.py`, «режимы 0-7» → «пункты 0-8» по факту меню (`CLAUDE.md`, `architecture.md`, `project-structure.md`), в CONTRIBUTING убрано «`scripts/version.py` (если присутствует)» и `v1.8.0` → «до текущего»
 - Тесты: аудит примеров глоссария (`run_check` / `glossary_draft_pipeline check`) обходит карточки параллельно (`--jobs`, по умолчанию по числу ядер) — на карточку уходит отдельный subprocess, и последовательный обход 1349 карточек упирался в 120-секундный дедлайн pytest-timeout на Windows, где процессы дороже; `test_run_check_bundled_smoke` 130 → 12 с, порядок строк отчёта прежний (по `id`, не по завершению) (#743)
 - Docs: web поднят в точки входа — `--serve` и GUI-лаунчер `stepik-grader-gui` (#661) в «Быстром старте» обоих README, smoke-тест установки через веб, веб-вариант «первого примера», лаунчер перенесён к началу раздела; явно перечислено, что существует только в вебе (песочница, пошаговый трейс, редактор с сохранением, отправка на Stepik #683) и что в CLI имеет аналог (`--lint`/`--insights`/`--export-progress`) (#700)
@@ -297,7 +299,7 @@
   (inventory-driven sets, constructs, `os.path.join` mismatch fix), and a
   stacked layout with CLI-aligned tables for modes 3/4. Filed as epics #362
   (web UX, children #364–#370) and #363 (glossary, pilot wave #371).
-- Rotated CHANGELOG releases 1.1.0–1.5.0 into `docs/changelog-archive.md`; added
+- Rotated CHANGELOG releases 1.1.0–1.5.0 into `docs/archive/changelog-archive.md`; added
   a "one line per change, keep the 3 latest MINOR" policy (CLAUDE.md /
   CONTRIBUTING.md) and a CI version-count guard in `check_docs_guardrails.py` (#373).
 - Docs audit after v1.8.0 (epic #381): closed the release gap — `versions.md` gains a v1.8.0 column, CHECKPOINT/CONTRIBUTING/installation refreshed (#382).
@@ -700,7 +702,7 @@
   lint integration behind a `[lint]` extra, run-count-based card decay.
   Registered in the `docs/README.md` index; follow-up epics/issues are opened
   from the audit's findings.
-- `docs/README.md` navigation index now lists `docs/changelog-archive.md`
+- `docs/README.md` navigation index now lists `docs/archive/changelog-archive.md`
   (issue #300) — it existed in `docs/` since the CHANGELOG split but was
   never added to the index.
 - New CI guardrail (`scripts/check_docs_guardrails.py`): every `docs/*.md`
@@ -871,7 +873,7 @@
 - `CHANGELOG.md`'s 10 pre-versioning "pseudo-Unreleased" snapshots (dated
   June 2026, format `## [unreleased] / <date>`, predating git-tag-based
   versioning — issue #162/#183) moved verbatim to new
-  `docs/changelog-archive.md`, cross-linked with `docs/history.md` (same
+  `docs/archive/changelog-archive.md`, cross-linked with `docs/archive/history.md` (same
   period, different granularity/language). Live `CHANGELOG.md` now holds
   only the current `[Unreleased]` + real releases `[1.1.0]`...`[1.6.0]`.
 - New troubleshooting section in `docs/installation.md` (issue #270):
@@ -897,7 +899,7 @@
   correctly as VS Code (`--init-vscode`) **and** PyCharm (documented
   External Tool recipe, `docs/grader-workflow.md § Интеграция с IDE`) —
   a prior mention of only VS Code was an omission fixed here. Per-item
-  detail is unchanged in `CHANGELOG.md`/`docs/history.md`, linked from
+  detail is unchanged in `CHANGELOG.md`/`docs/archive/history.md`, linked from
   the section for anyone who wants it. The `v1.4.0` row in the
   version-evolution table below got the same PyCharm correction.
 
@@ -1455,4 +1457,4 @@
 ---
 
 Более ранние релизы (**1.1.0 – 1.6.0**) и до-версионные записи вынесены в
-[docs/changelog-archive.md](docs/changelog-archive.md) (issue #373).
+[docs/changelog-archive.md](docs/archive/changelog-archive.md) (issue #373).

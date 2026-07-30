@@ -22,7 +22,7 @@
 | Локальная история прогонов (SQLite) + статистика — раздел «Подучить», всё офлайн | ❌ | ✅ |
 | Инженерная база — src-layout пакет, `pyproject.toml`, pre-commit (ruff), CI (pytest + ruff + mypy) на 3 ОС, автотесты на каждый PR | ❌ | ✅ |
 
-Подробности по каждому пункту — в [`CHANGELOG.md`](../CHANGELOG.md) и [`docs/history.md`](history.md).
+Подробности по каждому пункту — в [`CHANGELOG.md`](../CHANGELOG.md) и [`archive/history.md`](archive/history.md).
 
 ## Эволюция версий
 

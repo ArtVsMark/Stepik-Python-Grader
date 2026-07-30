@@ -205,7 +205,7 @@ def check_changelog_version_budget(errors: list[str]) -> None:
 
     Считаются заголовки вида ``## [X.Y.Z] - ДАТА`` (issue #373). ``[Unreleased]``
     и до-версионные ``## [unreleased] / <дата>`` из архива не в счёт. Перебор —
-    сигнал ротировать самую старую версию в ``docs/changelog-archive.md``.
+    сигнал ротировать самую старую версию в ``docs/archive/changelog-archive.md``.
     """
     changelog = _ROOT / "CHANGELOG.md"
     versions = [

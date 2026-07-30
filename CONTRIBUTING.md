@@ -351,7 +351,7 @@ MAJOR . MINOR . PATCH
   изменение (`- <что> (#PR)`), детали — в PR/issue; многострочные пересказы —
   антипаттерн (раздули `[Unreleased]` перед v1.8.0). В живом `CHANGELOG.md`
   держим только `[Unreleased]` + **три последних MINOR**; более старые релизы
-  ротируются в [`docs/changelog-archive.md`](docs/changelog-archive.md), а
+  ротируются в [`docs/archive/changelog-archive.md`](docs/archive/changelog-archive.md), а
   `scripts/check_docs_guardrails.py` стережёт лимит в 3 версионных заголовка.
 
 ### Release-версия vs dev-версия (после PR #183 / issue #162)
@@ -408,7 +408,7 @@ PEP 440 (`X.Y.0.postN+g<hash>`) — это то, что понимают `pip`/P
   всё делает тег.
 - **⛔ Блокирующий шаг ПЕРЕД тегом `vX.Y.0` — ротация CHANGELOG (issue #562).**
   До постановки тега перенеси самый старый MINOR из `CHANGELOG.md` в
-  [`docs/changelog-archive.md`](docs/changelog-archive.md) дословно, чтобы в
+  [`docs/archive/changelog-archive.md`](docs/archive/changelog-archive.md) дословно, чтобы в
   живом `CHANGELOG.md` осталось ровно `[Unreleased]` + **три последних MINOR**
   (см. «Краткость и ротация CHANGELOG» выше), и переименуй `[Unreleased]` →
   `[X.Y.0] — ДАТА`, добавив сверху новый пустой `[Unreleased]`. Это **не**

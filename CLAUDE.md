@@ -2,7 +2,7 @@
 
 > Агентский контракт: то, что Claude Code должен знать перед КАЖДЫМ действием.
 > Только действующие инварианты, стиль и команды. История спринтов, roadmap и
-> подробные примечания к issue вынесены в [`docs/history.md`](docs/history.md)
+> подробные примечания к issue вынесены в [`docs/archive/history.md`](docs/archive/history.md)
 > (архив, issue #176). Не раздувать этот файл заново — большие технические
 > разделы канонически живут в `docs/` (см. § Источники истины).
 
@@ -265,7 +265,7 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 
 ---
 
-## 📝 Обновление CHANGELOG.md / docs/history.md — когда
+## 📝 Обновление CHANGELOG.md / docs/archive/history.md — когда
 
 - **`CHANGELOG.md`** (английский) — запись под `## [Unreleased]` в **каждом**
   смерженном PR, без исключений для "внутренних"/рефакторинговых PR
@@ -280,17 +280,18 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
     смерженные простыни (1.7.0/1.8.0) задним числом не переписываем.
   - **Ротация (issue #373):** в `CHANGELOG.md` живут только `[Unreleased]` +
     **три последних MINOR**; при релизе самую старую версию переносим дословно в
-    [`docs/changelog-archive.md`](docs/changelog-archive.md). CI-guard
+    [`docs/archive/changelog-archive.md`](docs/archive/changelog-archive.md). CI-guard
     `scripts/check_docs_guardrails.py` не даёт числу версионных заголовков
     в `CHANGELOG.md` превысить 3.
-- **`docs/history.md`** (русский) — архивная запись на **каждый релиз**
+- **`docs/archive/history.md`** (русский) — архивная запись на **каждый релиз**
   (новый git-тег `vX.Y.0`), не на каждый PR: сводка вошедшего в релиз, в
   стиле уже существующих записей (`**#NNN (дата):** ...`).
-- **`CHECKPOINT.md`** — обновляется вместе с `docs/history.md`, на каждый
+- **`CHECKPOINT.md`** — обновляется вместе с `docs/archive/history.md`, на каждый
   релиз (это исторический snapshot, не отслеживает промежуточные PR).
 
 Не откладывать `CHANGELOG.md` "до конца фичи/спринта" — если PR смержен,
 запись нужна сразу этим же PR, а не пост-фактум пачкой.
+
 
 ---
 
@@ -313,56 +314,53 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 | Кодекс поведения | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Режим ответов: полный шаблон 13 ролей | [docs/roles.md](docs/roles.md) |
 | WEB MVP: реализовано / замыслы / HTTP API | [docs/web-current.md](docs/web-current.md), [docs/web-design.md](docs/web-design.md), [docs/api.md](docs/api.md) |
-| История спринтов/roadmap (архив) | [docs/history.md](docs/history.md) |
-| Handoff для будущих реализаций Claude (архив постановок) | [docs/claude-handoff.md](docs/claude-handoff.md) |
+| Очередь работ после крупного аудита (пустая — норма) | [docs/claude-handoff.md](docs/claude-handoff.md) |
+| Всё историческое: история спринтов/релизов, архив CHANGELOG, разовые аудиты, отработанные постановки | [docs/archive/README.md](docs/archive/README.md) |
 | Полный аудит v1.9.0 (архив, программа #613) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |
 | Полный changelog (живой источник) | [CHANGELOG.md](CHANGELOG.md) |
 | Состояние проекта (исторический snapshot) | [CHECKPOINT.md](CHECKPOINT.md) |
 
 ---
 
-## 🎯 Открытая работа (указатели)
+## 🎯 Открытая работа: куда обращаться и как вести
 
-Актуальные статусы — всегда `gh issue list`; бэклог сжат до считаных issue.
-[`docs/claude-handoff.md`](docs/claude-handoff.md) — **архив** постановок для
-будущего Claude (план «2026-07-15» и волны аудита исполнены: эпик #613 W0–W7,
-round-2 #691/#692/#693/#648, #601/#602 закрыты). Сводка последнего ревью
-документации — [`docs/archive/audit-2026-07-20.md`](docs/archive/audit-2026-07-20.md)
-(программа #613 завершена).
+**Порядок обращения — сверху вниз, первый непустой источник и есть план:**
 
-> **#199 (регистрация модулей glossary coverage в DAG/архитектуре) — закрыт.**
-> `stdlib_inventory.py`/`coverage.py` описаны в
-> [docs/architecture.md](docs/architecture.md) и
-> [docs/project-structure.md](docs/project-structure.md).
+1. **`gh issue list`** — единственный источник статусов. Никакой список issue
+   не дублируется в файлы репозитория: он устаревает за спринт и начинает
+   врать (прежняя редакция этой секции годами числила «открытыми» закрытые
+   #97/#151, а handoff — семь закрытых issue).
+2. **[`docs/claude-handoff.md`](docs/claude-handoff.md)** — очередь работ, если
+   она непуста: порядок и рёбра для связанного пласта задач после крупного
+   аудита. Пустая очередь — нормальное состояние, тогда работаем по issue.
+3. **[`CHANGELOG.md`](CHANGELOG.md)** — «что уже сделано», чтобы не
+   переизобретать. Детальная история — [`docs/archive/`](docs/archive/README.md).
 
-> **#125/#186/#187/#129 (WEB workspace, Downloader-блок, микро-бенчмарк,
-> тесты user journeys в web) — закрыты. Эпик #123 закрыт.** См.
-> [docs/web-current.md](docs/web-current.md) и
-> [docs/claude-handoff.md](docs/claude-handoff.md).
+**Как вести очередь (`docs/claude-handoff.md`):**
 
-**Дизайн-указатели** (server mode, [docs/server-mode.md](docs/server-mode.md) +
-ADR-0001): Runner-слой **#140** и контракт результата **#116**
-([docs/result-contract.md](docs/result-contract.md)) — оба закрыты и уже
-реализованы (`core/runner.py`, `core/result.py`), не переизобретать. API
-удалённого исполнения **#156** и sandbox-требования **#157** закрыты как
-дизайн. Локальный `SandboxRunner` реализован (#266; в web — #396). Весь
-дизайн-эпик server-mode **#151** и его дети **#152–#157** закрыты (2026-07-17):
-спроектированы, но **не построены** именно server-mode sandbox с
-контейнерами/квотами (#153, #157) и сам удалённый сервер (#151) — живого issue
-на билд нет, направление держит лишь roadmap **#59**. Диагностическое логирование — эпик **#146** реализован (#341):
-opt-in `core/diag_log.py` с редакцией секретов, подключён в
-`stepik_client`/`oauth_flow`/`downloader`; докс-часть — **#150**
-([docs/logging.md](docs/logging.md)). Дочерние **#147**/**#148**/**#149**
-закрыты.
+- **Писать** — только после крупного аудита и только связанным пластом: когда
+  есть жёсткие блокеры, «делать вместе, иначе фикс недоказуем» или общий файл.
+  Плоский список независимых задач живёт в issue. В записи — обоснование
+  порядка, которого нет в issue (что сломается при другом порядке, где
+  escape-hatch), а не пересказ тела issue. Рёбра: `→` жёсткий блокер,
+  `⤳` мягкий порядок, `✓` предпосылка выполнена.
+- **Чистить** — по завершении волны её запись **удаляется**, а не помечается
+  «✅ выполнена». Ценен исторически — целиком в `docs/archive/` отдельным
+  файлом, а в очереди остаётся явное «сейчас пусто» с датой.
+- **Чего там не бывает:** отчётов «мы это сделали», списка открытых issue,
+  критериев приёмки. Пометки о сделанном — ровно то, что раздуло прошлую
+  редакцию до 336 строк мёртвого журнала.
 
-> **#126 (`JsonGlossaryProvider`) и эпик #161/#163 (`--version` dev vs release) —
-> закрыты.** Foundation локального глоссария и вся цепочка source-driven
-> coverage (**#195–#198**: `origin`-поля, `stdlib_inventory.py`, `coverage.py`,
-> CLI-точка входа) — в `src/stepik_grader/glossary/`, документация —
-> [docs/glossary.md](docs/glossary.md). Не реализовывать заново.
-
-Актуальные статусы — в GitHub Issues (`gh issue list`) и
-[CHANGELOG.md](CHANGELOG.md); [CHECKPOINT.md](CHECKPOINT.md) — исторический snapshot.
+**Что спроектировано, но НЕ построено** (читать как контракты, дизайн не
+переоткрывать): server mode — удалённый сервер, контейнерный sandbox с
+квотами и PostgreSQL-модель данных. Дизайн лежит в
+[server-mode.md](docs/server-mode.md),
+[server-sandbox-design.md](docs/server-sandbox-design.md),
+[server-data-model.md](docs/server-data-model.md) + ADR-0001/0008/0009. Живого
+issue на билд нет — направление держит только roadmap **#59**. Локальный
+`SandboxRunner` (`--sandbox`), Runner-слой и контракт результата, наоборот,
+**реализованы** (`core/sandbox/`, `core/runner.py`, `core/result.py`) — их не
+переписывать.
 
 ---
 
@@ -378,8 +376,8 @@ opt-in `core/diag_log.py` с редакцией секретов, подключ
 [ ] from __future__ import annotations в начале нового файла
 [ ] Коммит в формате Conventional Commits
 [ ] CHANGELOG.md: добавлена запись под ## [Unreleased] — в КАЖДОМ PR, без
-    исключений для рефакторингов (см. § Обновление CHANGELOG.md/docs/history.md)
-[ ] docs/history.md/CHECKPOINT.md — НЕ на каждый PR, обновляются вместе на
+    исключений для рефакторингов (см. § Обновление CHANGELOG.md/docs/archive/history.md)
+[ ] docs/archive/history.md/CHECKPOINT.md — НЕ на каждый PR, обновляются вместе на
     релиз (см. ту же секцию)
 [ ] Версия не правится вручную — CI (check_version_consistency.py) сам следит
     за дрейфом (issue #165); достаточно, чтобы CHECKPOINT/CHANGELOG совпадали
@@ -418,7 +416,7 @@ opt-in `core/diag_log.py` с редакцией секретов, подключ
 > строка `| Версия | X.Y.Z |` — её проверяет
 > `scripts/check_version_consistency.py` (мягкое предупреждение при расхождении
 > с последним git-тегом; обновлять при релизе MINOR). Эволюция метрик по
-> релизам — в [docs/history.md](docs/history.md).
+> релизам — в [docs/archive/history.md](docs/archive/history.md).
 
 > **Два числа покрытия (issue #283).** С `--sandbox` (issue #266) `core/sandbox/`
 > содержит три ОС-специфичных backend'а — на любой одной машине/CI-job'е два из
