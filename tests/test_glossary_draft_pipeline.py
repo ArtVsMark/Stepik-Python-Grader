@@ -343,6 +343,102 @@ def test_run_check_skips_posix_only_outside_posix(tmp_path: Path, monkeypatch, c
     assert mod.run_check(base) == 1  # на POSIX она проверяется и расходится
 
 
+# -- platform_gaps: пропущенный тег ловится машинно (#762) ----------------------
+
+
+# Имя, которого нет ни на одной платформе, — чтобы тесты гэпов не зависели от ОС
+# прогона (на POSIX доступны и os.fork, и termios, ловить там нечего).
+_ABSENT = "os.definitely_absent_attr"
+
+
+def test_platform_gaps_finds_missing_attribute() -> None:
+    gaps = mod.platform_gaps(["import os", f"{_ABSENT}()"], known_api={_ABSENT})
+    assert gaps == {_ABSENT}
+
+
+def test_platform_gaps_flags_attribute_read_not_only_call() -> None:
+    # Константы (os.EX_OK на Windows) читаются без вызова — тоже платформозависимо.
+    assert mod.platform_gaps(["import os", f"print({_ABSENT})"], known_api={_ABSENT}) == {_ABSENT}
+
+
+def test_platform_gaps_ignores_hasattr_guarded() -> None:
+    # OS-робастный пример батчей В5: печатает True на любой ОС, тег не нужен.
+    examples = ["import os", "print(not hasattr(os, 'fork') or callable(os.fork))"]
+    assert mod.platform_gaps(examples, known_api={"os.fork"}) == set()
+
+
+def test_platform_gaps_ignores_invented_names() -> None:
+    # `from os import nonexistent  # ImportError` — намеренная демонстрация:
+    # имени нет ни на одной ОС, платформа тут ни при чём.
+    assert mod.platform_gaps(["from os import nonexistent"], known_api=set()) == set()
+
+
+def test_platform_gaps_ignores_shadowed_module_name() -> None:
+    # `time` здесь — datetime.time, а не модуль: обращение к модулю не считаем.
+    examples = ["from datetime import time", "print(time.fromisoformat('12:00'))"]
+    assert mod.platform_gaps(examples, known_api={"time.fromisoformat"}) == set()
+
+
+def test_platform_gaps_flags_posix_only_module() -> None:
+    # Модули из закрытого списка вне POSIX не импортируются вовсе — фильтр
+    # known_api к ним не применяется, и проверка работает на любой ОС.
+    assert mod.platform_gaps(["import termios"]) == {"import termios"}
+    assert mod.platform_gaps(["from pwd import getpwnam"]) == {"import pwd"}
+
+
+def test_platform_gaps_parses_line_by_line_when_block_broken() -> None:
+    # Legacy-карточки хранят многострочный блок без отступов — как единый скрипт
+    # он не компилируется, но обращения в нём всё равно надо видеть.
+    examples = ["try:", "import termios", "except ImportError:", "print('нет')"]
+    assert mod.platform_gaps(examples) == {"import termios"}
+
+
+def test_run_check_hints_missing_tag(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    base = tmp_path / "data"
+    base.mkdir()
+    cards = [
+        {
+            "id": _ABSENT,
+            "title": _ABSENT,
+            "status": "ready",
+            "examples": ["import os", f"print({_ABSENT}())  # → 1"],
+        }
+    ]
+    (base / "cards.json").write_text(json.dumps(cards, ensure_ascii=False), encoding="utf-8")
+
+    mod.run_check(base)
+    out = capsys.readouterr().out
+    assert f"[нет тега] {_ABSENT}" in out
+    # Подсказка — отдельная строка: она не должна маскироваться под вердикт,
+    # который разбирает ratchet ниже.
+    assert not re.search(rf"^  \[(?:error|mismatch)\] {re.escape(_ABSENT)}: .*нет тега", out, re.M)
+
+
+def test_bundled_cards_calling_absent_api_are_tagged() -> None:
+    """Карточка, зовущая недоступное здесь API, обязана нести ``platform:posix``.
+
+    Иначе её вердикт зависит от ОС прогона: ``os.execlp`` расходился на Windows
+    (``os.fork`` → ``AttributeError``), а под Git Bash — где в PATH лежит
+    ``echo.exe`` — тот же пример замещал процесс и вердикт «плыл» в
+    ``unverifiable``. Проверка ловит пропуск тега на не-POSIX (там гэпы видны
+    через ``hasattr``); на POSIX остаются импорты вроде ``termios`` (#762).
+    """
+    from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR
+
+    cards = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
+    known_api = {card.id for card in cards}
+    untagged = {
+        card.id: sorted(gaps)
+        for card in cards
+        if card.examples
+        and "platform:posix" not in card.tags
+        and (gaps := mod.platform_gaps(card.examples, known_api=known_api))
+    }
+    hint = "Примеры зовут недоступное здесь API, а тега platform:posix нет:"
+    listing = [f"  {card_id}: {', '.join(gaps)}" for card_id, gaps in sorted(untagged.items())]
+    assert not untagged, "\n".join([hint, *listing])
+
+
 # -- check over реальная база (ratchet: расхождениям расти нельзя) --------------
 
 
