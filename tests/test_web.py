@@ -3322,6 +3322,32 @@ class TestFeedbackApi:
         assert status == 200
         assert [f["id"] for f in data["fields"]] == ["environment"]
 
+    def test_commit_prefilled_in_git_clone(self, server: str) -> None:
+        """Поле `commit` привязывает отчёт к точке истории (тесты идут из git-клона)."""
+        _, data = self._post_feedback(server, {"kind": "bug", "summary": "падает"})
+
+        commit = next((f["value"] for f in data["fields"] if f["id"] == "commit"), None)
+        assert commit is not None
+        assert re.match(r"^[0-9a-f]{7,}\s", commit), commit
+
+    def test_commit_absent_for_idea(self, server: str) -> None:
+        """У формы «Идея» поля `commit` нет — идея не привязана к коммиту."""
+        _, data = self._post_feedback(server, {"kind": "idea", "summary": "тёмная тема"})
+
+        assert not any(f["id"] == "commit" for f in data["fields"])
+
+    def test_missing_git_does_not_break_draft(
+        self, server: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Нет git (установка через pip) — черновик собирается без поля `commit`."""
+        from stepik_grader.core import feedback as feedback_core
+
+        monkeypatch.setattr(feedback_core, "collect_commit", lambda **_kw: None)
+        status, data = self._post_feedback(server, {"kind": "bug", "summary": "падает"})
+
+        assert status == 200
+        assert not any(f["id"] == "commit" for f in data["fields"])
+
     def test_sandbox_state_reported(self, tmp_path: pathlib.Path, server_factory) -> None:
         """Под --sandbox окружение это фиксирует: без этого баг-репорт уводит в сторону."""
         sandboxed = server_factory(tmp_path, sandbox=True)

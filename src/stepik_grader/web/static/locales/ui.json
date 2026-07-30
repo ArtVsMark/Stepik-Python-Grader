@@ -403,7 +403,8 @@
     "feedback.field_description": "Описание",
     "feedback.field_environment": "Окружение",
     "feedback.field_step_url": "Ссылка на шаг",
-    "feedback.field_logs": "Логи"
+    "feedback.field_logs": "Логи",
+    "feedback.field_commit": "Коммит"
   },
   "en": {
     "a11y.skip_to_content": "Skip to content",
@@ -809,6 +810,7 @@
     "feedback.field_description": "Description",
     "feedback.field_environment": "Environment",
     "feedback.field_step_url": "Step URL",
-    "feedback.field_logs": "Logs"
+    "feedback.field_logs": "Logs",
+    "feedback.field_commit": "Commit"
   }
 }

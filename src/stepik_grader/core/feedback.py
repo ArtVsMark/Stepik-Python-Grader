@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import platform
+import subprocess
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -55,6 +56,7 @@ __all__ = [
     "REPO_URL",
     "FeedbackKind",
     "PreparedIssue",
+    "collect_commit",
     "collect_environment",
     "kind_from_str",
     "prepare_issue",
@@ -96,11 +98,11 @@ _TEMPLATES: dict[FeedbackKind, str] = {
 # (ValueError), а не уезжают в URL, где потеря данных незаметна.
 _FIELD_IDS: dict[FeedbackKind, frozenset[str]] = {
     FeedbackKind.BUG: frozenset(
-        {"what-happened", "steps", "expected", "environment", "logs", "extra"}
+        {"what-happened", "steps", "expected", "environment", "commit", "logs", "extra"}
     ),
     FeedbackKind.IDEA: frozenset({"idea", "problem", "area", "environment"}),
     FeedbackKind.TASK_PROBLEM: frozenset(
-        {"step-url", "symptom", "details", "task-context", "environment"}
+        {"step-url", "symptom", "details", "task-context", "environment", "commit"}
     ),
 }
 
@@ -221,6 +223,35 @@ def collect_environment(
     if lang:
         lines.append(f"Локаль интерфейса: {lang}")
     return "\n".join(lines)
+
+
+def collect_commit(*, cwd: Path | None = None, timeout: float = 5.0) -> str | None:
+    """`git log --oneline -1` рабочей копии или ``None``, если коммит не определить.
+
+    Заполняет поле `commit` формы: хеш + subject сразу привязывают отчёт к точке
+    истории, тогда как версия в «Окружении» несёт только хеш (``+g<hash>`` от
+    setuptools-scm) и молчит о том, git-клон это или установка через pip.
+
+    ``None`` — рабочая директория не git-репозиторий, git не установлен, вызов
+    завис или упал: обратная связь не должна ломаться из-за отсутствия git, поэтому
+    любая неудача здесь тихая (поле просто останется пустым в форме).
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "log", "--oneline", "-1"],
+            cwd=cwd if cwd is not None else Path.cwd(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",  # русский subject под не-UTF8 локалью не должен ронять сбор
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
 
 
 def _build_url(kind: FeedbackKind, fields: dict[str, str]) -> str:

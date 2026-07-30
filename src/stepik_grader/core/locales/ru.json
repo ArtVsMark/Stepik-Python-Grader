@@ -99,6 +99,7 @@
   "feedback_open_failed": "⚠️ Не удалось открыть браузер ({error}). Скопируйте ссылку вручную:",
   "feedback_field_description": "Описание",
   "feedback_field_environment": "Окружение",
+  "feedback_field_commit": "Коммит",
   "feedback_field_step_url": "Ссылка на шаг",
   "path_dialog_hint": "  (Enter без ввода — открыть диалог выбора файла/папки, если доступен)",
   "input_default_used": "  «{value}» — не число, использую значение по умолчанию: {default}.",

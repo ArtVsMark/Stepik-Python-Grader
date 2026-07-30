@@ -305,6 +305,7 @@ _FEEDBACK_FIELD_LABELS: dict[str, str] = {
     "idea": "feedback_field_description",
     "details": "feedback_field_description",
     "environment": "feedback_field_environment",
+    "commit": "feedback_field_commit",
     "step-url": "feedback_field_step_url",
 }
 
@@ -357,6 +358,12 @@ def _feedback_flow(ctx: CliContext) -> None:
             channel="CLI (интерактивное меню)", lang=ctx.lang
         )
     }
+    # Коммит есть только у git-клона; при установке через pip поле остаётся
+    # пустым и просто не попадает в форму (пустые значения выбрасываются).
+    if kind is not feedback.FeedbackKind.IDEA:
+        commit = feedback.collect_commit()
+        if commit:
+            fields["commit"] = commit
     summary = input(ctx.t("feedback_ask_summary")).strip()
     if summary:
         fields[_FEEDBACK_SUMMARY_FIELD[kind]] = summary

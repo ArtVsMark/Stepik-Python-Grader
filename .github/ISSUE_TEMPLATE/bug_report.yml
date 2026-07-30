@@ -63,6 +63,18 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: commit
+    attributes:
+      label: Коммит (`git log --oneline -1`)
+      description: |
+        Заполняется автоматически, если грейдер запущен из git-клона. При установке
+        через pip остаётся пустым — тогда точку истории показывает хеш внутри версии
+        в «Окружении» (`1.9.0.postN+g<hash>`).
+      placeholder: 7a9d8e1 Merge pull request #741 from ArtVsMark/docs/reliability-sweep-700
+    validations:
+      required: false
+
   - type: textarea
     id: logs
     attributes:

@@ -99,6 +99,7 @@
   "feedback_open_failed": "⚠️ Could not open the browser ({error}). Copy the link manually:",
   "feedback_field_description": "Description",
   "feedback_field_environment": "Environment",
+  "feedback_field_commit": "Commit",
   "feedback_field_step_url": "Step URL",
   "path_dialog_hint": "  (press Enter with no input to open a file/folder picker, if available)",
   "input_default_used": "  «{value}» is not a number, using the default: {default}.",

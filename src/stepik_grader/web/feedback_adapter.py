@@ -68,6 +68,12 @@ def feedback_draft(
             lang=lang,
         )
     }
+    # Коммит есть только у git-клона; при установке через pip поле остаётся пустым
+    # и просто не попадает в форму. Формы «Идея» такого поля не имеют.
+    if kind is not feedback.FeedbackKind.IDEA:
+        commit = feedback.collect_commit()
+        if commit:
+            fields["commit"] = commit
     summary_text = _text(summary)
     if summary_text:
         fields[_SUMMARY_FIELD[kind]] = summary_text

@@ -21,6 +21,7 @@ const FIELD_LABEL_KEYS = {
   idea: "feedback.field_description",
   details: "feedback.field_description",
   environment: "feedback.field_environment",
+  commit: "feedback.field_commit",
   "step-url": "feedback.field_step_url",
   logs: "feedback.field_logs",
 };

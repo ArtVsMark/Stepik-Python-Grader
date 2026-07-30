@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import subprocess
 import urllib.parse
 
 import pytest
@@ -94,6 +95,49 @@ class TestCollectEnvironment:
     def test_lang_optional(self) -> None:
         assert "Локаль" not in feedback.collect_environment(channel="CLI")
         assert "Локаль интерфейса: en" in feedback.collect_environment(channel="CLI", lang="en")
+
+
+class TestCollectCommit:
+    """Поле `commit` привязывает отчёт к точке истории — но только там, где есть git."""
+
+    def test_returns_oneline_in_repo(self) -> None:
+        commit = feedback.collect_commit(cwd=pathlib.Path(__file__).parent.parent)
+        assert commit is not None
+        # `git log --oneline -1` → «<hash> <subject>», в одну строку.
+        assert "\n" not in commit
+        assert re.match(r"^[0-9a-f]{7,}\s", commit), commit
+
+    def test_none_outside_repo(self, tmp_path: pathlib.Path) -> None:
+        """Вне git-репозитория поле просто не заполняется, а не роняет обращение."""
+        assert feedback.collect_commit(cwd=tmp_path) is None
+
+    def test_none_when_git_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """git не установлен (OSError на exec) — тихий None, обратная связь работает."""
+
+        def _boom(*_args: object, **_kwargs: object) -> None:
+            raise OSError("git not found")
+
+        monkeypatch.setattr(feedback.subprocess, "run", _boom)
+        assert feedback.collect_commit() is None
+
+    def test_none_on_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Зависший git не держит обращение — TimeoutExpired тоже даёт None."""
+
+        def _hang(*_args: object, **_kwargs: object) -> None:
+            raise subprocess.TimeoutExpired(cmd="git", timeout=5.0)
+
+        monkeypatch.setattr(feedback.subprocess, "run", _hang)
+        assert feedback.collect_commit() is None
+
+    def test_commit_field_accepted_by_bug_and_task_forms(self) -> None:
+        for kind in (feedback.FeedbackKind.BUG, feedback.FeedbackKind.TASK_PROBLEM):
+            prepared = feedback.prepare_issue(kind, {"commit": "7a9d8e1 Merge pull request #741"})
+            assert prepared.fields["commit"].startswith("7a9d8e1")
+
+    def test_commit_field_rejected_by_idea_form(self) -> None:
+        """У формы «Идея» такого поля нет — GitHub бы молча его проглотил."""
+        with pytest.raises(ValueError, match="неизвестные поля формы idea"):
+            feedback.prepare_issue(feedback.FeedbackKind.IDEA, {"commit": "7a9d8e1 subject"})
 
 
 class TestScrubPaths:
