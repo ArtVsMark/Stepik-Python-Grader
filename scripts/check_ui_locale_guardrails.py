@@ -87,7 +87,7 @@ _NON_VISIBLE_TAGS = frozenset({"script", "style", "template"})
 # через t() (см. check_no_hardcoded_latin_text).
 LATIN_TEXT_ALLOWLIST = frozenset(
     {
-        # Коды вердиктов из docs/result-contract.md — печатаются как есть и в CLI.
+        # Коды вердиктов из docs/dev/result-contract.md — печатаются как есть и в CLI.
         "AC",
         "WA",
         "TLE",

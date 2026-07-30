@@ -62,7 +62,7 @@ __all__ = [
 # фасада не менялся) — новый код должен читать stepik_grader.config.CONFIG.
 
 # run_single_test() делегирует фактический subprocess-запуск LocalRunner'у
-# (issue #136/#137/#138, docs/server-mode.md § Runner-слой) — не меняет
+# (issue #136/#137/#138, docs/dev/design/server-mode.md § Runner-слой) — не меняет
 # поведение, только выделяет абстракцию Runner для будущего SandboxRunner
 # (issue #157). _apply_memory_limit/_measure_peak_memory реэкспортированы по
 # имени (тот же паттерн, что для test_loader.py и др. — Issue #45 A-01):
@@ -170,7 +170,7 @@ class BenchStats:
 
 # _apply_memory_limit/_measure_peak_memory перенесены в core/runner.py вместе
 # с самим subprocess-запуском (issue #136/#137/#138, Runner-абстракция —
-# docs/server-mode.md § Runner-слой). Реэкспортированы по имени ниже — тот же
+# docs/dev/design/server-mode.md § Runner-слой). Реэкспортированы по имени ниже — тот же
 # паттерн, что и для test_loader.py/mode_detector.py/wrapper_builder.py
 # (Issue #45 A-01): grader_core._apply_memory_limit/._measure_peak_memory и
 # grader.py facade продолжают работать без изменений.
@@ -183,7 +183,7 @@ class BenchStats:
 # Runner активен на весь процесс — по умолчанию LocalRunner (issue #138);
 # CLI подменяет его на SandboxRunner (issue #266, core/sandbox/) через
 # set_runner() при --sandbox. grader_core не знает, какой Runner активен —
-# только вызывает run(spec) (см. docs/server-mode.md § Runner-слой,
+# только вызывает run(spec) (см. docs/dev/design/server-mode.md § Runner-слой,
 # инвариант 2); никакой логики этого модуля инъекция не меняет.
 _RUNNER: Runner = LocalRunner()
 
@@ -377,7 +377,7 @@ def _map_outcome_to_result(
         # issue #266 — SandboxRunner (core/sandbox/) proactively killed the
         # process for exceeding a quota it detects itself (memory/output_size/
         # cpu), not a genuine timeout or a plain crash: distinct verdict,
-        # additive to AC/WA/RE/TLE/CANCELLED (docs/server-mode.md § Классы
+        # additive to AC/WA/RE/TLE/CANCELLED (docs/dev/design/server-mode.md § Классы
         # ошибок). Network/filesystem/process-count violations are rejected
         # by the kernel INSIDE the sandbox and surface as an ordinary non-zero
         # exit (RE) instead -- Runner doesn't inspect the child's traceback to

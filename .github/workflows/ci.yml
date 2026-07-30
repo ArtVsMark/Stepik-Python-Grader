@@ -412,7 +412,7 @@ jobs:
   # runtime-зависимостей на известные уязвимости (pip-audit по PyPI Advisory DB).
   # continue-on-error: НЕ блокирует merge — новая CVE в requests/urllib3/… не
   # должна валить несвязанный PR, но обязана краснеть в логах (сигнал мейнтейнеру
-  # обновить границы версий). Полный инвентарь и ручной аудит — docs/supply-chain.md.
+  # обновить границы версий). Полный инвентарь и ручной аудит — docs/dev/supply-chain.md.
   # pip-audit ставится ad-hoc, НЕ в pyproject.toml (не runtime и не dev-зависимость).
   supply-chain:
     runs-on: ubuntu-latest

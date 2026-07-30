@@ -3,7 +3,7 @@
 Архитектурный слой: Domain (leaf — только stdlib, не импортирует project-код).
 
 Контракт полей — канонично в
-[`docs/result-contract.md § Case result`](../../../docs/result-contract.md).
+[`docs/dev/result-contract.md § Case result`](../../../docs/dev/result-contract.md).
 ``run_single_test()`` продолжает возвращать ``dict[str, Any]`` — это уже
 задокументированный публичный контракт CLI/Web/API (issue #116), и менять его
 форму здесь не входит в задачу. ``TestResult`` формализует ту же форму как
@@ -26,7 +26,7 @@ class CaseResult(TypedDict):
     """Типизированная форма case-result dict'а — возврата ``run_single_test`` (issue #442).
 
     Формализует тот же контракт, что описан в
-    [`docs/result-contract.md § Case result`](../../../docs/result-contract.md)
+    [`docs/dev/result-contract.md § Case result`](../../../docs/dev/result-contract.md)
     и в docstring ``run_single_test`` (источник истины полей). В отличие от
     frozen-dataclass ``TestResult`` (типобезопасный носитель формы для
     reporter'а), ``CaseResult`` — это тип самого словаря, который ядро гоняет по
@@ -54,7 +54,7 @@ class CaseResult(TypedDict):
 
 @dataclass(frozen=True)
 class TestResult:
-    """Результат одного тест-кейса (case result — docs/result-contract.md).
+    """Результат одного тест-кейса (case result — docs/dev/result-contract.md).
 
     ``verdict`` — производное поле по контракту (согласовано с
     ``passed``/``timed_out``/``error``), но здесь не пересчитывается и не

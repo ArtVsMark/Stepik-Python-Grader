@@ -194,7 +194,7 @@ def test_verdict_codes_are_allowed(monkeypatch, tmp_path: Path) -> None:
     """Коды вердиктов — не подписи интерфейса, их переводить нельзя.
 
     `AC`/`WA`/`TLE` печатаются одинаково в CLI и web и задокументированы в
-    docs/result-contract.md, поэтому живут в белом списке.
+    docs/dev/result-contract.md, поэтому живут в белом списке.
     """
     module = _load_module()
     _setup(

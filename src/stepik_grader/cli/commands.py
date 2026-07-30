@@ -184,7 +184,7 @@ _AI_NOT_CONFIGURED_HINT = (
     "[tool.stepik-grader] ai_base_url и ai_model (ключ — в env-переменной, имя "
     "которой в ai_api_key_env), напр. ollama http://localhost:11434/v1 (без "
     "ключа) или облачный OpenAI-совместимый endpoint. Без настройки в сеть "
-    "ничего не отправляется. Подробнее — docs/grader-workflow.md."
+    "ничего не отправляется. Подробнее — docs/use/grader-workflow.md."
 )
 
 _AI_CONSENT_PROMPT = (

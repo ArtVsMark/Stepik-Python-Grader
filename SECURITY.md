@@ -2,7 +2,7 @@
 
 Спасибо, что помогаете держать Stepik-Python-Grader безопасным. Документ
 короткий и ссылочный — детали threat model живут в
-[docs/configuration.md § Ограничения и безопасность](docs/configuration.md#ограничения-и-безопасность).
+[docs/configuration.md § Ограничения и безопасность](docs/use/configuration.md#ограничения-и-безопасность).
 
 ## Поддерживаемые версии
 
@@ -49,7 +49,7 @@ Report a vulnerability* в репозитории). Резервный кана�
 
 Запускайте только доверенный код. Полная threat model, настройки таймаута и
 лимитов памяти —
-[docs/configuration.md § Ограничения и безопасность](docs/configuration.md#ограничения-и-безопасность).
+[docs/configuration.md § Ограничения и безопасность](docs/use/configuration.md#ограничения-и-безопасность).
 
 Веб-оболочка (`--serve`) делает режим исполнения видимым (issue #565): в шапке —
 бейдж статуса OS-изоляции (**«⚠ Без OS-изоляции»** при дефолтном `LocalRunner`,
@@ -70,7 +70,7 @@ AI-подсказки (CLI `--ai-hints` и web `POST /api/v1/hint`) — opt-in �
   используйте `secrets.json.example` как шаблон.
 - Не вставляйте реальные токены в issue, PR, отчёты или логи.
 - Настройка OAuth —
-  [docs/installation.md § Работа с API Stepik (OAuth)](docs/installation.md#работа-с-api-stepik-oauth).
+  [docs/installation.md § Работа с API Stepik (OAuth)](docs/use/installation.md#работа-с-api-stepik-oauth).
 
 ## Цепочка поставок (supply-chain)
 
@@ -80,12 +80,12 @@ AI-подсказки (CLI `--ai-hints` и web `POST /api/v1/hint`) — opt-in �
 Advisory DB — без известных уязвимостей (2026-07-20, раунд 2); в CI сигнал
 держит свежим информационный не-блокирующий джоб `supply-chain`. Полный инвентарь
 (версии, лицензии, вендоренные ассеты, как перепроверить) —
-[docs/supply-chain.md](docs/supply-chain.md).
+[docs/dev/supply-chain.md](docs/dev/supply-chain.md).
 
 ## AI-подсказки (`--ai-hints`)
 
 Opt-in объяснение падений WA/RE через OpenAI-совместимый провайдер (BYOK,
-[ADR-0003](docs/adr/0003-ai-integration.md)). Threat model:
+[ADR-0003](docs/dev/adr/0003-ai-integration.md)). Threat model:
 
 - **Согласие обязательно.** Однократный явный consent (`ai_hint_consent`,
   issue #630/#543) проверяется ДО любого обращения к провайдеру — и в CLI, и в
@@ -116,8 +116,8 @@ Opt-in объяснение падений WA/RE через OpenAI-совмес�
 серверном режиме запускать нельзя. Дизайн будущего server mode (Runner-слой,
 API удалённого исполнения, обязательные требования sandbox — сеть off,
 эфемерные tmp-каталоги, квоты) и решение по нему —
-[docs/server-mode.md](docs/server-mode.md) и
-[ADR-0001](docs/adr/0001-server-mode.md).
+[docs/dev/design/server-mode.md](docs/dev/design/server-mode.md) и
+[ADR-0001](docs/dev/adr/0001-server-mode.md).
 
 ## Веб-оболочка: Host/Origin guard и path-confinement
 
@@ -153,14 +153,14 @@ API удалённого исполнения, обязательные треб
 — отдельный дизайн, см. «Server / IDE-режим» выше).
 
 Полный справочник с кодами ответов и `message_id` —
-[docs/api.md § Общие правила](docs/api.md#общие-правила-для-всех-api).
+[docs/api.md § Общие правила](docs/dev/api.md#общие-правила-для-всех-api).
 
 ## `--sandbox` — SandboxRunner MVP (issue #266)
 
 Опциональный флаг `--sandbox` (по умолчанию выключен — дефолт остаётся
 `LocalRunner`, без изоляции, см. «Вне скоупа» выше) исполняет решения через
 ОС-уровневую изоляцию: `core/sandbox/`. Реализует часть требований дизайна
-Фазы 2 ([docs/server-mode.md](docs/server-mode.md)), но **не эквивалентен
+Фазы 2 ([docs/dev/design/server-mode.md](docs/dev/design/server-mode.md)), но **не эквивалентен
 полному server-mode sandbox** — это локальный, opt-in usability/defense-in-depth
 слой для CLI, а не готовый multi-tenant remote-execution sandbox (для этого
 по-прежнему нужен отдельный API-слой, issue #156/#157 дизайн, не реализация).
@@ -262,7 +262,7 @@ site-packages виртуального окружения по-прежнему 
 ### Что означает `SANDBOX_VIOLATION` (и чего не означает)
 
 Verdict `SANDBOX_VIOLATION` (аддитивно к `AC/WA/RE/TLE/CANCELLED`, см.
-[docs/result-contract.md](docs/result-contract.md)) проставляется только
+[docs/dev/result-contract.md](docs/dev/result-contract.md)) проставляется только
 когда сам `SandboxRunner` **проактивно** засёк и оборвал превышение квоты:
 `memory` (RSS/commit перешёл порог), `output_size` (стдаут+стдерр
 превысили лимит) или `cpu` (`SIGXCPU`, POSIX). Нарушения сети/записи вне

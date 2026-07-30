@@ -2,7 +2,7 @@
 
 Архитектурный слой: Infrastructure.
 
-Явная абстракция запуска кода (`docs/server-mode.md § Runner-слой`, issue
+Явная абстракция запуска кода (`docs/dev/design/server-mode.md § Runner-слой`, issue
 #140): ``grader_core.run_single_test()`` делегирует фактический
 subprocess-запуск сюда через ``Runner.run(RunSpec) -> RunOutcome``, не меняя
 поведение (issue #138). ``RunOutcome`` несёт сырой итог запуска
@@ -132,7 +132,7 @@ def spec_source_bytes(spec: RunSpec) -> bytes:
 @dataclass
 class RunOutcome:
     """Сырой итог запуска — без вердикта (маппинг в case result выше по стеку,
-    см. [`docs/result-contract.md`](../../../docs/result-contract.md)).
+    см. [`docs/dev/result-contract.md`](../../../docs/dev/result-contract.md)).
 
     ``launch_error`` заполняется, если процесс не удалось даже запустить
     (``OSError`` при spawn) — тогда ``stdout``/``stderr``/``returncode``
@@ -152,7 +152,7 @@ class RunOutcome:
     лимита процессов **не** попадают сюда — ядро отклоняет их ВНУТРИ
     песочницы, ребёнок падает с обычным ненулевым exit code/traceback,
     и это корректно классифицируется как обычный ``RE`` (см.
-    `docs/server-mode.md § Классы ошибок <../../../docs/server-mode.md>`_) —
+    `docs/dev/design/server-mode.md § Классы ошибок <../../../docs/dev/design/server-mode.md>`_) —
     Runner не заглядывает внутрь чужого traceback, чтобы отличить их.
     ``LocalRunner`` никогда его не выставляет (остаётся ``None``). Маппится в
     отдельный verdict ``SANDBOX_VIOLATION`` (аддитивно к AC/WA/RE/TLE/

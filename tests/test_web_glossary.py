@@ -1005,8 +1005,9 @@ class TestCommandRegistry:
         }
 
     def test_registry_never_includes_out_of_scope_actions(self) -> None:
-        """Regression guard: create_test/compare_solutions are design-only for
-        this issue (docs/web-design.md § Action cards, отложенные) — never register them."""
+        """Regression guard: create_test/compare_solutions are design-only for this
+        issue (docs/dev/design/web-design.md § Action cards, отложенные) — never
+        register them."""
         ids = {c["id"] for c in COMMANDS}
         assert "create_test" not in ids
         assert "compare_solutions" not in ids

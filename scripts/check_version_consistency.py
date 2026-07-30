@@ -8,7 +8,7 @@
 1. **Возврат статического источника истины.** ``[project]`` в ``pyproject.toml``
    не должен снова объявлять ``version = "..."`` — только ``dynamic = ["version"]``.
 2. **Дрейф "текущей версии" в документации.** ``CHECKPOINT.md`` (и, мягко,
-   таблица метрик ``CLAUDE.md`` и таблица эволюции ``docs/versions.md``) и
+   таблица метрик ``CLAUDE.md`` и таблица эволюции ``docs/use/versions.md``) и
    верхняя запись ``CHANGELOG.md`` должны соответствовать актуальному релизному
    baseline — последнему git-тегу ``vX.Y.0``.
 
@@ -45,7 +45,7 @@ _PYPROJECT = _ROOT / "pyproject.toml"
 _CHECKPOINT = _ROOT / "CHECKPOINT.md"
 _CHANGELOG = _ROOT / "CHANGELOG.md"
 _CLAUDE = _ROOT / "CLAUDE.md"
-_VERSIONS = _ROOT / "docs" / "versions.md"
+_VERSIONS = _ROOT / "docs" / "use" / "versions.md"
 
 _SEMVERISH = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
@@ -148,7 +148,7 @@ def _check_claude_metrics(baseline: tuple[int, int, int], warnings: list[str]) -
 
 
 def _check_versions_md(baseline: tuple[int, int, int], warnings: list[str]) -> None:
-    """docs/versions.md: таблица эволюции имеет колонку последнего релиза (мягко).
+    """docs/use/versions.md: таблица эволюции имеет колонку последнего релиза (мягко).
 
     Таблица «Эволюция версий» — про качественные скачки, свободный формат;
     поэтому warning, а не error (владелец может решить не выделять релиз в
@@ -158,7 +158,7 @@ def _check_versions_md(baseline: tuple[int, int, int], warnings: list[str]) -> N
     tag = f"v{baseline[0]}.{baseline[1]}.0"
     if tag not in _VERSIONS.read_text(encoding="utf-8"):
         warnings.append(
-            f"docs/versions.md: evolution table has no column for the latest "
+            f"docs/use/versions.md: evolution table has no column for the latest "
             f"release {tag}. Add a {tag} column at the next MINOR release."
         )
 

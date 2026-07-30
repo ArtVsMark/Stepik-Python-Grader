@@ -399,7 +399,7 @@ def main() -> None:
             f"они должны совпадать с полями OAuth-приложения ({STEPIK_OAUTH_APPS_URL})."
         )
         _print("   Диагностика токена:  python -m stepik_grader.diagnostic_stepik")
-        _print("   Подробнее об OAuth:  docs/installation.md")
+        _print("   Подробнее об OAuth:  docs/use/installation.md")
         return
 
     _print("\nВведите URL шагов (по одному, пустая строка — завершение):")

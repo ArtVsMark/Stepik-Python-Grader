@@ -2,7 +2,7 @@
 
 > Агентский контракт: то, что Claude Code должен знать перед КАЖДЫМ действием.
 > Только действующие инварианты, стиль и команды. История спринтов, roadmap и
-> подробные примечания к issue вынесены в [`docs/history.md`](docs/history.md)
+> подробные примечания к issue вынесены в [`docs/archive/history.md`](docs/archive/history.md)
 > (архив, issue #176). Не раздувать этот файл заново — большие технические
 > разделы канонически живут в `docs/` (см. § Источники истины).
 
@@ -36,7 +36,7 @@
 При запросах по архитектуре, коду, продукту, тестированию, документации,
 дизайну, продвижению, сообществу, трендам, рекламе или безопасности — отвечай
 от лица релевантных ролей, каждую с явной пометкой. Полные профиль/стиль
-каждой роли и правила работы — каноничны в [`docs/roles.md`](docs/roles.md)
+каждой роли и правила работы — каноничны в [`docs/agent/roles.md`](docs/agent/roles.md)
 (этот блок — только компактный триггер, детали не дублировать здесь).
 
 **Роли:** 🏛 Архитектор · 🔧 Разработчик · 🐍 Core Python Dev ·
@@ -88,9 +88,9 @@ PR. Тип ветки/коммита — по Conventional Commits (см. § Ф�
 
 Канонические источники (здесь **не дублируются**, чтобы не расходиться):
 
-- Дерево файлов — [`docs/project-structure.md`](docs/project-structure.md)
+- Дерево файлов — [`docs/dev/project-structure.md`](docs/dev/project-structure.md)
 - Модули, слои, граф зависимостей (DAG), «что умеет каждый модуль» —
-  [`docs/architecture.md`](docs/architecture.md)
+  [`docs/dev/architecture.md`](docs/dev/architecture.md)
 
 Пакет живёт в `src/stepik_grader/` (src-layout). Точки входа —
 `grader.py`/`cli.py`/`downloader.py`/`diagnostic_stepik.py` + `config.py`;
@@ -123,7 +123,7 @@ pytest tests/ --cov=. --cov-report=term-missing -q      # покрытие (ин
 ### Запуск
 
 ```bash
-python -m stepik_grader.grader              # интерактивное меню (режимы 0-7)
+python -m stepik_grader.grader              # интерактивное меню (пункты 0-8)
 python -m stepik_grader.downloader          # скачать задачу по URL Stepik
 python -m stepik_grader.diagnostic_stepik   # диагностика API и токена
 stepik-grader                               # то же, если пакет установлен
@@ -194,7 +194,7 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
    Stepik-Python-Grader — источник истины контента; внешний
    [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) — только цель
    экспорта/витрина, **никогда** не эталон полноты. Канон —
-   [docs/glossary.md § Источники истины](docs/glossary.md#источники-истины-роли).
+   [docs/glossary.md § Источники истины](docs/dev/glossary.md#источники-истины-роли).
    Односторонность касается и ссылок (issue #684): **не ссылаться на внешнюю
    витрину** ни из данных карточек, ни из кода, ни из UI — ссылка из оригинала
    в его копию уводит на устаревший контент. Адрес карточки — её `id` как якорь
@@ -208,7 +208,7 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
 Три автодетектируемых формата: `1`—Legacy (`N`, `N.clue`), `2`—Named
 (`input_N.txt`, `expected_N.txt`), `3`—python-generation (`input.txt` +
 `output.txt` с `# TEST_N:`). Канонический справочник —
-[`docs/configuration.md`](docs/configuration.md#формат-тест-кейсов).
+[`docs/use/configuration.md`](docs/use/configuration.md#формат-тест-кейсов).
 
 ---
 
@@ -255,7 +255,7 @@ chore(deps): bump psutil upper bound
 [`CONTRIBUTING.md § Версионирование`](CONTRIBUTING.md#версионирование-issue-68).
 UX-полировка вывода `--version` (dev vs release маркер) — задача #163 **закрыта**
 (реализовано; ср. § Открытая работа ниже); архивная постановка —
-[`docs/claude-handoff.md`](docs/claude-handoff.md).
+[`docs/agent/claude-handoff.md`](docs/agent/claude-handoff.md).
 
 `scripts/version.py`'s "логическая" `X.Y.Z` (README `Version`-бейдж) считает
 PATCH через `git rev-list --invert-grep`, исключая автокоммиты CI
@@ -265,7 +265,7 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 
 ---
 
-## 📝 Обновление CHANGELOG.md / docs/history.md — когда
+## 📝 Обновление CHANGELOG.md / docs/archive/history.md — когда
 
 - **`CHANGELOG.md`** (английский) — запись под `## [Unreleased]` в **каждом**
   смерженном PR, без исключений для "внутренних"/рефакторинговых PR
@@ -280,89 +280,94 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
     смерженные простыни (1.7.0/1.8.0) задним числом не переписываем.
   - **Ротация (issue #373):** в `CHANGELOG.md` живут только `[Unreleased]` +
     **три последних MINOR**; при релизе самую старую версию переносим дословно в
-    [`docs/changelog-archive.md`](docs/changelog-archive.md). CI-guard
+    [`docs/archive/changelog-archive.md`](docs/archive/changelog-archive.md). CI-guard
     `scripts/check_docs_guardrails.py` не даёт числу версионных заголовков
     в `CHANGELOG.md` превысить 3.
-- **`docs/history.md`** (русский) — архивная запись на **каждый релиз**
+- **`docs/archive/history.md`** (русский) — архивная запись на **каждый релиз**
   (новый git-тег `vX.Y.0`), не на каждый PR: сводка вошедшего в релиз, в
   стиле уже существующих записей (`**#NNN (дата):** ...`).
-- **`CHECKPOINT.md`** — обновляется вместе с `docs/history.md`, на каждый
+- **`CHECKPOINT.md`** — обновляется вместе с `docs/archive/history.md`, на каждый
   релиз (это исторический snapshot, не отслеживает промежуточные PR).
 
 Не откладывать `CHANGELOG.md` "до конца фичи/спринта" — если PR смержен,
 запись нужна сразу этим же PR, а не пост-фактум пачкой.
 
+
 ---
 
 ## 📚 Источники истины (не дублировать)
 
+`docs/` разложена по четырём направлениям — **сначала выбери направление, потом
+файл**: [`docs/use/`](docs/use/README.md) (как пользоваться) ·
+[`docs/dev/`](docs/dev/README.md) (как устроено, включая `design/` —
+спроектированное без кода) · [`docs/agent/`](docs/agent/README.md) (служебное для
+Claude) · [`docs/archive/`](docs/archive/README.md) (всё историческое).
+Новый документ создаётся внутри направления, а не в корне `docs/`.
+
 | Тема | Канонический документ |
 |---|---|
-| Установка, OAuth, диагностика | [docs/installation.md](docs/installation.md) |
-| Режимы, CLI-флаги, web/IDE, скачивание | [docs/grader-workflow.md](docs/grader-workflow.md) |
-| Конфигурация, форматы тестов, безопасность | [docs/configuration.md](docs/configuration.md) |
-| Архитектура (DAG, слои) | [docs/architecture.md](docs/architecture.md) |
-| Контракт результата проверки (CLI/Web/API) | [docs/result-contract.md](docs/result-contract.md) |
-| Дизайн server mode (Runner, API, sandbox) | [docs/server-mode.md](docs/server-mode.md) |
-| Диагностика/логирование, редакция секретов | [docs/logging.md](docs/logging.md) |
-| Цепочка поставок: инвентарь рантайма/ассетов, pip-audit | [docs/supply-chain.md](docs/supply-chain.md) |
-| Архитектурные решения (ADR) | [docs/adr/README.md](docs/adr/README.md) |
-| Дерево файлов | [docs/project-structure.md](docs/project-structure.md) |
-| Версии, отличия от оригинала | [docs/versions.md](docs/versions.md) |
+| Установка, OAuth, диагностика | [docs/use/installation.md](docs/use/installation.md) |
+| Режимы, CLI-флаги, web/IDE, скачивание | [docs/use/grader-workflow.md](docs/use/grader-workflow.md) |
+| Конфигурация, форматы тестов, безопасность | [docs/use/configuration.md](docs/use/configuration.md) |
+| Архитектура (DAG, слои) | [docs/dev/architecture.md](docs/dev/architecture.md) |
+| Контракт результата проверки (CLI/Web/API) | [docs/dev/result-contract.md](docs/dev/result-contract.md) |
+| Дизайн server mode (Runner, API, sandbox) | [docs/dev/design/server-mode.md](docs/dev/design/server-mode.md) |
+| Диагностика/логирование, редакция секретов | [docs/dev/logging.md](docs/dev/logging.md) |
+| Цепочка поставок: инвентарь рантайма/ассетов, pip-audit | [docs/dev/supply-chain.md](docs/dev/supply-chain.md) |
+| Архитектурные решения (ADR) | [docs/dev/adr/README.md](docs/dev/adr/README.md) |
+| Дерево файлов | [docs/dev/project-structure.md](docs/dev/project-structure.md) |
+| Версии, отличия от оригинала | [docs/use/versions.md](docs/use/versions.md) |
 | Политика версионирования, код-стайл, workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Кодекс поведения | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
-| Режим ответов: полный шаблон 13 ролей | [docs/roles.md](docs/roles.md) |
-| WEB MVP: реализовано / замыслы / HTTP API | [docs/web-current.md](docs/web-current.md), [docs/web-design.md](docs/web-design.md), [docs/api.md](docs/api.md) |
-| История спринтов/roadmap (архив) | [docs/history.md](docs/history.md) |
-| Handoff для будущих реализаций Claude (архив постановок) | [docs/claude-handoff.md](docs/claude-handoff.md) |
+| Режим ответов: полный шаблон 13 ролей | [docs/agent/roles.md](docs/agent/roles.md) |
+| WEB MVP: реализовано / замыслы / HTTP API | [docs/dev/web-current.md](docs/dev/web-current.md), [docs/dev/design/web-design.md](docs/dev/design/web-design.md), [docs/dev/api.md](docs/dev/api.md) |
+| Очередь работ после крупного аудита (пустая — норма) | [docs/agent/claude-handoff.md](docs/agent/claude-handoff.md) |
+| Всё историческое: история спринтов/релизов, архив CHANGELOG, разовые аудиты, отработанные постановки | [docs/archive/README.md](docs/archive/README.md) |
 | Полный аудит v1.9.0 (архив, программа #613) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |
 | Полный changelog (живой источник) | [CHANGELOG.md](CHANGELOG.md) |
 | Состояние проекта (исторический snapshot) | [CHECKPOINT.md](CHECKPOINT.md) |
 
 ---
 
-## 🎯 Открытая работа (указатели)
+## 🎯 Открытая работа: куда обращаться и как вести
 
-Актуальные статусы — всегда `gh issue list`; бэклог сжат до считаных issue.
-[`docs/claude-handoff.md`](docs/claude-handoff.md) — **архив** постановок для
-будущего Claude (план «2026-07-15» и волны аудита исполнены: эпик #613 W0–W7,
-round-2 #691/#692/#693/#648, #601/#602 закрыты). Сводка последнего ревью
-документации — [`docs/archive/audit-2026-07-20.md`](docs/archive/audit-2026-07-20.md)
-(программа #613 завершена).
+**Порядок обращения — сверху вниз, первый непустой источник и есть план:**
 
-> **#199 (регистрация модулей glossary coverage в DAG/архитектуре) — закрыт.**
-> `stdlib_inventory.py`/`coverage.py` описаны в
-> [docs/architecture.md](docs/architecture.md) и
-> [docs/project-structure.md](docs/project-structure.md).
+1. **`gh issue list`** — единственный источник статусов. Никакой список issue
+   не дублируется в файлы репозитория: он устаревает за спринт и начинает
+   врать (прежняя редакция этой секции годами числила «открытыми» закрытые
+   #97/#151, а handoff — семь закрытых issue).
+2. **[`docs/agent/claude-handoff.md`](docs/agent/claude-handoff.md)** — очередь работ, если
+   она непуста: порядок и рёбра для связанного пласта задач после крупного
+   аудита. Пустая очередь — нормальное состояние, тогда работаем по issue.
+3. **[`CHANGELOG.md`](CHANGELOG.md)** — «что уже сделано», чтобы не
+   переизобретать. Детальная история — [`docs/archive/`](docs/archive/README.md).
 
-> **#125/#186/#187/#129 (WEB workspace, Downloader-блок, микро-бенчмарк,
-> тесты user journeys в web) — закрыты. Эпик #123 закрыт.** См.
-> [docs/web-current.md](docs/web-current.md) и
-> [docs/claude-handoff.md](docs/claude-handoff.md).
+**Как вести очередь (`docs/claude-handoff.md`):**
 
-**Дизайн-указатели** (server mode, [docs/server-mode.md](docs/server-mode.md) +
-ADR-0001): Runner-слой **#140** и контракт результата **#116**
-([docs/result-contract.md](docs/result-contract.md)) — оба закрыты и уже
-реализованы (`core/runner.py`, `core/result.py`), не переизобретать. API
-удалённого исполнения **#156** и sandbox-требования **#157** закрыты как
-дизайн. Локальный `SandboxRunner` реализован (#266; в web — #396). Весь
-дизайн-эпик server-mode **#151** и его дети **#152–#157** закрыты (2026-07-17):
-спроектированы, но **не построены** именно server-mode sandbox с
-контейнерами/квотами (#153, #157) и сам удалённый сервер (#151) — живого issue
-на билд нет, направление держит лишь roadmap **#59**. Диагностическое логирование — эпик **#146** реализован (#341):
-opt-in `core/diag_log.py` с редакцией секретов, подключён в
-`stepik_client`/`oauth_flow`/`downloader`; докс-часть — **#150**
-([docs/logging.md](docs/logging.md)). Дочерние **#147**/**#148**/**#149**
-закрыты.
+- **Писать** — только после крупного аудита и только связанным пластом: когда
+  есть жёсткие блокеры, «делать вместе, иначе фикс недоказуем» или общий файл.
+  Плоский список независимых задач живёт в issue. В записи — обоснование
+  порядка, которого нет в issue (что сломается при другом порядке, где
+  escape-hatch), а не пересказ тела issue. Рёбра: `→` жёсткий блокер,
+  `⤳` мягкий порядок, `✓` предпосылка выполнена.
+- **Чистить** — по завершении волны её запись **удаляется**, а не помечается
+  «✅ выполнена». Ценен исторически — целиком в `docs/archive/` отдельным
+  файлом, а в очереди остаётся явное «сейчас пусто» с датой.
+- **Чего там не бывает:** отчётов «мы это сделали», списка открытых issue,
+  критериев приёмки. Пометки о сделанном — ровно то, что раздуло прошлую
+  редакцию до 336 строк мёртвого журнала.
 
-> **#126 (`JsonGlossaryProvider`) и эпик #161/#163 (`--version` dev vs release) —
-> закрыты.** Foundation локального глоссария и вся цепочка source-driven
-> coverage (**#195–#198**: `origin`-поля, `stdlib_inventory.py`, `coverage.py`,
-> CLI-точка входа) — в `src/stepik_grader/glossary/`, документация —
-> [docs/glossary.md](docs/glossary.md). Не реализовывать заново.
-
-Актуальные статусы — в GitHub Issues (`gh issue list`) и
-[CHANGELOG.md](CHANGELOG.md); [CHECKPOINT.md](CHECKPOINT.md) — исторический snapshot.
+**Что спроектировано, но НЕ построено** (читать как контракты, дизайн не
+переоткрывать): server mode — удалённый сервер, контейнерный sandbox с
+квотами и PostgreSQL-модель данных. Дизайн лежит в
+[server-mode.md](docs/dev/design/server-mode.md),
+[server-sandbox-design.md](docs/dev/design/server-sandbox-design.md),
+[server-data-model.md](docs/dev/design/server-data-model.md) + ADR-0001/0008/0009. Живого
+issue на билд нет — направление держит только roadmap **#59**. Локальный
+`SandboxRunner` (`--sandbox`), Runner-слой и контракт результата, наоборот,
+**реализованы** (`core/sandbox/`, `core/runner.py`, `core/result.py`) — их не
+переписывать.
 
 ---
 
@@ -378,8 +383,8 @@ opt-in `core/diag_log.py` с редакцией секретов, подключ
 [ ] from __future__ import annotations в начале нового файла
 [ ] Коммит в формате Conventional Commits
 [ ] CHANGELOG.md: добавлена запись под ## [Unreleased] — в КАЖДОМ PR, без
-    исключений для рефакторингов (см. § Обновление CHANGELOG.md/docs/history.md)
-[ ] docs/history.md/CHECKPOINT.md — НЕ на каждый PR, обновляются вместе на
+    исключений для рефакторингов (см. § Обновление CHANGELOG.md/docs/archive/history.md)
+[ ] docs/archive/history.md/CHECKPOINT.md — НЕ на каждый PR, обновляются вместе на
     релиз (см. ту же секцию)
 [ ] Версия не правится вручную — CI (check_version_consistency.py) сам следит
     за дрейфом (issue #165); достаточно, чтобы CHECKPOINT/CHANGELOG совпадали
@@ -403,19 +408,22 @@ opt-in `core/diag_log.py` с редакцией секретов, подключ
 |---|---|
 | Версия | 1.9.0 (stable) |
 | Python | 3.12 / 3.13 (3.14 — экспериментальная, только ubuntu в CI) |
-| Тестов | 2100+ (растёт; точное число — прогон CI) |
-| Покрытие | ~92% single-OS / ~95% cross-OS combined (живые бейджи README, см. заметку) |
+| Тестов | бейдж/прогон CI — **числом здесь не фиксируется** |
+| Покрытие | бейджи README `Coverage (ubuntu)` / `Coverage (all OS)` |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
-| Глоссарий | 1300+ `ready`-карточек, 0 черновиков (эпик #363 завершён) |
+| Глоссарий | бейдж `Glossary` в README; 0 черновиков (эпик #363 завершён) |
 
-> **Числа тестов/покрытия/глоссария дрейфуют между релизами — это ориентиры,
-> не источник истины.** Живой источник покрытия — два бейджа в README (single-OS
-> `coverage.json` + cross-OS `coverage-combined.json`, обновляются CI каждый
-> прогон); число карточек глоссария считает
-> `python -m stepik_grader.glossary.coverage` (issue #398). Строку
-> `| Версия | X.Y.Z |` проверяет `scripts/check_version_consistency.py` (мягкое
-> предупреждение при расхождении с последним git-тегом; обновлять при релизе
-> MINOR). Эволюция метрик по релизам — в [docs/history.md](docs/history.md).
+> **Числа тестов/покрытия/глоссария в доках не хардкодятся — только бейджи.**
+> Любая вписанная руками цифра устаревает к следующему PR и начинает
+> противоречить соседнему файлу (именно так разошлись «1700+/2100+»). Живой
+> источник покрытия — два бейджа в README (single-OS `coverage.json` + cross-OS
+> `coverage-combined.json`, обновляются CI каждый прогон); карточки глоссария
+> считает `scripts/generate_glossary_badge.py`, сверить локально —
+> `python -m stepik_grader.glossary.coverage` (issue #398). Исключение одно:
+> строка `| Версия | X.Y.Z |` — её проверяет
+> `scripts/check_version_consistency.py` (мягкое предупреждение при расхождении
+> с последним git-тегом; обновлять при релизе MINOR). Эволюция метрик по
+> релизам — в [docs/archive/history.md](docs/archive/history.md).
 
 > **Два числа покрытия (issue #283).** С `--sandbox` (issue #266) `core/sandbox/`
 > содержит три ОС-специфичных backend'а — на любой одной машине/CI-job'е два из

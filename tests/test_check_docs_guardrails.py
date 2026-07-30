@@ -137,7 +137,7 @@ def test_unindexed_docs_file_is_flagged(tmp_path, monkeypatch) -> None:
 
 
 def test_subdir_file_checked_against_its_own_index(tmp_path, monkeypatch) -> None:
-    """Рекурсия #562: docs/adr/*.md проверяется против adr/README.md (не против
+    """Рекурсия #562: docs/dev/adr/*.md проверяется против adr/README.md (не против
     docs/README.md); упомянутый в своём индексе файл → без ошибок."""
     module = _load_module()
     docs = tmp_path / "docs"
@@ -218,4 +218,57 @@ def test_changelog_version_budget_on_current_repo() -> None:
     module = _load_module()
     errors: list[str] = []
     module.check_changelog_version_budget(errors)
+    assert errors == []
+
+
+def _make_directions(root: Path) -> Path:
+    """Собрать минимальный docs/ с четырьмя направлениями и их индексами."""
+    docs = root / "docs"
+    for direction in ("use", "dev", "agent", "archive"):
+        (docs / direction).mkdir(parents=True)
+        (docs / direction / "README.md").write_text(f"# {direction}\n", encoding="utf-8")
+    (docs / "README.md").write_text(
+        "\n".join(f"[{d}]({d}/README.md)" for d in ("use", "dev", "agent", "archive")),
+        encoding="utf-8",
+    )
+    return docs
+
+
+def test_directions_layout_passes(tmp_path, monkeypatch) -> None:
+    """Корень docs/ с одним README.md и четырьмя индексами направлений → без ошибок."""
+    module = _load_module()
+    _make_directions(tmp_path)
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_directions(errors)
+    assert errors == []
+
+
+def test_stray_doc_in_docs_root_is_flagged(tmp_path, monkeypatch) -> None:
+    """Новый .md прямо в корне docs/ → ошибка: он не попал ни в одно направление."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "server-mode.md").write_text("# Server mode\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_directions(errors)
+    assert any("server-mode.md" in e and "docs/ root" in e for e in errors), errors
+
+
+def test_missing_direction_index_is_flagged(tmp_path, monkeypatch) -> None:
+    """Направление без своего README.md-индекса → ошибка."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "dev" / "README.md").unlink()
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_directions(errors)
+    assert any("docs/dev/" in e for e in errors), errors
+
+
+def test_directions_on_current_repo() -> None:
+    """На актуальном main раскладка по направлениям соблюдена."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_docs_directions(errors)
     assert errors == []
