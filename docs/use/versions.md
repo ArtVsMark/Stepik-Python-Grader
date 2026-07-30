@@ -40,7 +40,7 @@
 | **Безопасность** | Только таймаут выполнения | Только таймаут | + лимит памяти `RLIMIT_AS` (POSIX), явные импорты вместо wildcard | → | → | + `prlimit` после spawn (потокобезопасно) | → | + ОС-sandbox (`--sandbox`), security-аудит (OAuth/CSRF/DoS/секреты), path-confinement и Host/Origin guard в `--serve` | → | + AI-consent-gate (приватность кода/ввода перед отправкой провайдеру), back-pressure `POST /api/v1/runs` | + fuzz входного тракта, escape-PoC трёх sandbox-backend'ов, лимит вывода на всех путях исполнения, consent AI в CLI, атомарная запись `secrets.json`, чистка секретов из env дочернего процесса |
 | **Дистрибуция** | `git clone` + `requirements.txt` | `pip install -e .` (единый источник — `pyproject.toml`) | GitHub Releases (sdist+wheel), `pipx` из git | + PyPI: `pipx install stepik-python-grader` (OIDC trusted publishing) | → | → | → | → | → | → | → |
 | **Версионирование** | статичная строка | `importlib.metadata` (единый источник) | задокументированная схема + `scripts/version.py` | → | → | → | + `--version` отличает dev-сборку от релиза | → | + динамическая версия из git-тегов (`setuptools-scm`) | → | → |
-| **Тестов / покрытие** | 260 / 59% | 523 / 95% | 591 / 96% | 599 / 95% | 622 / 95% | 660 / 95% | 784 / 95% | 1179 / 93% (cross-OS combined) | 1317 / 93% (cross-OS combined) | 2295 / 94.8% (cross-OS combined) | живые бейджи README |
+| **Тестов / покрытие** | 260 / 59% | 523 / 95% | 591 / 96% | 599 / 95% | 622 / 95% | 660 / 95% | 784 / 95% | 1179 / 93% (cross-OS combined) | 1317 / 93% (cross-OS combined) | 1600+ / 93% (cross-OS combined) | живые бейджи README |
 
 > **Почему в последней колонке нет цифр.** Числа тестов и покрытия
 > фиксируются в этой таблице только для **закрытых** релизов — когда MINOR уже

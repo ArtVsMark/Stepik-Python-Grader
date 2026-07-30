@@ -5,6 +5,11 @@
 
 > A local grader for the «Поколение Python» Stepik courses — **and for any
 > directory of test cases**. Русская версия: [README.md](README.md).
+>
+> 💬 **Found a bug or have an idea?** Item `9` in the grader menu and the 💬
+> button in the web UI open a [prefilled issue form](https://github.com/ArtVsMark/Stepik-Python-Grader/issues/new/choose)
+> — version, OS and Python are filled in for you. Questions rather than bugs go
+> to [Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions).
 
 Although the grader was built for Stepik, its core is platform-agnostic: point
 it at any folder with solutions and a `tests/` directory and it just runs — no
