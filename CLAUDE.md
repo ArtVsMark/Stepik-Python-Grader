@@ -36,7 +36,7 @@
 При запросах по архитектуре, коду, продукту, тестированию, документации,
 дизайну, продвижению, сообществу, трендам, рекламе или безопасности — отвечай
 от лица релевантных ролей, каждую с явной пометкой. Полные профиль/стиль
-каждой роли и правила работы — каноничны в [`docs/roles.md`](docs/roles.md)
+каждой роли и правила работы — каноничны в [`docs/agent/roles.md`](docs/agent/roles.md)
 (этот блок — только компактный триггер, детали не дублировать здесь).
 
 **Роли:** 🏛 Архитектор · 🔧 Разработчик · 🐍 Core Python Dev ·
@@ -88,9 +88,9 @@ PR. Тип ветки/коммита — по Conventional Commits (см. § Ф�
 
 Канонические источники (здесь **не дублируются**, чтобы не расходиться):
 
-- Дерево файлов — [`docs/project-structure.md`](docs/project-structure.md)
+- Дерево файлов — [`docs/dev/project-structure.md`](docs/dev/project-structure.md)
 - Модули, слои, граф зависимостей (DAG), «что умеет каждый модуль» —
-  [`docs/architecture.md`](docs/architecture.md)
+  [`docs/dev/architecture.md`](docs/dev/architecture.md)
 
 Пакет живёт в `src/stepik_grader/` (src-layout). Точки входа —
 `grader.py`/`cli.py`/`downloader.py`/`diagnostic_stepik.py` + `config.py`;
@@ -194,7 +194,7 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
    Stepik-Python-Grader — источник истины контента; внешний
    [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) — только цель
    экспорта/витрина, **никогда** не эталон полноты. Канон —
-   [docs/glossary.md § Источники истины](docs/glossary.md#источники-истины-роли).
+   [docs/glossary.md § Источники истины](docs/dev/glossary.md#источники-истины-роли).
    Односторонность касается и ссылок (issue #684): **не ссылаться на внешнюю
    витрину** ни из данных карточек, ни из кода, ни из UI — ссылка из оригинала
    в его копию уводит на устаревший контент. Адрес карточки — её `id` как якорь
@@ -208,7 +208,7 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
 Три автодетектируемых формата: `1`—Legacy (`N`, `N.clue`), `2`—Named
 (`input_N.txt`, `expected_N.txt`), `3`—python-generation (`input.txt` +
 `output.txt` с `# TEST_N:`). Канонический справочник —
-[`docs/configuration.md`](docs/configuration.md#формат-тест-кейсов).
+[`docs/use/configuration.md`](docs/use/configuration.md#формат-тест-кейсов).
 
 ---
 
@@ -255,7 +255,7 @@ chore(deps): bump psutil upper bound
 [`CONTRIBUTING.md § Версионирование`](CONTRIBUTING.md#версионирование-issue-68).
 UX-полировка вывода `--version` (dev vs release маркер) — задача #163 **закрыта**
 (реализовано; ср. § Открытая работа ниже); архивная постановка —
-[`docs/claude-handoff.md`](docs/claude-handoff.md).
+[`docs/agent/claude-handoff.md`](docs/agent/claude-handoff.md).
 
 `scripts/version.py`'s "логическая" `X.Y.Z` (README `Version`-бейдж) считает
 PATCH через `git rev-list --invert-grep`, исключая автокоммиты CI
@@ -297,24 +297,31 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 
 ## 📚 Источники истины (не дублировать)
 
+`docs/` разложена по четырём направлениям — **сначала выбери направление, потом
+файл**: [`docs/use/`](docs/use/README.md) (как пользоваться) ·
+[`docs/dev/`](docs/dev/README.md) (как устроено, включая `design/` —
+спроектированное без кода) · [`docs/agent/`](docs/agent/README.md) (служебное для
+Claude) · [`docs/archive/`](docs/archive/README.md) (всё историческое).
+Новый документ создаётся внутри направления, а не в корне `docs/`.
+
 | Тема | Канонический документ |
 |---|---|
-| Установка, OAuth, диагностика | [docs/installation.md](docs/installation.md) |
-| Режимы, CLI-флаги, web/IDE, скачивание | [docs/grader-workflow.md](docs/grader-workflow.md) |
-| Конфигурация, форматы тестов, безопасность | [docs/configuration.md](docs/configuration.md) |
-| Архитектура (DAG, слои) | [docs/architecture.md](docs/architecture.md) |
-| Контракт результата проверки (CLI/Web/API) | [docs/result-contract.md](docs/result-contract.md) |
-| Дизайн server mode (Runner, API, sandbox) | [docs/server-mode.md](docs/server-mode.md) |
-| Диагностика/логирование, редакция секретов | [docs/logging.md](docs/logging.md) |
-| Цепочка поставок: инвентарь рантайма/ассетов, pip-audit | [docs/supply-chain.md](docs/supply-chain.md) |
-| Архитектурные решения (ADR) | [docs/adr/README.md](docs/adr/README.md) |
-| Дерево файлов | [docs/project-structure.md](docs/project-structure.md) |
-| Версии, отличия от оригинала | [docs/versions.md](docs/versions.md) |
+| Установка, OAuth, диагностика | [docs/use/installation.md](docs/use/installation.md) |
+| Режимы, CLI-флаги, web/IDE, скачивание | [docs/use/grader-workflow.md](docs/use/grader-workflow.md) |
+| Конфигурация, форматы тестов, безопасность | [docs/use/configuration.md](docs/use/configuration.md) |
+| Архитектура (DAG, слои) | [docs/dev/architecture.md](docs/dev/architecture.md) |
+| Контракт результата проверки (CLI/Web/API) | [docs/dev/result-contract.md](docs/dev/result-contract.md) |
+| Дизайн server mode (Runner, API, sandbox) | [docs/dev/design/server-mode.md](docs/dev/design/server-mode.md) |
+| Диагностика/логирование, редакция секретов | [docs/dev/logging.md](docs/dev/logging.md) |
+| Цепочка поставок: инвентарь рантайма/ассетов, pip-audit | [docs/dev/supply-chain.md](docs/dev/supply-chain.md) |
+| Архитектурные решения (ADR) | [docs/dev/adr/README.md](docs/dev/adr/README.md) |
+| Дерево файлов | [docs/dev/project-structure.md](docs/dev/project-structure.md) |
+| Версии, отличия от оригинала | [docs/use/versions.md](docs/use/versions.md) |
 | Политика версионирования, код-стайл, workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Кодекс поведения | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
-| Режим ответов: полный шаблон 13 ролей | [docs/roles.md](docs/roles.md) |
-| WEB MVP: реализовано / замыслы / HTTP API | [docs/web-current.md](docs/web-current.md), [docs/web-design.md](docs/web-design.md), [docs/api.md](docs/api.md) |
-| Очередь работ после крупного аудита (пустая — норма) | [docs/claude-handoff.md](docs/claude-handoff.md) |
+| Режим ответов: полный шаблон 13 ролей | [docs/agent/roles.md](docs/agent/roles.md) |
+| WEB MVP: реализовано / замыслы / HTTP API | [docs/dev/web-current.md](docs/dev/web-current.md), [docs/dev/design/web-design.md](docs/dev/design/web-design.md), [docs/dev/api.md](docs/dev/api.md) |
+| Очередь работ после крупного аудита (пустая — норма) | [docs/agent/claude-handoff.md](docs/agent/claude-handoff.md) |
 | Всё историческое: история спринтов/релизов, архив CHANGELOG, разовые аудиты, отработанные постановки | [docs/archive/README.md](docs/archive/README.md) |
 | Полный аудит v1.9.0 (архив, программа #613) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |
 | Полный changelog (живой источник) | [CHANGELOG.md](CHANGELOG.md) |
@@ -330,7 +337,7 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
    не дублируется в файлы репозитория: он устаревает за спринт и начинает
    врать (прежняя редакция этой секции годами числила «открытыми» закрытые
    #97/#151, а handoff — семь закрытых issue).
-2. **[`docs/claude-handoff.md`](docs/claude-handoff.md)** — очередь работ, если
+2. **[`docs/agent/claude-handoff.md`](docs/agent/claude-handoff.md)** — очередь работ, если
    она непуста: порядок и рёбра для связанного пласта задач после крупного
    аудита. Пустая очередь — нормальное состояние, тогда работаем по issue.
 3. **[`CHANGELOG.md`](CHANGELOG.md)** — «что уже сделано», чтобы не
@@ -354,9 +361,9 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 **Что спроектировано, но НЕ построено** (читать как контракты, дизайн не
 переоткрывать): server mode — удалённый сервер, контейнерный sandbox с
 квотами и PostgreSQL-модель данных. Дизайн лежит в
-[server-mode.md](docs/server-mode.md),
-[server-sandbox-design.md](docs/server-sandbox-design.md),
-[server-data-model.md](docs/server-data-model.md) + ADR-0001/0008/0009. Живого
+[server-mode.md](docs/dev/design/server-mode.md),
+[server-sandbox-design.md](docs/dev/design/server-sandbox-design.md),
+[server-data-model.md](docs/dev/design/server-data-model.md) + ADR-0001/0008/0009. Живого
 issue на билд нет — направление держит только roadmap **#59**. Локальный
 `SandboxRunner` (`--sandbox`), Runner-слой и контракт результата, наоборот,
 **реализованы** (`core/sandbox/`, `core/runner.py`, `core/result.py`) — их не

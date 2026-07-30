@@ -1,5 +1,5 @@
 """core/sandbox — ``SandboxRunner``: ОС-уровневая изоляция исполнения решений
-(issue #266, реализация требований дизайна ``docs/server-mode.md § Sandbox и
+(issue #266, реализация требований дизайна ``docs/dev/design/server-mode.md § Sandbox и
 сетевая изоляция``, issue #157).
 
 Архитектурный слой: Infrastructure — тот же протокол ``Runner``

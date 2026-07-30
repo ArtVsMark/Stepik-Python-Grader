@@ -1,7 +1,7 @@
 """ai_hints.py — opt-in AI-объяснение падений WA/RE (issue #435, ADR-0003).
 
 Архитектурный слой: Application/Integration. Реализует стратегию
-[ADR-0003](../../../docs/adr/0003-ai-integration.md): BYOK, OpenAI-compatible
+[ADR-0003](../../../docs/dev/adr/0003-ai-integration.md): BYOK, OpenAI-compatible
 ``{base_url}/chat/completions`` на голом ``requests`` (без провайдерских SDK и
 без новых зависимостей). Один код покрывает и локальные раннеры (ollama), и
 облачных OpenAI-совместимых провайдеров — разница лишь в ``ai_base_url``.

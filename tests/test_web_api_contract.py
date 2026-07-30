@@ -1,7 +1,7 @@
-"""test_web_api_contract.py — контракт «docs/api.md ↔ маршруты web/server.py» (issue #439).
+"""test_web_api_contract.py — контракт «docs/dev/api.md ↔ маршруты web/server.py» (issue #439).
 
 Дешёвый guard без сети и без OpenAPI-оверхеда: сверяет множество эндпоинтов,
-задокументированных секциями ``## `METHOD /path`` в ``docs/api.md``, с реальными
+задокументированных секциями ``## `METHOD /path`` в ``docs/dev/api.md``, с реальными
 маршрутами ``_Handler`` — декларативными таблицами ``_API_{GET,POST}_{EXACT,
 PREFIX}`` (issue #427) плюс спец-роут ``GET /``. Падает, если появился маршрут
 без документации ИЛИ раздел в доке без маршрута (двусторонний дрейф).
@@ -19,7 +19,7 @@ import re
 
 from stepik_grader.web.server import _Handler
 
-_API_MD = pathlib.Path(__file__).parent.parent / "docs" / "api.md"
+_API_MD = pathlib.Path(__file__).parent.parent / "docs" / "dev" / "api.md"
 
 # `## `GET /api/rules/<code>`` (док) ≡ префикс `/api/rules/` (server) — оба к
 # канону `/api/rules/{}`: сегмент-плейсхолдер и хвост-префикса эквивалентны.
@@ -33,7 +33,7 @@ def _canon(path: str) -> str:
 
 
 def _documented_endpoints() -> set[tuple[str, str]]:
-    """(METHOD, canon-path) из секций ``## `METHOD /path`` в docs/api.md."""
+    """(METHOD, canon-path) из секций ``## `METHOD /path`` в docs/dev/api.md."""
     text = _API_MD.read_text(encoding="utf-8")
     return {(m.group(1), _canon(m.group(2))) for m in _HEADING.finditer(text)}
 
@@ -62,19 +62,19 @@ def _server_routes() -> set[tuple[str, str]]:
 
 
 def test_api_md_matches_server_routes() -> None:
-    """docs/api.md и таблицы маршрутов server.py описывают одно множество эндпоинтов."""
+    """docs/dev/api.md и таблицы маршрутов server.py описывают одно множество эндпоинтов."""
     documented = _documented_endpoints()
     actual = _server_routes()
 
     undocumented = actual - documented
     assert not undocumented, (
-        f"маршруты в server.py без раздела `## `METHOD /path`` в docs/api.md: "
+        f"маршруты в server.py без раздела `## `METHOD /path`` в docs/dev/api.md: "
         f"{sorted(undocumented)}"
     )
 
     missing = documented - actual
     assert not missing, (
-        f"разделы в docs/api.md без соответствующего маршрута в server.py: {sorted(missing)}"
+        f"разделы в docs/dev/api.md без соответствующего маршрута в server.py: {sorted(missing)}"
     )
 
 

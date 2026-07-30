@@ -13,8 +13,8 @@
 > начать работу без повторного разбора контекста.
 >
 > **Что это НЕ.** Это **не** канонический продуктовый спец. Каноничная
-> спецификация WEB MVP — [`web-current.md`](../web-current.md) (что реализовано)
-> и [`web-design.md`](../web-design.md) (замыслы); при расхождении они
+> спецификация WEB MVP — [`web-current.md`](../dev/web-current.md) (что реализовано)
+> и [`web-design.md`](../dev/design/web-design.md) (замыслы); при расхождении они
 > главнее. Здесь — рабочие ориентиры «как подступиться», а критерии приёмки —
 > в самих GitHub issue.
 >
@@ -129,7 +129,7 @@ master-трекер аудита.
 ### Долгосрок / v2.0 — отдельным треком
 - ~~Глоссарий-грайнд~~ — **закрыт**: эпик **#363** (832 draft→ready, волны В1–В6),
   **#371** (пилот В1) и **#438** (LLM-конвейер) реализованы, черновиков не
-  осталось; канон — [glossary.md](../glossary.md). Больше не долгосрок.
+  осталось; канон — [glossary.md](../dev/glossary.md). Больше не долгосрок.
 - Server mode: эпик **#151** (открыт) → дизайн-задачи **#153/#154/#155**
   **закрыты** (дизайн оформлен и смержен PR #484: ADR-0008/0009 +
   `server-sandbox-design.md`/`server-data-model.md`); реализация server mode не
@@ -178,7 +178,7 @@ master-трекер аудита.
 > тексту:** палитра команд `Ctrl+K` удалена (#658), нижние сценарные кнопки
 > убраны в пользу главной кнопки «▶ Запустить» (#368). Реестр
 > `web/commands.py` остался, но питает только action cards. Актуальное
-> состояние UI — [web-current.md](../web-current.md).
+> состояние UI — [web-current.md](../dev/web-current.md).
 
 Что было сделано в рамках #125 (не переделывать; про снятое — во врезке выше):
 - `GET /api/grade` — `cases[]` несёт `case_n`/`severity`/`stdin`/`expected`/
@@ -216,7 +216,7 @@ a11y-аудит, true fuzzy-поиск в тогдашней палитре (sub
 > `src/stepik_grader/glossary/` (`GlossaryCard`/`GlossaryMissingEntry`,
 > `JsonGlossaryProvider`, `MissingConceptDetector`, очередь пополнения с
 > дедупом). Формат хранения и Python-API — канонично в
-> [glossary.md](../glossary.md). **Не реализовывать заново.**
+> [glossary.md](../dev/glossary.md). **Не реализовывать заново.**
 
 Что уже есть (не переделывать):
 - `JsonGlossaryProvider.load()` — загрузка базы карточек (файл или директория),
@@ -234,7 +234,7 @@ a11y-аудит, true fuzzy-поиск в тогдашней палитре (sub
 **Остаётся за рамками #126 (в других issue):**
 - WEB UI и endpoint'ы `/api/glossary*` — в #125/#129.
 - Экспортёр `ready`-карточек во внешний Glossary-Python (`POST /api/glossary/export`) —
-  отдельный #126-follow-up (см. [glossary.md § Границы](../glossary.md#границы-что-не-входит)).
+  отдельный #126-follow-up (см. [glossary.md § Границы](../dev/glossary.md#границы-что-не-входит)).
 - SQLite-хранилище (#130+) — сейчас JSON-first, провайдер абстрагирует источник.
 
 **Инварианты при доводке.** `core/glossary.py` остаётся leaf-модулем (без
@@ -300,10 +300,10 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 > закрыты.** Цепочка `origin`-поля модели → `stdlib_inventory.py` →
 > `coverage.py` (report + missing JSON) → CLI-точка входа
 > (`python -m stepik_grader.glossary.coverage`) полностью реализована —
-> детали в [glossary.md](../glossary.md). Docs-follow-up **#199** (регистрация
+> детали в [glossary.md](../dev/glossary.md). Docs-follow-up **#199** (регистрация
 > модулей покрытия в DAG/архитектуре) — **закрыт**: `stdlib_inventory.py`/
-> `coverage.py` описаны в [architecture.md](../architecture.md) и
-> [project-structure.md](../project-structure.md). Практический детектор: **#190**
+> `coverage.py` описаны в [architecture.md](../dev/architecture.md) и
+> [project-structure.md](../dev/project-structure.md). Практический детектор: **#190**
 > (валидация `kind`/`status`) и **#191** (снижение false-positive
 > `_last_exception_name`) — оба **закрыты**.
 
@@ -315,22 +315,22 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 как источник контрактов, не переопределять их заново.**
 
 - **#116 — контракт результата.** Поля case/solution/run result, семантика
-  вердиктов, форма ошибки/таймаута, стабильность — [result-contract.md](../result-contract.md).
+  вердиктов, форма ошибки/таймаута, стабильность — [result-contract.md](../dev/result-contract.md).
   Типизированный `TestResult` (`core/result.py`, эпик #112/#113/#114) уже
   реализован и сохраняет имена полей контракта; `run_single_test()` и весь
   dict-контракт CLI/Web/API не менялись.
 > **#140 — Runner-слой (эпик #136/#137/#138/#139) — закрыт.** `Runner`
 > Protocol + `LocalRunner` реализованы в `core/runner.py`; `grader_core.
 > run_single_test()` делегирует subprocess-запуск без изменения поведения —
-> [server-mode.md § Runner-слой](../server-mode.md#runner-слой-issue-140-реализация--136137138).
+> [server-mode.md § Runner-слой](../dev/design/server-mode.md#runner-слой-issue-140-реализация--136137138).
 - **#156 — API удалённого исполнения.** Контракт `/api/v1/runs` (async,
-  классы ошибок, версионирование) — [server-mode.md § Контракт API](../server-mode.md#контракт-api-удалённого-исполнения-issue-156).
+  классы ошибок, версионирование) — [server-mode.md § Контракт API](../dev/design/server-mode.md#контракт-api-удалённого-исполнения-issue-156).
   **Сервер не реализуется** — только контракт.
 - **#157 — sandbox/сеть-off/квоты.** Требования к `SandboxRunner` —
-  [server-mode.md § Sandbox](../server-mode.md#sandbox-и-сетевая-изоляция-issue-157).
-- **#152 — ADR server mode.** Решение и альтернативы — [adr/0001-server-mode.md](../adr/0001-server-mode.md).
+  [server-mode.md § Sandbox](../dev/design/server-mode.md#sandbox-и-сетевая-изоляция-issue-157).
+- **#152 — ADR server mode.** Решение и альтернативы — [adr/0001-server-mode.md](../dev/adr/0001-server-mode.md).
 - **#150 — диагностика/логирование (✅ реализовано, эпик #146 / #341).** Opt-in
-  лог-файл с редакцией секретов — [logging.md](../logging.md); реализация —
+  лог-файл с редакцией секретов — [logging.md](../dev/logging.md); реализация —
   `core/diag_log.py`, подключена в `stepik_client`/`oauth_flow`/`downloader`
   (дочерние #147–#149 закрыты).
 
@@ -341,4 +341,4 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 проверки решений), `#186` (Downloader web), `#187` (микро-бенчмарк web) и
 `#129` (тесты web MVP) — **все закрыты**, реализация в
 `src/stepik_grader/web/` и `tests/test_web*.py`. **Эпик #123 закрыт**;
-реализация зафиксирована документом [web-current.md](../web-current.md).
+реализация зафиксирована документом [web-current.md](../dev/web-current.md).

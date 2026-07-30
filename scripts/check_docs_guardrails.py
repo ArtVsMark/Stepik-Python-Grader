@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Три машинные защиты, чтобы README снова не разросся, ссылки между Markdown-
-файлами не протухли, а индекс docs/ не отставал от фактического состава
-каталога (эпик #167 «README как витрина»):
+Четыре машинные защиты, чтобы README снова не разросся, ссылки между Markdown-
+файлами не протухли, документация не расползлась мимо направлений, а индексы не
+отставали от фактического состава каталогов (эпик #167 «README как витрина»):
 
 1. **README line-budget.** ``README.md`` не должен превышать ``README_LINE_BUDGET``
    строк (см. константу ниже). README — короткая витрина, подробности живут в
@@ -13,12 +13,17 @@
    на существующий файл, а якоря — на существующий заголовок в целевом
    Markdown-файле. Внешние ссылки (http/https/mailto и т.п.) осознанно НЕ
    проверяются — сетевые проверки делают CI флаки.
-3. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
+3. **Docs directions.** В корне ``docs/`` лежит только ``README.md``-развилка;
+   документы живут в направлениях по читателю — ``use/`` (как пользоваться),
+   ``dev/`` (как устроено, с ``dev/design/`` для спроектированного без кода),
+   ``agent/`` (служебное для Claude Code), ``archive/`` (история). Новый ``.md``
+   в корне ``docs/`` — ошибка: он не попадает ни в одно направление.
+4. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
    (кроме самого ``<dir>/README.md``) должен быть упомянут в ``<dir>/README.md``
    — иначе индекс расходится с фактическим составом каталога (как произошло с
    ``changelog-archive.md``). **Рекурсивно (issue #562):** проверка применяется
    к ``docs/`` и к КАЖДОМУ подкаталогу с собственным ``README.md``-индексом
-   (``docs/adr/`` → ``docs/adr/README.md``, ``docs/archive/`` →
+   (``docs/dev/adr/`` → ``docs/dev/adr/README.md``, ``docs/archive/`` →
    ``docs/archive/README.md``). Подкаталог без своего ``README.md`` отдельно не
    индексируется — родитель ссылается на него одной строкой (``role-*.md``-
    приложения к сводному аудиту, ADR-набор до появления adr/README.md).
@@ -41,6 +46,7 @@ __all__ = [
     "CHANGELOG_MAX_VERSIONS",
     "README_LINE_BUDGET",
     "check_changelog_version_budget",
+    "check_docs_directions",
     "check_docs_index_completeness",
     "check_markdown_links",
     "check_readme_budget",
@@ -60,6 +66,11 @@ README_LINE_BUDGET = 220
 # ротируются в docs/changelog-archive.md. Синхронизировать с CLAUDE.md
 # §«Обновление CHANGELOG.md» и CONTRIBUTING.md §«Версионирование».
 CHANGELOG_MAX_VERSIONS = 3
+
+# Направления документации: docs/ разложена по читателю, и в корне docs/ лежит
+# только README.md-развилка. Синхронизировать с docs/README.md и CONTRIBUTING.md
+# §«Документация: README как витрина».
+_DOCS_DIRECTIONS = ("use", "dev", "agent", "archive")
 
 # [текст](target) — не изображение (нет ведущего "!"), target без пробелов/скобок.
 _LINK_RE = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)\)")
@@ -175,7 +186,7 @@ def check_docs_index_completeness(errors: list[str]) -> None:
     каждого подкаталога с собственным ``README.md``-индексом (issue #300/#562).
 
     Рекурсивно (issue #562): проверяются ``docs/`` (``docs/README.md``),
-    ``docs/adr/`` (``docs/adr/README.md``), ``docs/archive/``
+    ``docs/dev/adr/`` (``docs/dev/adr/README.md``), ``docs/archive/``
     (``docs/archive/README.md``) и т.д. Подкаталог БЕЗ собственного ``README.md``
     отдельно не индексируется — его файлы каталогизируются родительским индексом
     одной строкой (как ``role-*.md``-приложения к сводному аудиту).
@@ -227,11 +238,48 @@ def check_changelog_version_budget(errors: list[str]) -> None:
         )
 
 
+def check_docs_directions(errors: list[str]) -> None:
+    """В корне ``docs/`` живёт только ``README.md`` — остальное по направлениям.
+
+    Документация разложена на четыре направления по читателю: ``use/`` (как
+    пользоваться), ``dev/`` (как устроено, включая ``dev/design/`` — то, что
+    спроектировано без кода), ``agent/`` (служебное для Claude Code) и
+    ``archive/`` (всё историческое). Новый ``.md``, положенный прямо в корень
+    ``docs/``, ломает эту навигацию: именно так корень дорос до 23 файлов, где
+    инструкция по установке лежала рядом с дизайном seccomp-профиля.
+    """
+    docs_root = _ROOT / "docs"
+    stray = sorted(p.name for p in docs_root.glob("*.md") if p.name != "README.md")
+    if stray:
+        errors.append(
+            f"docs/: {', '.join(stray)} lie in the docs/ root. Documentation is "
+            "split by reader - put the file into docs/use/ (how to use), "
+            "docs/dev/ (how it works), docs/agent/ (Claude-only) or "
+            "docs/archive/ (history), and index it in that direction's README.md."
+        )
+        return
+
+    missing = [d for d in _DOCS_DIRECTIONS if not (docs_root / d / "README.md").is_file()]
+    if missing:
+        errors.append(
+            "docs/: missing direction index README.md in "
+            + ", ".join(f"docs/{d}/" for d in missing)
+        )
+        return
+
+    print(
+        "docs/ directions: root holds README.md only; "
+        + ", ".join(f"{d}/" for d in _DOCS_DIRECTIONS)
+        + " indexed."
+    )
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_readme_budget(errors)
     check_markdown_links(errors)
+    check_docs_directions(errors)
     check_docs_index_completeness(errors)
     check_changelog_version_budget(errors)
 
@@ -241,7 +289,10 @@ def main() -> int:
             print(f"  - {e}")
         return 1
 
-    print("OK: README within budget, all local Markdown links resolve, docs/ index complete.")
+    print(
+        "OK: README within budget, all local Markdown links resolve, docs/ split "
+        "by direction, indexes complete."
+    )
     return 0
 
 

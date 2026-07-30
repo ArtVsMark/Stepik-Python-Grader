@@ -1,4 +1,4 @@
-"""commands.py — единый реестр команд (docs/web-current.md § Реестр команд).
+"""commands.py — единый реестр команд (docs/dev/web-current.md § Реестр команд).
 
 Список ``COMMANDS`` питает action cards в detail panel: «какую кнопку когда
 показывать» решается в одном месте, а не дублируется по фронтенду. Исторически
@@ -19,7 +19,7 @@ from typing import Any
 __all__ = ["COMMANDS", "filter_commands"]
 
 # MVP-набор — ровно то, что реализовано в #125. Никогда не добавлять сюда
-# create_test/compare_solutions — они design-only (docs/web-design.md § Action
+# create_test/compare_solutions — они design-only (docs/dev/design/web-design.md § Action
 # cards, отложенные), реализация вне скоупа этого issue.
 COMMANDS: list[dict[str, Any]] = [
     {

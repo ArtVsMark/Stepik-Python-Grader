@@ -51,8 +51,8 @@
 ## Архитектура проекта
 
 Подробная архитектурная карта (DAG модулей, слои, «что умеет каждый модуль»)
-живёт в [`docs/architecture.md`](docs/architecture.md), дерево проекта — в
-[`docs/project-structure.md`](docs/project-structure.md). CONTRIBUTING.md
+живёт в [`docs/dev/architecture.md`](docs/dev/architecture.md), дерево проекта — в
+[`docs/dev/project-structure.md`](docs/dev/project-structure.md). CONTRIBUTING.md
 хранит только правила для контрибьюторов, workflow и политику
 версионирования — во избежание расхождений архитектура здесь не дублируется.
 
@@ -102,26 +102,31 @@
 - 4 режима работы и основные CLI-флаги;
 - ссылки на подробную документацию.
 
-Большие технические разделы выносятся в `docs/`:
+Большие технические разделы живут в [`docs/`](docs/README.md), разложенной по
+четырём направлениям — **перечень файлов здесь не дублируется**, он в индексе
+каждого направления:
 
-| Раздел | Файл |
-|--------|------|
-| Карта документации + канонические источники | [`docs/README.md`](docs/README.md) |
-| Установка, OAuth, secrets.json, диагностика | [`docs/installation.md`](docs/installation.md) |
-| Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [`docs/grader-workflow.md`](docs/grader-workflow.md) |
-| WEB MVP — реализовано (UX, error/action cards, «Функции в коде») | [`docs/web-current.md`](docs/web-current.md) |
-| WEB MVP — замыслы/отложенное/отклонённое | [`docs/web-design.md`](docs/web-design.md) |
-| Конфигурация (`[tool.stepik-grader]`), форматы тест-кейсов, ограничения и безопасность | [`docs/configuration.md`](docs/configuration.md) |
-| Архитектура модулей (DAG, слои, «что умеет») | [`docs/architecture.md`](docs/architecture.md) |
-| Структура проекта (дерево файлов) | [`docs/project-structure.md`](docs/project-structure.md) |
-| Версии и сравнение с оригиналом | [`docs/versions.md`](docs/versions.md) |
+| Направление | Что туда | Индекс |
+|---|---|---|
+| `docs/use/` | справка пользователю: установка, режимы, флаги, веб, конфигурация | [`docs/use/README.md`](docs/use/README.md) |
+| `docs/dev/` | устройство кода: архитектура, контракты, API, ADR (+ `design/` — спроектированное без кода) | [`docs/dev/README.md`](docs/dev/README.md) |
+| `docs/agent/` | служебное для Claude Code: роли, очередь работ | [`docs/agent/README.md`](docs/agent/README.md) |
+| `docs/archive/` | всё историческое: история разработки, архив CHANGELOG, разовые аудиты | [`docs/archive/README.md`](docs/archive/README.md) |
 
-**Куда добавлять новый большой раздел:** если это справка для пользователя
-(режим, флаг, сценарий) — коротко в README + при необходимости подробности в
-`docs/`. Если это внутренняя техническая память (архитектура, история,
-инварианты) — сразу в `docs/` (или `CLAUDE.md` для инвариантов ядра), а в
-README максимум строчка-ссылка. Не давай README снова разрастаться —
-проверяй это при ревью PR, добавляющих документацию.
+**Куда добавлять новый раздел.** Спроси, кто читатель: пользователь → `use/`
+(+ строчка в README, если это заметная возможность); разработчик → `dev/`;
+инвариант ядра → `CLAUDE.md`. Не уверен между `use/` и `dev/` — реши по вопросу,
+на который отвечает текст: «как этим пользоваться» или «как это внутри».
+
+**Чего в активном документе быть не должно:** журнала работ. `use/` и `dev/`
+описывают, как всё работает **сейчас**. «Что сделано» → `CHANGELOG.md`, «что
+предстоит» → GitHub Issues, «как шло» → `docs/archive/`. Номер issue уместен
+только там, где объясняет неочевидный компромисс, а не хвостом в каждой строке.
+Числа тестов, покрытия и размера глоссария не вписываются в прозу — они живут в
+бейджах README.
+
+Не давай README снова разрастаться — проверяй это при ревью PR, добавляющих
+документацию.
 
 **Line-budget и link-check (issue #173).** Правило «README — витрина» защищено
 машинно: CI-job `docs-guardrails` (`.github/workflows/ci.yml`) запускает
@@ -217,7 +222,7 @@ pre-commit install
 Grader поддерживает три автодетектируемых формата (Legacy `N`/`N.clue`,
 именованные `input_N.txt`/`expected_N.txt`, python-generation
 `input.txt`/`output.txt` с `# TEST_N:`). Канонический справочник — в
-[`docs/configuration.md § Формат тест-кейсов`](docs/configuration.md#формат-тест-кейсов);
+[`docs/configuration.md § Формат тест-кейсов`](docs/use/configuration.md#формат-тест-кейсов);
 здесь не дублируется во избежание расхождений.
 
 ---
@@ -306,7 +311,7 @@ chore: инфраструктура, зависимости
    добавьте строку в `CHANGELOG.md` и откройте PR. Ни одна карточка не попадает в
    базу автомержем — только через ревью человеком.
 
-Формат карточки и Python-API — [docs/glossary.md](docs/glossary.md); число
+Формат карточки и Python-API — [docs/dev/glossary.md](docs/dev/glossary.md); число
 готовых карточек считает `scripts/generate_glossary_badge.py` (живой бейдж, не
 хардкод — issue #398), вручную его не правьте.
 
@@ -423,7 +428,7 @@ PEP 440 (`X.Y.0.postN+g<hash>`) — это то, что понимают `pip`/P
 делать не нужно — за это отвечает CI.
 
 > Полную таблицу эволюции релизов (от `v1.0.0` до текущего) и отличия от
-> оригинала см. в [`docs/versions.md`](docs/versions.md) — он ссылается на эту
+> оригинала см. в [`docs/use/versions.md`](docs/use/versions.md) — он ссылается на эту
 > политику, а не копирует её.
 
 ---

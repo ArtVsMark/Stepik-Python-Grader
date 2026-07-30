@@ -9,7 +9,7 @@
 > - Полный список изменений — [`CHANGELOG.md`](CHANGELOG.md).
 > - Открытые задачи и статусы — GitHub Issues (`gh issue list`).
 > - Карта документации и каноны — [`docs/README.md`](docs/README.md).
-> - Эволюция метрик по релизам — [`docs/versions.md`](docs/versions.md).
+> - Эволюция метрик по релизам — [`docs/use/versions.md`](docs/use/versions.md).
 
 ---
 
@@ -20,14 +20,14 @@
 > Строка-маркер выше существует только для CI-проверки дрейфа
 > (`scripts/check_version_consistency.py`, issue #165) — она сверяется с
 > последним git-тегом. Каноническая история релизов — в [`CHANGELOG.md`](CHANGELOG.md)
-> и [`docs/versions.md`](docs/versions.md); этот файл остаётся историческим
+> и [`docs/use/versions.md`](docs/use/versions.md); этот файл остаётся историческим
 > snapshot, а не источником истины по версиям.
 
 - Тестов и покрытие: **см. живые бейджи README** (`Coverage (ubuntu)` single-OS
   + `Coverage (all OS)` cross-OS; число тестов — из CI-прогона). Хардкод чисел
   здесь намеренно убран, чтобы snapshot не расходился с реальностью (issue #562);
   single-OS структурно ниже cross-OS из-за трёх ОС-специфичных backend'ов
-  `core/sandbox/` (см. [`docs/architecture.md`](docs/architecture.md)) · Python:
+  `core/sandbox/` (см. [`docs/dev/architecture.md`](docs/dev/architecture.md)) · Python:
   3.12 / 3.13 / 3.14 (экспериментальная, только ubuntu в CI)
 - CI: GitHub Actions (ruff + mypy + pytest), матрица ubuntu/windows/macos
   × 3.12/3.13 + ubuntu 3.14-experimental + отдельный `coverage-combine` job —
@@ -35,9 +35,9 @@
 - Пакет — `src/stepik_grader/` (src-layout, issue #35). Запуск только через
   `python -m stepik_grader.X` или `stepik-grader` после `pip install -e .`
 - Опубликован на PyPI: `pipx install stepik-python-grader`
-- Точные метрики и их эволюция — [`docs/versions.md`](docs/versions.md);
-  архитектура и модули — [`docs/architecture.md`](docs/architecture.md);
-  дерево файлов — [`docs/project-structure.md`](docs/project-structure.md).
+- Точные метрики и их эволюция — [`docs/use/versions.md`](docs/use/versions.md);
+  архитектура и модули — [`docs/dev/architecture.md`](docs/dev/architecture.md);
+  дерево файлов — [`docs/dev/project-structure.md`](docs/dev/project-structure.md).
 
 ### Реализовано (см. каноны, здесь без дублей)
 
@@ -55,8 +55,8 @@
 - WEB workspace (эпик **#123**, закрыт): split-pane UI, action cards,
   раздел «Глоссарий», Downloader-блок (**#186**), микро-бенчмарк в вебе
   (**#187**), сквозные user-journey тесты (**#129**) — что реализовано:
-  [`docs/web-current.md`](docs/web-current.md); замыслы/отложенное:
-  [`docs/web-design.md`](docs/web-design.md).
+  [`docs/dev/web-current.md`](docs/dev/web-current.md); замыслы/отложенное:
+  [`docs/dev/design/web-design.md`](docs/dev/design/web-design.md).
 - GUI-лаунчер `stepik-grader-gui` (issue **#661**): запуск веба без командной
   строки — окно с выбором «Простой сервер» / «Сервер с изоляцией `--sandbox`»,
   порта (с проверкой «занят») и рабочей папки, кнопки Запустить/Остановить со
@@ -65,15 +65,15 @@
   редактор с сохранением решения, отправка решения на Stepik (**#683**),
   интерактивные разделы «Глоссарий», «Правила (PEP)», «Подучить» и «Прогресс»
   (в CLI им соответствуют лишь `--insights`/`--lint`/`--export-progress`) —
-  [`docs/grader-workflow.md`](docs/grader-workflow.md).
+  [`docs/use/grader-workflow.md`](docs/use/grader-workflow.md).
 - `--sandbox` — опциональная ОС-уровневая изоляция исполнения (issue
   **#266**): bubblewrap/`sandbox-exec`/Job Objects. Гарантии по ОС —
   [`SECURITY.md`](SECURITY.md).
 - Async job-модель для веб-бенчмарка (issue **#262**): `POST /api/v1/runs` +
-  прогресс/отмена. Полный справочник HTTP API — [`docs/api.md`](docs/api.md).
+  прогресс/отмена. Полный справочник HTTP API — [`docs/dev/api.md`](docs/dev/api.md).
 - Диагностическое логирование сети/OAuth (эпик **#146**, #341): opt-in
   `core/diag_log.py` с редакцией секретов, подключён в
-  `stepik_client`/`oauth_flow`/`downloader` — [`docs/logging.md`](docs/logging.md).
+  `stepik_client`/`oauth_flow`/`downloader` — [`docs/dev/logging.md`](docs/dev/logging.md).
 - Гигиена по аудиту 2026-07 (эпик **#343**, v1.8.0): багфиксы (#350–#352),
   дрейф доков (#353), консолидация «двойников» — единый i18n-каталог (#355) и
   единый RE-резолвер глоссария `core/error_glossary.py` (#356), мелкая гигиена
@@ -85,15 +85,15 @@
   **#73**, breaking).
 - Локальная статистика запусков `--stats`/`--stats-summary` (issue **#268**).
 - Режимы 1–4, non-interactive CLI, `--output json/csv/markdown`, `--watch`,
-  i18n (ru/en) — [`docs/grader-workflow.md`](docs/grader-workflow.md).
+  i18n (ru/en) — [`docs/use/grader-workflow.md`](docs/use/grader-workflow.md).
 - Три формата тест-кейсов и конфигурация `[tool.stepik-grader]` —
-  [`docs/configuration.md`](docs/configuration.md).
+  [`docs/use/configuration.md`](docs/use/configuration.md).
 - Кэш результатов `.grader_cache/` (`core/cache.py`, issue #56) и
   pytest-плагин (`pytest_plugin.py`, issue #57).
 - Runtime-зависимости: 3 (requests, psutil, rich) —
-  [`docs/installation.md`](docs/installation.md).
+  [`docs/use/installation.md`](docs/use/installation.md).
 - Локальный глоссарий против stdlib (issue #126, эпик #123) —
-  [`docs/glossary.md`](docs/glossary.md).
+  [`docs/dev/glossary.md`](docs/dev/glossary.md).
 - Живые README-бейджи `Coverage (ubuntu)`/`Coverage (all OS)`/`Version`
   (`scripts/generate_*_badge.py`, CI коммитит `.github/badges/*.json` после
   каждого прогона на push в main).
@@ -112,9 +112,9 @@
 Единственный долгоживущий указатель — **#59** (roadmap): серверный
 Docker-sandbox с квотами, другие платформы помимо Stepik, серверное
 профилирование. Серверный трек спроектирован, но не построен: дизайн лежит в
-[`docs/server-mode.md`](docs/server-mode.md),
-[`docs/server-data-model.md`](docs/server-data-model.md),
-[`docs/server-sandbox-design.md`](docs/server-sandbox-design.md) +
+[`docs/dev/design/server-mode.md`](docs/dev/design/server-mode.md),
+[`docs/dev/design/server-data-model.md`](docs/dev/design/server-data-model.md),
+[`docs/dev/design/server-sandbox-design.md`](docs/dev/design/server-sandbox-design.md) +
 ADR-0001/0008/0009 — читать как контракты, не переоткрывать дизайн.
 
-Архив постановок для прошлых сессий Claude — [`docs/claude-handoff.md`](docs/claude-handoff.md).
+Архив постановок для прошлых сессий Claude — [`docs/agent/claude-handoff.md`](docs/agent/claude-handoff.md).

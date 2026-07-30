@@ -5,7 +5,7 @@
 submit (#429) и кламп числовых query/body-параметров (#259/#262/#641).
 ``_ApiRoutesMixin`` наследует ``_GuardMixin`` (периметр безопасности) и
 наследуется ``server._Handler``'ом, который держит только do_GET/do_POST и
-статику. HTTP-контракт — docs/api.md (контракт-тест api.md↔роуты).
+статику. HTTP-контракт — docs/dev/api.md (контракт-тест api.md↔роуты).
 """
 
 from __future__ import annotations
@@ -121,7 +121,7 @@ class _ApiRoutesMixin(_GuardMixin):
     # вместо растущих if/elif в do_GET/do_POST. Точные пути ищутся в dict (O(1)),
     # затем префиксы по порядку (первое совпадение), суффикс опционален (POST
     # /cancel). Один диспетчер `_dispatch` на оба метода; HTTP-контракт не
-    # меняется (docs/api.md). Новый эндпоинт = запись в таблице + метод-хендлер.
+    # меняется (docs/dev/api.md). Новый эндпоинт = запись в таблице + метод-хендлер.
     _API_GET_EXACT = {
         "/api/grade": "_get_grade",
         "/api/glossary": "_get_glossary",
@@ -207,7 +207,7 @@ class _ApiRoutesMixin(_GuardMixin):
         # без отмены. POST /api/v1/runs + polling — асинхронная замена (см.
         # web/runs.py). Оставлен как тонкая sync-обёртка для обратной
         # совместимости и для режимов 1/2 (обычные тесты), вне scope #262 —
-        # поведение не меняется, TODO(#267) docs/api.md.
+        # поведение не меняется, TODO(#267) docs/dev/api.md.
         qs = parse_qs(parsed.query)
         path = (qs.get("path") or [""])[0].strip()
         mode = (qs.get("mode") or ["tests"])[0]

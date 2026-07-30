@@ -110,6 +110,8 @@
 - function-mode: маршрутизация выбирается по тому, печатает ли тест-блок результат сам, а не по «похоже ли на Python-код» — legacy-тесты (`a = 5` и голые значения) больше не дают ложные WA/RE; при несовпадении имён параметров аргументы связываются позиционно (#622)
 
 ### Internal
+- Docs: `docs/` разложена по читателю на четыре направления — `use/` (как пользоваться: установка, режимы, флаги, веб, конфигурация), `dev/` (как устроено: архитектура, контракты, API, 11 ADR + `dev/design/` для спроектированного без кода), `agent/` (роли и очередь работ Claude), `archive/` (история). В корне `docs/` остался только `README.md`-развилка на четыре двери вместо 23 файлов вперемешку, у каждого направления свой индекс; пять копий карты документации схлопнуты в одну — README и CONTRIBUTING ссылаются на направления, а не перечисляют файлы
+- Docs: `check_docs_guardrails.py` получил четвёртую защиту `check_docs_directions` — новый `.md` в корне `docs/` или отсутствие индекса направления валят CI. Прежде гейт стерёг полноту только одного из пяти индексов, поэтому копии в CONTRIBUTING и README тихо отставали (в CONTRIBUTING знал 9 из 24 файлов)
 - Docs: историческое собрано в `docs/archive/` — туда переехали `history.md`, `changelog-archive.md` и 336-строчная простыня прошлых постановок (`claude-handoff-2026-07-15.md`); в активной `docs/` остаётся только «как это работает сейчас». Индекс потерял три архивные строки, `docs/archive/README.md` получил раздел «История проекта»
 - Docs: `claude-handoff.md` переписан как живая очередь работ вместо журнала — назначение, правила заполнения после аудита, правило «волна разобрана → запись удаляется, а не помечается ✅», текущее состояние «пусто». Порядок обращения за работой (`gh issue list` → очередь → CHANGELOG) и правила ведения сведены в `CLAUDE.md` § Открытая работа, откуда убран перечень закрытых issue
 - Docs: убраны расхождения, найденные аудитом документации — числа тестов/покрытия/карточек больше не хардкодятся в тексте (README, `versions.md`, `CHECKPOINT.md`, `CLAUDE.md` § Метрики ссылаются на живые бейджи; прежде «1700+» в `versions.md` спорило с «2100+» в README), `CHECKPOINT.md` перестал числить открытыми закрытые #151/#97, из `claude-handoff.md` убран устаревший список «открыто 8 issue» (семь из них закрыты), снятая палитра `Ctrl+K` (#658) вычищена из handoff и docstring `web/commands.py`, «режимы 0-7» → «пункты 0-8» по факту меню (`CLAUDE.md`, `architecture.md`, `project-structure.md`), в CONTRIBUTING убрано «`scripts/version.py` (если присутствует)» и `v1.8.0` → «до текущего»
@@ -586,7 +588,7 @@
   non-finite floats and huge ints degraded to keep the JSON valid). Wired as a
   new async job `mode="trace"` on `POST /api/v1/runs` (`{code, stdin}`, no
   `path`); execution is bounded by `max_steps` (1000) + timeout. Format is
-  documented in [`docs/trace-format.md`](docs/trace-format.md). The step-player
+  documented in [`docs/dev/trace-format.md`](docs/dev/trace-format.md). The step-player
   UI consuming it lands in #319. No OS sandbox (CLAUDE.md invariant 4).
 - Sandbox / playground section in the web UI (issue #317, epic #314): a
   fourth nav section that runs arbitrary code with arbitrary stdin and shows
@@ -1457,4 +1459,4 @@
 ---
 
 Более ранние релизы (**1.1.0 – 1.6.0**) и до-версионные записи вынесены в
-[docs/changelog-archive.md](docs/archive/changelog-archive.md) (issue #373).
+[docs/archive/changelog-archive.md](docs/archive/changelog-archive.md) (issue #373).

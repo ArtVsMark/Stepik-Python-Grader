@@ -151,7 +151,7 @@ def download_task(
 ) -> dict[str, Any]:
     """Скачать задачу+тесты со Stepik по URL шага — режим #186 (раздел «Загрузчик задач»).
 
-    Возвращает ``DownloadedTask`` (docs/web-current.md): ``{"ok", "path", "files",
+    Возвращает ``DownloadedTask`` (docs/dev/web-current.md): ``{"ok", "path", "files",
     "tests": {"count","source","format"}, "message"}``. ``ok=False`` — ошибка
     (нет secrets/OAuth/сеть/битый URL); ``ok=True`` с пустым ``tests`` и
     предупреждением в ``message`` — тесты не найдены (не ошибка, файлы задачи
@@ -172,7 +172,7 @@ def download_task(
             "ok": False,
             "message": (
                 f"Не найден или некорректен secrets.json ({exc}). "
-                "См. docs/installation.md § Работа с API Stepik (OAuth)."
+                "См. docs/use/installation.md § Работа с API Stepik (OAuth)."
             ),
         }
 
@@ -184,7 +184,7 @@ def download_task(
                 "Нужна авторизация Stepik: токен недействителен, и обновить его "
                 "не удалось без браузера. Выполните `python -m stepik_grader.downloader` "
                 "в терминале один раз для входа через браузер, затем повторите здесь. "
-                "См. docs/installation.md § Работа с API Stepik (OAuth)."
+                "См. docs/use/installation.md § Работа с API Stepik (OAuth)."
             ),
         }
 

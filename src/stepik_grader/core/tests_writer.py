@@ -7,7 +7,7 @@
 ZIP/GitHub. Сеть и извлечение остаются в ``downloader.py``; сюда приходят уже
 готовые данные (``str``), поэтому запись тестируется без моков сети.
 
-Форматы (см. docs/configuration.md § Формат тест-кейсов):
+Форматы (см. docs/use/configuration.md § Формат тест-кейсов):
   * Format 1 (Legacy) — ``save_tests``: по файлу на кейс — ``N``/``N.clue``
     (+ ``N.type`` для function-mode).
   * Format 3 (python-generation) — ``write_testblock_tests``: единые
