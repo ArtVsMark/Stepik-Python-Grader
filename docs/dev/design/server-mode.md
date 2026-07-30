@@ -82,7 +82,7 @@ grader_core.run_single_test(...)  →  Runner.run(spec) -> RunOutcome
 > аутентификации/multi-tenancy/очереди. Полная таблица гарантий по ОС
 > (асимметрия — не баг) и явные пробелы (нет сетевой изоляции на Windows,
 > нет строгой ФС-изоляции на Windows, nsjail-fallback на Linux не
-> реализован) — [SECURITY.md § `--sandbox`](../../../SECURITY.md#--sandbox--sandboxrunner-mvp-issue-266).
+> реализован) — [SECURITY.md § `--sandbox`](../../../SECURITY.md#--sandbox--sandboxrunner-mvp).
 
 **Границы `SandboxRunner` (что он гарантирует, а что нет):**
 
@@ -253,7 +253,7 @@ OS-контейнер (namespaces + cgroups v2 + seccomp), [ADR-0008](../adr/000
 |---|---|---|---|
 | **0 — сейчас** | Локальный CLI + `--serve` (`127.0.0.1`) | нет (доверенный код) | локальный пользователь |
 | **1 — Runner-абстракция** | `Runner`/`LocalRunner` выделены из `grader_core` (issue #136/#137/#138) — **готово**, без смены поведения | как в фазе 0 | локальный пользователь |
-| **2 — SandboxRunner** | Реализовать sandbox-backend по требованиям #157; включаем локально «на себе» | ОС-уровень | **готово как локальный MVP** (issue #266, `--sandbox`) — асимметрия гарантий по ОС, см. [SECURITY.md](../../../SECURITY.md#--sandbox--sandboxrunner-mvp-issue-266) |
+| **2 — SandboxRunner** | Реализовать sandbox-backend по требованиям #157; включаем локально «на себе» | ОС-уровень | **готово как локальный MVP** (issue #266, `--sandbox`) — асимметрия гарантий по ОС, см. [SECURITY.md](../../../SECURITY.md#--sandbox--sandboxrunner-mvp) |
 | **3 — API** | HTTP API `/api/v1/runs` (issue #156) поверх `SandboxRunner`, очередь, квоты | ОС-уровень | доверенные клиенты |
 | **4 — Server mode** | Публичный/командный сервер онлайн-проверки | ОС-уровень + сетевые квоты | много клиентов |
 

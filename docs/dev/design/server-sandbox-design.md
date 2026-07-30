@@ -11,7 +11,7 @@
 > Обязательные требования безопасности (что backend ДОЛЖЕН обеспечить) — в
 > [server-mode.md § #157](server-mode.md#sandbox-и-сетевая-изоляция-issue-157).
 > Здесь — **как** они закрываются на Linux-примитивах. Локальный `--sandbox`
-> MVP (issue #266) — в [SECURITY.md](../../../SECURITY.md#--sandbox--sandboxrunner-mvp-issue-266).
+> MVP (issue #266) — в [SECURITY.md](../../../SECURITY.md#--sandbox--sandboxrunner-mvp).
 
 ## Оглавление
 
