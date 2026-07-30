@@ -33,15 +33,19 @@ import argparse
 import ast
 import builtins
 import difflib
+import functools
+import importlib
 import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import ModuleType
 from typing import Protocol
 
 # Скрипт в scripts/ (не на sys.path пакета) — добавим src/ и сам scripts/ для
@@ -74,6 +78,7 @@ __all__ = [
     "exception_name",
     "extract_expected",
     "main",
+    "platform_gaps",
     "review_diff",
     "run_check",
     "run_propose",
@@ -93,6 +98,29 @@ _EXCEPTION_NAME_RE = re.compile(r"^(?:[A-Za-z_]\w*\.)*(?P<name>[A-Z]\w*)$")
 _EXCEPTION_SUFFIXES = ("Error", "Exception", "Warning", "Interrupt", "Exit")
 # Карточка, чьи примеры используют API, которого нет вне POSIX (issue #745).
 _POSIX_ONLY_TAG = "platform:posix"
+# Модули stdlib, чей состав различается по платформам: у примера, зовущего
+# отсутствующий здесь атрибут, вердикт говорил бы об ОС прогона, а не о карточке.
+# Список закрытый: имена из примеров импортируются для проверки через hasattr,
+# и импортировать что попало из данных карточки нельзя.
+_PLATFORM_MODULES = frozenset({"errno", "mmap", "os", "select", "signal", "socket", "stat", "time"})
+# Модули stdlib, которых вне POSIX нет вовсе (сам `import` даёт ImportError).
+_POSIX_ONLY_MODULES = frozenset(
+    {
+        "crypt",
+        "fcntl",
+        "grp",
+        "nis",
+        "ossaudiodev",
+        "posix",
+        "pty",
+        "pwd",
+        "resource",
+        "spwd",
+        "syslog",
+        "termios",
+        "tty",
+    }
+)
 
 # Секунд на прогон одного примера (dev-инструмент, снимок против зависаний).
 _DEFAULT_TIMEOUT = 10.0
@@ -382,6 +410,147 @@ def validate_examples(examples: list[str], *, timeout: float = _DEFAULT_TIMEOUT)
     return ExampleReport("ok", f"сверено {len(pairs)}", pairs)
 
 
+def _example_trees(examples: list[str]) -> list[ast.Module]:
+    """Разобрать примеры в AST: блоком целиком, а если не компилируется — построчно.
+
+    Построчный разбор нужен legacy-карточкам: многострочный блок хранится в
+    ``examples`` без отступов и как единый скрипт не компилируется (тот же случай,
+    что даёт ``unverifiable`` у ``validate_examples``). Нераспознанные строки
+    просто пропускаются — задача разбора здесь не исполнить пример, а увидеть,
+    к какому API он обращается.
+    """
+    try:
+        return [ast.parse("\n".join(examples))]
+    except SyntaxError:
+        pass
+    trees: list[ast.Module] = []
+    for line in examples:
+        try:
+            trees.append(ast.parse(line))
+        except SyntaxError:
+            continue
+    return trees
+
+
+def _added_after_runtime(version: str) -> bool:
+    """Появилось ли API позже текущего интерпретатора (``version`` вида ``3.14``).
+
+    Отделяет версионный разрыв от платформенного: на 3.12 нет ни ``os.fork``
+    (Windows), ни ``os.readinto`` (появился в 3.14), но тег ``platform:posix``
+    уместен только первому. Неразобранное или пустое поле — «доступно»: молча
+    считать API будущим опаснее, чем проверить его лишний раз.
+    """
+    parts = version.strip().split(".")[:2]
+    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+        return False
+    return (int(parts[0]), int(parts[1])) > sys.version_info[:2]
+
+
+@functools.cache
+def _platform_module(name: str) -> ModuleType | None:
+    """Импортировать системный модуль из ``_PLATFORM_MODULES`` (или ``None``)."""
+    if name not in _PLATFORM_MODULES:
+        return None
+    try:
+        return importlib.import_module(name)
+    except ImportError:
+        return None
+
+
+def _guarded_attrs(tree: ast.Module) -> set[str]:
+    """Имена, укрытые в ``hasattr(mod, 'x')`` / ``getattr(mod, 'x', …)``.
+
+    Так написан OS-робастный пример батчей В5: ``not hasattr(os, 'fork') or
+    callable(os.fork)`` печатает ``True`` на любой ОС. Упоминание имени там —
+    не обращение к нему, и тега такой карточке не требуется.
+    """
+    guarded: set[str] = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in ("hasattr", "getattr")
+            and len(node.args) >= 2
+            and isinstance(node.args[0], ast.Name)
+            and isinstance(node.args[1], ast.Constant)
+            and isinstance(node.args[1].value, str)
+        ):
+            guarded.add(f"{node.args[0].id}.{node.args[1].value}")
+    return guarded
+
+
+def platform_gaps(examples: list[str], *, known_api: Mapping[str, str] | None = None) -> set[str]:
+    """К какому недоступному на **этой** платформе API обращаются примеры.
+
+    Возвращает имена вида ``os.fork`` (атрибут системного модуля, которого здесь
+    нет) и ``import pwd`` (модуль, которого вне POSIX нет вовсе). Пустое
+    множество — примеры переносимы, тег ``platform:posix`` карточке не нужен.
+
+    Признак машинный, а не вычитанный из русского текста ожидания: имя ищется
+    разбором кода примера (AST) и сверяется с фактическим составом модуля через
+    ``hasattr``. Поэтому вне POSIX проверка ловит пропущенный тег (`os.fork` на
+    Windows), а на POSIX остаются только заведомо непереносимые импорты
+    (`termios`) — там сами примеры и исполняются полностью.
+
+    ``known_api`` — реальное API базы: ``id`` карточки → её поле ``version``
+    («доступно с Python X.Y», пусто — всегда). Без него «отсутствует здесь»
+    неотличимо ни от «не существует нигде» (намеренная демонстрация
+    ``from os import nonexistent  # ImportError`` сошла бы за платформенную), ни
+    от «появится в следующей версии» (``os.readinto`` есть с 3.14, и на 3.12 его
+    нет на **любой** ОС — тег ``platform:posix`` там не при чём). Модули фильтру
+    не подлежат: их список закрытый.
+
+    Учитываются только модули, импортированные в этих же примерах: иначе
+    ``from datetime import time`` + ``time.fromisoformat(...)`` принимался бы за
+    обращение к модулю ``time``. Имена под ``hasattr``/``getattr`` не считаются
+    обращением (см. ``_guarded_attrs``).
+    """
+
+    def is_real(name: str) -> bool:
+        if known_api is None:
+            return True
+        version = known_api.get(name)
+        return version is not None and not _added_after_runtime(version)
+
+    gaps: set[str] = set()
+    for tree in _example_trees(examples):
+        guarded = _guarded_attrs(tree)
+        modules: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    root = alias.name.split(".")[0]
+                    modules.add(alias.asname or root)
+                    if root in _POSIX_ONLY_MODULES:
+                        gaps.add(f"import {root}")
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                root = node.module.split(".")[0]
+                if root in _POSIX_ONLY_MODULES:
+                    gaps.add(f"import {root}")
+                    continue
+                module = _platform_module(root)
+                if module is not None:
+                    gaps.update(
+                        f"{root}.{alias.name}"
+                        for alias in node.names
+                        if not hasattr(module, alias.name) and is_real(f"{root}.{alias.name}")
+                    )
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Attribute) or not isinstance(node.value, ast.Name):
+                continue
+            name = node.value.id
+            key = f"{name}.{node.attr}"
+            module = _platform_module(name) if name in modules else None
+            if (
+                module is not None
+                and key not in guarded
+                and not hasattr(module, node.attr)
+                and is_real(key)
+            ):
+                gaps.add(key)
+    return gaps
+
+
 @dataclass
 class ProposedContent:
     """Предложенный контент карточки (то, что заполнил бы человек/модель)."""
@@ -510,6 +679,11 @@ def run_check(
     Карточки с тегом ``platform:posix`` вне POSIX пропускаются (``skipped``):
     их примеры зовут API, которого на этой ОС просто нет, и вердикт говорил бы
     об операционной системе прогона, а не о качестве карточки (#745).
+
+    Обратный случай — примеры зовут недоступное здесь API, а тега нет — попадает
+    в отчёт строкой ``[нет тега]``: без неё такая карточка выглядела бы обычным
+    ``mismatch``, и правкой ожидания «под текущую ОС» её ломали бы на остальных
+    (#762).
     """
     provider = JsonGlossaryProvider.from_directory(base_dir)
     cards = sorted(
@@ -535,6 +709,15 @@ def run_check(
     )
     for card_id, report in flagged:
         print(f"  [{report.status}] {card_id}: {report.detail}")
+    known_api = {c.id: c.version for c in provider.all()}
+    for card in runnable:
+        # На POSIX в runnable попадают и помеченные карточки — им подсказка не нужна.
+        if _POSIX_ONLY_TAG in card.tags:
+            continue
+        gaps = platform_gaps(card.examples, known_api=known_api)
+        if gaps:
+            names = ", ".join(sorted(gaps))
+            print(f"  [нет тега] {card.id}: зовёт недоступное здесь ({names}) — {_POSIX_ONLY_TAG}?")
     return counts["mismatch"] + counts["error"]
 
 
