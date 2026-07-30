@@ -159,7 +159,7 @@ master-трекер аудита.
 > **#163 (`--version`: различать dev и release, эпик #161) — закрыт.**
 > `cli._format_version_for_display()`/`cli._is_dev_build()` помечают off-tag
 > сборки явным `(dev build, not a release)`; on-tag остаётся чистым `X.Y.0`.
-> Политика — [CONTRIBUTING.md § Версионирование](../../CONTRIBUTING.md#версионирование-issue-68).
+> Политика — [CONTRIBUTING.md § Версионирование](../dev/versioning.md).
 
 ---
 

@@ -360,7 +360,7 @@
   «текущей версии» в `CHECKPOINT.md`/`CHANGELOG.md`/`CLAUDE.md`.
 
 Действующая политика версионирования — в
-[`../CONTRIBUTING.md` § Версионирование](../../CONTRIBUTING.md#версионирование-issue-68).
+[`../CONTRIBUTING.md` § Версионирование](../dev/versioning.md).
 
 ---
 

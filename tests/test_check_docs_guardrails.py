@@ -224,7 +224,7 @@ def test_changelog_version_budget_on_current_repo() -> None:
 def _make_directions(root: Path) -> Path:
     """Собрать минимальный docs/ с четырьмя направлениями и их индексами."""
     docs = root / "docs"
-    for direction in ("use", "dev", "agent", "archive"):
+    for direction in ("use", "dev", "agent", "audit", "archive"):
         (docs / direction).mkdir(parents=True)
         (docs / direction / "README.md").write_text(f"# {direction}\n", encoding="utf-8")
     (docs / "README.md").write_text(
