@@ -130,7 +130,7 @@ class _Handler(_ApiRoutesMixin):
     """HTTP-хендлер `--serve`: GET/POST на `/api/*` + статика.
 
     Полный справочник эндпоинтов, параметров, лимитов и кодов ответов — см.
-    [docs/api.md](../../../docs/api.md) (issue #267); эта докстрока не
+    [docs/dev/api.md](../../../docs/dev/api.md) (issue #267); эта докстрока не
     дублирует его.
 
     Пути (issue #261): все пути из запросов (``/api/grade``, ``/api/source``,

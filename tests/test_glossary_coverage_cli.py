@@ -17,7 +17,7 @@ from stepik_grader.glossary.coverage import build_coverage_report, format_report
 from stepik_grader.glossary.stdlib_inventory import build_stdlib_inventory
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
-SAMPLE_FIXTURE = REPO_ROOT / "docs" / "examples" / "glossary.sample.json"
+SAMPLE_FIXTURE = REPO_ROOT / "docs" / "dev" / "examples" / "glossary.sample.json"
 
 
 def test_format_report_summary_lists_all_categories_and_total() -> None:

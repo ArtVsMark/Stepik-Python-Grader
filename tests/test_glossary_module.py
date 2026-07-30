@@ -31,7 +31,7 @@ from stepik_grader.glossary import (
 )
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
-SAMPLE_FIXTURE = REPO_ROOT / "docs" / "examples" / "glossary.sample.json"
+SAMPLE_FIXTURE = REPO_ROOT / "docs" / "dev" / "examples" / "glossary.sample.json"
 
 
 # ---------------------------------------------------------------------------

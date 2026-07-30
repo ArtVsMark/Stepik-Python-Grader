@@ -1,7 +1,7 @@
 # Stepik Python Grader — English quick start
 
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](docs/glossary.md)
+[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](docs/dev/glossary.md)
 
 > A local grader for the «Поколение Python» Stepik courses — **and for any
 > directory of test cases**. Русская версия: [README.md](README.md).
@@ -26,7 +26,7 @@ pipx install stepik-python-grader
 ```
 
 Full install (from source, virtualenv, Windows notes, Stepik OAuth setup) —
-[docs/installation.md](docs/installation.md).
+[docs/use/installation.md](docs/use/installation.md).
 
 ---
 
@@ -62,8 +62,8 @@ Grade a plain "add 1 to a number" solution against your own tests.
 
 You get a per-case verdict (AC / WA / TLE / RE) with a diff on mismatch. Modes,
 CLI flags and task downloading are covered in
-[docs/grader-workflow.md](docs/grader-workflow.md) (see the step-by-step
-[first example](docs/grader-workflow.md#первый-пример-за-2-минуты)).
+[docs/use/grader-workflow.md](docs/use/grader-workflow.md) (see the step-by-step
+[first example](docs/use/grader-workflow.md#первый-пример-за-2-минуты)).
 
 `stepik-grader-gui` is the lowest-barrier entry point: a small window where you
 pick plain or isolated (`--sandbox`) startup, the port and the working folder,
@@ -87,7 +87,7 @@ tasks:
 
 Point `--mode 1` at a file or `--mode 2` at a folder of solutions; each solution
 resolves its own `tests/`. Full reference —
-[docs/configuration.md § Test-case formats](docs/configuration.md#формат-тест-кейсов).
+[docs/configuration.md § Test-case formats](docs/use/configuration.md#формат-тест-кейсов).
 
 ---
 
@@ -130,7 +130,7 @@ Some parts of the grader live **only** here — there are no CLI flags for them:
 | Local run history (SQLite) + stats — offline | ❌ | ✅ |
 | Engineering base — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) on 3 OSes, 2100+ tests | ❌ | ✅ |
 
-Per-release evolution — [docs/versions.md](docs/versions.md).
+Per-release evolution — [docs/use/versions.md](docs/use/versions.md).
 
 ---
 

@@ -5,7 +5,7 @@
 [![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/version.json&cacheSeconds=300)](CHANGELOG.md)
 [![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 [![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
-[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](docs/glossary.md)
+[![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](docs/dev/glossary.md)
 ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14%20%28exp%29-blue)
 
 > **Status:** Stable &nbsp;·&nbsp; 🇬🇧 [English quick start & generic mode](README.en.md)
@@ -36,7 +36,7 @@
 - 📚 **Офлайн-глоссарий Python** с deep-link прямо из ошибок исполнения.
 - 🔒 **Свой код не покидает машину** (кроме явного скачивания задачи со Stepik и opt-in AI-подсказок с отдельным согласием).
 
-Детальное сравнение с проектом-первоисточником — в [docs/versions.md](docs/versions.md#что-изменилось-по-сравнению-с-оригиналом).
+Детальное сравнение с проектом-первоисточником — в [docs/use/versions.md](docs/use/versions.md#что-изменилось-по-сравнению-с-оригиналом).
 
 ---
 
@@ -74,9 +74,9 @@
 > редактор решения с сохранением; кнопка «Отправить в Stepik» в режиме 1
 > (issue #683); интерактивные разделы «Глоссарий», «Правила (PEP)», «Подучить»
 > и «Прогресс» — в терминале от них есть только сводки `--insights`/`--lint` и
-> экспорт `--export-progress`. Обзор разделов — [docs/web-current.md](docs/web-current.md).
+> экспорт `--export-progress`. Обзор разделов — [docs/dev/web-current.md](docs/dev/web-current.md).
 
-Разбор по модулям и слоям — в [docs/architecture.md](docs/architecture.md).
+Разбор по модулям и слоям — в [docs/dev/architecture.md](docs/dev/architecture.md).
 
 ### Как это выглядит (`--serve`)
 
@@ -125,34 +125,31 @@ stepik-grader --mode 1 --file task.py
 ```
 
 Полная установка (из исходников, venv, Windows-заметки, настройка OAuth) — в
-[docs/installation.md](docs/installation.md). Пошаговый первый пример, режимы
+[docs/use/installation.md](docs/use/installation.md). Пошаговый первый пример, режимы
 1–4, CLI-флаги, скачивание задач и форматы тестов — в
-[docs/grader-workflow.md](docs/grader-workflow.md).
+[docs/use/grader-workflow.md](docs/use/grader-workflow.md).
 
 ---
 
 ## Документация
 
-Полная база знаний — в [`docs/`](docs/README.md):
+База знаний — в [`docs/`](docs/README.md), разложена по четырём направлениям:
 
-| Тема | Документ |
-|---|---|
-| Установка, OAuth, secrets.json, диагностика | [docs/installation.md](docs/installation.md) |
-| Режимы работы, CLI-флаги, web/IDE, скачивание задачи | [docs/grader-workflow.md](docs/grader-workflow.md) |
-| WEB MVP (проверка решений + Downloader + Глоссарий-модуль, микро-бенчмарк, error/action cards) | [docs/web-current.md](docs/web-current.md) |
-| Справочник HTTP API (эндпоинты, параметры, лимиты, коды ответов, curl) | [docs/api.md](docs/api.md) |
-| Справочник: конфигурация, форматы тест-кейсов, ограничения и безопасность | [docs/configuration.md](docs/configuration.md) |
-| Архитектура: модули, слои, граф зависимостей | [docs/architecture.md](docs/architecture.md) |
-| Контракт результата проверки (CLI/Web/API), дизайн server mode, ADR | [docs/result-contract.md](docs/result-contract.md), [docs/server-mode.md](docs/server-mode.md), [docs/adr/README.md](docs/adr/README.md) |
-| Локальный глоссарий: формат, API, источник истины контента | [docs/glossary.md](docs/glossary.md) |
-| Структура проекта (дерево файлов) | [docs/project-structure.md](docs/project-structure.md) |
-| Версии и сравнение с оригиналом | [docs/versions.md](docs/versions.md) |
-| Полный список изменений | [CHANGELOG.md](CHANGELOG.md) |
-| Как внести вклад, код-стайл, версионирование | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Инварианты ядра и правила для агентов | [CLAUDE.md](CLAUDE.md) |
+| Направление | Для кого | Что внутри |
+|---|---|---|
+| [**docs/use/**](docs/use/README.md) | пользователь | установка и OAuth, режимы 1–4 и CLI-флаги, веб-интерфейс, конфигурация, форматы тест-кейсов, отличия от первоисточника |
+| [**docs/dev/**](docs/dev/README.md) | контрибьютор | архитектура и дерево модулей, HTTP API, контракты данных, 11 ADR, дизайн незапущенного server mode |
+| [**docs/agent/**](docs/agent/README.md) | Claude Code | шаблон ролей, очередь работ после крупного аудита |
+| [**docs/archive/**](docs/archive/README.md) | по необходимости | история разработки, архив CHANGELOG, разовые аудиты |
 
-> Правило против дублей: каждая тема канонически живёт в одном файле, остальные
-> ссылаются — см. [docs/README.md § Канонические источники](docs/README.md#канонические-источники-правило-против-дублей).
+Рядом с кодом: [CHANGELOG.md](CHANGELOG.md) — что изменилось в релизах,
+[CONTRIBUTING.md](CONTRIBUTING.md) — как внести вклад,
+[CLAUDE.md](CLAUDE.md) — инварианты ядра для агентов.
+
+> Два правила этой документации: **одна тема — один файл** (остальные
+> ссылаются, а не копируют) и **в активном документе нет журнала работ** (что
+> сделано — в CHANGELOG, что предстоит — в Issues). Подробнее —
+> [docs/README.md](docs/README.md).
 
 ---
 
@@ -166,15 +163,15 @@ stepik-grader --mode 1 --file task.py
 `--sandbox` запускай только доверенные решения (свои или скачанные из Stepik
 as-is).
 Подробная threat model — в
-[docs/configuration.md § Ограничения и безопасность](docs/configuration.md#ограничения-и-безопасность).
+[docs/configuration.md § Ограничения и безопасность](docs/use/configuration.md#ограничения-и-безопасность).
 Как сообщить об уязвимости — [SECURITY.md](SECURITY.md).
 
 ---
 
 ## Прозрачность и доверие
 
-- ✅ **2100+ автотестов** (pytest), CI-матрица на 3 ОС × Python 3.12/3.13 (+3.14
-  экспериментально) — живые бейджи покрытия single-OS и cross-OS в шапке.
+- ✅ **Автотесты на каждый PR** (pytest), CI-матрица на 3 ОС × Python 3.12/3.13
+  (+3.14 экспериментально) — живые бейджи покрытия single-OS и cross-OS в шапке.
 - 🧠 **Строгий mypy** (`disallow_untyped_defs`, `warn_return_any`, …) + `ruff`
   (lint + format) в pre-commit и CI — типы и стиль проверяются на каждый PR.
 - 🔐 **Приватный репорт уязвимостей** (GitHub Private Vulnerability Reporting) +

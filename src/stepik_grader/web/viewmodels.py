@@ -118,7 +118,7 @@ def _resolve_group_test_dir(folder_path: pathlib.Path) -> pathlib.Path:
 
     Дубликат ветки ``is_dir=True`` из ``cli.__init__._resolve_test_dir_from_input``,
     не импортируется из ``cli``: ``web``/``cli`` — независимые адаптеры над
-    ``core`` (см. docs/architecture.md), импорт создал бы нежелательное ребро
+    ``core`` (см. docs/dev/architecture.md), импорт создал бы нежелательное ребро
     DAG ``web → cli``. Логика (`<dir>/tests/` → Format-3 `input.txt`+`output.txt`
     → сама папка как fallback) достаточно проста, чтобы держать копию.
     """
@@ -184,7 +184,7 @@ def _error_card_actions(
     """MVP-набор action cards для кейса (issue #125) — только 5 реализованных id.
 
     Никогда не возвращает ``create_test``/``compare_solutions`` — они вне
-    скоупа #125 (design-only, см. docs/web-design.md § Action cards, отложенные).
+    скоупа #125 (design-only, см. docs/dev/design/web-design.md § Action cards, отложенные).
     """
     actions = ["run_again"]
     if stdin:

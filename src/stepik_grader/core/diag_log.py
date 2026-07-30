@@ -3,7 +3,7 @@
 Архитектурный слой: Utilities (leaf — только stdlib: ``logging``/``os``/``re``/
 ``pathlib``, без project-импортов и без внешних зависимостей).
 
-Реализует дизайн-контракт [docs/logging.md](../../../docs/logging.md) (issue
+Реализует дизайн-контракт [docs/dev/logging.md](../../../docs/dev/logging.md) (issue
 #150): по умолчанию **тихо**, включается явным opt-in (флаг CLI или переменная
 окружения ``STEPIK_GRADER_LOG``), пишет человекочитаемый лог в
 ``stepik_diagnostics/grader.log`` и **обязательно редактирует секреты**

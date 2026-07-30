@@ -52,7 +52,7 @@ def import_reference(
             "ok": False,
             "message": (
                 f"Не найден или некорректен secrets.json ({exc}). "
-                "См. docs/installation.md § Работа с API Stepik (OAuth)."
+                "См. docs/use/installation.md § Работа с API Stepik (OAuth)."
             ),
         }
 

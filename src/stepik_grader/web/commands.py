@@ -1,9 +1,9 @@
-"""commands.py — единый реестр команд (issue #125, web-current.md § Command palette).
+"""commands.py — единый реестр команд (docs/dev/web-current.md § Реестр команд).
 
-Один и тот же список ``COMMANDS`` питает три поверхности фронтенда: command
-palette (Ctrl+K), action cards в detail panel и сценарные кнопки в result
-panel — так «какую кнопку когда показывать» решается в одном месте, а не
-дублируется по трём местам.
+Список ``COMMANDS`` питает action cards в detail panel: «какую кнопку когда
+показывать» решается в одном месте, а не дублируется по фронтенду. Исторически
+тот же список питал ещё палитру ``Ctrl+K`` и нижние сценарные кнопки — оба
+интерфейса сняты (#658 и #368 соответственно), реестр остался.
 
 Упрощение относительно дизайн-документа (сознательное, issue #125): вместо
 свободного predicate-строки (``"case.glossary_ids != []"``) — фиксированный
@@ -19,7 +19,7 @@ from typing import Any
 __all__ = ["COMMANDS", "filter_commands"]
 
 # MVP-набор — ровно то, что реализовано в #125. Никогда не добавлять сюда
-# create_test/compare_solutions — они design-only (docs/web-design.md § Action
+# create_test/compare_solutions — они design-only (docs/dev/design/web-design.md § Action
 # cards, отложенные), реализация вне скоупа этого issue.
 COMMANDS: list[dict[str, Any]] = [
     {
