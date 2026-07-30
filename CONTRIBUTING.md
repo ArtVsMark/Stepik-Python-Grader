@@ -132,7 +132,7 @@
 | `docs/dev/adr/` | уместен в «Контексте» | ADR отвечает «почему решили так» — задача часть ответа |
 | `docs/dev/design/` | только как **требование** | номер-идентификатор согласованного контракта или пронумерованного набора требований, на который ссылаются другие документы и код |
 | `CLAUDE.md`, `docs/agent/` | минимум | указатели вроде roadmap-issue |
-| **`docs/use/`, `docs/dev/*.md`, README, SECURITY, CONTRIBUTING, CHECKPOINT** | **нет** | отвечают «как работает сейчас»; когда и в каком эпике появилось — не нужно |
+| **`docs/use/`, `docs/dev/*.md`, README, SECURITY, CONTRIBUTING** | **нет** | отвечают «как работает сейчас»; когда и в каком эпике появилось — не нужно |
 
 Правило машинное: `check_issue_tail_policy` в
 [`scripts/check_docs_guardrails.py`](scripts/check_docs_guardrails.py) держит

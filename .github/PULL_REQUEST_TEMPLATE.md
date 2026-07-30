@@ -26,7 +26,7 @@ Closes #
       `from __future__ import annotations`
 - [ ] Версия не правится вручную (динамическая, `setuptools-scm`)
 - [ ] CHANGELOG.md: запись под `## [Unreleased]` добавлена — в КАЖДОМ PR, без исключений для рефакторингов
-- [ ] CHECKPOINT.md / docs/archive/history.md — НЕ на каждый PR, только при релизе
+- [ ] docs/archive/history.md — НЕ на каждый PR, только при релизе
 - [ ] Нет секретов в диффе (`secrets.json`, токены, `stepik_config.json`)
 
 ## Как проверял

@@ -31,7 +31,7 @@
    приложения к сводному аудиту, ADR-набор до появления adr/README.md).
 5. **Issue-tail policy.** Объясняющий документ отвечает «как это работает
    сейчас», поэтому ссылок на задачи в нём быть не должно: ``docs/use/``,
-   ``docs/dev/*.md``, README, SECURITY, CONTRIBUTING и CHECKPOINT держат ноль.
+   ``docs/dev/*.md``, README, SECURITY и CONTRIBUTING держат ноль.
    Логи (``CHANGELOG.md``, ``docs/archive/``), находки (``docs/audit/``) и ADR
    не проверяются вовсе — там номер уместен. ``docs/dev/design/`` и агентские
    документы живут по бюджету: номер там работает как идентификатор
@@ -318,7 +318,7 @@ def check_issue_tail_policy(errors: list[str]) -> None:
       ``_AGENT_TAIL_BUDGET`` оставляет место указателям вроде roadmap-issue.
 
     Всё остальное (``docs/use/``, ``docs/dev/*.md``, ``README``, ``SECURITY``,
-    ``CONTRIBUTING``, ``CHECKPOINT``) должно держать ноль.
+    ``CONTRIBUTING``) должно держать ноль.
     """
     free_zones = ("CHANGELOG.md", "docs/archive/", "docs/audit/", "docs/dev/adr/")
     budgeted = {
