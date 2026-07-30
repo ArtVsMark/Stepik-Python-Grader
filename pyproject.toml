@@ -16,11 +16,54 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
+# Провенанс: без authors/urls связь «дистрибутив ↔ репозиторий» не выражена в
+# метаданных вовсе, и страница пакета на PyPI не даёт установившему через
+# `pipx install stepik-python-grader` ни одной двери в проект.
+authors = [
+    { name = "Artem Markitanov", email = "av.markitanov@gmail.com" },
+]
+# Классификаторы — по фактическому состоянию проекта, не по намерению: 3.12/3.13
+# = матрица CI (3.14 там ещё experimental: continue-on-error, поэтому наружу как
+# поддержанная не объявляется), Console+Web Environment = CLI и `--serve`,
+# Framework :: Pytest = entry point pytest11 ниже, Typing :: Typed = py.typed
+# (PEP 561), Natural Language = двуязычные локали RU/EN.
+# Классификатора `License :: OSI Approved :: MIT License` здесь НЕТ намеренно:
+# лицензия объявлена SPDX-выражением (PEP 639, `license = "MIT"` выше), а
+# setuptools>=77 на сочетание того и другого падает с InvalidConfigError
+# («License classifiers have been superseded by license expressions»). В METADATA
+# лицензия и так есть — полем `License-Expression: MIT`.
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Framework :: Pytest",
+    "Intended Audience :: Education",
+    "Natural Language :: English",
+    "Natural Language :: Russian",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Education",
+    "Topic :: Education :: Testing",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 dependencies = [
     "requests>=2.34.2,<3.0",
     "psutil>=5.9,<8.0",
     "rich>=13.0,<16.0",
 ]
+
+# Ссылки боковой панели страницы пакета на PyPI. Ключи именно такие: PyPI знает
+# набор известных имён (Homepage/Repository/Changelog/Issues и синонимы) и вешает
+# на них иконки — произвольная подпись отрисуется безымянной строкой.
+[project.urls]
+Homepage = "https://github.com/ArtVsMark/Stepik-Python-Grader"
+Repository = "https://github.com/ArtVsMark/Stepik-Python-Grader"
+Changelog = "https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/CHANGELOG.md"
+Issues = "https://github.com/ArtVsMark/Stepik-Python-Grader/issues"
 
 [project.optional-dependencies]
 dev = [
