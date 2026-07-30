@@ -1,4 +1,4 @@
-"""commands.py — единый реестр команд (docs/dev/web-current.md § Реестр команд).
+"""commands.py — единый реестр команд (docs/dev/web-contracts.md § Реестр команд).
 
 Список ``COMMANDS`` питает action cards в detail panel: «какую кнопку когда
 показывать» решается в одном месте, а не дублируется по фронтенду. Исторически

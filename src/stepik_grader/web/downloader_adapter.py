@@ -151,7 +151,7 @@ def download_task(
 ) -> dict[str, Any]:
     """Скачать задачу+тесты со Stepik по URL шага — режим #186 (раздел «Загрузчик задач»).
 
-    Возвращает ``DownloadedTask`` (docs/dev/web-current.md): ``{"ok", "path", "files",
+    Возвращает ``DownloadedTask`` (docs/dev/web-contracts.md): ``{"ok", "path", "files",
     "tests": {"count","source","format"}, "message"}``. ``ok=False`` — ошибка
     (нет secrets/OAuth/сеть/битый URL); ``ok=True`` с пустым ``tests`` и
     предупреждением в ``message`` — тесты не найдены (не ошибка, файлы задачи

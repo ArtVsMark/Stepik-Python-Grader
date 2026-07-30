@@ -2,7 +2,7 @@
 
 > Foundation полноценного локального knowledge-модуля глоссария WEB MVP.
 > Продуктовый дизайн и роль относительно внешнего проекта —
-> каноничен в [web-current.md § Глоссарий как локальный knowledge-модуль](web-current.md#глоссарий-как-локальный-knowledge-модуль);
+> каноничен в [use/web-interface.md § Глоссарий](../use/web-interface.md#глоссарий-как-локальный-knowledge-модуль);
 > здесь — **формат хранения** карточек/очереди и публичный Python-API пакета
 > `stepik_grader.glossary`.
 
@@ -37,7 +37,7 @@
    офлайн, сетевого скана нет.
 
 Продуктовая роль относительно WEB MVP — каноничен
-[web-current.md § Глоссарий](web-current.md#глоссарий-как-локальный-knowledge-модуль).
+[use/web-interface.md § Глоссарий](../use/web-interface.md#глоссарий-как-локальный-knowledge-модуль).
 
 ## Формат карточки (`GlossaryCard`)
 

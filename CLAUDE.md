@@ -339,7 +339,7 @@ Claude) · [`docs/archive/`](docs/archive/README.md) (всё историчес�
 | Политика версионирования, код-стайл, workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Кодекс поведения | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) |
 | Режим ответов: полный шаблон 13 ролей | [docs/agent/roles.md](docs/agent/roles.md) |
-| WEB MVP: реализовано / замыслы / HTTP API | [docs/dev/web-current.md](docs/dev/web-current.md), [docs/dev/design/web-design.md](docs/dev/design/web-design.md), [docs/dev/api.md](docs/dev/api.md) |
+| Веб: разделы интерфейса / контракты веб-слоя / HTTP API / замыслы | [docs/use/web-interface.md](docs/use/web-interface.md), [docs/dev/web-contracts.md](docs/dev/web-contracts.md), [docs/dev/api.md](docs/dev/api.md), [docs/dev/design/web-design.md](docs/dev/design/web-design.md) |
 | Очередь работ после крупного аудита (пустая — норма) | [docs/agent/claude-handoff.md](docs/agent/claude-handoff.md) |
 | Всё историческое: история спринтов/релизов, архив CHANGELOG, разовые аудиты, отработанные постановки | [docs/archive/README.md](docs/archive/README.md) |
 | Полный аудит v1.9.0 (архив) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |

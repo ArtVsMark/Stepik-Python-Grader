@@ -74,7 +74,7 @@
 > редактор решения с сохранением; кнопка «Отправить в Stepik» в режиме 1
 > интерактивные разделы «Глоссарий», «Правила (PEP)», «Подучить»
 > и «Прогресс» — в терминале от них есть только сводки `--insights`/`--lint` и
-> экспорт `--export-progress`. Обзор разделов — [docs/dev/web-current.md](docs/dev/web-current.md).
+> экспорт `--export-progress`. Обзор разделов — [docs/use/web-interface.md](docs/use/web-interface.md).
 
 Разбор по модулям и слоям — в [docs/dev/architecture.md](docs/dev/architecture.md).
 

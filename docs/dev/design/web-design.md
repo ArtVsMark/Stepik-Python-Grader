@@ -2,7 +2,7 @@
 
 > Design-only материал.
 > Всё, что реализовано в
-> `src/stepik_grader/web/` — в [web-current.md](../web-current.md), не здесь.
+> `src/stepik_grader/web/` — в [web-contracts.md](../web-contracts.md), не здесь.
 > Этот документ — не план на следующий спринт с конкретными датами, а
 > накопительный список идей "later"/отклонённых решений, чтобы не терять
 > контекст, зачем от чего-то отказались или что осталось не сделано.
@@ -23,7 +23,7 @@
 ## Экспорт/синхронизация глоссария во внешний проект
 
 Готовые карточки (`status: ready`) из локальной базы (см.
-[web-current.md § Глоссарий](../web-current.md#глоссарий-как-локальный-knowledge-модуль))
+[use/web-interface.md § Глоссарий](../../use/web-interface.md#глоссарий-как-локальный-knowledge-модуль))
 могли бы экспортироваться/синхронизироваться в HTML-проект
 [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python)
 (bridge/exporter). После экспорта карточка помечается `exported`. Экспорт
@@ -36,7 +36,7 @@
 описанных в [api.md](../api.md) как рабочие.
 
 Adapters-слой для этого («Glossary exporter/bridge») тоже не реализован —
-см. [web-current.md § Архитектура web UI](../web-current.md#архитектура-web-ui)
+см. [web-contracts.md § Архитектура web UI](../web-contracts.md#архитектура-web-ui)
 для списка того, что реализовано вместо него.
 
 ## Deep-linking через URL-хэш
@@ -53,7 +53,7 @@ error cards, мини-карточки «Функции в коде» и раз�
 ## Action cards, отложенные
 
 Из MVP-набора (реализован целиком, см.
-[web-current.md § Action cards](../web-current.md#action-cards)) осознанно
+[web-contracts.md § Action cards](../web-contracts.md#action-cards)) осознанно
 исключены:
 
 | Действие | `id` | Контекст | Что должно делать |
@@ -70,7 +70,7 @@ Backend-функция `grade_benchmark(reference=...)`/
 эталонное решение» активна (`web/static/grade.js::findReference` →
 `POST /api/import-reference`, адаптер `web/reference_adapter.py`) и импортирует
 закреплённое + топовые решения Stepik как reference-competitor'ов для режимов
-2–4 (см. [web-current.md](../web-current.md)). Отложена именно
+2–4 (см. [use/web-interface.md](../../use/web-interface.md)). Отложена именно
 `compare_solutions`-карточка, а не сам импорт.
 
 ## Command palette, отложенное
@@ -82,7 +82,7 @@ Backend-функция `grade_benchmark(reference=...)`/
   `src/stepik_grader/web/commands.py` это фиксированный словарь тегов
   контекста — сознательное упрощение при реализации, не баг и не
   недоделка, задокументировано как окончательное решение в
-  [web-current.md § Реестр команд](../web-current.md#реестр-команд)
+  [web-contracts.md § Реестр команд](../web-contracts.md#реестр-команд)
   (сама палитра удалена — команды и так были кнопками).
 - Поиск в палитре — substring, не fuzzy-matching; апгрейд до fuzzy остаётся
   идеей "later".
@@ -90,7 +90,7 @@ Backend-функция `grade_benchmark(reference=...)`/
 ## Per-block detail-разбор микробенча
 
 Микро-бенчмарк (режим 4, см.
-[web-current.md § Режимы проверки](../web-current.md#режимы-проверки-и-микро-бенчмарк))
+[use/web-interface.md § Режимы проверки](../../use/web-interface.md#режимы-проверки-и-микро-бенчмарк))
 реализован целиком, но detail panel при клике по строке результата не
 показывает разбор **какие именно блоки замерялись** (stdin-block через
 `tracemalloc` vs function-block через RSS) — это осталось идеей "later", не
@@ -124,7 +124,7 @@ Backend-функция `grade_benchmark(reference=...)`/
 
 Базовый уровень доступности реализован (семантическая разметка, `role`/
 `aria-label`, контраст, клавиатурная навигация) — см.
-[web-current.md § Доступность](../web-current.md#доступность-клавиатура-тёмная-тема).
+[use/web-interface.md § Доступность](../../use/web-interface.md#доступность-клавиатура-тёмная-тема).
 Полный a11y-аудит (проверка screen reader'ами, WCAG-чеклист, тестирование с
 реальными вспомогательными технологиями) остаётся не выполненным.
 
@@ -165,5 +165,5 @@ Backend-функция `grade_benchmark(reference=...)`/
 | Полный a11y-аудит | later, см. выше |
 | Выделенный бэкенд/SPA-фреймворк (FastAPI и т.п.) | не требуется; только по явному решению |
 
-Детали реализации — в [web-current.md](../web-current.md).
+Детали реализации — в [web-contracts.md](../web-contracts.md).
 

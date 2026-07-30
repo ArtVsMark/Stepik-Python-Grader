@@ -4,7 +4,7 @@ Foundation полноценного локального глоссария WEB 
 модели карточек и очереди пополнения, JSON-провайдер для загрузки/поиска
 локальной базы и консервативный детектор недостающих концепций.
 
-Реализация — [`docs/dev/web-current.md § Глоссарий`](../../../docs/dev/web-current.md);
+Реализация — [`docs/use/web-interface.md § Глоссарий`](../../../docs/use/web-interface.md);
 формат JSON — [`docs/dev/glossary.md`](../../../docs/dev/glossary.md). Внешний
 [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) остаётся целью
 одностороннего экспорта, истина хранится локально.

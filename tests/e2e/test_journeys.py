@@ -1,5 +1,5 @@
 """test_journeys.py -- Playwright smoke tests for the 4 core web UI journeys
-(issue #263, see docs/dev/web-current.md J0-J7): mode 2 (folder grading), mode 1
+(issue #263, see docs/dev/web-contracts.md J0-J7): mode 2 (folder grading), mode 1
 (single-file picker + editable window), glossary search, навигация по разделам.
 
 Not part of the default ``pytest``/``pytest tests/`` sweep -- see
