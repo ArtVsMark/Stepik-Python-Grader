@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -345,14 +346,18 @@ def test_run_check_skips_posix_only_outside_posix(tmp_path: Path, monkeypatch, c
 # -- check over реальная база (ratchet: расхождениям расти нельзя) --------------
 
 
-# Потолок «требующих внимания» (mismatch + error) по комплектной базе. Снят на
-# Windows, где расхождений больше всего: там не сходятся ожидания с unix-путями
-# и разделителями. На POSIX фактическое число меньше, поэтому один потолок
-# работает на всех ОС и всё равно ловит рост (issue #746).
-#
-# Опускать по мере разбора накопленного; поднимать — нельзя: новая карточка с
-# битым примером обязана валить прогон, ради этого ratchet и стоит.
-_FLAGGED_CEILING = 57
+# Ratchet ведётся списком карточек, а не числом: набор расхождений зависит от
+# среды прогона, поэтому одно число под все не подобрать. На Windows POSIX-only
+# примеры пропускаются целиком, на Python 3.12 нет math.fma / io.Reader /
+# float.from_number, и «потолок 57», снятый на Windows, давал 129 на ubuntu 3.12.
+# Список — объединение трёх ОС и версий 3.12-3.14, тест падает только на
+# карточке, которой в нём нет (issue #746).
+_KNOWN_ISSUES = Path(__file__).parent / "glossary_audit_known_issues.txt"
+
+
+def _known_issues() -> set[str]:
+    lines = _KNOWN_ISSUES.read_text(encoding="utf-8").splitlines()
+    return {line.strip() for line in lines if line.strip() and not line.startswith("#")}
 
 
 def test_run_check_bundled_ratchet(capsys) -> None:  # type: ignore[no-untyped-def]
@@ -363,12 +368,13 @@ def test_run_check_bundled_ratchet(capsys) -> None:  # type: ignore[no-untyped-d
     # Стоимость растёт вместе с базой, поэтому run_check обходит карточки
     # параллельно — последовательный обход упирался в общий 120-секундный
     # дедлайн pytest-timeout на Windows, где процессы дороже (issue #444).
-    flagged = mod.run_check(BUNDLED_GLOSSARY_DIR)
+    mod.run_check(BUNDLED_GLOSSARY_DIR)
     out = capsys.readouterr().out
     assert "Проверено карточек с примерами:" in out
-    detail = "\n".join(line for line in out.splitlines() if line.startswith("  ["))
-    assert flagged <= _FLAGGED_CEILING, (
-        f"Примеров «требующих внимания» стало {flagged} при потолке "
-        f"{_FLAGGED_CEILING}: почини пример новой карточки. Если потолок опускали "
-        f"вместе с разбором накопленного — опусти его и здесь.\n{detail}"
+
+    known = _known_issues()
+    flagged = re.findall(r"^  \[(?:error|mismatch)\] ([^:]+): (.*)$", out, re.M)
+    unexpected = [(card_id, detail) for card_id, detail in flagged if card_id not in known]
+    assert not unexpected, "Примеры этих карточек разошлись с ожиданиями:\n" + "\n".join(
+        f"  {card_id}: {detail}" for card_id, detail in unexpected
     )
