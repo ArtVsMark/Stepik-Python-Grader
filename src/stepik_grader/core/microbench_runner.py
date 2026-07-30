@@ -49,6 +49,7 @@ import tempfile
 from dataclasses import dataclass, field
 from typing import Any
 
+from stepik_grader.config import CONFIG
 from stepik_grader.core.runner import RunSpec
 
 __all__ = [
@@ -263,6 +264,11 @@ def run_microbench(
                 timeout=60.0,
                 measure_memory=False,
                 max_memory_mb=max_memory_mb,
+                # issue #629: stdout решения на время замера уходит в os.devnull,
+                # а вот stderr остаётся открытым — решение, льющее туда traceback'и
+                # в цикле по number×5 повторов, без лимита копило бы их в памяти
+                # хоста через безлимитный communicate().
+                max_output_bytes=CONFIG.max_output_bytes,
             )
         )
     finally:

@@ -503,8 +503,8 @@ curl -X POST http://127.0.0.1:8000/api/save-solution \
   "truncated"}`; никакой сверки с ожидаемым выводом.
 - `mode="trace"` — пошаговый трейс исполнения: то же тело
   `{"code","stdin"?}` без `path`. `result` — JSON-трейс `{steps, stdout,
-  truncated, error}` (кадры стека + heap объектов со ссылками по id, aliasing);
-  формат — в [trace-format.md](trace-format.md).
+  truncated, stdout_truncated, error}` (кадры стека + heap объектов со ссылками
+  по id, aliasing); формат — в [trace-format.md](trace-format.md).
 - Успех → **202** `{"run_id": "...", "status": "queued"}`.
 
 ```

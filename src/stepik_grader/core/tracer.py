@@ -21,7 +21,10 @@
   subprocess: ставит ``settrace``, ``exec``'ает код, печатает JSON-трейс.
 
 Лимиты против бесконечных циклов/раздутого трейса: ``max_steps`` (усечение с
-флагом ``truncated``), обрезка строк/контейнеров/глубины при кодировании.
+флагом ``truncated``), обрезка строк/контейнеров/глубины при кодировании,
+потолок накопления stdout программы (``max_stdout_chars``, issue #629 — сам по
+себе ``max_steps`` ОБЪЁМ вывода не ограничивает: ``print('x' * 10**9)`` это
+один шаг).
 
 Безопасности OS-уровня нет (инвариант CLAUDE.md №4): код исполняется без
 изоляции ФС/сети — только доверенный код, как и в грейдинге.
@@ -38,11 +41,26 @@ import tempfile
 import types
 from typing import Any
 
+from stepik_grader.config import CONFIG
 from stepik_grader.core.runner import RunSpec
 
-__all__ = ["DEFAULT_MAX_STEPS", "trace_code"]
+__all__ = ["DEFAULT_MAX_STDOUT_CHARS", "DEFAULT_MAX_STEPS", "trace_code"]
 
 DEFAULT_MAX_STEPS = 1000
+# issue #629: потолок НАКОПЛЕНИЯ stdout программы внутри дочернего процесса.
+# Считается в СИМВОЛАХ, а не байтах: буфер трассировщика текстовый (``io.StringIO``),
+# и позиции шагов (``stdout_len``) тоже символьные — пересчёт в байты на каждый
+# ``write`` заставлял бы кодировать весь аргумент ``print`` целиком, ровно ту
+# гигантскую строку, от которой мы защищаемся.
+#
+# Заведомо МЕНЬШЕ внешнего ``CONFIG.max_output_bytes`` (10 МБ) намеренно: внешний
+# лимит ограничивает весь stdout дочернего процесса, а это сериализованный
+# JSON-трейс, куда вывод программы входит лишь частью (плюс шаги с кадрами и
+# heap). Будь потолки равны, программа, честно упёршаяся во внутренний лимит,
+# гарантированно перевалила бы внешний — и вместо трейса пользователь получил бы
+# обрезанный, а значит невалидный JSON. 1 млн символов — максимум 4 МБ в UTF-8
+# даже на 4-байтовых символах, с запасом под остальной трейс.
+DEFAULT_MAX_STDOUT_CHARS = 1_000_000
 _MAX_STR = 200  # обрезка длинных строк в трейсе
 _MAX_ELEMS = 100  # макс. элементов контейнера в снимке
 _MAX_DEPTH = 8  # глубина рекурсии кодирования вложенных структур
@@ -140,6 +158,42 @@ def _encode_scope(
     return result
 
 
+class _BoundedStdout(io.StringIO):
+    """stdout трассируемой программы с потолком накопления (issue #629).
+
+    Та же семантика, что у ``_OutputBudget`` в ``runner.py``: ограничивается
+    ХРАНЕНИЕ, а не запись. ``write`` продолжает принимать данные и рапортует
+    полную длину аргумента, поэтому программа не падает и доживает до
+    собственного таймаута — лишнее просто отбрасывается, а факт обрезки
+    выставляет ``truncated``. Перестать принимать вывод нельзя: ``print``
+    внутри ``exec`` поднял бы исключение и подменил результат трассировки
+    ошибкой в пользовательском коде.
+
+    ``limit`` — в символах (см. ``DEFAULT_MAX_STDOUT_CHARS``); ``None`` — без
+    ограничения (прежнее поведение голого ``io.StringIO``).
+    """
+
+    def __init__(self, limit: int | None = None) -> None:
+        """Создать буфер с потолком ``limit`` символов (``None`` — без потолка)."""
+        super().__init__()
+        self._limit = limit
+        self.truncated = False
+
+    def write(self, s: str, /) -> int:
+        """Записать столько символов ``s``, сколько осталось в бюджете."""
+        if self._limit is None:
+            return super().write(s)
+        room = self._limit - self.tell()
+        if room <= 0:
+            self.truncated = True
+            return len(s)
+        if len(s) > room:
+            self.truncated = True
+            super().write(s[:room])
+            return len(s)  # программе рапортуем полную запись — она не должна падать
+        return super().write(s)
+
+
 class _Tracer:
     """Собирает шаги трейса под ``sys.settrace`` для одного целевого файла."""
 
@@ -193,8 +247,14 @@ class _Tracer:
         )
 
 
-def run_trace(code: str, target_file: str, max_steps: int = DEFAULT_MAX_STEPS) -> dict[str, Any]:
-    """Исполнить ``code`` под трассировкой; вернуть ``{steps, stdout, truncated, error}``.
+def run_trace(
+    code: str,
+    target_file: str,
+    max_steps: int = DEFAULT_MAX_STEPS,
+    max_stdout_chars: int | None = DEFAULT_MAX_STDOUT_CHARS,
+) -> dict[str, Any]:
+    """Исполнить ``code`` под трассировкой; вернуть ``{steps, stdout, truncated,
+    stdout_truncated, error}``.
 
     Штатно вызывается в subprocess (см. ``main``), но безопасна и in-process:
     в ``finally`` восстанавливается **предыдущий** трейс-хук
@@ -202,8 +262,14 @@ def run_trace(code: str, target_file: str, max_steps: int = DEFAULT_MAX_STEPS) -
     затёр бы его собственный settrace-хук на весь остаток процесса. stdout
     пользовательского кода перехватывается в буфер, чтобы не смешаться с
     JSON-трейсом; плеер режет его по ``step.stdout_len``.
+
+    Накопление буфера ограничено ``max_stdout_chars`` (issue #629): ``max_steps``
+    режет ЧИСЛО шагов, но не ОБЪЁМ — после его исчерпания программа продолжает
+    исполняться и печатать, и без потолка буфер рос бы в памяти дочернего
+    процесса без границы. Обрезка помечается в stderr (как на грейд-пути) и
+    полем ``stdout_truncated``; исполнение при этом не прерывается.
     """
-    stdout_buf = io.StringIO()
+    stdout_buf = _BoundedStdout(max_stdout_chars)
     tracer = _Tracer(target_file, max_steps, stdout_buf)
     namespace: dict[str, Any] = {"__name__": "__main__", "__file__": target_file}
     error: dict[str, Any] | None = None
@@ -221,16 +287,27 @@ def run_trace(code: str, target_file: str, max_steps: int = DEFAULT_MAX_STEPS) -
         sys.settrace(prev_trace)  # вернуть, что было (не None) — не глушить coverage/pdb
         sys.stdout = real_stdout
 
+    if stdout_buf.truncated:
+        # Пометка идёт в stderr, а не в stdout программы: stdout — это то, что
+        # плеер показывает пользователю как вывод его кода (и режет по
+        # ``stdout_len``), служебная строка там была бы чужеродна. Тот же выбор
+        # канала, что у ``_truncation_note`` на грейд-пути (``runner.py``).
+        sys.stderr.write(
+            f"\n[stepik-grader] вывод обрезан: превышен лимит {max_stdout_chars} символов\n"
+        )
+
     return {
         "steps": tracer.steps,
         "stdout": stdout_buf.getvalue(),
         "truncated": tracer.truncated,
+        "stdout_truncated": stdout_buf.truncated,
         "error": error,
     }
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Subprocess-точка входа: ``python -m stepik_grader.core.tracer <file>``.
+    """Subprocess-точка входа: ``python -m stepik_grader.core.tracer <file> [max_steps]
+    [max_stdout_chars]``.
 
     Читает целевой файл, трассирует его исполнение, печатает JSON-трейс в stdout.
     Штатно спавнится ``trace_code``; безопасна и in-process (``run_trace``
@@ -242,8 +319,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     target = args[0]
     max_steps = int(args[1]) if len(args) > 1 else DEFAULT_MAX_STEPS
+    max_stdout_chars = int(args[2]) if len(args) > 2 else DEFAULT_MAX_STDOUT_CHARS
     code = pathlib.Path(target).read_text(encoding="utf-8")
-    result = run_trace(code, target, max_steps)
+    result = run_trace(code, target, max_steps, max_stdout_chars)
     # allow_nan=False гарантирует валидный JSON (NaN/Inf уже сведены к строкам).
     sys.stdout.write(json.dumps(result, ensure_ascii=False, allow_nan=False))
     return 0
@@ -259,13 +337,19 @@ def trace_code(
     stdin: str = "",
     *,
     max_steps: int = DEFAULT_MAX_STEPS,
+    max_stdout_chars: int | None = DEFAULT_MAX_STDOUT_CHARS,
     timeout: float = 10.0,
 ) -> dict[str, Any]:
     """Оттрейсить ``code`` (со ``stdin``) через активный Runner; вернуть JSON-трейс.
 
-    Возвращает ``{steps, stdout, truncated, error}`` (см. ``run_trace``) либо
-    ``{steps: [], error: {...}}`` при таймауте/сбое. Не исполняет код в процессе
-    сервера — трассировка идёт в дочернем интерпретаторе.
+    Возвращает ``{steps, stdout, truncated, stdout_truncated, error}`` (см.
+    ``run_trace``) либо ``{steps: [], error: {...}}`` при таймауте/сбое. Не
+    исполняет код в процессе сервера — трассировка идёт в дочернем интерпретаторе.
+
+    Память ограничена на обоих уровнях (issue #629): ``max_stdout_chars`` капит
+    буфер вывода ВНУТРИ дочернего процесса, ``CONFIG.max_output_bytes`` в
+    ``RunSpec`` — накопление его stdout (готового JSON-трейса) в процессе
+    грейдера/сервера.
 
     Под ``--serve --sandbox`` пошаговый трейс **недоступен** (issue #396):
     трассировщик требует пакет грейдера (``stepik_grader.core.tracer``) в
@@ -284,6 +368,7 @@ def trace_code(
             "steps": [],
             "stdout": "",
             "truncated": False,
+            "stdout_truncated": False,
             "error": {
                 "type": "SandboxError",
                 "message": (
@@ -297,10 +382,14 @@ def trace_code(
     # run_trace() (импорт tracer работает — LocalRunner делит окружение с
     # сервером). run_trace печатает JSON-трейс в stdout — тот же контракт, что у
     # ``-m``-входа. UTF-8 окружение ставит сам Runner.
+    # Лимит вывода уходит в дочерний процесс аргументом (как max_steps), а не
+    # читается им из CONFIG: ограничение приходит из спецификации запуска, а не из
+    # чтения диска внутри исполнителя — тот же принцип, что у лимитов RunSpec.
+    trace_args = f"{code!r}, 'solution.py', {max_steps!r}, {max_stdout_chars!r}"
     bootstrap = (
         "import json as _json, sys as _sys\n"
         "from stepik_grader.core import tracer as _tracer\n"
-        "_result = _tracer.run_trace(" + repr(code) + ", 'solution.py', " + repr(max_steps) + ")\n"
+        f"_result = _tracer.run_trace({trace_args})\n"
         "_sys.stdout.write(_json.dumps(_result, ensure_ascii=False, allow_nan=False))\n"
     )
 
@@ -320,6 +409,10 @@ def trace_code(
                 stdin=stdin.encode("utf-8"),
                 timeout=timeout,
                 measure_memory=False,
+                # issue #629: без лимита LocalRunner уходил на безлимитный
+                # communicate() и читал stdout дочернего процесса в память
+                # целиком — трейс болтливой программы набивал RAM сервера.
+                max_output_bytes=CONFIG.max_output_bytes,
             )
         )
     finally:
@@ -331,6 +424,7 @@ def trace_code(
             "steps": [],
             "stdout": "",
             "truncated": True,
+            "stdout_truncated": False,
             "error": {"type": "TimeoutError", "message": f"exceeded {timeout}s"},
         }
     raw = outcome.stdout.decode("utf-8", errors="replace")
@@ -343,6 +437,7 @@ def trace_code(
             "steps": [],
             "stdout": "",
             "truncated": False,
+            "stdout_truncated": False,
             "error": {"type": "TraceError", "message": stderr[:500] or "no trace produced"},
         }
 

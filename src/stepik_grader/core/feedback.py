@@ -28,7 +28,9 @@ GitHub Issue Forms (``.github/ISSUE_TEMPLATE/*.yml``)::
 - Значения полей проходят ``diag_log.redact`` (токены/``client_secret``/
   ``Authorization``) — своей реализации редакции здесь нет.
 - Домашний каталог сворачивается в ``~`` (``scrub_paths``): в путях
-  регулярно оказывается ФИО пользователя.
+  регулярно оказывается ФИО пользователя. Сворачиваются все написания, в
+  которых путь приходит из чужого вывода, — слеши, экранирование, 8.3-имя, а на
+  Windows и любой регистр.
 - ``platform.node()`` (имя машины) в окружение НЕ попадает — по той же причине.
 - Ничего не открывается и не уходит без явного подтверждения пользователя;
   вызывающая сторона обязана сначала показать ``PreparedIssue.fields``.
@@ -40,7 +42,9 @@ GitHub Issue Forms (``.github/ISSUE_TEMPLATE/*.yml``)::
 from __future__ import annotations
 
 import importlib.metadata
+import os
 import platform
+import re
 import subprocess
 from dataclasses import dataclass
 from enum import StrEnum
@@ -156,22 +160,104 @@ def _package_version() -> str:
         return "0.0.0+unknown (запуск без pip install -e .)"
 
 
+def _case_insensitive_paths() -> bool:
+    """Регистронезависимы ли пути на этой платформе (Windows — да, POSIX — нет).
+
+    Критерий — ``os.path.normcase``: на Windows он приводит путь к нижнему
+    регистру, на POSIX возвращает как есть. Своего списка платформ здесь нет —
+    stdlib уже знает ответ. Отдельной функцией, а не выражением по месту, чтобы
+    поведение Windows проверялось тестами на любой ОС прогона.
+    """
+    return os.path.normcase("A") != "A"
+
+
+def _short_path(path: str) -> str | None:
+    """8.3-имя каталога (``C:\\Users\\IVANPE~1``) или ``None``, если его не получить.
+
+    Windows держит для длинного имени короткий 8.3-дубль, и в выводе сторонних
+    инструментов (старые ``.bat``, ``cmd``, java-обёртки) домашний каталог
+    приходит именно в нём — не свернув его, мы отдадим в issue усечённое, но
+    узнаваемое имя пользователя. Ответ спрашивается у самой ОС
+    (``GetShortPathNameW``), а не собирается по правилам: номер в ``~N`` зависит
+    от коллизий имён в каталоге и угадыванию не поддаётся.
+
+    ``None`` — не Windows, каталога нет, 8.3 отключены в системе
+    (``NtfsDisable8dot3NameCreation``) или вызов не удался: это не дыра, а просто
+    одно написание меньше — остальные варианты сворачиваются как обычно.
+    """
+    if os.name != "nt":
+        return None
+    import ctypes  # локальный импорт: на POSIX модуль не нужен, а windll там и нет
+
+    try:
+        buffer = ctypes.create_unicode_buffer(1024)
+        # kernel32 через windll: typeshed знает этот атрибут только под win32,
+        # и mypy на других ОС матрицы его не видит (та же причина, что в
+        # core/sandbox/_windows.py).
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        length = int(kernel32.GetShortPathNameW(path, buffer, len(buffer)))
+    except (OSError, AttributeError, ValueError):
+        return None
+    # 0 — ошибка (каталога нет, 8.3 отключены); >= размера буфера — путь не влез
+    # целиком, и обрезок сворачивать нельзя.
+    if not 0 < length < len(buffer):
+        return None
+    return buffer.value or None
+
+
+def _home_variants(home: str) -> tuple[str, ...]:
+    """Написания домашнего каталога, которые реально встречаются в тексте.
+
+    Для длинного имени и (на Windows) его 8.3-дубля — нативное написание,
+    POSIX-слеши и экранированные обратные слеши (путь из JSON/``repr``).
+    Дубликаты отсеиваются; на регистронезависимой ФС «дубликат» считается без
+    учёта регистра, но написания со слешами разными не смешиваются — они
+    различаются символами, а не регистром.
+    """
+    roots = [home]
+    short = _short_path(home)
+    if short:
+        roots.append(short)
+
+    variants: list[str] = []
+    seen: set[str] = set()
+    fold = _case_insensitive_paths()
+    for root in roots:
+        for variant in (root, root.replace("\\", "/"), root.replace("\\", "\\\\")):
+            key = variant.lower() if fold else variant
+            if variant and key not in seen:
+                seen.add(key)
+                variants.append(variant)
+    return tuple(variants)
+
+
 def scrub_paths(text: str) -> str:
     """Свернуть домашний каталог пользователя в ``~`` во всех его написаниях.
 
     В путях вида ``C:\\Users\\ivan.petrov\\...`` домашний каталог несёт имя
     (нередко — ФИО) пользователя, поэтому он сворачивается до попадания в
-    обращение. Покрыты нативное написание, POSIX-слеши и экранированные
-    обратные слеши (путь, пришедший из JSON/repr).
+    обращение. Покрыты нативное написание, POSIX-слеши, экранированные обратные
+    слеши (путь из JSON/``repr``) и 8.3-имя (``C:\\Users\\IVANPE~1``).
+
+    На Windows сравнение регистронезависимое: регистр буквы диска и имени
+    каталога нормализуется по-разному разными инструментами, а поле «Логи» —
+    свободный текст, куда вставляют вывод посторонних программ, поэтому
+    ``c:\\users\\ivan.petrov`` обязано сворачиваться наравне с нативным. На POSIX
+    регистр значим — ``/home/Ivan`` и ``/home/ivan`` там разные каталоги, и
+    сворачивать второй по первому нельзя.
     """
     home = str(Path.home())
     if not home:
         return text
-    variants = (home, home.replace("\\", "/"), home.replace("\\", "\\\\"))
-    for variant in variants:
-        if variant and variant in text:
-            text = text.replace(variant, "~")
-    return text
+    variants = _home_variants(home)
+    if not variants:
+        return text
+    # Один проход регуляркой вместо цепочки str.replace: только так работает
+    # регистронезависимое сравнение (у str.replace такого режима нет). Длинные
+    # написания раньше коротких — иначе префикс съел бы более точное совпадение.
+    pattern = "|".join(re.escape(variant) for variant in sorted(variants, key=len, reverse=True))
+    flags = re.IGNORECASE if _case_insensitive_paths() else 0
+    return re.sub(pattern, "~", text, flags=flags)
 
 
 def _sanitize(value: str) -> str:
