@@ -30,6 +30,8 @@ dev-инструмент из ``scripts/`` на чистом stdlib. Ценно�
 from __future__ import annotations
 
 import argparse
+import ast
+import builtins
 import difflib
 import json
 import os
@@ -69,6 +71,7 @@ __all__ = [
     "ProposedContent",
     "build_b1_draft",
     "compare_expected_actual",
+    "exception_name",
     "extract_expected",
     "main",
     "review_diff",
@@ -81,8 +84,15 @@ __all__ = [
 # Маркер ожидаемого результата в примере: "# → …" (стрелка U+2192) либо ASCII
 # "# -> …". Практика #371: демонстрационный вывод рядом с кодом.
 _EXPECT_RE = re.compile(r"#\s*(?:→|->)\s*(.*)$")
-# Хвостовая человеко-пометка после значения: "… (список как элемент)".
-_TRAILING_NOTE_RE = re.compile(r"^(?P<value>.*\S)\s+\([^()]*\)$")
+# Хвостовую человеко-пометку "значение (комментарий)" отсекает
+# _strip_trailing_note: скобки внутри пометки допустимы ("True (за O(1))"),
+# поэтому парная открывающая ищется сканированием с конца, а не регуляркой.
+# Ожидание «пример намеренно падает»: "# → ValueError", "# → statistics.StatisticsError"
+# (сложившийся в базе способ показать исключение, issue #745).
+_EXCEPTION_NAME_RE = re.compile(r"^(?:[A-Za-z_]\w*\.)*(?P<name>[A-Z]\w*)$")
+_EXCEPTION_SUFFIXES = ("Error", "Exception", "Warning", "Interrupt", "Exit")
+# Карточка, чьи примеры используют API, которого нет вне POSIX (issue #745).
+_POSIX_ONLY_TAG = "platform:posix"
 
 # Секунд на прогон одного примера (dev-инструмент, снимок против зависаний).
 _DEFAULT_TIMEOUT = 10.0
@@ -111,30 +121,102 @@ def extract_expected(examples: list[str]) -> list[str]:
     return expected
 
 
+def _approx_match(want: str, got: str) -> bool:
+    """Префиксное совпадение до ``...`` (``3.14159...`` ≈ ``3.141592653589793``)."""
+    return "..." in want and got.startswith(want.split("...", 1)[0].rstrip())
+
+
+def _strip_trailing_note(want: str) -> str | None:
+    """Отбросить хвостовую пометку ``значение (комментарий)``, иначе ``None``.
+
+    Внутри пометки скобки допустимы (``True (мгновенно, O(1))``), поэтому
+    парная открывающая ищется сканированием с конца, а не регуляркой.
+    """
+    if not want.endswith(")"):
+        return None
+    depth = 0
+    for pos in range(len(want) - 1, -1, -1):
+        if want[pos] == ")":
+            depth += 1
+        elif want[pos] == "(":
+            depth -= 1
+            if depth == 0:
+                value = want[:pos].rstrip()
+                return value if value and value != want else None
+    return None
+
+
+def _prefix_note_match(want: str, got: str) -> bool:
+    """Ожидание вида ``значение — пояснение``: сверяем только значение.
+
+    Пояснение к выводу пишут не только в скобках, но и через тире, двоеточие
+    или запятую (``False — F_OK это просто проверка существования``,
+    ``32, по два hex-символа на байт``). Совпадением считаем лишь случай, когда
+    ожидание **начинается** ровно с напечатанного значения, а сразу за ним идёт
+    разделитель — иначе ``1000, а не 100`` совпало бы со ``100``.
+    """
+    if not got or not want.startswith(got):
+        return False
+    tail = want[len(got) :]
+    return tail.startswith((" — ", " - ", ": ", ", ", " ("))
+
+
+def _literal_match(want: str, got: str, raw: str) -> bool:
+    """Сравнить ожидание и вывод как литералы Python, а не как текст.
+
+    Ожидания пишут руками, поэтому запись расходится с ``repr`` там, где
+    значение то же самое: ``(1,2,3)`` без пробелов после запятых, ``'P'`` в
+    repr-форме строки, которую ``print`` выводит без кавычек. Сравнение идёт
+    по значению **и типу** — иначе ``1`` совпало бы с ``True``.
+
+    ``raw`` — вывод до обрезки пробелов: у строки в repr-форме
+    (``'        42'``) пробелы значимы и сравнивать надо с ним.
+    """
+    try:
+        want_value = ast.literal_eval(want)
+    except (ValueError, SyntaxError, MemoryError, RecursionError):
+        return False
+    # Ожидание записано как repr строки, а print печатает её содержимое.
+    if isinstance(want_value, str) and want_value in (got, raw):
+        return True
+    try:
+        got_value = ast.literal_eval(got)
+    except (ValueError, SyntaxError, MemoryError, RecursionError):
+        return False
+    return type(want_value) is type(got_value) and bool(want_value == got_value)
+
+
 def compare_expected_actual(expected: str, actual: str) -> bool:
     """Сверить ожидаемый вывод с фактической строкой stdout (терпимо).
 
-    Терпимость к трём легитимным формам записи (#371):
+    Терпимость к легитимным формам записи (#371):
     - **аппроксимация** ``…...`` — префиксное совпадение до многоточия
       (``3.14159...`` ≈ ``3.141592653589793``);
     - **хвостовая пометка** ``значение (комментарий)`` — сравнивается только
       значение (``None (всегда None)`` ↔ ``None``);
+    - **запись литерала** — ``(1,2,3)`` ↔ ``(1, 2, 3)``, ``'P'`` ↔ ``P`` (#745);
+    - **имя исключения** — ``statistics.StatisticsError`` ↔ ``StatisticsError``,
+      как его печатает обёртка намеренного падения (#745);
     - обрамляющие пробелы.
     """
-    want = expected.strip()
+
     got = actual.strip()
-    if want == got:
-        return True
-    if "..." in want and got.startswith(want.split("...", 1)[0].rstrip()):
-        return True
-    note = _TRAILING_NOTE_RE.match(want)
-    if note is not None:
-        value = note.group("value").strip()
-        if value == got:
+    want = expected.strip()
+
+    def matches(candidate: str) -> bool:
+        if (
+            candidate == got
+            or _approx_match(candidate, got)
+            or _literal_match(candidate, got, actual)
+            or _prefix_note_match(candidate, got)
+        ):
             return True
-        if "..." in value and got.startswith(value.split("...", 1)[0].rstrip()):
-            return True
-    return False
+        return exception_name(candidate) == got
+
+    if matches(want):
+        return True
+    note = _strip_trailing_note(want)
+    return note is not None and matches(note)
 
 
 @dataclass
@@ -162,13 +244,23 @@ def _run_snippet(script: str, timeout: float) -> tuple[bool, str, str]:
     Возвращает ``(ok, stdout, err)``: ``ok`` — код завершился 0; ``err`` —
     краткая причина сбоя (stderr/таймаут) для отчёта. Сеть не нужна примерам
     stdlib; ``-I`` — изолированный режим (без user-site/env).
+
+    ``-X utf8`` обязателен: без него дочерний интерпретатор печатает в
+    кодировке консоли, и пример с не-ASCII выводом (``'♠'``, кириллица) падал
+    бы на Windows с ``UnicodeEncodeError`` — вердикт говорил бы о кодовой
+    странице терминала, а не о примере. Флагом, а не ``PYTHONIOENCODING``,
+    потому что ``-I`` игнорирует переменные окружения (#745).
     """
     with tempfile.TemporaryDirectory(prefix="glossary-ex-") as tmp:
         try:
             proc = subprocess.run(
-                [sys.executable, "-I", "-c", script],
+                [sys.executable, "-I", "-X", "utf8", "-c", script],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                # Пример может писать сырые байты (bytes-API os/io) — на битой
+                # последовательности чтение вывода не должно падать.
+                errors="replace",
                 timeout=timeout,
                 cwd=tmp,
                 check=False,
@@ -181,6 +273,64 @@ def _run_snippet(script: str, timeout: float) -> tuple[bool, str, str]:
     return True, proc.stdout, ""
 
 
+def exception_name(expected: str) -> str | None:
+    """Имя исключения, если ожидание — это оно (``TypeError``), иначе ``None``.
+
+    Карточки показывают намеренное падение, записывая после ``# → `` имя
+    исключения — своё (``ValueError``) или с модулем
+    (``statistics.StatisticsError``). Отличаем такое ожидание от обычного
+    значения по CamelCase-имени с характерным суффиксом либо по совпадению со
+    встроенным исключением.
+    """
+    text = expected.strip()
+    match = _EXCEPTION_NAME_RE.match(text)
+    if match is None:
+        return None
+    name = match.group("name")
+    if name.endswith(_EXCEPTION_SUFFIXES):
+        return name
+    builtin = getattr(builtins, name, None)
+    if isinstance(builtin, type) and issubclass(builtin, BaseException):
+        return name
+    # Имя с модулем (io.UnsupportedOperation) — печатается коротким именем.
+    return name if "." in text else None
+
+
+def _expected_mentions_failure(err: str, expected: list[str]) -> bool:
+    """Названо ли упавшее исключение в ожиданиях примера.
+
+    ``err`` — последняя строка stderr (``TypeError: Can't instantiate …``).
+    Берём из неё имя типа и ищем его в ожиданиях: если карточка его называет,
+    падение показано намеренно, пусть и записано свободнее, чем чистым именем.
+    """
+    head = err.split(":", 1)[0].strip().split(".")[-1]
+    if not head or not head[:1].isupper():
+        return False
+    return any(head in want for want in expected)
+
+
+def _wrap_statementwise(script: str) -> str:
+    """Обернуть сниппет: исполнять по операторам, печатая пойманные исключения.
+
+    Пример с ожиданием ``# → TypeError`` падает намеренно, и падение — часть
+    демонстрации. Без обёртки скрипт на нём обрывается: сверить нечего, а
+    вердикт (``error``) говорит о поломке, которой нет. Обёртка исполняет
+    операторы по одному в общем пространстве имён (ровно та семантика, что
+    описана у ``validate_examples``) и печатает имя исключения вместо обрыва,
+    поэтому строки после демонстрации тоже проверяются (#745).
+    """
+    return (
+        "import ast as _ast\n"
+        f"_src = {script!r}\n"
+        "_g = {'__name__': '__main__'}\n"
+        "for _node in _ast.parse(_src).body:\n"
+        "    try:\n"
+        "        exec(compile(_ast.Module([_node], []), '<example>', 'exec'), _g)\n"
+        "    except BaseException as _exc:\n"
+        "        print(type(_exc).__name__)\n"
+    )
+
+
 def validate_examples(examples: list[str], *, timeout: float = _DEFAULT_TIMEOUT) -> ExampleReport:
     """Проверить примеры прогоном и сверкой ``# → …`` с фактическим stdout.
 
@@ -188,6 +338,9 @@ def validate_examples(examples: list[str], *, timeout: float = _DEFAULT_TIMEOUT)
     последовательность операторов) и исполняются. Ожидаемые значения
     сопоставляются со строками вывода **по порядку**; при расхождении числа —
     ``unverifiable`` (честно: нельзя однозначно выровнять), а не тихое смещение.
+
+    Ожидание ``raises <Тип>`` означает, что пример падает намеренно: скрипт
+    исполняется в обёртке, печатающей имя пойманного исключения (#745).
     """
     if not examples:
         return ExampleReport("unverifiable", "нет примеров")
@@ -202,7 +355,15 @@ def validate_examples(examples: list[str], *, timeout: float = _DEFAULT_TIMEOUT)
         # Не единый исполнимый скрипт (обычно построчно хранимый блок без
         # отступов) — сверить прогоном нельзя, это не runtime-ошибка кода.
         return ExampleReport("unverifiable", f"не компилируется: {type(exc).__name__}")
-    ok, stdout, err = _run_snippet(script, timeout)
+    shows_exception = any(exception_name(want) for want in expected)
+    ok, stdout, err = _run_snippet(
+        _wrap_statementwise(script) if shows_exception else script, timeout
+    )
+    if not ok and not shows_exception and _expected_mentions_failure(err, expected):
+        # Падение названо в ожиданиях, но не чистым именем («TypeError (класс
+        # абстрактный)», «io.UnsupportedOperation») — значит демонстрация
+        # намеренная, просто записана свободнее. Повторяем в обёртке.
+        ok, stdout, err = _run_snippet(_wrap_statementwise(script), timeout)
     if not ok:
         return ExampleReport("error", err)
 
@@ -345,25 +506,32 @@ def run_check(
     независимы (свой subprocess, свой cwd), а вывод остаётся детерминированным:
     отчёты собираются в порядке отсортированного списка карточек, не в порядке
     завершения.
+
+    Карточки с тегом ``platform:posix`` вне POSIX пропускаются (``skipped``):
+    их примеры зовут API, которого на этой ОС просто нет, и вердикт говорил бы
+    об операционной системе прогона, а не о качестве карточки (#745).
     """
     provider = JsonGlossaryProvider.from_directory(base_dir)
     cards = sorted(
         (c for c in provider.all() if c.examples and (not only_ready or c.status == "ready")),
         key=lambda c: c.id,
     )
+    runnable = [c for c in cards if os.name == "posix" or _POSIX_ONLY_TAG not in c.tags]
     counts = {"ok": 0, "mismatch": 0, "error": 0, "unverifiable": 0}
+    skipped = len(cards) - len(runnable)
     flagged: list[tuple[str, ExampleReport]] = []
     with ThreadPoolExecutor(max_workers=_worker_count(jobs)) as pool:
-        reports = pool.map(lambda c: validate_examples(c.examples, timeout=timeout), cards)
-        for card, report in zip(cards, reports, strict=True):
+        reports = pool.map(lambda c: validate_examples(c.examples, timeout=timeout), runnable)
+        for card, report in zip(runnable, reports, strict=True):
             counts[report.status] += 1
             if report.status in ("mismatch", "error"):
                 flagged.append((card.id, report))
 
-    print(f"Проверено карточек с примерами: {len(cards)}")
+    print(f"Проверено карточек с примерами: {len(runnable)} из {len(cards)}")
     print(
         f"  ok={counts['ok']}  mismatch={counts['mismatch']}  "
-        f"error={counts['error']}  unverifiable={counts['unverifiable']}"
+        f"error={counts['error']}  unverifiable={counts['unverifiable']}  "
+        f"skipped={skipped} (только POSIX)"
     )
     for card_id, report in flagged:
         print(f"  [{report.status}] {card_id}: {report.detail}")

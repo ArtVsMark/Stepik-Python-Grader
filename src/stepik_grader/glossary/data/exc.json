@@ -4066,7 +4066,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "exc"
+      "exc",
+      "platform:posix"
     ],
     "examples": [
       "import signal",
