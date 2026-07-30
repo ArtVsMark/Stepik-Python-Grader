@@ -84,8 +84,9 @@ __all__ = [
 # Маркер ожидаемого результата в примере: "# → …" (стрелка U+2192) либо ASCII
 # "# -> …". Практика #371: демонстрационный вывод рядом с кодом.
 _EXPECT_RE = re.compile(r"#\s*(?:→|->)\s*(.*)$")
-# Хвостовая человеко-пометка после значения: "… (список как элемент)".
-_TRAILING_NOTE_RE = re.compile(r"^(?P<value>.*\S)\s+\([^()]*\)$")
+# Хвостовую человеко-пометку "значение (комментарий)" отсекает
+# _strip_trailing_note: скобки внутри пометки допустимы ("True (за O(1))"),
+# поэтому парная открывающая ищется сканированием с конца, а не регуляркой.
 # Ожидание «пример намеренно падает»: "# → ValueError", "# → statistics.StatisticsError"
 # (сложившийся в базе способ показать исключение, issue #745).
 _EXCEPTION_NAME_RE = re.compile(r"^(?:[A-Za-z_]\w*\.)*(?P<name>[A-Z]\w*)$")
@@ -125,20 +126,58 @@ def _approx_match(want: str, got: str) -> bool:
     return "..." in want and got.startswith(want.split("...", 1)[0].rstrip())
 
 
-def _literal_match(want: str, got: str) -> bool:
+def _strip_trailing_note(want: str) -> str | None:
+    """Отбросить хвостовую пометку ``значение (комментарий)``, иначе ``None``.
+
+    Внутри пометки скобки допустимы (``True (мгновенно, O(1))``), поэтому
+    парная открывающая ищется сканированием с конца, а не регуляркой.
+    """
+    if not want.endswith(")"):
+        return None
+    depth = 0
+    for pos in range(len(want) - 1, -1, -1):
+        if want[pos] == ")":
+            depth += 1
+        elif want[pos] == "(":
+            depth -= 1
+            if depth == 0:
+                value = want[:pos].rstrip()
+                return value if value and value != want else None
+    return None
+
+
+def _prefix_note_match(want: str, got: str) -> bool:
+    """Ожидание вида ``значение — пояснение``: сверяем только значение.
+
+    Пояснение к выводу пишут не только в скобках, но и через тире, двоеточие
+    или запятую (``False — F_OK это просто проверка существования``,
+    ``32, по два hex-символа на байт``). Совпадением считаем лишь случай, когда
+    ожидание **начинается** ровно с напечатанного значения, а сразу за ним идёт
+    разделитель — иначе ``1000, а не 100`` совпало бы со ``100``.
+    """
+    if not got or not want.startswith(got):
+        return False
+    tail = want[len(got) :]
+    return tail.startswith((" — ", " - ", ": ", ", ", " ("))
+
+
+def _literal_match(want: str, got: str, raw: str) -> bool:
     """Сравнить ожидание и вывод как литералы Python, а не как текст.
 
     Ожидания пишут руками, поэтому запись расходится с ``repr`` там, где
     значение то же самое: ``(1,2,3)`` без пробелов после запятых, ``'P'`` в
     repr-форме строки, которую ``print`` выводит без кавычек. Сравнение идёт
     по значению **и типу** — иначе ``1`` совпало бы с ``True``.
+
+    ``raw`` — вывод до обрезки пробелов: у строки в repr-форме
+    (``'        42'``) пробелы значимы и сравнивать надо с ним.
     """
     try:
         want_value = ast.literal_eval(want)
     except (ValueError, SyntaxError, MemoryError, RecursionError):
         return False
     # Ожидание записано как repr строки, а print печатает её содержимое.
-    if isinstance(want_value, str) and want_value == got:
+    if isinstance(want_value, str) and want_value in (got, raw):
         return True
     try:
         got_value = ast.literal_eval(got)
@@ -165,14 +204,19 @@ def compare_expected_actual(expected: str, actual: str) -> bool:
     want = expected.strip()
 
     def matches(candidate: str) -> bool:
-        if candidate == got or _approx_match(candidate, got) or _literal_match(candidate, got):
+        if (
+            candidate == got
+            or _approx_match(candidate, got)
+            or _literal_match(candidate, got, actual)
+            or _prefix_note_match(candidate, got)
+        ):
             return True
         return exception_name(candidate) == got
 
     if matches(want):
         return True
-    note = _TRAILING_NOTE_RE.match(want)
-    return note is not None and matches(note.group("value").strip())
+    note = _strip_trailing_note(want)
+    return note is not None and matches(note)
 
 
 @dataclass
@@ -238,7 +282,8 @@ def exception_name(expected: str) -> str | None:
     значения по CamelCase-имени с характерным суффиксом либо по совпадению со
     встроенным исключением.
     """
-    match = _EXCEPTION_NAME_RE.match(expected.strip())
+    text = expected.strip()
+    match = _EXCEPTION_NAME_RE.match(text)
     if match is None:
         return None
     name = match.group("name")
@@ -247,7 +292,21 @@ def exception_name(expected: str) -> str | None:
     builtin = getattr(builtins, name, None)
     if isinstance(builtin, type) and issubclass(builtin, BaseException):
         return name
-    return None
+    # Имя с модулем (io.UnsupportedOperation) — печатается коротким именем.
+    return name if "." in text else None
+
+
+def _expected_mentions_failure(err: str, expected: list[str]) -> bool:
+    """Названо ли упавшее исключение в ожиданиях примера.
+
+    ``err`` — последняя строка stderr (``TypeError: Can't instantiate …``).
+    Берём из неё имя типа и ищем его в ожиданиях: если карточка его называет,
+    падение показано намеренно, пусть и записано свободнее, чем чистым именем.
+    """
+    head = err.split(":", 1)[0].strip().split(".")[-1]
+    if not head or not head[:1].isupper():
+        return False
+    return any(head in want for want in expected)
 
 
 def _wrap_statementwise(script: str) -> str:
@@ -300,6 +359,11 @@ def validate_examples(examples: list[str], *, timeout: float = _DEFAULT_TIMEOUT)
     ok, stdout, err = _run_snippet(
         _wrap_statementwise(script) if shows_exception else script, timeout
     )
+    if not ok and not shows_exception and _expected_mentions_failure(err, expected):
+        # Падение названо в ожиданиях, но не чистым именем («TypeError (класс
+        # абстрактный)», «io.UnsupportedOperation») — значит демонстрация
+        # намеренная, просто записана свободнее. Повторяем в обёртке.
+        ok, stdout, err = _run_snippet(_wrap_statementwise(script), timeout)
     if not ok:
         return ExampleReport("error", err)
 

@@ -19857,7 +19857,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -20171,7 +20172,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -21676,7 +21678,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -21716,7 +21719,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -21798,7 +21802,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -21878,7 +21883,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -22003,7 +22009,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -22043,7 +22050,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -23950,7 +23958,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -24232,7 +24241,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -24271,7 +24281,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -24995,7 +25006,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -25037,7 +25049,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -25250,7 +25263,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -25538,7 +25552,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -25578,7 +25593,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -25816,7 +25832,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -25896,7 +25913,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -26543,7 +26561,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -26670,7 +26689,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -27193,7 +27213,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -27276,7 +27297,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -27475,7 +27497,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
@@ -27513,7 +27536,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",

@@ -136,6 +136,28 @@ def test_validate_non_ascii_output() -> None:
     assert mod.validate_examples(["print('♠ туз')  # → ♠ туз"]).status == "ok"
 
 
+def test_compare_note_with_nested_parens() -> None:
+    # Пометка сама может содержать скобки: "True (мгновенно, O(1))".
+    assert mod.compare_expected_actual("True (мгновенно, O(1))", "True")
+
+
+def test_compare_note_after_dash_or_colon() -> None:
+    assert mod.compare_expected_actual("False — F_OK это проверка существования", "False")
+    assert mod.compare_expected_actual("True: getsize читает st_size", "True")
+    assert mod.compare_expected_actual("32, по два hex-символа на байт", "32")
+
+
+def test_compare_note_requires_separator() -> None:
+    # Иначе «1000, а не 100» ложно совпало бы со «100».
+    assert not mod.compare_expected_actual("1000, а не 100", "100")
+    assert not mod.compare_expected_actual("420", "42")
+
+
+def test_compare_repr_string_keeps_significant_spaces() -> None:
+    # Ширина поля значима: сравнивать надо с необрезанным выводом.
+    assert mod.compare_expected_actual("'        42'", "        42")
+
+
 # -- validate_examples ---------------------------------------------------------
 
 
