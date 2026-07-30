@@ -18,11 +18,709 @@
 
 ---
 
-## Архив версионированных релизов (1.1.0 – 1.6.0)
+## Архив версионированных релизов (1.1.0 – 1.7.0)
 
 > Вынесены из живого `CHANGELOG.md` (issue #373): в живой части остаются
 > `[Unreleased]` + три последних MINOR. Полный построчный лог более ранних
 > релизов — здесь; формат идентичен живому CHANGELOG (`## [X.Y.0] - ДАТА`).
+
+## [1.7.0] - 2026-07-12
+
+### Added
+- Opt-in OS-level sandboxed execution (issue #266): new `--sandbox` flag
+  routes `--mode 1/2/3/4` through a new `SandboxRunner` (`core/sandbox/`)
+  instead of the plain-subprocess `LocalRunner` — bubblewrap (`bwrap`) on
+  Linux, `sandbox-exec` (Seatbelt) on macOS, Job Objects (ctypes, no
+  `pywin32`) on Windows. Backend is selected once at CLI startup by OS; if
+  unavailable (missing `bwrap`/`sandbox-exec`, or the Job Object API check
+  fails), the command exits with a clear error — never a silent fallback to
+  `LocalRunner`. Guarantees deliberately differ by OS (documented in
+  `SECURITY.md`, not a bug): Linux gets full kernel-enforced isolation
+  (network/fs/memory/CPU/process-count via namespaces + `RLIMIT_*`); macOS
+  isolates network/fs/CPU via Seatbelt but approximates memory via psutil
+  polling (`RLIMIT_AS` doesn't work on Darwin, bpo-34602) with a weaker
+  process-count budget (no user-namespace equivalent); Windows gets
+  kernel-enforced memory/CPU/process-count via Job Objects (memory limit is
+  commit-charge-based and in practice faster than POSIX `RLIMIT_AS`) but has
+  **no network isolation** and only soft (`cwd`-relative) filesystem
+  containment in this MVP — both named, not silent, gaps (AppContainer and
+  `CreateProcessAsUser`+restricted-token respectively were judged
+  disproportionately complex/risky for a first cut). New additive verdict
+  `SANDBOX_VIOLATION` (`RunOutcome.sandbox_violation`, additive to
+  AC/WA/RE/TLE/CANCELLED) fires only for violations the runner proactively
+  detects and kills itself — memory (RSS/commit threshold), `output_size`
+  (stdout+stderr over `sandbox_max_output_bytes`), `cpu` (`SIGXCPU` on
+  POSIX); network/filesystem/process-count violations are rejected by the
+  kernel *inside* the sandbox and correctly surface as an ordinary `RE`
+  instead (the runner doesn't parse a child's traceback to relabel it). New
+  `grader_core.set_runner()` fulfills the injection point the codebase had
+  already reserved for this. Three new `[tool.stepik-grader]` quota fields:
+  `sandbox_max_cpu_seconds` (10.0), `sandbox_max_processes` (32),
+  `sandbox_max_output_bytes` (10 MiB). Known MVP limitation on all three
+  platforms: only the interpreter + stdlib are bound into the sandbox, not
+  the grader's own venv site-packages, so solutions depending on third-party
+  packages aren't supported under `--sandbox`; Linux's nsjail fallback
+  (mentioned in the original design) also isn't implemented, `bwrap` is the
+  only Linux backend. New `tests/test_sandbox_runner.py`: platform-
+  independent unit tests plus `pytest.mark.skipif`-gated real-backend
+  escape-matrix tests (write outside tmp, network, fork bomb, memory/output
+  overruns, TLE) and a golden AC/RE/TLE comparison against `LocalRunner`,
+  each executing for real only on its native OS.
+- Opt-in local run statistics (issue #268): `--stats`/`--no-stats` (or
+  `[tool.stepik-grader] record_stats = true`) appends one JSON-Lines record
+  per grading run — mode, verdict tallies (AC/WA/RE/TLE for modes 1/2,
+  SIMILAR/SLOWER/MUCH_SLOWER/ERR for modes 3/4), OS, and total time — to a
+  new `.grader_stats.jsonl` in the current directory (added to `.gitignore`
+  and CLAUDE.md's forbidden-commit list). No network calls anywhere — the
+  file never leaves the machine, and off by default. New `--stats-summary`
+  prints an aggregated view (total runs, by mode, by OS, by verdict, total
+  time) via a new `core/reporter.print_stats_summary()`, rich table with a
+  plain-text fallback like the existing correctness/benchmark tables. New
+  leaf module `core/stats.py`: JSON Lines (not a single JSON object like
+  `GraderCache`, issue #56) so an interrupted write can only lose the last
+  line, not corrupt the whole file; size-based rotation keeps the newest
+  half of lines past 1 MiB; both `record_run()`/`read_summary()` are
+  best-effort and tolerate a missing/corrupt file or individual malformed
+  lines, same principle as `GraderCache`. The interactive menu resolves
+  `CONFIG.record_stats` directly (no argparse there) at all 4 mode choices,
+  unlike the cache toggle which the menu never exposes today.
+- `docs/configuration.md` documents the new `record_stats` config field
+  with an explicit privacy paragraph ("data never leaves the machine").
+
+### Changed
+- **Breaking (issue #73):** public API functions/methods that take or return
+  a filesystem path now use `pathlib.Path` instead of `str`, across
+  `core/test_loader.py` (`resolve_test_dir`, `find_all_solution_files`,
+  `collect_grouped_files`, `load_text_lines`, `load_test_cases`),
+  `core/grader_core.py` (`run_single_test`, `run_tests`, `run_benchmark`,
+  `run_microbench_mode`), `core/reporter.py` (table formatters),
+  `core/cache.py` (`GraderCache`, `hash_solution`, `hash_tests`),
+  `core/runner.py` (`RunSpec.path`), the CLI (`--file`/`--dir`/`--root` now
+  parse to `Path` via argparse), and the `web/` adapter layer
+  (`grade_path`/`grade_benchmark`/`grade_microbench`/`list_solutions`/
+  `read_source`/`save_solution`/`submit_job`/glossary store paths). External
+  code calling these with a bare `str` must now pass a `Path` (or wrap with
+  `pathlib.Path(...)`) — the functions no longer defensively re-wrap `str`
+  input. JSON-facing response fields (e.g. `"base"`, `"path"`, `"file"`) are
+  unaffected — those remain plain strings. `grader.py`'s `__all__` also gains
+  `resolve_test_dir`, closing a pre-existing facade gap (it was reachable as
+  `grader.resolve_test_dir` via the wildcard re-export but wasn't listed).
+
+### Docs
+- Pre-release accuracy audit ahead of v1.7.0: `docs/project-structure.md`
+  and `docs/architecture.md` now mention `core/sandbox/` (issue #266),
+  `web/runs.py`/`web/i18n.py` (issue #262/#264), `core/stats.py` (issue
+  #268), and `core/i18n.py`, plus the DAG/layer diagrams for all of them —
+  `architecture.md` previously still called `SandboxRunner` "future work
+  (issue #157)" after it had already shipped. `docs/configuration.md`
+  gained the missing `glossary_store`/`glossary_missing_queue` rows.
+  `docs/grader-workflow.md` gained a `--stats`/`--stats-summary` section
+  (previously undocumented outside `configuration.md`).
+  `docs/installation.md`'s pinned `ruff>=0.4` corrected to `>=0.15.19`
+  (matching `pyproject.toml`). `docs/server-mode.md`'s unconditional "network
+  unreachable" `SandboxRunner` guarantee now flags the Windows exception
+  inline, not just in a separate paragraph below it. `SECURITY.md` gained a
+  dedicated section naming the Host/Origin guard and path-confinement
+  (`--root`/`--no-root-confinement`) mechanisms explicitly, cross-linked to
+  `docs/api.md`. `CLAUDE.md`'s metrics table test count corrected
+  (967 → 784, matching `CHECKPOINT.md`/`docs/versions.md` for the same
+  v1.6.0 snapshot) and Python 3.14 now marked experimental/ubuntu-only
+  there and in the README badge, matching `docs/grader-workflow.md`'s
+  existing wording.
+- New `docs/api.md` (issue #267): canonical HTTP API reference for
+  `--serve` — every endpoint's method/path, params, limits, response codes,
+  and a curl example, sourced from a full audit of `web/server.py`.
+  `_Handler`'s docstring is trimmed to a short pointer instead of
+  duplicating the endpoint list.
+- `docs/web-mvp.md` split into `docs/web-current.md` (what's actually
+  implemented) and `docs/web-design.md` (design-only/deferred/rejected
+  ideas, including the `## MVP vs v1 vs later` status tracker) — the old
+  file mixed both, making it hard for a new contributor to tell what's
+  real without reading the code. All ~15 files with markdown links to the
+  old file repointed to whichever new file actually covers that section.
+- `CHANGELOG.md`'s 10 pre-versioning "pseudo-Unreleased" snapshots (dated
+  June 2026, format `## [unreleased] / <date>`, predating git-tag-based
+  versioning — issue #162/#183) moved verbatim to new
+  `docs/archive/changelog-archive.md`, cross-linked with `docs/archive/history.md` (same
+  period, different granularity/language). Live `CHANGELOG.md` now holds
+  only the current `[Unreleased]` + real releases `[1.1.0]`...`[1.6.0]`.
+- New troubleshooting section in `docs/installation.md` (issue #270):
+  `test_pytest_plugin.py` failing with `unrecognized arguments:
+  --grader-mode`, and `test_packaging.py::test_license_is_mit_in_metadata`
+  failing with `License-Expression: None`, share the same root cause — a
+  stale editable install whose `.dist-info/entry_points.txt` predates
+  `pyproject.toml` changes to `license`/`entry-points` — fixed by
+  `pip install -e ".[dev]" --force-reinstall --no-deps`. Also documents the
+  unrelated `PermissionError` on a stale `%TEMP%\pytest-of-<user>` from a
+  prior pytest run under different Windows permissions, with the
+  `--basetemp` workaround. No code changes — all three findings from the
+  2026-07-10 audit were confirmed non-reproducing once the install was
+  refreshed (verified live: full suite green, `--grader-mode` plugin
+  resolves correctly, with both default and deeply-nested custom
+  `--basetemp` paths).
+- `docs/versions.md`'s fork-vs-original comparison table condensed from
+  ~24 single-feature rows down to 5 grouped-by-theme rows (correctness,
+  benchmark/microbench, Stepik integration, web UI/IDE, engineering
+  baseline) — the granular list had grown hard to scan and, worse, had
+  drifted: it never mentioned the local web UI (`--serve`) or IDE
+  integration at all. Now covers both, and names IDE integration
+  correctly as VS Code (`--init-vscode`) **and** PyCharm (documented
+  External Tool recipe, `docs/grader-workflow.md § Интеграция с IDE`) —
+  a prior mention of only VS Code was an omission fixed here. Per-item
+  detail is unchanged in `CHANGELOG.md`/`docs/archive/history.md`, linked from
+  the section for anyone who wants it. The `v1.4.0` row in the
+  version-evolution table below got the same PyCharm correction.
+
+### Fixed
+- README badges (`Version`, `Coverage (ubuntu)`, `Coverage (all OS
+  combined)`) now pass `&cacheSeconds=300` to shields.io's endpoint-badge
+  API — the shortest TTL shields.io honors. Without it, GitHub's camo image
+  proxy and shields.io's own edge cache could each hold a stale render for
+  hours after the underlying `.github/badges/*.json` changed (as happened
+  right after #289 landed), with no way for a reader to tell the badge was
+  just out of date rather than the fix not having worked.
+- CI (issue #289): the two coverage badges (`coverage.json`, single-OS
+  ubuntu view; `coverage-combined.json`, cross-OS combined, issue #283)
+  rendered with an identical `"coverage"` label baked into the badge image
+  itself — shields.io draws `label` on the picture, not just in markdown
+  alt-text, so both badges looked the same except for the percentage.
+  `generate_coverage_badge.py` gained a `--label` flag (default `"coverage"`
+  for backward compat); CI now passes `"coverage (ubuntu)"` and
+  `"coverage (all OS)"` respectively.
+- CI (issue #286): both badge-update steps (`test` job and `coverage-combine`
+  job, issue #283) used plain `git diff --quiet -- .github/badges/` to decide
+  whether to commit — which only looks at already-tracked files. This never
+  once committed `coverage-combined.json` (a brand-new file as of #283): the
+  script correctly computed the percentage every run, but the untracked file
+  never showed up as a "change", so the commit step always took the "Badges
+  unchanged" branch. Left the README's second coverage badge pointing at a
+  file that was never actually in the repo (404). Fixed by `git add` before
+  the check and diffing `--cached` instead, in both steps.
+
+### Internal
+- CI: the `Update badges (main only)` step now retries (up to 3 attempts)
+  instead of failing the job outright when two pushes to `main` land close
+  together. Two workflow runs racing to commit+push `.github/badges/*.json`
+  is harmless in itself (the loser's `git pull --rebase` conflict is caught
+  *before* `push`, so `main` never actually gets corrupted), but it did leave
+  a spurious red CI run. On conflict, the step now aborts the rebase, resets
+  to fresh `origin/main`, and regenerates the badges from that HEAD — which
+  typically now matches what the other run already pushed, so the retry
+  cleanly resolves as "Badges unchanged." A final failure after 3 attempts
+  is a `::warning::`, not a job failure — a later push will catch the
+  badges up regardless.
+- CI: cross-OS combined coverage (issue #283). Since issue #266
+  (`SandboxRunner`), `core/sandbox/_linux.py`/`_macos.py`/`_windows.py` are
+  OS-specific backends — any single CI job/local machine only ever exercises
+  one of the three, permanently reading the other two as 0% and capping
+  single-job coverage at ~86-90% regardless of test quality (this is what
+  dropped the badge from ~95% to 86.1% right after #266/#281 merged, not a
+  real regression). New `coverage-combine` job merges the three OS matrix
+  jobs' `.coverage` data (`coverage combine`, with `[tool.coverage.paths]`
+  aliasing in `pyproject.toml` to reconcile each OS's different absolute
+  checkout path) into one report gated at `--fail-under=90`, separate from
+  the existing per-OS `fail_under = 85` in `pyproject.toml` (left unchanged
+  — raising it globally would make every contributor's single-OS local
+  `pytest` run fail on the two backends their machine can never see).
+  README now shows both numbers as two distinct badges — single-OS
+  (`coverage.json`, as before) and cross-OS combined (new
+  `coverage-combined.json`) — rather than collapsing to one figure that
+  would either overstate or understate reality.
+
+### Refactored
+- Web API `message` strings are now rendered server-side from a locale
+  catalog instead of being Russian literals baked into `web/viewmodels.py`/
+  `web/server.py` (issue #264). Every error/status response that carries a
+  human-readable `message` gained two sibling fields: `message_id` (the
+  catalog key, e.g. `"path_not_found"`) and `message_params` (the dict of
+  values interpolated into it — empty if none). `message` itself is
+  unchanged for existing callers: default locale is still `ru`, rendered
+  byte-for-byte identical to the old hardcoded text. New `web/i18n.py`
+  (`render_message()`/`message_fields()`/`resolve_lang()`) is a thin
+  web-layer renderer built on top of `core/i18n.load_locale_messages()`
+  (issue #144) — `core/i18n.py` itself stays a stdlib-only leaf, per
+  CLAUDE.md's architectural invariant; the catalog and `message_params`
+  interpolation are an application-layer concern, not core infra.
+  `core/locales/ru.json`/`en.json` (previously empty placeholders from
+  issue #144) are now populated with the actual web-layer message strings
+  and their English translations. Locale is selected via a new `?lang=`
+  query parameter on `/api/*` GET/POST endpoints (`ru`/`en`; anything else,
+  or the param's absence, falls back to `ru` — no UX change for existing
+  callers). New CI-wired guardrail `scripts/check_locale_guardrails.py`
+  (modeled on `scripts/check_docs_guardrails.py`) checks that every
+  `message_id` referenced in `web/*.py` exists in `ru.json`, and that
+  `ru.json`/`en.json` have exactly the same key set. New
+  `tests/test_i18n_guardrails.py` AST-parses `web/viewmodels.py`/
+  `web/server.py` and fails on any string literal containing Cyrillic
+  characters outside docstrings — the regression guard for "no hardcoded
+  Russian message text left in the web layer." `docs/result-contract.md`'s
+  Run result field table documents `message_id`/`message_params`.
+
+### Added
+- Mode 1's code editor (`--serve`) is now CodeMirror 6 instead of a plain
+  `<textarea>` (issue #265): Python syntax highlighting, line numbers, and
+  Tab-to-indent, themed via the existing `app.css` design tokens (follows
+  light/dark automatically — no separate CodeMirror theme object per mode,
+  just `var(--color-*)` references in one `EditorView.theme()`). Vendored,
+  not CDN-loaded (same "everything offline" rule as issue #260's fonts):
+  8 CodeMirror/Lezer sub-packages (`@codemirror/state`/`view`/`language`/
+  `commands`/`lang-python`, `@lezer/common`/`highlight`/`lr`) plus 4 tiny
+  Node browser-compat shims `@lezer/lr` needs for an unused debug path,
+  each fetched pre-built from esm.sh with every *other* package in the set
+  marked `external` so they all share one copy of `@codemirror/state`/
+  `view`/`language` — CodeMirror's extension system works by object
+  identity, so duplicate copies would have silently broken cross-package
+  extensions. New `static/vendor/` (`LICENSE`, `VERSIONS.md` with the exact
+  fetch recipe and a note on a self-exclusion bug hit once during
+  development), wired into `index.html` via a `<script type="importmap">`
+  and `web/server.py`'s static routes; `app.js` is now `type="module"`
+  (no inline scripts/`on*=` handlers depended on it staying classic).
+  `pyproject.toml`'s `package-data` gained `web/static/vendor/*`. The old
+  `$("#solution-editor").value` read/write call sites became a small
+  `getEditorCode()`/`setEditorCode()` API backed by CodeMirror's document
+  state; focus visibility (accessibility) uses `#solution-editor:focus-
+  within` since the actual focusable node is CodeMirror's own nested
+  `.cm-content`, not the outer container `:focus` never fires on directly.
+  `tests/e2e/test_journeys.py`'s mode-1 edit/save/run journey (issue #263)
+  updated to type into `.cm-content` via real keyboard events instead of
+  `.fill()`/`.input_value()` on a textarea — still green.
+- Async job model for bench/microbench in `--serve` (issue #262): new
+  `POST /api/v1/runs` (body `{"path"|"code","mode","params"}`) queues a job
+  and returns `202 {"run_id","status":"queued"}` immediately instead of
+  blocking the request for the whole benchmark; `GET /api/v1/runs/{id}`
+  polls `{"status":"queued"|"running"|"done"|"error","progress":
+  {"done","total"},"result"}`; `POST /api/v1/runs/{id}/cancel` is a
+  best-effort cancel that actually terminates the running child process
+  (not just flips a status flag). New `web/runs.py` — in-memory job
+  registry (`threading.Lock`-guarded dict) + `ThreadPoolExecutor` (size
+  configurable via new `GraderConfig.job_workers`, default 2), lazy
+  TTL-based cleanup of finished jobs (15 min) on each registry access, no
+  extra background thread. `core/runner.py`'s `LocalRunner.run()` gained an
+  additive `RunSpec.cancel_event: threading.Event | None` — `None` (CLI,
+  sync `/api/grade`) keeps the exact prior single blocking
+  `proc.communicate()` call; when set, a 100ms poll loop with concurrent
+  stdout/stderr drain threads checks it and kills the child early
+  (`RunOutcome.cancelled`). `core/grader_core.py`'s `run_tests`/
+  `run_benchmark`/`run_microbench_mode`/`run_single_test` gained matching
+  optional `progress_callback`/`cancel_event` kwargs (both default `None`,
+  CLI behavior unchanged) and a new additive case verdict `CANCELLED`
+  (distinct from `TLE` — a cancelled run is not "your solution timed
+  out"). `web/viewmodels.py`'s `grade_benchmark`/`grade_microbench` forward
+  both through their per-solution loop, plus a new `estimate_run_count()`
+  helper that cheaply pre-computes a job's total step count (file I/O only,
+  no subprocess) for the progress bar's denominator. `POST /api/v1/runs`
+  also accepts an optional `code` field (writes to a temp `.py` file next
+  to `path`, graded instead of what's on disk — the same "editable code
+  window without saving" scenario mode 1's `/api/save-solution` already
+  supports, just for bench/microbench). Frontend (`static/app.js`): modes
+  3/4 now POST + poll (600ms) with a new progress bar (`#bar`) and Cancel
+  button (`#cancel-run`) instead of a single blocking fetch; modes 1/2
+  (plain tests) are unaffected, still on sync `/api/grade`. `/api/grade`
+  itself is unchanged and documented as deprecated (not removed) for
+  bench/microbench in `server.py`'s docstrings — see
+  `docs/server-mode.md § Контракт API удалённого исполнения` for how this
+  local MVP intentionally deviates from that section's speculative future
+  network-API contract (inlined `result`, no `failed` status). New tests:
+  `tests/test_runs.py` (job-lifecycle, no HTTP), `tests/test_web.py`'s
+  `TestRunsApi*` (golden comparison against sync `/api/grade`, real-process
+  cancellation via a PID-file + `psutil.pid_exists()` check, two concurrent
+  jobs not mixing results, path confinement/input validation/Host-guard
+  reuse), plus new `cancel_event` scenarios in `tests/test_runner.py`/
+  `tests/test_grader_mock.py`.
+- Playwright e2e smoke suite for the web UI, `tests/e2e/` (issue #263): 4
+  user journeys against a real `--serve` instance (mode 2 folder grading +
+  detail tab, mode 1 file picker with an editable code window + save + run,
+  glossary search + card, command palette open/execute) plus an XSS
+  regression test asserting `app.js`'s `esc()` escaping (hardened in issue
+  #214) neither executes an injected `<img onerror=...>` payload nor renders
+  it as a live element anywhere across its ~41 `innerHTML` call sites. New
+  opt-in dev-extra `[project.optional-dependencies].e2e` (`playwright>=1.40`)
+  in `pyproject.toml` — **not** a runtime dependency, only installed via
+  `pip install -e ".[e2e]"` + `playwright install chromium`; the issue itself
+  explicitly authorizes this dev-only addition. `tests/e2e/` is excluded from
+  the default `pytest`/`pytest tests/` sweep via a new `norecursedirs`
+  pytest.ini_options entry (explicit `pytest tests/e2e/` still collects it).
+  New separate `e2e` CI job (Linux-only, `.github/workflows/ci.yml`) with
+  Playwright browser caching, deliberately not folded into the main `test`
+  matrix — issue #263 explicitly authorizes touching the workflow for this.
+  README/CONTRIBUTING.md document how to run the suite locally.
+- `--serve` gained workspace root confinement (issue #261): all request
+  paths (`/api/grade`, `/api/source`, `/api/solutions`, `/api/save-solution`
+  — both `folder` and an optional target `path`) are now resolved and
+  checked against a server workspace (new `_GraderServer` — a
+  `ThreadingHTTPServer` subclass carrying `workspace`/`confine`, and
+  `_resolve_within_root()`/`_Handler._confined_path()` in `server.py`) —
+  `Path.resolve()` runs before the containment check, so `../` traversal
+  and symlinks pointing outside the workspace are caught, not just literal
+  absolute paths. A request outside the workspace gets `403`
+  (`{"kind": "error", "message": ...}`) instead of silently reading/writing
+  anywhere on disk (previously confirmed live: `/api/source?path=/etc/
+  hostname` read arbitrary files). New CLI flags: `--root <dir>` sets the
+  workspace (default: cwd at `--serve` launch, also used for
+  `__DEFAULT_PATH__` in `index.html`, replacing the old raw `os.getcwd()`);
+  `--no-root-confinement` is an explicit opt-out back to the old
+  unconfined behavior, reflected in the server's startup message.
+  `/api/download`'s `root` (where to download a task *to*) is a separate
+  concern and isn't confined by this change.
+
+### Changed
+- Web UI fonts (JetBrains Mono/Inter) are now vendored locally instead of
+  loaded from the Google Fonts CDN (`fonts.googleapis.com`/
+  `fonts.gstatic.com`), issue #260: `static/index.html`'s CDN `<link>`s are
+  gone, `app.css` declares local `@font-face` rules (latin + cyrillic
+  subsets, one variable woff2 file per subset covering the full weight
+  range each family needs — Google itself serves the same file for every
+  requested static weight of these two families) pointing at new
+  `static/fonts/*.woff2`, served via a new `_STATIC_BINARY_ROUTES` map in
+  `server.py` (`Content-Type: font/woff2`). Fixes the contradiction with
+  the module's own "no external dependencies" docstring claim, restores a
+  working offline UI (previously degraded to fallback fonts with no
+  network), and stops leaking the fact that the tool is running to a
+  third-party host on every page load. Fonts are OFL 1.1 (`static/fonts/
+  LICENSE`); `pyproject.toml` `package-data` gained a `web/static/fonts/*`
+  entry (`web/static/*` doesn't recurse into subdirectories).
+
+### Fixed
+- Web API had no limits on request size or numeric query params (issue
+  #259): a `POST` body of unbounded size was read fully into memory before
+  any validation, and `GET /api/grade?mode=bench&repeats=999999999` (or
+  `mode=microbench&number=...`) passed the raw value straight through to
+  the benchmark runner — a single request could burn arbitrary CPU/memory
+  (local DoS). `do_POST` now rejects a `Content-Length` over 1 MiB with
+  `413` (draining a bounded amount of the still-incoming body first —
+  otherwise Windows resets the connection before the client can read the
+  413 response) and a missing/negative/non-numeric `Content-Length` with
+  `400`; `repeats`/`number` are clamped to `[1, 1000]`/`[1, 1_000_000]` via
+  a new `_clamp()` helper instead of passed through unbounded.
+- `config.py::load_config()` resolved `pyproject.toml` relative to the
+  installed package's own `__file__` (`src/stepik_grader/` → repo root),
+  so a `pipx`/wheel install pointed inside the venv where no
+  `pyproject.toml` exists — `[tool.stepik-grader]` was silently never
+  read and every user got hardcoded defaults regardless of their config.
+  `load_config()` now resolves the path via a new
+  `_resolve_pyproject_path()`: `STEPIK_GRADER_CONFIG` env override (if it
+  points at an existing file) → search upward from `cwd` (pip/ruff
+  pattern, new `_find_pyproject()`) → legacy `__file__`-relative fallback
+  (preserves behavior when tests run from the repo root) → defaults. An
+  invalid `STEPIK_GRADER_CONFIG` value no longer raises — resolution just
+  continues to the next source (issue #258).
+
+### Added
+- Editable code window for mode 1 in the web UI (issue #125): the
+  file-picker panel's read-only source preview is now a persistent,
+  editable textarea. Picking an existing solution loads its code into it
+  for editing; leaving nothing picked lets you type a new solution from
+  scratch. Running now saves the editor's content to disk first — to the
+  picked file if one was selected, otherwise to a new file whose name
+  extends the folder's existing `task<N>_<M>.py` numbering series (or
+  starts at `task_1.py`) — via new `web/viewmodels.py::save_solution()`
+  and `POST /api/save-solution`, then grades the saved path as before.
+- Microbench (mode 4) in the web UI (issue #187): the "Режим 4 · Microbench"
+  button is no longer a disabled placeholder — it runs the real
+  `timeit`-based microbenchmark with a calls-per-run profile selector
+  (fast/normal/thorough/deep/hard/custom, mirroring `cli/interactive.py`'s
+  `_MICRO_PROFILES`) and a results table (Min/Median/Mean/Max/StdDev in µs,
+  relative %, verdict, Py-heap). New `web/viewmodels.py::grade_microbench()`
+  groups solutions by subfolder via `core/test_loader.py::collect_grouped_files`
+  before calling `core/grader_core.py::run_microbench_mode` once per group —
+  required because that function ranks all files passed to a single call
+  against each other, so per-file calls (like `grade_benchmark`'s) would make
+  every result trivially "SIMILAR". A folder with more than one solution
+  group only benchmarks the first (sorted) group in this MVP; the rest are
+  named in an `other_groups` hint above the table. New `mode=microbench`
+  branch in `server.py`'s `/api/grade` routing (`number=` query param).
+- Downloader workflow in the web UI (issue #186): a new, full sidebar
+  section "Загрузчик задач" (symmetric with "Проверка решений"/"Глоссарий" —
+  the owner confirmed a dedicated section over the design doc's original
+  "workflow-block inside Проверка решений" plan) lets you paste a Stepik
+  step URL and download the task + tests without leaving the browser.
+  `web/downloader_adapter.py::download_task()` is a thin adapter over
+  `downloader.py::process_step_url` (no download logic duplicated); auth
+  goes through a new `core/oauth_flow.try_create_session_without_browser()`,
+  which only ever uses a valid token or a `refresh_token` exchange — it
+  never opens a browser or blocks the request thread the way
+  `create_user_session`'s third fallback would. Two small additive core
+  changes support this: `save_task_files`/`process_step_url` now return the
+  `(count, source)`/`task_dir` they already computed instead of `None`
+  (`source` — zip/html_table/github_link/none — can't be reconstructed
+  from disk after the fact, since the ZIP and GitHub-variant-A paths both
+  produce an identical `tests/input.txt`+`output.txt`). New `POST
+  /api/download` endpoint (the server's first `do_POST`). Verified
+  end-to-end against a real Stepik step with an already-configured OAuth
+  session on this machine.
+- Runner Protocol abstraction (epic #136, issues #137-#139): new
+  `core/runner.py` implements `docs/server-mode.md`'s already-designed
+  Runner layer (#140) as real code. `Runner` (runtime-checkable Protocol),
+  `RunSpec`/`RunOutcome` (raw subprocess result, no verdict), and
+  `LocalRunner` (the existing `subprocess.Popen` + best-effort `RLIMIT_AS`
+  + psutil RSS-polling logic, moved verbatim out of `run_single_test`).
+  `grader_core.run_single_test()` now builds a `RunSpec` and delegates to
+  `_RUNNER.run(spec)`; verdict/diff computation stays in `grader_core.py`.
+  No behavior change — sets up a future `SandboxRunner` (#157) behind the
+  same interface.
+- Lazy `CONFIG` + JSON-locale i18n foundation (epic #141, issues
+  #142-#145): `stepik_grader.config` no longer reads `pyproject.toml` as
+  an import-time side effect — a module `__getattr__` (PEP 562) +
+  cached `get_config()` defer the read to first access to `.CONFIG`, with
+  every existing `from stepik_grader.config import CONFIG` call site
+  unaffected. `load_config()` filters overrides via
+  `dataclasses.fields(GraderConfig)` instead of the private
+  `__dataclass_fields__` dunder. New `core/i18n.py` +
+  `core/locales/{ru,en}.json`: an additive JSON-locale loader sitting in
+  front of `cli.py`'s static `_MESSAGES` dict — `_t()` checks the JSON
+  locale first, falling back to `_MESSAGES`; empty locale files today
+  keep behavior byte-identical.
+- Stepik client retry/backoff (epic #108, issues #109-#111):
+  `make_session()` mounts an `HTTPAdapter` with a `urllib3.Retry` on
+  http/https, so 429 (rate limit) and transient 5xx (500/502/503/504) are
+  retried with exponential backoff (respecting `Retry-After`) for every
+  request through the session, not just the call sites that already used
+  `_get_with_retry()`. 4xx other than 429 still isn't retried.
+- `TestResult` dataclass + `Verdict` Literal (epic #112, issues
+  #113-#115): new leaf module `core/result.py` matching
+  `docs/result-contract.md`'s case-result fields; `from_dict()`/
+  `to_dict()` round-trip the same dict shape `run_single_test()` has
+  always returned, so the public dict contract (CLI JSON, `run_tests()`/
+  `run_benchmark()`, `/api/grade`) is unchanged.
+  `core/reporter.print_case_verbose` now reads typed attributes instead
+  of ad-hoc `dict.get()` calls with inline defaults; output is
+  byte-identical.
+- WEB workspace (issue #125, epic #123): split-pane layout (sidebar/result/
+  detail panels), extended ErrorCard fields on `/api/grade`'s case results
+  (`case_n`/`severity`/`stdin`/`expected`/`actual`/`stderr`/`exit_code`/
+  `timeout_s`/`suggestions`/`glossary_ids`/`actions`), a command registry
+  (`GET /api/commands`) driving action cards, scenario buttons, and a
+  Ctrl+K/⌘K command palette from one shared filter, and a Glossary section
+  (`GET /api/glossary`, `GET /api/glossary/<id>`, `GET /api/glossary/missing`)
+  with search, card detail, and a J7 missing-concept backlog view. All
+  additive on top of the existing `/api/grade` contract — no existing field
+  renamed/removed. New `GraderConfig.glossary_store`/`glossary_missing_queue`
+  fields configure the local card store and backlog file (both optional,
+  default to a zero-config fallback). `core/grader_core.run_single_test`
+  gained an additive `exit_code` field and `core/glossary.all_entries()`
+  lists the compact curated glossary for that fallback.
+- WEB UI redesign to match the epic #123 reference mask (`web-mvp-mask.html`
+  attached to the issue): full design-token system ("Hydra" light/dark
+  palette, Inter + JetBrains Mono), a grid-based `.app-shell` (fixed 220px
+  sidebar navigation replacing the old topbar section-switcher and
+  resizable dividers), a 4-button mode row (Compare/Tests/Bench/Microbench
+  — the last a disabled placeholder for #187), and a 2-column split-pane
+  with the ErrorCard detail panel moved into a "Детали" tab alongside new
+  "Лог"/"Эталон" tabs. All #125 functionality (palette, action cards,
+  scenario buttons, Glossary section with backlog) preserved unchanged,
+  only re-skinned. New **Сравнение (Compare)** mode: `grade_benchmark()`
+  gained an optional `reference` parameter (path or filename among the
+  found solutions) — resolved, ranking is computed relative to it instead
+  of the fastest solution, with `REFERENCE`/`FASTER` verdicts added
+  alongside the existing `SIMILAR`/`SLOWER`/`MUCH_SLOWER`; unresolved
+  (typo/foreign file) silently falls back to the normal ranking. Response
+  gains additive `reference_source`/`reference_file` fields for the new
+  tab. `core/microbench_runner.apply_relative_ranking` (shared with CLI)
+  is untouched — the new ranking lives in a web-only
+  `_apply_reference_ranking()`. Sidebar has a disabled "Загрузчик задач"
+  placeholder for #186. Note: the Stepik-side reference-solution *import*
+  (issue #55, reopened) is a separate, unrelated mechanism — this redesign
+  only lets `#ref-input` point at an already-local file.
+
+### Changed
+- Corrected web UI modes 1/2 after owner feedback on #125: the redesign
+  above had mistranslated the mask's "Режим 1" as a benchmark-style
+  "Сравнение" (Compare) mode. Режим 1 is now the actual analogue of CLI
+  mode 1 (single-file check): pick a folder, click "Найти решения" (new
+  `GET /api/solutions?path=` — thin adapter over the already-used
+  `find_all_solution_files`), choose one found file, see its source
+  (new `GET /api/source?path=`), and run just that file — no comparison
+  involved. The "Найти эталонное решение" button is a disabled placeholder
+  for #55. Режим 2's "Параметры" tab is now visibly present but greyed
+  out/non-clickable (tests mode genuinely has no parameters — `repeats`
+  only applies to bench); Режим 1 hides that tab entirely. The bottom
+  scenario-button bar (auto-shown run_again/toggle_theme/switch_section
+  when nothing is selected) is removed app-wide — the command palette and
+  the detail panel's action cards are unaffected. `grade_benchmark(reference=...)`
+  and `_apply_reference_ranking()` from the previous entry stay in the
+  code and under test, just unused by the frontend for now.
+
+### Fixed
+- Glossary exception-name detector (`_last_exception_name`) reduced false
+  positives: plain text lines that happened to look like a capitalized
+  identifier (e.g. an `exc.add_note()` note) were being reported as
+  exception names. `_looks_like_exception_name()` now requires the
+  `Error`/`Exception`/`Warning` naming convention or membership in the
+  small set of builtins that don't follow it (issue #191).
+- Web UI client-side `esc()` escaped `&`/`<`/`>` for text context but not
+  quotes, so a value landing inside an HTML attribute (`errorCard()`'s
+  `href="..."`) could still break out of it. Not exploitable today
+  (`g.url` is server-controlled), but hardened ahead of more action/error
+  cards being added the same way (issue #214).
+- `scripts/version.py`'s logical `X.Y.Z` version (README `Version` badge)
+  no longer double-counts CI's own `chore(ci): update badges [skip ci]`
+  bot commits toward PATCH — it excludes them via `git rev-list
+  --invert-grep` instead of `git describe --tags --long`'s raw commit
+  count (issue #231).
+- `core/microbench_runner.py::run_microbench()` left `stdin` unset on its
+  `subprocess.Popen` call, so the child inherited the parent's stdin
+  handle. Under pytest's output capturing that handle is a fake/invalid
+  Windows handle, which intermittently raised `OSError: [WinError 6]`
+  (invalid handle) when several microbenchmarks ran in one test session —
+  found while adding tests for issue #187. Fixed by passing
+  `stdin=subprocess.DEVNULL` (the child never reads real stdin — it swaps
+  `sys.stdin` itself), matching the pattern already used in
+  `core/runner.py`.
+- **Security (High):** `downloader.py` no longer sends the Stepik OAuth
+  Bearer token to third-party hosts. ZIP/GitHub test-case links extracted
+  from a task's HTML text were previously fetched through the same
+  authenticated `requests.Session` used for the Stepik API, leaking the
+  access token to any domain a task's text happened to link to. New
+  `core/stepik_client.py::external_download_get()` performs those fetches
+  through a fresh, unauthenticated session, validated by
+  `validate_external_url()` against an explicit host allowlist
+  (`github.com`, `raw.githubusercontent.com`, `api.github.com`,
+  `codeload.github.com`) with loopback/private/link-local IP literals
+  rejected outright. `is_stepik_url()` still routes genuine `stepik.org`
+  ZIP links through the authenticated session, since that's a first-party
+  call, not a leak. `_download_github_tests()` no longer accepts a session
+  parameter at all — GitHub is always third-party (issue #240, security
+  audit finding F-01, part of #146/#97).
+- **Security (Medium):** OAuth authorization-code flow (`authorize_via_browser()`)
+  now sends a cryptographically random `state` (`secrets.token_urlsafe(32)`)
+  in the authorize URL and requires the local callback server to receive the
+  same value back before extracting the code. Previously the loopback
+  callback server accepted the first `?code=...` it saw with no `state`
+  check, so a page that lured the victim into hitting
+  `http://localhost:<port>/callback?code=<attacker's code>` could bind the
+  local app to the attacker's Stepik account (Login-CSRF).
+  `wait_for_auth_code()`/`_make_oauth_handler()` now take a required
+  `expected_state` parameter and reject a missing/mismatched `state` with a
+  clear `RuntimeError` instead of ever returning a code (issue #241,
+  security audit finding F-02, part of #146/#149/#97).
+- **Security (Medium):** the local web UI's `/api/*` endpoints (`/api/grade`,
+  `/api/download`, `/api/save-solution`, etc.) now validate the `Host` header
+  against `127.0.0.1`/`localhost` and, when present, the `Origin`/`Referer`
+  header against the same. The server only ever binds to loopback, but a page
+  open in the user's browser could still trigger grading/download/save
+  actions via a plain cross-site request (no CORS preflight for a simple
+  GET) or DNS-rebinding (an attacker domain briefly resolving to
+  `127.0.0.1`). A mismatched `Host` or `Origin`/`Referer` now gets a 403;
+  requests with no `Origin`/`Referer` at all (non-browser clients) are
+  unaffected — those headers can't be forged by page JS, unlike the request
+  body/query. `/` and `/static/*` are unaffected (issue #242, security audit
+  finding F-03, part of #151/#97).
+- **Security (Low):** `core/storage.py::save_secrets()` now creates/rewrites
+  `secrets.json` with owner-only permissions (`0600`) on POSIX, using
+  `os.open(..., mode=0o600)` so the file never briefly exists with the
+  process's default (usually wider) umask-based permissions between creation
+  and a follow-up `chmod`. An existing `secrets.json` left over from an older
+  version with wider permissions is also forced back to `0600` on the next
+  save. `secrets.json` holds the OAuth access/refresh token and
+  `client_secret`. On Windows `os.chmod` has no equivalent to the Unix
+  group/other bits (NTFS uses ACLs, not mode bits), so the call is
+  effectively a no-op there and the file's protection stays whatever the
+  user's profile directory already provides (issue #243, security audit
+  finding F-04, part of #149/#146/#97).
+- **Security (Low):** `core/wrapper_builder.py::_build_function_wrapper()`
+  (legacy function-mode wrapper) now imports `datetime`/`decimal`/`fractions`
+  before `sys.path.insert(0, <solution dir>)` instead of after. Previously a
+  same-named file next to the solution (e.g. a stray `datetime.py`) would
+  land first in `sys.path` and shadow the real stdlib module once the
+  wrapper's own `from datetime import ...` ran, breaking (or worse, silently
+  altering) any test case whose input relies on that stdlib type. The other
+  wrapper builder, `_build_call_wrapper()`, already did this correctly
+  (issue #244, security audit finding F-05, part of #136/#97).
+- `core/wrapper_builder.py::_build_function_wrapper()` — the generated
+  wrapper resolved a function's positional arguments via
+  `[locals()[_p] for _p in _sig.parameters]`. A list comprehension is its
+  own scope, so `locals()` called inside it only ever saw the comprehension's
+  own loop variable, not the module-level variables assigned from the test
+  case's `input_data` — a `KeyError` on every parameter name except by
+  accident on Python 3.12 (broken on 3.11 and on 3.13+, per PEP 667's
+  tightened `locals()` semantics). Found while adding an end-to-end
+  regression test for the F-05 fix above — that test is the first thing to
+  ever actually execute this wrapper's generated code instead of just
+  inspecting its source. Fixed by snapshotting `locals()` into a plain dict
+  before the comprehension.
+- **Security (Low):** `core/executor.py`'s module-level `EXECUTOR_TIMEOUT`
+  parsing was a bare `int(os.environ.get("EXECUTOR_TIMEOUT", ...))` — a
+  non-numeric value in that environment variable raised `ValueError` at
+  *import time*, crashing the whole module (and, transitively, anything that
+  imports it — the grader can't run at all until the env var is fixed or
+  unset). New `_parse_executor_timeout()` catches the invalid value and
+  falls back to `CONFIG.executor_timeout`'s default (issue #245, security
+  audit finding F-06, part of #136/#97).
+- `core/test_loader.py::load_test_cases()`'s Format 3 (`input.txt`/`output.txt`)
+  parsing zipped `input_blocks`/`output_blocks` with `strict=False`, so a
+  file pair disagreeing on the number of `# TEST_N:` blocks silently
+  truncated to the shorter one — dropped test cases with no indication,
+  risking a false-positive "all tests pass" from an incomplete set. It now
+  warns (same `warnings.warn` pattern already used for the Format-1/3
+  coexistence case just above it) when the block counts differ, naming both
+  counts; the truncating behavior itself is unchanged — normal (matching)
+  cases still load exactly as before (issue #246, security audit finding
+  F-07, part of #97).
+
+### Refactored
+- `cli.py` decomposed into a package (`cli/`), epic #117 (issues #118-#122).
+  `stepik_grader.cli` (`__init__.py`) stays the compatibility facade —
+  `main()`, mode-handler/interactive-menu wrapper functions, and mutable
+  i18n state (`_LANG`/`_MESSAGES`/`_LOCALE_MESSAGES`/`_t`, deliberately kept
+  in place since `main()` mutates `_LANG` at runtime and moving it would
+  turn the facade re-export into a stale snapshot). Four new leaf modules
+  hold the actual logic, none importing `stepik_grader.cli`:
+  `cli/options.py` (argparse parsing, #119); `cli/commands.py` +
+  `cli/context.py` (mode handlers behind an explicit `CliContext`
+  dependency-injection object, #120); `cli/rendering.py` (csv/markdown
+  table output, #121 Phase 1); `cli/interactive.py` (menu/prompts,
+  extending `CliContext`, #121 Phase 2). `tests/test_entrypoint.py` adds
+  subprocess-level regression coverage for the `stepik-grader` console
+  script and `python -m stepik_grader[.grader]` (#122). Across all five
+  PRs, essentially no existing test files needed modification — the
+  `CliContext` design was built specifically to keep
+  `monkeypatch.setattr(cli, "...", ...)`-based tests passing unmodified
+  through the move.
+- `web.py` decomposed into a `web/` package, issue #125: `server.py`
+  (HTTP handler/routing), `viewmodels.py` (`grade_path`/`grade_benchmark`/
+  the ErrorCard mapper), `glossary_adapter.py`, `commands.py`, and
+  `static/{index.html,app.css,app.js}` (JS/CSS extracted from the old
+  inline `_INDEX_HTML` string, served via a small fixed route allowlist).
+  Pure move — public API (`grade_benchmark`/`grade_path`/`run_server`)
+  unchanged; `_Handler`/`_INDEX_HTML`/`_APP_JS`/`_case_view` re-exported
+  from `web/__init__.py` for test back-compat.
+
+### Docs
+- Sandbox limits clarified in `executor.py`'s module/`main()` docstrings —
+  explicitly no OS-sandbox, no FS/network isolation, trusted solutions
+  only (issue #213); Windows limitations of the future
+  `SandboxRunner`/`LocalRunner` documented in `docs/server-mode.md`,
+  completing #140's acceptance criteria. Stale follow-up references
+  cleaned up in `docs/README.md`/`docs/claude-handoff.md`; README
+  `--watch` marked as requiring the `[watch]` extra (issue #215).
+- README line-budget (220 lines) and local Markdown link/anchor
+  guardrails: new `scripts/check_docs_guardrails.py`, wired into CI as a
+  `docs-guardrails` job, documented in CONTRIBUTING.md (issue #173).
+- Architecture/design docs formalized: `glossary/stdlib_inventory.py` +
+  `coverage.py` registered in the DAG (#199); `docs/result-contract.md`
+  for CLI/Web/API case-result fields and verdicts (#116); server-mode
+  design — Runner layer, remote execution API, sandbox requirements
+  (#140/#156/#157) plus ADR-0001 (#152); diagnostic/logging design with
+  secret redaction (#150); Contributor Covenant `CODE_OF_CONDUCT.md`
+  linked from CONTRIBUTING (#204).
+
+### Tests
+- Cross-adapter user-journey coverage for the web UI (issue #129, closing
+  epic #123): most journeys from `docs/web-mvp.md § User journeys` were
+  already covered incrementally across `tests/test_web*.py` as #125/#186/
+  #187 landed, but the issue's own follow-up comment (after PR #185)
+  explicitly said not to close it using only the original 3-item checklist.
+  New `tests/test_web_journeys.py` proves three previously-untested seams
+  between adapters that were each only unit-tested in isolation: a
+  downloaded task's path is immediately gradable via `grade_path()` (J0→J1),
+  an RE case's `glossary_ids` actually resolve to a real card through
+  `glossary_adapter`/HTTP instead of a dead link (error-card→glossary
+  navigation), and an entry queued mid-grading is visible through
+  `glossary_adapter.glossary_missing()` — the same read path
+  `GET /api/glossary/missing` uses, not just the lower-level
+  `json_provider`. Command-palette keyboard flows (Ctrl+K/arrows/Enter/
+  Escape) were verified manually against a running server, the same
+  no-JS-test-runner tradeoff #125 already documented.
 
 ## [1.6.0] - 2026-07-08
 
