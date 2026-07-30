@@ -41,7 +41,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Container
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -432,6 +432,20 @@ def _example_trees(examples: list[str]) -> list[ast.Module]:
     return trees
 
 
+def _added_after_runtime(version: str) -> bool:
+    """Появилось ли API позже текущего интерпретатора (``version`` вида ``3.14``).
+
+    Отделяет версионный разрыв от платформенного: на 3.12 нет ни ``os.fork``
+    (Windows), ни ``os.readinto`` (появился в 3.14), но тег ``platform:posix``
+    уместен только первому. Неразобранное или пустое поле — «доступно»: молча
+    считать API будущим опаснее, чем проверить его лишний раз.
+    """
+    parts = version.strip().split(".")[:2]
+    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+        return False
+    return (int(parts[0]), int(parts[1])) > sys.version_info[:2]
+
+
 @functools.cache
 def _platform_module(name: str) -> ModuleType | None:
     """Импортировать системный модуль из ``_PLATFORM_MODULES`` (или ``None``)."""
@@ -465,7 +479,7 @@ def _guarded_attrs(tree: ast.Module) -> set[str]:
     return guarded
 
 
-def platform_gaps(examples: list[str], *, known_api: Container[str] | None = None) -> set[str]:
+def platform_gaps(examples: list[str], *, known_api: Mapping[str, str] | None = None) -> set[str]:
     """К какому недоступному на **этой** платформе API обращаются примеры.
 
     Возвращает имена вида ``os.fork`` (атрибут системного модуля, которого здесь
@@ -478,10 +492,13 @@ def platform_gaps(examples: list[str], *, known_api: Container[str] | None = Non
     Windows), а на POSIX остаются только заведомо непереносимые импорты
     (`termios`) — там сами примеры и исполняются полностью.
 
-    ``known_api`` — имена, которые считать реальным API (обычно ``id`` карточек
-    базы). Без него «отсутствует здесь» неотличимо от «не существует нигде», и
-    намеренная демонстрация ``from os import nonexistent  # ImportError`` тоже
-    сошла бы за платформенную. Модули фильтру не подлежат: их список закрытый.
+    ``known_api`` — реальное API базы: ``id`` карточки → её поле ``version``
+    («доступно с Python X.Y», пусто — всегда). Без него «отсутствует здесь»
+    неотличимо ни от «не существует нигде» (намеренная демонстрация
+    ``from os import nonexistent  # ImportError`` сошла бы за платформенную), ни
+    от «появится в следующей версии» (``os.readinto`` есть с 3.14, и на 3.12 его
+    нет на **любой** ОС — тег ``platform:posix`` там не при чём). Модули фильтру
+    не подлежат: их список закрытый.
 
     Учитываются только модули, импортированные в этих же примерах: иначе
     ``from datetime import time`` + ``time.fromisoformat(...)`` принимался бы за
@@ -490,7 +507,10 @@ def platform_gaps(examples: list[str], *, known_api: Container[str] | None = Non
     """
 
     def is_real(name: str) -> bool:
-        return known_api is None or name in known_api
+        if known_api is None:
+            return True
+        version = known_api.get(name)
+        return version is not None and not _added_after_runtime(version)
 
     gaps: set[str] = set()
     for tree in _example_trees(examples):
@@ -689,7 +709,7 @@ def run_check(
     )
     for card_id, report in flagged:
         print(f"  [{report.status}] {card_id}: {report.detail}")
-    known_api = {c.id for c in provider.all()}
+    known_api = {c.id: c.version for c in provider.all()}
     for card in runnable:
         # На POSIX в runnable попадают и помеченные карточки — им подсказка не нужна.
         if _POSIX_ONLY_TAG in card.tags:
