@@ -61,13 +61,13 @@
 ## Правила размещения файлов
 
 > **Корень репозитория — не свалка. Только `src/stepik_grader/` и
-> инфраструктура репозитория (Issue #35, src-layout).**
+> инфраструктура репозитория (src-layout).**
 
 ### В `src/stepik_grader/` остаются точки входа
 
 | Файл / паттерн | Причина |
 |---|---|
-| `grader.py`, `cli/` | Точки входа — запускаются как `python -m stepik_grader.X` / `stepik-grader` (`cli/` — пакет, `__init__.py` facade + `options.py` leaf, issue #119) |
+| `grader.py`, `cli/` | Точки входа — запускаются как `python -m stepik_grader.X` / `stepik-grader` (`cli/` — пакет, `__init__.py` facade + `options.py` leaf) |
 | `config.py` | Project-level конфигурация; импортируется из `core/*` (перенос вызовет circular import) |
 | `downloader.py`, `diagnostic_stepik.py` | Самостоятельные пользовательские утилиты |
 
@@ -94,7 +94,7 @@
 
 ## Документация: README как витрина, `docs/` как база знаний
 
-Правило (issue #107 / эпик #102): **README — входная витрина**, а не свалка
+Правило: **README — входная витрина**, а не свалка
 технической памяти. В README живут только:
 
 - описание проекта и бейджи;
@@ -128,7 +128,7 @@
 Не давай README снова разрастаться — проверяй это при ревью PR, добавляющих
 документацию.
 
-**Line-budget и link-check (issue #173).** Правило «README — витрина» защищено
+**Line-budget и link-check.** Правило «README — витрина» защищено
 машинно: CI-job `docs-guardrails` (`.github/workflows/ci.yml`) запускает
 [`scripts/check_docs_guardrails.py`](scripts/check_docs_guardrails.py), который
 
@@ -164,17 +164,17 @@ python -m venv .venv
 # source .venv/bin/activate # macOS/Linux
 
 pip install -e ".[dev]"      # runtime (requests/psutil/rich) + pytest/ruff/mypy
-                              # ОБЯЗАТЕЛЬНО editable (Issue #35, src-layout): без
+                              # ОБЯЗАТЕЛЬНО editable (src-layout): без
                               # него пакет stepik_grader не импортируется, и
                               # консольная команда stepik-grader не появится на
                               # PATH. Также: cli.__version__ читается через
                               # importlib.metadata из package-метаданных
-                              # (Issue #36) — без editable install падает
+                              # — без editable install падает
                               # на fallback "0.0.0+unknown"
 ```
 
-> Нет отдельного `requirements.txt` — единственный источник зависимостей
-> `pyproject.toml` (issue #51 P-01, было дублирование).
+> Нет отдельного `requirements.txt`: единственный источник зависимостей —
+> `pyproject.toml`.
 
 > После bump'а версии в `pyproject.toml` перезапусти `pip install -e .`,
 > иначе `cli.__version__`/`stepik-grader --version` останутся показывать
@@ -190,14 +190,14 @@ pip install -e ".[dev]"      # runtime (requests/psutil/rich) + pytest/ruff/mypy
 pytest tests/ -v
 ```
 
-### E2E-тесты (Playwright, опционально, issue #263)
+### E2E-тесты (Playwright, опционально)
 
 Смок-тесты реального веб-UI (`--serve`) через headless Chromium — свыше 20
 сценариев по всем разделам workspace (режимы 2/1 грейдинга и a11y-озвучка,
 «Функции в коде», глоссарий с deep-link, песочница с пошаговым плеером и
 memory-диаграммой, «Прогресс», AI-подсказка с consent-гейтом, локализация
 RU/EN) плюс регрессионный тест на XSS в `app.js` (экранирование в `esc()`,
-issue #214). Живут в
+экранирование в `esc()`). Живут в
 `tests/e2e/`, **не входят**
 в `pytest tests/` (см. `norecursedirs` в `pyproject.toml`) — отдельный
 `playwright` нужен только для них, это dev-extra, а не runtime-зависимость:
@@ -253,7 +253,7 @@ import annotations` в новом файле, `pathlib` вместо `os.path`, 
 1. Создайте ветку: `git checkout -b feat/your-feature`
 2. Внесите изменения с тестами
 3. Обновите `CHANGELOG.md` — запись под `## [Unreleased]` в **каждом** PR, без
-   исключений для рефакторингов (одна строка на изменение, issue #373)
+   исключений для рефакторингов (одна строка на изменение)
 4. Прогоните `pytest tests/ -v`
 5. Прогоните `mypy src/stepik_grader scripts`
 6. Прогоните `pre-commit run --all-files`

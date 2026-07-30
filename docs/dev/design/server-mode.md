@@ -1,6 +1,6 @@
 # Server mode — дизайн (Runner-слой, API, sandbox)
 
-> Дизайн-документ будущего серверного режима (issue #140, #156, #157).
+> Дизайн-документ будущего серверного режима.
 > **Не реализация**: описывает целевые границы, контракты и требования
 > безопасности, не меняя текущий Python-код. Решение «двигаться к server mode»
 > и его альтернативы зафиксированы отдельно как
@@ -17,7 +17,7 @@
 ## Оглавление
 
 - [Зачем и границы](#зачем-и-границы)
-- [Runner-слой (issue #140, реализация — #136/#137/#138)](#runner-слой-issue-140-реализация--136137138)
+- [Runner-слой](#runner-слой)
 - [Контракт API удалённого исполнения (issue #156)](#контракт-api-удалённого-исполнения-issue-156)
 - [Sandbox и сетевая изоляция (issue #157)](#sandbox-и-сетевая-изоляция-issue-157)
 - [Фазовая миграция](#фазовая-миграция)
@@ -42,7 +42,7 @@ mode — это именно такой переход, поэтому он пр
 
 ---
 
-## Runner-слой (issue #140, реализация — #136/#137/#138)
+## Runner-слой
 
 > **Статус: `Runner`/`LocalRunner` реализованы** — `src/stepik_grader/core/runner.py`.
 > `grader_core.run_single_test()` делегирует subprocess-запуск `LocalRunner`
@@ -71,12 +71,12 @@ grader_core.run_single_test(...)  →  Runner.run(spec) -> RunOutcome
 
 | Runner | Изоляция | Статус | Где уместен |
 |---|---|---|---|
-| `LocalRunner` | subprocess + таймаут + best-effort лимит памяти (POSIX) | **реализован** (issue #138) | локальный CLI/Web (доверенный код) |
-| `SandboxRunner` | ОС-уровень: неймспейсы/seccomp/квоты, сеть выключена, tmp-каталог | **дизайн, issue #157**; **локальный MVP реализован, issue #266** (`--sandbox`, `core/sandbox/`) | server mode (недоверенный код) / локальный opt-in CLI |
+| `LocalRunner` | subprocess + таймаут + best-effort лимит памяти (POSIX) | **реализован** | локальный CLI/Web (доверенный код) |
+| `SandboxRunner` | ОС-уровень: неймспейсы/seccomp/квоты, сеть выключена, tmp-каталог | **дизайн, требования #157**; **локальный MVP реализован** (`--sandbox`, `core/sandbox/`) | server mode (недоверенный код) / локальный opt-in CLI |
 
-> **Локальный MVP уже есть (issue #266)** — `core/sandbox/` реализует
+> **Локальный MVP уже есть** — `core/sandbox/` реализует
 > bubblewrap (Linux) / `sandbox-exec` (macOS) / Job Objects (Windows) за
-> флагом `--sandbox`, тем же паттерном, что async job model (issue #262)
+> флагом `--sandbox`, тем же паттерном, что async job model
 > выше: покрывает часть требований этого раздела, но **не** заменяет
 > будущий сетевой server mode — работает только локально, без
 > аутентификации/multi-tenancy/очереди. Полная таблица гарантий по ОС
@@ -94,14 +94,14 @@ grader_core.run_single_test(...)  →  Runner.run(spec) -> RunOutcome
   полная защита от эскалации ядра (это ответственность выбранного механизма
   изоляции — контейнер/VM), корректность самих тест-кейсов.
 
-**Ограничения на Windows (обновлено issue #266).** Изначально этот раздел
+**Ограничения на Windows.** Изначально этот раздел
 предполагал, что POSIX-специфичные механизмы (неймспейсы, seccomp,
 `resource`-квоты, `SIGALRM`) не имеют Windows-аналога и потребуют внешнего
 backend'а (контейнер/микро-VM/WSL). На практике нашёлся нативный
 Windows-примитив — Job Objects (`CreateJobObjectW`/
 `SetInformationJobObject`/`AssignProcessToJobObject`) — даёт реальный
 kernel-enforced лимит памяти/CPU-времени/числа процессов без внешнего
-backend'а (`core/sandbox/_windows.py`, issue #266 `--sandbox`). Не закрыто:
+backend'а (`core/sandbox/_windows.py`, флаг `--sandbox`). Не закрыто:
 сетевой изоляции на Windows в этом MVP нет (AppContainer непропорционально
 сложен для per-run профиля — см. SECURITY.md), поэтому server mode с
 недоверенным кодом на Windows по-прежнему не поддерживается — локальный
@@ -129,7 +129,7 @@ sandbox-механизма. Любая тяжёлая зависимость/д�
 3. `SandboxRunner` не ослабляет контракт результата: тот же
    [case result](../result-contract.md#case-result--поля), плюс аддитивный вердикт
    `SANDBOX_VIOLATION` для sandbox-нарушения — **уже реализован** (`core/result.py`,
-   локальный `--sandbox` #266; правило 3 контракта).
+   локальный `--sandbox`; правило 3 контракта).
 
 ---
 
@@ -139,7 +139,7 @@ sandbox-механизма. Любая тяжёлая зависимость/д�
 классы ошибок для будущего HTTP API. Реализация API-сервера **не входит** в
 эту работу.
 
-> **Локальный MVP уже есть (issue #262)** — `POST /api/v1/runs` +
+> **Локальный MVP уже есть** — `POST /api/v1/runs` +
 > `GET /api/v1/runs/{id}` реализованы в `--serve` (`web/runs.py`/`web/server.py`)
 > для bench/microbench, но это **не** сетевой сервер из этого раздела:
 > in-memory реестр job'ов одного процесса, без sandbox/квот/аутентификации.
@@ -147,7 +147,7 @@ sandbox-механизма. Любая тяжёлая зависимость/д�
 > (а) результат приходит ИНЛАЙН в `GET /api/v1/runs/{id}` (поле `result`), а
 > не через отдельный `GET /api/v1/runs/{id}/result`; (б) словарь статусов —
 > `queued|running|done|error|cancelled`: отмена — отдельный терминальный статус
-> `cancelled` (issue #296, дополнительно `message_id="run_cancelled"`);
+> `cancelled` (дополнительно `message_id="run_cancelled"`);
 > единственное сознательное отклонение от спекулятивного контракта ниже —
 > `error` вместо `failed` для инфраструктурного сбоя. Полная документация
 > `/api/v1/runs` — [docs/api.md § POST /api/v1/runs](../api.md#post-apiv1runs).
@@ -217,8 +217,8 @@ GET  /api/v1/runs/{id}/result → RunResult (когда status=done)
 **обязательных** свойств. Класс backend, закрывающего их, выбран отдельно —
 OS-контейнер (namespaces + cgroups v2 + seccomp), [ADR-0008](../adr/0008-server-sandbox-backend.md);
 детальное отображение каждого требования ниже на конкретные Linux-примитивы
-(cgroups v2 / netns / mount ns / seccomp) — [server-sandbox-design.md](server-sandbox-design.md)
-(issue #153). Конкретный OCI-рантайм и оркестрация остаются этапом реализации.
+(cgroups v2 / netns / mount ns / seccomp) — [server-sandbox-design.md](server-sandbox-design.md).
+Конкретный OCI-рантайм и оркестрация остаются этапом реализации.
 
 1. **Сеть выключена.** У исполняемого кода нет сетевого доступа (ни исходящего,
    ни слушающих сокетов). Скачивание задач/тестов делает **сервер до** запуска
@@ -252,9 +252,9 @@ OS-контейнер (namespaces + cgroups v2 + seccomp), [ADR-0008](../adr/000
 | Фаза | Что | Изоляция | Кому доступно |
 |---|---|---|---|
 | **0 — сейчас** | Локальный CLI + `--serve` (`127.0.0.1`) | нет (доверенный код) | локальный пользователь |
-| **1 — Runner-абстракция** | `Runner`/`LocalRunner` выделены из `grader_core` (issue #136/#137/#138) — **готово**, без смены поведения | как в фазе 0 | локальный пользователь |
-| **2 — SandboxRunner** | Реализовать sandbox-backend по требованиям #157; включаем локально «на себе» | ОС-уровень | **готово как локальный MVP** (issue #266, `--sandbox`) — асимметрия гарантий по ОС, см. [SECURITY.md](../../../SECURITY.md#--sandbox--sandboxrunner-mvp) |
-| **3 — API** | HTTP API `/api/v1/runs` (issue #156) поверх `SandboxRunner`, очередь, квоты | ОС-уровень | доверенные клиенты |
+| **1 — Runner-абстракция** | `Runner`/`LocalRunner` выделены из `grader_core` — **готово**, без смены поведения | как в фазе 0 | локальный пользователь |
+| **2 — SandboxRunner** | Реализовать sandbox-backend по требованиям #157; включаем локально «на себе» | ОС-уровень | **готово как локальный MVP** (`--sandbox`) — асимметрия гарантий по ОС, см. [SECURITY.md](../../../SECURITY.md#--sandbox--sandboxrunner-mvp) |
+| **3 — API** | HTTP API `/api/v1/runs` поверх `SandboxRunner`, очередь, квоты | ОС-уровень | доверенные клиенты |
 | **4 — Server mode** | Публичный/командный сервер онлайн-проверки | ОС-уровень + сетевые квоты | много клиентов |
 
 Фазы 1–2 — рефактор/инфраструктура без нового продукта; продуктовый сдвиг

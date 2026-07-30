@@ -3,7 +3,7 @@
 > Агентский контракт: то, что Claude Code должен знать перед КАЖДЫМ действием.
 > Только действующие инварианты, стиль и команды. История спринтов, roadmap и
 > подробные примечания к issue вынесены в [`docs/archive/history.md`](docs/archive/history.md)
-> (архив, issue #176). Не раздувать этот файл заново — большие технические
+> (архив). Не раздувать этот файл заново — большие технические
 > разделы канонически живут в `docs/` (см. § Источники истины).
 
 ---
@@ -26,7 +26,7 @@
 ❌ НЕ запускать untrusted-код через LocalRunner (core/runner.py) — нет OS-sandbox
 ❌ НЕ трогать .github/workflows/ без явной задачи
 ❌ НЕ править version в pyproject.toml вручную — версия динамическая, из git-тегов
-   (setuptools-scm, issue #162). См. § Версионирование.
+   (setuptools-scm). См. § Версионирование.
 ```
 
 ---
@@ -137,7 +137,7 @@ pip install -e ".[dev]"            # runtime (requests/psutil/rich) + pytest/ruf
 pytest tests/ -x -q --tb=short                          # тесты
 ruff check .                                             # линтер
 ruff format --check .                                    # форматтер (проверка)
-mypy src/stepik_grader scripts                                  # типы (строгость в [tool.mypy], issue #441)
+mypy src/stepik_grader scripts                                  # типы (строгость в [tool.mypy])
 pytest tests/ --cov=. --cov-report=term-missing -q      # покрытие (информационно)
 ```
 
@@ -162,8 +162,8 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
   Никаких `Optional`/`List`/`Dict`/`Union` из `typing`.
 - **Dataclasses:** изменяемые defaults только через `field(default_factory=...)`.
 - **Пути — только `pathlib`**, не `os.path`.
-- **Путь-параметры/возвраты в публичных сигнатурах — `Path`, не `str`**
-  (issue #73): функция/метод, принимающий или возвращающий путь к файлу или
+- **Путь-параметры/возвраты в публичных сигнатурах — `Path`, не `str`:**
+  функция/метод, принимающий или возвращающий путь к файлу или
   директории, типизируется `pathlib.Path`/`Path | None` — без обёртки в
   `str(...)` на входе/выходе и без защитного `pathlib.Path(...)` внутри тела
   (вызывающая сторона обязана передавать реальный `Path`). Не путь по смыслу
@@ -191,8 +191,8 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
 1. **DAG без циклов** — новые импорты не создают циклических зависимостей.
 2. **Leaf-модули** — `storage.py`, `normalizers.py`, `glossary.py`,
    `atomic_io.py`, `db.py` не импортируют ничего из проекта. Не добавлять в них
-   project-импорты. `atomic_io.py` (атомарный JSON-писатель, issue #551) и `db.py`
-   (общий SQLite-коннектор `connect`/`user_version`/`apply_schema`, issue #552) —
+   project-импорты. `atomic_io.py` (атомарный JSON-писатель) и `db.py`
+   (общий SQLite-коннектор `connect`/`user_version`/`apply_schema`) —
    общие top-level leaf'ы вне `core/` намеренно: подпакеты `glossary/`/`rules/` не
    тянут `core/`, поэтому общие инфра-хелперы — на верхнем уровне, чтобы ими
    пользовались и они, и `core/*`, не порождая ребра `glossary → core` (ADR-0011).
@@ -202,8 +202,8 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
 3. **Graceful fallback** — `rich` опционален; весь вывод через `_console`.
 4. **Sandbox — только opt-in** — по умолчанию `LocalRunner`
    запускает код в subprocess **без** изоляции ФС/сети; OS-изоляция включается
-   явным `--sandbox` (`core/sandbox/`, три backend'а, issue #266) — и в CLI
-   (`--mode 1/2/3/4`), и в web (`--serve --sandbox`, issue #396: `SandboxRunner`
+   явным `--sandbox` (`core/sandbox/`, три backend'а) — и в CLI
+   (`--mode 1/2/3/4`), и в web (`--serve --sandbox`: `SandboxRunner`
    ставится активным runner'ом до старта, поэтому grade/playground/microbench
    изолируются разом). Исключение — пошаговый трейс: под `--sandbox` он
    недоступен (`core/tracer.py`). Недоступный backend — `parser.error`, а не
@@ -217,7 +217,7 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
    [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) — только цель
    экспорта/витрина, **никогда** не эталон полноты. Канон —
    [docs/glossary.md § Источники истины](docs/dev/glossary.md#источники-истины-роли).
-   Односторонность касается и ссылок (issue #684): **не ссылаться на внешнюю
+   Односторонность касается и ссылок: **не ссылаться на внешнюю
    витрину** ни из данных карточек, ни из кода, ни из UI — ссылка из оригинала
    в его копию уводит на устаревший контент. Адрес карточки — её `id` как якорь
    своего раздела (`#/glossary/<id>`); наружу ведёт только `docs_url` на
@@ -268,21 +268,21 @@ chore(deps): bump psutil upper bound
 ## 🔢 Версионирование (кратко)
 
 **Не SemVer.** Собственная схема (тег = MINOR+1, PATCH = число коммитов после
-тега, все теги = `vX.Y.0`). После PR #183 версия **динамическая, из git-тегов**
+тега, все теги = `vX.Y.0`). Версия **динамическая, из git-тегов**
 (`setuptools-scm`): на теге → `X.Y.0`, вне тега → `X.Y.0.postN+g<hash>`.
 Статической `version` в `pyproject.toml` нет — вручную не править.
 
 Ручную сверку версий делать не нужно: за дрейф отвечает CI
-(`scripts/check_version_consistency.py`, issue #165). Полная политика — в
+(`scripts/check_version_consistency.py`). Полная политика — в
 [`docs/dev/versioning.md`](docs/dev/versioning.md).
-UX-полировка вывода `--version` (dev vs release маркер) — задача #163 **закрыта**
+UX-полировка вывода `--version` (dev vs release маркер) реализована
 (реализовано; ср. § Открытая работа ниже); архивная постановка —
 [`docs/agent/claude-handoff.md`](docs/agent/claude-handoff.md).
 
 `scripts/version.py`'s "логическая" `X.Y.Z` (README `Version`-бейдж) считает
 PATCH через `git rev-list --invert-grep`, исключая автокоммиты CI
 `chore(ci): update badges [skip ci]` — иначе счётчик рос бы вдвое быстрее
-реальных изменений (issue #231). `setuptools-scm`-версия пакета (`X.Y.0.postN`)
+реальных изменений. `setuptools-scm`-версия пакета (`X.Y.0.postN`)
 это не затрагивает — у неё независимая логика без фильтрации по commit message.
 
 ---
@@ -294,13 +294,13 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
   (используйте `### Refactored`/`### Changed`/`### Internal` — прецеденты уже
   есть в файле). При релизе `[Unreleased]` переименовывается в
   `[X.Y.0] - ДАТА`, наверх добавляется новый пустой `[Unreleased]`.
-  - **Краткость (issue #373):** одна строка на изменение —
+  - **Краткость:** одна строка на изменение —
     `- <что изменилось> (#PR)`; детали/обоснование живут в PR/issue, не в
     changelog. Группировка `### Added`/`### Changed`/`### Fixed`/`### Internal`
     сохраняется. Многострочные абзацы-пересказы PR — антипаттерн (именно они
-    раздули `[Unreleased]` перед v1.8.0, issue #358). Действует с 1.9.0; ранее
+    раздули `[Unreleased]` перед v1.8.0). Действует с 1.9.0; ранее
     смерженные простыни (1.7.0/1.8.0) задним числом не переписываем.
-  - **Ротация (issue #373):** в `CHANGELOG.md` живут только `[Unreleased]` +
+  - **Ротация:** в `CHANGELOG.md` живут только `[Unreleased]` +
     **три последних MINOR**; при релизе самую старую версию переносим дословно в
     [`docs/archive/changelog-archive.md`](docs/archive/changelog-archive.md). CI-guard
     `scripts/check_docs_guardrails.py` не даёт числу версионных заголовков
@@ -345,7 +345,7 @@ Claude) · [`docs/archive/`](docs/archive/README.md) (всё историчес�
 | WEB MVP: реализовано / замыслы / HTTP API | [docs/dev/web-current.md](docs/dev/web-current.md), [docs/dev/design/web-design.md](docs/dev/design/web-design.md), [docs/dev/api.md](docs/dev/api.md) |
 | Очередь работ после крупного аудита (пустая — норма) | [docs/agent/claude-handoff.md](docs/agent/claude-handoff.md) |
 | Всё историческое: история спринтов/релизов, архив CHANGELOG, разовые аудиты, отработанные постановки | [docs/archive/README.md](docs/archive/README.md) |
-| Полный аудит v1.9.0 (архив, программа #613) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |
+| Полный аудит v1.9.0 (архив) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |
 | Полный changelog (живой источник) | [CHANGELOG.md](CHANGELOG.md) |
 | Состояние проекта (исторический snapshot) | [CHECKPOINT.md](CHECKPOINT.md) |
 
@@ -427,7 +427,7 @@ issue на билд нет — направление держит только 
 [ ] docs/archive/history.md/CHECKPOINT.md — НЕ на каждый PR, обновляются вместе на
     релиз (см. ту же секцию)
 [ ] Версия не правится вручную — CI (check_version_consistency.py) сам следит
-    за дрейфом (issue #165); достаточно, чтобы CHECKPOINT/CHANGELOG совпадали
+    за дрейфом; достаточно, чтобы CHECKPOINT/CHANGELOG совпадали
     с последним git-тегом
 ```
 
@@ -437,7 +437,7 @@ issue на билд нет — направление держит только 
 
 **Glossary-Python** (`https://github.com/ArtVsMark/Glossary-Python`) —
 статический HTML-глоссарий Python-терминов. Грейдер ссылается на него при RE
-через `core/glossary.py` (issue #72). НЕ трогать этот проект отсюда —
+через `core/glossary.py`. НЕ трогать этот проект отсюда —
 изменения только через отдельную задачу в самом Glossary-Python.
 
 ---
@@ -451,7 +451,7 @@ issue на билд нет — направление держит только 
 | Тестов | бейдж/прогон CI — **числом здесь не фиксируется** |
 | Покрытие | бейджи README `Coverage (ubuntu)` / `Coverage (all OS)` |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
-| Глоссарий | бейдж `Glossary` в README; 0 черновиков (эпик #363 завершён) |
+| Глоссарий | бейдж `Glossary` в README; 0 черновиков |
 
 > **Числа тестов/покрытия/глоссария в доках не хардкодятся — только бейджи.**
 > Любая вписанная руками цифра устаревает к следующему PR и начинает
@@ -459,13 +459,13 @@ issue на билд нет — направление держит только 
 > источник покрытия — два бейджа в README (single-OS `coverage.json` + cross-OS
 > `coverage-combined.json`, обновляются CI каждый прогон); карточки глоссария
 > считает `scripts/generate_glossary_badge.py`, сверить локально —
-> `python -m stepik_grader.glossary.coverage` (issue #398). Исключение одно:
+> `python -m stepik_grader.glossary.coverage`. Исключение одно:
 > строка `| Версия | X.Y.Z |` — её проверяет
 > `scripts/check_version_consistency.py` (мягкое предупреждение при расхождении
 > с последним git-тегом; обновлять при релизе MINOR). Эволюция метрик по
 > релизам — в [docs/archive/history.md](docs/archive/history.md).
 
-> **Два числа покрытия (issue #283).** С `--sandbox` (issue #266) `core/sandbox/`
+> **Два числа покрытия.** С `--sandbox` `core/sandbox/`
 > содержит три ОС-специфичных backend'а — на любой одной машине/CI-job'е два из
 > трёх всегда 0%. Поэтому `pytest`/локальный чек-лист и один job CI-матрицы
 > видят только per-OS цифру (~90%+, порог `fail_under = 85` в

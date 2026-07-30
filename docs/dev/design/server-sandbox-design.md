@@ -1,6 +1,6 @@
 # Server-mode SandboxRunner — дизайн контейнерного backend
 
-> Дизайн-документ (issue #153). **Не реализация**: описывает целевой
+> Дизайн-документ. **Не реализация**: описывает целевой
 > контейнерный backend `SandboxRunner` для server mode, механику жёстких лимитов
 > и сетевой изоляции — не добавляя кода, зависимостей или демонов (запреты
 > [CLAUDE.md](../../../CLAUDE.md), Non-goals [server-mode.md](server-mode.md#non-goals)).
@@ -11,7 +11,7 @@
 > Обязательные требования безопасности (что backend ДОЛЖЕН обеспечить) — в
 > [server-mode.md § #157](server-mode.md#sandbox-и-сетевая-изоляция-issue-157).
 > Здесь — **как** они закрываются на Linux-примитивах. Локальный `--sandbox`
-> MVP (issue #266) — в [SECURITY.md](../../../SECURITY.md#--sandbox--sandboxrunner-mvp).
+> MVP — в [SECURITY.md](../../../SECURITY.md#--sandbox--sandboxrunner-mvp).
 
 ## Оглавление
 
@@ -22,7 +22,7 @@
 - [ФС-изоляция и эфемерность](#фс-изоляция-и-эфемерность)
 - [Seccomp-профиль](#seccomp-профиль)
 - [Место в Runner-абстракции](#место-в-runner-абстракции)
-- [Отношение к локальному `--sandbox` MVP](#отношение-к-локальному---sandbox-mvp-issue-266)
+- [Отношение к локальному `--sandbox` MVP](#отношение-к-локальному---sandbox-mvp)
 - [Rootless vs privileged и fallback](#rootless-vs-privileged-и-fallback)
 - [Открытые вопросы реализации (вне дизайна)](#открытые-вопросы-реализации-вне-дизайна)
 
@@ -112,7 +112,7 @@ loopback-интерфейс `lo` в состоянии DOWN и ни одного
 
 - **Mount namespace** (`CLONE_NEWNS`) + минимальный root: read-only bind
   интерпретатора и stdlib (тот же приём, что `_python_tree_binds()` в локальном
-  MVP, issue #420 — `/usr` bind под loader), поверх — **писчий tmpfs** только
+  MVP — `/usr` bind под loader), поверх — **писчий tmpfs** только
   под рабочий каталог прогона.
 - Нет доступа к ФС хоста, другим прогонам, `secrets.json`, OAuth-токенам
   (#157.4). Секреты сервера не пробрасываются в окружение sandbox (env
@@ -136,7 +136,7 @@ default, суженный до нужд Python-исполнения. Это defe
 
 ## Место в Runner-абстракции
 
-Server-mode sandbox — ещё одна реализация `Runner` ([server-mode.md § Runner-слой](server-mode.md#runner-слой-issue-140-реализация--136137138)),
+Server-mode sandbox — ещё одна реализация `Runner` ([server-mode.md § Runner-слой](server-mode.md#runner-слой)),
 не переписывание грейдинга:
 
 ```
@@ -152,7 +152,7 @@ grader_core.run_single_test(...) → Runner.run(RunSpec) → RunOutcome
   `returncode`/`elapsed`/`peak_memory_mb`/`timed_out`/`launch_error`/`cancelled`/
   `sandbox_violation`). Server-backend **не** вводит новое поле: нарушение квоты
   отражается тем же `sandbox_violation`, которое уже добавлено локальным
-  `--sandbox` MVP (issue #266) и уже мапится выше по стеку (`grader_core.py`) в
+  `--sandbox` MVP и уже мапится выше по стеку (`grader_core.py`) в
   аддитивный вердикт `SANDBOX_VIOLATION` — по правилу 3
   [result-contract.md](../result-contract.md) (вердикт добавлен, не ломая
   существующие AC/WA/TLE/RE/CANCELLED). Это согласуется с классом ошибок API
@@ -163,7 +163,7 @@ grader_core.run_single_test(...) → Runner.run(RunSpec) → RunOutcome
 
 ---
 
-## Отношение к локальному `--sandbox` MVP (issue #266)
+## Отношение к локальному `--sandbox` MVP
 
 Локальный `core/sandbox/` (bubblewrap/`sandbox-exec`/Job Objects за `--sandbox`)
 — **не** server-backend, но задаёт переиспользуемые приёмы:
@@ -171,7 +171,7 @@ grader_core.run_single_test(...) → Runner.run(RunSpec) → RunOutcome
 | Приём локального MVP | В server-backend |
 |---|---|
 | `--unshare-net` (netns без внешних интерфейсов) | тот же принцип, поднят до per-run контейнера |
-| usrmerge/`/usr` read-only bind под ELF-loader (#420) | тот же минимальный read-only root |
+| usrmerge/`/usr` read-only bind под ELF-loader | тот же минимальный read-only root |
 | per-run tmp + уборка | tmpfs в mount ns, эфемерность |
 | POSIX `setrlimit` (best-effort) | **заменяется** cgroup v2 (kernel-enforced) |
 | один процесс, без очереди/multi-tenancy | **добавляется** cgroup-иерархия per-client, очередь, per-tenant учёт |
@@ -185,7 +185,7 @@ grader_core.run_single_test(...) → Runner.run(RunSpec) → RunOutcome
 
 **Дефолт — rootless** (unprivileged user namespaces): контейнер без root на
 хосте, меньше поверхность эскалации. Где хост запрещает unprivileged userns
-(тот же класс ограничения, что вскрыт в CI, [issue #420](../../../CHANGELOG.md)) —
+(тот же класс ограничения, что вскрывался в CI) —
 задокументированный **fallback на privileged-контейнер** под контролируемым
 демоном/супервизором с теми же cgroup/netns/seccomp. Выбор профиля — параметр
 деплоя, не кода.
@@ -198,7 +198,7 @@ grader_core.run_single_test(...) → Runner.run(RunSpec) → RunOutcome
 
 - Конкретный OCI-рантайм (`runc`/`crun`/`youki`) и способ его установки.
 - Оркестрация: очередь прогонов, пул воркеров, автоскейл, backpressure
-  (частично прототипировано локально — `web/runs.py`, issue #262/#429).
+  (частично прототипировано локально — `web/runs.py`).
 - Точный seccomp-allowlist и его тестирование.
 - Хранилище артефактов прогона и их TTL (смыкается с
   [server-data-model.md](server-data-model.md)).
