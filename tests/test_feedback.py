@@ -7,6 +7,7 @@ YAML-формами, редакция секретов, сворачивание
 
 from __future__ import annotations
 
+import os
 import pathlib
 import re
 import subprocess
@@ -26,6 +27,61 @@ _ID_RE = re.compile(r"^\s*id:\s*(\S+)\s*$", re.MULTILINE)
 def _query(url: str) -> dict[str, list[str]]:
     """Разобрать query-часть prefilled-URL в словарь параметров."""
     return urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+
+
+# Домашний каталог Windows-пользователя с длинным именем: у такого есть 8.3-дубль
+# (`IVANPE~1`), в котором имя усечено, но узнаваемо.
+_FAKE_HOME = "C:\\Users\\ivan.petrov"
+_FAKE_SHORT_HOME = "C:\\Users\\IVANPE~1"
+# Что не должно уехать на GitHub ни в каком написании: полное имя пользователя и
+# его 8.3-огрызок.
+_LEAK_MARKERS = ("ivan.petrov", "ivanpe~1")
+
+# Написания, в которых домашний каталог попадает в свободный текст поля «Логи»:
+# регистр буквы диска и имён нормализуется по-разному разными инструментами,
+# слеши приходят и прямыми, и экранированными (JSON/repr), а старые .bat/cmd и
+# java-обёртки печатают 8.3-имя.
+_HOME_WRITINGS: dict[str, str] = {
+    "native": f"{_FAKE_HOME}\\tasks\\a.py",
+    "lower": "c:\\users\\ivan.petrov\\tasks\\a.py",
+    "upper": "C:\\USERS\\IVAN.PETROV\\TASKS\\A.PY",
+    "mixed-case-drive": "c:\\Users\\Ivan.Petrov\\tasks\\a.py",
+    "posix-slashes": "C:/Users/ivan.petrov/tasks/a.py",
+    "posix-slashes-lower": "c:/users/ivan.petrov/tasks/a.py",
+    "escaped": '{"path": "C:\\\\Users\\\\ivan.petrov\\\\tasks\\\\a.py"}',
+    "escaped-lower": '{"path": "c:\\\\users\\\\ivan.petrov\\\\tasks\\\\a.py"}',
+    "short-8.3": f"{_FAKE_SHORT_HOME}\\tasks\\a.py",
+    "short-8.3-lower": "c:\\users\\ivanpe~1\\tasks\\a.py",
+    "short-8.3-posix": "C:/Users/IVANPE~1/tasks/a.py",
+}
+_WRITING_IDS = list(_HOME_WRITINGS)
+_WRITINGS = [_HOME_WRITINGS[key] for key in _WRITING_IDS]
+
+
+def _leaks_username(text: str) -> bool:
+    """Осталось ли в тексте узнаваемое имя пользователя — в сыром или в percent-виде.
+
+    URL проверяется и после `unquote_plus`: имя из латиницы percent-encoding не
+    трогает, но проверка «только сырой строки» молча ослабла бы на кириллическом
+    имени пользователя.
+    """
+    haystacks = (text.lower(), urllib.parse.unquote_plus(text).lower())
+    return any(marker in haystack for haystack in haystacks for marker in _LEAK_MARKERS)
+
+
+@pytest.fixture
+def windows_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows-домашний каталог с 8.3-дублём — воспроизводимо на любой ОС прогона.
+
+    Реальный `Path.home()` для этого не годится: 8.3-имя существует только на
+    Windows и только у длинных имён, а регистронезависимость — свойство
+    платформы. Утечка же должна ловиться на всех трёх ОС матрицы CI, поэтому
+    подменяются и home, и оба платформенных ответа (`_case_insensitive_paths`,
+    `_short_path`).
+    """
+    monkeypatch.setattr(feedback.Path, "home", staticmethod(lambda: pathlib.Path(_FAKE_HOME)))
+    monkeypatch.setattr(feedback, "_case_insensitive_paths", lambda: True)
+    monkeypatch.setattr(feedback, "_short_path", lambda _path: _FAKE_SHORT_HOME)
 
 
 class TestTemplateContract:
@@ -156,6 +212,139 @@ class TestScrubPaths:
 
     def test_text_without_home_untouched(self) -> None:
         assert feedback.scrub_paths("обычный текст") == "обычный текст"
+
+
+class TestScrubPathsWritings:
+    """Имя пользователя не должно уехать в публичный issue ни в одном написании.
+
+    Написание пути — не под контролем грейдера: регистр буквы диска нормализуют
+    по-разному разные инструменты, а «Логи» в форме обратной связи — свободный
+    текст, куда вставляют вывод посторонних программ (эпик #751).
+    """
+
+    @pytest.mark.parametrize("writing", _WRITINGS, ids=_WRITING_IDS)
+    def test_collapsed_in_text(self, windows_home: None, writing: str) -> None:
+        scrubbed = feedback.scrub_paths(writing)
+        assert "~" in scrubbed
+        assert not _leaks_username(scrubbed), scrubbed
+
+    @pytest.mark.parametrize("writing", _WRITINGS, ids=_WRITING_IDS)
+    def test_username_absent_from_prefilled_url(self, windows_home: None, writing: str) -> None:
+        """Главная проверка приватности: имени нет в URL, который откроет браузер.
+
+        Проверяется именно итоговый URL, а не работа `str.replace`: между
+        `scrub_paths` и ссылкой лежат редакция секретов, усечение и
+        percent-encoding, и утечка может пережить любой из этих шагов.
+        """
+        prepared = feedback.prepare_issue(feedback.FeedbackKind.BUG, {"logs": writing})
+        assert "logs" in prepared.fields, "поле выброшено — проверять стало нечего"
+        assert not _leaks_username(prepared.fields["logs"]), prepared.fields["logs"]
+        assert not _leaks_username(prepared.url), prepared.url
+
+    def test_username_absent_when_pasted_among_other_output(self, windows_home: None) -> None:
+        """Реалистичный случай: вставленный вывод чужой программы, все написания разом."""
+        logs = "\n".join(
+            [
+                "Traceback (most recent call last):",
+                *(f'  File "{writing}", line 1' for writing in _WRITINGS),
+                "PermissionError: [Errno 13] Permission denied",
+            ]
+        )
+        prepared = feedback.prepare_issue(feedback.FeedbackKind.BUG, {"logs": logs})
+        assert not _leaks_username(prepared.url), prepared.url
+        # Свернулось, но текст остался читаемым — обращение не должно превращаться
+        # в набор тильд без диагностической ценности.
+        assert "PermissionError" in prepared.fields["logs"]
+
+    def test_case_sensitive_platform_keeps_other_case(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """На POSIX регистр значим: `/home/Ivan` и `/home/ivan` — разные каталоги.
+
+        Сворачивать чужой путь по своему home там нельзя — это уже не защита
+        приватности, а искажение присланного пути.
+        """
+        monkeypatch.setattr(feedback.Path, "home", staticmethod(lambda: pathlib.Path("/home/ivan")))
+        monkeypatch.setattr(feedback, "_case_insensitive_paths", lambda: False)
+        monkeypatch.setattr(feedback, "_short_path", lambda _path: None)
+        assert feedback.scrub_paths("/home/ivan/tasks/a.py") == "~/tasks/a.py"
+        assert feedback.scrub_paths("/home/Ivan/tasks/a.py") == "/home/Ivan/tasks/a.py"
+
+    def test_variants_cover_both_names_without_duplicates(self, windows_home: None) -> None:
+        """Три написания у длинного имени и три у 8.3-дубля, без повторов."""
+        variants = feedback._home_variants(_FAKE_HOME)
+        assert set(variants) == {
+            _FAKE_HOME,
+            "C:/Users/ivan.petrov",
+            "C:\\\\Users\\\\ivan.petrov",
+            _FAKE_SHORT_HOME,
+            "C:/Users/IVANPE~1",
+            "C:\\\\Users\\\\IVANPE~1",
+        }
+        assert len(variants) == len(set(variants))
+
+    def test_no_duplicate_variants_when_short_name_disabled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """8.3 отключены в системе — GetShortPathNameW отдаёт длинный путь; дубля нет."""
+        monkeypatch.setattr(feedback, "_case_insensitive_paths", lambda: True)
+        monkeypatch.setattr(feedback, "_short_path", lambda path: path.upper())
+        variants = feedback._home_variants(_FAKE_HOME)
+        assert len(variants) == 3
+
+    def test_regex_metacharacters_in_home_are_literal(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Путь идёт в регулярку — спецсимволы в имени пользователя обязаны экранироваться."""
+        home = "C:\\Users\\i.v+a(n)"
+        monkeypatch.setattr(feedback.Path, "home", staticmethod(lambda: pathlib.Path(home)))
+        monkeypatch.setattr(feedback, "_case_insensitive_paths", lambda: True)
+        monkeypatch.setattr(feedback, "_short_path", lambda _path: None)
+        assert feedback.scrub_paths(f"{home}\\a.py") == "~\\a.py"
+        # Метасимволы не превратились в шаблон: похожий, но другой путь не трогаем.
+        assert feedback.scrub_paths("C:\\Users\\iXvXaXn\\a.py") == "C:\\Users\\iXvXaXn\\a.py"
+
+
+class TestShortPath:
+    """8.3-имя спрашивается у ОС: номер в `~N` зависит от коллизий и не угадывается."""
+
+    @pytest.mark.skipif(os.name == "nt", reason="проверяется поведение вне Windows")
+    def test_none_outside_windows(self) -> None:
+        assert feedback._short_path(str(pathlib.Path.home())) is None
+
+    @pytest.mark.skipif(os.name != "nt", reason="GetShortPathNameW — только Windows")
+    def test_points_to_the_same_directory(self) -> None:
+        """Живой вызов ctypes: под моком опечатка в имени функции осталась бы незаметной."""
+        home = pathlib.Path.home()
+        short = feedback._short_path(str(home))
+        if short is None:
+            pytest.skip("8.3-имена отключены в системе (NtfsDisable8dot3NameCreation)")
+        assert pathlib.Path(short).resolve() == home.resolve()
+
+    @pytest.mark.skipif(os.name != "nt", reason="GetShortPathNameW — только Windows")
+    def test_none_for_missing_directory(self, tmp_path: pathlib.Path) -> None:
+        """Каталога нет — тихий None, а не исключение из ctypes посреди сбора обращения."""
+        assert feedback._short_path(str(tmp_path / "нет-такого-каталога")) is None
+
+    @pytest.mark.skipif(os.name != "nt", reason="ветка достижима только под Windows")
+    def test_none_when_winapi_call_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Сбой WinAPI не должен ронять обращение — сворачивание просто теряет 8.3."""
+        import ctypes
+
+        def _boom(*_args: object, **_kwargs: object) -> None:
+            raise OSError("kernel32 unavailable")
+
+        monkeypatch.setattr(ctypes, "create_unicode_buffer", _boom)
+        assert feedback._short_path(str(pathlib.Path.home())) is None
+        # И весь тракт остаётся рабочим: домашний путь по-прежнему сворачивается.
+        home = str(pathlib.Path.home())
+        assert feedback.scrub_paths(f"{home}\\a.py") == "~\\a.py"
+
+
+class TestCaseInsensitivePaths:
+    def test_matches_platform(self) -> None:
+        """Критерий берётся у stdlib (`os.path.normcase`), своего списка ОС здесь нет."""
+        assert feedback._case_insensitive_paths() is (os.name == "nt")
 
 
 class TestPrepareIssue:
