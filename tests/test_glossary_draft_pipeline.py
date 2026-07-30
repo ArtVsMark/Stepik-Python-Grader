@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -342,10 +343,24 @@ def test_run_check_skips_posix_only_outside_posix(tmp_path: Path, monkeypatch, c
     assert mod.run_check(base) == 1  # на POSIX она проверяется и расходится
 
 
-# -- check over реальная база (smoke: движок отрабатывает без падений) ----------
+# -- check over реальная база (ratchet: расхождениям расти нельзя) --------------
 
 
-def test_run_check_bundled_smoke(capsys) -> None:  # type: ignore[no-untyped-def]
+# Ratchet ведётся списком карточек, а не числом: набор расхождений зависит от
+# среды прогона, поэтому одно число под все не подобрать. На Windows POSIX-only
+# примеры пропускаются целиком, на Python 3.12 нет math.fma / io.Reader /
+# float.from_number, и «потолок 57», снятый на Windows, давал 129 на ubuntu 3.12.
+# Список — объединение трёх ОС и версий 3.12-3.14, тест падает только на
+# карточке, которой в нём нет (issue #746).
+_KNOWN_ISSUES = Path(__file__).parent / "glossary_audit_known_issues.txt"
+
+
+def _known_issues() -> set[str]:
+    lines = _KNOWN_ISSUES.read_text(encoding="utf-8").splitlines()
+    return {line.strip() for line in lines if line.strip() and not line.startswith("#")}
+
+
+def test_run_check_bundled_ratchet(capsys) -> None:  # type: ignore[no-untyped-def]
     from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR
 
     # Единственное место, где движок валидации встречается со всем разнообразием
@@ -353,8 +368,13 @@ def test_run_check_bundled_smoke(capsys) -> None:  # type: ignore[no-untyped-def
     # Стоимость растёт вместе с базой, поэтому run_check обходит карточки
     # параллельно — последовательный обход упирался в общий 120-секундный
     # дедлайн pytest-timeout на Windows, где процессы дороже (issue #444).
-    # Возвращает число «требующих внимания» (mismatch+error) — не падает, печатает сводку.
-    flagged = mod.run_check(BUNDLED_GLOSSARY_DIR)
+    mod.run_check(BUNDLED_GLOSSARY_DIR)
     out = capsys.readouterr().out
     assert "Проверено карточек с примерами:" in out
-    assert isinstance(flagged, int) and flagged >= 0
+
+    known = _known_issues()
+    flagged = re.findall(r"^  \[(?:error|mismatch)\] ([^:]+): (.*)$", out, re.M)
+    unexpected = [(card_id, detail) for card_id, detail in flagged if card_id not in known]
+    assert not unexpected, "Примеры этих карточек разошлись с ожиданиями:\n" + "\n".join(
+        f"  {card_id}: {detail}" for card_id, detail in unexpected
+    )
