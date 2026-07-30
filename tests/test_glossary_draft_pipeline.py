@@ -342,10 +342,20 @@ def test_run_check_skips_posix_only_outside_posix(tmp_path: Path, monkeypatch, c
     assert mod.run_check(base) == 1  # на POSIX она проверяется и расходится
 
 
-# -- check over реальная база (smoke: движок отрабатывает без падений) ----------
+# -- check over реальная база (ratchet: расхождениям расти нельзя) --------------
 
 
-def test_run_check_bundled_smoke(capsys) -> None:  # type: ignore[no-untyped-def]
+# Потолок «требующих внимания» (mismatch + error) по комплектной базе. Снят на
+# Windows, где расхождений больше всего: там не сходятся ожидания с unix-путями
+# и разделителями. На POSIX фактическое число меньше, поэтому один потолок
+# работает на всех ОС и всё равно ловит рост (issue #746).
+#
+# Опускать по мере разбора накопленного; поднимать — нельзя: новая карточка с
+# битым примером обязана валить прогон, ради этого ratchet и стоит.
+_FLAGGED_CEILING = 57
+
+
+def test_run_check_bundled_ratchet(capsys) -> None:  # type: ignore[no-untyped-def]
     from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR
 
     # Единственное место, где движок валидации встречается со всем разнообразием
@@ -353,8 +363,12 @@ def test_run_check_bundled_smoke(capsys) -> None:  # type: ignore[no-untyped-def
     # Стоимость растёт вместе с базой, поэтому run_check обходит карточки
     # параллельно — последовательный обход упирался в общий 120-секундный
     # дедлайн pytest-timeout на Windows, где процессы дороже (issue #444).
-    # Возвращает число «требующих внимания» (mismatch+error) — не падает, печатает сводку.
     flagged = mod.run_check(BUNDLED_GLOSSARY_DIR)
     out = capsys.readouterr().out
     assert "Проверено карточек с примерами:" in out
-    assert isinstance(flagged, int) and flagged >= 0
+    detail = "\n".join(line for line in out.splitlines() if line.startswith("  ["))
+    assert flagged <= _FLAGGED_CEILING, (
+        f"Примеров «требующих внимания» стало {flagged} при потолке "
+        f"{_FLAGGED_CEILING}: почини пример новой карточки. Если потолок опускали "
+        f"вместе с разбором накопленного — опусти его и здесь.\n{detail}"
+    )
