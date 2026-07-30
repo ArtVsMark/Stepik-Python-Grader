@@ -3226,3 +3226,132 @@ class TestBenchPreflight:
         total = viewmodels.estimate_run_count(solutions, kind="bench", repeats=5)
 
         assert total == 2 * (1 * 5 + 1)  # два решения × (5 повторов + 1 пре-флайт)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/feedback — черновик обращения (issue #754, эпик #751)
+# ---------------------------------------------------------------------------
+
+
+class TestFeedbackApi:
+    """Эндпоинт отдаёт ссылку на ЗАПОЛНЕННУЮ форму issue и предпросмотр.
+
+    Инвариант: сервер ничего не создаёт и не отправляет — только считает URL.
+    """
+
+    def _post_feedback(self, server: str, payload: dict) -> tuple[int, dict]:
+        status, body = _post(server + "/api/feedback", json.dumps(payload).encode())
+        return status, json.loads(body)
+
+    def test_bug_draft_has_url_and_environment(self, server: str) -> None:
+        status, data = self._post_feedback(server, {"kind": "bug", "summary": "падает"})
+
+        assert status == 200
+        assert data["kind"] == "bug"
+        assert "template=bug_report.yml" in data["url"]
+        field_ids = [f["id"] for f in data["fields"]]
+        assert "environment" in field_ids
+        assert "what-happened" in field_ids
+        environment = next(f["value"] for f in data["fields"] if f["id"] == "environment")
+        assert "web (--serve)" in environment
+        assert data["discussions_url"].endswith("/discussions")
+
+    def test_unknown_kind_is_400(self, server: str) -> None:
+        status, data = self._post_feedback(server, {"kind": "nonsense"})
+
+        assert status == 400
+        assert data["ok"] is False
+        assert data["message_id"] == "feedback_unknown_kind"
+
+    def test_missing_kind_is_400(self, server: str) -> None:
+        status, data = self._post_feedback(server, {"summary": "без типа"})
+
+        assert status == 400
+        assert data["message_id"] == "feedback_unknown_kind"
+
+    def test_step_url_only_for_task_problem(self, server: str) -> None:
+        """Ссылка на шаг есть только в форме task_problem.yml — в остальных
+        такого поля нет, и молча проглотить её нельзя (GitHub бы проигнорировал)."""
+        step = "https://stepik.org/lesson/1/step/2"
+        _, task = self._post_feedback(server, {"kind": "task-problem", "step_url": step})
+        _, bug = self._post_feedback(server, {"kind": "bug", "step_url": step})
+
+        assert any(f["id"] == "step-url" for f in task["fields"])
+        assert not any(f["id"] == "step-url" for f in bug["fields"])
+
+    def test_logs_only_for_bug(self, server: str) -> None:
+        _, bug = self._post_feedback(server, {"kind": "bug", "logs": "Traceback ..."})
+        _, idea = self._post_feedback(server, {"kind": "idea", "logs": "Traceback ..."})
+
+        assert any(f["id"] == "logs" for f in bug["fields"])
+        assert not any(f["id"] == "logs" for f in idea["fields"])
+
+    def test_secrets_redacted_in_draft(self, server: str) -> None:
+        status, data = self._post_feedback(
+            server, {"kind": "bug", "logs": "Authorization: Bearer abcdef1234567890"}
+        )
+
+        assert status == 200
+        assert "abcdef1234567890" not in json.dumps(data)
+
+    def test_home_path_scrubbed_in_draft(self, server: str) -> None:
+        home = str(pathlib.Path.home())
+        status, data = self._post_feedback(
+            server, {"kind": "bug", "summary": f"не найден {home}/tests"}
+        )
+
+        assert status == 200
+        assert home not in json.dumps(data)
+
+    def test_oversized_text_is_clamped_not_rejected(self, server: str) -> None:
+        """Вставленный мегабайтный лог не роняет запрос: текст клампится, URL влезает."""
+        status, data = self._post_feedback(
+            server, {"kind": "bug", "summary": "падает", "logs": "x" * 50_000}
+        )
+
+        assert status == 200
+        assert len(data["url"]) <= 6000
+        assert data["truncated"] or data["dropped"]
+
+    def test_non_string_fields_ignored(self, server: str) -> None:
+        """Нестроковый мусор в теле не роняет эндпоинт (контракт _text)."""
+        status, data = self._post_feedback(
+            server, {"kind": "idea", "summary": 42, "step_url": {"nope": 1}}
+        )
+
+        assert status == 200
+        assert [f["id"] for f in data["fields"]] == ["environment"]
+
+    def test_commit_prefilled_in_git_clone(self, server: str) -> None:
+        """Поле `commit` привязывает отчёт к точке истории (тесты идут из git-клона)."""
+        _, data = self._post_feedback(server, {"kind": "bug", "summary": "падает"})
+
+        commit = next((f["value"] for f in data["fields"] if f["id"] == "commit"), None)
+        assert commit is not None
+        assert re.match(r"^[0-9a-f]{7,}\s", commit), commit
+
+    def test_commit_absent_for_idea(self, server: str) -> None:
+        """У формы «Идея» поля `commit` нет — идея не привязана к коммиту."""
+        _, data = self._post_feedback(server, {"kind": "idea", "summary": "тёмная тема"})
+
+        assert not any(f["id"] == "commit" for f in data["fields"])
+
+    def test_missing_git_does_not_break_draft(
+        self, server: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Нет git (установка через pip) — черновик собирается без поля `commit`."""
+        from stepik_grader.core import feedback as feedback_core
+
+        monkeypatch.setattr(feedback_core, "collect_commit", lambda **_kw: None)
+        status, data = self._post_feedback(server, {"kind": "bug", "summary": "падает"})
+
+        assert status == 200
+        assert not any(f["id"] == "commit" for f in data["fields"])
+
+    def test_sandbox_state_reported(self, tmp_path: pathlib.Path, server_factory) -> None:
+        """Под --sandbox окружение это фиксирует: без этого баг-репорт уводит в сторону."""
+        sandboxed = server_factory(tmp_path, sandbox=True)
+        _, data = self._post_feedback(sandboxed, {"kind": "bug"})
+
+        environment = next(f["value"] for f in data["fields"] if f["id"] == "environment")
+        assert "Песочница: да (--sandbox)" in environment

@@ -33,6 +33,7 @@
 - [`POST /api/code-terms`](#post-apicode-terms)
 - [`GET /api/commands`](#get-apicommands)
 - [`POST /api/download`](#post-apidownload)
+- [`POST /api/feedback`](#post-apifeedback)
 - [`POST /api/import-reference`](#post-apiimport-reference)
 - [`POST /api/save-solution`](#post-apisave-solution)
 - [`POST /api/v1/runs`](#post-apiv1runs)
@@ -369,6 +370,46 @@ concern).
 curl -X POST http://127.0.0.1:8000/api/download \
   -H "Content-Type: application/json" \
   -d '{"url": "https://stepik.org/lesson/.../step/1"}'
+```
+
+## `POST /api/feedback`
+
+Собрать черновик обращения (баг / идея / задача проверяется неправильно).
+Возвращает **ссылку на заполненную форму issue** на GitHub
+(`.github/ISSUE_TEMPLATE/*.yml`, prefilled query-параметры по `id` полей) и
+предпросмотр того, что в неё уйдёт.
+
+Сервер ничего не создаёт и не отправляет: у грейдера нет GitHub-токена, Submit
+жмёт сам пользователь в браузере. POST, а не GET, чтобы текст обращения не
+оседал в access-логе `http.server` как query-string.
+
+Тело JSON: `{"kind": "bug"|"idea"|"task-problem", "summary"?: "...",
+"step_url"?: "...", "logs"?: "..."}`.
+
+- `kind` не распознан → **400** `feedback_unknown_kind`.
+- `step_url` учитывается только при `kind=task-problem`, `logs` — только при
+  `kind=bug` (в остальных формах таких полей нет).
+- Успех → **200** `{"kind", "url", "fields": [{"id","value"}, ...],
+  "truncated": [...], "dropped": [...], "discussions_url"}`.
+  `fields` — **список** пар (порядок для предпросмотра значим), значения уже
+  прошли редакцию секретов и сворачивание домашнего пути в `~`.
+  `truncated`/`dropped` — поля, усечённые/выброшенные из-за лимита длины URL
+  (`core/feedback.py:MAX_URL_LENGTH`); UI обязан сказать об этом вслух.
+
+Поле `commit` (`git log --oneline -1`, формы `bug`/`task-problem`) заполняется
+сервером, когда рабочая директория — git-клон: хеш и subject сразу привязывают
+отчёт к точке истории. Нет git (установка через pip), git не установлен или вызов
+завис → поля в ответе просто нет, черновик собирается как обычно.
+
+Приватность: окружение собирается на машине пользователя (версия, ОС, Python,
+активность `--sandbox`, локаль) **без** имени машины; код решения не
+отправляется никогда — его при желании прикладывает сам пользователь уже в
+форме. Канон — docstring `core/feedback.py`.
+
+```
+curl -X POST http://127.0.0.1:8000/api/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"kind": "bug", "summary": "падает на пустом вводе"}'
 ```
 
 ## `POST /api/import-reference`

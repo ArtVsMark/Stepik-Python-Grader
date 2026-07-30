@@ -287,8 +287,12 @@ class TestInteractiveMenuExit:
         _interactive_menu()
 
     def test_invalid_choice_then_exit(self, monkeypatch) -> None:
-        """Неверный ввод ('9') → сообщение об ошибке, затем '0' → выход."""
-        inputs = iter(["9", "0"])
+        """Неверный ввод ('42') → сообщение об ошибке, затем '0' → выход.
+
+        Раньше здесь стояла «9» — с issue #753 это валидный пункт (обратная
+        связь), поэтому заведомо неверным вводом взято число вне диапазона.
+        """
+        inputs = iter(["42", "0"])
         monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
         _interactive_menu()
 

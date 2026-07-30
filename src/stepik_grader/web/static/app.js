@@ -2,6 +2,7 @@
 import { loadGlossary, loadRules, parseGlossaryHash, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
 import { $, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
 import { downloadTask, handleDownloaderClick, loadAuthStatus, loadDownloaderConfig } from "./downloader.js";
+import { initFeedback, refreshFeedbackDraft } from "./feedback.js";
 import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, restoreProfiles, runCommand, saveSolution, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility, updateRepeatsCustomVisibility } from "./grade.js";
 import { cancelSandboxRun, runPlayground, runTrace } from "./sandbox.js";
 import { drawMemArrows, renderTraceStep } from "./trace-player.js";
@@ -44,6 +45,10 @@ function setLang(value) {
       if (openId) selectGlossaryCard(openId, { fromHash: true });
     });
   }
+  // issue #754: открытая модалка обратной связи рисует подписи полей через t() —
+  // сама язык не догонит, перезапрашиваем черновик (в нём же придёт локаль сервера).
+  const feedbackOverlay = $("#feedback-overlay");
+  if (feedbackOverlay && !feedbackOverlay.hidden) refreshFeedbackDraft();
 }
 
 // Синхронизировать контролы раздела «Настройки» с текущим состоянием (тему
@@ -361,3 +366,5 @@ initExecModeBadge();
 maybeShowHistoryNotice();
 // issue #660: стартовый экран-онбординг — авто при первом запуске, далее по кнопке.
 initOnboarding();
+// issue #754: канал обратной связи — кнопка 💬 в topbar, модалка по требованию.
+initFeedback();

@@ -1,0 +1,59 @@
+name: Идея / предложение
+description: Предложить улучшение — от одной строки до развёрнутой мысли
+title: "idea: "
+labels: ["enhancement"]
+# `id` полей — контракт для prefilled-URL (core/feedback.py). См. комментарий
+# в bug_report.yml.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Идея не обязана быть проработанной постановкой — достаточно одной
+        строки «неудобно вот это». Разберёмся вместе.
+
+        Не уверены, что это идея, а не вопрос? Тогда лучше
+        [Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions) —
+        там ничего не обязывает.
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Что предлагается
+      description: Своими словами, как удобно.
+      placeholder: Хочется видеть, какое из моих решений быстрее, не запуская бенчмарк вручную.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую проблему это решает
+      description: Что сейчас неудобно или невозможно. Помогает понять приоритет.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Чего касается
+      description: Если не знаете — оставьте «Не знаю».
+      options:
+        - Не знаю
+        - Проверка решений (режимы 1-4)
+        - Веб-интерфейс (--serve)
+        - Скачивание задач со Stepik
+        - Глоссарий и разбор ошибок
+        - Правила PEP / линт
+        - Подучить / прогресс / история
+        - Документация
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Окружение
+      description: Заполняется автоматически, если открыть форму из грейдера. Необязательно.
+      render: text
+    validations:
+      required: false

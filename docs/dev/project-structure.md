@@ -36,6 +36,7 @@ Stepik-Python-Grader/
 │       │   ├── rules_adapter.py      # rules_search/rules_get — адаптер над пакетом rules/
 │       │   ├── insights_adapter.py   # insights_cards — адаптер над core/insights+history
 │       │   ├── reference_adapter.py  # import_reference — адаптер над core/stepik_reference (кнопка «эталон»)
+│       │   ├── feedback_adapter.py   # feedback_draft — адаптер над core/feedback (POST /api/feedback)
 │       │   ├── commands.py        # Реестр команд для action cards (leaf)
 │       │   ├── runs.py            # Async job-модель: bench/microbench/playground/trace/auth
 │       │   ├── playground.py      # Песочница: запуск кода со stdin, вывод/статус
@@ -84,6 +85,7 @@ Stepik-Python-Grader/
 │           ├── user_settings.py  # Персистентные настройки CLI (.grader_settings.json, leaf)
 │           ├── stepik_reference.py # Импорт закреплённых решений Stepik как reference (--import-reference)
 │           ├── diag_log.py       # Opt-in диагностическое логирование сети/OAuth с редакцией секретов
+│           ├── feedback.py       # Обратная связь: prefilled-URL к GitHub Issue Forms, редакция секретов
 │           ├── tracer.py         # Пошаговый трассировщик кода (sys.settrace → JSON-трейс) для песочницы
 │           └── sandbox/          # SandboxRunner: OS-изолированный запуск, --sandbox
 │               ├── __init__.py   # SandboxRunner, SandboxUnavailableError, выбор backend'а по ОС

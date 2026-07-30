@@ -235,6 +235,7 @@ def _build_cli_context() -> CliContext:
         run_mode_2=_run_mode_2,
         run_mode_3=_run_mode_3,
         run_mode_4=_run_mode_4,
+        lang=_LANG,
     )
 
 

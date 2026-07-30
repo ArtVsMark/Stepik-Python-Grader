@@ -34,6 +34,7 @@
 | `web/rules_adapter.py` | Application / Web | `rules_search`/`rules_get` — тонкий адаптер над пакетом `rules/` (`bundled_rules`) для раздела «Правила (PEP)» |
 | `web/insights_adapter.py` | Application / Web | `insights_cards`/`active_count` — адаптер над `core/insights`+`core/history` для раздела «Подучить» |
 | `web/reference_adapter.py` | Application / Web | `import_reference` — тонкий адаптер над `core/stepik_reference` для кнопки «Найти эталонное решение» (импорт закреплённого решения Stepik в задачу); web-аутентификация без браузера, как `downloader_adapter` |
+| `web/feedback_adapter.py` | Application / Web | `feedback_draft` — тонкий адаптер над `core/feedback` для `POST /api/feedback`: черновик обращения (баг/идея/задача) с prefilled-URL к GitHub Issue Forms и предпросмотром полей. Ничего не отправляет — issue публикует сам пользователь в браузере |
 | `web/commands.py` | Application / Web (leaf) | Реестр команд (`COMMANDS`, `filter_commands`) для action cards разбора; не импортирует ничего из проекта |
 | `web/runs.py` | Application / Web | Async job-модель для tests/bench/microbench/playground/trace/auth/hint/stepik_submit (`submit_job`/`get_job`/`cancel_job`; `kind="tests"` — грейд режима 1, `kind="auth"` — браузерный OAuth, `kind="hint"` — AI-объяснение кейса, `kind="stepik_submit"` — отправка решения на Stepik) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
 | `web/playground.py` | Application / Web | `run_playground` — запуск кода со stdin через `web/grading.run_spec` (активный `Runner`, а не `core/runner.LocalRunner` напрямую — ADR-0010; под `--serve --sandbox` это `SandboxRunner`); раздел «Песочница»; потребитель — `web/runs.py` |
@@ -80,6 +81,7 @@
 | `core/step_content.py` | Domain (leaf) | Извлечение данных из ответов Stepik API: `parse_stepik_step_url`, `extract_python_code`, `extract_submission_code`, `extract_function_name`. Чистые `dict/str -> данные`, без сети/ФС |
 | `core/i18n.py` | Infrastructure / Utilities (leaf) | `load_locale_messages(lang)` — JSON-локали `core/locales/<lang>.json`; аддитивный путь поверх статического `_MESSAGES` в `cli/__init__.py` — новые сообщения через JSON, без переписывания существующих; graceful degradation на отсутствующий/битый файл |
 | `core/diag_log.py` | Infrastructure / Diagnostics (leaf) | Opt-in диагностическое логирование сети/OAuth с редакцией секретов: `configure_diagnostics`/`get_logger`/`register_secret`; подключён в `cli/__init__`, `downloader`, `diagnostic_stepik`, `core/stepik_client`, `core/oauth_flow`; только stdlib (`logging`/`re`/`pathlib`) |
+| `core/feedback.py` | Core / Feedback | Канал обратной связи: `FeedbackKind`/`collect_environment`/`collect_commit`/`prepare_issue`/`scrub_paths` — сборка prefilled-URL к GitHub Issue Forms (`.github/ISSUE_TEMPLATE/*.yml`) с редакцией секретов, сворачиванием домашнего пути в `~` и укладыванием в лимит длины URL. Единственное проектное ребро — на leaf `core/diag_log.py`; версию читает через `importlib.metadata`, чтобы не появилось ребро `core → cli`. Ничего не отправляет и не открывает: браузер вызывает CLI/web-слой по явному подтверждению пользователя. Потребители — `cli/interactive.py` (пункт меню «Обратная связь») и `web/feedback_adapter.py` |
 | `glossary/models.py` | Domain (leaf) | Типизированные модели локального глоссария: `GlossaryCard`, `GlossaryMissingEntry` |
 | `glossary/json_provider.py` | Domain | `JsonGlossaryProvider` (загрузка/поиск локальной JSON-базы карточек) + очередь пополнения |
 | `glossary/detector.py` | Domain | `MissingConceptDetector` — консервативный AST-детектор недостающих функций/конструкций/исключений |
@@ -117,7 +119,7 @@ cli/options.py         ──→  config.py  (CONFIG.use_cache в _resolve_use_c
 cli/commands.py        ──→  core/grader_core.py, core/cache.py, core/reporter.py, core/microbench_runner.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
 cli/context.py         ──→  (ничего в проекте; чистый leaf с dataclass CliContext)
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)
-cli/interactive.py     ──→  core/grader_core.py  (find_all_solution_files/collect_grouped_files), cli/context.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext)
+cli/interactive.py     ──→  core/grader_core.py  (find_all_solution_files/collect_grouped_files), cli/context.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext), core/feedback.py  (пункт меню «Обратная связь»)
 web/server.py          ──→  web/api_routes.py, web/http_guards.py, web/viewmodels.py, web/i18n.py, core/user_settings.py  (каркас: собирает хендлер из миксинов, отдаёт статику, инжектит onboarding_seen в index.html; core/sandbox + grading.set_runner — ленивые импорты в теле под --serve --sandbox)
 web/api_routes.py      ──→  web/http_guards.py, web/commands.py, web/downloader_adapter.py, web/auth_adapter.py, web/glossary_adapter.py, web/rules_adapter.py, web/insights_adapter.py, web/reference_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (маршруты REST-API поверх адаптеров)
 web/grading.py         ──→  core/grader_core.py, core/microbench_runner.py, core/runner.py (RunSpec), core/tracer.py, core/reporter.py, core/test_loader.py, core/cache.py  (фасад web→core по исполнению — единственная точка, ADR-0010; allowlist публичной поверхности core под guard)
@@ -142,6 +144,9 @@ cli/commands.py        ──→  core/ai_hints.py, core/history_recording.py  (
 cli/__init__.py        ──→  core/progress_export.py  (--export-progress), core/stepik_reference.py  (--import-reference/--import-top)
 cli/interactive.py     ──→  core/user_settings.py  (тумблер записи истории из меню)
 web/api_routes.py      ──→  web/reference_adapter.py  (POST /api/import-reference)
+web/api_routes.py      ──→  web/feedback_adapter.py  (POST /api/feedback — черновик обращения)
+web/feedback_adapter.py ──→  core/feedback.py  (та же сборка prefilled-URL, что у пункта меню CLI — логика не дублируется в web/JS)
+core/feedback.py       ──→  core/diag_log.py  (redact — единственное проектное ребро; версия через importlib.metadata, чтобы не появилось ребро core → cli)
 web/viewmodels.py      ──→  core/history_recording.py  (наполнение .grader_history.db из web-грейдинга)
 web/reference_adapter.py ──→  core/stepik_reference.py, core/oauth_flow.py, web/downloader_adapter.py  (import-reference без браузера)
 core/history_recording.py ──→  core/history.py, core/insights.py, core/glossary.py  (записи RunRecord/CaseRecord/LintRecord)
