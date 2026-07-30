@@ -1,6 +1,6 @@
 # Установка и настройка Stepik
 
-> Вынесено из README (issue #168 / эпик #102, PR-13). Обзор проекта — в
+> Обзор проекта — в
 > [README](../../README.md); карта документации — в [../README.md](../README.md);
 > работа с грейдером после установки — в
 > [grader-workflow.md](grader-workflow.md).
@@ -48,8 +48,8 @@ pipx install stepik-python-grader
 stepik-grader --version        # должно напечатать текущую версию
 ```
 
-> Пакет публикуется на [PyPI](https://pypi.org/project/stepik-python-grader/)
-> (issue #70). Если нужна ещё не выпущенная версия прямо из репозитория —
+> Пакет публикуется на [PyPI](https://pypi.org/project/stepik-python-grader/).
+> Если нужна ещё не выпущенная версия прямо из репозитория —
 > `pipx install git+https://github.com/ArtVsMark/Stepik-Python-Grader.git`.
 > Обычный `pip install stepik-python-grader` тоже работает, но `pipx` удобнее
 > для CLI-инструмента (изоляция + PATH).
@@ -109,7 +109,7 @@ source .venv/bin/activate
 > находится (не «command not found»)?** Значит `stepik-grader` резолвится в
 > *чужой* (глобальный) Python, а не в активный `.venv` — обычно из-за старого
 > editable-install, сделанного когда-то до перехода проекта на src-layout
-> (issue #35) или просто не в venv. Проверь, откуда берётся команда:
+> или просто не в venv. Проверь, откуда берётся команда:
 > ```powershell
 > Get-Command stepik-grader   # Windows: путь должен указывать на .venv\Scripts\
 > ```
@@ -151,7 +151,7 @@ pip install -e ".[dev]"      # + pytest, pytest-cov, ruff, mypy
 python -m stepik_grader --version   # напр. 1.9.0
 ```
 
-> Проект использует src-layout (`src/stepik_grader/`, Issue #35) — модули
+> Проект использует src-layout (`src/stepik_grader/`) — модули
 > запускаются только как пакет (`python -m stepik_grader`) или командой
 > `stepik-grader` (если её каталог в PATH). Прямого `python grader.py` из корня
 > репозитория нет.
@@ -169,7 +169,7 @@ stepik-grader --serve          # или: python -m stepik_grader --serve
 
 Открой в браузере <http://127.0.0.1:8000> — порт по умолчанию 8000, другой
 задаётся флагом `--port` (напр. `stepik-grader --serve --port 9000`). При
-первом заходе показывается стартовый экран-приветствие (issue #660), за ним —
+первом заходе показывается стартовый экран-приветствие, за ним —
 оболочка с разделами «Проверка решений», «Загрузчик задач», «Глоссарий»,
 «Правила (PEP)», «Подучить», «Песочница». Если интерфейс отрисовался —
 установка рабочая. Остановить сервер — `Ctrl+C` в терминале.
@@ -178,7 +178,7 @@ stepik-grader --serve          # или: python -m stepik_grader --serve
 исполнения нет — запускай только свои решения. Разделы, флаги и threat model —
 [grader-workflow.md](grader-workflow.md#веб-интерфейс---serve).
 
-> **Запуск без командной строки (issue #661).** Кроме `python -m stepik_grader`
+> **Запуск без командной строки.** Кроме `python -m stepik_grader`
 > и `stepik-grader`, после установки доступен GUI-лаунчер `stepik-grader-gui`
 > (на Windows — ярлык без консольного окна; или `python -m stepik_grader.launcher`):
 > окно с выбором режима сервера, порта и рабочей папки. Детали —
@@ -203,12 +203,12 @@ Dev-зависимости (`pip install -e ".[dev]"`):
 | `pytest-timeout>=2.3` | Тайм-аут зависших тестов (`timeout` в `[tool.pytest]`) |
 | `ruff>=0.15.19` | Линтер и форматтер |
 | `mypy>=1.10` | Проверка типов |
-| `hypothesis>=6.0` | Property-based тесты (парсер тест-блоков, нормализация float, issue #405) |
+| `hypothesis>=6.0` | Property-based тесты (парсер тест-блоков, нормализация float) |
 
 Отдельные opt-in extra (ставятся явно, не входят в `[dev]`): `[watch]` —
 `watchfiles` для watch-режима прогона; `[lint]` — `ruff` как **runtime**-движок
-блока «Стиль» (issue #346); `[e2e]` — `playwright` для смок-тестов web-UI
-(issue #263, см. [CONTRIBUTING.md § E2E](../../CONTRIBUTING.md)). Полный инвентарь
+блока «Стиль»; `[e2e]` — `playwright` для смок-тестов web-UI
+(см. [CONTRIBUTING.md § E2E](../../CONTRIBUTING.md)). Полный инвентарь
 версий/лицензий рантайма и вендоренных веб-ассетов, плюс `pip-audit` в CI —
 [../dev/supply-chain.md](../dev/supply-chain.md).
 
@@ -217,16 +217,16 @@ Dev-зависимости (`pip install -e ".[dev]"`):
 ## Работа с API Stepik (OAuth)
 
 Настройка нужна, если хочешь **автоматически скачивать данные задач** с Stepik
-или **отправлять решение на Stepik** прямо из веб-интерфейса (issue #683 —
-кнопка «Отправить в Stepik» в режиме 1, см.
+или **отправлять решение на Stepik** прямо из веб-интерфейса (кнопка
+«Отправить в Stepik» в режиме 1, см.
 [grader-workflow.md](grader-workflow.md#веб-интерфейс---serve)). Сам грейдинг
 локальных решений (см. [grader-workflow.md](grader-workflow.md)) работает без
 OAuth.
 
 > **Проще всего — без ручной настройки.** В интерактивном `downloader` при
-> отсутствии `secrets.json` запускается пошаговый мастер (issue #433), а в
+> отсутствии `secrets.json` запускается пошаговый мастер, а в
 > веб-интерфейсе (`--serve`) раздел «Загрузчик задач» даёт форму авторизации
-> прямо в браузере (issue #402). Оба варианта заменяют ручное создание
+> прямо в браузере. Оба варианта заменяют ручное создание
 > `secrets.json` — шаги ниже нужны, только если предпочитаешь настроить всё
 > вручную.
 
@@ -285,7 +285,7 @@ cp secrets.json.example secrets.json
 
 Дальше — [скачивание данных задачи](grader-workflow.md#шаг-скачивания-задачи).
 
-### Устойчивость к сетевым сбоям (issue #108/#109)
+### Устойчивость к сетевым сбоям
 
 Запросы к Stepik API идут через `requests.Session`, которая автоматически
 повторяет временные сбои — падать при мимолётной перегрузке API не нужно,
@@ -338,8 +338,8 @@ python -m stepik_grader.diagnostic_stepik
 
 ## Диагностика окружения разработки (pytest, Windows)
 
-Три находки аудита 2026-07-10 (issue #270), все воспроизведены на чистом
-`main` — не связаны с конкретным PR, а с состоянием локального окружения:
+Три известные проблемы, все воспроизводятся на чистом
+`main` — они вызваны не кодом проекта, а состоянием локального окружения:
 
 **`test_packaging.py::test_license_is_mit_in_metadata` падает
 (`License-Expression` — `None`, ожидался `"MIT"`) или
