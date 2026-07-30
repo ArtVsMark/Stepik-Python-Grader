@@ -4,8 +4,9 @@
 > снимок на 2026-07-15**; описанные волны реализованы, и он **больше не задаёт
 > активный порядок работ**. Сохранён как архив scope/non-goals реализованных фич
 > и постановок. **Актуальные открытые задачи — только в GitHub Issues**
-> (`gh issue list`; на момент обновления открыто 8: #59, #97, #151, #363, #371,
-> #392, #416, #438), а не в этом файле.
+> (`gh issue list`), а не в этом файле. Конкретный список открытых номеров тут
+> намеренно не приводится: прежняя редакция перечисляла восемь, из которых
+> семь давно закрыты.
 >
 > **Что это.** Постановки задач (scope / non-goals / проверки) для будущих
 > сессий Claude Code по нерешённым реализационным issue. Цель — чтобы агент мог
@@ -165,15 +166,21 @@ master-трекер аудита.
 ## #125 — WEB workspace проверки решений (✅ реализован)
 
 > **Статус: закрыт.** Split-pane workspace (sidebar/result/detail), расширенные
-> ErrorCard-поля (WA/RE/TLE), 5 MVP action cards, command palette (Ctrl+K),
-> сценарные кнопки и раздел «Глоссарий» (поиск/карточка/backlog очереди
+> ErrorCard-поля (WA/RE/TLE), 5 MVP action cards и раздел «Глоссарий»
+> (поиск/карточка/backlog очереди
 > пополнения, J7) реализованы в `src/stepik_grader/web/` — пакет, эволюция
 > бывшего одиночного `web.py` (`server.py`/`viewmodels.py`/
 > `glossary_adapter.py`/`commands.py`/`static/{index.html,app.css,app.js}`).
 > Публичный API (`grade_benchmark`/`grade_path`/`run_server`) не менялся;
 > `/api/grade` расширен только аддитивно. **Не реализовывать заново.**
+>
+> ⚠️ **Часть тогдашнего UI с тех пор снята — не воспроизводить по этому
+> тексту:** палитра команд `Ctrl+K` удалена (#658), нижние сценарные кнопки
+> убраны в пользу главной кнопки «▶ Запустить» (#368). Реестр
+> `web/commands.py` остался, но питает только action cards. Актуальное
+> состояние UI — [web-current.md](web-current.md).
 
-Что уже есть (не переделывать):
+Что было сделано в рамках #125 (не переделывать; про снятое — во врезке выше):
 - `GET /api/grade` — `cases[]` несёт `case_n`/`severity`/`stdin`/`expected`/
   `actual`/`stderr`/`exit_code`/`timeout_s`/`suggestions`/`glossary_ids`/
   `actions` поверх старых `n`/`verdict`/`time`/`error`/`diff`/`glossary`.
@@ -184,20 +191,20 @@ master-трекер аудита.
 - `GET /api/commands` — реестр `web/commands.py` (7 MVP-команд, фиксированный
   словарь тегов `when` вместо predicate-DSL — сознательное упрощение).
 - Фронтенд (`static/app.js`) — единая `contextTags()`/`visibleCommands()`
-  фильтрация, питающая палитру/action cards/сценарные кнопки из одного места;
+  фильтрация, решающая «какую кнопку когда показывать» в одном месте;
   `ACTION_HANDLERS` — единая точка диспетчеризации команд.
 
 **Осознанно оставлено вне #125** (design-only / other issues, не путать с
 недоделкой): `create_test`/`compare_solutions` action cards, URL-hash
 deep-linking (`open_glossary` работает in-memory), экспорт в Glossary-Python
 (#126-follow-up), Downloader-блок (#186), микро-бенчмарк в web (#187), полный
-a11y-аудит, true fuzzy-поиск в палитре (substring вместо этого).
+a11y-аудит, true fuzzy-поиск в тогдашней палитре (substring вместо этого).
 
 **Проверки/тесты.** `tests/test_web.py` (ErrorCard-поля, J7 wiring) +
 `tests/test_web_glossary.py` (glossary endpoints, command registry) уже
 покрывают журналы J1–J5/J7 из web-current.md на уровне HTTP/Python-функций;
-фронтенд-логика (палитра/resize/scenario buttons) проверена вручную через
-запущенный сервер (нет JS test runner в проекте — см. non-goals ниже).
+фронтенд-логика (тогдашние палитра/resize/scenario buttons) проверена вручную
+через запущенный сервер (нет JS test runner в проекте — см. non-goals ниже).
 Оставшиеся для #129 журналы — J0 (download) и J6 (микробенч): оба
 разблокированы (#186/#187 закрыты), реализация — в #129.
 
@@ -253,9 +260,10 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 > `grade_path(missing_queue_path=...)`, видна через тот же
 > `glossary_adapter.glossary_missing()`, что дёргает
 > `GET /api/glossary/missing`, а не только через низкоуровневый
-> `json_provider`). Command-palette keyboard flows (Ctrl+K/стрелки/Enter/
-> Escape) проверены вручную через запущенный сервер — не JS-тестами (нет
-> test runner, non-goal ниже), тот же компромисс, что и в #125.
+> `json_provider`). Клавиатурные сценарии тогдашней палитры (Ctrl+K/стрелки/
+> Enter/Escape) проверялись вручную через запущенный сервер — не JS-тестами
+> (нет test runner, non-goal ниже), тот же компромисс, что и в #125; сама
+> палитра позже снята (#658).
 
 **Scope (по критериям #129 и § User journeys в web-current.md).**
 - Покрыть основные сценарии веб-оболочки:

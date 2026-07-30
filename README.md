@@ -173,8 +173,8 @@ as-is).
 
 ## Прозрачность и доверие
 
-- ✅ **2100+ автотестов** (pytest), CI-матрица на 3 ОС × Python 3.12/3.13 (+3.14
-  экспериментально) — живые бейджи покрытия single-OS и cross-OS в шапке.
+- ✅ **Автотесты на каждый PR** (pytest), CI-матрица на 3 ОС × Python 3.12/3.13
+  (+3.14 экспериментально) — живые бейджи покрытия single-OS и cross-OS в шапке.
 - 🧠 **Строгий mypy** (`disallow_untyped_defs`, `warn_return_any`, …) + `ruff`
   (lint + format) в pre-commit и CI — типы и стиль проверяются на каждый PR.
 - 🔐 **Приватный репорт уязвимостей** (GitHub Private Vulnerability Reporting) +

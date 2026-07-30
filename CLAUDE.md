@@ -123,7 +123,7 @@ pytest tests/ --cov=. --cov-report=term-missing -q      # покрытие (ин
 ### Запуск
 
 ```bash
-python -m stepik_grader.grader              # интерактивное меню (режимы 0-7)
+python -m stepik_grader.grader              # интерактивное меню (пункты 0-8)
 python -m stepik_grader.downloader          # скачать задачу по URL Stepik
 python -m stepik_grader.diagnostic_stepik   # диагностика API и токена
 stepik-grader                               # то же, если пакет установлен
@@ -403,19 +403,22 @@ opt-in `core/diag_log.py` с редакцией секретов, подключ
 |---|---|
 | Версия | 1.9.0 (stable) |
 | Python | 3.12 / 3.13 (3.14 — экспериментальная, только ubuntu в CI) |
-| Тестов | 2100+ (растёт; точное число — прогон CI) |
-| Покрытие | ~92% single-OS / ~95% cross-OS combined (живые бейджи README, см. заметку) |
+| Тестов | бейдж/прогон CI — **числом здесь не фиксируется** |
+| Покрытие | бейджи README `Coverage (ubuntu)` / `Coverage (all OS)` |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
-| Глоссарий | 1300+ `ready`-карточек, 0 черновиков (эпик #363 завершён) |
+| Глоссарий | бейдж `Glossary` в README; 0 черновиков (эпик #363 завершён) |
 
-> **Числа тестов/покрытия/глоссария дрейфуют между релизами — это ориентиры,
-> не источник истины.** Живой источник покрытия — два бейджа в README (single-OS
-> `coverage.json` + cross-OS `coverage-combined.json`, обновляются CI каждый
-> прогон); число карточек глоссария считает
-> `python -m stepik_grader.glossary.coverage` (issue #398). Строку
-> `| Версия | X.Y.Z |` проверяет `scripts/check_version_consistency.py` (мягкое
-> предупреждение при расхождении с последним git-тегом; обновлять при релизе
-> MINOR). Эволюция метрик по релизам — в [docs/history.md](docs/history.md).
+> **Числа тестов/покрытия/глоссария в доках не хардкодятся — только бейджи.**
+> Любая вписанная руками цифра устаревает к следующему PR и начинает
+> противоречить соседнему файлу (именно так разошлись «1700+/2100+»). Живой
+> источник покрытия — два бейджа в README (single-OS `coverage.json` + cross-OS
+> `coverage-combined.json`, обновляются CI каждый прогон); карточки глоссария
+> считает `scripts/generate_glossary_badge.py`, сверить локально —
+> `python -m stepik_grader.glossary.coverage` (issue #398). Исключение одно:
+> строка `| Версия | X.Y.Z |` — её проверяет
+> `scripts/check_version_consistency.py` (мягкое предупреждение при расхождении
+> с последним git-тегом; обновлять при релизе MINOR). Эволюция метрик по
+> релизам — в [docs/history.md](docs/history.md).
 
 > **Два числа покрытия (issue #283).** С `--sandbox` (issue #266) `core/sandbox/`
 > содержит три ОС-специфичных backend'а — на любой одной машине/CI-job'е два из

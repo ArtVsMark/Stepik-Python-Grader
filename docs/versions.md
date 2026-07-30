@@ -20,7 +20,7 @@
 | Опциональная OS-песочница исполнения (`--sandbox`: bwrap / Job Objects / sandbox-exec) с сетевой/ФС-изоляцией | ❌ | ✅ |
 | Двуязычный интерфейс RU/EN — CLI-сообщения, web-оболочка, глоссарий (`--lang`, `?lang=en`) | ❌ | ✅ |
 | Локальная история прогонов (SQLite) + статистика — раздел «Подучить», всё офлайн | ❌ | ✅ |
-| Инженерная база — src-layout пакет, `pyproject.toml`, pre-commit (ruff), CI (pytest + ruff + mypy) на 3 ОС, 1700+ тестов | ❌ | ✅ |
+| Инженерная база — src-layout пакет, `pyproject.toml`, pre-commit (ruff), CI (pytest + ruff + mypy) на 3 ОС, автотесты на каждый PR | ❌ | ✅ |
 
 Подробности по каждому пункту — в [`CHANGELOG.md`](../CHANGELOG.md) и [`docs/history.md`](history.md).
 
@@ -40,7 +40,16 @@
 | **Безопасность** | Только таймаут выполнения | Только таймаут | + лимит памяти `RLIMIT_AS` (POSIX), явные импорты вместо wildcard | → | → | + `prlimit` после spawn (потокобезопасно) | → | + ОС-sandbox (`--sandbox`), security-аудит (OAuth/CSRF/DoS/секреты), path-confinement и Host/Origin guard в `--serve` | → | + AI-consent-gate (приватность кода/ввода перед отправкой провайдеру), back-pressure `POST /api/v1/runs` |
 | **Дистрибуция** | `git clone` + `requirements.txt` | `pip install -e .` (единый источник — `pyproject.toml`) | GitHub Releases (sdist+wheel), `pipx` из git | + PyPI: `pipx install stepik-python-grader` (OIDC trusted publishing) | → | → | → | → | → | → |
 | **Версионирование** | статичная строка | `importlib.metadata` (единый источник) | задокументированная схема + `scripts/version.py` | → | → | → | + `--version` отличает dev-сборку от релиза | → | + динамическая версия из git-тегов (`setuptools-scm`, #162/#183) | → |
-| **Тестов / покрытие** | 260 / 59% | 523 / 95% | 591 / 96% | 599 / 95% | 622 / 95% | 660 / 95% | 784 / 95% | 1179 / 93% (cross-OS combined) | 1317 / 93% (cross-OS combined) | 1700+ / ~93% (cross-OS combined) |
+| **Тестов / покрытие** | 260 / 59% | 523 / 95% | 591 / 96% | 599 / 95% | 622 / 95% | 660 / 95% | 784 / 95% | 1179 / 93% (cross-OS combined) | 1317 / 93% (cross-OS combined) | живые бейджи README |
+
+> **Почему в последней колонке нет цифр.** Числа тестов и покрытия
+> фиксируются в этой таблице только для **закрытых** релизов — когда MINOR уже
+> не последний и его значения перестали меняться. Для текущего релиза живой
+> источник один: бейджи `Coverage (ubuntu)` / `Coverage (all OS)` в
+> [README](../README.md). Вписанная руками цифра здесь неизбежно устаревала к
+> следующему PR и начинала противоречить README. При постановке тега
+> `vX.(Y+1).0` подставь в колонку уходящего релиза его последние значения из
+> бейджей.
 
 > **MAJOR остаётся `1`** на всём протяжении: все изменения укладываются в рамки
 > «локальный инструмент для Python-задач Stepik». Смена MAJOR (`2.0`)
