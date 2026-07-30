@@ -10,7 +10,10 @@
 2. **Дрейф "текущей версии" в документации.** Верхняя запись ``CHANGELOG.md``
    (и, мягко, таблица метрик ``CLAUDE.md`` с таблицей эволюции
    ``docs/use/versions.md``) должна соответствовать актуальному релизному
-   baseline — последнему git-тегу ``vX.Y.0``.
+   baseline — последнему git-тегу ``vX.Y.0``. Исключение — **готовящийся
+   релиз**: верхняя запись ровно на один MINOR впереди тега допускается, потому
+   что релизный PR переименовывает ``[Unreleased]`` в ``[X.Y+1.0]`` до того, как
+   тег ляжет на его merge-коммит (``_is_release_in_flight``).
 
 Baseline вычисляется из git (``git describe --tags --abbrev=0``). Сравнение
 ``CLAUDE.md`` ведётся только по ``MAJOR.MINOR`` — PATCH в схеме проекта это
@@ -99,19 +102,44 @@ def _find_first(pattern: str, text: str) -> tuple[int, int, int] | None:
     return int(v.group(1)), int(v.group(2)), int(v.group(3))
 
 
+def _is_release_in_flight(found: tuple[int, int, int], baseline: tuple[int, int, int]) -> bool:
+    """Верхняя запись — это ГОТОВЯЩИЙСЯ релиз (ровно следующий MINOR), а не дрейф.
+
+    Релизный PR по определению переименовывает ``[Unreleased]`` в ``[X.Y+1.0]``
+    раньше, чем появляется тег: тег ставится на merge-коммит уже смерженного PR
+    (так лежат все теги проекта). Без этого допуска гейт валил КАЖДЫЙ релизный
+    PR — причём до шага «Run tests», из-за чего тесты в нём не запускались вовсе,
+    и красный CI приходилось объяснять руками на каждом выпуске.
+
+    Допуск узкий: ровно ``MINOR + 1`` при том же MAJOR и ``PATCH == 0``. Отставший
+    CHANGELOG, прыжок через версию и смена MAJOR остаются ошибкой — то есть
+    исходный смысл гейта (ловить дрейф документации) не ослаблен.
+    """
+    major, minor, patch = found
+    return (major, minor, patch) == (baseline[0], baseline[1] + 1, 0)
+
+
 def _check_changelog(baseline: tuple[int, int, int], errors: list[str]) -> None:
-    """CHANGELOG.md: верхняя запись '## [X.Y.Z]' == baseline (X.Y.0)."""
+    """CHANGELOG.md: верхняя запись '## [X.Y.Z]' == baseline (X.Y.0) либо следующий MINOR."""
     text = _CHANGELOG.read_text(encoding="utf-8")
     # Первая запись вида '## [X.Y.Z]' — пропускаем '## [Unreleased]'.
     found = _find_first(r"##\s*\[\d+\.\d+\.\d+\]", text)
     if found is None:
         errors.append("CHANGELOG.md: no entry of the form '## [X.Y.Z]' found.")
         return
-    if found != baseline:
-        errors.append(
-            f"CHANGELOG.md: top release entry [{found[0]}.{found[1]}.{found[2]}] "
-            f"does not match the latest git tag v{baseline[0]}.{baseline[1]}.{baseline[2]}."
+    if found == baseline:
+        return
+    if _is_release_in_flight(found, baseline):
+        print(
+            f"  NOTE: CHANGELOG.md top entry [{found[0]}.{found[1]}.{found[2]}] is one MINOR "
+            f"ahead of tag v{baseline[0]}.{baseline[1]}.{baseline[2]} - release in flight, "
+            "the tag lands on the merge commit."
         )
+        return
+    errors.append(
+        f"CHANGELOG.md: top release entry [{found[0]}.{found[1]}.{found[2]}] "
+        f"does not match the latest git tag v{baseline[0]}.{baseline[1]}.{baseline[2]}."
+    )
 
 
 def _check_claude_metrics(baseline: tuple[int, int, int], warnings: list[str]) -> None:
@@ -120,6 +148,10 @@ def _check_claude_metrics(baseline: tuple[int, int, int], warnings: list[str]) -
     found = _find_first(r"\|\s*Версия\s*\|\s*\d+\.\d+\.\d+", text)
     if found is None:
         warnings.append("CLAUDE.md: metrics row '| Versiya | X.Y.Z |' not found (skipped).")
+        return
+    # Готовящийся релиз: строка версии обновляется тем же PR, что и CHANGELOG,
+    # то есть тоже опережает тег ровно на один MINOR — это не дрейф.
+    if _is_release_in_flight((found[0], found[1], 0), baseline):
         return
     if found[:2] != baseline[:2]:
         warnings.append(

@@ -441,8 +441,8 @@ issue на билд нет — направление держит только 
 
 | Метрика | Значение |
 |---|---|
-| Версия | 1.9.0 (stable) |
-| Python | 3.12 / 3.13 (3.14 — экспериментальная, только ubuntu в CI) |
+| Версия | 1.10.0 (stable) |
+| Python | 3.12 / 3.13 (3.14 — экспериментальная на всех трёх ОС, `continue-on-error`) |
 | Тестов | бейдж/прогон CI — **числом здесь не фиксируется** |
 | Покрытие | бейджи README `Coverage (ubuntu)` / `Coverage (all OS)` |
 | Зависимостей runtime | 3 (requests, psutil, rich) |
@@ -454,7 +454,8 @@ issue на билд нет — направление держит только 
 > источник покрытия — два бейджа в README (single-OS `coverage.json` + cross-OS
 > `coverage-combined.json`, обновляются CI каждый прогон); карточки глоссария
 > считает `scripts/generate_glossary_badge.py`, сверить локально —
-> `python -m stepik_grader.glossary.coverage`. Исключение одно:
+> `python -m stepik_grader.glossary.coverage --cards src/stepik_grader/glossary/data`
+> (без `--cards` база не подхватится и отчёт покажет 0/909). Исключение одно:
 > строка `| Версия | X.Y.Z |` — её проверяет
 > `scripts/check_version_consistency.py` (мягкое предупреждение при расхождении
 > с последним git-тегом; обновлять при релизе MINOR). Эволюция метрик по

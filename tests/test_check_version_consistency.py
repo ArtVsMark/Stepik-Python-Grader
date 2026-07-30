@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 _SCRIPT = Path(__file__).parent.parent / "scripts" / "check_version_consistency.py"
 
 
@@ -50,6 +52,67 @@ def test_pyproject_static_version_is_flagged(monkeypatch) -> None:
     monkeypatch.setattr(module.tomllib, "load", fake_load)
     module._check_pyproject_dynamic(errors)
     assert any("statically" in e for e in errors), errors
+
+
+class TestReleaseInFlight:
+    """Допуск «CHANGELOG на один MINOR впереди тега» — релизный PR до постановки тега.
+
+    Без него гейт валил каждый релизный PR: запись `[X.Y+1.0]` появляется в
+    момент подготовки, а тег ложится на merge-коммит уже смерженного PR.
+    Допуск обязан быть узким — всё остальное по-прежнему дрейф.
+    """
+
+    @staticmethod
+    def _with_top_entry(module, monkeypatch, tmp_path: Path, version: str) -> list[str]:
+        """Прогнать _check_changelog на подставном CHANGELOG с заданной верхней записью.
+
+        Подменяется сам путь, а не метод `read_text`: `pathlib.Path` объявляет
+        `__slots__`, и `setattr` на экземпляре не проходит.
+        """
+        fake = tmp_path / "CHANGELOG.md"
+        fake.write_text(
+            f"# Changelog\n\n## [Unreleased]\n\n## [{version}] - 2026-01-01\n", encoding="utf-8"
+        )
+        monkeypatch.setattr(module, "_CHANGELOG", fake)
+        errors: list[str] = []
+        module._check_changelog((1, 9, 0), errors)
+        return errors
+
+    def test_next_minor_is_allowed(self, monkeypatch, tmp_path: Path, capsys) -> None:
+        module = _load_module()
+        assert self._with_top_entry(module, monkeypatch, tmp_path, "1.10.0") == []
+        assert "release in flight" in capsys.readouterr().out
+
+    def test_matching_tag_is_allowed(self, monkeypatch, tmp_path: Path) -> None:
+        module = _load_module()
+        assert self._with_top_entry(module, monkeypatch, tmp_path, "1.9.0") == []
+
+    @pytest.mark.parametrize(
+        ("version", "why"),
+        [
+            ("1.11.0", "прыжок через MINOR"),
+            ("2.0.0", "смена MAJOR"),
+            ("1.8.0", "CHANGELOG отстал от тега"),
+            ("1.10.1", "PATCH в релизной записи"),
+        ],
+    )
+    def test_other_drift_still_fails(
+        self, monkeypatch, tmp_path: Path, version: str, why: str
+    ) -> None:
+        module = _load_module()
+        errors = self._with_top_entry(module, monkeypatch, tmp_path, version)
+        assert errors, f"дрейф не пойман: {why}"
+        assert "does not match" in errors[0]
+
+    def test_claude_metrics_row_follows_the_same_rule(self, monkeypatch, tmp_path: Path) -> None:
+        """Строка версии в CLAUDE.md обновляется тем же PR — предупреждения быть не должно."""
+        module = _load_module()
+        fake = tmp_path / "CLAUDE.md"
+        fake.write_text("| Версия | 1.10.0 (stable) |\n", encoding="utf-8")
+        monkeypatch.setattr(module, "_CLAUDE", fake)
+        warnings: list[str] = []
+        module._check_claude_metrics((1, 9, 0), warnings)
+        assert warnings == []
 
 
 def test_skips_without_git_tags(monkeypatch, capsys) -> None:
