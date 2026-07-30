@@ -136,7 +136,7 @@ class TestGradePath:
     def test_unknown_re_exception_queues_missing_glossary_entry(
         self, tmp_path: pathlib.Path
     ) -> None:
-        """J7 (web-current.md): unknown exception in an RE case gets queued for the
+        """J7 (web-contracts.md): unknown exception in an RE case gets queued for the
         glossary backlog when no card exists for it. Since #356 the RE hint
         resolver also consults the bundled JSON base (~140 stdlib exceptions),
         so "unknown" now means absent from BOTH sources — a custom (non-stdlib)
@@ -184,7 +184,7 @@ class TestGradePath:
 
 
 # ---------------------------------------------------------------------------
-# ErrorCard fields on _case_view — issue #125 (web-current.md § Модель error cards)
+# ErrorCard fields on _case_view — issue #125 (web-contracts.md § Модель error cards)
 # ---------------------------------------------------------------------------
 
 

@@ -13,7 +13,7 @@
 > начать работу без повторного разбора контекста.
 >
 > **Что это НЕ.** Это **не** канонический продуктовый спец. Каноничная
-> спецификация WEB MVP — [`web-current.md`](../dev/web-current.md) (что реализовано)
+> спецификация WEB MVP — [`web-contracts.md`](../dev/web-contracts.md) (контракты веб-слоя)
 > и [`web-design.md`](../dev/design/web-design.md) (замыслы); при расхождении они
 > главнее. Здесь — рабочие ориентиры «как подступиться», а критерии приёмки —
 > в самих GitHub issue.
@@ -159,7 +159,7 @@ master-трекер аудита.
 > **#163 (`--version`: различать dev и release, эпик #161) — закрыт.**
 > `cli._format_version_for_display()`/`cli._is_dev_build()` помечают off-tag
 > сборки явным `(dev build, not a release)`; on-tag остаётся чистым `X.Y.0`.
-> Политика — [CONTRIBUTING.md § Версионирование](../../CONTRIBUTING.md#версионирование-issue-68).
+> Политика — [CONTRIBUTING.md § Версионирование](../dev/versioning.md).
 
 ---
 
@@ -178,7 +178,7 @@ master-трекер аудита.
 > тексту:** палитра команд `Ctrl+K` удалена (#658), нижние сценарные кнопки
 > убраны в пользу главной кнопки «▶ Запустить» (#368). Реестр
 > `web/commands.py` остался, но питает только action cards. Актуальное
-> состояние UI — [web-current.md](../dev/web-current.md).
+> состояние UI — [use/web-interface.md](../use/web-interface.md).
 
 Что было сделано в рамках #125 (не переделывать; про снятое — во врезке выше):
 - `GET /api/grade` — `cases[]` несёт `case_n`/`severity`/`stdin`/`expected`/
@@ -322,7 +322,7 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 > **#140 — Runner-слой (эпик #136/#137/#138/#139) — закрыт.** `Runner`
 > Protocol + `LocalRunner` реализованы в `core/runner.py`; `grader_core.
 > run_single_test()` делегирует subprocess-запуск без изменения поведения —
-> [server-mode.md § Runner-слой](../dev/design/server-mode.md#runner-слой-issue-140-реализация--136137138).
+> [server-mode.md § Runner-слой](../dev/design/server-mode.md#runner-слой).
 - **#156 — API удалённого исполнения.** Контракт `/api/v1/runs` (async,
   классы ошибок, версионирование) — [server-mode.md § Контракт API](../dev/design/server-mode.md#контракт-api-удалённого-исполнения-issue-156).
   **Сервер не реализуется** — только контракт.
@@ -341,4 +341,4 @@ project-импортов); пакет `glossary/` не тянет `core/*` и н
 проверки решений), `#186` (Downloader web), `#187` (микро-бенчмарк web) и
 `#129` (тесты web MVP) — **все закрыты**, реализация в
 `src/stepik_grader/web/` и `tests/test_web*.py`. **Эпик #123 закрыт**;
-реализация зафиксирована документом [web-current.md](../dev/web-current.md).
+реализация зафиксирована документом [use/web-interface.md](../use/web-interface.md).

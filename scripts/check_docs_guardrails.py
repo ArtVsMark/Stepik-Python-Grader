@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Четыре машинные защиты, чтобы README снова не разросся, ссылки между Markdown-
-файлами не протухли, документация не расползлась мимо направлений, а индексы не
-отставали от фактического состава каталогов (эпик #167 «README как витрина»):
+Пять машинных защит, чтобы README снова не разросся, ссылки между Markdown-
+файлами не протухли, документация не расползлась мимо направлений, индексы не
+отставали от состава каталогов, а объясняющие документы не превратились в журнал
+работ (эпик #167 «README как витрина»):
 
 1. **README line-budget.** ``README.md`` не должен превышать ``README_LINE_BUDGET``
    строк (см. константу ниже). README — короткая витрина, подробности живут в
@@ -16,8 +17,9 @@
 3. **Docs directions.** В корне ``docs/`` лежит только ``README.md``-развилка;
    документы живут в направлениях по читателю — ``use/`` (как пользоваться),
    ``dev/`` (как устроено, с ``dev/design/`` для спроектированного без кода),
-   ``agent/`` (служебное для Claude Code), ``archive/`` (история). Новый ``.md``
-   в корне ``docs/`` — ошибка: он не попадает ни в одно направление.
+   ``agent/`` (служебное для Claude Code), ``audit/`` (находки незакрытых
+   аудитов), ``archive/`` (история). Новый ``.md`` в корне ``docs/`` — ошибка:
+   он не попадает ни в одно направление.
 4. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
    (кроме самого ``<dir>/README.md``) должен быть упомянут в ``<dir>/README.md``
    — иначе индекс расходится с фактическим составом каталога (как произошло с
@@ -27,6 +29,13 @@
    ``docs/archive/README.md``). Подкаталог без своего ``README.md`` отдельно не
    индексируется — родитель ссылается на него одной строкой (``role-*.md``-
    приложения к сводному аудиту, ADR-набор до появления adr/README.md).
+5. **Issue-tail policy.** Объясняющий документ отвечает «как это работает
+   сейчас», поэтому ссылок на задачи в нём быть не должно: ``docs/use/``,
+   ``docs/dev/*.md``, README, SECURITY и CONTRIBUTING держат ноль.
+   Логи (``CHANGELOG.md``, ``docs/archive/``), находки (``docs/audit/``) и ADR
+   не проверяются вовсе — там номер уместен. ``docs/dev/design/`` и агентские
+   документы живут по бюджету: номер там работает как идентификатор
+   согласованного требования, а не как датировка.
 
 Никаких внешних зависимостей: чистый ``re`` + ``pathlib``, детерминированно и
 кроссплатформенно (Windows/Linux/macOS).
@@ -48,6 +57,7 @@ __all__ = [
     "check_changelog_version_budget",
     "check_docs_directions",
     "check_docs_index_completeness",
+    "check_issue_tail_policy",
     "check_markdown_links",
     "check_readme_budget",
     "collect_markdown_files",
@@ -70,7 +80,19 @@ CHANGELOG_MAX_VERSIONS = 3
 # Направления документации: docs/ разложена по читателю, и в корне docs/ лежит
 # только README.md-развилка. Синхронизировать с docs/README.md и CONTRIBUTING.md
 # §«Документация: README как витрина».
-_DOCS_DIRECTIONS = ("use", "dev", "agent", "archive")
+_DOCS_DIRECTIONS = ("use", "dev", "agent", "audit", "archive")
+
+# Ссылка на задачу/PR: "#123", "#157.4". Ловим только цифровые — "#заголовок"
+# (внутренний якорь) и "#!/usr/bin" не матчатся.
+_ISSUE_TAIL_RE = re.compile(r"#\d+(?:\.\d+)?")
+
+# Бюджеты issue-ссылок для зон, где номер допустим как идентификатор, а не как
+# журнал. docs/dev/design/ держит #156 (контракт /api/v1/*) и реестр
+# #157.1-#157.6 (требования к sandbox, ADR-0008 ссылается поштучно); CLAUDE.md и
+# docs/agent/ — указатели вроде roadmap-issue. Снижать при чистке, не повышать:
+# рост бюджета означает, что журнал снова пополз в объясняющий текст.
+_DESIGN_TAIL_BUDGET = 22
+_AGENT_TAIL_BUDGET = 6
 
 # [текст](target) — не изображение (нет ведущего "!"), target без пробелов/скобок.
 _LINK_RE = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)\)")
@@ -254,8 +276,9 @@ def check_docs_directions(errors: list[str]) -> None:
         errors.append(
             f"docs/: {', '.join(stray)} lie in the docs/ root. Documentation is "
             "split by reader - put the file into docs/use/ (how to use), "
-            "docs/dev/ (how it works), docs/agent/ (Claude-only) or "
-            "docs/archive/ (history), and index it in that direction's README.md."
+            "docs/dev/ (how it works), docs/agent/ (Claude-only), docs/audit/ "
+            "(open audit findings) or docs/archive/ (history), and index it in "
+            "that direction's README.md."
         )
         return
 
@@ -274,6 +297,70 @@ def check_docs_directions(errors: list[str]) -> None:
     )
 
 
+def check_issue_tail_policy(errors: list[str]) -> None:
+    """В объясняющих документах нет журнала работ — ссылок вида ``#NNN``.
+
+    Документ, который отвечает «как это работает сейчас», не должен сообщать, в
+    каком issue/эпике это появилось: читателю номер не нужен, а справочник
+    превращается в лог. «Что сделано» живёт в ``CHANGELOG.md``, «как шло» — в
+    ``docs/archive/``, «что предстоит» — в GitHub Issues.
+
+    Зоны, где номер УМЕСТЕН и потому не проверяются:
+
+    * ``CHANGELOG.md`` и ``docs/archive/`` — это и есть логи;
+    * ``docs/audit/`` — находки аудита привязаны к задачам по определению;
+    * ``docs/dev/adr/`` — ADR отвечает «почему решили так», задача часть ответа;
+    * ``docs/dev/design/`` — там номер работает как идентификатор согласованного
+      требования (``#156`` — контракт ``/api/v1/*``, ``#157.1``–``#157.6`` —
+      требования к sandbox, на которые ADR-0008 ссылается поштучно). Лимит
+      ``_DESIGN_TAIL_BUDGET`` не даёт этой зоне снова обрасти журналом;
+    * ``CLAUDE.md`` и ``docs/agent/`` — агентский контракт; лимит
+      ``_AGENT_TAIL_BUDGET`` оставляет место указателям вроде roadmap-issue.
+
+    Всё остальное (``docs/use/``, ``docs/dev/*.md``, ``README``, ``SECURITY``,
+    ``CONTRIBUTING``) должно держать ноль.
+    """
+    free_zones = ("CHANGELOG.md", "docs/archive/", "docs/audit/", "docs/dev/adr/")
+    budgeted = {
+        "docs/dev/design/": _DESIGN_TAIL_BUDGET,
+        "CLAUDE.md": _AGENT_TAIL_BUDGET,
+        "docs/agent/": _AGENT_TAIL_BUDGET,
+    }
+
+    zone_totals: dict[str, int] = {}
+    checked = 0
+    for md in collect_markdown_files():
+        rel = md.relative_to(_ROOT).as_posix()
+        if any(rel == z or rel.startswith(z) for z in free_zones):
+            continue
+        tails = _ISSUE_TAIL_RE.findall(md.read_text(encoding="utf-8"))
+        zone = next((z for z in budgeted if rel == z or rel.startswith(z)), None)
+        if zone is not None:
+            zone_totals[zone] = zone_totals.get(zone, 0) + len(tails)
+            continue
+        checked += 1
+        if tails:
+            errors.append(
+                f"{md.relative_to(_ROOT)}: {len(tails)} issue reference(s) "
+                f"({', '.join(sorted(set(tails))[:5])}) in an explanatory document. "
+                "Such a document answers 'how it works now' - move the work log to "
+                "CHANGELOG.md, history to docs/archive/, plans to GitHub Issues."
+            )
+
+    for zone, budget in budgeted.items():
+        found = zone_totals.get(zone, 0)
+        if found > budget:
+            errors.append(
+                f"{zone}: {found} issue reference(s) exceed the budget of {budget}. "
+                "Only stable requirement/contract identifiers belong here - the rest "
+                "is a work log."
+            )
+    print(
+        f"issue-tail policy: {checked} explanatory file(s) at zero; "
+        + ", ".join(f"{z} {zone_totals.get(z, 0)}/{b}" for z, b in budgeted.items())
+    )
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
@@ -282,6 +369,7 @@ def main() -> int:
     check_docs_directions(errors)
     check_docs_index_completeness(errors)
     check_changelog_version_budget(errors)
+    check_issue_tail_policy(errors)
 
     if errors:
         print("\nFAIL: documentation guardrails violated:")

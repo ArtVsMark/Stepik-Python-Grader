@@ -35,7 +35,7 @@ courses/tasks и права.
 2. **PostgreSQL-схема — надмножество SQLite:** те же смысловые поля прогона/
    кейса/линта + tenancy-колонки (`workspace_id`/`user_id`/`task_id`/
    `test_set_id`) + нативные типы (`TIMESTAMPTZ`/`BIGINT IDENTITY`/`DOUBLE
-   PRECISION`). Не параллельная модель. Детали — [server-data-model.md § PostgreSQL](../design/server-data-model.md#postgresql-схема-поверх-sqlite-issue-154).
+   PRECISION`). Не параллельная модель. Детали — [server-data-model.md § PostgreSQL](../design/server-data-model.md#postgresql-схема-поверх-sqlite).
 3. **Иерархия tenancy — `workspace` как граница изоляции.** Всё
    (`run`/`course`/`task`) принадлежит workspace; личный режим = workspace из
    одного user'а (N=1) — тот же код обслуживает локальный и серверный опыт.

@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     from stepik_grader.core.result import CaseResult
 
 # Вердикты-"ошибки" (в отличие от AC) — ErrorCard-поля (severity/stderr/
-# suggestions/...) заполняются только для них (issue #125, web-current.md §
+# suggestions/...) заполняются только для них (issue #125, web-contracts.md §
 # «Модель error cards»).
 _FAILURE_VERDICTS = frozenset({"WA", "RE", "TLE"})
 

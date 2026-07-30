@@ -317,7 +317,7 @@
   уже был `Path`, а на границе функции — `str`.
 - **Документация — справочник HTTP API + разделение web-mvp.md (issue
   #267):** новый [`api.md`](../dev/api.md) — канонический справочник эндпоинтов
-  `--serve`. `web-mvp.md` разделён на [`web-current.md`](../dev/web-current.md)
+  `--serve`. `web-mvp.md` разделён на [`web-contracts.md`](../dev/web-contracts.md)
   (реализовано) и [`web-design.md`](../dev/design/web-design.md) (замыслы/отложенное/
   отклонённое). Исторические до-версионные записи `CHANGELOG.md` вынесены в
   [`changelog-archive.md`](changelog-archive.md). Плюс отдельный аудит
@@ -360,7 +360,7 @@
   «текущей версии» в `CHECKPOINT.md`/`CHANGELOG.md`/`CLAUDE.md`.
 
 Действующая политика версионирования — в
-[`../CONTRIBUTING.md` § Версионирование](../../CONTRIBUTING.md#версионирование-issue-68).
+[`../CONTRIBUTING.md` § Версионирование](../dev/versioning.md).
 
 ---
 

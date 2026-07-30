@@ -224,7 +224,7 @@ def test_changelog_version_budget_on_current_repo() -> None:
 def _make_directions(root: Path) -> Path:
     """Собрать минимальный docs/ с четырьмя направлениями и их индексами."""
     docs = root / "docs"
-    for direction in ("use", "dev", "agent", "archive"):
+    for direction in ("use", "dev", "agent", "audit", "archive"):
         (docs / direction).mkdir(parents=True)
         (docs / direction / "README.md").write_text(f"# {direction}\n", encoding="utf-8")
     (docs / "README.md").write_text(
@@ -271,4 +271,65 @@ def test_directions_on_current_repo() -> None:
     module = _load_module()
     errors: list[str] = []
     module.check_docs_directions(errors)
+    assert errors == []
+
+
+def test_issue_tail_in_explanatory_doc_is_flagged(tmp_path, monkeypatch) -> None:
+    """Ссылка на issue в объясняющем документе → ошибка политики."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "use" / "configuration.md").write_text(
+        "# Конфигурация\n\nКлюч `timeout` добавлен в issue #123.\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_issue_tail_policy(errors)
+    assert any("configuration.md" in e and "#123" in e for e in errors), errors
+
+
+def test_issue_tail_allowed_in_changelog_and_archive(tmp_path, monkeypatch) -> None:
+    """CHANGELOG.md и docs/archive/ — логи: номера там уместны и не флагаются."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (tmp_path / "CHANGELOG.md").write_text("# Changelog\n\n- fix (#123)\n", encoding="utf-8")
+    (docs / "archive" / "history.md").write_text("# История\n\n#124, #125\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_issue_tail_policy(errors)
+    assert errors == [], errors
+
+
+def test_issue_tail_budget_in_design_zone(tmp_path, monkeypatch) -> None:
+    """docs/dev/design/ держит номера-требования, но не сверх бюджета."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "dev" / "design").mkdir()
+    (docs / "dev" / "design" / "server-mode.md").write_text(
+        "# Server mode\n\n" + " ".join(f"#{200 + i}" for i in range(40)), encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_issue_tail_policy(errors)
+    assert any("docs/dev/design/" in e and "budget" in e for e in errors), errors
+
+
+def test_internal_anchor_is_not_an_issue_tail(tmp_path, monkeypatch) -> None:
+    """`#заголовок` — внутренний якорь, а не ссылка на задачу: не флагается."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "use" / "grader-workflow.md").write_text(
+        "# Работа\n\nСм. [раздел](#режимы-работы) и `#!/usr/bin/env python`.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_issue_tail_policy(errors)
+    assert errors == [], errors
+
+
+def test_issue_tail_policy_on_current_repo() -> None:
+    """На актуальном main политика соблюдена."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_issue_tail_policy(errors)
     assert errors == []

@@ -10,7 +10,7 @@
   (`[build-system]`, `dynamic = ["version"]`, `[tool.setuptools_scm]`),
   [scripts/version.py](../../../scripts/version.py),
   [scripts/check_version_consistency.py](../../../scripts/check_version_consistency.py),
-  [CONTRIBUTING.md § Версионирование](../../../CONTRIBUTING.md#версионирование-issue-68)
+  [docs/dev/versioning.md](../versioning.md)
 
 ## Контекст
 
@@ -20,7 +20,7 @@ PATCH — это счётчик коммитов после последнего
 
 Раньше `version` объявлялась статической строкой в `pyproject.toml` и правилась
 вручную. Это стабильный источник дрейфа: строка в `[project]`, последний
-git-тег, README-бейдж и `CHECKPOINT.md` регулярно расходились, а забытый bump
+git-тег, README-бейдж и снимки состояния в доках регулярно расходились, а забытый bump
 при релизе ловился только постфактум.
 
 `setuptools-scm` умеет выводить PEP 440-версию прямо из git-тегов, но **не
@@ -44,9 +44,9 @@ git-тег, README-бейдж и `CHECKPOINT.md` регулярно расход
    вдвое быстрее реальных изменений.
 4. **За дрейф отвечает CI, не человек.**
    [`scripts/check_version_consistency.py`](../../../scripts/check_version_consistency.py)
-   (issue #165) мягко предупреждает при расхождении `| Версия |`
-   (CLAUDE.md/README) и `Текущая версия:` (CHECKPOINT) с последним тегом. Ручная
-   сверка версий больше не нужна.
+   (issue #165) сверяет верхнюю релизную запись `CHANGELOG.md` с последним тегом
+   и мягко предупреждает при расхождении `| Версия |` (CLAUDE.md). Ручная сверка
+   версий больше не нужна.
 
 ## Альтернативы
 
@@ -75,7 +75,7 @@ git-тег, README-бейдж и `CHECKPOINT.md` регулярно расход
   tarball-архиве без `.git` версия деградирует (setuptools-scm fallback) — это
   известное ограничение подхода.
 - Сосуществование двух форм номера (PEP 440 vs логический `X.Y.N`) требует
-  объяснения — оно вынесено в [CONTRIBUTING.md § Версионирование](../../../CONTRIBUTING.md#версионирование-issue-68).
+  объяснения — оно вынесено в [docs/dev/versioning.md](../versioning.md).
 
 **Нейтральные:**
 

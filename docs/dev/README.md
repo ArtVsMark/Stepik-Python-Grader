@@ -34,12 +34,17 @@ ADR отвечают на «**почему** так», документы ниж
 
 | Документ | О чём |
 |---|---|
-| [web-current.md](web-current.md) | Что реализовано в вебе: разделы, error/action cards, user journeys J0–J7, ViewModel-контракты, layout, доступность |
+| [web-contracts.md](web-contracts.md) | Контракт веб-слоя: user journeys J0–J7 (из них собраны e2e-тесты), модель error/action cards, реестр команд, устройство фронтенда, формы данных (`ResultViewModel`, `ErrorCard`, `GlossaryCard`, …) |
 
-## Эксплуатация и поставка
+> Что пользователь видит в интерфейсе — не здесь, а в
+> [`../use/web-interface.md`](../use/web-interface.md): этот документ отвечает на
+> вопрос «какие данные и в какой форме ходят между фронтендом и бэкендом».
+
+## Процесс и поставка
 
 | Документ | О чём |
 |---|---|
+| [versioning.md](versioning.md) | Политика версионирования: своя схема (не SemVer), тег = MINOR+1, release- vs dev-форма, когда тегировать, блокирующая ротация CHANGELOG перед тегом |
 | [logging.md](logging.md) | Диагностический режим и лог-файл: opt-in, обязательная редакция секретов |
 | [supply-chain.md](supply-chain.md) | Инвентарь runtime-зависимостей и вендоренных веб-ассетов, `pip-audit`, лицензии |
 

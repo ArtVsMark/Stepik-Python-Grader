@@ -1,16 +1,16 @@
-# Vendored CodeMirror 6 bundle (issue #265, single bundle since #295)
+# Vendored CodeMirror 6 bundle
 
 No npm/bundler *in this repo* (per project philosophy — see `static/fonts/`
-for the same pattern with web fonts, issue #260). `codemirror-bundle@6.mjs`
+for the same pattern with web fonts). `codemirror-bundle@6.mjs`
 is a single self-contained ESM bundle, built ONCE outside the repo with
 [esbuild](https://esbuild.github.io) from the real npm packages and committed
 as a finished artifact — no build step, no Node.js, no bundler dependency at
 runtime or in CI. There is no import map: `app.js` imports this one file
 directly by URL (`/static/vendor/codemirror-bundle@6.mjs`).
 
-## Why one bundle, not one esm.sh-fetched file per package (issue #295)
+## Why one bundle, not one esm.sh-fetched file per package
 
-The previous scheme (issue #265) vendored 8 separate esm.sh bundles (one per
+The previous scheme vendored 8 separate esm.sh bundles (one per
 `@codemirror/*`/`@lezer/*` package, cross-linked via `external=` so they'd
 share one copy of shared state — see git history for that approach) plus 4
 tiny Node.js browser-compat polyfill files that one of them needed for an
@@ -37,7 +37,7 @@ imports (see `entry.js` in the build recipe below) — `EditorState`,
 (pinned 2026-07-13; last built 2026-07-16 with esbuild 0.28.1):
 
 `HighlightStyle` (from `@codemirror/language`) and `tags` (from
-`@lezer/highlight`) were added in issue #425 so `app.js` builds a
+`@lezer/highlight`) were added so `app.js` builds a
 theme-driven syntax highlight style on `--cm-*` CSS variables (readable in
 light and dark) instead of the light-only `defaultHighlightStyle` — which is
 therefore no longer exported.
@@ -62,7 +62,7 @@ therefore no longer exported.
 `@codemirror/lang-python`) and `style-mod`/`w3c-keyname`/`crelt` (small
 CodeMirror-ecosystem helper libraries) are transitive dependencies, not
 top-level imports of `app.js` — they were already silently inlined in the
-old per-package esm.sh bundles too (issue #265 never listed them explicitly
+old per-package esm.sh bundles too (the earlier scheme never listed them explicitly
 in this table; now documented properly since the full dependency graph is
 visible during the esbuild step).
 

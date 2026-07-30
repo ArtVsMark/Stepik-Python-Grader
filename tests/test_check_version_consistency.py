@@ -52,28 +52,6 @@ def test_pyproject_static_version_is_flagged(monkeypatch) -> None:
     assert any("statically" in e for e in errors), errors
 
 
-def test_checkpoint_drift_is_flagged(monkeypatch) -> None:
-    """CHECKPOINT с чужим MAJOR.MINOR относительно baseline → ошибка."""
-    module = _load_module()
-    errors: list[str] = []
-    monkeypatch.setattr(
-        module.Path, "read_text", lambda self, encoding="utf-8": "## Текущая версия: 1.4.0\n"
-    )
-    module._check_checkpoint((1, 5, 0), errors)
-    assert any("disagrees" in e for e in errors), errors
-
-
-def test_checkpoint_matching_minor_passes(monkeypatch) -> None:
-    """CHECKPOINT с совпадающим MAJOR.MINOR (PATCH может отличаться) → без ошибок."""
-    module = _load_module()
-    errors: list[str] = []
-    monkeypatch.setattr(
-        module.Path, "read_text", lambda self, encoding="utf-8": "## Текущая версия: 1.5.3\n"
-    )
-    module._check_checkpoint((1, 5, 0), errors)
-    assert errors == []
-
-
 def test_skips_without_git_tags(monkeypatch, capsys) -> None:
     """Нет baseline (нет git/тегов) → SKIP сверки доков, main() всё равно 0
     (pyproject на текущем репо динамический)."""
