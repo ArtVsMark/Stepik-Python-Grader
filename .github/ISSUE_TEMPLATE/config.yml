@@ -1,5 +1,11 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Вопрос по работе грейдера
+    url: https://github.com/ArtVsMark/Stepik-Python-Grader/discussions/categories/q-a
+    about: Не уверены, что это баг? Спросите в Discussions — Q&A. Отвечаем, ничего заводить не нужно.
+  - name: Обсудить идею без постановки задачи
+    url: https://github.com/ArtVsMark/Stepik-Python-Grader/discussions/categories/ideas
+    about: Мысль вслух, которая пока не тянет на issue. Discussions — Ideas.
   - name: Уязвимость безопасности
     url: https://github.com/ArtVsMark/Stepik-Python-Grader/security/advisories/new
     about: НЕ открывайте публичный issue. Используйте приватный канал — см. SECURITY.md.

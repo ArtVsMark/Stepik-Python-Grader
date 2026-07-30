@@ -16,6 +16,11 @@
 ![Веб-интерфейс --serve: грейдинг папки решений против тест-кейсов с вердиктом OK и таблицей результатов](docs/assets/hero-serve.gif)
 
 > Форк / продолжение проекта: [Первоисточник грейдера](https://github.com/PavloOps/python_generation_grader)
+>
+> 💬 **Нашли баг или есть идея?** Пункт `9` в меню грейдера и кнопка 💬 в
+> веб-интерфейсе открывают форму [issue](https://github.com/ArtVsMark/Stepik-Python-Grader/issues/new/choose)
+> уже заполненной (версия, ОС, Python подставятся сами). Вопрос, а не баг — в
+> [Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions).
 
 Курсы:
 - [Поколение Python: Курс для начинающих](https://stepik.org/course/58852)

@@ -25,6 +25,7 @@ from stepik_grader.web.downloader_adapter import (
     secrets_path_for,
     write_config,
 )
+from stepik_grader.web.feedback_adapter import feedback_draft
 from stepik_grader.web.glossary_adapter import (
     code_terms,
     glossary_get,
@@ -148,6 +149,7 @@ class _ApiRoutesMixin(_GuardMixin):
         "/api/auth/start": "_handle_auth_start",
         "/api/code-terms": "_post_code_terms",
         "/api/download": "_post_download",
+        "/api/feedback": "_post_feedback",
         "/api/downloader/config": "_post_downloader_config",
         "/api/import-reference": "_post_import_reference",
         "/api/save-solution": "_post_save_solution",
@@ -456,6 +458,35 @@ class _ApiRoutesMixin(_GuardMixin):
             root = None
         data = download_task(url, root=root, workspace=self.server.workspace)
         self._send(200, "application/json; charset=utf-8", _json(data))
+
+    def _post_feedback(self, parsed: Any) -> None:
+        # issue #754: черновик обращения (баг/идея/проблема с задачей) — ссылка на
+        # ЗАПОЛНЕННУЮ форму issue на GitHub плюс предпросмотр того, что уйдёт.
+        # Сервер ничего не отправляет и не создаёт: Submit жмёт сам пользователь
+        # в браузере, токена у грейдера нет (эпик #751). POST, а не GET, чтобы
+        # текст обращения не оседал в access-логе http.server как query-string.
+        res = self._guard_and_read_body(parsed)
+        if res is None:
+            return
+        lang, body = res
+        draft = feedback_draft(
+            str(body.get("kind") or ""),
+            summary=body.get("summary"),
+            step_url=body.get("step_url"),
+            logs=body.get("logs"),
+            lang=lang,
+            # Активная OS-изоляция — часть окружения: под --sandbox поведение
+            # исполнения отличается, и баг-репорт без этого факта уводит в сторону.
+            sandbox=bool(getattr(self.server, "sandbox", False)),
+        )
+        if draft is None:
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json({"ok": False, **message_fields("feedback_unknown_kind", lang)}),
+            )
+            return
+        self._send(200, "application/json; charset=utf-8", _json(draft))
 
     def _post_import_reference(self, parsed: Any) -> None:
         # issue #55: закреплённое решение Stepik → task{N}_{100+}.py в папке

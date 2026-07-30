@@ -379,6 +379,11 @@ a, button, [role="button"] {
   padding: var(--space-2) var(--space-4); border-radius: var(--radius-md);
   font-size: var(--text-sm); font-weight: 500; min-height: 32px; cursor: pointer; white-space: nowrap;
 }
+/* issue #754: кнопка-ссылка (<a class="btn">) — переход по клику пользователя не
+   блокируется попап-блокером, в отличие от window.open() из fetch-колбэка. Но
+   глобальное подчёркивание ссылок делает её похожей на текстовую ссылку, а не на
+   primary-кнопку — снимаем. */
+a.btn { text-decoration: none; }
 .btn-primary { background: var(--color-primary-btn); color: var(--color-on-primary); }
 .btn-primary:hover { background: var(--color-primary-hover); }
 .btn-primary:active { background: var(--color-primary-active); }
@@ -1043,3 +1048,37 @@ a.term-card-link:hover { background: var(--color-surface-offset); }
 .onboarding-dont-show input { cursor: pointer; margin: 0; }
 .onboarding-dont-show + .onboarding-actions { margin-top: var(--space-2); }
 .onboarding-reopen { margin: var(--space-3) 0 0; }
+
+/* issue #754 — модалка обратной связи. Только раскладка: цвета и поля берутся из
+   существующих токенов и классов (.modal/.form-input/.mode-row/.btn), поэтому
+   contrast-guard (#424) не задевается. Габариты — как у онбординга: контента
+   много (три типа + предпросмотр), нужен внутренний скролл. */
+.modal.feedback {
+  width: min(620px, 94vw); max-height: 82vh; overflow-y: auto;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+}
+.feedback-head { display: flex; align-items: center; gap: var(--space-2); }
+.feedback-head h2 { margin: 0; flex: 1; font-size: var(--text-lg); }
+.feedback-lead { color: var(--color-text-muted); margin: var(--space-1) 0 var(--space-4); line-height: 1.5; }
+.modal.feedback .mode-row { flex-wrap: wrap; }
+.feedback-label { display: block; margin: var(--space-3) 0 var(--space-1); }
+.feedback-input { width: 100%; }
+textarea.feedback-input { min-height: 72px; resize: vertical; }
+.feedback-preview { margin-top: var(--space-3); }
+.feedback-preview summary { cursor: pointer; color: var(--color-text-muted); font-size: var(--text-sm); }
+.feedback-preview-body {
+  margin-top: var(--space-2); padding: var(--space-3);
+  background: var(--color-surface-offset); border-radius: var(--radius-md);
+}
+.feedback-preview-field + .feedback-preview-field { margin-top: var(--space-3); }
+.feedback-preview-field strong { font-size: var(--text-xs); color: var(--color-text-muted); }
+.feedback-preview-field pre {
+  margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-xs);
+}
+.feedback-privacy { margin: var(--space-3) 0 0; }
+.feedback-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-4); }
+.feedback-actions .spacer { flex: 1; }
+/* Ссылки без href (черновик ещё не собран или не собрался) не должны выглядеть
+   и вести себя как рабочие. */
+.feedback-actions [aria-disabled="true"] { opacity: .55; pointer-events: none; }

@@ -33,16 +33,18 @@ from __future__ import annotations
 import argparse
 import contextlib
 import pathlib
+import webbrowser
 
 from stepik_grader.cli.context import CliContext
 from stepik_grader.config import CONFIG
-from stepik_grader.core import user_settings
+from stepik_grader.core import feedback, user_settings
 from stepik_grader.core.grader_core import collect_grouped_files, find_all_solution_files
 
 __all__ = [
     "_ask_bench_profile",
     "_ask_micro_profile",
     "_ask_number",
+    "_feedback_flow",
     "_interactive_menu",
     "_pick_path_via_dialog",
     "_print_menu",
@@ -141,6 +143,7 @@ def _print_menu(ctx: CliContext, *, record_history: bool = False) -> None:
     state = ctx.t("toggle_on") if record_history else ctx.t("toggle_off")
     print(ctx.t("menu_7", state=state))
     print(ctx.t("menu_8"))
+    print(ctx.t("menu_9"))
     print(ctx.t("menu_0"))
     print("=" * 50)
 
@@ -278,6 +281,108 @@ def _maybe_nudge_success_streak(
     return nudged_success
 
 
+# issue #753: пункт «Обратная связь». Выбор пользователя → тип обращения
+# (YAML-форма в .github/ISSUE_TEMPLATE/); «0»/мусор/пусто — возврат в меню.
+_FEEDBACK_KIND_CHOICES: dict[str, feedback.FeedbackKind] = {
+    "1": feedback.FeedbackKind.BUG,
+    "2": feedback.FeedbackKind.IDEA,
+    "3": feedback.FeedbackKind.TASK_PROBLEM,
+}
+
+# Главное текстовое поле каждой формы — туда уходит краткое описание из ввода.
+# Имена — id полей YAML-форм (контракт core/feedback.py:_FIELD_IDS).
+_FEEDBACK_SUMMARY_FIELD: dict[feedback.FeedbackKind, str] = {
+    feedback.FeedbackKind.BUG: "what-happened",
+    feedback.FeedbackKind.IDEA: "idea",
+    feedback.FeedbackKind.TASK_PROBLEM: "details",
+}
+
+# Человекочитаемые подписи полей для предпросмотра: id формы → ключ локали.
+# Поле без подписи печатается своим id — предпросмотр не должен молчать о
+# том, что уедет, даже если подпись забыли добавить.
+_FEEDBACK_FIELD_LABELS: dict[str, str] = {
+    "what-happened": "feedback_field_description",
+    "idea": "feedback_field_description",
+    "details": "feedback_field_description",
+    "environment": "feedback_field_environment",
+    "step-url": "feedback_field_step_url",
+}
+
+# Утвердительные ответы на «Открыть браузер?» — пустой ввод тоже «да» (Y — дефолт).
+_CONFIRM_YES = frozenset({"", "y", "yes", "д", "да"})
+
+
+def _print_feedback_preview(ctx: CliContext, prepared: feedback.PreparedIssue) -> None:
+    """Показать ровно то, что уедет в форму, + предупреждения об усечении.
+
+    Предпросмотр обязателен перед открытием браузера (issue #751): пользователь
+    должен видеть содержимое обращения до того, как оно попадёт в публичный
+    issue, а не узнавать о нём из уже открытой формы.
+    """
+    print(ctx.t("feedback_preview_header"))
+    for name, value in prepared.fields.items():
+        label_key = _FEEDBACK_FIELD_LABELS.get(name)
+        print(f"  {ctx.t(label_key) if label_key else name}:")
+        for line in value.splitlines():
+            print(f"    {line}")
+    print(ctx.t("feedback_privacy_note"))
+    if prepared.truncated:
+        print(ctx.t("feedback_truncated", fields=", ".join(prepared.truncated)))
+    if prepared.dropped:
+        print(ctx.t("feedback_dropped", fields=", ".join(prepared.dropped)))
+
+
+def _feedback_flow(ctx: CliContext) -> None:
+    """Пункт «Сообщить о проблеме / предложить идею» (9): prefilled-URL на GitHub.
+
+    Спрашивает тип обращения и краткое описание, добавляет автособранное
+    окружение (версия/ОС/Python — то, что пользователь никогда не пишет руками),
+    показывает предпросмотр и только после подтверждения открывает браузер с
+    заполненной формой. Issue создаёт сам пользователь кнопкой Submit — грейдер
+    не имеет ни токена, ни сервера и ничего не отправляет (эпик #751).
+    """
+    print(ctx.t("feedback_header"))
+    print(ctx.t("feedback_kind_1"))
+    print(ctx.t("feedback_kind_2"))
+    print(ctx.t("feedback_kind_3"))
+    print(ctx.t("feedback_kind_0"))
+    print(ctx.t("feedback_discussions_hint", url=feedback.DISCUSSIONS_URL))
+
+    kind = _FEEDBACK_KIND_CHOICES.get(input(ctx.t("feedback_select_kind")).strip())
+    if kind is None:  # «0», пустой ввод или мусор — тихий возврат в меню
+        return
+
+    fields = {
+        "environment": feedback.collect_environment(
+            channel="CLI (интерактивное меню)", lang=ctx.lang
+        )
+    }
+    summary = input(ctx.t("feedback_ask_summary")).strip()
+    if summary:
+        fields[_FEEDBACK_SUMMARY_FIELD[kind]] = summary
+    if kind is feedback.FeedbackKind.TASK_PROBLEM:
+        step_url = input(ctx.t("feedback_ask_step_url")).strip()
+        if step_url:
+            fields["step-url"] = step_url
+
+    prepared = feedback.prepare_issue(kind, fields)
+    _print_feedback_preview(ctx, prepared)
+    print(ctx.t("feedback_account_hint"))
+
+    if input(ctx.t("feedback_confirm")).strip().lower() not in _CONFIRM_YES:
+        print(ctx.t("feedback_cancelled"))
+        return
+
+    # Ссылку печатаем ДО открытия: headless-окружение/отсутствие браузера не
+    # должны оставить пользователя без способа дойти до формы.
+    print(ctx.t("feedback_opened"))
+    print(f"  {prepared.url}")
+    try:
+        webbrowser.open(prepared.url)
+    except Exception as exc:  # webbrowser.Error, OSError — браузера может не быть
+        print(ctx.t("feedback_open_failed", error=exc))
+
+
 def _interactive_menu(ctx: CliContext) -> None:
     """Цикл интерактивного меню: показывать меню и выполнять режимы до «0»/EOF.
 
@@ -297,6 +402,9 @@ def _interactive_menu(ctx: CliContext) -> None:
     issue #645: серию успешных прогонов подряд при выключенной истории тоже
     сопровождает однократный positive-nudge — habit loop подталкивается не
     только провалом, но и успехом (дефолт истории по ADR-0002 не меняется).
+
+    issue #753: пункт 9 — обратная связь: собирает окружение и открывает
+    заполненную форму issue на GitHub после предпросмотра и подтверждения.
     """
     settings_path = user_settings.default_settings_path()
     settings = user_settings.load_settings(settings_path)
@@ -438,6 +546,13 @@ def _interactive_menu(ctx: CliContext) -> None:
                 # Ctrl+C прерывает скачивание и возвращает в меню, не роняя процесс.
                 with contextlib.suppress(KeyboardInterrupt):
                     downloader.main()
+
+            elif choice == "9":
+                # issue #753: обратная связь — prefilled-форма issue на GitHub.
+                # Ctrl+C на любом из вопросов возвращает в меню, не роняя процесс
+                # (симметрично пункту 8); EOF ловит внешний except EOFError.
+                with contextlib.suppress(KeyboardInterrupt):
+                    _feedback_flow(ctx)
 
             else:
                 print(ctx.t("unknown_choice"))

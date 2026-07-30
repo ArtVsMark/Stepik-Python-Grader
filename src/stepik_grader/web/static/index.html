@@ -33,6 +33,12 @@
     <button id="onboarding-open" class="btn-icon" aria-label="Как пользоваться"
             title="Как пользоваться" data-i18n-aria-label="onboarding.open_aria"
             data-i18n-title="onboarding.open_title">?</button>
+    <!-- issue #754: обратная связь — открывает ЗАПОЛНЕННУЮ форму issue на GitHub.
+         Место в topbar намеренно: канал должен быть виден из любого раздела, а не
+         спрятан в «Настройках», иначе о баге просто не сообщат (эпик #751). -->
+    <button id="feedback-open" class="btn-icon" aria-label="Сообщить о проблеме или предложить идею"
+            title="Сообщить о проблеме или предложить идею" data-i18n-aria-label="feedback.open_aria"
+            data-i18n-title="feedback.open_title">💬</button>
   </header>
 
   <nav class="sidebar" aria-label="Основная навигация" data-i18n-aria-label="nav.aria">
@@ -531,6 +537,63 @@
       <button id="onboarding-close" class="btn btn-secondary" type="button" data-i18n="onboarding.close">Закрыть</button>
     </div>
     <p class="onboarding-reopen hint" data-i18n="onboarding.reopen">Открыть снова — кнопкой «?» вверху справа.</p>
+  </div>
+</div>
+
+<!-- issue #754: обратная связь. Модалка НЕ отправляет обращение — она собирает
+     черновик (POST /api/feedback), показывает предпросмотр и ведёт на GitHub, где
+     Submit жмёт сам пользователь. Кнопка «Открыть GitHub» — это <a>, а не button:
+     навигация по клику пользователя не блокируется попап-блокером, в отличие от
+     window.open() из fetch-колбэка. Focus-trap/Escape — как в онбординге. -->
+<div id="feedback-overlay" class="modal-overlay" hidden>
+  <div class="modal feedback" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+    <div class="feedback-head">
+      <h2 id="feedback-title"><span aria-hidden="true">💬</span> <span data-i18n="feedback.title">Обратная связь</span></h2>
+      <button id="feedback-close-x" class="btn-icon" type="button" aria-label="Закрыть"
+              data-i18n-aria-label="feedback.close_aria">✕</button>
+    </div>
+    <p class="feedback-lead" data-i18n="feedback.lead">Форма issue на GitHub откроется уже заполненной: версия, ОС и Python подставятся сами. Отправляете её вы сами — кнопкой Submit в браузере.</p>
+
+    <div class="mode-row" role="group" aria-label="Тип обращения" data-i18n-aria-label="feedback.kind_group_aria">
+      <button class="mode-btn active" type="button" data-fbkind="bug" aria-pressed="true" data-i18n="feedback.kind_bug">🐞 Баг</button>
+      <button class="mode-btn" type="button" data-fbkind="idea" aria-pressed="false" data-i18n="feedback.kind_idea">💡 Идея</button>
+      <button class="mode-btn" type="button" data-fbkind="task-problem" aria-pressed="false" data-i18n="feedback.kind_task">🧩 Задача</button>
+    </div>
+    <p class="hint" id="feedback-kind-hint" data-i18n="feedback.kind_hint_bug">Грейдер работает не так, как должен.</p>
+
+    <label class="form-label feedback-label" for="feedback-summary" data-i18n="feedback.summary_label">Опишите коротко (можно дописать в браузере)</label>
+    <textarea id="feedback-summary" class="form-input feedback-input" rows="4"
+              placeholder="Проверка падает с трейсбеком вместо вердикта"
+              data-i18n-placeholder="feedback.summary_placeholder"></textarea>
+
+    <div id="feedback-step-row" hidden>
+      <label class="form-label feedback-label" for="feedback-step-url" data-i18n="feedback.step_url_label">Ссылка на шаг Stepik</label>
+      <input id="feedback-step-url" class="form-input feedback-input" type="url"
+             placeholder="https://stepik.org/lesson/…/step/…"
+             data-i18n-placeholder="feedback.step_url_placeholder">
+    </div>
+
+    <details class="feedback-preview">
+      <summary data-i18n="feedback.preview_summary">Показать, что уйдёт в форму</summary>
+      <div id="feedback-preview-body" class="feedback-preview-body"></div>
+    </details>
+
+    <p class="hint feedback-privacy" data-i18n="feedback.privacy">🔒 Код решения и токены не отправляются. Домашний путь заменён на «~». Имя компьютера не передаётся.</p>
+    <p class="hint" id="feedback-warnings" hidden></p>
+
+    <!-- href обеих ссылок ставит JS из ответа POST /api/feedback: адреса GitHub
+         в разметке нарушили бы инвариант «никаких внешних href/src в index.html»
+         (тест TestSecurityHeaders, CSP/офлайн-политика #563). До готового
+         черновика ссылки помечены aria-disabled и не кликаются. -->
+    <div class="feedback-actions">
+      <a id="feedback-open-github" class="btn btn-primary" aria-disabled="true"
+         target="_blank" rel="noopener noreferrer" data-i18n="feedback.open_github">Открыть форму на GitHub</a>
+      <button id="feedback-cancel" class="btn btn-secondary" type="button" data-i18n="feedback.cancel">Отмена</button>
+      <span class="spacer"></span>
+      <a id="feedback-discussions" class="hint" aria-disabled="true"
+         target="_blank" rel="noopener noreferrer" data-i18n="feedback.discussions">Просто вопрос? Спросите в Discussions</a>
+    </div>
+    <p class="hint" data-i18n="feedback.account_note">Для отправки нужен бесплатный аккаунт GitHub — issue публикуется от вашего имени.</p>
   </div>
 </div>
 

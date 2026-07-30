@@ -1,0 +1,81 @@
+name: Баг-репорт
+description: Сообщить об ошибке в грейдере
+title: "fix: "
+labels: ["bug"]
+# ВАЖНО: `id` полей — публичный контракт. На них опирается сборка
+# prefilled-URL в src/stepik_grader/core/feedback.py (issue #751/#752):
+# .../issues/new?template=bug_report.yml&<id>=<значение>. Переименование id
+# ломает автозаполнение — менять только вместе с _FIELD_IDS в feedback.py
+# (парность стережёт tests/test_feedback.py).
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что нашли время сообщить. Поля «Окружение» и «Логи» грейдер
+        умеет заполнять сам: пункт **9** интерактивного меню
+        (`python -m stepik_grader.grader`) или кнопка **💬** в веб-интерфейсе
+        (`--serve`) открывают эту форму уже заполненной.
+
+        ⚠️ Не вставляйте сюда токены и содержимое `secrets.json`. Об уязвимостях
+        не пишите в публичный issue — см. [SECURITY.md](https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/SECURITY.md).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Описание
+      description: Что пошло не так, коротко и по делу.
+      placeholder: Проверка падает с трейсбеком вместо вердикта.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести
+      description: Команда/режим, входные данные, что произошло.
+      value: |
+        1. Команда / режим:
+        2. Входные данные / путь к задаче:
+        3. Что произошло:
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+      description: Что должно было произойти.
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Окружение
+      description: |
+        Заполняется автоматически, если открыть форму из грейдера. Вручную:
+        ОС, `python --version`, `stepik-grader --version`.
+      render: text
+      placeholder: |
+        Версия грейдера: 1.9.0
+        ОС: Windows-11
+        Python: 3.12.4
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи / трейсбек
+      description: Вывод без реальных токенов и содержимого `secrets.json`.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Дополнительно
+      description: Скриншоты, ссылка на шаг Stepik и т.п. (по желанию).
+    validations:
+      required: false

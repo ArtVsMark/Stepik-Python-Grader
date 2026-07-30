@@ -1,0 +1,68 @@
+name: Задача Stepik не проверяется правильно
+description: Скачанная задача не грейдится, тесты не находятся или вердикт расходится со Stepik
+title: "task: "
+labels: ["bug"]
+# `id` полей — контракт для prefilled-URL (core/feedback.py). См. комментарий
+# в bug_report.yml.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Самый полезный для проекта тип обращения: расхождение локального
+        вердикта со Stepik почти всегда означает баг в парсере тест-кейсов или
+        в нормализации вывода.
+
+        ⚠️ **Не вставляйте сюда своё решение целиком** — по правилам курсов это
+        публикация ответа. Достаточно ссылки на шаг и того, чем отличается
+        вывод. Если без кода не обойтись — минимальный фрагмент, воспроизводящий
+        расхождение.
+
+  - type: input
+    id: step-url
+    attributes:
+      label: Ссылка на шаг Stepik
+      description: URL шага, на котором расходится вердикт.
+      placeholder: https://stepik.org/lesson/.../step/...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: Что именно происходит
+      options:
+        - Локально зачёт, на Stepik — нет
+        - Локально не зачёт, на Stepik — зачёт
+        - Тест-кейсы не найдены / формат не определился
+        - Задача не скачивается
+        - Другое (опишу ниже)
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Подробности
+      description: Чем отличается ожидаемый вывод от полученного.
+    validations:
+      required: true
+
+  - type: textarea
+    id: task-context
+    attributes:
+      label: Контекст задачи
+      description: |
+        Заполняется автоматически, если открыть форму из грейдера: определённый
+        формат тест-кейсов, число кейсов, вердикты. Без кода решения.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Окружение
+      description: Заполняется автоматически, если открыть форму из грейдера.
+      render: text
+    validations:
+      required: true
