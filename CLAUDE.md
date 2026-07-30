@@ -91,6 +91,28 @@ tool-call'ов (именно там язык обычно «пропадает»
 
 ---
 
+## 🇷🇺 Язык артефактов
+
+Всё, что пишется **в репозиторий**, — по-русски: `CHANGELOG.md`, описания
+коммитов, тела PR и issue, документация в `docs/`, docstring'и, комментарии,
+тексты ошибок и строки локали `ru`.
+
+Английский остаётся там, где он синтаксис или отдельный артефакт для внешней
+аудитории:
+
+- типы и scope Conventional Commits (`fix`, `feat(config)`), заголовки
+  `### Added`/`### Changed` в `CHANGELOG.md`, ключи локалей
+  (`path_not_found`) — это идентификаторы, а не текст;
+- имена файлов, флаги CLI, идентификаторы кода и термины без устоявшегося
+  перевода (sandbox, runner, fallback) — не переводим ради перевода;
+- [`README.en.md`](README.en.md) и локаль `en` — намеренная витрина для
+  международной аудитории, живёт рядом с русской версией и англоязычной
+  остаётся.
+
+Язык *ответов* Claude — правило выше, в § Режим ответов.
+
+---
+
 ## 🤖 Мультиагентный режим (волнами по 5)
 
 Любая массовая работа агентами — сквозные правки, генерация контента, аудит,
@@ -256,15 +278,16 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
 
 ## 🔑 Формат коммитов
 
-Conventional Commits — обязательно:
+Conventional Commits — обязательно. Тип и scope — латиницей (это синтаксис),
+**описание — по-русски** (см. § Язык артефактов):
 
 ```
-fix(executor): use sys.executable instead of platform string
-feat(config): add GraderConfig dataclass with pyproject.toml support
-refactor(grader): extract reporter.py with rich output logic
-test(config): add tests for GraderConfig defaults
-docs(claude): trim CLAUDE.md to agent contract
-chore(deps): bump psutil upper bound
+fix(executor): использовать sys.executable вместо строки платформы
+feat(config): dataclass GraderConfig с чтением pyproject.toml
+refactor(grader): вынести reporter.py с rich-выводом
+test(config): тесты на значения по умолчанию GraderConfig
+docs(claude): сжать CLAUDE.md до агентского контракта
+chore(deps): поднять верхнюю границу psutil
 ```
 
 ---
@@ -309,7 +332,7 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 
 ## 📝 Обновление CHANGELOG.md / docs/archive/history.md — когда
 
-- **`CHANGELOG.md`** (английский) — запись под `## [Unreleased]` в **каждом**
+- **`CHANGELOG.md`** (русский) — запись под `## [Unreleased]` в **каждом**
   смерженном PR, без исключений для "внутренних"/рефакторинговых PR
   (используйте `### Refactored`/`### Changed`/`### Internal` — прецеденты уже
   есть в файле). При релизе `[Unreleased]` переименовывается в
