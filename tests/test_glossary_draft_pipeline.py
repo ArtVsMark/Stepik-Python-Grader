@@ -343,6 +343,150 @@ def test_run_check_skips_posix_only_outside_posix(tmp_path: Path, monkeypatch, c
     assert mod.run_check(base) == 1  # на POSIX она проверяется и расходится
 
 
+# -- platform_gaps: пропущенный тег ловится машинно (#762) ----------------------
+
+
+# Имя, которого нет ни на одной платформе, — чтобы тесты гэпов не зависели от ОС
+# прогона (на POSIX доступны и os.fork, и termios, ловить там нечего).
+_ABSENT = "os.definitely_absent_attr"
+
+
+def test_platform_gaps_finds_missing_attribute() -> None:
+    gaps = mod.platform_gaps(["import os", f"{_ABSENT}()"], known_api={_ABSENT: ""})
+    assert gaps == {_ABSENT}
+
+
+def test_platform_gaps_flags_attribute_read_not_only_call() -> None:
+    # Константы (os.EX_OK на Windows) читаются без вызова — тоже платформозависимо.
+    examples = ["import os", f"print({_ABSENT})"]
+    assert mod.platform_gaps(examples, known_api={_ABSENT: ""}) == {_ABSENT}
+
+
+def test_platform_gaps_ignores_hasattr_guarded() -> None:
+    # OS-робастный пример батчей В5: печатает True на любой ОС, тег не нужен.
+    examples = ["import os", "print(not hasattr(os, 'fork') or callable(os.fork))"]
+    assert mod.platform_gaps(examples, known_api={"os.fork": ""}) == set()
+
+
+def test_platform_gaps_ignores_invented_names() -> None:
+    # `from os import nonexistent  # ImportError` — намеренная демонстрация:
+    # имени нет ни на одной ОС, платформа тут ни при чём.
+    assert mod.platform_gaps(["from os import nonexistent"], known_api={}) == set()
+
+
+def test_platform_gaps_ignores_api_newer_than_runtime() -> None:
+    # os.readinto есть с 3.14: на 3.12 его нет на ЛЮБОЙ ОС, и тег platform:posix
+    # там ни при чём. Версия заведомо будущая — тест не устареет с апгрейдом.
+    examples = ["import os", f"{_ABSENT}()"]
+    assert mod.platform_gaps(examples, known_api={_ABSENT: "99.9"}) == set()
+    # Уже вышедшая версия карточку не выгораживает.
+    assert mod.platform_gaps(examples, known_api={_ABSENT: "3.0"}) == {_ABSENT}
+
+
+def test_added_after_runtime_tolerates_junk() -> None:
+    # Поле version заполнено не у всех карточек и не всегда как «X.Y».
+    assert not mod._added_after_runtime("")
+    assert not mod._added_after_runtime("см. документацию")
+    assert mod._added_after_runtime("99.9.1")
+
+
+def test_platform_gaps_ignores_shadowed_module_name() -> None:
+    # `time` здесь — datetime.time, а не модуль: обращение к модулю не считаем.
+    examples = ["from datetime import time", "print(time.fromisoformat('12:00'))"]
+    assert mod.platform_gaps(examples, known_api={"time.fromisoformat": ""}) == set()
+
+
+def test_platform_gaps_flags_posix_only_module() -> None:
+    # Модули из закрытого списка вне POSIX не импортируются вовсе — фильтр
+    # known_api к ним не применяется, и проверка работает на любой ОС.
+    assert mod.platform_gaps(["import termios"]) == {"import termios"}
+    assert mod.platform_gaps(["from pwd import getpwnam"]) == {"import pwd"}
+
+
+def test_platform_gaps_parses_line_by_line_when_block_broken() -> None:
+    # Legacy-карточки хранят многострочный блок без отступов — как единый скрипт
+    # он не компилируется, но обращения в нём всё равно надо видеть.
+    examples = ["try:", "import termios", "except ImportError:", "print('нет')"]
+    assert mod.platform_gaps(examples) == {"import termios"}
+
+
+def test_run_check_hints_missing_tag(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    base = tmp_path / "data"
+    base.mkdir()
+    cards = [
+        {
+            "id": _ABSENT,
+            "title": _ABSENT,
+            "status": "ready",
+            "examples": ["import os", f"print({_ABSENT}())  # → 1"],
+        }
+    ]
+    (base / "cards.json").write_text(json.dumps(cards, ensure_ascii=False), encoding="utf-8")
+
+    mod.run_check(base)
+    out = capsys.readouterr().out
+    assert f"[нет тега] {_ABSENT}" in out
+    # Подсказка — отдельная строка: она не должна маскироваться под вердикт,
+    # который разбирает ratchet ниже.
+    assert not re.search(rf"^  \[(?:error|mismatch)\] {re.escape(_ABSENT)}: .*нет тега", out, re.M)
+
+
+def test_bundled_cards_calling_absent_api_are_tagged() -> None:
+    """Карточка, зовущая недоступное здесь API, обязана нести ``platform:posix``.
+
+    Иначе её вердикт зависит от ОС прогона: ``os.execlp`` расходился на Windows
+    (``os.fork`` → ``AttributeError``), а под Git Bash — где в PATH лежит
+    ``echo.exe`` — тот же пример замещал процесс и вердикт «плыл» в
+    ``unverifiable``. Проверка ловит пропуск тега на не-POSIX (там гэпы видны
+    через ``hasattr``); на POSIX остаются импорты вроде ``termios`` (#762).
+
+    ``version`` карточек нужен, чтобы не путать платформу с версией: на 3.12 нет
+    ни ``os.fork`` (Windows), ни ``os.readinto`` (появился в 3.14) — тег уместен
+    только первому.
+    """
+    from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR
+
+    cards = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
+    known_api = {card.id: card.version for card in cards}
+    untagged = {
+        card.id: sorted(gaps)
+        for card in cards
+        if card.examples
+        and "platform:posix" not in card.tags
+        and (gaps := mod.platform_gaps(card.examples, known_api=known_api))
+    }
+    hint = "Примеры зовут недоступное здесь API, а тега platform:posix нет:"
+    listing = [f"  {card_id}: {', '.join(gaps)}" for card_id, gaps in sorted(untagged.items())]
+    assert not untagged, "\n".join([hint, *listing])
+
+
+def test_bundled_new_api_is_not_platform_gap_on_older_runtime(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """API новее интерпретатора — не повод требовать ``platform:posix``.
+
+    Воспроизводит прогон на 3.12/3.13, где `os.readinto`/`os.reload_environ`
+    (появились в 3.14) отсутствуют на **любой** ОС: без сверки с полем `version`
+    guard требовал бы для них тег, и CI падал бы на всех трёх ОС (#762).
+    """
+    import os as os_module
+
+    from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR
+
+    cards = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
+    new_in_314 = [c for c in cards if c.id in ("os.readinto", "os.reload_environ")]
+    assert [c.version for c in new_in_314] == ["3.14", "3.14"]  # иначе сверять нечем
+
+    monkeypatch.setattr(mod.sys, "version_info", (3, 12, 0, "final", 0))
+    for card in new_in_314:
+        monkeypatch.delattr(os_module, card.id.split(".", 1)[1], raising=False)
+
+    versions = {c.id: c.version for c in cards}
+    flat = dict.fromkeys(versions, "")  # то же, но без знания версий
+    for card in new_in_314:
+        assert mod.platform_gaps(card.examples, known_api=versions) == set()
+        # Контроль: именно сверка с version и спасает — иначе гэп налицо.
+        assert mod.platform_gaps(card.examples, known_api=flat) == {card.id}
+
+
 # -- check over реальная база (ratchet: расхождениям расти нельзя) --------------
 
 

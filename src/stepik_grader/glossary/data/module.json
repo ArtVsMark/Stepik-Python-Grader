@@ -21761,7 +21761,8 @@
     "aliases": [],
     "keywords": [],
     "tags": [
-      "os"
+      "os",
+      "platform:posix"
     ],
     "examples": [
       "import os",
