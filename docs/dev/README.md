@@ -34,7 +34,11 @@ ADR отвечают на «**почему** так», документы ниж
 
 | Документ | О чём |
 |---|---|
-| [web-current.md](web-current.md) | Что реализовано в вебе: разделы, error/action cards, user journeys J0–J7, ViewModel-контракты, layout, доступность |
+| [web-contracts.md](web-contracts.md) | Контракт веб-слоя: user journeys J0–J7 (из них собраны e2e-тесты), модель error/action cards, реестр команд, устройство фронтенда, формы данных (`ResultViewModel`, `ErrorCard`, `GlossaryCard`, …) |
+
+> Что пользователь видит в интерфейсе — не здесь, а в
+> [`../use/web-interface.md`](../use/web-interface.md): этот документ отвечает на
+> вопрос «какие данные и в какой форме ходят между фронтендом и бэкендом».
 
 ## Процесс и поставка
 

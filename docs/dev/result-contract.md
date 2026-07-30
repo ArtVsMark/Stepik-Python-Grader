@@ -8,7 +8,7 @@
 > Это **контракт**, не описание реализации: имена полей и семантика вердиктов
 > здесь канонические. Продуктовые ViewModel'и веб-слоя (`ResultViewModel`,
 > `ErrorCard`) — надстройки над этим контрактом, канонично описаны в
-> [web-current.md § Контракты данных](web-current.md#контракты-данных) и здесь не
+> [web-contracts.md § Контракты данных](web-contracts.md#контракты-данных) и здесь не
 > дублируются. Форматы тест-кейсов и таблица вердиктов — в
 > [configuration.md](../use/configuration.md#формат-тест-кейсов).
 
@@ -131,7 +131,7 @@ CLI→web→pytest-плагин, но **runtime-представление ос�
   относительных имён), `rows` (по решению), `message`/`message_id`/
   `message_params` (только при `kind="error"`, см. § Локализация
   сообщений (`message_id`) ниже). Это уже адаптерный слой; Web отдаёт его
-  как `ResultViewModel` — см. [web-current.md](web-current.md#resultviewmodel).
+  как `ResultViewModel` — см. [web-contracts.md](web-contracts.md#resultviewmodel).
 
 ### Опциональное поле `lint`
 

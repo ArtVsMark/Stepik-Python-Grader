@@ -10,10 +10,10 @@
 > Дизайн будущего сетевого multi-tenant server mode (отдельная тема) — в
 > [server-mode.md](design/server-mode.md).
 >
-> Реализация UI, использующего этот API — [web-current.md](web-current.md).
+> Реализация UI, использующего этот API — [web-contracts.md](web-contracts.md).
 > Контракт данных ответов (`ResultViewModel`/`ErrorCard`/...) —
 > [result-contract.md](result-contract.md) и
-> [web-current.md § Контракты данных](web-current.md#контракты-данных).
+> [web-contracts.md § Контракты данных](web-contracts.md#контракты-данных).
 
 ## Оглавление
 

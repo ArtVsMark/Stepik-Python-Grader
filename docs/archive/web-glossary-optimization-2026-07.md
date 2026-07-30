@@ -14,7 +14,7 @@
 > `main` (после мержа #360) с координатами `file:line`. Формат — по прецеденту
 > [`audit-2026-07.md`](audit-2026-07.md) (мультиролевой разбор, § 5 —
 > разногласия и итоговые решения). Канон web-слоя —
-> [`web-current.md`](../dev/web-current.md)/[`web-design.md`](../dev/design/web-design.md),
+> [`web-contracts.md`](../dev/web-contracts.md)/[`web-design.md`](../dev/design/web-design.md),
 > глоссария — [`glossary.md`](../dev/glossary.md); при реализации обновлять их, а не
 > этот план.
 >
@@ -341,7 +341,7 @@ exit code, timeout) — как сейчас, сырой вывод — колл�
 ### 2.к Режимы 3/4: раскладка и структура таблиц (→ W7)
 
 **Сейчас — раскладка.** `.split-pane` всегда двухколоночный `1fr 1fr`
-([web-current.md § Layout](../dev/web-current.md#layout-split-pane-workspace)). В
+([web-interface.md § Layout](../use/web-interface.md#layout-split-pane-workspace)). В
 режимах 3/4 левая колонка почти пуста (путь + 1-2 селекта: file-picker скрыт,
 «Функции в коде» скрыты #324), а правая — самая широкая таблица приложения.
 Половина экрана простаивает, таблица тесная.
