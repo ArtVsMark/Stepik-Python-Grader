@@ -19711,10 +19711,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.getppid())   # → PID родительского процесса, например 4312 (для скрипта из терминала — это PID оболочки)",
-      "print(os.getppid() == os.getpid())   # → False: getppid() возвращает родителя, а getpid() — сам процесс",
-      "if os.fork() == 0: print(os.getppid())   # → только Unix: дочерний процесс печатает PID родителя — то же число, что вернул os.getpid() до fork",
-      "ppid = os.getppid()   # → ловушка: если родитель уже завершился, процесс-сирота «усыновляется» — на Linux обычно 1 (init/systemd)"
+      "print(os.getppid())   # → ? PID родительского процесса, например 4312 (для скрипта из терминала — это PID оболочки)",
+      "print(os.getppid() == os.getpid())   # → ? False: getppid() возвращает родителя, а getpid() — сам процесс",
+      "if os.fork() == 0: print(os.getppid())   # → ? только Unix: дочерний процесс печатает PID родителя — то же число, что вернул os.getpid() до fork",
+      "ppid = os.getppid()   # → ? ловушка: если родитель уже завершился, процесс-сирота «усыновляется» — на Linux обычно 1 (init/systemd)"
     ],
     "related": [
       "os.getpid",
@@ -19866,8 +19866,8 @@
       "print(os.waitstatus_to_exitcode(1 << 8))   # → 1",
       "status = 3 << 8   # так кодируется потомок, завершившийся с кодом 3",
       "print(os.waitstatus_to_exitcode(status))   # → 3",
-      "print(os.waitstatus_to_exitcode(9))   # → только Unix: -9 — потомок убит сигналом 9 (SIGKILL), результат отрицательный",
-      "print(os.waitstatus_to_exitcode(127))   # → только Unix: ValueError — процесс остановлен, а не завершён"
+      "print(os.waitstatus_to_exitcode(9))   # → -9 — потомок убит сигналом 9 (SIGKILL), результат отрицательный",
+      "print(os.waitstatus_to_exitcode(127))   # → ValueError — процесс остановлен, а не завершён"
     ],
     "related": [
       "os.waitpid",
@@ -19905,10 +19905,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.cpu_count())  # → число логических процессоров, например 8 (или None, если определить не удалось)",
+      "print(os.cpu_count())  # → ? число логических процессоров, например 8 (или None, если определить не удалось)",
       "cpus = os.cpu_count() or 1  # страховка: None заменяем на 1",
-      "print(min(4, cpus))  # → размер пула воркеров: 4 на машине с 4+ ядрами",
-      "print(len(os.sched_getaffinity(0)))  # → только Unix: сколько ядер реально доступно процессу (может быть меньше os.cpu_count())"
+      "print(min(4, cpus))  # → ? размер пула воркеров: 4 на машине с 4+ ядрами",
+      "print(len(os.sched_getaffinity(0)))  # → ? только Unix: сколько ядер реально доступно процессу (может быть меньше os.cpu_count())"
     ],
     "related": [
       "os.sched_getaffinity",
@@ -20177,9 +20177,9 @@
     ],
     "examples": [
       "import os",
-      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, pid ребёнка в родительском",
-      "if pid == 0: os.abort()   # → дочерний процесс мгновенно убит сигналом SIGABRT: finally и atexit не выполняются",
-      "print(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]))   # → только Unix: -6, процесс завершён сигналом SIGABRT",
+      "pid = os.fork()   # → ? только Unix: 0 в дочернем процессе, pid ребёнка в родительском",
+      "if pid == 0: os.abort()   # → ? дочерний процесс мгновенно убит сигналом SIGABRT: finally и atexit не выполняются",
+      "print(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]))   # → ? только Unix: -6, процесс завершён сигналом SIGABRT",
       "print(os.abort(0))   # → TypeError"
     ],
     "related": [
@@ -20215,10 +20215,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.getpid())   # → идентификатор текущего процесса, например 12345",
-      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, pid ребёнка в родительском",
-      "if pid == 0: os._exit(3)   # → дочерний процесс завершается сразу с кодом 3, минуя atexit, finally и сброс буферов",
-      "print(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]))   # → только Unix: 3 — родитель забирает код выхода ребёнка"
+      "print(os.getpid())   # → ? идентификатор текущего процесса, например 12345",
+      "pid = os.fork()   # → ? только Unix: 0 в дочернем процессе, pid ребёнка в родительском",
+      "if pid == 0: os._exit(3)   # → ? дочерний процесс завершается сразу с кодом 3, минуя atexit, finally и сброс буферов",
+      "print(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]))   # → ? только Unix: 3 — родитель забирает код выхода ребёнка"
     ],
     "related": [
       "sys.exit",
@@ -21159,12 +21159,12 @@
     ],
     "examples": [
       "import os",
-      "pid = os.fork()  # → только Unix: 0 в дочернем процессе, pid потомка в родителе",
+      "pid = os.fork()  # → ? только Unix: 0 в дочернем процессе, pid потомка в родителе",
       "if pid == 0: os._exit(3)  # потомок завершается штатно с кодом 3",
       "_, status = os.waitpid(pid, 0)  # родитель дожидается потомка и получает его статус",
-      "print(os.WIFEXITED(status))  # → только Unix: True — потомок вышел сам, через exit",
-      "print(os.WEXITSTATUS(status))  # → только Unix: 3 — код возврата, читать его можно только при WIFEXITED",
-      "print(os.WIFEXITED(os.system('kill -9 $$')))  # → только Unix: False — процесс убит сигналом, а не завершился сам"
+      "print(os.WIFEXITED(status))  # → True — потомок вышел сам, через exit",
+      "print(os.WEXITSTATUS(status))  # → 3 — код возврата, читать его можно только при WIFEXITED",
+      "print(os.WIFEXITED(os.system('kill -9 $$')))  # → False — процесс убит сигналом, а не завершился сам"
     ],
     "related": [
       "os.WEXITSTATUS",
@@ -21200,12 +21200,12 @@
     ],
     "examples": [
       "import os",
-      "status = os.system('exit 7')  # → только Unix: статус в формате wait(), здесь 1792 (7 << 8)",
-      "print(os.WEXITSTATUS(status))  # → только Unix: 7 — код выхода команды",
-      "print(os.WIFEXITED(status))  # → только Unix: True — лишь при этом WEXITSTATUS осмыслен",
-      "killed = os.system('kill -9 $$')  # → только Unix: оболочка убивает сама себя сигналом SIGKILL",
-      "print(os.WIFEXITED(killed), os.WTERMSIG(killed))  # → только Unix: False 9 — здесь нужен WTERMSIG, WEXITSTATUS вернёт бессмыслицу",
-      "print(os.waitstatus_to_exitcode(status))  # → только Unix: 7 — современная однострочная замена паре WIFEXITED + WEXITSTATUS"
+      "status = os.system('exit 7')  # → ? только Unix: статус в формате wait(), здесь 1792 (7 << 8)",
+      "print(os.WEXITSTATUS(status))  # → 7 — код выхода команды",
+      "print(os.WIFEXITED(status))  # → True — лишь при этом WEXITSTATUS осмыслен",
+      "killed = os.system('kill -9 $$')  # → ? только Unix: оболочка убивает сама себя сигналом SIGKILL",
+      "print(os.WIFEXITED(killed), os.WTERMSIG(killed))  # → ? только Unix: False 9 — здесь нужен WTERMSIG, WEXITSTATUS вернёт бессмыслицу",
+      "print(os.waitstatus_to_exitcode(status))  # → 7 — современная однострочная замена паре WIFEXITED + WEXITSTATUS"
     ],
     "related": [
       "os.WIFEXITED",
@@ -21240,11 +21240,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.WIFSIGNALED(9))   # → только Unix: True — младшие 7 бит статуса хранят номер сигнала (9 = SIGKILL)",
-      "print(os.WIFSIGNALED(0))   # → только Unix: False — статус 0 означает нормальный выход с кодом 0",
-      "pid, status = os.wait()   # → только Unix: дождаться любого дочернего процесса и получить его статус",
-      "print(os.WTERMSIG(status) if os.WIFSIGNALED(status) else os.WEXITSTATUS(status))   # → только Unix: типовая развилка — номер убившего сигнала или код выхода",
-      "print(os.WIFSIGNALED(0x137f))   # → только Unix: False — процесс не завершён, а лишь остановлен; это случай WIFSTOPPED"
+      "print(os.WIFSIGNALED(9))   # → True — младшие 7 бит статуса хранят номер сигнала (9 = SIGKILL)",
+      "print(os.WIFSIGNALED(0))   # → False — статус 0 означает нормальный выход с кодом 0",
+      "pid, status = os.wait()   # → ? только Unix: дождаться любого дочернего процесса и получить его статус",
+      "print(os.WTERMSIG(status) if os.WIFSIGNALED(status) else os.WEXITSTATUS(status))   # → ? только Unix: типовая развилка — номер убившего сигнала или код выхода",
+      "print(os.WIFSIGNALED(0x137f))   # → False — процесс не завершён, а лишь остановлен; это случай WIFSTOPPED"
     ],
     "related": [
       "os.WTERMSIG",
@@ -21279,11 +21279,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.WTERMSIG(9))   # → только Unix: 9 — статус процесса, убитого сигналом SIGKILL",
-      "print(os.WTERMSIG(15))   # → только Unix: 15 — SIGTERM, обычное завершение по kill без -9",
-      "pid, status = os.wait()   # → только Unix: дождаться дочернего процесса и получить его статус",
-      "print(os.WTERMSIG(status) if os.WIFSIGNALED(status) else 0)   # → только Unix: номер сигнала, убившего ребёнка, или 0, если он завершился сам",
-      "print(os.WTERMSIG(256))   # → только Unix: 0 — сигнала не было, 256 это выход с кодом 1; сначала проверяют WIFSIGNALED"
+      "print(os.WTERMSIG(9))   # → 9 — статус процесса, убитого сигналом SIGKILL",
+      "print(os.WTERMSIG(15))   # → 15 — SIGTERM, обычное завершение по kill без -9",
+      "pid, status = os.wait()   # → ? только Unix: дождаться дочернего процесса и получить его статус",
+      "print(os.WTERMSIG(status) if os.WIFSIGNALED(status) else 0)   # → ? только Unix: номер сигнала, убившего ребёнка, или 0, если он завершился сам",
+      "print(os.WTERMSIG(256))   # → 0 — сигнала не было, 256 это выход с кодом 1; сначала проверяют WIFSIGNALED"
     ],
     "related": [
       "os.WIFSIGNALED",
@@ -21318,11 +21318,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.WIFSTOPPED(0x137f))   # → только Unix: True — младший байт статуса равен 0x7f, это признак остановки",
-      "print(os.WIFSTOPPED(9))   # → только Unix: False — такой статус означает завершение сигналом, а не остановку",
-      "pid, status = os.waitpid(-1, os.WUNTRACED)   # → только Unix: без флага WUNTRACED об остановке ребёнка узнать нельзя",
-      "print(os.WIFSTOPPED(status))   # → только Unix: True, если ребёнок остановлен (например по SIGSTOP), а не завершён",
-      "print(os.WSTOPSIG(status) if os.WIFSTOPPED(status) else None)   # → только Unix: номер остановившего сигнала имеет смысл только при истинном WIFSTOPPED"
+      "print(os.WIFSTOPPED(0x137f))   # → True — младший байт статуса равен 0x7f, это признак остановки",
+      "print(os.WIFSTOPPED(9))   # → False — такой статус означает завершение сигналом, а не остановку",
+      "pid, status = os.waitpid(-1, os.WUNTRACED)   # → ? только Unix: без флага WUNTRACED об остановке ребёнка узнать нельзя",
+      "print(os.WIFSTOPPED(status))   # → True, если ребёнок остановлен (например по SIGSTOP), а не завершён",
+      "print(os.WSTOPSIG(status) if os.WIFSTOPPED(status) else None)   # → ? только Unix: номер остановившего сигнала имеет смысл только при истинном WIFSTOPPED"
     ],
     "related": [
       "os.WSTOPSIG",
@@ -21358,10 +21358,10 @@
     "examples": [
       "import os",
       "status = 0x137f   # статус, каким его вернул os.waitpid() для процесса, остановленного сигналом SIGSTOP",
-      "print(os.WSTOPSIG(status))   # → только Unix: 19 — номер SIGSTOP на Linux, он лежит в старшем байте статуса",
-      "print(os.WSTOPSIG(0x057f))   # → только Unix: 5 — SIGTRAP, так процесс останавливает отладчик",
-      "pid, status = os.waitpid(-1, os.WUNTRACED)   # → только Unix: дождаться ребёнка, в том числе остановленного, а не только завершённого",
-      "print(os.WSTOPSIG(status) if os.WIFSTOPPED(status) else 0)   # → только Unix: на не-остановленном статусе результат WSTOPSIG бессмыслен, поэтому проверка WIFSTOPPED обязательна"
+      "print(os.WSTOPSIG(status))   # → 19 — номер SIGSTOP на Linux, он лежит в старшем байте статуса",
+      "print(os.WSTOPSIG(0x057f))   # → 5 — SIGTRAP, так процесс останавливает отладчик",
+      "pid, status = os.waitpid(-1, os.WUNTRACED)   # → ? только Unix: дождаться ребёнка, в том числе остановленного, а не только завершённого",
+      "print(os.WSTOPSIG(status) if os.WIFSTOPPED(status) else 0)   # → ? только Unix: на не-остановленном статусе результат WSTOPSIG бессмыслен, поэтому проверка WIFSTOPPED обязательна"
     ],
     "related": [
       "os.WIFSTOPPED",
@@ -21396,12 +21396,12 @@
     ],
     "examples": [
       "import os, signal",
-      "pid = os.fork()  # → только Unix: 0 в дочернем процессе, pid потомка в родителе",
+      "pid = os.fork()  # → ? только Unix: 0 в дочернем процессе, pid потомка в родителе",
       "if pid == 0: os.pause()  # потомок засыпает и ждёт сигналов",
       "os.kill(pid, signal.SIGSTOP)  # родитель останавливает потомка",
       "os.kill(pid, signal.SIGCONT)  # и сразу возобновляет его",
       "_, status = os.waitpid(pid, os.WCONTINUED)  # без флага WCONTINUED событие возобновления не придёт",
-      "print(os.WIFCONTINUED(status))  # → только Unix: True — потомок был возобновлён сигналом SIGCONT",
+      "print(os.WIFCONTINUED(status))  # → True — потомок был возобновлён сигналом SIGCONT",
       "print(os.WIFCONTINUED(0))  # → False — статус штатного завершения возобновлением не считается"
     ],
     "related": [
@@ -21437,11 +21437,11 @@
     ],
     "examples": [
       "import os",
-      "pid = os.fork()  # → только Unix: 0 в дочернем процессе, pid потомка в родителе",
+      "pid = os.fork()  # → ? только Unix: 0 в дочернем процессе, pid потомка в родителе",
       "if pid == 0: os.abort()  # потомок аварийно падает по SIGABRT",
       "_, status = os.waitpid(pid, 0)  # родитель забирает статус завершения потомка",
-      "print(os.WIFSIGNALED(status))  # → только Unix: True — потомок убит сигналом, а не вышел сам",
-      "print(os.WCOREDUMP(status))  # → только Unix: True, если система разрешила записать core (ulimit -c unlimited), иначе False",
+      "print(os.WIFSIGNALED(status))  # → True — потомок убит сигналом, а не вышел сам",
+      "print(os.WCOREDUMP(status))  # → True, если система разрешила записать core (ulimit -c unlimited), иначе False",
       "print(os.WCOREDUMP(0))  # → False — после штатного завершения дампа нет"
     ],
     "related": [
@@ -21478,10 +21478,10 @@
     "examples": [
       "import os",
       "data = [1, 2, 3]",
-      "pid = os.fork()   # → только Unix (на Windows — AttributeError): в потомке 0, в родителе PID потомка, например 12345",
-      "data.append(pid)   # → память скопирована: у потомка список станет [1, 2, 3, 0], у родителя [1, 2, 3, 12345]",
-      "if pid == 0: os._exit(0)   # → потомок завершается немедленно, минуя atexit-обработчики и сброс буферов",
-      "print(os.waitpid(pid, 0))   # → только в родителе: (12345, 0) — второй элемент это сырой статус, а не код выхода (см. os.waitstatus_to_exitcode)"
+      "pid = os.fork()   # → ? только Unix (на Windows — AttributeError): в потомке 0, в родителе PID потомка, например 12345",
+      "data.append(pid)   # → ? память скопирована: у потомка список станет [1, 2, 3, 0], у родителя [1, 2, 3, 12345]",
+      "if pid == 0: os._exit(0)   # → ? потомок завершается немедленно, минуя atexit-обработчики и сброс буферов",
+      "print(os.waitpid(pid, 0))   # → ? только в родителе: (12345, 0) — второй элемент это сырой статус, а не код выхода (см. os.waitstatus_to_exitcode)"
     ],
     "related": [
       "os.forkpty",
@@ -21519,11 +21519,11 @@
     ],
     "examples": [
       "import os",
-      "pid, fd = os.forkpty()   # → только Unix: в родителе (PID потомка, дескриптор мастер-конца pty), в потомке (0, -1)",
-      "if pid == 0: os.execvp('ls', ['ls', '-1'])   # → потомок подменяется командой; в отличие от os.fork() её stdin/stdout — настоящий терминал, поэтому работают программы, требующие tty",
-      "print(os.read(fd, 1024))   # → только в родителе: вывод потомка, например b'file1\\r\\nfile2\\r\\n' — в pty перевод строки приходит как \\r\\n",
-      "print(os.waitpid(pid, 0))   # → (PID потомка, 0) — команда отработала и завершилась с кодом 0",
-      "os.read(fd, 1024)   # → после завершения потомка на Linux: OSError [Errno 5] Input/output error, а не пустые байты"
+      "pid, fd = os.forkpty()   # → ? только Unix: в родителе (PID потомка, дескриптор мастер-конца pty), в потомке (0, -1)",
+      "if pid == 0: os.execvp('ls', ['ls', '-1'])   # → ? потомок подменяется командой; в отличие от os.fork() её stdin/stdout — настоящий терминал, поэтому работают программы, требующие tty",
+      "print(os.read(fd, 1024))   # → ? только в родителе: вывод потомка, например b'file1\\r\\nfile2\\r\\n' — в pty перевод строки приходит как \\r\\n",
+      "print(os.waitpid(pid, 0))   # → ? (PID потомка, 0) — команда отработала и завершилась с кодом 0",
+      "os.read(fd, 1024)   # → ? после завершения потомка на Linux: OSError [Errno 5] Input/output error, а не пустые байты"
     ],
     "related": [
       "os.fork",
@@ -21561,10 +21561,10 @@
     "examples": [
       "import os",
       "import random",
-      "os.register_at_fork(after_in_child=lambda: print('потомок стартовал'))   # → только Unix: обработчик лишь запомнен, сейчас ничего не печатается",
-      "os.register_at_fork(before=lambda: print('готовимся к fork'), after_in_parent=lambda: print('родитель продолжил'))   # → можно задать все три точки; before-обработчики вызываются в обратном порядке регистрации",
-      "os.register_at_fork(after_in_child=lambda: random.seed())   # → типовой сценарий: потомок переинициализирует ГПСЧ, иначе оба процесса выдадут одинаковые «случайные» числа",
-      "pid = os.fork()   # → напечатает «готовимся к fork», затем «родитель продолжил» в родителе и «потомок стартовал» в потомке",
+      "os.register_at_fork(after_in_child=lambda: print('потомок стартовал'))   # → ? только Unix: обработчик лишь запомнен, сейчас ничего не печатается",
+      "os.register_at_fork(before=lambda: print('готовимся к fork'), after_in_parent=lambda: print('родитель продолжил'))   # → ? можно задать все три точки; before-обработчики вызываются в обратном порядке регистрации",
+      "os.register_at_fork(after_in_child=lambda: random.seed())   # → ? типовой сценарий: потомок переинициализирует ГПСЧ, иначе оба процесса выдадут одинаковые «случайные» числа",
+      "pid = os.fork()   # → ? напечатает «готовимся к fork», затем «родитель продолжил» в родителе и «потомок стартовал» в потомке",
       "os.register_at_fork(print)   # → TypeError — аргументы только именованные (before / after_in_parent / after_in_child); снять уже зарегистрированный обработчик нельзя"
     ],
     "related": [
@@ -21684,9 +21684,9 @@
     "examples": [
       "import os",
       "os.execl('echo', 'echo', 'привет')   # → FileNotFoundError: execl не ищет программу в PATH, нужен полный путь (по PATH ищет execlp)",
-      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, pid ребёнка — в родительском",
-      "if pid == 0: os.execl('/bin/echo', 'echo', 'привет')   # → только Unix: ребёнок замещается программой echo и печатает «привет», возврата из execl не бывает",
-      "os.execl('/bin/ls', 'МОЁ-ИМЯ', '-l')   # → только Unix: arg0 задаёт лишь имя процесса в ps, запускается /bin/ls -l и замещает текущий процесс"
+      "pid = os.fork()   # → ? только Unix: 0 в дочернем процессе, pid ребёнка — в родительском",
+      "if pid == 0: os.execl('/bin/echo', 'echo', 'привет')   # → ? только Unix: ребёнок замещается программой echo и печатает «привет», возврата из execl не бывает",
+      "os.execl('/bin/ls', 'МОЁ-ИМЯ', '-l')   # → ? только Unix: arg0 задаёт лишь имя процесса в ps, запускается /bin/ls -l и замещает текущий процесс"
     ],
     "related": [
       "os.execv",
@@ -21725,10 +21725,10 @@
     "examples": [
       "import os",
       "env = {'GREETING': 'привет', 'PATH': '/usr/bin:/bin'}",
-      "os.execle('/bin/sh', 'sh', '-c', 'echo $GREETING', env)   # → только Unix: процесс замещается на sh и печатает «привет» — переменная взята из переданного env",
-      "os.execle('/usr/bin/env', 'env', {})   # → только Unix: новый процесс стартует с пустым окружением, env не печатает ни строки",
+      "os.execle('/bin/sh', 'sh', '-c', 'echo $GREETING', env)   # → ? только Unix: процесс замещается на sh и печатает «привет» — переменная взята из переданного env",
+      "os.execle('/usr/bin/env', 'env', {})   # → ? только Unix: новый процесс стартует с пустым окружением, env не печатает ни строки",
       "os.execle('/bin/sh', 'sh', '-c', 'echo $GREETING')   # → TypeError: последний аргумент execle обязан быть словарём окружения, а не аргументом команды",
-      "os.execl('/bin/sh', 'sh', '-c', 'echo $GREETING')   # → только Unix: у execl своего env нет — программа наследует окружение текущего процесса"
+      "os.execl('/bin/sh', 'sh', '-c', 'echo $GREETING')   # → ? только Unix: у execl своего env нет — программа наследует окружение текущего процесса"
     ],
     "related": [
       "os.execl",
@@ -21766,11 +21766,11 @@
     ],
     "examples": [
       "import os",
-      "os.execlp('echo', 'echo', 'привет')   # → только Unix: программа найдена в каталогах PATH, процесс замещён, печатается «привет»",
+      "os.execlp('echo', 'echo', 'привет')   # → ? только Unix: программа найдена в каталогах PATH, процесс замещён, печатается «привет»",
       "os.execl('echo', 'echo', 'привет')   # → FileNotFoundError: версия без «p» по PATH не ищет, ей нужен полный путь /bin/echo",
       "os.execlp('такой-программы-нет', 'такой-программы-нет')   # → FileNotFoundError: ни в одном каталоге PATH исполняемый файл не найден",
-      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, pid ребёнка — в родительском",
-      "if pid == 0: os.execlp('ls', 'ls', '-l')   # → только Unix: ребёнок превращается в `ls -l`, родитель продолжает работу и ждёт его через os.wait()"
+      "pid = os.fork()   # → ? только Unix: 0 в дочернем процессе, pid ребёнка — в родительском",
+      "if pid == 0: os.execlp('ls', 'ls', '-l')   # → ? только Unix: ребёнок превращается в `ls -l`, родитель продолжает работу и ждёт его через os.wait()"
     ],
     "related": [
       "os.execl",
@@ -22015,10 +22015,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.P_WAIT, os.P_NOWAIT)  # → 0 1 — режимы: дождаться потомка или сразу вернуть PID",
-      "code = os.spawnl(os.P_WAIT, '/bin/echo', 'echo', 'привет')  # → на Unix печатает «привет», в code — код выхода потомка (0)",
-      "pid = os.spawnl(os.P_NOWAIT, '/bin/sleep', 'sleep', '1')  # → на Unix не ждёт завершения и возвращает PID потомка, например 12345",
-      "os.spawnl(os.P_WAIT, '/bin/echo', 'привет')  # → печатает пустую строку: первый аргумент после пути — это argv[0] (имя программы), а не данные"
+      "print(os.P_WAIT, os.P_NOWAIT)  # → ? 0 1 — режимы: дождаться потомка или сразу вернуть PID",
+      "code = os.spawnl(os.P_WAIT, '/bin/echo', 'echo', 'привет')  # → ? на Unix печатает «привет», в code — код выхода потомка (0)",
+      "pid = os.spawnl(os.P_NOWAIT, '/bin/sleep', 'sleep', '1')  # → ? на Unix не ждёт завершения и возвращает PID потомка, например 12345",
+      "os.spawnl(os.P_WAIT, '/bin/echo', 'привет')  # → ? печатает пустую строку: первый аргумент после пути — это argv[0] (имя программы), а не данные"
     ],
     "related": [
       "os.spawnv",
@@ -22056,10 +22056,10 @@
     ],
     "examples": [
       "import os",
-      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'echo $GREETING', {'GREETING': 'привет'})  # → на Unix печатает «привет», в code — 0",
-      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'exit 3', {'PATH': '/bin:/usr/bin'})  # → на Unix в code — 3, код выхода потомка",
-      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'echo $LANG', dict(os.environ, LANG='C'))  # → на Unix печатает C: копия os.environ с подменённой переменной",
-      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'echo [$HOME]', {})  # → на Unix печатает [] — env заменяет окружение целиком, а не дополняет его"
+      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'echo $GREETING', {'GREETING': 'привет'})  # → ? на Unix печатает «привет», в code — 0",
+      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'exit 3', {'PATH': '/bin:/usr/bin'})  # → ? на Unix в code — 3, код выхода потомка",
+      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'echo $LANG', dict(os.environ, LANG='C'))  # → ? на Unix печатает C: копия os.environ с подменённой переменной",
+      "code = os.spawnle(os.P_WAIT, '/bin/sh', 'sh', '-c', 'echo [$HOME]', {})  # → ? на Unix печатает [] — env заменяет окружение целиком, а не дополняет его"
     ],
     "related": [
       "os.spawnl",
@@ -22097,10 +22097,10 @@
     ],
     "examples": [
       "import os",
-      "code = os.spawnlp(os.P_WAIT, 'echo', 'echo', 'привет')  # → только Unix: «p» ищет echo в PATH, полный путь не нужен; в code — 0",
-      "pid = os.spawnlp(os.P_NOWAIT, 'sleep', 'sleep', '1')  # → только Unix: с P_NOWAIT сразу возвращается PID потомка, например 12345",
-      "print(os.waitpid(pid, 0)[1])  # → только Unix: 0 — дождались потомка, запущенного с P_NOWAIT",
-      "code = os.spawnlp(os.P_WAIT, 'нет-такой-программы', 'нет-такой-программы')  # → только Unix: в code — 127, исключения не будет: потомок не смог запустить программу"
+      "code = os.spawnlp(os.P_WAIT, 'echo', 'echo', 'привет')  # → ? только Unix: «p» ищет echo в PATH, полный путь не нужен; в code — 0",
+      "pid = os.spawnlp(os.P_NOWAIT, 'sleep', 'sleep', '1')  # → ? только Unix: с P_NOWAIT сразу возвращается PID потомка, например 12345",
+      "print(os.waitpid(pid, 0)[1])  # → ? только Unix: 0 — дождались потомка, запущенного с P_NOWAIT",
+      "code = os.spawnlp(os.P_WAIT, 'нет-такой-программы', 'нет-такой-программы')  # → ? только Unix: в code — 127, исключения не будет: потомок не смог запустить программу"
     ],
     "related": [
       "os.spawnl",
@@ -22139,10 +22139,10 @@
     "examples": [
       "import os",
       "env = {**os.environ, 'LANG': 'C'}   # у e-форм окружение задаётся явно и передаётся последним позиционным аргументом",
-      "print(env['LANG'])   # → C",
-      "code = os.spawnlpe(os.P_WAIT, 'echo', 'echo', 'hi', env)   # → только Unix: печатает hi, P_WAIT ждёт конца, code == 0",
-      "pid = os.spawnlpe(os.P_NOWAIT, 'sleep', 'sleep', '5', env)   # → только Unix: не ждёт, возвращает идентификатор процесса, например 12345",
-      "print(('echo', 'hi')[0])   # → echo: в l-форме имя программы пишется дважды — как file и как argv[0]"
+      "print(env['LANG'])   # → ? C",
+      "code = os.spawnlpe(os.P_WAIT, 'echo', 'echo', 'hi', env)   # → ? только Unix: печатает hi, P_WAIT ждёт конца, code == 0",
+      "pid = os.spawnlpe(os.P_NOWAIT, 'sleep', 'sleep', '5', env)   # → ? только Unix: не ждёт, возвращает идентификатор процесса, например 12345",
+      "print(('echo', 'hi')[0])   # → ? echo: в l-форме имя программы пишется дважды — как file и как argv[0]"
     ],
     "related": [
       "os.spawnlp",
@@ -22180,10 +22180,10 @@
     ],
     "examples": [
       "import os",
-      "print('PATH' in os.environ)   # → True: именно в PATH spawnvp ищет программу по имени",
-      "code = os.spawnvp(os.P_WAIT, 'echo', ['echo', 'hi'])   # → только Unix: печатает hi, code == 0",
-      "pid = os.spawnvp(os.P_NOWAIT, 'sleep', ['sleep', '5'])   # → только Unix: не ждёт, возвращает идентификатор процесса, например 12345",
-      "print(os.path.basename('/bin/echo'))   # → echo: spawnvp хватит имени, а spawnv потребовал бы полный путь"
+      "print('PATH' in os.environ)   # → ? True: именно в PATH spawnvp ищет программу по имени",
+      "code = os.spawnvp(os.P_WAIT, 'echo', ['echo', 'hi'])   # → ? только Unix: печатает hi, code == 0",
+      "pid = os.spawnvp(os.P_NOWAIT, 'sleep', ['sleep', '5'])   # → ? только Unix: не ждёт, возвращает идентификатор процесса, например 12345",
+      "print(os.path.basename('/bin/echo'))   # → ? echo: spawnvp хватит имени, а spawnv потребовал бы полный путь"
     ],
     "related": [
       "os.spawnv",
@@ -22222,9 +22222,9 @@
     "examples": [
       "import os",
       "env = {**os.environ, 'LANG': 'C'}   # p-форма ищет программу в PATH, e-форма берёт окружение из env",
-      "print(env['LANG'])   # → C",
-      "code = os.spawnvpe(os.P_WAIT, 'env', ['env'], env)   # → только Unix: печатает переменные окружения, code == 0",
-      "pid = os.spawnvpe(os.P_NOWAIT, 'sleep', ['sleep', '5'], env)   # → только Unix: сразу возвращает идентификатор процесса, например 12345",
+      "print(env['LANG'])   # → ? C",
+      "code = os.spawnvpe(os.P_WAIT, 'env', ['env'], env)   # → ? только Unix: печатает переменные окружения, code == 0",
+      "pid = os.spawnvpe(os.P_NOWAIT, 'sleep', ['sleep', '5'], env)   # → ? только Unix: сразу возвращает идентификатор процесса, например 12345",
       "print('PATH' in {'LANG': 'C'})   # → False: с таким env поиск пойдёт по os.defpath, а не по вашему PATH"
     ],
     "related": [
@@ -22264,9 +22264,9 @@
     ],
     "examples": [
       "import os",
-      "pid = os.posix_spawn('/bin/echo', ['echo', 'привет'], os.environ)  # → только Unix: запускает /bin/echo, печатает «привет» и возвращает PID потомка, например 12345",
-      "print(os.waitpid(pid, 0)[1])  # → только Unix: 0 — потомок завершился успешно",
-      "pid = os.posix_spawn('/bin/sh', ['sh', '-c', 'exit 3'], {'PATH': '/bin:/usr/bin'})  # → только Unix: своё окружение вместо os.environ, потомок выйдет с кодом 3",
+      "pid = os.posix_spawn('/bin/echo', ['echo', 'привет'], os.environ)  # → ? только Unix: запускает /bin/echo, печатает «привет» и возвращает PID потомка, например 12345",
+      "print(os.waitpid(pid, 0)[1])  # → ? только Unix: 0 — потомок завершился успешно",
+      "pid = os.posix_spawn('/bin/sh', ['sh', '-c', 'exit 3'], {'PATH': '/bin:/usr/bin'})  # → ? только Unix: своё окружение вместо os.environ, потомок выйдет с кодом 3",
       "os.posix_spawn('echo', ['echo', 'привет'], os.environ)  # → FileNotFoundError: нужен полный путь, PATH не просматривается (для поиска в PATH — os.posix_spawnp)"
     ],
     "related": [
@@ -22305,9 +22305,9 @@
     ],
     "examples": [
       "import os",
-      "pid = os.posix_spawnp('echo', ['echo', 'привет'], os.environ)  # → только Unix: находит echo в PATH, возвращает PID потомка, например 12345",
-      "print(os.waitpid(pid, 0)[1])  # → только Unix: 0 — потомок напечатал «привет» и завершился успешно",
-      "pid = os.posix_spawnp('sh', ['sh', '-c', 'exit 3'], {'PATH': '/bin:/usr/bin'})  # → только Unix: PATH берётся из переданного env, потомок выйдет с кодом 3",
+      "pid = os.posix_spawnp('echo', ['echo', 'привет'], os.environ)  # → ? только Unix: находит echo в PATH, возвращает PID потомка, например 12345",
+      "print(os.waitpid(pid, 0)[1])  # → ? только Unix: 0 — потомок напечатал «привет» и завершился успешно",
+      "pid = os.posix_spawnp('sh', ['sh', '-c', 'exit 3'], {'PATH': '/bin:/usr/bin'})  # → ? только Unix: PATH берётся из переданного env, потомок выйдет с кодом 3",
       "os.posix_spawnp('нет-такой-программы', ['нет-такой-программы'], os.environ)  # → FileNotFoundError: в PATH ничего не найдено"
     ],
     "related": [
@@ -22346,10 +22346,10 @@
     ],
     "examples": [
       "import os",
-      "pid = os.fork()  # → только Unix: 0 в дочернем процессе, pid ребёнка — в родительском",
+      "pid = os.fork()  # → ? только Unix: 0 в дочернем процессе, pid ребёнка — в родительском",
       "if pid == 0: os._exit(3)  # ребёнок завершается кодом 3 и не выполняет остальной скрипт",
       "child, status = os.wait()  # родитель блокируется здесь, пока не завершится любой из его детей",
-      "print(child == pid, os.waitstatus_to_exitcode(status))  # → True 3 — дождались того самого ребёнка, из сырого статуса извлечён код выхода",
+      "print(child == pid, os.waitstatus_to_exitcode(status))  # → ? True 3 — дождались того самого ребёнка, из сырого статуса извлечён код выхода",
       "print(os.wait())  # → ChildProcessError — незавершённых детей больше нет, ждать некого"
     ],
     "related": [
@@ -22387,12 +22387,12 @@
     ],
     "examples": [
       "import os",
-      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, PID потомка в родительском",
-      "if pid == 0: os._exit(7)   # → потомок сразу завершается с кодом возврата 7",
-      "print(os.waitpid(pid, os.WNOHANG))   # → (0, 0), если потомок ещё не завершился — с WNOHANG вызов не блокирует",
-      "pid_done, status = os.waitpid(pid, 0)   # → блокирует до завершения: (PID потомка, закодированный статус)",
+      "pid = os.fork()   # → ? только Unix: 0 в дочернем процессе, PID потомка в родительском",
+      "if pid == 0: os._exit(7)   # → ? потомок сразу завершается с кодом возврата 7",
+      "print(os.waitpid(pid, os.WNOHANG))   # → ? (0, 0), если потомок ещё не завершился — с WNOHANG вызов не блокирует",
+      "pid_done, status = os.waitpid(pid, 0)   # → ? блокирует до завершения: (PID потомка, закодированный статус)",
       "print(os.waitstatus_to_exitcode(status))   # → 7 — код возврата, извлечённый из статуса",
-      "print(os.WIFEXITED(status), os.WEXITSTATUS(status))   # → True 7",
+      "print(os.WIFEXITED(status), os.WEXITSTATUS(status))   # → ? True 7",
       "print(os.waitpid(pid, 0))   # → ChildProcessError: этого потомка уже дождались, ждать больше некого"
     ],
     "related": [
@@ -22431,10 +22431,10 @@
     ],
     "examples": [
       "import os",
-      "if os.fork() == 0: os._exit(0)  # → только Unix: ребёнок завершается сразу, родителю будет кого дождаться",
+      "if os.fork() == 0: os._exit(0)  # → ? только Unix: ребёнок завершается сразу, родителю будет кого дождаться",
       "child, status, rusage = os.wait3(0)  # options обязателен: 0 — блокирующее ожидание любого ребёнка",
-      "print(child, os.waitstatus_to_exitcode(status))  # → только Unix: pid ребёнка и 0, например «12347 0»",
-      "print(rusage.ru_maxrss)  # → только Unix: пиковая память ребёнка (на Linux — в килобайтах), например 3200 — этого os.wait не возвращает",
+      "print(child, os.waitstatus_to_exitcode(status))  # → ? только Unix: pid ребёнка и 0, например «12347 0»",
+      "print(rusage.ru_maxrss)  # → ? только Unix: пиковая память ребёнка (на Linux — в килобайтах), например 3200 — этого os.wait не возвращает",
       "print(os.wait3(os.WNOHANG))  # → ChildProcessError — WNOHANG не блокирует, но и детей уже не осталось"
     ],
     "related": [
@@ -22472,10 +22472,10 @@
     ],
     "examples": [
       "import os",
-      "if os.fork() == 0: os._exit(7)  # → только Unix: ребёнок завершается кодом 7, родитель продолжает скрипт",
+      "if os.fork() == 0: os._exit(7)  # → ? только Unix: ребёнок завершается кодом 7, родитель продолжает скрипт",
       "child, status, rusage = os.wait4(-1, 0)  # pid=-1 — дождаться любого ребёнка; options=0 — блокирующе",
-      "print(child, os.waitstatus_to_exitcode(status))  # → только Unix: pid ребёнка и 7, например «12346 7»",
-      "print(rusage.ru_utime)  # → только Unix: пользовательское процессорное время ребёнка в секундах, например 0.002 — os.waitpid такого не даёт",
+      "print(child, os.waitstatus_to_exitcode(status))  # → ? только Unix: pid ребёнка и 7, например «12346 7»",
+      "print(rusage.ru_utime)  # → ? только Unix: пользовательское процессорное время ребёнка в секундах, например 0.002 — os.waitpid такого не даёт",
       "print(os.wait4(-1, 0))  # → ChildProcessError — статус уже забран, второй раз его не получить"
     ],
     "related": [
@@ -22513,11 +22513,11 @@
     ],
     "examples": [
       "import os",
-      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, PID потомка в родительском",
-      "if pid == 0: os._exit(3)   # → потомок сразу завершается с кодом возврата 3",
-      "print(os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | os.WNOWAIT))   # → None, если потомок ещё не завершился; WNOWAIT не «съедает» статус — дождаться можно ещё раз",
-      "info = os.waitid(os.P_PID, pid, os.WEXITED)   # → блокирующее ожидание именно этого потомка, вернёт os.waitid_result",
-      "print(info.si_pid == pid, info.si_status)   # → True 3",
+      "pid = os.fork()   # → ? только Unix: 0 в дочернем процессе, PID потомка в родительском",
+      "if pid == 0: os._exit(3)   # → ? потомок сразу завершается с кодом возврата 3",
+      "print(os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | os.WNOWAIT))   # → ? None, если потомок ещё не завершился; WNOWAIT не «съедает» статус — дождаться можно ещё раз",
+      "info = os.waitid(os.P_PID, pid, os.WEXITED)   # → ? блокирующее ожидание именно этого потомка, вернёт os.waitid_result",
+      "print(info.si_pid == pid, info.si_status)   # → ? True 3",
       "print(info.si_code == os.CLD_EXITED)   # → True — потомок завершился сам, а не был убит сигналом",
       "print(os.waitid(os.P_PID, pid, os.WEXITED))   # → ChildProcessError: этого потомка уже дождались, ждать больше некого"
     ],
@@ -22556,13 +22556,13 @@
     ],
     "examples": [
       "import os",
-      "pid = os.fork()   # → только Unix: 0 в дочернем процессе, PID потомка в родительском",
-      "if pid == 0: os._exit(5)   # → потомок сразу завершается с кодом возврата 5",
-      "info = os.waitid(os.P_PID, pid, os.WEXITED)   # → только Unix: объект os.waitid_result",
-      "print(info.si_status, info.si_code == os.CLD_EXITED)   # → 5 True",
-      "print(info.si_pid == pid, info.si_uid == os.getuid())   # → True True",
+      "pid = os.fork()   # → ? только Unix: 0 в дочернем процессе, PID потомка в родительском",
+      "if pid == 0: os._exit(5)   # → ? потомок сразу завершается с кодом возврата 5",
+      "info = os.waitid(os.P_PID, pid, os.WEXITED)   # → ? только Unix: объект os.waitid_result",
+      "print(info.si_status, info.si_code == os.CLD_EXITED)   # → ? 5 True",
+      "print(info.si_pid == pid, info.si_uid == os.getuid())   # → ? True True",
       "print(info[3])   # → 5 — это именованный кортеж: si_status доступен и по индексу",
-      "print(info.si_signo)   # → номер сигнала SIGCHLD (на Linux 17) — waitid всегда сообщает именно о нём"
+      "print(info.si_signo)   # → ? номер сигнала SIGCHLD (на Linux 17) — waitid всегда сообщает именно о нём"
     ],
     "related": [
       "os.waitid",
@@ -22597,10 +22597,10 @@
     "examples": [
       "import os",
       "import signal",
-      "pid = os.fork()                        # → только Unix: 0 в дочернем процессе, PID ребёнка — в родительском",
-      "if pid: os.kill(pid, signal.SIGTERM)   # → родитель вежливо просит ребёнка завершиться, возвращается None",
-      "if pid: os.kill(pid, 0)                # → «нулевой» сигнал ничего не шлёт: так проверяют, жив ли процесс",
-      "if pid: os.kill(pid, signal.SIGKILL)   # → только Unix: безусловное убийство, обработчик его перехватить не может",
+      "pid = os.fork()                        # → ? только Unix: 0 в дочернем процессе, PID ребёнка — в родительском",
+      "if pid: os.kill(pid, signal.SIGTERM)   # → ? родитель вежливо просит ребёнка завершиться, возвращается None",
+      "if pid: os.kill(pid, 0)                # → ? «нулевой» сигнал ничего не шлёт: так проверяют, жив ли процесс",
+      "if pid: os.kill(pid, signal.SIGKILL)   # → ? только Unix: безусловное убийство, обработчик его перехватить не может",
       "os.kill(999999, signal.SIGTERM)        # → ProcessLookupError: процесса с таким PID нет"
     ],
     "related": [
@@ -22641,10 +22641,10 @@
     "examples": [
       "import os",
       "import signal",
-      "pgid = os.getpgid(0)   # → только Unix: id группы текущего процесса, например 12345",
-      "os.killpg(pgid, 0)   # → только Unix: сигнал не посылается, проверяется лишь существование группы",
-      "import subprocess; proc = subprocess.Popen(['sleep', '60'], start_new_session=True)   # → потомок запущен в собственной группе процессов",
-      "os.killpg(os.getpgid(proc.pid), signal.SIGTERM)   # → только Unix: завершает всю группу потомка целиком (os.kill снял бы лишь один процесс)",
+      "pgid = os.getpgid(0)   # → ? только Unix: id группы текущего процесса, например 12345",
+      "os.killpg(pgid, 0)   # → ? только Unix: сигнал не посылается, проверяется лишь существование группы",
+      "import subprocess; proc = subprocess.Popen(['sleep', '60'], start_new_session=True)   # → ? потомок запущен в собственной группе процессов",
+      "os.killpg(os.getpgid(proc.pid), signal.SIGTERM)   # → ? только Unix: завершает всю группу потомка целиком (os.kill снял бы лишь один процесс)",
       "os.killpg(999999, signal.SIGTERM)   # → ProcessLookupError: группы процессов с таким id нет"
     ],
     "related": [
@@ -22683,11 +22683,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.nice(0))   # → только Unix: текущее значение nice, у обычного процесса 0",
-      "print(os.nice(5))   # → только Unix: 5 — приоритет понижен на 5 пунктов, возвращается новое значение",
-      "print(os.nice(3))   # → только Unix: 8 — инкременты складываются, значение не задаётся напрямую",
-      "print(os.nice(19))   # → только Unix: 19 — nice упирается в максимум, 8 + 19 не даёт 27",
-      "os.nice(-1)   # → только Unix: PermissionError без прав root — вернуть приоритет обратно нельзя"
+      "print(os.nice(0))   # → ? только Unix: текущее значение nice, у обычного процесса 0",
+      "print(os.nice(5))   # → 5 — приоритет понижен на 5 пунктов, возвращается новое значение",
+      "print(os.nice(3))   # → 8 — инкременты складываются, значение не задаётся напрямую",
+      "print(os.nice(19))   # → 19 — nice упирается в максимум, 8 + 19 не даёт 27",
+      "os.nice(-1)   # → ? только Unix: PermissionError без прав root — вернуть приоритет обратно нельзя"
     ],
     "related": [
       "os.setpriority",
@@ -22722,10 +22722,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.getpriority(os.PRIO_PROCESS, 0))            # → nice текущего процесса, обычно 0",
-      "print(os.getpriority(os.PRIO_PROCESS, os.getpid()))  # → то же значение: who=0 означает «текущий процесс»",
-      "os.setpriority(os.PRIO_PROCESS, 0, 10)               # → приоритет понижен; следующий getpriority вернёт 10",
-      "print(os.getpriority(os.PRIO_PGRP, 0))               # → наименьшее (самое приоритетное) nice во всей группе процессов",
+      "print(os.getpriority(os.PRIO_PROCESS, 0))            # → ? nice текущего процесса, обычно 0",
+      "print(os.getpriority(os.PRIO_PROCESS, os.getpid()))  # → ? то же значение: who=0 означает «текущий процесс»",
+      "os.setpriority(os.PRIO_PROCESS, 0, 10)               # → ? приоритет понижен; следующий getpriority вернёт 10",
+      "print(os.getpriority(os.PRIO_PGRP, 0))               # → ? наименьшее (самое приоритетное) nice во всей группе процессов",
       "os.getpriority(os.PRIO_PROCESS, 999999)              # → ProcessLookupError: процесса с таким PID нет"
     ],
     "related": [
@@ -22763,12 +22763,12 @@
     ],
     "examples": [
       "import os",
-      "os.setpriority(os.PRIO_PROCESS, 0, 10)   # → только Unix: None; текущему процессу (who=0) назначен nice 10 — значение задаётся, а не прибавляется, как в os.nice",
-      "print(os.getpriority(os.PRIO_PROCESS, 0))   # → только Unix: 10",
-      "os.setpriority(os.PRIO_PGRP, 0, 15)   # → только Unix: nice 15 сразу всей группе процессов",
-      "import subprocess; proc = subprocess.Popen(['sleep', '60'])   # → фоновый потомок запущен",
-      "os.setpriority(os.PRIO_PROCESS, proc.pid, 19)   # → только Unix: тяжёлая фоновая задача понижена до минимального приоритета",
-      "os.setpriority(os.PRIO_PROCESS, 0, -5)   # → только Unix: PermissionError без прав root — повышать приоритет нельзя"
+      "os.setpriority(os.PRIO_PROCESS, 0, 10)   # → ? только Unix: None; текущему процессу (who=0) назначен nice 10 — значение задаётся, а не прибавляется, как в os.nice",
+      "print(os.getpriority(os.PRIO_PROCESS, 0))   # → ? только Unix: 10",
+      "os.setpriority(os.PRIO_PGRP, 0, 15)   # → ? только Unix: nice 15 сразу всей группе процессов",
+      "import subprocess; proc = subprocess.Popen(['sleep', '60'])   # → ? фоновый потомок запущен",
+      "os.setpriority(os.PRIO_PROCESS, proc.pid, 19)   # → ? только Unix: тяжёлая фоновая задача понижена до минимального приоритета",
+      "os.setpriority(os.PRIO_PROCESS, 0, -5)   # → ? только Unix: PermissionError без прав root — повышать приоритет нельзя"
     ],
     "related": [
       "os.getpriority",
@@ -22805,11 +22805,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.sched_yield())  # → только Unix: None — функция ничего не возвращает",
-      "for _ in range(3): os.sched_yield()  # → только Unix: трижды уступили процессор другим готовым процессам",
-      "os.sched_yield()  # → только Unix: если готовых к выполнению процессов нет, управление возвращается немедленно",
-      "print(os.sched_getaffinity(0))  # → только Unix: ядра, между которыми планировщик и распределяет процесс, например {0, 1, 2, 3}",
-      "os.sched_yield(0)  # → только Unix: TypeError — sched_yield вызывается без аргументов"
+      "print(os.sched_yield())  # → None — функция ничего не возвращает",
+      "for _ in range(3): os.sched_yield()  # → ? только Unix: трижды уступили процессор другим готовым процессам",
+      "os.sched_yield()  # → ? только Unix: если готовых к выполнению процессов нет, управление возвращается немедленно",
+      "print(os.sched_getaffinity(0))  # → ? только Unix: ядра, между которыми планировщик и распределяет процесс, например {0, 1, 2, 3}",
+      "os.sched_yield(0)  # → TypeError — sched_yield вызывается без аргументов"
     ],
     "related": [
       "os.sched_rr_get_interval",
@@ -22844,10 +22844,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.sched_getaffinity(0))   # → только Unix: множество разрешённых ядер текущего процесса, например {0, 1, 2, 3}",
-      "cores = len(os.sched_getaffinity(0)); print(cores)   # → только Unix: сколько ядер реально доступно процессу, например 4",
-      "print(os.cpu_count())   # → всего ядер в системе, например 8 — маску процесса не учитывает, в контейнере число завышено",
-      "os.sched_setaffinity(0, {0}); print(os.sched_getaffinity(0))   # → только Unix: {0} — после сужения маски остаётся одно ядро",
+      "print(os.sched_getaffinity(0))   # → ? только Unix: множество разрешённых ядер текущего процесса, например {0, 1, 2, 3}",
+      "cores = len(os.sched_getaffinity(0)); print(cores)   # → ? только Unix: сколько ядер реально доступно процессу, например 4",
+      "print(os.cpu_count())   # → ? всего ядер в системе, например 8 — маску процесса не учитывает, в контейнере число завышено",
+      "os.sched_setaffinity(0, {0}); print(os.sched_getaffinity(0))   # → ? только Unix: {0} — после сужения маски остаётся одно ядро",
       "print(os.sched_getaffinity(10 ** 7))   # → ProcessLookupError: процесса с таким pid нет"
     ],
     "related": [
@@ -22885,11 +22885,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.sched_getaffinity(0))  # → только Unix: множество ядер, доступных текущему процессу (pid=0), например {0, 1, 2, 3}",
-      "os.sched_setaffinity(0, {0})  # → только Unix: процесс закреплён за ядром 0",
-      "print(len(os.sched_getaffinity(0)))  # → только Unix: 1 — честное число доступных ядер (точнее, чем os.cpu_count())",
-      "os.sched_setaffinity(0, {0, 1})  # → только Unix: вернули процессу два ядра",
-      "os.sched_setaffinity(0, set())  # → только Unix: OSError: [Errno 22] Invalid argument — пустая маска запрещена"
+      "print(os.sched_getaffinity(0))  # → ? только Unix: множество ядер, доступных текущему процессу (pid=0), например {0, 1, 2, 3}",
+      "os.sched_setaffinity(0, {0})  # → ? только Unix: процесс закреплён за ядром 0",
+      "print(len(os.sched_getaffinity(0)))  # → ? только Unix: 1 — честное число доступных ядер (точнее, чем os.cpu_count())",
+      "os.sched_setaffinity(0, {0, 1})  # → ? только Unix: вернули процессу два ядра",
+      "os.sched_setaffinity(0, set())  # → OSError: [Errno 22] Invalid argument — пустая маска запрещена"
     ],
     "related": [
       "os.sched_getaffinity",
@@ -22927,11 +22927,11 @@
     ],
     "examples": [
       "import os",
-      "policy = os.sched_getscheduler(0); print(policy)   # → только Unix: 0 — числовой код текущей политики планирования",
-      "print(policy == os.SCHED_OTHER)   # → только Unix: True — обычный процесс идёт по политике по умолчанию",
-      "print(os.SCHED_OTHER, os.SCHED_FIFO, os.SCHED_RR)   # → только Unix: 0 1 2 — коды политик в Linux",
-      "print(os.sched_getscheduler(os.getppid()) == os.SCHED_OTHER)   # → только Unix: True — родитель тоже под обычной политикой",
-      "os.sched_setscheduler(0, os.SCHED_FIFO, os.sched_param(10))   # → только Unix: PermissionError без прав root; с root процесс уходит в реальное время"
+      "policy = os.sched_getscheduler(0); print(policy)   # → 0 — числовой код текущей политики планирования",
+      "print(policy == os.SCHED_OTHER)   # → True — обычный процесс идёт по политике по умолчанию",
+      "print(os.SCHED_OTHER, os.SCHED_FIFO, os.SCHED_RR)   # → ? только Unix: 0 1 2 — коды политик в Linux",
+      "print(os.sched_getscheduler(os.getppid()) == os.SCHED_OTHER)   # → ? только Unix: True — родитель тоже под обычной политикой",
+      "os.sched_setscheduler(0, os.SCHED_FIFO, os.sched_param(10))   # → ? только Unix: PermissionError без прав root; с root процесс уходит в реальное время"
     ],
     "related": [
       "os.sched_setscheduler",
@@ -22966,11 +22966,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.sched_getscheduler(0))  # → только Unix: текущая политика, обычно 0 (os.SCHED_OTHER)",
-      "os.sched_setscheduler(0, os.SCHED_OTHER, os.sched_param(0))  # → только Unix: процесс явно переведён на обычную политику разделения времени",
-      "print(os.sched_get_priority_min(os.SCHED_FIFO), os.sched_get_priority_max(os.SCHED_FIFO))  # → только Unix: диапазон realtime-приоритетов, на Linux 1 99",
-      "os.sched_setscheduler(0, os.SCHED_FIFO, os.sched_param(1))  # → только Unix: PermissionError — realtime-политика требует прав root/CAP_SYS_NICE",
-      "os.sched_setscheduler(0, os.SCHED_FIFO, os.sched_param(0))  # → только Unix: OSError: [Errno 22] Invalid argument — приоритет 0 недопустим для SCHED_FIFO"
+      "print(os.sched_getscheduler(0))  # → ? только Unix: текущая политика, обычно 0 (os.SCHED_OTHER)",
+      "os.sched_setscheduler(0, os.SCHED_OTHER, os.sched_param(0))  # → ? только Unix: процесс явно переведён на обычную политику разделения времени",
+      "print(os.sched_get_priority_min(os.SCHED_FIFO), os.sched_get_priority_max(os.SCHED_FIFO))  # → ? только Unix: диапазон realtime-приоритетов, на Linux 1 99",
+      "os.sched_setscheduler(0, os.SCHED_FIFO, os.sched_param(1))  # → PermissionError — realtime-политика требует прав root/CAP_SYS_NICE",
+      "os.sched_setscheduler(0, os.SCHED_FIFO, os.sched_param(0))  # → OSError: [Errno 22] Invalid argument — приоритет 0 недопустим для SCHED_FIFO"
     ],
     "related": [
       "os.sched_getscheduler",
@@ -23008,10 +23008,10 @@
     ],
     "examples": [
       "import os",
-      "param = os.sched_getparam(0); print(param)   # → только Unix: posix.sched_param(sched_priority=0)",
-      "print(param.sched_priority)   # → только Unix: 0 — единственное поле структуры",
-      "print(os.sched_getparam(os.getppid()).sched_priority)   # → только Unix: приоритет родительского процесса, обычно 0",
-      "print(os.getpriority(os.PRIO_PROCESS, 0))   # → только Unix: nice-значение, например 0 — это НЕ sched_priority, а вежливость обычного процесса",
+      "param = os.sched_getparam(0); print(param)   # → ? только Unix: posix.sched_param(sched_priority=0)",
+      "print(param.sched_priority)   # → 0 — единственное поле структуры",
+      "print(os.sched_getparam(os.getppid()).sched_priority)   # → ? только Unix: приоритет родительского процесса, обычно 0",
+      "print(os.getpriority(os.PRIO_PROCESS, 0))   # → ? только Unix: nice-значение, например 0 — это НЕ sched_priority, а вежливость обычного процесса",
       "print(os.sched_getparam(10 ** 7))   # → ProcessLookupError: процесса с таким pid нет"
     ],
     "related": [
@@ -23047,11 +23047,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.sched_getparam(0).sched_priority)  # → только Unix: 0 — обычный процесс работает с политикой SCHED_OTHER",
+      "print(os.sched_getparam(0).sched_priority)  # → 0 — обычный процесс работает с политикой SCHED_OTHER",
       "param = os.sched_param(0)  # 0 — единственный допустимый приоритет для SCHED_OTHER",
-      "os.sched_setparam(0, param)  # → только Unix: параметры планирования текущего процесса (pid=0) переустановлены",
-      "os.sched_setparam(0, os.sched_param(10))  # → только Unix: OSError: [Errno 22] Invalid argument — ненулевой приоритет вне realtime-политик запрещён",
-      "os.sched_setparam(99999, param)  # → только Unix: ProcessLookupError — процесса с таким pid не существует"
+      "os.sched_setparam(0, param)  # → ? только Unix: параметры планирования текущего процесса (pid=0) переустановлены",
+      "os.sched_setparam(0, os.sched_param(10))  # → OSError: [Errno 22] Invalid argument — ненулевой приоритет вне realtime-политик запрещён",
+      "os.sched_setparam(99999, param)  # → ProcessLookupError — процесса с таким pid не существует"
     ],
     "related": [
       "os.sched_getparam",
@@ -23088,10 +23088,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.sched_get_priority_max(os.SCHED_FIFO))   # → только Unix: верхняя граница real-time приоритетов, на Linux 99",
-      "print(os.sched_get_priority_max(os.SCHED_OTHER))   # → только Unix: на Linux 0 — обычной политике приоритет не назначают",
-      "lo = os.sched_get_priority_min(os.SCHED_RR)   # → только Unix: нижняя граница того же диапазона",
-      "print(lo, os.sched_get_priority_max(os.SCHED_RR))   # → только Unix: на Linux «1 99» — допустимый отрезок приоритетов SCHED_RR",
+      "print(os.sched_get_priority_max(os.SCHED_FIFO))   # → ? только Unix: верхняя граница real-time приоритетов, на Linux 99",
+      "print(os.sched_get_priority_max(os.SCHED_OTHER))   # → ? только Unix: на Linux 0 — обычной политике приоритет не назначают",
+      "lo = os.sched_get_priority_min(os.SCHED_RR)   # → ? только Unix: нижняя граница того же диапазона",
+      "print(lo, os.sched_get_priority_max(os.SCHED_RR))   # → ? только Unix: на Linux «1 99» — допустимый отрезок приоритетов SCHED_RR",
       "os.sched_get_priority_max(12345)   # → OSError: [Errno 22] Invalid argument — политики с таким номером нет"
     ],
     "related": [
@@ -23129,10 +23129,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.sched_get_priority_min(os.SCHED_FIFO))   # → только Unix: минимальный приоритет real-time политики, на Linux 1",
-      "print(os.sched_get_priority_min(os.SCHED_OTHER))   # → только Unix: на Linux 0 — у обычной политики приоритеты не различаются",
-      "param = os.sched_param(os.sched_get_priority_min(os.SCHED_RR))   # → только Unix: самый скромный real-time приоритет",
-      "os.sched_setscheduler(0, os.SCHED_RR, param)   # → только Unix и только с правами root: переводит текущий процесс на политику SCHED_RR",
+      "print(os.sched_get_priority_min(os.SCHED_FIFO))   # → ? только Unix: минимальный приоритет real-time политики, на Linux 1",
+      "print(os.sched_get_priority_min(os.SCHED_OTHER))   # → ? только Unix: на Linux 0 — у обычной политики приоритеты не различаются",
+      "param = os.sched_param(os.sched_get_priority_min(os.SCHED_RR))   # → ? только Unix: самый скромный real-time приоритет",
+      "os.sched_setscheduler(0, os.SCHED_RR, param)   # → ? только Unix и только с правами root: переводит текущий процесс на политику SCHED_RR",
       "os.sched_get_priority_min(-1)   # → OSError: [Errno 22] Invalid argument — политики с номером -1 не существует"
     ],
     "related": [
@@ -23170,10 +23170,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.sched_rr_get_interval(0))   # → только Unix: квант round-robin в секундах, например 0.1 — точное значение зависит от ядра",
-      "interval = os.sched_rr_get_interval(0); print(round(interval * 1000))   # → только Unix: тот же квант в миллисекундах, например 100",
-      "print(os.sched_getscheduler(0) == os.SCHED_RR)   # → только Unix: False — процесс идёт под SCHED_OTHER, квант сообщается, но реально не применяется",
-      "print(os.sched_rr_get_interval(os.getppid()))   # → только Unix: квант родительского процесса, обычно тот же, например 0.1",
+      "print(os.sched_rr_get_interval(0))   # → ? только Unix: квант round-robin в секундах, например 0.1 — точное значение зависит от ядра",
+      "interval = os.sched_rr_get_interval(0); print(round(interval * 1000))   # → ? только Unix: тот же квант в миллисекундах, например 100",
+      "print(os.sched_getscheduler(0) == os.SCHED_RR)   # → False — процесс идёт под SCHED_OTHER, квант сообщается, но реально не применяется",
+      "print(os.sched_rr_get_interval(os.getppid()))   # → ? только Unix: квант родительского процесса, обычно тот же, например 0.1",
       "print(os.sched_rr_get_interval(10 ** 7))   # → ProcessLookupError: процесса с таким pid нет"
     ],
     "related": [
@@ -23209,11 +23209,11 @@
     ],
     "examples": [
       "import os",
-      "p = os.sched_param(0); print(p)   # → только Unix: posix.sched_param(sched_priority=0)",
-      "print(p.sched_priority)   # → только Unix: 0 — единственное поле контейнера",
-      "print(os.sched_get_priority_min(os.SCHED_RR), os.sched_get_priority_max(os.SCHED_RR))   # → только Unix: 1 99 — допустимый диапазон sched_priority в Linux",
-      "os.sched_setscheduler(0, os.SCHED_RR, os.sched_param(10))   # → только Unix: PermissionError без прав root; с root процесс переходит в round-robin с приоритетом 10",
-      "os.sched_setparam(0, os.sched_param(5))   # → только Unix: OSError [Errno 22] Invalid argument — под SCHED_OTHER приоритет обязан быть нулевым"
+      "p = os.sched_param(0); print(p)   # → ? только Unix: posix.sched_param(sched_priority=0)",
+      "print(p.sched_priority)   # → 0 — единственное поле контейнера",
+      "print(os.sched_get_priority_min(os.SCHED_RR), os.sched_get_priority_max(os.SCHED_RR))   # → ? только Unix: 1 99 — допустимый диапазон sched_priority в Linux",
+      "os.sched_setscheduler(0, os.SCHED_RR, os.sched_param(10))   # → ? только Unix: PermissionError без прав root; с root процесс переходит в round-robin с приоритетом 10",
+      "os.sched_setparam(0, os.sched_param(5))   # → ? только Unix: OSError [Errno 22] Invalid argument — под SCHED_OTHER приоритет обязан быть нулевым"
     ],
     "related": [
       "os.sched_setparam",
@@ -23249,11 +23249,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getuid())  # → только Unix: реальный UID текущего процесса, например 1000",
-      "print(os.getuid() == 0)  # → True, если скрипт запущен от root (например, через sudo), иначе False",
-      "print(os.getuid() == os.geteuid())  # → True у обычной программы; у setuid-программы реальный и эффективный UID различаются",
+      "print(os.getuid())  # → ? только Unix: реальный UID текущего процесса, например 1000",
+      "print(os.getuid() == 0)  # → ? True, если скрипт запущен от root (например, через sudo), иначе False",
+      "print(os.getuid() == os.geteuid())  # → ? True у обычной программы; у setuid-программы реальный и эффективный UID различаются",
       "home = os.path.expanduser('~')",
-      "print(os.stat(home).st_uid == os.getuid())  # → True: домашний каталог принадлежит текущему пользователю"
+      "print(os.stat(home).st_uid == os.getuid())  # → ? True: домашний каталог принадлежит текущему пользователю"
     ],
     "related": [
       "os.geteuid",
@@ -23288,10 +23288,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.geteuid())  # → только Unix: эффективный UID процесса, например 1000",
-      "print(os.geteuid() == 0)  # → только Unix: True, если скрипт выполняется с правами root",
-      "print(os.geteuid() == os.getuid())  # → только Unix: True; False только в setuid-программах вроде sudo",
-      "print(str(os.geteuid()).isdigit())  # → только Unix: True — возвращается число, а не имя; имя даёт pwd.getpwuid(os.geteuid()).pw_name"
+      "print(os.geteuid())  # → ? только Unix: эффективный UID процесса, например 1000",
+      "print(os.geteuid() == 0)  # → ? только Unix: True, если скрипт выполняется с правами root",
+      "print(os.geteuid() == os.getuid())  # → ? только Unix: True; False только в setuid-программах вроде sudo",
+      "print(str(os.geteuid()).isdigit())  # → ? только Unix: True — возвращается число, а не имя; имя даёт pwd.getpwuid(os.geteuid()).pw_name"
     ],
     "related": [
       "os.getuid",
@@ -23326,9 +23326,9 @@
     ],
     "examples": [
       "import os",
-      "print(os.getgid())  # → только Unix: реальный GID процесса, например 1000",
-      "print(os.getgid() == os.getegid())  # → только Unix: True — реальный и эффективный GID обычно совпадают",
-      "print(os.getgid() in os.getgroups())  # → только Unix: обычно True — основная группа входит в набор групп процесса"
+      "print(os.getgid())  # → ? только Unix: реальный GID процесса, например 1000",
+      "print(os.getgid() == os.getegid())  # → ? только Unix: True — реальный и эффективный GID обычно совпадают",
+      "print(os.getgid() in os.getgroups())  # → ? только Unix: обычно True — основная группа входит в набор групп процесса"
     ],
     "related": [
       "os.getegid",
@@ -23363,10 +23363,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.getegid())  # → только Unix: эффективный GID процесса, например 1000",
-      "print(type(os.getegid()))  # → только Unix: <class 'int'>",
-      "print(os.getegid() == os.getgid())  # → только Unix: True, пока setgid-бит не сменил группу процесса",
-      "print(os.getegid() == 0)  # → только Unix: True, если права процесса выданы по группе root"
+      "print(os.getegid())  # → ? только Unix: эффективный GID процесса, например 1000",
+      "print(type(os.getegid()))  # → ? только Unix: <class 'int'>",
+      "print(os.getegid() == os.getgid())  # → ? только Unix: True, пока setgid-бит не сменил группу процесса",
+      "print(os.getegid() == 0)  # → ? только Unix: True, если права процесса выданы по группе root"
     ],
     "related": [
       "os.getgid",
@@ -23401,9 +23401,9 @@
     ],
     "examples": [
       "import os",
-      "print(os.getresuid())  # → только Unix: тройка (реальный, эффективный, сохранённый) UID, например (1000, 1000, 1000)",
+      "print(os.getresuid())  # → ? только Unix: тройка (реальный, эффективный, сохранённый) UID, например (1000, 1000, 1000)",
       "ruid, euid, suid = os.getresuid()",
-      "print(ruid == os.getuid())  # → True: первый элемент тройки — тот же реальный UID, что возвращает os.getuid()",
+      "print(ruid == os.getuid())  # → ? True: первый элемент тройки — тот же реальный UID, что возвращает os.getuid()",
       "print(euid == 0)  # → True, если процесс работает с правами root (например, запущен через sudo), иначе False",
       "os.setresuid(ruid, ruid, ruid)  # → None: необратимый сброс всех трёх UID к реальному — после того как сохранённый UID перестал быть root, вернуть права уже нельзя"
     ],
@@ -23440,11 +23440,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getresgid())  # → только Unix: тройка (реальный, эффективный, сохранённый) GID, например (1000, 1000, 1000)",
+      "print(os.getresgid())  # → ? только Unix: тройка (реальный, эффективный, сохранённый) GID, например (1000, 1000, 1000)",
       "rgid, egid, sgid = os.getresgid()",
-      "print(egid == os.getegid())  # → True: средний элемент тройки — тот же эффективный GID, что возвращает os.getegid()",
-      "print(rgid == egid)  # → True у обычного процесса; у программы с setgid-битом эффективный GID берётся у группы-владельца файла и отличается от реального",
-      "print(sgid)  # → сохранённый GID: значение, к которому процесс может вернуться через os.setresgid() после временного понижения прав"
+      "print(egid == os.getegid())  # → ? True: средний элемент тройки — тот же эффективный GID, что возвращает os.getegid()",
+      "print(rgid == egid)  # → ? True у обычного процесса; у программы с setgid-битом эффективный GID берётся у группы-владельца файла и отличается от реального",
+      "print(sgid)  # → ? сохранённый GID: значение, к которому процесс может вернуться через os.setresgid() после временного понижения прав"
     ],
     "related": [
       "os.setresgid",
@@ -23479,10 +23479,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.getgroups())  # → только Unix: список GID групп процесса, например [4, 24, 27, 1000]",
-      "print(type(os.getgroups()))  # → только Unix: <class 'list'>",
-      "print(27 in os.getgroups())  # → только Unix: True, если процесс входит в группу с GID 27 (sudo в Ubuntu)",
-      "print(len(os.getgroups()))  # → только Unix: число групп; на macOS список обрезан (не более 16) и может расходиться с os.getgrouplist()"
+      "print(os.getgroups())  # → ? только Unix: список GID групп процесса, например [4, 24, 27, 1000]",
+      "print(type(os.getgroups()))  # → ? только Unix: <class 'list'>",
+      "print(27 in os.getgroups())  # → ? только Unix: True, если процесс входит в группу с GID 27 (sudo в Ubuntu)",
+      "print(len(os.getgroups()))  # → ? только Unix: число групп; на macOS список обрезан (не более 16) и может расходиться с os.getgrouplist()"
     ],
     "related": [
       "os.setgroups",
@@ -23517,10 +23517,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.getgrouplist('root', 0))  # → только Unix: список GID групп пользователя root, например [0]",
-      "print(27 in os.getgrouplist('root', 0))  # → только Unix: True, если root состоит в группе с GID 27 (sudo в Ubuntu)",
-      "print(len(os.getgrouplist('root', 0)) >= 1)  # → только Unix: True — в отличие от os.getgroups(), спросить можно про любого пользователя, не только текущего",
-      "print(os.getgrouplist('нет-такого-пользователя', 100))  # → только Unix: обычно [100] — неизвестное имя не ошибка, вернётся только базовый GID"
+      "print(os.getgrouplist('root', 0))  # → ? только Unix: список GID групп пользователя root, например [0]",
+      "print(27 in os.getgrouplist('root', 0))  # → True, если root состоит в группе с GID 27 (sudo в Ubuntu)",
+      "print(len(os.getgrouplist('root', 0)) >= 1)  # → True — в отличие от os.getgroups(), спросить можно про любого пользователя, не только текущего",
+      "print(os.getgrouplist('нет-такого-пользователя', 100))  # → ? только Unix: обычно [100] — неизвестное имя не ошибка, вернётся только базовый GID"
     ],
     "related": [
       "os.getgroups",
@@ -23595,11 +23595,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getuid(), os.geteuid())  # → только Unix: реальный и эффективный UID, например 0 0 под root",
-      "os.setgid(1000)  # → только Unix: при сбросе привилегий группу меняют ПЕРВОЙ — после setuid прав на setgid уже не будет",
-      "os.setuid(1000)  # → только Unix: у root меняет разом реальный, эффективный и сохранённый UID на 1000",
-      "print(os.getuid(), os.geteuid())  # → только Unix: теперь 1000 1000 — типовой сброс привилегий демона завершён",
-      "os.setuid(0)  # → только Unix: PermissionError — в отличие от os.seteuid, вернуть root после setuid уже нельзя"
+      "print(os.getuid(), os.geteuid())  # → ? только Unix: реальный и эффективный UID, например 0 0 под root",
+      "os.setgid(1000)  # → ? только Unix: при сбросе привилегий группу меняют ПЕРВОЙ — после setuid прав на setgid уже не будет",
+      "os.setuid(1000)  # → ? только Unix: у root меняет разом реальный, эффективный и сохранённый UID на 1000",
+      "print(os.getuid(), os.geteuid())  # → ? только Unix: теперь 1000 1000 — типовой сброс привилегий демона завершён",
+      "os.setuid(0)  # → PermissionError — в отличие от os.seteuid, вернуть root после setuid уже нельзя"
     ],
     "related": [
       "os.getuid",
@@ -23636,11 +23636,11 @@
     ],
     "examples": [
       "import os",
-      "saved_uid = os.geteuid()  # → только Unix: текущий эффективный UID, например 1000 (у root — 0)",
-      "os.seteuid(os.getuid())  # → только Unix: сбрасывает эффективный UID до реального",
-      "print(os.geteuid() == os.getuid())  # → True: процесс работает с правами реального пользователя",
-      "os.seteuid(saved_uid)  # → только Unix: возврат прежнего эффективного UID (не-root может вернуться лишь к реальному или сохранённому)",
-      "os.seteuid(0)  # → только Unix: PermissionError без прав root; в отличие от os.setuid() меняется только эффективный UID"
+      "saved_uid = os.geteuid()  # → ? только Unix: текущий эффективный UID, например 1000 (у root — 0)",
+      "os.seteuid(os.getuid())  # → ? только Unix: сбрасывает эффективный UID до реального",
+      "print(os.geteuid() == os.getuid())  # → ? True: процесс работает с правами реального пользователя",
+      "os.seteuid(saved_uid)  # → ? только Unix: возврат прежнего эффективного UID (не-root может вернуться лишь к реальному или сохранённому)",
+      "os.seteuid(0)  # → ? только Unix: PermissionError без прав root; в отличие от os.setuid() меняется только эффективный UID"
     ],
     "related": [
       "os.geteuid",
@@ -23677,11 +23677,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getgid())  # → только Unix: реальный GID процесса, например 1000",
-      "os.setgid(os.getgid())  # → только Unix: установка того же GID проходит без ошибки",
-      "os.setgid(65534)  # → только Unix: root навсегда переходит в группу nogroup — вернуться уже нельзя",
-      "print(os.getgid(), os.getegid())  # → 65534 65534: у root setgid меняет и реальный, и эффективный GID",
-      "os.setgid(0)  # → только Unix: PermissionError, если процесс запущен не от root"
+      "print(os.getgid())  # → ? только Unix: реальный GID процесса, например 1000",
+      "os.setgid(os.getgid())  # → ? только Unix: установка того же GID проходит без ошибки",
+      "os.setgid(65534)  # → ? только Unix: root навсегда переходит в группу nogroup — вернуться уже нельзя",
+      "print(os.getgid(), os.getegid())  # → ? 65534 65534: у root setgid меняет и реальный, и эффективный GID",
+      "os.setgid(0)  # → PermissionError, если процесс запущен не от root"
     ],
     "related": [
       "os.getgid",
@@ -23718,11 +23718,11 @@
     ],
     "examples": [
       "import os",
-      "saved_gid = os.getegid()  # → только Unix: текущий эффективный GID, например 1000",
-      "os.setegid(os.getgid())  # → только Unix: временно понижает права до реальной группы пользователя",
-      "print(os.getegid() == os.getgid())  # → True: эффективный GID совпал с реальным",
-      "os.setegid(saved_gid)  # → только Unix: возврат к прежнему эффективному GID",
-      "os.setegid(0)  # → только Unix: PermissionError, если процесс запущен не от root"
+      "saved_gid = os.getegid()  # → ? только Unix: текущий эффективный GID, например 1000",
+      "os.setegid(os.getgid())  # → ? только Unix: временно понижает права до реальной группы пользователя",
+      "print(os.getegid() == os.getgid())  # → ? True: эффективный GID совпал с реальным",
+      "os.setegid(saved_gid)  # → ? только Unix: возврат к прежнему эффективному GID",
+      "os.setegid(0)  # → PermissionError, если процесс запущен не от root"
     ],
     "related": [
       "os.getegid",
@@ -23759,11 +23759,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getuid(), os.geteuid())  # → только Unix: реальный и эффективный UID, например 0 0 под root",
-      "os.setreuid(-1, 1000)  # → только Unix: -1 оставляет реальный UID прежним, понижается только эффективный",
-      "os.seteuid(0)  # → только Unix: root возвращается, потому что реальный UID остался равен 0",
-      "os.setreuid(1000, 1000)  # → только Unix: оба UID становятся 1000, сохранённый тоже сбрасывается — вернуться в root нельзя",
-      "os.setreuid(0, 0)  # → только Unix: PermissionError после безвозвратного сброса привилегий"
+      "print(os.getuid(), os.geteuid())  # → ? только Unix: реальный и эффективный UID, например 0 0 под root",
+      "os.setreuid(-1, 1000)  # → ? только Unix: -1 оставляет реальный UID прежним, понижается только эффективный",
+      "os.seteuid(0)  # → ? только Unix: root возвращается, потому что реальный UID остался равен 0",
+      "os.setreuid(1000, 1000)  # → ? только Unix: оба UID становятся 1000, сохранённый тоже сбрасывается — вернуться в root нельзя",
+      "os.setreuid(0, 0)  # → ? только Unix: PermissionError после безвозвратного сброса привилегий"
     ],
     "related": [
       "os.setuid",
@@ -23800,11 +23800,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getgid(), os.getegid())  # → только Unix: реальный и эффективный GID, например 1000 1000",
-      "os.setregid(-1, os.getgid())  # → только Unix: -1 оставляет реальный GID прежним, меняется только эффективный",
-      "os.setregid(65534, 65534)  # → только Unix: root одним вызовом переводит процесс в группу nogroup",
-      "print(os.getgid(), os.getegid())  # → 65534 65534: оба GID сменились за один вызов",
-      "os.setregid(0, 0)  # → только Unix: PermissionError, если процесс запущен не от root"
+      "print(os.getgid(), os.getegid())  # → ? только Unix: реальный и эффективный GID, например 1000 1000",
+      "os.setregid(-1, os.getgid())  # → ? только Unix: -1 оставляет реальный GID прежним, меняется только эффективный",
+      "os.setregid(65534, 65534)  # → ? только Unix: root одним вызовом переводит процесс в группу nogroup",
+      "print(os.getgid(), os.getegid())  # → ? 65534 65534: оба GID сменились за один вызов",
+      "os.setregid(0, 0)  # → PermissionError, если процесс запущен не от root"
     ],
     "related": [
       "os.setgid",
@@ -23841,11 +23841,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getresuid())  # → только Unix: тройка (реальный, эффективный, сохранённый) UID, например (0, 0, 0) под root",
-      "os.setresuid(1000, 1000, 0)  # → только Unix: реальный и эффективный UID становятся 1000, сохранённый остаётся 0",
-      "os.setresuid(-1, 0, -1)  # → только Unix: -1 оставляет поле нетронутым; вернуть euid=0 удаётся благодаря сохранённому 0",
-      "os.setresuid(1000, 1000, 1000)  # → только Unix: все три UID равны 1000 — привилегии сброшены окончательно",
-      "os.setresuid(0, 0, 0)  # → только Unix: PermissionError, после полного сброса root уже не вернуть"
+      "print(os.getresuid())  # → ? только Unix: тройка (реальный, эффективный, сохранённый) UID, например (0, 0, 0) под root",
+      "os.setresuid(1000, 1000, 0)  # → ? только Unix: реальный и эффективный UID становятся 1000, сохранённый остаётся 0",
+      "os.setresuid(-1, 0, -1)  # → ? только Unix: -1 оставляет поле нетронутым; вернуть euid=0 удаётся благодаря сохранённому 0",
+      "os.setresuid(1000, 1000, 1000)  # → ? только Unix: все три UID равны 1000 — привилегии сброшены окончательно",
+      "os.setresuid(0, 0, 0)  # → PermissionError, после полного сброса root уже не вернуть"
     ],
     "related": [
       "os.getresuid",
@@ -23882,11 +23882,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getresgid())  # → только Unix: тройка (реальный, эффективный, сохранённый) GID, например (0, 0, 0) под root",
-      "os.setresgid(1000, 1000, 0)  # → только Unix: реальный и эффективный GID становятся 1000, сохранённый остаётся 0",
-      "os.setresgid(-1, 0, -1)  # → только Unix: -1 не трогает поле; вернуть egid=0 позволяет именно сохранённый 0",
-      "os.setresgid(1000, 1000, 1000)  # → только Unix: группу сбрасывают ДО os.setresuid — после смены UID прав на это уже не останется",
-      "os.setresgid(0, 0, 0)  # → только Unix: PermissionError, после полного сброса группу root уже не вернуть"
+      "print(os.getresgid())  # → ? только Unix: тройка (реальный, эффективный, сохранённый) GID, например (0, 0, 0) под root",
+      "os.setresgid(1000, 1000, 0)  # → ? только Unix: реальный и эффективный GID становятся 1000, сохранённый остаётся 0",
+      "os.setresgid(-1, 0, -1)  # → ? только Unix: -1 не трогает поле; вернуть egid=0 позволяет именно сохранённый 0",
+      "os.setresgid(1000, 1000, 1000)  # → ? только Unix: группу сбрасывают ДО os.setresuid — после смены UID прав на это уже не останется",
+      "os.setresgid(0, 0, 0)  # → PermissionError, после полного сброса группу root уже не вернуть"
     ],
     "related": [
       "os.getresgid",
@@ -23923,10 +23923,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.getgroups())  # → только Unix: список дополнительных GID, например [4, 27, 1000]",
-      "os.setgroups([])  # → только Unix: root отбирает у процесса все дополнительные группы",
-      "print(os.getgroups())  # → []: дополнительных групп не осталось",
-      "os.setgroups([1000, 1001])  # → только Unix: PermissionError, если процесс запущен не от root",
+      "print(os.getgroups())  # → ? только Unix: список дополнительных GID, например [4, 27, 1000]",
+      "os.setgroups([])  # → ? только Unix: root отбирает у процесса все дополнительные группы",
+      "print(os.getgroups())  # → ? []: дополнительных групп не осталось",
+      "os.setgroups([1000, 1001])  # → PermissionError, если процесс запущен не от root",
       "os.setgroups(1000)  # → TypeError: нужна последовательность GID, а не одно число"
     ],
     "related": [
@@ -23965,8 +23965,8 @@
     "examples": [
       "import os",
       "import pwd",
-      "os.initgroups('www-data', 33)  # → только Unix: None; процесс получает все дополнительные группы пользователя www-data плюс группу с GID 33",
-      "print(os.getgroups())  # → список GID процесса после вызова, например [33, 4, 27]",
+      "os.initgroups('www-data', 33)  # → ? только Unix: None; процесс получает все дополнительные группы пользователя www-data плюс группу с GID 33",
+      "print(os.getgroups())  # → ? список GID процесса после вызова, например [33, 4, 27]",
       "entry = pwd.getpwnam('www-data')",
       "os.initgroups(entry.pw_name, entry.pw_gid)  # → None: базовый GID берут из записи пользователя, а не подставляют числом вручную",
       "os.setuid(entry.pw_uid)  # → None: штатный порядок сброса привилегий демона — initgroups(), затем setgid(), и только в конце setuid(); после него вернуть права root уже нельзя",
@@ -24007,10 +24007,10 @@
     ],
     "examples": [
       "import os",
-      "pgid = os.getpgid(0)  # → только Unix: PGID текущего процесса, например 4711",
-      "print(os.getpgid(os.getpid()) == pgid)  # → только Unix: True — pid=0 означает «текущий процесс»",
-      "print(os.getpgid(0) == os.getpgrp())  # → только Unix: True — os.getpgrp() возвращает тот же PGID, но без аргумента",
-      "print(os.getpgid(os.getppid()))  # → только Unix: PGID родителя (обычно shell), например 4390",
+      "pgid = os.getpgid(0)  # → ? только Unix: PGID текущего процесса, например 4711",
+      "print(os.getpgid(os.getpid()) == pgid)  # → ? только Unix: True — pid=0 означает «текущий процесс»",
+      "print(os.getpgid(0) == os.getpgrp())  # → ? только Unix: True — os.getpgrp() возвращает тот же PGID, но без аргумента",
+      "print(os.getpgid(os.getppid()))  # → ? только Unix: PGID родителя (обычно shell), например 4390",
       "print(os.getpgid(999999))  # → ProcessLookupError: [Errno 3] No such process"
     ],
     "related": [
@@ -24048,11 +24048,11 @@
     ],
     "examples": [
       "import os",
-      "pgid = os.getpgrp()  # → только Unix: PGID текущего процесса, например 4711",
-      "print(os.getpgrp() == os.getpgid(0))  # → только Unix: True — два способа узнать свой PGID",
-      "print(os.getpgrp() == os.getpid())  # → только Unix: True, если процесс — лидер своей группы; при запуске в конвейере shell обычно False",
-      "os.setpgrp()  # → только Unix: процесс становится лидером новой группы процессов",
-      "print(os.getpgrp() == os.getpid())  # → только Unix: True — после setpgrp() PGID совпал с PID"
+      "pgid = os.getpgrp()  # → ? только Unix: PGID текущего процесса, например 4711",
+      "print(os.getpgrp() == os.getpgid(0))  # → ? только Unix: True — два способа узнать свой PGID",
+      "print(os.getpgrp() == os.getpid())  # → ? только Unix: True, если процесс — лидер своей группы; при запуске в конвейере shell обычно False",
+      "os.setpgrp()  # → ? только Unix: процесс становится лидером новой группы процессов",
+      "print(os.getpgrp() == os.getpid())  # → ? только Unix: True — после setpgrp() PGID совпал с PID"
     ],
     "related": [
       "os.getpgid",
@@ -24087,10 +24087,10 @@
     ],
     "examples": [
       "import os",
-      "sid = os.getsid(0)  # → только Unix: SID сессии текущего процесса, например 4390",
-      "print(os.getsid(os.getpid()) == sid)  # → только Unix: True — pid=0 означает «текущий процесс»",
-      "print(os.getsid(os.getppid()) == sid)  # → только Unix: True — сессия наследуется от родителя, даже если группа процессов другая",
-      "print(os.getsid(0) == os.getpgrp())  # → только Unix: True только у лидера сессии; у обычного процесса False — сессия шире группы",
+      "sid = os.getsid(0)  # → ? только Unix: SID сессии текущего процесса, например 4390",
+      "print(os.getsid(os.getpid()) == sid)  # → ? только Unix: True — pid=0 означает «текущий процесс»",
+      "print(os.getsid(os.getppid()) == sid)  # → ? только Unix: True — сессия наследуется от родителя, даже если группа процессов другая",
+      "print(os.getsid(0) == os.getpgrp())  # → ? только Unix: True только у лидера сессии; у обычного процесса False — сессия шире группы",
       "print(os.getsid(999999))  # → ProcessLookupError: [Errno 3] No such process"
     ],
     "related": [
@@ -24128,11 +24128,11 @@
     ],
     "examples": [
       "import os",
-      "os.setpgid(0, 0)  # → только Unix: pid=0 и pgid=0 означают «текущий процесс, своя новая группа»",
-      "print(os.getpgrp() == os.getpid())  # → только Unix: True — процесс стал лидером собственной группы",
-      "child = os.fork()  # → только Unix: 0 в дочернем процессе, PID потомка в родительском",
-      "os.setpgid(child, child)  # → только Unix: идиома job control — вызывают оба процесса (в потомке child == 0, «сам себе группа»), это снимает гонку с exec",
-      "os.setpgid(os.getppid(), 0)  # → только Unix: ProcessLookupError — менять группу можно себе и своим потомкам, но не родителю"
+      "os.setpgid(0, 0)  # → ? только Unix: pid=0 и pgid=0 означают «текущий процесс, своя новая группа»",
+      "print(os.getpgrp() == os.getpid())  # → ? только Unix: True — процесс стал лидером собственной группы",
+      "child = os.fork()  # → ? только Unix: 0 в дочернем процессе, PID потомка в родительском",
+      "os.setpgid(child, child)  # → ? только Unix: идиома job control — вызывают оба процесса (в потомке child == 0, «сам себе группа»), это снимает гонку с exec",
+      "os.setpgid(os.getppid(), 0)  # → ? только Unix: ProcessLookupError — менять группу можно себе и своим потомкам, но не родителю"
     ],
     "related": [
       "os.getpgid",
@@ -24167,11 +24167,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.getpgrp() == os.getpid())  # → только Unix: False, если процесс запущен shell'ом как часть чужой группы",
-      "os.setpgrp()  # → только Unix: вызывается без аргументов, процесс становится лидером новой группы",
-      "print(os.getpgrp() == os.getpid())  # → только Unix: True — PGID новой группы равен PID процесса",
-      "print(os.getpgrp() == os.getpgid(0))  # → только Unix: True — os.setpgrp() делает то же, что os.setpgid(0, 0)",
-      "os.setsid()  # → только Unix: PermissionError — процесс уже лидер группы, новую сессию так не создать"
+      "print(os.getpgrp() == os.getpid())  # → ? только Unix: False, если процесс запущен shell'ом как часть чужой группы",
+      "os.setpgrp()  # → ? только Unix: вызывается без аргументов, процесс становится лидером новой группы",
+      "print(os.getpgrp() == os.getpid())  # → ? только Unix: True — PGID новой группы равен PID процесса",
+      "print(os.getpgrp() == os.getpgid(0))  # → ? только Unix: True — os.setpgrp() делает то же, что os.setpgid(0, 0)",
+      "os.setsid()  # → PermissionError — процесс уже лидер группы, новую сессию так не создать"
     ],
     "related": [
       "os.setpgid",
@@ -24206,10 +24206,10 @@
     ],
     "examples": [
       "import os",
-      "pid = os.fork()                          # → только Unix: 0 в дочернем процессе, PID ребёнка — в родительском",
-      "if pid == 0: print(os.setsid())          # → только Unix: None — ребёнок стал лидером новой сессии и отвязался от терминала",
-      "print(os.getsid(0) == os.getpid())       # → True в ребёнке после setsid: id сессии совпадает с его PID",
-      "print(os.getpgrp() == os.getpid())       # → True: setsid заодно создаёт новую группу процессов с тем же id",
+      "pid = os.fork()                          # → ? только Unix: 0 в дочернем процессе, PID ребёнка — в родительском",
+      "if pid == 0: print(os.setsid())          # → None — ребёнок стал лидером новой сессии и отвязался от терминала",
+      "print(os.getsid(0) == os.getpid())       # → ? True в ребёнке после setsid: id сессии совпадает с его PID",
+      "print(os.getpgrp() == os.getpid())       # → ? True: setsid заодно создаёт новую группу процессов с тем же id",
       "os.setsid()                              # → PermissionError: процесс уже лидер группы, повторный вызов запрещён"
     ],
     "related": [
@@ -24247,9 +24247,9 @@
     ],
     "examples": [
       "import os",
-      "fd = os.open('/dev/tty', os.O_RDONLY)              # → только Unix: дескриптор управляющего терминала",
-      "print(os.tcgetpgrp(fd))                            # → только Unix: id группы процессов переднего плана, например 12345",
-      "print(os.tcgetpgrp(fd) == os.getpgrp())            # → True, если скрипт работает на переднем плане (запущен без &)",
+      "fd = os.open('/dev/tty', os.O_RDONLY)              # → ? только Unix: дескриптор управляющего терминала",
+      "print(os.tcgetpgrp(fd))                            # → ? только Unix: id группы процессов переднего плана, например 12345",
+      "print(os.tcgetpgrp(fd) == os.getpgrp())            # → ? True, если скрипт работает на переднем плане (запущен без &)",
       "os.tcgetpgrp(os.open(os.devnull, os.O_RDONLY))     # → OSError: [Errno 25] Inappropriate ioctl for device — /dev/null не терминал"
     ],
     "related": [
@@ -24287,11 +24287,11 @@
     ],
     "examples": [
       "import os",
-      "fd = os.open('/dev/tty', os.O_RDWR)                # → только Unix: дескриптор управляющего терминала",
-      "print(os.tcsetpgrp(fd, os.getpgrp()))              # → только Unix: None — своя группа выведена на передний план",
-      "print(os.tcgetpgrp(fd) == os.getpgrp())            # → True: tcsetpgrp/tcgetpgrp — пара «записать/прочитать» группу терминала",
+      "fd = os.open('/dev/tty', os.O_RDWR)                # → ? только Unix: дескриптор управляющего терминала",
+      "print(os.tcsetpgrp(fd, os.getpgrp()))              # → ? только Unix: None — своя группа выведена на передний план",
+      "print(os.tcgetpgrp(fd) == os.getpgrp())            # → ? True: tcsetpgrp/tcgetpgrp — пара «записать/прочитать» группу терминала",
       "os.tcsetpgrp(fd, 999999)                           # → OSError: группы с таким id в текущей сессии нет",
-      "os.tcsetpgrp(fd, os.getpgrp())                     # → из фонового процесса ядро пришлёт SIGTTOU и остановит его"
+      "os.tcsetpgrp(fd, os.getpgrp())                     # → ? из фонового процесса ядро пришлёт SIGTTOU и остановит его"
     ],
     "related": [
       "os.tcgetpgrp",
@@ -24328,11 +24328,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.ctermid())   # → только Unix: /dev/tty — путь к управляющему терминалу",
+      "print(os.ctermid())   # → ? только Unix: /dev/tty — путь к управляющему терминалу",
       "path = os.ctermid()   # только Unix",
       "print(os.path.exists(path))   # → True, если у процесса есть управляющий терминал",
-      "with open(path, 'w') as tty: tty.write('сообщение мимо перенаправленного stdout\\n')   # → только Unix: строка появится в терминале, даже если stdout перенаправлен в файл",
-      "fd = os.open(path, os.O_RDONLY)   # → только Unix: OSError (ENXIO), если процесс запущен без терминала — демон, cron, systemd",
+      "with open(path, 'w') as tty: tty.write('сообщение мимо перенаправленного stdout\\n')   # → ? только Unix: строка появится в терминале, даже если stdout перенаправлен в файл",
+      "fd = os.open(path, os.O_RDONLY)   # → ? только Unix: OSError (ENXIO), если процесс запущен без терминала — демон, cron, systemd",
       "print(os.isatty(fd))   # → True — дескриптор действительно указывает на терминал"
     ],
     "related": [
@@ -24368,11 +24368,11 @@
     ],
     "examples": [
       "import os",
-      "master, slave = os.openpty()  # → только Unix: пара дескрипторов псевдотерминала, например (3, 4)",
-      "print(os.isatty(slave))  # → только Unix: True — для программы slave-конец выглядит настоящим терминалом",
-      "print(os.ttyname(slave))  # → только Unix: путь slave-устройства, например /dev/pts/3",
-      "os.write(slave, b'hello\\n')  # → только Unix: 6 — «программа» напечатала строку в свой терминал",
-      "print(os.read(master, 1024))  # → только Unix: b'hello\\r\\n' — драйвер pty заменил \\n на \\r\\n"
+      "master, slave = os.openpty()  # → ? только Unix: пара дескрипторов псевдотерминала, например (3, 4)",
+      "print(os.isatty(slave))  # → True — для программы slave-конец выглядит настоящим терминалом",
+      "print(os.ttyname(slave))  # → ? только Unix: путь slave-устройства, например /dev/pts/3",
+      "os.write(slave, b'hello\\n')  # → 6 — «программа» напечатала строку в свой терминал",
+      "print(os.read(master, 1024))  # → b'hello\\r\\n' — драйвер pty заменил \\n на \\r\\n"
     ],
     "related": [
       "os.forkpty",
@@ -24408,11 +24408,11 @@
     ],
     "examples": [
       "import os",
-      "master = os.posix_openpt(os.O_RDWR | os.O_NOCTTY)  # → только Unix: дескриптор master-устройства, например 3",
-      "print(os.ptsname(master))  # → только Unix: путь парного slave-устройства, например /dev/pts/4",
-      "os.unlockpt(master)  # → только Unix: обязательный шаг, иначе slave открыть не дадут",
-      "slave = os.open(os.ptsname(master), os.O_RDWR)  # → только Unix: второй конец пары открыт",
-      "pair = os.openpty()  # → только Unix: те же три шага одним вызовом — openpty проще для учебных задач"
+      "master = os.posix_openpt(os.O_RDWR | os.O_NOCTTY)  # → ? только Unix: дескриптор master-устройства, например 3",
+      "print(os.ptsname(master))  # → ? только Unix: путь парного slave-устройства, например /dev/pts/4",
+      "os.unlockpt(master)  # → ? только Unix: обязательный шаг, иначе slave открыть не дадут",
+      "slave = os.open(os.ptsname(master), os.O_RDWR)  # → ? только Unix: второй конец пары открыт",
+      "pair = os.openpty()  # → ? только Unix: те же три шага одним вызовом — openpty проще для учебных задач"
     ],
     "related": [
       "os.grantpt",
@@ -24453,9 +24453,9 @@
       "master = os.posix_openpt(os.O_RDWR)   # только Unix: открываем master-устройство псевдотерминала",
       "print(os.grantpt(master))   # → None — владелец и права slave-устройства выставлены текущему пользователю (только Unix, Python 3.13+)",
       "os.unlockpt(master)   # только Unix: порядок обязателен — сначала grantpt, потом unlockpt",
-      "print(os.ptsname(master))   # → только Unix: путь к slave, например /dev/pts/3",
+      "print(os.ptsname(master))   # → ? только Unix: путь к slave, например /dev/pts/3",
       "slave = os.open(os.ptsname(master), os.O_RDWR)   # только Unix: после grantpt + unlockpt slave открывается; без grantpt упёрлись бы в права доступа",
-      "print(os.grantpt(slave))   # → только Unix: OSError — дескриптор должен указывать на master, а не на slave"
+      "print(os.grantpt(slave))   # → OSError — дескриптор должен указывать на master, а не на slave"
     ],
     "related": [
       "os.posix_openpt",
@@ -24490,11 +24490,11 @@
     ],
     "examples": [
       "import os",
-      "master = os.posix_openpt(os.O_RDWR)  # → только Unix: master-дескриптор, slave пока заблокирован",
-      "os.unlockpt(master)  # → только Unix: ничего не возвращает; os.openpty() делает этот шаг сам",
-      "slave = os.open(os.ptsname(master), os.O_RDWR)  # → только Unix: теперь slave-конец открывается штатно",
-      "m2 = os.posix_openpt(os.O_RDWR)  # → только Unix: вторая пара, unlockpt намеренно не вызываем",
-      "os.open(os.ptsname(m2), os.O_RDWR)  # → только Unix: OSError (EIO) — без unlockpt slave открыть нельзя"
+      "master = os.posix_openpt(os.O_RDWR)  # → ? только Unix: master-дескриптор, slave пока заблокирован",
+      "os.unlockpt(master)  # → ? только Unix: ничего не возвращает; os.openpty() делает этот шаг сам",
+      "slave = os.open(os.ptsname(master), os.O_RDWR)  # → ? только Unix: теперь slave-конец открывается штатно",
+      "m2 = os.posix_openpt(os.O_RDWR)  # → ? только Unix: вторая пара, unlockpt намеренно не вызываем",
+      "os.open(os.ptsname(m2), os.O_RDWR)  # → ? только Unix: OSError (EIO) — без unlockpt slave открыть нельзя"
     ],
     "related": [
       "os.grantpt",
@@ -24531,11 +24531,11 @@
     ],
     "examples": [
       "import os",
-      "master = os.posix_openpt(os.O_RDWR)  # → только Unix: master-дескриптор псевдотерминала",
-      "print(os.ptsname(master))  # → только Unix: путь парного slave-устройства, например /dev/pts/4",
-      "os.unlockpt(master)  # → только Unix: разблокировали slave перед открытием",
-      "slave = os.open(os.ptsname(master), os.O_RDWR)  # → только Unix: именно по пути от ptsname и открывают slave",
-      "print(os.ptsname(0))  # → только Unix: OSError — дескриптор stdin не является master-устройством pty"
+      "master = os.posix_openpt(os.O_RDWR)  # → ? только Unix: master-дескриптор псевдотерминала",
+      "print(os.ptsname(master))  # → ? только Unix: путь парного slave-устройства, например /dev/pts/4",
+      "os.unlockpt(master)  # → ? только Unix: разблокировали slave перед открытием",
+      "slave = os.open(os.ptsname(master), os.O_RDWR)  # → ? только Unix: именно по пути от ptsname и открывают slave",
+      "print(os.ptsname(0))  # → OSError — дескриптор stdin не является master-устройством pty"
     ],
     "related": [
       "os.posix_openpt",
@@ -24573,11 +24573,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.ttyname(0))  # → только Unix: имя терминала для stdin, например /dev/pts/2",
-      "master, slave = os.openpty()  # → только Unix: своя пара псевдотерминала",
-      "print(os.ttyname(slave))  # → только Unix: путь slave-конца, например /dev/pts/3",
-      "print(os.ttyname(slave) == os.ptsname(master))  # → только Unix: True — ttyname и ptsname указывают на один и тот же slave",
-      "print(os.ttyname(1) if os.isatty(1) else 'вывод перенаправлен')  # → только Unix: имя терминала при запуске в консоли; при перенаправлении в файл ttyname(1) бросил бы OSError"
+      "print(os.ttyname(0))  # → ? только Unix: имя терминала для stdin, например /dev/pts/2",
+      "master, slave = os.openpty()  # → ? только Unix: своя пара псевдотерминала",
+      "print(os.ttyname(slave))  # → ? только Unix: путь slave-конца, например /dev/pts/3",
+      "print(os.ttyname(slave) == os.ptsname(master))  # → ? только Unix: True — ttyname и ptsname указывают на один и тот же slave",
+      "print(os.ttyname(1) if os.isatty(1) else 'вывод перенаправлен')  # → ? только Unix: имя терминала при запуске в консоли; при перенаправлении в файл ttyname(1) бросил бы OSError"
     ],
     "related": [
       "os.isatty",
@@ -24616,10 +24616,10 @@
       "import os",
       "master, slave = os.openpty()   # только Unix: пара дескрипторов псевдотерминала",
       "pid = os.fork()   # только Unix: 0 в потомке, pid потомка в родителе",
-      "if pid == 0: os.login_tty(slave); print('hello'); os._exit(0)   # → только Unix: потомок стал лидером сессии, slave стал его управляющим терминалом и stdin/stdout/stderr (и сам дескриптор закрыт), печать уходит в псевдотерминал",
-      "print(os.read(master, 1024))   # → только Unix: b'hello\\r\\n' — родитель читает вывод потомка, терминал заменяет \\n на \\r\\n",
+      "if pid == 0: os.login_tty(slave); print('hello'); os._exit(0)   # → ? только Unix: потомок стал лидером сессии, slave стал его управляющим терминалом и stdin/stdout/stderr (и сам дескриптор закрыт), печать уходит в псевдотерминал",
+      "print(os.read(master, 1024))   # → b'hello\\r\\n' — родитель читает вывод потомка, терминал заменяет \\n на \\r\\n",
       "r, w = os.pipe()   # обычный канал, не терминал",
-      "print(os.login_tty(r))   # → только Unix: OSError — годится только дескриптор терминала"
+      "print(os.login_tty(r))   # → OSError — годится только дескриптор терминала"
     ],
     "related": [
       "os.openpty",
@@ -25012,12 +25012,12 @@
     ],
     "examples": [
       "import os",
-      "os.symlink('data.txt', 'data-link.txt')   # → только Unix (на Windows нужны права разработчика): создаёт символическую ссылку",
+      "os.symlink('data.txt', 'data-link.txt')   # → ? только Unix (на Windows нужны права разработчика): создаёт символическую ссылку",
       "print(os.path.islink('data-link.txt'))   # → True",
-      "print(os.readlink('data-link.txt'))   # → data.txt",
-      "os.symlink('logs', 'logs-link', target_is_directory=True)   # → ссылка на каталог; флаг учитывается только на Windows",
+      "print(os.readlink('data-link.txt'))   # → ? data.txt",
+      "os.symlink('logs', 'logs-link', target_is_directory=True)   # → ? ссылка на каталог; флаг учитывается только на Windows",
       "os.symlink('data.txt', 'data-link.txt')   # → FileExistsError — существующий dst молча не перезаписывается",
-      "os.remove('data-link.txt')   # → удаляет саму ссылку, файл data.txt остаётся на месте"
+      "os.remove('data-link.txt')   # → ? удаляет саму ссылку, файл data.txt остаётся на месте"
     ],
     "related": [
       "os.readlink",
@@ -25055,9 +25055,9 @@
     ],
     "examples": [
       "import os",
-      "os.symlink('data.txt', 'link.txt')   # → только Unix: создаёт ссылку link.txt на data.txt",
-      "print(os.readlink('link.txt'))   # → data.txt — «сырая» цель ссылки, ровно как она записана",
-      "print(os.path.realpath('link.txt'))   # → data.txt — realpath разворачивает цель в абсолютный путь",
+      "os.symlink('data.txt', 'link.txt')   # → ? только Unix: создаёт ссылку link.txt на data.txt",
+      "print(os.readlink('link.txt'))   # → ? data.txt — «сырая» цель ссылки, ровно как она записана",
+      "print(os.path.realpath('link.txt'))   # → ? data.txt — realpath разворачивает цель в абсолютный путь",
       "print(os.path.islink('link.txt'))   # → True — проверка перед вызовом readlink",
       "print(os.readlink('data.txt'))   # → OSError (EINVAL) — обычный файл не является символической ссылкой",
       "print(os.readlink('нет-такой-ссылки'))   # → FileNotFoundError"
@@ -25226,11 +25226,11 @@
     "examples": [
       "import os",
       "path = 'demo_owner.txt'",
-      "open(path, 'w').close()  # → создаём временный файл для опытов",
-      "os.chown(path, os.getuid(), os.getgid())  # → только Unix: владельцем становится текущий пользователь и его основная группа",
-      "os.chown(path, -1, os.getgid())  # → только Unix: -1 означает «не менять», поэтому правится лишь группа",
-      "print(os.stat(path).st_uid == os.getuid())  # → True: st_uid показывает владельца, установленного выше (на Unix)",
-      "os.chown(path, 0, 0)  # → только Unix: отдать файл root удастся лишь из-под суперпользователя, иначе PermissionError"
+      "open(path, 'w').close()  # → ? создаём временный файл для опытов",
+      "os.chown(path, os.getuid(), os.getgid())  # → ? только Unix: владельцем становится текущий пользователь и его основная группа",
+      "os.chown(path, -1, os.getgid())  # → ? только Unix: -1 означает «не менять», поэтому правится лишь группа",
+      "print(os.stat(path).st_uid == os.getuid())  # → ? True: st_uid показывает владельца, установленного выше (на Unix)",
+      "os.chown(path, 0, 0)  # → ? только Unix: отдать файл root удастся лишь из-под суперпользователя, иначе PermissionError"
     ],
     "related": [
       "os.chmod",
@@ -25269,10 +25269,10 @@
     ],
     "examples": [
       "import os",
-      "os.symlink('target.txt', 'link.txt')  # → только Unix: создаём символическую ссылку для опытов",
-      "os.lchown('link.txt', os.getuid(), os.getgid())  # → только Unix: меняется владелец САМОЙ ссылки, файл target.txt не тронут",
-      "os.chown('link.txt', os.getuid(), os.getgid())  # → только Unix: в отличие от lchown идёт ПО ссылке и правит владельца target.txt",
-      "print(os.lstat('link.txt').st_uid == os.getuid())  # → True: lstat, как и lchown, смотрит на саму ссылку, а не на цель",
+      "os.symlink('target.txt', 'link.txt')  # → ? только Unix: создаём символическую ссылку для опытов",
+      "os.lchown('link.txt', os.getuid(), os.getgid())  # → ? только Unix: меняется владелец САМОЙ ссылки, файл target.txt не тронут",
+      "os.chown('link.txt', os.getuid(), os.getgid())  # → ? только Unix: в отличие от lchown идёт ПО ссылке и правит владельца target.txt",
+      "print(os.lstat('link.txt').st_uid == os.getuid())  # → ? True: lstat, как и lchown, смотрит на саму ссылку, а не на цель",
       "os.lchown('нет-такой-ссылки', -1, -1)  # → FileNotFoundError (пара -1, -1 не меняет ничего, но путь всё равно проверяется)"
     ],
     "related": [
@@ -25312,11 +25312,11 @@
     ],
     "examples": [
       "import os",
-      "os.chroot('/srv/jail')  # → только Unix: корнем процесса становится /srv/jail, функция ничего не возвращает",
-      "os.chdir('/')  # → только Unix: обязательный шаг после chroot — иначе рабочий каталог остаётся вне «клетки»",
-      "print(os.listdir('/'))  # → только Unix: видно уже содержимое /srv/jail, например ['bin', 'etc', 'lib']",
+      "os.chroot('/srv/jail')  # → ? только Unix: корнем процесса становится /srv/jail, функция ничего не возвращает",
+      "os.chdir('/')  # → ? только Unix: обязательный шаг после chroot — иначе рабочий каталог остаётся вне «клетки»",
+      "print(os.listdir('/'))  # → ? только Unix: видно уже содержимое /srv/jail, например ['bin', 'etc', 'lib']",
       "os.chroot('/srv/нет-такого')  # → FileNotFoundError: каталог нового корня должен существовать",
-      "os.chroot('/srv/jail')  # → только Unix: PermissionError, если процесс запущен не от root"
+      "os.chroot('/srv/jail')  # → PermissionError, если процесс запущен не от root"
     ],
     "related": [
       "os.chdir",
@@ -25354,10 +25354,10 @@
     ],
     "examples": [
       "import os, stat",
-      "os.mkfifo('demo.fifo')   # → только Unix: в файловой системе появился именованный канал demo.fifo",
-      "print(stat.S_ISFIFO(os.stat('demo.fifo').st_mode))   # → только Unix: True — это FIFO, а не обычный файл",
-      "os.mkfifo('private.fifo', 0o600)   # → только Unix: канал, доступный на чтение и запись только владельцу",
-      "fd = os.open('demo.fifo', os.O_RDONLY | os.O_NONBLOCK)   # → только Unix: обычный open() на чтение ждал бы, пока другой процесс не откроет канал на запись",
+      "os.mkfifo('demo.fifo')   # → ? только Unix: в файловой системе появился именованный канал demo.fifo",
+      "print(stat.S_ISFIFO(os.stat('demo.fifo').st_mode))   # → True — это FIFO, а не обычный файл",
+      "os.mkfifo('private.fifo', 0o600)   # → ? только Unix: канал, доступный на чтение и запись только владельцу",
+      "fd = os.open('demo.fifo', os.O_RDONLY | os.O_NONBLOCK)   # → ? только Unix: обычный open() на чтение ждал бы, пока другой процесс не откроет канал на запись",
       "os.mkfifo('demo.fifo')   # → FileExistsError: [Errno 17] File exists: 'demo.fifo'"
     ],
     "related": [
@@ -25396,10 +25396,10 @@
     ],
     "examples": [
       "import os, stat",
-      "os.mknod('plain.txt')   # → только Unix: создан пустой обычный файл с режимом по умолчанию 0o600",
-      "os.mknod('node.fifo', stat.S_IFIFO | 0o600)   # → только Unix: тип узла задаётся битами режима — здесь получился FIFO, как от os.mkfifo",
-      "print(stat.S_ISFIFO(os.stat('node.fifo').st_mode))   # → только Unix: True",
-      "os.mknod('blockdev', stat.S_IFBLK | 0o600, os.makedev(8, 0))   # → только Unix и только под root: узел блочного устройства major=8, minor=0; без прав — PermissionError",
+      "os.mknod('plain.txt')   # → ? только Unix: создан пустой обычный файл с режимом по умолчанию 0o600",
+      "os.mknod('node.fifo', stat.S_IFIFO | 0o600)   # → ? только Unix: тип узла задаётся битами режима — здесь получился FIFO, как от os.mkfifo",
+      "print(stat.S_ISFIFO(os.stat('node.fifo').st_mode))   # → True",
+      "os.mknod('blockdev', stat.S_IFBLK | 0o600, os.makedev(8, 0))   # → ? только Unix и только под root: узел блочного устройства major=8, minor=0; без прав — PermissionError",
       "os.mknod('node.fifo', stat.S_IFIFO | 0o600)   # → FileExistsError: [Errno 17] File exists: 'node.fifo'"
     ],
     "related": [
@@ -25479,10 +25479,10 @@
     ],
     "examples": [
       "import os",
-      "fd = os.open('/tmp/data.log', os.O_WRONLY | os.O_CREAT)   # → дескриптор открытого файла, например 3",
+      "fd = os.open('/tmp/data.log', os.O_WRONLY | os.O_CREAT)   # → ? дескриптор открытого файла, например 3",
       "print(os.write(fd, b'payload\\n'))   # → 8",
-      "os.fdatasync(fd)   # → только Unix: None; данные гарантированно на диске, метаданные вроде времени изменения могут остаться в кеше",
-      "os.fsync(fd)   # → None; в отличие от fdatasync сбрасывает и метаданные — надёжнее, но дороже",
+      "os.fdatasync(fd)   # → ? только Unix: None; данные гарантированно на диске, метаданные вроде времени изменения могут остаться в кеше",
+      "os.fsync(fd)   # → ? None; в отличие от fdatasync сбрасывает и метаданные — надёжнее, но дороже",
       "os.fdatasync(999)   # → OSError: [Errno 9] Bad file descriptor — 999 не открытый дескриптор"
     ],
     "related": [
@@ -25520,11 +25520,11 @@
     ],
     "examples": [
       "import os",
-      "os.sync()   # → только Unix: None — буферы всех смонтированных файловых систем сброшены на диск",
-      "fd = os.open('/tmp/report.txt', os.O_WRONLY | os.O_CREAT)   # → дескриптор открытого файла, например 3",
+      "os.sync()   # → None — буферы всех смонтированных файловых систем сброшены на диск",
+      "fd = os.open('/tmp/report.txt', os.O_WRONLY | os.O_CREAT)   # → ? дескриптор открытого файла, например 3",
       "print(os.write(fd, b'done\\n'))   # → 5",
-      "os.sync()   # → только Unix: записанная строка теперь точно на диске — так страхуются перед перезагрузкой или снятием питания",
-      "os.fsync(fd)   # → None; сбрасывает только этот файл — точечнее и дешевле, чем синхронизация всей системы"
+      "os.sync()   # → ? только Unix: записанная строка теперь точно на диске — так страхуются перед перезагрузкой или снятием питания",
+      "os.fsync(fd)   # → ? None; сбрасывает только этот файл — точечнее и дешевле, чем синхронизация всей системы"
     ],
     "related": [
       "os.fsync",
@@ -25558,10 +25558,10 @@
     ],
     "examples": [
       "import os",
-      "back = os.open('.', os.O_RDONLY)   # → только Unix: дескриптор текущего каталога — «закладка», чтобы вернуться",
-      "os.chdir('/tmp')   # → текущий каталог сменён на /tmp (обычный переход по пути)",
-      "os.fchdir(back)   # → только Unix: возврат в исходный каталог по дескриптору, а не по строке пути",
-      "os.close(back)   # → дескриптор освобождён; следующий os.fchdir(back) даст OSError: Bad file descriptor",
+      "back = os.open('.', os.O_RDONLY)   # → ? только Unix: дескриптор текущего каталога — «закладка», чтобы вернуться",
+      "os.chdir('/tmp')   # → ? текущий каталог сменён на /tmp (обычный переход по пути)",
+      "os.fchdir(back)   # → ? только Unix: возврат в исходный каталог по дескриптору, а не по строке пути",
+      "os.close(back)   # → ? дескриптор освобождён; следующий os.fchdir(back) даст OSError: Bad file descriptor",
       "os.fchdir(os.open('/etc/hosts', os.O_RDONLY))   # → NotADirectoryError: нужен дескриптор каталога, а не файла"
     ],
     "related": [
@@ -25599,11 +25599,11 @@
     ],
     "examples": [
       "import os",
-      "f = open('demo_fd.txt', 'w')  # → открываем файл и дальше работаем через его дескриптор",
-      "os.fchmod(f.fileno(), 0o600)  # → только Unix: то же, что os.chmod(path, 0o600), но привязано к дескриптору, а не к имени файла",
-      "print(oct(os.fstat(f.fileno()).st_mode & 0o777))  # → только Unix: 0o600",
-      "os.fchmod(f.fileno(), 0o644)  # → только Unix: открываем чтение остальным; файл могли переименовать — дескриптор всё равно указывает на него",
-      "f.close()  # → закрываем файл, дескриптор становится недействительным",
+      "f = open('demo_fd.txt', 'w')  # → ? открываем файл и дальше работаем через его дескриптор",
+      "os.fchmod(f.fileno(), 0o600)  # → ? только Unix: то же, что os.chmod(path, 0o600), но привязано к дескриптору, а не к имени файла",
+      "print(oct(os.fstat(f.fileno()).st_mode & 0o777))  # → 0o600",
+      "os.fchmod(f.fileno(), 0o644)  # → ? только Unix: открываем чтение остальным; файл могли переименовать — дескриптор всё равно указывает на него",
+      "f.close()  # → ? закрываем файл, дескриптор становится недействительным",
       "os.fchmod(f.fileno(), 0o600)  # → OSError: Bad file descriptor — по закрытому дескриптору права менять нельзя"
     ],
     "related": [
@@ -25642,12 +25642,12 @@
     ],
     "examples": [
       "import os",
-      "f = open('demo_fchown.txt', 'w')  # → открываем файл и дальше работаем через его дескриптор",
-      "os.fchown(f.fileno(), os.getuid(), os.getgid())  # → только Unix: владелец и группа — текущий пользователь",
-      "os.fchown(f.fileno(), -1, os.getgid())  # → только Unix: -1 = «не менять», меняется только группа",
-      "print(os.fstat(f.fileno()).st_uid == os.getuid())  # → True: os.fstat читает метаданные того же дескриптора (на Unix)",
-      "os.fchown(f.fileno(), 0, 0)  # → только Unix: PermissionError, если скрипт запущен не от root",
-      "f.close()  # → закрываем файл; после этого os.fchown по этому дескриптору даст OSError"
+      "f = open('demo_fchown.txt', 'w')  # → ? открываем файл и дальше работаем через его дескриптор",
+      "os.fchown(f.fileno(), os.getuid(), os.getgid())  # → ? только Unix: владелец и группа — текущий пользователь",
+      "os.fchown(f.fileno(), -1, os.getgid())  # → ? только Unix: -1 = «не менять», меняется только группа",
+      "print(os.fstat(f.fileno()).st_uid == os.getuid())  # → ? True: os.fstat читает метаданные того же дескриптора (на Unix)",
+      "os.fchown(f.fileno(), 0, 0)  # → PermissionError, если скрипт запущен не от root",
+      "f.close()  # → ? закрываем файл; после этого os.fchown по этому дескриптору даст OSError"
     ],
     "related": [
       "os.chown",
@@ -25685,11 +25685,11 @@
     ],
     "examples": [
       "import os",
-      "fd = os.open('/tmp/counter.dat', os.O_RDWR | os.O_CREAT)   # → только Unix: дескриптор файла, который будем блокировать",
-      "os.lockf(fd, os.F_LOCK, 0)   # → только Unix: захватывает файл целиком (len=0), ждёт, пока его освободит другой процесс",
-      "os.lockf(fd, os.F_ULOCK, 0)   # → только Unix: снимает блокировку, ничего не возвращает",
-      "os.lockf(fd, os.F_TLOCK, 100)   # → только Unix: пробует занять 100 байт от текущей позиции без ожидания; занято другим процессом — BlockingIOError",
-      "os.close(fd)   # → только Unix: закрытие дескриптора тоже снимает все блокировки процесса на этом файле"
+      "fd = os.open('/tmp/counter.dat', os.O_RDWR | os.O_CREAT)   # → ? только Unix: дескриптор файла, который будем блокировать",
+      "os.lockf(fd, os.F_LOCK, 0)   # → ? только Unix: захватывает файл целиком (len=0), ждёт, пока его освободит другой процесс",
+      "os.lockf(fd, os.F_ULOCK, 0)   # → ? только Unix: снимает блокировку, ничего не возвращает",
+      "os.lockf(fd, os.F_TLOCK, 100)   # → ? только Unix: пробует занять 100 байт от текущей позиции без ожидания; занято другим процессом — BlockingIOError",
+      "os.close(fd)   # → ? только Unix: закрытие дескриптора тоже снимает все блокировки процесса на этом файле"
     ],
     "related": [],
     "related_errors": []
@@ -25759,10 +25759,10 @@
     "examples": [
       "import os",
       "step = next(os.fwalk('/etc'))",
-      "print(len(step))  # → только Unix: 4 — (dirpath, dirnames, filenames, dirfd); у os.walk элементов 3",
-      "print(step[0])  # → только Unix: /etc — обход начинается с корня дерева",
-      "print(os.stat(step[2][0], dir_fd=step[3]).st_size)  # → только Unix: размер первого файла в /etc, полученный через дескриптор каталога, а не по пути — ради этого fwalk и берут",
-      "print(list(os.fwalk('/нет-такого')))  # → только Unix: [] — несуществующий каталог молча даёт пустой обход, как и os.walk"
+      "print(len(step))  # → 4 — (dirpath, dirnames, filenames, dirfd); у os.walk элементов 3",
+      "print(step[0])  # → ? только Unix: /etc — обход начинается с корня дерева",
+      "print(os.stat(step[2][0], dir_fd=step[3]).st_size)  # → ? только Unix: размер первого файла в /etc, полученный через дескриптор каталога, а не по пути — ради этого fwalk и берут",
+      "print(list(os.fwalk('/нет-такого')))  # → [] — несуществующий каталог молча даёт пустой обход, как и os.walk"
     ],
     "related": [
       "os.walk",
@@ -25797,11 +25797,11 @@
     ],
     "examples": [
       "import os",
-      "st = os.statvfs('/')   # → только Unix: статистика файловой системы, содержащей путь '/'",
-      "print(st.f_bsize)   # → только Unix: предпочтительный размер блока ФС, например 4096",
-      "print(round(st.f_bavail * st.f_frsize / 1024**3, 1))   # → только Unix: свободно гигабайт обычному пользователю, например 37.4",
-      "print(st.f_bfree >= st.f_bavail)   # → только Unix: True — часть свободных блоков зарезервирована под root",
-      "print(os.statvfs('/нет-такого-пути'))   # → только Unix: FileNotFoundError"
+      "st = os.statvfs('/')   # → ? только Unix: статистика файловой системы, содержащей путь '/'",
+      "print(st.f_bsize)   # → ? только Unix: предпочтительный размер блока ФС, например 4096",
+      "print(round(st.f_bavail * st.f_frsize / 1024**3, 1))   # → ? только Unix: свободно гигабайт обычному пользователю, например 37.4",
+      "print(st.f_bfree >= st.f_bavail)   # → True — часть свободных блоков зарезервирована под root",
+      "print(os.statvfs('/нет-такого-пути'))   # → ? только Unix: FileNotFoundError"
     ],
     "related": [
       "os.statvfs_result",
@@ -25838,12 +25838,12 @@
     ],
     "examples": [
       "import os",
-      "fd = os.open('/', os.O_RDONLY)   # → только Unix: дескриптор каталога-точки монтирования",
-      "st = os.fstatvfs(fd)   # → только Unix: os.statvfs_result — та же структура, что у os.statvfs",
-      "print(st.f_bsize)   # → только Unix: предпочтительный размер блока ФС в байтах, например 4096",
-      "print(st.f_bavail * st.f_frsize // 1024 // 1024)   # → только Unix: свободно мегабайт для обычного пользователя, например 15340",
-      "print(os.fstatvfs(fd).f_blocks == os.statvfs('/').f_blocks)   # → только Unix: True — fstatvfs адресует ФС по дескриптору, statvfs по пути",
-      "os.close(fd)   # → только Unix: дескриптор освобождён"
+      "fd = os.open('/', os.O_RDONLY)   # → ? только Unix: дескриптор каталога-точки монтирования",
+      "st = os.fstatvfs(fd)   # → ? только Unix: os.statvfs_result — та же структура, что у os.statvfs",
+      "print(st.f_bsize)   # → ? только Unix: предпочтительный размер блока ФС в байтах, например 4096",
+      "print(st.f_bavail * st.f_frsize // 1024 // 1024)   # → ? только Unix: свободно мегабайт для обычного пользователя, например 15340",
+      "print(os.fstatvfs(fd).f_blocks == os.statvfs('/').f_blocks)   # → ? только Unix: True — fstatvfs адресует ФС по дескриптору, statvfs по пути",
+      "os.close(fd)   # → ? только Unix: дескриптор освобождён"
     ],
     "related": [
       "os.statvfs",
@@ -25880,11 +25880,11 @@
     ],
     "examples": [
       "import os",
-      "st = os.statvfs('/')   # → только Unix: возвращается объект типа os.statvfs_result",
-      "print(type(st).__name__)   # → только Unix: statvfs_result",
-      "print(st[0] == st.f_bsize)   # → только Unix: True — поля доступны и по индексу, и по имени",
-      "print(st.f_namemax)   # → только Unix: предельная длина имени файла в этой ФС, например 255",
-      "print(bool(st.f_flag & os.ST_RDONLY))   # → только Unix: False, если ФС смонтирована на запись"
+      "st = os.statvfs('/')   # → ? только Unix: возвращается объект типа os.statvfs_result",
+      "print(type(st).__name__)   # → ? только Unix: statvfs_result",
+      "print(st[0] == st.f_bsize)   # → True — поля доступны и по индексу, и по имени",
+      "print(st.f_namemax)   # → ? только Unix: предельная длина имени файла в этой ФС, например 255",
+      "print(bool(st.f_flag & os.ST_RDONLY))   # → False, если ФС смонтирована на запись"
     ],
     "related": [
       "os.statvfs",
@@ -25919,10 +25919,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.pathconf('/tmp', 'PC_NAME_MAX'))  # → только Unix: предел длины имени файла в /tmp, обычно 255",
-      "print(os.pathconf('/tmp', os.pathconf_names['PC_PATH_MAX']))  # → только Unix: предел длины всего пути, например 4096 (имя ограничения можно заменить его кодом)",
+      "print(os.pathconf('/tmp', 'PC_NAME_MAX'))  # → ? только Unix: предел длины имени файла в /tmp, обычно 255",
+      "print(os.pathconf('/tmp', os.pathconf_names['PC_PATH_MAX']))  # → ? только Unix: предел длины всего пути, например 4096 (имя ограничения можно заменить его кодом)",
       "name = 'отчёт_за_2026_год.txt'",
-      "print(len(name.encode()) <= os.pathconf('/tmp', 'PC_NAME_MAX'))  # → только Unix: True — проверяем длину имени в байтах до создания файла",
+      "print(len(name.encode()) <= os.pathconf('/tmp', 'PC_NAME_MAX'))  # → ? только Unix: True — проверяем длину имени в байтах до создания файла",
       "print(os.pathconf('/нет-такого-каталога', 'PC_NAME_MAX'))  # → FileNotFoundError"
     ],
     "related": [
@@ -25959,10 +25959,10 @@
     "examples": [
       "import os",
       "f = open('demo_conf.txt', 'w')  # учебный файл — нужен только ради открытого дескриптора",
-      "print(os.fpathconf(f.fileno(), 'PC_NAME_MAX'))  # → только Unix: предел длины имени файла на этой ФС, обычно 255",
-      "print(os.fpathconf(f.fileno(), os.pathconf_names['PC_PATH_MAX']))  # → только Unix: то же можно спросить числовым кодом из os.pathconf_names, например 4096",
+      "print(os.fpathconf(f.fileno(), 'PC_NAME_MAX'))  # → ? только Unix: предел длины имени файла на этой ФС, обычно 255",
+      "print(os.fpathconf(f.fileno(), os.pathconf_names['PC_PATH_MAX']))  # → ? только Unix: то же можно спросить числовым кодом из os.pathconf_names, например 4096",
       "r, w = os.pipe()",
-      "print(os.fpathconf(w, 'PC_PIPE_BUF'))  # → только Unix: сколько байт пишется в канал атомарно, обычно 4096 — у канала нет пути, поэтому os.pathconf тут неприменим",
+      "print(os.fpathconf(w, 'PC_PIPE_BUF'))  # → ? только Unix: сколько байт пишется в канал атомарно, обычно 4096 — у канала нет пути, поэтому os.pathconf тут неприменим",
       "print(os.fpathconf(f.fileno(), 'PC_UNKNOWN'))  # → ValueError: имя ограничения не распознано"
     ],
     "related": [
@@ -26001,10 +26001,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.confstr('CS_PATH'))   # → только Unix: пути поиска стандартных утилит, например /bin:/usr/bin",
-      "print(os.confstr('CS_GNU_LIBC_VERSION'))   # → только Unix с glibc: версия libc, например glibc 2.36",
-      "print(os.confstr(os.confstr_names['CS_PATH']))   # → то же значение, что и по имени: принимается и числовой код из os.confstr_names",
-      "print(os.confstr('CS_XBS5_ILP32_OFF32_CFLAGS'))   # → None: имя известно, но значение в системе не определено",
+      "print(os.confstr('CS_PATH'))   # → ? только Unix: пути поиска стандартных утилит, например /bin:/usr/bin",
+      "print(os.confstr('CS_GNU_LIBC_VERSION'))   # → ? только Unix с glibc: версия libc, например glibc 2.36",
+      "print(os.confstr(os.confstr_names['CS_PATH']))   # → ? то же значение, что и по имени: принимается и числовой код из os.confstr_names",
+      "print(os.confstr('CS_XBS5_ILP32_OFF32_CFLAGS'))   # → ? None: имя известно, но значение в системе не определено",
       "print(os.confstr('CS_НЕТ_ТАКОГО'))   # → ValueError: unrecognized configuration name"
     ],
     "related": [
@@ -26042,10 +26042,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.sysconf('SC_NPROCESSORS_ONLN'))  # → только Unix: число доступных ядер, например 8 (переносимый аналог — os.cpu_count())",
-      "print(os.sysconf('SC_PAGESIZE'))  # → только Unix: размер страницы памяти в байтах, обычно 4096",
+      "print(os.sysconf('SC_NPROCESSORS_ONLN'))  # → ? только Unix: число доступных ядер, например 8 (переносимый аналог — os.cpu_count())",
+      "print(os.sysconf('SC_PAGESIZE'))  # → ? только Unix: размер страницы памяти в байтах, обычно 4096",
       "total = os.sysconf('SC_PHYS_PAGES') * os.sysconf('SC_PAGESIZE')",
-      "print(total // 1024 ** 3)  # → только Unix: объём ОЗУ в гигабайтах, например 16",
+      "print(total // 1024 ** 3)  # → ? только Unix: объём ОЗУ в гигабайтах, например 16",
       "print(os.sysconf('SC_NO_SUCH_LIMIT'))  # → ValueError: имя параметра не распознано"
     ],
     "related": [
@@ -26083,10 +26083,10 @@
     ],
     "examples": [
       "import os",
-      "print(os.getloadavg())  # → только Unix: кортеж из трёх float, например (0.52, 0.48, 0.41); на Windows — AttributeError",
-      "load1, load5, load15 = os.getloadavg()  # → только Unix: средние за 1, 5 и 15 минут",
-      "print(round(load1 / (os.cpu_count() or 1), 2))  # → только Unix: нагрузка на одно ядро, например 0.07",
-      "print(load1 > load15)  # → только Unix: True, если за последнюю минуту нагрузка выросла"
+      "print(os.getloadavg())  # → ? только Unix: кортеж из трёх float, например (0.52, 0.48, 0.41); на Windows — AttributeError",
+      "load1, load5, load15 = os.getloadavg()  # → ? только Unix: средние за 1, 5 и 15 минут",
+      "print(round(load1 / (os.cpu_count() or 1), 2))  # → ? только Unix: нагрузка на одно ядро, например 0.07",
+      "print(load1 > load15)  # → True, если за последнюю минуту нагрузка выросла"
     ],
     "related": [
       "os.cpu_count",
@@ -26122,11 +26122,11 @@
     "examples": [
       "import os",
       "import platform",
-      "print(os.uname())  # → только Unix: posix.uname_result(sysname='Linux', nodename='myhost', release='6.8.0-45-generic', version='#45-Ubuntu SMP ...', machine='x86_64')",
-      "print(os.uname().sysname)  # → только Unix: имя ядра, например Linux (на macOS — Darwin)",
-      "sysname, nodename, release, version, machine = os.uname()  # → только Unix: результат распаковывается как кортеж из пяти строк",
-      "print(f'{sysname} {release} на {machine}')  # → только Unix: например Linux 6.8.0-45-generic на x86_64",
-      "print(platform.uname().system)  # → кроссплатформенная замена: Linux / Darwin / Windows (сам os.uname() на Windows бросает AttributeError)"
+      "print(os.uname())  # → ? только Unix: posix.uname_result(sysname='Linux', nodename='myhost', release='6.8.0-45-generic', version='#45-Ubuntu SMP ...', machine='x86_64')",
+      "print(os.uname().sysname)  # → ? только Unix: имя ядра, например Linux (на macOS — Darwin)",
+      "sysname, nodename, release, version, machine = os.uname()  # → ? только Unix: результат распаковывается как кортеж из пяти строк",
+      "print(f'{sysname} {release} на {machine}')  # → ? только Unix: например Linux 6.8.0-45-generic на x86_64",
+      "print(platform.uname().system)  # → ? кроссплатформенная замена: Linux / Darwin / Windows (сам os.uname() на Windows бросает AttributeError)"
     ],
     "related": [
       "os.uname_result",
@@ -26161,10 +26161,10 @@
     ],
     "examples": [
       "import os",
-      "info = os.uname()  # → только Unix: os.uname() возвращает экземпляр os.uname_result",
-      "print(info.sysname, info.machine)  # → только Unix: имя ядра и архитектура, например Linux x86_64",
-      "print(info[0] == info.sysname)  # → только Unix: True — поля доступны и по индексу, и по имени",
-      "print(isinstance(info, tuple))  # → только Unix: True — uname_result наследуется от tuple, поэтому распаковывается"
+      "info = os.uname()  # → ? только Unix: os.uname() возвращает экземпляр os.uname_result",
+      "print(info.sysname, info.machine)  # → ? только Unix: имя ядра и архитектура, например Linux x86_64",
+      "print(info[0] == info.sysname)  # → True — поля доступны и по индексу, и по имени",
+      "print(isinstance(info, tuple))  # → True — uname_result наследуется от tuple, поэтому распаковывается"
     ],
     "related": [
       "os.uname",
@@ -26199,11 +26199,11 @@
     ],
     "examples": [
       "import os",
-      "print(os.supports_bytes_environ)   # → True на Unix (там есть getenvb), False на Windows",
-      "os.environb[b'GLOSSARY_DEMO'] = b'42'   # → только Unix: кладём переменную в байтовое окружение",
-      "print(os.getenvb(b'GLOSSARY_DEMO'))   # → только Unix: b'42' — и ключ, и значение остаются bytes",
-      "print(os.getenvb(b'GLOSSARY_NO_SUCH', b'fallback'))   # → только Unix: b'fallback' — второй аргумент это значение по умолчанию",
-      "print(os.getenvb('GLOSSARY_DEMO'))   # → только Unix: TypeError — str-ключ не подходит, для строк есть os.getenv"
+      "print(os.supports_bytes_environ)   # → ? True на Unix (там есть getenvb), False на Windows",
+      "os.environb[b'GLOSSARY_DEMO'] = b'42'   # → ? только Unix: кладём переменную в байтовое окружение",
+      "print(os.getenvb(b'GLOSSARY_DEMO'))   # → b'42' — и ключ, и значение остаются bytes",
+      "print(os.getenvb(b'GLOSSARY_NO_SUCH', b'fallback'))   # → b'fallback' — второй аргумент это значение по умолчанию",
+      "print(os.getenvb('GLOSSARY_DEMO'))   # → TypeError — str-ключ не подходит, для строк есть os.getenv"
     ],
     "related": [
       "os.getenv",
@@ -26240,9 +26240,9 @@
       "import os",
       "fd = os.open('/tmp/pread_demo.txt', os.O_RDWR | os.O_CREAT)  # временный файл только для примера",
       "print(os.write(fd, b'Hello, world!'))  # → 13 — записали 13 байт, текущее смещение стало 13",
-      "print(os.pread(fd, 5, 0))  # → только Unix: b'Hello' — читаем 5 байт с позиции 0",
+      "print(os.pread(fd, 5, 0))  # → b'Hello' — читаем 5 байт с позиции 0",
       "print(os.lseek(fd, 0, os.SEEK_CUR))  # → 13 — pread не сдвинул текущее смещение файла, в отличие от os.read",
-      "print(os.pread(fd, 5, 1000))  # → только Unix: b'' — чтение за концом файла возвращает пустые байты, а не ошибку",
+      "print(os.pread(fd, 5, 1000))  # → b'' — чтение за концом файла возвращает пустые байты, а не ошибку",
       "os.close(fd)  # закрываем дескриптор"
     ],
     "related": [
@@ -26282,9 +26282,9 @@
     "examples": [
       "import os",
       "fd = os.open('/tmp/pwrite-demo.bin', os.O_RDWR | os.O_CREAT | os.O_TRUNC)  # временный файл для опытов",
-      "print(os.pwrite(fd, b'0123456789', 0))  # → только Unix: 10 — записано байт начиная со смещения 0",
-      "print(os.pwrite(fd, b'XY', 4))  # → только Unix: 2 — точечная правка двух байтов в середине файла",
-      "print(os.pread(fd, 10, 0))  # → только Unix: b'0123XY6789'",
+      "print(os.pwrite(fd, b'0123456789', 0))  # → 10 — записано байт начиная со смещения 0",
+      "print(os.pwrite(fd, b'XY', 4))  # → 2 — точечная правка двух байтов в середине файла",
+      "print(os.pread(fd, 10, 0))  # → b'0123XY6789'",
       "print(os.lseek(fd, 0, os.SEEK_CUR))  # → 0 — pwrite не двигает позицию fd, в отличие от os.write"
     ],
     "related": [
@@ -26324,9 +26324,9 @@
     "examples": [
       "import os",
       "fd = os.open('/tmp/preadv-demo.bin', os.O_RDWR | os.O_CREAT | os.O_TRUNC)  # временный файл для опытов",
-      "print(os.pwrite(fd, b'HEADERBODY', 0))  # → только Unix: 10 — подготовили данные, позиция fd осталась в начале",
+      "print(os.pwrite(fd, b'HEADERBODY', 0))  # → 10 — подготовили данные, позиция fd осталась в начале",
       "bufs = [bytearray(6), bytearray(4)]  # scatter-чтение: заголовок и тело в разные буферы",
-      "print(os.preadv(fd, bufs, 0), bytes(bufs[0]), bytes(bufs[1]))  # → только Unix: 10 b'HEADER' b'BODY'",
+      "print(os.preadv(fd, bufs, 0), bytes(bufs[0]), bytes(bufs[1]))  # → ? только Unix: 10 b'HEADER' b'BODY'",
       "print(os.lseek(fd, 0, os.SEEK_CUR))  # → 0 — ни pwrite, ни preadv не сдвинули позицию fd (в отличие от os.readv)"
     ],
     "related": [
@@ -26366,8 +26366,8 @@
       "import os",
       "fd = os.open('/tmp/pwritev-demo.bin', os.O_RDWR | os.O_CREAT | os.O_TRUNC)  # временный файл для опытов",
       "parts = [b'HEADER', b'BODY']  # gather-запись: заголовок и тело лежат в разных буферах",
-      "print(os.pwritev(fd, parts, 0))  # → только Unix: 10 — обе части ушли одним системным вызовом",
-      "print(os.pread(fd, 10, 0))  # → только Unix: b'HEADERBODY' — буферы склеены подряд, без разделителей",
+      "print(os.pwritev(fd, parts, 0))  # → 10 — обе части ушли одним системным вызовом",
+      "print(os.pread(fd, 10, 0))  # → b'HEADERBODY' — буферы склеены подряд, без разделителей",
       "print(os.lseek(fd, 0, os.SEEK_CUR))  # → 0 — pwritev пишет по смещению и не двигает позицию fd (в отличие от os.writev)"
     ],
     "related": [
@@ -26406,10 +26406,10 @@
     "examples": [
       "import os",
       "fd = os.open('/tmp/readv-demo.bin', os.O_RDWR | os.O_CREAT | os.O_TRUNC)  # временный файл для опытов",
-      "print(os.pwrite(fd, b'HEADERBODY', 0))  # → только Unix: 10 — подготовили данные, позиция fd осталась в начале",
+      "print(os.pwrite(fd, b'HEADERBODY', 0))  # → 10 — подготовили данные, позиция fd осталась в начале",
       "bufs = [bytearray(6), bytearray(4)]  # scatter-чтение: заголовок и тело в разные буферы",
-      "print(os.readv(fd, bufs), bytes(bufs[0]), bytes(bufs[1]))  # → только Unix: 10 b'HEADER' b'BODY'",
-      "print(os.readv(fd, [bytearray(4)]))  # → только Unix: 0 — данные кончились: readv читает с текущей позиции и сдвигает её"
+      "print(os.readv(fd, bufs), bytes(bufs[0]), bytes(bufs[1]))  # → ? только Unix: 10 b'HEADER' b'BODY'",
+      "print(os.readv(fd, [bytearray(4)]))  # → 0 — данные кончились: readv читает с текущей позиции и сдвигает её"
     ],
     "related": [
       "os.writev",
@@ -26447,10 +26447,10 @@
     "examples": [
       "import os",
       "fd = os.open('/tmp/writev-demo.txt', os.O_RDWR | os.O_CREAT | os.O_TRUNC)  # временный файл для опытов",
-      "print(os.writev(fd, [b'name;', b'age\\n']))  # → только Unix: 9 — обе части записаны одним системным вызовом",
-      "print(os.writev(fd, [b'Ann;', b'20\\n']))  # → только Unix: 7 — writev пишет с текущей позиции, дописывая в конец",
-      "print(os.pread(fd, 16, 0))  # → только Unix: b'name;age\\nAnn;20\\n'",
-      "print(os.writev(fd, []))  # → только Unix: 0 — пустой список буферов ничего не пишет"
+      "print(os.writev(fd, [b'name;', b'age\\n']))  # → 9 — обе части записаны одним системным вызовом",
+      "print(os.writev(fd, [b'Ann;', b'20\\n']))  # → 7 — writev пишет с текущей позиции, дописывая в конец",
+      "print(os.pread(fd, 16, 0))  # → b'name;age\\nAnn;20\\n'",
+      "print(os.writev(fd, []))  # → 0 — пустой список буферов ничего не пишет"
     ],
     "related": [
       "os.readv",
@@ -26490,9 +26490,9 @@
       "src = os.open('/tmp/send_src.txt', os.O_RDWR | os.O_CREAT | os.O_TRUNC)   # временный файл-источник",
       "print(os.write(src, b'hello world!'))   # → 12 — подготовили 12 байт данных",
       "dst = os.open('/tmp/send_dst.txt', os.O_WRONLY | os.O_CREAT | os.O_TRUNC)   # приёмник; на практике сюда подставляют дескриптор сокета",
-      "print(os.sendfile(dst, src, 0, 5))   # → только Unix: 5 — ядро переслало b'hello' с нулевого смещения, минуя память процесса",
-      "print(os.sendfile(dst, src, 5, 100))   # → только Unix: 7 — отправлен остаток файла, count можно брать с запасом",
-      "print(os.sendfile(dst, src, 12, 10))   # → только Unix: 0 — смещение за концом файла, отправлять нечего"
+      "print(os.sendfile(dst, src, 0, 5))   # → 5 — ядро переслало b'hello' с нулевого смещения, минуя память процесса",
+      "print(os.sendfile(dst, src, 5, 100))   # → 7 — отправлен остаток файла, count можно брать с запасом",
+      "print(os.sendfile(dst, src, 12, 10))   # → 0 — смещение за концом файла, отправлять нечего"
     ],
     "related": [
       "os.copy_file_range",
@@ -26530,8 +26530,8 @@
       "src = os.open('/tmp/copy_src.txt', os.O_RDWR | os.O_CREAT | os.O_TRUNC)   # временный файл-источник",
       "print(os.write(src, b'hello world!'))   # → 12 — записали 12 байт без буферизации Python",
       "dst = os.open('/tmp/copy_dst.txt', os.O_WRONLY | os.O_CREAT | os.O_TRUNC)   # временный файл-приёмник",
-      "print(os.copy_file_range(src, dst, 12, offset_src=0))   # → только Linux: 12 — ядро скопировало байты, минуя буфер Python",
-      "print(os.copy_file_range(src, dst, 12, offset_src=12))   # → только Linux: 0 — за концом файла копировать нечего"
+      "print(os.copy_file_range(src, dst, 12, offset_src=0))   # → 12 — ядро скопировало байты, минуя буфер Python",
+      "print(os.copy_file_range(src, dst, 12, offset_src=12))   # → 0 — за концом файла копировать нечего"
     ],
     "related": [
       "os.sendfile",
@@ -26570,11 +26570,11 @@
       "r, w = os.pipe()",
       "fd = os.open('/tmp/example.bin', os.O_RDONLY)",
       "n = os.splice(fd, w, 4096)",
-      "print(n)   # → только Linux: сколько байт ядро перенесло в канал, не больше 4096",
-      "print(os.read(r, n))   # → только Linux: те же самые байты — при переносе они не копировались в память процесса",
-      "print(os.splice(fd, w, 65536, offset_src=0))   # → только Linux: перенос с начала файла, позиция fd при этом не сдвигается",
+      "print(n)   # → ? только Linux: сколько байт ядро перенесло в канал, не больше 4096",
+      "print(os.read(r, n))   # → ? только Linux: те же самые байты — при переносе они не копировались в память процесса",
+      "print(os.splice(fd, w, 65536, offset_src=0))   # → ? только Linux: перенос с начала файла, позиция fd при этом не сдвигается",
       "dst = os.open('/tmp/copy.bin', os.O_WRONLY | os.O_CREAT)",
-      "print(os.splice(fd, dst, 4096))   # → только Linux: OSError [Errno 22] Invalid argument — хотя бы один из дескрипторов обязан быть каналом (pipe)"
+      "print(os.splice(fd, dst, 4096))   # → ? только Linux: OSError [Errno 22] Invalid argument — хотя бы один из дескрипторов обязан быть каналом (pipe)"
     ],
     "related": [
       "os.copy_file_range",
@@ -26611,11 +26611,11 @@
     ],
     "examples": [
       "import os",
-      "os.setxattr('note.txt', 'user.author', b'ivan')   # → только Linux: записать расширенный атрибут (файл должен существовать, а ФС — поддерживать xattr)",
-      "print(os.getxattr('note.txt', 'user.author'))   # → только Linux: b'ivan' — значение всегда возвращается как bytes, не как str",
-      "print(os.getxattr('note.txt', 'user.author', follow_symlinks=False))   # → только Linux: b'ivan'; для симлинка атрибут читался бы у самой ссылки, а не у её цели",
-      "print(os.listxattr('note.txt'))   # → только Linux: ['user.author'] — так узнают, какие атрибуты вообще есть у файла",
-      "print(os.getxattr('note.txt', 'user.nope'))   # → только Linux: OSError (Errno 61, ENODATA) — у отсутствующего атрибута нет значения по умолчанию"
+      "os.setxattr('note.txt', 'user.author', b'ivan')   # → ? только Linux: записать расширенный атрибут (файл должен существовать, а ФС — поддерживать xattr)",
+      "print(os.getxattr('note.txt', 'user.author'))   # → b'ivan' — значение всегда возвращается как bytes, не как str",
+      "print(os.getxattr('note.txt', 'user.author', follow_symlinks=False))   # → ? только Linux: b'ivan'; для симлинка атрибут читался бы у самой ссылки, а не у её цели",
+      "print(os.listxattr('note.txt'))   # → ['user.author'] — так узнают, какие атрибуты вообще есть у файла",
+      "print(os.getxattr('note.txt', 'user.nope'))   # → OSError (Errno 61, ENODATA) — у отсутствующего атрибута нет значения по умолчанию"
     ],
     "related": [
       "os.setxattr",
@@ -26654,10 +26654,10 @@
     "examples": [
       "import os",
       "open('xattr_demo.txt', 'w').close()",
-      "os.setxattr('xattr_demo.txt', 'user.author', b'anna')   # → только Linux: атрибут записан, возвращает None (имя обязано начинаться с user.)",
-      "print(os.getxattr('xattr_demo.txt', 'user.author'))   # → только Linux: b'anna'",
-      "print(os.setxattr('xattr_demo.txt', 'user.author', b'clara', os.XATTR_CREATE))   # → только Linux: OSError (EEXIST) — с flags=0 значение просто перезаписалось бы",
-      "print(os.setxattr('xattr_demo.txt', 'user.tag', 'важное'))   # → только Linux: TypeError — значение должно быть bytes, а не str"
+      "os.setxattr('xattr_demo.txt', 'user.author', b'anna')   # → ? только Linux: атрибут записан, возвращает None (имя обязано начинаться с user.)",
+      "print(os.getxattr('xattr_demo.txt', 'user.author'))   # → b'anna'",
+      "print(os.setxattr('xattr_demo.txt', 'user.author', b'clara', os.XATTR_CREATE))   # → OSError (EEXIST) — с flags=0 значение просто перезаписалось бы",
+      "print(os.setxattr('xattr_demo.txt', 'user.tag', 'важное'))   # → TypeError — значение должно быть bytes, а не str"
     ],
     "related": [
       "os.getxattr",
@@ -26696,9 +26696,9 @@
     "examples": [
       "import os",
       "open('xattr_demo.txt', 'w').close()",
-      "os.setxattr('xattr_demo.txt', 'user.author', b'anna')   # → только Linux: записали расширенный атрибут (имя обязано начинаться с user.)",
-      "print(os.listxattr('xattr_demo.txt'))   # → только Linux: ['user.author']",
-      "print(os.listxattr())   # → только Linux: без аргумента смотрит текущий каталог, обычно []",
+      "os.setxattr('xattr_demo.txt', 'user.author', b'anna')   # → ? только Linux: записали расширенный атрибут (имя обязано начинаться с user.)",
+      "print(os.listxattr('xattr_demo.txt'))   # → ['user.author']",
+      "print(os.listxattr())   # → ? только Linux: без аргумента смотрит текущий каталог, обычно []",
       "print(os.listxattr('нет-такого'))   # → FileNotFoundError"
     ],
     "related": [
@@ -26738,10 +26738,10 @@
     "examples": [
       "import os",
       "open('xattr_demo.txt', 'w').close()",
-      "os.setxattr('xattr_demo.txt', 'user.author', b'anna')   # → только Linux: подготовили атрибут, чтобы было что удалять",
-      "os.removexattr('xattr_demo.txt', 'user.author')   # → только Linux: атрибут удалён, функция возвращает None",
-      "print(os.listxattr('xattr_demo.txt'))   # → только Linux: [] — атрибутов не осталось",
-      "print(os.removexattr('xattr_demo.txt', 'user.author'))   # → только Linux: OSError (ENODATA) — повторное удаление, атрибута уже нет"
+      "os.setxattr('xattr_demo.txt', 'user.author', b'anna')   # → ? только Linux: подготовили атрибут, чтобы было что удалять",
+      "os.removexattr('xattr_demo.txt', 'user.author')   # → ? только Linux: атрибут удалён, функция возвращает None",
+      "print(os.listxattr('xattr_demo.txt'))   # → [] — атрибутов не осталось",
+      "print(os.removexattr('xattr_demo.txt', 'user.author'))   # → OSError (ENODATA) — повторное удаление, атрибута уже нет"
     ],
     "related": [
       "os.setxattr",
@@ -26779,11 +26779,11 @@
     ],
     "examples": [
       "import os",
-      "fd = os.eventfd(0)   # → только Linux: новый дескриптор-счётчик со стартовым значением 0",
-      "os.eventfd_write(fd, 3)   # → только Linux: счётчик 0 → 3, fd становится готовым для чтения",
-      "print(os.eventfd_read(fd))   # → только Linux: 3 — чтение забирает значение и обнуляет счётчик",
-      "os.close(fd)   # → только Linux: eventfd закрывается как обычный файловый дескриптор",
-      "print(os.eventfd_read(os.eventfd(2, os.EFD_SEMAPHORE | os.EFD_NONBLOCK)))   # → только Linux: 1, в семафорном режиме чтение снимает по одной единице"
+      "fd = os.eventfd(0)   # → ? только Linux: новый дескриптор-счётчик со стартовым значением 0",
+      "os.eventfd_write(fd, 3)   # → ? только Linux: счётчик 0 → 3, fd становится готовым для чтения",
+      "print(os.eventfd_read(fd))   # → 3 — чтение забирает значение и обнуляет счётчик",
+      "os.close(fd)   # → ? только Linux: eventfd закрывается как обычный файловый дескриптор",
+      "print(os.eventfd_read(os.eventfd(2, os.EFD_SEMAPHORE | os.EFD_NONBLOCK)))   # → ? только Linux: 1, в семафорном режиме чтение снимает по одной единице"
     ],
     "related": [
       "os.eventfd_read",
@@ -26819,11 +26819,11 @@
     ],
     "examples": [
       "import os",
-      "fd = os.eventfd(0, os.EFD_NONBLOCK)   # → только Linux: счётчик 0, чтение не будет блокировать",
-      "os.eventfd_write(fd, 2)   # → только Linux: счётчик 0 → 2",
-      "os.eventfd_write(fd, 3)   # → только Linux: счётчик 2 → 5",
-      "print(os.eventfd_read(fd))   # → только Linux: 5 — записи суммируются до первого чтения",
-      "print(os.eventfd_read(fd))   # → только Linux: BlockingIOError, счётчик пуст; без EFD_NONBLOCK вызов заблокировался бы навсегда"
+      "fd = os.eventfd(0, os.EFD_NONBLOCK)   # → ? только Linux: счётчик 0, чтение не будет блокировать",
+      "os.eventfd_write(fd, 2)   # → ? только Linux: счётчик 0 → 2",
+      "os.eventfd_write(fd, 3)   # → ? только Linux: счётчик 2 → 5",
+      "print(os.eventfd_read(fd))   # → 5 — записи суммируются до первого чтения",
+      "print(os.eventfd_read(fd))   # → BlockingIOError, счётчик пуст; без EFD_NONBLOCK вызов заблокировался бы навсегда"
     ],
     "related": [
       "os.eventfd_write",
@@ -26858,11 +26858,11 @@
     ],
     "examples": [
       "import os",
-      "fd = os.eventfd(0, os.EFD_NONBLOCK)   # → только Linux: счётчик 0",
-      "os.eventfd_write(fd, 1)   # → только Linux: счётчик 0 → 1, ожидающий читатель просыпается",
-      "os.eventfd_write(fd, 4)   # → только Linux: счётчик 1 → 5, значения складываются, а не заменяют друг друга",
-      "print(os.eventfd_read(fd))   # → только Linux: 5",
-      "os.eventfd_write(fd, -1)   # → только Linux: OverflowError, значение счётчика беззнаковое"
+      "fd = os.eventfd(0, os.EFD_NONBLOCK)   # → ? только Linux: счётчик 0",
+      "os.eventfd_write(fd, 1)   # → ? только Linux: счётчик 0 → 1, ожидающий читатель просыпается",
+      "os.eventfd_write(fd, 4)   # → ? только Linux: счётчик 1 → 5, значения складываются, а не заменяют друг друга",
+      "print(os.eventfd_read(fd))   # → 5",
+      "os.eventfd_write(fd, -1)   # → OverflowError, значение счётчика беззнаковое"
     ],
     "related": [
       "os.eventfd_read",
@@ -26897,11 +26897,11 @@
     ],
     "examples": [
       "import os, time",
-      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → только Linux: файловый дескриптор таймера, например 3",
-      "os.timerfd_settime(fd, initial=1.0)  # → только Linux: одноразовый сигнал через 1 секунду",
-      "print(int.from_bytes(os.read(fd, 8), 'little'))  # → только Linux: 1 — чтение блокировалось до срабатывания таймера",
-      "os.close(fd)  # → только Linux: таймер остановлен вместе с закрытием дескриптора",
-      "nb = os.timerfd_create(time.CLOCK_REALTIME, flags=os.TFD_NONBLOCK)  # → только Linux: чтение до срабатывания даст BlockingIOError, а не блокировку"
+      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → ? только Linux: файловый дескриптор таймера, например 3",
+      "os.timerfd_settime(fd, initial=1.0)  # → ? только Linux: одноразовый сигнал через 1 секунду",
+      "print(int.from_bytes(os.read(fd, 8), 'little'))  # → 1 — чтение блокировалось до срабатывания таймера",
+      "os.close(fd)  # → ? только Linux: таймер остановлен вместе с закрытием дескриптора",
+      "nb = os.timerfd_create(time.CLOCK_REALTIME, flags=os.TFD_NONBLOCK)  # → ? только Linux: чтение до срабатывания даст BlockingIOError, а не блокировку"
     ],
     "related": [
       "os.timerfd_settime",
@@ -26938,11 +26938,11 @@
     ],
     "examples": [
       "import os, time",
-      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → только Linux: дескриптор таймера",
-      "print(os.timerfd_settime(fd, initial=1.5, interval=0.5))  # → только Linux: (0.0, 0.0) — прежних настроек не было; сигнал через 1.5 с, дальше каждые 0.5 с",
-      "print(int.from_bytes(os.read(fd, 8), 'little'))  # → только Linux: 1 — чтение ждало первого срабатывания",
-      "print(os.timerfd_settime(fd, flags=os.TFD_TIMER_ABSTIME, initial=time.clock_gettime(time.CLOCK_MONOTONIC) + 3.0))  # → только Linux: примерно (0.5, 0.5) — прежние значения; новый срок задан абсолютным моментом часов",
-      "print(os.timerfd_settime(fd, initial=0.0))  # → только Linux: примерно (2.9, 0.0) — initial=0.0 выключает таймер"
+      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → ? только Linux: дескриптор таймера",
+      "print(os.timerfd_settime(fd, initial=1.5, interval=0.5))  # → (0.0, 0.0) — прежних настроек не было; сигнал через 1.5 с, дальше каждые 0.5 с",
+      "print(int.from_bytes(os.read(fd, 8), 'little'))  # → 1 — чтение ждало первого срабатывания",
+      "print(os.timerfd_settime(fd, flags=os.TFD_TIMER_ABSTIME, initial=time.clock_gettime(time.CLOCK_MONOTONIC) + 3.0))  # → ? только Linux: примерно (0.5, 0.5) — прежние значения; новый срок задан абсолютным моментом часов",
+      "print(os.timerfd_settime(fd, initial=0.0))  # → ? только Linux: примерно (2.9, 0.0) — initial=0.0 выключает таймер"
     ],
     "related": [
       "os.timerfd_gettime",
@@ -26979,11 +26979,11 @@
     ],
     "examples": [
       "import os, time",
-      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → только Linux: дескриптор таймера",
-      "print(os.timerfd_settime_ns(fd, initial=1_000_000_000, interval=250_000_000))  # → только Linux: (0, 0) — прежние значения в наносекундах; старт через 1 с, период 0.25 с",
-      "print(int.from_bytes(os.read(fd, 8), 'little'))  # → только Linux: 1 — чтение ждало первого срабатывания",
-      "print(os.timerfd_settime_ns(fd, initial=0, interval=0))  # → только Linux: примерно (250000000, 250000000) — прежние остаток и период; таймер выключен",
-      "os.timerfd_settime_ns(fd, initial=0.5)  # → только Linux: TypeError — нужны целые наносекунды, дробные секунды принимает os.timerfd_settime"
+      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → ? только Linux: дескриптор таймера",
+      "print(os.timerfd_settime_ns(fd, initial=1_000_000_000, interval=250_000_000))  # → (0, 0) — прежние значения в наносекундах; старт через 1 с, период 0.25 с",
+      "print(int.from_bytes(os.read(fd, 8), 'little'))  # → 1 — чтение ждало первого срабатывания",
+      "print(os.timerfd_settime_ns(fd, initial=0, interval=0))  # → ? только Linux: примерно (250000000, 250000000) — прежние остаток и период; таймер выключен",
+      "os.timerfd_settime_ns(fd, initial=0.5)  # → TypeError — нужны целые наносекунды, дробные секунды принимает os.timerfd_settime"
     ],
     "related": [
       "os.timerfd_settime",
@@ -27020,11 +27020,11 @@
     ],
     "examples": [
       "import os, time",
-      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → только Linux: дескриптор таймера",
-      "print(os.timerfd_gettime(fd))  # → только Linux: (0.0, 0.0) — таймер создан, но ещё не заведён",
-      "os.timerfd_settime(fd, initial=10.0, interval=2.0)  # → только Linux: старт через 10 с, дальше каждые 2 с",
-      "print(os.timerfd_gettime(fd))  # → только Linux: примерно (9.99, 2.0) — остаток до срабатывания и период",
-      "os.close(fd)  # → только Linux: после закрытия os.timerfd_gettime(fd) даст OSError [Errno 9] Bad file descriptor"
+      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → ? только Linux: дескриптор таймера",
+      "print(os.timerfd_gettime(fd))  # → (0.0, 0.0) — таймер создан, но ещё не заведён",
+      "os.timerfd_settime(fd, initial=10.0, interval=2.0)  # → ? только Linux: старт через 10 с, дальше каждые 2 с",
+      "print(os.timerfd_gettime(fd))  # → ? только Linux: примерно (9.99, 2.0) — остаток до срабатывания и период",
+      "os.close(fd)  # → ? только Linux: после закрытия os.timerfd_gettime(fd) даст OSError [Errno 9] Bad file descriptor"
     ],
     "related": [
       "os.timerfd_settime",
@@ -27061,11 +27061,11 @@
     ],
     "examples": [
       "import os, time",
-      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → только Linux: дескриптор таймера",
-      "os.timerfd_settime_ns(fd, initial=2_000_000_000, interval=500_000_000)  # → только Linux: старт через 2 с, период 0.5 с",
-      "print(os.timerfd_gettime_ns(fd))  # → только Linux: примерно (1999987654, 500000000) — остаток и период целыми наносекундами",
-      "print(os.timerfd_gettime(fd)[1])  # → только Linux: 0.5 — тот же период, но секундами (float)",
-      "os.timerfd_settime_ns(fd, initial=0, interval=0)  # → только Linux: таймер выключен, дальше os.timerfd_gettime_ns(fd) вернёт (0, 0)"
+      "fd = os.timerfd_create(time.CLOCK_MONOTONIC)  # → ? только Linux: дескриптор таймера",
+      "os.timerfd_settime_ns(fd, initial=2_000_000_000, interval=500_000_000)  # → ? только Linux: старт через 2 с, период 0.5 с",
+      "print(os.timerfd_gettime_ns(fd))  # → ? только Linux: примерно (1999987654, 500000000) — остаток и период целыми наносекундами",
+      "print(os.timerfd_gettime(fd)[1])  # → 0.5 — тот же период, но секундами (float)",
+      "os.timerfd_settime_ns(fd, initial=0, interval=0)  # → ? только Linux: таймер выключен, дальше os.timerfd_gettime_ns(fd) вернёт (0, 0)"
     ],
     "related": [
       "os.timerfd_gettime",
@@ -27102,11 +27102,11 @@
     ],
     "examples": [
       "import os",
-      "fd = os.memfd_create('buf')   # → только Linux: дескриптор анонимного файла в памяти, например 3",
-      "print(os.write(fd, b'hello'))   # → только Linux: 5",
-      "print(os.pread(fd, 5, 0))   # → только Linux: b'hello' — читаем с нулевого смещения, не двигая курсор",
-      "print(os.fstat(fd).st_size)   # → только Linux: 5 — ведёт себя как обычный файл, но живёт только в памяти",
-      "os.close(fd)   # → только Linux: буфер освобождён; пути в файловой системе у memfd нет, на диске следов не остаётся"
+      "fd = os.memfd_create('buf')   # → ? только Linux: дескриптор анонимного файла в памяти, например 3",
+      "print(os.write(fd, b'hello'))   # → 5",
+      "print(os.pread(fd, 5, 0))   # → b'hello' — читаем с нулевого смещения, не двигая курсор",
+      "print(os.fstat(fd).st_size)   # → 5 — ведёт себя как обычный файл, но живёт только в памяти",
+      "os.close(fd)   # → ? только Linux: буфер освобождён; пути в файловой системе у memfd нет, на диске следов не остаётся"
     ],
     "related": [
       "os.pipe",
@@ -27141,11 +27141,11 @@
     ],
     "examples": [
       "import os, select, signal",
-      "fd = os.pidfd_open(os.getpid())   # → только Linux: дескриптор, привязанный к текущему процессу, например 3",
-      "signal.pidfd_send_signal(fd, 0)   # → только Linux: None — сигнал 0 лишь проверяет, что процесс жив (реальный SIGTERM шлют так же, но дочернему процессу)",
-      "print(select.select([fd], [], [], 0))   # → только Linux: ([], [], []) — процесс ещё работает; когда завершится, fd станет готов к чтению",
-      "os.kill(os.getpid(), 0)   # → только Unix: то же самое по PID — но освободившийся PID ОС может отдать другому процессу, а pidfd всегда указывает на тот самый",
-      "os.close(fd)   # → только Linux: дескриптор закрыт; на сам процесс это никак не влияет"
+      "fd = os.pidfd_open(os.getpid())   # → ? только Linux: дескриптор, привязанный к текущему процессу, например 3",
+      "signal.pidfd_send_signal(fd, 0)   # → None — сигнал 0 лишь проверяет, что процесс жив (реальный SIGTERM шлют так же, но дочернему процессу)",
+      "print(select.select([fd], [], [], 0))   # → ([], [], []) — процесс ещё работает; когда завершится, fd станет готов к чтению",
+      "os.kill(os.getpid(), 0)   # → ? только Unix: то же самое по PID — но освободившийся PID ОС может отдать другому процессу, а pidfd всегда указывает на тот самый",
+      "os.close(fd)   # → ? только Linux: дескриптор закрыт; на сам процесс это никак не влияет"
     ],
     "related": [
       "os.kill",
@@ -27180,10 +27180,10 @@
     ],
     "examples": [
       "import os",
-      "r, w = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC)   # → только Linux: пара дескрипторов, сразу неблокирующих и закрываемых при exec",
-      "print(os.write(w, b'ping'))   # → только Linux: 4",
-      "print(os.read(r, 4))   # → только Linux: b'ping'",
-      "os.read(r, 4)   # → только Linux: BlockingIOError — данных больше нет, но из-за O_NONBLOCK вызов не зависает",
+      "r, w = os.pipe2(os.O_NONBLOCK | os.O_CLOEXEC)   # → ? только Linux: пара дескрипторов, сразу неблокирующих и закрываемых при exec",
+      "print(os.write(w, b'ping'))   # → 4",
+      "print(os.read(r, 4))   # → b'ping'",
+      "os.read(r, 4)   # → BlockingIOError — данных больше нет, но из-за O_NONBLOCK вызов не зависает",
       "r2, w2 = os.pipe()   # переносимый вариант без флагов: O_NONBLOCK/O_CLOEXEC пришлось бы доставлять отдельными вызовами fcntl, оставляя окно гонки при fork"
     ],
     "related": [
@@ -27219,11 +27219,11 @@
     ],
     "examples": [
       "import os",
-      "fd = os.open('/proc/1/ns/net', os.O_RDONLY)   # → только Linux: дескриптор сетевого namespace процесса с PID 1",
-      "os.setns(fd, os.CLONE_NEWNET)   # → только Linux: текущий поток переходит в этот сетевой namespace (нужны права CAP_SYS_ADMIN)",
-      "os.setns(fd)   # → nstype=0 по умолчанию: тип namespace не проверяется, берётся из самого дескриптора",
+      "fd = os.open('/proc/1/ns/net', os.O_RDONLY)   # → ? только Linux: дескриптор сетевого namespace процесса с PID 1",
+      "os.setns(fd, os.CLONE_NEWNET)   # → ? только Linux: текущий поток переходит в этот сетевой namespace (нужны права CAP_SYS_ADMIN)",
+      "os.setns(fd)   # → ? nstype=0 по умолчанию: тип namespace не проверяется, берётся из самого дескриптора",
       "ns = open('/proc/self/ns/uts')",
-      "os.setns(ns, os.CLONE_NEWUTS)   # → только Linux: вместо int можно передать любой объект с методом fileno()",
+      "os.setns(ns, os.CLONE_NEWUTS)   # → ? только Linux: вместо int можно передать любой объект с методом fileno()",
       "os.setns(ns, os.CLONE_NEWNET)   # → OSError: [Errno 22] Invalid argument — дескриптор UTS не соответствует флагу CLONE_NEWNET"
     ],
     "related": [
@@ -27262,11 +27262,11 @@
     ],
     "examples": [
       "import os",
-      "os.unshare(os.CLONE_NEWUTS)   # → только Linux: процесс получает собственное UTS-пространство имён (нужны права CAP_SYS_ADMIN)",
-      "os.unshare(os.CLONE_NEWNS | os.CLONE_NEWUTS)   # → только Linux: флаги комбинируются побитовым ИЛИ, всё отделяется одним вызовом",
-      "os.unshare(os.CLONE_NEWNET)   # → у обычного пользователя без CAP_SYS_ADMIN: PermissionError: [Errno 1] Operation not permitted",
-      "os.unshare(os.CLONE_NEWUSER)   # → только Linux: единственный флаг, доступный непривилегированному процессу; внутри нового user namespace становятся доступны и остальные",
-      "os.unshare(os.CLONE_NEWPID)   # → ловушка: сам процесс остаётся в прежнем PID-namespace, в новый попадут только его потомки"
+      "os.unshare(os.CLONE_NEWUTS)   # → ? только Linux: процесс получает собственное UTS-пространство имён (нужны права CAP_SYS_ADMIN)",
+      "os.unshare(os.CLONE_NEWNS | os.CLONE_NEWUTS)   # → ? только Linux: флаги комбинируются побитовым ИЛИ, всё отделяется одним вызовом",
+      "os.unshare(os.CLONE_NEWNET)   # → ? у обычного пользователя без CAP_SYS_ADMIN: PermissionError: [Errno 1] Operation not permitted",
+      "os.unshare(os.CLONE_NEWUSER)   # → ? только Linux: единственный флаг, доступный непривилегированному процессу; внутри нового user namespace становятся доступны и остальные",
+      "os.unshare(os.CLONE_NEWPID)   # → ? ловушка: сам процесс остаётся в прежнем PID-namespace, в новый попадут только его потомки"
     ],
     "related": [
       "os.setns",
@@ -27303,11 +27303,11 @@
     ],
     "examples": [
       "import os",
-      "fd = os.open('/tmp/report.csv', os.O_RDONLY)   # → только Unix: небольшой номер дескриптора, например 3",
-      "os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_SEQUENTIAL)   # → только Unix: подсказка «читать будем подряд»; length=0 означает «до конца файла»",
-      "os.posix_fadvise(fd, 0, 65536, os.POSIX_FADV_WILLNEED)   # → только Unix: ядро заранее подтянет первые 64 КБ файла в кеш",
-      "os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)   # → только Unix: после однопроходного чтения просим освободить кеш под этот файл",
-      "os.posix_fadvise(fd, 0, 0, 999)   # → только Unix: OSError [Errno 22] Invalid argument — 999 не является кодом совета"
+      "fd = os.open('/tmp/report.csv', os.O_RDONLY)   # → ? только Unix: небольшой номер дескриптора, например 3",
+      "os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_SEQUENTIAL)   # → ? только Unix: подсказка «читать будем подряд»; length=0 означает «до конца файла»",
+      "os.posix_fadvise(fd, 0, 65536, os.POSIX_FADV_WILLNEED)   # → ? только Unix: ядро заранее подтянет первые 64 КБ файла в кеш",
+      "os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)   # → ? только Unix: после однопроходного чтения просим освободить кеш под этот файл",
+      "os.posix_fadvise(fd, 0, 0, 999)   # → ? только Unix: OSError [Errno 22] Invalid argument — 999 не является кодом совета"
     ],
     "related": [
       "os.posix_fallocate",
@@ -27344,11 +27344,11 @@
     ],
     "examples": [
       "import os",
-      "fd = os.open('/tmp/big.bin', os.O_WRONLY | os.O_CREAT)   # → только Unix: дескриптор нового файла, например 3",
-      "os.posix_fallocate(fd, 0, 1024 * 1024)   # → только Unix: на диске заранее выделен 1 МБ под файл",
+      "fd = os.open('/tmp/big.bin', os.O_WRONLY | os.O_CREAT)   # → ? только Unix: дескриптор нового файла, например 3",
+      "os.posix_fallocate(fd, 0, 1024 * 1024)   # → ? только Unix: на диске заранее выделен 1 МБ под файл",
       "print(os.fstat(fd).st_size)   # → 1048576 — файл сразу нужного размера, хотя не записано ни байта",
-      "os.ftruncate(fd, 8 * 1024 * 1024)   # → размер вырастет до 8 МБ, но место НЕ резервируется — выйдет «дырявый» (sparse) файл",
-      "os.posix_fallocate(fd, 0, 0)   # → только Unix: OSError [Errno 22] Invalid argument — длина должна быть больше нуля"
+      "os.ftruncate(fd, 8 * 1024 * 1024)   # → ? размер вырастет до 8 МБ, но место НЕ резервируется — выйдет «дырявый» (sparse) файл",
+      "os.posix_fallocate(fd, 0, 0)   # → ? только Unix: OSError [Errno 22] Invalid argument — длина должна быть больше нуля"
     ],
     "related": [
       "os.ftruncate",
@@ -27464,11 +27464,11 @@
     ],
     "examples": [
       "import os",
-      "print(len(os.getrandom(16)))   # → только Linux: 16 (на Windows/macOS функции нет — переносимый аналог os.urandom)",
-      "key = os.getrandom(32, os.GRND_NONBLOCK)   # → только Linux: BlockingIOError, если энтропия ещё не набрана",
-      "print(len(key))   # → только Linux: 32",
-      "print(len(os.getrandom(0)))   # → только Linux: 0, граничный случай — пустой запрос",
-      "print(os.getrandom(4) == os.getrandom(4))   # → только Linux: False, каждый вызов даёт новые байты"
+      "print(len(os.getrandom(16)))   # → ? только Linux: 16 (на Windows/macOS функции нет — переносимый аналог os.urandom)",
+      "key = os.getrandom(32, os.GRND_NONBLOCK)   # → ? только Linux: BlockingIOError, если энтропия ещё не набрана",
+      "print(len(key))   # → 32",
+      "print(len(os.getrandom(0)))   # → ? только Linux: 0, граничный случай — пустой запрос",
+      "print(os.getrandom(4) == os.getrandom(4))   # → ? только Linux: False, каждый вызов даёт новые байты"
     ],
     "related": [
       "os.urandom",
@@ -27504,8 +27504,8 @@
     "examples": [
       "import os",
       "st = os.stat('/dev/null')",
-      "print(os.major(st.st_rdev))  # → только Unix: старший номер устройства /dev/null, в Linux 1",
-      "print(f'{os.major(st.st_rdev)}:{os.minor(st.st_rdev)}')  # → только Unix: пара номеров, как в колонке ls -l /dev/null, в Linux 1:3",
+      "print(os.major(st.st_rdev))  # → ? только Unix: старший номер устройства /dev/null, в Linux 1",
+      "print(f'{os.major(st.st_rdev)}:{os.minor(st.st_rdev)}')  # → ? только Unix: пара номеров, как в колонке ls -l /dev/null, в Linux 1:3",
       "print(os.major(os.makedev(8, 1)))  # → 8 — major достаёт обратно то, что упаковала makedev",
       "print(os.major(os.stat('/tmp').st_rdev))  # → 0 — у обычного файла или каталога st_rdev нулевой: это не устройство"
     ],
@@ -27543,10 +27543,10 @@
     "examples": [
       "import os",
       "info = os.stat('/dev/null')",
-      "print(os.minor(info.st_rdev))  # → только Unix: младший номер устройства /dev/null, обычно 3",
-      "print(os.major(info.st_rdev))  # → только Unix: старший номер того же устройства, обычно 1",
-      "print(os.minor(os.makedev(8, 1)))  # → только Unix: 1 — makedev собирает номер из (major, minor), minor разбирает обратно",
-      "print(os.minor(os.stat('/tmp').st_rdev))  # → только Unix: 0 — у обычного файла или каталога st_rdev нулевой, minor осмыслен лишь для файлов устройств"
+      "print(os.minor(info.st_rdev))  # → ? только Unix: младший номер устройства /dev/null, обычно 3",
+      "print(os.major(info.st_rdev))  # → ? только Unix: старший номер того же устройства, обычно 1",
+      "print(os.minor(os.makedev(8, 1)))  # → 1 — makedev собирает номер из (major, minor), minor разбирает обратно",
+      "print(os.minor(os.stat('/tmp').st_rdev))  # → 0 — у обычного файла или каталога st_rdev нулевой, minor осмыслен лишь для файлов устройств"
     ],
     "related": [
       "os.major",
@@ -27582,8 +27582,8 @@
     "examples": [
       "import os",
       "dev = os.makedev(8, 1)  # 8:1 — первый раздел первого SATA/SCSI-диска",
-      "print(dev)  # → только Unix: упакованный идентификатор устройства; кодировка зависит от ядра (в Linux — 2049)",
-      "print(os.major(dev), os.minor(dev))  # → 8 1 — makedev и major/minor строго обратны друг другу",
+      "print(dev)  # → ? только Unix: упакованный идентификатор устройства; кодировка зависит от ядра (в Linux — 2049)",
+      "print(os.major(dev), os.minor(dev))  # → ? 8 1 — makedev и major/minor строго обратны друг другу",
       "st = os.stat('/dev/null')",
       "print(os.makedev(os.major(st.st_rdev), os.minor(st.st_rdev)) == st.st_rdev)  # → True — разобрали и собрали настоящий st_rdev без потерь",
       "print(os.makedev(0, 0))  # → 0 — нулевой идентификатор: ровно такой st_rdev у обычных файлов, у которых устройства нет"

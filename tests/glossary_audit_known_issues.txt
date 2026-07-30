@@ -8,6 +8,11 @@
 # где-то в одном месте: POSIX-only примеры на Windows пропускаются целиком, а
 # math.fma, io.Reader, float.from_number появились только в 3.13/3.14 и на 3.12
 # дают AttributeError. Поэтому список заведомо шире итога любого одного прогона.
+#
+# Карточки, все ожидания которых помечены средозависимыми (`# → ?`, issue #763),
+# сюда не попадают вовсе: их примеры не исполняются, а `unverifiable` вердиктом
+# не считается. Четырнадцать таких строк отсюда убраны — они уже ничего не
+# держали.
 __import__
 _incompleteinputerror
 any
@@ -41,7 +46,6 @@ os.access
 os.chdir
 os.confstr
 os.copy_file_range
-os.cpu_count
 os.ctermid
 os.eventfd
 os.eventfd_read
@@ -52,16 +56,10 @@ os.fpathconf
 os.fsdecode
 os.fwalk
 os.get_exec_path
-os.getegid
-os.geteuid
-os.getgid
 os.getgrouplist
-os.getgroups
 os.getlogin
 os.getrandom
-os.getresgid
 os.getresuid
-os.getuid
 os.getxattr
 os.grantpt
 os.initgroups
@@ -97,9 +95,7 @@ os.pathconf
 os.pidfd_open
 os.pipe2
 os.popen
-os.posix_fadvise
 os.posix_fallocate
-os.posix_openpt
 os.pread
 os.preadv
 os.ptsname
@@ -122,14 +118,11 @@ os.sched_yield
 os.sendfile
 os.setgroups
 os.setns
-os.setpriority
 os.setresgid
 os.setresuid
-os.setreuid
 os.setsid
 os.setuid
 os.setxattr
-os.splice
 os.stat
 os.strerror
 os.sysconf
@@ -140,8 +133,6 @@ os.timerfd_gettime
 os.timerfd_gettime_ns
 os.timerfd_settime
 os.timerfd_settime_ns
-os.unlockpt
-os.unshare
 os.waitid
 os.waitid_result
 os.waitstatus_to_exitcode
