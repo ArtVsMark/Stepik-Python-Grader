@@ -487,6 +487,185 @@ def test_bundled_new_api_is_not_platform_gap_on_older_runtime(monkeypatch) -> No
         assert mod.platform_gaps(card.examples, known_api=flat) == {card.id}
 
 
+# -- ожидание без результата: маркер `?` и guard по базе (#763) ----------------
+
+
+def test_env_dependent_mark_recognised() -> None:
+    assert mod.is_env_dependent("?")
+    assert mod.is_env_dependent("? PID процесса, например 4312")
+    # Маркер — отдельный токен: «?» как часть значения им не считается.
+    assert not mod.is_env_dependent("?!")
+    assert not mod.is_env_dependent("True")
+
+
+def test_declared_value_extracts_result_from_note() -> None:
+    # Пояснение пишут через тире, двоеточие, запятую и в скобках — значение
+    # всюду стоит первым, и вытащить надо именно его.
+    assert mod.declared_value("7 — код выхода команды") == "7"
+    assert mod.declared_value("None (всегда None)") == "None"
+    assert mod.declared_value("32, по два hex-символа на байт") == "32"
+    assert mod.declared_value("ChildProcessError: ждать больше некого") == "ChildProcessError"
+    # Литерал с запятыми внутри не надо резать по первой же запятой.
+    assert mod.declared_value("(1, 2, 3)") == "(1, 2, 3)"
+
+
+def test_declared_value_none_for_prose() -> None:
+    # Фраза о результате — не результат: сверить её не с чем.
+    assert mod.declared_value("только Unix: дождаться потомка и получить статус") is None
+    assert mod.declared_value("PID родительского процесса, например 4312") is None
+
+
+def test_is_verifiable_expectation_accepts_mark_and_values() -> None:
+    assert mod.is_verifiable_expectation("? число ядер, например 8")
+    assert mod.is_verifiable_expectation("True — потомок вышел сам")
+    assert not mod.is_verifiable_expectation("только Unix: дочерний процесс печатает PID родителя")
+
+
+def test_compare_skips_env_dependent() -> None:
+    # Помеченное ожидание не сверяется ни с чем — в этом весь смысл метки.
+    assert mod.compare_expected_actual("? PID процесса", "31337")
+    assert mod.compare_expected_actual("?", "")
+
+
+def test_validate_examples_skips_run_when_all_env_dependent(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Нечего сверять — нечего и исполнять: subprocess не запускается.
+
+    Ровно это и убирает флак ``os.setpgid``: пример трогал состояние процесса
+    (``setpgid``/``fork``), а вердикт зависел от того, был ли процесс раннера
+    лидером своей группы (#763).
+    """
+
+    def explode(*_args: object, **_kwargs: object) -> tuple[bool, str, str]:
+        raise AssertionError("пример с одними средозависимыми ожиданиями исполнять нельзя")
+
+    monkeypatch.setattr(mod, "_run_snippet", explode)
+    report = mod.validate_examples(
+        ["import os", "print(os.getpid())  # → ? PID процесса", "os.setpgid(0, 0)  # → ? Unix"]
+    )
+    assert report.status == "unverifiable"
+    assert "средозависим" in report.detail
+
+
+def test_validate_examples_checks_neighbours_of_env_dependent() -> None:
+    # Метка занимает свою строку вывода, поэтому соседние ожидания остаются
+    # выровненными и сверяются по-настоящему.
+    report = mod.validate_examples(
+        ["print(1)  # → 1", "import os", "print(os.getpid())  # → ? PID", "print(2)  # → 2"]
+    )
+    assert report.status == "ok", report.detail
+    # А расхождение в непомеченном соседе метка не прячет.
+    broken = mod.validate_examples(
+        ["print(1)  # → 5", "import os", "print(os.getpid())  # → ? PID"]
+    )
+    assert broken.status == "mismatch"
+
+
+def test_env_dependent_expectations_finds_os_state_reads() -> None:
+    pairs = mod.env_dependent_expectations(["import os", "print(os.getpid())  # → 12345"])
+    assert pairs == [("12345", {"os.getpid"})]
+
+
+def test_env_dependent_expectations_ignores_mentions_in_prose() -> None:
+    # Имя в тексте пояснения — не обращение: разбирается код, а не комментарий.
+    assert mod.env_dependent_expectations(["print(1)  # → 1 (не os.getpid())"]) == []
+    # hasattr-обёртка тоже не обращение (тот же приём, что у platform_gaps).
+    guarded = ["import os", "print(hasattr(os, 'fork'))  # → True"]
+    assert mod.env_dependent_expectations(guarded) == []
+
+
+def test_env_dependent_expectations_binds_expectation_to_code_above() -> None:
+    # Legacy-стиль: ожидание отдельной строкой относится к коду выше.
+    examples = ["import os", "print(os.cpu_count())", "# → ? число ядер"]
+    assert mod.env_dependent_expectations(examples) == [("? число ядер", {"os.cpu_count"})]
+
+
+def test_run_check_hints_prose_in_posix_card(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    base = tmp_path / "data"
+    base.mkdir()
+    cards = [
+        {
+            "id": "prosy",
+            "title": "prosy",
+            "status": "ready",
+            "tags": ["platform:posix"],
+            "examples": ["import os", "os.setsid()  # → только Unix: новая сессия"],
+        }
+    ]
+    (base / "cards.json").write_text(json.dumps(cards, ensure_ascii=False), encoding="utf-8")
+
+    mod.run_check(base)
+    out = capsys.readouterr().out
+    assert "[проза] prosy" in out
+    # Подсказка не должна маскироваться под вердикт, который разбирает ratchet.
+    assert not re.search(r"^  \[(?:error|mismatch)\] prosy", out, re.M)
+
+
+def test_bundled_posix_cards_state_a_result_not_prose() -> None:
+    """У карточки ``platform:posix`` каждое ожидание заявляет результат (#763).
+
+    Вне POSIX такие карточки не исполняются, поэтому прогон их ожиданий не
+    видит: разойтись с реальностью они могут незаметно. А на POSIX проза
+    выдаёт вердикт, зависящий от машины: число строк вывода сошлось с числом
+    ожиданий — ``mismatch``, не сошлось — тихий ``unverifiable``. Так
+    ``os.setpgid`` падал на одном macOS-раннере и проходил на остальных.
+
+    Чинится либо записью результата (``# → True — потомок вышел сам``), либо
+    меткой ``# → ?``, если результат приносит ОС, а не код примера.
+    """
+    from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR
+
+    cards = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
+    prose = {
+        card.id: [
+            want
+            for want in mod.extract_expected(card.examples)
+            if not mod.is_verifiable_expectation(want)
+        ]
+        for card in cards
+        if card.examples and "platform:posix" in card.tags
+    }
+    listing = [f"  {cid}: {wants[0]!r}" for cid, wants in sorted(prose.items()) if wants]
+    hint = "Вместо результата в '# → …' записана фраза о нём (нужен результат или метка '# → ?'):"
+    assert not listing, "\n".join([hint, *listing])
+
+
+def test_bundled_env_dependent_expectations_are_marked() -> None:
+    """Результат, который приносит ОС, записан меткой ``?``, а не значением (#763).
+
+    ``print(os.getuid() == 0)  # → True, если запущен от root`` — форма
+    безупречная, а вердикт зависит от того, кто запустил прогон: в контейнере
+    CI это ``True``, на машине разработчика ``False``. Проверка формы такое не
+    ловит — ловит разбор кода примера (AST) по закрытому списку API, читающих
+    состояние процесса или машины.
+
+    Имя исключения метки не требует: оно описывает поведение API (``os.wait()``
+    без потомков — всегда ``ChildProcessError``), а не значение из среды.
+
+    Спрашивается это с карточек ``platform:posix``: вне POSIX они пропускаются,
+    и другого контроля у них нет. У остальных расхождение вылезает прогоном на
+    трёх ОС матрицы, а требовать метку по одному лишь обращению к API там
+    слишком грубо — ``print(type(os.getcwd()))`` печатает ``<class 'str'>`` на
+    любой машине. Такие места ``run_check`` показывает подсказкой ``[среда]``,
+    но тест на них не падает.
+    """
+    from stepik_grader.glossary.json_provider import BUNDLED_GLOSSARY_DIR
+
+    cards = JsonGlossaryProvider.from_directory(BUNDLED_GLOSSARY_DIR).all()
+    unmarked: list[str] = []
+    for card in cards:
+        if "platform:posix" not in card.tags:
+            continue
+        for want, names in mod.env_dependent_expectations(card.examples):
+            if mod.is_env_dependent(want):
+                continue
+            value = mod.declared_value(want)
+            if value is not None and mod.exception_name(value) is not None:
+                continue
+            unmarked.append(f"  {card.id}: {want!r} ← {', '.join(sorted(names))}")
+    hint = "Результат приходит от ОС — ожидание надо пометить '# → ?':"
+    assert not unmarked, "\n".join([hint, *unmarked])
+
+
 # -- check over реальная база (ratchet: расхождениям расти нельзя) --------------
 
 

@@ -75,8 +75,12 @@ __all__ = [
     "ProposedContent",
     "build_b1_draft",
     "compare_expected_actual",
+    "declared_value",
+    "env_dependent_expectations",
     "exception_name",
     "extract_expected",
+    "is_env_dependent",
+    "is_verifiable_expectation",
     "main",
     "platform_gaps",
     "review_diff",
@@ -96,6 +100,14 @@ _EXPECT_RE = re.compile(r"#\s*(?:→|->)\s*(.*)$")
 # (сложившийся в базе способ показать исключение, issue #745).
 _EXCEPTION_NAME_RE = re.compile(r"^(?:[A-Za-z_]\w*\.)*(?P<name>[A-Z]\w*)$")
 _EXCEPTION_SUFFIXES = ("Error", "Exception", "Warning", "Interrupt", "Exit")
+# Ожидание, значение которого задаёт не код примера, а состояние процесса или
+# машины (PID, число ядер, номер fd, лидер ли процесс своей группы): "# → ? проза".
+# Строку вывода такое ожидание всё равно занимает — позицию в выравнивании
+# сохраняет, — но сверять её не с чем, и движок её не сверяет (issue #763).
+_ENV_DEPENDENT_MARK = "?"
+# Чем человеко-пояснение отделяется от самого значения в ожидании
+# (``False — F_OK это просто проверка существования``, ``32, по два hex-символа``).
+_NOTE_SEPARATORS = (" — ", " - ", ": ", ", ", " (")
 # Карточка, чьи примеры используют API, которого нет вне POSIX (issue #745).
 _POSIX_ONLY_TAG = "platform:posix"
 # Модули stdlib, чей состав различается по платформам: у примера, зовущего
@@ -103,6 +115,93 @@ _POSIX_ONLY_TAG = "platform:posix"
 # Список закрытый: имена из примеров импортируются для проверки через hasattr,
 # и импортировать что попало из данных карточки нельзя.
 _PLATFORM_MODULES = frozenset({"errno", "mmap", "os", "select", "signal", "socket", "stat", "time"})
+# API, чей результат задаёт состояние процесса или машины, а не код примера:
+# PID, число ядер, номер свободного дескриптора, момент времени, лидер ли процесс
+# своей группы. Ожидание при таком вызове верно ровно на той машине, где его
+# записали, — сверять его нельзя, только помечать ``# → ?`` (issue #763).
+# Список закрытый и намеренно узкий: сюда входит лишь то, что само по себе
+# читает состояние, а не то, что от него зависит косвенно.
+_ENV_DEPENDENT_API = frozenset(
+    {
+        # идентификаторы и права текущего процесса
+        "os.getpid",
+        "os.getppid",
+        "os.getpgrp",
+        "os.getpgid",
+        "os.getsid",
+        "os.getuid",
+        "os.geteuid",
+        "os.getgid",
+        "os.getegid",
+        "os.getgroups",
+        "os.getresuid",
+        "os.getresgid",
+        "os.getlogin",
+        "os.umask",
+        "os.getpriority",
+        "os.times",
+        "os.ctermid",
+        "os.ttyname",
+        "os.tcgetpgrp",
+        "os.getcwd",
+        # порождение и ожидание потомков: PID и статус приходят от ОС
+        "os.fork",
+        "os.forkpty",
+        "os.wait",
+        "os.waitpid",
+        "os.wait3",
+        "os.wait4",
+        "os.waitid",
+        "os.spawnl",
+        "os.spawnle",
+        "os.spawnlp",
+        "os.spawnv",
+        "os.spawnve",
+        # ресурсы машины
+        "os.cpu_count",
+        "os.process_cpu_count",
+        "os.sched_getaffinity",
+        "os.getloadavg",
+        "os.get_terminal_size",
+        "os.statvfs",
+        "os.sysconf",
+        "os.confstr",
+        "os.pathconf",
+        "os.fpathconf",
+        "os.uname",
+        # номера дескрипторов выдаёт ядро, а не пример
+        "os.open",
+        "os.pipe",
+        "os.pipe2",
+        "os.dup",
+        "os.dup2",
+        "os.eventfd",
+        "os.memfd_create",
+        "os.timerfd_create",
+        "os.pidfd_open",
+        "os.posix_openpt",
+        "os.openpty",
+        "os.epoll",
+        "os.kqueue",
+        # случайность и время
+        "os.urandom",
+        "os.getrandom",
+        "time.time",
+        "time.time_ns",
+        "time.monotonic",
+        "time.perf_counter",
+        "time.process_time",
+        "time.ctime",
+        "time.localtime",
+        "time.gmtime",
+        "time.asctime",
+        "time.strftime",
+        # окружение процесса
+        "os.environ",
+        "os.getenv",
+        "os.device_encoding",
+    }
+)
 # Модули stdlib, которых вне POSIX нет вовсе (сам `import` даёт ImportError).
 _POSIX_ONLY_MODULES = frozenset(
     {
@@ -186,7 +285,7 @@ def _prefix_note_match(want: str, got: str) -> bool:
     if not got or not want.startswith(got):
         return False
     tail = want[len(got) :]
-    return tail.startswith((" — ", " - ", ": ", ", ", " ("))
+    return tail.startswith(_NOTE_SEPARATORS)
 
 
 def _literal_match(want: str, got: str, raw: str) -> bool:
@@ -214,6 +313,22 @@ def _literal_match(want: str, got: str, raw: str) -> bool:
     return type(want_value) is type(got_value) and bool(want_value == got_value)
 
 
+def is_env_dependent(expected: str) -> bool:
+    """Помечено ли ожидание как средозависимое: ``# → ?`` (issue #763).
+
+    Такое ожидание значит «строка вывода здесь будет, но её значение задаёт
+    состояние процесса/машины, а не код примера»: PID, число ядер, номер
+    дескриптора, лидер ли процесс своей группы. Сверять его не с чем, зато
+    позицию в выравнивании оно держит — остальные ожидания карточки продолжают
+    сверяться по-настоящему.
+
+    Пояснение после маркера свободное (``# → ? PID родителя, например 4312``):
+    его читает человек, движок — только сам маркер.
+    """
+    text = expected.strip()
+    return text == _ENV_DEPENDENT_MARK or text.startswith(f"{_ENV_DEPENDENT_MARK} ")
+
+
 def compare_expected_actual(expected: str, actual: str) -> bool:
     """Сверить ожидаемый вывод с фактической строкой stdout (терпимо).
 
@@ -225,8 +340,11 @@ def compare_expected_actual(expected: str, actual: str) -> bool:
     - **запись литерала** — ``(1,2,3)`` ↔ ``(1, 2, 3)``, ``'P'`` ↔ ``P`` (#745);
     - **имя исключения** — ``statistics.StatisticsError`` ↔ ``StatisticsError``,
       как его печатает обёртка намеренного падения (#745);
+    - **средозависимое значение** ``?`` — сверка не производится вовсе (#763);
     - обрамляющие пробелы.
     """
+    if is_env_dependent(expected):
+        return True
 
     got = actual.strip()
     want = expected.strip()
@@ -247,6 +365,74 @@ def compare_expected_actual(expected: str, actual: str) -> bool:
     return note is not None and matches(note)
 
 
+def _looks_like_value(text: str) -> bool:
+    """Похоже ли ``text`` на само значение, а не на фразу о нём.
+
+    Значением считаем то, что движок умеет сверить со строкой stdout: литерал
+    Python (``True``, ``-9``, ``(3, 4)``, ``'P'``), имя исключения
+    (``ValueError``) или аппроксимацию (``3.14159...``). Всё прочее — рассказ о
+    результате, а не результат.
+    """
+    text = text.strip()
+    if not text:
+        return False
+    if exception_name(text) is not None:
+        return True
+    if "..." in text:
+        text = text.split("...", 1)[0].rstrip()
+        if not text:  # одно многоточие — «что угодно», сверять нечего
+            return False
+    try:
+        ast.literal_eval(text)
+    except (ValueError, SyntaxError, MemoryError, RecursionError):
+        return False
+    return True
+
+
+def declared_value(expected: str) -> str | None:
+    """Значение, заявленное ожиданием, очищенное от пояснения (или ``None``).
+
+    ``7 — код выхода команды`` → ``7``; ``None (всегда None)`` → ``None``;
+    ``только Unix: дождаться потомка`` → ``None`` (значения там нет вовсе).
+    Разбирает ту же запись, что понимает ``compare_expected_actual``, но не
+    сверяя с выводом: так про ожидание можно спросить «а результат-то в нём
+    заявлен?», не исполняя примера (issue #763).
+    """
+    want = expected.strip()
+    if _looks_like_value(want):
+        return want
+    # «значение (пояснение)» — скобки могут быть и внутри пояснения.
+    note = _strip_trailing_note(want)
+    if note is not None and _looks_like_value(note):
+        return note
+    # «значение — пояснение»: значение стоит первым, до разделителя.
+    for index in sorted(index for sep in _NOTE_SEPARATORS if (index := want.find(sep)) > 0):
+        if _looks_like_value(want[:index]):
+            return want[:index]
+    return None
+
+
+def is_verifiable_expectation(expected: str) -> bool:
+    """Заявляет ли ожидание ``# → …`` машинно сверяемый результат (issue #763).
+
+    Проверка **формы**, а не прогон: нужна там, где примеры на этой ОС не
+    исполняются (карточка ``platform:posix`` на Windows) и разойтись с
+    реальностью ожидание может незаметно. Истинны три вида записи:
+
+    - само значение — ``True``, ``-9``, ``(3, 4)``, ``ValueError``, ``3.14...``;
+    - значение с человеко-пояснением — ``7 — код выхода команды``,
+      ``None (всегда None)`` (те же разделители, что понимает сверка);
+    - явная пометка средозависимости — ``? PID родителя, например 4312``.
+
+    Ложно — проза вместо результата (``только Unix: дождаться потомка``): такое
+    ожидание не совпадёт ни с какой строкой вывода, поэтому карточка молча
+    висит в ``unverifiable``, а когда число строк вывода случайно сойдётся с
+    числом ожиданий — выдаёт ``mismatch``. Именно так ``os.setpgid`` падал на
+    одном macOS-раннере и проходил на остальных (#763).
+    """
+    return is_env_dependent(expected) or declared_value(expected) is not None
+
+
 @dataclass
 class ExampleReport:
     """Итог валидации набора примеров одной карточки.
@@ -255,10 +441,11 @@ class ExampleReport:
     - ``ok`` — все ожидаемые ``# → …`` совпали с фактическим выводом;
     - ``mismatch`` — хотя бы одно ожидание разошлось;
     - ``error`` — скрипт исполнился с ошибкой времени выполнения (raise/timeout);
-    - ``unverifiable`` — нельзя сверить прогоном: нет ``# → …``; примеры не
-      компилируются как единый скрипт (многострочный блок хранится построчно без
-      отступов — типично для legacy-карточек); либо число ожиданий не совпало с
-      числом строк вывода.
+    - ``unverifiable`` — нельзя сверить прогоном: нет ``# → …``; все ожидания
+      помечены средозависимыми (``# → ?``, тогда пример и не исполняется);
+      примеры не компилируются как единый скрипт (многострочный блок хранится
+      построчно без отступов — типично для legacy-карточек); либо число ожиданий
+      не совпало с числом строк вывода.
     """
 
     status: str
@@ -369,12 +556,19 @@ def validate_examples(examples: list[str], *, timeout: float = _DEFAULT_TIMEOUT)
 
     Ожидание ``raises <Тип>`` означает, что пример падает намеренно: скрипт
     исполняется в обёртке, печатающей имя пойманного исключения (#745).
+
+    Если **все** ожидания помечены средозависимыми (``# → ?``), пример не
+    исполняется вовсе: сверять нечего, а вердикт прогона говорил бы о машине, а
+    не о карточке. Именно так и возникал флак — набор ``os.setpgid`` зависел от
+    того, был ли процесс раннера лидером своей группы (#763).
     """
     if not examples:
         return ExampleReport("unverifiable", "нет примеров")
     expected = extract_expected(examples)
     if not expected:
         return ExampleReport("unverifiable", "нет маркеров '# → …'")
+    if all(is_env_dependent(want) for want in expected):
+        return ExampleReport("unverifiable", f"все ожидания средозависимы ({len(expected)})")
 
     script = "\n".join(examples)
     try:
@@ -477,6 +671,56 @@ def _guarded_attrs(tree: ast.Module) -> set[str]:
         ):
             guarded.add(f"{node.args[0].id}.{node.args[1].value}")
     return guarded
+
+
+def _env_dependent_names(line: str) -> set[str]:
+    """Средозависимое API, к которому обращается одна строка примера.
+
+    Разбор AST, а не поиск подстроки: ``os.getpid`` в тексте пояснения — не
+    обращение. Нераспознанная строка (кусок блока с отступом) — пустое
+    множество: судить об обращении не по чему.
+    """
+    try:
+        tree = ast.parse(line.strip())
+    except SyntaxError:
+        return set()
+    guarded = _guarded_attrs(tree)
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            key = f"{node.value.id}.{node.attr}"
+            if key in _ENV_DEPENDENT_API and key not in guarded:
+                names.add(key)
+    return names
+
+
+def env_dependent_expectations(examples: list[str]) -> list[tuple[str, set[str]]]:
+    """Ожидания, чей результат приходит от ОС, а не от кода примера (issue #763).
+
+    Возвращает пары ``(ожидание, обращения)`` для строк, где ``# → …`` стоит при
+    вызове из ``_ENV_DEPENDENT_API``. Такому ожиданию место только под меткой
+    ``# → ?``: записанное значением, оно верно на машине автора и расходится на
+    чужой — ``os.setpgid`` печатал ``True`` там, где процесс уже был лидером
+    своей группы, и ``False`` на соседнем раннере.
+
+    Ожидание **голой** строкой (``# → …`` и ничего больше — legacy-стиль)
+    относится к ближайшей кодовой строке выше: печатает результат она.
+    А закомментированный код со своим ожиданием (``# breakpoint()  # → войти в
+    pdb``) к строке выше отношения не имеет и её обращений не наследует.
+    """
+    pairs: list[tuple[str, set[str]]] = []
+    names: set[str] = set()
+    for line in examples:
+        code, want = split_code_and_expected(line)
+        match = _EXPECT_RE.search(line)
+        bare_expectation = match is not None and line[: match.start()].strip() in ("", "#")
+        # Пустая строка и голое ожидание кода не несут — обращения остаются от
+        # последней кодовой строки выше.
+        if code.strip() and not bare_expectation:
+            names = _env_dependent_names(code)
+        if want is not None and names:
+            pairs.append((want, set(names)))
+    return pairs
 
 
 def platform_gaps(examples: list[str], *, known_api: Mapping[str, str] | None = None) -> set[str]:
@@ -684,6 +928,11 @@ def run_check(
     в отчёт строкой ``[нет тега]``: без неё такая карточка выглядела бы обычным
     ``mismatch``, и правкой ожидания «под текущую ОС» её ломали бы на остальных
     (#762).
+
+    Строкой ``[проза]`` отмечены помеченные карточки, у которых вместо
+    результата в ``# → …`` записана фраза о нём. Прогон такое не ловит: вне POSIX
+    карточка пропущена, а на POSIX вердикт зависит от того, сошлось ли число
+    строк вывода с числом ожиданий (#763).
     """
     provider = JsonGlossaryProvider.from_directory(base_dir)
     cards = sorted(
@@ -718,6 +967,27 @@ def run_check(
         if gaps:
             names = ", ".join(sorted(gaps))
             print(f"  [нет тега] {card.id}: зовёт недоступное здесь ({names}) — {_POSIX_ONLY_TAG}?")
+    # Проза вместо результата у POSIX-карточек: вне POSIX они не исполняются, и
+    # прогон такое ожидание не поймает ни здесь, ни в отчёте выше (#763).
+    for card in cards:
+        if _POSIX_ONLY_TAG not in card.tags:
+            continue
+        prose = [w for w in extract_expected(card.examples) if not is_verifiable_expectation(w)]
+        if prose:
+            print(f"  [проза] {card.id}: ожиданий без результата {len(prose)}, напр. {prose[0]!r}")
+    # Результат, приходящий от ОС, записанный значением: сегодня он совпал, на
+    # соседней машине разойдётся. Подсказка, а не вердикт — из одного обращения
+    # к API не следует, что значение утекает в вывод (``len(os.times())`` — 5
+    # везде), и решает это человек (#763).
+    for card in cards:
+        unmarked = [
+            want
+            for want, _names in env_dependent_expectations(card.examples)
+            if not is_env_dependent(want)
+            and not ((value := declared_value(want)) and exception_name(value))
+        ]
+        if unmarked:
+            print(f"  [среда] {card.id}: результат от ОС записан значением — напр. {unmarked[0]!r}")
     return counts["mismatch"] + counts["error"]
 
 
