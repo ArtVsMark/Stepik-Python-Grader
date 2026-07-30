@@ -7,13 +7,13 @@
 
 1. **Возврат статического источника истины.** ``[project]`` в ``pyproject.toml``
    не должен снова объявлять ``version = "..."`` — только ``dynamic = ["version"]``.
-2. **Дрейф "текущей версии" в документации.** ``CHECKPOINT.md`` (и, мягко,
-   таблица метрик ``CLAUDE.md`` и таблица эволюции ``docs/use/versions.md``) и
-   верхняя запись ``CHANGELOG.md`` должны соответствовать актуальному релизному
+2. **Дрейф "текущей версии" в документации.** Верхняя запись ``CHANGELOG.md``
+   (и, мягко, таблица метрик ``CLAUDE.md`` с таблицей эволюции
+   ``docs/use/versions.md``) должна соответствовать актуальному релизному
    baseline — последнему git-тегу ``vX.Y.0``.
 
 Baseline вычисляется из git (``git describe --tags --abbrev=0``). Сравнение
-CHECKPOINT/CLAUDE ведётся только по ``MAJOR.MINOR`` — PATCH в схеме проекта это
+``CLAUDE.md`` ведётся только по ``MAJOR.MINOR`` — PATCH в схеме проекта это
 счётчик коммитов (см. CONTRIBUTING.md §Версионирование), он меняется на каждом
 коммите и в доках не фиксируется построчно. CHANGELOG сверяется целиком (там
 записи — только релизные ``X.Y.0``).
@@ -42,7 +42,6 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
 _PYPROJECT = _ROOT / "pyproject.toml"
-_CHECKPOINT = _ROOT / "CHECKPOINT.md"
 _CHANGELOG = _ROOT / "CHANGELOG.md"
 _CLAUDE = _ROOT / "CLAUDE.md"
 _VERSIONS = _ROOT / "docs" / "use" / "versions.md"
@@ -98,24 +97,6 @@ def _find_first(pattern: str, text: str) -> tuple[int, int, int] | None:
     if not v:
         return None
     return int(v.group(1)), int(v.group(2)), int(v.group(3))
-
-
-def _check_checkpoint(baseline: tuple[int, int, int], errors: list[str]) -> None:
-    """CHECKPOINT.md 'Текущая версия: X.Y.Z' — MAJOR.MINOR == baseline."""
-    text = _CHECKPOINT.read_text(encoding="utf-8")
-    found = _find_first(r"Текущая версия:\s*\d+\.\d+\.\d+", text)
-    if found is None:
-        errors.append(
-            "CHECKPOINT.md: line 'Tekushchaya versiya: X.Y.Z' not found "
-            "(required marker for comparison against the release baseline)."
-        )
-        return
-    if found[:2] != baseline[:2]:
-        errors.append(
-            f"CHECKPOINT.md: current version {found[0]}.{found[1]}.{found[2]} "
-            f"disagrees with the latest release tag v{baseline[0]}.{baseline[1]}.0 "
-            f"(expected MAJOR.MINOR = {baseline[0]}.{baseline[1]})."
-        )
 
 
 def _check_changelog(baseline: tuple[int, int, int], errors: list[str]) -> None:
@@ -177,7 +158,6 @@ def main() -> int:
         print("SKIP: no git tag vX.Y.0 found (no git/history) - baseline comparison skipped.")
     else:
         print(f"Release baseline (latest git tag): v{baseline[0]}.{baseline[1]}.{baseline[2]}")
-        _check_checkpoint(baseline, errors)
         _check_changelog(baseline, errors)
         _check_claude_metrics(baseline, warnings)
         _check_versions_md(baseline, warnings)

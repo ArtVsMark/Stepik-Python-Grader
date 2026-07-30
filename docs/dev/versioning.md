@@ -109,8 +109,8 @@ PEP 440 (`X.Y.0.postN+g<hash>`) — это то, что понимают `pip`/P
 
 **CI-защита от дрейфа.** `scripts/check_version_consistency.py`
 следит, чтобы (1) статический `version` не вернулся в `pyproject.toml` и
-(2) «текущая версия» в `CHECKPOINT.md`/`CHANGELOG.md`/`CLAUDE.md` не
-расходилась с последним git-тегом. Baseline берётся из
+(2) верхняя релизная запись `CHANGELOG.md` (и, мягко, таблица метрик
+`CLAUDE.md`) не расходилась с последним git-тегом. Baseline берётся из
 `git describe --tags`. Поэтому отдельной ручной сверки версий по репозиторию
 делать не нужно — за это отвечает CI.
 

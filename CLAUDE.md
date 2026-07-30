@@ -308,9 +308,6 @@ PATCH через `git rev-list --invert-grep`, исключая автокомм
 - **`docs/archive/history.md`** (русский) — архивная запись на **каждый релиз**
   (новый git-тег `vX.Y.0`), не на каждый PR: сводка вошедшего в релиз, в
   стиле уже существующих записей (`**#NNN (дата):** ...`).
-- **`CHECKPOINT.md`** — обновляется вместе с `docs/archive/history.md`, на каждый
-  релиз (это исторический snapshot, не отслеживает промежуточные PR).
-
 Не откладывать `CHANGELOG.md` "до конца фичи/спринта" — если PR смержен,
 запись нужна сразу этим же PR, а не пост-фактум пачкой.
 
@@ -347,7 +344,6 @@ Claude) · [`docs/archive/`](docs/archive/README.md) (всё историчес�
 | Всё историческое: история спринтов/релизов, архив CHANGELOG, разовые аудиты, отработанные постановки | [docs/archive/README.md](docs/archive/README.md) |
 | Полный аудит v1.9.0 (архив) | [docs/archive/audit-2026-07-20.md](docs/archive/audit-2026-07-20.md) |
 | Полный changelog (живой источник) | [CHANGELOG.md](CHANGELOG.md) |
-| Состояние проекта (исторический snapshot) | [CHECKPOINT.md](CHECKPOINT.md) |
 
 ---
 
@@ -424,10 +420,9 @@ issue на билд нет — направление держит только 
 [ ] Коммит в формате Conventional Commits
 [ ] CHANGELOG.md: добавлена запись под ## [Unreleased] — в КАЖДОМ PR, без
     исключений для рефакторингов (см. § Обновление CHANGELOG.md/docs/archive/history.md)
-[ ] docs/archive/history.md/CHECKPOINT.md — НЕ на каждый PR, обновляются вместе на
-    релиз (см. ту же секцию)
+[ ] docs/archive/history.md — НЕ на каждый PR, только на релиз (см. ту же секцию)
 [ ] Версия не правится вручную — CI (check_version_consistency.py) сам следит
-    за дрейфом; достаточно, чтобы CHECKPOINT/CHANGELOG совпадали
+    за дрейфом; достаточно, чтобы верхняя запись CHANGELOG совпадала
     с последним git-тегом
 ```
 
