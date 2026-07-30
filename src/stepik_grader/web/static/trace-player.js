@@ -16,6 +16,9 @@ function showTracePlayer(trace, code) {
     steps,
     stdout: (trace && trace.stdout) || "",
     truncated: !!(trace && trace.truncated),
+    // issue #629: вывод программы упёрся в потолок накопления — показан только
+    // его начало (усечение по шагам — отдельный флаг `truncated` выше).
+    stdoutTruncated: !!(trace && trace.stdout_truncated),
     error: (trace && trace.error) || null,
     lines: code.split("\n"),
     idx: 0,
@@ -71,6 +74,9 @@ function tracePlayerShell(tr) {
     '<div class="trace-frames" id="trace-frames"></div>' +
     "</div>" +
     '<div class="form-label">' + esc(t("trace.output_stdout")) + "</div>" +
+    (tr.stdoutTruncated
+      ? '<div class="trace-truncated hint">' + esc(t("trace.stdout_truncated")) + "</div>"
+      : "") +
     '<pre class="code-block trace-stdout" id="trace-stdout"></pre>' +
     '<div class="msg trace-error" id="trace-error" hidden></div>' +
     "</div>"
