@@ -10,9 +10,9 @@ docs/archive/changelog-archive.md (в живом файле — не больш�
 -->
 
 ### Internal
-- Full multi-role audit of v1.10.0 — `docs/audit/2026-07-30-full-roles.md`: 192 findings across 30 role and zone slices, 192 adversarial verifications, two completeness critics and one live-run deep dive (#770)
-- Work queue for the audit — `docs/agent/claude-handoff.md`: six plats where order is mandatory (characterisation tests before verdict fixes, guard before the data it guards, sandbox fixes in one file, stats read before write, release gate before pinning, poller mechanics together); the remaining 43 issues have no edges and are taken in any order (#841)
-- Multi-agent rules: a role is now split across 2–3 agents with explicit file lists and response-size limits in the schema; tool-call budget, no binary files in an agent's zone, severity-scale calibration for verifiers, and a mandatory live-run slice — `docs/agent/multiagent.md` (#770)
+- Полный мультиролевой аудит v1.10.0 — `docs/audit/2026-07-30-full-roles.md`: 192 находки с `file:line` в 30 ролевых и зонных срезах, 192 адверсариальные верификации (10 находок отклонено), два критика полноты и deep-dive живым прогоном; разбор заведён эпиком с 11 подэпиками и 57 issue, серверный пласт (78 целей, 11 блоков) — в roadmap #59 (#770)
+- Очередь разбора аудита — `docs/agent/claude-handoff.md`: шесть пластов, где порядок обязателен (характеризующие тесты до фиксов вердикта, guard до данных, которые он стережёт, песочница последовательно по одному файлу, чтение stats до записи, гейт релиза до пиннинга, поллер web одним заходом); остальные 43 задачи без рёбер и берутся в любом порядке (#841)
+- Правила мультиагентного режима — `docs/agent/multiagent.md`: роль дробится на 2–3 агента с явными списками файлов, объём ответа ограничивается схемой (`minItems`/`maxItems`/`maxLength`), задан бюджет обращений к инструментам, бинарные файлы в зону агента не попадают; для скептика — калибровка шкалы severity, для аудита — обязательный срез, который запускает продукт (#770)
 
 ### Changed
 - `CLAUDE.md`: язык `CHANGELOG.md` исправлен с «английский» на «русский» — контракт разошёлся с практикой, все записи файла и так на русском
