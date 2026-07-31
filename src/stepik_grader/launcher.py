@@ -37,6 +37,9 @@ CLI, никогда из самого веб-интерфейса.
 from __future__ import annotations
 
 import contextlib
+import json
+import locale
+import os
 import socket
 import subprocess
 import sys
@@ -52,18 +55,36 @@ from typing import Any
 __all__ = [
     "DEFAULT_HOST",
     "DEFAULT_PORT",
+    "LANG_ENV_VAR",
     "LauncherApp",
     "ServerController",
     "ServerState",
     "ServerStatus",
     "build_server_command",
     "create_app",
+    "detect_lang",
+    "load_ui_messages",
     "main",
     "port_available",
 ]
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
+
+# -- Локализация окна (issue #821) -------------------------------------------
+#
+# GUI — самый низкобарьерный вход в продукт («без командной строки»), и он был
+# единственной поверхностью вообще без переводов: окно, кнопки и ошибки только
+# по-русски. Каталог читается ФАЙЛОМ, а не импортом `core.i18n`: модуль по
+# замыслу leaf (см. докстринг), и импорт ядра добавил бы ребро DAG ради
+# восемнадцати подписей. JSON — stdlib, ребра не возникает.
+#
+# Язык: переменная окружения перекрывает всё, иначе — системная локаль, иначе
+# русский (прежнее поведение). У GUI нет argparse, поэтому флага здесь нет.
+LANG_ENV_VAR = "STEPIK_GRADER_LANG"
+_SUPPORTED_LANGS = ("ru", "en")
+_FALLBACK_LANG = "ru"
+_LOCALES_DIR = Path(__file__).parent / "core" / "locales"
 
 # Сколько ждём готовности сервера (bind + первый accept) после старта, и с каким
 # шагом опрашиваем TCP. Импорт http-стека и чтение статики при старте --serve
@@ -88,6 +109,51 @@ try:
 except ImportError:  # pragma: no cover
     _console = None
     _RICH = False
+
+
+def _system_lang() -> str | None:
+    """Двухбуквенный код системного языка или ``None``, если определить нечем."""
+    for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        value = os.environ.get(var)
+        if value:
+            return value.split(".")[0].split("_")[0].lower()
+    with contextlib.suppress(ValueError, locale.Error):
+        code = locale.getlocale()[0]
+        if code:
+            lowered = code.lower()
+            # Windows отдаёт человекочитаемое имя («Russian_Russia»), POSIX —
+            # код («ru_RU»): оба сводим к первым буквам названия языка.
+            return "ru" if lowered.startswith(("ru", "russian")) else lowered[:2]
+    return None
+
+
+def detect_lang() -> str:
+    """Язык окна: ``STEPIK_GRADER_LANG`` → системная локаль → русский (issue #821)."""
+    env = (os.environ.get(LANG_ENV_VAR) or "").strip().lower()
+    if env in _SUPPORTED_LANGS:
+        return env
+    system = _system_lang()
+    if system is None:
+        return _FALLBACK_LANG
+    return "ru" if system.startswith("ru") else "en"
+
+
+def load_ui_messages(lang: str) -> dict[str, str]:
+    """Подписи окна из ``core/locales/<lang>.json`` (чтение файлом, не импортом).
+
+    Graceful degradation в духе остального проекта: пропавший или битый файл —
+    пустой словарь и откат на русский, а не исключение в GUI. Если недоступен и
+    он, ``_t`` покажет сам ключ — окно всё равно откроется и сервер запустится.
+    """
+    for candidate in (lang, _FALLBACK_LANG):
+        path = _LOCALES_DIR / f"{candidate}.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if isinstance(v, str)}
+    return {}
 
 
 def _print(text: str) -> None:
@@ -392,14 +458,17 @@ class LauncherApp:
         self._opened_url = ""
         self._last_url = ""
         self._poll_id: str | None = None
+        # issue #821: подписи окна — из каталога проекта; язык определяется один
+        # раз при построении виджетов (переключателя языка в окне нет).
+        self._messages = load_ui_messages(detect_lang())
 
-        root.title("Stepik Python Grader — запуск веб-интерфейса")
+        root.title(self._t("launcher_window_title"))
         root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self.port_var = tk.StringVar(value=str(DEFAULT_PORT))
         self.sandbox_var = tk.BooleanVar(value=False)
         self.workdir_var = tk.StringVar(value=str(Path.cwd()))
-        self.status_var = tk.StringVar(value="Остановлен")
+        self.status_var = tk.StringVar(value=self._t("launcher_status_stopped"))
 
         frame = ttk.Frame(root, padding=16)
         frame.grid(row=0, column=0, sticky="nsew")
@@ -411,41 +480,50 @@ class LauncherApp:
         # sandbox_var False = «простой» (LocalRunner, без изоляции), True = «с
         # изоляцией» (SandboxRunner). Режим изоляции задаётся ТОЛЬКО здесь/в CLI,
         # никогда из живого веб-сервера (он ставится process-global до старта).
-        ttk.Label(frame, text="Как запустить сервер:").grid(
+        ttk.Label(frame, text=self._t("launcher_mode_heading")).grid(
             row=0, column=0, columnspan=3, sticky="w", pady=(0, 4)
         )
         self.radio_simple = ttk.Radiobutton(
             frame,
-            text="Простой сервер — без изоляции (быстрее, доступен везде)",
+            text=self._t("launcher_mode_simple"),
             variable=self.sandbox_var,
             value=False,
         )
         self.radio_simple.grid(row=1, column=0, columnspan=3, sticky="w")
         self.radio_sandbox = ttk.Radiobutton(
             frame,
-            text="Сервер с изоляцией — OS-песочница (--sandbox)",
+            text=self._t("launcher_mode_sandbox"),
             variable=self.sandbox_var,
             value=True,
         )
         self.radio_sandbox.grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 12))
 
         # Порт
-        ttk.Label(frame, text="Порт:").grid(row=3, column=0, sticky="w", pady=(0, 8))
+        ttk.Label(frame, text=self._t("launcher_port")).grid(
+            row=3, column=0, sticky="w", pady=(0, 8)
+        )
         self.port_entry = ttk.Entry(frame, textvariable=self.port_var, width=10)
         self.port_entry.grid(row=3, column=1, columnspan=2, sticky="w", pady=(0, 8))
 
         # Рабочая папка
-        ttk.Label(frame, text="Рабочая папка:").grid(row=4, column=0, sticky="w", pady=(0, 8))
+        ttk.Label(frame, text=self._t("launcher_workdir")).grid(
+            row=4, column=0, sticky="w", pady=(0, 8)
+        )
         self.workdir_entry = ttk.Entry(frame, textvariable=self.workdir_var)
         self.workdir_entry.grid(row=4, column=1, sticky="ew", pady=(0, 8))
-        self.browse_btn = ttk.Button(frame, text="Обзор…", command=self._browse_dir)
+        self.browse_btn = ttk.Button(
+            frame, text=self._t("launcher_browse"), command=self._browse_dir
+        )
         self.browse_btn.grid(row=4, column=2, sticky="e", padx=(8, 0), pady=(0, 8))
 
         # Действие + открыть в браузере
-        self.action_btn = ttk.Button(frame, text="Запустить", command=self._on_action)
+        self.action_btn = ttk.Button(frame, text=self._t("launcher_start"), command=self._on_action)
         self.action_btn.grid(row=5, column=0, sticky="w")
         self.open_btn = ttk.Button(
-            frame, text="Открыть в браузере", command=self._open_browser, state="disabled"
+            frame,
+            text=self._t("launcher_open_browser"),
+            command=self._open_browser,
+            state="disabled",
         )
         self.open_btn.grid(row=5, column=1, columnspan=2, sticky="e")
 
@@ -456,6 +534,11 @@ class LauncherApp:
         self.status_label.grid(row=6, column=0, columnspan=3, sticky="w", pady=(12, 0))
 
         self._poll()
+
+    def _t(self, key: str, **params: object) -> str:
+        """Подпись по ключу каталога; пропавший ключ показывается как есть."""
+        template = self._messages.get(key, key)
+        return template.format(**params) if params else template
 
     def run(self) -> None:
         """Войти в блокирующий ``mainloop`` (используется ``main``, не тестами)."""
@@ -477,17 +560,17 @@ class LauncherApp:
         try:
             port = int(raw_port)
         except ValueError:
-            self._set_status("Некорректный порт — введите число 1–65535", error=True)
+            self._set_status(self._t("launcher_port_invalid"), error=True)
             return
         if not 1 <= port <= 65535:
-            self._set_status("Порт вне диапазона 1–65535", error=True)
+            self._set_status(self._t("launcher_port_range"), error=True)
             return
         workdir = Path(self.workdir_var.get().strip() or ".")
         if not workdir.is_dir():
-            self._set_status("Рабочая папка не найдена", error=True)
+            self._set_status(self._t("launcher_workdir_missing"), error=True)
             return
         if not port_available(port, host=self.controller.host):
-            self._set_status(f"Порт {port} занят — выберите другой", error=True)
+            self._set_status(self._t("launcher_port_busy", port=port), error=True)
             return
         self.controller.start(port, sandbox=self.sandbox_var.get(), workdir=workdir)
 
@@ -496,7 +579,8 @@ class LauncherApp:
         from tkinter import filedialog
 
         chosen = filedialog.askdirectory(
-            title="Выберите рабочую папку", initialdir=self.workdir_var.get() or str(Path.cwd())
+            title=self._t("launcher_browse_title"),
+            initialdir=self.workdir_var.get() or str(Path.cwd()),
         )
         if chosen:
             self.workdir_var.set(chosen)
@@ -537,32 +621,36 @@ class LauncherApp:
         """Привести кнопки/поля/статус в соответствие снимку состояния."""
         state = status.state
         if state == ServerState.RUNNING:
-            self.action_btn.config(text="Остановить")
+            self.action_btn.config(text=self._t("launcher_stop"))
             self.open_btn.config(state="normal")
             self._set_inputs_enabled(False)
-            self._set_status(f"Запущен: {status.url}")
+            self._set_status(self._t("launcher_status_running", url=status.url))
             if status.url and status.url != self._opened_url:
                 # Авто-открытие браузера один раз на переход в RUNNING.
                 self._opened_url = status.url
                 self._last_url = status.url
                 webbrowser.open(status.url)
         elif state == ServerState.STARTING:
-            self.action_btn.config(text="Остановить")
+            self.action_btn.config(text=self._t("launcher_stop"))
             self.open_btn.config(state="disabled")
             self._set_inputs_enabled(False)
-            self._set_status("Запуск…")
+            self._set_status(self._t("launcher_status_starting"))
         elif state == ServerState.ERROR:
-            self.action_btn.config(text="Запустить")
+            self.action_btn.config(text=self._t("launcher_start"))
             self.open_btn.config(state="disabled")
             self._set_inputs_enabled(True)
             self._opened_url = ""
-            self._set_status(_last_line(status.error) or "Ошибка запуска", error=True)
+            # Текст ошибки — из stderr сервера: он приходит на языке сервера и
+            # переводу здесь не подлежит; переводится только запасная подпись.
+            self._set_status(
+                _last_line(status.error) or self._t("launcher_status_error"), error=True
+            )
         else:  # STOPPED
-            self.action_btn.config(text="Запустить")
+            self.action_btn.config(text=self._t("launcher_start"))
             self.open_btn.config(state="disabled")
             self._set_inputs_enabled(True)
             self._opened_url = ""
-            self._set_status("Остановлен")
+            self._set_status(self._t("launcher_status_stopped"))
 
     def _set_inputs_enabled(self, enabled: bool) -> None:
         """Блокировать порт/папку/sandbox во время работы сервера."""

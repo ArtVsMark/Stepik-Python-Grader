@@ -159,3 +159,41 @@ def test_grader_failure_default_message_without_error() -> None:
 
     exc = GraderFailure({"error": "", "verdict": "WA"})
     assert "failed" in str(exc)
+
+
+# ---------------------------------------------------------------------------
+# issue #821: язык отчёта плагина
+#
+# Плагин — единственный канал грейдера в чужие CI и IDE (entry point pytest11)
+# и до этого единственная монолингвальная поверхность.
+# ---------------------------------------------------------------------------
+
+
+def test_failure_report_is_russian_by_default(pytester: pytest.Pytester) -> None:
+    """Без флага отчёт прежний — русский (обратная совместимость)."""
+    _make_solution(pytester.path, "print(int(input()) + 1)\n", [("1", "999")])
+    result = pytester.runpytest("--grader-mode", str(pytester.path))
+    result.stdout.fnmatch_lines(["*Тест-кейс #1*", "*Ожидалось:*", "*Получено:*"])
+
+
+def test_failure_report_follows_grader_lang_flag(pytester: pytest.Pytester) -> None:
+    """`--grader-lang en` переводит подписи отчёта."""
+    _make_solution(pytester.path, "print(int(input()) + 1)\n", [("1", "999")])
+    result = pytester.runpytest("--grader-mode", "--grader-lang", "en", str(pytester.path))
+    result.stdout.fnmatch_lines(["*Test case #1*", "*Expected:*", "*Actual:*"])
+    assert "Ожидалось" not in result.stdout.str()
+
+
+def test_failure_report_follows_grader_lang_ini(pytester: pytest.Pytester) -> None:
+    """Язык можно задать ini-опцией — как и сам грейдер-режим."""
+    _make_solution(pytester.path, "print(int(input()) + 1)\n", [("1", "999")])
+    pytester.makeini("[pytest]\ngrader_mode = true\ngrader_lang = en\n")
+    result = pytester.runpytest(str(pytester.path))
+    result.stdout.fnmatch_lines(["*Test case #1*", "*Expected:*"])
+
+
+def test_unknown_lang_falls_back_to_default(pytester: pytest.Pytester) -> None:
+    """Неизвестная локаль не ломает отчёт — откат на язык по умолчанию."""
+    _make_solution(pytester.path, "print(int(input()) + 1)\n", [("1", "999")])
+    result = pytester.runpytest("--grader-mode", "--grader-lang", "fr", str(pytester.path))
+    result.stdout.fnmatch_lines(["*Тест-кейс #1*"])

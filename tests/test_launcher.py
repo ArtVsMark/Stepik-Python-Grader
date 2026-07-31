@@ -386,3 +386,68 @@ class TestGuiHandlers:
         app._render(ServerStatus(state=ServerState.RUNNING, url=""))
         assert str(app.radio_simple.cget("state")) == "disabled"
         assert str(app.radio_sandbox.cget("state")) == "disabled"
+
+
+# ---------------------------------------------------------------------------
+# issue #821: язык окна лаунчера
+#
+# GUI — самый низкобарьерный вход («без командной строки») и до этого
+# единственная поверхность вообще без переводов. Каталог читается файлом:
+# модуль остаётся leaf'ом, нового ребра DAG не появляется.
+# ---------------------------------------------------------------------------
+
+
+def test_lang_env_var_wins(monkeypatch) -> None:
+    """Переменная окружения перекрывает системную локаль."""
+    monkeypatch.setenv(launcher.LANG_ENV_VAR, "en")
+    monkeypatch.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "en"
+
+
+def test_unsupported_env_value_is_ignored(monkeypatch) -> None:
+    """Неизвестное значение переменной не выбирает несуществующую локаль."""
+    monkeypatch.setenv(launcher.LANG_ENV_VAR, "fr")
+    monkeypatch.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "ru"
+
+
+def test_system_locale_picks_english(monkeypatch) -> None:
+    """Не-русская системная локаль даёт английское окно — цель issue #821."""
+    monkeypatch.delenv(launcher.LANG_ENV_VAR, raising=False)
+    monkeypatch.setenv("LANG", "en_US.UTF-8")
+    assert launcher.detect_lang() == "en"
+
+
+def test_russian_system_locale_stays_russian(monkeypatch) -> None:
+    """Русская система — русское окно (прежнее поведение)."""
+    monkeypatch.delenv(launcher.LANG_ENV_VAR, raising=False)
+    monkeypatch.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "ru"
+
+
+def test_undetectable_locale_falls_back_to_russian(monkeypatch) -> None:
+    """Локаль не определяется → русский, а не пустое окно."""
+    for var in (launcher.LANG_ENV_VAR, "LC_ALL", "LC_MESSAGES", "LANG"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(launcher.locale, "getlocale", lambda: (None, None))
+    assert launcher.detect_lang() == "ru"
+
+
+def test_ui_messages_are_localized() -> None:
+    """Каталог отдаёт подписи обоих языков, и они различаются."""
+    ru = launcher.load_ui_messages("ru")
+    en = launcher.load_ui_messages("en")
+    assert ru["launcher_start"] == "Запустить"
+    assert en["launcher_start"] == "Start"
+    assert en["launcher_status_running"].startswith("Running")
+
+
+def test_ui_messages_unknown_lang_falls_back_to_russian() -> None:
+    """Неизвестный язык — русский каталог, а не пустой словарь."""
+    assert launcher.load_ui_messages("fr")["launcher_stop"] == "Остановить"
+
+
+def test_ui_messages_missing_catalog_is_not_fatal(monkeypatch, tmp_path: Path) -> None:
+    """Пропавший каталог не роняет GUI: пустой словарь, подписи покажут ключи."""
+    monkeypatch.setattr(launcher, "_LOCALES_DIR", tmp_path / "nope")
+    assert launcher.load_ui_messages("ru") == {}
