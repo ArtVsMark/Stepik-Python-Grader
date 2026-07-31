@@ -175,6 +175,9 @@ class LinuxSandboxRunner:
                 timeout=spec.timeout,
                 max_output_bytes=CONFIG.sandbox_max_output_bytes,
                 max_memory_mb=float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024),
+                # issue #797: отмена работает и под изоляцией — раньше поле
+                # RunSpec просто не доезжало до цикла ожидания.
+                cancel_event=spec.cancel_event,
             )
 
     def _build_argv(self, spec: RunSpec, run_dir: Path, script_path: Path) -> list[str]:

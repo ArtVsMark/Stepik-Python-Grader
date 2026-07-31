@@ -444,6 +444,14 @@ def _run_hint_job(job: Job, code: str, params: dict[str, Any], lang: str) -> Non
     ``{"hint": str|None, "configured": bool}`` (``hint=None`` при не настроенном
     провайдере или пустом ответе — graceful skip).
     """
+    # issue #797: отмена, пришедшая ПОКА job стояла в очереди executor'а (при
+    # дефолтных двух воркерах это обычное дело), не должна оборачиваться
+    # походом к AI-провайдеру — сеть и токены тратятся зря.
+    if job.cancel_event.is_set():
+        with job.lock:
+            job.status = "cancelled"
+            job.message_fields = message_fields("run_cancelled", lang)
+        return
     try:
         raw_case = params.get("case")
         case = raw_case if isinstance(raw_case, dict) else {}
@@ -455,6 +463,13 @@ def _run_hint_job(job: Job, code: str, params: dict[str, Any], lang: str) -> Non
             job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
         return
     with job.lock:
+        # Запрос к провайдеру прервать нельзя (он уже ушёл и ограничен своим
+        # таймаутом), но отменённая job'а не должна публиковать результат —
+        # иначе «Отмена» на глазах пользователя сменяется подсказкой.
+        if job.cancel_event.is_set():
+            job.status = "cancelled"
+            job.message_fields = message_fields("run_cancelled", lang)
+            return
         job.status = "done"
         job.result = {"hint": hint, "configured": is_configured(CONFIG)}
 
@@ -492,13 +507,22 @@ def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: st
                 job.status = "error"
                 job.message_fields = message_fields("stepik_auth_required", lang)
             return
-        result = stepik_client.submit_and_wait(session, step_id, code)
+        result = stepik_client.submit_and_wait(
+            session, step_id, code, cancel_event=job.cancel_event
+        )
     except Exception as exc:
         with job.lock:
             job.status = "error"
             job.message_fields = message_fields("run_internal_error", lang, error=str(exc))
         return
     with job.lock:
+        # issue #797: отмена прекращает ОЖИДАНИЕ вердикта, но не отправку —
+        # попытка на Stepik уже создана и останется в истории решений. Статус
+        # терминальный «cancelled», как у грейд- и playground-job'ов.
+        if job.cancel_event.is_set():
+            job.status = "cancelled"
+            job.message_fields = message_fields("run_cancelled", lang)
+            return
         job.status = "done"
         job.result = {
             "status": result.status,

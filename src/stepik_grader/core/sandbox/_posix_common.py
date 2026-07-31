@@ -119,6 +119,7 @@ def run_argv_with_limits(
     max_output_bytes: int,
     max_memory_mb: float | None = None,
     env: dict[str, str] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> RunOutcome:
     """Запустить ``argv``, дренируя stdout/stderr с лимитом суммарного
     размера, опциональным psutil-поллингом памяти и wall-clock таймаутом.
@@ -196,10 +197,19 @@ def run_argv_with_limits(
         stdin_writer.start()
 
     timed_out = False
+    cancelled = False
     while True:
         if proc.poll() is not None:
             break
         if output_exceeded.is_set() or mem_exceeded.is_set():
+            break
+        # issue #797: отмена проверяется в том же цикле, что и таймаут. Без неё
+        # `RunSpec.cancel_event` не читался ни одним backend'ом: под
+        # `--serve --sandbox` кнопка «Отмена» ничего не делала, а вердикт
+        # CANCELLED был недостижим — воркер держался до конца прогона.
+        if cancel_event is not None and cancel_event.is_set():
+            cancelled = True
+            proc.kill()
             break
         if time.perf_counter() - start > timeout:
             timed_out = True
@@ -245,6 +255,18 @@ def run_argv_with_limits(
             sandbox_violation="memory",
             stdout=b"".join(stdout_chunks),
             stderr=b"".join(stderr_chunks),
+            elapsed=elapsed,
+            peak_memory_mb=peak_mb_result[0],
+        )
+    # issue #797: отмена — отдельный исход, не TLE. Вердикт различает «решение
+    # слишком медленное» и «пользователь нажал Отмена» (issue #262), и путать
+    # их в UI нельзя. Проверяется ПЕРЕД timed_out: если оба флага успели
+    # выставиться, причина остановки — та, что сработала в цикле первой.
+    if cancelled:
+        return RunOutcome(
+            stdout=b"".join(stdout_chunks),
+            stderr=b"".join(stderr_chunks),
+            cancelled=True,
             elapsed=elapsed,
             peak_memory_mb=peak_mb_result[0],
         )

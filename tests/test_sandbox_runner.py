@@ -484,6 +484,34 @@ def _assert_large_stdin_to_non_reader_times_out(runner, tmp_path: pathlib.Path) 
     assert elapsed < 15.0, f"прогон занял {elapsed:.1f} с — похоже на блокировку записи stdin"
 
 
+def _assert_cancel_event_stops_run(runner, tmp_path: pathlib.Path) -> None:
+    """Отмена под изоляцией останавливает прогон и даёт `cancelled`, а не TLE.
+
+    issue #797: `RunSpec.cancel_event` не читался НИ ОДНИМ backend'ом — поле
+    доезжало до `run()` и молча игнорировалось. Под `--serve --sandbox` кнопка
+    «Отмена» ничего не делала, вердикт CANCELLED был недостижим, а воркер
+    держался до конца прогона (при дефолтных двух воркерах — до половины
+    async-подсистемы за один клик).
+
+    Решение спит заведомо дольше и таймаута, и времени отмены: если отмена не
+    сработает, тест увидит TLE вместо `cancelled` — то есть отличит починку от
+    случайного совпадения.
+    """
+    path = _write_script(tmp_path, "import time\ntime.sleep(20)\n")
+    cancel = threading.Event()
+    threading.Timer(0.4, cancel.set).start()
+
+    start = time.perf_counter()
+    outcome = runner.run(
+        RunSpec(path=path, stdin=None, timeout=15.0, cancel_event=cancel),
+    )
+    elapsed = time.perf_counter() - start
+
+    assert outcome.cancelled is True, "отмена под --sandbox должна давать cancelled"
+    assert outcome.timed_out is False, "отмена — не таймаут: UI различает эти исходы"
+    assert elapsed < 10.0, f"прогон занял {elapsed:.1f} с — отмена не прервала ожидание"
+
+
 def _assert_read_outside_run_dir_blocked(runner, tmp_path: pathlib.Path) -> None:
     """Чтение секрета ВНЕ run_dir заблокировано (SEC-CORE-03, escape-PoC #648).
 
@@ -573,6 +601,9 @@ class TestLinuxSandboxRunner:
 
     def test_large_stdin_to_non_reader_times_out(self, tmp_path: pathlib.Path) -> None:
         _assert_large_stdin_to_non_reader_times_out(self._runner(), tmp_path)
+
+    def test_cancel_event_stops_run(self, tmp_path: pathlib.Path) -> None:
+        _assert_cancel_event_stops_run(self._runner(), tmp_path)
 
     def test_read_outside_run_dir_blocked(self, tmp_path: pathlib.Path) -> None:
         # issue #648: bwrap изолирует ЧТЕНИЕ (файл вне bind'ов недоступен) —
@@ -675,6 +706,9 @@ class TestMacSandboxRunner:
     def test_large_stdin_to_non_reader_times_out(self, tmp_path: pathlib.Path) -> None:
         _assert_large_stdin_to_non_reader_times_out(self._runner(), tmp_path)
 
+    def test_cancel_event_stops_run(self, tmp_path: pathlib.Path) -> None:
+        _assert_cancel_event_stops_run(self._runner(), tmp_path)
+
     def test_memory_overrun_violation(self, tmp_path: pathlib.Path) -> None:
         """No RLIMIT_AS on Darwin -- psutil polling is the only enforcement,
         so allow a somewhat larger overshoot tolerance than Linux/Windows."""
@@ -751,6 +785,9 @@ class TestWindowsSandboxRunner:
 
     def test_large_stdin_to_non_reader_times_out(self, tmp_path: pathlib.Path) -> None:
         _assert_large_stdin_to_non_reader_times_out(self._runner(), tmp_path)
+
+    def test_cancel_event_stops_run(self, tmp_path: pathlib.Path) -> None:
+        _assert_cancel_event_stops_run(self._runner(), tmp_path)
 
     def test_memory_overrun_surfaces_as_violation_or_re(self, tmp_path: pathlib.Path) -> None:
         """Job Object's JOB_OBJECT_LIMIT_JOB_MEMORY is commit-charge-based and

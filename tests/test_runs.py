@@ -154,6 +154,90 @@ class TestTraceCancel:
         assert job.result == {"steps": [1]}
 
 
+class TestHintAndSubmitCancel:
+    """issue #797 (QA-04): отмена hint- и submit-job'ы больше не no-op.
+
+    Их тела не читали `cancel_event` вовсе: клик «Отмена» помечал job'у
+    отменённой в реестре, но воркер продолжал ходить к AI-провайдеру или ждать
+    вердикт Stepik, а потом публиковал результат поверх отменённой job'ы.
+    """
+
+    def test_hint_cancelled_before_provider_call(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Отмена в очереди executor'а: к провайдеру не идём вообще."""
+        called: list[object] = []
+        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: called.append(fc))
+        job = runs.Job("hint-cancel", "hint")
+        job.cancel_event.set()
+
+        runs._run_hint_job(job, "print(1)", {"case": {}}, "ru")
+
+        assert job.status == "cancelled"
+        assert job.result is None
+        assert called == [], "запрос к AI-провайдеру не должен уходить у отменённой job'ы"
+
+    def test_hint_cancelled_during_provider_call(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Отмена во время запроса: результат не публикуется поверх «Отмены»."""
+
+        job = runs.Job("hint-cancel-mid", "hint")
+
+        def _slow_hint(fc: object, cfg: object) -> str:
+            job.cancel_event.set()  # пользователь нажал «Отмена», пока шёл запрос
+            return "подсказка"
+
+        monkeypatch.setattr(runs, "explain_failure", _slow_hint)
+
+        runs._run_hint_job(job, "print(1)", {"case": {}}, "ru")
+
+        assert job.status == "cancelled"
+        assert job.result is None
+
+    def test_hint_done_when_not_cancelled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Обычный путь не затронут."""
+        monkeypatch.setattr(runs, "explain_failure", lambda fc, cfg: "подсказка")
+        job = runs.Job("hint-done", "hint")
+
+        runs._run_hint_job(job, "print(1)", {"case": {}}, "ru")
+
+        assert job.status == "done"
+        assert job.result is not None
+        assert job.result["hint"] == "подсказка"
+
+    def test_submit_passes_cancel_event_and_marks_cancelled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Отмена доезжает до опроса Stepik, а job финализируется как cancelled.
+
+        Отменяется ожидание вердикта, а не сама отправка: попытка на платформе
+        уже создана — поэтому проверяется и то, что событие ДОШЛО до клиента.
+        """
+        seen: dict[str, object] = {}
+
+        def _fake_submit(session, step_id, code, *, cancel_event=None):
+            seen["cancel_event"] = cancel_event
+            cancel_event.set()  # вердикт не дождались, пользователь отменил
+            from stepik_grader.core.stepik_client import SubmissionResult
+
+            return SubmissionResult(status="evaluation", hint="", submission_id=1)
+
+        # Импорты в теле job'ы ленивые, поэтому патчим исходные модули.
+        from stepik_grader.core import oauth_flow, stepik_client
+
+        monkeypatch.setattr(stepik_client, "submit_and_wait", _fake_submit)
+        monkeypatch.setattr(
+            oauth_flow, "try_create_session_without_browser", lambda secrets, path: object()
+        )
+        monkeypatch.setattr(oauth_flow, "load_secrets_dict", lambda path: {})
+        job = runs.Job("submit-cancel", "stepik_submit")
+
+        runs._run_stepik_submit_job(
+            job, "print(1)", {"step_id": 1, "secrets_path": "secrets.json"}, "ru"
+        )
+
+        assert seen["cancel_event"] is job.cancel_event, "cancel_event должен доезжать до клиента"
+        assert job.status == "cancelled"
+        assert job.result is None
+
+
 class TestCancelJob:
     def test_cancel_running_job_marks_cancelled(self, tmp_path: pathlib.Path) -> None:
         """issue #296: отмена — отдельный терминальный статус, не "error"."""

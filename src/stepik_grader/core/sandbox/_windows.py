@@ -348,10 +348,16 @@ class WindowsSandboxRunner:
             stdin_writer.start()
 
         timed_out = False
+        cancelled = False
         while True:
             if proc.poll() is not None:
                 break
             if output_exceeded.is_set() or mem_exceeded.is_set() or cpu_exceeded.is_set():
+                break
+            # issue #797: та же проверка, что в POSIX-backend'е и LocalRunner.
+            if spec.cancel_event is not None and spec.cancel_event.is_set():
+                cancelled = True
+                proc.kill()
                 break
             if time.perf_counter() - start > spec.timeout:
                 timed_out = True
@@ -381,6 +387,16 @@ class WindowsSandboxRunner:
         if cpu_exceeded.is_set():
             return RunOutcome(
                 sandbox_violation="cpu", elapsed=elapsed, peak_memory_mb=peak_mb_result[0]
+            )
+        # issue #797: отмена — свой исход, а не TLE: UI различает «слишком
+        # медленное решение» и «пользователь нажал Отмена» (issue #262).
+        if cancelled:
+            return RunOutcome(
+                stdout=b"".join(stdout_chunks),
+                stderr=b"".join(stderr_chunks),
+                cancelled=True,
+                elapsed=elapsed,
+                peak_memory_mb=peak_mb_result[0],
             )
         if timed_out:
             return RunOutcome(timed_out=True, elapsed=elapsed, peak_memory_mb=peak_mb_result[0])
