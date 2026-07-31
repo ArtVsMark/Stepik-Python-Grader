@@ -456,6 +456,15 @@ function t(key, params) {
   return str;
 }
 
+// issue #821 — подпись по ключу, но с серверным запасным вариантом. Нужна там,
+// где набор ключей задаёт СЕРВЕР (бейджи достижений): новый бейдж, которого ещё
+// нет в каталоге, должен показать серверную подпись, а не маркер ⟦key⟧. Для
+// обычных статических ключей это не годится — там пропуск обязан быть виден.
+function tOr(key, fallback) {
+  const dict = (_uiCatalog && _uiCatalog[state.lang]) || {};
+  return Object.hasOwn(dict, key) ? t(key) : fallback;
+}
+
 // issue #546 — выбор формы множественного числа. RU: три формы (one/few/many);
 // EN: две (one/many, «few» не используется). Возвращает суффикс каталожного
 // ключа: строки лежат под <key>.one/.few/.many в обоих языках (в en .few — копия
@@ -699,6 +708,7 @@ export {
   stripAnsi,
   syncLangButtons,
   t,
+  tOr,
   toast,
   tp,
 };

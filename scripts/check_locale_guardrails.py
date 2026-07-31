@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/check_locale_guardrails.py — CI-guard локализации веб-API (issue #264).
 
-Две машинные защиты, чтобы каталог сообщений веб-слоя (``message_id`` →
+Три машинные защиты, чтобы каталог сообщений веб-слоя (``message_id`` →
 локализованный текст, см. ``web/i18n.py``) не разъезжался с фактическим
 использованием и между локалями:
 
@@ -13,6 +13,10 @@
 2. **Синхронность ``ru.json``/``en.json``.** Оба файла должны иметь ровно
    одинаковый набор ключей — иначе ``?lang=en`` частично покажет русский
    текст (fallback в ``render_message()``) там, где перевод забыли добавить.
+3. **Чистота ``en.json``.** В английской локали не должно быть кириллицы
+   (issue #821): совпадение ключей ещё не значит, что перевод сделан —
+   строка баннера сервера годами называла раздел «Подучить» по-русски внутри
+   английского файла, где четыре соседних ключа звали его «Learn».
 
 По образцу ``scripts/check_docs_guardrails.py`` (issue #173): чистый
 ``ast``/``json``/``pathlib``, без внешних зависимостей — быстро и
@@ -31,10 +35,12 @@ import sys
 from pathlib import Path
 
 __all__ = [
+    "check_en_locale_has_no_cyrillic",
     "check_en_ru_key_parity",
     "check_ru_covers_referenced_ids",
     "collect_referenced_message_ids",
     "load_locale_keys",
+    "load_locale_values",
     "main",
     "source_files",
 ]
@@ -80,6 +86,18 @@ def collect_referenced_message_ids(path: Path) -> set[str]:
     return ids
 
 
+def load_locale_values(lang: str) -> dict[str, str]:
+    """``ключ → текст`` из ``core/locales/<lang>.json`` (пусто, если файл битый)."""
+    path = _LOCALES_DIR / f"{lang}.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: v for k, v in data.items() if isinstance(v, str)}
+
+
 def load_locale_keys(lang: str) -> set[str]:
     """Ключи ``core/locales/<lang>.json`` (пустой набор, если файл битый/не-объект)."""
     path = _LOCALES_DIR / f"{lang}.json"
@@ -90,6 +108,11 @@ def load_locale_keys(lang: str) -> set[str]:
     if not isinstance(data, dict):
         return set()
     return set(data.keys())
+
+
+def _has_cyrillic(text: str) -> bool:
+    """Содержит ли строка кириллицу (блок U+0400–U+04FF)."""
+    return any("Ѐ" <= ch <= "ӿ" for ch in text)
 
 
 def source_files() -> list[Path]:
@@ -151,11 +174,28 @@ def check_en_ru_key_parity(errors: list[str]) -> None:
         print(f"Locale key parity: ru.json and en.json both have {len(ru_keys)} key(s).")
 
 
+def check_en_locale_has_no_cyrillic(errors: list[str]) -> None:
+    """В английской локали нет кириллицы (issue #821).
+
+    Прецедент `DESC-03`: строка баннера сервера в `en.json` называла раздел
+    «Подучить» по-русски, тогда как четыре соседних ключа той же локали
+    называли его «Learn». Расхождение внутри одного файла — ровно то, что
+    человек не замечает при вычитке, а машина ловит одной проверкой.
+    """
+    values = load_locale_values("en")
+    bad = sorted(key for key, text in values.items() if _has_cyrillic(text))
+    if bad:
+        errors.append("core/locales/en.json contains Cyrillic text in key(s): " + ", ".join(bad))
+    else:
+        print(f"en.json: no Cyrillic text across {len(values)} key(s).")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_ru_covers_referenced_ids(errors)
     check_en_ru_key_parity(errors)
+    check_en_locale_has_no_cyrillic(errors)
 
     if errors:
         print("\nFAIL: locale guardrails violated:")
