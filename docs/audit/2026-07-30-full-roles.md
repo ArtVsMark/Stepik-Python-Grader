@@ -1,0 +1,751 @@
+﻿# Полный мультиролевой аудит Stepik-Python-Grader — 2026-07-30
+
+**Версия:** v1.10.0 · **База:** `a5ca085` (main) · **Метод:** 30 ролевых и зонных срезов + 10 адверсариальных
+верификаторов + 2 критика полноты + deep-dive живым прогоном · **Волн:** 12 запусков Workflow, по 5 агентов
+
+> **Стратегический контекст.** Владелец намерен **выжать максимум из локальной версии**, затем **навсегда**
+> перейти на серверную. Поэтому аудит разделён на две части: `near_term` — то, что имеет смысл в локальном
+> инструменте, и `long_term` — то, что появляется только на сервере. Серверный пласт целиком отведён
+> в roadmap-issue **#59** и в этом документе не раскрывается.
+
+---
+
+## 0. Как читать документ
+
+- **Каждая находка** имеет `ID`, привязку к `file:line` и прошла **адверсариальную верификацию** отдельным
+  агентом-скептиком с установкой «опровергай по умолчанию».
+- **Колонка «Итог»** — severity, назначенный **верификатором**, а не автором находки. Колонка «Заявл.» —
+  исходная оценка автора, если она отличалась (прочерк = совпали).
+- **Колонка «✓»**: ✅ CONFIRMED (факт и вывод подтверждены), ◐ PARTIAL (факт верен, следствие или охват
+  преувеличены). Отклонённые (✖ REFUTED) вынесены в § 6 и в работу не идут.
+- **Состояние всех находок ниже — «открыта».** По мере закрытия сюда проставляется номер PR; когда закрыты
+  или отклонены все, документ целиком переезжает в [`../archive/`](../archive/README.md) (правило
+  [CLAUDE.md § Открытая работа](../../CLAUDE.md)).
+
+---
+
+## 1. Резюме
+
+Проект инженерно зрелый: чистый DAG, ADR-дисциплина, CI-guard'ы на доки/локали/граф импортов, 2349 тестов,
+три ОС-backend'а песочницы, офлайн-глоссарий на 1349 карточек. Прошлый аудит (2026-07-20) закрыт целиком.
+Поэтому находки этого прогона сконцентрированы не в «грязном коде», а в **четырёх системных местах**:
+
+1. **Вердикт грейдера может быть неверным — и это обнаружил единственный агент, который запускал продукт.**
+   Формат 3 теряет значимые ведущие пробелы (`parsers.py:51`) → корректное решение получает **WA**;
+   stdin-данные из слов принимаются за function-блок (`test_loader.py:166`) → **ложный RE**. Остальные
+   29 срезов читали код и этого не увидели. Прошлый аудит нашёл свою главную ошибку (`CORE-01`) тем же
+   способом — прогоном, а не чтением. Вывод повторяется дважды подряд, и его пора считать правилом.
+
+2. **Guard'ы, которые всегда зелёные.** Потеря coverage-артефакта одного job'а матрицы делает cross-OS порог
+   90% no-op (`combine_coverage.py`); locale-guard молча проходит при нулевом входе (`check_locale_guardrails.py:97`);
+   UI-locale guard не видит новый JS-файл, потому что список файлов захардкожен (`check_ui_locale_guardrails.py:63`).
+   Это бьёт не по одной проверке, а по доверию ко всей остальной защите: сломанный guard по определению
+   не виден — он проходит.
+
+3. **CI запускает AI-агента на содержимом, которое пишет посторонний.** `claude.yml` триггерится на
+   `issues: opened` и `issue_comment` с условием «в тексте есть @claude» — то есть агент с OAuth-токеном
+   владельца запускается любым человеком из интернета, а текст issue попадает в промпт без ограничения
+   инструментов. Права выданы read-only, поэтому захвата репозитория нет — но расход токена владельца
+   и инъекция в промпт реальны. Зона имела **ноль** находок, пока её не запросили отдельным срезом.
+
+4. **Локальные данные портятся молча.** Один не-UTF8 байт в `.grader_settings.json` не даёт стартовать
+   интерактивному меню; откат на старую версию грейдера заставляет её работать по чужой схеме БД без
+   предупреждения; обрыв записи склеивает записи `.grader_stats.jsonl`. Пользователь не получает сигнала —
+   он получает пустоту или трейсбек.
+
+**Отдельно о методе.** Первый критик полноты вынес аудиту приговор: «на 100% чтение кода». После него
+дозапущено 11 срезов в слепые зоны — и **именно они дали самые ценные находки**. Полнота аудита оказалась
+не функцией числа ролей, а функцией разнообразия *способов* проверки.
+
+---
+
+## 2. Топ рисков
+
+Сформированы вторым критиком полноты по совокупности находок и вердиктов. Это **группы**, а не отдельные
+находки: приоритет ставится по риску, а не по механическому severity (см. § 4).
+
+| # | Риск | Находки | Кого бьёт |
+|---|---|---|---|
+| 1 | **Неверный вердикт грейдера** на формате 3 и legacy function-mode: верное решение получает WA/RE | `DIVE-01` `DIVE-02` `DIVE-03` | Студента — он правит корректный код по ложному диагнозу. Единственные находки, полученные прогоном |
+| 2 | **CI-гейты зелёные независимо от состояния кода**: guard'ы проходят при нулевом входе, потерянном или пустом артефакте | `CIG-01` `CIG-02` `CIG-03` `COV-03` | Всю остальную защиту: cross-OS порог 90% → no-op, новый JS-файл не проверяется на локали никогда |
+| 3 | **Один не-UTF8 байт роняет инструмент**: интерактивное меню, `stats`, автодетект формата, вывод ruff | `FST-01` `FST-02` `PY-03` `PY-08` `FST-04` | Windows/cp1251 — основную среду пользователя. Четыре независимых места ловят `OSError` вместо `UnicodeDecodeError` |
+| 4 | **Тихая порча локальных данных** при откате версии или обрыве записи | `MIGR-01` `MIGR-03` `FST-03` | Историю обучения: повреждённая БД неотличима от «истории нет», обрыв склеивает записи stats |
+| 5 | **Данные из сети принимаются как доверенные**: падение на чужом имени файла, zip без лимита, гонка refresh-токена | `NETW-01` `NETW-02` `NETW-03` `NETA-02` | Загрузчик задач: потеря `secrets.json` = потеря авторизации; zip-бомба — DoS на машине пользователя |
+| 6 | **Разделы web зависают намертво**: опрос не проверяет статус ответа, кнопки остаются `disabled` без таймаута | `FER-01` `FED-01` `FES-01` `DEV-04` | Пользователя: функция теряется без сообщения и без пути восстановления, кроме перезагрузки |
+| 7 | **`--sandbox` ведёт себя хуже `LocalRunner`**: зависание на записи stdin, выжившие внуки, потеря вывода при TLE | `PY-01` `PY-02` `SECC-04` `SECC-05` | Единственный режим, который продаётся как изоляция: фиксы #419/#421/#624 в него не перенесены |
+| 8 | **История и прогресс врут**: разные задачи схлопываются в один ключ, streak рвётся на bench-прогонах | `PROD-10` `PROD-02` `PROD-13` | Мотивационную петлю: запуск из папки задачи — рекомендованный сценарий, и он даёт `task_key='.'` |
+| 9 | **CI-агент доступен постороннему**: `@claude` в issue запускает агента с токеном владельца, текст идёт в промпт | `ACT-01` `ACT-02` | Владельца: расход токена и инъекция в промпт. Права read-only, захвата репозитория нет |
+| 10 | **Публикация в PyPI без гейта тестов**: тег `v*` с любой ветки уходит в релиз | `SUP-01` `SUP-03` | Пользователей пакета: версия в PyPI неперезаписываема, откатить нельзя |
+
+---
+
+## 3. Статистика
+
+| Показатель | Значение |
+|---|---|
+| Находок всего | **192** |
+| Отклонено верификаторами | 10 (5.2%) |
+| В работу | **182** — 7 high · 50 medium · 125 low (по шкале верификаторов, см. § 4) |
+| Подтверждено полностью (CONFIRMED) | 110 |
+| Подтверждено частично (PARTIAL) | 72 |
+| Ближних целей (после фильтра «уже сделано») | **116** |
+| Серверных целей → #59 | **78**, сведены в 11 тематических блоков |
+| Срезов | 30 ролевых и зонных |
+| Верификаций | 192 (182 агентами-скептиками, 10 хостом) |
+| Severity скорректирован верификатором | 141 находка (73%) |
+
+**Дубли между ролями:** 4 находки заявлены дважды разными ролями по одному `file:line`; ещё около
+десятка пересекаются по смыслу (stdin-deadlock, `cancel_event`, потеря вывода при TLE, «2100+ tests»,
+good first issue, русские бейджи). Уникальных — около **165 из 192**. Больше всего повторов дала связка
+Growth / Реклама / Комьюнити и три подсреза документации.
+
+---
+
+## 4. Методологическая заметка: две шкалы severity
+
+**Верификаторы систематически понижали severity — 141 коррекция из 192, почти все вниз.** Это не случайность,
+а следствие промпта: скептику предписано «опровергай по умолчанию», «"теоретически возможно" — не high»,
+плюс контекст «локальный инструмент, один доверенный пользователь». Шкала скептика сместилась вниз
+относительно шкалы автора находки.
+
+Наглядно: `NETW-01` (скачивание падает `ValueError` на имени файла из ZIP) подтверждено как **CONFIRMED**,
+но получило `low`; при этом второй критик полноты, читавший находку целиком вместе с последствиями,
+поставил её в топ-5 рисков. Обе оценки добросовестны — они отвечают на разные вопросы: скептик оценивает
+*калибр дефекта в изоляции*, критик — *вклад в риск*.
+
+**Как это учтено:** приоритет задач в § 2 и в эпиках ставится по **риск-группам**, а не по механическому
+`final_severity`. В таблицах § 5 сохранены обе оценки, чтобы расхождение было видно, а не спрятано.
+
+**Вывод для следующих аудитов:** промпт верификатора должен содержать **калибровку шкалы с примерами**
+(«вот это high, вот это medium, вот это low в терминах данного проекта»), иначе установка «опровергай»
+превращается в равномерный сдвиг всей шкалы вниз и обесценивает приоритизацию.
+
+---
+
+## 5. Находки по зонам
+
+
+### 🧪 Deep-dive прогоном: корректность вердиктов
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `DIVE-01` | **high** | — | ✅ | `src/stepik_grader/core/parsers.py:51` | Format 3: .strip() тест-блока съедает значимые пробелы — верное решение получает WA |
+| `DIVE-02` | **medium** | high | ✅ | `src/stepik_grader/core/test_loader.py:166` | Format 3: stdin-данные из слов-идентификаторов принимаются за function-блок — ложный RE |
+| `DIVE-03` | **low** | — | ◐ | `src/stepik_grader/core/wrapper_builder.py:149` | Legacy function-mode: wrapper всегда печатает возврат — функция, которая печатает сама, даёт лишнюю строку None |
+
+### 🐍 Core Python Dev
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `PY-01` | **high** | critical | ✅ | `src/stepik_grader/core/sandbox/_posix_common.py:182` | Sandbox-backend'ы пишут stdin синхронно в главном потоке — воспроизводят deadlock, из-за которого timeout/cancel не срабатывают (регресс исправления #419 в другом файле) |
+| `PY-02` | **medium** | high | ✅ | `src/stepik_grader/core/sandbox/_posix_common.py:113` | `RunSpec.cancel_event` полностью игнорируется всеми тремя sandbox-backend'ами — под `--serve --sandbox` кнопка «Отмена» не работает, а вердикт CANCELLED недостижим |
+| `PY-03` | **medium** | high | ✅ | `src/stepik_grader/core/mode_detector.py:237` | Решение или тест в кодировке, отличной от CONFIG.encoding, роняет грейдинг необработанным UnicodeDecodeError — обработчики ловят только OSError |
+| `PY-05` | **medium** | — | ✅ | `src/stepik_grader/core/sandbox/_posix_common.py:187` | Sandbox-backend'ы не имеют гарантированной уборки процесса при KeyboardInterrupt/неожиданном исключении — исправление #624 не перенесено из LocalRunner |
+| `PY-08` | **medium** | — | ✅ | `src/stepik_grader/core/lint.py:113` | Вывод ruff читается с локальной кодировкой (`text=True`), а не UTF-8 — на Windows-RU это мусор в разделе «Стиль» или UnicodeDecodeError мимо всех перехватов |
+| `PY-04` | **low** | high | ◐ | `src/stepik_grader/core/grader_core.py:303` | Настройка `CONFIG.encoding` применяется к stdin/stdout решения, хотя дочернему процессу жёстко навязан UTF-8 — любое значение кроме utf-8 молча ломает сравнение вывода |
+| `PY-06` | **low** | medium | ✅ | `src/stepik_grader/web/server.py:259` | Пул job'ов web-слоя никогда не останавливается: Ctrl+C по `--serve` печатает «сервер остановлен», но процесс висит до конца текущего прогона |
+| `PY-07` | **low** | medium | ◐ | `src/stepik_grader/config.py:173` | `load_config` подставляет значения из pyproject.toml в `GraderConfig` без проверки типов — опечатка в конфиге падает трейсбеком глубоко в subprocess |
+| `PY-09` | **low** | medium | ◐ | `src/stepik_grader/core/runner.py:566` | В быстром пути `LocalRunner` при TLE теряется измеренный пик памяти и не джойнится поток-измеритель |
+| `PY-10` | **low** | — | ✅ | `src/stepik_grader/core/test_loader.py:85` | Docstring `collect_grouped_files` описывает не ту группировку, которую делает код |
+| `PY-11` | **low** | — | ◐ | `src/stepik_grader/core/stats.py:67` | Ротация журнала статистики переписывает файл неатомарно — прямо вопреки гарантии, заявленной в docstring модуля |
+| `PY-13` | **low** | — | ◐ | `src/stepik_grader/core/sandbox/_linux.py:176` | Sandbox-backend'ы читают лимит вывода из CONFIG вместо `RunSpec`, нарушая явно задекларированный config-agnostic контракт RunSpec |
+
+### 🔐 Безопасность: исполнение и изоляция
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `SECC-01` | **medium** | high | ✅ | `src/stepik_grader/core/runner.py:509` | Скрипт решения материализуется в общий системный temp → каталог попадает в sys.path[0] дочернего процесса |
+| `SECC-02` | **medium** | high | ✅ | `src/stepik_grader/core/sandbox/_posix_common.py:182` | Sandbox-backend'ы пишут stdin синхронно в главном потоке — таймаут не срабатывает, запуск виснет навсегда |
+| `SECC-04` | **medium** | — | ✅ | `src/stepik_grader/core/sandbox/_posix_common.py:194` | macOS: после TLE/нарушения убивается только процесс решения, форкнутые внуки остаются жить |
+| `SECC-05` | **medium** | — | ✅ | `src/stepik_grader/core/sandbox/_windows.py:369` | Windows-backend выбрасывает накопленный stdout/stderr при TLE и при sandbox_violation |
+| `SECC-03` | **low** | medium | ◐ | `src/stepik_grader/core/sandbox/_linux.py:172` | cancel_event молча игнорируется всеми sandbox-backend'ами — отмена прогона под --sandbox не работает |
+| `SECC-06` | **low** | — | ✅ | `src/stepik_grader/core/sandbox/_macos.py:135` | macOS-backend не задаёт cwd — дочерний процесс наследует рабочий каталог грейдера, а не run_dir |
+
+### 🐍 Файловое состояние
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `FST-01` | **medium** | high | ✅ | `src/stepik_grader/core/user_settings.py:85` | load_settings падает на не-UTF8 .grader_settings.json — интерактивное меню не стартует |
+| `FST-02` | **medium** | high | ✅ | `src/stepik_grader/core/stats.py:126` | stats: не-UTF8 байт в .grader_stats.jsonl роняет и `stats`-команду, и запись прогона |
+| `FST-03` | **low** | medium | ◐ | `src/stepik_grader/core/stats.py:103` | append после оборванной строки склеивает записи — теряется и новый прогон |
+| `FST-04` | **low** | medium | ✅ | `src/stepik_grader/core/cache.py:121` | GraderCache.get падает AttributeError на записи кэша не-словарной формы |
+
+### 🐍 Миграции и версия схемы SQLite
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `MIGR-01` | **low** | high | ◐ | `src/stepik_grader/db.py:98` | Нет защиты от отката: user_version выше ожидаемого — молчаливая работа по чужой схеме |
+| `MIGR-03` | **low** | medium | ◐ | `src/stepik_grader/core/history.py:308` | Повреждённая БД истории неотличима от «истории нет» |
+| `MIGR-04` | **low** | — | ✅ | `src/stepik_grader/glossary/json_provider.py:341` | UnicodeDecodeError утекает мимо suppress в _ensure_queue_db и выдаётся как «ошибка записи» |
+
+### 🧪 Guard-the-guard: guardrail-скрипты
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `CIG-01` | **medium** | high | ✅ | `scripts/check_ui_locale_guardrails.py:63` | UI-locale guard не видит feedback.js: список JS-файлов захардкожен, новый файл статики не проверяется никогда |
+| `CIG-02` | **low** | high | ◐ | `scripts/check_locale_guardrails.py:97` | Locale-guard молча зелёный при нулевом входе: переезд web/ в подпакет обнуляет проверку |
+| `CIG-03` | **low** | medium | ✅ | `scripts/check_docs_guardrails.py:228` | Индекс docs проверяется подстрокой: файл, «покрытый» именем другого файла, выпадает из README незаметно |
+| `CIG-04` | **low** | medium | ◐ | `scripts/check_ui_locale_guardrails.py:305` | Исключение по маркеру строки: console.warn на той же строке амнистирует соседний видимый текст |
+
+### 🧪 Честность покрытия и гейтов CI
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `COV-02` | **low** | medium | ◐ | `.github/workflows/ci.yml:170` | Бейдж «coverage (ubuntu)» считается по CI-конфигу с дополнительным omit |
+| `COV-03` | **low** | medium | ◐ | `scripts/combine_coverage.py:55` | Наличие артефакта проверяется только по имени: пустой файл = «данные на месте» |
+
+### 🔐 Безопасность: web-периметр
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `SECW-01` | **medium** | critical | ◐ | `src/stepik_grader/web/http_guards.py:41` | Origin/Host-allowlist игнорирует порт: любая страница с localhost:* обходит CSRF-гард и получает RCE |
+| `SECW-04` | **medium** | — | ✅ | `src/stepik_grader/web/api_routes.py:749` | POST /api/stepik/submit жёстко читает workspace/secrets.json, игнорируя secrets_path из конфига |
+| `SECW-02` | **low** | high | ◐ | `src/stepik_grader/web/api_routes.py:341` | GET /api/source отдаёт содержимое ЛЮБОГО файла в workspace, включая secrets.json с OAuth-токенами |
+| `SECW-03` | **low** | medium | ✅ | `src/stepik_grader/web/runs.py:228` | Реестр job'ов растёт неограниченно: back-pressure считает только активные job'ы |
+| `SECW-05` | **low** | medium | ◐ | `src/stepik_grader/web/api_routes.py:394` | /api/downloader/config + /api/auth/start перезаписывают произвольный файл в workspace секретами |
+| `SECW-06` | **low** | — | ◐ | `src/stepik_grader/web/server.py:173` | GET / не проходит Host-гард и отдаёт абсолютный путь workspace любому origin |
+
+### 🔐 Actions: агент на чужом PR
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `ACT-01` | **high** | critical | ✅ | `.github/workflows/claude.yml:3` | claude.yml запускается любым посторонним: issue с «@claude» даёт запуск агента с OAuth-секретом владельца |
+| `ACT-02` | **high** | critical | ✅ | `.github/workflows/claude.yml:35` | Prompt-injection: текст issue/комментария идёт в промпт агента без ограничения инструментов |
+| `ACT-03` | **medium** | high | ◐ | `.github/workflows/claude-code-review.yml:36` | Сторонние actions и плагин-маркетплейс не запинены: плавающие @v1/@v4 и ветка main вместо SHA |
+| `ACT-04` | **medium** | — | ✅ | `.github/workflows/claude-code-review.yml:4` | Ревью форковых PR фактически не работает (нет секрета), а «очевидная починка» через pull_request_target катастрофична |
+| `ACT-05` | **medium** | — | ✅ | `docs/dev/supply-chain.md:128` | docs/dev/supply-chain.md не покрывает GitHub Actions: инвентарь и мониторинг только про Python-зависимости |
+
+### 🔐 Релиз и цепочка поставок
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `SUP-01` | **high** | — | ✅ | `.github/workflows/release.yml:13` | Публикация в PyPI без гейта тестов: любой тег v* с любой ветки уходит в релиз |
+| `SUP-02` | **medium** | high | ◐ | `.github/workflows/release.yml:95` | Сторонние actions по плавающим ref в job с id-token: write и contents: write |
+| `SUP-03` | **medium** | high | ◐ | `src/stepik_grader/web/static/vendor/VERSIONS.md:121` | Вендоренный CodeMirror-бандл 360 КБ без хеша и без автопроверки целостности |
+| `SUP-04` | **medium** | — | ✅ | `.github/workflows/ci.yml:40` | contents: write выдан всей матрице тестов, а не отдельной badge-job |
+| `SUP-05` | **medium** | — | ✅ | `.pre-commit-config.yaml:9` | Версия ruff в pre-commit прибита, а в CI плавает: локальный проход не гарантирует зелёный CI |
+
+### 🔐 Данные из сети на диск
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `NETW-01` | **low** | high | ✅ | `src/stepik_grader/core/test_source_fetcher.py:89` | Имя файла из ZIP/GitHub с не-десятичной цифрой роняет скачивание ValueError |
+| `NETW-02` | **low** | high | ✅ | `src/stepik_grader/core/test_source_fetcher.py:158` | Ответ GitHub API читается без валидации: KeyError и утечка ExternalUrlRejected наружу |
+| `NETW-03` | **low** | medium | ◐ | `src/stepik_grader/core/test_source_fetcher.py:90` | ZIP из текста задачи распаковывается без лимита размера (zip bomb) |
+| `NETW-04` | **low** | medium | ◐ | `src/stepik_grader/core/test_source_fetcher.py:140` | path/branch из HTML задачи подставляются в URL GitHub API без percent-encoding |
+
+### 🔐 Токены, ретраи, сетевые сбои
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `NETA-01` | **medium** | high | ✅ | `src/stepik_grader/core/stepik_client.py:131` | POST-запросы к Stepik не ретраятся: Retry в make_session оставляет дефолтный allowed_methods без POST |
+| `NETA-02` | **low** | high | ◐ | `src/stepik_grader/core/oauth_flow.py:120` | Гонка обновления токена: read-modify-write secrets.json без взаимного исключения |
+| `NETA-03` | **low** | medium | ✅ | `src/stepik_grader/core/stepik_client.py:135` | Retry-After принимается без потолка: один 429 усыпляет поток до 6 часов |
+| `NETA-04` | **low** | medium | ◐ | `src/stepik_grader/core/stepik_client.py:246` | Внешняя загрузка не ограничена по размеру: тело ответа читается в память целиком |
+
+### 🔐 Этика и данные
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `SECD-01` | **medium** | critical | ✅ | `src/stepik_grader/core/ai_hints.py:96` | AI-канал читает ЛЮБУЮ env-переменную по имени из pyproject.toml и шлёт её как Bearer на произвольный URL |
+| `SECD-02` | **low** | high | ◐ | `src/stepik_grader/cli/commands.py:224` | Однократное согласие на AI не привязано к получателю, а схема ai_base_url не проверяется (http на удалённый хост) |
+| `SECD-03` | **low** | high | ◐ | `src/stepik_grader/core/history.py:42` | Локальную историю обучения нельзя удалить: нет ни CLI-, ни web-операции удаления/очистки |
+| `SECD-04` | **low** | medium | ◐ | `src/stepik_grader/core/history_recording.py:90` | История и статистика пишутся в cwd (репозиторий решений) с правами по umask |
+| `SECD-05` | **low** | medium | ◐ | `src/stepik_grader/core/diag_log.py:59` | redact() не ловит секреты в Python-repr (одинарные кавычки) — они уезжают в prefilled-URL публичного GitHub issue |
+| `SECD-06` | **low** | medium | ◐ | `src/stepik_grader/cli/commands.py:242` | Согласие на AI нельзя отозвать, а SECURITY.md не раскрывает состав отправляемых данных |
+
+### 🔧 Разработчик
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `DEV-01` | **high** | critical | ✅ | `src/stepik_grader/web/static/core.js:385` | В renderTermCards параметр стрелочной функции `t` затеняет функцию перевода `t()` — панель «Функции в коде» падает с TypeError на любом термине без карточки |
+| `DEV-02` | **medium** | high | ✅ | `src/stepik_grader/web/viewmodels.py:892` | grade_benchmark падает KeyError, если прогон с `reference` отменён до того, как эталонное решение было прогрето |
+| `DEV-03` | **medium** | high | ✅ | `src/stepik_grader/web/playground.py:84` | Песочница выбрасывает частичный stdout/stderr при TLE и отмене, хотя runner специально его возвращает (issue #421) |
+| `DEV-04` | **medium** | high | ✅ | `src/stepik_grader/web/static/grade.js:816` | Poll-цикл gradeAsync безусловно читает data.progress.done — любой не-200 ответ навсегда вешает UI проверки |
+| `DEV-06` | **medium** | — | ✅ | `src/stepik_grader/web/downloader_adapter.py:179` | download_task не защищён от сетевого исключения при обновлении токена — /api/download роняет обработчик запроса вместо {"ok": false} |
+| `DEV-07` | **medium** | — | ✅ | `src/stepik_grader/core/tracer.py:279` | В run_trace компиляция кода вынесена за try/finally после подмены sys.stdout: SyntaxError в решении оставляет stdout подменённым и превращается в невнятный TraceError |
+| `DEV-05` | **low** | medium | ✅ | `src/stepik_grader/web/runs.py:487` | Сетевые ошибки requests трактуются как «нет авторизации»: requests.ConnectionError — подкласс OSError и попадает в except (OSError, ValueError) |
+| `DEV-08` | **low** | medium | ◐ | `src/stepik_grader/config.py:173` | GraderConfig принимает любые значения из pyproject.toml без валидации — microbench_max_cases = 0 роняет режим 4 трейсбеком ValueError |
+| `DEV-09` | **low** | — | ✅ | `src/stepik_grader/web/runs.py:329` | Временный файл кода режима 1 утекает в папку задачи, если запись в него не удалась |
+| `DEV-10` | **low** | medium | ◐ | `src/stepik_grader/cli/commands.py:92` | Дубли preflight-отсева и _rel между CLI и web: одна и та же логика в двух файлах, уже разошедшаяся по параметрам |
+| `DEV-11` | **low** | medium | ◐ | `src/stepik_grader/core/stepik_client.py:512` | Файловый кэш Stepik API (.stepik_cache/) растёт без ограничения и не чистится ни TTL, ни --clear-cache |
+| `DEV-12` | **low** | — | ◐ | `src/stepik_grader/downloader.py:412` | Ни один широкий except в проекте не пишет traceback в диагностический лог — opt-in логирование (#148/#149) не помогает диагностировать именно сбои |
+
+### 🎨 Дизайнер: web
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `DESW-01` | **high** | — | ✅ | `src/stepik_grader/web/static/app.css:366` | --color-text-faint даёт 1.7–2.6:1 и не покрыт check_contrast.py |
+| `DESW-02` | **medium** | high | ◐ | `src/stepik_grader/web/static/content.js:560` | Сбой сети рендерится как жизнерадостное «пусто» |
+| `DESW-03` | **low** | medium | ✅ | `src/stepik_grader/web/static/app.css:221` | Skip-link невидим для зрячего клавиатурного пользователя |
+| `DESW-04` | **low** | medium | ✅ | `src/stepik_grader/web/static/index.html:173` | Плейсхолдеры обоих код-редакторов зашиты по-русски |
+| `DESW-05` | **low** | medium | ✅ | `src/stepik_grader/web/static/index.html:199` | role="tab" без tabpanel, aria-controls и стрелок |
+| `DESW-06` | **low** | medium | ◐ | `src/stepik_grader/web/static/core.js:670` | Тосты исчезают по таймеру, их нельзя ни закрыть, ни выделить |
+| `DESW-07` | **low** | — | ✅ | `src/stepik_grader/web/static/index.html:172` | tabindex="0" на mount-div редактора остаётся после монтирования |
+
+### 🎨 Роутер и состояние фронтенда
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `FER-01` | **medium** | high | ✅ | `src/stepik_grader/web/static/grade.js:816` | Перезапуск сервера во время прогона намертво вешает раздел «Проверка»: опрос не проверяет статус ответа |
+| `FER-02` | **low** | medium | ◐ | `src/stepik_grader/web/static/app.js:64` | Гонка hash-роутера: устаревший переход доигрывает поверх нового |
+| `FER-03` | **low** | medium | ✅ | `src/stepik_grader/web/static/core.js:266` | setSection не синхронизирует location.hash — URL врёт, Back становится no-op, F5 выкидывает из раздела |
+| `FER-04` | **low** | — | ✅ | `src/stepik_grader/web/static/app.js:157` | Focus-trap онбординга навешен на оверлей, а не на document — Escape перестаёт закрывать модалку |
+
+### 🎨 Фронтенд: раздел «Загрузчик»
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `FED-01` | **low** | high | ◐ | `src/stepik_grader/web/static/downloader.js:304` | pollAuth() не отменяется: цикл setTimeout переживает перерисовку панели и пишет в detached-узлы |
+| `FED-03` | **low** | medium | ✅ | `src/stepik_grader/web/static/downloader.js:122` | loadAuthStatus() игнорирует HTTP-статус: ошибка сервера показывается как «первый запуск» |
+| `FED-04` | **low** | medium | ✅ | `src/stepik_grader/web/static/downloader.js:60` | loadDownloaderConfig() глушит ошибку: строка «Куда скачивать» просто исчезает без сообщения |
+
+### 🎨 Разделы фронтенда
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `FES-01` | **low** | high | ✅ | `src/stepik_grader/web/static/sandbox.js:136` | Отмена прогона песочницы гасит кнопку до подтверждения и молча съедает отказ сервера |
+| `FES-02` | **low** | high | ✅ | `src/stepik_grader/web/static/feedback.js:106` | Кнопка «Открыть форму на GitHub» сохраняет устаревший prefilled-URL при провале черновика |
+| `FES-03` | **low** | medium | ✅ | `src/stepik_grader/web/static/feedback.js:96` | Нет защиты от гонки ответов черновика: предпросмотр и ссылка могут разъехаться с формой |
+
+### 🎨 Дизайнер: CLI и локализация
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `DESC-01` | **medium** | high | ✅ | `src/stepik_grader/core/reporter.py:504` | Verbose-вывод упавшего кейса не показывает ВХОД теста — воспроизвести падение нельзя без похода в tests/ |
+| `DESC-02` | **medium** | high | ✅ | `src/stepik_grader/core/reporter.py:508` | Нет обрезки Expected/Actual/diff — один «болтливый» кейс заливает терминал вплоть до лимита в 10 МБ |
+| `DESC-03` | **low** | medium | ✅ | `src/stepik_grader/core/locales/en.json:34` | В английской локали остался русский текст: «Подучить» внутри en.json |
+| `DESC-04` | **low** | medium | ✅ | `src/stepik_grader/core/reporter.py:386` | reporter.py смешивает два жёстко зашитых языка: английские шапки таблиц и русские подписи блоков |
+| `DESC-05` | **low** | medium | ✅ | `src/stepik_grader/launcher.py:402` | GUI-лаунчер целиком на русском: ни одной локализуемой строки, --lang на него не действует |
+| `DESC-06` | **low** | medium | ◐ | `src/stepik_grader/launcher.py:272` | Остановка сервера в момент готовности навсегда оставляет окно лаунчера в состоянии «Запуск…» |
+| `DESC-07` | **low** | — | ✅ | `src/stepik_grader/core/reporter.py:169` | Без rich колонка памяти в benchmark-таблице шире своей шапки — колонки Memory/Relative съезжают |
+
+### 🏛 Архитектор
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `ARCH-01` | **medium** | high | ✅ | `docs/dev/architecture.md:55` | architecture.md объявляет core/tracer.py leaf-модулем («только stdlib, project-импортов нет»), хотя он импортирует config, core/runner и core/grader_core |
+| `ARCH-02` | **medium** | high | ✅ | `docs/dev/architecture.md:126` | Блок «Граф зависимостей» в architecture.md устарел: минимум восемь фактических загрузочных рёбер в нём отсутствуют, автопроверки нет |
+| `ARCH-04` | **medium** | high | ◐ | `src/stepik_grader/core/grader_core.py:120` | Конфигурация вмораживается в module-level константы и в дефолты аргументов при импорте grader_core — ленивость config.CONFIG обесценена, per-request конфиг невозможен |
+| `ARCH-03` | **low** | high | ◐ | `src/stepik_grader/core/grader_core.py:188` | Реестр активного Runner живёт в оркестраторе grader_core, а не в core/runner.py — это порождает обратные рёбра microbench_runner→grader_core и tracer→grader_core, скрытые ленивыми импортами от DAG-guard'а |
+| `ARCH-05` | **low** | medium | ✅ | `src/stepik_grader/web/grading.py:21` | Boundary-guard ADR-0010 определяет «публичную поверхность» как «имя без подчёркивания», поэтому фасад web/grading реэкспортирует константы, явно исключённые из __all__ ядра |
+| `ARCH-06` | **low** | medium | ◐ | `src/stepik_grader/web/glossary_adapter.py:53` | web/glossary_adapter.py — не «тонкий адаптер», а 613 строк доменной логики глоссария (таксономия разделов, EN-подписи, сортировки), недоступной CLI |
+| `ARCH-07` | **low** | medium | ◐ | `src/stepik_grader/web/api_routes.py:19` | web/api_routes.py импортирует core/stepik_reference напрямую, минуя существующий web/reference_adapter.py — слой маршрутов протекает в ядро |
+| `ARCH-08` | **low** | medium | ◐ | `src/stepik_grader/web/__init__.py:13` | web/__init__.py реэкспортирует приватные внутренности ради обратной совместимости тестов, закрепляя их как де-факто публичный API и делая импорт пакета тяжёлым |
+| `ARCH-09` | **low** | medium | ✅ | `src/stepik_grader/core/grader_core.py:537` | Агрегатный результат (run_tests/run_benchmark/run_microbench_mode) не имеет типизированной модели — только dict[str, Any], хотя для case-уровня их уже две (CaseResult + TestResult) |
+| `ARCH-11` | **low** | — | ✅ | `docs/dev/result-contract.md:168` | result-contract.md указывает web/server.py как место error-конвертов API, которых там уже нет — они переехали в web/http_guards.py |
+
+### 🧪 Тестировщик
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `QA-02` | **medium** | high | ✅ | `tests/test_sandbox_runner.py:369` | Проверка сетевой изоляции песочницы бьёт во внешний IP и проходит вхолостую без интернета |
+| `QA-03` | **medium** | high | ✅ | `src/stepik_grader/cli/__init__.py:554` | Инвариант «--sandbox без backend'а = жёсткий отказ» проверен только для --serve; для режимов 1-4 ветка не покрыта ни одним тестом |
+| `QA-04` | **medium** | high | ✅ | `src/stepik_grader/web/runs.py:495` | Отмена job'ов hint и stepik_submit — no-op: cancel_event в их телах не читается, теста нет |
+| `QA-01` | **low** | high | ◐ | `tests/test_cli.py:541` | Тест версии падает локально: conftest кладёт src/ в sys.path[0], и egg-info затеняет метаданные установленного пакета |
+| `QA-05` | **low** | medium | ✅ | `src/stepik_grader/core/reporter.py:394` | Fallback-вывод без rich у трёх сводных printer'ов reporter.py не покрыт ни одним тестом, хотя приём в наборе есть |
+| `QA-06` | **low** | medium | ✅ | `src/stepik_grader/web/i18n.py:64` | Обе graceful-ветки web/i18n.render_message (откат локали и рассинхрон плейсхолдеров) не покрыты |
+| `QA-07` | **low** | medium | ✅ | `src/stepik_grader/core/wrapper_builder.py:71` | Разбор legacy-блока в wrapper_builder не тестируется на битом синтаксисе, пустом блоке и аннотированном присваивании |
+| `QA-08` | **low** | medium | ◐ | `src/stepik_grader/core/ai_grounding.py:69` | Graceful-деградация AI-заземления при недоступной базе глоссария не проверена ни в одном сценарии |
+| `QA-09` | **low** | medium | ✅ | `src/stepik_grader/cli/interactive.py:232` | Пункт интерактивного меню 5 «Подучить» не выполняется ни одним тестом |
+| `QA-10` | **low** | medium | ◐ | `.github/workflows/ci.yml:349` | Job e2e в CI пройдёт зелёным, если extra e2e не установился: все тесты молча скипнутся |
+| `QA-11` | **low** | — | ◐ | `pyproject.toml:264` | Каталог scripts/ проходит mypy, но полностью выпадает из измерения покрытия |
+| `QA-12` | **low** | — | ✅ | `src/stepik_grader/grader.py:69` | Инвариант обратной совместимости фасада grader.__all__ ничем не защищён |
+
+### 📊 Продуктовый аналитик
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `PROD-01` | **medium** | high | ◐ | `src/stepik_grader/core/history_recording.py:90` | Вся учебная история жёстко привязана к текущей папке — у студента, работающего из папок задач, «Подучить»/«Прогресс»/стрик никогда не наполняются |
+| `PROD-02` | **medium** | high | ✅ | `src/stepik_grader/core/insights.py:170` | Прогон бенчмарка (режимы 3/4) считается «не-AC» и обнуляет стрик, а также раздувает «попытки до первого AC» |
+| `PROD-10` | **medium** | — | ✅ | `src/stepik_grader/cli/commands.py:438` | При запуске из папки задачи task_key равен «.», и в «Прогрессе»/экспорте все задачи называются точкой |
+| `PROD-03` | **low** | medium | ✅ | `src/stepik_grader/cli/options.py:35` | `--help` печатает usage от несуществующей точки входа `grader.py` |
+| `PROD-04` | **low** | medium | ✅ | `src/stepik_grader/cli/options.py:69` | Пользовательская справка `--help` засыпана внутренними номерами issue и эпиков (28 упоминаний) |
+| `PROD-05` | **low** | medium | ✅ | `src/stepik_grader/web/insights_adapter.py:56` | Бейджи достижений раздела «Прогресс» жёстко по-русски и попадают в англоязычный интерфейс as-is |
+| `PROD-06` | **low** | medium | ✅ | `src/stepik_grader/core/progress_export.py:162` | `--export-progress` всегда отдаёт русский отчёт, игнорируя `--lang en`, и помечает HTML как lang='ru' |
+| `PROD-07` | **low** | medium | ✅ | `src/stepik_grader/downloader_config.py:93` | Загрузчик задач (мастер OAuth, конфиг, статусы) — русский-only, хотя это обязательный шаг воронки и он вызывается из меню под `--lang en` |
+| `PROD-08` | **low** | medium | ✅ | `README.en.md:144` | README.en.md хардкодит «2100+ tests» — правило «числа только в бейджах» починили в русской документации и забыли в английской |
+| `PROD-09` | **low** | medium | ◐ | `src/stepik_grader/cli/interactive.py:555` | В CLI воронка download→grade не замкнута: после скачивания задачи нет предложения её проверить, хотя в web такая кнопка есть |
+| `PROD-11` | **low** | — | ✅ | `src/stepik_grader/cli/interactive.py:240` | Пустое состояние «Подучить» в интерактивном меню советует флаг, которого в меню нет |
+| `PROD-12` | **low** | medium | ◐ | `README.en.md:123` | README.en.md не отвечает на главный вопрос «зачем это, если Stepik уже проверяет» — англоязычному читателю предлагается сравнение с неизвестным ему форком-первоисточником |
+| `PROD-13` | **low** | — | ✅ | `src/stepik_grader/core/history.py:83` | Retention истории (200 прогонов на задачу) молча искажает «попыток/времени до первого AC» |
+
+### 🎓 Комьюнити
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `COMM-01` | **medium** | high | ✅ | `README.md:193` | Онрамп «Первый вклад за 15 минут» ведёт в пустой список: открытых good first issue — ноль |
+| `COMM-02` | **medium** | high | ✅ | `src/stepik_grader/web/static/content.js:585` | «Подучить» судит, но не учит: 4 типа падений — голый ключ без объяснения и ссылки |
+| `COMM-06` | **medium** | — | ✅ | `src/stepik_grader/launcher.py:401` | GUI-лаунчер стартует в cwd и игнорирует настроенный root_dir задач |
+| `COMM-03` | **low** | medium | ✅ | `src/stepik_grader/web/insights_adapter.py:57` | Подписи бейджей достижений зашиты по-русски на сервере — в EN-интерфейсе остаются русскими |
+| `COMM-04` | **low** | medium | ✅ | `src/stepik_grader/core/progress_export.py:73` | Экспорт прогресса — единственный артефакт «поделиться» — без серии и бейджей |
+| `COMM-05` | **low** | medium | ✅ | `src/stepik_grader/core/progress_export.py:162` | Экспортный HTML непригоден для телефона: нет viewport, тема только светлая |
+
+### 🚀 Визионер
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `VIS-01` | **medium** | high | ✅ | `README.md:42` | README не продаёт главный дифференциатор: AI-подсказки отсутствуют в «Основных возможностях» |
+| `VIS-02` | **low** | high | ◐ | `src/stepik_grader/core/ai_hints.py:45` | Системный промпт AI жёстко зашит под курс «Поколение Python» и не переопределяется |
+| `VIS-03` | **low** | medium | ◐ | `src/stepik_grader/core/ai_grounding.py:119` | ai_grounding отдаёт не top-k релевантных карточек, а первые k концептов в порядке обхода AST |
+| `VIS-04` | **low** | medium | ✅ | `src/stepik_grader/pytest_plugin.py:142` | pytest-плагин печатает отчёт только по-русски, минуя i18n проекта |
+| `VIS-06` | **low** | — | ◐ | `src/stepik_grader/ide.py:5` | ide.py отсылает за PyCharm-инструкцией в README, где её нет; задачи VS Code не знают о pytest-плагине |
+
+### 📝 Документация: пользовательская ветка
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `DOCU-01` | **medium** | high | ✅ | `docs/use/web-interface.md:36` | web-interface.md: раздел «Прогресс» пропущен в описании sidebar — заявлено шесть разделов вместо семи |
+| `DOCU-02` | **low** | high | ✅ | `README.en.md:144` | README.en.md хардкодит «2100+ tests» дважды — правило «числа только в бейджах» применено лишь к русскому README |
+| `DOCU-03` | **low** | high | ◐ | `docs/use/installation.md:255` | Ручная настройка OAuth невыполнима для рекомендованного способа установки (pipx): secrets.json.example нет в пакете |
+| `DOCU-04` | **low** | medium | ✅ | `docs/use/grader-workflow.md:473` | grader-workflow.md сужает --ai-hints до режимов 1/2, тогда как код и argparse-help покрывают 1–4 |
+| `DOCU-05` | **low** | medium | ✅ | `docs/use/grader-workflow.md:305` | Флаг --diagnostic и STEPIK_GRADER_LOG отсутствуют во всей пользовательской ветке docs/use/ |
+| `DOCU-06` | **low** | medium | ◐ | `docs/use/versions.md:20` | versions.md и README.en.md обещают сетевую изоляцию --sandbox без оговорки: на Windows её нет |
+
+### 📝 Документация: инженерная ветка
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `DOCD-01` | **low** | high | ✅ | `docs/dev/project-structure.md:104` | project-structure.md: база глоссария (glossary/data/*.json) отсутствует в каноническом дереве файлов |
+| `DOCD-02` | **low** | medium | ✅ | `docs/dev/project-structure.md:44` | project-structure.md: web/static описан одним app.js, хотя фронтенд распилен на 8 ES-модулей + locales/ui.json |
+| `DOCD-03` | **low** | medium | ✅ | `docs/dev/api.md:110` | api.md § Статика: allowlist неполон — не описаны /static/locales/ui.json и glob-регистрация всех *.js |
+| `DOCD-04` | **low** | medium | ◐ | `docs/dev/result-contract.md:33` | result-contract.md требует сохранять имена полей, но TestResult не несёт exit_code/stdin и теряет их в to_dict() |
+| `DOCD-05` | **low** | medium | ◐ | `docs/dev/adr/0011-local-persistence.md:50` | ADR-0011: Context описывает в настоящем времени состояние ДО реализации и ссылается на протухший якорь core/history.py:139-168 |
+| `DOCD-06` | **low** | — | ◐ | `docs/dev/logging.md:30` | logging.md написан как дизайн-спека («целевые способы») для давно реализованного механизма |
+
+### 📝 Документация: контракты и онбординг
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `DOCC-01` | **medium** | high | ✅ | `CONTRIBUTING.md:199` | CONTRIBUTING.md предписывает bump версии в pyproject.toml — поля нет, и править его запрещено |
+| `DOCC-02` | **low** | medium | ◐ | `CODE_OF_CONDUCT.md:54` | CODE_OF_CONDUCT.md атрибутирован к Contributor Covenant 2.1, а текст — структура 1.4 без раздела Enforcement Guidelines |
+| `DOCC-03` | **low** | medium | ◐ | `CLAUDE.md:421` | Правило «запись в CHANGELOG в КАЖДОМ PR, без исключений» не проверяется ни одним CI-гейтом |
+| `DOCC-04` | **low** | medium | ✅ | `CONTRIBUTING.md:20` | Онбординг «Первый вклад за 15 минут» даёт только POSIX-активацию venv, хотя целевая аудитория — Windows |
+| `DOCC-05` | **low** | medium | ◐ | `CONTRIBUTING.md:279` | Обязательный шаг `pre-commit run --all-files` требует инструмента, которого нет ни в [dev], ни в CI |
+| `DOCC-06` | **low** | — | ✅ | `SECURITY.md:5` | Девять ссылок с устаревшим текстом-путём (docs/configuration.md, docs/api.md): link-check проверяет цель, но не подпись |
+| `DOCC-07` | **low** | — | ◐ | `CONTRIBUTING.md:3` | Английская витрина ведёт контрибьютора в русскоязычные CONTRIBUTING.md и CODE_OF_CONDUCT.md |
+
+### 📣 Growth
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `GROW-03` | **medium** | high | ✅ | `README.md:192` | Онрамп «Первый вклад за 15 минут» ведёт в пустой список задач |
+| `GROW-01` | **low** | high | ✅ | `README.md:9` | README не показывает PyPI: ни бейджа, ни установки в первом экране |
+| `GROW-02` | **low** | high | ✅ | `.github/workflows/release.yml:56` | Release notes генерируются как сырой список PR — их некому расшарить |
+| `GROW-04` | **low** | medium | ◐ | `.github/ISSUE_TEMPLATE/bug_report.yml:4` | Issue-формы не проставляют area/* и difficulty/*, вопреки собственному канону |
+| `GROW-05` | **low** | medium | ✅ | `.github/ISSUE_TEMPLATE/bug_report.yml:1` | Issue-формы только на русском при англоязычном README и bilingual UI |
+| `GROW-06` | **low** | medium | ◐ | `pyproject.toml:63` | Метаданные проекта без Documentation-ссылки и с пустым About репозитория |
+
+### 📢 Рекламный стратег
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `AD-01` | **medium** | high | ✅ | `pyproject.toml:15` | Страница пакета на PyPI ломается: readme=README.md с относительными картинками и ссылками |
+| `AD-02` | **low** | high | ◐ | `pyproject.toml:14` | Нулевая находимость на PyPI: keywords отсутствуют, summary без ключевых слов |
+| `AD-03` | **low** | medium | ✅ | `.github/workflows/release.yml:56` | Release notes автогенерируются из тайтлов PR — рукописный CHANGELOG в релиз не попадает |
+| `AD-04` | **low** | medium | ◐ | `README.md:13` | Первый экран README не называет ни одного уникального отличия — они спрятаны на 60-90 строках |
+| `AD-05` | **low** | medium | ◐ | `docs/use/versions.md:12` | Сравнительная таблица есть только с малоизвестным первоисточником форка |
+
+### 📡 Трендвотчер
+
+| ID | Итог | Заявл. | ✓ | Место | Что не так |
+|---|---|---|---|---|---|
+| `TREND-02` | **medium** | high | ✅ | `src/stepik_grader/cli/commands.py:294` | Нет потолка на число AI-вызовов: N упавших кейсов = N последовательных POST по 20 с |
+| `TREND-01` | **low** | high | ◐ | `src/stepik_grader/core/ai_hints.py:151` | AI-запрос жёстко шлёт max_tokens и temperature — reasoning-модели отвергают такой payload |
+| `TREND-03` | **low** | high | ✅ | `src/stepik_grader/web/static/vendor/VERSIONS.md:109` | Вендоренный CodeMirror-бандл (360 КБ JS) не покрыт ни одной автоматической проверкой |
+| `TREND-05` | **low** | medium | ◐ | `src/stepik_grader/glossary/stdlib_inventory.py:62` | Курируемый набор stdlib-модулей не включает то, на чём реально пишут задачи Stepik |
+| `TREND-06` | **low** | medium | ◐ | `src/stepik_grader/glossary/stdlib_inventory.py:110` | Инвентарь stdlib строится из running-интерпретатора — цифра полноты плавает от версии Python |
+| `TREND-07` | **low** | — | ◐ | `docs/use/versions.md:18` | Сравнительная витрина «оригинал vs форк» не упоминает AI-подсказок |
+
+
+## 6. Отклонённые находки (адверсариальная верификация)
+
+| ID | Зона | Заявлено | Чем опровергнуто |
+|---|---|---|---|
+| `AD-06` | 📢 Рекламный стратег | README.en.md — урезанная витрина, хотя generic mode единственный ход к неStepik- | Заголовки README.en.md: '## Why this fork' (123) и '## Transparency & trust' (142) присутствуют — оба ключевых утверждения находки ложны; есть также 'Generic mode' (83) и 'Bilingual web UI & glossary' (99). Верны только  |
+| `ARCH-10` | 🏛 Архитектор | web-фасад грейдинга тянет core/reporter — модуль слоя Application/UI, владеющий  | architecture.md:125 явно включает core/reporter.py в allowlist рёбер web/grading.py (ADR-0010, guard test_import_dag.py:266), а docstring grading.py:5 называет форматирование времени частью фасада. cli/__init__.py:94 и т |
+| `COV-01` | 🧪 Честность покрытия и гейтов CI | Потеря coverage-артефакта любого job'а матрицы делает cross-OS gate 90% зелёным  | Поведение намеренное: docstring 84-89 и комментарий 129-132 объясняют, что при degraded строгий gate не применяется (флейк sandbox-linux, issue #559). Есть ::warning::, а ci.yml:268 не публикует бейдж при degraded=true.  |
+| `FED-02` | 🎨 Фронтенд: раздел «Загрузчик» | Зависший OAuth-job не имеет ни таймаута, ни отмены — кнопка «Авторизоваться» ост | «Ни таймаута, ни предела» опровергнуто: wait_for_auth_code(timeout=120) (stepik_client.py:348), что зафиксировано и в auth_adapter.py:8-12. Job уходит в error, ветка downloader.js:295-299 снимает disabled. Максимум 2 мин |
+| `FED-05` | 🎨 Фронтенд: раздел «Загрузчик» | renderDownloaderResult() доверяет форме успешного ответа: отсутствующие tests/fi | Обоснование фактически неверно: downloader.js:323 try … 332 renderDownloaderResult(data) … 333 catch — вызов ВНУТРИ try, TypeError будет пойман и покажет сообщение, скелетон не залипнет. Плюс сценарий гипотетический (ok= |
+| `FES-04` | 🎨 Разделы фронтенда | Плеер трейса вставляет obj.n в HTML без esc() — единственная неэкранированная ин | obj.n формируется трейсером как len(): tracer.py:119/123 — {"n": len(seq)} / len(value), то есть JSON-число, а не строка из пользовательского ввода. XSS невозможен; остаётся стилистическая неоднородность, не находка. |
+| `MIGR-02` | 🐍 Миграции и версия схемы SQLite | apply_schema доверяет user_version и не сверяет реальную схему | db.py:88-102 — доверие PRAGMA user_version это стандартная и явно задокументированная (док-строка «идемпотентная миграция») схема миграций. Репро требует ручного DROP TABLE в чужой БД; сверка реальной схемы на каждом кон |
+| `PY-12` | 🐍 Core Python Dev | `mode_detector.__all__` объявляет одно имя, тогда как пять приватных функций мод | Импорты есть (test_loader.py:25, grader_core.py:78-84, wrapper_builder.py:17), но это не дефект: подчёркивание = package-private, __all__ правит публичный API и import *. Намерение задокументировано: grader_core.py:81/83 |
+| `TREND-04` | 📡 Трендвотчер | Классификаторы объявляют только 3.12/3.13, хотя 3.14 уже стабильна и стоит в CI  | Осознанный дефолт с обоснованием прямо над цитатой — pyproject.toml:25-29: классификаторы по фактическому состоянию, 3.14 в CI experimental/continue-on-error и наружу не объявляется. Согласуется с ci.yml:53-64 и CLAUDE.m |
+| `VIS-05` | 🚀 Визионер | Единственная группа entry points — pytest11: третьей стороне некуда подключаться | pyproject: кроме pytest11 (111) есть [project.scripts] (98) и [project.gui-scripts] (105) — тоже группы entry points, «единственная» неверно. Ожидание опирается на #59 — roadmap-трекер (issue-audit-2026-07-15.md:305: Pla |
+
+
+## 7. Ближние цели — локальная версия
+
+
+### area/ci
+
+| ID | Объём | Цель | Критерий приёмки |
+|---|---|---|---|
+| `DOCD-N2` | M | Контрактный тест api.md ↔ таблицы маршрутов api_routes.py | Тест парсит _API_GET/_API_POST/_API_*_PREFIX и оглавление api.md; расхождение в обе стороны роняет pytest. |
+| `DOCU-N1` | M | CI-гейт достоверности: сверка argparse-флагов и списка web-разделов с docs/use/ | scripts/check_docs_vs_code.py падает, если флаг из _build_arg_parser не упомянут в docs/use/grader-workflow.md или если множество SECTIONS из web/static/core.js не совпадает со списком разделов в web- |
+| `COV-N3` | M | Развести coverage.xml для per-OS gate и для публичного бейджа | Число бейджа ubuntu совпадает с локальным pytest на Linux без .coveragerc.ci. |
+| `ACT-N2` | M | Пиннинг всех сторонних actions по SHA и фиксация ревизии плагин-маркетплейса | Во всех workflow uses: указывает 40-символьный SHA с комментарием версии; плагин закреплён ревизией; Dependabot настроен на github-actions. |
+| `SUP-N3` | M | Гейт перед публикацией (тесты/линт/версия) + отдельная badge-job с contents: write | pypi-publish и github-release зависят от job с pytest/ruff/mypy/check_version_consistency; job test имеет contents: read, коммит бейджей — в отдельной job. |
+| `QA-N2` | S | Развязать тест версии от sys.path-теневания egg-info | `pytest -q` зелёный и при устаревшем `src/*.egg-info`, и после его удаления; подпроцесс и эталон читают версию из одного и того же окружения (PYTHONPATH или расчёт эталона в подпроцессе). |
+| `QA-N3` | S | Anti-silent-skip guard для e2e-набора | При отсутствующем playwright/браузере набор падает, а не скипается (под флагом окружения); локально без extra по-прежнему аккуратный skip. Проверяется искусственным `pip uninstall playwright`. |
+| `QA-N6` | S | Начать измерять покрытие scripts/ | Отчёт по scripts/ печатается отдельным шагом, зафиксирован собственный стартовый `fail_under`; общий `fail_under = 85` не изменён. |
+| `GROW-N3` | S | Release notes собирать из CHANGELOG | Скрипт вырезает секцию [X.Y.0] из CHANGELOG.md, release.yml отдаёт её через body_path; в теле релиза сначала хайлайты, автосписок PR — ниже, свёрнутый. |
+| `DOCC-N1` | S | CI-гейт на запись в CHANGELOG [Unreleased] в каждом PR | PR, меняющий src/ или scripts/ без правки CHANGELOG.md, падает в job docs-guardrails с внятным сообщением; PR только в docs/archive или .github/badges проходит. |
+| `TREND-N3` | S | Гейт целостности вендоренного CodeMirror-бандла | sha256 бандла записан в VERSIONS.md и сверяется тестом (hashlib, без новых зависимостей); в джобе supply-chain проверяются npm-версии из таблицы против OSV, информационно. |
+| `CIG-N1` | S | Ввести правило «guard на нуле входов падает» во всех четырёх скриптах | check_locale_guardrails и check_ui_locale_guardrails возвращают 1 при 0 py/js-файлов, 0 message_id или 0 ключей каталога; тесты на подменённом _ROOT это фиксируют. |
+| `COV-N1` | S | Жёсткий gate для ОС-срезов матрицы, мягкий — только для sandbox-linux | Нет windows-latest → exit != 0; нет только sandbox-linux → exit 0 + degraded=true. |
+| `COV-N2` | S | Валидировать содержимое .coverage.<suffix>, а не только имя файла | Юнит-тест: zero-byte артефакт попадает в missing_required. |
+| `FER-N3` | S | Прогон ESLint (dev-only, без runtime-зависимостей) по web/static в CI | Отдельный CI-job с no-floating-promises/no-unused-vars по static/*.js падает на внесённой регрессии. |
+| `ACT-N1` | S | Гейт по автору/метке в claude.yml + ограничение инструментов агента | Job не стартует на issue/комментарий от не-коллаборатора; claude_args задаёт явный --allowed-tools; проверено тестовым issue со стороннего аккаунта. |
+| `SUP-N2` | S | Пиннить все GitHub Actions по commit SHA и включить Dependabot для github-actions | Ни одного `uses:` без 40-символьного SHA в release.yml и ci.yml; .github/dependabot.yml содержит ecosystem github-actions. |
+
+### area/cli
+
+| ID | Объём | Цель | Критерий приёмки |
+|---|---|---|---|
+| `PROD-N4` | M | Довести двуязычность до всех пользовательских поверхностей, а не только меню и web-оболочки | Прогон `--lang en` по сценарию «меню → пункт 8 → скачивание → проверка → --export-progress html» не выводит ни одной русской строки; `?lang=en` в разделе «Прогресс» показывает английские подписи бейдж |
+| `PROD-N6` | M | Импорт тест-кейсов из вставленного текста задачи — без OAuth | Пользователь вставляет HTML/текст условия шага (Ctrl+V из браузера) и получает готовую tests/ рядом с решением, ни разу не создав secrets.json; если таблицы кейсов в тексте нет — честное сообщение с п |
+| `VIS-N4` | M | Локализовать pytest-плагин и связать его с VS Code-задачами | ini-опция grader_lang/--grader-lang переключает отчёт на en через core/locales; VSCODE_TASKS содержит задачу pytest --grader-mode; тесты обновлены. |
+| `DESC-N1` | M | Сделать блок упавшего кейса самодостаточным: вход теста + управляемая длина | print_case_verbose печатает Input перед Expected; diff обрезан до N строк и Expected/Actual до M символов с хвостом «… ещё K»; тесты на обрезку и на кейс с пустым входом. |
+| `DESC-N2` | M | Свести подписи отчёта к одному языковому источнику (reporter + en.json) | Подписи приходят в reporter параметрами из ctx.t(); при --lang en русских слов в выводе нет; тест «в en.json нет кириллицы» и тест на набор ключей — в CI. |
+| `DESC-N3` | M | Локализовать GUI-лаунчер и починить залипание состояния STARTING | Строки окна берутся из словаря с выбором RU/EN; leaf-инвариант (ноль проектных импортов) сохранён; тест: stop() во время STARTING приводит статус к STOPPED и разблокирует поля. |
+| `SECD-N2` | M | Consent, привязанный к получателю, с возможностью отзыва | В .grader_settings.json хранится host+схема; смена → повторный вопрос; есть CLI-флаг и web-переключатель сброса; SECURITY.md обновлён. |
+| `SECD-N3` | M | Штатное удаление и экспорт локальной истории обучения | `history --purge` (весь журнал/по task_key) удаляет .db/-wal/-shm; кнопка в web; раздел «Ваши данные» в SECURITY.md с перечнем файлов. |
+| `PROD-N3` | S | Замкнуть воронку download→grade в CLI: предложить проверить только что скачанную задачу | После успешного скачивания в меню появляется вопрос «Проверить скачанную задачу сейчас? [Y/n]»; ответ по умолчанию запускает режим 2 на этой папке без ручного ввода пути; отказ и Ctrl+C возвращают в м |
+| `PROD-N7` | S | Приложить агрегированную сводку прогонов к обращению обратной связи (opt-in, с предпросмотром) | В форме обращения есть галка «приложить обезличенную сводку прогонов»; при включении в предпросмотре видно ровно то, что уйдёт (режимы, тали вердиктов, ОС — без путей, кода и токенов); по умолчанию вы |
+| `PROD-N8` | S | Вычистить `--help`: рабочее имя команды и ноль ссылок на issue, с машинным гейтом | `python -m stepik_grader --help` начинается с рабочей формы запуска и не содержит подстрок «issue #»/«эпик #»; гейт падает при попытке вернуть номер issue в help= или в core/locales/*.json. |
+| `DEV-N8` | S | Ограничить и чистить .stepik_cache/ | Файлы старше TTL удаляются при следующем обращении, число записей ограничено сверху; `--clear-cache` удаляет обе директории и сообщает суммарное число записей. |
+| `QA-N4` | S | Закрыть no-rich fallback у трёх сводных printer'ов reporter.py | `--cov-report=term-missing` для core/reporter.py не содержит 341-344, 392-395, 434-437; каждый тест проверяет конкретные значения в capsys, а не только факт вывода. |
+| `DESC-N4` | S | Регресс-тесты plain-режима: ширины колонок и вывод без rich | Параметризованный тест сверяет ширину каждой колонки шапки и строки для обеих plain-таблиц; сравнение с эталонным снимком вывода при _RICH=False. |
+| `TREND-N2` | S | Потолок ai_max_hints + кеш подсказок по хешу контекста | Дефолт 3 подсказки на прогон с пометкой «первые N из M»; повторный прогон того же падения берёт ответ из core/cache.py без сети; тесты на обе ветки. |
+
+### area/core
+
+| ID | Объём | Цель | Критерий приёмки |
+|---|---|---|---|
+| `ARCH-N2` | M | Перенести реестр Runner из grader_core в core/runner.py | grep "избежать цикла в DAG" src/ ничего не находит; `from stepik_grader.grader import set_runner` продолжает работать; тесты sandbox и трейса зелёные |
+| `ARCH-N6` | M | Типизировать агрегатный результат (SolutionResult/BenchResult) | mypy src/stepik_grader — 0 ошибок; опечатка в ключе агрегата (`data["pased"]`) ловится mypy; runtime-форма ответа /api/grade не меняется (контрактный тест test_web_api_contract.py зелёный) |
+| `PROD-N1` | M | Одна база истории на пользователя вместо базы на каждую рабочую папку | Два прогона с --history из двух разных папок задач попадают в одну БД; `stepik-grader --insights` из любой из них показывает карточки по обеим; при отсутствии настройки поведение старых установок (БД  |
+| `DEV-N6` | M | Вынести preflight-отсев и _rel в core, убрав дубли CLI/web | Функция отсева и функция относительного пути определены по одному разу; тест на одинаковый task_key для одного и того же файла из CLI и из web. |
+| `PY-N3` | M | Единый устойчивый к кодировкам путь чтения решений и тестов | Решение, сохранённое в cp1251 с кириллицей, даёт вердикт RE с локализованным сообщением «файл не в кодировке utf-8», а не трейсбек; `pytest tests/ -k encoding` зелёный на всех трёх ОС. |
+| `VIS-N2` | M | Расшить AI-слой: конфигурируемый системный промпт без привязки к курсу | GraderConfig.ai_system_prompt переопределяет системное сообщение из [tool.stepik-grader]; дефолт нейтрален по курсу; тесты на дефолт и переопределение. |
+| `VIS-N3` | M | Ранжировать grounding по месту падения, а не по порядку AST | Концепты из трейсбека/failure_kind идут первыми, k настраивается; тест: карточка упавшей конструкции попадает в grounding при длинном решении. |
+| `COMM-N2` | M | Карточкам «Подучить» — человеческую подпись и «что делать» для всех failure_kind | У каждого failure_kind есть локализованный заголовок и строка «что проверить»; у output-format и timeout — deep-link в глоссарий; ключ остаётся техподписью. |
+| `COMM-N3` | M | Перенести серию и бейджи в core и добавить их в экспорт прогресса | build_progress_report возвращает streak и badges (id + локализуемая подпись); MD/HTML показывают серию и бейджи; web не дублирует логику. |
+| `TREND-N1` | M | Совместимость AI-транспорта с reasoning-моделями + внятная причина skip | Имя поля лимита конфигурируемо; temperature не шлётся при дефолте; при 400 с упоминанием параметра — один ретрай; после цикла есть строка о причине, если все вызовы вернули None. |
+| `SECD-N1` | M | Валидация AI-настроек: allowlist имени env-переменной и схемы ai_base_url | ai_api_key_env вне allowlist → отказ с явным сообщением; http-адрес не на loopback → отказ; тест на подсунутый pyproject в папке задач. |
+| `MIGR-N2` | M | Различать повреждённую БД и пустую: одноразовое предупреждение | Тест на обрезанном файле: предупреждение с путём БД ровно один раз, грейдинг не падает. |
+| `NETW-N3` | M | Бюджет размера для ZIP-членов и percent-encoding сегментов GitHub API URL | Тесты: ZIP с file_size выше лимита → 0 и предупреждение; URL с '../' в path → отказ распознать GitHub URL |
+| `NETA-N2` | M | Сериализовать обновление токена: lock + перечитывание secrets внутри критической секции | Тест с двумя потоками на истёкшем токене даёт ровно один POST на /oauth2/token/ и валидный refresh_token в файле после обоих. |
+| `NETA-N3` | M | Ограничить Retry-After и размер тела внешней загрузки | Retry создаётся с retry_after_max 30–60 с (тест на значение); external_download_get отклоняет слишком большой ответ своим исключением — тест на оба случая. |
+| `ARCH-N7` | S | Вынести fmt_time и чистые форматтеры в leaf core/formatting.py | python -c "import stepik_grader.web.grading, sys; print('rich' in sys.modules)" печатает False; вывод режимов 3/4 в CLI побайтово не изменился (существующие тесты reporter зелёные) |
+| `PROD-N2` | S | Отделить корректность от бенчмарка в метриках прогресса (стрик и TTFG) | В том же репро после бенчмарк-прогона current_streak остаётся 3; attempts в time_to_first_green считает только прогоны режимов 1/2; существующие таблично-тестируемые сценарии classify_status не меняют |
+| `DEV-N2` | S | Валидация GraderConfig: диапазоны и типы вместо трейсбеков из недр грейдера | Невалидное значение в [tool.stepik-grader] даёт одну строку «поле X в <путь>/pyproject.toml: ожидается ...», а не трейсбек; тест на каждый числовой параметр с граничным и нулевым значением. |
+| `DEV-N7` | S | Логировать исключения в широких except через diag_log | При STEPIK_GRADER_LOG=1 любое падение в перечисленных except-ветках оставляет в логе полный стек (с редакцией секретов); тест проверяет наличие traceback в лог-файле для смоделированного сбоя. |
+| `PY-N4` | S | Развести `CONFIG.encoding` (чтение файлов) и жёсткий UTF-8 канала ввода/вывода решения | С `encoding = "cp1251"` в pyproject кириллический stdin-кейс проходит AC (файлы читаются в cp1251, канал ребёнка — utf-8); регрессионный тест фиксирует оба направления. |
+| `PY-N6` | S | Явный UTF-8 при чтении stdout сторонних процессов (ruff) | `run_lint` по файлу с кириллическим идентификатором в системе с cp1251-локалью возвращает корректные `Violation.message` в кириллице; принудительно подложенный невалидный байт даёт пустой список, а не |
+| `PY-N8` | S | Привести `__all__` в соответствие фактической межмодульной поверхности core | Тест-guard: ни один модуль пакета не импортирует из другого модуля пакета имя, начинающееся с `_` и отсутствующее в его `__all__`; существующие имена продолжают резолвиться через фасад `stepik_grader. |
+| `QA-N7` | S | Guard-тест на фасад grader.__all__ и приватные реэкспорты | Тест перебирает `grader.__all__` + замороженный список приватных имён из докстринга grader.py и требует `hasattr`; удаление любого имени из источника делает тест красным. |
+| `QA-N8` | S | Фазз/edge-тесты разбора legacy-блоков в wrapper_builder | Блок `a: int = 5` даёт AC; битый и пустой блоки не роняют `_build_function_wrapper`; hypothesis-инвариант «`_assigned_names(text)` никогда не бросает» держится на 300 примерах. |
+| `DOCD-N3` | S | Привести TestResult в соответствие с контрактом результата | Либо exit_code/stdin добавлены в dataclass и to_dict() (round-trip не теряет полей), либо в контракте зафиксирована усечённость TestResult и запрет на его сериализацию. |
+| `COMM-N4` | S | Сделать экспортный HTML пригодным для показа с телефона | В <head> есть meta viewport; стиль поддерживает prefers-color-scheme: dark; lang соответствует локали; на 375px нет горизонтальной прокрутки. |
+| `SECC-N1` | S | Единая приватная материализация исполняемого скрипта (mkdtemp 0700) во всех точках спавна | Ни один спавн не исполняет скрипт из общего temp: во всех трёх местах путь лежит внутри mkdtemp-каталога, каталог удаляется в finally; тест проверяет, что sys.path[0] дочернего процесса — приватный ка |
+| `SECD-N4` | S | Ужесточить хранение локальных данных: 0600 и защита от случайного коммита | Файлы создаются с 0600 на POSIX; при наличии .git в рабочей папке — однократная подсказка дописать имена в .gitignore; тесты на права. |
+| `MIGR-N1` | S | Явный отказ при user_version > ожидаемой вместо тихого no-op | Тест: БД с user_version=SCHEMA_VERSION+1 → внятное сообщение и отсутствие записей; штатный v0→v1 не меняется. |
+| `MIGR-N3` | S | Тесты пути миграции и рассогласования схемы | tests/test_db.py: кейсы «версия выше», «версия равна, таблиц нет», «версия ниже с данными». |
+| `NETW-N1` | S | isdecimal вместо isdigit + try/except вокруг int() в test_source_fetcher | Тест: ZIP и file_map с членом '²' обрабатываются без исключения, возвращается счёт по валидным кейсам |
+| `NETW-N2` | S | Обернуть загрузки в download_github_tests в общий except и брать download_url через .get() | Тесты: contents без download_url и download_url на приватный адрес → возврат 0 + предупреждение, без исключения |
+| `FST-N1` | S | Единая точка чтения текстовых state-файлов с устойчивым декодированием | Тест: settings и stats с байтом 0xff → load_settings даёт UserSettings(), read_summary — пустую сводку, record_run не бросает при файле >1 MiB. |
+| `FST-N2` | S | Гарантировать разделитель строк при append в .grader_stats.jsonl | Тест: файл с незавершённой строкой + record_run → read_summary видит новый прогон, склейки в файле нет. |
+| `FST-N3` | S | Валидация формы записей при загрузке .grader_cache/results.json | Тест: entries со значением-строкой и со списком → GraderCache создаётся, get() возвращает None, save() пишет валидный файл. |
+| `NETA-N1` | S | Добавить allowed_methods с POST в Retry и синхронизировать докстринг _post_json | Тест проверяет _is_method_retryable('POST') и что POST на 429 повторяется указанное число раз; докстринг описывает фактическое поведение. |
+
+### area/docs
+
+| ID | Объём | Цель | Критерий приёмки |
+|---|---|---|---|
+| `ARCH-N1` | M | Guard синхронизации architecture.md с фактическим графом импортов | pytest tests/test_import_dag.py -q зелёный; искусственное добавление в любой модуль импорта, не описанного в architecture.md, роняет новый тест; удаление строки графа — тоже (guard-the-guard, как в су |
+| `GROW-N2` | M | Наполнить очередь good first issue и вычистить legacy-метки | Открыто 6+ issue с good first issue + area/* + difficulty/easy; дублирующие и мёртвые метки удалены; ссылки в README/CONTRIBUTING дают непустую выдачу. |
+| `GROW-N4` | M | Двуязычные issue-формы и метаданные репозитория | Три .yml с подписями RU/EN; homepageUrl репозитория указывает на PyPI; в [project.urls] добавлен Documentation; ссылки проверены на живом релизе. |
+| `DOCD-N1` | M | CI-guard: дерево project-structure.md сверяется с git ls-files src | scripts/check_docs_guardrails.py падает, если файл из git ls-files src не упомянут в дереве (с явным allowlist исключений типа __init__.py); текущее расхождение исправлено. |
+| `DOCU-N4` | M | Один английский документ getting-started вместо ссылок на русские якоря | docs/use/getting-started.en.md (установка, первый пример, режимы 1–4, форматы тестов); все внешние ссылки README.en.md ведут туда, русские якоря помечены как RU-only. |
+| `AD-N4` | M | Оформить редкие фичи в контент-активы: гиф трассировщика и микробенча + расширенные topics | В docs/assets добавлены gif трассировщика и таблицы режима 4, вставлены в README §«Как это выглядит»; в topics добавлены benchmark, glossary, web-ui, pytest-plugin, offline; homepage репозитория запол |
+| `DOCC-N4` | M | Английская врезка-онбординг + приведение атрибуции CoC в соответствие тексту | В CONTRIBUTING.md и CODE_OF_CONDUCT.md есть краткий английский блок по образцу SECURITY.md:22-24; заявленная версия CoC совпадает с фактической структурой. |
+| `GROW-N1` | S | Переписать первый экран README под конверсию | В первых 15 строках: бейджи PyPI version/downloads и блок `pipx install stepik-python-grader` + `stepik-grader --serve`; hero-GIF остаётся выше раздела «Зачем это». |
+| `DOCD-N4` | S | Секция «Состояние реализации» в шаблоне ADR вместо retro-правок Context | adr/README.md фиксирует секцию Status/Implementation с датой; ADR-0001 и 0011 переведены на неё, номера строк кода из Context убраны. |
+| `DOCU-N2` | S | Паритет README.md ↔ README.en.md: гейт на числа и ключевые утверждения | Гейт запрещает в README.en.md литералы вида N00+ рядом с tests/cards/coverage; чек-лист релиза требует пройти по README.en.md при изменении шапки README.md. |
+| `DOCU-N3` | S | Развести OAuth-онбординг по способам установки (pipx vs клон) | § Работа с API Stepik начинается с мастера/веб-формы как основного пути; ручной блок помечен «только из клона» и содержит готовый JSON для создания файла с нуля. |
+| `VIS-N1` | S | Витрина: показать AI-подсказки и generic-режим в русском README | В README.md есть пункт про --ai-hints и раздел «Свои тесты без Stepik»; docs-гейты README-бюджета проходят; README.en.md синхронен. |
+| `AD-N1` | S | Починить дистрибутивную витрину: абсолютные URL в README + keywords и summary в pyproject | `python -m build` → в METADATA нет относительных путей; на TestPyPI видны гиф и скриншоты, ссылки ведут в репозиторий; keywords непусты, summary содержит local/offline/benchmark/sandbox. |
+| `DOCC-N2` | S | Проверка подписи markdown-ссылки против её цели в check_docs_guardrails.py | Скрипт падает, если текст ссылки выглядит как *.md-путь и не совпадает с целью; после правки девяти мест `python scripts/check_docs_guardrails.py` возвращает 0. |
+| `DOCC-N3` | S | Один канон обязательных гейтов перед PR (судьба pre-commit) | Список гейтов совпадает в CLAUDE.md, CONTRIBUTING.md и шагах ci.yml; шаг с pre-commit либо помечен «опционально», либо подкреплён зависимостью в [dev] и job'ом. |
+| `CIG-N3` | S | Проверку индекса docs перевести с подстроки на ссылку | Тест: README без строки про audit-2026-07-15.md → check_docs_index_completeness возвращает ошибку. |
+| `ACT-N3` | S | Раздел про GitHub Actions в docs/dev/supply-chain.md | В документе есть инвентарь uses:, политика пиннинга и абзац про модель угроз claude.yml / claude-code-review.yml. |
+
+### area/glossary
+
+| ID | Объём | Цель | Критерий приёмки |
+|---|---|---|---|
+| `ARCH-N5` | M | Вынести доменную таксономию глоссария из web-адаптера в пакет glossary/ | glossary_adapter.py < 350 строк и не содержит русских названий разделов; существующий тест test_every_bundled_section_has_explicit_group проходит против нового модуля; ребро glossary → core по-прежнем |
+| `TREND-N4` | M | Базовая версия Python для инвентаря + расширение курируемого набора модулей | Отчёт coverage печатает базовую и фактическую версию Python и предупреждает о расхождении; набор расширен явным PR, прирост недостающих записей зафиксирован в docs/dev/glossary.md. |
+
+### area/sandbox
+
+| ID | Объём | Цель | Критерий приёмки |
+|---|---|---|---|
+| `PY-N1` | M | Перенести исправления #419/#624 из LocalRunner в sandbox-backend'ы (stdin-поток + гарантированная уборка) | Тест: `RunSpec(stdin=1 MiB, решение `time.sleep(60)` без чтения stdin, timeout=2)` под каждым доступным backend'ом возвращается за <5 с с `timed_out=True`; тест: исключение внутри цикла ожидания не ос |
+| `PY-N2` | M | Пробросить `cancel_event` в sandbox-backend'ы, чтобы CANCELLED работал и под `--sandbox` | Под каждым доступным backend'ом: `cancel_event.set()` через 0.5 с от старта долгого решения → `RunOutcome.cancelled is True`, `timed_out is False`, суммарное время < 2 с. Web-job переходит в статус `c |
+| `QA-N1` | S | Переписать проверку сетевой изоляции песочницы на локальный listener | Тест поднимает listener на 127.0.0.1:0; при работающей изоляции соединение не принято (`accepted.is_set() is False`); при принудительном отключении `--unshare-net` в backend'е тест краснеет. Прогон ко |
+
+### area/web
+
+| ID | Объём | Цель | Критерий приёмки |
+|---|---|---|---|
+| `ARCH-N8` | L | Расщепить web/viewmodels.py по ответственностям | Ни один из получившихся модулей не превышает 450 строк; публичные имена, реэкспортируемые web/__init__.py, сохранены; тесты web зелёные без правок импортов в них |
+| `ARCH-N4` | M | Ужесточить boundary-guard: публичность = __all__, адаптер обязателен | Новый тест падает на импорте имени, отсутствующего в `__all__` core-модуля, и на прямом импорте core-модуля, для которого есть `*_adapter.py`; текущий код после правок проходит |
+| `PROD-N5` | M | Обозреватель скачанных задач в web вместо ручного ввода пути | В разделе «Проверка решений» есть список задач, найденных под рабочей директорией (по наличию meta.json/tests/), с колонкой «решено/попыток» из истории; клик подставляет путь и режим; при пустом дерев |
+| `DEV-N3` | M | Единый устойчивый поллер async-job для фронтенда | Ответ 404 на GET /api/v1/runs/<id> во время опроса приводит к сообщению об ошибке и разблокированной кнопке «Запустить» во всех трёх разделах; в static/*.js остаётся ровно одна реализация цикла опроса |
+| `QA-N5` | M | Покрыть отмену для всех kind'ов job'ов и для состояния queued | При `job_workers=1` и занятом воркере отменённая queued-job'а завершается статусом `cancelled`, мок `submit_and_wait`/`explain_failure` не вызывается. Матрица «kind × (queued, running)» покрыта тестам |
+| `DESW-N1` | M | Расширить check_contrast.py до нетекстового контраста и faint-текста | В _PAIRS есть пары text-faint/*, border/surface и outline/bg с порогами 4.5 и 3.0 (WCAG 1.4.11); токены подтянуты так, что check_contrast.py и tests/test_contrast.py зелёные. |
+| `DESW-N2` | M | Единый рендерер состояний секции: loading / empty / error+retry | Одна функция в core.js рисует три состояния; загрузчики content.js/downloader.js проверяют r.ok; есть тест: 500 → блок ошибки с «Повторить», а не empty-state. |
+| `FER-N2` | M | Роутер: токен поколения в routeFromHash + разделы как первоклассные маршруты | Быстрое Back/Forward между двумя deep-link'ами оставляет раздел и карточку согласованными с URL; F5 в любом разделе возвращает в него же. |
+| `FED-N1` | M | Управляемый жизненный цикл опроса OAuth: единый таймер, отмена, дедлайн | Переключение раздела/«Отмена» останавливает опрос; повторный клик не заводит второй цикл; по дедлайну кнопка разблокируется с сообщением; кнопка отмены дергает /cancel. |
+| `FES-N3` | M | Покрыть фронтовые сценарии feedback/sandbox/trace регрессионными проверками | Есть проверки: провал черновика не оставляет активной ссылки; провал отмены возвращает кнопку; в trace-player.js нет конкатенаций в HTML без esc(). |
+| `DEV-N1` | S | Починить затенение t() в static/*.js и закрыть класс ошибки guard-тестом | В песочнице код `print(len([1,2]))` рисует приглушённые карточки без ошибок в консоли; тест падает, если в static/*.js появляется параметр функции с именем экспортируемого хелпера (t, tp, esc, state). |
+| `DEV-N4` | S | Возвращать частичный stdout/stderr при TLE и отмене в песочнице | `run_playground("import sys\nprint('x')\nsys.stdout.flush()\nwhile True: pass")` при укороченном timeout возвращает status=TLE и непустой stdout; тест это фиксирует. |
+| `DEV-N5` | S | Отделить сетевые сбои от «нет авторизации» на путях Stepik | С отключённой сетью «Отправить в Stepik» и «Скачать задачу» отдают сообщение про сеть (не про авторизацию), HTTP-соединение не рвётся; тесты с monkeypatch на requests.ConnectionError. |
+| `PY-N7` | S | Корректная остановка пула job'ов при завершении `--serve` | Ctrl+C во время активного bench-job'а возвращает приглашение оболочки за < 3 с; job переходит в `cancelled`, дочерних процессов решения после выхода не остаётся. |
+| `DESW-N3` | S | Клавиатурный проход: skip-link, tab-паттерн, лишние остановки | .sr-only:focus выводит ссылку на экран; вкладки результатов имеют aria-controls/tabpanel и стрелочную навигацию; Tab от топбара до «Запустить» не задевает неинтерактивных остановок. |
+| `SECW-N1` | S | Сверять Origin и Host с полным адресом биндинга (host:port), а не с hostname | Запрос с Origin http://localhost:<другой порт> к любому /api/* → 403; собственная страница работает; тест на порт-слепоту добавлен в TestApiHostOriginGuard. |
+| `SECW-N2` | S | Сузить /api/source до файлов-решений и денайлистить файлы секретов/настроек | GET /api/source?path=secrets.json и ?path=.grader_settings.json → 403; чтение task*.py не изменилось; то же правило для path в /api/code-terms и /api/v1/hint. |
+| `SECW-N3` | S | Ограничить размер реестра job'ов, а не только их TTL | При превышении потолка вытесняются самые старые терминальные job'ы; тест: N+K последовательных playground-прогонов оставляют в _JOBS не более N записей. |
+| `SECW-N4` | S | Свести все обращения к secrets.json в web-слое к secrets_path_for() | Литерал "secrets.json" остаётся только в downloader_adapter (DEFAULT_SECRETS_NAME); тест: при secrets_path из конфига отправка берёт его; добавлен grep-гейт. |
+| `CIG-N2` | S | Список JS-файлов UI-guard'а — из glob, не из кортежа | _JS_FILES вычисляется из _STATIC.glob('*.js'); тест падает, если в static/ есть .js, не попавший в скан. |
+| `FER-N1` | S | Единый защищённый опрос статуса run: проверка ok/формы ответа и гарантированный finally | 404/500 на GET /api/v1/runs/{id} даёт тост об ошибке и разблокировку кнопок; в тестах web-слоя есть кейс «run исчез между опросами». |
+| `FED-N2` | S | Проверять r.ok во всех fetch раздела «Загрузчик» и рендерить явную ошибку | На 4xx/5xx от /api/auth/status и /api/downloader/config пользователь видит сообщение с data.message, а не подмену состояния; тест на не-200 в e2e. |
+| `FED-N3` | S | Защитное чтение полей ответа /api/download и guard на #downloader-url | Ответ ok=true без tests/files рисует нули и пустой список файлов без исключения в консоли; renderDownloaderResult вызывается внутри try. |
+| `FES-N1` | S | Починить отмену прогона песочницы: проверка ответа, восстановление кнопки, дедлайн опроса | При не-ok/исключении кнопка снова активна и видно сообщение; опрос job'ы останавливается по лимиту попыток с явным статусом. |
+| `FES-N2` | S | Сбрасывать ссылки обратной связи при неуспешном черновике + seq-guard на ответы | После неуспешного POST /api/feedback обе ссылки снова aria-disabled и без href; поздний ответ старого запроса не перезаписывает предпросмотр и href. |
+| `SUP-N1` | S | Записать SHA256 вендор-бандла и закрепить его тестом + шагом CI | В VERSIONS.md есть строка SHA256; тест падает при расхождении хеша файла; процедура бампа требует обновить хеш тем же PR. |
+
+
+## 8. Отсеянные цели (проверка «уже сделано»)
+
+| ID | Причина | Доказательство |
+|---|---|---|
+| `AD-N2` | duplicate-of-other-goal | Дубль GROW-N3: обе — «вырезать секцию ## [X.Y.0] из CHANGELOG.md и отдать её в release.yml через body_path», приёмка совпадает. |
+| `AD-N3` | already-implemented | Обоснование неверно: сравнение с чекером Stepik в README уже есть — README.md:33-42 «Зачем это, если Stepik уже проверяет решения?» (офлайн-цикл, честное сравнение решений, «Подучить», приватность). С |
+| `ARCH-N3` | violates-project-rules | grader.py:69-75 держит TIMEOUT_SECONDS/ENCODING/SIMILAR_THRESHOLD/MUCH_SLOWER_THRESHOLD/MEASURE_CHILD_MEMORY/MICROBENCH_MAX_CASES в __all__, а они и есть import-time снапшот (grader_core.py:120-125).  |
+| `COMM-N1` | duplicate-of-other-goal | Дубль GROW-N2: обе — «наполнить пул good first issue (≥5-6 задач с area/* и difficulty/easy), иначе онрамп README:190/CONTRIBUTING:10 врёт». |
+| `DESW-N4` | already-implemented | scripts/check_ui_locale_guardrails.py:74-81 — гейт уже падает на голой кириллице в видимых текст-узлах index.html и в атрибутах placeholder/title/aria-label без data-i18n-компаньона. Не покрыт ровно о |
+| `PY-N5` | duplicate-of-other-goal | Дубль DEV-N2: обе цели ссылаются на config.py:173 (GraderConfig(**valid) без проверок) и требуют валидации типов/диапазонов [tool.stepik-grader] с теми же примерами (timeout_seconds-строка, job_worker |
+| `SECC-N2` | duplicate-of-other-goal | Дубль PY-N1: обе — «перенести фиксы #418/#419/#624 из LocalRunner (core/runner.py:320 _write_stdin, :598-607 finally-kill) в sandbox-backend'ы», приёмка совпадает дословно (stdin 1 МБ + не читающее ре |
+| `SECC-N3` | duplicate-of-other-goal | Перекрывает PY-N1 + PY-N2 + DEV-N4: приёмка («TLE с частичным выводом, отмена, потомки, лимит вывода» по каждому backend'у) — это ровно тесты тех же фиксов. Пятая цель про паритет Runner'ов после PY-N |
+| `SECC-N4` | duplicate-of-other-goal | Дубль PY-N2: обе требуют пробросить RunSpec.cancel_event в core/sandbox/* (grep cancel_event по core/sandbox/ пуст) и получить CANCELLED под --serve --sandbox быстрее таймаута. |
+
+
+## 9. Серверный пласт — целиком в #59
+
+78 долгосрочных целей сведены в **11 тематических блоков** и добавлены комментарием в roadmap-issue
+[#59](https://github.com/ArtVsMark/Stepik-Python-Grader/issues/59). Здесь — только оглавление; раскрытие
+там, чтобы серверный трек оставался в одном месте (правило: не дублировать канон).
+
+| Фаза | Блок | Целей | Зависит от |
+|---|---|---|---|
+| фундамент | Контейнерная изоляция недоверенного кода: единый Linux-исполнитель вместо трёх ОС-backend'ов | 6 | — (опирается на готовый протокол `core/runner.py`) |
+| фундамент | Идентичность и мультиарендность: аутентификация, централизованный вход через Stepik, данные по владельцу | 5 | — (базис для всего, что делит ресурсы между людьми) |
+| фундамент | Ядро под многопользовательский рантайм: per-request Runner, внепроцессная отмена, отделение библиотеки от приложения | 4 | — (подготовку можно вести локально) |
+| основное | Durable-очередь прогонов: переживание рестарта, квоты и приоритеты на аккаунт | 4 | ядро · идентичность · изоляция |
+| основное | Централизованное хранилище учебных данных: история, профиль, миграции, ретеншн | 5 | идентичность |
+| основное | Эксплуатационная зрелость: логи и трассировка, нагрузка, синтетический мониторинг, VDP | 4 | очередь · идентичность |
+| основное | Публичный HTTP-контракт: OpenAPI как источник истины, версионирование, депрекация | 4 | идентичность · очередь |
+| основное | Публичный веб-периметр: демо без установки, индексируемый глоссарий, версионированный docs-сайт | 5 | изоляция · очередь |
+| надстройка | Адресуемые артефакты: постоянная ссылка на разбор прогона и на профиль прогресса | 4 | идентичность · хранилище |
+| надстройка | Учебный социальный слой: когорты и кабинет преподавателя, peer-сравнение решений, этика доступа | 6 | идентичность · хранилище · изоляция · артефакты |
+| надстройка | Данные популяции: opt-in телеметрия, продуктовая аналитика, централизованный AI-канал с квотами | 8 | идентичность · хранилище |
+
+**Отклонено как «на самом деле не серверное»:** 8 целей — они реализуемы локально и учтены в § 7.
+
+---
+
+## 10. Незакрытые пробелы
+
+Второй критик полноты подтвердил закрытие 6 из 8 пробелов первого. **Осталось незакрытым:**
+
+| Зона | Почему важно | Оценка |
+|---|---|---|
+| `core/normalizers.py` и сам механизм сравнения вывода: float-eps, trailing whitespace, CRLF/BOM, пустой ожидаемый вывод | Deep-dive свернул к `parsers`/`test_loader`/`wrapper_builder`; по `normalizers.py` — **ноль находок**, хотя это сердцевина вердикта | high |
+| Качество уже написанных 2349 тестов: инвентарь 49 `skip/xfail`, что реально скипается в CI, тесты на моках, зависимость от cwd и порядка | Ни один срез не смотрел на существующие тесты как на **источник ложной уверенности**; полного прогона никто не делал | medium |
+| `tests_writer.py` и `task_page_parser.py`: запись пришедших из сети имён файлов и разбор враждебного HTML | Срез «данные из сети» закрыл только `test_source_fetcher`; path traversal через имя файла из ответа API не проверен | medium |
+| Производительность: холодный старт CLI, загрузка глоссария и stdlib-инвентаря, сотни кейсов, параллельные web-прогоны | На 192 находки — **ни одного замера**. Продукт бенчмаркает чужой код, собственная стоимость не измерена | medium |
+
+> Пятый пробел («claude\*.yml и цепочка actions») критик назвал незакрытым, потому что срез `ACT`/`SUP`
+> выполнялся **параллельно с ним** и не попал в его входные данные. Фактически он закрыт — 10 находок
+> в § 5, включая две по `claude.yml`. Это иллюстрация правила «критик полноты — последним»: его вывод
+> устаревает, если после него что-то дозапускалось.
+
+Каждый пробел заведён отдельной issue под подэпиком «Полнота проверки» — чтобы незакрытое не растворилось.
+
+---
+
+## 11. Механика прогона: что упало и почему
+
+Аудит выполнялся волнами по 5 агентов (канон — [`docs/agent/multiagent.md`](../agent/multiagent.md)).
+**Из 12 запусков Workflow три погибли целиком или почти целиком.**
+
+| Волна | Состав | Итог |
+|---|---|---|
+| 1 | роли 1–5, монолитом на роль | 5/5 · 61 находка · 967k токенов |
+| 2 | роли 6–10, монолитом на роль | **0/5** · 884k токенов впустую |
+| 2a, 2b | те же роли, разбитые на 10 узких срезов | 10/10 · 64 находки · 1.01M токенов |
+| 3 | 🔐 ×3 + 2 верификатора | 5/5 · 18 находок · 40 вердиктов |
+| 4 | 5 верификаторов | прервана вместе с процессом → перезапуск 5/5 · 100 вердиктов |
+| 5 | критик, фильтр целей, серверные блоки, deep-dive | 5/5 · **3 бага прогоном** |
+| 6 | 5 пробелов критика, широкие зоны | **0/5** · 503k токенов впустую |
+| 6a, 6b | те же пробелы, 10 узких зон | 9/10 · 36 находок · 1.0M токенов |
+| 7 | 2 среза + 2 верификатора + критик №2 | 5/5 · 10 находок · 39 вердиктов |
+
+**Итого:** ~6.9M токенов, из них **1.39M сожжено падениями** (20%).
+
+### Причина падений — не число агентов, а размер одного ответа
+
+Все обрывы дали одну и ту же ошибку: `Connection closed mid-response`. В журнале — только `started`,
+ни одного `result`: агенты **отработали** (транскрипты 180–380 КБ) и оборвались **на выдаче** финального
+структурированного ответа. Один агент дополнительно завис на `Read` бинарного PNG — 180 с × 6 попыток
+без прогресса.
+
+Что сработало:
+
+| Мера | Эффект |
+|---|---|
+| Роль → 2–3 узких среза с непересекающимися файлами | волна 2: 0/5 → волны 2a+2b: 10/10 |
+| `minItems`/`maxItems` + `maxLength` на каждом строковом поле схемы | вдвое меньше токенов и tool-call'ов на срез |
+| Бюджет обращений к инструментам (~25) в промпте | волна 6b — вдвое дешевле волны 6a при том же выходе |
+| Запрет читать `.png`/`.gif`/`.woff2` | снял зависания без прогресса |
+
+Правила по итогам прогона внесены в [`docs/agent/multiagent.md`](../agent/multiagent.md) этим же PR.
+
+### Ещё два урока
+
+- **`journal.jsonl` — источник истины.** Дважды сверка с журналом определяла, есть ли что спасать:
+  в обоих случаях `result` не было ни одного, и волна честно перезапускалась целиком как дельта.
+- **Скрипт-сборщик тоже надо проверять.** Промежуточный `wave3.json` был затёрт пустым при повторном
+  прогоне того же скрипта на другой волне — 18 находок безопасности выпали из реестра и обнаружились
+  только по расхождению «192 вердикта против 174 находок». Сверка «число находок = число вердиктов»
+  должна быть обязательным шагом сборки.
+
+---
+
+## 12. Что дальше
+
+- **Локальная часть** — генеральный эпик аудита, подэпики по направлениям и тематические issue
+  (см. эпик в issue-трекере; каждая issue ссылается на ID находок этого документа).
+- **Серверная часть** — комментарием в [#59](https://github.com/ArtVsMark/Stepik-Python-Grader/issues/59),
+  локально не делается.
+- **Этот документ** живёт в `docs/audit/`, пока не закрыты или не отклонены все находки; затем целиком
+  переезжает в [`docs/archive/`](../archive/README.md) и вносится в её индекс.
+
+---
+
+*Аудит подготовлен Claude Code. 30 ролевых и зонных срезов · 192 находки · 192 верификации ·
+2 критика полноты · 1 deep-dive живым прогоном. Все находки привязаны к `file:line` на `a5ca085`.*
