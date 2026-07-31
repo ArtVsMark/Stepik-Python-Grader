@@ -12,11 +12,26 @@ on:
 
 jobs:
   claude:
+    # issue #807: агент запускается с OAuth-токеном владельца, а триггеры
+    # issues/issue_comment открыты всему интернету — раньше условием было только
+    # наличие «@claude» в тексте, поэтому любой посторонний мог заводить issue и
+    # жечь квоту владельца, а текст issue шёл прямо в промпт агента. Теперь к
+    # упоминанию добавлено требование к автору: OWNER/MEMBER/COLLABORATOR.
+    # author_association проставляет сам GitHub по факту прав в репозитории —
+    # подделать его содержимым issue нельзя.
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (github.event_name == 'issue_comment' &&
+        contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review' &&
+        contains(github.event.review.body, '@claude') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)) ||
+      (github.event_name == 'issues' &&
+        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,10 +55,12 @@ jobs:
           additional_permissions: |
             actions: read
 
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
-
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr *)'
+          # issue #807: инструменты ограничены явно. Текст issue/комментария
+          # попадает в промпт агента как есть, поэтому набор инструментов — это
+          # единственный барьер против инструкции «выполни команду и отправь
+          # результат наружу»: без списка агенту доступен произвольный Bash.
+          # Разрешено только чтение репозитория и чтение обсуждений через gh;
+          # ничего, что пишет в репозиторий или ходит в сеть по своему усмотрению.
+          # Права job'а (выше) и так read-only — список инструментов закрывает
+          # вторую половину: канал исполнения, а не канал записи.
+          claude_args: '--allowed-tools "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*)"'

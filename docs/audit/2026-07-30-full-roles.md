@@ -228,6 +228,10 @@ Growth / Реклама / Комьюнити и три подсреза доку
 | `ACT-04` | **medium** | — | ✅ | `.github/workflows/claude-code-review.yml:4` | Ревью форковых PR фактически не работает (нет секрета), а «очевидная починка» через pull_request_target катастрофична |
 | `ACT-05` | **medium** | — | ✅ | `docs/dev/supply-chain.md:128` | docs/dev/supply-chain.md не покрывает GitHub Actions: инвентарь и мониторинг только про Python-зависимости |
 
+**Закрыто:** `ACT-01`, `ACT-02` — PR #849 (запуск только при `author_association` из
+OWNER/MEMBER/COLLABORATOR, инструменты агента по явному `--allowed-tools`; барьеры закреплены
+`tests/test_claude_workflow.py` и описаны в SECURITY.md).
+
 ### 🔐 Релиз и цепочка поставок
 
 | ID | Итог | Заявл. | ✓ | Место | Что не так |
@@ -237,6 +241,9 @@ Growth / Реклама / Комьюнити и три подсреза доку
 | `SUP-03` | **medium** | high | ◐ | `src/stepik_grader/web/static/vendor/VERSIONS.md:121` | Вендоренный CodeMirror-бандл 360 КБ без хеша и без автопроверки целостности |
 | `SUP-04` | **medium** | — | ✅ | `.github/workflows/ci.yml:40` | contents: write выдан всей матрице тестов, а не отдельной badge-job |
 | `SUP-05` | **medium** | — | ✅ | `.pre-commit-config.yaml:9` | Версия ruff в pre-commit прибита, а в CI плавает: локальный проход не гарантирует зелёный CI |
+
+**Закрыто:** `SUP-01` — PR #848 (job `verify` с полным набором проверок CI на том же коммите,
+публикация через `needs: [build, verify]`, тег обязан стоять на коммите из `main`).
 
 ### 🔐 Данные из сети на диск
 
