@@ -10,8 +10,8 @@ docs/archive/changelog-archive.md (в живом файле — не больш�
 -->
 
 ### Internal
-- Full multi-role audit of v1.10.0 — `docs/audit/2026-07-30-full-roles.md`: 192 findings across 30 role and zone slices, 192 adversarial verifications, two completeness critics and one live-run deep dive (#TBD)
-- Multi-agent rules: a role is now split across 2–3 agents with explicit file lists and response-size limits in the schema; tool-call budget, no binary files in an agent's zone, severity-scale calibration for verifiers, and a mandatory live-run slice — `docs/agent/multiagent.md` (#TBD)
+- Full multi-role audit of v1.10.0 — `docs/audit/2026-07-30-full-roles.md`: 192 findings across 30 role and zone slices, 192 adversarial verifications, two completeness critics and one live-run deep dive (#770)
+- Multi-agent rules: a role is now split across 2–3 agents with explicit file lists and response-size limits in the schema; tool-call budget, no binary files in an agent's zone, severity-scale calibration for verifiers, and a mandatory live-run slice — `docs/agent/multiagent.md` (#770)
 
 ### Changed
 - `CLAUDE.md`: язык `CHANGELOG.md` исправлен с «английский» на «русский» — контракт разошёлся с практикой, все записи файла и так на русском
