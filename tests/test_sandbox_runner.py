@@ -457,6 +457,33 @@ def _assert_infinite_loop_times_out(runner, tmp_path: pathlib.Path) -> None:
     assert outcome.timed_out is True
 
 
+def _assert_large_stdin_to_non_reader_times_out(runner, tmp_path: pathlib.Path) -> None:
+    """Большой stdin к нечитающему решению даёт TLE, а не вечное зависание.
+
+    issue #796: backend'ы писали stdin синхронно в главном потоке, до входа в
+    цикл ожидания. Решение, не читающее ввод, при stdin больше буфера pipe
+    (~64 KiB на Linux) блокировало `write` — и проверка таймаута не выполнялась
+    НИ РАЗУ: прогон висел до самостоятельного завершения ребёнка. В CLI это
+    зависание процесса, под `--serve --sandbox` — навсегда занятый воркер (при
+    дефолтных двух двух таких прогонов хватало, чтобы убить async-подсистему).
+
+    Тот же deadlock закрыли для `LocalRunner` ещё в #419; здесь он воспроизводил
+    себя в другом файле. Проверка идёт по факту завершения: если фикс откатят,
+    тест не «упадёт по ассерту», а повиснет — поэтому у прогона есть общий
+    дедлайн pytest-timeout, и висящий тест уронит прогон, а не заморозит его.
+    """
+    path = _write_script(tmp_path, "import time\ntime.sleep(30)\n")
+    payload = b"x" * (1024 * 1024)  # 1 MiB — заведомо больше любого pipe-буфера
+    start = time.perf_counter()
+    outcome = runner.run(RunSpec(path=path, stdin=payload, timeout=2.0))
+    elapsed = time.perf_counter() - start
+
+    assert outcome.timed_out is True, "нечитающее решение должно получить TLE"
+    # Запас на kill дерева и дренаж, но заметно меньше sleep(30) в решении:
+    # без фикса выход произошёл бы только через 30 с.
+    assert elapsed < 15.0, f"прогон занял {elapsed:.1f} с — похоже на блокировку записи stdin"
+
+
 def _assert_read_outside_run_dir_blocked(runner, tmp_path: pathlib.Path) -> None:
     """Чтение секрета ВНЕ run_dir заблокировано (SEC-CORE-03, escape-PoC #648).
 
@@ -543,6 +570,9 @@ class TestLinuxSandboxRunner:
 
     def test_infinite_loop_still_times_out(self, tmp_path: pathlib.Path) -> None:
         _assert_infinite_loop_times_out(self._runner(), tmp_path)
+
+    def test_large_stdin_to_non_reader_times_out(self, tmp_path: pathlib.Path) -> None:
+        _assert_large_stdin_to_non_reader_times_out(self._runner(), tmp_path)
 
     def test_read_outside_run_dir_blocked(self, tmp_path: pathlib.Path) -> None:
         # issue #648: bwrap изолирует ЧТЕНИЕ (файл вне bind'ов недоступен) —
@@ -642,6 +672,9 @@ class TestMacSandboxRunner:
         """
         _assert_network_blocked(self._runner(), tmp_path)
 
+    def test_large_stdin_to_non_reader_times_out(self, tmp_path: pathlib.Path) -> None:
+        _assert_large_stdin_to_non_reader_times_out(self._runner(), tmp_path)
+
     def test_memory_overrun_violation(self, tmp_path: pathlib.Path) -> None:
         """No RLIMIT_AS on Darwin -- psutil polling is the only enforcement,
         so allow a somewhat larger overshoot tolerance than Linux/Windows."""
@@ -715,6 +748,9 @@ class TestWindowsSandboxRunner:
         path = _write_script(tmp_path, "print(input())\n")
         outcome = self._runner().run(RunSpec(path=path, stdin=b"world\n", timeout=5.0))
         assert outcome.stdout.decode().strip() == "world"
+
+    def test_large_stdin_to_non_reader_times_out(self, tmp_path: pathlib.Path) -> None:
+        _assert_large_stdin_to_non_reader_times_out(self._runner(), tmp_path)
 
     def test_memory_overrun_surfaces_as_violation_or_re(self, tmp_path: pathlib.Path) -> None:
         """Job Object's JOB_OBJECT_LIMIT_JOB_MEMORY is commit-charge-based and
