@@ -52,6 +52,11 @@ def _achievement_badges(report: dict[str, Any]) -> list[dict[str, Any]]:
     ac = report.get("verdicts", {}).get("AC", 0)
     solved = report.get("solved_tasks", 0)
     streak = report.get("streak", 0)
+    # issue #821: подпись бейджа живёт в каталоге UI (`progress.badge_<id>`), а
+    # не здесь — русский литерал с сервера показывался как есть и в английском
+    # интерфейсе, рядом с уже локализованными KPI. `label` остаётся в ответе
+    # запасным вариантом на случай бейджа, которого во фронтовом каталоге ещё
+    # нет: контракт `/api/progress` не меняется, фронт предпочитает ключ.
     specs = [
         ("first_ac", "Первая AC", ac >= 1),
         ("streak_3", "Серия 3", streak >= 3),

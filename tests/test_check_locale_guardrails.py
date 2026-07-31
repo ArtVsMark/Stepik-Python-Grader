@@ -158,3 +158,44 @@ def test_load_locale_keys_missing_file_returns_empty_set(monkeypatch, tmp_path: 
     module = _load_module()
     monkeypatch.setattr(module, "_LOCALES_DIR", tmp_path)
     assert module.load_locale_keys("xx") == set()
+
+
+# ---------------------------------------------------------------------------
+# issue #821 (DESC-03): в английской локали не должно быть кириллицы
+#
+# Паритет ключей этого не ловит: ключ есть в обоих файлах, а перевода нет.
+# ---------------------------------------------------------------------------
+
+
+def test_cyrillic_in_en_locale_is_flagged(monkeypatch, tmp_path: Path) -> None:
+    """Русский текст внутри en.json — нарушение, с указанием ключа."""
+    module = _load_module()
+    locales_dir = tmp_path / "locales"
+    locales_dir.mkdir()
+    (locales_dir / "ru.json").write_text(
+        json.dumps({"greeting": "Привет"}, ensure_ascii=False), encoding="utf-8"
+    )
+    (locales_dir / "en.json").write_text(
+        json.dumps({"greeting": "Hello, раздел «Подучить»"}, ensure_ascii=False), encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_LOCALES_DIR", locales_dir)
+
+    errors: list[str] = []
+    module.check_en_locale_has_no_cyrillic(errors)
+    assert any("greeting" in e for e in errors), errors
+
+
+def test_clean_en_locale_passes(monkeypatch, tmp_path: Path) -> None:
+    """Полностью английская локаль проверку проходит."""
+    module = _load_module()
+    locales_dir = tmp_path / "locales"
+    locales_dir.mkdir()
+    (locales_dir / "ru.json").write_text(
+        json.dumps({"greeting": "Привет"}, ensure_ascii=False), encoding="utf-8"
+    )
+    (locales_dir / "en.json").write_text(json.dumps({"greeting": "Hello"}), encoding="utf-8")
+    monkeypatch.setattr(module, "_LOCALES_DIR", locales_dir)
+
+    errors: list[str] = []
+    module.check_en_locale_has_no_cyrillic(errors)
+    assert errors == []

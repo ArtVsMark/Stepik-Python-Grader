@@ -172,3 +172,39 @@ def test_lang_from_query_defaults_and_reads_param() -> None:
     assert web_server._lang_from_query(urlparse("/api/grade")) == "ru"
     assert web_server._lang_from_query(urlparse("/api/grade?lang=en")) == "en"
     assert web_server._lang_from_query(urlparse("/api/grade?lang=fr")) == "ru"
+
+
+# ---------------------------------------------------------------------------
+# issue #821: подписи бейджей достижений живут в каталоге UI, а не на сервере
+#
+# Ключ строится конкатенацией (`"progress.badge_" + b.id` в content.js),
+# поэтому статический guard локалей его не видит: там ловятся только
+# литеральные `t("...")`. Связь «id с сервера ↔ ключ в каталоге» держит этот
+# тест — новый бейдж без перевода уронит прогон, а не покажет русскую подпись
+# в английском интерфейсе.
+# ---------------------------------------------------------------------------
+
+
+def test_every_badge_id_has_a_ui_catalog_key() -> None:
+    """Для каждого id бейджа есть ключ `progress.badge_<id>` в обеих локалях."""
+    import json
+
+    from stepik_grader.web import insights_adapter
+
+    report = {"verdicts": {"AC": 99}, "solved_tasks": 99, "streak": 99}
+    badge_ids = [b["id"] for b in insights_adapter._achievement_badges(report)]
+    assert badge_ids, "список бейджей пуст — тест потерял предмет проверки"
+
+    ui_json = (
+        pathlib.Path(__file__).parent.parent
+        / "src"
+        / "stepik_grader"
+        / "web"
+        / "static"
+        / "locales"
+        / "ui.json"
+    )
+    catalog = json.loads(ui_json.read_text(encoding="utf-8"))
+    for lang in ("ru", "en"):
+        missing = [bid for bid in badge_ids if f"progress.badge_{bid}" not in catalog[lang]]
+        assert not missing, f"{lang}.: нет ключей для бейджей {missing}"

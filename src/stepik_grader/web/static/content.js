@@ -1,5 +1,15 @@
 // content.js — глоссарий, правила (PEP), «Подучить» (hash-навигация, #426).
-import { $, esc, getSelectedCase, registerSectionHook, setSection, state, t, tp } from "./core.js";
+import {
+  $,
+  esc,
+  getSelectedCase,
+  registerSectionHook,
+  setSection,
+  state,
+  t,
+  tOr,
+  tp,
+} from "./core.js";
 
 function openGlossaryForSelectedCase() {
   const c = getSelectedCase();
@@ -644,9 +654,13 @@ function renderProgress() {
     ? '<h2 class="section-heading">' + esc(t("progress.achievements")) + '</h2><div class="chip-row">' +
       badges
         .map(
+          // issue #821: подпись берётся из каталога по id бейджа — сервер
+          // присылает её только как запасной вариант, иначе в EN-интерфейсе
+          // чипы оставались русскими рядом с локализованными KPI.
           b =>
             '<span class="chip' + (b.earned ? "" : " chip-locked") + '">' +
-            (b.earned ? "🏅 " : "🔒 ") + esc(b.label) + "</span>",
+            (b.earned ? "🏅 " : "🔒 ") +
+            esc(tOr("progress.badge_" + b.id, b.label || b.id)) + "</span>",
         )
         .join("") +
       "</div>"
