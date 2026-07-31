@@ -31,6 +31,12 @@ jobs:
       # каталога. Тоже чистый stdlib (html.parser/json), без pip install.
       - name: Web UI locale guardrails (issue #547)
         run: python scripts/check_ui_locale_guardrails.py
+      # issue #855: ES-модули без сборщика — имя, не попавшее в import из
+      # core.js, даёт ReferenceError только в рантайме, в момент рендера. Так
+      # раздел «Прогресс» переставал рисоваться целиком при непустой истории.
+      # Тоже чистый stdlib, поэтому живёт в этом же быстром job'е.
+      - name: Web module import guardrails (issue #855)
+        run: python scripts/check_web_imports.py
 
   test:
     runs-on: ${{ matrix.os }}
