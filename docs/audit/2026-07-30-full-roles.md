@@ -163,6 +163,8 @@ Growth / Реклама / Комьюнити и три подсреза доку
 | `PY-11` | **low** | — | ◐ | `src/stepik_grader/core/stats.py:67` | Ротация журнала статистики переписывает файл неатомарно — прямо вопреки гарантии, заявленной в docstring модуля |
 | `PY-13` | **low** | — | ◐ | `src/stepik_grader/core/sandbox/_linux.py:176` | Sandbox-backend'ы читают лимит вывода из CONFIG вместо `RunSpec`, нарушая явно задекларированный config-agnostic контракт RunSpec |
 
+**Закрыто:** `PY-01` — PR #863 (stdin в daemon-потоке, как в `LocalRunner`); `PY-02` — PR #864 (`cancel_event` читается в цикле ожидания); `PY-05` — PR #865 (гарантированная уборка процесса в `finally`); `PY-13`, `PY-09` — PR #866 (лимит вывода из `RunSpec`; быстрый путь при TLE отдаёт измеренный пик памяти).
+
 ### 🔐 Безопасность: исполнение и изоляция
 
 | ID | Итог | Заявл. | ✓ | Место | Что не так |
@@ -173,6 +175,8 @@ Growth / Реклама / Комьюнити и три подсреза доку
 | `SECC-05` | **medium** | — | ✅ | `src/stepik_grader/core/sandbox/_windows.py:369` | Windows-backend выбрасывает накопленный stdout/stderr при TLE и при sandbox_violation |
 | `SECC-03` | **low** | medium | ◐ | `src/stepik_grader/core/sandbox/_linux.py:172` | cancel_event молча игнорируется всеми sandbox-backend'ами — отмена прогона под --sandbox не работает |
 | `SECC-06` | **low** | — | ✅ | `src/stepik_grader/core/sandbox/_macos.py:135` | macOS-backend не задаёт cwd — дочерний процесс наследует рабочий каталог грейдера, а не run_dir |
+
+**Закрыто:** `SECC-01`, `SECC-06` — PR #866 (скрипт в приватном каталоге 0700 вместо общего temp; `cwd = run_dir` на macOS); `SECC-02` — PR #863; `SECC-03` — PR #864; `SECC-04`, `SECC-05` — PR #865 (уборка внуков и частичный вывод у всех аварийных исходов). Сверх аудита: на Windows внуки переживали TLE так же, как на macOS, — `psutil`-обход собирает детей через уже мёртвого родителя, помог `TerminateJobObject`.
 
 ### 🐍 Файловое состояние
 
@@ -299,6 +303,8 @@ OWNER/MEMBER/COLLABORATOR, инструменты агента по явному
 | `DEV-11` | **low** | medium | ◐ | `src/stepik_grader/core/stepik_client.py:512` | Файловый кэш Stepik API (.stepik_cache/) растёт без ограничения и не чистится ни TTL, ни --clear-cache |
 | `DEV-12` | **low** | — | ◐ | `src/stepik_grader/downloader.py:412` | Ни один широкий except в проекте не пишет traceback в диагностический лог — opt-in логирование (#148/#149) не помогает диагностировать именно сбои |
 
+**Закрыто:** `DEV-03` — PR #865 («Песочница» отдаёт частичный вывод при TLE и отмене, как это делает сам runner с #421).
+
 ### 🎨 Дизайнер: web
 
 | ID | Итог | Заявл. | ✓ | Место | Что не так |
@@ -383,6 +389,8 @@ OWNER/MEMBER/COLLABORATOR, инструменты агента по явному
 | `QA-10` | **low** | medium | ◐ | `.github/workflows/ci.yml:349` | Job e2e в CI пройдёт зелёным, если extra e2e не установился: все тесты молча скипнутся |
 | `QA-11` | **low** | — | ◐ | `pyproject.toml:264` | Каталог scripts/ проходит mypy, но полностью выпадает из измерения покрытия |
 | `QA-12` | **low** | — | ✅ | `src/stepik_grader/grader.py:69` | Инвариант обратной совместимости фасада grader.__all__ ничем не защищён |
+
+**Закрыто:** `QA-02`, `QA-03` — PR #862 (изоляция сети доказывается локальным listener'ом вместо внешнего адреса; отказ при недоступном backend'е покрыт для режимов 1–4); `QA-04` — PR #864 (отмена job'ов подсказки и отправки перестала быть no-op).
 
 ### 📊 Продуктовый аналитик
 
