@@ -230,7 +230,11 @@ Growth / Реклама / Комьюнити и три подсреза доку
 
 **Закрыто:** `ACT-01`, `ACT-02` — PR #849 (запуск только при `author_association` из
 OWNER/MEMBER/COLLABORATOR, инструменты агента по явному `--allowed-tools`; барьеры закреплены
-`tests/test_claude_workflow.py` и описаны в SECURITY.md).
+`tests/test_claude_workflow.py` и описаны в SECURITY.md). `ACT-03`, `ACT-04` — PR #850 (все `uses:`
+запинены по commit SHA + Dependabot на `github-actions`; форковые PR явно пропускаются, запрет
+`pull_request_target` записан в шапке workflow). Остаток `ACT-03`: маркетплейс плагинов
+(`plugin_marketplaces`) запинить нечем — параметр принимает только git-URL, ревизии в схеме action
+нет; риск принят и описан в SECURITY.md.
 
 ### 🔐 Релиз и цепочка поставок
 
@@ -243,7 +247,9 @@ OWNER/MEMBER/COLLABORATOR, инструменты агента по явному
 | `SUP-05` | **medium** | — | ✅ | `.pre-commit-config.yaml:9` | Версия ruff в pre-commit прибита, а в CI плавает: локальный проход не гарантирует зелёный CI |
 
 **Закрыто:** `SUP-01` — PR #848 (job `verify` с полным набором проверок CI на том же коммите,
-публикация через `needs: [build, verify]`, тег обязан стоять на коммите из `main`).
+публикация через `needs: [build, verify]`, тег обязан стоять на коммите из `main`). `SUP-02`,
+`SUP-04` — PR #850 (пиннинг по SHA во всех workflow; `contents: write` снят с матрицы тестов и
+остался у единственного job'а, коммитящего бейджи).
 
 ### 🔐 Данные из сети на диск
 
