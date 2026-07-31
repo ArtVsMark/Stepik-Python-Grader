@@ -80,13 +80,33 @@ def run_playground(
     duration_ms = int(outcome.elapsed * 1000)
     if outcome.launch_error is not None:
         return _result("RE", stderr=outcome.launch_error, exit_code=None, duration_ms=duration_ms)
-    if outcome.timed_out:
-        return _result("TLE", exit_code=None, duration_ms=duration_ms)
-    if outcome.cancelled:
-        return _result("CANCELLED", exit_code=None, duration_ms=duration_ms)
 
     stdout, clipped_out = _clip(_decode(outcome.stdout))
     stderr, clipped_err = _clip(_decode(outcome.stderr))
+    # issue #798: TLE и отмена тоже отдают то, что программа успела напечатать.
+    # Runner специально возвращает частичный вывод (issue #421), а «Песочница»
+    # его выбрасывала: зациклившийся код показывал пустой экран вместо строк,
+    # по которым видно, где он застрял, — при том что именно ради вывода раздел
+    # и существует.
+    if outcome.timed_out:
+        return _result(
+            "TLE",
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=None,
+            duration_ms=duration_ms,
+            truncated=clipped_out or clipped_err,
+        )
+    if outcome.cancelled:
+        return _result(
+            "CANCELLED",
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=None,
+            duration_ms=duration_ms,
+            truncated=clipped_out or clipped_err,
+        )
+
     return _result(
         "OK" if outcome.returncode == 0 else "RE",
         stdout=stdout,
