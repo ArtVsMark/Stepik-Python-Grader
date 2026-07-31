@@ -6,6 +6,60 @@ on:
       - "v*"
 
 jobs:
+  # issue #809: гейт публикации. Триггер — любой тег `v*`, в том числе с ветки,
+  # которая никогда не проходила CI: раньше `build` → `publish` шли без единой
+  # проверки. Цена ошибки не откатывается — версия в PyPI неперезаписываема,
+  # доступен только yank. Поэтому здесь тот же набор проверок, что и в матрице
+  # ci.yml (ruff/mypy/version/pytest), плюс требование, чтобы тег стоял на
+  # коммите из main. Один прогон на ubuntu/3.12: кросс-платформенную матрицу
+  # коммит уже прошёл в CI до мержа, здесь гейт против «тег мимо main».
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        # setuptools-scm и check_version_consistency читают историю и теги.
+        with:
+          fetch-depth: 0
+
+      - name: Тег должен стоять на коммите из main
+        run: |
+          # Явный refspec: checkout по тегу настраивает origin под этот тег, и
+          # remote-tracking ветка main сама по себе не появляется.
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Тег $GITHUB_REF_NAME указывает на коммит вне main — публикация остановлена"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Type check
+        run: mypy src/stepik_grader scripts
+
+      - name: Version consistency (issue #165)
+        run: python scripts/check_version_consistency.py
+
+      # issue #294: тот же per-OS coverage-конфиг, что и в матрице CI — иначе
+      # sandbox-backend'ы двух других ОС считаются непокрытыми и гейт покрытия
+      # падает на ровном месте.
+      - name: Generate per-OS coverage config (issue #294)
+        run: python scripts/generate_ci_coveragerc.py Linux
+
+      - name: Run tests
+        run: pytest -q --cov-config=.coveragerc.ci
+
   # issue #559: dist собирается ОДИН раз здесь и передаётся артефактом в оба
   # потребителя (GitHub Release + PyPI) через upload/download-artifact — раньше
   # release и pypi-publish собирали `python -m build` дважды (двойная сборка,
@@ -36,7 +90,8 @@ jobs:
           path: dist/
 
   github-release:
-    needs: build
+    # issue #809: публикация только после зелёного `verify` на этом же коммите.
+    needs: [build, verify]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -69,7 +124,9 @@ jobs:
   # `build` (issue #559), so if the trusted publisher is not configured yet,
   # only THIS job fails; the GitHub Release still publishes.
   pypi-publish:
-    needs: build
+    # issue #809: тот же гейт. Версия в PyPI неперезаписываема — это
+    # единственная ошибка релиза, которую нельзя откатить.
+    needs: [build, verify]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

@@ -41,7 +41,36 @@ def test_publish_jobs_fan_out_from_build() -> None:
     text = _noncomment_text()
     # Оба публикующих job'а зависят от `build` (независимы друг от друга: провал
     # PyPI не мешает GitHub Release и наоборот).
-    assert text.count("needs: build") == 2
+    assert text.count("needs: [build, verify]") == 2
     # Публикация всё ещё присутствует.
     assert "softprops/action-gh-release@v2" in text
     assert "pypa/gh-action-pypi-publish@release/v1" in text
+
+
+# ---------------------------------------------------------------------------
+# issue #809: гейт перед публикацией
+#
+# Версия в PyPI неперезаписываема: тег, собранный из непроверенного коммита,
+# откатить нельзя (только yank). Guard держит сам факт наличия проверок —
+# если job `verify` вырежут или отвяжут от публикации, тест упадёт.
+# ---------------------------------------------------------------------------
+
+
+def test_verify_job_runs_the_same_gate_as_ci() -> None:
+    """Гейт релиза повторяет набор проверок матрицы CI, а не сокращённый набор."""
+    text = _noncomment_text()
+    for command in (
+        "ruff check .",
+        "ruff format --check .",
+        "mypy src/stepik_grader scripts",
+        "python scripts/check_version_consistency.py",
+        "pytest -q",
+    ):
+        assert command in text, command
+
+
+def test_tag_outside_main_does_not_publish() -> None:
+    """Тег с произвольной ветки останавливается проверкой предка, а не уезжает в PyPI."""
+    text = _noncomment_text()
+    assert "git merge-base --is-ancestor" in text
+    assert "origin/main" in text
