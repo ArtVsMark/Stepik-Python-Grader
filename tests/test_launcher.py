@@ -426,39 +426,56 @@ class TestGuiHandlers:
 # ---------------------------------------------------------------------------
 
 
-def test_lang_env_var_wins(monkeypatch) -> None:
-    """Переменная окружения перекрывает системную локаль."""
-    monkeypatch.setenv(launcher.LANG_ENV_VAR, "en")
-    monkeypatch.setenv("LANG", "ru_RU.UTF-8")
-    assert launcher.detect_lang() == "en"
+@pytest.fixture
+def clean_locale_env(monkeypatch):
+    """Убрать ВСЕ переменные локали перед проверкой детекта языка.
 
-
-def test_unsupported_env_value_is_ignored(monkeypatch) -> None:
-    """Неизвестное значение переменной не выбирает несуществующую локаль."""
-    monkeypatch.setenv(launcher.LANG_ENV_VAR, "fr")
-    monkeypatch.setenv("LANG", "ru_RU.UTF-8")
-    assert launcher.detect_lang() == "ru"
-
-
-def test_system_locale_picks_english(monkeypatch) -> None:
-    """Не-русская системная локаль даёт английское окно — цель issue #821."""
-    monkeypatch.delenv(launcher.LANG_ENV_VAR, raising=False)
-    monkeypatch.setenv("LANG", "en_US.UTF-8")
-    assert launcher.detect_lang() == "en"
-
-
-def test_russian_system_locale_stays_russian(monkeypatch) -> None:
-    """Русская система — русское окно (прежнее поведение)."""
-    monkeypatch.delenv(launcher.LANG_ENV_VAR, raising=False)
-    monkeypatch.setenv("LANG", "ru_RU.UTF-8")
-    assert launcher.detect_lang() == "ru"
-
-
-def test_undetectable_locale_falls_back_to_russian(monkeypatch) -> None:
-    """Локаль не определяется → русский, а не пустое окно."""
+    Иначе тест проверяет окружение раннера, а не код: на macOS-раннерах задан
+    `LC_ALL`, который по POSIX перекрывает `LANG`, — тест, ставивший только
+    `LANG=ru_RU`, получал английский и падал (на машине разработчика, где
+    `LC_ALL` не задан, он был зелёным).
+    """
     for var in (launcher.LANG_ENV_VAR, "LC_ALL", "LC_MESSAGES", "LANG"):
         monkeypatch.delenv(var, raising=False)
-    monkeypatch.setattr(launcher.locale, "getlocale", lambda: (None, None))
+    return monkeypatch
+
+
+def test_lang_env_var_wins(clean_locale_env) -> None:
+    """Переменная окружения перекрывает системную локаль."""
+    clean_locale_env.setenv(launcher.LANG_ENV_VAR, "en")
+    clean_locale_env.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "en"
+
+
+def test_unsupported_env_value_is_ignored(clean_locale_env) -> None:
+    """Неизвестное значение переменной не выбирает несуществующую локаль."""
+    clean_locale_env.setenv(launcher.LANG_ENV_VAR, "fr")
+    clean_locale_env.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "ru"
+
+
+def test_system_locale_picks_english(clean_locale_env) -> None:
+    """Не-русская системная локаль даёт английское окно — цель issue #821."""
+    clean_locale_env.setenv("LANG", "en_US.UTF-8")
+    assert launcher.detect_lang() == "en"
+
+
+def test_russian_system_locale_stays_russian(clean_locale_env) -> None:
+    """Русская система — русское окно (прежнее поведение)."""
+    clean_locale_env.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "ru"
+
+
+def test_lc_all_overrides_lang(clean_locale_env) -> None:
+    """POSIX-приоритет соблюдён: `LC_ALL` сильнее `LANG` (ровно это и было на CI)."""
+    clean_locale_env.setenv("LC_ALL", "en_US.UTF-8")
+    clean_locale_env.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "en"
+
+
+def test_undetectable_locale_falls_back_to_russian(clean_locale_env) -> None:
+    """Локаль не определяется → русский, а не пустое окно."""
+    clean_locale_env.setattr(launcher.locale, "getlocale", lambda: (None, None))
     assert launcher.detect_lang() == "ru"
 
 
