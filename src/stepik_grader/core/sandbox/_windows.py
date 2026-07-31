@@ -65,6 +65,7 @@ from typing import Any
 import psutil
 
 from stepik_grader.config import CONFIG
+from stepik_grader.core.run_dir import ephemeral_run_dir
 from stepik_grader.core.runner import (
     RunOutcome,
     RunSpec,
@@ -73,7 +74,6 @@ from stepik_grader.core.runner import (
     sample_tree_rss,
     spec_source_bytes,
 )
-from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
 __all__ = ["WindowsSandboxRunner", "create_backend"]
 
@@ -292,7 +292,10 @@ class WindowsSandboxRunner:
         total_bytes = 0
         size_lock = threading.Lock()
         output_exceeded = threading.Event()
-        max_output_bytes = CONFIG.sandbox_max_output_bytes
+        # issue #799 (PY-13): лимит вывода — из RunSpec, если он задан; контракт
+        # RunSpec заявлен config-agnostic, а backend читал только CONFIG, из-за
+        # чего per-request лимит серверного API под --sandbox игнорировался.
+        max_output_bytes = spec.max_output_bytes or CONFIG.sandbox_max_output_bytes
 
         def _on_chunk(n: int) -> None:
             nonlocal total_bytes

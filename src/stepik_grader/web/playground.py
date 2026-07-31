@@ -16,8 +16,8 @@ guard'ы (localhost-only, лимит тела #259) — забота ``server.py
 
 from __future__ import annotations
 
-import contextlib
 import pathlib
+import shutil
 import tempfile
 import threading
 from typing import Any
@@ -55,16 +55,17 @@ def run_playground(
     через ``cancel_event``). Никакой сверки с ожидаемым выводом — это
     песочница, не грейдинг.
     """
-    # delete=False намеренно: путь файла уходит в RunSpec раннеру, чистится в finally.
-    tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
-        mode="w", suffix=".py", encoding="utf-8", delete=False
-    )
+    # issue #799 (SECC-01): скрипт живёт в ПРИВАТНОМ каталоге 0700, а не в общем
+    # системном temp. Каталог скрипта CPython ставит первым в sys.path, поэтому
+    # чужой `json.py`, заранее подложенный в общий /tmp, подменил бы stdlib для
+    # кода из «Песочницы». Каталог удаляется целиком в finally.
+    tmp_dir = pathlib.Path(tempfile.mkdtemp(prefix="stepik-playground-"))
+    script_path = tmp_dir / "solution.py"
     try:
-        tmp.write(code)
-        tmp.close()
+        script_path.write_text(code, encoding="utf-8")
         outcome = run_spec(
             RunSpec(
-                path=pathlib.Path(tmp.name),
+                path=script_path,
                 stdin=stdin.encode("utf-8"),
                 timeout=float(CONFIG.timeout_seconds),
                 measure_memory=False,  # песочнице пик RSS не нужен — без psutil-потока
@@ -74,8 +75,7 @@ def run_playground(
             )
         )
     finally:
-        with contextlib.suppress(OSError):  # уборка временного файла
-            pathlib.Path(tmp.name).unlink()
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     duration_ms = int(outcome.elapsed * 1000)
     if outcome.launch_error is not None:

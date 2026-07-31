@@ -44,9 +44,9 @@ import sysconfig
 from pathlib import Path
 
 from stepik_grader.config import CONFIG
+from stepik_grader.core.run_dir import ephemeral_run_dir
 from stepik_grader.core.runner import RunOutcome, RunSpec, spec_source_bytes
 from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
-from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
 __all__ = ["LinuxSandboxRunner", "create_backend"]
 
@@ -173,7 +173,12 @@ class LinuxSandboxRunner:
                 argv,
                 stdin=spec.stdin,
                 timeout=spec.timeout,
-                max_output_bytes=CONFIG.sandbox_max_output_bytes,
+                # issue #799 (PY-13): лимит вывода берётся из RunSpec, если он
+                # задан, — контракт RunSpec заявлен config-agnostic (``core/runner``),
+                # а backend читал только CONFIG, поэтому per-request лимит
+                # серверного API под --sandbox молча игнорировался. CONFIG
+                # остаётся значением по умолчанию.
+                max_output_bytes=spec.max_output_bytes or CONFIG.sandbox_max_output_bytes,
                 max_memory_mb=float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024),
                 # issue #797: отмена работает и под изоляцией — раньше поле
                 # RunSpec просто не доезжало до цикла ожидания.

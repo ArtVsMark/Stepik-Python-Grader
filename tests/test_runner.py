@@ -14,6 +14,7 @@ from __future__ import annotations
 import contextlib
 import pathlib
 import sys
+import tempfile
 import threading
 import time
 import warnings
@@ -447,6 +448,46 @@ def test_local_runner_executes_inline_code() -> None:
     outcome = LocalRunner().run(spec)
     assert outcome.returncode == 0
     assert b"from-code" in outcome.stdout
+
+
+def test_local_runner_code_spec_uses_private_dir() -> None:
+    """issue #799 (SECC-01): скрипт лежит в приватном каталоге, а не в общем temp.
+
+    Каталог скрипта CPython ставит ПЕРВЫМ в `sys.path`. Пока это был общий
+    системный temp, посторонний на многопользовательском хосте мог заранее
+    положить туда `json.py` — и `import json` в решении подхватил бы чужой код
+    правами владельца грейдера. Права файла (0600) не спасают: атака идёт на
+    каталог.
+
+    Проверяем по факту: решение печатает свой `sys.path[0]`, и этот каталог не
+    должен совпадать с общим `tempfile.gettempdir()`.
+    """
+    spec = RunSpec(
+        code=b"import sys; print(sys.path[0])\n",
+        stdin=None,
+        timeout=5.0,
+        measure_memory=False,
+    )
+    outcome = LocalRunner().run(spec)
+
+    script_dir = pathlib.Path(outcome.stdout.decode().strip())
+    shared_temp = pathlib.Path(tempfile.gettempdir())
+    assert script_dir != shared_temp, "скрипт материализован прямо в общий temp"
+    assert script_dir.parent == shared_temp, "приватный каталог создаётся внутри temp"
+
+
+def test_local_runner_code_spec_cleans_up_private_dir() -> None:
+    """Приватный каталог удаляется целиком — временные файлы не копятся."""
+    spec = RunSpec(
+        code=b"import sys; print(sys.path[0])\n",
+        stdin=None,
+        timeout=5.0,
+        measure_memory=False,
+    )
+    outcome = LocalRunner().run(spec)
+
+    script_dir = pathlib.Path(outcome.stdout.decode().strip())
+    assert not script_dir.exists(), "приватный каталог остался после прогона"
 
 
 def test_local_runner_code_spec_reads_stdin() -> None:

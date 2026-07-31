@@ -26,6 +26,7 @@ from __future__ import annotations
 import contextlib
 import os
 import pathlib
+import shutil
 import signal
 import subprocess
 import sys
@@ -503,16 +504,24 @@ class LocalRunner:
         # исполняем его (то же сделал бы remote-раннер у себя); иначе исполняем
         # существующий ``path`` без копии (локальная оптимизация). Инвариант
         # ``RunSpec.__post_init__`` гарантирует, что задан один из двух.
-        tmp_code_path: pathlib.Path | None = None
+        tmp_code_dir: pathlib.Path | None = None
         if spec.code is not None:
+            # issue #799 (SECC-01): каталог, где лежит скрипт, CPython ставит
+            # ПЕРВЫМ в sys.path — а раньше это был общий системный temp. На
+            # многопользовательском POSIX-хосте посторонний мог заранее
+            # положить туда `/tmp/json.py`, и `import json` в решении подхватил
+            # бы чужой код правами владельца грейдера. Права самого файла
+            # (0600) от этого не спасают: атака идёт на каталог. Приватный
+            # каталог 0700 (mkdtemp) закрывает вектор — так уже делают все три
+            # sandbox-backend'а.
             try:
-                fd, tmp_name = tempfile.mkstemp(suffix=".py")
-                with os.fdopen(fd, "wb") as fh:
-                    fh.write(spec.code)
+                tmp_code_dir = pathlib.Path(tempfile.mkdtemp(prefix="stepik-run-"))
+                exec_path: pathlib.Path = tmp_code_dir / "solution.py"
+                exec_path.write_bytes(spec.code)
             except OSError as exc:
+                if tmp_code_dir is not None:
+                    shutil.rmtree(tmp_code_dir, ignore_errors=True)
                 return RunOutcome(launch_error=str(exc), timed_out=False)
-            tmp_code_path = pathlib.Path(tmp_name)
-            exec_path: pathlib.Path = tmp_code_path
         else:
             assert spec.path is not None  # инвариант __post_init__: задан path или code
             exec_path = spec.path
@@ -563,11 +572,20 @@ class LocalRunner:
                     # накопленный до TLE, с ограниченным reap.
                     _kill_process_tree(proc)
                     partial_out, partial_err = _reap_after_kill(proc)
+                    # issue #799 (PY-09): дождаться измерителя и отдать пик
+                    # памяти. Раньше этот путь возвращался, не тронув
+                    # mem_thread: поток оставался висеть, а измеренный пик
+                    # молча терялся — TLE отдавал peak_memory_mb=0.0, хотя
+                    # решение и упало-то как раз на прожорливости.
+                    stop_event.set()
+                    if mem_thread is not None:
+                        mem_thread.join(timeout=0.5)
                     return RunOutcome(
                         stdout=partial_out,
                         stderr=partial_err,
                         timed_out=True,
                         elapsed=spec.timeout,
+                        peak_memory_mb=peak_mb_result[0],
                     )
                 finally:
                     stop_event.set()
@@ -605,10 +623,10 @@ class LocalRunner:
             stop_event.set()
             if proc is not None and proc.poll() is None:
                 _kill_process_tree(proc)
-            # issue #638: убрать временный файл, материализованный из spec.code.
-            if tmp_code_path is not None:
-                with contextlib.suppress(OSError):
-                    tmp_code_path.unlink()
+            # issue #638: убрать временный файл, материализованный из spec.code
+            # (issue #799 — вместе с его приватным каталогом).
+            if tmp_code_dir is not None:
+                shutil.rmtree(tmp_code_dir, ignore_errors=True)
 
     def _run_with_polling(
         self,
