@@ -108,8 +108,8 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
         tests/input.txt   — ВСЕ входные блоки с маркерами `# TEST_N:`
         tests/output.txt  — ВСЕ ожидаемые блоки с маркерами `# TEST_N:`
         Тип блока определяется автоматически: если блок — валидный Python-код
-        со ссылками на переменные/функции (`print(func(...))`, присваивания,
-        for-циклы) → "function", иначе (голые числа/строки) → "stdin".
+        с вызовом или присваиванием (`print(func(...))`, `a = 5`) → "function",
+        иначе (числа, строки, слова-имена) → "stdin".
 
     Формат 1 — downloader.py (legacy):
         tests/1        — входные данные теста №1 (stdin)
