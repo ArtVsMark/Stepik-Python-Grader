@@ -397,10 +397,6 @@ def test_blank_line_inside_testblock_survives(tmp_path: pathlib.Path) -> None:
     assert result["verdict"] == "AC"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="issue #783: parsers.parse_testblock_file делает .strip() блока целиком",
-)
 @pytest.mark.parametrize(
     "solution,expected,name",
     [
@@ -430,8 +426,32 @@ def test_testblock_format_drops_blank_edges(
 
     В `input.txt`/`output.txt` блок ограничен маркерами `# TEST_N:`, поэтому
     пустая строка на его краю неотличима от отбивки перед следующим маркером.
-    Фикс #783 (резать только `\\n`, а не пробелы) этого не меняет — ожидание
-    здесь дословное `WA`, а не «пока сломано». Задача с пустой строкой в начале
-    или конце ожидаемого вывода задаётся форматом 1 или 2.
+    Фикс #783 сохранил пробелы ВНУТРИ строк, но пустые строки по краям режутся
+    по-прежнему — ожидание здесь дословное `WA`, а не «пока сломано». Задача с
+    пустой строкой в начале или конце ожидаемого вывода задаётся форматом 1 или 2.
     """
     assert _testblock(tmp_path, solution, expected=expected)["verdict"] == "WA", name
+
+
+def test_testblock_stdin_keeps_leading_spaces(tmp_path: pathlib.Path) -> None:
+    """Формат 3: пробелы значимы и на стороне ВХОДА — блок доезжает до `stdin` как есть."""
+    result = _testblock(tmp_path, "print(repr(input()))", stdin="  5", expected="'  5'")
+    assert result["verdict"] == "AC"
+
+
+def test_testblock_code_block_with_indent_still_runs_as_function(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Формат 3: блок-код с отступом остаётся function-маршрутом, а не уезжает в stdin.
+
+    Пробелы по краям строк теперь сохраняются (issue #783), поэтому блок вида
+    `  print(solve(2))` дошёл бы до `ast.parse` с ведущим отступом —
+    синтаксическая ошибка, и вызов молча подался бы решению на `stdin`.
+    """
+    result = _testblock(
+        tmp_path,
+        "def solve(x):\n    return x * 2\n",
+        stdin="  print(solve(21))",
+        expected="42",
+    )
+    assert result["verdict"] == "AC"

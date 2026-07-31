@@ -63,9 +63,11 @@ def test_blockcount_equals_markercount_for_arbitrary_text(text: str) -> None:
 @given(st.lists(_SAFE_LINE, min_size=1, max_size=6))
 @settings(deadline=None, max_examples=200)
 def test_constructed_file_reconstructs_each_block(bodies: list[str]) -> None:
-    """Сконструированный ``# TEST_i:``-файл даёт ровно N блоков, каждый = body.strip().
+    """Сконструированный ``# TEST_i:``-файл даёт ровно N блоков, каждый = тело дословно.
 
-    Пустые тела сохраняются как ``''`` (индексы input/output не должны разъезжаться).
+    Пробелы по краям строки — значимые данные и сохраняются (issue #783); тело
+    целиком из пробелов — отбивка, и схлопывается в ``''``, как и пустое тело
+    (индексы input/output не должны разъезжаться).
     """
     lines: list[str] = []
     for i, body in enumerate(bodies, 1):
@@ -74,7 +76,7 @@ def test_constructed_file_reconstructs_each_block(bodies: list[str]) -> None:
             lines.append(body)
     blocks = parse_testblock_file("\n".join(lines))
     assert len(blocks) == len(bodies)
-    assert blocks == [body.strip() for body in bodies]
+    assert blocks == [body if body.strip() else "" for body in bodies]
 
 
 # ---------------------------------------------------------------------------

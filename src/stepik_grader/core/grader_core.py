@@ -309,7 +309,11 @@ def _prepare_run_spec(
             )
         )
 
-    input_data = "\n".join(case.input_lines)
+    # function-маршрут трактует блок как исходный код: с issue #783 разбор
+    # формата 3 сохраняет пробелы по краям строк, и ведущий отступ сделал бы
+    # блок синтаксически неверным (и в детекторе, и в сгенерированном wrapper'е).
+    # stdin-ветка выше данные не трогает — там эти пробелы значимы.
+    input_data = "\n".join(case.input_lines).strip()
     # Маршрут выбирается по тому, печатает ли блок результат сам (формат 3),
     # а не по «похоже ли на Python-код»: присваивание `a = 5` — это данные
     # legacy-теста, а не драйвер (issue #622).
@@ -837,7 +841,9 @@ def run_microbench_mode(
         for case in cases_for_path:
             input_data = "\n".join(case.input_lines)
 
-            if case.test_type == "function" and _is_python_code_block(input_data):
+            # Детектор получает выпрямленный блок (issue #783: разбор формата 3
+            # сохраняет пробелы по краям), а stdin_data ниже — исходный.
+            if case.test_type == "function" and _is_python_code_block(input_data.strip()):
                 # Function-call блок — это Python-код, а не stdin.
                 # timeit/exec тут не годится: используем subprocess-тайминг
                 # через run_single_test (менее точно, зато корректно).

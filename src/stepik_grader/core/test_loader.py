@@ -163,7 +163,11 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
                     stacklevel=2,
                 )
             for i, (inp, out) in enumerate(zip(input_blocks, output_blocks, strict=False), 1):
-                test_type = "function" if _is_python_code_block(inp) else "stdin"
+                # Классификация — по выпрямленному блоку: с issue #783 разбор
+                # сохраняет пробелы по краям строк, а для ast.parse ведущий
+                # отступ — синтаксическая ошибка, и код-блок молча уехал бы в
+                # stdin. Сами данные кейса остаются нетронутыми.
+                test_type = "function" if _is_python_code_block(inp.strip()) else "stdin"
                 cases.append(
                     TestCase(
                         index=i,
