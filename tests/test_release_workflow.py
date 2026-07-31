@@ -31,10 +31,12 @@ def test_dist_built_exactly_once() -> None:
 
 def test_dist_uploaded_once_and_downloaded_by_both_consumers() -> None:
     text = _noncomment_text()
+    # Ссылки — без версии: с issue #808 actions запинены по SHA, и Dependabot
+    # меняет его еженедельно. Guard сторожит структуру workflow, а не версии.
     # build-job загружает артефакт...
-    assert text.count("actions/upload-artifact@v4") == 1
+    assert text.count("actions/upload-artifact@") == 1
     # ...и оба потребителя (github-release + pypi-publish) его скачивают.
-    assert text.count("actions/download-artifact@v4") == 2
+    assert text.count("actions/download-artifact@") == 2
 
 
 def test_publish_jobs_fan_out_from_build() -> None:
@@ -43,8 +45,8 @@ def test_publish_jobs_fan_out_from_build() -> None:
     # PyPI не мешает GitHub Release и наоборот).
     assert text.count("needs: [build, verify]") == 2
     # Публикация всё ещё присутствует.
-    assert "softprops/action-gh-release@v2" in text
-    assert "pypa/gh-action-pypi-publish@release/v1" in text
+    assert "softprops/action-gh-release@" in text
+    assert "pypa/gh-action-pypi-publish@" in text
 
 
 # ---------------------------------------------------------------------------

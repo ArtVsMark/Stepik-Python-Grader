@@ -1,22 +1,23 @@
 name: Claude Code Review
 
+# issue #808 (ACT-04): триггер намеренно `pull_request`, а НЕ
+# `pull_request_target`. На PR из форка `secrets.CLAUDE_CODE_OAUTH_TOKEN`
+# недоступен, поэтому авто-ревью там не выполняется — это осознанное
+# ограничение, а не поломка. «Очевидная починка» через `pull_request_target`
+# катастрофична: он выполняется в контексте БАЗОВОЙ ветки и отдаёт секреты
+# workflow, запущенному по коду постороннего автора. Форковый PR ревьюит
+# мейнтейнер — вручную или упоминанием «@claude» в комментарии (claude.yml,
+# где запуск ограничен доверенным author_association).
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # issue #808 (ACT-04): на форковых PR секрета нет — job не падал бы с
+    # осмысленной ошибкой, а тихо ломался на шаге агента. Явный скип делает
+    # ограничение видимым в списке проверок вместо «красного» шага без причины.
+    if: github.event.pull_request.head.repo.full_name == github.repository
 
     runs-on: ubuntu-latest
     permissions:
@@ -27,15 +28,22 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 1
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # issue #808 (ACT-03): сам action запинен по SHA выше, а вот
+          # маркетплейс плагинов остаётся плавающим — `plugin_marketplaces`
+          # принимает только git-URL, формата «URL на ревизии» в схеме action
+          # (action.yml) нет. То есть код плагина `code-review` берётся из
+          # ветки по умолчанию anthropics/claude-code на момент запуска.
+          # Остаточный риск принят осознанно: маркетплейс — репозиторий того же
+          # вендора, что и сам action, и права job'а read-only.
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'

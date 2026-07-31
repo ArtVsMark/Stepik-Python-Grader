@@ -13,9 +13,9 @@ jobs:
   docs-guardrails:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
       - name: README line-budget + Markdown link-check
@@ -35,10 +35,13 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
-    # issue: coverage- и version-бейджи README читают .github/badges/*.json —
-    # только один job матрицы (ubuntu-latest/3.12, push в main) коммитит их обратно.
+    # issue #808 (SUP-04): матрица гоняет тесты, ставит зависимости и исполняет
+    # сторонний код на 9 комбинациях — права на запись в main ей не нужны и
+    # раньше выдавались только ради одного шага с бейджами. Сам шаг переехал в
+    # job `coverage-combine`, который уже коммитил свой бейдж: теперь бейджи
+    # обновляет ровно один job с `contents: write`, а матрица — read-only.
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -64,7 +67,7 @@ jobs:
             experimental: true
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         # issue #162: динамическая версия (setuptools-scm) вычисляется из git-тегов.
         # fetch-depth: 0 подтягивает полную историю + теги, иначе pip install -e .
         # не сможет определить версию, а check_version_consistency.py — baseline.
@@ -72,7 +75,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -143,57 +146,27 @@ jobs:
 
       - name: Upload coverage data (issue #283)
         if: matrix.python-version == '3.12' && matrix.experimental == false
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-data-${{ matrix.os }}
           path: .coverage.${{ matrix.os }}
           # v4 excludes dotfiles by default; .coverage.* needs this explicitly.
           include-hidden-files: true
 
-      # Single-OS badges (this job's own ubuntu/3.12 view) + the version
-      # badge (coverage-independent) — unchanged from before issue #283.
-      # The cross-OS combined badge is a SEPARATE job below (coverage-combine)
-      # so the two commits are naturally sequenced (combine `needs: test`,
-      # so it can't start until this step's commit has already landed) rather
-      # than racing each other; they can still race a *different* concurrent
-      # push's badge commit, same as before — same retry loop handles that.
-      - name: Update badges (main only)
+      # issue #808 (SUP-04): per-OS coverage.xml уезжает артефактом вместо того,
+      # чтобы этот job сам считал и коммитил бейдж — коммит делает единственный
+      # job с правом записи (coverage-combine). Тот же фильтр, что и у данных
+      # покрытия выше: одна ОС, одна версия Python.
+      - name: Upload ubuntu coverage.xml for the badge job (issue #808)
         if: |
           github.event_name == 'push' &&
           matrix.os == 'ubuntu-latest' &&
           matrix.python-version == '3.12' &&
           matrix.experimental == false
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          for attempt in 1 2 3; do
-            python scripts/generate_coverage_badge.py --label "coverage (ubuntu)"
-            python scripts/generate_version_badge.py
-            python scripts/generate_glossary_badge.py
-            git add .github/badges/
-            # --cached, not plain `git diff`: a brand-new badge file (e.g.
-            # coverage-combined.json on its first-ever run) is untracked, and
-            # plain `git diff --quiet` only looks at tracked files -- it would
-            # silently report "unchanged" and never commit the new file
-            # (issue #286). Staging first makes the check see additions too.
-            if git diff --cached --quiet; then
-              echo "Badges unchanged."
-              break
-            fi
-            git commit -m "chore(ci): update badges [skip ci]"
-            if git pull --rebase origin main && git push origin HEAD:main; then
-              echo "Badges pushed (attempt $attempt)."
-              break
-            fi
-            git rebase --abort 2>/dev/null || true
-            git reset --hard origin/main
-            if [ "$attempt" = 3 ]; then
-              echo "::warning::Badge update push raced with a concurrent update and failed after 3 attempts — a later push will catch it up."
-            else
-              echo "Attempt $attempt: badge push raced with a concurrent update — retrying."
-              sleep $((attempt * 5))
-            fi
-          done
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-xml-ubuntu
+          path: coverage.xml
 
   # issue #283: merges the three OS jobs' coverage data into one report that
   # reflects what's actually exercised across the whole matrix (each
@@ -219,26 +192,39 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         # issue #162: version badge needs full history + tags (same reasoning
         # as the old badge step this job replaces).
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
-      - name: Install coverage
-        run: pip install coverage
+      # issue #808: сюда переехали ВСЕ бейджи, а бейдж глоссария считает карточки
+      # через stepik_grader.glossary — пакет нужен установленным, одного
+      # `coverage` уже недостаточно.
+      - name: Install coverage and the package
+        run: pip install coverage -e .
 
       - name: Download coverage data from all OS jobs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: coverage-data-*
           path: coverage-artifacts
           merge-multiple: true
+
+      # issue #808 (SUP-04): per-OS отчёт ubuntu-job'а — в отдельный каталог,
+      # чтобы combine ниже не перезаписал его своим общим coverage.xml.
+      - name: Download ubuntu coverage.xml (issue #808)
+        if: github.event_name == 'push'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: coverage-xml-ubuntu
+          path: ubuntu-coverage
 
       # issue #559: combine + строгий gate вынесены в scripts/combine_coverage.py
       # (тестируемо, под mypy как #558). Скрипт детектит отсутствие ожидаемых
@@ -252,25 +238,36 @@ jobs:
             --require ubuntu-latest --require windows-latest \
             --require macos-latest --require sandbox-linux
 
-      # Same retry logic as the test job's badge step — two pushes to main
-      # close together race on this commit; on conflict, abort the rebase,
-      # reset to fresh origin/main, and regenerate (usually resolves to
-      # "Badges unchanged" once rebased onto the winner's commit). A final
-      # failure after 3 attempts is a warning, not a job failure — a later
-      # push will catch the badges up regardless. Only the combined coverage
-      # badge here — the version badge is coverage-independent and already
-      # handled by the `test` job's own badge step.
-      - name: Update combined coverage badge (main only)
-        # issue #559: при деградации (нет ожидаемых coverage-данных, напр. упал
-        # sandbox-linux) бейдж НЕ публикуем — иначе показали бы недосчитанное
-        # число как «правду». Пометка о пропуске — в ::warning:: из
-        # combine_coverage.py выше; прошлый честный бейдж остаётся в силе.
-        if: github.event_name == 'push' && steps.combine.outputs.degraded != 'true'
+      # issue #808 (SUP-04): единственное место, которое коммитит бейджи. Раньше
+      # их было два — этот job и шаг матрицы `test`, ради которого всей матрице
+      # выдавался `contents: write`. Теперь право записи есть только здесь, а
+      # заодно исчезла гонка двух badge-коммитов между собой: остаётся лишь
+      # гонка с ЧУЖИМ параллельным push'ем, которую и разруливает retry-цикл
+      # (на конфликте — abort rebase, сброс на свежий origin/main, регенерация;
+      # обычно после этого выходит «Badges unchanged»). Три неудачные попытки —
+      # предупреждение, а не падение job'а: следующий push догонит бейджи.
+      - name: Update badges (main only)
+        # issue #559: комбинированный бейдж при деградации (нет ожидаемых
+        # coverage-данных, напр. упал sandbox-linux) НЕ публикуем — иначе
+        # показали бы недосчитанное число как «правду». Пометка о пропуске — в
+        # ::warning:: из combine_coverage.py выше; прошлый честный бейдж
+        # остаётся в силе. Остальные бейджи от sandbox-данных не зависят и
+        # обновляются в любом случае.
+        if: github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           for attempt in 1 2 3; do
-            python scripts/generate_coverage_badge.py --out .github/badges/coverage-combined.json --label "coverage (all OS)"
+            if [ "${{ steps.combine.outputs.degraded }}" != "true" ]; then
+              python scripts/generate_coverage_badge.py --out .github/badges/coverage-combined.json --label "coverage (all OS)"
+            fi
+            if [ -f ubuntu-coverage/coverage.xml ]; then
+              python scripts/generate_coverage_badge.py --coverage-xml ubuntu-coverage/coverage.xml --label "coverage (ubuntu)"
+            else
+              echo "::warning::coverage.xml ubuntu-job'а недоступен — per-OS бейдж пропущен, прошлое значение остаётся."
+            fi
+            python scripts/generate_version_badge.py
+            python scripts/generate_glossary_badge.py
             git add .github/badges/
             # --cached, not plain `git diff`: coverage-combined.json is a
             # brand-new file the first time this job ever runs -- untracked,
@@ -309,7 +306,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         # issue #162: setuptools-scm needs full history + tags to resolve
         # the package version during `pip install -e .` (same reasoning as
         # the `test` job above).
@@ -317,7 +314,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
@@ -329,7 +326,7 @@ jobs:
       # invalidates the cache automatically.
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
@@ -372,7 +369,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends git bubblewrap
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
 
@@ -401,7 +398,7 @@ jobs:
         run: mv .coverage .coverage.sandbox-linux
 
       - name: Upload coverage data (#420)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-data-sandbox-linux
           path: .coverage.sandbox-linux
@@ -420,11 +417,11 @@ jobs:
     steps:
       # fetch-depth: 0 — setuptools-scm вычисляет версию из git-истории+тегов при
       # pip install . (иначе сборка пакета падает без .git).
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
       - name: Install package (runtime deps) + pip-audit
