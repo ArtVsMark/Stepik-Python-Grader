@@ -1,0 +1,437 @@
+"""Прогонные тесты сравнения вывода: что грейдер прощает, а что нет (issue #786).
+
+Сердцевина вердикта — сравнение фактического вывода с ожидаемым
+(``grader_core._map_outcome_to_result``) — до сих пор проверялась только
+unit-тестами самих нормализаторов (``tests/test_normalizers.py``): ни один тест
+не запускал реальное решение и не спрашивал, каким вердиктом обернётся
+хвостовой пробел, BOM в файле ожиданий или CRLF. Здесь каждый кейс — настоящий
+прогон через ``run_tests`` (реальный subprocess), а утверждение — вердикт
+AC/WA, то есть ровно то, что увидит студент.
+
+Таблица «прощает / не прощает», которую фиксирует этот файл, продублирована для
+пользователя в [configuration.md § Как сравнивается вывод](../docs/use/configuration.md);
+расхождение между ними означает, что документация врёт.
+
+Известные дефекты помечены ``xfail(strict=True)`` со ссылкой на issue: пока
+дефект жив, кейс «ожидаемо падает» и не красит прогон; после фикса он начнёт
+проходить, strict превратит это в падение — сигнал снять маркер вместе с
+закрытием issue. Молчаливых ``skip``/нестрогих ``xfail`` здесь нет намеренно.
+"""
+
+from __future__ import annotations
+
+import pathlib
+
+import pytest
+
+from stepik_grader.core.grader_core import run_tests
+from stepik_grader.core.result import CaseResult
+
+# Прогонные кейсы тривиальны по времени; потолок нужен только чтобы зависший
+# subprocess падал сам, а не по глобальному дедлайну pytest-timeout.
+_TIMEOUT = 15.0
+_SOLUTION = "task.py"
+
+
+# ---------------------------------------------------------------------------
+# Конструкторы «лаборатории»: решение + каталог тестов в одном из трёх форматов
+# ---------------------------------------------------------------------------
+
+
+def _task_dir(tmp_path: pathlib.Path, name: str, solution: str) -> pathlib.Path:
+    """Создать каталог задачи с решением и пустым ``tests/``."""
+    task_dir = tmp_path / name
+    (task_dir / "tests").mkdir(parents=True)
+    (task_dir / _SOLUTION).write_text(solution, encoding="utf-8")
+    return task_dir
+
+
+def _grade(task_dir: pathlib.Path) -> CaseResult:
+    """Прогнать решение по кейсам каталога и вернуть результат первого кейса."""
+    result = run_tests(task_dir / _SOLUTION, task_dir / "tests", timeout=_TIMEOUT)
+    cases = result["cases"]
+    assert cases, f"тест-кейсы не загрузились из {task_dir / 'tests'}"
+    return cases[0]
+
+
+def _named(
+    tmp_path: pathlib.Path,
+    solution: str,
+    *,
+    expected: bytes,
+    stdin: bytes = b"",
+    name: str = "named",
+) -> CaseResult:
+    """Формат 2 (``input_1.txt`` + ``expected_1.txt``) — байты пишутся как есть.
+
+    Файлы задаются байтами, а не строками: BOM, CRLF и отсутствие финального
+    перевода строки — сами по себе предмет проверки, и ``write_text`` их бы
+    незаметно причесал.
+    """
+    task_dir = _task_dir(tmp_path, name, solution)
+    (task_dir / "tests" / "input_1.txt").write_bytes(stdin)
+    (task_dir / "tests" / "expected_1.txt").write_bytes(expected)
+    return _grade(task_dir)
+
+
+def _legacy(
+    tmp_path: pathlib.Path,
+    solution: str,
+    *,
+    expected: bytes,
+    stdin: bytes = b"",
+    name: str = "legacy",
+) -> CaseResult:
+    """Формат 1 (``tests/1`` + ``tests/1.clue``)."""
+    task_dir = _task_dir(tmp_path, name, solution)
+    (task_dir / "tests" / "1").write_bytes(stdin)
+    (task_dir / "tests" / "1.clue").write_bytes(expected)
+    return _grade(task_dir)
+
+
+def _testblock(
+    tmp_path: pathlib.Path,
+    solution: str,
+    *,
+    expected: str,
+    stdin: str = "5",
+    name: str = "testblock",
+) -> CaseResult:
+    """Формат 3 (``input.txt`` + ``output.txt`` с маркерами ``# TEST_N:``)."""
+    task_dir = _task_dir(tmp_path, name, solution)
+    (task_dir / "tests" / "input.txt").write_text(f"# TEST_1:\n{stdin}", encoding="utf-8")
+    (task_dir / "tests" / "output.txt").write_text(f"# TEST_1:\n{expected}", encoding="utf-8")
+    return _grade(task_dir)
+
+
+def _print_separated(code_point: int) -> str:
+    """Решение, печатающее ``a<символ>b`` одним ``print`` (символ — через ``chr``).
+
+    Литерал в исходнике этого файла не годится: часть таких символов сама
+    разрезает строку при чтении файла, и кейс молча превратился бы в другой.
+    """
+    return f"print('a' + chr({code_point}) + 'b')"
+
+
+# ---------------------------------------------------------------------------
+# Числа с плавающей точкой: расхождение за 9-м знаком прощается
+#
+# Единственная нормализация в сравнении — построчный round(float, 9)
+# (core/normalizers.normalize_floats). Она включается ТОЛЬКО когда дословное
+# сравнение не совпало И число строк одинаково.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "solution,expected,verdict,why",
+    [
+        ("print(1/3)", b"0.333333333\n", "AC", "хвост за 9-м знаком отбрасывается"),
+        ("print(0.1+0.2)", b"0.3\n", "AC", "классическая ошибка двоичного float"),
+        ("print(1/3)\nprint(2/3)", b"0.333333333\n0.666666667\n", "AC", "построчно"),
+        ("print(0.1234567894)", b"0.123456789\n", "AC", "10-й знак отбрасывается"),
+        ("print(1e-07)", b"0.0000001\n", "AC", "экспонента и десятичная — одно число"),
+        ("print(1e16)", b"10000000000000000.0\n", "AC", "то же для больших чисел"),
+        (
+            "print('Ответ: 3.14159265358979')",
+            "Ответ: 3.141592654\n".encode(),
+            "AC",
+            "число внутри текста тоже нормализуется",
+        ),
+        ("print(float('inf'))", b"inf\n", "AC", "inf сравнивается дословно"),
+        ("print(float('nan'))", b"nan\n", "AC", "nan сравнивается дословно"),
+        ("print('Python 3.10.5')", b"Python 3.10.5\n", "AC", "версия не считается float"),
+        # --- не прощается ---
+        ("print(0.12345679)", b"0.12345678\n", "WA", "расхождение внутри 9 знаков — ошибка"),
+        ("print(5.0)", b"5\n", "WA", "целое и float — разные строки, regex не тронет '5'"),
+        ("print(-0.0)", b"0.0\n", "WA", "знак нуля сохраняется"),
+        ("print('3,14')", b"3.14\n", "WA", "запятая как десятичный разделитель не понимается"),
+        (
+            "print(1/3)\nprint('лишняя строка')",
+            b"0.333333333\n",
+            "WA",
+            "при разном числе строк нормализация вообще не применяется",
+        ),
+    ],
+)
+def test_float_comparison(
+    tmp_path: pathlib.Path, solution: str, expected: bytes, verdict: str, why: str
+) -> None:
+    """Округление до 9 знаков прощает хвост float, но не расхождение внутри."""
+    assert _named(tmp_path, solution, expected=expected)["verdict"] == verdict, why
+
+
+# ---------------------------------------------------------------------------
+# Пробелы: не прощаются ни с одной стороны
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "solution,expected,verdict,why",
+    [
+        ("print('hello ')", b"hello\n", "WA", "лишний пробел в выводе решения"),
+        ("print('hello')", b"hello \n", "WA", "лишний пробел в файле ожиданий"),
+        ("print('  *')", b"  *\n", "AC", "ведущие пробелы значимы и сохраняются"),
+        ("print('a' + chr(0xA0) + 'b')", b"a b\n", "WA", "неразрывный пробел ≠ обычный"),
+        ("print('a\\tb')", b"a b\n", "WA", "табуляция ≠ пробел"),
+    ],
+)
+def test_whitespace_is_significant(
+    tmp_path: pathlib.Path, solution: str, expected: bytes, verdict: str, why: str
+) -> None:
+    """Сравнение дословное: любой пробельный символ значим."""
+    assert _named(tmp_path, solution, expected=expected)["verdict"] == verdict, why
+
+
+# ---------------------------------------------------------------------------
+# Переводы строк и BOM: CRLF прощается, BOM — нет
+# ---------------------------------------------------------------------------
+
+
+def test_crlf_in_expected_file_is_forgiven(tmp_path: pathlib.Path) -> None:
+    """CRLF в файле ожиданий не мешает: файлы читаются в universal-newlines."""
+    result = _named(tmp_path, "print('a')\nprint('b')", expected=b"a\r\nb\r\n")
+    assert result["verdict"] == "AC"
+
+
+def test_crlf_in_legacy_clue_is_forgiven(tmp_path: pathlib.Path) -> None:
+    """То же для формата 1 (`.clue`) — путь чтения общий (`load_text_lines`)."""
+    result = _legacy(tmp_path, "print('a')\nprint('b')", expected=b"a\r\nb\r\n")
+    assert result["verdict"] == "AC"
+
+
+def test_crlf_in_input_file_does_not_reach_stdin(tmp_path: pathlib.Path) -> None:
+    """CRLF во входном файле не доезжает до решения: `input()` получает чистую строку."""
+    result = _named(tmp_path, "print(repr(input()))", expected=b"'5'\n", stdin=b"5\r\n")
+    assert result["verdict"] == "AC"
+
+
+def test_missing_trailing_newline_in_expected_is_forgiven(tmp_path: pathlib.Path) -> None:
+    """Файл ожиданий без финального перевода строки эквивалентен файлу с ним."""
+    result = _named(tmp_path, "print('a')", expected=b"a")
+    assert result["verdict"] == "AC"
+
+
+def test_bom_in_expected_file_fails_a_correct_solution(tmp_path: pathlib.Path) -> None:
+    """BOM в файле ожиданий даёт WA верному решению.
+
+    Ловушка Windows: «Блокнот» и Excel сохраняют UTF-8 с BOM, а файлы читаются
+    как обычный UTF-8 — маркер остаётся первым символом первой строки.
+    """
+    result = _named(tmp_path, "print('a')", expected=b"\xef\xbb\xbfa\n")
+    assert result["verdict"] == "WA"
+    assert result["expected"] == ["﻿a"]
+
+
+def test_bom_printed_by_solution_fails(tmp_path: pathlib.Path) -> None:
+    """BOM в выводе решения — такой же значимый символ, как любой другой."""
+    result = _named(tmp_path, "print('\\ufeffa')", expected=b"a\n")
+    assert result["verdict"] == "WA"
+
+
+def test_bom_in_input_file_leaks_into_stdin(tmp_path: pathlib.Path) -> None:
+    """BOM во ВХОДНОМ файле утекает в stdin решения — первый `input()` получает маркер.
+
+    Для студента это выглядит как `ValueError` в `int(input())` на верном коде.
+    """
+    result = _named(tmp_path, "print(repr(input()))", expected=b"'5'\n", stdin=b"\xef\xbb\xbf5\n")
+    assert result["verdict"] == "WA"
+    # repr() экранирует невидимый маркер: решение получило BOM + '5', а не '5'.
+    assert result["output"] == [repr(chr(0xFEFF) + "5")]
+
+
+# ---------------------------------------------------------------------------
+# Пустой вывод и пустые строки
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "solution,expected,verdict,why",
+    [
+        ("pass", b"", "AC", "пустой файл ожиданий = решение не печатает ничего"),
+        ("print()", b"", "WA", "пустой файл ≠ вывод из одной пустой строки"),
+        ("print()", b"\n", "AC", "файл из одного перевода строки = одна пустая строка"),
+        ("print('a')\nprint()", b"a\n", "WA", "лишняя пустая строка в конце — ошибка"),
+        ("print('\\na')", b"a\n", "WA", "лишняя пустая строка в начале — ошибка"),
+        ("print('a')", b"a\n\n\n", "WA", "пустые строки в конце файла ожиданий значимы"),
+    ],
+)
+def test_empty_output_edges(
+    tmp_path: pathlib.Path, solution: str, expected: bytes, verdict: str, why: str
+) -> None:
+    """Пустая строка — полноценная строка вывода; пустой файл ожиданий — её отсутствие."""
+    assert _named(tmp_path, solution, expected=expected)["verdict"] == verdict, why
+
+
+# ---------------------------------------------------------------------------
+# Многострочный stdin
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "solution,stdin,expected,why",
+    [
+        (
+            "import sys\nfor line in sys.stdin:\n    print(line.rstrip())",
+            b"1\n2\n3",
+            b"1\n2\n3\n",
+            "все строки входного файла доезжают до решения",
+        ),
+        (
+            "a=input()\nb=input()\nc=input()\nprint(a+b+c)",
+            b"x\ny\nz",
+            b"xyz\n",
+            "input() читает их по одной",
+        ),
+        (
+            "import sys\nprint(len(sys.stdin.read().splitlines()))",
+            b"a\n\nb",
+            b"3\n",
+            "пустая строка внутри входа сохраняется",
+        ),
+        (
+            "print(input())",
+            b"x",
+            b"x\n",
+            "входной файл без финального перевода строки",
+        ),
+        (
+            "import sys\nprint(len(sys.stdin.read()))",
+            b"",
+            b"1\n",
+            "пустой входной файл даёт stdin из одного '\\n' (input_lines=[''])",
+        ),
+    ],
+)
+def test_multiline_stdin(
+    tmp_path: pathlib.Path, solution: str, stdin: bytes, expected: bytes, why: str
+) -> None:
+    """Многострочный вход подаётся решению целиком и без искажений."""
+    assert _named(tmp_path, solution, expected=expected, stdin=stdin)["verdict"] == "AC", why
+
+
+# ---------------------------------------------------------------------------
+# Юникод: сравнение идёт в UTF-8 на обеих сторонах
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "solution,stdin,expected,why",
+    [
+        ("print('Привет')", b"", "Привет\n".encode(), "кириллица в выводе"),
+        ("print('🐍')", b"", "🐍\n".encode(), "символ вне BMP (эмодзи)"),
+        ("print(input().upper())", "мир".encode(), "МИР\n".encode(), "кириллица через stdin"),
+        ("print('ﬁ')", b"", "ﬁ\n".encode(), "лигатура не раскладывается в 'fi'"),
+    ],
+)
+def test_unicode_roundtrip(
+    tmp_path: pathlib.Path, solution: str, stdin: bytes, expected: bytes, why: str
+) -> None:
+    """Не-ASCII проходит цепочку stdin → решение → сравнение без потерь."""
+    assert _named(tmp_path, solution, expected=expected, stdin=stdin)["verdict"] == "AC", why
+
+
+def test_unicode_is_compared_without_nfc_normalization(tmp_path: pathlib.Path) -> None:
+    """Разные юникод-формы одной буквы не приравниваются: 'й' NFC ≠ 'и'+U+0306 NFD."""
+    result = _named(tmp_path, "print('и' + chr(0x306))", expected="й\n".encode())
+    assert result["verdict"] == "WA"
+
+
+# ---------------------------------------------------------------------------
+# Разделители строк за пределами '\n' — ложный AC (находка #786)
+#
+# `str.splitlines()` режет ещё по восьми символам (VT, FF, CR, FS, GS, RS, NEL,
+# U+2028/U+2029). Вывод из ОДНОЙ строки с таким символом внутри превращается в
+# две — и совпадает с ожиданием из двух настоящих строк. Это неверный вердикт в
+# сторону «зачесть неверное решение»: неправильный вывод получает AC.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "issue #843: сравнение режет вывод по splitlines(), поэтому VT/FF/CR/FS/NEL/U+2028 "
+        "внутри одной строки неотличимы от настоящего перевода строки — неверный вывод "
+        "получает AC"
+    ),
+)
+@pytest.mark.parametrize(
+    "code_point,name",
+    [
+        (0x0B, "VT — вертикальная табуляция"),
+        (0x0C, "FF — перевод страницы"),
+        (0x0D, "CR — возврат каретки"),
+        (0x1C, "FS — разделитель файлов"),
+        (0x85, "NEL — юникодный перевод строки"),
+        (0x2028, "U+2028 — LINE SEPARATOR"),
+    ],
+)
+def test_exotic_separator_must_not_equal_a_real_newline(
+    tmp_path: pathlib.Path, code_point: int, name: str
+) -> None:
+    """Одна строка с экзотическим разделителем ≠ две настоящие строки."""
+    result = _named(tmp_path, _print_separated(code_point), expected=b"a\nb\n")
+    assert result["verdict"] == "WA", name
+
+
+# ---------------------------------------------------------------------------
+# Формат 3: `.strip()` блока съедает значимые пробелы (issue #783)
+#
+# Контрольная группа — те же данные в форматах 1 и 2, где пробелы сохраняются:
+# она доказывает, что дело в разборе блоков, а не в сравнении вывода.
+# ---------------------------------------------------------------------------
+
+
+def test_leading_spaces_survive_in_named_format(tmp_path: pathlib.Path) -> None:
+    """Формат 2: ведущие пробелы в ожидании сохраняются — верное решение получает AC."""
+    assert _named(tmp_path, "print('  *')", expected=b"  *\n")["verdict"] == "AC"
+
+
+def test_leading_spaces_survive_in_legacy_format(tmp_path: pathlib.Path) -> None:
+    """Формат 1: то же самое — контрольная группа для формата 3."""
+    assert _legacy(tmp_path, "print('  *')", expected=b"  *\n")["verdict"] == "AC"
+
+
+def test_blank_line_inside_testblock_survives(tmp_path: pathlib.Path) -> None:
+    """Формат 3: пустые строки ВНУТРИ блока не теряются — режутся только края."""
+    result = _testblock(tmp_path, "print('a\\n\\nb')", expected="a\n\nb")
+    assert result["verdict"] == "AC"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="issue #783: parsers.parse_testblock_file делает .strip() блока целиком",
+)
+@pytest.mark.parametrize(
+    "solution,expected,name",
+    [
+        ("print('  *')", "  *", "ведущие пробелы (ёлочка, таблица, отступы)"),
+        ("print('a   ')", "a   ", "хвостовые пробелы"),
+    ],
+)
+def test_testblock_format_keeps_significant_spaces(
+    tmp_path: pathlib.Path, solution: str, expected: str, name: str
+) -> None:
+    """Формат 3: пробелы по краям блока значимы так же, как в форматах 1 и 2 (issue #783)."""
+    assert _testblock(tmp_path, solution, expected=expected)["verdict"] == "AC", name
+
+
+@pytest.mark.parametrize(
+    "solution,expected,name",
+    [
+        ("print('\\na')", "\na", "ведущая пустая строка"),
+        ("print('a\\n')", "a\n", "хвостовая пустая строка"),
+        ("print('   ')", "   ", "блок из одних пробелов"),
+    ],
+)
+def test_testblock_format_drops_blank_edges(
+    tmp_path: pathlib.Path, solution: str, expected: str, name: str
+) -> None:
+    """Формат 3: пустые строки по краям блока теряются — цена формата, а не дефект.
+
+    В `input.txt`/`output.txt` блок ограничен маркерами `# TEST_N:`, поэтому
+    пустая строка на его краю неотличима от отбивки перед следующим маркером.
+    Фикс #783 (резать только `\\n`, а не пробелы) этого не меняет — ожидание
+    здесь дословное `WA`, а не «пока сломано». Задача с пустой строкой в начале
+    или конце ожидаемого вывода задаётся форматом 1 или 2.
+    """
+    assert _testblock(tmp_path, solution, expected=expected)["verdict"] == "WA", name
