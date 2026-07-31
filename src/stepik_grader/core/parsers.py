@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import re
 
+from stepik_grader.core.normalizers import split_output_lines
+
 __all__ = [
     "parse_testblock_file",
 ]
@@ -54,7 +56,11 @@ def parse_testblock_file(text: str) -> list[str]:
     current_lines: list[str] = []
     in_block = False
 
-    for line in text.splitlines():
+    # issue #843: разбор по настоящим переводам строки — тем же правилом, что и
+    # обе стороны сравнения. С `splitlines()` управляющий символ внутри данных
+    # (VT, NEL, U+2028) разрывал строку блока, и ожидание формата 3 теряло его,
+    # расходясь с фактическим выводом решения.
+    for line in split_output_lines(text):
         if re.match(r"#\s*TEST_\d+:", line.strip()):
             if in_block:
                 blocks.append(_finish_block(current_lines))
