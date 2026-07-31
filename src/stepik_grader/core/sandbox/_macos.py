@@ -51,9 +51,9 @@ from pathlib import Path
 import psutil
 
 from stepik_grader.config import CONFIG
+from stepik_grader.core.run_dir import ephemeral_run_dir
 from stepik_grader.core.runner import RunOutcome, RunSpec, spec_source_bytes
 from stepik_grader.core.sandbox import _posix_bootstrap, _posix_common
-from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
 __all__ = ["MacSandboxRunner", "create_backend"]
 
@@ -136,7 +136,12 @@ class MacSandboxRunner:
                 argv,
                 stdin=spec.stdin,
                 timeout=spec.timeout,
-                max_output_bytes=CONFIG.sandbox_max_output_bytes,
+                # issue #799 (PY-13): лимит вывода берётся из RunSpec, если он
+                # задан, — контракт RunSpec заявлен config-agnostic (``core/runner``),
+                # а backend читал только CONFIG, поэтому per-request лимит
+                # серверного API под --sandbox молча игнорировался. CONFIG
+                # остаётся значением по умолчанию.
+                max_output_bytes=spec.max_output_bytes or CONFIG.sandbox_max_output_bytes,
                 max_memory_mb=float(spec.max_memory_mb or CONFIG.max_memory_mb or 1024),
                 # issue #627: без явного env sandbox-exec наследовал весь
                 # os.environ грейдера (BYOK AI-ключ, а на сервере — env
@@ -147,6 +152,11 @@ class MacSandboxRunner:
                 # issue #797: см. _linux.py — cancel_event должен доезжать до
                 # цикла ожидания, иначе «Отмена» под --sandbox ничего не делает.
                 cancel_event=spec.cancel_event,
+                # issue #799 (SECC-06): рабочий каталог — run_dir. Профиль
+                # Seatbelt разрешает запись только туда, но без cwd решение
+                # стартовало в каталоге грейдера: относительный `open('out.txt')`
+                # бил мимо песочницы и падал отказом вместо записи в run_dir.
+                cwd=run_dir,
             )
             outcome.stderr = _strip_deprecation_warning(outcome.stderr)
             return outcome

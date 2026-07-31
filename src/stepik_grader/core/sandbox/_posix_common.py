@@ -120,6 +120,7 @@ def run_argv_with_limits(
     max_memory_mb: float | None = None,
     env: dict[str, str] | None = None,
     cancel_event: threading.Event | None = None,
+    cwd: Path | None = None,
 ) -> RunOutcome:
     """Запустить ``argv``, дренируя stdout/stderr с лимитом суммарного
     размера, опциональным psutil-поллингом памяти и wall-clock таймаутом.
@@ -138,6 +139,11 @@ def run_argv_with_limits(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
+            # issue #799 (SECC-06): рабочий каталог решения — run_dir, а не
+            # каталог, из которого запущен грейдер. Linux задаёт его через
+            # `bwrap --chdir`, а macOS-backend не задавал вовсе: относительный
+            # путь в решении открывал файлы рядом с решениями пользователя.
+            cwd=cwd,
             # issue #418: своя сессия/группа — чтобы при TLE/лимите убить всё
             # дерево (os.killpg), а не только прямой процесс изоляции.
             start_new_session=True,

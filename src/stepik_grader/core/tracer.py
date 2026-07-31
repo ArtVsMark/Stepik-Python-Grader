@@ -32,10 +32,10 @@
 
 from __future__ import annotations
 
-import contextlib
 import io
 import json
 import pathlib
+import shutil
 import sys
 import tempfile
 import types
@@ -393,19 +393,20 @@ def trace_code(
         "_sys.stdout.write(_json.dumps(_result, ensure_ascii=False, allow_nan=False))\n"
     )
 
-    # delete=False намеренно: путь файла уходит в RunSpec раннеру, чистится в finally.
-    tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
-        mode="w", suffix=".py", encoding="utf-8", delete=False
-    )
+    # issue #799 (SECC-01): приватный каталог 0700 вместо общего системного
+    # temp — каталог скрипта попадает первым в sys.path дочернего процесса, и в
+    # общем /tmp постороннему хватило бы подложить туда `json.py`, чтобы
+    # подменить stdlib для трассировки. Каталог удаляется целиком в finally.
+    tmp_dir = pathlib.Path(tempfile.mkdtemp(prefix="stepik-trace-"))
+    script_path = tmp_dir / "bootstrap.py"
     try:
-        tmp.write(bootstrap)
-        tmp.close()
+        script_path.write_text(bootstrap, encoding="utf-8")
         # issue #640: через публичный grader_core.run_spec(), а не приватный
         # _RUNNER — выбор backend'а спрятан за одной точкой (ADR-0010); active_runner()
         # выше уже консультируется публично для capability-гейта sandbox.
         outcome = grader_core.run_spec(
             RunSpec(
-                path=pathlib.Path(tmp.name),
+                path=script_path,
                 stdin=stdin.encode("utf-8"),
                 timeout=timeout,
                 measure_memory=False,
@@ -416,8 +417,7 @@ def trace_code(
             )
         )
     finally:
-        with contextlib.suppress(OSError):  # уборка временного файла
-            pathlib.Path(tmp.name).unlink()
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     if outcome.timed_out:  # pragma: no cover — таймаут долгого трейса
         return {

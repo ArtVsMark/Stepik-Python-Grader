@@ -87,7 +87,7 @@ def test_build_bootstrap_argv_includes_memory_rlimit_when_given() -> None:
 
 
 def test_ephemeral_run_dir_creates_and_removes() -> None:
-    from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
+    from stepik_grader.core.run_dir import ephemeral_run_dir
 
     captured: pathlib.Path
     with ephemeral_run_dir() as run_dir:
@@ -103,7 +103,7 @@ def test_ephemeral_run_dir_survives_transient_rmtree_failure(
 ) -> None:
     """A straggler process can hold the dir open for a beat after teardown --
     retry a couple of times before giving up, don't propagate OSError."""
-    from stepik_grader.core.sandbox import _run_dir
+    from stepik_grader.core import run_dir as _run_dir
 
     calls = {"n": 0}
     real_rmtree = shutil.rmtree
@@ -127,7 +127,7 @@ def test_ephemeral_run_dir_survives_transient_rmtree_failure(
 def test_ephemeral_run_dir_gives_up_without_raising(monkeypatch: pytest.MonkeyPatch) -> None:
     """If the dir never frees up, warn and move on -- a leaked temp dir is a
     minor OS-cleanup annoyance, not a run-correctness failure."""
-    from stepik_grader.core.sandbox import _run_dir
+    from stepik_grader.core import run_dir as _run_dir
 
     def _always_fails(path: object) -> None:
         raise PermissionError("stuck forever")
