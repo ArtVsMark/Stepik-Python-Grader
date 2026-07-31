@@ -458,10 +458,12 @@ def main(argv: list[str] | None = None) -> None:
             print(_t("insights_no_data"))  # дружелюбно, не ошибка (issue #432)
             return
         fmt = args.export_progress
+        # issue #821: отчёт следует выбранному языку — раньше он всегда выходил
+        # русским, включая атрибут <html lang>, даже под `--lang en`.
         rendered = (
-            progress_export.render_markdown(report)
+            progress_export.render_markdown(report, lang=_LANG)
             if fmt == "md"
-            else progress_export.render_html(report)
+            else progress_export.render_html(report, lang=_LANG)
         )
         out = pathlib.Path.cwd() / f"grader-progress.{fmt}"
         out.write_text(rendered, encoding="utf-8")
