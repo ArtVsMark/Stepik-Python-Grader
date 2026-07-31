@@ -484,6 +484,47 @@ def _assert_large_stdin_to_non_reader_times_out(runner, tmp_path: pathlib.Path) 
     assert elapsed < 15.0, f"прогон занял {elapsed:.1f} с — похоже на блокировку записи stdin"
 
 
+def _assert_tle_keeps_partial_output(runner, tmp_path: pathlib.Path) -> None:
+    """При TLE возвращается то, что решение успело напечатать (issue #798).
+
+    Reader-потоки уже слили вывод в память; выбрасывать его — значит оставлять
+    студента без диагноза: «превышено время» без единой строки не подсказывает,
+    где цикл ушёл в разнос. POSIX-путь так делает с #421/#556, Windows-backend
+    отставал и терял вывод у всех аварийных исходов.
+    """
+    path = _write_script(tmp_path, "print('BEGIN', flush=True)\nwhile True:\n    pass\n")
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=2.0))
+
+    assert outcome.timed_out is True
+    assert b"BEGIN" in outcome.stdout, "частичный вывод потерян при TLE"
+
+
+def _assert_grandchildren_killed_on_timeout(runner, tmp_path: pathlib.Path) -> None:
+    """После TLE не остаётся живых внуков (issue #798).
+
+    `proc.kill()` убивает процесс изоляции; на Linux этого хватает (bwrap
+    уносит PID-namespace целиком), а на macOS форкнутые внуки продолжали жить:
+    ветка добивания дерева срабатывала, только если reap упирался в таймаут, —
+    а ребёнок, умерший сразу, оставлял внуков навсегда.
+
+    Внук пишет файл-маркер уже ПОСЛЕ смерти родителя: маркер на диске означает,
+    что он пережил уборку.
+    """
+    marker = tmp_path / "grandchild-alive.txt"
+    grandchild = f"import time; time.sleep(3); open({str(marker)!r}, 'w').write('alive')"
+    path = _write_script(
+        tmp_path,
+        "import subprocess, sys, time\n"
+        f"subprocess.Popen([sys.executable, '-c', {grandchild!r}])\n"
+        "time.sleep(30)\n",
+    )
+    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=2.0))
+    assert outcome.timed_out is True
+
+    time.sleep(4)  # выживший внук успел бы дожить и создать маркер
+    assert not marker.exists(), "внук пережил уборку после TLE"
+
+
 def _assert_cancel_event_stops_run(runner, tmp_path: pathlib.Path) -> None:
     """Отмена под изоляцией останавливает прогон и даёт `cancelled`, а не TLE.
 
@@ -605,6 +646,12 @@ class TestLinuxSandboxRunner:
     def test_cancel_event_stops_run(self, tmp_path: pathlib.Path) -> None:
         _assert_cancel_event_stops_run(self._runner(), tmp_path)
 
+    def test_tle_keeps_partial_output(self, tmp_path: pathlib.Path) -> None:
+        _assert_tle_keeps_partial_output(self._runner(), tmp_path)
+
+    def test_grandchildren_killed_on_timeout(self, tmp_path: pathlib.Path) -> None:
+        _assert_grandchildren_killed_on_timeout(self._runner(), tmp_path)
+
     def test_read_outside_run_dir_blocked(self, tmp_path: pathlib.Path) -> None:
         # issue #648: bwrap изолирует ЧТЕНИЕ (файл вне bind'ов недоступен) —
         # в отличие от macOS/Windows; секрет не эксфильтруется.
@@ -709,6 +756,12 @@ class TestMacSandboxRunner:
     def test_cancel_event_stops_run(self, tmp_path: pathlib.Path) -> None:
         _assert_cancel_event_stops_run(self._runner(), tmp_path)
 
+    def test_tle_keeps_partial_output(self, tmp_path: pathlib.Path) -> None:
+        _assert_tle_keeps_partial_output(self._runner(), tmp_path)
+
+    def test_grandchildren_killed_on_timeout(self, tmp_path: pathlib.Path) -> None:
+        _assert_grandchildren_killed_on_timeout(self._runner(), tmp_path)
+
     def test_memory_overrun_violation(self, tmp_path: pathlib.Path) -> None:
         """No RLIMIT_AS on Darwin -- psutil polling is the only enforcement,
         so allow a somewhat larger overshoot tolerance than Linux/Windows."""
@@ -788,6 +841,12 @@ class TestWindowsSandboxRunner:
 
     def test_cancel_event_stops_run(self, tmp_path: pathlib.Path) -> None:
         _assert_cancel_event_stops_run(self._runner(), tmp_path)
+
+    def test_tle_keeps_partial_output(self, tmp_path: pathlib.Path) -> None:
+        _assert_tle_keeps_partial_output(self._runner(), tmp_path)
+
+    def test_grandchildren_killed_on_timeout(self, tmp_path: pathlib.Path) -> None:
+        _assert_grandchildren_killed_on_timeout(self._runner(), tmp_path)
 
     def test_memory_overrun_surfaces_as_violation_or_re(self, tmp_path: pathlib.Path) -> None:
         """Job Object's JOB_OBJECT_LIMIT_JOB_MEMORY is commit-charge-based and

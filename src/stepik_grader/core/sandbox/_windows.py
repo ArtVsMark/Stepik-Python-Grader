@@ -51,6 +51,7 @@ process-count нарушения, см. докстринг ``RunOutcome.sandbox_
 
 from __future__ import annotations
 
+import contextlib
 import ctypes
 import math
 import os
@@ -67,6 +68,7 @@ from stepik_grader.config import CONFIG
 from stepik_grader.core.runner import (
     RunOutcome,
     RunSpec,
+    _kill_process_tree,
     _write_stdin,
     sample_tree_rss,
     spec_source_bytes,
@@ -271,7 +273,7 @@ class WindowsSandboxRunner:
                 return RunOutcome(launch_error=str(exc))
 
             try:
-                return self._drain_and_wait(proc, spec, start, max_memory_mb, cpu_seconds)
+                return self._drain_and_wait(proc, spec, start, max_memory_mb, cpu_seconds, job=job)
             finally:
                 _kernel32().CloseHandle(job)
 
@@ -282,6 +284,8 @@ class WindowsSandboxRunner:
         start: float,
         max_memory_mb: float,
         cpu_seconds: float,
+        *,
+        job: int | None = None,
     ) -> RunOutcome:
         stdout_chunks: list[bytes] = []
         stderr_chunks: list[bytes] = []
@@ -365,6 +369,22 @@ class WindowsSandboxRunner:
                 break
             time.sleep(0.02)
 
+        # issue #798: при аварийном обрыве убиваем ВЕСЬ Job Object, а не только
+        # процесс решения. `proc.kill()` уносит одного потомка, внуки же жили до
+        # закрытия хендла job в `run()` — то есть ещё секунду-другую после TLE,
+        # чего им хватало, чтобы дописать файл (проверено живым прогоном: маркер,
+        # создаваемый внуком через 3 с, оказывался на диске).
+        #
+        # Именно TerminateJobObject, а не psutil-обход дерева: тот собирает
+        # детей ЧЕРЕЗ родителя, а родитель к этому моменту уже мёртв — список
+        # выходит пустым. Job знает всех своих процессов независимо от того,
+        # жив ли первый из них.
+        if timed_out or cancelled or output_exceeded.is_set() or mem_exceeded.is_set():
+            if job is not None:
+                with contextlib.suppress(OSError):
+                    _kernel32().TerminateJobObject(job, 1)
+            _kill_process_tree(proc)
+
         proc.wait()
         mem_stop.set()
         for r in readers:
@@ -376,30 +396,55 @@ class WindowsSandboxRunner:
             stdin_writer.join(timeout=0.5)
 
         elapsed = time.perf_counter() - start
+        # issue #798: частичный вывод прикладывается ко ВСЕМ аварийным исходам.
+        # Reader-потоки уже слили в память то, что решение успело напечатать до
+        # обрыва, — выбрасывать это значит оставлять студента без диагноза:
+        # «превышен лимит» без единой строки вывода не подсказывает, где цикл
+        # ушёл в разнос. POSIX-backend так делает с #556/#421, Windows отставал.
+        partial_stdout = b"".join(stdout_chunks)
+        partial_stderr = b"".join(stderr_chunks)
         if output_exceeded.is_set():
             return RunOutcome(
-                sandbox_violation="output_size", elapsed=elapsed, peak_memory_mb=peak_mb_result[0]
+                sandbox_violation="output_size",
+                stdout=partial_stdout,
+                stderr=partial_stderr,
+                elapsed=elapsed,
+                peak_memory_mb=peak_mb_result[0],
             )
         if mem_exceeded.is_set():
             return RunOutcome(
-                sandbox_violation="memory", elapsed=elapsed, peak_memory_mb=peak_mb_result[0]
+                sandbox_violation="memory",
+                stdout=partial_stdout,
+                stderr=partial_stderr,
+                elapsed=elapsed,
+                peak_memory_mb=peak_mb_result[0],
             )
         if cpu_exceeded.is_set():
             return RunOutcome(
-                sandbox_violation="cpu", elapsed=elapsed, peak_memory_mb=peak_mb_result[0]
+                sandbox_violation="cpu",
+                stdout=partial_stdout,
+                stderr=partial_stderr,
+                elapsed=elapsed,
+                peak_memory_mb=peak_mb_result[0],
             )
         # issue #797: отмена — свой исход, а не TLE: UI различает «слишком
         # медленное решение» и «пользователь нажал Отмена» (issue #262).
         if cancelled:
             return RunOutcome(
-                stdout=b"".join(stdout_chunks),
-                stderr=b"".join(stderr_chunks),
+                stdout=partial_stdout,
+                stderr=partial_stderr,
                 cancelled=True,
                 elapsed=elapsed,
                 peak_memory_mb=peak_mb_result[0],
             )
         if timed_out:
-            return RunOutcome(timed_out=True, elapsed=elapsed, peak_memory_mb=peak_mb_result[0])
+            return RunOutcome(
+                stdout=partial_stdout,
+                stderr=partial_stderr,
+                timed_out=True,
+                elapsed=elapsed,
+                peak_memory_mb=peak_mb_result[0],
+            )
 
         return RunOutcome(
             stdout=b"".join(stdout_chunks),

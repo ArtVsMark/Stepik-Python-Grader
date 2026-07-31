@@ -82,6 +82,38 @@ class TestRunPlayground:
         result = playground.run_playground("while True:\n    pass")
         assert result["status"] == "TLE"
 
+    def test_tle_keeps_partial_output(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """issue #798: то, что программа успела напечатать, показывается и при TLE.
+
+        Runner специально возвращает частичный вывод (issue #421), а
+        «Песочница» его выбрасывала: зациклившийся код давал пустой экран
+        вместо строк, по которым видно, где он застрял.
+        """
+        short = dataclasses.replace(playground.CONFIG, timeout_seconds=0.6)
+        monkeypatch.setattr(playground, "CONFIG", short)
+
+        result = playground.run_playground("print('BEGIN', flush=True)\nwhile True:\n    pass\n")
+
+        assert result["status"] == "TLE"
+        assert "BEGIN" in result["stdout"], "частичный вывод потерян"
+
+    def test_cancelled_keeps_partial_output(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """То же для отмены: пользователь видит, что успело выполниться."""
+        from stepik_grader.core import grader_core
+        from stepik_grader.core.runner import RunOutcome
+
+        class _FakeRunner:
+            def run(self, spec: object) -> RunOutcome:
+                return RunOutcome(cancelled=True, stdout=b"partial\n", stderr=b"warn\n")
+
+        monkeypatch.setattr(grader_core, "_RUNNER", _FakeRunner())
+
+        result = playground.run_playground("x = 1")
+
+        assert result["status"] == "CANCELLED"
+        assert result["stdout"] == "partial\n"
+        assert result["stderr"] == "warn\n"
+
     def test_output_truncated_when_huge(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(playground, "_MAX_OUTPUT_CHARS", 50)
         result = playground.run_playground("print('x' * 1000)")

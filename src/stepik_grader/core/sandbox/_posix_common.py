@@ -198,24 +198,43 @@ def run_argv_with_limits(
 
     timed_out = False
     cancelled = False
-    while True:
-        if proc.poll() is not None:
-            break
-        if output_exceeded.is_set() or mem_exceeded.is_set():
-            break
-        # issue #797: отмена проверяется в том же цикле, что и таймаут. Без неё
-        # `RunSpec.cancel_event` не читался ни одним backend'ом: под
-        # `--serve --sandbox` кнопка «Отмена» ничего не делала, а вердикт
-        # CANCELLED был недостижим — воркер держался до конца прогона.
-        if cancel_event is not None and cancel_event.is_set():
-            cancelled = True
-            proc.kill()
-            break
-        if time.perf_counter() - start > timeout:
-            timed_out = True
-            proc.kill()
-            break
-        time.sleep(0.02)
+    try:
+        while True:
+            if proc.poll() is not None:
+                break
+            if output_exceeded.is_set() or mem_exceeded.is_set():
+                break
+            # issue #797: отмена проверяется в том же цикле, что и таймаут. Без
+            # неё `RunSpec.cancel_event` не читался ни одним backend'ом: под
+            # `--serve --sandbox` кнопка «Отмена» ничего не делала, а вердикт
+            # CANCELLED был недостижим — воркер держался до конца прогона.
+            if cancel_event is not None and cancel_event.is_set():
+                cancelled = True
+                proc.kill()
+                break
+            if time.perf_counter() - start > timeout:
+                timed_out = True
+                proc.kill()
+                break
+            time.sleep(0.02)
+    finally:
+        # issue #798: гарантированная уборка — перенос исправления #624 из
+        # LocalRunner. KeyboardInterrupt или неожиданное исключение уходили
+        # наружу, оставляя живым процесс недоверенного решения; на сервере это
+        # прямая утечка. На штатных путях процесс уже мёртв (poll() != None),
+        # поэтому убийство не срабатывает и поведение не меняется.
+        mem_stop.set()
+        if proc.poll() is None:
+            _kill_process_tree(proc)
+
+    # issue #798: при любом принудительном обрыве бьём по ВСЕЙ группе, а не
+    # только по прямому потомку. `proc.kill()` выше убивает процесс изоляции;
+    # на Linux этого достаточно (bwrap уносит PID-namespace целиком), но на
+    # macOS `sandbox-exec` такого не делает — форкнутые внуки продолжали жить,
+    # а прежняя ветка `_kill_process_tree` срабатывала ТОЛЬКО если reap упёрся
+    # в таймаут. Ребёнок, умерший сразу, оставлял внуков навсегда.
+    if timed_out or cancelled or output_exceeded.is_set() or mem_exceeded.is_set():
+        _kill_process_tree(proc)
 
     # issue #418: reap ограничен по времени; если процесс ещё жив (внук держит
     # pipe), добить всё дерево и подождать ограниченно, а не висеть в wait().
