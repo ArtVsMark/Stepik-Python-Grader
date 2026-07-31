@@ -3,6 +3,7 @@ import {
   $,
   esc,
   getSelectedCase,
+  kpiGrid,
   registerSectionHook,
   setSection,
   state,
