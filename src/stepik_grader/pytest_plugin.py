@@ -31,12 +31,16 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 __all__ = [
+    "DEFAULT_LANG",
     "GraderFailure",
     "GraderFile",
     "GraderItem",
     "pytest_addoption",
     "pytest_collect_file",
 ]
+
+# Язык отчёта по умолчанию — прежнее поведение плагина (issue #821).
+DEFAULT_LANG = "ru"
 
 if TYPE_CHECKING:
     import os
@@ -65,11 +69,31 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=False,
         help="Включить сбор решений грейдером (эквивалент --grader-mode).",
     )
+    # issue #821: плагин — единственный канал грейдера в чужие CI и IDE
+    # (entry point pytest11), и он был единственной монолингвальной
+    # поверхностью: отчёт печатался по-русски мимо i18n проекта. Язык задаётся
+    # так же, как остальные настройки pytest — флагом или ini; дефолт прежний.
+    group.addoption(
+        "--grader-lang",
+        default=None,
+        help="Язык отчёта грейдера: ru (по умолчанию) или en.",
+    )
+    parser.addini(
+        "grader_lang",
+        type="string",
+        default=DEFAULT_LANG,
+        help="Язык отчёта грейдера (эквивалент --grader-lang).",
+    )
 
 
 def _grader_enabled(config: pytest.Config) -> bool:
     """True, если грейдер-режим включён флагом или ini-опцией."""
     return bool(config.getoption("--grader-mode") or config.getini("grader_mode"))
+
+
+def _grader_lang(config: pytest.Config) -> str:
+    """Язык отчёта: флаг перекрывает ini, ini — дефолт (issue #821)."""
+    return str(config.getoption("--grader-lang") or config.getini("grader_lang") or DEFAULT_LANG)
 
 
 def pytest_collect_file(parent: pytest.Collector, file_path: Any) -> GraderFile | None:
@@ -135,17 +159,28 @@ class GraderItem(pytest.Item):
     def repr_failure(
         self, excinfo: ExceptionInfo[BaseException], style: Any = None
     ) -> str | TerminalRepr:
-        """Читаемый отчёт: verdict + diff «ожидалось/получено» или текст ошибки."""
+        """Читаемый отчёт: verdict + diff «ожидалось/получено» или текст ошибки.
+
+        Подписи — из каталога проекта (issue #821), язык берётся из
+        ``--grader-lang``/``grader_lang``. Импорт ``core.i18n`` ленивый, как и
+        остальные импорты ядра здесь: entry-point-плагин грузится до старта
+        coverage, и импорт на уровне модуля пометил бы ядро непокрытым.
+        """
         if isinstance(excinfo.value, GraderFailure):
+            from stepik_grader.core.i18n import load_locale_messages
+
+            lang = _grader_lang(self.config)
+            msgs = load_locale_messages(lang) or load_locale_messages(DEFAULT_LANG)
             result = excinfo.value.result
             verdict = result.get("verdict", "?")
-            lines = [f"Тест-кейс #{self.case.index}  [{verdict}]"]
+            header = msgs["plugin_case_header"].format(index=self.case.index, verdict=verdict)
+            lines = [header]
             if result.get("error"):
-                lines.append(f"Ошибка: {result['error']}")
+                lines.append(msgs["plugin_error"].format(error=result["error"]))
             else:
-                lines.append("Ожидалось:")
+                lines.append(msgs["plugin_expected"])
                 lines.extend(f"  {line}" for line in result["expected"])
-                lines.append("Получено:")
+                lines.append(msgs["plugin_actual"])
                 lines.extend(f"  {line}" for line in result["output"])
             return "\n".join(lines)
         return super().repr_failure(excinfo)

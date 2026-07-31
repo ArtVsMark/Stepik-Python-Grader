@@ -31,6 +31,12 @@ from stepik_grader.launcher import (
     port_available,
 )
 
+# Тестовые двойники `spawn` читают потоки так же, как продакшн-`_default_spawn`:
+# явный UTF-8 вместо системной кодовой страницы. Без этого reader-поток падал на
+# Windows-раннере с UnicodeDecodeError (cp1252) — тест оставался зелёным, но лог
+# CI заполнялся трейсбеками из фонового потока, маскируя настоящие ошибки.
+_PIPE_TEXT: dict[str, object] = {"text": True, "encoding": "utf-8", "errors": "replace"}
+
 
 def _free_port() -> int:
     """Занять и сразу освободить эфемерный порт, вернув его номер."""
@@ -65,7 +71,7 @@ def _spawn_running(port: int):
             [sys.executable, "-c", script],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            **_PIPE_TEXT,
         )
 
     return spawn
@@ -77,7 +83,7 @@ def _spawn_failing(_command: list[str]) -> subprocess.Popen[str]:
         [sys.executable, "-c", "import sys; sys.stderr.write('boom: bind failed\\n'); sys.exit(1)"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
+        **_PIPE_TEXT,
     )
 
 
@@ -224,8 +230,15 @@ def _tk_module():
 
 
 @pytest.fixture
-def tk_window(_tk_module):
-    """Отдельный withdrawn Toplevel на тест поверх общего Tk-рута модуля."""
+def tk_window(_tk_module, monkeypatch):
+    """Отдельный withdrawn Toplevel на тест поверх общего Tk-рута модуля.
+
+    Язык окна фиксируется явно (issue #821): подписи локализованы, а язык по
+    умолчанию берётся из системной локали — без фиксации проверки русских строк
+    падали бы на англоязычных раннерах Windows/macOS, оставаясь зелёными на
+    русской машине разработчика. Английский путь проверяется отдельным тестом.
+    """
+    monkeypatch.setenv(launcher.LANG_ENV_VAR, "ru")
     tk, root = _tk_module
     top = tk.Toplevel(root)
     top.withdraw()
@@ -244,6 +257,22 @@ class TestGuiSmoke:
         assert app.port_var.get() == str(DEFAULT_PORT)
         assert app.sandbox_var.get() is False
         assert "Остановлен" in app.status_var.get()
+
+    def test_widgets_follow_selected_language(self, _tk_module, monkeypatch) -> None:
+        """issue #821: под английским языком окно строится с английскими подписями."""
+        monkeypatch.setenv(launcher.LANG_ENV_VAR, "en")
+        tk, root = _tk_module
+        top = tk.Toplevel(root)
+        top.withdraw()
+        try:
+            app = LauncherApp(top, ServerController())
+            top.update()
+            assert app.action_btn.cget("text") == "Start"
+            assert app.open_btn.cget("text") == "Open in browser"
+            assert app.status_var.get() == "Stopped"
+        finally:
+            with contextlib.suppress(Exception):
+                top.destroy()
 
     def test_invalid_port_sets_error_status(self, tk_window) -> None:
         app = LauncherApp(tk_window, ServerController())
@@ -386,3 +415,85 @@ class TestGuiHandlers:
         app._render(ServerStatus(state=ServerState.RUNNING, url=""))
         assert str(app.radio_simple.cget("state")) == "disabled"
         assert str(app.radio_sandbox.cget("state")) == "disabled"
+
+
+# ---------------------------------------------------------------------------
+# issue #821: язык окна лаунчера
+#
+# GUI — самый низкобарьерный вход («без командной строки») и до этого
+# единственная поверхность вообще без переводов. Каталог читается файлом:
+# модуль остаётся leaf'ом, нового ребра DAG не появляется.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def clean_locale_env(monkeypatch):
+    """Убрать ВСЕ переменные локали перед проверкой детекта языка.
+
+    Иначе тест проверяет окружение раннера, а не код: на macOS-раннерах задан
+    `LC_ALL`, который по POSIX перекрывает `LANG`, — тест, ставивший только
+    `LANG=ru_RU`, получал английский и падал (на машине разработчика, где
+    `LC_ALL` не задан, он был зелёным).
+    """
+    for var in (launcher.LANG_ENV_VAR, "LC_ALL", "LC_MESSAGES", "LANG"):
+        monkeypatch.delenv(var, raising=False)
+    return monkeypatch
+
+
+def test_lang_env_var_wins(clean_locale_env) -> None:
+    """Переменная окружения перекрывает системную локаль."""
+    clean_locale_env.setenv(launcher.LANG_ENV_VAR, "en")
+    clean_locale_env.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "en"
+
+
+def test_unsupported_env_value_is_ignored(clean_locale_env) -> None:
+    """Неизвестное значение переменной не выбирает несуществующую локаль."""
+    clean_locale_env.setenv(launcher.LANG_ENV_VAR, "fr")
+    clean_locale_env.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "ru"
+
+
+def test_system_locale_picks_english(clean_locale_env) -> None:
+    """Не-русская системная локаль даёт английское окно — цель issue #821."""
+    clean_locale_env.setenv("LANG", "en_US.UTF-8")
+    assert launcher.detect_lang() == "en"
+
+
+def test_russian_system_locale_stays_russian(clean_locale_env) -> None:
+    """Русская система — русское окно (прежнее поведение)."""
+    clean_locale_env.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "ru"
+
+
+def test_lc_all_overrides_lang(clean_locale_env) -> None:
+    """POSIX-приоритет соблюдён: `LC_ALL` сильнее `LANG` (ровно это и было на CI)."""
+    clean_locale_env.setenv("LC_ALL", "en_US.UTF-8")
+    clean_locale_env.setenv("LANG", "ru_RU.UTF-8")
+    assert launcher.detect_lang() == "en"
+
+
+def test_undetectable_locale_falls_back_to_russian(clean_locale_env) -> None:
+    """Локаль не определяется → русский, а не пустое окно."""
+    clean_locale_env.setattr(launcher.locale, "getlocale", lambda: (None, None))
+    assert launcher.detect_lang() == "ru"
+
+
+def test_ui_messages_are_localized() -> None:
+    """Каталог отдаёт подписи обоих языков, и они различаются."""
+    ru = launcher.load_ui_messages("ru")
+    en = launcher.load_ui_messages("en")
+    assert ru["launcher_start"] == "Запустить"
+    assert en["launcher_start"] == "Start"
+    assert en["launcher_status_running"].startswith("Running")
+
+
+def test_ui_messages_unknown_lang_falls_back_to_russian() -> None:
+    """Неизвестный язык — русский каталог, а не пустой словарь."""
+    assert launcher.load_ui_messages("fr")["launcher_stop"] == "Остановить"
+
+
+def test_ui_messages_missing_catalog_is_not_fatal(monkeypatch, tmp_path: Path) -> None:
+    """Пропавший каталог не роняет GUI: пустой словарь, подписи покажут ключи."""
+    monkeypatch.setattr(launcher, "_LOCALES_DIR", tmp_path / "nope")
+    assert launcher.load_ui_messages("ru") == {}
