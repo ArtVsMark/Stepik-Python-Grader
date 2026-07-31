@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from stepik_grader.core.normalizers import normalize_floats, normalize_whitespace, sort_lines
+import pytest
+
+from stepik_grader.core.normalizers import (
+    normalize_floats,
+    normalize_whitespace,
+    sort_lines,
+    split_output_lines,
+)
 
 # ---------------------------------------------------------------------------
 # normalize_floats — основные сценарии
@@ -172,3 +179,57 @@ def test_normalize_whitespace_strips_line() -> None:
 def test_normalize_whitespace_multiline() -> None:
     """Нормализация применяется к каждой строке."""
     assert normalize_whitespace("  a  b  \n  c  d  ") == "a b\nc d"
+
+
+# ---------------------------------------------------------------------------
+# split_output_lines — разбор строк для сравнения вывода (issue #843)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text,expected,why",
+    [
+        ("", [], "пустой вывод — ноль строк"),
+        ("a\n", ["a"], "завершающий перевод не создаёт пустую строку"),
+        ("a", ["a"], "строка без завершающего перевода"),
+        ("a\nb", ["a", "b"], "две строки"),
+        ("a\n\n", ["a", ""], "пустая строка в конце значима"),
+        ("\na", ["", "a"], "пустая строка в начале значима"),
+        ("a\r\nb\r\n", ["a", "b"], "CRLF — перевод строки Windows"),
+        ("a\rb", ["a", "b"], "одиночный CR — тоже разделитель (universal newlines)"),
+        ("a\n\nb\n", ["a", "", "b"], "пустая строка внутри сохраняется"),
+    ],
+)
+def test_split_output_lines_matches_real_newlines(text: str, expected: list[str], why: str) -> None:
+    """По настоящим переводам строки поведение совпадает со splitlines()."""
+    assert split_output_lines(text) == expected, why
+    assert split_output_lines(text) == text.splitlines(), why
+
+
+@pytest.mark.parametrize(
+    "code_point,name",
+    [
+        (0x0B, "VT"),
+        (0x0C, "FF"),
+        (0x1C, "FS"),
+        (0x1D, "GS"),
+        (0x1E, "RS"),
+        (0x85, "NEL"),
+        (0x2028, "U+2028"),
+        (0x2029, "U+2029"),
+    ],
+)
+def test_split_output_lines_keeps_exotic_controls_as_data(code_point: int, name: str) -> None:
+    """Ровно предмет #843: эти символы — данные внутри строки, а не разделители.
+
+    `str.splitlines()` разрезал бы строку по каждому из них, из-за чего вывод
+    `a<VT>b` признавался равным двум настоящим строкам — AC на неверном решении.
+    """
+    text = f"a{chr(code_point)}b"
+    assert split_output_lines(text) == [text], name
+    assert len(text.splitlines()) == 2, f"{name}: предпосылка теста устарела"
+
+
+def test_split_output_lines_is_symmetric_for_file_and_stream() -> None:
+    """Файл (universal newlines) и поток дают одинаковое разбиение."""
+    assert split_output_lines("a\r\nb") == split_output_lines("a\nb") == ["a", "b"]

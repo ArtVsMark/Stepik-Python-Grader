@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 
 from stepik_grader.config import CONFIG
 from stepik_grader.core.mode_detector import _detect_run_mode, _is_python_code_block
+from stepik_grader.core.normalizers import split_output_lines
 from stepik_grader.core.parsers import parse_testblock_file as _parse_testblock_file
 
 __all__ = [
@@ -95,8 +96,14 @@ def collect_grouped_files(directory: pathlib.Path) -> dict[str, list[pathlib.Pat
 
 
 def load_text_lines(file_path: pathlib.Path) -> list[str]:
-    """Загрузить текстовый файл и вернуть список строк без завершающих переносов."""
-    return file_path.read_text(encoding=ENCODING).splitlines()
+    """Загрузить текстовый файл и вернуть список строк без завершающих переносов.
+
+    issue #843: разбор через ``split_output_lines`` — тем же правилом, что и
+    фактический вывод решения. Прежний ``splitlines()`` резал ожидание ещё по
+    восьми управляющим символам, и стороны сравнения расходились в трактовке
+    одних и тех же байт.
+    """
+    return split_output_lines(file_path.read_text(encoding=ENCODING))
 
 
 def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
@@ -171,8 +178,8 @@ def load_test_cases(test_dir: pathlib.Path) -> list[TestCase]:
                 cases.append(
                     TestCase(
                         index=i,
-                        input_lines=inp.splitlines(),
-                        expected_lines=out.splitlines(),
+                        input_lines=split_output_lines(inp),
+                        expected_lines=split_output_lines(out),
                         test_type=test_type,
                     )
                 )
