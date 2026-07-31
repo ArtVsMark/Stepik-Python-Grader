@@ -716,16 +716,24 @@ def poll_submission(
     *,
     timeout: float = 60.0,
     interval: float = 1.5,
+    cancel_event: threading.Event | None = None,
 ) -> SubmissionResult:
     """Опрашивать статус сабмишна, пока он не выйдет из ``evaluation`` (или timeout).
 
     GET /api/submissions/{id} → ``status`` (correct/wrong/evaluation). По таймауту
     возвращает ``status="evaluation"`` — проверка не успела завершиться, клиент
     покажет «отправлено, оценивается».
+
+    ``cancel_event`` (issue #797) прекращает ОПРОС, а не саму отправку: попытка
+    на Stepik уже создана и живёт своей жизнью. Возвращается тот же
+    ``status="evaluation"``, что и по таймауту, — вызывающая сторона отличает
+    отмену по собственному событию, а не по результату.
     """
     deadline = time.monotonic() + timeout
     last: dict[str, Any] = {}
     while time.monotonic() < deadline:
+        if cancel_event is not None and cancel_event.is_set():
+            break
         resp = _get_with_retry(session, f"{API_HOST}/api/submissions/{submission_id}")
         subs: list[dict[str, Any]] = resp.json().get("submissions", [])
         if not subs:
@@ -783,18 +791,23 @@ def submit_and_wait(
     *,
     language: str | None = None,
     timeout: float = 60.0,
+    cancel_event: threading.Event | None = None,
 ) -> SubmissionResult:
     """Полный поток отправки (issue #683): attempt → submission → poll до вердикта.
 
     ``language=None`` — определить автоматически из разрешённых языков шага
     (``fetch_step_languages`` → ``_pick_python_language``); иначе использовать
     заданный. Автоопределение обязательно: хардкод ``python3`` Stepik отвергает.
+
+    ``cancel_event`` (issue #797) действует только на ожидание вердикта: к
+    моменту опроса попытка уже отправлена и на платформе останется. Отменить
+    саму отправку нельзя — и UI не должен утверждать обратное.
     """
     if language is None:
         language = _pick_python_language(fetch_step_languages(session, step_id))
     attempt_id = create_attempt(session, step_id)
     submission_id = submit_solution(session, attempt_id, code, language)
-    return poll_submission(session, submission_id, timeout=timeout)
+    return poll_submission(session, submission_id, timeout=timeout, cancel_event=cancel_event)
 
 
 def read_step_id(task_dir: pathlib.Path) -> int | None:

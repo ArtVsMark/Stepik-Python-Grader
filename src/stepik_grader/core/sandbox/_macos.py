@@ -144,6 +144,9 @@ class MacSandboxRunner:
                 # минимальный dict — macOS был единственным backend'ом,
                 # отдававшим окружение родителя недоверенному коду.
                 env=_posix_common.build_minimal_env(),
+                # issue #797: см. _linux.py — cancel_event должен доезжать до
+                # цикла ожидания, иначе «Отмена» под --sandbox ничего не делает.
+                cancel_event=spec.cancel_event,
             )
             outcome.stderr = _strip_deprecation_warning(outcome.stderr)
             return outcome
