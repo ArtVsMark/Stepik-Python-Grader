@@ -39,10 +39,18 @@ from stepik_grader.core import mode_detector
         ("x", False),
         ("print", False),
         ("True\nFalse\nNone", False),
-        # Assignment target IS still a Name node -- unaffected by the bare-name
-        # exception above (more than one top-level statement / not a bare Expr).
+        # Issue #784: слова-идентификаторы во входных данных (имена, города) —
+        # это stdin, а не драйвер теста: ни вызова, ни присваивания в них нет.
+        ("Anna\nBob", False),
+        ("Anna, Bob, Clara", False),
+        ("x, y", False),
+        ("Moscow\nParis\nTokyo", False),
+        # Признак кода — вызов или присваивание, а не наличие имени как такового.
         ("x = 5", True),
         ("chainmap = ChainMap({})", True),
+        ("data = [1, 2]", True),
+        ("total += 1", True),
+        ("count: int = 3", True),
     ],
 )
 def test_is_python_code_block(code: str, expected: bool) -> None:
@@ -129,6 +137,35 @@ def test_load_test_cases_format3_classifies_function_block(tmp_path: pathlib.Pat
     cases = grader.load_test_cases(tmp_path)
     assert len(cases) == 1
     assert cases[0].test_type == "function"
+
+
+def test_load_test_cases_format3_words_stay_stdin(tmp_path: pathlib.Path):
+    """Формат 3: блок из слов-имён остаётся stdin-кейсом (issue #784).
+
+    `Anna\\nBob` разбирается как два выражения-имени, и прежний критерий
+    «есть ast.Name» уводил кейс на function-маршрут: тот требовал
+    `function_name` и падал с RE на верном stdin-решении.
+    """
+    (tmp_path / "input.txt").write_text("# TEST_1:\nAnna\nBob\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\nПривет, Anna и Bob!\n", encoding="utf-8")
+
+    cases = grader.load_test_cases(tmp_path)
+    assert [c.test_type for c in cases] == ["stdin"]
+
+
+def test_format3_word_input_runs_as_stdin_solution(tmp_path: pathlib.Path):
+    """Прогон репро #784: решение на `input()` получает слова через stdin и даёт AC."""
+    (tmp_path / "input.txt").write_text("# TEST_1:\nAnna\nBob\n", encoding="utf-8")
+    (tmp_path / "output.txt").write_text("# TEST_1:\nПривет, Anna и Bob!\n", encoding="utf-8")
+    sol = tmp_path / "task1.py"
+    sol.write_text(
+        "a = input()\nb = input()\nprint(f'Привет, {a} и {b}!')\n",
+        encoding="utf-8",
+    )
+
+    result = grader.run_tests(sol, tmp_path, timeout=15.0)
+
+    assert result["cases"][0]["verdict"] == "AC", result["cases"][0]
 
 
 def test_load_test_cases_format1_fallback(tmp_path: pathlib.Path):

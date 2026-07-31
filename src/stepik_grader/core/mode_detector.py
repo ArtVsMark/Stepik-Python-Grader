@@ -98,23 +98,27 @@ def is_function_only_solution(file_content: str) -> bool:
 def _is_python_code_block(block: str) -> bool:
     """Вернуть True, если block похож на Python-код (а не на stdin-данные).
 
-    Эвристика: блок парсится как валидный Python AST и содержит хотя бы один
-    узел ``ast.Name`` (ссылку на переменную/функцию). Обычные stdin-данные
-    (числа, даты-строки) либо не парсятся, либо не содержат Name-узлов.
-    Python-код всегда ссылается на переменные/функции.
+    Эвристика: блок парсится как валидный Python AST и содержит вызов или
+    присваивание. Это те конструкции, которых во входных данных не бывает:
+    драйвер теста либо вызывает решение (``print(func(x))``), либо объявляет
+    аргументы (``a = 5``) для legacy function-mode.
 
-    Исключение (issue #47 R-02): единственное top-level выражение, которое
-    целиком состоит из голого имени (``x``, ``print``) — это не вызов и не
-    присваивание, а вырожденный случай, который на практике встречается
-    только как stdin-данные, совпадающие по виду с identifier'ом. Такой блок
-    классифицируется как False, не затрагивая остальную эвристику.
+    Прежний критерий — «есть хотя бы один ``ast.Name``» — принимал за код
+    любые слова-идентификаторы: ввод ``Anna\\nBob`` разбирался как два
+    выражения-имени, кейс уезжал на function-маршрут и верное stdin-решение
+    получало RE «function_name not found» (issue #784). Имена в данных
+    встречаются сплошь и рядом (имена людей, города, названия), вызовы и
+    присваивания — нет. Частный случай одного голого имени (``x``, ``print``),
+    который прежде гасился отдельной веткой (issue #47 R-02), покрыт тем же
+    критерием: имя само по себе — ни вызов, ни присваивание.
 
     Примеры:
-        ``10\\n20\\n30``                  → False (голые константы, нет Name)
+        ``10\\n20\\n30``                  → False (голые константы)
         ``04.11.2021``                   → False (SyntaxError)
+        ``Anna\\nBob``                    → False (слова-данные, не код)
         ``x``                            → False (голое имя, не вызов/присваивание)
         ``print(func(x))``               → True  (вызов функции)
-        ``r = wins([...])\\nfor ...``     → True  (присваивание + for)
+        ``r = wins([...])\\nfor ...``     → True  (присваивание + вызов)
         ``chainmap = ChainMap({})``      → True  (присваивание)
         ``""``                           → False (пустой блок)
     """
@@ -124,13 +128,10 @@ def _is_python_code_block(block: str) -> bool:
         tree = ast.parse(block)
     except SyntaxError:
         return False
-    if (
-        len(tree.body) == 1
-        and isinstance(tree.body[0], ast.Expr)
-        and isinstance(tree.body[0].value, ast.Name)
-    ):
-        return False
-    return any(isinstance(node, ast.Name) for node in ast.walk(tree))
+    return any(
+        isinstance(node, ast.Call | ast.Assign | ast.AnnAssign | ast.AugAssign)
+        for node in ast.walk(tree)
+    )
 
 
 def _block_invokes_solution(block: str, function_name: str | None) -> bool:
