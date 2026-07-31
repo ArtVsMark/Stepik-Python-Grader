@@ -33,7 +33,7 @@ class TestParseTestblockFile:
         assert result == ["data", "", "more"]
 
     def test_whitespace_only_block_stripped_to_empty(self) -> None:
-        """Блок из одних пробелов → '' после .strip()."""
+        """Блок целиком из отбивки → '' (как `# TEST_N:` без данных)."""
         text = "# TEST_1:\n   \n# TEST_2:\nok\n"
         result = parse_testblock_file(text)
         assert result == ["", "ok"]
@@ -88,12 +88,35 @@ class TestParseTestblockFile:
         result = parse_testblock_file(text)
         assert result == ["line_a\nline_b\nline_c", "result"]
 
-    def test_leading_trailing_whitespace_stripped(self) -> None:
-        """Пробелы в начале и конце блока удаляются через .strip()."""
+    def test_blank_edges_dropped_but_inner_spaces_kept(self) -> None:
+        """Пустые строки по краям режутся, пробелы ВНУТРИ строки — нет (issue #783).
+
+        Прежде здесь стоял `.strip()` всего блока, срезавший заодно значимые
+        пробелы: ожидаемый вывод задачи с выравниванием получал WA при верном
+        решении.
+        """
         text = "# TEST_1:\n\n  spaces  \n\n# TEST_2:\nok\n"
         result = parse_testblock_file(text)
-        assert result[0] == "spaces"
+        assert result[0] == "  spaces  "
         assert result[1] == "ok"
+
+    def test_indented_lines_survive(self) -> None:
+        """Фигура с отступами (ёлочка) доезжает до сравнения дословно."""
+        text = "# TEST_1:\n  *\n ***\n*****\n"
+        result = parse_testblock_file(text)
+        assert result == ["  *\n ***\n*****"]
+
+    def test_whitespace_only_edge_line_is_treated_as_padding(self) -> None:
+        """Строка из одних пробелов на краю — отбивка редактора, а не данные."""
+        text = "# TEST_1:\n   \n  data  \n \n# TEST_2:\nok\n"
+        result = parse_testblock_file(text)
+        assert result[0] == "  data  "
+
+    def test_blank_line_inside_block_is_kept(self) -> None:
+        """Пустая строка ВНУТРИ блока — часть данных, режутся только края."""
+        text = "# TEST_1:\na\n\nb\n# TEST_2:\nok\n"
+        result = parse_testblock_file(text)
+        assert result[0] == "a\n\nb"
 
     def test_hash_comment_inside_block_preserved(self) -> None:
         """Строка с # внутри блока (не # INPUT DATA:, не # TEST_N:) сохраняется."""

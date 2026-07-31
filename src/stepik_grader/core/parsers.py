@@ -17,10 +17,31 @@ __all__ = [
 ]
 
 
+def _finish_block(lines: list[str]) -> str:
+    """Собрать содержимое блока, срезав по краям только строки-отбивку.
+
+    Отбивка — пустая строка или строка из одних пробелов: в формате 3 граница
+    блока задаётся маркером `# TEST_N:`, поэтому отделяющая пустая строка
+    неотличима от данных и режется. А вот пробелы ВНУТРИ непустой строки —
+    значимые данные: ожидаемый вывод задачи с выравниванием (ёлочка, таблица)
+    состоит из них целиком. Прежний ``.strip()`` всего блока срезал и их, из-за
+    чего верное решение получало WA (issue #783).
+
+    Блок целиком из отбивки даёт ``''`` — как ``# TEST_5:`` без данных.
+    """
+    start, end = 0, len(lines)
+    while start < end and not lines[start].strip():
+        start += 1
+    while end > start and not lines[end - 1].strip():
+        end -= 1
+    return "\n".join(lines[start:end])
+
+
 def parse_testblock_file(text: str) -> list[str]:
     """Разобрать input.txt/output.txt с маркерами блоков `# TEST_N:`.
 
-    Возвращает список содержимого блоков (каждый .strip()).
+    Возвращает список содержимого блоков; у каждого срезаны строки-отбивка по
+    краям, значимые пробелы внутри строк сохранены (см. ``_finish_block``).
 
     Строка-заголовок `# INPUT DATA:` (её пишет `write_testblock_tests` первой,
     ДО первого `# TEST_N:`) пропускается только ВНЕ блока. Внутри открытого
@@ -36,7 +57,7 @@ def parse_testblock_file(text: str) -> list[str]:
     for line in text.splitlines():
         if re.match(r"#\s*TEST_\d+:", line.strip()):
             if in_block:
-                blocks.append("\n".join(current_lines).strip())
+                blocks.append(_finish_block(current_lines))
                 current_lines = []
             in_block = True
         elif not in_block and line.strip().startswith("# INPUT DATA:"):
@@ -48,6 +69,6 @@ def parse_testblock_file(text: str) -> list[str]:
             current_lines.append(line)
 
     if in_block:
-        blocks.append("\n".join(current_lines).strip())
+        blocks.append(_finish_block(current_lines))
 
     return blocks
