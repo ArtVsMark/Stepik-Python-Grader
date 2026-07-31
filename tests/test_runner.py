@@ -461,6 +461,11 @@ def test_local_runner_code_spec_uses_private_dir() -> None:
 
     Проверяем по факту: решение печатает свой `sys.path[0]`, и этот каталог не
     должен совпадать с общим `tempfile.gettempdir()`.
+
+    Пути сравниваются РЕЗОЛВЛЕННЫМИ: на macOS `/var` — симлинк на `/private/var`,
+    поэтому дочерний процесс печатает `/private/var/folders/...`, а
+    `gettempdir()` отдаёт `/var/folders/...` — сравнение «как есть» падало бы на
+    ровном месте.
     """
     spec = RunSpec(
         code=b"import sys; print(sys.path[0])\n",
@@ -471,9 +476,9 @@ def test_local_runner_code_spec_uses_private_dir() -> None:
     outcome = LocalRunner().run(spec)
 
     script_dir = pathlib.Path(outcome.stdout.decode().strip())
-    shared_temp = pathlib.Path(tempfile.gettempdir())
+    shared_temp = pathlib.Path(tempfile.gettempdir()).resolve()
     assert script_dir != shared_temp, "скрипт материализован прямо в общий temp"
-    assert script_dir.parent == shared_temp, "приватный каталог создаётся внутри temp"
+    assert script_dir.parent.resolve() == shared_temp, "приватный каталог создаётся внутри temp"
 
 
 def test_local_runner_code_spec_cleans_up_private_dir() -> None:
