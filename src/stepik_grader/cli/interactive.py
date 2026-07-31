@@ -551,8 +551,10 @@ def _interactive_menu(ctx: CliContext) -> None:
                 from stepik_grader import downloader
 
                 # Ctrl+C прерывает скачивание и возвращает в меню, не роняя процесс.
+                # issue #821: язык меню передаётся мастеру — иначе под `--lang en`
+                # пользователь получал английское меню и русский мастер OAuth.
                 with contextlib.suppress(KeyboardInterrupt):
-                    downloader.main()
+                    downloader.main(lang=ctx.lang)
 
             elif choice == "9":
                 # issue #753: обратная связь — prefilled-форма issue на GitHub.

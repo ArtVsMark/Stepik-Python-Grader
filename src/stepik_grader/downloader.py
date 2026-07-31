@@ -31,7 +31,9 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 
+from stepik_grader import downloader_config
 from stepik_grader.core.diag_log import configure_diagnostics, get_logger
+from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.oauth_flow import create_user_session, load_secrets_dict
 from stepik_grader.core.step_content import (
     extract_function_name,
@@ -90,7 +92,31 @@ __all__ = [
     "main",
     "process_step_url",
     "save_task_files",
+    "set_lang",
 ]
+
+# -- Язык интерактива (issue #821) -------------------------------------------
+#
+# Загрузчик вызывается из меню (пункт 8), которое уже знает язык пользователя,
+# и из `python -m stepik_grader.downloader` напрямую. Язык — модульное
+# состояние с единственной точкой установки `set_lang`, поэтому сигнатуры
+# `process_step_url`/`save_task_files` (их зовёт web-адаптер) не меняются.
+_LANG = "ru"
+_FALLBACK_LANG = "ru"
+
+
+def set_lang(lang: str) -> None:
+    """Задать язык статусов загрузчика (issue #821)."""
+    global _LANG
+    _LANG = lang
+
+
+def _t(key: str, /, **kwargs: object) -> str:
+    """Строка каталога на текущем языке; отсутствующий ключ показывается как есть."""
+    messages = load_locale_messages(_LANG) or load_locale_messages(_FALLBACK_LANG)
+    template = messages.get(key, key)
+    return template.format(**kwargs) if kwargs else template
+
 
 # Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md).
 # Свой локальный _console (leaf-совместимо, не тянет core/reporter), issue #354.
@@ -271,33 +297,33 @@ def save_task_files(
 
     # 1. ZIP — скачиваем автоматически
     for zip_url in zip_links:
-        _print(f"  📦 Найдена ZIP-ссылка: {zip_url}")
+        _print(_t("dl_zip_found", url=zip_url))
         count = _download_zip_tests(task_dir, zip_url, session)
         if count:
-            _print(f"  📦 Скачано тестов из ZIP: {count}")
+            _print(_t("dl_zip_downloaded", count=count))
             return count, "zip"
 
     # 2. HTML-таблица
     tests = extract_tests_from_html(text)
     if tests:
         count = save_tests(task_dir, tests)
-        _print(f"  📋 Извлечено тестов из таблицы: {count}")
+        _print(_t("dl_table_extracted", count=count))
         return count, "html_table"
 
     # 3. GitHub — скачиваем через GitHub Contents API
     if github_links:
         for gh_url in github_links:
-            _print(f"  🔗 Пробую скачать тесты с GitHub: {gh_url}")
+            _print(_t("dl_github_trying", url=gh_url))
             count = _download_github_tests(task_dir, gh_url)
             if count:
-                _print(f"  🔗 Скачано {count} тестов с GitHub")
+                _print(_t("dl_github_downloaded", count=count))
                 return count, "github_link"
-        _print("  ⚠️ GitHub: ни одна ссылка не дала тестов")
+        _print(_t("dl_github_empty"))
         _warn_if_stale_tests(task_dir)
         return 0, "none"
 
     # 4. Ничего не нашли
-    _print("  ⚠️ Тесты не найдены (нет ZIP, таблицы и GitHub-ссылок) — остальные файлы сохранены")
+    _print(_t("dl_tests_not_found"))
     _warn_if_stale_tests(task_dir)
     return 0, "none"
 
@@ -327,29 +353,29 @@ def process_step_url(
     lesson_id, step_position = parse_stepik_step_url(step_url)
     _log.info("разбор URL шага: lesson=%s step=%s unit=%s", lesson_id, step_position, unit_id)
 
-    _print(f"  Получаю данные урока {lesson_id}...")
+    _print(_t("dl_fetch_lesson", id=lesson_id))
     lesson = fetch_lesson_data(session, lesson_id)
     lesson_title = str(lesson.get("title") or f"lesson-{lesson_id}")
 
-    _print("  Получаю данные юнита...")
+    _print(_t("dl_fetch_unit"))
     unit = fetch_unit_data(session, lesson_id, unit_id)
     section_id = int(unit.get("section") or 0)
 
-    _print(f"  Получаю данные секции {section_id}...")
+    _print(_t("dl_fetch_section", id=section_id))
     section = fetch_section_data(session, section_id)
     section_title = str(section.get("title") or f"section-{section_id}")
     course_id = int(section.get("course") or 0)
 
-    _print(f"  Получаю данные курса {course_id}...")
+    _print(_t("dl_fetch_course", id=course_id))
     course = fetch_course_data(session, course_id)
     course_title = str(course.get("title") or f"course-{course_id}")
 
-    _print(f"  Получаю данные шага {step_position}...")
+    _print(_t("dl_fetch_step", position=step_position))
     step = fetch_step_data(session, lesson_id, step_position)
     step_id = int(step.get("id") or 0)
     step_title = str(step.get("title") or "").strip()
 
-    _print(f"  Получаю последний ответ для шага {step_id}...")
+    _print(_t("dl_fetch_submission", id=step_id))
     submission = fetch_submission_data(session, step_id)
 
     task_dir = build_task_directory(
@@ -361,10 +387,10 @@ def process_step_url(
         step_title,
     )
 
-    _print(f"  Сохраняю файлы в: {task_dir}")
+    _print(_t("dl_saving_files", path=task_dir))
     count, source = save_task_files(task_dir, step, submission, lesson, section, course, session)
     _log.info("тест-кейсы: %d шт., источник=%s (task_dir=%s)", count, source, task_dir)
-    _print(f"  ✅ Шаг сохранён: {task_dir}")
+    _print(_t("dl_step_saved", path=task_dir))
     return task_dir, count, source
 
 
@@ -373,8 +399,16 @@ def process_step_url(
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
-    """Главная функция: конфиг → авторизация → цикл обработки URL шагов."""
+def main(lang: str = "ru") -> None:
+    """Главная функция: конфиг → авторизация → цикл обработки URL шагов.
+
+    ``lang`` (issue #821) — язык интерактива: меню уже знает выбор пользователя
+    и передаёт его сюда, поэтому мастер OAuth и статусы скачивания больше не
+    остаются русскими под ``--lang en``. Значение прокидывается и в
+    ``downloader_config``, где живёт вся конфигурационная часть мастера.
+    """
+    set_lang(lang)
+    downloader_config.set_lang(lang)
     configure_diagnostics()  # issue #146: opt-in по STEPIK_GRADER_LOG (по умолч. тихо)
     config_path = pathlib.Path(CONFIG_FILE)
 
@@ -382,7 +416,7 @@ def main() -> None:
         config = load_or_create_config(config_path)
         config = normalize_config_paths(config, config_path)
     except Exception as error:
-        _print(f"❌ Ошибка работы с конфигом: {error}")
+        _print(_t("dl_config_error", error=error))
         return
 
     root_dir = pathlib.Path(str(config["root_dir"]))
@@ -393,24 +427,21 @@ def main() -> None:
         session = create_user_session(secrets, secrets_path)
     except Exception as error:
         # issue #433: дружелюбная ошибка со следующим шагом, а не голый текст.
-        _print(f"❌ Не удалось авторизоваться в Stepik: {error}")
-        _print(
-            "   Проверьте client_id / client_secret / redirect_uri в secrets.json — "
-            f"они должны совпадать с полями OAuth-приложения ({STEPIK_OAUTH_APPS_URL})."
-        )
-        _print("   Диагностика токена:  python -m stepik_grader.diagnostic_stepik")
-        _print("   Подробнее об OAuth:  docs/use/installation.md")
+        _print(_t("dl_auth_failed", error=error))
+        _print(_t("dl_auth_check_fields", url=STEPIK_OAUTH_APPS_URL))
+        _print(_t("dl_auth_diagnostics"))
+        _print(_t("dl_auth_docs"))
         return
 
-    _print("\nВведите URL шагов (по одному, пустая строка — завершение):")
+    _print(f"\n{_t('dl_enter_urls')}")
     while True:
-        step_url = input("URL шага: ").strip()
+        step_url = input(f"{_t('dl_step_url_prompt')}: ").strip()
         if not step_url:
             break
         try:
             process_step_url(step_url, session, root_dir)
         except Exception as error:
-            _print(f"❌ Ошибка обработки шага: {error}")
+            _print(_t("dl_step_error", error=error))
 
 
 if __name__ == "__main__":

@@ -94,6 +94,7 @@
               <label class="form-label" for="path" data-i18n="check.path_label">Папка с решениями</label>
               <input class="form-input" id="path" type="text" value="__DEFAULT_PATH__" list="recent-paths-datalist"
                      placeholder="Путь к файлу решения (.py) или папке с решениями"
+                     data-i18n-placeholder="check.path_placeholder"
                      data-i18n-placeholder="check.path_placeholder">
             </div>
             <!-- issue #364: недавние пути — подсказки datalist у поля пути
@@ -170,7 +171,8 @@
                      CodeMirror's own contenteditable takes over focus/tab
                      order once mounted. -->
                 <div class="form-input code-editor" id="solution-editor" tabindex="0"
-                     data-placeholder="Выберите решение слева или начните вводить новое. «Проверить» запускает без записи на диск, «Сохранить» пишет файл."></div>
+                     data-placeholder="Выберите решение слева или начните вводить новое. «Проверить» запускает без записи на диск, «Сохранить» пишет файл."
+                     data-i18n-data-placeholder="check.editor_placeholder"></div>
                 <div class="row mt-3">
                   <button id="save-solution-btn" class="btn btn-secondary" type="button" disabled data-i18n="check.save">Сохранить</button>
                 </div>
@@ -423,12 +425,14 @@
             <div class="form-group">
               <label class="form-label" for="sandbox-editor" data-i18n="sandbox.code_label">Код</label>
               <div class="form-input code-editor" id="sandbox-editor" tabindex="0"
-                   data-placeholder="Напишите код Python. «Запустить» исполнит его с введёнными ниже данными."></div>
+                   data-placeholder="Напишите код Python. «Запустить» исполнит его с введёнными ниже данными."
+                   data-i18n-data-placeholder="sandbox.editor_placeholder"></div>
             </div>
             <div class="form-group">
               <label class="form-label" for="sandbox-stdin" data-i18n="sandbox.stdin_label">Входные данные (stdin)</label>
               <textarea class="form-input code-editor" id="sandbox-stdin" rows="4"
                         placeholder="Строки, которые получит программа через input()/sys.stdin"
+                        data-i18n-placeholder="sandbox.stdin_placeholder"
                         data-i18n-placeholder="sandbox.stdin_placeholder"></textarea>
             </div>
 
@@ -564,6 +568,7 @@
     <label class="form-label feedback-label" for="feedback-summary" data-i18n="feedback.summary_label">Опишите коротко (можно дописать в браузере)</label>
     <textarea id="feedback-summary" class="form-input feedback-input" rows="4"
               placeholder="Проверка падает с трейсбеком вместо вердикта"
+              data-i18n-placeholder="feedback.title_placeholder"
               data-i18n-placeholder="feedback.summary_placeholder"></textarea>
 
     <div id="feedback-step-row" hidden>

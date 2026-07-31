@@ -120,3 +120,60 @@ class TestConfigFunctions:
             result = normalize_config_paths(config, cfg_path)
         mock_create.assert_called_once()
         assert pathlib.Path(result["root_dir"]).is_absolute()
+
+
+# ---------------------------------------------------------------------------
+# issue #821: язык интерактива загрузчика
+#
+# Мастер OAuth — самый хрупкий шаг воронки, и он вызывается из меню, которое
+# уже знает язык. До этого под `--lang en` меню было английским, а мастер —
+# русским.
+# ---------------------------------------------------------------------------
+
+
+def test_config_wizard_is_localized(tmp_path, monkeypatch, capsys) -> None:
+    """`set_lang("en")` переводит мастер конфигурации."""
+    monkeypatch.setattr("builtins.input", lambda *_a: "")
+    downloader_config.set_lang("en")
+    try:
+        downloader_config.create_or_update_config(tmp_path / "stepik_config.json")
+    finally:
+        downloader_config.set_lang("ru")
+    out = capsys.readouterr().out
+    assert "Configuring the downloader" in out
+    assert "Config saved" in out
+    assert "Настройка" not in out
+
+
+def test_oauth_wizard_is_localized(tmp_path, monkeypatch, capsys) -> None:
+    """Мастер OAuth — тоже: это ровно тот экран, на котором застревал новичок."""
+    monkeypatch.setattr("builtins.input", lambda *_a: "")
+    downloader_config.set_lang("en")
+    try:
+        downloader_config.create_secrets_interactively(tmp_path / "secrets.json")
+    finally:
+        downloader_config.set_lang("ru")
+    out = capsys.readouterr().out
+    assert "Setting up Stepik access" in out
+    assert "Client id and Client secret are required" in out
+    assert "обязательны" not in out
+
+
+def test_default_language_stays_russian(tmp_path, monkeypatch, capsys) -> None:
+    """Без вызова set_lang поведение прежнее — русский интерактив."""
+    monkeypatch.setattr("builtins.input", lambda *_a: "")
+    downloader_config.create_or_update_config(tmp_path / "stepik_config.json")
+    assert "Настройка конфигурации" in capsys.readouterr().out
+
+
+def test_unknown_language_falls_back_to_russian(tmp_path, monkeypatch, capsys) -> None:
+    """Неизвестная локаль не роняет мастер и не печатает голые ключи."""
+    monkeypatch.setattr("builtins.input", lambda *_a: "")
+    downloader_config.set_lang("fr")
+    try:
+        downloader_config.create_or_update_config(tmp_path / "stepik_config.json")
+    finally:
+        downloader_config.set_lang("ru")
+    out = capsys.readouterr().out
+    assert "Настройка конфигурации" in out
+    assert "dl_config_heading" not in out
