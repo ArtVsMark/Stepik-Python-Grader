@@ -503,6 +503,10 @@ async function applyUiLocale(lang) {
   apply("data-i18n-placeholder", (el, v) => { el.placeholder = v; });
   apply("data-i18n-title", (el, v) => { el.setAttribute("title", v); });
   apply("data-i18n-aria-label", (el, v) => { el.setAttribute("aria-label", v); });
+  // issue #821: у contenteditable-редакторов нет атрибута placeholder — подсказка
+  // рисуется из data-placeholder через CSS ::before, поэтому ей нужен свой
+  // компаньон-ключ.
+  apply("data-i18n-data-placeholder", (el, v) => { el.setAttribute("data-placeholder", v); });
   document.documentElement.lang = lang;
 }
 

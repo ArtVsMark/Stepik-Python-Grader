@@ -77,13 +77,23 @@ def js_files() -> list[Path]:
 
 
 # Атрибуты разметки, несущие ключ каталога (issue #545).
-_I18N_ATTRS = ("data-i18n", "data-i18n-placeholder", "data-i18n-title", "data-i18n-aria-label")
+# issue #821: + `data-i18n-data-placeholder` — подсказка contenteditable-редактора
+# рисуется из `data-placeholder` через CSS, обычного `placeholder` у него нет.
+# Без этой записи guard не видел бы ни ключ, ни кириллицу в таком атрибуте.
+_I18N_ATTRS = (
+    "data-i18n",
+    "data-i18n-placeholder",
+    "data-i18n-title",
+    "data-i18n-aria-label",
+    "data-i18n-data-placeholder",
+)
 # Переводимый HTML-атрибут → его data-i18n-компаньон (для проверки, что
 # кириллический атрибут покрыт ключом).
 _TRANSLATABLE_ATTRS = {
     "placeholder": "data-i18n-placeholder",
     "title": "data-i18n-title",
     "aria-label": "data-i18n-aria-label",
+    "data-placeholder": "data-i18n-data-placeholder",
 }
 # Теги, чьё текстовое содержимое не является видимой UI-надписью.
 _NON_VISIBLE_TAGS = frozenset({"script", "style", "template"})

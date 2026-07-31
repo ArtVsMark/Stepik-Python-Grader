@@ -389,3 +389,39 @@ def test_full_catalog_repo_is_green_end_to_end() -> None:
     module.check_keys_present(errors)
     module.check_no_bare_cyrillic(errors)
     assert errors == [], errors
+
+
+# ---------------------------------------------------------------------------
+# issue #821: подсказка contenteditable-редактора
+#
+# У редактора нет атрибута `placeholder` — текст рисуется из `data-placeholder`
+# через CSS. Guard должен знать и про ключ-компаньон, и про кириллицу в самом
+# атрибуте, иначе новый механизм окажется вне проверки (та же дыра, что #787).
+# ---------------------------------------------------------------------------
+
+
+def test_data_placeholder_key_is_collected() -> None:
+    """Ключ из `data-i18n-data-placeholder` попадает в набор проверяемых."""
+    module = _load_module()
+    parser = module.collect_index_html()
+    assert "check.editor_placeholder" in parser.i18n_keys
+    assert "sandbox.editor_placeholder" in parser.i18n_keys
+
+
+def test_cyrillic_data_placeholder_without_companion_is_flagged() -> None:
+    """Кириллица в `data-placeholder` без ключа-компаньона — нарушение."""
+    module = _load_module()
+    parser = module._IndexParser()
+    parser.feed('<div class="editor" data-placeholder="Напишите код"></div>')
+    assert any("data-placeholder" in attr for _line, attr, _val in parser.bare_attr)
+
+
+def test_cyrillic_data_placeholder_with_companion_is_allowed() -> None:
+    """С компаньоном — нарушения нет: строка приедет из каталога."""
+    module = _load_module()
+    parser = module._IndexParser()
+    parser.feed(
+        '<div class="editor" data-placeholder="Напишите код" '
+        'data-i18n-data-placeholder="sandbox.editor_placeholder"></div>'
+    )
+    assert parser.bare_attr == []

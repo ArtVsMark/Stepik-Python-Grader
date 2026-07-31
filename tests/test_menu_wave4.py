@@ -348,18 +348,33 @@ def test_menu_shows_download_hint_and_item(monkeypatch, capsys) -> None:
 
 def test_download_menu_item_calls_downloader(monkeypatch) -> None:
     """Пункт 8 вызывает downloader.main() in-process, затем возврат в меню."""
-    called: list[bool] = []
-    monkeypatch.setattr(downloader, "main", lambda: called.append(True))
+    called: list[str] = []
+    # Язык фиксируется явно: `cli._LANG` — глобальное состояние, и соседние
+    # тесты этого файла оставляют его английским (issue #821 сделал язык
+    # наблюдаемым здесь, раньше расхождение было незаметно).
+    monkeypatch.setattr(cli, "_LANG", "ru")
+    monkeypatch.setattr(downloader, "main", lambda lang: called.append(lang))
     inputs = iter(["8", "0"])
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
     cli._interactive_menu()
-    assert called == [True]
+    assert called == ["ru"]
+
+
+def test_download_menu_item_passes_menu_language(monkeypatch) -> None:
+    """issue #821: язык меню доезжает до мастера — иначе он оставался русским."""
+    called: list[str] = []
+    monkeypatch.setattr(cli, "_LANG", "en")
+    monkeypatch.setattr(downloader, "main", lambda lang: called.append(lang))
+    inputs = iter(["8", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+    cli._interactive_menu()
+    assert called == ["en"]
 
 
 def test_download_menu_item_survives_keyboard_interrupt(monkeypatch, capsys) -> None:
     """Ctrl+C в downloader.main() возвращает в меню, не роняет процесс — «0» ещё работает."""
 
-    def _raise_kbd() -> None:
+    def _raise_kbd(lang: str) -> None:
         raise KeyboardInterrupt
 
     monkeypatch.setattr(downloader, "main", _raise_kbd)

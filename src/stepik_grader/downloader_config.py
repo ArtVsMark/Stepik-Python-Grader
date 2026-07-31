@@ -14,6 +14,7 @@ import pathlib
 import re
 from typing import Any
 
+from stepik_grader.core.i18n import load_locale_messages
 from stepik_grader.core.storage import load_json_file, save_json_file, save_secrets
 
 __all__ = [
@@ -25,8 +26,34 @@ __all__ = [
     "create_secrets_interactively",
     "load_or_create_config",
     "normalize_config_paths",
+    "set_lang",
     "slugify",
 ]
+
+# -- Язык интерактива (issue #821) -------------------------------------------
+#
+# Мастер OAuth — самый хрупкий шаг воронки, и он вызывается из меню, которое уже
+# знает язык пользователя. Язык хранится модульным состоянием, а не тянется
+# параметром через всю цепочку `load_or_create_config → normalize_config_paths →
+# create_secrets_interactively`: так публичные сигнатуры остаются прежними
+# (обратная совместимость `__all__`), а точка установки одна — `set_lang`,
+# которую зовёт `downloader.main`. Тот же приём, что `_LANG` в `cli/__init__`.
+_LANG = "ru"
+_FALLBACK_LANG = "ru"
+
+
+def set_lang(lang: str) -> None:
+    """Задать язык интерактива загрузчика (issue #821)."""
+    global _LANG
+    _LANG = lang
+
+
+def _t(key: str, /, **kwargs: object) -> str:
+    """Строка каталога на текущем языке; отсутствующий ключ показывается как есть."""
+    messages = load_locale_messages(_LANG) or load_locale_messages(_FALLBACK_LANG)
+    template = messages.get(key, key)
+    return template.format(**kwargs) if kwargs else template
+
 
 # Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md).
 # Свой локальный _console, а не core/reporter._console — модуль leaf-совместим
@@ -90,13 +117,13 @@ def create_secrets_interactively(secrets_path: pathlib.Path) -> dict[str, str]:
     первом запуске. Пустые ``client_id``/``client_secret`` → файл НЕ создаётся
     (не пишем заведомо невалидный secrets.json). Возвращает собранный словарь.
     """
-    _print("\n🔑 Настройка доступа к Stepik (OAuth).")
-    _print(f"1. Откройте {STEPIK_OAUTH_APPS_URL} и создайте приложение:")
-    _print("   • Name: любое (например, stepik-grader)")
+    _print(f"\n{_t('dl_oauth_heading')}")
+    _print(_t("dl_oauth_step1", url=STEPIK_OAUTH_APPS_URL))
+    _print(_t("dl_oauth_name"))
     _print("   • Client type: Confidential")
     _print("   • Authorization grant type: Authorization code")
     _print(f"   • Redirect uris: {DEFAULT_REDIRECT_URI}")
-    _print("2. Скопируйте Client id и Client secret созданного приложения.\n")
+    _print(f"{_t('dl_oauth_step2')}\n")
     client_id = ask_value("Client id")
     client_secret = ask_value("Client secret")
     redirect_uri = ask_value("Redirect uri", DEFAULT_REDIRECT_URI)
@@ -109,40 +136,34 @@ def create_secrets_interactively(secrets_path: pathlib.Path) -> dict[str, str]:
         # issue #402-review: не писать заведомо невалидный secrets.json — иначе
         # файл «существует», но load_secrets_dict позже упадёт ValueError. Честнее
         # не создавать файл и дать загрузчику показать дружелюбную ошибку.
-        _print(
-            "⚠️ Client id и Client secret обязательны — файл не создан. "
-            "Заполните их и запустите загрузчик снова."
-        )
+        _print(_t("dl_oauth_credentials_required"))
         return secrets
     save_secrets(secrets_path, secrets)
-    _print(f"✅ secrets.json сохранён: {secrets_path} (доступ только владельцу, 0600)")
+    _print(_t("dl_secrets_saved", path=secrets_path))
     return secrets
 
 
 def create_or_update_config(config_path: pathlib.Path) -> dict[str, Any]:
     """Интерактивно создаёт или перезаписывает stepik_config.json."""
-    _print("\nНастройка конфигурации...")
-    root_dir = ask_value(
-        "Укажи корневую папку для всех задач Stepik",
-        DEFAULT_ROOT_DIR,
-    )
-    secrets_path = ask_value("Укажи путь к secrets.json", "secrets.json")
+    _print(f"\n{_t('dl_config_heading')}")
+    root_dir = ask_value(_t("dl_config_root_dir"), DEFAULT_ROOT_DIR)
+    secrets_path = ask_value(_t("dl_config_secrets_path"), "secrets.json")
     config: dict[str, Any] = {"root_dir": root_dir, "secrets_path": secrets_path}
     save_json_file(config_path, config)
-    _print(f"✅ Конфиг сохранён: {config_path.resolve()}")
+    _print(_t("dl_config_saved", path=config_path.resolve()))
     return config
 
 
 def load_or_create_config(config_path: pathlib.Path) -> dict[str, Any]:
     """Загружает конфиг; если не существует — запускает интерактивное создание."""
     if not config_path.exists():
-        _print("⚠️ Конфиг не найден. Будет создан новый.")
+        _print(_t("dl_config_missing"))
         return create_or_update_config(config_path)
     config = load_json_file(config_path)
-    _print("\nТекущая конфигурация:")
+    _print(f"\n{_t('dl_config_current')}")
     _print(f"root_dir:     {config.get('root_dir', '')}")
     _print(f"secrets_path: {config.get('secrets_path', '')}")
-    change = input("Нужно изменить настройку? [y/N]: ").strip().lower()
+    change = input(f"{_t('dl_config_change_prompt')} [y/N]: ").strip().lower()
     if change in {"y", "yes", "д", "да"}:
         return create_or_update_config(config_path)
     return config
@@ -156,7 +177,7 @@ def normalize_config_paths(
     root_dir_value = str(config.get("root_dir", "")).strip()
     secrets_value = str(config.get("secrets_path", "")).strip()
     if not root_dir_value or not secrets_value:
-        _print("⚠️ В конфиге не хватает обязательных полей.")
+        _print(_t("dl_config_incomplete"))
         config = create_or_update_config(config_path)
         root_dir_value = str(config["root_dir"]).strip()
         secrets_value = str(config["secrets_path"]).strip()
@@ -167,12 +188,12 @@ def normalize_config_paths(
     if not secrets_path.is_absolute():
         secrets_path = pathlib.Path.cwd() / secrets_path
     if not secrets_path.exists() or not secrets_path.is_file():
-        _print(f"⚠️ Файл secrets не найден: {secrets_path}")
+        _print(_t("dl_secrets_missing", path=secrets_path))
         # issue #433: предложить пошаговое создание secrets.json прямо здесь.
         # Прежняя ветка лишь пере-запрашивала ПУТЬ, что при отсутствии готового
         # файла давало цикл path→FileNotFoundError. Отказ сохраняет прежнее
         # поведение (указать другой путь к уже существующему файлу).
-        if _confirm_yes("Создать secrets.json сейчас (пошагово)?"):
+        if _confirm_yes(_t("dl_secrets_create_prompt")):
             create_secrets_interactively(secrets_path)
         else:
             config = create_or_update_config(config_path)
