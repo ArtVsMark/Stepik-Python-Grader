@@ -415,6 +415,40 @@ def test_function_mode_binds_positionally_on_name_mismatch(tmp_path: pathlib.Pat
     assert result["output"] == ["5"]
 
 
+def test_function_mode_self_printing_function_gives_ac(tmp_path: pathlib.Path) -> None:
+    """Функция, которая печатает сама и ничего не возвращает, не даёт лишний 'None'.
+
+    Репро #785: `def show(a): print(a * 2)` с legacy-блоком `a = 4` и ожиданием
+    `8` возвращало WA — обёртка безусловно печатала возврат, то есть `None`
+    отдельной строкой. Задачи вида «напишите функцию, которая выводит …» в
+    формате 1 с `.type=function` были нерешаемы.
+    """
+    sol = tmp_path / "task1.py"
+    sol.write_text("def show(a):\n    print(a * 2)\n", encoding="utf-8")
+    case = grader.TestCase(
+        index=1, input_lines=["a = 4"], expected_lines=["8"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["8"]
+
+
+def test_function_mode_still_prints_falsy_return(tmp_path: pathlib.Path) -> None:
+    """Возврат печатается по `is not None`, а не по истинности: `0` и `''` — данные."""
+    sol = tmp_path / "task1.py"
+    sol.write_text("def zero(a):\n    return a - a\n", encoding="utf-8")
+    case = grader.TestCase(
+        index=1, input_lines=["a = 7"], expected_lines=["0"], test_type="function"
+    )
+
+    result = grader.run_single_test(sol, case, timeout=10)
+
+    assert result["verdict"] == "AC", result
+    assert result["output"] == ["0"]
+
+
 def test_format3_print_block_still_uses_call_wrapper(tmp_path: pathlib.Path) -> None:
     """Формат 3 (блок сам печатает) не должен пострадать от нового маршрута."""
     sol = _add_solution(tmp_path)
