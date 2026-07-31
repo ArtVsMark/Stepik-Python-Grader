@@ -36,11 +36,12 @@ __all__ = [
     "collect_referenced_message_ids",
     "load_locale_keys",
     "main",
+    "source_files",
 ]
 
 _ROOT = Path(__file__).resolve().parent.parent
-_WEB_DIR = _ROOT / "src" / "stepik_grader" / "web"
-_LOCALES_DIR = _ROOT / "src" / "stepik_grader" / "core" / "locales"
+_PKG_DIR = _ROOT / "src" / "stepik_grader"
+_LOCALES_DIR = _PKG_DIR / "core" / "locales"
 
 # Функции каталога сообщений (``web/i18n.py``), чей первый позиционный
 # аргумент — строковый литерал ``message_id`` (issue #264).
@@ -91,24 +92,47 @@ def load_locale_keys(lang: str) -> set[str]:
     return set(data.keys())
 
 
+def source_files() -> list[Path]:
+    """Все ``.py`` пакета — рекурсивно, а не только верхний уровень ``web/``.
+
+    issue #787 (CIG-02): прежний ``_WEB_DIR.glob("*.py")`` не спускался в
+    подпакеты, поэтому переезд ``web/`` в подкаталог обнулил бы проверку молча.
+    Каталог сообщений может использоваться из любой части пакета, так что
+    правильная область — весь ``src/stepik_grader``.
+    """
+    return sorted(_PKG_DIR.rglob("*.py"))
+
+
 def check_ru_covers_referenced_ids(errors: list[str]) -> None:
-    """Каждый используемый в web-слое ``message_id`` есть в ``ru.json``."""
+    """Каждый используемый ``message_id`` есть в ``ru.json``."""
     referenced: set[str] = set()
-    files = sorted(_WEB_DIR.glob("*.py"))
+    files = source_files()
     for f in files:
         referenced |= collect_referenced_message_ids(f)
+
+    # issue #787: ноль входов — ошибка, а не успех. Guard, которому нечего
+    # проверять, обязан падать: пустой результат неотличим от «всё чисто».
+    if not files:
+        errors.append(f"в {_PKG_DIR} не найдено ни одного .py — проверять нечего")
+        return
+    if not referenced:
+        errors.append(
+            f"ни одного вызова {'/'.join(sorted(_CATALOG_CALL_NAMES))} не найдено в "
+            f"{len(files)} файле(ах) — каталог сообщений либо переехал, либо проверка ослепла"
+        )
+        return
 
     ru_keys = load_locale_keys("ru")
     missing = sorted(referenced - ru_keys)
     if missing:
         errors.append(
-            "core/locales/ru.json missing message_id(s) referenced in web/*.py: "
+            "core/locales/ru.json missing message_id(s) referenced in the package: "
             + ", ".join(missing)
         )
     else:
         print(
             f"ru.json coverage: {len(referenced)} referenced message_id(s) across "
-            f"{len(files)} web/*.py file(s), all present in ru.json."
+            f"{len(files)} package .py file(s), all present in ru.json."
         )
 
 

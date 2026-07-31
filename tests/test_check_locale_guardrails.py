@@ -36,6 +36,49 @@ def test_cli_exits_zero() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+# ---------------------------------------------------------------------------
+# issue #787 (CIG-02): нулевой вход = ошибка, а не успех
+#
+# Guard, которому нечего проверять, обязан падать: пустой результат неотличим
+# от «всё чисто», и переезд каталога обнулил бы защиту молча.
+# ---------------------------------------------------------------------------
+
+
+def test_zero_source_files_is_an_error(monkeypatch, tmp_path: Path) -> None:
+    """Каталог пакета переехал → guard падает, а не рапортует «0 файлов, всё ок»."""
+    module = _load_module()
+    monkeypatch.setattr(module, "_PKG_DIR", tmp_path / "no-such-package")
+
+    errors: list[str] = []
+    module.check_ru_covers_referenced_ids(errors)
+    assert errors, "нулевой вход прошёл молча"
+    assert "проверять нечего" in errors[0]
+
+
+def test_zero_referenced_ids_is_an_error(monkeypatch, tmp_path: Path) -> None:
+    """Файлы есть, а вызовов каталога нет — проверка ослепла, это тоже ошибка."""
+    module = _load_module()
+    pkg_dir = tmp_path / "stepik_grader"
+    pkg_dir.mkdir()
+    (pkg_dir / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_PKG_DIR", pkg_dir)
+
+    errors: list[str] = []
+    module.check_ru_covers_referenced_ids(errors)
+    assert errors, "файл без единого message_id прошёл как успех"
+
+
+def test_source_files_walks_subpackages(monkeypatch, tmp_path: Path) -> None:
+    """Обход рекурсивный: файл в подпакете виден (прежний glob его пропускал)."""
+    module = _load_module()
+    pkg_dir = tmp_path / "stepik_grader"
+    (pkg_dir / "web" / "nested").mkdir(parents=True)
+    (pkg_dir / "web" / "nested" / "deep.py").write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_PKG_DIR", pkg_dir)
+
+    assert [p.name for p in module.source_files()] == ["deep.py"]
+
+
 def test_collect_referenced_message_ids_finds_render_message_and_message_fields(
     tmp_path: Path,
 ) -> None:
@@ -66,14 +109,18 @@ def test_collect_referenced_message_ids_ignores_dynamic_first_arg(tmp_path: Path
 
 def test_ru_missing_referenced_key_is_flagged(monkeypatch, tmp_path: Path) -> None:
     module = _load_module()
-    web_dir = tmp_path / "web"
-    web_dir.mkdir()
-    (web_dir / "mod.py").write_text("render_message('missing_in_ru', 'ru')\n", encoding="utf-8")
+    pkg_dir = tmp_path / "stepik_grader"
+    # issue #787: обход стал рекурсивным — кладём файл в ПОДпакет, чтобы тест
+    # заодно сторожил это: прежний нерекурсивный glob такой вызов не увидел бы.
+    (pkg_dir / "web").mkdir(parents=True)
+    (pkg_dir / "web" / "mod.py").write_text(
+        "render_message('missing_in_ru', 'ru')\n", encoding="utf-8"
+    )
     locales_dir = tmp_path / "locales"
     locales_dir.mkdir()
     (locales_dir / "ru.json").write_text(json.dumps({}), encoding="utf-8")
     (locales_dir / "en.json").write_text(json.dumps({}), encoding="utf-8")
-    monkeypatch.setattr(module, "_WEB_DIR", web_dir)
+    monkeypatch.setattr(module, "_PKG_DIR", pkg_dir)
     monkeypatch.setattr(module, "_LOCALES_DIR", locales_dir)
 
     errors: list[str] = []
