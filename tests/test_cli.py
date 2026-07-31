@@ -799,6 +799,55 @@ class TestEntrypointSideEffectFlags:
         err = capsys.readouterr().err
         assert "no sandbox backend here" in err
 
+    # -- issue #800 (QA-03): та же гарантия для режимов 1–4 ---------------
+    #
+    # Инвариант CLAUDE.md №4 — «недоступный backend → parser.error, а не тихий
+    # откат на LocalRunner» — держался только для `--serve`. Ветка `--mode N
+    # --sandbox` не выполнялась НИ ОДНИМ тестом (отчёт покрытия: cli/__init__.py
+    # 554-559 не покрыты), то есть рефакторинг, переставивший `set_runner` и
+    # обработку исключения, тихо вернул бы исполнение недоверенного кода без
+    # изоляции при полностью зелёном прогоне.
+
+    def test_mode1_sandbox_unavailable_is_rejected(
+        self, monkeypatch, capsys, tmp_path: pathlib.Path
+    ) -> None:
+        """Недоступный backend в режиме 1 — отказ, а не запуск без изоляции."""
+        import stepik_grader.core.sandbox as sandbox_mod
+        from stepik_grader.core.sandbox import SandboxUnavailableError
+
+        def _raise() -> None:
+            raise SandboxUnavailableError("no bwrap on this machine")
+
+        monkeypatch.setattr(sandbox_mod, "SandboxRunner", _raise)
+        solution = tmp_path / "task.py"
+        solution.write_text("print(1)\n", encoding="utf-8")
+
+        with pytest.raises(SystemExit) as exc:
+            cli.main(["--mode", "1", "--sandbox", "--file", str(solution)])
+
+        assert exc.value.code == 2  # parser.error, а не обычный выход
+        assert "no bwrap on this machine" in capsys.readouterr().err
+
+    def test_mode1_sandbox_installs_sandbox_runner(
+        self, monkeypatch, tmp_path: pathlib.Path
+    ) -> None:
+        """Успешный путь: активным раннером становится именно SandboxRunner."""
+        import stepik_grader.cli as cli_mod
+        import stepik_grader.core.sandbox as sandbox_mod
+
+        installed: list[object] = []
+        sentinel = object()
+        monkeypatch.setattr(sandbox_mod, "SandboxRunner", lambda: sentinel)
+        monkeypatch.setattr(cli_mod, "set_runner", installed.append)
+        # Сам грейдинг не нужен: проверяется только установка раннера.
+        monkeypatch.setattr(cli_mod, "_run_mode_1", lambda *a, **k: None)
+        solution = tmp_path / "task.py"
+        solution.write_text("print(1)\n", encoding="utf-8")
+
+        cli.main(["--mode", "1", "--sandbox", "--file", str(solution)])
+
+        assert installed == [sentinel], "активным раннером должен стать SandboxRunner"
+
 
 # ---------------------------------------------------------------------------
 # Verdict-tally helpers (issue #268) — pure functions, tested directly rather

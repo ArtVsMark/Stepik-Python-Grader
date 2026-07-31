@@ -16,8 +16,10 @@ import functools
 import os
 import pathlib
 import shutil
+import socket
 import subprocess
 import sys
+import threading
 import time
 
 import pytest
@@ -361,15 +363,56 @@ def _assert_write_outside_run_dir_blocked(runner, tmp_path: pathlib.Path) -> Non
 
 
 def _assert_network_blocked(runner, tmp_path: pathlib.Path) -> None:
-    path = _write_script(
-        tmp_path,
-        "import socket\n"
-        "s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n"
-        "s.settimeout(3)\n"
-        "s.connect(('93.184.216.34', 80))\n"
-        "print('connected')\n",
-    )
-    outcome = runner.run(RunSpec(path=path, stdin=None, timeout=8.0))
+    """Изоляция сети доказывается локальным listener'ом, а не внешним адресом.
+
+    issue #800 (QA-02): прежняя версия коннектилась к 93.184.216.34:80 и
+    проходила вхолостую без интернета — `connect` бросал `OSError` и когда сеть
+    закрыта песочницей, и когда её просто нет. То есть тест, заведённый ради
+    ключевой гарантии SEC-CORE-04, не мог её опровергнуть: сними кто-нибудь
+    `--unshare-net`, он остался бы зелёным.
+
+    Здесь тест сам поднимает TCP-listener на `127.0.0.1` и требует, чтобы
+    соединение НЕ дошло. Детерминированно, работает оффлайн и строже: netns не
+    пускает даже к loopback хоста. Приём взят из
+    `tests/test_w6_windows_sandbox_gaps.py`, где им подтверждали обратное —
+    отсутствие изоляции у `LocalRunner`.
+    """
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+    accepted = threading.Event()
+
+    def _accept() -> None:
+        try:
+            conn, _ = srv.accept()
+            accepted.set()
+            conn.close()
+        except OSError:
+            pass
+
+    accepter = threading.Thread(target=_accept, name="sandbox-net-accept", daemon=True)
+    accepter.start()
+    try:
+        path = _write_script(
+            tmp_path,
+            "import socket\n"
+            "s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n"
+            "s.settimeout(3)\n"
+            f"s.connect(('127.0.0.1', {port}))\n"
+            "s.sendall(b'exfil')\n"
+            "print('connected')\n",
+        )
+        outcome = runner.run(RunSpec(path=path, stdin=None, timeout=8.0))
+    finally:
+        srv.close()
+        accepter.join(timeout=2)
+
+    # Главное утверждение — соединение не принято. Оно и отличает «сеть
+    # закрыта» от «сети нет»: listener гарантированно доступен, если изоляции
+    # не осталось.
+    assert not accepted.is_set(), "песочница пропустила соединение к локальному listener'у"
     assert outcome.returncode != 0
     assert b"connected" not in outcome.stdout
 
@@ -591,17 +634,13 @@ class TestMacSandboxRunner:
         assert outcome.returncode != 0
 
     def test_network_blocked(self, tmp_path: pathlib.Path) -> None:
-        path = _write_script(
-            tmp_path,
-            "import socket\n"
-            "s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n"
-            "s.settimeout(3)\n"
-            "s.connect(('93.184.216.34', 80))\n"
-            "print('connected')\n",
-        )
-        outcome = self._runner().run(RunSpec(path=path, stdin=None, timeout=8.0))
-        assert outcome.returncode != 0
-        assert b"connected" not in outcome.stdout
+        """issue #800: та же проверка локальным listener'ом, что и на Linux.
+
+        Раньше здесь лежала копия внешнего адреса — с тем же изъяном: без
+        интернета тест был зелёным независимо от того, работает ли
+        `(deny network*)` в профиле sandbox-exec.
+        """
+        _assert_network_blocked(self._runner(), tmp_path)
 
     def test_memory_overrun_violation(self, tmp_path: pathlib.Path) -> None:
         """No RLIMIT_AS on Darwin -- psutil polling is the only enforcement,
