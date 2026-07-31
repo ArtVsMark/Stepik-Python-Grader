@@ -45,12 +45,14 @@ from pathlib import Path
 
 __all__ = [
     "LATIN_TEXT_ALLOWLIST",
+    "check_inputs_present",
     "check_key_parity",
     "check_keys_present",
     "check_no_bare_cyrillic",
     "check_no_hardcoded_latin_text",
     "collect_index_html",
     "has_cyrillic",
+    "js_files",
     "load_ui_catalog",
     "main",
     "scan_js",
@@ -60,15 +62,19 @@ _ROOT = Path(__file__).resolve().parent.parent
 _STATIC = _ROOT / "src" / "stepik_grader" / "web" / "static"
 _UI_JSON = _STATIC / "locales" / "ui.json"
 _INDEX_HTML = _STATIC / "index.html"
-_JS_FILES = (
-    "core.js",
-    "app.js",
-    "grade.js",
-    "content.js",
-    "sandbox.js",
-    "downloader.js",
-    "trace-player.js",
-)
+
+
+def js_files() -> list[Path]:
+    """JS-файлы статики: список строится из каталога, а не из константы (issue #787).
+
+    Прежде здесь был кортеж имён, который надо было дописывать руками при
+    появлении каждого нового файла. `feedback.js` дописать забыли — и он не
+    проходил ни одну из трёх проверок ни разу с момента появления: ни голая
+    кириллица, ни пропавший ключ, ни зашитая латиница в нём не ловились.
+    Каталог как источник истины делает такой пропуск невозможным.
+    """
+    return sorted(_STATIC.glob("*.js"))
+
 
 # Атрибуты разметки, несущие ключ каталога (issue #545).
 _I18N_ATTRS = ("data-i18n", "data-i18n-placeholder", "data-i18n-title", "data-i18n-aria-label")
@@ -223,20 +229,30 @@ def collect_index_html() -> _IndexParser:
 # (стандартная эвристика JS-лексеров: regex может стоять там, где ждут значение).
 _REGEX_PRECEDERS = frozenset("([{,;=:!&|?+-*%~^<>")
 
+# Диагностические вызовы: их аргументы в UI не показываются и перевода не требуют.
+_CONSOLE_CALL = re.compile(r"console\.(?:warn|error)\s*\(")
 
-def _iter_js_string_literals(src: str) -> Iterator[tuple[int, str]]:
-    """Порождает (lineno, content) для строковых литералов JS, пропуская
+
+def _iter_js_string_literals(src: str) -> Iterator[tuple[int, int, str]]:
+    """Порождает (lineno, column, content) для строковых литералов JS, пропуская
     комментарии `//` и `/* */` И regex-литералы `/.../` (иначе кавычка внутри
     класса regex — `/[&<>"']/g` — «открыла» бы фиктивную строку). Экранированные
     кавычки учитываются; template-literal `${...}` намеренно НЕ разбирается
-    (её содержимое — редкий источник кириллицы, а ключи t() — латиница)."""
+    (её содержимое — редкий источник кириллицы, а ключи t() — латиница).
+
+    `column` — смещение открывающей кавычки от начала строки (issue #787):
+    без него исключение по `console.warn`/`console.error` приходилось вешать на
+    всю физическую строку, и диагностический вызов амнистировал соседние
+    литералы того же `if`-однострочника."""
     i, n, line = 0, len(src), 1
+    line_start = 0  # индекс начала текущей строки — для вычисления колонки
     last_sig = ""  # последний значимый (не пробельный) символ — для regex/division
     while i < n:
         c = src[i]
         if c == "\n":
             line += 1
             i += 1
+            line_start = i
         elif c in " \t\r":
             i += 1
         elif c == "/" and i + 1 < n and src[i + 1] == "/":
@@ -247,6 +263,7 @@ def _iter_js_string_literals(src: str) -> Iterator[tuple[int, str]]:
             while i + 1 < n and not (src[i] == "*" and src[i + 1] == "/"):
                 if src[i] == "\n":
                     line += 1
+                    line_start = i + 1
                 i += 1
             i += 2
         elif c == "/" and (last_sig == "" or last_sig in _REGEX_PRECEDERS):
@@ -263,46 +280,71 @@ def _iter_js_string_literals(src: str) -> Iterator[tuple[int, str]]:
                     in_class = False
                 elif src[i] == "\n":
                     line += 1
+                    line_start = i + 1
                 i += 1
             i += 1  # закрывающий `/`
             last_sig = "/"
         elif c in "'\"`":
-            quote, start_line, buf = c, line, []
+            quote, start_line, start_col, buf = c, line, i - line_start, []
             i += 1
             while i < n and src[i] != quote:
                 if src[i] == "\\" and i + 1 < n:
                     buf.append(src[i + 1])
                     if src[i + 1] == "\n":
                         line += 1
+                        line_start = i + 2
                     i += 2
                     continue
                 if src[i] == "\n":
                     line += 1
+                    line_start = i + 1
                 buf.append(src[i])
                 i += 1
             i += 1  # закрывающая кавычка
-            yield start_line, "".join(buf)
+            yield start_line, start_col, "".join(buf)
             last_sig = quote
         else:
             last_sig = c
             i += 1
 
 
+def _is_console_argument(line_text: str, column: int) -> bool:
+    """Литерал в позиции ``column`` — аргумент ``console.warn``/``console.error``?
+
+    issue #787 (CIG-04): раньше исключение вешалось на всю физическую строку,
+    поэтому диагностический `console.warn("x")` амнистировал ЛЮБОЙ соседний
+    литерал того же однострочника — включая видимую надпись
+    (`el.textContent = "Ошибка загрузки"`). Теперь смотрим только на префикс до
+    самого литерала: вызов должен быть открыт и ещё не закрыт.
+    """
+    prefix = line_text[:column]
+    calls = list(_CONSOLE_CALL.finditer(prefix))
+    if not calls:
+        return False
+    # Между последним `console.warn(` и литералом не должно быть закрывающей
+    # скобки — иначе вызов уже завершился, и литерал к нему не относится.
+    return ")" not in prefix[calls[-1].end() :]
+
+
 def scan_js(path: Path) -> tuple[set[str], set[str], list[tuple[int, str]]]:
     """(`t()`-ключи, базовые `tp()`-ключи, голая кириллица) одного JS-файла.
 
-    Голой кириллицей НЕ считаются строки с `i18n-exempt` или `console.warn`/
-    `console.error` на той же физической строке."""
+    Голой кириллицей НЕ считаются литералы с `i18n-exempt` на той же физической
+    строке (явный опт-ин разработчика) и аргументы `console.warn`/`console.error`
+    — последние определяются по позиции литерала, а не по наличию вызова
+    где-то в строке (issue #787)."""
     src = path.read_text(encoding="utf-8")
     lines = src.splitlines()
     keys = set(_T_CALL.findall(src))
     plural = set(_TP_CALL.findall(src))
     bare: list[tuple[int, str]] = []
-    for lineno, content in _iter_js_string_literals(src):
+    for lineno, column, content in _iter_js_string_literals(src):
         if not has_cyrillic(content):
             continue
         line_text = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
-        if any(marker in line_text for marker in ("i18n-exempt", "console.warn", "console.error")):
+        if "i18n-exempt" in line_text:
+            continue
+        if _is_console_argument(line_text, column):
             continue
         bare.append((lineno, content[:60]))
     return keys, plural, bare
@@ -329,8 +371,8 @@ def check_keys_present(errors: list[str]) -> None:
 
     js_keys: set[str] = set()
     js_plural: set[str] = set()
-    for name in _JS_FILES:
-        keys, plural, _ = scan_js(_STATIC / name)
+    for path in js_files():
+        keys, plural, _ = scan_js(path)
         js_keys |= keys
         js_plural |= plural
     js_missing = sorted(k for k in js_keys if k not in ru)
@@ -365,12 +407,12 @@ def check_no_bare_cyrillic(errors: list[str]) -> None:
         errors.append(f"index.html:{line} Cyrillic @{attr} without data-i18n-* companion: {val!r}")
 
     bare_total = 0
-    for name in _JS_FILES:
-        _, _, bare = scan_js(_STATIC / name)
+    for path in js_files():
+        _, _, bare = scan_js(path)
         for line, content in bare:
             bare_total += 1
             errors.append(
-                f"{name}:{line} bare Cyrillic string literal (route via t()): {content!r}"
+                f"{path.name}:{line} bare Cyrillic string literal (route via t()): {content!r}"
             )
     if not (parser.bare_text or parser.bare_attr or bare_total):
         print("No bare Cyrillic literals outside ui.json (index.html + JS renders clean).")
@@ -393,10 +435,10 @@ def check_no_hardcoded_latin_text(errors: list[str]) -> None:
     Исключения — ``LATIN_TEXT_ALLOWLIST`` и маркер ``i18n-exempt`` в строке.
     """
     pattern = re.compile(r">([A-Za-z][A-Za-z ]*[A-Za-z]|[A-Za-z])<")
-    for name in _JS_FILES:
-        path = _STATIC / name
-        lines = path.read_text(encoding="utf-8").splitlines()
-        for lineno, content in _iter_js_string_literals(path.read_text(encoding="utf-8")):
+    for path in js_files():
+        src = path.read_text(encoding="utf-8")
+        lines = src.splitlines()
+        for lineno, _col, content in _iter_js_string_literals(src):
             line_text = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
             if "i18n-exempt" in line_text:
                 continue
@@ -405,7 +447,7 @@ def check_no_hardcoded_latin_text(errors: list[str]) -> None:
                 if text in LATIN_TEXT_ALLOWLIST:
                     continue
                 errors.append(
-                    f"{name}:{lineno}: латинский текст в разметке без t(): {text!r} "
+                    f"{path.name}:{lineno}: латинский текст в разметке без t(): {text!r} "
                     "(перевести через t() + ключ в ui.json, либо добавить в "
                     "LATIN_TEXT_ALLOWLIST, если это код/термин)"
                 )
@@ -413,9 +455,34 @@ def check_no_hardcoded_latin_text(errors: list[str]) -> None:
         print("No hardcoded Latin text nodes in JS renders (all go through t()).")
 
 
+def check_inputs_present(errors: list[str]) -> None:
+    """Нулевой вход — ошибка, а не успех (issue #787).
+
+    Guard, которому нечего проверять, обязан падать громко: переезд `static/`
+    в другой каталог или переименование `ui.json` иначе сделали бы все проверки
+    ниже пустыми и вечно зелёными — самая опасная поломка защиты, потому что
+    выглядит она как исправность.
+    """
+    if not _UI_JSON.is_file():
+        errors.append(f"каталог UI-локалей не найден: {_UI_JSON} — проверять нечего")
+    if not _INDEX_HTML.is_file():
+        errors.append(f"index.html не найден: {_INDEX_HTML} — проверять нечего")
+    if not js_files():
+        errors.append(f"в {_STATIC} нет ни одного .js — проверять нечего")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
+    check_inputs_present(errors)
+    if errors:
+        # Дальше идти незачем: без входных файлов остальные проверки
+        # отрапортовали бы «всё чисто» на пустом множестве.
+        print("\nFAIL: UI locale guardrails violated:")
+        for e in errors:
+            print(f"  - {e}")
+        return 1
+
     check_key_parity(errors)
     check_keys_present(errors)
     check_no_bare_cyrillic(errors)

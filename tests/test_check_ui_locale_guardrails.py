@@ -49,7 +49,8 @@ def _setup(
     monkeypatch.setattr(module, "_STATIC", static)
     monkeypatch.setattr(module, "_UI_JSON", static / "locales" / "ui.json")
     monkeypatch.setattr(module, "_INDEX_HTML", static / "index.html")
-    monkeypatch.setattr(module, "_JS_FILES", tuple(js.keys()))
+    # issue #787: список JS больше не константа — он собирается из каталога,
+    # поэтому подменять нечего: достаточно того, что файлы легли в `static`.
 
 
 # -- Guard-the-guard: реальный репозиторий зелёный ---------------------------
@@ -269,6 +270,86 @@ def test_i18n_exempt_and_console_are_ignored(monkeypatch, tmp_path: Path) -> Non
                 'console.warn("Ключ отсутствует");\n'
             ),
         },
+    )
+    errors: list[str] = []
+    module.check_no_bare_cyrillic(errors)
+    assert errors == [], errors
+
+
+# ---------------------------------------------------------------------------
+# issue #787: полнота входа и точность исключения console.*
+# ---------------------------------------------------------------------------
+
+
+def test_new_js_file_is_checked_without_touching_the_script(monkeypatch, tmp_path: Path) -> None:
+    """Новый файл статики проверяется сам собой — список берётся из каталога.
+
+    Регрессия CIG-01: `feedback.js` появился в `static/`, но в захардкоженный
+    кортеж его дописать забыли, и он не проверялся ни разу.
+    """
+    module = _load_module()
+    _setup(
+        module,
+        monkeypatch,
+        tmp_path,
+        catalog={"ru": {}, "en": {}},
+        js={"brand-new-file.js": 'el.textContent = "Ошибка отправки";\n'},
+    )
+    errors: list[str] = []
+    module.check_no_bare_cyrillic(errors)
+    assert any("brand-new-file.js" in e for e in errors), errors
+
+
+def test_no_js_files_at_all_is_an_error(monkeypatch, tmp_path: Path) -> None:
+    """Каталог статики переехал → guard падает вместо «всё чисто» на пустом множестве."""
+    module = _load_module()
+    _setup(module, monkeypatch, tmp_path, catalog={"ru": {}, "en": {}}, js={})
+
+    errors: list[str] = []
+    module.check_inputs_present(errors)
+    assert any("нет ни одного .js" in e for e in errors), errors
+
+
+def test_missing_catalog_or_index_is_an_error(monkeypatch, tmp_path: Path) -> None:
+    """Пропавший ui.json/index.html — тоже нулевой вход, а не успех."""
+    module = _load_module()
+    _setup(module, monkeypatch, tmp_path, catalog={"ru": {}, "en": {}}, js={"m.js": "\n"})
+    monkeypatch.setattr(module, "_UI_JSON", tmp_path / "gone" / "ui.json")
+    monkeypatch.setattr(module, "_INDEX_HTML", tmp_path / "gone" / "index.html")
+
+    errors: list[str] = []
+    module.check_inputs_present(errors)
+    assert len(errors) == 2, errors
+
+
+def test_console_call_does_not_amnesty_neighbouring_literal(monkeypatch, tmp_path: Path) -> None:
+    """Диагностический console.warn не снимает защиту с соседней надписи (CIG-04).
+
+    Прежде исключение действовало на всю физическую строку: `console.warn("x")`
+    в том же однострочнике амнистировал видимый текст рядом.
+    """
+    module = _load_module()
+    _setup(
+        module,
+        monkeypatch,
+        tmp_path,
+        catalog={"ru": {}, "en": {}},
+        js={"m.js": 'if (!ok) { console.warn("x"); el.textContent = "Ошибка загрузки"; }\n'},
+    )
+    errors: list[str] = []
+    module.check_no_bare_cyrillic(errors)
+    assert any("Ошибка загрузки" in e for e in errors), errors
+
+
+def test_console_argument_itself_is_still_exempt(monkeypatch, tmp_path: Path) -> None:
+    """Сам аргумент console.warn/error по-прежнему не считается нарушением."""
+    module = _load_module()
+    _setup(
+        module,
+        monkeypatch,
+        tmp_path,
+        catalog={"ru": {}, "en": {}},
+        js={"m.js": 'console.warn("Ключ отсутствует");\nconsole.error("Сбой сети");\n'},
     )
     errors: list[str] = []
     module.check_no_bare_cyrillic(errors)
