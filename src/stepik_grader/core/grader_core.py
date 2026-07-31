@@ -85,6 +85,7 @@ from stepik_grader.core.mode_detector import (
     is_function_only_solution,
 )
 from stepik_grader.core.normalizers import normalize_floats as _normalize_output_line
+from stepik_grader.core.normalizers import split_output_lines
 from stepik_grader.core.result import CaseResult, Verdict
 from stepik_grader.core.runner import (
     LocalRunner,
@@ -432,7 +433,11 @@ def _map_outcome_to_result(
             exit_code=outcome.returncode,
         )
 
-    actual_lines = [line.rstrip("\n") for line in stdout.splitlines()]
+    # issue #843: разбор только по настоящим переводам строки. Прежний
+    # `splitlines()` резал вывод ещё по восьми управляющим символам, из-за чего
+    # `a<VT>b` в одну строку признавалось равным двум настоящим строкам — AC на
+    # неверном решении.
+    actual_lines = split_output_lines(stdout)
     passed = actual_lines == case.expected_lines
     if not passed and len(actual_lines) == len(case.expected_lines):
         passed = all(

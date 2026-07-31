@@ -15,7 +15,38 @@ from __future__ import annotations
 
 import re
 
-__all__ = ["normalize_floats", "normalize_whitespace", "sort_lines"]
+__all__ = ["normalize_floats", "normalize_whitespace", "sort_lines", "split_output_lines"]
+
+# issue #843: ``str.splitlines()`` считает переводом строки ещё восемь символов
+# сверх ``\n`` — VT, FF, FS/GS/RS, NEL и U+2028/U+2029. Для сравнения вывода это
+# ложное совпадение: строка ``a<VT>b`` распадалась на две и признавалась равной
+# ожиданию из двух НАСТОЯЩИХ строк, то есть неверное решение получало AC.
+# Разделителями считаем ровно то, что ими является в файлах и в потоках:
+# ``\r\n``, одиночный ``\r`` (universal newlines — так же читает файлы
+# ``Path.read_text``) и ``\n``.
+_LINE_BREAK_RE = re.compile(r"\r\n|\r|\n")
+
+
+def split_output_lines(text: str) -> list[str]:
+    """Разбить текст на строки только по настоящим переводам строки (issue #843).
+
+    Отличие от ``str.splitlines()`` — ровно в наборе разделителей: прочие
+    управляющие символы остаются ДАННЫМИ внутри строки. Завершающий перевод
+    строки, как и у ``splitlines``, лишней пустой строки не создаёт.
+
+    Примеры:
+        ``"a\\nb\\n"``    → ``["a", "b"]``
+        ``"a\\r\\nb"``     → ``["a", "b"]``   (Windows-поток)
+        ``"a\\x0bb"``     → ``["a\\x0bb"]``   (splitlines дал бы два элемента)
+        ``""``           → ``[]``
+    """
+    if not text:
+        return []
+    lines = _LINE_BREAK_RE.split(text)
+    if lines[-1] == "":
+        lines.pop()
+    return lines
+
 
 # issue #410 (B5): lookbehind/lookahead не дают матчить float ВНУТРИ версии/
 # dotted-числа (`3.10.5` иначе → `3.1.5`, а IP `1.2.3.4` — покорёжился бы):
