@@ -33,6 +33,7 @@ from stepik_grader.core.runner import (
     _KILL_REAP_TIMEOUT,
     RunOutcome,
     _kill_process_tree,
+    _write_stdin,
     sample_tree_rss,
 )
 
@@ -176,12 +177,23 @@ def run_argv_with_limits(
         )
         mem_thread.start()
 
+    # issue #796: запись stdin — в daemon-потоке, а НЕ синхронно перед циклом
+    # ожидания. Решение, не читающее ввод, при stdin больше pipe-буфера (~64 KiB
+    # на Linux) заблокировало бы главный поток до входа в while ниже — и ни
+    # timeout, ни проверка нарушений не выполнились бы ни разу: прогон висел бы
+    # до самостоятельного завершения ребёнка, то есть навсегда. Ровно этот
+    # deadlock уже был закрыт в LocalRunner (issue #419), но фикс не перенесли
+    # в sandbox-backend'ы. Переиспользуем ту же функцию, а не копию: копия и
+    # разъехалась бы снова.
+    stdin_writer: threading.Thread | None = None
     if proc.stdin is not None:
-        if stdin is not None:
-            with contextlib.suppress(BrokenPipeError, OSError):
-                proc.stdin.write(stdin)
-        with contextlib.suppress(OSError):
-            proc.stdin.close()
+        stdin_writer = threading.Thread(
+            target=_write_stdin,
+            args=(proc.stdin, stdin),
+            name="sandbox-stdin",
+            daemon=True,
+        )
+        stdin_writer.start()
 
     timed_out = False
     while True:
@@ -208,6 +220,11 @@ def run_argv_with_limits(
         r.join(timeout=1.0)
     if mem_thread is not None:
         mem_thread.join(timeout=0.5)
+    # issue #796: писатель stdin ждём ограниченно и не блокируемся на нём. Если
+    # ребёнок так и не прочитал ввод, поток стоит в write и разблокируется лишь
+    # BrokenPipeError после смерти процесса — daemon-поток умрёт с интерпретатором.
+    if stdin_writer is not None:
+        stdin_writer.join(timeout=0.5)
 
     elapsed = time.perf_counter() - start
 

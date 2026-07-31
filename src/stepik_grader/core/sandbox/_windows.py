@@ -51,7 +51,6 @@ process-count нарушения, см. докстринг ``RunOutcome.sandbox_
 
 from __future__ import annotations
 
-import contextlib
 import ctypes
 import math
 import os
@@ -65,7 +64,13 @@ from typing import Any
 import psutil
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.runner import RunOutcome, RunSpec, sample_tree_rss, spec_source_bytes
+from stepik_grader.core.runner import (
+    RunOutcome,
+    RunSpec,
+    _write_stdin,
+    sample_tree_rss,
+    spec_source_bytes,
+)
 from stepik_grader.core.sandbox._run_dir import ephemeral_run_dir
 
 __all__ = ["WindowsSandboxRunner", "create_backend"]
@@ -327,12 +332,20 @@ class WindowsSandboxRunner:
         )
         poll_thread.start()
 
+        # issue #796: та же правка, что в POSIX-backend'е и в LocalRunner
+        # (issue #419) — запись stdin в daemon-потоке. Синхронный write
+        # блокировал главный поток до входа в цикл ожидания, если решение не
+        # читает ввод, а stdin больше буфера pipe: ни таймаут, ни проверки
+        # нарушений не выполнялись, прогон висел до конца ребёнка.
+        stdin_writer: threading.Thread | None = None
         if proc.stdin is not None:
-            if spec.stdin is not None:
-                with contextlib.suppress(BrokenPipeError, OSError):
-                    proc.stdin.write(spec.stdin)
-            with contextlib.suppress(OSError):
-                proc.stdin.close()
+            stdin_writer = threading.Thread(
+                target=_write_stdin,
+                args=(proc.stdin, spec.stdin),
+                name="sandbox-stdin",
+                daemon=True,
+            )
+            stdin_writer.start()
 
         timed_out = False
         while True:
@@ -351,6 +364,10 @@ class WindowsSandboxRunner:
         for r in readers:
             r.join(timeout=1.0)
         poll_thread.join(timeout=0.5)
+        # issue #796: ждём писателя ограниченно — при нечитающем решении он
+        # стоит в write до BrokenPipeError после смерти процесса.
+        if stdin_writer is not None:
+            stdin_writer.join(timeout=0.5)
 
         elapsed = time.perf_counter() - start
         if output_exceeded.is_set():
