@@ -31,6 +31,12 @@ from stepik_grader.launcher import (
     port_available,
 )
 
+# Тестовые двойники `spawn` читают потоки так же, как продакшн-`_default_spawn`:
+# явный UTF-8 вместо системной кодовой страницы. Без этого reader-поток падал на
+# Windows-раннере с UnicodeDecodeError (cp1252) — тест оставался зелёным, но лог
+# CI заполнялся трейсбеками из фонового потока, маскируя настоящие ошибки.
+_PIPE_TEXT: dict[str, object] = {"text": True, "encoding": "utf-8", "errors": "replace"}
+
 
 def _free_port() -> int:
     """Занять и сразу освободить эфемерный порт, вернув его номер."""
@@ -65,7 +71,7 @@ def _spawn_running(port: int):
             [sys.executable, "-c", script],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            **_PIPE_TEXT,
         )
 
     return spawn
@@ -77,7 +83,7 @@ def _spawn_failing(_command: list[str]) -> subprocess.Popen[str]:
         [sys.executable, "-c", "import sys; sys.stderr.write('boom: bind failed\\n'); sys.exit(1)"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True,
+        **_PIPE_TEXT,
     )
 
 
@@ -224,8 +230,15 @@ def _tk_module():
 
 
 @pytest.fixture
-def tk_window(_tk_module):
-    """Отдельный withdrawn Toplevel на тест поверх общего Tk-рута модуля."""
+def tk_window(_tk_module, monkeypatch):
+    """Отдельный withdrawn Toplevel на тест поверх общего Tk-рута модуля.
+
+    Язык окна фиксируется явно (issue #821): подписи локализованы, а язык по
+    умолчанию берётся из системной локали — без фиксации проверки русских строк
+    падали бы на англоязычных раннерах Windows/macOS, оставаясь зелёными на
+    русской машине разработчика. Английский путь проверяется отдельным тестом.
+    """
+    monkeypatch.setenv(launcher.LANG_ENV_VAR, "ru")
     tk, root = _tk_module
     top = tk.Toplevel(root)
     top.withdraw()
@@ -244,6 +257,22 @@ class TestGuiSmoke:
         assert app.port_var.get() == str(DEFAULT_PORT)
         assert app.sandbox_var.get() is False
         assert "Остановлен" in app.status_var.get()
+
+    def test_widgets_follow_selected_language(self, _tk_module, monkeypatch) -> None:
+        """issue #821: под английским языком окно строится с английскими подписями."""
+        monkeypatch.setenv(launcher.LANG_ENV_VAR, "en")
+        tk, root = _tk_module
+        top = tk.Toplevel(root)
+        top.withdraw()
+        try:
+            app = LauncherApp(top, ServerController())
+            top.update()
+            assert app.action_btn.cget("text") == "Start"
+            assert app.open_btn.cget("text") == "Open in browser"
+            assert app.status_var.get() == "Stopped"
+        finally:
+            with contextlib.suppress(Exception):
+                top.destroy()
 
     def test_invalid_port_sets_error_status(self, tk_window) -> None:
         app = LauncherApp(tk_window, ServerController())
