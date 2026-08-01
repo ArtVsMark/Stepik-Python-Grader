@@ -82,7 +82,13 @@ def load_settings(path: Path) -> UserSettings:
     формат forward-compatible.
     """
     try:
-        raw = path.read_text(encoding="utf-8")
+        # issue #792 (FST-01): читаем БАЙТЫ и декодируем с заменой. Прежний
+        # read_text ловился только `except OSError`, а UnicodeDecodeError —
+        # подкласс ValueError: один посторонний байт в файле (правка сторонним
+        # редактором, обрыв синхронизации) ронял интерактивное меню целиком,
+        # хотя докстринг обещает «никогда не роняет CLI». Битый текст всё равно
+        # не разберётся как JSON — ниже вернутся дефолтные настройки.
+        raw = path.read_bytes().decode("utf-8", errors="replace")
     except OSError:
         return UserSettings()
     try:

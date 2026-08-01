@@ -197,7 +197,14 @@ def _ast_function_name(solution_path: pathlib.Path) -> str | None:
     Используется как fallback когда meta.json недоступен или function_name = None.
     """
     try:
-        source = solution_path.read_text(encoding=ENCODING)
+        # issue #792 (PY-03): байты + декодирование с заменой. Решение,
+        # сохранённое в cp1251 (обычное дело на Windows-RU), роняло грейдинг
+        # необработанным UnicodeDecodeError — он подкласс ValueError и мимо
+        # `except (SyntaxError, OSError)` проходил насквозь. Нам здесь нужно
+        # лишь имя функции: подставной символ в комментарии на AST не влияет,
+        # а если исходник действительно не разбирается — вернём None, как и
+        # для любого синтаксически неверного файла.
+        source = solution_path.read_bytes().decode(ENCODING, errors="replace")
         tree = ast.parse(source)
     except (SyntaxError, OSError):
         return None
@@ -226,13 +233,15 @@ def _detect_run_mode(solution_path: pathlib.Path, test_dir: pathlib.Path) -> str
     # 2. .type-файлы
     if test_dir.is_dir():
         for type_file in test_dir.glob("*.type"):
-            raw = type_file.read_text(encoding=ENCODING).strip()
+            # issue #792 (PY-03): не-UTF8 в .type не должен ронять детекцию.
+            raw = type_file.read_bytes().decode(ENCODING, errors="replace").strip()
             if raw == "function":
                 return "function"
 
     # 3. AST-анализ файла решения
     try:
-        file_content = solution_path.read_text(encoding=ENCODING)
+        # issue #792 (PY-03): то же декодирование с заменой — см. выше.
+        file_content = solution_path.read_bytes().decode(ENCODING, errors="replace")
         if is_function_only_solution(file_content):
             return "function"
     except OSError:

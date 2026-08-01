@@ -110,7 +110,20 @@ def run_lint(
         str(file_path),
     ]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=_RUFF_TIMEOUT_S)
+        # issue #792 (PY-08): ruff пишет UTF-8, а `text=True` без явной
+        # кодировки декодирует системной кодовой страницей. На Windows-RU
+        # (cp1251) кириллица в сообщении превращалась в мусор вида «С‰», а
+        # редкие байты давали UnicodeDecodeError мимо перехвата ниже — тот
+        # ловит только OSError/SubprocessError. errors="replace" оставляет
+        # раздел «Стиль» рабочим даже на неожиданном байте.
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_RUFF_TIMEOUT_S,
+        )
     except (OSError, subprocess.SubprocessError):
         return []
 

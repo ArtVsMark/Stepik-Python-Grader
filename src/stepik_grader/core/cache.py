@@ -116,7 +116,12 @@ class GraderCache:
     ) -> dict[str, Any] | None:
         """Вернуть кэшированный result, если оба хеша совпадают; иначе None."""
         entry = self._data["entries"].get(self._key(solution_path))
-        if not entry:
+        # issue #792 (FST-04): запись должна быть словарём. Прежняя проверка
+        # `if not entry` пропускала непустую строку/число из повреждённого или
+        # чужого results.json, и следующий же `entry.get(...)` падал
+        # AttributeError мимо всех перехватов — кэш обязан деградировать до
+        # «промаха», а не ронять грейдинг.
+        if not isinstance(entry, dict):
             return None
         if entry.get("solution_sha") == solution_sha and entry.get("tests_sha") == tests_sha:
             result = entry.get("result")
