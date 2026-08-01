@@ -1,7 +1,9 @@
 """stats.py — opt-in локальная статистика запусков (issue #268).
 
-Архитектурный слой: Infrastructure / Utilities. Зависит только от stdlib
-(json/pathlib/platform/time) — leaf-модуль, как и ``core/cache.py``.
+Архитектурный слой: Infrastructure / Utilities. Из проекта зависит только от
+top-level stdlib-leaf'а ``atomic_io`` (ADR-0011 — он и заведён, чтобы общий
+атомарный писатель был доступен и ``core/*``, и подпакетам без новых рёбер);
+в остальном — чистый stdlib, как ``core/cache.py``.
 
 Идея: пользователь сам не видит, откуда берутся его WA/RE ("70% моих WA —
 форматирование вывода"), а мейнтейнер вслепую приоритизирует улучшения
@@ -32,6 +34,8 @@ import platform
 import threading
 import time
 from typing import Any
+
+from stepik_grader.atomic_io import atomic_write_text
 
 __all__ = ["STATS_FILE_NAME", "read_summary", "record_run"]
 
@@ -69,9 +73,32 @@ def _rotate_if_needed(path: pathlib.Path) -> None:
         # редко и не воспроизводится на свежей установке.
         lines = path.read_bytes().decode("utf-8", errors="replace").splitlines()
         keep = lines[len(lines) // 2 :]
-        path.write_text("\n".join(keep) + ("\n" if keep else ""), encoding="utf-8")
+        # issue #793 (PY-11): атомарная замена вместо перезаписи на месте.
+        # Докстринг модуля обещает, что «корневой файл не может быть повреждён
+        # из-за недописанной перезаписи», но ротация делала ровно её: обрыв
+        # питания или Ctrl+C посреди write_text оставлял журнал наполовину
+        # записанным. Приём тот же, что у настроек и очереди глоссария
+        # (ADR-0011): temp рядом с целью + replace.
+        atomic_write_text(path, "\n".join(keep) + ("\n" if keep else ""))
     except OSError:
         pass
+
+
+def _needs_leading_newline(path: pathlib.Path) -> bool:
+    """Оборвалась ли последняя запись журнала без завершающего ``\\n`` (issue #793).
+
+    Читается один последний байт (``seek`` с конца), а не весь файл: проверка
+    выполняется перед КАЖДОЙ записью, а журнал растёт до мегабайт.
+    """
+    try:
+        size = path.stat().st_size
+        if size == 0:
+            return False
+        with path.open("rb") as fh:
+            fh.seek(-1, 2)  # os.SEEK_END
+            return fh.read(1) != b"\n"
+    except OSError:
+        return False
 
 
 def record_run(
@@ -104,8 +131,17 @@ def record_run(
     try:
         with _WRITE_LOCK:
             _rotate_if_needed(path)
+            # issue #793 (FST-03): если предыдущая запись оборвалась без
+            # завершающего перевода строки (крэш ровно посреди write), append
+            # приклеил бы новую строку к огрызку — и пропали бы ОБЕ: склейка не
+            # разбирается как JSON. Формат JSONL выбран именно ради «максимум
+            # теряется последняя незавершённая строка», поэтому восстанавливаем
+            # границу записи перед добавлением новой.
+            line = json.dumps(entry, ensure_ascii=False) + "\n"
+            if _needs_leading_newline(path):
+                line = "\n" + line
             with path.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                f.write(line)
     except OSError:
         pass
 
