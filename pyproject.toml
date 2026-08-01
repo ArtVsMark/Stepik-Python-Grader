@@ -214,7 +214,7 @@ warn_return_any = true
 # issue #283). Точечная чистка мёртвых ignore — задача ruff RUF100 (issue #443).
 
 [tool.pytest.ini_options]
-addopts = "--cov=src --cov-report=term-missing --cov-report=xml -v --tb=short"
+addopts = "--cov=src --cov=scripts --cov-report=term-missing --cov-report=xml -v --tb=short"
 # issue #444: global per-test deadline (pytest-timeout). The suite is full of
 # real subprocesses/threads; a hung child (e.g. a regression of the runner
 # process-group / stdin-deadlock fixes, #418/#419) would otherwise hang the
@@ -248,6 +248,12 @@ source = [
     "src/stepik_grader",
     "*/src/stepik_grader",
 ]
+# issue #790: тот же aliasing для CI-скриптов — они тоже измеряются (см.
+# `source` ниже) и записываются каждым job'ом матрицы под своим корнем.
+scripts = [
+    "scripts",
+    "*/scripts",
+]
 
 [tool.coverage.run]
 # issue #294: this base `omit` list is what LOCAL `pytest`/CLAUDE.md-checklist
@@ -261,7 +267,14 @@ source = [
 # `coverage-combine` job (cross-OS aggregate, `--fail-under=90`) does NOT use
 # `.coveragerc.ci` and keeps reading this exact list, so the combined number
 # stays a true aggregate -- no sandbox file is omitted from every job at once.
-source = ["src"]
+# issue #790: `scripts/` измеряется наравне с пакетом. Эти 15 файлов —
+# часть релизного конвейера (сверка версии, генерация .coveragerc.ci, combine
+# покрытия, публикация бейджей), их типизацию mypy уже стережёт, а покрытие не
+# измерялось вовсе: тесты на них есть, но какие ветки они трогают — было
+# неизвестно, а сломанный релизный скрипт обнаруживается в момент релиза.
+# Измеренное покрытие scripts/ на момент включения — 88%, выше общего порога,
+# поэтому отдельный порог не заводится.
+source = ["src", "scripts"]
 omit = [
     "src/stepik_grader/diagnostic_stepik.py",
     # issue #57: pytest-плагин регистрируется как pytest11 entry point и

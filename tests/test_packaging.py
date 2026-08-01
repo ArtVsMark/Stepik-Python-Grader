@@ -112,3 +112,48 @@ def test_python_classifiers_agree_with_requires_python() -> None:
     assert all(v >= floor for v in versions), (
         f"классификаторы обещают версии ниже requires-python={requires_python}: {declared}"
     )
+
+
+# --- измерение покрытия: инварианты конфига (issue #790) ----------------------
+
+
+def _coverage_tables() -> dict[str, dict[str, object]]:
+    """Секции ``[tool.coverage.*]`` и ``[tool.pytest.ini_options]``."""
+    pyproject = pathlib.Path(__file__).parent.parent / "pyproject.toml"
+    with pyproject.open("rb") as f:
+        data = tomllib.load(f)
+    return {
+        "run": data["tool"]["coverage"]["run"],
+        "paths": data["tool"]["coverage"]["paths"],
+        "pytest": data["tool"]["pytest"]["ini_options"],
+    }
+
+
+def test_scripts_are_measured_by_coverage() -> None:
+    """issue #790: ``scripts/`` меряется, а не только проверяется mypy.
+
+    Эти 15 файлов — часть релизного конвейера (сверка версии, генерация
+    ``.coveragerc.ci``, combine покрытия, публикация бейджей). Тесты на них
+    были и раньше, но какие ветки те трогают, никто не знал: измерение шло
+    только по ``src``, и сломанный релизный скрипт обнаружился бы в момент
+    релиза. Инвариант держится тестом, потому что откат — это одна строка в
+    конфиге, которая ничего не ломает и потому проходит незамеченной.
+    """
+    tables = _coverage_tables()
+    assert "scripts" in tables["run"]["source"]
+    assert "--cov=scripts" in tables["pytest"]["addopts"]
+
+
+def test_scripts_paths_alias_declared_for_cross_os_combine() -> None:
+    """issue #790: у ``scripts/`` есть свой aliasing в ``[tool.coverage.paths]``.
+
+    Без него ``coverage combine`` считает один и тот же файл, записанный тремя
+    job'ами матрицы под разными корнями воркспейса, тремя разными файлами — и
+    cross-OS число тихо перестаёт быть агрегатом (ровно то, ради чего в #283
+    заводили aliasing для пакета).
+    """
+    groups = _coverage_tables()["paths"]
+    assert "scripts" in groups, "нет группы путей для scripts/"
+    assert any(str(entry).startswith("*/") for entry in groups["scripts"]), (
+        "в группе нет wildcard-варианта — данные чужих ОС не сольются"
+    )

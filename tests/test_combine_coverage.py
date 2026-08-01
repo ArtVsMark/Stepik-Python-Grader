@@ -14,6 +14,7 @@ import importlib.util
 import pathlib
 from types import ModuleType
 
+import coverage
 import pytest
 
 _SCRIPT = pathlib.Path(__file__).parent.parent / "scripts" / "combine_coverage.py"
@@ -31,10 +32,16 @@ _MODULE = _load_module()
 
 
 def _touch_coverage(artifacts: pathlib.Path, *suffixes: str) -> None:
-    """Создать пустые .coverage.<suffix> файлы (детектору важно лишь имя)."""
+    """Создать .coverage.<suffix> с настоящими данными измерений.
+
+    issue #789: пустышки больше не годятся — детектор проверяет, что файл
+    читается как база coverage и содержит измерения, а не только имя.
+    """
     artifacts.mkdir(parents=True, exist_ok=True)
     for suffix in suffixes:
-        (artifacts / f".coverage.{suffix}").write_text("", encoding="utf-8")
+        data = coverage.CoverageData(basename=str(artifacts / f".coverage.{suffix}"))
+        data.add_lines({f"{suffix}_module.py": [1, 2, 3]})
+        data.write()
 
 
 # --- discover_coverage_files -------------------------------------------------
@@ -46,6 +53,97 @@ def test_discover_coverage_files_lists_suffixes_sorted(tmp_path: pathlib.Path) -
     # Посторонний файл не должен попасть в выборку.
     (art / "notes.txt").write_text("x", encoding="utf-8")
     assert _MODULE.discover_coverage_files(art) == ["sandbox-linux", "ubuntu-latest"]
+
+
+def test_discover_skips_empty_and_broken_artifacts(tmp_path: pathlib.Path) -> None:
+    """issue #789: имени файла мало — пустой и битый артефакт не «данные».
+
+    Оборванная загрузка оставляет файл нулевого размера, частичная — мусор
+    вместо базы SQLite. И то, и другое раньше считалось присутствующим, поэтому
+    строгий cross-OS gate применялся к недосчитанным данным.
+    """
+    art = tmp_path / "coverage-artifacts"
+    _touch_coverage(art, "ubuntu-latest")
+    (art / ".coverage.empty").write_bytes(b"")
+    (art / ".coverage.broken").write_bytes(b"not a database")
+
+    assert _MODULE.discover_coverage_files(art) == ["ubuntu-latest"]
+    assert _MODULE.unusable_files(art) == [
+        ("broken", _MODULE.unusable_reason(art / ".coverage.broken")),
+        ("empty", "файл пуст"),
+    ]
+    assert "не читается" in _MODULE.unusable_reason(art / ".coverage.broken")
+
+
+def test_empty_artifact_degrades_instead_of_failing_gate(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """issue #789 приёмка: пустой артефакт → внятная причина, а не голое падение.
+
+    Замерено до фикса: строгий gate применялся к пустым данным и падал с «No
+    data to report» — сообщение не называло ни файл, ни причину.
+    """
+    art = tmp_path / "coverage-artifacts"
+    _touch_coverage(art, "ubuntu-latest")
+    (art / ".coverage.sandbox-linux").write_bytes(b"")
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(_MODULE, "_run_coverage", lambda a: calls.append(a) or 0)
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+
+    rc = _MODULE.main(
+        ["--artifacts", str(art), "--require", "ubuntu-latest", "--require", "sandbox-linux"]
+    )
+
+    assert rc == 0  # деградация, а не красный job
+    out = capsys.readouterr().out
+    assert ".coverage.sandbox-linux: файл пуст" in out  # названы и файл, и причина
+    assert not any(any(a.startswith("--fail-under") for a in c) for c in calls)
+
+
+def test_total_artifact_loss_degrades_not_fails(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """issue #789: когда не приехал НИ ОДИН артефакт, job не краснеет.
+
+    Найдено прогоном сверх аудита: `coverage combine` на пустом каталоге даёт
+    «No data to combine» и код 1, а он возвращался раньше проверки деградации —
+    то есть полная потеря артефактов роняла job вопреки замыслу, при котором
+    нехватка данных даёт предупреждение.
+    """
+    art = tmp_path / "coverage-artifacts"
+    art.mkdir()
+
+    monkeypatch.setattr(_MODULE, "_run_coverage", lambda a: 1)  # combine не смог
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+
+    rc = _MODULE.main(
+        ["--artifacts", str(art), "--require", "ubuntu-latest", "--require", "sandbox-linux"]
+    )
+
+    assert rc == 0
+
+
+def test_combine_failure_on_complete_data_still_fails(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Контроль к предыдущему: при полных данных сбой combine — настоящая
+    поломка, и код возврата по-прежнему пробрасывается."""
+    art = tmp_path / "coverage-artifacts"
+    _touch_coverage(art, "ubuntu-latest", "sandbox-linux")
+
+    monkeypatch.setattr(_MODULE, "_run_coverage", lambda a: 3 if a[0] == "combine" else 0)
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+
+    rc = _MODULE.main(
+        ["--artifacts", str(art), "--require", "ubuntu-latest", "--require", "sandbox-linux"]
+    )
+
+    assert rc == 3
 
 
 def test_discover_coverage_files_missing_dir_is_empty(tmp_path: pathlib.Path) -> None:
