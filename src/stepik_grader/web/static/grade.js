@@ -799,44 +799,73 @@ async function gradeAsync(path, backendMode, code = null) {
   cancelBtn.disabled = false;
 
   await new Promise(resolve => {
+    // issue #801: тело опроса целиком под try/catch с гарантированным resolve.
+    // Прежде исключение внутри колбэка setTimeout некому было поймать: промис
+    // не резолвился, _finishGradeUI() не вызывался — спиннер крутился вечно,
+    // кнопки оставались заблокированными, а сообщения не было. Единственным
+    // выходом была перезагрузка страницы. Ловим здесь весь класс, а не один
+    // известный случай.
+    const failPoll = (message) => {
+      $("#out").innerHTML = '<p class="msg">' + esc(message) + "</p>";
+      $("#bar").innerHTML = "";
+      cancelBtn.hidden = true;
+      toast(t("common.request_error"), "error");
+      announceResult(message); // issue #298
+      resolve();
+    };
+
     const poll = async () => {
       if (state.activeRunId !== runId) return resolve(); // superseded — stop quietly
       let data;
       try {
         const statusResp = await fetch("/api/v1/runs/" + runId);
         if (state.activeRunId !== runId) return resolve(); // superseded while awaiting
+        // issue #801: не-200 — это не «данные о прогоне». Самый частый случай —
+        // перезапуск `--serve` во время прогона: реестр job'ов живёт в памяти,
+        // поэтому сервер отвечает 404-JSON без поля progress.
+        if (!statusResp.ok) {
+          return failPoll(t("grade.run_lost"));
+        }
         data = await statusResp.json();
       } catch (e) {
         if (state.activeRunId !== runId) return resolve();
-        $("#out").innerHTML = '<p class="msg">' + esc(t("common.request_error_detail", { detail: String(e) })) + "</p>";
-        toast(t("common.request_error"), "error");
-        announceResult(t("common.request_error")); // issue #298
-        return resolve();
+        return failPoll(t("common.request_error_detail", { detail: String(e) }));
       }
-      updateProgressBar(data.progress.done, data.progress.total);
-      if (data.status === "queued" || data.status === "running") {
-        setTimeout(poll, 600);
-        return;
+      try {
+        // issue #801: даже при 200 тело может не содержать progress (чужой
+        // ответ, прокси, будущая версия API) — читать его вслепую нельзя.
+        if (data && data.progress) {
+          updateProgressBar(data.progress.done, data.progress.total);
+        }
+        if (data.status === "queued" || data.status === "running") {
+          setTimeout(poll, 600);
+          return;
+        }
+        cancelBtn.hidden = true;
+        $("#bar").innerHTML = "";
+        if (data.status === "done") {
+          state.lastResult = data.result;
+          render(data.result);
+          updateCheckSidebarBadge(data.result);
+          announceResult(summaryFromResult(data.result)); // issue #298
+        } else if (data.status === "cancelled") {
+          // issue #296: отдельный нейтральный статус — не провал грейдера,
+          // не показываем красным (.msg), как настоящую ошибку.
+          $("#out").innerHTML =
+            '<p class="msg-neutral">' + esc(data.message || t("grade.task_cancelled")) + "</p>";
+          announceResult(data.message || t("grade.run_cancelled")); // issue #298
+        } else {
+          $("#out").innerHTML =
+            '<p class="msg">' + esc(data.message || t("grade.task_failed")) + "</p>";
+          announceResult(data.message || t("grade.task_failed")); // issue #298
+        }
+        resolve();
+      } catch (e) {
+        // issue #801: сбой разбора или рендера результата больше не оставляет
+        // раздел в вечном «идёт проверка» — показываем ошибку и завершаем цикл.
+        if (state.activeRunId !== runId) return resolve();
+        failPoll(t("common.request_error_detail", { detail: String(e) }));
       }
-      cancelBtn.hidden = true;
-      $("#bar").innerHTML = "";
-      if (data.status === "done") {
-        state.lastResult = data.result;
-        render(data.result);
-        updateCheckSidebarBadge(data.result);
-        announceResult(summaryFromResult(data.result)); // issue #298
-      } else if (data.status === "cancelled") {
-        // issue #296: отдельный нейтральный статус — не провал грейдера,
-        // не показываем красным (.msg), как настоящую ошибку.
-        $("#out").innerHTML =
-          '<p class="msg-neutral">' + esc(data.message || t("grade.task_cancelled")) + "</p>";
-        announceResult(data.message || t("grade.run_cancelled")); // issue #298
-      } else {
-        $("#out").innerHTML =
-          '<p class="msg">' + esc(data.message || t("grade.task_failed")) + "</p>";
-        announceResult(data.message || t("grade.task_failed")); // issue #298
-      }
-      resolve();
     };
     poll();
   });
