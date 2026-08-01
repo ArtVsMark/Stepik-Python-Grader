@@ -12,6 +12,7 @@ test_generate_glossary_badge.py и соседи.
 from __future__ import annotations
 
 import importlib.util
+import os
 import pathlib
 import subprocess
 import sys
@@ -46,15 +47,34 @@ _MODULE = _load_module()
 
 
 def _run_source(source: str, tmp_path: pathlib.Path) -> subprocess.CompletedProcess[bytes]:
-    """Выполнить исходник в отдельном процессе и вернуть сырой результат."""
+    """Выполнить исходник в отдельном процессе и вернуть сырой результат.
+
+    Потоки решения принудительно переводятся в UTF-8 — тем же способом, что и в
+    раннерах ядра: без этого кириллица в выводе на Windows-RU уходит в cp1251 и
+    байтовые сравнения ниже ловят кодировку вместо мутации.
+    """
     script = tmp_path / "mutant.py"
     script.write_text(source, encoding="utf-8")
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
     return subprocess.run(
         [sys.executable, str(script)],
         capture_output=True,
         timeout=30,
         check=False,
+        env=env,
     )
+
+
+def _lf(payload: bytes) -> bytes:
+    """Свести CRLF к LF — для вывода, идущего через текстовый ``print``.
+
+    На Windows текстовый ``sys.stdout`` транслирует ``\\n`` в ``\\r\\n``, поэтому
+    точное сравнение байт годится только для мутаций, которые пишут результат в
+    ``sys.stdout.buffer`` сами. Для остальных (и для непорченого эталона)
+    сравниваем с точностью до перевода строки: ядру эта разница безразлична —
+    ``split_output_lines`` разбирает оба варианта одинаково.
+    """
+    return payload.replace(b"\r\n", b"\n")
 
 
 def test_catalog_is_not_empty() -> None:
@@ -113,7 +133,7 @@ def test_syntax_error_mutation_really_breaks_syntax() -> None:
 def test_baseline_sample_output(tmp_path: pathlib.Path) -> None:
     """Опора для остальных проверок вывода: непорченый эталон печатает две строки."""
     result = _run_source(_SAMPLE_SOLUTION, tmp_path)
-    assert result.stdout == "Ответ 3.14\nготово\n".encode()
+    assert _lf(result.stdout) == "Ответ 3.14\nготово\n".encode()
 
 
 @pytest.mark.parametrize(
@@ -125,8 +145,6 @@ def test_baseline_sample_output(tmp_path: pathlib.Path) -> None:
         ("crlf_newlines", "Ответ 3.14\r\nготово\r\n".encode()),
         ("dropped_last_line", "Ответ 3.14\n".encode()),
         ("vertical_tab", "Ответ 3.14\x0bготово\n".encode()),
-        ("extra_line", "corpus mutation\nОтвет 3.14\nготово\n".encode()),
-        ("blank_line_append", "Ответ 3.14\nготово\n\n".encode()),
     ],
 )
 def test_stdout_filter_produces_exact_bytes(
@@ -136,12 +154,37 @@ def test_stdout_filter_produces_exact_bytes(
 
     Проверяются именно байты, а не текст: мутации про переводы строк
     (`crlf_newlines`, `vertical_tab`) осмысленны только на байтовом уровне, и
-    ядро читает вывод решения тоже как байты.
+    ядро читает вывод решения тоже как байты. Сравнение точное и на Windows —
+    эти мутации пишут результат в ``sys.stdout.buffer`` сами, минуя трансляцию
+    переводов строк текстовым потоком.
     """
     mutation = _MODULE.mutation_by_key(key)
     assert mutation is not None
     result = _run_source(mutation.apply(_SAMPLE_SOLUTION), tmp_path)
     assert result.stdout == expected_stdout
+
+
+@pytest.mark.parametrize(
+    ("key", "expected_stdout"),
+    [
+        ("extra_line", "corpus mutation\nОтвет 3.14\nготово\n".encode()),
+        ("blank_line_append", "Ответ 3.14\nготово\n\n".encode()),
+    ],
+)
+def test_print_based_mutations_add_expected_lines(
+    key: str, expected_stdout: bytes, tmp_path: pathlib.Path
+) -> None:
+    """Мутации, дописывающие обычный ``print``, добавляют ровно ожидаемые строки.
+
+    В отличие от соседнего теста сравнение с точностью до перевода строки: эти
+    две мутации не подменяют поток, их вывод идёт через текстовый ``sys.stdout``
+    и на Windows приходит с CRLF. Для вердикта это безразлично — обе строки
+    лишние в любом варианте перевода строки.
+    """
+    mutation = _MODULE.mutation_by_key(key)
+    assert mutation is not None
+    result = _run_source(mutation.apply(_SAMPLE_SOLUTION), tmp_path)
+    assert _lf(result.stdout) == expected_stdout
 
 
 def test_float_noise_perturbs_but_survives_rounding(tmp_path: pathlib.Path) -> None:
