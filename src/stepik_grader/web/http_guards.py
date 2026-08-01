@@ -179,17 +179,56 @@ class _GuardMixin(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _server_port(self) -> int | None:
+        """Порт, на котором сервер реально слушает (``None`` — определить нечем)."""
+        address = getattr(self.server, "server_address", None)
+        if isinstance(address, tuple) and len(address) >= 2 and isinstance(address[1], int):
+            return address[1]
+        return None
+
+    def _authority_is_allowed(self, hostname: str, port: int | None) -> bool:
+        """Проверить пару ``hostname:port`` против петли и порта этого сервера.
+
+        issue #811 (SECW-01): раньше сверялся ТОЛЬКО hostname, и страница на
+        ``http://localhost:9999`` (чужой dev-сервер, Jupyter, любое локальное
+        приложение) проходила гард к грейдеру на другом порту — проверено
+        прогоном: ``POST /api/v1/runs`` с таким Origin отвечал 202 и исполнял
+        произвольный Python. Браузер такой запрос считает ``same-site``, а
+        резался только ``cross-site``.
+
+        Порт из заголовка обязан совпадать с портом биндинга. Отсутствующий
+        порт (``Host: localhost``) допускается лишь если сервер и правда на 80 —
+        иначе это заголовок не про нас.
+        """
+        if hostname not in _ALLOWED_HOSTNAMES:
+            return False
+        actual = self._server_port()
+        if actual is None:  # нестандартный сервер в тестах — как раньше, по hostname
+            return True
+        return (port or 80) == actual
+
     def _host_header_is_allowed(self) -> bool:
         host_header = (self.headers.get("Host") or "").strip().lower()
-        hostname = host_header.split(":", 1)[0]
-        return hostname in _ALLOWED_HOSTNAMES
+        hostname, _, raw_port = host_header.partition(":")
+        try:
+            port = int(raw_port) if raw_port else None
+        except ValueError:
+            return False
+        return self._authority_is_allowed(hostname, port)
 
     def _origin_is_allowed(self) -> bool:
         # issue #399: Fetch Metadata. Браузеры шлют Sec-Fetch-Site на каждый
         # запрос; ``cross-site`` — межсайтовый контекст (в т.ч. если атакующему
         # удалось убрать Origin/Referer) → отклоняем. Не-браузерные клиенты
         # (curl, тесты) заголовок не шлют — их поведение не меняется.
-        if (self.headers.get("Sec-Fetch-Site") or "").strip().lower() == "cross-site":
+        #
+        # issue #811 (SECW-01): ``same-site`` теперь тоже отклоняем. Для
+        # браузера все ``localhost:*`` — один site, поэтому соседнее локальное
+        # приложение слало запросы именно с этим значением; у легитимного
+        # фронта грейдера здесь всегда ``same-origin``, а у прямого перехода по
+        # адресу — ``none``.
+        fetch_site = (self.headers.get("Sec-Fetch-Site") or "").strip().lower()
+        if fetch_site in ("cross-site", "same-site"):
             return False
         value = self.headers.get("Origin") or self.headers.get("Referer")
         if not value:
@@ -203,8 +242,10 @@ class _GuardMixin(BaseHTTPRequestHandler):
             # без Fetch Metadata, подавивший Referer; на сервере эта эвристика
             # всё равно заменяется полноценной аутентификацией (эпик #621).
             return True
-        hostname = (urlparse(value).hostname or "").lower()
-        return hostname in _ALLOWED_HOSTNAMES
+        parsed_origin = urlparse(value)
+        return self._authority_is_allowed(
+            (parsed_origin.hostname or "").lower(), parsed_origin.port
+        )
 
     def _read_json_body(self, lang: str = DEFAULT_LANG) -> dict[str, Any] | None:
         """Читает и валидирует JSON-тело POST-запроса.

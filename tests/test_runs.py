@@ -538,3 +538,85 @@ class TestShutdownJobs:
         sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
         job = runs.submit_job("tests", sol, {"lang": "ru"})
         assert _poll_until_terminal(job.id)["status"] == "done"
+
+
+class TestRegistryCap:
+    """issue #811 (SECW-03): у реестра job'ов есть потолок, не только TTL.
+
+    Back-pressure (`max_active_runs`) считает лишь нетерминальные job'ы, поэтому
+    цикл КОРОТКИХ прогонов его не трогал вовсе: замерено прогоном — 30
+    последовательных playground-запусков оставили 21 запись при нуле активных.
+    Каждая держит результат (до 100 000 символов вывода) все 15 минут TTL.
+    """
+
+    def _fill(self, count: int, *, terminal: bool = True) -> list[runs.Job]:
+        made = []
+        for i in range(count):
+            job = runs.Job(f"filler-{i}", "tests")
+            if terminal:
+                job.status = "done"  # проставляет completed_at
+            runs._JOBS[job.id] = job
+            made.append(job)
+        return made
+
+    def test_overflow_evicts_oldest_finished(self) -> None:
+        with runs._JOBS_LOCK:
+            runs._JOBS.clear()
+            jobs = self._fill(runs._JOBS_MAX_ENTRIES + 10)
+            # Порядок завершения: filler-0 самый старый (completed_at меньше).
+            for age, job in enumerate(jobs):
+                job.completed_at = float(age)
+            runs._evict_overflow_locked()
+            remaining = set(runs._JOBS)
+        assert len(remaining) == runs._JOBS_MAX_ENTRIES
+        # Вытеснены ровно самые давно завершённые, свежие результаты остались.
+        assert "filler-0" not in remaining
+        assert "filler-9" not in remaining
+        assert "filler-10" in remaining
+        with runs._JOBS_LOCK:
+            runs._JOBS.clear()
+
+    def test_active_jobs_are_never_evicted(self) -> None:
+        """Активную job удалять нельзя — это осиротило бы работающий воркер."""
+        with runs._JOBS_LOCK:
+            runs._JOBS.clear()
+            self._fill(runs._JOBS_MAX_ENTRIES + 5)
+            for age, job in enumerate(runs._JOBS.values()):
+                job.completed_at = float(age)
+            active = runs.Job("active-one", "tests")
+            active.status = "running"  # completed_at остаётся None
+            runs._JOBS[active.id] = active
+            runs._evict_overflow_locked()
+            remaining = set(runs._JOBS)
+        assert "active-one" in remaining
+        assert len(remaining) == runs._JOBS_MAX_ENTRIES
+        with runs._JOBS_LOCK:
+            runs._JOBS.clear()
+
+    def test_short_runs_do_not_grow_registry_past_cap(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Сквозная проверка: цикл коротких прогонов не растит реестр за потолок.
+
+        Пул подменён синхронным: прогон завершается до возврата из
+        ``submit_job`` — как и настоящий короткий playground-запуск к моменту
+        следующего POST'а. Иначе сработал бы back-pressure по активным, а
+        проверяем мы именно накопление ТЕРМИНАЛЬНЫХ записей, которых он не
+        видит.
+        """
+        with runs._JOBS_LOCK:
+            runs._JOBS.clear()
+
+        class _SyncPool:
+            def submit(self, fn, *args, **kwargs):
+                fn(*args, **kwargs)
+                return None
+
+        monkeypatch.setattr(runs, "_get_executor", _SyncPool)
+        monkeypatch.setattr(runs, "_run_job", lambda job, *a, **k: setattr(job, "status", "done"))
+        sol = _make_task(tmp_path, "print(1)\n")
+        for _ in range(runs._JOBS_MAX_ENTRIES + 25):
+            runs.submit_job("tests", sol, {"lang": "ru"})
+        assert len(runs._JOBS) <= runs._JOBS_MAX_ENTRIES
+        with runs._JOBS_LOCK:
+            runs._JOBS.clear()

@@ -158,6 +158,16 @@ class _Handler(_ApiRoutesMixin):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/":
+            # issue #811 (SECW-06): страница несёт АБСОЛЮТНЫЙ путь рабочей
+            # директории (а с ним имя пользователя ОС) и флаг наличия
+            # OS-изоляции, поэтому Host-гард нужен и здесь. Прежде он стоял
+            # только на /api/*: `curl -H 'Host: evil.example' /` отдавал 200 с
+            # этими данными — при DNS-rebinding чужая страница узнавала их, не
+            # трогая API. Проверяется только Host (не Origin/Referer): корневую
+            # страницу открывают прямым переходом, где Origin отсутствует.
+            if not self._host_header_is_allowed():
+                self._send(403, "text/plain; charset=utf-8", b"invalid host")
+                return
             # issue #565: инжектим флаги режима в data-атрибуты <body>, фронт
             # читает их для баннера OS-изоляции и статуса истории.
             # issue #660: онбординг показывается при первом заходе — флаг живёт в

@@ -211,5 +211,8 @@
   "dialog_pick_dir": "Выберите папку с решениями",
   "vscode_written": "✅ VS Code задачи созданы: {path}\n   Запуск: Terminal → Run Task → «Stepik: …»,\n   либо Ctrl+Shift+B — «проверить текущий файл».",
   "vscode_exists": "⚠️ Файл уже существует: {path}\n   Удалите/переименуйте его, чтобы пересоздать, или добавьте задачи вручную (см. README).",
-  "bench_skipped_not_ac": "не прошёл проверку: {passed} из {total} (первый провал: {verdict})"
+  "bench_skipped_not_ac": "не прошёл проверку: {passed} из {total} (первый провал: {verdict})",
+  "source_not_a_solution": "Показ исходника доступен только для файлов решений (.py); запрошено: {name}",
+  "secrets_path_not_json": "Путь к secrets.json должен указывать на .json-файл; получено: {name}",
+  "secrets_path_occupied": "Файл {name} уже существует и не похож на secrets.json — перезапись отклонена, чтобы не затереть чужие данные."
 }
