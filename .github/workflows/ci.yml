@@ -13,9 +13,9 @@ jobs:
   docs-guardrails:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: README line-budget + Markdown link-check
@@ -73,7 +73,7 @@ jobs:
             experimental: true
 
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # issue #162: динамическая версия (setuptools-scm) вычисляется из git-тегов.
         # fetch-depth: 0 подтягивает полную историю + теги, иначе pip install -e .
         # не сможет определить версию, а check_version_consistency.py — baseline.
@@ -81,7 +81,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -152,7 +152,7 @@ jobs:
 
       - name: Upload coverage data (issue #283)
         if: matrix.python-version == '3.12' && matrix.experimental == false
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-${{ matrix.os }}
           path: .coverage.${{ matrix.os }}
@@ -169,7 +169,7 @@ jobs:
           matrix.os == 'ubuntu-latest' &&
           matrix.python-version == '3.12' &&
           matrix.experimental == false
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-xml-ubuntu
           path: coverage.xml
@@ -198,14 +198,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # issue #162: version badge needs full history + tags (same reasoning
         # as the old badge step this job replaces).
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -216,7 +216,7 @@ jobs:
         run: pip install coverage -e .
 
       - name: Download coverage data from all OS jobs
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: coverage-data-*
           path: coverage-artifacts
@@ -226,7 +226,7 @@ jobs:
       # чтобы combine ниже не перезаписал его своим общим coverage.xml.
       - name: Download ubuntu coverage.xml (issue #808)
         if: github.event_name == 'push'
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
         with:
           name: coverage-xml-ubuntu
@@ -312,7 +312,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # issue #162: setuptools-scm needs full history + tags to resolve
         # the package version during `pip install -e .` (same reasoning as
         # the `test` job above).
@@ -320,7 +320,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -343,7 +343,7 @@ jobs:
       # Cache Chromium's downloaded binary (~100+ MB) across runs.
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ steps.pw.outputs.version }}
@@ -389,7 +389,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends git bubblewrap
 
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -418,7 +418,7 @@ jobs:
         run: mv .coverage .coverage.sandbox-linux
 
       - name: Upload coverage data (#420)
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-data-sandbox-linux
           path: .coverage.sandbox-linux
@@ -437,11 +437,11 @@ jobs:
     steps:
       # fetch-depth: 0 — setuptools-scm вычисляет версию из git-истории+тегов при
       # pip install . (иначе сборка пакета падает без .git).
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: Install package (runtime deps) + pip-audit
