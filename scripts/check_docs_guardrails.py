@@ -105,6 +105,24 @@ _EXTERNAL_RE = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|//|#?mailto)", re.IGNORECASE)
 _CHANGELOG_VERSION_RE = re.compile(r"^## \[\d+\.\d+\.\d+\]")
 
 
+def _index_link_re(name: str) -> re.Pattern[str]:
+    """Регекс inline-ссылки на ``name`` из индекса того же каталога (issue #788).
+
+    Прежде индекс проверялся подстрокой ``name in index_text`` — а имя, которое
+    является хвостом другого упомянутого имени, проходило проверку без всякой
+    ссылки. Такая пара в репозитории есть: ``audit-2026-07-15.md`` целиком
+    входит в ``issue-audit-2026-07-15.md``, поэтому удаление строки про первый
+    guard бы не заметил — ровно тот регресс, ради которого он написан. Голое
+    упоминание в бэктиках (``` `file.md` ```) тоже больше не считается
+    индексацией: из навигации по нему не перейти.
+
+    Учитываются формы, встречающиеся в индексах: ``](name.md)``,
+    ``](./name.md)``, ``](name.md#anchor)`` и CommonMark-вариант в угловых
+    скобках.
+    """
+    return re.compile(r"\]\(<?\.?/?" + re.escape(name) + r">?[)#\s]")
+
+
 def collect_markdown_files() -> list[Path]:
     """Все Markdown-файлы под контролем: корневые ``*.md`` + ``docs/**/*.md``."""
     files = sorted(_ROOT.glob("*.md"))
@@ -225,11 +243,20 @@ def check_docs_index_completeness(errors: list[str]) -> None:
             if md.name == "README.md":
                 continue
             checked += 1
-            if md.name not in index_text:
-                errors.append(
-                    f"{idx_rel}: '{md.name}' exists in {d.relative_to(_ROOT)}/ but is not "
-                    "referenced in the navigation index (issue #300/#562)."
-                )
+            if _index_link_re(md.name).search(index_text):
+                continue
+            # issue #788: различаем «файла нет вовсе» и «упомянут, но ссылки
+            # нет» — второе типично после рефакторинга индекса, и подсказка
+            # экономит поиск глазами.
+            hint = (
+                " (name appears in the text, but not as a link — indexing means a clickable entry)"
+                if md.name in index_text
+                else ""
+            )
+            errors.append(
+                f"{idx_rel}: '{md.name}' exists in {d.relative_to(_ROOT)}/ but is not "
+                f"linked from the navigation index{hint} (issue #300/#562/#788)."
+            )
     print(f"docs/ index: checked {checked} file(s) against per-directory README indexes.")
 
 

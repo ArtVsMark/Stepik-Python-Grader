@@ -136,6 +136,58 @@ def test_unindexed_docs_file_is_flagged(tmp_path, monkeypatch) -> None:
     assert any("orphan.md" in e for e in errors), errors
 
 
+def test_name_masked_by_longer_name_is_flagged(tmp_path, monkeypatch) -> None:
+    """issue #788 приёмка: имя-хвост другого имени больше не «покрывает» файл.
+
+    Подстрочная проверка засчитывала `api.md` как проиндексированный, если в
+    индексе упомянут `web-api.md`. Такая пара в репозитории реальная —
+    `audit-2026-07-15.md` целиком входит в `issue-audit-2026-07-15.md`, — то
+    есть выпадение документа из навигации guard бы не заметил, ровно тот
+    регресс, ради которого он написан.
+    """
+    module = _load_module()
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "README.md").write_text("[web api](web-api.md)\n", encoding="utf-8")
+    (docs / "web-api.md").write_text("# Web API\n", encoding="utf-8")
+    (docs / "api.md").write_text("# API\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_index_completeness(errors)
+    assert any("'api.md'" in e for e in errors), errors
+    assert not any("'web-api.md'" in e for e in errors), errors
+
+
+def test_mention_without_link_is_flagged_with_hint(tmp_path, monkeypatch) -> None:
+    """Упоминание в бэктиках — не индексация: из навигации по нему не перейти."""
+    module = _load_module()
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "README.md").write_text("Смотри `setup.md` где-то рядом.\n", encoding="utf-8")
+    (docs / "setup.md").write_text("# Setup\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_index_completeness(errors)
+    assert len(errors) == 1
+    assert "not as a link" in errors[0], errors  # подсказка отличает случай от «нет вовсе»
+
+
+def test_link_forms_accepted(tmp_path, monkeypatch) -> None:
+    """Формы ссылок, встречающиеся в индексах: с `./`, с якорем, в угловых скобках."""
+    module = _load_module()
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "README.md").write_text(
+        "[a](./a.md) · [b](b.md#section) · [c](<c.md>)\n", encoding="utf-8"
+    )
+    for name in ("a.md", "b.md", "c.md"):
+        (docs / name).write_text("# Doc\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_docs_index_completeness(errors)
+    assert errors == []
+
+
 def test_subdir_file_checked_against_its_own_index(tmp_path, monkeypatch) -> None:
     """Рекурсия #562: docs/dev/adr/*.md проверяется против adr/README.md (не против
     docs/README.md); упомянутый в своём индексе файл → без ошибок."""
