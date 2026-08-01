@@ -43,7 +43,7 @@ from stepik_grader.web.viewmodels import (
     grade_path,
 )
 
-__all__ = ["Job", "TooManyRunsError", "cancel_job", "get_job", "submit_job"]
+__all__ = ["Job", "TooManyRunsError", "cancel_job", "get_job", "shutdown_jobs", "submit_job"]
 
 # issue #262 добавил ровно 4 статуса ("cancelled" сообщался как status="error"
 # + message_id="run_cancelled"); issue #296 выделяет отмену в отдельный
@@ -131,6 +131,34 @@ def _get_executor() -> ThreadPoolExecutor:
             if _executor is None:
                 _executor = ThreadPoolExecutor(max_workers=max(1, CONFIG.job_workers))
     return _executor
+
+
+def shutdown_jobs(*, wait: bool = False) -> None:
+    """Погасить активные прогоны и остановить пул воркеров (issue #806).
+
+    Вызывается при остановке сервера (``serve()`` в ``finally``). Без этого
+    Ctrl+C печатал «сервер остановлен», а процесс продолжал висеть: воркеры
+    ``ThreadPoolExecutor`` не daemon, и atexit-хук ``concurrent.futures``
+    join'ит их до конца текущего прогона (замерено: ~8 с на одном прогоне до
+    таймаута, дольше — на bench с ``repeats``).
+
+    Сначала взводится ``cancel_event`` каждой нетерминальной job'ы — тот же
+    best-effort механизм, что у ``cancel_job``: дочерний процесс убивает
+    поллинг раннера, и воркер освобождается почти сразу. Затем пул закрывается
+    с ``cancel_futures=True`` — очередь ещё не начатых job'ов не запускается.
+    ``wait=False`` по умолчанию: мы гасим прогоны, а не дожидаемся их.
+    """
+    global _executor
+    with _JOBS_LOCK:
+        jobs = list(_JOBS.values())
+    for job in jobs:
+        with job.lock:
+            if job.status not in _TERMINAL_STATUSES:
+                job.cancel_event.set()
+    with _executor_lock:
+        executor, _executor = _executor, None
+    if executor is not None:
+        executor.shutdown(wait=wait, cancel_futures=True)
 
 
 def _sweep_expired_locked() -> None:

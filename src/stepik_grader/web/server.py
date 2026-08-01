@@ -24,6 +24,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 from stepik_grader.core import user_settings
+from stepik_grader.web import runs
 from stepik_grader.web.api_routes import _ApiRoutesMixin
 from stepik_grader.web.http_guards import (
     _lang_from_query,
@@ -262,3 +263,7 @@ def run_server(
         print(render_message("server_stopped"))
     finally:
         server.server_close()
+        # issue #806: пул job'ов надо гасить явно. Его воркеры не daemon, и без
+        # этого atexit-хук concurrent.futures join'ил их уже ПОСЛЕ «сервер
+        # остановлен» — процесс молча висел до конца текущего прогона.
+        runs.shutdown_jobs()
