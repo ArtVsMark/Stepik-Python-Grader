@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -46,8 +47,12 @@ def test_lost_run_shows_error_and_unlocks_ui(page: Any, e2e_server: str, tmp_pat
     page.click('.mode-btn[data-mode="tests"]')
     page.click("#run")
 
-    # 1) Пользователь видит, что произошло, и знает следующий шаг.
-    expect(page.locator("#out")).to_contain_text("сервер", timeout=_TIMEOUT_MS)
+    # 1) Пользователь видит, что произошло, и знает следующий шаг. Язык
+    # интерфейса берётся из браузера, а он на CI-раннере английский — поэтому
+    # ищем слово в обеих локалях, а не в той, что стоит на машине автора.
+    expect(page.locator("#out")).to_contain_text(
+        re.compile(r"сервер|server", re.IGNORECASE), timeout=_TIMEOUT_MS
+    )
 
     # 2) Интерфейс разблокирован — можно запустить проверку снова, не
     # перезагружая страницу. Это и есть суть issue: раньше кнопка оставалась
