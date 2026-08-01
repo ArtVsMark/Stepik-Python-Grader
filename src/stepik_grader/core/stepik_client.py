@@ -60,6 +60,7 @@ __all__ = [
     "fetch_discussion_threads",
     "fetch_lesson_data",
     "fetch_section_data",
+    "fetch_section_units",
     "fetch_step_data",
     "fetch_step_languages",
     "fetch_submission_data",
@@ -608,6 +609,19 @@ def fetch_section_data(session: requests.Session, section_id: int) -> dict[str, 
     if not sections:
         raise ValueError(f"Секция {section_id} не найдена")
     return sections[0]
+
+
+def fetch_section_units(session: requests.Session, section_id: int) -> list[dict[str, Any]]:
+    """Возвращает юниты секции — связку «секция → уроки».
+
+    ``fetch_unit_data`` умеет искать юнит по уже известному ``lesson_id``, но
+    обход курса идёт в обратную сторону: курс → секции → юниты → уроки, и
+    ``lesson_id`` как раз добывается из юнита (поле ``lesson``). Пустой список —
+    не ошибка: секция без юнитов бывает у черновиков и скрытых модулей.
+    """
+    data = _cached_api_get(session, f"{API_HOST}/api/units", params={"section": section_id})
+    units: list[dict[str, Any]] = data.get("units", [])
+    return units
 
 
 def fetch_course_data(session: requests.Session, course_id: int) -> dict[str, Any]:

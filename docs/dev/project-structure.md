@@ -113,7 +113,9 @@ Stepik-Python-Grader/
 │   └── tasks/<slug>/          # task_1.py (эталон) + tests/ + meta.json; только свои условия
 ├── scripts/                   # Dev-инструменты: бейджи, guard'ы CI, прогонный корпус
 │   ├── corpus_run.py          # Стенд: эталон + мутации → сверка вердикта с ожидаемым
-│   └── corpus_mutations.py    # Каталог детерминированных мутаций решения
+│   ├── corpus_mutations.py    # Каталог детерминированных мутаций решения
+│   ├── corpus_sweep.py        # Сквозной прогон подсистем по локальной базе (docs/agent/local-sweep.md)
+│   └── corpus_fetch.py        # Сбор локальной базы: обход курса Stepik → downloader
 ├── docs/                      # База знаний (архитектура, структура, версии)
 ├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.12/3.13/3.14
 ├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
