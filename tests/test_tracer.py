@@ -217,6 +217,41 @@ def test_run_trace_records_exception_in_process() -> None:
     assert result["steps"]  # хотя бы один шаг до падения
 
 
+def test_run_trace_reports_syntax_error_as_result(capsys) -> None:
+    """issue #806: битый синтаксис — штатный ``error``, а не исключение наружу.
+
+    Компиляция стояла после подмены ``sys.stdout`` и вне ``try/finally``:
+    SyntaxError улетал из ``run_trace``, оставляя stdout процесса подменённым
+    на буфер, а в subprocess'е падал сам bootstrap — пользователь песочницы
+    получал ``TraceError`` с обрезанным трейсбеком по внутренним файлам
+    грейдера вместо номера своей строки.
+    """
+    before = sys.stdout
+    result = t.run_trace("x = 1\nif x = 2:\n    pass\n", "solution.py", max_steps=100)
+
+    assert result["error"]["type"] == "SyntaxError"
+    assert "line 2" in result["error"]["message"]  # ученику видно, ГДЕ сломано
+    assert result["steps"] == []
+    assert sys.stdout is before  # stdout процесса не остался подменённым
+
+    # Контроль подмены: печать после вызова идёт туда же, куда шла до него.
+    print("после трейса")
+    assert "после трейса" in capsys.readouterr().out
+
+
+def test_run_trace_reports_null_byte_source_as_result() -> None:
+    """issue #806: NUL-байты в исходнике тоже становятся полем ``error``.
+
+    Класс исключения тут версионно-зависимый (``ValueError`` в ранних 3.x,
+    ``SyntaxError`` в 3.14) — поэтому ловим оба и проверяем не имя класса, а
+    то, что важно: наружу ничего не улетело и ответ остался контрактным.
+    """
+    result = t.run_trace("x = 1\x00\n", "solution.py", max_steps=10)
+    assert result["error"]["type"] in {"SyntaxError", "ValueError"}
+    assert "null bytes" in result["error"]["message"]
+    assert result["steps"] == []
+
+
 def test_run_trace_restores_previous_trace_hook() -> None:
     # run_trace обязана вернуть прежний sys.gettrace() (не None), иначе она
     # заглушила бы coverage/pdb на остаток процесса (issue #318).

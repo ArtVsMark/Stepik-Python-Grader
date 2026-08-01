@@ -481,3 +481,60 @@ class TestBackPressure:
         assert data["status"] == "error"
         assert data["message_id"] == "run_internal_error"
         assert "boom in grade" in data["message"]
+
+
+class TestShutdownJobs:
+    """issue #806: остановка сервера гасит пул, а не ждёт текущий прогон.
+
+    Воркеры ``ThreadPoolExecutor`` не daemon: без явной остановки atexit-хук
+    ``concurrent.futures`` join'ил их уже ПОСЛЕ печати «сервер остановлен», и
+    процесс молча висел до конца прогона (замерено ~8 с на одном прогоне до
+    таймаута; на bench с ``repeats`` — дольше).
+    """
+
+    def test_cancels_active_jobs_and_drops_pool(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        started = threading.Event()
+        saw_cancel: list[bool] = []
+
+        def _blocking(job: runs.Job, *args: object, **kwargs: object) -> None:
+            with job.lock:
+                job.status = "running"
+            started.set()
+            # Реальный прогон опрашивает cancel_event между кейсами — здесь
+            # воркер ждёт того же сигнала. Досидит до таймаута (False) ⟺ фикс
+            # не сработал.
+            saw_cancel.append(job.cancel_event.wait(10))
+            with job.lock:
+                job.status = "cancelled"
+
+        monkeypatch.setattr(runs, "_run_job", _blocking)
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        job = runs.submit_job("tests", sol, {"lang": "ru"})
+        assert started.wait(10), "воркер не стартовал — тест не о том"
+
+        runs.shutdown_jobs()
+
+        assert job.cancel_event.is_set()
+        assert wait_until(lambda: saw_cancel) == [True], "воркер не увидел отмены"
+        # Пул отпущен: следующий submit_job поднимет свежий, а не упрётся в
+        # «cannot schedule new futures after shutdown».
+        assert runs._executor is None
+
+    def test_terminal_jobs_are_left_alone(self, tmp_path: pathlib.Path) -> None:
+        """Уже завершённую job'у гасить нечего — её cancel_event не трогаем."""
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        job = runs.submit_job("tests", sol, {"lang": "ru"})
+        assert _poll_until_terminal(job.id)["status"] == "done"
+
+        runs.shutdown_jobs()
+
+        assert not job.cancel_event.is_set()
+
+    def test_submit_works_after_shutdown(self, tmp_path: pathlib.Path) -> None:
+        """Изоляция для остальных тестов: пул пересоздаётся по требованию."""
+        runs.shutdown_jobs()
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        job = runs.submit_job("tests", sol, {"lang": "ru"})
+        assert _poll_until_terminal(job.id)["status"] == "done"

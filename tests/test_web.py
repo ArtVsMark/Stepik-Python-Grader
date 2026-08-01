@@ -412,6 +412,31 @@ class TestGradeBenchmarkProgressAndCancel:
 
         assert data["rows"] == []
 
+    def test_cancelled_run_with_reference_returns_response(self, tmp_path: pathlib.Path) -> None:
+        """issue #806: отмена + ``reference`` больше не роняет ответ KeyError'ом.
+
+        Резолвер reference'а шёл по ВСЕМ найденным решениям и читал
+        ``results[s]``, тогда как отменённый цикл наполнить ``results`` не
+        успевает. Ожидаемое поведение — тот же тихий fallback, что и для
+        несуществующего reference: ответ отдаётся, ранжирование обычное.
+        """
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "1").write_text("4", encoding="utf-8")
+        (tmp_path / "tests" / "1.clue").write_text("5", encoding="utf-8")
+        (tmp_path / "task1_1.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+        (tmp_path / "task1_2.py").write_text("print(int(input()) + 1)\n", encoding="utf-8")
+
+        cancel_event = threading.Event()
+        cancel_event.set()
+        data = web.grade_benchmark(
+            tmp_path, repeats=2, reference="task1_2.py", cancel_event=cancel_event
+        )
+
+        assert data["rows"] == []
+        assert data["kind"] != "error"
+        # reference не прогрет — значит и не выбран: ни исходника, ни имени.
+        assert "reference_file" not in data
+
 
 class TestEstimateRunCount:
     def test_bench_multiplies_cases_by_repeats(self, tmp_path: pathlib.Path) -> None:
@@ -2582,6 +2607,33 @@ class TestRunServerSandbox:
             assert isinstance(grader_core._RUNNER, _FakeSandboxRunner)
         finally:
             grader_core.set_runner(original)
+
+    def test_stop_shuts_down_job_pool(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """issue #806: остановка сервера гасит пул job'ов, а не оставляет его
+        atexit-хуку — иначе Ctrl+C печатал «сервер остановлен», а процесс висел
+        до конца текущего прогона. Поведение самого ``shutdown_jobs`` покрыто в
+        tests/test_runs.py; здесь важно, что ``run_server`` его зовёт — и зовёт
+        в ``finally``, то есть и при обычном Ctrl+C, и при падении сервера."""
+        from stepik_grader.web import runs as runs_mod
+        from stepik_grader.web import server as server_mod
+
+        class _FakeServer:
+            def __init__(self, *a: object, **k: object) -> None:
+                pass
+
+            def serve_forever(self) -> None:
+                raise KeyboardInterrupt
+
+            def server_close(self) -> None:
+                pass
+
+        calls: list[bool] = []
+        monkeypatch.setattr(server_mod, "_GraderServer", _FakeServer)
+        monkeypatch.setattr(runs_mod, "shutdown_jobs", lambda: calls.append(True))
+
+        server_mod.run_server(port=0)
+
+        assert calls == [True]
 
     def test_sandbox_unavailable_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """SandboxUnavailableError (нет backend'а) пробрасывается вызывающему
