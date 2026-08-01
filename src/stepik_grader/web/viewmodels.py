@@ -885,11 +885,18 @@ def grade_benchmark(
     ref_path = None
     if reference:
         ref_name = pathlib.Path(reference).name
+        # issue #806: `s in results` обязателен — при отмене (cancel_event) цикл
+        # выше прерывается, и часть решений в results вообще не попадает.
+        # Прежний `results[s]` ронял ответ KeyError'ом, если reference —
+        # непрогретое решение; теперь это просто «не резолвится», то есть тот
+        # же тихий fallback на обычное ранжирование, что и для чужого файла.
         ref_path = next(
             (
                 s
                 for s in solutions
-                if (str(s) == reference or s.name == ref_name) and not results[s].get("error")
+                if (str(s) == reference or s.name == ref_name)
+                and s in results
+                and not results[s].get("error")
             ),
             None,
         )

@@ -370,32 +370,84 @@ async function fetchCodeTerms(body) {
   }
 }
 
+// issue #806: сетевой сбой должен выглядеть как сбой. Загрузчики разделов
+// ловили любую ошибку в пустой список, и «Подучить» рапортовал «Пока пусто — и
+// это отлично 🎉» на упавшем сервере: пользователь считал отсутствие данных
+// нормой. Здесь — общий фетч, который отличает не-200 от пустых данных, и
+// баннер ошибки с кнопкой «Повторить» вместо жизнерадостной пустоты.
+async function fetchJsonOrThrow(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  return resp.json();
+}
+
+/**
+ * Показать «не загрузилось» с кнопкой повтора вместо пустого состояния (#806).
+ *
+ * Сбой сети и «данных действительно нет» — разные вещи, и рисовать их одинаково
+ * нельзя: раздел «Подучить» на упавшем сервере рапортовал «Пока пусто — и это
+ * отлично 🎉». Блок вставляется РЯДОМ с якорем, а не внутрь него: разметка
+ * пустого состояния (`#insights-empty`, `#progress-empty`) статична и живёт в
+ * шаблоне — затерев её innerHTML, вернуть текст после «Повторить» было бы
+ * нечем.
+ *
+ * @param {Element|null} anchor — элемент, после которого встанет блок ошибки
+ * @param {Function} [onRetry] — обработчик кнопки «Повторить»
+ */
+function renderLoadError(anchor, onRetry) {
+  if (!anchor || !anchor.parentNode) return;
+  clearLoadError(anchor);
+  const box = document.createElement("div");
+  box.className = "msg";
+  box.dataset.loadError = "";
+  box.innerHTML =
+    esc(t("common.load_failed")) +
+    ' <button type="button" class="btn btn-secondary btn-sm" data-retry>' +
+    esc(t("common.retry")) +
+    "</button>";
+  anchor.parentNode.insertBefore(box, anchor.nextSibling);
+  const btn = box.querySelector("[data-retry]");
+  if (btn && typeof onRetry === "function") btn.addEventListener("click", onRetry);
+}
+
+/** Убрать блок ошибки загрузки рядом с ``anchor``, если он там есть (#806). */
+function clearLoadError(anchor) {
+  if (!anchor || !anchor.parentNode) return;
+  anchor.parentNode.querySelectorAll(":scope > [data-load-error]").forEach(el => el.remove());
+}
+
 function renderTermCards(terms) {
+  // issue #806: параметр называется `term`, а НЕ `t` — иначе он затеняет
+  // функцию перевода, и вызов `t("terms.no_card")` ниже падает TypeError
+  // («t is not a function») на первом же термине без карточки. Панель
+  // «Функции в коде» при этом переставала рисоваться целиком.
   return terms
-    .map(t => {
-      const kind = t.kind ? '<span class="term-card-kind">' + esc(t.kind) + "</span>" : "";
-      if (!t.has_card) {
+    .map(term => {
+      const kind = term.kind
+        ? '<span class="term-card-kind">' + esc(term.kind) + "</span>"
+        : "";
+      if (!term.has_card) {
         // концепция без карточки — приглушённо, без ссылки (открывать нечего)
         return (
           '<li class="term-card term-card-nocard"><span class="term-card-link">' +
           '<span class="term-card-title">' +
-          esc(t.title) +
+          esc(term.title) +
           "</span>" +
           kind +
           '<span class="term-card-summary hint">' + esc(t("terms.no_card")) + "</span></span></li>"
         );
       }
-      const uncertain = t.confidence === "low" ? " term-card-uncertain" : "";
-      const summary = t.summary
-        ? '<span class="term-card-summary">' + esc(t.summary) + "</span>"
+      const uncertain = term.confidence === "low" ? " term-card-uncertain" : "";
+      const summary = term.summary
+        ? '<span class="term-card-summary">' + esc(term.summary) + "</span>"
         : "";
       return (
         '<li class="term-card' +
         uncertain +
         '"><a class="term-card-link" href="#/glossary/' +
-        encodeURIComponent(t.id) +
+        encodeURIComponent(term.id) +
         '"><span class="term-card-title">' +
-        esc(t.title) +
+        esc(term.title) +
         "</span>" +
         kind +
         summary +
@@ -708,6 +760,9 @@ export {
   skeletonBlock,
   skeletonListItems,
   skeletonWithLabel,
+  clearLoadError,
+  fetchJsonOrThrow,
+  renderLoadError,
   state,
   stripAnsi,
   syncLangButtons,

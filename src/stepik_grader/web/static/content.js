@@ -1,10 +1,13 @@
 // content.js — глоссарий, правила (PEP), «Подучить» (hash-навигация, #426).
 import {
   $,
+  clearLoadError,
   esc,
+  fetchJsonOrThrow,
   getSelectedCase,
   kpiGrid,
   registerSectionHook,
+  renderLoadError,
   setSection,
   state,
   t,
@@ -59,10 +62,11 @@ async function loadGlossary() {
   if (g.group) params.set("group", g.group);
   params.set("lang", state.lang); // issue #363: язык summary/body карточек
   try {
-    const r = await fetch("/api/glossary?" + params);
-    g.cards = await r.json();
+    g.cards = await fetchJsonOrThrow("/api/glossary?" + params);
+    g.failed = false;
   } catch (e) {
     g.cards = [];
+    g.failed = true;  // issue #806: сбой ≠ «Ничего не найдено»
   }
   // Карта разделов/семейств и общий счётчик — из первой невыбранной загрузки.
   if (!g.sections.length && !g.query && !g.section && !g.kind && !g.group) {
@@ -310,6 +314,12 @@ function updateGlossarySidebarBadge() {
 
 function renderGlossaryList() {
   const el = $("#glossary-cards");
+  clearLoadError(el);
+  if (state.glossary.failed) {
+    el.innerHTML = ""; // issue #806: сбой ≠ «ничего не найдено»
+    renderLoadError(el, loadGlossary);
+    return;
+  }
   if (!state.glossary.cards.length) {
     el.innerHTML = '<li class="empty">' + esc(t("common.nothing_found")) + "</li>";
     return;
@@ -463,10 +473,11 @@ async function loadRules() {
   if (r.query) params.set("q", r.query);
   if (r.tag) params.set("tag", r.tag);
   try {
-    const resp = await fetch("/api/rules?" + params);
-    r.cards = await resp.json();
+    r.cards = await fetchJsonOrThrow("/api/rules?" + params);
+    r.failed = false;
   } catch (e) {
     r.cards = [];
+    r.failed = true;  // issue #806: не выдаём сбой за «ничего не найдено»
   }
   renderRulesChips();
   renderRulesList();
@@ -477,9 +488,16 @@ async function loadRules() {
 function renderRulesChips() {
   const el = $("#rules-chips");
   if (!el) return;
-  el.innerHTML = RULE_TAGS.map(t => {
-    const active = state.rules.tag === t ? " active" : "";
-    return '<button type="button" class="chip' + active + '" data-tag="' + esc(t) + '">' + esc(t) + "</button>";
+  // issue #806: параметр `tag`, а не `t` — не затеняем функцию перевода.
+  // Здесь она пока не вызывается, но первая же будущая строка с t() упала бы
+  // ровно так же, как это случилось в renderTermCards.
+  el.innerHTML = RULE_TAGS.map(tag => {
+    const active = state.rules.tag === tag ? " active" : "";
+    return (
+      '<button type="button" class="chip' + active + '" data-tag="' + esc(tag) + '">' +
+      esc(tag) +
+      "</button>"
+    );
   }).join("");
   el.querySelectorAll(".chip").forEach(b =>
     b.addEventListener("click", () => {
@@ -492,6 +510,12 @@ function renderRulesChips() {
 function renderRulesList() {
   const el = $("#rules-cards");
   if (!el) return;
+  clearLoadError(el);
+  if (state.rules.failed) {
+    el.innerHTML = ""; // issue #806
+    renderLoadError(el, loadRules);
+    return;
+  }
   if (!state.rules.cards.length) {
     el.innerHTML = '<li class="empty">' + esc(t("common.nothing_found")) + "</li>";
     return;
@@ -565,11 +589,15 @@ const INSIGHT_STATUS = {
 };
 
 async function loadInsights() {
+  // issue #806: сбой отличается от «данных пока нет». Раньше любая ошибка
+  // превращалась в пустой список, и раздел рапортовал «Пока пусто — и это
+  // отлично 🎉» на упавшем сервере.
   try {
-    const r = await fetch("/api/insights");
-    state.insights.cards = await r.json();
+    state.insights.cards = await fetchJsonOrThrow("/api/insights");
+    state.insights.failed = false;
   } catch (e) {
     state.insights.cards = [];
+    state.insights.failed = true;
   }
   renderInsights();
   updateInsightsBadge();
@@ -580,6 +608,15 @@ function renderInsights() {
   const list = $("#insights-cards");
   if (!list) return;
   const cards = state.insights.cards;
+  clearLoadError(list);
+  if (state.insights.failed) {
+    // issue #806: «Пока пусто — и это отлично 🎉» на упавшем сервере читалось
+    // как «ошибок у тебя нет», хотя данных просто не дошло.
+    empty.hidden = true;
+    list.hidden = true;
+    renderLoadError(list, loadInsights);
+    return;
+  }
   empty.hidden = cards.length > 0;
   list.hidden = cards.length === 0;
   list.innerHTML = cards
@@ -612,11 +649,13 @@ function updateInsightsBadge() {
 // -- Прогресс: агрегатный отчёт из истории (issue #538) -----------------------
 
 async function loadProgress() {
+  // issue #806: см. loadInsights — «Пока пусто 📊» на сбое вводило в заблуждение.
   try {
-    const r = await fetch("/api/progress");
-    state.progress.report = await r.json();
+    state.progress.report = await fetchJsonOrThrow("/api/progress");
+    state.progress.failed = false;
   } catch (e) {
     state.progress.report = null;
+    state.progress.failed = true;
   }
   renderProgress();
 }
@@ -634,6 +673,14 @@ function renderProgress() {
   const content = $("#progress-content");
   if (!content) return;
   const rep = state.progress.report;
+  clearLoadError(content);
+  if (state.progress.failed) {
+    // issue #806: «Пока пусто 📊» вместо честного «не загрузилось».
+    empty.hidden = true;
+    content.hidden = true;
+    renderLoadError(content, loadProgress);
+    return;
+  }
   // Пустая/отсутствующая история → build_progress_report даёт total_runs=0.
   const isEmpty = !rep || !rep.total_runs;
   empty.hidden = !isEmpty;

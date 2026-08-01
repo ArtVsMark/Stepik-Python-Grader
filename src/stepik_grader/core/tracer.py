@@ -274,9 +274,28 @@ def run_trace(
     namespace: dict[str, Any] = {"__name__": "__main__", "__file__": target_file}
     error: dict[str, Any] | None = None
 
+    # issue #806: компиляция — ДО подмены stdout и под своим except. Раньше она
+    # стояла после подмены и вне try/finally: SyntaxError улетал наружу, оставляя
+    # sys.stdout подменённым на буфер (in-process вызов терял весь дальнейший
+    # вывод процесса), а в subprocess'е падал сам bootstrap — и вместо простого
+    # «SyntaxError: … (line 2)» пользователь получал TraceError с обрезанным
+    # трейсбеком по внутренним файлам грейдера. Битый синтаксис — рядовой исход
+    # для ученика, а не сбой трассировщика: отдаём его тем же полем ``error``,
+    # что и рантайм-ошибку. ValueError — код с NUL-байтами (compile отвергает
+    # его не SyntaxError'ом).
+    try:
+        compiled = compile(code, target_file, "exec")
+    except (SyntaxError, ValueError) as exc:
+        return {
+            "steps": [],
+            "stdout": "",
+            "truncated": False,
+            "stdout_truncated": False,
+            "error": {"type": type(exc).__name__, "message": str(exc)},
+        }
+
     real_stdout = sys.stdout
     sys.stdout = stdout_buf
-    compiled = compile(code, target_file, "exec")
     prev_trace = sys.gettrace()  # обычно None; под coverage/pdb — их CTracer/хук
     sys.settrace(tracer)
     try:

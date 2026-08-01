@@ -184,6 +184,35 @@ class TestDownloadTaskErrors:
         assert data["ok"] is False
         assert "python -m stepik_grader.downloader" in data["message"]
 
+    def test_token_refresh_network_error_returns_contract(self, tmp_path, monkeypatch):
+        """issue #806: сеть отвалилась при обновлении токена → ``ok=False``.
+
+        ``oauth_flow`` ловит только ``HTTPError``; ``ConnectionError``/``Timeout``
+        уходили из адаптера наружу и роняли обработчик HTTP-запроса вместо
+        контрактного ответа.
+        """
+        monkeypatch.chdir(tmp_path)
+        _write_secrets(tmp_path / "secrets.json")
+        with patch(
+            "stepik_grader.web.downloader_adapter.try_create_session_without_browser",
+            side_effect=requests.ConnectionError("нет сети"),
+        ):
+            data = downloader_adapter.download_task("https://stepik.org/lesson/1/step/4")
+        assert data["ok"] is False
+        assert "Сетевая ошибка" in data["message"]
+
+    def test_token_save_oserror_returns_contract(self, tmp_path, monkeypatch):
+        """issue #806: обновлённый токен не записался на диск → ``ok=False``."""
+        monkeypatch.chdir(tmp_path)
+        _write_secrets(tmp_path / "secrets.json")
+        with patch(
+            "stepik_grader.web.downloader_adapter.try_create_session_without_browser",
+            side_effect=PermissionError("secrets.json только для чтения"),
+        ):
+            data = downloader_adapter.download_task("https://stepik.org/lesson/1/step/4")
+        assert data["ok"] is False
+        assert "сохранить" in data["message"]
+
     def test_bad_url_value_error(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         _write_secrets(tmp_path / "secrets.json")

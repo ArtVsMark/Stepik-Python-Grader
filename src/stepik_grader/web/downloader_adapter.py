@@ -176,7 +176,16 @@ def download_task(
             ),
         }
 
-    session = try_create_session_without_browser(secrets, secrets_path)
+    # issue #806: обновление токена ходит в сеть, а oauth_flow ловит только
+    # HTTPError — ConnectionError/Timeout (и OSError при перезаписи secrets)
+    # уходили из адаптера в обработчик HTTP-запроса, роняя его вместо
+    # ``{"ok": false}``. Ответ обязан оставаться контрактным при любом сбое.
+    try:
+        session = try_create_session_without_browser(secrets, secrets_path)
+    except requests.RequestException as exc:
+        return {"ok": False, "message": f"Сетевая ошибка при обновлении токена Stepik: {exc}"}
+    except OSError as exc:
+        return {"ok": False, "message": f"Не удалось сохранить обновлённый токен: {exc}"}
     if session is None:
         return {
             "ok": False,
