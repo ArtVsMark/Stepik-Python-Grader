@@ -355,7 +355,14 @@ jobs:
       - name: Install Playwright Chromium + OS deps
         run: playwright install --with-deps chromium
 
+      # issue #790: STEPIK_REQUIRE_E2E_TESTS=1 включает guard'ы
+      # tests/e2e/test_not_silently_skipped.py — тот же приём, что у песочницы
+      # (#420/#558). Без него любая поломка окружения (не разрешившийся extra,
+      # несовместимая версия, сбой кеша браузеров) превращала весь набор в
+      # «N skipped» с кодом 0, и job оставался зелёным, ничего не проверив.
       - name: Run e2e tests
+        env:
+          STEPIK_REQUIRE_E2E_TESTS: "1"
         run: pytest tests/e2e/ -v --no-cov
 
   # issue #420: Linux SandboxRunner (bwrap) реально гоняется в CI под ПОЛНОЙ

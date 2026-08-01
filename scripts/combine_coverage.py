@@ -33,10 +33,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import coverage
+
 __all__ = [
     "discover_coverage_files",
     "main",
     "missing_required",
+    "unusable_files",
+    "unusable_reason",
 ]
 
 # ``coverage combine`` ищет файлы вида ``.coverage.<suffix>``; артефакты матрицы —
@@ -45,15 +49,64 @@ __all__ = [
 _COVERAGE_PREFIX = ".coverage."
 
 
+def unusable_reason(path: Path) -> str | None:
+    """Почему файл непригоден как coverage-данные; ``None`` — данные есть.
+
+    issue #789: имени файла недостаточно. Оборванная загрузка артефакта даёт
+    файл нулевого размера, а частичная — не-SQLite мусор; и то, и другое
+    «присутствует» по имени, поэтому строгий cross-OS gate применялся к
+    недосчитанным данным и падал с невнятным «No data to report» вместо
+    честной деградации.
+    """
+    if path.stat().st_size == 0:
+        return "файл пуст"
+    data = coverage.CoverageData(basename=str(path))
+    try:
+        data.read()
+    except coverage.CoverageException as exc:
+        return f"не читается как база coverage ({exc})"
+    if not data.measured_files():
+        return "не содержит измерений"
+    return None
+
+
 def discover_coverage_files(artifacts_dir: Path) -> list[str]:
-    """Суффиксы присутствующих ``.coverage.<suffix>`` файлов (отсортированные)."""
+    """Суффиксы ``.coverage.<suffix>`` файлов **с данными** (отсортированные).
+
+    Файл, который не читается или пуст, в выборку не попадает — он же уйдёт в
+    ``missing_required`` и включит деградацию. Причины видны в
+    :func:`unusable_files`.
+    """
+    return sorted(suffix for suffix, _path in _usable_files(artifacts_dir))
+
+
+def unusable_files(artifacts_dir: Path) -> list[tuple[str, str]]:
+    """Пары ``(суффикс, причина)`` для файлов, найденных по имени, но негодных."""
+    return sorted(
+        (suffix, reason)
+        for suffix, path in _candidate_files(artifacts_dir)
+        if (reason := unusable_reason(path)) is not None
+    )
+
+
+def _candidate_files(artifacts_dir: Path) -> list[tuple[str, Path]]:
+    """Пары ``(суффикс, путь)`` всех файлов, похожих на артефакт по имени."""
     if not artifacts_dir.is_dir():
         return []
-    return sorted(
-        entry.name[len(_COVERAGE_PREFIX) :]
+    return [
+        (entry.name[len(_COVERAGE_PREFIX) :], entry)
         for entry in artifacts_dir.iterdir()
         if entry.is_file() and entry.name.startswith(_COVERAGE_PREFIX)
-    )
+    ]
+
+
+def _usable_files(artifacts_dir: Path) -> list[tuple[str, Path]]:
+    """Только те кандидаты, что действительно содержат coverage-данные."""
+    return [
+        (suffix, path)
+        for suffix, path in _candidate_files(artifacts_dir)
+        if unusable_reason(path) is None
+    ]
 
 
 def missing_required(present: list[str], required: list[str]) -> list[str]:
@@ -106,6 +159,15 @@ def main(argv: list[str] | None = None) -> int:
     missing = missing_required(present, args.require)
     degraded = bool(missing)
 
+    # issue #789: почему именно данных нет — видно сразу, а не по «No data to
+    # report» после combine. Битый артефакт и не приехавший артефакт — разные
+    # причины, и чинятся они по-разному (перезапуск job'а vs разбор загрузки).
+    for suffix, reason in unusable_files(args.artifacts):
+        print(
+            f"::warning title=coverage artifact unusable::.coverage.{suffix}: {reason}",
+            flush=True,
+        )
+
     if degraded:
         joined = ", ".join(missing)
         print(
@@ -120,7 +182,12 @@ def main(argv: list[str] | None = None) -> int:
     # combine выполняем всегда — объединяем то, что есть, а не глотаем молча.
     combine_rc = _run_coverage(["combine", str(args.artifacts)])
     if combine_rc != 0:
-        return combine_rc
+        # issue #789: при деградации падение combine — следствие той же нехватки
+        # данных («No data to combine»), и ронять им job'у нельзя: замысел
+        # деградации ровно в том, чтобы инфра-флейк давал предупреждение, а не
+        # красный CI. Возвращаем код только при полных данных, где ошибка
+        # combine означает настоящую поломку.
+        return 0 if degraded else combine_rc
 
     # Информационный отчёт — всегда (виден в логах job'а).
     _run_coverage(["report", "-m"])
