@@ -5,6 +5,9 @@ PokolenieTestes/
 solutions/
 tasks/
 StepikTasks/
+# Прогонный корпус: локальные задачи (чужие условия наружу не едут) и отчёты
+corpus/local/
+corpus/reports/
 *_debug.json
 diagnostic_result*.json
 stepik_diagnostics/
