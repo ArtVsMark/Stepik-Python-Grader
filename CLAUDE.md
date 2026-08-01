@@ -378,6 +378,7 @@ Claude) · [`docs/archive/`](docs/archive/README.md) (всё историчес�
 | Контракт результата проверки (CLI/Web/API) | [docs/dev/result-contract.md](docs/dev/result-contract.md) |
 | Дизайн server mode (Runner, API, sandbox) | [docs/dev/design/server-mode.md](docs/dev/design/server-mode.md) |
 | Диагностика/логирование, редакция секретов | [docs/dev/logging.md](docs/dev/logging.md) |
+| Прогонный корпус: сверка вердиктов, каталог мутаций | [docs/dev/corpus.md](docs/dev/corpus.md) |
 | Цепочка поставок: инвентарь рантайма/ассетов, pip-audit | [docs/dev/supply-chain.md](docs/dev/supply-chain.md) |
 | Архитектурные решения (ADR) | [docs/dev/adr/README.md](docs/dev/adr/README.md) |
 | Дерево файлов | [docs/dev/project-structure.md](docs/dev/project-structure.md) |

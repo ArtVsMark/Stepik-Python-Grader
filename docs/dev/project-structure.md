@@ -109,6 +109,11 @@ Stepik-Python-Grader/
 │           └── data/pep8_ru.json # Комплектная база ≥30 карточек правил (package-data)
 ├── conftest.py                 # Добавляет src/ в sys.path для тестов; включает pytester
 ├── tests/                     # pytest-набор (число — в CI-прогоне / бейджах README)
+├── corpus/                    # Прогонный корпус: сверка вердиктов на задачах целиком (docs/dev/corpus.md)
+│   └── tasks/<slug>/          # task_1.py (эталон) + tests/ + meta.json; только свои условия
+├── scripts/                   # Dev-инструменты: бейджи, guard'ы CI, прогонный корпус
+│   ├── corpus_run.py          # Стенд: эталон + мутации → сверка вердикта с ожидаемым
+│   └── corpus_mutations.py    # Каталог детерминированных мутаций решения
 ├── docs/                      # База знаний (архитектура, структура, версии)
 ├── .github/workflows/ci.yml   # CI: pytest + ruff + mypy на Python 3.12/3.13/3.14
 ├── .pre-commit-config.yaml    # Pre-commit хуки (ruff check + ruff format)
