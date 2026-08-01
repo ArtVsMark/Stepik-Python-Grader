@@ -59,6 +59,12 @@ _STATUSES = ("queued", "running", "done", "error", "cancelled")
 _TERMINAL_STATUSES = ("done", "error", "cancelled")
 
 _JOB_TTL_SECONDS = 15 * 60
+# issue #811 (SECW-03): жёсткий потолок числа записей реестра. TTL один его не
+# держит: терминальные job'ы живут 15 минут, а back-pressure их не считает,
+# поэтому цикл коротких прогонов растил словарь без предела. Потолок с запасом
+# выше ``max_active_runs`` (20) — история недавних результатов остаётся
+# доступной UI, но не растёт бесконечно.
+_JOBS_MAX_ENTRIES = 200
 
 
 class Job:
@@ -161,6 +167,31 @@ def shutdown_jobs(*, wait: bool = False) -> None:
         executor.shutdown(wait=wait, cancel_futures=True)
 
 
+def _evict_overflow_locked() -> None:
+    """Держать реестр в пределах ``_JOBS_MAX_ENTRIES``, вытесняя старые терминальные.
+
+    issue #811 (SECW-03): back-pressure считает только НЕтерминальные job'ы,
+    поэтому цикл коротких прогонов лимит не трогал вовсе — замерено прогоном:
+    30 последовательных playground-запусков оставили 21 запись в реестре при
+    нуле активных. Каждая запись держит результат прогона (до 100 000 символов
+    вывода) целых 15 минут TTL, и одна вкладка со скриптом раздувала память
+    процесса — ровно тот цикл POST'ов, ради которого вводился #429.
+
+    Вытесняем самые давно завершённые: свежие результаты ещё могут быть
+    запрошены UI, старые уже никому не нужны. Активные не трогаем никогда —
+    их удаление осиротило бы работающий воркер. Вызывать под ``_JOBS_LOCK``.
+    """
+    overflow = len(_JOBS) - _JOBS_MAX_ENTRIES
+    if overflow <= 0:
+        return
+    finished = sorted(
+        (job for job in _JOBS.values() if job.completed_at is not None),
+        key=lambda job: job.completed_at or 0.0,
+    )
+    for job in finished[:overflow]:
+        del _JOBS[job.id]
+
+
 def _sweep_expired_locked() -> None:
     """Удалить завершённые job'ы старше TTL. Вызывать только под
     ``_JOBS_LOCK`` — иначе гонка на удаление/итерацию словаря."""
@@ -256,6 +287,10 @@ def submit_job(
         if _count_active_locked() >= max(1, CONFIG.max_active_runs):
             raise TooManyRunsError(CONFIG.max_active_runs)
         _JOBS[job.id] = job
+        # issue #811: потолок реестра — ПОСЛЕ вставки, иначе он держался бы с
+        # точностью до одной записи (вытеснили до предела, тут же добавили).
+        # Только что вставленная job не терминальна, поэтому себя не вытеснит.
+        _evict_overflow_locked()
     job.future = _get_executor().submit(_run_job, job, kind, path, params, code, stdin, workspace)
     return job
 

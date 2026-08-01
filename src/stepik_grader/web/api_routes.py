@@ -11,6 +11,7 @@ submit (#429) и кламп числовых query/body-параметров (#2
 from __future__ import annotations
 
 import contextlib
+import json
 import pathlib
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -338,7 +339,19 @@ class _ApiRoutesMixin(_GuardMixin):
             confined = self._confined_path(path, lang)
             if confined is None:
                 return
-            data = read_source(confined, lang=lang)
+            # issue #811 (SECW-02): эндпоинт показывает КОД решения, и его
+            # контракт — только это. Без фильтра он работал как примитив чтения
+            # чего угодно внутри workspace: проверено прогоном, что
+            # `?path=secrets.json` отдавал 200 с client_secret и access_token.
+            # Довод «читать безопаснее, чем исполнять» здесь не спасает:
+            # исполнение файл по HTTP не возвращает, а этот ответ — возвращает.
+            if confined.suffix.lower() != ".py":
+                data = {
+                    "kind": "error",
+                    **message_fields("source_not_a_solution", lang, name=confined.name),
+                }
+            else:
+                data = read_source(confined, lang=lang)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
     def _get_auth_status(self, parsed: Any, lang: str) -> None:
@@ -368,6 +381,52 @@ class _ApiRoutesMixin(_GuardMixin):
             _json(read_config(self.server.workspace)),
         )
 
+    def _secrets_path_is_writable(self, path: pathlib.Path, lang: str) -> bool:
+        """Можно ли назначить ``path`` файлом секретов, не затерев чужие данные.
+
+        issue #811 (SECW-05): конфайнмент проверял только вложенность в
+        workspace, поэтому ``{"secrets_path": "task1/solution.py"}`` принимался,
+        а последующая авторизация перезаписывала решение JSON'ом с
+        ``client_secret``. Порча файла в рабочей папке — полбеды; хуже, что
+        токен оказывается в пути, который пользователь не считает секретным
+        (файл в git-репозитории задач) — прямая дорога закоммитить его.
+
+        Правило: расширение ``.json`` и либо файла ещё нет, либо он уже похож на
+        secrets (JSON-объект с ``client_id``). Отказ — 400 с причиной, а не
+        молчаливая перезапись.
+        """
+        if path.suffix.lower() != ".json":
+            self._send(
+                400,
+                "application/json; charset=utf-8",
+                _json(
+                    {
+                        "kind": "error",
+                        **message_fields("secrets_path_not_json", lang, name=path.name),
+                    }
+                ),
+            )
+            return False
+        if not path.exists():
+            return True
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            existing = None
+        if isinstance(existing, dict) and "client_id" in existing:
+            return True
+        self._send(
+            400,
+            "application/json; charset=utf-8",
+            _json(
+                {
+                    "kind": "error",
+                    **message_fields("secrets_path_occupied", lang, name=path.name),
+                }
+            ),
+        )
+        return False
+
     def _post_downloader_config(self, parsed: Any) -> None:
         """POST /api/downloader/config (issue #723/#725) — сохранить конфиг загрузчика.
 
@@ -393,6 +452,8 @@ class _ApiRoutesMixin(_GuardMixin):
         if raw_secrets:
             secrets_path = self._confined_path(raw_secrets, lang)
             if secrets_path is None:
+                return
+            if not self._secrets_path_is_writable(secrets_path, lang):
                 return
         config = write_config(self.server.workspace, root_dir=root_dir, secrets_path=secrets_path)
         status = auth_adapter.auth_status(secrets_path_for(self.server.workspace))
@@ -746,7 +807,12 @@ class _ApiRoutesMixin(_GuardMixin):
             )
             return
 
-        secrets_path = self.server.workspace / "secrets.json"
+        # issue #811 (SECW-04): путь берётся из stepik_config.json, как и во
+        # всех соседних обработчиках. Жёсткий workspace/secrets.json возвращал
+        # расщепление, закрытое issue #723: при кастомном пути «Доступ активен»
+        # в UI, а отправка падала stepik_auth_required; хуже обратный случай —
+        # забытый secrets.json в корне отправлял решение под чужой учёткой.
+        secrets_path = secrets_path_for(self.server.workspace)
         job = self._submit_or_429(
             lang,
             "stepik_submit",

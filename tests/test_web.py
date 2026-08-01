@@ -11,6 +11,7 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+from types import SimpleNamespace
 
 import pytest
 
@@ -1103,6 +1104,31 @@ class TestSecurityHeaders:
         assert status == 200
         assert json.loads(body)["kind"] == "error"
 
+    def test_api_source_refuses_non_python_file(self, server: str, tmp_path: pathlib.Path) -> None:
+        """issue #811 (SECW-02): эндпоинт показывает КОД решения, и только его.
+
+        Замерено до фикса: ``?path=secrets.json`` отдавал 200 с ``client_secret``
+        и ``access_token`` — «показать исходник» работал как примитив чтения
+        секретов. Довод «читать безопаснее, чем исполнять» здесь не спасает:
+        исполнение файл по HTTP не возвращает, а этот ответ возвращал.
+        """
+        secrets = tmp_path / "secrets.json"
+        secrets.write_text('{"client_secret": "SECRET-XYZ"}', encoding="utf-8")
+        status, body = _get(server + "/api/source?path=" + urllib.parse.quote(str(secrets)))
+        assert status == 200
+        data = json.loads(body)
+        assert data["kind"] == "error"
+        assert data["message_id"] == "source_not_a_solution"
+        assert b"SECRET-XYZ" not in body
+
+    def test_api_source_still_reads_uppercase_py(self, server: str, tmp_path: pathlib.Path) -> None:
+        """Фильтр по расширению регистронезависим — ``TASK.PY`` остаётся читаемым."""
+        sol = tmp_path / "TASK.PY"
+        sol.write_text("print(7)\n", encoding="utf-8")
+        status, body = _get(server + "/api/source?path=" + urllib.parse.quote(str(sol)))
+        assert status == 200
+        assert json.loads(body)["kind"] == "file"
+
     # -- POST /api/save-solution (окно ввода кода, доделка #125) --------------
 
     def test_api_save_solution_creates_new_file(self, server: str, tmp_path: pathlib.Path) -> None:
@@ -1502,8 +1528,7 @@ class TestApiHostOriginGuard:
         assert json.loads(body)["kind"] == "error"
 
     def test_localhost_host_header_is_allowed(self, server: str) -> None:
-        """``Host: localhost:<port>`` — точное значение хоста, к которому шёл коннект,
-        для guard'а не важно (проверяется только hostname)."""
+        """``Host: localhost:<port>`` — синоним петли, порт совпадает с биндингом."""
         port = urllib.parse.urlparse(server).port
         status, _ = _get(server + "/api/grade", headers={"Host": f"localhost:{port}"})
         assert status == 200
@@ -1557,8 +1582,63 @@ class TestApiHostOriginGuard:
         assert status == 200
         assert json.loads(body)["ok"] is True
 
-    def test_index_and_static_are_not_guarded(self, server: str) -> None:
-        """`/` и `/static/*` не относятся к `/api/*` — guard их не трогает."""
+    # -- issue #811 (SECW-01): сосед по loopback --------------------------------
+
+    def test_origin_on_other_local_port_is_rejected(self, server: str) -> None:
+        """Страница на другом порту того же хоста — не свой origin.
+
+        Замерено до фикса: ``POST /api/v1/runs`` с ``Origin: localhost:9999``
+        отвечал 202 и исполнял произвольный Python. Для браузера такой запрос —
+        ``same-site`` (все ``localhost:*`` — один site), а резался только
+        ``cross-site``, поэтому любое соседнее локальное приложение (чужой
+        dev-сервер, Jupyter) получало RCE с правами пользователя.
+        """
+        status, body = _get(server + "/api/grade", headers={"Origin": "http://localhost:9999"})
+        assert status == 403
+        assert json.loads(body)["message_id"] == "invalid_origin"
+
+    def test_host_header_with_other_port_is_rejected(self, server: str) -> None:
+        """Тот же барьер на Host: порт обязан совпадать с портом биндинга."""
+        status, body = _get(server + "/api/grade", headers={"Host": "127.0.0.1:9999"})
+        assert status == 403
+        assert json.loads(body)["message_id"] == "invalid_host"
+
+    def test_same_site_fetch_metadata_is_rejected(self, server: str) -> None:
+        """``Sec-Fetch-Site: same-site`` — сосед по loopback, а не свой фронт.
+
+        У легитимной страницы грейдера здесь всегда ``same-origin``, у прямого
+        перехода по адресу — ``none``; ``same-site`` остаётся ровно для соседа
+        по другому порту.
+        """
+        status, body = _get(server + "/api/grade", headers={"Sec-Fetch-Site": "same-site"})
+        assert status == 403
+        assert json.loads(body)["kind"] == "error"
+
+    def test_none_fetch_metadata_is_allowed(self, server: str) -> None:
+        """``Sec-Fetch-Site: none`` — пользователь набрал адрес сам; это свой путь."""
+        status, _ = _get(server + "/api/grade", headers={"Sec-Fetch-Site": "none"})
+        assert status == 200
+
+    # -- issue #811 (SECW-06): корневая страница ---------------------------------
+
+    def test_index_rejects_foreign_host(self, server: str) -> None:
+        """``GET /`` с чужим Host → 403: страница несёт абсолютный путь workspace.
+
+        До фикса ``curl -H 'Host: evil.example' /`` отдавал 200 вместе с путём
+        рабочей папки (а с ним именем пользователя ОС) и флагом наличия
+        OS-изоляции — при DNS-rebinding это читалось, не трогая ``/api/*``.
+        """
+        status, _ = _get(server + "/", headers={"Host": "evil.example"})
+        assert status == 403
+
+    def test_index_and_static_are_not_origin_guarded(self, server: str) -> None:
+        """Origin-гард не трогает `/` и `/static/*`: страницу открывают прямым
+        переходом, где Origin отсутствует, а стили тянет сама страница.
+
+        issue #811 (SECW-06): Host-гард на `/` при этом ЕСТЬ — он проверяется
+        отдельно (``test_index_rejects_foreign_host``). Статика остаётся без
+        гарда: она не несёт данных о машине пользователя.
+        """
         status, _ = _get(server + "/", headers={"Origin": "http://evil.example"})
         assert status == 200
         status, _ = _get(server + "/static/app.css", headers={"Host": "evil.example"})
@@ -1724,6 +1804,61 @@ class TestStepikSubmit:
         data = _poll_run(url, json.loads(body)["run_id"])
         assert data["status"] == "error"
         assert data["message_id"] == "stepik_auth_required"
+
+    def test_submit_uses_configured_secrets_path(
+        self, tmp_path: pathlib.Path, server_factory, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """issue #811 (SECW-04): путь к secrets берётся из stepik_config.json.
+
+        Хардкод ``workspace/secrets.json`` возвращал расщепление, закрытое
+        issue #723: при кастомном пути UI показывал «Доступ активен», а отправка
+        падала ``stepik_auth_required``. Хуже обратный случай — забытый
+        secrets.json в корне отправлял решение под чужой учёткой.
+
+        Токен лежит по НЕстандартному пути; сеть не трогаем — ``submit_and_wait``
+        подменён. Если хардкод вернётся, файл не найдётся и job отчитается
+        «нет авторизации», не дойдя до отправки.
+        """
+        from stepik_grader.core import stepik_client
+
+        conf_dir = tmp_path / "conf"
+        conf_dir.mkdir()
+        (conf_dir / "secrets.json").write_text(
+            json.dumps(
+                {
+                    "client_id": "cid",
+                    "client_secret": "csecret",
+                    "redirect_uri": "http://localhost:8080/callback",
+                    "access_token": "token",
+                    "expires_at": 4_102_444_800,  # 2100 год — токен «ещё валиден»
+                }
+            ),
+            encoding="utf-8",
+        )
+        (tmp_path / "stepik_config.json").write_text(
+            json.dumps({"secrets_path": str(conf_dir / "secrets.json")}), encoding="utf-8"
+        )
+
+        sent: list[int] = []
+
+        def _fake_submit(session, step_id, code, *, cancel_event=None):
+            sent.append(step_id)
+            return SimpleNamespace(status="correct", hint="", score=1, submission_id=7)
+
+        monkeypatch.setattr(stepik_client, "submit_and_wait", _fake_submit)
+
+        url = server_factory(tmp_path)
+        status, body = _post(
+            url + "/api/stepik/submit",
+            json.dumps({"code": "print(1)", "step_id": 123}).encode("utf-8"),
+        )
+        assert status == 202
+        data = _poll_run(url, json.loads(body)["run_id"])
+        assert data["status"] == "done", (
+            f"job не дошла до отправки ({data.get('message_id')}) — похоже, "
+            "вернулся хардкод workspace/secrets.json"
+        )
+        assert sent == [123]  # отправка реально состоялась под настроенным токеном
 
 
 class TestRunsApiBackPressure:
@@ -3127,6 +3262,57 @@ class TestDownloaderConfigApi:
         )
 
         assert json.loads(body)["secrets_path"] == "creds.json"
+
+    def test_post_refuses_non_json_secrets_path(self, server: str, tmp_path: pathlib.Path) -> None:
+        """issue #811 (SECW-05): под секреты нельзя назначить чужой файл.
+
+        Конфайнмент проверял только вложенность в workspace, поэтому
+        ``{"secrets_path": "task1/solution.py"}`` принимался, а последующая
+        авторизация перезаписывала решение JSON'ом с ``client_secret``. Порча
+        файла — полбеды; хуже, что токен оказывался в пути, который
+        пользователь не считает секретным (файл в git-репозитории задач).
+        """
+        solution = tmp_path / "task_1.py"
+        solution.write_text("print(1)\n", encoding="utf-8")
+        status, body = _post(
+            server + "/api/downloader/config",
+            json.dumps({"secrets_path": "task_1.py"}).encode("utf-8"),
+        )
+        assert status == 400
+        assert json.loads(body)["message_id"] == "secrets_path_not_json"
+        assert solution.read_text(encoding="utf-8") == "print(1)\n"  # файл цел
+
+    def test_post_refuses_occupied_json_file(self, server: str, tmp_path: pathlib.Path) -> None:
+        """Существующий .json, не похожий на secrets, тоже не затираем молча."""
+        other = tmp_path / "meta.json"
+        other.write_text(json.dumps({"step_id": 42}), encoding="utf-8")
+        status, body = _post(
+            server + "/api/downloader/config",
+            json.dumps({"secrets_path": "meta.json"}).encode("utf-8"),
+        )
+        assert status == 400
+        assert json.loads(body)["message_id"] == "secrets_path_occupied"
+        assert json.loads(other.read_text(encoding="utf-8")) == {"step_id": 42}
+
+    def test_post_accepts_existing_secrets_file(self, server: str, tmp_path: pathlib.Path) -> None:
+        """Файл, который УЖЕ похож на secrets (есть client_id), переназначаем."""
+        creds = tmp_path / "creds.json"
+        creds.write_text(json.dumps({"client_id": "cid"}), encoding="utf-8")
+        status, body = _post(
+            server + "/api/downloader/config",
+            json.dumps({"secrets_path": "creds.json"}).encode("utf-8"),
+        )
+        assert status == 200
+        assert json.loads(body)["secrets_path"] == "creds.json"
+
+    def test_post_accepts_new_json_path(self, server: str) -> None:
+        """Несуществующий .json — обычный сценарий первой настройки."""
+        status, body = _post(
+            server + "/api/downloader/config",
+            json.dumps({"secrets_path": "conf/secrets.json"}).encode("utf-8"),
+        )
+        assert status == 200
+        assert json.loads(body)["ok"] is True
 
     def test_post_reports_auth_state_for_new_path(self, server: str) -> None:
         """Ответ несёт статус авторизации по НОВОМУ пути — UI сразу знает вердикт."""
