@@ -43,6 +43,7 @@ from stepik_grader.core.storage import save_secrets
 __all__ = [
     "API_HOST",
     "CACHE_DIR",
+    "CACHE_MAX_ENTRIES",
     "CACHE_TTL_SECONDS",
     "EXTERNAL_DOWNLOAD_ALLOWED_HOSTS",
     "HEADERS",
@@ -51,6 +52,7 @@ __all__ = [
     "ExternalUrlRejected",
     "SubmissionResult",
     "authorize_via_browser",
+    "clear_cache",
     "create_attempt",
     "create_user_session",
     "external_download_get",
@@ -68,6 +70,7 @@ __all__ = [
     "is_stepik_url",
     "make_session",
     "poll_submission",
+    "prune_cache",
     "read_step_id",
     "refresh_access_token",
     "submit_and_wait",
@@ -512,6 +515,63 @@ def _get_with_retry(
 
 CACHE_DIR = pathlib.Path(".stepik_cache")
 CACHE_TTL_SECONDS = 3600  # 1 hour
+# issue #816 (DEV-11): потолок числа файлов кэша. TTL один рост не сдерживает:
+# просроченная запись лишь игнорируется при чтении и перезаписывается, если
+# повторится ТОТ ЖЕ ключ, — а каждая новая задача даёт новый URL и новый файл.
+# Для сравнения, ``core/cache.py`` ограничивает ``.grader_cache`` 512 записями
+# с ``prune()`` начиная с issue #553; здесь такого не было вовсе.
+CACHE_MAX_ENTRIES = 512
+
+
+def prune_cache(cache_dir: pathlib.Path | None = None) -> int:
+    """Удалить просроченные и лишние файлы кэша; вернуть их число (issue #816).
+
+    Сначала выбывают записи старше ``CACHE_TTL_SECONDS`` (их всё равно нельзя
+    использовать), затем — самые давние сверх ``CACHE_MAX_ENTRIES``. Кэш
+    регенерируем: удалённая запись стоит одного лишнего GET к Stepik.
+    """
+    directory = CACHE_DIR if cache_dir is None else cache_dir
+    if not directory.is_dir():
+        return 0
+    now = time.time()
+    alive: list[tuple[float, pathlib.Path]] = []
+    removed = 0
+    for entry in directory.glob("*.json"):
+        try:
+            mtime = entry.stat().st_mtime
+        except OSError:
+            continue
+        if now - mtime >= CACHE_TTL_SECONDS:
+            with contextlib.suppress(OSError):
+                entry.unlink()
+                removed += 1
+            continue
+        alive.append((mtime, entry))
+    surplus = len(alive) - CACHE_MAX_ENTRIES
+    if surplus > 0:
+        for _mtime, entry in sorted(alive)[:surplus]:  # самые давние
+            with contextlib.suppress(OSError):
+                entry.unlink()
+                removed += 1
+    return removed
+
+
+def clear_cache(cache_dir: pathlib.Path | None = None) -> int:
+    """Удалить весь файловый кэш Stepik API; вернуть число удалённых файлов.
+
+    issue #816: ``--clear-cache`` чистил только ``.grader_cache`` (результаты
+    прогонов), а ``.stepik_cache`` (ответы API) оставался — при том что именно
+    он рос от каждой новой скачанной задачи.
+    """
+    directory = CACHE_DIR if cache_dir is None else cache_dir
+    if not directory.is_dir():
+        return 0
+    removed = 0
+    for entry in directory.glob("*.json"):
+        with contextlib.suppress(OSError):
+            entry.unlink()
+            removed += 1
+    return removed
 
 
 def _cached_api_get(
@@ -544,6 +604,10 @@ def _cached_api_get(
     data: dict[str, Any] = response.json()
     with contextlib.suppress(OSError):
         cache_file.write_text(_json_mod.dumps(data, ensure_ascii=False), encoding="utf-8")
+    # issue #816: ленивая уборка на записи — отдельного фонового потока в
+    # проекте нет ни у одного кэша (тот же best-effort приём, что у реестра
+    # job'ов и очереди глоссария).
+    prune_cache()
     return data
 
 

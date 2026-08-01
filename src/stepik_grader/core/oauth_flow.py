@@ -18,6 +18,7 @@ diagnostic_stepik.py. Источник истины — stepik_client.py.
 from __future__ import annotations
 
 import pathlib
+import threading
 import time
 from typing import Any
 
@@ -35,6 +36,14 @@ from stepik_grader.core.stepik_client import (
 from stepik_grader.core.storage import load_json_file, save_secrets
 
 _log = get_logger("oauth_flow")  # issue #149: диагностический лог OAuth (opt-in)
+
+# issue #816 (NETA-02): один замок на процесс вокруг обмена refresh_token.
+# Основной сценарий гонки — ThreadingHTTPServer (`--serve`), где несколько
+# job'ов одного процесса идут к Stepik параллельно; межпроцессной блокировки
+# намеренно нет: грейдер локальный и однопользовательский, а lock-файл принёс
+# бы собственные отказы (зависший lock после kill -9) ради сценария «две копии
+# грейдера обновляют токен в одну секунду».
+_REFRESH_LOCK = threading.Lock()
 
 __all__ = [
     "authorize_and_get_token",
@@ -68,6 +77,19 @@ def load_secrets_dict(secrets_path: pathlib.Path) -> dict[str, Any]:
         if not str(data.get(field, "")).strip():
             raise ValueError(f"В secrets.json должно быть заполнено поле {field!r}")
     return data
+
+
+def _reread_secrets(secrets_path: pathlib.Path) -> dict[str, Any] | None:
+    """Перечитать secrets с диска; ``None`` — файл исчез или испорчен.
+
+    Нужен под ``_REFRESH_LOCK``: пока поток ждал замок, победитель мог уже
+    записать новую пару токенов, и повторный обмен по старому refresh_token
+    гарантированно провалится (Stepik его отозвал).
+    """
+    try:
+        return load_secrets_dict(secrets_path)
+    except (OSError, ValueError):
+        return None
 
 
 def load_secrets(secrets_path: pathlib.Path) -> tuple[str, str, str]:
@@ -108,23 +130,42 @@ def try_create_session_without_browser(
         _log.debug("access_token валиден — сессия без браузера")
         return make_session(str(secrets["access_token"]))
 
-    refresh_token = str(secrets.get("refresh_token", "")).strip()
-    if not refresh_token:
-        _log.info("нет валидного access_token и нет refresh_token — нужна CLI-авторизация")
-        return None
+    # issue #816 (NETA-02): «прочитать → обменять → сохранить» под общим
+    # замком. Без него два параллельных job'а web-сервера (ThreadingHTTPServer)
+    # обменивали ОДИН И ТОТ ЖЕ refresh_token — проверено прогоном: сервер
+    # выдавал две пары токенов, в файл попадала одна, а второй обмен шёл уже по
+    # отозванному токену. Stepik ротирует refresh_token, поэтому в реальности
+    # проигравший получает invalid_grant, и восстановиться можно только
+    # браузерным OAuth из CLI. Запись сама по себе атомарна (issue #628), но от
+    # lost update это не спасает: гонка не в записи, а в обмене.
+    with _REFRESH_LOCK:
+        # Второй поток входит сюда, когда первый уже обновил файл: перечитываем
+        # и переиспользуем его свежий токен вместо второго обмена.
+        fresh = _reread_secrets(secrets_path)
+        if fresh is not None and token_is_valid(fresh):
+            _log.debug("токен обновлён параллельным потоком — переиспользуем")
+            secrets.update(fresh)
+            return make_session(str(fresh["access_token"]))
+        if fresh is not None:
+            secrets.update(fresh)  # берём свежайший refresh_token с диска
 
-    client_id = str(secrets.get("client_id", ""))
-    client_secret = str(secrets.get("client_secret", ""))
-    try:
-        _log.info("access_token истёк — обновляю по refresh_token")
-        token_data = refresh_access_token(client_id, client_secret, refresh_token)
-    except requests.HTTPError as exc:
-        _log.warning("обновление по refresh_token не удалось: %s", exc)
-        return None
-    token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
-    secrets.update(token_data)
-    save_secrets(secrets_path, secrets)
-    return make_session(str(secrets["access_token"]))
+        refresh_token = str(secrets.get("refresh_token", "")).strip()
+        if not refresh_token:
+            _log.info("нет валидного access_token и нет refresh_token — нужна CLI-авторизация")
+            return None
+
+        client_id = str(secrets.get("client_id", ""))
+        client_secret = str(secrets.get("client_secret", ""))
+        try:
+            _log.info("access_token истёк — обновляю по refresh_token")
+            token_data = refresh_access_token(client_id, client_secret, refresh_token)
+        except requests.HTTPError as exc:
+            _log.warning("обновление по refresh_token не удалось: %s", exc)
+            return None
+        token_data["expires_at"] = time.time() + float(token_data.get("expires_in", 3600))
+        secrets.update(token_data)
+        save_secrets(secrets_path, secrets)
+        return make_session(str(secrets["access_token"]))
 
 
 # NOTE: utility, not called in production paths

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import os
+import pathlib
 import time
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
+from stepik_grader.core import stepik_client
 from stepik_grader.core.stepik_client import (
     _MAX_EXTERNAL_REDIRECT_HOPS,
     CACHE_DIR,
@@ -241,3 +244,75 @@ class TestExternalDownloadGet:
             with pytest.raises(ExternalUrlRejected):
                 external_download_get("https://github.com/o/r/archive/main.zip")
         assert len(session.requested_urls) == _MAX_EXTERNAL_REDIRECT_HOPS + 1
+
+
+class TestApiCachePruning:
+    """issue #816 (DEV-11): файловый кэш Stepik API не растёт без предела.
+
+    TTL сам по себе рост не сдерживал: просроченная запись лишь игнорировалась
+    при чтении и переписывалась, если повторится ТОТ ЖЕ ключ, — а каждая новая
+    задача даёт новый URL и новый файл. Для сравнения, `.grader_cache` имеет
+    лимит записей и `prune()` с issue #553.
+    """
+
+    def _entry(self, cache_dir: pathlib.Path, name: str, *, age_s: float = 0.0) -> pathlib.Path:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        path = cache_dir / f"{name}.json"
+        path.write_text("{}", encoding="utf-8")
+        if age_s:
+            stamp = time.time() - age_s
+            os.utime(path, (stamp, stamp))
+        return path
+
+    def test_expired_entries_are_removed(self, tmp_path: pathlib.Path) -> None:
+        fresh = self._entry(tmp_path, "fresh")
+        stale = self._entry(tmp_path, "stale", age_s=stepik_client.CACHE_TTL_SECONDS + 60)
+
+        removed = stepik_client.prune_cache(tmp_path)
+
+        assert removed == 1
+        assert fresh.exists()
+        assert not stale.exists()
+
+    def test_surplus_entries_are_capped(self, tmp_path: pathlib.Path) -> None:
+        """Сверх лимита выбывают самые давние — свежие ответы остаются в кэше."""
+        for i in range(stepik_client.CACHE_MAX_ENTRIES + 5):
+            # Возраст в пределах TTL, но убывающий: entry-0 — самая давняя.
+            self._entry(tmp_path, f"entry-{i}", age_s=(stepik_client.CACHE_MAX_ENTRIES + 5 - i))
+
+        removed = stepik_client.prune_cache(tmp_path)
+
+        assert removed == 5
+        survivors = {p.stem for p in tmp_path.glob("*.json")}
+        assert len(survivors) == stepik_client.CACHE_MAX_ENTRIES
+        assert "entry-0" not in survivors  # самая давняя выбыла
+        assert f"entry-{stepik_client.CACHE_MAX_ENTRIES + 4}" in survivors  # свежая осталась
+
+    def test_prune_on_missing_dir_is_noop(self, tmp_path: pathlib.Path) -> None:
+        assert stepik_client.prune_cache(tmp_path / "nope") == 0
+
+    def test_clear_cache_removes_everything(self, tmp_path: pathlib.Path) -> None:
+        for i in range(3):
+            self._entry(tmp_path, f"e{i}")
+
+        assert stepik_client.clear_cache(tmp_path) == 3
+        assert list(tmp_path.glob("*.json")) == []
+
+    def test_cached_get_prunes_on_write(self, tmp_path: pathlib.Path, monkeypatch) -> None:
+        """Уборка происходит при записи ответа, а не только по явному вызову.
+
+        Отдельного фонового потока у кэшей в проекте нет (тот же best-effort
+        приём, что у реестра job'ов): если не чистить на записи, лимит и TTL
+        останутся мёртвой буквой — их просто некому применить.
+        """
+        monkeypatch.setattr(stepik_client, "CACHE_DIR", tmp_path)
+        stale = self._entry(tmp_path, "old-key", age_s=stepik_client.CACHE_TTL_SECONDS + 60)
+
+        response = MagicMock()
+        response.json.return_value = {"ok": True}
+        monkeypatch.setattr(stepik_client, "_get_with_retry", lambda *a, **k: response)
+
+        data = stepik_client._cached_api_get(MagicMock(), "https://stepik.org/api/steps")
+
+        assert data == {"ok": True}
+        assert not stale.exists(), "просроченная запись пережила запись нового ответа"
