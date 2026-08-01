@@ -28,7 +28,34 @@ import pathlib
 import tempfile
 from typing import Any
 
-__all__ = ["atomic_write_json"]
+__all__ = ["atomic_write_json", "atomic_write_text"]
+
+
+def atomic_write_text(path: pathlib.Path, text: str, *, fsync: bool = True) -> None:
+    """Атомарно записать ``text`` в ``path`` (создавая директории).
+
+    Тот же приём, что у :func:`atomic_write_json` — temp рядом с целью и
+    ``replace`` — но для готовой строки: JSON Lines, отчёты и прочий текст,
+    который не является одним JSON-документом (issue #793).
+
+    Raises:
+        OSError: при сбое записи/``replace`` (temp best-effort убирается, цель
+            не тронута).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    tmp_path = pathlib.Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+            if fsync:
+                fh.flush()
+                os.fsync(fh.fileno())
+        tmp_path.replace(path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            tmp_path.unlink()
+        raise
 
 
 def atomic_write_json(path: pathlib.Path, data: Any, *, fsync: bool = True) -> None:

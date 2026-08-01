@@ -137,3 +137,82 @@ class TestConcurrency:
         summary = stats.read_summary(stats_path=path)
         assert summary["total_runs"] == n
         assert summary["verdict_totals"] == {"AC": n}
+
+
+# ---------------------------------------------------------------------------
+# issue #793: обрыв записи и атомарность ротации
+# ---------------------------------------------------------------------------
+
+
+def test_append_after_truncated_line_keeps_both_records(tmp_path: pathlib.Path) -> None:
+    """Оборванная строка не «съедает» следующий прогон.
+
+    Формат JSONL выбран ради обещания «максимум теряется последняя незавершённая
+    строка». Но append клеился к огрызку без завершающего `\n`, и склейка не
+    разбиралась как JSON — пропадали ОБЕ записи, причём молча и на каждом
+    следующем запуске.
+    """
+    path = tmp_path / ".grader_stats.jsonl"
+    good = '{"v": 1, "ts": 1.0, "mode": 1, "os": "L", "verdicts": {"AC": 1}, "total_time": 1.0}\n'
+    path.write_text(good + '{"v": 1, "ts": 2.0, "mo', encoding="utf-8")  # обрыв записи
+
+    stats.record_run(2, {"AC": 3}, 2.0, stats_path=path)
+
+    summary = stats.read_summary(path)
+    assert summary["total_runs"] == 2, "новый прогон приклеился к огрызку и потерялся"
+    assert summary["by_mode"] == {1: 1, 2: 1}
+
+
+def test_append_does_not_add_newline_to_wellformed_file(tmp_path: pathlib.Path) -> None:
+    """У целого журнала лишней пустой строки не появляется."""
+    path = tmp_path / ".grader_stats.jsonl"
+    stats.record_run(1, {"AC": 1}, 1.0, stats_path=path)
+    stats.record_run(2, {"WA": 1}, 2.0, stats_path=path)
+
+    raw = path.read_text(encoding="utf-8")
+    assert "\n\n" not in raw
+    assert stats.read_summary(path)["total_runs"] == 2
+
+
+def test_rotation_is_atomic(tmp_path: pathlib.Path, monkeypatch) -> None:
+    """Ротация заменяет файл целиком, а не переписывает на месте.
+
+    Докстринг модуля обещает, что журнал «не может быть повреждён из-за
+    недописанной перезаписи», — но ротация делала именно её. Проверяем через
+    подмену писателя: обрыв ПОСЛЕ формирования нового содержимого не должен
+    оставлять цель полупустой.
+    """
+    path = tmp_path / ".grader_stats.jsonl"
+    line = '{"v": 1, "ts": 1.0, "mode": 1, "os": "L", "verdicts": {"AC": 1}, "total_time": 1.0}\n'
+    path.write_text(line * 40, encoding="utf-8")
+    before = path.read_text(encoding="utf-8")
+    monkeypatch.setattr(stats, "_MAX_BYTES", 10)
+
+    def _boom(target: pathlib.Path, text: str, *, fsync: bool = True) -> None:
+        raise OSError("диск кончился ровно во время ротации")
+
+    monkeypatch.setattr(stats, "atomic_write_text", _boom)
+    stats.record_run(2, {"AC": 1}, 1.0, stats_path=path)
+
+    after = path.read_text(encoding="utf-8")
+    # Накопленный журнал цел: сбой замены не усёк файл и не оставил его
+    # полупустым. Новая запись при этом дописалась — провал ротации не повод
+    # терять прогон (весь модуль best-effort).
+    assert after.startswith(before), "ротация повредила уже записанные строки"
+    assert stats.read_summary(path)["by_mode"].get(2) == 1
+
+
+def test_rotation_keeps_second_half(tmp_path: pathlib.Path, monkeypatch) -> None:
+    """Обычная ротация по-прежнему оставляет вторую половину строк."""
+    path = tmp_path / ".grader_stats.jsonl"
+    line = '{"v": 1, "ts": 1.0, "mode": 1, "os": "L", "verdicts": {"AC": 1}, "total_time": 1.0}\n'
+    path.write_text(line * 40, encoding="utf-8")
+    monkeypatch.setattr(stats, "_MAX_BYTES", 10)
+
+    stats.record_run(2, {"AC": 1}, 1.0, stats_path=path)
+
+    summary = stats.read_summary(path)
+    # 20 старых строк + новая запись; точное число не важно, важно что журнал
+    # ужался и остался читаемым.
+    assert 15 <= summary["total_runs"] <= 25
+    assert summary["by_mode"].get(2) == 1
