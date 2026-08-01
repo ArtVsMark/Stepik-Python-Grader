@@ -11,7 +11,10 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import pathlib
+import subprocess
+import sys
 from types import ModuleType
 
 from packaging.requirements import Requirement
@@ -111,3 +114,25 @@ def test_missing_ruff_is_not_a_violation() -> None:
 
 def test_matching_installed_version_passes() -> None:
     assert _MODULE.specifier_violations(Requirement("ruff>=0.16,<0.17"), Version("0.16.0")) == []
+
+
+# --- вывод на консоли без UTF-8 ----------------------------------------------
+
+
+def test_output_survives_cp1252_console() -> None:
+    """Гард не падает на Windows-консоли, которая не знает кириллицы.
+
+    Так он упал на первом же прогоне CI: `python scripts/check_ruff_pin.py` в
+    windows-job'е печатал русский отчёт в cp1252 и валился
+    ``UnicodeEncodeError`` — то есть шаг краснел не из-за расхождения версий, а
+    из-за собственного вывода. Воспроизводится на любой ОС: подсовываем stdout
+    с cp1252, как на Windows-раннере.
+    """
+    proc = subprocess.run(
+        [sys.executable, str(_SCRIPT)],
+        capture_output=True,
+        env={**os.environ, "PYTHONIOENCODING": "cp1252"},
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr.decode("utf-8", errors="replace")
+    assert b"UnicodeEncodeError" not in proc.stderr

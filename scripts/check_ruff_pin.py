@@ -31,6 +31,7 @@ YAML-парсера: конфиг pre-commit читается построчно
 
 from __future__ import annotations
 
+import contextlib
 import re
 import subprocess
 import sys
@@ -118,6 +119,15 @@ def specifier_violations(req: Requirement, installed: Version | None) -> list[st
 
 def main() -> int:
     """Вернуть 0, если версия ruff задана в одном месте; иначе 1 и отчёт."""
+    # Windows-консоль по умолчанию cp1252 и кириллицу в выводе не кодирует —
+    # без этого шаг падает UnicodeEncodeError на windows-latest, то есть гард
+    # краснеет не по существу (так и случилось на первом же прогоне CI). Тот же
+    # приём, что в check_contrast.py.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        with contextlib.suppress(ValueError, OSError):  # зависит от платформы stdout
+            reconfigure(encoding="utf-8")
+
     problems = precommit_violations(_PRECOMMIT.read_text(encoding="utf-8"))
     req = ruff_requirement()
     installed = installed_ruff_version()
