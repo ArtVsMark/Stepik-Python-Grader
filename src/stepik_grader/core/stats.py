@@ -62,7 +62,12 @@ def _rotate_if_needed(path: pathlib.Path) -> None:
     try:
         if not path.is_file() or path.stat().st_size <= _MAX_BYTES:
             return
-        lines = path.read_text(encoding="utf-8").splitlines()
+        # issue #792 (FST-02): то же декодирование с заменой, что и при чтении
+        # сводки. Здесь дефект коварнее: ротация вызывается ПЕРЕД записью, то
+        # есть посторонний байт в журнале ронял бы уже сам прогон — но только
+        # после того, как файл перерастёт лимит, поэтому на глаза попадается
+        # редко и не воспроизводится на свежей установке.
+        lines = path.read_bytes().decode("utf-8", errors="replace").splitlines()
         keep = lines[len(lines) // 2 :]
         path.write_text("\n".join(keep) + ("\n" if keep else ""), encoding="utf-8")
     except OSError:
@@ -123,7 +128,13 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
 
     if path.is_file():
         try:
-            raw_lines = path.read_text(encoding="utf-8").splitlines()
+            # issue #792 (FST-02): байты + декодирование с заменой. Прежний
+            # read_text падал UnicodeDecodeError (подкласс ValueError, мимо
+            # `except OSError`) от единственного постороннего байта, и команда
+            # `stats` умирала целиком — вместо того чтобы пропустить одну
+            # испорченную строку журнала. Битая строка не разберётся как JSON и
+            # будет пропущена ниже, остальные прогоны сохранятся в сводке.
+            raw_lines = path.read_bytes().decode("utf-8", errors="replace").splitlines()
         except OSError:
             raw_lines = []
         for raw_line in raw_lines:

@@ -120,6 +120,13 @@ from stepik_grader.core.wrapper_builder import (
 # переопределяются через [tool.stepik-grader] в pyproject.toml.
 TIMEOUT_SECONDS: float = CONFIG.timeout_seconds
 ENCODING: str = CONFIG.encoding
+
+# issue #792 (PY-04): кодировка ПОТОКОВ дочернего процесса. Прибита к UTF-8
+# намеренно и не настраивается: раннеры (core/runner, все три sandbox-backend'а)
+# принудительно выставляют решению PYTHONIOENCODING=utf-8 и PYTHONUTF8=1, так
+# что любое другое значение здесь рассинхронизировало бы стороны и давало тихие
+# ложные WA. CONFIG.encoding касается только чтения файлов с диска.
+_CHILD_IO_ENCODING = "utf-8"
 SIMILAR_THRESHOLD: float = CONFIG.similar_threshold
 MUCH_SLOWER_THRESHOLD: float = CONFIG.much_slower_threshold
 MEASURE_CHILD_MEMORY: bool = CONFIG.measure_child_memory
@@ -301,7 +308,14 @@ def _prepare_run_spec(
         return _RunPlan(
             spec=RunSpec(
                 path=solution_path,
-                stdin=stdin_data.encode(ENCODING),
+                # issue #792 (PY-04): поток ребёнка — всегда UTF-8, а не
+                # CONFIG.encoding. Раннеры принудительно ставят решению
+                # PYTHONIOENCODING=utf-8/PYTHONUTF8=1, поэтому кодировать ввод
+                # чем-то другим значит гарантированно рассинхронизировать
+                # стороны: input() читал бы cp1251-байты как UTF-8. CONFIG.encoding
+                # остаётся тем, чем заявлен в документации, — кодировкой ЧТЕНИЯ
+                # файлов решений и тестов.
+                stdin=stdin_data.encode(_CHILD_IO_ENCODING),
                 timeout=timeout,
                 measure_memory=measure_memory,
                 max_memory_mb=mem_cap,
@@ -338,10 +352,14 @@ def _prepare_run_spec(
     # Записываем wrapper во временный файл; run_single_test удалит его после запуска.
 
     # путь уходит в RunSpec раннеру), удаляется вызывающей стороной после запуска.
+    # issue #792 (PY-04): wrapper пишется в UTF-8 — его читает интерпретатор
+    # дочернего процесса, которому раннер выставил PYTHONUTF8=1. Прежний
+    # CONFIG.encoding здесь означал бы, что при cp1251 сгенерированный код
+    # физически не разберётся.
     tmp_wrapper = tempfile.NamedTemporaryFile(  # noqa: SIM115
         mode="w",
         suffix=".py",
-        encoding=ENCODING,
+        encoding=_CHILD_IO_ENCODING,
         delete=False,
     )
     tmp_wrapper.write(wrapper_src)
@@ -415,8 +433,12 @@ def _map_outcome_to_result(
             timed_out=True,
         )
 
-    stdout = outcome.stdout.decode(ENCODING, errors="replace")
-    stderr = outcome.stderr.decode(ENCODING, errors="replace")
+    # issue #792 (PY-04): вывод ребёнка декодируется UTF-8 — симметрично тому,
+    # как он кодируется на входе и как раннер настраивает сам процесс. С
+    # CONFIG.encoding != utf-8 это давало ложные WA: вывод решения читался
+    # чужой кодировкой и не совпадал с ожиданием.
+    stdout = outcome.stdout.decode(_CHILD_IO_ENCODING, errors="replace")
+    stderr = outcome.stderr.decode(_CHILD_IO_ENCODING, errors="replace")
 
     if outcome.returncode != 0:
         # Процесс, убитый сигналом (segfault, OOM-killer, отрицательный
