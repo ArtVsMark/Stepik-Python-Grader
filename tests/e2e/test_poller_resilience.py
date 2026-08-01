@@ -32,8 +32,8 @@ def test_lost_run_shows_error_and_unlocks_ui(page: Any, e2e_server: str, tmp_pat
     write_task(tmp_path, "print(int(input()) + 1)\n")
 
     # Опрос статуса отвечает так же, как перезапущенный сервер: 404 + JSON
-    # без progress. Создание прогона (POST) не трогаем — иначе UI не дойдёт
-    # до цикла опроса, и тест проверял бы не то.
+    # без progress. Создание прогона (POST /api/v1/runs, без хвоста) шаблон не
+    # задевает — иначе UI не дошёл бы до цикла опроса, и тест проверял бы не то.
     page.route(
         "**/api/v1/runs/*",
         lambda route: route.fulfill(
@@ -44,12 +44,16 @@ def test_lost_run_shows_error_and_unlocks_ui(page: Any, e2e_server: str, tmp_pat
     )
 
     page.goto(e2e_server + "/")
-    page.click('.mode-btn[data-mode="tests"]')
+    # Режим «Бенчмарк», а не «Тесты»: цикл опроса живёт только в gradeAsync
+    # (режимы 1/3/4), а режим 2 идёт синхронным /api/grade и до опроса не
+    # доходит вовсе — на нём перехват 404 молча не срабатывал.
+    page.click('.mode-btn[data-mode="bench"]')
+    page.fill("#path", str(tmp_path))
     page.click("#run")
 
     # 1) Пользователь видит, что произошло, и знает следующий шаг. Язык
-    # интерфейса берётся из браузера, а он на CI-раннере английский — поэтому
-    # ищем слово в обеих локалях, а не в той, что стоит на машине автора.
+    # интерфейса берётся из браузера, а он на CI-раннере может быть любым —
+    # поэтому ищем слово в обеих локалях, а не в той, что стоит у автора.
     expect(page.locator("#out")).to_contain_text(
         re.compile(r"сервер|server", re.IGNORECASE), timeout=_TIMEOUT_MS
     )
@@ -73,8 +77,10 @@ def test_normal_run_still_completes(page: Any, e2e_server: str, tmp_path: Path) 
     write_task(tmp_path, "print(int(input()) + 1)\n")
 
     page.goto(e2e_server + "/")
-    page.click('.mode-btn[data-mode="tests"]')
+    page.click('.mode-btn[data-mode="bench"]')
+    page.fill("#path", str(tmp_path))
     page.click("#run")
 
     page.wait_for_selector("#out table.data-table", timeout=_TIMEOUT_MS)
     expect(page.locator("#run")).to_be_enabled(timeout=_TIMEOUT_MS)
+    expect(page.locator("#cancel-run")).to_be_hidden(timeout=_TIMEOUT_MS)

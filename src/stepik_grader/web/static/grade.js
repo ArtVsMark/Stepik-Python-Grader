@@ -832,34 +832,34 @@ async function gradeAsync(path, backendMode, code = null) {
         return failPoll(t("common.request_error_detail", { detail: String(e) }));
       }
       try {
-      // issue #801: даже при 200 тело может не содержать progress (чужой ответ,
-      // прокси, будущая версия API) — читать его вслепую нельзя.
-      if (data && data.progress) {
-        updateProgressBar(data.progress.done, data.progress.total);
-      }
-      if (data.status === "queued" || data.status === "running") {
-        setTimeout(poll, 600);
-        return;
-      }
-      cancelBtn.hidden = true;
-      $("#bar").innerHTML = "";
-      if (data.status === "done") {
-        state.lastResult = data.result;
-        render(data.result);
-        updateCheckSidebarBadge(data.result);
-        announceResult(summaryFromResult(data.result)); // issue #298
-      } else if (data.status === "cancelled") {
-        // issue #296: отдельный нейтральный статус — не провал грейдера,
-        // не показываем красным (.msg), как настоящую ошибку.
-        $("#out").innerHTML =
-          '<p class="msg-neutral">' + esc(data.message || t("grade.task_cancelled")) + "</p>";
-        announceResult(data.message || t("grade.run_cancelled")); // issue #298
-      } else {
-        $("#out").innerHTML =
-          '<p class="msg">' + esc(data.message || t("grade.task_failed")) + "</p>";
-        announceResult(data.message || t("grade.task_failed")); // issue #298
-      }
-      resolve();
+        // issue #801: даже при 200 тело может не содержать progress (чужой
+        // ответ, прокси, будущая версия API) — читать его вслепую нельзя.
+        if (data && data.progress) {
+          updateProgressBar(data.progress.done, data.progress.total);
+        }
+        if (data.status === "queued" || data.status === "running") {
+          setTimeout(poll, 600);
+          return;
+        }
+        cancelBtn.hidden = true;
+        $("#bar").innerHTML = "";
+        if (data.status === "done") {
+          state.lastResult = data.result;
+          render(data.result);
+          updateCheckSidebarBadge(data.result);
+          announceResult(summaryFromResult(data.result)); // issue #298
+        } else if (data.status === "cancelled") {
+          // issue #296: отдельный нейтральный статус — не провал грейдера,
+          // не показываем красным (.msg), как настоящую ошибку.
+          $("#out").innerHTML =
+            '<p class="msg-neutral">' + esc(data.message || t("grade.task_cancelled")) + "</p>";
+          announceResult(data.message || t("grade.run_cancelled")); // issue #298
+        } else {
+          $("#out").innerHTML =
+            '<p class="msg">' + esc(data.message || t("grade.task_failed")) + "</p>";
+          announceResult(data.message || t("grade.task_failed")); // issue #298
+        }
+        resolve();
       } catch (e) {
         // issue #801: сбой разбора или рендера результата больше не оставляет
         // раздел в вечном «идёт проверка» — показываем ошибку и завершаем цикл.
