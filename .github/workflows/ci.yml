@@ -96,6 +96,14 @@ jobs:
       # (privileged-контейнер, где userns/netns доступны). Backend-фиксы usrmerge
       # и биндинг /usr (#420) — в _linux.py.
 
+      # issue #791: версию ruff задаёт ровно одно место — `[dev]` в
+      # pyproject.toml. Гард ловит возврат второго пина (`rev:` хука
+      # ruff-pre-commit), спецификатор без верхней границы и устаревшую
+      # dev-установку. Стоит ПЕРЕД самим ruff: если версии разъехались, вердикт
+      # линтера ниже уже не о том, что увидит контрибьютор локально.
+      - name: Ruff pin is single-sourced (issue #791)
+        run: python scripts/check_ruff_pin.py
+
       - name: Ruff lint
         run: ruff check .
 
