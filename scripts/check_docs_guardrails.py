@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Семь машинных защит, чтобы README снова не разросся, ссылки между Markdown-
+Восемь машинных защит, чтобы README снова не разросся, ссылки между Markdown-
 файлами не протухли ни целью, ни подписью, документация не расползлась мимо направлений, индексы не
 отставали от состава каталогов, а объясняющие документы и пользовательские
 строки интерфейса не превратились в журнал работ (эпик #167 «README как
@@ -20,13 +20,17 @@
    фактической цели. Раскладка ``docs/`` по направлениям пережила девять таких
    подписей: цель рабочая, а путь в тексте ведёт в никуда — и читатель копирует
    именно его.
-4. **Docs directions.** В корне ``docs/`` лежит только ``README.md``-развилка;
+4. **Showcase metrics (issue #829).** В `README.md`/`README.en.md` нет метрик
+   числом: живой источник числа тестов, покрытия и размера глоссария — бейджи в
+   шапке. Вписанное руками «2100+ tests» пережило рост набора на четверть и
+   осталось в английской версии, когда из русской его уже убрали.
+5. **Docs directions.** В корне ``docs/`` лежит только ``README.md``-развилка;
    документы живут в направлениях по читателю — ``use/`` (как пользоваться),
    ``dev/`` (как устроено, с ``dev/design/`` для спроектированного без кода),
    ``agent/`` (служебное для Claude Code), ``audit/`` (находки незакрытых
    аудитов), ``archive/`` (история). Новый ``.md`` в корне ``docs/`` — ошибка:
    он не попадает ни в одно направление.
-5. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
+6. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
    (кроме самого ``<dir>/README.md``) должен быть упомянут в ``<dir>/README.md``
    — иначе индекс расходится с фактическим составом каталога (как произошло с
    ``changelog-archive.md``). **Рекурсивно (issue #562):** проверка применяется
@@ -35,14 +39,14 @@
    ``docs/archive/README.md``). Подкаталог без своего ``README.md`` отдельно не
    индексируется — родитель ссылается на него одной строкой (``role-*.md``-
    приложения к сводному аудиту, ADR-набор до появления adr/README.md).
-6. **Issue-tail policy.** Объясняющий документ отвечает «как это работает
+7. **Issue-tail policy.** Объясняющий документ отвечает «как это работает
    сейчас», поэтому ссылок на задачи в нём быть не должно: ``docs/use/``,
    ``docs/dev/*.md``, README, SECURITY и CONTRIBUTING держат ноль.
    Логи (``CHANGELOG.md``, ``docs/archive/``), находки (``docs/audit/``) и ADR
    не проверяются вовсе — там номер уместен. ``docs/dev/design/`` и агентские
    документы живут по бюджету: номер там работает как идентификатор
    согласованного требования, а не как датировка.
-7. **UI-strings issue policy (issue #820).** Та же политика — для строк, которые
+8. **UI-strings issue policy (issue #820).** Та же политика — для строк, которые
    пользователь видит в интерфейсе, а не в документации: ``help=`` в
    ``cli/options.py`` (вывод ``--help``) и значения ``core/locales/*.json``.
    Гейт на доках держал ноль, а самая читаемая поверхность — справка — годами
@@ -75,6 +79,7 @@ __all__ = [
     "check_link_captions",
     "check_markdown_links",
     "check_readme_budget",
+    "check_showcase_metrics",
     "check_ui_issue_tail_policy",
     "collect_markdown_files",
     "collect_ui_strings",
@@ -279,6 +284,43 @@ def check_link_captions(errors: list[str]) -> None:
                     "попадает в никуда."
                 )
     print(f"link captions: checked {checked} path-like caption(s) against their targets.")
+
+
+# Витрины, где метрики живут только в бейджах (issue #829). Число, вписанное
+# руками, устаревает к следующему PR: «2100+ tests» пережило рост набора на
+# четверть и осталось в английской версии, когда из русской его уже убрали.
+_SHOWCASE_FILES = ("README.md", "README.en.md")
+# «2100+ tests», «1349 карточек», «2349 тестов» — число рядом со словом-метрикой.
+_HARDCODED_METRIC_RE = re.compile(
+    r"\b\d{3,}\+?\s*(?:automated\s+)?(?:tests?|тест\w*|карточ\w+|cards?)\b",
+    re.IGNORECASE,
+)
+
+
+def check_showcase_metrics(errors: list[str]) -> None:
+    """В README и README.en.md нет метрик числом — только бейджи (issue #829).
+
+    Живой источник числа тестов, покрытия и размера глоссария — бейджи в шапке:
+    они обновляются каждым прогоном CI, а вписанная руками цифра начинает врать
+    в первый же день и противоречить соседнему файлу.
+    """
+    checked = 0
+    for name in _SHOWCASE_FILES:
+        path = _ROOT / name
+        if not path.is_file():
+            continue
+        checked += 1
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.lstrip().startswith("[!["):  # сами бейджи — источник истины
+                continue
+            found = _HARDCODED_METRIC_RE.findall(line)
+            if found:
+                errors.append(
+                    f"{name}: метрика числом в прозе ('{line.strip()[:60]}…') — "
+                    "живой источник у этих чисел бейджи в шапке; вписанное руками "
+                    "устареет к следующему PR."
+                )
+    print(f"showcase metrics: checked {checked} README file(s) for hardcoded numbers.")
 
 
 def check_docs_index_completeness(errors: list[str]) -> None:
@@ -527,6 +569,7 @@ def main() -> int:
     check_readme_budget(errors)
     check_markdown_links(errors)
     check_link_captions(errors)
+    check_showcase_metrics(errors)
     check_docs_directions(errors)
     check_docs_index_completeness(errors)
     check_changelog_version_budget(errors)

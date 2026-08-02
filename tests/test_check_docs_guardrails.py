@@ -520,3 +520,48 @@ def test_link_captions_on_current_repo() -> None:
     errors: list[str] = []
     module.check_link_captions(errors)
     assert errors == []
+
+
+# --- Метрики числом в витринах (issue #829) ----------------------------------
+
+
+def test_hardcoded_metric_in_readme_is_flagged(tmp_path, monkeypatch) -> None:
+    """«2100+ tests» в прозе — нарушение: живой источник числа это бейдж."""
+    module = _load_module()
+    (tmp_path / "README.md").write_text(
+        "- ✅ **2100+ automated tests** (pytest), CI on 3 OSes.\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_showcase_metrics(errors)
+    assert any("README.md" in e for e in errors), errors
+
+
+def test_russian_metric_is_flagged_too(tmp_path, monkeypatch) -> None:
+    """Правило одинаково для обеих витрин и обоих языков."""
+    module = _load_module()
+    (tmp_path / "README.en.md").write_text("Глоссарий: 1349 карточек.\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_showcase_metrics(errors)
+    assert any("README.en.md" in e for e in errors), errors
+
+
+def test_badge_line_is_not_flagged(tmp_path, monkeypatch) -> None:
+    """Сам бейдж — источник истины, а не хардкод."""
+    module = _load_module()
+    (tmp_path / "README.md").write_text(
+        "[![Coverage](https://img.shields.io/endpoint?url=...4200+tests)](ci)\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_showcase_metrics(errors)
+    assert errors == []
+
+
+def test_showcase_metrics_on_current_repo() -> None:
+    """На актуальном main обе витрины держат метрики только в бейджах."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_showcase_metrics(errors)
+    assert errors == []

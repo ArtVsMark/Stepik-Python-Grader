@@ -1,6 +1,9 @@
 # Stepik Python Grader — English quick start
 
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/version.json&cacheSeconds=300)](CHANGELOG.md)
+[![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
+[![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 [![Glossary](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/glossary.json&cacheSeconds=300)](docs/dev/glossary.md)
 
 > A local grader for the «Поколение Python» Stepik courses — **and for any
@@ -120,7 +123,30 @@ Some parts of the grader live **only** here — there are no CLI flags for them:
 
 ---
 
+## Why not just Stepik's own checker?
+
+Stepik's built-in checker gives you «passed / failed» — and only after you
+submit. This grader covers what it does not:
+
+- ⚡ **Instant offline loop.** Edit, re-run locally in seconds — no submit, no
+  attempt limit, no network.
+- 📊 **Honest comparison of several solutions.** Stepik will not tell you which
+  of *your* solutions is faster or lighter on memory; the grader runs them side
+  by side (median time, RSS, SIMILAR/SLOWER verdicts) in modes 3 and 4.
+- 🎓 **«Practice», not just a verdict.** Frequent mistakes from your own run
+  history, fading as you stop making them — the tool teaches, not only grades.
+- 📚 **Offline Python glossary** with deep links straight from runtime errors.
+- 🔒 **Your code stays on your machine** (except explicitly downloading a task
+  from Stepik and opt-in AI hints, which ask for consent separately).
+
+---
+
 ## Why this fork
+
+The project started as a fork of
+[PavloOps/python_generation_grader](https://github.com/PavloOps/python_generation_grader)
+— a single-file correctness checker for the same courses. «Original» in the
+table below refers to it.
 
 | Feature | Original | This fork |
 |---|---|---|
@@ -133,7 +159,7 @@ Some parts of the grader live **only** here — there are no CLI flags for them:
 | Optional OS sandbox (`--sandbox`) with FS isolation — plus network isolation on Linux/macOS (guarantees differ per OS: no network isolation on Windows, see [SECURITY.md](SECURITY.md)) | ❌ | ✅ |
 | Bilingual RU/EN interface — CLI, web shell, glossary | ❌ | ✅ |
 | Local run history (SQLite) + stats — offline | ❌ | ✅ |
-| Engineering base — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) on 3 OSes, 2100+ tests | ❌ | ✅ |
+| Engineering base — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) on 3 OSes | ❌ | ✅ |
 
 Per-release evolution — [docs/use/versions.md](docs/use/versions.md).
 
@@ -141,7 +167,7 @@ Per-release evolution — [docs/use/versions.md](docs/use/versions.md).
 
 ## Transparency & trust
 
-- ✅ **2100+ automated tests** (pytest), CI matrix over 3 OSes × Python 3.12/3.13 (+3.14 experimental) — live coverage badges (single-OS + cross-OS) in the header.
+- ✅ **Automated test suite** (pytest) on a CI matrix of 3 OSes × Python 3.12/3.13 (+3.14 experimental) — the live count and coverage are in the badges at the top, never hardcoded in prose.
 - 🧠 **Strict mypy** + `ruff` (lint + format) in pre-commit and CI on every PR.
 - 🔐 **Private vulnerability reporting** + a documented threat model — [SECURITY.md](SECURITY.md).
 - 📦 **PyPI publishing via OIDC trusted publishing** — no stored token.
