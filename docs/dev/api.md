@@ -118,9 +118,16 @@ curl http://127.0.0.1:8000/
 
 ## Статика (`/static/...`)
 
-`/static/app.css`, `/static/app.js`, `/static/vendor/*.mjs` (CodeMirror 6),
-`/static/fonts/*.woff2` — маленький фиксированный
-allowlist, не файловый сервер. Путь не из allowlist → **404** `text/plain`.
+Фиксированный allowlist, а не файловый сервер: путь не из него → **404**
+`text/plain`. Всё содержимое читается один раз при импорте модуля.
+
+| Путь | Что отдаётся |
+|---|---|
+| `/static/app.css` | стили оболочки |
+| `/static/<имя>.js` | каждый файл `static/*.js` — `app.js` (entry) и извлечённые ES-модули (`core`, `grade`, `content`, `downloader`, `sandbox`, `trace-player`, `feedback`); список собирается `glob`-сканом при импорте, новый модуль подхватывается без правки кода |
+| `/static/locales/ui.json` | каталог UI-строк `ru`/`en` для `applyUiLocale()` |
+| `/static/vendor/*.mjs` | вендоренный бандл CodeMirror 6 |
+| `/static/fonts/*.woff2` | Inter и JetBrains Mono (subset) |
 
 ## `GET /api/grade` (DEPRECATED для bench/microbench)
 

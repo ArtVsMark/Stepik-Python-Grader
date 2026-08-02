@@ -45,11 +45,16 @@
 > мигрируется (in-place по пути и импорт `<stem>.json`-соседа при смене дефолта
 > `.json`→`.db`). `stats.jsonl` не тронут; единого `.grader.db` нет.
 
-SQLite-подключение + PRAGMA-шаблон (`_connect`, `journal_mode=WAL`,
-`busy_timeout`, `foreign_keys=ON`, `user_version`-миграция) сегодня заперты внутри
-`core/history.py:139-168` — переиспользовать негде. Межпроцессная гонка CLI+web
-закрыта только для history; missing-queue пишется неатомарно голым `open("w")` и
-гонится между CLI и web. Отдельного `core/db.py` нет.
+**На момент решения** SQLite-подключение и PRAGMA-шаблон (`_connect`,
+`journal_mode=WAL`, `busy_timeout`, `foreign_keys=ON`, `user_version`-миграция)
+были заперты внутри `core/history.py` — переиспользовать их было негде.
+Межпроцессная гонка CLI+web закрывалась только для history; missing-queue
+писалась неатомарно голым `open("w")` и гонилась между CLI и web. Общего
+модуля-коннектора не существовало.
+
+**Состояние сейчас:** реализовано (см. блоки «Обновление» выше) — общий
+коннектор живёт в top-level `db.py` (`connect`/`user_version`/`apply_schema`),
+`core/history.py` делегирует ему, а атомарная запись JSON — в `atomic_io.py`.
 
 Это решения уровня ADR: границы (что БД, что файл), durability (кто может потерять
 запись), дорогой откат (миграция формата). Контекст фиксируется ДО кода —
