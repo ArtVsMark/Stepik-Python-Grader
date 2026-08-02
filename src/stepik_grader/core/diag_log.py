@@ -47,19 +47,39 @@ _MASK = "***redacted***"
 # маскируем в любом сообщении, даже если формат не совпал с паттернами ниже.
 _SECRETS: set[str] = set()
 
-# Паттерны секретов в тексте: заголовок Bearer, query-параметры и JSON-поля с
-# токенами/секретами/кодом авторизации. group(1) — префикс (сохраняем),
-# group(2) — секрет (маскируем).
+# Имена полей, значение которых считается секретом. issue #813 (SECD-05):
+# список расширен — `api_key` не ловился ВООБЩЕ (ни в JSON, ни в repr), хотя
+# именно им настраивается AI-канал подсказок; `secret`/`password`/`api_token`
+# отсутствовали так же.
+_SECRET_KEYS = (
+    "access_token",
+    "refresh_token",
+    "client_secret",
+    "api_key",
+    "apikey",
+    "api_token",
+    "auth_token",
+    "password",
+    "secret",
+    "token",
+    "code",
+)
+_KEYS_RE = "|".join(_SECRET_KEYS)
+
+# Паттерны секретов в тексте: заголовки Authorization, query-параметры и поля
+# структур. group(1) — префикс (сохраняем), group(2) — секрет (маскируем).
+#
+# issue #813 (SECD-05): поля ловятся и в repr-форме Python (одинарные кавычки).
+# Прежний паттерн требовал двойных, поэтому типовая строка из traceback'а или
+# `print(secrets)` — `{'access_token': 'ya29...'}` — уезжала нетронутой в
+# prefilled-URL публичного GitHub issue через форму обратной связи.
 _PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"(Bearer\s+)([^\s\"'&]+)", re.IGNORECASE),
-    re.compile(
-        r"((?:access_token|refresh_token|client_secret|token|code)=)([^&\s\"']+)",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"(\"(?:access_token|refresh_token|client_secret|token|code)\"\s*:\s*\")([^\"]+)",
-        re.IGNORECASE,
-    ),
+    # Bearer и Basic: у Basic в base64 могут быть '=' на конце — их сохраняем.
+    re.compile(r"((?:Bearer|Basic)\s+)([^\s\"'&]+)", re.IGNORECASE),
+    re.compile(rf"((?:{_KEYS_RE})=)([^&\s\"']+)", re.IGNORECASE),
+    # "key": "value" и 'key': 'value' — кавычка запоминается и требуется той же
+    # на закрытии, поэтому смешанные `"key': ...` не матчатся случайно.
+    re.compile(rf"([\"'](?:{_KEYS_RE})[\"']\s*:\s*([\"']))(?:(?!\2).)+", re.IGNORECASE),
 )
 
 

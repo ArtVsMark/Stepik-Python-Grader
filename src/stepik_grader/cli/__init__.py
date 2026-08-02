@@ -447,6 +447,25 @@ def main(argv: list[str] | None = None) -> None:
         print(_t("cache_cleared", count=removed))
         return
 
+    if args.purge_history is not None:
+        # issue #813 (SECD-03): у локального журнала обучения должен быть
+        # штатный способ удаления. Раньше `--no-history` лишь переставал писать,
+        # а убрать уже накопленное можно было только `rm .grader_history.db`
+        # (плюс -wal/-shm) — то есть зная о файлах, которых пользователь не
+        # создавал. Без аргумента чистим и статистику: это те же личные данные.
+        from stepik_grader.core import stats as stats_mod
+        from stepik_grader.core.history import purge_history
+        from stepik_grader.core.history_recording import default_history_db_path
+
+        task_key = args.purge_history or None
+        runs_removed = purge_history(default_history_db_path(), task_key=task_key)
+        if task_key is None:
+            stats_removed = stats_mod.purge_stats()
+            print(_t("history_purged", runs=runs_removed, stats=stats_removed))
+        else:
+            print(_t("history_purged_task", task=task_key, runs=runs_removed))
+        return
+
     if args.stats_summary:
         summary = stats.read_summary()
         if summary["total_runs"] == 0:
