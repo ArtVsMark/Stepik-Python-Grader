@@ -12,12 +12,13 @@ leaf-модуль `cli/options.py` и реэкспортированы здес�
 `cli`-namespace, поэтому `monkeypatch.setattr(cli, "_build_arg_parser", ...)`
 по-прежнему работает.
 
-Non-interactive запуск (Sprint 8.1):
-    python grader.py --mode 1 --file path/to/task.py
-    python grader.py --mode 2 --dir StepikTasks/module1
-    python grader.py --mode 3 --dir StepikTasks/module1/task1 --repeats 15
-    python grader.py --mode 4 --dir StepikTasks/module1/task1 --number 1000
-    python grader.py --version
+Non-interactive запуск (обе формы равнозначны: console script после
+`pip install` и запуск модулем из исходников):
+    stepik-grader --mode 1 --file path/to/task.py
+    python -m stepik_grader --mode 2 --dir StepikTasks/module1
+    python -m stepik_grader --mode 3 --dir StepikTasks/module1/task1 --repeats 15
+    python -m stepik_grader --mode 4 --dir StepikTasks/module1/task1 --number 1000
+    python -m stepik_grader --version
 
 Sprint E (issue #50/#51):
     --lang {ru,en}      — язык меню и сообщений (по умолчанию ru), issue #51 D-01
@@ -408,13 +409,13 @@ def _dispatch_with_watch(target: pathlib.Path, run: Callable[[], object], *, wat
 def main(argv: list[str] | None = None) -> None:
     """Точка входа CLI: argparse для non-interactive режимов, иначе меню.
 
-    python grader.py                                          — интерактивное меню
-    python grader.py --version                                — версия и выход
-    python grader.py --mode 1 --file path/to/task.py          — проверить один файл
-    python grader.py --mode 2 --dir path/to/folder            — проверить папку
-    python grader.py --mode 3 --dir path/to/folder --repeats 15  — бенчмарк
-    python grader.py --mode 4 --dir path/to/folder --number 1000 — micro-bench
-    python grader.py --mode 1 --file task.py --output json     — машиночитаемый вывод
+    stepik-grader                                             — интерактивное меню
+    stepik-grader --version                                   — версия и выход
+    stepik-grader --mode 1 --file path/to/task.py             — проверить один файл
+    stepik-grader --mode 2 --dir path/to/folder               — проверить папку
+    stepik-grader --mode 3 --dir path/to/folder --repeats 15  — бенчмарк
+    stepik-grader --mode 4 --dir path/to/folder --number 1000 — micro-bench
+    stepik-grader --mode 1 --file task.py --output json       — машиночитаемый вывод
 
     argv=None (по умолчанию) читает sys.argv[1:], как обычный CLI;
     явный список используется в тестах, чтобы не зависеть от sys.argv
@@ -433,7 +434,9 @@ def main(argv: list[str] | None = None) -> None:
     _LANG = args.lang
 
     if args.version:
-        print(f"grader.py {_format_version_for_display(__version__)}")
+        # Имя дистрибутива, а не файла: `grader.py` при src-layout не существует
+        # ни как команда, ни как файл в корне (issue #820).
+        print(f"stepik-grader {_format_version_for_display(__version__)}")
         return
 
     if args.clear_cache:

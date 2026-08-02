@@ -385,3 +385,84 @@ def test_issue_tail_policy_on_current_repo() -> None:
     errors: list[str] = []
     module.check_issue_tail_policy(errors)
     assert errors == []
+
+
+# --- UI-strings issue policy (issue #820) ------------------------------------
+
+
+def _make_ui_tree(tmp_path: Path, options_py: str, locale: dict[str, str]) -> None:
+    """Минимальный срез репозитория с cli/options.py и core/locales/ru.json."""
+    import json
+
+    pkg = tmp_path / "src" / "stepik_grader"
+    (pkg / "cli").mkdir(parents=True)
+    (pkg / "core" / "locales").mkdir(parents=True)
+    (pkg / "cli" / "options.py").write_text(options_py, encoding="utf-8")
+    (pkg / "core" / "locales" / "ru.json").write_text(
+        json.dumps(locale, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def test_ui_help_with_issue_tail_is_flagged(tmp_path, monkeypatch) -> None:
+    """`help=` с хвостом «Issue #51» — нарушение: пользователь читает справку."""
+    module = _load_module()
+    _make_ui_tree(
+        tmp_path,
+        'parser.add_argument("--lang", help="Язык меню. Issue #51 D-01.")\n',
+        {"ok": "Файл не найден"},
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_ui_issue_tail_policy(errors)
+    assert any("options.py" in e and "#51" in e for e in errors), errors
+
+
+def test_ui_locale_value_with_issue_tail_is_flagged(tmp_path, monkeypatch) -> None:
+    """Номер задачи в тексте локали — то же нарушение, что и в справке."""
+    module = _load_module()
+    _make_ui_tree(
+        tmp_path,
+        'parser.add_argument("--lang", help="Язык меню.")\n',
+        {"path_not_found": "Путь не найден (issue #261)"},
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_ui_issue_tail_policy(errors)
+    assert any("ru.json" in e and "#261" in e for e in errors), errors
+
+
+def test_ui_strings_read_implicitly_concatenated_help(tmp_path, monkeypatch) -> None:
+    """Многострочный `help=(...)` читается целиком, а не первым куском."""
+    module = _load_module()
+    _make_ui_tree(
+        tmp_path,
+        'parser.add_argument("--watch", help=("Перезапускать при изменении. " "Issue #54."))\n',
+        {"ok": "Готово"},
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    strings = module.collect_ui_strings()
+    assert strings["src/stepik_grader/cli/options.py"] == [
+        "Перезапускать при изменении. Issue #54."
+    ]
+
+
+def test_ui_clean_strings_pass(tmp_path, monkeypatch) -> None:
+    """Справка и локаль без номеров задач — без ошибок."""
+    module = _load_module()
+    _make_ui_tree(
+        tmp_path,
+        'parser.add_argument("--lang", help="Язык меню и сообщений (по умолчанию ru).")\n',
+        {"path_not_found": "Путь не найден"},
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_ui_issue_tail_policy(errors)
+    assert errors == []
+
+
+def test_ui_issue_tail_policy_on_current_repo() -> None:
+    """На актуальном main справка и локали держат ноль."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_ui_issue_tail_policy(errors)
+    assert errors == []

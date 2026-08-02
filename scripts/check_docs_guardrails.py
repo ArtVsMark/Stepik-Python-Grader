@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Пять машинных защит, чтобы README снова не разросся, ссылки между Markdown-
+Шесть машинных защит, чтобы README снова не разросся, ссылки между Markdown-
 файлами не протухли, документация не расползлась мимо направлений, индексы не
-отставали от состава каталогов, а объясняющие документы не превратились в журнал
-работ (эпик #167 «README как витрина»):
+отставали от состава каталогов, а объясняющие документы и пользовательские
+строки интерфейса не превратились в журнал работ (эпик #167 «README как
+витрина»):
 
 1. **README line-budget.** ``README.md`` не должен превышать ``README_LINE_BUDGET``
    строк (см. константу ниже). README — короткая витрина, подробности живут в
@@ -36,9 +37,15 @@
    не проверяются вовсе — там номер уместен. ``docs/dev/design/`` и агентские
    документы живут по бюджету: номер там работает как идентификатор
    согласованного требования, а не как датировка.
+6. **UI-strings issue policy (issue #820).** Та же политика — для строк, которые
+   пользователь видит в интерфейсе, а не в документации: ``help=`` в
+   ``cli/options.py`` (вывод ``--help``) и значения ``core/locales/*.json``.
+   Гейт на доках держал ноль, а самая читаемая поверхность — справка — годами
+   печатала «Issue #51 D-01» и «Эпик #80 Tier 1»: выписка из трекера вместо
+   объяснения флага.
 
-Никаких внешних зависимостей: чистый ``re`` + ``pathlib``, детерминированно и
-кроссплатформенно (Windows/Linux/macOS).
+Никаких внешних зависимостей: чистый ``ast``/``json``/``re`` + ``pathlib``,
+детерминированно и кроссплатформенно (Windows/Linux/macOS).
 
 Запуск::
 
@@ -47,6 +54,8 @@
 
 from __future__ import annotations
 
+import ast
+import json
 import re
 import sys
 from pathlib import Path
@@ -60,7 +69,9 @@ __all__ = [
     "check_issue_tail_policy",
     "check_markdown_links",
     "check_readme_budget",
+    "check_ui_issue_tail_policy",
     "collect_markdown_files",
+    "collect_ui_strings",
     "github_slug",
     "main",
 ]
@@ -388,6 +399,79 @@ def check_issue_tail_policy(errors: list[str]) -> None:
     )
 
 
+def _help_strings(path: Path) -> list[str]:
+    """Строки справки argparse из модуля-парсера: ``help``/``description``/``epilog``.
+
+    Разбор через ``ast``, а не regex: неявная конкатенация литералов в скобках
+    (``help=("…" "…")``) сворачивается парсером в один ``ast.Constant``, поэтому
+    многострочные справки читаются целиком, а не по кусочкам. Динамические
+    значения (f-строки, вызовы) пропускаются — проверять в них нечего.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        for kw in node.keywords:
+            if kw.arg not in {"help", "description", "epilog"}:
+                continue
+            if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                found.append(kw.value.value)
+    return found
+
+
+def _json_strings(value: object) -> list[str]:
+    """Все строковые значения JSON-структуры (ключи не в счёт — они идентификаторы)."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for v in value.values() for s in _json_strings(v)]
+    if isinstance(value, list):
+        return [s for v in value for s in _json_strings(v)]
+    return []
+
+
+def collect_ui_strings() -> dict[str, list[str]]:
+    """Пользовательские строки интерфейса: ``{относительный путь: [строки]}``.
+
+    Две поверхности, которые пользователь читает наравне с документацией:
+    вывод ``--help`` (``cli/options.py``) и каталоги сообщений
+    (``core/locales/*.json``). Отсутствующий файл молча пропускается — guard
+    не должен падать на урезанном чекауте.
+    """
+    strings: dict[str, list[str]] = {}
+    options_py = _ROOT / "src" / "stepik_grader" / "cli" / "options.py"
+    if options_py.is_file():
+        strings[options_py.relative_to(_ROOT).as_posix()] = _help_strings(options_py)
+    locales = _ROOT / "src" / "stepik_grader" / "core" / "locales"
+    for loc in sorted(locales.glob("*.json")):
+        data = json.loads(loc.read_text(encoding="utf-8"))
+        strings[loc.relative_to(_ROOT).as_posix()] = _json_strings(data)
+    return strings
+
+
+def check_ui_issue_tail_policy(errors: list[str]) -> None:
+    """В пользовательских строках интерфейса нет ссылок вида ``#NNN`` (issue #820).
+
+    Политика та же, что у объясняющей документации, и по той же причине: номер
+    задачи ничего не сообщает тому, кто читает ``--help`` или сообщение об
+    ошибке. Разница лишь в поверхности — здесь проверяются строки в коде, а не
+    Markdown, поэтому гейт на доках эту зону не покрывал.
+    """
+    checked = 0
+    for source, values in collect_ui_strings().items():
+        tails = sorted({tail for value in values for tail in _ISSUE_TAIL_RE.findall(value)})
+        checked += len(values)
+        if tails:
+            errors.append(
+                f"{source}: {len(tails)} issue reference(s) ({', '.join(tails[:5])}) "
+                "in user-facing strings. Help output and locale messages explain a "
+                "flag to the user - the work log belongs in CHANGELOG.md, the "
+                "rationale in code comments."
+            )
+    print(f"UI-strings issue policy: checked {checked} user-facing string(s) at zero.")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
@@ -397,6 +481,7 @@ def main() -> int:
     check_docs_index_completeness(errors)
     check_changelog_version_budget(errors)
     check_issue_tail_policy(errors)
+    check_ui_issue_tail_policy(errors)
 
     if errors:
         print("\nFAIL: documentation guardrails violated:")
