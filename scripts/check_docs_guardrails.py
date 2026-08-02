@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Шесть машинных защит, чтобы README снова не разросся, ссылки между Markdown-
-файлами не протухли, документация не расползлась мимо направлений, индексы не
+Семь машинных защит, чтобы README снова не разросся, ссылки между Markdown-
+файлами не протухли ни целью, ни подписью, документация не расползлась мимо направлений, индексы не
 отставали от состава каталогов, а объясняющие документы и пользовательские
 строки интерфейса не превратились в журнал работ (эпик #167 «README как
 витрина»):
@@ -15,13 +15,18 @@
    на существующий файл, а якоря — на существующий заголовок в целевом
    Markdown-файле. Внешние ссылки (http/https/mailto и т.п.) осознанно НЕ
    проверяются — сетевые проверки делают CI флаки.
-3. **Docs directions.** В корне ``docs/`` лежит только ``README.md``-развилка;
+3. **Link captions (issue #827).** Если подпись ссылки выглядит как путь
+   (``[docs/use/configuration.md § …](…)``), она обязана быть «хвостом»
+   фактической цели. Раскладка ``docs/`` по направлениям пережила девять таких
+   подписей: цель рабочая, а путь в тексте ведёт в никуда — и читатель копирует
+   именно его.
+4. **Docs directions.** В корне ``docs/`` лежит только ``README.md``-развилка;
    документы живут в направлениях по читателю — ``use/`` (как пользоваться),
    ``dev/`` (как устроено, с ``dev/design/`` для спроектированного без кода),
    ``agent/`` (служебное для Claude Code), ``audit/`` (находки незакрытых
    аудитов), ``archive/`` (история). Новый ``.md`` в корне ``docs/`` — ошибка:
    он не попадает ни в одно направление.
-4. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
+5. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
    (кроме самого ``<dir>/README.md``) должен быть упомянут в ``<dir>/README.md``
    — иначе индекс расходится с фактическим составом каталога (как произошло с
    ``changelog-archive.md``). **Рекурсивно (issue #562):** проверка применяется
@@ -30,14 +35,14 @@
    ``docs/archive/README.md``). Подкаталог без своего ``README.md`` отдельно не
    индексируется — родитель ссылается на него одной строкой (``role-*.md``-
    приложения к сводному аудиту, ADR-набор до появления adr/README.md).
-5. **Issue-tail policy.** Объясняющий документ отвечает «как это работает
+6. **Issue-tail policy.** Объясняющий документ отвечает «как это работает
    сейчас», поэтому ссылок на задачи в нём быть не должно: ``docs/use/``,
    ``docs/dev/*.md``, README, SECURITY и CONTRIBUTING держат ноль.
    Логи (``CHANGELOG.md``, ``docs/archive/``), находки (``docs/audit/``) и ADR
    не проверяются вовсе — там номер уместен. ``docs/dev/design/`` и агентские
    документы живут по бюджету: номер там работает как идентификатор
    согласованного требования, а не как датировка.
-6. **UI-strings issue policy (issue #820).** Та же политика — для строк, которые
+7. **UI-strings issue policy (issue #820).** Та же политика — для строк, которые
    пользователь видит в интерфейсе, а не в документации: ``help=`` в
    ``cli/options.py`` (вывод ``--help``) и значения ``core/locales/*.json``.
    Гейт на доках держал ноль, а самая читаемая поверхность — справка — годами
@@ -67,6 +72,7 @@ __all__ = [
     "check_docs_directions",
     "check_docs_index_completeness",
     "check_issue_tail_policy",
+    "check_link_captions",
     "check_markdown_links",
     "check_readme_budget",
     "check_ui_issue_tail_policy",
@@ -107,6 +113,13 @@ _AGENT_TAIL_BUDGET = 6
 
 # [текст](target) — не изображение (нет ведущего "!"), target без пробелов/скобок.
 _LINK_RE = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)\)")
+# То же, но с захватом ПОДПИСИ — для проверки «подпись-путь совпадает с целью».
+_LINK_WITH_TEXT_RE = re.compile(r"(?<!\!)\[([^\]]*)\]\(([^)\s]+)\)")
+# Подпись-ПУТЬ: `docs/use/configuration.md` или `docs/api.md § Раздел` (с
+# бэктиками или без). Требуется каталог в подписи: голое имя файла
+# (`glossary.md`) — это метка, а не путь, который читатель скопирует; подписи с
+# `../` тоже пропускаем — они относительны положению документа, а не корня.
+_PATH_CAPTION_RE = re.compile(r"^`?((?!\.\.)[\w.-]+(?:/[\w.-]+)+\.md)`?(?:\s+[§#].*)?$")
 # Заголовки ATX: "# ...", "## ..." и т.д.
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 # Внешние схемы, которые не проверяем (сеть/почта/якоря протоколов).
@@ -230,6 +243,42 @@ def check_markdown_links(errors: list[str]) -> None:
                     )
 
     print(f"Markdown links: checked {checked} local link(s) across {len(files)} file(s).")
+
+
+def check_link_captions(errors: list[str]) -> None:
+    """Подпись-путь у ссылки совпадает с её целью (issue #827).
+
+    Ссылки проверялись только по цели, поэтому подписи пережили раскладку
+    ``docs/`` по направлениям: ``[docs/configuration.md § …](docs/use/configuration.md#…)``
+    — цель рабочая, а путь в тексте ведёт в никуда. Читатель копирует именно
+    подпись, и чаще всего в самых чувствительных местах (threat model в
+    SECURITY.md).
+    """
+    checked = 0
+    for md in collect_markdown_files():
+        rel_doc = md.relative_to(_ROOT).as_posix()
+        for match in _LINK_WITH_TEXT_RE.finditer(md.read_text(encoding="utf-8")):
+            caption, target = match.group(1), match.group(2)
+            caption_match = _PATH_CAPTION_RE.match(caption.strip())
+            if caption_match is None or _EXTERNAL_RE.match(target):
+                continue
+            target_path = target.partition("#")[0]
+            if not target_path:
+                continue
+            checked += 1
+            # Подпись — «хвост» реального пути: `use/web-interface.md` из
+            # docs/dev/ сокращает `docs/use/web-interface.md` и читателя не
+            # обманывает. Ловим другое — путь, которого в дереве нет вовсе
+            # (`docs/configuration.md` после раскладки docs/ по направлениям).
+            claimed = tuple(Path(caption_match.group(1)).parts)
+            actual = tuple((md.parent / target_path).resolve().relative_to(_ROOT).parts)
+            if actual[-len(claimed) :] != claimed:
+                errors.append(
+                    f"{rel_doc}: подпись ссылки '{caption_match.group(1)}' не совпадает "
+                    f"с целью '{target_path}' — читатель копирует путь из подписи и "
+                    "попадает в никуда."
+                )
+    print(f"link captions: checked {checked} path-like caption(s) against their targets.")
 
 
 def check_docs_index_completeness(errors: list[str]) -> None:
@@ -477,6 +526,7 @@ def main() -> int:
     errors: list[str] = []
     check_readme_budget(errors)
     check_markdown_links(errors)
+    check_link_captions(errors)
     check_docs_directions(errors)
     check_docs_index_completeness(errors)
     check_changelog_version_budget(errors)

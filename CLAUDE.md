@@ -261,7 +261,7 @@ from __future__ import annotations   # ОБЯЗАТЕЛЬНО в начале к
    Stepik-Python-Grader — источник истины контента; внешний
    [Glossary-Python](https://github.com/ArtVsMark/Glossary-Python) — только цель
    экспорта/витрина, **никогда** не эталон полноты. Канон —
-   [docs/glossary.md § Источники истины](docs/dev/glossary.md#источники-истины-роли).
+   [docs/dev/glossary.md § Источники истины](docs/dev/glossary.md#источники-истины-роли).
    Односторонность касается и ссылок: **не ссылаться на внешнюю
    витрину** ни из данных карточек, ни из кода, ни из UI — ссылка из оригинала
    в его копию уводит на устаревший контент. Адрес карточки — её `id` как якорь
@@ -466,7 +466,8 @@ issue на билд нет — направление держит только 
 [ ] from __future__ import annotations в начале нового файла
 [ ] Коммит в формате Conventional Commits
 [ ] CHANGELOG.md: добавлена запись под ## [Unreleased] — в КАЖДОМ PR, без
-    исключений для рефакторингов (см. § Обновление CHANGELOG.md/docs/archive/history.md)
+    исключений для рефакторингов (см. § Обновление CHANGELOG.md/docs/archive/history.md).
+    CI это не проверяет — правило держится на этом чек-листе и ревью
 [ ] docs/archive/history.md — НЕ на каждый PR, только на релиз (см. ту же секцию)
 [ ] Версия не правится вручную — CI (check_version_consistency.py) сам следит
     за дрейфом; достаточно, чтобы верхняя запись CHANGELOG совпадала

@@ -150,7 +150,7 @@ sandbox-механизма. Любая тяжёлая зависимость/д�
 > `cancelled` (дополнительно `message_id="run_cancelled"`);
 > единственное сознательное отклонение от спекулятивного контракта ниже —
 > `error` вместо `failed` для инфраструктурного сбоя. Полная документация
-> `/api/v1/runs` — [docs/api.md § POST /api/v1/runs](../api.md#post-apiv1runs).
+> `/api/v1/runs` — [api.md § POST /api/v1/runs](../api.md#post-apiv1runs).
 
 ### Запрос
 

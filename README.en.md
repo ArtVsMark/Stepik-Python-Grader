@@ -92,7 +92,7 @@ tasks:
 
 Point `--mode 1` at a file or `--mode 2` at a folder of solutions; each solution
 resolves its own `tests/`. Full reference —
-[docs/configuration.md § Test-case formats](docs/use/configuration.md#формат-тест-кейсов).
+[docs/use/configuration.md § Test-case formats](docs/use/configuration.md#формат-тест-кейсов).
 
 ---
 

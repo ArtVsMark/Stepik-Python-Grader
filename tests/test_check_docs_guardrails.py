@@ -466,3 +466,57 @@ def test_ui_issue_tail_policy_on_current_repo() -> None:
     errors: list[str] = []
     module.check_ui_issue_tail_policy(errors)
     assert errors == []
+
+
+# --- Подписи-пути у ссылок (issue #827) --------------------------------------
+
+
+def test_stale_path_caption_is_flagged(tmp_path, monkeypatch) -> None:
+    """Подпись ведёт на путь, которого нет: цель рабочая, а текст врёт."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "use" / "configuration.md").write_text("# Конфигурация\n", encoding="utf-8")
+    (tmp_path / "SECURITY.md").write_text(
+        "См. [docs/configuration.md § Безопасность](docs/use/configuration.md).\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_link_captions(errors)
+    assert any("docs/configuration.md" in e for e in errors), errors
+
+
+def test_shortened_caption_is_allowed(tmp_path, monkeypatch) -> None:
+    """Сокращённая подпись — «хвост» реального пути — не нарушение."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "use" / "web-interface.md").write_text("# Веб\n", encoding="utf-8")
+    (docs / "dev" / "web-contracts.md").write_text(
+        "См. [use/web-interface.md § Разделы](../use/web-interface.md).\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_link_captions(errors)
+    assert errors == []
+
+
+def test_plain_text_caption_is_not_checked(tmp_path, monkeypatch) -> None:
+    """Обычная человеческая подпись под правило не подпадает."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "use" / "configuration.md").write_text("# Конфигурация\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text(
+        "См. [конфигурацию](docs/use/configuration.md).\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_link_captions(errors)
+    assert errors == []
+
+
+def test_link_captions_on_current_repo() -> None:
+    """На актуальном main подписи-пути совпадают с целями."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_link_captions(errors)
+    assert errors == []
