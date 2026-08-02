@@ -34,6 +34,7 @@ __all__ = [
     "CardStatus",
     "InsightCard",
     "TaskProgress",
+    "achievement_badges",
     "classify_status",
     "current_streak",
     "failure_kind",
@@ -259,6 +260,25 @@ def current_streak(db_path: Path, *, limit: int = 1000) -> int:
             break
         streak += 1
     return streak
+
+
+def achievement_badges(*, ac_cases: int, solved_tasks: int, streak: int) -> list[dict[str, Any]]:
+    """Бейджи достижений из уже посчитанных агрегатов — чистая функция.
+
+    issue #540 завёл их в web-адаптере, из-за чего экспорт прогресса — то
+    единственное, что показывают ментору или прикладывают к резюме, — оставался
+    сухой таблицей попыток: геймификация была видна только владельцу в окне
+    браузера (issue #823). Логика переехала в core, подписи остаются
+    презентационному слою: ``id`` — стабильный ключ каталога, ``earned`` —
+    заслужен ли бейдж.
+    """
+    return [
+        {"id": "first_ac", "earned": ac_cases >= 1},
+        {"id": "streak_3", "earned": streak >= 3},
+        {"id": "streak_7", "earned": streak >= 7},
+        {"id": "solved_5", "earned": solved_tasks >= 5},
+        {"id": "solved_10", "earned": solved_tasks >= 10},
+    ]
 
 
 def violated_rule_codes(db_path: Path, *, limit: int = DEFAULT_WINDOW_N) -> set[str]:

@@ -167,3 +167,50 @@ def test_legacy_dot_task_key_is_marked_not_shown_as_name() -> None:
     assert "| . |" not in md
     assert "(без задачи)" in md
     assert "(без задачи)" in render_html(report)
+
+
+def test_report_carries_streak_and_badges(tmp_path) -> None:
+    """Экспорт — артефакт «поделиться», и достижения теперь в нём есть (#823)."""
+    from stepik_grader.core import history, progress_export
+
+    db = tmp_path / history.HISTORY_DB_NAME
+    for _ in range(3):
+        history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="04-slug")
+
+    report = progress_export.build_progress_report(db)
+    assert report["streak"] == 3
+    earned = {b["id"] for b in report["badges"] if b["earned"]}
+    assert earned == {"first_ac", "streak_3"}
+
+    md = progress_export.render_markdown(report)
+    assert "Серия: **3**" in md
+    assert "🏅 Первая AC" in md
+
+
+def test_html_is_readable_on_phone_and_in_dark_theme(tmp_path) -> None:
+    """HTML-отчётом делятся с телефона: viewport и тёмная тема обязательны (#823)."""
+    from stepik_grader.core import history, progress_export
+
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="04-slug")
+
+    html = progress_export.render_html(progress_export.build_progress_report(db))
+    assert "name='viewport'" in html
+    assert "width=device-width" in html
+    assert "prefers-color-scheme:dark" in html
+    # Цвета — через переменные: правила не должны знать конкретный цвет, иначе
+    # тёмная тема не переопределит их (значения переменных, наоборот, там есть).
+    assert "border:1px solid var(--line)" in html
+    assert "background:var(--bg)" in html
+
+
+def test_english_report_translates_badges(tmp_path) -> None:
+    """Подписи достижений следуют языку отчёта, а не остаются русскими."""
+    from stepik_grader.core import history, progress_export
+
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="04-slug")
+
+    md = progress_export.render_markdown(progress_export.build_progress_report(db), lang="en")
+    assert "🏅 First AC" in md
+    assert "Первая AC" not in md

@@ -58,7 +58,13 @@ def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any
       ``total_runs``/``seconds_to_first_ac``);
     - ``solved_tasks``/``total_tasks`` — сводные счётчики;
     - ``verdicts`` — тали вердиктов кейсов (``{"AC": n, "WA": n, ...}``);
-    - ``failure_kinds`` — тали ключей падений (``{"timeout": n, ...}``).
+    - ``failure_kinds`` — тали ключей падений (``{"timeout": n, ...}``);
+    - ``streak`` — текущая серия зачётов подряд (issue #823);
+    - ``badges`` — бейджи достижений (``{"id", "earned"}``, issue #823).
+
+    ``streak``/``badges`` прежде дописывал только web-адаптер, поэтому
+    экспортируемый файл — единственный артефакт «поделиться» — оставался сухой
+    таблицей попыток, а геймификация была видна лишь владельцу в браузере.
 
     Исходники решений в отчёт НЕ попадают.
     """
@@ -84,14 +90,20 @@ def build_progress_report(db_path: Path, *, limit: int = 10000) -> dict[str, Any
         }
         for p in insights.time_to_first_green(db_path, limit=limit)
     ]
+    solved_tasks = sum(1 for t in tasks if t["solved"])
+    streak = insights.current_streak(db_path)
     return {
         "schema": SCHEMA,
         "total_runs": len(runs),
         "total_tasks": len(tasks),
-        "solved_tasks": sum(1 for t in tasks if t["solved"]),
+        "solved_tasks": solved_tasks,
         "tasks": tasks,
         "verdicts": dict(sorted(verdicts.items())),
         "failure_kinds": dict(sorted(failure_kinds.items())),
+        "streak": streak,
+        "badges": insights.achievement_badges(
+            ac_cases=verdicts.get("AC", 0), solved_tasks=solved_tasks, streak=streak
+        ),
     }
 
 
@@ -107,6 +119,19 @@ def _fmt_secs(secs: float | None, msgs: dict[str, str]) -> str:
 
 def _counts_lines(counts: dict[str, int], msgs: dict[str, str]) -> list[str]:
     return [f"- `{k}`: {v}" for k, v in counts.items()] or [f"- {msgs['progress_export_no_data']}"]
+
+
+def _earned_badge_labels(report: dict[str, Any], msgs: dict[str, str]) -> list[str]:
+    """Подписи заслуженных бейджей для шапки отчёта (issue #823).
+
+    Неизвестный ``id`` (бейдж новее каталога) показывается как есть — лучше
+    сырой ключ, чем пропавшая строка достижения.
+    """
+    return [
+        msgs.get(f"progress_export_badge_{badge['id']}", badge["id"])
+        for badge in report.get("badges", [])
+        if badge.get("earned")
+    ]
 
 
 def _task_label(task_key: str | None, msgs: dict[str, str]) -> str:
@@ -133,7 +158,13 @@ def render_markdown(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> st
         "",
         f"{msgs['progress_export_runs']}: **{report['total_runs']}** · "
         f"{msgs['progress_export_tasks']}: **{report['total_tasks']}** · "
-        f"{msgs['progress_export_solved']}: **{report['solved_tasks']}**",
+        f"{msgs['progress_export_solved']}: **{report['solved_tasks']}** · "
+        f"{msgs['progress_export_streak']}: **{report.get('streak', 0)}**",
+        "",
+        f"## {msgs['progress_export_badges_heading']}",
+        "",
+        ", ".join(f"🏅 {label}" for label in _earned_badge_labels(report, msgs))
+        or f"_{msgs['progress_export_no_badges']}_",
         "",
         f"## {msgs['progress_export_tasks_heading']}",
         "",
@@ -186,10 +217,20 @@ def render_html(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> str:
             f"<li><code>{esc(k)}</code>: {v}</li>" for k, v in report["failure_kinds"].items()
         )
         no_data = f"<li>{esc(msgs['progress_export_no_data'])}</li>"
+        earned = _earned_badge_labels(report, msgs)
+        badges = (
+            "<ul class='badges'>"
+            + "".join(f"<li>🏅 {esc(label)}</li>" for label in earned)
+            + "</ul>"
+            if earned
+            else f"<p><em>{esc(msgs['progress_export_no_badges'])}</em></p>"
+        )
         body = (
             f"<p>{esc(msgs['progress_export_runs'])}: <b>{report['total_runs']}</b> · "
             f"{esc(msgs['progress_export_tasks'])}: <b>{report['total_tasks']}</b> · "
-            f"{esc(msgs['progress_export_solved'])}: <b>{report['solved_tasks']}</b></p>"
+            f"{esc(msgs['progress_export_solved'])}: <b>{report['solved_tasks']}</b> · "
+            f"{esc(msgs['progress_export_streak'])}: <b>{report.get('streak', 0)}</b></p>"
+            f"<h2>{esc(msgs['progress_export_badges_heading'])}</h2>{badges}"
             f"<h2>{esc(msgs['progress_export_tasks_heading'])}</h2>"
             f"<table><thead><tr><th>{esc(msgs['progress_export_col_task'])}</th>"
             f"<th>{esc(msgs['progress_export_col_solved'])}</th>"
@@ -204,10 +245,22 @@ def render_html(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> str:
     title = esc(msgs["progress_export_title"])
     return (
         f"<!doctype html><html lang='{esc(lang)}'><head><meta charset='utf-8'>"
+        # issue #823: артефактом делятся с телефона в мессенджере — без viewport
+        # мобильный браузер отдавал ~980px и отчёт приходилось разводить
+        # пальцами; тема следует системной, чтобы ночью не слепило белым.
+        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
         f"<title>{title}</title>"
-        "<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:2rem auto;"
-        "padding:0 1rem}table{border-collapse:collapse;width:100%}"
-        "th,td{border:1px solid #ccc;padding:.4rem .6rem}"
-        "code{background:#f4f4f4;padding:.1rem .3rem;border-radius:3px}</style></head>"
+        "<style>:root{color-scheme:light dark;--fg:#111;--bg:#fff;--line:#ccc;--code:#f4f4f4}"
+        "@media (prefers-color-scheme:dark){"
+        ":root{--fg:#e6e6e6;--bg:#161616;--line:#444;--code:#242424}}"
+        "body{font-family:system-ui,sans-serif;max-width:720px;margin:2rem auto;"
+        "padding:0 1rem;color:var(--fg);background:var(--bg)}"
+        "table{border-collapse:collapse;width:100%}"
+        "th,td{border:1px solid var(--line);padding:.4rem .6rem}"
+        "code{background:var(--code);padding:.1rem .3rem;border-radius:3px}"
+        ".badges{display:flex;flex-wrap:wrap;gap:.4rem;list-style:none;padding:0}"
+        ".badges li{border:1px solid var(--line);border-radius:999px;padding:.15rem .6rem}"
+        "@media (max-width:480px){body{margin:1rem auto}"
+        "th,td{padding:.3rem .35rem}}</style></head>"
         f"<body><h1>{title}</h1>{body}</body></html>"
     )
