@@ -34,9 +34,12 @@ def _configure(monkeypatch) -> None:
     Заодно снимается consent-гейт (issue #630): эти тесты проверяют ВЫВОД
     подсказок, а само согласие покрыто отдельно в test_w1_cli_consent.py.
     """
-    cfg = dataclasses.replace(CONFIG, ai_base_url="http://test.local/v1", ai_model="m")
+    # issue #812: адрес должен быть допустимым (https куда угодно, http — только
+    # на петлю), иначе запрос отсекается до вывода подсказок. Политика адресов
+    # покрыта отдельно (tests/test_ai_hints.py::TestBaseUrlAllowlist).
+    cfg = dataclasses.replace(CONFIG, ai_base_url="https://test.local/v1", ai_model="m")
     monkeypatch.setattr(commands, "get_config", lambda: cfg)
-    monkeypatch.setattr(commands, "_ensure_ai_consent", lambda: True)
+    monkeypatch.setattr(commands, "_ensure_ai_consent", lambda _base_url=None: True)
 
 
 class _Resp:
@@ -135,3 +138,57 @@ def test_ai_hints_mode3_no_flag_silent(tmp_path, monkeypatch, capsys) -> None:
     cli.main(["--mode", "3", "--dir", str(tmp_path), "--repeats", "1"])
     out = capsys.readouterr().out
     assert "AI-подсказк" not in out
+
+
+# ---------------------------------------------------------------------------
+# Потолок AI-вызовов — issue #812 (TREND-02)
+# ---------------------------------------------------------------------------
+
+
+def test_ai_hints_respect_call_ceiling(tmp_path, monkeypatch, capsys) -> None:
+    """Потолка не было вовсе: N упавших кейсов = N последовательных POST.
+
+    При дефолтном таймауте 20 с папка на 40 решений — это 13 минут ожидания и
+    40 оплаченных запросов, о которых пользователь не предупреждён.
+    """
+    _configure(monkeypatch)
+    cfg = dataclasses.replace(
+        CONFIG, ai_base_url="https://test.local/v1", ai_model="m", ai_max_hints=2
+    )
+    monkeypatch.setattr(commands, "get_config", lambda: cfg)
+
+    calls: list[object] = []
+    monkeypatch.setattr(
+        commands.ai_hints, "explain_failure", lambda fc, config: calls.append(fc) or "подсказка"
+    )
+
+    rows = [
+        (
+            tmp_path / "task1.py",
+            {"cases": [{"passed": False, "verdict": "WA"} for _ in range(5)]},
+        )
+    ]
+    commands._print_ai_hints(rows)
+
+    assert len(calls) == 2, "потолок ai_max_hints не применён"
+    assert "потолок 2" in capsys.readouterr().out  # обрыв объяснён, а не молчалив
+
+
+def test_ai_hints_below_ceiling_are_all_shown(tmp_path, monkeypatch, capsys) -> None:
+    """Контроль: пока кейсов меньше потолка, ничего не режется и не сообщается."""
+    _configure(monkeypatch)
+    cfg = dataclasses.replace(
+        CONFIG, ai_base_url="https://test.local/v1", ai_model="m", ai_max_hints=5
+    )
+    monkeypatch.setattr(commands, "get_config", lambda: cfg)
+
+    calls: list[object] = []
+    monkeypatch.setattr(
+        commands.ai_hints, "explain_failure", lambda fc, config: calls.append(fc) or "подсказка"
+    )
+
+    rows = [(tmp_path / "task1.py", {"cases": [{"passed": False, "verdict": "WA"}] * 3})]
+    commands._print_ai_hints(rows)
+
+    assert len(calls) == 3
+    assert "потолок" not in capsys.readouterr().out

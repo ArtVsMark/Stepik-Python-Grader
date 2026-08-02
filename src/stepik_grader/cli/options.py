@@ -148,6 +148,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Удалить .grader_cache/ и .stepik_cache/ и выйти.",
     )
     parser.add_argument(
+        "--revoke-ai-consent",
+        action="store_true",
+        help=(
+            "Отозвать согласие на отправку кода AI-провайдеру и выйти. "
+            "При следующем --ai-hints согласие спросят заново."
+        ),
+    )
+    parser.add_argument(
         "--purge-history",
         nargs="?",
         const="",

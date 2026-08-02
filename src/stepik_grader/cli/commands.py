@@ -28,6 +28,7 @@ import json
 import pathlib
 import sys
 from typing import Any
+from urllib.parse import urlparse
 
 from stepik_grader import rules
 from stepik_grader.cli.context import CliContext
@@ -187,6 +188,13 @@ _AI_NOT_CONFIGURED_HINT = (
     "ничего не отправляется. Подробнее — docs/use/grader-workflow.md."
 )
 
+_AI_INSECURE_URL_HINT = (
+    "AI-подсказки (--ai-hints) пропущены: адрес провайдера {url!r} не принимается. "
+    "Разрешены https (любой хост) и http только на локальную петлю "
+    "(http://localhost:11434/v1 для ollama). По http на удалённый хост ушли бы "
+    "код решения и ключ открытым текстом. В сеть ничего не отправлено. Issue #812."
+)
+
 _AI_CONSENT_PROMPT = (
     "AI-подсказка отправит ваш код и его ввод-вывод внешнему AI-провайдеру. "
     "Рекомендуется локальный провайдер (например, ollama) — тогда данные не "
@@ -202,8 +210,19 @@ _AI_CONSENT_REQUIRED_HINT = (
 )
 
 
-def _ensure_ai_consent() -> bool:
-    """Однократное явное согласие на отправку кода AI-провайдеру (issue #630).
+def consent_endpoint(base_url: str | None) -> str:
+    """Получатель согласия — ``scheme://host[:port]`` без пути (issue #812).
+
+    Путь (``/v1``) отбрасывается: согласие даётся серверу, а не конкретному
+    маршруту на нём, иначе смена ``/v1`` на ``/v1beta`` спрашивала бы заново без
+    всякой пользы. Порт же значим — на другом порту другой сервис.
+    """
+    parsed = urlparse((base_url or "").strip())
+    return f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else ""
+
+
+def _ensure_ai_consent(base_url: str | None = None) -> bool:
+    """Явное согласие на отправку кода ЭТОМУ AI-провайдеру (issue #630/#812).
 
     AI-подсказка отправляет код решения и его ввод-вывод внешнему провайдеру,
     поэтому web-путь с issue #543 требует явного согласия и без него отвечает
@@ -211,17 +230,24 @@ def _ensure_ai_consent() -> bool:
     слал код молча — приватность (в том числе несовершеннолетних студентов)
     соблюдалась лишь в одном из двух путей.
 
-    Согласие хранится в ``.grader_settings.json`` (``ai_hint_consent``) — тот же
-    ключ и тот же файл, что у web, поэтому данное однажды согласие действует для
-    обоих путей. Отказ намеренно НЕ фиксируется: пользователь может передумать,
-    а «залипший» отказ пришлось бы править руками в JSON.
+    issue #812: согласие привязано к получателю. Прежде оно было глобальным —
+    сказав «да» локальному ollama, пользователь тем же «да» разрешал отправку
+    на любой адрес, который позже окажется в конфиге (а конфиг приезжает вместе
+    с чужой папкой задач). Сменился ``scheme://host:port`` — спрашиваем заново,
+    показывая, КОМУ уйдут данные.
+
+    Хранится в ``.grader_settings.json`` — тот же файл, что у web, поэтому
+    данное однажды согласие действует для обоих путей. Отказ намеренно НЕ
+    фиксируется: пользователь может передумать, а «залипший» отказ пришлось бы
+    править руками в JSON.
 
     В неинтерактивной сессии (нет TTY: CI, пайп) согласие не запрашивается —
     подсказки просто пропускаются с явным сообщением.
     """
     settings_path = user_settings.default_settings_path()
     settings = user_settings.load_settings(settings_path)
-    if settings.ai_hint_consent is True:
+    endpoint = consent_endpoint(base_url)
+    if settings.ai_hint_consent is True and settings.ai_hint_consent_endpoint == endpoint:
         return True
 
     if not sys.stdin.isatty():
@@ -229,6 +255,8 @@ def _ensure_ai_consent() -> bool:
         return False
 
     print(f"\n{_AI_CONSENT_PROMPT}")
+    if endpoint:
+        print(f"Получатель: {endpoint}")
     try:
         answer = input("Отправить код AI-провайдеру? [y/N]: ").strip().lower()
     except (EOFError, KeyboardInterrupt):
@@ -240,9 +268,26 @@ def _ensure_ai_consent() -> bool:
         return False
 
     settings.ai_hint_consent = True
+    settings.ai_hint_consent_endpoint = endpoint
     with contextlib.suppress(OSError):
         user_settings.save_settings(settings, settings_path)
     return True
+
+
+def revoke_ai_consent() -> bool:
+    """Отозвать согласие на AI-подсказки; ``True`` — оно было (issue #812).
+
+    ``SECD-06``: отозвать согласие было нечем — только правкой JSON руками.
+    Согласие на передачу данных, которое нельзя отозвать, согласием не является.
+    """
+    settings_path = user_settings.default_settings_path()
+    settings = user_settings.load_settings(settings_path)
+    had = settings.ai_hint_consent is True
+    settings.ai_hint_consent = None
+    settings.ai_hint_consent_endpoint = None
+    with contextlib.suppress(OSError):
+        user_settings.save_settings(settings, settings_path)
+    return had
 
 
 def _read_solution_code(solution: pathlib.Path) -> str:
@@ -265,11 +310,40 @@ def _resolve_ai_config() -> object | None:
         print(f"\n{_AI_NOT_CONFIGURED_HINT}")
         return None
     # issue #630: consent-гейт ДО любого обращения к провайдеру — как в web
+    # issue #812 (SECD-02): недопустимый адрес отсекается ЗДЕСЬ, а не молча в
+    # `_post_chat` — иначе пользователь видел бы просто отсутствие подсказок и
+    # не знал, что дело в схеме. Спрашивать согласие на адрес, куда всё равно не
+    # пойдём, тоже незачем — проверка стоит перед consent-гейтом.
+    base_url = getattr(config, "ai_base_url", None)
+    if not ai_hints.base_url_is_allowed(str(base_url or "")):
+        print(f"\n{_AI_INSECURE_URL_HINT.format(url=base_url)}")
+        return None
+    # issue #630: consent-гейт ДО любого обращения к провайдеру — как в web
     # (403 consent_required). Общая точка для режимов 1-4, поэтому оба
     # вызывающих (_print_ai_hints / _print_ai_hints_bench) закрыты разом.
-    if not _ensure_ai_consent():
+    if not _ensure_ai_consent(base_url):
         return None
     return config
+
+
+def _ai_hint_limit(config: object) -> int:
+    """Сколько AI-подсказок максимум за прогон (issue #812, ``TREND-02``).
+
+    Потолка не было вовсе: N упавших кейсов = N последовательных POST, каждый
+    до ``ai_timeout_seconds`` (20 с по умолчанию). Папка на 40 решений — это
+    13 минут ожидания и 40 оплаченных запросов, о которых никто не предупреждал.
+    Первые несколько подсказок несут почти всю пользу: ошибки внутри одного
+    решения обычно однотипны.
+    """
+    return max(1, int(getattr(config, "ai_max_hints", 5)))
+
+
+def _print_ai_limit_notice(limit: int) -> None:
+    """Сказать, что подсказки оборваны потолком, а не закончились сами."""
+    print(
+        f"\n… остальные AI-подсказки пропущены: достигнут потолок {limit} за прогон "
+        "([tool.stepik-grader] ai_max_hints)."
+    )
 
 
 def _print_ai_hints(rows: list[tuple[pathlib.Path, dict[str, Any]]], *, lang: str = "ru") -> None:
@@ -285,13 +359,19 @@ def _print_ai_hints(rows: list[tuple[pathlib.Path, dict[str, Any]]], *, lang: st
     config = _resolve_ai_config()
     if config is None:
         return
+    limit = _ai_hint_limit(config)
+    shown = 0
     for solution, result in rows:
         code = _read_solution_code(solution)
         for index, case in enumerate(result["cases"], start=1):
             if case.get("passed"):
                 continue
+            if shown >= limit:
+                _print_ai_limit_notice(limit)
+                return
             fc = build_failure_context(case, code=code, lang=lang)
             hint = ai_hints.explain_failure(fc, config)
+            shown += 1
             if hint:
                 print(f"\n· {solution.name} · тест {index}:\n{hint}")
 
@@ -312,7 +392,11 @@ def _print_ai_hints_bench(
     config = _resolve_ai_config()
     if config is None:
         return
-    for path, data in failing:
+    limit = _ai_hint_limit(config)
+    for shown, (path, data) in enumerate(failing):
+        if shown >= limit:
+            _print_ai_limit_notice(limit)
+            return
         code = _read_solution_code(path)
         case = {"verdict": str(data.get("verdict") or "RE"), "error": str(data.get("error", ""))}
         fc = build_failure_context(case, code=code, lang=lang)
