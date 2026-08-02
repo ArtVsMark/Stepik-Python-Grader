@@ -156,6 +156,7 @@ table below refers to it.
 | Local web UI (`--serve`) + GUI launcher (`stepik-grader-gui`) + VS Code / PyCharm integration | ❌ | ✅ |
 | Local Python glossary — cards + missing-term detector + deep links from error cards | ❌ | ✅ |
 | PEP 8 rules + «Practice» section (frequent mistakes from run history) | ❌ | ✅ |
+| AI explanation of failures (`--ai-hints`) — opt-in, bring your own key (local ollama or cloud), grounded in the offline glossary; nothing leaves the machine without explicit consent | ❌ | ✅ |
 | Optional OS sandbox (`--sandbox`) with FS isolation — plus network isolation on Linux/macOS (guarantees differ per OS: no network isolation on Windows, see [SECURITY.md](SECURITY.md)) | ❌ | ✅ |
 | Bilingual RU/EN interface — CLI, web shell, glossary | ❌ | ✅ |
 | Local run history (SQLite) + stats — offline | ❌ | ✅ |
