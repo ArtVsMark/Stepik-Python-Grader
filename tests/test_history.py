@@ -451,3 +451,107 @@ def test_repository_retention_applies(tmp_path: Path) -> None:
             RunRecord(mode=1, cases=[CaseRecord(1, "OK")], task_key="t"), max_runs_per_task=2
         )
     assert len(repo.recent_runs(task_key="t")) == 2
+
+
+# ---------------------------------------------------------------------------
+# issue #819 — агрегат task_progress: «попытки до первого зачёта» не зависят
+# от retention, а бенчмарк-прогоны в метрику обучения не попадают
+# ---------------------------------------------------------------------------
+
+
+def test_task_progress_survives_retention(tmp_path: Path) -> None:
+    """Вытеснение ранних прогонов не занижает attempts.
+
+    Репро находки: при `--watch` каждое сохранение файла — прогон, лимит
+    (200 на задачу) достигается быстро, и первая попытка удалялась. Здесь тот
+    же сценарий в миниатюре — cap=2 и пять прогонов.
+    """
+    db = _db(tmp_path)
+    for _ in range(4):
+        history.record_run(1, [CaseRecord(1, "WA")], db_path=db, task_key="t", max_runs_per_task=2)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t", max_runs_per_task=2)
+
+    assert len(history.read_recent_runs(db)) == 2  # retention сработал
+
+    (progress,) = history.read_task_progress(db)
+    assert progress["runs_total"] == 5
+    assert progress["attempts_to_first_ac"] == 5
+    assert progress["first_ac_ts_utc"] is not None
+
+
+def test_task_progress_ignores_bench_runs(tmp_path: Path) -> None:
+    """Прогоны режимов 3/4 не попадают в агрегат ни как попытка, ни как провал."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "WA")], db_path=db, task_key="t")
+    history.record_run(3, [CaseRecord(1, "SIMILAR")], db_path=db, task_key="t")
+    history.record_run(4, [CaseRecord(1, "SLOWER")], db_path=db, task_key="t")
+    history.record_run(2, [CaseRecord(1, "AC")], db_path=db, task_key="t")
+
+    (progress,) = history.read_task_progress(db)
+    assert progress["runs_total"] == 2  # только режимы 1 и 2
+    assert progress["attempts_to_first_ac"] == 2
+
+
+def test_task_progress_first_ac_is_frozen(tmp_path: Path) -> None:
+    """Первый зачёт фиксируется однажды: последующие прогоны его не двигают."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t")
+    first = history.read_task_progress(db)[0]
+    history.record_run(1, [CaseRecord(1, "WA")], db_path=db, task_key="t")
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t")
+
+    (progress,) = history.read_task_progress(db)
+    assert progress["attempts_to_first_ac"] == 1
+    assert progress["first_ac_ts_utc"] == first["first_ac_ts_utc"]
+    assert progress["runs_total"] == 3
+
+
+def test_task_progress_absent_until_solved(tmp_path: Path) -> None:
+    """Нерешённая задача есть в агрегате, но без отметки о зачёте."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "TLE")], db_path=db, task_key="t")
+
+    (progress,) = history.read_task_progress(db)
+    assert progress["attempts_to_first_ac"] is None
+    assert progress["first_ac_ts_utc"] is None
+    assert progress["runs_total"] == 1
+
+
+def test_migration_v1_to_v2_backfills_task_progress(tmp_path: Path) -> None:
+    """БД схемы v1 домигрируется до v2, агрегат восстанавливается по runs.
+
+    Точнее, чем ничего: вытесненные ранее прогоны не вернуть, но всё, что
+    осталось в таблице, попадает в агрегат — и дальше он ведётся инкрементально.
+    """
+    from stepik_grader import db as db_module
+
+    db = _db(tmp_path)
+    with contextlib.closing(db_module.connect(db)) as conn:
+        db_module.apply_schema(conn, version=1, ddl=history._SCHEMA_V1)
+        for i, (mode, verdict) in enumerate([(1, "WA"), (3, "SIMILAR"), (1, "AC")], 1):
+            conn.execute(
+                "INSERT INTO runs (id, ts_utc, mode, source, task_key) "
+                "VALUES (?, ?, ?, 'cli', 't')",
+                (i, f"2026-08-0{i}T10:00:00Z", mode),
+            )
+            conn.execute(
+                "INSERT INTO case_results (run_id, case_no, verdict) VALUES (?, 1, ?)",
+                (i, verdict),
+            )
+        conn.commit()
+
+    (progress,) = history.read_task_progress(db)  # чтение домигрирует схему
+    assert progress["runs_total"] == 2  # бенчмарк-прогон не в счёт
+    assert progress["attempts_to_first_ac"] == 2
+    assert progress["first_ts_utc"] == "2026-08-01T10:00:00Z"
+    assert progress["first_ac_ts_utc"] == "2026-08-03T10:00:00Z"
+
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == history.SCHEMA_VERSION
+
+
+def test_task_progress_repository_satisfies_protocol(tmp_path: Path) -> None:
+    """Новый метод не выводит SqliteHistoryRepository из-под протокола (ADR-0009)."""
+    repo = history.SqliteHistoryRepository(_db(tmp_path))
+    assert isinstance(repo, history.HistoryRepository)
+    assert repo.task_progress() == []  # БД нет — graceful пустой список

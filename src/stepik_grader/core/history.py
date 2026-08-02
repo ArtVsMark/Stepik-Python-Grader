@@ -297,6 +297,10 @@ class HistoryRepository(Protocol):
         """Последние прогоны (новые первыми) с вложенными ``cases``/``lint``."""
         ...
 
+    def task_progress(self, *, limit: int = 1000) -> list[dict[str, Any]]:
+        """Агрегат «попыток/времени до первого зачёта» по задачам (issue #819)."""
+        ...
+
 
 @dataclass(frozen=True)
 class SqliteHistoryRepository:
@@ -327,12 +331,13 @@ class SqliteHistoryRepository:
         """
         for attempt in range(_WRITE_ATTEMPTS):
             try:
+                ts_utc = _utc_now_iso()
                 with _WRITE_LOCK, contextlib.closing(_connect(self.db_path)) as conn:
                     cur = conn.execute(
                         "INSERT INTO runs (ts_utc, mode, source, task_key, solution_name, "
                         "solution_hash, duration_s) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         (
-                            _utc_now_iso(),
+                            ts_utc,
                             record.mode,
                             record.source,
                             record.task_key,
@@ -363,6 +368,17 @@ class SqliteHistoryRepository:
                             "INSERT INTO lint_violations (run_id, rule_code, line_no, message) "
                             "VALUES (?, ?, ?, ?)",
                             [(run_id, v.rule_code, v.line_no, v.message) for v in record.lint],
+                        )
+                    if record.mode in CORRECTNESS_MODES:
+                        # issue #819: агрегат «до первого зачёта» ведётся только по
+                        # прогонам проверки. Бенчмарк (режимы 3/4) не участвует ни
+                        # как попытка, ни как провал — у него другой вопрос.
+                        _bump_task_progress(
+                            conn,
+                            task_key=record.task_key,
+                            ts_utc=ts_utc,
+                            full_ac=bool(record.cases)
+                            and all(c.verdict == "AC" for c in record.cases),
                         )
                     if max_runs_per_task is not None:
                         # issue #642: retention — оставить не более max_runs_per_task
@@ -447,6 +463,29 @@ class SqliteHistoryRepository:
         except (sqlite3.Error, OSError):
             return []
 
+    def task_progress(self, *, limit: int = 1000) -> list[dict[str, Any]]:
+        """Агрегат «до первого зачёта» по задачам, по ``task_key`` (issue #819).
+
+        Считается инкрементально при записи прогонов режимов 1/2, поэтому не
+        зависит ни от retention (``_MAX_RUNS_PER_TASK``), ни от того, сколько
+        последних прогонов прочитано: удаление старых записей больше не
+        занижает «попыток до первого зачёта». Отсутствующая/битая БД → пустой
+        список (graceful, как у ``recent_runs``).
+        """
+        if not self.db_path.is_file():
+            return []
+        try:
+            with contextlib.closing(_connect(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    "SELECT task_key, first_ts_utc, runs_total, first_ac_ts_utc, "
+                    "attempts_to_first_ac FROM task_progress ORDER BY task_key LIMIT ?",
+                    (limit,),
+                ).fetchall()
+                return [dict(row) for row in rows]
+        except (sqlite3.Error, OSError):
+            return []
+
 
 def record_run(
     mode: int,
@@ -495,3 +534,12 @@ def read_recent_runs(
     Сигнатура сохранена для тестов (roundtrip) и раздела «Подучить» (#347).
     """
     return SqliteHistoryRepository(db_path).recent_runs(task_key=task_key, limit=limit)
+
+
+def read_task_progress(db_path: Path, *, limit: int = 1000) -> list[dict[str, Any]]:
+    """Агрегат «попыток/времени до первого зачёта» по задачам (issue #819).
+
+    Тонкая обёртка над ``SqliteHistoryRepository.task_progress`` (ADR-0009) —
+    источник метрик ``core/insights.time_to_first_green``.
+    """
+    return SqliteHistoryRepository(db_path).task_progress(limit=limit)

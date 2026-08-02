@@ -13,7 +13,9 @@
   Тестируется таблично, без ``freezegun``/часов.
 - **Без хранимого состояния карточек** — всё считается из истории на лету
   (агрегация читает `history.read_recent_runs`), карточка нигде не
-  материализуется.
+  материализуется. Исключение — `time_to_first_green`: «попытки до первого
+  зачёта» ведутся агрегатом в БД, потому что retention истории удаляет ранние
+  прогоны и считать эту метрику по остатку значит занижать её (issue #819).
 """
 
 from __future__ import annotations
@@ -153,8 +155,11 @@ class TaskProgress:
     ``attempts`` — число прогонов до первого полного AC включительно (если задача
     ещё не решена — всего прогонов). ``seconds_to_first_ac`` — секунды от первого
     прогона задачи до первого полного AC (``None``, если не решена или метки
-    времени не распарсились). Считается на лету из истории, без хранимого
-    состояния (§ 9.2).
+    времени не распарсились). Считаются ТОЛЬКО прогоны проверки (режимы 1/2).
+
+    Единственная метрика с хранимым состоянием (таблица ``task_progress``,
+    issue #819): на лету по ``runs`` её считать нельзя — retention удаляет
+    ранние прогоны, и «первая попытка» уезжает в середину истории.
     """
 
     task_key: str
@@ -164,8 +169,26 @@ class TaskProgress:
     seconds_to_first_ac: float | None = None
 
 
+def _is_bench_run(run: dict[str, Any]) -> bool:
+    """Прогон бенчмарка (режимы 3/4) — не участвует в метриках корректности.
+
+    Вердикты режимов 3/4 (``ERR``/``SIMILAR``/``SLOWER``) отвечают на вопрос
+    «быстрее ли», а не «верно ли»: ``AC`` там не бывает никогда. Прежде такой
+    прогон считался провалом и обнулял серию — пользователь, сделавший ровно
+    то, ради чего инструмент и нужен (проверил решение, затем сравнил
+    варианты), терял видимое достижение (issue #819).
+
+    Режим, которого в записи нет (старые/синтетические данные), считается
+    прогоном проверки — прежнее поведение.
+    """
+    mode = run.get("mode")
+    return mode is not None and mode not in history.CORRECTNESS_MODES
+
+
 def _run_is_full_ac(run: dict[str, Any]) -> bool:
-    """Прогон «решён» — есть кейсы и все вердикты AC (корректность, режимы 1/2)."""
+    """Прогон «решён» — прогон проверки, где есть кейсы и все вердикты AC."""
+    if _is_bench_run(run):
+        return False
     cases = run.get("cases", [])
     return bool(cases) and all(c.get("verdict") == "AC" for c in cases)
 
@@ -184,40 +207,35 @@ def time_to_first_green(db_path: Path, *, limit: int = 1000) -> list[TaskProgres
     """Сколько попыток/времени заняло дойти до первого полного AC по каждой задаче.
 
     issue #431: главный измеримый показатель ценности для ученика («архив
-    побед», retention). Читает историю (``read_recent_runs``), группирует по
-    ``task_key`` в хронологическом порядке, для каждой задачи находит первый
-    полностью-AC прогон. Пустая история → ``[]`` (дружелюбный empty state —
-    забота вызывающей стороны). Считается на лету, без нового хранимого
-    состояния (AC #431).
-    """
-    runs = history.read_recent_runs(db_path, limit=limit)
-    if not runs:
-        return []
-    # read_recent_runs отдаёт новые первыми — разворачиваем в хронологию.
-    by_task: dict[str, list[dict[str, Any]]] = {}
-    for run in reversed(runs):
-        by_task.setdefault(run.get("task_key") or "", []).append(run)
+    побед», retention). Источник — агрегат ``task_progress`` (issue #819),
+    который ведётся при записи прогонов режимов 1/2. Прежде метрика считалась
+    по таблице ``runs`` на лету и потому зависела от того, что в ней осталось:
+    retention (200 прогонов на задачу) вытеснял ранние записи, «первой
+    попыткой» становилась произвольная середина истории, и у самых активных
+    пользователей метрика тихо занижалась. Бенчмарк-прогоны (режимы 3/4) в
+    агрегат не попадают вовсе.
 
+    ``limit`` — потолок числа ЗАДАЧ в отчёте (агрегат хранит одну строку на
+    задачу). Пустая история → ``[]`` (дружелюбный empty state — забота
+    вызывающей стороны).
+    """
     progress: list[TaskProgress] = []
-    for task_key, task_runs in by_task.items():
-        first_ts = _parse_ts(task_runs[0].get("ts_utc"))
-        solved = False
-        seconds: float | None = None
-        attempts = len(task_runs)
-        for i, run in enumerate(task_runs, 1):
-            if _run_is_full_ac(run):
-                solved = True
-                attempts = i
-                ac_ts = _parse_ts(run.get("ts_utc"))
-                if first_ts is not None and ac_ts is not None:
-                    seconds = (ac_ts - first_ts).total_seconds()
-                break
+    for row in history.read_task_progress(db_path, limit=limit):
+        first_ts = _parse_ts(row.get("first_ts_utc"))
+        ac_ts = _parse_ts(row.get("first_ac_ts_utc"))
+        total_runs = int(row.get("runs_total") or 0)
+        attempts = row.get("attempts_to_first_ac")
+        seconds = (
+            (ac_ts - first_ts).total_seconds()
+            if first_ts is not None and ac_ts is not None
+            else None
+        )
         progress.append(
             TaskProgress(
-                task_key=task_key,
-                attempts=attempts,
-                solved=solved,
-                total_runs=len(task_runs),
+                task_key=row.get("task_key") or "",
+                attempts=int(attempts) if attempts is not None else total_runs,
+                solved=attempts is not None,
+                total_runs=total_runs,
                 seconds_to_first_ac=seconds,
             )
         )
@@ -225,14 +243,18 @@ def time_to_first_green(db_path: Path, *, limit: int = 1000) -> list[TaskProgres
 
 
 def current_streak(db_path: Path, *, limit: int = 1000) -> int:
-    """Текущая серия: сколько последних прогонов подряд — полный AC (issue #540).
+    """Текущая серия: сколько последних прогонов ПРОВЕРКИ подряд — полный AC.
 
-    ``read_recent_runs`` отдаёт новые первыми, поэтому считаем с начала списка до
-    первого не-AC прогона. Пустая/отсутствующая история → 0. Чистая функция, без
-    нового хранимого состояния — «видимое достижение» из уже собранной истории.
+    issue #540. ``read_recent_runs`` отдаёт новые первыми, поэтому считаем с
+    начала списка до первого не-AC прогона. Прогоны бенчмарка (режимы 3/4)
+    пропускаются, а не рвут серию (issue #819): в них не бывает вердикта AC, и
+    прежде любое сравнение вариантов обнуляло KPI «Серия» и снимало бейджи.
+    Пустая/отсутствующая история → 0.
     """
     streak = 0
     for run in history.read_recent_runs(db_path, limit=limit):
+        if _is_bench_run(run):
+            continue
         if not _run_is_full_ac(run):
             break
         streak += 1
