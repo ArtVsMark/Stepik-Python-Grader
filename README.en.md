@@ -130,7 +130,7 @@ Some parts of the grader live **only** here — there are no CLI flags for them:
 | Local web UI (`--serve`) + GUI launcher (`stepik-grader-gui`) + VS Code / PyCharm integration | ❌ | ✅ |
 | Local Python glossary — cards + missing-term detector + deep links from error cards | ❌ | ✅ |
 | PEP 8 rules + «Practice» section (frequent mistakes from run history) | ❌ | ✅ |
-| Optional OS sandbox (`--sandbox`) with network/FS isolation | ❌ | ✅ |
+| Optional OS sandbox (`--sandbox`) with FS isolation — plus network isolation on Linux/macOS (guarantees differ per OS: no network isolation on Windows, see [SECURITY.md](SECURITY.md)) | ❌ | ✅ |
 | Bilingual RU/EN interface — CLI, web shell, glossary | ❌ | ✅ |
 | Local run history (SQLite) + stats — offline | ❌ | ✅ |
 | Engineering base — src-layout, `pyproject.toml`, CI (pytest + ruff + mypy) on 3 OSes, 2100+ tests | ❌ | ✅ |

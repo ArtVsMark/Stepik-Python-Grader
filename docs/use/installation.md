@@ -334,6 +334,12 @@ python -m stepik_grader.diagnostic_stepik
 - убедиться в корректности токена авторизации;
 - получить информацию о курсе, уроке или задаче по ID.
 
+**Лог самого запуска** — флаг `--diagnostic` (или переменная
+`STEPIK_GRADER_LOG=debug`): пишет сеть, OAuth и шаги скачивания в
+`stepik_diagnostics/grader.log` с редакцией секретов. По умолчанию выключен,
+файл не создаётся. Подробнее —
+[grader-workflow.md § `--diagnostic`](grader-workflow.md#--diagnostic).
+
 ---
 
 ## Диагностика окружения разработки (pytest, Windows)
