@@ -1258,3 +1258,48 @@ class TestCliBenchPreflight:
         cli._run_mode_3(tmp_path, repeats=5)
 
         assert measured == ["task1_1.py", "task1_2.py"]
+
+
+class TestPurgeHistoryFlag:
+    """issue #813 (SECD-03): `--purge-history` — штатное удаление своих данных."""
+
+    def _seed(self, work: pathlib.Path) -> pathlib.Path:
+        from stepik_grader.core.history import record_run
+
+        db_path = work / ".grader_history.db"
+        for task in ("alpha", "alpha", "beta"):
+            record_run(2, [], db_path=db_path, task_key=task, solution_name="s.py")
+        (work / ".grader_stats.jsonl").write_text('{"a":1}\n{"b":2}\n', encoding="utf-8")
+        return db_path
+
+    def test_purge_all_removes_history_and_stats(self, tmp_path, monkeypatch, capsys) -> None:
+        """Без аргумента убираются и история, и журнал статистики.
+
+        Это одни и те же личные данные: что решал, когда, сколько заняло, —
+        просто в двух файлах, о которых пользователь знать не обязан.
+        """
+        monkeypatch.chdir(tmp_path)
+        self._seed(tmp_path)
+
+        cli.main(["--purge-history"])
+
+        assert not (tmp_path / ".grader_history.db").exists()
+        assert not (tmp_path / ".grader_stats.jsonl").exists()
+        assert list(tmp_path.iterdir()) == []  # включая -wal/-shm
+        assert "3" in capsys.readouterr().out  # три прогона
+
+    def test_purge_single_task_keeps_stats(self, tmp_path, monkeypatch, capsys) -> None:
+        """С аргументом чистятся прогоны одной задачи; статистика не трогается."""
+        monkeypatch.chdir(tmp_path)
+        db_path = self._seed(tmp_path)
+
+        cli.main(["--purge-history", "alpha"])
+
+        assert db_path.is_file()
+        assert (tmp_path / ".grader_stats.jsonl").is_file()
+        assert "alpha" in capsys.readouterr().out
+
+    def test_purge_on_clean_workdir_is_not_an_error(self, tmp_path, monkeypatch, capsys) -> None:
+        monkeypatch.chdir(tmp_path)
+        cli.main(["--purge-history"])
+        assert "0" in capsys.readouterr().out

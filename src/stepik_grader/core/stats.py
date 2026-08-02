@@ -28,6 +28,7 @@ Best-effort по всему модулю (тот же принцип, что ``G
 
 from __future__ import annotations
 
+import contextlib
 import json
 import pathlib
 import platform
@@ -37,7 +38,7 @@ from typing import Any
 
 from stepik_grader.atomic_io import atomic_write_text
 
-__all__ = ["STATS_FILE_NAME", "read_summary", "record_run"]
+__all__ = ["STATS_FILE_NAME", "purge_stats", "read_summary", "record_run"]
 
 STATS_FILE_NAME = ".grader_stats.jsonl"
 _MAX_BYTES = 1 * 1024 * 1024  # 1 MiB — ротация (оставить новую половину строк)
@@ -210,3 +211,26 @@ def read_summary(stats_path: pathlib.Path | None = None) -> dict[str, Any]:
         "verdict_totals": verdict_totals,
         "total_time": total_time,
     }
+
+
+def purge_stats(path: pathlib.Path | None = None) -> int:
+    """Удалить журнал статистики; вернуть число удалённых записей (issue #813).
+
+    Журнал прогонов — такие же личные данные, как история: что и когда
+    запускалось, сколько заняло. Пользователю нужен способ их убрать, не зная
+    имени файла. Best-effort: отсутствующий журнал — это 0 записей, не ошибка.
+    """
+    target = _default_path() if path is None else path
+    with _WRITE_LOCK:  # не пересечься с ротацией/дозаписью из web-потока
+        if not target.is_file():
+            return 0
+        try:
+            # errors="replace" — как и на чтении сводки (#792): посторонний байт
+            # не должен мешать удалению собственных данных пользователя.
+            raw = target.read_bytes().decode("utf-8", errors="replace")
+            removed = sum(1 for line in raw.splitlines() if line.strip())
+        except OSError:
+            removed = 0
+        with contextlib.suppress(OSError):
+            target.unlink()
+        return removed

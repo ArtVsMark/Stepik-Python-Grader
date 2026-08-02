@@ -215,5 +215,7 @@
   "source_not_a_solution": "Source view is limited to solution files (.py); requested: {name}",
   "secrets_path_not_json": "The secrets.json path must point to a .json file; got: {name}",
   "secrets_path_occupied": "File {name} already exists and does not look like secrets.json — refusing to overwrite so unrelated data is not destroyed.",
-  "stepik_network_error": "Could not reach Stepik: {error}. Check your connection and retry — no need to re-issue the token."
+  "stepik_network_error": "Could not reach Stepik: {error}. Check your connection and retry — no need to re-issue the token.",
+  "history_purged": "🗑 History purged: {runs} run(s), {stats} stats entry(ies).",
+  "history_purged_task": "🗑 History for task {task} purged: {runs} run(s)."
 }

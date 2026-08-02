@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import contextlib
 import sqlite3
+import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -105,3 +107,71 @@ def test_second_connection_sees_committed_schema(tmp_path: Path) -> None:
     with contextlib.closing(db.connect(path, migrate=_migrate)) as conn2:
         assert db.user_version(conn2) == 1
         assert conn2.execute("SELECT v FROM t").fetchone()[0] == "c"
+
+
+# ---------------------------------------------------------------------------
+# Приватные права БД — issue #813 (SECD-04)
+# ---------------------------------------------------------------------------
+
+
+def test_connect_restricts_db_to_owner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """БД сужается до 0600 сразу при создании — ДО включения WAL.
+
+    База истории появляется рядом с решениями (личный репозиторий задач) с
+    правами по umask, обычно 0644 — журнал обучения читаем другими
+    пользователями машины. Порядок важен: SQLite создаёт ``-wal``/``-shm`` с
+    правами основной БД, поэтому сужать нужно раньше, чем он их создаст.
+    """
+    calls: list[tuple[str, int]] = []
+    real_chmod = Path.chmod
+
+    def _spy(self: Path, mode: int, **kwargs: object) -> None:
+        calls.append((self.name, mode))
+        real_chmod(self, mode, **kwargs)
+
+    monkeypatch.setattr(Path, "chmod", _spy)
+    with contextlib.closing(db.connect(tmp_path / "h.db")) as conn:
+        conn.execute(_DDL)
+
+    assert calls, "права БД не сужались вовсе"
+    assert {mode for _name, mode in calls} == {0o600}
+    assert calls[0][0] == "h.db"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX-биты режима; на Windows chmod — no-op")
+def test_db_file_mode_is_owner_only(tmp_path: Path) -> None:
+    """Фактический режим файла на POSIX — только владелец."""
+    path = tmp_path / "h.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        conn.execute(_DDL)
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_restrict_to_owner_covers_wal_sidecars(tmp_path: Path) -> None:
+    """Спутники WAL/SHM тоже сужаются: в журнале те же данные, что в базе.
+
+    Отдельный случай — БД от прежней версии, где спутники уже лежат с широкими
+    правами: одного chmod по основному файлу тут мало.
+    """
+    path = tmp_path / "h.db"
+    path.write_bytes(b"")
+    for suffix in ("-wal", "-shm"):
+        path.with_name(path.name + suffix).write_bytes(b"")
+
+    calls: list[str] = []
+    real_chmod = Path.chmod
+
+    def _spy(self: Path, mode: int, **kwargs: object) -> None:
+        calls.append(self.name)
+        real_chmod(self, mode, **kwargs)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(Path, "chmod", _spy)
+        db.restrict_to_owner(path)
+
+    assert calls == ["h.db", "h.db-wal", "h.db-shm"]
+
+
+def test_restrict_to_owner_survives_missing_file(tmp_path: Path) -> None:
+    """Файла нет — не ошибка: работа с историей best-effort по всему модулю."""
+    db.restrict_to_owner(tmp_path / "nope.db")  # не должно бросать

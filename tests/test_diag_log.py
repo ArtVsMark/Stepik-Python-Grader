@@ -63,6 +63,52 @@ class TestRedact:
     def test_plain_text_untouched(self) -> None:
         assert diag_log.redact("обычное сообщение без секретов") == "обычное сообщение без секретов"
 
+    # -- issue #813 (SECD-05): repr-форма и расширенный список ключей ----------
+
+    def test_python_repr_dict_is_redacted(self) -> None:
+        """`print(secrets)` в traceback'е даёт одинарные кавычки — раньше мимо.
+
+        Такая строка попадает в поле «Логи» формы обратной связи и уезжает в
+        prefilled-URL ПУБЛИЧНОГО GitHub issue: паттерн требовал двойных кавычек,
+        то есть ловил JSON-ответ, но не Python-репрезентацию того же словаря.
+        """
+        out = diag_log.redact("secrets = {'access_token': 'ya29.SECRETVALUE'}")
+        assert "ya29.SECRETVALUE" not in out
+        assert "***redacted***" in out
+
+    def test_api_key_is_redacted_in_both_quote_styles(self) -> None:
+        """`api_key` не ловился ВООБЩЕ — ни в repr, ни в JSON.
+
+        Найдено прогоном сверх формулировки находки: именно им настраивается
+        AI-канал подсказок, то есть ключ живой, а не гипотетический.
+        """
+        assert "sk-SECRET-1" not in diag_log.redact("{'api_key': 'sk-SECRET-1'}")
+        assert "sk-SECRET-2" not in diag_log.redact('{"api_key": "sk-SECRET-2"}')
+
+    def test_basic_auth_header_is_redacted(self) -> None:
+        out = diag_log.redact("Authorization: Basic dXNlcjpwYXNzd29yZA==")
+        assert "dXNlcjpwYXNzd29yZA" not in out
+
+    def test_neighbouring_fields_survive(self) -> None:
+        """Маскируется ровно значение секрета, а не хвост строки до конца.
+
+        Жадный паттерн схватил бы всё до последней кавычки — тогда из лога
+        пропали бы соседние поля, по которым и ведётся диагностика.
+        """
+        out = diag_log.redact("{'client_id': 'cid', 'access_token': 'SECRETV1', 'x': 1}")
+        assert "SECRETV1" not in out
+        assert "'client_id': 'cid'" in out
+        assert "'x': 1" in out
+
+    def test_key_without_value_untouched(self) -> None:
+        """`None` вместо значения — не секрет, трогать нечего."""
+        assert diag_log.redact("{'api_key': None}") == "{'api_key': None}"
+
+    def test_bare_keyword_in_prose_untouched(self) -> None:
+        """Слово «password» в тексте — не повод портить сообщение."""
+        text = "Проверьте password в настройках профиля."
+        assert diag_log.redact(text) == text
+
 
 class TestRedactTraceback:
     """issue #410 (S5): редакция распространяется на трейсбэк и stack_info.

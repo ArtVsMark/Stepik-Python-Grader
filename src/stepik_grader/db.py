@@ -31,6 +31,7 @@ __all__ = [
     "BUSY_TIMEOUT_MS",
     "apply_schema",
     "connect",
+    "restrict_to_owner",
     "set_user_version",
     "user_version",
 ]
@@ -38,6 +39,32 @@ __all__ = [
 # Явный busy_timeout: конкурентные писатели ЖДУТ write-lock, а не падают
 # ``sqlite3.OperationalError`` → тихая потеря записи (issue #393/#552).
 BUSY_TIMEOUT_MS = 10000
+
+
+# issue #813 (SECD-04): к каким файлам применяется приватный режим — сама БД и
+# её WAL/SHM-спутники. Журнал WAL содержит те же данные, что и база, поэтому
+# ограничивать права только на `.db` было бы половиной меры.
+_DB_SIDECAR_SUFFIXES = ("", "-wal", "-shm")
+
+
+def restrict_to_owner(db_path: Path) -> None:
+    """Привести БД и её WAL/SHM-спутники к правам 0600 (best-effort).
+
+    issue #813 (SECD-04): база истории создавалась с правами по umask (обычно
+    0644) рядом с решениями — то есть в личном репозитории задач, читаемая
+    другими пользователями машины. Содержимое не секрет в смысле токенов, но
+    это журнал обучения: что решал, когда, сколько раз ошибся.
+
+    На Windows ``os.chmod`` не имеет эквивалента Unix-битам group/other (модель
+    доступа — NTFS ACL), поэтому там вызов практически no-op и файл остаётся
+    защищён правами профиля пользователя — тот же компромисс, что у
+    ``storage.save_secrets`` (issue #243).
+    """
+    for suffix in _DB_SIDECAR_SUFFIXES:
+        sidecar = db_path.with_name(db_path.name + suffix)
+        with contextlib.suppress(OSError):
+            if sidecar.exists():
+                sidecar.chmod(0o600)
 
 
 def connect(
@@ -56,6 +83,11 @@ def connect(
         sqlite3.Error: при сбое PRAGMA/миграции (соединение уже закрыто).
     """
     conn = sqlite3.connect(db_path)
+    # issue #813: сужаем права СРАЗУ после создания файла и ДО включения WAL —
+    # SQLite создаёт `-wal`/`-shm` с правами основной БД, поэтому достаточно
+    # опередить его. Цикл в restrict_to_owner при этом подтянет и спутники,
+    # оставшиеся от прежних версий с широкими правами.
+    restrict_to_owner(db_path)
     try:
         conn.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
         # Смена journal_mode в WAL невозможна, пока к БД открыты ДРУГИЕ соединения
