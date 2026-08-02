@@ -343,3 +343,75 @@ class TestBaseUrlAllowlist:
 
         assert ai_hints._post_chat(_Cfg(), [{"role": "user", "content": "x"}], "key") is None
         assert calls == [], "запрос ушёл на адрес, который должен быть отклонён"
+
+
+# ---------------------------------------------------------------------------
+# Качество запроса — issue #812 (VIS-02/TREND-01)
+# ---------------------------------------------------------------------------
+
+
+class TestSystemPromptOverride:
+    """VIS-02: встроенный промпт обращается к «новичку на курсе „Поколение
+    Python“» — верно для основной аудитории, но переопределить его было нечем.
+    """
+
+    def test_builtin_prompt_by_default(self) -> None:
+        assert "Поколение Python" in ai_hints._system_prompt(_cfg(), "ru")
+        assert "friendly Python tutor" in ai_hints._system_prompt(_cfg(), "en")
+
+    def test_custom_prompt_replaces_builtin(self) -> None:
+        cfg = _cfg(ai_system_prompt="Отвечай как ментор для продвинутых.")
+        assert ai_hints._system_prompt(cfg, "ru") == "Отвечай как ментор для продвинутых."
+        # Свой промпт один на оба языка: его автор и решает, на каком отвечать.
+        assert ai_hints._system_prompt(cfg, "en") == "Отвечай как ментор для продвинутых."
+
+    def test_blank_custom_prompt_falls_back(self) -> None:
+        """Пробелы — не промпт: иначе пустая строка в конфиге обнулила бы инструкции."""
+        assert "Поколение Python" in ai_hints._system_prompt(_cfg(ai_system_prompt="   "), "ru")
+
+    def test_custom_prompt_reaches_request(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import json as _json
+
+        calls = _patch_post(monkeypatch, _ok)
+        ai_hints.explain_failure(_ctx(), _cfg(ai_system_prompt="Свой промпт."))
+        payload = _json.loads(calls[0]["data"])  # type: ignore[arg-type]
+        assert payload["messages"][0]["content"] == "Свой промпт."
+
+
+class TestReasoningModelPayload:
+    """TREND-01: reasoning-модели отвергают `max_tokens`+`temperature` целиком.
+
+    Для o-серии лимит называется `max_completion_tokens`, а температура не
+    принимается вовсе — обычный payload даёт 400, и подсказки молча не работают
+    именно у того, кто включил самую сильную модель.
+    """
+
+    @pytest.mark.parametrize("model", ["o1", "o3-mini", "o4-preview", "openai/o3", "qwen-thinking"])
+    def test_detected(self, model: str) -> None:
+        assert ai_hints._is_reasoning_model(model) is True
+
+    @pytest.mark.parametrize("model", ["gpt-4o", "gpt-4o-mini", "claude-3-opus", "llama3", ""])
+    def test_not_detected(self, model: str) -> None:
+        """`gpt-4o` и `opus` под шаблон o-серии попасть не должны."""
+        assert ai_hints._is_reasoning_model(model) is False
+
+    def test_reasoning_payload_omits_temperature(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import json as _json
+
+        calls = _patch_post(monkeypatch, _ok)
+        ai_hints.explain_failure(_ctx(), _cfg(ai_model="o3-mini", ai_max_tokens=333))
+        payload = _json.loads(calls[0]["data"])  # type: ignore[arg-type]
+        assert payload["max_completion_tokens"] == 333
+        assert "max_tokens" not in payload
+        assert "temperature" not in payload
+
+    def test_regular_model_keeps_classic_payload(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Контроль: обычная модель получает прежний payload — регресса нет."""
+        import json as _json
+
+        calls = _patch_post(monkeypatch, _ok)
+        ai_hints.explain_failure(_ctx(), _cfg(ai_model="gpt-4o", ai_max_tokens=222))
+        payload = _json.loads(calls[0]["data"])  # type: ignore[arg-type]
+        assert payload["max_tokens"] == 222
+        assert payload["temperature"] == 0.2
+        assert "max_completion_tokens" not in payload
