@@ -52,6 +52,13 @@ class UserSettings:
     ``True`` — дано и запомнено между запусками. Приватность: без согласия ничего
     не отправляется наружу.
 
+    ``ai_hint_consent_endpoint`` (issue #812): получатель, которому согласие
+    было дано, в виде ``scheme://host[:port]``. Согласие было глобальным:
+    сказав «да» локальному ollama, пользователь тем же «да» разрешал отправку
+    на любой адрес, который позже окажется в конфиге. Информированным такое
+    согласие не назвать — получатель неизвестен. Не совпало с текущим
+    ``ai_base_url`` → спрашиваем заново.
+
     ``onboarding_seen`` (issue #660): показан ли пользователю стартовый экран-
     онбординг веб-интерфейса. ``None``/``False`` — ещё не закрыт (веб покажет
     модалку при первом заходе); ``True`` — закрыт, больше не всплывает
@@ -62,6 +69,7 @@ class UserSettings:
 
     record_history: bool | None = None
     ai_hint_consent: bool | None = None
+    ai_hint_consent_endpoint: str | None = None
     onboarding_seen: bool | None = None
 
 
@@ -99,10 +107,12 @@ def load_settings(path: Path) -> UserSettings:
         return UserSettings()
     record_history = data.get("record_history")
     ai_hint_consent = data.get("ai_hint_consent")
+    endpoint = data.get("ai_hint_consent_endpoint")
     onboarding_seen = data.get("onboarding_seen")
     return UserSettings(
         record_history=record_history if isinstance(record_history, bool) else None,
         ai_hint_consent=ai_hint_consent if isinstance(ai_hint_consent, bool) else None,
+        ai_hint_consent_endpoint=endpoint if isinstance(endpoint, str) else None,
         onboarding_seen=onboarding_seen if isinstance(onboarding_seen, bool) else None,
     )
 
@@ -121,6 +131,8 @@ def save_settings(settings: UserSettings, path: Path) -> None:
         payload["record_history"] = settings.record_history
     if settings.ai_hint_consent is not None:
         payload["ai_hint_consent"] = settings.ai_hint_consent
+    if settings.ai_hint_consent_endpoint is not None:
+        payload["ai_hint_consent_endpoint"] = settings.ai_hint_consent_endpoint
     if settings.onboarding_seen is not None:
         payload["onboarding_seen"] = settings.onboarding_seen
     atomic_write_json(path, payload, fsync=False)

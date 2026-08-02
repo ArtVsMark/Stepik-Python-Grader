@@ -17,8 +17,14 @@ from stepik_grader.core import ai_hints, diag_log
 
 
 def _cfg(**over: object) -> object:
-    """GraderConfig с включённым AI-каналом по умолчанию (для тестов)."""
-    base = {"ai_base_url": "http://test.local/v1", "ai_model": "test-model"}
+    """GraderConfig с включённым AI-каналом по умолчанию (для тестов).
+
+    issue #812: адрес обязан быть допустимым (https куда угодно, http — только
+    на петлю), иначе запрос не уходит вовсе. Прежний http-адрес в этой фикстуре
+    теперь отклоняется по существу — тесты ниже проверяют механику запроса, а
+    не политику адресов (она покрыта отдельно в ``TestBaseUrlAllowlist``).
+    """
+    base = {"ai_base_url": "https://test.local/v1", "ai_model": "test-model"}
     base.update(over)
     return dataclasses.replace(CONFIG, **base)  # type: ignore[arg-type]
 
@@ -128,9 +134,12 @@ def test_empty_content_skips(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_key_from_env_sets_auth_and_registers_secret(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TEST_AI_KEY", "supersecretkey123")
+    # issue #812: имя переменной — из своего пространства STEPIK_GRADER_*;
+    # произвольное (прежнее TEST_AI_KEY) теперь отклоняется, чтобы чужой
+    # pyproject.toml не мог назначить «ключом» посторонний секрет окружения.
+    monkeypatch.setenv("STEPIK_GRADER_TEST_KEY", "supersecretkey123")
     calls = _patch_post(monkeypatch, _ok)
-    ai_hints.explain_failure(_ctx(), _cfg(ai_api_key_env="TEST_AI_KEY"))
+    ai_hints.explain_failure(_ctx(), _cfg(ai_api_key_env="STEPIK_GRADER_TEST_KEY"))
     headers = calls[0]["headers"]
     assert headers["Authorization"] == "Bearer supersecretkey123"  # type: ignore[index]
     # секрет зарегистрирован в diag_log → редактируется в логах
@@ -138,9 +147,9 @@ def test_key_from_env_sets_auth_and_registers_secret(monkeypatch: pytest.MonkeyP
 
 
 def test_local_provider_no_key_no_auth_header(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("TEST_AI_KEY", raising=False)
+    monkeypatch.delenv("STEPIK_GRADER_TEST_KEY", raising=False)
     calls = _patch_post(monkeypatch, _ok)
-    ai_hints.explain_failure(_ctx(), _cfg(ai_api_key_env="TEST_AI_KEY"))
+    ai_hints.explain_failure(_ctx(), _cfg(ai_api_key_env="STEPIK_GRADER_TEST_KEY"))
     assert "Authorization" not in calls[0]["headers"]  # type: ignore[operator]
 
 
@@ -159,7 +168,7 @@ def test_payload_shape(monkeypatch: pytest.MonkeyPatch) -> None:
 
     calls = _patch_post(monkeypatch, _ok)
     ai_hints.explain_failure(_ctx(), _cfg(ai_max_tokens=222))
-    assert calls[0]["url"] == "http://test.local/v1/chat/completions"
+    assert calls[0]["url"] == "https://test.local/v1/chat/completions"
     payload = _json.loads(calls[0]["data"])  # type: ignore[arg-type]
     assert payload["model"] == "test-model"
     assert payload["max_tokens"] == 222
@@ -242,3 +251,95 @@ def test_request_timeout_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = _patch_post(monkeypatch, _ok)
     ai_hints.explain_failure(_ctx(), _cfg(ai_timeout_seconds=7.5))
     assert calls[0]["timeout"] == 7.5
+
+
+# ---------------------------------------------------------------------------
+# Периметр AI-канала — issue #812 (SECD-01/SECD-02)
+# ---------------------------------------------------------------------------
+
+
+class TestKeyEnvAllowlist:
+    """Имя env-переменной с ключом приходит из pyproject.toml — то есть из
+    файла, который приезжает вместе с чужой папкой задач.
+
+    Проверено прогоном до фикса: `ai_api_key_env = "GITHUB_TOKEN"` заставлял
+    грейдер прочитать посторонний токен и отправить его как Bearer вместе с
+    кодом решения на адрес из того же файла.
+    """
+
+    def test_default_name_allowed(self) -> None:
+        assert ai_hints.env_name_is_allowed("STEPIK_GRADER_AI_KEY") is True
+
+    def test_own_namespace_allowed(self) -> None:
+        """Свой ключ пользователь может назвать по-своему — в своём пространстве."""
+        assert ai_hints.env_name_is_allowed("STEPIK_GRADER_OPENAI") is True
+
+    @pytest.mark.parametrize(
+        "name", ["GITHUB_TOKEN", "AWS_SECRET_ACCESS_KEY", "PATH", "OPENAI_API_KEY", ""]
+    )
+    def test_foreign_names_rejected(self, name: str) -> None:
+        assert ai_hints.env_name_is_allowed(name) is False
+
+    def test_resolve_key_refuses_foreign_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Ключ из чужой переменной не читается — даже если она задана."""
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_SECRET_VALUE_123456")
+
+        class _Cfg:
+            ai_api_key_env = "GITHUB_TOKEN"
+
+        assert ai_hints._resolve_key(_Cfg()) is None
+
+    def test_resolve_key_reads_own_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("STEPIK_GRADER_AI_KEY", "sk-own-key-1234")
+
+        class _Cfg:
+            ai_api_key_env = "STEPIK_GRADER_AI_KEY"
+
+        assert ai_hints._resolve_key(_Cfg()) == "sk-own-key-1234"
+
+
+class TestBaseUrlAllowlist:
+    """Схема адреса не проверялась вовсе — до запроса доходил даже `ftp://`."""
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://api.openai.com/v1",
+            "http://localhost:11434/v1",
+            "http://127.0.0.1:11434/v1",
+            "http://[::1]:11434/v1",
+        ],
+    )
+    def test_allowed(self, url: str) -> None:
+        assert ai_hints.base_url_is_allowed(url) is True
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://evil.example/v1",  # http наружу — код и ключ открытым текстом
+            "ftp://weird/v1",
+            "file:///etc/passwd",
+            "not-a-url",
+            "",
+        ],
+    )
+    def test_rejected(self, url: str) -> None:
+        assert ai_hints.base_url_is_allowed(url) is False
+
+    def test_post_chat_refuses_insecure_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Запрос не уходит вовсе: проверка стоит до обращения к requests.
+
+        Считаем вызовы, а не бросаем из мока: ``_post_chat`` намеренно глушит
+        ЛЮБУЮ ошибку канала в ``None`` (ADR-0003 §4), поэтому исключение из
+        подменённого ``requests.post`` было бы съедено — и тест проходил бы даже
+        со снятой проверкой (проверено мутацией).
+        """
+        calls: list[str] = []
+        monkeypatch.setattr(requests, "post", lambda url, **kw: calls.append(url))
+
+        class _Cfg:
+            ai_base_url = "http://evil.example/v1"
+            ai_model = "m"
+
+        assert ai_hints._post_chat(_Cfg(), [{"role": "user", "content": "x"}], "key") is None
+        assert calls == [], "запрос ушёл на адрес, который должен быть отклонён"

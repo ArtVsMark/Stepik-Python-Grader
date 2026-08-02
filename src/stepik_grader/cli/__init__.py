@@ -447,6 +447,15 @@ def main(argv: list[str] | None = None) -> None:
         print(_t("cache_cleared", count=removed))
         return
 
+    if args.revoke_ai_consent:
+        # issue #812 (SECD-06): отозвать согласие было нечем — только правкой
+        # .grader_settings.json руками. Согласие на передачу данных, которое
+        # нельзя отозвать, согласием не является.
+        from stepik_grader.cli.commands import revoke_ai_consent
+
+        print(_t("ai_consent_revoked" if revoke_ai_consent() else "ai_consent_absent"))
+        return
+
     if args.purge_history is not None:
         # issue #813 (SECD-03): у локального журнала обучения должен быть
         # штатный способ удаления. Раньше `--no-history` лишь переставал писать,
