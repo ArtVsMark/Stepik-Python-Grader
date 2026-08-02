@@ -227,6 +227,7 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "ai_api_key_env",
         "ai_max_tokens",
         "ai_timeout_seconds",
+        "ai_max_hints",  # issue #812: потолок AI-вызовов за прогон
     }
 
 

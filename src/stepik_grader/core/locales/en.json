@@ -217,5 +217,7 @@
   "secrets_path_occupied": "File {name} already exists and does not look like secrets.json — refusing to overwrite so unrelated data is not destroyed.",
   "stepik_network_error": "Could not reach Stepik: {error}. Check your connection and retry — no need to re-issue the token.",
   "history_purged": "🗑 History purged: {runs} run(s), {stats} stats entry(ies).",
-  "history_purged_task": "🗑 History for task {task} purged: {runs} run(s)."
+  "history_purged_task": "🗑 History for task {task} purged: {runs} run(s).",
+  "ai_consent_revoked": "🔒 AI hint consent revoked. You will be asked again on the next --ai-hints.",
+  "ai_consent_absent": "🔒 AI hint consent was never given — nothing to revoke."
 }
