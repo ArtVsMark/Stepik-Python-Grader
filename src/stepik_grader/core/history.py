@@ -48,6 +48,7 @@ __all__ = [
     "LintRecord",
     "RunRecord",
     "SqliteHistoryRepository",
+    "purge_history",
     "read_recent_runs",
     "read_task_progress",
     "record_run",
@@ -569,3 +570,36 @@ def read_task_progress(db_path: Path, *, limit: int = 1000) -> list[dict[str, An
     источник метрик ``core/insights.time_to_first_green``.
     """
     return SqliteHistoryRepository(db_path).task_progress(limit=limit)
+
+
+def purge_history(db_path: Path, *, task_key: str | None = None) -> int:
+    """Удалить историю прогонов; вернуть число удалённых прогонов (issue #813).
+
+    ``task_key=None`` — удалить БД целиком вместе с ``-wal``/``-shm``
+    спутниками: у пользователя должен быть способ убрать журнал обучения, не
+    зная о существовании этих файлов. С ``task_key`` удаляются прогоны только
+    этой задачи (``cases``/``lint`` уходят каскадом по FK), а база остаётся.
+
+    Best-effort, как и вся работа с историей: отсутствующая БД — это 0
+    удалённых, а не ошибка.
+    """
+    if not db_path.is_file():
+        return 0
+    if task_key is None:
+        with contextlib.closing(db.connect(db_path)) as conn:
+            removed = int(conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0])
+        for suffix in ("", "-wal", "-shm"):
+            with contextlib.suppress(OSError):
+                db_path.with_name(db_path.name + suffix).unlink(missing_ok=True)
+        return removed
+    with contextlib.closing(_connect(db_path)) as conn:
+        cursor = conn.execute("DELETE FROM runs WHERE task_key = ?", (task_key,))
+        # issue #819 + #813: агрегат «до первого зачёта» живёт отдельной строкой
+        # и каскадом FK не уносится — без этого «историю удалили» оставляло бы
+        # число попыток и время первого зачёта по задаче лежать в базе.
+        conn.execute("DELETE FROM task_progress WHERE task_key = ?", (task_key,))
+        conn.commit()
+        # VACUUM возвращает место ОС: иначе удалённые записи остаются
+        # вычитываемыми из файла сырым чтением, а обещание «удалили» — неполным.
+        conn.execute("VACUUM")
+        return int(cursor.rowcount or 0)

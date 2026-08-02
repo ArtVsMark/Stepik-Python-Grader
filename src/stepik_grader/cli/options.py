@@ -145,7 +145,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--clear-cache",
         action="store_true",
-        help="Удалить .grader_cache/ и выйти.",
+        help="Удалить .grader_cache/ и .stepik_cache/ и выйти.",
+    )
+    parser.add_argument(
+        "--purge-history",
+        nargs="?",
+        const="",
+        metavar="TASK_KEY",
+        help=(
+            "Удалить локальную историю обучения (.grader_history.db) и журнал "
+            "статистики (.grader_stats.jsonl) и выйти. С аргументом — только "
+            "прогоны указанной задачи; статистика при этом не трогается."
+        ),
     )
     parser.add_argument(
         "--stats",

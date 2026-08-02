@@ -598,3 +598,112 @@ def test_different_tasks_get_different_keys(tmp_path: Path) -> None:
 def test_task_key_survives_mismatched_anchors(tmp_path: Path) -> None:
     """Относительный путь против абсолютной базы — путь как есть, без падения."""
     assert history.task_key_for(Path("04-slug"), tmp_path) == "04-slug"
+
+
+# ---------------------------------------------------------------------------
+# Удаление истории — issue #813 (SECD-03)
+# ---------------------------------------------------------------------------
+
+
+class TestPurgeHistory:
+    """У локального журнала обучения есть штатный способ удаления.
+
+    Раньше `--no-history` лишь переставал писать, а убрать накопленное можно
+    было только `rm .grader_history.db` вместе с `-wal`/`-shm` — то есть зная о
+    файлах, которых пользователь не создавал и в документации не видел.
+    """
+
+    def _seed(self, db_path: Path, tasks: tuple[str, ...]) -> None:
+        for task in tasks:
+            history.record_run(
+                2, [], db_path=db_path, task_key=task, solution_name="s.py", solution_hash="h"
+            )
+
+    def test_purge_all_removes_db(self, tmp_path: Path) -> None:
+        db_path = tmp_path / ".grader_history.db"
+        self._seed(db_path, ("alpha", "beta"))
+
+        removed = history.purge_history(db_path)
+
+        assert removed == 2
+        assert not db_path.exists()
+
+    def test_purge_targets_wal_sidecars(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Удаляется не только `.db`, но и `-wal`/`-shm`: в журнале те же данные.
+
+        Проверяется намерение кода (какие пути он трогает), а не итоговое
+        содержимое каталога: на штатном пути SQLite сливает журнал и убирает
+        спутники сам при закрытии соединения, поэтому «каталог пуст» проходит и
+        без их явного удаления. Остаточные спутники реальны — их оставляет
+        аварийно завершённый процесс, и тогда журнал переживает «удаление».
+        """
+        db_path = tmp_path / ".grader_history.db"
+        self._seed(db_path, ("alpha",))
+
+        unlinked: list[str] = []
+        real_unlink = Path.unlink
+
+        def _spy(self: Path, **kwargs: object) -> None:
+            unlinked.append(self.name)
+            real_unlink(self, **kwargs)
+
+        monkeypatch.setattr(Path, "unlink", _spy)
+        history.purge_history(db_path)
+
+        assert unlinked == [
+            ".grader_history.db",
+            ".grader_history.db-wal",
+            ".grader_history.db-shm",
+        ]
+        assert list(tmp_path.iterdir()) == []
+
+    def test_purge_single_task_keeps_others(self, tmp_path: Path) -> None:
+        db_path = tmp_path / ".grader_history.db"
+        self._seed(db_path, ("alpha", "alpha", "beta"))
+
+        removed = history.purge_history(db_path, task_key="alpha")
+
+        assert removed == 2
+        assert db_path.is_file()  # выборочное удаление базу не сносит
+        left = history.read_recent_runs(db_path)
+        assert [r["task_key"] for r in left] == ["beta"]
+
+    def test_purge_missing_db_is_zero_not_error(self, tmp_path: Path) -> None:
+        """Best-effort, как и вся работа с историей: нечего удалять — 0."""
+        assert history.purge_history(tmp_path / "nope.db") == 0
+
+    def test_purge_is_idempotent(self, tmp_path: Path) -> None:
+        db_path = tmp_path / ".grader_history.db"
+        self._seed(db_path, ("alpha",))
+        assert history.purge_history(db_path) == 1
+        assert history.purge_history(db_path) == 0
+
+
+def test_purge_by_task_clears_progress_aggregate(tmp_path: Path) -> None:
+    """Удаление прогонов задачи уносит и агрегат «до первого зачёта».
+
+    Агрегат (issue #819) живёт отдельной таблицей и каскадом FK не удаляется —
+    без явной чистки «историю удалили» оставляло бы число попыток и время
+    первого зачёта лежать в базе (issue #813).
+    """
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="a")
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="b")
+
+    history.purge_history(db, task_key="a")
+
+    remaining = {row["task_key"] for row in history.read_task_progress(db)}
+    assert remaining == {"b"}
+
+
+def test_purge_all_removes_progress_aggregate_with_the_file(tmp_path: Path) -> None:
+    """Полное удаление уносит базу целиком — агрегата тоже не остаётся."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="a")
+
+    history.purge_history(db)
+
+    assert not db.exists()
+    assert history.read_task_progress(db) == []
