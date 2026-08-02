@@ -113,6 +113,9 @@ class TestHostileTaskPageHtml:
         assert len(tests) == 20_000
         assert time.perf_counter() - started < _PARSE_BUDGET_S
 
+    # ids заданы явно: без них pytest кладёт весь payload в node id, а тот
+    # уезжает в переменную окружения PYTEST_CURRENT_TEST — на Windows лимит
+    # 32767 символов, и прогон падал ValueError ещё до самого теста.
     @pytest.mark.parametrize(
         "payload",
         [
@@ -120,6 +123,7 @@ class TestHostileTaskPageHtml:
             'href="' + "a/" * 100_000 + '.zip"',  # длинный путь до .zip
             '<a href="' * 20_000,  # много незавершённых атрибутов
         ],
+        ids=["unterminated-quote", "long-path-to-zip", "many-open-attrs"],
     )
     def test_link_regexes_do_not_blow_up(self, payload: str) -> None:
         """Патологические строки не дают экспоненциального бэктрекинга."""
@@ -160,6 +164,7 @@ class TestHostileTaskPageHtml:
             "\ud800",  # одиночный суррогат
             "def f(:",  # синтаксический мусор
         ],
+        ids=["null-byte", "deep-nesting", "very-long-name", "lone-surrogate", "broken-syntax"],
     )
     def test_is_function_style_survives_hostile_cell(self, cell: str) -> None:
         """Ячейка таблицы — недоверенный вход; определение режима не падает."""
