@@ -40,6 +40,7 @@ from typing import Any, Protocol, runtime_checkable
 from stepik_grader import db
 
 __all__ = [
+    "CORRECTNESS_MODES",
     "HISTORY_DB_NAME",
     "SCHEMA_VERSION",
     "CaseRecord",
@@ -48,11 +49,18 @@ __all__ = [
     "RunRecord",
     "SqliteHistoryRepository",
     "read_recent_runs",
+    "read_task_progress",
     "record_run",
 ]
 
 HISTORY_DB_NAME = ".grader_history.db"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+# Режимы проверки корректности. Режимы 3/4 — бенчмарк: их вердикты
+# (``ERR``/``SIMILAR``/``SLOWER``) отвечают на вопрос «быстрее ли», а не «верно
+# ли», поэтому в метриках обучения (серия, попытки до первого зачёта) они не
+# участвуют — ни как успех, ни как провал (issue #819).
+CORRECTNESS_MODES = frozenset({1, 2})
 
 # Процесс-локальная сериализация записи (как ``_WRITE_LOCK`` в ``stats.py``,
 # issue #605/#393). ``WAL`` снимает МЕЖпроцессную гонку CLI+web, но на Windows
@@ -166,22 +174,96 @@ CREATE INDEX IF NOT EXISTS idx_cases_kind ON case_results(failure_kind);
 CREATE INDEX IF NOT EXISTS idx_lint_rule  ON lint_violations(rule_code);
 """
 
+_SCHEMA_V1_VERSION = 1
+
+# DDL схемы v2 (issue #819): агрегат «попыток/времени до первого зачёта» на
+# задачу. Считать его на лету по таблице ``runs`` было нельзя: retention
+# (``_MAX_RUNS_PER_TASK``) удаляет ранние прогоны, и ``runs[0]`` переставал быть
+# первой попыткой — метрика тихо занижалась у самых активных пользователей,
+# ровно у тех, ради кого она заведена. Агрегат монотонен: удаление прогонов его
+# не трогает, потому что он не пересчитывается по ним.
+_SCHEMA_V2 = """
+CREATE TABLE IF NOT EXISTS task_progress (
+    task_key             TEXT    PRIMARY KEY,
+    first_ts_utc         TEXT    NOT NULL,
+    runs_total           INTEGER NOT NULL DEFAULT 0,
+    first_ac_ts_utc      TEXT,
+    attempts_to_first_ac INTEGER
+);
+"""
+
 
 def _utc_now_iso() -> str:
     """Текущее время UTC в ISO-8601 (``2026-07-14T09:12:00Z``)."""
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _backfill_task_progress(conn: sqlite3.Connection) -> None:
+    """Заполнить агрегат v2 по уже накопленным прогонам (миграция 1→2).
+
+    Для существующих БД восстанавливаем метрику из того, что ещё лежит в
+    ``runs``: точнее уже не будет (вытесненные retention'ом прогоны потеряны
+    безвозвратно), но дальше агрегат ведётся инкрементально и больше не
+    зависит от удаления.
+    """
+    rows = conn.execute(
+        "SELECT r.id, r.ts_utc, r.task_key, "
+        "       (SELECT COUNT(*) FROM case_results c WHERE c.run_id = r.id) AS cases_total, "
+        "       (SELECT COUNT(*) FROM case_results c WHERE c.run_id = r.id "
+        "        AND c.verdict = 'AC') AS cases_ac "
+        f"FROM runs r WHERE r.mode IN ({','.join(str(m) for m in sorted(CORRECTNESS_MODES))}) "
+        "ORDER BY r.id"
+    ).fetchall()
+    for row in rows:
+        run_id, ts_utc, task_key, cases_total, cases_ac = row
+        del run_id
+        _bump_task_progress(
+            conn,
+            task_key=task_key,
+            ts_utc=ts_utc,
+            full_ac=bool(cases_total) and cases_total == cases_ac,
+        )
+
+
+def _bump_task_progress(
+    conn: sqlite3.Connection, *, task_key: str, ts_utc: str, full_ac: bool
+) -> None:
+    """Учесть один прогон режима 1/2 в агрегате задачи (issue #819).
+
+    ``first_ts_utc`` пишется один раз (первая попытка), ``runs_total`` растёт,
+    а ``first_ac_ts_utc``/``attempts_to_first_ac`` фиксируются на первом полном
+    AC и больше не меняются — «первый зачёт» по определению случается однажды.
+    """
+    conn.execute(
+        "INSERT INTO task_progress "
+        "    (task_key, first_ts_utc, runs_total, first_ac_ts_utc, attempts_to_first_ac) "
+        "VALUES (?, ?, 1, ?, ?) "
+        "ON CONFLICT(task_key) DO UPDATE SET "
+        "    runs_total = runs_total + 1, "
+        "    first_ac_ts_utc = COALESCE(first_ac_ts_utc, excluded.first_ac_ts_utc), "
+        "    attempts_to_first_ac = COALESCE("
+        "        attempts_to_first_ac, "
+        "        CASE WHEN excluded.first_ac_ts_utc IS NOT NULL THEN runs_total + 1 END)",
+        (task_key, ts_utc, ts_utc if full_ac else None, 1 if full_ac else None),
+    )
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Идемпотентная миграция ``user_version`` 0→``SCHEMA_VERSION`` (#135).
 
-    Делегирует общему ``db.apply_schema`` (issue #552): ``user_version=0``
-    (свежая/пустая БД) → создаём схему v1 и ставим версию; актуальная/новее —
-    no-op. DDL идемпотентен (``CREATE ... IF NOT EXISTS``), поэтому параллельная
-    инициализация двумя процессами безопасна (#393). Будущие инкрементальные
-    версии (1→2) добавляют свою миграцию поверх этого вызова.
+    Делегирует общему ``db.apply_schema`` (issue #552) схему v1, затем
+    инкрементально доводит до v2 (агрегат ``task_progress``, issue #819) с
+    разовым заполнением по имеющимся прогонам. DDL идемпотентен (``CREATE ...
+    IF NOT EXISTS``), поэтому параллельная инициализация двумя процессами
+    безопасна (#393).
     """
-    db.apply_schema(conn, version=SCHEMA_VERSION, ddl=_SCHEMA_V1)
+    db.apply_schema(conn, version=_SCHEMA_V1_VERSION, ddl=_SCHEMA_V1)
+    if db.user_version(conn) >= SCHEMA_VERSION:
+        return
+    conn.executescript(_SCHEMA_V2)
+    _backfill_task_progress(conn)
+    db.set_user_version(conn, SCHEMA_VERSION)
+    conn.commit()
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
