@@ -8,10 +8,12 @@ job-lifecycle логики.
 from __future__ import annotations
 
 import dataclasses
+import json
 import pathlib
 import threading
 
 import pytest
+import requests
 
 from stepik_grader.web import runs
 from tests._wait import wait_until
@@ -620,3 +622,59 @@ class TestRegistryCap:
         assert len(runs._JOBS) <= runs._JOBS_MAX_ENTRIES
         with runs._JOBS_LOCK:
             runs._JOBS.clear()
+
+
+class TestStepikSubmitNetworkDiagnosis:
+    """issue #816 (DEV-05): обрыв сети — не «нет авторизации».
+
+    ``requests.RequestException`` ЯВЛЯЕТСЯ подклассом ``OSError``, поэтому
+    ветка «нет/битый secrets.json» перехватывала и сетевой сбой: пользователя
+    офлайн отправляли перевыпускать OAuth-токен, которого проблема не касается.
+    """
+
+    _SECRETS = {
+        "client_id": "cid",
+        "client_secret": "csecret",
+        "redirect_uri": "http://localhost:8080/callback",
+        "access_token": "expired",
+        "refresh_token": "rt",
+        "expires_at": 0,  # истёк — путь идёт через refresh, то есть в сеть
+    }
+
+    def _write_secrets(self, tmp_path: pathlib.Path) -> pathlib.Path:
+        path = tmp_path / "secrets.json"
+        path.write_text(json.dumps(self._SECRETS), encoding="utf-8")
+        return path
+
+    def test_network_failure_reports_network_error(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from stepik_grader.core import oauth_flow
+
+        def _no_network(*args: object, **kwargs: object) -> dict:
+            raise requests.ConnectionError("сеть недоступна")
+
+        monkeypatch.setattr(oauth_flow, "refresh_access_token", _no_network)
+        path = self._write_secrets(tmp_path)
+        job = runs.Job("net-fail", "stepik_submit")
+
+        runs._run_stepik_submit_job(
+            job, "print(1)", {"secrets_path": str(path), "step_id": 1}, "ru"
+        )
+
+        assert job.status == "error"
+        assert (job.message_fields or {})["message_id"] == "stepik_network_error"
+
+    def test_missing_secrets_still_reports_auth_required(self, tmp_path: pathlib.Path) -> None:
+        """Контроль: настоящее отсутствие токена по-прежнему «нужна авторизация»."""
+        job = runs.Job("no-secrets", "stepik_submit")
+
+        runs._run_stepik_submit_job(
+            job,
+            "print(1)",
+            {"secrets_path": str(tmp_path / "nope.json"), "step_id": 1},
+            "ru",
+        )
+
+        assert job.status == "error"
+        assert (job.message_fields or {})["message_id"] == "stepik_auth_required"

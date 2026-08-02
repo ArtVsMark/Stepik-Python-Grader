@@ -549,6 +549,8 @@ def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: st
     в изоляции (как ``_run_auth_job``). Результат — ``{status, hint, score,
     submission_id}`` (``status`` = correct/wrong/evaluation).
     """
+    import requests
+
     from stepik_grader.core import stepik_client
     from stepik_grader.core.oauth_flow import (
         load_secrets_dict,
@@ -562,6 +564,15 @@ def _run_stepik_submit_job(job: Job, code: str, params: dict[str, Any], lang: st
             session = try_create_session_without_browser(
                 load_secrets_dict(secrets_path), secrets_path
             )
+        except requests.RequestException as exc:
+            # issue #816 (DEV-05): порядок except обязателен — RequestException
+            # ЯВЛЯЕТСЯ подклассом OSError, поэтому ветка ниже перехватывала и
+            # обрыв сети, отправляя пользователя перевыпускать OAuth-токен,
+            # которого проблема не касается. Сеть — отдельный диагноз.
+            with job.lock:
+                job.status = "error"
+                job.message_fields = message_fields("stepik_network_error", lang, error=str(exc))
+            return
         except (OSError, ValueError):
             # нет/битый secrets.json — трактуем как «нет авторизации», не как сбой
             session = None

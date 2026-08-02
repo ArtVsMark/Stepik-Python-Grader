@@ -214,5 +214,6 @@
   "bench_skipped_not_ac": "не прошёл проверку: {passed} из {total} (первый провал: {verdict})",
   "source_not_a_solution": "Показ исходника доступен только для файлов решений (.py); запрошено: {name}",
   "secrets_path_not_json": "Путь к secrets.json должен указывать на .json-файл; получено: {name}",
-  "secrets_path_occupied": "Файл {name} уже существует и не похож на secrets.json — перезапись отклонена, чтобы не затереть чужие данные."
+  "secrets_path_occupied": "Файл {name} уже существует и не похож на secrets.json — перезапись отклонена, чтобы не затереть чужие данные.",
+  "stepik_network_error": "Не удалось связаться со Stepik: {error}. Проверьте соединение и повторите — перевыпускать токен не нужно."
 }

@@ -19,6 +19,7 @@ not. Update the import lines, keep the assertions.
 from __future__ import annotations
 
 import json
+import threading
 import time
 from io import BytesIO
 from unittest.mock import MagicMock, patch
@@ -30,6 +31,7 @@ from stepik_grader.core import oauth_flow, stepik_client
 from stepik_grader.core.oauth_flow import (
     authorize_and_get_token,
     load_secrets,
+    load_secrets_dict,
     token_is_valid,
     try_create_session_without_browser,
     wait_for_auth_code,
@@ -588,3 +590,88 @@ class TestAuthorizeAndGetToken:
         if os.name == "posix":  # семантика 0600 — POSIX; на Windows chmod иной
             mode = stat.S_IMODE(secrets_path.stat().st_mode)
             assert mode == 0o600, oct(mode)
+
+
+# ---------------------------------------------------------------------------
+# Гонка обновления токена — issue #816 (NETA-02)
+# ---------------------------------------------------------------------------
+
+
+class TestRefreshRace:
+    """Параллельный refresh не обменивает один и тот же refresh_token дважды.
+
+    Stepik ротирует refresh_token: после обмена старый отозван. Без взаимного
+    исключения два job'а web-сервера (ThreadingHTTPServer) читали один файл и
+    шли на обмен одновременно — замерено прогоном: сервер выдавал ДВЕ пары
+    токенов, в файле оставалась одна, а второй обмен шёл уже по отозванному.
+    В реальности это invalid_grant и потеря доступа до браузерного OAuth из CLI.
+    """
+
+    _BASE = {
+        "client_id": "cid",
+        "client_secret": "csecret",
+        "redirect_uri": "http://localhost:8080/callback",
+        "access_token": "expired",
+        "refresh_token": "rt-original",
+        "expires_at": 0,
+    }
+
+    def test_parallel_refresh_exchanges_token_once(self, tmp_path):
+        secrets_path = tmp_path / "secrets.json"
+        secrets_path.write_text(json.dumps(self._BASE), encoding="utf-8")
+
+        presented: list[str] = []
+        counter = threading.Lock()
+        issued = [0]
+
+        def _rotating(client_id, client_secret, refresh_token):
+            presented.append(refresh_token)
+            with counter:
+                issued[0] += 1
+                n = issued[0]
+            time.sleep(0.05)  # окно, в которое влезал второй поток
+            return {"access_token": f"at-{n}", "refresh_token": f"rt-{n}", "expires_in": 3600}
+
+        def _worker() -> None:
+            secrets = load_secrets_dict(secrets_path)
+            try_create_session_without_browser(secrets, secrets_path)
+
+        with patch("stepik_grader.core.oauth_flow.refresh_access_token", side_effect=_rotating):
+            threads = [threading.Thread(target=_worker) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(10)
+
+        assert issued[0] == 1, f"обменов было {issued[0]} — refresh_token обменяли повторно"
+        assert presented == ["rt-original"]
+        saved = json.loads(secrets_path.read_text(encoding="utf-8"))
+        assert saved["refresh_token"] == "rt-1"  # в файле именно выданная пара
+
+    def test_second_caller_reuses_fresh_token_from_disk(self, tmp_path):
+        """Опоздавший поток берёт токен, записанный победителем, а не обменивает свой.
+
+        Он входит в критическую секцию уже со СТАРЫМ словарём в руках — если
+        не перечитать файл, обмен уйдёт по отозванному токену.
+        """
+        secrets_path = tmp_path / "secrets.json"
+        secrets_path.write_text(json.dumps(self._BASE), encoding="utf-8")
+        stale = dict(self._BASE)  # снимок «до» обновления, как у опоздавшего
+
+        # Победитель уже обновил файл.
+        fresh = dict(self._BASE)
+        fresh.update(
+            {
+                "access_token": "winner-token",
+                "refresh_token": "rt-1",
+                "expires_at": time.time() + 3600,
+            }
+        )
+        secrets_path.write_text(json.dumps(fresh), encoding="utf-8")
+
+        with patch("stepik_grader.core.oauth_flow.refresh_access_token") as mock_refresh:
+            session = try_create_session_without_browser(stale, secrets_path)
+
+        assert session is not None
+        assert session.headers["Authorization"] == "Bearer winner-token"
+        mock_refresh.assert_not_called()  # обмена не было вовсе

@@ -437,7 +437,13 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.clear_cache:
-        removed = GraderCache().clear()
+        # issue #816 (DEV-11): чистим ОБА кэша. Раньше флаг трогал только
+        # `.grader_cache` (результаты прогонов), а `.stepik_cache` (ответы API)
+        # оставался расти — при том что именно он прибавляет файл на каждую
+        # новую скачанную задачу и не чистится ничем, включая TTL.
+        from stepik_grader.core.stepik_client import clear_cache as clear_stepik_cache
+
+        removed = GraderCache().clear() + clear_stepik_cache()
         print(_t("cache_cleared", count=removed))
         return
 

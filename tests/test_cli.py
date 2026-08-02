@@ -680,7 +680,11 @@ class TestPickPathViaDialogGraceful:
 
 
 class TestEntrypointSideEffectFlags:
-    def test_clear_cache_prints_removed_count_and_exits(self, monkeypatch, capsys) -> None:
+    def test_clear_cache_prints_removed_count_and_exits(
+        self, monkeypatch, capsys, tmp_path
+    ) -> None:
+        from stepik_grader.core import stepik_client
+
         removed_calls = []
 
         class _StubCache:
@@ -689,10 +693,39 @@ class TestEntrypointSideEffectFlags:
                 return 3
 
         monkeypatch.setattr(cli, "GraderCache", _StubCache)
+        # issue #816: флаг чистит и `.stepik_cache`, поэтому каталог подменяется
+        # на пустой временный — иначе тест удалял бы РЕАЛЬНЫЙ кэш в cwd
+        # разработчика и считал его записи в ожидаемую сумму.
+        monkeypatch.setattr(stepik_client, "CACHE_DIR", tmp_path / "empty-api-cache")
         cli.main(["--clear-cache"])
         out = capsys.readouterr().out
         assert removed_calls == [True]
         assert "3" in out
+
+    def test_clear_cache_also_clears_stepik_api_cache(self, monkeypatch, capsys, tmp_path) -> None:
+        """issue #816 (DEV-11): флаг чистит ОБА кэша, а не только `.grader_cache`.
+
+        `.stepik_cache` (ответы API) прибавляет файл на каждую новую скачанную
+        задачу и не чистился ничем — ни TTL, ни этим флагом; пользователю
+        оставалось удалять каталог руками, зная о его существовании.
+        """
+        from stepik_grader.core import stepik_client
+
+        class _StubCache:
+            def clear(self) -> int:
+                return 2
+
+        api_cache = tmp_path / ".stepik_cache"
+        api_cache.mkdir()
+        for i in range(3):
+            (api_cache / f"{i}.json").write_text("{}", encoding="utf-8")
+
+        monkeypatch.setattr(cli, "GraderCache", _StubCache)
+        monkeypatch.setattr(stepik_client, "CACHE_DIR", api_cache)
+        cli.main(["--clear-cache"])
+
+        assert list(api_cache.glob("*.json")) == []
+        assert "5" in capsys.readouterr().out  # 2 записи прогонов + 3 ответа API
 
     def test_init_vscode_written_reports_path(self, monkeypatch, capsys, tmp_path) -> None:
         from stepik_grader import ide
