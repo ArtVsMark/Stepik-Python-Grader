@@ -9,8 +9,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.metadata
 import pathlib
+import re
 import tomllib
 
 import stepik_grader
@@ -157,3 +159,50 @@ def test_scripts_paths_alias_declared_for_cross_os_combine() -> None:
     assert any(str(entry).startswith("*/") for entry in groups["scripts"]), (
         "в группе нет wildcard-варианта — данные чужих ОС не сольются"
     )
+
+
+# ---------------------------------------------------------------------------
+# issue #810 — целостность вендоренного CodeMirror: 360 КБ минифицированного
+# стороннего JS уходит в каждую --serve-сессию и в опубликованный wheel, а в
+# ревью выглядит как «файл изменён»
+# ---------------------------------------------------------------------------
+
+_VENDOR_DIR = pathlib.Path(stepik_grader.__file__).parent / "web" / "static" / "vendor"
+_BUNDLE = _VENDOR_DIR / "codemirror-bundle@6.mjs"
+_VERSIONS_MD = _VENDOR_DIR / "VERSIONS.md"
+# Строка вида "sha256  <64 hex>" в блоке Integrity файла VERSIONS.md.
+_SHA_RE = re.compile(r"sha256\s+([0-9a-f]{64})")
+
+
+def _declared_bundle_sha256() -> str:
+    """Хеш бандла, объявленный в ``vendor/VERSIONS.md``."""
+    match = _SHA_RE.search(_VERSIONS_MD.read_text(encoding="utf-8"))
+    assert match is not None, "в vendor/VERSIONS.md нет строки 'sha256 <хеш>' (issue #810)"
+    return match.group(1)
+
+
+def test_vendored_bundle_matches_declared_checksum() -> None:
+    """Байты бандла совпадают с хешем из VERSIONS.md.
+
+    Расхождение значит одно из двух: бандл пересобрали и забыли обновить
+    хеш, либо его изменили мимо процедуры бампа. Оба случая должны быть
+    видимыми, а не проходить как «файл изменён» в диффе.
+    """
+    actual = hashlib.sha256(_BUNDLE.read_bytes()).hexdigest()
+    assert actual == _declared_bundle_sha256(), (
+        "хеш vendor/codemirror-bundle@6.mjs разошёлся с VERSIONS.md. "
+        "После намеренной пересборки обновите строку sha256 тем же PR: "
+        f"фактический {actual}"
+    )
+
+
+def test_vendored_bundle_has_no_node_only_imports() -> None:
+    """В бандле нет Node-зависимых импортов — ручная проверка из VERSIONS.md.
+
+    Пункт 1 «Verify after rebuilding» существовал только как инструкция для
+    человека: следующая версия пакета могла вернуть debug-путь, который
+    esbuild перестанет вытряхивать, и браузер упал бы на импорте.
+    """
+    text = _BUNDLE.read_text(encoding="utf-8", errors="replace")
+    forbidden = re.findall(r'"(events|tty|process|async_hooks|node:[a-z_]+)"', text)
+    assert not forbidden, f"в бандле появились Node-импорты: {sorted(set(forbidden))}"
