@@ -219,6 +219,7 @@ _RULES: dict[str, _Rule] = {
     "ai_api_key_env": _Rule(_is_nonempty_str, "непустая строка — ИМЯ переменной окружения"),
     "ai_max_tokens": _POSITIVE_INT,
     "ai_timeout_seconds": _POSITIVE_NUMBER,
+    "ai_max_hints": _POSITIVE_INT,
 }
 
 

@@ -710,3 +710,78 @@ def test_build_call_wrapper_stdlib_names_available_without_solution_definitions(
 # module directly for monkeypatching (resource/psutil live there, not here).
 # grader_core._apply_memory_limit/._measure_peak_memory remain valid
 # re-exported references (see grader_core.py's import block).
+
+
+# ---------------------------------------------------------------------------
+# issue #836 (QA-07) — разбор legacy-блока в wrapper_builder: аннотированное
+# присваивание, битый синтаксис, пустой блок. Function-mode — путь реальных
+# студенческих задач: несвязанные аргументы дают WA/RE вместо AC, обвиняя
+# пользователя в чужой ошибке.
+# ---------------------------------------------------------------------------
+
+
+class TestWrapperBuilderLegacyBlock:
+    def test_annotated_assignment_binds_arguments(self) -> None:
+        """`a: int = 5` — легальный Python и естественная запись теста."""
+        from stepik_grader.core.wrapper_builder import _assigned_names
+
+        assert _assigned_names("a: int = 5\nb: int = 10") == ["a", "b"]
+
+    def test_mixed_plain_and_annotated_assignments(self) -> None:
+        from stepik_grader.core.wrapper_builder import _assigned_names
+
+        assert _assigned_names("a = 1\nb: str = 'x'") == ["a", "b"]
+
+    def test_tuple_unpacking_is_not_bound_by_name(self) -> None:
+        """Распаковка кортежа именами не связывается — фиксируем как есть.
+
+        `c, d = 2, 3` даёт цель-`ast.Tuple`, а не `ast.Name`: имена не
+        извлекаются, и связывание откатывается к позиционному. Поведение
+        существующее; тест закрепляет границу, чтобы «улучшение» не поехало
+        молча в обратную сторону.
+        """
+        from stepik_grader.core.wrapper_builder import _assigned_names
+
+        assert _assigned_names("c, d = 2, 3") == []
+
+    def test_broken_syntax_degrades_instead_of_raising(self) -> None:
+        """Битый блок — не трейсбек: связывание просто откатывается к позиционному."""
+        from stepik_grader.core.wrapper_builder import _assigned_names, _top_level_literal_args
+
+        assert _assigned_names("def f(:") == []
+        assert _top_level_literal_args("def f(:") is None
+
+    def test_empty_block_is_handled(self) -> None:
+        from stepik_grader.core.wrapper_builder import _assigned_names, _top_level_literal_args
+
+        assert _assigned_names("") == []
+        assert _assigned_names("   \n  ") == []
+        assert _top_level_literal_args("") is None
+        assert _top_level_literal_args("# только комментарий") is None
+
+    def test_literal_only_block_gives_positional_args(self) -> None:
+        from stepik_grader.core.wrapper_builder import _top_level_literal_args
+
+        assert _top_level_literal_args("5\n10") == ["5", "10"]
+
+    def test_call_in_block_is_not_positional(self) -> None:
+        """Вызов на верхнем уровне — не литерал: позиционное связывание не годится."""
+        from stepik_grader.core.wrapper_builder import _top_level_literal_args
+
+        assert _top_level_literal_args("date(2021, 1, 1)") is None
+
+    def test_annotated_block_end_to_end_gives_ac(self, tmp_path) -> None:
+        """Полный прогон function-mode с `a: int = 5`: вердикт AC, а не WA."""
+        from stepik_grader.core.grader_core import run_tests
+
+        solution = tmp_path / "task.py"
+        solution.write_text("def solve(a, b):\n    return a + b\n", encoding="utf-8")
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "1").write_text("a: int = 5\nb: int = 10", encoding="utf-8")
+        (tests_dir / "1.clue").write_text("15", encoding="utf-8")
+        (tests_dir / "1.type").write_text("function", encoding="utf-8")
+
+        result = run_tests(solution, tests_dir)
+
+        assert result["passed"] == 1, result

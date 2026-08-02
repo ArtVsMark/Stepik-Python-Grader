@@ -9,6 +9,9 @@ Retrieval-заземление AI-подсказки: по концептам к
 
 from __future__ import annotations
 
+import pytest
+
+from stepik_grader.core import ai_grounding
 from stepik_grader.core.ai_grounding import retrieve_grounding
 from stepik_grader.glossary.models import GlossaryCard
 
@@ -70,3 +73,88 @@ def test_grounding_bundled_base_smoke() -> None:
     """Без ``cards`` берётся комплектная база: концепт ``sorted`` заземляется."""
     g = retrieve_grounding("sorted([3, 1])")
     assert "sorted" in g  # bundled-карточка sorted существует и ready
+
+
+# ---------------------------------------------------------------------------
+# issue #836 (QA-08) — деградация при недоступной базе карточек. Докстринг
+# обещает «никогда не бросает» и тихий откат к плоскому промпту; ни один тест
+# этого не проверял, хотя для pipx-установки (где glossary/data/*.json могли не
+# попасть в wheel) это основной сценарий.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _clear_index_cache() -> None:
+    """Кеш индекса — модульный: без сброса соседние тесты влияют друг на друга."""
+    ai_grounding._INDEX_CACHE.clear()
+    yield
+    ai_grounding._INDEX_CACHE.clear()
+
+
+def _patch_bundled_dir(monkeypatch: pytest.MonkeyPatch, path) -> None:
+    from stepik_grader.glossary import json_provider
+
+    monkeypatch.setattr(json_provider, "BUNDLED_GLOSSARY_DIR", path)
+
+
+def test_grounding_without_glossary_directory(monkeypatch, tmp_path) -> None:
+    """Каталога базы нет вовсе — пустая строка, а не исключение."""
+    _patch_bundled_dir(monkeypatch, tmp_path / "нет-такого")
+    assert retrieve_grounding("x = sorted([3, 1])") == ""
+
+
+def test_grounding_with_empty_glossary_directory(monkeypatch, tmp_path) -> None:
+    """Каталог есть, json-файлов нет — тот же тихий откат."""
+    _patch_bundled_dir(monkeypatch, tmp_path)
+    assert retrieve_grounding("x = sorted([3, 1])") == ""
+
+
+def test_grounding_with_broken_json(monkeypatch, tmp_path) -> None:
+    """Битый JSON в базе не роняет подсказку — промпт просто без заземления."""
+    (tmp_path / "cards.json").write_text("{ это не json", encoding="utf-8")
+    _patch_bundled_dir(monkeypatch, tmp_path)
+    assert retrieve_grounding("x = sorted([3, 1])") == ""
+
+
+def test_bundled_index_cache_invalidated_on_change(monkeypatch, tmp_path) -> None:
+    """Кеш индекса привязан к mtime: правка базы видна без перезапуска процесса."""
+    import json
+
+    cards_file = tmp_path / "cards.json"
+    cards_file.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "sorted",
+                    "title": "sorted",
+                    "kind": "function",
+                    "summary": "первая версия",
+                    "status": "ready",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    _patch_bundled_dir(monkeypatch, tmp_path)
+    assert "первая версия" in retrieve_grounding("x = sorted([3, 1])")
+
+    cards_file.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "sorted",
+                    "title": "sorted",
+                    "kind": "function",
+                    "summary": "вторая версия",
+                    "status": "ready",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    import os
+
+    stat = cards_file.stat()
+    os.utime(cards_file, (stat.st_atime, stat.st_mtime + 10))  # гарантируем сдвиг mtime
+
+    assert "вторая версия" in retrieve_grounding("x = sorted([3, 1])")

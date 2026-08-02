@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 from stepik_grader.core import reporter
 from stepik_grader.grader import (
     fmt_time,
@@ -285,3 +287,73 @@ class TestPrintResults:
         monkeypatch.setattr(reporter, "_RICH", False)
         print_correctness_results([], pathlib.Path("/dir"), col_file=20)
         print_benchmark_results([], pathlib.Path("/dir"), col_file=20)
+
+
+# ---------------------------------------------------------------------------
+# issue #836 (QA-05) — fallback-вывод трёх сводных printer'ов без rich.
+# rich — runtime-зависимость и в тестовом окружении стоит всегда, поэтому
+# `_RICH` там вечно True: опечатка в этих ветках вылезала бы только у
+# пользователя, поставившего пакет без rich (инвариант №3 CLAUDE.md).
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def _no_rich(monkeypatch: pytest.MonkeyPatch) -> None:
+    from stepik_grader.core import reporter
+
+    monkeypatch.setattr(reporter, "_RICH", False)
+    monkeypatch.setattr(reporter, "_console", None)
+
+
+def test_stats_summary_without_rich(_no_rich, capsys) -> None:
+    """Сводка статистики печатается plain-текстом, без падения на форматировании."""
+    from stepik_grader.core.reporter import print_stats_summary
+
+    print_stats_summary(
+        {
+            "total_runs": 7,
+            "by_mode": {"1": 5, "2": 2},
+            "by_os": {"Linux": 7},
+            "verdict_totals": {"AC": 6, "WA": 1},
+            "total_time": 1.5,
+        }
+    )
+    out = capsys.readouterr().out
+    assert "Total runs" in out and "7" in out
+    assert "Verdict AC" in out and "6" in out
+    assert "OS: Linux" in out
+
+
+def test_insights_summary_without_rich(_no_rich, capsys) -> None:
+    """Карточки «Подучить» печатаются plain-текстом со всеми колонками."""
+    from stepik_grader.core.insights import InsightCard
+    from stepik_grader.core.reporter import print_insights_summary
+
+    card = InsightCard(
+        key="timeout", category="failure", status="active", hits=3, runs_considered=10
+    )
+    print_insights_summary([card])
+    out = capsys.readouterr().out
+    assert "timeout" in out
+    assert "3" in out
+
+
+def test_progress_summary_without_rich(_no_rich, capsys) -> None:
+    """Сводка «Прогресс» печатается plain-текстом, включая задачу и попытки."""
+    from stepik_grader.core.insights import TaskProgress
+    from stepik_grader.core.reporter import print_progress_summary
+
+    print_progress_summary(
+        [
+            TaskProgress(
+                task_key="04-slug",
+                attempts=2,
+                solved=True,
+                total_runs=2,
+                seconds_to_first_ac=42.0,
+            )
+        ]
+    )
+    out = capsys.readouterr().out
+    assert "04-slug" in out
+    assert "2" in out
