@@ -109,6 +109,16 @@ def _counts_lines(counts: dict[str, int], msgs: dict[str, str]) -> list[str]:
     return [f"- `{k}`: {v}" for k, v in counts.items()] or [f"- {msgs['progress_export_no_data']}"]
 
 
+def _task_label(task_key: str | None, msgs: dict[str, str]) -> str:
+    """Подпись задачи в отчёте: «.» и пустой ключ — не имя задачи (issue #817).
+
+    Записи, сделанные до нормализации ключа, хранят «.» (грейдер запускали из
+    папки задачи) — показывать точку как название задачи бессмысленно, поэтому
+    такие строки помечаются тем же «(без задачи)», что и записи без ключа.
+    """
+    return task_key if task_key and task_key != "." else msgs["progress_export_no_task"]
+
+
 def render_markdown(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> str:
     """Отрисовать агрегатный отчёт в самодостаточный Markdown (issue #432).
 
@@ -134,7 +144,7 @@ def render_markdown(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> st
     for t in report["tasks"]:
         mark = "✅" if t["solved"] else "…"
         lines.append(
-            f"| {t['task_key'] or msgs['progress_export_no_task']} | {mark} | {t['attempts']} | "
+            f"| {_task_label(t['task_key'], msgs)} | {mark} | {t['attempts']} | "
             f"{_fmt_secs(t['seconds_to_first_ac'], msgs)} |"
         )
     lines += ["", f"## {msgs['progress_export_verdicts_heading']}", ""]
@@ -162,7 +172,7 @@ def render_html(report: dict[str, Any], *, lang: str = _FALLBACK_LANG) -> str:
         body = f"<p><em>{esc(msgs['progress_export_empty'])}</em></p>"
     else:
         rows = "".join(
-            f"<tr><td>{esc(t['task_key'] or msgs['progress_export_no_task'])}</td>"
+            f"<tr><td>{esc(_task_label(t['task_key'], msgs))}</td>"
             f"<td style='text-align:center'>{'✅' if t['solved'] else '…'}</td>"
             f"<td style='text-align:right'>{t['attempts']}</td>"
             "<td style='text-align:right'>"

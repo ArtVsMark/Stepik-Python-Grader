@@ -536,6 +536,32 @@ def read_recent_runs(
     return SqliteHistoryRepository(db_path).recent_runs(task_key=task_key, limit=limit)
 
 
+def task_key_for(task_dir: Path, base: Path) -> str:
+    """Ключ задачи для истории: путь относительно ``base``, но никогда «.»/«..».
+
+    issue #817: ключ считался как путь папки задачи относительно каталога
+    запуска, а рекомендованный сценарий («Первый пример за 2 минуты») —
+    запуск ИЗ папки задачи. Тогда ключом становилась точка, и в «Прогрессе»
+    все задачи назывались «.», схлопываясь в одну строку: TTFG и «попытки»
+    считались по смеси разных задач. Запуск из подпапки (``tests/``) давал
+    ключ «..» с тем же эффектом.
+
+    Правило: путь относительно ``base``, если он «внутрь» (``module1/04-slug``);
+    иначе — собственное имя папки задачи, одинаковое при любом каталоге
+    запуска. Имени нет только у корня ФС — тогда отдаём путь как есть.
+    """
+    try:
+        rel = task_dir.relative_to(base, walk_up=True)
+    except ValueError:
+        # Разные anchor'ы (относительный путь против абсолютного, разные диски
+        # на Windows) — отдаём как есть, а не роняем запись истории (issue #440).
+        return str(task_dir)
+    parts = rel.parts
+    if parts and parts[0] != "..":
+        return str(rel)
+    return task_dir.resolve().name or str(rel)
+
+
 def read_task_progress(db_path: Path, *, limit: int = 1000) -> list[dict[str, Any]]:
     """Агрегат «попыток/времени до первого зачёта» по задачам (issue #819).
 

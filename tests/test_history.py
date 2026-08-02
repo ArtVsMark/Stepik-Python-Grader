@@ -555,3 +555,46 @@ def test_task_progress_repository_satisfies_protocol(tmp_path: Path) -> None:
     repo = history.SqliteHistoryRepository(_db(tmp_path))
     assert isinstance(repo, history.HistoryRepository)
     assert repo.task_progress() == []  # БД нет — graceful пустой список
+
+
+# ---------------------------------------------------------------------------
+# issue #817 — ключ задачи не зависит от каталога запуска: «.» схлопывал разные
+# задачи в одну строку «Прогресса», а запуск из tests/ давал «..»
+# ---------------------------------------------------------------------------
+
+
+def test_task_key_from_task_folder_is_its_name(tmp_path: Path) -> None:
+    """Запуск ИЗ папки задачи (рекомендованный сценарий) даёт имя папки, не «.»."""
+    task = tmp_path / "04-slug"
+    task.mkdir()
+    assert history.task_key_for(task, task) == "04-slug"
+
+
+def test_task_key_from_parent_folder_is_relative(tmp_path: Path) -> None:
+    """Запуск из родительской папки — прежний относительный путь."""
+    task = tmp_path / "module1" / "04-slug"
+    task.mkdir(parents=True)
+    assert history.task_key_for(task, tmp_path) == str(Path("module1") / "04-slug")
+
+
+def test_task_key_from_subfolder_does_not_escape(tmp_path: Path) -> None:
+    """Запуск из tests/ внутри задачи даёт имя задачи, а не «..»."""
+    task = tmp_path / "04-slug"
+    (task / "tests").mkdir(parents=True)
+    assert history.task_key_for(task, task / "tests") == "04-slug"
+
+
+def test_different_tasks_get_different_keys(tmp_path: Path) -> None:
+    """Две задачи, прогнанные каждая из своей папки, не схлопываются в один ключ.
+
+    Ровно этот дефект искажал TTFG: обе задачи писались под ключом «.».
+    """
+    first, second = tmp_path / "01-a", tmp_path / "02-b"
+    first.mkdir()
+    second.mkdir()
+    assert history.task_key_for(first, first) != history.task_key_for(second, second)
+
+
+def test_task_key_survives_mismatched_anchors(tmp_path: Path) -> None:
+    """Относительный путь против абсолютной базы — путь как есть, без падения."""
+    assert history.task_key_for(Path("04-slug"), tmp_path) == "04-slug"

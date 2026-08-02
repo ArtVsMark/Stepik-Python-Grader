@@ -140,3 +140,30 @@ def test_unknown_language_falls_back_to_russian(tmp_path: Path) -> None:
     _seed(db)
     md = progress_export.render_markdown(progress_export.build_progress_report(db), lang="fr")
     assert "# Прогресс Stepik-Grader" in md
+
+
+def test_legacy_dot_task_key_is_marked_not_shown_as_name() -> None:
+    """Старые записи с ключом «.» помечаются, а не выдаются за название задачи."""
+    from stepik_grader.core.progress_export import render_html, render_markdown
+
+    report = {
+        "schema": "stepik-grader/progress/1",
+        "total_runs": 1,
+        "total_tasks": 1,
+        "solved_tasks": 1,
+        "tasks": [
+            {
+                "task_key": ".",
+                "attempts": 1,
+                "solved": True,
+                "total_runs": 1,
+                "seconds_to_first_ac": 5.0,
+            }
+        ],
+        "verdicts": {"AC": 1},
+        "failure_kinds": {},
+    }
+    md = render_markdown(report)
+    assert "| . |" not in md
+    assert "(без задачи)" in md
+    assert "(без задачи)" in render_html(report)

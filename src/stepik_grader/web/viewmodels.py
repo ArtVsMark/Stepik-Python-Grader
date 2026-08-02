@@ -86,9 +86,13 @@ def _task_key(path: pathlib.Path, workspace: pathlib.Path | None) -> str:
     коллизировали/дрейфовали между запусками, искажая TTFG и раздел «Подучить».
     ``workspace=None`` (не-web вызовы / обратная совместимость публичного API) —
     fallback на cwd, прежнее поведение.
+
+    Нормализация общая с CLI (``history.task_key_for``, issue #817): папка
+    задачи, совпадающая с workspace, даёт имя папки, а не «.» — иначе разные
+    задачи схлопывались бы в одну строку «Прогресса».
     """
     base = workspace if workspace is not None else pathlib.Path.cwd()
-    return _rel(path, base)
+    return history.task_key_for(path, base)
 
 
 def _resolve_solutions(

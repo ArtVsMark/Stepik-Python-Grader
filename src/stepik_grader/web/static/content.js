@@ -668,6 +668,12 @@ function fmtSecs(secs) {
   return (secs / 3600).toFixed(1) + t("progress.unit_hour");
 }
 
+// Подпись задачи в таблице (зеркалит progress_export._task_label): записи,
+// сделанные до нормализации ключа, хранят "." — точка не название задачи.
+function taskLabel(key) {
+  return key && key !== "." ? key : t("progress.no_task");
+}
+
 function renderProgress() {
   const empty = $("#progress-empty");
   const content = $("#progress-content");
@@ -730,7 +736,7 @@ function renderProgress() {
       tasks
         .map(
           t =>
-            "<tr><td>" + esc(t.task_key) + "</td><td>" + esc(t.attempts) + "</td><td>" +
+            "<tr><td>" + esc(taskLabel(t.task_key)) + "</td><td>" + esc(t.attempts) + "</td><td>" +
             (t.solved ? "✓" : "—") + "</td><td>" + esc(fmtSecs(t.seconds_to_first_ac)) + "</td></tr>",
         )
         .join("") +
