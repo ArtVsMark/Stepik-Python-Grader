@@ -185,8 +185,22 @@ def render_report(sites: list[SkipSite], *, summary_only: bool = False) -> str:
     return "\n".join(lines)
 
 
+def _force_utf8_stdout() -> None:
+    """Печатать UTF-8 независимо от кодовой страницы консоли.
+
+    Отчёт русский, а консоль Windows по умолчанию cp1252/cp1251: без этого
+    ``print`` падал ``UnicodeEncodeError`` и скрипт возвращал 1 на ровном месте
+    (тот же приём, что ``cli/options._force_utf8_stdio``). No-op на потоках без
+    ``reconfigure`` — например, перехваченных pytest.
+    """
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Вернуть 0, если каждый пропуск объяснён; 1 — если есть безпричинные."""
+    _force_utf8_stdout()
     parser = argparse.ArgumentParser(
         prog="python scripts/skip_inventory.py",
         description="Инвентарь skip/skipif/xfail/importorskip в наборе тестов.",
