@@ -189,10 +189,12 @@ def test_every_badge_id_has_a_ui_catalog_key() -> None:
     """Для каждого id бейджа есть ключ `progress.badge_<id>` в обеих локалях."""
     import json
 
-    from stepik_grader.web import insights_adapter
+    from stepik_grader.core import insights
 
-    report = {"verdicts": {"AC": 99}, "solved_tasks": 99, "streak": 99}
-    badge_ids = [b["id"] for b in insights_adapter._achievement_badges(report)]
+    # issue #823: расчёт бейджей переехал из web-адаптера в core — их видит и
+    # экспорт прогресса, а не только браузер.
+    badges = insights.achievement_badges(ac_cases=99, solved_tasks=99, streak=99)
+    badge_ids = [b["id"] for b in badges]
     assert badge_ids, "список бейджей пуст — тест потерял предмет проверки"
 
     ui_json = (
