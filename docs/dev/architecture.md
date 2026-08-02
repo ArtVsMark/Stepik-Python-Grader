@@ -52,7 +52,7 @@
 | `core/reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA, адаптивное форматирование времени (`fmt_time`) |
 | `core/result.py` | Domain (leaf) | `TestResult` (frozen dataclass) + `Verdict` Literal — типизированная модель case result; `from_dict`/`to_dict` конвертируют форму, которую по-прежнему возвращает `run_single_test()` (`dict[str, Any]`, контракт не меняется — [result-contract.md](result-contract.md)); используется `core/reporter.print_case_verbose` вместо чтения произвольных dict-ключей |
 | `core/runner.py` | Infrastructure | `Runner` Protocol + `RunSpec`/`RunOutcome` + `LocalRunner` — абстракция запуска кода (`docs/server-mode.md § Runner-слой`); `LocalRunner` — subprocess + best-effort лимит памяти (POSIX) + psutil-мониторинг RSS, то же поведение, что раньше жило внутри `run_single_test`. `SandboxRunner` (см. `core/sandbox/`) — тот же протокол, ОС-уровневая изоляция; инъекция через `grader_core.set_runner()` |
-| `core/tracer.py` | Infrastructure (leaf) | Пошаговый трассировщик `trace_code` (`sys.settrace` → JSON-трейс) для web-песочницы: исполнение в subprocess, нормализованные `obj_id`, лимит шагов; только stdlib, project-импортов нет |
+| `core/tracer.py` | Infrastructure | Пошаговый трассировщик `trace_code` (`sys.settrace` → JSON-трейс) для web-песочницы: исполнение в subprocess, нормализованные `obj_id`, лимит шагов. **Не leaf:** на загрузке импортирует `config` (лимиты) и `core/runner.py` (`RunSpec`), плюс лениво `core/grader_core.py` |
 | `core/sandbox/` | Infrastructure | `SandboxRunner`/`SandboxUnavailableError` (`--sandbox`) — ОС-специфичный backend по платформе: `_linux.py` (bubblewrap), `_macos.py` (sandbox-exec/Seatbelt), `_windows.py` (Job Objects, ctypes); `_posix_bootstrap.py`/`_posix_common.py` — общий POSIX-код лимитов (CPU/FS/processes) для Linux и macOS; `_run_dir.py` — эфемерная run-директория. Реализует тот же `Runner`-протокол, что `LocalRunner` — см. [server-mode.md § Runner-слой](design/server-mode.md), гарантии по ОС — [SECURITY.md](../../SECURITY.md) |
 | `core/stats.py` | Infrastructure / Utilities | Opt-in локальная статистика запусков: `record_run`/`read_summary`, JSON Lines `.grader_stats.jsonl`, best-effort (переживает битый/отсутствующий файл), size-based ротация |
 | `core/history.py` | Infrastructure / Utilities | Opt-in SQLite-история прогонов: `record_run`/`read_recent_runs`/`read_task_progress`, база `.grader_history.db` (runs/case_results/lint_violations + агрегат `task_progress` «до первого зачёта», неуязвимый к retention), WAL + `user_version`-миграции, best-effort. Фундамент разделов «Правила»/«Подучить» |
@@ -127,23 +127,29 @@ web/viewmodels.py      ──→  web/grading.py  (grade/bench/microbench/RunSpe
 web/viewmodels.py      ──→  core/error_glossary.py  (resolve_error_hint для error card при RE)
 web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
 web/viewmodels.py      ──→  config.py
+web/viewmodels.py      ──→  core/history.py, core/lint.py, core/mtime_cache.py, rules/  (запись прогонов, блок «Стиль», кеш по mtime, карточки правил)
 web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/storage.py, core/test_loader.py
 web/auth_adapter.py       ──→  core/oauth_flow.py, core/storage.py  (браузерный OAuth-мастер --serve)
 web/glossary_adapter.py   ──→  core/glossary.py, core/mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, config.py  (stdlib_inventory для code_terms)
-web/rules_adapter.py       ──→  rules/  (bundled_rules)
-web/insights_adapter.py    ──→  core/history.py, core/insights.py, config.py
+web/rules_adapter.py       ──→  rules/  (bundled_rules), core/history.py, core/insights.py  (подсветка лично нарушенных правил)
+web/insights_adapter.py    ──→  core/history.py, core/insights.py, core/progress_export.py, config.py  (отчёт «Прогресс» — тот же движок, что у CLI --export-progress)
 web/commands.py            (только stdlib — реестр команд, project-импортов нет)
 web/runs.py            ──→  web/grading.py  (find_all_solution_files/trace_code через фасад, а не core/test_loader.py и core/tracer.py напрямую — ADR-0010), web/viewmodels.py, web/i18n.py, web/playground.py, core/ai_hints.py, core/failure_context.py  (kind="hint"), web/auth_adapter.py (ленивый, kind="auth"), core/stepik_client.py + core/oauth_flow.py (ленивые, kind="stepik_submit"), config.py  (async job-модель: песочница/трейс/OAuth/AI-подсказка/submit)
 web/playground.py      ──→  web/grading.py  (RunSpec/run_spec — исполнение активным Runner'ом фасада, а не core/runner.py напрямую — ADR-0010; под --serve --sandbox это SandboxRunner), config.py
 web/i18n.py            ──→  core/i18n.py  (load_locale_messages — рендер поверх core-локалей core/locales/<lang>.json)
 core/sandbox/          ──→  core/runner.py  (реализует Runner-протокол: RunSpec/RunOutcome)
+core/tracer.py         ──→  core/runner.py  (RunSpec), config.py; core/grader_core.py — ленивый импорт в теле (НЕ leaf, вопреки прежней редакции этой доки)
 cli/__init__.py        ──→  core/sandbox/  (--sandbox: импорт SandboxRunner/SandboxUnavailableError + grader_core.set_runner() — точка инъекции Runner; сам grader_core НЕ зависит от sandbox)
+__main__.py            ──→  cli/  (точка входа `python -m stepik_grader`)
+cli/__init__.py        ──→  core/reporter.py, core/stats.py  (печать сводок и локальная статистика)
 cli/commands.py        ──→  core/stats.py  (record_run для --stats)
-cli/commands.py        ──→  core/history.py, core/insights.py, core/lint.py, core/glossary.py  (--history/--insights/--lint + glossary-подсказки)
+cli/commands.py        ──→  core/failure_context.py, core/user_settings.py, rules/  (контекст падения для AI-подсказки, тумблер истории, персональные правила)
+cli/commands.py        ──→  core/history.py, core/lint.py  (--history/--lint; карточки «Подучить» и подсказки глоссария приходят через core/failure_context.py, напрямую cli/commands.py их больше не импортирует)
 cli/commands.py        ──→  core/ai_hints.py, core/history_recording.py  (--ai-hints + наполнение истории)
 cli/__init__.py        ──→  core/progress_export.py  (--export-progress), core/stepik_reference.py  (--import-reference/--import-top)
 cli/interactive.py     ──→  core/user_settings.py  (тумблер записи истории из меню)
 web/api_routes.py      ──→  web/reference_adapter.py  (POST /api/import-reference)
+web/api_routes.py      ──→  core/stepik_reference.py, core/user_settings.py  (импорт эталонных решений и настройки пользователя)
 web/api_routes.py      ──→  web/feedback_adapter.py  (POST /api/feedback — черновик обращения)
 web/feedback_adapter.py ──→  core/feedback.py  (та же сборка prefilled-URL, что у пункта меню CLI — логика не дублируется в web/JS)
 core/feedback.py       ──→  core/diag_log.py  (redact — единственное проектное ребро; версия через importlib.metadata, чтобы не появилось ребро core → cli)
@@ -154,6 +160,8 @@ core/progress_export.py   ──→  core/history.py, core/insights.py  (агр�
 core/ai_hints.py          ──→  core/diag_log.py  (редакция ключа; config передаётся вызывающим, requests — вне проекта)
 core/stepik_reference.py  ──→  core/oauth_flow.py, core/stepik_client.py, core/step_content.py, core/storage.py, core/diag_log.py
 core/user_settings.py     ──→  atomic_io.py  (.grader_settings.json атомарно; иначе stdlib-leaf)
+core/stats.py             ──→  atomic_io.py  (ротация .grader_stats.jsonl атомарной заменой)
+downloader.py / downloader_config.py  ──→  core/i18n.py  (сообщения мастера скачивания на языке меню)
 core/history.py           ──→  db.py  (.grader_history.db через общий SQLite-коннектор; иначе stdlib-leaf)
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
