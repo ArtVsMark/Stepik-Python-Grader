@@ -18,8 +18,31 @@ from __future__ import annotations
 
 import pathlib
 import shutil
+import warnings
 
 __all__ = ["save_tests", "write_testblock_tests"]
+
+
+def _write_text(path: pathlib.Path, text: str) -> None:
+    """Записать текст кейса в UTF-8, пережив невалидные символы из сети (#838).
+
+    Данные приходят из ответа API и из HTML страницы задачи, то есть их
+    выбирает не пользователь. Одиночный суррогат (``\\ud800``) — валидная
+    Python-строка после ``json.loads``, но невалидный UTF-8: строгая запись
+    роняла всё скачивание ``UnicodeEncodeError`` из недр ``write_text``.
+    Заменяем такие символы и предупреждаем: кейс, скорее всего, битый, но
+    остальные задачи скачаются, а подмена не пройдёт молча.
+    """
+    try:
+        path.write_text(text, encoding="utf-8")
+    except UnicodeEncodeError:
+        warnings.warn(
+            f"{path.name}: в данных теста есть символы, не представимые в UTF-8 — "
+            "они заменены на «?»; проверьте кейс перед прогоном.",
+            UserWarning,
+            stacklevel=2,
+        )
+        path.write_text(text, encoding="utf-8", errors="replace")
 
 
 def _reset_tests_dir(tests_dir: pathlib.Path) -> None:
@@ -60,10 +83,10 @@ def save_tests(task_dir: pathlib.Path, tests: list[tuple[str, str, str]]) -> int
     tests_dir = task_dir / "tests"
     _reset_tests_dir(tests_dir)
     for i, (input_data, expected, test_type) in enumerate(tests, start=1):
-        (tests_dir / str(i)).write_text(input_data, encoding="utf-8")
-        (tests_dir / f"{i}.clue").write_text(expected, encoding="utf-8")
+        _write_text(tests_dir / str(i), input_data)
+        _write_text(tests_dir / f"{i}.clue", expected)
         if test_type == "function":
-            (tests_dir / f"{i}.type").write_text("function", encoding="utf-8")
+            _write_text(tests_dir / f"{i}.type", "function")
     return len(tests)
 
 
@@ -91,6 +114,6 @@ def write_testblock_tests(tests_dir: pathlib.Path, pairs: dict[int, tuple[str, s
         inp_text, out_text = pairs[idx]
         input_lines.append(f"\n# TEST_{idx}:\n{inp_text}\n")
         output_lines.append(f"\n# TEST_{idx}:\n{out_text}\n")
-    (tests_dir / "input.txt").write_text("".join(input_lines), encoding="utf-8")
-    (tests_dir / "output.txt").write_text("".join(output_lines), encoding="utf-8")
+    _write_text(tests_dir / "input.txt", "".join(input_lines))
+    _write_text(tests_dir / "output.txt", "".join(output_lines))
     return len(pairs)
