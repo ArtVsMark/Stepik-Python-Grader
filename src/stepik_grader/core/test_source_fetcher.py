@@ -16,6 +16,7 @@ import io
 import pathlib
 import re
 import zipfile
+from urllib.parse import quote
 
 import requests
 
@@ -33,6 +34,36 @@ _GITHUB_TREE_RE = re.compile(
     r"github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/(?:tree|blob)/(?P<branch>[^/]+)/(?P<path>.+)"
 )
 _GITHUB_CONTENTS_API = "https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
+
+# issue #814 (NETW-03): ZIP приходит по ссылке из HTML задачи, то есть из
+# недоверенного источника. Без потолка распаковки крошечный архив разворачивался
+# в гигабайты в памяти (классический zip bomb): ``zf.read`` читает член целиком.
+# Лимиты щедрые по меркам тест-кейсов (текстовые файлы на килобайты) и
+# несопоставимо малые по меркам бомбы.
+_MAX_MEMBER_BYTES = 8 * 1024 * 1024  # 8 МБ на один файл
+_MAX_TOTAL_BYTES = 64 * 1024 * 1024  # 64 МБ на весь архив
+
+
+class _ZipTooLarge(Exception):
+    """Распаковка вышла за лимит — обрабатывается на месте, наружу не летит."""
+
+
+def _read_member(zf: zipfile.ZipFile, name: str, *, budget: list[int] | None = None) -> bytes:
+    """Прочитать член архива, соблюдая лимиты размера (issue #814, ``NETW-03``).
+
+    Проверяется ЗАЯВЛЕННЫЙ размер (``file_size`` из заголовка) до чтения — иначе
+    смысла в лимите нет: бомба разворачивается ровно в момент ``read``.
+    ``budget`` — общий остаток на архив (список из одного числа, чтобы менять
+    по ссылке).
+    """
+    info = zf.getinfo(name)
+    if info.file_size > _MAX_MEMBER_BYTES:
+        raise _ZipTooLarge(f"{name}: {info.file_size} Б > лимита {_MAX_MEMBER_BYTES} Б")
+    if budget is not None:
+        budget[0] -= info.file_size
+        if budget[0] < 0:
+            raise _ZipTooLarge(f"суммарный размер архива превысил {_MAX_TOTAL_BYTES} Б")
+    return zf.read(name)
 
 
 def download_zip_tests(
@@ -78,21 +109,12 @@ def download_zip_tests(
 
     # Собираем пары N → (input_bytes, clue_bytes)
     pairs: dict[int, dict[str, bytes]] = {}
-    for name in names:
-        clean = (
-            name[len(strip_prefix) :] if strip_prefix and name.startswith(strip_prefix) else name
-        )
-        clean = clean.strip("/")
-        if not clean:
-            continue
-        if clean.isdigit():
-            idx = int(clean)
-            pairs.setdefault(idx, {})["input"] = zf.read(name)
-        elif "." in clean:
-            stem, ext = clean.rsplit(".", 1)
-            if stem.isdigit() and ext == "clue":
-                idx = int(stem)
-                pairs.setdefault(idx, {})["clue"] = zf.read(name)
+    budget = [_MAX_TOTAL_BYTES]
+    try:
+        _collect_zip_pairs(zf, names, strip_prefix, pairs, budget)
+    except _ZipTooLarge as exc:
+        print(f"  ⚠️ ZIP отклонён — слишком большая распаковка ({exc}): {zip_url}")
+        return 0
 
     if not pairs:
         print(f"  ⚠️ В ZIP не найдены файлы формата N / N.clue: {zip_url}")
@@ -110,6 +132,40 @@ def download_zip_tests(
     count = write_testblock_tests(task_dir / "tests", text_pairs)
     print(f"  📦 ZIP сконвертирован в Format 3: {count} тест(ов) → tests/input.txt + output.txt")
     return count
+
+
+def _collect_zip_pairs(
+    zf: zipfile.ZipFile,
+    names: list[str],
+    strip_prefix: str,
+    pairs: dict[int, dict[str, bytes]],
+    budget: list[int],
+) -> None:
+    """Разобрать члены архива в пары ``N → {input, clue}`` (issue #814).
+
+    Вынесено из :func:`download_zip_tests`, чтобы превышение лимита прерывало
+    разбор целиком одним ``raise``, а не проверялось после каждого чтения.
+    """
+    for name in names:
+        clean = (
+            name[len(strip_prefix) :] if strip_prefix and name.startswith(strip_prefix) else name
+        )
+        clean = clean.strip("/")
+        if not clean:
+            continue
+        # issue #814 (NETW-01): именно ``isdecimal``, а не ``isdigit``. Последний
+        # истинен для «²» и «①», которые ``int()`` не принимает, — один такой
+        # символ в имени члена архива ронял всё скачивание ValueError'ом мимо
+        # перехватов (проверено прогоном на крафт-ZIP). ``isdecimal`` — ровно то
+        # подмножество, что ``int()`` разбирает, включая арабо-индийские цифры.
+        if clean.isdecimal():
+            idx = int(clean)
+            pairs.setdefault(idx, {})["input"] = _read_member(zf, name, budget=budget)
+        elif "." in clean:
+            stem, ext = clean.rsplit(".", 1)
+            if stem.isdecimal() and ext == "clue":
+                idx = int(stem)
+                pairs.setdefault(idx, {})["clue"] = _read_member(zf, name, budget=budget)
 
 
 def download_github_tests(
@@ -137,7 +193,16 @@ def download_github_tests(
     branch = match.group("branch")
     path = match.group("path").rstrip("/")
 
-    api_url = _GITHUB_CONTENTS_API.format(owner=owner, repo=repo, path=path, branch=branch)
+    # issue #814 (NETW-04): owner/repo/path/branch приходят из HTML задачи и
+    # подставлялись в URL как есть — имя ветки с `#` обрубало бы запрос, а с `?`
+    # или `&` дописывало чужие query-параметры к вызову API. `safe="/"` оставляет
+    # разделители пути, экранируя всё остальное.
+    api_url = _GITHUB_CONTENTS_API.format(
+        owner=quote(owner, safe=""),
+        repo=quote(repo, safe=""),
+        path=quote(path, safe="/"),
+        branch=quote(branch, safe=""),
+    )
 
     try:
         resp = external_download_get(api_url, headers={"Accept": "application/vnd.github+json"})
@@ -154,9 +219,19 @@ def download_github_tests(
     tests_dir = task_dir / "tests"
     tests_dir.mkdir(parents=True, exist_ok=True)
 
-    file_map = {
-        item["name"]: item["download_url"] for item in contents if item.get("type") == "file"
-    }
+    # issue #814 (NETW-02): ответ API — недоверенный JSON, а индексация шла
+    # напрямую. Файл без `download_url` (submodule, symlink, урезанная выдача
+    # прокси) давал KeyError мимо перехвата выше: скачивание падало трейсбеком
+    # вместо понятного «не удалось». Читаем через `.get` и берём только записи,
+    # у которых обе строки на месте.
+    file_map: dict[str, str] = {}
+    for item in contents:
+        if not isinstance(item, dict) or item.get("type") != "file":
+            continue
+        name = item.get("name")
+        url = item.get("download_url")
+        if isinstance(name, str) and isinstance(url, str) and name and url:
+            file_map[name] = url
 
     # Вариант А: input.txt + output.txt уже есть (Format 3)
     if "input.txt" in file_map and "output.txt" in file_map:
@@ -172,11 +247,12 @@ def download_github_tests(
     # Вариант Б: числовые файлы N + N.clue
     pairs: dict[int, dict[str, str]] = {}
     for fname, url in file_map.items():
-        if fname.isdigit():
+        # issue #814 (NETW-01): `isdecimal`, а не `isdigit` — см. ZIP-ветку выше.
+        if fname.isdecimal():
             pairs.setdefault(int(fname), {})["input_url"] = url
         elif "." in fname:
             stem, ext = fname.rsplit(".", 1)
-            if stem.isdigit() and ext == "clue":
+            if stem.isdecimal() and ext == "clue":
                 pairs.setdefault(int(stem), {})["clue_url"] = url
 
     if not pairs:
