@@ -65,9 +65,11 @@ def build_failure_context(
     kind = insights.failure_kind(verdict, error=error, output=output, expected=expected)
     entry = error_glossary.resolve_error_hint(error) if error else None
     card = f"{entry.exception}: {entry.hint}" if entry else ""
-    # issue #544: retrieval-заземление — top-k карточек глоссария по концептам кода
+    # issue #544: retrieval-заземление — карточки глоссария по концептам кода
     # (офлайн, деградирует к "" при пустом результате → плоский промпт).
-    grounding = retrieve_grounding(code, lang=lang) if code else ""
+    # issue #812: текст ошибки задаёт ПОРЯДОК — карточка самого исключения и
+    # концепты из строки падения идут раньше, чем input/print из первых строк.
+    grounding = retrieve_grounding(code, lang=lang, error=error) if code else ""
     return FailureContext(
         verdict=verdict,
         lang=lang,

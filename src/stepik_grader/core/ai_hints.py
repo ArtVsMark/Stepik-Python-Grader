@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -52,6 +53,10 @@ _ALLOWED_KEY_ENV_PREFIX = "STEPIK_GRADER_"
 # провайдер (ollama) по http — штатный сценарий и остаётся разрешённым, а вот
 # http на удалённый хост уже нет: там та же отправка, но через сеть.
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+# issue #812 (TREND-01): o-серия OpenAI (o1, o3-mini, o4-preview…). Граница
+# после номера обязательна, иначе под шаблон попал бы, например, "opus".
+_O_SERIES_RE = re.compile(r"^o\d+(?:[-_.]|$)")
 
 # Пометка ответа как сгенерированного ИИ (ADR-0003 §5 — не выдаётся за истину
 # грейдера). Локализована; сам текст подсказки — на языке модели (см. промпт).
@@ -122,6 +127,43 @@ def env_name_is_allowed(env_name: str) -> bool:
     """
     name = (env_name or "").strip()
     return name == _DEFAULT_KEY_ENV or name.startswith(_ALLOWED_KEY_ENV_PREFIX)
+
+
+def _system_prompt(config: object, lang: str) -> str:
+    """Системный промпт: свой из конфига либо встроенный (issue #812, ``VIS-02``).
+
+    Встроенный текст обращается к «новичку на курсе „Поколение Python“» —
+    верно для основной аудитории, но грейдер применим к любому курсу и любому
+    уровню, а переопределить формулировку было нечем. ``ai_system_prompt``
+    задаёт её целиком: пустое значение (дефолт) оставляет встроенный вариант,
+    поэтому поведение по умолчанию не меняется.
+
+    Свой промпт — один на оба языка: если пользователь его задал, он и решает,
+    на каком языке отвечать модели.
+    """
+    custom = str(getattr(config, "ai_system_prompt", "") or "").strip()
+    if custom:
+        return custom
+    return _SYSTEM_EN if lang == "en" else _SYSTEM_RU
+
+
+def _is_reasoning_model(model: str) -> bool:
+    """Похоже ли имя модели на reasoning-семейство (issue #812, ``TREND-01``).
+
+    У o-серии OpenAI и «thinking»-моделей другой контракт: лимит называется
+    ``max_completion_tokens``, а ``temperature`` не принимается вовсе — обычный
+    payload отвергается целиком с 400, и подсказки молча не работают.
+
+    Матч по имени, а не по запросу к провайдеру: канал обязан оставаться
+    офлайн-дешёвым, а список семейств меняется медленнее, чем релизы моделей.
+    Незнакомая reasoning-модель просто получит прежний payload — деградация
+    та же, что была до фикса, не хуже.
+    """
+    name = (model or "").strip().lower()
+    name = name.rsplit("/", 1)[-1]  # провайдерский префикс: "openai/o3-mini"
+    if any(marker in name for marker in ("reasoning", "thinking")):
+        return True
+    return bool(_O_SERIES_RE.match(name))
 
 
 def base_url_is_allowed(base_url: str) -> bool:
@@ -217,13 +259,22 @@ def _post_chat(config: object, messages: list[dict[str, str]], key: str | None) 
     headers = {"Content-Type": "application/json"}
     if key:
         headers["Authorization"] = f"Bearer {key}"
-    payload = {
+    model = str(getattr(config, "ai_model", "") or "")
+    payload: dict[str, object] = {
         "model": getattr(config, "ai_model", None),
         "messages": messages,
-        "max_tokens": int(getattr(config, "ai_max_tokens", 400)),
-        "temperature": 0.2,
         "stream": False,
     }
+    # issue #812 (TREND-01): reasoning-модели (o1/o3/o4, «thinking») отвергают
+    # запрос с `max_tokens` и `temperature` — 400 на весь payload, то есть
+    # подсказки молча не работают у тех, кто включил именно такую модель. Для
+    # них лимит называется `max_completion_tokens`, а температура не задаётся.
+    max_tokens = int(getattr(config, "ai_max_tokens", 400))
+    if _is_reasoning_model(model):
+        payload["max_completion_tokens"] = max_tokens
+    else:
+        payload["max_tokens"] = max_tokens
+        payload["temperature"] = 0.2
     try:
         resp = requests.post(
             url,
@@ -250,7 +301,7 @@ def explain_failure(ctx: FailureContext, config: object) -> str | None:
     """
     if not is_configured(config):
         return None
-    system = _SYSTEM_EN if ctx.lang == "en" else _SYSTEM_RU
+    system = _system_prompt(config, ctx.lang)
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": _build_user_prompt(ctx)},

@@ -70,3 +70,52 @@ def test_grounding_bundled_base_smoke() -> None:
     """Без ``cards`` берётся комплектная база: концепт ``sorted`` заземляется."""
     g = retrieve_grounding("sorted([3, 1])")
     assert "sorted" in g  # bundled-карточка sorted существует и ready
+
+
+# ---------------------------------------------------------------------------
+# Порядок заземления — issue #812 (VIS-03)
+# ---------------------------------------------------------------------------
+
+
+class TestGroundingRelevance:
+    """Заземление берёт карточки по близости к падению, а не по обходу AST.
+
+    Замерено до фикса на решении, которое начинается с ``input()``, а падает на
+    индексации: в промпт уезжали ``int``, ``input()`` и ``re.split()`` — ни одна
+    из трёх не про падение, а карточки самого ``IndexError`` не было вовсе.
+    """
+
+    _CODE = "n = int(input())\nvalues = sorted(input().split())\nresult = values[n]\n"
+    _ERROR = (
+        'Traceback (most recent call last):\n  File "t.py", line 3\n'
+        "    result = values[n]\nIndexError: list index out of range\n"
+    )
+
+    def test_exception_card_comes_first(self) -> None:
+        """Карточка исключения — самый прямой материал для объяснения RE.
+
+        В коде имени ``IndexError`` нет вовсе, поэтому AST-скан его не находил:
+        карточка не попадала в промпт ни при каком k.
+        """
+        out = retrieve_grounding(self._CODE, k=1, error=self._ERROR)
+        assert out.startswith("IndexError")
+
+    def test_without_error_keeps_ast_order(self) -> None:
+        """Без текста ошибки ранжировать нечем — прежний порядок сохраняется."""
+        out = retrieve_grounding(self._CODE, k=1)
+        assert not out.startswith("IndexError")
+
+    def test_concepts_mentioned_in_error_outrank_others(self) -> None:
+        """Концепт из строки падения важнее первого попавшегося в коде."""
+        error = 'File "t.py", line 2\n    values = sorted(x)\nTypeError: bad operand\n'
+        out = retrieve_grounding(self._CODE, k=2, error=error)
+        assert "TypeError" in out  # исключение первым
+        assert "sorted" in out  # затем упомянутый в ошибке концепт
+
+    def test_unknown_exception_does_not_break(self) -> None:
+        """Исключение без карточки просто пропускается — не пустой ответ."""
+        out = retrieve_grounding(self._CODE, k=2, error="MyCustomError: что-то своё\n")
+        assert out  # заземление осталось непустым за счёт концептов кода
+
+    def test_empty_error_is_safe(self) -> None:
+        assert retrieve_grounding(self._CODE, k=1, error="") == retrieve_grounding(self._CODE, k=1)
