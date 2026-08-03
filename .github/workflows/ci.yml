@@ -268,6 +268,10 @@ jobs:
         # остаётся в силе. Остальные бейджи от sandbox-данных не зависят и
         # обновляются в любом случае.
         if: github.event_name == 'push'
+        # issue #835: токен нужен только бейджу пула — search API без него
+        # упирается в лимит для анонимных запросов с общих IP раннеров.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -282,6 +286,9 @@ jobs:
             fi
             python scripts/generate_version_badge.py
             python scripts/generate_glossary_badge.py
+            # issue #835: пул задач для новичка. Сетевой сбой не должен ронять
+            # обновление ОСТАЛЬНЫХ бейджей — прошлое честное число остаётся.
+            python scripts/generate_good_first_issues_badge.py || true
             git add .github/badges/
             # --cached, not plain `git diff`: coverage-combined.json is a
             # brand-new file the first time this job ever runs -- untracked,
