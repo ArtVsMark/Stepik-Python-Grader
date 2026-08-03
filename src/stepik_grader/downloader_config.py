@@ -83,14 +83,33 @@ STEPIK_OAUTH_APPS_URL = "https://stepik.org/oauth2/applications/"
 DEFAULT_REDIRECT_URI = "http://localhost:8080/callback"
 
 
+# Зарезервированные имена устройств Windows (issue #838): каталог с таким
+# именем там не создать — MS-DOS-наследие живо и в NTFS, причём с любым
+# расширением (``con.txt`` тоже зарезервировано). Названия шагов приходят из
+# ответа API, то есть их выбирает не пользователь: шаг с названием «CON» ронял
+# бы скачивание OSError'ом на ровном месте.
+_WINDOWS_RESERVED_NAMES = frozenset(
+    {"con", "prn", "aux", "nul"}
+    | {f"com{i}" for i in range(1, 10)}
+    | {f"lpt{i}" for i in range(1, 10)}
+)
+
+
 def slugify(text: str) -> str:
-    """Преобразует текст в slug для имени директории. Макс 80 символов."""
+    """Преобразует текст в slug для имени директории. Макс 80 символов.
+
+    Имя приходит из ответа API (название курса/урока/шага), поэтому здесь же
+    снимаются файловые ловушки: разделители пути и ``..`` не переживают чистку
+    (``../../etc`` → ``etc``, ``..`` → ``task``), а зарезервированные имена
+    Windows получают подчёркивание (``con`` → ``con_``).
+    """
     text = text.strip().lower().replace("ё", "е")
     text = re.sub(r'[<>:"/\\|?*]+', "", text)
     text = re.sub(r"[^\w\s-]", "", text, flags=re.UNICODE)
     text = re.sub(r"[-\s]+", "-", text, flags=re.UNICODE)
     text = text.strip(".- ")
-    return text[:80] or "task"
+    slug = text[:80] or "task"
+    return f"{slug}_" if slug in _WINDOWS_RESERVED_NAMES else slug
 
 
 def ask_value(prompt: str, default: str = "") -> str:

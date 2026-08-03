@@ -40,6 +40,7 @@ from typing import Any, Protocol, runtime_checkable
 from stepik_grader import db
 
 __all__ = [
+    "CORRECTNESS_MODES",
     "HISTORY_DB_NAME",
     "SCHEMA_VERSION",
     "CaseRecord",
@@ -49,11 +50,18 @@ __all__ = [
     "SqliteHistoryRepository",
     "purge_history",
     "read_recent_runs",
+    "read_task_progress",
     "record_run",
 ]
 
 HISTORY_DB_NAME = ".grader_history.db"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+# Режимы проверки корректности. Режимы 3/4 — бенчмарк: их вердикты
+# (``ERR``/``SIMILAR``/``SLOWER``) отвечают на вопрос «быстрее ли», а не «верно
+# ли», поэтому в метриках обучения (серия, попытки до первого зачёта) они не
+# участвуют — ни как успех, ни как провал (issue #819).
+CORRECTNESS_MODES = frozenset({1, 2})
 
 # Процесс-локальная сериализация записи (как ``_WRITE_LOCK`` в ``stats.py``,
 # issue #605/#393). ``WAL`` снимает МЕЖпроцессную гонку CLI+web, но на Windows
@@ -167,22 +175,96 @@ CREATE INDEX IF NOT EXISTS idx_cases_kind ON case_results(failure_kind);
 CREATE INDEX IF NOT EXISTS idx_lint_rule  ON lint_violations(rule_code);
 """
 
+_SCHEMA_V1_VERSION = 1
+
+# DDL схемы v2 (issue #819): агрегат «попыток/времени до первого зачёта» на
+# задачу. Считать его на лету по таблице ``runs`` было нельзя: retention
+# (``_MAX_RUNS_PER_TASK``) удаляет ранние прогоны, и ``runs[0]`` переставал быть
+# первой попыткой — метрика тихо занижалась у самых активных пользователей,
+# ровно у тех, ради кого она заведена. Агрегат монотонен: удаление прогонов его
+# не трогает, потому что он не пересчитывается по ним.
+_SCHEMA_V2 = """
+CREATE TABLE IF NOT EXISTS task_progress (
+    task_key             TEXT    PRIMARY KEY,
+    first_ts_utc         TEXT    NOT NULL,
+    runs_total           INTEGER NOT NULL DEFAULT 0,
+    first_ac_ts_utc      TEXT,
+    attempts_to_first_ac INTEGER
+);
+"""
+
 
 def _utc_now_iso() -> str:
     """Текущее время UTC в ISO-8601 (``2026-07-14T09:12:00Z``)."""
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _backfill_task_progress(conn: sqlite3.Connection) -> None:
+    """Заполнить агрегат v2 по уже накопленным прогонам (миграция 1→2).
+
+    Для существующих БД восстанавливаем метрику из того, что ещё лежит в
+    ``runs``: точнее уже не будет (вытесненные retention'ом прогоны потеряны
+    безвозвратно), но дальше агрегат ведётся инкрементально и больше не
+    зависит от удаления.
+    """
+    rows = conn.execute(
+        "SELECT r.id, r.ts_utc, r.task_key, "
+        "       (SELECT COUNT(*) FROM case_results c WHERE c.run_id = r.id) AS cases_total, "
+        "       (SELECT COUNT(*) FROM case_results c WHERE c.run_id = r.id "
+        "        AND c.verdict = 'AC') AS cases_ac "
+        f"FROM runs r WHERE r.mode IN ({','.join(str(m) for m in sorted(CORRECTNESS_MODES))}) "
+        "ORDER BY r.id"
+    ).fetchall()
+    for row in rows:
+        run_id, ts_utc, task_key, cases_total, cases_ac = row
+        del run_id
+        _bump_task_progress(
+            conn,
+            task_key=task_key,
+            ts_utc=ts_utc,
+            full_ac=bool(cases_total) and cases_total == cases_ac,
+        )
+
+
+def _bump_task_progress(
+    conn: sqlite3.Connection, *, task_key: str, ts_utc: str, full_ac: bool
+) -> None:
+    """Учесть один прогон режима 1/2 в агрегате задачи (issue #819).
+
+    ``first_ts_utc`` пишется один раз (первая попытка), ``runs_total`` растёт,
+    а ``first_ac_ts_utc``/``attempts_to_first_ac`` фиксируются на первом полном
+    AC и больше не меняются — «первый зачёт» по определению случается однажды.
+    """
+    conn.execute(
+        "INSERT INTO task_progress "
+        "    (task_key, first_ts_utc, runs_total, first_ac_ts_utc, attempts_to_first_ac) "
+        "VALUES (?, ?, 1, ?, ?) "
+        "ON CONFLICT(task_key) DO UPDATE SET "
+        "    runs_total = runs_total + 1, "
+        "    first_ac_ts_utc = COALESCE(first_ac_ts_utc, excluded.first_ac_ts_utc), "
+        "    attempts_to_first_ac = COALESCE("
+        "        attempts_to_first_ac, "
+        "        CASE WHEN excluded.first_ac_ts_utc IS NOT NULL THEN runs_total + 1 END)",
+        (task_key, ts_utc, ts_utc if full_ac else None, 1 if full_ac else None),
+    )
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Идемпотентная миграция ``user_version`` 0→``SCHEMA_VERSION`` (#135).
 
-    Делегирует общему ``db.apply_schema`` (issue #552): ``user_version=0``
-    (свежая/пустая БД) → создаём схему v1 и ставим версию; актуальная/новее —
-    no-op. DDL идемпотентен (``CREATE ... IF NOT EXISTS``), поэтому параллельная
-    инициализация двумя процессами безопасна (#393). Будущие инкрементальные
-    версии (1→2) добавляют свою миграцию поверх этого вызова.
+    Делегирует общему ``db.apply_schema`` (issue #552) схему v1, затем
+    инкрементально доводит до v2 (агрегат ``task_progress``, issue #819) с
+    разовым заполнением по имеющимся прогонам. DDL идемпотентен (``CREATE ...
+    IF NOT EXISTS``), поэтому параллельная инициализация двумя процессами
+    безопасна (#393).
     """
-    db.apply_schema(conn, version=SCHEMA_VERSION, ddl=_SCHEMA_V1)
+    db.apply_schema(conn, version=_SCHEMA_V1_VERSION, ddl=_SCHEMA_V1)
+    if db.user_version(conn) >= SCHEMA_VERSION:
+        return
+    conn.executescript(_SCHEMA_V2)
+    _backfill_task_progress(conn)
+    db.set_user_version(conn, SCHEMA_VERSION)
+    conn.commit()
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
@@ -216,6 +298,10 @@ class HistoryRepository(Protocol):
         """Последние прогоны (новые первыми) с вложенными ``cases``/``lint``."""
         ...
 
+    def task_progress(self, *, limit: int = 1000) -> list[dict[str, Any]]:
+        """Агрегат «попыток/времени до первого зачёта» по задачам (issue #819)."""
+        ...
+
 
 @dataclass(frozen=True)
 class SqliteHistoryRepository:
@@ -246,12 +332,13 @@ class SqliteHistoryRepository:
         """
         for attempt in range(_WRITE_ATTEMPTS):
             try:
+                ts_utc = _utc_now_iso()
                 with _WRITE_LOCK, contextlib.closing(_connect(self.db_path)) as conn:
                     cur = conn.execute(
                         "INSERT INTO runs (ts_utc, mode, source, task_key, solution_name, "
                         "solution_hash, duration_s) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         (
-                            _utc_now_iso(),
+                            ts_utc,
                             record.mode,
                             record.source,
                             record.task_key,
@@ -282,6 +369,17 @@ class SqliteHistoryRepository:
                             "INSERT INTO lint_violations (run_id, rule_code, line_no, message) "
                             "VALUES (?, ?, ?, ?)",
                             [(run_id, v.rule_code, v.line_no, v.message) for v in record.lint],
+                        )
+                    if record.mode in CORRECTNESS_MODES:
+                        # issue #819: агрегат «до первого зачёта» ведётся только по
+                        # прогонам проверки. Бенчмарк (режимы 3/4) не участвует ни
+                        # как попытка, ни как провал — у него другой вопрос.
+                        _bump_task_progress(
+                            conn,
+                            task_key=record.task_key,
+                            ts_utc=ts_utc,
+                            full_ac=bool(record.cases)
+                            and all(c.verdict == "AC" for c in record.cases),
                         )
                     if max_runs_per_task is not None:
                         # issue #642: retention — оставить не более max_runs_per_task
@@ -366,6 +464,29 @@ class SqliteHistoryRepository:
         except (sqlite3.Error, OSError):
             return []
 
+    def task_progress(self, *, limit: int = 1000) -> list[dict[str, Any]]:
+        """Агрегат «до первого зачёта» по задачам, по ``task_key`` (issue #819).
+
+        Считается инкрементально при записи прогонов режимов 1/2, поэтому не
+        зависит ни от retention (``_MAX_RUNS_PER_TASK``), ни от того, сколько
+        последних прогонов прочитано: удаление старых записей больше не
+        занижает «попыток до первого зачёта». Отсутствующая/битая БД → пустой
+        список (graceful, как у ``recent_runs``).
+        """
+        if not self.db_path.is_file():
+            return []
+        try:
+            with contextlib.closing(_connect(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    "SELECT task_key, first_ts_utc, runs_total, first_ac_ts_utc, "
+                    "attempts_to_first_ac FROM task_progress ORDER BY task_key LIMIT ?",
+                    (limit,),
+                ).fetchall()
+                return [dict(row) for row in rows]
+        except (sqlite3.Error, OSError):
+            return []
+
 
 def record_run(
     mode: int,
@@ -416,6 +537,41 @@ def read_recent_runs(
     return SqliteHistoryRepository(db_path).recent_runs(task_key=task_key, limit=limit)
 
 
+def task_key_for(task_dir: Path, base: Path) -> str:
+    """Ключ задачи для истории: путь относительно ``base``, но никогда «.»/«..».
+
+    issue #817: ключ считался как путь папки задачи относительно каталога
+    запуска, а рекомендованный сценарий («Первый пример за 2 минуты») —
+    запуск ИЗ папки задачи. Тогда ключом становилась точка, и в «Прогрессе»
+    все задачи назывались «.», схлопываясь в одну строку: TTFG и «попытки»
+    считались по смеси разных задач. Запуск из подпапки (``tests/``) давал
+    ключ «..» с тем же эффектом.
+
+    Правило: путь относительно ``base``, если он «внутрь» (``module1/04-slug``);
+    иначе — собственное имя папки задачи, одинаковое при любом каталоге
+    запуска. Имени нет только у корня ФС — тогда отдаём путь как есть.
+    """
+    try:
+        rel = task_dir.relative_to(base, walk_up=True)
+    except ValueError:
+        # Разные anchor'ы (относительный путь против абсолютного, разные диски
+        # на Windows) — отдаём как есть, а не роняем запись истории (issue #440).
+        return str(task_dir)
+    parts = rel.parts
+    if parts and parts[0] != "..":
+        return str(rel)
+    return task_dir.resolve().name or str(rel)
+
+
+def read_task_progress(db_path: Path, *, limit: int = 1000) -> list[dict[str, Any]]:
+    """Агрегат «попыток/времени до первого зачёта» по задачам (issue #819).
+
+    Тонкая обёртка над ``SqliteHistoryRepository.task_progress`` (ADR-0009) —
+    источник метрик ``core/insights.time_to_first_green``.
+    """
+    return SqliteHistoryRepository(db_path).task_progress(limit=limit)
+
+
 def purge_history(db_path: Path, *, task_key: str | None = None) -> int:
     """Удалить историю прогонов; вернуть число удалённых прогонов (issue #813).
 
@@ -436,8 +592,12 @@ def purge_history(db_path: Path, *, task_key: str | None = None) -> int:
             with contextlib.suppress(OSError):
                 db_path.with_name(db_path.name + suffix).unlink(missing_ok=True)
         return removed
-    with contextlib.closing(db.connect(db_path)) as conn:
+    with contextlib.closing(_connect(db_path)) as conn:
         cursor = conn.execute("DELETE FROM runs WHERE task_key = ?", (task_key,))
+        # issue #819 + #813: агрегат «до первого зачёта» живёт отдельной строкой
+        # и каскадом FK не уносится — без этого «историю удалили» оставляло бы
+        # число попыток и время первого зачёта по задаче лежать в базе.
+        conn.execute("DELETE FROM task_progress WHERE task_key = ?", (task_key,))
         conn.commit()
         # VACUUM возвращает место ОС: иначе удалённые записи остаются
         # вычитываемыми из файла сырым чтением, а обещание «удалили» — неполным.

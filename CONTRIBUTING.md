@@ -5,6 +5,17 @@
 > Участвуя в проекте, вы соглашаетесь соблюдать
 > [Кодекс поведения](CODE_OF_CONDUCT.md).
 
+> **In English.** This guide is in Russian, but contributing does not require
+> it. The short version: fork, branch off `main`, `python -m venv .venv` +
+> `pip install -e ".[dev]"`, then run the same gates CI does —
+> `pytest tests/ -x -q`, `ruff check .`, `ruff format --check .`,
+> `mypy src/stepik_grader scripts`. Commit messages follow
+> [Conventional Commits](https://www.conventionalcommits.org) with an English
+> type/scope (`fix(cli): …`); the description and the `CHANGELOG.md` entry are
+> written in Russian — the project's documentation language. Pull requests and
+> issues in English are welcome. Conduct concerns:
+> [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ---
 
 ## Первый вклад за 15 минут
@@ -17,8 +28,10 @@
    [Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions).
 2. **Форк + ветка от свежего `main`** (`git checkout -b <type>/<slug>`,
    Conventional Commits — см. [§ Правила коммитов](#правила-коммитов-conventional-commits)).
-3. **Установка** (5 минут): `python -m venv .venv && source .venv/bin/activate`
-   → `pip install -e ".[dev]"` (см. [§ Установка](#установка)).
+3. **Установка** (5 минут): `python -m venv .venv`, затем активация —
+   Windows: `.venv\Scripts\activate`, macOS/Linux:
+   `source .venv/bin/activate` — и `pip install -e ".[dev]"`
+   (см. [§ Установка](#установка)).
 4. **Локальные гейты перед PR** (зеркалят CI): `pytest tests/ -x -q` ·
    `ruff check .` · `ruff format --check .` · `mypy src/stepik_grader scripts`
    (см. [§ Запуск тестов](#запуск-тестов)).
@@ -155,6 +168,9 @@ predicate-DSL — упрощение (issue NNN)». Стало: «фиксиро
 - **падает, если `README.md` превышает 220 строк** (константа
   `README_LINE_BUDGET` в скрипте — единственный источник числа; при изменении
   править и здесь);
+- **проверяет подписи ссылок:** если текст ссылки выглядит как путь
+  (`[docs/use/configuration.md § …]`), он обязан совпадать с фактической целью —
+  иначе читатель копирует путь из подписи и попадает в никуда;
 - **проверяет локальные Markdown-ссылки** README ↔ `docs/` ↔ корневые `*.md`:
   относительный путь должен вести на существующий файл, а якорь
   (`file.md#заголовок`) — на реально существующий заголовок. Внешние
@@ -196,9 +212,13 @@ pip install -e ".[dev]"      # runtime (requests/psutil/rich) + pytest/ruff/mypy
 > Нет отдельного `requirements.txt`: единственный источник зависимостей —
 > `pyproject.toml`.
 
-> После bump'а версии в `pyproject.toml` перезапусти `pip install -e .`,
-> иначе `cli.__version__`/`stepik-grader --version` останутся показывать
-> старое значение (package-метаданные не обновляются автоматически).
+> Версия динамическая — её вычисляет `setuptools-scm` из git-тегов, статического
+> поля `version` в `pyproject.toml` нет и заводить его нельзя (см.
+> [§ Версионирование](#версионирование)). Package-метаданные при этом не
+> обновляются сами: после `git fetch --tags`, нового тега или переключения
+> ветки перезапусти `pip install -e .`, иначе
+> `stepik-grader --version` будет показывать версию с момента последней
+> установки.
 >
 > Запуск без установки: `pytest` работает благодаря `sys.path.insert(0,
 > "src")` в `conftest.py`, но `python -m stepik_grader.grader` и
@@ -209,6 +229,25 @@ pip install -e ".[dev]"      # runtime (requests/psutil/rich) + pytest/ruff/mypy
 ```bash
 pytest tests/ -v
 ```
+
+### Пропуски: почему их видно поимённо
+
+Часть тестов не выполняется на любой отдельно взятой машине — это нормально:
+три ОС-специфичных backend'а песочницы, опциональные extra (`ruff`,
+`playwright`, `hypothesis`), отсутствие графического дисплея. Ненормально
+другое — не знать, сколько тестов молчит: набор из тысяч тестов даёт
+уверенность ровно до тех пор, пока пропуски объяснены.
+
+```bash
+pytest tests/ -rs                       # что пропущено ИМЕННО в этом прогоне
+python scripts/skip_inventory.py        # где вообще заложены пропуски и объяснены ли
+```
+
+Первое отвечает про конкретный прогон (`SKIPPED [n] file:line: причина`),
+второе — статический инвентарь всех `skip`/`skipif`/`xfail`/`importorskip` с
+причинами и сводкой. **У каждого пропуска обязана быть причина**: пропуск без
+неё неотличим от забытого теста, поэтому скрипт (и тест
+`tests/test_skip_inventory.py`) на таком падает.
 
 ### Покрытие: почему бейджа два
 
@@ -277,7 +316,7 @@ dev` в `pyproject.toml`, с верхней границей. Прежде он�
 Grader поддерживает три автодетектируемых формата (Legacy `N`/`N.clue`,
 именованные `input_N.txt`/`expected_N.txt`, python-generation
 `input.txt`/`output.txt` с `# TEST_N:`). Канонический справочник — в
-[`docs/configuration.md § Формат тест-кейсов`](docs/use/configuration.md#формат-тест-кейсов);
+[`docs/use/configuration.md § Формат тест-кейсов`](docs/use/configuration.md#формат-тест-кейсов);
 здесь не дублируется во избежание расхождений.
 
 ---
@@ -308,11 +347,17 @@ import annotations` в новом файле, `pathlib` вместо `os.path`, 
 1. Создайте ветку: `git checkout -b feat/your-feature`
 2. Внесите изменения с тестами
 3. Обновите `CHANGELOG.md` — запись под `## [Unreleased]` в **каждом** PR, без
-   исключений для рефакторингов (одна строка на изменение)
+   исключений для рефакторингов (одна строка на изменение). CI это не
+   проверяет: правило держится на ревью, поэтому пропуск замечают уже при
+   релизе, когда восстанавливать запись задним числом дороже всего
 4. Прогоните `pytest tests/ -v`
-5. Прогоните `mypy src/stepik_grader scripts`
-6. Прогоните `pre-commit run --all-files`
-7. Создайте Pull Request в `main`
+5. Прогоните `ruff check .` и `ruff format --check .`
+6. Прогоните `mypy src/stepik_grader scripts`
+7. **Опционально:** `pre-commit run --all-files` — только если ставили
+   `pre-commit` отдельно (в extra `[dev]` его нет и в CI он не запускается, см.
+   [§ Pre-commit хуки](#pre-commit-хуки)); хуки прогоняют тот же ruff, что и
+   шаг 5
+8. Создайте Pull Request в `main`
 
 ### Правила коммитов (Conventional Commits)
 

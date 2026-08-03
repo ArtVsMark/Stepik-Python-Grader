@@ -454,6 +454,153 @@ def test_repository_retention_applies(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# issue #819 — агрегат task_progress: «попытки до первого зачёта» не зависят
+# от retention, а бенчмарк-прогоны в метрику обучения не попадают
+# ---------------------------------------------------------------------------
+
+
+def test_task_progress_survives_retention(tmp_path: Path) -> None:
+    """Вытеснение ранних прогонов не занижает attempts.
+
+    Репро находки: при `--watch` каждое сохранение файла — прогон, лимит
+    (200 на задачу) достигается быстро, и первая попытка удалялась. Здесь тот
+    же сценарий в миниатюре — cap=2 и пять прогонов.
+    """
+    db = _db(tmp_path)
+    for _ in range(4):
+        history.record_run(1, [CaseRecord(1, "WA")], db_path=db, task_key="t", max_runs_per_task=2)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t", max_runs_per_task=2)
+
+    assert len(history.read_recent_runs(db)) == 2  # retention сработал
+
+    (progress,) = history.read_task_progress(db)
+    assert progress["runs_total"] == 5
+    assert progress["attempts_to_first_ac"] == 5
+    assert progress["first_ac_ts_utc"] is not None
+
+
+def test_task_progress_ignores_bench_runs(tmp_path: Path) -> None:
+    """Прогоны режимов 3/4 не попадают в агрегат ни как попытка, ни как провал."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "WA")], db_path=db, task_key="t")
+    history.record_run(3, [CaseRecord(1, "SIMILAR")], db_path=db, task_key="t")
+    history.record_run(4, [CaseRecord(1, "SLOWER")], db_path=db, task_key="t")
+    history.record_run(2, [CaseRecord(1, "AC")], db_path=db, task_key="t")
+
+    (progress,) = history.read_task_progress(db)
+    assert progress["runs_total"] == 2  # только режимы 1 и 2
+    assert progress["attempts_to_first_ac"] == 2
+
+
+def test_task_progress_first_ac_is_frozen(tmp_path: Path) -> None:
+    """Первый зачёт фиксируется однажды: последующие прогоны его не двигают."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t")
+    first = history.read_task_progress(db)[0]
+    history.record_run(1, [CaseRecord(1, "WA")], db_path=db, task_key="t")
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t")
+
+    (progress,) = history.read_task_progress(db)
+    assert progress["attempts_to_first_ac"] == 1
+    assert progress["first_ac_ts_utc"] == first["first_ac_ts_utc"]
+    assert progress["runs_total"] == 3
+
+
+def test_task_progress_absent_until_solved(tmp_path: Path) -> None:
+    """Нерешённая задача есть в агрегате, но без отметки о зачёте."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "TLE")], db_path=db, task_key="t")
+
+    (progress,) = history.read_task_progress(db)
+    assert progress["attempts_to_first_ac"] is None
+    assert progress["first_ac_ts_utc"] is None
+    assert progress["runs_total"] == 1
+
+
+def test_migration_v1_to_v2_backfills_task_progress(tmp_path: Path) -> None:
+    """БД схемы v1 домигрируется до v2, агрегат восстанавливается по runs.
+
+    Точнее, чем ничего: вытесненные ранее прогоны не вернуть, но всё, что
+    осталось в таблице, попадает в агрегат — и дальше он ведётся инкрементально.
+    """
+    from stepik_grader import db as db_module
+
+    db = _db(tmp_path)
+    with contextlib.closing(db_module.connect(db)) as conn:
+        db_module.apply_schema(conn, version=1, ddl=history._SCHEMA_V1)
+        for i, (mode, verdict) in enumerate([(1, "WA"), (3, "SIMILAR"), (1, "AC")], 1):
+            conn.execute(
+                "INSERT INTO runs (id, ts_utc, mode, source, task_key) "
+                "VALUES (?, ?, ?, 'cli', 't')",
+                (i, f"2026-08-0{i}T10:00:00Z", mode),
+            )
+            conn.execute(
+                "INSERT INTO case_results (run_id, case_no, verdict) VALUES (?, 1, ?)",
+                (i, verdict),
+            )
+        conn.commit()
+
+    (progress,) = history.read_task_progress(db)  # чтение домигрирует схему
+    assert progress["runs_total"] == 2  # бенчмарк-прогон не в счёт
+    assert progress["attempts_to_first_ac"] == 2
+    assert progress["first_ts_utc"] == "2026-08-01T10:00:00Z"
+    assert progress["first_ac_ts_utc"] == "2026-08-03T10:00:00Z"
+
+    with contextlib.closing(sqlite3.connect(db)) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == history.SCHEMA_VERSION
+
+
+def test_task_progress_repository_satisfies_protocol(tmp_path: Path) -> None:
+    """Новый метод не выводит SqliteHistoryRepository из-под протокола (ADR-0009)."""
+    repo = history.SqliteHistoryRepository(_db(tmp_path))
+    assert isinstance(repo, history.HistoryRepository)
+    assert repo.task_progress() == []  # БД нет — graceful пустой список
+
+
+# ---------------------------------------------------------------------------
+# issue #817 — ключ задачи не зависит от каталога запуска: «.» схлопывал разные
+# задачи в одну строку «Прогресса», а запуск из tests/ давал «..»
+# ---------------------------------------------------------------------------
+
+
+def test_task_key_from_task_folder_is_its_name(tmp_path: Path) -> None:
+    """Запуск ИЗ папки задачи (рекомендованный сценарий) даёт имя папки, не «.»."""
+    task = tmp_path / "04-slug"
+    task.mkdir()
+    assert history.task_key_for(task, task) == "04-slug"
+
+
+def test_task_key_from_parent_folder_is_relative(tmp_path: Path) -> None:
+    """Запуск из родительской папки — прежний относительный путь."""
+    task = tmp_path / "module1" / "04-slug"
+    task.mkdir(parents=True)
+    assert history.task_key_for(task, tmp_path) == str(Path("module1") / "04-slug")
+
+
+def test_task_key_from_subfolder_does_not_escape(tmp_path: Path) -> None:
+    """Запуск из tests/ внутри задачи даёт имя задачи, а не «..»."""
+    task = tmp_path / "04-slug"
+    (task / "tests").mkdir(parents=True)
+    assert history.task_key_for(task, task / "tests") == "04-slug"
+
+
+def test_different_tasks_get_different_keys(tmp_path: Path) -> None:
+    """Две задачи, прогнанные каждая из своей папки, не схлопываются в один ключ.
+
+    Ровно этот дефект искажал TTFG: обе задачи писались под ключом «.».
+    """
+    first, second = tmp_path / "01-a", tmp_path / "02-b"
+    first.mkdir()
+    second.mkdir()
+    assert history.task_key_for(first, first) != history.task_key_for(second, second)
+
+
+def test_task_key_survives_mismatched_anchors(tmp_path: Path) -> None:
+    """Относительный путь против абсолютной базы — путь как есть, без падения."""
+    assert history.task_key_for(Path("04-slug"), tmp_path) == "04-slug"
+
+
+# ---------------------------------------------------------------------------
 # Удаление истории — issue #813 (SECD-03)
 # ---------------------------------------------------------------------------
 
@@ -532,3 +679,31 @@ class TestPurgeHistory:
         self._seed(db_path, ("alpha",))
         assert history.purge_history(db_path) == 1
         assert history.purge_history(db_path) == 0
+
+
+def test_purge_by_task_clears_progress_aggregate(tmp_path: Path) -> None:
+    """Удаление прогонов задачи уносит и агрегат «до первого зачёта».
+
+    Агрегат (issue #819) живёт отдельной таблицей и каскадом FK не удаляется —
+    без явной чистки «историю удалили» оставляло бы число попыток и время
+    первого зачёта лежать в базе (issue #813).
+    """
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="a")
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="b")
+
+    history.purge_history(db, task_key="a")
+
+    remaining = {row["task_key"] for row in history.read_task_progress(db)}
+    assert remaining == {"b"}
+
+
+def test_purge_all_removes_progress_aggregate_with_the_file(tmp_path: Path) -> None:
+    """Полное удаление уносит базу целиком — агрегата тоже не остаётся."""
+    db = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="a")
+
+    history.purge_history(db)
+
+    assert not db.exists()
+    assert history.read_task_progress(db) == []

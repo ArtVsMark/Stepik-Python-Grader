@@ -23,17 +23,44 @@ from stepik_grader.config import CONFIG
 __all__ = [
     "_build_arg_parser",
     "_force_utf8_stdio",
+    "_program_name",
     "_resolve_record_history",
     "_resolve_record_stats",
     "_resolve_use_cache",
     "_resolve_verbosity",
 ]
 
+# Эпилог справки: обе рабочие формы запуска. При src-layout файла grader.py в
+# корне нет, поэтому usage обязан называть то, что пользователь может набрать.
+_EPILOG = """\
+Запуск:
+  stepik-grader --mode 1 --file task.py          (после pip install)
+  python -m stepik_grader --mode 1 --file task.py
+
+Без --mode открывается интерактивное меню.
+"""
+
+
+def _program_name() -> str:
+    """Имя команды для usage-строки: реальная точка входа, а не файл модуля.
+
+    ``argparse`` по умолчанию берёт ``basename(sys.argv[0])`` — при запуске
+    ``python -m stepik_grader`` это ``__main__.py``, а при жёстко заданном
+    ``prog`` годами печаталось ``grader.py``, которого при src-layout не
+    существует. Через console script имя argv[0] и есть команда пользователя
+    (``stepik-grader``); в остальных случаях единственная набираемая форма —
+    ``python -m stepik_grader``.
+    """
+    stem = pathlib.Path(sys.argv[0] or "").stem
+    return stem if stem.startswith("stepik-grader") else "python -m stepik_grader"
+
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="grader.py",
+        prog=_program_name(),
         description="Stepik Python Grader — проверка и сравнение решений.",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="store_true", help="Показать версию грейдера и выйти.")
     parser.add_argument(
@@ -66,25 +93,24 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--lang",
         choices=["ru", "en"],
         default="ru",
-        help="Язык меню и сообщений (по умолчанию ru). Issue #51 D-01.",
+        help="Язык меню и сообщений (по умолчанию ru).",
     )
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument(
         "--verbose",
         action="store_true",
-        help="Подробный вывод с diff для --mode 1/2 (для --mode 1 это уже поведение "
-        "по умолчанию). Issue #50 D-03.",
+        help="Подробный вывод с diff для --mode 1/2 (для --mode 1 это уже поведение по умолчанию).",
     )
     verbosity.add_argument(
         "--quiet",
         action="store_true",
-        help="Только итог, без подробного diff, для --mode 1/2. Issue #50 D-03.",
+        help="Только итог, без подробного diff, для --mode 1/2.",
     )
     parser.add_argument(
         "--diagnostic",
         action="store_true",
         help="Диагностический лог сети/OAuth/загрузки в stepik_diagnostics/grader.log "
-        "(с редакцией секретов). То же — переменной STEPIK_GRADER_LOG=debug. Issue #146.",
+        "(с редакцией секретов). То же — переменной STEPIK_GRADER_LOG=debug.",
     )
     parser.add_argument(
         "--output",
@@ -92,7 +118,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default="text",
         help=(
             "Формат вывода: text (по умолчанию), json/csv для CI-пайплайнов "
-            "(issues #50 D-04, #53) или markdown для отчётов (issue #58)."
+            "или markdown для отчётов."
         ),
     )
     parser.add_argument(
@@ -100,9 +126,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Перезапускать --mode 1/2 при изменении файла решения "
-            "(требует: pip install stepik-python-grader[watch]). Issue #54. Для --mode 2 "
+            "(требует: pip install stepik-python-grader[watch]). Для --mode 2 "
             "перезапуск инкрементальный — кэш прогоняет только изменённый файл "
-            "(--no-cache отключает). Issue #71."
+            "(--no-cache отключает)."
         ),
     )
     parser.add_argument(
@@ -113,20 +139,20 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "Кэшировать результаты --mode 1/2 в .grader_cache/ и пропускать "
             "неизменённые решения (--no-cache отключает). По умолчанию из "
             "[tool.stepik-grader] use_cache; под --watch --mode 2 включён "
-            "автоматически (инкрементальный перезапуск). Issues #56, #71."
+            "автоматически (инкрементальный перезапуск)."
         ),
     )
     parser.add_argument(
         "--clear-cache",
         action="store_true",
-        help="Удалить .grader_cache/ и .stepik_cache/ и выйти. Issues #56, #816.",
+        help="Удалить .grader_cache/ и .stepik_cache/ и выйти.",
     )
     parser.add_argument(
         "--revoke-ai-consent",
         action="store_true",
         help=(
             "Отозвать согласие на отправку кода AI-провайдеру и выйти. "
-            "При следующем --ai-hints согласие спросят заново. Issue #812."
+            "При следующем --ai-hints согласие спросят заново."
         ),
     )
     parser.add_argument(
@@ -137,8 +163,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Удалить локальную историю обучения (.grader_history.db) и журнал "
             "статистики (.grader_stats.jsonl) и выйти. С аргументом — только "
-            "прогоны указанной задачи; статистика при этом не трогается. "
-            "Issue #813."
+            "прогоны указанной задачи; статистика при этом не трогается."
         ),
     )
     parser.add_argument(
@@ -148,14 +173,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Писать локальную статистику запусков (режим/вердикты/ОС) в "
             ".grader_stats.jsonl (--no-stats отключает). По умолчанию из "
-            "[tool.stepik-grader] record_stats. Только локально, без сети. "
-            "Issue #268."
+            "[tool.stepik-grader] record_stats. Только локально, без сети."
         ),
     )
     parser.add_argument(
         "--stats-summary",
         action="store_true",
-        help="Показать сводку локальной статистики запусков и выйти. Issue #268.",
+        help="Показать сводку локальной статистики запусков и выйти.",
     )
     parser.add_argument(
         "--history",
@@ -164,8 +188,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Писать историю прогонов (режимы/кейсы/вердикты) в локальную "
             "SQLite-базу .grader_history.db (--no-history отключает). По "
-            "умолчанию из [tool.stepik-grader] record_history. Основа будущих "
-            "разделов «Правила»/«Подучить», только локально. Issue #344."
+            "умолчанию из [tool.stepik-grader] record_history. Основа разделов "
+            "«Правила»/«Подучить», только локально."
         ),
     )
     parser.add_argument(
@@ -174,7 +198,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Показать сводку карточек «Подучить» (частые ошибки и их затухание) "
             "из накопленной истории прогонов и выйти. Требует включённую "
-            "--history. Issue #349."
+            "--history."
         ),
     )
     parser.add_argument(
@@ -186,7 +210,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "Экспортировать агрегаты прогресса (попыток/времени до первого AC по "
             "задачам, тали вердиктов и типов падений — без исходников решений) из "
             ".grader_history.db в самодостаточный файл grader-progress.md/.html и "
-            "выйти. Issue #432."
+            "выйти."
         ),
     )
     parser.add_argument(
@@ -195,7 +219,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "После проверки режимов 1/2 показать блок «Стиль» — нарушения PEP 8 "
             "от ruff (требует extra: pip install stepik-python-grader[lint]). "
-            "Не влияет на вердикт. Issue #349."
+            "Не влияет на вердикт."
         ),
     )
     parser.add_argument(
@@ -206,16 +230,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "(WA/RE; в бенчмарк-режимах 3/4 — решений с ошибкой исполнения) через "
             "OpenAI-совместимый endpoint (BYOK, ADR-0003). По умолчанию выключено; "
             "без ai_base_url/ai_model в pyproject.toml — тихий пропуск с подсказкой. "
-            "Ничего не уходит в сеть без настройки. Не влияет на вердикт. Issue #435/#542."
+            "Ничего не уходит в сеть без настройки. Не влияет на вердикт."
         ),
     )
     parser.add_argument(
         "--serve",
         action="store_true",
-        help=(
-            "Запустить локальный веб-интерфейс (только localhost) вместо CLI. "
-            "Эпик #80 Tier 1 / issue #58."
-        ),
+        help="Запустить локальный веб-интерфейс (только localhost) вместо CLI.",
     )
     parser.add_argument(
         "--port",
@@ -229,7 +250,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Рабочая директория --serve: пути из запросов вне неё отклоняются "
-            "403-м (по умолчанию — cwd на момент запуска). Issue #261."
+            "403-м (по умолчанию — cwd на момент запуска)."
         ),
     )
     parser.add_argument(
@@ -238,7 +259,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=(
             "Отключить проверку путей запросов относительно --root — доступ "
             "к любому пути на диске, как раньше. Явный откат пользователя, "
-            "не дефолт. Issue #261."
+            "не дефолт."
         ),
     )
     parser.add_argument(
@@ -250,7 +271,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "Linux, sandbox-exec на macOS, Job Objects на Windows. Гарантии "
             "различаются по ОС (см. SECURITY.md); при недоступности backend'а "
             "на этой машине — явная ошибка, без тихого отката на обычный "
-            "запуск. Issue #266."
+            "запуск."
         ),
     )
     parser.add_argument(
@@ -258,7 +279,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Сгенерировать .vscode/tasks.json в текущей папке (грейдинг из VS Code "
-            "по Ctrl+Shift+B). Эпик #80 Tier 2 / issue #58."
+            "по Ctrl+Shift+B)."
         ),
     )
     parser.add_argument(
@@ -269,7 +290,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "Импортировать закреплённое решение Stepik (+топовые по лайкам) из "
             "ветки решений в папку задачи как task{N}_{100+}.py для сравнения в "
             "режимах 2–4 и выйти. Читает meta.json из TASK_DIR (нужна скачанная "
-            "задача и OAuth). Issue #55."
+            "задача и OAuth)."
         ),
     )
     parser.add_argument(
@@ -279,8 +300,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         metavar="N",
         help=(
             "Сколько топовых по лайкам решений импортировать сверх закреплённого "
-            "(--import-reference). По умолчанию 5; нулёвые по лайкам не берутся. "
-            "Issue #55."
+            "(--import-reference). По умолчанию 5; нулёвые по лайкам не берутся."
         ),
     )
     return parser

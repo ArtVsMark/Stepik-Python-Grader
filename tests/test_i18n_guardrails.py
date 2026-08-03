@@ -189,10 +189,12 @@ def test_every_badge_id_has_a_ui_catalog_key() -> None:
     """Для каждого id бейджа есть ключ `progress.badge_<id>` в обеих локалях."""
     import json
 
-    from stepik_grader.web import insights_adapter
+    from stepik_grader.core import insights
 
-    report = {"verdicts": {"AC": 99}, "solved_tasks": 99, "streak": 99}
-    badge_ids = [b["id"] for b in insights_adapter._achievement_badges(report)]
+    # issue #823: расчёт бейджей переехал из web-адаптера в core — их видит и
+    # экспорт прогресса, а не только браузер.
+    badges = insights.achievement_badges(ac_cases=99, solved_tasks=99, streak=99)
+    badge_ids = [b["id"] for b in badges]
     assert badge_ids, "список бейджей пуст — тест потерял предмет проверки"
 
     ui_json = (
@@ -208,3 +210,44 @@ def test_every_badge_id_has_a_ui_catalog_key() -> None:
     for lang in ("ru", "en"):
         missing = [bid for bid in badge_ids if f"progress.badge_{bid}" not in catalog[lang]]
         assert not missing, f"{lang}.: нет ключей для бейджей {missing}"
+
+
+# ---------------------------------------------------------------------------
+# issue #836 (QA-06) — обе graceful-ветки render_message. Контракт «API никогда
+# не падает из-за опечатки в message_id/params» держался на честном слове:
+# guard локалей сверяет только паритет ключей и рантайм-откат не видит.
+# ---------------------------------------------------------------------------
+
+
+def test_render_message_falls_back_to_default_locale(monkeypatch) -> None:
+    """Ключа нет в запрошенной локали → берётся русский текст, а не сам id."""
+    from stepik_grader.core import i18n as core_i18n
+    from stepik_grader.web import i18n as web_i18n
+
+    real = core_i18n.load_locale_messages
+
+    def only_in_ru(lang: str) -> dict[str, str]:
+        messages = dict(real(lang))
+        if lang == web_i18n.DEFAULT_LANG:
+            messages["_probe_key"] = "только по-русски"
+        return messages
+
+    monkeypatch.setattr(web_i18n, "load_locale_messages", only_in_ru)
+    assert web_i18n.render_message("_probe_key", "en") == "только по-русски"
+
+
+def test_render_message_returns_id_when_missing_everywhere(monkeypatch) -> None:
+    """Опечатка в message_id не роняет ответ API — возвращается сам ключ."""
+    from stepik_grader.web import i18n as web_i18n
+
+    assert web_i18n.render_message("нет-такого-ключа", "en") == "нет-такого-ключа"
+
+
+def test_render_message_survives_placeholder_mismatch(monkeypatch) -> None:
+    """params не совпали с плейсхолдерами → нерендеренный шаблон, не исключение."""
+    from stepik_grader.web import i18n as web_i18n
+
+    monkeypatch.setattr(
+        web_i18n, "load_locale_messages", lambda lang: {"_probe_key": "нужен {path}"}
+    )
+    assert web_i18n.render_message("_probe_key", "ru", wrong="значение") == "нужен {path}"

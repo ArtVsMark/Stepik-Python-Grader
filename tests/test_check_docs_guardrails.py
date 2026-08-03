@@ -385,3 +385,183 @@ def test_issue_tail_policy_on_current_repo() -> None:
     errors: list[str] = []
     module.check_issue_tail_policy(errors)
     assert errors == []
+
+
+# --- UI-strings issue policy (issue #820) ------------------------------------
+
+
+def _make_ui_tree(tmp_path: Path, options_py: str, locale: dict[str, str]) -> None:
+    """Минимальный срез репозитория с cli/options.py и core/locales/ru.json."""
+    import json
+
+    pkg = tmp_path / "src" / "stepik_grader"
+    (pkg / "cli").mkdir(parents=True)
+    (pkg / "core" / "locales").mkdir(parents=True)
+    (pkg / "cli" / "options.py").write_text(options_py, encoding="utf-8")
+    (pkg / "core" / "locales" / "ru.json").write_text(
+        json.dumps(locale, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def test_ui_help_with_issue_tail_is_flagged(tmp_path, monkeypatch) -> None:
+    """`help=` с хвостом «Issue #51» — нарушение: пользователь читает справку."""
+    module = _load_module()
+    _make_ui_tree(
+        tmp_path,
+        'parser.add_argument("--lang", help="Язык меню. Issue #51 D-01.")\n',
+        {"ok": "Файл не найден"},
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_ui_issue_tail_policy(errors)
+    assert any("options.py" in e and "#51" in e for e in errors), errors
+
+
+def test_ui_locale_value_with_issue_tail_is_flagged(tmp_path, monkeypatch) -> None:
+    """Номер задачи в тексте локали — то же нарушение, что и в справке."""
+    module = _load_module()
+    _make_ui_tree(
+        tmp_path,
+        'parser.add_argument("--lang", help="Язык меню.")\n',
+        {"path_not_found": "Путь не найден (issue #261)"},
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_ui_issue_tail_policy(errors)
+    assert any("ru.json" in e and "#261" in e for e in errors), errors
+
+
+def test_ui_strings_read_implicitly_concatenated_help(tmp_path, monkeypatch) -> None:
+    """Многострочный `help=(...)` читается целиком, а не первым куском."""
+    module = _load_module()
+    _make_ui_tree(
+        tmp_path,
+        'parser.add_argument("--watch", help=("Перезапускать при изменении. " "Issue #54."))\n',
+        {"ok": "Готово"},
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    strings = module.collect_ui_strings()
+    assert strings["src/stepik_grader/cli/options.py"] == [
+        "Перезапускать при изменении. Issue #54."
+    ]
+
+
+def test_ui_clean_strings_pass(tmp_path, monkeypatch) -> None:
+    """Справка и локаль без номеров задач — без ошибок."""
+    module = _load_module()
+    _make_ui_tree(
+        tmp_path,
+        'parser.add_argument("--lang", help="Язык меню и сообщений (по умолчанию ru).")\n',
+        {"path_not_found": "Путь не найден"},
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_ui_issue_tail_policy(errors)
+    assert errors == []
+
+
+def test_ui_issue_tail_policy_on_current_repo() -> None:
+    """На актуальном main справка и локали держат ноль."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_ui_issue_tail_policy(errors)
+    assert errors == []
+
+
+# --- Подписи-пути у ссылок (issue #827) --------------------------------------
+
+
+def test_stale_path_caption_is_flagged(tmp_path, monkeypatch) -> None:
+    """Подпись ведёт на путь, которого нет: цель рабочая, а текст врёт."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "use" / "configuration.md").write_text("# Конфигурация\n", encoding="utf-8")
+    (tmp_path / "SECURITY.md").write_text(
+        "См. [docs/configuration.md § Безопасность](docs/use/configuration.md).\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_link_captions(errors)
+    assert any("docs/configuration.md" in e for e in errors), errors
+
+
+def test_shortened_caption_is_allowed(tmp_path, monkeypatch) -> None:
+    """Сокращённая подпись — «хвост» реального пути — не нарушение."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "use" / "web-interface.md").write_text("# Веб\n", encoding="utf-8")
+    (docs / "dev" / "web-contracts.md").write_text(
+        "См. [use/web-interface.md § Разделы](../use/web-interface.md).\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_link_captions(errors)
+    assert errors == []
+
+
+def test_plain_text_caption_is_not_checked(tmp_path, monkeypatch) -> None:
+    """Обычная человеческая подпись под правило не подпадает."""
+    module = _load_module()
+    docs = _make_directions(tmp_path)
+    (docs / "use" / "configuration.md").write_text("# Конфигурация\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text(
+        "См. [конфигурацию](docs/use/configuration.md).\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_link_captions(errors)
+    assert errors == []
+
+
+def test_link_captions_on_current_repo() -> None:
+    """На актуальном main подписи-пути совпадают с целями."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_link_captions(errors)
+    assert errors == []
+
+
+# --- Метрики числом в витринах (issue #829) ----------------------------------
+
+
+def test_hardcoded_metric_in_readme_is_flagged(tmp_path, monkeypatch) -> None:
+    """«2100+ tests» в прозе — нарушение: живой источник числа это бейдж."""
+    module = _load_module()
+    (tmp_path / "README.md").write_text(
+        "- ✅ **2100+ automated tests** (pytest), CI on 3 OSes.\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_showcase_metrics(errors)
+    assert any("README.md" in e for e in errors), errors
+
+
+def test_russian_metric_is_flagged_too(tmp_path, monkeypatch) -> None:
+    """Правило одинаково для обеих витрин и обоих языков."""
+    module = _load_module()
+    (tmp_path / "README.en.md").write_text("Глоссарий: 1349 карточек.\n", encoding="utf-8")
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_showcase_metrics(errors)
+    assert any("README.en.md" in e for e in errors), errors
+
+
+def test_badge_line_is_not_flagged(tmp_path, monkeypatch) -> None:
+    """Сам бейдж — источник истины, а не хардкод."""
+    module = _load_module()
+    (tmp_path / "README.md").write_text(
+        "[![Coverage](https://img.shields.io/endpoint?url=...4200+tests)](ci)\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+    errors: list[str] = []
+    module.check_showcase_metrics(errors)
+    assert errors == []
+
+
+def test_showcase_metrics_on_current_repo() -> None:
+    """На актуальном main обе витрины держат метрики только в бейджах."""
+    module = _load_module()
+    errors: list[str] = []
+    module.check_showcase_metrics(errors)
+    assert errors == []

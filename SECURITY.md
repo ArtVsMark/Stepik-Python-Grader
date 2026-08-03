@@ -2,7 +2,7 @@
 
 Спасибо, что помогаете держать Stepik-Python-Grader безопасным. Документ
 короткий и ссылочный — детали threat model живут в
-[docs/configuration.md § Ограничения и безопасность](docs/use/configuration.md#ограничения-и-безопасность).
+[docs/use/configuration.md § Ограничения и безопасность](docs/use/configuration.md#ограничения-и-безопасность).
 
 ## Поддерживаемые версии
 
@@ -49,7 +49,7 @@ Report a vulnerability* в репозитории). Резервный кана�
 
 Запускайте только доверенный код. Полная threat model, настройки таймаута и
 лимитов памяти —
-[docs/configuration.md § Ограничения и безопасность](docs/use/configuration.md#ограничения-и-безопасность).
+[docs/use/configuration.md § Ограничения и безопасность](docs/use/configuration.md#ограничения-и-безопасность).
 
 Веб-оболочка (`--serve`) делает режим исполнения видимым: в шапке —
 бейдж статуса OS-изоляции (**«⚠ Без OS-изоляции»** при дефолтном `LocalRunner`,
@@ -111,7 +111,7 @@ BYOK-ключ, «грейд не падает из-за AI») — ниже, [§ 
   используйте `secrets.json.example` как шаблон.
 - Не вставляйте реальные токены в issue, PR, отчёты или логи.
 - Настройка OAuth —
-  [docs/installation.md § Работа с API Stepik (OAuth)](docs/use/installation.md#работа-с-api-stepik-oauth).
+  [docs/use/installation.md § Работа с API Stepik (OAuth)](docs/use/installation.md#работа-с-api-stepik-oauth).
 
 ## Цепочка поставок (supply-chain)
 
@@ -254,7 +254,7 @@ API удалённого исполнения, обязательные треб
 — отдельный дизайн, см. «Server / IDE-режим» выше).
 
 Полный справочник с кодами ответов и `message_id` —
-[docs/api.md § Общие правила](docs/dev/api.md#общие-правила-для-всех-api).
+[docs/dev/api.md § Общие правила](docs/dev/api.md#общие-правила-для-всех-api).
 
 ## `--sandbox` — SandboxRunner MVP
 

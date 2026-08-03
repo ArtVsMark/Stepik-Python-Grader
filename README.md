@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ArtVsMark/Stepik-Python-Grader)](https://github.com/ArtVsMark/Stepik-Python-Grader/releases)
+[![PyPI](https://img.shields.io/pypi/v/stepik-python-grader)](https://pypi.org/project/stepik-python-grader/)
 [![Version](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/version.json&cacheSeconds=300)](CHANGELOG.md)
 [![Coverage (ubuntu)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
 [![Coverage (all OS combined)](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/.github/badges/coverage-combined.json&cacheSeconds=300)](https://github.com/ArtVsMark/Stepik-Python-Grader/actions/workflows/ci.yml)
@@ -13,6 +14,15 @@
 
 > Локальный грейдер для курсов «Поколение Python» на Stepik.
 > Скачивает данные задачи с сайта и позволяет не только проверить решение локально, но и **сравнить несколько решений более честно**: сначала по корректности, потом по benchmark-метрикам.
+>
+> Сверх обычного прогона тестов: **офлайн-глоссарий Python** с переходом прямо
+> из ошибки, **пошаговый трассировщик** с memory-graph, **микробенчмарк**
+> `timeit`, **OS-песочница** для Linux/macOS/Windows и **AI-объяснение падений**
+> (opt-in, свой ключ).
+
+```bash
+pipx install stepik-python-grader && stepik-grader
+```
 
 ![Веб-интерфейс --serve: грейдинг папки решений против тест-кейсов с вердиктом OK и таблицей результатов](docs/assets/hero-serve.gif)
 
@@ -34,13 +44,18 @@
 
 ## Зачем это, если Stepik уже проверяет решения?
 
-Встроенный чекер Stepik даёт «зачёт / не зачёт» — и только после сабмита. Грейдер закрывает то, чего у него нет:
+Встроенный чекер Stepik даёт «зачёт / не зачёт» — и только после сабмита. Вот
+чем грейдер отличается от двух реальных альтернатив:
 
-- ⚡ **Мгновенный офлайн-цикл.** Правишь решение и проверяешь локально за секунды — без сабмита, без лимита попыток, без сети.
-- 📊 **Честное сравнение нескольких решений.** Stepik не покажет, какое из ваших решений быстрее и экономнее по памяти — грейдер прогоняет их бок о бок (median-время, RSS, вердикты SIMILAR/SLOWER) в режимах 3/4.
-- 🎓 **«Подучить», а не просто вердикт.** Частые ошибки из вашей истории прогонов с затуханием карточек — инструмент учит, а не только оценивает.
-- 📚 **Офлайн-глоссарий Python** с deep-link прямо из ошибок исполнения.
-- 🔒 **Свой код не покидает машину** (кроме явного скачивания задачи со Stepik и opt-in AI-подсказок с отдельным согласием).
+| | Чекер Stepik | `pytest` вручную | Этот грейдер |
+|---|:---:|:---:|:---:|
+| Проверка без сабмита и лимита попыток | ❌ | ✅ | ✅ |
+| Тест-кейсы задачи скачиваются сами | ✅ | ❌ | ✅ |
+| Сравнение своих решений по времени и памяти | ❌ | ❌ | ✅ (режимы 3/4) |
+| Diff при неверном выводе | ❌ | ~ | ✅ |
+| Разбор ошибки: глоссарий, трейс, AI-объяснение | ❌ | ❌ | ✅ |
+| «Подучить» — свои частые ошибки из истории | ❌ | ❌ | ✅ |
+| Код остаётся на машине | ❌ | ✅ | ✅ |
 
 Детальное сравнение с проектом-первоисточником — в [docs/use/versions.md](docs/use/versions.md#что-изменилось-по-сравнению-с-оригиналом).
 
@@ -49,38 +64,36 @@
 ## Основные возможности
 
 - ✅ Запуск решений против наборов тест-кейсов (`tests/N` + `tests/N.clue`)
-- 📋 **Автоматическое извлечение тест-кейсов** из HTML-таблицы в тексте задачи Stepik
-- 📦 **Автоскачивание тестов из ZIP-архива** по ссылке в тексте задачи
-- 🔗 Обнаружение ссылок на GitHub-тесты с подсказкой скачать вручную
+- 📋 **Автоматическое извлечение тест-кейсов** — из HTML-таблицы задачи, из
+  ZIP-архива по ссылке, плюс подсказка при тестах на GitHub
 - 📊 Сравнение нескольких решений одной задачи в таблице
 - 🚀 Subprocess-бенчмарк с замером времени и памяти (режим 3)
 - ⚡ Timeit-микробенчмарк через subprocess (режим 4)
-- 🎨 Цветной вывод через `rich` — зелёный OK/AC, красный WA/TLE/RE, жёлтый SLOWER
-- 🔍 Diff при WA — сравнение ожидаемого и фактического вывода при провале теста
-- ⚖️ Вердикты AC / WA / TLE / RE по каждому тест-кейсу
+- ⚖️ Вердикты AC / WA / TLE / RE по каждому кейсу: цветной вывод через `rich` и
+  diff «ожидалось / получено» при WA
 - 🌐 Локальный веб-интерфейс (`--serve`, `http://127.0.0.1:8000`) и интеграция с VS Code / PyCharm
 - 🖥 GUI-лаунчер веб-интерфейса без командной строки (`stepik-grader-gui`) —
   на Windows ярлык без консольного окна
 - 🧩 pytest-плагин (`pytest --grader-mode`), кэш результатов и `--watch`
-  (опционально: требует extra `[watch]` — `pip install -e ".[watch]"`, зависит
-  от `watchfiles`)
-- 🧪 Playwright e2e-смоук фронтенда + регрессия на XSS (опционально: extra
-  `[e2e]` — см. [CONTRIBUTING.md § E2E-тесты](CONTRIBUTING.md#e2e-тесты-playwright-опционально))
-- 📚 Локальный глоссарий-модуль (число готовых карточек — в бейдже Glossary выше, черновиков нет): функции/исключения/конструкции,
-  детектор недостающих терминов, deep-link из error cards
+  (extra `[watch]`); Playwright e2e-смоук фронтенда с регрессией на XSS
+  (extra `[e2e]`, см. [CONTRIBUTING.md § E2E-тесты](CONTRIBUTING.md#e2e-тесты-playwright-опционально))
+- 📚 Локальный глоссарий (объём — в бейдже Glossary выше): функции, исключения и
+  конструкции, детектор недостающих терминов, deep-link из error cards
 - 🎓 Правила PEP 8 и раздел «Подучить» — частые ошибки из истории прогонов с
   затуханием (`--insights` / `--lint`)
 - 📈 Локальная статистика прогонов (`--stats`) и SQLite-история (`--history`) — без сети
+- 🤖 AI-объяснение падений WA/RE (`--ai-hints`) — opt-in, на своём ключе (BYOK:
+  локальная ollama или облако), с заземлением на карточки глоссария; без
+  настройки и явного согласия ничего в сеть не уходит
 - 🔒 Опциональная OS-песочница исполнения решений (`--sandbox`)
 - 🔍 Диагностика окружения и авторизация через Stepik API
 
-> **Только в вебе — CLI-аналога нет.** Раздел «Песочница» (не путать с
-> OS-изоляцией `--sandbox`) — запуск произвольного кода со своим stdin;
-> пошаговый трейс исполнения (плеер шагов, кадры стека, memory-graph);
-> редактор решения с сохранением; кнопка «Отправить в Stepik» в режиме 1
-> интерактивные разделы «Глоссарий», «Правила (PEP)», «Подучить»
-> и «Прогресс» — в терминале от них есть только сводки `--insights`/`--lint` и
-> экспорт `--export-progress`. Обзор разделов — [docs/use/web-interface.md](docs/use/web-interface.md).
+> **Только в вебе — CLI-аналога нет.** «Песочница» (запуск кода со своим stdin,
+> не путать с OS-изоляцией `--sandbox`), пошаговый трейс с memory-graph,
+> редактор решения с сохранением, «Отправить в Stepik», а также интерактивные
+> «Глоссарий», «Правила (PEP)», «Подучить» и «Прогресс» — в терминале от них
+> есть только сводки `--insights`/`--lint` и экспорт `--export-progress`. Обзор
+> разделов — [docs/use/web-interface.md](docs/use/web-interface.md).
 
 Разбор по модулям и слоям — в [docs/dev/architecture.md](docs/dev/architecture.md).
 
@@ -94,13 +107,8 @@
 
 ## Быстрый старт
 
-**Установить** (проще всего через [pipx](https://pipx.pypa.io)):
-
-```bash
-pipx install stepik-python-grader
-```
-
-**Запустить** интерактивное меню:
+**Установить** — `pipx install stepik-python-grader` (см. первый экран) или
+[другие способы](docs/use/installation.md). **Запустить** интерактивное меню:
 
 ```bash
 python -m stepik_grader       # надёжный способ (работает всегда)
@@ -169,7 +177,7 @@ stepik-grader --mode 1 --file task.py
 `--sandbox` запускай только доверенные решения (свои или скачанные из Stepik
 as-is).
 Подробная threat model — в
-[docs/configuration.md § Ограничения и безопасность](docs/use/configuration.md#ограничения-и-безопасность).
+[docs/use/configuration.md § Ограничения и безопасность](docs/use/configuration.md#ограничения-и-безопасность).
 Как сообщить об уязвимости — [SECURITY.md](SECURITY.md).
 
 ---
