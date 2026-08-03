@@ -273,3 +273,60 @@ class TestMain:
             patch("stepik_grader.downloader.process_step_url", side_effect=ValueError("bad url")),
         ):
             downloader.main()  # не должно бросить
+
+
+class TestMainReturnsDownloadedPaths:
+    """issue #822 (PROD-09): main() отдаёт скачанные каталоги — меню предлагает по ним проверку.
+
+    Раньше возвращался ``None``, и замкнуть цикл download→grade было не на чем:
+    пользователь набирал многосегментный путь с кириллическими slug'ами руками
+    ровно в момент активации, «задача скачана → первый зелёный прогон».
+    """
+
+    @staticmethod
+    def _run(tmp_path: pathlib.Path, urls: list[str], side_effect: object) -> object:
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", return_value={}),
+            patch("stepik_grader.downloader.create_user_session", return_value=MagicMock()),
+            patch("builtins.input", side_effect=[*urls, ""]),
+            patch("stepik_grader.downloader.process_step_url", side_effect=side_effect),
+        ):
+            return downloader.main()
+
+    def test_returns_task_dirs_in_download_order(self, tmp_path: pathlib.Path):
+        first, second = tmp_path / "t1", tmp_path / "t2"
+        result = self._run(
+            tmp_path,
+            ["http://a", "http://b"],
+            [(first, 3, "attempt"), (second, 5, "html_table")],
+        )
+        assert result == [first, second]
+
+    def test_failed_url_is_not_reported_as_downloaded(self, tmp_path: pathlib.Path):
+        """Отказ по одному URL не должен предлагать проверку несуществующей задачи."""
+        ok = tmp_path / "ok"
+        result = self._run(
+            tmp_path,
+            ["http://bad", "http://good"],
+            [ValueError("bad url"), (ok, 1, "attempt")],
+        )
+        assert result == [ok]
+
+    def test_config_error_returns_empty_list(self, tmp_path: pathlib.Path):
+        """Ранний выход отдаёт список, а не ``None`` — вызывающему нечего проверять."""
+        with patch(
+            "stepik_grader.downloader.load_or_create_config", side_effect=RuntimeError("boom")
+        ):
+            assert downloader.main() == []
+
+    def test_auth_error_returns_empty_list(self, tmp_path: pathlib.Path):
+        cfg = {"root_dir": str(tmp_path), "secrets_path": str(tmp_path / "s.json")}
+        with (
+            patch("stepik_grader.downloader.load_or_create_config", return_value=cfg),
+            patch("stepik_grader.downloader.normalize_config_paths", return_value=cfg),
+            patch("stepik_grader.downloader.load_secrets_dict", side_effect=RuntimeError("no")),
+        ):
+            assert downloader.main() == []

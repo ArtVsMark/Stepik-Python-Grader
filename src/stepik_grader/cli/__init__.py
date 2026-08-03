@@ -170,6 +170,45 @@ def _t(key: str, /, **kwargs: object) -> str:
     return template.format(**kwargs) if kwargs else template
 
 
+# issue #824 (DESC-04): подписи табличных отчётов собираются здесь и передаются в
+# reporter готовыми строками — сам reporter про локали не знает и остаётся leaf'ом.
+# Единицы длительности («42с») намеренно не сюда: у них уже есть ключи
+# progress_export_unit_*, общие с HTML-экспортом прогресса (issue #823).
+def _insights_labels() -> dict[str, str]:
+    """Подписи таблицы «Подучить» на текущем языке."""
+    return {
+        "title": _t("insights_table_title"),
+        "col_key": _t("insights_col_key"),
+        "col_status": _t("insights_col_status"),
+        "col_seen": _t("insights_col_seen"),
+        "col_link": _t("insights_col_link"),
+        "status_active": _t("insights_status_active"),
+        "status_fading": _t("insights_status_fading"),
+        "status_watch": _t("insights_status_watch"),
+        "status_archived": _t("insights_status_archived"),
+    }
+
+
+def _progress_labels() -> dict[str, str]:
+    """Подписи таблицы «Прогресс» на текущем языке."""
+    return {
+        "title": _t("progress_table_title"),
+        "col_task": _t("progress_col_task"),
+        "col_solved": _t("progress_col_solved"),
+        "col_attempts": _t("progress_col_attempts"),
+        "col_time": _t("progress_col_time"),
+        "no_task": _t("progress_export_no_task"),
+        "unit_sec": _t("progress_export_unit_sec"),
+        "unit_min": _t("progress_export_unit_min"),
+        "unit_hour": _t("progress_export_unit_hour"),
+    }
+
+
+def _lint_labels() -> dict[str, str]:
+    """Подписи блока «Стиль» на текущем языке."""
+    return {"title": _t("lint_block_title"), "lines": _t("lint_lines_label")}
+
+
 # ---------------------------------------------------------------------------
 # Интерактивное меню / профили нагрузки — issue #121 Phase 2.
 #
@@ -523,9 +562,11 @@ def main(argv: list[str] | None = None) -> None:
             print(_t("insights_no_data"))
         else:
             if progress:
-                print_progress_summary(progress)
+                print_progress_summary(progress, labels=_progress_labels())
             if cards:
-                print_insights_summary(cards, rules_provider=rules.bundled_rules())
+                print_insights_summary(
+                    cards, rules_provider=rules.bundled_rules(), labels=_insights_labels()
+                )
         return
 
     if args.init_vscode:

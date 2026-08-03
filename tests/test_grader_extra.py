@@ -167,3 +167,165 @@ class TestLoadTextLines:
         f = tmp_path / "f.txt"
         f.write_text("a\nb\nc\n", encoding="utf-8")
         assert load_text_lines(f) == ["a", "b", "c"]
+
+
+# ---------------------------------------------------------------------------
+# issue #824 — отчёт о провале: вход кейса, обрезка простыней, выравнивание
+# plain-таблиц, локализованные подписи. Всё это раньше отсутствовало: вход не
+# печатался ни разу, Expected/Actual/diff не имели потолка (единственным
+# предохранителем был CONFIG.max_output_bytes = 10 МиБ), а колонка памяти в
+# benchmark-таблице была на символ шире своей шапки.
+# ---------------------------------------------------------------------------
+
+
+class TestFailureReportInput:
+    """DESC-01: вход кейса виден рядом с ожидаемым и полученным."""
+
+    @staticmethod
+    def _wa(case: TestCase, capsys, monkeypatch, **over: object) -> str:
+        monkeypatch.setattr(reporter, "_RICH", False)
+        payload: dict[str, object] = {
+            "passed": False,
+            "error": "",
+            "expected": ["2"],
+            "output": ["3"],
+            "diff": "",
+        }
+        payload.update(over)
+        print_case_verbose(case, payload)  # type: ignore[arg-type]
+        return capsys.readouterr().out
+
+    def test_stdin_is_printed_for_failed_case(self, capsys, monkeypatch) -> None:
+        """Первый вопрос после «✗ Test 7: WA» — на каких данных сломалось."""
+        case = TestCase(index=7, input_lines=["4", "8 15"], expected_lines=["2"])
+        out = self._wa(case, capsys, monkeypatch)
+        assert "Input:" in out
+        assert "4 | 8 15" in out
+
+    def test_empty_stdin_is_labelled_not_blank(self, capsys, monkeypatch) -> None:
+        """Кейс без ввода — это факт, а не пропущенная строка отчёта."""
+        case = TestCase(index=1, input_lines=[], expected_lines=["2"])
+        out = self._wa(case, capsys, monkeypatch)
+        assert "Input:" in out
+        assert "(empty)" in out
+
+    def test_passed_case_stays_terse(self, capsys, monkeypatch) -> None:
+        """У зачтённого кейса вход не печатается — отлаживать нечего."""
+        case = TestCase(index=1, input_lines=["42"], expected_lines=["42"])
+        monkeypatch.setattr(reporter, "_RICH", False)
+        print_case_verbose(case, {"passed": True, "error": ""})
+        assert "Input:" not in capsys.readouterr().out
+
+
+class TestFailureReportClipping:
+    """DESC-02: одна «болтливая» ошибка не вымывает вердикты остальных кейсов."""
+
+    def test_long_expected_and_actual_are_clipped_with_volume(self, capsys, monkeypatch) -> None:
+        monkeypatch.setattr(reporter, "_RICH", False)
+        case = TestCase(index=1, input_lines=["x"], expected_lines=["y"])
+        payload = {
+            "passed": False,
+            "error": "",
+            "expected": ["E" * 5000],
+            "output": ["A" * 5000],
+            "diff": "",
+        }
+        print_case_verbose(case, payload)  # type: ignore[arg-type]
+        out = capsys.readouterr().out
+
+        assert "E" * 5000 not in out
+        assert "A" * 5000 not in out
+        # Объём отброшенного назван: «обрезано» без числа не отличает потерю
+        # одного символа от потери ста тысяч.
+        dropped = 5000 - reporter._VERBOSE_MAX_VALUE_CHARS
+        assert out.count(f"ещё {dropped} симв.") == 2
+
+    def test_long_diff_is_clipped_with_line_count(self, capsys, monkeypatch) -> None:
+        monkeypatch.setattr(reporter, "_RICH", False)
+        case = TestCase(index=1, input_lines=["x"], expected_lines=["y"])
+        payload = {
+            "passed": False,
+            "error": "",
+            "expected": ["y"],
+            "output": ["z"],
+            "diff": "\n".join(f"-line{i}" for i in range(500)),
+        }
+        print_case_verbose(case, payload)  # type: ignore[arg-type]
+        out = capsys.readouterr().out
+
+        printed = sum(1 for line in out.splitlines() if line.strip().startswith("-line"))
+        assert printed == reporter._VERBOSE_MAX_DIFF_LINES
+        assert f"ещё {500 - reporter._VERBOSE_MAX_DIFF_LINES} стр." in out
+
+    def test_long_stdin_is_clipped_too(self, capsys, monkeypatch) -> None:
+        """Вход обрезается наравне с остальным: он тоже приходит от решения."""
+        monkeypatch.setattr(reporter, "_RICH", False)
+        case = TestCase(index=1, input_lines=["I" * 5000], expected_lines=["y"])
+        payload = {"passed": False, "error": "", "expected": ["y"], "output": ["z"], "diff": ""}
+        print_case_verbose(case, payload)  # type: ignore[arg-type]
+        assert "I" * 5000 not in capsys.readouterr().out
+
+    def test_short_values_are_untouched(self, capsys, monkeypatch) -> None:
+        """Обычный кейс не должен обрасти многоточиями — регресс на границе."""
+        monkeypatch.setattr(reporter, "_RICH", False)
+        case = TestCase(index=1, input_lines=["4"], expected_lines=["2"])
+        payload = {
+            "passed": False,
+            "error": "",
+            "expected": ["2"],
+            "output": ["3"],
+            "diff": "-2\n+3",
+        }
+        print_case_verbose(case, payload)  # type: ignore[arg-type]
+        out = capsys.readouterr().out
+        assert "ещё" not in out
+
+
+class TestPlainTableAlignment:
+    """DESC-07: без rich колонки не разъезжаются — это то, что видно в CI-логах."""
+
+    @staticmethod
+    def _edges(header: str, row: str, pairs: list[tuple[str, str]]) -> list[tuple[str, int, int]]:
+        return [
+            (label, header.index(label) + len(label), row.rindex(value) + len(value))
+            for label, value in pairs
+        ]
+
+    def test_benchmark_header_matches_row_widths(self, capsys) -> None:
+        print_benchmark_header(col_file=20)
+        header = capsys.readouterr().out.splitlines()[1]
+        row = format_benchmark_row(
+            pathlib.Path("sol.py"),
+            pathlib.Path("."),
+            _bench_data(),
+            col_file=20,
+        )
+        for label, head_end, value_end in self._edges(
+            header,
+            row,
+            [("Std dev", "50.000 ms"), ("Memory", "10.00 MB"), ("Relative", "100.0%")],
+        ):
+            assert head_end == value_end, f"колонка {label!r} съехала на {value_end - head_end}"
+
+    def test_correctness_header_matches_row_widths(self, capsys) -> None:
+        print_correctness_header(col_file=20)
+        header = capsys.readouterr().out.splitlines()[1]
+        row = format_correctness_row(
+            pathlib.Path("sol.py"),
+            pathlib.Path("."),
+            {
+                "total": 5,
+                "passed": 5,
+                "failed": 0,
+                "errors": 0,
+                "total_time": 1.0,
+                "avg_time": 0.2,
+                "peak_memory_mb": 12.34,
+                "first_fail": "-",
+            },
+            col_file=20,
+        )
+        for label, head_end, value_end in self._edges(
+            header, row, [("Memory, MB", "12.34 MB"), ("Status", "OK")]
+        ):
+            assert head_end == value_end, f"колонка {label!r} съехала на {value_end - head_end}"

@@ -588,6 +588,20 @@ const INSIGHT_STATUS = {
   archived: { icon: "✅", label: "insights.status_archived" },
 };
 
+// issue #822 (COMM-02): что означает тип падения и что с ним делать. Раньше
+// карточка печатала сырой ключ («output-format», «wrong-answer»), и раздел судил,
+// но не учил: виден английский жаргон, не видно, что чинить. Ключи RE
+// («runtime-error:IndexError») сюда не попадают — у них уже есть glossary_id и
+// имя исключения само по себе информативно; lint-коды ведут в «Правила».
+// glossary — карточка, в которую ведёт ссылка, когда своей у типа падения нет.
+const FAILURE_KIND = {
+  "output-format": { title: "insights.kind_output_format", hint: "insights.kind_output_format_hint", glossary: "str.strip" },
+  "wrong-answer": { title: "insights.kind_wrong_answer", hint: "insights.kind_wrong_answer_hint" },
+  "timeout": { title: "insights.kind_timeout", hint: "insights.kind_timeout_hint", glossary: "range" },
+  "slow": { title: "insights.kind_slow", hint: "insights.kind_slow_hint" },
+  "runtime-error": { title: "insights.kind_runtime_error", hint: "insights.kind_runtime_error_hint" },
+};
+
 async function loadInsights() {
   // issue #806: сбой отличается от «данных пока нет». Раньше любая ошибка
   // превращалась в пустой список, и раздел рапортовал «Пока пусто — и это
@@ -622,15 +636,24 @@ function renderInsights() {
   list.innerHTML = cards
     .map(c => {
       const st = INSIGHT_STATUS[c.status] || { icon: "•", label: c.status };
-      const ref = c.glossary_id
-        ? ' · <a href="#/glossary/' + esc(c.glossary_id) + '">' + esc(t("insights.link_glossary")) + "</a>"
+      const kind = FAILURE_KIND[c.key];
+      // Понятное название вместо жаргонного ключа; сам ключ остаётся в title —
+      // он стабильный идентификатор и по нему ищут в доках (issue #822).
+      const label = kind
+        ? '<span class="insight-key" title="' + esc(c.key) + '">' + esc(t(kind.title)) + "</span>"
+        : '<span class="insight-key">' + esc(c.key) + "</span>";
+      const advice = kind ? '<div class="hint insight-advice">' + esc(t(kind.hint)) + "</div>" : "";
+      const target = c.glossary_id || (kind && kind.glossary) || "";
+      const ref = target
+        ? ' · <a href="#/glossary/' + esc(target) + '">' + esc(t("insights.link_glossary")) + "</a>"
         : c.category === "lint"
           ? ' · <a href="#/rules/' + esc(c.key) + '">' + esc(t("insights.link_rule")) + "</a>"
           : "";
       return (
         '<li class="insight-card insight-' + esc(c.status) + '">' +
         '<div class="insight-head"><span class="insight-status">' + st.icon + " " + esc(t(st.label)) +
-        '</span> <span class="insight-key">' + esc(c.key) + "</span></div>" +
+        "</span> " + label + "</div>" +
+        advice +
         '<div class="hint">' + tp(c.runs_considered, "insights.seen_in", { hits: c.hits }) + ref + "</div>" +
         "</li>"
       );

@@ -399,13 +399,21 @@ def process_step_url(
 # ---------------------------------------------------------------------------
 
 
-def main(lang: str = "ru") -> None:
+def main(lang: str = "ru") -> list[pathlib.Path]:
     """Главная функция: конфиг → авторизация → цикл обработки URL шагов.
 
     ``lang`` (issue #821) — язык интерактива: меню уже знает выбор пользователя
     и передаёт его сюда, поэтому мастер OAuth и статусы скачивания больше не
     остаются русскими под ``--lang en``. Значение прокидывается и в
     ``downloader_config``, где живёт вся конфигурационная часть мастера.
+
+    Returns:
+        Каталоги успешно скачанных задач, в порядке скачивания (issue #822).
+        Меню предлагает по ним сразу запустить проверку — иначе пользователь
+        вручную набирал многосегментный путь с кириллическими slug'ами ровно в
+        момент активации, «задача скачана → первый зелёный прогон». Сбой
+        конфига/авторизации и отказ по одному URL дают пустой список, а не
+        исключение: цикл ввода URL остаётся best-effort, как и был.
     """
     set_lang(lang)
     downloader_config.set_lang(lang)
@@ -417,7 +425,7 @@ def main(lang: str = "ru") -> None:
         config = normalize_config_paths(config, config_path)
     except Exception as error:
         _print(_t("dl_config_error", error=error))
-        return
+        return []
 
     root_dir = pathlib.Path(str(config["root_dir"]))
     secrets_path = pathlib.Path(str(config["secrets_path"]))
@@ -431,17 +439,21 @@ def main(lang: str = "ru") -> None:
         _print(_t("dl_auth_check_fields", url=STEPIK_OAUTH_APPS_URL))
         _print(_t("dl_auth_diagnostics"))
         _print(_t("dl_auth_docs"))
-        return
+        return []
 
+    downloaded: list[pathlib.Path] = []
     _print(f"\n{_t('dl_enter_urls')}")
     while True:
         step_url = input(f"{_t('dl_step_url_prompt')}: ").strip()
         if not step_url:
             break
         try:
-            process_step_url(step_url, session, root_dir)
+            task_dir, _, _ = process_step_url(step_url, session, root_dir)
         except Exception as error:
             _print(_t("dl_step_error", error=error))
+        else:
+            downloaded.append(task_dir)
+    return downloaded
 
 
 if __name__ == "__main__":

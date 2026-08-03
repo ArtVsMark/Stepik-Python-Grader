@@ -758,6 +758,9 @@ select.form-input { cursor: pointer; }
 .insight-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-1); }
 .insight-key { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; overflow-wrap: anywhere; }
 .insight-status { font-size: var(--text-sm); white-space: nowrap; }
+/* issue #822: «что делать» под названием типа падения. Читаемый абзац, а не
+   служебная строка — у .hint по умолчанию text-xs, для объяснения этого мало. */
+.insight-advice { font-size: var(--text-sm); color: var(--color-text); margin-bottom: var(--space-2); }
 
 /* issue #317: песочница — stderr красным, поле stdin как редактор. */
 .sandbox-stderr { color: var(--color-error); }

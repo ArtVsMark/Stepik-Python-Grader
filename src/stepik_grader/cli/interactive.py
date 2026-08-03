@@ -237,9 +237,51 @@ def _show_insights(ctx: CliContext) -> None:
         k=CONFIG.insights_clean_streak_k,
     )
     if not cards:
-        print(ctx.t("insights_no_data"))
+        # issue #822 (PROD-11): в меню историю включают пунктом 7, а не флагом.
+        # Общий текст советовал `--history` — из меню это тупик: пользователь
+        # уходил искать флаг, которого здесь нет, и обычно не возвращался.
+        print(ctx.t("insights_no_data_menu"))
     else:
-        print_insights_summary(cards, rules_provider=rules.bundled_rules())
+        from stepik_grader.cli import _insights_labels
+
+        print_insights_summary(
+            cards, rules_provider=rules.bundled_rules(), labels=_insights_labels()
+        )
+
+
+def _maybe_grade_downloaded(
+    ctx: CliContext,
+    downloaded: list[pathlib.Path],
+    *,
+    record_stats: bool,
+    record_history: bool,
+) -> bool | None:
+    """Предложить проверить только что скачанную задачу (issue #822, PROD-09).
+
+    Возвращает ``had_failures`` прогона или ``None``, если проверять было нечего
+    либо пользователь отказался — вызывающая сторона по ``None`` понимает, что
+    прогона не было, и не трогает серию зачётов.
+
+    Скачано несколько задач — предлагаем последнюю: это та, что пользователь
+    ввёл только что, и другие варианты требовали бы ещё одного выбора ровно
+    там, где мы экономим ввод. Остальные никуда не делись — они в меню по
+    пунктам 1/2, и путь уже напечатан загрузчиком.
+    """
+    if not downloaded:
+        return None
+    task_dir = downloaded[-1]
+    if len(downloaded) > 1:
+        print(ctx.t("grade_downloaded_many", count=len(downloaded)))
+    try:
+        answer = input(ctx.t("grade_downloaded_prompt", path=task_dir)).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        # Симметрично остальному пункту 8: отказ от ответа — это отказ от
+        # прогона, а не падение меню.
+        print()
+        return None
+    if answer not in _CONFIRM_YES:
+        return None
+    return bool(ctx.run_mode_2(task_dir, record_stats=record_stats, record_history=record_history))
 
 
 def _maybe_nudge_history(
@@ -553,8 +595,30 @@ def _interactive_menu(ctx: CliContext) -> None:
                 # Ctrl+C прерывает скачивание и возвращает в меню, не роняя процесс.
                 # issue #821: язык меню передаётся мастеру — иначе под `--lang en`
                 # пользователь получал английское меню и русский мастер OAuth.
+                downloaded: list[pathlib.Path] = []
                 with contextlib.suppress(KeyboardInterrupt):
-                    downloader.main(lang=ctx.lang)
+                    downloaded = downloader.main(lang=ctx.lang)
+                # issue #822 (PROD-09): замкнуть воронку download→grade. В web то
+                # же место закрыто кнопкой (downloader.js подставляет путь и
+                # переключает на «Проверить»), а в CLI пользователь набирал
+                # многосегментный путь с кириллическими slug'ами руками.
+                graded = _maybe_grade_downloaded(
+                    ctx,
+                    downloaded,
+                    record_stats=record_stats,
+                    record_history=record_history,
+                )
+                if graded is not None:
+                    nudged = _maybe_nudge_history(
+                        ctx, graded, record_history=record_history, nudged=nudged
+                    )
+                    success_streak = 0 if graded else success_streak + 1
+                    nudged_success = _maybe_nudge_success_streak(
+                        ctx,
+                        success_streak,
+                        record_history=record_history,
+                        nudged_success=nudged_success,
+                    )
 
             elif choice == "9":
                 # issue #753: обратная связь — prefilled-форма issue на GitHub.
