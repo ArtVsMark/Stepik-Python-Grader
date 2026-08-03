@@ -96,21 +96,21 @@ def _make_testcase(
 
 class TestSetRunner:
     def test_replaces_active_runner(self, monkeypatch) -> None:
-        from stepik_grader.core import grader_core
+        from stepik_grader.core import runner as runner_mod
 
-        original = grader_core._RUNNER
+        original = runner_mod._RUNNER
         try:
             fake = object()
-            grader_core.set_runner(fake)  # type: ignore[arg-type]
-            assert grader_core._RUNNER is fake
+            runner_mod.set_runner(fake)  # type: ignore[arg-type]
+            assert runner_mod._RUNNER is fake
         finally:
-            grader_core.set_runner(original)
+            runner_mod.set_runner(original)
 
     def test_default_is_local_runner(self) -> None:
-        from stepik_grader.core import grader_core
+        from stepik_grader.core import runner as runner_mod
         from stepik_grader.core.runner import LocalRunner
 
-        assert isinstance(grader_core._RUNNER, LocalRunner)
+        assert isinstance(runner_mod._RUNNER, LocalRunner)
 
 
 # ---------------------------------------------------------------------------
@@ -232,14 +232,14 @@ class TestRunSingleTestStdin:
         must map to a distinct SANDBOX_VIOLATION verdict, not RE/TLE. Uses a
         stub Runner (no real sandbox backend needed at this layer -- this
         tests grader_core's own interpretation of the field)."""
-        from stepik_grader.core import grader_core
+        from stepik_grader.core import runner as runner_mod
         from stepik_grader.core.runner import RunOutcome
 
         class _StubSandboxRunner:
             def run(self, spec):
                 return RunOutcome(sandbox_violation="memory", elapsed=1.5, peak_memory_mb=512.0)
 
-        monkeypatch.setattr(grader_core, "_RUNNER", _StubSandboxRunner())
+        monkeypatch.setattr(runner_mod, "_RUNNER", _StubSandboxRunner())
         sol = tmp_path / "task1.py"
         sol.write_text("print(1)\n")
         case = _make_testcase()

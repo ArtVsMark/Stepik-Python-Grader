@@ -454,3 +454,91 @@ def test_load_config_reports_every_invalid_value(
     # переимпортирует stepik_grader.config, после чего файловый GraderConfig — уже
     # другой класс, а dataclass-__eq__ сравнивает только объекты одного класса.
     assert cfg == config_module.GraderConfig()
+
+
+# ---------------------------------------------------------------------------
+# issue #830 (ARCH-04): конфиг читается в момент ВЫЗОВА, а не вмораживается
+# в дефолты аргументов при импорте модуля.
+#
+# До правки `grader_core` читал CONFIG на импорте (`TIMEOUT_SECONDS`) и ставил
+# снимок дефолтом аргумента — то есть значение фиксировалось при ОПРЕДЕЛЕНИИ
+# функции. Ленивость config.py (PEP 562) на реальном пути обесценивалась:
+# импорт grader_core сразу читал pyproject.toml, а поменять таймаут без
+# перезагрузки модуля было нельзя.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def _fresh_config(monkeypatch: pytest.MonkeyPatch):
+    """Подменяет конфиг, который видит ``grader_core``, и возвращает установщик.
+
+    Патчится именно ``grader_core.get_config``, а не ``config._cached_config``:
+    соседний ``test_bare_import_does_not_read_pyproject_toml`` переимпортирует
+    ``stepik_grader.config``, после чего в ``sys.modules`` лежит ДРУГОЙ объект
+    модуля, и подмена кеша в нём до уже импортированного ``grader_core`` не
+    доходит — тест зеленел бы или краснел в зависимости от порядка файлов.
+    """
+    from stepik_grader.core import grader_core
+
+    def apply(**overrides: object) -> None:
+        patched = dataclasses.replace(grader_core.get_config(), **overrides)  # type: ignore[arg-type]
+        monkeypatch.setattr(grader_core, "get_config", lambda: patched)
+
+    return apply
+
+
+class TestConfigReadAtCallTime:
+    def test_run_single_test_takes_current_timeout(self, _fresh_config, monkeypatch) -> None:
+        """``run_single_test`` без явного timeout берёт АКТУАЛЬНЫЙ конфиг.
+
+        Проверяется по ``RunSpec.timeout``, который уходит в runner: именно он
+        решает, когда процесс решения будет убит.
+        """
+        from stepik_grader.core import grader_core
+        from stepik_grader.core.runner import RunOutcome, RunSpec
+        from stepik_grader.core.test_loader import TestCase
+
+        seen: list[RunSpec] = []
+
+        def spy(spec: RunSpec) -> RunOutcome:
+            seen.append(spec)
+            return RunOutcome()
+
+        monkeypatch.setattr(grader_core, "run_spec", spy)
+        _fresh_config(timeout_seconds=33.0)
+
+        grader_core.run_single_test(
+            pathlib.Path("solution.py"), TestCase(index=1, input_lines=[], expected_lines=[])
+        )
+
+        assert seen and seen[0].timeout == 33.0, (
+            "таймаут взят снимком времени импорта, а не текущим конфигом"
+        )
+
+    def test_explicit_timeout_still_wins(self, _fresh_config, monkeypatch) -> None:
+        """Явный аргумент важнее конфига — sentinel ``None`` не съел параметр."""
+        from stepik_grader.core import grader_core
+        from stepik_grader.core.runner import RunOutcome, RunSpec
+        from stepik_grader.core.test_loader import TestCase
+
+        seen: list[RunSpec] = []
+        monkeypatch.setattr(
+            grader_core,
+            "run_spec",
+            lambda spec: (seen.append(spec), RunOutcome())[1],
+        )
+        _fresh_config(timeout_seconds=33.0)
+
+        grader_core.run_single_test(
+            pathlib.Path("solution.py"),
+            TestCase(index=1, input_lines=[], expected_lines=[]),
+            timeout=2.5,
+        )
+
+        assert seen and seen[0].timeout == 2.5
+
+    def test_module_constant_stays_for_back_compat(self) -> None:
+        """Снимок ``TIMEOUT_SECONDS`` остаётся в модуле — на него ссылается фасад."""
+        from stepik_grader.core import grader_core
+
+        assert isinstance(grader_core.TIMEOUT_SECONDS, float)

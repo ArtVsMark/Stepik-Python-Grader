@@ -24,6 +24,7 @@ import requests
 
 from stepik_grader import downloader
 from stepik_grader.core.oauth_flow import load_secrets_dict, try_create_session_without_browser
+from stepik_grader.core.stepik_client import read_step_id
 from stepik_grader.core.storage import load_json_file, save_json_file
 from stepik_grader.core.test_loader import load_test_cases
 
@@ -31,6 +32,7 @@ __all__ = [
     "DEFAULT_SECRETS_NAME",
     "download_task",
     "read_config",
+    "read_step_id",
     "secrets_path_for",
     "write_config",
 ]

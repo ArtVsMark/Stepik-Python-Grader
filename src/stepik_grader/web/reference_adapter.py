@@ -29,7 +29,7 @@ __all__ = ["import_reference"]
 
 
 def import_reference(
-    path: str, *, top: int = DEFAULT_MAX_TOP, workspace: pathlib.Path | None = None
+    path: str, *, top: int | None = None, workspace: pathlib.Path | None = None
 ) -> dict[str, Any]:
     """Импортировать закреплённое решение Stepik в папку задачи — web (issue #55).
 
@@ -38,10 +38,15 @@ def import_reference(
     роняет сервер в 500 (паттерн ``downloader_adapter.download_task``).
     ``files`` — имена сохранённых ``task{N}_{100+}.py`` при успехе.
 
+    ``top=None`` (или неположительное) — предел ядра ``DEFAULT_MAX_TOP``:
+    значение по умолчанию живёт здесь, чтобы слой маршрутов не знал про
+    ``core.stepik_reference`` (issue #830, ARCH-07).
+
     ``workspace`` — рабочая директория сервера, относительно неё ищется
     ``stepik_config.json`` с путём к ``secrets.json`` (issue #723); ``None`` —
     текущая директория процесса.
     """
+    max_top = top if top is not None and top > 0 else DEFAULT_MAX_TOP
     base = workspace if workspace is not None else pathlib.Path.cwd()
     secrets_path = secrets_path_for(base)
 
@@ -68,7 +73,9 @@ def import_reference(
         }
 
     try:
-        saved = import_references_from_task_dir(pathlib.Path(path), max_top=top, session=session)
+        saved = import_references_from_task_dir(
+            pathlib.Path(path), max_top=max_top, session=session
+        )
     except (FileNotFoundError, ValueError) as exc:
         return {"ok": False, "message": str(exc)}
     except requests.RequestException as exc:

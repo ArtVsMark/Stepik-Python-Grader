@@ -44,8 +44,6 @@ from stepik_grader.core import (
 from stepik_grader.core.cache import GraderCache, hash_solution, hash_tests
 from stepik_grader.core.failure_context import build_failure_context
 from stepik_grader.core.grader_core import (
-    MUCH_SLOWER_THRESHOLD,
-    SIMILAR_THRESHOLD,
     collect_grouped_files,
     find_all_solution_files,
     resolve_test_dir,
@@ -690,10 +688,11 @@ def _run_mode_3(
             continue
         results[path] = ctx.run_benchmark(path, individual_test_dir, repeats=repeats)
 
+    bench_cfg = get_config()
     apply_relative_ranking(
         results,
-        similar_threshold=SIMILAR_THRESHOLD,
-        much_slower_threshold=MUCH_SLOWER_THRESHOLD,
+        similar_threshold=bench_cfg.similar_threshold,
+        much_slower_threshold=bench_cfg.much_slower_threshold,
     )
 
     if record_stats or record_history:

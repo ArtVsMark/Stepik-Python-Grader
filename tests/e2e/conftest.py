@@ -34,8 +34,8 @@ from typing import Any
 
 import pytest
 
-from stepik_grader import web
 from stepik_grader.core import user_settings
+from stepik_grader.web import server as web_server
 
 __all__: list[str] = []
 
@@ -92,7 +92,9 @@ def e2e_server(tmp_path: Path) -> Iterator[str]:
         user_settings.UserSettings(onboarding_seen=True),
         tmp_path / user_settings.SETTINGS_FILE_NAME,
     )
-    httpd = web._GraderServer(("127.0.0.1", 0), web._Handler, workspace=tmp_path, confine=True)
+    httpd = web_server._GraderServer(
+        ("127.0.0.1", 0), web_server._Handler, workspace=tmp_path, confine=True
+    )
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     host, port = httpd.server_address[0], httpd.server_address[1]

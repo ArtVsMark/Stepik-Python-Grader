@@ -4,7 +4,7 @@ microbench_runner.py is now LIVE — grader.py imports run_microbench from it an
 calls it from run_microbench_mode (stdin path). These tests exercise the module's
 public surface directly.
 
-run_microbench runs the bench script through the active grader_core._RUNNER
+run_microbench runs the bench script through the active runner._RUNNER
 (issue #417) and redirects the solution's stdout to os.devnull during the
 timeit.repeat call (repeat=5), so printed output never leaks into the parsed
 timings. Its signature is
@@ -86,21 +86,21 @@ def test_microbench_runner_stdout_suppressed() -> None:
 
 
 def test_microbench_runner_timeout_returns_error(monkeypatch) -> None:
-    """issue #417: bench исполняется через активный grader_core._RUNNER; таймаут
+    """issue #417: bench исполняется через активный ``runner._RUNNER``; таймаут
     приходит как RunOutcome(timed_out=True).
 
     Issue #47 R-01: error message reports the iteration count (`number`) that
     was running when the timeout fired -- the most useful diagnostic available
     without a genuine per-call timeout inside the child process.
     """
-    from stepik_grader.core import grader_core
+    from stepik_grader.core import runner as runner_mod
     from stepik_grader.core.runner import RunOutcome
 
     class _TimeoutRunner:
         def run(self, spec):
             return RunOutcome(timed_out=True, elapsed=60.0)
 
-    monkeypatch.setattr(grader_core, "_RUNNER", _TimeoutRunner())
+    monkeypatch.setattr(runner_mod, "_RUNNER", _TimeoutRunner())
     result = run_microbench("x = 1\n", stdin_data="", number=5000)
     assert result["times"] == []
     assert "number=5000" in result["error"]
@@ -111,14 +111,14 @@ def test_microbench_runner_timeout_returns_error(monkeypatch) -> None:
 def test_microbench_runner_unexpected_exception_returns_error(monkeypatch) -> None:
     """issue #417: сбой запуска (Runner не смог спавнить дочерний процесс)
     приходит как RunOutcome(launch_error=...) → error-результат."""
-    from stepik_grader.core import grader_core
+    from stepik_grader.core import runner as runner_mod
     from stepik_grader.core.runner import RunOutcome
 
     class _LaunchErrorRunner:
         def run(self, spec):
             return RunOutcome(launch_error="no such file")
 
-    monkeypatch.setattr(grader_core, "_RUNNER", _LaunchErrorRunner())
+    monkeypatch.setattr(runner_mod, "_RUNNER", _LaunchErrorRunner())
     result = run_microbench("x = 1\n", stdin_data="", number=5)
     assert result["times"] == []
     assert "no such file" in result["error"]
@@ -126,10 +126,13 @@ def test_microbench_runner_unexpected_exception_returns_error(monkeypatch) -> No
 
 
 def test_microbench_runner_uses_public_run_spec(monkeypatch) -> None:
-    """issue #640: bench исполняется через публичный ``grader_core.run_spec()``,
+    """issue #640: bench исполняется через публичный ``run_spec()``,
     а не через приватный ``_RUNNER`` напрямую — единственная точка выбора
-    backend'а. Guard против возврата к ``_RUNNER.run``."""
-    from stepik_grader.core import grader_core
+    backend'а. Guard против возврата к ``_RUNNER.run``.
+
+    Патчится имя в самом ``microbench_runner``: ``run_spec`` он импортирует
+    напрямую, поэтому подмена в ``core.runner`` до него уже не доходит."""
+    from stepik_grader.core import microbench_runner
     from stepik_grader.core.runner import RunOutcome
 
     calls: list = []
@@ -138,7 +141,7 @@ def test_microbench_runner_uses_public_run_spec(monkeypatch) -> None:
         calls.append(spec)
         return RunOutcome()  # пустой stdout → error-результат, но run_spec вызван
 
-    monkeypatch.setattr(grader_core, "run_spec", fake_run_spec)
+    monkeypatch.setattr(microbench_runner, "run_spec", fake_run_spec)
     run_microbench("x = 1\n", stdin_data="", number=5)
     assert len(calls) == 1  # ровно один прогон, через публичный run_spec
 

@@ -20,7 +20,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from stepik_grader import rules
-from stepik_grader.config import CONFIG
+from stepik_grader.config import CONFIG, get_config
 from stepik_grader.core import history, history_recording, lint
 from stepik_grader.core.error_glossary import resolve_error_hint
 from stepik_grader.core.mtime_cache import MtimeCache
@@ -31,8 +31,6 @@ from stepik_grader.glossary.json_provider import (
     append_missing_entries,
 )
 from stepik_grader.web.grading import (
-    MUCH_SLOWER_THRESHOLD,
-    SIMILAR_THRESHOLD,
     apply_reference_ranking,
     apply_relative_ranking,
     collect_grouped_files,
@@ -905,18 +903,19 @@ def grade_benchmark(
             None,
         )
 
+    bench_cfg = get_config()
     if ref_path is not None:
         apply_reference_ranking(
             results,
             ref_path,
-            similar_threshold=SIMILAR_THRESHOLD,
-            much_slower_threshold=MUCH_SLOWER_THRESHOLD,
+            similar_threshold=bench_cfg.similar_threshold,
+            much_slower_threshold=bench_cfg.much_slower_threshold,
         )
     else:
         apply_relative_ranking(
             results,
-            similar_threshold=SIMILAR_THRESHOLD,
-            much_slower_threshold=MUCH_SLOWER_THRESHOLD,
+            similar_threshold=bench_cfg.similar_threshold,
+            much_slower_threshold=bench_cfg.much_slower_threshold,
         )
 
     rows = _ranked_bench_rows(results, base, _bench_row)

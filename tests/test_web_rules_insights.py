@@ -17,14 +17,16 @@ import urllib.request
 
 import pytest
 
-from stepik_grader import web
 from stepik_grader.core import history, history_recording
 from stepik_grader.core.history import CaseRecord, LintRecord
+from stepik_grader.web import server as web_server
 
 
 @pytest.fixture
 def server(tmp_path: pathlib.Path):
-    httpd = web._GraderServer(("127.0.0.1", 0), web._Handler, workspace=tmp_path, confine=True)
+    httpd = web_server._GraderServer(
+        ("127.0.0.1", 0), web_server._Handler, workspace=tmp_path, confine=True
+    )
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     host, port = httpd.server_address[0], httpd.server_address[1]

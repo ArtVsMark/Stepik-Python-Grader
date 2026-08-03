@@ -28,6 +28,7 @@ TYPE_CHECKING): инвариант «не импортирует ничего и
 from __future__ import annotations
 
 import ast
+import functools
 import pathlib
 import re
 
@@ -280,14 +281,56 @@ def _is_core_pkg(module: str) -> bool:
     return any(module == p or module.startswith(p + ".") for p in _CORE_PKG_PREFIXES)
 
 
-def _private_core_imports(path: pathlib.Path) -> list[str]:
-    """Импортируемые из core/glossary/rules ПРИВАТНЫЕ имена (``from X import _name``)."""
+@functools.cache
+def _module_public_names(module: str) -> frozenset[str] | None:
+    """Имена из ``__all__`` core-модуля; ``None`` — если ``__all__`` не объявлен.
+
+    Читается статически (AST), без импорта модуля: guard обязан работать на файлах,
+    а не на загруженном пакете.
+    """
+    path = _PKG_ROOT.parent / (module.replace(".", "/") + ".py")
+    if not path.is_file():
+        path = _PKG_ROOT.parent / module.replace(".", "/") / "__init__.py"
+    if not path.is_file():
+        return None
+    for node in ast.walk(_parse(path)):
+        if (
+            isinstance(node, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets)
+            and isinstance(node.value, ast.List | ast.Tuple)
+        ):
+            return frozenset(
+                e.value for e in node.value.elts if isinstance(e, ast.Constant) and e.value
+            )
+    return None
+
+
+def _non_public_core_imports(path: pathlib.Path, modules: set[str]) -> list[str]:
+    """Импортируемые из core/glossary/rules НЕПУБЛИЧНЫЕ имена.
+
+    Непубличное — это либо ``_``-префикс, либо имя, которого нет в ``__all__``
+    целевого модуля, когда тот его объявил. Второе — суть issue #830 (ARCH-05):
+    ``grader_core`` намеренно вывел ``SIMILAR_THRESHOLD``/``TIMEOUT_SECONDS`` из
+    ``__all__`` (issue #52 Q-03), но прежний guard считал их публичными, потому
+    что смотрел только на подчёркивание.
+
+    Импорт самого ПОДМОДУЛЯ (``from stepik_grader.core import history``) —
+    не импорт имени: пакеты ядра ``__all__`` не объявляют и не обязаны.
+    """
     offenders: list[str] = []
     for node in ast.walk(_parse(path)):
         if isinstance(node, ast.ImportFrom):
             resolved = _resolve_from_target(path, node)
-            if _is_core_pkg(resolved):
-                offenders += [f"{resolved}.{a.name}" for a in node.names if a.name.startswith("_")]
+            if not _is_core_pkg(resolved):
+                continue
+            public = _module_public_names(resolved)
+            for alias in node.names:
+                if alias.name.startswith("_"):
+                    offenders.append(f"{resolved}.{alias.name}")
+                elif f"{resolved}.{alias.name}" in modules:
+                    continue  # подмодуль, а не имя из поверхности
+                elif public is not None and alias.name not in public:
+                    offenders.append(f"{resolved}.{alias.name}")
         elif isinstance(node, ast.Import):
             offenders += [
                 a.name
@@ -347,11 +390,15 @@ def _direct_grade_core_imports(path: pathlib.Path) -> list[str]:
 
 
 def test_web_does_not_import_private_core_names() -> None:
-    """ADR-0010: ни один web-модуль не импортирует приватные ``_``-имена из ядра."""
-    violations = {_module_name(p): off for p in _web_files() if (off := _private_core_imports(p))}
+    """ADR-0010: web импортирует из ядра только то, что ядро объявило в ``__all__``."""
+    modules = {_module_name(p) for p in _iter_module_files()}
+    violations = {
+        _module_name(p): off for p in _web_files() if (off := _non_public_core_imports(p, modules))
+    }
     assert not violations, (
-        "web импортирует приватные core-имена (нарушение публичной границы, "
-        "ADR-0010 / issue #549):\n"
+        "web импортирует непубличные core-имена — `_`-приватные или выведенные из "
+        "`__all__` целевого модуля (нарушение публичной границы, ADR-0010 / "
+        "issue #549, #830):\n"
         + "\n".join(f"  {mod}: {', '.join(off)}" for mod, off in violations.items())
     )
 
@@ -384,13 +431,92 @@ def test_web_grade_core_only_via_grading_facade() -> None:
     )
 
 
+def test_router_reaches_core_only_through_adapters() -> None:
+    """issue #830 (ARCH-07): слой маршрутов не импортирует ядро напрямую.
+
+    ``api_routes.py`` — тонкая обёртка над адаптерами и viewmodels
+    (docs/dev/architecture.md), собственной логики не добавляет. Прямой импорт
+    ``core.*`` означает, что часть работы (валидация лимита, чтение настроек)
+    осела в HTTP-слое и разъехалась с CLI, который делает то же в другом месте.
+    """
+    router = _PKG_ROOT / "web" / "api_routes.py"
+    direct = sorted(
+        {
+            resolved
+            for node in ast.walk(_parse(router))
+            if isinstance(node, ast.ImportFrom)
+            and _is_core_pkg(resolved := _resolve_from_target(router, node))
+        }
+        | {
+            a.name
+            for node in ast.walk(_parse(router))
+            if isinstance(node, ast.Import)
+            for a in node.names
+            if _is_core_pkg(a.name)
+        }
+    )
+    assert not direct, (
+        "web/api_routes.py импортирует ядро напрямую вместо адаптера "
+        "(issue #830, ARCH-07): " + ", ".join(direct)
+    )
+
+
+def test_package_facades_do_not_reexport_privates() -> None:
+    """issue #830 (ARCH-08): ``__init__`` пакета не реэкспортирует приватные имена.
+
+    Реэкспорт ``_Handler``/``_case_view`` ради удобства тестов закрепляет
+    приватное как де-факто публичный API: символ уже не переименовать, не сверив
+    фасад, — то есть архитектурную поверхность начинают диктовать тесты. Приватное
+    берётся из своего модуля (``web.server``, ``web.viewmodels``) напрямую.
+
+    Приватный ПОДМОДУЛЬ (``core/sandbox/_linux.py``) — не реэкспорт имени:
+    пакет собирает свои реализации, наружу они не торчат.
+
+    ``stepik_grader.cli`` — известное исключение (issue #903): та же болезнь, но
+    ~90 обращений в тестах, чинится отдельной задачей. Список сокращается, а не
+    растёт: новый пакет в нём появляться не должен.
+    """
+    known_debt = {"stepik_grader.cli"}
+    modules = {_module_name(p) for p in _iter_module_files()}
+    violations: dict[str, list[str]] = {}
+    for path in _iter_module_files():
+        if path.name != "__init__.py" or (pkg := _module_name(path)) in known_debt:
+            continue
+        privates = [
+            alias.name
+            for node in ast.walk(_parse(path))
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+            if (alias.asname or alias.name).startswith("_")
+            and alias.name != "annotations"
+            and f"{_resolve_from_target(path, node)}.{alias.name}" not in modules
+        ]
+        if privates:
+            violations[pkg] = privates
+    assert not violations, (
+        "фасад пакета реэкспортирует приватные имена (issue #830, ARCH-08):\n"
+        + "\n".join(f"  {mod}: {', '.join(names)}" for mod, names in violations.items())
+    )
+
+
 def test_boundary_guard_catches_synthetic_violations(tmp_path: pathlib.Path) -> None:
     """Guard-the-guard: детекторы реально ловят приватный импорт / атрибут / прямой grade-core."""
     modules = {"stepik_grader.core.grader_core"}
 
     priv_import = tmp_path / "bad_import.py"
     priv_import.write_text("from stepik_grader.core.grader_core import _RUNNER\n", encoding="utf-8")
-    assert _private_core_imports(priv_import) == ["stepik_grader.core.grader_core._RUNNER"]
+    assert _non_public_core_imports(priv_import, modules) == [
+        "stepik_grader.core.grader_core._RUNNER"
+    ]
+
+    # issue #830 (ARCH-05): имя без подчёркивания, но выведенное из __all__ ядра.
+    excluded = tmp_path / "bad_excluded.py"
+    excluded.write_text(
+        "from stepik_grader.core.grader_core import SIMILAR_THRESHOLD\n", encoding="utf-8"
+    )
+    assert _non_public_core_imports(excluded, modules) == [
+        "stepik_grader.core.grader_core.SIMILAR_THRESHOLD"
+    ], "guard считает публичным всё без подчёркивания — ARCH-05 вернулся"
 
     priv_attr = tmp_path / "bad_attr.py"
     priv_attr.write_text(
@@ -405,9 +531,14 @@ def test_boundary_guard_catches_synthetic_violations(tmp_path: pathlib.Path) -> 
     # Публичный импорт из non-grade core-модуля — НЕ нарушение.
     ok = tmp_path / "ok.py"
     ok.write_text("from stepik_grader.core.history import record_run\n", encoding="utf-8")
-    assert _private_core_imports(ok) == []
+    assert _non_public_core_imports(ok, modules) == []
     assert _direct_grade_core_imports(ok) == []
     assert _private_core_attr_access(ok, {"stepik_grader.core.history"}) == []
+
+    # Импорт самого подмодуля — не имя из поверхности пакета, ``__all__`` там нет.
+    submodule = tmp_path / "ok_submodule.py"
+    submodule.write_text("from stepik_grader.core import history\n", encoding="utf-8")
+    assert _non_public_core_imports(submodule, {"stepik_grader.core.history"}) == []
 
 
 # ---------------------------------------------------------------------------

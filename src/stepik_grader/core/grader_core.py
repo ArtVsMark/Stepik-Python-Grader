@@ -32,7 +32,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
 
-from stepik_grader.config import CONFIG
+from stepik_grader.config import CONFIG, get_config
 
 __all__ = [
     "BenchStats",
@@ -88,12 +88,13 @@ from stepik_grader.core.normalizers import normalize_floats as _normalize_output
 from stepik_grader.core.normalizers import split_output_lines
 from stepik_grader.core.result import CaseResult, Verdict
 from stepik_grader.core.runner import (
-    LocalRunner,
-    Runner,
     RunOutcome,
     RunSpec,
     _apply_memory_limit,  # noqa: F401  (реэкспорт для тестов/grader.py facade)
     _measure_peak_memory,  # noqa: F401  (реэкспорт для тестов/grader.py facade)
+    active_runner,
+    run_spec,
+    set_runner,
 )
 from stepik_grader.core.test_loader import (
     _SOLUTION_FILE_RE,  # noqa: F401  (реэкспорт для grader.py)
@@ -118,6 +119,15 @@ from stepik_grader.core.wrapper_builder import (
 
 # Значения читаются из config.CONFIG (единая точка правды, Sprint 6.3) —
 # переопределяются через [tool.stepik-grader] в pyproject.toml.
+# issue #830 (ARCH-04): константы ниже — СНИМОК на момент импорта, оставленный
+# ради обратной совместимости (на них ссылается grader.py-фасад и внешний код).
+# Внутри модуля они больше НЕ используются как дефолты аргументов: значение
+# читается функцией `get_config()` в момент ВЫЗОВА.
+#
+# Почему именно `get_config()`, а не импортированный `CONFIG`: имя `CONFIG`
+# связывается с объектом при импорте модуля, поэтому обновление конфига после
+# него на нём не отражается. Проверено прогоном — с чтением через `CONFIG`
+# решение со `sleep(3)` при `timeout=1.0` всё равно получало AC за 3.1 с.
 TIMEOUT_SECONDS: float = CONFIG.timeout_seconds
 ENCODING: str = CONFIG.encoding
 
@@ -188,47 +198,15 @@ class BenchStats:
 # Исполнение и агрегация
 # ---------------------------------------------------------------------------
 
-# Runner активен на весь процесс — по умолчанию LocalRunner (issue #138);
-# CLI подменяет его на SandboxRunner (issue #266, core/sandbox/) через
-# set_runner() при --sandbox. grader_core не знает, какой Runner активен —
-# только вызывает run(spec) (см. docs/dev/design/server-mode.md § Runner-слой,
-# инвариант 2); никакой логики этого модуля инъекция не меняет.
-_RUNNER: Runner = LocalRunner()
-
-
-def set_runner(runner: Runner) -> None:
-    """Подменить активный ``Runner`` на весь процесс (issue #266).
-
-    Единственная точка инъекции ``SandboxRunner``/иной реализации — вызывается
-    один раз при старте CLI (``--sandbox``), до диспетчеризации в конкретный
-    режим. Не влияет на поведение, если не вызывается: дефолт — ``LocalRunner``.
-    """
-    global _RUNNER
-    _RUNNER = runner
-
-
-def run_spec(spec: RunSpec) -> RunOutcome:
-    """Исполнить один ``RunSpec`` через активный ``Runner`` и вернуть сырой итог.
-
-    Публичная точка запуска для потребителей вне грейдинга (web-песочница,
-    issue #317): прячет выбор backend'а (``LocalRunner``/``SandboxRunner``) за
-    публичной поверхностью — вызывающему не нужно (и нельзя, ADR-0010) трогать
-    приватный синглтон ``_RUNNER``. Читает module-global при каждом вызове,
-    поэтому ``set_runner()`` и тестовые подмены ``_RUNNER`` видны немедленно.
-    """
-    return _RUNNER.run(spec)
-
-
-def active_runner() -> Runner:
-    """Активный ``Runner`` процесса — публичный аксессор его capability-флагов.
-
-    Замена прямому доступу к приватному ``_RUNNER`` (issue #550): ``core/tracer``
-    консультирует ``active_runner().supports_project_imports``, чтобы решить,
-    доступен ли пошаговый трейс, вместо хрупкого ``type(_RUNNER).__name__ ==
-    "SandboxRunner"``. Читает module-global при каждом вызове — ``set_runner()``
-    и тестовые подмены видны немедленно.
-    """
-    return _RUNNER
+# issue #830 (ARCH-03): сам реестр активного Runner'а переехал в
+# ``core/runner.py`` — владельцу протокола. Здесь остаётся РЕЭКСПОРТ: имена
+# ``set_runner``/``run_spec``/``active_runner`` — часть публичного фасада ядра
+# (ADR-0010), и менять поверхность ради переезда внутренностей незачем.
+#
+# Что это чинит: ``microbench_runner`` и ``tracer`` (модули нижнего уровня)
+# импортировали этот оркестратор ради одного вызова, и оба импорта приходилось
+# держать ленивыми, чтобы не собрать цикл. DAG-guard такие рёбра не видит — он
+# не спускается в тела функций, поэтому цикл существовал, а тест был зелёным.
 
 
 def _fail_result(
@@ -496,8 +474,8 @@ def run_single_test(
     solution_path: pathlib.Path,
     case: TestCase,
     *,
-    timeout: float = TIMEOUT_SECONDS,
-    measure_memory: bool = MEASURE_CHILD_MEMORY,
+    timeout: float | None = None,
+    measure_memory: bool | None = None,
     cancel_event: threading.Event | None = None,
     max_memory_mb: int | None = None,
 ) -> CaseResult:
@@ -527,6 +505,10 @@ def run_single_test(
             процесс не завершился нормально (ошибка запуска/таймаут) —
             issue #125, ErrorCard.exit_code в web-слое.
     """
+    # issue #830 (ARCH-04): значение конфига читается в момент ВЫЗОВА, а не
+    # вмораживается в дефолт при импорте модуля.
+    timeout = get_config().timeout_seconds if timeout is None else timeout
+    measure_memory = get_config().measure_child_memory if measure_memory is None else measure_memory
     plan = _prepare_run_spec(
         solution_path,
         case,
@@ -561,7 +543,7 @@ def run_tests(
     *,
     verbose: bool = False,
     verbose_callback: Callable[[TestCase, CaseResult], None] | None = None,
-    timeout: float = TIMEOUT_SECONDS,
+    timeout: float | None = None,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
     max_memory_mb: int | None = None,
@@ -596,6 +578,9 @@ def run_tests(
         cases      (list)  — детальные результаты по каждому кейсу; каждый
                              включает "stdin" (вход кейса, issue #397)
     """
+    # issue #830 (ARCH-04): значение конфига читается в момент ВЫЗОВА, а не
+    # вмораживается в дефолт при импорте модуля.
+    timeout = get_config().timeout_seconds if timeout is None else timeout
     test_cases = load_test_cases(test_dir)
     # Определяем режим запуска один раз для всех тест-кейсов.
     _apply_run_mode_override(test_cases, solution_path, test_dir)
@@ -673,7 +658,7 @@ def preflight_solution(
     solution_path: pathlib.Path,
     test_dir: pathlib.Path,
     *,
-    timeout: float = TIMEOUT_SECONDS,
+    timeout: float | None = None,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
     max_memory_mb: int | None = None,
@@ -698,6 +683,9 @@ def preflight_solution(
     Такой случай пропускается дальше, и о нём сообщает сам замер своим обычным
     «нет тест-кейсов» — там это уже описанное поведение.
     """
+    # issue #830 (ARCH-04): значение конфига читается в момент ВЫЗОВА, а не
+    # вмораживается в дефолт при импорте модуля.
+    timeout = get_config().timeout_seconds if timeout is None else timeout
     result = run_tests(
         solution_path,
         test_dir,
@@ -724,7 +712,7 @@ def run_benchmark(
     solution_path: pathlib.Path,
     test_dir: pathlib.Path,
     *,
-    timeout: float = TIMEOUT_SECONDS,
+    timeout: float | None = None,
     repeats: int = 15,
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: threading.Event | None = None,
@@ -751,6 +739,9 @@ def run_benchmark(
         verdict    (str)   — задаётся снаружи
         error      (str)   — пустая строка если нет ошибок
     """
+    # issue #830 (ARCH-04): значение конфига читается в момент ВЫЗОВА, а не
+    # вмораживается в дефолт при импорте модуля.
+    timeout = get_config().timeout_seconds if timeout is None else timeout
     test_cases = load_test_cases(test_dir)
     # Определяем режим запуска один раз — как в run_tests().
     # Иначе function-mode задачи прогоняются в неверном stdin-режиме.

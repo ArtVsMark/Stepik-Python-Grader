@@ -49,7 +49,16 @@ except ImportError:
 
 from stepik_grader.config import CONFIG
 
-__all__ = ["LocalRunner", "RunOutcome", "RunSpec", "Runner", "spec_source_bytes"]
+__all__ = [
+    "LocalRunner",
+    "RunOutcome",
+    "RunSpec",
+    "Runner",
+    "active_runner",
+    "run_spec",
+    "set_runner",
+    "spec_source_bytes",
+]
 
 # issue #418: после kill дерева процессов даём ограниченное время на reap —
 # внук, унаследовавший pipe, может держать его открытым, и тогда
@@ -750,3 +759,60 @@ class LocalRunner:
             peak_memory_mb=peak_mb_result[0],
             timed_out=False,
         )
+
+
+# ---------------------------------------------------------------------------
+# Реестр активного Runner'а — issue #830 (ARCH-03)
+#
+# Раньше синглтон и три функции доступа жили в ``core/grader_core`` —
+# оркестраторе. Из-за этого ``microbench_runner`` и ``tracer`` (модули НИЖНЕГО
+# уровня) импортировали оркестратор ради одного вызова ``run_spec``, и оба
+# импорта приходилось делать ленивыми, чтобы не собрать цикл. DAG-guard такие
+# рёбра не видит: он намеренно не спускается в тела функций, поэтому цикл
+# существовал, а тест оставался зелёным — ацикличность держалась на дисциплине
+# «не забыть сделать импорт ленивым», а не на структуре.
+#
+# Владелец протокола ``Runner`` — этот модуль, здесь реестру и место. В
+# ``grader_core`` остаётся реэкспорт: он часть публичного фасада (ADR-0010), и
+# менять его поверхность ради переезда внутренностей незачем.
+# ---------------------------------------------------------------------------
+
+# Runner активен на весь процесс — по умолчанию LocalRunner (issue #138);
+# CLI подменяет его на SandboxRunner (issue #266, core/sandbox/) через
+# set_runner() при --sandbox.
+_RUNNER: Runner = LocalRunner()
+
+
+def set_runner(runner: Runner) -> None:
+    """Подменить активный ``Runner`` на весь процесс (issue #266).
+
+    Единственная точка инъекции ``SandboxRunner``/иной реализации — вызывается
+    один раз при старте CLI (``--sandbox``), до диспетчеризации в конкретный
+    режим. Не влияет на поведение, если не вызывается: дефолт — ``LocalRunner``.
+    """
+    global _RUNNER
+    _RUNNER = runner
+
+
+def run_spec(spec: RunSpec) -> RunOutcome:
+    """Исполнить один ``RunSpec`` через активный ``Runner`` и вернуть сырой итог.
+
+    Публичная точка запуска для потребителей вне грейдинга (web-песочница,
+    issue #317): прячет выбор backend'а (``LocalRunner``/``SandboxRunner``) за
+    публичной поверхностью — вызывающему не нужно (и нельзя, ADR-0010) трогать
+    приватный синглтон ``_RUNNER``. Читает module-global при каждом вызове,
+    поэтому ``set_runner()`` и тестовые подмены ``_RUNNER`` видны немедленно.
+    """
+    return _RUNNER.run(spec)
+
+
+def active_runner() -> Runner:
+    """Активный ``Runner`` процесса — публичный аксессор его capability-флагов.
+
+    Замена прямому доступу к приватному ``_RUNNER`` (issue #550): ``core/tracer``
+    консультирует ``active_runner().supports_project_imports``, чтобы решить,
+    доступен ли пошаговый трейс, вместо хрупкого ``type(_RUNNER).__name__ ==
+    "SandboxRunner"``. Читает module-global при каждом вызове — ``set_runner()``
+    и тестовые подмены видны немедленно.
+    """
+    return _RUNNER

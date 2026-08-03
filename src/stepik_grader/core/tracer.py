@@ -14,7 +14,7 @@
 - ``trace_code(code, stdin, ...)`` — оркестратор (вызывается web-слоем): пишет
   self-contained bootstrap (код инлайнится через ``repr`` + прямой вызов
   ``run_trace``) во временный файл и исполняет его через
-  ``grader_core.run_spec()`` активным Runner'ом (``LocalRunner`` или
+  ``run_spec()`` активным Runner'ом (``LocalRunner`` или
   ``SandboxRunner`` при ``--serve --sandbox``, issue #396/#640), ловит JSON-трейс из stdout. Общий
   wall-clock таймаут.
 - ``python -m stepik_grader.core.tracer <file>`` — прямой/отладочный вход в
@@ -42,7 +42,7 @@ import types
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core.runner import RunSpec
+from stepik_grader.core.runner import RunSpec, active_runner, run_spec
 
 __all__ = ["DEFAULT_MAX_STDOUT_CHARS", "DEFAULT_MAX_STEPS", "trace_code"]
 
@@ -376,13 +376,11 @@ def trace_code(
     site-packages проекта в изоляцию (SECURITY.md) — честно отказываем, а не
     исполняем трейс вне песочницы.
     """
-    from stepik_grader.core import grader_core  # локальный импорт: избежать цикла в DAG
-
     # issue #550: под sandbox трассировщик не изолируем (пакет проекта не в
     # песочнице) — консультируем capability активного раннера
     # (``supports_project_imports``) вместо хрупкого ``type(_RUNNER).__name__``;
     # новый backend (Docker/remote) объявляет флаг сам и не обходит этот отказ.
-    if not grader_core.active_runner().supports_project_imports:
+    if not active_runner().supports_project_imports:
         return {
             "steps": [],
             "stdout": "",
@@ -420,10 +418,10 @@ def trace_code(
     script_path = tmp_dir / "bootstrap.py"
     try:
         script_path.write_text(bootstrap, encoding="utf-8")
-        # issue #640: через публичный grader_core.run_spec(), а не приватный
+        # issue #640: через публичный run_spec(), а не приватный
         # _RUNNER — выбор backend'а спрятан за одной точкой (ADR-0010); active_runner()
         # выше уже консультируется публично для capability-гейта sandbox.
-        outcome = grader_core.run_spec(
+        outcome = run_spec(
             RunSpec(
                 path=script_path,
                 stdin=stdin.encode("utf-8"),

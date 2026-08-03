@@ -17,6 +17,8 @@ import pytest
 
 from stepik_grader import web
 from stepik_grader.web import runs, viewmodels
+from stepik_grader.web import server as web_server
+from stepik_grader.web import viewmodels as web_vm
 from tests._wait import wait_until
 
 
@@ -191,7 +193,7 @@ class TestGradePath:
 
 class TestErrorCardFields:
     def test_ac_case_has_minimal_fields_only(self) -> None:
-        case = web._case_view(
+        case = web_vm._case_view(
             1, {"passed": True, "verdict": "AC", "time": 0.01, "output": ["5"]}, stdin="4"
         )
         assert case["case_n"] == 1
@@ -200,7 +202,7 @@ class TestErrorCardFields:
             assert key not in case
 
     def test_wa_case_error_card_fields(self) -> None:
-        case = web._case_view(
+        case = web_vm._case_view(
             2,
             {
                 "passed": False,
@@ -222,7 +224,7 @@ class TestErrorCardFields:
 
     def test_wa_case_with_invalid_utf8_output_has_hint(self) -> None:
         """issue #301: WA с '�' (U+FFFD) в actual → подсказка про не-UTF-8 байты."""
-        case = web._case_view(
+        case = web_vm._case_view(
             5,
             {
                 "passed": False,
@@ -239,7 +241,7 @@ class TestErrorCardFields:
         assert "UTF-8" in case["suggestions"][0]
 
     def test_re_case_known_exception_has_glossary_ids_and_suggestion(self) -> None:
-        case = web._case_view(
+        case = web_vm._case_view(
             3,
             {
                 "passed": False,
@@ -263,7 +265,7 @@ class TestErrorCardFields:
         # triggers J7 queuing (see TestGradePath.test_unknown_re_exception_...
         # below), and without this the default CONFIG.glossary_missing_queue
         # would write into the repo's real working directory.
-        case = web._case_view(
+        case = web_vm._case_view(
             4,
             {
                 "passed": False,
@@ -282,7 +284,7 @@ class TestErrorCardFields:
     def test_tle_case_error_card_fields(self) -> None:
         from stepik_grader.config import CONFIG
 
-        case = web._case_view(
+        case = web_vm._case_view(
             5,
             {
                 "passed": False,
@@ -308,20 +310,20 @@ class TestWaSuggestion:
     def test_invalid_utf8_takes_priority_over_whitespace(self) -> None:
         # actual с '�' И совпадающий после rstrip -> побеждает UTF-8-подсказка
         # (более специфичная причина, чем хвостовые пробелы).
-        hint = web._wa_suggestion("5�  ", "5", lang="ru")
+        hint = web_vm._wa_suggestion("5�  ", "5", lang="ru")
         assert hint is not None
         assert "UTF-8" in hint
 
     def test_whitespace_hint_when_no_replacement_char(self) -> None:
-        hint = web._wa_suggestion("5  ", "5", lang="ru")
+        hint = web_vm._wa_suggestion("5  ", "5", lang="ru")
         assert hint is not None
         assert "UTF-8" not in hint  # это whitespace-подсказка, не UTF-8
 
     def test_no_hint_for_plain_mismatch(self) -> None:
-        assert web._wa_suggestion("6", "5", lang="ru") is None
+        assert web_vm._wa_suggestion("6", "5", lang="ru") is None
 
     def test_invalid_utf8_hint_localized_en(self) -> None:
-        assert "UTF-8" in web._wa_suggestion("�", "5", lang="en")
+        assert "UTF-8" in web_vm._wa_suggestion("�", "5", lang="en")
 
 
 # ---------------------------------------------------------------------------
@@ -760,7 +762,7 @@ class TestSaveSolution:
 def server_factory():
     """Фабрика серверов на 127.0.0.1:0 в отдельном потоке (issue #261 —
     параметризуемая workspace/confine); все созданные серверы гасятся в teardown."""
-    started: list[tuple[web._GraderServer, threading.Thread]] = []
+    started: list[tuple[web_server._GraderServer, threading.Thread]] = []
 
     def _make(
         workspace: pathlib.Path,
@@ -769,9 +771,9 @@ def server_factory():
         sandbox: bool = False,
         record_history: bool = True,
     ) -> str:
-        httpd = web._GraderServer(
+        httpd = web_server._GraderServer(
             ("127.0.0.1", 0),
-            web._Handler,
+            web_server._Handler,
             workspace=workspace,
             confine=confine,
             sandbox=sandbox,
@@ -977,7 +979,7 @@ class TestHttpHandler:
         """Регрессия issue #260: страница не должна грузить ни один ресурс с
         внешнего домена (Google Fonts CDN был единственным источником) —
         только placeholder-текст со ссылкой-примером допустим."""
-        assert "fonts.googleapis.com" not in web._INDEX_HTML
+        assert "fonts.googleapis.com" not in web_server._INDEX_HTML
 
 
 class TestUiLocaleCatalog:
@@ -1008,7 +1010,7 @@ class TestUiLocaleCatalog:
         keys = set(
             re.findall(
                 r'data-i18n(?:-placeholder|-title|-aria-label)?="([^"]+)"',
-                web._INDEX_HTML,
+                web_server._INDEX_HTML,
             )
         )
         assert keys, "в index.html нет ни одного data-i18n — разметка не размечена"
@@ -1063,17 +1065,17 @@ class TestSecurityHeaders:
         один static/*.js не содержат ``style="``/``style='``. Динамика идёт через
         CSSOM (``el.style.prop``), классы — через app.css (issue #563)."""
         for source, label in (
-            (web._INDEX_HTML, "index.html"),
-            (web._STATIC_JS_SOURCES, "static/*.js"),
+            (web_server._INDEX_HTML, "index.html"),
+            (web_server._STATIC_JS_SOURCES, "static/*.js"),
         ):
             assert 'style="' not in source, f"инлайновый style= в {label}"
             assert "style='" not in source, f"инлайновый style= в {label}"
 
     def test_handler_has_read_timeout(self) -> None:
         """Соединение получает read-timeout — медленный клиент не держит поток."""
-        assert web._Handler.timeout == 30
-        assert "fonts.gstatic.com" not in web._INDEX_HTML
-        assert not re.search(r'(?:href|src)="https?://', web._INDEX_HTML)
+        assert web_server._Handler.timeout == 30
+        assert "fonts.gstatic.com" not in web_server._INDEX_HTML
+        assert not re.search(r'(?:href|src)="https?://', web_server._INDEX_HTML)
 
     # -- /api/solutions, /api/source (пикер режима 1, issue #125-fix) --------
 
@@ -2290,14 +2292,14 @@ class TestRunsApiMode1Tests:
 #
 # issue #125: the JS moved from an inline <script> in _INDEX_HTML to its own
 # static/app.js file; issue #426 split it into ES modules, so these source-level
-# regressions grep web._STATIC_JS_SOURCES (all static/*.js concatenated) — a
+# regressions grep web_server._STATIC_JS_SOURCES (all static/*.js concatenated) — a
 # pinned pattern may live in any module now, not just app.js.
 
 
 def _ht_table_source() -> str:
-    start = web._STATIC_JS_SOURCES.index("const HT = {")
-    end = web._STATIC_JS_SOURCES.index("};", start)
-    return web._STATIC_JS_SOURCES[start:end]
+    start = web_server._STATIC_JS_SOURCES.index("const HT = {")
+    end = web_server._STATIC_JS_SOURCES.index("};", start)
+    return web_server._STATIC_JS_SOURCES[start:end]
 
 
 def test_client_esc_table_covers_html_and_attribute_special_chars() -> None:
@@ -2309,7 +2311,7 @@ def test_client_esc_table_covers_html_and_attribute_special_chars() -> None:
 def test_client_esc_regex_includes_quote_chars() -> None:
     # The replace() char class must include both quote characters, or esc()
     # would keep stripping only &/</> and leave href="...' open to breakout.
-    assert "replace(/[&<>\"']/g" in web._STATIC_JS_SOURCES
+    assert "replace(/[&<>\"']/g" in web_server._STATIC_JS_SOURCES
 
 
 # --- issue #633: обратная связь на действия -------------------------------
@@ -2317,8 +2319,8 @@ def test_client_esc_regex_includes_quote_chars() -> None:
 
 def test_toast_primitive_is_exported_and_mounted() -> None:
     """Тост-примитив есть в JS, а контейнер под него — в разметке."""
-    assert "function toast(" in web._STATIC_JS_SOURCES
-    assert 'id="toast-stack"' in web._INDEX_HTML
+    assert "function toast(" in web_server._STATIC_JS_SOURCES
+    assert 'id="toast-stack"' in web_server._INDEX_HTML
 
 
 def test_clipboard_errors_are_no_longer_swallowed() -> None:
@@ -2327,9 +2329,9 @@ def test_clipboard_errors_are_no_longer_swallowed() -> None:
     Пустой ``.catch(() => {})`` делал успех и провал неотличимыми: пользователь
     не знал, попал ли текст в буфер.
     """
-    start = web._STATIC_JS_SOURCES.index("function copyToClipboard(")
-    end = web._STATIC_JS_SOURCES.index("\n}", start)
-    body = web._STATIC_JS_SOURCES[start:end]
+    start = web_server._STATIC_JS_SOURCES.index("function copyToClipboard(")
+    end = web_server._STATIC_JS_SOURCES.index("\n}", start)
+    body = web_server._STATIC_JS_SOURCES[start:end]
 
     # Именно в этой функции пустой catch недопустим. Fire-and-forget отмена
     # прогона (grade.js/sandbox.js) — легитимный случай и под проверку не идёт.
@@ -2349,8 +2351,8 @@ def test_consent_modal_traps_focus_and_restores_it() -> None:
     нажимать кнопки, пока диалог «ждёт» ответа. Плюс `Escape`: диалог с двумя
     вариантами обязан закрываться отказом.
     """
-    start = web._STATIC_JS_SOURCES.index("function _requestAiConsent(")
-    body = web._STATIC_JS_SOURCES[start : web._STATIC_JS_SOURCES.index("\n}", start)]
+    start = web_server._STATIC_JS_SOURCES.index("function _requestAiConsent(")
+    body = web_server._STATIC_JS_SOURCES[start : web_server._STATIC_JS_SOURCES.index("\n}", start)]
 
     assert 'e.key === "Escape"' in body, "Escape должен закрывать диалог отказом"
     assert 'e.key !== "Tab"' in body, "нужен перехват Tab на краях"
@@ -2364,7 +2366,7 @@ def test_waiting_states_share_one_skeleton_language() -> None:
     текстовые заглушки. Текст не выброшен, а спрятан в `sr-only`: скелетон сам
     по себе декоративен, и незрячий пользователь остался бы без сигнала.
     """
-    src = web._STATIC_JS_SOURCES
+    src = web_server._STATIC_JS_SOURCES
     assert "function skeletonWithLabel(" in src
     assert "function skeletonListItems(" in src
     assert "sr-only" in src and 'role="status"' in src
@@ -2381,7 +2383,7 @@ def test_check_shortcuts_do_not_fire_while_typing() -> None:
     под руками. Редактор кода — contenteditable (CodeMirror), поэтому одной
     проверки на input/textarea мало.
     """
-    src = web._STATIC_JS_SOURCES
+    src = web_server._STATIC_JS_SOURCES
     assert "function _isTyping(" in src
     assert "isContentEditable" in src, "CodeMirror — contenteditable, его надо учесть"
     assert "!_isTyping(e.target)" in src
@@ -2401,7 +2403,7 @@ def test_wa_detail_uses_aligned_inline_diff() -> None:
     Раньше «Ожидалось/Получено» рендерились двумя `codeBlock` плюс необработанный
     вывод difflib — искать различие приходилось глазами.
     """
-    src = web._STATIC_JS_SOURCES
+    src = web_server._STATIC_JS_SOURCES
     assert "function renderInlineDiff(" in src
     assert "renderInlineDiff(c.expected, c.actual)" in src
     # Сырой diff остаётся, но свёрнутым — он больше не основной способ понять WA.
@@ -2417,7 +2419,7 @@ def test_diff_marks_only_ambiguous_whitespace_on_full_lines() -> None:
     причиной WA — метить нужно только его. Внутри различающегося фрагмента
     помечаются все пробелы: там пробел и ЕСТЬ различие.
     """
-    src = web._STATIC_JS_SOURCES
+    src = web_server._STATIC_JS_SOURCES
     assert "function escWithHiddenMarks(" in src
 
     start = src.index("function escWithHiddenMarks(")
@@ -2443,15 +2445,15 @@ def test_language_switch_lives_in_topbar_not_settings() -> None:
     Раздел «Настройки» состоял почти целиком из дублей topbar-тумблеров; язык
     при этом был спрятан именно там, хотя переключают его часто.
     """
-    assert 'id="lang-switch"' in web._INDEX_HTML
-    assert 'data-lang="ru"' in web._INDEX_HTML
-    assert 'data-lang="en"' in web._INDEX_HTML
+    assert 'id="lang-switch"' in web_server._INDEX_HTML
+    assert 'data-lang="ru"' in web_server._INDEX_HTML
+    assert 'data-lang="en"' in web_server._INDEX_HTML
 
     # Селекты-дубли убраны вместе с их обработчиками.
-    assert 'id="settings-theme"' not in web._INDEX_HTML
-    assert 'id="settings-lang"' not in web._INDEX_HTML
-    assert "settings-lang" not in web._STATIC_JS_SOURCES
-    assert "settings-theme" not in web._STATIC_JS_SOURCES
+    assert 'id="settings-theme"' not in web_server._INDEX_HTML
+    assert 'id="settings-lang"' not in web_server._INDEX_HTML
+    assert "settings-lang" not in web_server._STATIC_JS_SOURCES
+    assert "settings-theme" not in web_server._STATIC_JS_SOURCES
 
 
 def test_theme_button_label_names_the_current_mode() -> None:
@@ -2466,9 +2468,9 @@ def test_theme_button_label_names_the_current_mode() -> None:
     переводчика статически, и склейка ключа с переменной дала бы ему обрубок
     префикса вместо трёх реальных ключей.
     """
-    assert "THEME_STATE_KEYS" in web._STATIC_JS_SOURCES
+    assert "THEME_STATE_KEYS" in web_server._STATIC_JS_SOURCES
     for mode in ("system", "light", "dark"):
-        assert f'"topbar.theme_state_{mode}"' in web._STATIC_JS_SOURCES
+        assert f'"topbar.theme_state_{mode}"' in web_server._STATIC_JS_SOURCES
 
     catalog = json.loads(
         (pathlib.Path(web.__file__).parent / "static" / "locales" / "ui.json").read_text(
@@ -2488,8 +2490,8 @@ def test_theme_label_is_restored_after_language_switch() -> None:
     по разметке, и без повторного `applyTheme()` подпись соврала бы: показывала
     бы «системная» при включённой светлой или тёмной теме.
     """
-    start = web._STATIC_JS_SOURCES.index("function setLang(")
-    body = web._STATIC_JS_SOURCES[start : web._STATIC_JS_SOURCES.index("\n}", start)]
+    start = web_server._STATIC_JS_SOURCES.index("function setLang(")
+    body = web_server._STATIC_JS_SOURCES[start : web_server._STATIC_JS_SOURCES.index("\n}", start)]
     assert "applyUiLocale(value)" in body
     assert "applyTheme()" in body, "после перелокализации разметки подпись темы должна обновиться"
 
@@ -2507,13 +2509,13 @@ def test_sections_registry_lists_every_sidebar_section() -> None:
     проверяется здесь — дёшево и точнее, чем через браузер. Достижимость самих
     разделов проверяет e2e `test_all_sections_reachable_from_sidebar`.
     """
-    match = re.search(r"const SECTIONS = \[(.*?)\]", web._STATIC_JS_SOURCES, re.S)
+    match = re.search(r"const SECTIONS = \[(.*?)\]", web_server._STATIC_JS_SOURCES, re.S)
     assert match, "реестр SECTIONS не найден в static/*.js"
     registry = re.findall(r'"([a-z]+)"', match.group(1))
 
     # Только пункты навигации: `data-section` встречается ещё и в пустых
     # состояниях («Откройте раздел „Проверка решений“»), их считать нельзя.
-    nav = re.search(r'<nav class="sidebar".*?</nav>', web._INDEX_HTML, re.S)
+    nav = re.search(r'<nav class="sidebar".*?</nav>', web_server._INDEX_HTML, re.S)
     assert nav, "sidebar-навигация не найдена в разметке"
     sidebar = re.findall(r'data-section="([a-z]+)"', nav.group(0))
 
@@ -2527,7 +2529,7 @@ def test_sections_registry_lists_every_sidebar_section() -> None:
 
 def test_editor_accepts_dropped_python_file() -> None:
     """Перетаскивание .py грузит содержимое в редактор (issue #635)."""
-    src = web._STATIC_JS_SOURCES
+    src = web_server._STATIC_JS_SOURCES
     assert "function wireEditorFileDrop(" in src
     assert "function loadDroppedFile(" in src
     # Содержимое читается и кладётся в редактор, а не пытается стать путём.
@@ -2576,8 +2578,8 @@ def test_drop_does_not_pretend_to_set_path() -> None:
 
 def _js_fn_body(name: str) -> str:
     """Тело JS-функции из конкатенации static/*.js — для source-регрессий."""
-    start = web._STATIC_JS_SOURCES.index(f"function {name}(")
-    return web._STATIC_JS_SOURCES[start : web._STATIC_JS_SOURCES.index("\n}", start)]
+    start = web_server._STATIC_JS_SOURCES.index(f"function {name}(")
+    return web_server._STATIC_JS_SOURCES[start : web_server._STATIC_JS_SOURCES.index("\n}", start)]
 
 
 def test_section_and_tab_switching_go_through_motion_helper() -> None:
@@ -2587,7 +2589,7 @@ def test_section_and_tab_switching_go_through_motion_helper() -> None:
     появление должно идти через общий помощник с CSS-анимацией. Прямое
     присваивание `.hidden` вернуло бы телепортацию.
     """
-    assert "function revealWithMotion(" in web._STATIC_JS_SOURCES
+    assert "function revealWithMotion(" in web_server._STATIC_JS_SOURCES
 
     section_body = _js_fn_body("setSection")
     assert ".hidden = section !== s" not in section_body
@@ -2654,12 +2656,12 @@ def test_save_errors_go_to_inline_slot_not_results_panel() -> None:
     «Разбор» она вообще скрыта — сообщение уходило в никуда. Теперь ошибка
     печатается рядом с кнопкой «Сохранить».
     """
-    assert 'id="save-error"' in web._INDEX_HTML
-    assert "function showSaveError(" in web._STATIC_JS_SOURCES
+    assert 'id="save-error"' in web_server._INDEX_HTML
+    assert "function showSaveError(" in web_server._STATIC_JS_SOURCES
     # saveSolution больше не пишет ошибки в #out
-    start = web._STATIC_JS_SOURCES.index("async function saveSolution(")
-    end = web._STATIC_JS_SOURCES.index("function showSaveError(", start)
-    assert '$("#out").innerHTML' not in web._STATIC_JS_SOURCES[start:end]
+    start = web_server._STATIC_JS_SOURCES.index("async function saveSolution(")
+    end = web_server._STATIC_JS_SOURCES.index("function showSaveError(", start)
+    assert '$("#out").innerHTML' not in web_server._STATIC_JS_SOURCES[start:end]
 
 
 # ---------------------------------------------------------------------------
@@ -2675,24 +2677,24 @@ def test_render_verdict_emits_verdict_text_not_colour_only() -> None:
     """WCAG 1.4.1: verdict badge must carry the verdict string as text, not
     convey meaning by colour class alone -- renderVerdict() interpolates esc(v)
     into the span body."""
-    start = web._STATIC_JS_SOURCES.index("function renderVerdict(")
-    end = web._STATIC_JS_SOURCES.index("}", start)
-    body = web._STATIC_JS_SOURCES[start:end]
+    start = web_server._STATIC_JS_SOURCES.index("function renderVerdict(")
+    end = web_server._STATIC_JS_SOURCES.index("}", start)
+    body = web_server._STATIC_JS_SOURCES[start:end]
     assert "esc(v)" in body, "renderVerdict no longer inlines the verdict text"
 
 
 def test_progress_bar_has_progressbar_role_and_aria_values() -> None:
     """issue #298: the progress bar markup exposes role=progressbar + aria-value*."""
-    assert 'role="progressbar"' in web._STATIC_JS_SOURCES
-    assert "aria-valuemin=" in web._STATIC_JS_SOURCES
-    assert "aria-valuemax=" in web._STATIC_JS_SOURCES
-    assert "aria-valuenow=" in web._STATIC_JS_SOURCES
+    assert 'role="progressbar"' in web_server._STATIC_JS_SOURCES
+    assert "aria-valuemin=" in web_server._STATIC_JS_SOURCES
+    assert "aria-valuemax=" in web_server._STATIC_JS_SOURCES
+    assert "aria-valuenow=" in web_server._STATIC_JS_SOURCES
 
 
 def test_result_announce_live_region_present() -> None:
     """issue #298: a polite aria-live region exists for the result summary."""
-    assert 'id="result-announce"' in web._INDEX_HTML
-    assert 'aria-live="polite"' in web._INDEX_HTML
+    assert 'id="result-announce"' in web_server._INDEX_HTML
+    assert 'aria-live="polite"' in web_server._INDEX_HTML
 
 
 def test_error_card_link_is_internal_deep_link() -> None:
@@ -2700,8 +2702,8 @@ def test_error_card_link_is_internal_deep_link() -> None:
     # (#/glossary/<anchor>), а не во внешнюю витрину-копию.
     # issue #214: якорь проходит через encodeURIComponent, поэтому не может
     # разорвать href="..." -- если правка вставит g.anchor напрямую, тест упадёт.
-    assert "#/glossary/' + encodeURIComponent(g.anchor)" in web._STATIC_JS_SOURCES
-    assert "artvsmark.github.io" not in web._STATIC_JS_SOURCES
+    assert "#/glossary/' + encodeURIComponent(g.anchor)" in web_server._STATIC_JS_SOURCES
+    assert "artvsmark.github.io" not in web_server._STATIC_JS_SOURCES
 
 
 # ---------------------------------------------------------------------------
@@ -2714,10 +2716,10 @@ class TestRunServerSandbox:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """issue #396: run_server(sandbox=True) ставит SandboxRunner активным
-        grader_core._RUNNER ДО старта — grade/playground/microbench/trace идут
+        ``runner._RUNNER`` ДО старта — grade/playground/microbench/trace идут
         через него, поэтому изолируются разом."""
         import stepik_grader.core.sandbox as sandbox_mod
-        from stepik_grader.core import grader_core
+        from stepik_grader.core import runner as runner_mod
         from stepik_grader.web import server as server_mod
 
         class _FakeSandboxRunner:
@@ -2736,12 +2738,12 @@ class TestRunServerSandbox:
         monkeypatch.setattr(sandbox_mod, "SandboxRunner", _FakeSandboxRunner)
         monkeypatch.setattr(server_mod, "_GraderServer", _FakeServer)
 
-        original = grader_core._RUNNER
+        original = runner_mod._RUNNER
         try:
             server_mod.run_server(port=0, sandbox=True)
-            assert isinstance(grader_core._RUNNER, _FakeSandboxRunner)
+            assert isinstance(runner_mod._RUNNER, _FakeSandboxRunner)
         finally:
-            grader_core.set_runner(original)
+            runner_mod.set_runner(original)
 
     def test_stop_shuts_down_job_pool(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """issue #806: остановка сервера гасит пул job'ов, а не оставляет его

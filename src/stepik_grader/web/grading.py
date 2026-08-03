@@ -18,8 +18,6 @@ from __future__ import annotations
 
 from stepik_grader.core.cache import hash_solution
 from stepik_grader.core.grader_core import (
-    MUCH_SLOWER_THRESHOLD,
-    SIMILAR_THRESHOLD,
     preflight_solution,
     run_benchmark,
     run_microbench_mode,
@@ -43,8 +41,6 @@ from stepik_grader.core.test_loader import (
 from stepik_grader.core.tracer import trace_code
 
 __all__ = [
-    "MUCH_SLOWER_THRESHOLD",
-    "SIMILAR_THRESHOLD",
     "RunSpec",
     "apply_reference_ranking",
     "apply_relative_ranking",
