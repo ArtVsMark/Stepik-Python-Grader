@@ -19,6 +19,7 @@ DAG остаётся ацикличным (``glossary/`` не импортиру
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -27,6 +28,15 @@ if TYPE_CHECKING:
 __all__ = ["retrieve_grounding"]
 
 _DEFAULT_K = 3
+
+# issue #812 (VIS-03): имя исключения из последней строки трейсбека. Карточка
+# самого исключения — самый релевантный материал для объяснения RE, но в
+# заземление она не попадала вовсе: концепты берутся из AST, а `IndexError` в
+# коде не написан.
+_EXC_LINE_RE = re.compile(
+    r"^(?:[\w.]+\.)?(\w*(?:Error|Exception|Warning))\b",
+    re.MULTILINE,
+)
 
 # Ленивый кеш индекса комплектной базы {id -> GlossaryCard}, инвалидируемый по
 # mtime её файлов — тот же приём, что core/error_glossary._INDEX_CACHE.
@@ -88,20 +98,64 @@ def _bundled_index() -> dict[str, GlossaryCard]:
     return index
 
 
+def _ranked_concepts(code: str, error: str, scan: object) -> list[str]:
+    """Концепты кода в порядке близости к падению (issue #812, ``VIS-03``).
+
+    Три уровня, внутри уровня — порядок обхода AST:
+
+    1. имя исключения из трейсбека (в коде его нет, а карточка по нему —
+       самое прямое объяснение RE);
+    2. концепты, чьё имя встречается в тексте ошибки (``sorted`` в строке
+       падения важнее, чем ``input`` из первой строки решения);
+    3. остальные.
+
+    ``scan`` передаётся параметром, а не импортируется здесь: ленивый импорт
+    ``glossary/`` уже сделан вызывающим, и повторять его незачем.
+    """
+    concepts = list(scan(code))  # type: ignore[operator]
+    if not error:
+        return concepts
+
+    ranked: list[str] = []
+    match = _EXC_LINE_RE.search(error)
+    if match:
+        ranked.append(match.group(1))
+
+    lowered = error.lower()
+    mentioned = [c for c in concepts if c.lower() in lowered]
+    rest = [c for c in concepts if c not in mentioned]
+    return ranked + mentioned + rest
+
+
 def retrieve_grounding(
     code: str,
     *,
     lang: str = "ru",
-    k: int = _DEFAULT_K,
+    k: int | None = None,
     cards: list[GlossaryCard] | None = None,
+    error: str = "",
 ) -> str:
-    """Top-k карточек глоссария, релевантных коду решения, склеенных для промпта.
+    """Карточки глоссария, релевантные ПАДЕНИЮ, склеенные для промпта.
 
     Извлекает концепты из ``code`` (``scan_code_concepts`` — AST, без исполнения),
-    матчит их на карточки комплектной базы (точный ``id``/хвост), берёт первые ``k``
+    матчит их на карточки комплектной базы (точный ``id``/хвост), берёт ``k``
     уникальных ``ready``-карточек и склеивает ``title — summary`` (в ``lang``).
     Пустая строка — если концептов/совпадений нет или база недоступна (промпт
     деградирует к плоскому). Никогда не бросает.
+
+    issue #812 (``VIS-03``): порядок — по близости к падению, а не по обходу AST.
+    Прежняя реализация брала первые ``k`` совпавших концептов, поэтому на
+    решении, которое начинается с ``input()``/``print()``, а падает на срезе, в
+    промпт уезжали карточки ввода-вывода. Проверено прогоном: заземление
+    состояло из ``int``, ``input()`` и ``re.split()`` при ``IndexError`` на
+    индексации. Теперь первым идёт само исключение из трейсбека (карточка
+    ``IndexError`` — самый релевантный материал для RE, а в коде это имя не
+    написано вовсе), затем концепты, упомянутые в тексте ошибки, затем
+    остальные в порядке AST.
+
+    ``k`` по умолчанию — из ``CONFIG.ai_grounding_k``: сколько карточек влезает
+    в промпт, зависит от модели и лимита токенов, поэтому это настройка, а не
+    константа модуля.
 
     ``cards`` — явный список карточек вместо комплектной базы (для тестов/переопределения).
     """
@@ -114,10 +168,15 @@ def retrieve_grounding(
     if not index:
         return ""
 
+    if k is None:
+        from stepik_grader.config import CONFIG
+
+        k = max(1, int(getattr(CONFIG, "ai_grounding_k", _DEFAULT_K)))
+
     picked: list[GlossaryCard] = []
     seen: set[str] = set()
-    for concept in scan_code_concepts(code):
-        card = index.get(concept)
+    for concept in _ranked_concepts(code, error, scan_code_concepts):
+        card = index.get(concept) or index.get(concept.lower())
         if card is None or card.id in seen or card.status != "ready":
             continue
         seen.add(card.id)
