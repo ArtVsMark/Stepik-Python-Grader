@@ -15,9 +15,12 @@ import pathlib
 import re
 import tomllib
 
+import pytest
+
 import stepik_grader
 
 _REPO_URL = "https://github.com/ArtVsMark/Stepik-Python-Grader"
+_REPO_ROOT = pathlib.Path(__file__).parent.parent
 
 
 def _project_table() -> dict[str, object]:
@@ -206,3 +209,102 @@ def test_vendored_bundle_has_no_node_only_imports() -> None:
     text = _BUNDLE.read_text(encoding="utf-8", errors="replace")
     forbidden = re.findall(r'"(events|tty|process|async_hooks|node:[a-z_]+)"', text)
     assert not forbidden, f"в бандле появились Node-импорты: {sorted(set(forbidden))}"
+
+
+# ---------------------------------------------------------------------------
+# issue #832 — витрина пакета на PyPI. Страница ломалась (относительные пути в
+# long_description PyPI резолвит к pypi.org: hero-гиф и скриншоты не видны,
+# два десятка ссылок на docs/ дают 404), keywords не было вовсе, а входа в
+# документацию со страницы пакета не существовало.
+# ---------------------------------------------------------------------------
+
+
+def test_readme_declared_for_pypi_has_no_relative_links() -> None:
+    """Readme пакета ссылается абсолютно — иначе половина страницы битая.
+
+    Дублирует гейт ``check_docs_guardrails``, но с другой стороны: гейт живёт в
+    job'е docs-guardrails, а этот тест падает в обычном прогоне — чинить успеешь
+    до пуша.
+    """
+    name = _project_table()["readme"]
+    assert isinstance(name, str)
+    text = (_REPO_ROOT / name).read_text(encoding="utf-8")
+    relative = [
+        target
+        for target in re.findall(r"!?\[[^\]]*\]\(([^)\s]+)\)", text)
+        if not target.startswith(("http://", "https://", "#", "mailto:"))
+    ]
+    assert not relative, f"относительные ссылки в readme пакета: {sorted(set(relative))}"
+
+
+def test_keywords_cover_the_features_people_search_for() -> None:
+    """PyPI ранжирует по name/summary/keywords: без keywords ищут только по имени."""
+    keywords = _project_table()["keywords"]
+    assert isinstance(keywords, list)
+    assert {"stepik", "autograder", "benchmark", "sandbox", "glossary"} <= set(keywords)
+    assert all(k == k.lower() and " " not in k for k in keywords), keywords
+
+
+def test_summary_names_the_distinguishing_features() -> None:
+    """Summary — второе поле ранжирования; редкие фичи должны в нём звучать."""
+    description = _project_table()["description"].lower()
+    for word in ("offline", "benchmark", "sandbox"):
+        assert word in description, f"{word!r} нет в summary — по нему пакет не найдут"
+
+
+def test_documentation_url_is_declared_and_resolves_in_repo() -> None:
+    """Со страницы пакета есть дверь в docs/, и она ведёт в существующий файл."""
+    urls = _project_table()["urls"]
+    assert "Documentation" in urls, "у поставившего через pipx нет входа в документацию"
+    docs_url = urls["Documentation"]
+    assert docs_url.startswith(f"{_REPO_URL}/blob/main/")
+    target = _REPO_ROOT / docs_url.removeprefix(f"{_REPO_URL}/blob/main/")
+    assert target.is_file(), f"Documentation ведёт в несуществующий {target}"
+
+
+# ---------------------------------------------------------------------------
+# issue #835 (GROW-04/GROW-05) — issue-формы: двуязычные подписи и область.
+# EN-поверхность (README.en.md, `?lang=en`) обрывалась ровно на точке конверсии
+# в контрибьютора: англоязычный читатель открывал форму и видел только русский.
+# ---------------------------------------------------------------------------
+
+_FORMS_DIR = _REPO_ROOT / ".github" / "ISSUE_TEMPLATE"
+_FORMS = ("bug_report.yml", "idea.yml", "task_problem.yml")
+
+
+def _form_lines(name: str) -> list[str]:
+    return (_FORMS_DIR / name).read_text(encoding="utf-8").splitlines()
+
+
+@pytest.mark.parametrize("form", _FORMS)
+def test_form_title_and_description_are_bilingual(form: str) -> None:
+    """`name`/`description` формы читаются и по-русски, и по-английски."""
+    head = _form_lines(form)[:2]
+    for line in head:
+        assert line.startswith(("name:", "description:")), line
+        assert " / " in line, f"{form}: подпись не двуязычная — {line!r}"
+
+
+@pytest.mark.parametrize("form", _FORMS)
+def test_every_visible_field_label_is_bilingual(form: str) -> None:
+    """Подписи полей тоже: форма наполовину по-русски хуже, чем целиком."""
+    labels = [ln.split("label:", 1)[1].strip() for ln in _form_lines(form) if "label:" in ln]
+    assert labels, form
+    monolingual = [lbl for lbl in labels if " / " not in lbl]
+    assert not monolingual, f"{form}: подписи без английского — {monolingual}"
+
+
+def test_bug_form_asks_for_the_area() -> None:
+    """Область спрашивается у того, кто её знает, — форма не может её угадать."""
+    text = (_FORMS_DIR / "bug_report.yml").read_text(encoding="utf-8")
+    assert "id: area" in text
+    assert "type: dropdown" in text
+
+
+def test_task_problem_form_carries_navigation_labels() -> None:
+    """У этой формы область известна заранее — метки навигации статические."""
+    text = (_FORMS_DIR / "task_problem.yml").read_text(encoding="utf-8")
+    labels = re.search(r"^labels:\s*\[(.+)\]", text, re.M)
+    assert labels is not None
+    declared = {part.strip().strip('"') for part in labels.group(1).split(",")}
+    assert {"bug", "area/core", "downloader"} <= declared

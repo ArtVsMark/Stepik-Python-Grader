@@ -1,5 +1,5 @@
-name: Баг-репорт
-description: Сообщить об ошибке в грейдере
+name: Баг-репорт / Bug report
+description: Сообщить об ошибке в грейдере / Report a bug in the grader
 title: "fix: "
 labels: ["bug"]
 # ВАЖНО: `id` полей — публичный контракт. На них опирается сборка
@@ -22,7 +22,7 @@ body:
   - type: textarea
     id: what-happened
     attributes:
-      label: Описание
+      label: Описание / Description
       description: Что пошло не так, коротко и по делу.
       placeholder: Проверка падает с трейсбеком вместо вердикта.
     validations:
@@ -31,7 +31,7 @@ body:
   - type: textarea
     id: steps
     attributes:
-      label: Как воспроизвести
+      label: Как воспроизвести / Steps to reproduce
       description: Команда/режим, входные данные, что произошло.
       value: |
         1. Команда / режим:
@@ -43,15 +43,38 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: Ожидаемое поведение
+      label: Ожидаемое поведение / Expected behaviour
       description: Что должно было произойти.
+    validations:
+      required: false
+
+  # issue #832/#835 (GROW-04): область нужна для навигации по меткам `area/*`,
+  # которую обещает CONTRIBUTING. Issue Forms не умеют вешать метку по выбранной
+  # опции (в схеме dropdown нет `labels`), поэтому форма СПРАШИВАЕТ область, а
+  # метку ставит мейнтейнер при триаже — но уже не угадывая. Сложность здесь
+  # намеренно не спрашивается: `difficulty/*` — оценка того, кто будет чинить.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Чего касается / Area
+      description: Если не знаете — оставьте «Не знаю» / Leave “Не знаю” if unsure.
+      options:
+        - Не знаю
+        - Проверка решений (режимы 1-4)
+        - Веб-интерфейс (--serve)
+        - Скачивание задач со Stepik
+        - Глоссарий и разбор ошибок
+        - Правила PEP / линт
+        - Подучить / прогресс / история
+        - Песочница (--sandbox)
+        - Документация
     validations:
       required: false
 
   - type: textarea
     id: environment
     attributes:
-      label: Окружение
+      label: Окружение / Environment
       description: |
         Заполняется автоматически, если открыть форму из грейдера. Вручную:
         ОС, `python --version`, `stepik-grader --version`.
@@ -66,7 +89,7 @@ body:
   - type: input
     id: commit
     attributes:
-      label: Коммит (`git log --oneline -1`)
+      label: Коммит / Commit (`git log --oneline -1`)
       description: |
         Заполняется автоматически, если грейдер запущен из git-клона. При установке
         через pip остаётся пустым — тогда точку истории показывает хеш внутри версии
@@ -78,7 +101,7 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Логи / трейсбек
+      label: Логи и трейсбек / Logs and traceback
       description: Вывод без реальных токенов и содержимого `secrets.json`.
       render: text
     validations:
@@ -87,7 +110,7 @@ body:
   - type: textarea
     id: extra
     attributes:
-      label: Дополнительно
+      label: Дополнительно / Anything else
       description: Скриншоты, ссылка на шаг Stepik и т.п. (по желанию).
     validations:
       required: false

@@ -1,5 +1,5 @@
-name: Идея / предложение
-description: Предложить улучшение — от одной строки до развёрнутой мысли
+name: Идея или предложение / Idea or suggestion
+description: Предложить улучшение — от одной строки до развёрнутой мысли / Suggest an improvement, from one line to a full proposal
 title: "idea: "
 labels: ["enhancement"]
 # `id` полей — контракт для prefilled-URL (core/feedback.py). См. комментарий
@@ -18,7 +18,7 @@ body:
   - type: textarea
     id: idea
     attributes:
-      label: Что предлагается
+      label: Что предлагается / What you suggest
       description: Своими словами, как удобно.
       placeholder: Хочется видеть, какое из моих решений быстрее, не запуская бенчмарк вручную.
     validations:
@@ -27,7 +27,7 @@ body:
   - type: textarea
     id: problem
     attributes:
-      label: Какую проблему это решает
+      label: Какую проблему это решает / What problem it solves
       description: Что сейчас неудобно или невозможно. Помогает понять приоритет.
     validations:
       required: false
@@ -35,7 +35,7 @@ body:
   - type: dropdown
     id: area
     attributes:
-      label: Чего касается
+      label: Чего касается / Area
       description: Если не знаете — оставьте «Не знаю».
       options:
         - Не знаю
@@ -52,7 +52,7 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: Окружение
+      label: Окружение / Environment
       description: Заполняется автоматически, если открыть форму из грейдера. Необязательно.
       render: text
     validations:
