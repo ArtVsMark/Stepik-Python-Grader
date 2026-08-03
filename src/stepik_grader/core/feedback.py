@@ -101,8 +101,12 @@ _TEMPLATES: dict[FeedbackKind, str] = {
 # Неизвестный id GitHub игнорирует МОЛЧА — поэтому такие ключи отсекаются здесь
 # (ValueError), а не уезжают в URL, где потеря данных незаметна.
 _FIELD_IDS: dict[FeedbackKind, frozenset[str]] = {
+    # issue #835: у баг-репорта появился dropdown `area` — грейдер его не
+    # заполняет (область знает человек, а не окружение), но контракт перечисляет
+    # ВСЕ id формы: расхождение здесь означало бы, что поле в форме появилось
+    # мимо этого списка, и следующий prefill промахнулся бы молча.
     FeedbackKind.BUG: frozenset(
-        {"what-happened", "steps", "expected", "environment", "commit", "logs", "extra"}
+        {"what-happened", "steps", "expected", "area", "environment", "commit", "logs", "extra"}
     ),
     FeedbackKind.IDEA: frozenset({"idea", "problem", "area", "environment"}),
     FeedbackKind.TASK_PROBLEM: frozenset(

@@ -11,7 +11,25 @@ name = "stepik-python-grader"
 # [tool.setuptools_scm] ниже. Поэтому "version" объявлена dynamic, а не
 # захардкожена — единый источник истины теперь git-тег vX.Y.0.
 dynamic = ["version"]
-description = "Automatic comparison and testing of Python solutions from Stepik courses"
+# issue #832 (AD-02): summary — единственное поле, по которому PyPI ранжирует
+# помимо имени, поэтому в нём стоят слова, которыми пакет ищут, а не только те,
+# которыми он назван. Прежняя редакция не содержала ни local/offline, ни
+# benchmark, ни sandbox — четыре редкие фичи в поиске не участвовали вовсе.
+description = "Local offline autograder for Python: run, benchmark and compare Stepik solutions, with an optional OS sandbox and web UI"
+keywords = [
+    "stepik",
+    "autograder",
+    "grader",
+    "python-education",
+    "benchmark",
+    "offline",
+    "sandbox",
+    "glossary",
+    "testing",
+]
+# Уезжает в long_description дистрибутива КАК ЕСТЬ. Относительные ссылки PyPI не
+# переписывает — резолвит к pypi.org, поэтому README держит абсолютные адреса, а
+# следит за этим `scripts/check_docs_guardrails.check_pypi_readme_is_absolute`.
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -62,6 +80,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/ArtVsMark/Stepik-Python-Grader"
 Repository = "https://github.com/ArtVsMark/Stepik-Python-Grader"
+# issue #832 (GROW-06): вход в документацию прямо со страницы пакета — без него
+# у поставившего через `pipx` не было двери в docs/ вообще.
+Documentation = "https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/README.md"
 Changelog = "https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/CHANGELOG.md"
 Issues = "https://github.com/ArtVsMark/Stepik-Python-Grader/issues"
 
