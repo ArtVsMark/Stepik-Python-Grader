@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Восемь машинных защит, чтобы README снова не разросся, ссылки между Markdown-
+Девять машинных защит, чтобы README снова не разросся, ссылки между Markdown-
 файлами не протухли ни целью, ни подписью, документация не расползлась мимо направлений, индексы не
 отставали от состава каталогов, а объясняющие документы и пользовательские
 строки интерфейса не превратились в журнал работ (эпик #167 «README как
@@ -46,7 +46,13 @@
    не проверяются вовсе — там номер уместен. ``docs/dev/design/`` и агентские
    документы живут по бюджету: номер там работает как идентификатор
    согласованного требования, а не как датировка.
-8. **UI-strings issue policy (issue #820).** Та же политика — для строк, которые
+8. **PyPI readme (issue #832).** В файле, объявленном ``readme`` в
+   ``pyproject.toml``, нет относительных ссылок и картинок: его содержимое
+   уезжает в ``long_description`` дистрибутива как есть, а PyPI относительные
+   пути резолвит к ``pypi.org``. Чтобы абсолютные адреса не вывели README
+   из-под защит 2 и 3, ссылки на свой репозиторий разворачиваются обратно в
+   путь (``_as_repo_path``).
+9. **UI-strings issue policy (issue #820).** Та же политика — для строк, которые
    пользователь видит в интерфейсе, а не в документации: ``help=`` в
    ``cli/options.py`` (вывод ``--help``) и значения ``core/locales/*.json``.
    Гейт на доках держал ноль, а самая читаемая поверхность — справка — годами
@@ -78,6 +84,7 @@ __all__ = [
     "check_issue_tail_policy",
     "check_link_captions",
     "check_markdown_links",
+    "check_pypi_readme_is_absolute",
     "check_readme_budget",
     "check_showcase_metrics",
     "check_ui_issue_tail_policy",
@@ -129,6 +136,22 @@ _PATH_CAPTION_RE = re.compile(r"^`?((?!\.\.)[\w.-]+(?:/[\w.-]+)+\.md)`?(?:\s+[§
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 # Внешние схемы, которые не проверяем (сеть/почта/якоря протоколов).
 _EXTERNAL_RE = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|//|#?mailto)", re.IGNORECASE)
+# Абсолютная ссылка на СВОЙ же репозиторий (issue #832): README.md обязан
+# ссылаться абсолютно — на PyPI относительные пути резолвятся к pypi.org и дают
+# 404, — но проверять такие ссылки надо как локальные, иначе перевод README на
+# абсолютные адреса тихо выводит его из-под гейтов ссылок и подписей.
+_SELF_REPO_RE = re.compile(
+    r"^https://(?:github\.com/ArtVsMark/Stepik-Python-Grader/(?:blob|raw)/main/"
+    r"|raw\.githubusercontent\.com/ArtVsMark/Stepik-Python-Grader/main/)(?P<path>.+)$"
+)
+
+
+def _as_repo_path(target: str) -> str | None:
+    """Ссылка на свой репозиторий → путь от корня; иначе ``None`` (issue #832)."""
+    match = _SELF_REPO_RE.match(target)
+    return match.group("path") if match else None
+
+
 # Версионный заголовок релиза в CHANGELOG.md: "## [1.8.0] - ДАТА" (issue #373).
 # "[Unreleased]" и до-версионные "## [unreleased] / <дата>" не матчатся.
 _CHANGELOG_VERSION_RE = re.compile(r"^## \[\d+\.\d+\.\d+\]")
@@ -218,11 +241,15 @@ def check_markdown_links(errors: list[str]) -> None:
         text = md.read_text(encoding="utf-8")
         for match in _LINK_RE.finditer(text):
             target = match.group(1)
-            if _EXTERNAL_RE.match(target):
+            self_repo = _as_repo_path(target)
+            if self_repo is not None:
+                target = self_repo
+            elif _EXTERNAL_RE.match(target):
                 continue
 
             path_part, _, anchor = target.partition("#")
-            rel = md.parent if not path_part else (md.parent / path_part)
+            base = _ROOT if self_repo is not None else md.parent
+            rel = base if not path_part else (base / path_part)
             dest = rel.resolve()
             checked += 1
 
@@ -265,18 +292,26 @@ def check_link_captions(errors: list[str]) -> None:
         for match in _LINK_WITH_TEXT_RE.finditer(md.read_text(encoding="utf-8")):
             caption, target = match.group(1), match.group(2)
             caption_match = _PATH_CAPTION_RE.match(caption.strip())
-            if caption_match is None or _EXTERNAL_RE.match(target):
+            if caption_match is None:
+                continue
+            # Абсолютная ссылка на свой репозиторий — тот же локальный путь
+            # (issue #832): без разворота README.md выпал бы из этой проверки.
+            self_repo = _as_repo_path(target)
+            if self_repo is not None:
+                target = self_repo
+            elif _EXTERNAL_RE.match(target):
                 continue
             target_path = target.partition("#")[0]
             if not target_path:
                 continue
             checked += 1
+            base = _ROOT if self_repo is not None else md.parent
             # Подпись — «хвост» реального пути: `use/web-interface.md` из
             # docs/dev/ сокращает `docs/use/web-interface.md` и читателя не
             # обманывает. Ловим другое — путь, которого в дереве нет вовсе
             # (`docs/configuration.md` после раскладки docs/ по направлениям).
             claimed = tuple(Path(caption_match.group(1)).parts)
-            actual = tuple((md.parent / target_path).resolve().relative_to(_ROOT).parts)
+            actual = tuple((base / target_path).resolve().relative_to(_ROOT).parts)
             if actual[-len(claimed) :] != claimed:
                 errors.append(
                     f"{rel_doc}: подпись ссылки '{caption_match.group(1)}' не совпадает "
@@ -563,10 +598,48 @@ def check_ui_issue_tail_policy(errors: list[str]) -> None:
     print(f"UI-strings issue policy: checked {checked} user-facing string(s) at zero.")
 
 
+def check_pypi_readme_is_absolute(errors: list[str]) -> None:
+    """В readme-файле пакета нет относительных ссылок и картинок (issue #832).
+
+    ``pyproject.toml`` объявляет ``readme = "README.md"``, и его содержимое
+    уезжает в ``long_description`` дистрибутива как есть. PyPI относительные
+    пути не переписывает — он резолвит их к ``pypi.org``: hero-гиф и скриншоты
+    не отображаются, два десятка ссылок на ``docs/`` дают 404. Витрина
+    ``pipx install`` — это то, что видит человек, УЖЕ готовый поставить пакет.
+
+    На GitHub абсолютные ссылки на свой же репозиторий работают ровно так же,
+    поэтому цена нулевая; чтобы они при этом не выпали из гейтов, ссылки и
+    подписи резолвятся обратно в путь (``_as_repo_path``).
+    """
+    declared = re.search(
+        r'^readme\s*=\s*"([^"]+)"', (_ROOT / "pyproject.toml").read_text(encoding="utf-8"), re.M
+    )
+    if declared is None:  # pragma: no cover — поле обязательное, но пусть не падаем
+        errors.append("pyproject.toml: не найдено поле readme — нечего проверять на PyPI.")
+        return
+    name = declared.group(1)
+    text = (_ROOT / name).read_text(encoding="utf-8")
+    relative = [
+        target
+        for target in re.findall(r"!?\[[^\]]*\]\(([^)\s]+)\)", text)
+        if not _EXTERNAL_RE.match(target) and not target.startswith("#")
+    ]
+    if relative:
+        errors.append(
+            f"{name}: относительные ссылки/картинки в readme пакета — на PyPI они "
+            f"резолвятся к pypi.org и дают 404 ({', '.join(sorted(set(relative))[:5])}). "
+            "Используйте абсолютные адреса github.com/.../blob/main/ и "
+            "raw.githubusercontent.com/.../main/."
+        )
+        return
+    print(f"PyPI readme: {name} — все ссылки и картинки абсолютные.")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_readme_budget(errors)
+    check_pypi_readme_is_absolute(errors)
     check_markdown_links(errors)
     check_link_captions(errors)
     check_showcase_metrics(errors)

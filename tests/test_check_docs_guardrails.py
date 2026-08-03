@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 _SCRIPT = Path(__file__).parent.parent / "scripts" / "check_docs_guardrails.py"
 
 
@@ -564,4 +566,69 @@ def test_showcase_metrics_on_current_repo() -> None:
     module = _load_module()
     errors: list[str] = []
     module.check_showcase_metrics(errors)
+    assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# issue #832 — readme пакета обязан ссылаться абсолютно, а свои же абсолютные
+# ссылки не должны выпадать из гейтов ссылок и подписей.
+# ---------------------------------------------------------------------------
+
+
+def test_pypi_readme_check_passes_on_repo() -> None:
+    errors: list[str] = []
+    _load_module().check_pypi_readme_is_absolute(errors)
+    assert errors == []
+
+
+@pytest.mark.parametrize(
+    ("link", "expected"),
+    [
+        (
+            "https://github.com/ArtVsMark/Stepik-Python-Grader/blob/main/docs/README.md",
+            "docs/README.md",
+        ),
+        (
+            "https://raw.githubusercontent.com/ArtVsMark/Stepik-Python-Grader/main/docs/assets/a.gif",
+            "docs/assets/a.gif",
+        ),
+        ("https://example.com/docs/README.md", None),
+        ("docs/README.md", None),
+        ("https://github.com/other/repo/blob/main/docs/README.md", None),
+    ],
+    ids=["blob", "raw", "foreign-host", "already-relative", "foreign-repo"],
+)
+def test_self_repo_links_resolve_back_to_paths(link: str, expected: str | None) -> None:
+    """Без разворота обратно README выпал бы из проверок целей и подписей."""
+    assert _load_module()._as_repo_path(link) == expected
+
+
+def test_relative_link_in_pypi_readme_is_reported(tmp_path, monkeypatch) -> None:
+    """Гейт ловит возврат относительного пути — иначе страница снова сломается."""
+    (tmp_path / "pyproject.toml").write_text('readme = "R.md"\n', encoding="utf-8")
+    (tmp_path / "R.md").write_text(
+        "[док](docs/README.md)\n![скрин](docs/assets/a.png)\n[внешняя](https://example.com)\n",
+        encoding="utf-8",
+    )
+    module = _load_module()
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+
+    errors: list[str] = []
+    module.check_pypi_readme_is_absolute(errors)
+
+    assert len(errors) == 1
+    assert "docs/README.md" in errors[0]
+    assert "docs/assets/a.png" in errors[0]
+    assert "example.com" not in errors[0]  # внешние ссылки не в претензии
+
+
+def test_anchor_only_link_is_not_reported_as_relative(tmp_path, monkeypatch) -> None:
+    """`#якорь` — не путь: на PyPI он никуда не резолвится и ломаться нечему."""
+    (tmp_path / "pyproject.toml").write_text('readme = "R.md"\n', encoding="utf-8")
+    (tmp_path / "R.md").write_text("[к разделу](#установка)\n", encoding="utf-8")
+    module = _load_module()
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+
+    errors: list[str] = []
+    module.check_pypi_readme_is_absolute(errors)
     assert errors == []

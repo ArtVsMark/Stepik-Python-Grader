@@ -1,7 +1,11 @@
-name: Задача Stepik не проверяется правильно
-description: Скачанная задача не грейдится, тесты не находятся или вердикт расходится со Stepik
+name: Задача Stepik не проверяется правильно / Stepik task is graded incorrectly
+description: Скачанная задача не грейдится, тесты не находятся или вердикт расходится со Stepik / The downloaded task fails to grade, tests are not found, or the verdict differs from Stepik
 title: "task: "
-labels: ["bug"]
+# issue #835 (GROW-04): у ЭТОЙ формы область известна заранее — расхождение
+# вердикта со Stepik всегда упирается в разбор тест-кейсов или в загрузчик,
+# поэтому метки навигации ставятся статически. У баг-репорта и идеи область
+# заранее не известна, там форма её спрашивает (см. bug_report.yml).
+labels: ["bug", "area/core", "downloader"]
 # `id` полей — контракт для prefilled-URL (core/feedback.py). См. комментарий
 # в bug_report.yml.
 body:
@@ -20,7 +24,7 @@ body:
   - type: input
     id: step-url
     attributes:
-      label: Ссылка на шаг Stepik
+      label: Ссылка на шаг Stepik / Stepik step URL
       description: URL шага, на котором расходится вердикт.
       placeholder: https://stepik.org/lesson/.../step/...
     validations:
@@ -29,7 +33,7 @@ body:
   - type: dropdown
     id: symptom
     attributes:
-      label: Что именно происходит
+      label: Что именно происходит / What exactly happens
       options:
         - Локально зачёт, на Stepik — нет
         - Локально не зачёт, на Stepik — зачёт
@@ -42,7 +46,7 @@ body:
   - type: textarea
     id: details
     attributes:
-      label: Подробности
+      label: Подробности / Details
       description: Чем отличается ожидаемый вывод от полученного.
     validations:
       required: true
@@ -50,7 +54,7 @@ body:
   - type: textarea
     id: task-context
     attributes:
-      label: Контекст задачи
+      label: Контекст задачи / Task context
       description: |
         Заполняется автоматически, если открыть форму из грейдера: определённый
         формат тест-кейсов, число кейсов, вердикты. Без кода решения.
@@ -61,7 +65,7 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: Окружение
+      label: Окружение / Environment
       description: Заполняется автоматически, если открыть форму из грейдера.
       render: text
     validations:
@@ -70,7 +74,7 @@ body:
   - type: input
     id: commit
     attributes:
-      label: Коммит (`git log --oneline -1`)
+      label: Коммит / Commit (`git log --oneline -1`)
       description: |
         Заполняется автоматически, если грейдер запущен из git-клона. При установке
         через pip остаётся пустым — тогда точку истории показывает хеш внутри версии
