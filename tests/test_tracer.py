@@ -1,6 +1,6 @@
 """Tests for core/tracer.py — пошаговый трейс исполнения (issue #318).
 
-``trace_code`` исполняет self-contained bootstrap через ``grader_core.run_spec()``
+``trace_code`` исполняет self-contained bootstrap через ``runner.run_spec()``
 активным Runner'ом (issue #396/#640) — тесты гоняют реальную трассировку (не мок),
 проверяя структуру JSON-трейса: кадры стека, heap со ссылками по id (aliasing),
 события, лимиты, stdin.
@@ -267,7 +267,7 @@ def test_trace_code_refuses_when_runner_lacks_project_imports(monkeypatch) -> No
     Отказ идёт по capability ``supports_project_imports``, а НЕ по имени класса:
     произвольная обёртка / новый backend (Docker/remote) с флагом ``False`` тоже
     распознаётся — имя класса здесь намеренно НЕ ``SandboxRunner``."""
-    from stepik_grader.core import grader_core
+    from stepik_grader.core import runner as runner_mod
 
     class IsolatedRunner:  # имя НЕ "SandboxRunner" — распознаётся по capability
         supports_project_imports = False
@@ -275,7 +275,7 @@ def test_trace_code_refuses_when_runner_lacks_project_imports(monkeypatch) -> No
         def run(self, spec):
             raise AssertionError("не должно вызываться — трейс отклонён до исполнения")
 
-    monkeypatch.setattr(grader_core, "_RUNNER", IsolatedRunner())
+    monkeypatch.setattr(runner_mod, "_RUNNER", IsolatedRunner())
     result = trace_code("x = 1\n")
     assert result["steps"] == []
     assert result["error"]["type"] == "SandboxError"
@@ -285,10 +285,10 @@ def test_trace_code_refuses_when_runner_lacks_project_imports(monkeypatch) -> No
 def test_trace_code_runs_when_runner_supports_project_imports(monkeypatch) -> None:
     """issue #550: раннер с ``supports_project_imports=True`` (``LocalRunner`` и
     любой неизолирующий backend) — трейс исполняется, отказа нет."""
-    from stepik_grader.core import grader_core
+    from stepik_grader.core import runner as runner_mod
     from stepik_grader.core.runner import LocalRunner
 
-    monkeypatch.setattr(grader_core, "_RUNNER", LocalRunner())
+    monkeypatch.setattr(runner_mod, "_RUNNER", LocalRunner())
     trace = trace_code("x = 1\ny = 2\n")
     assert trace["error"] is None
     assert len(trace["steps"]) >= 1
@@ -296,9 +296,8 @@ def test_trace_code_runs_when_runner_supports_project_imports(monkeypatch) -> No
 
 def test_trace_code_uses_public_run_spec(monkeypatch) -> None:
     """issue #640: trace_code исполняет bootstrap через публичный
-    ``grader_core.run_spec()``, а не через приватный ``_RUNNER`` напрямую —
+    ``run_spec()``, а не через приватный ``_RUNNER`` напрямую —
     единственная точка выбора backend'а. Guard против возврата к ``_RUNNER.run``."""
-    from stepik_grader.core import grader_core
     from stepik_grader.core.runner import RunOutcome
 
     calls: list = []
@@ -307,7 +306,7 @@ def test_trace_code_uses_public_run_spec(monkeypatch) -> None:
         calls.append(spec)
         return RunOutcome()  # пустой stdout → trace_code вернёт error, но run_spec вызван
 
-    monkeypatch.setattr(grader_core, "run_spec", fake_run_spec)
+    monkeypatch.setattr(t, "run_spec", fake_run_spec)
     trace_code("x = 1\n")
     assert len(calls) == 1  # ровно один прогон, через публичный run_spec
 

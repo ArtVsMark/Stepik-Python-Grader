@@ -263,8 +263,11 @@ def test_trace_code_passes_output_limit_to_runner(monkeypatch) -> None:
     Без него ``LocalRunner`` уходит на безлимитный ``communicate()``
     (``runner.py``: ``cancel_event is None and max_output_bytes is None``) и
     читает stdout дочернего процесса — весь JSON-трейс — в память без предела.
+
+    Патчится имя в самом ``tracer``: ``run_spec`` он импортирует напрямую,
+    поэтому подмена в ``core.runner`` до него уже не доходит.
     """
-    from stepik_grader.core import grader_core
+    from stepik_grader.core import tracer
 
     specs: list[RunSpec] = []
 
@@ -272,7 +275,7 @@ def test_trace_code_passes_output_limit_to_runner(monkeypatch) -> None:
         specs.append(spec)
         return RunOutcome()
 
-    monkeypatch.setattr(grader_core, "run_spec", spy)
+    monkeypatch.setattr(tracer, "run_spec", spy)
     trace_code("x = 1\n")
 
     assert len(specs) == 1
@@ -298,7 +301,7 @@ def test_trace_code_end_to_end_keeps_child_output_bounded() -> None:
 
 def test_microbench_passes_output_limit_to_runner(monkeypatch) -> None:
     """``RunSpec`` микробенча несёт ``CONFIG.max_output_bytes`` (было ``None``)."""
-    from stepik_grader.core import grader_core
+    from stepik_grader.core import microbench_runner
 
     specs: list[RunSpec] = []
 
@@ -306,7 +309,7 @@ def test_microbench_passes_output_limit_to_runner(monkeypatch) -> None:
         specs.append(spec)
         return RunOutcome()
 
-    monkeypatch.setattr(grader_core, "run_spec", spy)
+    monkeypatch.setattr(microbench_runner, "run_spec", spy)
     run_microbench("x = 1\n", number=1)
 
     assert len(specs) == 1
@@ -320,7 +323,7 @@ def test_microbench_caps_solution_stderr(monkeypatch) -> None:
     поэтому реально открыт был только stderr: 103 прогона (3 прогрева + 5×20)
     по 10 КБ — ~1 МБ, который безлимитный ``communicate()`` копил целиком.
     """
-    from stepik_grader.core import grader_core, microbench_runner
+    from stepik_grader.core import microbench_runner
 
     monkeypatch.setattr(
         microbench_runner,
@@ -328,14 +331,14 @@ def test_microbench_caps_solution_stderr(monkeypatch) -> None:
         dataclasses.replace(microbench_runner.CONFIG, max_output_bytes=20_000),
     )
     seen: list[tuple[RunSpec, RunOutcome]] = []
-    real_run_spec = grader_core.run_spec
+    real_run_spec = microbench_runner.run_spec
 
     def spy(spec: RunSpec) -> RunOutcome:
         outcome = real_run_spec(spec)  # реальный LocalRunner, не мок
         seen.append((spec, outcome))
         return outcome
 
-    monkeypatch.setattr(grader_core, "run_spec", spy)
+    monkeypatch.setattr(microbench_runner, "run_spec", spy)
     run_microbench("import sys\nsys.stderr.write('x' * 10000)\n", number=20)
 
     assert len(seen) == 1

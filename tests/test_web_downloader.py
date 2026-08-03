@@ -16,8 +16,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from stepik_grader import web
 from stepik_grader.web import downloader_adapter
+from stepik_grader.web import server as web_server
 
 _VALID_SECRETS = {
     "client_id": "cid",
@@ -276,7 +276,9 @@ def server(tmp_path: pathlib.Path):
     # issue #401: /api/download's own `root` (where to download TO) is now
     # confined to the workspace too (was excluded under #261) — an out-of-root
     # `root` is rejected 403 instead of letting download_task mkdir anywhere.
-    httpd = web._GraderServer(("127.0.0.1", 0), web._Handler, workspace=tmp_path, confine=True)
+    httpd = web_server._GraderServer(
+        ("127.0.0.1", 0), web_server._Handler, workspace=tmp_path, confine=True
+    )
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     host, port = httpd.server_address[0], httpd.server_address[1]

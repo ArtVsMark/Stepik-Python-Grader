@@ -48,12 +48,12 @@ def test_resolve_unknown_and_empty_return_none() -> None:
 def test_cli_and_web_show_same_card_for_covered_exception() -> None:
     # Acceptance #356: RE-подсказка CLI (reporter) и web error card (viewmodels)
     # строятся одним резолвером — значит совпадают для покрытых исключений.
-    from stepik_grader import web
+    from stepik_grader.web import viewmodels as web_vm
 
     error = "KeyError: 'x'"
     hint = resolve_error_hint(error)
     assert hint is not None
-    view = web._case_view(1, {"passed": False, "error": error, "verdict": "RE"})
+    view = web_vm._case_view(1, {"passed": False, "error": error, "verdict": "RE"})
     assert view["glossary"]["exception"] == hint.exception
     assert view["glossary"]["hint"] == hint.hint
     assert view["glossary"]["anchor"] == hint.anchor

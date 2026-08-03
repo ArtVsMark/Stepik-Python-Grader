@@ -16,13 +16,12 @@ import pathlib
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from stepik_grader.core import user_settings
-from stepik_grader.core.stepik_reference import DEFAULT_MAX_TOP
 from stepik_grader.web import auth_adapter, runs
 from stepik_grader.web.commands import filter_commands
 from stepik_grader.web.downloader_adapter import (
     download_task,
     read_config,
+    read_step_id,
     secrets_path_for,
     write_config,
 )
@@ -39,6 +38,7 @@ from stepik_grader.web.i18n import message_fields
 from stepik_grader.web.insights_adapter import insights_cards, progress_report
 from stepik_grader.web.reference_adapter import import_reference
 from stepik_grader.web.rules_adapter import rules_get, rules_search
+from stepik_grader.web.settings_adapter import read_settings, set_flag
 from stepik_grader.web.viewmodels import (
     grade_benchmark,
     grade_microbench,
@@ -568,7 +568,7 @@ class _ApiRoutesMixin(_GuardMixin):
         if confined_dir is None:
             return  # _confined_path уже отправил 403
         raw_top = body.get("top")
-        top = raw_top if isinstance(raw_top, int) and raw_top > 0 else DEFAULT_MAX_TOP
+        top = raw_top if isinstance(raw_top, int) else None  # предел — забота адаптера
         data = import_reference(str(confined_dir), top=top, workspace=self.server.workspace)
         self._send(200, "application/json; charset=utf-8", _json(data))
 
@@ -753,13 +753,9 @@ class _ApiRoutesMixin(_GuardMixin):
         if res is None:
             return
         _lang, body = res
-        settings_path = self.server.workspace / user_settings.SETTINGS_FILE_NAME
-        settings = user_settings.load_settings(settings_path)
         value = body.get("onboarding_seen")
-        if isinstance(value, bool) and settings.onboarding_seen is not value:
-            settings.onboarding_seen = value
-            with contextlib.suppress(OSError):
-                user_settings.save_settings(settings, settings_path)
+        if isinstance(value, bool):
+            set_flag(self.server.workspace, "onboarding_seen", value)
         self._send(200, "application/json; charset=utf-8", _json({"ok": True}))
 
     def _handle_stepik_submit(self, parsed: Any) -> None:
@@ -774,8 +770,6 @@ class _ApiRoutesMixin(_GuardMixin):
         ``stepik_auth_required`` (в сеть ничего). Отправка — необратимое действие,
         поэтому UI требует явного подтверждения ДО вызова этого эндпоинта.
         """
-        from stepik_grader.core.stepik_client import read_step_id
-
         res = self._guard_and_read_body(parsed)
         if res is None:
             return
@@ -848,13 +842,9 @@ class _ApiRoutesMixin(_GuardMixin):
         lang, body = res
 
         # Consent-гейт — синхронно, ДО любого обращения к провайдеру (приватность).
-        settings_path = self.server.workspace / user_settings.SETTINGS_FILE_NAME
-        settings = user_settings.load_settings(settings_path)
-        granted = settings.ai_hint_consent is True
+        granted = read_settings(self.server.workspace).ai_hint_consent is True
         if body.get("consent") is True and not granted:
-            settings.ai_hint_consent = True
-            with contextlib.suppress(OSError):
-                user_settings.save_settings(settings, settings_path)
+            set_flag(self.server.workspace, "ai_hint_consent", True)
             granted = True
         if not granted:
             self._send(

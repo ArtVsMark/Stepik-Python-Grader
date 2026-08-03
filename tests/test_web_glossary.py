@@ -17,9 +17,9 @@ import urllib.request
 
 import pytest
 
-from stepik_grader import web
 from stepik_grader.glossary.models import GlossaryCard, GlossaryMissingEntry
 from stepik_grader.web import glossary_adapter
+from stepik_grader.web import server as web_server
 from stepik_grader.web.commands import COMMANDS, filter_commands
 
 # ---------------------------------------------------------------------------
@@ -876,7 +876,9 @@ class TestGlossaryMissing:
 def server(tmp_path: pathlib.Path):
     # issue #261: this file only hits /api/glossary*/api/commands (no `path`
     # param) — workspace just has to exist for the handler's incidental uses.
-    httpd = web._GraderServer(("127.0.0.1", 0), web._Handler, workspace=tmp_path, confine=True)
+    httpd = web_server._GraderServer(
+        ("127.0.0.1", 0), web_server._Handler, workspace=tmp_path, confine=True
+    )
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     host, port = httpd.server_address[0], httpd.server_address[1]

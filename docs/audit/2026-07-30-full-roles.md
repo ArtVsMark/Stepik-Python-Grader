@@ -370,14 +370,36 @@ OWNER/MEMBER/COLLABORATOR, инструменты агента по явному
 |---|---|---|---|---|---|
 | `ARCH-01` | **medium** | high | ✅ | `docs/dev/architecture.md:55` | architecture.md объявляет core/tracer.py leaf-модулем («только stdlib, project-импортов нет»), хотя он импортирует config, core/runner и core/grader_core |
 | `ARCH-02` | **medium** | high | ✅ | `docs/dev/architecture.md:126` | Блок «Граф зависимостей» в architecture.md устарел: минимум восемь фактических загрузочных рёбер в нём отсутствуют, автопроверки нет |
-| `ARCH-04` | **medium** | high | ◐ | `src/stepik_grader/core/grader_core.py:120` | Конфигурация вмораживается в module-level константы и в дефолты аргументов при импорте grader_core — ленивость config.CONFIG обесценена, per-request конфиг невозможен |
-| `ARCH-03` | **low** | high | ◐ | `src/stepik_grader/core/grader_core.py:188` | Реестр активного Runner живёт в оркестраторе grader_core, а не в core/runner.py — это порождает обратные рёбра microbench_runner→grader_core и tracer→grader_core, скрытые ленивыми импортами от DAG-guard'а |
+| `ARCH-04` | **medium** | high | ✅ | `src/stepik_grader/core/grader_core.py:120` | Конфигурация вмораживается в module-level константы и в дефолты аргументов при импорте grader_core — ленивость config.CONFIG обесценена, per-request конфиг невозможен |
+| `ARCH-03` | **low** | high | ✅ | `src/stepik_grader/core/grader_core.py:188` | Реестр активного Runner живёт в оркестраторе grader_core, а не в core/runner.py — это порождает обратные рёбра microbench_runner→grader_core и tracer→grader_core, скрытые ленивыми импортами от DAG-guard'а |
 | `ARCH-05` | **low** | medium | ✅ | `src/stepik_grader/web/grading.py:21` | Boundary-guard ADR-0010 определяет «публичную поверхность» как «имя без подчёркивания», поэтому фасад web/grading реэкспортирует константы, явно исключённые из __all__ ядра |
 | `ARCH-06` | **low** | medium | ◐ | `src/stepik_grader/web/glossary_adapter.py:53` | web/glossary_adapter.py — не «тонкий адаптер», а 613 строк доменной логики глоссария (таксономия разделов, EN-подписи, сортировки), недоступной CLI |
-| `ARCH-07` | **low** | medium | ◐ | `src/stepik_grader/web/api_routes.py:19` | web/api_routes.py импортирует core/stepik_reference напрямую, минуя существующий web/reference_adapter.py — слой маршрутов протекает в ядро |
-| `ARCH-08` | **low** | medium | ◐ | `src/stepik_grader/web/__init__.py:13` | web/__init__.py реэкспортирует приватные внутренности ради обратной совместимости тестов, закрепляя их как де-факто публичный API и делая импорт пакета тяжёлым |
+| `ARCH-07` | **low** | medium | ✅ | `src/stepik_grader/web/api_routes.py:19` | web/api_routes.py импортирует core/stepik_reference напрямую, минуя существующий web/reference_adapter.py — слой маршрутов протекает в ядро |
+| `ARCH-08` | **low** | medium | ✅ | `src/stepik_grader/web/__init__.py:13` | web/__init__.py реэкспортирует приватные внутренности ради обратной совместимости тестов, закрепляя их как де-факто публичный API и делая импорт пакета тяжёлым |
 | `ARCH-09` | **low** | medium | ✅ | `src/stepik_grader/core/grader_core.py:537` | Агрегатный результат (run_tests/run_benchmark/run_microbench_mode) не имеет типизированной модели — только dict[str, Any], хотя для case-уровня их уже две (CaseResult + TestResult) |
 | `ARCH-11` | **low** | — | ✅ | `docs/dev/result-contract.md:168` | result-contract.md указывает web/server.py как место error-конвертов API, которых там уже нет — они переехали в web/http_guards.py |
+
+**Закрыто:** `ARCH-03`, `ARCH-04`, `ARCH-05`, `ARCH-07`, `ARCH-08` — PR #905.
+Реестр Runner переехал в `core/runner.py`, оба ленивых импорта (`microbench_runner`,
+`tracer`) стали обычными; конфиг резолвится в теле функции через `get_config()`
+(снимок `CONFIG` на импорте оставлен алиасом для фасада); guard границы считает
+непубличным всё, чего нет в `__all__` целевого модуля; слой маршрутов ходит в ядро
+только через адаптеры (новый `web/settings_adapter.py`, `read_step_id` и предел
+`DEFAULT_MAX_TOP` — в свои адаптеры), фасад `web/__init__.py` реэкспортирует ровно
+`__all__`. Каждое правило закрыто guard'ом в `tests/test_import_dag.py`.
+
+**Отклонена часть `ARCH-08`** — «чтение статики в `server.py` перенести в ленивую
+функцию с кэшем, чтобы импорт пакета не трогал диск». Замер: `import
+stepik_grader.web` — 501 мс против 74 мс у голого пакета, но чтение всех 19 файлов
+`static/` (846 КБ, включая шрифты и бандл CodeMirror) занимает **1.3 мс**; вес дают
+`requests` (150 мс), `http.server` (61 мс) и `core/failure_context` (51 мс).
+Предпосылка находки — «потребитель платит чтением всех шрифтов и бандла» — не
+подтвердилась: выигрыш был бы ~0.3%. Сам импорт `web` при этом ленивый (только под
+`--serve`). Реальная стоимость — это `requests`; отдельная задача, не эта.
+
+**Сверх аудита:** та же болезнь, что в `ARCH-08`, есть в `cli/__init__.py`
+(12 приватных реэкспортов, ~90 обращений в тестах) — вынесено в issue #903 и
+явно отмечено в guard'е как `known_debt`, чтобы не потерялось.
 
 ### 🧪 Тестировщик
 

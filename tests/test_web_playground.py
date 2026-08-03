@@ -15,8 +15,8 @@ import urllib.request
 
 import pytest
 
-from stepik_grader import web
 from stepik_grader.web import playground, runs
+from stepik_grader.web import server as web_server
 from tests._wait import wait_until
 
 # ---------------------------------------------------------------------------
@@ -50,29 +50,29 @@ class TestRunPlayground:
         assert result["stdout"] == ""
 
     def test_launch_error_is_re(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # issue #396: playground исполняет через активный grader_core._RUNNER
+        # issue #396: playground исполняет через активный ``runner._RUNNER``
         # (не жёсткий LocalRunner) — подменяем именно его.
-        from stepik_grader.core import grader_core
+        from stepik_grader.core import runner as runner_mod
         from stepik_grader.core.runner import RunOutcome
 
         class _FakeRunner:
             def run(self, spec: object) -> RunOutcome:
                 return RunOutcome(launch_error="nope")
 
-        monkeypatch.setattr(grader_core, "_RUNNER", _FakeRunner())
+        monkeypatch.setattr(runner_mod, "_RUNNER", _FakeRunner())
         result = playground.run_playground("x = 1")
         assert result["status"] == "RE"
         assert result["stderr"] == "nope"
 
     def test_cancelled_status(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from stepik_grader.core import grader_core
+        from stepik_grader.core import runner as runner_mod
         from stepik_grader.core.runner import RunOutcome
 
         class _FakeRunner:
             def run(self, spec: object) -> RunOutcome:
                 return RunOutcome(cancelled=True)
 
-        monkeypatch.setattr(grader_core, "_RUNNER", _FakeRunner())
+        monkeypatch.setattr(runner_mod, "_RUNNER", _FakeRunner())
         assert playground.run_playground("x = 1")["status"] == "CANCELLED"
 
     def test_timeout_is_tle(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -99,14 +99,14 @@ class TestRunPlayground:
 
     def test_cancelled_keeps_partial_output(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """То же для отмены: пользователь видит, что успело выполниться."""
-        from stepik_grader.core import grader_core
+        from stepik_grader.core import runner as runner_mod
         from stepik_grader.core.runner import RunOutcome
 
         class _FakeRunner:
             def run(self, spec: object) -> RunOutcome:
                 return RunOutcome(cancelled=True, stdout=b"partial\n", stderr=b"warn\n")
 
-        monkeypatch.setattr(grader_core, "_RUNNER", _FakeRunner())
+        monkeypatch.setattr(runner_mod, "_RUNNER", _FakeRunner())
 
         result = playground.run_playground("x = 1")
 
@@ -193,7 +193,9 @@ class TestPlaygroundJob:
 
 @pytest.fixture
 def server(tmp_path):
-    httpd = web._GraderServer(("127.0.0.1", 0), web._Handler, workspace=tmp_path, confine=True)
+    httpd = web_server._GraderServer(
+        ("127.0.0.1", 0), web_server._Handler, workspace=tmp_path, confine=True
+    )
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     host, port = httpd.server_address

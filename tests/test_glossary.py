@@ -1,7 +1,7 @@
 """Tests for core/glossary.py — карта исключений → подсказка + якорь (issue #72).
 
 Плюс интеграция: CLI-подсказка (reporter.print_case_verbose) и веб-карточка
-(web._case_view) при вердикте RE.
+(web_vm._case_view) при вердикте RE.
 """
 
 from __future__ import annotations
@@ -156,9 +156,9 @@ def test_reporter_verbose_no_hint_for_unknown_error(capsys) -> None:
 
 
 def test_web_case_view_includes_glossary_on_error() -> None:
-    from stepik_grader import web
+    from stepik_grader.web import viewmodels as web_vm
 
-    view = web._case_view(1, {"passed": False, "error": "KeyError: 'x'", "verdict": "RE"})
+    view = web_vm._case_view(1, {"passed": False, "error": "KeyError: 'x'", "verdict": "RE"})
     assert "glossary" in view
     assert view["glossary"]["exception"] == "KeyError"
     # issue #684: карточка адресуется якорем СВОЕЙ базы (deep-link
@@ -168,9 +168,9 @@ def test_web_case_view_includes_glossary_on_error() -> None:
 
 
 def test_web_case_view_no_glossary_when_passed() -> None:
-    from stepik_grader import web
+    from stepik_grader.web import viewmodels as web_vm
 
-    view = web._case_view(1, {"passed": True, "error": "", "verdict": "AC"})
+    view = web_vm._case_view(1, {"passed": True, "error": "", "verdict": "AC"})
     assert "glossary" not in view
 
 

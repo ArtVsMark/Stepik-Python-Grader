@@ -5,20 +5,17 @@
 (грейдинг → JSON), ``static/`` (HTML/CSS/JS без build-шага). Публичный API
 (``grade_benchmark``/``grade_path``/``run_server``) не меняется — только
 внутреннее расположение модулей.
+
+Реэкспортируется ровно ``__all__`` и ничего сверх: приватные внутренности
+(``_Handler``, ``_INDEX_HTML``, ``_case_view``, …) берутся из своих модулей —
+``web.server``/``web.viewmodels``. Иначе тесты, импортировавшие их отсюда,
+фиксировали приватное как де-факто публичный API пакета (issue #830, ARCH-08).
 """
 
 from __future__ import annotations
 
-from stepik_grader.web.server import (
-    _INDEX_HTML,  # noqa: F401 — re-exported for test back-compat
-    _STATIC_JS_SOURCES,  # noqa: F401 — re-exported for source-regression tests (#426: all static/*.js)
-    _GraderServer,  # noqa: F401 — re-exported for tests (issue #261 — workspace/confine)
-    _Handler,  # noqa: F401 — re-exported for test back-compat
-    run_server,
-)
+from stepik_grader.web.server import run_server
 from stepik_grader.web.viewmodels import (
-    _case_view,  # noqa: F401 — re-exported for test back-compat (tests/test_glossary.py)
-    _wa_suggestion,  # noqa: F401 — re-exported for test back-compat (issue #301)
     estimate_run_count,
     grade_benchmark,
     grade_microbench,

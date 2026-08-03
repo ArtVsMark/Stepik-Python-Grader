@@ -34,6 +34,7 @@
 | `web/rules_adapter.py` | Application / Web | `rules_search`/`rules_get` — тонкий адаптер над пакетом `rules/` (`bundled_rules`) для раздела «Правила (PEP)» |
 | `web/insights_adapter.py` | Application / Web | `insights_cards`/`active_count` — адаптер над `core/insights`+`core/history` для раздела «Подучить» |
 | `web/reference_adapter.py` | Application / Web | `import_reference` — тонкий адаптер над `core/stepik_reference` для кнопки «Найти эталонное решение» (импорт закреплённого решения Stepik в задачу); web-аутентификация без браузера, как `downloader_adapter` |
+| `web/settings_adapter.py` | Application / Web | `read_settings`/`set_flag` — тонкий адаптер над `core/user_settings`: слой маршрутов переключает `onboarding_seen`/`ai_hint_consent` через него, а не читает файл настроек сам |
 | `web/feedback_adapter.py` | Application / Web | `feedback_draft` — тонкий адаптер над `core/feedback` для `POST /api/feedback`: черновик обращения (баг/идея/задача) с prefilled-URL к GitHub Issue Forms и предпросмотром полей. Ничего не отправляет — issue публикует сам пользователь в браузере |
 | `web/commands.py` | Application / Web (leaf) | Реестр команд (`COMMANDS`, `filter_commands`) для action cards разбора; не импортирует ничего из проекта |
 | `web/runs.py` | Application / Web | Async job-модель для tests/bench/microbench/playground/trace/auth/hint/stepik_submit (`submit_job`/`get_job`/`cancel_job`; `kind="tests"` — грейд режима 1, `kind="auth"` — браузерный OAuth, `kind="hint"` — AI-объяснение кейса, `kind="stepik_submit"` — отправка решения на Stepik) — `POST /api/v1/runs`, альтернатива синхронному `GET /api/grade`; `ThreadPoolExecutor`-пул, module-level реестр job'ов под `threading.Lock`, TTL-уборка завершённых |
@@ -121,14 +122,15 @@ cli/context.py         ──→  (ничего в проекте; чистый 
 cli/rendering.py       ──→  (ничего в проекте; чистый leaf, только stdlib csv/io)
 cli/interactive.py     ──→  core/grader_core.py  (find_all_solution_files/collect_grouped_files), cli/context.py  (leaf — не импортирует cli/__init__.py, зависимости через CliContext), core/feedback.py  (пункт меню «Обратная связь»)
 web/server.py          ──→  web/api_routes.py, web/http_guards.py, web/viewmodels.py, web/i18n.py, core/user_settings.py  (каркас: собирает хендлер из миксинов, отдаёт статику, инжектит onboarding_seen в index.html; core/sandbox + grading.set_runner — ленивые импорты в теле под --serve --sandbox)
-web/api_routes.py      ──→  web/http_guards.py, web/commands.py, web/downloader_adapter.py, web/auth_adapter.py, web/glossary_adapter.py, web/rules_adapter.py, web/insights_adapter.py, web/reference_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (маршруты REST-API поверх адаптеров)
+web/api_routes.py      ──→  web/http_guards.py, web/commands.py, web/downloader_adapter.py, web/auth_adapter.py, web/glossary_adapter.py, web/rules_adapter.py, web/insights_adapter.py, web/reference_adapter.py, web/settings_adapter.py, web/viewmodels.py, web/runs.py, web/i18n.py  (маршруты REST-API поверх адаптеров; рёбер в core нет — guard test_router_reaches_core_only_through_adapters)
 web/grading.py         ──→  core/grader_core.py, core/microbench_runner.py, core/runner.py (RunSpec), core/tracer.py, core/reporter.py, core/test_loader.py, core/cache.py  (фасад web→core по исполнению — единственная точка, ADR-0010; allowlist публичной поверхности core под guard)
 web/viewmodels.py      ──→  web/grading.py  (grade/bench/microbench/RunSpec/загрузка тестов через фасад, а не из core/* напрямую — ADR-0010)
 web/viewmodels.py      ──→  core/error_glossary.py  (resolve_error_hint для error card при RE)
 web/viewmodels.py      ──→  glossary/detector.py, glossary/json_provider.py  (MissingConceptDetector + J7 missing-queue)
 web/viewmodels.py      ──→  config.py
 web/viewmodels.py      ──→  core/history.py, core/lint.py, core/mtime_cache.py, rules/  (запись прогонов, блок «Стиль», кеш по mtime, карточки правил)
-web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/storage.py, core/test_loader.py
+web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/stepik_client.py  (read_step_id — meta.json скачанной задачи), core/storage.py, core/test_loader.py
+web/settings_adapter.py   ──→  core/user_settings.py  (чтение/переключение флагов настроек — единственная точка web-слоя)
 web/auth_adapter.py       ──→  core/oauth_flow.py, core/storage.py  (браузерный OAuth-мастер --serve)
 web/glossary_adapter.py   ──→  core/glossary.py, core/mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, config.py  (stdlib_inventory для code_terms)
 web/rules_adapter.py       ──→  rules/  (bundled_rules), core/history_recording.py  (резолв пути БД), core/insights.py  (подсветка лично нарушенных правил)
@@ -149,7 +151,7 @@ cli/commands.py        ──→  core/ai_hints.py, core/history_recording.py  (
 cli/__init__.py        ──→  core/progress_export.py  (--export-progress), core/stepik_reference.py  (--import-reference/--import-top)
 cli/interactive.py     ──→  core/user_settings.py  (тумблер записи истории из меню)
 web/api_routes.py      ──→  web/reference_adapter.py  (POST /api/import-reference)
-web/api_routes.py      ──→  core/stepik_reference.py, core/user_settings.py  (импорт эталонных решений и настройки пользователя)
+web/api_routes.py      ──→  web/settings_adapter.py  (настройки пользователя: onboarding_seen, consent AI-подсказки)
 web/api_routes.py      ──→  web/feedback_adapter.py  (POST /api/feedback — черновик обращения)
 web/feedback_adapter.py ──→  core/feedback.py  (та же сборка prefilled-URL, что у пункта меню CLI — логика не дублируется в web/JS)
 core/feedback.py       ──→  core/diag_log.py  (redact — единственное проектное ребро; версия через importlib.metadata, чтобы не появилось ребро core → cli)
