@@ -36,6 +36,7 @@ import pathlib
 import webbrowser
 
 from stepik_grader.cli.context import CliContext
+from stepik_grader.cli.prompts import CONFIRM_YES
 from stepik_grader.config import CONFIG
 from stepik_grader.core import feedback, user_settings
 from stepik_grader.core.grader_core import collect_grouped_files, find_all_solution_files
@@ -281,7 +282,7 @@ def _maybe_grade_downloaded(
         # прогона, а не падение меню.
         print()
         return None
-    if answer not in _CONFIRM_YES:
+    if answer not in CONFIRM_YES:
         return None
     return bool(ctx.run_mode_2(task_dir, record_stats=record_stats, record_history=record_history))
 
@@ -354,7 +355,6 @@ _FEEDBACK_FIELD_LABELS: dict[str, str] = {
 }
 
 # Утвердительные ответы на «Открыть браузер?» — пустой ввод тоже «да» (Y — дефолт).
-_CONFIRM_YES = frozenset({"", "y", "yes", "д", "да"})
 
 
 def _print_feedback_preview(ctx: CliContext, prepared: feedback.PreparedIssue) -> None:
@@ -420,7 +420,7 @@ def _feedback_flow(ctx: CliContext) -> None:
     _print_feedback_preview(ctx, prepared)
     print(ctx.t("feedback_account_hint"))
 
-    if input(ctx.t("feedback_confirm")).strip().lower() not in _CONFIRM_YES:
+    if input(ctx.t("feedback_confirm")).strip().lower() not in CONFIRM_YES:
         print(ctx.t("feedback_cancelled"))
         return
 

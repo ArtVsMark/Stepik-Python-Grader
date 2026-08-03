@@ -355,3 +355,76 @@ def test_cli_label_builders_cover_every_reporter_default() -> None:
         (cli._lint_labels, reporter._LINT_LABELS),
     ):
         assert set(builder()) == set(defaults), builder.__name__
+
+
+# ---------------------------------------------------------------------------
+# issue #897/#899 — сообщения про AI-подсказки переводятся, а два набора
+# утвердительных ответов различаются намеренно и это выражено именами.
+# ---------------------------------------------------------------------------
+
+
+def test_no_russian_literals_left_in_cli_commands() -> None:
+    """В `commands.py` не осталось видимых пользователю русских литералов.
+
+    Докстринги и комментарии легитимно русские (того требует CLAUDE.md) — тест
+    смотрит только на строковые ВЫРАЖЕНИЯ, то есть на то, что печатается.
+    """
+    source = (_SRC_ROOT / "cli" / "commands.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    docstrings = {
+        id(node.body[0].value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+        and node.body
+        and isinstance(node.body[0], ast.Expr)
+        and isinstance(node.body[0].value, ast.Constant)
+        and isinstance(node.body[0].value.value, str)
+    }
+    leaked = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and id(node) not in docstrings
+        and _has_cyrillic(node.value)
+    ]
+    assert not leaked, f"жёсткий русский в commands.py: {leaked}"
+
+
+def test_ai_messages_are_translated(_english, capsys, monkeypatch) -> None:
+    """Под `--lang en` подсказка про ненастроенный провайдер английская."""
+    from stepik_grader.cli import commands
+
+    monkeypatch.setattr(commands, "get_config", lambda: type("C", (), {"ai_base_url": None})())
+    assert commands._resolve_ai_config() is None
+    out = capsys.readouterr().out
+    assert out.strip(), "подсказка не напечаталась вовсе"
+    assert not _has_cyrillic(out), f"кириллица в английском выводе: {out!r}"
+
+
+def test_empty_enter_is_not_consent_to_send_code() -> None:
+    """issue #899: молчание согласием не является — умолчание обязано быть безопасным.
+
+    Ровно эту разницу легко «унифицировать» и молча сломать: в меню пустой Enter
+    означает «да», а здесь обязан означать «нет».
+    """
+    from stepik_grader.cli.prompts import CONFIRM_YES, EXPLICIT_YES
+
+    assert "" not in EXPLICIT_YES
+    assert "" in CONFIRM_YES
+    assert EXPLICIT_YES < CONFIRM_YES  # различаются РОВНО пустым вводом
+
+
+def test_both_answer_sets_accept_the_same_words() -> None:
+    """Кроме пустого ввода наборы совпадают — иначе «да» работало бы через раз."""
+    from stepik_grader.cli.prompts import CONFIRM_YES, EXPLICIT_YES
+
+    assert CONFIRM_YES - {""} == EXPLICIT_YES
+    assert {"y", "yes", "д", "да"} <= EXPLICIT_YES
+
+
+def test_answer_sets_have_no_duplicate_literals_left() -> None:
+    """Литералы «да»/«yes» живут в одном месте, а не копипастой по модулям."""
+    for name in ("commands.py", "interactive.py"):
+        source = (_SRC_ROOT / "cli" / name).read_text(encoding="utf-8")
+        assert '"да"' not in source, f"{name}: набор ответов снова задан литералом"
