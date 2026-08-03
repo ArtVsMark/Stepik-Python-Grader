@@ -163,21 +163,23 @@ def _print_lint_blocks(
     ``collected is None`` — ruff недоступен: печатаем подсказку об установке один
     раз. Линт НЕ влияет на вердикт — информационный блок.
     """
+    # Локальный импорт: cli/__init__ импортирует этот модуль, поэтому импорт _t на
+    # уровне модуля замкнул бы цикл (тот же приём, что в cli/interactive.py).
+    from stepik_grader.cli import _lint_labels, _t
+
     if output != "text" or not solutions:
         return
     if collected is None:
-        print(
-            "Стиль пропущен: ruff не установлен. "
-            "Установите extra: pip install stepik-python-grader[lint] (issue #349)."
-        )
+        print(_t("lint_skipped_no_ruff"))
         return
     provider = rules.bundled_rules()
+    labels = _lint_labels()
     multi = len(solutions) > 1
     for sol in solutions:
         violations = collected.get(sol, [])
         if violations and multi and base is not None:
             print(f"\n{_rel(sol, base)}")
-        print_lint_block(violations, rules_provider=provider)
+        print_lint_block(violations, rules_provider=provider, labels=labels)
 
 
 _AI_NOT_CONFIGURED_HINT = (

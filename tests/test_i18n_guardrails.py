@@ -251,3 +251,107 @@ def test_render_message_survives_placeholder_mismatch(monkeypatch) -> None:
         web_i18n, "load_locale_messages", lambda lang: {"_probe_key": "нужен {path}"}
     )
     assert web_i18n.render_message("_probe_key", "ru", wrong="значение") == "нужен {path}"
+
+
+# ---------------------------------------------------------------------------
+# issue #824 (DESC-04) — CLI-таблицы отчётов тоже обязаны переводиться. Репро из
+# аудита: `stepik-grader --lang en`, пункт меню 5 «Learn» — меню и подсказки на
+# английском, а таблица под ними приходит с заголовком «Подучить» и колонками
+# «Ключ/Статус/Замечен». Половина отчёта не переводилась вовсе, при этом
+# docstring print_stats_summary декларировал обратное.
+# ---------------------------------------------------------------------------
+
+_CYRILLIC = tuple("абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ")
+
+
+def _has_cyrillic(text: str) -> bool:
+    return any(ch in _CYRILLIC for ch in text)
+
+
+class _Card:
+    def __init__(self, key: str, status: str) -> None:
+        self.key, self.status = key, status
+        self.hits, self.runs_considered = 3, 10
+        self.category, self.glossary_id = "runtime-error", ""
+
+
+class _Progress:
+    def __init__(self) -> None:
+        self.task_key, self.solved, self.attempts = "", True, 4
+        self.seconds_to_first_ac = 3600.0
+
+
+class _Violation:
+    def __init__(self) -> None:
+        self.rule_code, self.line_no = "E501", 7
+
+
+@pytest.fixture
+def _english(monkeypatch: pytest.MonkeyPatch):
+    """Переключить CLI на английский так же, как это делает ``--lang en``."""
+    from stepik_grader import cli
+
+    monkeypatch.setattr(cli, "_LANG", "en")
+    return cli
+
+
+def test_insights_table_is_translated(_english, capsys, monkeypatch) -> None:
+    """Заголовок, колонки И статусы карточек — всё на языке интерфейса."""
+    from stepik_grader.core import reporter
+
+    monkeypatch.setattr(reporter, "_RICH", False)
+    reporter.print_insights_summary(
+        [_Card("wrong-answer", "active"), _Card("timeout", "fading")],
+        labels=_english._insights_labels(),
+    )
+    out = capsys.readouterr().out
+    assert not _has_cyrillic(out), f"кириллица в английском выводе: {out!r}"
+    assert "active" in out and "fading" in out
+
+
+def test_progress_table_is_translated(_english, capsys, monkeypatch) -> None:
+    """Включая «(без задачи)» и единицу длительности — «4ч» ломало строку не меньше."""
+    from stepik_grader.core import reporter
+
+    monkeypatch.setattr(reporter, "_RICH", False)
+    reporter.print_progress_summary([_Progress()], labels=_english._progress_labels())
+    out = capsys.readouterr().out
+    assert not _has_cyrillic(out), f"кириллица в английском выводе: {out!r}"
+
+
+def test_lint_block_is_translated(_english, capsys, monkeypatch) -> None:
+    from stepik_grader.core import reporter
+
+    monkeypatch.setattr(reporter, "_RICH", False)
+    reporter.print_lint_block([_Violation()], labels=_english._lint_labels())
+    out = capsys.readouterr().out
+    assert not _has_cyrillic(out), f"кириллица в английском выводе: {out!r}"
+
+
+def test_russian_stays_default_without_labels() -> None:
+    """Прямой вызов без ``labels`` печатает по-русски — обратная совместимость.
+
+    Обёртки в ``__all__`` вызываются и из тестов, и из стороннего кода; смена
+    языка по умолчанию была бы тихой поломкой их вывода.
+    """
+    from stepik_grader.core import reporter
+
+    assert reporter._INSIGHTS_LABELS["title"] == "Подучить"
+    assert reporter._PROGRESS_LABELS["no_task"] == "(без задачи)"
+
+
+def test_cli_label_builders_cover_every_reporter_default() -> None:
+    """Сборщик подписей не должен отставать от reporter'а при новой колонке.
+
+    Иначе таблица тихо съедет обратно на русский дефолт по забытому ключу — тот
+    самый сценарий, из-за которого DESC-04 и появился.
+    """
+    from stepik_grader import cli
+    from stepik_grader.core import reporter
+
+    for builder, defaults in (
+        (cli._insights_labels, reporter._INSIGHTS_LABELS),
+        (cli._progress_labels, reporter._PROGRESS_LABELS),
+        (cli._lint_labels, reporter._LINT_LABELS),
+    ):
+        assert set(builder()) == set(defaults), builder.__name__
