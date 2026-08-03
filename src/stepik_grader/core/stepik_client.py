@@ -88,6 +88,25 @@ API_HOST = "https://stepik.org"
 # 429 (rate limit) и временные 5xx. 4xx помимо 429 не повторяются (не временные).
 RETRY_STATUS_FORCELIST: tuple[int, ...] = (429, 500, 502, 503, 504)
 
+# issue #815 (NETA-01): методы, для которых транспортный слой повторяет запрос.
+# К идемпотентным дефолтам urllib3 добавлен POST — им идут `/api/attempts` и
+# `/api/submissions` (отправка решения, issue #683), и повтор ограничен
+# статусами `RETRY_STATUS_FORCELIST`, то есть «сервер занят / временно
+# недоступен». Дубль попытки Stepik терпит: он и так создаёт новую при каждом
+# сабмите, а вот потерянная отправка стоит пользователю решённой задачи.
+_RETRY_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE", "TRACE", "POST"})
+
+# issue #815 (NETA-03): потолок ожидания по заголовку `Retry-After`. Дефолт
+# urllib3 — 21600 с (6 часов).
+_RETRY_AFTER_MAX_SECONDS = 60
+
+# issue #815 (NETA-04): потолок тела внешней загрузки. Адрес приходит из HTML
+# задачи, а `requests` без `stream=True` читает ответ в память целиком — ссылка
+# на многогигабайтный файл выжирала RAM до OOM. 64 МБ несопоставимо больше
+# любого архива тест-кейсов и несопоставимо меньше того, чем можно уронить
+# машину.
+_MAX_EXTERNAL_DOWNLOAD_BYTES = 64 * 1024 * 1024
+
 HEADERS: dict[str, str] = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -114,11 +133,17 @@ def make_session(
     ``HTTPAdapter`` + ``urllib3.util.Retry`` монтируются на http/https:
     429 (rate limit) и временные 5xx (``RETRY_STATUS_FORCELIST``) повторяются
     автоматически с экспоненциальным backoff (``backoff_factor`` удваивается с
-    каждой попыткой; ``Retry`` также уважает заголовок ``Retry-After``, если
-    сервер его прислал). Действует на уровне транспорта — применяется к любому
+    каждой попыткой). Действует на уровне транспорта — применяется к любому
     запросу через эту сессию и является ЕДИНСТВЕННЫМ уровнем повтора: прикладной
     ``_get_with_retry()`` больше свою петлю не держит (issue #404), а лишь
     вызывает ``raise_for_status`` и логирует. Прочие 4xx (напр. 404) не повторяются.
+
+    issue #815: повтор распространяется и на **POST** (``_RETRY_METHODS``) —
+    отправка решения (``/api/attempts``, ``/api/submissions``) прежде не
+    переживала единичный 429/503, хотя докстринг ``_post_json`` обещал обратное.
+    ``Retry-After`` по-прежнему уважается, но не дольше
+    ``_RETRY_AFTER_MAX_SECONDS``: дефолтные 6 часов urllib3 подвешивали поток
+    без возможности отмены.
 
     Args:
         retries: максимальное число попыток на статусы из
@@ -137,6 +162,19 @@ def make_session(
         backoff_factor=backoff_factor,
         status_forcelist=RETRY_STATUS_FORCELIST,
         respect_retry_after_header=True,
+        # issue #815 (NETA-01): POST в дефолтный allowed_methods urllib3 не
+        # входит (там только идемпотентные методы), поэтому единичный 429/503 на
+        # `/api/attempts` или `/api/submissions` ронял отправку решения с первой
+        # попытки — при том что докстринг `_post_json` обещал транспортный
+        # повтор. Повторяем ТОЛЬКО статусы из `RETRY_STATUS_FORCELIST`: это
+        # «сервер занят/временно недоступен», где повтор безопасен. Обычная
+        # ошибка POST (4xx кроме 429) как не повторялась, так и не повторяется.
+        allowed_methods=_RETRY_METHODS,
+        # issue #815 (NETA-03): потолок сна по `Retry-After`. Дефолт urllib3 —
+        # 6 часов: один 429 с большим заголовком подвешивал поток-обработчик
+        # web-запроса без возможности отмены, а в CLI — весь процесс. Честная
+        # ошибка «Stepik просит подождать» полезнее зависшего грейдера.
+        retry_after_max=_RETRY_AFTER_MAX_SECONDS,
     )
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
@@ -220,6 +258,36 @@ def validate_external_url(url: str) -> None:
 _MAX_EXTERNAL_REDIRECT_HOPS = 5
 
 
+def _guard_response_size(response: requests.Response, url: str) -> None:
+    """Отклонить слишком большой ответ внешней загрузки (issue #815, ``NETA-04``).
+
+    ``requests`` без ``stream=True`` читает тело в память целиком, а адрес
+    приходит из HTML задачи — то есть из недоверенного источника: ссылка на
+    многогигабайтный файл выжирала RAM до OOM ещё до того, как кто-либо
+    посмотрит на содержимое.
+
+    Сначала смотрим ``Content-Length`` (дёшево и отсекает честный большой
+    файл), затем фактический размер: заголовок необязателен и может врать.
+    """
+    # ВНИМАНИЕ: `ExternalUrlRejected` — подкласс `ValueError`, поэтому парсинг
+    # заголовка отделён от проверки: `suppress(ValueError)` вокруг `raise`
+    # проглотил бы собственное исключение (поймано тестом на этом же фиксе).
+    declared_raw = response.headers.get("Content-Length")
+    declared: int | None = None
+    if declared_raw is not None:
+        with contextlib.suppress(ValueError):
+            declared = int(declared_raw)
+    if declared is not None and declared > _MAX_EXTERNAL_DOWNLOAD_BYTES:
+        raise ExternalUrlRejected(
+            f"Ответ слишком велик ({declared} Б > {_MAX_EXTERNAL_DOWNLOAD_BYTES} Б): {url}"
+        )
+    actual = len(response.content)
+    if actual > _MAX_EXTERNAL_DOWNLOAD_BYTES:
+        raise ExternalUrlRejected(
+            f"Ответ слишком велик ({actual} Б > {_MAX_EXTERNAL_DOWNLOAD_BYTES} Б): {url}"
+        )
+
+
 def external_download_get(
     url: str,
     *,
@@ -249,6 +317,7 @@ def external_download_get(
     for _hop in range(_MAX_EXTERNAL_REDIRECT_HOPS + 1):
         response = session.get(current, timeout=timeout, allow_redirects=False)
         if not response.is_redirect:
+            _guard_response_size(response, current)
             return response
         current = urljoin(current, response.headers.get("Location", ""))
         validate_external_url(current)
