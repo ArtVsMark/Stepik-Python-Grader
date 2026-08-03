@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import re
 
 import pytest
 
@@ -407,3 +408,124 @@ def test_boundary_guard_catches_synthetic_violations(tmp_path: pathlib.Path) -> 
     assert _private_core_imports(ok) == []
     assert _direct_grade_core_imports(ok) == []
     assert _private_core_attr_access(ok, {"stepik_grader.core.history"}) == []
+
+
+# ---------------------------------------------------------------------------
+# Синхронизация «граф в architecture.md ↔ фактические импорты» (issue #825).
+#
+# Блок «Граф зависимостей» заявлен источником истины для решения «можно ли
+# добавить импорт», но проверялся только глазами и разошёлся с кодом: у
+# `web/rules_adapter` по доке было одно ребро (`rules/`), а фактически ещё и
+# `core/history`+`core/insights`. Планирование по такому графу занижает
+# связность web-слоя с ядром.
+#
+# Сверяются МЕЖСЛОЙНЫЕ рёбра — те, ради которых граф и читают. Внутрипакетные
+# (`cli → cli`, `web → web`) и вездесущий `config` в картинку не входят
+# намеренно: она про границы слоёв, а не про машинный дамп 213 рёбер.
+# ---------------------------------------------------------------------------
+
+_ARCHITECTURE_MD = pathlib.Path(__file__).parent.parent / "docs" / "dev" / "architecture.md"
+
+# Слои для определения «межслойного» ребра.
+_LAYERS = ("web", "cli", "core", "glossary", "rules")
+
+# Цели, которые в граф намеренно не рисуются: `config` импортируют почти все
+# модули, и его рёбра сделали бы картинку нечитаемой, ничего не объяснив.
+_GRAPH_EXEMPT_TARGETS = frozenset({"stepik_grader.config"})
+
+
+def _layer(module: str) -> str:
+    """Слой модуля: `web`/`cli`/`core`/`glossary`/`rules` либо `top`."""
+    rest = module.removeprefix(f"{_PKG}.")
+    for layer in _LAYERS:
+        if rest == layer or rest.startswith(f"{layer}."):
+            return layer
+    return "top"
+
+
+def _doc_token_to_module(token: str) -> str | None:
+    """`core/history.py` → `stepik_grader.core.history`; мусор → ``None``."""
+    token = token.strip().strip("`")
+    if not token or token.startswith("("):
+        return None
+    token = token.rstrip("/")
+    if token.endswith(".py"):
+        token = token[:-3]
+    if not re.fullmatch(r"[\w/.]+", token):
+        return None
+    module = f"{_PKG}." + token.replace("/", ".")
+    return module.removesuffix(".__init__")
+
+
+def _documented_edges() -> set[tuple[str, str]]:
+    """Рёбра из fenced-блока «Граф зависимостей» в architecture.md."""
+    text = _ARCHITECTURE_MD.read_text(encoding="utf-8")
+    block = text.split("## Граф зависимостей", 1)[1].split("```")[1]
+    edges: set[tuple[str, str]] = set()
+    for line in block.splitlines():
+        if "──→" not in line:
+            continue
+        left, right = line.split("──→", 1)
+        right = re.sub(r"\([^)]*\)", "", right)  # пояснения в скобках — не цели
+        sources = left.split(" / ") if " / " in left else [left]
+        for raw_source in sources:
+            source = _doc_token_to_module(raw_source)
+            if source is None:
+                continue
+            for raw_target in re.split(r"[,;]", right):
+                target = _doc_token_to_module(raw_target)
+                if target is not None:
+                    edges.add((source, target))
+    return edges
+
+
+def _all_import_edges() -> set[tuple[str, str]]:
+    """Все рёбра, включая ленивые и TYPE_CHECKING — для проверки «ребро существует»."""
+    files = _iter_module_files()
+    modules = {_module_name(p) for p in files}
+    edges: set[tuple[str, str]] = set()
+    for path in files:
+        name = _module_name(path)
+        for node in ast.walk(_parse(path)):
+            if isinstance(node, ast.Import | ast.ImportFrom):
+                for target in _project_targets(path, node, modules):
+                    if target != name:
+                        edges.add((name, target))
+    return edges
+
+
+def test_documented_graph_is_parsed() -> None:
+    """Guard-the-guard: блок графа читается и даёт десятки рёбер."""
+    assert len(_documented_edges()) > 50
+
+
+def test_documented_edges_exist_in_code() -> None:
+    """Каждое ребро из доки есть в коде (пусть и ленивым импортом).
+
+    Ловит обратный дрейф: модуль перестал импортировать то, что граф обещает.
+    """
+    phantom = sorted(_documented_edges() - _all_import_edges())
+    assert not phantom, (
+        "docs/dev/architecture.md § «Граф зависимостей» обещает рёбра, которых в "
+        "коде нет:\n"
+        + "\n".join(f"  {s} ──→ {t}" for s, t in phantom)
+        + "\nУберите строку из графа или верните импорт."
+    )
+
+
+def test_cross_layer_edges_are_documented() -> None:
+    """Каждое межслойное загрузочное ребро отражено в графе документа."""
+    actual = {
+        (source, target)
+        for source, targets in _build_import_graph().items()
+        for target in targets
+        if _layer(source) != _layer(target) and target not in _GRAPH_EXEMPT_TARGETS
+    }
+    missing = sorted(actual - _documented_edges())
+    assert not missing, (
+        "Появились межслойные импорты, которых нет в docs/dev/architecture.md § "
+        "«Граф зависимостей»:\n"
+        + "\n".join(f"  {s} ──→ {t}" for s, t in missing)
+        + "\nДопишите их в блок графа — он источник истины для решения "
+        "«можно ли добавить импорт»."
+    )

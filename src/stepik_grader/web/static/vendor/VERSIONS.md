@@ -106,13 +106,42 @@ re-export silently drops it (ambiguous export), rather than erroring, which
 would fail at import time in `app.js` with a confusing "does not provide an
 export" message far from the actual cause.
 
-**Verify after rebuilding** (this bundling scheme has no automated CI check
-for these two properties):
+**Verify after rebuilding:**
 1. `grep -oE '"(events|tty|process|async_hooks|node:[a-z_]+)"' codemirror-bundle@6.mjs`
    must print nothing — a future package version could reintroduce a
    Node-dependent debug path that esbuild's tree-shaking no longer eliminates.
 2. Manual browser check: mount the editor, confirm Python syntax
    highlighting renders, check the browser console for import errors.
+3. Update the checksum below and re-run `pytest tests/test_packaging.py`.
+
+## Integrity
+
+The bundle is 360 KB of minified third-party JavaScript served to every
+`--serve` session and shipped inside the PyPI wheel: a single inserted line
+would reach every user, and in review it looks like "file changed". The
+checksum below pins the exact bytes, and `tests/test_packaging.py` compares
+it against the file on every CI run — so a bundle edited without an
+accompanying, deliberate checksum update turns the build red.
+
+<!-- sha256:codemirror-bundle@6.mjs -->
+```
+sha256  a4e476ffa5470a42f5f447f9ce14d13a205b1f4b85c4c9f1f934f1c05d65d043
+```
+
+Recompute after a rebuild:
+
+```bash
+# POSIX
+sha256sum src/stepik_grader/web/static/vendor/codemirror-bundle@6.mjs
+# Windows PowerShell
+Get-FileHash -Algorithm SHA256 src\stepik_grader\web\static\vendor\codemirror-bundle@6.mjs
+# Any platform, no extra tools
+python -c "import hashlib,pathlib;print(hashlib.sha256(pathlib.Path('src/stepik_grader/web/static/vendor/codemirror-bundle@6.mjs').read_bytes()).hexdigest())"
+```
+
+The checksum is a review anchor, not a defence against a malicious commit
+that edits both the bundle and this line — it makes such a change explicit
+and deliberate rather than invisible.
 
 ## How to bump versions
 

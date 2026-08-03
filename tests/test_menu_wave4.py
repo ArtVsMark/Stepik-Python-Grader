@@ -466,3 +466,55 @@ def test_no_success_nudge_when_history_on(tmp_path: Path, monkeypatch, capsys) -
     monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
     cli._interactive_menu()
     assert "🎉" not in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# issue #836 (QA-09) — пункт меню 5 «Подучить». Соседние пункты покрыты, этот
+# не выполнялся ни одним тестом: --insights идёт через другой код-путь
+# (cli/commands.py), а тело _show_insights и его вызов из диспетчера — нет.
+# ---------------------------------------------------------------------------
+
+
+def test_menu_insights_without_history_says_no_data(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Нет `.grader_history.db` в cwd → локализованное «данных нет», не трейсбек."""
+    monkeypatch.chdir(tmp_path)
+    inputs = iter(["5", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+
+    cli._interactive_menu()
+
+    assert "No insights yet" in capsys.readouterr().out
+
+
+def test_menu_insights_prints_cards(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Карточки есть → печатается сводка «Подучить» с ключом карточки."""
+    from stepik_grader.core import insights
+    from stepik_grader.core.insights import InsightCard
+
+    monkeypatch.chdir(tmp_path)
+    card = InsightCard(
+        key="runtime-error:KeyError",
+        category="failure",
+        status="active",
+        hits=3,
+        runs_considered=10,
+    )
+    monkeypatch.setattr(insights, "learning_cards", lambda *a, **k: [card])
+    inputs = iter(["5", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+
+    cli._interactive_menu()
+
+    assert "runtime-error:KeyError" in capsys.readouterr().out
+
+
+def test_menu_insights_is_reached_from_dispatcher(tmp_path: Path, monkeypatch) -> None:
+    """Ввод «5» приводит именно к пункту «Подучить», а не к соседнему."""
+    called: list[object] = []
+    monkeypatch.setattr(interactive, "_show_insights", lambda ctx: called.append(ctx))
+    inputs = iter(["5", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+
+    cli._interactive_menu()
+
+    assert len(called) == 1

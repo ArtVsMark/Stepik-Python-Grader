@@ -41,7 +41,20 @@ Stepik-Python-Grader/
 │       │   ├── runs.py            # Async job-модель: bench/microbench/playground/trace/auth
 │       │   ├── playground.py      # Песочница: запуск кода со stdin, вывод/статус
 │       │   ├── i18n.py            # message_id-каталог веб-API
-│       │   └── static/            # index.html/app.css/app.js + fonts/ + vendor/ (codemirror @6) — без build-шага
+│       │   └── static/            # Фронтенд без build-шага: ES-модули грузятся браузером как есть
+│       │       ├── index.html     # Разметка разделов + data-i18n-ключи
+│       │       ├── app.css        # Токены темы, компоненты, тёмная тема
+│       │       ├── app.js         # Entry: старт приложения, роутер разделов
+│       │       ├── core.js        # Общее ядро фронтенда: state, $, fetch-обёртки, i18n
+│       │       ├── grade.js       # Раздел «Проверка решений»
+│       │       ├── content.js     # Глоссарий/Правила/Подучить/Прогресс
+│       │       ├── downloader.js  # Раздел «Загрузчик задач»
+│       │       ├── sandbox.js     # Раздел «Песочница»
+│       │       ├── trace-player.js # Плеер пошагового трейса
+│       │       ├── feedback.js    # Форма обратной связи
+│       │       ├── locales/ui.json # Каталог UI-строк ru/en (guard: check_ui_locale_guardrails)
+│       │       ├── fonts/         # Inter + JetBrains Mono (woff2, subset)
+│       │       └── vendor/        # codemirror-bundle@6.mjs + LICENSE + VERSIONS.md (sha256 под тестом)
 │       ├── ide.py                 # Генерация .vscode/tasks.json (--init-vscode)
 │       ├── pytest_plugin.py       # pytest11 entry point (--grader-mode)
 │       ├── downloader.py         # Application: координатор загрузки задач
@@ -101,7 +114,10 @@ Stepik-Python-Grader/
 │           ├── json_provider.py  # JsonGlossaryProvider + очередь пополнения (JSON-first)
 │           ├── detector.py       # MissingConceptDetector — AST-детект пробелов без исполнения
 │           ├── stdlib_inventory.py # Офлайн-инвентарь официального Python/stdlib (leaf)
-│           └── coverage.py       # Coverage-отчёт + missing JSON + CLI
+│           ├── coverage.py       # Coverage-отчёт + missing JSON + CLI
+│           └── data/*.json        # Комплектная база карточек глоссария (package-data):
+│                                  # builtin/exceptions/sequences/strings/oop/operators/
+│                                  # iteration/mapping-set/modules/typing + drafts
 │       └── rules/                # Domain: карточки правил PEP 8
 │           ├── __init__.py       # Публичный API пакета rules
 │           ├── models.py         # RuleCard (leaf, только stdlib)

@@ -528,9 +528,28 @@ class TestForceUtf8Stdio:
 
 class TestPackageMainEntryPoint:
     def test_python_m_stepik_grader_version(self) -> None:
-        """`python -m stepik_grader --version` печатает версию и завершается 0."""
+        """`python -m stepik_grader --version` печатает версию и завершается 0.
+
+        Эталон считается в ТОМ ЖЕ подпроцессе (issue #837): сравнивать
+        ``cli.__version__`` из процесса pytest с выводом подпроцесса нельзя —
+        корневой ``conftest.py`` кладёт ``src/`` в начало ``sys.path``, и
+        протухший ``src/*.egg-info`` затеняет метаданные установленного пакета.
+        Тест краснел у любого, кто ставил пакет на другом коммите, а при
+        случайном совпадении версий не проверял ничего.
+        """
         import subprocess
         import sys
+
+        expected = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import importlib.metadata as m; print(m.version('stepik-python-grader'))",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
 
         result = subprocess.run(
             [sys.executable, "-m", "stepik_grader", "--version"],
@@ -538,7 +557,37 @@ class TestPackageMainEntryPoint:
             text=True,
         )
         assert result.returncode == 0
-        assert cli.__version__ in result.stdout
+        assert expected in result.stdout
+
+    def test_in_process_metadata_matches_installed_package(self) -> None:
+        """Guard: метаданные в процессе pytest совпадают с установленным пакетом.
+
+        issue #837: если они разошлись, значит ``src/*.egg-info`` (артефакт
+        сборки, не под git) старше установленного пакета — прогон начинает
+        врать по версии. Тест говорит это прямо, вместо загадочного падения в
+        соседнем ассерте.
+        """
+        import importlib.metadata
+        import subprocess
+        import sys
+
+        in_process = importlib.metadata.version("stepik-python-grader")
+        installed = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import importlib.metadata as m; print(m.version('stepik-python-grader'))",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        assert in_process == installed, (
+            "версия в процессе pytest разошлась с установленной "
+            f"({in_process} vs {installed}). Обычно это протухший src/*.egg-info, "
+            "который conftest.py выводит вперёд dist-info: удалите каталог "
+            "src/*.egg-info и повторите `pip install -e .`"
+        )
 
 
 # ---------------------------------------------------------------------------

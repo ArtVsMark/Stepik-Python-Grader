@@ -9,7 +9,7 @@
   #420 (Linux `bwrap` в CI)
 - **Связанный код/доки:** [core/sandbox/](../../../src/stepik_grader/core/sandbox/)
   (`SandboxRunner`, `_linux`/`_macos`/`_windows`), [SECURITY.md](../../../SECURITY.md)
-  (канон таблицы гарантий), [docs/server-mode.md § Sandbox и сетевая изоляция](../design/server-mode.md);
+  (канон таблицы гарантий), [dev/design/server-mode.md § Sandbox и сетевая изоляция](../design/server-mode.md);
   реализует [ADR-0001](0001-server-mode.md), backend поверх [ADR-0006](0006-runner-abstraction.md)
 
 ## Контекст

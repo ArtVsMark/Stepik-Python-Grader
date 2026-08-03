@@ -41,7 +41,9 @@ def test_console_script_prints_version() -> None:
         pytest.skip("stepik-grader console script not found (pip install -e . not run?)")
     proc = subprocess.run([str(script), "--version"], capture_output=True, text=True, timeout=15)
     assert proc.returncode == 0
-    assert "grader.py" in proc.stdout
+    # issue #820: версия называет реальную команду, а не файл grader.py,
+    # которого при src-layout не существует.
+    assert proc.stdout.startswith("stepik-grader ")
 
 
 def test_module_entrypoint_prints_version() -> None:
@@ -53,7 +55,9 @@ def test_module_entrypoint_prints_version() -> None:
         timeout=15,
     )
     assert proc.returncode == 0
-    assert "grader.py" in proc.stdout
+    # issue #820: версия называет реальную команду, а не файл grader.py,
+    # которого при src-layout не существует.
+    assert proc.stdout.startswith("stepik-grader ")
 
 
 def test_grader_module_entrypoint_prints_version() -> None:
@@ -66,7 +70,9 @@ def test_grader_module_entrypoint_prints_version() -> None:
         timeout=15,
     )
     assert proc.returncode == 0
-    assert "grader.py" in proc.stdout
+    # issue #820: версия называет реальную команду, а не файл grader.py,
+    # которого при src-layout не существует.
+    assert proc.stdout.startswith("stepik-grader ")
 
 
 def test_console_script_runs_mode_1_end_to_end(tmp_path: Path) -> None:

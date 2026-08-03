@@ -8,7 +8,7 @@
   (`SandboxRunner` как второй backend), #406 (юнит-тесты verdict на `RunOutcome`)
 - **Связанный код/доки:** [core/runner.py](../../../src/stepik_grader/core/runner.py),
   [core/grader_core.py](../../../src/stepik_grader/core/grader_core.py)
-  (`run_single_test`/`set_runner`), [docs/server-mode.md § Runner-слой](../design/server-mode.md),
+  (`run_single_test`/`set_runner`), [dev/design/server-mode.md § Runner-слой](../design/server-mode.md),
   [../result-contract.md](../result-contract.md); развивает [ADR-0001](0001-server-mode.md)
 
 ## Контекст

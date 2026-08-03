@@ -249,11 +249,14 @@ OAuth.
 
 ### Шаг 1 — Создай `secrets.json`
 
-Скопируй шаблон:
+**Из клона репозитория** рядом лежит шаблон:
 
 ```bash
 cp secrets.json.example secrets.json
 ```
+
+**При установке через pipx/pip** шаблона нет — он не входит в wheel. Создай
+файл сам в рабочей папке (`secrets.json`) с этим содержимым:
 
 Заполни своими значениями:
 
@@ -333,6 +336,12 @@ python -m stepik_grader.diagnostic_stepik
 - проверить доступность Stepik API;
 - убедиться в корректности токена авторизации;
 - получить информацию о курсе, уроке или задаче по ID.
+
+**Лог самого запуска** — флаг `--diagnostic` (или переменная
+`STEPIK_GRADER_LOG=debug`): пишет сеть, OAuth и шаги скачивания в
+`stepik_diagnostics/grader.log` с редакцией секретов. По умолчанию выключен,
+файл не создаётся. Подробнее —
+[grader-workflow.md § `--diagnostic`](grader-workflow.md#--diagnostic).
 
 ---
 

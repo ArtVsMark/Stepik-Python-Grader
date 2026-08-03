@@ -27,6 +27,12 @@ _ZIP_URL_RE = re.compile(r'href=["\']([^"\']*\.zip)["\']', re.IGNORECASE)
 _GITHUB_URL_RE = re.compile(r'href=["\']([^"\']*github\.com[^"\']*)["\']', re.IGNORECASE)
 
 
+# Теги, чьё содержимое — не текст кейса, даже если лежит внутри <td> (issue
+# #838): HTMLParser отдаёт тело <script>/<style> обычным handle_data, и текст
+# скрипта уезжал в ожидаемый вывод теста, ломая кейс.
+_NON_TEXT_TAGS = frozenset({"script", "style"})
+
+
 class _TableParser(HTMLParser):
     """Вытаскивает текст из <td> ячеек HTML-таблицы построчно."""
 
@@ -36,6 +42,7 @@ class _TableParser(HTMLParser):
         self._current_row: list[str] | None = None
         self._current_cell: list[str] | None = None
         self._in_th: bool = False
+        self._non_text_depth: int = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "tr":
@@ -44,6 +51,8 @@ class _TableParser(HTMLParser):
             self._current_cell = []
         elif tag == "th":
             self._in_th = True
+        elif tag in _NON_TEXT_TAGS:
+            self._non_text_depth += 1
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "td" and self._current_cell is not None:
@@ -57,9 +66,11 @@ class _TableParser(HTMLParser):
             if self._current_row:
                 self._rows.append(self._current_row)
             self._current_row = None
+        elif tag in _NON_TEXT_TAGS:
+            self._non_text_depth = max(0, self._non_text_depth - 1)
 
     def handle_data(self, data: str) -> None:
-        if self._current_cell is not None and not self._in_th:
+        if self._current_cell is not None and not self._in_th and not self._non_text_depth:
             self._current_cell.append(data)
 
     @property
@@ -130,19 +141,38 @@ def extract_tests_from_html(html: str) -> list[tuple[str, str, str]]:
     return tests
 
 
+def _is_fetchable(url: str) -> bool:
+    """Ссылку можно скачать по сети: ``http(s)`` или относительный путь (#838).
+
+    HTML страницы задачи — недоверенный вход, а найденные здесь ссылки уходят
+    прямо в загрузчик. ``file:///etc/passwd.zip`` и ``javascript:...zip``
+    проходили как обычные «ZIP-ссылки»: схему никто не проверял, хотя ни одна
+    из них не является тем, ради чего механизм существует (внешние тесты
+    курса). Относительные ссылки остаются — загрузчик достраивает их до
+    абсолютных сам.
+    """
+    scheme, sep, _ = url.partition(":")
+    if not sep:
+        return True  # относительный путь — схемы нет вовсе
+    return scheme.lower() in {"http", "https"}
+
+
 def extract_external_test_links(html: str) -> tuple[list[str], list[str]]:
     """Извлекает ZIP- и GitHub-ссылки из HTML текста задачи.
 
-    Возвращает кортеж (zip_links, github_links) без дубликатов.
+    Возвращает кортеж (zip_links, github_links) без дубликатов. Ссылки с
+    неподходящей схемой (``file:``, ``javascript:``, ``data:``) отбрасываются —
+    HTML приходит из сети, а результат уходит в загрузчик (issue #838).
     """
 
     def _unique(items: list[str]) -> list[str]:
         seen: set[str] = set()
         result: list[str] = []
         for item in items:
-            if item not in seen:
-                seen.add(item)
-                result.append(item)
+            if item in seen or not _is_fetchable(item):
+                continue
+            seen.add(item)
+            result.append(item)
         return result
 
     zip_links = _unique(_ZIP_URL_RE.findall(html))

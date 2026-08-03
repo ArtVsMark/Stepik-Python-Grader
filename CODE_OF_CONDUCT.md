@@ -52,4 +52,17 @@
 ## Атрибуция
 
 Кодекс адаптирован из [Contributor Covenant](https://www.contributor-covenant.org),
-версия 2.1 — https://www.contributor-covenant.org/version/2/1/code_of_conduct/
+версия 1.4 — https://www.contributor-covenant.org/version/1/4/code-of-conduct/
+
+Раскладка разделов здесь соответствует 1.4: у версии 2.1 обязателен блок
+«Enforcement Guidelines» с четырьмя ступенями санкций, и его в тексте нет —
+поэтому указана та версия, из которой текст действительно адаптирован. Как
+именно рассматриваются обращения, описано выше в разделе «Обеспечение
+соблюдения».
+
+> **In English.** This project follows a Code of Conduct adapted from the
+> Contributor Covenant v1.4. Report unacceptable behaviour through
+> [GitHub Issues](https://github.com/ArtVsMark/Stepik-Python-Grader/issues) or
+> [Discussions](https://github.com/ArtVsMark/Stepik-Python-Grader/discussions);
+> security problems go through [SECURITY.md](SECURITY.md) instead. Reports in
+> English are fine.

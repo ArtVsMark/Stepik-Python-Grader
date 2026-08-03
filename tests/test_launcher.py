@@ -497,3 +497,95 @@ def test_ui_messages_missing_catalog_is_not_fatal(monkeypatch, tmp_path: Path) -
     """Пропавший каталог не роняет GUI: пустой словарь, подписи покажут ключи."""
     monkeypatch.setattr(launcher, "_LOCALES_DIR", tmp_path / "nope")
     assert launcher.load_ui_messages("ru") == {}
+
+
+# ---------------------------------------------------------------------------
+# issue #823 — стартовая папка берётся из stepik_config.json, промах виден
+# сразу, а остановка на переходе «готов» не оставляет окно в «Запуск…»
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultWorkdir:
+    """Дефолт рабочей папки: настроенные задачи вместо каталога ярлыка."""
+
+    def _config(self, folder: Path, root_dir: str) -> None:
+        (folder / "stepik_config.json").write_text(
+            f'{{"root_dir": "{root_dir}", "secrets_path": "secrets.json"}}', encoding="utf-8"
+        )
+
+    def test_without_config_falls_back_to_cwd(self, tmp_path: Path) -> None:
+        assert launcher.default_workdir(tmp_path) == tmp_path
+
+    def test_relative_root_dir_keeps_config_folder(self, tmp_path: Path) -> None:
+        """Задачи внутри — берём папку конфига: и задачи видны, и загрузчик цел."""
+        (tmp_path / "StepikTasks").mkdir()
+        self._config(tmp_path, "StepikTasks")
+        nested = tmp_path / "a" / "b"
+        nested.mkdir(parents=True)
+        assert launcher.default_workdir(nested) == tmp_path
+
+    def test_absolute_root_dir_outside_wins(self, tmp_path: Path) -> None:
+        """Если задачи лежат наружу — рабочей папкой становится сам root_dir."""
+        outside = tmp_path / "elsewhere" / "tasks"
+        outside.mkdir(parents=True)
+        home = tmp_path / "home"
+        home.mkdir()
+        self._config(home, str(outside).replace("\\", "\\\\"))
+        assert launcher.default_workdir(home) == outside
+
+    def test_broken_config_does_not_break_launch(self, tmp_path: Path) -> None:
+        (tmp_path / "stepik_config.json").write_text("{ не json", encoding="utf-8")
+        assert launcher.default_workdir(tmp_path) == tmp_path
+
+    def test_missing_root_dir_folder_falls_back_to_config_folder(self, tmp_path: Path) -> None:
+        self._config(tmp_path, "StepikTasks")  # папку не создаём
+        assert launcher.default_workdir(tmp_path) == tmp_path
+
+
+class TestCountTasks:
+    """«Найдено задач: N» — промах с папкой виден до открытия браузера."""
+
+    def test_counts_folders_with_tests(self, tmp_path: Path) -> None:
+        for name in ("01-a", "02-b"):
+            (tmp_path / name / "tests").mkdir(parents=True)
+        (tmp_path / "not-a-task").mkdir()
+        assert launcher.count_tasks(tmp_path) == 2
+
+    def test_counts_workdir_itself(self, tmp_path: Path) -> None:
+        (tmp_path / "tests").mkdir()
+        assert launcher.count_tasks(tmp_path) == 1
+
+    def test_zero_for_empty_folder(self, tmp_path: Path) -> None:
+        assert launcher.count_tasks(tmp_path) == 0
+
+    def test_zero_for_missing_folder(self, tmp_path: Path) -> None:
+        assert launcher.count_tasks(tmp_path / "нет-такой") == 0
+
+    def test_respects_depth_limit(self, tmp_path: Path) -> None:
+        deep = tmp_path / "a" / "b" / "c" / "d" / "e"
+        (deep / "tests").mkdir(parents=True)
+        assert launcher.count_tasks(tmp_path, max_depth=2) == 0
+
+
+def test_stop_during_readiness_leaves_terminal_state(monkeypatch) -> None:
+    """DESC-06: остановка в момент готовности не оставляет «Запуск…» навсегда.
+
+    Прежде монитор выходил голым `return`, и статус навсегда застревал в
+    STARTING: «Остановить» уже no-op, «Запустить» заблокировано — оставалось
+    закрыть окно. Окно гонки — доли миллисекунды между TCP-пробой и захватом
+    лока, поэтому воспроизводим его детерминированно: «Остановить» нажимается
+    ровно внутри пробы.
+    """
+    port = _free_port()
+    controller = ServerController(spawn=_spawn_running(port))
+
+    def probe_then_user_presses_stop(_port: int) -> bool:
+        controller._stopping = True
+        return True
+
+    monkeypatch.setattr(controller, "_probe", probe_then_user_presses_stop)
+    try:
+        controller.start(port, sandbox=False, workdir=Path.cwd())
+        assert _wait_state(controller, ServerState.STOPPED)
+    finally:
+        controller.stop()

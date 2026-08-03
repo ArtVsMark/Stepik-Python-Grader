@@ -61,7 +61,9 @@ __all__ = [
     "ServerState",
     "ServerStatus",
     "build_server_command",
+    "count_tasks",
     "create_app",
+    "default_workdir",
     "detect_lang",
     "load_ui_messages",
     "main",
@@ -85,6 +87,15 @@ LANG_ENV_VAR = "STEPIK_GRADER_LANG"
 _SUPPORTED_LANGS = ("ru", "en")
 _FALLBACK_LANG = "ru"
 _LOCALES_DIR = Path(__file__).parent / "core" / "locales"
+
+# Конфиг загрузчика задач: из него берётся папка с задачами для дефолта окна
+# (issue #823). Имя дублирует ``downloader.CONFIG_FILE`` намеренно — модуль
+# leaf, проектных импортов в нём нет.
+_STEPIK_CONFIG_NAME = "stepik_config.json"
+
+# Глубина обхода при подсчёте задач в рабочей папке: рабочей папкой может
+# оказаться домашняя, и полный скан диска в GUI недопустим.
+_TASK_SCAN_DEPTH = 3
 
 # Сколько ждём готовности сервера (bind + первый accept) после старта, и с каким
 # шагом опрашиваем TCP. Импорт http-стека и чтение статики при старте --serve
@@ -154,6 +165,77 @@ def load_ui_messages(lang: str) -> dict[str, str]:
         if isinstance(data, dict):
             return {k: v for k, v in data.items() if isinstance(v, str)}
     return {}
+
+
+def _find_stepik_config(start: Path) -> Path | None:
+    """Найти ``stepik_config.json``: от ``start`` вверх, затем в домашней папке.
+
+    Поиск вверх — тот же паттерн, что у ``config._find_pyproject``: лаунчер
+    запускают ярлыком, и cwd тогда — папка ярлыка или домашняя, а не то место,
+    где пользователь работает с задачами.
+    """
+    resolved = start.resolve()
+    for candidate in (resolved, *resolved.parents):
+        path = candidate / _STEPIK_CONFIG_NAME
+        if path.is_file():
+            return path
+    home = Path.home() / _STEPIK_CONFIG_NAME
+    return home if home.is_file() else None
+
+
+def default_workdir(cwd: Path | None = None) -> Path:
+    """Рабочая папка по умолчанию: настроенная папка задач, иначе cwd (issue #823).
+
+    Прежде окно всегда стартовало в cwd. Через Windows-ярлык это каталог
+    ярлыка или домашняя папка: задач там нет, а веб-интерфейс ещё и конфайнит
+    пути рабочей папкой — значит скачанные задачи давали 403, и первокурсник,
+    ради которого лаунчер и сделан, видел пустой интерфейс.
+
+    Выбирается папка **с** ``stepik_config.json``, если настроенный ``root_dir``
+    лежит внутри неё (обычный случай — относительный ``StepikTasks``): так и
+    задачи видны, и панель загрузчика продолжает находить свой конфиг. Если
+    ``root_dir`` уводит наружу — берётся он сам: задачи важнее панели.
+    """
+    base = cwd if cwd is not None else Path.cwd()
+    config = _find_stepik_config(base)
+    if config is None:
+        return base
+    try:
+        data = json.loads(config.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return base
+    raw = str(data.get("root_dir") or "").strip() if isinstance(data, dict) else ""
+    if not raw:
+        return config.parent
+    root = Path(raw)
+    root = root if root.is_absolute() else config.parent / root
+    if not root.is_dir():
+        return config.parent
+    return config.parent if root.resolve().is_relative_to(config.parent) else root
+
+
+def count_tasks(workdir: Path, *, max_depth: int = _TASK_SCAN_DEPTH) -> int:
+    """Сколько папок задач видно в рабочей папке — папок с подпапкой ``tests``.
+
+    Нужна, чтобы промах с папкой был виден сразу («найдено задач: 0»), а не
+    после открытия пустого веб-интерфейса. Обход ограничен глубиной: рабочей
+    папкой может оказаться домашняя, и полный скан диска в GUI недопустим.
+    """
+    if not workdir.is_dir():
+        return 0
+    found = 0
+    stack: list[tuple[Path, int]] = [(workdir, 0)]
+    while stack:
+        current, depth = stack.pop()
+        try:
+            children = [entry for entry in current.iterdir() if entry.is_dir()]
+        except OSError:
+            continue
+        if any(child.name == "tests" for child in children):
+            found += 1
+        if depth < max_depth:
+            stack.extend((child, depth + 1) for child in children if not child.name.startswith("."))
+    return found
 
 
 def _print(text: str) -> None:
@@ -336,6 +418,12 @@ class ServerController:
             if self._probe(port):
                 with self._lock:
                     if self._stopping:
+                        # issue #823: выход монитора обязан быть терминальным.
+                        # Прежде здесь был голый return, и остановка, попавшая
+                        # между пробой и захватом лока, навсегда оставляла окно
+                        # в «Запуск…»: «Остановить» уже no-op, «Запустить»
+                        # заблокировано — оставалось закрыть окно.
+                        self._status = ServerStatus(state=ServerState.STOPPED)
                         return
                     self._status = ServerStatus(
                         state=ServerState.RUNNING, url=f"http://{self._host}:{port}"
@@ -467,8 +555,11 @@ class LauncherApp:
 
         self.port_var = tk.StringVar(value=str(DEFAULT_PORT))
         self.sandbox_var = tk.BooleanVar(value=False)
-        self.workdir_var = tk.StringVar(value=str(Path.cwd()))
+        # issue #823: стартуем в настроенной папке задач, а не в cwd ярлыка.
+        self.workdir_var = tk.StringVar(value=str(default_workdir()))
         self.status_var = tk.StringVar(value=self._t("launcher_status_stopped"))
+        self.tasks_var = tk.StringVar(value="")
+        self.workdir_var.trace_add("write", lambda *_: self._refresh_tasks_found())
 
         frame = ttk.Frame(root, padding=16)
         frame.grid(row=0, column=0, sticky="nsew")
@@ -516,22 +607,28 @@ class LauncherApp:
         )
         self.browse_btn.grid(row=4, column=2, sticky="e", padx=(8, 0), pady=(0, 8))
 
+        # Сколько задач видно в выбранной папке (issue #823): промах виден здесь,
+        # а не после открытия пустого веб-интерфейса.
+        self.tasks_label = ttk.Label(frame, textvariable=self.tasks_var)
+        self.tasks_label.grid(row=5, column=1, columnspan=2, sticky="w", pady=(0, 8))
+        self._refresh_tasks_found()
+
         # Действие + открыть в браузере
         self.action_btn = ttk.Button(frame, text=self._t("launcher_start"), command=self._on_action)
-        self.action_btn.grid(row=5, column=0, sticky="w")
+        self.action_btn.grid(row=6, column=0, sticky="w")
         self.open_btn = ttk.Button(
             frame,
             text=self._t("launcher_open_browser"),
             command=self._open_browser,
             state="disabled",
         )
-        self.open_btn.grid(row=5, column=1, columnspan=2, sticky="e")
+        self.open_btn.grid(row=6, column=1, columnspan=2, sticky="e")
 
         # Статус
         self.status_label = ttk.Label(
             frame, textvariable=self.status_var, wraplength=420, justify="left"
         )
-        self.status_label.grid(row=6, column=0, columnspan=3, sticky="w", pady=(12, 0))
+        self.status_label.grid(row=7, column=0, columnspan=3, sticky="w", pady=(12, 0))
 
         self._poll()
 
@@ -539,6 +636,15 @@ class LauncherApp:
         """Подпись по ключу каталога; пропавший ключ показывается как есть."""
         template = self._messages.get(key, key)
         return template.format(**params) if params else template
+
+    def _refresh_tasks_found(self) -> None:
+        """Обновить строку «найдено задач: N» под полем рабочей папки (issue #823)."""
+        raw = self.workdir_var.get().strip()
+        workdir = Path(raw or ".")
+        if not workdir.is_dir():
+            self.tasks_var.set(self._t("launcher_workdir_missing"))
+            return
+        self.tasks_var.set(self._t("launcher_tasks_found", count=count_tasks(workdir)))
 
     def run(self) -> None:
         """Войти в блокирующий ``mainloop`` (используется ``main``, не тестами)."""

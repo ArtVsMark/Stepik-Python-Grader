@@ -18,13 +18,22 @@ CONFIG``) продолжает работать без изменений: `from
 
 from __future__ import annotations
 
+import codecs
 import dataclasses
 import os
 import pathlib
 import tomllib
+import warnings
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
-__all__ = ["CONFIG", "GraderConfig", "get_config", "load_config"]  # noqa: F822 (CONFIG — module __getattr__, PEP 562)
+__all__ = [  # noqa: F822 (CONFIG — module __getattr__, PEP 562)
+    "CONFIG",
+    "GraderConfig",
+    "get_config",
+    "load_config",
+    "validate_values",
+]
 
 _ENV_CONFIG_PATH = "STEPIK_GRADER_CONFIG"
 
@@ -122,6 +131,134 @@ class GraderConfig:
     # формулировку было нечем. Пусто → встроенный (поведение по умолчанию то же).
     ai_system_prompt: str = ""
 
+    def __post_init__(self) -> None:
+        """Проверить типы и диапазоны полей (issue #795).
+
+        ``dataclass`` аннотации в рантайме не проверяет, поэтому
+        ``GraderConfig(timeout_seconds="abc")`` спокойно конструировался и падал
+        много позже — ``TypeError`` внутри ``proc.communicate(timeout="abc")``,
+        то есть в чужом модуле и без единого упоминания конфигурации.
+        Пользовательский путь (``pyproject.toml``) до исключения не доходит:
+        ``load_config()`` отбраковывает значение раньше и откатывается на
+        дефолт с предупреждением.
+        """
+        problems = validate_values(dataclasses.asdict(self))
+        if problems:
+            raise ValueError("GraderConfig: " + "; ".join(problems))
+
+
+def _is_bool(value: object) -> bool:
+    return isinstance(value, bool)
+
+
+def _is_number(value: object, *, minimum: float, inclusive: bool = False) -> bool:
+    """Число (int/float, но не bool) не меньше/строго больше ``minimum``."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return False
+    return value >= minimum if inclusive else value > minimum
+
+
+def _is_int_at_least(value: object, minimum: int) -> bool:
+    """Целое не меньше ``minimum``. ``bool`` отвергается намеренно: ``True`` —
+    подкласс ``int``, и ``job_workers = true`` иначе прошло бы как ``1``."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= minimum
+
+
+def _is_nonempty_str(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_optional_str(value: object) -> bool:
+    return value is None or _is_nonempty_str(value)
+
+
+def _is_known_encoding(value: object) -> bool:
+    """Имя кодека, известного stdlib: неизвестное падало бы при первом чтении."""
+    if not _is_nonempty_str(value):
+        return False
+    try:
+        codecs.lookup(str(value))
+    except LookupError:
+        return False
+    return True
+
+
+@dataclass(frozen=True)
+class _Rule:
+    """Правило проверки одного поля: предикат + описание допустимого значения."""
+
+    check: Callable[[object], bool]
+    expected: str
+
+
+_POSITIVE_NUMBER = _Rule(lambda v: _is_number(v, minimum=0), "число больше 0")
+_POSITIVE_INT = _Rule(lambda v: _is_int_at_least(v, 1), "целое число не меньше 1")
+_FLAG = _Rule(_is_bool, "true или false")
+_OPTIONAL_STR = _Rule(_is_optional_str, "непустая строка или отсутствие ключа")
+
+# Правило на КАЖДОЕ поле GraderConfig: новое поле без правила ловится тестом
+# (tests/test_config.py), иначе валидация тихо разошлась бы с dataclass.
+_RULES: dict[str, _Rule] = {
+    "timeout_seconds": _POSITIVE_NUMBER,
+    "similar_threshold": _POSITIVE_NUMBER,
+    "much_slower_threshold": _POSITIVE_NUMBER,
+    "measure_child_memory": _FLAG,
+    "microbench_max_cases": _POSITIVE_INT,
+    "encoding": _Rule(_is_known_encoding, "имя кодировки, известной Python (например utf-8)"),
+    "max_memory_mb": _Rule(
+        lambda v: v is None or _is_int_at_least(v, 1),
+        "целое число мегабайт не меньше 1 или отсутствие ключа (без лимита)",
+    ),
+    "use_cache": _FLAG,
+    "glossary_store": _OPTIONAL_STR,
+    "glossary_missing_queue": _Rule(_is_nonempty_str, "непустая строка — путь к файлу очереди"),
+    "job_workers": _POSITIVE_INT,
+    "max_active_runs": _POSITIVE_INT,
+    "record_stats": _FLAG,
+    "record_history": _FLAG,
+    "insights_window_n": _POSITIVE_INT,
+    "insights_active_threshold_t": _POSITIVE_INT,
+    "insights_clean_streak_k": _POSITIVE_INT,
+    "sandbox_max_cpu_seconds": _POSITIVE_NUMBER,
+    "sandbox_max_processes": _POSITIVE_INT,
+    "sandbox_max_output_bytes": _POSITIVE_INT,
+    "max_output_bytes": _POSITIVE_INT,
+    "ai_base_url": _OPTIONAL_STR,
+    "ai_model": _OPTIONAL_STR,
+    "ai_api_key_env": _Rule(_is_nonempty_str, "непустая строка — ИМЯ переменной окружения"),
+    "ai_max_tokens": _POSITIVE_INT,
+    "ai_timeout_seconds": _POSITIVE_NUMBER,
+    "ai_max_hints": _POSITIVE_INT,
+    "ai_grounding_k": _POSITIVE_INT,
+    # Пустая строка здесь ЗНАЧИМА (= встроенный промпт), поэтому не _OPTIONAL_STR:
+    # отбраковывать нужно только не-строку.
+    "ai_system_prompt": _Rule(
+        lambda v: isinstance(v, str),
+        "строка (пусто — встроенный системный промпт)",
+    ),
+}
+
+
+def _describe(field: str, value: object) -> str:
+    """Строка «поле: ожидается X, получено Y (тип)» — одна проблема (issue #795)."""
+    return (
+        f"{field}: ожидается {_RULES[field].expected}, получено {value!r} ({type(value).__name__})"
+    )
+
+
+def validate_values(values: Mapping[str, object]) -> list[str]:
+    """Проверить значения полей конфигурации; вернуть список описаний проблем.
+
+    Неизвестные имена не проверяются — их обрабатывает ``load_config()``
+    (в конструктор они всё равно не попадают). Пустой список означает, что
+    значения пригодны к использованию.
+    """
+    return [
+        _describe(name, value)
+        for name, value in values.items()
+        if name in _RULES and not _RULES[name].check(value)
+    ]
+
 
 def _find_pyproject(start: pathlib.Path | None = None) -> pathlib.Path | None:
     """Ищет pyproject.toml от ``start`` (по умолчанию cwd) вверх до корня ФС.
@@ -174,6 +311,13 @@ def load_config() -> GraderConfig:
     значениями. Всегда перечитывает файл заново (без кэша) — кэширование для
     типичного пути потребления делает ``get_config()``/``CONFIG``, эта
     функция остаётся простым loader'ом.
+
+    Опечатка в пользовательской секции не роняет грейдер (issue #795):
+    неизвестное имя ключа и значение, не прошедшее проверку, отбрасываются с
+    ``UserWarning``, который называет файл, ключ, допустимое значение и
+    подставленный дефолт. Прежде и то, и другое проходило молча — неизвестный
+    ключ отфильтровывался без следа, а негодное значение доезжало до раннера
+    и падало трейсбеком из чужого модуля.
     """
     pyproject = _resolve_pyproject_path()
     if pyproject is None:
@@ -184,7 +328,25 @@ def load_config() -> GraderConfig:
     # issue #143: dataclasses.fields() — публичный API вместо приватного
     # dunder-атрибута dataclass (то же множество имён полей, поведение не меняется).
     valid_names = {f.name for f in dataclasses.fields(GraderConfig)}
+    unknown = sorted(k for k in overrides if k not in valid_names)
+    if unknown:
+        warnings.warn(
+            f"{pyproject}: [tool.stepik-grader] — неизвестные ключи "
+            f"({', '.join(unknown)}) проигнорированы; проверьте написание.",
+            UserWarning,
+            stacklevel=2,
+        )
     valid = {k: v for k, v in overrides.items() if k in valid_names}
+    for problem in validate_values(valid):
+        field = problem.split(":", 1)[0]
+        del valid[field]
+        warnings.warn(
+            f"{pyproject}: [tool.stepik-grader].{problem}. "
+            f"Значение отброшено, используется значение по умолчанию "
+            f"({getattr(GraderConfig(), field)!r}).",
+            UserWarning,
+            stacklevel=2,
+        )
     return GraderConfig(**valid)
 
 

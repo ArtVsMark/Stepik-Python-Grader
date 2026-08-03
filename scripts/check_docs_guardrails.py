@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """scripts/check_docs_guardrails.py — CI-guard документации (issue #173).
 
-Пять машинных защит, чтобы README снова не разросся, ссылки между Markdown-
-файлами не протухли, документация не расползлась мимо направлений, индексы не
-отставали от состава каталогов, а объясняющие документы не превратились в журнал
-работ (эпик #167 «README как витрина»):
+Восемь машинных защит, чтобы README снова не разросся, ссылки между Markdown-
+файлами не протухли ни целью, ни подписью, документация не расползлась мимо направлений, индексы не
+отставали от состава каталогов, а объясняющие документы и пользовательские
+строки интерфейса не превратились в журнал работ (эпик #167 «README как
+витрина»):
 
 1. **README line-budget.** ``README.md`` не должен превышать ``README_LINE_BUDGET``
    строк (см. константу ниже). README — короткая витрина, подробности живут в
@@ -14,13 +15,22 @@
    на существующий файл, а якоря — на существующий заголовок в целевом
    Markdown-файле. Внешние ссылки (http/https/mailto и т.п.) осознанно НЕ
    проверяются — сетевые проверки делают CI флаки.
-3. **Docs directions.** В корне ``docs/`` лежит только ``README.md``-развилка;
+3. **Link captions (issue #827).** Если подпись ссылки выглядит как путь
+   (``[docs/use/configuration.md § …](…)``), она обязана быть «хвостом»
+   фактической цели. Раскладка ``docs/`` по направлениям пережила девять таких
+   подписей: цель рабочая, а путь в тексте ведёт в никуда — и читатель копирует
+   именно его.
+4. **Showcase metrics (issue #829).** В `README.md`/`README.en.md` нет метрик
+   числом: живой источник числа тестов, покрытия и размера глоссария — бейджи в
+   шапке. Вписанное руками «2100+ tests» пережило рост набора на четверть и
+   осталось в английской версии, когда из русской его уже убрали.
+5. **Docs directions.** В корне ``docs/`` лежит только ``README.md``-развилка;
    документы живут в направлениях по читателю — ``use/`` (как пользоваться),
    ``dev/`` (как устроено, с ``dev/design/`` для спроектированного без кода),
    ``agent/`` (служебное для Claude Code), ``audit/`` (находки незакрытых
    аудитов), ``archive/`` (история). Новый ``.md`` в корне ``docs/`` — ошибка:
    он не попадает ни в одно направление.
-4. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
+6. **Docs index completeness (issue #300/#562).** Каждый файл ``<dir>/*.md``
    (кроме самого ``<dir>/README.md``) должен быть упомянут в ``<dir>/README.md``
    — иначе индекс расходится с фактическим составом каталога (как произошло с
    ``changelog-archive.md``). **Рекурсивно (issue #562):** проверка применяется
@@ -29,16 +39,22 @@
    ``docs/archive/README.md``). Подкаталог без своего ``README.md`` отдельно не
    индексируется — родитель ссылается на него одной строкой (``role-*.md``-
    приложения к сводному аудиту, ADR-набор до появления adr/README.md).
-5. **Issue-tail policy.** Объясняющий документ отвечает «как это работает
+7. **Issue-tail policy.** Объясняющий документ отвечает «как это работает
    сейчас», поэтому ссылок на задачи в нём быть не должно: ``docs/use/``,
    ``docs/dev/*.md``, README, SECURITY и CONTRIBUTING держат ноль.
    Логи (``CHANGELOG.md``, ``docs/archive/``), находки (``docs/audit/``) и ADR
    не проверяются вовсе — там номер уместен. ``docs/dev/design/`` и агентские
    документы живут по бюджету: номер там работает как идентификатор
    согласованного требования, а не как датировка.
+8. **UI-strings issue policy (issue #820).** Та же политика — для строк, которые
+   пользователь видит в интерфейсе, а не в документации: ``help=`` в
+   ``cli/options.py`` (вывод ``--help``) и значения ``core/locales/*.json``.
+   Гейт на доках держал ноль, а самая читаемая поверхность — справка — годами
+   печатала «Issue #51 D-01» и «Эпик #80 Tier 1»: выписка из трекера вместо
+   объяснения флага.
 
-Никаких внешних зависимостей: чистый ``re`` + ``pathlib``, детерминированно и
-кроссплатформенно (Windows/Linux/macOS).
+Никаких внешних зависимостей: чистый ``ast``/``json``/``re`` + ``pathlib``,
+детерминированно и кроссплатформенно (Windows/Linux/macOS).
 
 Запуск::
 
@@ -47,6 +63,8 @@
 
 from __future__ import annotations
 
+import ast
+import json
 import re
 import sys
 from pathlib import Path
@@ -58,9 +76,13 @@ __all__ = [
     "check_docs_directions",
     "check_docs_index_completeness",
     "check_issue_tail_policy",
+    "check_link_captions",
     "check_markdown_links",
     "check_readme_budget",
+    "check_showcase_metrics",
+    "check_ui_issue_tail_policy",
     "collect_markdown_files",
+    "collect_ui_strings",
     "github_slug",
     "main",
 ]
@@ -96,6 +118,13 @@ _AGENT_TAIL_BUDGET = 6
 
 # [текст](target) — не изображение (нет ведущего "!"), target без пробелов/скобок.
 _LINK_RE = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)\)")
+# То же, но с захватом ПОДПИСИ — для проверки «подпись-путь совпадает с целью».
+_LINK_WITH_TEXT_RE = re.compile(r"(?<!\!)\[([^\]]*)\]\(([^)\s]+)\)")
+# Подпись-ПУТЬ: `docs/use/configuration.md` или `docs/api.md § Раздел` (с
+# бэктиками или без). Требуется каталог в подписи: голое имя файла
+# (`glossary.md`) — это метка, а не путь, который читатель скопирует; подписи с
+# `../` тоже пропускаем — они относительны положению документа, а не корня.
+_PATH_CAPTION_RE = re.compile(r"^`?((?!\.\.)[\w.-]+(?:/[\w.-]+)+\.md)`?(?:\s+[§#].*)?$")
 # Заголовки ATX: "# ...", "## ..." и т.д.
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 # Внешние схемы, которые не проверяем (сеть/почта/якоря протоколов).
@@ -219,6 +248,79 @@ def check_markdown_links(errors: list[str]) -> None:
                     )
 
     print(f"Markdown links: checked {checked} local link(s) across {len(files)} file(s).")
+
+
+def check_link_captions(errors: list[str]) -> None:
+    """Подпись-путь у ссылки совпадает с её целью (issue #827).
+
+    Ссылки проверялись только по цели, поэтому подписи пережили раскладку
+    ``docs/`` по направлениям: ``[docs/configuration.md § …](docs/use/configuration.md#…)``
+    — цель рабочая, а путь в тексте ведёт в никуда. Читатель копирует именно
+    подпись, и чаще всего в самых чувствительных местах (threat model в
+    SECURITY.md).
+    """
+    checked = 0
+    for md in collect_markdown_files():
+        rel_doc = md.relative_to(_ROOT).as_posix()
+        for match in _LINK_WITH_TEXT_RE.finditer(md.read_text(encoding="utf-8")):
+            caption, target = match.group(1), match.group(2)
+            caption_match = _PATH_CAPTION_RE.match(caption.strip())
+            if caption_match is None or _EXTERNAL_RE.match(target):
+                continue
+            target_path = target.partition("#")[0]
+            if not target_path:
+                continue
+            checked += 1
+            # Подпись — «хвост» реального пути: `use/web-interface.md` из
+            # docs/dev/ сокращает `docs/use/web-interface.md` и читателя не
+            # обманывает. Ловим другое — путь, которого в дереве нет вовсе
+            # (`docs/configuration.md` после раскладки docs/ по направлениям).
+            claimed = tuple(Path(caption_match.group(1)).parts)
+            actual = tuple((md.parent / target_path).resolve().relative_to(_ROOT).parts)
+            if actual[-len(claimed) :] != claimed:
+                errors.append(
+                    f"{rel_doc}: подпись ссылки '{caption_match.group(1)}' не совпадает "
+                    f"с целью '{target_path}' — читатель копирует путь из подписи и "
+                    "попадает в никуда."
+                )
+    print(f"link captions: checked {checked} path-like caption(s) against their targets.")
+
+
+# Витрины, где метрики живут только в бейджах (issue #829). Число, вписанное
+# руками, устаревает к следующему PR: «2100+ tests» пережило рост набора на
+# четверть и осталось в английской версии, когда из русской его уже убрали.
+_SHOWCASE_FILES = ("README.md", "README.en.md")
+# «2100+ tests», «1349 карточек», «2349 тестов» — число рядом со словом-метрикой.
+_HARDCODED_METRIC_RE = re.compile(
+    r"\b\d{3,}\+?\s*(?:automated\s+)?(?:tests?|тест\w*|карточ\w+|cards?)\b",
+    re.IGNORECASE,
+)
+
+
+def check_showcase_metrics(errors: list[str]) -> None:
+    """В README и README.en.md нет метрик числом — только бейджи (issue #829).
+
+    Живой источник числа тестов, покрытия и размера глоссария — бейджи в шапке:
+    они обновляются каждым прогоном CI, а вписанная руками цифра начинает врать
+    в первый же день и противоречить соседнему файлу.
+    """
+    checked = 0
+    for name in _SHOWCASE_FILES:
+        path = _ROOT / name
+        if not path.is_file():
+            continue
+        checked += 1
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.lstrip().startswith("[!["):  # сами бейджи — источник истины
+                continue
+            found = _HARDCODED_METRIC_RE.findall(line)
+            if found:
+                errors.append(
+                    f"{name}: метрика числом в прозе ('{line.strip()[:60]}…') — "
+                    "живой источник у этих чисел бейджи в шапке; вписанное руками "
+                    "устареет к следующему PR."
+                )
+    print(f"showcase metrics: checked {checked} README file(s) for hardcoded numbers.")
 
 
 def check_docs_index_completeness(errors: list[str]) -> None:
@@ -388,15 +490,91 @@ def check_issue_tail_policy(errors: list[str]) -> None:
     )
 
 
+def _help_strings(path: Path) -> list[str]:
+    """Строки справки argparse из модуля-парсера: ``help``/``description``/``epilog``.
+
+    Разбор через ``ast``, а не regex: неявная конкатенация литералов в скобках
+    (``help=("…" "…")``) сворачивается парсером в один ``ast.Constant``, поэтому
+    многострочные справки читаются целиком, а не по кусочкам. Динамические
+    значения (f-строки, вызовы) пропускаются — проверять в них нечего.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        for kw in node.keywords:
+            if kw.arg not in {"help", "description", "epilog"}:
+                continue
+            if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                found.append(kw.value.value)
+    return found
+
+
+def _json_strings(value: object) -> list[str]:
+    """Все строковые значения JSON-структуры (ключи не в счёт — они идентификаторы)."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for v in value.values() for s in _json_strings(v)]
+    if isinstance(value, list):
+        return [s for v in value for s in _json_strings(v)]
+    return []
+
+
+def collect_ui_strings() -> dict[str, list[str]]:
+    """Пользовательские строки интерфейса: ``{относительный путь: [строки]}``.
+
+    Две поверхности, которые пользователь читает наравне с документацией:
+    вывод ``--help`` (``cli/options.py``) и каталоги сообщений
+    (``core/locales/*.json``). Отсутствующий файл молча пропускается — guard
+    не должен падать на урезанном чекауте.
+    """
+    strings: dict[str, list[str]] = {}
+    options_py = _ROOT / "src" / "stepik_grader" / "cli" / "options.py"
+    if options_py.is_file():
+        strings[options_py.relative_to(_ROOT).as_posix()] = _help_strings(options_py)
+    locales = _ROOT / "src" / "stepik_grader" / "core" / "locales"
+    for loc in sorted(locales.glob("*.json")):
+        data = json.loads(loc.read_text(encoding="utf-8"))
+        strings[loc.relative_to(_ROOT).as_posix()] = _json_strings(data)
+    return strings
+
+
+def check_ui_issue_tail_policy(errors: list[str]) -> None:
+    """В пользовательских строках интерфейса нет ссылок вида ``#NNN`` (issue #820).
+
+    Политика та же, что у объясняющей документации, и по той же причине: номер
+    задачи ничего не сообщает тому, кто читает ``--help`` или сообщение об
+    ошибке. Разница лишь в поверхности — здесь проверяются строки в коде, а не
+    Markdown, поэтому гейт на доках эту зону не покрывал.
+    """
+    checked = 0
+    for source, values in collect_ui_strings().items():
+        tails = sorted({tail for value in values for tail in _ISSUE_TAIL_RE.findall(value)})
+        checked += len(values)
+        if tails:
+            errors.append(
+                f"{source}: {len(tails)} issue reference(s) ({', '.join(tails[:5])}) "
+                "in user-facing strings. Help output and locale messages explain a "
+                "flag to the user - the work log belongs in CHANGELOG.md, the "
+                "rationale in code comments."
+            )
+    print(f"UI-strings issue policy: checked {checked} user-facing string(s) at zero.")
+
+
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
     errors: list[str] = []
     check_readme_budget(errors)
     check_markdown_links(errors)
+    check_link_captions(errors)
+    check_showcase_metrics(errors)
     check_docs_directions(errors)
     check_docs_index_completeness(errors)
     check_changelog_version_budget(errors)
     check_issue_tail_policy(errors)
+    check_ui_issue_tail_policy(errors)
 
     if errors:
         print("\nFAIL: documentation guardrails violated:")

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from stepik_grader.core import history
+from stepik_grader.core import history, insights
 from stepik_grader.core.history import CaseRecord, LintRecord
 from stepik_grader.core.insights import (
     InsightCard,
@@ -243,3 +243,73 @@ def test_current_streak_counts_consecutive_ac_from_newest(tmp_path: Path) -> Non
 
 def test_current_streak_empty_history_zero(tmp_path: Path) -> None:
     assert current_streak(tmp_path / "nope.db") == 0
+
+
+# ---------------------------------------------------------------------------
+# issue #819 — бенчмарк не рвёт серию и не искажает «попытки до первого AC»
+# ---------------------------------------------------------------------------
+
+
+def test_bench_run_does_not_break_streak(tmp_path: Path) -> None:
+    """Репро находки: три зачёта, затем сравнение вариантов — серия цела.
+
+    Прогон режима 3/4 не содержит вердикта AC в принципе (вердикты
+    ERR/SIMILAR/SLOWER), поэтому прежде считался провалом и обнулял KPI
+    «Серия» вместе с бейджами streak_3/streak_7.
+    """
+    db = tmp_path / history.HISTORY_DB_NAME
+    for _ in range(3):
+        history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="t")
+    assert insights.current_streak(db) == 3
+
+    history.record_run(3, [history.CaseRecord(1, "SIMILAR")], db_path=db, task_key="t")
+    assert insights.current_streak(db) == 3
+
+    history.record_run(4, [history.CaseRecord(1, "SLOWER")], db_path=db, task_key="t")
+    assert insights.current_streak(db) == 3
+
+
+def test_failed_check_still_breaks_streak(tmp_path: Path) -> None:
+    """Провал проверки серию по-прежнему рвёт — иначе метрика ничего не значит."""
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="t")
+    history.record_run(2, [history.CaseRecord(1, "WA")], db_path=db, task_key="t")
+    history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="t")
+
+    assert insights.current_streak(db) == 1
+
+
+def test_bench_runs_do_not_inflate_attempts(tmp_path: Path) -> None:
+    """«Попыток до первого зачёта» считает проверки, а не сравнения вариантов."""
+    db = tmp_path / history.HISTORY_DB_NAME
+    history.record_run(1, [history.CaseRecord(1, "WA")], db_path=db, task_key="t")
+    for _ in range(5):
+        history.record_run(3, [history.CaseRecord(1, "SIMILAR")], db_path=db, task_key="t")
+    history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="t")
+
+    (progress,) = insights.time_to_first_green(db)
+    assert progress.attempts == 2
+    assert progress.total_runs == 2
+    assert progress.solved is True
+
+
+def test_ttfg_is_not_distorted_by_retention(tmp_path: Path) -> None:
+    """Удаление старых прогонов не меняет уже посчитанные attempts (AC issue)."""
+    db = tmp_path / history.HISTORY_DB_NAME
+    for _ in range(4):
+        history.record_run(
+            1, [history.CaseRecord(1, "WA")], db_path=db, task_key="t", max_runs_per_task=2
+        )
+    history.record_run(
+        1, [history.CaseRecord(1, "AC")], db_path=db, task_key="t", max_runs_per_task=2
+    )
+
+    (progress,) = insights.time_to_first_green(db)
+    assert progress.attempts == 5  # а не 2, как показал бы остаток таблицы runs
+    assert progress.total_runs == 5
+
+
+def test_run_without_mode_counts_as_check() -> None:
+    """Запись без поля mode (старые/синтетические данные) считается проверкой."""
+    assert insights._is_bench_run({"cases": [{"verdict": "AC"}]}) is False
+    assert insights._run_is_full_ac({"cases": [{"verdict": "AC"}]}) is True
