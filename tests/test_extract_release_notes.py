@@ -12,6 +12,7 @@ CHANGELOG, который ведётся в каждом PR, в релиз не 
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -123,6 +124,25 @@ def test_cli_requires_a_version_or_latest(tmp_path: Path) -> None:
     """Без аргументов — ошибка argparse, а не молчаливый выбор чего-нибудь."""
     with pytest.raises(SystemExit):
         _load().main([])
+
+
+def test_notes_print_on_a_single_byte_console() -> None:
+    """Заметки печатаются под cp1252, а не роняют скрипт (регресс из #834).
+
+    Ровно это уронило три Windows-job'а на main: `print(notes)` упирался в
+    кодовую страницу консоли и падал `UnicodeEncodeError` — скрипт ломался на
+    содержимом, ради которого написан.
+    """
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--latest"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "PYTHONIOENCODING": "cp1252"},
+    )
+    assert "UnicodeEncodeError" not in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
 
 
 def test_real_changelog_yields_notes_for_its_latest_version() -> None:
