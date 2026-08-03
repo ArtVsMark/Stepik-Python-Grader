@@ -632,11 +632,26 @@ def check_pypi_readme_is_absolute(errors: list[str]) -> None:
             "raw.githubusercontent.com/.../main/."
         )
         return
-    print(f"PyPI readme: {name} — все ссылки и картинки абсолютные.")
+    print(f"PyPI readme: {name} has no relative links or images.")
+
+
+def _force_utf8_stdout() -> None:
+    """Печатать UTF-8 независимо от кодовой страницы консоли.
+
+    Тексты нарушений русские, а консоль Windows по умолчанию cp1252/cp1251: без
+    этого ``print`` падал ``UnicodeEncodeError`` и гейт возвращал 1 «на ровном
+    месте», подменяя настоящую причину отказа своей собственной (тот же приём,
+    что в ``scripts/skip_inventory.py`` и ``cli/options._force_utf8_stdio``).
+    No-op на потоках без ``reconfigure`` — например, перехваченных pytest.
+    """
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8", errors="replace")
 
 
 def main() -> int:
     """Вернуть 0, если нарушений нет; 1 — если найдены."""
+    _force_utf8_stdout()
     errors: list[str] = []
     check_readme_budget(errors)
     check_pypi_readme_is_absolute(errors)

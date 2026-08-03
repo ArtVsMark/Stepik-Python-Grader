@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -632,3 +633,38 @@ def test_anchor_only_link_is_not_reported_as_relative(tmp_path, monkeypatch) -> 
     errors: list[str] = []
     module.check_pypi_readme_is_absolute(errors)
     assert errors == []
+
+
+def test_violations_are_printable_on_a_single_byte_console(tmp_path) -> None:
+    """Гейт печатает НАРУШЕНИЕ даже под cp1252, а не падает вместо него.
+
+    Реальная поломка (#832): новая success-строка на кириллице уронила три
+    Windows-job'а ``UnicodeEncodeError`` — гейт вернул 1, подменив настоящую
+    причину отказа своей собственной. Success-строки с тех пор английские,
+    поэтому проверяем то, что осталось русским и печатается на Windows в самый
+    неподходящий момент: текст самого нарушения.
+    """
+    (tmp_path / "pyproject.toml").write_text('readme = "R.md"\n', encoding="utf-8")
+    (tmp_path / "R.md").write_text("[док](docs/README.md)\n", encoding="utf-8")
+    snippet = (
+        "import importlib.util, sys\n"
+        f"spec = importlib.util.spec_from_file_location('g', r'{_SCRIPT}')\n"
+        "m = importlib.util.module_from_spec(spec); sys.modules['g'] = m\n"
+        "spec.loader.exec_module(m)\n"
+        "m._force_utf8_stdout()\n"
+        f"m._ROOT = m.Path(r'{tmp_path}')\n"
+        "errors = []\n"
+        "m.check_pypi_readme_is_absolute(errors)\n"
+        "[print(f'  - {e}') for e in errors]\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", snippet],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env={**os.environ, "PYTHONIOENCODING": "cp1252"},
+    )
+    assert "UnicodeEncodeError" not in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr
+    assert "docs/README.md" in result.stdout
