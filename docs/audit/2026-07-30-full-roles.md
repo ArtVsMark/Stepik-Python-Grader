@@ -379,7 +379,7 @@ OWNER/MEMBER/COLLABORATOR, инструменты агента по явному
 | `ARCH-09` | **low** | medium | ✅ | `src/stepik_grader/core/grader_core.py:537` | Агрегатный результат (run_tests/run_benchmark/run_microbench_mode) не имеет типизированной модели — только dict[str, Any], хотя для case-уровня их уже две (CaseResult + TestResult) |
 | `ARCH-11` | **low** | — | ✅ | `docs/dev/result-contract.md:168` | result-contract.md указывает web/server.py как место error-конвертов API, которых там уже нет — они переехали в web/http_guards.py |
 
-**Закрыто:** `ARCH-03`, `ARCH-04`, `ARCH-05`, `ARCH-07`, `ARCH-08` — PR #904.
+**Закрыто:** `ARCH-03`, `ARCH-04`, `ARCH-05`, `ARCH-07`, `ARCH-08` — PR #905.
 Реестр Runner переехал в `core/runner.py`, оба ленивых импорта (`microbench_runner`,
 `tracer`) стали обычными; конфиг резолвится в теле функции через `get_config()`
 (снимок `CONFIG` на импорте оставлен алиасом для фасада); guard границы считает
