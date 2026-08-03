@@ -707,3 +707,122 @@ def test_purge_all_removes_progress_aggregate_with_the_file(tmp_path: Path) -> N
 
     assert not db.exists()
     assert history.read_task_progress(db) == []
+
+
+# ---------------------------------------------------------------------------
+# issue #794 (MIGR-01/MIGR-03) — непригодная БД называется вслух. До фикса
+# повреждённая база выглядела ровно как «истории нет»: recent_runs() → [],
+# add_run() → None на каждом прогоне, и пользователь писал в никуда бесконечно.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_warned_paths() -> None:
+    """Дедуп предупреждений процессный — без сброса тесты влияют друг на друга."""
+    history._WARNED_DB_PROBLEMS.clear()
+    yield
+    history._WARNED_DB_PROBLEMS.clear()
+
+
+def _corrupt_db(tmp_path: Path) -> Path:
+    """Живая БД, обрезанная до 1/3 длины — репро из issue."""
+    path = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+    raw = path.read_bytes()
+    for suffix in ("-wal", "-shm"):
+        path.with_name(path.name + suffix).unlink(missing_ok=True)
+    path.write_bytes(raw[: len(raw) // 3])
+    return path
+
+
+def test_corrupt_db_is_reported_not_silently_empty(tmp_path: Path, capsys) -> None:
+    """Битая БД: чтение по-прежнему пустое, но пользователь слышит почему."""
+    path = _corrupt_db(tmp_path)
+
+    assert history.read_recent_runs(path) == []
+
+    err = capsys.readouterr().err
+    # Путь целиком в ОДНОЙ строке: без soft_wrap rich переносит его по ширине 80,
+    # и подсказка «удалите файл» перестаёт называть файл, который надо удалить.
+    assert any(str(path) in line for line in err.splitlines())
+    assert "Удалите" in err
+
+
+def test_corrupt_db_reported_once_per_process(tmp_path: Path, capsys) -> None:
+    """Папка из 40 кейсов не должна давать 40 одинаковых абзацев."""
+    path = _corrupt_db(tmp_path)
+
+    for _ in range(3):
+        history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+        history.read_recent_runs(path)
+
+    assert capsys.readouterr().err.count("История прогонов недоступна") == 1
+
+
+def test_transient_lock_stays_silent(tmp_path: Path, capsys) -> None:
+    """Транзиентная блокировка не печатает ничего — её лечит повтор, шум лишний."""
+    path = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+
+    def _busy(_db_path: Path) -> sqlite3.Connection:
+        raise sqlite3.OperationalError("database is locked")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(history, "_connect", _busy)
+        mp.setattr(history, "_WRITE_RETRY_DELAY_S", 0)
+        assert history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t") is None
+
+    assert capsys.readouterr().err == ""
+
+
+def test_rolled_back_grader_refuses_future_schema(tmp_path: Path, capsys) -> None:
+    """БД от более новой версии: запись пропускается, причина названа (MIGR-01).
+
+    Репро — откат грейдера: база осталась на схеме vN+1, код понимает vN. Раньше
+    ``apply_schema`` молча выходил, и старый код писал по чужой схеме.
+    """
+    path = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+    with contextlib.closing(sqlite3.connect(path)) as conn:
+        conn.execute(f"PRAGMA user_version = {history.SCHEMA_VERSION + 1}")
+        conn.commit()
+
+    assert history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t") is None
+    assert history.read_recent_runs(path) == []
+    assert history.read_task_progress(path) == []
+
+    err = capsys.readouterr().err
+    assert "более новой версией" in err
+    assert str(path) in err
+
+
+def test_future_schema_database_is_left_untouched(tmp_path: Path) -> None:
+    """Отказ не портит данные: чужая схема и её записи остаются как были."""
+    path = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+    future = history.SCHEMA_VERSION + 1
+    with contextlib.closing(sqlite3.connect(path)) as conn:
+        conn.execute(f"PRAGMA user_version = {future}")
+        conn.commit()
+
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+
+    with contextlib.closing(sqlite3.connect(path)) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == future
+        assert conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 1
+
+
+def test_migration_still_upgrades_v1_database(tmp_path: Path) -> None:
+    """Ступень v1→v2 не сломана защитой от отката: старая база домигрируется."""
+    path = _db(tmp_path)
+    history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t")
+    with contextlib.closing(sqlite3.connect(path)) as conn:
+        conn.execute("DROP TABLE task_progress")
+        conn.execute("PRAGMA user_version = 1")
+        conn.commit()
+
+    assert history.record_run(1, [CaseRecord(1, "AC")], db_path=path, task_key="t") is not None
+
+    with contextlib.closing(sqlite3.connect(path)) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == history.SCHEMA_VERSION
+    assert [row["task_key"] for row in history.read_task_progress(path)] == ["t"]
