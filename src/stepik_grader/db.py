@@ -17,7 +17,11 @@ core-модули, и ``glossary/``, не порождая ребра ``glossary
 
 Best-effort по духу (как ``core/history``/``core/cache``): вызывающая сторона
 оборачивает работу с БД в ``try/except (sqlite3.Error, OSError)`` и тихо
-деградирует (пропуск записи / пустое чтение), не роняя грейдинг.
+деградирует (пропуск записи / пустое чтение), не роняя грейдинг. Единственное
+исключение из «тихо» — ``SchemaTooNewError`` (issue #794): откат грейдера на
+версию со старой схемой обязан быть слышен, иначе старый код молча пишет в базу
+будущей схемы. Класс — потомок ``sqlite3.DatabaseError``, чтобы прежние
+обработчики ловили его сами и деградация оставалась штатной.
 """
 
 from __future__ import annotations
@@ -29,12 +33,34 @@ from pathlib import Path
 
 __all__ = [
     "BUSY_TIMEOUT_MS",
+    "SchemaTooNewError",
     "apply_schema",
     "connect",
     "restrict_to_owner",
     "set_user_version",
     "user_version",
 ]
+
+
+class SchemaTooNewError(sqlite3.DatabaseError):
+    """БД записана более новой версией схемы, чем понимает этот код (issue #794).
+
+    Наследуется от ``sqlite3.DatabaseError`` намеренно: вся работа с локальными
+    базами best-effort и обёрнута в ``except (sqlite3.Error, OSError)``, поэтому
+    новое исключение подхватывается существующими обработчиками и деградирует
+    штатно, а не роняет грейдинг мимо них. Отличать откат от обычного сбоя БД
+    вызывающая сторона может по типу — так делает ``core/history``, печатая
+    отдельную подсказку.
+    """
+
+    def __init__(self, *, found: int, expected: int) -> None:
+        super().__init__(
+            f"версия схемы БД {found} новее ожидаемой {expected} — "
+            "база создана более новой версией грейдера"
+        )
+        self.found = found
+        self.expected = expected
+
 
 # Явный busy_timeout: конкурентные писатели ЖДУТ write-lock, а не падают
 # ``sqlite3.OperationalError`` → тихая потеря записи (issue #393/#552).
@@ -120,15 +146,25 @@ def set_user_version(conn: sqlite3.Connection, version: int) -> None:
 def apply_schema(conn: sqlite3.Connection, *, version: int, ddl: str) -> None:
     """Идемпотентная миграция ``user_version`` 0→``version`` аддитивным ``ddl``.
 
-    Если текущая версия уже ``>= version`` — no-op (повторный вызов безопасен).
+    Если текущая версия РАВНА ``version`` — no-op (повторный вызов безопасен).
     Иначе исполняется ``ddl`` (должен быть идемпотентным — ``CREATE ... IF NOT
     EXISTS``, чтобы параллельная инициализация двумя процессами не падала
     ``table already exists``, issue #393) и выставляется ``version``. Для
     инкрементальных (1→2) изменений схемы вызывающая сторона пишет свою миграцию
-    поверх этого примитива.
+    поверх этого примитива — и сама сверяет ИТОГОВУЮ версию с базой, потому что
+    здесь про промежуточные ступени ничего не известно (см. ``core/history``).
+
+    Raises:
+        SchemaTooNewError: ``user_version`` в базе БОЛЬШЕ ``version``. Раньше это
+            была та же ветка «уже мигрировано» — молчаливый no-op (issue #794):
+            после отката грейдера старый код продолжал писать в базу будущей
+            схемы, портя данные, а при несовместимом DDL прогоны просто терялись.
     """
-    if user_version(conn) >= version:
+    current = user_version(conn)
+    if current == version:
         return
+    if current > version:
+        raise SchemaTooNewError(found=current, expected=version)
     conn.executescript(ddl)
     set_user_version(conn, version)
     conn.commit()

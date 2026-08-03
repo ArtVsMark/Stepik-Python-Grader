@@ -175,3 +175,65 @@ def test_restrict_to_owner_covers_wal_sidecars(tmp_path: Path) -> None:
 def test_restrict_to_owner_survives_missing_file(tmp_path: Path) -> None:
     """Файла нет — не ошибка: работа с историей best-effort по всему модулю."""
     db.restrict_to_owner(tmp_path / "nope.db")  # не должно бросать
+
+
+# ---------------------------------------------------------------------------
+# issue #794 (MIGR-01) — защита от отката версии схемы. До фикса `cur >= version`
+# схлопывал «уже мигрировано» и «база новее нас» в один молчаливый no-op: после
+# отката грейдера старый код продолжал писать в базу будущей схемы.
+# ---------------------------------------------------------------------------
+
+
+def test_apply_schema_is_noop_on_exact_version(tmp_path: Path) -> None:
+    """Равная версия — по-прежнему no-op: повторный вызов обязан быть безопасен."""
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.apply_schema(conn, version=1, ddl=_DDL)
+        db.apply_schema(conn, version=1, ddl="SELECT raise_this_would_fail;")
+        assert db.user_version(conn) == 1
+
+
+def test_apply_schema_refuses_newer_database(tmp_path: Path) -> None:
+    """Версия в базе выше ожидаемой — явный отказ вместо молчаливого прохода."""
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.set_user_version(conn, 7)
+        with pytest.raises(db.SchemaTooNewError) as excinfo:
+            db.apply_schema(conn, version=1, ddl=_DDL)
+        assert excinfo.value.found == 7
+        assert excinfo.value.expected == 1
+        assert "7" in str(excinfo.value)
+        # Отказ, а не порча: DDL не исполнялся, версию не понизили.
+        assert db.user_version(conn) == 7
+        assert (
+            conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE name = 't'").fetchone()[0] == 0
+        )
+
+
+def test_schema_too_new_is_a_sqlite_error(tmp_path: Path) -> None:
+    """Потомок ``sqlite3.DatabaseError``: прежние best-effort обработчики ловят его.
+
+    Не деталь реализации, а контракт: весь код вокруг локальных баз написан под
+    ``except (sqlite3.Error, OSError)``, и новое исключение не должно пролетать
+    мимо них, роняя грейдинг.
+    """
+    assert issubclass(db.SchemaTooNewError, sqlite3.DatabaseError)
+    assert issubclass(db.SchemaTooNewError, sqlite3.Error)
+
+
+def test_connect_closes_connection_when_migration_refuses(tmp_path: Path) -> None:
+    """Отказ миграции закрывает соединение — fd не течёт (контракт connect, #393)."""
+    path = tmp_path / "x.db"
+    with contextlib.closing(db.connect(path)) as conn:
+        db.set_user_version(conn, 9)
+
+    captured: list[sqlite3.Connection] = []
+
+    def _migrate(conn: sqlite3.Connection) -> None:
+        captured.append(conn)
+        db.apply_schema(conn, version=1, ddl=_DDL)
+
+    with pytest.raises(db.SchemaTooNewError):
+        db.connect(path, migrate=_migrate)
+    with pytest.raises(sqlite3.ProgrammingError):
+        captured[0].execute("SELECT 1")

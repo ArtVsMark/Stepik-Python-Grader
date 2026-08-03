@@ -14,8 +14,12 @@ lint-нарушениями (``lint_violations``). На ней строятся 
 может (см. комментарий про #344 в ``stats.py``).
 
 Best-effort по всему модулю (принцип ``GraderCache``/``stats``): битая БД,
-нет прав, полный диск — тихо пропустить запись/вернуть пусто, никогда не
-ронять грейдинг. Opt-in: путь передаётся явно (``db_path=``); по умолчанию
+нет прав, полный диск — пропустить запись/вернуть пусто, никогда не ронять
+грейдинг. «Best-effort» ≠ «молча» (issue #794): неустранимое — повреждённый
+файл, схема от более новой версии грейдера — один раз за процесс называется
+вслух с путём и подсказкой, иначе «пишем в никуда» неотличимо от «истории
+нет». Транзиентная блокировка по-прежнему тиха: её лечит повтор.
+Opt-in: путь передаётся явно (``db_path=``); по умолчанию
 модуль ничего не создаёт (требование #134 — CLI без БД, пока не задан
 ``--history``). Таксономия ``failure_kind`` (§ 9.3) и наполнение
 ``lint_violations`` — за будущими #347/#346; здесь колонки лишь заводятся.
@@ -29,6 +33,7 @@ from __future__ import annotations
 
 import contextlib
 import sqlite3
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -90,6 +95,87 @@ _WRITE_RETRY_DELAY_S = 0.1
 # удержание не режет инсайты. Значение переопределяется параметром
 # ``record_run(max_runs_per_task=...)`` — на сервере его задают явно.
 _MAX_RUNS_PER_TASK = 200
+
+# Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md). Свой
+# локальный ``_console``, а не ``core/reporter._console`` — модуль leaf-совместим
+# и не тянет core-UI (тот же приём, что ``downloader_config``/``glossary/coverage``).
+try:
+    from rich.console import Console
+
+    _console: Console | None = Console(stderr=True)
+    _RICH = True
+except ImportError:  # pragma: no cover
+    _console = None
+    _RICH = False
+
+
+def _print(text: str) -> None:
+    """Печать предупреждения в stderr (markup off — путь к БД безопасен в любом виде).
+
+    ``soft_wrap=True`` обязателен: без него rich ломает длинный путь переносом по
+    ширине 80 (а вне терминала ширина именно такая), и скопировать имя файла из
+    подсказки «удалите его» становится нельзя — подсказка обесценивается.
+    """
+    if _RICH and _console is not None:
+        _console.print(text, markup=False, soft_wrap=True)
+    else:
+        print(text, file=sys.stderr)
+
+
+# issue #794 (MIGR-03): подстроки сообщений SQLite о НЕУСТРАНИМОМ повреждении
+# файла. Класс исключения тут не помощник — «database disk image is malformed» и
+# «file is not a database» приезжают тем же ``sqlite3.DatabaseError``, что и
+# транзиентные сбои, поэтому различаем по тексту.
+_CORRUPT_MARKERS = (
+    "malformed",
+    "not a database",
+    "file is encrypted",
+    "database corrupt",
+)
+
+# Что уже сказано пользователю: (путь, вид проблемы). Один раз за процесс —
+# иначе папка из 40 кейсов дала бы 40 одинаковых абзацев.
+_WARNED_DB_PROBLEMS: set[tuple[str, str]] = set()
+_WARN_LOCK = threading.Lock()
+
+_PROBLEM_HINTS = {
+    "too-new": (
+        "Обновите грейдер до версии, которая её создала, или удалите файл — "
+        "история заведётся заново."
+    ),
+    "corrupt": (
+        "Файл повреждён и не читается. Удалите его — история заведётся заново "
+        "(прежние прогоны восстановить нельзя)."
+    ),
+}
+
+
+def _db_problem_kind(exc: BaseException) -> str | None:
+    """Вид неустранимой проблемы БД или ``None``, если сбой транзиентный (#794)."""
+    if isinstance(exc, db.SchemaTooNewError):
+        return "too-new"
+    if any(marker in str(exc).lower() for marker in _CORRUPT_MARKERS):
+        return "corrupt"
+    return None
+
+
+def _note_unusable_db(db_path: Path, exc: BaseException) -> None:
+    """Один раз за процесс сообщить, что БД истории непригодна (issue #794).
+
+    Транзиентная блокировка не печатает ничего: её лечит повтор, и шум только
+    мешал бы. Молчать про НЕустранимое нельзя — повреждённая база выглядела
+    ровно как «истории нет», и пользователь прогон за прогоном писал в никуда.
+    """
+    kind = _db_problem_kind(exc)
+    if kind is None:
+        return
+    key = (str(db_path), kind)
+    with _WARN_LOCK:
+        if key in _WARNED_DB_PROBLEMS:
+            return
+        _WARNED_DB_PROBLEMS.add(key)
+    _print(f"⚠️  История прогонов недоступна: {db_path} — {exc}")
+    _print(f"   {_PROBLEM_HINTS[kind]}")
 
 
 @dataclass(frozen=True)
@@ -257,10 +343,20 @@ def _migrate(conn: sqlite3.Connection) -> None:
     разовым заполнением по имеющимся прогонам. DDL идемпотентен (``CREATE ...
     IF NOT EXISTS``), поэтому параллельная инициализация двумя процессами
     безопасна (#393).
+
+    Сверка с ИТОГОВОЙ ``SCHEMA_VERSION`` идёт здесь, а не в ``db.apply_schema``:
+    примитив знает только про свою ступень, и на базе v2 вызов со ступенью v1
+    выглядел бы как откат (issue #794).
+
+    Raises:
+        db.SchemaTooNewError: база записана более новой версией схемы.
     """
-    db.apply_schema(conn, version=_SCHEMA_V1_VERSION, ddl=_SCHEMA_V1)
-    if db.user_version(conn) >= SCHEMA_VERSION:
+    current = db.user_version(conn)
+    if current > SCHEMA_VERSION:
+        raise db.SchemaTooNewError(found=current, expected=SCHEMA_VERSION)
+    if current == SCHEMA_VERSION:
         return
+    db.apply_schema(conn, version=_SCHEMA_V1_VERSION, ddl=_SCHEMA_V1)
     conn.executescript(_SCHEMA_V2)
     _backfill_task_progress(conn)
     db.set_user_version(conn, SCHEMA_VERSION)
@@ -326,9 +422,10 @@ class SqliteHistoryRepository:
         прогонов, старые удаляются (FK ``ON DELETE CASCADE`` уносит их
         ``case_results``/``lint_violations``). ``None`` отключает retention.
 
-        Best-effort: любая ``sqlite3.Error``/``OSError`` тихо проглатывается
-        (возврат ``None``), как у ``stats.record_run``/``GraderCache`` — история
-        не должна ронять грейдинг.
+        Best-effort: любая ``sqlite3.Error``/``OSError`` проглатывается (возврат
+        ``None``), как у ``stats.record_run``/``GraderCache`` — история не должна
+        ронять грейдинг. Неустранимая причина (повреждённый файл, схема от более
+        новой версии) при этом называется вслух один раз за процесс, issue #794.
         """
         for attempt in range(_WRITE_ATTEMPTS):
             try:
@@ -397,14 +494,20 @@ class SqliteHistoryRepository:
                         )
                     conn.commit()
                     return run_id
-            except sqlite3.OperationalError:
+            except sqlite3.OperationalError as exc:
                 # Транзиентная блокировка БД (SQLITE_BUSY/"database is locked") —
                 # межпроцессная гонка мимо _WRITE_LOCK; короткий backoff и повтор,
                 # best-effort сдача только после исчерпания попыток (issue #605).
+                # Повреждение файла приезжает тем же классом, но повтором не
+                # лечится — сдаёмся сразу и говорим об этом вслух (issue #794).
+                if _db_problem_kind(exc) is not None:
+                    _note_unusable_db(self.db_path, exc)
+                    return None
                 if attempt == _WRITE_ATTEMPTS - 1:
                     return None
                 time.sleep(_WRITE_RETRY_DELAY_S * (attempt + 1))
-            except (sqlite3.Error, OSError):
+            except (sqlite3.Error, OSError) as exc:
+                _note_unusable_db(self.db_path, exc)
                 return None
         return None
 
@@ -413,6 +516,8 @@ class SqliteHistoryRepository:
 
         Отсутствующая/битая БД → пустой список (graceful, не ошибка); файл не
         создаётся, если его нет (#134). Фильтр по ``task_key`` опционален.
+        Битая — с однократным предупреждением, чтобы не выглядеть как «истории
+        пока нет» (issue #794).
         """
         if not self.db_path.is_file():
             return []
@@ -461,7 +566,8 @@ class SqliteHistoryRepository:
                     run["lint"] = lint_by_run.get(row["id"], [])
                     result.append(run)
                 return result
-        except (sqlite3.Error, OSError):
+        except (sqlite3.Error, OSError) as exc:
+            _note_unusable_db(self.db_path, exc)
             return []
 
     def task_progress(self, *, limit: int = 1000) -> list[dict[str, Any]]:
@@ -484,7 +590,8 @@ class SqliteHistoryRepository:
                     (limit,),
                 ).fetchall()
                 return [dict(row) for row in rows]
-        except (sqlite3.Error, OSError):
+        except (sqlite3.Error, OSError) as exc:
+            _note_unusable_db(self.db_path, exc)
             return []
 
 

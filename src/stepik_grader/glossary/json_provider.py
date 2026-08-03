@@ -26,6 +26,7 @@ import contextlib
 import json
 import pathlib
 import sqlite3
+import sys
 import threading
 from typing import Any, Protocol, runtime_checkable
 
@@ -219,6 +220,34 @@ CREATE TABLE IF NOT EXISTS missing_entries (
 # Магия заголовка SQLite-файла — отличить SQLite-очередь от legacy JSON / мусора.
 _SQLITE_MAGIC = b"SQLite format 3\x00"
 
+# issue #794 (MIGR-04): куда уезжает нечитаемый файл очереди вместо удаления.
+_QUARANTINE_SUFFIX = ".corrupt"
+
+# Вывод через rich с graceful fallback на print() (инвариант CLAUDE.md). Свой
+# локальный ``_console``: подпакет ``glossary/`` не импортирует ``core/`` — тот же
+# приём, что в ``glossary/coverage.py`` (issue #354).
+try:
+    from rich.console import Console
+
+    _console: Console | None = Console(stderr=True)
+    _RICH = True
+except ImportError:  # pragma: no cover
+    _console = None
+    _RICH = False
+
+
+def _print(text: str) -> None:
+    """Печать предупреждения в stderr (markup off — путь безопасен в любом виде).
+
+    ``soft_wrap=True``: иначе rich переносит длинный путь по ширине 80 и файл из
+    сообщения нельзя ни скопировать, ни найти (тот же довод, что в ``core/history``).
+    """
+    if _RICH and _console is not None:
+        _console.print(text, markup=False, soft_wrap=True)
+    else:
+        print(text, file=sys.stderr)
+
+
 # Процессный лок вокруг read-modify-write очереди (issue #352): в пределах ОДНОГО
 # процесса потоки (ThreadPoolExecutor web/runs.py) сериализуются здесь дёшево, без
 # busy-wait; межпроцессную гонку CLI+web закрывает ``BEGIN IMMEDIATE`` +
@@ -324,27 +353,73 @@ def _read_legacy_json_queue(path: pathlib.Path) -> list[GlossaryMissingEntry]:
     return entries
 
 
+def _quarantine_unreadable(path: pathlib.Path) -> None:
+    """Увести нечитаемый файл очереди в ``<имя>.corrupt`` вместо удаления (#794).
+
+    Место под SQLite-очередь освободить надо в любом случае (``sqlite3`` не
+    откроет не-SQLite файл), но раньше нечитаемое содержимое просто удалялось:
+    при битом заголовке единственная копия пропадала молча. Карантинная копия
+    одна — повторное повреждение перезаписывает её, иначе рядом с очередью копился
+    бы мусор. Не удалось даже переименовать (нет прав, чужая ФС) — удаляем, как
+    раньше: иначе очередь не заведётся вовсе.
+    """
+    quarantine = path.with_name(path.name + _QUARANTINE_SUFFIX)
+    try:
+        path.replace(quarantine)
+    except OSError:
+        with contextlib.suppress(OSError):
+            path.unlink()
+        return
+    _print(f"⚠️  Очередь пополнения глоссария нечитаема: {path}")
+    _print(f"   Файл сохранён как {quarantine}, очередь заведена заново.")
+
+
+def _schema_too_new(path: pathlib.Path, exc: db.SchemaTooNewError) -> GlossaryError:
+    """Отказ по откату версии схемы очереди — своей формулировкой (issue #794).
+
+    Без отдельной ветки этот отказ переклеивался бы в «ошибка чтения/записи
+    SQLite-очереди»: диагноз противоположный, а чинится он не повтором записи, а
+    обновлением грейдера.
+    """
+    return GlossaryError(f"{path}: очередь создана более новой версией грейдера — {exc}")
+
+
 def _ensure_queue_db(path: pathlib.Path) -> None:
     """Гарантировать, что ``path`` — валидная SQLite-очередь (миграция legacy JSON).
 
-    Уже SQLite → no-op. ``path`` хранит legacy JSON (или мусор) — читаем его
-    best-effort, удаляем файл (``sqlite3`` не откроет не-SQLite файл) и пересоздаём
-    как SQLite с теми же элементами. Файла нет, но рядом legacy ``<stem>.json``
-    (сменился дефолт пути на ``.db``, #552) → импортируем его один раз. Вызывается
-    только на пути записи под ``_MISSING_QUEUE_LOCK``.
+    Уже SQLite → no-op. ``path`` хранит legacy JSON — читаем его, удаляем файл
+    (``sqlite3`` не откроет не-SQLite файл) и пересоздаём как SQLite с теми же
+    элементами; нечитаемый файл вместо удаления уезжает в карантин
+    (``_quarantine_unreadable``, issue #794). Файла нет, но рядом legacy
+    ``<stem>.json`` (сменился дефолт пути на ``.db``, #552) → импортируем его один
+    раз. Вызывается только на пути записи под ``_MISSING_QUEUE_LOCK``.
     """
     if path.exists() and _is_sqlite_db(path):
         return
     legacy: list[GlossaryMissingEntry] = []
-    if path.exists():
-        with contextlib.suppress(GlossaryError, OSError):
+    if path.is_file():
+        # Именно ``is_file``, а не ``exists``: карантин переименовывает файл, и на
+        # директории (``--missing-out`` показывает на папку) это увело бы чужой
+        # каталог. Не-файл оставляем как есть — попытка открыть его как БД честно
+        # упадёт ``GlossaryError``, как и до issue #794.
+        try:
             legacy = _read_legacy_json_queue(path)
-        with contextlib.suppress(OSError):
-            path.unlink()
-    else:
+        except (GlossaryError, OSError, ValueError):
+            # ``ValueError`` — это и ``UnicodeDecodeError`` (issue #794, MIGR-04):
+            # битый заголовок трактовался как legacy JSON, ошибка декодирования
+            # утекала мимо suppress и наверху переклеивалась в «ошибка записи
+            # SQLite-очереди» — диагноз подменялся на противоположный.
+            _quarantine_unreadable(path)
+        else:
+            with contextlib.suppress(OSError):
+                path.unlink()
+    elif not path.exists():
         sibling = path.with_suffix(".json")
         if sibling != path and sibling.exists() and not _is_sqlite_db(sibling):
-            with contextlib.suppress(GlossaryError, OSError):
+            # Соседний legacy-файл только читается: нечитаемый остаётся на месте
+            # нетронутым, поэтому карантин ему не нужен — нужен лишь тот же
+            # полный набор исключений, что и выше (issue #794).
+            with contextlib.suppress(GlossaryError, OSError, ValueError):
                 legacy = _read_legacy_json_queue(sibling)
     # Создать родительскую директорию (как прежний atomic-JSON-писатель, #551):
     # sqlite3.connect создаёт сам файл БД, но не путь к нему.
@@ -371,6 +446,8 @@ def load_missing_queue(path: pathlib.Path) -> list[GlossaryMissingEntry]:
     try:
         with contextlib.closing(_connect_queue(path)) as conn:
             return _read_all_rows(conn)
+    except db.SchemaTooNewError as exc:
+        raise _schema_too_new(path, exc) from exc
     except (sqlite3.Error, ValueError) as exc:
         raise GlossaryError(f"{path}: ошибка чтения SQLite-очереди — {exc}") from exc
 
@@ -393,6 +470,8 @@ def save_missing_queue(path: pathlib.Path, entries: list[GlossaryMissingEntry]) 
                     with contextlib.suppress(sqlite3.Error):
                         conn.execute("ROLLBACK")
                     raise
+        except db.SchemaTooNewError as exc:
+            raise _schema_too_new(path, exc) from exc
         except (sqlite3.Error, OSError) as exc:
             raise GlossaryError(f"{path}: ошибка записи SQLite-очереди — {exc}") from exc
 
@@ -444,5 +523,7 @@ def append_missing_entries(
                         conn.execute("ROLLBACK")
                     raise
                 return existing
+        except db.SchemaTooNewError as exc:
+            raise _schema_too_new(path, exc) from exc
         except (sqlite3.Error, OSError, ValueError) as exc:
             raise GlossaryError(f"{path}: ошибка записи SQLite-очереди — {exc}") from exc
