@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -40,6 +41,13 @@ __all__ = ["DEFAULT_SELECT", "LintUnavailable", "Violation", "ruff_available", "
 DEFAULT_SELECT = "E,W,F"
 
 _RUFF_TIMEOUT_S = 30.0
+# issue #877: запас поверх таймаута самого процесса. `timeout=` у
+# `subprocess.run` применяется к УЖЕ запущенному процессу (`communicate`), а
+# зависнуть можно и раньше — в `Popen.__init__`, на чтении errpipe после fork.
+# Именно это поймал pytest-timeout на macOS + Python 3.14, и именно поэтому
+# 30-секундный таймаут не спас: проверено прогоном с подменённым `Popen` —
+# `run_lint` висел дольше 35 с.
+_LAUNCH_GRACE_S = 10.0
 _MISSING_RUFF_MARKER = "No module named ruff"
 
 
@@ -53,6 +61,43 @@ class Violation:
     column: int = 0  # 1-based колонка (0, если не сообщена)
 
 
+def _run_guarded(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str] | None:
+    """``subprocess.run`` со страховкой от зависания на ЗАПУСКЕ (issue #877).
+
+    ``timeout=`` покрывает только ожидание уже стартовавшего процесса. Если
+    подвиснет сам ``Popen.__init__`` (fork/exec, чтение errpipe), вызывающий
+    поток остаётся заблокированным навсегда: в CLI это повисший грейдер, под
+    ``--serve`` — занятый воркер, который никто не отменит.
+
+    Поэтому запуск уходит в daemon-поток с собственным дедлайном. Поток может
+    остаться висеть, но daemon не мешает процессу завершиться (в отличие от
+    воркеров ``ThreadPoolExecutor`` — тот случай разбирался в issue #806).
+    ``None`` — не уложились: вызывающий трактует это как «ruff недоступен»,
+    то же, что при любом другом сбое запуска.
+    """
+    outcome: list[subprocess.CompletedProcess[str] | BaseException] = []
+
+    def _worker() -> None:
+        try:
+            outcome.append(subprocess.run(cmd, **kwargs))  # type: ignore[arg-type,call-overload]
+        except BaseException as exc:
+            # Ловим всё: исключение переносится в вызывающий поток и там
+            # обрабатывается как прежде. Проглотить его здесь означало бы
+            # потерять диагностику в чужом потоке.
+            outcome.append(exc)
+
+    thread = threading.Thread(target=_worker, daemon=True, name="ruff-launch")
+    thread.start()
+    timeout = float(kwargs.get("timeout") or _RUFF_TIMEOUT_S)  # type: ignore[arg-type]
+    thread.join(timeout + _LAUNCH_GRACE_S)
+    if thread.is_alive() or not outcome:
+        return None
+    result = outcome[0]
+    if isinstance(result, BaseException):
+        raise result  # тот же класс, что и раньше — вызывающий ловит как прежде
+    return result
+
+
 class LintUnavailable(Exception):
     """ruff не установлен (нет extra ``[lint]``) — раздел «Стиль» недоступен."""
 
@@ -64,15 +109,17 @@ def ruff_available() -> bool:
     как «недоступен» (UI покажет подсказку про extra, не блок).
     """
     try:
-        subprocess.run(
+        proc = _run_guarded(
             [sys.executable, "-m", "ruff", "--version"],
             capture_output=True,
-            check=True,
             timeout=_RUFF_TIMEOUT_S,
         )
     except (OSError, subprocess.SubprocessError):
         return False
-    return True
+    # issue #877: `None` — запуск завис; трактуем как «недоступен», а не ждём.
+    # `check=True` заменён явной проверкой кода: обёртка возвращает результат,
+    # а не бросает CalledProcessError из чужого потока.
+    return proc is not None and proc.returncode == 0
 
 
 def run_lint(
@@ -116,7 +163,7 @@ def run_lint(
         # редкие байты давали UnicodeDecodeError мимо перехвата ниже — тот
         # ловит только OSError/SubprocessError. errors="replace" оставляет
         # раздел «Стиль» рабочим даже на неожиданном байте.
-        proc = subprocess.run(
+        proc = _run_guarded(
             cmd,
             capture_output=True,
             text=True,
@@ -125,6 +172,8 @@ def run_lint(
             timeout=_RUFF_TIMEOUT_S,
         )
     except (OSError, subprocess.SubprocessError):
+        return []
+    if proc is None:  # issue #877: запуск завис — раздел «Стиль» просто пуст
         return []
 
     if _MISSING_RUFF_MARKER in proc.stderr:
