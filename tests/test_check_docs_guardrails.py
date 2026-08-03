@@ -668,3 +668,24 @@ def test_violations_are_printable_on_a_single_byte_console(tmp_path) -> None:
     assert "UnicodeEncodeError" not in result.stderr, result.stderr
     assert result.returncode == 0, result.stderr
     assert "docs/README.md" in result.stdout
+
+
+def test_nested_badge_links_are_checked_for_relative_targets(tmp_path, monkeypatch) -> None:
+    """Цель внутри бейдж-ссылки тоже обязана быть абсолютной (issue #832/#835).
+
+    Реальный промах: `[![Glossary](img)](docs/dev/glossary.md)` — подпись сама
+    содержит картинку, и шаблон `[^\\]]*` такую ссылку не видел. Две относительные
+    цели уцелели в README при переводе на абсолютные, а гейт рапортовал «чисто».
+    """
+    (tmp_path / "pyproject.toml").write_text('readme = "R.md"\n', encoding="utf-8")
+    (tmp_path / "R.md").write_text(
+        "[![Glossary](https://img.shields.io/x.json)](docs/dev/glossary.md)\n", encoding="utf-8"
+    )
+    module = _load_module()
+    monkeypatch.setattr(module, "_ROOT", tmp_path)
+
+    errors: list[str] = []
+    module.check_pypi_readme_is_absolute(errors)
+
+    assert len(errors) == 1
+    assert "docs/dev/glossary.md" in errors[0]
