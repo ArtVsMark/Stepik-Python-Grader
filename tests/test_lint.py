@@ -6,11 +6,14 @@ graceful-ветки (ruff нет / упал / мусор) замоканы и р
 
 from __future__ import annotations
 
+import pathlib
 import subprocess
+import time
 from unittest.mock import patch
 
 import pytest
 
+from stepik_grader.core import lint
 from stepik_grader.core.lint import (
     LintUnavailable,
     Violation,
@@ -180,3 +183,112 @@ def test_reported_codes_always_have_a_card(tmp_path) -> None:
 
     assert codes
     assert codes <= set(rules.bundled_rule_codes())
+
+
+# ---------------------------------------------------------------------------
+# Зависание на ЗАПУСКЕ ruff — issue #877
+# ---------------------------------------------------------------------------
+
+
+class TestRuffLaunchHangGuard:
+    """`timeout=` у `subprocess.run` покрывает только УЖЕ запущенный процесс.
+
+    Зависнуть можно раньше — в `Popen.__init__`, на чтении errpipe после fork:
+    именно это поймал pytest-timeout на macOS + Python 3.14 (трейсбек упирался
+    в `os.read(errpipe_read, 50000)`). Тогда вызывающий поток блокируется
+    навсегда: в CLI это повисший грейдер, под `--serve` — занятый воркер,
+    который никто не отменит. Проверено прогоном: с подменённым `Popen`
+    `run_lint` висел дольше 35 с при таймауте 30.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _fast_deadlines(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Короткие дедлайны — тест о механике, а не о конкретных 30+10 с."""
+        monkeypatch.setattr(lint, "_RUFF_TIMEOUT_S", 0.2)
+        monkeypatch.setattr(lint, "_LAUNCH_GRACE_S", 0.2)
+
+    def _hang_popen(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        original = subprocess.Popen
+
+        class _Hanging(original):  # type: ignore[misc,valid-type]
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                time.sleep(30)  # дольше любого дедлайна теста
+                super().__init__(*args, **kwargs)  # type: ignore[misc]
+
+        monkeypatch.setattr(subprocess, "Popen", _Hanging)
+
+    def test_run_lint_returns_instead_of_hanging(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sol = tmp_path / "task.py"
+        sol.write_text("x=1\n", encoding="utf-8")
+        self._hang_popen(monkeypatch)
+
+        start = time.monotonic()
+        result = lint.run_lint(sol)
+        elapsed = time.monotonic() - start
+
+        assert result == []  # раздел «Стиль» просто пуст, грейдинг продолжается
+        assert elapsed < 5.0, f"вернулся за {elapsed:.1f} с — дедлайн не сработал"
+
+    def test_ruff_available_returns_false_instead_of_hanging(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._hang_popen(monkeypatch)
+
+        start = time.monotonic()
+        available = lint.ruff_available()
+        elapsed = time.monotonic() - start
+
+        assert available is False
+        assert elapsed < 5.0, f"вернулся за {elapsed:.1f} с — дедлайн не сработал"
+
+    def test_launch_error_still_propagates_as_empty(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Обычный сбой запуска (не зависание) обрабатывается как раньше.
+
+        Исключение поднимается в потоке, но должно долететь до вызывающего —
+        иначе его диагностика потерялась бы вместе с потоком.
+        """
+        sol = tmp_path / "task.py"
+        sol.write_text("x=1\n", encoding="utf-8")
+
+        def _boom(*_a: object, **_k: object) -> object:
+            raise OSError("нет такого файла")
+
+        monkeypatch.setattr(subprocess, "run", _boom)
+        assert lint.run_lint(sol) == []
+
+    def test_normal_run_is_not_slowed_down(self, tmp_path: pathlib.Path) -> None:
+        """Контроль: штатный путь работает и не ждёт дедлайна впустую."""
+        if not lint.ruff_available():
+            pytest.skip("ruff не установлен (extra [lint])")
+        sol = tmp_path / "task.py"
+        sol.write_text("import os\n", encoding="utf-8")  # F401 — заведомое нарушение
+        assert isinstance(lint.run_lint(sol, select="F"), list)
+
+    def test_guard_reraises_launch_error_in_caller_thread(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Исключение запуска переносится в вызывающий поток, а не глохнет в нём.
+
+        Снаружи (`run_lint`/`ruff_available`) разницы не видно — обе ветки дают
+        пустой результат. Но потерять класс ошибки внутри daemon-потока значит
+        лишиться диагностики: `OSError` от `exec` и «запуск завис» — разные
+        причины, и лечатся они по-разному. Поэтому контракт обёртки
+        проверяется напрямую (мутация «`return None` вместо `raise`» на уровне
+        `run_lint` неразличима).
+        """
+
+        def _boom(*_a: object, **_k: object) -> object:
+            raise OSError("нет такого файла")
+
+        monkeypatch.setattr(subprocess, "run", _boom)
+        with pytest.raises(OSError, match="нет такого файла"):
+            lint._run_guarded(["ruff", "--version"], timeout=0.2)
+
+    def test_guard_returns_none_on_hang(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """А зависание — это `None`, не исключение: причина другая."""
+        self._hang_popen(monkeypatch)
+        assert lint._run_guarded(["ruff", "--version"], timeout=0.2) is None
