@@ -32,6 +32,7 @@ from urllib.parse import urlparse
 
 from stepik_grader import rules
 from stepik_grader.cli.context import CliContext
+from stepik_grader.cli.prompts import EXPLICIT_YES
 from stepik_grader.config import get_config
 from stepik_grader.core import (
     ai_hints,
@@ -58,6 +59,18 @@ from stepik_grader.core.reporter import (
     print_lint_block,
     rich_track,
 )
+
+
+def _t(key: str, /, **kwargs: object) -> str:
+    """Локализованное сообщение CLI (issue #897).
+
+    Ленивый импорт: ``cli/__init__`` импортирует ЭТОТ модуль, поэтому импорт
+    ``_t`` на уровне модуля замкнул бы цикл. Обёртка, а не импорт в каждой
+    функции, — чтобы вызовы читались как обычный ``_t(...)``.
+    """
+    from stepik_grader.cli import _t as translate
+
+    return translate(key, **kwargs)
 
 
 def _rel(path: pathlib.Path, base: pathlib.Path) -> str:
@@ -165,7 +178,7 @@ def _print_lint_blocks(
     """
     # Локальный импорт: cli/__init__ импортирует этот модуль, поэтому импорт _t на
     # уровне модуля замкнул бы цикл (тот же приём, что в cli/interactive.py).
-    from stepik_grader.cli import _lint_labels, _t
+    from stepik_grader.cli import _lint_labels
 
     if output != "text" or not solutions:
         return
@@ -180,36 +193,6 @@ def _print_lint_blocks(
         if violations and multi and base is not None:
             print(f"\n{_rel(sol, base)}")
         print_lint_block(violations, rules_provider=provider, labels=labels)
-
-
-_AI_NOT_CONFIGURED_HINT = (
-    "AI-подсказки (--ai-hints) пропущены: провайдер не настроен. Задайте "
-    "[tool.stepik-grader] ai_base_url и ai_model (ключ — в env-переменной, имя "
-    "которой в ai_api_key_env), напр. ollama http://localhost:11434/v1 (без "
-    "ключа) или облачный OpenAI-совместимый endpoint. Без настройки в сеть "
-    "ничего не отправляется. Подробнее — docs/use/grader-workflow.md."
-)
-
-_AI_INSECURE_URL_HINT = (
-    "AI-подсказки (--ai-hints) пропущены: адрес провайдера {url!r} не принимается. "
-    "Разрешены https (любой хост) и http только на локальную петлю "
-    "(http://localhost:11434/v1 для ollama). По http на удалённый хост ушли бы "
-    "код решения и ключ открытым текстом. В сеть ничего не отправлено. Issue #812."
-)
-
-_AI_CONSENT_PROMPT = (
-    "AI-подсказка отправит ваш код и его ввод-вывод внешнему AI-провайдеру. "
-    "Рекомендуется локальный провайдер (например, ollama) — тогда данные не "
-    "покидают машину. Согласие спрашивается один раз и сохраняется в "
-    f"{user_settings.SETTINGS_FILE_NAME}."
-)
-
-_AI_CONSENT_REQUIRED_HINT = (
-    "AI-подсказки (--ai-hints) пропущены: нужно однократное явное согласие на "
-    "отправку кода AI-провайдеру, а сессия неинтерактивная. Запустите грейдер "
-    "интерактивно один раз, чтобы дать согласие (или включите подсказки в "
-    "веб-интерфейсе). В сеть ничего не отправлено."
-)
 
 
 def consent_endpoint(base_url: str | None) -> str:
@@ -253,20 +236,20 @@ def _ensure_ai_consent(base_url: str | None = None) -> bool:
         return True
 
     if not sys.stdin.isatty():
-        print(f"\n{_AI_CONSENT_REQUIRED_HINT}")
+        print(f"\n{_t('ai_skipped_consent_required')}")
         return False
 
-    print(f"\n{_AI_CONSENT_PROMPT}")
+    print("\n" + _t("ai_consent_notice", settings_file=user_settings.SETTINGS_FILE_NAME))
     if endpoint:
-        print(f"Получатель: {endpoint}")
+        print(_t("ai_consent_recipient", endpoint=endpoint))
     try:
-        answer = input("Отправить код AI-провайдеру? [y/N]: ").strip().lower()
+        answer = input(_t("ai_consent_prompt")).strip().lower()
     except (EOFError, KeyboardInterrupt):
         print()
         return False
 
-    if answer not in {"y", "yes", "д", "да"}:
-        print("AI-подсказки пропущены — согласие не дано. В сеть ничего не отправлено.")
+    if answer not in EXPLICIT_YES:
+        print(_t("ai_consent_declined"))
         return False
 
     settings.ai_hint_consent = True
@@ -309,7 +292,7 @@ def _resolve_ai_config() -> object | None:
     """
     config = get_config()
     if not ai_hints.is_configured(config):
-        print(f"\n{_AI_NOT_CONFIGURED_HINT}")
+        print(f"\n{_t('ai_skipped_no_provider')}")
         return None
     # issue #630: consent-гейт ДО любого обращения к провайдеру — как в web
     # issue #812 (SECD-02): недопустимый адрес отсекается ЗДЕСЬ, а не молча в
@@ -318,7 +301,7 @@ def _resolve_ai_config() -> object | None:
     # пойдём, тоже незачем — проверка стоит перед consent-гейтом.
     base_url = getattr(config, "ai_base_url", None)
     if not ai_hints.base_url_is_allowed(str(base_url or "")):
-        print(f"\n{_AI_INSECURE_URL_HINT.format(url=base_url)}")
+        print("\n" + _t("ai_skipped_insecure_url", url=repr(base_url)))
         return None
     # issue #630: consent-гейт ДО любого обращения к провайдеру — как в web
     # (403 consent_required). Общая точка для режимов 1-4, поэтому оба
@@ -342,10 +325,7 @@ def _ai_hint_limit(config: object) -> int:
 
 def _print_ai_limit_notice(limit: int) -> None:
     """Сказать, что подсказки оборваны потолком, а не закончились сами."""
-    print(
-        f"\n… остальные AI-подсказки пропущены: достигнут потолок {limit} за прогон "
-        "([tool.stepik-grader] ai_max_hints)."
-    )
+    print(_t("ai_hints_capped", limit=limit))
 
 
 def _print_ai_hints(rows: list[tuple[pathlib.Path, dict[str, Any]]], *, lang: str = "ru") -> None:
@@ -375,7 +355,8 @@ def _print_ai_hints(rows: list[tuple[pathlib.Path, dict[str, Any]]], *, lang: st
             hint = ai_hints.explain_failure(fc, config)
             shown += 1
             if hint:
-                print(f"\n· {solution.name} · тест {index}:\n{hint}")
+                header = _t("ai_hint_case_header", solution=solution.name, index=index)
+                print(f"{header}\n{hint}")
 
 
 def _print_ai_hints_bench(
@@ -595,7 +576,11 @@ def _run_mode_2(
     machine_output = output != "text"
     cache = GraderCache() if use_cache else None
     cache_hits = 0
-    track = scripts if machine_output else rich_track(scripts, description="Проверка решений...")
+    track = (
+        scripts
+        if machine_output
+        else rich_track(scripts, description=_t("progress_checking_solutions"))
+    )
     for path in track:
         individual_test_dir = _resolve_individual_test_dir(ctx, path, directory)
         result, from_cache = _run_tests_maybe_cached(
@@ -681,7 +666,11 @@ def _run_mode_3(
 
     results: dict[pathlib.Path, dict[str, Any]] = {}
     machine_output = output != "text"
-    track = scripts if machine_output else rich_track(scripts, description="Бенчмарк решений...")
+    track = (
+        scripts
+        if machine_output
+        else rich_track(scripts, description=_t("progress_benchmarking_solutions"))
+    )
     for path in track:
         individual_test_dir = _resolve_individual_test_dir(ctx, path, directory)
         skip = _preflight_skip(ctx, path, individual_test_dir)

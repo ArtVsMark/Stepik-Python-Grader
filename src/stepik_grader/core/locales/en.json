@@ -248,5 +248,16 @@
   "lint_skipped_no_ruff": "Style check skipped: ruff is not installed. Install the extra: pip install stepik-python-grader[lint].",
   "insights_no_data_menu": "No insights yet. Turn on run history (menu item 7) and grade a few solutions — the “Learn” section will collect your frequent mistakes.",
   "grade_downloaded_many": "Downloaded {count} tasks. Offering the last one (the rest are available via menu items 1/2).",
-  "grade_downloaded_prompt": "▶ Grade the downloaded task now? {path} [Y/n]: "
+  "grade_downloaded_prompt": "▶ Grade the downloaded task now? {path} [Y/n]: ",
+  "ai_skipped_no_provider": "AI hints (--ai-hints) skipped: no provider configured. Set [tool.stepik-grader] ai_base_url and ai_model (the key lives in the env variable named by ai_api_key_env), e.g. ollama http://localhost:11434/v1 (no key) or a cloud OpenAI-compatible endpoint. Without configuration nothing is sent over the network. See docs/use/grader-workflow.md.",
+  "ai_skipped_insecure_url": "AI hints (--ai-hints) skipped: provider address {url} is not accepted. Allowed are https (any host) and http only to the local loopback (http://localhost:11434/v1 for ollama). Over http to a remote host your solution code and key would travel in clear text. Nothing was sent over the network.",
+  "ai_consent_notice": "An AI hint will send your code and its input/output to an external AI provider. A local provider (ollama, for example) is recommended — then the data never leaves your machine. Consent is asked once and stored in {settings_file}.",
+  "ai_consent_recipient": "Recipient: {endpoint}",
+  "ai_consent_prompt": "Send your code to the AI provider? [y/N]: ",
+  "ai_consent_declined": "AI hints skipped — consent not given. Nothing was sent over the network.",
+  "ai_skipped_consent_required": "AI hints (--ai-hints) skipped: a one-time explicit consent to send code to the AI provider is required, and this session is non-interactive. Run the grader interactively once to give consent (or enable hints in the web interface). Nothing was sent over the network.",
+  "ai_hints_capped": "\n… remaining AI hints skipped: the per-run cap of {limit} was reached ([tool.stepik-grader] ai_max_hints).",
+  "ai_hint_case_header": "\n· {solution} · test {index}:",
+  "progress_checking_solutions": "Grading solutions...",
+  "progress_benchmarking_solutions": "Benchmarking solutions..."
 }
