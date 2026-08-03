@@ -15,16 +15,33 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
+from stepik_grader.config import CONFIG
 from stepik_grader.core import glossary, history, insights
+
+# issue #818: единая пользовательская база — одна на человека, а не на папку.
+# Каталог с точкой, как у остальных пользовательских данных инструментов CLI;
+# имя без точки — внутри скрытого каталога она уже не нужна.
+_USER_HISTORY_DIR = ".stepik-grader"
+_USER_HISTORY_FILE = "history.db"
+
+# issue #818: аварийный переключатель пути к базе. Нужен там, где менять
+# pyproject.toml нельзя или опасно — CI, контейнеры и, главное, СОБСТВЕННЫЙ
+# набор тестов: с единой пользовательской базой прогон начал писать (и, через
+# `--purge-history`, удалять) РЕАЛЬНЫЕ данные в домашней папке. Тот же приём,
+# что у `STEPIK_GRADER_CONFIG`.
+_ENV_HISTORY_DB = "STEPIK_GRADER_HISTORY_DB"
 
 __all__ = [
     "cases_from_bench_results",
     "cases_from_test_results",
     "default_history_db_path",
+    "find_existing_history_db",
     "lint_records_from_violations",
+    "user_history_db_path",
 ]
 
 
@@ -85,6 +102,71 @@ def lint_records_from_violations(violations: list[Any]) -> list[history.LintReco
     ]
 
 
+def user_history_db_path() -> Path:
+    """Единая база истории пользователя — ``~/.stepik-grader/history.db`` (#818)."""
+    return Path.home() / _USER_HISTORY_DIR / _USER_HISTORY_FILE
+
+
+def find_existing_history_db(start: Path | None = None) -> Path | None:
+    """Ближайшая существующая ``.grader_history.db`` от ``start`` вверх (#818).
+
+    Нужна ради обратной совместимости: у тех, кто уже накопил историю в рабочей
+    папке, она обязана продолжать пополняться, а не осиротеть при обновлении.
+    Заодно покрывает нормальный учебный случай — база в корне курса, а запуск
+    из папки конкретной задачи.
+
+    Обход ограничен строго ВНУТРЕННОСТЬЮ домашней папки — сама ``home`` в
+    цепочку не входит. Без границы поиск доходил до корня диска и цеплял
+    постороннюю базу: из временного каталога под ``~/AppData`` находилась
+    ``~/.grader_history.db``, из-за чего десять тестов web-слоя начали читать и
+    писать РЕАЛЬНУЮ базу пользователя. Именно ``home`` исключена по той же
+    причине: файл в корне домашней папки перехватывал бы любой запуск, где бы
+    он ни происходил.
+
+    Если рабочая папка вне ``home`` вовсе, смотрим только её саму: угадывать
+    общий корень для ``/opt`` или сетевого диска — значит снова хватать чужое.
+    """
+    current = (start or Path.cwd()).resolve()
+    home = Path.home().resolve()
+    if home in current.parents:
+        chain = [current, *(p for p in current.parents if home in p.parents)]
+    else:
+        chain = [current]
+    for folder in chain:
+        candidate = folder / history.HISTORY_DB_NAME
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def default_history_db_path() -> Path:
-    """Путь БД истории в текущей рабочей папке (issue #344/#395)."""
-    return Path.cwd() / history.HISTORY_DB_NAME
+    """Куда писать историю обучения (issue #344/#395, переработано в #818).
+
+    Порядок:
+
+    0. Переменная окружения ``STEPIK_GRADER_HISTORY_DB`` — аварийный
+       переключатель для CI/контейнеров и изоляции собственных тестов.
+    1. ``CONFIG.history_db_path`` — явная настройка. Относительный путь
+       резолвится от текущей папки, поэтому прежнее поведение возвращается
+       строкой ``".grader_history.db"``.
+    2. Существующая ``.grader_history.db`` рядом или выше по дереву — чтобы
+       уже накопленная история продолжала пополняться после обновления.
+    3. ``~/.stepik-grader/history.db`` — единая база пользователя.
+
+    Зачем это изменено: база лежала строго в ``Path.cwd()``, а рекомендованный
+    сценарий (docs/use/grader-workflow.md) — запуск из папки задачи. Значит у
+    студента на каждую задачу заводилась своя база, и «Подучить», «Прогресс»,
+    серия и бейджи не наполнялись никогда. Проверено прогоном: два прогона из
+    соседних папок дали два файла по 40 КБ, а `--insights` из второй показал
+    одну задачу вместо двух.
+    """
+    override = os.environ.get(_ENV_HISTORY_DB, "").strip()
+    if override:
+        return Path(override).expanduser()
+    configured = str(getattr(CONFIG, "history_db_path", "") or "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    existing = find_existing_history_db()
+    if existing is not None:
+        return existing
+    return user_history_db_path()

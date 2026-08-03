@@ -59,7 +59,7 @@
 | `core/mtime_cache.py` | Infrastructure / Utilities | Generic mtime-инвалидируемый кеш загрузки: `mtime_signature`/`MtimeCache[T]`; переиспользуется провайдерами glossary и rules (не копипаст) |
 | `core/lint.py` | Infrastructure / Utilities | Opt-in PEP-проверка через ruff: `run_lint`→`list[Violation]`, `ruff_available`, `LintUnavailable`; extra `[lint]`, best-effort, НЕ влияет на вердикт |
 | `core/insights.py` | Infrastructure / Utilities | Таксономия падений + затухание карточек «Подучить»: `failure_kind`/`classify_status`/`learning_cards` — чистые функции + агрегация из истории, статусы active/fading/archived/watch по номерам прогонов (не по календарю) |
-| `core/history_recording.py` | Application-service | Сборка записей истории из результатов грейдинга: `cases_from_test_results`/`cases_from_bench_results`/`lint_records_from_violations`/`default_history_db_path`. Вынесено из `cli/commands.py`, чтобы и CLI (режимы 1-4), и web (`web/viewmodels`) наполняли `.grader_history.db` одним кодом (web не импортирует cli) |
+| `core/history_recording.py` | Application-service | Сборка записей истории из результатов грейдинга: `cases_from_test_results`/`cases_from_bench_results`/`lint_records_from_violations`/`default_history_db_path`. Здесь же ЕДИНАЯ точка резолва пути к базе: настройка → существующая база рядом/выше → `~/.stepik-grader/history.db`. Вынесено из `cli/commands.py`, чтобы и CLI (режимы 1-4), и web (`web/viewmodels`) наполняли `.grader_history.db` одним кодом (web не импортирует cli) |
 | `core/failure_context.py` | Application-service | Единая сборка `FailureContext` упавшего кейса: из case-dict + якорей (`insights.failure_kind`, `error_glossary.resolve_error_hint`). Вынесено из `cli/commands.py`, чтобы CLI-режимы 1–4 и web-слой строили один и тот же контекст, не дублируя связку |
 | `core/ai_grounding.py` | Application-service | Retrieval-заземление AI-подсказки из офлайн-глоссария: по концептам кода (`scan_code_concepts`) достаёт top-k карточек комплектной базы в `FailureContext.grounding` — опционально, офлайн, без эмбеддингов; ребро `core→glossary` разорвано ленивым импортом |
 | `core/ai_hints.py` | Application / Integration | Opt-in AI-объяснение падений WA/RE (`--ai-hints`, ADR-0003): BYOK, OpenAI-совместимый `{ai_base_url}/chat/completions` на голом `requests` (облако + `ollama` одним кодом, без новых зависимостей); off по умолчанию, network/timeout/invalid-key → тихий пропуск, грейдинг не падает |
@@ -131,8 +131,8 @@ web/viewmodels.py      ──→  core/history.py, core/lint.py, core/mtime_cach
 web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/storage.py, core/test_loader.py
 web/auth_adapter.py       ──→  core/oauth_flow.py, core/storage.py  (браузерный OAuth-мастер --serve)
 web/glossary_adapter.py   ──→  core/glossary.py, core/mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, config.py  (stdlib_inventory для code_terms)
-web/rules_adapter.py       ──→  rules/  (bundled_rules), core/history.py, core/insights.py  (подсветка лично нарушенных правил)
-web/insights_adapter.py    ──→  core/history.py, core/insights.py, core/progress_export.py, config.py  (отчёт «Прогресс» — тот же движок, что у CLI --export-progress)
+web/rules_adapter.py       ──→  rules/  (bundled_rules), core/history_recording.py  (резолв пути БД), core/insights.py  (подсветка лично нарушенных правил)
+web/insights_adapter.py    ──→  core/history_recording.py  (резолв пути БД), core/insights.py, core/progress_export.py, config.py  (отчёт «Прогресс» — тот же движок, что у CLI --export-progress)
 web/commands.py            (только stdlib — реестр команд, project-импортов нет)
 web/runs.py            ──→  web/grading.py  (find_all_solution_files/trace_code через фасад, а не core/test_loader.py и core/tracer.py напрямую — ADR-0010), web/viewmodels.py, web/i18n.py, web/playground.py, core/ai_hints.py, core/failure_context.py  (kind="hint"), web/auth_adapter.py (ленивый, kind="auth"), core/stepik_client.py + core/oauth_flow.py (ленивые, kind="stepik_submit"), config.py  (async job-модель: песочница/трейс/OAuth/AI-подсказка/submit)
 web/playground.py      ──→  web/grading.py  (RunSpec/run_spec — исполнение активным Runner'ом фасада, а не core/runner.py напрямую — ADR-0010; под --serve --sandbox это SandboxRunner), config.py
@@ -155,7 +155,7 @@ web/feedback_adapter.py ──→  core/feedback.py  (та же сборка pre
 core/feedback.py       ──→  core/diag_log.py  (redact — единственное проектное ребро; версия через importlib.metadata, чтобы не появилось ребро core → cli)
 web/viewmodels.py      ──→  core/history_recording.py  (наполнение .grader_history.db из web-грейдинга)
 web/reference_adapter.py ──→  core/stepik_reference.py, core/oauth_flow.py, web/downloader_adapter.py  (import-reference без браузера)
-core/history_recording.py ──→  core/history.py, core/insights.py, core/glossary.py  (записи RunRecord/CaseRecord/LintRecord)
+core/history_recording.py ──→  core/history.py, core/insights.py, core/glossary.py, config.py  (записи RunRecord/CaseRecord/LintRecord; config — путь БД из [tool.stepik-grader] history_db_path)
 core/progress_export.py   ──→  core/history.py, core/insights.py  (агрегаты прогресса)
 core/ai_hints.py          ──→  core/diag_log.py  (редакция ключа; config передаётся вызывающим, requests — вне проекта)
 core/stepik_reference.py  ──→  core/oauth_flow.py, core/stepik_client.py, core/step_content.py, core/storage.py, core/diag_log.py

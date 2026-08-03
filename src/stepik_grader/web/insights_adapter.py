@@ -14,13 +14,16 @@ from pathlib import Path
 from typing import Any
 
 from stepik_grader.config import CONFIG
-from stepik_grader.core import history, insights, progress_export
+from stepik_grader.core import insights, progress_export
+from stepik_grader.core.history_recording import default_history_db_path
 
 __all__ = ["active_count", "insights_cards", "progress_report", "progress_rows"]
 
 
 def _db_path(db_path: Path | None) -> Path:
-    return db_path if db_path is not None else Path.cwd() / history.HISTORY_DB_NAME
+    # issue #818: тот же резолвер, что у CLI — иначе web читал бы базу
+    # рабочей папки, пока CLI пишет в пользовательскую.
+    return db_path if db_path is not None else default_history_db_path()
 
 
 def progress_report(*, db_path: Path | None = None) -> dict[str, Any]:

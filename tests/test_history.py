@@ -826,3 +826,81 @@ def test_migration_still_upgrades_v1_database(tmp_path: Path) -> None:
     with contextlib.closing(sqlite3.connect(path)) as conn:
         assert conn.execute("PRAGMA user_version").fetchone()[0] == history.SCHEMA_VERSION
     assert [row["task_key"] for row in history.read_task_progress(path)] == ["t"]
+
+
+class TestTaskKeyWithRelativePaths:
+    """issue #818: ключ задачи при относительном `--file`.
+
+    `task_key_for` сравнивала пути ДО резолва: относительный `task.py` из папки
+    задачи давал `task_dir == "."`, ветка «разные anchor'ы» ловила ValueError и
+    возвращала ту же точку — фикс #817 до неё не доходил. Пока база истории
+    лежала в каждой папке отдельно, это было почти незаметно; с единой базой
+    все задачи схлопнулись в одну строку «Прогресса».
+    """
+
+    def test_relative_dot_resolves_to_folder_name(self, tmp_path, monkeypatch) -> None:
+        task = tmp_path / "task-a"
+        task.mkdir()
+        monkeypatch.chdir(task)
+        # Ровно то, что приходит из `--file task.py`: solution.parent == Path(".")
+        assert history.task_key_for(Path("."), Path.cwd()) == "task-a"
+
+    def test_relative_subdir_still_relative(self, tmp_path, monkeypatch) -> None:
+        """Запуск из корня курса по-прежнему даёт путь внутрь, а не имя папки."""
+        course = tmp_path / "course"
+        task = course / "module1" / "04-slug"
+        task.mkdir(parents=True)
+        monkeypatch.chdir(course)
+        key = history.task_key_for(Path("module1/04-slug"), Path.cwd())
+        assert key.replace("\\", "/") == "module1/04-slug"
+
+    def test_two_sibling_tasks_get_distinct_keys(self, tmp_path, monkeypatch) -> None:
+        """Соседние задачи не схлопываются — иначе единая база хуже раздельных."""
+        keys = []
+        for name in ("task-a", "task-b"):
+            folder = tmp_path / name
+            folder.mkdir()
+            monkeypatch.chdir(folder)
+            keys.append(history.task_key_for(Path("."), Path.cwd()))
+        assert keys == ["task-a", "task-b"]
+
+
+def test_record_run_creates_missing_parent_dir(tmp_path) -> None:
+    """issue #818: каталог базы создаётся сам.
+
+    С единой пользовательской историей путь стал `~/.stepik-grader/history.db`,
+    а `sqlite3.connect` не создаёт промежуточные каталоги — падал «unable to
+    open database file». Поймано прогоном: база не создавалась вовсе, разделы
+    «Подучить»/«Прогресс» молча оставались пустыми. Раньше база всегда лежала
+    в существующей cwd, поэтому проблема не проявлялась.
+    """
+    db = tmp_path / "nested" / "deep" / "history.db"
+    assert not db.parent.exists()
+
+    run_id = history.record_run(1, [CaseRecord(1, "AC")], db_path=db, task_key="t")
+
+    assert run_id is not None
+    assert db.is_file()
+
+
+def test_relative_task_dir_is_resolved_against_base_not_cwd(tmp_path, monkeypatch) -> None:
+    """issue #818: относительный путь задачи считается ОТ BASE, а не от cwd.
+
+    Ошибка, которую этот тест ловит: резолв обоих путей от текущей папки. На
+    CI рабочая копия и tmp лежат на разных дисках Windows, и такой резолв
+    возвращал абсолютный путь вместо ожидаемого имени — три windows-job'а
+    покраснели, а локально (один диск) всё проходило. Здесь диски ни при чём:
+    cwd намеренно уведена в сторону от base.
+    """
+    base = tmp_path / "course"
+    (base / "module1" / "04-slug").mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)  # cwd НЕ совпадает с base
+
+    # Вложенный путь обязателен: на одноимённой папке обе ветки случайно дают
+    # «04-slug» (резолв от cwd уходит в «..», и берётся имя папки), и мутация
+    # «резолвить от cwd» проходила бы незамеченной.
+    key = history.task_key_for(Path("module1/04-slug"), base)
+
+    assert key.replace("\\", "/") == "module1/04-slug"

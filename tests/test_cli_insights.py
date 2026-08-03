@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from stepik_grader import cli
-from stepik_grader.core import history
+from stepik_grader.core import history, history_recording
 from stepik_grader.core.history import CaseRecord
 from stepik_grader.core.lint import ruff_available
 
@@ -35,7 +35,9 @@ def test_insights_empty_history_is_friendly_and_exit0(tmp_path, monkeypatch, cap
 
 def test_insights_shows_active_card(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    db = tmp_path / history.HISTORY_DB_NAME
+    # issue #818: путь базы резолвится (env → конфиг → рядом → пользовательская),
+    # поэтому тест готовит данные ТАМ ЖЕ, куда смотрит грейдер.
+    db = history_recording.default_history_db_path()
     for _ in range(3):  # 3 падения → active
         history.record_run(1, [CaseRecord(1, "WA", failure_kind="wrong-answer")], db_path=db)
     cli.main(["--insights"])
@@ -46,7 +48,9 @@ def test_insights_shows_active_card(tmp_path, monkeypatch, capsys) -> None:
 
 def test_insights_runtime_error_card_from_history(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    db = tmp_path / history.HISTORY_DB_NAME
+    # issue #818: путь базы резолвится (env → конфиг → рядом → пользовательская),
+    # поэтому тест готовит данные ТАМ ЖЕ, куда смотрит грейдер.
+    db = history_recording.default_history_db_path()
     for _ in range(2):
         history.record_run(
             1, [CaseRecord(1, "RE", failure_kind="runtime-error:KeyError")], db_path=db
