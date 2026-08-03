@@ -82,8 +82,23 @@ def extract_notes(text: str, version: str) -> str:
     )
 
 
+def _force_utf8_stdout() -> None:
+    """Печатать UTF-8 независимо от кодовой страницы консоли.
+
+    Заметки релиза русские, а консоль Windows по умолчанию cp1252/cp1251: без
+    этого ``print(notes)`` падал ``UnicodeEncodeError`` — то есть скрипт,
+    собирающий тело релиза, ломался ровно на содержимом, ради которого он и
+    написан. Тот же приём, что в ``scripts/skip_inventory.py`` и
+    ``scripts/check_docs_guardrails.py``. No-op на потоках без ``reconfigure``.
+    """
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Вернуть 0 и напечатать заметки; 1 — если секции нет."""
+    _force_utf8_stdout()
     parser = argparse.ArgumentParser(
         prog="python scripts/extract_release_notes.py",
         description="Вырезать секцию версии из CHANGELOG.md для тела GitHub-релиза.",
