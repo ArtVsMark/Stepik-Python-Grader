@@ -261,9 +261,17 @@ function revealWithMotion(el, visible) {
   }
 }
 
-function setSection(section) {
+function setSection(section, { syncHash = true } = {}) {
   state.section = section;
   localStorage.setItem("grader_section", section);
+  // issue #804 (FER-03): раздел адресуется URL'ом. `replaceState`, а не запись
+  // в location.hash: переключение сайдбаром — не отдельный шаг истории, иначе
+  // Back превращался бы в перебор разделов вместо возврата туда, откуда пришли.
+  // `syncHash: false` передаёт роутер: он уже читает hash, и перезапись затёрла
+  // бы deep-link карточки (`#/glossary/<id>` → `#/glossary`) до её открытия.
+  if (syncHash && location.hash !== "#/" + section) {
+    history.replaceState(null, "", "#/" + section);
+  }
   document.querySelectorAll("[data-section]").forEach(a => {
     const active = a.dataset.section === section;
     a.classList.toggle("active", active);

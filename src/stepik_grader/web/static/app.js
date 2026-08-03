@@ -1,6 +1,6 @@
 // app.js — entry: связывание слушателей и bootstrap; импортирует модули (#426).
 import { loadGlossary, loadRules, parseGlossaryHash, selectGlossaryCard, selectRuleCard, setGlossaryView } from "./content.js";
-import { $, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
+import { $, SECTIONS, applyTheme, applyUiLocale, cycleTheme, setSection, state, syncLangButtons, t } from "./core.js";
 import { downloadTask, handleDownloaderClick, loadAuthStatus, loadDownloaderConfig } from "./downloader.js";
 import { initFeedback, refreshFeedbackDraft } from "./feedback.js";
 import { cancelActiveRun, checkTermsTimer, findReference, findSolutions, grade, loadCheckTerms, loadCommands, mountEditor, renderRecentPaths, restoreProfiles, runCommand, saveSolution, setMode, setResultTab, submitToStepik, updateDirtyIndicator, updateMicroCustomVisibility, updateRepeatsCustomVisibility } from "./grade.js";
@@ -53,27 +53,46 @@ function setLang(value) {
 
 // Синхронизировать контролы раздела «Настройки» с текущим состоянием (тему
 // можно менять и топбар-тумблером — тогда select не должен отставать).
+// issue #804 (FER-02): токен отмены навигации. Быстрый Back/Forward запускает
+// две `routeFromHash` разом, и та, что стартовала раньше, после своего `await`
+// дорисовывала раздел и карточку поверх новой навигации — URL показывал одно,
+// экран другое. Приём тот же, что уже применён к `state.activeRunId`.
+let _routeSeq = 0;
+
+// Разделы из `setSection` адресуются как `#/<section>` (issue #804, FER-03).
+// Раньше `location.hash` менялся только у deep-link'ов карточек, поэтому URL
+// врал: ссылкой на раздел было не поделиться, Back при пустом хэше молчал, а
+// F5 после ухода из глоссария возвращал обратно в глоссарий.
+const _SECTION_HASH_RE = /^#\/([a-z-]+)\/?$/;
+
 async function routeFromHash() {
   // issue #348: единый hash-роутер (замена glossary-only, риск R6) — deep-links
-  // #/rules/<code>, #/insights и #/glossary/<id>.
+  // #/rules/<code>, #/insights и #/glossary/<id>; плюс #/<section> (issue #804).
+  const seq = ++_routeSeq;
   const h = location.hash;
   const rule = h.match(/^#\/rules\/(.+)$/);
   if (rule) {
     const code = decodeURIComponent(rule[1]);
-    if (state.section !== "rules") setSection("rules");
+    if (state.section !== "rules") setSection("rules", { syncHash: false });
     if (!state.rules.cards.length) await loadRules();
+    if (seq !== _routeSeq) return;  // навигацию обогнали — не рисуем поверх неё
     if (state.rules.selectedId !== code) selectRuleCard(code, { fromHash: true });
     return;
   }
-  if (h === "#/insights") {
-    if (state.section !== "insights") setSection("insights");
+  const id = parseGlossaryHash();
+  if (id) {
+    if (state.section !== "glossary") setSection("glossary", { syncHash: false });
+    if (!state.glossary.cards.length) await loadGlossary();
+    if (seq !== _routeSeq) return;
+    if (state.glossary.selectedId !== id) selectGlossaryCard(id, { fromHash: true });
     return;
   }
-  const id = parseGlossaryHash();
-  if (!id) return;
-  if (state.section !== "glossary") setSection("glossary");
-  if (!state.glossary.cards.length) await loadGlossary();
-  if (state.glossary.selectedId !== id) selectGlossaryCard(id, { fromHash: true });
+  // `#/insights`, `#/check`, … — раздел без карточки. Проверяем ПОСЛЕ карточных
+  // веток: `#/glossary/<id>` тоже начинается с имени раздела.
+  const section = h.match(_SECTION_HASH_RE);
+  if (section && SECTIONS.includes(section[1])) {
+    if (state.section !== section[1]) setSection(section[1], { syncHash: false });
+  }
 }
 
 // issue #565 — статус OS-изоляции (бейдж в шапке) и однократное уведомление о
@@ -149,12 +168,22 @@ function _onboardingKeydown(e) {
   }
 }
 
+function _onboardingBackdropClick(e) {
+  // Клик мимо диалога — закрыть, как в остальных модалках оболочки. Проверяем
+  // сам оверлей, а не потомков: клик внутри диалога всплывает сюда же.
+  if (e.target === e.currentTarget) closeOnboarding();
+}
+
 function openOnboarding() {
   const overlay = $("#onboarding-overlay");
   if (!overlay) return;
   _onboardingReturnFocus = document.activeElement;
   overlay.hidden = false;
-  overlay.addEventListener("keydown", _onboardingKeydown);
+  // issue #804 (FER-04): слушатель на document, а НЕ на оверлее. После клика по
+  // подложке фокус уходит на body, и keydown до оверлея уже не всплывает —
+  // Escape переставал закрывать модалку, а перехват Tab становился мёртвым.
+  document.addEventListener("keydown", _onboardingKeydown);
+  overlay.addEventListener("mousedown", _onboardingBackdropClick);
   const first = $("#onboarding-go-check");
   if (first) first.focus();
 }
@@ -163,7 +192,8 @@ function closeOnboarding() {
   const overlay = $("#onboarding-overlay");
   if (!overlay) return;
   overlay.hidden = true;
-  overlay.removeEventListener("keydown", _onboardingKeydown);
+  document.removeEventListener("keydown", _onboardingKeydown);
+  overlay.removeEventListener("mousedown", _onboardingBackdropClick);
   // Галка checked (дефолт) → больше не авто-показ; снята → покажется снова.
   const dontShow = $("#onboarding-dont-show");
   _persistOnboardingSeen(dontShow ? dontShow.checked : true);
