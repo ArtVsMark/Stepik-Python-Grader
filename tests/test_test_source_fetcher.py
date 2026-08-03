@@ -27,6 +27,9 @@ from stepik_grader.core.test_source_fetcher import (
 # на allowlist сторонних хостов.
 STEPIK_ZIP_URL = "https://stepik.org/media/attachments/lesson/1/tests.zip"
 
+# issue #814: единый GitHub-URL для тестов валидации ответа API.
+GH_URL = "https://github.com/o/r/tree/main/tests"
+
 # ── вспомогательные фабрики моков ──────────────────────────────────────────
 
 
@@ -433,3 +436,145 @@ class TestDownloadZipErrorPath:
         session.get.side_effect = requests.ConnectionError("down")
         zip_url = "https://stepik.org/media/attachments/lesson/1/t.zip"
         assert _download_zip_tests(tmp_path, zip_url, session) == 0
+
+
+# ── Данные из сети: имя файла, размер, ответ API, URL — issue #814 ─────────
+
+
+class TestZipMemberNameRobustness:
+    """`NETW-01`: имя члена архива приходит из недоверенного ZIP по ссылке из
+    текста задачи, а `isdigit()` истинен для «²» и «①», которые `int()` не
+    принимает. Один такой символ ронял ВСЁ скачивание `ValueError`'ом мимо
+    перехватов — у вызывающей стороны (`downloader.py`) обёртки нет.
+    """
+
+    def test_superscript_digit_does_not_break_download(self, tmp_path: pathlib.Path) -> None:
+        session = _zip_session(("t/1", "4"), ("t/1.clue", "5"), ("t/\u00b2", "junk"))
+        count = fetcher.download_zip_tests(tmp_path, STEPIK_ZIP_URL, session)
+        assert count == 1  # обычная пара разобрана, экзотическое имя пропущено
+
+    def test_circled_digit_ignored(self, tmp_path: pathlib.Path) -> None:
+        session = _zip_session(("t/1", "4"), ("t/1.clue", "5"), ("t/\u2460.clue", "junk"))
+        assert fetcher.download_zip_tests(tmp_path, STEPIK_ZIP_URL, session) == 1
+
+    def test_arabic_indic_digit_still_accepted(self, tmp_path: pathlib.Path) -> None:
+        """`isdecimal` — не «только ASCII»: арабо-индийские цифры `int()` берёт,
+        и терять такие кейсы было бы регрессом."""
+        session = _zip_session(("t/\u0663", "4"), ("t/\u0663.clue", "5"))
+        assert fetcher.download_zip_tests(tmp_path, STEPIK_ZIP_URL, session) == 1
+
+
+class TestGithubMemberNameRobustness:
+    """`NETW-01` в GitHub-ветке: тот же `isdigit` был и там.
+
+    Отдельный тест обязателен — мутация «обратно isdigit» в этой ветке не
+    ловилась набором для ZIP (проверено).
+    """
+
+    def test_superscript_name_does_not_break(self, tmp_path: pathlib.Path) -> None:
+        payload = [
+            {"type": "file", "name": "²", "download_url": "https://x/sup"},
+            {"type": "file", "name": "1", "download_url": "https://x/1"},
+            {"type": "file", "name": "1.clue", "download_url": "https://x/1c"},
+        ]
+
+        def _get(url: str, **_kw: object) -> MagicMock:
+            resp = MagicMock()
+            resp.json.return_value = payload
+            resp.raise_for_status = MagicMock()
+            resp.text = "4"
+            resp.content = b"4"
+            return resp
+
+        with patch.object(fetcher, "external_download_get", side_effect=_get):
+            assert fetcher.download_github_tests(tmp_path, GH_URL) == 1
+
+
+class TestZipSizeLimits:
+    """`NETW-03`: архив по ссылке из HTML задачи распаковывался без потолка —
+    классический zip bomb, `zf.read` читает член целиком в память."""
+
+    def test_oversized_member_is_rejected(self, tmp_path: pathlib.Path) -> None:
+        """Один член сверх лимита НА ФАЙЛ, но в пределах общего бюджета.
+
+        Размер подобран так, чтобы сработал именно лимит на член (8 МБ):
+        с 200 МБ тест проходил бы и без него — за счёт суммарного бюджета
+        (проверено мутацией).
+        """
+        session = _zip_session(("t/1", "A" * (10 * 1024 * 1024)), ("t/1.clue", "5"))
+        assert fetcher.download_zip_tests(tmp_path, STEPIK_ZIP_URL, session) == 0
+
+    def test_zip_bomb_is_rejected(self, tmp_path: pathlib.Path) -> None:
+        """Классическая бомба: 200 МБ нулей жмутся в килобайты."""
+        session = _zip_session(("t/1", "A" * (200 * 1024 * 1024)), ("t/1.clue", "5"))
+        assert fetcher.download_zip_tests(tmp_path, STEPIK_ZIP_URL, session) == 0
+
+    def test_oversized_total_is_rejected(self, tmp_path: pathlib.Path) -> None:
+        """Каждый член в пределах лимита, а сумма — нет."""
+        chunk = "A" * (7 * 1024 * 1024)
+        pairs = []
+        for i in range(1, 12):  # 11 × 7 МБ ≈ 77 МБ > 64 МБ
+            pairs.extend([(f"t/{i}", chunk), (f"t/{i}.clue", "5")])
+        assert fetcher.download_zip_tests(tmp_path, STEPIK_ZIP_URL, _zip_session(*pairs)) == 0
+
+    def test_normal_archive_still_passes(self, tmp_path: pathlib.Path) -> None:
+        """Контроль: обычные тест-кейсы (килобайты) лимит не задевает."""
+        session = _zip_session(("t/1", "4" * 1000), ("t/1.clue", "5" * 1000))
+        assert fetcher.download_zip_tests(tmp_path, STEPIK_ZIP_URL, session) == 1
+
+
+class TestGithubApiResponseValidation:
+    """`NETW-02`: ответ API индексировался напрямую (`item["download_url"]`).
+
+    Файл без `download_url` (submodule, symlink, урезанная выдача прокси) давал
+    `KeyError` МИМО перехвата сетевых ошибок — скачивание падало трейсбеком
+    вместо понятного сообщения.
+    """
+
+    def _resp(self, payload: object) -> MagicMock:
+        resp = MagicMock()
+        resp.json.return_value = payload
+        resp.raise_for_status = MagicMock()
+        resp.content = b"4"
+        resp.text = "4"
+        return resp
+
+    def test_file_without_download_url_does_not_raise(self, tmp_path: pathlib.Path) -> None:
+        payload = [{"type": "file", "name": "1"}]  # download_url отсутствует
+        with patch.object(fetcher, "external_download_get", return_value=self._resp(payload)):
+            assert fetcher.download_github_tests(tmp_path, GH_URL) == 0
+
+    def test_non_dict_entry_is_skipped(self, tmp_path: pathlib.Path) -> None:
+        payload = ["строка вместо объекта", {"type": "file", "name": "1"}]
+        with patch.object(fetcher, "external_download_get", return_value=self._resp(payload)):
+            assert fetcher.download_github_tests(tmp_path, GH_URL) == 0
+
+    def test_non_string_fields_are_skipped(self, tmp_path: pathlib.Path) -> None:
+        payload = [{"type": "file", "name": 1, "download_url": None}]
+        with patch.object(fetcher, "external_download_get", return_value=self._resp(payload)):
+            assert fetcher.download_github_tests(tmp_path, GH_URL) == 0
+
+
+class TestGithubUrlEncoding:
+    """`NETW-04`: owner/repo/path/branch из HTML задачи подставлялись в URL как
+    есть — `#` обрубал бы запрос, а `?`/`&` дописывали чужие query-параметры."""
+
+    def test_branch_and_path_are_percent_encoded(self, tmp_path: pathlib.Path) -> None:
+        calls: list[str] = []
+
+        def _capture(url: str, **_kw: object) -> MagicMock:
+            calls.append(url)
+            resp = MagicMock()
+            resp.json.return_value = []
+            resp.raise_for_status = MagicMock()
+            return resp
+
+        with patch.object(fetcher, "external_download_get", side_effect=_capture):
+            fetcher.download_github_tests(
+                tmp_path, "https://github.com/o/r/tree/feat?x=1/tests dir"
+            )
+
+        assert calls, "запрос к API не сформирован"
+        api_url = calls[0]
+        assert "feat%3Fx%3D1" in api_url or "%3F" in api_url  # '?' экранирован
+        assert " " not in api_url  # пробел не уехал в URL сырым
