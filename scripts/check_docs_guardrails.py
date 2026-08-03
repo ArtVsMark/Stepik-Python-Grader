@@ -621,7 +621,11 @@ def check_pypi_readme_is_absolute(errors: list[str]) -> None:
     text = (_ROOT / name).read_text(encoding="utf-8")
     relative = [
         target
-        for target in re.findall(r"!?\[[^\]]*\]\(([^)\s]+)\)", text)
+        # Ищем по "](цель)", а НЕ по "[подпись](цель)": подпись бейджа сама
+        # содержит картинку — `[![Glossary](img)](docs/…)`, — и шаблон с
+        # `[^\]]*` такую вложенную ссылку пропускал. Две относительные цели
+        # так и уцелели в README при переводе на абсолютные (issue #832).
+        for target in re.findall(r"\]\(([^)\s]+)\)", text)
         if not _EXTERNAL_RE.match(target) and not target.startswith("#")
     ]
     if relative:
