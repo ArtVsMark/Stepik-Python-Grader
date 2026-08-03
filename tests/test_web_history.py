@@ -13,7 +13,7 @@ import pathlib
 
 import pytest
 
-from stepik_grader.core import history
+from stepik_grader.core import history, history_recording
 from stepik_grader.web import viewmodels
 
 
@@ -38,7 +38,16 @@ def _make_task(root: pathlib.Path, name: str = "task1.py") -> pathlib.Path:
 
 
 def _db(root: pathlib.Path) -> pathlib.Path:
-    return root / history.HISTORY_DB_NAME
+    """Куда грейдер РЕАЛЬНО пишет историю (issue #818).
+
+    Прежде база всегда лежала в текущей папке, и тест мог указать путь сам.
+    Теперь путь резолвится (переменная окружения → конфиг → база рядом →
+    единая пользовательская), поэтому тест обязан спрашивать у той же функции,
+    что и продуктовый код: иначе он проверяет пустое место, а изоляция от
+    реальной базы пользователя ломается.
+    """
+    del root  # оставлен для совместимости вызовов
+    return history_recording.default_history_db_path()
 
 
 def test_grade_path_file_records_mode1(tmp_path, monkeypatch) -> None:

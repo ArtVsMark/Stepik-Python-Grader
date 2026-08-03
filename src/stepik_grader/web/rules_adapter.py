@@ -11,14 +11,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from stepik_grader.core import history, insights
+from stepik_grader.core import insights
+from stepik_grader.core.history_recording import default_history_db_path
 from stepik_grader.rules import bundled_rules
 
 __all__ = ["rules_get", "rules_search"]
 
 
 def _db_path(db_path: Path | None) -> Path:
-    return db_path if db_path is not None else Path.cwd() / history.HISTORY_DB_NAME
+    # issue #818: тот же резолвер, что у CLI — иначе web читал бы базу
+    # рабочей папки, пока CLI пишет в пользовательскую.
+    return db_path if db_path is not None else default_history_db_path()
 
 
 def rules_search(

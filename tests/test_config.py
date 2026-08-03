@@ -235,6 +235,7 @@ def test_dataclass_fields_matches_known_field_set() -> None:
         "ai_max_hints",  # issue #812: потолок AI-вызовов за прогон
         "ai_grounding_k",  # issue #812: сколько карточек в заземлении промпта
         "ai_system_prompt",  # issue #812: свой системный промпт вместо встроенного
+        "history_db_path",  # issue #818: где лежит база истории обучения
     }
 
 

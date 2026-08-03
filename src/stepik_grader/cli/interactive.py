@@ -226,10 +226,12 @@ def _resolve_cli_path_or_error(
 def _show_insights(ctx: CliContext) -> None:
     """Пункт «Подучить» (5): карточки частых ошибок из истории прогонов."""
     from stepik_grader import rules
-    from stepik_grader.core import history, insights
+    from stepik_grader.core import history_recording, insights
     from stepik_grader.core.reporter import print_insights_summary
 
-    db_path = pathlib.Path.cwd() / history.HISTORY_DB_NAME
+    # issue #818: единая точка резолва — иначе разделы «Подучить»/«Прогресс»
+    # смотрели бы в базу текущей папки, пока запись идёт в пользовательскую.
+    db_path = history_recording.default_history_db_path()
     cards = insights.learning_cards(
         db_path,
         n=CONFIG.insights_window_n,

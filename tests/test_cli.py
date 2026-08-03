@@ -1192,10 +1192,12 @@ def test_collect_lint_runs_ruff_when_available(monkeypatch, tmp_path) -> None:
 
 
 def test_export_progress_md_writes_file(tmp_path, monkeypatch) -> None:
-    from stepik_grader.core import history
+    from stepik_grader.core import history, history_recording
 
     monkeypatch.chdir(tmp_path)
-    db = tmp_path / history.HISTORY_DB_NAME
+    # issue #818: путь базы резолвится (env → конфиг → рядом → пользовательская),
+    # поэтому тест готовит данные ТАМ ЖЕ, куда смотрит грейдер.
+    db = history_recording.default_history_db_path()
     history.record_run(1, [history.CaseRecord(1, "AC")], db_path=db, task_key="t")
     cli.main(["--export-progress", "md"])
     out = tmp_path / "grader-progress.md"
@@ -1313,9 +1315,16 @@ class TestPurgeHistoryFlag:
     """issue #813 (SECD-03): `--purge-history` — штатное удаление своих данных."""
 
     def _seed(self, work: pathlib.Path) -> pathlib.Path:
-        from stepik_grader.core.history import record_run
+        """Наполнить ту базу, которую грейдер реально удалит (issue #818).
 
-        db_path = work / ".grader_history.db"
+        Путь резолвится (env → конфиг → база рядом → пользовательская), поэтому
+        писать в `work/.grader_history.db` наугад больше нельзя: `--purge-history`
+        удалял бы другой файл, и тест проверял бы пустое место.
+        """
+        from stepik_grader.core.history import record_run
+        from stepik_grader.core.history_recording import default_history_db_path
+
+        db_path = default_history_db_path()
         for task in ("alpha", "alpha", "beta"):
             record_run(2, [], db_path=db_path, task_key=task, solution_name="s.py")
         (work / ".grader_stats.jsonl").write_text('{"a":1}\n{"b":2}\n', encoding="utf-8")
@@ -1328,13 +1337,13 @@ class TestPurgeHistoryFlag:
         просто в двух файлах, о которых пользователь знать не обязан.
         """
         monkeypatch.chdir(tmp_path)
-        self._seed(tmp_path)
+        db = self._seed(tmp_path)
 
         cli.main(["--purge-history"])
 
-        assert not (tmp_path / ".grader_history.db").exists()
+        assert not db.exists()
         assert not (tmp_path / ".grader_stats.jsonl").exists()
-        assert list(tmp_path.iterdir()) == []  # включая -wal/-shm
+        assert not list(db.parent.glob(".grader_history.db*"))  # включая -wal/-shm
         assert "3" in capsys.readouterr().out  # три прогона
 
     def test_purge_single_task_keeps_stats(self, tmp_path, monkeypatch, capsys) -> None:

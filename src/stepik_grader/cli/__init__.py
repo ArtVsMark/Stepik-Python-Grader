@@ -487,9 +487,10 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     if args.export_progress:
-        from stepik_grader.core import history, progress_export
+        from stepik_grader.core import progress_export
+        from stepik_grader.core.history_recording import default_history_db_path
 
-        db_path = pathlib.Path.cwd() / history.HISTORY_DB_NAME
+        db_path = default_history_db_path()  # issue #818
         report = progress_export.build_progress_report(db_path)
         if report["total_runs"] == 0:
             print(_t("insights_no_data"))  # дружелюбно, не ошибка (issue #432)
@@ -509,9 +510,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.insights:
         from stepik_grader import rules
-        from stepik_grader.core import history, insights
+        from stepik_grader.core import insights
+        from stepik_grader.core.history_recording import default_history_db_path
 
-        db_path = pathlib.Path.cwd() / history.HISTORY_DB_NAME
+        db_path = default_history_db_path()  # issue #818
         cards = insights.learning_cards(
             db_path,
             n=CONFIG.insights_window_n,

@@ -17,7 +17,7 @@ import urllib.request
 import pytest
 
 from stepik_grader import web
-from stepik_grader.core import history
+from stepik_grader.core import history, history_recording
 from stepik_grader.core.history import CaseRecord, LintRecord
 
 
@@ -93,7 +93,10 @@ def test_insights_active_card_from_history(
     server: str, tmp_path: pathlib.Path, monkeypatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    db = tmp_path / history.HISTORY_DB_NAME
+    # issue #818: путь базы теперь резолвится (env → конфиг → рядом →
+    # пользовательская), поэтому тест обязан писать ТУДА ЖЕ, куда смотрит
+    # адаптер, — иначе он готовит данные в пустоту.
+    db = history_recording.default_history_db_path()
     for _ in range(3):  # 3 падения → active
         history.record_run(1, [CaseRecord(1, "WA", failure_kind="wrong-answer")], db_path=db)
     status, body = _get(server + "/api/insights")
@@ -106,7 +109,10 @@ def test_insights_active_card_from_history(
 
 def test_insights_lint_and_glossary_ref(server: str, tmp_path: pathlib.Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    db = tmp_path / history.HISTORY_DB_NAME
+    # issue #818: путь базы теперь резолвится (env → конфиг → рядом →
+    # пользовательская), поэтому тест обязан писать ТУДА ЖЕ, куда смотрит
+    # адаптер, — иначе он готовит данные в пустоту.
+    db = history_recording.default_history_db_path()
     for _ in range(2):
         history.record_run(
             1,
@@ -123,7 +129,10 @@ def test_insights_lint_and_glossary_ref(server: str, tmp_path: pathlib.Path, mon
 def test_insights_journey_fail_to_archive(server: str, tmp_path: pathlib.Path, monkeypatch) -> None:
     """User-journey (issue #348): падения → карточка active → чистые прогоны → архив (скрыт)."""
     monkeypatch.chdir(tmp_path)
-    db = tmp_path / history.HISTORY_DB_NAME
+    # issue #818: путь базы теперь резолвится (env → конфиг → рядом →
+    # пользовательская), поэтому тест обязан писать ТУДА ЖЕ, куда смотрит
+    # адаптер, — иначе он готовит данные в пустоту.
+    db = history_recording.default_history_db_path()
     for _ in range(3):  # 3 падения
         history.record_run(1, [CaseRecord(1, "WA", failure_kind="wrong-answer")], db_path=db)
     _, body = _get(server + "/api/insights")

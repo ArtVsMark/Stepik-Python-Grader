@@ -32,6 +32,28 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _isolate_history_db(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> None:
+    """Ни один тест не пишет в РЕАЛЬНУЮ базу истории пользователя (issue #818).
+
+    Прецедент, стоивший данных: с единой пользовательской базой
+    (``~/.stepik-grader/history.db``) прогон набора начал складывать туда свои
+    записи — а тесты ``--purge-history`` удалили ``~/.grader_history.db``
+    разработчика. Пока база лежала в cwd, тесты попадали в неё «естественно»,
+    через ``monkeypatch.chdir(tmp_path)``; после смены дефолта такой изоляции
+    стало недостаточно.
+
+    Переменная окружения перекрывает и конфиг, и авторезолв, поэтому даже тест,
+    запускающий грейдер ПОДПРОЦЕССОМ, не дотянется до домашней папки. Тесты,
+    которым нужен конкретный путь, передают ``db_path`` явно или снимают
+    переменную сами.
+    """
+    monkeypatch.setenv(
+        "STEPIK_GRADER_HISTORY_DB",
+        str(tmp_path_factory.mktemp("history-isolated") / "history.db"),
+    )
+
+
+@pytest.fixture(autouse=True)
 def _never_open_a_real_browser(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ни один тест не открывает окно браузера на машине разработчика.
 
