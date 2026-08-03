@@ -53,27 +53,35 @@ function setLang(value) {
 
 // Синхронизировать контролы раздела «Настройки» с текущим состоянием (тему
 // можно менять и топбар-тумблером — тогда select не должен отставать).
+// issue #804 (FER-02): токен отмены навигации. Быстрый Back/Forward запускает
+// две `routeFromHash` разом, и та, что стартовала раньше, после своего `await`
+// дорисовывала раздел и карточку поверх новой навигации — URL показывал одно,
+// экран другое. Приём тот же, что уже применён к `state.activeRunId`.
+let _routeSeq = 0;
+
 async function routeFromHash() {
   // issue #348: единый hash-роутер (замена glossary-only, риск R6) — deep-links
-  // #/rules/<code>, #/insights и #/glossary/<id>.
+  // #/rules/<code>, #/insights и #/glossary/<id>; плюс #/<section> (issue #804).
+  const seq = ++_routeSeq;
   const h = location.hash;
   const rule = h.match(/^#\/rules\/(.+)$/);
   if (rule) {
     const code = decodeURIComponent(rule[1]);
     if (state.section !== "rules") setSection("rules");
     if (!state.rules.cards.length) await loadRules();
+    if (seq !== _routeSeq) return;  // навигацию обогнали — не рисуем поверх неё
     if (state.rules.selectedId !== code) selectRuleCard(code, { fromHash: true });
     return;
   }
-  if (h === "#/insights") {
-    if (state.section !== "insights") setSection("insights");
+  const id = parseGlossaryHash();
+  if (id) {
+    if (state.section !== "glossary") setSection("glossary");
+    if (!state.glossary.cards.length) await loadGlossary();
+    if (seq !== _routeSeq) return;
+    if (state.glossary.selectedId !== id) selectGlossaryCard(id, { fromHash: true });
     return;
   }
-  const id = parseGlossaryHash();
-  if (!id) return;
-  if (state.section !== "glossary") setSection("glossary");
-  if (!state.glossary.cards.length) await loadGlossary();
-  if (state.glossary.selectedId !== id) selectGlossaryCard(id, { fromHash: true });
+  if (h === "#/insights" && state.section !== "insights") setSection("insights");
 }
 
 // issue #565 — статус OS-изоляции (бейдж в шапке) и однократное уведомление о
@@ -149,12 +157,22 @@ function _onboardingKeydown(e) {
   }
 }
 
+function _onboardingBackdropClick(e) {
+  // Клик мимо диалога — закрыть, как в остальных модалках оболочки. Проверяем
+  // сам оверлей, а не потомков: клик внутри диалога всплывает сюда же.
+  if (e.target === e.currentTarget) closeOnboarding();
+}
+
 function openOnboarding() {
   const overlay = $("#onboarding-overlay");
   if (!overlay) return;
   _onboardingReturnFocus = document.activeElement;
   overlay.hidden = false;
-  overlay.addEventListener("keydown", _onboardingKeydown);
+  // issue #804 (FER-04): слушатель на document, а НЕ на оверлее. После клика по
+  // подложке фокус уходит на body, и keydown до оверлея уже не всплывает —
+  // Escape переставал закрывать модалку, а перехват Tab становился мёртвым.
+  document.addEventListener("keydown", _onboardingKeydown);
+  overlay.addEventListener("mousedown", _onboardingBackdropClick);
   const first = $("#onboarding-go-check");
   if (first) first.focus();
 }
@@ -163,7 +181,8 @@ function closeOnboarding() {
   const overlay = $("#onboarding-overlay");
   if (!overlay) return;
   overlay.hidden = true;
-  overlay.removeEventListener("keydown", _onboardingKeydown);
+  document.removeEventListener("keydown", _onboardingKeydown);
+  overlay.removeEventListener("mousedown", _onboardingBackdropClick);
   // Галка checked (дефолт) → больше не авто-показ; снята → покажется снова.
   const dontShow = $("#onboarding-dont-show");
   _persistOnboardingSeen(dontShow ? dontShow.checked : true);
