@@ -518,3 +518,109 @@ def test_menu_insights_is_reached_from_dispatcher(tmp_path: Path, monkeypatch) -
     cli._interactive_menu()
 
     assert len(called) == 1
+
+
+# ---------------------------------------------------------------------------
+# issue #822 — воронка download→grade замкнута, пустые состояния ведут дальше.
+# ---------------------------------------------------------------------------
+
+
+def _stub_download(monkeypatch, dirs: list[Path]) -> None:
+    """Пункт 8 «скачал» перечисленные каталоги."""
+    monkeypatch.setattr(downloader, "main", lambda lang: list(dirs))
+
+
+def test_download_offers_to_grade_downloaded_task(tmp_path: Path, monkeypatch) -> None:
+    """PROD-09: после скачивания предлагается проверка, путь подставляется сам."""
+    monkeypatch.setattr(cli, "_LANG", "ru")
+    task = tmp_path / "04-slug"
+    task.mkdir()
+    _stub_download(monkeypatch, [task])
+    graded: list[Path] = []
+    monkeypatch.setattr(cli, "_run_mode_2", lambda d, **kw: graded.append(d) or False)
+    inputs = iter(["8", "y", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+
+    cli._interactive_menu()
+
+    assert graded == [task]
+
+
+def test_download_grade_offer_defaults_to_yes(tmp_path: Path, monkeypatch) -> None:
+    """Пустой Enter — согласие: это предлагаемое следующее действие, а не опрос."""
+    monkeypatch.setattr(cli, "_LANG", "ru")
+    task = tmp_path / "t"
+    task.mkdir()
+    _stub_download(monkeypatch, [task])
+    graded: list[Path] = []
+    monkeypatch.setattr(cli, "_run_mode_2", lambda d, **kw: graded.append(d) or False)
+    inputs = iter(["8", "", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+
+    cli._interactive_menu()
+
+    assert graded == [task]
+
+
+def test_download_grade_offer_can_be_declined(tmp_path: Path, monkeypatch) -> None:
+    """«n» — просто возврат в меню, как и было до issue #822."""
+    monkeypatch.setattr(cli, "_LANG", "ru")
+    task = tmp_path / "t"
+    task.mkdir()
+    _stub_download(monkeypatch, [task])
+    graded: list[Path] = []
+    monkeypatch.setattr(cli, "_run_mode_2", lambda d, **kw: graded.append(d) or False)
+    inputs = iter(["8", "n", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+
+    cli._interactive_menu()
+
+    assert graded == []
+
+
+def test_download_without_result_asks_nothing(monkeypatch) -> None:
+    """Ничего не скачали (отказ авторизации, пустой ввод) — лишнего вопроса нет."""
+    monkeypatch.setattr(cli, "_LANG", "ru")
+    _stub_download(monkeypatch, [])
+    inputs = iter(["8", "0"])  # «0» сразу: лишний вопрос съел бы его и уронил iter
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+
+    cli._interactive_menu()  # StopIteration здесь означал бы лишний prompt
+
+
+def test_download_several_tasks_offers_the_last(tmp_path: Path, monkeypatch, capsys) -> None:
+    """Скачано несколько — предлагаем последнюю и говорим, что остальные никуда не делись."""
+    monkeypatch.setattr(cli, "_LANG", "ru")
+    first, second = tmp_path / "a", tmp_path / "b"
+    for d in (first, second):
+        d.mkdir()
+    _stub_download(monkeypatch, [first, second])
+    graded: list[Path] = []
+    monkeypatch.setattr(cli, "_run_mode_2", lambda d, **kw: graded.append(d) or False)
+    inputs = iter(["8", "y", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+
+    cli._interactive_menu()
+
+    assert graded == [second]
+    assert "Скачано задач: 2" in capsys.readouterr().out
+
+
+def test_insights_empty_state_points_to_menu_item_not_flag(monkeypatch, capsys) -> None:
+    """PROD-11: из меню историю включают пунктом 7 — совет про `--history` был тупиком."""
+    monkeypatch.setattr(cli, "_LANG", "ru")
+    inputs = iter(["5", "0"])
+    monkeypatch.setattr("builtins.input", lambda *a: next(inputs))
+
+    cli._interactive_menu()
+
+    out = capsys.readouterr().out
+    assert "пункт 7" in out
+    assert "--history" not in out
+
+
+def test_insights_flag_path_keeps_flag_wording() -> None:
+    """Флаговый путь (`--insights`) по-прежнему советует флаг — там меню нет."""
+    from stepik_grader.core.i18n import load_locale_messages
+
+    assert "--history" in load_locale_messages("ru")["insights_no_data"]

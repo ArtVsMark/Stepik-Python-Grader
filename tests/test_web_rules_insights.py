@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 import threading
 import urllib.error
 import urllib.parse
@@ -142,3 +143,65 @@ def test_insights_journey_fail_to_archive(server: str, tmp_path: pathlib.Path, m
         history.record_run(1, [CaseRecord(1, "OK")], db_path=db)
     _, body = _get(server + "/api/insights")
     assert not any(c["key"] == "wrong-answer" for c in json.loads(body))
+
+
+# ---------------------------------------------------------------------------
+# issue #822 (COMM-02) — «Подучить» объясняет тип падения, а не печатает ключ.
+# Гейт держит JS в синхроне с core: новый `failure_kind` в insights.py без
+# объяснения в content.js вернул бы раздел к «судит, но не учит».
+# ---------------------------------------------------------------------------
+
+_STATIC = pathlib.Path(__file__).parent.parent / "src" / "stepik_grader" / "web" / "static"
+
+
+def _failure_kind_map() -> dict[str, dict[str, str]]:
+    """Разобрать литерал ``FAILURE_KIND`` из content.js без запуска JS."""
+    source = (_STATIC / "content.js").read_text(encoding="utf-8")
+    body = source.split("const FAILURE_KIND = {", 1)[1].split("\n};", 1)[0]
+    entries: dict[str, dict[str, str]] = {}
+    for raw in re.finditer(r'"?([\w-]+)"?:\s*\{([^}]*)\}', body):
+        fields = dict(re.findall(r'(\w+):\s*"([^"]*)"', raw.group(2)))
+        entries[raw.group(1)] = fields
+    return entries
+
+
+def _core_failure_kinds() -> set[str]:
+    """Типы падений, которые core реально кладёт в карточки (кроме RE с классом)."""
+    from stepik_grader.core import insights
+
+    kinds = {
+        insights.failure_kind("TLE"),
+        insights.failure_kind("WA", output=["1 "], expected=["1"]),  # различие только в формате
+        insights.failure_kind("WA", output=["2"], expected=["1"]),
+        insights.failure_kind("SLOWER"),
+        insights.failure_kind("RE", error="не опознаваемое исключение"),
+    }
+    return {k for k in kinds if k}
+
+
+def test_every_failure_kind_is_explained_in_the_ui() -> None:
+    """Каждый тип падения имеет человеческое название и «что делать»."""
+    explained = _failure_kind_map()
+    missing = _core_failure_kinds() - set(explained)
+    assert not missing, f"типы падений без объяснения в content.js: {sorted(missing)}"
+
+
+def test_failure_kind_labels_exist_in_both_locales() -> None:
+    """Ключи объяснений есть в ru и en — иначе в UI появится сырой ключ каталога."""
+    catalog = json.loads((_STATIC / "locales" / "ui.json").read_text(encoding="utf-8"))
+    for kind, fields in _failure_kind_map().items():
+        for field in ("title", "hint"):
+            key = fields[field]
+            for lang in ("ru", "en"):
+                assert key in catalog[lang], f"{kind}.{field}: нет ключа {key} в {lang}"
+
+
+def test_failure_kind_glossary_targets_exist() -> None:
+    """Ссылка ведёт в существующую карточку: битый deep-link хуже отсутствующего."""
+    from stepik_grader.glossary import json_provider
+
+    provider = json_provider.JsonGlossaryProvider.load(json_provider.BUNDLED_GLOSSARY_DIR)
+    for kind, fields in _failure_kind_map().items():
+        target = fields.get("glossary")
+        if target:
+            assert provider.get(target) is not None, f"{kind}: нет карточки {target!r}"

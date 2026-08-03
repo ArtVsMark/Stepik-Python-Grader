@@ -881,3 +881,26 @@ def test_record_run_creates_missing_parent_dir(tmp_path) -> None:
 
     assert run_id is not None
     assert db.is_file()
+
+
+def test_relative_task_dir_is_resolved_against_base_not_cwd(tmp_path, monkeypatch) -> None:
+    """issue #818: относительный путь задачи считается ОТ BASE, а не от cwd.
+
+    Ошибка, которую этот тест ловит: резолв обоих путей от текущей папки. На
+    CI рабочая копия и tmp лежат на разных дисках Windows, и такой резолв
+    возвращал абсолютный путь вместо ожидаемого имени — три windows-job'а
+    покраснели, а локально (один диск) всё проходило. Здесь диски ни при чём:
+    cwd намеренно уведена в сторону от base.
+    """
+    base = tmp_path / "course"
+    (base / "module1" / "04-slug").mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)  # cwd НЕ совпадает с base
+
+    # Вложенный путь обязателен: на одноимённой папке обе ветки случайно дают
+    # «04-slug» (резолв от cwd уходит в «..», и берётся имя папки), и мутация
+    # «резолвить от cwd» проходила бы незамеченной.
+    key = history.task_key_for(Path("module1/04-slug"), base)
+
+    assert key.replace("\\", "/") == "module1/04-slug"

@@ -417,7 +417,17 @@
     "feedback.field_environment": "Окружение",
     "feedback.field_step_url": "Ссылка на шаг",
     "feedback.field_logs": "Логи",
-    "feedback.field_commit": "Коммит"
+    "feedback.field_commit": "Коммит",
+    "insights.kind_output_format": "Формат вывода",
+    "insights.kind_output_format_hint": "Значения верные, но вывод отличается пробелами, регистром или лишними пустыми строками. Сравните формат с примером в условии: лишний пробел в конце строки, print через запятую вместо нужного разделителя, забытый strip() у прочитанной строки.",
+    "insights.kind_wrong_answer": "Неверный ответ",
+    "insights.kind_wrong_answer_hint": "Ответ отличается по существу, а не по форматированию — ошибка в самой логике. Возьмите вход упавшего кейса из отчёта и пройдите алгоритм по шагам; чаще всего ломается граничный случай: пустой ввод, одно значение, отрицательные числа.",
+    "insights.kind_timeout": "Превышено время",
+    "insights.kind_timeout_hint": "Решение не уложилось в лимит. Обычно виноват не язык, а сложность: вложенный цикл по тем же данных вместо словаря/множества, поиск in по списку вместо set, конкатенация строк в цикле вместо join.",
+    "insights.kind_slow": "Медленнее эталона",
+    "insights.kind_slow_hint": "Ответ верный, но заметно медленнее сравниваемого решения. Это замер режимов сравнения, а не вердикт проверки — на зачёт он не влияет; сравните два варианта на одном входе и посмотрите, где расходится время.",
+    "insights.kind_runtime_error": "Ошибка выполнения",
+    "insights.kind_runtime_error_hint": "Решение упало с исключением, которое не удалось опознать по имени. Полный traceback — в отчёте о прогоне: смотрите последнюю строку и номер строки своего файла."
   },
   "en": {
     "a11y.skip_to_content": "Skip to content",
@@ -837,6 +847,16 @@
     "feedback.field_environment": "Environment",
     "feedback.field_step_url": "Step URL",
     "feedback.field_logs": "Logs",
-    "feedback.field_commit": "Commit"
+    "feedback.field_commit": "Commit",
+    "insights.kind_output_format": "Output format",
+    "insights.kind_output_format_hint": "The values are right, but the output differs in spaces, letter case, or extra blank lines. Compare the format with the sample in the task statement: a trailing space, print with a comma instead of the required separator, a forgotten strip() on the input line.",
+    "insights.kind_wrong_answer": "Wrong answer",
+    "insights.kind_wrong_answer_hint": "The answer differs in substance, not in formatting — the logic itself is wrong. Take the failing case input from the report and walk through the algorithm step by step; the usual culprit is an edge case: empty input, a single value, negative numbers.",
+    "insights.kind_timeout": "Timeout",
+    "insights.kind_timeout_hint": "The solution ran out of time. Usually the culprit is complexity rather than the language: a nested loop over the same data instead of a dict/set, an `in` lookup over a list instead of a set, string concatenation in a loop instead of join.",
+    "insights.kind_slow": "Slower than the reference",
+    "insights.kind_slow_hint": "The answer is correct but noticeably slower than the solution it is compared against. This comes from the comparison modes, not from the correctness verdict — it does not affect passing; run both variants on the same input and see where the time diverges.",
+    "insights.kind_runtime_error": "Runtime error",
+    "insights.kind_runtime_error_hint": "The solution crashed with an exception whose name could not be recognised. The full traceback is in the run report: look at its last line and at the line number in your own file."
   }
 }

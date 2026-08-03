@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pathlib
 import shutil
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from stepik_grader.core.error_glossary import resolve_error_hint
@@ -76,6 +77,15 @@ except ImportError:  # pragma: no cover
 
 
 _SEP = "-" * min(_TABLE_WIDTH, _TERM_WIDTH)
+
+# issue #824 (DESC-02): потолки verbose-вывода ОДНОГО кейса. Раньше их не было
+# вовсе, и единственным предохранителем оставался `CONFIG.max_output_bytes`
+# (10 МиБ) — решение с `print` в цикле на 200k строк вымывало скроллбэк, и
+# вердикты остальных кейсов было уже не найти. Значения подобраны так, чтобы
+# кейс целиком помещался на экран: чинить ошибку по первым строкам обычно можно,
+# а полные данные никуда не деваются — они в `tests/` и в `--output json`.
+_VERBOSE_MAX_VALUE_CHARS = 400
+_VERBOSE_MAX_DIFF_LINES = 20
 
 
 def _safe_rel(path: pathlib.Path, base: pathlib.Path) -> str:
@@ -185,7 +195,10 @@ def print_benchmark_header(*, col_file: int, memory_header: str = "Memory") -> N
     print(
         f"{'File':<{col_file}} {'Runs':>4}  "
         f"{'Min':>10}  {'Median':>10}  {'Mean':>10}  {'Max':>10}  "
-        f"{'Std dev':>10}  {memory_header:>9}  {'Relative':>8}  {'Verdict'}"
+        # Колонка памяти — 10 знаков: значение печатается как `{:>7.2f} MB`
+        # (7 + пробел + «MB»). Шапка была :>9 и съезжала на символ влево, утаскивая
+        # за собой Relative и Verdict — видно только без rich (issue #824, DESC-07).
+        f"{'Std dev':>10}  {memory_header:>10}  {'Relative':>8}  {'Verdict'}"
     )
     print(_SEP)
 
@@ -344,12 +357,49 @@ def print_stats_summary(summary: dict[str, Any]) -> None:
     print(_SEP)
 
 
-_INSIGHT_STATUS_LABEL: dict[str, str] = {
-    "active": "активна",
-    "fading": "угасает",
-    "watch": "наблюдение",
-    "archived": "в архиве",
+# issue #824 (DESC-04): подписи таблиц «Подучить»/«Прогресс»/«Стиль» приходят
+# готовыми строками от вызывающей стороны — тот же паттерн, что уже применён к
+# empty-state. i18n внутрь reporter не заводим: модуль остаётся leaf'ом и не
+# знает про локали. Дефолты русские — прямой вызов из кода/тестов печатает то же,
+# что и раньше; CLI обязан передавать `labels`, и это стережёт тест на отсутствие
+# кириллицы в выводе под `--lang en`.
+_INSIGHTS_LABELS: dict[str, str] = {
+    "title": "Подучить",
+    "col_key": "Ключ",
+    "col_status": "Статус",
+    "col_seen": "Замечен",
+    "col_link": "Ссылка",
+    "status_active": "активна",
+    "status_fading": "угасает",
+    "status_watch": "наблюдение",
+    "status_archived": "в архиве",
 }
+
+_PROGRESS_LABELS: dict[str, str] = {
+    "title": "Прогресс (до первого AC)",
+    "col_task": "Задача",
+    "col_solved": "Решено",
+    "col_attempts": "Попыток",
+    "col_time": "Время",
+    "no_task": "(без задачи)",
+    "unit_sec": "с",
+    "unit_min": "м",
+    "unit_hour": "ч",
+}
+
+_LINT_LABELS: dict[str, str] = {
+    "title": "Стиль (не влияет на вердикт):",
+    "lines": "строки",
+}
+
+
+def _labels(defaults: dict[str, str], overrides: Mapping[str, str] | None) -> dict[str, str]:
+    """Слить подписи вызывающей стороны поверх дефолтных (issue #824).
+
+    Слияние, а не замена: частичный словарь не должен ронять вывод ``KeyError``
+    на подписи, о которой вызывающий не знал.
+    """
+    return defaults if not overrides else {**defaults, **overrides}
 
 
 def _insight_reference(card: Any, rules_provider: Any) -> str:
@@ -363,28 +413,33 @@ def _insight_reference(card: Any, rules_provider: Any) -> str:
     return ""
 
 
-def print_insights_summary(cards: list[Any], *, rules_provider: Any = None) -> None:
+def print_insights_summary(
+    cards: list[Any], *, rules_provider: Any = None, labels: Mapping[str, str] | None = None
+) -> None:
     """Напечатать сводку карточек «Подучить» (issue #349).
 
     Предполагает непустой ``cards`` — пустое состояние («данных нет») печатает
     вызывающая сторона локализованным сообщением ДО вызова (тот же паттерн, что
     ``print_stats_summary``). ``rules_provider`` — для ссылок lint-карточек.
+    ``labels`` — подписи таблицы и статусов готовыми строками (issue #824): без
+    них ``--lang en`` отдавал английское меню и русскую таблицу под ним.
     """
+    lbl = _labels(_INSIGHTS_LABELS, labels)
     rows = [
         (
             card.key,
-            _INSIGHT_STATUS_LABEL.get(card.status, card.status),
+            lbl.get(f"status_{card.status}", card.status),
             f"{card.hits}/{card.runs_considered}",
             _insight_reference(card, rules_provider),
         )
         for card in cards
     ]
     if _RICH and _console is not None:
-        table = Table(title="Подучить", show_lines=False)
-        table.add_column("Ключ", style="cyan")
-        table.add_column("Статус")
-        table.add_column("Замечен", justify="right")
-        table.add_column("Ссылка")
+        table = Table(title=lbl["title"], show_lines=False)
+        table.add_column(lbl["col_key"], style="cyan")
+        table.add_column(lbl["col_status"])
+        table.add_column(lbl["col_seen"], justify="right")
+        table.add_column(lbl["col_link"])
         for key, status, seen, ref in rows:
             table.add_row(key, status, seen, ref)
         _console.print(table)
@@ -395,38 +450,44 @@ def print_insights_summary(cards: list[Any], *, rules_provider: Any = None) -> N
     print(_SEP)
 
 
-def _fmt_duration(secs: float | None) -> str:
-    """Секунды → компактная строка (``—``/``42с``/``7м``/``1.3ч``), issue #431."""
+def _fmt_duration(secs: float | None, lbl: dict[str, str] = _PROGRESS_LABELS) -> str:
+    """Секунды → компактная строка (``—``/``42с``/``7м``/``1.3ч``), issue #431.
+
+    Единицы — из ``lbl`` (issue #824): в английской локали «42с» читалось как
+    опечатка, а таблица вокруг была уже переведена.
+    """
     if secs is None:
         return "—"
     if secs < 60:
-        return f"{secs:.0f}с"
+        return f"{secs:.0f}{lbl['unit_sec']}"
     if secs < 3600:
-        return f"{secs / 60:.0f}м"
-    return f"{secs / 3600:.1f}ч"
+        return f"{secs / 60:.0f}{lbl['unit_min']}"
+    return f"{secs / 3600:.1f}{lbl['unit_hour']}"
 
 
-def print_progress_summary(progress: list[Any]) -> None:
+def print_progress_summary(progress: list[Any], *, labels: Mapping[str, str] | None = None) -> None:
     """Сводка «Прогресс»: попыток/времени до первого полного AC по задаче (issue #431).
 
     Предполагает непустой ``progress`` — empty state печатает вызывающая сторона
-    (тот же паттерн, что ``print_insights_summary``).
+    (тот же паттерн, что ``print_insights_summary``). ``labels`` — подписи
+    готовыми строками (issue #824).
     """
+    lbl = _labels(_PROGRESS_LABELS, labels)
     rows = [
         (
-            p.task_key or "(без задачи)",
+            p.task_key or lbl["no_task"],
             "✅" if p.solved else "…",
             str(p.attempts),
-            _fmt_duration(p.seconds_to_first_ac),
+            _fmt_duration(p.seconds_to_first_ac, lbl),
         )
         for p in progress
     ]
     if _RICH and _console is not None:
-        table = Table(title="Прогресс (до первого AC)", show_lines=False)
-        table.add_column("Задача", style="cyan")
-        table.add_column("Решено")
-        table.add_column("Попыток", justify="right")
-        table.add_column("Время", justify="right")
+        table = Table(title=lbl["title"], show_lines=False)
+        table.add_column(lbl["col_task"], style="cyan")
+        table.add_column(lbl["col_solved"])
+        table.add_column(lbl["col_attempts"], justify="right")
+        table.add_column(lbl["col_time"], justify="right")
         for task, solved, attempts, dur in rows:
             table.add_row(task, solved, attempts, dur)
         _console.print(table)
@@ -437,26 +498,30 @@ def print_progress_summary(progress: list[Any]) -> None:
     print(_SEP)
 
 
-def print_lint_block(violations: list[Any], *, rules_provider: Any = None) -> None:
+def print_lint_block(
+    violations: list[Any], *, rules_provider: Any = None, labels: Mapping[str, str] | None = None
+) -> None:
     """Блок «Стиль» после результатов режимов 1/2 (issue #349).
 
     Группирует нарушения по коду (``⚐ E501 ×3 [строки …]``) с однострочником
     правила из ``rules_provider``. Пустой список — тихо ничего. Линт НЕ влияет
-    на вердикт — чисто информационный блок (эпик #342, § 9.4).
+    на вердикт — чисто информационный блок (эпик #342, § 9.4). ``labels`` —
+    подписи готовыми строками (issue #824).
     """
     if not violations:
         return
+    lbl = _labels(_LINT_LABELS, labels)
     by_code: dict[str, list[int]] = {}
     for v in violations:
         by_code.setdefault(v.rule_code, []).append(v.line_no)
-    _cprint("Стиль (не влияет на вердикт):", style="yellow")
+    _cprint(lbl["title"], style="yellow")
     for code in sorted(by_code):
         lines = sorted(n for n in by_code[code] if n > 0)
         rule = rules_provider.get(code) if rules_provider is not None else None
         note = f" — {rule.summary or rule.title}" if rule is not None else ""
         shown = ", ".join(str(n) for n in lines[:10])
         more = "…" if len(lines) > 10 else ""
-        loc = f" [строки {shown}{more}]" if lines else ""
+        loc = f" [{lbl['lines']} {shown}{more}]" if lines else ""
         _cprint(f"  ⚐ {code} ×{len(by_code[code])}{loc}{note}", style="yellow")
 
 
@@ -473,12 +538,38 @@ def _cprint(text: str, *, style: str = "") -> None:
         print(text)
 
 
+def _clip_value(value: str) -> str:
+    """Обрезать однострочное значение до ``_VERBOSE_MAX_VALUE_CHARS`` (issue #824).
+
+    Хвост объявляется числом отброшенных символов: «обрезано» без объёма врёт не
+    меньше, чем молчаливая обрезка — по нему не понять, потерялся ли один символ
+    или сто тысяч.
+    """
+    if len(value) <= _VERBOSE_MAX_VALUE_CHARS:
+        return value
+    dropped = len(value) - _VERBOSE_MAX_VALUE_CHARS
+    return f"{value[:_VERBOSE_MAX_VALUE_CHARS]}… ещё {dropped} симв."
+
+
+def _clip_diff_lines(diff: str) -> tuple[list[str], int]:
+    """Первые ``_VERBOSE_MAX_DIFF_LINES`` строк diff и число отброшенных (issue #824)."""
+    lines = diff.splitlines()
+    if len(lines) <= _VERBOSE_MAX_DIFF_LINES:
+        return lines, 0
+    return lines[:_VERBOSE_MAX_DIFF_LINES], len(lines) - _VERBOSE_MAX_DIFF_LINES
+
+
 def print_case_verbose(case: TestCase, r: CaseResult) -> None:
     """Подробный вывод одного тест-кейса (режим 1, verbose): вердикт + diff при WA.
 
     ``r`` — case-result dict (форма ``run_single_test()``, issue #116); сразу
     конвертируется в типизированный ``TestResult`` (issue #113/#114), дальше
     функция читает только его поля, а не произвольные ключи словаря.
+
+    При провале печатается ВХОД кейса (issue #824, DESC-01): первое, что нужно
+    после «✗ Test 7: WA», — на каких данных сломалось, а раньше за этим
+    приходилось уходить из терминала в ``tests/`` и сопоставлять нумерацию
+    вручную. Все три значения и diff обрезаются (DESC-02).
     """
     result = TestResult.from_dict(r)
     icon = "✓" if result.passed else "✗"
@@ -498,17 +589,22 @@ def print_case_verbose(case: TestCase, r: CaseResult) -> None:
     if result.passed:
         return
 
-    # WA: компактное сравнение expected vs actual + diff.
+    # WA: вход кейса + компактное сравнение expected vs actual + diff.
+    stdin = " | ".join(case.input_lines) or "(empty)"
     expected = " | ".join(result.expected) or "(empty)"
     actual = " | ".join(result.output) or "(empty)"
-    _cprint(f"    Expected: {expected}")
-    _cprint(f"    Actual:   {actual}")
+    _cprint(f"    Input:    {_clip_value(stdin)}", style="dim")
+    _cprint(f"    Expected: {_clip_value(expected)}")
+    _cprint(f"    Actual:   {_clip_value(actual)}")
     if result.diff:
         _cprint("    Diff:")
-        for line in result.diff.splitlines():
+        lines, dropped = _clip_diff_lines(result.diff)
+        for line in lines:
             if line.startswith("+"):
                 _cprint(f"    {line}", style="green")
             elif line.startswith("-"):
                 _cprint(f"    {line}", style="red")
             else:
                 _cprint(f"    {line}", style="dim")
+        if dropped:
+            _cprint(f"    … ещё {dropped} стр. diff", style="dim")
