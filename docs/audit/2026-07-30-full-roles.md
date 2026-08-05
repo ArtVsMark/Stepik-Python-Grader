@@ -219,12 +219,15 @@ Growth / Реклама / Комьюнити и три подсреза доку
 
 | ID | Итог | Заявл. | ✓ | Место | Что не так |
 |---|---|---|---|---|---|
-| `SECW-01` | **medium** | critical | ◐ | `src/stepik_grader/web/http_guards.py:41` | Origin/Host-allowlist игнорирует порт: любая страница с localhost:* обходит CSRF-гард и получает RCE |
+| `SECW-01` | **medium** | critical | ✅ | `src/stepik_grader/web/http_guards.py:41` | Origin/Host-allowlist игнорирует порт: любая страница с localhost:* обходит CSRF-гард и получает RCE |
 | `SECW-04` | **medium** | — | ✅ | `src/stepik_grader/web/api_routes.py:749` | POST /api/stepik/submit жёстко читает workspace/secrets.json, игнорируя secrets_path из конфига |
 | `SECW-02` | **low** | high | ◐ | `src/stepik_grader/web/api_routes.py:341` | GET /api/source отдаёт содержимое ЛЮБОГО файла в workspace, включая secrets.json с OAuth-токенами |
 | `SECW-03` | **low** | medium | ✅ | `src/stepik_grader/web/runs.py:228` | Реестр job'ов растёт неограниченно: back-pressure считает только активные job'ы |
 | `SECW-05` | **low** | medium | ◐ | `src/stepik_grader/web/api_routes.py:394` | /api/downloader/config + /api/auth/start перезаписывают произвольный файл в workspace секретами |
 | `SECW-06` | **low** | — | ◐ | `src/stepik_grader/web/server.py:173` | GET / не проходит Host-гард и отдаёт абсолютный путь workspace любому origin |
+
+**Закрыто:** `SECW-01` — PR по #811 (`_authority_is_allowed` сверяет и порт, а не только
+hostname: страница на другом порту loopback больше не проходит CSRF-гард).
 
 ### 🔐 Actions: агент на чужом PR
 
@@ -250,14 +253,16 @@ OWNER/MEMBER/COLLABORATOR, инструменты агента по явному
 |---|---|---|---|---|---|
 | `SUP-01` | **high** | — | ✅ | `.github/workflows/release.yml:13` | Публикация в PyPI без гейта тестов: любой тег v* с любой ветки уходит в релиз |
 | `SUP-02` | **medium** | high | ◐ | `.github/workflows/release.yml:95` | Сторонние actions по плавающим ref в job с id-token: write и contents: write |
-| `SUP-03` | **medium** | high | ◐ | `src/stepik_grader/web/static/vendor/VERSIONS.md:121` | Вендоренный CodeMirror-бандл 360 КБ без хеша и без автопроверки целостности |
+| `SUP-03` | **medium** | high | ✅ | `src/stepik_grader/web/static/vendor/VERSIONS.md:121` | Вендоренный CodeMirror-бандл 360 КБ без хеша и без автопроверки целостности |
 | `SUP-04` | **medium** | — | ✅ | `.github/workflows/ci.yml:40` | contents: write выдан всей матрице тестов, а не отдельной badge-job |
 | `SUP-05` | **medium** | — | ✅ | `.pre-commit-config.yaml:9` | Версия ruff в pre-commit прибита, а в CI плавает: локальный проход не гарантирует зелёный CI |
 
 **Закрыто:** `SUP-01` — PR #848 (job `verify` с полным набором проверок CI на том же коммите,
 публикация через `needs: [build, verify]`, тег обязан стоять на коммите из `main`). `SUP-02`,
 `SUP-04` — PR #850 (пиннинг по SHA во всех workflow; `contents: write` снят с матрицы тестов и
-остался у единственного job'а, коммитящего бейджи).
+остался у единственного job'а, коммитящего бейджи). `SUP-03` — PR по #810 (SHA256 бандла в
+`vendor/VERSIONS.md` § Integrity сверяется `tests/test_packaging.py` на каждом прогоне CI; тем же
+тестом закреплено отсутствие Node-зависимых импортов).
 
 ### 🔐 Данные из сети на диск
 
