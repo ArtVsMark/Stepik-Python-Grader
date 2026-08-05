@@ -6,13 +6,21 @@
 fallback на компактный ``core/glossary.py`` (~28 записей), когда локальная
 JSON-база не настроена (``CONFIG.glossary_store is None``), — так раздел
 «Глоссарий» не пустует на свежей установке (issue #125).
+
+Что здесь есть и чего нет (issue #831, ARCH-06): доменные правила базы —
+классификация разделов, EN-подписи, сортировки, приватность карточки
+(``glossary/taxonomy.py``), индексы «концепция из кода → карточка»
+(``glossary/lookup.py``) и наборы имён для сканера
+(``glossary/stdlib_inventory.scanner_name_sets``) — живут в домене и доступны
+любому потребителю, не только HTTP. Здесь остаётся web-специфичное: разрешение
+источника с кешем по mtime (``core/mtime_cache``), сборка JSON-словарей ответа и
+zero-config fallback на ``core/glossary`` — ребро на ``core/*``, которого в
+``glossary/`` быть не должно (ADR-0011).
 """
 
 from __future__ import annotations
 
-import keyword
 import pathlib
-import sys
 from typing import Any, NamedTuple
 
 from stepik_grader.config import CONFIG
@@ -26,8 +34,21 @@ from stepik_grader.glossary.json_provider import (
     append_missing_entries,
     load_missing_queue,
 )
+from stepik_grader.glossary.lookup import (
+    card_index,
+    match_card,
+    method_names_from_cards,
+    name_concepts_from_cards,
+)
 from stepik_grader.glossary.models import GlossaryCard
-from stepik_grader.glossary.stdlib_inventory import build_stdlib_inventory
+from stepik_grader.glossary.stdlib_inventory import scanner_name_sets
+from stepik_grader.glossary.taxonomy import (
+    GROUPS,
+    card_group,
+    is_private_name,
+    section_label,
+    sort_cards,
+)
 
 __all__ = [
     "code_terms",
@@ -36,165 +57,6 @@ __all__ = [
     "glossary_search",
     "queue_code_gaps",
 ]
-
-# Допустимые сортировки раздела «Глоссарий» (issue #329, relevance — #685).
-# Всё прочее → порядок источника (без сортировки).
-_SORTS = frozenset({"relevance", "az", "section", "version"})
-
-# Семейства разделов (issue #685) — грань ?group=, вычисляемая из ``section``,
-# без нового поля в карточках. Семейства покрывают ВСЕ разделы базы: в UI они
-# заменили собой селект «Раздел» и чипы, поэтому раздел без семейства стал бы
-# недостижимым в навигации. Страховка от такого дрейфа двойная: неизвестный
-# раздел падает в ``other`` («Прочее» — кнопка появляется, только если семейство
-# непусто), а тест ``test_every_bundled_section_has_explicit_group`` требует,
-# чтобы в комплектной базе ``other`` оставалось пустым — новый раздел из аудита
-# карточек (#684) обязан быть классифицирован здесь явно.
-_MODULE_SECTION_PREFIX = "Модуль "
-_SECTION_GROUPS: dict[str, str] = {
-    # Типы данных — встроенные типы и их методы.
-    "Строки (str)": "types",
-    "Списки (list)": "types",
-    "Кортежи (tuple)": "types",
-    "Словари (dict)": "types",
-    "Множества (set)": "types",
-    "Байтовые последовательности": "types",
-    "Числа и математика": "types",
-    "Типы данных": "types",
-    "Встроенные типы": "types",
-    # Синтаксис языка — конструкции, а не библиотечные функции.
-    "Функции": "syntax",
-    "ООП": "syntax",
-    "Циклы": "syntax",
-    "Условный оператор": "syntax",
-    "Итераторы и генераторы": "syntax",
-    "Асинхронное программирование": "syntax",
-    "Арифметика и операторы": "syntax",
-    "Аннотации и typing": "syntax",
-    # Встроенное и ошибки.
-    "Встроенные функции": "builtins",
-    "Исключения": "builtins",
-    # Ввод-вывод.
-    "Ввод и вывод": "io",
-    "Файлы и I_O": "io",
-    # Алгоритмы и структуры данных (учебная тема, не тип и не модуль).
-    "Алгоритмы и структуры данных": "algorithms",
-}
-_OTHER_GROUP = "other"
-_GROUPS = frozenset({"modules", *_SECTION_GROUPS.values(), _OTHER_GROUP})
-
-# EN-подписи разделов (issue #685). Имя раздела — серверное ЗНАЧЕНИЕ фильтра
-# (`?section=`) и остаётся русским; наружу вместе с ним едет `section_label` —
-# то, что показывает UI. Переводы живут здесь, рядом с классификацией, а не в
-# ui.json: там ключ пришлось бы синтезировать из русской строки, и любой
-# переименованный при аудите (#684) раздел давал бы маркер ⟦…⟧ вместо текста.
-# Здесь незнакомый раздел просто показывается как есть.
-_MODULE_SECTION_PREFIX_EN = "Module "
-_SECTION_LABELS_EN: dict[str, str] = {
-    "Строки (str)": "Strings (str)",
-    "Списки (list)": "Lists (list)",
-    "Кортежи (tuple)": "Tuples (tuple)",
-    "Словари (dict)": "Dictionaries (dict)",
-    "Множества (set)": "Sets (set)",
-    "Байтовые последовательности": "Byte sequences",
-    "Числа и математика": "Numbers & math",
-    "Типы данных": "Data types",
-    "Встроенные типы": "Built-in types",
-    "Функции": "Functions",
-    "ООП": "OOP",
-    "Циклы": "Loops",
-    "Условный оператор": "Conditionals",
-    "Итераторы и генераторы": "Iterators & generators",
-    "Асинхронное программирование": "Async programming",
-    "Арифметика и операторы": "Arithmetic & operators",
-    "Аннотации и typing": "Annotations & typing",
-    "Встроенные функции": "Built-in functions",
-    "Исключения": "Exceptions",
-    "Ввод и вывод": "Input & output",
-    "Файлы и I_O": "Files & I/O",
-    "Алгоритмы и структуры данных": "Algorithms & data structures",
-}
-
-
-def _section_label(section: str, lang: str) -> str:
-    """Подпись раздела для UI: RU — как есть, EN — перевод (fallback — исходник).
-
-    Разделы модулей переводятся правилом «Модуль X» → «Module X»: имя модуля
-    (``math``, ``os``) — не текст для перевода, а идентификатор.
-    """
-    if lang != "en" or not section:
-        return section
-    if section.startswith(_MODULE_SECTION_PREFIX):
-        return _MODULE_SECTION_PREFIX_EN + section[len(_MODULE_SECTION_PREFIX) :]
-    return _SECTION_LABELS_EN.get(section, section)
-
-
-# При коллизии «хвоста» (``split`` есть у str/bytes/bytearray) предпочитаем
-# метод основного типа, который новичок и имеет в виду: str → list → dict → …
-# Работает и на матче концепций из кода (``_card_index``), и на тай-брейке
-# релевантной выдачи (``_sort_cards``, issue #685).
-_TYPE_PRIORITY: tuple[str, ...] = ("str.", "list.", "dict.", "set.", "tuple.")
-
-
-def _type_priority(card: GlossaryCard) -> int:
-    """Позиция типа-владельца карточки в ``_TYPE_PRIORITY`` (не из списка — в конец)."""
-    cid = card.id.lower()
-    for i, prefix in enumerate(_TYPE_PRIORITY):
-        if cid.startswith(prefix):
-            return i
-    return len(_TYPE_PRIORITY)
-
-
-def _card_group(card: GlossaryCard) -> str:
-    """Семейство карточки по её разделу (``modules``/``types``/… либо ``other``).
-
-    Отдаётся в API вместе с карточкой (issue #685): UI строит из этого поля и
-    ряд кнопок-семейств, и список разделов внутри раскрытого семейства — правило
-    классификации живёт только здесь и в JS не повторяется.
-    """
-    if card.section.startswith(_MODULE_SECTION_PREFIX):
-        return "modules"
-    return _SECTION_GROUPS.get(card.section, _OTHER_GROUP)
-
-
-def _sort_cards(cards: list[GlossaryCard], sort: str | None, query: str = "") -> list[GlossaryCard]:
-    """Отсортировать карточки: relevance, az (A–Z), section (раздел→A–Z), version.
-
-    ``relevance`` (issue #685) — по качеству совпадения с ``query``
-    (``GlossaryCard.match_rank``), тай-брейк — приоритет типа-владельца
-    (``str.split`` выше ``bytearray.split``, тот же ``_TYPE_PRIORITY``, что у
-    матча из кода) и затем A–Z. Без запроса ранжировать нечего, поэтому режим
-    вырождается ровно в ``az``: приоритет типа там не применяется (иначе
-    выдача «просто открыл раздел» перестала бы быть алфавитной — методы ``str.``
-    всплыли бы наверх).
-    """
-    if sort == "relevance":
-        if not query.strip():
-            return sorted(cards, key=lambda c: c.title.lower())
-        return sorted(
-            cards, key=lambda c: (c.match_rank(query), _type_priority(c), c.title.lower())
-        )
-    if sort == "az":
-        return sorted(cards, key=lambda c: c.title.lower())
-    if sort == "section":
-        return sorted(cards, key=lambda c: (c.section.lower(), c.title.lower()))
-    if sort == "version":
-        # Карточки без версии — в конец; версии по возрастанию строкового ключа.
-        return sorted(cards, key=lambda c: (c.version == "", c.version, c.title.lower()))
-    return cards
-
-
-def _is_private_name(card_id: str) -> bool:
-    """True для приватно-именованных карточек (issue #436).
-
-    Приватным считается id, у которого ХОТЯ БЫ один сегмент (по точкам) начинается
-    с одиночного ``_``, но НЕ является дандером ``__x__``. Примеры приватных:
-    ``os._exit``, ``_pickle.pickleerror``, ``warnings._optionerror``. Дандеры
-    (``__init__``, ``str.__len__``) — легитимные публичные карточки, НЕ приватны.
-    """
-    for segment in card_id.split("."):
-        if segment.startswith("_") and not (segment.startswith("__") and segment.endswith("__")):
-            return True
-    return False
 
 
 def _fallback_cards() -> list[GlossaryCard]:
@@ -217,7 +79,7 @@ def _fallback_cards() -> list[GlossaryCard]:
 # по mtime через общий core/mtime_cache.MtimeCache (issue #345 — тот же
 # механизм переиспользует провайдер правил, не копипастя его; правка store
 # подхватывается, read-only бандл-база после первой загрузки стабильна).
-# Потребители карточки не мутируют (glossary_search/_card_index строят новые
+# Потребители карточки не мутируют (glossary_search/card_index строят новые
 # списки), поэтому общий список безопасно шарить между запросами/потоками
 # ThreadingHTTPServer — гонка на пересчёт идемпотентна.
 _CARDS_CACHE: MtimeCache[list[GlossaryCard]] = MtimeCache()
@@ -228,13 +90,13 @@ class _GlossaryIndex(NamedTuple):
 
     ``by_id`` — ``id -> карточка`` для O(1) ``glossary_get`` (был O(n)-скан
     ``next(...)`` на каждый ``/api/glossary/{id}``); ``by_concept`` — индекс
-    ``_card_index`` (id/alias/«хвост» → карточка) для ``code_terms`` (был пересбор
+    ``lookup.card_index`` (id/alias/«хвост» → карточка) для ``code_terms`` (был пересбор
     словаря со внутренним ``sorted()`` по ~1400 карточкам на каждый
     ``/api/code-terms``); ``method_names`` (issue #686) — имена методов, которые
-    знает сама база (``_method_names_from_cards``): ими сканер дополняет
+    знает сама база (``lookup.method_names_from_cards``): ими сканер дополняет
     инвентарь встроенных типов, иначе ``Path.exists()`` остаётся незамеченным;
     ``name_concepts`` (issue #686) — bare-имена всех карточек
-    (``_name_concepts_from_cards``): по ним сканер ловит голые ссылки
+    (``lookup.name_concepts_from_cards``): по ним сканер ловит голые ссылки
     (``isinstance(x, int)``, ``x: Counter``), а не только вызовы.
     """
 
@@ -300,9 +162,9 @@ def _build_index(cards: list[GlossaryCard]) -> _GlossaryIndex:
         by_id.setdefault(card.id, card)
     return _GlossaryIndex(
         by_id=by_id,
-        by_concept=_card_index(cards),
-        method_names=_method_names_from_cards(cards),
-        name_concepts=_name_concepts_from_cards(cards),
+        by_concept=card_index(cards),
+        method_names=method_names_from_cards(cards),
+        name_concepts=name_concepts_from_cards(cards),
     )
 
 
@@ -352,27 +214,27 @@ def glossary_search(
     (``code_terms``/``queue_code_gaps``) по-прежнему видят ПОЛНУЮ базу (AC3).
     """
     cards = _all_cards(store_path)
-    cards = [c for c in cards if c.status == "ready" or not _is_private_name(c.id)]
+    cards = [c for c in cards if c.status == "ready" or not is_private_name(c.id)]
     if query.strip():
         cards = [c for c in cards if c.matches(query)]
     if section:
         cards = [c for c in cards if c.section == section]
     if kind:
         cards = [c for c in cards if c.kind == kind]
-    if group in _GROUPS:
-        cards = [c for c in cards if _card_group(c) == group]
+    if group in GROUPS:
+        cards = [c for c in cards if card_group(c) == group]
     effective_status = status if status else "ready"
     if effective_status != "all":
         cards = [c for c in cards if c.status == effective_status]
-    cards = _sort_cards(cards, sort, query)
+    cards = sort_cards(cards, sort, query)
     # ``group``/``section_label`` — аддитивные поля ответа (issue #685): по
     # первому UI строит семейства и списки их разделов, второе — подпись раздела
     # на языке ``lang`` (само ``section`` остаётся серверным значением фильтра).
     return [
         {
             **c.to_api_dict(lang),
-            "group": _card_group(c),
-            "section_label": _section_label(c.section, lang),
+            "group": card_group(c),
+            "section_label": section_label(c.section, lang),
         }
         for c in cards
     ]
@@ -392,117 +254,9 @@ def glossary_get(
         return None
     return {
         **card.to_api_dict(lang),
-        "group": _card_group(card),
-        "section_label": _section_label(card.section, lang),
+        "group": card_group(card),
+        "section_label": section_label(card.section, lang),
     }
-
-
-def _card_index(cards: list[GlossaryCard]) -> dict[str, GlossaryCard]:
-    """Индекс ``id/alias/«хвост id» (lower) -> карточка`` для матча концепций из кода.
-
-    Помимо ``id`` и ``aliases`` карточка индексируется по «хвосту» своего id
-    после точки (``str.split`` → ключ ``split``): концепция-метод из сканера
-    приходит голым именем (``split``), а карточка метода хранится как
-    ``str.split`` (issue #322). При конфликте «хвоста» побеждает карточка
-    основного типа (``str.split`` важнее ``bytearray.split``).
-    """
-    index: dict[str, GlossaryCard] = {}
-    for card in sorted(cards, key=_type_priority):  # приоритетные типы кладутся первыми
-        keys = {card.id, card.id.rsplit(".", 1)[-1], *card.aliases}
-        for key in keys:
-            k = key.strip().lower()
-            if k:
-                index.setdefault(k, card)
-    return index
-
-
-def _match_card(concept: str, index: dict[str, GlossaryCard]) -> GlossaryCard | None:
-    """Найти карточку под концепцию: точное id/alias/«хвост», затем «хвост» концепции.
-
-    ``functools.reduce`` матчится картой ``reduce``, а голый метод ``split`` —
-    картой ``str.split`` (через индекс по «хвосту id», см. ``_card_index``).
-    """
-    concept_lc = concept.lower()
-    if concept_lc in index:
-        return index[concept_lc]
-    tail = concept_lc.rsplit(".", 1)[-1]
-    return index.get(tail)
-
-
-# issue #367: наборы builtins/методов для сканера — из stdlib-инвентаря (issue
-# #196), а не из узкого хардкода detector.py. Инвентарь детерминирован и
-# стабилен в пределах процесса (интроспекция running-интерпретатора, без ФС),
-# поэтому считается один раз лениво и кешируется в модульном глобале.
-_INVENTORY_SETS: tuple[frozenset[str], frozenset[str]] | None = None
-
-
-def _inventory_sets() -> tuple[frozenset[str], frozenset[str]]:
-    """``(builtins, methods)`` из ``stdlib_inventory`` для ``scan_code_concepts``.
-
-    ``builtins`` — имена встроенных функций/классов (``frozenset``, ``super``,
-    ``hash``, …, которых узкий ``CODE_TERM_BUILTINS`` не знал) **и встроенных
-    исключений** (issue #686: без них ``ValueError("...")`` в коде не
-    распознавалось, хотя карточка есть); ``methods`` — имена публичных методов
-    встроенных типов (``removeprefix``, ``translate``, bytes-методы, …).
-    Кешируется на весь процесс.
-    """
-    global _INVENTORY_SETS
-    if _INVENTORY_SETS is None:
-        items = build_stdlib_inventory()
-        builtins_names = frozenset(
-            it.qualname
-            for it in items
-            if it.module == "builtins" and it.kind in ("function", "class", "exception")
-        )
-        method_names = frozenset(
-            it.qualname.rsplit(".", 1)[-1] for it in items if it.kind == "method"
-        )
-        _INVENTORY_SETS = (builtins_names, method_names)
-    return _INVENTORY_SETS
-
-
-def _name_concepts_from_cards(cards: list[GlossaryCard]) -> frozenset[str]:
-    """Bare-имена (без точки), на которые в базе есть карточка, — правильный регистр.
-
-    issue #686: сканер распознаёт голую ссылку на имя (``isinstance(x, int)``,
-    ``x: Counter``, ``class Foo(Enum)``) только если оно в этом наборе, поэтому
-    набор — это буквально «всё, на что есть карточка»: любой класс/функция
-    модуля или встроенное имя, а не курируемый список. Регистр берём из
-    ``title`` (``KeyError``, ``Counter``, ``NamedTuple``): id карточек
-    нормализован в нижний, а в коде имя пишется как в Python. Ключевые слова
-    (``for``, ``def``) исключены — они не ``Name``, их ловят visit-конструкции.
-    """
-    names: set[str] = set()
-    for card in cards:
-        if "." in card.id:
-            continue
-        title = card.title.replace("()", "").strip()
-        name = title if title.isidentifier() else (card.id if card.id.isidentifier() else "")
-        if name and not keyword.iskeyword(name):
-            names.add(name)
-    return frozenset(names)
-
-
-def _method_names_from_cards(cards: list[GlossaryCard]) -> frozenset[str]:
-    """Имена методов, известные самой базе: «хвосты» id вида ``Класс.метод``.
-
-    issue #686: stdlib-инвентарь знает методы только встроенных типов (204 имени
-    из ``builtins``), поэтому ``Path.exists()``/``Path.read_text()`` панель не
-    видела — хотя карточки ``path.exists``/``path.read_text`` в базе есть.
-    Источником имён становится сама база: если первый сегмент id — НЕ имя
-    stdlib-модуля, то это класс, а хвост — его метод. Проверка по
-    ``sys.stdlib_module_names`` не даёт превратить ``math.sqrt`` в «метод
-    ``sqrt``», иначе любой ``obj.sqrt()`` матчился бы на функцию модуля.
-    """
-    names: set[str] = set()
-    for card in cards:
-        head, _, tail = card.id.partition(".")
-        if not tail or "." in tail:
-            continue
-        if head in sys.stdlib_module_names:
-            continue
-        names.add(tail)
-    return frozenset(names)
 
 
 def code_terms(
@@ -529,7 +283,7 @@ def code_terms(
     только вызванное.
     """
     index_data = _glossary_index(store_path)  # issue #404: индекс кеширован по mtime
-    inventory_builtins, methods = _inventory_sets()
+    inventory_builtins, methods = scanner_name_sets()
     concepts = scan_code_concepts(
         code,
         notable_builtins=inventory_builtins | index_data.name_concepts,
@@ -544,7 +298,7 @@ def code_terms(
     terms: list[dict[str, Any]] = []
     for concept, (kind, snippet) in concepts.items():
         confidence = "low" if kind == "method" else "high"
-        card = _match_card(concept, index)
+        card = match_card(concept, index)
         if card is not None:
             if card.id in seen_cards:
                 continue

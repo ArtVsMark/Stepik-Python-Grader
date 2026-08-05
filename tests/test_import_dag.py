@@ -235,6 +235,41 @@ def test_leaf_module_has_no_project_imports(leaf: str) -> None:
     )
 
 
+def test_glossary_package_does_not_import_core() -> None:
+    """ADR-0011: подпакет ``glossary/`` не зависит от ``core/``.
+
+    Ровно это правило и позволило перенести доменные правила базы из
+    ``web/glossary_adapter`` в ``glossary/taxonomy``/``glossary/lookup``
+    (issue #830-соседний #831, ARCH-06): домен обязан оставаться пригодным для
+    CLI и для внешнего экспорта, а не тянуть за собой рантайм грейдера. Общая
+    инфраструктура для обоих подпакетов живёт в top-level leaf'ах
+    (``atomic_io``, ``db``) — именно чтобы это ребро не появилось.
+
+    Учитываются ВСЕ импорты, включая ленивые: обход через локальный импорт
+    внутри функции — тот самый способ, которым такое ребро обычно и заводят.
+    """
+    files = _iter_module_files()
+    modules = {_module_name(p) for p in files}
+    violations: dict[str, list[str]] = {}
+    for path in files:
+        name = _module_name(path)
+        if not name.startswith("stepik_grader.glossary"):
+            continue
+        offenders: set[str] = set()
+        for node in ast.walk(_parse(path)):
+            if isinstance(node, ast.Import | ast.ImportFrom):
+                offenders |= {
+                    t for t in _project_targets(path, node, modules) if ".core" in f".{t}"
+                }
+        if offenders:
+            violations[name] = sorted(offenders)
+    assert not violations, (
+        "glossary/ импортирует core/ — ребро, которого ADR-0011 не допускает "
+        "(общее выносится в top-level leaf: atomic_io, db):\n"
+        + "\n".join(f"  {mod}: {', '.join(off)}" for mod, off in violations.items())
+    )
+
+
 def test_cycle_detector_catches_synthetic_cycle() -> None:
     """Guard-the-guard: детектор реально ловит цикл (иначе тест выше — пустой)."""
     assert _find_cycle({"a": {"b"}, "b": {"c"}, "c": {"a"}}) is not None

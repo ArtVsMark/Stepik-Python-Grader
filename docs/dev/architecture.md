@@ -87,6 +87,8 @@
 | `glossary/json_provider.py` | Domain | `JsonGlossaryProvider` (загрузка/поиск локальной JSON-базы карточек) + очередь пополнения |
 | `glossary/detector.py` | Domain | `MissingConceptDetector` — консервативный AST-детектор недостающих функций/конструкций/исключений |
 | `glossary/stdlib_inventory.py` | Domain (leaf) | Офлайн-инвентарь официального Python/stdlib через интроспекцию (`build_stdlib_inventory`, `StdlibItem`, `NOTABLE_STDLIB_MODULES`) — source-driven сторона покрытия; только stdlib, не тянет `core/*`. Обход `BaseException` фильтруется `_is_official_stdlib_exception` (по `sys.stdlib_module_names` + отсев приватных модулей/классов), чтобы в инвентарь не попадали исключения стороннего/приватного/собственного кода, случайно загруженного в процесс |
+| `glossary/taxonomy.py` | Domain (leaf) | Классификация и порядок выдачи: семейства разделов (`SECTION_GROUPS`/`card_group`), EN-подписи (`section_label`), сортировки (`sort_cards`), правило «карточка приватна» (`is_private_name`). Свойства самой базы, поэтому доступны и CLI, а не только web-адаптеру |
+| `glossary/lookup.py` | Domain (leaf) | Производные индексы базы: `card_index`/`match_card` (концепция из кода → карточка, включая «хвост» id), `name_concepts_from_cards`/`method_names_from_cards` (что база вообще знает по именам) |
 | `glossary/coverage.py` | Domain | Сопоставление инвентаря с локальной базой (`build_coverage_report`, `missing_entries_from_inventory`) + CLI `python -m stepik_grader.glossary.coverage`; зависит только от leaf-модулей пакета `glossary/` |
 
 Основные возможности (пользовательский взгляд) — в [README](../../README.md);
@@ -132,7 +134,9 @@ web/viewmodels.py      ──→  core/history.py, core/lint.py, core/mtime_cach
 web/downloader_adapter.py ──→  downloader.py, core/oauth_flow.py, core/stepik_client.py  (read_step_id — meta.json скачанной задачи), core/storage.py, core/test_loader.py
 web/settings_adapter.py   ──→  core/user_settings.py  (чтение/переключение флагов настроек — единственная точка web-слоя)
 web/auth_adapter.py       ──→  core/oauth_flow.py, core/storage.py  (браузерный OAuth-мастер --serve)
-web/glossary_adapter.py   ──→  core/glossary.py, core/mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, config.py  (stdlib_inventory для code_terms)
+web/glossary_adapter.py   ──→  core/glossary.py, core/mtime_cache.py, glossary/json_provider.py, glossary/models.py, glossary/detector.py, glossary/stdlib_inventory.py, glossary/taxonomy.py, glossary/lookup.py, config.py  (stdlib_inventory для code_terms; классификация и индексы — в домене, адаптер их только вызывает)
+glossary/taxonomy.py      ──→  glossary/models.py  (семейства разделов, EN-подписи, сортировки, приватность карточки)
+glossary/lookup.py        ──→  glossary/models.py, glossary/taxonomy.py  (индекс концепций из кода → карточка)
 web/rules_adapter.py       ──→  rules/  (bundled_rules), core/history_recording.py  (резолв пути БД), core/insights.py  (подсветка лично нарушенных правил)
 web/insights_adapter.py    ──→  core/history_recording.py  (резолв пути БД), core/insights.py, core/progress_export.py, config.py  (отчёт «Прогресс» — тот же движок, что у CLI --export-progress)
 web/commands.py            (только stdlib — реестр команд, project-импортов нет)
