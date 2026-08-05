@@ -51,7 +51,7 @@
 | `core/mode_detector.py` | Application | Детекция режима запуска stdin/function (`_detect_run_mode`, `is_function_only_solution`) |
 | `core/wrapper_builder.py` | Application | Генерация wrapper-скриптов для function-mode запуска |
 | `core/reporter.py` | Application / UI | rich-таблицы с цветами, вердикты AC/WA/TLE/RE, verbose-diff при WA, адаптивное форматирование времени (`fmt_time`) |
-| `core/result.py` | Domain (leaf) | `TestResult` (frozen dataclass) + `Verdict` Literal — типизированная модель case result; `from_dict`/`to_dict` конвертируют форму, которую по-прежнему возвращает `run_single_test()` (`dict[str, Any]`, контракт не меняется — [result-contract.md](result-contract.md)); используется `core/reporter.print_case_verbose` вместо чтения произвольных dict-ключей |
+| `core/result.py` | Domain (leaf) | `CaseResult`/`SolutionResult`/`BenchResult` (TypedDict — типы самих словарей ядра, все три уровня контракта), `TestResult` (frozen dataclass) + `Verdict` Literal — типизированная модель case result; `from_dict`/`to_dict` конвертируют форму, которую по-прежнему возвращает `run_single_test()` (`dict[str, Any]`, контракт не меняется — [result-contract.md](result-contract.md)); используется `core/reporter.print_case_verbose` вместо чтения произвольных dict-ключей |
 | `core/runner.py` | Infrastructure | `Runner` Protocol + `RunSpec`/`RunOutcome` + `LocalRunner` — абстракция запуска кода (`docs/server-mode.md § Runner-слой`); `LocalRunner` — subprocess + best-effort лимит памяти (POSIX) + psutil-мониторинг RSS, то же поведение, что раньше жило внутри `run_single_test`. `SandboxRunner` (см. `core/sandbox/`) — тот же протокол, ОС-уровневая изоляция; инъекция через `grader_core.set_runner()` |
 | `core/tracer.py` | Infrastructure | Пошаговый трассировщик `trace_code` (`sys.settrace` → JSON-трейс) для web-песочницы: исполнение в subprocess, нормализованные `obj_id`, лимит шагов. **Не leaf:** на загрузке импортирует `config` (лимиты) и `core/runner.py` (`RunSpec`), плюс лениво `core/grader_core.py` |
 | `core/sandbox/` | Infrastructure | `SandboxRunner`/`SandboxUnavailableError` (`--sandbox`) — ОС-специфичный backend по платформе: `_linux.py` (bubblewrap), `_macos.py` (sandbox-exec/Seatbelt), `_windows.py` (Job Objects, ctypes); `_posix_bootstrap.py`/`_posix_common.py` — общий POSIX-код лимитов (CPU/FS/processes) для Linux и macOS; `_run_dir.py` — эфемерная run-директория. Реализует тот же `Runner`-протокол, что `LocalRunner` — см. [server-mode.md § Runner-слой](design/server-mode.md), гарантии по ОС — [SECURITY.md](../../SECURITY.md) |
@@ -168,6 +168,10 @@ core/history.py           ──→  db.py  (.grader_history.db через об�
 pytest_plugin.py       ──→  core/grader_core.py, core/test_loader.py  (импорты отложены в функции)
 core/reporter.py       ──→  core/error_glossary.py  (resolve_error_hint: glossary-блок при RE)
 core/reporter.py       ──→  core/result.py  (TestResult.from_dict в print_case_verbose)
+cli/commands.py        ──→  core/result.py  (SolutionResult/BenchResult — типы агрегатов, которые режимы получают из ядра)
+cli/context.py         ──→  core/result.py  (те же типы в сигнатурах вызываемых из контекста функций)
+web/viewmodels.py      ──→  core/result.py  (те же типы на входе сборки JSON-ответа)
+web/runs.py            ──→  core/diag_log.py  (traceback упавшей job'ы в диагностический лог)
 core/error_glossary.py ──→  core/glossary.py, glossary/json_provider.py  (bundled JSON → компактная карта fallback, лениво; glossary/ не тянет core/, ацикл)
 ide.py                 (только stdlib — генерация конфигов VS Code; project-импортов нет)
 launcher.py            (только stdlib + tkinter/subprocess — поднимает --serve отдельным процессом; project-импортов нет, leaf)

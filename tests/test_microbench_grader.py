@@ -237,3 +237,44 @@ def test_run_microbench_accepts_generous_memory_limit() -> None:
     result = grader.run_microbench("x = 1 + 1\n", stdin_data="", number=5, max_memory_mb=512)
     assert result["error"] == ""
     assert len(result["times"]) == 5
+
+
+def test_solution_that_aborts_the_bench_does_not_crash_mode(tmp_path: pathlib.Path) -> None:
+    """issue #831: решение, обрывающее замер, даёт запись-ошибку, а не трейсбек.
+
+    ``run_microbench`` возвращает ``times=[]`` при ПУСТОМ ``error``, если решение
+    завершилось само (``raise SystemExit``): код выхода нулевой, тайминги не
+    напечатаны. Агрегатор отдавал этот пустой список в ``_micro_stats``, и весь
+    режим 4 падал ``ValueError: min() iterable argument is empty`` — падало не
+    решение, а грейдер, вместе с результатами остальных решений группы.
+    """
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "input_1.txt").write_text("4\n", encoding="utf-8")
+    (tests_dir / "expected_1.txt").write_text("5\n", encoding="utf-8")
+    aborting = _write(tmp_path, "task_1.py", "raise SystemExit(1)\n")
+
+    results = grader.run_microbench_mode([aborting], tests_dir, number=5)
+
+    assert results[aborting]["error"], "ожидалась запись-ошибка, а не успешный замер"
+    assert results[aborting]["runs"] == 0
+
+
+def test_error_record_shape_matches_run_benchmark(tmp_path: pathlib.Path) -> None:
+    """issue #831: ошибка режима 4 несёт ``runs``, как и ошибка режима 3.
+
+    Раньше режим 3 клал ``{"error": ..., "runs": 0}``, а режим 4 — только
+    ``{"error": ...}``. Потребитель, читающий ``d["runs"]`` без фильтра по
+    ``error``, работал на бенче и падал KeyError на микробенче.
+    """
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "input_1.txt").write_text("4\n", encoding="utf-8")
+    (tests_dir / "expected_1.txt").write_text("5\n", encoding="utf-8")
+    broken = _write(tmp_path, "task_1.py", "import sys\nsys.exit('сломано')\n")
+
+    micro = grader.run_microbench_mode([broken], tests_dir, number=5)
+    bench = grader.run_benchmark(broken, tests_dir, repeats=1)
+
+    assert "runs" in micro[broken], "режим 4 отдал ошибку без ключа runs"
+    assert "runs" in bench

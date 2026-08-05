@@ -29,6 +29,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from stepik_grader.core.result import BenchResult, SolutionResult
+
 __all__ = ["CliContext"]
 
 
@@ -37,12 +39,12 @@ class CliContext:
     """Зависимости, которые handlers не должны резолвить сами."""
 
     t: Callable[..., str]
-    run_tests: Callable[..., dict[str, Any]]
-    run_benchmark: Callable[..., dict[str, Any]]
+    run_tests: Callable[..., SolutionResult]
+    run_benchmark: Callable[..., BenchResult]
     # issue #729: пре-флайт перед замером скорости (режимы 3/4) — отдельной
     # зависимостью, чтобы тесты подменяли его так же, как остальные прогоны.
     preflight_solution: Callable[..., dict[str, Any]]
-    run_microbench_mode: Callable[..., dict[Path, dict[str, Any]]]
+    run_microbench_mode: Callable[..., dict[Path, BenchResult]]
     resolve_test_dir_from_input: Callable[..., Path | None]
     print_tabular: Callable[..., None]
     # issue #121 Phase 2: interactive-menu/prompt handlers.

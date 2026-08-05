@@ -29,7 +29,7 @@ from stepik_grader.core.microbench_runner import (
     apply_reference_ranking,
     apply_relative_ranking,
 )
-from stepik_grader.core.reporter import fmt_time
+from stepik_grader.core.reporter import fmt_time, safe_rel
 from stepik_grader.core.runner import RunSpec
 from stepik_grader.core.test_loader import (
     collect_grouped_files,
@@ -56,6 +56,7 @@ __all__ = [
     "run_microbench_mode",
     "run_spec",
     "run_tests",
+    "safe_rel",
     "set_runner",
     "trace_code",
 ]

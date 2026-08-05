@@ -46,10 +46,12 @@ import pathlib
 import re
 import statistics
 import tempfile
+from collections.abc import MutableMapping
 from dataclasses import dataclass, field
 from typing import Any
 
 from stepik_grader.config import CONFIG
+from stepik_grader.core.result import BenchResult
 from stepik_grader.core.runner import RunSpec, run_spec
 
 __all__ = [
@@ -346,7 +348,7 @@ def apply_relative_micro(results: list[MicrobenchResult]) -> list[MicrobenchResu
 
 
 def apply_relative_ranking(
-    results: dict[pathlib.Path, dict[str, Any]],
+    results: MutableMapping[pathlib.Path, BenchResult],
     *,
     similar_threshold: float,
     much_slower_threshold: float,
@@ -372,7 +374,7 @@ def apply_relative_ranking(
 
 
 def apply_reference_ranking(
-    results: dict[pathlib.Path, dict[str, Any]],
+    results: MutableMapping[pathlib.Path, BenchResult],
     reference_path: pathlib.Path,
     *,
     similar_threshold: float,

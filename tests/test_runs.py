@@ -678,3 +678,48 @@ class TestStepikSubmitNetworkDiagnosis:
 
         assert job.status == "error"
         assert (job.message_fields or {})["message_id"] == "stepik_auth_required"
+
+
+class TestTempCodeCleanup:
+    """issue #831 (DEV-09): временный файл кода не остаётся в папке задачи.
+
+    Инвариант issue #605 — «job терминален ⇒ temp уже удалён» — рвался, когда
+    падала САМА запись кода: путь запоминался после ``write``, поэтому уборка в
+    ``finally`` видела ``None`` и ничего не удаляла. Файл (``delete=False``)
+    оставался в рабочей папке студента; грейдинг он не ломает (не проходит
+    ``is_solution_file``), но копится и путает в проводнике.
+    """
+
+    def test_write_failure_leaves_no_temp_file(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+        real_tempfile = runs.tempfile.NamedTemporaryFile
+
+        def exploding(*args: object, **kwargs: object):
+            handle = real_tempfile(*args, **kwargs)  # type: ignore[arg-type]
+
+            def boom(_data: str) -> int:
+                raise OSError(28, "No space left on device")
+
+            handle.write = boom  # type: ignore[method-assign]
+            return handle
+
+        monkeypatch.setattr(runs.tempfile, "NamedTemporaryFile", exploding)
+
+        job = runs.submit_job("tests", sol.parent, {}, code="print(1)\n")
+        data = _poll_until_terminal(job.id)
+
+        assert data["status"] == "error"
+        leftovers = [p.name for p in tmp_path.iterdir() if p.suffix == ".py" and p.name != sol.name]
+        assert not leftovers, f"временный файл остался в папке задачи: {leftovers}"
+
+    def test_successful_run_leaves_no_temp_file(self, tmp_path: pathlib.Path) -> None:
+        """Контроль: на нормальном пути уборка тоже отрабатывает."""
+        sol = _make_task(tmp_path, "print(int(input()) + 1)\n")
+
+        job = runs.submit_job("tests", sol.parent, {}, code="print(int(input()) + 1)\n")
+        _poll_until_terminal(job.id)
+
+        leftovers = [p.name for p in tmp_path.iterdir() if p.suffix == ".py" and p.name != sol.name]
+        assert not leftovers

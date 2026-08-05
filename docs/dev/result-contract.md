@@ -20,17 +20,19 @@
 | Уровень | Что описывает | Кто строит | Форма сегодня |
 |---|---|---|---|
 | **Case result** | Один тест-кейс на одном решении | `core.grader_core.run_single_test` | `CaseResult` (TypedDict) |
-| **Solution result** | Одно решение на всех кейсах (агрегат) | `run_tests` / `run_benchmark` | `dict[str, Any]` |
+| **Solution result** | Одно решение на всех кейсах (агрегат) | `run_tests` / `run_benchmark` | `SolutionResult` / `BenchResult` (TypedDict) |
 | **Run result** | Прогон пути (файл/папка) — набор решений | адаптер (`cli.py`, `web.grade_path`) | `dict` / `ResultViewModel` |
 
-Case-уровень формализован как `CaseResult` (`TypedDict`,
-`core.result`): mypy проверяет ключи и типы полей во всей цепочке
-CLI→web→pytest-плагин, но **runtime-представление остаётся обычным `dict`** —
-это по-прежнему та же форма на границе JSON-вывода. Solution/Run-уровни пока
-остаются нетипизированными `dict` ядра (см. docstring `run_tests`); Web маппит
-их в JSON ViewModel. Контракт описывает **имена и смысл полей**, а не
-конкретный Python-тип: типизированная модель, попадающая на границу JSON
-(`CaseResult`), обязана сохранить эти имена.
+Case- и solution-уровни формализованы как `TypedDict`'ы в `core.result`
+(`CaseResult`, `SolutionResult`, `BenchResult`): mypy проверяет ключи и типы
+полей во всей цепочке CLI→web→pytest-плагин, но **runtime-представление
+остаётся обычным `dict`** — это по-прежнему та же форма на границе JSON-вывода.
+Два типа на агрегат, а не один: корректность (`run_tests`) и замер
+(`run_benchmark`/`run_microbench_mode`) отдают разные наборы полей, и общий тип
+пришлось бы сделать почти целиком `NotRequired` — то есть не проверяющим
+ничего. Run-уровень остаётся адаптерным: Web маппит его в JSON ViewModel.
+Контракт описывает **имена и смысл полей**, а не конкретный Python-тип:
+типизированная модель, попадающая на границу JSON, обязана сохранить эти имена.
 
 `TestResult` (`core/result.py`) — намеренное исключение: это **усечённый
 носитель для печати** (`reporter.print_case_verbose` строит его через
@@ -128,10 +130,18 @@ CLI→web→pytest-плагин, но **runtime-представление ос�
 
 ## Solution result и Run result
 
-- **Solution result** (`run_tests`) агрегирует кейсы: `passed` (int),
-  `total` (int), `cases` (список case result), суммарное/среднее `time`,
-  `memory`. Решение считается `OK`, когда `total > 0 and passed == total`;
-  `NO TESTS` — когда тестов не найдено (`total == 0`).
+- **Solution result** (`run_tests`, тип `SolutionResult`) агрегирует кейсы:
+  `passed` (int), `total` (int), `cases` (список case result),
+  суммарное/среднее `time`, `memory`. Решение считается `OK`, когда
+  `total > 0 and passed == total`; `NO TESTS` — когда тестов не найдено
+  (`total == 0`).
+- **Bench result** (`run_benchmark`, `run_microbench_mode`; тип `BenchResult`) —
+  агрегат замера: `runs` (сколько замеров реально получилось) плюс
+  `min`/`max`/`mean`/`median`/`stdev`/`peak_memory_mb`/`relative`/`verdict`.
+  Обязателен только `runs`: у записи-ошибки (`error` заполнен) он равен `0`, а
+  статистики нет — потребитель обязан читать `error` до цифр. Оба режима замера
+  дают **одинаковую** форму ошибки: раньше режим 3 клал `runs: 0`, а режим 4 —
+  только `error`, и общий потребитель падал `KeyError` на микробенче.
 - **Run result** — обёртка над набором решений с полями `kind`
   (`"file"|"dir"|"error"`), `mode` (`"tests"|"bench"`), `base` (база для
   относительных имён), `rows` (по решению), `message`/`message_id`/

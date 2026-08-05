@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import pathlib
+from collections.abc import Mapping
 from typing import Any
 
 from stepik_grader.core.storage import load_json_file, save_json_file
@@ -133,7 +134,7 @@ class GraderCache:
         solution_path: pathlib.Path,
         solution_sha: str,
         tests_sha: str,
-        result: dict[str, Any],
+        result: Mapping[str, Any],
     ) -> None:
         """Сохранить result в память под парой хешей (без записи на диск)."""
         self._data["entries"][self._key(solution_path)] = {

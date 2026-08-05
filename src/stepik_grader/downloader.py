@@ -424,6 +424,10 @@ def main(lang: str = "ru") -> list[pathlib.Path]:
         config = load_or_create_config(config_path)
         config = normalize_config_paths(config, config_path)
     except Exception as error:
+        # issue #831 (DEV-12): стек — в диагностический лог (opt-in, с редакцией
+        # секретов). Пользователю остаётся короткое сообщение, но баг-репорт
+        # приходит с местом падения, а не с одной строкой текста.
+        _log.exception("сбой чтения конфигурации загрузчика: %s", config_path)
         _print(_t("dl_config_error", error=error))
         return []
 
@@ -434,6 +438,7 @@ def main(lang: str = "ru") -> list[pathlib.Path]:
         secrets = load_secrets_dict(secrets_path)
         session = create_user_session(secrets, secrets_path)
     except Exception as error:
+        _log.exception("сбой авторизации Stepik (secrets=%s)", secrets_path)
         # issue #433: дружелюбная ошибка со следующим шагом, а не голый текст.
         _print(_t("dl_auth_failed", error=error))
         _print(_t("dl_auth_check_fields", url=STEPIK_OAUTH_APPS_URL))
@@ -450,6 +455,7 @@ def main(lang: str = "ru") -> list[pathlib.Path]:
         try:
             task_dir, _, _ = process_step_url(step_url, session, root_dir)
         except Exception as error:
+            _log.exception("сбой обработки шага: %s", step_url)
             _print(_t("dl_step_error", error=error))
         else:
             downloaded.append(task_dir)

@@ -38,7 +38,7 @@ from typing import Any
 from corpus_mutations import MUTATIONS, Mutation, mutation_by_key
 
 from stepik_grader.core.grader_core import run_tests
-from stepik_grader.core.result import Verdict
+from stepik_grader.core.result import CaseResult, Verdict
 from stepik_grader.core.storage import load_json_file
 from stepik_grader.core.test_loader import load_test_cases
 
@@ -192,7 +192,7 @@ def run_verdict(
         Пара «вердикт прогона, краткое пояснение для отчёта».
     """
     stats = run_tests(solution_path, test_dir, timeout=timeout)
-    cases: list[dict[str, Any]] = stats["cases"]
+    cases: list[CaseResult] = stats["cases"]
 
     for number, case in enumerate(cases, start=1):
         if not case["passed"]:
