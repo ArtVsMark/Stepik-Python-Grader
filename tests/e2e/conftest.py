@@ -70,11 +70,23 @@ def browser(playwright_instance: Any) -> Iterator[Any]:
 
 @pytest.fixture
 def page(browser: Any) -> Iterator[Any]:
-    """A fresh browser context + page per test -- isolated ``localStorage``."""
+    """A fresh browser context + page per test -- isolated ``localStorage``.
+
+    Плюс (issue #804): непойманное исключение в странице роняет тест. Раньше
+    оно было невидимым — падал только косвенный симптом (раздел не открылся), а
+    первопричину (``TypeError`` в обработчике) приходилось искать вручную.
+    Тест, которому ошибка нужна по замыслу, глушит её ``page_errors.clear()``.
+    """
     context = browser.new_context()
     pg = context.new_page()
+    errors: list[str] = []
+    # `stack` есть у Error из страницы — без него в отчёте остаётся один текст
+    # сообщения, а искать место приходится вручную.
+    pg.on("pageerror", lambda exc: errors.append(getattr(exc, "stack", None) or str(exc)))
+    pg.page_errors = errors  # доступ из теста: разрешить ожидаемую ошибку
     yield pg
     context.close()
+    assert not errors, "непойманные ошибки JS на странице:\n" + "\n".join(errors)
 
 
 @pytest.fixture

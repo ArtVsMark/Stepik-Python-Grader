@@ -235,13 +235,23 @@ function restoreProfiles() {
 // ---------------------------------------------------------------------------
 let cmView = null;
 let checkTermsTimer = null; // issue #323: debounce обновления «Функции в коде»
+
+// issue #804: перезапуск debounce — функцией, а не мутацией `checkTermsTimer`
+// снаружи. Привязка импорта в ES-модулях доступна только на чтение, поэтому
+// `checkTermsTimer = ...` в app.js падало с «TypeError: Assignment to constant
+// variable»: обработчик ввода пути умирал целиком — новое обновление не
+// взводилось, а уже взведённое редактором гасилось предыдущим clearTimeout.
+function scheduleCheckTerms() {
+  clearTimeout(checkTermsTimer);
+  checkTermsTimer = setTimeout(loadCheckTerms, 400);
+}
+
 function mountEditor() {
   const mount = document.getElementById("solution-editor");
   cmView = makeEditor(mount, () => {
     updateRunButtonState();
     updateDirtyIndicator(); // issue #297
-    clearTimeout(checkTermsTimer); // issue #323: обновить панель под новый код
-    checkTermsTimer = setTimeout(loadCheckTerms, 400);
+    scheduleCheckTerms(); // issue #323: обновить панель под новый код
   }, t("editor.solution_label"));
   // <label for="solution-editor"> can't natively focus a contenteditable div
   // the way it would a real <textarea> -- wire it manually (issue #265
@@ -1482,7 +1492,6 @@ function renderRecentPaths(recent) {
 export {
   addRecentPath,
   cancelActiveRun,
-  checkTermsTimer,
   findReference,
   findSolutions,
   grade,
@@ -1493,6 +1502,7 @@ export {
   restoreProfiles,
   runCommand,
   saveSolution,
+  scheduleCheckTerms,
   setMode,
   setResultTab,
   submitToStepik,
